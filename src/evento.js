@@ -2,8 +2,11 @@
 // BTML encima. Se anida sobre el registro en foco (hijo → padre); los hilos son
 // cadenas de eventos encadenados por esa referencia.
 
-import { validarPayload } from './btml.js';
+import { validarPayload, esDireccion } from './btml.js';
 import { validarMovimiento } from './tokens.js';
+
+/** Posición raíz del foco: el registro entero. */
+export const RAIZ = '0000000000';
 
 /** JSON canónico: claves ordenadas, sin espacios. */
 export function canonico(valor) {
@@ -27,6 +30,7 @@ export function cuerpo(ev) {
   return {
     autor: ev.autor,
     sobre: ev.sobre,
+    en: ev.en ?? RAIZ,
     t: ev.t,
     movimientos: ev.movimientos,
     payload: ev.payload,
@@ -37,10 +41,12 @@ export function cuerpo(ev) {
 /**
  * Crea un evento con su id = hash del cuerpo canónico.
  * autor: identidad que escribe. sobre: id del registro en foco (null solo en génesis).
+ * en: posición del foco donde se anida lo escrito (dirección de diez dígitos; raíz por defecto).
+ * Lo escrito va en el PV donde se escribe (VG, 6-11-2026).
  * t: instante ISO. movimientos: lista de movimientos de tokens. payload: BTML.
  */
-export async function crearEvento({ autor, sobre = null, t, movimientos, payload, contexto = {} }) {
-  const ev = { autor, sobre, t, movimientos, payload, contexto };
+export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimientos, payload, contexto = {} }) {
+  const ev = { autor, sobre, en, t, movimientos, payload, contexto };
   const errores = validarForma(ev);
   if (errores.length) throw new Error('evento mal formado: ' + errores.join('; '));
   ev.id = await hash(canonico(cuerpo(ev)));
@@ -52,6 +58,8 @@ export function validarForma(ev) {
   const errores = [];
   if (typeof ev.autor !== 'string' || !ev.autor) errores.push('autor obligatorio');
   if (ev.sobre !== null && typeof ev.sobre !== 'string') errores.push('sobre debe ser id o null');
+  if (ev.en !== undefined && !esDireccion(ev.en)) errores.push('en debe ser una dirección de diez dígitos');
+  if (ev.sobre === null && ev.en !== undefined && ev.en !== RAIZ) errores.push('el génesis solo se anida en la raíz');
   if (typeof ev.t !== 'string' || Number.isNaN(Date.parse(ev.t))) errores.push('t debe ser instante ISO');
   if (!Array.isArray(ev.movimientos) || ev.movimientos.length === 0) {
     errores.push('todo evento mueve tokens');

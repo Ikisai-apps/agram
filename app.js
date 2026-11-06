@@ -2,10 +2,10 @@
 // el navegador, con el mismo núcleo que corre en Node. Render sobrio; el
 // animado se declara pendiente, no se simula.
 
-import { pointed, sequenced, indicesDe, esReferencia, escritura, PV } from './src/index.js';
+import { pointed, sequenced, indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ } from './src/index.js';
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 
-const estado = { eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', aviso: '' };
+const estado = { eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', posicion: 4, aviso: '', exito: '' };
 const $ = (sel) => document.querySelector(sel);
 
 function corto(id) {
@@ -37,12 +37,14 @@ function pintarPointed() {
   const d = pointed.decupla({ ...ev, payload: payloadEnFoco() }, undefined, estado.camino.length);
   const filas = d.posiciones.map((p) => {
     const c = p.contenido;
-    let accion = '';
+    let accion = `data-posicion="${p.indice}"`;
     if (Array.isArray(c)) accion = `data-desarrollar="${p.indice}"`;
     else if (esReferencia(c)) accion = `data-ir="${c.ref}" data-dir="${c.dir ?? ''}"`;
-    const clase = 'pos' + (c === undefined ? ' vacia' : '') + (accion ? ' activa' : '');
-    return `<button class="${clase}" ${accion} ${accion ? '' : 'disabled'}>
-      <span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${escapar(textoDe(c))}</span></button>`;
+    const escritos = estado.eje.sobre(estado.foco, direccion([...estado.camino, p.indice])).length;
+    const marca = estado.camino.length === 0 && p.indice === estado.posicion ? ' elegida' : '';
+    const clase = 'pos' + (c === undefined ? ' vacia' : '') + (accion.startsWith('data-posicion') ? '' : ' activa') + marca;
+    return `<button class="${clase}" ${accion}>
+      <span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${escapar(textoDe(c))}</span>${escritos ? `<span class="hijos" title="escrito en esta posición">↳ ${escritos}</span>` : ''}</button>`;
   });
   const migas = estado.camino.length
     ? `<button class="miga" data-subir>↑ subir</button> <span class="ruta">profundidad ${estado.camino.length} · ${estado.camino.join(' › ')}</span>`
@@ -61,21 +63,28 @@ function pintarEscritura() {
   const ids = estado.eje.identidades();
   return `
     <form id="escribir" class="escribir">
-      <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10</div>
-      <label>Quién
-        <select name="identidad">${ids.map((i) => `<option ${i === estado.identidad ? 'selected' : ''}>${i}</option>`).join('')}</select>
-      </label>
-      <label>Una posición (un terminal)
+      <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
+      <div class="dos">
+        <label>Quién
+          <select name="identidad">${ids.map((i) => `<option ${i === estado.identidad ? 'selected' : ''}>${i}</option>`).join('')}</select>
+        </label>
+        <label>En la posición
+          <select name="posicion">${PV.map((n, i) => `<option value="${i}" ${i === estado.posicion ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>
+        </label>
+      </div>
+      <label>Un terminal
         <input name="texto" maxlength="120" placeholder="p. ej. «servido a las 14:05»" required>
       </label>
-      <button type="submit">Registrar · mueve 1 minuto de T</button>
+      <button type="submit">Registrar en ${estado.posicion} ${PV[estado.posicion]} · mueve 1 minuto de T</button>
       ${estado.aviso ? `<div class="aviso">${escapar(estado.aviso)}</div>` : ''}
+      ${estado.exito ? `<div class="exito">${escapar(estado.exito)}</div>` : ''}
     </form>`;
 }
 
 function filaSecuencia(d, i) {
   const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda"><i>${p.indice}</i>${escapar(breve(p.contenido))}</span>`);
-  return `<button class="fila" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}</span><span class="celdas">${partes.join('')}</span></button>`;
+  const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
+  return `<button class="fila" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button>`;
 }
 
 function breve(c) {
@@ -115,21 +124,25 @@ function escapar(s) {
 async function registrar(form) {
   const datos = new FormData(form);
   estado.identidad = datos.get('identidad');
+  estado.posicion = Number(datos.get('posicion'));
   const texto = String(datos.get('texto') ?? '').trim();
   if (!texto) return;
   try {
-    const ev = await estado.eje.escribir({
+    await estado.eje.escribir({
       autor: estado.identidad,
       sobre: estado.foco,
+      en: direccion([...estado.camino, estado.posicion]),
       t: new Date().toISOString(),
       movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: estado.identidad, a: null }],
       payload: texto,
-      contexto: { modo: 'pointed', camino: estado.camino.join('') },
+      contexto: { modo: 'pointed' },
     });
     estado.aviso = '';
-    irA(ev.id);
+    estado.exito = 'Registrado en ' + estado.posicion + ' ' + PV[estado.posicion] + ' sobre ' + corto(estado.foco) + '. Se ve en Sequenced, en «escrito sobre el foco».';
+    pintar();
   } catch (e) {
     estado.aviso = e.message.replace(/^evento rechazado: /, '');
+    estado.exito = '';
     pintar();
   }
 }
@@ -138,6 +151,7 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   if (b.dataset.modo) { estado.modo = b.dataset.modo; pintar(); }
+  else if (b.dataset.posicion !== undefined) { estado.posicion = Number(b.dataset.posicion); estado.exito = ''; pintar(); }
   else if (b.dataset.desarrollar !== undefined) { estado.camino = [...estado.camino, Number(b.dataset.desarrollar)]; pintar(); }
   else if (b.dataset.ir) irA(b.dataset.ir, b.dataset.dir ? indicesDe(b.dataset.dir) : []);
   else if (b.dataset.subir !== undefined) { estado.camino = estado.camino.slice(0, -1); pintar(); }

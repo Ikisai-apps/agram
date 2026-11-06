@@ -43,7 +43,11 @@ header .kicker{color:var(--muted);font-size:13px}
 .pos.vacia .val{color:var(--muted)}
 .pos.activa{cursor:pointer;border-color:var(--accent)}
 .pos.activa .val{color:var(--accent);font-weight:500}
-.pos:disabled{opacity:1;color:var(--fg)}
+.pos{cursor:pointer}
+.pos.elegida{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.pos .hijos{grid-column:3;justify-self:start;font-size:12px;color:var(--ok);font-family:var(--mono)}
+.escribir .dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.exito{background:var(--panel2);color:var(--ok);padding:8px 10px;border-radius:8px;font-size:14px}
 .escribir{display:grid;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px}
 .escribir .titulo,.hilera .titulo{font-size:13px;color:var(--muted);letter-spacing:.02em}
 .escribir label{display:grid;gap:4px;font-size:14px}
