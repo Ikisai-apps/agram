@@ -2,7 +2,7 @@
 // el navegador, con el mismo núcleo que corre en Node. Render sobrio; el
 // animado se declara pendiente, no se simula.
 
-import { pointed, sequenced, indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ } from './src/index.js';
+import { pointed, sequenced, mapped, indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ } from './src/index.js';
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 
 const estado = { eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', posicion: 4, aviso: '', exito: '' };
@@ -104,6 +104,62 @@ function pintarSequenced() {
   $('#vista').innerHTML = bloque(hilo, 'Hilo hacia el génesis') + bloque(hijos, 'Escrito sobre el foco');
 }
 
+function chip(ev, extra = '') {
+  const t = Array.isArray(ev.payload) ? ev.payload[0] : ev.payload;
+  return `<button class="chip" data-ir="${ev.id}"><b>${corto(ev.id)}</b> ${escapar(breve(t))}${extra}</button>`;
+}
+
+function celdaMapa(m, i) {
+  const c = m.celdas[i];
+  const esquina = [1, 2, 3, 4].includes(i);
+  const marca = c.escritos ? `<span class="hijos">↳ ${c.escritos}</span>` : '';
+  if (i === 5) {
+    const ev = estado.eje.obtener(m.foco);
+    const json = JSON.stringify({ id: corto(ev.id), autor: ev.autor, sobre: ev.sobre ? corto(ev.sobre) : null, en: ev.en, t: ev.t, movimientos: ev.movimientos.length, payload: c.contenido }, null, 1);
+    return `<div class="celda c5"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
+      <div class="lente">${escapar(breve(m.celdas[0].contenido))}</div>
+      <details><summary>estructura</summary><pre>${escapar(json)}</pre></details></div>`;
+  }
+  if (i === 6) {
+    const hilo = [...m.hilo].reverse();
+    return `<div class="celda c6"><div class="pvn">6 ${c.significado}</div><div class="chips">${hilo.length ? hilo.map((e) => chip(e)).join('') : '<span class="nada">génesis</span>'}</div>
+      ${c.contenido !== undefined ? `<div class="val">${escapar(breve(c.contenido))}</div>` : ''}${marca}</div>`;
+  }
+  if (i === 7) {
+    return `<div class="celda c7"><div class="pvn">7 ${c.significado}</div><div class="chips">${m.hijos.length ? m.hijos.map((e) => chip(e, e.en && e.en !== RAIZ ? ' <i>en ' + indicesDe(e.en).join('›') + '</i>' : '')).join('') : '<span class="nada">nada escrito después</span>'}</div>
+      ${c.contenido !== undefined ? `<div class="val">${escapar(breve(c.contenido))}</div>` : ''}</div>`;
+  }
+  if (i === 8) {
+    const d = m.medidas;
+    return `<div class="celda c8"><div class="pvn">8 ${c.significado}</div><div class="medidas">
+      <span>hilo <b>${d.profundidadHilo}</b></span><span>escritos <b>${d.escritos}</b></span><span>movimientos <b>${d.movimientos}</b></span><span>identidades <b>${d.identidades}</b></span><span>posiciones <b>${d.posicionesDesarrolladas}</b></span></div>
+      ${c.contenido !== undefined ? `<div class="val">${escapar(breve(c.contenido))}</div>` : ''}${marca}</div>`;
+  }
+  if (i === 9) {
+    const pasos = m.camino.length ? m.camino.map((p, k) => `<span class="paso">${p} ${PV[p]}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
+    return `<div class="celda c9"><div class="pvn">9 ${c.significado}</div><div class="pasos">${pasos}</div>
+      ${c.contenido !== undefined ? `<div class="val">${escapar(breve(c.contenido))}</div>` : ''}${marca}</div>`;
+  }
+  const ct = c.contenido;
+  let accion = `data-posicion="${i}"`;
+  if (Array.isArray(ct)) accion = `data-desarrollar="${i}"`;
+  else if (esReferencia(ct)) accion = `data-ir="${ct.ref}" data-dir="${ct.dir ?? ''}"`;
+  return `<button class="celda esquina ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
+    <div class="val">${escapar(textoDe(ct))}</div>${marca}</button>`;
+}
+
+function pintarMapped() {
+  const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino });
+  const ev = estado.eje.obtener(estado.foco);
+  const migas = estado.camino.length ? `<button class="miga" data-subir>↑ subir</button>` : '';
+  $('#vista').innerHTML = `
+    <div class="cab">
+      <div><b>${corto(ev.id)}</b> · ${escapar(ev.autor)} · ${ev.t.replace('T', ' ').slice(0, 16)}</div>
+      <div class="sub">${ev.sobre ? `sobre <button class="enlace" data-ir="${ev.sobre}">${corto(ev.sobre)}</button>` : 'génesis'} ${migas}</div>
+    </div>
+    <div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i)).join('')}</div>`;
+}
+
 function pintarSaldos() {
   const eje = estado.eje;
   $('#saldos').innerHTML = eje.identidades().map((id) =>
@@ -113,6 +169,7 @@ function pintarSaldos() {
 function pintar() {
   document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
   if (estado.modo === 'pointed') pintarPointed();
+  else if (estado.modo === 'mapped') pintarMapped();
   else pintarSequenced();
   pintarSaldos();
 }
@@ -151,7 +208,11 @@ document.addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
   if (b.dataset.modo) { estado.modo = b.dataset.modo; pintar(); }
-  else if (b.dataset.posicion !== undefined) { estado.posicion = Number(b.dataset.posicion); estado.exito = ''; pintar(); }
+  else if (b.dataset.posicion !== undefined) {
+    estado.posicion = Number(b.dataset.posicion); estado.exito = '';
+    if (estado.modo === 'mapped') estado.modo = 'pointed'; // la mano escribe en Pointed
+    pintar();
+  }
   else if (b.dataset.desarrollar !== undefined) { estado.camino = [...estado.camino, Number(b.dataset.desarrollar)]; pintar(); }
   else if (b.dataset.ir) irA(b.dataset.ir, b.dataset.dir ? indicesDe(b.dataset.dir) : []);
   else if (b.dataset.subir !== undefined) { estado.camino = estado.camino.slice(0, -1); pintar(); }
