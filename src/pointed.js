@@ -19,7 +19,7 @@ export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
     else if (i === 0) contenido = p;
     posiciones.push({ indice: i, significado: epoca.reglaCorta(profundidad, i), contenido });
   }
-  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, posiciones };
+  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, posiciones };
 }
 
 function textoDe(contenido) {

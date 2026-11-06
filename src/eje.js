@@ -100,9 +100,9 @@ export class Eje {
     return cadena;
   }
 
-  /** Eventos escritos sobre un registro dado (sus hijos directos). */
-  sobre(id) {
-    return this.orden.map((x) => this.eventos.get(x)).filter((e) => e.sobre === id);
+  /** Eventos escritos sobre un registro (sus hijos directos), opcionalmente solo en una posición. */
+  sobre(id, en) {
+    return this.orden.map((x) => this.eventos.get(x)).filter((e) => e.sobre === id && (en === undefined || e.en === en));
   }
 
   #aplicar(ev) {
