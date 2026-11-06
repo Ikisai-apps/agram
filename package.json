@@ -1,0 +1,12 @@
+{
+  "name": "agram",
+  "version": "0.0.1",
+  "description": "Núcleo genérico de AGRAM: eventos sobre tokens, payload BTML, vistas por puntos de vista",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,17 @@
+# AGRAM
+
+Núcleo genérico de AGRAM: una base de datos de eventos que se mueve sobre una estructura de tokens, con payloads BTML y vistas por puntos de vista.
+
+- **BTML** es la estructura de datos: payloads terminales o arrays posicionales de hasta diez posiciones, direcciones de diez dígitos.
+- **BQL** es la lógica de vistas: cómo se mueven y se consultan los datos (pendiente).
+- **AGRAM** es el motor: la ejecución real (pendiente).
+
+Estado: cartón piedra del **eje** (génesis, identidades, transiciones de tokens encadenadas por referencia, décupla en Pointed). Ver `docs/FUNDAMENTOS.md`.
+
+Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
+
+```sh
+npm test
+```
+
+JavaScript puro, sin dependencias, ejecutable en Node y en el navegador.
