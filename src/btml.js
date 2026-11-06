@@ -79,6 +79,16 @@ export function indicesDe(dir) {
 }
 
 /**
+ * Representación de un nodo (PV0): si es array, su posición 0; si es terminal,
+ * él mismo. Convención de los ceros: una dirección con ceros finales nombra el
+ * nodo, y su posición 0 es su propia representación. «1.0» y «1» son el mismo
+ * lugar visto desde fuera y desde dentro.
+ */
+export function representacion(nodo) {
+  return Array.isArray(nodo) ? nodo[0] : nodo;
+}
+
+/**
  * Resuelve una dirección sobre un payload descendiendo por los índices reales.
  * Devuelve undefined si el camino atraviesa un terminal o una posición ausente.
  */
