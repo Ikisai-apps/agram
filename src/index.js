@@ -10,3 +10,4 @@ export * as mapped from './mapped.js';
 export * as salida from './escritura.js';
 export * as bql from './bql.js';
 export * as encaje from './encaje.js';
+export * as motor from './motor.js';
