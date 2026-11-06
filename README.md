@@ -6,7 +6,11 @@ Núcleo genérico de AGRAM: una base de datos de eventos que se mueve sobre una 
 - **BQL** es la lógica de vistas: cómo se mueven y se consultan los datos (pendiente).
 - **AGRAM** es el motor: la ejecución real (pendiente).
 
-Estado: cartón piedra del **eje** (génesis, identidades, transiciones de tokens encadenadas por referencia, décupla en Pointed). Ver `docs/FUNDAMENTOS.md`.
+Estado: cartón piedra del **eje** (génesis, identidades, transiciones de tokens encadenadas por referencia), **Pointed** (una décupla) y **Sequenced** (diez décuplas en hilera: hilo o hijos del foco). Capacidad y proporción de escritura por modo en `src/modos.js`. Ver `docs/FUNDAMENTOS.md`.
+
+```sh
+node ejemplos/ikisai/compra-food.mjs
+```
 
 Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
 
