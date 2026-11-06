@@ -60,6 +60,24 @@ test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar �
   void menu;
 });
 
+test('autoriza quien tiene poder y no es el autor; ejecuta el autor; lo demás no cuenta', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
+  await assert.rejects(autorizar(eje, { autorizante: 'huesped', consolidacion: c.id, t: T }), /no se autoriza a sí mismo/);
+  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: c.id, t: T }), /no tiene poder/);
+  // Un «autorizado» escrito a mano por quien no puede no cambia el estado.
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: '==autorizo', contexto: { fase: 'autorizado' } });
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: c.id, t: T }), /ejecuta el autor/);
+  // Un «ejecutado» escrito por otro no cuenta.
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'falso', contexto: { fase: 'ejecutado' } });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+});
+
 test('consolidar rechaza huecos no heredables y no consolida nada vacío', async () => {
   const { eje, compra } = await ejemploCompra();
   await assert.rejects(consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: {} }), /nada que consolidar/);

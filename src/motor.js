@@ -77,13 +77,25 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
 }
 
 /**
- * Autorizar: un registro de quien autoriza, anclado a la consolidación.
- * Quién puede autorizar lo decide la autoridad (paso siguiente); aquí se
- * exige que sea una identidad conocida y distinta de «nadie».
+ * Quién puede autorizar (regla V0, por defecto hasta que VG decida otra):
+ * una identidad con poder (saldo de P > 0) distinta del autor de la
+ * consolidación. Quién ejecuta: el autor de la consolidación.
  */
-export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }) {
+export function puedeAutorizar(eje, identidad, consolidacion) {
+  const c = eje.obtener(consolidacion);
+  return Boolean(c) && identidad !== c.autor && eje.saldo(identidad, 'P') > 0;
+}
+
+/**
+ * Autorizar: un registro de quien autoriza, anclado a la consolidación.
+ * Solo cuenta si quien lo escribe puede autorizar (poder y no ser el autor).
+ */
+export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo', privada }) {
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
+  if (!puedeAutorizar(eje, autorizante, consolidacion)) {
+    throw new Error(autorizante === c.autor ? 'el autor no se autoriza a sí mismo' : autorizante + ' no tiene poder (P) para autorizar');
+  }
   if (estadoDe(eje, consolidacion) !== 'PENDIENTE DE AUTORIZACIÓN') throw new Error('ya está ' + estadoDe(eje, consolidacion).toLowerCase());
   return escribirDesde(eje, {
     modo: 'pointed',
@@ -93,7 +105,7 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
     payload: '==' + nota,
     t,
     contexto: { motor: 'fabrica', fase: 'autorizado' },
-  });
+  }, privada);
 }
 
 /**
@@ -101,13 +113,14 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
  * la consolidación y a su autorización.
  */
-export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }) {
+export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado', privada }) {
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
+  if (autor !== c.autor) throw new Error('ejecuta el autor de la consolidación: ' + c.autor);
   const estado = estadoDe(eje, consolidacion);
   if (estado === 'PENDIENTE DE AUTORIZACIÓN') throw new Error('PENDIENTE DE AUTORIZACIÓN');
   if (estado === 'EJECUTADO') throw new Error('ya ejecutado');
-  const autorizacion = eje.sobre(consolidacion, FABRICA).find((e) => e.contexto?.fase === 'autorizado');
+  const autorizacion = autorizacionesValidas(eje, consolidacion)[0];
   const payload = [titulo, { ref: consolidacion }, { ref: autorizacion.id }];
   const mov = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }, ...movimientos];
   return eje.escribir({
@@ -118,14 +131,21 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
     movimientos: mov,
     payload,
     contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidacion, autorizacion.id] },
-  });
+  }, privada);
 }
 
-/** Estado de una consolidación según lo escrito sobre ella en la fábrica. */
+/** Autorizaciones que cuentan: escritas por quien puede autorizar. Lo demás es ruido. */
+export function autorizacionesValidas(eje, consolidacion) {
+  return eje.sobre(consolidacion, FABRICA).filter((e) => e.contexto?.fase === 'autorizado' && puedeAutorizar(eje, e.autor, consolidacion));
+}
+
+/** Estado de una consolidación según lo escrito sobre ella en la fábrica por quien puede. */
 export function estadoDe(eje, consolidacion) {
-  const fases = eje.sobre(consolidacion, FABRICA).map((e) => e.contexto?.fase);
-  if (fases.includes('ejecutado')) return 'EJECUTADO';
-  if (fases.includes('autorizado')) return 'AUTORIZADO';
+  const c = eje.obtener(consolidacion);
+  if (!c) return undefined;
+  const escritos = eje.sobre(consolidacion, FABRICA);
+  if (escritos.some((e) => e.contexto?.fase === 'ejecutado' && e.autor === c.autor && (e.contexto.evidencia ?? []).every((id) => eje.obtener(id)))) return 'EJECUTADO';
+  if (autorizacionesValidas(eje, consolidacion).length) return 'AUTORIZADO';
   return 'PENDIENTE DE AUTORIZACIÓN';
 }
 
