@@ -61,3 +61,24 @@ export async function ejemploCompra() {
 
   return { eje, alta, menu, compra };
 }
+
+/**
+ * La cuenta: cocina la escribe sobre la compra, en recursos (posición 1).
+ * Primera fórmula BQL real en un slot: lee el precio de la compra por REF,
+ * le suma la propina, y la posición siguiente compone euros con minutos.
+ */
+export async function ejemploCuenta(eje, compra) {
+  return eje.escribir({
+    autor: 'cocina',
+    sobre: compra.id,
+    en: '1000000000',
+    t: '2026-11-07T14:10:00Z',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: 'cocina', a: null }],
+    payload: [
+      'Cuenta del menú',
+      '=REF("' + compra.id.slice(0, 8) + '", "1200000000") + 2 EUR', // 1 recursos: precio de la compra + propina
+      '=LOCAL(1) + 15 min', // 2 criterios: lo que cuesta en euros y en tiempo de servicio
+      '==no es fórmula', // 3 comunicación: texto escapado
+    ],
+  });
+}
