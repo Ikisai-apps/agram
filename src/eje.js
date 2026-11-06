@@ -4,31 +4,43 @@
 
 import { claveToken, cantidadBase, SEGUNDOS } from './tokens.js';
 import { crearEvento, validarForma, verificarId } from './evento.js';
+import { verificar, firmar } from './autoridad.js';
 
 export class Eje {
-  constructor() {
+  /** exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave. */
+  constructor({ exigirFirmas = false } = {}) {
     this.eventos = new Map(); // id → evento
     this.orden = []; // ids en orden de entrada
     this.saldos = new Map(); // identidad → Map(clave → cantidad)
+    this.claves = new Map(); // identidad → clave pública (JWK)
+    this.exigirFirmas = exigirFirmas;
   }
 
   /**
    * Génesis: escrito por convención, fuera del sistema. Emite tokens iniciales
    * a la primera identidad y fija el foco raíz (payload).
    */
-  static async genesis({ identidad, emision, foco, t = new Date().toISOString(), contexto = {} }) {
-    const eje = new Eje();
+  static async genesis({ identidad, emision, foco, t = new Date().toISOString(), contexto = {}, clave, privada, exigirFirmas = false }) {
+    const eje = new Eje({ exigirFirmas });
     const movimientos = emision.map((m) => ({ ...m, de: null, a: identidad }));
-    const ev = await crearEvento({
+    let ev = await crearEvento({
       autor: identidad,
       sobre: null,
       t,
       movimientos,
       payload: foco,
-      contexto: { ...contexto, genesis: true },
+      contexto: { ...contexto, genesis: true, ...(clave ? { claves: { [identidad]: clave } } : {}) },
     });
-    eje.#aplicar(ev, { genesis: true });
+    if (privada) ev = await firmar(ev, privada);
+    if (clave) eje.claves.set(identidad, clave);
+    if (exigirFirmas && !(clave && (await verificar(ev, clave)))) throw new Error('el génesis debe ir firmado');
+    eje.#aplicar(ev);
     return eje;
+  }
+
+  /** Clave pública registrada de una identidad, si la tiene. */
+  clave(identidad) {
+    return this.claves.get(identidad);
   }
 
   get genesisId() {
@@ -61,9 +73,25 @@ export class Eje {
     if (ev.sobre === null) errores.push('solo el génesis carece de foco');
     else if (!this.eventos.has(ev.sobre)) errores.push('foco desconocido: ' + ev.sobre);
     if (!this.saldos.has(ev.autor)) errores.push('autor desconocido: ' + ev.autor);
+    // Autoridad: nadie mueve tokens ajenos, y quien tiene clave firma.
+    const clave = this.claves.get(ev.autor);
+    if (clave) {
+      if (!ev.firma) errores.push('firma ausente de ' + ev.autor);
+      else if (ev.firmante !== ev.autor) errores.push('el firmante debe ser el autor');
+      else if (!(await verificar(ev, clave))) errores.push('firma inválida de ' + ev.autor);
+    } else if (this.exigirFirmas) {
+      errores.push('autor sin clave: ' + ev.autor);
+    }
+    // Las claves que declara el evento solo pueden ser de identidades nuevas (que reciben tokens en él).
+    for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) {
+      if (this.claves.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar la clave de ' + id);
+      else if (!(ev.movimientos ?? []).some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
+      else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) errores.push('clave inválida para ' + id);
+    }
     const gasto = new Map();
     for (const m of ev.movimientos ?? []) {
       if (m.de === null) errores.push('solo el génesis emite');
+      else if (m.de !== ev.autor) errores.push('nadie mueve tokens ajenos: ' + m.de + ' no es el autor');
       else {
         const clave = m.de + '|' + claveToken(m);
         gasto.set(clave, (gasto.get(clave) ?? 0) + cantidadBase(m));
@@ -84,9 +112,11 @@ export class Eje {
     return ev;
   }
 
-  /** Crea, valida y añade en un paso. */
-  async escribir(datos) {
-    return this.anadir(await crearEvento(datos));
+  /** Crea, valida y añade en un paso. Con `privada`, firma antes de añadir. */
+  async escribir(datos, privada) {
+    let ev = await crearEvento(datos);
+    if (privada) ev = await firmar(ev, privada);
+    return this.anadir(ev);
   }
 
   /** Hilo: desde el evento hasta el génesis siguiendo la referencia sobre. */
@@ -108,6 +138,7 @@ export class Eje {
   #aplicar(ev) {
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
+    for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const m of ev.movimientos) {
       const clave = claveToken(m);
       const c = cantidadBase(m);
