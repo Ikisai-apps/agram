@@ -8,16 +8,21 @@ const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null
 test('ocupantes: propio, lo que alcanza la referencia y lo escrito, en ese orden', async () => {
   const { eje, compra, menu } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
-  // Posición 1 de la compra: lo propio (array), lo que alcanza su representación
-  // (la posición 0 es una referencia al menú:1) y la cuenta escrita ahí.
-  // «1.0» y «1» son la misma dirección: el cero final mira la representación.
+  // Dirección 1000000000 de la compra: colisionan la posición 1 (array) y la 1.0
+  // (una referencia al menú:1); lo que alcanza la referencia; y la cuenta escrita ahí.
+  // Las colisiones se quieren: todas ocupan el lugar, con su camino y su procedencia.
   const oc = ocupantes(eje, compra.id, [1]);
-  assert.deepEqual(oc.map((o) => o.origen), ['propio', 'referencia', 'escrito']);
-  assert.deepEqual(oc[1].contenido, ['ensalada', 'guiso', 'fruta']);
-  assert.deepEqual(oc[1].procedencia, [compra.id + ':1000000000', menu.id + ':1000000000']);
-  assert.equal(oc[2].evento, cuenta.id);
-  assert.equal(oc[2].autor, 'cocina');
+  assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'referencia', 'escrito']);
+  assert.deepEqual(oc[0].camino, [1]);
+  assert.deepEqual(oc[1].camino, [1, 0]);
+  assert.deepEqual(oc[2].contenido, ['ensalada', 'guiso', 'fruta']);
+  assert.deepEqual(oc[2].procedencia, [compra.id + ':1000000000#1.0', menu.id + ':1000000000']);
+  assert.equal(oc[3].evento, cuenta.id);
+  assert.equal(oc[3].autor, 'cocina');
+  // La misma dirección por otro camino: la misma colisión.
   assert.deepEqual(ocupantes(eje, compra.id, [1, 0]), oc);
+  // 1.1 (la cantidad, un terminal) no colisiona con nada.
+  assert.deepEqual(ocupantes(eje, compra.id, [1, 1]).map((o) => o.camino), [[1, 1]]);
   // Posición 7: nada propio, nada escrito.
   assert.deepEqual(ocupantes(eje, compra.id, [7]), []);
 });
@@ -46,10 +51,12 @@ test('árbol lógico: todas las posiciones desarrolladas y las que solo tienen e
   assert.ok(m.has('7000000000')); // solo escritos
   assert.equal(m.get('7000000000')[0].origen, 'escrito');
   const c = colisiones(m);
-  // 1: propio + lo alcanzado por su representación + la cuenta escrita. 2: propio + referencia.
-  assert.equal(c.find((x) => x.dir === '1000000000').ocupantes.length, 3);
-  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 2);
+  // 1: [1] + [1.0] + lo alcanzado por la referencia + la cuenta escrita. 2: [2] + [2.0] + referencia.
+  assert.equal(c.find((x) => x.dir === '1000000000').ocupantes.length, 4);
+  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 3);
   assert.ok(!c.find((x) => x.dir === '1100000000'));
+  // La raíz también colisiona con su posición 0.
+  assert.equal(m.get('0000000000').length, 2);
 });
 
 test('árbol con profundidad limitada', async () => {

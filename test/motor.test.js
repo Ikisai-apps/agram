@@ -12,10 +12,10 @@ test('descubrir: candidatos por posición de interacción, con fórmulas resuelt
   const d = descubrir(eje, compra.id);
   assert.deepEqual(d.map((x) => x.posicion), [1, 2, 3, 4]);
   const p1 = d[0];
-  assert.deepEqual(p1.candidatos.map((c) => c.origen), ['propio', 'referencia', 'escrito']);
-  assert.equal(p1.candidatos[2].evento, cuenta.id);
-  assert.equal(p1.candidatos[2].texto, 'Cuenta del menú');
-  assert.equal(d[3].candidatos.length, 1);
+  assert.deepEqual(p1.candidatos.map((c) => c.origen), ['propio', 'propio', 'referencia', 'escrito']);
+  assert.equal(p1.candidatos[3].evento, cuenta.id);
+  assert.equal(p1.candidatos[3].texto, 'Cuenta del menú');
+  assert.equal(d[3].candidatos.length, 2); // [4] y [4.0] colisionan
 });
 
 test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar → ejecutar con evidencia', async () => {
@@ -24,7 +24,7 @@ test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar �
   const d = descubrir(eje, compra.id);
   const c = await consolidar(eje, {
     autor: 'huesped', foco: compra.id, t: T, titulo: 'Pago del menú',
-    elecciones: { 1: { candidato: d[0].candidatos[2] }, 2: 'sin lactosa', 4: 'pagar 14 EUR' },
+    elecciones: { 1: { candidato: d[0].candidatos[3] }, 2: 'sin lactosa', 4: 'pagar 14 EUR' },
   });
   assert.equal(c.en, FABRICA);
   assert.equal(c.contexto.fase, 'consolidado');
