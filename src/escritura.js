@@ -86,7 +86,7 @@ export function costeT(payload) {
  * Escribe el registro de salida de un modo sobre el foco. Comprueba la
  * proporción del modo y mueve T del autor: un minuto por posición.
  */
-export async function escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payload, t = new Date().toISOString(), contexto = {} }) {
+export async function escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payload, t = new Date().toISOString(), contexto = {} }, privada) {
   if (!cabeEscritura(payload, modo)) {
     const [, max] = escritura(modo);
     throw new Error(modo + ' escribe como mucho ' + max + ' posiciones; este registro tiene ' + contarPosiciones(payload));
@@ -100,7 +100,7 @@ export async function escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payloa
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: minutos, de: autor, a: null }],
     payload,
     contexto: { ...contexto, modo },
-  });
+  }, privada);
 }
 
 export { esReferencia };

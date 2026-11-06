@@ -37,7 +37,7 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } 
  * se funden en un array consolidado con referencias a sus fuentes y se
  * registran como evento anclado a la fábrica del foco. No ejecuta nada.
  */
-export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }) {
+export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada) {
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
   const payload = [titulo];
   const fuentes = [];
@@ -73,7 +73,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
     payload,
     t,
     contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)] },
-  });
+  }, privada);
 }
 
 /**
@@ -90,7 +90,7 @@ export function puedeAutorizar(eje, identidad, consolidacion) {
  * Autorizar: un registro de quien autoriza, anclado a la consolidación.
  * Solo cuenta si quien lo escribe puede autorizar (poder y no ser el autor).
  */
-export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo', privada }) {
+export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada) {
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (!puedeAutorizar(eje, autorizante, consolidacion)) {
@@ -113,7 +113,7 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
  * la consolidación y a su autorización.
  */
-export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado', privada }) {
+export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (autor !== c.autor) throw new Error('ejecuta el autor de la consolidación: ' + c.autor);

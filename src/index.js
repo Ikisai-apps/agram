@@ -13,3 +13,4 @@ export * as encaje from './encaje.js';
 export * as motor from './motor.js';
 export * as autoridad from './autoridad.js';
 export * as tiempo from './tiempo.js';
+export * as persistencia from './persistencia.js';
