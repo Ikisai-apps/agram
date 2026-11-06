@@ -113,9 +113,10 @@ function listaOcupantes(indices) {
   const oc = encaje.ocupantes(estado.eje, estado.foco, indices);
   if (!oc.length) return '<div class="nada">sin ocupantes</div>';
   return `<div class="ocupantes">${oc.map((o) => {
-    const r = o.origen === 'escrito' ? bql.evaluar(estado.eje, o.evento, [0]) : bql.evaluar(estado.eje, o.evento, o.dir);
+    const r = bql.evaluar(estado.eje, o.evento, motor.caminoVisible(o));
     const quien = o.autor ? ' · ' + escapar(o.autor) : '';
-    return `<button class="chip" data-ir="${o.evento}" ${o.origen !== 'escrito' && o.dir !== RAIZ ? `data-dir="${o.dir}"` : ''}><i>${o.origen}</i> <b>${corto(o.evento)}</b>${quien} · ${escapar(r.texto)}</button>`;
+    const camino = o.camino && o.camino.length ? ' <small>' + o.camino.join('.') + '</small>' : '';
+    return `<button class="chip" data-ir="${o.evento}" ${o.origen !== 'escrito' && o.dir !== RAIZ ? `data-dir="${o.dir}"` : ''}><i>${o.origen}</i>${camino} <b>${corto(o.evento)}</b>${quien} · ${escapar(r.texto)}</button>`;
   }).join('')}</div>`;
 }
 

@@ -12,6 +12,7 @@
 //   =ORDENAR(col, expr, "desc"?)   ordena por expr evaluada en cada candidato
 //   =ELEGIR(col, k?)        los k primeros (1 por defecto); no publica nada
 //   =ACTUAL(pv, cantidad?)  fuera de FILTRAR: la colección activa de la posición pv, limitada a cantidad (1 por defecto)
+//   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
 //   =CONTAR(col) =SUMAR(col)
 //   comparaciones  = <> < > <= >=   y   Y(a, b)  O(a, b)  NO(a)
 //
@@ -226,10 +227,7 @@ function leerPosicion(ctx, evId, indices) {
   if (!ev) throw new Parada('ERROR', 'evento desconocido: ' + evId.slice(0, 8));
   let nodo = ev.payload;
   for (const i of indices) {
-    if (!Array.isArray(nodo)) {
-      if (i === 0) continue; // la posición 0 de un terminal es su propia representación
-      return undefined;
-    }
+    if (!Array.isArray(nodo)) return undefined;
     nodo = nodo[i];
   }
   return nodo;
@@ -270,10 +268,9 @@ function resolverId(ctx, v) {
 
 /** Candidatos que ocupan una posición del anfitrión, como colección BQL. */
 function buscar(ctx, evId, indices) {
-  const items = ocupantes(ctx.eje, evId, indices).map((o) => {
-    const base = o.origen === 'escrito' ? [] : indicesDe(o.dir);
-    return { origen: o.origen, evento: o.evento, indices: base, procedencia: o.procedencia, autor: o.autor, t: o.t };
-  });
+  const items = ocupantes(ctx.eje, evId, indices).map((o) => ({
+    origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
+  }));
   return col(items);
 }
 
@@ -378,6 +375,10 @@ function funcion(ctx, nodo, evId, base) {
       const k = args[1] ? args[1].valor : 1;
       if (!(Number.isInteger(k) && k >= 1)) throw new Parada('ERROR', 'ELEGIR espera una cantidad entera ≥ 1');
       return col(c.items.slice(0, k));
+    }
+    case 'ORIGEN': {
+      if (!ctx.actual) throw new Parada('ERROR', 'ORIGEN solo dentro de FILTRAR u ORDENAR');
+      return texto(ctx.actual.origen);
     }
     case 'CONTAR': return num(exigirColeccion(args[0], 'CONTAR').items.length);
     case 'SUMAR': {

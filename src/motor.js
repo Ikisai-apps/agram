@@ -12,6 +12,12 @@ import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
 export const FABRICA = '4000000000';
+
+/** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
+export function caminoVisible(o) {
+  const base = o.camino ?? [];
+  return Array.isArray(o.contenido) && o.contenido[0] !== undefined ? [...base, 0] : base;
+}
 export const FASES = Object.freeze(['consolidado', 'autorizado', 'ejecutado']);
 
 /**
@@ -24,7 +30,7 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } 
   return posiciones.map((i) => {
     const indices = [...camino, i];
     const candidatos = ocupantes(eje, foco, indices).map((o) => {
-      const r = o.origen === 'escrito' ? evaluar(eje, o.evento, [0]) : evaluar(eje, o.evento, o.dir);
+      const r = evaluar(eje, o.evento, caminoVisible(o));
       return { ...o, estado: r.estado, texto: r.texto };
     });
     return { posicion: i, dir: direccion(indices), candidatos };

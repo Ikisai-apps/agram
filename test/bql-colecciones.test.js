@@ -22,10 +22,11 @@ test('BUSCAR devuelve los candidatos de la posición sin registrar nada', async 
   const r = consultar(eje, compra.id, [4], 'BUSCAR(4)');
   assert.equal(r.estado, 'RESUELTO');
   assert.equal(r.valor.tipo, 'coleccion');
-  assert.deepEqual(r.valor.items.map((i) => i.origen), ['propio', 'escrito', 'escrito', 'escrito']);
-  assert.deepEqual(r.valor.items.slice(1).map((i) => i.evento), [p1.id, p2.id, p3.id]);
+  // Colisión: la posición 4 (array) y la 4.0 ('pagar') ocupan la misma dirección.
+  assert.deepEqual(r.valor.items.map((i) => i.origen), ['propio', 'propio', 'escrito', 'escrito', 'escrito']);
+  assert.deepEqual(r.valor.items.slice(2).map((i) => i.evento), [p1.id, p2.id, p3.id]);
   assert.equal(eje.orden.length, antes);
-  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(BUSCAR(4))').texto, '4');
+  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(BUSCAR(4))').texto, '5');
   assert.equal(consultar(eje, compra.id, [4], 'BUSCAR(7)').texto, '0 candidatos');
 });
 
@@ -34,21 +35,22 @@ test('FILTRAR con ACTUAL como candidato; LOCAL sigue siendo el anfitrión', asyn
   // Solo los escritos (cuyo valor es una magnitud en EUR) mayores de 1 EUR.
   const r = consultar(eje, compra.id, [4], 'FILTRAR(FILTRAR(BUSCAR(4), ACTUAL() = ACTUAL()), ACTUAL() > 1 EUR)');
   assert.equal(r.estado, 'INCOMPATIBLE'); // el propio es un array y no se compara con 1 EUR
-  const r2 = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(ELEGIR(ORDENAR(BUSCAR(4), ACTUAL(0) = "pagar"), ACTUAL(0) = "pagar", "desc"), 3), NO(ACTUAL(0) = "pagar")))');
-  void r2;
-  // Camino claro: la posición 0 de los candidatos escritos es su representación (el propio texto).
-  const sinPropio = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(BUSCAR(4), NO(ACTUAL(0) = "pagar")))');
+  // ORIGEN() distingue la procedencia del candidato; un terminal no tiene posición 0.
+  const sinPropio = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))');
   assert.equal(sinPropio.texto, '3');
-  const grandes = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(FILTRAR(BUSCAR(4), NO(ACTUAL(0) = "pagar")), ACTUAL() > 1 EUR))');
+  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "propio"))').texto, '2');
+  const grandes = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR))');
   assert.equal(grandes.texto, '2');
+  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))').estado, 'PENDIENTE');
+  assert.equal(consultar(eje, compra.id, [4], 'ORIGEN()').estado, 'ERROR');
   // LOCAL dentro de FILTRAR lee el anfitrión (la compra), no el candidato.
   const local = consultar(eje, compra.id, [4], 'CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))');
-  assert.equal(local.texto, '4');
+  assert.equal(local.texto, '5');
 });
 
 test('ORDENAR, ELEGIR y SUMAR sobre las propinas', async () => {
   const { eje, compra, p2 } = await escenario();
-  const propinas = 'FILTRAR(BUSCAR(4), NO(ACTUAL(0) = "pagar"))';
+  const propinas = 'FILTRAR(BUSCAR(4), ORIGEN() = "escrito")';
   const suma = consultar(eje, compra.id, [4], 'SUMAR(' + propinas + ')');
   assert.equal(suma.texto, '8 EUR (2 EUR + 5 EUR + 1 EUR)');
   const mayor = consultar(eje, compra.id, [4], 'ELEGIR(ORDENAR(' + propinas + ', ACTUAL(), "desc"))');
