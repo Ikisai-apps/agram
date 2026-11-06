@@ -7,3 +7,4 @@ export * from './modos.js';
 export * as pointed from './pointed.js';
 export * as sequenced from './sequenced.js';
 export * as mapped from './mapped.js';
+export * as salida from './escritura.js';
