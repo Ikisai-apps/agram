@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AGRAM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{
+  --bg:#faf7f1; --fg:#1f1b16; --muted:#6b6257; --rule:#e2d9cc; --panel:#f1ebe0; --panel2:#e8e0d2;
+  --accent:#7a4b1f; --accent-fg:#ffffff; --ok:#1b5e3a; --warn:#8a3f00; --warnbg:#f8e1cc;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.45;
+  padding-block:0 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:640px;margin:0 auto;min-width:0}
+header{padding-block:20px 10px;border-bottom:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+header h1{font-size:1.25rem;margin:0;font-weight:600}
+header .kicker{color:var(--muted);font-size:13px}
+#pv{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+.modos{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+.modos button{font:inherit;font-size:14px;padding:7px 14px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.modos button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.modos button:disabled{opacity:.5;cursor:not-allowed}
+.cab{padding:10px 0 6px;font-size:14px;color:var(--muted)}
+.cab b{color:var(--fg);font-family:var(--mono);font-weight:600}
+.cab .sub{margin-top:2px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.enlace,.miga{font:inherit;font-size:13px;font-family:var(--mono);border:0;background:var(--panel2);color:var(--fg);padding:2px 8px;border-radius:6px;cursor:pointer}
+.ruta{font-family:var(--mono);font-size:13px}
+.decupla{display:grid;gap:4px;margin:6px 0 16px}
+.pos{display:grid;grid-template-columns:1.6em 9.5em 1fr;gap:8px;align-items:center;text-align:left;font:inherit;
+  padding:9px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);min-width:0}
+.pos .idx{font-family:var(--mono);color:var(--muted)}
+.pos .pv{color:var(--muted);font-size:14px}
+.pos .val{overflow-wrap:anywhere;min-width:0}
+.pos.vacia .val{color:var(--muted)}
+.pos.activa{cursor:pointer;border-color:var(--accent)}
+.pos.activa .val{color:var(--accent);font-weight:500}
+.pos:disabled{opacity:1;color:var(--fg)}
+.escribir{display:grid;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px}
+.escribir .titulo,.hilera .titulo{font-size:13px;color:var(--muted);letter-spacing:.02em}
+.escribir label{display:grid;gap:4px;font-size:14px}
+.escribir input,.escribir select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);min-width:0;width:100%}
+.escribir button{font:inherit;padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.aviso{background:var(--warnbg);color:var(--warn);padding:8px 10px;border-radius:8px;font-size:14px}
+.hilera{margin:12px 0 18px;display:grid;gap:4px}
+.fila{display:grid;grid-template-columns:1.4em 1fr;gap:4px 8px;text-align:left;font:inherit;padding:8px 10px;border-radius:8px;
+  border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer;min-width:0}
+.fila .n{font-family:var(--mono);color:var(--muted);grid-row:span 2}
+.fila .quien{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.fila .celdas{display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0}
+.celda{font-size:14px;overflow-wrap:anywhere}
+.celda i{font-style:normal;font-family:var(--mono);color:var(--muted);margin-right:4px}
+.nada{color:var(--muted);font-size:14px;padding:6px 2px}
+#saldos{display:grid;gap:4px;margin-top:18px;padding-top:12px;border-top:1px solid var(--rule)}
+.saldo{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;font-size:14px;font-variant-numeric:tabular-nums}
+.saldo span{color:var(--muted)}
+footer{margin-top:22px;font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>AGRAM</h1>
+    <span class="kicker">cartón piedra · eje de ejemplo con datos inventados</span>
+  </header>
+  <p id="pv"></p>
+  <div class="modos" role="group" aria-label="modo">
+    <button data-modo="pointed" aria-pressed="true">Pointed</button>
+    <button data-modo="sequenced" aria-pressed="false">Sequenced</button>
+    <button disabled title="pendiente">Mapped</button>
+    <button data-genesis>génesis</button>
+    <button disabled title="render animado pendiente">animado</button>
+  </div>
+  <div id="vista"></div>
+  <div id="saldos"></div>
+  <footer>Mismo núcleo en Node y navegador. Escribir desde Pointed registra un terminal sobre el foco y mueve un minuto de T. Nada se guarda al recargar.</footer>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
