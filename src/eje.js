@@ -43,6 +43,25 @@ export class Eje {
     return this.claves.get(identidad);
   }
 
+  /**
+   * Reconstruye un eje desde su lista de eventos (el primero es el génesis),
+   * validando cada uno: ids, firmas, saldos. Nada se da por bueno.
+   */
+  static async desde(eventos, { exigirFirmas = false } = {}) {
+    const [g, ...resto] = eventos;
+    if (!g || g.contexto?.genesis !== true || g.sobre !== null) throw new Error('el primer evento debe ser el génesis');
+    const errores = validarForma(g);
+    if (!(await verificarId(g))) errores.push('id del génesis no corresponde');
+    if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
+    const eje = new Eje({ exigirFirmas });
+    const clave = g.contexto.claves?.[g.autor];
+    if (clave && !(await verificar(g, clave))) throw new Error('firma del génesis inválida');
+    if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
+    eje.#aplicar(Object.freeze({ ...g }));
+    for (const ev of resto) await eje.anadir(Object.freeze({ ...ev }));
+    return eje;
+  }
+
   get genesisId() {
     return this.orden[0];
   }

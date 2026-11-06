@@ -5,8 +5,14 @@
 
 import { Eje } from '../../src/eje.js';
 
-export async function ejemploCompra() {
+/**
+ * claves (opcional): { casa: {publica, privada}, cocina: {...}, huesped: {...} }.
+ * Con claves, la casa firma el génesis y declara las claves de las altas, y
+ * cada identidad firma lo suyo. Sin claves, el eje funciona sin firmas.
+ */
+export async function ejemploCompra({ claves = {} } = {}) {
   const t = '2026-11-07T09:00:00Z';
+  const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
     emision: [
@@ -16,9 +22,13 @@ export async function ejemploCompra() {
     ],
     foco: 'Casa de ejemplo',
     t,
+    clave: claves.casa?.publica,
+    privada: priv('casa'),
   });
 
   // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens.
+  const declaradas = {};
+  for (const id of ['cocina', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
@@ -30,7 +40,8 @@ export async function ejemploCompra() {
       { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-  });
+    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
+  }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
   const menu = await eje.escribir({
@@ -39,7 +50,7 @@ export async function ejemploCompra() {
     t,
     movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }],
     payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano']],
-  });
+  }, priv('cocina'));
 
   // La persona huésped compra el menú: paga E a cocina y gasta su tiempo.
   const compra = await eje.escribir({
@@ -57,7 +68,7 @@ export async function ejemploCompra() {
       ['huesped', 'cocina'], // 3 comunicación: quién habla con quién
       ['pagar', 'servir'], // 4 fábrica: la acción que se registra
     ],
-  });
+  }, priv('huesped'));
 
   return { eje, alta, menu, compra };
 }
@@ -67,7 +78,7 @@ export async function ejemploCompra() {
  * Primera fórmula BQL real en un slot: lee el precio de la compra por REF,
  * le suma la propina, y la posición siguiente compone euros con minutos.
  */
-export async function ejemploCuenta(eje, compra) {
+export async function ejemploCuenta(eje, compra, privadaCocina) {
   return eje.escribir({
     autor: 'cocina',
     sobre: compra.id,
@@ -80,5 +91,5 @@ export async function ejemploCuenta(eje, compra) {
       '=LOCAL(1) + 15 min', // 2 criterios: lo que cuesta en euros y en tiempo de servicio
       '==no es fórmula', // 3 comunicación: texto escapado
     ],
-  });
+  }, privadaCocina);
 }

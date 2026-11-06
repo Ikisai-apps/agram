@@ -91,6 +91,19 @@ header .kicker{color:var(--muted);font-size:13px}
 .celda-form{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
 .celda-form textarea{resize:vertical;line-height:1.3}
 .pista{font-size:12px;color:var(--muted)}
+.posfila{display:grid;grid-template-columns:1fr auto;gap:4px;min-width:0}
+.posfila .pos{width:100%}
+.oc{font:inherit;font-size:12px;font-family:var(--mono);border:1px solid var(--rule);background:var(--panel2);color:var(--ok);border-radius:8px;padding:0 8px;cursor:pointer}
+.oc.abierto{background:var(--accent);color:var(--accent-fg)}
+.ocupantes{grid-column:1 / -1;display:grid;gap:4px;padding:2px 0 6px 12px}
+.chip i{font-style:normal;color:var(--muted);margin-right:2px}
+.chip small{color:var(--muted);margin-left:4px}
+.firma{font-size:11px;color:var(--ok);margin-left:6px} .firma.sin{color:var(--muted)}
+.fabrica{margin:4px 0 16px;display:grid;gap:8px}
+.cons{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.accion{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.guardado{font-size:12px;color:var(--muted);margin-top:6px}
+.saldo{grid-template-columns:1fr auto auto auto auto}
 .formula{font-family:var(--mono);font-size:.86em;color:var(--muted);overflow-wrap:anywhere}
 .res{font-weight:600} .res.resuelto{color:var(--ok)} .res.pendiente{color:var(--muted)} .res.incompatible,.res.error{color:var(--warn)}
 .nada{color:var(--muted);font-size:14px;padding:6px 2px}
@@ -113,10 +126,11 @@ footer{margin-top:22px;font-size:12px;color:var(--muted)}
     <button data-modo="mapped" aria-pressed="false">Mapped</button>
     <button data-genesis>génesis</button>
     <button disabled title="render animado pendiente">animado</button>
+    <button data-reiniciar title="borra lo guardado en este navegador y vuelve al ejemplo">reiniciar</button>
   </div>
   <div id="vista"></div>
   <div id="saldos"></div>
-  <footer>Mismo núcleo en Node y navegador. Se escribe desde los tres modos sobre el foco, en la posición elegida: Pointed un terminal, Sequenced una hilera, Mapped una décupla. Cada posición escrita mueve un minuto de T. Nada se guarda al recargar.</footer>
+  <footer>Mismo núcleo en Node y navegador. Se escribe desde los tres modos sobre el foco, en la posición elegida: Pointed un terminal, Sequenced una hilera, Mapped una décupla. Cada identidad firma con su clave; cada posición escrita mueve un minuto de T. El eje y las claves de ejemplo se guardan solo en este navegador.</footer>
 </main>
 <script type="module" src="./app.js"></script>
 </body>

@@ -6,7 +6,7 @@ Núcleo genérico de AGRAM: una base de datos de eventos que se mueve sobre una 
 - **BQL** es la lógica de vistas: cómo se mueven y se consultan los datos. V0: fórmulas en un slot con `=`, `LOCAL`, `REF`, magnitudes con desglose y composición heterogénea, estados RESUELTO/PENDIENTE/INCOMPATIBLE/ERROR, evaluación sin efectos (`src/bql.js`).
 - **AGRAM** es el motor: la ejecución real (pendiente).
 
-Estado: cartón piedra del **eje** (génesis, identidades, transiciones de tokens encadenadas por referencia), **Pointed** (una décupla) y **Sequenced** (diez décuplas en hilera: hilo o hijos del foco). Capacidad y proporción de escritura por modo en `src/modos.js`. Ver `docs/FUNDAMENTOS.md`.
+Estado: cartón piedra completo del ciclo. Eje (génesis, identidades, transiciones de tokens encadenadas por referencia, posición `en`), encaje (ocupantes por posición, árbol lógico), BQL V0 con colecciones, motor (descubrir, consolidar en la fábrica, autorizar con poder, ejecutar con evidencia), autoridad mínima (claves y firmas por identidad), eje temporal (6/7) y comparabilidad relativa (8), persistencia local, y los tres modos leyendo y escribiendo con su proporción. Ver `docs/FUNDAMENTOS.md`.
 
 ```sh
 node ejemplos/ikisai/correr.mjs
