@@ -5,6 +5,7 @@
 
 import { Eje } from '../../src/eje.js';
 import { decupla, render } from '../../src/pointed.js';
+import { secuencia, render as renderSecuencia } from '../../src/sequenced.js';
 import { pathToFileURL } from 'node:url';
 
 export async function ejemploCompra() {
@@ -67,6 +68,7 @@ export async function ejemploCompra() {
 if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { eje, compra } = await ejemploCompra();
   console.log(render(decupla(compra)));
-  console.log('\nhilo:', eje.hilo(compra.id).map((e) => (Array.isArray(e.payload) ? e.payload[0] : e.payload)).join(' ← '));
+  console.log('\n' + renderSecuencia(secuencia(eje, compra.id)));
+  console.log('\n' + renderSecuencia(secuencia(eje, eje.genesisId, { sentido: 'hijos' })));
   console.log('saldos · cocina EUR:', eje.saldo('cocina', 'E:EUR'), '· huesped EUR:', eje.saldo('huesped', 'E:EUR'), '· huesped horas:', eje.saldoT('huesped', 'hora'));
 }
