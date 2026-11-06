@@ -3,18 +3,27 @@
 // BQL aparte: la posición del slot da el significado. Las consultas no tienen
 // efectos. Evaluación segura: pila de dependencias (ciclos), presupuesto.
 //
-//   =LOCAL(n, ...)        lee la décupla anfitriona: posición n (índices anidados opcionales)
-//   =REF(id, dir?)        lee otro evento (id o prefijo), subposición de diez dígitos opcional
-//   = 12 EUR + 2 EUR      magnitudes: misma unidad se suman conservando el desglose
-//   = 12 EUR + 5 min      unidades distintas: composición heterogénea, operandos preservados
+//   =LOCAL(n, ...)          lee la décupla anfitriona: posición n (índices anidados opcionales)
+//   =REF(id, dir?)          lee otro evento (id o prefijo), subposición de diez dígitos opcional
+//   = 12 EUR + 2 EUR        magnitudes: misma unidad se suma conservando el desglose
+//   = 12 EUR + 5 min        unidades distintas: composición heterogénea, operandos preservados
+//   =BUSCAR(n)              candidatos que ocupan la posición n del anfitrión (encaje), sin registrar ganador
+//   =FILTRAR(col, cond)     cond se evalúa por candidato; dentro, ACTUAL es el candidato y LOCAL sigue siendo el anfitrión
+//   =ORDENAR(col, expr, "desc"?)   ordena por expr evaluada en cada candidato
+//   =ELEGIR(col, k?)        los k primeros (1 por defecto); no publica nada
+//   =ACTUAL(pv, cantidad?)  fuera de FILTRAR: la colección activa de la posición pv, limitada a cantidad (1 por defecto)
+//   =CONTAR(col) =SUMAR(col)
+//   comparaciones  = <> < > <= >=   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO, PENDIENTE (falta algo por desarrollar), INCOMPATIBLE
 // (tipos que no operan), ERROR (sintaxis, función desconocida, ciclo, presupuesto).
 
 import { esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
+import { ocupantes } from './encaje.js';
 
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
-const PRESUPUESTO = 200;
+const PRESUPUESTO = 2000;
+const PEREZOSAS = Object.freeze({ FILTRAR: [1], ORDENAR: [1] }); // argumentos que se evalúan por candidato
 
 /** Una cadena es fórmula si empieza por un solo «=». */
 export function esFormula(x) {
@@ -28,11 +37,10 @@ export function desescapar(x) {
 
 // ---------- léxico y sintaxis ----------
 
-const RE_TOKEN = /\s*(?:(\d+(?:\.\d+)?)|("(?:[^"\\]|\\.)*")|([A-Za-z_][\w€$%]*|[€$%])|([()+\-*/,]))/y;
+const RE_TOKEN = /\s*(?:(\d+(?:\.\d+)?)|("(?:[^"\\]|\\.)*")|([A-Za-z_][\w€$%]*|[€$%])|(<>|<=|>=|[()+\-*/,=<>]))/y;
 
 function tokenizar(src) {
   const tokens = [];
-  RE_TOKEN.lastIndex = 0;
   let pos = 0;
   while (pos < src.length) {
     RE_TOKEN.lastIndex = pos;
@@ -55,15 +63,24 @@ export function analizar(src) {
   const tokens = tokenizar(src);
   let i = 0;
   const mirar = () => tokens[i];
+  const esOp = (...vs) => mirar() && mirar().t === 'op' && vs.includes(mirar().v);
   const tomar = (t, v) => {
     const k = tokens[i];
     if (!k || k.t !== t || (v !== undefined && k.v !== v)) throw new SyntaxError('se esperaba ' + (v ?? t) + ' en el token ' + i);
     i++;
     return k;
   };
+  function comparacion() {
+    const izq = expr();
+    if (esOp('=', '<>', '<', '>', '<=', '>=')) {
+      const op = tomar('op').v;
+      return { tipo: 'cmp', op, izq, der: expr() };
+    }
+    return izq;
+  }
   function expr() {
     let izq = termino();
-    while (mirar() && mirar().t === 'op' && (mirar().v === '+' || mirar().v === '-')) {
+    while (esOp('+', '-')) {
       const op = tomar('op').v;
       izq = { tipo: 'bin', op, izq, der: termino() };
     }
@@ -71,7 +88,7 @@ export function analizar(src) {
   }
   function termino() {
     let izq = factor();
-    while (mirar() && mirar().t === 'op' && (mirar().v === '*' || mirar().v === '/')) {
+    while (esOp('*', '/')) {
       const op = tomar('op').v;
       izq = { tipo: 'bin', op, izq, der: factor() };
     }
@@ -81,7 +98,7 @@ export function analizar(src) {
     const k = mirar();
     if (!k) throw new SyntaxError('fórmula incompleta');
     if (k.t === 'op' && k.v === '-') { tomar('op'); return { tipo: 'neg', arg: factor() }; }
-    if (k.t === 'op' && k.v === '(') { tomar('op'); const e = expr(); tomar('op', ')'); return e; }
+    if (k.t === 'op' && k.v === '(') { tomar('op'); const e = comparacion(); tomar('op', ')'); return e; }
     if (k.t === 'num') {
       tomar('num');
       const u = mirar();
@@ -94,22 +111,21 @@ export function analizar(src) {
     if (k.t === 'str') { tomar('str'); return { tipo: 'str', v: k.v }; }
     if (k.t === 'id') {
       tomar('id');
-      if (mirar() && mirar().t === 'op' && mirar().v === '(') {
+      if (esOp('(')) {
         tomar('op');
         const args = [];
-        if (!(mirar() && mirar().t === 'op' && mirar().v === ')')) {
-          args.push(expr());
-          while (mirar() && mirar().t === 'op' && mirar().v === ',') { tomar('op'); args.push(expr()); }
+        if (!esOp(')')) {
+          args.push(comparacion());
+          while (esOp(',')) { tomar('op'); args.push(comparacion()); }
         }
         tomar('op', ')');
         return { tipo: 'fn', nombre: k.v.toUpperCase(), args };
       }
-      // Unidad suelta o identificador: como magnitud 1 de esa unidad no tiene sentido; error.
       throw new SyntaxError('identificador suelto: ' + k.v);
     }
     throw new SyntaxError('token inesperado: ' + k.v);
   }
-  const arbol = expr();
+  const arbol = comparacion();
   if (i < tokens.length) throw new SyntaxError('sobra: ' + tokens[i].v);
   return arbol;
 }
@@ -119,7 +135,9 @@ export function analizar(src) {
 const num = (v) => ({ tipo: 'numero', valor: v });
 const mag = (cantidad, unidad, desglose) => ({ tipo: 'magnitud', cantidad, unidad, desglose: desglose ?? [{ cantidad, unidad }] });
 const texto = (v) => ({ tipo: 'texto', valor: v });
+const bool = (v) => ({ tipo: 'booleano', valor: v });
 const comp = (partes) => ({ tipo: 'composicion', partes });
+const col = (items) => ({ tipo: 'coleccion', items });
 
 class Parada extends Error {
   constructor(estado, motivo) { super(motivo); this.estado = estado; }
@@ -136,6 +154,10 @@ function valorDe(contenido) {
   if (m) return m[1] !== undefined ? mag(Number(m[1]), m[2]) : mag(Number(m[4]), m[3]);
   if (/^-?\d+(?:\.\d+)?$/.test(s.trim())) return num(Number(s));
   return texto(s);
+}
+
+function describir(v) {
+  return v.tipo === 'magnitud' ? 'magnitud en ' + v.unidad : v.tipo;
 }
 
 function sumar(a, b, signo = 1) {
@@ -167,8 +189,34 @@ function multiplicar(a, b, op) {
   throw new Parada('INCOMPATIBLE', describir(a) + ' y ' + describir(b) + ' no se ' + (op === '*' ? 'multiplican' : 'dividen'));
 }
 
-function describir(v) {
-  return v.tipo === 'magnitud' ? 'magnitud en ' + v.unidad : v.tipo;
+function comparar(a, b, op) {
+  let x;
+  let y;
+  if (a.tipo === 'numero' && b.tipo === 'numero') { x = a.valor; y = b.valor; }
+  else if (a.tipo === 'magnitud' && b.tipo === 'magnitud' && a.unidad === b.unidad) { x = a.cantidad; y = b.cantidad; }
+  else if (a.tipo === 'texto' && b.tipo === 'texto') { x = a.valor; y = b.valor; }
+  else if (a.tipo === 'booleano' && b.tipo === 'booleano') { x = a.valor; y = b.valor; }
+  else if (op === '=' || op === '<>') { const iguales = formato(a) === formato(b); return bool(op === '=' ? iguales : !iguales); }
+  else throw new Parada('INCOMPATIBLE', describir(a) + ' y ' + describir(b) + ' no se comparan');
+  switch (op) {
+    case '=': return bool(x === y);
+    case '<>': return bool(x !== y);
+    case '<': return bool(x < y);
+    case '>': return bool(x > y);
+    case '<=': return bool(x <= y);
+    case '>=': return bool(x >= y);
+    default: throw new Parada('ERROR', 'comparación desconocida');
+  }
+}
+
+function exigirBool(v, donde) {
+  if (v.tipo !== 'booleano') throw new Parada('INCOMPATIBLE', donde + ' espera verdadero o falso, no ' + describir(v));
+  return v.valor;
+}
+
+function exigirColeccion(v, donde) {
+  if (v.tipo !== 'coleccion') throw new Parada('INCOMPATIBLE', donde + ' espera una colección, no ' + describir(v));
+  return v;
 }
 
 // ---------- evaluación ----------
@@ -178,7 +226,10 @@ function leerPosicion(ctx, evId, indices) {
   if (!ev) throw new Parada('ERROR', 'evento desconocido: ' + evId.slice(0, 8));
   let nodo = ev.payload;
   for (const i of indices) {
-    if (!Array.isArray(nodo)) return undefined;
+    if (!Array.isArray(nodo)) {
+      if (i === 0) continue; // la posición 0 de un terminal es su propia representación
+      return undefined;
+    }
     nodo = nodo[i];
   }
   return nodo;
@@ -191,12 +242,15 @@ function leerSlot(ctx, evId, indices) {
     const clave = evId + ':' + direccion(indices);
     if (ctx.pila.has(clave)) throw new Parada('ERROR', 'ciclo en ' + evId.slice(0, 8) + ':' + direccion(indices));
     ctx.pila.add(clave);
+    const actualGuardado = ctx.actual;
+    ctx.actual = null; // una fórmula ajena no hereda nuestro candidato
     try {
       const r = evaluarArbol(ctx, analizar(contenido.slice(1)), evId, indices);
       ctx.dependencias.add(clave);
       return r;
     } finally {
       ctx.pila.delete(clave);
+      ctx.actual = actualGuardado;
     }
   }
   if (esReferencia(contenido)) {
@@ -212,6 +266,27 @@ function resolverId(ctx, v) {
   const ids = ctx.eje.orden.filter((id) => id.startsWith(p));
   if (ids.length === 1) return ids[0];
   throw new Parada('ERROR', ids.length ? 'referencia ambigua: ' + p : 'referencia desconocida: ' + p);
+}
+
+/** Candidatos que ocupan una posición del anfitrión, como colección BQL. */
+function buscar(ctx, evId, indices) {
+  const items = ocupantes(ctx.eje, evId, indices).map((o) => {
+    const base = o.origen === 'escrito' ? [] : indicesDe(o.dir);
+    return { origen: o.origen, evento: o.evento, indices: base, procedencia: o.procedencia, autor: o.autor, t: o.t };
+  });
+  return col(items);
+}
+
+/** Valor de un candidato, o de su subposición k... (leyendo fórmulas si las hay). */
+function valorCandidato(ctx, item, sub = []) {
+  return leerSlot(ctx, item.evento, [...item.indices, ...sub]);
+}
+
+function indicesDeArgs(args, nombre) {
+  if (args.some((a) => a.tipo !== 'numero' || !Number.isInteger(a.valor) || a.valor < 0 || a.valor > 9)) {
+    throw new Parada('ERROR', nombre + ' espera índices 0–9');
+  }
+  return args.map((a) => a.valor);
 }
 
 function evaluarArbol(ctx, nodo, evId, base) {
@@ -233,31 +308,91 @@ function evaluarArbol(ctx, nodo, evId, base) {
       if (nodo.op === '-') return sumar(a, b, -1);
       return multiplicar(a, b, nodo.op);
     }
-    case 'fn': {
-      const args = nodo.args.map((a) => evaluarArbol(ctx, a, evId, base));
-      if (nodo.nombre === 'LOCAL') {
-        if (!args.length || args.some((a) => a.tipo !== 'numero' || !Number.isInteger(a.valor) || a.valor < 0 || a.valor > 9)) {
-          throw new Parada('ERROR', 'LOCAL espera índices 0–9');
-        }
-        // LOCAL lee la décupla anfitriona: la del slot en su profundidad.
-        const anfitrion = base.slice(0, -1);
-        return leerSlot(ctx, evId, [...anfitrion, ...args.map((a) => a.valor)]);
-      }
-      if (nodo.nombre === 'REF') {
-        if (!args.length || args[0].tipo !== 'texto') throw new Parada('ERROR', 'REF espera un id entre comillas');
-        const id = resolverId(ctx, args[0]);
-        let idx = [];
-        if (args[1]) {
-          if (args[1].tipo !== 'texto' || !esDireccion(args[1].valor)) throw new Parada('ERROR', 'REF espera una dirección de diez dígitos');
-          idx = indicesDe(args[1].valor);
-        }
-        ctx.dependencias.add(id + ':' + direccion(idx));
-        return leerSlot(ctx, id, idx);
-      }
-      throw new Parada('ERROR', 'función desconocida: ' + nodo.nombre);
+    case 'cmp': return comparar(evaluarArbol(ctx, nodo.izq, evId, base), evaluarArbol(ctx, nodo.der, evId, base), nodo.op);
+    case 'fn': return funcion(ctx, nodo, evId, base);
+    default: throw new Parada('ERROR', 'nodo desconocido');
+  }
+}
+
+function funcion(ctx, nodo, evId, base) {
+  const perezosos = PEREZOSAS[nodo.nombre] ?? [];
+  const args = nodo.args.map((a, k) => (perezosos.includes(k) ? a : evaluarArbol(ctx, a, evId, base)));
+  const anfitrion = base.slice(0, -1); // la décupla del slot, en su profundidad
+  switch (nodo.nombre) {
+    case 'LOCAL': {
+      if (!args.length) throw new Parada('ERROR', 'LOCAL espera al menos un índice');
+      return leerSlot(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'LOCAL')]);
     }
-    default:
-      throw new Parada('ERROR', 'nodo desconocido');
+    case 'REF': {
+      if (!args.length || args[0].tipo !== 'texto') throw new Parada('ERROR', 'REF espera un id entre comillas');
+      const id = resolverId(ctx, args[0]);
+      let idx = [];
+      if (args[1]) {
+        if (args[1].tipo !== 'texto' || !esDireccion(args[1].valor)) throw new Parada('ERROR', 'REF espera una dirección de diez dígitos');
+        idx = indicesDe(args[1].valor);
+      }
+      ctx.dependencias.add(id + ':' + direccion(idx));
+      return leerSlot(ctx, id, idx);
+    }
+    case 'BUSCAR': {
+      if (!args.length) throw new Parada('ERROR', 'BUSCAR espera una posición');
+      return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'BUSCAR')]);
+    }
+    case 'ACTUAL': {
+      if (ctx.actual) return valorCandidato(ctx, ctx.actual, args.length ? indicesDeArgs(args, 'ACTUAL') : []);
+      if (!args.length) throw new Parada('ERROR', 'ACTUAL fuera de FILTRAR espera una posición');
+      const cantidad = args.length > 1 ? args[1].valor : 1;
+      if (!(Number.isInteger(cantidad) && cantidad >= 1)) throw new Parada('ERROR', 'ACTUAL espera una cantidad entera ≥ 1');
+      const c = buscar(ctx, evId, [...anfitrion, ...indicesDeArgs([args[0]], 'ACTUAL')]);
+      if (!c.items.length) throw new Parada('PENDIENTE', 'sin candidatos en la posición ' + args[0].valor);
+      return cantidad === 1 ? valorCandidato(ctx, c.items[0]) : col(c.items.slice(0, cantidad));
+    }
+    case 'FILTRAR': {
+      const c = exigirColeccion(args[0], 'FILTRAR');
+      if (!nodo.args[1]) throw new Parada('ERROR', 'FILTRAR espera una condición');
+      const items = c.items.filter((item) => {
+        const guardado = ctx.actual;
+        ctx.actual = item;
+        try { return exigirBool(evaluarArbol(ctx, nodo.args[1], evId, base), 'FILTRAR'); } finally { ctx.actual = guardado; }
+      });
+      return col(items);
+    }
+    case 'ORDENAR': {
+      const c = exigirColeccion(args[0], 'ORDENAR');
+      if (!nodo.args[1]) throw new Parada('ERROR', 'ORDENAR espera una expresión');
+      const desc = args[2] && args[2].tipo === 'texto' && args[2].valor.toLowerCase() === 'desc';
+      const claves = c.items.map((item) => {
+        const guardado = ctx.actual;
+        ctx.actual = item;
+        try {
+          const v = evaluarArbol(ctx, nodo.args[1], evId, base);
+          const k = v.tipo === 'numero' ? v.valor : v.tipo === 'magnitud' ? v.cantidad : v.tipo === 'texto' ? v.valor : formato(v);
+          return { item, k };
+        } finally { ctx.actual = guardado; }
+      });
+      claves.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0) * (desc ? -1 : 1));
+      return col(claves.map((x) => x.item));
+    }
+    case 'ELEGIR': {
+      const c = exigirColeccion(args[0], 'ELEGIR');
+      const k = args[1] ? args[1].valor : 1;
+      if (!(Number.isInteger(k) && k >= 1)) throw new Parada('ERROR', 'ELEGIR espera una cantidad entera ≥ 1');
+      return col(c.items.slice(0, k));
+    }
+    case 'CONTAR': return num(exigirColeccion(args[0], 'CONTAR').items.length);
+    case 'SUMAR': {
+      const c = exigirColeccion(args[0], 'SUMAR');
+      let acc = null;
+      for (const item of c.items) {
+        const v = valorCandidato(ctx, item);
+        acc = acc === null ? v : sumar(acc, v);
+      }
+      return acc ?? num(0);
+    }
+    case 'Y': return bool(args.every((a) => exigirBool(a, 'Y')));
+    case 'O': return bool(args.some((a) => exigirBool(a, 'O')));
+    case 'NO': return bool(!exigirBool(args[0], 'NO'));
+    default: throw new Parada('ERROR', 'función desconocida: ' + nodo.nombre);
   }
 }
 
@@ -267,7 +402,7 @@ function evaluarArbol(ctx, nodo, evId, base) {
  */
 export function evaluar(eje, evId, dir) {
   const indices = Array.isArray(dir) ? dir : indicesDe(dir);
-  const ctx = { eje, pila: new Set(), dependencias: new Set(), presupuesto: PRESUPUESTO };
+  const ctx = { eje, pila: new Set(), dependencias: new Set(), presupuesto: PRESUPUESTO, actual: null };
   try {
     const contenido = leerPosicion(ctx, evId, indices);
     if (!esFormula(contenido)) return { estado: 'RESUELTO', valor: valorDe(contenido), texto: formato(valorDe(contenido)), dependencias: [] };
@@ -280,13 +415,28 @@ export function evaluar(eje, evId, dir) {
   }
 }
 
+/** Evalúa una fórmula suelta (sin «=») en el contexto de un slot. Para consultas desde fuera. */
+export function consultar(eje, evId, dir, formula) {
+  const indices = Array.isArray(dir) ? dir : indicesDe(dir);
+  const ctx = { eje, pila: new Set(), dependencias: new Set(), presupuesto: PRESUPUESTO, actual: null };
+  try {
+    const valor = evaluarArbol(ctx, analizar(formula.replace(/^=/, '')), evId, indices);
+    return { estado: 'RESUELTO', valor, texto: formato(valor), dependencias: [...ctx.dependencias] };
+  } catch (e) {
+    if (e instanceof Parada) return { estado: e.estado, motivo: e.message, texto: e.estado + ': ' + e.message, dependencias: [...ctx.dependencias] };
+    if (e instanceof SyntaxError) return { estado: 'ERROR', motivo: e.message, texto: 'ERROR: ' + e.message, dependencias: [] };
+    throw e;
+  }
+}
+
 const redondear = (n) => Math.round(n * 1000) / 1000;
 
-/** Texto de un valor: «250 m», «200 m + 5 EUR», «14 EUR (12 EUR + 2 EUR)». */
+/** Texto de un valor: «250 m», «200 m + 5 EUR», «14 EUR (12 EUR + 2 EUR)», «3 candidatos». */
 export function formato(v) {
   switch (v.tipo) {
     case 'numero': return String(redondear(v.valor));
     case 'texto': return v.valor;
+    case 'booleano': return v.valor ? 'verdadero' : 'falso';
     case 'magnitud': {
       const base = redondear(v.cantidad) + ' ' + v.unidad;
       const d = v.desglose ?? [];
@@ -295,6 +445,7 @@ export function formato(v) {
     case 'composicion': return v.partes.map(formato).join(' + ');
     case 'array': return '[' + v.valor.length + ' posiciones]';
     case 'referencia': return '→ ' + v.valor.ref.slice(0, 8);
+    case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '');
     default: return '?';
   }
 }
