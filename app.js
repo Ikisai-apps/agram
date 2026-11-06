@@ -3,8 +3,8 @@
 // se escribe desde los tres modos con su proporción. Render sobrio; el
 // animado se declara pendiente, no se simula.
 
-import { pointed, sequenced, mapped, salida, indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ } from './src/index.js';
-import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pointed, sequenced, mapped, salida, bql, indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ } from './src/index.js';
+import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 
 const estado = { eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4', aviso: '', exito: '' };
 const $ = (sel) => document.querySelector(sel);
@@ -35,14 +35,22 @@ function textoDe(c) {
   if (c === undefined) return '—';
   if (Array.isArray(c)) return c.length + (c.length === 1 ? ' posición' : ' posiciones');
   if (esReferencia(c)) return '→ ' + corto(c.ref) + (c.dir ? ' : ' + c.dir : '');
-  return String(c);
+  return bql.desescapar(String(c));
 }
 
 function breve(c) {
   if (c === undefined) return '—';
   if (Array.isArray(c)) return '[' + c.length + ']';
   if (esReferencia(c)) return '→' + corto(c.ref);
-  return String(c);
+  return bql.desescapar(String(c));
+}
+
+/** Un slot en pantalla: si es fórmula, la fórmula y su resultado con estado. */
+function slot(c, evId, indices, largo = true) {
+  if (!bql.esFormula(c)) return escapar(largo ? textoDe(c) : breve(c));
+  const r = bql.evaluar(estado.eje, evId, indices);
+  const res = r.estado === 'RESUELTO' ? '→ ' + r.texto : r.estado + (largo && r.motivo ? ': ' + r.motivo : '');
+  return `<span class="formula">${escapar(c)}</span> <span class="res ${r.estado.toLowerCase()}">${escapar(res)}</span>`;
 }
 
 /** Dirección donde se anida lo escrito: la posición elegida bajo el camino actual, o la raíz. */
@@ -98,7 +106,7 @@ function pintarPointed() {
     const marca = String(p.indice) === estado.en ? ' elegida' : '';
     const clase = 'pos' + (c === undefined ? ' vacia' : '') + (accion.startsWith('data-posicion') ? '' : ' activa') + marca;
     return `<button class="${clase}" ${accion}>
-      <span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${escapar(textoDe(c))}</span>${escritos ? `<span class="hijos" title="escrito en esta posición">↳ ${escritos}</span>` : ''}</button>`;
+      <span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${slot(c, estado.foco, [...estado.camino, p.indice])}</span>${escritos ? `<span class="hijos" title="escrito en esta posición">↳ ${escritos}</span>` : ''}</button>`;
   });
   const e = escritura('pointed');
   $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${filas.join('')}</div>
@@ -116,7 +124,7 @@ function pintarPointed() {
 // ---------- Sequenced ----------
 
 function filaSecuencia(d, i) {
-  const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${escapar(breve(p.contenido))}</span>`);
+  const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
   const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
   return `<div class="fila"><button class="abrir" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button><button class="ref" data-ref="${d.id}" title="insertar como referencia en la hilera">@</button></div>`;
 }
@@ -185,7 +193,7 @@ function celdaMapa(m, i) {
   if (Array.isArray(ct)) accion = `data-desarrollar="${i}"`;
   else if (esReferencia(ct)) accion = `data-ir="${ct.ref}" data-dir="${ct.dir ?? ''}"`;
   return `<button class="celda esquina ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
-    <div class="val">${escapar(textoDe(ct))}</div>${marca}</button>`;
+    <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
 function pintarMapped() {
@@ -285,6 +293,7 @@ document.addEventListener('submit', (e) => {
 });
 
 const { eje, compra } = await ejemploCompra();
+await ejemploCuenta(eje, compra);
 estado.eje = eje;
 estado.foco = compra.id;
 $('#pv').textContent = PV.map((n, i) => i + ' ' + n).join(' · ');
