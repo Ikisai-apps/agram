@@ -9,7 +9,7 @@ Núcleo genérico de AGRAM: una base de datos de eventos que se mueve sobre una 
 Estado: cartón piedra del **eje** (génesis, identidades, transiciones de tokens encadenadas por referencia), **Pointed** (una décupla) y **Sequenced** (diez décuplas en hilera: hilo o hijos del foco). Capacidad y proporción de escritura por modo en `src/modos.js`. Ver `docs/FUNDAMENTOS.md`.
 
 ```sh
-node ejemplos/ikisai/compra-food.mjs
+node ejemplos/ikisai/correr.mjs
 ```
 
 Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
@@ -18,4 +18,4 @@ Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, 
 npm test
 ```
 
-JavaScript puro, sin dependencias, ejecutable en Node y en el navegador.
+JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed y Sequenced sobre el eje de ejemplo); se publica en GitHub Pages en cada push a `main`.

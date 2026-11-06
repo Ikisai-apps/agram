@@ -4,9 +4,6 @@
 // Pointed. Nada de esto es real.
 
 import { Eje } from '../../src/eje.js';
-import { decupla, render } from '../../src/pointed.js';
-import { secuencia, render as renderSecuencia } from '../../src/sequenced.js';
-import { pathToFileURL } from 'node:url';
 
 export async function ejemploCompra() {
   const t = '2026-11-07T09:00:00Z';
@@ -63,12 +60,4 @@ export async function ejemploCompra() {
   });
 
   return { eje, alta, menu, compra };
-}
-
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const { eje, compra } = await ejemploCompra();
-  console.log(render(decupla(compra)));
-  console.log('\n' + renderSecuencia(secuencia(eje, compra.id)));
-  console.log('\n' + renderSecuencia(secuencia(eje, eje.genesisId, { sentido: 'hijos' })));
-  console.log('saldos · cocina EUR:', eje.saldo('cocina', 'E:EUR'), '· huesped EUR:', eje.saldo('huesped', 'E:EUR'), '· huesped horas:', eje.saldoT('huesped', 'hora'));
 }
