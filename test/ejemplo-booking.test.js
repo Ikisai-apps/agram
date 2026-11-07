@@ -106,7 +106,11 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([entrega.ejecucion.payload[0], pagada.ejecucion.payload[0]], ['Plaza entregada', 'Pagada']);
   const texto = render(decupla(reserva));
   assert.match(texto, /^1 recursos\s+\[5 posiciones\]$/m);
-  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m); // VG, 7-11 noche: por hojas: [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1)
+  // VG, 7-11 noche: por hojas, la 4 es [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1). Y Pointed corta duro en 10
+  // (decisión 10.2): la reserva tiene 11 posiciones con contenido, así que 'ocupar', la última por índice, queda fuera y se avisa.
+  assert.match(texto, /^4 fábrica\s+\[1 posiciones\] \(cortada\)$/m);
+  assert.match(texto, /^aviso: Pointed corta en su máximo \(10 posiciones\): .*queda cortada la 4\. Trae 10 de 11 posiciones\.$/m);
+  assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // leer no muta el registro
 });
 
 test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capacidad, y la casa emite su serie por plaza y noche', async () => {
@@ -499,6 +503,9 @@ test('E atada al recurso (R2): 4 plazas por noche; un segundo emisor no añade u
   const despues = caducaNoche('2026-11-20');
   assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-20').map((x) => x.vivo), [0]);
   assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-21').map((x) => x.vivo), [4]);
+  // El eje lo ve pasar cuando llega ahí (SEG-03): fechar la emisión después no basta; un registro de la casa con ese t, sí.
+  await assert.rejects(eje.escribir(otra('2026-11-20', despues)), /en la franja «2026-11-20».*llegaría a 5 y su capacidad es 4/);
+  await eje.escribir({ autor: CASA, sobre: alojamiento.id, t: despues, payload: 'pasó la noche del 20', movimientos: [minutos(CASA)] });
   await eje.escribir(otra('2026-11-20', despues));
   // El P de la casa respalda todas las noches de cada cama: no se suelta mientras viva alguna.
   const suelta = { token: 'P', ambito: alojamiento.id, cantidad: 1, de: CASA, a: CASA, estado: 'liberacion', salida: familiaPlaza(habitacion.id, PLAZAS.matrimonio) };

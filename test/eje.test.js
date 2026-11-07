@@ -6,7 +6,7 @@ import { serializar, restaurar } from '../src/persistencia.js';
 
 const T0 = '2026-11-06T20:00:00Z';
 
-async function ejeBase() {
+async function ejeBase(t = T0) {
   return Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
@@ -17,9 +17,12 @@ async function ejeBase() {
       { token: 'E', denominacion: 'hora', cantidad: 100 },
     ],
     foco: 'mundo de prueba',
-    t: T0,
+    t,
   });
 }
+
+/** Un mes antes de T0: las personas que entran ahí escriben a T0 con su propio T, dentro del tope de su reloj (Core, 8-11). */
+const ALTA = '2026-10-06T20:00:00Z';
 
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'hora', cantidad, de, a: null });
 
@@ -108,15 +111,15 @@ test('T por escala: sin conversión; el evento mínimo mueve T de cualquier esca
     t: T0,
   });
   const base = { autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'x' };
-  // Con horas no se pagan minutos: un minuto sin saldo se acuña al gastarse (VG, 7-11 noche) y las horas no se tocan.
-  await eje.escribir({ ...base, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }] });
+  // Con horas no se pagan minutos (y quien no es persona no acuña: Core, 8-11).
+  await assert.rejects(eje.escribir({ ...base, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }] }), /saldo insuficiente de T:minuto en raiz/);
   assert.deepEqual([eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora')], [0, 2]);
   // Cualquier escala vale para el evento mínimo.
-  await eje.escribir({ ...base, payload: 'y', movimientos: [{ token: 'T', escala: 'dia', cantidad: 1, de: 'raiz', a: null }] });
+  await eje.escribir({ ...base, movimientos: [{ token: 'T', escala: 'dia', cantidad: 1, de: 'raiz', a: null }] });
   assert.equal(eje.saldoT('raiz', 'dia'), 0);
   assert.equal(eje.saldoT('raiz', 'hora'), 2);
   assert.deepEqual(eje.tiempos('raiz'), [{ escala: 'hora', cantidad: 2 }]);
-  assert.deepEqual(eje.tiempoSobre(eje.genesisId), { minuto: 1, dia: 1 });
+  assert.deepEqual(eje.tiempoSobre(eje.genesisId), { dia: 1 });
   assert.throws(() => eje.saldoT('raiz', 'mes'), /escala T inválida/);
   assert.throws(() => eje.saldoT('raiz'), /escala T inválida/);
 });
@@ -124,8 +127,8 @@ test('T por escala: sin conversión; el evento mínimo mueve T de cualquier esca
 // Altas con tipo: la casa y bea son personas, el club un grupo, la habitación una cosa.
 // VG, 7-11 noche: solo emiten personas, así que la casa que emite plazas es una persona (antes, un grupo).
 async function conAltas() {
-  const eje = await ejeBase();
-  const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'altas',
+  const eje = await ejeBase(ALTA);
+  const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: ALTA, payload: 'altas',
     contexto: { tipos: { casa: 'persona', bea: 'persona', 'habitacion-2': 'cosa', club: 'grupo' } },
     movimientos: [gastaT('raiz'), ...['casa', 'bea', 'habitacion-2', 'club'].map((a) => ({ token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 20, de: 'raiz', a }))] });
   return { eje, alta };
@@ -221,9 +224,11 @@ test('E ligada al emisor como R: nadie se queda un nombre; la misma denominació
 test('emitir es solo de personas (VG, 7-11 noche); los grupos y las cosas reciben, conservan y mueven tokens', async () => {
   const { eje } = await conAltas();
   const dominio = await escalonE(eje, 'casa');
-  // La casa emite las plazas de la habitación y se las da en el mismo evento.
+  // La casa emite las plazas de la habitación y se las da en el mismo evento, con dos horas de su T para que la
+  // habitación (una cosa) escriba: T no cruza de persona, pero una persona sí lo da a una cosa (Core, 8-11).
   const plazas = await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'plazas de la habitación 2',
-    movimientos: [gastaT('casa'), enJuego('casa'), emite('casa', 'plaza@2026-11-13', 2), mueveE('casa', 'plaza@2026-11-13', 2, 'casa', 'habitacion-2')] });
+    movimientos: [gastaT('casa'), enJuego('casa'), emite('casa', 'plaza@2026-11-13', 2), mueveE('casa', 'plaza@2026-11-13', 2, 'casa', 'habitacion-2'),
+      { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'casa' }, { token: 'T', escala: 'hora', cantidad: 2, de: 'casa', a: 'habitacion-2' }] });
   assert.equal(eje.saldo('habitacion-2', 'E:casa/plaza@2026-11-13'), 2);
   // La habitación las maneja: cede una a bea.
   await eje.escribir({ autor: 'habitacion-2', sobre: plazas.id, t: T0, payload: 'reserva de bea',

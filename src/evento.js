@@ -170,15 +170,9 @@ export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
       errores.push(esGenesis ? 'el génesis debe emitir T al autor'
         : v2 ? 'el autor debe mover T' : 'escribir consume T del autor: un movimiento de T con de = ' + ev.autor + ' y a = null (VG, 7-11 noche)');
     }
-    // T no cruza de persona (VG, 7-11 noche): «recibir T solo es un registro de
-    // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
-    // recurso de otra persona». Quien quiere dar su tiempo a otro emite E de su
-    // serie, denominada en su tiempo (E:<persona>/hora), no T.
-    if (!v2) ev.movimientos.forEach((m, i) => {
-      if (m && m.token === 'T' && typeof m.a === 'string' && m.a !== ev.autor) {
-        errores.push('movimiento ' + i + ': T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + ev.autor + '/' + (m.escala ?? 'hora') + ')');
-      }
-    });
+    // T no cruza de persona (VG, 7-11 noche) lo comprueban las reglas del
+    // ciclo (src/ciclo.js), que saben de qué tipo es quien lo recibe: una
+    // persona sí puede dar su T a una cosa (Core, 8-11).
   }
   if (ev.contexto !== undefined && ev.contexto !== null && (typeof ev.contexto !== 'object' || Array.isArray(ev.contexto))) {
     errores.push('contexto debe ser un objeto');

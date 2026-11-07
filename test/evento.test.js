@@ -35,17 +35,15 @@ test('todo evento mueve tokens y el autor CONSUME T (VG, 7-11 noche)', () => {
   assert.deepEqual([esConsumoT(T, 'ana'), esConsumoT(aSiMisma[0], 'ana'), esConsumoT(bloqueo[0], 'ana'), esConsumoT(T, 'bea')], [true, false, false, false]);
 });
 
-test('T no cruza de persona: un movimiento de T con «a» distinto del autor se rechaza; se transforma en E (VG, 7-11 noche)', () => {
+// «T no cruza de persona» (VG, 7-11 noche) depende de qué es quien lo recibe (una persona sí da su T a una cosa;
+// Core, 8-11), así que no es de forma: lo dicen las reglas del ciclo (test/t-consumido.test.js).
+test('la forma no decide si T cruza de persona: no sabe de qué tipo es quien lo recibe', () => {
   const base = { autor: 'ana', sobre: 'g', t: '2026-11-06T20:00:00Z', payload: 'x' };
-  const aOtra = [T, { token: 'T', escala: 'hora', cantidad: 2, de: 'ana', a: 'bea' }];
-  assert.deepEqual(validarForma({ ...base, movimientos: aOtra }), ['movimiento 1: T no cruza de persona: bea no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:ana/hora)']);
-  // Tampoco emitirlo a otra.
-  assert.ok(validarForma({ ...base, movimientos: [T, { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'bea' }] }).some((e) => /T no cruza de persona: bea/.test(e)));
-  // Lo que sí vale: E de la serie del que da, denominada en su tiempo.
-  assert.deepEqual(validarForma({ ...base, movimientos: [T, { token: 'E', emisor: 'ana', denominacion: 'hora', cantidad: 2, de: 'ana', a: 'bea' }] }), []);
-  // Un evento guardado con la versión 2 se valida con las reglas de entonces: daba T a otros.
-  assert.deepEqual(validarForma({ ...base, movimientos: aOtra }, { v2: true }), []);
+  assert.deepEqual(validarForma({ ...base, movimientos: [T, { token: 'T', escala: 'hora', cantidad: 2, de: 'ana', a: 'bea' }] }), []);
+  // Y un evento guardado con la versión 2 se valida con las reglas de entonces: bastaba con que el autor moviese T.
+  assert.deepEqual(validarForma({ ...base, movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] }, { v2: true }), []);
   assert.deepEqual(validarForma({ ...base, movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] }, { tLaxo: true }), []);
+  assert.ok(validarForma({ ...base, movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] }).some((e) => /escribir consume T del autor/.test(e)));
 });
 
 test('payload inválido rechazado al crear', async () => {

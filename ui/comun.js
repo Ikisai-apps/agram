@@ -67,18 +67,29 @@ export function franjaAjustes() {
 /**
  * Los tres números de un modo en una lectura (VG, 7-11 noche), en corto:
  * lo conseguido, el mínimo que intenta y el máximo, en posiciones:
- * «7 · mín 10 · máx 100». Un mínimo sin fijar (Be) se dice «mín sin fijar»;
- * un máximo sin tope (Be), «máx todos».
+ * «7 · mín 10 · máx 100». Be no tiene mínimo propio (VG, 7-11 noche:
+ * responde exactamente lo que se le pide): dice lo pedido, «pedido 5», y su
+ * máximo sin tope, «máx todos».
  */
 export function textoCifras(alcance) {
   const { conseguido, minimo, maximo } = alcance;
-  return conseguido + ' · mín ' + (minimo === null ? 'sin fijar' : minimo) + ' · máx ' + (maximo === Infinity ? 'todos' : maximo);
+  const abajo = 'pedido' in alcance ? 'pedido ' + alcance.pedido : 'mín ' + (minimo === null ? 'sin fijar' : minimo);
+  return conseguido + ' · ' + abajo + ' · máx ' + (maximo === Infinity ? 'todos' : maximo);
 }
 
 /** Las tres cifras junto al nombre del modo, discretas: «Sequenced · 7 · mín 10 · máx 100». */
 export function htmlCifras(nombre, alcance) {
   const bajo = alcance.alMinimo === false ? ' bajo' : '';
-  const titulo = 'posiciones: las que trae esta vista · el mínimo que intenta el modo · el máximo que puede representar y emitir'
+  const titulo = 'posiciones con contenido: las que trae esta vista · el mínimo que intenta el modo · el máximo que puede representar y emitir'
     + (alcance.alMinimo === false ? ' (no llega al mínimo: no hay más información)' : '');
   return `<span class="cifras${bajo}" title="${escapar(titulo)}">${escapar(nombre)} · ${escapar(textoCifras(alcance))}</span>`;
+}
+
+/**
+ * Los avisos de corte de una vista (VG, 7-11 noche, decisión 10.2: todos
+ * cortan duro con el aviso de Scened, «Trae X de Y posiciones»), como en
+ * Scened: la vista los pone arriba y abajo de lo que trae. Sin avisos, nada.
+ */
+export function htmlAvisos(avisos) {
+  return (avisos ?? []).map((a) => `<div class="aviso">${escapar(a)}</div>`).join('');
 }

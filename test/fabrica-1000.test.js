@@ -12,7 +12,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
-import { desdeMapped, escribirDesde, escribirSalida, ubicar, claseDe, CLASES } from '../src/escritura.js';
+import { desdeMapped, escribirDesde, escribirSalida, alcanceDeRegistro, proporcionDeRegistro, ubicar, claseDe, CLASES } from '../src/escritura.js';
 import { MODOS, tope, cabeTope, cabeEscritura, proporcion, proporcionDe, contarPosiciones, lectura } from '../src/modos.js';
 import { consolidar, autorizar, ejecutar, FABRICA } from '../src/motor.js';
 import { resolver, direccion } from '../src/btml.js';
@@ -183,24 +183,25 @@ test('ubicar tiene en cuenta los límites del modo: dentro solo si el registro, 
   // Sin modo, solo la base: [2][0][0] tiene base (la compra tiene 0 y 1) y va dentro.
   assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0]), { ubicacion: 'dentro', en: '0000000000', dir: '2000000000', faltan: [] });
   assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0], { modo: 'mapped' }), { ubicacion: 'dentro', en: '0000000000', dir: '2000000000', faltan: [] });
-  // En Pointed (proporción: 1 posición), dentro serían 3 (dos heredadas y la celda): se ancla sola.
-  assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed' }), {
-    ubicacion: 'anclado', en: '2000000000', dir: '2000000000', faltan: [], motivo: 'pointed escribe como mucho 1 posiciones; dentro, el registro tiene 3',
+  // VG, 7-11 noche: la proporción propone, el máximo manda (antes, la proporción de Pointed, 1, la anclaba sola).
+  // En Pointed, dentro serían 3 (dos heredadas y la celda), 1 emitida: cabe en el máximo (10) y va dentro.
+  assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed' }), { ubicacion: 'dentro', en: '0000000000', dir: '2000000000', faltan: [] });
+  // El máximo cuenta lo emitido en el registro: con dos celdas ya escritas y nueve en esta, once: se ancla sola.
+  assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', escritas: [[0, 0, 0], [1, 0, 0]], contenido: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'] }), {
+    ubicacion: 'anclado', en: '2000000000', dir: '2000000000', faltan: [], motivo: 'Pointed emite como mucho 10 posiciones; dentro, el registro tiene 11',
   });
-  // Sin relleno, cabe dentro también en Pointed.
-  assert.equal(ubicar(eje, compra.id, [0, 0, 0], { modo: 'pointed' }).ubicacion, 'dentro');
-  // Lo que no cabe ni solo es un error.
-  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: ['a', 'b'] }), /^Error: pointed escribe como mucho 1 posiciones; esta celda tiene 2$/);
-  // La proporción se mira primero (el mensaje de siempre); el tope decide donde no hay proporción (Scened).
-  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: Array(11).fill('x') }), /^Error: pointed escribe como mucho 1 posiciones; esta celda tiene 11$/);
+  // Lo que no cabe ni solo es un error, por el máximo del modo.
+  assert.equal(ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: ['a', 'b'] }).ubicacion, 'dentro');
+  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: Array(11).fill('x') }), /^Error: Pointed emite como mucho 10 posiciones; esta celda tiene 11$/);
   const diezMilUno = [Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z')))), 'una más'];
   assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'scened', contenido: diezMilUno }), /^Error: Scened emite como mucho 10000 posiciones; esta celda tiene 10001$/);
-  // escribirDesde con celda usa lo mismo: en Pointed, la celda [2][0][0] se escribe anclada, una posición, un minuto.
+  // escribirDesde con celda usa lo mismo: en Pointed, la celda [2][0][0] va dentro, con la 0 y la 1 heredadas del foco.
   const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [2, 0, 0], payload: 'sin lactosa', t: T });
-  assert.equal(ev.en, '2000000000');
-  assert.equal(ev.payload, 'sin lactosa');
-  assert.equal(ev.movimientos[0].cantidad, 1);
-  assert.equal(ev.contexto.heredadas, undefined);
+  assert.equal(ev.en, '0000000000');
+  assert.deepEqual(ev.contexto.heredadas, [0, 1]);
+  assert.equal(ev.movimientos[0].cantidad, 3); // cada posición del registro mueve un minuto, la heredada también
+  assert.deepEqual(alcanceDeRegistro(ev).conseguido, 1); // emitida, una
+  assert.equal(proporcionDeRegistro(ev).estado, 'por encima'); // tres posiciones frente a la una que propone Pointed: se avisa, no se rechaza
 });
 
 test('pagar dentro: cuando el foco desarrolla las clases de la celda, se heredan y alcanzan', async () => {
@@ -220,11 +221,12 @@ test('pagar dentro: cuando el foco desarrolla las clases de la celda, se heredan
   assert.deepEqual(ev.payload, salida.payload);
   assert.deepEqual(ev.contexto.heredadas, salida.heredadas);
   assert.equal(ev.movimientos[0].cantidad, 8); // el coste sí cuenta el relleno ([X] decidir VG)
-  // En Pointed, dentro serían 8 posiciones: ubicar la ancla en 1240000000, una posición, un minuto.
+  // En Pointed también va dentro (VG, 7-11 noche: la proporción propone, el máximo manda): una emitida cabe en 10; antes se anclaba en 1240000000.
   const p = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: ficha.id, celda: [1, 2, 4], payload: 'pagar 12 EUR', t: T });
-  assert.equal(p.en, '1240000000');
-  assert.equal(p.payload, 'pagar 12 EUR');
-  assert.equal(p.movimientos[0].cantidad, 1);
+  assert.equal(p.en, '0000000000');
+  assert.deepEqual(p.payload, salida.payload);
+  assert.equal(p.movimientos[0].cantidad, 8);
+  assert.equal(proporcionDeRegistro(p).estado, 'por encima'); // ocho posiciones frente a la una que propone Pointed: aviso, no error
 });
 
 test('el tope cuenta lo emitido, no las referencias de relleno', async () => {
@@ -280,11 +282,11 @@ test('con celda y camino, el registro va donde dice ubicar', async () => {
     escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], en: '4000000000', payload: 'postre', t: T }),
     /^Error: la celda 3\.0\.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000$/,
   );
-  // En Pointed la misma celda no cabe dentro (4 posiciones): se ancla en su dirección absoluta, la que da ubicar.
+  // En Pointed la misma celda también cabe dentro (VG, 7-11 noche: la proporción propone, el máximo manda; antes se anclaba en 1300000000).
   const up = ubicar(eje, compra.id, [3, 0, 0], { camino: [1], modo: 'pointed' });
   const p = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'postre', t: T });
   assert.equal(p.en, up.en);
-  assert.equal(p.en, '1300000000');
+  assert.equal(p.en, '1000000000');
   // Anclada por falta de base: su dirección absoluta, la misma que da ubicar.
   assert.deepEqual(ubicar(eje, compra.id, [0, 1, 0], { camino: [1] }), { ubicacion: 'anclado', en: '1010000000', dir: '1010000000', faltan: ['0.0'] });
   const anclada = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [0, 1, 0], camino: [1], payload: 'dentro', t: T });
@@ -321,13 +323,14 @@ test('topes duros por modo: Pointed 10, Sequenced 100, Mapped 1000, Scened 10000
   assert.equal(cabeTope(conRelleno, 'pointed'), false);
   assert.equal(cabeTope(conRelleno, 'pointed', [0]), true);
   assert.throws(() => cabeTope(conRelleno, 'pointed', 1), /heredadas es una lista/);
-  // La proporción cuenta todas las posiciones del registro, lo heredado incluido.
+  // La proporción cuenta todas las posiciones del registro, lo heredado incluido (y solo propone: decisión 10.3).
   assert.equal(cabeEscritura(conRelleno, 'sequenced'), true);
-  assert.deepEqual(proporcion(conRelleno, 'sequenced'), { posiciones: 11, rango: [10, 20], estado: 'dentro' });
+  assert.deepEqual(proporcion(conRelleno, 'sequenced'), { posiciones: 11, rango: [10, 20], estado: 'dentro', aviso: null });
   assert.throws(() => tope('otro'), /modo desconocido: otro/);
 });
 
-test('la matriz de 1000: el tope de Mapped la admite, la proporción no ([X] decidir VG)', async () => {
+// VG, 7-11 noche: la proporción propone, el máximo manda (decisión 10.3; antes, la proporción la rechazaba en Mapped).
+test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avisa', async () => {
   // Escribir mil posiciones cuesta mil minutos: un eje propio cuyo génesis los emite.
   const eje = await ejeGrande(3000);
   const foco = eje.genesisId;
@@ -341,30 +344,36 @@ test('la matriz de 1000: el tope de Mapped la admite, la proporción no ([X] dec
   assert.equal(payload[1][2][4], '1.2.4');
   assert.equal(cabeTope(payload, 'mapped'), true);
   assert.equal(cabeTope(payload, 'sequenced'), false);
-  // La proporción (de 250 a 333 en Mapped) rechaza, como antes del 7-11: con las dos, la matriz entera no cabe en Mapped.
+  // La proporción (de 250 a 333 en Mapped) ya no rechaza: propone, y lo que se sale se avisa.
   assert.equal(cabeEscritura(payload, 'mapped'), false);
-  assert.deepEqual(proporcion(payload, 'mapped'), { posiciones: 1000, rango: [250, 333], estado: 'por encima' });
-  assert.deepEqual(proporcion(['a'], 'pointed'), { posiciones: 1, rango: [1, 1], estado: 'dentro' });
-  assert.deepEqual(proporcion(['a'], 'scened'), { posiciones: 1, rango: null, estado: 'sin fijar' });
-  assert.deepEqual(proporcionDe(5, 'sequenced'), { posiciones: 5, rango: [10, 20], estado: 'por debajo' });
-  await assert.rejects(
-    escribirSalida(eje, { modo: 'mapped', autor: 'casa', sobre: foco, salida, t: T }),
-    /^Error: mapped escribe como mucho 333 posiciones; esta salida tiene 1000$/,
-  );
-  // La proporción se mira primero: aunque también se pase el tope, el mensaje es el de siempre.
+  const encima = proporcion(payload, 'mapped');
+  assert.deepEqual([encima.posiciones, encima.rango, encima.estado], [1000, [250, 333], 'por encima']);
+  assert.equal(encima.aviso, 'Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 1000, por encima. No es error: la proporción propone, el máximo (1000) manda.');
+  assert.deepEqual(proporcion(['a'], 'pointed'), { posiciones: 1, rango: [1, 1], estado: 'dentro', aviso: null });
+  assert.deepEqual(proporcion(['a'], 'scened'), { posiciones: 1, rango: null, estado: 'sin fijar', aviso: null });
+  assert.equal(proporcionDe(5, 'sequenced').estado, 'por debajo');
+  assert.match(proporcionDe(5, 'sequenced').aviso, /^Sequenced propone escribir de 10 a 20 posiciones .*esto tiene 5, por debajo\./);
+  // El máximo manda: en Sequenced (100) la matriz no cabe, y una más que la matriz tampoco cabe en Mapped.
   await assert.rejects(
     escribirDesde(eje, { modo: 'sequenced', autor: 'casa', sobre: foco, payload, t: T }),
-    /^Error: sequenced escribe como mucho 20 posiciones; este registro tiene 1000$/,
+    /^Error: Sequenced emite como mucho 100 posiciones; este registro tiene 1000$/,
   );
   await assert.rejects(
     escribirDesde(eje, { modo: 'mapped', autor: 'casa', sobre: foco, payload: [...payload.slice(0, 9), [payload[9], 'una más']], t: T }),
-    /^Error: mapped escribe como mucho 333 posiciones; este registro tiene 1001$/,
+    /^Error: Mapped emite como mucho 1000 posiciones; este registro tiene 1001$/,
   );
   assert.equal(eje.sobre(foco).length, 0); // nada se escribió
-  // Scened no tiene proporción: la matriz entera se escribe.
+  // En Mapped, la matriz entera se escribe, con el aviso de la proporción.
+  const m = await escribirSalida(eje, { modo: 'mapped', autor: 'casa', sobre: foco, salida, t: T });
+  assert.equal(m.registro.movimientos[0].cantidad, 1000);
+  assert.deepEqual(m.proporcion, encima);
+  assert.deepEqual(m.avisos, [encima.aviso]);
+  assert.deepEqual(m.alcance, { conseguido: 1000, minimo: 100, maximo: 1000, alMinimo: true });
+  // Scened no tiene proporción: la matriz entera se escribe, sin aviso.
   const r = await escribirSalida(eje, { modo: 'scened', autor: 'casa', sobre: foco, salida, t: T });
   assert.equal(r.registro.movimientos[0].cantidad, 1000);
-  assert.deepEqual(r.proporcion, { posiciones: 1000, rango: null, estado: 'sin fijar' });
+  assert.deepEqual(r.proporcion, { posiciones: 1000, rango: null, estado: 'sin fijar', aviso: null });
+  assert.deepEqual(r.avisos, []);
 });
 
 test('lo lejano sin base en el foco se ancla en su posición en vez de rechazarse', async () => {
@@ -400,7 +409,8 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.equal(anclados[0].payload, 'repetir el sábado');
   assert.equal(anclados[0].contexto.heredadas, undefined);
   assert.equal((eje.tiempoSobre(compra.id).minuto ?? 0) - antes, 4); // tres posiciones dentro, una anclada
-  assert.deepEqual(p, { posiciones: 4, rango: [250, 333], estado: 'por debajo' }); // la proporción cuenta todas las posiciones de la salida
+  assert.deepEqual([p.posiciones, p.rango, p.estado], [4, [250, 333], 'por debajo']); // la proporción cuenta todas las posiciones de la salida
+  assert.match(p.aviso, /^Mapped propone escribir de 250 a 333 posiciones/); // por debajo de la propuesta: se avisa, no se rechaza
   // Lo anclado es un ocupante escrito de la posición lejana.
   assert.deepEqual(ocupantes(eje, compra.id, [7]).map((o) => o.evento), [anclados[0].id]);
   // Con la salida entera escrita, el aviso se retira.
@@ -428,25 +438,26 @@ test('los límites cuentan la salida entera: registro y anclados', async () => {
   lineas[7] = ['lejos'];
   const salida = desdeMapped(eje, lineas, compra.id);
   assert.equal(contarPosiciones(salida.payload), 11); // diez escritas y la 0 heredada
-  // Pointed: la proporción, que se mira primero, cuenta todas las posiciones de la salida (once dentro, la heredada incluida, y una anclada);
-  // el tope contaría lo emitido (diez dentro y una anclada).
+  // VG, 7-11 noche: la proporción propone, el máximo manda. Pointed: el máximo cuenta lo emitido de la salida entera
+  // (diez dentro y una anclada, once; la 0 heredada no se emite) y rechaza; la proporción contaría doce, y solo avisaría.
   await assert.rejects(
     escribirSalida(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, salida, t: T }),
-    /^Error: pointed escribe como mucho 1 posiciones; esta salida tiene 12$/,
+    /^Error: Pointed emite como mucho 10 posiciones; esta salida tiene 11$/,
   );
-  // Proporción: todas las posiciones (doce, con la heredada) superan las 20 de Sequenced solo si son más.
+  // Por encima de la proporción de Sequenced (20), dentro de su máximo (100): se escribe y se avisa.
   const veinte = [];
   veinte[1] = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'];
   veinte[2] = ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'];
   veinte[8] = ['lejos'];
   const grande = desdeMapped(eje, veinte, compra.id);
-  await assert.rejects(
-    escribirSalida(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, salida: grande, t: T }),
-    /^Error: sequenced escribe como mucho 20 posiciones; esta salida tiene 22$/,
-  );
-  assert.equal(eje.sobre(compra.id).length, 0); // nada se escribió
+  assert.equal(eje.sobre(compra.id).length, 0); // nada se escribió todavía
   const ok = await escribirSalida(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, salida, t: T });
-  assert.deepEqual(ok.proporcion, { posiciones: 12, rango: [10, 20], estado: 'dentro' });
+  assert.deepEqual(ok.proporcion, { posiciones: 12, rango: [10, 20], estado: 'dentro', aviso: null });
+  assert.deepEqual(ok.avisos, []);
+  const mas = await escribirSalida(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, salida: grande, t: T });
+  assert.equal(mas.proporcion.estado, 'por encima');
+  assert.equal(mas.proporcion.posiciones, 22);
+  assert.deepEqual(mas.avisos, [mas.proporcion.aviso]);
   // Una salida que no es de este foco no pasa: sus heredadas no son referencias a él.
   const otra = await eje.escribir({ autor: 'huesped', sobre: compra.id, t: T, movimientos: [gastaT('huesped')], payload: ['otra', 'cosa', 'más'] });
   const ajena = desdeMapped(eje, [{ i: 2, j: 0, k: 0, contenido: 'x' }], otra.id);

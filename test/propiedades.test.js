@@ -16,7 +16,7 @@ import * as B from '../src/bql.js';
 import * as motor from '../src/motor.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { escribirDesde, costeT } from '../src/escritura.js';
-import { cabeEscritura } from '../src/modos.js';
+import { cabeTope } from '../src/modos.js';
 import { generarClaves, verificar } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
@@ -244,7 +244,7 @@ test('regresión: una clave declarada debe ser pública e importable (sin d, sin
 
 test('regresión: P sobre el génesis por su id cubre lo mismo que P «genesis»', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', ambito: 'genesis', cantidad: 10 }], foco: 'g', t: T0 });
-  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x' });
+  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x', contexto: { tipos: { b: 'persona' } } }); // b escribe con su T
   await eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, movimientos: [gastaT('b'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'b', a: 'c' }], payload: 'y' });
   assert.equal(eje.saldo('b', 'P:' + eje.genesisId), 3);
   assert.equal(eje.saldo('c', 'P:genesis'), 1);
@@ -278,7 +278,7 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
   for (let s = 0; s < 12; s++) {
     const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
     // Alta: b es persona, c es grupo y hab es una cosa (con cartera, sin emisión).
-    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => ({ token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
+    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => (a === 'hab' ? { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a } : { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
     const consumido = new Map([['T:minuto', 1]]);
     const ids = [eje.genesisId, alta.id];
     for (let paso = 0; paso < 25; paso++) {
@@ -347,15 +347,14 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
 });
 
 /**
- * Escribir cuesta minutos: escribirDesde consume un minuto de T por posición
+ * Escribir cuesta minutos: escribirDesde mueve un minuto de T por posición
  * (costeT) y cada escala es su propio token, así que las horas no pagan.
- * Se acepta si cabe en el modo; los minutos que falten se acuñan al gastarse
- * (VG, 7-11 noche: T es el medidor propio), y el consumo queda anotado en el
- * registro que soporta. Si no cabe, nada cambia.
+ * Se acepta si cabe en el máximo del modo y hay minutos; si no, nada cambia.
+ * La raíz no declaró ser persona: no acuña su T al gastarlo (Core, 8-11).
  */
 test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca las demás escalas', async () => {
   const g = prng(SEMILLA + 6);
-  const vistos = { aceptado: 0, acunado: 0, noCabe: 0 };
+  const vistos = { aceptado: 0, sinMinutos: 0, noCabe: 0 };
   for (let i = 0; i < 150; i++) {
     const minutos = g.pick([0, 1, 2, 5, 20, 400]);
     const emision = [{ token: 'T', escala: 'hora', cantidad: 1000 }, ...(minutos ? [{ token: 'T', escala: 'minuto', cantidad: minutos }] : [])];
@@ -363,27 +362,28 @@ test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca 
     const modo = g.pick(['pointed', 'sequenced', 'mapped']);
     const payload = g.si(0.3) ? g.pick(['plaza', 7, { ref: eje.genesisId, dir: '1000000000' }]) : payloadEje(g, [eje.genesisId]);
     const coste = costeT(payload);
-    const cabe = cabeEscritura(payload, modo);
+    const cabe = cabeTope(payload, modo); // VG, 7-11 noche: la proporción propone, el máximo manda (antes, cabeEscritura)
     const antes = foto(eje);
     let ev;
     try {
       ev = await escribirDesde(eje, { modo, autor: 'r', sobre: eje.genesisId, payload, t: T0 });
     } catch (e) {
-      assert.ok(!cabe, 'rechazado sin motivo: ' + e.message);
+      assert.ok(!cabe || minutos < coste, 'rechazado sin motivo: ' + e.message);
       assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
-      vistos.noCabe++;
+      if (!cabe) vistos.noCabe++;
+      else {
+        assert.match(e.message, /saldo insuficiente de T:minuto/);
+        vistos.sinMinutos++;
+      }
       continue;
     }
-    assert.ok(cabe, 'aceptado sin caber: ' + modo + ' ' + coste);
+    assert.ok(cabe && minutos >= coste, 'aceptado sin caber o sin minutos: ' + modo + ' ' + coste + '/' + minutos);
     assert.deepEqual(ev.movimientos.map((m) => [m.token, m.escala, m.cantidad, m.de, m.a]), [['T', 'minuto', coste, 'r', null]]);
-    assert.equal(eje.saldoT('r', 'minuto'), Math.max(0, minutos - coste));
-    assert.equal(eje.serie('T:minuto').emitido, Math.max(minutos, coste), 'lo que falta se acuña al gastarse');
-    assert.deepEqual(eje.tiempoSobre(eje.genesisId), { minuto: coste });
+    assert.equal(eje.saldoT('r', 'minuto'), minutos - coste);
     assert.equal(eje.saldoT('r', 'hora'), 1000, 'las horas no pagan minutos');
-    if (minutos < coste) vistos.acunado++;
     vistos.aceptado++;
   }
-  assert.ok(vistos.aceptado > 0 && vistos.acunado > 0 && vistos.noCabe > 0, JSON.stringify(vistos));
+  assert.ok(vistos.aceptado > 0 && vistos.sinMinutos > 0 && vistos.noCabe > 0, JSON.stringify(vistos));
 });
 
 // ---------- encaje ----------
@@ -610,9 +610,10 @@ async function ejeConFirmas(g, pares) {
   const firmas = g.si(0.6);
   const [pr, pb] = pares;
   const priv = { r: firmas ? pr.privada : undefined, b: firmas ? pb.privada : undefined };
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }, { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 1000 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
+  // r es una persona y b una cosa suya, que escribe con el T que r le da (Core, 8-11).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
   const ids = [eje.genesisId];
-  const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'E', denominacion: 'minuto', emisor: 'r', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: firmas ? { claves: { b: pb.publica } } : {} }, priv.r);
+  const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: { tipos: { b: 'cosa' }, ...(firmas ? { claves: { b: pb.publica } } : {}) } }, priv.r);
   ids.push(alta.id);
   for (let i = 0; i < g.int(1, 4); i++) {
     const autor = g.pick(['r', 'b']);

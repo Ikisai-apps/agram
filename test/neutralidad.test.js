@@ -27,6 +27,9 @@ import { generarClaves } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
+// Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
+// de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
+const ALTA = '2026-10-07T22:00:00Z';
 const CASOS = 60;
 
 function mulberry32(a) {
@@ -67,12 +70,12 @@ function repartir(g, n, k) {
 async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = 'normas' } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
+    identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
     emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const altas = [tercero, ...personas];
   await eje.escribir({
-    autor: 'g', sobre: eje.genesisId, t: T0,
+    autor: 'g', sobre: eje.genesisId, t: ALTA,
     movimientos: [minuto('g'), ...altas.map((id) => minuto('g', 5000, id))],
     payload: 'altas',
     contexto: { tipos: Object.fromEntries(altas.map((id) => [id, tipos[id] ?? 'persona'])) },

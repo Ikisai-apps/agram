@@ -28,7 +28,7 @@ import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
 import { acunaAlGastar } from './eje.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
@@ -122,6 +122,7 @@ function libroAntes(eje, hasta) {
   const libro = {
     saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
     altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
+    ampliadas: new Set(), // consolidaciones que ya respaldaron una ampliación de P (como en el eje)
     // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
     reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
     tMax: -Infinity, // el mayor t hasta aquí, en milisegundos UTC
@@ -160,6 +161,7 @@ function contextoCiclo(eje, libro, ev) {
     reglas: libro.reglas,
     genesisId: eje.genesisId,
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
+    ampliada: (id) => libro.ampliadas.has(id),
   };
 }
 
@@ -201,6 +203,8 @@ function planP(eje, ver, identidad, ambito, cantidad) {
 }
 
 function aplicar(eje, libro, ev) {
+  const amplia = consolidacionQueAmplia(ev, () => contextoCiclo(eje, libro, ev)); // la que usó para ampliar P, con el libro de antes (SEG-04)
+  if (amplia) libro.ampliadas.add(amplia);
   libro.ids.add(ev.id);
   for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) libro.claves.set(id, jwk);
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
@@ -231,6 +235,11 @@ function aplicar(eje, libro, ev) {
       ajustar(m.de, k, -usa);
       const st = libro.series.get(k) ?? { emisor: ev.autor, emitido: 0 };
       libro.series.set(k, { ...st, emitido: st.emitido + (m.cantidad - usa) });
+      // Lo acuñado cuenta para el tope del reloj igual que una emisión explícita (src/ciclo.js).
+      if (m.cantidad > usa) {
+        const kt = JSON.stringify([ev.autor, m.escala]);
+        libro.emitidoT.set(kt, (libro.emitidoT.get(kt) ?? 0) + (m.cantidad - usa));
+      }
     } else {
       ajustar(m.de, k, -m.cantidad);
     }
@@ -362,7 +371,8 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.claves.get(ev.autor);
   const conAlta = esGenesis || libro.identidades.has(ev.autor);
   // R9: fuera de un eje de demostración (lo marca su génesis) y del prefijo de la versión 2, sin clave no se actúa.
-  const demostracion = esGenesis ? ev.contexto?.demostracion === true || (eje.eventosV2 ?? 0) > 0 : eje.demostracion !== false;
+  // La demostración la da solo la bandera del génesis (SEG-02); el prefijo v2 lo exime libro.reglas.
+  const demostracion = esGenesis ? ev.contexto?.demostracion === true : eje.demostracion !== false;
   const exigeClave = !demostracion && libro.reglas !== 2;
   let firma;
   if (clave) {
@@ -498,8 +508,9 @@ function capaAcreditacion(eje, ev, libro) {
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
     } else if (acunaAlGastar(m, ev.autor, libro.reglas === 2)) {
-      // T se acuña al gastarse (VG, 7-11 noche; src/eje.js, acunaAlGastar): consumir T propio no se queda
-      // corto por saldo; lo que falta se emite a su nombre en ese momento.
+      // T se acuña al gastarse (VG, 7-11 noche; src/eje.js, acunaAlGastar): lo que falta se emite a su nombre
+      // en ese momento, solo si es una persona y dentro del tope del reloj (src/ciclo.js lo dice por índice).
+      if (delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
       const s = serie(k);
       emitido.set(k, { ...(s ?? {}), emisor: s?.emisor ?? ev.autor, emitido: (s?.emitido ?? 0) + (m.cantidad - usa) });

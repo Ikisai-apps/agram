@@ -79,6 +79,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   genesisId                el id del génesis
  *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
  *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
+ *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia, que lee este mismo contexto)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -181,8 +182,9 @@ export function reglasDelCiclo(ev, ctx) {
       // esté AUTORIZADA (src/autorizacion.js), y solo entonces vale. Sobre el
       // génesis, P:genesis (el del génesis) y P:<id del génesis> son la misma
       // serie: lo que emitió el génesis ya la abrió.
-      if (emitidoAntes(m.ambito) > 0 && !esAmpliacionAutorizada(ev, m.ambito, ctx)) {
-        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3)');
+      const noAmplia = emitidoAntes(m.ambito) > 0 ? porQueNoAmplia(ev, m.ambito, ctx) : null;
+      if (noAmplia) {
+        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3): ' + noAmplia);
       }
     }
     if (m.token === 'E') {
@@ -194,6 +196,55 @@ export function reglasDelCiclo(ev, ctx) {
       if (fijada === undefined) caducas.set(k, esta);
       else if (!mismaCaducidad(fijada, esta)) falla(i, 4, 'la serie ' + k + (fijada ? ' caduca el ' + fijada : ' no caduca') + ': una ampliación no cambia su caducidad');
     }
+  }
+
+  // T se acuña al gastarse (src/eje.js, acunaAlGastar): consumir T propio sin
+  // saldo es AZÚCAR de emitirlo y consumirlo en el mismo evento, así que rige
+  // lo mismo que una emisión explícita: solo lo hace una persona, y lo acuñado
+  // cuenta en lo emitido por escala y no pasa del tope del reloj (revisión de
+  // seguridad de Core, 8-11). Si no alcanza, saldo insuficiente, como antes.
+  const disponibleT = new Map(); // escala → T disponible del autor durante el evento
+  const verT = (e) => (disponibleT.has(e) ? disponibleT.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
+  for (const { m, i } of validos) {
+    if (m.token !== 'T') continue;
+    const e = m.escala;
+    if (m.de === null) { if (m.a === autor) disponibleT.set(e, verT(e) + m.cantidad); continue; }
+    if (m.de !== autor) continue;
+    if (m.estado === 'liberacion') { disponibleT.set(e, verT(e) + m.cantidad); continue; }
+    if (!esConsumoT(m, autor)) { if (m.estado === 'bloqueo' || m.a !== autor) disponibleT.set(e, Math.max(0, verT(e) - m.cantidad)); continue; }
+    const usa = Math.min(verT(e), m.cantidad);
+    disponibleT.set(e, verT(e) - usa);
+    const falta = m.cantidad - usa;
+    if (falta <= 0) continue;
+    const k = 'T:' + e;
+    // Solo las personas (Core, 8-11): una cosa gasta el T que le dio su persona, y un grupo no tiene T.
+    if (!EMITEN.includes(tipoAutor)) {
+      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': tiene ' + usa + ' y gasta ' + m.cantidad + '; solo una persona acuña su T al gastarlo (' + autor + (tipoAutor ? ' es ' + tipoAutor : ' no declaró tipo en su alta') + ')');
+      continue;
+    }
+    const alta = ctx.alta(autor);
+    const tope = alta ? topeT(alta.t, ev.t, e) : TOPE_T_MINIMO;
+    const llevaria = ctx.emitidoT(autor, e) + (tDelEvento.get(e) ?? 0) + falta;
+    tDelEvento.set(e, (tDelEvento.get(e) ?? 0) + falta);
+    if (llevaria > tope) {
+      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': acuñar al gastar los ' + falta + ' que faltan llevaría ' + llevaria + ' emitido y el reloj da ' + tope + (alta ? ' desde su alta (' + alta.t + ')' : ''));
+    }
+  }
+
+  // T no cruza de persona (VG, 7-11 noche: «recibir T solo es un registro de
+  // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
+  // recurso de otra persona»): de una persona a otra identidad, T se rechaza, y
+  // dar tiempo a otro es emitir E de la serie del que lo da, en su tiempo
+  // (E:<persona>/hora). Lo único que vale (Core, 8-11) es que una PERSONA dé su
+  // T a una COSA («T de segundo para automatismos y maquinaria»): la máquina
+  // gasta el T de su dueño, y el tope sigue siendo el de la persona (y una cosa
+  // lo pasa a otra cosa: no cruza de persona). Un grupo
+  // no recibe T: lo que escribe un grupo lo escribe una persona con P sobre él.
+  for (const { m, i } of validos) {
+    if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
+    const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;
+    if ((tipoAutor === 'persona' || tipoAutor === 'cosa') && tipoA === 'cosa') continue; // una cosa pasa a otra cosa el T de su persona
+    falla(i, 5, 'T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + autor + '/' + m.escala + '); solo se da T a una cosa');
   }
 
   // R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el eje
@@ -259,17 +310,60 @@ function clavesDeSerieP(ambito, genesisId) {
 }
 
 /**
- * ¿Es `ev` la ejecución de una consolidación sobre el registro `ambito` que
- * está AUTORIZADA justo antes (y aún sin ejecutar)? Es lo único que amplía
- * una serie P:X ya emitida (R3). La ejecuta su autor (ejecutar en el motor;
- * aquí, el autor de la consolidación, que ha de ser quien emite: el autor de X).
+ * La consolidación que `ev` usó para ampliar una serie P ya emitida, o null.
+ * El eje y las capas de validez la marcan como usada al aplicar el evento: una
+ * consolidación respalda UNA ampliación de P. Solo la usa el evento que amplía
+ * de verdad (SEG-04, revisión de la #73): su foco es una consolidación de su
+ * mismo autor y emite P sobre el registro que ella amplía (sobre el génesis,
+ * P:genesis o P:<id del génesis>), en una serie que ya estaba emitida antes del
+ * evento, por el camino en que `porQueNoAmplia` no puso pega. Una ejecución
+ * que emite P por primera vez sobre otro registro (o un evento de otra
+ * identidad en la fábrica) no la consume: si no, bastaría con él para negar
+ * la ampliación legítima.
+ *
+ * `contexto` es el de las reglas del ciclo (reglasDelCiclo) de justo antes de
+ * `ev`, o una función que lo da: solo se pide si `ev` está en la fábrica y
+ * dice `fase: 'ejecutado'`.
  */
-function esAmpliacionAutorizada(ev, ambito, ctx) {
+export function consolidacionQueAmplia(ev, contexto) {
+  if (!ev || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado' || typeof ev.sobre !== 'string') return null;
+  const ctx = typeof contexto === 'function' ? contexto() : contexto;
+  if (!ctx || ctx.reglas === 2) return null;
   const c = ctx.registro(ev.sobre);
-  if (!esConsolidacion(c) || c.autor !== ev.autor || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return false;
+  if (!esConsolidacion(c) || c.autor !== ev.autor) return null;
+  const emitidoAntes = (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
+  const amplia = (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) =>
+    m && typeof m === 'object' && !validarMovimiento(m).length && m.token === 'P' && m.de === null && m.a === ev.autor &&
+    m.ambito !== AMBITO_GENESIS && ctx.registro(m.ambito)?.autor === ev.autor &&
+    emitidoAntes(m.ambito) > 0 && porQueNoAmplia(ev, m.ambito, ctx) === null);
+  return amplia ? c.id : null;
+}
+
+/**
+ * Por qué `ev` no amplía la serie P:`ambito`, o null si la amplía: ha de ser la
+ * ejecución REAL de una consolidación sobre el registro `ambito` que está
+ * AUTORIZADA justo antes (y aún sin ejecutar), y que no haya respaldado ya otra
+ * ampliación. Es lo único que amplía una serie P:X ya emitida (R3). La ejecuta
+ * su autor (ejecutar en el motor; aquí, el autor de la consolidación, que ha
+ * de ser quien emite: el autor de X). Real (SEG-01, revisión de main 7-11
+ * noche): no basta con decir `fase: 'ejecutado'`; lleva la evidencia que deja
+ * motor.ejecutar, no vacía, con el id de la consolidación, y todas sus
+ * referencias son eventos del eje.
+ */
+function porQueNoAmplia(ev, ambito, ctx) {
+  const c = ctx.registro(ev.sobre);
+  if (!esConsolidacion(c) || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return 'no es la ejecución de una consolidación';
+  if (c.autor !== ev.autor) return 'la ejecuta el autor de la consolidación (' + c.autor + ')';
   const sobreElGenesis = ambito === AMBITO_GENESIS || ambito === ctx.genesisId;
-  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return false;
-  return ctx.autorizada?.(c.id) === true;
+  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return 'la consolidación ' + corto(c.id) + ' no es sobre ' + corto(ambito);
+  const evidencia = ev.contexto?.evidencia;
+  if (!Array.isArray(evidencia) || !evidencia.length) return 'una ejecución lleva su evidencia (contexto.evidencia), y esta no la lleva';
+  if (!evidencia.includes(c.id)) return 'la evidencia no cita la consolidación ' + corto(c.id);
+  const rota = evidencia.find((id) => typeof id !== 'string' || !ctx.registro(id));
+  if (rota !== undefined) return 'la evidencia cita ' + corto(rota) + ', que no está en el eje';
+  if (ctx.ampliada?.(c.id) === true) return 'la consolidación ' + corto(c.id) + ' ya respaldó una ampliación: respalda una sola';
+  if (ctx.autorizada?.(c.id) !== true) return 'la consolidación ' + corto(c.id) + ' no está AUTORIZADA (o ya se ejecutó)';
+  return null;
 }
 
 /** Las reglas de emisión de la versión 2, para los eventos guardados con ella. */

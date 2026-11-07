@@ -27,6 +27,9 @@ import { ALCANCES } from '../src/tiempo.js';
 
 const SEMILLA = 20261108;
 const T0 = '2026-11-07T00:00:00Z';
+/** El día antes de T0: la raíz y sus altas nacen aquí, y a T0 el reloj de cada persona le da su T (Core, 8-11). */
+const AYER = '2026-11-06T00:00:00Z';
+const SEG_ESCALA = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 7 * 86400, ciclo: 28 * 86400, anio: 365 * 86400 };
 
 function mulberry32(a) {
   return function () {
@@ -61,7 +64,8 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * dominio ajeno, y P:X se emite una sola vez (R3, VG 7-11 noche); | : / reservados.
  */
 class Modelo {
-  constructor(genesisId, autor, tipo, emision) {
+  constructor(genesisId, autor, tipo, emision, tGenesis = T0) {
+    this.altaT = new Map([[autor, tGenesis]]); // identidad → t de su alta: el tope del reloj a T0
     this.g = genesisId;
     this.padre = new Map([[genesisId, null]]);
     this.autorDe = new Map([[genesisId, autor]]);
@@ -99,7 +103,7 @@ class Modelo {
         if (m.a !== autor) return false;
         const lleva = (this.emitidoT.get(autor + m.escala) ?? 0) + (tEvento.get(m.escala) ?? 0) + m.cantidad;
         tEvento.set(m.escala, (tEvento.get(m.escala) ?? 0) + m.cantidad);
-        if (lleva > 1) return false;
+        if (lleva > this.tope(autor, m.escala)) return false;
       }
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
       // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
@@ -114,6 +118,11 @@ class Modelo {
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
     }
     return true;
+  }
+  /** Tope del reloj a T0 (todo se escribe en T0): las unidades de la escala desde su alta, y al menos una. */
+  tope(id, escala) {
+    const ms = Date.parse(T0) - Date.parse(this.altaT.get(id) ?? T0);
+    return Math.max(1, Math.ceil(ms / (SEG_ESCALA[escala] * 1000)));
   }
   /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
   emitidoDeP(ambito) {
@@ -152,9 +161,15 @@ class Modelo {
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
     // VG, 7-11 noche: escribir consume T del autor, y T no cruza de persona.
     if (!ev.movimientos.some((m) => m.token === 'T' && m.de === ev.autor && m.a === null)) return null;
-    if (ev.movimientos.some((m) => m.token === 'T' && m.a !== null && m.a !== ev.autor)) return null;
+    // Salvo de una persona (o una cosa) a una cosa (Core, 8-11): la máquina gasta el T de su dueño.
+    const tipoDe = (id) => this.tipos.get(id) ?? ev.contexto?.tipos?.[id];
+    const aCosa = (m) => ['persona', 'cosa'].includes(this.tipos.get(ev.autor)) && tipoDe(m.a) === 'cosa';
+    if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
     if (!this.cicloOk(ev)) return null;
     const emitidasAqui = new Set();
+    // Lo que se acuña al gastar: solo una persona, y cuenta en lo emitido contra el tope (aquí 1 por escala).
+    const explicito = (e) => ev.movimientos.filter((m) => m.token === 'T' && m.de === null && m.a === ev.autor && m.escala === e).reduce((s, m) => s + m.cantidad, 0);
+    const acunado = new Map();
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
@@ -181,7 +196,14 @@ class Modelo {
         }
         if (resta > 0) return null;
       } else if (m.token === 'T' && m.a === null) {
-        // Consumir T propio: lo que falte se acuña al gastarse (VG, 7-11 noche).
+        // Consumir T propio: lo que falte se acuña al gastarse (VG, 7-11 noche), si es una persona y cabe en el tope.
+        const falta = Math.max(0, m.cantidad - Math.max(0, ver(m.de, k)));
+        if (falta > 0) {
+          if (this.tipos.get(ev.autor) !== 'persona') return null;
+          const lleva = (this.emitidoT.get(ev.autor + m.escala) ?? 0) + explicito(m.escala) + (acunado.get(m.escala) ?? 0) + falta;
+          if (lleva > this.tope(ev.autor, m.escala)) return null;
+          acunado.set(m.escala, (acunado.get(m.escala) ?? 0) + falta);
+        }
         poner(m.de, k, Math.max(0, ver(m.de, k) - m.cantidad));
       } else {
         if (ver(m.de, k) < m.cantidad) return null;
@@ -194,11 +216,12 @@ class Modelo {
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const m of ev.movimientos) {
-        if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
+        if (m.a !== null && !this.alta.has(m.a)) { this.alta.set(m.a, ev.id); this.altaT.set(m.a, ev.t); }
         if (m.a !== null) this.existe.add(m.a);
         if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
       }
+      for (const [e, n] of acunado) this.emitidoT.set(ev.autor + e, (this.emitidoT.get(ev.autor + e) ?? 0) + n);
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
     };
   }
@@ -237,11 +260,11 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     // VG, 7-11 noche: el génesis lo emite una persona (o quien no declara tipo, que después no emite); ya no un grupo.
     const tipoG = g.pick(['persona', undefined]);
     const emision = [['T:minuto', 300], ['T:hora', 50], ['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
-    const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: AYER });
+    const mod = new Modelo(eje.genesisId, 'r', tipoG, emision, AYER);
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
     consumido.set('T:minuto', 1);

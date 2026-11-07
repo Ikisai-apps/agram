@@ -10,18 +10,18 @@ async function mundo() {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'casa',
+    tipo: 'persona', // da T a sus cosas, la cocina y la sala (Core, 8-11: T no cruza de persona, pero una persona sí lo da a una cosa)
     emision: [
       { token: 'T', escala: 'hora', cantidad: 100 },
       { token: 'T', escala: 'minuto', cantidad: 100 }, // escribir cuesta minutos: otro token
       { token: 'P', cantidad: 5, ambito: 'genesis' },
       { token: 'R', cantidad: 20, emisor: 'casa' }, // la casa nace con reputación propia que puede repartir
-      { token: 'E', denominacion: 'minuto', cantidad: 100 }, // el tiempo que cede a otros: T no cruza de persona (VG, 7-11 noche)
     ],
     foco: 'Casa',
     t: T0,
   });
   const g = eje.genesisId;
-  const alta = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', emisor: 'casa', denominacion: 'minuto', cantidad: 20, de: 'casa', a: 'cocina' }, { token: 'E', emisor: 'casa', denominacion: 'minuto', cantidad: 20, de: 'casa', a: 'sala' }], payload: ['altas', ['cocina', 'sala']] });
+  const alta = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'sala' }], payload: ['altas', ['cocina', 'sala']], contexto: { tipos: { cocina: 'cosa', sala: 'cosa' } } });
   const menu = await eje.escribir({ autor: 'cocina', sobre: alta.id, t: T0, movimientos: [gastaT('cocina')], payload: 'menú' });
   const evento = await eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, movimientos: [gastaT('sala')], payload: 'boda' });
   return { eje, g, alta, menu, evento };
@@ -93,7 +93,8 @@ test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega,
   const { eje, g, alta } = await mundo();
   const dominio = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa')], payload: 'Alojamiento' });
   await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'recepción',
-    movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: dominio.id, de: 'casa', a: 'recepcion' }] });
+    contexto: { tipos: { recepcion: 'cosa' } }, // la recepción, una cosa de la casa: escribe con el T que le da
+    movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 10, de: 'casa', a: 'recepcion' }, { token: 'P', cantidad: 2, ambito: dominio.id, de: 'casa', a: 'recepcion' }] });
   const reserva = await eje.escribir({ autor: 'sala', sobre: dominio.id, t: T0, movimientos: [gastaT('sala')], payload: 'reserva' });
   assert.equal(eje.poderSobre('recepcion', reserva.id), 2); // autoriza lo que cuelga del dominio
   assert.equal(eje.poderSobre('recepcion', alta.id), 0); // y nada fuera
@@ -101,9 +102,9 @@ test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega,
     movimientos: [gastaT('recepcion'), { token: 'P', cantidad: 1, ambito: reserva.id, de: 'recepcion', a: 'sala' }] });
   assert.deepEqual(eje.poderes('sala'), [{ ambito: reserva.id, cantidad: 1 }]);
   // VG, 7-11 noche: P ya se emite fuera del génesis, pero solo una persona, sobre un registro suyo y con su R en juego.
-  // La casa de este mundo no declaró tipo y no pone R en juego: no lo emite (antes: «solo el génesis emite P»).
+  // La casa no pone R en juego: no lo emite (antes: «solo el génesis emite P»).
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'x',
-    movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: dominio.id, de: null, a: 'casa' }] }), /solo las personas emiten: casa no declaró tipo en su alta.*emitir P exige R propia en juego/);
+    movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: dominio.id, de: null, a: 'casa' }] }), /emitir P exige R propia en juego/);
 });
 
 test('P y R encajan en la constante: familia, clave de serie, quién la emite', async () => {
@@ -111,14 +112,11 @@ test('P y R encajan en la constante: familia, clave de serie, quién la emite', 
   // P se emite por ámbito (el génesis, sobre todo el eje); R por emisor (la casa, la suya).
   assert.deepEqual(eje.series().map((s) => [s.token, s.serie, s.emisor, s.emitido]), [
     ['T', 'hora', 'casa', 100],
-    // Los dos minutos que cocina y sala gastan sin tenerlos se acuñan al gastarse (VG, 7-11 noche): T no cruza de persona.
-    ['T', 'minuto', 'casa', 102],
+    ['T', 'minuto', 'casa', 100],
     ['P', 'genesis', 'casa', 5],
     ['R', 'casa', 'casa', 20],
-    ['E', 'casa/minuto', 'casa', 100],
   ]);
   assert.deepEqual(eje.poderes('casa'), [{ ambito: 'genesis', cantidad: 5 }]);
   assert.deepEqual(eje.reputaciones('casa'), [{ emisor: 'casa', cantidad: 20 }]);
-  assert.deepEqual(eje.tiempos('cocina'), []);
-  assert.deepEqual(eje.recursos('cocina'), [{ emisor: 'casa', denominacion: 'minuto', cantidad: 20 }]);
+  assert.deepEqual(eje.tiempos('cocina'), [{ escala: 'minuto', cantidad: 19 }]);
 });

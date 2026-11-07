@@ -39,9 +39,9 @@ import { escribirBase, identidadDe } from '../../src/bases.js';
 const T = '2026-11-07T09:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
 const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-// T no cruza de persona (VG, 7-11 noche): los minutos que la casa cede a otro son E de su serie,
-// denominada en su tiempo (E:casa/minuto). Quien los recibe existe (su alta) y escribe con su propio T.
-const minutos = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'minuto', cantidad, de, a });
+// Minutos de T para una cosa (su máquina): T no cruza de persona (VG, 7-11 noche), pero una persona da su T a
+// una cosa, y una cosa al resto de sus cosas (Core, 8-11). Las personas escriben con su propio T.
+const minutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
 /** Las cosas del ejemplo: cada registro que resume a otros es una cosa con su clave. */
@@ -67,7 +67,6 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 },
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
-      { token: 'E', denominacion: 'minuto', cantidad: 1000 }, // el tiempo que la casa cede a otros (E:casa/minuto)
       { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
     foco: 'Casa de ejemplo',
@@ -79,13 +78,16 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
 
   // Proyecto A: el comedor da de alta a cocina, huesped y vecina, y a su cosa.
   const personas = {};
-  for (const id of ['cocina', 'huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
+  // La cocina es una cosa de la casa (su máquina: escribe con el T que le da), sin clave en el eje de demostración:
+  // así la única cosa con clave que da de alta el comedor es el propio comedor (identidadDe).
+  for (const id of ['huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
   const comedor = await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t: T,
     movimientos: [
       minuto('casa'),
+      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       minutos('casa', 'cocina', 240),
       eur('casa', 'huesped', 60),
       eur('casa', 'vecina', 40),
@@ -93,7 +95,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     ],
     payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],
     contexto: {
-      tipos: { cocina: 'grupo', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
+      tipos: { cocina: 'cosa', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
       claves: { ...personas, comedor: claves.comedor.publica },
     },
   });
