@@ -2,10 +2,15 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado empieza por los hilos del 6 y 7,
-// en Mapped (mundos/hilos-ui.js).
+// en el navegador. Scened (ui/escena.js) pone varios focos en escena y solo
+// lee. Render sobrio; el animado entra con Mapped y cubre la cruz entera:
+// los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el camino del 9
+// y la cruz con el 5 en el centro (mundos/cruz-ui.js); y la X: fábrica 4,
+// ciudad 1, jardín 2, parque 3 y lente 0 (mundos/x-ui.js).
 
 import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
+import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
+import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, PV, RAIZ,
@@ -16,6 +21,7 @@ import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, t
 import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
+import { htmlCifras } from './ui/comun.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -28,6 +34,8 @@ const CLAVE_FOCO = 'agram.foco';
 /** Identidades de la comida y la reserva: cada una necesita su par de claves en este navegador; las que falten a otro ejemplo (la tarea) las genera ui/ejemplos.js al elegirlo. */
 const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
 instalarHilos({ pintar }); // botones «animado» y «ver los hilos»
+instalarCruz({ estado, pintar, irA, privadaDe, guardar, fallo, chip: chipTemporal, mensajes }); // cielo 8, camino 9 y «ver la cruz»
+instalarX({ pintar, irA: (id) => irA(id) }); // «ver la X», «reproducir la llegada» y los registros del SVG de la vista
 
 function corto(id) {
   return id.slice(0, 8);
@@ -154,7 +162,7 @@ function pintarPointed() {
   const e = escritura('pointed');
   // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
   const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
-  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${terminal}${filas.join('')}</div>
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Pointed', d.alcance)}</div><div class="decupla">${terminal}${filas.join('')}</div>
     <form id="escribir" data-modo="pointed" class="escribir">
       <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
@@ -182,7 +190,7 @@ function pintarSequenced() {
   const hijos = sequenced.secuencia(estado.eje, estado.foco, { sentido: 'hijos' });
   const bloque = (s, titulo) => `
     <section class="hilera">
-      <div class="titulo">${titulo} · ${s.decuplas.length} de ${s.total}</div>
+      <div class="titulo">${titulo} · ${s.decuplas.length} de ${s.total} ${htmlCifras('Sequenced', s.alcance)}</div>
       ${s.decuplas.length ? s.decuplas.map(filaSecuencia).join('') : '<div class="nada">nada todavía</div>'}
     </section>`;
   const e = escritura('sequenced');
@@ -245,7 +253,7 @@ function celdaMapa(m, i, eje67, comp) {
   let accion = `data-posicion="${i}"`;
   if (Array.isArray(ct)) accion = `data-desarrollar="${i}"`;
   else if (esReferencia(ct)) accion = `data-ir="${ct.ref}" data-dir="${ct.dir ?? ''}"`;
-  return `<button class="celda esquina ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
+  return `<button class="celda esquina c${i} ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
     <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
@@ -299,7 +307,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div><div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
@@ -322,12 +330,23 @@ function pintar() {
   document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
+  else if (estado.modo === 'scened') pintarScened();
   else pintarSequenced();
   trasPintarHilos(estado); // en animado, los hilos en las celdas 6 y 7 de Mapped
+  trasPintarCruz(estado); // después de los hilos: el cielo y el camino en las celdas 8 y 9, y la cruz si está abierta
+  trasPintarX(estado); // después de la cruz: en animado, la X en las celdas 1–4 y 0 de Mapped
   pintarSaldos();
   trasPintarEpocas();
   trasPintarFabrica(estado);
   trasPintarEjemplos(estado);
+}
+
+// Scened (ui/escena.js): varios focos en escena, solo lectura; aquí solo se engancha.
+import { vistaEscena, instalarEscena } from './ui/escena.js';
+
+function pintarScened() {
+  instalarEscena({ estado, pintar, irA });
+  $('#vista').innerHTML = cabecera(estado.eje.obtener(estado.foco)) + vistaEscena(estado.eje, estado.foco, { camino: estado.camino });
 }
 
 function guardar() {

@@ -296,8 +296,9 @@ test('con celda y camino, el registro va donde dice ubicar', async () => {
 });
 
 test('topes duros por modo: Pointed 10, Sequenced 100, Mapped 1000, Scened 10000', () => {
-  assert.deepEqual(Object.keys(MODOS), ['pointed', 'sequenced', 'mapped', 'scened']);
-  assert.deepEqual(Object.keys(MODOS).map(tope), [10, 100, 1000, 10000]);
+  // VG, 7-11 noche: se añade Be («todos»: sin tope) y el tope es el máximo del modo, el mismo para leer y para emitir.
+  assert.deepEqual(Object.keys(MODOS), ['pointed', 'sequenced', 'mapped', 'scened', 'be']);
+  assert.deepEqual(Object.keys(MODOS).map(tope), [10, 100, 1000, 10000, Infinity]);
   for (const m of Object.keys(MODOS)) assert.equal(tope(m), lectura(m)); // no se emite más de lo que se lee
   const de = (n) => Array.from({ length: n }, (_, x) => 'x' + x);
   assert.equal(cabeTope(de(10), 'pointed'), true);

@@ -477,10 +477,12 @@ test('BTML-26b lo que queda por debajo de la décima profundidad no se pierde en
     assert.equal(validarPayload(p).ok, false);
   });
 
-test('BTML-27 los dígitos son posiciones semánticas; en la época 0 cada dígito es un PV en todas las profundidades', () => {
-  for (let p = 0; p < ARIDAD; p++) for (let d = 0; d < ARIDAD; d++) assert.equal(EPOCA_0.reglaCorta(p, d), PV[d]);
-  assert.deepEqual(leerDireccion('4440000000').map((x) => x.significado), ['fábrica', 'fábrica', 'fábrica']);
-  assert.deepEqual(leerDireccion('8412000000').map((x) => [x.profundidad, x.digito, x.significado]), [[0, 8, PV[8]], [1, 4, PV[4]], [2, 1, PV[1]], [3, 2, PV[2]]]);
+test('BTML-27 los dígitos son posiciones semánticas; en la época 0, la profundidad 0 son los diez PV y en las demás el dígito es el PV aplicado al nodo de arriba', () => {
+  for (let d = 0; d < ARIDAD; d++) assert.equal(EPOCA_0.reglaCorta(0, d), PV[d]);
+  for (let p = 1; p < ARIDAD; p++) for (let d = 0; d < ARIDAD; d++) assert.equal(EPOCA_0.reglaCorta(p, d), EPOCA_0.reglaCorta(1, d));
+  assert.deepEqual(leerDireccion('4440000000').map((x) => x.significado), ['fábrica', 'qué se hace', 'qué se hace']);
+  assert.deepEqual(leerDireccion('8412000000').map((x) => [x.profundidad, x.digito, x.significado]),
+    [[0, 8, PV[8]], [1, 4, 'qué se hace'], [2, 1, 'cuánto'], [3, 2, 'con qué condición']]);
 });
 
 test('BTML-28 la dirección no es clave de almacenamiento: se calcula al reconstruir y admite varios ocupantes', async () => {

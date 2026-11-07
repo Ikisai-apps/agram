@@ -61,3 +61,14 @@ test('rechazos: foco desconocido, sentido desconocido', async () => {
   assert.throws(() => secuencia(eje, 'nadie'), /foco desconocido/);
   assert.throws(() => secuencia(eje, compra.id, { sentido: 'lado' }), /sentido desconocido/);
 });
+
+test('secuencia: alcance con los tres números de Sequenced; mínimo no conseguido es información (VG, 7-11 noche)', async () => {
+  const { eje, ultimo } = await cadena(15);
+  // El hilo tiene 16 décuplas; se traen diez: 100 posiciones, el máximo.
+  const hilo = secuencia(eje, ultimo);
+  assert.equal(hilo.total, 16);
+  assert.deepEqual(hilo.alcance, { conseguido: 100, minimo: 10, maximo: 100, alMinimo: true });
+  // Nada escrito sobre el último: no llega al mínimo, y no es error.
+  assert.deepEqual(secuencia(eje, ultimo, { sentido: 'hijos' }).alcance, { conseguido: 0, minimo: 10, maximo: 100, alMinimo: false });
+  assert.equal(secuencia(eje, ultimo, { maximo: 3 }).alcance.conseguido, 30);
+});

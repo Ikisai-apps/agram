@@ -4,6 +4,8 @@ Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dicen 
 
 Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `V2/` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/`; `V3/` = `agx/80_HERENCIA_V3_INTEGRA/`; `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `ESPEC_V3` = `V3/03_TRANSICION/ESPECIFICACION_EXPLORATORIA_V3_INTEGRA.md`.
 
+> **Estado en `main` (`03dbf34`, 7-11 noche, tras la integración #55).** §3 describe el código de antes y **ya no se cumple**: la matriz 10×10×10, la clase de modificación por celda, el anclaje de lo lejano y los topes duros de emisión por modo están en `main` desde la #55 (`src/escritura.js`, `src/modos.js`, `test/fabrica-1000.test.js`; `docs/MOTOR.md` §7). Después de esta nota, VG decidió que la matriz es **relativa al camino** del foco (mapa §13), y así está en el código: la celda i.j.k bajo el camino c se escribe en `direccion([...c, i, j, k])` y su clase es el dígito de la profundidad n + 2. La PR #33 que cita §5 ya no está abierta: entró en `main` con la #51 (`docs/REGLAS_CORTAS.md`). El resumen de lo decidido está en `docs/FUNDAMENTOS.md` («El registro de salida de la fábrica», «La fábrica: la matriz 10×10×10» y «Topes duros de emisión por modo»).
+
 ## 1. La cuestión en tres frases
 
 1. El 6-11 VG corrigió la lectura de la fábrica: «La fábrica (PV4) es el finalizador de una acción de registro: lo que consolida diez interpretaciones por diez interacciones en un registro»; la frase no está en el corpus, que solo tiene antecedentes (las pasadas 4×4 = 16 de la fábrica V3, «qué se modificó» por posición) y la orden de no fundir cuentas de diez.

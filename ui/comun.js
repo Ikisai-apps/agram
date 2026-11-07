@@ -63,3 +63,22 @@ export function franjaAjustes() {
   else document.querySelector('main')?.prepend(franja);
   return franja;
 }
+
+/**
+ * Los tres números de un modo en una lectura (VG, 7-11 noche), en corto:
+ * lo conseguido, el mínimo que intenta y el máximo, en posiciones:
+ * «7 · mín 10 · máx 100». Un mínimo sin fijar (Be) se dice «mín sin fijar»;
+ * un máximo sin tope (Be), «máx todos».
+ */
+export function textoCifras(alcance) {
+  const { conseguido, minimo, maximo } = alcance;
+  return conseguido + ' · mín ' + (minimo === null ? 'sin fijar' : minimo) + ' · máx ' + (maximo === Infinity ? 'todos' : maximo);
+}
+
+/** Las tres cifras junto al nombre del modo, discretas: «Sequenced · 7 · mín 10 · máx 100». */
+export function htmlCifras(nombre, alcance) {
+  const bajo = alcance.alMinimo === false ? ' bajo' : '';
+  const titulo = 'posiciones: las que trae esta vista · el mínimo que intenta el modo · el máximo que puede representar y emitir'
+    + (alcance.alMinimo === false ? ' (no llega al mínimo: no hay más información)' : '');
+  return `<span class="cifras${bajo}" title="${escapar(titulo)}">${escapar(nombre)} · ${escapar(textoCifras(alcance))}</span>`;
+}

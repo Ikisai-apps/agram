@@ -19,6 +19,8 @@
 //   =ACUERDO() =DESPLAZAMIENTO() =SIGNO() =FALTAS() =EXCEDENTES()   el encaje del candidato: profundidades de acuerdo, suma de distancias, signo (exacto/completar/reducir/mixto), faltas y excedentes
 //   =CONTAR(col) =SUMAR(col)
 //   =BASES(alcance?, medida?, k | campo?)   lee las bases del 8 (src/bases.js, valorDeBases): n, la caja del anfitrión o un dato de la base
+//   =CAJA(medida, alcance?)  la caja (0–9) del anfitrión en esa medida (= BASES(alcance, medida)); alcance "hermanos" por defecto
+//   =FRESCURA(alcance?)      llegadas desde la base que lee ese alcance (0 = ninguna llegada; no ve cambios en lo ya medido)
 //   comparaciones  = <> < > <= >=   solo entre el mismo tipo escalar (y la misma unidad)   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO; PENDIENTE (falta un dato, un evento que no ha llegado o
@@ -30,11 +32,20 @@
 // (presupuesto, profundidad o candidatos agotados; `parcial` dice cuánto se
 // examinó cuando se sabe).
 //
+// CAJA y FRESCURA leen el 8 y no escriben nada: sin base escrita, PENDIENTE
+// con el modo de escribirla; si leer la base cuesta más que el presupuesto
+// que queda, PENDIENTE POR LÍMITE (docs/BQL.md §7.14).
+//
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
 import { valorDeBases } from './bases.js';
+// CAJA y FRESCURA. Ciclo de importación (bases.js y tiempo.js importan este
+// módulo): lo importado aquí solo se usa dentro de funciones, nunca al cargar.
+import { CIELO, COSTE_BASE, basesEn, clavesDeMedidas, identidadDe, leerBase } from './bases.js';
+import { ALCANCES, proyectoDe } from './tiempo.js';
+import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -560,11 +571,148 @@ function funcion(ctx, nodo, evId, base) {
       if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo);
       return num(r.valor);
     }
+    case 'CAJA': {
+      if (!args.length || args.length > 2) throw new Parada('ERROR', 'CAJA espera una medida y, si acaso, un alcance');
+      const medida = medidaDe(args[0]);
+      return num(cajaDelFoco(ctx, evId, medida, alcanceDe(args[1], 'CAJA')));
+    }
+    case 'FRESCURA': {
+      if (args.length > 1) throw new Parada('ERROR', 'FRESCURA espera, si acaso, un alcance');
+      const { frescura: f } = leerCohorte(ctx, evId, alcanceDe(args[0], 'FRESCURA')).base;
+      return num(f.hijosNuevos + f.basesNuevas + f.debajo);
+    }
     case 'Y': return bool(args.every((a) => exigirBool(a, 'Y')));
     case 'O': return bool(args.some((a) => exigirBool(a, 'O')));
     case 'NO': return bool(!exigirBool(args[0], 'NO'));
     default: throw new Parada('ERROR', 'función desconocida: ' + nodo.nombre);
   }
+}
+
+// ---------- CAJA y FRESCURA: leen el 8 ----------
+// El foco es el anfitrión (el registro de la fórmula), como en BASES. El
+// alcance elige qué 8 se lee: el del padre (hermanos), el del proyecto o el
+// del génesis (mapa §12 [D] «Cohortes y bases del 8»). La lectura la hace
+// src/bases.js (basesEn, leerBase, valorDeBases); aquí no se escribe nada.
+
+const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes']);
+const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>';
+
+function alcanceDe(arg, nombre) {
+  if (arg === undefined) return 'hermanos';
+  if (arg.tipo !== 'texto' || !ALCANCES.includes(arg.valor)) throw new Parada('ERROR', nombre + ': el alcance es ' + ALCANCES.join(', '));
+  return arg.valor;
+}
+
+/** Clave de serie bien formada: T con una escala que existe; E con emisor y denominación; P y R con un solo campo. */
+function esSerie(clave) {
+  const r = /^([TEPR]):(.+)$/.exec(clave);
+  if (!r) return false;
+  const [, token, serie] = r;
+  if (token === 'T') return ESCALAS_T.includes(serie);
+  const barra = serie.indexOf('/');
+  if (token === 'E') return barra > 0 && barra < serie.length - 1;
+  return barra < 0;
+}
+
+/** Una medida de tiempo.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
+function medidaDe(arg) {
+  if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
+  if (clavesDeMedidas().includes(arg.valor) || esSerie(arg.valor)) return arg.valor;
+  throw new Parada('ERROR', 'CAJA: medida desconocida: ' + arg.valor + ' (' + clavesDeMedidas().join(', ') + ' o una serie ' + FORMAS_SERIE + ')');
+}
+
+/**
+ * Una serie bien formada que el eje no tiene (E, R o T sin emitir; P de un
+ * ámbito que no es un registro) no se lee como «caja 0»: PENDIENTE (la
+ * emisión puede llegar), con las series que hay, para ver la errata.
+ */
+function exigirSerie(eje, clave) {
+  if (clavesDeMedidas().includes(clave)) return;
+  const [token, serie] = [clave[0], clave.slice(2)];
+  if (token === 'P' ? serie === AMBITO_GENESIS || eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
+  const hay = eje.series().map((s) => s.clave);
+  const lista = hay.slice(0, 10).join(', ') + (hay.length > 10 ? '…' : '');
+  const que = token === 'P' ? 'el ámbito de ' + clave + ' no es un registro del eje' : 'la serie ' + clave + ' no se ha emitido en el eje';
+  throw new Parada('PENDIENTE', 'CAJA: ' + que + ' (series emitidas: ' + lista + ')');
+}
+
+/** Cómo escribir la base que falta (el motivo de PENDIENTE lo dice). La identidad se nombra si el gancho deja leer el registro. */
+function comoEscribirla(ctx, registro, alcance) {
+  const id8 = registro.slice(0, 8);
+  const cosa = identidadDe(ctx.eje, registro);
+  if (!cosa) return id8 + ' no tiene identidad propia con clave (identidadDe): nadie puede escribir su base.';
+  const quien = !ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []) ? cosa + ', su identidad propia' : 'su identidad propia';
+  const que = alcance === 'hermanos'
+    ? 'mide sus hijos'
+    : 'mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)';
+  return 'Para escribirla: escribirBase(eje, { registro, privada }) con registro = ' + id8 + ' y la clave privada de ' + quien
+    + '; ' + que + ' y gasta ' + COSTE_BASE.cantidad + ' ' + COSTE_BASE.escala + ' de su ' + COSTE_BASE.token + '.';
+}
+
+/**
+ * La base vigente del 8 que resume el alcance del foco (leerBase, con su
+ * frescura), autorizada y cobrada. Se cobra lo que la lectura examina,
+ * contado mientras se examina y antes de medir nada: 1 por la base; los
+ * escritos sobre el registro (entre ellos se busca la base y se cuentan los
+ * hijos nuevos); y, como hace la frescura, los escritos sobre cada hijo
+ * medido (su 8) y, bajando por las bases fundidas que siguen vigentes, lo
+ * mismo en cada una. En cuanto no cabe, PENDIENTE POR LÍMITE, «al menos»
+ * (se deja de contar). Sin base, PENDIENTE con el modo de escribirla.
+ */
+function leerCohorte(ctx, foco, alcance) {
+  const { eje } = ctx;
+  const ev = eje.obtener(foco);
+  if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + foco.slice(0, 8));
+  const registro = alcance === 'hermanos' ? ev.sobre : alcance === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId;
+  if (registro === null) throw new Parada('PENDIENTE', 'sin cohorte: el génesis no tiene padre');
+  ctx.dependencias.add(registro + ':' + CIELO); // el 8 leído: una base que llegue cambia el resultado
+  const quedan = Math.max(ctx.presupuesto, 0);
+  let coste = 1 + eje.sobre(registro).length;
+  const noCabe = () => limite(
+    'el alcance ' + alcance + ' (8 de ' + registro.slice(0, 8) + ') exige examinar al menos ' + coste + ' registros y quedan ' + quedan + ' pasos de presupuesto',
+    { examinados: 0, de: coste },
+  );
+  if (coste > quedan) throw noCabe();
+  const vigente = (id) => basesEn(eje, id).at(-1) ?? null;
+  const base = vigente(registro);
+  if (!base) {
+    ctx.presupuesto -= coste;
+    throw new Parada('PENDIENTE', 'sin base en el 8 de ' + registro.slice(0, 8) + ' (alcance ' + alcance + '). ' + comoEscribirla(ctx, registro, alcance));
+  }
+  const porVisitar = [base];
+  while (porVisitar.length) {
+    const b = porVisitar.pop();
+    const fundidas = new Set(b.refsBases);
+    for (const h of b.refsHijos) {
+      coste += eje.sobre(h).length;
+      if (coste > quedan) throw noCabe();
+      const v = vigente(h);
+      if (v && fundidas.has(v.id)) porVisitar.push(v);
+    }
+  }
+  ctx.presupuesto -= coste;
+  autorizar(ctx, base.id, [], 'leer la base del 8 de ' + registro.slice(0, 8));
+  ctx.dependencias.add(base.id + ':' + direccion([]));
+  return { registro, base: leerBase(eje, registro) };
+}
+
+/**
+ * Caja (0–9) del foco en una medida y un alcance: la de BASES(alcance,
+ * medida) (valorDeBases). Primero la base (sin base, el foco no se mide);
+ * después el foco: situarlo es medirlo y medirlo es leerlo entero. Con
+ * gancho, las fórmulas del foco no se cuentan: la medida las evalúa sin él.
+ */
+function cajaDelFoco(ctx, foco, medida, alcance) {
+  exigirSerie(ctx.eje, medida);
+  leerCohorte(ctx, foco, alcance);
+  autorizar(ctx, foco, []);
+  if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(medida)) {
+    throw new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
+  }
+  ctx.dependencias.add(foco + ':' + direccion([]));
+  const r = valorDeBases(ctx.eje, foco, [alcance, medida]);
+  if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo.replace(/^BASES/, 'CAJA'));
+  return r.valor;
 }
 
 /** Ejecuta fn y lo convierte en Resultado. Una parada, un error de sintaxis o la pila de JavaScript agotada no se escapan. */

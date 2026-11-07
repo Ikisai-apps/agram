@@ -20,7 +20,7 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
-| `src/epocas.js` | Significado de cada dígito: la época 0 y la «época 1 (propuesta)», cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCA_1_PROPUESTA`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion` |
+| `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
 `src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos` y `validez`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
@@ -132,7 +132,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 }
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. La regla corta vale en todas las profundidades (mapa §10.4), así que dentro de la posición 1 se lee igual: 1.0 representación (la referencia al menú:1), 1.1 recursos (`1`), 1.2 criterios (`"EUR 12"`). El comentario del ejemplo («qué, cuánto, a qué precio») es léxico humano: no está en los datos ni en la regla corta, y quien lo copie como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como comunicación o fábrica de los recursos (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Dentro de la posición 1 el dígito es el PV aplicado al nodo de arriba (VG, 7-11 noche): 1.0 qué es (la referencia al menú:1), 1.1 cuánto (`1`), 1.2 con qué condición (`"EUR 12"`). El comentario del ejemplo («qué, cuánto, a qué precio») coincide ahora con esa lectura; quien lo copie como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -424,7 +424,7 @@ Consecuencias conocidas:
 
 ### 4.3 Significado de los dígitos: época 0
 
-La época es una convención paralela, **fuera del dato**: BTML no lleva época dentro y cualquier dirección se lee desde cualquier época. Las épocas viven como datos en `datos/epocas/*.json` (copia generada en `datos/epocas/epocas.js`). La decidida es `EPOCA_0`, cuya regla corta vale en todas las profundidades: **cada dígito es un punto de vista**.
+La época es una convención paralela, **fuera del dato**: BTML no lleva época dentro y cualquier dirección se lee desde cualquier época. Las épocas viven como datos en `datos/epocas/*.json` (copia generada en `datos/epocas/epocas.js`). La decidida es `EPOCA_0`, que son las **cien reglas cortas** (VG, 7-11 noche): en la profundidad 0, la cruceta, **cada dígito es un punto de vista** sobre el registro en foco (tabla siguiente); en toda profundidad n ≥ 1, **el dígito es el PV aplicado al nodo de arriba**: 0 qué es, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo. Las reglas largas, que especializan rutas completas, son lo que pulen las épocas futuras. Las cien reglas, con ejemplos, en `docs/REGLAS_CORTAS.md`.
 
 | Dígito | PV | Significado |
 |---|---|---|
@@ -441,19 +441,20 @@ La época es una convención paralela, **fuera del dato**: BTML no lleva época 
 
 ```js
 PV                              // array congelado de los diez nombres
-EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito]
-leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real; epoca por objeto o por nombre ('época 1 (propuesta)')
-EPOCAS                                   // { 'época 0': EPOCA_0, 'época 1 (propuesta)': EPOCA_1_PROPUESTA }
-epocaDe(epoca = EPOCA_0)                 // → la época, por objeto o por nombre; un nombre que no existe (también 'época 1') lanza «época desconocida»
-cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, cortes?, reglas, dudas }
+EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito] en la profundidad 0; en las demás, el PV aplicado al nodo de arriba ('qué es', 'cuánto', 'con qué condición'…)
+leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real (más `larga: ruta` si una regla larga especializa esa ruta); epoca por objeto o por nombre ('época 0')
+EPOCAS                                   // { 'época 0': EPOCA_0 }
+epocaDe(epoca = EPOCA_0)                 // → la época, por objeto o por nombre; un nombre que no existe (también 'época 1' y 'época 1 (propuesta)', retirada) lanza «época desconocida»
+cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, reglas, dudas }; en `reglas`, cortas { profundidad, digito, … } y largas { ruta, … } (ruta de 2 a 10 dígitos)
+epoca.reglaLarga(ruta) / epoca.larga(ruta) / epoca.largas  // nombre, regla entera y lista de las reglas largas propias; la larga de una ruta exacta gana a la corta en leerDireccion
 epoca.cortes(clave)                      // → nueve umbrales crecientes de las cajas del 8 para esa medida o serie, o undefined (mapa §12 [D]: «Cortes de las cajas = regla de la época»); la época 0 aún no los trae en sus datos
-epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en la época 0 ni en la propuesta
+epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en la época 0
 pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, terminal, posiciones: [{ indice, significado, contenido }] × 10 }; terminal: el payload si es un terminal (sin posición 0), si no undefined; epoca por objeto o por nombre
 sequenced.secuencia(eje, id, { epoca })  // igual: objeto o nombre
 mapped.mapa(eje, id, { camino, epoca })  // igual: objeto o nombre
 ```
 
-`EPOCA_1_PROPUESTA` (nombre `'época 1 (propuesta)'`) es una **propuesta** de las cien reglas cortas (el mismo PV, con el grano de cada profundidad nombrado), pendiente de VG: ver `docs/REGLAS_CORTAS.md`. No ocupa el nombre «época 1», que queda libre para la que VG decida. Pendiente: la decisión sobre la propuesta y las reglas largas.
+La «época 1 (propuesta)» se retiró como época (VG, 7-11 noche): sus preguntas son las reglas de las profundidades 1 a 9 de la época 0 (`docs/REGLAS_CORTAS.md`). El nombre «época 1» queda libre para la primera época que pula reglas largas; el cargador ya las admite, y todavía no hay contenido de reglas largas.
 
 ```sh
 node --input-type=module -e "
@@ -467,7 +468,7 @@ for (const p of decupla(compra).posiciones) console.log(p.indice, p.significado,
 ```
 
 ```text
-0:1=recursos 1:2=criterios
+0:1=recursos 1:2=con qué condición
 0 representación Compra del menú del día
 1 recursos [3]
 2 criterios [1]
@@ -687,7 +688,7 @@ Orden por encaje (`ordenarPorEncaje`, el orden por defecto de `ocupantes` y de B
 2. a igual acuerdo, menor distancia **solo en las profundidades que la época declare ordinales** (`epoca.ordinal(profundidad)`), comparando profundidad a profundidad, sin sumar. La época 0 no declara ninguna (sus dígitos son nominales: cada uno es un PV), así que hoy este paso no hace nada; `BUSCAR` no pasa época;
 3. a igual de lo anterior, el orden de llegada.
 
-El signo **no ordena**, ni la distancia salvo en una profundidad que una época haga ordinal (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`, decidida por VG el 7-11 por la tarde, mapa §12 [D]): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Ni el signo ni la distancia ordenan en la época 0: son información (el corpus prohíbe «puntuar por cercanía ciega»). Un escrito anclado en la dirección buscada encaja exacto. Consecuencia práctica: como propios y escritos son siempre exactos (§6.2), el vector solo se separa de cero en una **referencia** que alcanza otra dirección, y casi todo el orden de una posición es el de llegada. Pendiente: cómo cambia el vector con la época, qué profundidades declara ordinales una época (ni la época 0 ni la «época 1 (propuesta)» declaran ninguna, `docs/REGLAS_CORTAS.md`) y las reglas por dimensión que dirían dónde cuenta el signo; la orientación (la opción E de la nota) queda apuntada (VG, 7-11, mapa §12).
+El signo **no ordena**, ni la distancia salvo en una profundidad que una época haga ordinal (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`, decidida por VG el 7-11 por la tarde, mapa §12 [D]): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Ni el signo ni la distancia ordenan en la época 0: son información (el corpus prohíbe «puntuar por cercanía ciega»). Un escrito anclado en la dirección buscada encaja exacto. Consecuencia práctica: como propios y escritos son siempre exactos (§6.2), el vector solo se separa de cero en una **referencia** que alcanza otra dirección, y casi todo el orden de una posición es el de llegada. Pendiente: cómo cambia el vector con la época, qué profundidades declara ordinales una época (la época 0 no declara ninguna, `docs/REGLAS_CORTAS.md`) y las reglas por dimensión que dirían dónde cuenta el signo; la orientación (la opción E de la nota) queda apuntada (VG, 7-11, mapa §12).
 
 ```sh
 node --input-type=module -e "
@@ -1144,12 +1145,11 @@ export function huella(publica): string;
 export const PV: string[10];
 export const TODAS = 'todas';
 export function cargarEpoca(datos, { respaldo }?): Epoca;
-// Epoca: { nombre, estado, principios, dudas, reglas[100], regla(p, d), reglaCorta(p, d), ordinal(p) }
-export const EPOCA_0: Epoca;  // decidida: dígito = PV en todas las profundidades
-export const EPOCA_1_PROPUESTA: Epoca;  // 'época 1 (propuesta)', pendiente de VG; no ocupa el nombre 'época 1'
+// Epoca: { nombre, estado, principios, dudas, reglas[100], largas, regla(p, d), reglaCorta(p, d), larga(ruta), reglaLarga(ruta), ordinal(p) }
+export const EPOCA_0: Epoca;  // decidida: las cien reglas cortas (profundidad 0 = los diez PV; n ≥ 1 = el PV aplicado al nodo de arriba)
 export const EPOCAS: { [nombre]: Epoca };
 export function epocaDe(epoca = EPOCA_0): Epoca;  // por objeto o por nombre
-export function leerDireccion(dir, epoca = EPOCA_0): { profundidad, digito, significado }[];
+export function leerDireccion(dir, epoca = EPOCA_0): { profundidad, digito, significado, larga? }[];
 
 // src/persistencia.js
 export const VERSION = 2;
@@ -1174,7 +1174,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
 | Posición 0 de un terminal (ni el encaje ni `decupla` ni `mapa` la dan; la herencia de `desdeMapped` en la raíz de un foco terminal, sí) | §4.2 |
 | Cambio de foco al agotar diez niveles; qué hacer con un payload de más de diez niveles (rechazarlo o cambiar de foco) | §3.2 |
-| Decisión de VG sobre la «época 1 (propuesta)»; reglas largas; cómo cambia el vector con la época; qué profundidad es ordinal, si alguna (el gancho `epoca.ordinal` existe; ni la época 0 ni la época 1 (propuesta) declaran ninguna; el signo ya está decidido: opción B, mapa §12 [D]) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
+| Contenido de las reglas largas (el cargador ya las admite); cómo cambia el vector con la época; qué profundidad es ordinal, si alguna (el gancho `epoca.ordinal` existe; la época 0 no declara ninguna; el signo ya está decidido: opción B, mapa §12 [D]) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
 | Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T y de P por cada persona, escalonada T→R→P→E (decidida, mapa §12, 7-11 noche; pendiente de implementar); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |

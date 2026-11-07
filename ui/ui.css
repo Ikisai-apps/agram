@@ -63,3 +63,8 @@
 .series td{padding:2px 4px;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
 .series th:nth-child(n+3),.series td:nth-child(n+3){text-align:right}
 .series td b{font-family:var(--mono);color:var(--accent)}
+
+/* Las tres cifras del modo (VG, 7-11 noche): conseguido · mín · máx, junto al nombre */
+.cifras{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:0;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.cifras-fila{margin:-2px 0 6px}
+.hilera .titulo .cifras{display:block}

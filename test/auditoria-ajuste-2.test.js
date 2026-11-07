@@ -67,7 +67,7 @@ test('A2-06: cargarEpoca lee y valida los cortes; confluir acepta la época por 
   assert.equal(EPOCA_0.cortes('posiciones'), undefined); // la época 0 aún no los trae en sus datos
   assert.throws(() => cargarEpoca({ nombre: 'mal', reglas: [], cortes: { posiciones: [3, 2, 1] } }, { respaldo: EPOCA_0 }), /nueve umbrales crecientes/);
   const { eje, compra } = await ejemploCompra();
-  assert.doesNotThrow(() => confluir(eje, compra.id, { epoca: 'época 1 (propuesta)' }));
+  assert.doesNotThrow(() => confluir(eje, compra.id, { epoca: 'época 0' }));
   assert.deepEqual(confluir(eje, compra.id, { epoca: conCortes }).medidas.posiciones.cortes, cortes);
   assert.equal(cortesDe('posiciones', conCortes).origen, 'epoca');
 });
