@@ -38,11 +38,34 @@ export async function firmar(ev, privada, firmante = ev.autor) {
   return Object.freeze({ ...ev, firmante, firma });
 }
 
-/** Comprueba la firma de un evento con la clave pública (JWK) de su firmante. */
+/**
+ * Comprueba la firma de un evento con la clave pública (JWK) de su firmante.
+ * La firma debe estar en base64url canónico, tal como la escribe `firmar`:
+ * sin relleno, sin espacios y sin bits sobrantes distintos de cero, para que
+ * unos bytes manipulados no pasen por la misma firma.
+ */
 export async function verificar(ev, publica) {
-  if (!ev.firma || !ev.id) return false;
+  if (typeof ev.firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(ev.firma) || !ev.id) return false;
   try {
-    return await subtle().verify(FIRMA, await importarPublica(publica), deBase64url(ev.firma), aBytes(ev.id));
+    const bytes = deBase64url(ev.firma);
+    if (aBase64url(bytes) !== ev.firma) return false;
+    return await subtle().verify(FIRMA, await importarPublica(publica), bytes, aBytes(ev.id));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Una clave pública declarable: JWK EC P-256 con x e y, sin parte privada
+ * (`d`: las claves privadas nunca entran en el eje) y que Web Crypto pueda
+ * importar para verificar. Si no, la identidad quedaría muda para siempre.
+ */
+export async function clavePublicaValida(jwk) {
+  if (!jwk || typeof jwk !== 'object' || Array.isArray(jwk)) return false;
+  if (jwk.kty !== 'EC' || jwk.crv !== 'P-256' || typeof jwk.x !== 'string' || typeof jwk.y !== 'string' || 'd' in jwk) return false;
+  try {
+    await importarPublica(jwk);
+    return true;
   } catch {
     return false;
   }

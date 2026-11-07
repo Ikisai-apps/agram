@@ -43,20 +43,20 @@ La unidad de información es el evento: **una transición de tokens con un paylo
 | `id` | 64 hex | lo calcula `crearEvento` | SHA-256 del cuerpo canónico. |
 | `firmante`, `firma` | cadena, base64url | solo si se firma | Los añade `firmar`. No forman parte del id. Ver §7. |
 
-El objeto que devuelve `crearEvento` está congelado entero (`congelar`: también `payload`, `movimientos` y `contexto`, a todos los niveles) y siempre lleva `en` y `contexto` rellenos. Guarda su propia copia de los datos: quien lo crea puede seguir usando sus arrays sin cambiar el evento. El eje también congela entero lo que añade o reconstruye (`anadir`, `desde`). No existe modificar en sitio, tampoco en memoria. Lo que se guarda y se transmite es ese objeto tal cual, en JSON.
+El objeto que devuelve `crearEvento` es la **copia en JSON** de lo que se le pasa (lo que se valida, se hashea y se guarda es lo mismo), congelada entera (`congelar`: también `payload`, `movimientos` y `contexto`, a todos los niveles), y siempre lleva `en` y `contexto` rellenos. Quien lo crea puede seguir usando y mutando sus arrays sin cambiar el evento. Lo que no cabe en JSON (un ciclo, un BigInt) es `evento mal formado: no cabe en JSON`; un array de más de diez posiciones en el payload se rechaza antes de copiarlo, sin recorrer su longitud (`evento mal formado: payload <ruta>: más de 10 posiciones`). Lo que se guarda y se transmite es ese objeto tal cual, en JSON. El eje (`anadir`, `desde`) guarda a su vez una copia normalizada y congelada de cada evento que recibe: solo sus campos (los del cuerpo, `id`, `firmante`, `firma`), con `en` y `contexto` por defecto si faltan; un campo de más no entra. No existe modificar en sitio, tampoco en memoria.
 
 ### 1.2 Cuerpo canónico e id
 
 ```js
 cuerpo(ev)        // → { autor, sobre, en, t, movimientos, payload, contexto }  (sin id, firmante ni firma)
-canonico(valor)   // → JSON con claves ordenadas alfabéticamente en todos los niveles, sin espacios
+canonico(valor)   // → JSON con claves ordenadas alfabéticamente en todos los niveles, sin espacios; con la semántica de JSON (sin claves undefined)
 hash(texto)       // → Promise<string>  SHA-256 en hexadecimal (Web Crypto; igual en Node y navegador)
 crearEvento({ autor, sobre = null, en = RAIZ, t, movimientos, payload, contexto = {} })  // → Promise<evento congelado>
 verificarId(ev)   // → Promise<boolean>  ev.id === hash(canonico(cuerpo(ev)))
 validarForma(ev)  // → string[]  errores de forma, sin mirar el eje; [] si es correcto
 ```
 
-`id = hash(canonico(cuerpo(ev)))`. Dos eventos con el mismo cuerpo tienen el mismo id; cambiar cualquier campo del cuerpo (incluidos `en` y `contexto`) cambia el id. La firma no entra en el cuerpo, así que firmar no cambia el id.
+`id = hash(canonico(cuerpo(ev)))`. Dos eventos con el mismo cuerpo tienen el mismo id; cambiar cualquier campo del cuerpo (incluidos `en` y `contexto`) cambia el id. La firma no entra en el cuerpo, así que firmar no cambia el id. `canonico` sigue la semántica de JSON (una clave con `undefined` o una función no está; un `undefined` en un array es `null`), así que el id de un evento no cambia al pasar por JSON: `{ nota: undefined }` y `{}` dan el mismo id.
 
 ```sh
 node --input-type=module -e "
@@ -90,6 +90,8 @@ true true 0000000000 {}
 | `el autor debe mover T` | ningún movimiento T con `de === autor` (evento normal) |
 | `el génesis debe emitir T al autor` | ningún movimiento T con `a === autor` (si `contexto.genesis === true`) |
 | `payload ruta: …` | payload inválido (ver §3.4) |
+| `contexto debe ser un objeto` | `contexto` es un número, un texto o un array (`null` vale como `{}`) |
+| `evento no es objeto` | lo validado no es un objeto |
 
 ### 1.4 Claves de `contexto` en uso
 
@@ -269,7 +271,7 @@ VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P c
 ```js
 eje.poderes(identidad)              // → [{ ambito, cantidad }]   no hay P total
 eje.poderSobre(identidad, registro) // → número: P con ámbito 'genesis' o un registro del hilo de `registro`
-eje.ambitosQueCubren(ambito)        // → [ambito, …registros de su hilo, 'genesis']
+eje.ambitosQueCubren(ambito)        // → [ambito, …registros de su hilo, 'genesis']; para 'genesis', ['genesis', id del génesis] (los dos nombran todo el eje)
 ```
 
 ## 3. El payload
@@ -306,7 +308,7 @@ Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9,
 ```
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
-- `esReferencia` solo comprueba la forma: `ref` cadena no vacía y `dir`, si está, dirección válida. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4).
+- `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4).
 - `ref` debe ser el **id completo**. Los prefijos (`'f9e59d1e'`) solo los resuelven BQL (`REF("f9e59d1e")`) y la entrada de texto de `escritura.item` (`'@f9e59d1e:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
@@ -319,14 +321,15 @@ Pendiente: referencias a «una rama» distinta de evento + dirección (mapa §2.
 validarPayload(payload, ruta = '')  // → { ok: boolean, errores: string[] }
 ```
 
-Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = posición 2, subposición 1) o `'raíz'`.
+Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = posición 2, subposición 1) o `'raíz'`. Solo se recorren las posiciones 0–9 (un array más largo ya es error), así que `'10'` es siempre la posición 1, subposición 0.
 
 | Error | Causa |
 |---|---|
 | `ruta: ni terminal ni array` | booleano, `null` suelto en la raíz, objeto sin `ref`, cadena vacía, `NaN`… |
 | `ruta: array vacío` | `[]` |
 | `ruta: más de 10 posiciones` | longitud > 10. Se comprueba antes que nada y no se mira dentro: un array disperso con una longitud enorme no se recorre, y sus posiciones no dan más errores |
-| `ruta: hueco` | `null` o `undefined` en una posición, o una posición ausente de un array disperso de JavaScript (`['a', , 'c']`, o un array con solo `[3]` asignado) |
+| `ruta: hueco` | `null` o `undefined` en una posición, o una posición ausente de un array disperso de JavaScript (`Array(3)`, `[1, , 3]`, o un array con solo `[3]` asignado) |
+| `ruta: ciclo` | un array que se contiene a sí mismo (no es un árbol) |
 
 ```sh
 node --input-type=module -e "
@@ -772,7 +775,8 @@ eje.clave(identidad)           // → JWK pública o undefined
 
 ### 7.2 Claves
 
-- Una clave pública es un JWK EC P-256: `{ kty: 'EC', crv: 'P-256', x, y }`.
+- Una clave pública es un JWK EC P-256: `{ kty: 'EC', crv: 'P-256', x, y }`. Al declararla, el eje comprueba que Web Crypto la importa para verificar y que no lleva parte privada (`d`): si no, `clave inválida para <id>` (`autoridad.clavePublicaValida`).
+- El génesis solo declara la clave de su autor; si la declara, el génesis va firmado con ella por su autor, igual al crearlo (`Eje.genesis`) que al restaurarlo (`Eje.desde`).
 - Se declara en `contexto.claves[identidad]` **del mismo evento en que esa identidad recibe tokens por primera vez** (el génesis para el autor inicial, con `clave`; el alta para las demás). Una clave declarada para una identidad que ya existe, o para una que no recibe tokens en ese evento, se rechaza. **No se puede cambiar una clave registrada.**
 - Pendiente: prueba de posesión de la clave al dar de alta (hoy quien da de alta declara la clave sin que la identidad nueva demuestre tenerla).
 
@@ -787,7 +791,7 @@ importarPrivada(jwk)         // → Promise<CryptoKey>
 huella(publica)              // → primeros 8 caracteres de x, para mostrar
 ```
 
-Reglas del eje: quien tiene clave registrada **debe firmar** cada evento suyo, `firmante` debe ser el `autor`, y la firma se verifica al añadir y al restaurar. Quien no tiene clave escribe sin firma, salvo que el eje se cree con `exigirFirmas: true` (entonces todo autor necesita clave y el génesis debe ir firmado). La firma no cambia el id. Las claves privadas nunca entran en el eje.
+Reglas del eje: quien tiene clave registrada **debe firmar** cada evento suyo, `firmante` debe ser el `autor` (también en el génesis), y la firma se verifica al añadir y al restaurar. `verificar` solo acepta la firma en base64url canónico, como la escribe `firmar` (sin relleno, sin espacios, sin bits sobrantes distintos de cero). Quien no tiene clave escribe sin firma, salvo que el eje se cree con `exigirFirmas: true` (entonces todo autor necesita clave y el génesis debe ir firmado). La firma no cambia el id. Las claves privadas nunca entran en el eje.
 
 ```sh
 node --input-type=module -e "
@@ -1151,3 +1155,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
 | Comprobación de `t` contra un reloj o contra el orden del eje | §1.1: solo `Date.parse` |
+| [X] decidir VG: profundidad máxima de un payload (hoy un payload de miles de niveles agota la pila al validarlo; al crear o restaurar se rechaza como «no cabe en JSON») | §3.2, `test/propiedades.test.js` |
+| [X] decidir VG: si mover T de uno a sí mismo cuenta como «el autor mueve T» (hoy escribe sin coste) | §2, `test/propiedades.test.js` |
+| [X] decidir VG: `exigirFirmas` se guarda fuera de lo firmado (un archivo manipulado restaura con la política rebajada) | §8.1, `test/propiedades.test.js` |
+| [X] decidir VG: la firma de un autor sin clave registrada se guarda sin verificar | §7.3, `test/propiedades.test.js` |
