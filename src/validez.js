@@ -221,9 +221,9 @@ function planP(eje, ver, identidad, ambito, cantidad) {
 }
 
 function aplicar(eje, libro, ev) {
-  libro.ids.add(ev.id);
-  const amplia = consolidacionQueAmplia(ev);
+  const amplia = consolidacionQueAmplia(ev, () => contextoCiclo(eje, libro, ev)); // la que usó para ampliar P, con el libro de antes (SEG-04)
   if (amplia) libro.ampliadas.add(amplia);
+  libro.ids.add(ev.id);
   for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) libro.claves.set(id, jwk);
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
   const ver = (id, k) => saldoEn(libro, id, k);

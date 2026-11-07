@@ -79,7 +79,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   genesisId                el id del génesis
  *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
  *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
- *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia)
+ *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia, que lee este mismo contexto)
  *   bloqueado(id, k, salida) lo bloqueado de esa serie por esa identidad con esa salida (la R propia en juego, R6)
  */
 export function reglasDelCiclo(ev, ctx) {
@@ -262,14 +262,33 @@ function clavesDeSerieP(ambito, genesisId) {
 }
 
 /**
- * La consolidación cuya ejecución es `ev` si emite P (la que respalda esa
- * emisión), o null. El eje y las capas de validez la marcan como usada al
- * aplicar el evento: una consolidación respalda UNA ampliación de P.
+ * La consolidación que `ev` usó para ampliar una serie P ya emitida, o null.
+ * El eje y las capas de validez la marcan como usada al aplicar el evento: una
+ * consolidación respalda UNA ampliación de P. Solo la usa el evento que amplía
+ * de verdad (SEG-04, revisión de la #73): su foco es una consolidación de su
+ * mismo autor y emite P sobre el registro que ella amplía (sobre el génesis,
+ * P:genesis o P:<id del génesis>), en una serie que ya estaba emitida antes del
+ * evento, por el camino en que `porQueNoAmplia` no puso pega. Una ejecución
+ * que emite P por primera vez sobre otro registro (o un evento de otra
+ * identidad en la fábrica) no la consume: si no, bastaría con él para negar
+ * la ampliación legítima.
+ *
+ * `contexto` es el de las reglas del ciclo (reglasDelCiclo) de justo antes de
+ * `ev`, o una función que lo da: solo se pide si `ev` está en la fábrica y
+ * dice `fase: 'ejecutado'`.
  */
-export function consolidacionQueAmplia(ev) {
+export function consolidacionQueAmplia(ev, contexto) {
   if (!ev || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado' || typeof ev.sobre !== 'string') return null;
-  const emiteP = (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) => m && m.token === 'P' && m.de === null);
-  return emiteP ? ev.sobre : null;
+  const ctx = typeof contexto === 'function' ? contexto() : contexto;
+  if (!ctx || ctx.reglas === 2) return null;
+  const c = ctx.registro(ev.sobre);
+  if (!esConsolidacion(c) || c.autor !== ev.autor) return null;
+  const emitidoAntes = (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
+  const amplia = (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) =>
+    m && typeof m === 'object' && !validarMovimiento(m).length && m.token === 'P' && m.de === null && m.a === ev.autor &&
+    m.ambito !== AMBITO_GENESIS && ctx.registro(m.ambito)?.autor === ev.autor &&
+    emitidoAntes(m.ambito) > 0 && porQueNoAmplia(ev, m.ambito, ctx) === null);
+  return amplia ? c.id : null;
 }
 
 /**

@@ -712,6 +712,42 @@ test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no e
   await demo.escribir({ autor: 'raiz', sobre: gDemo.id, t: T0, payload: 'nuevo', movimientos: [gasta('raiz')] });
 });
 
+// ---------- SEG-04 (revisión de seguridad de la #73) ----------
+
+test('SEG-04 (revisión de la #73) la consolidación solo se consume al ampliar de verdad: emitir P por primera vez en su fábrica no la gasta', async () => {
+  const { eje } = await mundo();
+  const reg = await taller(eje, 'ana');
+  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
+  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
+  const a = await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
+  const ejecutado = { motor: 'fabrica', fase: 'ejecutado' };
+  // Otra identidad escribe en la fábrica de c un «ejecutado» que emite por primera vez P sobre un registro suyo:
+  // es legítimo (P:<suyo> no estaba emitida) y antes bastaba para dar c por usada.
+  const deBea = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'rincón de bea', movimientos: [gasta('bea')] });
+  await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, payload: 'me cuelo', contexto: { ...ejecutado, evidencia: [c.id, a.id] },
+    movimientos: [gasta('bea'), emiteR('bea', 10), colateral('bea', 1), mueveR('bea', 1, 'bea', 'ana'), emiteP('bea', deBea.id)] });
+  // Y la autora de c, en su fábrica, emite por primera vez P:Y sobre otro registro suyo (con una evidencia que no
+  // resuelve, así que no cuenta como ejecución de c): tampoco amplía nada.
+  const Y = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'otro registro de ana', movimientos: [gasta('ana')] });
+  await eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'primer P de Y', contexto: { ...ejecutado, evidencia: [c.id, 'f'.repeat(64)] },
+    movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', Y.id)] });
+  assert.deepEqual([eje.serie('P:' + deBea.id).emitido, eje.serie('P:' + Y.id).emitido, eje.serie('P:' + reg.id).emitido], [1, 1, 1]);
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  // Ninguno de los dos consumió c: la ampliación legítima sigue siendo posible, y la capa 5 lo reconoce.
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
+  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
+  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
+  // Una sola vez: esa sí la consumió.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra vez', contexto: { ...ejecutado, evidencia: [c.id, a.id] }, movimientos: amplia(2) }),
+    /la consolidación [0-9a-f]{8} ya respaldó una ampliación: respalda una sola/);
+  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
+  // El eje reconstruido desde sus eventos dice lo mismo.
+  const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
+  assert.deepEqual(otro.orden, eje.orden);
+  assert.equal(otro.serie('P:' + reg.id).emitido, 3);
+});
+
 // ---------- 11 · un eje de la versión 2 se restaura con sus reglas ----------
 
 test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, con las de ahora', async () => {
