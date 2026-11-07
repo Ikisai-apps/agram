@@ -319,7 +319,7 @@ Ocupantes, en orden de llegada:
 2. **referencia**: justo detrás de cada propio que es una referencia, lo que esa referencia alcanza (siguiendo cadenas, hasta 20 saltos).
 3. **escrito**: los eventos con `sobre = <este evento>` y `en = <la dirección>`, en orden de entrada en el eje.
 
-Orden por defecto (**encaje**, `ordenarPorEncaje`, `docs/BTML.md` §6.5): más profundidades de acuerdo primero; a igual acuerdo, el orden de llegada. La distancia solo ordenaría en las profundidades que una época declare ordinales, y la época 0 no declara ninguna (`BUSCAR` no pasa época). Ni el signo ni la distancia ordenan: son información (opción B, decidida por VG el 7-11).
+Orden por defecto (**encaje**, `ordenarPorEncaje`, `docs/BTML.md` §6.5): más profundidades de acuerdo primero (coincidencias de ruta); a igual acuerdo, el orden de llegada. La distancia solo ordenaría en las profundidades que una época declare ordinales, y ni la época 0 ni la «época 1 (propuesta)» declaran ninguna (`BUSCAR` no pasa época; `docs/REGLAS_CORTAS.md`). Ni el signo ni la distancia ordenan: son información (opción B, decidida por VG el 7-11 por la tarde, mapa §12 [D]).
 
 **Estructura de un candidato** (`valor.items[k]`):
 
@@ -331,13 +331,13 @@ Orden por defecto (**encaje**, `ordenarPorEncaje`, `docs/BTML.md` §6.5): más p
 | `procedencia` | string[] | Cadena de lugares: `'<id>:<dir>#<camino>'` para propios, `'<id>:<dir>'` para referencias y escritos. |
 | `autor`, `t` | string | Solo en escritos; `undefined` en los demás. |
 | `vector` | number[10] | `candidato − buscado` (`origenDir − destino`), dígito a dígito. |
-| `distancia` | number[10] | `|vector|` por profundidad. |
+| `distancia` | number[10] | `|vector|` por profundidad; información, no orden. |
 | `acuerdo` | 0–10 | Profundidades iniciales con diferencia 0. |
 | `signo` | texto | `exacto` (todo 0), `completar` (solo negativos: le falta), `reducir` (solo positivos: le sobra), `mixto`. |
 | `faltas`, `excedentes` | number | Profundidades con diferencia negativa (le falta) / positiva (le sobra). |
 | `origenDir`, `destino` | string | Direcciones de diez dígitos. |
 
-Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir` = su anclaje `en`, que es la dirección buscada (también `exacto`, acuerdo 10, desplazamiento 0; su `indices` es `[]` y su valor es su payload entero); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[5, 0, …]`, `reducir`, excedentes 1, acuerdo 0; una referencia a `1100000000` colocada en `[2]` da `[-1, 1, 0, …]`, `mixto`; una referencia a `1000000000` colocada en `[1]` es `exacto`). En la época 0, por tanto, **solo una referencia que alcanza otra dirección** tiene acuerdo menor que 10: `ACUERDO()`, `SIGNO()`, `FALTAS()` y `DESPLAZAMIENTO()` no distinguen un escrito de un propio (para eso está `ORIGEN()`).
+Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir` = su anclaje `en`, que es la dirección buscada (también `exacto`, acuerdo 10, desplazamiento 0; su `dir` sigue siendo `'0000000000'`, la raíz de su payload, su `indices` es `[]` y su valor es su payload entero); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[5, 0, …]`, `reducir`, excedentes 1, acuerdo 0; una referencia a `1100000000` colocada en `[2]` da `[-1, 1, 0, …]`, `mixto`; una referencia a `1000000000` colocada en `[1]` es `exacto`). En la época 0, por tanto, **solo una referencia que alcanza otra dirección** tiene acuerdo menor que 10: `ACUERDO()`, `SIGNO()`, `FALTAS()` y `DESPLAZAMIENTO()` no distinguen un escrito de un propio (para eso está `ORIGEN()`).
 
 Contar candidatos cuenta también la colisión por ceros: en el eje de ejemplo, sin nada escrito en la 4, `CONTAR(BUSCAR(4))` es `2` (`[4]`, el array `['pagar', 'servir']`, y `[4, 0]`, su posición 0 `'pagar'`). Es la colisión que nombra la **dirección** `4000000000` («colisiones, no apaños», mapa §12). VG decidió además (mapa §12, «BUSCAR por dirección y por índice») que con un número `BUSCAR` es índice (camino exacto) y con un texto de diez dígitos es dirección (la colisión entera); hoy solo admite índices y devuelve la colisión entera de la dirección que forman: falta implementarlo (§11). Las tablas de esta sección usan el escenario de `test/bql-colecciones.test.js` (tres propinas escritas en `4000000000`), que **no** está en el eje de ejemplo.
 
@@ -390,7 +390,7 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))` | RESUELTO | `5` |
 | `FILTRAR(BUSCAR(4), 1)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera verdadero o falso, no numero` |
 | `FILTRAR(1, 1 < 2)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera una colección, no numero` |
-| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` (los escritos están anclados en la 4: exactos) | RESUELTO | `0` |
+| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` (los escritos anclados en `4000000000` son exactos) | RESUELTO | `0` |
 | `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `5` |
 
 ### 7.7 `ORDENAR(col, expr, "desc"?)`
@@ -405,7 +405,7 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito 9a726a75 · escrito d567acc1 · escrito 59bd2354` (1, 2, 5 EUR) |
 | `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 59bd2354 · escrito d567acc1 · escrito 9a726a75` (5, 2, 1 EUR) |
 | `ORDENAR(BUSCAR(4), ORIGEN())` | escritos antes que propios (orden alfabético de `escrito` < `propio`) |
-| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | los cinco tienen desplazamiento 0: el orden no cambia (`propio · propio · escrito · escrito · escrito`) |
+| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | todos tienen desplazamiento 0 (propios y escritos son exactos): se conserva el orden de entrada, los dos propios y luego los tres escritos |
 
 ### 7.8 `ELEGIR(col, k?)`
 
@@ -441,7 +441,7 @@ Solo dentro de `FILTRAR`/`ORDENAR`; fuera, ERROR `<NOMBRE> solo dentro de FILTRA
 | `FALTAS()` | numero: profundidades con diferencia < 0 (al candidato le falta) | `faltas` (0 si falta) |
 | `EXCEDENTES()` | numero: profundidades con diferencia > 0 (al candidato le sobra) | `excedentes` (0 si falta) |
 
-Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `4` (`[1]`, `[1, 0]`, la referencia al menú:1 y la cuenta, anclada justo ahí); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 1` → `0`; `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`. Para ver un vector distinto de cero hace falta una referencia que alcance otra dirección (§7.4).
+Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `4` (`[1]`, `[1, 0]`, la referencia al menú:1 y la cuenta, anclada en la dirección buscada); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 1` → `0` (y `FALTAS() = 0` → `4`); `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`. Para ver un vector distinto de cero hace falta una referencia que alcance otra dirección (§7.4).
 
 ### 7.12 `Y`, `O`, `NO`
 

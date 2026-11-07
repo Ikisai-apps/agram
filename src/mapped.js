@@ -8,7 +8,7 @@
 // donde va la mano. Cartón piedra: sin confluencia estadística todavía.
 
 import { ARIDAD, esReferencia, direccion } from './btml.js';
-import { EPOCA_0 } from './epocas.js';
+import { EPOCA_0, epocaDe } from './epocas.js';
 import { MODOS } from './modos.js';
 
 export const MATRIZ = Object.freeze([
@@ -26,11 +26,13 @@ function payloadEn(ev, camino) {
 /**
  * Mapa del foco: una celda por PV con su contenido en la profundidad del
  * camino y cuántos registros se han escrito en esa posición; el eje (hilo
- * hacia atrás y escritos sobre el foco); y las medidas del 8.
+ * hacia atrás y escritos sobre el foco); y las medidas del 8. La época va
+ * por objeto o por nombre, como en leerDireccion.
  */
 export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.sequenced.decuplas } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('foco desconocido: ' + id);
+  const e = epocaDe(epoca);
   const p = payloadEn(ev, camino);
   const celdas = [];
   for (let i = 0; i < ARIDAD; i++) {
@@ -39,7 +41,7 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
     else if (i === 0) contenido = p;
     celdas.push({
       indice: i,
-      significado: epoca.reglaCorta(camino.length, i),
+      significado: e.reglaCorta(camino.length, i),
       contenido,
       escritos: eje.sobre(id, direccion([...camino, i])).length,
     });

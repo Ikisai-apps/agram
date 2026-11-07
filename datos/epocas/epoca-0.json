@@ -1,0 +1,85 @@
+{
+  "nombre": "época 0",
+  "estado": "decidida",
+  "decision": "VG, 6-11 noche: «nos valen las 10 reglas de momento». Cada dígito es un PV en todas las profundidades (mapa §10.4 [D]). El génesis se escribe bajo esta regla (mapa §10.1 [D]).",
+  "principios": [
+    "La época está fuera del dato: un dato se lee desde cualquier época; BTML no lleva época dentro (mapa §9 [D]).",
+    "Dígito = PV en todas las profundidades: una dirección es una cadena de miradas aplicadas desde el tronco; bajar un nivel es aplicar otra perspectiva al elemento (mapa §8, §10.4 [D]).",
+    "Es el respaldo: lo que otra época no especialice se lee con ella (corpus V2 y V3: la época 0 es el fallback de las profundidades sin consolidar).",
+    "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (opción B, decidida por VG el 7-11 tarde: mapa §12 [D], «Signo del vector: opción B»)."
+  ],
+  "ordinales": [],
+  "reglas": [
+    {
+      "profundidad": "todas",
+      "digito": 0,
+      "nombre": "representación",
+      "significado": "PV0: la lente libre sobre el registro en foco (nombre, cifra, imagen, HTML). Puede engañar; no garantiza verdad.",
+      "ejemplo": "compra 0 = 'Compra del menú del día'; =LOCAL(0) lo devuelve."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 1,
+      "nombre": "recursos",
+      "significado": "PV1, reino o ciudad: cantidades, entradas y salidas, costes, disponibilidad.",
+      "ejemplo": "compra 1 = [ref menú:1, 1, 'EUR 12']: qué, cuánto, a qué precio."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 2,
+      "nombre": "criterios",
+      "significado": "PV2, jardín: lo que distingue cosas aparentemente iguales; decisiones y preferencias; BUSCAR, FILTRAR, ORDENAR, ELEGIR.",
+      "ejemplo": "menú 2 = ['sin gluten', 'vegetariano']; compra 2 = [ref menú:2]."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 3,
+      "nombre": "comunicación",
+      "significado": "PV3, parque acuático: hablar y escuchar, persona y grupo; no crea ni infiere relaciones ni motivos.",
+      "ejemplo": "compra 3 = ['huesped', 'cocina']: quién habla con quién."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 4,
+      "nombre": "fábrica",
+      "significado": "PV4: preparar la actuación con recursos, criterios y comunicaciones y consolidar la elección; en 4 se ejecuta.",
+      "ejemplo": "compra 4 = ['pagar', 'servir']; consolidar() escribe en '4000000000' (FABRICA)."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 5,
+      "nombre": "estructura",
+      "significado": "PV5: el registro en foco, el centro de la cruceta (mapa §9 [D]); su estructura, referencias y firmas.",
+      "ejemplo": "Los campos de encaje de un candidato (ORIGEN(), ACUERDO(), SIGNO()) son su 5."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 6,
+      "nombre": "pasado",
+      "significado": "PV6: hilos del pasado, registros encadenados por referencia; procedencia; más detalle cerca del presente.",
+      "ejemplo": "El hilo de la compra: compra → menú → altas → génesis (por «sobre»)."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 7,
+      "nombre": "futuro",
+      "significado": "PV7: hilos del futuro: previsiones, compromisos, expiración, ejecución condicional autorizada.",
+      "ejemplo": "Una consolidación pendiente de autorización aparece como futuro del foco (ejeTemporal)."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 8,
+      "nombre": "comparabilidad",
+      "significado": "PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad.",
+      "ejemplo": "comparar(eje, compra) sitúa la compra entre sus hermanos."
+    },
+    {
+      "profundidad": "todas",
+      "digito": 9,
+      "nombre": "camino",
+      "significado": "PV9: la guía que baja de las bases: secuencias, tutoriales, siguiente paso; sugerir no es ejecutar.",
+      "ejemplo": "Décupla del corpus V4: 9 = 'Confirmar la elección antes de registrar'."
+    }
+  ],
+  "dudas": []
+}
