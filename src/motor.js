@@ -11,6 +11,10 @@ import { ocupantes, vector, signo } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
+// Ningún registro del motor guarda clase: la de un registro es el tercer
+// dígito de su dirección, y el de FABRICA es 0 aunque autorizar y ejecutar
+// se escriban aquí ([X] decidir VG en qué dirección se escriben para que su
+// clase salga de ella, o si no la llevan).
 export const FABRICA = '4000000000';
 
 /** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
@@ -186,9 +190,6 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
  * Ejecutar: con la consolidación autorizada, el evento final mueve los
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
  * la consolidación y a su autorización.
- * No guarda clase: la de un registro es el tercer dígito de su dirección, y
- * FABRICA tiene 0 aunque ejecutar sea una acción ([X] decidir VG en qué
- * dirección se escribe para que su clase salga de ella, o si no la lleva).
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
