@@ -11,9 +11,9 @@ import * as nucleo from '../src/index.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { epocasDisponibles, epocaActual, elegirEpoca, nombrePV, nombresPV, leerDireccion } from '../ui/epocas.js';
 import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEncaje } from '../ui/encaje.js';
-import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso } from '../ui/fabrica.js';
+import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../ui/fabrica.js';
 import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../ui/saldos.js';
-import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo } from '../ui/ejemplos.js';
+import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../ui/ejemplos.js';
 import { dirCorta, vectorCorto, escapar } from '../ui/comun.js';
 
 const { motor, encaje, PV, EPOCA_0 } = nucleo;
@@ -140,6 +140,28 @@ test('fábrica: la propuesta de la compra elige en el formulario lo que consolid
   assert.equal(propuestaEnCurso(), null);
 });
 
+test('fábrica: si el eje crece después de proponer, la propuesta se recalcula; si el eje es otro, se retira', async () => {
+  const { eje, compra: c } = await compra();
+  quitarPropuesta();
+  const antes = proponerAhora(eje, c.id, []);
+  assert.equal(antes.registros, eje.orden.length);
+  assert.equal(propuestaVigente(eje, c.id, []), antes); // nada ha cambiado: la misma
+  assert.doesNotMatch(cajaPropuesta(eje, c.id, []), /recalculada/);
+  // Un escrito nuevo en el 2 del foco: cambian los candidatos de 2 y lo que el formulario debe marcar sale de ahora, no de cuando se pidió.
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: '2000000000', t: '2026-11-07T14:20:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: ['Otro criterio'] });
+  assert.equal(motor.descubrir(eje, c.id)[1].candidatos.length, motor.descubrir(eje, c.id)[1].candidatos.filter((x) => x.tipo !== 'escrito').length + 1);
+  const ahora = propuestaVigente(eje, c.id, []);
+  assert.ok(ahora && ahora.recalculada);
+  assert.equal(ahora.registros, eje.orden.length);
+  assert.deepEqual(ahora.valores, valoresPropuestos(motor.descubrir(eje, c.id), motor.proponer(eje, c.id)).valores);
+  assert.deepEqual(ahora.prop, motor.proponer(eje, c.id));
+  assert.match(cajaPropuesta(eje, c.id, []), /recalculada: el eje ha cambiado desde que se pidió/);
+  // Otro eje (otro ejemplo, un reinicio), aunque el foco se llame igual: la propuesta no es suya.
+  const { eje: otro } = await compra();
+  assert.equal(propuestaVigente(otro, c.id, []), null);
+  assert.equal(propuestaEnCurso(), null);
+});
+
 test('fábrica: cada consolidación enseña de dónde vino cada fuente y, si existen, sus terminales nuevos', async () => {
   const { eje, compra: c } = await compra();
   const p = motor.proponer(eje, c.id);
@@ -235,6 +257,16 @@ test('ejemplos: si el módulo de un ejemplo falta, se avisa y sigue la comida; n
   assert.equal(await cargarModulo(EJEMPLOS[1], () => Promise.reject(new SyntaxError("does not provide an export named 'capacidadDe'"))), null);
   assert.match(motivoAusente('reserva'), /no carga con este núcleo: .*capacidadDe/);
   assert.equal(elegirEjemplo('desconocido'), 'compra');
+});
+
+test('ejemplos: la opción dice de qué PR llega antes de pedirla; si no estaba, «no disponible»; si cargó, solo su nombre', async () => {
+  assert.equal(etiquetaOpcion(EJEMPLOS[0]), 'comida');
+  const def = { ...EJEMPLOS[2], id: 'prueba-opcion' }; // un ejemplo aún sin pedir en esta sesión
+  assert.equal(etiquetaOpcion(def), 'tarea (PR #34)');
+  assert.equal(await cargarModulo(def, () => Promise.reject(new TypeError('Failed to fetch dynamically imported module'))), null);
+  assert.equal(etiquetaOpcion(def), 'tarea (no disponible)');
+  assert.ok(await cargarModulo(def, () => Promise.resolve({})));
+  assert.equal(etiquetaOpcion(def), 'tarea');
 });
 
 test('ejemplos: al abrir un eje guardado, una identidad que exista en él', async () => {

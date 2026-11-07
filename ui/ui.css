@@ -31,10 +31,12 @@
 .escribir .proponer .accion{font-size:13px;padding:5px 14px}
 .escribir .propuesta .miga{justify-self:start;font-size:12px;padding:2px 9px;background:var(--panel2);color:var(--fg)}
 .celda-form.propuesto select{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
-/* Una consolidación con título largo no ensancha la página: la columna de la fábrica cabe en el móvil. */
+/* Una consolidación con título largo no ensancha la página: la columna de la fábrica cabe en el móvil.
+   El chip de cada consolidación parte en líneas en vez de cortarse: su estado (pendiente, autorizado,
+   ejecutado) va al final y tiene que verse siempre, también a 400 px. */
 .fabrica{grid-template-columns:minmax(0,1fr)}
 .cons{row-gap:2px}
-.cons .chip{max-width:100%}
+.cons .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .ctx{flex-basis:100%;font-size:12px;color:var(--muted);padding:0 0 4px 8px;border-left:2px solid var(--rule);min-width:0}
 .ctx-t{display:block;margin-bottom:1px}
 .ctx li{overflow-wrap:anywhere}

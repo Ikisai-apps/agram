@@ -58,6 +58,8 @@ const porId = (id) => EJEMPLOS.find((x) => x.id === id);
 let elegido = 'compra';
 /** Ejemplos cuyo módulo no se pudo cargar en esta sesión: id → motivo. */
 const ausentes = new Map();
+/** Ejemplos cuyo módulo sí se ha cargado en esta sesión. */
+const cargados = new Set();
 
 export function ejemploElegido() {
   return elegido;
@@ -83,6 +85,7 @@ export async function cargarModulo(def, importar = (ruta) => import(ruta)) {
   try {
     const m = await importar(def.modulo);
     ausentes.delete(def.id);
+    cargados.add(def.id);
     return m;
   } catch (e) {
     const motivo = noEsta(e)
@@ -170,10 +173,23 @@ function refrescarSelector() {
   if (caja) caja.innerHTML = selector();
 }
 
+/**
+ * Texto de la opción de un ejemplo. Saber si su módulo está obliga a
+ * pedirlo (y, si falta, el navegador deja un 404 en la consola), así que no
+ * se pide hasta que se elige; mientras tanto la opción ya dice de qué PR
+ * llega, para que nadie lo elija a ciegas. Si se pidió y no estaba, queda
+ * «(no disponible)» y apagada en esta sesión; si cargó, solo su nombre.
+ */
+export function etiquetaOpcion(def) {
+  if (ausentes.has(def.id)) return def.etiqueta + ' (no disponible)';
+  if (def.pr && !cargados.has(def.id)) return def.etiqueta + ' (PR #' + def.pr + ')';
+  return def.etiqueta;
+}
+
 function selector() {
   const opciones = EJEMPLOS.map((x) => {
     const motivo = ausentes.get(x.id);
-    return `<option value="${x.id}" ${x.id === elegido ? 'selected' : ''} ${motivo ? 'disabled' : ''}>${escapar(x.etiqueta)}${motivo ? ' (no disponible)' : ''}</option>`;
+    return `<option value="${x.id}" ${x.id === elegido ? 'selected' : ''} ${motivo ? 'disabled' : ''}>${escapar(etiquetaOpcion(x))}</option>`;
   }).join('');
   return `<label class="ajuste" title="cambia de ejemplo: borra lo guardado en este navegador y empieza el elegido">ejemplo <select name="ejemplo">${opciones}</select></label>`
     + (nota ? `<span class="nota-ajuste">${escapar(nota)}</span>` : '');

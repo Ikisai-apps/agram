@@ -14,7 +14,11 @@ import { motor, direccion, indicesDe, esReferencia, encaje, RAIZ } from '../src/
 import { escapar, corto, dirCorta, vectorCorto } from './comun.js';
 import { nombrePV } from './epocas.js';
 
-/** Propuesta en curso: la del foco y el camino donde se pidió. */
+/**
+ * Propuesta en curso: la del foco y el camino donde se pidió, con el eje y
+ * cuántos registros tenía entonces (los índices 'cK' del formulario y los
+ * textos de origen valen para ese estado del eje y no para otro).
+ */
 let propuesta = null;
 
 const claveDe = (foco, camino) => foco + '#' + camino.join('.');
@@ -65,7 +69,33 @@ export function proponerAhora(eje, foco, camino = []) {
   const prop = motor.proponer(eje, foco, { camino });
   const desc = motor.descubrir(eje, foco, { camino });
   const { valores, fuera } = valoresPropuestos(desc, prop);
-  propuesta = { clave: claveDe(foco, camino), foco, camino: [...camino], prop, valores, fuera, antes: motor.consolidaciones(eje, foco, camino).length };
+  propuesta = {
+    clave: claveDe(foco, camino), foco, camino: [...camino], prop, valores, fuera,
+    eje, registros: eje.orden.length, antes: motor.consolidaciones(eje, foco, camino).length, recalculada: false,
+  };
+  return propuesta;
+}
+
+/**
+ * La propuesta en curso, si vale para este foco, este camino y el eje tal
+ * como está ahora; si no, null. Si se ha consolidado algo sobre el foco
+ * desde que se pidió, ya se usó y se retira; si el eje es otro (otro
+ * ejemplo, reinicio), también. Si el eje solo ha crecido (un escrito, una
+ * referencia, una autorización), los candidatos de 1–4 pueden haber
+ * cambiado de lugar: se vuelve a pedir, para que el formulario marque el
+ * mismo candidato que propone el motor y la caja enseñe los orígenes de ahora.
+ */
+export function propuestaVigente(eje, foco, camino = []) {
+  if (!propuesta || propuesta.clave !== claveDe(foco, camino)) return null;
+  if (propuesta.eje !== eje || motor.consolidaciones(eje, foco, camino).length !== propuesta.antes) { propuesta = null; return null; }
+  if (eje.orden.length !== propuesta.registros) {
+    try {
+      proponerAhora(eje, foco, camino);
+      propuesta.recalculada = true;
+    } catch {
+      propuesta = null;
+    }
+  }
   return propuesta;
 }
 
@@ -85,12 +115,11 @@ export function botonProponer() {
 
 /**
  * Caja de la propuesta en curso, si es de este foco y este camino: de dónde
- * sale cada elección y qué queda pendiente. Si desde que se pidió se ha
- * consolidado algo sobre el foco, la propuesta ya se usó y se retira.
+ * sale cada elección y qué queda pendiente (ver propuestaVigente: se retira
+ * si ya se usó y se recalcula si el eje ha cambiado).
  */
 export function cajaPropuesta(eje, foco, camino = []) {
-  if (!propuesta || propuesta.clave !== claveDe(foco, camino)) return '';
-  if (motor.consolidaciones(eje, foco, camino).length !== propuesta.antes) { propuesta = null; return ''; }
+  if (!propuestaVigente(eje, foco, camino)) return '';
   const prof = camino.length;
   const etiqueta = (i) => `<b>${i} ${escapar(nombrePV(i, prof))}</b>`;
   const como = { candidato: 'candidato', referencia: 'referencia escrita', terminal: 'terminal nuevo' };
@@ -104,6 +133,7 @@ export function cajaPropuesta(eje, foco, camino = []) {
   const fuera = propuesta.fuera.length ? `<li class="pend">fuera del formulario: ${propuesta.fuera.join(', ')}</li>` : '';
   return `<div class="propuesta">
     <div class="titulo">Propuesta · orígenes y pendientes</div>
+    ${propuesta.recalculada ? '<div class="pista">recalculada: el eje ha cambiado desde que se pidió</div>' : ''}
     <ul>${filas.join('')}${pendientes.join('')}${fuera}</ul>
     ${callan.length ? `<div class="pista">no proponen (sin desarrollar): ${callan.join(', ')}</div>` : ''}
     ${!filas.length && !pendientes.length ? '<div class="pista">nada que proponer: las posiciones 1–4 del foco están sin desarrollar</div>' : ''}
@@ -130,7 +160,7 @@ export function contextoConsolidacion(eje, id) {
 /** Rellena el formulario de consolidación con la propuesta en curso (tras cada pintado). */
 export function trasPintarFabrica(estado) {
   const form = document.querySelector('#consolidar');
-  if (!form || !propuesta || propuesta.clave !== claveDe(estado.foco, estado.camino)) return;
+  if (!form || !propuestaVigente(estado.eje, estado.foco, estado.camino)) return;
   for (const [pos, v] of Object.entries(propuesta.valores)) {
     const sel = form.elements['e' + pos];
     const txt = form.elements['n' + pos];

@@ -222,7 +222,7 @@ function celdaMapa(m, i, eje67, comp) {
   if (i === 9) {
     const pasos = m.camino.length ? m.camino.map((p, k) => `<span class="paso">${p} ${nombrePV(p, k)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
     const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
-    const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidación${pendientes.length > 1 ? 'es' : ''} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
+    const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidaci${pendientes.length > 1 ? 'ones' : 'ón'} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
     return `<div class="celda c9"><div class="pvn">9 ${c.significado}</div><div class="pasos">${pasos}</div>${guia}${propio}${marca}</div>`;
   }
   const ct = c.contenido;
@@ -256,7 +256,7 @@ function panelFabrica(m) {
   }).join('');
   return `
     <section class="fabrica">
-      <div class="titulo">Fábrica (4) · consolidar no es ejecutar · ${lista.length} consolidación${lista.length === 1 ? '' : 'es'}</div>
+      <div class="titulo">Fábrica (4) · consolidar no es ejecutar · ${lista.length} consolidaci${lista.length === 1 ? 'ón' : 'ones'}</div>
       ${filas || '<div class="nada">nada consolidado sobre este foco</div>'}
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
