@@ -64,10 +64,10 @@ test('vista Scened: una fila por foco, en el orden del marco común, y cada aris
   // Recentrar no cambia el ancla del destino: la fila del menú sigue siendo #escena-<id del menú>.
   const otra = htmlEscena(escenaDe(eje, c3.id, { alcance: 'proyecto', ahora: AHORA }));
   assert.ok(otra.includes(`id="escena-${menu.id}"`));
-  // Sin corte: ni aviso ni foco fuera; la lectura frente a la capacidad, que no se da por decidida.
+  // Sin corte: ni aviso ni foco fuera; la lectura frente al máximo, que es tope duro (VG, 7-11 noche).
   assert.equal(e.corte, null);
   assert.ok(!html.includes('class="aviso"'));
-  assert.ok(html.includes(`${e.recuentos.posicionesEnEscena} de ${CAPACIDAD} posiciones en escena · capacidad de Scened (10000 por defecto) · [X] decidir VG: tope duro o capacidad ajustable`));
+  assert.ok(html.includes(`${e.recuentos.posicionesEnEscena} de ${CAPACIDAD} posiciones en escena · máximo de Scened (10000, tope duro)`));
   assert.ok(!/tope duro de Scened/.test(html));
   assert.match(html, /aria-valuemax="10000"/);
 });
@@ -85,16 +85,14 @@ test('vista Scened: si la capacidad corta la escena, el aviso sale arriba y abaj
   assert.match(avisos[0], /^capacidad de la escena: 60 posiciones\. El foco [0-9a-f]{8} \(3º de 3\) la llevaría a 70; la escena se corta ahí y quedan fuera 1 foco: /);
   const lista = html.indexOf('<ol class="piezas">');
   assert.ok(html.indexOf('class="aviso"') < lista && html.lastIndexOf('class="aviso"') > html.indexOf('</ol>'));
-  assert.match(html, /60 de 60 posiciones en escena · capacidad cambiada \(10000 por defecto\) · 1 foco fuera/);
+  assert.match(html, /60 de 60 posiciones en escena · capacidad bajada \(máximo 10000\) · 1 foco fuera/);
   assert.match(html, /class="barra llena"/);
   // Si no cabe ni el foco, la vista lo dice en vez de quedar vacía.
   const vacia = htmlEscena(escenaDe(eje, compra.id, { ahora: AHORA, capacidad: 10 }));
   assert.match(vacia, /ningún foco cabe en la escena/);
   assert.match(vacia, /class="aviso">capacidad de la escena: 10 posiciones/);
-  // Sin capacidad: ni barra ni corte.
-  const libre = htmlEscena(escenaDe(eje, compra.id, { alcance: 'general', ahora: AHORA, capacidad: Infinity }));
-  assert.match(libre, /posiciones en escena · sin capacidad/);
-  assert.ok(!libre.includes('class="barra'));
+  // El máximo es duro (VG, 7-11 noche): no se puede quitar ni subir.
+  assert.throws(() => escenaDe(eje, compra.id, { alcance: 'general', ahora: AHORA, capacidad: Infinity }), /máximo de Scened es duro/);
 });
 
 test('vista Scened: todo el eje con más de mil registros llega a la capacidad de 10000 y lo dice', async () => {
@@ -115,7 +113,7 @@ test('vista Scened: todo el eje con más de mil registros llega a la capacidad d
   const avisos = [...html.matchAll(/<div class="aviso">([^<]*)<\/div>/g)].map((m) => m[1]);
   assert.equal(avisos.length, 2);
   assert.match(avisos[0], /^capacidad de la escena: 10000 posiciones\. El foco [0-9a-f]{8} \(1001º de 1002\) la llevaría a 10010; la escena se corta ahí y quedan fuera 2 focos: /);
-  assert.ok(html.includes('10000 de 10000 posiciones en escena · capacidad de Scened (10000 por defecto) · [X] decidir VG: tope duro o capacidad ajustable · 2 focos fuera'));
+  assert.ok(html.includes('10000 de 10000 posiciones en escena · máximo de Scened (10000, tope duro) · 2 focos fuera'));
 });
 
 test('vista Scened: un foco terminal se representa por su terminal, y el texto se escapa', async () => {

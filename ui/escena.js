@@ -5,10 +5,11 @@
 // escena; «Mapped» lo abre en Mapped.
 //
 // Solo lee: Scened no escribe mientras su proporción no esté fijada
-// (src/modos.js). Lo que la escena trae se cuenta contra la capacidad de
-// src/scened.js (CAPACIDAD = lectura('scened') = 10000 posiciones por
-// defecto). [X] decidir VG: ¿tope duro de lectura de 10000 o capacidad
-// ajustable? (mapa §13). Los topes duros del §12 son de EMISIÓN. La escena se
+// (src/modos.js). Lo que la escena trae se cuenta contra el máximo de
+// src/scened.js (CAPACIDAD = maximo('scened') = 10000 posiciones). Es tope
+// duro (VG, 7-11 noche: los mismos máximos para representar y emitir); la
+// opción `capacidad` solo puede bajarlo. Los mismos números valen para lo que
+// emite la fábrica (§12). La escena se
 // corta en el primer foco que no cabe y el corte se dice arriba y abajo de la
 // lista, nunca en silencio.
 //
@@ -86,8 +87,7 @@ function avisos(e) {
 
 /** Qué capacidad se aplica, en palabras. */
 function textoCapacidad(c) {
-  if (c === Infinity) return 'sin capacidad';
-  return c === CAPACIDAD ? 'capacidad de Scened (' + CAPACIDAD + ' por defecto) · [X] decidir VG: tope duro o capacidad ajustable' : 'capacidad cambiada (' + CAPACIDAD + ' por defecto)';
+  return c === CAPACIDAD ? 'máximo de Scened (' + CAPACIDAD + ', tope duro)' : 'capacidad bajada (máximo ' + CAPACIDAD + ')';
 }
 
 /** HTML sobrio de una escena: alcance, lectura frente a la capacidad, avisos arriba, una fila por foco, recuentos y avisos abajo. */
