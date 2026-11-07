@@ -323,7 +323,7 @@ Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = pos
 |---|---|
 | `ruta: ni terminal ni array` | booleano, `null` suelto en la raíz, objeto sin `ref`, cadena vacía, `NaN`… |
 | `ruta: array vacío` | `[]` |
-| `ruta: más de 10 posiciones` | longitud > 10 |
+| `ruta: más de 10 posiciones` | longitud > 10. Se comprueba antes que nada y no se mira dentro: un array disperso con una longitud enorme no se recorre, y sus posiciones no dan más errores |
 | `ruta: hueco` | `null` o `undefined` en una posición, o una posición ausente de un array disperso de JavaScript (`['a', , 'c']`, o un array con solo `[3]` asignado) |
 
 ```sh

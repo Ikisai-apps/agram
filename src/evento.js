@@ -38,9 +38,21 @@ export function cuerpo(ev) {
   };
 }
 
-/** Copia de datos JSON (arrays y objetos planos); lo demás se devuelve tal cual. Conserva las posiciones ausentes. */
+/**
+ * Copia de datos JSON (arrays y objetos planos); lo demás se devuelve tal cual.
+ * Conserva las posiciones ausentes. Recorre las posiciones presentes, no la
+ * longitud: un array disperso con una longitud enorme se copia en lo que
+ * tiene, y validarPayload lo rechaza después sin recorrerlo.
+ */
 function copiar(x) {
-  if (Array.isArray(x)) return x.map(copiar);
+  if (Array.isArray(x)) {
+    const copia = new Array(x.length);
+    for (const k of Object.keys(x)) {
+      const i = Number(k);
+      if (Number.isInteger(i) && String(i) === k && i < x.length) copia[i] = copiar(x[i]);
+    }
+    return copia;
+  }
   if (x !== null && typeof x === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(x))) {
     return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, copiar(v)]));
   }

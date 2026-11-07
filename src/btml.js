@@ -33,7 +33,8 @@ export function esDireccion(s) {
  * Un array debe tener entre 1 y 10 posiciones, ninguna nula ni vacía. Una
  * posición ausente (un array disperso de JavaScript, como ['a', , 'c'])
  * también es un hueco: si se usa el índice 3, los índices 0, 1 y 2 tienen
- * contenido real.
+ * contenido real. Un array de más de diez se rechaza sin mirar dentro, así
+ * que el coste nunca pasa de diez posiciones por nivel.
  */
 export function validarPayload(payload, ruta = '') {
   const errores = [];
@@ -43,9 +44,18 @@ export function validarPayload(payload, ruta = '') {
     errores.push(aqui + ': ni terminal ni array');
     return { ok: false, errores };
   }
-  if (payload.length === 0) errores.push(aqui + ': array vacío');
-  if (payload.length > ARIDAD) errores.push(aqui + ': más de ' + ARIDAD + ' posiciones');
-  // Un for, no forEach: forEach se salta las posiciones ausentes y las daría por buenas.
+  // La longitud primero, y se sale: un array disperso puede declarar una
+  // longitud enorme sin contenido, y no se recorre.
+  if (payload.length === 0) {
+    errores.push(aqui + ': array vacío');
+    return { ok: false, errores };
+  }
+  if (payload.length > ARIDAD) {
+    errores.push(aqui + ': más de ' + ARIDAD + ' posiciones');
+    return { ok: false, errores };
+  }
+  // Un for hasta ARIDAD como mucho, no forEach: forEach se salta las
+  // posiciones ausentes y las daría por buenas.
   for (let i = 0; i < payload.length; i++) {
     const r = ruta + i;
     if (!(i in payload) || payload[i] === null || payload[i] === undefined) {

@@ -613,7 +613,7 @@ test('MOT-30 lo consolidado en un registro ocupa un espacio de diez por diez', a
 });
 
 test('MOT-30b las diez posiciones del registro se pueden elegir: diez interpretaciones por diez interacciones',
-  { skip: 'MOT-30: la posición 0 es el título y no se puede elegir, así que solo caben nueve por diez; el sentido de «interpretaciones por interacciones» no está modelado. [X] decidir VG qué ocupa cada eje del diez por diez' },
+  { skip: 'MOT-30: el mapa §12 (7-11) fija los ejes: posición × subposición del foco, de 0 a 9, con la clase de modificación como tercera dimensión (la matriz 10×10×10 llega con la #40, en src/escritura.js). consolidar() aún reserva la posición 0 para su título y no deja elegirla, así que solo caben nueve por diez' },
   async () => {
     const { eje, g } = await mundo(['Foco']);
     const elecciones = {};
@@ -875,7 +875,7 @@ test('MOT-58 desde Sequenced se escribe como mucho una quinta parte de lo leído
 });
 
 test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído',
-  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG (y MOT-60: tope o banda)' },
+  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. El mapa §12 fija topes duros por modo (Sequenced 100) además de la proporción, y que siempre se emite algo (la #40 pone los topes); no fija un mínimo. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: ['solo una'], t: T0 }));
@@ -891,7 +891,7 @@ test('MOT-59 desde Mapped se escribe como mucho un tercio de lo leído (333 de 1
 });
 
 test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 1000)',
-  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped llega como mucho a 100 y consolidar() escribe en Mapped con pocas posiciones. [X] MOT-60: tope o banda obligatoria' },
+  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped llega como mucho a 100 y consolidar() escribe en Mapped con pocas posiciones. El mapa §12 fija topes duros por modo (Mapped 1000) además de la proporción (la #40 pone los topes); no fija un mínimo. [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: ['una'], t: T0 }));
@@ -1731,7 +1731,7 @@ test('TOK-72 AGRAM no firma por nadie: la firma la pone el autor con su clave', 
 });
 
 test('TOK-72b AGRAM no genera por sí mismo pagos ni ejecuciones: invoca servicios autorizados',
-  { skip: 'TOK-72: motor.ejecutar mueve tokens dentro del eje, como hueco provisional de AARPIA. [!] Choca con MOT-39 (el motor es la ejecución real); [X] decidir VG (MOT-40)' },
+  { skip: 'TOK-72: motor.ejecutar mueve tokens dentro del eje. Lo decide el mapa §12 (7-11): AARPIA es el motor real de autorización y ejecución, y lo del motor es un hueco provisional; AARPIA queda fuera por decisión de VG (MOT-41, TOK-74)' },
   sinForma('TOK-72'));
 
 test('TOK-73 la regla de autorización del motor es un hueco provisional en un solo punto: puedeAutorizar', async () => {
