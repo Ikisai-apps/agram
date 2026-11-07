@@ -467,7 +467,7 @@ for (const p of decupla(compra).posiciones) console.log(p.indice, p.significado,
 ```
 
 ```text
-0:1=recursos 1:2=criterios
+0:1=recursos 1:2=con qué condición
 0 representación Compra del menú del día
 1 recursos [3]
 2 criterios [1]

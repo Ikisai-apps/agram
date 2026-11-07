@@ -164,7 +164,7 @@ Una prueba comprueba que `datos/efectos.js` está al día. El módulo exporta `C
 ## Abierto: [X] decidir VG
 
 1. **El emparejamiento operación ↔ nombre**, mundo a mundo. Cada entrada lleva su fuente y su marca.
-2. **Leer el contenido de un registro como la matriz 10×10×10.** Decidido para el registro de salida de la fábrica; aquí se aplica a todo registro, con la marca. Falta saber qué registros son esa salida: la PR #40 la trae, y si escribir y consolidar son la misma salida sigue abierto (`docs/notas/FABRICA_10X10.md`, D1/D2).
+2. **Leer el contenido de un registro como la matriz 10×10×10.** Decidido para el registro de salida de la fábrica; aquí se aplica a todo registro, con la marca. Falta saber qué registros son esa salida: la #40 ya está en `main` (`escribirSalida`, `docs/MOTOR.md` §7), y si escribir y consolidar son la misma salida sigue abierto (`docs/notas/FABRICA_10X10.md`, D1/D2).
 3. **El marco.** El registro no guarda desde qué camino del foco se escribió, y se lee desde la raíz. La app escribe en `direccion([...camino, PV])`, la #40 ancla aparte las celdas sin base en su `camino + i.j.k`, y el motor consolida en `camino + 4` (este caso se resuelve: su camino es `en` sin el 4). Para leer los demás desde su camino, el registro tendría que guardarlo (propuesta: en su contexto). Mientras, quien mira puede pedir su camino como marco (`{ marco }`), con su marca.
 4. **Ver y heredar** dan el mismo payload (PR #40). Aquí se distinguen por `contexto.vistas` o `contexto.heredadas`; un registro de la #40 que solo ve no guarda `heredadas`, y sus vistas se leerían como herencia. Propuesta: guardar `contexto.vistas`.
 5. **Toda referencia al foco es herencia**, también las que apuntan a otra dirección del foco.

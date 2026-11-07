@@ -108,7 +108,7 @@ Las referencias (BTML o REF) a registros que no están en la escena no son arist
 
 ## 6. La capacidad y el corte
 
-**La capacidad de Scened es, por defecto, 10000 posiciones**: `lectura('scened')`, mil décuplas de diez, la capacidad representativa de `src/modos.js`. **No es un tope duro**: se puede bajar, subir o quitar con la opción `capacidad`. El tope duro de Scened que fija §12 (10000) es de **escritura**: posiciones emitidas por la fábrica en el registro de salida (`tope('scened')` en `src/modos.js`, desde la #40; lo aplica `escribirDesde`, `docs/MOTOR.md` §7.1). Coincide en número y es otra cosa: aquí no se escribe.
+**La capacidad de Scened es, por defecto, 10000 posiciones**: `lectura('scened')`, mil décuplas de diez, la capacidad representativa de `src/modos.js`. **Hoy no es un tope duro** (provisional: es el [X] de abajo): se puede bajar, subir o quitar con la opción `capacidad`. El tope duro de Scened que fija §12 (10000) es de **escritura**: posiciones emitidas por la fábrica en el registro de salida (`tope('scened')` en `src/modos.js`, desde la #40; lo aplica `escribirDesde`, `docs/MOTOR.md` §7.1). Coincide en número y es otra cosa: aquí no se escribe.
 
 **[X] decidir VG:** ¿Scened tiene tope duro de lectura, o solo el de emisión del §12? Mientras no se decida, la capacidad corta por defecto (para que una escena de todo el eje no se lea entera sin aviso) y se puede cambiar.
 
@@ -219,6 +219,14 @@ Lectura de la primera escena: se pidieron en desorden y el marco las coloca por 
 | Bases del 8 en la escena (confluencia) | Las medidas de cada mapa se suman; no se funden bases. |
 | Aristas de BQL evaluado (`BUSCAR`, `ACTUAL`…, o un `REF` con argumentos calculados) | Solo `REF` con argumentos literales, leído en el árbol de la fórmula, sin evaluar (§4). |
 
-## 10. Cómo entraría en el frontend
+## 10. En el frontend: la vista sobria de Scened
 
-`app.js` no cambia en esta pieza. Entraría así: un cuarto botón `data-modo="scened"` en `index.html`; en `app.js`, `scened` desde `./src/index.js` y un `pintarScened()` que llame a `scened.escenaDe(estado.eje, estado.foco, { alcance, camino: estado.camino })` con un selector `hermanos | proyecto | general | hilo`; una fila por foco con los mismos datos que el render sobrio (posición, nivel como sangría, aristas como enlaces a la posición de destino); tocar una fila cambia el foco y abre ese foco en Mapped; el aviso de corte, visible arriba y abajo de la lista. Sin formulario de escritura en Scened mientras su proporción no esté fijada.
+Un cuarto botón, **Scened**, junto a Pointed, Sequenced y Mapped (`index.html`). La vista vive en `ui/escena.js`; `app.js` solo la engancha (una rama en `pintar()` y `pintarScened()`). Llama a `escenaDe(estado.eje, estado.foco, { alcance, camino: estado.camino })` tal cual, sin código propio de cohortes. Render sobrio, a 400 px sin desbordar:
+
+- **Alcance**, cuatro botones en el orden de `ALCANCES`: `hermanos`, `proyecto`, `todo el eje` (`general`) e `hilo`. En los cuatro, el foco es el centro y va primero en prioridad; los demás, por llegada (**[X] decidir VG**, §9). El alcance elegido se recuerda en el navegador (`agram.escena.alcance`), como comodidad.
+- **Lectura frente a la capacidad**: «Scened · n de m focos · común · camino · época», una barra de posiciones en escena sobre la capacidad y la cifra exacta («70 de 10000 posiciones en escena · capacidad de Scened (10000 por defecto) · **[X] decidir VG**: tope duro o capacidad ajustable»). La vista no cambia la capacidad: usa la de `escenaDe` por defecto (§6).
+- **El corte se ve arriba y abajo de la lista**, con el mismo aviso de `escena` (§6), la barra en color de aviso y «n focos fuera» junto a la cifra. Si no cabe ni el foco, la vista lo dice en vez de quedar vacía. Con todo el eje de mil dos registros (prueba en `test/escena-ui.test.js`), entran mil y el aviso dice cuáles quedan fuera.
+- **Una fila por foco**, en el orden del marco común (§3): posición, id corto, autor, «centro», la representación (`mapa.terminal` si el foco es un terminal, como el génesis, que no tiene posición 0; si no, su posición 0), y debajo nivel, hermanos, pasado, futuro y cuántas aristas entran. La sangría es el nivel, hasta seis.
+- **Aristas como enlaces** a la fila de su destino, anclada por id (`#escena-<id>`), no por posición: al recentrar, el enlace sigue llevando al mismo registro. Texto: `hilo → 0 en 1000000000`, `ref 1.0 → 2 : 1000000000`, `fórmula 1 → 3 : 1200000000`; el título de cada una dice qué significa («su posición 1.0 es una referencia a la 1000000000 de …, no copia»).
+- **Tocar un foco** lo pone en el centro de la escena (el `data-ir` de siempre); **«Mapped»**, un botón aparte en la fila, abre ese foco en Mapped. **[X] decidir VG:** la propuesta anterior de esta sección era que tocar una fila cambiara el foco y lo abriera en Mapped a la vez; aquí se separan para poder recorrer la escena sin salir de ella.
+- Solo lee: no hay formulario de escritura en Scened mientras su proporción no esté fijada. Sin selector de época propio: usa la época 0. No anima nada: no hay transiciones ni CSS de animación.

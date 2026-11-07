@@ -2,10 +2,11 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado entra con Mapped y cubre la
-// cruz entera: los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el
-// camino del 9 y la cruz con el 5 en el centro (mundos/cruz-ui.js); y la X:
-// fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 (mundos/x-ui.js).
+// en el navegador. Scened (ui/escena.js) pone varios focos en escena y solo
+// lee. Render sobrio; el animado entra con Mapped y cubre la cruz entera:
+// los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el camino del 9
+// y la cruz con el 5 en el centro (mundos/cruz-ui.js); y la X: fábrica 4,
+// ciudad 1, jardín 2, parque 3 y lente 0 (mundos/x-ui.js).
 
 import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
 import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
@@ -328,6 +329,7 @@ function pintar() {
   document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
+  else if (estado.modo === 'scened') pintarScened();
   else pintarSequenced();
   trasPintarHilos(estado); // en animado, los hilos en las celdas 6 y 7 de Mapped
   trasPintarCruz(estado); // después de los hilos: el cielo y el camino en las celdas 8 y 9, y la cruz si está abierta
@@ -336,6 +338,14 @@ function pintar() {
   trasPintarEpocas();
   trasPintarFabrica(estado);
   trasPintarEjemplos(estado);
+}
+
+// Scened (ui/escena.js): varios focos en escena, solo lectura; aquí solo se engancha.
+import { vistaEscena, instalarEscena } from './ui/escena.js';
+
+function pintarScened() {
+  instalarEscena({ estado, pintar, irA });
+  $('#vista').innerHTML = cabecera(estado.eje.obtener(estado.foco)) + vistaEscena(estado.eje, estado.foco, { camino: estado.camino });
 }
 
 function guardar() {

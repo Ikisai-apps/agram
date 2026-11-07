@@ -70,6 +70,27 @@ header .kicker{color:var(--muted);font-size:13px}
 .medidas{display:flex;flex-wrap:wrap;gap:3px 8px;font-size:12px;color:var(--muted)} .medidas b{color:var(--fg)}
 .pasos{font-size:12px;color:var(--muted)} .paso{color:var(--fg)}
 .celda .nada{font-size:12px;color:var(--muted);padding:0}
+.escena{display:grid;gap:10px;margin:6px 0 16px;min-width:0}
+.alcances{display:flex;flex-wrap:wrap;gap:6px}
+.alcances button{font:inherit;font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.alcances button[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.lectura{display:grid;gap:4px} .lectura .titulo{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.barra{height:6px;border-radius:999px;background:var(--panel2);overflow:hidden} .barra span{display:block;height:100%;background:var(--ok)} .barra.llena span{background:var(--warn)}
+.piezas{list-style:none;margin:0;padding:0;display:grid;gap:4px;min-width:0}
+.pieza{display:grid;gap:3px;padding:6px 8px;margin-left:calc(var(--nivel,0) * 10px);border:1px solid var(--rule);border-radius:8px;background:var(--panel);min-width:0}
+.pieza.centro{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.pieza:target{background:var(--panel2)}
+.pieza-fila{display:grid;grid-template-columns:1fr auto;gap:6px;min-width:0}
+.pieza .abrir{display:grid;grid-template-columns:1.6em 1fr;gap:2px 8px;text-align:left;font:inherit;padding:0;border:0;background:none;color:var(--fg);cursor:pointer;min-width:0}
+.pieza .n{font-family:var(--mono);color:var(--muted);grid-row:span 2}
+.pieza .quien{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.pieza .rep{overflow-wrap:anywhere;min-width:0}
+.pieza .ref{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--panel2);color:var(--accent);border-radius:8px;padding:2px 8px;cursor:pointer;align-self:start}
+.pieza .meta,.pieza .aristas{padding-left:calc(1.6em + 8px);font-size:12px;color:var(--muted);min-width:0}
+.pieza .aristas{display:flex;flex-wrap:wrap;gap:4px}
+.arista{font-family:var(--mono);text-decoration:none;color:var(--fg);background:var(--panel2);border-radius:6px;padding:1px 6px;overflow-wrap:anywhere}
+.arista.a-hilo{color:var(--ok)} .arista.a-formula{color:var(--accent)}
+.recuentos{font-size:12px;color:var(--muted);display:grid;gap:2px}
 @media (max-width:480px){.celda{min-height:84px;padding:6px} .celda .val{font-size:13px} .chip{font-size:11px}}
 .escribir{display:grid;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px}
 .escribir .titulo,.hilera .titulo{font-size:13px;color:var(--muted);letter-spacing:.02em}
@@ -128,6 +149,7 @@ footer{margin-top:22px;font-size:12px;color:var(--muted)}
     <button data-modo="pointed" aria-pressed="true">Pointed</button>
     <button data-modo="sequenced" aria-pressed="false">Sequenced</button>
     <button data-modo="mapped" aria-pressed="false">Mapped</button>
+    <button data-modo="scened" aria-pressed="false">Scened</button>
     <button data-genesis>génesis</button>
     <button data-render aria-pressed="false" title="alterna sobrio y animado: en Mapped, las celdas 6 y 7 se dibujan como hilos, la 8 como cielo, la 9 como camino y las 1–4 y 0, como la X; «ver la cruz» y «ver la X» los abren enteros">animado</button>
     <button data-reiniciar title="borra lo guardado en este navegador y vuelve al ejemplo">reiniciar</button>
