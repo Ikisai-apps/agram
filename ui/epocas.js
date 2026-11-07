@@ -56,6 +56,11 @@ export function nombresPV(profundidad = 0) {
   return nucleo.PV.map((_, d) => nombrePV(d, profundidad));
 }
 
+/** Lee una dirección con la época elegida (la del núcleo lee por defecto con la época 0). */
+export function leerDireccion(dir, epoca = actual) {
+  return nucleo.leerDireccion(dir, epoca);
+}
+
 function selector() {
   const lista = epocasDisponibles();
   const solo = lista.length < 2;

@@ -80,7 +80,7 @@ export function propuestaEnCurso() {
 /** Botón «proponer» del formulario de consolidación. */
 export function botonProponer() {
   return `<div class="proponer"><button type="button" class="accion" data-proponer>proponer</button>
-    <span class="pista">rellena las elecciones desde lo que dicen las posiciones del foco (B); no escribe nada</span></div>`;
+    <span class="pista">rellena las elecciones de arriba desde lo que dicen las posiciones del foco (B); no escribe nada</span></div>`;
 }
 
 /**

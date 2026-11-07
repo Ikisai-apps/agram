@@ -6,12 +6,12 @@
 
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
-  indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ,
+  indicesDe, direccion, esReferencia, escritura, PV, RAIZ,
 } from './src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
 import { listaOcupantes as listaEncaje, instalarEncaje } from './ui/encaje.js';
 import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, trasPintarFabrica } from './ui/fabrica.js';
-import { epocaActual, nombrePV, nombresPV, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
+import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
 
@@ -156,7 +156,7 @@ function pintarPointed() {
 
 function filaSecuencia(d, i) {
   const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
-  const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en, epocaActual()).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
+  const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
   return `<div class="fila"><button class="abrir" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button><button class="ref" data-ref="${d.id}" title="insertar como referencia en la hilera">@</button></div>`;
 }
 
@@ -261,8 +261,8 @@ function panelFabrica(m) {
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
         <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.celdas[0].contenido))}"></label>
-        ${botonProponer()}${cajaPropuesta(estado.eje, m.foco, m.camino)}
         <div class="decupla-form">${campos}</div>
+        ${botonProponer()}${cajaPropuesta(estado.eje, m.foco, m.camino)}
         <button type="submit">Consolidar en la fábrica del foco</button>
         ${mensajes()}
       </form>

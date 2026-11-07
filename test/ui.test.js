@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 import * as nucleo from '../src/index.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { epocasDisponibles, epocaActual, elegirEpoca, nombrePV, nombresPV } from '../ui/epocas.js';
+import { epocasDisponibles, epocaActual, elegirEpoca, nombrePV, nombresPV, leerDireccion } from '../ui/epocas.js';
 import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEncaje } from '../ui/encaje.js';
 import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso } from '../ui/fabrica.js';
 import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../ui/saldos.js';
@@ -48,6 +48,7 @@ test('épocas: los nombres de las posiciones salen de la época elegida, profund
     assert.equal(elegirEpoca(e.nombre), e);
     assert.equal(epocaActual(), e);
     for (let p = 0; p < 3; p++) assert.deepEqual(nombresPV(p), PV.map((n, d) => e.reglaCorta(p, d) ?? n));
+    assert.deepEqual(leerDireccion('1410000000'), nucleo.leerDireccion('1410000000', e)); // la dirección «en», leída con la elegida
   }
   assert.equal(elegirEpoca('época que no existe'), EPOCA_0);
   assert.deepEqual(nombresPV(0), [...PV]);
