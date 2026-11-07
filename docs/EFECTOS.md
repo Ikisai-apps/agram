@@ -2,7 +2,7 @@
 
 Cada operación dice qué cambió, de qué clase y cómo se ve en su mundo. Es el puente entre el núcleo y los mundos animados (big picture §6, tanda 3): sobrio y animado son dos renders de la misma operación (FUNDAMENTOS), y los dos leen la misma lista de efectos. Si una animación no sale de un efecto, no corresponde a ningún cambio y no se dibuja.
 
-Código: `src/efectos.js`. Nombres: `datos/efectos.json` (y su copia importable `datos/efectos.js`). Pruebas: `test/efectos.test.js`.
+Código: `src/efectos.js`, que `src/index.js` exporta como espacio de nombres `efectos` (`import { efectos } from './src/index.js'`; `efectos.efectosDe(eje, compra)`). Nombres: `datos/efectos.json` (y su copia importable `datos/efectos.js`). Pruebas: `test/efectos.test.js`.
 
 ```js
 import { efectosDe, efectosDelEje, verEn, sobrio } from './src/efectos.js';

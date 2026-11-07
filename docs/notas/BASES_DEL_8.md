@@ -2,7 +2,7 @@
 
 Nota de la pieza · 7-11-2026 · Código: `src/bases.js` (y el filtro de las bases en `src/tiempo.js`, `BASES()` en `src/bql.js`). Pruebas: `test/bases.test.js`. Ejemplo: `ejemplos/ikisai/compras-hermanas.mjs` (datos inventados). Resumen en `docs/MOTOR.md` §14 y `docs/BQL.md` §7.13. Lo que el mapa no decide va marcado **[X] decidir VG**; nada de eso se ha inventado como decisión, solo como valor provisional para que el código funcione.
 
-Rutas abreviadas: `MAPA` = `C:\Users\acer\Documents\Ikisai\MUELA\equipo\agram\MAPA_GLOBAL_AGRAM.md`; `PV8_R1` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/90_FUENTES_CONSULTA/AGRAM_PV8_R1_Calibracion_Dinamica_Comparabilidad_Impugnacion_v1.1-candidata.md` (herencia V2, candidata).
+Rutas abreviadas: `MAPA` = el mapa global de AGRAM (`MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md`, fuera del repositorio); `PV8_R1` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/90_FUENTES_CONSULTA/AGRAM_PV8_R1_Calibracion_Dinamica_Comparabilidad_Impugnacion_v1.1-candidata.md` (herencia V2, candidata).
 
 ## 1. Lo decidido
 
