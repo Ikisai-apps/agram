@@ -52,7 +52,8 @@ test('épocas: los nombres de las posiciones salen de la época elegida, profund
   }
   assert.equal(elegirEpoca('época que no existe'), EPOCA_0);
   assert.deepEqual(nombresPV(0), [...PV]);
-  assert.equal(nombrePV(4, 2), PV[4]); // época 0: dígito = PV en todas las profundidades
+  assert.equal(nombrePV(4, 0), PV[4]); // época 0, profundidad 0: dígito = PV
+  assert.equal(nombrePV(4, 2), 'qué se hace'); // profundidades 1 a 9: el PV aplicado al nodo de arriba
 });
 
 // ---------- encaje en Pointed ----------

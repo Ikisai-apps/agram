@@ -197,11 +197,11 @@ test('MOT-03 INTERPRETAR lee tipo y forma, la gramática de la expresión y la r
   assert.throws(() => analizar('1 +'), SyntaxError);
   const otra = { nombre: 'otra', reglaCorta: (p, d) => 'd' + d + '@' + p };
   assert.equal(leerDireccion('8400000000', otra)[1].significado, 'd4@1'); // la regla de la época elegida
-  assert.equal(leerDireccion('8400000000')[1].significado, 'fábrica');
+  assert.equal(leerDireccion('8400000000')[1].significado, 'qué se hace');
 });
 
 test('MOT-03b INTERPRETAR aplica también reglas largas y el significado del contexto',
-  { skip: 'MOT-03: las épocas solo tienen reglas cortas (la 0 y la 1 (propuesta)); no hay reglas largas que refinen prefijos ni significado de contexto (ver TOK-65). Forma supuesta abajo. Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'MOT-03: las reglas largas ya existen (cargarEpoca, TOK-65), pero no hay significado de contexto: lo que dice la lectura de una dirección depende solo de la época y la ruta. Forma supuesta abajo.' },
   () => {
     const conLarga = { nombre: 'con larga', reglaCorta: (p, d) => PV[d], reglaLarga: (prefijo) => (prefijo === '84' ? 'compras' : undefined) };
     assert.equal(leerDireccion('8412000000', conLarga)[1].significado, 'compras');
@@ -792,8 +792,8 @@ test('MOT-48b C solo consolida lo que permite un contrato válido (con autoridad
   });
 
 test('MOT-49 el orden de composición importa: 13 no es 31 (primero i, después j)', async () => {
-  assert.deepEqual(leerDireccion('1300000000').map((x) => x.significado), ['recursos', 'comunicación']);
-  assert.deepEqual(leerDireccion('3100000000').map((x) => x.significado), ['comunicación', 'recursos']);
+  assert.deepEqual(leerDireccion('1300000000').map((x) => x.significado), ['recursos', 'con quién']);
+  assert.deepEqual(leerDireccion('3100000000').map((x) => x.significado), ['comunicación', 'cuánto']);
   const { eje, g } = await mundo(['F', ['1.0', '1.1', '1.2', 'uno y tres'], 'b', ['3.0', 'tres y uno']]);
   assert.equal(ocupantes(eje, g, [1, 3])[0].contenido, 'uno y tres');
   assert.equal(ocupantes(eje, g, [3, 1])[0].contenido, 'tres y uno');
@@ -1653,8 +1653,9 @@ test('TOK-62 una época es un árbol ordinario adoptado como tronco compartido',
   { skip: 'TOK-62: las épocas son datos JSON (datos/epocas/*.json, desde la PR #33, integrada) que cargarEpoca convierte en un objeto; ninguna es un árbol de eventos del eje ni se adopta como tronco compartido. Terreno de src/epocas.js (otro agente): no se toca aquí' },
   sinForma('TOK-62'));
 
-test('TOK-63 en la época 0 la regla corta vale en todas las profundidades: cada dígito es un PV', () => {
-  for (let p = 0; p < 10; p++) for (let d = 0; d < 10; d++) assert.equal(EPOCA_0.reglaCorta(p, d), PV[d]);
+test('TOK-63 en la época 0 la profundidad 0 son los diez PV y en toda profundidad n ≥ 1 el dígito es el PV aplicado al nodo de arriba', () => {
+  for (let d = 0; d < 10; d++) assert.equal(EPOCA_0.reglaCorta(0, d), PV[d]);
+  for (let p = 1; p < 10; p++) for (let d = 0; d < 10; d++) assert.match(EPOCA_0.regla(p, d).significado, /^Aplicado al nodo de arriba/);
 });
 
 test('TOK-64 la regla corta es exhaustiva: cubre los diez dígitos en las diez profundidades', () => {
@@ -1663,12 +1664,21 @@ test('TOK-64 la regla corta es exhaustiva: cubre los diez dígitos en las diez p
   assert.equal(cubiertas, 100);
 });
 
-test('TOK-64b las cien reglas cortas propias de cada profundidad',
-  { skip: 'TOK-64: la única época decidida es la 0, con la misma regla en todas las profundidades. La «época 1 (propuesta)» (PR #33, integrada; datos/epocas/epoca-1-propuesta.json) trae cien reglas propias, una por profundidad y dígito, pero está pendiente de VG: [X] decidir VG; las cien reglas se trabajan en V5 con ejemplos y UI. Terreno de src/epocas.js (otro agente): no se toca aquí' },
-  sinForma('TOK-64'));
+test('TOK-64b las cien reglas cortas propias de cada profundidad', () => {
+  const claves = new Set(EPOCA_0.reglas.map((r) => r.profundidad + '.' + r.digito));
+  assert.equal(claves.size, 100);
+  for (let p = 1; p < 10; p++) {
+    // Cada profundidad trae sus propios significados y ejemplos: ninguno se repite en otra.
+    const ejemplos = EPOCA_0.reglas.filter((r) => r.profundidad === p).map((r) => r.ejemplo);
+    assert.equal(new Set(ejemplos).size, 10, 'profundidad ' + p);
+    for (let q = p + 1; q < 10; q++) {
+      const otros = new Set(EPOCA_0.reglas.filter((r) => r.profundidad === q).map((r) => r.ejemplo));
+      assert.ok(ejemplos.every((x) => !otros.has(x)), 'ejemplos repetidos entre las profundidades ' + p + ' y ' + q);
+    }
+  }
+});
 
 test('TOK-65 las reglas largas refinan rutas y prefijos completos, parciales y dispersas',
-  { skip: 'TOK-65: no implementado: leerDireccion solo pregunta a la época por (profundidad, dígito), nunca por el prefijo. Forma supuesta abajo. Terreno de src/epocas.js (otro agente): no se toca aquí' },
   () => {
     const conLarga = { nombre: 'con larga', reglaCorta: (p, d) => PV[d], reglaLarga: (prefijo) => (prefijo === '84' ? 'compras' : undefined) };
     assert.equal(leerDireccion('8412000000', conLarga)[1].significado, 'compras');
@@ -1682,7 +1692,7 @@ test('TOK-66 la época 0 da las reglas por defecto de toda lectura', async () =>
 });
 
 test('TOK-66b diez épocas, con la 0 como respaldo, y bifurcaciones que convergen por referencias sin borrar ramas',
-  { skip: 'TOK-66: el respaldo existe (cargarEpoca(datos, { respaldo }); src/epocas.js carga la época 1 (propuesta) con la época 0 de respaldo, probado en test/epocas.test.js), pero solo hay dos épocas, la 0 y la 1 (propuesta, pendiente de VG), y no hay bifurcaciones ni convergencia por referencias: las épocas son datos JSON, no árboles del eje (ver TOK-62). Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'TOK-66: el respaldo existe (cargarEpoca(datos, { respaldo }), probado en test/epocas.test.js, también para reglas largas), pero hoy solo hay la época 0, y no hay bifurcaciones ni convergencia por referencias: las épocas son datos JSON, no árboles del eje (ver TOK-62)' },
   sinForma('TOK-66'));
 
 test('TOK-68 una implementación referenciada por hash no da permiso para ejecutar código', async () => {
