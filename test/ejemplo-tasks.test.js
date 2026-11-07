@@ -10,7 +10,8 @@ import { evaluar, consultar } from '../src/bql.js';
 import { ocupantes } from '../src/encaje.js';
 import { proponer, consolidar, autorizar, ejecutar, estadoDe, consolidaciones } from '../src/motor.js';
 import { escribirDesde } from '../src/escritura.js';
-import { ejeTemporal, comparar } from '../src/tiempo.js';
+import { ejeTemporal } from '../src/tiempo.js';
+import { situar } from '../src/bases.js';
 import { generarClaves } from '../src/autoridad.js';
 
 /** La serie de E de una partida: la emite la casa, que la respalda. */
@@ -313,9 +314,11 @@ test('comparar entre tareas hermanas: misma décupla, mismas direcciones', async
   });
   assert.equal(evaluar(eje, escenario.id, indicesDe(DIR_COSTE)).texto, '120 EUR');
   assert.equal(tiempoPrevisto(eje, escenario.id).texto, '3 h (2 h + 1 h)');
-  const c = comparar(eje, tarea.id);
-  assert.deepEqual([c.posicion, c.de], [1, 2]);
+  // VG, 7-11 noche: se retira comparar(); sin base escrita en el 8 de las partidas, el respaldo al vuelo lo dice.
+  const c = situar(eje, tarea.id, { respaldo: true });
+  assert.deepEqual([c.n, c.escrita, c.frescura], [2, false, 'sin base escrita']);
   assert.equal(c.comparables[1].id, escenario.id);
+  assert.ok(!('posicion' in c));
   // Misma estructura, mismas direcciones: el coste y el tiempo de una hermana se leen donde están los propios,
   // aunque una tenga cuatro pasos y la otra dos.
   const id = escenario.id.slice(0, 12);

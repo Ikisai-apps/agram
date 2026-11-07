@@ -228,7 +228,7 @@ Lectura de la primera escena: se pidieron en desorden y el marco las coloca por 
 | **[X] decidir VG:** política de corte | En el orden pedido, se corta en el primero que no cabe (§6). |
 | **[X] decidir VG:** orden de la escena | Preorden del hilo: cada rama seguida; los hermanos, por llegada pero no siempre seguidos (§3). |
 | **[X] decidir VG:** si las referencias reordenan | Solo son aristas (§3). |
-| **[X] decidir VG** en `src/tiempo.js`: las cohortes (qué es el proyecto, si incluye todo lo que cuelga de él, si los hermanos exigen la misma posición `en`) | `escenaDe` usa `tiempo.comparables` tal cual (§2). |
+| **[X] decidir VG** en `src/bases.js` (antes en `src/tiempo.js`): las cohortes (qué es el proyecto, si incluye todo lo que cuelga de él, si los hermanos exigen la misma posición `en`) | `escenaDe` usa `tiempo.comparables` tal cual (§2). |
 | **[X] decidir VG:** más alcances | `hermanos`, `proyecto`, `general` (las tres cohortes de §12) y `hilo` (linaje hacia arriba). No existe «el hilo hacia abajo» desde el foco (lo escrito encima, recursivo). |
 | Escritura desde Scened | Sin formulario: la proporción de Scened está sin fijar (`escritura('scened')` es `null`). Su máximo (10000) es el mismo para la escena y para emitir, y `escribirDesde` lo aplica (`docs/MOTOR.md` §7.1); su mínimo (1000) solo se informa. |
 | **[X] decidir VG:** el mínimo de Be y la proporción de Scened y de Be | `minimo('be')` es `null` y `escritura('scened')`, `escritura('be')` son `null`. |

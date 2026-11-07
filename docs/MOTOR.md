@@ -16,9 +16,9 @@ Convenciones:
 | `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
 | `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
 | `src/modos.js` | Mínimo y máximo por modo (los mismos para leer y emitir), proporción | `MODOS`, `nombreModo`, `maximo`, `minimo`, `alcanceDe`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
-| `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8), §8; la confluencia del 8 y sus cohortes, que usan las bases (§14 y `docs/FUNDAMENTOS.md`) | `banda`, `ejeTemporal`, `medir`, `comparar`, `comparables`, `proyectoDe`, `confluir`, `fundir`, `medidasDe`, `posicionesDe`, `distribucion`, `cortesDeCohorte`, `cajaDe`, `clavesDe`, `etiquetaClave`, `ALCANCES`, `CAJAS`, `MEDIDAS`, `HITOS` |
+| `src/tiempo.js` | Eje temporal (PV6/PV7), §8; reexporta de `bases.js` lo del 8 que otros módulos leían aquí (§8.3) | `banda`, `ejeTemporal`; de `bases.js`: `HITOS`, `ALCANCES`, `MEDIDAS`, `comparables`, `confluir`, `proyectoDe`, `etiquetaClave`, `SIN_BASE_ESCRITA` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal`, `apartarLocal`, `VERSION` |
-| `src/bases.js` | Bases del 8: registros fundibles en la posición 8, escritos por la propia cosa (§14) | `identidadDe`, `medir`, `unitaria`, `fundir`, `calcularBase`, `escribirBase`, `leerBase`, `frescura`, `comprobar`, `situar`, `valorDeBases`, `cajasEtiquetadas`, `hijos`, `esBase`, `basesEn`, `basePorId`, `baseDePayload`, `payloadDeBase`, `empaquetar`, `bloqueDe`, `cortesDe`, `clavesDeMedidas`, `estadisticaVacia`, `CIELO`, `CORTES_PROVISIONALES`, `COSTE_BASE`, `CAMPOS_BASE`, `CAMPOS_FOCO`, `ETIQUETAS`, `NINGUNA`, `ORIGENES_CORTES`, `SECCIONES`, `TITULO` |
+| `src/bases.js` | Bases del 8: la única medida, registros fundibles en la posición 8 escritos por la propia cosa o por quien tiene P sobre ella, y su lectura por cohortes; confluir como respaldo declarado (§14) | `medir`, `posicionesDe`, `clavesDe`, `unitaria`, `fundir`, `identidadDe`, `puedeEscribirBase`, `calcularBase`, `escribirBase`, `leerBase`, `frescura`, `comprobar`, `situar`, `confluir`, `comparables`, `proyectoDe`, `valorDeBases`, `erroresDeBases`, `cajasEtiquetadas`, `hijos`, `esBase`, `basesEn`, `basePorId`, `baseDePayload`, `payloadDeBase`, `empaquetar`, `bloqueDe`, `cortesDe`, `cajaDe`, `clavesDeMedidas`, `etiquetaClave`, `estadisticaVacia`, `ALCANCES`, `CAJAS`, `CIELO`, `COSTE_BASE`, `CAMPOS_BASE`, `CAMPOS_FOCO`, `ETIQUETAS`, `HITOS`, `MEDIDAS`, `NINGUNA`, `ORIGENES_CORTES`, `SECCIONES`, `SIN_BASE_ESCRITA`, `TITULO` |
 
 `src/index.js` reexporta `modos.js` en plano y los demás como espacios de nombres: `motor`, `salida` (= `escritura.js`), `tiempo`, `persistencia`, `bases`. Es decir: `import { motor, salida, tiempo, persistencia, lectura } from './src/index.js'`.
 
@@ -970,15 +970,17 @@ ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
-### 8.3 Comparabilidad relativa (PV8)
+### 8.3 Comparabilidad (PV8): se lee del 8
+
+La comparabilidad ya no se calcula en `src/tiempo.js` (VG, 7-11 noche, mapa §14.2: una sola verdad del 8, la escrita). Se retiran `tiempo.comparar` (el puesto entre hermanos con la puntuación `posiciones + 2 × escritos + movimientos`) y `tiempo.medir`: queda una sola medida, `bases.medir`, y el foco se sitúa leyendo la base escrita en el 8 que resume su cohorte (`bases.situar`, §14). Si ese 8 no tiene base escrita, `situar` lo dice (PENDIENTE, frescura «sin base escrita») y, con `{ respaldo: true }`, calcula al vuelo con `confluir`, declarado. `tiempo.js` reexporta de `bases.js`, por compatibilidad, `HITOS`, `ALCANCES`, `MEDIDAS`, `comparables`, `confluir`, `proyectoDe`, `etiquetaClave` y `SIN_BASE_ESCRITA`.
 
 ```js
-medir(eje, id)      // → { posiciones, escritos, movimientos }  posiciones desarrolladas del payload, hijos directos (sin sus bases del 8), movimientos del evento
-comparar(eje, foco) // → { foco, posicion, de, comparables: [{ id, autor, posiciones, escritos, movimientos, puntuacion }], hitos: HITOS }
-HITOS               // diez hitos { indice, nivel, nombre }, congelados
+medir(eje, id)                              // bases.medir: la única medida (§14)
+situar(eje, foco, { alcance, respaldo })    // la caja del foco en su cohorte, leída del 8 (§14)
+HITOS                                       // diez etiquetas de caja { indice, nivel, nombre }, congeladas
 ```
 
-Los **comparables accesibles** del foco son sus hermanos: los registros escritos sobre el mismo padre, sin sus bases del 8 (`bases.hijos(eje, foco.sobre)`, sin distinguir `en`). El génesis y una base del 8 solo se comparan consigo mismos. La puntuación es `posiciones + 2 × escritos + movimientos` (cartón piedra); la lista va de mayor a menor puntuación y `posicion` es la del foco (1 = más medido). No asigna nivel ni grado: `HITOS` es la tabla de los diez hitos, con sus etiquetas literales (mapa §2.2 [D20]), sin algoritmo que la aplique (pendiente). Las estrellas no son verdad.
+`HITOS` son las etiquetas de las diez cajas, literales (mapa §2.2 [D20]): texto informativo de la caja, nunca un juicio (decisión 2 de VG, 7-11 noche). Nada asigna nivel ni grado. Las estrellas no son verdad.
 
 | Índice | Nivel | Nombre |
 |---|---|---|
@@ -996,25 +998,30 @@ Los **comparables accesibles** del foco son sus hermanos: los registros escritos
 ```sh
 node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
-import { comparar, medir, HITOS } from './src/tiempo.js';
+import { medir, situar, HITOS } from './src/bases.js';
+import * as tiempo from './src/tiempo.js';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const { eje, alta, menu, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
 const nota = await eje.escribir({ autor: 'casa', sobre: alta.id, t: '2026-11-07T10:00:00Z', movimientos: [gastaT('casa')], payload: 'nota breve' });
-console.log('menú', JSON.stringify(medir(eje, menu.id)), '· nota', JSON.stringify(medir(eje, nota.id)), '· compra', JSON.stringify(medir(eje, compra.id)));
-const c = comparar(eje, menu.id);
-console.log('menú: posición', c.posicion, 'de', c.de, '·', c.comparables.map((x) => x.id.slice(0, 8) + ' ' + x.autor + ' ' + x.puntuacion).join(' | '));
-console.log('nota: posición', comparar(eje, nota.id).posicion, '· génesis: de', comparar(eje, eje.genesisId).de, '· hitos', c.hitos === HITOS, HITOS.length, HITOS[9].nivel, HITOS[9].nombre);
+const breve = (m) => JSON.stringify({ posiciones: m.posiciones, terminales: m.terminales, escritos: m.escritos, movimientos: m.movimientos });
+console.log('menú', breve(medir(eje, menu.id)), '· nota', breve(medir(eje, nota.id)));
+console.log('situar:', situar(eje, menu.id).estado, '·', situar(eje, menu.id).motivo.replace(alta.id.slice(0, 8), '<alta>'));
+const c = situar(eje, menu.id, { respaldo: true });
+const t = c.medidas.terminales;
+console.log('respaldo:', c.frescura, '· n', c.n, '· terminales: foco', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', '· debajo', t.debajo, '· encima', t.encima, '· cortes', t.cortes.join(' '));
+console.log('tiempo.js ya no tiene:', ['comparar', 'medir'].filter((f) => !(f in tiempo)).join(', '), '· génesis:', situar(eje, eje.genesisId).motivo, '· hitos', HITOS.length, HITOS[9].nivel, HITOS[9].nombre);
 "
 ```
 
 ```text
-menú {"posiciones":6,"escritos":1,"movimientos":1} · nota {"posiciones":1,"escritos":0,"movimientos":1} · compra {"posiciones":9,"escritos":1,"movimientos":2}
-menú: posición 1 de 2 · 4598f23e cocina 9 | 33fe0503 casa 2
-nota: posición 2 · génesis: de 1 · hitos true 10 5.3 resolución experimental muy avanzada
+menú {"posiciones":3,"terminales":6,"escritos":1,"movimientos":1} · nota {"posiciones":0,"terminales":1,"escritos":0,"movimientos":1}
+situar: PENDIENTE · sin base escrita en el 8 de <alta>
+respaldo: sin base escrita · n 2 · terminales: foco 6 caja 5 (aprendizaje superior) · debajo 1 · encima 0 · cortes 1 2 3 4 6 10 16 26 42
+tiempo.js ya no tiene: comparar, medir · génesis: sin cohorte: el génesis no tiene padre · hitos 10 5.3 resolución experimental muy avanzada
 ```
 
-Las bases del 8 se escriben como registros en la posición 8 de lo que resumen (§14); `tiempo.confluir` calcula lo mismo al vuelo. Pendiente: proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
+Donde antes `comparar` decía «posición 1 de 2», ahora se lee la caja del menú entre sus hermanos (los hijos del alta), sin puesto: uno debajo, ninguno encima, y la etiqueta de la caja no es un grado del menú. Pendiente: proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7).
 
 ## 9. Persistencia
 
@@ -1081,7 +1088,8 @@ Guardar como `motor-ejemplo.mjs` en la raíz del repositorio y ejecutar `node mo
 import { Eje } from './src/eje.js';
 import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, puedeAutorizar, FABRICA } from './src/motor.js';
 import { desdeMapped, escribirDesde } from './src/escritura.js';
-import { ejeTemporal, comparar } from './src/tiempo.js';
+import { ejeTemporal } from './src/tiempo.js';
+import { situar } from './src/bases.js';
 import { serializar, restaurar } from './src/persistencia.js';
 import { evaluar } from './src/bql.js';
 
@@ -1124,8 +1132,9 @@ console.log('consolidaciones del pedido', corto(consolidaciones(eje, pedido.id))
 // 9. Eje temporal del pedido a las 14:10 y comparabilidad entre hermanos (lo escrito sobre el menú).
 const et = ejeTemporal(eje, pedido.id, { ahora: t('14:10') });
 console.log('pasado', et.pasado.map((x) => x.tipo + ':' + x.autor + ':' + x.banda).join(' '), '· futuro', et.futuro.length);
-const cmp = comparar(eje, pedido.id);
-console.log('comparar: posición', cmp.posicion, 'de', cmp.de, '·', cmp.comparables.map((x) => x.autor + '=' + x.puntuacion).join(' '));
+const s8 = situar(eje, pedido.id, { respaldo: true }); // el 8 del menú no tiene base escrita: respaldo al vuelo, declarado
+const term = s8.medidas.terminales;
+console.log('8 entre hermanos:', s8.frescura, '· n', s8.n, '· terminales: foco', term.foco, 'caja', term.caja, '· debajo', term.debajo, '· encima', term.encima);
 // 10. Persistir y restaurar: los estados se recalculan desde los eventos.
 const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
 console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.id), '· posición 2 de la consolidación:', evaluar(otro, cons.id, [2]).texto);
@@ -1146,7 +1155,7 @@ ejecución ["Pagado y servido",{"ref":"c0f3626f"},{"ref":"8dea7eb1"}] · evidenc
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
 consolidaciones del pedido [{"id":"c0f3626f","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
-comparar: posición 1 de 2 · huesped=9 casa=3
+8 entre hermanos: sin base escrita · n 2 · terminales: foco 6 caja 5 · debajo 1 · encima 0
 restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lactosa
 ```
 
@@ -1157,7 +1166,7 @@ Lectura de la salida:
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: cocina, por los 2 P con ámbito el menú (el pedido cuelga del menú); la casa, por los 3 P que le quedan sobre `genesis`; la persona huésped no, porque es el autor.
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
-- `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `comparar`: los hermanos del pedido son lo escrito sobre el menú: el pedido (6 posiciones + 2 × 1 escrito + 1 movimiento = 9) y la delegación de poder (1 + 0 + 2 = 3).
+- `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `8 entre hermanos`: los hermanos del pedido son lo escrito sobre el menú (el pedido y la delegación de poder); nadie ha escrito la base del 8 del menú, así que `situar` usa el respaldo al vuelo y lo dice («sin base escrita»). Sin puesto: el pedido cae en la caja 5 de terminales (seis), con la delegación debajo.
 - `restaurado 8 eventos`: génesis, alta, menú, delegación, pedido, consolidación, autorización y ejecución; el estado `EJECUTADO` se recalcula desde ellos.
 
 ## 11. API mínima
@@ -1213,9 +1222,18 @@ export function proporcion(payload, modo): ReturnType<proporcionDe>;
 // src/tiempo.js
 export function banda(deltaSegundos): string;
 export function ejeTemporal(eje, foco, { ahora, maximo = 10, camino = [] } = {}): { foco, ahora, pasado, futuro, totalPasado, totalFuturo };
-export const HITOS: { indice, nivel, nombre }[10];
-export function medir(eje, id): { posiciones, escritos, movimientos };
-export function comparar(eje, foco): { foco, posicion, de, comparables, hitos };
+export { HITOS, ALCANCES, MEDIDAS, comparables, confluir, proyectoDe, etiquetaClave, SIN_BASE_ESCRITA } from './bases.js';  // el 8 vive en bases.js (§14); comparar y medir se retiran
+
+// src/bases.js (§14)
+export function medir(eje, id): Medida;  // la única medida
+export function situar(eje, foco, { alcance = 'hermanos', epoca, respaldo = false } = {}): Situada;
+export function confluir(eje, foco, { alcance = 'hermanos', epoca } = {}): Situada & { escrita: false, respaldo: true, comparables };
+export async function escribirBase(eje, { registro, autor = identidadDe(eje, registro), privada, t, epoca }): Promise<Evento>;
+export function leerBase(eje, id): Base | null;
+
+// src/mapped.js (la celda 8)
+export function ocho(eje, foco, { alcance = 'hermanos', epoca } = {}): { alcance, foco, estado, motivo?, escrita, base, registro, n, frescura, medidas };
+export function textoOcho(o): string;
 
 // src/persistencia.js
 export const VERSION = 2;
@@ -1255,7 +1273,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Anidar hileras o décuplas en una posición por decisión | Sin celda, `en` lo elige quien llama (`direccion(camino)` por defecto); con celda o con `escribirSalida`, el registro va en la dirección del camino y lo anclado en la de su celda. |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
-| Nivel y grado; `HITOS` aplicados; retirar `comparar` (auditoría C18) | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 se escriben como registros fundibles en el 8 de lo que resumen y se leen con `BASES()` en BQL (§14). |
+| La celda 8 de Mapped en `app.js` leyendo la base escrita | `app.js` aún llama a `tiempo.comparar`, retirado (VG, 7-11 noche; auditoría C18): `mapped.ocho` y `mapped.textoOcho` están listos para sustituirlo (§14). `HITOS` son etiquetas de caja; nada asigna nivel ni grado. |
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
@@ -1276,7 +1294,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 11. `consolidaciones(eje, foco, camino)` solo ve la fábrica de ese camino; una consolidación anclada en otra profundidad no aparece en el eje temporal de la raíz.
 12. `costeT` y la proporción cuentan las referencias heredadas como posiciones del registro, como antes; el tope no las cuenta cuando la escritura sabe cuáles son (con `celda`, con `heredadas` o desde `escribirSalida`). Un payload de `desdeMapped` escrito con `escribirDesde` sin pasarle `heredadas` (así lo hace `app.js` cuando se elige una posición que no es la del camino y nada se ancla) cuenta el relleno también para el tope y no deja `contexto.heredadas`.
 13. `escribirDesde` y `ejecutar` usan el reloj si falta `t`: ids no reproducibles.
-14. `comparar` compara hermanos por `sobre` sin distinguir `en`; la puntuación `posiciones + 2 × escritos + movimientos` es cartón piedra, sin respaldo en el corpus.
+14. La cohorte de hermanos es lo escrito sobre el mismo padre (`sobre`), sin distinguir `en` ([X] decidir VG, §14). (La puntuación con pesos de `comparar` se retiró: VG, 7-11 noche.)
 15. La regla V0 permite que el autor de una consolidación sea quien tenga todo el poder: entonces nadie puede autorizarla (la casa consolidando sobre su propio eje sin haber delegado P).
 16. `proponer` convierte el valor de una fórmula que no es número en su **texto** formateado: una magnitud se consolida como `"14 EUR (12 EUR + 2 EUR)"`, que BQL relee como `texto` (el paréntesis del desglose impide leerla como magnitud). El importe deja de ser operable en la consolidación (§2.1).
 17. `ejecutar` sobre una consolidación pendiente lanza `Error('PENDIENTE DE AUTORIZACIÓN')`: el mensaje es el nombre del estado, sin prefijo que diga qué falló, y coincide con el valor normal de `estadoDe`.
@@ -1284,35 +1302,40 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 
 ## 14. Bases del 8 (`src/bases.js`)
 
-Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido; no hay base de datos aparte (mapa §12, [D] «Cohortes y bases del 8»). Lo que se mide, las cohortes, la caja y cómo se funde una medida son los de la confluencia (§8.3 y `tiempo.confluir`): una base es lo fundible de `confluir` sobre una cohorte, escrito en el 8 y fundible hacia arriba. Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
+**Una sola verdad del 8, la escrita** (VG, 7-11 noche, mapa §14.2 y §12 [D] «Una sola verdad del 8»). Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido y «hasta»; no hay base de datos aparte. Las cohortes se **leen** de esos registros, nunca recorriendo el eje; el cálculo al vuelo (`confluir`) queda solo como respaldo declarado («sin base escrita»). Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js` y `test/bases-bql.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
 
 ```js
-medir(eje, id)                       // → tiempo.medidasDe(eje, id), con un guarda: BASES() dentro del propio registro no lo vuelve a medir
-cortesDe(clave, epoca)               // → { cortes, origen }: los de epoca.cortes(clave) ('epoca') o los provisionales ('provisional', [X] sus valores)
-unitaria(m, epoca); fundir(a, b)     // → estadística { n, medidas, tokens, posiciones, raiz }; fundir usa tiempo.fundir en cada medida y rechaza cortes distintos
+medir(eje, id)                       // → la ÚNICA medida de un registro: posiciones (y procedencias por PV), terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes, tokens por serie, raiz
+cortesDe(clave, epoca)               // → { cortes, origen }: epoca.cortes(clave) ('epoca'); si la época no los da, los de la época 0 ('respaldo')
+unitaria(m, epoca); fundir(a, b)     // → estadística { n, medidas, tokens, posiciones, raiz }; fundir es asociativo y conmutativo, con estadisticaVacia() de neutro; rechaza cortes distintos
 identidadDe(eje, id)                 // → la cosa (con clave) que el propio registro da de alta; la del génesis, su autor ([X]); si no, null
+puedeEscribirBase(eje, autor, id)    // → { puede, por: 'identidad' | 'poder' | null, motivo }: la propia cosa o quien tiene P sobre el registro, con clave
 hijos(eje, id); esBase(eje, ev)      // → lo escrito sobre el registro sin sus bases válidas; si un evento es una base válida
 calcularBase(eje, registro, { epoca }) // → { hijos, subarbol, refsHijos, refsBases, hasta, sinBase, epoca }, sin escribir
-escribirBase(eje, { registro, privada, t, epoca }) // → evento en el 8 del registro, firmado por su cosa, que gasta 1 minuto de su T
-leerBase(eje, id)                    // → la vigente (la última llegada), con anteriores y frescura { t, hijosNuevos, basesNuevas, debajo, sinNovedades }, o null
+escribirBase(eje, { registro, autor, privada, t, epoca }) // → evento en el 8 del registro, firmado por autor (por defecto la propia cosa), que gasta 1 minuto de su T
+leerBase(eje, id)                    // → la vigente (la última llegada), con autor, por, anteriores y frescura { t, hijosNuevos, basesNuevas, debajo, sinNovedades }, o null
 comprobar(eje, base, { epoca })      // → { alDia, diferencias }: recalcula y compara, bajando por las bases fundidas que siguen vigentes
-situar(eje, foco, { alcance, epoca }) // → la forma de tiempo.confluir leída del 8 (medidas, tokens, posiciones, raiz), más incluido y cambiadas
-valorDeBases(eje, id, args)          // → lo que devuelve BASES() en BQL
+situar(eje, foco, { alcance, epoca, respaldo }) // → el foco en su caja, leído del 8 de la cohorte (escrita: true); sin base, PENDIENTE «sin base escrita» o, con respaldo, confluir
+confluir(eje, foco, { alcance, epoca }) // → respaldo declarado: lo mismo, calculado al vuelo recorriendo la cohorte (escrita: false, frescura «sin base escrita»)
+comparables(eje, foco, alcance); proyectoDe(eje, foco) // → los registros de una cohorte recorriendo el eje (solo para el respaldo y Scened); el proyecto del foco
+valorDeBases(eje, id, args); erroresDeBases(args) // → lo que devuelve BASES() en BQL; por qué unos argumentos no valen
 ```
 
 | Paso | Quién | `sobre` / `en` | `contexto` | Mueve |
 |---|---|---|---|---|
-| escribir una base | la propia cosa del registro (`identidadDe`), firmando | el registro / `CIELO` | `{ bases: true, n, nSubarbol, hasta, epoca, sinBase }` | `COSTE_BASE`: 1 minuto de su T ([X] coste) |
+| escribir una base | la propia cosa del registro (`identidadDe`) o quien tiene P sobre él, firmando con su clave | el registro / `CIELO` | `{ bases: true, n, nSubarbol, hasta, epoca, sinBase }` | `COSTE_BASE`: 1 minuto de su T ([X] coste) |
 
-- **Dos estadísticas por base.** `hijos`: los hijos del registro medidos uno a uno (la cohorte de hermanos de cada uno). `subarbol`: el registro y todo lo que cuelga de él (la cohorte de proyecto y la general). El subárbol funde, **sin releer registros**, el subárbol de la base vigente de cada hijo; un hijo sin base cuenta por sí mismo y, si tiene descendencia, queda en `sinBase` ([X] cómo se completa).
-- **Cohortes** (las de `tiempo.comparables`). `hermanos` lee los hijos del 8 del padre; `proyecto`, el subárbol del 8 de `tiempo.proyectoDe`; `general`, el subárbol del 8 del génesis. Con los mismos cortes, `situar` da los mismos números que `confluir` (lo comprueba `test/bases.test.js`).
-- **Cortes = regla de la época.** Se leen de `epoca.cortes(clave)`, con las claves de `confluir`. La época 0 no los declara: `confluir` saca entonces los de cada cohorte, que no se funden; una base usa unos provisionales fijos ([X] sus valores). Cada bloque guarda sus cortes y no se funden bloques con cortes distintos.
-- **Validez.** Solo es base lo que firma en el 8 la propia cosa del registro, gastando T, con exactamente ese `contexto`, un payload coherente (cajas que suman n, extremos compatibles con la suma y con las cajas ocupadas, cortes crecientes), las referencias a **todos** los hijos llegados hasta `hasta`, en orden, y bases fundidas válidas de esos hijos. Lo demás escrito en el 8 es un hijo más: lo cuentan `escritos`, `comparar` y la confluencia.
-- **Las bases no son hermanas, escritos ni comparables** de lo que miden: `tiempo.medir`, `comparar`, `comparables` y `posicionesDe` las saltan, así que escribir una base no cambia lo que mide.
+- **Una sola medida.** `medir` vive en `bases.js` y es la única: `tiempo.js` ya no mide ni puntúa (se retiran `tiempo.medir`, `tiempo.medidasDe` y `tiempo.comparar`, §8.3).
+- **Dos estadísticas por base.** `hijos`: el fundido de las medidas de los hijos del registro (la cohorte de hermanos de cada uno). `subarbol`: el registro y todo lo que cuelga de él (la cohorte de proyecto y la general). El subárbol funde, **sin releer registros**, el subárbol de la base vigente de cada hijo: el 8 del proyecto funde las bases de sus hijos y el del génesis, las de los proyectos. Un hijo sin base cuenta por sí mismo y, si tiene descendencia, queda en `sinBase` ([X] cómo se completa).
+- **Cohortes leídas del 8.** `hermanos` lee los hijos del 8 del padre; `proyecto`, el subárbol del 8 de `proyectoDe`; `general`, el subárbol del 8 del génesis. Con las bases al día (y sin hijos sin base), lo leído coincide con lo que `confluir` recalcula al vuelo (lo comprueba `test/bases.test.js`); si no, manda lo escrito y `comprobar` dice qué ha cambiado.
+- **Respaldo declarado.** Sin base escrita en el 8 de la cohorte, `situar` devuelve PENDIENTE con frescura «sin base escrita»; con `{ respaldo: true }` devuelve `confluir`, que recorre la cohorte, funde con las mismas funciones y lo dice (`escrita: false`, `respaldo: true`, `frescura: 'sin base escrita'`). BQL nunca usa el respaldo.
+- **Cortes = regla de la época** (decisión 2 de VG). Se leen de `epoca.cortes(clave)`; la época 0 trae `1 2 3 4 6 10 16 26 42` para todas las medidas (`datos/epocas/epoca-0.json`, `cortes`; [X] sus valores). Una época que no los da usa los de la época 0 (`origen: 'respaldo'`). Se retiran los cortes de cohorte: todas las cohortes comparten cortes y se funden. Cada bloque guarda sus cortes y no se funden bloques con cortes distintos.
+- **Validez.** Solo es base lo que, en el 8 del registro, firma con su clave la propia cosa del registro o quien tenía P sobre él al escribirla (el poder se mira con lo llegado antes de la base, no hoy: [X]), gastando T, con exactamente ese `contexto`, un payload coherente (cajas que suman n, extremos compatibles con la suma y con las cajas ocupadas, cortes crecientes), las referencias a **todos** los hijos llegados hasta `hasta`, en orden, y bases fundidas válidas de esos hijos. Lo demás escrito en el 8 es un hijo más: lo cuentan `escritos` y el respaldo. Nadie sin P escribe la base de una cosa que no es suya.
+- **Las bases no son hermanas, escritos ni comparables** de lo que miden: `medir`, `comparables` y `posicionesDe` las saltan, así que escribir una base no cambia lo que mide.
 - **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`.
 - **Frescura y comprobación.** `frescura` cuenta lo llegado sin releer: hijos después de `hasta`, hijos cuya base vigente ya no es la fundida y lo mismo, sumado, en las fundidas (`debajo`). No ve cambios en lo ya medido; para eso, `comprobar` recalcula. `situar` dice en `cambiadas` las medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya.
-- **`BASES()` en BQL** (`docs/BQL.md` §7.13). `BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k | campo)` = una caja o un dato. La dependencia es la base leída; el gancho `puedeLeer` decide leer la base y, si hay que situarlo, el anfitrión.
-- **`CAJA` y `FRESCURA` en BQL** (`docs/BQL.md` §7.14). `CAJA(medida, alcance?)` = `BASES(alcance, medida)`, con `"hermanos"` por defecto; `FRESCURA(alcance?)` = las llegadas que cuenta la frescura de la base (0 no es «al día»). Cobran lo que examina la lectura, no miden al anfitrión sin base y, sin base, el motivo dice cómo escribirla. Las fórmulas que leen el 8 sin situar a su registro hacen que una base dependa de la anterior (cuentan como pendientes o resueltas según haya base): [X] decidir VG.
-- **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`); nada asigna nivel ni grado.
+- **`BASES()`, `CAJA()` y `FRESCURA()` en BQL** (`docs/BQL.md` §7.13 y §7.14). Leen la base escrita y heredan el gancho `puedeLeer` (leer la base y, si hay que situarlo, el anfitrión y sus fórmulas) y el presupuesto de la fórmula (cobran lo que examina la lectura del 8). Sin base, PENDIENTE «sin base escrita» con el modo de escribirla; nunca calculan al vuelo.
+- **La celda 8 de Mapped y el cielo.** `mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 (la base escrita o el respaldo, dicho) y `mapped.textoOcho` su texto; `mundos/cielo.js` (`datosCielo`) lee igual con `situar` y dice «sin base escrita». `app.js` aún pinta la celda 8 con `tiempo.comparar`: pendiente de integrar (fuera de este módulo).
+- **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`), texto informativo; nada asigna nivel ni grado ni puntúa.
 
-Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes provisionales; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si la interfaz lee solo las bases escritas y se retiran `comparar` y el cálculo al vuelo (auditoría C18).
+Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes de la época 0; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si el poder para escribir una base se mira al escribirla (hoy) o al leerla.

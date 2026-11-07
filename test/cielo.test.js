@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
-import { calcularBase, situar, medir, clavesDeMedidas, ETIQUETAS } from '../src/bases.js';
+import { calcularBase, situar, confluir, medir, clavesDeMedidas, ETIQUETAS, SIN_BASE_ESCRITA } from '../src/bases.js';
 import { verEn } from '../src/efectos.js';
 import {
-  COHORTES, DECUPLA, EFECTOS, registroDeCohorte, baseAlVuelo, situarEnEstadistica, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
+  COHORTES, DECUPLA, EFECTOS, registroDeCohorte, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
   htmlCieloSobrio, selectorCohorte, brillo, estadoBase, efectosEnCielo, posicionesDelFoco,
 } from '../mundos/cielo.js';
 
@@ -35,15 +35,16 @@ test('cohortes: el mismo registro y la misma estadística que bases.situar; los 
   assert.throws(() => registroDeCohorte(eje, ej.guisos.id, 'mejores'), /cohorte desconocida/);
 });
 
-test('al vuelo: los hermanos son los hijos que escribiría calcularBase; no escribe nada', async () => {
+test('sin base escrita: el respaldo declarado (bases.confluir) mide lo que escribiría calcularBase en los hermanos; no escribe nada', async () => {
   const ej = await sinBases();
   const { eje } = ej;
   const n = eje.orden.length;
-  const v = baseAlVuelo(eje, ej.guisos.id, 'hermanos');
-  assert.deepEqual(est(v), est(calcularBase(eje, ej.menu.id).hijos));
-  assert.deepEqual(v.refs, calcularBase(eje, ej.menu.id).refsHijos);
-  assert.equal(v.escrita, false);
-  assert.equal(baseAlVuelo(eje, ej.guisos.id, 'general').n, eje.orden.length, 'general: todo el eje (sin bases)');
+  const d = datosCielo(eje, ej.guisos.id, { cohorte: 'hermanos' });
+  const c = confluir(eje, ej.guisos.id);
+  assert.deepEqual([d.escrita, d.base.id, d.base.frescura, d.base.n], [false, null, SIN_BASE_ESCRITA, calcularBase(eje, ej.menu.id).hijos.n]);
+  assert.deepEqual(c.comparables.map((x) => x.id), calcularBase(eje, ej.menu.id).refsHijos);
+  for (const k of clavesDeMedidas()) assert.deepEqual(d.medidas.find((m) => m.medida === k).cajas, c.medidas[k].cajas, k);
+  assert.equal(datosCielo(eje, ej.guisos.id, { cohorte: 'general' }).base.n, eje.orden.length, 'general: todo el eje (sin bases)');
   assert.equal(eje.orden.length, n, 'no escribe');
 });
 
@@ -71,15 +72,11 @@ test('escrita o al vuelo, el cielo dice lo mismo: con las bases del ejemplo escr
       assert.ok(d.medidas.every((m) => !('hito' in m) && !('etiqueta' in m)), 'sin hitos: el cielo no asigna nivel');
     }
   }
-  // Situar en memoria con una estadística leída del 8 da lo mismo que bases.situar.
+  // Con base escrita, el cielo lee la escrita, no el respaldo: su frescura es la de la base.
   const s = situar(ej.eje, ej.guisos.id, { alcance: 'proyecto' });
-  const leida = calcularBase(ej.eje, ej.comedor.id).subarbol;
-  const mem = situarEnEstadistica(leida, medir(ej.eje, ej.guisos.id));
-  for (const k of clavesDeMedidas()) {
-    const { hito, ...esperado } = s.medidas[k];
-    assert.deepEqual(mem.medidas[k], esperado, k);
-  }
-  assert.deepEqual(mem.posiciones.map((p) => [p.comparables, p.foco]), s.posiciones.map((p) => [p.comparables, p.foco]));
+  const d = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'proyecto' });
+  assert.deepEqual([d.escrita, d.base.id, d.base.autor], [true, s.base, 'comedor']);
+  assert.equal(typeof d.base.frescura, 'object');
 });
 
 test('sin cohorte: el génesis no tiene hermanos; el cielo lo dice sin inventar nada', async () => {
@@ -261,14 +258,14 @@ test('sobrio y animado leen lo mismo: la tabla dice el valor del foco, su caja y
   // Sin nota: ni «de 10» en la tabla ni en el cielo.
   assert.ok(!/de 10/.test(html) && !/de 10/.test(svgCielo(d)));
   assert.ok(svgCielo(d).includes(`>en el foco: ${posicionesDelFoco(pv)}</text>`));
-  assert.match(html, /sin escribir/);
-  assert.match(estadoBase(d), /calculada al vuelo sobre \d+ registros? \(el subárbol de <button[^>]+>[0-9a-f]{8}<\/button>\): su 8 no tiene base escrita$/);
+  assert.match(html, /sin base escrita/);
+  assert.match(estadoBase(d), /sin base escrita<\/span> respaldo calculado al vuelo sobre \d+ registros? \(el subárbol de <button[^>]+>[0-9a-f]{8}<\/button>\): su 8 no tiene base escrita$/);
   assert.match(htmlCielo(d), /<figure class="cielo-vista">.*<svg class="cielo/s);
 });
 
 test('concordancia: «1 registro», «1 constelación»', () => {
   const uno = { cohorte: 'hermanos', foco: 'f'.repeat(64), estado: 'RESUELTO', escrita: false, base: { id: null, n: 1, efectos: [] }, medidas: [] };
-  assert.match(svgCielo(uno), /aria-label="Cielo de ffffffff entre hermanos: 1 registro, 0 constelaciones, base sin escribir"/);
+  assert.match(svgCielo(uno), /aria-label="Cielo de ffffffff entre hermanos: 1 registro, 0 constelaciones, sin base escrita"/);
 });
 
 test('los nombres de efecto son los del catálogo, vistos desde el cielo', () => {
