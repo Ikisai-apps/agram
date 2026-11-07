@@ -45,6 +45,7 @@ export class Eje {
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
   #porSalida = new Map(); // salida → Map(clave → Map(identidad → cantidad bloqueada)): el índice de bloqueadoCon y bloqueosCon
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
+  #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
   #ampliadas = new Set(); // ids de las consolidaciones que ya respaldaron una ampliación de P (R3: una sola)
 
   /**
@@ -127,9 +128,17 @@ export class Eje {
     return this.#prefijoV2.has(id);
   }
 
-  /** El mayor t aceptado en el eje, en milisegundos UTC (-Infinity si está vacío). */
-  tMaximo() {
-    return this.#tMax;
+  /**
+   * El mayor t aceptado en el eje, en milisegundos UTC (-Infinity si está
+   * vacío). Con `excluidos` (identidades), solo entre los eventos de las
+   * demás: el reloj que marcan los otros (SEG-05), -Infinity si no hay ninguno.
+   */
+  tMaximo(excluidos) {
+    if (excluidos === undefined) return this.#tMax;
+    const fuera = new Set(excluidos);
+    let max = -Infinity;
+    for (const [autor, ms] of this.#tPorAutor) if (ms > max && !fuera.has(autor)) max = ms;
+    return max;
   }
 
   emitidoT(identidad, escala) {
@@ -543,7 +552,7 @@ export class Eje {
     };
     return {
       reglas: this.orden.length < this.eventosV2 ? 2 : 3,
-      tMaximo: () => this.#tMax,
+      tMaximo: (excluidos) => this.tMaximo(excluidos ?? []),
       registro: (id) => this.eventos.get(id),
       alta: (id) => this.alta(id),
       serie: (k) => this.#series.get(k) ?? null,
@@ -629,7 +638,7 @@ export class Eje {
     // de la versión 2 no es de demostración por serlo: la exención de clave vale solo dentro de su prefijo
     // (#exigeClave), no para lo que se le añade después.
     if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true;
-    const amplia = consolidacionQueAmplia(ev);
+    const amplia = consolidacionQueAmplia(ev, () => this.#contextoCiclo(ev)); // la consolidación que usó para ampliar P (SEG-04)
     if (amplia) this.#ampliadas.add(amplia);
     this.#llegada.set(ev.id, this.orden.length);
     this.eventos.set(ev.id, ev);
@@ -637,6 +646,7 @@ export class Eje {
     if (this.orden.length <= this.eventosV2) this.#prefijoV2.add(ev.id);
     const ms = msDeGuardado(ev.t);
     if (ms > this.#tMax) this.#tMax = ms;
+    if (ms > (this.#tPorAutor.get(ev.autor) ?? -Infinity)) this.#tPorAutor.set(ev.autor, ms);
     const cabeza = ev.id.slice(0, PREFIJO);
     if (!this.#prefijos.has(cabeza)) this.#prefijos.set(cabeza, []);
     this.#prefijos.get(cabeza).push(ev.id);
@@ -835,7 +845,8 @@ function contratoE(m, registroEmisor) {
  *
  * ctx, todo de antes del evento:
  *   reglas                     2 si el evento se guardó con la versión 2
- *   tMaximo()                  el mayor t aceptado en el eje antes del evento, en milisegundos UTC (el reloj de la caducidad)
+ *   tMaximo(excluidos)         el mayor t aceptado antes del evento entre los eventos de identidades que no están en
+ *                              `excluidos`, en milisegundos UTC (el reloj de la caducidad); -Infinity si no hay ninguno
  *   registro(id)               el evento con ese id, o undefined
  *   alta(id)                   { id, t } del alta, o null
  *   serie(clave)               { emisor, emitido, consumido, caduca, registro, divisible, emisores } (E) o { emisor, emitido } (P), o null
@@ -916,9 +927,24 @@ export function reglasDelTope(ev, ctx) {
   // La caducidad solo RELAJA (la E caducada no cuenta para el tope, la cuota ni el P que la respalda), así que se
   // mira con el reloj del eje, no con el del autor (SEG-03, [X] confirmar VG): el menor entre el t del evento y el
   // mayor t aceptado ANTES de él. Fechar a futuro no hace caducar la E viva en beneficio propio.
-  const tMax = ctx.tMaximo?.() ?? Infinity;
-  const tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
-  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(tReloj) && tReloj >= msUTC(s.caduca);
+  // Y el reloj lo marcan los demás (SEG-05, [X] confirmar VG): ese mayor t se toma solo de los eventos de identidades
+  // distintas del autor y de los emisores de la E que este evento emite (a quienes beneficia que caduque). Sin
+  // ninguno, no hay reloj y nada caduca: el E vivo cuenta entero. Si no, quien escribe antes un evento suyo fechado a
+  // futuro adelanta el reloj para sí.
+  let tReloj;
+  const reloj = () => {
+    if (tReloj !== undefined) return tReloj;
+    const excluidos = new Set([ev.autor]);
+    for (const { m } of validos) {
+      if (m.token !== 'E' || m.de !== null) continue;
+      excluidos.add(m.emisor);
+      for (const e of Array.isArray(m.emisores) ? m.emisores : []) excluidos.add(e);
+    }
+    const tMax = ctx.tMaximo?.([...excluidos]) ?? -Infinity;
+    tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
+    return tReloj;
+  };
+  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && reloj() >= msUTC(s.caduca);
   const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
 
   // Todas las series de E tras el evento, con su franja; calculado una vez.
