@@ -23,7 +23,7 @@ test('hilo del ejemplo: cuatro décuplas, la más cercana primero', async () => 
   assert.equal(seq.sentido, 'hilo');
   assert.equal(seq.total, 4);
   assert.deepEqual(
-    seq.decuplas.map((d) => d.posiciones[0].contenido),
+    seq.decuplas.map((d) => d.terminal ?? d.posiciones[0].contenido), // el génesis del ejemplo es un terminal
     ['Compra del menú del día', 'Menú del día', 'Altas del fin de semana', 'Casa de ejemplo'],
   );
 });
@@ -40,8 +40,8 @@ test('la hilera se corta en diez aunque el hilo sea más largo', async () => {
   const seq = secuencia(eje, ultimo);
   assert.equal(seq.total, 13);
   assert.equal(seq.decuplas.length, 10);
-  assert.equal(seq.decuplas[0].posiciones[0].contenido, 'paso 12');
-  assert.equal(seq.decuplas[9].posiciones[0].contenido, 'paso 3');
+  assert.equal(seq.decuplas[0].terminal, 'paso 12');
+  assert.equal(seq.decuplas[9].terminal, 'paso 3');
   assert.equal(secuencia(eje, ultimo, { maximo: 3 }).decuplas.length, 3);
 });
 
@@ -52,7 +52,7 @@ test('render sobrio: cabecera y una línea por décupla', async () => {
   assert.equal(lineas.length, 5);
   assert.match(lineas[0], /^hilo de [0-9a-f]{8} · 4 de 4$/);
   assert.match(lineas[1], /^0 [0-9a-f]{8} huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[1\] · 3 \[2\] · 4 \[2\]$/);
-  assert.match(lineas[4], /^3 [0-9a-f]{8} casa · 0 Casa de ejemplo$/);
+  assert.match(lineas[4], /^3 [0-9a-f]{8} casa · Casa de ejemplo$/); // un terminal, sin posición 0
   assert.throws(() => render(secuencia(eje, compra.id), 'animado'), /no disponible/);
 });
 

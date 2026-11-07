@@ -38,19 +38,41 @@ export function cuerpo(ev) {
   };
 }
 
+/** Copia de datos JSON (arrays y objetos planos); lo demás se devuelve tal cual. Conserva las posiciones ausentes. */
+function copiar(x) {
+  if (Array.isArray(x)) return x.map(copiar);
+  if (x !== null && typeof x === 'object' && [Object.prototype, null].includes(Object.getPrototypeOf(x))) {
+    return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, copiar(v)]));
+  }
+  return x;
+}
+
+/**
+ * Congela un evento entero, no solo su primer nivel: payload, movimientos y
+ * contexto incluidos. No existe modificar en sitio: corregir es añadir un
+ * ocupante, también en memoria. Devuelve el mismo objeto.
+ */
+export function congelar(x) {
+  if (x === null || typeof x !== 'object') return x;
+  for (const v of Object.values(x)) congelar(v);
+  return Object.freeze(x);
+}
+
 /**
  * Crea un evento con su id = hash del cuerpo canónico.
  * autor: identidad que escribe. sobre: id del registro en foco (null solo en génesis).
  * en: posición del foco donde se anida lo escrito (dirección de diez dígitos; raíz por defecto).
  * Lo escrito va en el PV donde se escribe (VG, 6-11-2026).
  * t: instante ISO. movimientos: lista de movimientos de tokens. payload: BTML.
+ * El evento guarda su propia copia de los datos, congelada entera: quien lo
+ * crea puede seguir usando sus arrays, y el evento no cambia.
  */
 export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimientos, payload, contexto = {} }) {
-  const ev = { autor, sobre, en, t, movimientos, payload, contexto };
+  const ev = { autor, sobre, en, t, movimientos: copiar(movimientos), payload: copiar(payload), contexto: copiar(contexto) };
   const errores = validarForma(ev);
   if (errores.length) throw new Error('evento mal formado: ' + errores.join('; '));
   ev.id = await hash(canonico(cuerpo(ev)));
-  return Object.freeze(ev);
+  return congelar(ev);
 }
 
 /** Validación de forma, sin mirar el eje. */

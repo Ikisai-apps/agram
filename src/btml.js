@@ -30,7 +30,10 @@ export function esDireccion(s) {
 
 /**
  * Valida un payload. Devuelve { ok, errores } con rutas legibles.
- * Un array debe tener entre 1 y 10 posiciones, ninguna nula ni vacía.
+ * Un array debe tener entre 1 y 10 posiciones, ninguna nula ni vacía. Una
+ * posición ausente (un array disperso de JavaScript, como ['a', , 'c'])
+ * también es un hueco: si se usa el índice 3, los índices 0, 1 y 2 tienen
+ * contenido real.
  */
 export function validarPayload(payload, ruta = '') {
   const errores = [];
@@ -42,14 +45,15 @@ export function validarPayload(payload, ruta = '') {
   }
   if (payload.length === 0) errores.push(aqui + ': array vacío');
   if (payload.length > ARIDAD) errores.push(aqui + ': más de ' + ARIDAD + ' posiciones');
-  payload.forEach((hijo, i) => {
+  // Un for, no forEach: forEach se salta las posiciones ausentes y las daría por buenas.
+  for (let i = 0; i < payload.length; i++) {
     const r = ruta + i;
-    if (hijo === null || hijo === undefined) {
+    if (!(i in payload) || payload[i] === null || payload[i] === undefined) {
       errores.push(r + ': hueco');
-      return;
+      continue;
     }
-    errores.push(...validarPayload(hijo, r).errores);
-  });
+    errores.push(...validarPayload(payload[i], r).errores);
+  }
   return { ok: errores.length === 0, errores };
 }
 

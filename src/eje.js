@@ -8,6 +8,7 @@
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { crearEvento, validarForma, verificarId } from './evento.js';
 import { verificar, firmar } from './autoridad.js';
+import { congelar } from './evento.js';
 
 export class Eje {
   #series;
@@ -76,8 +77,9 @@ export class Eje {
     const clave = g.contexto.claves?.[g.autor];
     if (clave && !(await verificar(g, clave))) throw new Error('firma del génesis inválida');
     if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
-    eje.#aplicar(Object.freeze({ ...g }));
-    for (const ev of resto) await eje.anadir(Object.freeze({ ...ev }));
+    // Copias: el eje congela lo que guarda, pero no los datos de quien restaura.
+    eje.#aplicar(congelar(structuredClone(g)));
+    for (const ev of resto) await eje.anadir(structuredClone(ev));
     return eje;
   }
 
@@ -221,7 +223,7 @@ export class Eje {
   async anadir(ev) {
     const errores = await this.validar(ev);
     if (errores.length) throw new Error('evento rechazado: ' + errores.join('; '));
-    this.#aplicar(ev);
+    this.#aplicar(congelar(ev)); // entero: lo guardado no se modifica en sitio
     return ev;
   }
 

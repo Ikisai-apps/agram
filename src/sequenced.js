@@ -31,7 +31,9 @@ function breve(contenido) {
 export function sobrio(seq) {
   const cab = seq.sentido + ' de ' + seq.foco.slice(0, 8) + ' · ' + seq.decuplas.length + ' de ' + seq.total;
   const lineas = seq.decuplas.map((d, i) => {
-    const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => p.indice + ' ' + breve(p.contenido));
+    const partes = d.terminal !== undefined
+      ? [breve(d.terminal)] // un terminal no tiene posiciones
+      : d.posiciones.filter((p) => p.contenido !== undefined).map((p) => p.indice + ' ' + breve(p.contenido));
     return i + ' ' + d.id.slice(0, 8) + ' ' + d.autor + ' · ' + partes.join(' · ');
   });
   return [cab, ...lineas].join('\n');

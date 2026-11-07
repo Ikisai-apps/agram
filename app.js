@@ -142,7 +142,9 @@ function pintarPointed() {
     </div>`;
   });
   const e = escritura('pointed');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${filas.join('')}</div>
+  // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
+  const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
+  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${terminal}${filas.join('')}</div>
     <form id="escribir" data-modo="pointed" class="escribir">
       <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
@@ -157,7 +159,9 @@ function pintarPointed() {
 // ---------- Sequenced ----------
 
 function filaSecuencia(d, i) {
-  const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
+  const partes = d.terminal !== undefined
+    ? [`<span class="celda-s">${slot(d.terminal, d.id, [], false)}</span>`] // un terminal, sin posición 0
+    : d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
   const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
   return `<div class="fila"><button class="abrir" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button><button class="ref" data-ref="${d.id}" title="insertar como referencia en la hilera">@</button></div>`;
 }
@@ -206,7 +210,7 @@ function celdaMapa(m, i, eje67, comp) {
     const ev = estado.eje.obtener(m.foco);
     const json = JSON.stringify({ id: corto(ev.id), autor: ev.autor, firmante: ev.firmante ?? null, sobre: ev.sobre ? corto(ev.sobre) : null, en: ev.en, t: ev.t, movimientos: ev.movimientos, contexto: ev.contexto, payload: c.contenido }, null, 1);
     return `<div class="celda c5"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
-      <div class="lente">${escapar(breve(m.celdas[0].contenido))}</div>
+      <div class="lente">${escapar(breve(m.terminal ?? m.celdas[0].contenido))}</div>
       <details><summary>estructura</summary><pre>${escapar(json)}</pre></details></div>`;
   }
   if (i === 6) {
@@ -261,7 +265,7 @@ function panelFabrica(m) {
       ${filas || '<div class="nada">nada consolidado sobre este foco</div>'}
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
-        <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.celdas[0].contenido))}"></label>
+        <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.terminal ?? m.celdas[0].contenido))}"></label>
         <div class="decupla-form">${campos}</div>
         <button type="submit">Consolidar en la fábrica del foco</button>
         ${mensajes()}
@@ -277,8 +281,8 @@ function pintarMapped() {
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = PV.map((n, i) => {
-    const hay = Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined;
-    const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
+    const hay = Array.isArray(base) && base[i] !== undefined; // un terminal no tiene posición 0 que heredar
+    const ph = hay ? '← del foco: ' + breve(base[i]) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
   $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
