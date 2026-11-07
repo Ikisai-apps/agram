@@ -30,7 +30,7 @@ const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 async function ejeCon(payload) {
   const eje = await Eje.genesis({
     identidad: 'raiz',
-    emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'P', cantidad: 5, ambito: 'genesis' }],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }],
     foco: payload,
     t: T0,
   });
@@ -418,15 +418,53 @@ test('O-12b permisos de lectura limitan el recorrido de las referencias: PENDIEN
   assert.equal(r.valor, undefined);
   assert.match(r.motivo, /autorización/);
   assert.equal(consultar(eje, lector.id, [2], 'LOCAL(1)', sinSecreto).texto, '10 EUR'); // lo propio sí
-  // El gancho recibe la dirección de diez dígitos de cada lectura.
+  // El gancho recibe la dirección de diez dígitos y el camino exacto de índices de cada lectura.
   const pedidas = [];
-  consultar(eje, lector.id, [2], 'REF("' + secreto.id + '", "1000000000")', { puedeLeer: (e, d) => { pedidas.push(d); return true; } });
-  assert.deepEqual(pedidas, ['1000000000']);
-  // BUSCAR también pregunta, y el valor de un candidato no autorizado tampoco se lee.
-  const soloAnfitrion = { puedeLeer: (evId) => evId === lector.id };
-  assert.equal(consultar(eje, lector.id, [1], 'CONTAR(BUSCAR(1))', soloAnfitrion).texto, '2');
-  assert.equal(consultar(eje, lector.id, [1], 'SUMAR(BUSCAR(1))', soloAnfitrion).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(consultar(eje, lector.id, [1], 'BUSCAR(1)', { puedeLeer: () => false }).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  consultar(eje, lector.id, [2], 'REF("' + secreto.id + '", "1000000000")', { puedeLeer: (e, d, i) => { pedidas.push([d, i]); return true; } });
+  assert.deepEqual(pedidas, [['1000000000', [1]]]);
+  // La dirección sola no distingue la raíz [] de la posición [0]; los índices sí.
+  const raizOCero = [];
+  const anota = { puedeLeer: (e, d, i) => { raizOCero.push([d, i]); return true; } };
+  evaluar(eje, lector.id, [], anota);
+  consultar(eje, lector.id, [1], 'LOCAL(0)', anota);
+  assert.deepEqual(raizOCero, [['0000000000', []], ['0000000000', [0]]]);
+  const sinRaiz = { puedeLeer: (e, d, i) => i.length > 0 };
+  assert.equal(consultar(eje, lector.id, [1], 'LOCAL(0)', sinRaiz).texto, 'Lector');
+  assert.equal(evaluar(eje, lector.id, [], sinRaiz).estado, 'PENDIENTE DE AUTORIZACIÓN');
+});
+
+test('O-12c BUSCAR pregunta al gancho por cada ocupante y por cada salto antes de exponer id, autor, t y procedencia', async () => {
+  // Revisión de seguridad de la PR #36: el gancho se aplica al camino exacto de cada ocupante y a cada salto de una cadena de referencias.
+  const { eje, id } = await ejeCon(['Casa']);
+  const secreto = await escribe(eje, id, ['Secreto', '30 EUR']);
+  const puente = await escribe(eje, id, ['Puente', { ref: secreto.id, dir: '1000000000' }]);
+  const lector = await escribe(eje, id, ['Lector', '10 EUR', 'x', { ref: puente.id, dir: '1000000000' }, ['a', 'b']]);
+  const escrito = await escribe(eje, lector.id, '5 EUR', '1000000000');
+  const sin = (...ids) => ({ puedeLeer: (evId) => !ids.includes(evId) });
+  // Escrito ajeno no autorizado: la consulta entera queda pendiente y el motivo no nombra su id.
+  const r = consultar(eje, lector.id, [1], 'CONTAR(BUSCAR(1))', sin(escrito.id));
+  assert.equal(r.estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.ok(!r.motivo.includes(escrito.id.slice(0, 8)));
+  assert.equal(r.valor, undefined);
+  assert.equal(consultar(eje, lector.id, [1], 'CONTAR(BUSCAR(1))', sin(secreto.id)).texto, '2'); // con el escrito autorizado, sí
+  assert.equal(consultar(eje, lector.id, [1], 'SUMAR(BUSCAR(1))', sin(secreto.id)).texto, '15 EUR (10 EUR + 5 EUR)');
+  // Cadena de referencias: lector.3 → puente.1 → secreto.1. Cada salto pasa por el gancho, también el segundo.
+  assert.equal(consultar(eje, lector.id, [3], 'CONTAR(BUSCAR(3))').texto, '2'); // sin gancho: el propio y lo alcanzado
+  const pedidas = [];
+  consultar(eje, lector.id, [3], 'BUSCAR(3)', { puedeLeer: (e, d, i) => { pedidas.push(e.slice(0, 8) + ':' + i.join('.')); return true; } });
+  assert.deepEqual(pedidas, [lector.id.slice(0, 8) + ':3', lector.id.slice(0, 8) + ':3', puente.id.slice(0, 8) + ':1', secreto.id.slice(0, 8) + ':1']);
+  assert.equal(consultar(eje, lector.id, [3], 'BUSCAR(3)', sin(secreto.id)).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(consultar(eje, lector.id, [3], 'BUSCAR(3)', sin(puente.id)).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(consultar(eje, lector.id, [3], 'LOCAL(3)', sin(puente.id)).estado, 'PENDIENTE DE AUTORIZACIÓN'); // leer sigue la misma regla
+  // Colisión por ceros: cada ocupante por su camino exacto. Negar la 4.0 deja pasar BUSCAR(4) (camino exacto 4) y no la dirección entera.
+  const sin40 = { puedeLeer: (e, d, i) => i.join('.') !== '4.0' };
+  assert.equal(consultar(eje, lector.id, [4], 'CONTAR(BUSCAR(4))', sin40).texto, '1');
+  assert.equal(consultar(eje, lector.id, [4], 'BUSCAR("4000000000")', sin40).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(consultar(eje, lector.id, [4], 'CONTAR(BUSCAR("4000000000"))').texto, '2');
+  // Autorizar una posición expone su subárbol propio (el valor array lleva el subarray crudo); los escritos y las referencias se preguntan aparte.
+  const solo4 = { puedeLeer: (e, d, i) => e === lector.id && i.join('.') === '4' };
+  assert.deepEqual(consultar(eje, lector.id, [4], 'LOCAL(4)', solo4).valor.valor, ['a', 'b']);
+  assert.equal(consultar(eje, lector.id, [4], 'LOCAL(4, 0)', solo4).estado, 'PENDIENTE DE AUTORIZACIÓN');
 });
 
 test('O-13 dentro de FILTRAR el segundo parámetro de ACTUAL sigue siendo cantidad, nunca profundidad', async () => {
@@ -501,11 +539,14 @@ test('O-20 las colisiones se conservan: propio, alcanzado por referencia, escrit
   assert.deepEqual(r.filter((i) => i.origen === 'escrito').map((i) => i.evento), [h1.id, h2.id]);
   assert.equal(r.find((i) => i.origen === 'referencia').evento, plan.id);
   assert.ok(r.every((i) => i.procedencia.length > 0 && Array.isArray(i.indices)));
-  // Colisión por ceros: la posición 1 y la 1.0 son dos ocupantes, no uno.
+  // Colisión por ceros: la posición 1 y la 1.0 son dos ocupantes, no uno. La dirección nombra la colisión entera.
   const y = await escribe(eje, id, ['Y', ['p', 'q']]);
-  const ceros = consultar(eje, y.id, [1], 'BUSCAR(1)').valor.items;
+  const ceros = consultar(eje, y.id, [1], 'BUSCAR("1000000000")').valor.items;
   assert.deepEqual(ceros.map((i) => i.indices), [[1], [1, 0]]);
   assert.ok(ceros.every((i) => i.origen === 'propio'));
+  // El índice es camino exacto (mapa §12 [D], VG 7-11): 1 es la 1 y 1, 0 es la 1.0, sin ambigüedad.
+  assert.deepEqual(consultar(eje, y.id, [1], 'BUSCAR(1)').valor.items.map((i) => i.indices), [[1]]);
+  assert.deepEqual(consultar(eje, y.id, [1], 'BUSCAR(1, 0)').valor.items.map((i) => i.indices), [[1, 0]]);
   void x;
 });
 

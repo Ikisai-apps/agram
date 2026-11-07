@@ -8,8 +8,8 @@
 //   =REF(id, dir?)          lee otro evento (id o prefijo), subposición de diez dígitos opcional
 //   = 12 EUR + 2 EUR        magnitudes: misma unidad se suma conservando el desglose
 //   = 12 EUR + 5 min        unidades distintas: composición heterogénea, operandos preservados
-//   =BUSCAR(n, ...)         candidatos de la posición n del anfitrión (un número es índice, relativo al anfitrión)
-//   =BUSCAR("2000000000")   candidatos de esa dirección del registro (un texto de diez dígitos es dirección, absoluta)
+//   =BUSCAR(n, ...)         candidatos del camino n del anfitrión (un número es índice: camino exacto, relativo al anfitrión)
+//   =BUSCAR("2000000000")   candidatos de esa dirección del registro (un texto de diez dígitos es dirección: absoluta, la colisión entera)
 //   =FILTRAR(col, cond)     cond se evalúa por candidato; dentro, ACTUAL es el candidato y LOCAL sigue siendo el anfitrión
 //   =ORDENAR(col, expr, "desc"?)   ordena por expr evaluada en cada candidato (claves escalares de un mismo tipo)
 //   =ELEGIR(col, k?)        los k primeros (1 por defecto); no publica nada
@@ -24,11 +24,12 @@
 // un ámbito); INCOMPATIBLE (tipos o unidades que no operan); ERROR (sintaxis,
 // función desconocida, ciclo, argumento mal formado). PENDIENTE tiene dos
 // subtipos: PENDIENTE DE AUTORIZACIÓN (una lectura que el gancho opcional
-// puedeLeer(evId, dir) no autoriza; sin gancho todo se lee) y PENDIENTE POR
-// LÍMITE (presupuesto, profundidad o candidatos agotados; `parcial` dice
-// cuánto se examinó cuando se sabe).
+// puedeLeer(evId, dir, indices) no autoriza, por lectura, por ocupante y por
+// salto de referencia; sin gancho todo se lee) y PENDIENTE POR LÍMITE
+// (presupuesto, profundidad o candidatos agotados; `parcial` dice cuánto se
+// examinó cuando se sabe).
 //
-// Opciones de evaluar/consultar: { puedeLeer(evId, dir) → boolean, limites: { presupuesto, profundidad, candidatos } }.
+// Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
@@ -210,21 +211,28 @@ function describir(v) {
   return v.tipo === 'magnitud' ? 'magnitud en ' + v.unidad : v.tipo;
 }
 
+/**
+ * Suma (o resta, con signo -1). Misma unidad: una magnitud con el desglose
+ * de los DOS operandos, sumando a sumando; unidades distintas: composición.
+ * Los dos lados se tratan igual: el derecho conserva su desglose como el
+ * izquierdo (al restar, cada sumando del derecho cambia de signo).
+ */
 function sumar(a, b, signo = 1) {
   if (a.tipo === 'numero' && b.tipo === 'numero') return num(a.valor + signo * b.valor);
   const partesDe = (v) => (v.tipo === 'composicion' ? v.partes : v.tipo === 'magnitud' ? [v] : null);
   const pa = partesDe(a);
   const pb = partesDe(b);
   if (pa && pb) {
-    const partes = pa.map((p) => ({ ...p, desglose: [...(p.desglose ?? [{ cantidad: p.cantidad, unidad: p.unidad }])] }));
+    const desgloseDe = (p, s) => (p.desglose ?? [{ cantidad: p.cantidad, unidad: p.unidad }]).map((d) => ({ cantidad: s * d.cantidad, unidad: d.unidad }));
+    const partes = pa.map((p) => ({ ...p, desglose: desgloseDe(p, 1) }));
     for (const q of pb) {
-      const qq = { cantidad: signo * q.cantidad, unidad: q.unidad };
+      const sumandos = desgloseDe(q, signo);
       const misma = partes.find((p) => p.unidad === q.unidad);
       if (misma) {
-        misma.cantidad += qq.cantidad;
-        misma.desglose.push(qq);
+        misma.cantidad += signo * q.cantidad;
+        misma.desglose.push(...sumandos);
       } else {
-        partes.push(mag(qq.cantidad, qq.unidad));
+        partes.push(mag(signo * q.cantidad, q.unidad, sumandos));
       }
     }
     return partes.length === 1 ? partes[0] : comp(partes);
@@ -295,18 +303,39 @@ function contexto(eje, opciones = {}) {
   };
 }
 
-/** El gancho de autorización, si lo hay, decide cada lectura. Sin gancho, todo se lee. */
-function autorizar(ctx, evId, dir) {
-  if (ctx.puedeLeer && !ctx.puedeLeer(evId, dir)) {
-    throw new Parada('PENDIENTE DE AUTORIZACIÓN', 'leer ' + evId.slice(0, 8) + ':' + dir + ' exige una autorización que no hay');
+/**
+ * El gancho de autorización, si lo hay, decide cada lectura: recibe el id,
+ * la dirección de diez dígitos y el camino exacto de índices (la dirección
+ * sola no distingue la raíz [] de la posición [0]). Sin gancho, todo se lee.
+ * `que` sustituye la descripción del motivo cuando nombrar el id expondría
+ * lo que no se ha autorizado (un escrito ajeno).
+ */
+function autorizar(ctx, evId, indices, que) {
+  if (!ctx.puedeLeer) return;
+  const dir = direccion(indices);
+  if (!ctx.puedeLeer(evId, dir, [...indices])) {
+    const lugar = que ?? 'leer ' + evId.slice(0, 8) + ':' + dir + ' (camino ' + (indices.length ? indices.join('.') : 'raíz') + ')';
+    throw new Parada('PENDIENTE DE AUTORIZACIÓN', lugar + ' exige una autorización que no hay');
   }
+}
+
+/**
+ * Antes de exponer un ocupante de BUSCAR (su id, autor, t y procedencia), el
+ * gancho decide por su camino exacto; si llega por referencia, por cada
+ * salto de la cadena. Un escrito ajeno no autorizado no se nombra.
+ */
+function autorizarOcupante(ctx, o, evId, dir) {
+  if (!ctx.puedeLeer) return;
+  if (o.origen === 'propio') return autorizar(ctx, o.evento, o.camino);
+  if (o.origen === 'escrito') return autorizar(ctx, o.evento, [], 'leer un escrito anclado en ' + evId.slice(0, 8) + ':' + dir);
+  for (const s of o.saltos ?? []) autorizar(ctx, s.evento, s.indices);
 }
 
 /** Contenido crudo de una posición. Evento que no está en el eje → PENDIENTE (puede llegar). */
 function leerPosicion(ctx, evId, indices) {
   const ev = ctx.eje.obtener(evId);
   if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
-  autorizar(ctx, evId, direccion(indices));
+  autorizar(ctx, evId, indices);
   let nodo = ev.payload;
   for (const i of indices) {
     if (!Array.isArray(nodo)) return undefined;
@@ -353,17 +382,21 @@ function resolverId(ctx, v) {
 }
 
 /**
- * Candidatos que ocupan una posición del registro, como colección BQL. Más
- * de `limites.candidatos` → PENDIENTE POR LÍMITE: no se presenta como
- * completo lo que no se examinó entero.
+ * Candidatos que ocupan una posición del registro, como colección BQL. Con
+ * `exacto` (un índice), solo los del camino exacto; sin él (una dirección),
+ * la colisión entera (mapa §12 [D]). Cada ocupante pasa por el gancho de
+ * autorización antes de exponerse. Más de `limites.candidatos` → PENDIENTE
+ * POR LÍMITE: no se presenta como completo lo que no se examinó entero.
  */
-function buscar(ctx, evId, indices) {
+function buscar(ctx, evId, indices, { exacto }) {
   if (!ctx.eje.obtener(evId)) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
   if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
   const dir = direccion(indices);
-  autorizar(ctx, evId, dir);
+  autorizar(ctx, evId, indices);
   // Orden por defecto: el del encaje (coincidencias de ruta, luego llegada). ORDENAR lo discute.
-  const items = ocupantes(ctx.eje, evId, indices).map((o) => ({
+  const lista = ocupantes(ctx.eje, evId, indices, { exacto });
+  for (const o of lista) autorizarOcupante(ctx, o, evId, dir);
+  const items = lista.map((o) => ({
     origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
     vector: o.vector, distancia: o.distancia, acuerdo: o.acuerdo, signo: o.signo, faltas: o.faltas, excedentes: o.excedentes, origenDir: o.origenDir, destino: o.destino,
   }));
@@ -447,9 +480,9 @@ function funcion(ctx, nodo, evId, base) {
       // Un texto de diez dígitos es dirección (absoluta en el registro); números, índices relativos al anfitrión.
       if (args[0].tipo === 'texto') {
         if (args.length > 1 || !esDireccion(args[0].valor)) throw new Parada('ERROR', 'BUSCAR espera índices 0–9 o una dirección de diez dígitos');
-        return buscar(ctx, evId, indicesDe(args[0].valor));
+        return buscar(ctx, evId, indicesDe(args[0].valor), { exacto: false }); // dirección: la colisión entera
       }
-      return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'BUSCAR')]);
+      return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'BUSCAR')], { exacto: true }); // índice: camino exacto
     }
     case 'ACTUAL': {
       if (args.length > 2) throw new Parada('ERROR', 'ACTUAL espera una posición y, si acaso, una cantidad');
@@ -461,7 +494,7 @@ function funcion(ctx, nodo, evId, base) {
         return valorCandidato(ctx, ctx.actual, [pv]);
       }
       if (!args.length) throw new Parada('PENDIENTE', 'ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer');
-      const c = buscar(ctx, evId, [...anfitrion, ...indicesDeArgs([args[0]], 'ACTUAL')]);
+      const c = buscar(ctx, evId, [...anfitrion, ...indicesDeArgs([args[0]], 'ACTUAL')], { exacto: true });
       if (!c.items.length) throw new Parada('PENDIENTE', 'sin candidatos en la posición ' + args[0].valor);
       return cantidad === 1 ? valorCandidato(ctx, c.items[0]) : col(c.items.slice(0, cantidad));
     }
@@ -533,7 +566,7 @@ function resultado(ctx, fn) {
 /**
  * Evalúa el slot (evId, dir) del eje. Siempre devuelve
  * { estado, valor?, motivo?, parcial?, texto, dependencias }. Nunca tiene efectos.
- * opciones: { puedeLeer(evId, dir) → boolean, limites: { presupuesto, profundidad, candidatos } }.
+ * opciones: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
  */
 export function evaluar(eje, evId, dir, opciones) {
   const indices = Array.isArray(dir) ? dir : indicesDe(dir);

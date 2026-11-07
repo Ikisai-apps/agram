@@ -29,7 +29,7 @@ import { esFormula, desescapar, analizar, evaluar, consultar, formato, ESTADOS, 
 
 | Campo | Tipo | Qué hace |
 |---|---|---|
-| `puedeLeer(evId, dir)` | `(string, string) → boolean` | Gancho de autorización: se le pregunta por cada lectura (id del evento y dirección de diez dígitos). `false` → PENDIENTE DE AUTORIZACIÓN (§9.6). El modelo de permisos no es de BQL: es de AARPIA (mapa §12). |
+| `puedeLeer(evId, dir, indices)` | `(string, string, number[]) → boolean` | Gancho de autorización: se le pregunta por cada lectura, por cada ocupante de `BUSCAR` y por cada salto de una cadena de referencias (id del evento, dirección de diez dígitos y camino exacto de índices, que distingue la raíz `[]` de la posición `[0]`). `false` → PENDIENTE DE AUTORIZACIÓN (§9.6). El modelo de permisos no es de BQL: es de AARPIA (mapa §12). |
 | `limites` | `{ presupuesto?, profundidad?, candidatos? }` | Sustituye los valores de `LIMITES` que se pasen. |
 
 `dir` admite dos formas: una dirección de diez dígitos (`'1200000000'`) o un array de índices (`[1, 2]`). La dirección se convierte con `indicesDe`, que quita los ceros finales: `'0000000000'` es la raíz (`[]`) y `'1000000000'` es `[1]`. Límite conocido: una dirección en texto no puede nombrar un índice 0 real al final del camino; para la posición 0 se usa el array (`[0]`, `[1, 0]`).
@@ -194,6 +194,8 @@ Todo valor BQL es un objeto con `tipo`:
 | numero | magnitud (o al revés) | **INCOMPATIBLE** `numero y magnitud en EUR no se suman` |
 | cualquier otra pareja (texto, array, booleano, coleccion…) | | **INCOMPATIBLE** `<a> y <b> no se suman` |
 
+Los dos operandos se tratan igual: el desglose del resultado lleva los sumandos de la izquierda y **los de la derecha uno a uno** (al restar, cada sumando de la derecha con el signo cambiado), y una unidad que solo trae la derecha entra en la composición con su desglose. Verificado (`test/bql.test.js`): `(1 EUR + 2 EUR) + (3 EUR + 4 EUR)` → `10 EUR (1 EUR + 2 EUR + 3 EUR + 4 EUR)`; `(1 EUR + 2 EUR) - (3 EUR + 4 EUR)` → `-4 EUR (1 EUR + 2 EUR + -3 EUR + -4 EUR)`; `350 EUR + (1 h + 2 h)` → `350 EUR + 3 h (1 h + 2 h)`. Antes el operando derecho llegaba aplanado (`10 EUR (1 EUR + 2 EUR + 7 EUR)`), defecto visto en el caso Tasks (PR #34).
+
 ### 6.2 Producto y división (`*`, `/`)
 
 | Izquierda | Derecha | `*` | `/` |
@@ -255,8 +257,8 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 |---|---|---|---|
 | `LOCAL(i, j, …)` | 1 o más índices enteros 0–9 | valor del slot `[…anfitrión, i, j, …]` | siempre |
 | `REF(id, dir?)` | texto id o prefijo (opcional `@` delante); texto de diez dígitos | valor del slot `dir` de ese evento (raíz si falta) | siempre |
-| `BUSCAR(i, j, …)` | 1 o más índices 0–9 (números) | coleccion de candidatos de la posición `[…anfitrión, i, j, …]` | siempre |
-| `BUSCAR("dirección")` | un texto de diez dígitos | coleccion de candidatos de esa dirección del registro (absoluta, no relativa al anfitrión) | siempre |
+| `BUSCAR(i, j, …)` | 1 o más índices 0–9 (números) | coleccion de candidatos del camino exacto `[…anfitrión, i, j, …]` | siempre |
+| `BUSCAR("dirección")` | un texto de diez dígitos | coleccion de candidatos de esa dirección del registro (absoluta, no relativa al anfitrión): la colisión entera | siempre |
 | `ACTUAL(pv, cantidad?)` | fuera de FILTRAR/ORDENAR: índice 0–9 y entero ≥ 1 (1 por defecto) | valor del primer candidato (cantidad 1) o coleccion de los `cantidad` primeros | fuera |
 | `ACTUAL(pv?, cantidad?)` | dentro: índice 0–9 opcional y entero ≥ 1 (1 por defecto) | valor del candidato iterado (`ACTUAL()`) o de su posición `pv`; `cantidad` sigue siendo cantidad | dentro |
 | `FILTRAR(col, cond)` | coleccion; condición evaluada por candidato | coleccion | siempre |
@@ -278,7 +280,7 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 
 ### 7.1 El anfitrión
 
-Toda fórmula se evalúa en un slot `base` (los índices del slot). El **anfitrión** es `base.slice(0, -1)`: la décupla que contiene el slot. `LOCAL`, `BUSCAR(i, …)` y `ACTUAL(pv)` resuelven sus índices **relativos al anfitrión**. `BUSCAR("dirección")` no: la dirección es absoluta en el registro de la fórmula (mapa §12 [D]: «un número es índice […]; un texto de diez dígitos es dirección»).
+Toda fórmula se evalúa en un slot `base` (los índices del slot). El **anfitrión** es `base.slice(0, -1)`: la décupla que contiene el slot. `LOCAL`, `BUSCAR(i, …)` y `ACTUAL(pv)` resuelven sus índices **relativos al anfitrión**. `BUSCAR("dirección")` no: la dirección es absoluta en el registro de la fórmula (mapa §12 [D]: «un número es índice (camino exacto, relativo al anfitrión); un texto de diez dígitos es dirección (absoluta en el registro, nombra la colisión entera)»).
 
 | Slot de la fórmula (`dir` de `evaluar`/`consultar`) | Anfitrión | `LOCAL(0)` lee | `BUSCAR(4)` busca en |
 |---|---|---|---|
@@ -323,18 +325,16 @@ Con el payload `['Compra', ['menú', 1, 'EUR 12'], '=LOCAL(1, 2) + 2 EUR', '=LOC
 
 Devuelve la **coleccion de ocupantes** de una posición del evento de la fórmula, calculada por `ocupantes` (`src/encaje.js`). No registra nada. Dos formas, sin ambigüedad (mapa §12 [D], VG 7-11 tarde; igual que las referencias):
 
-- **índice** (números): `BUSCAR(i, j, …)` busca en `[…anfitrión, i, j, …]`, relativo al anfitrión.
-- **dirección** (un texto de diez dígitos): `BUSCAR("2000000000")` busca en esa dirección del registro, absoluta. Es la forma del ejemplo integral del corpus, `BUSCAR(LOCAL(5))`, con la dirección «dónde encaja lo que busco» guardada en la posición 5 (una cadena de diez dígitos en un slot se lee como texto, §3). Otro texto, o un texto con más argumentos → `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos`.
+- **índice** (números): `BUSCAR(i, j, …)` busca en el **camino exacto** `[…anfitrión, i, j, …]`, relativo al anfitrión. `BUSCAR(1)` es la posición 1 y `BUSCAR(1, 0)` la 1.0, sin colisión por ceros entre ellas.
+- **dirección** (un texto de diez dígitos): `BUSCAR("2000000000")` busca en esa dirección del registro, absoluta, y nombra **la colisión entera** (`1`, `1.0`, `1.0.0`…). Es la forma del ejemplo integral del corpus, `BUSCAR(LOCAL(5))`, con la dirección «dónde encaja lo que busco» guardada en la posición 5 (una cadena de diez dígitos en un slot se lee como texto, §3). Otro texto, o un texto con más argumentos → `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos`.
 
-En las dos formas la dirección se forma con `direccion(indices)` y nombra la colisión entera: `BUSCAR(1)`, `BUSCAR(1, 0)` y `BUSCAR("1000000000")` (desde la raíz) devuelven la misma colección (colisión por ceros). [X] decidir VG: el [D] dice que el índice es «camino exacto» y la dirección «nombra la colisión entera»; hoy el índice también devuelve la colisión entera (`1`, `1.0`, `1.0.0`…). Si el índice debe quedarse solo con su camino, falta fijar qué pasa con los escritos anclados en esa dirección.
-
-Si hay más de `limites.candidatos` ocupantes (1000 por defecto) → `PENDIENTE POR LÍMITE` con `parcial: { examinados, de }`: no se presenta como completo lo que no se examinó entero. Si el gancho `puedeLeer` no autoriza leer la posición → `PENDIENTE DE AUTORIZACIÓN` (§9.6).
+Si hay más de `limites.candidatos` ocupantes (1000 por defecto) → `PENDIENTE POR LÍMITE` con `parcial: { examinados, de }`: no se presenta como completo lo que no se examinó entero. Si el gancho `puedeLeer` no autoriza la posición buscada, o algún ocupante, o algún salto de la cadena de un ocupante por referencia → `PENDIENTE DE AUTORIZACIÓN`, antes de exponer nada de ningún ocupante (§9.6).
 
 Ocupantes, en orden de llegada:
 
-1. **propio**: cada camino del propio payload que colisiona en la dirección (`[1]`, y si `[1]` es un array con posición 0, también `[1, 0]`, `[1, 0, 0]`…).
+1. **propio**: con dirección, cada camino del propio payload que colisiona en ella (`[1]`, y si `[1]` es un array con posición 0, también `[1, 0]`, `[1, 0, 0]`…); con índice, solo el camino pedido.
 2. **referencia**: justo detrás de cada propio que es una referencia, lo que esa referencia alcanza (siguiendo cadenas, hasta 20 saltos).
-3. **escrito**: los eventos con `sobre = <este evento>` y `en = <la dirección>`, en orden de entrada en el eje.
+3. **escrito**: los eventos con `sobre = <este evento>` y `en = <la dirección>`, en orden de entrada en el eje. Con índice, un escrito solo tiene su dirección de anclaje, y se lee como toda dirección, sin ceros finales (`indicesDe`, como `REF` y las referencias BTML): los anclados en `1000000000` salen en `BUSCAR(1)` y no en `BUSCAR(1, 0)`. [X] decidir VG: el mapa fija «índice = camino exacto» y «dirección = colisión entera», no dónde cae un escrito (que se ancla con una dirección) cuando se busca por índice.
 
 Orden por defecto (**encaje**, `ordenarPorEncaje`; mapa §12 [D], opción B): más coincidencias de ruta primero (profundidades de acuerdo; los exactos tienen 10); a igual acuerdo, orden de llegada. Ni el signo ni la distancia ordenan: son información, salvo en las profundidades que una época declare ordinales (`epoca.ordinal(k)`), donde a igual acuerdo ordena la menor distancia.
 
@@ -362,13 +362,15 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio f9e59d1e · propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` |
-| `BUSCAR(4, 0)` | RESUELTO | los mismos 5 (misma dirección) |
-| `BUSCAR("4000000000")` | RESUELTO | los mismos 5 (la dirección absoluta coincide: el anfitrión es la raíz) |
+| `BUSCAR(4)` | RESUELTO | `4 candidatos: propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la posición 4 y las propinas ancladas en ella) |
+| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio f9e59d1e` (solo la 4.0, `'pagar'`) |
+| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio f9e59d1e · propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la colisión entera: 4, 4.0 y los escritos) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
 | `BUSCAR("4")` | ERROR | `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos` |
-| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio f9e59d1e · propio f9e59d1e · referencia 4598f23e · escrito c70bfa6e` |
+| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio f9e59d1e · escrito c70bfa6e` |
+| `BUSCAR(1, 0)` | RESUELTO | `2 candidatos: propio f9e59d1e · referencia 4598f23e` (la 1.0 y lo que alcanza) |
+| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio f9e59d1e · propio f9e59d1e · referencia 4598f23e · escrito c70bfa6e` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -376,12 +378,12 @@ Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los m
 
 La misma firma en los dos modos, `ACTUAL(pv, cantidad?)`: el segundo parámetro es **siempre** la cantidad máxima de candidatos (1 por defecto) y **nunca** profundidad (mapa §2.3 [D]; corpus: `ACTUAL(1)` y `ACTUAL(1,1)` comparten intención). Más de dos argumentos → `ERROR: ACTUAL espera una posición y, si acaso, una cantidad`. Lo que cambia es el ámbito, según haya candidato iterado (`ctx.actual`) o no:
 
-**Fuera de FILTRAR/ORDENAR**: la colección activa de la posición `[…anfitrión, pv]` (igual que `BUSCAR(pv)`), limitada a `cantidad`.
+**Fuera de FILTRAR/ORDENAR**: la colección activa del camino exacto `[…anfitrión, pv]` (igual que `BUSCAR(pv)`: `pv` es un índice), limitada a `cantidad`.
 
 | Caso | Resultado |
 |---|---|
 | `ACTUAL(pv)` o `ACTUAL(pv, 1)` | el **valor** del primer candidato (no una colección): `ACTUAL(4)` → `[2 posiciones]` |
-| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio … · propio …`; `CONTAR(ACTUAL(4, 99))` → `5` |
+| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio f9e59d1e · escrito d567acc1`; `CONTAR(ACTUAL(4, 99))` → `4` |
 | sin candidatos | PENDIENTE `sin candidatos en la posición <pv>` |
 | `ACTUAL()` (sin ámbito activo) | PENDIENTE `ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer` (corpus: «sin ámbito activo, no inventa un origen y queda pendiente») |
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
@@ -409,16 +411,16 @@ Ya no hay subposiciones anidadas del candidato por `ACTUAL(k, j)` (antes `ACTUAL
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
 | `CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))` | RESUELTO | `3` |
-| `CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "propio"))` | RESUELTO | `2` |
+| `CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "propio"))` | RESUELTO | `1` (camino exacto: la 4, no la 4.0) |
 | `CONTAR(FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR))` | RESUELTO | `2` |
 | `FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)` (el primer candidato es el array propio) | INCOMPATIBLE | `INCOMPATIBLE: array y magnitud en EUR no se comparan` |
 | `CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))` (los escritos son terminales: sin posición 0) | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
-| `CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))` | RESUELTO | `5` |
+| `CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))` | RESUELTO | `4` |
 | `FILTRAR(BUSCAR(4), 1)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera verdadero o falso, no numero` |
 | `FILTRAR(1, 1 < 2)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera una colección, no numero` |
 | `CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0, 2) = "pagar"))` | PENDIENTE | `PENDIENTE: ACTUAL(0, 2) dentro de FILTRAR u ORDENAR: la cantidad mayor que 1 en un ámbito de un solo candidato no está definida` |
 | `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` | RESUELTO | `0` (los escritos anclados en `4000000000` son encaje exacto) |
-| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `5` |
+| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `4` |
 
 ### 7.7 `ORDENAR(col, expr, "desc"?)`
 
@@ -447,7 +449,7 @@ Número de candidatos. `CONTAR(BUSCAR(9))` → `0`. Argumento no coleccion → I
 
 ### 7.10 `SUMAR(col)`
 
-Suma los valores de los candidatos, en orden, con la regla de `+` (§6.1): números con números; magnitudes con desglose; unidades distintas → composicion. Colección vacía → numero `0`. Un solo candidato → su valor **sin comprobar el tipo** (`SUMAR` de una colección con un único escrito que es un array devuelve ese `array`). Mezclas que `+` no admite → INCOMPATIBLE (`SUMAR(BUSCAR(4))` sobre la compra → `INCOMPATIBLE: array y texto no se suman`, porque el primer propio es `['pagar', 'servir']` y el segundo es `'pagar'`).
+Suma los valores de los candidatos, en orden, con la regla de `+` (§6.1): números con números; magnitudes con desglose; unidades distintas → composicion. Colección vacía → numero `0`. Un solo candidato → su valor **sin comprobar el tipo** (`SUMAR` de una colección con un único escrito que es un array devuelve ese `array`). Mezclas que `+` no admite → INCOMPATIBLE (`SUMAR(BUSCAR(4))` sobre la compra → `INCOMPATIBLE: array y magnitud en EUR no se suman`, porque el propio es `['pagar', 'servir']` y el primer escrito `'2 EUR'`; `SUMAR(BUSCAR("4000000000"))` → `INCOMPATIBLE: array y texto no se suman`, porque en la colisión entera el segundo es la 4.0, `'pagar'`). Cada valor sumado conserva su desglose, también el de la derecha (§6.1).
 
 | Fórmula | `texto` |
 |---|---|
@@ -469,7 +471,7 @@ Solo dentro de `FILTRAR`/`ORDENAR`; fuera, ERROR `<NOMBRE> solo dentro de FILTRA
 | `FALTAS()` | numero: profundidades con diferencia < 0 (le falta) | `faltas` (0 si falta) |
 | `EXCEDENTES()` | numero: profundidades con diferencia > 0 (le sobra) | `excedentes` (0 si falta) |
 
-Verificado sobre la compra con la cuenta escrita en `1000000000` (slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `4` (`[1]`, `[1, 0]`, la referencia al menú y la cuenta, anclada exactamente ahí); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 1` → `0`; `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`.
+Verificado sobre la compra con la cuenta escrita en `1000000000` (slot `[1]`, `test/vector.test.js`): `CONTAR(FILTRAR(BUSCAR("1000000000"), SIGNO() = "exacto"))` → `4` (la colisión entera: `[1]`, `[1, 0]`, la referencia al menú y la cuenta, anclada exactamente ahí); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 1` → `0`; `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`. Por índice, `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `2` (`[1]` y la cuenta).
 
 ### 7.12 `Y`, `O`, `NO`
 
@@ -501,7 +503,8 @@ La evaluación se detiene en la primera parada; el estado de la consulta es el d
 | PENDIENTE | `referencia ausente del eje: <p>` | `REF` con un id o prefijo que ningún evento del eje tiene. |
 | PENDIENTE | `ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer` | `ACTUAL()` fuera de FILTRAR/ORDENAR. |
 | PENDIENTE | `ACTUAL(<pv>, <n>) dentro de FILTRAR u ORDENAR: la cantidad mayor que 1 en un ámbito de un solo candidato no está definida` | Abierto en el corpus (§7.5). |
-| PENDIENTE DE AUTORIZACIÓN | `leer <id8>:<dir> exige una autorización que no hay` | El gancho `puedeLeer(evId, dir)` devolvió `false` para una lectura (§9.6). |
+| PENDIENTE DE AUTORIZACIÓN | `leer <id8>:<dir> (camino <i.j…\|raíz>) exige una autorización que no hay` | El gancho `puedeLeer(evId, dir, indices)` devolvió `false` para una lectura, para un ocupante propio de `BUSCAR` o para un salto de la cadena de un ocupante por referencia (§9.6). |
+| PENDIENTE DE AUTORIZACIÓN | `leer un escrito anclado en <id8>:<dir> exige una autorización que no hay` | El gancho devolvió `false` para un escrito ocupante de `BUSCAR`; se nombra el lugar buscado, no el escrito (su id no se expone). |
 | PENDIENTE POR LÍMITE | `presupuesto de cálculo agotado: más de <n> pasos` | Se agotó el presupuesto (§9.3). |
 | PENDIENTE POR LÍMITE | `fórmula anidada más de <n> niveles` / `más de <n> lecturas encadenadas` / `profundidad de cálculo agotada` | Se pasó la profundidad: de la fórmula al analizarla, de fórmulas y referencias leídas unas desde otras, o la pila de JavaScript (§9.3). |
 | PENDIENTE POR LÍMITE | `más de <n> candidatos en <id8>:<dir>` | `BUSCAR` (o `ACTUAL` fuera) con más ocupantes que `limites.candidatos`; `parcial: { examinados, de }`. |
@@ -554,7 +557,18 @@ Cuando una fórmula lee otro slot que también es fórmula (por `LOCAL`, `REF` o
 
 ### 9.6 Autorización de lectura: PENDIENTE DE AUTORIZACIÓN
 
-BQL no tiene modelo de permisos: la autorización es de AARPIA (mapa §12 [D]) y se evalúa aparte de la fórmula (corpus: «PENDIENTE DE AUTORIZACIÓN es estado operativo distinto de fracaso de cálculo»; «permisos y presupuestos limitan el recorrido»). Quien llama puede pasar el gancho `puedeLeer(evId, dir)`, que se consulta antes de **cada** lectura de un slot (también la del slot que se evalúa y la de cada candidato cuyo valor se pide) y en cada `BUSCAR` (la posición que se busca). Si devuelve `false` → `PENDIENTE DE AUTORIZACIÓN: leer <id8>:<dir> exige una autorización que no hay`. Sin gancho, todo se lee: el estado nunca aparece y la fórmula «no sabe» de autorizaciones (prueba E-08). No es el mismo PENDIENTE DE AUTORIZACIÓN que el estado de una consolidación en el motor (`src/motor.js`), aunque se llamen igual: aquí es una lectura que espera permiso; allí, un acto que espera quien lo autorice.
+BQL no tiene modelo de permisos: la autorización es de AARPIA (mapa §12 [D]) y se evalúa aparte de la fórmula (corpus: «PENDIENTE DE AUTORIZACIÓN es estado operativo distinto de fracaso de cálculo»; «permisos y presupuestos limitan el recorrido»). Quien llama puede pasar el gancho `puedeLeer(evId, dir, indices)`: id del evento, dirección de diez dígitos y **camino exacto de índices** (una copia). La dirección sola no distingue la raíz `[]` de la posición `[0]` (las dos son `0000000000`), ni `[1]` de `[1, 0]`; los índices sí. Un gancho de dos parámetros sigue valiendo, pero entonces decide sin esa distinción.
+
+Se le pregunta, siempre antes de exponer nada:
+
+- en **cada lectura de un slot**: la del slot que se evalúa, las de `LOCAL`, `REF` y `ACTUAL`, la de cada candidato cuyo valor se pide, y **cada salto** de una referencia BTML que se sigue (cada salto es una lectura con su evento y su camino);
+- en **cada `BUSCAR`** (y en `ACTUAL` fuera de FILTRAR): por la posición buscada y después **por cada ocupante**, antes de devolver su id, autor, `t` o procedencia: un propio por su camino exacto (en una colisión, `[1]` y `[1, 0]` por separado); un escrito por su raíz (`[]` del escrito); uno alcanzado por referencia, por **cada salto** de su cadena (`saltos` de `seguir` en `src/encaje.js`), no solo por el último.
+
+Si alguno devuelve `false`, la consulta entera para en `PENDIENTE DE AUTORIZACIÓN` (no se devuelve la colección sin él: no se presenta como completo lo que no se examinó entero). El motivo nombra el lugar leído (`leer <id8>:<dir> (camino 1.0) …`); si el no autorizado es un escrito, nombra el lugar buscado y no el escrito (`leer un escrito anclado en <id8>:<dir> …`), para no exponer su id. [X] decidir VG: si un ocupante no autorizado debe parar la consulta (lo de hoy) o quedar fuera de la colección señalado como parcial.
+
+**¿Autorizar una posición autoriza su subárbol?** BQL no lo supone: pregunta por el camino exacto de cada lectura, así que autorizar `[4]` no autoriza `LOCAL(4, 0)` (se pregunta por `[4, 0]`) ni los escritos anclados en subdirecciones, ni lo que alcanzan las referencias de dentro (se preguntan aparte, por ocupante y por salto). Pero el **valor** de una lectura autorizada es el contenido entero de esa posición: si es un subarray, el valor `array` lleva el subárbol propio crudo (literales, fórmulas como texto y referencias `{ ref, dir }` sin seguir). En la práctica, autorizar una posición expone su subárbol propio del payload, y nada más. [X] decidir VG: si el valor `array` debe exigir también el permiso de cada subposición (o recortarse) antes de exponerse.
+
+Sin gancho, todo se lee: el estado nunca aparece y la fórmula «no sabe» de autorizaciones (prueba E-08). Pruebas: O-12b (lecturas, raíz frente a `[0]`) y O-12c (ocupantes, saltos, colisión, subárbol) en `test/conformidad-bql.test.js`. No es el mismo PENDIENTE DE AUTORIZACIÓN que el estado de una consolidación en el motor (`src/motor.js`), aunque se llamen igual: aquí es una lectura que espera permiso; allí, un acto que espera quien lo autorice.
 
 ---
 
@@ -617,10 +631,12 @@ c('LOCAL(0)', [1, 2]);                       // anfitrión = [1] → lee [1, 0]
 c('12 EUR - 2 EUR');
 c('200 m + 5 EUR');
 c('(200 m + 5 EUR) + 100 m');
+c('(1 EUR + 2 EUR) + (3 EUR + 4 EUR)');        // los dos operandos conservan su desglose
 c('2 * 12 EUR / 4');
 c('12 EUR < 12 m');
 c('Y(1 < 2, NO(2 > 3))');
-c('BUSCAR(4)');
+c('BUSCAR(4)');                              // índice: camino exacto (la 4 y lo anclado en ella)
+c('BUSCAR("4000000000")');                   // dirección: la colisión entera (también la 4.0)
 c('CONTAR(BUSCAR(4))');
 c('CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))');
 c('SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))');
@@ -663,11 +679,13 @@ LOCAL(0)                                                   → RESUELTO     men�
 12 EUR - 2 EUR                                             → RESUELTO     10 EUR (12 EUR + -2 EUR)
 200 m + 5 EUR                                              → RESUELTO     200 m + 5 EUR
 (200 m + 5 EUR) + 100 m                                    → RESUELTO     300 m (200 m + 100 m) + 5 EUR
+(1 EUR + 2 EUR) + (3 EUR + 4 EUR)                          → RESUELTO     10 EUR (1 EUR + 2 EUR + 3 EUR + 4 EUR)
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 5819876e · propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
-CONTAR(BUSCAR(4))                                          → RESUELTO     5
+BUSCAR(4)                                                  → RESUELTO     4 candidatos: propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 5819876e · propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
+CONTAR(BUSCAR(4))                                          → RESUELTO     4
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: array y magnitud en EUR no se comparan
@@ -676,9 +694,9 @@ ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → 
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
-CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
+CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     4
 ACTUAL(4)                                                  → RESUELTO     [2 posiciones]
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 5819876e · propio 5819876e
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 5819876e · escrito 4c1ca012
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman
@@ -701,7 +719,9 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | Operaciones matriciales de PV8 y familias de operadores por PV (V4) | No hay. |
 | Conversión de unidades (`EUR` ↔ `€`, `min` ↔ `minuto`, `m` ↔ `km`) | Las unidades son etiquetas literales, sensibles a mayúsculas; distintas → composición. |
 | `BUSCAR` sobre todo el eje | `BUSCAR` (por índice o por dirección) solo mira el evento de la fórmula (propios, referencias alcanzadas, escritos anclados). Si debe recorrer todos los eventos accesibles que declaran la posición o solo los que el árbol enlaza sigue abierto (mapa §8; O-23): [X] decidir VG. |
-| Índice como «camino exacto» (mapa §12 [D]) | `BUSCAR(índice)` devuelve hoy la colisión entera, igual que la dirección (§7.4): [X] decidir VG. |
+| Dónde cae un escrito en una búsqueda por índice (el mapa §12 [D] fija «índice = camino exacto» y «dirección = colisión entera», no esto) | El escrito se toma en el camino de su dirección de anclaje sin ceros finales (`indicesDe`), como toda dirección: los anclados en `1000000000` salen en `BUSCAR(1)` y no en `BUSCAR(1, 0)` (§7.4): [X] decidir VG. |
+| Ocupante no autorizado en `BUSCAR` | Para la consulta entera en PENDIENTE DE AUTORIZACIÓN; la alternativa sería dejarlo fuera señalado como parcial (§9.6): [X] decidir VG. |
+| Permiso del subárbol en un valor `array` | Autorizar una posición expone su subárbol propio (el valor lleva el subarray crudo); no se pregunta por cada subposición (§9.6): [X] decidir VG. |
 | Cantidad > 1 de `ACTUAL` dentro de FILTRAR/ORDENAR (corpus: abierto) | PENDIENTE (§7.5): [X] decidir VG. |
 | Comparar composiciones heterogéneas (corpus: abierto) | INCOMPATIBLE (§6.4): [X] decidir VG. |
 | Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») | El signo se calcula siempre y solo informa; ninguna regla lo filtra. |
@@ -720,10 +740,10 @@ registros en el eje antes y después de consultar: sin efectos → 6
 2. `1 / 0` devuelve numero `Infinity` (texto `Infinity`), sin parada.
 3. `SUMAR` de una colección con un solo candidato devuelve su valor aunque no sea sumable (un `array`, un `texto`).
 4. `evaluar` no sigue una referencia en un slot literal (devuelve `referencia`); `LOCAL`/`REF`/`ACTUAL` sí la siguen. Un camino de índices no entra en el evento referenciado (§3).
-5. Una dirección en texto no puede nombrar un índice 0 real final (`'1000000000'` es `[1]`, no `[1, 0]`); usar arrays de índices. Por lo mismo, `BUSCAR(1)`, `BUSCAR(1, 0)` y `BUSCAR("1000000000")` son la misma búsqueda.
+5. Una dirección en texto no puede nombrar un índice 0 real final (`'1000000000'` es `[1]`, no `[1, 0]`); usar arrays de índices. En `BUSCAR` eso es lo decidido (mapa §12 [D]): `BUSCAR("1000000000")` nombra la colisión entera; `BUSCAR(1)` y `BUSCAR(1, 0)`, cada una su camino exacto.
 6. El tercer argumento de `ORDENAR` distinto del texto `desc` se ignora en silencio.
 7. Una referencia BTML rota (`{ ref: 'nadie' }`) aparece como candidato `referencia nadie` en `BUSCAR` y da `PENDIENTE: evento ausente del eje: nadie` al leer su valor.
 8. La resta de magnitudes se muestra con el sumando negativo en el desglose (`10 EUR (12 EUR + -2 EUR)`).
 9. Una cadena de diez dígitos en un slot es texto (dirección), no número: `'1234567890' + 1` es INCOMPATIBLE. Un número JS de diez cifras sí es número.
 
-Corregidos en esta versión (estaban aquí): las funciones sin el argumento que esperan (`NO()`, `CONTAR()`…) ya devuelven `ERROR: <FN> espera un argumento`/`una colección` en vez de lanzar `TypeError`; `=`/`<>` entre tipos o unidades distintos ya son INCOMPATIBLE (antes comparaban el texto formateado); `ORDENAR` con claves mezcladas ya es INCOMPATIBLE (antes ordenaba sin definir); más de diez índices ya no lanza `RangeError`; una anidación muy honda ya no revienta la pila.
+Corregidos en esta versión (estaban aquí): las funciones sin el argumento que esperan (`NO()`, `CONTAR()`…) ya devuelven `ERROR: <FN> espera un argumento`/`una colección` en vez de lanzar `TypeError`; `=`/`<>` entre tipos o unidades distintos ya son INCOMPATIBLE (antes comparaban el texto formateado); `ORDENAR` con claves mezcladas ya es INCOMPATIBLE (antes ordenaba sin definir); más de diez índices ya no lanza `RangeError`; una anidación muy honda ya no revienta la pila; la suma ya no aplana el operando derecho (`(1 EUR + 2 EUR) + (3 EUR + 4 EUR)` daba `10 EUR (1 EUR + 2 EUR + 7 EUR)`, §6.1); el gancho `puedeLeer` ya recibe el camino exacto y se aplica por ocupante y por salto (§9.6); `BUSCAR(índice)` ya es camino exacto (§7.4).

@@ -130,17 +130,25 @@ export function caminosDe(payload, dir) {
  * (la dirección donde se le coloca), el vector de diferencias, la distancia,
  * las profundidades de acuerdo y el signo. Orden por defecto: por encaje;
  * con { orden: 'llegada' }, el de llegada. Nada se borra.
+ *
+ * Con { exacto: true } (un índice, mapa §12 [D]: «un número es índice,
+ * camino exacto»), solo el camino `indices` tal cual: el propio de ese
+ * camino, lo que alcanza si es referencia, y los escritos cuya dirección de
+ * anclaje, sin ceros finales (indicesDe, como se lee toda dirección), es ese
+ * camino. Sin él (una dirección: «nombra la colisión entera»), todos.
  */
-export function ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {}) {
+export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = false } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const dir = direccion(indices);
+  const esEse = (camino) => camino.length === indices.length && camino.every((x, k) => x === indices[k]);
   const lista = [];
   for (const c of caminosDe(ev.payload, dir)) {
+    if (exacto && !esEse(c.indices)) continue;
     lista.push(conEncaje({ tipo: 'propio', evento: id, dir, camino: c.indices, contenido: c.contenido, origen: dir, procedencia: [id + ':' + dir + '#' + c.indices.join('.')] }, dir));
     if (esReferencia(c.contenido)) lista.push(conEncaje(seguir(eje, c.contenido, [id + ':' + dir + '#' + c.indices.join('.')]), dir));
   }
-  for (const h of eje.sobre(id, dir)) {
+  for (const h of exacto && !esEse(indicesDe(dir)) ? [] : eje.sobre(id, dir)) {
     // Un escrito está anclado exactamente en la dirección buscada: su ruta coincide entera.
     lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }
@@ -148,21 +156,27 @@ export function ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {}) {
   return orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen, { epoca });
 }
 
-/** Sigue una referencia hasta un contenido que no sea referencia. Conserva la procedencia. */
+/**
+ * Sigue una referencia hasta un contenido que no sea referencia. Conserva la
+ * procedencia y, en `saltos`, cada lugar leído por el camino ({ evento,
+ * indices }, en orden): lo que un gancho de autorización tiene que ver.
+ */
 export function seguir(eje, ref, procedencia = []) {
   let actual = ref;
   const cadena = [...procedencia];
+  const saltos = [];
   for (let salto = 0; salto < MAX_SALTOS; salto++) {
     const ev = eje.obtener(actual.ref);
     const dir = actual.dir ?? '0000000000';
-    if (!ev) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, rota: true };
+    if (!ev) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, saltos, rota: true };
     cadena.push(actual.ref + ':' + dir);
+    saltos.push({ evento: actual.ref, indices: indicesDe(dir) });
     const contenido = resolver(ev.payload, dir);
-    if (!esReferencia(contenido)) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido, procedencia: cadena };
+    if (!esReferencia(contenido)) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido, procedencia: cadena, saltos };
     actual = contenido;
   }
   const dir = actual.dir ?? '0000000000';
-  return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, rota: true };
+  return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, saltos, rota: true };
 }
 
 /**

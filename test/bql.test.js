@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
-import { evaluar, esFormula, desescapar, analizar, formato } from '../src/bql.js';
+import { evaluar, consultar, esFormula, desescapar, analizar, formato } from '../src/bql.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 
 const T0 = '2026-11-06T20:00:00Z';
@@ -35,6 +35,28 @@ test('aritmética y magnitudes: misma unidad suma con desglose', async () => {
   assert.equal(a.texto, '250 m (200 m + 50 m)');
   assert.equal(evaluar(eje, id, '2000000000').texto, '24 EUR');
   assert.equal(evaluar(eje, id, '3000000000').texto, '7');
+});
+
+test('sumar trata igual a los dos operandos: el derecho conserva su desglose (defecto visto en el caso Tasks)', async () => {
+  const { eje, id } = await ejeCon(['x', '=1 EUR + 2 EUR', '=3 EUR + 4 EUR', '=LOCAL(1) + LOCAL(2)', '=1 h + 2 h', '=350 EUR + LOCAL(4)', '=LOCAL(1) - LOCAL(2)']);
+  const c = (f) => consultar(eje, id, [9], f).texto;
+  // Antes: «10 EUR (1 EUR + 2 EUR + 7 EUR)»: el operando derecho llegaba aplanado.
+  assert.equal(c('(1 EUR + 2 EUR) + (3 EUR + 4 EUR)'), '10 EUR (1 EUR + 2 EUR + 3 EUR + 4 EUR)');
+  assert.equal(evaluar(eje, id, [3]).texto, '10 EUR (1 EUR + 2 EUR + 3 EUR + 4 EUR)'); // también leyendo fórmulas ajenas
+  // Simetría: a + b y b + a tienen la misma cantidad y los mismos sumandos.
+  const ab = consultar(eje, id, [9], 'LOCAL(1) + LOCAL(2)').valor;
+  const ba = consultar(eje, id, [9], 'LOCAL(2) + LOCAL(1)').valor;
+  assert.equal(ab.cantidad, ba.cantidad);
+  const sumandos = (v) => v.desglose.map((d) => d.cantidad).sort((x, y) => x - y);
+  assert.deepEqual(sumandos(ab), sumandos(ba));
+  // Unidad nueva a la derecha: entra en la composición con su desglose (el 8 de la tarea: EUR + horas).
+  assert.equal(evaluar(eje, id, [5]).texto, '350 EUR + 3 h (1 h + 2 h)');
+  assert.equal(c('1 EUR + (2 EUR + 1 h + 2 h)'), '3 EUR (1 EUR + 2 EUR) + 3 h (1 h + 2 h)');
+  // Al restar, cada sumando del derecho cambia de signo.
+  assert.equal(evaluar(eje, id, [6]).texto, '-4 EUR (1 EUR + 2 EUR + -3 EUR + -4 EUR)');
+  // Sin desglose sigue igual que antes.
+  assert.equal(c('12 EUR + 2 EUR'), '14 EUR (12 EUR + 2 EUR)');
+  assert.equal(c('5 EUR + 1 h'), '5 EUR + 1 h');
 });
 
 test('composición heterogénea preserva los operandos', async () => {
