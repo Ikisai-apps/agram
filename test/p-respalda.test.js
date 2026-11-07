@@ -16,6 +16,7 @@ import {
   respaldoParaAutorizar, FABRICA,
 } from '../src/motor.js';
 import { validez } from '../src/validez.js';
+import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
@@ -43,7 +44,8 @@ async function mundo({ pA = 4, respalda = 3, enHabitacion = false, personas = ['
     contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
-    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }] });
+    // Su R, con su colateral (R6): es la «R propia en juego» que exigen P y E.
+    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }, colateral(p, 10)] });
   }
   const A = (await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], 4] })).id;
   await eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'P sobre el alojamiento', movimientos: [minuto('casa'), enJuego('casa'), { token: 'P', ambito: A, cantidad: pA, de: null, a: 'casa' }] });

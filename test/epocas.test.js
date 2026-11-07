@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import * as nucleo from '../src/index.js';
-import { PV, TODAS, EPOCA_0, EPOCAS, cargarEpoca, epocaDe, leerDireccion, leerCamino } from '../src/epocas.js';
+import { PV, TODAS, EPOCA_0, EPOCAS, CORTES_PROVISIONALES, cargarEpoca, epocaDe, leerDireccion, leerCamino } from '../src/epocas.js';
 import { EPOCA_0_DATOS } from '../datos/epocas/epocas.js';
 import { generar, nombreDeConstante } from '../datos/epocas/generar.mjs';
 import { ordenarPorEncaje } from '../src/encaje.js';
@@ -156,21 +156,68 @@ test('por hojas: leerCamino lee una décupla con la regla corta y una lista como
   assert.equal(leerCamino([2, 1])[1].significado, 'cuánto');
 });
 
-test('cortes del 8: regla de la época (VG, 7-11 noche); la época 0 trae 1 2 3 4 6 10 16 26 42; por medida, todas o el respaldo', () => {
+test('cortes del 8: UNA sola escala por época (VG, 8-11); la época 0 trae 1 2 3 4 6 10 16 26 42 para todas las medidas', () => {
   const ESCALA_0 = [1, 2, 3, 4, 6, 10, 16, 26, 42];
   assert.deepEqual(EPOCA_0.cortes('terminales'), ESCALA_0);
   assert.deepEqual(EPOCA_0.cortes('E:casa/EUR'), ESCALA_0);
+  assert.deepEqual(EPOCA_0.cortesConOrigen(), { cortes: ESCALA_0, origen: 'epoca' });
+  assert.deepEqual([...CORTES_PROVISIONALES], ESCALA_0);
   assert.match(EPOCA_0_DATOS.cortes.decision, /\[X\] decidir VG/);
   const copia = EPOCA_0.cortes('escritos');
   copia[0] = 99;
   assert.equal(EPOCA_0.cortes('escritos')[0], 1); // se devuelve una copia
-  const propia = cargarEpoca({ nombre: 'con cortes', reglas: generales, cortes: { escritos: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }, { respaldo: EPOCA_0 });
+});
+
+test('cortes: una época con cortes propios (una lista) los usa para toda medida', () => {
+  const propia = cargarEpoca({ nombre: 'con cortes', reglas: generales, cortes: [0, 1, 2, 3, 4, 5, 6, 7, 8] }, { respaldo: EPOCA_0 });
   assert.deepEqual(propia.cortes('escritos'), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.equal(propia.cortes('terminales'), undefined); // lo que no trae: las bases usan los de la época 0 (bases.cortesDe, origen 'respaldo')
-  assert.deepEqual(cargarEpoca({ nombre: 'todas', reglas: generales, cortes: { todas: [1, 2, 3, 4, 5, 6, 7, 8, 9], decision: 'prueba' } }).cortes('T:hora'), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  assert.equal(cargarEpoca({ nombre: 'sin cortes', reglas: generales }).cortes('escritos'), undefined);
+  assert.deepEqual(propia.cortes('terminales'), [0, 1, 2, 3, 4, 5, 6, 7, 8]); // la misma escala para todas
+  assert.deepEqual(propia.cortesConOrigen(), { cortes: [0, 1, 2, 3, 4, 5, 6, 7, 8], origen: 'epoca' });
+  propia.cortes('escritos')[0] = 99;
+  assert.equal(propia.cortes('escritos')[0], 0); // copia
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [3, 2, 1] }), /nueve umbrales crecientes/);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [1, 2, 3] }), /nueve umbrales crecientes/);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: 'mal' }), /lista de nueve umbrales/);
+});
+
+test('cortes: una época sin cortes HEREDA los de su respaldo, también en cadena (VG, 8-11)', () => {
+  const madre = cargarEpoca({ nombre: 'madre', reglas: generales, cortes: [5, 10, 15, 20, 25, 30, 35, 40, 45] });
+  const hija = cargarEpoca({ nombre: 'hija', reglas: generales }, { respaldo: madre });
+  assert.deepEqual(hija.cortes('escritos'), [5, 10, 15, 20, 25, 30, 35, 40, 45]);
+  assert.deepEqual(hija.cortesConOrigen(), { cortes: [5, 10, 15, 20, 25, 30, 35, 40, 45], origen: 'epoca' });
+  const nieta = cargarEpoca({ nombre: 'nieta', reglas: generales }, { respaldo: hija });
+  assert.deepEqual(nieta.cortes('T:hora'), [5, 10, 15, 20, 25, 30, 35, 40, 45]);
+  // Sobre la época 0: hereda su escala.
+  assert.deepEqual(cargarEpoca({ nombre: 'sobre 0', reglas: generales }, { respaldo: EPOCA_0 }).cortes('escritos'), [1, 2, 3, 4, 6, 10, 16, 26, 42]);
+  // Los propios mandan sobre los del respaldo.
+  const propia = cargarEpoca({ nombre: 'propia', reglas: generales, cortes: [2, 4, 6, 8, 10, 12, 14, 16, 18] }, { respaldo: madre });
+  assert.deepEqual(propia.cortes('escritos'), [2, 4, 6, 8, 10, 12, 14, 16, 18]);
+});
+
+test('cortes: si nadie los trae, la escala provisional con origen «provisional»', () => {
+  const sola = cargarEpoca({ nombre: 'sin cortes', reglas: generales });
+  assert.deepEqual(sola.cortes('escritos'), [1, 2, 3, 4, 6, 10, 16, 26, 42]);
+  assert.deepEqual(sola.cortesConOrigen(), { cortes: [1, 2, 3, 4, 6, 10, 16, 26, 42], origen: 'provisional' });
+  const hija = cargarEpoca({ nombre: 'hija de la sola', reglas: generales }, { respaldo: sola });
+  assert.equal(hija.cortesConOrigen().origen, 'provisional');
+  // Un objeto sin ninguna escala (solo la decisión) tampoco trae cortes.
+  assert.equal(cargarEpoca({ nombre: 'solo texto', reglas: generales, cortes: { decision: 'pendiente' } }).cortesConOrigen().origen, 'provisional');
+});
+
+test('cortes: la forma por medida (en desuso) se reduce a la escala única', () => {
+  const UNA = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const OTRA = [2, 4, 6, 8, 10, 12, 14, 16, 18];
+  // Con `todas`, `*` o `por defecto` gana esa clave; el resto de medidas ya no tiene los suyos.
+  for (const defecto of ['*', 'todas', 'por defecto']) {
+    const e = cargarEpoca({ nombre: 'por medida ' + defecto, reglas: generales, cortes: { escritos: OTRA, [defecto]: UNA, decision: 'prueba' } });
+    assert.deepEqual(e.cortes('escritos'), UNA);
+    assert.deepEqual(e.cortes('terminales'), UNA);
+    assert.equal(e.cortesConOrigen().origen, 'epoca');
+  }
+  // Sin clave por defecto, la primera.
+  const primera = cargarEpoca({ nombre: 'primera', reglas: generales, cortes: { decision: 'x', escritos: OTRA, terminales: UNA } });
+  assert.deepEqual(primera.cortes('terminales'), OTRA);
   assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: { todas: [3, 2, 1] } }), /nueve umbrales crecientes/);
-  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [1, 2, 3, 4, 5, 6, 7, 8, 9] }), /cortes es un objeto/);
 });
 
 test('cargarEpoca: regla de todas las profundidades, regla propia y respaldo', () => {

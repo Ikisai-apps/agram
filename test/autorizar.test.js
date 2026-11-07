@@ -35,7 +35,7 @@ async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {
     await eje.escribir({ autor: 'd', sobre: X.id, t: T0, payload: 'poder sobre la sala', movimientos: [gasta('d'),
-      { token: 'R', emisor: 'd', cantidad: 1, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
+      { token: 'R', emisor: 'd', cantidad: 2, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 0.5, de: 'd', a: 'd', estado: 'bloqueo', salida: 'R:d' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
       { token: 'P', ambito: X.id, cantidad: pX, de: null, a: 'd' }] });
   }
   return { eje, X: X.id };
@@ -122,20 +122,15 @@ test('un títere sin P:X no autoriza nada: ni con P del eje donde X tiene P prop
     movimientos: [gasta('t'), { token: 'P', ambito: 'genesis', cantidad: 10, de: 't', a: 't', estado: 'bloqueo', salida: c.id }] });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   assert.deepEqual(autorizacionesValidas(eje, c.id), []);
-  // Un subregistro del títere dentro de X, con su P propio emitido (VG, 8-11: manda el registro más cercano con P propio
-  // emitido): decide lo que se consolida sobre su subregistro, no lo que se consolida sobre X.
+  // Ni un subregistro del títere dentro de X con su P propio emitido: no es de la cadena de autoridad de la dueña (ni lo
+  // escribió ella ni el títere tiene P:X), así que se salta (VG, 8-11, con la salvedad del autor de Core, [X]) y el
+  // recurso sigue siendo X; su P sobre el subregistro no es P:X.
   const sub = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'lo del títere', movimientos: [gasta('t')] });
   await eje.escribir({ autor: 't', sobre: sub.id, t: T0, payload: 'poder del títere', movimientos: [gasta('t'),
-    { token: 'R', emisor: 't', cantidad: 1, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
+    { token: 'R', emisor: 't', cantidad: 2, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 0.5, de: 't', a: 't', estado: 'bloqueo', salida: 'R:t' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
   const debajo = await consolidacionDe(eje, 'a', sub.id);
-  assert.equal(recursoDe(eje, debajo.id), sub.id);
-  assert.equal(puedeAutorizar(eje, 't', debajo.id), true);
-  assert.equal(puedeAutorizar(eje, 't', c.id), false);
-  // Sin P propio en el subregistro, manda X.
-  const sinP = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'otro del títere', movimientos: [gasta('t')] });
-  const encima = await consolidacionDe(eje, 'a', sinP.id);
-  assert.equal(recursoDe(eje, encima.id), X);
-  assert.equal(puedeAutorizar(eje, 't', encima.id), false);
+  assert.equal(recursoDe(eje, debajo.id), X);
+  assert.equal(puedeAutorizar(eje, 't', debajo.id), false);
 });
 
 test('VG, 8-11: el registro del recurso es el más cercano del hilo con P propio emitido; si no hay ninguno, el génesis', async () => {
@@ -161,6 +156,26 @@ test('VG, 8-11: el registro del recurso es el más cercano del hilo con P propio
   assert.equal(recursoDe(eje, c2.id), X);
   await autorizar(eje, { autorizante: 'b', consolidacion: c2.id, t: T0 });
   assert.equal(estadoDe(eje, c2.id), 'AUTORIZADO');
+  // Una habitación escrita por quien tiene P delegado de la casa (b, con P:X): su P propio también manda.
+  await liberar(eje, { titular: 'b', consolidacion: c2.id, t: T0 });
+  const H3 = await eje.escribir({ autor: 'b', sobre: X, t: T0, payload: 'habitación que lleva b', movimientos: [gasta('b')] });
+  await eje.escribir({ autor: 'b', sobre: H3.id, t: T0, payload: 'poder sobre la habitación de b', movimientos: [gasta('b'),
+    { token: 'R', emisor: 'b', cantidad: 2, de: null, a: 'b' }, { token: 'R', emisor: 'b', cantidad: 0.5, de: 'b', a: 'b', estado: 'bloqueo', salida: 'R:b' }, { token: 'R', emisor: 'b', cantidad: 1, de: 'b', a: 'a' },
+    { token: 'P', ambito: H3.id, cantidad: 2, de: null, a: 'b' }] });
+  const c4 = await consolidacionDe(eje, 'd', H3.id);
+  assert.equal(recursoDe(eje, c4.id), H3.id);
+  await autorizar(eje, { autorizante: 'b', consolidacion: c4.id, t: T0 });
+  assert.equal(estadoDe(eje, c4.id), 'AUTORIZADO');
+  // El subregistro del proponente con P propio (ni lo escribió la dueña ni tiene P:X) no autoriza nada: se salta y
+  // manda X, donde el proponente no tiene P. Queda PENDIENTE DE AUTORIZACIÓN.
+  const suyo = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'lo del proponente', movimientos: [gasta('t')] });
+  await eje.escribir({ autor: 't', sobre: suyo.id, t: T0, payload: 'poder del proponente', movimientos: [gasta('t'),
+    { token: 'R', emisor: 't', cantidad: 2, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 0.5, de: 't', a: 't', estado: 'bloqueo', salida: 'R:t' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' },
+    { token: 'P', ambito: suyo.id, cantidad: 5, de: null, a: 't' }] });
+  const c5 = await consolidacionDe(eje, 't', suyo.id);
+  assert.equal(recursoDe(eje, c5.id), X);
+  await assert.rejects(autorizar(eje, { autorizante: 't', consolidacion: c5.id, t: T0 }), /t no tiene P que cuente/);
+  assert.equal(estadoDe(eje, c5.id), 'PENDIENTE DE AUTORIZACIÓN');
   // Nada emitido en todo el hilo: manda el génesis, con el P del eje.
   const Y = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: 'dominio sin P', movimientos: [gasta('d')] });
   const sub = await eje.escribir({ autor: 'a', sobre: Y.id, t: T0, payload: 'algo en Y', movimientos: [gasta('a')] });

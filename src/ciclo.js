@@ -22,6 +22,7 @@
 import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
+import { rPropiaEnJuego } from './lente.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
@@ -79,6 +80,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
  *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
  *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia, que lee este mismo contexto)
+ *   bloqueado(id, k, salida) lo bloqueado de esa serie por esa identidad con esa salida (la R propia en juego, R6)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -238,12 +240,13 @@ export function reglasDelCiclo(ev, ctx) {
     // «Mover T» es T consumido o transferido a otra identidad: bloquearlo,
     // liberarlo o dárselo a uno mismo no cuesta nada, así que no cuenta.
     const mueveT = validos.some(({ m }) => m.token === 'T' && m.de === autor && m.a !== autor && m.estado === undefined);
-    const rEnJuego = validos.some(({ m }) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor && m.estado === undefined);
+    // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
+    const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
     for (const token of ['R', 'P', 'E']) {
       if (!emitidas.has(token)) continue;
       if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad');
       if (token !== 'R' && !rEnJuego) {
-        falla(null, 5, 'emitir ' + token + ' exige R propia en juego en el mismo evento: mover R:' + autor + ' de ' + autor + ' a otra identidad o al registro');
+        falla(null, 5, 'emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
       }
       if (token === 'E' && ctx.registro(ev.sobre) && !tienePoder(ev.sobre)) {
         falla(null, 5, 'emitir E exige P del autor sobre el registro ' + corto(ev.sobre) + ' (saldo o movimiento de P en el mismo evento)');

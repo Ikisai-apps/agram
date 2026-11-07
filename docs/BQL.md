@@ -25,12 +25,13 @@ import { esFormula, desescapar, analizar, evaluar, consultar, formato, ESTADOS, 
 | `esPendiente(estado)` | `(string) → boolean` | `true` para `'PENDIENTE'` y sus dos subtipos. |
 | `LIMITES` | `{ presupuesto: 2000, profundidad: 100, candidatos: 1000 }` | Límites de cálculo por defecto (§9.3). Valores V0: [X] decidir VG. |
 
-**Opciones** (las dos son optativas; sin opciones, todo se lee y rigen `LIMITES`):
+**Opciones** (las tres son optativas; sin opciones, todo se lee, rigen `LIMITES` y no hay lector):
 
 | Campo | Tipo | Qué hace |
 |---|---|---|
 | `puedeLeer(evId, dir, indices)` | `(string, string, number[]) → boolean` | Gancho de autorización: se le pregunta por cada lectura, por cada ocupante de `BUSCAR` y por cada salto de una cadena de referencias (id del evento, dirección de diez dígitos y camino exacto de índices, que distingue la raíz `[]` de la posición `[0]`). `false` → PENDIENTE DE AUTORIZACIÓN (§9.6). El modelo de permisos no es de BQL: es de AARPIA (mapa §12). |
 | `limites` | `{ presupuesto?, profundidad?, candidatos? }` | Sustituye los valores de `LIMITES` que se pasen. |
+| `lector` | `string` | La identidad que consulta. `VALOR_R` y `LENTE` leen **su** lente de R (§7.15); sin lector, esas dos dan PENDIENTE. Ninguna otra función lo mira. |
 
 `dir` admite dos formas: una dirección de diez dígitos (`'1200000000'`) o un array de índices (`[1, 2]`). La dirección se convierte con `indicesDe`, que quita los ceros finales: `'0000000000'` es la raíz (`[]`) y `'1000000000'` es `[1]`. Límite conocido: una dirección en texto no puede nombrar un índice 0 real al final del camino; para la posición 0 se usa el array (`[0]`, `[1, 0]`).
 
@@ -287,6 +288,8 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una medida o de una serie de token, y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
 | `CAJA(medida, alcance?)` | texto de una medida o de una serie de token; alcance (`"hermanos"` por defecto) | numero 0–9: la caja del anfitrión, la de `BASES(alcance, medida)` (§7.14) | siempre |
 | `FRESCURA(alcance?)` | alcance (`"hermanos"` por defecto) | numero: llegadas desde la base que lee ese alcance (hijos nuevos, bases renovadas y lo mismo debajo). `0` = ninguna llegada, no «al día»: no ve cambios en lo ya medido (§7.14) | siempre |
+| `VALOR_R("titular")` | texto: una identidad | numero: el valor de la R que tiene el titular con la lente firmada del **lector** (opción `lector`); sin lector o sin lente, PENDIENTE (§7.15) | siempre |
+| `LENTE("emisor")` | texto: un emisor de R | numero 0–1: el peso que el lector da a ese emisor en su lente; 0 si no lo nombra; sin lector o sin lente, PENDIENTE (§7.15) | siempre |
 
 «Dentro» = mientras se evalúa el segundo argumento de `FILTRAR` o de `ORDENAR`. Fuera, las seis funciones de encaje dan `ERROR: <NOMBRE> solo dentro de FILTRAR u ORDENAR`.
 
@@ -681,6 +684,31 @@ Hay dos propuestas de `BASES` y no caben juntas: con un solo argumento, cada una
 | A favor | todo es número; una sola función | una fórmula muestra la base entera, con su mediana |
 
 Hoy queda la A: es la de la #44, que ya lleva la integración. `CAJA` y `FRESCURA` sirven con las dos (`CAJA(m, a)` = `BASES(a, m)` de la A). Si VG elige la B, `BASES(alcance)` deja de dar n y el valor `bases` de `031a85a` se rehace sobre `situar` de la #44.
+
+### 7.15 `VALOR_R("titular")` y `LENTE("emisor")`: la lente de R
+
+R6 del estudio de neutralidad (VG, 7-11 noche; `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). La R no tiene un valor propio en el eje: vale ante quien la lee, y solo con la **lente** que ese lector ha firmado. Por eso estas dos funciones leen la lente del lector que consulta, la opción `lector` de `evaluar` y `consultar`, y nada más.
+
+- `VALOR_R("titular")` = Σ, sobre los emisores X que la lente nombra (con peso > 0 y distintos del titular), de peso(X) × la participación del titular en `R:X`. La participación es saldo ÷ emitido, con el emitido de **cuando llegó** cada tenencia: ampliar `R:X` después no la diluye. Devuelve un numero (redondeado a millonésimas).
+- `LENTE("emisor")` = el peso que la lente da a ese emisor: un numero de 0 a 1, y 0 si no lo nombra (recibir R de alguien no lo mete en la lente).
+- **Sin lector, o si el lector no ha declarado lente, PENDIENTE**: sin lente, R no vale nada en una fórmula, y la fórmula que la usa (`=VALOR_R("ana") > 0`) tampoco se resuelve. El motivo dice cómo se declara: un evento del lector en la posición 3 de su alta, con pares `[emisor, peso]`.
+- **Gancho**: cada declaración de la lente y cada evento que movió esa R al titular (o desde él) se autoriza con `puedeLeer` (camino raíz). Uno que no se autoriza da PENDIENTE DE AUTORIZACIÓN, sin nombrar el evento.
+- **Presupuesto**: un paso por declaración y otro por evento de tenencia, contados antes de leer; si no caben, PENDIENTE POR LÍMITE (con `parcial: { examinados: 0, de }`).
+- **Dependencias**: la posición 3 de cada ancla de la lente (`<alta>:3000000000`, y la de cada registro «lente» del lector): una declaración nueva cambia el resultado. Y los eventos leídos.
+- `ERROR` si el argumento no es un texto no vacío.
+
+```
+--- la casa (lector) da peso 1 a vecinos-norte y 0,5 a vecinos-sur
+--- la huésped tiene 10 de los 100 R:vecinos-norte y 20 de los 100 R:vecinos-sur, y medio millón de R:recien
+consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'casa' })        → 0.2
+consultar(eje, reserva, [], '=VALOR_R("recien")', { lector: 'casa' })         → 0
+consultar(eje, reserva, [], '=LENTE("vecinos-sur")', { lector: 'casa' })      → 0.5
+consultar(eje, reserva, [], '=LENTE("recien")', { lector: 'casa' })           → 0
+consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'recepcion' })   → PENDIENTE: VALOR_R: recepcion no ha declarado su lente de R (…)
+consultar(eje, reserva, [], '=VALOR_R("huesped")')                            → PENDIENTE: VALOR_R: sin lector no hay lente, y sin lente R no vale nada (opciones.lector)
+```
+
+Es el ejemplo de `ejemplos/ikisai/lente-booking.mjs` (`test/lente.test.js`). Nada en BQL suma R de emisores distintos fuera de esta función, y nada cuenta emisores (prueba estática en `test/lente.test.js`).
 
 ---
 

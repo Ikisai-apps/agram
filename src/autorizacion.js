@@ -33,6 +33,7 @@
 //   lector.sobre(id, en)          los registros escritos sobre id en la dirección en, en ese momento
 //   lector.bloqueosDe(id)         los bloqueos de esa identidad: [{ clave, salida, cantidad }]
 //   lector.respaldoE(salida)      si la salida es una serie de E (o una familia «@*») emitida: { registro, vivo }; si no, null
+//   lector.poder(id, clave)       lo que esa identidad tiene de esa serie, disponible más bloqueado
 
 import { esDireccion, indicesDe } from './btml.js';
 import { AMBITO_GENESIS, TODAS_LAS_FRANJAS, partirClave, franjaDe } from './tokens.js';
@@ -64,6 +65,7 @@ export function lectorDelEje(eje) {
     bloqueadoCon: (clave, salida) => eje.bloqueadoCon(clave, salida),
     sobre: (id, en) => eje.sobre(id, en),
     bloqueosDe: (identidad) => eje.bloqueos(identidad).map(({ clave, salida, cantidad }) => ({ clave, salida, cantidad })),
+    poder: (identidad, clave) => eje.saldo(identidad, clave) + eje.bloqueado(identidad, clave),
     respaldoE: (salida) => {
       if (!esSalidaE(salida)) return null;
       if (esFamilia(salida)) {
@@ -101,23 +103,34 @@ export function registroDeFamilia(familia, altaDe) {
  * aparte) es el que manda sobre lo que cuelga de él. Nunca es la consolidación
  * (se sube desde su foco). Sustituye «X = la raíz del dominio» (7-11 noche).
  *
- * [X] decidir VG: quien escribe un registro puede acuñar P sobre él (R3), así
- * que con esta regla decide lo que se consolide encima de su registro; p. ej.
- * si quien reserva acuñara P sobre su reserva, la entrega de la casa
- * consolidada sobre ella la autorizaría quien reserva, no recepción.
+ * Salvedad del autor (regla de Core, revisión de seguridad; [X] confirmar VG):
+ * quien escribe un registro puede acuñar P sobre él (R3), así que sin más el
+ * proponente escribiría un subregistro en el dominio de la casa, acuñaría P
+ * sobre él y se autorizaría solo o con un títere. Por eso un registro por
+ * debajo de la raíz del dominio solo cuenta como X si lo escribió el autor de
+ * la raíz o alguien que tiene P delegado desde la raíz (P:<raíz>, disponible
+ * o bloqueado): la cadena de autoridad del dueño. Si no (lo escribió el
+ * proponente u otro ajeno), se salta y se sigue subiendo. La raíz cuenta
+ * siempre que tenga P propio emitido. Ampliar la serie P:Y de un subregistro
+ * ajeno exige así la autorización del dominio que lo envuelve.
  */
 export function recursoDe(lector, consolidacion) {
   const g = lector.genesisId;
   const c = typeof consolidacion === 'string' ? lector.obtener(consolidacion) : consolidacion;
   if (!c || c.sobre === null || c.sobre === undefined || c.sobre === g) return g;
+  const hilo = []; // del foco a la raíz del dominio
   let x = lector.obtener(c.sobre);
   if (!x) return undefined;
   while (x.sobre !== null && x.id !== g) {
-    if (lector.emitido('P:' + x.id) > 0) return x.id;
+    hilo.push(x);
     const padre = lector.obtener(x.sobre);
     if (!padre) return undefined;
     x = padre;
   }
+  if (!hilo.length) return g;
+  const raiz = hilo[hilo.length - 1];
+  const delDueno = (r) => r === raiz || r.autor === raiz.autor || (typeof lector.poder === 'function' && lector.poder(r.autor, 'P:' + raiz.id) > 0);
+  for (const r of hilo) if (lector.emitido('P:' + r.id) > 0 && delDueno(r)) return r.id;
   return g;
 }
 

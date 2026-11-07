@@ -55,10 +55,12 @@ const ID_INEXISTENTE = 'f'.repeat(64);
 /** P delegado (por defecto, sobre todo el eje): quien emite E necesita P sobre el registro. */
 const daP = (de, a, cantidad = 1, ambito = 'genesis') => ({ token: 'P', ambito, cantidad, de, a });
 /**
- * VG, 7-11 noche: emitir P o E exige R propia en juego en el mismo evento. La
- * persona emite un R suyo y lo pone en manos de otra (por defecto, la raíz).
+ * VG, 7-11 noche: emitir P o E exige R propia en juego. Con R6 (src/lente.js)
+ * es el colateral: la persona emite dos R suyos, bloquea medio con la salida =
+ * su serie y pone uno en manos de otra (por defecto, la raíz).
  */
-const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantidad: 1, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
+const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantidad: 2, de: null, a: persona },
+  { token: 'R', emisor: persona, cantidad: 0.5, de: persona, a: persona, estado: 'bloqueo', salida: 'R:' + persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
 
 /**
  * El mundo del motor: la raíz (génesis, con poder sobre todo el eje, euros y
@@ -1422,8 +1424,9 @@ test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y s
   // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', otro: 'persona' } } });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
-  assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa')], [2, 5]);
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 0.5, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }], payload: 'reputación de la casa' });
+  // Con R6, su colateral (la décima parte de lo emitido) queda bloqueado: 7 emitidos, 1 bloqueado, 1 en la raíz.
+  assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa'), eje.bloqueado('casa', 'R:casa', 'R:casa')], [2, 5, 1]);
   // Solo la casa amplía su serie: otro no puede emitir a nombre de la casa.
   await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /nadie emite en nombre de otro|la emisión de E va a su propio emisor/);
   assert.equal(eje.serie('E:casa/plaza').emitido, 2);
@@ -1615,13 +1618,13 @@ test('TOK-54 ninguna organización es imprescindible para participar: los tokens
 
 test('TOK-54b una identidad que no es el génesis puede emitir sus propias series', async () => {
   const { eje, g } = await mundo();
-  // VG, 7-11 noche: E es el último escalón. Ana pone en juego un R suyo (ante bea) y escribe sobre un registro suyo, sobre el que emite P.
+  // VG, 7-11 noche: E es el último escalón. Ana pone en juego su R (R6: bloquea su colateral; y da un R a bea) y escribe sobre un registro suyo, sobre el que emite P.
   const suyo = await escribe(eje, g, 'mis clases', undefined, 'ana');
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'mi reputación y mis horas de clase', movimientos: [gastaT('ana'),
-    { token: 'R', cantidad: 6, emisor: 'ana', de: null, a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'bea' },
+    { token: 'R', cantidad: 6, emisor: 'ana', de: null, a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'ana', estado: 'bloqueo', salida: 'R:ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'bea' },
     { token: 'P', ambito: suyo.id, cantidad: 1, de: null, a: 'ana' },
     { token: 'E', denominacion: 'horas de clase', emisor: 'ana', cantidad: 3, de: null, a: 'ana' }] });
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'ana', cantidad: 5 }]);
+  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'ana', cantidad: 4 }]); // 6 − 1 de colateral − 1 a bea
   assert.equal(eje.saldo('ana', 'E:ana/horas de clase'), 3);
 });
 
