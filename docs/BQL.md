@@ -76,7 +76,7 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | `undefined` (posición no desarrollada, o camino que atraviesa un terminal) | parada **PENDIENTE** `posición sin desarrollar` | — |
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
-| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 37c58bd2'` (ocho primeros caracteres del id) |
+| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 579144c6'` (ocho primeros caracteres del id) |
 | cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
 | cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
@@ -84,13 +84,15 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 
 Unidad admitida en un literal de slot: primer carácter `A–Z a–z € $ %`, luego letras ASCII, dígitos, `_`, `€`, `$`, `%`. `'12 año'` no es magnitud (la `ñ` no entra): es texto.
 
+Asimetría: en un **slot** la unidad puede ir delante (`'EUR 12'`); dentro de una **fórmula** solo detrás (`12 EUR`): `=EUR 12` es `ERROR: identificador suelto: EUR`. Las unidades son **etiquetas**: `min` o `h` no tienen relación con las escalas de T (`minuto`, `hora`), ni `EUR` con la denominación del token E. Una magnitud BQL no mueve nada; para pagar lo que calcula una fórmula hay que pasar a mano `valor.cantidad` y `valor.unidad` al movimiento (`docs/MOTOR.md` §2.1).
+
 **Referencias.** `evaluar` sobre un slot que contiene una referencia devuelve el valor `referencia` sin seguirla. Dentro de una fórmula, `LOCAL`, `REF` y `ACTUAL` **sí** siguen las referencias (encadenadas, hasta llegar a un contenido que no sea referencia) y anotan la dependencia. El camino de índices **no atraviesa** una referencia: si `[1, 0]` es `{ ref: menu, dir: '1000000000' }`, `LOCAL(1, 0)` devuelve lo que alcanza (un array de tres posiciones), pero `LOCAL(1, 0, 1)` busca `[1, 0, 1]` en el propio payload, encuentra un objeto que no es array y devuelve PENDIENTE. Para entrar en el otro registro se usa `REF(id, dir)`.
 
 Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`):
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ 37c58bd2` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ 579144c6` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0)')` | RESUELTO | `[3 posiciones]` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
 | `consultar(eje, compra.id, [9], 'REF("<menu.id>", "1100000000")')` | RESUELTO | `guiso` |
@@ -161,11 +163,11 @@ Todo valor BQL es un objeto con `tipo`:
 | `numero` | `{ valor: number }` | redondeado a 3 decimales | `0.333`, `-6`, `Infinity` |
 | `texto` | `{ valor: string }` | la cadena | `hola` |
 | `booleano` | `{ valor: boolean }` | `verdadero` / `falso` | `verdadero` |
-| `magnitud` | `{ cantidad, unidad, desglose: [{ cantidad, unidad }, …] }` | `cantidad unidad`, y entre paréntesis el desglose si tiene más de un sumando | `14 EUR (12 EUR + 2 EUR)` |
+| `magnitud` | `{ cantidad, unidad, desglose: [{ cantidad, unidad }, …] }` (`desglose` siempre presente; con un solo sumando tiene un elemento) | `cantidad unidad`, y entre paréntesis el desglose si tiene más de un sumando | `14 EUR (12 EUR + 2 EUR)` |
 | `composicion` | `{ partes: [magnitud, …] }` (unidades distintas) | partes unidas por ` + ` | `300 m (200 m + 100 m) + 5 EUR` |
 | `array` | `{ valor: any[] }` (el subarray crudo) | `[n posiciones]` | `[3 posiciones]` |
-| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 37c58bd2` |
-| `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba`; `0 candidatos` |
+| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 579144c6` |
+| `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito 8a12a240 · escrito 89c689c4 · escrito bd652c63`; `1 candidato: escrito 89c689c4`; `0 candidatos` |
 
 ---
 
@@ -273,7 +275,9 @@ Toda fórmula se evalúa en un slot `base` (los índices del slot). El **anfitri
 | `[1, 2]` | `[1]` | `[1, 0]` | `[1, 4]` |
 | `[]` o `'0000000000'` | `[]` | `[0]` | `[4]` |
 
-En `consultar`, `dir` solo sirve para fijar el anfitrión (la fórmula no tiene que existir en ese slot). Si el evento no existe, `consultar` solo falla cuando la fórmula lo lee (`LOCAL`, `BUSCAR`…): `consultar(eje, 'zzz', [1], '1')` es RESUELTO `1`.
+En `consultar`, `dir` solo sirve para fijar el anfitrión (la fórmula no tiene que existir en ese slot). `consultar` no evalúa el slot `dir`, así que consultar desde `[4]` una fórmula que busca en la 4 no es un ciclo; solo hay `ciclo en …` cuando se vuelve a leer un slot **que contiene una fórmula** mientras se evalúa (§9.2). Si el evento no existe, `consultar` solo falla cuando la fórmula lo lee (`LOCAL`, `BUSCAR`…): `consultar(eje, 'zzz', [1], '1')` es RESUELTO `1`.
+
+**Alcance.** Una fórmula solo ve su décupla anfitriona: con `LOCAL`, `BUSCAR` y `ACTUAL(pv)` no hay forma de salir de ella hacia arriba. Desde `[1, 3]` no se puede leer `[1]` ni `[7]` del mismo registro: no existe un `LOCAL` absoluto, y `REF` al propio registro es imposible porque su id es el hash del payload que contiene la fórmula. Para leer la raíz del registro, la fórmula tiene que vivir en un slot de profundidad 1 (`[2]`, `[4]`…). [X] decidir VG si hace falta una lectura absoluta dentro del propio registro (para `BUSCAR` ya está decidida la dirección absoluta: §11).
 
 ### 7.2 `LOCAL(i, j, …)`
 
@@ -315,7 +319,7 @@ Ocupantes, en orden de llegada:
 2. **referencia**: justo detrás de cada propio que es una referencia, lo que esa referencia alcanza (siguiendo cadenas, hasta 20 saltos).
 3. **escrito**: los eventos con `sobre = <este evento>` y `en = <la dirección>`, en orden de entrada en el eje.
 
-Orden por defecto (**encaje**, `ordenarPorEncaje`): más profundidades de acuerdo primero; a igual acuerdo, menor distancia profundidad a profundidad; a igual distancia, orden de llegada. El signo no ordena.
+Orden por defecto (**encaje**, `ordenarPorEncaje`, `docs/BTML.md` §6.5): más profundidades de acuerdo primero; a igual acuerdo, el orden de llegada. La distancia solo ordenaría en las profundidades que una época declare ordinales, y la época 0 no declara ninguna (`BUSCAR` no pasa época). Ni el signo ni la distancia ordenan: son información (opción B, decidida por VG el 7-11).
 
 **Estructura de un candidato** (`valor.items[k]`):
 
@@ -326,14 +330,16 @@ Orden por defecto (**encaje**, `ordenarPorEncaje`): más profundidades de acuerd
 | `indices` | number[] | Camino dentro de `evento` (propio: el camino exacto, p. ej. `[4, 0]`; referencia: la posición alcanzada; escrito: `[]`, su payload entero). |
 | `procedencia` | string[] | Cadena de lugares: `'<id>:<dir>#<camino>'` para propios, `'<id>:<dir>'` para referencias y escritos. |
 | `autor`, `t` | string | Solo en escritos; `undefined` en los demás. |
-| `vector` | number[10] | `destino − origen`, dígito a dígito. |
+| `vector` | number[10] | `candidato − buscado` (`origenDir − destino`), dígito a dígito. |
 | `distancia` | number[10] | `|vector|` por profundidad. |
 | `acuerdo` | 0–10 | Profundidades iniciales con diferencia 0. |
-| `signo` | texto | `exacto` (todo 0), `completar` (solo positivos), `reducir` (solo negativos), `mixto`. |
-| `faltas`, `excedentes` | number | Profundidades con diferencia positiva / negativa. |
+| `signo` | texto | `exacto` (todo 0), `completar` (solo negativos: le falta), `reducir` (solo positivos: le sobra), `mixto`. |
+| `faltas`, `excedentes` | number | Profundidades con diferencia negativa (le falta) / positiva (le sobra). |
 | `origenDir`, `destino` | string | Direcciones de diez dígitos. |
 
-Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir = '0000000000'` (el hijo nace en su raíz y se le coloca en `destino`: para `destino = '4000000000'`, vector `[4, 0, …]`, `completar`, faltas 1, acuerdo 0, desplazamiento 4); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[-5, 0, …]`, `reducir`, excedentes 1; una referencia a `1000000000` colocada en `[1]` es `exacto`).
+Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir` = su anclaje `en`, que es la dirección buscada (también `exacto`, acuerdo 10, desplazamiento 0; su `indices` es `[]` y su valor es su payload entero); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[5, 0, …]`, `reducir`, excedentes 1, acuerdo 0; una referencia a `1100000000` colocada en `[2]` da `[-1, 1, 0, …]`, `mixto`; una referencia a `1000000000` colocada en `[1]` es `exacto`). En la época 0, por tanto, **solo una referencia que alcanza otra dirección** tiene acuerdo menor que 10: `ACUERDO()`, `SIGNO()`, `FALTAS()` y `DESPLAZAMIENTO()` no distinguen un escrito de un propio (para eso está `ORIGEN()`).
+
+Contar candidatos cuenta también la colisión por ceros: en el eje de ejemplo, sin nada escrito en la 4, `CONTAR(BUSCAR(4))` es `2` (`[4]`, el array `['pagar', 'servir']`, y `[4, 0]`, su posición 0 `'pagar'`). Es la decisión de VG «colisiones, no apaños» (mapa §12), no un defecto. Las tablas de esta sección usan el escenario de `test/bql-colecciones.test.js` (tres propinas escritas en `4000000000`), que **no** está en el eje de ejemplo.
 
 El valor de un candidato (lo que leen `ACTUAL()`, `SUMAR`, `ORDENAR`) es `leerSlot(evento, indices)`: sigue fórmulas y referencias; un escrito terminal da su terminal; un propio array da un `array`.
 
@@ -341,11 +347,11 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio 25ddaa89 · propio 25ddaa89 · escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba` |
+| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio ec0734c3 · propio ec0734c3 · escrito 8a12a240 · escrito 89c689c4 · escrito bd652c63` |
 | `BUSCAR(4, 0)` | RESUELTO | los mismos 5 (misma dirección) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
-| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio 25ddaa89 · propio 25ddaa89 · referencia 37c58bd2 · escrito 441d7a2b` |
+| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio ec0734c3 · propio ec0734c3 · referencia 579144c6 · escrito c7c163ae` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -384,28 +390,28 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))` | RESUELTO | `5` |
 | `FILTRAR(BUSCAR(4), 1)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera verdadero o falso, no numero` |
 | `FILTRAR(1, 1 < 2)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera una colección, no numero` |
-| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` | RESUELTO | `3` |
-| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `2` |
+| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` (los escritos están anclados en la 4: exactos) | RESUELTO | `0` |
+| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `5` |
 
 ### 7.7 `ORDENAR(col, expr, "desc"?)`
 
 - `col` coleccion (si no, INCOMPATIBLE). `expr` perezosa, evaluada por candidato como en `FILTRAR`; falta → ERROR `ORDENAR espera una expresión`.
 - Clave de orden según el tipo del resultado de `expr`: numero → su valor; magnitud → su **cantidad** (la unidad se ignora); texto → la cadena; cualquier otro → `formato(valor)`.
-- Ascendente con `<`/`>` de JavaScript; orden estable (los empates conservan el orden de entrada, que por defecto es el de encaje). Tercer argumento: el texto `desc` en cualquier combinación de mayúsculas invierte; cualquier otro valor se ignora en silencio (ascendente).
+- Ascendente con `<`/`>` de JavaScript; orden estable (los empates conservan el orden de entrada, que por defecto es el de encaje). Tercer argumento: el texto `desc` en cualquier combinación de mayúsculas invierte **el comparador**, no la lista: el orden sigue siendo estable y los empates conservan el orden de entrada también en descendente (`ORDENAR(BUSCAR(4), ACUERDO(), "desc")` deja delante el primer propio, no el último escrito). Cualquier otro valor se ignora en silencio (ascendente).
 - No tiene efectos: devuelve una colección nueva.
 
 | Fórmula (slot `[4]`; propinas 2, 5 y 1 EUR escritas en ese orden) | `texto` |
 |---|---|
-| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito 91cde3ba · escrito 57e2022e · escrito 8203c0c4` (1, 2, 5 EUR) |
-| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 8203c0c4 · escrito 57e2022e · escrito 91cde3ba` (5, 2, 1 EUR) |
+| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito bd652c63 · escrito 8a12a240 · escrito 89c689c4` (1, 2, 5 EUR) |
+| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 89c689c4 · escrito 8a12a240 · escrito bd652c63` (5, 2, 1 EUR) |
 | `ORDENAR(BUSCAR(4), ORIGEN())` | escritos antes que propios (orden alfabético de `escrito` < `propio`) |
-| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | los tres escritos (4) antes que los dos propios (0) |
+| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | los cinco tienen desplazamiento 0: el orden no cambia (`propio · propio · escrito · escrito · escrito`) |
 
 ### 7.8 `ELEGIR(col, k?)`
 
 Los `k` primeros candidatos de `col` como coleccion (1 por defecto; si hay menos, los que haya; sobre una colección vacía, `0 candidatos`). `k` no entero o < 1 → ERROR `ELEGIR espera una cantidad entera ≥ 1`. `col` no coleccion → INCOMPATIBLE. **No publica nada**: elegir de verdad es consolidar en la fábrica (`src/motor.js`), fuera de BQL.
 
-`ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc"))` → `1 candidato: escrito 8203c0c4` (la propina de 5 EUR); `…, 2)` → `2 candidatos: escrito 8203c0c4 · escrito 57e2022e`.
+`ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc"))` → `1 candidato: escrito 89c689c4` (la propina de 5 EUR); `…, 2)` → `2 candidatos: escrito 89c689c4 · escrito 8a12a240`.
 
 ### 7.9 `CONTAR(col)`
 
@@ -413,7 +419,7 @@ Número de candidatos. `CONTAR(BUSCAR(9))` → `0`. Argumento no coleccion → I
 
 ### 7.10 `SUMAR(col)`
 
-Suma los valores de los candidatos, en orden, con la regla de `+` (§6.1): números con números; magnitudes con desglose; unidades distintas → composicion. Colección vacía → numero `0`. Un solo candidato → su valor **sin comprobar el tipo** (`SUMAR` de una colección con un único escrito que es un array devuelve ese `array`). Mezclas que `+` no admite → INCOMPATIBLE (`SUMAR(BUSCAR(4))` sobre la compra → `INCOMPATIBLE: array y texto no se suman`, porque el primer propio es `['pagar', 'servir']` y el segundo es `'pagar'`).
+Suma los valores de los candidatos, en orden, con la regla de `+` (§6.1): números con números; magnitudes con desglose; unidades distintas → composicion. Colección vacía → numero `0`, **sin unidad**: `SUMAR(BUSCAR(9)) + 1 EUR` es `INCOMPATIBLE: numero y magnitud en EUR no se suman` (§12). Un solo candidato → su valor **sin comprobar el tipo** (`SUMAR` de una colección con un único escrito que es un array devuelve ese `array`). Mezclas que `+` no admite → INCOMPATIBLE (`SUMAR(BUSCAR(4))` sobre la compra → `INCOMPATIBLE: array y texto no se suman`, porque el primer propio es `['pagar', 'servir']` y el segundo es `'pagar'`).
 
 | Fórmula | `texto` |
 |---|---|
@@ -429,13 +435,13 @@ Solo dentro de `FILTRAR`/`ORDENAR`; fuera, ERROR `<NOMBRE> solo dentro de FILTRA
 | Función | Valor | Del campo del candidato |
 |---|---|---|
 | `ORIGEN()` | texto `propio` / `referencia` / `escrito` | `origen` |
-| `SIGNO()` | texto `exacto` / `completar` / `reducir` / `mixto` | `signo` (`exacto` si falta) |
+| `SIGNO()` | texto `exacto` / `completar` (le falta) / `reducir` (le sobra) / `mixto` | `signo` (`exacto` si falta) |
 | `ACUERDO()` | numero 0–10 | `acuerdo` (10 si falta) |
 | `DESPLAZAMIENTO()` | numero: Σ \|vector[k]\| | `vector` (0 si falta) |
-| `FALTAS()` | numero: profundidades con diferencia > 0 | `faltas` (0 si falta) |
-| `EXCEDENTES()` | numero: profundidades con diferencia < 0 | `excedentes` (0 si falta) |
+| `FALTAS()` | numero: profundidades con diferencia < 0 (al candidato le falta) | `faltas` (0 si falta) |
+| `EXCEDENTES()` | numero: profundidades con diferencia > 0 (al candidato le sobra) | `excedentes` (0 si falta) |
 
-Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `3` (`[1]`, `[1, 0]` y la referencia al menú); `… SIGNO() = "completar"` → `1` (la cuenta); `… FALTAS() = 1` → `1`; `… DESPLAZAMIENTO() > 0` → `1`; `… ACUERDO() = 10` → `3`.
+Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `4` (`[1]`, `[1, 0]`, la referencia al menú:1 y la cuenta, anclada justo ahí); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 1` → `0`; `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`. Para ver un vector distinto de cero hace falta una referencia que alcance otra dirección (§7.4).
 
 ### 7.12 `Y`, `O`, `NO`
 
@@ -621,8 +627,8 @@ FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO
 ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito 176238f6
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
-CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     3
-CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     2
+CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
+CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     [2 posiciones]
 ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 8b4c5de6 · propio 8b4c5de6
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
@@ -645,8 +651,11 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | Fechas, tiempo, PV6/PV7 en fórmulas | No hay; `t` del candidato no es accesible desde BQL. |
 | Operaciones matriciales de PV8 y familias de operadores por PV (V4) | No hay. |
 | Conversión de unidades (`EUR` ↔ `€`, `min` ↔ `minuto`, `m` ↔ `km`) | Las unidades son etiquetas literales, sensibles a mayúsculas; distintas → composición. |
-| `BUSCAR` por dirección sobre todo el eje, o con la dirección que guarda la posición 5 | `BUSCAR` recibe índices relativos al anfitrión y solo mira ese evento (propios, referencias alcanzadas, escritos anclados). No recorre otros eventos que «declaren» la posición. |
-| Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») | El signo se calcula siempre y solo informa; ninguna regla lo filtra. |
+| `BUSCAR` por dirección (decidido por VG, mapa §12, 7-11: un número es índice, camino exacto relativo al anfitrión; un texto de diez dígitos es dirección, absoluta en el registro, que nombra la colisión entera; igual que las referencias) | No implementado: `BUSCAR` solo recibe índices relativos al anfitrión (`BUSCAR("1000000000")` → `ERROR: BUSCAR espera índices 0–9`) y solo mira ese evento. |
+| `BUSCAR` sobre todo el eje, o con la dirección que guarda la posición 5 | No recorre otros eventos que «declaren» la posición. |
+| Lectura absoluta dentro del propio registro desde una subdécupla (§7.1) | No hay; [X] decidir VG. |
+| Valor del candidato elegido de una colección cualquiera (p. ej. de `ELEGIR(ORDENAR(…))`) | No hay función: `ACTUAL(pv)` da el valor del primero de `BUSCAR(pv)` en su orden por defecto; para otra colección, desde JavaScript `valor.items[0]`, o `SUMAR` de una colección de un ítem (§12.6, un defecto, no una vía). |
+| Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») y profundidades ordinales por época | El signo se calcula siempre y solo informa; ni signo ni distancia ordenan en la época 0. |
 | `ORDENAR` con varias claves; orden por encaje explícito | Una clave; el orden por encaje es el de `BUSCAR` por defecto. |
 | `Y`/`O` perezosos (cortocircuito) | Evalúan todos los argumentos. |
 | Comparación encadenada (`1 < x < 3`) | `SyntaxError`. |
@@ -669,3 +678,4 @@ registros en el eje antes y después de consultar: sin efectos → 6
 9. El tercer argumento de `ORDENAR` distinto del texto `desc` se ignora en silencio.
 10. Una referencia BTML rota (`{ ref: 'nadie' }`) aparece como candidato `referencia nadie` en `BUSCAR` y da `ERROR: evento desconocido: nadie` al leer su valor.
 11. La resta de magnitudes se muestra con el sumando negativo en el desglose (`10 EUR (12 EUR + -2 EUR)`).
+12. `SUMAR` de una colección vacía es el numero `0` sin unidad, así que no se suma con una magnitud: `SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + 1 EUR` sobre el eje de ejemplo (sin escritos en la 4) es INCOMPATIBLE.

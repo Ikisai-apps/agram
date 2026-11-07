@@ -5,23 +5,25 @@ BTML es la estructura de datos de AGRAM. Este documento describe BTML **tal como
 Convenciones de este documento:
 
 - Todos los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `1b133344`, alta `2a2a06e3`, menú `37c58bd2`, compra `25ddaa89`, cuenta `441d7a2b`.
+- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `2983477b`, alta `240c6005`, menú `579144c6`, compra `ec0734c3`, cuenta `c7c163ae`.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
+
+Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, y con la PR #28, que cambió el vector guardado en las consolidaciones). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
 
 ## 0. Mapa de módulos
 
 | Módulo | Qué define | Funciones principales |
 |---|---|---|
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
-| `src/tokens.js` | Familias de tokens y movimientos | `FAMILIAS`, `ESCALAS_T`, `SEGUNDOS`, `validarMovimiento`, `claveToken`, `cantidadBase` |
+| `src/tokens.js` | Familias de tokens y movimientos | `FAMILIAS`, `ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `validarMovimiento`, `claveToken`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.identidades`, `eje.clave` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito (época 0) | `PV`, `EPOCA_0`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
-`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js` y `epocas.js` en plano, y `encaje`, `autoridad`, `persistencia` (entre otros) como espacios de nombres: `import { Eje, crearEvento, encaje } from './src/index.js'`.
+`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo` y `persistencia`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`.
 
 ## 1. El evento
 
@@ -107,7 +109,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78",
+  "sobre": "579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -116,17 +118,17 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ { "ref": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78", "dir": "1000000000" }, 1, "EUR 12" ],
-    [ { "ref": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78", "dir": "2000000000" } ],
+    [ { "ref": "579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd", "dir": "1000000000" }, 1, "EUR 12" ],
+    [ { "ref": "579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd", "dir": "2000000000" } ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "25ddaa89ee95cb3b10a1e559af57fca63e401f090c8d1a61b7c798d387344de3"
+  "id": "ec0734c39515d1a55f0613a91c24fbb29973016fa1c1cc4494a0209dd67f0215"
 }
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, cuánto, a qué precio), 2 criterios, 3 comunicación, 4 fábrica.
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. La regla corta vale en todas las profundidades (mapa §10.4), así que dentro de la posición 1 se lee igual: 1.0 representación (la referencia al menú:1), 1.1 recursos (`1`), 1.2 criterios (`"EUR 12"`). El comentario del ejemplo («qué, cuánto, a qué precio») es léxico humano: no está en los datos ni en la regla corta, y quien lo copie como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como comunicación o fábrica de los recursos (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -136,8 +138,8 @@ Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, 
 |---|---|---|---|
 | `T` | tiempo | `'T'` | Un solo token, en segundos. Cada movimiento declara su `escala`. |
 | `E` | recursos | `'E'` o `'E:<denominacion>'` | `denominacion` opcional (p. ej. `EUR`). |
-| `P` | poder / criterio | `'P'` o `'P:<denominacion>'` | |
-| `R` | reputación | `'R'` o `'R:<denominacion>'` | |
+| `P` | poder / criterio | `'P:<ambito>'` | `ambito` **obligatorio**: el id de un registro (cubre su subárbol) o `AMBITO_GENESIS = 'genesis'` (todo el eje). No existe un P total: `eje.saldo(id, 'P')` es siempre 0. Delegar P estrecha el ámbito (§2.3; ejemplo en `docs/MOTOR.md` §10). |
+| `R` | reputación | `'R:<emisor>'` | `emisor` **obligatorio**. No fungible: solo su emisor la mueve, y su emisión va al propio emisor. |
 
 `ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']`. Segundos por escala (`SEGUNDOS`): segundo 1, minuto 60, hora 3600, dia 86400, semana 7·86400, ciclo 28·86400, anio (13·28+1)·86400 = 365 días.
 
@@ -146,7 +148,8 @@ Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, 
 ```js
 { token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }          // T: consumo de 2 horas
 { token: 'E', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' } // E: pago
-{ token: 'P', cantidad: 10, de: null, a: 'casa' }                            // emisión (solo génesis)
+{ token: 'P', cantidad: 10, ambito: 'genesis', de: null, a: 'casa' }       // emisión de poder sobre todo el eje (solo génesis)
+{ token: 'P', cantidad: 2, ambito: '<id del menú>', de: 'casa', a: 'cocina' } // delegar poder sobre el subárbol del menú
 ```
 
 | Campo | Regla |
@@ -154,14 +157,16 @@ Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, 
 | `token` | uno de `FAMILIAS = ['E', 'P', 'R', 'T']` |
 | `cantidad` | número finito > 0 |
 | `escala` | obligatoria y válida si `token === 'T'`; prohibida en E/P/R |
-| `denominacion` | opcional en E/P/R; forma parte de la clave de saldo |
+| `denominacion` | opcional en E; forma parte de la clave de saldo (`E:EUR`) |
+| `ambito` | obligatorio en P (`'genesis'` o el id de un registro que exista); prohibido en el resto |
+| `emisor` | obligatorio en R; prohibido en el resto |
 | `de` | identidad (cadena) o `null`. `null` = **emisión**: solo el génesis. |
 | `a` | identidad o `null`. `null` = **consumo**. |
 | `de` y `a` | ambos presentes; no pueden ser `null` los dos |
 
 ```js
 validarMovimiento(m)  // → string[]  errores; [] si es válido
-claveToken(m)         // → 'T' | 'E' | 'E:EUR' | 'P' | …   clave del saldo que mueve
+claveToken(m)         // → 'T' | 'E' | 'E:EUR' | 'P:genesis' | 'P:<id>' | 'R:<emisor>'   clave del saldo que mueve
 cantidadBase(m)       // → número en la unidad del saldo: T pasa a segundos; E/P/R tal cual
 ```
 
@@ -170,23 +175,25 @@ node --input-type=module -e "
 import { claveToken, cantidadBase, validarMovimiento, SEGUNDOS } from './src/tokens.js';
 console.log(claveToken({ token: 'T', escala: 'hora', cantidad: 1 }), cantidadBase({ token: 'T', escala: 'hora', cantidad: 1 }));
 console.log(claveToken({ token: 'E', denominacion: 'EUR', cantidad: 12 }), cantidadBase({ token: 'E', denominacion: 'EUR', cantidad: 12 }));
-console.log(claveToken({ token: 'P', cantidad: 1 }), SEGUNDOS.anio / 86400);
+console.log(claveToken({ token: 'P', ambito: 'genesis', cantidad: 1 }), claveToken({ token: 'R', emisor: 'casa', cantidad: 1 }), SEGUNDOS.anio / 86400);
 console.log(JSON.stringify(validarMovimiento({ token: 'T', cantidad: 0, escala: 'mes', de: 'a' })));
 console.log(JSON.stringify(validarMovimiento({ token: 'E', cantidad: 1, escala: 'hora', de: null, a: null })));
+console.log(JSON.stringify(validarMovimiento({ token: 'P', cantidad: 1, de: 'casa', a: 'cocina' })));
 "
 ```
 
 ```text
 T 3600
 E:EUR 12
-P 365
+P:genesis R:casa 365
 ["cantidad debe ser > 0","escala T inválida: mes","de y a son obligatorios (null permitido)","a debe ser identidad o null"]
 ["escala solo en T","movimiento sin origen ni destino"]
+["P exige ámbito: no hay poder total"]
 ```
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), solo el génesis emite (`de === null`), y el saldo del autor debe cubrir la suma de lo que mueve por clave de saldo. El evento mínimo mueve T del autor: el coste de escribir es tiempo.
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), solo el génesis emite (`de === null`), y el saldo del autor debe cubrir la suma de lo que mueve por clave de saldo. El P se debita del ámbito pedido y, si no alcanza, de los ámbitos que lo cubren (el hilo de ese registro hasta `genesis`). El evento mínimo mueve T del autor: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); la regla «un minuto por posición» es de `escribirDesde` (`docs/MOTOR.md` §7.2), no del eje.
 
 ## 3. El payload
 
@@ -223,7 +230,7 @@ Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9,
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
 - `esReferencia` solo comprueba la forma: `ref` cadena no vacía y `dir`, si está, dirección válida. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`.
-- `ref` debe ser el **id completo**. Los prefijos (`'25ddaa89'`) solo los resuelven BQL (`REF("25ddaa89")`) y la entrada de texto de `escritura.item` (`'@25ddaa89:1200000000'`), que los convierten en id completo antes de guardar.
+- `ref` debe ser el **id completo**. Los prefijos (`'ec0734c3'`) solo los resuelven BQL (`REF("ec0734c3")`) y la entrada de texto de `escritura.item` (`'@ec0734c3:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
 
@@ -387,7 +394,7 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 
 ```text
 "EUR 12"
-[{"ref":"37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78","dir":"1000000000"},1,"EUR 12"]
+[{"ref":"579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd","dir":"1000000000"},1,"EUR 12"]
 undefined undefined
 true ["ensalada","guiso","fruta"]
 ```
@@ -401,6 +408,9 @@ Un evento declara dónde se anida: `sobre` es el id del registro en foco y `en` 
 - Por defecto `en = RAIZ = '0000000000'`. Como `'0000000000'` también nombra la posición 0, anclar en la raíz y anclar en la posición 0 de profundidad 0 es lo mismo (límite conocido).
 - El génesis tiene `sobre: null` y solo admite `en` raíz. Cualquier otro evento necesita un `sobre` que exista en el eje.
 - **Hilo**: la cadena `evento → sobre → sobre → … → génesis`. Es una cadena por referencia, no un orden temporal.
+- `en` puede ser **cualquier** dirección válida del foco, la desarrolle o no su payload: el ejemplo de abajo ancla una nota en `7000000000` de una compra que no tiene posición 7. El eje no comprueba que la posición exista.
+- Varios escritos en la misma dirección salen **en orden de entrada en el eje**, no por `t`: un escrito con un `t` anterior que entra después sale detrás.
+- Dónde anclar es decisión de quien escribe; el código no la toma. Decidido por VG para la reserva de alojamiento (mapa §12, 7-11): la reserva se ancla **en la plaza**, dentro de los recursos de la disponibilidad (`sobre: disponibilidad`, `en: direccion([1, k])`; para la plaza 1.1, `'1100000000'`), las noches van en el 7 de la propia reserva, y las reservas de la misma plaza colisionan en esa dirección (§6). Para otros casos no hay criterio escrito: [X] decidir VG.
 
 ```js
 eje.sobre(id, en?)  // → hijos directos de `id`, en orden de entrada; con `en`, solo los anclados en esa dirección
@@ -423,7 +433,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-441d7a2b@1000000000 a19c4143@7000000000
+c7c163ae@1000000000 af04f64f@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -436,7 +446,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 
 ### 6.1 Qué ocupa una dirección
 
-`ocupantes(eje, id, indices)` reúne, para la dirección `direccion(indices)` del registro `id`, tres clases de ocupantes. Orden de llegada: cada camino propio y, si ese camino es una referencia, inmediatamente lo que alcanza; al final, los escritos.
+`ocupantes(eje, id, indices)` reúne, para la dirección `direccion(indices)` del registro `id`, tres clases de ocupantes. `indices` es un **array de índices** (`[1]`, `[1, 2]`), no una dirección de diez dígitos: `ocupantes(eje, id, '1000000000')` lanza `RangeError: entre 0 y 10 índices` (BQL, en cambio, acepta las dos formas). Orden de llegada: cada camino propio y, si ese camino es una referencia, inmediatamente lo que alcanza; al final, los escritos.
 
 | `origen` | Qué es | De dónde sale |
 |---|---|---|
@@ -451,24 +461,24 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `origen` (= `tipo`) | `'propio'`, `'referencia'` o `'escrito'`. BQL lo expone como `ORIGEN()`. |
 | `evento` | Id del evento donde vive el contenido: `id` (propio), el evento alcanzado (referencia), el hijo (escrito). |
 | `dir` | Dirección dentro de `evento`: la buscada (propio), la alcanzada (referencia), `'0000000000'` (escrito). |
-| `camino` | Índices exactos: `[1]`, `[1, 0]` (propio); `indicesDe(dir)` (referencia); `[]` (escrito). |
+| `camino` | Índices exactos **dentro de `evento`**: `[1]`, `[1, 0]` (propio, dentro del foco); `indicesDe(dir)` (referencia, dentro del registro alcanzado, no del foco); `[]` (escrito, su payload entero). El camino por el que se llegó desde el foco solo está en `procedencia`. |
 | `contenido` | Lo que hay ahí; `undefined` si la referencia está rota. |
 | `procedencia` | Cadena de pasos. Propio: `['<id>:<dir>#<camino con puntos>']`. Referencia: el paso propio seguido de `'<id alcanzado>:<dir>'` por salto. Escrito: `['<id hijo>:0000000000']`. |
 | `autor`, `t` | Solo en escritos. |
-| `rota` | `true` si una referencia no llegó a contenido (solo en referencias). |
-| `origenDir`, `destino` | Dirección de donde viene el contenido y dirección donde se coloca. |
-| `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje de `origenDir` en `destino` (§6.5). |
+| `rota` | `true` si una referencia no llegó a contenido. Cuando no hay rotura el campo **no existe** (no es `false`). |
+| `origenDir`, `destino` | `destino` es la dirección buscada. `origenDir` es la dirección del candidato: la buscada (propio), la alcanzada en el otro registro (referencia), y **la de su anclaje `en`**, que es la buscada (escrito). Por eso propios y escritos son siempre encaje exacto y solo una referencia que alcanza otra dirección tiene vector distinto de cero. Para un escrito, `dir` (`0000000000`, su raíz) y `origenDir` (su anclaje) no coinciden: son cosas distintas. |
+| `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje del candidato (`origenDir`) en lo buscado (`destino`) (§6.5). |
 
 ```js
 caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0
-ocupantes(eje, id, indices, { orden = 'encaje' } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'
+ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'; epoca: ver §6.5
 seguir(eje, ref, procedencia = [])             // → ocupante de origen 'referencia' tras seguir hasta 20 saltos; rota: true si no llega
 caminoDe(o)                                    // → o.camino ?? indicesDe(o.dir)
 ```
 
 ### 6.3 Ejemplo real: la posición 1 de la compra
 
-En `25ddaa89`, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (array), la 1.0 (la referencia al menú), lo que alcanza esa referencia (el menú:1) y la cuenta de cocina, anclada en `1000000000`.
+En `ec0734c3`, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (array), la 1.0 (la referencia al menú), lo que alcanza esa referencia (el menú:1) y la cuenta de cocina, anclada en `1000000000`.
 
 ```sh
 node --input-type=module -e "
@@ -485,13 +495,15 @@ console.log(JSON.stringify(ocupantes(eje, compra.id, [1])[2].contenido), JSON.st
 
 ```text
 [[1],[1,0]]
-propio [1] 25ddaa89 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1"]
-propio [1,0] 25ddaa89 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1.0"]
-referencia [1] 37c58bd2 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1.0","37c58bd2:1000000000"]
-escrito [] 441d7a2b 0000000000 [1,0,0,0,0,0,0,0,0,0] completar 0 ["441d7a2b:0000000000"]
+propio [1] ec0734c3 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ec0734c3:1000000000#1"]
+propio [1,0] ec0734c3 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ec0734c3:1000000000#1.0"]
+referencia [1] 579144c6 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ec0734c3:1000000000#1.0","579144c6:1000000000"]
+escrito [] c7c163ae 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["c7c163ae:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 ```
+
+Los cuatro son encaje exacto: la cuenta está anclada justo en `1000000000`, así que su `origenDir` es esa dirección (§6.2). Como empatan en acuerdo, salen en orden de llegada. Contar los candidatos de una posición cuenta también la colisión por ceros: `[1]` y `[1, 0]` son dos ocupantes aunque el segundo sea la posición 0 del primero (decisión de VG, «colisiones, no apaños», mapa §12).
 
 Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referencia seguida):
 
@@ -499,13 +511,13 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 {
   "tipo": "referencia",
   "origen": "referencia",
-  "evento": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78",
+  "evento": "579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd",
   "dir": "1000000000",
   "camino": [1],
   "contenido": ["ensalada", "guiso", "fruta"],
   "procedencia": [
-    "25ddaa89ee95cb3b10a1e559af57fca63e401f090c8d1a61b7c798d387344de3:1000000000#1.0",
-    "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78:1000000000"
+    "ec0734c39515d1a55f0613a91c24fbb29973016fa1c1cc4494a0209dd67f0215:1000000000#1.0",
+    "579144c6d1d3e71a0716987c2c910c3d893d563c3f4bb926669ee489acfdb2cd:1000000000"
   ],
   "origenDir": "1000000000",
   "destino": "1000000000",
@@ -535,59 +547,63 @@ console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
 ```
 
 ```text
-37c58bd2 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["37c58bd2"]
+579144c6 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["579144c6"]
 true undefined []
 ```
 
 ### 6.5 Vector, distancia y orden
 
-Para cada ocupante se compara la dirección de donde viene (`origenDir`) con la dirección donde se coloca (`destino`):
+Para cada ocupante se compara la dirección del candidato (`origenDir`) con la dirección buscada (`destino`). Convención vigente desde la PR #28 (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`, elegida por VG el 7-11, mapa §12): **candidato − buscado**, como el ejemplo del corpus «+2 en el quinto dígito».
 
 ```js
-vector(origen, destino)   // → [d0 … d9]  destino − origen, dígito a dígito, con signo (−9…9 por componente)
-distancia(v)              // → [|d0| … |d9|]  siempre positiva; es lo que ordena
-acuerdo(v)                // → número de ceros seguidos desde la profundidad 0 (10 = encaje exacto)
-signo(v)                  // → 'exacto' | 'completar' (solo positivos) | 'reducir' (solo negativos) | 'mixto'
-faltas(v)                 // → cuántas componentes > 0 (al candidato le falta: completar)
-excedentes(v)             // → cuántas componentes < 0 (al candidato le sobra: reducir)
-norma(v)                  // → suma de |d|; medida de consulta (BQL DESPLAZAMIENTO()), no criterio de orden
-ordenarPorEncaje(lista)   // → nueva lista ordenada por `.vector`, sin quitar nada
+vector(candidato, buscado) // → [d0 … d9]  candidato − buscado, dígito a dígito, con signo (−9…9 por componente)
+distancia(v)               // → [|d0| … |d9|]  siempre positiva; información, no ordena en la época 0
+acuerdo(v)                 // → número de ceros seguidos desde la profundidad 0 (10 = encaje exacto)
+signo(v)                   // → 'exacto' | 'completar' (solo negativos) | 'reducir' (solo positivos) | 'mixto'
+faltas(v)                  // → cuántas componentes < 0 (al candidato le falta en esa profundidad: completar)
+excedentes(v)              // → cuántas componentes > 0 (al candidato le sobra en esa profundidad: reducir)
+norma(v)                   // → suma de |d|; medida de consulta (BQL DESPLAZAMIENTO()), no criterio de orden
+ordenarPorEncaje(lista, { epoca } = {})  // → nueva lista ordenada por `.vector`, sin quitar nada
 ```
 
 Orden por encaje (`ordenarPorEncaje`, el orden por defecto de `ocupantes` y de BQL `BUSCAR`):
 
-1. más profundidades de acuerdo primero (los exactos, con acuerdo 10, van delante);
-2. a igual acuerdo, menor distancia **profundidad a profundidad** (se compara `|d0|`, luego `|d1|`…; no se suman);
-3. a igual distancia, el orden de llegada.
+1. más profundidades de acuerdo primero (el acuerdo de prefijo: los exactos, con acuerdo 10, van delante);
+2. a igual acuerdo, menor distancia **solo en las profundidades que la época declare ordinales** (`epoca.ordinal(profundidad)`), comparando profundidad a profundidad, sin sumar. La época 0 no declara ninguna (sus dígitos son nominales: cada uno es un PV), así que hoy este paso no hace nada; `BUSCAR` no pasa época;
+3. a igual de lo anterior, el orden de llegada.
 
-El signo **no ordena**: es informativo por componente (positivo = falta, negativo = sobra) y `signo(v)` resume el vector entero. Pendiente: las reglas por dimensión que dirían dónde cuenta el signo. Pendiente: cómo cambia el vector con la época.
+Ni el signo ni la distancia ordenan en la época 0: son información (el corpus prohíbe «puntuar por cercanía ciega»). Consecuencia práctica: como propios y escritos son siempre exactos (§6.2), el vector solo se separa de cero en una **referencia** que alcanza otra dirección, y casi todo el orden de una posición es el de llegada. Pendiente: las reglas cortas que declaren profundidades ordinales y las reglas por dimensión que dirían dónde cuenta el signo; [X] decidir VG si la orientación (la opción E de la nota) entra con ellas.
 
 ```sh
 node --input-type=module -e "
 import { vector, distancia, acuerdo, signo, faltas, excedentes, norma, ordenarPorEncaje } from './src/encaje.js';
 const v = vector('1230000000', '1200000000');
 console.log(JSON.stringify(v), JSON.stringify(distancia(v)), acuerdo(v), signo(v), faltas(v), excedentes(v), norma(v));
-console.log(JSON.stringify(vector('0000000000', '4000000000')), signo(vector('0000000000', '4000000000')));
+console.log(JSON.stringify(vector('1000000000', '1200000000')), signo(vector('1000000000', '1200000000')));
 console.log(JSON.stringify(vector('1700000000', '2300000000')), signo(vector('1700000000', '2300000000')));
 const lista = [
   { nombre: 'ref desde 7', vector: vector('7000000000', '2000000000') },
-  { nombre: 'escrito en 2', vector: vector('0000000000', '2000000000') },
+  { nombre: 'ref desde 3', vector: vector('3000000000', '2000000000') },
   { nombre: 'exacto', vector: vector('2000000000', '2000000000') },
   { nombre: 'desvio hondo', vector: vector('2300000000', '2000000000') },
-  { nombre: 'otro escrito', vector: vector('0000000000', '2000000000') },
+  { nombre: 'escrito en 2', vector: vector('2000000000', '2000000000') },
 ];
 console.log(ordenarPorEncaje(lista).map((x) => x.nombre).join(' | '));
+console.log(ordenarPorEncaje(lista, { epoca: { ordinal: (k) => k === 0 } }).map((x) => x.nombre).join(' | '));
 "
 ```
 
 ```text
-[0,0,-3,0,0,0,0,0,0,0] [0,0,3,0,0,0,0,0,0,0] 2 reducir 0 1 3
-[4,0,0,0,0,0,0,0,0,0] completar
-[1,-4,0,0,0,0,0,0,0,0] mixto
-exacto | desvio hondo | escrito en 2 | otro escrito | ref desde 7
+[0,0,3,0,0,0,0,0,0,0] [0,0,3,0,0,0,0,0,0,0] 2 reducir 0 1 3
+[0,-2,0,0,0,0,0,0,0,0] completar
+[-1,4,0,0,0,0,0,0,0,0] mixto
+exacto | escrito en 2 | desvio hondo | ref desde 7 | ref desde 3
+exacto | escrito en 2 | desvio hondo | ref desde 3 | ref desde 7
 ```
 
-Dónde se ve la diferencia entre llegada y encaje: un registro cuya posición 2 es una referencia a la posición 7 de otro (viene de lejos) y un hijo escrito en su posición 2 (viene de la raíz, a distancia 2).
+Lectura: `1.2.3` buscado como `1.2` le sobra una profundidad (`+3`, reducir); `1` buscado como `1.2` le falta (`-2`, completar). En el orden, `ref desde 7` y `ref desde 3` empatan en acuerdo 0 y salen por llegada; solo con una época que declare ordinal la profundidad 0 (la última línea usa una época de prueba; ninguna época real lo hace todavía) gana la de menor distancia.
+
+Dónde se ve la diferencia entre llegada y encaje: un registro cuya posición 2 es una referencia a la posición 7 de otro (viene de lejos: acuerdo 0) y un hijo escrito en su posición 2 (anclado ahí: exacto).
 
 ```sh
 node --input-type=module -e "
@@ -605,8 +621,8 @@ console.log(ocupantes(eje, x.id, [2]).map(f).join(' '));
 ```
 
 ```text
-propio:exacto:0 referencia:reducir:-5 escrito:completar:2
-propio:exacto:0 escrito:completar:2 referencia:reducir:-5
+propio:exacto:0 referencia:reducir:5 escrito:exacto:0
+propio:exacto:0 escrito:exacto:0 referencia:reducir:5
 ```
 
 ### 6.6 Árbol lógico y colisiones
@@ -643,7 +659,7 @@ console.log(arbol(eje, compra.id, { profundidad: 1 }).has('1200000000'));
 false
 ```
 
-Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (la cantidad, un terminal) tiene un solo ocupante.
+Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
 
 ## 7. Identidades, claves y firmas
 
@@ -653,8 +669,11 @@ Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
-eje.saldo(identidad, clave)    // → número; clave de saldo ('T', 'E:EUR', 'P', …); 0 si no existe
+eje.saldo(identidad, clave)    // → número; clave de saldo ('T', 'E:EUR', 'P:genesis', 'R:casa', …); 0 si no existe ('P' a secas siempre da 0)
 eje.saldoT(identidad, escala = 'segundo')  // → saldo de T expresado en la escala
+eje.poderes(identidad)         // → [{ ambito, cantidad }] sus P con saldo > 0 (no hay P total)
+eje.poderSobre(identidad, id)  // → suma de sus P cuyo ámbito es 'genesis' o un registro del hilo de `id`
+eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
 eje.clave(identidad)           // → JWK pública o undefined
 ```
 
@@ -722,7 +741,7 @@ Un génesis firmado tiene esta forma (la firma varía en cada ejecución; el id 
   "movimientos": [
     { "token": "T", "escala": "hora", "cantidad": 1000, "de": null, "a": "casa" },
     { "token": "E", "denominacion": "EUR", "cantidad": 500, "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "de": null, "a": "casa" }
+    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
   ],
   "payload": "Casa de ejemplo",
   "contexto": {
@@ -791,7 +810,7 @@ El génesis es el primer evento del eje. Se escribe **por convención, fuera del
 
 ```js
 Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, exigirFirmas = false })  // → Promise<Eje>
-//   identidad: primera identidad; emision: [{ token, cantidad, escala?, denominacion? }] (se completa con de: null, a: identidad)
+//   identidad: primera identidad; emision: [{ token, cantidad, escala? (T), denominacion? (E), ambito (P), emisor (R) }] (se completa con de: null, a: identidad; P sin ámbito se rechaza)
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
 Eje.desde(eventos, { exigirFirmas = false } = {})  // → Promise<Eje>  reconstruye validando cada evento (ids, firmas, saldos); el primero debe ser el génesis
 eje.genesisId                                      // id del génesis
@@ -825,11 +844,11 @@ El génesis del eje de ejemplo:
   "movimientos": [
     { "token": "T", "escala": "hora", "cantidad": 1000, "de": null, "a": "casa" },
     { "token": "E", "denominacion": "EUR", "cantidad": 500, "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "de": null, "a": "casa" }
+    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
   ],
   "payload": "Casa de ejemplo",
   "contexto": { "genesis": true },
-  "id": "1b13334441df0ac63f6a16f170d5ef0c772256eeb24837bb6727cc9cc7344ee4"
+  "id": "2983477b2e900df0bd16a6540cb0d3fb576fe39f29b12672544299763a090d13"
 }
 ```
 
@@ -859,7 +878,7 @@ await restaurar(datos).catch((e) => console.log(e.message));
 ```
 
 ```text
-1 false 5 1b133344 2a2a06e3 37c58bd2 25ddaa89 441d7a2b
+1 false 5 2983477b 240c6005 579144c6 ec0734c3 c7c163ae
 12 ["casa","cocina","huesped"] 5
 evento rechazado: id no corresponde al cuerpo
 ```
@@ -872,13 +891,15 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 
 | Evento | id | autor | sobre | en | payload |
 |---|---|---|---|---|---|
-| génesis | `1b133344…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
-| alta | `2a2a06e3…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
-| menú | `37c58bd2…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
-| compra | `25ddaa89…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
-| cuenta | `441d7a2b…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"25ddaa89\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
+| génesis | `2983477b…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
+| alta | `240c6005…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| menú | `579144c6…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
+| compra | `ec0734c3…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
+| cuenta | `c7c163ae…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"ec0734c3\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
-Saldos tras los cinco eventos: casa 1000 h − 1 min − 40 h − 24 h de T, 440 EUR, 10 P; cocina 40 h − 2 h − 3 min de T, 12 EUR; huesped 24 h − 1 h de T, 48 EUR.
+Saldos tras los cinco eventos: casa 1000 h − 1 min − 40 h − 24 h de T, 440 EUR, 10 P:genesis (poder sobre todo el eje); cocina 40 h − 2 h − 3 min de T, 12 EUR; huesped 24 h − 1 h de T, 48 EUR.
+
+Qué ocupa cada dirección de la compra (con la cuenta escrita) está en §6.6. En particular, la posición 4 solo tiene sus dos propios (`[4]` y `[4, 0]`): nadie ha escrito en ella. Los escenarios con propinas escritas en `4000000000` que usa `docs/BQL.md` son de las pruebas (`test/bql-colecciones.test.js`), no de este eje.
 
 ```js
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
@@ -906,7 +927,8 @@ export const FAMILIAS = ['E', 'P', 'R', 'T'];
 export const ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio'];
 export const SEGUNDOS = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 604800, ciclo: 2419200, anio: 31536000 };
 export function validarMovimiento(m): string[];
-export function claveToken(m): string;                    // 'T' | 'E' | 'E:EUR' | …
+export const AMBITO_GENESIS = 'genesis';                // ámbito de P que cubre todo el eje
+export function claveToken(m): string;                    // 'T' | 'E' | 'E:EUR' | 'P:<ambito>' | 'R:<emisor>'
 export function cantidadBase(m): number;                  // T en segundos
 
 // src/evento.js
@@ -929,6 +951,10 @@ export class Eje {
   identidades(): string[];
   saldo(identidad, clave): number;
   saldoT(identidad, escala = 'segundo'): number;
+  poderes(identidad): { ambito, cantidad }[];
+  poderSobre(identidad, id): number;                      // P con ámbito genesis o en el hilo de id
+  reputaciones(identidad): { emisor, cantidad }[];
+  ambitosQueCubren(ambito): string[];                     // el ámbito, su hilo y 'genesis'
   clave(identidad): JWK | undefined;
   async validar(ev): Promise<string[]>;
   async anadir(ev): Promise<Evento>;                       // lanza 'evento rechazado: …'
@@ -938,16 +964,16 @@ export class Eje {
 }
 
 // src/encaje.js
-export function vector(origen, destino): number[10];
+export function vector(candidato, buscado): number[10];   // candidato − buscado (§6.5)
 export function distancia(v): number[10];
 export function acuerdo(v): number;
 export function norma(v): number;
 export function faltas(v): number;
 export function excedentes(v): number;
 export function signo(v): 'exacto' | 'completar' | 'reducir' | 'mixto';
-export function ordenarPorEncaje(lista: { vector }[]): typeof lista;
+export function ordenarPorEncaje(lista: { vector }[], { epoca } = {}): typeof lista;  // acuerdo, distancia solo en profundidades ordinales de la época, llegada
 export function caminosDe(payload, dir): { indices: number[], contenido }[];
-export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada' } = {}): Ocupante[];
+export function ocupantes(eje, id, indices: number[], { orden = 'encaje' | 'llegada', epoca } = {}): Ocupante[];
 export function seguir(eje, ref, procedencia = []): Ocupante;
 export function arbol(eje, id, { profundidad = 10 } = {}): Map<string, Ocupante[]>;
 export function colisiones(mapa): { dir, ocupantes }[];
@@ -988,7 +1014,8 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
 | Posición 0 de un terminal (encaje no la da; Pointed sí) | §4.2 |
 | Cambio de foco al agotar diez niveles | §3.2 |
-| Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
+| Reglas cortas de otras épocas, cien reglas cortas, reglas largas; qué profundidades declara ordinales cada época (el gancho `epoca.ordinal` existe; la época 0 no declara ninguna) | §4.3, §6.5 |
+| Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
