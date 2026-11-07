@@ -42,11 +42,11 @@ Cada ocupante lleva su origen (de dónde viene), su destino (dónde se coloca) y
 
 ### Tokens según el corpus
 
-**P** (poder/criterio) exige siempre un ámbito: el registro cuyo subárbol cubre, o `genesis` (todo el eje). No existe un P total. Delegar poder estrecha el ámbito y se debita del ámbito que lo cubre. El motor autoriza con el poder sobre el registro de la consolidación. **R** (reputación) exige emisor y no es fungible: solo su emisor la mueve; quien la recibe la tiene «de X» y no puede pasarla. **E** por denominación. **T** por escala (ver «Series de tokens», 7-11; antes era un solo token en segundos). La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
+**P** (poder/criterio) exige siempre un ámbito: el registro cuyo subárbol cubre, o `genesis` (todo el eje). No existe un P total. Delegar poder estrecha el ámbito y se debita del ámbito que lo cubre. El motor autoriza con el poder sobre el registro de la consolidación. **R** (reputación) exige emisor y no es fungible: solo su emisor la mueve; quien la recibe la tiene «de X» y no puede pasarla. **E** por emisor y denominación. **T** por escala (ver «Series de tokens», 7-11; antes era un solo token en segundos). La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
 
 ### AARPIA e identidades
 
-La autorización y la ejecución reales son de AARPIA, que aún no existe; lo que hay en el motor (autoriza quien tiene poder sobre el registro y no es el autor; ejecuta el autor) es un hueco provisional. Las identidades son usuarios o cosas; quien da de alta a una identidad declara su clave en el mismo evento que le da tokens.
+La autorización y la ejecución reales son de AARPIA, que aún no existe; lo que hay en el motor (autoriza quien tiene poder sobre el registro y no es el autor; ejecuta el autor) es un hueco provisional. Las identidades son personas, grupos de personas o cosas; quien da de alta a una identidad declara su clave y su tipo en el mismo evento que le da tokens. El tipo solo sirve para saber quién emite (ver «Series de tokens»).
 
 ### Lenguaje para IA
 
@@ -54,17 +54,23 @@ Los lenguajes se hicieron para que programaran personas; aquí programan IA. Por
 
 ## Series de tokens (VG, 7-11-2026)
 
-«Las series de tokens son una constante y se estandarizan.» Toda familia de tokens es una **serie de denominaciones**; la serie es limitada y la emite quien la respalda. La constante, en una línea por familia (familia: clave de serie: quién la emite):
+«Las series de tokens son una constante y se estandarizan.» Toda familia de tokens es una **serie**; la serie es limitada y la emite quien la respalda. La constante, en una línea por familia (familia: clave de serie: quién la emite):
 
 | Familia | Clave de serie | Quién la emite |
 |---|---|---|
 | **T** tiempo | `T:<escala>` (segundo, minuto, hora, dia, semana, ciclo, anio) | el génesis |
-| **E** recursos | `E:<denominación>` (EUR, BTC, `cama-2@2026-11-13`…) | su emisor registrado: quien la emite por primera vez (el génesis para las suyas) |
-| **P** poder/criterio | `P:<ámbito>` (un registro o `genesis`) | el génesis, sobre todo el eje; delegar estrecha el ámbito y no emite |
-| **R** reputación | `R:<emisor>` | su emisor; hoy solo el génesis emite la suya |
+| **E** recursos | `E:<emisor>/<denominación>` (`E:casa/EUR`, `E:casa/cama-2@2026-11-13`…) | su emisor, persona o grupo: la denominación va ligada a él, como en R |
+| **P** poder/criterio | `P:<ámbito>` (un registro o `genesis`) | el génesis, sobre todo el eje; a los demás les llega por delegación |
+| **R** reputación | `R:<emisor>` | su emisor, persona o grupo: la declara y solo él la amplía, con rastro visible |
 
-**T.** Siete tokens distintos, uno por escala, ampliable hasta diez. Sin conversión: una hora **no** son sesenta minutos, son tokens distintos, como un euro no es un bitcoin. Escribir cuesta minutos, así que quien escribe necesita minutos; el génesis del ejemplo emite minutos y horas y las altas reparten ambos. La duración de cada escala solo sirve para medir distancias (las bandas del eje temporal), nunca para cambiar un token por otro.
+**Quién emite.** Emitir (iniciar una serie o ampliarla) es lo único reservado a **personas y grupos**. Las **cosas** (una habitación, una plaza) son titulares: tienen clave, firman, reciben, conservan y mueven tokens, pero no emiten. El tipo (persona, grupo o cosa) se declara en el alta, como la clave, y no cambia; quien no lo declaró no emite. La emisión nace en la cartera de su emisor (`de: null`, `a` = el emisor); para darla se mueve después, en el mismo evento si quiere. Una serie solo crece cuando su emisor emite, y lo emitido no puede llegar a infinito.
 
-**E.** Una identidad puede **emitir una serie limitada** de una denominación que ella respalda (la casa emite un token por plaza y noche). La emisión es un movimiento `{ token: 'E', denominacion, cantidad, de: null, a, emisor }` válido solo si `emisor` es el autor del evento y la denominación es nueva (queda registrada a su nombre, como las claves) o ya es suya. Nadie emite una denominación ajena ni en nombre de otro. Lo emitido de cada serie se puede consultar (`eje.serie(denominación)`, `eje.series()`).
+**T.** Siete tokens distintos, uno por escala, ampliable hasta diez. Sin conversión: una hora **no** son sesenta minutos, son tokens distintos, como un euro no es un bitcoin. T va en enteros: media hora serían minutos. Escribir cuesta minutos, así que quien escribe necesita minutos; el génesis del ejemplo emite minutos y horas y las altas reparten ambos. La duración de cada escala solo sirve para medir distancias (las bandas del eje temporal), nunca para cambiar un token por otro.
 
-Abierto [X] decidir VG: si una identidad puede emitir su propia serie de T (el tiempo de alguien como serie limitada) o de R fuera del génesis; quién emite P sobre un ámbito sin pasar por el génesis; qué escalas completan las diez de T.
+**E.** Una persona o un grupo **emite una serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche): `{ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor }`, con `emisor` igual al autor del evento. La serie es suya: la clave lleva al emisor, así que nadie se queda un nombre ni emite la denominación de otro; la misma denominación emitida por otro es otra serie, y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible. Lo emitido de cada serie se consulta con `eje.serie(clave)` y `eje.series()`.
+
+**R.** Su emisor la declara y solo él la amplía (`{ token: 'R', emisor, cantidad, de: null, a: emisor }`); cada ampliación es un evento suyo en el eje, que es el rastro visible.
+
+**P.** La casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. P solo se emite en el génesis; delegar estrecha el ámbito.
+
+Decidido [D] (VG, 7-11, mapa §12) e implementado: lo anterior. Abierto [X] decidir VG: si una identidad puede emitir su propio tiempo como serie limitada (T fuera del génesis: «no tocar hasta que lo diga»); qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante); cómo firma un grupo (es de AARPIA).

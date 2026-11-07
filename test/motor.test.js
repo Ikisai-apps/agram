@@ -45,13 +45,13 @@ test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar �
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
   await assert.rejects(autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T }), /ya está autorizado/);
 
-  const antesCocina = eje.saldo('cocina', 'E:EUR');
+  const antesCocina = eje.saldo('cocina', 'E:casa/EUR');
   const e = await ejecutar(eje, {
     autor: 'huesped', consolidacion: c.id, t: T,
-    movimientos: [{ token: 'E', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }],
+    movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }],
   });
   assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  assert.equal(eje.saldo('cocina', 'E:EUR'), antesCocina + 14);
+  assert.equal(eje.saldo('cocina', 'E:casa/EUR'), antesCocina + 14);
   assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
   assert.deepEqual(e.payload[1], { ref: c.id });
   // La evidencia es el hilo: ejecución → consolidación → compra → menú → …
@@ -87,9 +87,9 @@ test('consolidar rechaza huecos no heredables y no consolida nada vacío', async
 
 test('consolidar no ejecuta: no mueve E, solo el T de escribir', async () => {
   const { eje, compra } = await ejemploCompra();
-  const antes = eje.saldo('huesped', 'E:EUR');
+  const antes = eje.saldo('huesped', 'E:casa/EUR');
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  assert.equal(eje.saldo('huesped', 'E:EUR'), antes);
+  assert.equal(eje.saldo('huesped', 'E:casa/EUR'), antes);
   assert.equal(c.movimientos.length, 1);
   assert.equal(c.movimientos[0].token, 'T');
   assert.equal(evaluar(eje, c.id, [1]).texto, 'dos menús');

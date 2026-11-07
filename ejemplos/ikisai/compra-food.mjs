@@ -3,10 +3,12 @@
 // al recibir tokens, un evento de compra con payload BTML y su décupla en
 // Pointed. Nada de esto es real.
 //
-// Las series de tokens: la casa emite en el génesis los EUR (serie de E a su
-// nombre) y las dos escalas de T que usa: horas y minutos, tokens distintos
-// sin conversión (escribir cuesta minutos; comprar, horas). Las altas
-// reparten ambas. Las plazas de alojamiento son otra serie, la de Booking.
+// Las series de tokens: la casa (un grupo) emite en el génesis sus EUR (la
+// serie E:casa/EUR, ligada a ella como R) y las dos escalas de T que usa:
+// horas y minutos, tokens distintos sin conversión (escribir cuesta minutos;
+// comprar, horas). Las altas reparten ambas y declaran qué es cada identidad
+// (cocina, un grupo; huesped, una persona). Las plazas de alojamiento son otra
+// serie, la de Booking.
 
 import { Eje } from '../../src/eje.js';
 
@@ -20,10 +22,11 @@ export async function ejemploCompra({ claves = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
+    tipo: 'grupo', // solo personas y grupos emiten
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas
-      { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie EUR queda a nombre de la casa
+      { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR: el génesis completa emisor = casa
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa de ejemplo',
@@ -32,7 +35,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
     privada: priv('casa'),
   });
 
-  // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens.
+  // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens, y el alta declara su tipo.
   const declaradas = {};
   for (const id of ['cocina', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const alta = await eje.escribir({
@@ -43,12 +46,12 @@ export async function ejemploCompra({ claves = {} } = {}) {
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
-      { token: 'E', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
+      { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
       { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
       { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
+    contexto: { tipos: { cocina: 'grupo', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
@@ -67,7 +70,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
     t: '2026-11-07T13:30:00Z',
     movimientos: [
       { token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: null },
-      { token: 'E', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
+      { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
     ],
     payload: [
       'Compra del menú del día',

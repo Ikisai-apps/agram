@@ -76,7 +76,7 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | `undefined` (posición no desarrollada, o camino que atraviesa un terminal) | parada **PENDIENTE** `posición sin desarrollar` | — |
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
-| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ daad9ad8'` (ocho primeros caracteres del id) |
+| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 4598f23e'` (ocho primeros caracteres del id) |
 | cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
 | cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
@@ -90,7 +90,7 @@ Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`):
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ daad9ad8` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ 4598f23e` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0)')` | RESUELTO | `[3 posiciones]` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
 | `consultar(eje, compra.id, [9], 'REF("<menu.id>", "1100000000")')` | RESUELTO | `guiso` |
@@ -164,8 +164,8 @@ Todo valor BQL es un objeto con `tipo`:
 | `magnitud` | `{ cantidad, unidad, desglose: [{ cantidad, unidad }, …] }` | `cantidad unidad`, y entre paréntesis el desglose si tiene más de un sumando | `14 EUR (12 EUR + 2 EUR)` |
 | `composicion` | `{ partes: [magnitud, …] }` (unidades distintas) | partes unidas por ` + ` | `300 m (200 m + 100 m) + 5 EUR` |
 | `array` | `{ valor: any[] }` (el subarray crudo) | `[n posiciones]` | `[3 posiciones]` |
-| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ daad9ad8` |
-| `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba`; `0 candidatos` |
+| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 4598f23e` |
+| `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75`; `0 candidatos` |
 
 ---
 
@@ -341,11 +341,11 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio ba13e220 · propio ba13e220 · escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba` |
+| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio f9e59d1e · propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` |
 | `BUSCAR(4, 0)` | RESUELTO | los mismos 5 (misma dirección) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
-| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio ba13e220 · propio ba13e220 · referencia daad9ad8 · escrito 31d3a67f` |
+| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio f9e59d1e · propio f9e59d1e · referencia 4598f23e · escrito c70bfa6e` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -396,8 +396,8 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 
 | Fórmula (slot `[4]`; propinas 2, 5 y 1 EUR escritas en ese orden) | `texto` |
 |---|---|
-| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito 91cde3ba · escrito 57e2022e · escrito 8203c0c4` (1, 2, 5 EUR) |
-| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 8203c0c4 · escrito 57e2022e · escrito 91cde3ba` (5, 2, 1 EUR) |
+| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito 9a726a75 · escrito d567acc1 · escrito 59bd2354` (1, 2, 5 EUR) |
+| `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 59bd2354 · escrito d567acc1 · escrito 9a726a75` (5, 2, 1 EUR) |
 | `ORDENAR(BUSCAR(4), ORIGEN())` | escritos antes que propios (orden alfabético de `escrito` < `propio`) |
 | `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | los tres escritos (4) antes que los dos propios (0) |
 
@@ -405,7 +405,7 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 
 Los `k` primeros candidatos de `col` como coleccion (1 por defecto; si hay menos, los que haya; sobre una colección vacía, `0 candidatos`). `k` no entero o < 1 → ERROR `ELEGIR espera una cantidad entera ≥ 1`. `col` no coleccion → INCOMPATIBLE. **No publica nada**: elegir de verdad es consolidar en la fábrica (`src/motor.js`), fuera de BQL.
 
-`ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc"))` → `1 candidato: escrito 8203c0c4` (la propina de 5 EUR); `…, 2)` → `2 candidatos: escrito 8203c0c4 · escrito 57e2022e`.
+`ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc"))` → `1 candidato: escrito 59bd2354` (la propina de 5 EUR); `…, 2)` → `2 candidatos: escrito 59bd2354 · escrito d567acc1`.
 
 ### 7.9 `CONTAR(col)`
 
