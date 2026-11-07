@@ -1,14 +1,14 @@
 # Rendimiento del núcleo
 
-Nota de medida · 7-11-2026 · **No decide nada de AGRAM.** Mide el núcleo de `main` (`7090c8c`) con un banco reproducible, señala los puntos calientes y propone. Solo se han tocado cuatro índices sin cambio de semántica (§8), cada uno con su prueba; el resto son propuestas (§7). Lo que roza una decisión va marcado «[X] decidir VG».
+Nota de medida · 7-11-2026 · **No decide nada de AGRAM.** Mide el núcleo de `main` en `7090c8c` con un banco reproducible, señala los puntos calientes y propone. Desde entonces `main` recibió la integración #55 (`03dbf34`: fábrica, bases, efectos, validez, Scened, mundo de los hilos y frontend). Esta rama la lleva fusionada, con las pruebas en verde, y Scened usa ya el índice de prefijos (§8.3). Las tablas de §3, §4 y §6 son de `7090c8c` y no se han vuelto a medir; las bases del 8 sí se miden ahora con el `main` actual (§5). Solo se han tocado cuatro índices sin cambio de semántica (§8), cada uno con su prueba; el resto son propuestas (§7). Lo que roza una decisión va marcado «[X] decidir VG».
 
 Banco: `bench/eje.mjs`, sin dependencias. `npm run bench` (1.000, 5.000 y 20.000 registros); `npm run bench -- --tamanos 1000 --solo ocupantes,bql` para una parte; `--json fichero` guarda las filas. Las tablas de esta nota salen tal cual de esa salida.
 
 ## 1. En tres frases
 
-1. **Escribir no se degrada con el tamaño**: añadir un registro firmado cuesta lo mismo con 1.000 que con 20.000 registros (≈1,5–2 ms en esta máquina), y casi todo es criptografía por Web Crypto (SHA-256 del id, verificar la firma ECDSA e importar la clave pública del autor).
-2. **Tres cosas crecen mal**: (a) los ocupantes de una posición muy concurrida, porque marcar los empates comparaba cada par (cuadrático: 400 ms con 1.066 ocupantes en una posición): **corregido aquí**, lineal; (b) **restaurar**, que revalida todo el eje en serie esperando a la criptografía (137 s con 20.000 registros en `main`); (c) **confluir recalculado**, lineal en la cohorte con un coste alto por registro (9 s la cohorte «general» con 20.000), que es justo lo que las bases del 8 (PR #44) evitan.
-3. **`guardarLocal` deja de caber hacia los 8.000 registros**: el eje serializado ocupa ≈600 bytes por registro (11,6 MB con 20.000) y `localStorage` suele dar 5 MB por origen; hoy falla en silencio (devuelve `false`).
+1. **Escribir no se degrada con el tamaño**: añadir un registro firmado ya creado cuesta ≈1–1,5 ms y escribirlo entero (crear, firmar y añadir) ≈1,8–3,8 ms, sin crecer de 1.000 a 20.000 registros (lo que cambia entre columnas es la carga de la máquina), y casi todo es criptografía por Web Crypto (SHA-256 del id, verificar la firma ECDSA e importar la clave pública del autor).
+2. **Tres cosas crecen mal**: (a) los ocupantes de una posición muy concurrida, porque marcar los empates comparaba cada par (cuadrático: 400 ms con 1.066 ocupantes en una posición): **corregido aquí**, lineal; (b) **restaurar**, que revalida todo el eje en serie esperando a la criptografía (137 s con 20.000 registros en `main`, en una pasada con la máquina cargada; es la medida que más varía con la carga, §2); (c) **confluir recalculado**, lineal en la cohorte con un coste alto por registro (9 s la cohorte «general» con 20.000), que es justo lo que las bases del 8 (PR #44) evitan.
+3. **`guardarLocal` deja de caber hacia los 8.000 registros**: el eje serializado ocupa ≈600 bytes por registro (11,6 MB con 20.000) y `localStorage` suele dar 5 MB por origen. La interfaz avisa, pero mal («sin almacenamiento», cuando es cuota llena), y lo grave no se ve: queda la copia anterior, más corta, que al recargar se carga como buena, y los registros posteriores se pierden sin aviso (P3).
 
 ## 2. Cómo se mide
 
@@ -28,11 +28,11 @@ Las claves ECDSA salen de Web Crypto, no de la semilla: los ids cambian de una p
 
 **Qué se cronometra**: lo síncrono, repetido hasta 300 ms y la mediana; por evento (validar, añadir, escribir, medidasDe), la mediana de 200 (o 100) eventos; lo caro (construir, confluir, restaurar), una vez. La construcción da la media por tipo de registro y su desglose crear · firmar · añadir.
 
-**La máquina**: Windows 10, 4 hilos, Node 24.14.1, **compartida con otros agentes** (carga del 85–100 % durante las pasadas). Los números absolutos salen inflados y con ruido, sobre todo lo que espera a la criptografía (va por el grupo de hilos de libuv, que compite con los demás procesos); lo que vale es **cómo crecen** con el tamaño y las proporciones entre filas. En un microbanco aparte (con la misma carga), `subtle.digest` cuesta ≈0,16 ms esperado de uno en uno y ≈0,06 ms lanzado en paralelo, `verify` ≈0,45 ms e importar una clave pública ≈0,33 ms; `createHash` de Node, síncrono, 0,015 ms (no sirve: el núcleo corre también en el navegador).
+**La máquina**: Windows 10, 4 hilos, Node 24.14.1, **compartida con otros agentes** (carga del 85–100 % durante las pasadas). Los números absolutos salen inflados y con ruido, sobre todo lo que espera a la criptografía (va por el grupo de hilos de libuv, que compite con los demás procesos); lo que vale es **cómo crecen** con el tamaño y las proporciones entre filas. En un microbanco aparte (con la misma carga), `subtle.digest` cuesta ≈0,16 ms esperado de uno en uno y ≈0,06 ms lanzado en paralelo, `verify` ≈0,45 ms e importar una clave pública ≈0,33 ms; `createHash` de Node, síncrono, 0,015 ms (no sirve: el núcleo corre también en el navegador). Restaurar es lo más sensible: en la revisión, con 1.000 registros, dio 9,8 ms por evento dentro del banco y 1,4 ms por evento aislado.
 
 ## 3. La tabla (esta PR)
 
-Salida de `npm run bench` en esta rama (una pasada; semilla 20261107; Node 24.14.1; win32/x64):
+Salida de `npm run bench` en esta rama sobre `7090c8c`, antes de fusionar la #55 (una pasada; semilla 20261107; Node 24.14.1; win32/x64):
 
 - Focos de 1000: génesis 43 hijos, hilo 1; caliente 72 hijos, hilo 2; mediano 1 hijos, hilo 3; hoja 0 hijos, hilo 3; profundo 0 hijos, hilo 14. Memoria tras construir: 9 MB.
 - Focos de 5000: génesis 175 hijos, hilo 1; caliente 411 hijos, hilo 2; mediano 1 hijos, hilo 8; hoja 0 hijos, hilo 12; profundo 0 hijos, hilo 19. Memoria tras construir: 20 MB.
@@ -95,7 +95,7 @@ Salida de `npm run bench` en esta rama (una pasada; semilla 20261107; Node 24.14
 | confluir | confluir, recalcula · hermanos (ms) | 22.5 | 142 | 527 | 1577 comparables |
 | confluir | confluir, recalcula · proyecto (ms) | 84.1 | 474 | 2392 | 7357 comparables |
 | confluir | confluir, recalcula · general (ms) | 362 | 1519 | 5980 | 20000 comparables |
-| bases | bases del 8 | — | — | — | src/bases.js no está (PR #44): sin medir |
+| bases | bases del 8 | — | — | — | src/bases.js no estaba en `7090c8c` (PR #44): ver §5 |
 | persistencia | serializar (ms) | 0.133 | 0.769 | 6.05 |  |
 | persistencia | JSON.stringify (ms) | 10.7 | 52.0 | 346 | 11.6 MB |
 | persistencia | JSON.parse (ms) | 12.8 | 66.2 | 470 |  |
@@ -103,7 +103,7 @@ Salida de `npm run bench` en esta rama (una pasada; semilla 20261107; Node 24.14
 | escribir | añadir firmado con el eje lleno (ms/evento) | 1.33 | 0.955 | 1.44 | 200 eventos |
 | escribir | eje.escribir firmado: crear + firmar + añadir (ms/evento) | 2.42 | 1.77 | 3.80 | 100 eventos |
 
-Cómo leerla: cada columna es una pasada, y la carga de la máquina cambió entre ellas (la de 5.000 cayó en un pico: construir a 10 ms por registro frente a 4 en las otras dos). Lo que hay que mirar es lo que crece con el tamaño y lo que no: escribir, validar, `mapa`, REF y lo de los focos pequeños quedan planos; ocupantes, árbol, BUSCAR y eje temporal de la plaza y del génesis crecen con sus hijos (lineal); confluir crece con la cohorte; restaurar, con el eje entero (54 s con 20.000, 2,7 ms por evento; en `main`, 137 s en otra pasada).
+Cómo leerla: cada columna es una pasada, y la carga de la máquina cambió entre ellas (la de 5.000 cayó en un pico: construir a 10 ms por registro frente a 4 en las otras dos). Lo que hay que mirar es lo que crece con el tamaño y lo que no: escribir, validar, `mapa`, REF y lo de los focos pequeños quedan planos; ocupantes, árbol, BUSCAR y eje temporal de la plaza y del génesis crecen con sus hijos (lineal); confluir crece con la cohorte; restaurar, con el eje entero (54 s con 20.000, 2,7 ms por evento; en `main`, 137 s en otra pasada con otra carga: la diferencia no es toda de esta PR, que en el A/B de §4 gana ×1,18 al restaurar).
 
 ## 4. Antes y después de los índices de esta PR
 
@@ -148,9 +148,9 @@ Lo cuadrático desaparece (×10 a ×24 en la plaza con 20.000, y crece con el ta
 
 Una primera versión de los empates por claves era **más lenta** que la de pares con dos o tres ocupantes (lo normal): montar mapas y claves cuesta más que comparar tres pares, y `medidasDe` (diez posiciones por registro) lo notaba. Por eso hasta 12 ocupantes se sigue comparando por pares (el cruce medido está hacia 12–16) y, por encima, por claves. Lo mismo con la copia de `sobre`: `slice()` y no `[...]`, que en listas vacías era el doble de lento.
 
-## 5. Bases del 8: fundir frente a recalcular (PR #44)
+## 5. Bases del 8: fundir frente a recalcular (PR #44, ya en `main`)
 
-Pasada aparte con `src/bases.js` de la PR #44 (`bases-del-8`, `f1cfe66`) puesta encima de esta rama, y su `tiempo.js` (que deja las bases fuera de los comparables): `node bench/eje.mjs --solo confluir,bases`. El banco escribe las bases de abajo arriba (cada proyecto con su cosa y su clave, después el génesis) y compara `situar` (lee la base del 8 que resume la cohorte) con `confluir` (recalcula la cohorte entera), sobre el mismo foco: el primer hijo de la plaza.
+Primera pasada (la tabla de abajo): con `src/bases.js` de la PR #44 (`bases-del-8`, `f1cfe66`) puesta encima de esta rama, y su `tiempo.js` (que deja las bases fuera de los comparables): `node bench/eje.mjs --solo confluir,bases`. La #44 está ya en `main` con la #55, con los mismos `src/bases.js` y `src/tiempo.js` que `f1cfe66`; con esta rama fusionada con `main`, `npm run bench` mide las bases sin poner nada encima (segunda pasada, más abajo). El banco escribe las bases de abajo arriba (cada proyecto con su cosa y su clave, después el génesis) y compara `situar` (lee la base del 8 que resume la cohorte) con `confluir` (recalcula la cohorte entera), sobre el mismo foco: el primer hijo de la plaza.
 
 | medida (ms) | 1.000 | 5.000 | 20.000 | nota (20.000) |
 |---|---:|---:|---:|---|
@@ -164,6 +164,19 @@ Pasada aparte con `src/bases.js` de la PR #44 (`bases-del-8`, `f1cfe66`) puesta 
 | confluir · general | 261 | 1.194 | 8.583 | n 20.000 → ×1.562 |
 | leerBase + fundir dos estadísticas | 0,072 | 0,231 | 1,95 | |
 
+Segunda pasada, con el `main` actual (`03dbf34`) fusionado en esta rama: `node bench/eje.mjs --solo bases` (otra carga: construir fue a ≈6,6 ms por registro, frente a ≈4 en la primera; aquí `confluir` va en la misma fila que `situar`, medido justo después):
+
+| medida (ms) | 1.000 | 5.000 | 20.000 | nota (20.000) |
+|---|---:|---:|---:|---|
+| calcularBase del proyecto caliente | 131 | 195 | 734 | 1.577 hijos medidos |
+| escribirBase, por base | 58,4 | 35,7 | 58,2 | 41 bases |
+| **situar · hermanos** | 0,603 | 0,804 | **2,25** | n 1.577; confluir 577 ms → ×257 |
+| **situar · proyecto** | 0,527 | 0,836 | **1,97** | n 1.578; confluir 1.843 ms con n 7.357 → ×934 |
+| **situar · general** | 0,794 | 1,38 | **4,92** | n 3.610; confluir 5.480 ms con n 20.000 → ×1.115 |
+| leerBase + fundir dos estadísticas | 0,067 | 0,246 | 1,76 | |
+
+Las dos pasadas dicen lo mismo: `situar` en milisegundos y `confluir` en cientos o miles; los factores cambian con la carga (×257 a ×367 en «hermanos»), el orden de magnitud no.
+
 Lectura:
 
 - **Fundir gana por dos y tres órdenes de magnitud** donde la comparación es justa: en «hermanos» las dos miden los mismos 1.577 registros y situar va 367 veces más rápido. Escribir la base cuesta lo que un recálculo de sus hijos (calcularBase ≈ confluir · hermanos), y se paga una vez por base, no por lectura.
@@ -173,27 +186,27 @@ Lectura:
 
 ## 6. Puntos calientes, por orden
 
-Medidos en `main` con 20.000 registros (pasada de la tabla de §4 «antes»), del que más duele al que menos:
+Medidos en `main` (`7090c8c`) con 20.000 registros, en una pasada del banco con `main` solo, distinta del A/B de §4 (por eso no coinciden: los ocupantes de la plaza dan aquí 401 ms y en el A/B 497 ms; es la carga). Del que más duele al que menos:
 
-1. **Restaurar: 137 s** (6,9 ms por evento). Revalida cada evento en serie: copia JSON dos veces, SHA-256 del cuerpo, importa la clave del autor, verifica la firma y simula los movimientos. Es lineal, pero con un coste por evento alto que casi todo es **esperar** a Web Crypto (el 46 % del perfil, el hilo parado). Con la clave importada una vez (§8.4) baja la parte de la firma; lo grande es P1 y, si VG lo quiere, P2.
+1. **Restaurar: 137 s** (6,9 ms por evento, con la máquina cargada: es lo que más varía con la carga, §2). Revalida cada evento en serie: copia JSON dos veces, SHA-256 del cuerpo, importa la clave del autor, verifica la firma y simula los movimientos. Es lineal, pero con un coste por evento alto que casi todo es **esperar** a Web Crypto (el 46 % del perfil, el hilo parado). Con la clave importada una vez (§8.4) baja la parte de la firma; lo grande es P1 y, si VG lo quiere, P2.
 2. **Confluir recalculado: 9,3 s «general», 2,2 s «proyecto», 0,48 s «hermanos»**. Lineal en la cohorte, a ≈0,2–0,45 ms por registro (`medidasDe`: diez listas de ocupantes completas y todas las fórmulas del payload evaluadas). Las bases del 8 lo resuelven para la lectura (§5); recalcular sigue haciendo falta al escribir una base y al comprobarla: P4.
 3. **Ocupantes de una posición muy concurrida: 401 ms** las diez posiciones de la plaza (1.066 ocupantes en una), 453 ms su árbol y **467 ms un BUSCAR** que encima acaba en PENDIENTE POR LÍMITE. Era cuadrático (`marcarEmpates`): **corregido aquí** (§8.1). Queda lineal, con un coste por ocupante alto (vector, signo, justificación en texto, cuatro copias del objeto): P5.
 4. **Validar una firma: 0,7 ms de verificar + 0,3 ms de importar la clave** cada vez, aunque la clave sea siempre la misma. **Corregido aquí** (§8.4).
-5. **REF por prefijo y «@id»: lineales en el eje** (0,87 ms por referencia con 20.000; en confluir «general» con 5.000, un 10 % del perfil). **Corregido aquí** (§8.3).
+5. **REF por prefijo, «@id» y los REF que lee Scened: lineales en el eje** (0,87 ms por referencia con 20.000; en confluir «general» con 5.000, un 10 % del perfil). **Corregido aquí** (§8.3).
 6. **`sobre(id, en)`** filtraba todos los hijos del registro en cada llamada (el génesis y la plaza, con cientos o miles): `mapa` de la plaza, 1,4 ms. **Corregido aquí** (§8.2).
-7. **Guardar**: 11,6 MB de JSON con 20.000 registros (≈600 bytes por registro); no cabe en `localStorage` a partir de ≈8.000: P3.
+7. **Guardar**: 11,6 MB de JSON con 20.000 registros (≈600 bytes por registro); no cabe en `localStorage` a partir de ≈8.000, y entonces queda guardada la copia anterior: P3.
 
-Lo que **no** es un problema a estos tamaños: escribir (1–2 ms por evento, plano con el tamaño), el `mapa` de cualquier foco, el eje temporal (13 ms en la plaza con 1.577 hijos y 113 proyecciones), BUSCAR/FILTRAR/ORDENAR en focos normales (≤1 ms), evaluar una fórmula (0,1–0,4 ms), `serializar` (7 ms) y la memoria (≈40 MB con 20.000 registros).
+Lo que **no** es un problema a estos tamaños: escribir (añadir, 1–1,5 ms; escribir entero, 1,8–3,8 ms por evento; plano con el tamaño), el `mapa` de cualquier foco, el eje temporal (13 ms en la plaza con 1.577 hijos y 113 proyecciones), BUSCAR/FILTRAR/ORDENAR en focos normales (≤1 ms), evaluar una fórmula (0,1–0,4 ms), `serializar` (7 ms) y la memoria (≈40 MB con 20.000 registros).
 
 ## 7. Propuestas (no implementadas)
 
 Por ganancia esperada. Ninguna cambia lo que AGRAM decide salvo las marcadas [X].
 
-**P1. Restaurar en dos pasadas.** `Eje.desde` (`src/eje.js:87`) añade los eventos uno a uno y cada uno espera a su hash y a su firma, que van por el grupo de hilos: en el perfil de restaurar 3.000 registros, el 46 % del tiempo el hilo principal está **parado esperando** a la criptografía. Propuesta: (1) en paralelo y por lotes, lo que no depende del orden: que el id es el hash del cuerpo y, para los autores cuya clave declaró un alta anterior (se recogen de `contexto.claves` en una pasada sin criptografía), la firma; (2) en serie, como hoy, saldos, series, tipos y claves, con lo ya verificado. En el microbanco de §2, `subtle.digest` en paralelo cuesta 0,056 ms frente a 0,16 ms en serie: se espera ×3–5 en restaurar. Lo que se acepta y se rechaza es lo mismo; solo puede cambiar cuál de varios errores se nombra primero. Toca `desde` y `validar`.
+**P1. Restaurar en dos pasadas.** `Eje.desde` (`src/eje.js:87`) añade los eventos uno a uno y cada uno espera a su hash y a su firma, que van por el grupo de hilos: en el perfil de restaurar 3.000 registros, el 46 % del tiempo el hilo principal está **parado esperando** a la criptografía. Propuesta: (1) en paralelo y por lotes, lo que no depende del orden: que el id es el hash del cuerpo y, para los autores cuya clave declaró un alta anterior (se recogen de `contexto.claves` en una pasada sin criptografía), la firma; (2) en serie, como hoy, saldos, series, tipos y claves, con lo ya verificado. Lo único medido es `subtle.digest`: en el microbanco de §2, 0,056 ms en paralelo frente a 0,16 ms en serie (×2,9). `verify` e `importKey` en paralelo no se han medido, y la validación en serie (saldos, series, tipos y claves) se queda como está: ×3–5 en restaurar sería una **cota optimista**, que hay que medir con el cambio hecho. Lo que se acepta y se rechaza es lo mismo; solo puede cambiar cuál de varios errores se nombra primero. Toca `desde` y `validar`.
 
 **P2. Puntos de control para no revalidarlo todo al cargar.** Aun con P1, cargar es lineal en la historia entera. Guardar con el eje los saldos, las series, los tipos, las claves y los índices de un prefijo, con la huella de ese prefijo, y validar al cargar solo lo posterior. Rompe la regla de `Eje.desde` «nada se da por bueno»: **[X] decidir VG** si un punto de control puede sustituir a la revalidación y quién lo firma (AARPIA).
 
-**P3. Almacenamiento del navegador.** `guardarLocal` (`src/persistencia.js:26`) mete el eje entero en `localStorage`, que suele dar 5 MB: con ≈600 bytes por registro deja de caber hacia los 8.000 registros (11,6 MB con 20.000) y hoy devuelve `false` sin más. IndexedDB (cuotas de cientos de MB) o trozos, y que la interfaz diga cuándo no se guardó. **[X] decidir VG** si el eje del navegador ha de crecer más allá de una demostración (no se toca el frontend en esta PR).
+**P3. Almacenamiento del navegador.** `guardarLocal` (`src/persistencia.js:26`) mete el eje entero en `localStorage`, que suele dar 5 MB: con ≈600 bytes por registro deja de caber hacia los 8.000 registros (11,6 MB con 20.000). Cuando `setItem` falla, devuelve `false` y la interfaz avisa (`app.js`: «sin almacenamiento: nada se guarda al recargar»), pero el aviso confunde (es cuota llena, no falta de almacenamiento) y calla lo que pasa de verdad: en `localStorage` sigue la copia anterior, más corta. Al recargar, `cargarLocal` la restaura sin error y la interfaz dice «cargado del navegador · N registros»: los registros escritos después se han perdido y nada lo dice. Propuesta: IndexedDB (cuotas de cientos de MB) o trozos; y, mientras tanto, si no cabe, borrar la copia vieja o marcarla como incompleta, y que el aviso diga que este eje no cabe y no se guardará. **[X] decidir VG** si el eje del navegador ha de crecer más allá de una demostración (no se toca el frontend en esta PR).
 
 **P4. Ocupantes ligeros para medir.** `posicionesDe` (`src/tiempo.js:205`) pide los ocupantes completos de las diez posiciones de cada registro (vector, signo, empates, justificación en texto…) solo para saber si hay alguno y de qué procedencia. En el perfil de confluir «general» con 5.000 registros, `conEncaje`, `ocupantes`, `caminosDe`, `marcarEmpates` y `justificar` suman más del 30 %. Una lectura ligera (tipo y camino, sin encaje) da la misma procedencia: se espera ×2–3 en `medidasDe` y en todo lo que recalcula (confluir, calcularBase, situar del foco). No es un índice: por eso no va en esta PR.
 
@@ -209,10 +222,10 @@ Por ganancia esperada. Ninguna cambia lo que AGRAM decide salvo las marcadas [X]
 
 Cuatro índices (o recuerdos) triviales. Ninguno cambia lo que se devuelve; cada uno tiene su prueba en `test/rendimiento.test.js`, que lo compara con la forma directa de antes.
 
-1. **Empates en lineal** (`marcarEmpates`, `src/encaje.js`). Antes: por cada ocupante, comparar con todos los demás (n² comparaciones; 1.066 ocupantes en una posición son 1,1 millones). Ahora: cada ocupante lleva la clave de lo que mira el comparador (el acuerdo y, en cada profundidad que la época declare ordinal, la distancia) y se cuentan las claves iguales. Empatan si y solo si sus claves son iguales; una distancia que no es un número finito no empata con nada, igual que en la comparación; un mismo objeto repetido no empata consigo mismo. Prueba: 400 listas al azar (con duplicados, NaN e Infinity, con y sin ordinales) dan exactamente lo mismo que la comparación por pares; y 20.000 ocupantes en una posición se marcan en unas décimas de segundo (por pares serían 400 millones de comparaciones; la prueba admite hasta dos segundos).
+1. **Empates en lineal** (`marcarEmpates`, `src/encaje.js`). Antes: por cada ocupante, comparar con todos los demás (n² comparaciones; 1.066 ocupantes en una posición son 1,1 millones). Ahora: cada ocupante lleva la clave de lo que mira el comparador (el acuerdo y, en cada profundidad que la época declare ordinal, la distancia) y se cuentan las claves iguales. Empatan si y solo si sus claves son iguales; una distancia que no es un número finito no empata con nada, igual que en la comparación; un mismo objeto repetido no empata consigo mismo. Prueba: 600 listas al azar de hasta 40 ocupantes (con duplicados, NaN e Infinity, con y sin ordinales) dan exactamente lo mismo que la comparación por pares; y 20.000 ocupantes en una posición se marcan en unas décimas de segundo (por pares serían 400 millones de comparaciones; la prueba admite hasta dos segundos).
 2. **`sobre(id, en)` por dirección** (`src/eje.js`). Antes filtraba todos los hijos del registro en cada llamada; ahora el eje guarda, además de los hijos de cada registro, los mismos partidos por `en`, en orden de entrada, y devuelve una copia. Lo usan `ocupantes`, `mapa`, el motor (`estadoDe`, `consolidaciones`) y BUSCAR. Prueba: 400 escritos al azar, y para cada registro y cada dirección (más algunas que no existen y valores que no son direcciones) da lo mismo que filtrar; la copia no toca el índice; restaurar lo reconstruye.
-3. **`eje.conPrefijo(p)`** (`src/eje.js`; lo usan `REF("…")` en `src/bql.js` y «@id» en `src/escritura.js`). Antes, cada referencia por prefijo recorría `eje.orden` entero. Ahora, los ids agrupados por sus cuatro primeros caracteres (16⁴ grupos): un prefijo de cuatro o más mira solo su grupo, en orden de entrada; uno más corto recorre como antes. Si el eje que recibe BQL no tiene el método, recorre `eje.orden` como antes. Prueba: prefijos de todos los largos, existentes o no, dan lo mismo que filtrar; REF resuelve, se declara ambigua o PENDIENTE exactamente igual, y «@id» igual.
-4. **Cada clave pública se importa una vez** (`verificar`, `src/autoridad.js`). Importar la JWK costaba casi lo mismo que verificar la firma, y el eje verifica muchas veces con la misma clave: la que guarda congelada desde el alta. Se recuerda la clave importada por el objeto JWK, **solo si está congelado** (no puede cambiar: el resultado es el mismo que importar cada vez); una importación fallida no se recuerda. Prueba: con una JWK congelada, la misma respuesta cada vez (firma propia, ajena, cambiada; JWK que no se importa); con una JWK que se puede cambiar, si cambia, verifica con la nueva; y el eje rechaza una firma de otra clave.
+3. **`eje.conPrefijo(p)`** (`src/eje.js`; lo usan `REF("…")` en `src/bql.js`, «@id» en `src/escritura.js` y los REF de las fórmulas que Scened lee para sus aristas: `resolverPrefijo` en `src/scened.js`, llegado con la #55). Antes, cada referencia por prefijo recorría `eje.orden` entero. Ahora, los ids agrupados por sus cuatro primeros caracteres (16⁴ grupos): un prefijo de cuatro o más mira solo su grupo, en orden de entrada; uno más corto recorre como antes. Si el eje que reciben no tiene el método, recorren `eje.orden` como antes. Prueba: prefijos de todos los largos, existentes o no, dan lo mismo que filtrar; REF resuelve, se declara ambigua o PENDIENTE exactamente igual; «@id», igual; y la escena de Scened (con un REF de cada prefijo, con y sin @ y en mayúsculas) es la misma con el índice que sin él.
+4. **Cada clave pública se importa una vez** (`verificar`, `src/autoridad.js`). Importar la JWK costaba casi lo mismo que verificar la firma, y el eje verifica muchas veces con la misma clave: la que guarda congelada desde el alta. Se recuerda la clave importada por el objeto JWK, **solo si está congelado**. `Object.isFrozen` mira solo el primer nivel: el material de la clave (`kty`, `crv`, `x`, `y`) está en ese nivel y no cambia; un `key_ops` de dentro sí podría, y solo decide si se puede importar para verificar. El eje congela entera la copia que guarda, así que con sus claves el resultado es el mismo que importar cada vez; una importación fallida no se recuerda. Prueba: con una JWK congelada, la misma respuesta cada vez (firma propia, ajena, cambiada; JWK que no se importa); con una JWK que se puede cambiar, si cambia, verifica con la nueva; y el eje rechaza una firma de otra clave.
 
 ## 9. Lo que el banco no mide
 
@@ -220,5 +233,6 @@ Cuatro índices (o recuerdos) triviales. Ninguno cambia lo que se devuelve; cada
 - **La capacidad y las series de plazas** (`motor.ocupacion`, `registrosEn`, `#porSerie` con muchas series): el generador no declara capacidades ni emite series por plaza y noche (P8).
 - **Épocas con profundidades ordinales**: todo se mide con la época 0 (sin ordinales). Con ordinales, la clave de empate de §8 es más larga, pero sigue siendo lineal.
 - **Memoria fina**: `heapUsed` tras construir, sin forzar la recogida de basura (11 MB con 1.000 registros, 18 MB con 5.000, 39 MB con 20.000 en `main`).
-- **Lo que está en PR sin fusionar** salvo las bases (#44): Scened (#48), capas de validez (#49), efectos (#45), la fábrica 10×10×10 (#40) y BASES en BQL (#52, que trae otra `src/bases.js` con otra API: si sustituye a la de #44, la sección de bases del banco se ha de adaptar; hoy la salta sin fallar).
+- **Lo que llegó con la #55** (Scened, capas de validez, efectos, la fábrica 10×10×10, el mundo de los hilos), salvo las bases (§5): el banco no lo ejerce todavía. Scened usa ya el índice de prefijos (§8.3), probado, pero sin medir su escena.
+- **Lo que sigue en PR sin fusionar**: BASES en BQL (#52), que trae otra `src/bases.js` con otra API; si sustituye a la de la #44, la sección de bases del banco se ha de adaptar (hoy la salta sin fallar).
 - **Varias pasadas por tamaño**: cada número es una pasada; en una máquina compartida conviene repetir y mirar el orden de magnitud.

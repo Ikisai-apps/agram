@@ -30,8 +30,12 @@ async function importarPublica(jwk) {
 // Claves públicas ya importadas, por el objeto JWK. Importar cuesta casi lo
 // mismo que verificar (docs/notas/RENDIMIENTO.md), y el eje verifica muchas
 // veces con la misma clave: la que guarda congelada desde el alta. Solo se
-// recuerdan las JWK congeladas, que no pueden cambiar: el resultado es el
-// mismo que importar cada vez. Una importación fallida no se recuerda.
+// recuerdan las JWK congeladas. Object.isFrozen mira solo el primer nivel:
+// el material de la clave (kty, crv, x, y) son textos de ese nivel y no
+// cambian; un array key_ops de dentro sí podría, y solo decide si la clave se
+// puede importar para verificar. El eje congela entera la copia que guarda,
+// así que con sus claves el resultado es el mismo que importar cada vez. Una
+// importación fallida no se recuerda.
 const importadas = new WeakMap();
 
 function importarVerificadora(jwk) {

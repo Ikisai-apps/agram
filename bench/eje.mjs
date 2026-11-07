@@ -3,7 +3,8 @@
 // generador con semilla (identidades con y sin clave, escritos sobre focos al
 // azar con colisiones, referencias, fórmulas BQL y ciclos del motor) y mide
 // lo que cuesta escribir, validar, leer y guardar a cada tamaño. Las bases
-// del 8 (src/bases.js, PR #44) se miden solo si están en el árbol.
+// del 8 (src/bases.js, de la PR #44, en main desde la #55) se miden si el
+// módulo tiene esa API (calcularBase, escribirBase, situar); si no, se saltan.
 //
 // Uso (desde la raíz):
 //   npm run bench
@@ -475,7 +476,7 @@ async function pasada(n, semilla, solo = null) {
   }
   }
 
-  // Bases del 8 (PR #44): fundir frente a recalcular.
+  // Bases del 8 (src/bases.js, de la PR #44): fundir frente a recalcular.
   const bases = quiere('bases') ? await import('../src/bases.js').catch(() => null) : null;
   if (!quiere('bases')) {
     // sin medir: no se pidió
@@ -505,7 +506,7 @@ async function pasada(n, semilla, solo = null) {
     });
     fila('bases', 'leerBase + fundir dos estadísticas (ms)', fu.mediana);
   } else {
-    fila('bases', 'bases del 8', null, 'src/bases.js no está (PR #44): sin medir');
+    fila('bases', 'bases del 8', null, 'src/bases.js no está o no tiene la API de la #44 (calcularBase, escribirBase, situar): sin medir');
   }
 
   // Serializar y restaurar (restaurar vuelve a validar cada evento: ids, firmas, saldos).

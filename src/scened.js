@@ -97,7 +97,7 @@ function refsDeFormula(texto) {
 function resolverPrefijo(eje, prefijo) {
   const p = prefijo.replace(/^@/, '').toLowerCase();
   if (!/^[0-9a-f]+$/.test(p)) return undefined; // BQL: ERROR, referencia mal formada
-  const ids = eje.orden.filter((id) => id.startsWith(p));
+  const ids = typeof eje.conPrefijo === 'function' ? eje.conPrefijo(p) : eje.orden.filter((id) => id.startsWith(p)); // índice del eje, mismo resultado
   return ids.length === 1 ? ids[0] : undefined; // ninguno: PENDIENTE; varios: ERROR (ambigua)
 }
 

@@ -525,7 +525,7 @@ Un evento declara dónde se anida: `sobre` es el id del registro en foco y `en` 
 eje.sobre(id, en?)  // → hijos directos de `id`, en orden de entrada; con `en`, solo los anclados en esa dirección
 eje.hilo(id)        // → [evento, su foco, el foco de su foco, …, génesis]
 eje.obtener(id)     // → evento o undefined
-eje.conPrefijo(p)   // → ids que empiezan por p, en orden de entrada (lo que resuelven «@id» y REF("id"))
+eje.conPrefijo(p)   // → ids que empiezan por p, en orden de entrada (lo que resuelven «@id», REF("id") y las aristas de fórmula de Scened)
 ```
 
 `sobre(id, en)` y `conPrefijo(p)` van por índices que el eje mantiene al añadir (por dirección de anclaje y por los cuatro primeros caracteres del id): devuelven lo mismo que filtrar los hijos o `eje.orden`, sin recorrerlos. Coste medido en `docs/notas/RENDIMIENTO.md`.
