@@ -216,13 +216,13 @@ const W = 400;
 // Columnas por grupo: las medidas de la confluencia, la décupla (a lo ancho) y las series de token.
 function geometria(compacto) {
   return compacto
-    ? { W: 200, columnas: [2, 1, 2], alto: [30, 30, 30], arriba: 2, margen: 9, cima: 9, amplitud: 5, rmax: 3, rotulo: false }
-    : { W, columnas: [4, 1, 4], alto: [52, 62, 52], arriba: 4, margen: 8, cima: 16, amplitud: 7, rmax: 3.6, rotulo: true };
+    ? { W: 200, columnas: [2, 1, 2], alto: [30, 30, 30], arriba: 2, margen: [9, 9, 9], cima: 9, amplitud: 5, rmax: 3, rotulo: false }
+    : { W, columnas: [4, 1, 4], alto: [52, 62, 52], arriba: 4, margen: [8, 24, 8], cima: 16, amplitud: 7, rmax: 3.6, rotulo: true };
 }
 
 /** Posición de la estrella de la caja k en una constelación de ancho cw con esquina (x0, y0): una bóveda simétrica. */
-function estrella(g, x0, y0, cw, k) {
-  const x = x0 + g.margen + (k * (cw - 2 * g.margen)) / 9;
+function estrella(g, x0, y0, cw, margen, k) {
+  const x = x0 + margen + (k * (cw - 2 * margen)) / 9;
   const y = y0 + g.cima + g.amplitud * (1 - Math.sin((Math.PI * k) / 9));
   return { x, y };
 }
@@ -249,7 +249,7 @@ function maquetar(medidas, g) {
     const gr = grupoDe(m.medida);
     if (anterior !== null && (gr !== anterior || col === g.columnas[anterior])) { y += g.alto[anterior]; col = 0; }
     const cw = g.W / g.columnas[gr];
-    celdas.push({ m, x0: col * cw, y0: y, cw, ch: g.alto[gr] });
+    celdas.push({ m, x0: col * cw, y0: y, cw, ch: g.alto[gr], margen: g.margen[gr] });
     col += 1;
     anterior = gr;
   }
@@ -283,10 +283,10 @@ export function svgCielo(datos, { compacto = false, anterior = null } = {}) {
   const { celdas, alto } = maquetar(medidas, g);
   const H = compacto ? 124 : Math.max(60, g.arriba + alto + 4);
   const partes = [];
-  for (const { m, x0, y0, cw, ch } of celdas) {
+  for (const { m, x0, y0, cw, ch, margen } of celdas) {
     const previa = previas?.get(m.medida);
     const nPrev = previa?.n ?? anterior?.base?.n ?? 0;
-    const pos = Array.from({ length: 10 }, (_, k) => estrella(g, x0, y0, cw, k));
+    const pos = Array.from({ length: 10 }, (_, k) => estrella(g, x0, y0, cw, margen, k));
     const estrellas = m.cajas.map((cuenta, k) => {
       const b = brillo(cuenta, n, g.rmax);
       const { x, y } = pos[k];

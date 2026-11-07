@@ -13,12 +13,13 @@ Todo es función pura que devuelve texto (SVG o HTML), sin DOM ni librerías; la
 
 ## Cielo (8)
 
-Las bases del 8 como constelaciones: **una por medida**, con **diez estrellas, una por caja**, en el orden de los valores sobre una bóveda simétrica. El **brillo** de cada estrella (área y opacidad) es proporcional a su recuento: cuántos registros de la cohorte caen en esa caja. El **foco** lleva un anillo en su caja en cada constelación; las líneas unen las estrellas encendidas.
+Las bases del 8 como constelaciones: **una por medida** de la confluencia (`tiempo.MEDIDAS`: posiciones, terminales, escritos, movimientos, identidades, profundidad, fórmulas resueltas y pendientes) y **una por serie de token** (T:hora, E:casa/EUR…), cada una con **diez estrellas, una por caja**, en el orden de los valores sobre una bóveda simétrica. El **brillo** de cada estrella (área y opacidad) es proporcional a su recuento: cuántos registros de la cohorte caen en esa caja. El **foco** lleva un anillo en su caja en cada constelación; las líneas unen las estrellas encendidas. Además, **la décupla**: diez estrellas, una por posición 0–9, cuántos de la cohorte la tienen desarrollada, con un anillo en cada posición que tiene el foco.
 
-- **Base escrita o al vuelo.** `datosCielo(eje, foco, { cohorte })` lee la base del 8 que resume la cohorte (`bases.leerBase` y `bases.situar`: el mismo registro y la misma profundidad). Si ese 8 no tiene base, la calcula al vuelo (`baseAlVuelo`: mide los registros a la misma altura que el foco y los funde con `medir` y `fundir`), no la escribe y la marca **«sin escribir»** (borde discontinuo, `data-escrita="false"`, sin `data-evento`). Para hermanos, la base al vuelo es `baseDe`; la general coincide con la que funden las bases escritas.
-- **Cohortes** (`hermanos`, `proyecto`, `general`): un selector en el orden fijo de `COHORTES`. Nunca se ordenan cohortes ni se asigna nivel: más estrellas es más registros en esa caja, no mejor. Las cajas se rotulan con su tramo de valores (`0`, `4–5`, `≥ 42`), no con los hitos del 8.
+- **Base escrita o al vuelo.** `datosCielo(eje, foco, { cohorte })` lee la base del 8 que resume la cohorte con `bases.leerBase` y `bases.situar` (hermanos: los hijos del 8 del padre; proyecto y general: el subárbol del 8 del proyecto o del génesis). Si ese 8 no tiene base, la calcula al vuelo (`baseAlVuelo`: los registros de `tiempo.comparables`, medidos con `bases.medir` y fundidos con `bases.unitaria` y `bases.fundir`, con los mismos cortes), no la escribe y la marca **«sin escribir»** (borde discontinuo, `data-escrita="false"`, sin `data-evento`). Escrita o al vuelo, los números son los mismos cuando las bases están al día: lo comprueban las pruebas con el ejemplo `compras-hermanas.mjs` (PR #44).
+- **Cohortes** (`hermanos`, `proyecto`, `general`): un selector en el orden fijo de `tiempo.ALCANCES`. Nunca se ordenan cohortes ni se asigna nivel: más estrellas es más registros en esa caja, no mejor. Las cajas se rotulan con su tramo de valores según los cortes guardados en cada bloque (`0`, `4–5`, `≥ 42`), no con los hitos del 8.
 - **Transición.** Al cambiar de cohorte, `svgCielo(datos, { anterior })` recompone la constelación: cada estrella crece o mengua desde su brillo en la cohorte anterior (`--s0`, `--o0`) y el anillo del foco se desplaza de su caja anterior a la nueva (`--dx0`, `--dy0`). Es un cambio de lectura, no un evento: lleva `data-transicion="cohorte"`.
-- **Celda 8 de Mapped:** las seis medidas del registro, sin rótulos; el botón pasa a la cohorte siguiente.
+- **Estado de la base:** quién la escribió y cuándo, su frescura (`sinNovedades`, hijos nuevos, bases más recientes, novedades más abajo), las anteriores, si mide al foco y en cuántas medidas ha cambiado el foco desde entonces (`situar`: `incluido`, `cambiadas`).
+- **Celda 8 de Mapped:** las ocho medidas de la confluencia, sin rótulos; el botón pasa a la cohorte siguiente.
 
 ## Camino (9)
 
@@ -46,10 +47,11 @@ Desde el foco, los pasos hacia la acción como una senda: `datosCamino(eje, foco
 ## Abiertos ([X] decidir VG)
 
 1. Cielo: rótulos de caja por tramo de valores en lugar de los hitos del 8 (los hitos se leerían como nivel).
-2. Cielo: la forma de la constelación (bóveda simétrica, igual para todas las medidas), el orden de las medidas (las seis del registro, la décupla de posiciones, las series) y que la celda 8 de Mapped solo muestre las seis del registro.
-3. Cielo: recomponer al cambiar de cohorte no es un efecto del catálogo, sino lectura.
-4. Camino: el catálogo nombra «previsualizar» a la consolidación vista desde el camino (V3 PV9: controles «previsualizar» y «ejecutar»); aquí el botón «previsualizar» no consolida, es una lectura que no escribe. ¿Debe consolidar?
-5. Camino: qué paso resuelve una fórmula pendiente (hoy, añadir un ocupante en su celda: corregir es añadir).
-6. Camino: el orden de la senda (desarrollar, fórmulas, propuesta, autorizar, ejecutar; lo ejecutado al final, junto a la acción) y cuántas ejecuciones se ven (tres).
-7. Camino: la previsualización de una posición sin desarrollar no lleva contenido (lo pone quien escribe): dice dónde se anclaría y con qué efecto.
-8. Ejemplos: en el ejemplo de la compra cada cohorte tiene pocos registros; el ejemplo `compras-hermanas.mjs` (PR #44) daría un cielo más poblado si entra como tercer ejemplo del frontend.
+2. Cielo: la forma de la constelación (bóveda simétrica, igual para todas las medidas), el orden (las de la confluencia, la décupla, las series) y que la celda 8 de Mapped solo muestre las de la confluencia.
+3. Cielo: sin base escrita, se calcula al vuelo la cohorte entera (lo que se leería del 8 si cada registro tuviera su base al día), no la base que escribiría ahora el registro (`bases.calcularBase`, que no cuenta lo que cuelga de un hijo sin base).
+4. Cielo: recomponer al cambiar de cohorte no es un efecto del catálogo, sino lectura.
+5. Camino: el catálogo nombra «previsualizar» a la consolidación vista desde el camino (V3 PV9: controles «previsualizar» y «ejecutar»); aquí el botón «previsualizar» no consolida, es una lectura que no escribe. ¿Debe consolidar?
+6. Camino: qué paso resuelve una fórmula pendiente (hoy, añadir un ocupante en su celda: corregir es añadir).
+7. Camino: el orden de la senda (desarrollar, fórmulas, propuesta, autorizar, ejecutar; lo ejecutado al final, junto a la acción) y cuántas ejecuciones se ven (tres).
+8. Camino: la previsualización de una posición sin desarrollar no lleva contenido (lo pone quien escribe): dice dónde se anclaría y con qué efecto.
+9. Ejemplos: en el ejemplo de la compra del frontend cada cohorte tiene pocos registros y ninguna base escrita; el ejemplo `compras-hermanas.mjs` (PR #44, con sus cosas y sus bases) daría un cielo escrito y más poblado si entra como tercer ejemplo del frontend.

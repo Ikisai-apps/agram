@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
 import { consolidar, autorizar, ejecutar, proponer, FABRICA } from '../src/motor.js';
-import { efectosDe, verEn } from '../src/efectos.js';
+import { efectosDe, verEn, MARCAS_EFECTO } from '../src/efectos.js';
 import { serializar } from '../src/persistencia.js';
 import {
   TIPOS, datosCamino, previsualizar, svgCamino, htmlCamino, htmlPrevia, actorDe, tituloPropuesta, copiar,
@@ -86,7 +86,10 @@ test('efectos: cada paso con el nombre del catálogo, en su mundo y visto desde 
   // Una posición sin desarrollar se ancla en su mundo: los hilos del pasado la ven entrar por la izquierda.
   const seis = d.pasos.find((p) => p.clave === 'desarrollar:6').efecto;
   assert.deepEqual([seis.tipo, seis.mundo, seis.nombre], ['anclado', 6, 'entra por la izquierda']);
-  assert.match(seis.decision, /^\[X\] decidir VG/);
+  assert.ok(seis.decisiones.length && seis.decisiones.every((d) => d.startsWith('[X] decidir VG')));
+  // Todo lo que el catálogo marca llega marcado: la fase lleva además la marca de su clase.
+  assert.ok(prop.decisiones.includes(MARCAS_EFECTO.claseFase));
+  assert.deepEqual(prop.decisionesCamino, verEn({ tipo: 'fase', fase: 'consolidado' }, 9).decisiones);
   // En el SVG, cada piedra lleva su efecto (el del camino si lo nombra) y lo que el corpus no nombra va marcado.
   const svg = svgCamino(d);
   assert.match(svg, /data-paso="propuesta" data-efecto="previsualizar" data-mundo="4"/);

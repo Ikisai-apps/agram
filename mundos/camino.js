@@ -36,12 +36,12 @@
 // - la previsualización de una posición sin desarrollar no lleva contenido
 //   (lo pone quien escribe): dice dónde se anclaría y con qué efecto.
 
-import { direccion, esReferencia } from '../src/btml.js';
+import { direccion, esReferencia, indicesDe } from '../src/btml.js';
 import { PV } from '../src/epocas.js';
 import { ocupantes } from '../src/encaje.js';
 import { evaluar, esFormula, desescapar } from '../src/bql.js';
 import * as motor from '../src/motor.js';
-import { efectosDe, verEn, nombreMundo, sobrio as lineasDeEfectos } from '../src/efectos.js';
+import { efectosDe, verEn, nombreMundo, sobrio as lineasDeEfectos, CATALOGO, MARCAS_EFECTO, SIN_NOMBRE } from '../src/efectos.js';
 import { Eje } from '../src/eje.js';
 
 /** Clases de paso, en el orden de la senda: del foco hacia la acción. */
@@ -71,8 +71,25 @@ export function describirEfecto(ef) {
   return {
     tipo: ef.tipo, ...(ef.fase ? { fase: ef.fase } : {}), mundo: ef.mundo, mundoNombre: nombreMundo(ef.mundo), celda: ef.celda,
     nombre: ef.nombre, enCamino: visto?.nombre ?? null,
-    ...(ef.decision ? { decision: ef.decision } : {}), ...(visto?.decision ? { decisionCamino: visto.decision } : {}),
+    decisiones: soloX(ef.decisiones), decisionesCamino: soloX(visto?.decisiones),
   };
+}
+
+/** Las marcas «[X] decidir VG» de una lista de decisiones del catálogo. */
+const soloX = (lista) => [...new Set((lista ?? []).filter((d) => typeof d === 'string' && d.startsWith('[X]')))];
+
+/**
+ * El efecto de la fase que registraría un paso del motor, sin evento: el
+ * catálogo solo reconoce la fase de un registro que ya está en el eje
+ * (efectos.efectosDe), así que se nombra como lo nombraría allí: en la
+ * fábrica del camino (el último dígito de `en`), con su marca de clase.
+ */
+function efectoFase(fase, en) {
+  const mundo = indicesDe(en).at(-1) ?? 0;
+  const ef = { tipo: 'fase', fase, mundo, celda: en };
+  const propio = verEn(ef, mundo);
+  const nombre = propio?.nombre ?? CATALOGO.tipos.fase.generico[fase];
+  return describirEfecto({ ...ef, nombre, decisiones: [...(propio?.decisiones ?? [SIN_NOMBRE]), MARCAS_EFECTO.claseFase] });
 }
 
 function efectoDe(eje, ev, cual) {
@@ -165,7 +182,7 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     const titulo = tituloPropuesta(eje, foco, camino);
     pasos.push({
       clave: 'propuesta', tipo: 'propuesta', titulo, elecciones, origenes: prop.origenes.map((o) => ({ ...o })),
-      efecto: efectoDe(eje, molde(foco, direccion([...camino, 4]), [titulo], { fase: 'consolidado' }), 'fase'),
+      efecto: efectoFase('consolidado', direccion([...camino, 4])),
       puede: { consolidar: Boolean(identidad && eje.saldos.has(identidad)) },
     });
   }
@@ -183,8 +200,8 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     const aut = pendiente ? null : motor.autorizacionesValidas(eje, c.id)[0];
     const tipo = pendiente ? 'autorizar' : 'ejecutar';
     const efecto = pendiente
-      ? efectoDe(eje, molde(c.id, motor.FABRICA, '==autorizo', { fase: 'autorizado' }), 'fase')
-      : efectoDe(eje, molde(c.id, motor.FABRICA, ['Ejecutado', { ref: c.id }, { ref: aut.id }], { fase: 'ejecutado' }), 'fase');
+      ? efectoFase('autorizado', motor.FABRICA)
+      : efectoFase('ejecutado', motor.FABRICA);
     const ejecutar = !pendiente && identidad === c.autor;
     const autorizar = pendiente && Boolean(identidad) && motor.puedeAutorizar(eje, identidad, c.id);
     const motivo = pendiente
@@ -370,8 +387,8 @@ export function svgCamino(datos, { compacto = false, nuevos = new Set(), previst
     } else if (p.tipo !== 'mas') {
       attrs.push(`data-paso="${escapar(p.clave)}"`);
       if (p.efecto) attrs.push(`data-efecto="${escapar(nombreEfecto(p))}"`, `data-mundo="${p.efecto.mundo}"`);
-      const decision = p.efecto?.decisionCamino ?? (p.efecto?.enCamino ? null : p.efecto?.decision);
-      if (decision) attrs.push(`data-decision="${escapar(decision)}"`);
+      const decisiones = p.efecto ? (p.efecto.enCamino ? p.efecto.decisionesCamino : p.efecto.decisiones) : [];
+      if (decisiones.length) attrs.push(`data-decision="${escapar(decisiones.join(' | '))}"`);
       if (p.evento) attrs.push(`data-evento="${escapar(p.evento)}"`);
       if (p.tipo === 'dado') { if (p.ejecucion) attrs.push(`data-ir="${escapar(p.ejecucion)}"`); } else attrs.push(`data-previsualizar="${escapar(p.clave)}"`);
       if (p.tipo === 'dado' && p.ejecucion && nuevos.has(p.ejecucion)) {
@@ -429,7 +446,8 @@ function botonesDe(p, identidad) {
 
 function htmlEfecto(e) {
   if (!e) return '';
-  const marca = e.decision || e.decisionCamino ? ` <span class="decidir" title="${escapar(e.decisionCamino ?? e.decision)}">[X]</span>` : '';
+  const marcas = [...new Set([...e.decisiones, ...e.decisionesCamino])];
+  const marca = marcas.length ? ` <span class="decidir" title="${escapar(marcas.join(' | '))}">[X]</span>` : '';
   const camino = e.enCamino && e.enCamino !== e.nombre ? ` · en el camino: <b>${escapar(e.enCamino)}</b>` : '';
   return `<div class="paso-efecto">efecto: <b>${escapar(e.nombre)}</b> · ${escapar(e.mundoNombre)} (${e.mundo})${camino}${marca}</div>`;
 }
