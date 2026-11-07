@@ -18,4 +18,11 @@ Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, 
 npm test
 ```
 
+El banco de rendimiento del núcleo (`bench/eje.mjs`, sin dependencias) construye ejes de 1.000, 5.000 y 20.000 registros con una semilla y mide escribir, validar, leer, BQL, confluir y guardar; los resultados comentados están en `docs/notas/RENDIMIENTO.md`:
+
+```sh
+npm run bench
+npm run bench -- --tamanos 1000 --solo ocupantes,bql
+```
+
 JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed y Sequenced sobre el eje de ejemplo); se publica en GitHub Pages en cada push a `main`: https://ikisai-apps.github.io/agram/ (dominio `agram.ikisai.com` pendiente del CNAME en DNS).

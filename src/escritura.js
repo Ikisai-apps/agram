@@ -13,7 +13,7 @@ import { RAIZ } from './evento.js';
 export function resolverRef(eje, prefijo) {
   const p = prefijo.replace(/^@/, '').toLowerCase();
   if (p.length < 4) throw new Error('referencia demasiado corta: ' + prefijo);
-  const ids = eje.orden.filter((id) => id.startsWith(p));
+  const ids = typeof eje.conPrefijo === 'function' ? eje.conPrefijo(p) : eje.orden.filter((id) => id.startsWith(p)); // índice del eje, mismo resultado
   if (ids.length === 0) throw new Error('referencia desconocida: ' + prefijo);
   if (ids.length > 1) throw new Error('referencia ambigua: ' + prefijo);
   return { ref: ids[0] };

@@ -371,11 +371,14 @@ function leerSlot(ctx, evId, indices) {
   }
 }
 
+/** Ids del eje que empiezan por p, en orden de entrada: por su índice (Eje.conPrefijo) o, si el eje no lo tiene, recorriéndolo. */
+const conPrefijo = (eje, p) => (typeof eje.conPrefijo === 'function' ? eje.conPrefijo(p) : eje.orden.filter((id) => id.startsWith(p)));
+
 /** Id de un evento a partir de un id o prefijo. Ninguno → PENDIENTE (puede llegar); varios o mal formado → ERROR. */
 function resolverId(ctx, v) {
   const p = String(v.valor ?? v).replace(/^@/, '').toLowerCase();
   if (!/^[0-9a-f]+$/.test(p)) throw new Parada('ERROR', 'referencia mal formada: ' + p);
-  const ids = ctx.eje.orden.filter((id) => id.startsWith(p));
+  const ids = conPrefijo(ctx.eje, p);
   if (ids.length === 1) return ids[0];
   if (ids.length > 1) throw new Parada('ERROR', 'referencia ambigua: ' + p);
   throw new Parada('PENDIENTE', 'referencia ausente del eje: ' + p);

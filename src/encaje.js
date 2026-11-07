@@ -85,9 +85,17 @@ export function ordenarPorEncaje(lista, { epoca } = {}) {
     .map((x) => x.o);
 }
 
+/** Hasta cuántos ocupantes marcarEmpates compara cada par (medido en el banco: por debajo de ~12, por pares es más rápido). */
+const POR_PARES = 12;
+
+/** Profundidades que la época declara ordinales (ninguna sin época o sin el gancho). */
+function ordinalesDe(epoca) {
+  return epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
+}
+
 /** El criterio del encaje sin la llegada: negativo si a va antes que b; 0 si el encaje no los separa. */
 function comparadorEncaje({ epoca } = {}) {
-  const ordinales = epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
+  const ordinales = ordinalesDe(epoca);
   const porDistancia = (va, vb) => {
     for (const k of ordinales) {
       const d = Math.abs(va[k]) - Math.abs(vb[k]);
@@ -104,11 +112,48 @@ function comparadorEncaje({ epoca } = {}) {
  * lleva `empate: true` si el encaje no lo separa de otro (mismo acuerdo de
  * prefijo y, en las profundidades que la época declare ordinales, misma
  * distancia), y `empatados`, con cuántos. Entre ellos solo decide la llegada.
+ * Coste lineal (banco de rendimiento, docs/notas/RENDIMIENTO.md): en vez de
+ * comparar cada par, cada ocupante lleva la clave de lo que el comparador
+ * mira (el acuerdo y, en cada profundidad ordinal, la distancia) y se cuentan
+ * las claves iguales. Dos ocupantes empatan si y solo si sus claves son
+ * iguales; una distancia que no es un número finito no empata con nada,
+ * igual que en la comparación (NaN o Infinity − Infinity no dan 0). Hasta
+ * POR_PARES ocupantes se compara cada par, que ahí sale más barato.
  */
 export function marcarEmpates(lista, { epoca } = {}) {
-  const porEncaje = comparadorEncaje({ epoca });
+  // Con pocos ocupantes (lo normal) comparar cada par es más barato que montar las claves; el resultado es el mismo.
+  if (lista.length <= POR_PARES) {
+    const porEncaje = comparadorEncaje({ epoca });
+    return lista.map((o) => {
+      const empatados = lista.filter((p) => p !== o && porEncaje(o, p) === 0).length;
+      return { ...o, empate: empatados > 0, empatados };
+    });
+  }
+  // Cuántas veces está cada objeto: uno no empata consigo mismo (`p !== o`).
+  const veces = new Map();
+  for (const o of lista) veces.set(o, (veces.get(o) ?? 0) + 1);
+  // Sin dos objetos distintos no hay nada que comparar (y no se lee ningún vector).
+  if (veces.size < 2) return lista.map((o) => ({ ...o, empate: false, empatados: 0 }));
+  const ordinales = ordinalesDe(epoca);
+  let unica = 0;
+  const claveDe = (o) => {
+    const partes = [acuerdo(o.vector)];
+    for (const k of ordinales) {
+      const d = Math.abs(o.vector[k]);
+      if (!Number.isFinite(d)) return '#' + unica++; // no empata con nadie
+      partes.push(d);
+    }
+    return partes.join(',');
+  };
+  const claves = new Map(); // una clave por objeto, aunque esté repetido
+  const cuenta = new Map(); // clave → cuántos de la lista la tienen
+  for (const [o, n] of veces) {
+    const k = claveDe(o);
+    claves.set(o, k);
+    cuenta.set(k, (cuenta.get(k) ?? 0) + n);
+  }
   return lista.map((o) => {
-    const empatados = lista.filter((p) => p !== o && porEncaje(o, p) === 0).length;
+    const empatados = cuenta.get(claves.get(o)) - veces.get(o);
     return { ...o, empate: empatados > 0, empatados };
   });
 }
