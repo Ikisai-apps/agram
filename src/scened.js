@@ -8,8 +8,10 @@
 // son aristas, y todo se cuenta. No es el render animado: aquí solo existe
 // el sobrio. Cambiar de modo no muta el contenido: la escena solo lee.
 //
-// Capacidad: lo que la escena trae se cuenta en posiciones (una décupla =
-// diez, como en lectura()). El máximo de Scened es duro y es el mismo para
+// Capacidad: lo que la escena trae se cuenta por lo que hay (VG, 7-11
+// noche, decisión 10.1): cada registro traído, una vez, por su contenido
+// real (modos.contenido: un terminal, una posición; cada ocupante de una
+// lista, uno), no diez por décupla. El máximo de Scened es duro y es el mismo para
 // representar y para emitir: maximo('scened') = 10000 posiciones (VG, 7-11
 // noche: «ese es el máximo de datos que se pueden representar»). La
 // capacidad de una escena se puede bajar, nunca subir por encima del
@@ -21,14 +23,14 @@
 // conseguido, el mínimo que intenta (1000) y el máximo (10000). No llegar
 // al mínimo no es error: se dice.
 
-import { esReferencia, esDireccion, ARIDAD } from './btml.js';
+import { esReferencia, esDireccion } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
-import { maximo as maximoDe, alcanceDe } from './modos.js';
-import { mapa } from './mapped.js';
+import { maximo as maximoDe, alcanceDe, contenido } from './modos.js';
+import { mapa, MAXIMO_REGISTROS } from './mapped.js';
 import { ejeTemporal, comparables } from './tiempo.js';
 import { esFormula, analizar } from './bql.js';
 
-/** Capacidad de Scened en posiciones: su máximo duro, maximo('scened') = mil décuplas × 10 (VG, 7-11 noche). La opción capacidad solo la baja. */
+/** Capacidad de Scened en posiciones con contenido: su máximo duro, maximo('scened') = 10000 (VG, 7-11 noche). La opción capacidad solo la baja. */
 export const CAPACIDAD = maximoDe('scened');
 
 /** Cómo elige focos escenaDe: las tres cohortes de §12 (tiempo.comparables) y el hilo hacia arriba. */
@@ -117,8 +119,9 @@ function compararClaves(a, b) {
  * aviso. Opciones: camino y epoca (los de cada mapa: todos los focos se miran
  * desde el mismo camino y la misma época; la época, por objeto o por
  * nombre), ahora (el presente de los ejes temporales), maximo (registros de
- * hilo, de hijos y de eje temporal que trae cada foco, como en mapa; entero
- * ≥ 0), capacidad (posiciones; por defecto CAPACIDAD, el máximo de
+ * hilo, de hijos y de eje temporal que trae cada foco, como en mapa; un
+ * entero de 0 a mapped.MAXIMO_REGISTROS), capacidad (posiciones con
+ * contenido; por defecto CAPACIDAD, el máximo de
  * Scened; un entero de 1 a CAPACIDAD: por encima, o Infinity, es un error)
  * y centro (un foco que se marca).
  *
@@ -138,7 +141,7 @@ function compararClaves(a, b) {
  * hash de un registro que ya existe).
  *
  * Cifras (VG, 7-11 noche): { conseguido, minimo, maximo, alMinimo,
- * necesario }. conseguido = posiciones en escena; minimo y maximo, los de
+ * necesario }. conseguido = posiciones con contenido en escena; minimo y maximo, los de
  * Scened (1000 y 10000); alMinimo, si llega al mínimo; necesario, las
  * posiciones que traería la escena entera sin corte (igual que conseguido
  * si no se corta). Con corte, el aviso dice «trae X de Y posiciones».
@@ -148,7 +151,9 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
   if (!(Number.isInteger(capacidad) && capacidad > 0 && capacidad <= CAPACIDAD)) {
     throw new Error('capacidad inválida: ' + capacidad + ' (un entero de 1 a ' + CAPACIDAD + ': el máximo de Scened es duro; se puede pedir menos, nunca más)');
   }
-  if (maximo !== undefined && !(Number.isInteger(maximo) && maximo >= 0)) throw new Error('maximo inválido: ' + maximo + ' (un entero ≥ 0)');
+  if (maximo !== undefined && !(Number.isInteger(maximo) && maximo >= 0 && maximo <= MAXIMO_REGISTROS)) {
+    throw new Error('maximo inválido: ' + maximo + ' (un entero de 0 a ' + MAXIMO_REGISTROS + ', como en Mapped: se puede pedir menos, nunca más)');
+  }
   const e = epocaDe(epoca);
   const avisos = [];
   const pedidos = [];
@@ -161,7 +166,17 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
   }
   if (centro !== undefined && !vistos.has(centro)) throw new Error('el centro no está entre los focos: ' + centro);
 
-  // Admisión por prioridad hasta la capacidad: cada registro traído cuenta una décupla, una sola vez.
+  // Admisión por prioridad hasta la capacidad: cada registro traído cuenta su contenido real, una sola vez.
+  const cuanto = new Map();
+  const sumaContenido = (ids) => {
+    let n = 0;
+    for (const x of ids) {
+      if (!cuanto.has(x)) cuanto.set(x, contenido(eje.obtener(x).payload));
+      n += cuanto.get(x);
+    }
+    return n;
+  };
+  let enEscena = 0; // posiciones con contenido de lo traído
   const opcionesMapa = { camino, epoca: e, ...(maximo !== undefined ? { maximo } : {}) };
   const opcionesTiempo = { camino, ahora, ...(maximo !== undefined ? { maximo } : {}) };
   const traidos = new Set();
@@ -178,16 +193,17 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
     for (const x of suyos) todos.add(x);
     if (corte) continue; // ya cortada: solo se cuenta lo que faltaría
     const nuevos = [...suyos].filter((x) => !traidos.has(x));
-    const necesita = (traidos.size + nuevos.length) * ARIDAD;
+    const necesita = enEscena + sumaContenido(nuevos);
     if (necesita > capacidad) {
-      corte = { capacidad, posicionesEnEscena: traidos.size * ARIDAD, necesitaba: necesita, foco: id, fuera: pedidos.slice(k) };
+      corte = { capacidad, posicionesEnEscena: enEscena, necesitaba: necesita, foco: id, fuera: pedidos.slice(k) };
       enCorte = k;
       continue;
     }
     for (const x of nuevos) traidos.add(x);
+    enEscena = necesita;
     admitidos.push({ id, mapa: m, tiempo: te, cadena });
   }
-  const cifras = { ...alcanceDe(traidos.size * ARIDAD, 'scened'), necesario: todos.size * ARIDAD };
+  const cifras = { ...alcanceDe(enEscena, 'scened'), necesario: sumaContenido(todos) };
   if (corte) {
     const { fuera } = corte;
     avisos.unshift(
@@ -287,7 +303,7 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
     enEscena: admitidos.length,
     fuera: corte ? corte.fuera.length : 0,
     decuplasEnEscena: traidos.size,
-    posicionesEnEscena: traidos.size * ARIDAD,
+    posicionesEnEscena: enEscena,
     capacidad,
     grupos: grupos.size,
     aristas: porTipo,

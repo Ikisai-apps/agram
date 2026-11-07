@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
-import { desdePointed, desdeSequenced, desdeMapped, escribirDesde, escribirSalida, alcanceDeRegistro, item, resolverRef, costeT } from '../src/escritura.js';
+import { desdePointed, desdeSequenced, desdeMapped, escribirDesde, escribirSalida, alcanceDeRegistro, proporcionDeRegistro, item, resolverRef, costeT } from '../src/escritura.js';
 import { resolver } from '../src/btml.js';
 
 test('ítems: texto, número y referencia por prefijo', async () => {
@@ -65,26 +65,31 @@ test('Mapped ancla en su posición lo que el foco no puede heredar, en vez de re
   assert.throws(() => desdeMapped(eje, [], compra.id), /vacía/);
 });
 
-test('la proporción del modo se respeta, como antes, y además el tope duro', async () => {
+// VG, 7-11 noche: la proporción propone, el máximo manda (decisión 10.3; antes, la proporción rechazaba).
+test('la proporción propone y se avisa; el máximo del modo manda y rechaza', async () => {
   const { eje, compra } = await ejemploCompra();
-  // La proporción rechaza como antes del 7-11 ([X] decidir VG si rechaza o solo informa).
-  await assert.rejects(
-    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: ['a', 'b'], t: '2026-11-07T14:00:00Z' }),
-    /^Error: pointed escribe como mucho 1 posiciones; este registro tiene 2$/,
-  );
+  const T = '2026-11-07T14:00:00Z';
+  // Fuera de la proporción, pero dentro del máximo: se escribe, y el aviso lo dice.
+  const dos = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: ['a', 'b'], t: T });
+  assert.deepEqual(proporcionDeRegistro(dos), {
+    posiciones: 2, rango: [1, 1], estado: 'por encima',
+    aviso: 'Pointed propone escribir 1 posición (la proporción sobre lo leído); esto tiene 2, por encima. No es error: la proporción propone, el máximo (10) manda.',
+  });
   const grande = Array(10).fill(Array(3).fill('x'));
-  await assert.rejects(
-    escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
-    /^Error: sequenced escribe como mucho 20 posiciones; este registro tiene 30$/,
-  );
-  const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
+  const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: T });
+  assert.equal(s.movimientos[0].cantidad, 30);
+  assert.equal(proporcionDeRegistro(s).estado, 'por encima');
+  const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: T });
   assert.equal(ev.movimientos[0].cantidad, 30);
-  // La proporción se mira primero: el mensaje es el de siempre aunque también se pase el tope (30 > 10 en Pointed), como en main.
+  assert.match(proporcionDeRegistro(ev).aviso, /^Mapped propone escribir de 250 a 333 posiciones .*esto tiene 30, por debajo\./);
+  // Dentro de la proporción, sin aviso.
+  assert.equal(proporcionDeRegistro(await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: 'servido', t: T })).aviso, null);
+  // El máximo manda: 30 > 10 en Pointed se rechaza, con el mensaje del tope.
   await assert.rejects(
-    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
-    /^Error: pointed escribe como mucho 1 posiciones; este registro tiene 30$/,
+    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: T }),
+    /^Error: Pointed emite como mucho 10 posiciones; este registro tiene 30$/,
   );
-  // Además, el tope duro: decide donde la proporción no rechaza (Scened no tiene proporción).
+  // El tope duro también donde no hay proporción (Scened).
   const diezMilUno = [Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z')))), 'una más'];
   await assert.rejects(
     escribirDesde(eje, { modo: 'scened', autor: 'huesped', sobre: compra.id, payload: diezMilUno, t: '2026-11-07T14:00:00Z' }),

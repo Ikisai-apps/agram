@@ -82,7 +82,11 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([entrega.ejecucion.payload[0], pagada.ejecucion.payload[0]], ['Plaza entregada', 'Pagada']);
   const texto = render(decupla(reserva));
   assert.match(texto, /^1 recursos\s+\[5 posiciones\]$/m);
-  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m); // VG, 7-11 noche: por hojas: [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1)
+  // VG, 7-11 noche: por hojas, la 4 es [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1). Y Pointed corta duro en 10
+  // (decisión 10.2): la reserva tiene 11 posiciones con contenido, así que 'ocupar', la última por índice, queda fuera y se avisa.
+  assert.match(texto, /^4 fábrica\s+\[1 posiciones\] \(cortada\)$/m);
+  assert.match(texto, /^aviso: Pointed corta en su máximo \(10 posiciones\): .*queda cortada la 4\. Trae 10 de 11 posiciones\.$/m);
+  assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // leer no muta el registro
 });
 
 test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capacidad, y la casa emite su serie por plaza y noche', async () => {

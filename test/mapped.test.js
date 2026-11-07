@@ -7,6 +7,7 @@ import { COSAS, ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemp
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { direccion } from '../src/btml.js';
 import { Eje } from '../src/eje.js';
+import { contenido } from '../src/modos.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
@@ -64,17 +65,54 @@ test('render sobrio: tres filas, eje y medidas', async () => {
   assert.throws(() => render(mapa(eje, compra.id), 'animado'), /no disponible/);
 });
 
-test('mapa: alcance con los tres números de Mapped; cuenta el foco, su hilo y sus hijos, diez por décupla (VG, 7-11 noche)', async () => {
+// VG, 7-11 noche (10.1): lo leído se cuenta por lo que hay; antes, diez por décupla traída.
+test('mapa: alcance con los tres números de Mapped; cuenta el contenido real del foco, su hilo y sus hijos', async () => {
   const { eje, compra } = await ejemploCompra();
   const m = mapa(eje, compra.id);
-  const traidos = new Set([m.foco, ...m.hilo.map((e) => e.id), ...m.hijos.map((e) => e.id)]);
-  assert.deepEqual(m.alcance, { conseguido: traidos.size * 10, minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
-  // Una cadena larga: el foco y diez de su hilo, 110 posiciones, por encima del mínimo.
+  const traidos = [eje.obtener(m.foco), ...m.hilo, ...m.hijos];
+  assert.deepEqual(m.alcance, { conseguido: traidos.reduce((n, e) => n + contenido(e.payload), 0), minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
+  assert.equal(m.alcance.conseguido, 19); // compra 9, menú 6, altas 3 y el génesis, un terminal, 1
+  assert.equal(m.corte, null);
+  assert.deepEqual(m.avisos, []);
+  // Una cadena larga: el foco y diez de su hilo, de diez posiciones cada uno: 110, por encima del mínimo.
   const T0 = '2026-11-06T20:00:00Z';
   const larga = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
   let sobre = larga.genesisId;
-  for (let i = 1; i <= 15; i++) sobre = (await larga.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'paso ' + i })).id;
+  for (let i = 1; i <= 15; i++) sobre = (await larga.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: ['paso ' + i, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']] })).id;
   assert.deepEqual(mapa(larga, sobre).alcance, { conseguido: 110, minimo: 100, maximo: 1000, alMinimo: true });
+});
+
+// VG, 7-11 noche (10.2): todos cortan duro, también Mapped, con el aviso de Scened.
+test('mapa: corta duro en 1000 posiciones (el foco, el hilo y los hijos, por ese orden), con aviso; pedir más es un error', async () => {
+  const T0 = '2026-11-06T20:00:00Z';
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
+  const lista = (n) => Array.from({ length: n }, (_, i) => 'o' + i);
+  // El foco, 1 + 300 = 301, y su hilo, el génesis, 1; los hijos, 301 cada uno: entran dos (904) y el tercero pasaría (1205).
+  const foco = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['foco', lista(300)] });
+  const hijos = [];
+  for (let i = 0; i < 4; i++) hijos.push(await eje.escribir({ autor: 'raiz', sobre: foco.id, t: T0, movimientos: [gastaT('raiz')], payload: ['hijo ' + i, lista(300)] }));
+  const m = mapa(eje, foco.id);
+  assert.deepEqual(m.hilo.map((e) => e.id), [eje.genesisId]); // el hilo entra antes que los hijos: el génesis, 1
+  assert.deepEqual(m.hijos.map((e) => e.id), [hijos[0].id, hijos[1].id]); // los hijos por llegada, mientras caben
+  assert.deepEqual(m.alcance, { conseguido: 301 + 1 + 301 + 301, minimo: 100, maximo: 1000, alMinimo: true });
+  assert.deepEqual(m.corte, { maximo: 1000, conseguido: 904, necesario: 301 + 1 + 4 * 301, foco: 'entero', fuera: [hijos[2].id, hijos[3].id] });
+  assert.match(m.avisos[0], /^Mapped corta en su máximo \(1000 posiciones\): entran el foco, su hilo y sus hijos, por ese orden, mientras caben; quedan fuera 2 registros: [0-9a-f]{8} [0-9a-f]{8}\. Trae 904 de 1506 posiciones\.$/);
+  const lineas = render(m).split('\n');
+  assert.equal(lineas[0], 'aviso: ' + m.avisos[0]); // arriba
+  assert.equal(lineas.at(-1), 'aviso: ' + m.avisos[0]); // y abajo
+  // Un foco que solo ya pasa del máximo entra recortado por índice, como en Pointed, y nada más.
+  const enorme = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['enorme', lista(1200)] });
+  const e = mapa(eje, enorme.id);
+  assert.equal(e.alcance.conseguido, 1000);
+  assert.deepEqual([e.hilo, e.hijos], [[], []]);
+  assert.equal(e.celdas[1].contenido.length, 999);
+  assert.equal(e.corte.foco, 'recortado');
+  assert.match(e.avisos[0], /el foco solo ya pasa del máximo y entra recortado por índice; queda fuera 1 registro: [0-9a-f]{8}\. Trae 1000 de 1202 posiciones\.$/);
+  assert.equal(eje.obtener(enorme.id).payload[1].length, 1200); // leer no muta el registro
+  // Pedir más registros de hilo e hijos de los que caben nunca es posible: error, como en Scened.
+  assert.equal(mapa(eje, foco.id, { maximo: 499 }).hijos.length, 2);
+  for (const maximo of [500, Infinity]) assert.throws(() => mapa(eje, foco.id, { maximo }), /maximo inválido: .* el máximo de Mapped es duro; se puede pedir menos, nunca más/);
+  for (const maximo of [-1, 1.5, '3']) assert.throws(() => mapa(eje, foco.id, { maximo }), /maximo inválido/);
 });
 
 test('celda 8: ocho() lee la base escrita del 8; sin ella, el respaldo al vuelo lo dice; sin puesto ni puntuación', async () => {
