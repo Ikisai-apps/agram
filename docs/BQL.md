@@ -370,6 +370,8 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
 | `=ACTUAL(1)` escrito en el slot `[1]` | ERROR `ciclo en …` (el primer candidato de `[1]` es la propia fórmula) |
 
+El primer candidato es el **más antiguo**: propios primero y escritos por orden de llegada (todos exactos, §7.4). Como corregir es añadir un ocupante (mapa §12), `ACTUAL(pv)` da el original y no la corrección, y BQL no tiene forma de quedarse con el último (§7.7, §11).
+
 **Dentro — `ACTUAL(k, …)`**: `ACTUAL()` es el valor del candidato iterado; `ACTUAL(k, …)` es el valor de su subposición `[…candidato.indices, k, …]`. Aquí `ACTUAL(1, 2)` significa la subposición `[1, 2]` del candidato, no «cantidad 2». Si la subposición no existe (p. ej. `ACTUAL(0)` sobre un escrito terminal), la parada es PENDIENTE y **la consulta entera queda PENDIENTE**: un dato faltante no se convierte en falso.
 
 ### 7.6 `FILTRAR(col, cond)`
@@ -399,6 +401,7 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 - Clave de orden según el tipo del resultado de `expr`: numero → su valor; magnitud → su **cantidad** (la unidad se ignora); texto → la cadena; cualquier otro → `formato(valor)`.
 - Ascendente con `<`/`>` de JavaScript; orden estable (los empates conservan el orden de entrada, que por defecto es el de encaje). Tercer argumento: el texto `desc` en cualquier combinación de mayúsculas invierte **el comparador**, no la lista: el orden sigue siendo estable y los empates conservan el orden de entrada también en descendente (`ORDENAR(BUSCAR(4), ACUERDO(), "desc")` deja delante el primer propio, no el último escrito). Cualquier otro valor se ignora en silencio (ascendente).
 - No tiene efectos: devuelve una colección nueva.
+- No invierte la llegada: con candidatos que empatan en la clave (todos los escritos exactos de una posición, ordenados por `ORIGEN()`, `ACUERDO()` o cualquier clave constante), `"desc"` deja el mismo orden. Así, «el escrito más reciente» no se puede elegir en BQL: `ELEGIR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))` da el más antiguo, y ni la llegada ni `t` son accesibles como clave (§11). Desde JavaScript, `valor.items.at(-1)` de la colección.
 
 | Fórmula (slot `[4]`; propinas 2, 5 y 1 EUR escritas en ese orden) | `texto` |
 |---|---|
@@ -654,6 +657,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | `BUSCAR` por dirección (decidido por VG, mapa §12, 7-11: un número es índice, camino exacto relativo al anfitrión; un texto de diez dígitos es dirección, absoluta en el registro, que nombra la colisión entera; igual que las referencias) | No implementado: `BUSCAR` solo recibe índices relativos al anfitrión (`BUSCAR("1000000000")` → `ERROR: BUSCAR espera índices 0–9`), devuelve con ellos la colisión entera de la dirección que forman (no el camino exacto) y solo mira ese evento. |
 | `BUSCAR` sobre todo el eje, o con la dirección que guarda la posición 5 | No recorre otros eventos que «declaren» la posición. |
 | Lectura absoluta dentro del propio registro desde una subdécupla (§7.1) | No hay hasta que exista `BUSCAR` por dirección (arriba); [X] decidir VG si `LOCAL` y `ACTUAL` la admiten también. |
+| Elegir el último por llegada (el escrito más reciente, la última corrección) o por `t` | No hay: `"desc"` no invierte los empates, no hay `ULTIMO` ni `INVERTIR`, y ni la llegada ni `t` son accesibles (§7.7). [X] decidir VG: que el desempate por llegada deje delante lo más reciente (corregir es añadir un ocupante), una función para el último, o que `"desc"` invierta también los empates. |
 | Valor del candidato elegido de una colección cualquiera (p. ej. de `ELEGIR(ORDENAR(…))`) | No hay función: `ACTUAL(pv)` da el valor del primero de `BUSCAR(pv)` en su orden por defecto; para otra colección, desde JavaScript `valor.items[0]`, o `SUMAR` de una colección de un ítem (§12.6, un defecto, no una vía). |
 | Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») y profundidades ordinales por época | El signo se calcula siempre y solo informa; ni signo ni distancia ordenan en la época 0. |
 | `ORDENAR` con varias claves; orden por encaje explícito | Una clave; el orden por encaje es el de `BUSCAR` por defecto. |

@@ -413,6 +413,11 @@ ya ejecutado
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
 
+Dos consecuencias de «ejecuta el autor» y «nadie mueve tokens ajenos»:
+
+- **Un intercambio no cabe en una ejecución.** En una reserva, las plazas (serie limitada de E, `docs/BTML.md` §2.4) las tiene quien las respalda o la habitación a quien se las dio, y el pago lo tiene la persona huésped: cada parte consolida y ejecuta lo suyo (la habitación o la casa entrega la plaza de cada noche; la persona huésped paga), sin atomicidad. Meter el pago en la ejecución de la otra parte se rechaza (`nadie mueve tokens ajenos: <huésped> no es el autor`). Si quien entrega no tiene ya el token de alguna noche (otra reserva solapada se lo llevó), el eje rechaza la ejecución entera: `evento rechazado: saldo insuficiente de E:<emisor>/<plaza>@<noche> en <autor>`. [X] decidir VG: la ejecución de dos partes mientras AARPIA no exista (mapa §12).
+- **Una ejecución rechazada no deja rastro.** El eje no guarda el evento rechazado, así que la consolidación sigue `AUTORIZADO` aunque ya no pueda ejecutarse: el estado no distingue «a la espera» de «imposible» (no hay rechazar ni caducar, §12).
+
 ## 6. Estado y lista de consolidaciones
 
 ```js
@@ -521,7 +526,7 @@ escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payload, t = ahora, contexto
 
 **Sequenced** escribe una hilera: se recortan los textos, se quitan los vacíos finales; vacía → `la hilera está vacía`; > 10 → `la hilera tiene más de 10 posiciones`; un vacío intermedio → `hueco en la posición <i>: rellénala o quita las siguientes`.
 
-**Mapped** escribe una décupla por PV: `celdas[i]` es la lista de textos de la posición `i` (una celda con un ítem guarda el ítem; con varios, un subarray). Las celdas vacías **anteriores a la última escrita** se heredan del foco por referencia `{ ref: foco, dir: direccion([...camino, i]) }` si el foco tiene esa posición en su payload (bajo `camino`); si no, `hueco en <i>: el foco no tiene esa posición; rellénala o quita las siguientes`. Todo vacío → `la décupla está vacía`. `heredadas` lista los índices heredados. Un foco terminal solo puede heredar la posición 0 (él mismo).
+**Mapped** escribe una décupla por PV: `celdas[i]` es la lista de textos de la posición `i` (una celda con un ítem guarda el ítem; con varios, un subarray). Las celdas vacías **anteriores a la última escrita** se heredan del foco por referencia `{ ref: foco, dir: direccion([...camino, i]) }` si el foco tiene esa posición en su payload (bajo `camino`); si no, `hueco en <i>: el foco no tiene esa posición; rellénala o quita las siguientes`. Todo vacío → `la décupla está vacía`. `heredadas` lista los índices heredados. Un foco terminal solo puede heredar la posición 0 (él mismo). La heredada de la posición 0 con `camino` vacío es `{ ref: foco, dir: '0000000000' }`, que alcanza el payload **entero** del foco, no su posición 0: la raíz y la posición 0 colisionan en esa dirección (`docs/BTML.md` §4.2). Una celda lejana (la 9 cuando el foco llega a la 4) no se ancla aparte: es un hueco y se rechaza; lo lejano por anclaje está en `docs/BTML.md` §5 (lo trae la PR #40).
 
 **`escribirDesde`** comprueba la proporción del modo (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`), añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }`. El registro se anida en `sobre` + `en` (raíz por defecto).
 
@@ -737,15 +742,16 @@ Pendiente: confluencia estadística del 8 (bases por medida y por posición), pr
 ## 9. Persistencia
 
 ```js
-VERSION = 1
-serializar(eje)                     // → { version: 1, exigirFirmas, eventos: evento[] }  solo los eventos, en orden
+VERSION = 2                         // desde la PR #35 (series de tokens): un eje de la versión 1 no se restaura
+serializar(eje)                     // → { version: 2, exigirFirmas, eventos: evento[] }  solo los eventos, en orden
 restaurar(datos)                    // → Promise<Eje>  Eje.desde(eventos): vuelve a validar ids, firmas y saldos; lanza si algo no cuadra
 guardarLocal(eje, clave = 'agram.eje')  // → boolean  localStorage.setItem(clave, JSON); false si lanza
 cargarLocal(clave = 'agram.eje')        // → Promise<Eje | null>  null si no hay nada o algo falla
 borrarLocal(clave = 'agram.eje')        // → void
+apartarLocal(clave = 'agram.eje', destino = clave + '.anterior')  // → boolean  copia lo guardado sin borrarlo (la app aparta así un eje de la versión 1)
 ```
 
-Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `datos de eje inválidos` (sin `version: 1`, sin eventos), `el primer evento debe ser el génesis`.
+Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `eje de la versión <n>; esta es la 2` (un guardado de otra versión, p. ej. anterior a las series), `datos de eje inválidos` (sin `version`, sin eventos), `el primer evento debe ser el génesis`. Lo mismo en `docs/BTML.md` §8.1.
 
 En Node no hay `localStorage`: `guardarLocal` devuelve `true` sin guardar nada (no lanza) y `cargarLocal` devuelve `null`. En el navegador, `localStorage` es una comodidad por visor. Pendiente: base de datos y anclaje a una cadena; la forma de los eventos no cambia con eso.
 
@@ -920,12 +926,13 @@ export function medir(eje, id): { posiciones, escritos, movimientos };
 export function comparar(eje, foco): { foco, posicion, de, comparables, hitos };
 
 // src/persistencia.js
-export const VERSION = 1;
+export const VERSION = 2;
 export function serializar(eje): { version, exigirFirmas, eventos };
 export async function restaurar(datos): Promise<Eje>;
 export function guardarLocal(eje, clave = 'agram.eje'): boolean;
 export async function cargarLocal(clave = 'agram.eje'): Promise<Eje | null>;
 export function borrarLocal(clave = 'agram.eje'): void;
+export function apartarLocal(clave = 'agram.eje', destino = clave + '.anterior'): boolean;
 ```
 
 Las anotaciones de tipo son documentación; el código es JavaScript puro sin dependencias. `Evento`, `Eje` y `Ocupante` están en `docs/BTML.md` §10; `Candidato` es un `Ocupante` más `estado` y `texto` (§2).
@@ -936,7 +943,8 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 |---|---|
 | AARPIA: autorización y ejecución reales, con sus agentes | Regla V0: autoriza quien tiene P > 0 sobre el registro y no es el autor; ejecuta el autor (§4.1). |
 | Las seis capacidades del motor (interpretar, resolver, posicionar, comparar, calcular, componer) como operaciones | No existen como funciones. |
-| Rechazar, revocar, caducar; varias autorizaciones (quórum); ejecución por tramos | Tres estados y una sola autorización válida basta; `ejecutar` toma la primera. |
+| Rechazar, revocar, caducar; varias autorizaciones (quórum); ejecución por tramos | Tres estados y una sola autorización válida basta; `ejecutar` toma la primera. Una ejecución que el eje rechaza deja la consolidación en `AUTORIZADO` (§5). |
+| Ejecución de varias partes (intercambio atómico: plaza por pago) | Cada movimiento sale del autor de la consolidación: una consolidación por parte, sin atomicidad (§5). [X] decidir VG (AARPIA). |
 | Recibos de terceros referenciados por la operación raíz (aceptación, despacho, recepción) | La evidencia es consolidación + autorización; nada más se enlaza. |
 | Cierre de una interacción en la interfaz | Fuera del motor. |
 | Mínimo de la proporción de escritura; proporción de Scened | Solo se comprueba el máximo; Scened escribe sin límite. |

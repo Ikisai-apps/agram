@@ -1,5 +1,7 @@
 # Prueba del extranjero
 
+Dos rondas. La primera (cuatro tareas: reserva con fórmulas, cinco consultas BQL, ocupantes de una dirección, ciclo del motor) ocupa las secciones 1–7 y su anexo. La **ronda 2** (cinco tareas nuevas: plazas como serie limitada, poder con ámbito, reputación a una cosa, Mapped con lo lejano anclado, BQL por orden de llegada) va al final, con su propio anexo.
+
 Nota de resultados · 7-11-2026 · Base: `main` en `8d73b44` (PR #30), Node 24.14.1. Rebasada después sobre `main` en `95e5396` (PR #41, con las series de tokens de la PR #35): las correcciones de los documentos, los ids y el ejemplo de la reserva (§2) están al día de las series; el anexo conserva lo que dio `8d73b44`. La prueba la propuso el mapa (§12, «Idea de fondo»): **un agente sin corpus, solo con las reglas y la gramática, escribe registros y fórmulas correctas.** Aquí el «extranjero» solo leyó `docs/BTML.md`, `docs/BQL.md` y `docs/MOTOR.md`; ni `src/`, ni `test/`, ni el mapa, ni el corpus. Después un conocedor del proyecto (que sí leyó `src/` y el mapa) calificó cada intento. Lo que es interpretación del calificador va marcado «lectura del calificador»; lo que falta por decidir, «[X] decidir VG».
 
 Rutas abreviadas: `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera del repositorio). Los cuatro scripts del extranjero vivían fuera del repositorio (`extranjero-<tarea>.mjs`, importando el repositorio por URL `file:///` absoluta); su código, su salida y sus dudas completas están en el anexo. Se volvieron a ejecutar sobre `8d73b44` para esta nota: la salida es idéntica a la que entregaron.
@@ -1210,5 +1212,619 @@ EXPLICACIÓN DE CADA RECHAZO (todos provocados a propósito; ninguno dejó rastr
 - Para 'mostrar la evidencia' faltó un ejemplo de lectura: cómo recorrer ej.payload[1]/[2] (referencias) y contexto.evidencia hacia atrás, y que el hilo de la ejecución pasa por la consolidación (no por la autorización, que es hermana en la fábrica). Lo deduje de los ejemplos; una frase lo habría evitado.
 - Cómo listar lo escrito en la fábrica de una consolidación para auditar (eje.sobre(cons.id, FABRICA)) y distinguir válidos de ruido: está en MOTOR §4.2 por partes, pero no hay una receta de 'mostrar estado y evidencia' de una consolidación.
 - El rol de 'descubrir' para un candidato escrito: caminoVisible devuelve [0] y texto 'Cuenta del menú', pero el candidato elegido se guarda como referencia a '0000000000' (todo el payload). Faltó decir que lo visible (PV0) y lo referenciado (el registro entero) no coinciden por diseño.
+
+</details>
+
+---
+
+## Ronda 2
+
+Nota de resultados · 7-11-2026 (tarde) · Base: la rama de esta PR rebasada sobre `main` en `95e5396` (PR #41, con las series de tokens de la PR #35), es decir, los documentos tal como quedan tras la ronda 1. Node 24.14.1. Cinco tareas nuevas, distintas de las de la ronda 1, cada una hecha como un programador que nunca ha visto el proyecto y solo tiene `docs/BTML.md`, `docs/BQL.md` y `docs/MOTOR.md`. Después, la calificación de un conocedor (que leyó `src/`, el mapa §12–§13 y las PR abiertas #21 y #40).
+
+**Cómo se hizo, y qué la diferencia de la ronda 1.** No había herramienta para lanzar un agente aparte, así que extranjero y calificador fueron el mismo agente, en dos fases seguidas: primero las cinco tareas sin abrir `src/` ni `test/`; después la calificación. Antes de la primera fase, el encargo obligaba a leer el mapa §12–§13 y la ronda 1, así que el extranjero ya conocía las decisiones de VG sobre plazas, titulares y delegación. Esas decisiones están también en `docs/BTML.md` §2.4, §2.5 y §5, así que la ventaja fue pequeña; donde pudo pesar se dice. Los scripts vivían fuera del repositorio (`extranjero2-<tarea>.mjs`, importando `file:///<repo>/src/index.js`); su código, su salida y las dudas del extranjero están en el anexo de esta ronda, al final.
+
+### R2.1 Resultado en una tabla
+
+| Tarea | ¿Corre a la primera? | ¿Resultado correcto? | ¿Razonamiento correcto? | Calificación |
+|---|---|---|---|---|
+| 1. Una casa emite una serie limitada de plazas; dos huéspedes reservan la misma plaza en noches solapadas | sí | sí: la reserva de ana se ejecuta (noches 13 y 14); la de bea se escribe, colisiona en la plaza 1.1 y su ejecución se rechaza (`saldo insuficiente de E:casa/hab1-cama1@2026-11-14 en hab-1`); su consolidación queda `AUTORIZADO` | sí; las plazas las conserva la habitación, como corrigió VG el 7-11 | **correcto, con dos reparos que vienen de los documentos** |
+| 2. Delegación de P con ámbito a un registro de dominio; autorizar dentro y fuera | sí | sí | sí | **correcto** |
+| 3. Reputación de una persona a una cosa; la cosa intenta pasarla | sí | sí: la cosa no la pasa, ni la devuelve, ni la consume | sí; anticipó el rechazo | **correcto** (el documento era ambiguo sobre «solo él la mueve») |
+| 4. Una décupla desde Mapped con celdas heredadas y una celda anclada lejos | no: importó un `btml` que no existe, y una fórmula cruzaba una referencia (los dos documentados) | sí, tras corregirse leyendo los documentos | ancló la celda lejana en la décupla; el mapa y la PR #40 la anclan en el foco | **correcto en BTML; el sitio del ancla, discutible** |
+| 5. BQL: el escrito más reciente usando ORIGEN y la llegada; otra que falle con INCOMPATIBLE | sí | (a) esa consulta no existe en BQL V0, y lo demostró con seis intentos; (b) sí | sí | **correcto; revela un hueco del lenguaje** |
+
+Ningún error de modelo. Los cinco escribieron registros válidos y usaron el motor, los tokens y BQL como el código espera, a partir de tres documentos. Esta vez los ejemplos de los documentos ya daban su salida (los 33 ejecutables), así que lo que falló fue lo que los documentos **no decían**: el `dir` de las referencias 5 y 6 de la reserva y que no alcanzan nada, qué es `rota`, qué quiere decir «solo él la mueve», los separadores reservados de la PR #41, los mensajes de P, `VERSION = 2` en MOTOR y «lo lejano por anclaje». Todo eso queda corregido en esta PR (R2.8).
+
+### R2.2 Tarea 1: plazas y dos reservas solapadas
+
+**Qué hizo.** Génesis de la casa (grupo, con minutos, euros y P sobre `genesis`); alta de ana y bea (personas) y de `hab-1` (cosa); la disponibilidad `['Disponibilidad 13-16 nov', ['Habitación 1', 'cama 1']]`, escrita por la casa, que en el **mismo evento** emite tres series de un token (`E:casa/hab1-cama1@2026-11-13`, `@14`, `@15`) y se las da a la habitación. Las dos reservas se anclan en la plaza (`sobre: disponibilidad`, `en: '1100000000'`), con las noches en el 7 (`['2026-11-13', '2026-11-14']` y `['2026-11-14', '2026-11-15']`) y 5 y 6 como referencia a 1.1.5 y 1.1.6 de la disponibilidad. Para cada reserva, la habitación consolida (con `proponer`), la casa autoriza y la habitación ejecuta moviendo el token de cada noche a quien reservó.
+
+**Salida clave.** `ocupantes de la plaza 1.1: propio:exacto · escrito:ana:exacto · escrito:bea:exacto`; `CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"))` desde `[1, 9]` de la disponibilidad → `2`; ana `EJECUTADO`; bea `evento rechazado: saldo insuficiente de E:casa/hab1-cama1@2026-11-14 en hab-1` y `AUTORIZADO`; plazas después: ana 13 y 14, bea ninguna, la habitación la 15. La habitación no puede emitir (`solo personas y grupos emiten: hab-1 es cosa`) ni cobrar en su ejecución (`nadie mueve tokens ajenos: bea no es el autor`).
+
+**Calificación del conocedor.**
+
+- Correcto según los invariantes y las decisiones del 7-11 (mapa §12): todo evento mueve T; emite un grupo; la serie es limitada (emitido 1 por noche); la cosa es titular, conserva y mueve, y no emite; la reserva se ancla en la plaza con las noches en su 7; las reservas colisionan y se ven todas; la segunda «se escribe y colisiona pero no se ejecuta (saldo insuficiente)», que es la frase del mapa. No calculó nunca el solape para decidir: lo impide el token de la noche 14, que existe una vez.
+- Bien visto: que, con «ejecuta el autor» y «nadie mueve tokens ajenos» (MOTOR §5), quien entrega las plazas tiene que ser quien las tiene, y que el pago no cabe en la misma ejecución (lo probó). Su modelo (la habitación conserva y entrega) sigue la corrección de VG sobre titulares («una persona emite los tokens de plaza de una habitación y se los da a la habitación; la habitación los conserva y los maneja»); el ejemplo Booking de la PR #21 aún hace que entregue la casa. Lectura del calificador: las dos formas son válidas en el código; la de la habitación es la más cercana a lo último decidido.
+- **Reparo 1 (del documento).** Las referencias 5 y 6 apuntan a 1.1.5 y 1.1.6 de la disponibilidad, que no existen: no alcanzan nada. El documento decía «referencia al foco (`{ ref: foco, dir }`)» sin `dir` y sin avisar. El ejemplo del calificador de la ronda 1 (§2, más arriba) hace lo mismo: `{ ref: disp.id, dir: '1150000000' }` sobre una plaza `['doble', '80 EUR']` sin posición 5. Y `seguir` no las marca `rota` (solo marca un id desconocido o 20 saltos), en contra de lo que decía BTML §6.2. Ahora BTML §3.3, §5 y §6.2 lo dicen, con un [X]: las noches dentro, con 5 y 6 así, o ancladas aparte en el 7 de la reserva («lo lejano por anclaje»).
+- **Reparo 2 (del motor V0).** Entregar la plaza y cobrar son dos consolidaciones sin atomicidad: si se cobra primero y la plaza ya no está, el dinero se ha ido. Es el hueco de AARPIA (mapa §12); la PR #21 lo marca igual. Ahora en MOTOR §5 y §12.
+- Menor: la cantidad de noches en 1.1 repite lo que dice el 7. La acción `'reservar'` en la 4 es texto (ronda 1, §5.2.3). Cómo se nombra la plaza dentro de la denominación no estaba en ningún sitio: [X] (la PR #21 propone el id de la habitación y la dirección de la plaza).
+
+### R2.3 Tarea 2: poder con ámbito
+
+**Qué hizo.** La casa (10 P sobre `genesis`) escribe dos dominios hermanos, Alojamiento y Restaurante, y la Habitación 1 colgada de Alojamiento; delega 3 P con ámbito Alojamiento a recepción. Ana consolida sobre cuatro registros: una reserva colgada de la Habitación 1, un pedido colgado de Restaurante, una nota colgada del alta que solo **referencia** Alojamiento, y Alojamiento mismo. Recepción delega 1 P con ámbito Habitación 1 a turno-noche. Intentos de ensanchar o salirse: ámbito `genesis`, ámbito Restaurante, un ámbito inexistente, P sin ámbito, emitir P.
+
+**Salida clave.** Recepción: poder 3 sobre la reserva y sobre Alojamiento, 0 sobre el pedido y sobre la nota; autoriza la reserva (`AUTORIZADO`) y no el pedido (`recepcion no tiene poder (P) sobre este registro`). Turno-noche: 1 sobre la reserva, 0 sobre Alojamiento. Los cinco intentos se rechazan con su motivo exacto. La casa no puede autorizar su propia consolidación sobre Alojamiento y recepción sí.
+
+**Calificación del conocedor.** Correcto en todo, y es justo lo que decidió VG (mapa §12, «Poder de recepción»): el dominio, la delegación con ese ámbito, autorizar lo que cuelga y delegar hacia abajo. Bien elegida la nota que solo referencia el dominio: enseña que el ámbito es el subárbol por `sobre` y que una referencia no transmite autoridad. Y el último caso enseña que delegar resuelve el defecto 15 de MOTOR §13 (quien tiene todo el poder no puede autorizarse a sí mismo). Sus dudas, fundadas, y ahora en BTML §2.5 y §7.4: los tres mensajes de P no estaban documentados, ni que el ámbito no sigue referencias, ni dónde escribir la delegación (da igual: lo fija el movimiento). Su pregunta por el id del génesis la comprobó el calificador: `{ token: 'P', ambito: eje.genesisId }` se acepta y cubre todo el eje, igual que `'genesis'`, con otra clave de saldo. Dos nombres para el mismo poder: [X].
+
+### R2.4 Tarea 3: reputación a una cosa
+
+**Qué hizo.** Bea (persona) emite 5 de `R:bea` y da 2 a `hab-1` en el mismo evento (una reseña). La habitación intenta pasar 1 a otra cosa, a una persona, de vuelta a bea, consumirla, emitir la suya y emitir «la de bea». Después: bea intenta retirarla, ana intenta emitir y pasar `R:bea`, y bea amplía su serie con 3 y da 1 a la habitación 2.
+
+**Salida clave.** Los cuatro movimientos de la cosa: `R no es fungible: solo la mueve su emisor bea`; emitir: `solo personas y grupos emiten: hab-1 es cosa` y `nadie emite en nombre de otro: bea no es el autor`; bea no la retira (mismo mensaje); serie final `{"emisor":"bea","emitido":8}`; el rastro, dos eventos de bea (+5, +3).
+
+**Calificación del conocedor.** Correcto: es la regla del código (`validarMovimiento`: en R, `de` es el emisor o `null`) y la del mapa («reputación = serie declarada por su emisor, ampliable solo por él y con rastro visible»; las cosas son titulares y no emiten). Lo que revela: la reputación dada es un **sello**: nadie la vuelve a mover, ni quien la tiene ni quien la dio. Encaja con «no fungible», pero la frase del mapa «la cosa conserva y maneja sus tokens» no vale para R, y nada permite retirar una reputación (¿una reseña falsa?): [X]. El documento decía «solo él la mueve», que se lee como «el emisor la mueve esté donde esté»; ahora BTML §2.2 y §2.4 dicen que solo sale de la cartera de su emisor, listan los mensajes y avisan de que el de «retirar» nombra al emisor aunque sea él el autor.
+
+### R2.5 Tarea 4: Mapped con heredadas y una celda lejana
+
+**Qué hizo.** Sobre una ficha de excursión con posiciones 0–4, ana escribe desde Mapped una décupla con 1 (`@<ficha>:1000000000` y `2`) y 3 (`ana`, `bea`); 0 y 2 se heredan por referencia (`heredadas [0,2]`, coste 6 minutos). Comprueba que meter la 9 en la misma décupla falla (`hueco en 5: el foco no tiene esa posición`), y escribe la 9 como registro Pointed anclado en `9000000000` **de la décupla**, más otro en `9870000000`. Lo lee con `ocupantes`, `arbol` y BQL: `BUSCAR(9)` encuentra el escrito, `LOCAL(9)` no (no está en el payload), `ACTUAL(9)` → `ver la cascada`; `LOCAL(1, 1) * REF("<ficha>", "1200000000")` → `30 EUR`.
+
+**Calificación del conocedor.**
+
+- Correcto en BTML: prefijo denso, celdas sin cambio heredadas por referencia (no copia), proporción de Mapped, coste por posición, lo lejano fuera de la décupla y anclado, exacto en su dirección.
+- Los dos tropiezos fueron de lectura, no de los documentos: BTML §0 decía que `btml.js` va en plano, y BQL §3 que un camino de índices no atraviesa una referencia. Los dos los arregló volviendo a leer el documento: los documentos funcionaron como referencia. Aun así, BTML §0 ahora dice qué módulos **no** son espacio de nombres y qué error da.
+- **Dónde se ancla lo lejano.** Los documentos no lo decían (ni la palabra). El extranjero ancló en la décupla; lectura del calificador sobre el mapa §13 («la celda i.j.k bajo el camino c se escribe en `direccion([...c, i, j, k])`»): en el **foco**, en la dirección de la celda bajo el camino, que es lo que hace la PR #40 (abierta). La diferencia no es de forma: con su elección, la ficha no ve la 9 (`CONTAR(BUSCAR(9))` desde la ficha → `0`) y la décupla sí; con la del mapa, al revés. Ahora BTML §5 lo describe y MOTOR §7.2 dice que `desdeMapped` de `main` aún no ancla.
+- Su duda 4 es una consecuencia de los ceros: la heredada de la 0 con camino vacío es `{ ref: foco, dir: '0000000000' }`, que alcanza el payload entero del foco, no su posición 0 (raíz y 0 colisionan, BTML §4.2). Coherente con «la dirección nombra la colisión entera», pero sorprende; ahora en MOTOR §7.2.
+
+### R2.6 Tarea 5: el escrito más reciente, y una INCOMPATIBLE
+
+**Qué hizo.** Una cena con `[4] = ['pagar', 'servir']` y tres propinas escritas en `4000000000`: 2 EUR (t 21:00), 5 EUR (t 21:30) y 1 EUR (t 21:10, que **llega la última**). Seis intentos de quedarse con el escrito más reciente por llegada: los escritos tal cual; `ELEGIR` (da el más antiguo); `ORDENAR(…, ORIGEN(), "desc")` y `ORDENAR(…, ACUERDO(), "desc")` (no invierten los empates); `ELEGIR(…, CONTAR(…))` (todos, en orden); `ORDENAR(…, ACTUAL(), "desc")` (el mayor, no el más reciente). Conclusión: en BQL no se puede; desde JavaScript, `items.at(-1)`. INCOMPATIBLE: `SUMAR(escritos) + 1` → `INCOMPATIBLE: magnitud en EUR y numero no se suman`, con una de control que suma `LOCAL(1, 2)` (misma unidad: `32 EUR`) y otra, `ELEGIR(LOCAL(4))` → `ELEGIR espera una colección, no array`.
+
+**Calificación del conocedor.** Correcto, y bien demostrado: cada intento tiene su porqué y todos están en los documentos (BQL §7.4, §7.7, §11). El calificador lo confirmó en el código: no hay función de llegada, de último ni de inversión en `main`, ni en la PR #36. Lo que revela es serio: el desempate por llegada pone delante **lo más antiguo** y no se puede leer al revés, mientras el mapa dice que «no existe modificar en sitio: corregir es añadir un ocupante». Así, `ACTUAL(pv)` lee el original y BQL no alcanza la corrección. Ahora BQL §7.5, §7.7 y §11 lo dicen, con un [X]. La INCOMPATIBLE elegida es la trampa de las unidades (ronda 1, §5.3); bien con su control.
+
+### R2.7 Lo que revela sobre el lenguaje
+
+1. **Dos capas que funcionan juntas.** La posición muestra (las dos reservas colisionan en la plaza y se ven) y el token decide (la noche 14 existe una vez). Es «las dos cosas a la vez» (mapa §12), y el extranjero lo resolvió sin una línea de lógica de solape: el lenguaje no excluye en la posición, raciona en la serie.
+2. **El motor V0 ejecuta una parte.** Toda operación con dos titulares (plaza por pago, compra con entrega) se parte en dos ciclos sin atomicidad, y la ejecución que el eje rechaza no deja rastro: la consolidación sigue `AUTORIZADO`. Es el hueco de AARPIA visto desde un caso.
+3. **El poder sigue el anclaje, no las referencias.** Un ámbito es un subárbol de hilos. Coherente con «referencias que no copian»: tampoco transmiten autoridad.
+4. **La reputación dada es un sello.** Nadie la vuelve a mover. Encaja con «no fungible», pero deja sin camino la retirada.
+5. **La llegada desempata pero no se lee.** BQL sabe lo primero, no lo último; con «corregir es añadir», lo que BQL lee por defecto es el original.
+6. **«Lo lejano por anclaje» tiene dos lecturas** (en la décupla o en el foco) y cambian quién ve la celda. Mientras el lenguaje no fije el sitio, lo elige quien escribe.
+7. **Los nombres vuelven por la denominación.** `hab1-cama1@2026-11-14` es léxico; la PR #21 la deriva de la posición (id de la habitación y dirección de la plaza), que es «posiciones en vez de nombres» (mapa §12, «Idea de fondo»).
+8. **Los mensajes de rechazo bastaron.** En las tres tareas de tokens cada rechazo nombró la regla exacta, y los que no estaban documentados se entendían solos (salvo el de R al retirar). Para un lector sin corpus, los mensajes del eje son parte de la gramática.
+9. **Los ceros, otra vez.** La heredada de la 0 alcanza el foco entero; `ocupantes` de la plaza cuenta el propio una vez porque la plaza es un terminal (con un array contaría dos, ronda 1 §5.1).
+
+### R2.8 Lo que faltó en los documentos, y cómo queda en esta PR
+
+| Documento | Lo que faltaba o inducía a error | Lo que dice ahora |
+|---|---|---|
+| BTML §0 | (el extranjero importó `btml`; el documento ya decía «en plano») | qué módulos no son espacio de nombres y el error que da |
+| BTML §2.2 | los separadores reservados de la PR #41 (`\|`, `:`, `/` en identidades, denominaciones, ámbitos y escalas) no estaban; «R: solo él la mueve», ambiguo; errores de `validarMovimiento` incompletos | la regla de los separadores (una denominación con hora se rechaza), R con `de` = emisor o `null`, la tabla entera de errores |
+| BTML §2.4 | qué quiere decir «no fungible» para quien recibe R; el rastro sin función; cómo se nombra la plaza | un párrafo y dos [X] |
+| BTML §2.5 | dónde se escribe la delegación; que el ámbito no sigue referencias; los mensajes de P; el id del génesis como ámbito | cuatro puntos, uno con [X] |
+| BTML §3.3, §6.2 | «`rota`: `true` si una referencia no llegó a contenido» (falso para una posición que el evento no desarrolla) | solo id desconocido o 20 saltos; una posición sin desarrollar da `undefined` sin `rota` |
+| BTML §5 | 5 y 6 de la reserva sin `dir` y sin decir que no alcanzan nada; «lo lejano por anclaje» sin describir | el `dir` del camino del anclaje, el aviso y un [X]; un párrafo sobre lo lejano (lectura del calificador, PR #40) |
+| BTML §7.4, §11 | los rechazos de P | filas nuevas |
+| BQL §7.5, §7.7, §11 | que `ACTUAL` da lo más antiguo y que lo último no se puede elegir | notas y un [X] |
+| MOTOR §5, §12 | la ejecución de dos partes; la ejecución rechazada sin rastro | un párrafo y filas |
+| MOTOR §7.2 | la heredada de la 0; la celda lejana | una nota |
+| MOTOR §9, §11 | `VERSION = 1` (es 2 desde la PR #35), sin el error de versión ni `apartarLocal` | corregido, como en BTML §8.1 |
+
+Comprobado: los 33 ejemplos ejecutables de los tres documentos (31 con `node -e` y los dos completos) dan exactamente la salida escrita, antes y después de estos cambios; `node --test` en verde. Sin cambios de código.
+
+### R2.9 [X] decidir VG (ronda 2)
+
+Solo lo que el mapa no decide.
+
+1. Dónde van las noches de la reserva: dentro de su payload, con 5 y 6 que no alcanzan nada, o ancladas aparte en el 7 de la reserva (lo lejano por anclaje).
+2. La ejecución de dos partes (plaza por pago) sin atomicidad mientras no exista AARPIA; y si una ejecución rechazada debe dejar rastro (un estado de rechazo). La PR #21 pide lo primero también.
+3. Cómo se nombra la plaza dentro de la denominación (también en la PR #21).
+4. Si el emisor puede retirar reputación dada, o quien la recibe rechazarla.
+5. El id del génesis como ámbito de P: rechazarlo o tratarlo como `genesis`.
+6. Cómo lee BQL lo más reciente: desempate por llegada al revés (lo último delante), una función para el último, o `"desc"` que invierta también los empates.
+
+## Anexo de la ronda 2: los cinco intentos tal como se entregaron
+
+Código, salida y dudas, sin editar salvo la ruta del repositorio (`file:///<repo>/`). Los ids son los que da `main` en `95e5396` con los `t` fijos de cada script; se ejecutan con `node extranjero2-<tarea>.mjs` desde cualquier carpeta.
+
+### Tarea 1: plazas como serie limitada y dos reservas solapadas
+
+<details>
+<summary>Código (`extranjero2-plazas.mjs`)</summary>
+
+```js
+// Prueba del extranjero, ronda 2, tarea 1: plazas como serie limitada y dos reservas solapadas.
+// Fuentes usadas: docs/BTML.md §2.2-§2.4 (series de E, emisión, cosas titulares), §5 (anclaje de la reserva en la plaza,
+// noches en el 7, 5 y 6 como referencia al foco), §6 (ocupantes); docs/MOTOR.md §1-§5 (ciclo, ejecuta el autor,
+// cada movimiento sale del autor), §2.1 (proponer); docs/BQL.md §7.4 (BUSCAR, ORIGEN).
+import { Eje, encaje, bql, motor, salida } from 'file:///<repo>/src/index.js';
+
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
+const t = (dia, hora) => `2026-11-${dia}T${hora}:00Z`;
+const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const daT = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa', a });
+const daEUR = (a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de: 'casa', a });
+const NOCHES = ['2026-11-13', '2026-11-14', '2026-11-15'];
+const plaza = (noche) => 'hab1-cama1@' + noche; // denominación: una plaza y una noche
+const clavePlaza = (noche) => 'E:casa/' + plaza(noche);
+
+// 1. Génesis: la casa es un grupo (puede emitir), con minutos, euros y poder sobre todo el eje.
+const eje = await Eje.genesis({
+  identidad: 'casa', tipo: 'grupo', t: t('10', '09:00'), foco: 'Casa rural de ejemplo',
+  emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', denominacion: 'EUR', cantidad: 1000 }, { token: 'P', cantidad: 5, ambito: 'genesis' }],
+});
+
+// 2. Altas: dos personas huéspedes y la habitación (una cosa: titular que no emite).
+const alta = await eje.escribir({
+  autor: 'casa', sobre: eje.genesisId, t: t('10', '09:05'),
+  movimientos: [gasta('casa'), daT('ana', 60), daT('bea', 60), daT('hab-1', 60), daEUR('ana', 300), daEUR('bea', 300)],
+  payload: ['Altas', ['ana', 'bea', 'hab-1']],
+  contexto: { tipos: { ana: 'persona', bea: 'persona', 'hab-1': 'cosa' } },
+});
+
+// 3. Disponibilidad: la casa la escribe y en el mismo evento emite la serie limitada de la plaza 1.1
+//    (un token por plaza y noche) y se la da a la habitación, que la conserva.
+const emisiones = NOCHES.flatMap((n) => [
+  { token: 'E', emisor: 'casa', denominacion: plaza(n), cantidad: 1, de: null, a: 'casa' },
+  { token: 'E', emisor: 'casa', denominacion: plaza(n), cantidad: 1, de: 'casa', a: 'hab-1' },
+]);
+const disp = await eje.escribir({
+  autor: 'casa', sobre: alta.id, t: t('10', '09:10'),
+  movimientos: [gasta('casa'), ...emisiones],
+  payload: ['Disponibilidad 13-16 nov', ['Habitación 1', 'cama 1']], // la plaza es la 1.1
+});
+console.log('series:', eje.series().filter((s) => s.token === 'E' && s.denominacion !== 'EUR').map((s) => s.clave + ' ' + s.emitido).join(' · '));
+console.log('plazas de hab-1:', eje.recursos('hab-1').map((r) => r.denominacion + '=' + r.cantidad).join(' '));
+
+// 4. Las dos reservas, ancladas EN LA PLAZA (sobre: disponibilidad, en: 1.1), noches en el 7 de la reserva,
+//    5 y 6 como referencia al foco (camino del anclaje: 1.1.5 y 1.1.6). Prefijo denso, sin «no aplicable».
+const EN_PLAZA = '1100000000';
+const intentoMapped = (() => { const c = []; c[1] = ['@' + disp.id.slice(0, 8) + ':1100000000']; c[7] = ['2026-11-13']; try { return corto(salida.desdeMapped(eje, c, disp.id, [1, 1])); } catch (e) { return e.message; } })();
+console.log('desdeMapped con camino [1, 1] sobre la plaza:', intentoMapped);
+const reserva = (quien, noches, hora) => eje.escribir({
+  autor: quien, sobre: disp.id, en: EN_PLAZA, t: t('11', hora), movimientos: [gasta(quien)],
+  payload: [
+    'Reserva de ' + quien,                       // 0 representación
+    [{ ref: disp.id, dir: EN_PLAZA }, noches.length], // 1 recursos: la plaza (por referencia) y cuántas noches
+    'sin mascotas',                              // 2 criterios
+    [quien, 'casa'],                             // 3 comunicación
+    'reservar',                                  // 4 fábrica
+    { ref: disp.id, dir: '1150000000' },          // 5 sin contenido propio: referencia al foco
+    { ref: disp.id, dir: '1160000000' },          // 6 ídem
+    noches,                                      // 7 futuro: las noches
+  ],
+});
+const ra = await reserva('ana', ['2026-11-13', '2026-11-14'], '10:00');
+const rb = await reserva('bea', ['2026-11-14', '2026-11-15'], '10:05');
+
+// 5. La colisión: las dos reservas son ocupantes de la plaza.
+console.log('ocupantes de la plaza 1.1:', encaje.ocupantes(eje, disp.id, [1, 1]).map((o) => o.origen + (o.autor ? ':' + o.autor : '') + ':' + o.signo).join(' · '));
+console.log('BQL desde [1, 9] de la disponibilidad:', bql.consultar(eje, disp.id, [1, 9], 'CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"))').texto, 'reservas en la plaza');
+console.log('5 de la reserva de ana:', bql.evaluar(eje, ra.id, [5]).texto, '· leída en fórmula:', bql.consultar(eje, ra.id, [9], 'LOCAL(5)').texto, '· seguida:', JSON.stringify(encaje.seguir(eje, ra.payload[5]).contenido), encaje.seguir(eje, ra.payload[5]).rota);
+const solape = ra.payload[7].filter((n) => rb.payload[7].includes(n));
+console.log('noches solapadas (calculado en JS):', solape.join(', '));
+
+// 6. El ciclo. Las plazas las tiene hab-1, y en la ejecución todo movimiento sale del autor (MOTOR §5),
+//    así que consolida y ejecuta la habitación; autoriza la casa (P sobre genesis, no es la autora).
+async function asignar(res, quien, hora) {
+  const p = motor.proponer(eje, res.id);
+  const cons = await motor.consolidar(eje, { autor: 'hab-1', foco: res.id, t: t('11', hora), titulo: 'Asignar plaza a ' + quien, elecciones: p.elecciones });
+  await motor.autorizar(eje, { autorizante: 'casa', consolidacion: cons.id, t: t('11', hora) });
+  const movimientos = res.payload[7].map((n) => ({ token: 'E', emisor: 'casa', denominacion: plaza(n), cantidad: 1, de: 'hab-1', a: quien }));
+  try {
+    await motor.ejecutar(eje, { autor: 'hab-1', consolidacion: cons.id, t: t('11', hora), titulo: 'Plaza asignada', movimientos });
+  } catch (e) { console.log('  ejecutar para ' + quien + ':', e.message); }
+  console.log('  ' + quien + ':', motor.estadoDe(eje, cons.id), '· elecciones', corto(p.elecciones));
+  return cons;
+}
+console.log('ciclo:');
+const ca = await asignar(ra, 'ana', '11:00');
+const cb = await asignar(rb, 'bea', '11:10');
+
+// 7. Saldos de plazas después.
+const plazasDe = (id) => NOCHES.map((n) => n.slice(8) + ':' + eje.saldo(id, clavePlaza(n))).join(' ');
+console.log('plazas → ana', plazasDe('ana'), '| bea', plazasDe('bea'), '| hab-1', plazasDe('hab-1'));
+console.log('emitido de cada noche:', NOCHES.map((n) => eje.serie(clavePlaza(n)).emitido).join(' '), '· la casa no puede emitir más a nombre de otro ni la habitación emitir:');
+await eje.escribir({ autor: 'hab-1', sobre: disp.id, t: t('11', '12:00'), movimientos: [gasta('hab-1'), { token: 'E', emisor: 'hab-1', denominacion: plaza('2026-11-14'), cantidad: 1, de: null, a: 'hab-1' }], payload: 'otra plaza' }).catch((e) => console.log('  ' + e.message));
+
+// 8. ¿Podría la habitación cobrar en la misma ejecución? (el pago es de la huésped, no suyo)
+const cc = await motor.consolidar(eje, { autor: 'hab-1', foco: rb.id, t: t('11', '12:10'), titulo: 'Asignar y cobrar', elecciones: { 1: { ref: rb.id, dir: '7000000000' } } });
+await motor.autorizar(eje, { autorizante: 'casa', consolidacion: cc.id, t: t('11', '12:10') });
+await motor.ejecutar(eje, { autor: 'hab-1', consolidacion: cc.id, t: t('11', '12:10'), movimientos: [{ token: 'E', emisor: 'casa', denominacion: plaza('2026-11-15'), cantidad: 1, de: 'hab-1', a: 'bea' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 80, de: 'bea', a: 'casa' }] }).catch((e) => console.log('pago en la misma ejecución:', e.message));
+console.log('consolidaciones de la reserva de bea:', motor.consolidaciones(eje, rb.id).map((c) => c.titulo + '=' + c.estado).join(' · '));
+```
+
+</details>
+
+<details>
+<summary>Salida</summary>
+
+```text
+series: E:casa/hab1-cama1@2026-11-13 1 · E:casa/hab1-cama1@2026-11-14 1 · E:casa/hab1-cama1@2026-11-15 1
+plazas de hab-1: hab1-cama1@2026-11-13=1 hab1-cama1@2026-11-14=1 hab1-cama1@2026-11-15=1
+desdeMapped con camino [1, 1] sobre la plaza: hueco en 2: el foco no tiene esa posición; rellénala o quita las siguientes
+ocupantes de la plaza 1.1: propio:exacto · escrito:ana:exacto · escrito:bea:exacto
+BQL desde [1, 9] de la disponibilidad: 2 reservas en la plaza
+5 de la reserva de ana: → bc80ade8 · leída en fórmula: PENDIENTE: posición sin desarrollar · seguida: undefined undefined
+noches solapadas (calculado en JS): 2026-11-14
+ciclo:
+  ana: EJECUTADO · elecciones {"1":{"ref":"3c278426","dir":"1000000000"},"2":{"ref":"3c278426","dir":"2000000000"},"3":{"ref":"3c278426","dir":"3000000000"},"4":{"ref":"3c278426","dir":"4000000000"}}
+  ejecutar para bea: evento rechazado: saldo insuficiente de E:casa/hab1-cama1@2026-11-14 en hab-1
+  bea: AUTORIZADO · elecciones {"1":{"ref":"f25471fd","dir":"1000000000"},"2":{"ref":"f25471fd","dir":"2000000000"},"3":{"ref":"f25471fd","dir":"3000000000"},"4":{"ref":"f25471fd","dir":"4000000000"}}
+plazas → ana 13:1 14:1 15:0 | bea 13:0 14:0 15:0 | hab-1 13:0 14:0 15:1
+emitido de cada noche: 1 1 1 · la casa no puede emitir más a nombre de otro ni la habitación emitir:
+  evento rechazado: solo personas y grupos emiten: hab-1 es cosa
+pago en la misma ejecución: evento rechazado: nadie mueve tokens ajenos: bea no es el autor
+consolidaciones de la reserva de bea: Asignar plaza a bea=AUTORIZADO · Asignar y cobrar=AUTORIZADO
+```
+
+</details>
+
+<details>
+<summary>Dudas</summary>
+
+1. ¿Quién ejecuta? MOTOR §5 dice que ejecuta el autor de la consolidación y que cada movimiento sale del autor. Las plazas las tiene la habitación (BTML §2.4: la cosa conserva y mueve), así que consolida y ejecuta la habitación y autoriza la casa. La persona huésped no puede recibir las plazas desde una ejecución suya, y la habitación no puede cobrar en la suya (lo probé: `nadie mueve tokens ajenos`). El pago tendría que ser otra consolidación, y nada une las dos.
+2. ¿Cómo nombro la plaza en la denominación? El ejemplo de BTML §2.4 usa `cama@2026-11-13` con dos tokens para dos camas. Con una plaza concreta puse `hab1-cama1@<noche>`; no encontré regla.
+3. «5 y 6: referencia al foco (`{ ref: foco, dir }`)»: ¿qué `dir`? Usé el camino del anclaje (1.1.5 y 1.1.6), como `consolidar` con `camino`. La disponibilidad no tiene esas posiciones: `LOCAL(5)` da PENDIENTE y `seguir` da `contenido` undefined con `rota` sin definir, aunque BTML §6.2 dice que `rota` es `true` si la referencia no llegó a contenido. `desdeMapped` con `camino [1, 1]` se niega (`hueco en 2`). ¿La regla era otra?
+4. El solape de noches no se puede calcular en BQL (no hay intersección); lo saqué en JS solo para enseñarlo. Lo que impide la segunda reserva es el token de la noche 14, que existe una vez.
+5. La consolidación de bea se queda en `AUTORIZADO`: no hay rechazar, y la ejecución fallida no queda escrita en ningún sitio.
+6. Las noches del 7 son texto ISO; nada las interpreta (MOTOR §8.2 solo mira la 7 como `declarado`).
+
+</details>
+
+### Tarea 2: delegación de P con ámbito y autorización dentro y fuera
+
+<details>
+<summary>Código (`extranjero2-poder.mjs`)</summary>
+
+```js
+// Prueba del extranjero, ronda 2, tarea 2: delegación de P con ámbito a un registro de dominio;
+// autorización dentro y fuera del ámbito.
+// Fuentes usadas: docs/BTML.md §2.2 (P exige ámbito), §2.3 (solo el génesis emite P), §2.5 (P por delegación,
+// poderSobre, ambitosQueCubren), §7.1; docs/MOTOR.md §4 (regla V0: P > 0 sobre el hilo y no ser el autor).
+import { Eje, motor } from 'file:///<repo>/src/index.js';
+
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
+const t = (hora) => `2026-11-12T${hora}:00Z`;
+const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const daT = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa', a });
+const P = (cantidad, ambito, de, a) => ({ token: 'P', cantidad, ambito, de, a });
+const nombre = new Map();
+const n = (id) => nombre.get(id) ?? id.slice(0, 8);
+
+const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', t: t('08:00'), foco: 'Casa rural de ejemplo',
+  emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 10, ambito: 'genesis' }] });
+nombre.set(eje.genesisId, 'génesis');
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('08:05'),
+  movimientos: [gasta('casa'), daT('recepcion', 60), daT('turno-noche', 60), daT('ana', 60)],
+  payload: ['Altas', ['recepcion', 'turno-noche', 'ana']], contexto: { tipos: { recepcion: 'persona', 'turno-noche': 'persona', ana: 'persona' } } });
+nombre.set(alta.id, 'alta');
+
+// Dos registros de dominio de la casa, hermanos: Alojamiento y Restaurante. Bajo Alojamiento, la habitación 1.
+const escribe = async (autor, sobre, payload, nom, hora, extra = []) => { const ev = await eje.escribir({ autor, sobre, t: t(hora), movimientos: [gasta(autor), ...extra], payload }); nombre.set(ev.id, nom); return ev; };
+const aloj = await escribe('casa', alta.id, ['Alojamiento', ['Habitación 1', 'Habitación 2']], 'Alojamiento', '08:10');
+const rest = await escribe('casa', alta.id, ['Restaurante', ['Menú del día']], 'Restaurante', '08:11');
+const hab1 = await escribe('casa', aloj.id, ['Habitación 1', ['cama 1']], 'Habitación 1', '08:12');
+
+// Delegación: la casa da 3 P con ámbito Alojamiento a recepción (en un evento sobre el propio dominio).
+await escribe('casa', aloj.id, 'recepción decide sobre Alojamiento', 'delegación casa→recepción', '08:20', [P(3, aloj.id, 'casa', 'recepcion')]);
+console.log('casa', corto(eje.poderes('casa')), '· recepción', corto(eje.poderes('recepcion')));
+console.log('ámbitos que cubren Habitación 1:', eje.ambitosQueCubren(hab1.id).map(n).join(' > '));
+
+// Lo que se autoriza: consolidaciones de ana sobre registros dentro y fuera de Alojamiento.
+const reserva = await escribe('ana', hab1.id, ['Reserva de ana', ['cama 1', 2]], 'reserva (cuelga de Habitación 1)', '09:00');
+const pedido = await escribe('ana', rest.id, ['Pedido de ana', ['Menú del día', 1]], 'pedido (cuelga de Restaurante)', '09:01');
+const nota = await escribe('ana', alta.id, ['Nota que cita Alojamiento', { ref: aloj.id, dir: '1000000000' }], 'nota (referencia a Alojamiento, cuelga del alta)', '09:02');
+const consolida = async (foco) => { const c = await motor.consolidar(eje, { autor: 'ana', foco: foco.id, t: t('09:10'), titulo: 'Consolidación sobre ' + n(foco.id), elecciones: { 1: 'sí' } }); nombre.set(c.id, 'cons. sobre ' + n(foco.id)); return c; };
+const cR = await consolida(reserva), cP = await consolida(pedido), cN = await consolida(nota), cA = await consolida(aloj);
+const tabla = (quien) => [cR, cP, cN, cA].map((c) => '    ' + n(c.id).padEnd(52) + ' poderSobre ' + eje.poderSobre(quien, c.id) + ' · puede ' + motor.puedeAutorizar(eje, quien, c.id)).join('\n');
+console.log('recepción:\n' + tabla('recepcion'));
+for (const c of [cR, cP]) await motor.autorizar(eje, { autorizante: 'recepcion', consolidacion: c.id, t: t('09:20') }).then(() => console.log('  autoriza', n(c.id), '→', motor.estadoDe(eje, c.id)), (e) => console.log('  autoriza', n(c.id), '→', e.message));
+
+// Delegar hacia abajo: recepción da 1 P con ámbito Habitación 1 a turno-noche.
+await escribe('recepcion', hab1.id, 'turno de noche en la habitación 1', 'delegación recepción→turno', '09:30', [P(1, hab1.id, 'recepcion', 'turno-noche')]);
+console.log('recepción', corto(eje.poderes('recepcion')), '· turno-noche', corto(eje.poderes('turno-noche')));
+console.log('turno-noche:\n' + tabla('turno-noche'));
+// Intentos de ensanchar o salirse: con ámbito genesis, con ámbito Restaurante, con un ámbito inexistente, y P sin ámbito.
+for (const [qué, m] of [['ámbito genesis', P(1, 'genesis', 'recepcion', 'turno-noche')], ['ámbito Restaurante', P(1, rest.id, 'recepcion', 'turno-noche')], ['ámbito inexistente', P(1, 'f'.repeat(64), 'recepcion', 'turno-noche')], ['sin ámbito', { token: 'P', cantidad: 1, de: 'recepcion', a: 'turno-noche' }], ['emitir P', P(1, aloj.id, null, 'recepcion')]]) {
+  await eje.escribir({ autor: 'recepcion', sobre: aloj.id, t: t('09:40'), movimientos: [gasta('recepcion'), m], payload: 'intento: ' + qué }).then(() => console.log('  recepción delega con', qué, '→ aceptado', corto(eje.poderes('turno-noche'))), (e) => console.log('  recepción delega con', qué, '→', e.message));
+}
+// La casa consolida sobre Alojamiento: recepción puede autorizarla (la casa tiene todo P genesis, pero es la autora).
+const cCasa = await motor.consolidar(eje, { autor: 'casa', foco: aloj.id, t: t('10:00'), titulo: 'Tarifa de invierno', elecciones: { 1: 'tarifa B' } });
+console.log('consolidación de la casa sobre Alojamiento: casa puede', motor.puedeAutorizar(eje, 'casa', cCasa.id), '· recepción puede', motor.puedeAutorizar(eje, 'recepcion', cCasa.id));
+console.log('P total de recepción (clave P a secas):', eje.saldo('recepcion', 'P'), '· P:<Alojamiento>', eje.saldo('recepcion', 'P:' + aloj.id));
+```
+
+</details>
+
+<details>
+<summary>Salida</summary>
+
+```text
+casa [{"ambito":"genesis","cantidad":7}] · recepción [{"ambito":"fe1a504a","cantidad":3}]
+ámbitos que cubren Habitación 1: Habitación 1 > Alojamiento > alta > génesis > genesis
+recepción:
+    cons. sobre reserva (cuelga de Habitación 1)         poderSobre 3 · puede true
+    cons. sobre pedido (cuelga de Restaurante)           poderSobre 0 · puede false
+    cons. sobre nota (referencia a Alojamiento, cuelga del alta) poderSobre 0 · puede false
+    cons. sobre Alojamiento                              poderSobre 3 · puede true
+  autoriza cons. sobre reserva (cuelga de Habitación 1) → AUTORIZADO
+  autoriza cons. sobre pedido (cuelga de Restaurante) → recepcion no tiene poder (P) sobre este registro
+recepción [{"ambito":"fe1a504a","cantidad":2}] · turno-noche [{"ambito":"8f21531f","cantidad":1}]
+turno-noche:
+    cons. sobre reserva (cuelga de Habitación 1)         poderSobre 1 · puede true
+    cons. sobre pedido (cuelga de Restaurante)           poderSobre 0 · puede false
+    cons. sobre nota (referencia a Alojamiento, cuelga del alta) poderSobre 0 · puede false
+    cons. sobre Alojamiento                              poderSobre 0 · puede false
+  recepción delega con ámbito genesis → evento rechazado: saldo insuficiente de P sobre el eje en recepcion
+  recepción delega con ámbito Restaurante → evento rechazado: saldo insuficiente de P sobre b890e8d4 en recepcion
+  recepción delega con ámbito inexistente → evento rechazado: ámbito desconocido: ffffffff
+  recepción delega con sin ámbito → evento mal formado: movimiento 1: P exige ámbito: no hay poder total
+  recepción delega con emitir P → evento rechazado: solo el génesis emite P
+consolidación de la casa sobre Alojamiento: casa puede false · recepción puede true
+P total de recepción (clave P a secas): 0 · P:<Alojamiento> 2
+```
+
+</details>
+
+<details>
+<summary>Dudas</summary>
+
+1. ¿Sobre qué registro escribo la delegación? La escribí sobre el dominio; los documentos no dicen si importa (el ámbito va en el movimiento).
+2. Los rechazos de P (`saldo insuficiente de P sobre el eje en recepcion`, `… sobre <id8> en recepcion`, `ámbito desconocido: ffffffff`) no están en la tabla de BTML §7.4; se entienden solos.
+3. `ambitosQueCubren` devuelve el id del génesis y además `'genesis'`. ¿Son el mismo ámbito? ¿Puedo delegar con `ambito: eje.genesisId`?
+4. La nota que solo referencia Alojamiento queda fuera del ámbito: el poder sigue `sobre` (el hilo), no las referencias. Lo esperaba por MOTOR §4.1, pero no está dicho así.
+
+</details>
+
+### Tarea 3: reputación de una persona a una cosa, y la cosa intentando pasarla
+
+<details>
+<summary>Código (`extranjero2-reputacion.mjs`)</summary>
+
+```js
+// Prueba del extranjero, ronda 2, tarea 3: reputación emitida por una persona a una cosa, y la cosa intentando pasarla.
+// Fuentes usadas: docs/BTML.md §2.1 (R: clave R:<emisor>, la emite su emisor), §2.2 (emisor obligatorio en R,
+// «solo él la mueve»), §2.4 (emisión de R, rastro visible, «sigue sin ser fungible»), §7.1 (tipos), §7.4 (rechazos).
+import { Eje } from 'file:///<repo>/src/index.js';
+
+const t = (hora) => `2026-11-14T${hora}:00Z`;
+const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const daT = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa', a });
+const R = (cantidad, emisor, de, a) => ({ token: 'R', cantidad, emisor, de, a });
+
+const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', t: t('08:00'), foco: 'Casa rural de ejemplo', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }] });
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('08:05'),
+  movimientos: [gasta('casa'), daT('bea', 60), daT('ana', 60), daT('hab-1', 60), daT('hab-2', 60)],
+  payload: ['Altas', ['bea', 'ana', 'hab-1', 'hab-2']], contexto: { tipos: { bea: 'persona', ana: 'persona', 'hab-1': 'cosa', 'hab-2': 'cosa' } } });
+
+// 1. bea (persona) declara su serie de reputación y da 2 a la habitación 1 (una cosa), en el mismo evento.
+const resena = await eje.escribir({ autor: 'bea', sobre: alta.id, t: t('10:00'), movimientos: [gasta('bea'), R(5, 'bea', null, 'bea'), R(2, 'bea', 'bea', 'hab-1')], payload: ['Reseña de bea', 'habitación 1: limpia y tranquila'] });
+console.log('serie R:bea', JSON.stringify(eje.serie('R:bea')), '· bea', JSON.stringify(eje.reputaciones('bea')), '· hab-1', JSON.stringify(eje.reputaciones('hab-1')));
+
+// 2. La cosa intenta pasarla: a otra cosa, a una persona, de vuelta a bea, y consumirla.
+const intenta = (qué, m) => eje.escribir({ autor: 'hab-1', sobre: resena.id, t: t('11:00'), movimientos: [gasta('hab-1'), m], payload: 'intento: ' + qué })
+  .then(() => console.log('hab-1', qué, '→ aceptado ·', 'hab-1', JSON.stringify(eje.reputaciones('hab-1')), 'hab-2', JSON.stringify(eje.reputaciones('hab-2')), 'ana', JSON.stringify(eje.reputaciones('ana'))), (e) => console.log('hab-1', qué, '→', e.message));
+await intenta('pasa 1 a hab-2', R(1, 'bea', 'hab-1', 'hab-2'));
+await intenta('pasa 1 a ana', R(1, 'bea', 'hab-1', 'ana'));
+await intenta('devuelve 1 a bea', R(1, 'bea', 'hab-1', 'bea'));
+await intenta('la consume (a: null)', R(1, 'bea', 'hab-1', null));
+await intenta('emite la suya', R(1, 'hab-1', null, 'hab-1'));
+await intenta('emite «de bea»', R(1, 'bea', null, 'bea'));
+
+// 3. Y los otros: bea le quita lo dado, ana emite a nombre de bea, ana pasa R:bea que no tiene, bea amplía su serie.
+await eje.escribir({ autor: 'bea', sobre: resena.id, t: t('12:00'), movimientos: [gasta('bea'), R(1, 'bea', 'hab-1', 'bea')], payload: 'me la quedo' }).catch((e) => console.log('bea retira 1 de hab-1 →', e.message));
+await eje.escribir({ autor: 'ana', sobre: resena.id, t: t('12:01'), movimientos: [gasta('ana'), R(1, 'bea', null, 'ana')], payload: 'x' }).catch((e) => console.log('ana emite R:bea →', e.message));
+await eje.escribir({ autor: 'ana', sobre: resena.id, t: t('12:02'), movimientos: [gasta('ana'), R(1, 'bea', 'ana', 'hab-1')], payload: 'x' }).catch((e) => console.log('ana pasa R:bea →', e.message));
+await eje.escribir({ autor: 'bea', sobre: resena.id, t: t('12:03'), movimientos: [gasta('bea'), R(3, 'bea', null, 'bea'), R(1, 'bea', 'bea', 'hab-2')], payload: 'segunda reseña' });
+console.log('después: serie', JSON.stringify(eje.serie('R:bea')), '· bea', eje.saldo('bea', 'R:bea'), 'hab-1', eje.saldo('hab-1', 'R:bea'), 'hab-2', eje.saldo('hab-2', 'R:bea'));
+// 4. El rastro: cada emisión de R:bea es un evento de bea en el eje.
+const rastro = eje.orden.map((id) => eje.obtener(id)).filter((ev) => ev.movimientos.some((m) => m.token === 'R' && m.emisor === 'bea' && m.de === null));
+console.log('rastro de R:bea:', rastro.map((ev) => ev.autor + ' ' + ev.t.slice(11, 16) + ' +' + ev.movimientos.filter((m) => m.token === 'R' && m.de === null).reduce((s, m) => s + m.cantidad, 0)).join(' · '));
+```
+
+</details>
+
+<details>
+<summary>Salida</summary>
+
+```text
+serie R:bea {"emisor":"bea","emitido":5} · bea [{"emisor":"bea","cantidad":3}] · hab-1 [{"emisor":"bea","cantidad":2}]
+hab-1 pasa 1 a hab-2 → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+hab-1 pasa 1 a ana → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+hab-1 devuelve 1 a bea → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+hab-1 la consume (a: null) → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+hab-1 emite la suya → evento rechazado: solo personas y grupos emiten: hab-1 es cosa
+hab-1 emite «de bea» → evento rechazado: nadie emite en nombre de otro: bea no es el autor
+bea retira 1 de hab-1 → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+ana emite R:bea → evento mal formado: movimiento 1: la emisión de R va a su propio emisor
+ana pasa R:bea → evento mal formado: movimiento 1: R no es fungible: solo la mueve su emisor bea
+después: serie {"emisor":"bea","emitido":8} · bea 5 hab-1 2 hab-2 1
+rastro de R:bea: bea 10:00 +5 · bea 12:03 +3
+```
+
+</details>
+
+<details>
+<summary>Dudas</summary>
+
+1. «R: emisor obligatorio (solo él la mueve)». Al principio lo leí como «el emisor la mueve esté donde esté», por ejemplo para retirarla. No: `de` tiene que ser el emisor y además el autor, así que lo ya dado no lo mueve nadie. Al intentar retirarla, el mensaje dice «solo la mueve su emisor bea» cuando el autor es bea: despista.
+2. Una cosa con R no puede devolverla ni consumirla: se queda como un sello. ¿Es lo querido?
+3. «Rastro visible»: no hay función que lo dé; recorrí `eje.orden`. `eje.series()` solo da el total.
+
+</details>
+
+### Tarea 4: décupla desde Mapped con heredadas y una celda anclada lejos
+
+<details>
+<summary>Código (`extranjero2-mapped.mjs`)</summary>
+
+```js
+// Prueba del extranjero, ronda 2, tarea 4: una décupla escrita desde Mapped con celdas heredadas por referencia
+// y una celda anclada lejos.
+// Fuentes usadas: docs/MOTOR.md §7.2 (item, desdeMapped, costeT, escribirDesde), §7.1 (proporción de Mapped);
+// docs/BTML.md §3.2 (prefijo denso: «para escribir en la 4 hay que rellenar 0-3»), §3.3 (referencias no copian),
+// §5 (en: cualquier dirección del foco, la desarrolle o no), §6 (ocupantes, árbol); docs/BQL.md §7.4 (BUSCAR).
+// Lectura del extranjero de «anclada lejos»: la celda que cae lejos del prefijo denso (aquí la 9, «camino», y una
+// subposición honda 9.8.7) no se escribe dentro de la décupla, que tendría que rellenar 4-8, sino como registro propio
+// anclado con `en` en esa dirección de la décupla.
+import { Eje, encaje, bql, salida, direccion, indicesDe } from 'file:///<repo>/src/index.js';
+
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
+const t = (hora) => `2026-11-15T${hora}:00Z`;
+const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+
+const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', t: t('08:00'), foco: 'Casa rural de ejemplo', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }] });
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('08:05'), movimientos: [gasta('casa'), { token: 'T', escala: 'minuto', cantidad: 120, de: 'casa', a: 'ana' }], payload: ['Altas', ['ana']], contexto: { tipos: { ana: 'persona' } } });
+// El foco: una ficha de excursión con cinco posiciones desarrolladas.
+const ficha = await eje.escribir({ autor: 'casa', sobre: alta.id, t: t('09:00'), movimientos: [gasta('casa')],
+  payload: ['Excursión al río', ['bocadillo', 'agua', '15 EUR'], ['calzado de montaña'], ['ana', 'guía'], ['salir 10:00', 'volver 14:00']] });
+
+// La décupla de ana desde Mapped: rellena 1 (con una referencia por prefijo) y 3; deja vacías 0 y 2, que se heredan.
+const p8 = ficha.id.slice(0, 8);
+const celdas = [];
+celdas[1] = ['@' + p8 + ':1000000000', '2'];   // recursos: los de la ficha (por referencia) y dos personas
+celdas[3] = ['ana', 'bea'];                      // comunicación
+const { payload, heredadas } = salida.desdeMapped(eje, celdas, ficha.id);
+console.log('payload', corto(payload), '· heredadas', JSON.stringify(heredadas), '· coste', salida.costeT(payload), 'min');
+const dec = await salida.escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: ficha.id, t: t('10:00'), payload });
+console.log('décupla', dec.id.slice(0, 8), 'modo', dec.contexto.modo, 'mueve', corto(dec.movimientos));
+
+// Intento ingenuo: poner también la 9 en la misma décupla.
+const lejos = celdas.slice(); lejos[9] = ['ver la cascada'];
+try { salida.desdeMapped(eje, lejos, ficha.id); } catch (e) { console.log('con la 9 dentro:', e.message); }
+
+// La celda lejana, anclada: un registro Pointed de ana sobre la décupla, en 9000000000; y otro más hondo en 9870000000.
+const lejana = await salida.escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: dec.id, en: '9000000000', t: t('10:05'), payload: salida.desdePointed(eje, 'ver la cascada') });
+const honda = await salida.escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: dec.id, en: direccion([9, 8, 7]), t: t('10:06'), payload: salida.desdePointed(eje, '@' + p8 + ':4100000000') });
+console.log('ancladas:', lejana.en, JSON.stringify(lejana.payload), '·', honda.en, corto(honda.payload));
+
+// Lectura: el payload no tiene 9; la 9 tiene un ocupante escrito; las heredadas alcanzan la ficha sin copiarla.
+const ver = (dir) => encaje.ocupantes(eje, dec.id, indicesDe(dir)).map((o) => o.origen + ' ' + (o.evento === dec.id ? 'décupla' : o.evento === ficha.id ? 'ficha' : o.evento.slice(0, 8)) + ' ' + JSON.stringify(o.contenido) + ' ' + o.signo).join(' | ');
+for (const d of ['0000000000', '1000000000', '2000000000', '3000000000', '9000000000', '9870000000']) console.log(d, '→', ver(d) || 'nadie');
+console.log('arbol de la décupla:', [...encaje.arbol(eje, dec.id).keys()].join(' '));
+console.log('BQL desde la raíz de la décupla:', ['LOCAL(2)', 'LOCAL(9)', 'CONTAR(BUSCAR(9))', 'ACTUAL(9)', 'CONTAR(BUSCAR(9, 8, 7))', 'ACTUAL(1)', 'LOCAL(1, 1) * LOCAL(1, 0, 2)', 'LOCAL(1, 1) * REF("' + p8 + '", "1200000000")'].map((f) => f + ' = ' + bql.consultar(eje, dec.id, [5], f).texto).join(' · '));
+console.log('el 9 del foco (la ficha) no se entera:', bql.consultar(eje, ficha.id, [5], 'CONTAR(BUSCAR(9))').texto, '· hijos de la ficha', eje.sobre(ficha.id).length, '· de la décupla', eje.sobre(dec.id).length);
+console.log('minutos de ana:', eje.saldoT('ana', 'minuto'), '(120 − décupla − dos ancladas)');
+```
+
+</details>
+
+<details>
+<summary>Salida</summary>
+
+```text
+payload [{"ref":"cb00aee9","dir":"0000000000"},[{"ref":"cb00aee9","dir":"1000000000"},2],{"ref":"cb00aee9","dir":"2000000000"},["ana","bea"]] · heredadas [0,2] · coste 6 min
+décupla 22d4c0c1 modo mapped mueve [{"token":"T","escala":"minuto","cantidad":6,"de":"ana","a":null}]
+con la 9 dentro: hueco en 5: el foco no tiene esa posición; rellénala o quita las siguientes
+ancladas: 9000000000 "ver la cascada" · 9870000000 {"ref":"cb00aee9","dir":"4100000000"}
+0000000000 → propio décupla [{"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"0000000000"},[{"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"1000000000"},2],{"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"2000000000"},["ana","bea"]] exacto | propio décupla {"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"0000000000"} exacto | referencia ficha ["Excursión al río",["bocadillo","agua","15 EUR"],["calzado de montaña"],["ana","guía"],["salir 10:00","volver 14:00"]] exacto
+1000000000 → propio décupla [{"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"1000000000"},2] exacto | propio décupla {"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"1000000000"} exacto | referencia ficha ["bocadillo","agua","15 EUR"] exacto
+2000000000 → propio décupla {"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"2000000000"} exacto | referencia ficha ["calzado de montaña"] exacto
+3000000000 → propio décupla ["ana","bea"] exacto | propio décupla "ana" exacto
+9000000000 → escrito f5d2bd9a "ver la cascada" exacto
+9870000000 → escrito dc92dcdd {"ref":"cb00aee9d101715249ddd994c94cf622a0e1dc1280c8651b10697556ab9f9f8c","dir":"4100000000"} exacto
+arbol de la décupla: 0000000000 1000000000 1100000000 2000000000 3000000000 3100000000 9000000000 9870000000
+BQL desde la raíz de la décupla: LOCAL(2) = [1 posiciones] · LOCAL(9) = PENDIENTE: posición sin desarrollar · CONTAR(BUSCAR(9)) = 1 · ACTUAL(9) = ver la cascada · CONTAR(BUSCAR(9, 8, 7)) = 1 · ACTUAL(1) = [2 posiciones] · LOCAL(1, 1) * LOCAL(1, 0, 2) = PENDIENTE: posición sin desarrollar · LOCAL(1, 1) * REF("cb00aee9", "1200000000") = 30 EUR
+el 9 del foco (la ficha) no se entera: 0 · hijos de la ficha 1 · de la décupla 2
+minutos de ana: 112 (120 − décupla − dos ancladas)
+```
+
+</details>
+
+<details>
+<summary>Dudas</summary>
+
+1. «Anclada lejos» no aparece en los tres documentos. Lo leí así: la celda lejana no entra en la décupla (habría que rellenar 4–8) y va como registro aparte anclado con `en`. ¿Anclado en la décupla o en el foco? Elegí la décupla.
+2. El primer intento falló al importar: `import { btml }` no existe (`does not provide an export named 'btml'`). BTML §0 ya decía que `btml.js` va en plano; lo leí deprisa.
+3. `LOCAL(1, 0, 2)` da PENDIENTE porque el camino no atraviesa la referencia (BQL §3 lo decía). Con `REF("<ficha>", "1200000000")` sale `30 EUR`.
+4. La heredada de la 0 es `{ ref: ficha, dir: '0000000000' }` y alcanza la ficha entera, no «Excursión al río».
+5. `LOCAL(2)` sale `[1 posiciones]`.
+
+</details>
+
+### Tarea 5: el escrito más reciente por llegada, y una INCOMPATIBLE
+
+<details>
+<summary>Código (`extranjero2-consultas.mjs`)</summary>
+
+```js
+// Prueba del extranjero, ronda 2, tarea 5: (a) entre los ocupantes de una posición, el escrito más reciente usando
+// ORIGEN y el orden de llegada; (b) una consulta que falle a propósito con INCOMPATIBLE.
+// Fuentes usadas: docs/BQL.md §7.4 (BUSCAR: orden por encaje, empates por llegada; escritos en orden de entrada),
+// §7.6 FILTRAR, §7.7 ORDENAR («desc» invierte el comparador, no la lista), §7.8 ELEGIR, §7.10 SUMAR, §6.1, §8, §11
+// («t del candidato no es accesible desde BQL»); docs/BTML.md §5 (escritos por orden de entrada, no por t).
+import { Eje, bql } from 'file:///<repo>/src/index.js';
+
+const t = (hora) => `2026-11-16T${hora}:00Z`;
+const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', t: t('08:00'), foco: 'Casa rural de ejemplo', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }] });
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('08:05'), movimientos: [gasta('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'ana' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']], contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
+const cena = await eje.escribir({ autor: 'casa', sobre: alta.id, t: t('20:00'), movimientos: [gasta('casa')], payload: ['Cena', ['menú', 2, '24 EUR'], ['sin gluten'], ['ana', 'bea'], ['pagar', 'servir']] });
+// Tres propinas escritas en la fábrica (4) de la cena. La tercera llega la última pero declara un t anterior.
+const propina = (autor, cantidad, hora) => eje.escribir({ autor, sobre: cena.id, en: '4000000000', t: t(hora), movimientos: [gasta(autor)], payload: cantidad + ' EUR' });
+const p1 = await propina('ana', 2, '21:00');
+const p2 = await propina('bea', 5, '21:30');
+const p3 = await propina('ana', 1, '21:10');
+const nombre = new Map([[p1.id, 'p1 (2 EUR, 21:00)'], [p2.id, 'p2 (5 EUR, 21:30)'], [p3.id, 'p3 (1 EUR, 21:10, llega la última)']]);
+console.log('llegada (eje.sobre):', eje.sobre(cena.id, '4000000000').map((e) => nombre.get(e.id)).join(' → '));
+
+const q = (f) => { const r = bql.consultar(eje, cena.id, [9], f); const ids = r.valor?.items?.map((c) => nombre.get(c.evento) ?? c.origen) ?? []; console.log(r.estado.padEnd(12), f, '\n             →', ids.length ? ids.join(' · ') : r.texto); return r; };
+const ESCRITOS = 'FILTRAR(BUSCAR(4), ORIGEN() = "escrito")';
+console.log('(a) el escrito más reciente por llegada:');
+q(ESCRITOS);                                                  // los tres, por llegada (todos exactos: empatan)
+q(`ELEGIR(${ESCRITOS})`);                                     // el primero: el MÁS ANTIGUO
+q(`ELEGIR(ORDENAR(${ESCRITOS}, ORIGEN(), "desc"))`);          // «desc» no invierte los empates
+q(`ELEGIR(ORDENAR(${ESCRITOS}, ACUERDO(), "desc"))`);         // ídem: todos acuerdo 10
+q(`ELEGIR(${ESCRITOS}, CONTAR(${ESCRITOS}))`);                // los n primeros = todos; no hay «el último»
+q(`ELEGIR(ORDENAR(${ESCRITOS}, ACTUAL(), "desc"))`);          // por valor: la mayor (no la más reciente)
+// Fuera de BQL: el último de la colección.
+const todos = bql.consultar(eje, cena.id, [9], ESCRITOS).valor.items;
+console.log('desde JS, items.at(-1):', nombre.get(todos.at(-1).evento), '· por t (JS):', nombre.get([...todos].sort((a, b) => Date.parse(b.t) - Date.parse(a.t))[0].evento));
+
+console.log('(b) INCOMPATIBLE a propósito:');
+q(`SUMAR(${ESCRITOS}) + 1`);                                  // magnitud en EUR + numero
+q(`SUMAR(${ESCRITOS}) + LOCAL(1, 2)`);                         // control: misma unidad, resuelve
+q(`ELEGIR(LOCAL(4))`);                                         // un array no es una colección
+```
+
+</details>
+
+<details>
+<summary>Salida</summary>
+
+```text
+llegada (eje.sobre): p1 (2 EUR, 21:00) → p2 (5 EUR, 21:30) → p3 (1 EUR, 21:10, llega la última)
+(a) el escrito más reciente por llegada:
+RESUELTO     FILTRAR(BUSCAR(4), ORIGEN() = "escrito") 
+             → p1 (2 EUR, 21:00) · p2 (5 EUR, 21:30) · p3 (1 EUR, 21:10, llega la última)
+RESUELTO     ELEGIR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) 
+             → p1 (2 EUR, 21:00)
+RESUELTO     ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ORIGEN(), "desc")) 
+             → p1 (2 EUR, 21:00)
+RESUELTO     ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACUERDO(), "desc")) 
+             → p1 (2 EUR, 21:00)
+RESUELTO     ELEGIR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))) 
+             → p1 (2 EUR, 21:00) · p2 (5 EUR, 21:30) · p3 (1 EUR, 21:10, llega la última)
+RESUELTO     ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) 
+             → p2 (5 EUR, 21:30)
+desde JS, items.at(-1): p3 (1 EUR, 21:10, llega la última) · por t (JS): p2 (5 EUR, 21:30)
+(b) INCOMPATIBLE a propósito:
+INCOMPATIBLE SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + 1 
+             → INCOMPATIBLE: magnitud en EUR y numero no se suman
+RESUELTO     SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + LOCAL(1, 2) 
+             → 32 EUR (2 EUR + 5 EUR + 1 EUR + 24 EUR)
+INCOMPATIBLE ELEGIR(LOCAL(4)) 
+             → INCOMPATIBLE: ELEGIR espera una colección, no array
+```
+
+</details>
+
+<details>
+<summary>Dudas</summary>
+
+1. No encontré cómo quedarme con el último. `"desc"` no invierte los empates (BQL §7.7), `t` no es accesible (§11) y no hay índice de llegada. Lo más cerca: el más antiguo (`ELEGIR`) o todos en orden (`ELEGIR` con `CONTAR`). Fuera de BQL, `items.at(-1)`.
+2. Si corregir es añadir un ocupante, ¿cómo lee BQL el valor corregido? `ACTUAL(pv)` da el primero.
+3. Para la INCOMPATIBLE sumé EUR con un número sin unidad; la de control, con la misma unidad, resuelve.
 
 </details>
