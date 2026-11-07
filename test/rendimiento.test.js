@@ -142,9 +142,9 @@ test('conPrefijo da lo mismo que filtrar eje.orden, y REF, «@id» y Scened resu
   }
   const sinIndice = new Proxy(eje, { get: (t, k) => (k === 'conPrefijo' ? undefined : typeof t[k] === 'function' ? t[k].bind(t) : t[k]) });
   const focos = [...eje.orden.filter((_, i) => i % 7 === 0), ...notas];
-  const conIndice = escena(eje, focos, { ahora: T0, capacidad: Infinity });
+  const conIndice = escena(eje, focos, { ahora: T0, capacidad: 10000 });
   assert.ok(conIndice.focos.some((f) => f.salen.some((x) => x.tipo === 'formula')), 'hay aristas de fórmula');
-  assert.deepEqual(conIndice, escena(sinIndice, focos, { ahora: T0, capacidad: Infinity }));
+  assert.deepEqual(conIndice, escena(sinIndice, focos, { ahora: T0, capacidad: 10000 }));
   // Un eje restaurado tiene el mismo índice.
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
   for (const p of prefijos) assert.deepEqual(otro.conPrefijo(p), eje.orden.filter((id) => id.startsWith(p)));
