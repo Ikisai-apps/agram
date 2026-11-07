@@ -5,7 +5,7 @@ import { calcularBase, situar, medir, clavesDeMedidas, ETIQUETAS } from '../src/
 import { verEn } from '../src/efectos.js';
 import {
   COHORTES, DECUPLA, EFECTOS, registroDeCohorte, baseAlVuelo, situarEnEstadistica, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
-  htmlCieloSobrio, selectorCohorte, brillo,
+  htmlCieloSobrio, selectorCohorte, brillo, estadoBase, efectosEnCielo, posicionesDelFoco,
 } from '../mundos/cielo.js';
 
 /** Las constelaciones del SVG, en orden. */
@@ -120,14 +120,46 @@ test('svg: función pura, una constelación por medida con diez estrellas y el f
       assert.deepEqual(anillos, [centros[m.caja]], 'el anillo del foco, sobre la estrella de su caja');
     }
   }
-  assert.ok(svg.includes(`data-efecto="${EFECTOS.constelacion}"`) && svg.includes(`data-efecto="${EFECTOS.caja}"`));
+  // Sin escribir no hay evento detrás: el cielo es lectura al vuelo y no nombra efecto.
+  assert.ok(!svg.includes('data-efecto='), 'sin escribir, ningún efecto');
   assert.ok([...svg.matchAll(/data-decision="([^"]*)"/g)].every((x) => x[1].startsWith('[X] decidir VG')));
-  // Con base escrita, el SVG apunta a su evento.
+  // La décupla: las posiciones van en línea recta y sin trazo (son puntos de vista, no un orden).
+  const decupla = bloqueDe(svg, DECUPLA);
+  assert.equal(new Set([...decupla.matchAll(/<circle class="astro" cx="[\d.]+" cy="([\d.]+)"/g)].map((x) => x[1])).size, 1, 'plana');
+  assert.ok(!decupla.includes('class="trazo"'));
+  assert.ok(bloqueDe(svg, 'escritos').includes('class="trazo"') || d.medidas.find((m) => m.medida === 'escritos').cajas.filter(Boolean).length < 2);
+  // Con base escrita, el SVG apunta a su evento y cada constelación lleva el nombre que el catálogo da a ese evento visto desde el 8.
   const con = await ejemploComprasHermanas();
   await escribirBasesDelEjemplo(con);
   const dc = datosCielo(con.eje, con.guisos.id);
   const sc = svgCielo(dc);
   assert.ok(sc.includes('class="cielo escrita"') && sc.includes(`data-evento="${dc.base.id}"`));
+  assert.deepEqual(dc.base.efectos, efectosEnCielo(con.eje, dc.base.id));
+  assert.ok(dc.base.efectos.includes(EFECTOS.constelacion), 'escribir una base es «constelación» en el 8');
+  assert.equal((sc.match(new RegExp(`class="constelacion[^"]*" data-medida="[^"]+" data-efecto="${EFECTOS.constelacion}" data-mundo="8"`, 'g')) ?? []).length, dc.medidas.length);
+  assert.equal(sc.includes(`data-efecto="${EFECTOS.caja}"`), dc.base.efectos.includes(EFECTOS.caja), 'el anillo solo nombra «caja» si el evento lo es');
+});
+
+test('una base nueva para quien mira: sus constelaciones nacen; sin evento detrás, nada nace', async () => {
+  const con = await ejemploComprasHermanas();
+  const sin = datosCielo(con.eje, con.guisos.id);
+  assert.ok(!svgCielo(sin, { nuevos: new Set(con.eje.orden) }).includes('nace'), 'sin escribir no hay evento que animar');
+  await escribirBasesDelEjemplo(con);
+  const d = datosCielo(con.eje, con.guisos.id);
+  const quieto = svgCielo(d, { nuevos: new Set() });
+  assert.ok(!quieto.includes('nace') && !quieto.includes(' nueva'));
+  const nueva = svgCielo(d, { nuevos: new Set([d.base.id]) });
+  assert.ok(nueva.startsWith('<svg class="cielo escrita nueva"') && nueva.includes(`data-nueva="${d.base.id}"`));
+  const nacen = [...nueva.matchAll(/<g class="estrella encendida nace" data-caja="(\d)" data-cuenta="\d+" style="--retardo:([\d.]+)s"/g)];
+  const encendidas = d.medidas.reduce((s, m) => s + m.cajas.filter((c) => c > 0).length, 0);
+  assert.equal(nacen.length, encendidas, 'cada estrella encendida nace, caja a caja');
+  assert.ok(nacen.every((x) => Math.abs(Number(x[2]) - Number(x[1]) * 0.06) < 1e-9));
+  assert.ok(!nueva.includes('class="estrella hueco nace'), 'los huecos no nacen');
+  // Una base nueva que no es la que se lee no anima este cielo; cambiar de cohorte (lectura) manda sobre el nacimiento.
+  assert.ok(!svgCielo(d, { nuevos: new Set([con.eje.orden[0]]) }).includes('nace'));
+  const otra = datosCielo(con.eje, con.guisos.id, { cohorte: 'general' });
+  assert.ok(!svgCielo(d, { anterior: otra, nuevos: new Set([d.base.id]) }).includes(' nace'));
+  assert.match(htmlCielo(d, { nuevos: new Set([d.base.id]) }), /<svg class="cielo escrita nueva"/);
 });
 
 test('brillo: proporcional al recuento (área y opacidad crecen con él); una caja vacía es un hueco', () => {
@@ -163,10 +195,37 @@ test('transición: al cambiar de cohorte cada estrella y el foco se recomponen d
   assert.notEqual(hermanos.base.n, general.base.n);
   const svg = svgCielo(general, { anterior: hermanos });
   assert.ok(svg.includes('class="cielo sin-escribir recompone"') && svg.includes('data-transicion="cohorte"'));
-  const estrellas = [...svg.matchAll(/<g class="estrella[^"]*" data-caja="\d" data-cuenta="\d+" style="--s0:([\d.]+);--o0:([\d.]+)"/g)];
-  assert.equal(estrellas.length, general.medidas.length * 10, 'cada estrella sabe de dónde viene');
-  assert.ok(estrellas.some((e) => Number(e[1]) !== 1), 'alguna cambia de brillo');
-  assert.ok(estrellas.every((e) => Number(e[2]) <= 1));
+  // Cada estrella con brillo sabe de dónde viene: tamaño relativo (--s0) y opacidad anterior en valor absoluto (--o0), sin recortar.
+  const recuento = (desde, hacia) => {
+    const dibujo = svgCielo(hacia, { anterior: desde });
+    const previas = new Map(desde.medidas.map((m) => [m.medida, m]));
+    const r = { mengua: 0, apagadas: 0 };
+    for (const m of hacia.medidas) {
+      const antes = previas.get(m.medida);
+      const estrellas = [...bloqueDe(dibujo, m.medida).matchAll(/<g class="(estrella [^"]*)" data-caja="(\d)"[^>]*>(.*?)<\/g>/g)];
+      assert.equal(estrellas.length, 10, m.medida);
+      for (const [, clases, k, cuerpo] of estrellas) {
+        const a = brillo(antes?.cajas[Number(k)] ?? 0, desde.base.n);
+        const b = brillo(m.cajas[Number(k)], hacia.base.n);
+        if (b.encendida) {
+          assert.equal(clases, 'estrella encendida cambia');
+          assert.match(cuerpo, new RegExp(`<circle class="astro" [^>]*opacity="${Math.round(b.o * 100) / 100}" style="--o0:${Math.round(a.o * 100) / 100}"/>`));
+          if (a.o > b.o) r.mengua += 1;
+        } else if (a.encendida) {
+          assert.equal(clases, 'estrella hueco se-apaga', 'la que se apaga se desvanece donde estaba');
+          assert.match(cuerpo, new RegExp(`<circle class="apagada" [^>]*r="${Math.round(a.r * 10) / 10}" style="--o0:${Math.round(a.o * 100) / 100}"/>`));
+          r.apagadas += 1;
+        } else {
+          assert.equal(clases, 'estrella hueco', 'un hueco que sigue hueco no se mueve');
+        }
+      }
+    }
+    return r;
+  };
+  const ida = recuento(hermanos, general);
+  const vuelta = recuento(general, hermanos);
+  assert.ok(ida.mengua + vuelta.mengua > 0, 'alguna estrella pierde brillo y se anima desde el que tenía');
+  assert.ok(vuelta.apagadas > 0, 'al volver a los hermanos, alguna se apaga');
   // El foco se desplaza desde su caja anterior en las constelaciones que también estaban en la otra cohorte.
   const antes = new Set(hermanos.medidas.map((m) => m.medida));
   const comunes = general.medidas.filter((m) => m.tipo === 'caja' && antes.has(m.medida)).length;
@@ -196,9 +255,20 @@ test('sobrio y animado leen lo mismo: la tabla dice el valor del foco, su caja y
     assert.ok(html.includes(`foco <b>${m.valor}</b> · caja ${m.caja} (${rangoDeCaja(m.cortes, m.caja)})</span><span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima`), m.medida);
   }
   const pv = d.medidas.find((m) => m.tipo === 'pv');
-  assert.ok(html.includes(`el foco tiene <b>${pv.valor}</b> de 10`));
+  assert.ok(html.includes(`en el foco (●): <b>${posicionesDelFoco(pv)}</b>`));
+  assert.equal(posicionesDelFoco(pv), pv.focoEn.map((t, k) => (t ? k : null)).filter((k) => k !== null).join(' '));
+  assert.equal(posicionesDelFoco({ focoEn: Array(10).fill(false) }), 'ninguna');
+  // Sin nota: ni «de 10» en la tabla ni en el cielo.
+  assert.ok(!/de 10/.test(html) && !/de 10/.test(svgCielo(d)));
+  assert.ok(svgCielo(d).includes(`>en el foco: ${posicionesDelFoco(pv)}</text>`));
   assert.match(html, /sin escribir/);
+  assert.match(estadoBase(d), /calculada al vuelo sobre \d+ registros? \(el subárbol de <button[^>]+>[0-9a-f]{8}<\/button>\): su 8 no tiene base escrita$/);
   assert.match(htmlCielo(d), /<figure class="cielo-vista">.*<svg class="cielo/s);
+});
+
+test('concordancia: «1 registro», «1 constelación»', () => {
+  const uno = { cohorte: 'hermanos', foco: 'f'.repeat(64), estado: 'RESUELTO', escrita: false, base: { id: null, n: 1, efectos: [] }, medidas: [] };
+  assert.match(svgCielo(uno), /aria-label="Cielo de ffffffff entre hermanos: 1 registro, 0 constelaciones, base sin escribir"/);
 });
 
 test('los nombres de efecto son los del catálogo, vistos desde el cielo', () => {

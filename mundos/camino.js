@@ -34,9 +34,16 @@
 //   ejecutar; lo ejecutado al final, junto a la acción) y que se muestren
 //   solo las tres últimas ejecuciones;
 // - la previsualización de una posición sin desarrollar no lleva contenido
-//   (lo pone quien escribe): dice dónde se anclaría y con qué efecto.
+//   (lo pone quien escribe): dice dónde se anclaría y con qué efecto;
+// - una propuesta que ya está consolidada (otra consolidación del mismo
+//   foco y camino con el mismo contenido, en cualquier estado) no vuelve a
+//   salir como paso: la senda sigue por esa consolidación hasta la acción.
+//   Consolidarla otra vez se hace desde la fábrica;
+// - la previsualización no enseña el id del registro que se escribiría: el
+//   id sale de la hora en que se escriba, que todavía no existe.
 
 import { direccion, esReferencia, indicesDe } from '../src/btml.js';
+import { RAIZ } from '../src/evento.js';
 import { PV } from '../src/epocas.js';
 import { ocupantes } from '../src/encaje.js';
 import { evaluar, esFormula, desescapar } from '../src/bql.js';
@@ -113,6 +120,37 @@ function textoDe(c) {
 
 const dirSegura = (indices) => (indices.length <= 10 ? direccion(indices) : null);
 
+/** Texto canónico de un contenido (claves ordenadas): para comparar payloads sin depender del orden de las claves. */
+function canonico(x) {
+  if (Array.isArray(x)) return '[' + x.map(canonico).join(',') + ']';
+  if (x && typeof x === 'object') return '{' + Object.keys(x).sort().map((k) => JSON.stringify(k) + ':' + canonico(x[k])).join(',') + '}';
+  return JSON.stringify(x ?? null);
+}
+
+/**
+ * Lo que motor.consolidar escribiría en el payload, sin el título, con las
+ * elecciones de motor.proponer: un candidato es una referencia a su evento
+ * en su dirección; una referencia o un terminal, tal cual; un hueco antes
+ * de la última elección, una referencia al foco en esa posición. Sirve para
+ * reconocer una propuesta que ya está consolidada; las pruebas comprueban
+ * que coincide con lo que escribe el motor.
+ */
+export function contenidoPropuesto(foco, camino, elecciones) {
+  const indices = Object.keys(elecciones).map(Number).sort((a, b) => a - b);
+  if (!indices.length) return [];
+  const forma = (e) => (Array.isArray(e) ? e.map(forma) : e && typeof e === 'object' && e.candidato ? { ref: e.candidato.evento, dir: e.candidato.dir ?? RAIZ } : e);
+  const salida = [];
+  for (let i = 1; i <= indices.at(-1); i++) salida.push(elecciones[i] === undefined ? { ref: foco, dir: direccion([...camino, i]) } : forma(elecciones[i]));
+  return salida;
+}
+
+/** La consolidación (del foco y su camino) que ya tiene el contenido de la propuesta, o null. */
+export function propuestaConsolidada(eje, foco, camino, elecciones) {
+  const propuesto = canonico(contenidoPropuesto(foco, camino, elecciones));
+  const c = motor.consolidaciones(eje, foco, camino).find((x) => canonico(eje.obtener(x.id).payload.slice(1)) === propuesto);
+  return c ? { evento: c.id, estado: c.estado, titulo: textoDe(c.titulo) } : null;
+}
+
 /** Título de la consolidación que propone el camino: el mismo al previsualizar y al consolidar. */
 export function tituloPropuesta(eje, foco, camino = []) {
   const ev = eje.obtener(foco);
@@ -131,7 +169,10 @@ export function tituloPropuesta(eje, foco, camino = []) {
  *   (consolidaciones pendientes o autorizadas: evento, autor, estado,
  *   autorizacion); cada uno con `efecto` (describirEfecto) y `puede`
  *   ({ ejecutar, autorizar, consolidar, motivo }) para `identidad`;
- * - dados: las últimas DADOS consolidaciones ejecutadas (evento, ejecucion).
+ * - dados: las últimas DADOS consolidaciones ejecutadas (evento, ejecucion);
+ * - propuestaConsolidada: si lo que propone motor.proponer ya está
+ *   consolidado ({ evento, estado, titulo }), y entonces no hay paso
+ *   «propuesta»; si no, null.
  */
 export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDados = DADOS } = {}) {
   const ev = eje.obtener(foco);
@@ -178,7 +219,8 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     });
   }
   const elecciones = Object.keys(prop.elecciones).length;
-  if (elecciones) {
+  const yaConsolidada = elecciones ? propuestaConsolidada(eje, foco, camino, prop.elecciones) : null;
+  if (elecciones && !yaConsolidada) {
     const titulo = tituloPropuesta(eje, foco, camino);
     pasos.push({
       clave: 'propuesta', tipo: 'propuesta', titulo, elecciones, origenes: prop.origenes.map((o) => ({ ...o })),
@@ -217,7 +259,7 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
   const ordenados = pasos.map((p, i) => [p, i]).sort((a, b) => orden(a[0]) - orden(b[0]) || a[1] - b[1]).map(([p], i) => ({ ...p, n: i + 1 }));
   return {
     foco, camino: [...camino], identidad, titulo: textoDe(Array.isArray(base) ? base[0] : base) || String(foco).slice(0, 8),
-    pasos: ordenados, dados: dados.slice(-maximoDados), totalDados: dados.length,
+    pasos: ordenados, dados: dados.slice(-maximoDados), totalDados: dados.length, propuestaConsolidada: yaConsolidada,
   };
 }
 
@@ -365,7 +407,8 @@ function nombreEfecto(paso) {
  *   nuevos: Set de ids de evento nuevos para quien mira (hilos.memoria().nuevos):
  *     una consolidación nueva aparece, una autorización nueva anuda y una
  *     ejecución nueva consolida su paso.
- *   previsto: clave del paso que se está previsualizando (late).
+ *   previsto: clave del paso que se está previsualizando: se marca quieto
+ *     (un anillo discontinuo), porque previsualizar no escribe nada.
  */
 export function svgCamino(datos, { compacto = false, nuevos = new Set(), previsto = null } = {}) {
   const g = geometria(compacto);
@@ -400,11 +443,14 @@ export function svgCamino(datos, { compacto = false, nuevos = new Set(), previst
         estilo = conRetardo();
       }
       if (p.tipo === 'ejecutar' && p.autorizacion && nuevos.has(p.autorizacion.id)) clases.push('anuda');
-      if (previsto && p.clave === previsto) clases.push('previsto');
+      if (previsto && p.clave === previsto) {
+        clases.push('previsto');
+        extra += `<circle class="marca-previa" r="${g.s + 5}"/>`;
+      }
     }
     const titulo = p.tipo === 'foco' ? `foco ${corto(datos.foco)} · ${datos.titulo}`
       : p.tipo === 'meta' ? `la acción · ${datos.totalDados} ejecutada${datos.totalDados === 1 ? '' : 's'} sobre este foco`
-        : p.tipo === 'mas' ? `${p.n} pasos más: en la vista cruz`
+        : p.tipo === 'mas' ? `${p.n} pasos más: en la cruz`
           : `${p.n ? p.n + '. ' : ''}${p.titulo} · ${NOMBRE_TIPO[p.tipo]}${p.efecto ? ' · efecto: ' + p.efecto.nombre + ' (' + p.efecto.mundoNombre + ')' + (p.efecto.enCamino ? ' · en el camino: ' + p.efecto.enCamino : '') : ''}`;
     let rotulo = '';
     if (g.rotulo) {
@@ -459,7 +505,7 @@ export function htmlPrevia(previa) {
   const error = previa.error ? `<div class="aviso">el motor lo rechazaría: ${escapar(previa.error)}</div>` : '';
   const lineas = previa.lineas ? `<ul class="previa-efectos">${previa.lineas.split('\n').map((l) => `<li>${escapar(l)}</li>`).join('')}</ul>` : '';
   const ev = previa.evento;
-  const evento = ev ? `<div class="previa-evento">se escribiría <b>${corto(ev.id)}</b> sobre ${corto(ev.sobre)} en ${escapar(ev.en)} · mueve ${escapar(ev.movimientos.map((m) => m.cantidad + ' ' + m.token + (m.escala ? ':' + m.escala : m.denominacion ? ':' + m.denominacion : '') + ' ' + (m.de ?? '∅') + '→' + (m.a ?? '∅')).join(', ') || 'nada')}<pre>${escapar(JSON.stringify(ev.payload))}</pre></div>` : '';
+  const evento = ev ? `<div class="previa-evento">se escribiría un registro de <b>${escapar(ev.autor)}</b> sobre ${corto(ev.sobre)} en ${escapar(ev.en)} (su id sale de la hora en que se escriba) · mueve ${escapar(ev.movimientos.map((m) => m.cantidad + ' ' + m.token + (m.escala ? ':' + m.escala : m.denominacion ? ':' + m.denominacion : '') + ' ' + (m.de ?? '∅') + '→' + (m.a ?? '∅')).join(', ') || 'nada')}<pre>${escapar(JSON.stringify(ev.payload))}</pre></div>` : '';
   const nota = previa.nota ? `<div class="pista">${escapar(previa.nota)}</div>` : '';
   return `<div class="previa" role="status">${cab}${error}${lineas}${evento}${nota}</div>`;
 }
@@ -486,6 +532,9 @@ export function htmlCamino(datos, { animado = true, nuevos = new Set(), previa =
   const como = identidades.length
     ? `<label class="como">como <select name="identidad">${identidades.map((i) => `<option${i === datos.identidad ? ' selected' : ''}>${escapar(i)}</option>`).join('')}</select></label>`
     : '';
+  const hecha = datos.propuestaConsolidada
+    ? `<div class="propuesta-hecha">la propuesta del foco ya está consolidada: <button class="enlace" data-ir="${escapar(datos.propuestaConsolidada.evento)}">${corto(datos.propuestaConsolidada.evento)}</button> ${escapar(datos.propuestaConsolidada.titulo)} · ${escapar(datos.propuestaConsolidada.estado.toLowerCase())}; consolidarla otra vez, desde la fábrica <span class="decidir" title="[X] decidir VG: una propuesta ya consolidada no vuelve a salir como paso">[X]</span></div>`
+    : '';
   const lista = datos.pasos.length
     ? `<ol class="pasos-camino">${datos.pasos.map((p) => tarjeta(p, { identidad: datos.identidad, previa, nuevos })).join('')}</ol>`
     : '<div class="nada">ningún paso pendiente desde este foco</div>';
@@ -494,6 +543,6 @@ export function htmlCamino(datos, { animado = true, nuevos = new Set(), previa =
     : '';
   return `<section class="camino-vista"><div class="camino-cab"><span class="titulo">desde el foco hacia la acción · ${datos.pasos.length} paso${datos.pasos.length === 1 ? '' : 's'}</span>${como}</div>`
     + (animado ? svgCamino(datos, { nuevos, previsto: previa?.clave ?? null }) : '')
-    + lista + hechos
+    + hecha + lista + hechos
     + '<div class="pista">«previsualizar» no escribe: corre la operación real sobre una copia del eje. «ejecutar» solo si está autorizado y lo pide su autor.</div></section>';
 }

@@ -23,4 +23,13 @@
 .js-ref{font:inherit;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;text-decoration:underline dotted;text-align:left;overflow-wrap:anywhere}
 .b6 svg.hilos,.b7 svg.hilos{margin:0}
 .b6 .chips,.b7 .chips{max-height:220px;overflow:auto}
+.cruz-completa{margin:-6px 0 16px}
+.cruz-cab{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between}
+.cruz-cab .ver-hilos{font:inherit;font-size:12px;border:1px solid var(--rule);border-radius:6px;background:var(--panel2);color:var(--fg);padding:6px 9px;min-height:32px;cursor:pointer}
+/* en el móvil, los brazos se apilan (8 arriba; 6, 5 y 7 como pasado, presente y futuro; 9 abajo): a lo ancho, los hilos no se leen */
+@media (max-width:640px){
+  .cruz{grid-template-columns:minmax(0,1fr);grid-template-areas:"b8" "b6" "b5" "b7" "b9";gap:14px}
+  .b6::after,.b7::before,.b8::after,.b9::before{display:none}
+  .centro5{height:auto}
+}
 @media (max-width:480px){.js-arbol{font-size:10.5px}.centro5 .lente{font-size:14px}}

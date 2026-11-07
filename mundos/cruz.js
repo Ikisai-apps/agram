@@ -10,6 +10,7 @@
 // registro. Sin DOM: texto HTML para el navegador y para las pruebas.
 
 import { esReferencia } from '../src/btml.js';
+import { desescapar } from '../src/bql.js';
 import { verEn, nombreMundo } from '../src/efectos.js';
 
 /** Cómo se ve el registro desde el 5, según el catálogo. */
@@ -65,6 +66,17 @@ export function htmlEstructura(ev, { abiertos = ['registro', 'registro.payload']
   return `<div class="js-arbol">${nodo('registro', registro, new Set(abiertos), 'registro', existe)}</div>`;
 }
 
+/** La lente del foco: su posición 0 en el camino (o el terminal), como texto corto; lo mismo que la celda 5 de Mapped. */
+export function lenteDe(ev, camino = []) {
+  let p = ev.payload;
+  for (const i of camino) p = Array.isArray(p) ? p[i] : undefined;
+  const c = Array.isArray(p) ? p[0] : p;
+  if (c === undefined) return '—';
+  if (Array.isArray(c)) return '[' + c.length + ']';
+  if (esReferencia(c)) return '→' + String(c.ref).slice(0, 8);
+  return desescapar(String(c));
+}
+
 /** El 5 de la cruz: la lente del foco (su representación) y su estructura plegable. */
 export function htmlCentro(ev, { lente = '', existe } = {}) {
   return `<div class="centro5" data-mundo="5" data-efecto="${escapar(INSPECCIONAR)}">`
@@ -73,7 +85,7 @@ export function htmlCentro(ev, { lente = '', existe } = {}) {
 }
 
 /**
- * La vista «cruz»: cada parte ya pintada (HTML) en su brazo. El cielo arriba,
+ * La cruz: cada parte ya pintada (HTML) en su brazo. El cielo arriba,
  * los hilos del pasado y del futuro a los lados del 5, el camino abajo.
  */
 export function htmlCruz({ c8 = '', c6 = '', c5 = '', c7 = '', c9 = '' } = {}) {

@@ -5,7 +5,7 @@ import { consolidar, autorizar, ejecutar, proponer, FABRICA } from '../src/motor
 import { efectosDe, verEn, MARCAS_EFECTO } from '../src/efectos.js';
 import { serializar } from '../src/persistencia.js';
 import {
-  TIPOS, datosCamino, previsualizar, svgCamino, htmlCamino, htmlPrevia, actorDe, tituloPropuesta, copiar,
+  TIPOS, datosCamino, previsualizar, svgCamino, htmlCamino, htmlPrevia, actorDe, tituloPropuesta, copiar, contenidoPropuesto,
 } from '../mundos/camino.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
@@ -225,4 +225,40 @@ test('vista: los dos renders tienen la misma lista; el animado añade la senda y
   const conPrevia = htmlCamino(d, { previa });
   assert.match(conPrevia, /<li class="paso-c tipo-propuesta" data-clave="propuesta">.*<div class="previa" role="status">.*no se ha escrito nada/s);
   assert.equal((conPrevia.match(/class="previa"/g) ?? []).length, 1);
+});
+
+test('la propuesta ya consolidada no vuelve a salir: la senda llega a la acción', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const prop = proponer(eje, compra.id);
+  // Lo que se compara es exactamente lo que escribe el motor (sin el título).
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, elecciones: prop.elecciones, titulo: tituloPropuesta(eje, compra.id), t: T });
+  assert.deepEqual(eje.obtener(c.id).payload.slice(1), contenidoPropuesto(compra.id, [], prop.elecciones));
+  let d = datosCamino(eje, compra.id, { identidad: 'huesped' });
+  assert.ok(!d.pasos.some((p) => p.tipo === 'propuesta'), 'consolidada: sin paso de propuesta');
+  assert.deepEqual([d.propuestaConsolidada.evento, d.propuestaConsolidada.estado], [c.id, 'PENDIENTE DE AUTORIZACIÓN']);
+  assert.match(htmlCamino(d), /la propuesta del foco ya está consolidada: <button class="enlace" data-ir="[0-9a-f]{64}">[0-9a-f]{8}<\/button> Propuesta sobre .* · pendiente de autorización; consolidarla otra vez, desde la fábrica/);
+  assert.ok(!htmlCamino(d).includes('data-consolidar-propuesta'));
+  // Autorizada y ejecutada, la senda llega a la acción: no queda propuesta, ni autorizar, ni ejecutar.
+  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: '2026-11-07T16:05:00Z' });
+  const x = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: '2026-11-07T16:10:00Z' });
+  d = datosCamino(eje, compra.id, { identidad: 'huesped' });
+  assert.ok(!d.pasos.some((p) => ['propuesta', 'autorizar', 'ejecutar'].includes(p.tipo)));
+  assert.deepEqual(d.dados.map((p) => p.ejecucion), [x.id]);
+  assert.equal(d.propuestaConsolidada.estado, 'EJECUTADO');
+  // Otra consolidación con otro contenido no tapa la propuesta.
+  const { eje: otro, compra: compra2 } = await ejemploCompra();
+  await consolidar(otro, { autor: 'huesped', foco: compra2.id, elecciones: { 1: 'agua' }, titulo: 'Agua', t: T });
+  assert.ok(datosCamino(otro, compra2.id).pasos.some((p) => p.tipo === 'propuesta'));
+});
+
+test('previsualizar: la marca es quieta y no enseña un id que no se va a escribir', async () => {
+  const { eje, compra } = await ciclo();
+  const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
+  const p = await previsualizar(eje, d, 'propuesta', { t: T });
+  const html = htmlPrevia(p);
+  assert.ok(!html.includes(p.evento.id.slice(0, 8)), 'sin el id: sale de la hora en que se escriba');
+  assert.match(html, /se escribiría un registro de <b>huesped<\/b> sobre [0-9a-f]{8} en 4000000000 \(su id sale de la hora en que se escriba\)/);
+  const svg = svgCamino(d, { previsto: 'propuesta' });
+  assert.match(svg, /class="paso tipo-propuesta previsto"[^>]*>.*?<circle class="marca-previa" r="14"\/>/);
+  assert.equal((svg.match(/marca-previa/g) ?? []).length, 1);
 });
