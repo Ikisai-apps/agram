@@ -89,6 +89,11 @@ function etiquetaEn() {
   return estado.en === '' ? 'la raíz del foco' : estado.en + ' ' + nombrePV(Number(estado.en), estado.camino.length);
 }
 
+/** Dónde va la décupla de Mapped cuando se escribe la salida entera: la dirección de su camino. */
+function etiquetaCamino() {
+  return estado.camino.length ? 'la dirección ' + direccion(estado.camino) + ' (la de su camino)' : 'la raíz del foco';
+}
+
 function fecha(t) {
   return t.replace('T', ' ').slice(0, 16);
 }
@@ -307,7 +312,7 @@ function pintarMapped() {
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
       ${selectores()}
       <div class="decupla-form">${celdasForm}</div>
-      <div class="pista">Las celdas vacías anteriores a la última escrita se heredan del foco por referencia; si el foco tampoco las tiene, es un hueco y se rechaza. Cada posición escrita mueve un minuto de T.</div>
+      <div class="pista">Las celdas vacías anteriores a la última escrita se heredan del foco por referencia. Lo que el foco no tiene (lo lejano) no se rechaza: se ancla aparte en su posición, y entonces la décupla va en ${etiquetaCamino()}. Cada posición escrita mueve un minuto de T.</div>
       <button type="submit">Registrar la décupla en ${etiquetaEn()}</button>
       ${mensajes()}
     </form>`;
@@ -384,7 +389,15 @@ async function registrar(form) {
       payload = salida.desdeSequenced(eje, PV.map((_, i) => datos.get('h' + i)));
     } else {
       const celdas = PV.map((_, i) => String(datos.get('c' + i) ?? '').split('\n'));
-      ({ payload, heredadas } = salida.desdeMapped(eje, celdas, estado.foco, estado.camino));
+      const s = salida.desdeMapped(eje, celdas, estado.foco, estado.camino);
+      // Lo lejano (sin base en el foco) se ancla aparte en su posición (BTML §5, MOTOR §7.3): se escribe la salida
+      // entera con escribirSalida, que pone la décupla en la dirección de su camino y cada celda anclada en la suya.
+      // Igual si la posición elegida es justo la del camino: así sus heredadas quedan dichas y el tope no las cuenta.
+      if (s.anclados.length || direccionEn() === direccion(estado.camino)) {
+        await registrarSalida(s);
+        return;
+      }
+      ({ payload, heredadas } = s);
     }
     const ev = await salida.escribirDesde(eje, { modo, autor: estado.identidad, sobre: estado.foco, en: direccionEn(), payload }, privadaDe(estado.identidad));
     guardar();
@@ -396,6 +409,32 @@ async function registrar(form) {
   } catch (e) {
     fallo(e, form);
   }
+}
+
+/** Mapped: la salida entera de desdeMapped (la décupla, si queda algo dentro, y cada celda anclada), con escribirSalida. */
+async function registrarSalida(s) {
+  let r;
+  try {
+    r = await salida.escribirSalida(estado.eje, { modo: 'mapped', autor: estado.identidad, sobre: estado.foco, salida: s }, privadaDe(estado.identidad));
+  } catch (e) {
+    guardar(); // escribirSalida no es atómica: si un anclado falla, lo anterior ya está en el eje y se guarda
+    throw e;
+  }
+  guardar();
+  estado.aviso = '';
+  const enDe = (ev) => ev.en ?? RAIZ;
+  const eventos = [r.registro, ...r.anclados].filter(Boolean);
+  const n = eventos.reduce((suma, ev) => suma + ev.movimientos[0].cantidad, 0);
+  const partes = [
+    ...(r.registro ? ['registrado ' + corto(r.registro.id) + ' en ' + (enDe(r.registro) === direccionEn() ? etiquetaEn() : etiquetaCamino())] : []),
+    ...r.anclados.map((ev) => 'anclado ' + corto(ev.id) + ' en ' + enDe(ev)),
+  ].join(' · ');
+  const otraPosicion = r.registro && r.anclados.length && enDe(r.registro) !== direccionEn()
+    ? ' (con celdas ancladas, la décupla va en la dirección de su camino, no en ' + etiquetaEn() + ')' : '';
+  estado.exito = partes[0].toUpperCase() + partes.slice(1) + otraPosicion + ' sobre ' + corto(estado.foco) + ' · '
+    + n + (n === 1 ? ' posición, 1 minuto' : ' posiciones, ' + n + ' minutos') + ' de T'
+    + (s.heredadas.length ? ' · heredadas del foco: ' + s.heredadas.join(', ') : '') + (eventos.some((ev) => ev.firma) ? ' · firmado' : '') + '.';
+  pintar();
 }
 
 async function consolidarDesdeFormulario(form) {
