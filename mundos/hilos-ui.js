@@ -42,6 +42,11 @@ export function piezasHilos(estado, ui, { ahora } = {}) {
 
 const ui = crearUi();
 
+/** El render elegido con el botón «animado» («sobrio» o «animado»): lo leen los demás mundos (mundos/x-ui.js). */
+export function renderActual() {
+  return ui.render;
+}
+
 /** Una vez, al cargar: los botones «animado» y «ver los hilos». Los demás botones siguen en app.js. */
 export function instalarHilos({ pintar }) {
   if (typeof document === 'undefined') return;

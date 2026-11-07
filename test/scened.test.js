@@ -4,9 +4,9 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import { escena, escenaDe, render, CAPACIDAD, ALCANCES } from '../src/scened.js';
 import { mapa } from '../src/mapped.js';
 import { ejeTemporal, comparables } from '../src/tiempo.js';
-import { lectura } from '../src/modos.js';
+import { lectura, maximo, minimo } from '../src/modos.js';
 import { consultar } from '../src/bql.js';
-import { EPOCA_1_PROPUESTA } from '../src/epocas.js';
+import { EPOCA_0 } from '../src/epocas.js';
 import { Eje } from '../src/eje.js';
 import * as agram from '../src/index.js';
 
@@ -31,9 +31,12 @@ async function comprasHermanas() {
   return { ...base, c2, c3 };
 }
 
-test('Scened: la capacidad es la representativa de modos.js (diez mil posiciones), no un tope duro', () => {
+// VG, 7-11 noche: el máximo de Scened es duro (antes, «capacidad representativa, no tope duro»).
+test('Scened: la capacidad es el máximo duro de modos.js (diez mil posiciones), el mismo para leer y para emitir', () => {
   assert.equal(CAPACIDAD, 10000);
   assert.equal(CAPACIDAD, lectura('scened'));
+  assert.equal(CAPACIDAD, maximo('scened'));
+  assert.equal(minimo('scened'), 1000);
   assert.deepEqual(ALCANCES, ['hermanos', 'proyecto', 'general', 'hilo']);
   assert.equal(typeof agram.scened.escena, 'function');
   assert.equal(typeof agram.scened.render, 'function');
@@ -72,6 +75,9 @@ test('escena de la compra y el menú: marco común, aristas y recuentos', async 
   assert.equal(e.recuentos.movimientos, 3); // uno del menú, dos de la compra
   assert.equal(e.corte, null);
   assert.deepEqual(e.avisos, []);
+  // Las tres cifras: lo conseguido, el mínimo y el máximo de Scened. No llegar al mínimo no es error: se dice.
+  assert.deepEqual(e.cifras, { conseguido: e.recuentos.posicionesEnEscena, minimo: 1000, maximo: 10000, alMinimo: false, necesario: e.recuentos.posicionesEnEscena });
+  assert.match(render(e).split('\n')[0], / de 10000 posiciones · mín 1000 \(no llega\) · máx 10000$/);
 });
 
 test('un terminal no tiene posición 0: la escena lo enseña aparte, como mapa', async () => {
@@ -191,7 +197,8 @@ test('lectura estática de REF: las mismas reglas que REF en BQL, sin evaluar', 
   }
 });
 
-test('la capacidad corta la escena con un aviso explícito; se puede bajar, subir o quitar', async () => {
+// VG, 7-11 noche: la capacidad se puede bajar, pero no subir por encima del máximo ni quitar (antes se podía).
+test('la capacidad corta la escena con un aviso explícito que dice cuánto trae de cuánto; se puede bajar, no subir ni quitar', async () => {
   const { eje, menu, compra, c2, c3 } = await comprasHermanas();
   // La compra trae 4 décuplas (ella, el menú, las altas y el génesis); c2 añade una; c3 pasaría de 50.
   const e = escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora: AHORA, capacidad: 50 });
@@ -202,22 +209,25 @@ test('la capacidad corta la escena con un aviso explícito; se puede bajar, subi
   assert.deepEqual(e.corte, { capacidad: 50, posicionesEnEscena: 50, necesitaba: 60, foco: c3.id, fuera: [c3.id, menu.id] });
   assert.match(e.avisos[0], /^capacidad de la escena: 50 posiciones\. El foco [0-9a-f]{8} \(3º de 4\) la llevaría a 60; la escena se corta ahí y quedan fuera 2 focos: /);
   assert.ok(e.avisos[0].includes(corto(c3.id) + ' ' + corto(menu.id)));
+  assert.match(e.avisos[0], /\. Trae 50 de 60 posiciones\.$/); // traje X de Y: nada se trunca en silencio
+  assert.deepEqual(e.cifras, { conseguido: 50, minimo: 1000, maximo: 10000, alMinimo: false, necesario: 60 });
   const lineas = render(e).split('\n');
-  assert.match(lineas[0], /^escena · 2 de 4 focos · .* · 50 de 50 posiciones$/);
+  assert.match(lineas[0], /^escena · 2 de 4 focos · .* · 50 de 50 posiciones · mín 1000 \(no llega\) · máx 10000$/);
   assert.match(lineas.at(-1), /^aviso: capacidad de la escena: 50/);
   // Una capacidad tan baja que no cabe ni el primero: escena vacía, con aviso.
   const vacia = escena(eje, [compra.id], { ahora: AHORA, capacidad: 10 });
   assert.equal(vacia.focos.length, 0);
   assert.equal(vacia.comun, null);
   assert.match(render(vacia), /aviso: capacidad de la escena: 10 posiciones/);
-  // No es tope duro: se sube por encima de la representativa, o se quita.
-  const mas = escena(eje, [compra.id], { ahora: AHORA, capacidad: CAPACIDAD + 1 });
-  assert.equal(mas.recuentos.capacidad, CAPACIDAD + 1);
-  assert.equal(mas.corte, null);
-  const libre = escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora: AHORA, capacidad: Infinity });
-  assert.equal(libre.corte, null);
-  assert.equal(libre.focos.length, 4);
-  assert.match(render(libre).split('\n')[0], / · 60 posiciones \(sin capacidad\)$/);
+  assert.equal(vacia.cifras.conseguido, 0);
+  assert.equal(vacia.cifras.necesario, 40);
+  assert.match(vacia.avisos[0], /Trae 0 de 40 posiciones\.$/);
+  // Es tope duro: el máximo se puede pedir, más no; y sin capacidad (Infinity) tampoco.
+  const toda = escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora: AHORA, capacidad: CAPACIDAD });
+  assert.equal(toda.corte, null);
+  assert.equal(toda.focos.length, 4);
+  assert.match(render(toda).split('\n')[0], / · 60 de 10000 posiciones · mín 1000 \(no llega\) · máx 10000$/);
+  for (const capacidad of [CAPACIDAD + 1, Infinity]) assert.throws(() => escena(eje, [compra.id], { ahora: AHORA, capacidad }), /capacidad inválida: .* el máximo de Scened es duro; se puede pedir menos, nunca más/);
   for (const capacidad of [0, -10, 1.5, '100', NaN]) assert.throws(() => escena(eje, [compra.id], { capacidad }), /capacidad inválida/);
 });
 
@@ -255,6 +265,10 @@ test('mil compras hermanas: la escena llega a las diez mil posiciones y lo dice'
   const lineas = render(e).split('\n');
   assert.equal(lineas.length, 1 + 998 + 2 + 1);
   assert.match(lineas.at(-1), /^aviso: capacidad de la escena: 10000 posiciones\. El foco [0-9a-f]{8} \(999º de 1000\)/);
+  // Más de diez mil posiciones: se consigue el máximo, y el aviso dice cuánto faltó (VG, 7-11 noche).
+  assert.deepEqual(e.cifras, { conseguido: 10000, minimo: 1000, maximo: 10000, alMinimo: true, necesario: 10020 });
+  assert.match(lineas.at(-1), /\. Trae 10000 de 10020 posiciones\.$/);
+  assert.match(lineas[0], / · 10000 de 10000 posiciones · mín 1000 · máx 10000$/);
 });
 
 test('camino y época: todos los focos se miran desde el mismo sitio y bajo la misma época', async () => {
@@ -270,10 +284,11 @@ test('camino y época: todos los focos se miran desde el mismo sitio y bajo la m
   assert.match(lineas[1], / cocina · 0 ensalada · /); // la posición 1.0 del menú
   assert.match(lineas[2], / huesped · 0 →[0-9a-f]{8} · /); // la 1.0 de la compra es una referencia
   // La época también por nombre, como en mapa; la escena dice la resuelta.
-  const p = escena(eje, [menu.id], { ahora: AHORA, epoca: 'época 1 (propuesta)' });
-  assert.equal(p.epoca, 'época 1 (propuesta)');
-  assert.deepEqual(p.focos[0].mapa, mapa(eje, menu.id, { epoca: EPOCA_1_PROPUESTA }));
-  assert.match(render(p).split('\n')[0], / · época 1 \(propuesta\) · camino raíz · /);
+  const p = escena(eje, [menu.id], { ahora: AHORA, camino: [1], epoca: 'época 0' });
+  assert.equal(p.epoca, 'época 0');
+  assert.deepEqual(p.focos[0].mapa, mapa(eje, menu.id, { camino: [1], epoca: EPOCA_0 }));
+  assert.match(render(p).split('\n')[0], / · época 0 · camino 1 · /);
+  assert.equal(p.focos[0].mapa.celdas[2].significado, 'con qué condición'); // profundidad 1: el PV aplicado al nodo de arriba
   assert.throws(() => escena(eje, [menu.id], { epoca: 'época 9' }), /época desconocida/);
 });
 

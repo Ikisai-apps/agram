@@ -34,7 +34,7 @@ Cada operación es una sola: la transición con su efecto nombrado. Sobrio y ani
 
 ### Colisiones, no apaños
 
-Una dirección con ceros finales nombra a la vez la posición 1, la 1.0, la 1.0.0… Todos son ocupantes legítimos de esa dirección, con su camino exacto y su procedencia. Un terminal no tiene posición 0. Las colisiones se conservan y se ordenan sin borrar nada: son la materia prima de `BUSCAR`, de los criterios (`ORDENAR`), de `ACTUAL` y `ELEGIR` (que no publica) y de la fábrica (consolidar es la única fijación, y no borra). No existe modificar en sitio: corregir es añadir un ocupante. `BUSCAR` las pide de dos maneras, sin ambigüedad (VG, 7-11): con un número es índice (el camino exacto, relativo al anfitrión); con un texto de diez dígitos es dirección (absoluta en el registro, la colisión entera).
+Una dirección con ceros finales nombra a la vez la posición 1, la 1.0, la 1.0.0… Todos son ocupantes legítimos de esa dirección, con su camino exacto y su procedencia. Un terminal no tiene posición 0. Las colisiones se conservan y se ordenan sin borrar nada: son la materia prima de `BUSCAR`, de los criterios (`ORDENAR`), de `ACTUAL` y `ELEGIR` (que no publica) y de la fábrica (consolidar es la única fijación, y no borra). No existe modificar en sitio: corregir es añadir un ocupante. `BUSCAR` las pide de dos maneras, sin ambigüedad (VG, 7-11): con un número es índice (el camino exacto, relativo al anfitrión); con un texto de diez dígitos es dirección (absoluta en el registro, la colisión entera). Dentro de `FILTRAR` y `ORDENAR`, `ORIGEN()` dice de dónde viene cada ocupante (propio, referencia o escrito). Una consolidación guarda de dónde vino cada fuente elegida, con su vector (`contexto.encaje`). La época cambia qué ocupantes aparecen y cómo se ordenan; hoy solo por el gancho `epoca.ordinal`, que ninguna época usa todavía (cómo cambia el vector con la época: pendiente).
 
 ### El vector de encaje
 
@@ -54,7 +54,48 @@ La autorización y la ejecución reales son de AARPIA, que aún no existe; lo qu
 
 ### Lenguaje para IA
 
-Los lenguajes se hicieron para que programaran personas; aquí programan IA. Por eso: posiciones en vez de nombres (coordenadas), referencias que no copian (conexiones), colisiones como distribución, vector como distancia, consolidar como colapso con traza, época como lectura por contexto. El léxico es una capa (las reglas cortas) sobre las posiciones; las fórmulas son cortas y locales; el frontend es la única parte pensada para personas.
+Los lenguajes se hicieron para que programaran personas; aquí programan IA. Por eso: posiciones en vez de nombres (coordenadas), referencias que no copian (conexiones), colisiones como distribución, vector como distancia, consolidar como colapso con traza, época como lectura por contexto. El léxico es una capa (las reglas cortas) sobre las posiciones; las fórmulas son cortas y locales; el frontend es la única parte pensada para personas. La prueba que lo mide es «el extranjero»: un agente sin corpus, solo con las reglas y la gramática, escribe registros y fórmulas correctas (resultados en `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
+
+## Añadido el 7-11-2026: reservas, fábrica y mundos
+
+### La plaza: capacidad, colisión y anclaje
+
+Una plaza (una cama) es una **posición** del elemento habitación, dentro de los recursos de la disponibilidad (la 1.k), y a la vez una **serie limitada** de tokens E que emite quien la respalda (la casa): un token por plaza y noche, tantos como capacidad (VG, 7-11: «las dos cosas a la vez»). La reserva se ancla en la plaza y lleva sus noches en su propio 7; las reservas de la misma plaza colisionan ahí y se ven todas. Ejecutar la reserva en la fábrica es mover esos tokens de la casa a quien reserva; la segunda reserva solapada se escribe y colisiona, pero no se ejecuta: la casa ya no tiene el token de esa noche (saldo insuficiente). En `main`: el ejemplo de la reserva (`ejemplos/ikisai/reserva-booking.mjs`, `test/ejemplo-booking.test.js`). Cómo firma la confirmación a dos partes sin atomicidad es de AARPIA ([X] decidir VG, en el propio ejemplo).
+
+### Las bases del 8: lo decidido
+
+«Comparabilidad (PV8)» describe el cálculo. Lo decidido para escribirlo (VG, 7-11, «exactamente lo que buscábamos»): sin base de datos aparte, las estadísticas son **registros** en la posición 8 del registro que resumen, con referencias a lo medido; el 8 del proyecto funde las bases de sus hijos y el 8 del génesis, las de los proyectos; la base lleva fecha y frescura; la escribe la propia cosa con su clave y gastando su T; corregir es añadir otra base (la historia sale gratis); lo que no se funde (medianas exactas, correlaciones) se aproxima o se descarta; `BASES()` en BQL las lee. En `main`: `src/bases.js` las escribe como registros en la posición 8 y `BASES()`, `CAJA()` y `FRESCURA()` las leen (`docs/BQL.md` §7.13–§7.14); el detalle y sus abiertos, en `docs/notas/BASES_DEL_8.md` y `docs/MOTOR.md` §14.
+
+### El registro de salida de la fábrica
+
+Se escribe de 0 a 9, y dentro de cada posición igual, sin huecos ni «no aplicable»: no se rellena macizo, se va por las ramas a las hojas necesarias (VG, 7-11). El impulso financiero es la base de la ejecución. La matriz 10×10×10 (los diez PV como tercer dígito, relativa al camino), la herencia por referencia, el anclaje de lo lejano y los topes duros de emisión por modo están en `main` y se explican una sola vez, más abajo: «La fábrica: la matriz 10×10×10» y «Topes duros de emisión por modo».
+
+### Los mundos animados: el orden
+
+Cada animación corresponde a una transición real (ver «Sobrio y animado»). El orden decidido (VG, 7-11): primero la cruz entera, los hilos 6 y 7, luego el cielo 8 y el camino 9, con el 5 en el centro; después la X: la fábrica 4 (confluencia de 7 y 9), el 1, el 2, el 3 y la lente 0. Antes de animar, un catálogo de efectos: qué se ve en cada mundo cuando cambia la celda i.j.k. En `main`: el catálogo de efectos (`src/efectos.js`, `docs/EFECTOS.md`) y, sobre él, la cruz entera (los hilos del 6 y 7; el cielo del 8, el camino del 9 y el 5 en el centro) y la X (fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0), en Mapped con «animado» (`mundos/`, `docs/MUNDOS.md`). Scened no anima nada: solo tiene el render sobrio.
+
+## Las decisiones del mapa §12, una a una
+
+Comprobación de que este documento recoge cada [D] del §12 del mapa (noche del 6 al 7-11 y 7-11). Las que el propio mapa retira o corrige van con su corrección.
+
+| [D] del mapa §12 | Dónde está aquí | En `main` (03dbf34) |
+|---|---|---|
+| Colisiones, no apaños; un terminal no tiene posición 0; `ORIGEN()` | «Colisiones, no apaños» | hecho |
+| Qué es una colisión (materia prima de BUSCAR, ORDENAR, ACTUAL/ELEGIR y la fábrica; corregir es añadir; el 8 compara ocupantes; la época cambia ocupantes y orden) | «Colisiones, no apaños», «Comparabilidad (PV8)» | hecho, salvo cómo cambia el vector con la época |
+| Vector de diez diferencias con signo; la consolidación guarda los vectores de sus fuentes | «El vector de encaje», «Colisiones, no apaños» | hecho |
+| Corrección del signo y signo del vector: opción B | «El vector de encaje» (la lectura anterior, retirada) | hecho |
+| AARPIA es el motor real; identidades | «AARPIA e identidades» | hueco provisional en el motor |
+| Idea de fondo: lenguaje para IA; prueba del extranjero | «Lenguaje para IA» | prueba hecha (nota) |
+| Capacidad y tokens casan; plaza como posición con capacidad y serie limitada | «La plaza: capacidad, colisión y anclaje», «Series de tokens» (E) | hecho en el ejemplo de la reserva |
+| Las series de tokens son una constante y se estandarizan | «Series de tokens» | hecho |
+| Anclaje de la reserva | «La plaza: capacidad, colisión y anclaje» | hecho en el ejemplo de la reserva |
+| Poder de recepción y reputación | «Series de tokens» (P y R) | hecho |
+| Titulares y su corrección: las cosas son titulares, solo personas y grupos emiten | «Series de tokens» («Quién emite») | hecho |
+| BUSCAR por dirección y por índice | «Colisiones, no apaños» | hecho |
+| Cohortes y bases del 8 | «Comparabilidad (PV8)», «Las bases del 8: lo decidido» | hecho: cohortes y cálculo (`src/tiempo.js`) y bases escritas en el 8 (`src/bases.js`; `BASES`, `CAJA` y `FRESCURA` en BQL) |
+| Posiciones sin contenido y registro de salida de la fábrica; la tercera dimensión son los PV; topes duros | «El registro de salida de la fábrica», «La fábrica: la matriz 10×10×10», «Topes duros de emisión por modo» | hecho: herencia por referencia, anclaje de lo lejano, matriz relativa al camino y topes de emisión (`src/escritura.js`, `src/modos.js`); los [X] de esas secciones siguen abiertos |
+| Orden de los mundos animados; catálogo de efectos antes de animar | «Los mundos animados: el orden» | hecho: catálogo de efectos, la cruz (hilos, cielo, camino y el 5) y la X (`mundos/`, `docs/MUNDOS.md`) |
+| Agentes: todo a Opus, que no sobren tokens | — | organización del trabajo, no del núcleo: no va aquí |
 
 ## Series de tokens (VG, 7-11-2026; quién emite, 7-11 noche)
 

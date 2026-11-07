@@ -55,9 +55,11 @@ Un registro escrito sobre su foco en `en` es **un ocupante más de esa direcció
 
 Dos registros en `7000000000` sobre el menú: el primero ancla y el segundo colisiona con él (`ocupantes` da 2). Uno en `1100000000`, donde el menú tiene «guiso», colisiona con «guiso».
 
+**Leer desde el camino de quien mira** (`efectosDe(eje, evento, { marco })`, opcional): si el registro está anclado en ese camino o bajo él (el marco es exacto: [1, 0] no es [1]) y el camino deja sitio a la clase, el registro y lo que trae dentro se sitúan desde ese marco (mapa §13 [D]: la clase es el dígito n+2) y cada efecto lo dice en `marco`. Si no, se lee desde la raíz, como sin marco. Un registro en `1000000000` con `[ref, [ref, ['ver', 'impulso']]]` da desde la raíz 1.0.0 y 1.1.1 (hasta la profundidad 3); desde `[1]`, 0.0.0, 1.1.0 y 1.1.1, que es 1.1.1.1: clase 1. Lo usa la fábrica de la X (`mundos/fabrica.js`), que pinta la matriz relativa al camino del foco. Lleva la marca del marco leído ([X]): el registro sigue sin guardar desde qué camino se escribió. Las fases del motor no cambian.
+
 ### 2. Lo que trae dentro
 
-Si el payload es un array, cada nodo suyo es una celda en la misma lectura: su dirección es `en` seguido de su ruta, hasta la profundidad 3 (posición, subposición, clase); lo que cuelga más hondo es contenido de esa celda. Por eso, la misma celda da siempre el mismo mundo, venga de un terminal o de un array. La posición 0 (y la 0.0…) es la representación del registro: colisiona con él en su dirección y no da un efecto aparte.
+Si el payload es un array, cada nodo suyo es una celda en la misma lectura: su dirección es `en` seguido de su ruta, hasta la profundidad 3 tras el marco (posición, subposición, clase; sin marco, 3 desde la raíz); lo que cuelga más hondo es contenido de esa celda. Por eso, la misma celda da siempre el mismo mundo, venga de un terminal o de un array. La posición 0 (y la 0.0…) es la representación del registro: colisiona con él en su dirección y no da un efecto aparte.
 
 **Leer así un registro cualquiera es propuesta** ([X]): la matriz 10×10×10 está decidida solo para el registro de salida de la fábrica (mapa §12 y §13), y hoy ningún registro de `main` lo es con certeza. Toda celda de dentro lleva esa marca.
 
@@ -95,7 +97,7 @@ Una fase que cuenta está en la fábrica (mundo 4), en la dirección donde el mo
 - **la del nombre**: la de su entrada del catálogo (todas dicen «emparejamiento propuesto»; las que no son palabra del corpus lo dicen además), o «el corpus no nombra este efecto en este mundo» si el mundo no tiene entrada;
 - **la de la clase**, si es de 5 a 9 (sin nombre);
 - **la de la matriz**, en las celdas de dentro;
-- **la del marco**, en lo escrito fuera de la raíz;
+- **la del marco**, en lo escrito fuera de la raíz; si se lee desde el camino de quien mira, la del marco leído;
 - **la de la familia**, en los movimientos;
 - **la de la clase de la fase**, en las fases.
 
@@ -162,8 +164,8 @@ Una prueba comprueba que `datos/efectos.js` está al día. El módulo exporta `C
 ## Abierto: [X] decidir VG
 
 1. **El emparejamiento operación ↔ nombre**, mundo a mundo. Cada entrada lleva su fuente y su marca.
-2. **Leer el contenido de un registro como la matriz 10×10×10.** Decidido para el registro de salida de la fábrica; aquí se aplica a todo registro, con la marca. Falta saber qué registros son esa salida: la PR #40 la trae, y si escribir y consolidar son la misma salida sigue abierto (`docs/notas/FABRICA_10X10.md`, D1/D2).
-3. **El marco.** El registro no guarda desde qué camino del foco se escribió, y se lee desde la raíz. La app escribe en `direccion([...camino, PV])`, la #40 ancla aparte las celdas sin base en su `camino + i.j.k`, y el motor consolida en `camino + 4` (este caso se resuelve: su camino es `en` sin el 4). Para leer los demás desde su camino, el registro tendría que guardarlo (propuesta: en su contexto).
+2. **Leer el contenido de un registro como la matriz 10×10×10.** Decidido para el registro de salida de la fábrica; aquí se aplica a todo registro, con la marca. Falta saber qué registros son esa salida: la #40 ya está en `main` (`escribirSalida`, `docs/MOTOR.md` §7), y si escribir y consolidar son la misma salida sigue abierto (`docs/notas/FABRICA_10X10.md`, D1/D2).
+3. **El marco.** El registro no guarda desde qué camino del foco se escribió, y se lee desde la raíz. La app escribe en `direccion([...camino, PV])`, la #40 ancla aparte las celdas sin base en su `camino + i.j.k`, y el motor consolida en `camino + 4` (este caso se resuelve: su camino es `en` sin el 4). Para leer los demás desde su camino, el registro tendría que guardarlo (propuesta: en su contexto). Mientras, quien mira puede pedir su camino como marco (`{ marco }`), con su marca.
 4. **Ver y heredar** dan el mismo payload (PR #40). Aquí se distinguen por `contexto.vistas` o `contexto.heredadas`; un registro de la #40 que solo ve no guarda `heredadas`, y sus vistas se leerían como herencia. Propuesta: guardar `contexto.vistas`.
 5. **Toda referencia al foco es herencia**, también las que apuntan a otra dirección del foco.
 6. **Familias de tokens → mundo y clase**: los moduladores del corpus, tentativos.

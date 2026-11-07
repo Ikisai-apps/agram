@@ -386,3 +386,42 @@ test('errores: evento o foco desconocidos', async () => {
   assert.throws(() => efectosDe(eje, { ...menu, sobre: 'f'.repeat(64) }), /foco desconocido/);
   assert.throws(() => efectosDe(eje, { ...menu, en: '12' }), /anclaje inválido/);
 });
+
+test('marco de quien mira: un registro anclado en el camino se lee desde él, con la clase en el dígito n+2', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const gasto = { token: 'T', escala: 'minuto', cantidad: 4, de: 'huesped', a: null };
+  const bajo = await eje.escribir({
+    autor: 'huesped', sobre: compra.id, en: '1000000000', t: T, movimientos: [gasto],
+    payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, ['ver', 'impulso']]],
+  });
+  const celdas = (efectos) => efectos.filter((e) => DE_CELDA.includes(e.tipo)).map((e) => `${e.etiqueta}:${e.tipo}`);
+  // Sin marco, desde la raíz: hasta la profundidad 3, la clase es el tercer dígito de la dirección.
+  const raiz = efectosDe(eje, bajo.id);
+  assert.deepEqual(celdas(raiz), ['1.0.0:sustituir', '1.1.1:impulso']);
+  // Desde [1]: hasta la profundidad 3 tras el marco; 1.1.1.1 es la celda 1.1.1 de la matriz de la posición 1 (clase 1).
+  const uno = efectosDe(eje, bajo.id, { marco: [1] });
+  assert.deepEqual(celdas(uno), ['0.0.0:sustituir', '1.1.0:escrito', '1.1.1:impulso']);
+  for (const ef of uno.filter((e) => e.tipo !== 'token')) {
+    assert.deepEqual(ef.marco, [1]);
+    assert.equal(ef.clase, claseRelativa(ef.celda, ef.marco));
+    assert.ok(ef.decisiones.includes(MARCAS_EFECTO.marcoLectura));
+    assert.ok(!ef.decisiones.includes(MARCAS_EFECTO.marco));
+  }
+  assert.deepEqual(efectosDe(eje, bajo.id, { marco: '1000000000' }), uno);
+  // Fuera del marco, o con un marco exacto que no lo contiene ([1, 0] no es [1]), se lee desde la raíz.
+  assert.deepEqual(efectosDe(eje, bajo.id, { marco: [2] }), raiz);
+  assert.deepEqual(efectosDe(eje, bajo.id, { marco: [1, 0] }), raiz);
+  assert.deepEqual(efectosDe(eje, bajo.id, { marco: [] }), raiz);
+  assert.throws(() => efectosDe(eje, bajo.id, { marco: [1, 12] }), /lista de índices/);
+});
+
+test('marco de quien mira: las fases del motor no cambian', async () => {
+  const { eje } = await cicloCompleto();
+  let fases = 0;
+  for (const id of eje.orden) {
+    if (!eje.obtener(id).contexto?.fase) continue;
+    fases++;
+    assert.deepEqual(efectosDe(eje, id, { marco: [4] }), efectosDe(eje, id));
+  }
+  assert.ok(fases >= 3);
+});

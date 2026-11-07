@@ -9,7 +9,7 @@
 
 import { ARIDAD, esReferencia, direccion } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
-import { MODOS } from './modos.js';
+import { MODOS, alcanceDe } from './modos.js';
 
 export const MATRIZ = Object.freeze([
   [1, 8, 2],
@@ -27,7 +27,10 @@ function payloadEn(ev, camino) {
  * Mapa del foco: una celda por PV con su contenido en la profundidad del
  * camino y cuántos registros se han escrito en esa posición; el eje (hilo
  * hacia atrás y escritos sobre el foco); y las medidas del 8. La época va
- * por objeto o por nombre, como en leerDireccion.
+ * por objeto o por nombre, como en leerDireccion. `alcance` da los tres
+ * números del modo (VG, 7-11 noche): lo conseguido en posiciones (cada
+ * registro traído, el foco, su hilo y sus hijos, es una décupla y cuenta
+ * diez, como lectura()), el mínimo (100) y el máximo (1000).
  */
 export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.sequenced.decuplas } = {}) {
   const ev = eje.obtener(id);
@@ -58,7 +61,9 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
     posicionesDesarrolladas: celdas.filter((c) => c.contenido !== undefined).length,
   };
   const terminal = Array.isArray(p) ? undefined : p;
-  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, celdas, hilo, hijos, medidas };
+  const traidos = new Set([id, ...hilo.map((e) => e.id), ...hijos.map((e) => e.id)]);
+  const alcance = alcanceDe(traidos.size * ARIDAD, 'mapped');
+  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, celdas, hilo, hijos, medidas, alcance };
 }
 
 function breve(c) {
