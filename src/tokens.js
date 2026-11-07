@@ -124,6 +124,10 @@ export function validarMovimiento(m) {
   }
   if (m.token !== 'P' && m.ambito !== undefined) errores.push('ámbito solo en P');
   if (m.token !== 'R' && m.token !== 'E' && m.emisor !== undefined) errores.push('emisor solo en E y en R');
+  // Los separadores de las claves de serie están reservados: ni identidades ni denominaciones los llevan.
+  for (const campo of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) {
+    if (typeof m[campo] === 'string' && /[|:/]/.test(m[campo])) errores.push(campo + ' no puede llevar | : ni /');
+  }
   if (m.de === undefined || m.a === undefined) errores.push('de y a son obligatorios (null permitido)');
   if (m.de !== null && typeof m.de !== 'string') errores.push('de debe ser identidad o null');
   if (m.a !== null && typeof m.a !== 'string') errores.push('a debe ser identidad o null');
