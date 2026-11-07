@@ -13,7 +13,7 @@ import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
 import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
-  indicesDe, direccion, esReferencia, escritura, PV, RAIZ, leerCamino,
+  indicesDe, direccion, esReferencia, escritura, maximo, PV, RAIZ, leerCamino,
 } from './src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
 import { listaOcupantes as listaEncaje, instalarEncaje } from './ui/encaje.js';
@@ -21,11 +21,11 @@ import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, t
 import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
-import { htmlCifras } from './ui/comun.js';
+import { htmlCifras, htmlAvisos } from './ui/comun.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
-  aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '',
+  aviso: '', exito: '', nota: null, verOcupantes: null, claves: {}, guardado: '',
 };
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
@@ -131,7 +131,9 @@ function selectores() {
 }
 
 function mensajes() {
-  return `${estado.aviso ? `<div class="aviso">${escapar(estado.aviso)}</div>` : ''}${estado.exito ? `<div class="exito">${escapar(estado.exito)}</div>` : ''}`;
+  // La nota de la proporción va con el éxito que la produjo (VG, 7-11 noche: la proporción propone, el máximo manda): una línea discreta, nunca error.
+  const nota = estado.exito && estado.nota && estado.nota.de === estado.exito ? `<div class="pista nota">${escapar(estado.nota.texto)}</div>` : '';
+  return `${estado.aviso ? `<div class="aviso">${escapar(estado.aviso)}</div>` : ''}${estado.exito ? `<div class="exito">${escapar(estado.exito)}</div>` : ''}${nota}`;
 }
 
 function listaOcupantes(indices) {
@@ -142,19 +144,23 @@ function listaOcupantes(indices) {
 
 function pintarPointed() {
   const ev = estado.eje.obtener(estado.foco);
-  const d = pointed.decupla({ ...ev, payload: payloadEnFoco() }, epocaActual(), estado.camino.length);
+  const base = payloadEnFoco();
+  const d = pointed.decupla({ ...ev, payload: base }, epocaActual(), estado.camino.length);
   const filas = d.posiciones.map((p) => {
     const c = p.contenido;
+    // Pointed corta duro en 10 (VG, 7-11 noche): una posición cortada enseña lo que entra, pero se abre por lo que tiene.
+    const entero = p.cortada && Array.isArray(base) ? base[p.indice] : c;
     const indices = [...estado.camino, p.indice];
     let accion = `data-posicion="${p.indice}"`;
-    if (Array.isArray(c)) accion = `data-desarrollar="${p.indice}"`;
-    else if (esReferencia(c)) accion = `data-ir="${c.ref}" data-dir="${c.dir ?? ''}"`;
+    if (Array.isArray(entero)) accion = `data-desarrollar="${p.indice}"`;
+    else if (esReferencia(entero)) accion = `data-ir="${entero.ref}" data-dir="${entero.dir ?? ''}"`;
     const n = encaje.ocupantes(estado.eje, estado.foco, indices).length;
     const marca = String(p.indice) === estado.en ? ' elegida' : '';
-    const clase = 'pos' + (c === undefined ? ' vacia' : '') + (accion.startsWith('data-posicion') ? '' : ' activa') + marca;
+    const clase = 'pos' + (c === undefined ? ' vacia' : '') + (accion.startsWith('data-posicion') ? '' : ' activa') + (p.cortada ? ' cortada' : '') + marca;
     const abierto = estado.verOcupantes === p.indice;
+    const valor = p.cortada ? (c === undefined ? 'fuera del máximo' : slot(c, estado.foco, indices)) + ' <span class="corte">· cortada</span>' : slot(c, estado.foco, indices);
     return `<div class="posfila">
-      <button class="${clase}" ${accion}><span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${slot(c, estado.foco, indices)}</span></button>
+      <button class="${clase}" ${accion}><span class="idx">${p.indice}</span><span class="pv">${p.significado}</span><span class="val">${valor}</span></button>
       ${n > 1 || (n === 1 && c === undefined) ? `<button class="oc ${abierto ? 'abierto' : ''}" data-ocupantes="${p.indice}" title="ocupantes de esta posición">↳ ${n}</button>` : ''}
       ${abierto ? listaOcupantes(indices) : ''}
     </div>`;
@@ -162,9 +168,9 @@ function pintarPointed() {
   const e = escritura('pointed');
   // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
   const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
-  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Pointed', d.alcance)}</div><div class="decupla">${terminal}${filas.join('')}</div>
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Pointed', d.alcance)}</div>${htmlAvisos(d.avisos)}<div class="decupla">${terminal}${filas.join('')}</div>${htmlAvisos(d.avisos)}
     <form id="escribir" data-modo="pointed" class="escribir">
-      <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
+      <div class="titulo">Escribir sobre el foco · Pointed propone ${e[1]} posición (como mucho ${maximo('pointed')}) · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
       <label>Un terminal <small>(texto, número, @id o =fórmula)</small>
         <input name="texto" maxlength="160" placeholder="p. ej. «servido a las 14:05» o =LOCAL(1) + 2 EUR" required>
@@ -191,13 +197,15 @@ function pintarSequenced() {
   const bloque = (s, titulo) => `
     <section class="hilera">
       <div class="titulo">${titulo} · ${s.decuplas.length} de ${s.total} ${htmlCifras('Sequenced', s.alcance)}</div>
-      ${s.decuplas.length ? s.decuplas.map(filaSecuencia).join('') : '<div class="nada">nada todavía</div>'}
+      ${htmlAvisos(s.avisos)}
+      ${s.decuplas.length ? s.decuplas.map(filaSecuencia).join('') : `<div class="nada">${s.corte ? 'ningún registro cabe' : 'nada todavía'}</div>`}
+      ${htmlAvisos(s.avisos)}
     </section>`;
   const e = escritura('sequenced');
   const inputs = nombresPV(0).map((n, i) => `<input name="h${i}" maxlength="160" placeholder="${i} ${n}">`).join('');
   $('#vista').innerHTML = cabecera(ev) + bloque(hilo, 'Hilo hacia el génesis') + bloque(hijos, 'Escrito sobre el foco') + `
     <form id="escribir" data-modo="sequenced" class="escribir">
-      <div class="titulo">Escribir una hilera sobre el foco · Sequenced escribe de ${e[0]} a ${e[1]} posiciones de 100 · sin huecos</div>
+      <div class="titulo">Escribir una hilera sobre el foco · Sequenced propone de ${e[0]} a ${e[1]} posiciones (como mucho ${maximo('sequenced')}) · sin huecos</div>
       ${selectores()}
       <div class="hilera-inputs">${inputs}</div>
       <div class="pista">Toca «@» en una fila para meterla como referencia. Cada posición escrita mueve un minuto de T.</div>
@@ -324,10 +332,10 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div><div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, o8)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div>${htmlAvisos(m.avisos)}<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, o8)).join('')}</div>${htmlAvisos(m.avisos)}`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
-      <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
+      <div class="titulo">Escribir una décupla sobre el foco · Mapped propone de ${e[0]} a ${e[1]} posiciones (como mucho ${maximo('mapped')}) · una línea por ítem</div>
       ${selectores()}
       <div class="decupla-form">${celdasForm}</div>
       <div class="pista">Las celdas vacías anteriores a la última escrita se heredan del foco por referencia. Lo que el foco no tiene (lo lejano) no se rechaza: se ancla aparte en su posición, y entonces la décupla va en ${etiquetaCamino()}. Cada posición escrita mueve un minuto de T.</div>
@@ -420,6 +428,8 @@ async function registrar(form) {
     const n = ev.movimientos[0].cantidad;
     estado.exito = 'Registrado ' + corto(ev.id) + ' en ' + etiquetaEn() + ' sobre ' + corto(estado.foco) + ' · ' + n + (n === 1 ? ' posición, 1 minuto' : ' posiciones, ' + n + ' minutos') + ' de T'
       + (heredadas.length ? ' · heredadas del foco: ' + heredadas.join(', ') : '') + (ev.firma ? ' · firmado' : '') + '.';
+    const aviso = salida.proporcionDeRegistro(ev).aviso;
+    estado.nota = aviso ? { de: estado.exito, texto: aviso } : null;
     pintar();
   } catch (e) {
     fallo(e, form);
@@ -449,6 +459,7 @@ async function registrarSalida(s) {
   estado.exito = partes[0].toUpperCase() + partes.slice(1) + otraPosicion + ' sobre ' + corto(estado.foco) + ' · '
     + n + (n === 1 ? ' posición, 1 minuto' : ' posiciones, ' + n + ' minutos') + ' de T'
     + (s.heredadas.length ? ' · heredadas del foco: ' + s.heredadas.join(', ') : '') + (eventos.some((ev) => ev.firma) ? ' · firmado' : '') + '.';
+  estado.nota = r.avisos.length ? { de: estado.exito, texto: r.avisos.join(' ') } : null;
   pintar();
 }
 
