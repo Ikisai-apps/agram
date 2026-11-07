@@ -526,41 +526,46 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
 
 // VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye la regla de Core de esta revisión («solo
 // cuenta el P sobre un registro del hilo que el autor no escribió»): el P del autor cuenta como cualquier otro, y lo
-// que decide es el P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG), no quién lo bloquea.
-test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el registro del recurso es la raíz del dominio', async () => {
+// que decide es el P sobre el registro del recurso, no quién lo bloquea. VG, 8-11: el registro del recurso es el más
+// cercano del hilo del foco con P propio emitido (manda el más concreto con poder emitido; la raíz del dominio solo
+// donde nadie ha emitido P por debajo, y el génesis solo donde nadie ha emitido P).
+test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; manda el registro más cercano con P propio emitido', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30 });
-  // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él y se lo delega al títere.
+  // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él (1) y se lo delega al títere.
   const suyo = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo mío', movimientos: [gasta('ana')] });
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'poder sobre lo mío',
     movimientos: [gasta('ana'), emiteR('ana', 1), mueveR('ana', 1, 'ana', 'titere'), emiteP('ana', suyo.id), { token: 'P', ambito: suyo.id, cantidad: 1, de: 'ana', a: 'titere' }] });
   assert.equal(eje.poderSobre('titere', suyo.id), 1);
   const c = await consolidar(eje, { autor: 'ana', foco: suyo.id, t: T0, elecciones: { 1: 'me lo apruebo' } });
-  // El recurso es la raíz del dominio, las altas, sin P propio: cuenta el P del eje. Ni ana ni el títere lo tienen.
-  assert.equal(recursoDe(eje, c.id), alta.id);
-  assert.equal(puedeAutorizar(eje, 'titere', c.id), false);
-  await assert.rejects(autorizar(eje, { autorizante: 'titere', consolidacion: c.id, t: T0 }),
-    /titere no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso [0-9a-f]{8}, que no tiene P propio emitido/);
+  // El recurso es su registro, que tiene P propio emitido: cuenta solo P:suyo, no el P del eje de la raíz.
+  assert.equal(recursoDe(eje, c.id), suyo.id);
+  assert.equal(puedeAutorizar(eje, 'raiz', c.id), false);
   // Escrita a mano, sin bloquear P, la autorización existe pero no cuenta, y no se ejecuta.
   await eje.escribir({ autor: 'titere', sobre: c.id, en: FABRICA, t: T0, payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' }, movimientos: [gasta('titere')] });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  // Cerrada la concesión que quedaba abierta: un subregistro del títere debajo tampoco cuenta; el recurso sigue siendo la raíz.
+  // El títere solo tiene el P que ana emitió sobre lo suyo: con él autoriza lo mismo que ana sin títere (1 de 1).
+  // Dividirse no da más: es el P de ana, que decide sobre su registro.
+  await autorizar(eje, { autorizante: 'titere', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  // Un subregistro del títere debajo, con su P propio: manda en lo que se consolida sobre él, no en lo de ana.
   const delTitere = await eje.escribir({ autor: 'titere', sobre: suyo.id, t: T0, payload: 'lo del títere', movimientos: [gasta('titere')] });
   await eje.escribir({ autor: 'titere', sobre: delTitere.id, t: T0, payload: 'poder del títere',
     movimientos: [gasta('titere'), emiteR('titere', 1), mueveR('titere', 1, 'titere', 'ana'), emiteP('titere', delTitere.id)] });
   const debajo = await consolidar(eje, { autor: 'ana', foco: delTitere.id, t: T0, elecciones: { 1: 'otra cosa mía' } });
-  assert.equal(recursoDe(eje, debajo.id), alta.id);
-  assert.equal(puedeAutorizar(eje, 'titere', debajo.id), false);
-  // Lo positivo: la raíz bloquea su P del eje (5 de 5) y ana ejecuta; lo bloqueado por la raíz queda liberable.
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  assert.equal(recursoDe(eje, debajo.id), delTitere.id);
+  const otra = await consolidar(eje, { autor: 'ana', foco: suyo.id, t: T0, elecciones: { 1: 'otra más' } });
+  assert.equal(recursoDe(eje, otra.id), suyo.id);
+  // Sin P propio en todo el hilo, manda el génesis: la raíz bloquea su P del eje (5 de 5).
+  const sinP = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'sin poder propio', movimientos: [gasta('ana')] });
+  const enSinP = await consolidar(eje, { autor: 'ana', foco: sinP.id, t: T0, elecciones: { 1: 'lo decide el eje' } });
+  assert.equal(recursoDe(eje, enSinP.id), eje.genesisId);
+  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: enSinP.id, t: T0 });
   assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 5 }]);
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  assert.equal(eje.bloqueado('raiz', 'P:genesis', c.id), 5);
-  await liberar(eje, { titular: 'raiz', consolidacion: c.id, t: T0 });
-  assert.equal(eje.saldo('raiz', 'P:genesis'), 5);
+  assert.equal(estadoDe(eje, enSinP.id), 'AUTORIZADO');
   // En su propio dominio (un registro suyo sobre el génesis) ana se autoriza con su P: el del autor cuenta.
   const propio = await taller(eje, 'ana', { ante: 'titere' });
   const enLoPropio = await consolidar(eje, { autor: 'ana', foco: propio.id, t: T0, elecciones: { 1: 'lo decido yo' } });

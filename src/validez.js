@@ -27,14 +27,14 @@
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
-import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
+import { claveToken, validarMovimiento, familiaDe, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
 import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
-import { pesoDe, estadoPorPeso } from './autorizacion.js';
+import { pesoDe, estadoPorPeso, esSalidaE, esFamilia, registroDeFamilia, esActoDeRespaldo } from './autorizacion.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -182,6 +182,26 @@ function lectorDelLibro(eje, libro) {
       return total;
     },
     sobre: (id, en) => eje.sobre(id, en).filter((e) => libro.ids.has(e.id)),
+    bloqueosDe: (identidad) => {
+      const lista = [];
+      for (const [kb, v] of libro.bloqueados) {
+        const [id, clave, salida] = JSON.parse(kb);
+        if (id === identidad && v > 0) lista.push({ clave, salida, cantidad: v });
+      }
+      return lista;
+    },
+    // El E vivo, como en el eje sin reloj: emitido − consumido (la familia, sumando sus franjas).
+    respaldoE: (salida) => {
+      if (!esSalidaE(salida)) return null;
+      const vivoDe = (s) => (s ? s.emitido - (s.consumido ?? 0) : 0);
+      if (esFamilia(salida)) {
+        let vivo = 0;
+        for (const [k, s] of libro.series) if (k !== salida && k.startsWith('E:') && familiaDe(k) === salida) vivo += vivoDe(s);
+        return vivo > 0 ? { registro: registroDeFamilia(salida, (e) => libro.altas.get(e)?.id), vivo } : null;
+      }
+      const s = libro.series.get(salida);
+      return s && s.emitido > 0 ? { registro: s.registro ?? null, vivo: vivoDe(s) } : null;
+    },
   };
 }
 
@@ -220,7 +240,8 @@ function aplicar(eje, libro, ev) {
       continue;
     }
     if (m.de === null) {
-      const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0, ...(m.token === 'E' ? { caduca: m.caduca ?? null } : {}) };
+      // De una serie de E, también su registro (el que nombra o el alta de su emisor) y lo consumido: el E vivo (R2).
+      const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0, ...(m.token === 'E' ? { caduca: m.caduca ?? null, registro: m.registro ?? libro.altas.get(m.emisor)?.id ?? null, consumido: 0 } : {}) };
       libro.series.set(k, { ...s, emitido: s.emitido + m.cantidad });
       if (m.token === 'T' && ev.contexto?.genesis !== true) {
         const kt = JSON.stringify([ev.autor, m.escala]);
@@ -230,6 +251,7 @@ function aplicar(eje, libro, ev) {
       for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
     } else {
       ajustar(m.de, k, -m.cantidad);
+      if (m.token === 'E' && m.a === null && libro.series.has(k)) libro.series.set(k, { ...libro.series.get(k), consumido: (libro.series.get(k).consumido ?? 0) + m.cantidad });
     }
     if (m.a !== null) ajustar(m.a, k, m.cantidad);
   }
@@ -554,7 +576,8 @@ function quienesPuedenAutorizar(eje, ev, id, enEje) {
 /** Texto del peso de una autorización: cuánto P hay bloqueado de cuánto emitido, y el umbral. */
 function textoPeso(peso) {
   const serie = peso.delEje ? 'P del eje' : 'P:' + String(peso.recurso).slice(0, 8);
-  return peso.bloqueado + ' de ' + peso.emitido + ' ' + serie + ' bloqueado; umbral: ' + peso.umbral.texto;
+  const respaldo = peso.respaldo > 0 ? ' (' + peso.respaldo + ' de él respaldando E del recurso)' : '';
+  return peso.bloqueado + ' de ' + peso.emitido + ' ' + serie + ' bloqueado' + respaldo + '; umbral: ' + peso.umbral.texto;
 }
 
 /** Por qué una autorización no cuenta; vacío si cuenta. */
@@ -565,9 +588,11 @@ function faltasDeAutorizacion(eje, ev) {
   const peso = pesoAutorizacion(eje, c.id);
   const claves = new Set(peso.claves);
   const bloquea = lista(ev.movimientos).some((m) => m?.token === 'P' && m.estado === 'bloqueo' && m.salida === c.id && m.de === ev.autor && claves.has(claveToken(m)));
-  if (!bloquea) {
+  // O el acto de voluntad con el P que ya respalda E del recurso (VG, 8-11): cuenta si su autor aún lo tiene en pie y respalda.
+  const respalda = esActoDeRespaldo(ev, c.id) && peso.respaldan.some((r) => r.identidad === ev.autor);
+  if (!bloquea && !respalda) {
     return [['falla', ev.autor + ' no bloquea P que cuente para autorizar (autorizar es bloquear P sobre el registro del recurso ' + String(peso.recurso).slice(0, 8)
-      + (peso.delEje ? ', que no tiene P propio: el P del eje' : '') + ', con la consolidación como salida): el escrito existe, pero no cuenta']];
+      + (peso.delEje ? ', que no tiene P propio: el P del eje' : '') + ', con la consolidación como salida, o decir que autoriza con el P que ya respalda E del recurso): el escrito existe, pero no cuenta']];
   }
   return [];
 }

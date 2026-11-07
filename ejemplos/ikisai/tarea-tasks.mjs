@@ -417,9 +417,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   if (tope < 3) return r;
 
   // La casa autoriza bloqueando su P (VG, 7-11 noche: autorizar = bloquear P
-  // con el umbral del dueño). El registro del recurso es la raíz del dominio,
-  // las altas de la casa, que no tiene P propio: cuenta el P sobre todo el
-  // eje, y la casa tiene los 10 que emitió el génesis (más de la mitad).
+  // con el umbral del dueño). Nadie en el hilo de la tarea ha emitido P
+  // propio, así que el registro del recurso es el génesis (VG, 8-11): cuenta
+  // el P sobre todo el eje, y la casa tiene los 10 que emitió (más de la mitad).
   r.autorizacion = await autorizar(eje, { autorizante: 'casa', consolidacion: r.consolidacion.id, t: '2026-11-08T11:00:00Z' }, priv('casa'));
   if (tope < 4) return r;
 
