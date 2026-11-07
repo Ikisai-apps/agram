@@ -5,13 +5,16 @@
 // Topes duros de posiciones emitidas (VG, 7-11-2026): Pointed 10, Sequenced
 // 100, Mapped 1000 (la matriz 10×10×10 de la fábrica), Scened 10000,
 // «además de la proporción» (mapa §12). Scened no tiene render todavía.
-// La escritura (src/escritura.js) comprueba las dos: el tope sobre lo
-// emitido y el máximo de la proporción sobre las posiciones del registro,
-// que rechaza como antes del 7-11. [X] decidir VG si la proporción rechaza
-// o solo informa: el mapa no lo decide, y con las dos rechazando la
-// proporción (1, 20, 333) se alcanza antes que el tope, así que la matriz de
-// 1000 no cabe en Mapped. `proporcion` y `proporcionDe` dicen dónde queda un
-// registro respecto de ella.
+// La escritura (src/escritura.js) comprueba las dos, en este orden: el
+// máximo de la proporción sobre las posiciones del registro (lo heredado
+// incluido), que rechaza como antes del 7-11 y con el mismo mensaje, y el
+// tope sobre lo EMITIDO (lo heredado por referencia no se emite). [X]
+// decidir VG si la proporción rechaza o solo informa: el mapa no lo decide,
+// y con las dos rechazando la proporción (1, 20, 333) se alcanza antes que
+// el tope, así que la matriz de 1000 no cabe en Mapped y el tope solo decide
+// en Scened. Estas funciones cuentan igual: `cabeTope` descuenta las
+// heredadas que se le digan; `cabeEscritura`, `proporcion` y `proporcionDe`
+// cuentan todas las posiciones del registro.
 
 import { ARIDAD, esTerminal } from './btml.js';
 
@@ -58,19 +61,32 @@ export function contarPosiciones(payload) {
   return 0;
 }
 
-/** Si un payload cabe en el tope duro del modo. */
-export function cabeTope(payload, modo) {
-  return contarPosiciones(payload) <= tope(modo);
+/**
+ * Si un payload cabe en el tope duro del modo. El tope cuenta lo EMITIDO:
+ * las `heredadas` (la lista de desdeMapped: una posición de relleno por
+ * entrada, que no se emite) se descuentan. Sin ellas, todo cuenta como
+ * emitido, como en escribirDesde sin heredadas. No comprueba que sean
+ * referencias al foco: eso lo hace la escritura.
+ */
+export function cabeTope(payload, modo, heredadas = []) {
+  if (!Array.isArray(heredadas)) throw new Error('heredadas es una lista');
+  return contarPosiciones(payload) - heredadas.length <= tope(modo);
 }
 
-/** Si un payload cabe en el máximo de la proporción del modo (rechaza, como antes del 7-11: [X] decidir VG). */
+/**
+ * Si un payload cabe en el máximo de la proporción del modo. Cuenta todas
+ * las posiciones, lo heredado incluido, como antes del 7-11 (rechaza: [X]
+ * decidir VG).
+ */
 export function cabeEscritura(payload, modo) {
   const e = escritura(modo);
   return e === null ? true : contarPosiciones(payload) <= e[1];
 }
 
 /**
- * Dónde quedan unas posiciones emitidas respecto de la proporción del modo:
+ * Dónde quedan unas posiciones respecto de la proporción del modo. Son las
+ * posiciones del registro (o de la salida), lo heredado incluido, como las
+ * cuenta la proporción (no solo las emitidas):
  * { posiciones, rango: [mín, máx] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' }.
  */
 export function proporcionDe(posiciones, modo) {

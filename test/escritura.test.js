@@ -79,10 +79,16 @@ test('la proporción del modo se respeta, como antes, y además el tope duro', a
   );
   const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
   assert.equal(ev.movimientos[0].cantidad, 30);
-  // Además, el tope duro: lo que pasa del tope se dice por el tope.
+  // La proporción se mira primero: el mensaje es el de siempre aunque también se pase el tope (30 > 10 en Pointed), como en main.
   await assert.rejects(
     escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
-    /^Error: Pointed emite como mucho 10 posiciones; este registro tiene 30$/,
+    /^Error: pointed escribe como mucho 1 posiciones; este registro tiene 30$/,
+  );
+  // Además, el tope duro: decide donde la proporción no rechaza (Scened no tiene proporción).
+  const diezMilUno = [Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z')))), 'una más'];
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'scened', autor: 'huesped', sobre: compra.id, payload: diezMilUno, t: '2026-11-07T14:00:00Z' }),
+    /^Error: Scened emite como mucho 10000 posiciones; este registro tiene 10001$/,
   );
   await assert.rejects(
     escribirDesde(eje, { modo: 'otro', autor: 'huesped', sobre: compra.id, payload: 'x', t: '2026-11-07T14:00:00Z' }),

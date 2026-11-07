@@ -100,7 +100,7 @@ true true 0000000000 {}
 | `tipos: { identidad: 'persona' \| 'grupo' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
-| `motor`, `fase`, `fuentes`, `encaje`, `nuevos`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución (`docs/MOTOR.md` §3). `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación es el tercer dígito de una dirección. |
+| `motor`, `fase`, `fuentes`, `encaje`, `nuevos`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución (`docs/MOTOR.md` §3). `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación se lee de una dirección con el camino desde el que se escribe (la matriz es relativa al camino: bajo un camino de profundidad n, el dígito n + 2; sin camino, el tercero; `docs/MOTOR.md` §7.2). |
 
 ### 1.5 Un evento real: la compra
 
@@ -292,7 +292,7 @@ Pendiente: terminales HTML y archivo (el mapa §2.1 los nombra; hoy un HTML es u
 Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9, **sin `null`, `undefined` ni huecos**, y cada posición contiene un terminal u otro array. Consecuencias:
 
 - No hace falta envolver un terminal en un array de una posición: un payload puede ser un terminal directamente (el génesis de ejemplo es `'Casa de ejemplo'`).
-- La información se genera de 0 hacia arriba: **si existe la posición d, existen 0…d−1**. Para escribir en la posición 4 hay que rellenar 0–3, con contenido o con referencias (así lo hacen `escritura.desdeMapped` y `motor.consolidar`: heredan del foco por referencia). `desdeMapped` solo hereda lo que el foco tiene en ese camino exacto (un terminal no tiene posiciones, tampoco la 0), así que una referencia heredada siempre alcanza algo; si el foco no tiene base, no rechaza: ancla lo lejano en su posición con `en` (`docs/MOTOR.md` §7.3).
+- La información se genera de 0 hacia arriba: **si existe la posición d, existen 0…d−1**. Para escribir en la posición 4 hay que rellenar 0–3, con contenido o con referencias (así lo hacen `escritura.desdeMapped` y `motor.consolidar`: heredan del foco por referencia). `desdeMapped` solo hereda lo que el foco tiene en ese camino exacto (lo que cuelga de un terminal no tiene base, salvo la posición 0 de la raíz de un foco terminal, que se hereda como antes: §4.2), así que una referencia heredada siempre alcanza algo; si el foco no tiene base, no rechaza: ancla lo lejano en su posición con `en` (`docs/MOTOR.md` §7.3).
 - Un array de un elemento es válido. La décupla de diez posiciones solo se desarrolla cuando corresponde.
 - `validarPayload` no limita la profundidad; `direccion` sí (diez índices). Un nodo por debajo del décimo nivel existe pero no tiene dirección. Pendiente: cambio de foco al agotar diez niveles (mapa §2.1).
 
@@ -394,7 +394,7 @@ Consecuencias conocidas:
 - `direccion([1, 0]) === direccion([1])`: **no se puede nombrar un índice 0 real que sea el último del camino**. Se trata como colisión (ambos caminos son ocupantes de la misma dirección), no como error.
 - `'0000000000'` nombra la raíz del payload (camino `[]`) y su posición 0 (camino `[0]`).
 - `'1100000000'` y `'0000000011'` no son equivalentes: la segunda es `[0,0,0,0,0,0,0,0,1,1]`, un camino de diez niveles.
-- Un terminal no tiene posición 0 en el encaje (`caminosDe` se detiene en él) ni en la escritura de Mapped (`desdeMapped` no la hereda, porque una referencia heredada solo apunta a lo que existe; ver `0.0` sí alcanza el terminal por la colisión de `'0000000000'`). En Pointed, `decupla` muestra un payload terminal en la posición 0. **Pendiente** de decisión (mapa §12).
+- Un terminal no tiene posición 0 en el encaje (`caminosDe` se detiene en él). En la escritura de Mapped, la raíz de un foco terminal (el foco, o su nodo bajo el camino) hereda su posición 0 como antes de la matriz: `desdeMapped` la rellena con `{ ref: foco, dir: direccion([...camino, 0]) }`, que alcanza el terminal por la colisión de ceros finales (`resolver(terminal, '0000000000')` da el terminal); lo demás que cuelga de un terminal no tiene base. En Pointed, `decupla` muestra un payload terminal en la posición 0. **Pendiente** de decisión (mapa §12: «un terminal no tiene posición 0 (PENDIENTE)»; **[X] decidir VG**).
 
 ### 4.3 Significado de los dígitos: época 0
 
@@ -1109,7 +1109,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Comprobar al escribir que una referencia apunta a un evento existente | §3.3: se detecta al seguirla (`rota`) |
 | Cero de orientación y reglas por dimensión para el signo del vector | §4.2, §6.5 |
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
-| Posición 0 de un terminal (encaje y `desdeMapped` no la dan; Pointed sí) | §4.2 |
+| Posición 0 de un terminal (el encaje no la da; Pointed y la herencia de `desdeMapped` en la raíz de un foco terminal, sí) | §4.2 |
 | Cambio de foco al agotar diez niveles | §3.2 |
 | Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |

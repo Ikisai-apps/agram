@@ -1,10 +1,13 @@
 // La fábrica y la matriz 10×10×10 (VG, 7-11 tarde): el registro de salida
 // emite solo las celdas modificadas; la tercera dimensión es la clase de
-// modificación (los diez PV como tercer dígito, que se lee de la dirección);
-// topes duros por modo sobre lo emitido, además de la proporción (que
-// rechaza como antes: [X] decidir VG); lo heredado alcanza siempre algo del
-// foco; lo lejano sin base en el foco se ancla en su posición en vez de
-// rechazarse; ubicar tiene en cuenta los límites del modo.
+// modificación (los diez PV); la matriz es relativa al camino: bajo un
+// camino de profundidad n, la celda i.j.k cae en direccion([...c, i, j, k])
+// y su clase es el dígito n + 2 (claseDe(dir, camino)); topes duros por modo
+// sobre lo emitido, además de la proporción (que rechaza como antes y se
+// mira primero: [X] decidir VG); lo heredado alcanza siempre algo del foco
+// (la raíz de un foco terminal hereda su posición 0, como en main: [X]); lo
+// lejano sin base en el foco se ancla en su posición en vez de rechazarse;
+// ubicar tiene en cuenta los límites del modo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,13 +32,27 @@ const ejeGrande = (minutos) => Eje.genesis({ identidad: 'casa', emision: [{ toke
 /** Una ficha cuyo precio [1][2] desarrolla las clases 0–3. */
 const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.genesisId, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, ['EUR 12', 'de huesped', 'precio fijo', 'aviso a cocina']]] });
 
-test('clases de modificación: VG nombró 0–4; las 5–9 están sin decidir; la clase es el tercer dígito', () => {
+test('clases de modificación: VG nombró 0–4; las 5–9 están sin decidir; la clase es el dígito n+2 bajo el camino', () => {
   assert.equal(CLASES.length, 10);
   assert.deepEqual(CLASES.slice(0, 5), ['ver/sustituir', 'impulso de recursos', 'criterio', 'comunicación', 'acción']);
   assert.deepEqual(CLASES.slice(5), [null, null, null, null, null]); // [X] decidir VG
+  // Sin camino, el tercer dígito.
   assert.equal(claseDe('1240000000'), 4);
   assert.equal(claseDe('1200000000'), 0);
   assert.equal(claseDe(direccion([2, 0, 1])), 1);
+  // La misma dirección, desde otro camino, es otra celda con otra clase.
+  assert.equal(claseDe('1734000000'), 3); // 1.7.3 desde la raíz
+  assert.equal(claseDe('1734000000', [1]), 4); // 7.3.4 bajo [1]
+  assert.equal(claseDe('1734000000', [1, 7]), 0); // 3.4.0 bajo [1, 7]
+  assert.equal(claseDe('1010000000', [1]), 0); // 0.1.0 bajo [1]: no la 1 del tercer dígito
+  assert.equal(claseDe('1010000000'), 1); // 1.0.1 desde la raíz
+  for (const camino of [[], [1], [1, 2], [1, 2, 3, 4, 5, 6, 7]]) {
+    for (let k = 0; k < 10; k++) assert.equal(claseDe(direccion([...camino, 5, 6, k]), camino), k);
+  }
+  // La dirección ha de estar bajo el camino, y el camino ha de dejar sitio a la clase.
+  assert.throws(() => claseDe('2000000000', [1]), /^Error: la dirección 2000000000 no está bajo el camino 1$/);
+  assert.throws(() => claseDe('1234567890', [1, 2, 3, 4, 5, 6, 7, 8]), /no cabe la clase/);
+  assert.throws(() => claseDe('12', []), /dirección no válida/);
 });
 
 test('ver es clase 0, emite una referencia a lo visto y solo ve lo que el foco tiene', async () => {
@@ -90,6 +107,20 @@ test('toda referencia heredada alcanza algo en el foco: lo que no tiene base se 
     }
   }
   assert.equal(dentro, 14);
+  // Lo mismo bajo un camino y sobre un foco terminal (el génesis, que hereda su posición 0 como en main): nada cuelga.
+  for (const foco of [compra, eje.obtener(eje.genesisId)]) {
+    for (const camino of [[], [1], [1, 2]]) {
+      for (let i = 0; i < 10; i++) for (let j = 0; j < 10; j++) for (const k of [0, 1, 4]) {
+        const s = desdeMapped(eje, [{ i, j, k, contenido: 'x' }], foco.id, camino);
+        for (const h of s.heredadas) {
+          const r = en(s.payload, h);
+          assert.equal(r.dir, direccion([...camino, ...String(h).split('.').map(Number)]));
+          assert.notEqual(resolver(foco.payload, r.dir), undefined, 'heredada colgante ' + h + ' bajo ' + camino.join('.') + ' al escribir ' + [i, j, k].join('.'));
+        }
+        for (const a of s.anclados) assert.equal(a.en, direccion([...camino, i, j, k]));
+      }
+    }
+  }
   // Pagar el precio de la compra ([1][2][4]): el precio es un terminal, no tiene clases que heredar; se ancla en 1240000000.
   assert.deepEqual(ubicar(eje, compra.id, [1, 2, 4]), { ubicacion: 'anclado', en: '1240000000', dir: '1240000000', faltan: ['1.2.0', '1.2.1', '1.2.2', '1.2.3'] });
   const pagar = desdeMapped(eje, [{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }], compra.id);
@@ -106,15 +137,31 @@ test('toda referencia heredada alcanza algo en el foco: lo que no tiene base se 
   );
 });
 
-test('un terminal no tiene posiciones que heredar, pero su dirección se puede ver', async () => {
-  const { eje } = await ejemploCompra();
+test('la raíz de un foco terminal hereda su posición 0, como en main ([X] decidir VG); su dirección se puede ver', async () => {
+  const { eje, compra } = await ejemploCompra();
   const g = eje.genesisId; // payload 'Casa de ejemplo', un terminal
-  // Mapa §12: un terminal no tiene posición 0. Escribir en la 1 de un foco terminal no hereda la 0: se ancla.
+  // Como en main (el mapa §12 lo deja PENDIENTE): escribir en la 1 de un foco terminal hereda su 0,
+  // y esa referencia alcanza el terminal por la colisión de ceros finales.
   const lineas = [];
   lineas[1] = ['algo'];
   const s = desdeMapped(eje, lineas, g);
-  assert.equal(s.payload, null);
-  assert.deepEqual(s.anclados, [{ celda: [1, 0, 0], en: '1000000000', payload: 'algo', faltan: ['0'] }]);
+  assert.deepEqual(s.payload, [ref(g, '0000000000'), 'algo']);
+  assert.deepEqual(s.heredadas, [0]);
+  assert.deepEqual(s.anclados, []);
+  assert.equal(resolver(eje.obtener(g).payload, s.payload[0].dir), 'Casa de ejemplo');
+  // Así escribe app.js (escribirDesde con el payload de desdeMapped): ya no falla.
+  const app = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: g, payload: s.payload, t: T });
+  assert.deepEqual(app.payload, [ref(g, '0000000000'), 'algo']);
+  const { registro } = await escribirSalida(eje, { autor: 'huesped', sobre: g, salida: s, t: T });
+  assert.deepEqual(registro.contexto.heredadas, [0]);
+  // Lo mismo con un camino que lleva a un terminal: el precio de la compra, bajo [1, 2].
+  const bajo = desdeMapped(eje, lineas, compra.id, [1, 2]);
+  assert.deepEqual(bajo.payload, [ref(compra.id, '1200000000'), 'algo']);
+  assert.equal(resolver(compra.payload, bajo.payload[0].dir), 'EUR 12');
+  assert.equal(ubicar(eje, compra.id, [1, 0, 0], { camino: [1, 2] }).ubicacion, 'dentro');
+  // Solo la posición 0 de la raíz: lo demás que cuelga de un terminal no tiene base y se ancla.
+  assert.deepEqual(desdeMapped(eje, [{ i: 0, j: 1, k: 0, contenido: 'x' }], g).anclados, [{ celda: [0, 1, 0], en: '0100000000', payload: 'x', faltan: ['0.0'] }]);
+  assert.deepEqual(desdeMapped(eje, [{ i: 2, contenido: 'x' }], g).anclados, [{ celda: [2, 0, 0], en: '2000000000', payload: 'x', faltan: ['1'] }]);
   // Ver 0.0 es ver la dirección 0000000000, que alcanza el terminal: los ceros finales nombran la colisión.
   const ver = desdeMapped(eje, [{ i: 0 }], g);
   assert.deepEqual(ver.payload, [ref(g, '0000000000')]);
@@ -135,7 +182,10 @@ test('ubicar tiene en cuenta los límites del modo: dentro solo si el registro, 
   assert.equal(ubicar(eje, compra.id, [0, 0, 0], { modo: 'pointed' }).ubicacion, 'dentro');
   // Lo que no cabe ni solo es un error.
   assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: ['a', 'b'] }), /^Error: pointed escribe como mucho 1 posiciones; esta celda tiene 2$/);
-  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: Array(11).fill('x') }), /^Error: Pointed emite como mucho 10 posiciones; esta celda tiene 11$/);
+  // La proporción se mira primero (el mensaje de siempre); el tope decide donde no hay proporción (Scened).
+  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'pointed', contenido: Array(11).fill('x') }), /^Error: pointed escribe como mucho 1 posiciones; esta celda tiene 11$/);
+  const diezMilUno = [Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z')))), 'una más'];
+  assert.throws(() => ubicar(eje, compra.id, [2, 0, 0], { modo: 'scened', contenido: diezMilUno }), /^Error: Scened emite como mucho 10000 posiciones; esta celda tiene 10001$/);
   // escribirDesde con celda usa lo mismo: en Pointed, la celda [2][0][0] se escribe anclada, una posición, un minuto.
   const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [2, 0, 0], payload: 'sin lactosa', t: T });
   assert.equal(ev.en, '2000000000');
@@ -192,6 +242,19 @@ test('el tope cuenta lo emitido, no las referencias de relleno', async () => {
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: diez, heredadas: [1], t: T }), /la heredada 1 no es una referencia al foco en 1000000000/);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: [ref(compra.id, '0000000000')], heredadas: [0], t: T }), /nada que emitir/);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: diez, heredadas: ['x'], t: T }), /heredada no válida: x/);
+  // Con heredadas, el registro va en la dirección de su camino (como con celda): en otra, ese relleno no sería el de su sitio.
+  const raiz = desdeMapped(eje, [{ i: 2, contenido: 'x' }], compra.id);
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, en: '4000000000', payload: raiz.payload, heredadas: raiz.heredadas, t: T }),
+    /^Error: con heredadas, el registro va en 0000000000 \(la dirección de su camino\), no en 4000000000$/,
+  );
+  const bajo = desdeMapped(eje, [{ i: 3, contenido: 'postre' }], compra.id, [1]);
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, en: '1400000000', camino: [1], payload: bajo.payload, heredadas: bajo.heredadas, t: T }),
+    /^Error: con heredadas, el registro va en 1000000000 \(la dirección de su camino\), no en 1400000000$/,
+  );
+  const enSuSitio = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, en: '1000000000', camino: [1], payload: bajo.payload, heredadas: bajo.heredadas, t: T });
+  assert.deepEqual(enSuSitio.contexto.heredadas, [0, 1, 2]);
 });
 
 test('con celda y camino, el registro va donde dice ubicar', async () => {
@@ -242,6 +305,15 @@ test('topes duros por modo: Pointed 10, Sequenced 100, Mapped 1000, Scened 10000
   const diezMil = Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z'))));
   assert.equal(cabeTope(diezMil, 'scened'), true);
   assert.equal(cabeTope([diezMil, 'y'], 'scened'), false);
+  // El tope cuenta lo emitido, como la escritura: las heredadas que se le digan no cuentan.
+  const conRelleno = [ref('foco', '0000000000'), de(10)];
+  assert.equal(contarPosiciones(conRelleno), 11);
+  assert.equal(cabeTope(conRelleno, 'pointed'), false);
+  assert.equal(cabeTope(conRelleno, 'pointed', [0]), true);
+  assert.throws(() => cabeTope(conRelleno, 'pointed', 1), /heredadas es una lista/);
+  // La proporción cuenta todas las posiciones del registro, lo heredado incluido.
+  assert.equal(cabeEscritura(conRelleno, 'sequenced'), true);
+  assert.deepEqual(proporcion(conRelleno, 'sequenced'), { posiciones: 11, rango: [10, 20], estado: 'dentro' });
   assert.throws(() => tope('otro'), /modo desconocido: otro/);
 });
 
@@ -269,13 +341,14 @@ test('la matriz de 1000: el tope de Mapped la admite, la proporción no ([X] dec
     escribirSalida(eje, { modo: 'mapped', autor: 'casa', sobre: foco, salida, t: T }),
     /^Error: mapped escribe como mucho 333 posiciones; esta salida tiene 1000$/,
   );
+  // La proporción se mira primero: aunque también se pase el tope, el mensaje es el de siempre.
   await assert.rejects(
     escribirDesde(eje, { modo: 'sequenced', autor: 'casa', sobre: foco, payload, t: T }),
-    /^Error: Sequenced emite como mucho 100 posiciones; este registro tiene 1000$/,
+    /^Error: sequenced escribe como mucho 20 posiciones; este registro tiene 1000$/,
   );
   await assert.rejects(
     escribirDesde(eje, { modo: 'mapped', autor: 'casa', sobre: foco, payload: [...payload.slice(0, 9), [payload[9], 'una más']], t: T }),
-    /^Error: Mapped emite como mucho 1000 posiciones; este registro tiene 1001$/,
+    /^Error: mapped escribe como mucho 333 posiciones; este registro tiene 1001$/,
   );
   assert.equal(eje.sobre(foco).length, 0); // nada se escribió
   // Scened no tiene proporción: la matriz entera se escribe.
@@ -302,6 +375,10 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.deepEqual(salida.anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'repetir el sábado', faltan: ['5', '6'] }]);
   // Escribir solo el payload perdería lo anclado: se avisa.
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
+  // Si escribirSalida falla al escribir (aquí, un autor sin T), el aviso sigue: el payload solo aún no se puede escribir.
+  await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'nadie', sobre: compra.id, salida, t: T }), /evento rechazado/);
+  assert.equal(eje.sobre(compra.id).length, 0);
+  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
   const antes = eje.saldoT('huesped', 'minuto');
   const { registro, anclados, proporcion: p } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
   assert.equal(registro.en, '0000000000');
@@ -315,6 +392,9 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.deepEqual(p, { posiciones: 4, rango: [250, 333], estado: 'por debajo' }); // la proporción cuenta todas las posiciones de la salida
   // Lo anclado es un ocupante escrito de la posición lejana.
   assert.deepEqual(ocupantes(eje, compra.id, [7]).map((o) => o.evento), [anclados[0].id]);
+  // Con la salida entera escrita, el aviso se retira.
+  const otraVez = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T });
+  assert.deepEqual(otraVez.payload, salida.payload);
 
   // escribirDesde con una celda lejana la ancla; todo anclado se escribe con escribirSalida.
   const solo = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [9, 0, 0], payload: 'volver', t: T });
@@ -337,10 +417,11 @@ test('los límites cuentan la salida entera: registro y anclados', async () => {
   lineas[7] = ['lejos'];
   const salida = desdeMapped(eje, lineas, compra.id);
   assert.equal(contarPosiciones(salida.payload), 11); // diez escritas y la 0 heredada
-  // Tope: lo emitido (diez dentro y una anclada).
+  // Pointed: la proporción, que se mira primero, cuenta todas las posiciones de la salida (once dentro, la heredada incluida, y una anclada);
+  // el tope contaría lo emitido (diez dentro y una anclada).
   await assert.rejects(
     escribirSalida(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, salida, t: T }),
-    /^Error: Pointed emite como mucho 10 posiciones; esta salida tiene 11$/,
+    /^Error: pointed escribe como mucho 1 posiciones; esta salida tiene 12$/,
   );
   // Proporción: todas las posiciones (doce, con la heredada) superan las 20 de Sequenced solo si son más.
   const veinte = [];
@@ -392,12 +473,16 @@ test('líneas de Mapped: sin marca, texto como antes; con «@:j.k», la celda', 
   const sinTexto = [];
   sinTexto[1] = ['@:2.4'];
   assert.throws(() => desdeMapped(eje, sinTexto, compra.id), /falta el contenido de 1\.2\.4/);
-  // Una marca mal escrita no se toma por texto: se avisa.
-  for (const mala of ['@:1.2x', '@:12 x', '@:a.b c']) {
+  // Una línea que empieza por «@:» sin la forma exacta es texto, como antes de la matriz ([X] decidir VG:
+  // una línea con la forma exacta, «@:1.2 algo», no tiene escape para escribirse como texto).
+  for (const texto of ['@:) gracias', '@:1.2x', '@:12 x', '@:a.b c', '@:']) {
     const l = [];
-    l[2] = [mala];
-    assert.throws(() => desdeMapped(eje, l, compra.id), /^Error: marca de celda no válida en la posición 2: «.*» \(se escribe «@:j\.k texto»: j la subposición, k la clase\)$/);
+    l[2] = [texto];
+    assert.deepEqual(desdeMapped(eje, l, compra.id).payload[2], texto);
   }
+  const mezcla = [];
+  mezcla[2] = ['@:) gracias', '@:0.1 con tarjeta'];
+  assert.deepEqual(desdeMapped(eje, mezcla, compra.id).anclados.map((a) => a.celda), [[2, 0, 1]]);
   const repetida = [];
   repetida[2] = ['@:0.0 uno', '@:0.0 dos'];
   assert.throws(() => desdeMapped(eje, repetida, compra.id), /la celda 2\.0\.0 está dos veces/);
@@ -427,18 +512,87 @@ test('el motor no guarda clase; el encaje dice de dónde vino cada elección y l
   assert.equal(c.contexto.encaje[0].clase, undefined);
   // Los terminales nuevos, aparte: dónde va cada uno.
   assert.deepEqual(c.contexto.nuevos, [{ posicion: 2, destino: '2000000000' }, { posicion: 4, destino: '4000000000' }]);
-  // La clase se lee al leer: el tercer dígito del destino.
-  assert.equal(claseDe(c.contexto.encaje[0].destino), 0);
-  assert.deepEqual(c.contexto.nuevos.map((n) => claseDe(n.destino)), [0, 0]);
-  // Bajo la celda [1][2], el destino de la elección n es 1.2.n: su tercer dígito es n.
+  // La clase se lee al leer, desde el camino de la consolidación: sin camino, la elección i es la celda i.0.0.
+  assert.equal(claseDe(c.contexto.encaje[0].destino, []), 0);
+  assert.deepEqual(c.contexto.nuevos.map((n) => claseDe(n.destino, [])), [0, 0]);
+  // Bajo el camino [1, 2], la elección 4 va en 1.2.4. La matriz es relativa al camino: desde [1, 2] es la celda 4.0.0,
+  // de clase 0 (ver/sustituir); el tercer dígito absoluto (4) es su clase solo vista desde la raíz, como celda 1.2.4.
+  // [X] decidir VG: si la clase de una elección es la de su destino o la 4 de la fábrica donde se ancla.
   const ficha = await escribirFicha(eje);
   const bajo = await consolidar(eje, { autor: 'huesped', foco: ficha.id, t: T, camino: [1, 2], elecciones: { 4: 'pagar 12 EUR' } });
   assert.deepEqual(bajo.contexto.encaje, []);
   assert.deepEqual(bajo.contexto.nuevos, [{ posicion: 4, destino: '1240000000' }]);
+  assert.equal(claseDe(bajo.contexto.nuevos[0].destino, [1, 2]), 0);
   assert.equal(claseDe(bajo.contexto.nuevos[0].destino), 4);
+  for (const camino of [[], [1], [1, 2]]) {
+    const k = await consolidar(eje, { autor: 'huesped', foco: ficha.id, t: T, camino, elecciones: { 1: 'uno' } });
+    assert.equal(k.en, direccion([...camino, 4]));
+    assert.deepEqual(k.contexto.nuevos, [{ posicion: 1, destino: direccion([...camino, 1]) }]);
+    assert.equal(claseDe(k.contexto.nuevos[0].destino, camino), 0);
+  }
   await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
   const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
   assert.equal(e.contexto.clase, undefined);
   assert.equal(e.en, FABRICA);
-  assert.equal(claseDe(e.en), 0); // [X] decidir VG: la ejecución es acción, pero FABRICA tiene tercer dígito 0
+  assert.equal(claseDe(e.en, []), 0); // [X] decidir VG: la ejecución es acción, pero FABRICA, sin camino, es la celda 4.0.0
+});
+
+/** Lo que hay en la celda [i, j, k] de un registro: un terminal compactado ocupa también sus ceros finales (colisión). */
+const enCelda = (payload, indices) => indices.reduce((n, x) => (Array.isArray(n) ? n[x] : x === 0 ? n : undefined), payload);
+
+test('la matriz es relativa al camino: celda, dirección y clase coinciden en toda la cadena (caminos [], [1] y [1, 2])', async () => {
+  // Lo que encontró la revisión: con camino [1], la celda 0.1.0 (clase 0) cae en 1010000000, y su clase bajo [1] es 0, no la 1 del tercer dígito.
+  const base = await ejemploCompra();
+  assert.equal(ubicar(base.eje, base.compra.id, [0, 1, 0], { camino: [1] }).dir, '1010000000');
+  assert.equal(claseDe('1010000000', [1]), 0);
+  const u734 = ubicar(base.eje, base.compra.id, [7, 3, 4], { camino: [1] });
+  assert.equal(u734.dir, '1734000000');
+  assert.equal(claseDe(u734.dir, [1]), 4);
+  const p = await escribirDesde(base.eje, { modo: 'mapped', autor: 'huesped', sobre: base.compra.id, celda: [0, 1, 0], camino: [1], payload: 'x', t: T });
+  assert.equal(claseDe(p.en, [1]), 0);
+  // La cadena entera, sobre la compra y sobre la ficha (que desarrolla el precio), con mucho T.
+  const eje = await ejeGrande(100000);
+  const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: base.compra.payload });
+  const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, ['EUR 12', 'de huesped', 'precio fijo', 'aviso a cocina']]] });
+  const celdas = [[0, 0, 0], [0, 1, 0], [1, 0, 1], [2, 0, 4], [3, 0, 0], [3, 2, 1], [7, 3, 4], [9, 9, 9]];
+  const vistos = { dentro: 0, anclado: 0 };
+  let n = 0;
+  const tn = () => new Date(Date.parse(T) + ++n * 1000).toISOString(); // cada registro, su instante: si no, el mismo id
+  for (const foco of [compra, ficha]) {
+    for (const camino of [[], [1], [1, 2]]) {
+      for (const celda of celdas) {
+        const k = celda[2];
+        const dir = direccion([...camino, ...celda]);
+        // ubicar: la celda cae en direccion([...camino, i, j, k]) y su clase, desde el camino, es k.
+        for (const modo of [undefined, 'mapped', 'pointed']) {
+          const u = ubicar(eje, foco.id, celda, { camino, modo });
+          assert.equal(u.dir, dir);
+          assert.equal(claseDe(u.dir, camino), k);
+          assert.equal(u.en, u.ubicacion === 'dentro' ? direccion(camino) : dir);
+        }
+        // escribirDesde con celda y camino: el registro va donde dice ubicar y la celda cae en su dirección.
+        const u = ubicar(eje, foco.id, celda, { camino, modo: 'mapped' });
+        vistos[u.ubicacion]++;
+        const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'casa', sobre: foco.id, celda, camino, payload: 'x', t: tn() });
+        assert.equal(ev.en, u.en);
+        if (u.ubicacion === 'dentro') assert.equal(enCelda(ev.payload, celda), 'x');
+        else assert.equal(ev.payload, 'x');
+        // desdeMapped + escribirSalida: lo mismo, con la celda como entrada (y como línea marcada «@:j.k»).
+        const lineas = [];
+        lineas[celda[0]] = ['@:' + celda[1] + '.' + k + ' y'];
+        const salida = desdeMapped(eje, lineas, foco.id, camino);
+        assert.deepEqual(salida, desdeMapped(eje, [{ i: celda[0], j: celda[1], k, contenido: 'y' }], foco.id, camino));
+        const r = await escribirSalida(eje, { autor: 'casa', sobre: foco.id, salida, t: tn() });
+        if (r.registro) {
+          assert.equal(r.registro.en, direccion(camino));
+          assert.equal(enCelda(r.registro.payload, celda), 'y');
+          for (const h of r.registro.contexto.heredadas ?? []) assert.notEqual(resolver(foco.payload, en(r.registro.payload, h).dir), undefined);
+        } else {
+          assert.equal(r.anclados[0].en, dir);
+          assert.equal(claseDe(r.anclados[0].en, camino), k);
+        }
+      }
+    }
+  }
+  assert.ok(vistos.dentro > 0 && vistos.anclado > 0, JSON.stringify(vistos));
 });

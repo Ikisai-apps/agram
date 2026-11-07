@@ -11,10 +11,13 @@ import { ocupantes, vector, signo } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
-// Ningún registro del motor guarda clase: la de un registro es el tercer
-// dígito de su dirección, y el de FABRICA es 0 aunque autorizar y ejecutar
-// se escriban aquí ([X] decidir VG en qué dirección se escriben para que su
-// clase salga de ella, o si no la llevan).
+// Ningún registro del motor guarda clase: la de una dirección se lee con
+// claseDe(dir, camino), relativa al camino desde el que se escribe (la
+// matriz es relativa al camino: el dígito n + 2 bajo un camino de
+// profundidad n). Autorizar y ejecutar se escriben en FABRICA, sin camino:
+// la celda 4.0.0, de clase 0, aunque ejecutar sea una acción ([X] decidir VG
+// en qué dirección se escriben para que su clase salga de ella, o si no la
+// llevan).
 export const FABRICA = '4000000000';
 
 /** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
@@ -103,9 +106,12 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } 
  * registran como evento anclado a la fábrica del foco. No ejecuta nada.
  * `encaje` dice de dónde vino cada elección con fuente; los terminales
  * nuevos, que no vienen de ninguna, van aparte en `nuevos` ({ posicion,
- * destino }). Ninguno guarda clase: la de una elección es el tercer dígito
- * de su destino (claseDe). [X] decidir VG: si la clase de una elección es
- * la de su destino i.j.n o la 4 de la fábrica i.j.4 donde se ancla.
+ * destino }). Ninguno guarda clase: la de una elección se lee con
+ * claseDe(destino, camino). Con la matriz relativa al camino, la elección i
+ * es la celda i.0.0 bajo `camino`, de clase 0 con cualquier camino. [X]
+ * decidir VG: si la clase de una elección es la de su destino o la 4 de la
+ * fábrica (direccion([...camino, 4])) donde se ancla el registro; y si el
+ * registro guarda su camino (hoy no: sin él no se sabe desde dónde leer).
  */
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada) {
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
@@ -119,7 +125,10 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
   for (let i = 1; i <= ultimo; i++) {
     const e = elecciones[i];
     if (e === undefined) {
-      // Hueco: se hereda del foco por referencia si existe; si no, se rechaza.
+      // Hueco: se hereda del foco por referencia si tiene ocupantes en esa
+      // dirección; si no, se rechaza. [X] decidir VG: si consolidar usa la
+      // matriz como desdeMapped (heredar solo lo que el foco tiene en el
+      // camino exacto y anclar lo lejano en su posición en vez de rechazarlo).
       const hay = ocupantes(eje, foco, [...camino, i]).length > 0;
       if (!hay) throw new Error('hueco en ' + i + ': elige algo o quita las posiciones siguientes');
       payload.push({ ref: foco, dir: direccion([...camino, i]) });
