@@ -149,9 +149,11 @@ Lectura: la compra de dos guisos (nueve posiciones, una fórmula pendiente) cae 
 8. **«Más reciente» por llegada**, no por `t`: una base con `t` atrasado escrita después manda.
 9. **Frescura** solo cuenta hijos nuevos y bases nuevas; no ve que un hijo ya medido haya cambiado (escritos nuevos encima, fórmulas que se resuelven).
 
-## 4. BASES() en BQL (propuesta, no implementada)
+## 4. BASES() en BQL (propuesta original; implementada con otra forma)
 
-`src/bql.js` no se toca en esta pieza. Lo que BQL debería exponer, con el anfitrión del slot como registro:
+**Implementada** en `src/bql.js` con la forma del encargo, no la de esta tabla: `BASES(cohorte?)` devuelve un valor `bases` (por medida, caja del foco, mínimo, mediana aproximada y máximo; n y frescura), `CAJA(medida, cohorte?)` la caja 0–9 del foco y `FRESCURA(cohorte?)` las novedades desde la base. El foco es el registro de la fórmula. Referencia: `docs/BQL.md` §7.13; pruebas: `test/bases-bql.test.js`. El ciclo de importación se resolvió reexportando `ETIQUETAS` como enlace de `HITOS` (tiempo → motor → bql → bases → tiempo: copiarlo al cargar fallaba si se entraba por `tiempo.js`).
+
+Propuesta original (esta pieza no tocaba `src/bql.js`), con el anfitrión del slot como registro:
 
 | Función | Devuelve |
 |---|---|

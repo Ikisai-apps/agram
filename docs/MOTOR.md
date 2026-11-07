@@ -974,7 +974,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Anidar hileras o décuplas en una posición por decisión | `en` lo elige quien llama (raíz por defecto). |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
-| Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 ya se escriben como registros fundibles (§14); `BASES()` en BQL, no. |
+| Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 ya se escriben como registros fundibles (§14) y BQL las lee con `BASES`, `CAJA` y `FRESCURA` (`docs/BQL.md` §7.13). |
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
@@ -1029,4 +1029,4 @@ cajasEtiquetadas(base, medida)     // → [{ caja, nivel, nombre, cuenta }]: HIT
 - **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS`; `situar` dice en qué caja cae el foco y cuántos quedan debajo, en ella y encima.
 - Las bases no son hijas de lo que miden: `medir` no las cuenta como escritos y `baseDe` no las mide. `tiempo.comparar` y `tiempo.medir` aún sí: límite observado, no corregido aquí (`src/tiempo.js` no se toca en esta pieza).
 
-Pendiente: `BASES()` en BQL (propuesta en la nota, §4); cortes como regla de la época; que la base la escriba la propia cosa.
+En BQL: `BASES(cohorte?)`, `CAJA(medida, cohorte?)` y `FRESCURA(cohorte?)` leen el 8 sin efectos (`docs/BQL.md` §7.13). Pendiente: cortes como regla de la época; que la base la escriba la propia cosa.

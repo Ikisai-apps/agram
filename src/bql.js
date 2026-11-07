@@ -18,6 +18,10 @@
 //   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
 //   =ACUERDO() =DESPLAZAMIENTO() =SIGNO() =FALTAS() =EXCEDENTES()   el encaje del candidato: profundidades de acuerdo, suma de distancias, signo (exacto/completar/reducir/mixto), faltas y excedentes
 //   =CONTAR(col) =SUMAR(col)
+//   =BASES(cohorte?)        lee la última base válida del 8 de la cohorte del registro de la fórmula (el foco):
+//                           "hermanos" (8 del padre, por defecto), "proyecto" (8 del proyecto) o "general" (8 del génesis);
+//                           devuelve un valor de tipo 'bases': por medida, caja del foco, mínimo, mediana aproximada y máximo; n y frescura
+//   =CAJA(medida, cohorte?) caja (0–9) en la que cae el foco en esa medida      =FRESCURA(cohorte?)  novedades desde la base
 //   comparaciones  = <> < > <= >=   solo entre el mismo tipo escalar (y la misma unidad)   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO; PENDIENTE (falta un dato, un evento que no ha llegado o
@@ -29,10 +33,17 @@
 // (presupuesto, profundidad o candidatos agotados; `parcial` dice cuánto se
 // examinó cuando se sabe).
 //
+// BASES, CAJA y FRESCURA no escriben nada: si no hay base escrita, PENDIENTE
+// con el modo de escribirla; si leer la cohorte cuesta más que el presupuesto
+// que queda, PENDIENTE POR LÍMITE.
+//
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
+// Ciclo de importación: bases.js usa evaluar para contar fórmulas. Aquí solo se
+// usa dentro de funciones, nunca al cargar.
+import { CIELO, COHORTES, COSTE_BASE, MEDIDAS, MOVIMIENTOS, baseDePayload, bloqueDe, caja, cortesDe, leerBase, proyectoDe, situar } from './bases.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -542,11 +553,213 @@ function funcion(ctx, nodo, evId, base) {
       });
       return acc ?? num(0);
     }
+    case 'BASES': {
+      if (args.length > 1) throw new Parada('ERROR', 'BASES espera, si acaso, una cohorte');
+      return basesDelFoco(ctx, evId, cohorteDe(args[0], 'BASES'));
+    }
+    case 'CAJA': {
+      if (!args.length || args.length > 2) throw new Parada('ERROR', 'CAJA espera una medida y, si acaso, una cohorte');
+      const medida = medidaDe(args[0]);
+      const v = basesDelFoco(ctx, evId, cohorteDe(args[1], 'CAJA'));
+      return num(v.medidas[medida]?.caja ?? caja(medida, 0)); // una serie que ni la base ni el foco mueven vale cero
+    }
+    case 'FRESCURA': {
+      if (args.length > 1) throw new Parada('ERROR', 'FRESCURA espera, si acaso, una cohorte');
+      const { base } = leerCohorte(ctx, evId, cohorteDe(args[0], 'FRESCURA'));
+      return num(base.frescura.hijosNuevos + base.frescura.basesNuevas);
+    }
     case 'Y': return bool(args.every((a) => exigirBool(a, 'Y')));
     case 'O': return bool(args.some((a) => exigirBool(a, 'O')));
     case 'NO': return bool(!exigirBool(args[0], 'NO'));
     default: throw new Parada('ERROR', 'función desconocida: ' + nodo.nombre);
   }
+}
+
+// ---------- bases del 8 ----------
+// El foco es el registro de la fórmula. La cohorte se elige leyendo el 8 del
+// padre, del proyecto o del génesis (mapa §12 [D] «Cohortes y bases del 8»);
+// la lectura la hace src/bases.js (leerBase, situar) y aquí no se escribe nada.
+
+/** Focos que se están midiendo ahora (la evaluación es síncrona). Medir un foco evalúa sus fórmulas: una de bases dentro de él no se mide a sí misma. */
+const midiendo = new Set();
+
+function cohorteDe(arg, nombre) {
+  if (arg === undefined) return 'hermanos';
+  const c = arg.tipo === 'texto' ? arg.valor.toLowerCase() : null;
+  if (!COHORTES.includes(c)) {
+    throw new Parada('ERROR', nombre + ' espera una cohorte: ' + COHORTES.map((x) => '"' + x + '"').join(', ') + (arg.tipo === 'texto' ? ' (no "' + arg.valor + '")' : ', no ' + describir(arg)));
+  }
+  return c;
+}
+
+function medidaDe(arg) {
+  if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
+  const m = arg.valor;
+  if (MEDIDAS.includes(m) || (m.startsWith(MOVIMIENTOS) && m.length > MOVIMIENTOS.length)) return m;
+  throw new Parada('ERROR', 'medida desconocida: ' + m + ' (posiciones, posiciones.0 … posiciones.9, escritos, identidades, profundidad, formulas.resueltas, formulas.pendientes o movimientos.<serie>)');
+}
+
+/** Hijos de un registro, contados sin copiarlos. */
+function cuantosSobre(eje, id) {
+  return eje.hijos instanceof Map ? (eje.hijos.get(id)?.length ?? 0) : eje.sobre(id).length;
+}
+
+/**
+ * Cobra al presupuesto lo que leer la cohorte examina de verdad: la base, los
+ * hijos del registro (la frescura los recorre y el 8 se busca entre ellos) y,
+ * si la base es fundida, los hijos de cada hijo (el 8 de cada uno se busca
+ * entre ellos). La n de la base no se cobra: leerla no relee lo medido.
+ */
+function cobrarCohorte(ctx, registro, profundidad, cohorte) {
+  const quedan = Math.max(ctx.presupuesto, 0);
+  let coste = 1 + cuantosSobre(ctx.eje, registro);
+  let completo = profundidad < 2; // en las fundidas falta sumar los nietos
+  if (!completo && coste <= quedan) {
+    const lista = ctx.eje.sobre(registro);
+    let i = 0;
+    for (; i < lista.length && coste <= quedan; i++) coste += cuantosSobre(ctx.eje, lista[i].id);
+    completo = i === lista.length; // se deja de contar en cuanto no cabe
+  }
+  if (coste > quedan) {
+    const cuanto = (completo ? '' : 'al menos ') + coste;
+    throw limite('la cohorte ' + cohorte + ' (8 de ' + registro.slice(0, 8) + ') exige examinar ' + cuanto + ' registros y quedan ' + quedan + ' pasos de presupuesto', { examinados: 0, de: coste });
+  }
+  ctx.presupuesto -= coste;
+}
+
+/** Cómo escribir la base que falta (el motivo de PENDIENTE lo dice). */
+function comoEscribirla(registro, profundidad) {
+  const id8 = registro.slice(0, 8);
+  const coste = COSTE_BASE.cantidad + ' ' + COSTE_BASE.escala + ' de ' + COSTE_BASE.token;
+  if (profundidad === 1) {
+    return 'Para escribirla: escribirBase(eje, { autor, padre, privada }) con padre = ' + id8 + ', firmada por una identidad con clave; mide sus hijos y cuesta ' + coste + '.';
+  }
+  return 'Para escribirla: primero la base de profundidad ' + (profundidad - 1) + ' en el 8 de cada hijo de ' + id8
+    + "; luego escribirBase(eje, { autor, padre, privada, desde: 'bases', profundidad: " + profundidad + ' }) con padre = ' + id8
+    + ', firmada por una identidad con clave; funde esas bases sin releer registros y cuesta ' + coste + '.';
+}
+
+/** Un fallo de bases.js que no es una parada pasa a ERROR; agotar la pila de JavaScript sigue su camino (PENDIENTE POR LÍMITE). */
+function deBases(fn) {
+  try {
+    return fn();
+  } catch (e) {
+    if (e instanceof Parada || (e instanceof RangeError && /call stack/i.test(e.message))) throw e;
+    throw new Parada('ERROR', 'bases: ' + e.message);
+  }
+}
+
+/**
+ * Registro cuyo 8 resume la cohorte del foco, autorizado y cobrado. Sin
+ * cohorte (el génesis no tiene padre; un proyecto no tiene proyecto encima)
+ * → PENDIENTE con el motivo de situar. Con `soloBase` (por defecto), lee
+ * además la base vigente (leerBase) sin medir el foco: PENDIENTE si no la hay.
+ */
+function leerCohorte(ctx, foco, cohorte, { soloBase = true } = {}) {
+  const { eje } = ctx;
+  const ev = eje.obtener(foco);
+  if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + foco.slice(0, 8));
+  const hilo = eje.hilo(foco).map((e) => e.id);
+  const registro = cohorte === 'hermanos' ? ev.sobre : cohorte === 'general' ? eje.genesisId : proyectoDe(eje, foco);
+  const profundidad = registro === null ? 0 : hilo.indexOf(registro);
+  if (registro === null || profundidad < 1) {
+    // situar responde sin medir cuando no hay cohorte.
+    throw new Parada('PENDIENTE', deBases(() => situar(eje, foco, { cohorte })).motivo + ' (cohorte ' + cohorte + ')');
+  }
+  ctx.dependencias.add(registro + ':' + CIELO); // el 8 leído: otra base que llegue cambia el resultado
+  autorizar(ctx, registro, [8]);
+  cobrarCohorte(ctx, registro, profundidad, cohorte);
+  const sinBase = () => new Parada('PENDIENTE', 'sin base en el 8 de ' + registro.slice(0, 8) + ' a profundidad ' + profundidad + ' (cohorte ' + cohorte + '). ' + comoEscribirla(registro, profundidad));
+  if (!soloBase) return { registro, profundidad, sinBase };
+  const base = deBases(() => leerBase(eje, registro, { profundidad }));
+  if (!base) throw sinBase();
+  ctx.dependencias.add(base.id + ':' + direccion([]));
+  autorizar(ctx, base.id, []);
+  return { registro, profundidad, base };
+}
+
+/**
+ * Mediana aproximada desde el histograma (lo no fundible se aproxima, mapa
+ * §12). Las medidas son recuentos (enteros): la caja k abarca de cortes[k-1]
+ * a cortes[k] - 1, recortada a [mínimo, máximo]. Dentro de su caja, los f
+ * registros se reparten por igual entre esos extremos (uno solo, en el punto
+ * medio); la mediana es el del centro, o la media de los dos del centro si n
+ * es par. Exacta si cada caja tiene un solo valor posible o si la mitad cae
+ * entre dos cajas cuyos valores son el mínimo y el máximo. Devuelve { caja,
+ * valor }. [X] decidir VG: el método.
+ */
+function medianaAproximada(bloque, n, cortes) {
+  if (!(n >= 1)) return { caja: null, valor: null };
+  const ultima = bloque.cajas.length - 1;
+  const enPuesto = (r) => { // valor aproximado del r-ésimo (1…n) en orden creciente
+    let acumulado = 0;
+    for (let k = 0; k <= ultima; k++) {
+      const f = bloque.cajas[k];
+      if (r <= acumulado + f) {
+        const lo = Math.max(k === 0 ? bloque.minimo : cortes[k - 1], bloque.minimo);
+        const hi = Math.max(lo, Math.min(k === ultima ? bloque.maximo : cortes[k] - 1, bloque.maximo));
+        return f === 1 ? (lo + hi) / 2 : lo + ((hi - lo) * (r - acumulado - 1)) / (f - 1);
+      }
+      acumulado += f;
+    }
+    return bloque.maximo;
+  };
+  const valor = n % 2 ? enPuesto((n + 1) / 2) : (enPuesto(n / 2) + enPuesto(n / 2 + 1)) / 2;
+  let k = 0;
+  while (k < cortes.length && valor >= cortes[k]) k++;
+  return { caja: k, valor };
+}
+
+/**
+ * Valor 'bases' del foco en su cohorte: lee la base vigente y sitúa el foco
+ * (situar mide el foco, lo que evalúa sus fórmulas). Por medida: valor del
+ * foco, caja, etiqueta (el hito de la caja, no un grado), cajas de la base,
+ * debajo/enCaja/encima, mínimo, mediana aproximada, máximo y media.
+ */
+function basesDelFoco(ctx, foco, cohorte) {
+  const { eje } = ctx;
+  if (midiendo.has(foco)) throw new Parada('ERROR', 'ciclo: las bases de ' + foco.slice(0, 8) + ' miden el foco y medirlo vuelve a evaluar esta fórmula');
+  if (midiendo.size >= ctx.limites.profundidad) throw limite('más de ' + ctx.limites.profundidad + ' medidas de bases encadenadas');
+  const { sinBase } = leerCohorte(ctx, foco, cohorte, { soloBase: false });
+  ctx.dependencias.add(foco + ':' + direccion([])); // medir el foco lee el registro entero
+  autorizar(ctx, foco, []);
+  midiendo.add(foco);
+  let s;
+  try {
+    s = deBases(() => situar(eje, foco, { cohorte }));
+  } finally {
+    midiendo.delete(foco);
+  }
+  if (s.estado !== 'RESUELTO') throw sinBase();
+  ctx.dependencias.add(s.base + ':' + direccion([]));
+  autorizar(ctx, s.base, []);
+  const evBase = eje.obtener(s.base);
+  const leida = baseDePayload(evBase.payload);
+  const medidas = {};
+  for (const [m, x] of Object.entries(s.medidas)) {
+    const b = bloqueDe(leida, m);
+    const mediana = medianaAproximada(b, leida.n, cortesDe(m));
+    medidas[m] = {
+      valor: x.valor, caja: x.caja, etiqueta: x.etiqueta, cajas: [...b.cajas],
+      debajo: x.debajo, enCaja: x.enCaja, encima: x.encima,
+      minimo: b.minimo, mediana: mediana.valor, cajaMediana: mediana.caja, maximo: b.maximo, media: x.media,
+    };
+  }
+  return {
+    tipo: 'bases',
+    cohorte,
+    foco,
+    registro: s.registro,
+    profundidad: s.profundidad,
+    base: s.base,
+    autor: evBase.autor,
+    t: evBase.t,
+    desde: evBase.contexto?.desde ?? 'hijos',
+    n: s.n,
+    incluido: s.incluido,
+    frescura: { ...s.frescura, nuevos: s.frescura.hijosNuevos + s.frescura.basesNuevas },
+    medidas,
+  };
 }
 
 /** Ejecuta fn y lo convierte en Resultado. Una parada, un error de sintaxis o la pila de JavaScript agotada no se escapan. */
@@ -601,7 +814,29 @@ export function formato(v) {
     case 'composicion': return v.partes.map(formato).join(' + ');
     case 'array': return '[' + v.valor.length + ' posiciones]';
     case 'referencia': return '→ ' + v.valor.ref.slice(0, 8);
+    case 'bases': return formatoBases(v);
     case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '');
     default: return '?';
   }
+}
+
+/** «hermanos · n 4 · base 1a2b3c4d del 2026-11-07 · al día — posiciones 9: caja 5 (mín 1, mediana ≈ 6.75, máx 9); …; 5 medidas a cero». Las medidas con el foco y la base a cero se cuentan, no se listan. */
+function formatoBases(v) {
+  const f = v.frescura;
+  const plural = (k, uno, varios) => k + ' ' + (k === 1 ? uno : varios);
+  const novedades = v.profundidad === 1
+    ? plural(f.hijosNuevos, 'registro nuevo', 'registros nuevos')
+    : plural(f.hijosNuevos, 'hijo nuevo', 'hijos nuevos') + ' y ' + plural(f.basesNuevas, 'base renovada', 'bases renovadas');
+  const cabeza = v.cohorte + ' · n ' + v.n + ' · base ' + v.base.slice(0, 8) + ' del ' + String(v.t).slice(0, 10) + ' · ' + (f.alDia ? 'al día' : 'no al día: ' + novedades);
+  const partes = [];
+  let ceros = 0;
+  for (const [m, x] of Object.entries(v.medidas)) {
+    if (x.valor === 0 && x.maximo === 0) {
+      ceros++;
+      continue;
+    }
+    partes.push(m + ' ' + redondear(x.valor) + ': caja ' + x.caja + ' (mín ' + redondear(x.minimo) + ', mediana ≈ ' + redondear(x.mediana) + ', máx ' + redondear(x.maximo) + ')');
+  }
+  if (ceros) partes.push(plural(ceros, 'medida a cero', 'medidas a cero'));
+  return cabeza + ' — ' + partes.join('; ');
 }

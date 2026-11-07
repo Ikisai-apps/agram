@@ -33,8 +33,13 @@ export const TITULO = 'Bases del 8';
 /** Las tres cohortes útiles (VG, 7-11): elementos similares, dónde estoy, el ámbito. */
 export const COHORTES = Object.freeze(['hermanos', 'proyecto', 'general']);
 
-/** Etiquetas de las diez cajas: los diez hitos heredados del 8. Solo etiquetas. */
-export const ETIQUETAS = HITOS;
+/**
+ * Etiquetas de las diez cajas: los diez hitos heredados del 8. Solo etiquetas.
+ * Se reexporta el enlace (no se copia al cargar): bql.js importa este módulo
+ * y tiempo.js importa bql.js, así que HITOS puede no existir aún cuando esto
+ * se carga; las funciones lo leen al llamarse.
+ */
+export { HITOS as ETIQUETAS };
 
 /**
  * Coste de escribir una base: un minuto de T del autor, como la ejecución.
@@ -221,7 +226,7 @@ export function bloqueDe(base, medida) {
 
 /** Las diez cajas de una medida con su etiqueta: [{ caja, nivel, nombre, cuenta }]. Etiquetas, no grados. */
 export function cajasEtiquetadas(base, medida) {
-  return bloqueDe(base, medida).cajas.map((cuenta, k) => ({ caja: k, nivel: ETIQUETAS[k].nivel, nombre: ETIQUETAS[k].nombre, cuenta }));
+  return bloqueDe(base, medida).cajas.map((cuenta, k) => ({ caja: k, nivel: HITOS[k].nivel, nombre: HITOS[k].nombre, cuenta }));
 }
 
 /**
@@ -517,7 +522,7 @@ export function situar(eje, foco, { cohorte = 'hermanos', proyecto, autor } = {}
     medidas[m] = {
       valor,
       caja: k,
-      etiqueta: ETIQUETAS[k],
+      etiqueta: HITOS[k],
       enCaja: b.cajas[k],
       debajo: suma(b.cajas.slice(0, k)),
       encima: suma(b.cajas.slice(k + 1)),
