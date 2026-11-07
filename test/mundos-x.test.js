@@ -147,7 +147,7 @@ test('fábrica: diez líneas con la matriz de 100 del foco; las piezas son las c
 test('fábrica: la matriz es relativa al camino', async () => {
   const { eje, compra } = await ejemploCompra();
   // Un registro anclado en la posición 1 de la compra, escrito como lo escribe la fábrica bajo el camino [1]: [i][j][k].
-  const bajo = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '1000000000', t: '2026-11-07T14:00:00Z', movimientos: [gastaT('huesped', 4)], payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, ['ver', 'impulso']]] });
+  const bajo = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '1000000000', t: '2026-11-07T14:00:00Z', movimientos: [gastaT('huesped', 4)], payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], 'impulso']]] });
   const raiz = datosFabrica(eje, compra.id);
   const enUno = datosFabrica(eje, compra.id, { camino: [1] });
   // Desde la raíz, todo cae en la línea 1; desde [1], en las líneas 0 y 1 de la matriz de la posición 1, con la clase en el tercer dígito.
@@ -199,7 +199,10 @@ test('fábrica: solo se anima lo nuevo; la caja recorre las estaciones con sus e
 test('ciudad: la manzana de la posición 1, los otros ocupantes y la vía de los EUR', async () => {
   const { eje, compra, cuenta, ejec } = await ciclo();
   const d = datosCiudad(eje, compra.id);
-  assert.deepEqual(d.tiendas.filter((t) => !t.vacia).map((t) => [t.j, t.tipo, t.texto]), [[0, 'referencia', '→ ' + d.tiendas[0].ref.slice(0, 8)], [1, 'propio', '1'], [2, 'propio', 'EUR 12']]);
+  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (el 0 envuelto); la tienda
+  // la lee por su único ocupante, la referencia al menú, con su enlace.
+  const alMenu = compra.payload[1][0][0].ref;
+  assert.deepEqual(d.tiendas.filter((t) => !t.vacia).map((t) => [t.j, t.tipo, t.texto]), [[0, 'referencia', '→ ' + alMenu.slice(0, 8)], [1, 'propio', '1'], [2, 'propio', 'EUR 12']]);
   assert.ok(d.otros.some((o) => o.tipo === 'escrito' && o.evento === cuenta.id && o.texto === 'Cuenta del menú'));
   assert.ok(d.otros.some((o) => o.tipo === 'referencia' && o.texto === 'ensalada'));
   const v = d.vias.find((x) => x.clave === 'E:casa/EUR');
@@ -282,18 +285,27 @@ test('jardín: una planta por ocupante de la posición 2; hierba si encaja exact
   assert.equal(formaDe(1), 'arbusto');
   const { eje, compra } = await ejemploCompra();
   const d = datosJardin(eje, compra.id);
-  assert.equal(d.plantas.length, 3); // el propio [2], su colisión 2.0 y lo que alcanza por referencia
+  // VG, 7-11 noche: por hojas: la 2 es la lista de uno [ref menú:2], sin 2.0: su elemento y lo que alcanza.
+  assert.equal(d.plantas.length, 2);
   assert.ok(d.plantas.every((p) => p.forma === 'hierba'));
   assert.ok(d.plantas.some((p) => p.tipo === 'referencia' && p.texto === 'sin gluten'));
-  // Booking: el criterio alcanzado en otra dirección de la habitación es un arbusto, con flor (elegido) y fruto (ejecutado).
+  // Booking: el criterio alcanzado por referencia lleva flor (elegido) y fruto (ejecutado). VG, 7-11 noche: por
+  // hojas: la reserva apunta a la 2 entera de la habitación (una dirección no entra en su lista de criterios),
+  // en la misma dirección: encaja exacto, hierba.
   const r = await ejemploReserva();
   const j = datosJardin(r.eje, r.reserva.id);
-  const arbusto = j.plantas.find((p) => p.forma === 'arbusto');
-  assert.equal(arbusto.texto, 'con desayuno');
-  assert.equal(arbusto.acuerdo, 1);
-  assert.equal(arbusto.flores.length, 1);
-  assert.equal(arbusto.frutos.length, 1);
-  assert.match(lineasJardin(j).join('\n'), /arbusto · con desayuno · referencia · acuerdo 1\/10 · flor \(Reserva en firme\) · fruto/);
+  const criterio = j.plantas.find((p) => p.tipo === 'referencia');
+  assert.deepEqual([criterio.forma, criterio.texto, criterio.acuerdo], ['hierba', 'sin humo', 10]);
+  assert.equal(criterio.flores.length, 1);
+  assert.equal(criterio.frutos.length, 1);
+  assert.match(lineasJardin(j).join('\n'), /hierba · sin humo · referencia · exacto · flor \(Reserva en firme\) · fruto/);
+  // El criterio alcanzado en otra dirección (la 2.1 de una décupla, el 0 envuelto) es un arbusto: acuerdo 1.
+  const fuente = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa')], payload: ['Criterios', 'x', [['sin humo'], 'con desayuno']] });
+  const pide = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:01:00Z', movimientos: [gastaT('casa')], payload: ['Pide', 'y', [{ ref: fuente.id, dir: '2100000000' }]] });
+  const p = datosJardin(eje, pide.id);
+  const arbusto = p.plantas.find((x) => x.forma === 'arbusto');
+  assert.deepEqual([arbusto.tipo, arbusto.texto, arbusto.acuerdo], ['referencia', 'con desayuno', 1]);
+  assert.match(lineasJardin(p).join('\n'), /arbusto · con desayuno · referencia · acuerdo 1\/10/);
 });
 
 test('jardín: brota lo nuevo, florece lo elegido al consolidar y da fruto al ejecutar', async () => {

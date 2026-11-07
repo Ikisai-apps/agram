@@ -33,7 +33,7 @@
 // - consumir E no tiene nombre en la ciudad (sale por la puerta).
 
 import { claveToken } from '../src/tokens.js';
-import { esReferencia } from '../src/btml.js';
+import { esReferencia, esLista } from '../src/btml.js';
 import { ocupantes } from '../src/encaje.js';
 import { esFormula, evaluar, desescapar } from '../src/bql.js';
 import {
@@ -60,6 +60,8 @@ function cierreDe(eje, clave, emisor) {
 
 function tienda(eje, foco, indices, contenido, j) {
   if (contenido === undefined) return { j, vacia: true };
+  // Por hojas (VG, 7-11 noche): una lista de uno (el 0 envuelto de una décupla) es su único ocupante.
+  if (esLista(contenido) && contenido.length === 1) return tienda(eje, foco, indices, contenido[0], j);
   if (esReferencia(contenido)) return { j, tipo: 'referencia', texto: '→ ' + corto(contenido.ref), ref: contenido.ref, dir: contenido.dir ?? null };
   if (Array.isArray(contenido)) return { j, tipo: 'propio', texto: textoCorto(contenido) };
   if (esFormula(contenido)) {

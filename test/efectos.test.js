@@ -107,7 +107,7 @@ test('todo efecto es coherente: su clase es la de su celda vista desde su marco,
     }
     assert.equal(efectos.filter((e) => e.tipo === 'token').length, ev.movimientos.length);
   }
-  assert.ok(celdas > 20);
+  assert.ok(celdas > 15); // por hojas, una lista es una sola celda
 });
 
 test('la compra: el registro colisiona en la raíz del menú; lo de dentro va celda a celda, con su marca; las referencias al menú son herencia', async () => {
@@ -118,9 +118,7 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
     'ciudad · abrir tienda · 1100000000',
     'ciudad · abrir tienda · 1200000000',
     'parque · hablar · 3000000000',
-    'parque · hablar · 3100000000',
-    'fábrica · paso · 4000000000',
-    'fábrica · paso · 4100000000',
+    'fábrica · paso · 4000000000', // VG, 7-11 noche: por hojas. La 3 y la 4 son listas: una celda cada una, sin 3.1 ni 4.1
     'fábrica · línea que se mueve · T:hora',
     'ciudad · mercancía que fluye · E:casa/EUR',
   ]);
@@ -130,12 +128,16 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
   assert.deepEqual(registro.con.map((o) => [o.origen, o.evento, o.camino]), [['propio', menu.id, []], ['propio', menu.id, [0]]]);
   assert.equal(registro.con.length, ocupantes(eje, menu.id, []).filter((o) => o.origen !== 'escrito').length);
   // Lo de dentro no colisiona con las celdas del menú: el núcleo no lo cuenta como ocupante.
-  assert.deepEqual(ocupantes(eje, menu.id, [1, 1]).map((o) => [o.origen, o.contenido]), [['propio', 'guiso']]);
-  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '3.0.0 escrito', '3.1.0 escrito', '4.0.0 escrito', '4.1.0 escrito']);
+  // VG, 7-11 noche: por hojas: la 1 del menú es una lista; sus platos son ocupantes de la 1, y la 1.1 no existe.
+  assert.deepEqual(ocupantes(eje, menu.id, [1]).map((o) => [o.origen, o.contenido]), [['propio', 'ensalada'], ['propio', 'guiso'], ['propio', 'fruta']]);
+  assert.deepEqual(ocupantes(eje, menu.id, [1, 1]), []);
+  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '3.0.0 escrito', '4.0.0 escrito']);
   for (const e of sinTokens(efectos).slice(1)) assert.ok(e.decisiones.includes(MARCAS_EFECTO.matriz));
-  // En la raíz no hay duda de marco; [1][0] y [2][0] son referencias al menú: herencia, no efecto.
+  // En la raíz no hay duda de marco; [1][0][0] y [2][0] son referencias al menú: herencia, no efecto.
+  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (el 0 envuelto).
   assert.ok(!registro.decisiones.includes(MARCAS_EFECTO.marco));
-  assert.deepEqual(compra.payload[1][0], { ref: menu.id, dir: '1000000000' });
+  assert.deepEqual(compra.payload[1][0], [{ ref: menu.id, dir: '1000000000' }]);
+  assert.deepEqual(compra.payload[2][0], { ref: menu.id, dir: '2000000000' });
   assert.ok(!efectos.some((e) => e.etiqueta === '1.0.0' || e.etiqueta === '2.0.0'));
   // Los movimientos van entre carteras, en el mundo de su familia, con su marca.
   const pago = efectos.find((e) => e.token === 'E');
@@ -153,9 +155,11 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
 test('colisión como en el núcleo: un registro ocupa su dirección entera y colisiona con lo que había antes', async () => {
   const { eje, menu } = await ejemploCompra();
   const registro = async (en, payload) => efectosDe(eje, await escribe(eje, 'cocina', menu.id, en, payload))[0];
-  // Donde el menú tiene 'guiso', un registro colisiona con él.
-  const precio = await registro('1100000000', 'más caro');
-  assert.deepEqual([precio.tipo, precio.mundo, precio.colisiona, precio.con[0].origen, precio.con[0].camino], ['sustituir', 1, 1, 'propio', [1, 1]]);
+  // Donde el menú tiene sus platos, un registro colisiona con ellos. VG, 7-11 noche: por hojas: la 1 del menú es
+  // la lista ['ensalada', 'guiso', 'fruta'], tres ocupantes en la 1 (no hay 1.1 por dirección).
+  const precio = await registro('1000000000', 'más caro');
+  assert.deepEqual([precio.tipo, precio.mundo, precio.colisiona], ['sustituir', 1, 3]);
+  assert.deepEqual(precio.con.map((o) => [o.origen, o.camino]), [['propio', [1]], ['propio', [1]], ['propio', [1]]]);
   assert.equal(precio.nombre, 'encarecer o abaratar');
   // Dos registros en 7, donde el menú no llega: el primero ancla, el segundo colisiona con el primero.
   const primero = await escribe(eje, 'cocina', menu.id, '7000000000', 'vuelve el jueves');
@@ -189,7 +193,8 @@ test('un solo marco para terminales y arrays: la misma celda da el mismo mundo, 
   assert.deepEqual(lineas(await registro('7310000000', ['a', 'b'])), ['7.3.1 impulso']);
   // Tres registros en la raíz de la compra con algo en 1, 1.0 y 1.0.0: misma celda, caminos distintos.
   const en1 = async (payload) => efectosDe(eje, await escribe(eje, 'cocina', compra.id, '0000000000', ['Nota', payload])).find((e) => e.ruta.length);
-  const caminos = [await en1('uno'), await en1(['uno', 'dos']), await en1([['uno', 'dos']])];
+  // VG, 7-11 noche: por hojas. Solo hojas bajo la raíz es una lista, una celda: para bajar a la 1.0 y la 1.0.0 hacen falta décuplas.
+  const caminos = [await en1('uno'), await en1([['uno'], 'dos']), await en1([[['uno'], 'dos']])];
   assert.deepEqual(caminos.map((e) => [e.celda, e.camino]), [['1000000000', [1]], ['1000000000', [1, 0]], ['1000000000', [1, 0, 0]]]);
 });
 
@@ -197,9 +202,10 @@ test('la clase de una celda de dentro: impulso, modificar, y lo que el corpus no
   const { eje, compra } = await ejemploCompra();
   const ajuste = await escribe(eje, 'cocina', compra.id, '0000000000', [
     'Ajuste',
-    ['nuevo', 'propina'],
-    [['k0', 'k1', 'k2', 'k3']],
-    [['h0', 'h1', 'h2', 'h3', 'h4', 'h5']],
+    // VG, 7-11 noche: por hojas. Décuplas con el 0 envuelto, para que cada hoja sea su propia celda.
+    [['nuevo'], 'propina'],
+    [[['k0'], 'k1', 'k2', 'k3']],
+    [[['h0'], 'h1', 'h2', 'h3', 'h4', 'h5']],
   ]);
   const celdas = sinTokens(efectosDe(eje, ajuste)).slice(1);
   const ver = (et) => celdas.find((e) => e.etiqueta === et);
@@ -392,7 +398,7 @@ test('marco de quien mira: un registro anclado en el camino se lee desde él, co
   const gasto = { token: 'T', escala: 'minuto', cantidad: 4, de: 'huesped', a: null };
   const bajo = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '1000000000', t: T, movimientos: [gasto],
-    payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, ['ver', 'impulso']]],
+    payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], 'impulso']]],
   });
   const celdas = (efectos) => efectos.filter((e) => DE_CELDA.includes(e.tipo)).map((e) => `${e.etiqueta}:${e.tipo}`);
   // Sin marco, desde la raíz: hasta la profundidad 3, la clase es el tercer dígito de la dirección.

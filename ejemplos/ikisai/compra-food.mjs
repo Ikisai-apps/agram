@@ -61,6 +61,8 @@ export async function ejemploCompra({ claves = {} } = {}) {
     sobre: alta.id,
     t,
     movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }],
+    // Por hojas (VG, 7-11 noche): un array solo de hojas en una posición es una lista de ocupantes; los
+    // platos son tres ocupantes de la 1, con la misma llegada y en este orden (no la 1.0, 1.1 y 1.2).
     payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano']],
   }, priv('cocina'));
 
@@ -75,12 +77,12 @@ export async function ejemploCompra({ claves = {} } = {}) {
     ],
     payload: [
       'Compra del menú del día',
-      // Cada array de una posición es su lista de ocupantes, por llegada y sin PV (VG, 7-11 noche):
-      // los PV de un elemento solo existen si se escribe en una subposición por dirección (en).
-      [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'], // 1 recursos: lo comprado, la cantidad y el precio, tres ocupantes
-      [{ ref: menu.id, dir: '2000000000' }], // 2 criterios: los del menú
+      // Por hojas (VG, 7-11 noche): con un array dentro, la posición es una décupla (1.0 qué es, 1.1 cuánto,
+      // 1.2 con qué condición); la convención es envolver su 0. Solo hojas: una lista de ocupantes.
+      [[{ ref: menu.id, dir: '1000000000' }], 1, 'EUR 12'], // 1 recursos: qué (los platos del menú), cuánto, a qué precio
+      [{ ref: menu.id, dir: '2000000000' }], // 2 criterios: los del menú (una lista de uno)
       ['huesped', 'cocina'], // 3 comunicación: quién habla con quién, dos ocupantes
-      ['pagar', 'servir'], // 4 fábrica: la acción que se registra
+      ['pagar', 'servir'], // 4 fábrica: las acciones que se registran, dos ocupantes
     ],
   }, priv('huesped'));
 
@@ -137,7 +139,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
     contexto: { tipos: { huesped2: 'persona' } },
   }, priv('casa'));
   const criterios = [{ ref: menu.id, dir: '2000000000' }];
-  const recursos = [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'];
+  const recursos = [[{ ref: menu.id, dir: '1000000000' }], 1, 'EUR 12']; // una décupla: el 0 envuelto (por hojas)
   // La compra rápida: solo recursos, sin criterios. Es el foco natural para preguntarle al 8.
   const rapida = await eje.escribir({
     autor: 'huesped2',
@@ -149,7 +151,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const vecinas = [];
   const payloads = [
     ['Compra con fórmula pendiente', '=LOCAL(5)', criterios], // 1: fórmula que espera la posición 5 (estructura)
-    ['Compra con fórmula resuelta', ['EUR 10', '=LOCAL(0) + 1 EUR'], criterios], // 1.1: 11 EUR, leyendo 1.0
+    ['Compra con fórmula resuelta', [['EUR 10'], '=LOCAL(0, 0) + 1 EUR'], criterios], // 1.1: 11 EUR, leyendo el ocupante 0 de la 1.0
     ['Compra de mediodía', recursos, { ref: menu.id, dir: '2000000000' }], // 2: solo por referencia, sin array propio
     ['Compra para llevar', recursos, criterios, ['huesped2', 'cocina']],
     ['Compra del grupo', recursos, criterios, ['huesped', 'cocina'], ['pagar']],

@@ -2,7 +2,7 @@
 // BTML encima. Se anida sobre el registro en foco (hijo → padre); los hilos son
 // cadenas de eventos encadenados por esa referencia.
 
-import { ARIDAD, validarPayload, esDireccion } from './btml.js';
+import { ARIDAD, validarPayload, esDireccion, esHoja } from './btml.js';
 import { validarMovimiento } from './tokens.js';
 import { esInstante } from './instante.js';
 
@@ -83,14 +83,23 @@ export function cuerpo(ev) {
 }
 
 /**
- * Ruta del primer array del payload con más de ARIDAD posiciones, o null.
- * Mira la longitud sin recorrerla ni pasar por JSON: JSON.stringify recorre
- * la longitud entera, y un array disperso puede declarar 2^32 − 1 posiciones
- * vacías. Solo baja por las posiciones presentes de los arrays que caben.
+ * Ruta y motivo del primer array del payload que no cabe, o null. Mira la
+ * longitud sin recorrerla ni pasar por JSON: JSON.stringify recorre la
+ * longitud entera, y un array disperso puede declarar 2^32 − 1 posiciones
+ * vacías. La raíz y las décuplas tienen como mucho diez posiciones; una
+ * lista (fuera de la raíz, solo hojas: VG, 7-11 noche, por hojas) puede
+ * pasar de diez, pero sin huecos: se cuentan sus claves presentes, que no
+ * cuestan más que su contenido real. Solo baja por las posiciones presentes
+ * de los arrays que caben.
  */
 function arrayDemasiadoLargo(x, ruta = '', ancestros = new Set()) {
   if (!Array.isArray(x) || ancestros.has(x)) return null;
-  if (x.length > ARIDAD) return ruta || 'raíz';
+  if (x.length > ARIDAD) {
+    const aqui = ruta || 'raíz';
+    if (!ruta) return aqui + ': más de ' + ARIDAD + ' posiciones';
+    if (Object.keys(x).length !== x.length || x.some((h) => h === null || h === undefined)) return aqui + ': hueco en la lista';
+    return x.every(esHoja) ? null : aqui + ': más de ' + ARIDAD + ' posiciones';
+  }
   ancestros.add(x);
   for (let i = 0; i < x.length; i++) {
     if (!(i in x)) continue;
@@ -110,11 +119,12 @@ function arrayDemasiadoLargo(x, ruta = '', ancestros = new Set()) {
  * Se valida, se hashea y se devuelve la copia en JSON de lo pasado (lo que se
  * guardará), congelada en profundidad: quien lo crea puede seguir usando sus
  * arrays, y el evento no cambia. Un array de más de diez posiciones en el
- * payload se rechaza antes de copiar, sin recorrer su longitud.
+ * payload (salvo una lista de hojas) se rechaza antes de copiar, sin
+ * recorrer su longitud.
  */
 export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimientos, payload, contexto = {} }) {
   const largo = arrayDemasiadoLargo(payload);
-  if (largo !== null) throw new Error('evento mal formado: payload ' + largo + ': más de ' + ARIDAD + ' posiciones');
+  if (largo !== null) throw new Error('evento mal formado: payload ' + largo);
   let ev;
   try {
     ev = aJSON({ autor, sobre, en, t, movimientos, payload, contexto });

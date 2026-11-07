@@ -8,7 +8,7 @@
 // foco, o el respaldo al vuelo declarado «sin base escrita»); 9 el camino
 // recorrido; las esquinas 1–4 son la capa donde va la mano.
 
-import { ARIDAD, esReferencia, direccion } from './btml.js';
+import { ARIDAD, esReferencia, esLista, direccion } from './btml.js';
 import { EPOCA_0, epocaDe, nombreEnNodo } from './epocas.js';
 import { MODOS, alcanceDe } from './modos.js';
 import { MEDIDAS, situar } from './bases.js';
@@ -43,8 +43,8 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
   for (let i = 0; i < ARIDAD; i++) {
     celdas.push({
       indice: i,
-      // Bajo una posición, un array es la lista de sus ocupantes por llegada, sin PV (VG, 7-11 noche):
-      // 'ocupante k' y `ocupante`; lo que no ocupa, subposiciones por dirección con su regla corta.
+      // Por hojas (VG, 7-11 noche): una décupla lleva la regla corta por profundidad; bajo una posición,
+      // un array solo de hojas es una lista y se pinta como lista: 'ocupante k' y `ocupante`, por llegada.
       ...nombreEnNodo(p, camino.length, i, e),
       contenido: Array.isArray(p) ? p[i] : undefined, // un terminal no tiene posición 0: va aparte, en `terminal`
       escritos: eje.sobre(id, direccion([...camino, i])).length,
@@ -64,10 +64,11 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
     identidades: identidades.size,
     posicionesDesarrolladas: celdas.filter((c) => c.contenido !== undefined).length,
   };
+  const lista = camino.length > 0 && esLista(p) ? p : undefined;
   const terminal = Array.isArray(p) ? undefined : p;
   const traidos = new Set([id, ...hilo.map((e) => e.id), ...hijos.map((e) => e.id)]);
   const alcance = alcanceDe(traidos.size * ARIDAD, 'mapped');
-  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, celdas, hilo, hijos, medidas, alcance };
+  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, ...(lista ? { lista } : {}), celdas, hilo, hijos, medidas, alcance };
 }
 
 /**
@@ -105,6 +106,7 @@ export function textoOcho(o) {
 
 function breve(c) {
   if (c === undefined) return '—';
+  if (esLista(c)) return '{' + c.length + ' en lista}'; // bajo la raíz, por hojas
   if (Array.isArray(c)) return '[' + c.length + ']';
   if (esReferencia(c)) return '→' + c.ref.slice(0, 8);
   return String(c);

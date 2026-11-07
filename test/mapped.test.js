@@ -46,6 +46,9 @@ test('mapa en profundidad sigue el camino', async () => {
   assert.deepEqual(m.celdas.slice(0, 3).map((c) => c.contenido), ['ensalada', 'guiso', 'fruta']);
   assert.equal(m.celdas[3].contenido, undefined);
   assert.deepEqual(m.camino, [1]);
+  // Menú 1 es una lista (solo hojas; VG, 7-11 noche: por hojas): sus celdas son ocupantes por llegada.
+  assert.deepEqual(m.lista, ['ensalada', 'guiso', 'fruta']);
+  assert.deepEqual(m.celdas.slice(0, 4).map((c) => c.significado), ['ocupante 1', 'ocupante 2', 'ocupante 3', 'con quién']);
 });
 
 test('render sobrio: tres filas, eje y medidas', async () => {
@@ -53,7 +56,8 @@ test('render sobrio: tres filas, eje y medidas', async () => {
   const texto = render(mapa(eje, compra.id));
   const lineas = texto.split('\n');
   assert.equal(lineas.length, 5);
-  assert.match(lineas[0], /^1 recursos\s+\[3\]\s+\| 8 comparabilidad\s+—\s+\| 2 criterios\s+\[1\]/);
+  // VG, 7-11 noche: por hojas. Compra 1 es una décupla de tres; compra 2, [ref], una lista de uno.
+  assert.match(lineas[0], /^1 recursos\s+\[3\]\s+\| 8 comparabilidad\s+—\s+\| 2 criterios\s+\{1 en lista\}/);
   assert.match(lineas[1], /^6 pasado\s+—\s+\| 5 estructura\s+[0-9a-f]{8}\s+\| 7 futuro/);
   assert.match(lineas[3], /^eje: [0-9a-f]{8} ← [0-9a-f]{8} ← [0-9a-f]{8} ← \[[0-9a-f]{8}\] → $/);
   assert.match(lineas[4], /^medidas: hilo 3 · escritos 0/);

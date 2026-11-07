@@ -25,7 +25,7 @@
 // VG» que le tocan. Los nombres viven en datos/efectos.json (por mundo y por
 // tipo); datos/efectos.js es su copia importable, generada.
 
-import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
+import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from './btml.js';
 import { claveToken } from './tokens.js';
 import { RAIZ } from './evento.js';
 import { ocupantes } from './encaje.js';
@@ -156,7 +156,8 @@ function celdasDe(ev, en, marco = []) {
   const celdas = [];
   const recorrer = (nodo, ruta) => {
     const camino = [...base, ...ruta];
-    if (Array.isArray(nodo) && camino.length < hondo) {
+    // Por hojas (VG, 7-11 noche): una lista (bajo la raíz del registro) es una celda entera: una dirección no entra en ella.
+    if (Array.isArray(nodo) && camino.length < hondo && !(ruta.length > 0 && esLista(nodo))) {
       nodo.forEach((h, x) => recorrer(h, [...ruta, x]));
       return;
     }
@@ -176,7 +177,9 @@ function celdasDe(ev, en, marco = []) {
  * colisiona: el núcleo solo cuenta como ocupante el registro entero.
  */
 function tipoDeCelda(ev, c, clase, vistas, heredadas) {
-  if (esReferencia(c.nodo) && c.nodo.ref === ev.sobre) {
+  const alFoco = (n) => esReferencia(n) && n.ref === ev.sobre;
+  // Por hojas (VG, 7-11 noche): una lista solo de referencias al foco (el 0 envuelto de una décupla heredada) es herencia igual.
+  if (alFoco(c.nodo) || (esLista(c.nodo) && c.nodo.every(alFoco))) {
     if (clase !== 0) return null;
     const e = normal(c.ruta.join('.'));
     if (vistas?.has(e)) return 'ver';
