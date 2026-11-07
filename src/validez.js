@@ -28,10 +28,12 @@ import { ARIDAD, esReferencia, esDireccion, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
+import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
-import { estadoDe, puedeAutorizar, autorizacionesValidas, FABRICA, esConsolidacion } from './motor.js';
+import { estadoDe, puedeAutorizar, poderParaAutorizar, autorizacionesValidas, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -107,12 +109,47 @@ const llave = (id, k) => JSON.stringify([id, k]);
 
 /** Rehace el libro con los eventos del eje anteriores al índice `hasta`. Lee el eje; no lo toca. */
 function libroAntes(eje, hasta) {
-  const libro = { saldos: new Map(), series: new Map(), claves: new Map(), tipos: new Map(), identidades: new Set(), ids: new Set() };
-  for (let k = 0; k < hasta; k++) aplicar(eje, libro, eje.obtener(eje.orden[k]));
+  const libro = {
+    saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
+    altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
+    // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
+    reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
+    tMax: -Infinity, // el mayor t hasta aquí, en milisegundos UTC
+  };
+  for (let k = 0; k < hasta; k++) {
+    const ev = eje.obtener(eje.orden[k]);
+    aplicar(eje, libro, ev);
+    libro.tMax = Math.max(libro.tMax, msDeGuardado(ev.t));
+  }
   return libro;
 }
 
 const saldoEn = (libro, id, k) => libro.saldos.get(llave(id, k)) ?? 0;
+const bloqueadoEn = (libro, id, k, salida) => libro.bloqueados.get(JSON.stringify([id, k, salida])) ?? 0;
+
+/**
+ * Lo que leen las reglas del ciclo (src/ciclo.js), desde el libro de justo
+ * antes del registro `ev`; el alta del prefijo de la versión 2, acotada como
+ * en el eje (acotarAltaV2).
+ */
+function contextoCiclo(eje, libro, ev) {
+  const v2 = eje.eventosV2 ?? 0;
+  const primeroV3 = () => (eje.orden.length > v2 ? eje.obtener(eje.orden[v2]).t : ev.t);
+  return {
+    tipo: (id) => libro.tipos.get(id) ?? null,
+    alta: (id) => {
+      const a = libro.altas.get(id) ?? null;
+      return a && eje.esDeV2?.(a.id) ? acotarAltaV2(a, primeroV3()) : a;
+    },
+    tMaximo: () => libro.tMax,
+    emitidoT: (id, escala) => libro.emitidoT.get(JSON.stringify([id, escala])) ?? 0,
+    serie: (k) => libro.series.get(k) ?? null,
+    registro: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
+    ambitosQueCubren: (ambito) => eje.ambitosQueCubren(ambito),
+    saldo: (id, k) => saldoEn(libro, id, k),
+    reglas: libro.reglas,
+  };
+}
 
 /** Plan de débito de P como el del eje: del ámbito más concreto al más amplio; null si no alcanza. */
 function planP(eje, ver, identidad, ambito, cantidad) {
@@ -138,9 +175,21 @@ function aplicar(eje, libro, ev) {
   const ajustar = (id, k, d) => { libro.identidades.add(id); libro.saldos.set(llave(id, k), ver(id, k) + d); };
   for (const m of ev.movimientos) {
     const k = claveToken(m);
+    if (m.a !== null && !libro.altas.has(m.a)) libro.altas.set(m.a, { id: ev.id, t: ev.t });
+    if (m.estado === 'bloqueo' || m.estado === 'liberacion') {
+      const d = m.estado === 'bloqueo' ? m.cantidad : -m.cantidad;
+      ajustar(m.de, k, -d);
+      const kb = JSON.stringify([m.de, k, m.salida]);
+      libro.bloqueados.set(kb, (libro.bloqueados.get(kb) ?? 0) + d);
+      continue;
+    }
     if (m.de === null) {
-      const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0 };
-      libro.series.set(k, { emisor: s.emisor, emitido: s.emitido + m.cantidad });
+      const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0, ...(m.token === 'E' ? { caduca: m.caduca ?? null } : {}) };
+      libro.series.set(k, { ...s, emitido: s.emitido + m.cantidad });
+      if (m.token === 'T' && ev.contexto?.genesis !== true) {
+        const kt = JSON.stringify([ev.autor, m.escala]);
+        libro.emitidoT.set(kt, (libro.emitidoT.get(kt) ?? 0) + m.cantidad);
+      }
     } else if (m.token === 'P') {
       for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
     } else {
@@ -159,9 +208,9 @@ function vistaCon(eje, ev, id) {
 
 // ---------- 1 · forma y época ----------
 
-function capaForma(ev, epoca) {
+function capaForma(ev, epoca, { tLaxo = false } = {}) {
   const r = motivos();
-  const errores = validarForma(ev);
+  const errores = validarForma(ev, { tLaxo }); // el t laxo, solo en un registro guardado con la versión 2
   errores.forEach((e) => r.falla(e));
   let profundidad = 0;
   const sinRegla = new Set();
@@ -334,6 +383,17 @@ function capaAcreditacion(eje, ev, libro) {
   const poner = (id, k, v) => vista.set(llave(id, k), v);
   const emitido = new Map();
   const serie = (k) => emitido.get(k) ?? libro.series.get(k);
+  const vistaB = new Map();
+  const verB = (id, k, salida) => (vistaB.has(JSON.stringify([id, k, salida])) ? vistaB.get(JSON.stringify([id, k, salida])) : bloqueadoEn(libro, id, k, salida));
+  const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
+  // El respaldo de las emisiones según el ciclo (src/ciclo.js): el tope del reloj en T, un registro existente en P, la caducidad de la serie en E.
+  // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
+  const delCiclo = new Map();
+  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
+    if (e.capa !== 4) continue;
+    if (e.i === null) r.falla(e.texto);
+    else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
+  }
   const movimientos = [];
   const movs = lista(ev.movimientos);
   // Un evento no cambia: lo que no se puede comprobar ahora no se podrá nunca, así que falla (no pendiente).
@@ -346,16 +406,30 @@ function capaAcreditacion(eje, ev, libro) {
     const k = claveToken(m);
     fila.clave = k;
     if (m.de === null) {
-      // Emisión. T y P: sus series solo las respalda el génesis (tokens.js), así
-      // que fuera de él una emisión de T o de P no tiene respaldo. E y R: las
-      // respalda su emisor, que va en la serie.
-      if (!esEoR(m) && !esGenesis) return mal('falla', 'la serie ' + k + ' solo la respalda el génesis: esta emisión no tiene respaldo');
+      // Emisión (VG, 7-11 noche). La respalda la persona que la emite: T, con
+      // el tope del reloj; P, sobre un registro que existe; E y R, a su nombre o
+      // al de un grupo (si la persona tiene P sobre él lo dice la capa 5).
+      if (!esGenesis && delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       const s = serie(k);
       const emisor = esEoR(m) ? m.emisor : ev.autor;
-      if (emisor !== ev.autor) return mal('falla', 'la serie ' + k + ' es de ' + emisor + ' y la emite ' + ev.autor + ': nadie la respalda en nombre de otro');
+      if (emisor !== ev.autor && !(esEoR(m) && !esGenesis && libro.tipos.get(emisor) === 'grupo')) {
+        return mal('falla', 'la serie ' + k + ' es de ' + emisor + ' y la emite ' + ev.autor + ': nadie la respalda en nombre de otro');
+      }
       const total = (s?.emitido ?? 0) + m.cantidad;
       if (!Number.isFinite(total)) return mal('falla', 'la serie ' + k + ' no admite tanto');
-      emitido.set(k, { emisor: s?.emisor ?? emisor, emitido: total });
+      emitido.set(k, { ...(s ?? {}), emisor: s?.emisor ?? emisor, emitido: total });
+    } else if (m.estado === 'bloqueo') {
+      // Bloquear: sale del disponible, de la clave exacta.
+      if (ver(m.de, k) < m.cantidad) return mal('falla', 'saldo disponible de ' + k + ' en ' + m.de + ': tiene ' + ver(m.de, k) + ', bloquea ' + m.cantidad);
+      poner(m.de, k, ver(m.de, k) - m.cantidad);
+      ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) + m.cantidad);
+      return undefined;
+    } else if (m.estado === 'liberacion') {
+      // Liberar: sale de lo bloqueado con esa misma salida.
+      if (verB(m.de, k, m.salida) < m.cantidad) return mal('falla', 'bloqueado de ' + k + ' en ' + m.de + ' con la salida «' + m.salida + '»: hay ' + verB(m.de, k, m.salida) + ', libera ' + m.cantidad);
+      ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - m.cantidad);
+      poner(m.de, k, ver(m.de, k) + m.cantidad);
+      return undefined;
     } else if (m.token === 'P') {
       // P no se emite fuera del génesis: lo respalda el poder de los ámbitos que cubren el suyo.
       if (m.ambito !== AMBITO_GENESIS && !libro.ids.has(m.ambito)) return mal('falla', 'P sobre un ámbito que no existe: ' + corto(m.ambito));
@@ -380,33 +454,29 @@ function capaAcreditacion(eje, ev, libro) {
 
 // ---------- 5 · permiso y ejecución ----------
 
-function permisoDelLibro(ev, libro) {
+function permisoDelLibro(eje, ev, libro) {
   const r = motivos();
   const esGenesis = ev.contexto?.genesis === true;
   lista(ev.movimientos).forEach((m, i) => {
     if (validarMovimiento(m).length) return; // capa 1
     if (m.de === null) {
-      if (esGenesis) {
-        if (m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
-      } else if (m.token === 'T' || m.token === 'P') {
-        r.falla('movimiento ' + i + ': solo el génesis emite ' + m.token);
-      } else if (m.emisor !== ev.autor) {
-        // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
-        r.falla('movimiento ' + i + ': nadie emite en nombre de otro: ' + m.emisor + ' no es el autor');
-      } else {
-        const tipo = libro.tipos.get(ev.autor);
-        if (!EMITEN.includes(tipo)) r.falla('movimiento ' + i + ': solo personas y grupos emiten: ' + ev.autor + (tipo ? ' es ' + tipo : ' no declaró tipo en su alta'));
-      }
+      if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
     } else if (m.de !== ev.autor) {
       r.falla('movimiento ' + i + ': nadie mueve tokens ajenos: ' + m.de + ' no es el autor');
     }
   });
+  // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
+  // a nombre de un grupo con P sobre él, escalonado T → R → P → E (src/ciclo.js).
+  // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
+  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
+    if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
+  }
   // El tipo se declara en el alta, como la clave, y solo sirve para saber quién emite.
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
     if (!TIPOS.includes(tipo)) r.falla('tipo inválido para ' + id + ': ' + tipo);
     else if (esGenesis) {
       if (id !== ev.autor) r.falla('el génesis solo declara el tipo de su autor');
-      else if (!EMITEN.includes(tipo)) r.falla('el génesis emite: su autor es persona o grupo, no ' + tipo);
+      else if (!(libro.reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) r.falla('el génesis lo emite una persona: su autor no puede ser ' + tipo);
     } else if (libro.tipos.has(id) || libro.identidades.has(id)) r.falla('no se puede cambiar el tipo de ' + id);
     else if (!lista(ev.movimientos).some((m) => m?.a === id)) r.falla('tipo declarado para ' + id + ' sin darle tokens');
   }
@@ -417,7 +487,7 @@ function permisoDelLibro(ev, libro) {
 function quienesPuedenAutorizar(eje, ev, id, enEje) {
   return eje.identidades().filter((x) => (enEje
     ? puedeAutorizar(eje, x, id)
-    : x !== ev.autor && Boolean(eje.obtener(ev.sobre)) && eje.poderSobre(x, ev.sobre) > 0));
+    : x !== ev.autor && poderParaAutorizar(eje, x, ev.sobre, ev.autor).reduce((s, p) => s + p.cantidad, 0) > 0));
 }
 
 /** Por qué una autorización no cuenta; vacío si cuenta. */
@@ -426,7 +496,7 @@ function faltasDeAutorizacion(eje, ev) {
   if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no autoriza nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor === c.autor) return [['falla', 'el autor no se autoriza a sí mismo']];
-  if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro: el escrito existe, pero no cuenta']];
+  if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro que cuente para autorizar a ' + c.autor + ' (solo cuenta el P sobre un registro del hilo que ' + c.autor + ' no escribió): el escrito existe, pero no cuenta']];
   return [];
 }
 
@@ -500,7 +570,7 @@ function permisoDelMotor(eje, ev, id, enEje) {
 }
 
 function capaPermiso(eje, ev, libro, id, enEje) {
-  const delLibro = permisoDelLibro(ev, libro);
+  const delLibro = permisoDelLibro(eje, ev, libro);
   const { r: delMotor, motor, texto } = permisoDelMotor(eje, ev, id, enEje);
   const estado = peor([delLibro.estado, delMotor.estado]);
   const textoLibro = delLibro.estado === 'ok' ? (ev.contexto?.genesis === true ? 'génesis: emite por convención' : 'mueve lo suyo') : delLibro.textos[0];
@@ -508,7 +578,7 @@ function capaPermiso(eje, ev, libro, id, enEje) {
   return parte(5, estado, [...delLibro.textos, ...delMotor.textos], resumen, {
     libro: { estado: delLibro.estado, motivos: delLibro.textos },
     motor,
-    regla: 'V0 provisional hasta AARPIA: autoriza quien tiene P > 0 sobre el registro y no es su autor; ejecuta el autor',
+    regla: REGLA_AUTORIZAR,
     externa: SIN_CONFIRMAR,
   });
 }
@@ -554,7 +624,7 @@ export async function validez(eje, evento, { epoca = EPOCA_0 } = {}) {
   const libro = libroAntes(eje, enEje ? indice : eje.orden.length);
   const vista = vistaCon(eje, ev, id);
   const capas = [
-    await protegida(1, () => capaForma(ev, epoca)),
+    await protegida(1, () => capaForma(ev, epoca, { tLaxo: libro.reglas === 2 })),
     await protegida(2, () => capaInterpretacion(eje, vista, ev, id)),
     await protegida(3, () => capaCriptografia(eje, ev, id, libro, enEje, idCorrecto)),
     await protegida(4, () => capaAcreditacion(eje, ev, libro)),

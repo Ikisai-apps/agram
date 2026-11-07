@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, apartarLocal, VERSION } from '../src/persistencia.js';
+import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, apartarLocal, migrar, VERSION } from '../src/persistencia.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
 
@@ -9,7 +9,7 @@ test('serializar y restaurar reconstruye el eje validando todo', async () => {
   const { eje, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
-  assert.equal(datos.version, 2);
+  assert.equal(datos.version, 3); // VG, 7-11 noche: la versión 3 trae el ciclo de vida de los tokens (bloqueos, caducidad)
   assert.equal(datos.version, VERSION);
   assert.equal(datos.eventos.length, 5);
   const otro = await restaurar(datos);
@@ -67,7 +67,7 @@ test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de 
   try {
     const { eje } = await ejemploCompra();
     const antiguo = JSON.stringify({ ...serializar(eje), version: 1 });
-    await assert.rejects(restaurar(JSON.parse(antiguo)), /eje de la versión 1; esta es la 2/);
+    await assert.rejects(restaurar(JSON.parse(antiguo)), /eje de la versión 1; esta es la 3/);
     almacen.set('agram.eje', antiguo);
     assert.equal(await cargarLocal(), null);
     assert.equal(apartarLocal(), true);
@@ -75,4 +75,32 @@ test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de 
   } finally {
     delete globalThis.localStorage;
   }
+});
+
+test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalidan con las reglas de la 2', async () => {
+  const { eje } = await ejemploCompra();
+  const v2 = JSON.parse(JSON.stringify({ ...serializar(eje), version: 2 }));
+  assert.equal(migrar(v2).version, VERSION);
+  assert.deepEqual(migrar(v2).eventos, v2.eventos);
+  // La migración no es trivial: todos sus eventos se marcan como de la versión 2 y se validan con aquellas reglas;
+  // las nuevas rigen lo que se añada después (lo que solo admitía la 2 está en test/ciclo-eprt.test.js).
+  // La marca la pone solo migrar: cuántos eventos y el id del último, que restaurar comprueba.
+  const marca = { eventos: v2.eventos.length, ultimo: v2.eventos[v2.eventos.length - 1].id };
+  assert.deepEqual(migrar(v2).v2, marca);
+  assert.equal(migrar({ ...v2, eventosV2: 1, v2: { eventos: 1, ultimo: 'x' } }).v2.eventos, v2.eventos.length); // lo que traiga, se descarta
+  const otro = await restaurar(v2);
+  assert.deepEqual(otro.orden, eje.orden);
+  assert.equal(otro.eventosV2, v2.eventos.length);
+  assert.deepEqual(serializar(otro).v2, marca); // al volver a guardar se conserva
+  assert.equal(serializar(eje).v2, undefined); // un eje de la 3 no la lleva
+  // Revisión de seguridad: un guardado de la 3 no declara eventosV2, y una marca que no corresponde se rechaza.
+  const v3 = migrar(v2);
+  await assert.rejects(restaurar({ ...v3, eventosV2: 2 }), /eventosV2 no se declara en un guardado/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: 2, ultimo: marca.ultimo } }), /la marca de la versión 2 no corresponde a sus eventos/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: v2.eventos.length + 1, ultimo: marca.ultimo } }), /no corresponde/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: 0, ultimo: marca.ultimo } }), /no corresponde/);
+  // Un evento manipulado no se restaura con ninguna de las dos reglas.
+  const tocado = JSON.parse(JSON.stringify(v2));
+  tocado.eventos[0].contexto.tipos.casa = 'grupo';
+  await assert.rejects(restaurar(tocado), /génesis rechazado: id del génesis no corresponde/);
 });

@@ -4,6 +4,7 @@
 
 import { ARIDAD, validarPayload, esDireccion } from './btml.js';
 import { validarMovimiento } from './tokens.js';
+import { esInstante } from './instante.js';
 
 /** Posición raíz del foco: el registro entero. */
 export const RAIZ = '0000000000';
@@ -126,15 +127,22 @@ export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimient
   return congelar(ev);
 }
 
-/** Validación de forma, sin mirar el eje. */
-export function validarForma(ev) {
+/**
+ * Validación de forma, sin mirar el eje. `t` es un instante ISO-8601 estricto
+ * con zona explícita (src/instante.js). Con `tLaxo` basta con que Date.parse
+ * lo lea: solo para los eventos de un eje guardado con la versión 2, que se
+ * validan con las reglas de entonces.
+ */
+export function validarForma(ev, { tLaxo = false } = {}) {
   if (!ev || typeof ev !== 'object') return ['evento no es objeto'];
   const errores = [];
   if (typeof ev.autor !== 'string' || !ev.autor) errores.push('autor obligatorio');
   if (ev.sobre !== null && typeof ev.sobre !== 'string') errores.push('sobre debe ser id o null');
   if (ev.en !== undefined && !esDireccion(ev.en)) errores.push('en debe ser una dirección de diez dígitos');
   if (ev.sobre === null && ev.en !== undefined && ev.en !== RAIZ) errores.push('el génesis solo se anida en la raíz');
-  if (typeof ev.t !== 'string' || Number.isNaN(Date.parse(ev.t))) errores.push('t debe ser instante ISO');
+  if (tLaxo ? typeof ev.t !== 'string' || Number.isNaN(Date.parse(ev.t)) : !esInstante(ev.t)) {
+    errores.push('t debe ser instante ISO-8601 con zona explícita (AAAA-MM-DDThh:mm[:ss[.fff]] y Z o ±hh:mm)');
+  }
   if (!Array.isArray(ev.movimientos) || ev.movimientos.length === 0) {
     errores.push('todo evento mueve tokens');
   } else {

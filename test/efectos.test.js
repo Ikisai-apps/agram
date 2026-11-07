@@ -342,7 +342,7 @@ test('el génesis: escribe la raíz y emite sus series', async () => {
     ['token', 'emitir', 'E:casa/EUR', 'ciudad', 'abrir vía'],
     ['token', 'emitir', 'P:genesis', 'jardín', 'calor'],
   ]);
-  assert.equal(efectos[1].decisiones[0], SIN_NOMBRE); // solo el génesis emite T: el corpus no lo nombra
+  assert.equal(efectos[1].decisiones[0], SIN_NOMBRE); // el génesis emite T (VG, 7-11 noche: después, cada persona el suyo): el corpus no lo nombra
   assert.deepEqual([efectos[3].de, efectos[3].a], [null, 'casa']);
 });
 

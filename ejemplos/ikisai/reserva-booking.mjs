@@ -1,7 +1,7 @@
 // Segundo ejemplo transversal con datos inventados: una reserva de alojamiento
 // (Booking) en una casa rural. Existe para forzar que el núcleo sea genérico y
 // no esté moldeado por la compra de comida: otro dominio, otra décupla, otro
-// ciclo. Construye su propio eje: génesis de la casa (un grupo); altas de
+// ciclo. Construye su propio eje: génesis de la casa (una persona); altas de
 // recepción y de una persona huésped; la casa escribe su dominio
 // «Alojamiento» y delega en recepción el poder (P) con ese ámbito; publica la
 // disponibilidad (el elemento habitación, con sus plazas en 1.k) y abre la
@@ -43,7 +43,7 @@ import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
 import { descubrir, consolidar, autorizar, ejecutar, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
 
-/** La casa: el grupo que respalda las plazas y emite su serie. */
+/** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
 export const CASA = 'casa';
 
 /** Las plazas de la habitación: cada una en la posición 1.k de sus recursos. */
@@ -135,12 +135,13 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: CASA,
-    tipo: 'grupo', // solo personas y grupos emiten
+    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
+      { token: 'R', cantidad: 10 }, // reputación de la casa (R:casa): la pone en juego al emitir plazas
     ],
     foco: 'Casa rural de ejemplo',
     t,
@@ -219,9 +220,12 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
  * La casa abre la temporada: emite, por cada plaza de la habitación y cada
  * noche de [primera, fin), tantos tokens «<plaza>@<noche>» como capacidad.
  * Es la serie limitada que respalda las plazas; solo la casa la amplía.
+ * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
+ * casa gasta su T, pone en juego su reputación ante recepción (un R:casa) y
+ * tiene P sobre la habitación (el suyo cubre todo el eje).
  */
 export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, privada } = {}) {
-  const movimientos = [minutos(CASA)];
+  const movimientos = [minutos(CASA), { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' }];
   habitacion.payload[1].forEach((laPlaza, k) => {
     const capacidad = capacidadDe(laPlaza);
     if (!capacidad) return;
@@ -247,6 +251,14 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * noches [entrada, salida] se anclan en el 7 de la propia reserva (la
  * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
  * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
+ *
+ * Con el tramo, quien reserva deja en manos de recepción confirmar lo que la
+ * casa le entregue sobre su reserva: acuña un P sobre ella (es su registro;
+ * T + R + P: pone en juego un R propio ante recepción) y se lo delega. Sin
+ * eso nadie podría autorizar la entrega de la casa: para autorizar lo que la
+ * casa propone solo cuenta el P sobre un registro del hilo que la casa no
+ * escribió ([X] confirmar VG, src/motor.js poderParaAutorizar), y el de
+ * recepción sobre el Alojamiento lo escribió la casa.
  */
 export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
   const [entrada, salida] = noches;
@@ -267,7 +279,20 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
   const tramo = [entrada, salida];
-  await eje.escribir({ autor, sobre: reserva.id, en: direccion([7]), t, movimientos: [minutos(autor, costeT(tramo))], payload: tramo }, privada);
+  await eje.escribir({
+    autor,
+    sobre: reserva.id,
+    en: direccion([7]),
+    t,
+    movimientos: [
+      minutos(autor, costeT(tramo)),
+      { token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, // su reputación, en juego ante recepción
+      { token: 'R', emisor: autor, cantidad: 1, de: autor, a: 'recepcion' },
+      { token: 'P', ambito: reserva.id, cantidad: 1, de: null, a: autor }, // P sobre su reserva, que escribió
+      { token: 'P', ambito: reserva.id, cantidad: 1, de: autor, a: 'recepcion' }, // y recepción confirma por ella
+    ],
+    payload: tramo,
+  }, privada);
   return reserva;
 }
 

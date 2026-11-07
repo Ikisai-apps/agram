@@ -148,20 +148,25 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   const robo = await validez(eje, await borrador('huesped', [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'huesped' }]));
   assert.deepEqual(estados(robo), ['ok', 'ok', 'ok', 'ok', 'falla']);
   assert.match(robo.permiso.motivos[0], /nadie mueve tokens ajenos: casa no es el autor/);
-  // Cocina emite más T: solo el génesis respalda T (capa 4) y solo el génesis emite T (capa 5).
+  // VG, 7-11 noche: T ya no es solo del génesis; cada persona emite el suyo con el tope del reloj desde su alta.
+  // Cocina (un grupo) emite T: lo respalda el reloj (capa 4), pero solo las personas emiten (capa 5).
   const t = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'minuto', cantidad: 5, de: null, a: 'cocina' }]));
-  assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'falla', 'falla']);
-  assert.match(t.acreditacion.motivos[0], /la serie T:minuto solo la respalda el génesis/);
-  assert.match(t.permiso.motivos[0], /solo el génesis emite T/);
-  // Una serie de T que el génesis nunca emitió, o P emitido fuera del génesis: tampoco hay respaldo (tokens.js).
+  assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'ok', 'falla']);
+  assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es grupo/);
+  // Huesped (persona, de alta a las 9:00) emite a las 16:00 más horas de las que da el reloj: no hay respaldo (capa 4); el permiso sí (capa 5).
+  const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 8, de: null, a: 'huesped' }]));
+  assert.deepEqual(estados(horas), ['ok', 'ok', 'ok', 'falla', 'ok']);
+  assert.match(horas.acreditacion.motivos[0], /tope de T:hora para huesped: llevaría 8 emitido y el reloj da 7/);
+  assert.doesNotMatch(horas.acreditacion.resumen, /respaldados/);
+  // Las que da el reloj, sí: siete horas y, de una escala que el génesis nunca emitió, un año (el mínimo del tope).
   assert.equal(eje.serie('T:anio').emitido, 0);
-  const anio = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'cocina' }]));
-  assert.deepEqual(estados(anio), ['ok', 'ok', 'ok', 'falla', 'falla']);
-  assert.match(anio.acreditacion.motivos[0], /la serie T:anio solo la respalda el génesis/);
-  assert.doesNotMatch(anio.acreditacion.resumen, /respaldados/);
-  const p = await validez(eje, await borrador('cocina', [{ token: 'P', ambito: compra.id, cantidad: 1, de: null, a: 'cocina' }]));
+  const anio = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 7, de: null, a: 'huesped' }, { token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'huesped' }]));
+  assert.deepEqual(estados(anio), TODO_OK);
+  // P sobre todo el eje fuera del génesis: sin respaldo (capa 4) y sin R propia en juego (capa 5).
+  const p = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: 'genesis', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(p), ['ok', 'ok', 'ok', 'falla', 'falla']);
-  assert.match(p.acreditacion.motivos[0], /solo la respalda el génesis/);
+  assert.match(p.acreditacion.motivos[0], /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
+  assert.match(p.permiso.motivos[0], /emitir P exige R propia en juego en el mismo evento/);
 });
 
 test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza para autorizar', async () => {
@@ -173,9 +178,13 @@ test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
-  // Con P sobre la compra, cocina puede autorizar lo que se consolide sobre ella.
+  // Con P sobre la compra, cocina puede autorizar lo que se consolide sobre ella, salvo lo que proponga quien
+  // escribió la compra: para autorizar solo cuenta el P sobre un registro del hilo que no escribió el autor de la
+  // consolidación ([X] confirmar VG, motor.poderParaAutorizar). Al huésped le autoriza la casa (P sobre el génesis).
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa', 'cocina']);
+  assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa']);
+  const deLaCasa = await consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 1: 'otro menú' } });
+  assert.deepEqual((await validez(eje, deLaCasa.id)).permiso.motor.puedenAutorizar, ['cocina']);
   // Los registros anteriores siguen en ok: cada uno se lee con el libro de su momento.
   for (const id of eje.orden) assert.equal((await validez(eje, id)).acreditacion.estado, 'ok');
 });

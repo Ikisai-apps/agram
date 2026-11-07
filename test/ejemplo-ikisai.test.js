@@ -10,12 +10,12 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), 12);
   assert.equal(eje.saldo('huesped', 'E:casa/EUR'), 48);
   assert.equal(eje.saldoT('huesped', 'hora'), 23);
-  // Series: la casa (un grupo) emite sus EUR y las dos escalas de T que usa; las altas reparten ambas y declaran tipo.
+  // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y las dos escalas de T que usa; las altas reparten ambas y declaran tipo.
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
   assert.deepEqual(eje.series().map((s) => s.clave), ['T:hora', 'T:minuto', 'E:casa/EUR', 'P:genesis']);
   assert.deepEqual(eje.tiempos('huesped'), [{ escala: 'minuto', cantidad: 480 }, { escala: 'hora', cantidad: 23 }]);
   assert.deepEqual(eje.recursos('huesped'), [{ emisor: 'casa', denominacion: 'EUR', cantidad: 48 }]);
-  assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['grupo', 'grupo', 'persona']);
+  assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'grupo', 'persona']);
   assert.equal(eje.hilo(compra.id).length, 4);
   // La referencia no copia: se resuelve sobre el menú.
   const ref = compra.payload[1][0];

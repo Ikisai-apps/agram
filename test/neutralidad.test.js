@@ -69,14 +69,17 @@ async function mundo(personas, { tercero = 'C', tipos = {} } = {}) {
     payload: 'altas',
     contexto: { tipos: Object.fromEntries(altas.map((id) => [id, tipos[id] ?? 'persona'])) },
   });
-  await eje.escribir({
-    autor: tercero, sobre: eje.genesisId, t: T0,
-    movimientos: [minuto(tercero), eur(tercero, 1e6, null, tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero }],
-    payload: 'emisión de ' + tercero,
-  });
   const casa = await eje.escribir({
     autor: tercero, sobre: eje.genesisId, t: T0, movimientos: [minuto(tercero)],
     payload: ['casa', ['plaza', 30, 4], 'normas', 'anfitrión', 'ficha', 'estructura', 'pasado', 'futuro', 'medidas', 'camino'],
+  });
+  // Emisión escalonada (VG, 7-11 noche: T + R + P + E): C gasta T, pone en juego un R:C ante g, acuña P sobre
+  // su casa y emite E sobre ella. Es igual en todos los mundos, así que no cambia lo que se compara.
+  await eje.escribir({
+    autor: tercero, sobre: casa.id, t: T0,
+    movimientos: [minuto(tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero }, { token: 'R', emisor: tercero, cantidad: 1, de: tercero, a: 'g' },
+      { token: 'P', ambito: casa.id, cantidad: 1, de: null, a: tercero }, eur(tercero, 1e6, null, tercero)],
+    payload: 'emisión de ' + tercero,
   });
   return { eje, X: casa.id };
 }
@@ -241,13 +244,14 @@ test('NEU-02: repartir el mismo P entre más identidades no da más autorizantes
     assert.equal(await autorizantes(5), await autorizantes(1));
   });
 
+// NEU-03 ya no se salta: el ciclo E/P/R/T (PR #62, VG 7-11 noche: «emite siempre una persona») lo implementa
+// (src/tokens.js: EMITEN = ['persona']; src/ciclo.js).
 test('NEU-03: agruparse no añade un emisor (el grupo es un registro; emite una persona con P sobre él)',
-  { skip: 'NEU-03: concesión «el grupo emite por su cuenta» (src/tokens.js:EMITEN = [persona, grupo]; src/eje.js:validar). Una familia de 2 personas que se declara además grupo G tiene 3 fuentes de R y de E en vez de 2. Contradice la decisión 5 del mapa §12 [D] («emite siempre una persona»), ya decidida y pendiente de implementar' },
   async () => {
     const { eje, X } = await mundo(['P1', 'P2', 'G'], { tipos: { G: 'grupo' } });
     await assert.rejects(
       eje.escribir({ autor: 'G', sobre: X, t: T0, movimientos: [minuto('G'), { token: 'R', emisor: 'G', cantidad: 100, de: null, a: 'G' }], payload: 'R del grupo' }),
-      /solo personas/,
+      /solo las personas emiten: G es grupo/,
     );
   });
 
