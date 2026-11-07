@@ -35,6 +35,7 @@ import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
 import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
 import { pesoDe, estadoPorPeso } from './autorizacion.js';
+import { reglasDeR, devolucionesEn } from './lente.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -161,6 +162,24 @@ function contextoCiclo(eje, libro, ev) {
     genesisId: eje.genesisId,
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
     ampliada: (id) => libro.ampliadas.has(id),
+    bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
+  };
+}
+
+/**
+ * Lo que leen las reglas de R (src/lente.js, reglasDeR: el colateral y las
+ * devoluciones sin atender), desde el libro de justo antes del registro. Las
+ * devoluciones se leen de los eventos del libro solo si hacen falta.
+ */
+function contextoR(eje, libro) {
+  let dev = null;
+  const devoluciones = () => (dev ??= devolucionesEn(eje.orden.filter((id) => libro.ids.has(id)).map((id) => eje.obtener(id))));
+  return {
+    reglas: libro.reglas,
+    serie: (k) => libro.series.get(k) ?? null,
+    bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
+    pendientes: (emisor) => devoluciones().pendientes(emisor),
+    devolucion: (id, emisor) => devoluciones().devolucion(id, emisor),
   };
 }
 
@@ -448,7 +467,7 @@ function capaAcreditacion(eje, ev, libro) {
   // El respaldo de las emisiones según el ciclo (src/ciclo.js): el tope del reloj en T, un registro existente en P, la caducidad de la serie en E.
   // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
   const delCiclo = new Map();
-  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
+  for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
     if (e.capa !== 4) continue;
     if (e.i === null) r.falla(e.texto);
     else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
@@ -484,7 +503,8 @@ function capaAcreditacion(eje, ev, libro) {
       ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) + m.cantidad);
       return undefined;
     } else if (m.estado === 'liberacion') {
-      // Liberar: sale de lo bloqueado con esa misma salida.
+      // Liberar: sale de lo bloqueado con esa misma salida. El colateral de R no baja de su mínimo (R6).
+      if (delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       if (verB(m.de, k, m.salida) < m.cantidad) return mal('falla', 'bloqueado de ' + k + ' en ' + m.de + ' con la salida «' + m.salida + '»: hay ' + verB(m.de, k, m.salida) + ', libera ' + m.cantidad);
       ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - m.cantidad);
       poner(m.de, k, ver(m.de, k) + m.cantidad);
@@ -527,7 +547,7 @@ function permisoDelLibro(eje, ev, libro) {
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
   // a nombre de un grupo con P sobre él, escalonado T → R → P → E (src/ciclo.js).
   // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
-  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
+  for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
     if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
   }
   // El tipo se declara en el alta, como la clave, y solo sirve para saber quién emite.

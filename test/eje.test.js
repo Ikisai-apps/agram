@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-06T20:00:00Z';
 
@@ -125,7 +126,7 @@ async function conAltas() {
 
 const emite = (emisor, denominacion, cantidad) => ({ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor });
 const mueveE = (emisor, denominacion, cantidad, de, a) => ({ token: 'E', emisor, denominacion, cantidad, de, a });
-/** R propia en juego: la persona pone uno de su R en manos de otra (VG, 7-11 noche: lo exigen P y E). */
+/** Da uno de su R a otra. La R propia en juego (VG, 7-11 noche: la exigen P y E) es el colateral que bloquea al emitirla (R6, escalonE). */
 const enJuego = (persona, a = 'raiz') => ({ token: 'R', emisor: persona, cantidad: 1, de: persona, a });
 
 /**
@@ -136,7 +137,7 @@ const enJuego = (persona, a = 'raiz') => ({ token: 'R', emisor: persona, cantida
  */
 async function escalonE(eje, persona) {
   const r = await eje.escribir({ autor: persona, sobre: eje.genesisId, t: T0, payload: 'reputación de ' + persona,
-    movimientos: [gastaT(persona), { token: 'R', cantidad: 10, emisor: persona, de: null, a: persona }] });
+    movimientos: [gastaT(persona), { token: 'R', cantidad: 10, emisor: persona, de: null, a: persona }, colateral(persona, 1)] });
   const dominio = await eje.escribir({ autor: persona, sobre: r.id, t: T0, payload: 'dominio de ' + persona, movimientos: [gastaT(persona)] });
   await eje.escribir({ autor: persona, sobre: dominio.id, t: T0, payload: 'poder sobre mi dominio',
     movimientos: [gastaT(persona), enJuego(persona), { token: 'P', ambito: dominio.id, cantidad: 1, de: null, a: persona }] });
@@ -244,9 +245,9 @@ test('emitir es solo de personas (VG, 7-11 noche); los grupos y las cosas recibe
 test('R: su emisor la declara y la amplía fuera del génesis, con rastro visible; nadie más', async () => {
   const { eje, alta } = await conAltas();
   const r = await eje.escribir({ autor: 'casa', sobre: alta.id, t: T0, payload: 'reputación de la casa',
-    movimientos: [gastaT('casa'), { token: 'R', cantidad: 10, emisor: 'casa', de: null, a: 'casa' }] });
+    movimientos: [gastaT('casa'), { token: 'R', cantidad: 10, emisor: 'casa', de: null, a: 'casa' }, colateral('casa', 1)] });
   await eje.escribir({ autor: 'casa', sobre: r.id, t: T0, payload: 'buen trato',
-    movimientos: [gastaT('casa'), { token: 'R', cantidad: 5, emisor: 'casa', de: null, a: 'casa' }, { token: 'R', cantidad: 2, emisor: 'casa', de: 'casa', a: 'bea' }] });
+    movimientos: [gastaT('casa'), { token: 'R', cantidad: 5, emisor: 'casa', de: null, a: 'casa' }, colateral('casa', 0.5), { token: 'R', cantidad: 2, emisor: 'casa', de: 'casa', a: 'bea' }] });
   assert.deepEqual(eje.serie('R:casa'), { emisor: 'casa', emitido: 15 });
   assert.deepEqual(eje.reputaciones('bea'), [{ emisor: 'casa', cantidad: 2 }]);
   // El rastro: cada ampliación es un evento del eje, de su emisor.

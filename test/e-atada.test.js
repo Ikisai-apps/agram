@@ -15,10 +15,11 @@ import { Eje, reglasDelTope, SIN_CAPACIDAD } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
 import { claveToken, franjaDe, familiaDe } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-/** R propia en juego (VG, 7-11 noche: la exigen P y E). */
+/** Da un R propio a otra identidad. La R propia en juego (VG, 7-11 noche: la exigen P y E) es el colateral que cada persona bloquea al emitir su R (R6, mundo). */
 const enJuego = (persona, a = 'g') => ({ token: 'R', emisor: persona, cantidad: 1, de: persona, a });
 let cuenta = 0;
 const unico = (texto) => texto + ' #' + (++cuenta);
@@ -35,11 +36,11 @@ async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'
   });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [minuto('g'), ...personas.map((p) => minuto('g', 5000)).map((m, i) => ({ ...m, a: personas[i] }))],
+    movimientos: [minuto('g'), colateral('g', 10), ...personas.map((p) => minuto('g', 5000)).map((m, i) => ({ ...m, a: personas[i] }))],
     contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
-    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }] });
+    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }, colateral(p, 10)] });
   }
   const A = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], capacidad] });
   if (pA > 0) {
