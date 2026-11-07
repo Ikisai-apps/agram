@@ -36,7 +36,7 @@
 // - lo propio del registro (su payload) y lo que alcanzan sus referencias lo
 //   puso el autor: siempre es elegible.
 
-import { ARIDAD, direccion, indicesDe } from './btml.js';
+import { ARIDAD, direccion, indicesDe, esDecupla } from './btml.js';
 import { ocupantes } from './encaje.js';
 
 /** Dónde lee la lista explícita: posición 2 (criterio), subposición 3 (con quién). */
@@ -81,7 +81,8 @@ export function elegibles(eje, id) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const criterio = Array.isArray(ev.payload) ? ev.payload[LISTA[0]] : undefined;
-  const propias = [nombresDe(Array.isArray(criterio) ? criterio[LISTA[1]] : undefined), ...delDueno(eje, id, LISTA, ev.autor).map((e) => nombresDe(e.payload))].filter(Boolean);
+  // Solo una décupla tiene subposiciones (por hojas, VG 7-11 noche): un criterio que es una lista no tiene 2.3.
+  const propias = [nombresDe(esDecupla(criterio) ? criterio[LISTA[1]] : undefined), ...delDueno(eje, id, LISTA, ev.autor).map((e) => nombresDe(e.payload))].filter(Boolean);
   if (propias.length) {
     const lista = propias.flat();
     if (lista.includes(CUALQUIERA)) return { dueno: ev.autor, todos: true, autores: null, origen: 'lista' };

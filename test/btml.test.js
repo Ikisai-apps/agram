@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarPayload, direccion, resolver, esDireccion, esTerminal, indicesDe, ARIDAD } from '../src/btml.js';
-import { crearEvento } from '../src/evento.js';
+import { validarPayload, direccion, resolver, esDireccion, esTerminal, indicesDe, ARIDAD, esLista, esDecupla, dentroDeLista } from '../src/btml.js';
+import { crearEvento, canonico } from '../src/evento.js';
 
 test('terminales: número, palabra, referencia', () => {
   assert.equal(esTerminal(3), true);
@@ -50,12 +50,15 @@ function dispersoEnorme() {
 
 test('array disperso de longitud enorme: se rechaza por la longitud, sin recorrerlo', async () => {
   assert.deepEqual(validarPayload(dispersoEnorme()).errores, ['raíz: más de 10 posiciones']);
-  assert.deepEqual(validarPayload(['a', dispersoEnorme()]).errores, ['1: más de 10 posiciones']);
+  // VG, 7-11 noche: por hojas. Bajo una posición, un array de más de diez puede
+  // ser una lista; uno disperso no lo es: «hueco en la lista», contando sus
+  // claves presentes y sin recorrer la longitud.
+  assert.deepEqual(validarPayload(['a', dispersoEnorme()]).errores, ['1: hueco en la lista']);
   // Por crearEvento también: la copia del payload no recorre la longitud.
   const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }];
   await assert.rejects(
     crearEvento({ autor: 'raiz', sobre: 'f'.repeat(64), t: '2026-11-07T10:00:00Z', movimientos, payload: ['a', dispersoEnorme()] }),
-    /payload 1: más de 10 posiciones/,
+    /payload 1: hueco en la lista/,
   );
 });
 
@@ -69,16 +72,16 @@ test('direcciones: diez dígitos, ceros finales', () => {
 });
 
 test('1100000000 y 0000000011 no son equivalentes', () => {
-  const p = [['x', 'y'], ['a', 'b']];
+  const p = [['x', 'y'], [['a'], 'b']]; // la 1 es décupla: su 0 va envuelto
   assert.equal(resolver(p, '1100000000'), 'b');
   assert.equal(resolver(p, '0000000011'), undefined);
 });
 
 test('resolver desciende y se detiene en el terminal', () => {
-  const p = ['raíz', ['uno', ['dos', 'tres']], 'fin'];
+  const p = ['raíz', ['uno', [['dos'], 'tres']], 'fin']; // la 1.1 es décupla: su 0 va envuelto
   assert.equal(resolver(p, '1110000000'), 'tres');
   assert.equal(resolver(p, '2000000000'), 'fin');
-  assert.deepEqual(resolver(p, '1000000000'), ['uno', ['dos', 'tres']]);
+  assert.deepEqual(resolver(p, '1000000000'), ['uno', [['dos'], 'tres']]);
   assert.equal(resolver(p, '5000000000'), undefined);
 });
 
@@ -86,4 +89,71 @@ test('indicesDe: ceros finales fuera, cero intermedio es índice real', () => {
   assert.deepEqual(indicesDe('8412300000'), [8, 4, 1, 2, 3]);
   assert.deepEqual(indicesDe('1010000000'), [1, 0, 1]);
   assert.deepEqual(indicesDe('0000000000'), []);
+});
+
+// Décupla y lista por hojas (VG, 7-11 noche: por hojas).
+
+test('por hojas: solo hojas es lista; con un array dentro, décupla', () => {
+  assert.equal(esLista(['a', 2, { ref: 'x' }]), true);
+  assert.equal(esDecupla(['a', 2, { ref: 'x' }]), false);
+  assert.equal(esLista([['a'], 2]), false);
+  assert.equal(esDecupla([['a'], 2]), true);
+  assert.equal(esLista([]), false);
+  assert.equal(esLista('a'), false);
+});
+
+test('por hojas: la raíz es siempre décupla, aunque sean solo hojas', () => {
+  // En la raíz, once hojas no son una lista: son once posiciones.
+  assert.deepEqual(validarPayload(Array(11).fill('h')).errores, ['raíz: más de 10 posiciones']);
+  // Y una dirección de la raíz entra en ella aunque solo tenga hojas.
+  assert.equal(resolver(['a', 'b', 'c'], '2000000000'), 'c');
+});
+
+test('por hojas: una lista bajo una posición pasa de diez; una décupla no', () => {
+  const doce = Array.from({ length: 12 }, (_, k) => 'h' + k);
+  assert.equal(validarPayload(['Compra', doce]).ok, true);
+  const once = [...Array.from({ length: 10 }, (_, k) => 'h' + k), ['dentro']];
+  assert.deepEqual(validarPayload(['Compra', once]).errores.length, 1);
+  assert.match(validarPayload(['Compra', once]).errores[0], /^1: más de 10 posiciones/);
+});
+
+test('por hojas: huecos y nulos en una lista se rechazan', () => {
+  assert.match(validarPayload(['Compra', ['a', null, 'c']]).errores[0], /^11: hueco/);
+  assert.match(validarPayload(['Compra', ['a', , 'c']]).errores[0], /^11: hueco/); // posición ausente
+  const larga = Array.from({ length: 12 }, (_, k) => 'h' + k);
+  larga[5] = null;
+  assert.deepEqual(validarPayload(['Compra', larga]).errores, ['1: hueco en la lista']);
+  delete larga[5];
+  assert.deepEqual(validarPayload(['Compra', larga]).errores, ['1: hueco en la lista']);
+});
+
+test('por hojas: resolver no entra en una lista y la devuelve entera en su dirección', () => {
+  const p = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  assert.deepEqual(resolver(p, '2000000000'), ['ensalada', 'guiso', 'fruta']);
+  assert.equal(resolver(p, '2100000000'), undefined); // el «guiso» no tiene dirección
+  assert.deepEqual(resolver(p, '1000000000'), [['menú'], 1, 'EUR 12']);
+  assert.equal(resolver(p, '1100000000'), 1); // en una décupla, sí
+  // 1.0 es la lista de uno [menú]: no se entra en ella.
+  assert.equal(resolver(p, '1010000000'), undefined);
+});
+
+test('por hojas: dentroDeLista dice qué posición tiene la lista en la que cae un camino', () => {
+  const p = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  assert.deepEqual(dentroDeLista(p, '2100000000'), [2]);
+  assert.deepEqual(dentroDeLista(p, [1, 0, 0]), [1, 0]);
+  assert.equal(dentroDeLista(p, '2000000000'), null); // la propia lista no cuenta
+  assert.equal(dentroDeLista(p, '1100000000'), null); // por una décupla
+  assert.equal(dentroDeLista(['a', 'b'], '1000000000'), null); // la raíz no es lista
+});
+
+test('por hojas: el hash es estable y distingue el orden de una lista', async () => {
+  const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }];
+  const base = { autor: 'raiz', sobre: 'f'.repeat(64), t: '2026-11-07T10:00:00Z', movimientos };
+  const a = await crearEvento({ ...base, payload: ['Menú', ['ensalada', 'guiso', 'fruta']] });
+  const otra = await crearEvento({ ...base, payload: ['Menú', ['ensalada', 'guiso', 'fruta']] });
+  const b = await crearEvento({ ...base, payload: ['Menú', ['fruta', 'guiso', 'ensalada']] });
+  assert.equal(a.id, otra.id);
+  assert.notEqual(a.id, b.id);
+  assert.equal(canonico(a.payload), canonico(['Menú', ['ensalada', 'guiso', 'fruta']]));
+  assert.notEqual(canonico(a.payload), canonico(b.payload));
 });

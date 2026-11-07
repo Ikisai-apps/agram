@@ -82,7 +82,9 @@ test('REF lee otro evento por id o prefijo, con subposición', async () => {
   const cuenta = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T14:00:00Z', movimientos: [gastaT('cocina')],
     payload: ['Cuenta', '=REF("' + compra.id.slice(0, 8) + '", "1200000000") + 2 EUR', '=REF("' + menu.id + '", "1000000000")'] });
   assert.equal(evaluar(eje, cuenta.id, '1000000000').texto, '14 EUR (12 EUR + 2 EUR)');
-  assert.equal(evaluar(eje, cuenta.id, '2000000000').texto, '[3 posiciones]');
+  // VG, 7-11 noche: por hojas: la 1 del menú es la lista de los tres platos, no una décupla.
+  assert.equal(evaluar(eje, cuenta.id, '2000000000').valor.tipo, 'lista');
+  assert.equal(evaluar(eje, cuenta.id, '2000000000').texto, 'ensalada · guiso · fruta');
   // «0000000000» es la raíz (límite conocido de los ceros); la posición 0 se pide por índices.
   assert.equal(evaluar(eje, cuenta.id, '0000000000').texto, '[3 posiciones]');
   assert.equal(evaluar(eje, cuenta.id, [0]).texto, 'Cuenta');
@@ -102,13 +104,18 @@ test('estados: PENDIENTE, INCOMPATIBLE, ERROR (sintaxis, función, ciclo)', asyn
 
 test('las referencias BTML se siguen al leer un slot', async () => {
   const { eje, compra, menu } = await ejemploCompra();
-  // La posición 1.0 de la compra es una referencia al menú:1 (los tres platos).
+  // VG, 7-11 noche: por hojas: la 1 de la compra es la décupla [[ref menú:1], 1, 'EUR 12'] (por dirección,
+  // ceros finales: la 1 entera); su 1.0 es la lista de uno con la referencia al menú:1, que se lee por índice.
   const r = evaluar(eje, compra.id, '1000000000');
   assert.equal(r.estado, 'RESUELTO');
   assert.equal(r.valor.tipo, 'array');
   const slot = evaluar(eje, compra.id, '1000000000');
   assert.equal(formato(slot.valor), '[3 posiciones]');
-  const ref = evaluar(eje, compra.id, '1000000000'); void ref; void menu;
+  assert.equal(evaluar(eje, compra.id, [1, 0]).valor.tipo, 'lista');
+  assert.equal(evaluar(eje, compra.id, [1, 0]).texto, '→ ' + menu.id.slice(0, 8));
+  // El elemento 0 de esa lista es la referencia: LOCAL la lee por índice y la sigue hasta la lista de platos del menú.
+  assert.equal(evaluar(eje, compra.id, [1, 0, 0]).valor.tipo, 'referencia');
+  assert.equal(consultar(eje, compra.id, [8], 'LOCAL(1, 0, 0)').texto, 'ensalada · guiso · fruta');
 });
 
 test('la evaluación no tiene efectos', async () => {

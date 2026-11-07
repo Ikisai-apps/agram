@@ -6,10 +6,13 @@
 // alternativas; cada ocupante lleva su procedencia y su camino exacto de
 // índices. El árbol lógico se reconstruye desde los eventos; no se guarda.
 // La lista de una posición (lista()) son esos ocupantes por llegada, fuera
-// del árbol: un array dentro de una posición son sus ocupantes, no dígitos
-// con PV (VG, 7-11 noche, mapa §12 [D]).
+// de los dígitos. Por hojas (VG, 7-11 noche): un array solo de hojas dentro
+// de una posición es una LISTA, y cada elemento es un ocupante aparte (con
+// `enLista` e `indice`), con la llegada y el encaje del evento y en el orden
+// de la lista; un array con algún array dentro es una DÉCUPLA (un ocupante,
+// con subposiciones por dígito). Una dirección nunca entra en una lista.
 
-import { ARIDAD, esReferencia, direccion, indicesDe, resolver } from './btml.js';
+import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver, nodoEn } from './btml.js';
 
 const MAX_SALTOS = 20;
 
@@ -163,11 +166,12 @@ export function marcarEmpates(lista, { epoca } = {}) {
 
 /** Justificación en texto de un ocupante: de dónde viene, cómo encaja y si empata. Solo informa. */
 export function justificar(o) {
+  const elemento = o.enLista ? 'elemento ' + (o.indice + 1) + ' de la lista, ' : '';
   const de = o.tipo === 'escrito'
     ? 'escrito por ' + o.autor + ', anclado en ' + o.destino
     : o.tipo === 'referencia'
       ? (o.estado ? 'referencia a ' + o.evento.slice(0, 8) + ': ' + o.estado + ', ' + o.motivo : 'alcanzado por referencia en ' + o.evento.slice(0, 8) + ':' + o.origenDir)
-      : 'propio del registro, camino ' + (o.camino.length ? o.camino.join('.') : 'raíz');
+      : elemento + 'propio del registro, camino ' + (o.camino.length ? o.camino.join('.') : 'raíz');
   const como = o.acuerdo === ARIDAD
     ? 'encaje exacto'
     : o.acuerdo + ' de ' + ARIDAD + ' profundidades de acuerdo; ' + o.signo + ' (' + o.faltas + ' por completar, ' + o.excedentes + ' por reducir: el signo informa, no ordena)';
@@ -186,24 +190,29 @@ function conEncaje(o, destino) {
  * Caminos de índices que una dirección nombra dentro de un payload: el
  * camino base (ceros finales fuera) y, mientras el nodo sea un array con
  * posición 0, los caminos con un cero más. Todos colisionan en la dirección.
+ * Una lista (por hojas: fuera de la raíz, un array solo de hojas) es un
+ * nodo final: la dirección no entra en ella.
  */
 export function caminosDe(payload, dir) {
   const base = indicesDe(dir);
   const caminos = [];
   let nodo = payload;
-  for (const i of base) {
-    if (!Array.isArray(nodo) || nodo[i] === undefined) return caminos;
-    nodo = nodo[i];
+  for (let p = 0; p < base.length; p++) {
+    if (!Array.isArray(nodo) || (p > 0 && esLista(nodo)) || nodo[base[p]] === undefined) return caminos;
+    nodo = nodo[base[p]];
   }
   const camino = [...base];
   for (;;) {
     caminos.push({ indices: [...camino], contenido: nodo });
-    if (!Array.isArray(nodo) || nodo[0] === undefined || camino.length >= ARIDAD) break;
+    if (!Array.isArray(nodo) || (camino.length > 0 && esLista(nodo)) || nodo[0] === undefined || camino.length >= ARIDAD) break;
     nodo = nodo[0];
     camino.push(0);
   }
   return caminos;
 }
+
+/** Procedencia de un elemento de lista: '<id>:<dir>#<camino>[k]' (el elemento k de la lista de ese camino). */
+const deLista = (base, k) => base + '[' + k + ']';
 
 /**
  * Ocupantes de la dirección que nombran `indices` en el registro `id`:
@@ -211,6 +220,14 @@ export function caminosDe(payload, dir) {
  * 2. referencia: tras cada propio que es una referencia, lo que alcanza (con la cadena de procedencia);
  *    si el evento referido no está en el eje, el ocupante sigue ahí: rota, estado PENDIENTE y su motivo;
  * 3. escritos: los registros anclados en esa dirección (`sobre` + `en`).
+ * Por hojas (VG, 7-11 noche): una lista del payload (fuera de la raíz, un
+ * array solo de hojas) no es un ocupante: lo es cada elemento, por
+ * separado, como propio con `enLista: true`, `indice` (su lugar en la
+ * lista) y la procedencia '…#1[k]'. Comparten la llegada y el encaje
+ * (vector, acuerdo, signo) del registro, así que el orden estable los deja
+ * juntos y en el orden de la lista; tras un elemento que es una referencia
+ * va lo que alcanza. Una décupla es un solo ocupante. El payload de un
+ * escrito es su raíz (una décupla): un solo ocupante.
  * Cada ocupante lleva su origen (la dirección de donde viene), su destino
  * (la dirección donde se le coloca), el vector de diferencias, la distancia,
  * las profundidades de acuerdo, el signo, el empate y una justificación en
@@ -234,8 +251,14 @@ export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = 
   const lista = [];
   for (const c of caminosDe(ev.payload, dir)) {
     if (exacto && !esEse(c.indices)) continue;
-    lista.push(conEncaje({ tipo: 'propio', evento: id, dir, camino: c.indices, contenido: c.contenido, origen: dir, procedencia: [id + ':' + dir + '#' + c.indices.join('.')] }, dir));
-    if (esReferencia(c.contenido)) lista.push(conEncaje(seguir(eje, c.contenido, [id + ':' + dir + '#' + c.indices.join('.')]), dir));
+    const base = id + ':' + dir + '#' + c.indices.join('.');
+    const propios = c.indices.length > 0 && esLista(c.contenido)
+      ? c.contenido.map((x, k) => ({ enLista: true, indice: k, contenido: x, procedencia: [deLista(base, k)] }))
+      : [{ contenido: c.contenido, procedencia: [base] }];
+    for (const p of propios) {
+      lista.push(conEncaje({ tipo: 'propio', ...p, evento: id, dir, camino: c.indices, origen: dir }, dir));
+      if (esReferencia(p.contenido)) lista.push(conEncaje(seguir(eje, p.contenido, [...p.procedencia]), dir));
+    }
   }
   // Con `autores` (un Set; R8, src/elegibles.js), solo los escritos de esos autores, por el índice del eje si lo tiene.
   const anclados = exacto && !esEse(indicesDe(dir)) ? []
@@ -289,7 +312,8 @@ export function arbol(eje, id, { profundidad = ARIDAD, epoca } = {}) {
     if (indices.length > profundidad) return;
     const dir = direccion(indices);
     if (!mapa.has(dir)) mapa.set(dir, ocupantes(eje, id, indices, { epoca }));
-    if (Array.isArray(nodo)) nodo.forEach((hijo, i) => visitar([...indices, i], hijo));
+    // Por hojas: se baja por la raíz y por las décuplas; una lista es final (sus elementos, ocupantes de su posición).
+    if (Array.isArray(nodo) && !(indices.length > 0 && esLista(nodo))) nodo.forEach((hijo, i) => visitar([...indices, i], hijo));
   };
   visitar([], ev.payload);
   for (const h of eje.sobre(id)) {
@@ -299,44 +323,42 @@ export function arbol(eje, id, { profundidad = ARIDAD, epoca } = {}) {
 }
 
 /**
- * La lista de una posición (VG, 7-11 noche, mapa §12 [D]): los ocupantes que
- * hay en ella, por LLEGADA. La lista no está en el árbol («en la profundidad
- * 11»): no corresponde a los puntos de vista y su índice es de llegada, no un
- * dígito; los PV de un elemento solo existen cuando se escribe en una
- * subposición por dirección (`en`). Es de n: el límite de diez es por evento
- * (por payload), no por posición.
+ * La lista de una posición (VG, 7-11 noche): los ocupantes que colisionan
+ * en ella, por LLEGADA, fuera de los dígitos («profundidad 11»). Se alcanza
+ * por índice (el k de esta lista, BUSCAR(n, k)), nunca por dirección: una
+ * dirección de diez dígitos solo nombra subposiciones de décuplas. Es de n:
+ * el límite de diez es por evento (por payload), no por posición.
  *
- * - Posición de la cruceta (`[p]`): primero el contenido propio del payload
- *   en p (si es un array, cada elemento es un ocupante, en el orden del
- *   array; si es un terminal o una referencia, uno solo), luego los escritos
- *   anclados en su dirección, en orden de entrada en el eje.
- * - Raíz (`[]`): el payload raíz es la cruceta, no una lista: solo los
- *   escritos anclados en la raíz.
- * - Subposición escrita por dirección (`[p, d, …]`): solo los escritos
- *   anclados en esa dirección. El índice d de un array del payload no es la
- *   subposición d: es un ocupante de la lista de p.
+ * - Lo propio: el contenido del payload en el camino exacto `indices`
+ *   (bajando por la raíz y por décuplas). Por hojas: una décupla (un array
+ *   con algún array) o una hoja es UN ocupante; una lista (un array solo de
+ *   hojas) son tantos como elementos, con `enLista: true` e `indice`. En la
+ *   raíz (`[]`) no hay propio: el payload raíz es la cruceta.
+ * - Luego, los escritos anclados en la dirección de `indices`, uno por
+ *   escrito, en orden de entrada en el eje (el payload de un escrito es su
+ *   raíz, una décupla).
  *
  * Cada ocupante: { llegada, tipo: 'propio' | 'escrito', evento, camino,
- * contenido, autor?, t?, en?, alcanza? }, con `camino` el camino exacto en
- * el registro `evento` ([] para un escrito: su raíz) y `alcanza`, si el
- * contenido es una referencia, lo que alcanza (seguir, con su procedencia).
- * Nada se borra ni se ordena por encaje: la llegada manda.
+ * contenido, autor?, t?, en?, alcanza?, enLista?, indice? }. `llegada` es el
+ * orden de llegada del EVENTO (0 lo propio, luego cada escrito): los
+ * elementos de una misma lista comparten llegada y van en el orden de la
+ * lista. `camino` es el camino exacto en el registro `evento` (el de la
+ * posición, para un elemento de lista; [] para un escrito: su raíz);
+ * `alcanza`, si el contenido es una referencia, lo que alcanza (seguir, con
+ * su procedencia). Nada se borra ni se ordena por encaje: la llegada manda.
+ * El k-ésimo ocupante es lista(...)[k].
  */
 export function lista(eje, id, indices) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const dir = direccion(indices);
-  const propios = [];
-  if (indices.length === 1) {
-    const nodo = Array.isArray(ev.payload) ? ev.payload[indices[0]] : undefined;
-    if (Array.isArray(nodo)) nodo.forEach((c, k) => propios.push({ camino: [...indices, k], contenido: c }));
-    else if (nodo !== undefined) propios.push({ camino: [...indices], contenido: nodo });
-  }
-  const conAlcance = (o) => (esReferencia(o.contenido) ? { ...o, alcanza: seguir(eje, o.contenido, [o.evento + ':' + o.camino.join('.')]) } : o);
-  const salida = propios.map((p, k) => conAlcance({ llegada: k, tipo: 'propio', evento: id, camino: p.camino, contenido: p.contenido }));
-  for (const h of eje.sobre(id, dir)) {
-    salida.push(conAlcance({ llegada: salida.length, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, en: h.en }));
-  }
+  const salida = [];
+  const conAlcance = (o) => (esReferencia(o.contenido) ? { ...o, alcanza: seguir(eje, o.contenido, [o.evento + ':' + o.camino.join('.') + (o.enLista ? '[' + o.indice + ']' : '')]) } : o);
+  const propio = indices.length ? nodoEn(ev.payload, indices) : undefined;
+  if (esLista(propio)) propio.forEach((x, k) => salida.push(conAlcance({ llegada: 0, tipo: 'propio', evento: id, camino: [...indices], enLista: true, indice: k, contenido: x })));
+  else if (propio !== undefined) salida.push(conAlcance({ llegada: 0, tipo: 'propio', evento: id, camino: [...indices], contenido: propio }));
+  let llegada = propio === undefined ? 0 : 1;
+  for (const h of eje.sobre(id, dir)) salida.push(conAlcance({ llegada: llegada++, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, en: h.en }));
   return salida;
 }
 

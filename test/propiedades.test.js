@@ -7,7 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarPayload, esReferencia, esTerminal, direccion, indicesDe, resolver, esDireccion, ARIDAD } from '../src/btml.js';
+import { validarPayload, esReferencia, esTerminal, esLista, direccion, indicesDe, resolver, esDireccion, ARIDAD } from '../src/btml.js';
 import { crearEvento, canonico, cuerpo, verificarId, validarForma } from '../src/evento.js';
 import { claveToken, cantidadBase } from '../src/tokens.js';
 import { Eje } from '../src/eje.js';
@@ -439,14 +439,25 @@ test('propiedad: ocupantes y árbol — vector bien formado, orden por acuerdo y
           assert.equal(o.destino, dir);
           if (o.origen === 'propio') {
             assert.equal(direccion(o.camino), dir);
-            assert.equal(caminar(ev.payload, o.camino), o.contenido);
+            // VG, 7-11 noche: por hojas: una lista (bajo la raíz, solo hojas) da un ocupante por elemento, con su
+            // índice y el camino de la lista; una décupla, una hoja o la raíz, uno solo.
+            const nodo = caminar(ev.payload, o.camino);
+            if (o.enLista) {
+              assert.ok(o.camino.length > 0 && esLista(nodo), 'un elemento de lista sale de una lista');
+              assert.equal(nodo[o.indice], o.contenido);
+              assert.equal(o.procedencia[0], id + ':' + dir + '#' + o.camino.join('.') + '[' + o.indice + ']');
+            } else {
+              assert.equal(nodo, o.contenido);
+              assert.ok(!(o.camino.length > 0 && esLista(nodo)), 'una lista nunca es un solo ocupante');
+            }
           }
           if (o.origen === 'referencia' && o.rota) assert.equal(o.contenido, undefined);
           if (o.origen === 'referencia' && !o.rota) assert.equal(esReferencia(o.contenido), false);
           if (o.origen === 'escrito') assert.equal(eje.obtener(o.evento).en, dir);
         }
         assert.equal(lleg.filter((o) => o.origen === 'escrito').length, eje.sobre(id, dir).length);
-        assert.equal(lleg.filter((o) => o.origen === 'propio').length, E.caminosDe(ev.payload, dir).length);
+        const porCamino = (c) => (c.indices.length > 0 && esLista(c.contenido) ? c.contenido.length : 1);
+        assert.equal(lleg.filter((o) => o.origen === 'propio').length, E.caminosDe(ev.payload, dir).reduce((s, c) => s + porCamino(c), 0));
       }
       const mapa = E.arbol(eje, id);
       for (const [dir, oc] of mapa) assert.deepEqual(oc, E.ocupantes(eje, id, indicesDe(dir)));
@@ -556,13 +567,14 @@ test('propiedad: los ciclos acaban en ERROR y el presupuesto en PENDIENTE POR L�
 // Integración 7-11: #43 pedía ERROR; BQL según el corpus (#36) da PENDIENTE «posición sin desarrollar: más de diez profundidades» (docs/BQL.md §8). Lo que se vigila sigue igual: un estado, no RangeError.
 // [X] decidir VG: PENDIENTE (lo de hoy, #36) o ERROR (lo que pedía #43). Se decidió en la integración y está sin revisar; si VG prefiere ERROR, cambian los tres `throw new Parada('PENDIENTE', '… más de diez profundidades')` de src/bql.js y estas pruebas.
 test('regresión: BUSCAR, ACTUAL o una fórmula más allá de diez profundidades dan PENDIENTE, no RangeError', async () => {
-  let p = '=BUSCAR(1, 1)';
+  let p = '=BUSCAR(1, 1, 0)'; // VG, 7-11 noche: el último número es el índice en la lista; el camino, 1.1 más hondo
   for (let i = 0; i < 10; i++) p = [p];
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: p, t: T0 });
   const fondo = Array(10).fill(0);
   const PROFUNDO = 'PENDIENTE: posición sin desarrollar: más de diez profundidades';
   assert.equal(B.evaluar(eje, eje.genesisId, fondo).texto, PROFUNDO);
-  assert.equal(B.consultar(eje, eje.genesisId, [0], 'BUSCAR(' + Array(11).fill(1).join(',') + ')').texto, PROFUNDO);
+  // Once dígitos de camino y el índice en la lista (VG, 7-11 noche: el último número de BUSCAR es ese índice).
+  assert.equal(B.consultar(eje, eje.genesisId, [0], 'BUSCAR(' + Array(12).fill(1).join(',') + ')').texto, PROFUNDO);
   assert.equal(B.consultar(eje, eje.genesisId, [...fondo, 0], 'ACTUAL(1, 2)').texto, PROFUNDO);
   let q = '=1+1';
   for (let i = 0; i < 11; i++) q = [q];

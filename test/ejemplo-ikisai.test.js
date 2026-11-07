@@ -17,10 +17,12 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.deepEqual(eje.recursos('huesped'), [{ emisor: 'casa', denominacion: 'EUR', cantidad: 48 }]);
   assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'grupo', 'persona']);
   assert.equal(eje.hilo(compra.id).length, 4);
-  // La referencia no copia: se resuelve sobre el menú.
-  const ref = compra.payload[1][0];
+  // La referencia no copia: se resuelve sobre el menú. VG, 7-11 noche: por hojas; compra 1 es
+  // [[menú], 1, 'EUR 12'] y la referencia va en su 1.0, una lista de uno.
+  const ref = compra.payload[1][0][0];
   assert.deepEqual(resolver(eje.obtener(ref.ref).payload, ref.dir), ['ensalada', 'guiso', 'fruta']);
   assert.equal(ref.ref, menu.id);
   const texto = render(decupla(compra));
-  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m);
+  assert.match(texto, /^4 fábrica\s+lista de 2: pagar · servir$/m); // solo hojas: una lista de dos ocupantes
+  assert.match(texto, /^1 recursos\s+\[3 posiciones\]$/m); // con un array dentro: una décupla
 });

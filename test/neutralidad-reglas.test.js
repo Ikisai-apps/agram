@@ -67,9 +67,9 @@ test('R8 lista explícita en 2.3 (criterio · con quién): manda sobre el 3; el 
   assert.deepEqual([lista.filter((o) => o.tipo === 'escrito').map((o) => o.evento), noElegibles], [[deBea.id], 1]);
   assert.equal(lista.some((o) => o.evento === deAna.id), false);
   // Un nombre suelto también es lista; una fórmula no (vuelve el defecto).
-  const uno = await escribe(eje, 'dueña', eje.genesisId, ['Otro', 'x', ['c', 'd', 'e', 'bea']]);
+  const uno = await escribe(eje, 'dueña', eje.genesisId, ['Otro', 'x', ['c', ['d'], 'e', 'bea']]);
   assert.deepEqual([...elegibles(eje, uno.id).autores].sort(), ['bea', 'dueña']);
-  const formula = await escribe(eje, 'dueña', eje.genesisId, ['Otro más', 'x', ['c', 'd', 'e', '=LOCAL(3)'], ['ana']]);
+  const formula = await escribe(eje, 'dueña', eje.genesisId, ['Otro más', 'x', ['c', ['d'], 'e', '=LOCAL(3)'], ['ana']]);
   assert.deepEqual([elegibles(eje, formula.id).origen, [...elegibles(eje, formula.id).autores].sort()], ['defecto', ['ana', 'dueña']]);
 });
 

@@ -21,7 +21,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { crearEvento, validarForma, RAIZ } from '../src/evento.js';
-import { validarPayload, esDireccion, esTerminal, direccion, indicesDe, resolver, ARIDAD } from '../src/btml.js';
+import { validarPayload, esDireccion, esTerminal, direccion, indicesDe, resolver, ARIDAD, esLista, esDecupla, dentroDeLista } from '../src/btml.js';
 import { ocupantes, seguir, arbol, colisiones, caminosDe, vector, acuerdo, signo, ordenarPorEncaje } from '../src/encaje.js';
 import { evaluar, consultar } from '../src/bql.js';
 import { descubrir, consolidar, autorizar, estadoDe, FABRICA } from '../src/motor.js';
@@ -120,8 +120,9 @@ test('BTML-02b el evento lleva un metadato propio de autoridad cuando aplica', a
 
 test('BTML-03 el id del evento no es su dirección; una parte concreta se nombra con id + dirección interna', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['a cero', 'a uno']], '1000000000');
-  const b = await escribe(eje, id, ['B', ['b cero', 'b uno']], '1000000000');
+  // La 1 es décupla (su 0 va envuelto) para que 1.1 tenga dirección.
+  const a = await escribe(eje, id, ['A', [['a cero'], 'a uno']], '1000000000');
+  const b = await escribe(eje, id, ['B', [['b cero'], 'b uno']], '1000000000');
   assert.equal(a.en, b.en); // la misma dirección de anclaje…
   assert.notEqual(a.id, b.id); // …y dos identidades
   assert.equal(esDireccion(a.id), false);
@@ -296,8 +297,9 @@ test('BTML-11b tampoco posiciones ausentes: un array disperso de JavaScript no e
   await assert.rejects(escribe(eje, id, disperso), /hueco/);
 });
 
-test('BTML-14 la anidación cambia de rama sin llenar el espacio potencial: ["Compra",["Coste","=SUMA(100,20)"]] es válido sin otros ocho slots', async () => {
-  const payload = ['Compra', ['Coste', '=SUMA(100,20)']];
+test('BTML-14 la anidación cambia de rama sin llenar el espacio potencial: ["Compra",[["Coste"],"=SUMA(100,20)"]] es válido sin otros ocho slots', async () => {
+  // Por hojas (VG, 7-11 noche): la 1 es décupla porque su 0 va envuelto; ['Coste', '=SUMA(…)'] sería una lista.
+  const payload = ['Compra', [['Coste'], '=SUMA(100,20)']];
   assert.equal(validarPayload(payload).ok, true);
   const { eje, id } = await ejeCon(['Casa']);
   const ev = await escribe(eje, id, payload);
@@ -306,8 +308,10 @@ test('BTML-14 la anidación cambia de rama sin llenar el espacio potencial: ["Co
   assert.deepEqual([...arbol(eje, ev.id).keys()].sort(), ['0000000000', '1000000000', '1100000000']);
 });
 
-test('BTML-15 el camino literal de diez índices 9 (10 arrays, 91 terminales, 100 entradas, sin null) es un payload válido', async () => {
-  let p = Array.from({ length: 10 }, (_, k) => 'h' + k); // el array más hondo: diez terminales
+test('BTML-15 el camino literal de diez índices 9 (11 arrays, 91 terminales, 101 entradas, sin null) es un payload válido', async () => {
+  // Por hojas (VG, 7-11 noche): diez terminales sueltos serían una lista, sin dirección dentro; el array más
+  // hondo es décupla porque su 0 va envuelto (['h0']), y eso suma un array y una entrada.
+  let p = [['h0'], ...Array.from({ length: 9 }, (_, k) => 'h' + (k + 1))]; // el array más hondo: diez terminales
   for (let nivel = 0; nivel < 9; nivel++) p = [...Array.from({ length: 9 }, (_, k) => 'n' + nivel + '.' + k), p];
   let arrays = 0;
   let terminales = 0;
@@ -316,7 +320,7 @@ test('BTML-15 el camino literal de diez índices 9 (10 arrays, 91 terminales, 10
     if (Array.isArray(x)) { arrays++; entradas += x.length; x.forEach(contar); } else terminales++;
   };
   contar(p);
-  assert.deepEqual([arrays, terminales, entradas], [10, 91, 100]);
+  assert.deepEqual([arrays, terminales, entradas], [11, 91, 101]);
   assert.equal(validarPayload(p).ok, true);
   assert.equal(JSON.stringify(p).includes('null'), false);
   assert.equal(resolver(p, '9999999999'), 'h9');
@@ -330,7 +334,7 @@ test('BTML-15 el camino literal de diez índices 9 (10 arrays, 91 terminales, 10
 // =====================================================================
 
 test('BTML-12 no se desarrollan automáticamente las diez casillas: solo existe lo escrito', async () => {
-  const { eje, id } = await ejeCon(['Casa', ['a', 'b']]);
+  const { eje, id } = await ejeCon(['Casa', [['a'], 'b']]); // la 1, décupla: su 0 va envuelto
   assert.equal(eje.obtener(id).payload.length, 2);
   assert.equal(eje.obtener(id).payload[1].length, 2);
   const m = arbol(eje, id);
@@ -342,17 +346,20 @@ test('BTML-12 no se desarrollan automáticamente las diez casillas: solo existe 
 });
 
 test('BTML-13 la décupla es el aspecto de un payload al desarrollar sus diez posiciones, leídas con la regla corta de cada profundidad', async () => {
-  const { eje, id } = await ejeCon(['Casa', ['sub', 'x']]);
+  const { eje, id } = await ejeCon(['Casa', [['sub'], 'x']]);
   const ev = eje.obtener(id);
   assert.deepEqual(decupla(ev).posiciones.map((p) => p.significado), PV); // época 0, profundidad 0
   // Otra época u otra profundidad: otras perspectivas, no diez campos fijos.
   const porProfundidad = { nombre: 'prueba', reglaCorta: (p, d) => 'p' + p + 'd' + d };
   assert.equal(decupla(ev, porProfundidad, 0).posiciones[3].significado, 'p0d3');
   assert.equal(decupla(ev, porProfundidad, 2).posiciones[3].significado, 'p2d3');
-  // Bajo la posición 1, ['sub', 'x'] es su lista de ocupantes por llegada, sin PV (VG, 7-11 noche);
-  // la regla corta de la profundidad sigue en lo que la lista no ocupa (subposiciones por dirección).
-  assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[1].significado, 'ocupante 2');
+  // VG, 7-11 noche: por hojas. Bajo la posición 1, [['sub'], 'x'] es su décupla (su 0 va envuelto): la regla
+  // corta de la profundidad 1 en cada dígito (vuelve la de la PR #58).
+  assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[1].significado, 'p1d1');
   assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[2].significado, 'p1d2');
+  // Una lista de hojas no es décupla: sus elementos son ocupantes, no subposiciones.
+  const conLista = await escribe(eje, id, ['Otra', ['sub', 'x']]);
+  assert.equal(mapa(eje, conLista.id, { camino: [1], epoca: porProfundidad }).celdas[1].significado, 'ocupante 2');
 });
 
 // =====================================================================
@@ -361,10 +368,10 @@ test('BTML-13 la décupla es el aspecto de un payload al desarrollar sus diez po
 
 test('BTML-17 una posición puede referir a un evento completo o a una posición precisa de otro evento', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['a0', 'a1']]);
+  const a = await escribe(eje, id, ['A', [['a0'], 'a1']]); // la 1, décupla: su 0 va envuelto
   const b = await escribe(eje, id, ['B', { ref: a.id }, { ref: a.id, dir: '1000000000' }, { ref: a.id, dir: '1100000000' }]);
   assert.deepEqual(seguir(eje, b.payload[1]).contenido, a.payload); // el evento completo
-  assert.deepEqual(seguir(eje, b.payload[2]).contenido, ['a0', 'a1']); // un subárbol
+  assert.deepEqual(seguir(eje, b.payload[2]).contenido, [['a0'], 'a1']); // un subárbol
   assert.equal(seguir(eje, b.payload[3]).contenido, 'a1'); // una posición precisa
 });
 
@@ -387,8 +394,9 @@ test('BTML-18 las referencias no copian: lo referido se lee al resolver, nunca a
 
 test('BTML-19 navegar referencias no consume profundidad BTML: el límite de diez dígitos es local a cada árbol', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  let anterior = await escribe(eje, id, ['Fondo', ['nivel', 'tesoro']]);
-  for (let k = 0; k < 7; k++) anterior = await escribe(eje, id, ['Salto ' + k, ['nivel', { ref: anterior.id, dir: '1100000000' }]]);
+  // Cada 1 es décupla (su 0 va envuelto) para que 1.1 tenga dirección.
+  let anterior = await escribe(eje, id, ['Fondo', [['nivel'], 'tesoro']]);
+  for (let k = 0; k < 7; k++) anterior = await escribe(eje, id, ['Salto ' + k, [['nivel'], { ref: anterior.id, dir: '1100000000' }]]);
   // Ocho árboles de dos dígitos cada uno: dieciséis dígitos recorridos, y ninguna dirección pasa de diez.
   const r = seguir(eje, { ref: anterior.id, dir: '1100000000' });
   assert.equal(r.contenido, 'tesoro');
@@ -397,7 +405,7 @@ test('BTML-19 navegar referencias no consume profundidad BTML: el límite de die
   const lector = await escribe(eje, id, ['Lector', '=REF("' + anterior.id + '", "1100000000")']);
   assert.equal(evaluar(eje, lector.id, [1]).texto, 'tesoro');
   // Un presupuesto (no la profundidad) limita el recorrido.
-  for (let k = 0; k < 20; k++) anterior = await escribe(eje, id, ['Más ' + k, ['nivel', { ref: anterior.id, dir: '1100000000' }]]);
+  for (let k = 0; k < 20; k++) anterior = await escribe(eje, id, ['Más ' + k, [['nivel'], { ref: anterior.id, dir: '1100000000' }]]);
   assert.equal(seguir(eje, { ref: anterior.id, dir: '1100000000' }).rota, true);
 });
 
@@ -465,7 +473,8 @@ test('BTML-26 hasta diez profundidades de posicionamiento; no se materializa un 
   assert.throws(() => direccion(Array(11).fill(1)), RangeError);
   assert.equal(direccion(Array(10).fill(1)), '1111111111');
   const { eje, id } = await ejeCon(['Casa']);
-  const ev = await escribe(eje, id, conCamino([9, 9, 9], 'hondo'));
+  // El nivel más hondo es décupla porque su 9 es una lista de uno (VG, 7-11 noche: por hojas).
+  const ev = await escribe(eje, id, conCamino([9, 9, 9], ['hondo']));
   const m = arbol(eje, ev.id);
   // Solo lo desarrollado: la raíz y 10 + 10 + 10 posiciones (que, por los ceros finales, ocupan 28 direcciones), no 10^10.
   assert.equal(m.size, 28);
@@ -508,7 +517,7 @@ test('BTML-28b una dirección puede ser ambigua por varios anclajes de un mismo 
   sinForma('BTML-28'));
 
 test('BTML-29 "1100000000" y "0000000011" no son la misma dirección ni una inversión válida', async () => {
-  const p = [['x', 'y'], ['a', 'b']];
+  const p = [['x', 'y'], [['a'], 'b']]; // la 1, décupla: su 0 va envuelto
   assert.equal(resolver(p, '1100000000'), 'b');
   assert.equal(resolver(p, '0000000011'), undefined);
   assert.notDeepEqual(indicesDe('1100000000'), indicesDe('0000000011'));
@@ -533,7 +542,7 @@ test('BTML-31 las posiciones no se reducen a números grandes: se comparan diez 
 test('BTML-32 los ceros no son relleno: el índice 0 recorrido se distingue de los ceros de representación', async () => {
   assert.deepEqual(indicesDe('1010000000'), [1, 0, 1]); // el cero intermedio es un índice recorrido
   assert.deepEqual(indicesDe('1000000000'), [1]); // los ceros finales son representación
-  const { eje, id } = await ejeCon(['Casa', ['cero', 'uno']]);
+  const { eje, id } = await ejeCon(['Casa', [['cero'], 'uno']]); // la 1, décupla: su 0 va envuelto
   // Cuál de los dos es se conoce por contexto: el camino exacto de cada ocupante.
   assert.deepEqual(ocupantes(eje, id, [1]).map((o) => o.camino), [[1], [1, 0]]);
   assert.deepEqual(ocupantes(eje, id, [1, 1]).map((o) => o.camino), [[1, 1]]);
@@ -550,20 +559,22 @@ test('BTML-33 la dirección se completa con ceros finales de representación: 8�
 });
 
 test('BTML-34 la cadena de diez dígitos no determina por sí sola un nodo: "8412000000" nombra la ruta 8.4.1.2 y su hijo 0', async () => {
-  const { eje, id } = await ejeCon(conCamino([8, 4, 1, 2], ['cero', 'uno']));
+  const { eje, id } = await ejeCon(conCamino([8, 4, 1, 2], [['cero'], 'uno'])); // décupla: su 0 va envuelto
   assert.equal(direccion([8, 4, 1, 2]), direccion([8, 4, 1, 2, 0]));
   const oc = ocupantes(eje, id, [8, 4, 1, 2]);
   assert.deepEqual(oc.map((o) => o.camino), [[8, 4, 1, 2], [8, 4, 1, 2, 0]]); // misma representación, dos nodos
-  assert.deepEqual(oc[0].contenido, ['cero', 'uno']);
+  assert.deepEqual(oc[0].contenido, [['cero'], 'uno']);
   assert.equal(oc[1].contenido, 'cero');
   assert.deepEqual(oc.map((o) => o.dir), ['8412000000', '8412000000']);
 });
 
 test('BTML-35 colisiones, no apaños: la dirección con ceros finales nombra a la vez 1, 1.0, 1.0.0…, cada uno con camino y procedencia', async () => {
-  const { eje, id } = await ejeCon(['Casa', [['x', 'y'], 'b']]);
+  // Por hojas (VG, 7-11 noche): la 1.0 es décupla porque su 0 va envuelto; la 1.0.0 es la lista de uno ['x'],
+  // cuyo único elemento es ocupante con su índice en la procedencia.
+  const { eje, id } = await ejeCon(['Casa', [[['x'], 'y'], 'b']]);
   const oc = ocupantes(eje, id, [1]);
   assert.deepEqual(oc.map((o) => o.camino), [[1], [1, 0], [1, 0, 0]]);
-  assert.deepEqual(oc.map((o) => o.procedencia), [[id + ':1000000000#1'], [id + ':1000000000#1.0'], [id + ':1000000000#1.0.0']]);
+  assert.deepEqual(oc.map((o) => o.procedencia), [[id + ':1000000000#1'], [id + ':1000000000#1.0'], [id + ':1000000000#1.0.0[0]']]);
   assert.deepEqual(ocupantes(eje, id, [1, 0, 0]), oc); // el mismo lugar se nombra igual desde cualquiera de los tres
   assert.ok(colisiones(arbol(eje, id)).some((c) => c.dir === '1000000000' && c.ocupantes.length === 3));
 });
@@ -601,8 +612,9 @@ test('BTML-36b la décupla y el mapa tampoco ponen un terminal en su posición 0
 
 test('BTML-39 pasar al interior de otro objeto no concatena dígitos: la dirección allí vuelve a ser local y se mantienen las referencias', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['a0', 'a1']]);
-  const b = await escribe(eje, id, ['B', 'x', 'y', ['b0', 'b1', { ref: a.id, dir: '1100000000' }]]);
+  // Las 1 de A y 3 de B son décuplas (su 0 va envuelto) para que 1.1 y 3.2 tengan dirección.
+  const a = await escribe(eje, id, ['A', [['a0'], 'a1']]);
+  const b = await escribe(eje, id, ['B', 'x', 'y', [['b0'], 'b1', { ref: a.id, dir: '1100000000' }]]);
   const oc = ocupantes(eje, b.id, [3, 2]);
   const ref = oc.find((o) => o.origen === 'referencia');
   assert.equal(ref.contenido, 'a1');
@@ -636,7 +648,8 @@ test('BTML-42b paso 1 del encaje: también usuario, objeto y tronco/reglas de é
 test('BTML-43 paso 2 del encaje: ubicaciones candidatas de diez dígitos, cada una con su procedencia', async () => {
   const { eje, id } = await ejeCon(['Casa', ['r', 'x']]);
   const a = await escribe(eje, id, ['A', 'b', 'c', 'd', 'e', 'f', 'g', 'lejos']);
-  const x = await escribe(eje, id, ['X', 'r', [{ ref: a.id, dir: '7000000000' }]]);
+  // La 2 es décupla (su 0 va envuelto): ella y su 2.0, la referencia, son dos ocupantes propios (VG, 7-11 noche: por hojas).
+  const x = await escribe(eje, id, ['X', 'r', [[{ ref: a.id, dir: '7000000000' }]]]);
   await escribe(eje, x.id, 'escrito', '2000000000');
   const oc = ocupantes(eje, x.id, [2]);
   assert.deepEqual(oc.map((o) => o.origen).sort(), ['escrito', 'propio', 'propio', 'referencia']);
@@ -842,8 +855,9 @@ test('BTML-55b paso 5 del encaje: también una justificación y la marca de empa
 test('BTML-56 un fragmento puede aparecer en varias posiciones cuando existe la relación posicional (por referencia)', async () => {
   const { eje, id } = await ejeCon(['Casa']);
   const frag = await escribe(eje, id, 'fragmento');
-  const a = await escribe(eje, id, conCamino([8, 4, 1, 2, 3], { ref: frag.id }));
-  const b = await escribe(eje, id, conCamino([8, 4, 1, 1, 3], { ref: frag.id }));
+  // La referencia va en una lista de uno para que el nivel de arriba sea décupla y su 3 tenga dirección.
+  const a = await escribe(eje, id, conCamino([8, 4, 1, 2, 3], [{ ref: frag.id }]));
+  const b = await escribe(eje, id, conCamino([8, 4, 1, 1, 3], [{ ref: frag.id }]));
   const enA = ocupantes(eje, a.id, [8, 4, 1, 2, 3]).find((o) => o.origen === 'referencia');
   const enB = ocupantes(eje, b.id, [8, 4, 1, 1, 3]).find((o) => o.origen === 'referencia');
   assert.equal(enA.evento, frag.id);
@@ -1058,6 +1072,54 @@ test('B:MOT-03 consolidar es la única fijación y no borra: un evento nuevo, co
   assert.equal(c.contexto.encaje[0].evento, fuente.id);
   assert.equal(c.contexto.encaje[0].vector.length, 10);
   assert.ok(ocupantes(eje, id, [1]).some((o) => o.evento === fuente.id)); // la fuente sigue ahí
+});
+
+// =====================================================================
+// BTML · décupla y lista por hojas (VG, 7-11 noche: por hojas)
+// =====================================================================
+
+test('BTML por hojas: solo hojas es lista; con un array dentro, décupla; la raíz siempre décupla', async () => {
+  assert.equal(esLista(['ensalada', 'guiso', { ref: ID_INEXISTENTE }]), true);
+  assert.equal(esDecupla([['menú'], 1, 'EUR 12']), true);
+  assert.equal(esLista([['menú'], 1, 'EUR 12']), false);
+  // En la raíz, solo hojas: posiciones con dirección, no ocupantes de una lista.
+  const { eje, id } = await ejeCon(['Casa', 'recurso']);
+  assert.equal(resolver(eje.obtener(id).payload, '1000000000'), 'recurso');
+  assert.deepEqual(ocupantes(eje, id, [1]).map((o) => [o.contenido, o.enLista]), [['recurso', undefined]]);
+});
+
+test('BTML por hojas: una lista de doce hojas cabe en una posición; once posiciones con un array dentro, no; ni una raíz de once hojas', async () => {
+  const { eje, id } = await ejeCon(['Casa']);
+  const doce = Array.from({ length: 12 }, (_, k) => 'plato ' + k);
+  const ev = await escribe(eje, id, ['Menú', doce]);
+  assert.equal(ocupantes(eje, ev.id, [1]).length, 12); // cada elemento, un ocupante
+  await assert.rejects(escribe(eje, id, ['Menú', [...doce.slice(0, 10), ['dentro']]]), /payload 1: más de 10 posiciones/);
+  await assert.rejects(escribe(eje, id, doce.slice(0, 11)), /más de 10 posiciones/);
+  const conHueco = [...doce];
+  delete conHueco[4];
+  await assert.rejects(escribe(eje, id, ['Menú', conHueco]), /1: hueco en la lista/);
+  conHueco[4] = null;
+  assert.deepEqual(validarPayload(['Menú', conHueco]).errores, ['1: hueco en la lista']);
+  assert.match(validarPayload(['Menú', ['a', null]]).errores[0], /^11: hueco/);
+});
+
+test('BTML por hojas: una dirección no entra en una lista; la de la lista la devuelve entera', async () => {
+  const { eje, id } = await ejeCon(['Casa']);
+  const menu = await escribe(eje, id, ['Menú', ['ensalada', 'guiso', 'fruta']]);
+  assert.deepEqual(resolver(menu.payload, '1000000000'), ['ensalada', 'guiso', 'fruta']);
+  assert.equal(resolver(menu.payload, '1100000000'), undefined);
+  assert.deepEqual(dentroDeLista(menu.payload, '1100000000'), [1]);
+  assert.equal(dentroDeLista(menu.payload, '1000000000'), null);
+  assert.equal(seguir(eje, { ref: menu.id, dir: '1000000000' }).contenido.length, 3);
+});
+
+test('BTML por hojas: el id es estable y distingue el orden de una lista', async () => {
+  const cuerpo = (payload) => ({ autor: 'raiz', sobre: ID_INEXISTENTE, t: T0, movimientos: [gastaT('raiz')], payload });
+  const a = await crearEvento(cuerpo(['Menú', ['ensalada', 'guiso']]));
+  const otra = await crearEvento(cuerpo(['Menú', ['ensalada', 'guiso']]));
+  const b = await crearEvento(cuerpo(['Menú', ['guiso', 'ensalada']]));
+  assert.equal(a.id, otra.id);
+  assert.notEqual(a.id, b.id);
 });
 
 // =====================================================================

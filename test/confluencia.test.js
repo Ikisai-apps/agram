@@ -111,11 +111,13 @@ test('el proyecto se recorre por el índice de hijos: solo su subárbol, en orde
 
 test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procedencia', async () => {
   const { eje, menu, compra, vecinas } = await ampliada();
-  // La compra: 0 propia; 1 propia (array) + alcanzada (1.0 es referencia) + escrita (la cuenta, en 1); 2 propia + alcanzada; 3 y 4 propias.
+  // La compra: 0 propia; 1 propia (décupla) + alcanzada (1.0 es una lista con una referencia) + escrita (la cuenta, en 1);
+  // 2 solo alcanzada (VG, 7-11 noche: por hojas: la 2 es una lista de una referencia y cada elemento es un
+  // ocupante; la lista no es un ocupante propio); 3 y 4 propias.
   const c = posicionesDe(eje, compra.id);
   assert.equal(c.desarrolladas, 5);
   assert.deepEqual(c.posiciones[1], { indice: 1, propia: true, referencia: true, escrita: true, tiene: true });
-  assert.deepEqual(c.posiciones[2], { indice: 2, propia: true, referencia: true, escrita: false, tiene: true });
+  assert.deepEqual(c.posiciones[2], { indice: 2, propia: false, referencia: true, escrita: false, tiene: true });
   assert.deepEqual(c.posiciones[5], { indice: 5, propia: false, referencia: false, escrita: false, tiene: false });
   assert.equal(c.raiz.escrita, false); // la cuenta está en 1, no en la raíz
   // Una posición que es directamente una referencia está alcanzada, no es propia: las referencias no copian.
@@ -125,7 +127,7 @@ test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procede
   const soloRef = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:00Z', movimientos: [gasta('huesped')], payload: { ref: menu.id, dir: '1000000000' } });
   assert.equal(posicionesDe(eje, soloRef.id).desarrolladas, 0);
   // Los ocupantes de la 1 son 1, 1.0, 1.0.0…: una referencia en el camino 1.1 ocupa la 1.1, no la 1.
-  const honda = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:30Z', movimientos: [gasta('huesped')], payload: ['Compra', ['EUR 3', { ref: menu.id, dir: '1000000000' }]] });
+  const honda = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:30Z', movimientos: [gasta('huesped')], payload: ['Compra', [['EUR 3'], { ref: menu.id, dir: '1000000000' }]] }); // VG, 7-11 noche: por hojas: 1 décupla (0 envuelto)
   assert.deepEqual(posicionesDe(eje, honda.id).posiciones[1], { indice: 1, propia: true, referencia: false, escrita: false, tiene: true });
   // Lo escrito por debajo de la profundidad 0 desarrolla la posición: en 1.2 desarrolla la 1.
   const sin1 = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:31:00Z', movimientos: [gasta('huesped')], payload: ['Solo título'] });
@@ -278,7 +280,9 @@ test('bases por posición: «el 70 % de los comparables tiene criterios y tú no
   const criterios = c.posiciones[2];
   assert.equal(criterios.significado, 'criterios');
   assert.equal(criterios.comparables, 7);
-  assert.equal(criterios.propias, 5); // la compra y cuatro vecinas con su array de criterios
+  // VG, 7-11 noche: por hojas: el array de criterios de la compra y de cuatro vecinas es una lista de una
+  // referencia; su elemento es el ocupante, así que esas cinco ya no cuentan como propias, solo alcanzadas.
+  assert.equal(criterios.propias, 0);
   assert.equal(criterios.referencias, 6); // esas cinco alcanzan el menú por referencia; la de mediodía solo por referencia
   assert.equal(criterios.escritas, 1); // cocina escribió el criterio encima de una compra sin criterios
   assert.equal(criterios.proporcion, 0.7);
@@ -286,7 +290,7 @@ test('bases por posición: «el 70 % de los comparables tiene criterios y tú no
   assert.deepEqual(criterios.delFoco, { propia: false, referencia: false, escrita: false });
   const d = confluir(eje, compra.id);
   assert.equal(d.posiciones[2].foco, true);
-  assert.deepEqual(d.posiciones[2].delFoco, { propia: true, referencia: true, escrita: false });
+  assert.deepEqual(d.posiciones[2].delFoco, { propia: false, referencia: true, escrita: false }); // VG, 7-11 noche: por hojas: lista de una referencia
   assert.deepEqual(d.posiciones[1].delFoco, { propia: true, referencia: true, escrita: true }); // la cuenta está escrita en 1
   const mediodia = confluir(eje, vecinas[2].id);
   assert.deepEqual(mediodia.posiciones[2].delFoco, { propia: false, referencia: true, escrita: false });

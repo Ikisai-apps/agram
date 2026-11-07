@@ -5,10 +5,12 @@
 // 0 = la cruceta, los diez PV sobre el registro en foco; en toda profundidad
 // n ≥ 1 el dígito es el PV aplicado al nodo de arriba (0 qué es, 1 cuánto,
 // 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde
-// viene, 7 para cuándo, 8 frente a otros, 9 cómo). Esas reglas nombran
-// subposiciones escritas por dirección (`en`), no los índices de una lista:
-// un array dentro de una posición son sus ocupantes por llegada, fuera del
-// árbol (VG, 7-11 noche; leerCamino y nombreEnNodo). Las reglas largas, que
+// viene, 7 para cuándo, 8 frente a otros, 9 cómo). Esas reglas nombran las
+// subposiciones de las décuplas: cada índice de una décupla es un dígito
+// con su PV (la regla corta de la PR #58). Por hojas (VG, 7-11 noche): un
+// array solo de hojas dentro de una posición es una lista; sus elementos no
+// son dígitos: son ocupantes por llegada, fuera del árbol, y se nombran
+// «ocupante k» (leerCamino y nombreEnNodo). Las reglas largas, que
 // especializan rutas completas, son lo que pulen las épocas futuras: se cargan
 // con la misma función, en el mismo JSON. Las épocas viven como datos en
 // datos/epocas/*.json; datos/epocas/epocas.js es su copia generada para
@@ -16,7 +18,7 @@
 // Los cortes de las diez cajas del 8 también son regla de la época (VG, 7-11
 // noche, decisión 2): `cortes` en el JSON, leídos con epoca.cortes(medida).
 
-import { ARIDAD, indicesDe } from './btml.js';
+import { ARIDAD, indicesDe, esLista } from './btml.js';
 import { EPOCA_0_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
@@ -182,71 +184,57 @@ export function epocaDe(epoca = EPOCA_0) {
  * Lee una dirección bajo una época (objeto o nombre): una entrada por
  * profundidad real. Si la época tiene una regla larga para el prefijo exacto
  * que llega hasta esa profundidad (la ruta de los dígitos hasta ahí), gana a
- * la corta y la entrada lleva además `larga: ruta`.
- *
- * Con `{ payload }` (el del registro que se lee), la lista de una posición
- * no lleva PV (VG, 7-11 noche, mapa §12 [D]: «la lista de la posición son
- * colisiones fuera del árbol»): donde el camino cae en un índice de un array
- * que está DENTRO de una posición (profundidad ≥ 1), ese dígito es la
- * llegada de un ocupante y no una regla corta. Ver leerCamino. Sin payload,
- * la dirección se lee como subposiciones escritas por dirección (`en`), y
- * ahí la regla corta sigue.
+ * la corta y la entrada lleva además `larga: ruta`. Una dirección solo
+ * nombra subposiciones de la décupla (VG, 7-11 noche): cada dígito se lee
+ * con su regla, sin mirar ningún payload; nunca nombra un ocupante de una
+ * lista explícita.
  */
-export function leerDireccion(dir, epoca = EPOCA_0, opciones = {}) {
-  return leerCamino(indicesDe(dir), epoca, opciones);
-}
-
-/** Texto de un ocupante de una lista: «ocupante 3 de la posición 1»; anidado, «ocupante 1 del ocupante 3 de la posición 1». */
-function nombreOcupante(llegada, anterior, posicion) {
-  return 'ocupante ' + (llegada + 1) + (anterior?.ocupante !== undefined ? ' del ' + anterior.significado : ' de la posición ' + posicion);
+export function leerDireccion(dir, epoca = EPOCA_0) {
+  return leerCamino(indicesDe(dir), epoca);
 }
 
 /**
  * Como leerDireccion, pero sobre un camino de índices (un índice 0 final
- * cuenta: [1, 0] es el ocupante 1 de la posición 1, cosa que una dirección
- * no puede nombrar). Con `{ payload }`, cada dígito que cae en un índice
- * existente de un array dentro de una posición da
- * { profundidad, digito, ocupante: llegada, posicion: '1', significado: 'ocupante k de la posición 1' }
- * sin regla corta ni larga: la lista está fuera del árbol («en la
- * profundidad 11»). La profundidad 0 es siempre la cruceta (el payload raíz
- * no es una lista). Donde el payload no llega (subposiciones escritas por
- * dirección), la regla corta sigue.
+ * cuenta). En una décupla, cada índice es un dígito con su regla corta (o
+ * larga). Con `{ payload }` (el del registro que se lee), un índice que cae
+ * en una lista del payload (por hojas: fuera de la raíz, un array solo de
+ * hojas) no es un dígito: es la llegada de un ocupante, y da
+ * { profundidad, digito, ocupante: k, posicion: '1', significado: 'ocupante k+1 de la posición 1' }
+ * sin regla corta ni larga: la lista está fuera del árbol («profundidad
+ * 11»). Lo que siga bajo un elemento que sea una décupla vuelve a la regla
+ * corta de su profundidad.
  */
 export function leerCamino(indices, epoca = EPOCA_0, { payload } = {}) {
   const e = epocaDe(epoca);
   if (!Array.isArray(indices) || indices.length > ARIDAD || !indices.every(esIndice)) throw new TypeError('un camino de 0 a 10 índices 0–9');
   let nodo = payload;
-  const entradas = [];
-  indices.forEach((digito, profundidad) => {
+  return indices.map((digito, profundidad) => {
     const padre = nodo;
-    nodo = Array.isArray(padre) ? padre[digito] : undefined;
-    if (profundidad > 0 && Array.isArray(padre) && digito < padre.length) {
+    if (profundidad > 0 && esLista(padre) && digito < padre.length) {
+      nodo = padre[digito];
       const posicion = indices.slice(0, profundidad).join('.');
-      entradas.push({ profundidad, digito, ocupante: digito, posicion, significado: nombreOcupante(digito, entradas.at(-1), posicion) });
-      return;
+      return { profundidad, digito, ocupante: digito, posicion, significado: 'ocupante ' + (digito + 1) + ' de la posición ' + posicion };
     }
+    nodo = Array.isArray(padre) ? padre[digito] : undefined;
     const entrada = { profundidad, digito, significado: e.reglaCorta(profundidad, digito) };
     if (profundidad > 0 && typeof e.reglaLarga === 'function') {
       const ruta = indices.slice(0, profundidad + 1).join('');
       const nombre = e.reglaLarga(ruta);
-      if (nombre !== undefined) {
-        entradas.push({ ...entrada, significado: nombre, larga: ruta });
-        return;
-      }
+      if (nombre !== undefined) return { ...entrada, significado: nombre, larga: ruta };
     }
-    entradas.push(entrada);
+    return entrada;
   });
-  return entradas;
 }
 
 /**
  * Nombre de la posición `digito` de un nodo del payload que está a
  * `profundidad` (la décupla de Pointed, las celdas de Mapped): si el nodo es
- * un array dentro de una posición (profundidad ≥ 1) y el dígito cae en él,
- * { ocupante: llegada, significado: 'ocupante k' }; si no, la regla corta
- * de esa profundidad (una subposición por dirección).
+ * una lista (por hojas: bajo una posición, profundidad ≥ 1, un array solo de
+ * hojas) y el dígito cae en ella, { ocupante: k, significado: 'ocupante
+ * k+1' }; si no (una décupla, la raíz, un terminal o nada), la regla corta
+ * de esa profundidad.
  */
 export function nombreEnNodo(nodo, profundidad, digito, epoca = EPOCA_0) {
-  if (profundidad > 0 && Array.isArray(nodo) && digito < nodo.length) return { ocupante: digito, significado: 'ocupante ' + (digito + 1) };
+  if (profundidad > 0 && esLista(nodo) && digito < nodo.length) return { ocupante: digito, significado: 'ocupante ' + (digito + 1) };
   return { significado: epocaDe(epoca).reglaCorta(profundidad, digito) };
 }
