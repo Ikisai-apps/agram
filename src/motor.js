@@ -97,12 +97,18 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } 
  * (por posición: un candidato elegido como referencia, o un terminal nuevo)
  * se funden en un array consolidado con referencias a sus fuentes y se
  * registran como evento anclado a la fábrica del foco. No ejecuta nada.
+ * `encaje` dice de dónde vino cada elección con fuente; los terminales
+ * nuevos, que no vienen de ninguna, van aparte en `nuevos` ({ posicion,
+ * destino }). Ninguno guarda clase: la de una elección es el tercer dígito
+ * de su destino (claseDe). [X] decidir VG: si la clase de una elección es
+ * la de su destino i.j.n o la 4 de la fábrica i.j.4 donde se ancla.
  */
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada) {
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
   const payload = [titulo];
   const fuentes = [];
   const encaje = []; // de dónde vino cada elección, cuánto se desplazó y en qué sentido
+  const nuevos = []; // dónde va cada terminal nuevo: no viene de ninguna fuente, así que no tiene encaje
   const indicesElegidos = Object.keys(elecciones).map(Number).sort((a, b) => a - b);
   const ultimo = indicesElegidos[indicesElegidos.length - 1];
   if (indicesElegidos.some((i) => !Number.isInteger(i) || i < 1 || i > 9)) throw new Error('las elecciones van en posiciones 1–9');
@@ -130,6 +136,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: v, signo: c.signo ?? signo(v) });
     } else {
       payload.push(e); // terminal nuevo
+      nuevos.push({ posicion: i, destino: direccion([...camino, i]) });
     }
   }
   return escribirDesde(eje, {
@@ -139,7 +146,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
     en: direccion([...camino, 4]),
     payload,
     t,
-    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)], encaje },
+    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)], encaje, nuevos },
   }, privada);
 }
 
@@ -179,6 +186,9 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
  * Ejecutar: con la consolidación autorizada, el evento final mueve los
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
  * la consolidación y a su autorización.
+ * No guarda clase: la de un registro es el tercer dígito de su dirección, y
+ * FABRICA tiene 0 aunque ejecutar sea una acción ([X] decidir VG en qué
+ * dirección se escribe para que su clase salga de ella, o si no la lleva).
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);

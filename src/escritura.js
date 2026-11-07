@@ -7,7 +7,8 @@
 // SOLO las celdas modificadas, en una matriz 10×10×10: posición ×
 // subposición × CLASE de modificación. La clase es el tercer dígito bajo la
 // época 0 (los diez PV): una modificación de clase k sobre la celda [i][j]
-// se escribe en payload[i][j][k]. Ver ya es una modificación (clase 0), así
+// se escribe en payload[i][j][k]. La clase sale de la dirección (claseDe),
+// nunca de un campo de contexto. Ver ya es una modificación (clase 0), así
 // que siempre se emite algo; solo se ve lo que el foco tiene.
 //
 // Lo no modificado anterior a lo modificado se hereda del foco por
@@ -17,15 +18,21 @@
 // ancla en su posición (`en`) en vez de rechazarse. El registro dice qué
 // heredó (contexto.heredadas): lo demás se vio o se escribió.
 //
-// Topes duros por modo (src/modos.js): Pointed 10, Sequenced 100, Mapped
-// 1000, Scened 10000 posiciones emitidas. Lo heredado no se emite y no
-// cuenta para el tope. Provisional, [X] decidir VG: la proporción informa y
-// no rechaza (el mapa §12 dice «además de la proporción»; ver src/modos.js).
+// Límites por modo (src/modos.js). Los dos rechazan:
+// - el tope duro (Pointed 10, Sequenced 100, Mapped 1000, Scened 10000)
+//   cuenta las posiciones EMITIDAS: lo heredado no se emite y no cuenta;
+// - la proporción, como antes de la matriz: su máximo (1, 20, 333) sobre
+//   las posiciones del registro, lo heredado incluido. [X] decidir VG si
+//   rechaza o solo informa: el mapa §12 dice «además de la proporción» y no
+//   lo decide; se conserva lo que había.
+// `ubicar` los tiene en cuenta: con el modo, una celda con base va dentro
+// solo si el registro, con su relleno, cabe; si no, se ancla sola.
 // Coste de cartón piedra: cada posición del registro mueve un minuto de T
-// del autor, la heredada también ([X] decidir VG si el relleno se cobra).
+// del autor, la heredada también, como antes ([X] decidir VG si el relleno
+// se cobra).
 
 import { ARIDAD, esReferencia, esTerminal, direccion, validarPayload } from './btml.js';
-import { contarPosiciones, nombreModo, tope, proporcionDe } from './modos.js';
+import { contarPosiciones, nombreModo, tope, escritura, proporcionDe } from './modos.js';
 
 /**
  * Las clases de modificación: los diez PV como tercer dígito (VG, 7-11-2026).
@@ -85,6 +92,27 @@ export function desdeSequenced(eje, textos) {
   return limpios.map((t) => item(eje, t));
 }
 
+// ---------- límites del modo ----------
+
+/**
+ * Si unas posiciones caben en el modo: el tope duro sobre lo emitido y el
+ * máximo de la proporción sobre las posiciones del registro (lo heredado
+ * incluido, como antes de la matriz; [X] decidir VG si la proporción
+ * rechaza). → null si caben; si no, el motivo.
+ */
+function fueraDeLimite({ emitidas, posiciones }, modo, que) {
+  const max = tope(modo);
+  if (emitidas > max) return nombreModo(modo) + ' emite como mucho ' + max + ' posiciones; ' + que + ' tiene ' + emitidas;
+  const e = escritura(modo);
+  if (e && posiciones > e[1]) return modo + ' escribe como mucho ' + e[1] + ' posiciones; ' + que + ' tiene ' + posiciones;
+  return null;
+}
+
+function comprobarLimites(cuenta, modo, que) {
+  const motivo = fueraDeLimite(cuenta, modo, que);
+  if (motivo) throw new Error(motivo);
+}
+
 // ---------- la matriz 10×10×10 ----------
 
 const etiqueta = (indices) => indices.join('.');
@@ -112,7 +140,8 @@ function hayContenido(nodo, indices) {
 /**
  * Si hay algo que ver en la celda [i][j]: si su dirección alcanza algo en
  * el foco. Los ceros finales nombran la colisión (mapa §12): 4.0 alcanza la
- * posición 4 y 0.0, la raíz, también cuando son terminales.
+ * posición 4 y 0.0, la raíz, también cuando son terminales ([X] decidir VG
+ * la huella de ver una subposición 0).
  */
 function hayQueVer(base, i, j) {
   const camino = [i, j];
@@ -132,18 +161,31 @@ function comprobarCelda(celda, camino) {
  * antes de i, subposiciones antes de j, clases antes de k) ya está escrito
  * en el mismo registro (`escritas`) o el foco tiene contenido en ese camino
  * exacto para heredarlo por referencia; si no, «anclado en la posición»: un
- * registro aparte con `en` = la dirección de la celda. Lo lejano no se
- * rechaza. Dentro, el registro va en la dirección del camino, de modo que la
- * celda cae en `dir` igual que anclada.
- * → { ubicacion: 'dentro' | 'anclado', dir, en (solo anclado), faltan: ['5', '6', …] }
+ * registro aparte en la dirección de la celda. Lo lejano no se rechaza.
+ * `en` es donde va el registro: dentro, la dirección del camino; anclado, la
+ * de la celda. En los dos casos la celda cae en `dir`.
+ * Con `modo`, tiene en cuenta sus límites con `contenido` (lo que se escribe
+ * en la celda; un terminal si falta; cada una de `escritas` cuenta una
+ * posición): va dentro solo si el registro, con su relleno heredado, cabe;
+ * si no, se ancla sola y `motivo` dice por qué. Si ni sola cabe, error.
+ * → { ubicacion: 'dentro' | 'anclado', en, dir, faltan: ['5', '6', …], motivo? }
  */
-export function ubicar(eje, foco, celda, { camino = [], escritas = [] } = {}) {
+export function ubicar(eje, foco, celda, { camino = [], escritas = [], modo, contenido } = {}) {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   comprobarCelda(celda, camino);
+  for (const e of escritas) comprobarCelda(e, camino);
   const cubiertos = new Set();
   for (const e of escritas) cubrir(cubiertos, e);
-  return ubicarSobre(baseDe(ev.payload, camino), celda, camino, cubiertos);
+  const u = ubicarSobre(baseDe(ev.payload, camino), celda, camino, cubiertos);
+  if (modo === undefined) return u;
+  const valor = contenido === undefined ? 'x' : contenido;
+  const sola = contarPosiciones(valor);
+  comprobarLimites({ emitidas: sola, posiciones: sola }, modo, 'esta celda');
+  if (u.ubicacion === 'anclado') return u;
+  const registro = construir(foco, camino, [...escritas.map((e) => ({ indices: e, valor: 'x' })), { indices: celda, valor }], []);
+  const motivo = fueraDeLimite({ emitidas: escritas.length + sola, posiciones: contarPosiciones(registro) }, modo, 'dentro, el registro');
+  return motivo ? { ubicacion: 'anclado', en: u.dir, dir: u.dir, faltan: [], motivo } : u;
 }
 
 /** Marca como escritos los prefijos de una celda que va dentro. */
@@ -151,6 +193,10 @@ function cubrir(cubiertos, celda) {
   for (let n = 1; n <= celda.length; n++) cubiertos.add(etiqueta(celda.slice(0, n)));
 }
 
+// [X] decidir VG: si las clases sin modificar de una celda que el foco no
+// desarrolla se heredan por referencia a la celda i.j en vez de anclar (hoy
+// se ancla); y si un registro bajo un camino que acaba en 0 necesita otra
+// dirección que la de su padre (hoy, direccion(camino): la colisión).
 function ubicarSobre(base, celda, camino, cubiertos) {
   const faltan = [];
   for (let n = 0; n < celda.length; n++) {
@@ -160,7 +206,7 @@ function ubicarSobre(base, celda, camino, cubiertos) {
     }
   }
   const dir = direccion([...camino, ...celda]);
-  return faltan.length ? { ubicacion: 'anclado', en: dir, dir, faltan } : { ubicacion: 'dentro', dir, faltan };
+  return faltan.length ? { ubicacion: 'anclado', en: dir, dir, faltan } : { ubicacion: 'dentro', en: direccion(camino), dir, faltan };
 }
 
 /**
@@ -197,14 +243,22 @@ function construir(foco, camino, celdas, heredadas) {
 // payload las perdería, así que escribirDesde lo impide (ver escribirSalida).
 const PENDIENTES = new WeakMap();
 
-const PREFIJO = /^([0-9])\.([0-9])\s+(\S.*)$/;
+/**
+ * Marca de celda en una línea del formulario: «@:j.k texto». Propuesta,
+ * [X] decidir VG. «@:» no es la forma de un texto normal ni de una
+ * referencia (que lleva el id justo después de la @), así que una línea
+ * sin ella conserva su sentido de siempre: es texto. Sin texto, «@:j.0» es
+ * ver la celda j.
+ */
+const MARCA = '@:';
+const CELDA_MARCADA = /^@:([0-9])\.([0-9])(?:\s+(\S.*))?$/;
 
 /**
- * Líneas por posición → celdas. Cada línea es texto y va con clase 0 a la
- * subposición siguiente libre (la décupla de siempre). Solo con `prefijo`,
- * una línea «j.k texto» fija subposición y clase.
+ * Líneas por posición → celdas. Una línea sin marca es texto y va con
+ * clase 0 a la subposición siguiente libre (la décupla de siempre). Una
+ * línea «@:j.k texto» fija subposición y clase.
  */
-function celdasDeLineas(listas, prefijo) {
+function celdasDeLineas(listas) {
   const celdas = [];
   listas.forEach((lista, i) => {
     const lineas = (lista ?? []).map((t) => String(t ?? '').trim()).filter(Boolean);
@@ -212,9 +266,13 @@ function celdasDeLineas(listas, prefijo) {
     if (i >= ARIDAD) throw new Error('la décupla tiene más de ' + ARIDAD + ' posiciones');
     const sueltas = [];
     for (const t of lineas) {
-      const m = prefijo ? PREFIJO.exec(t) : null;
-      if (m) celdas.push({ i, j: Number(m[1]), k: Number(m[2]), contenido: m[3] });
-      else sueltas.push(t);
+      if (!t.startsWith(MARCA)) {
+        sueltas.push(t);
+        continue;
+      }
+      const m = CELDA_MARCADA.exec(t);
+      if (!m) throw new Error('marca de celda no válida en la posición ' + i + ': «' + t + '» (se escribe «@:j.k texto»: j la subposición, k la clase)');
+      celdas.push({ i, j: Number(m[1]), k: Number(m[2]), contenido: m[3] });
     }
     const ocupadas = new Set(celdas.filter((c) => c.i === i).map((c) => c.j));
     let j = 0;
@@ -232,7 +290,9 @@ const sinContenido = (contenido) => contenido === undefined || contenido === nul
 
 /**
  * Valor BTML de una celda: texto → ítem; sin contenido en clase 0 → ver,
- * una referencia a la celda del foco, que tiene que existir.
+ * una referencia a la celda del foco, que tiene que existir. En el payload,
+ * ver y heredar dan el mismo valor; los distingue contexto.heredadas ([X]
+ * decidir VG si ver necesita una marca propia).
  */
 function valorDe(eje, c, foco, camino, base) {
   const { contenido } = c;
@@ -248,14 +308,14 @@ function valorDe(eje, c, foco, camino, base) {
 }
 
 /** Entrada de Mapped → celdas [{ indices: [i, j, k], valor, ve }] en orden de dirección, sin repetir. */
-function celdasDeEntrada(eje, entrada, foco, camino, base, prefijo) {
+function celdasDeEntrada(eje, entrada, foco, camino, base) {
   if (!Array.isArray(entrada)) throw new Error('Mapped recibe diez listas de líneas o una lista de celdas { i, j, k, contenido }');
   const presentes = entrada.filter((e) => e !== undefined && e !== null);
   const sonLineas = presentes.every((e) => Array.isArray(e));
   if (!sonLineas && !presentes.every((e) => typeof e === 'object' && !Array.isArray(e))) {
     throw new Error('mezcla de líneas y celdas: usa diez listas de líneas o una lista de celdas { i, j, k, contenido }');
   }
-  const crudas = sonLineas ? celdasDeLineas(entrada, prefijo) : presentes.map(({ i, j = 0, k = 0, contenido }) => ({ i, j, k, contenido }));
+  const crudas = sonLineas ? celdasDeLineas(entrada) : presentes.map(({ i, j = 0, k = 0, contenido }) => ({ i, j, k, contenido }));
   const repetidas = new Set();
   const celdas = crudas.map((c) => {
     const indices = [c.i, c.j, c.k];
@@ -271,23 +331,24 @@ function celdasDeEntrada(eje, entrada, foco, camino, base, prefijo) {
 
 /**
  * Mapped: el registro de salida de la fábrica, la matriz 10×10×10.
- * entrada = diez listas de líneas (una por posición: cada línea es texto y
- * va con clase 0 a la subposición siguiente libre, la décupla de siempre;
- * con { prefijo: true }, «j.k texto» fija subposición y clase) o una lista
- * de celdas { i, j = 0, k = 0, contenido } (sin contenido y con clase 0 =
- * ver: una referencia a la celda del foco, que tiene que existir). Cada
- * celda se ubica con `ubicar`: dentro del registro, con lo no modificado
- * anterior heredado del foco por referencia, o anclada aparte en su
- * posición si el foco no tiene base.
+ * entrada = diez listas de líneas (una por posición: una línea sin marca es
+ * texto y va con clase 0 a la subposición siguiente libre, la décupla de
+ * siempre; «@:j.k texto» fija subposición y clase) o una lista de celdas
+ * { i, j = 0, k = 0, contenido } (sin contenido y con clase 0 = ver: una
+ * referencia a la celda del foco, que tiene que existir). Cada celda se
+ * ubica por su base, como `ubicar` sin modo: dentro del registro, con lo no
+ * modificado anterior heredado del foco por referencia, o anclada aparte en
+ * su posición si el foco no tiene base. Los límites del modo cuentan la
+ * salida entera y se comprueban al escribirla (escribirSalida).
  * → { payload (null si todo se ancla), heredadas, vistas, anclados: [{ celda, en, payload, faltan }], camino }
  * heredadas: posiciones heredadas (número) y subposiciones o clases («i.j», «i.j.k»).
  * vistas: las celdas vistas («i.j»). El registro va en direccion(camino).
  */
-export function desdeMapped(eje, entrada, foco, camino = [], { prefijo = false } = {}) {
+export function desdeMapped(eje, entrada, foco, camino = []) {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   const base = baseDe(ev.payload, camino);
-  const celdas = celdasDeEntrada(eje, entrada, foco, camino, base, prefijo);
+  const celdas = celdasDeEntrada(eje, entrada, foco, camino, base);
   if (!celdas.length) throw new Error('la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda');
   const cubiertos = new Set();
   const dentro = [];
@@ -313,17 +374,17 @@ export function costeT(payload) {
   return contarPosiciones(payload);
 }
 
-function comprobarTope(posiciones, modo, que) {
-  const max = tope(modo);
-  if (posiciones > max) throw new Error(nombreModo(modo) + ' emite como mucho ' + max + ' posiciones; ' + que + ' tiene ' + posiciones);
-}
-
 /**
  * Cada heredada ha de ser una referencia al foco en su propia dirección
- * (bajo `camino`): solo así es relleno y no se emite.
+ * (bajo `camino`), y el foco ha de tener contenido en ese camino exacto:
+ * solo así es relleno, no se emite y alcanza algo.
  */
-function comprobarHeredadas(payload, heredadas, foco, camino) {
+function comprobarHeredadas(eje, payload, heredadas, foco, camino) {
   if (!Array.isArray(heredadas)) throw new Error('heredadas es una lista');
+  if (!heredadas.length) return;
+  const ev = eje.obtener(foco);
+  if (!ev) throw new Error('foco desconocido: ' + foco);
+  const base = baseDe(ev.payload, camino);
   const repetidas = new Set();
   for (const h of heredadas) {
     if (!/^[0-9](\.[0-9])*$/.test(String(h))) throw new Error('heredada no válida: ' + h);
@@ -338,21 +399,23 @@ function comprobarHeredadas(payload, heredadas, foco, camino) {
     if (!esReferencia(nodo) || nodo.ref !== foco || nodo.dir !== dir) {
       throw new Error('la heredada ' + clave + ' no es una referencia al foco en ' + dir);
     }
+    if (!hayContenido(base, indices)) throw new Error('la heredada ' + clave + ' no alcanza nada en el foco: solo se hereda lo que el foco tiene');
   }
 }
 
 /**
  * Escribe un registro de salida de un modo sobre el foco (`sobre` + `en`;
  * `en` vale por defecto la dirección de `camino`, la raíz sin camino).
- * Comprueba el tope duro del modo sobre lo emitido: las `heredadas`, si se
- * dan, no cuentan (cada una ha de ser una referencia al foco en su
- * dirección, y quedan en contexto.heredadas). Mueve T del autor: un minuto
- * por posición del registro.
+ * Comprueba los límites del modo: el tope duro sobre lo emitido (las
+ * `heredadas`, si se dan, no cuentan: cada una ha de ser una referencia al
+ * foco en su dirección que alcance algo, y quedan en contexto.heredadas) y
+ * el máximo de la proporción sobre las posiciones del registro ([X] decidir
+ * VG). Mueve T del autor: un minuto por posición del registro.
  * Con `celda` ([i, j, k] bajo `camino`), `payload` es el contenido de esa
- * celda y se ubica con `ubicar`: dentro, se envuelve en la matriz con lo
- * anterior heredado del foco y el registro va en la dirección del camino;
- * anclado, se escribe tal cual en la dirección de la celda. En los dos
- * casos la celda cae en la dirección que da `ubicar`; otro `en` se rechaza.
+ * celda y se ubica con `ubicar` con el modo: dentro, se envuelve en la
+ * matriz con lo anterior heredado del foco; anclado (sin base, o porque
+ * dentro no cabría), se escribe tal cual. El registro va en el `en` que da
+ * `ubicar`, y la celda cae en su `dir`; otro `en` se rechaza.
  */
 export async function escribirDesde(eje, { modo, autor, sobre, en, payload, t = new Date().toISOString(), contexto = {}, celda, camino = [], heredadas = [] }, privada) {
   if (payload === undefined || payload === null) throw new Error('nada que escribir en el registro (si todo se ancla, escribe la salida con escribirSalida)');
@@ -367,17 +430,17 @@ export async function escribirDesde(eje, { modo, autor, sobre, en, payload, t = 
   let relleno = heredadas;
   if (celda !== undefined) {
     if (heredadas.length) throw new Error('con celda, lo heredado lo pone la escritura');
-    const u = ubicar(eje, sobre, celda, { camino });
-    const sitio = u.ubicacion === 'anclado' ? u.en : direccion(camino);
-    if (en !== undefined && en !== sitio) throw new Error('la celda ' + etiqueta(celda) + ' cae en ' + u.dir + ': el registro va en ' + sitio + ', no en ' + en);
-    destino = sitio;
+    const u = ubicar(eje, sobre, celda, { camino, modo, contenido: payload });
+    if (en !== undefined && en !== u.en) throw new Error('la celda ' + etiqueta(celda) + ' cae en ' + u.dir + ': el registro va en ' + u.en + ', no en ' + en);
+    destino = u.en;
     relleno = [];
     if (u.ubicacion === 'dentro') cuerpo = construir(sobre, camino, [{ indices: celda, valor: payload }], relleno);
   }
-  comprobarHeredadas(cuerpo, relleno, sobre, camino);
-  const emitidas = contarPosiciones(cuerpo) - relleno.length;
+  comprobarHeredadas(eje, cuerpo, relleno, sobre, camino);
+  const posiciones = contarPosiciones(cuerpo);
+  const emitidas = posiciones - relleno.length;
   if (emitidas < 1) throw new Error('nada que emitir: todo el registro es herencia del foco');
-  comprobarTope(emitidas, modo, 'este registro');
+  comprobarLimites({ emitidas, posiciones }, modo, 'este registro');
   return eje.escribir({
     autor,
     sobre,
@@ -392,12 +455,12 @@ export async function escribirDesde(eje, { modo, autor, sobre, en, payload, t = 
 /**
  * Escribe la salida entera de desdeMapped: el registro (si hay algo dentro)
  * en la dirección de su camino, con sus heredadas, y cada celda anclada en
- * su posición. El tope del modo cuenta lo emitido por la salida entera (lo
- * heredado no), antes de escribir nada. No es atómica: si el eje rechaza un
- * anclado, lo anterior queda escrito.
+ * su posición. Los límites del modo cuentan la salida entera (el tope, lo
+ * emitido; la proporción, todas sus posiciones) antes de escribir nada. No
+ * es atómica: si el eje rechaza un anclado, lo anterior queda escrito.
  * → { registro: evento | null, anclados: [evento], proporcion }
- * proporcion: dónde queda lo emitido respecto de la proporción del modo
- * (informa, no rechaza: [X] decidir VG).
+ * proporcion: dónde quedan las posiciones de la salida respecto de la
+ * proporción del modo (por encima no llega a escribirse).
  */
 export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, salida, t = new Date().toISOString(), contexto = {} }, privada) {
   const payload = salida?.payload ?? null;
@@ -405,14 +468,15 @@ export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, salid
   const heredadas = salida?.heredadas ?? [];
   const camino = salida?.camino ?? [];
   if (payload === null && !anclados.length) throw new Error('nada que escribir');
-  if (payload !== null) comprobarHeredadas(payload, heredadas, sobre, camino);
-  const emitidas = (payload === null ? 0 : contarPosiciones(payload) - heredadas.length) + anclados.reduce((n, a) => n + contarPosiciones(a.payload), 0);
-  comprobarTope(emitidas, modo, 'esta salida');
+  if (payload !== null) comprobarHeredadas(eje, payload, heredadas, sobre, camino);
+  const posiciones = (payload === null ? 0 : contarPosiciones(payload)) + anclados.reduce((n, a) => n + contarPosiciones(a.payload), 0);
+  const emitidas = posiciones - (payload === null ? 0 : heredadas.length);
+  comprobarLimites({ emitidas, posiciones }, modo, 'esta salida');
   if (payload !== null) PENDIENTES.delete(payload);
   const registro = payload === null ? null : await escribirDesde(eje, { modo, autor, sobre, camino, payload, heredadas, t, contexto }, privada);
   const escritos = [];
   for (const a of anclados) escritos.push(await escribirDesde(eje, { modo, autor, sobre, en: a.en, payload: a.payload, t, contexto }, privada));
-  return { registro, anclados: escritos, proporcion: proporcionDe(emitidas, modo) };
+  return { registro, anclados: escritos, proporcion: proporcionDe(posiciones, modo) };
 }
 
 export { esReferencia };

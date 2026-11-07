@@ -3,12 +3,15 @@
 // Proporción de escritura sobre lectura (VG, 6-11-2026): Pointed un décimo;
 // Sequenced entre un quinto y un décimo; Mapped entre un cuarto y un tercio.
 // Topes duros de posiciones emitidas (VG, 7-11-2026): Pointed 10, Sequenced
-// 100, Mapped 1000 (la matriz 10×10×10 de la fábrica), Scened 10000. Scened
-// no tiene render todavía.
-// Provisional, [X] decidir VG: hoy solo el tope rechaza; la proporción
-// informa (`proporcion`, `proporcionDe`). El mapa §12 dice «topes duros …
-// (además de la proporción)», pero con la proporción rechazando (1, 20, 333)
-// ningún tope llegaría a aplicarse y la matriz de 1000 no cabría en Mapped.
+// 100, Mapped 1000 (la matriz 10×10×10 de la fábrica), Scened 10000,
+// «además de la proporción» (mapa §12). Scened no tiene render todavía.
+// La escritura (src/escritura.js) comprueba las dos: el tope sobre lo
+// emitido y el máximo de la proporción sobre las posiciones del registro,
+// que rechaza como antes del 7-11. [X] decidir VG si la proporción rechaza
+// o solo informa: el mapa no lo decide, y con las dos rechazando la
+// proporción (1, 20, 333) se alcanza antes que el tope, así que la matriz de
+// 1000 no cabe en Mapped. `proporcion` y `proporcionDe` dicen dónde queda un
+// registro respecto de ella.
 
 import { ARIDAD, esTerminal } from './btml.js';
 
@@ -60,7 +63,7 @@ export function cabeTope(payload, modo) {
   return contarPosiciones(payload) <= tope(modo);
 }
 
-/** Si un payload cabe en el máximo de la proporción del modo (hoy no rechaza: [X] decidir VG). */
+/** Si un payload cabe en el máximo de la proporción del modo (rechaza, como antes del 7-11: [X] decidir VG). */
 export function cabeEscritura(payload, modo) {
   const e = escritura(modo);
   return e === null ? true : contarPosiciones(payload) <= e[1];
@@ -77,7 +80,7 @@ export function proporcionDe(posiciones, modo) {
   return { posiciones, rango, estado };
 }
 
-/** proporcionDe con las posiciones de un payload (todas: no sabe qué es heredado). */
+/** proporcionDe con las posiciones de un payload: todas, lo heredado incluido, como las cuenta la proporción. */
 export function proporcion(payload, modo) {
   return proporcionDe(contarPosiciones(payload), modo);
 }
