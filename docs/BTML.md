@@ -8,20 +8,22 @@ Convenciones de este documento:
 - Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
 
+Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, con la PR #28, que cambió el vector guardado en las consolidaciones, y con la PR #35, que puso el génesis en series: minutos, `E:casa/EUR`, tipo `grupo`). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
+
 ## 0. Mapa de módulos
 
 | Módulo | Qué define | Funciones principales |
 |---|---|---|
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
-| `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
+| `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.identidades`, `eje.clave` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito (época 0) | `PV`, `EPOCA_0`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
-`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js` y `epocas.js` en plano, y `encaje`, `autoridad`, `persistencia` (entre otros) como espacios de nombres: `import { Eje, crearEvento, encaje } from './src/index.js'`.
+`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo` y `persistencia`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`.
 
 ## 1. El evento
 
@@ -127,7 +129,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 }
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, cuánto, a qué precio), 2 criterios, 3 comunicación, 4 fábrica.
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. La regla corta vale en todas las profundidades (mapa §10.4), así que dentro de la posición 1 se lee igual: 1.0 representación (la referencia al menú:1), 1.1 recursos (`1`), 1.2 criterios (`"EUR 12"`). El comentario del ejemplo («qué, cuánto, a qué precio») es léxico humano: no está en los datos ni en la regla corta, y quien lo copie como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como comunicación o fábrica de los recursos (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -207,7 +209,7 @@ E:casa/EUR P:genesis R:casa
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo (`escribirDesde` cobra un minuto por posición, así que escribir exige `T:minuto`). Emitir (`de === null`): el génesis emite cualquier familia a su autor; después, E y R los emite su emisor, a sí mismo, si es persona o grupo (§2.4); T y P, solo el génesis. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después, E y R los emite su emisor, a sí mismo, si es persona o grupo (§2.4); T y P, solo el génesis. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
 
 ### 2.4 Emisión de series de E y de R
 
@@ -280,7 +282,7 @@ eje.ambitosQueCubren(ambito)        // → [ambito, …registros de su hilo, 'ge
 |---|---|---|
 | número | `typeof x === 'number'` y finito | `12`, `-0.5` |
 | cadena | `typeof x === 'string'` y no vacía | `'Menú del día'`, `'EUR 12'`, `'=LOCAL(1) + 15 min'` |
-| referencia | `esReferencia(x)` | `{ ref: '37c5…db78', dir: '1000000000' }` |
+| referencia | `esReferencia(x)` | `{ ref: '4598…ac91', dir: '1000000000' }` |
 
 No son terminales: `''`, `NaN`, `Infinity`, `true`/`false`, `null`, `undefined`, objetos sin `ref`. Una cadena que empieza por `=` es una fórmula BQL y por `==` un texto escapado: eso lo interpreta BQL, no BTML; para BTML son cadenas.
 
@@ -483,6 +485,9 @@ Un evento declara dónde se anida: `sobre` es el id del registro en foco y `en` 
 - Por defecto `en = RAIZ = '0000000000'`. Como `'0000000000'` también nombra la posición 0, anclar en la raíz y anclar en la posición 0 de profundidad 0 es lo mismo (límite conocido).
 - El génesis tiene `sobre: null` y solo admite `en` raíz. Cualquier otro evento necesita un `sobre` que exista en el eje.
 - **Hilo**: la cadena `evento → sobre → sobre → … → génesis`. Es una cadena por referencia, no un orden temporal.
+- `en` puede ser **cualquier** dirección válida del foco, la desarrolle o no su payload: el ejemplo de abajo ancla una nota en `7000000000` de una compra que no tiene posición 7. El eje no comprueba que la posición exista.
+- Varios escritos en la misma dirección salen **en orden de entrada en el eje**, no por `t`: un escrito con un `t` anterior que entra después sale detrás.
+- Dónde anclar es decisión de quien escribe; el código no la toma. Decidido por VG para la reserva de alojamiento (mapa §12, 7-11): la reserva se ancla **en la plaza**, dentro de los recursos de la disponibilidad (`sobre: disponibilidad`, `en: direccion([1, k])`; para la plaza 1.1, `'1100000000'`), las noches van en el 7 de la propia reserva, y las reservas de la misma plaza colisionan en esa dirección (§6). Las posiciones sin contenido propio que preceden a la 7 (5 y 6) se rellenan como las celdas sin cambio de la fábrica: referencia al foco (`{ ref: foco, dir }`), sin «no aplicable» (mapa §12, «Posiciones sin contenido»). Para otros casos no hay criterio escrito: [X] decidir VG.
 
 ```js
 eje.sobre(id, en?)  // → hijos directos de `id`, en orden de entrada; con `en`, solo los anclados en esa dirección
@@ -518,7 +523,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 
 ### 6.1 Qué ocupa una dirección
 
-`ocupantes(eje, id, indices)` reúne, para la dirección `direccion(indices)` del registro `id`, tres clases de ocupantes. Orden de llegada: cada camino propio y, si ese camino es una referencia, inmediatamente lo que alcanza; al final, los escritos.
+`ocupantes(eje, id, indices)` reúne, para la dirección `direccion(indices)` del registro `id`, tres clases de ocupantes. `indices` es un **array de índices** (`[1]`, `[1, 2]`), no una dirección de diez dígitos: `ocupantes(eje, id, '1000000000')` lanza `RangeError: entre 0 y 10 índices` (BQL, en cambio, acepta las dos formas). Orden de llegada: cada camino propio y, si ese camino es una referencia, inmediatamente lo que alcanza; al final, los escritos.
 
 | `origen` | Qué es | De dónde sale |
 |---|---|---|
@@ -533,17 +538,17 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `origen` (= `tipo`) | `'propio'`, `'referencia'` o `'escrito'`. BQL lo expone como `ORIGEN()`. |
 | `evento` | Id del evento donde vive el contenido: `id` (propio), el evento alcanzado (referencia), el hijo (escrito). |
 | `dir` | Dirección dentro de `evento`: la buscada (propio), la alcanzada (referencia), `'0000000000'` (escrito). |
-| `camino` | Índices exactos: `[1]`, `[1, 0]` (propio); `indicesDe(dir)` (referencia); `[]` (escrito). |
+| `camino` | Índices exactos **dentro de `evento`**: `[1]`, `[1, 0]` (propio, dentro del foco); `indicesDe(dir)` (referencia, dentro del registro alcanzado, no del foco); `[]` (escrito, su payload entero). El camino por el que se llegó desde el foco solo está en `procedencia`. |
 | `contenido` | Lo que hay ahí; `undefined` si la referencia está rota. |
 | `procedencia` | Cadena de pasos. Propio: `['<id>:<dir>#<camino con puntos>']`. Referencia: el paso propio seguido de `'<id alcanzado>:<dir>'` por salto. Escrito: `['<id hijo>:0000000000']`. |
 | `autor`, `t` | Solo en escritos. |
-| `rota` | `true` si una referencia no llegó a contenido (solo en referencias). |
-| `origenDir`, `destino` | Dirección de donde viene el contenido y dirección donde se coloca. |
-| `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje de `origenDir` en `destino` (§6.5). |
+| `rota` | `true` si una referencia no llegó a contenido. Cuando no hay rotura el campo **no existe** (no es `false`). |
+| `origenDir`, `destino` | `destino` es la dirección buscada. `origenDir` es la dirección del candidato: la buscada (propio), la alcanzada en el otro registro (referencia), y **la de su anclaje `en`**, que es la buscada (escrito). Por eso propios y escritos son siempre encaje exacto y solo una referencia que alcanza otra dirección tiene vector distinto de cero. Para un escrito, `dir` (`0000000000`, su raíz) y `origenDir` (su anclaje) no coinciden: son cosas distintas. |
+| `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje del candidato (`origenDir`) en lo buscado (`destino`) (§6.5). |
 
 ```js
 caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0
-ocupantes(eje, id, indices, { orden = 'encaje' } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'
+ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'; epoca: ver §6.5
 seguir(eje, ref, procedencia = [])             // → ocupante de origen 'referencia' tras seguir hasta 20 saltos; rota: true si no llega
 caminoDe(o)                                    // → o.camino ?? indicesDe(o.dir)
 ```
@@ -574,6 +579,8 @@ escrito [] c70bfa6e 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["c70bfa6e:000000
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 ```
+
+Los cuatro son encaje exacto: la cuenta está anclada justo en `1000000000`, así que su `origenDir` es esa dirección (§6.2). Como empatan en acuerdo, salen en orden de llegada. Contar los ocupantes de una dirección cuenta también la colisión por ceros: `[1]` y `[1, 0]` son dos ocupantes aunque el segundo sea la posición 0 del primero (decisión de VG, «colisiones, no apaños», mapa §12: la dirección nombra la colisión entera; buscar por índice, decidido como camino exacto, aún no existe: `docs/BQL.md` §11).
 
 Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referencia seguida):
 
@@ -623,53 +630,57 @@ true undefined []
 
 ### 6.5 Vector, distancia y orden
 
-Para cada ocupante se compara la dirección de donde viene (`origenDir`) con la dirección donde se coloca (`destino`):
+Para cada ocupante se compara la dirección del candidato (`origenDir`) con la dirección buscada (`destino`). Convención vigente desde la PR #28 (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`, elegida por VG el 7-11, mapa §12): **candidato − buscado**, como el ejemplo del corpus «+2 en el quinto dígito».
 
 ```js
 vector(candidato, buscado)  // → [d0 … d9]  candidato − buscado, dígito a dígito, con signo (−9…9 por componente)
-distancia(v)                // → [|d0| … |d9|]  siempre positiva; información (solo ordena donde la época haga ordinal la profundidad)
+distancia(v)                // → [|d0| … |d9|]  siempre positiva; información (solo ordena donde la época haga ordinal la profundidad; en la época 0, en ninguna)
 acuerdo(v)                  // → número de ceros seguidos desde la profundidad 0 (10 = encaje exacto)
 signo(v)                    // → 'exacto' | 'completar' (solo negativos) | 'reducir' (solo positivos) | 'mixto'
-faltas(v)                   // → cuántas componentes < 0 (al candidato le falta: completar)
-excedentes(v)               // → cuántas componentes > 0 (al candidato le sobra: reducir)
+faltas(v)                   // → cuántas componentes < 0 (al candidato le falta en esa profundidad: completar)
+excedentes(v)               // → cuántas componentes > 0 (al candidato le sobra en esa profundidad: reducir)
 norma(v)                    // → suma de |d|; medida de consulta (BQL DESPLAZAMIENTO()), no criterio de orden
 ordenarPorEncaje(lista, { epoca } = {})  // → nueva lista ordenada por `.vector`, sin quitar nada
 ```
 
 Orden por encaje (`ordenarPorEncaje`, el orden por defecto de `ocupantes` y de BQL `BUSCAR`):
 
-1. más coincidencias de ruta primero (profundidades de acuerdo; los exactos, con acuerdo 10, van delante);
-2. después, solo en las profundidades que la época declare ordinales (`epoca.ordinal(profundidad)`), menor distancia; en la época 0 los dígitos son nominales y ninguna lo es;
-3. los empates conservan el orden de llegada.
+1. más profundidades de acuerdo primero (el acuerdo de prefijo: los exactos, con acuerdo 10, van delante);
+2. a igual acuerdo, menor distancia **solo en las profundidades que la época declare ordinales** (`epoca.ordinal(profundidad)`), comparando profundidad a profundidad, sin sumar. La época 0 no declara ninguna (sus dígitos son nominales: cada uno es un PV), así que hoy este paso no hace nada; `BUSCAR` no pasa época;
+3. a igual de lo anterior, el orden de llegada.
 
-El signo **no ordena** (VG, 7-11: opción B de `docs/notas/SIGNO_DEL_VECTOR.md`): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Un escrito anclado en la dirección buscada encaja exacto. Pendiente: cómo cambia el vector con la época.
+El signo **no ordena** (VG, 7-11: opción B de `docs/notas/SIGNO_DEL_VECTOR.md`): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Ni el signo ni la distancia ordenan en la época 0: son información (el corpus prohíbe «puntuar por cercanía ciega»). Un escrito anclado en la dirección buscada encaja exacto. Consecuencia práctica: como propios y escritos son siempre exactos (§6.2), el vector solo se separa de cero en una **referencia** que alcanza otra dirección, y casi todo el orden de una posición es el de llegada. Pendiente: cómo cambia el vector con la época, las reglas cortas que declaren profundidades ordinales y las reglas por dimensión que dirían dónde cuenta el signo; la orientación (la opción E de la nota) queda apuntada para cuando lleguen las reglas cortas (VG, 7-11, mapa §12).
 
 ```sh
 node --input-type=module -e "
 import { vector, distancia, acuerdo, signo, faltas, excedentes, norma, ordenarPorEncaje } from './src/encaje.js';
 const v = vector('1230000000', '1200000000');
 console.log(JSON.stringify(v), JSON.stringify(distancia(v)), acuerdo(v), signo(v), faltas(v), excedentes(v), norma(v));
-console.log(JSON.stringify(vector('0000000000', '4000000000')), signo(vector('0000000000', '4000000000')));
+console.log(JSON.stringify(vector('1000000000', '1200000000')), signo(vector('1000000000', '1200000000')));
 console.log(JSON.stringify(vector('1700000000', '2300000000')), signo(vector('1700000000', '2300000000')));
 const lista = [
   { nombre: 'ref desde 7', vector: vector('7000000000', '2000000000') },
-  { nombre: 'escrito en 2', vector: vector('0000000000', '2000000000') },
+  { nombre: 'ref desde 3', vector: vector('3000000000', '2000000000') },
   { nombre: 'exacto', vector: vector('2000000000', '2000000000') },
   { nombre: 'desvio hondo', vector: vector('2300000000', '2000000000') },
-  { nombre: 'otro escrito', vector: vector('0000000000', '2000000000') },
+  { nombre: 'escrito en 2', vector: vector('2000000000', '2000000000') },
 ];
 console.log(ordenarPorEncaje(lista).map((x) => x.nombre).join(' | '));
+console.log(ordenarPorEncaje(lista, { epoca: { ordinal: (k) => k === 0 } }).map((x) => x.nombre).join(' | '));
 "
 ```
 
 ```text
 [0,0,3,0,0,0,0,0,0,0] [0,0,3,0,0,0,0,0,0,0] 2 reducir 0 1 3
-[-4,0,0,0,0,0,0,0,0,0] completar
+[0,-2,0,0,0,0,0,0,0,0] completar
 [-1,4,0,0,0,0,0,0,0,0] mixto
-exacto | desvio hondo | ref desde 7 | escrito en 2 | otro escrito
+exacto | escrito en 2 | desvio hondo | ref desde 7 | ref desde 3
+exacto | escrito en 2 | desvio hondo | ref desde 3 | ref desde 7
 ```
 
-Dónde se ve la diferencia entre llegada y encaje: un registro cuya posición 2 es una referencia a la posición 7 de otro (viene de lejos: le sobra en la profundidad 0) y un hijo escrito en su posición 2 (anclado en la dirección buscada: exacto).
+Lectura: `1.2.3` buscado como `1.2` le sobra una profundidad (`+3`, reducir); `1` buscado como `1.2` le falta (`-2`, completar). En el orden, `ref desde 7` y `ref desde 3` empatan en acuerdo 0 y salen por llegada; solo con una época que declare ordinal la profundidad 0 (la última línea usa una época de prueba; ninguna época real lo hace todavía) gana la de menor distancia.
+
+Dónde se ve la diferencia entre llegada y encaje: un registro cuya posición 2 es una referencia a la posición 7 de otro (viene de lejos: acuerdo 0) y un hijo escrito en su posición 2 (anclado ahí: exacto).
 
 ```sh
 node --input-type=module -e "
@@ -725,7 +736,7 @@ console.log(arbol(eje, compra.id, { profundidad: 1 }).has('1200000000'));
 false
 ```
 
-Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (la cantidad, un terminal) tiene un solo ocupante.
+Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
 
 ## 7. Identidades, claves y firmas
 
@@ -737,13 +748,14 @@ Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
-eje.saldo(identidad, clave)    // → número; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:genesis', 'R:casa', …); 0 si no existe
+eje.saldo(identidad, clave)    // → número; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:genesis', 'R:casa', …); 0 si no existe ('P', 'T' o 'E:EUR' a secas siempre dan 0)
 eje.saldoT(identidad, escala)  // → saldo(identidad, 'T:' + escala), sin conversión; lanza si la escala no existe
 eje.tiempos(identidad)         // → [{ escala, cantidad }] en el orden de ESCALAS_T, solo saldos > 0
 eje.recursos(identidad)        // → [{ emisor, denominacion, cantidad }]
 eje.tipo(identidad)            // → 'persona' | 'grupo' | 'cosa' | null
-eje.poderes(identidad)         // → [{ ambito, cantidad }]
-eje.reputaciones(identidad)    // → [{ emisor, cantidad }]
+eje.poderes(identidad)         // → [{ ambito, cantidad }] sus P con saldo > 0 (no hay P total)
+eje.poderSobre(identidad, id)  // → suma de sus P cuyo ámbito es 'genesis' o un registro del hilo de `id`
+eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
 eje.clave(identidad)           // → JWK pública o undefined
 ```
 
@@ -987,6 +999,8 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 
 Series: la casa (un grupo: `tipo: 'grupo'` en el génesis) emite 1000 `T:hora`, 1000 `T:minuto`, 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor) y 10 `P:genesis`; las altas reparten horas y minutos, que son tokens distintos, y declaran el tipo de cocina (grupo) y huesped (persona). Saldos tras los cinco eventos: casa 936 h y 279 min de T (1000 − 40 − 24; 1000 − 1 − 240 − 480), 440 EUR, 10 P; cocina 38 h y 237 min (40 − 2; 240 − 3), 12 EUR; huesped 23 h y 480 min (24 − 1), 48 EUR.
 
+Qué ocupa cada dirección de la compra (con la cuenta escrita) está en §6.6. En particular, la posición 4 solo tiene sus dos propios (`[4]` y `[4, 0]`): nadie ha escrito en ella. Los escenarios con propinas escritas en `4000000000` que usa `docs/BQL.md` son de las pruebas (`test/bql-colecciones.test.js`), no de este eje.
+
 ```js
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 const { eje, alta, menu, compra } = await ejemploCompra();
@@ -1046,7 +1060,8 @@ export class Eje {
   recursos(identidad): { emisor, denominacion, cantidad }[];
   poderes(identidad): { ambito, cantidad }[];
   reputaciones(identidad): { emisor, cantidad }[];
-  poderSobre(identidad, registro): number;
+  poderSobre(identidad, registro): number;                 // P con ámbito genesis o en el hilo de registro
+  ambitosQueCubren(ambito): string[];                      // el ámbito, su hilo y 'genesis'
   serie(clave): { emisor, emitido };                     // por clave de saldo: 'E:casa/EUR', 'R:casa', 'T:hora', 'P:genesis'
   series(): { clave, token, serie, ...campos, emisor, emitido }[];
   clave(identidad): JWK | undefined;
@@ -1059,16 +1074,16 @@ export class Eje {
 }
 
 // src/encaje.js
-export function vector(origen, destino): number[10];
+export function vector(candidato, buscado): number[10];   // candidato − buscado (§6.5)
 export function distancia(v): number[10];
 export function acuerdo(v): number;
 export function norma(v): number;
 export function faltas(v): number;
 export function excedentes(v): number;
 export function signo(v): 'exacto' | 'completar' | 'reducir' | 'mixto';
-export function ordenarPorEncaje(lista: { vector }[]): typeof lista;
+export function ordenarPorEncaje(lista: { vector }[], { epoca } = {}): typeof lista;  // acuerdo, distancia solo en profundidades ordinales de la época, llegada
 export function caminosDe(payload, dir): { indices: number[], contenido }[];
-export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada' } = {}): Ocupante[];
+export function ocupantes(eje, id, indices: number[], { orden = 'encaje' | 'llegada', epoca } = {}): Ocupante[];
 export function seguir(eje, ref, procedencia = []): Ocupante;
 export function arbol(eje, id, { profundidad = 10 } = {}): Map<string, Ocupante[]>;
 export function colisiones(mapa): { dir, ocupantes }[];
@@ -1110,7 +1125,8 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
 | Posición 0 de un terminal (encaje no la da; Pointed sí) | §4.2 |
 | Cambio de foco al agotar diez niveles | §3.2 |
-| Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
+| Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época; qué profundidades declara ordinales cada época (el gancho `epoca.ordinal` existe; la época 0 no declara ninguna) | §4.3, §6.5 |
+| Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
 | Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |
