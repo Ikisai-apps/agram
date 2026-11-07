@@ -8,7 +8,7 @@
 // titular: el saldo es lo disponible y lo bloqueado se lleva aparte.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo } from './ciclo.js';
+import { reglasDelCiclo, EMITEN_V2 } from './ciclo.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
 import { verificar, firmar, clavePublicaValida } from './autoridad.js';
 
@@ -18,8 +18,12 @@ export class Eje {
   #altas;
   #emitidoT;
 
-  /** exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave. */
-  constructor({ exigirFirmas = false } = {}) {
+  /**
+   * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
+   * eventosV2: cuántos eventos del principio se guardaron con la versión 2 y se validan con sus reglas
+   * (src/persistencia.js); los demás, con las de ahora.
+   */
+  constructor({ exigirFirmas = false, eventosV2 = 0 } = {}) {
     this.eventos = new Map(); // id → evento
     this.orden = []; // ids en orden de entrada
     this.saldos = new Map(); // identidad → Map(clave → cantidad disponible)
@@ -31,6 +35,7 @@ export class Eje {
     this.#altas = new Map(); // identidad → { id, t } del evento en que recibió tokens por primera vez
     this.#emitidoT = new Map(); // JSON [persona, escala] → T emitido fuera del génesis (para el tope del reloj)
     this.exigirFirmas = exigirFirmas;
+    this.eventosV2 = eventosV2;
   }
 
   /**
@@ -89,15 +94,16 @@ export class Eje {
    * Reconstruye un eje desde su lista de eventos (el primero es el génesis),
    * validando cada uno: ids, firmas, saldos. Nada se da por bueno.
    */
-  static async desde(eventos, { exigirFirmas = false } = {}) {
+  static async desde(eventos, { exigirFirmas = false, eventosV2 = 0 } = {}) {
     const [crudo, ...resto] = eventos;
     if (!crudo || crudo.contexto?.genesis !== true || crudo.sobre !== null) throw new Error('el primer evento debe ser el génesis');
+    if (!Number.isSafeInteger(eventosV2) || eventosV2 < 0 || eventosV2 > eventos.length) throw new Error('eventosV2 debe ser un entero entre 0 y el número de eventos');
     const g = copiaGuardable(crudo);
-    const errores = [...validarForma(g), ...erroresGenesis(g)];
+    const errores = [...validarForma(g), ...erroresGenesis(g, eventosV2 > 0 ? 2 : 3)];
     if (!(await verificarId(g))) errores.push('id del génesis no corresponde');
     if (!errores.length) errores.push(...(await erroresFirmaGenesis(g)));
     if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
-    const eje = new Eje({ exigirFirmas });
+    const eje = new Eje({ exigirFirmas, eventosV2 });
     if (exigirFirmas && !g.contexto.claves?.[g.autor]) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(g);
     for (const ev of resto) await eje.anadir(ev);
@@ -261,8 +267,9 @@ export class Eje {
       else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
     }
     // Las reglas de emisión (VG, 7-11 noche: solo personas, T con el tope del
-    // reloj, escalonado T → R → P → E) están en src/ciclo.js y leen el eje de
-    // antes del evento.
+    // reloj, escalonado T → R → P → E) y la del t del evento están en
+    // src/ciclo.js y leen el eje de antes del evento. Un evento guardado con la
+    // versión 2 se valida con las reglas de entonces.
     for (const { texto } of reglasDelCiclo(ev, this.#contextoCiclo())) errores.push(texto);
     // Simulación de los movimientos, en orden, sobre una vista de los saldos y
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
@@ -296,7 +303,9 @@ export class Eje {
         continue;
       }
       if (m.estado === 'liberacion') {
-        // Liberar: del bloqueado con esa misma salida al disponible.
+        // Liberar: del bloqueado con esa misma salida al disponible. La salida es declarada, no verificable
+        // todavía: el titular libera cuando quiere citándola y nadie comprueba que se cumplió ([X] decidir VG
+        // qué la hace verificable, p. ej. que la liberación cite un evento de otra identidad).
         if (verB(m.de, k, m.salida) < c) { errores.push('no hay ' + c + ' de ' + k + ' bloqueado en ' + m.de + ' con la salida «' + m.salida + '»'); continue; }
         ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - c);
         poner(m.de, k, ver(m.de, k) + c);
@@ -326,6 +335,7 @@ export class Eje {
       registro: (id) => this.eventos.get(id),
       ambitosQueCubren: (ambito) => this.ambitosQueCubren(ambito),
       saldo: (id, k) => this.saldo(id, k),
+      reglas: this.orden.length < this.eventosV2 ? 2 : 3,
     };
   }
 
@@ -465,9 +475,11 @@ export function caducada(eje, clave, t) {
 /**
  * El génesis emite a su autor, sus series de E y R quedan a su nombre, su P
  * es sobre todo el eje («genesis»: aún no existe ningún otro registro) y solo
- * declara el tipo y la clave de su autor.
+ * declara el tipo y la clave de su autor. Lo emite una persona; con las
+ * reglas de la versión 2 (`reglas` = 2: un eje guardado con ella), también
+ * un grupo.
  */
-function erroresGenesis(g) {
+function erroresGenesis(g, reglas = 3) {
   const errores = [];
   const totales = new Map();
   const movimientos = Array.isArray(g.movimientos) ? g.movimientos.filter((m) => m && typeof m === 'object') : [];
@@ -484,7 +496,7 @@ function erroresGenesis(g) {
   for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
     else if (!TIPOS.includes(tipo)) errores.push('tipo inválido para ' + id + ': ' + tipo);
-    else if (!EMITEN.includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
+    else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
   }
   for (const id of Object.keys(g.contexto?.claves ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');

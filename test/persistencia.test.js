@@ -77,15 +77,22 @@ test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de 
   }
 });
 
-test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos y se revalida con las reglas nuevas', async () => {
+test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalidan con las reglas de la 2', async () => {
   const { eje } = await ejemploCompra();
   const v2 = JSON.parse(JSON.stringify({ ...serializar(eje), version: 2 }));
   assert.equal(migrar(v2).version, VERSION);
   assert.deepEqual(migrar(v2).eventos, v2.eventos);
+  // La migración no es trivial: todos sus eventos se marcan como de la versión 2 y se validan con aquellas reglas;
+  // las nuevas rigen lo que se añada después (lo que solo admitía la 2 está en test/ciclo-eprt.test.js).
+  assert.equal(migrar(v2).eventosV2, v2.eventos.length);
   const otro = await restaurar(v2);
   assert.deepEqual(otro.orden, eje.orden);
-  // Lo que ya no cumple las reglas de la 3 no se restaura: un génesis firmado por un grupo (VG, 7-11 noche).
-  const deGrupo = JSON.parse(JSON.stringify(v2));
-  deGrupo.eventos[0].contexto.tipos.casa = 'grupo';
-  await assert.rejects(restaurar(deGrupo), /génesis rechazado/);
+  assert.equal(otro.eventosV2, v2.eventos.length);
+  assert.equal(serializar(otro).eventosV2, v2.eventos.length); // al volver a guardar se conserva
+  assert.equal(serializar(eje).eventosV2, undefined); // un eje de la 3 no lo lleva
+  // Un evento manipulado no se restaura con ninguna de las dos reglas.
+  const tocado = JSON.parse(JSON.stringify(v2));
+  tocado.eventos[0].contexto.tipos.casa = 'grupo';
+  await assert.rejects(restaurar(tocado), /génesis rechazado: id del génesis no corresponde/);
+  await assert.rejects(restaurar({ ...migrar(v2), eventosV2: -1 }), /eventosV2 debe ser un entero/);
 });

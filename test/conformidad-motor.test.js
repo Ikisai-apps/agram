@@ -131,15 +131,24 @@ async function casaConUnaPlaza() {
     t: T0,
   });
   const hab = eje.genesisId;
-  await eje.escribir({ autor: 'casa', sobre: hab, t: T0, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas' });
+  await eje.escribir({ autor: 'casa', sobre: hab, t: T0, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas', contexto: { tipos: { h1: 'persona', h2: 'persona' } } });
   return { eje, hab };
 }
 
-/** La reserva de un huésped en la plaza 1 de la habitación: la casa la consolida, recepción la autoriza. */
+/**
+ * La reserva de un huésped en la plaza 1 de la habitación: el huésped la pide en la plaza (los pedidos colisionan
+ * ahí) y deja a recepción confirmar por él (acuña P sobre su pedido, con su R en juego, y se lo delega); la casa
+ * consolida sobre el pedido y recepción la autoriza. Antes la casa consolidaba sobre la habitación y recepción
+ * autorizaba con el P que la casa le había delegado; ya no cuenta: para autorizar lo que propone la casa solo
+ * cuenta el P sobre un registro del hilo que la casa no escribió ([X] confirmar VG, motor.poderParaAutorizar).
+ */
 async function reservaDeLaCasa(eje, hab, huesped) {
-  const c = await consolidar(eje, { autor: 'casa', foco: hab, camino: [1], t: T0, elecciones: { 1: 'reserva de ' + huesped + ', noche del 7-11' } });
+  const pedido = await eje.escribir({ autor: huesped, sobre: hab, en: direccion([1, 4]), t: T0, movimientos: [gastaT(huesped)], payload: 'reserva de ' + huesped + ', noche del 7-11' });
+  await eje.escribir({ autor: huesped, sobre: pedido.id, t: T0, payload: 'recepción confirma por mí',
+    movimientos: [gastaT(huesped), ...rEnJuego(huesped, 'recepcion'), { token: 'P', ambito: pedido.id, cantidad: 1, de: null, a: huesped }, daP(huesped, 'recepcion', 1, pedido.id)] });
+  const c = await consolidar(eje, { autor: 'casa', foco: pedido.id, camino: [1], t: T0, elecciones: { 1: 'plaza para ' + huesped + ', noche del 7-11' } });
   await autorizar(eje, { autorizante: 'recepcion', consolidacion: c.id, t: T0 });
-  return c;
+  return { c, pedido };
 }
 
 /**
@@ -1094,9 +1103,9 @@ test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo s
 test('M:TOK-04 la reserva: la plaza es una serie limitada; la segunda reserva solapada se escribe y colisiona, pero no se ejecuta por saldo', async () => {
   // Así funciona hoy solo si la casa es el génesis, consolida y ejecuta (ver M:TOK-04b).
   const { eje, hab } = await casaConUnaPlaza();
-  const r1 = await reservaDeLaCasa(eje, hab, 'h1');
-  const r2 = await reservaDeLaCasa(eje, hab, 'h2');
-  assert.deepEqual(ocupantes(eje, hab, [1, 4]).filter((o) => o.origen === 'escrito').map((o) => o.evento), [r1.id, r2.id]); // colisionan
+  const { c: r1, pedido: p1 } = await reservaDeLaCasa(eje, hab, 'h1');
+  const { c: r2, pedido: p2 } = await reservaDeLaCasa(eje, hab, 'h2');
+  assert.deepEqual(ocupantes(eje, hab, [1, 4]).filter((o) => o.origen === 'escrito').map((o) => o.evento), [p1.id, p2.id]); // colisionan
   await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11', 'casa')] });
   assert.equal(eje.saldo('h1', 'E:casa/plaza-7-11'), 1);
   await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11', 'casa')] }), /saldo insuficiente/);
@@ -1254,19 +1263,27 @@ test('TOK-16b el calendario civil es una vista alternativa de las fechas nativas
   sinForma('TOK-16'));
 
 test('TOK-19 los hilos son cadenas de registros encadenados por referencia (sobre), no una secuencia temporal', async () => {
+  // El t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js): el hilo no va hacia atrás en
+  // el reloj. No es una secuencia temporal porque deja fuera lo escrito entre medias sobre otro foco (suelto).
   const { eje, g } = await mundo();
   const a = await escribe(eje, g, 'a', undefined, 'ana', '2026-11-07T11:00:00Z');
-  const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T09:00:00Z');
+  const suelto = await escribe(eje, g, 'suelto', undefined, 'ana', '2026-11-07T11:05:00Z');
+  const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T11:10:00Z');
   const c = await escribe(eje, b.id, 'c', undefined, 'ana', '2026-11-07T11:30:00Z');
   assert.deepEqual(eje.hilo(c.id).map((e) => e.id), [c.id, b.id, a.id, g]);
+  assert.equal(eje.hilo(c.id).some((e) => e.id === suelto.id), false);
+  // Escribir sobre a con un t anterior al suyo se rechaza.
+  await assert.rejects(escribe(eje, a.id, 'antes', undefined, 'ana', '2026-11-07T10:30:00Z'), /el t del evento \(2026-11-07T10:30:00Z\) es anterior al de su foco/);
 });
 
 test('TOK-19b el eje temporal ordena el pasado por la posición en el hilo, no por la fecha',
   { skip: 'TOK-19: ejeTemporal ordena el pasado por fecha frente a ahora (tiempo.js), no por la posición en el hilo. Terreno de src/tiempo.js (otro agente): no se toca aquí' },
   async () => {
     const { eje, g } = await mundo();
+    // Desde el ciclo E/P/R/T el t de un evento no es anterior al de su foco ([X] confirmar VG): un hilo con b
+    // anterior a a ya no se puede escribir, y por fecha y por posición en el hilo el pasado sale en el mismo orden.
     const a = await escribe(eje, g, 'a', undefined, 'ana', '2026-11-07T11:00:00Z');
-    const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T09:00:00Z');
+    const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T11:10:00Z');
     const c = await escribe(eje, b.id, 'c', undefined, 'ana', '2026-11-07T11:30:00Z');
     const e = ejeTemporal(eje, c.id, { ahora: AHORA });
     assert.deepEqual(e.pasado.map((x) => x.id), eje.hilo(c.id).slice(1).map((x) => x.id));
@@ -1274,10 +1291,12 @@ test('TOK-19b el eje temporal ordena el pasado por la posición en el hilo, no p
 
 test('TOK-20 en el eje 6/7 los registros van al pasado y las proyecciones al futuro; el presente es la costura', async () => {
   const { eje, g } = await mundo();
-  const ayer = await escribe(eje, g, 'ayer', undefined, 'ana', '2026-11-06T12:00:00Z');
+  // Antes de AHORA (12:00) pero no antes del génesis ni del alta de ana (10:00): el t de un evento no es anterior al
+  // de su foco ni al alta de su autor ([X] confirmar VG, src/ciclo.js). Antes iba «ayer», el 6-11.
+  const antes = await escribe(eje, g, 'antes', undefined, 'ana', '2026-11-07T11:00:00Z');
   const manana = await escribe(eje, g, 'mañana', undefined, 'ana', '2026-11-08T12:00:00Z');
   const e = ejeTemporal(eje, g, { ahora: AHORA });
-  assert.ok(e.pasado.some((x) => x.id === ayer.id));
+  assert.ok(e.pasado.some((x) => x.id === antes.id));
   assert.ok(e.futuro.some((x) => x.id === manana.id && x.tipo === 'proyeccion'));
   assert.ok(e.pasado.every((x) => x.delta <= 0));
   assert.ok(e.futuro.filter((x) => x.tipo === 'proyeccion').every((x) => x.delta > 0));
@@ -1287,7 +1306,7 @@ test('TOK-20b Mapped no pinta a la derecha (futuro) lo que ya ocurrió',
   { skip: 'TOK-20: mapped.js pinta a la derecha del foco todos sus hijos, también los ya ocurridos. Depende de cómo se reparten los hijos del foco entre pasado y futuro (ejeTemporal). Terreno de src/tiempo.js (otro agente): no se toca aquí' },
   async () => {
     const { eje, g } = await mundo();
-    const ayer = await escribe(eje, g, 'ayer', undefined, 'ana', '2026-11-06T12:00:00Z');
+    const ayer = await escribe(eje, g, 'ayer', undefined, 'ana', '2026-11-07T11:00:00Z'); // no antes del génesis (src/ciclo.js)
     const derecha = sobrioMapa(mapa(eje, g)).split('] →')[1];
     assert.equal(derecha.includes(ayer.id.slice(0, 8)), false);
   });
@@ -1418,10 +1437,10 @@ test('TOK-30 la capacidad es una serie limitada de quien respalda el recurso; ej
 test('TOK-31 la plaza es una posición donde las reservas colisionan; la segunda solapada se escribe pero no se ejecuta por saldo', async () => {
   // Con la casa como génesis y autora de las reservas; el huésped que reserva es TOK-30 (skip).
   const { eje, hab } = await casaConUnaPlaza();
-  const r1 = await reservaDeLaCasa(eje, hab, 'h1');
-  const r2 = await reservaDeLaCasa(eje, hab, 'h2');
+  const { c: r1, pedido: p1 } = await reservaDeLaCasa(eje, hab, 'h1');
+  const { c: r2, pedido: p2 } = await reservaDeLaCasa(eje, hab, 'h2');
   const enLaPlaza = ocupantes(eje, hab, [1, 4]).map((o) => o.evento);
-  assert.ok(enLaPlaza.includes(r1.id) && enLaPlaza.includes(r2.id)); // se ven todas
+  assert.ok(enLaPlaza.includes(p1.id) && enLaPlaza.includes(p2.id)); // se ven todas
   await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11', 'casa')] });
   await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11', 'casa')] }), /saldo insuficiente/);
   assert.ok(eje.obtener(r2.id)); // escrita sigue

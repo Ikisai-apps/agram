@@ -241,6 +241,14 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * noches [entrada, salida] se anclan en el 7 de la propia reserva (la
  * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
  * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
+ *
+ * Con el tramo, quien reserva deja en manos de recepción confirmar lo que la
+ * casa le entregue sobre su reserva: acuña un P sobre ella (es su registro;
+ * T + R + P: pone en juego un R propio ante recepción) y se lo delega. Sin
+ * eso nadie podría autorizar la entrega de la casa: para autorizar lo que la
+ * casa propone solo cuenta el P sobre un registro del hilo que la casa no
+ * escribió ([X] confirmar VG, src/motor.js poderParaAutorizar), y el de
+ * recepción sobre el Alojamiento lo escribió la casa.
  */
 export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
   const [entrada, salida] = noches;
@@ -261,7 +269,20 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
   const tramo = [entrada, salida];
-  await eje.escribir({ autor, sobre: reserva.id, en: direccion([7]), t, movimientos: [minutos(autor, costeT(tramo))], payload: tramo }, privada);
+  await eje.escribir({
+    autor,
+    sobre: reserva.id,
+    en: direccion([7]),
+    t,
+    movimientos: [
+      minutos(autor, costeT(tramo)),
+      { token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, // su reputación, en juego ante recepción
+      { token: 'R', emisor: autor, cantidad: 1, de: autor, a: 'recepcion' },
+      { token: 'P', ambito: reserva.id, cantidad: 1, de: null, a: autor }, // P sobre su reserva, que escribió
+      { token: 'P', ambito: reserva.id, cantidad: 1, de: autor, a: 'recepcion' }, // y recepción confirma por ella
+    ],
+    payload: tramo,
+  }, privada);
   return reserva;
 }
 

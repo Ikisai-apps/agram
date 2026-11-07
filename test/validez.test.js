@@ -178,9 +178,13 @@ test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
-  // Con P sobre la compra, cocina puede autorizar lo que se consolide sobre ella.
+  // Con P sobre la compra, cocina puede autorizar lo que se consolide sobre ella, salvo lo que proponga quien
+  // escribió la compra: para autorizar solo cuenta el P sobre un registro del hilo que no escribió el autor de la
+  // consolidación ([X] confirmar VG, motor.poderParaAutorizar). Al huésped le autoriza la casa (P sobre el génesis).
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa', 'cocina']);
+  assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa']);
+  const deLaCasa = await consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 1: 'otro menú' } });
+  assert.deepEqual((await validez(eje, deLaCasa.id)).permiso.motor.puedenAutorizar, ['cocina']);
   // Los registros anteriores siguen en ok: cada uno se lee con el libro de su momento.
   for (const id of eje.orden) assert.equal((await validez(eje, id)).acreditacion.estado, 'ok');
 });

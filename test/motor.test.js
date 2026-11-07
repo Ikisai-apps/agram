@@ -117,10 +117,12 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
     if (tramo) await eje.escribir({ autor, sobre: r.id, en: '7000000000', t: tt, movimientos: [gasta(autor, 2)], payload: tramo });
     return r;
   };
+  // Después de los ocupantes (10:10, 10:11…): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
+  const tarde = '2026-12-01T12:00:00Z';
   const validar = async (r) => {
-    const c = await consolidar(eje, { autor: r.autor, foco: r.id, t, elecciones: { 1: 'lo ocupo' } });
-    await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t });
-    await ejecutar(eje, { autor: r.autor, consolidacion: c.id, t });
+    const c = await consolidar(eje, { autor: r.autor, foco: r.id, t: tarde, elecciones: { 1: 'lo ocupo' } });
+    await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t: tarde });
+    await ejecutar(eje, { autor: r.autor, consolidacion: c.id, t: tarde });
     return estadoDe(eje, c.id);
   };
 
@@ -131,7 +133,7 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   assert.deepEqual(tramoDe(eje, anclado.id).extremos, ['2026-12-05', '2026-12-06']);
   assert.equal(tramoDe(eje, anclado.id).desde, eje.sobre(anclado.id, '7000000000')[0].id);
   const deOtro = await ocupar('ana', { en: '2000000000' });
-  await eje.escribir({ autor: 'beto', sobre: deOtro.id, en: '7000000000', t, movimientos: [gasta('beto', 2)], payload: ['2026-12-01', '2026-12-09'] });
+  await eje.escribir({ autor: 'beto', sobre: deOtro.id, en: '7000000000', t: tarde, movimientos: [gasta('beto', 2)], payload: ['2026-12-01', '2026-12-09'] });
   assert.throws(() => tramoDe(eje, deOtro.id), /sin tramo en el 7/);
   // Acotado y legible: sin 7, al revés o sin fechas, error.
   const [sinSiete, alReves, sinFechas] = [await ocupar('ana', { en: '2000000000' }), await ocupar('ana', { en: '2000000000', tramo: ['2026-12-03', '2026-12-01'] }), await ocupar('ana', { en: '2000000000', tramo: 'mañana' })];

@@ -6,10 +6,21 @@
 // Versión 2 (7-11): series de tokens (T por escala, E ligada a su emisor,
 // tipos en el alta). Un eje de la versión 1 no se restaura: se aparta.
 // Versión 3 (7-11 noche): ciclo de vida de E/P/R/T (solo emiten personas,
-// emisión escalonada, bloqueo y liberación, caducidad de E). Lo guardado sigue
-// siendo la lista de eventos, y lo bloqueado se reconstruye al revalidarlos,
-// así que la migración desde la 2 es trivial: cambia el número y se revalida
-// todo con las reglas nuevas (lo que ya no las cumple no se restaura).
+// emisión escalonada, bloqueo y liberación, caducidad de E, el t de un evento
+// no es anterior al de su foco ni al alta de su autor). Lo guardado sigue
+// siendo la lista de eventos, y lo bloqueado se reconstruye al revalidarlos.
+//
+// La migración desde la 2 NO es trivial: un eje de la versión 2 puede tener
+// eventos que las reglas nuevas rechazan (un génesis de grupo, E o R emitidos
+// fuera del génesis sin el escalonado, eventos fechados antes que su foco).
+// Por eso sus eventos se revalidan con las reglas de la versión 2
+// (`eventosV2` = cuántos eventos del principio son de entonces; src/ciclo.js)
+// y las reglas nuevas rigen solo los eventos que se añadan después. Al volver
+// a guardar, `eventosV2` se conserva. Lo que ni las reglas de la versión 2
+// admiten tampoco se restaura.
+// [X] confirmar VG: unos datos de la versión 3 pueden declarar `eventosV2` a
+// mano y pasar con las reglas viejas eventos que nunca fueron de la versión 2;
+// es lo mismo que presentarlos como versión 2, que también se admite.
 
 import { Eje } from './eje.js';
 
@@ -17,12 +28,18 @@ export const VERSION = 3;
 
 /** Versiones anteriores que se migran al restaurar: de cada una, la función que lleva sus datos a la siguiente. */
 const MIGRACIONES = Object.freeze({
-  2: (datos) => ({ ...datos, version: 3 }),
+  // Todos los eventos de un eje v2 se validan con las reglas de la v2.
+  2: (datos) => ({ ...datos, version: 3, eventosV2: Array.isArray(datos.eventos) ? datos.eventos.length : 0 }),
 });
 
-/** Forma guardable del eje: solo los eventos, en orden. */
+/** Forma guardable del eje: los eventos, en orden, y cuántos del principio son de la versión 2 (si alguno lo es). */
 export function serializar(eje) {
-  return { version: VERSION, exigirFirmas: eje.exigirFirmas, eventos: eje.orden.map((id) => eje.obtener(id)) };
+  return {
+    version: VERSION,
+    exigirFirmas: eje.exigirFirmas,
+    ...(eje.eventosV2 > 0 ? { eventosV2: eje.eventosV2 } : {}),
+    eventos: eje.orden.map((id) => eje.obtener(id)),
+  };
 }
 
 /** Lleva datos guardados a la versión actual; los de una versión sin migración se devuelven tal cual. */
@@ -37,7 +54,7 @@ export async function restaurar(guardados) {
   const datos = migrar(guardados);
   if (datos && Number.isInteger(datos.version) && datos.version !== VERSION) throw new Error('eje de la versión ' + datos.version + '; esta es la ' + VERSION);
   if (!datos || datos.version !== VERSION || !Array.isArray(datos.eventos) || !datos.eventos.length) throw new Error('datos de eje inválidos');
-  return Eje.desde(datos.eventos, { exigirFirmas: Boolean(datos.exigirFirmas) });
+  return Eje.desde(datos.eventos, { exigirFirmas: Boolean(datos.exigirFirmas), eventosV2: datos.eventosV2 ?? 0 });
 }
 
 /** Guarda en localStorage si existe; devuelve false si no se pudo. */

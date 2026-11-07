@@ -6,7 +6,7 @@
 //   familia: clave de serie              : quién la emite
 //   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); PROVISIONAL [X]
 //   E  recursos:    E:<emisor>/<denom.>  : una persona, a su nombre o al de un grupo sobre el que tiene P
-//   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro suyo o sobre el que ya tiene P
+//   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
 //   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
 //
 // VG, 7-11 noche: «todos son emitidos por una persona individualmente.
@@ -62,8 +62,11 @@ export const EMITEN = Object.freeze(['persona']);
 /**
  * Estados de un movimiento que no cambia de titular (VG, 7-11 noche): bloquear
  * pasa tokens del disponible al bloqueado de quien los tiene; liberar los
- * devuelve al disponible. Los dos exigen `salida`, la condición verificable de
- * liberación (corpus V10: «LOCK exige salida verificable explícita»).
+ * devuelve al disponible. Los dos exigen `salida`, la condición de liberación
+ * (corpus V10: «LOCK exige salida verificable explícita»). Hoy es una salida
+ * DECLARADA, no verificable todavía: es texto libre y el propio titular libera
+ * cuando quiere. [X] decidir VG qué la hace verificable (p. ej. que la
+ * liberación cite un evento de otra identidad).
  */
 export const ESTADOS = Object.freeze(['bloqueo', 'liberacion']);
 
@@ -101,6 +104,9 @@ export const TOPE_T_MINIMO = 1;
  * escala en el instante `t`: ⌈(t − alta) / SEGUNDOS[escala]⌉, con un mínimo de
  * TOPE_T_MINIMO. `alta` es el instante del evento que la dio de alta (el
  * génesis cuenta como alta de su autor). Lo emitido en el génesis no cuenta.
+ * El alta toma el t del evento que la hace, y ese t no es anterior al de su
+ * foco ni al alta de su autor ([X] confirmar VG, src/ciclo.js): un alta no se
+ * retrofecha para ganar T. Fechar a futuro sí da más T (concesión abierta).
  */
 export function topeT(alta, t, escala) {
   const ms = Date.parse(t) - Date.parse(alta);
@@ -164,7 +170,9 @@ export function validarMovimiento(m) {
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
   if (m.token === 'R') {
     if (!texto(m.emisor)) errores.push('R exige emisor');
-    // VG, 7-11 noche: quien tiene R de otro solo puede devolvérsela a su emisor (pedirle atención).
+    // Regla nueva, [X] confirmar VG: quien tiene R de otro solo puede devolvérsela a su emisor (pedirle
+    // atención). Antes no podía moverla en absoluto; la devolución sale de la «reputación cedida a otros
+    // para requerir atención» de VG, 7-11 noche, pero VG no la ha decidido así.
     else if (m.de !== null && m.de !== m.emisor && m.a !== m.emisor) errores.push('R no es fungible: solo la mueve su emisor ' + m.emisor + '; quien la tiene solo puede devolvérsela');
   }
   // Una serie nace en la cartera de su emisor (E y R); de ahí se mueve.
@@ -186,7 +194,7 @@ export function validarMovimiento(m) {
     if (!ESTADOS.includes(m.estado)) errores.push('estado inválido: ' + m.estado + ' (bloqueo o liberacion)');
     else {
       if (m.de === null || m.a !== m.de) errores.push(m.estado + ': de y a son el mismo titular (no cambia de manos)');
-      if (!texto(m.salida)) errores.push(m.estado + ' exige salida: la condición verificable de liberación');
+      if (!texto(m.salida)) errores.push(m.estado + ' exige salida: la condición de liberación, declarada (no verificable todavía)');
     }
   } else if (m.salida !== undefined) errores.push('salida solo con estado (bloqueo o liberacion)');
   if (m.caduca !== undefined) {

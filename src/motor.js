@@ -179,17 +179,36 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
 }
 
 /**
+ * El P de `identidad` que cuenta para autorizar lo que `autorPropuesta`
+ * propone sobre `foco`: [{ ambito, cantidad }]. Cuenta el P sobre un ámbito
+ * del hilo del foco (el eje entero, «genesis», es el registro del génesis)
+ * cuyo registro NO escribió quien propone. Autoriza el dominio ajeno (la casa
+ * sobre la compra del huésped), nunca el P acuñado por quien propone sobre lo
+ * suyo: ese sirve para delegar criterio sobre lo suyo (que otros propongan
+ * ahí), no para autorizar lo que él mismo propone. Si no, el autor acuña P
+ * sobre su registro, lo delega a una identidad títere y esa le autoriza.
+ * [X] confirmar VG (regla de Core, 7-11 noche).
+ */
+export function poderParaAutorizar(eje, identidad, foco, autorPropuesta) {
+  if (!eje.obtener(foco)) return [];
+  const autorDe = new Map(eje.hilo(foco).map((e) => [e.id, e.autor]));
+  autorDe.set(AMBITO_GENESIS, eje.obtener(eje.genesisId)?.autor);
+  return eje.poderes(identidad).filter((p) => autorDe.has(p.ambito) && autorDe.get(p.ambito) !== autorPropuesta);
+}
+
+/**
  * Quién puede autorizar (regla V0, por defecto hasta que VG decida otra):
- * una identidad con poder (saldo de P > 0) distinta del autor de la
- * consolidación. Quién ejecuta: el autor de la consolidación.
+ * una identidad distinta del autor de la consolidación con P > 0 que cuente
+ * (poderParaAutorizar: sobre un registro del hilo que no escribió el autor).
+ * Quién ejecuta: el autor de la consolidación.
  */
 export function puedeAutorizar(eje, identidad, consolidacion) {
   const c = eje.obtener(consolidacion);
-  return Boolean(c) && identidad !== c.autor && eje.poderSobre(identidad, consolidacion) > 0;
+  return Boolean(c) && identidad !== c.autor && poderParaAutorizar(eje, identidad, consolidacion, c.autor).reduce((s, p) => s + p.cantidad, 0) > 0;
 }
 
 /** La regla de autorización que se aplica hoy: un hueco provisional hasta AARPIA (MAPA §12). */
-export const REGLA_AUTORIZAR = 'V0 provisional hasta AARPIA: autoriza quien tiene P > 0 sobre el registro y no es su autor; ejecuta el autor';
+export const REGLA_AUTORIZAR = 'V0 provisional hasta AARPIA: autoriza quien no es el autor y tiene P > 0 sobre un registro del hilo que el autor no escribió ([X] confirmar VG); ejecuta el autor';
 
 /**
  * Autorizar: un registro de quien autoriza, anclado a la consolidación.
@@ -203,11 +222,12 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (!puedeAutorizar(eje, autorizante, consolidacion)) {
-    throw new Error(autorizante === c.autor ? 'el autor no se autoriza a sí mismo' : autorizante + ' no tiene poder (P) sobre este registro');
+    throw new Error(autorizante === c.autor
+      ? 'el autor no se autoriza a sí mismo'
+      : autorizante + ' no tiene poder (P) sobre este registro que cuente para autorizar a ' + c.autor + ': solo cuenta el P sobre un registro del hilo que ' + c.autor + ' no escribió');
   }
   if (estadoDe(eje, consolidacion) !== 'PENDIENTE DE AUTORIZACIÓN') throw new Error('ya está ' + estadoDe(eje, consolidacion).toLowerCase());
-  const hilo = new Set(eje.hilo(consolidacion).map((e) => e.id));
-  const poderes = eje.poderes(autorizante).filter((p) => p.ambito === AMBITO_GENESIS || hilo.has(p.ambito));
+  const poderes = poderParaAutorizar(eje, autorizante, consolidacion, c.autor);
   return escribirDesde(eje, {
     modo: 'pointed',
     autor: autorizante,

@@ -951,10 +951,13 @@ test('BTML-63 herencia por referencia: las celdas vacías anteriores a la últim
 
 test('BTML-64 un hilo es la cadena de registros encadenados por referencia hasta el génesis, no una secuencia temporal', async () => {
   const { eje, id } = await ejeCon(['Casa']);
+  // El t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js), así que el hilo no puede ir
+  // hacia atrás en el reloj; lo que muestra que no es una secuencia temporal es lo que queda fuera: «suelto» se
+  // escribió entre a y b y no está en el hilo.
   const a = await escribe(eje, id, 'a', undefined, 'raiz', '2026-11-07T12:00:00Z');
-  const b = await escribe(eje, a.id, 'b', undefined, 'raiz', '2026-11-07T08:00:00Z'); // anterior en el reloj
-  const suelto = await escribe(eje, id, 'suelto', undefined, 'raiz', '2026-11-07T11:00:00Z');
-  const c = await escribe(eje, b.id, 'c', undefined, 'raiz', '2026-11-07T09:00:00Z');
+  const suelto = await escribe(eje, id, 'suelto', undefined, 'raiz', '2026-11-07T12:10:00Z');
+  const b = await escribe(eje, a.id, 'b', undefined, 'raiz', '2026-11-07T12:20:00Z');
+  const c = await escribe(eje, b.id, 'c', undefined, 'raiz', '2026-11-07T12:30:00Z');
   assert.deepEqual(eje.hilo(c.id).map((e) => e.id), [c.id, b.id, a.id, id]);
   assert.equal(eje.hilo(c.id).some((e) => e.id === suelto.id), false);
 });

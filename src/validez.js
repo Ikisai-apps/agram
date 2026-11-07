@@ -28,11 +28,11 @@ import { ARIDAD, esReferencia, esDireccion, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo } from './ciclo.js';
+import { reglasDelCiclo, EMITEN_V2 } from './ciclo.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
-import { estadoDe, puedeAutorizar, autorizacionesValidas, FABRICA } from './motor.js';
+import { estadoDe, puedeAutorizar, poderParaAutorizar, autorizacionesValidas, FABRICA, REGLA_AUTORIZAR } from './motor.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -111,6 +111,8 @@ function libroAntes(eje, hasta) {
   const libro = {
     saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
     altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
+    // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
+    reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
   };
   for (let k = 0; k < hasta; k++) aplicar(eje, libro, eje.obtener(eje.orden[k]));
   return libro;
@@ -129,6 +131,7 @@ function contextoCiclo(eje, libro) {
     registro: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
     ambitosQueCubren: (ambito) => eje.ambitosQueCubren(ambito),
     saldo: (id, k) => saldoEn(libro, id, k),
+    reglas: libro.reglas,
   };
 }
 
@@ -368,8 +371,13 @@ function capaAcreditacion(eje, ev, libro) {
   const verB = (id, k, salida) => (vistaB.has(JSON.stringify([id, k, salida])) ? vistaB.get(JSON.stringify([id, k, salida])) : bloqueadoEn(libro, id, k, salida));
   const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
   // El respaldo de las emisiones según el ciclo (src/ciclo.js): el tope del reloj en T, un registro existente en P, la caducidad de la serie en E.
+  // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
   const delCiclo = new Map();
-  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro))) if (e.capa === 4 && e.i !== null && !delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
+  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro))) {
+    if (e.capa !== 4) continue;
+    if (e.i === null) r.falla(e.texto);
+    else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
+  }
   const movimientos = [];
   const movs = lista(ev.movimientos);
   // Un evento no cambia: lo que no se puede comprobar ahora no se podrá nunca, así que falla (no pendiente).
@@ -452,7 +460,7 @@ function permisoDelLibro(eje, ev, libro) {
     if (!TIPOS.includes(tipo)) r.falla('tipo inválido para ' + id + ': ' + tipo);
     else if (esGenesis) {
       if (id !== ev.autor) r.falla('el génesis solo declara el tipo de su autor');
-      else if (!EMITEN.includes(tipo)) r.falla('el génesis lo emite una persona: su autor no puede ser ' + tipo);
+      else if (!(libro.reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) r.falla('el génesis lo emite una persona: su autor no puede ser ' + tipo);
     } else if (libro.tipos.has(id) || libro.identidades.has(id)) r.falla('no se puede cambiar el tipo de ' + id);
     else if (!lista(ev.movimientos).some((m) => m?.a === id)) r.falla('tipo declarado para ' + id + ' sin darle tokens');
   }
@@ -463,7 +471,7 @@ function permisoDelLibro(eje, ev, libro) {
 function quienesPuedenAutorizar(eje, ev, id, enEje) {
   return eje.identidades().filter((x) => (enEje
     ? puedeAutorizar(eje, x, id)
-    : x !== ev.autor && Boolean(eje.obtener(ev.sobre)) && eje.poderSobre(x, ev.sobre) > 0));
+    : x !== ev.autor && poderParaAutorizar(eje, x, ev.sobre, ev.autor).reduce((s, p) => s + p.cantidad, 0) > 0));
 }
 
 /** Por qué una autorización no cuenta; vacío si cuenta. */
@@ -472,7 +480,7 @@ function faltasDeAutorizacion(eje, ev) {
   if (!c || c.contexto?.fase !== 'consolidado') return [['falla', 'no es sobre una consolidación: no autoriza nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor === c.autor) return [['falla', 'el autor no se autoriza a sí mismo']];
-  if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro: el escrito existe, pero no cuenta']];
+  if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro que cuente para autorizar a ' + c.autor + ' (solo cuenta el P sobre un registro del hilo que ' + c.autor + ' no escribió): el escrito existe, pero no cuenta']];
   return [];
 }
 
@@ -554,7 +562,7 @@ function capaPermiso(eje, ev, libro, id, enEje) {
   return parte(5, estado, [...delLibro.textos, ...delMotor.textos], resumen, {
     libro: { estado: delLibro.estado, motivos: delLibro.textos },
     motor,
-    regla: 'V0 provisional hasta AARPIA: autoriza quien tiene P > 0 sobre el registro y no es su autor; ejecuta el autor',
+    regla: REGLA_AUTORIZAR,
     externa: SIN_CONFIRMAR,
   });
 }
