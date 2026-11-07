@@ -2,26 +2,34 @@
 // ve en su mundo. Sobrio y animado son dos renders de la misma operación
 // (FUNDAMENTOS): los dos leen esta lista.
 //
-// Un efecto se deriva SOLO del evento, sin estado aparte: de su payload, de
-// sus movimientos y de su contexto. Lo único que se mira fuera es su foco (el
-// registro al que apunta `sobre`), para saber si una celda ya tenía algo.
-// Tres fuentes, en este orden:
-// - cada celda emitida: posición i, subposición j y clase k son los tres
-//   dígitos que siguen al anclaje `en` (mapa §13 [D]: la matriz 10×10×10 es
-//   relativa al camino; la clase es el dígito en la profundidad n+2). Las
-//   referencias al foco son herencia, no efecto, salvo que el registro las
-//   marque como vistas;
-// - cada movimiento de tokens: serie, cantidad, de y a;
-// - la fase del motor que registra el evento (contexto.fase).
-// Cada efecto: { mundo: el PV de su posición (época 0), celda: dirección de
-// diez dígitos, clase, tipo, nombre } y, para leer, metáfora, fuente y, si
-// el corpus no lo nombra, «[X] decidir VG». Los nombres viven en
-// datos/efectos.json (por mundo y por tipo); datos/efectos.js es su copia
-// importable, generada.
+// Un efecto sale del evento y de lo que el núcleo ya sabe de él; no guarda
+// estado aparte. Fuera del evento se mira lo justo (docs/EFECTOS.md, «De
+// dónde sale»): el foco y lo escrito antes en la misma dirección, para saber
+// si el registro colisiona (src/encaje.js), y, en los registros del motor, si
+// el motor reconoce su fase (src/motor.js). Cuatro fuentes, en este orden:
+// - el registro entero: ocupa la dirección `en` del foco como un ocupante más
+//   (encaje.ocupantes). Si ya tenía ocupantes antes que él, colisiona:
+//   sustituir; si es el primero donde el foco no llega, anclado. Su posición,
+//   subposición y clase son los tres dígitos de `en` leídos desde la raíz del
+//   foco (mapa §13 [D] con n = 0; el registro no guarda su camino: [X]);
+// - lo que trae dentro, celda a celda, en la misma lectura: la celda de un
+//   nodo es `en` seguido de su ruta, hasta la profundidad 3. Leer así un
+//   registro cualquiera como la matriz 10×10×10 está decidido solo para el
+//   registro de salida de la fábrica: [X];
+// - cada movimiento de tokens, que no ocurre en una celda sino entre carteras;
+// - la fase de un registro del motor (contexto.fase), si el motor la
+//   reconoce; si no, ruido. Un registro del motor no se lee celda a celda: su
+//   payload tiene el formato del motor.
+// Cada efecto: { evento, tipo, mundo, celda, clase, … } con su nombre,
+// metáfora y fuente del catálogo, y en `decisiones` las marcas «[X] decidir
+// VG» que le tocan. Los nombres viven en datos/efectos.json (por mundo y por
+// tipo); datos/efectos.js es su copia importable, generada.
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { claveToken } from './tokens.js';
 import { RAIZ } from './evento.js';
+import { ocupantes } from './encaje.js';
+import { FABRICA, FASES as FASES_MOTOR, autorizacionesValidas, consolidaciones } from './motor.js';
 import { CATALOGO_EFECTOS } from '../datos/efectos.js';
 
 function congelar(x) {
@@ -35,14 +43,17 @@ function congelar(x) {
 /** El catálogo entero (datos/efectos.json), congelado. */
 export const CATALOGO = congelar(CATALOGO_EFECTOS);
 
-/** Tipos de efecto. Los seis primeros son de celda; token y fase, del evento. */
-export const TIPOS = Object.freeze(['ver', 'sustituir', 'escrito', 'anclado', 'impulso', 'modificar', 'token', 'fase']);
+/** Tipos de efecto: los seis primeros, del registro o de una celda suya; token, de un movimiento; fase y ruido, de un registro del motor. */
+export const TIPOS_EFECTO = Object.freeze(['ver', 'sustituir', 'anclado', 'escrito', 'impulso', 'modificar', 'token', 'fase', 'ruido']);
 
-/** Fases del motor con efecto: las del catálogo, que una prueba mantiene iguales a las de src/motor.js. */
-export const FASES = Object.freeze(Object.keys(CATALOGO.tipos.fase.generico));
+/** Marcas «[X] decidir VG» que un efecto puede llevar (datos/efectos.json, `marcas`). */
+export const MARCAS_EFECTO = CATALOGO.marcas;
 
 /** Marca de lo que el catálogo no nombra en un mundo. */
-export const SIN_NOMBRE = '[X] decidir VG: el corpus no nombra este efecto en este mundo';
+export const SIN_NOMBRE = CATALOGO.marcas.sinNombre;
+
+/** Profundidad de la matriz: posición, subposición y clase. */
+const MATRIZ = 3;
 
 /** Nombre corto del mundo de un PV: «lente», «ciudad», «hilos del pasado»… */
 export function nombreMundo(pv) {
@@ -51,16 +62,74 @@ export function nombreMundo(pv) {
   return m.nombre;
 }
 
-/** Clase de una celda relativa al anclaje: el dígito en la profundidad n+2, con n la del anclaje (mapa §13). */
-export function claseRelativa(celda, en = RAIZ) {
-  if (!esDireccion(celda) || !esDireccion(en)) throw new TypeError('celda y anclaje son direcciones de diez dígitos');
-  const n = indicesDe(en).length;
+function comoCamino(marco) {
+  if (typeof marco === 'string') {
+    if (!esDireccion(marco)) throw new TypeError('el marco es una dirección de diez dígitos o una lista de índices');
+    return indicesDe(marco);
+  }
+  if (!Array.isArray(marco) || marco.length > ARIDAD || marco.some((x) => !Number.isInteger(x) || x < 0 || x > 9)) {
+    throw new TypeError('el marco es una dirección de diez dígitos o una lista de índices');
+  }
+  return marco;
+}
+
+/**
+ * Clase de una celda vista desde un camino (el marco): el dígito en la
+ * profundidad n+2, con n la del marco (mapa §13 [D]). El marco es una lista
+ * de índices (exacta: [1, 0] no es [1]) o una dirección; por defecto, la
+ * raíz. La celda ha de estar bajo el marco.
+ */
+export function claseRelativa(celda, marco = []) {
+  if (!esDireccion(celda)) throw new TypeError('la celda es una dirección de diez dígitos');
+  const m = comoCamino(marco);
+  const n = m.length;
+  if (celda.slice(0, n) !== direccion(m).slice(0, n)) throw new RangeError('la celda ' + celda + ' no está bajo el marco ' + (m.join('.') || 'raíz'));
   return n + 2 < ARIDAD ? Number(celda[n + 2]) : 0;
 }
 
-// ---------- celdas ----------
+/** Posición, subposición y clase de un camino exacto visto desde un marco, y su celda. */
+function situar(camino, marco) {
+  const n = marco.length;
+  const i = camino[n] ?? 0;
+  const j = camino[n + 1] ?? 0;
+  const k = camino[n + 2] ?? 0;
+  return { mundo: i, celda: direccion(camino), camino, marco, posicion: i, subposicion: j, clase: k, etiqueta: [i, j, k].join('.') };
+}
 
-const etiqueta = (ruta) => ruta.join('.');
+const tipoPorClase = (k) => (k === 1 ? 'impulso' : k >= 2 ? 'modificar' : null);
+
+// ---------- el registro entero ----------
+
+/**
+ * Ocupantes de la dirección `en` del foco que estaban antes que el registro:
+ * los del propio foco (sus caminos y lo que alcanzan sus referencias) y lo
+ * escrito allí antes que él (encaje.ocupantes). Lo escrito después no cuenta.
+ */
+function ocupantesPrevios(eje, ev, foco, en) {
+  const hermanos = eje.sobre(foco.id, en);
+  const k = hermanos.findIndex((h) => h.id === ev.id);
+  const antes = new Set((k < 0 ? hermanos : hermanos.slice(0, k)).map((h) => h.id));
+  return ocupantes(eje, foco.id, indicesDe(en), { orden: 'llegada' })
+    .filter((o) => o.origen !== 'escrito' || antes.has(o.evento))
+    .map((o) => ({ origen: o.origen, evento: o.evento, camino: o.camino }));
+}
+
+/**
+ * El registro como ocupante de su dirección. Un escrito ocupa la dirección
+ * entera (encaje: sus caminos con ceros finales colisionan en ella), así que
+ * su camino es el de `en` sin ceros finales. Clase 0: ver si el registro es
+ * una referencia a su foco; sustituir si colisiona; anclado si es el primero.
+ */
+function efectoDelRegistro(eje, ev, foco, en) {
+  const sitio = situar(indicesDe(en), []);
+  if (!foco) return { tipo: 'escrito', ...sitio, ruta: [], colisiona: 0, con: [] };
+  const con = ocupantesPrevios(eje, ev, foco, en);
+  const verFoco = esReferencia(ev.payload) && ev.payload.ref === ev.sobre;
+  const tipo = tipoPorClase(sitio.clase) ?? (verFoco ? 'ver' : con.length ? 'sustituir' : 'anclado');
+  return { tipo, ...sitio, ruta: [], colisiona: con.length, con };
+}
+
+// ---------- lo que trae dentro ----------
 
 /** Etiqueta normalizada a tres dígitos: 2 → «2.0.0», «2.1» → «2.1.0». */
 function normal(e) {
@@ -69,83 +138,96 @@ function normal(e) {
   return r.join('.');
 }
 
-function marcas(lista) {
+function marcasDe(lista) {
   return Array.isArray(lista) ? new Set(lista.map(normal)) : null;
 }
 
-function nodoEn(payload, camino) {
-  let nodo = payload;
-  for (const x of camino) {
-    if (!Array.isArray(nodo)) return undefined;
-    nodo = nodo[x];
-  }
-  return nodo;
-}
-
 /**
- * Si un payload tiene algo en un camino exacto, sin seguir referencias. Los
- * ceros finales nombran la colisión (mapa §12): 4.0 alcanza la posición 4.
- */
-function tieneContenido(payload, camino) {
-  const c = [...camino];
-  while (c.length && c[c.length - 1] === 0) c.pop();
-  return nodoEn(payload, c) !== undefined;
-}
-
-/**
- * Celdas de un registro, relativas a su anclaje. Un array DESARROLLA la
- * posición `en`: cada nodo del payload a profundidad 3 (o un terminal antes)
- * es la celda i.j.k bajo `en`, y lo que cuelgue debajo es contenido de esa
- * celda. Un terminal OCUPA la posición `en`: lo escrito va en el PV donde se
- * escribe (VG, 6-11), así que su celda es la propia `en`, su posición su
- * último dígito (la raíz, 0) y su clase 0.
+ * Celdas de un array: cada nodo cuya dirección (`en` seguido de su ruta)
+ * llega a la profundidad 3, o un terminal antes; lo que cuelga más hondo es
+ * contenido de esa celda. La posición 0, 0.0… es la representación del
+ * registro: colisiona con él en su dirección (encaje.caminosDe) y no da un
+ * efecto aparte.
  */
 function celdasDe(ev, en) {
-  const anclaje = indicesDe(en);
-  if (!Array.isArray(ev.payload)) {
-    const i = anclaje.length ? anclaje[anclaje.length - 1] : 0;
-    return [{ ruta: [], i, j: 0, k: 0, nodo: ev.payload, absoluta: anclaje, celda: en }];
-  }
+  if (!Array.isArray(ev.payload)) return [];
+  const base = indicesDe(en);
   const celdas = [];
   const recorrer = (nodo, ruta) => {
-    if (Array.isArray(nodo) && ruta.length < 3 && anclaje.length + ruta.length < ARIDAD) {
+    const camino = [...base, ...ruta];
+    if (Array.isArray(nodo) && camino.length < MATRIZ) {
       nodo.forEach((h, x) => recorrer(h, [...ruta, x]));
       return;
     }
-    const [i = 0, j = 0, k = 0] = ruta;
-    const absoluta = [...anclaje, ...ruta];
-    celdas.push({ ruta, i, j, k, nodo, absoluta, celda: direccion(absoluta) });
+    if (ruta.every((x) => x === 0)) return;
+    celdas.push({ ruta, camino, nodo });
   };
   recorrer(ev.payload, []);
   return celdas;
 }
 
 /**
- * Tipo de una celda, o null si es herencia (no es efecto).
- * 1. Referencia al foco: herencia, salvo que el registro la marque como vista
- *    (contexto.vistas; o fuera de contexto.heredadas si las lista; o porque
- *    el registro entero es esa referencia). Ver es clase 0.
- * 2. Clase 1: impulso. Clases 2–9: modificar.
- * 3. Clase 0 con contenido: sustituir si el foco ya tiene algo en la celda;
- *    anclado si el foco no tiene nada donde se ancla el registro (lo lejano);
- *    escrito si no (una hoja nueva de una rama que existe). Sin foco
- *    (génesis), escrito.
+ * Tipo de una celda de dentro, o null si es herencia. Una referencia al foco
+ * es herencia salvo que el registro la marque como vista (contexto.vistas; o
+ * fuera de contexto.heredadas si las lista, como la PR #40); las marcas
+ * nombran la ruta en el payload («i.j»). Ver es clase 0. Lo demás, por su
+ * clase: 0 escrito, 1 impulso, 2–9 modificar. Una celda de dentro no
+ * colisiona: el núcleo solo cuenta como ocupante el registro entero.
  */
-function tipoDe(ev, c, foco, anclaje, vistas, heredadas) {
+function tipoDeCelda(ev, c, clase, vistas, heredadas) {
   if (esReferencia(c.nodo) && c.nodo.ref === ev.sobre) {
-    if (c.k !== 0) return null;
-    const e = normal(etiqueta(c.ruta.length ? c.ruta : [0]));
+    if (clase !== 0) return null;
+    const e = normal(c.ruta.join('.'));
     if (vistas?.has(e)) return 'ver';
     if (heredadas && !heredadas.has(e)) return 'ver';
-    if (!c.ruta.length) return 'ver';
     return null;
   }
-  if (c.k === 1) return 'impulso';
-  if (c.k >= 2) return 'modificar';
-  if (!foco) return 'escrito';
-  if (tieneContenido(foco.payload, c.absoluta)) return 'sustituir';
-  if (!tieneContenido(foco.payload, anclaje)) return 'anclado';
-  return 'escrito';
+  return tipoPorClase(clase) ?? 'escrito';
+}
+
+// ---------- el motor ----------
+
+/** Lo que el motor reconoce de un registro con fase: { cuenta, motivo }. Sigue a src/motor.js. */
+function faseReconocida(eje, ev) {
+  const fase = ev.contexto.fase;
+  if (!eje.obtener(ev.id)) return { cuenta: false, motivo: 'no está en el eje' };
+  const en = ev.en ?? RAIZ;
+  if (fase === 'consolidado') {
+    // consolidaciones() lista las ancladas en la posición 4 de su camino.
+    const camino = indicesDe(en).slice(0, -1);
+    const listada = consolidaciones(eje, ev.sobre, camino).some((c) => c.id === ev.id);
+    return listada ? { cuenta: true } : { cuenta: false, motivo: 'fuera de la fábrica: el motor consolida en la posición 4 de su camino' };
+  }
+  const c = eje.obtener(ev.sobre);
+  if (c?.contexto?.fase !== 'consolidado') return { cuenta: false, motivo: 'no es sobre una consolidación' };
+  if (en !== FABRICA) return { cuenta: false, motivo: 'fuera de la fábrica de la consolidación' };
+  if (fase === 'autorizado') {
+    const validas = autorizacionesValidas(eje, c.id);
+    if (!validas.some((a) => a.id === ev.id)) {
+      return { cuenta: false, motivo: ev.autor === c.autor ? 'el autor no se autoriza a sí mismo' : 'sin poder (P) sobre la consolidación' };
+    }
+    // autorizar() rechaza una segunda; ejecutar() toma la primera como evidencia.
+    return validas[0].id === ev.id ? { cuenta: true } : { cuenta: false, motivo: 'ya estaba autorizada' };
+  }
+  // ejecutado: la misma condición con la que estadoDe() da EJECUTADO.
+  if (ev.autor !== c.autor) return { cuenta: false, motivo: 'ejecuta quien no es el autor de la consolidación' };
+  const valida = (e) => e.contexto?.fase === 'ejecutado' && e.autor === c.autor && (e.contexto.evidencia ?? []).every((id) => eje.obtener(id));
+  if (!valida(ev)) return { cuenta: false, motivo: 'evidencia rota' };
+  const primera = eje.sobre(c.id, FABRICA).find(valida);
+  return primera.id === ev.id ? { cuenta: true } : { cuenta: false, motivo: 'ya estaba ejecutada' };
+}
+
+/** Lo que consolidó cada posición: elegida (una referencia), nueva (un terminal) o heredada del foco (un hueco). */
+function eleccionesDe(ev, camino) {
+  if (!Array.isArray(ev.payload)) return [];
+  const elegidas = new Set((ev.contexto.encaje ?? []).map((e) => e.posicion));
+  return ev.payload.slice(1).map((x, k) => {
+    const posicion = k + 1;
+    const celda = camino.length < ARIDAD ? direccion([...camino, posicion]) : null;
+    if (!esReferencia(x)) return { posicion, celda, desde: 'nueva' };
+    const desde = x.ref === ev.sobre && !elegidas.has(posicion) ? 'heredada' : 'elegida';
+    return { posicion, celda, desde, ref: x.ref, dir: x.dir ?? RAIZ };
+  });
 }
 
 // ---------- nombres ----------
@@ -173,30 +255,31 @@ function generico(ef) {
   return CATALOGO.tipos[ef.tipo].generico;
 }
 
-function lectura(e) {
-  return { nombre: e.nombre, metafora: e.metafora, fuente: e.fuente, ...(e.decision ? { decision: e.decision } : {}) };
-}
-
-function nombrar(ef) {
+/** Nombre, metáfora y fuente en un mundo, con las marcas: la del nombre primero, después las del efecto. */
+function nombrar(ef, marcas) {
   const e = entrada(ef.mundo, ef);
-  return e ? lectura(e) : { nombre: generico(ef), metafora: null, fuente: null, decision: SIN_NOMBRE };
+  const deClase = ef.tipo === 'modificar' && CATALOGO.clases[ef.clase]?.decision.startsWith('[X]') ? [CATALOGO.clases[ef.clase].decision] : [];
+  const decisiones = [...new Set([e ? e.decision : SIN_NOMBRE, ...deClase, ...marcas])];
+  return e ? { nombre: e.nombre, metafora: e.metafora, fuente: e.fuente, decisiones } : { nombre: generico(ef), metafora: null, fuente: null, decisiones };
 }
 
 /**
  * Cómo se ve un efecto desde otro mundo (los hilos ven entrar lo escrito por
  * la izquierda; el camino previsualiza una consolidación…); null si ese
- * mundo no lo declara.
+ * mundo no lo declara. `decisiones` lleva la marca del nombre en ese mundo;
+ * las del efecto siguen en el efecto.
  */
 export function verEn(efecto, mundo) {
   const e = entrada(mundo, efecto);
-  return e ? { mundo, ...lectura(e) } : null;
+  return e ? { mundo, nombre: e.nombre, metafora: e.metafora, fuente: e.fuente, decisiones: [e.decision] } : null;
 }
 
 // ---------- efectos ----------
 
 /**
- * Efectos de un evento (o de su id): las celdas emitidas, los movimientos de
- * tokens y la fase del motor, en ese orden. No escribe ni guarda nada.
+ * Efectos de un evento (o de su id): el registro entero, lo que trae dentro,
+ * los movimientos de tokens y la fase del motor, en ese orden. No escribe ni
+ * guarda nada.
  */
 export function efectosDe(eje, evento) {
   const ev = typeof evento === 'string' ? eje?.obtener(evento) : evento;
@@ -208,29 +291,42 @@ export function efectosDe(eje, evento) {
     foco = eje?.obtener(ev.sobre);
     if (!foco) throw new Error('foco desconocido: ' + String(ev.sobre).slice(0, 8));
   }
-  const anclaje = indicesDe(en);
-  const vistas = marcas(ev.contexto?.vistas);
-  const heredadas = marcas(ev.contexto?.heredadas);
   const efectos = [];
-  const anadir = (ef) => efectos.push({ evento: ev.id, ...ef, ...nombrar(ef) });
+  const anadir = (ef, marcas = []) => efectos.push({ evento: ev.id, ...ef, ...nombrar(ef, marcas) });
+  // Fuera de la raíz, el registro no dice desde qué camino se escribió.
+  const sinCamino = en === RAIZ ? [] : [MARCAS_EFECTO.marco];
+  const fase = FASES_MOTOR.includes(ev.contexto?.fase) && foco ? ev.contexto.fase : null;
 
-  for (const c of celdasDe(ev, en)) {
-    const tipo = tipoDe(ev, c, foco, anclaje, vistas, heredadas);
-    if (tipo) anadir({ tipo, mundo: c.i, celda: c.celda, clase: c.k, posicion: c.i, subposicion: c.j, etiqueta: [c.i, c.j, c.k].join('.') });
+  if (!fase) {
+    anadir(efectoDelRegistro(eje, ev, foco, en), sinCamino);
+    const vistas = marcasDe(ev.contexto?.vistas);
+    const heredadas = marcasDe(ev.contexto?.heredadas);
+    for (const c of celdasDe(ev, en)) {
+      const sitio = situar(c.camino, []);
+      const tipo = tipoDeCelda(ev, c, sitio.clase, vistas, heredadas);
+      if (tipo) anadir({ tipo, ...sitio, ruta: c.ruta }, [MARCAS_EFECTO.matriz, ...sinCamino]);
+    }
   }
 
   for (const m of ev.movimientos ?? []) {
     const familia = CATALOGO.familias[m.token];
     if (!familia) throw new Error('familia de token sin mundo: ' + m.token);
     const movimiento = m.de === null ? 'emitir' : m.a === null ? 'consumir' : 'mover';
-    anadir({ tipo: 'token', mundo: familia.mundo, celda: en, clase: familia.clase, movimiento, token: m.token, serie: claveToken(m), cantidad: m.cantidad, de: m.de, a: m.a });
+    anadir({ tipo: 'token', mundo: familia.mundo, celda: null, clase: familia.clase, movimiento, token: m.token, serie: claveToken(m), cantidad: m.cantidad, de: m.de, a: m.a }, [MARCAS_EFECTO.familia]);
   }
 
-  const fase = ev.contexto?.fase;
-  if (FASES.includes(fase)) {
-    // La fase está donde se ancla el registro, leída como un terminal: su
-    // clase sale 0, como en la fábrica de la PR #40 ([X] decidir VG).
-    anadir({ tipo: 'fase', mundo: anclaje.length ? anclaje[anclaje.length - 1] : 0, celda: en, clase: 0, fase });
+  if (fase) {
+    const { cuenta, motivo } = faseReconocida(eje, ev);
+    if (cuenta) {
+      // El motor ancla sus registros en la fábrica de su camino: `en` es ese camino seguido de 4.
+      const camino = indicesDe(en);
+      const sitio = situar(camino, camino.slice(0, -1));
+      const detalle = fase === 'consolidado' ? { elecciones: eleccionesDe(ev, sitio.marco) } : fase === 'ejecutado' ? { evidencia: [...(ev.contexto.evidencia ?? [])] } : {};
+      anadir({ tipo: 'fase', fase, ...sitio, ruta: [], ...detalle }, [MARCAS_EFECTO.claseFase]);
+    } else {
+      const sitio = situar(indicesDe(en), []);
+      anadir({ tipo: 'ruido', fase, motivo, ...sitio, ruta: [] }, sinCamino);
+    }
   }
   return efectos;
 }
@@ -242,19 +338,24 @@ export function efectosDelEje(eje) {
 
 // ---------- renders ----------
 
+function lugarDe(e) {
+  return e.celda ?? e.serie;
+}
+
 function detalleDe(e) {
-  if (e.tipo === 'token') return e.serie + ' ' + e.cantidad + ' ' + (e.de ?? '∅') + '→' + (e.a ?? '∅');
+  if (e.tipo === 'token') return e.cantidad + ' ' + (e.de ?? '∅') + '→' + (e.a ?? '∅');
   if (e.tipo === 'fase') return e.fase;
-  return e.etiqueta + ' ' + e.tipo;
+  if (e.tipo === 'ruido') return e.fase + ': ' + e.motivo;
+  return (e.ruta.length ? '' : 'registro ') + e.etiqueta + ' ' + e.tipo;
 }
 
 /**
- * Render sobrio: una línea por efecto, «mundo · efecto · celda». Con
- * `detalle`, añade qué fue: la celda relativa y su tipo, la serie con su
- * cantidad y su sentido, o la fase.
+ * Render sobrio: una línea por efecto, «mundo · efecto · lugar». El lugar es
+ * la celda; en un movimiento de tokens, la serie. Con `detalle`, añade qué
+ * fue: la celda relativa y su tipo, la cantidad y su sentido, o la fase.
  */
 export function sobrio(efectos, { detalle = false } = {}) {
-  return efectos.map((e) => [nombreMundo(e.mundo), e.nombre, e.celda, ...(detalle ? [detalleDe(e)] : [])].join(' · ')).join('\n');
+  return efectos.map((e) => [nombreMundo(e.mundo), e.nombre, lugarDe(e), ...(detalle ? [detalleDe(e)] : [])].join(' · ')).join('\n');
 }
 
 /** El animado llega con los mundos (big picture §6, tandas 4 a 6): leerá esta misma lista. */

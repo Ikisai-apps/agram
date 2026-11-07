@@ -2,25 +2,30 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, FABRICA, FASES } from '../src/motor.js';
+import { descubrir, consolidar, autorizar, ejecutar, estadoDe, FABRICA, FASES } from '../src/motor.js';
+import { ocupantes } from '../src/encaje.js';
 import { Eje } from '../src/eje.js';
-import { esDireccion } from '../src/btml.js';
+import { esDireccion, direccion } from '../src/btml.js';
 import { FAMILIAS } from '../src/tokens.js';
+import * as indice from '../src/index.js';
+import * as efectosModulo from '../src/efectos.js';
 import { generar } from '../datos/generar-efectos.mjs';
 import {
-  CATALOGO, TIPOS, FASES as FASES_CON_EFECTO, SIN_NOMBRE, efectosDe, efectosDelEje, verEn, sobrio, render, nombreMundo, claseRelativa,
+  CATALOGO, TIPOS_EFECTO, MARCAS_EFECTO, SIN_NOMBRE, efectosDe, efectosDelEje, verEn, sobrio, render, nombreMundo, claseRelativa,
 } from '../src/efectos.js';
 
 const T = '2026-11-07T16:00:00Z';
 const X = '[X] decidir VG';
-const DE_CELDA = ['ver', 'sustituir', 'escrito', 'anclado', 'impulso', 'modificar'];
+const DE_CELDA = ['ver', 'sustituir', 'anclado', 'escrito', 'impulso', 'modificar'];
+const sinTokens = (efectos) => efectos.filter((e) => e.tipo !== 'token');
+const lineas = (efectos) => sinTokens(efectos).map((e) => e.etiqueta + ' ' + e.tipo);
 
 function escribe(eje, autor, sobre, en, payload, contexto = {}) {
   return eje.escribir({ autor, sobre, en, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }], payload, contexto });
 }
 
 async function cicloCompleto() {
-  const { eje, compra } = await ejemploCompra();
+  const { eje, menu, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   const d = descubrir(eje, compra.id);
   const c = await consolidar(eje, {
@@ -32,7 +37,7 @@ async function cicloCompleto() {
     autor: 'huesped', consolidacion: c.id, t: T,
     movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }],
   });
-  return { eje, compra, c, a, e };
+  return { eje, menu, compra, c, a, e };
 }
 
 test('datos/efectos.js está al día con datos/efectos.json', () => {
@@ -42,17 +47,19 @@ test('datos/efectos.js está al día con datos/efectos.json', () => {
   assert.ok(Object.isFrozen(CATALOGO.mundos[1].efectos.impulso));
 });
 
-test('el catálogo: diez mundos, las clases de VG, una familia por token, y cada nombre con su fuente o «[X] decidir VG»', () => {
+test('el catálogo: diez mundos, las clases de VG, una familia por token, y cada nombre con su fuente y su «[X] decidir VG»', () => {
   assert.deepEqual(CATALOGO.mundos.map((m) => m.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual(CATALOGO.mundos.map((m) => m.nombre), ['lente', 'ciudad', 'jardín', 'parque', 'fábrica', 'estructura', 'hilos del pasado', 'hilos del futuro', 'cielo', 'camino']);
   assert.deepEqual(CATALOGO.clases.slice(0, 5).map((c) => c.nombre), ['ver/sustituir', 'impulso de recursos', 'criterio', 'comunicación', 'acción']);
   for (const c of CATALOGO.clases.slice(5)) assert.ok(c.nombre === null && c.decision.startsWith(X), 'clase ' + c.clase);
-  // Cada familia de tokens tiene mundo y clase (los moduladores del corpus), pendiente de VG.
   assert.deepEqual(Object.keys(CATALOGO.familias).sort(), [...FAMILIAS].sort());
   assert.deepEqual(['E', 'P', 'R', 'T'].map((f) => CATALOGO.familias[f].mundo), [1, 2, 3, 4]);
-  assert.ok(CATALOGO.decisionFamilias.startsWith(X));
+  // Cada marca es un «[X] decidir VG», y cada tipo de efecto tiene su genérico.
+  for (const [k, m] of Object.entries(MARCAS_EFECTO)) assert.ok(m.startsWith(X), 'marca ' + k);
+  assert.equal(SIN_NOMBRE, MARCAS_EFECTO.sinNombre);
+  assert.deepEqual(Object.keys(CATALOGO.tipos).sort(), [...TIPOS_EFECTO].sort());
   // Las fases con efecto son las del motor.
-  assert.deepEqual(FASES_CON_EFECTO, FASES);
+  assert.deepEqual(Object.keys(CATALOGO.tipos.fase.generico), [...FASES]);
   const valida = (k) => k === '*' || DE_CELDA.includes(k) || /^modificar\.[2-9]$/.test(k)
     || /^token\.(emitir|mover|consumir)$/.test(k) || (k.startsWith('fase.') && FASES.includes(k.slice(5)));
   for (const m of CATALOGO.mundos) {
@@ -61,151 +68,206 @@ test('el catálogo: diez mundos, las clases de VG, una familia por token, y cada
       assert.ok(typeof e.nombre === 'string' && e.nombre, m.nombre + '.' + k + ' sin nombre');
       assert.ok(typeof e.metafora === 'string' && e.metafora, m.nombre + '.' + k + ' sin metáfora');
       assert.ok(typeof e.fuente === 'string' && e.fuente, m.nombre + '.' + k + ' sin fuente');
-      if (e.decision !== undefined) assert.ok(e.decision.startsWith(X), m.nombre + '.' + k);
+      // El emparejamiento operación ↔ nombre está abierto: también las palabras del corpus llevan su marca.
+      assert.ok(typeof e.decision === 'string' && e.decision.startsWith(X + ': emparejamiento propuesto'), m.nombre + '.' + k);
     }
     for (const s of m.sinOperacion) assert.ok(s.nombre && s.fuente && s.nota, m.nombre + ': ' + s.nombre);
   }
+  // La metáfora genérica de emitir en la ciudad no es la del ejemplo de Booking.
+  assert.doesNotMatch(CATALOGO.mundos[1].efectos['token.emitir'].metafora, /plaza|noche/);
 });
 
-test('cada evento del ejemplo de la compra produce efectos con nombre y mundo', async () => {
-  const { eje, compra } = await ejemploCompra();
-  await ejemploCuenta(eje, compra);
-  assert.equal(eje.orden.length, 5);
+test('todo efecto es coherente: su clase es la de su celda vista desde su marco, y lleva sus marcas', async () => {
+  const { eje } = await cicloCompleto();
+  let celdas = 0;
   for (const id of eje.orden) {
     const ev = eje.obtener(id);
     const efectos = efectosDe(eje, id);
     assert.ok(efectos.length > 0, 'sin efectos: ' + id.slice(0, 8));
     for (const ef of efectos) {
       assert.equal(ef.evento, id);
-      assert.ok(TIPOS.includes(ef.tipo), ef.tipo);
+      assert.ok(TIPOS_EFECTO.includes(ef.tipo), ef.tipo);
       assert.ok(Number.isInteger(ef.mundo) && ef.mundo >= 0 && ef.mundo <= 9, 'mundo ' + ef.mundo);
       assert.ok(typeof ef.nombre === 'string' && ef.nombre.length > 0, 'nombre');
-      assert.ok(esDireccion(ef.celda), 'celda ' + ef.celda);
+      assert.ok(Array.isArray(ef.decisiones) && ef.decisiones.length > 0 && ef.decisiones.every((d) => d.startsWith(X)), 'decisiones de ' + ef.tipo);
       assert.ok(Number.isInteger(ef.clase) && ef.clase >= 0 && ef.clase <= 9, 'clase ' + ef.clase);
-      if (DE_CELDA.includes(ef.tipo) && Array.isArray(ev.payload)) assert.equal(ef.clase, claseRelativa(ef.celda, ev.en));
+      if (ef.tipo === 'token') {
+        assert.equal(ef.celda, null);
+        assert.ok(ef.decisiones.includes(MARCAS_EFECTO.familia));
+        continue;
+      }
+      // Toda celda, sea de un terminal, de un array o del motor: sin excepciones.
+      celdas++;
+      assert.ok(esDireccion(ef.celda), 'celda ' + ef.celda);
+      assert.equal(ef.celda, direccion(ef.camino));
+      assert.equal(ef.clase, claseRelativa(ef.celda, ef.marco));
+      assert.equal(ef.mundo, ef.posicion);
+      assert.equal(ef.posicion, ef.camino[ef.marco.length] ?? 0);
+      if (ef.ruta.length) assert.ok(ef.decisiones.includes(MARCAS_EFECTO.matriz), 'celda de dentro sin la marca de la matriz');
     }
-    // Todo evento mueve tokens: hay un efecto por movimiento.
     assert.equal(efectos.filter((e) => e.tipo === 'token').length, ev.movimientos.length);
   }
+  assert.ok(celdas > 20);
 });
 
-test('la compra: qué cambió, de qué clase y cómo se ve en su mundo; las referencias al menú son herencia', async () => {
+test('la compra: el registro colisiona en la raíz del menú; lo de dentro va celda a celda, con su marca; las referencias al menú son herencia', async () => {
   const { eje, menu, compra } = await ejemploCompra();
   const efectos = efectosDe(eje, compra);
   assert.deepEqual(sobrio(efectos).split('\n'), [
     'lente · mostrar · 0000000000',
-    'ciudad · encarecer o abaratar · 1100000000',
-    'ciudad · encarecer o abaratar · 1200000000',
+    'ciudad · abrir tienda · 1100000000',
+    'ciudad · abrir tienda · 1200000000',
     'parque · hablar · 3000000000',
     'parque · hablar · 3100000000',
     'fábrica · paso · 4000000000',
     'fábrica · paso · 4100000000',
-    'fábrica · línea que se mueve · 0000000000',
-    'ciudad · mercancía que fluye · 0000000000',
+    'fábrica · línea que se mueve · T:hora',
+    'ciudad · mercancía que fluye · E:casa/EUR',
   ]);
-  // [1][0] y [2][0] son referencias al menú (el foco): herencia, no efecto.
+  // El registro entero ocupa la raíz del menú, donde ya estaban el menú y su representación: colisiona.
+  const [registro] = efectos;
+  assert.deepEqual([registro.tipo, registro.ruta, registro.colisiona], ['sustituir', [], 2]);
+  assert.deepEqual(registro.con.map((o) => [o.origen, o.evento, o.camino]), [['propio', menu.id, []], ['propio', menu.id, [0]]]);
+  assert.equal(registro.con.length, ocupantes(eje, menu.id, []).filter((o) => o.origen !== 'escrito').length);
+  // Lo de dentro no colisiona con las celdas del menú: el núcleo no lo cuenta como ocupante.
+  assert.deepEqual(ocupantes(eje, menu.id, [1, 1]).map((o) => [o.origen, o.contenido]), [['propio', 'guiso']]);
+  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '3.0.0 escrito', '3.1.0 escrito', '4.0.0 escrito', '4.1.0 escrito']);
+  for (const e of sinTokens(efectos).slice(1)) assert.ok(e.decisiones.includes(MARCAS_EFECTO.matriz));
+  // En la raíz no hay duda de marco; [1][0] y [2][0] son referencias al menú: herencia, no efecto.
+  assert.ok(!registro.decisiones.includes(MARCAS_EFECTO.marco));
   assert.deepEqual(compra.payload[1][0], { ref: menu.id, dir: '1000000000' });
   assert.ok(!efectos.some((e) => e.etiqueta === '1.0.0' || e.etiqueta === '2.0.0'));
-  // El menú tenía 1.1 y 1.2: la compra los sustituye; 3 y 4 no los tenía: los escribe.
-  assert.deepEqual(efectos.filter((e) => e.tipo !== 'token').map((e) => e.etiqueta + ' ' + e.tipo), [
-    '0.0.0 sustituir', '1.1.0 sustituir', '1.2.0 sustituir', '3.0.0 escrito', '3.1.0 escrito', '4.0.0 escrito', '4.1.0 escrito',
-  ]);
+  // Los movimientos van entre carteras, en el mundo de su familia, con su marca.
   const pago = efectos.find((e) => e.token === 'E');
   assert.deepEqual(
-    { mundo: pago.mundo, clase: pago.clase, movimiento: pago.movimiento, serie: pago.serie, cantidad: pago.cantidad, de: pago.de, a: pago.a },
-    { mundo: 1, clase: 1, movimiento: 'mover', serie: 'E:casa/EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
+    { mundo: pago.mundo, celda: pago.celda, clase: pago.clase, movimiento: pago.movimiento, serie: pago.serie, cantidad: pago.cantidad, de: pago.de, a: pago.a },
+    { mundo: 1, celda: null, clase: 1, movimiento: 'mover', serie: 'E:casa/EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
   );
   assert.match(pago.fuente, /flujos de mercancías/);
-  assert.equal(pago.decision, undefined); // nombre del corpus
+  assert.deepEqual(pago.decisiones, [CATALOGO.mundos[1].efectos['token.mover'].decision, MARCAS_EFECTO.familia]);
   const tiempo = efectos.find((e) => e.token === 'T');
   assert.deepEqual([tiempo.mundo, tiempo.movimiento, tiempo.serie, tiempo.nombre], [4, 'consumir', 'T:hora', 'línea que se mueve']);
-  assert.ok(tiempo.decision.startsWith(X)); // de la big picture, no del corpus
+  assert.match(tiempo.decisiones[0], /big picture/);
 });
 
-test('la clase es el dígito relativo al anclaje: impulso, modificar, y lo que el corpus no nombra', async () => {
+test('colisión como en el núcleo: un registro ocupa su dirección entera y colisiona con lo que había antes', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const registro = async (en, payload) => efectosDe(eje, await escribe(eje, 'cocina', menu.id, en, payload))[0];
+  // Donde el menú tiene 'guiso', un registro colisiona con él.
+  const precio = await registro('1100000000', 'más caro');
+  assert.deepEqual([precio.tipo, precio.mundo, precio.colisiona, precio.con[0].origen, precio.con[0].camino], ['sustituir', 1, 1, 'propio', [1, 1]]);
+  assert.equal(precio.nombre, 'encarecer o abaratar');
+  // Dos registros en 7, donde el menú no llega: el primero ancla, el segundo colisiona con el primero.
+  const primero = await escribe(eje, 'cocina', menu.id, '7000000000', 'vuelve el jueves');
+  const segundo = await escribe(eje, 'cocina', menu.id, '7000000000', 'o el viernes');
+  assert.equal(ocupantes(eje, menu.id, [7]).length, 2);
+  const [a, b] = [efectosDe(eje, primero)[0], efectosDe(eje, segundo)[0]];
+  assert.deepEqual([a.tipo, a.colisiona, a.nombre], ['anclado', 0, 'arco al futuro']);
+  assert.deepEqual([b.tipo, b.colisiona, b.con[0].evento, b.nombre], ['sustituir', 1, primero.id, 'arco al futuro']);
+  // Lo escrito después no cambia el efecto de lo anterior: el primero sigue anclando.
+  assert.equal(efectosDe(eje, primero)[0].tipo, 'anclado');
+});
+
+test('un solo marco para terminales y arrays: la misma celda da el mismo mundo, y el camino exacto distingue 1, 1.0 y 1.0.0', async () => {
+  const { eje, menu, compra } = await ejemploCompra();
+  const registro = async (en, payload) => efectosDe(eje, await escribe(eje, 'cocina', menu.id, en, payload));
+  const terminal = (await registro('1000000000', 'x'))[0];
+  const conArray = await registro('1000000000', ['x', 'y']);
+  const campos = (e) => [e.mundo, e.celda, e.clase, e.camino, e.marco, e.ruta];
+  assert.deepEqual(campos(terminal), [1, '1000000000', 0, [1], [], []]);
+  assert.deepEqual(campos(conArray[0]), campos(terminal));
+  // La posición 0 de un array es su representación: colisiona con el registro y no da efecto aparte.
+  assert.deepEqual(lineas(conArray), ['1.0.0 sustituir', '1.1.0 escrito']);
+  assert.equal(conArray[1].mundo, 1);
+  // Lo escrito fuera de la raíz lleva la marca del marco: el registro no guarda desde qué camino se escribió.
+  assert.ok(terminal.decisiones.includes(MARCAS_EFECTO.marco));
+  // §13 desde la raíz: 7310000000 es la celda 7.3.1, de clase 1, en los hilos del futuro.
+  const lejos = (await registro('7310000000', 'ya veremos'))[0];
+  assert.deepEqual([lejos.tipo, lejos.mundo, lejos.subposicion, lejos.clase, lejos.etiqueta], ['impulso', 7, 3, 1, '7.3.1']);
+  assert.equal(lejos.clase, claseRelativa('7310000000'));
+  // Más hondo que la clase, todo es contenido de la celda: un array anclado en 7.3.1 no da celdas aparte.
+  assert.deepEqual(lineas(await registro('7310000000', ['a', 'b'])), ['7.3.1 impulso']);
+  // Tres registros en la raíz de la compra con algo en 1, 1.0 y 1.0.0: misma celda, caminos distintos.
+  const en1 = async (payload) => efectosDe(eje, await escribe(eje, 'cocina', compra.id, '0000000000', ['Nota', payload])).find((e) => e.ruta.length);
+  const caminos = [await en1('uno'), await en1(['uno', 'dos']), await en1([['uno', 'dos']])];
+  assert.deepEqual(caminos.map((e) => [e.celda, e.camino]), [['1000000000', [1]], ['1000000000', [1, 0]], ['1000000000', [1, 0, 0]]]);
+});
+
+test('la clase de una celda de dentro: impulso, modificar, y lo que el corpus no nombra', async () => {
   const { eje, compra } = await ejemploCompra();
-  const ajuste = await escribe(eje, 'cocina', compra.id, '1000000000', [
+  const ajuste = await escribe(eje, 'cocina', compra.id, '0000000000', [
     'Ajuste',
-    ['nuevo', ['visto', 'propina']],
+    ['nuevo', 'propina'],
     [['k0', 'k1', 'k2', 'k3']],
     [['h0', 'h1', 'h2', 'h3', 'h4', 'h5']],
   ]);
-  const celdas = efectosDe(eje, ajuste).filter((e) => e.tipo !== 'token');
+  const celdas = sinTokens(efectosDe(eje, ajuste)).slice(1);
   const ver = (et) => celdas.find((e) => e.etiqueta === et);
-  assert.deepEqual(celdas.map((e) => [e.etiqueta, e.celda, e.tipo, e.mundo, e.nombre]), [
-    ['0.0.0', '1000000000', 'sustituir', 0, 'mostrar'],
-    ['1.0.0', '1100000000', 'sustituir', 1, 'encarecer o abaratar'],
-    ['1.1.0', '1110000000', 'escrito', 1, 'abrir tienda'],
-    ['1.1.1', '1111000000', 'impulso', 1, 'mercancía que fluye'],
-    ['2.0.0', '1200000000', 'sustituir', 2, 'florecer'],
-    ['2.0.1', '1201000000', 'impulso', 2, 'luz'],
-    ['2.0.2', '1202000000', 'modificar', 2, 'florecer'],
-    ['2.0.3', '1203000000', 'modificar', 2, 'florecer'],
-    ['3.0.0', '1300000000', 'escrito', 3, 'hablar'],
-    ['3.0.1', '1301000000', 'impulso', 3, 'paquete'],
-    ['3.0.2', '1302000000', 'modificar', 3, 'modificar (criterio)'],
-    ['3.0.3', '1303000000', 'modificar', 3, 'modificar (comunicación)'],
-    ['3.0.4', '1304000000', 'modificar', 3, 'modificar (acción)'],
-    ['3.0.5', '1305000000', 'modificar', 3, 'modificar (clase 5)'],
+  assert.deepEqual(celdas.map((e) => [e.etiqueta, e.tipo, e.mundo, e.nombre]), [
+    ['1.0.0', 'escrito', 1, 'abrir tienda'],
+    ['1.1.0', 'escrito', 1, 'abrir tienda'],
+    ['2.0.0', 'escrito', 2, 'brotar'],
+    ['2.0.1', 'impulso', 2, 'luz'],
+    ['2.0.2', 'modificar', 2, 'florecer'],
+    ['2.0.3', 'modificar', 2, 'florecer'],
+    ['3.0.0', 'escrito', 3, 'hablar'],
+    ['3.0.1', 'impulso', 3, 'paquete'],
+    ['3.0.2', 'modificar', 3, 'modificar (criterio)'],
+    ['3.0.3', 'modificar', 3, 'modificar (comunicación)'],
+    ['3.0.4', 'modificar', 3, 'modificar (acción)'],
+    ['3.0.5', 'modificar', 3, 'modificar (clase 5)'],
   ]);
-  // Relativa, no absoluta: bajo el anclaje 1, la celda 1201000000 es de clase 1 aunque su tercer dígito sea 0.
-  assert.equal(ver('2.0.1').clase, 1);
-  assert.equal(ver('2.0.1').celda[2], '0');
+  // Lo que el parque no nombra sale con su nombre genérico y «[X] decidir VG»; la clase 5 trae además la suya.
+  assert.deepEqual(ver('3.0.5').decisiones, [SIN_NOMBRE, CATALOGO.clases[5].decision, MARCAS_EFECTO.matriz]);
+  assert.equal(ver('3.0.5').metafora, null);
+  // Relativa al marco, no absoluta; el marco es exacto: [1, 0] no es [1].
+  assert.equal(claseRelativa('1201000000', [1]), 1);
   assert.equal(claseRelativa('1201000000', '1000000000'), 1);
   assert.equal(claseRelativa('1201000000'), 0);
-  // Lo que el parque no nombra sale con su nombre genérico y «[X] decidir VG».
-  assert.equal(ver('3.0.5').decision, SIN_NOMBRE);
-  assert.equal(ver('3.0.5').metafora, null);
+  assert.equal(claseRelativa('1020300000', [1, 0]), 3);
+  assert.equal(claseRelativa('1020300000', '1000000000'), 0);
+  assert.throws(() => claseRelativa('2000000000', [1]), /no está bajo el marco/);
+  assert.throws(() => claseRelativa('2000000000', [1, 12]), /lista de índices/);
 });
 
 test('referencias al foco: herencia, salvo que el registro diga que las ve', async () => {
   const { eje, compra } = await ejemploCompra();
   const r = (dir) => ({ ref: compra.id, dir });
-  const tipos = (ev) => efectosDe(eje, ev).filter((e) => e.tipo !== 'token').map((e) => e.etiqueta + ' ' + e.tipo);
-  // Sin marcas: las tres primeras son herencia; solo la 3 escribe.
-  const sinMarca = await escribe(eje, 'cocina', compra.id, '0000000000', [r('0000000000'), r('1000000000'), r('2000000000'), 'gracias']);
-  assert.deepEqual(tipos(sinMarca), ['3.0.0 sustituir']);
-  // contexto.vistas (celdas «i.j»): ver es clase 0, y en el parque se llama escuchar.
-  const conVista = await escribe(eje, 'cocina', compra.id, '0000000000', [r('0000000000'), r('1000000000'), r('2000000000'), r('3000000000')], { vistas: ['3.0'] });
+  const tipos = (ev) => lineas(efectosDe(eje, ev)).slice(1);
+  // Sin marcas: las referencias son herencia; solo la 3 escribe.
+  const sinMarca = await escribe(eje, 'cocina', compra.id, '0000000000', ['Nota', r('1000000000'), r('2000000000'), 'gracias']);
+  assert.deepEqual(tipos(sinMarca), ['3.0.0 escrito']);
+  // contexto.vistas (rutas «i.j»): ver es clase 0, y en el parque se llama escuchar.
+  const conVista = await escribe(eje, 'cocina', compra.id, '0000000000', ['Nota', r('1000000000'), r('2000000000'), r('3000000000')], { vistas: ['3.0'] });
   const vista = efectosDe(eje, conVista).find((e) => e.tipo === 'ver');
   assert.deepEqual([vista.etiqueta, vista.mundo, vista.clase, vista.nombre], ['3.0.0', 3, 0, 'escuchar']);
   // contexto.heredadas (como la PR #40): lo que no está en la lista se ha visto.
   const conHeredadas = await escribe(eje, 'cocina', compra.id, '0000000000', [r('0000000000'), r('1000000000'), 'propina'], { heredadas: [0] });
-  assert.deepEqual(tipos(conHeredadas), ['1.0.0 ver', '2.0.0 sustituir']);
+  assert.deepEqual(tipos(conHeredadas), ['1.0.0 ver', '2.0.0 escrito']);
   // Un registro que es solo la referencia a su foco es el registro mínimo de ver.
   const soloVer = await escribe(eje, 'cocina', compra.id, '3000000000', { ref: compra.id });
-  assert.deepEqual(efectosDe(eje, soloVer).filter((e) => e.tipo !== 'token').map((e) => [e.tipo, e.mundo, e.nombre]), [['ver', 3, 'escuchar']]);
+  assert.deepEqual(sinTokens(efectosDe(eje, soloVer)).map((e) => [e.tipo, e.mundo, e.nombre]), [['ver', 3, 'escuchar']]);
 });
 
-test('terminales: ocupan su posición; sobre algo, sustituyen; donde el foco no llega, anclan', async () => {
-  const { eje, menu } = await ejemploCompra();
-  const sobreAlgo = await escribe(eje, 'cocina', menu.id, '2000000000', 'sin frutos secos');
-  const lejos = await escribe(eje, 'cocina', menu.id, '7000000000', 'vuelve el jueves');
-  const muyLejos = await escribe(eje, 'cocina', menu.id, '7310000000', 'ya veremos');
-  const celda = (ev) => {
-    const e = efectosDe(eje, ev).find((x) => x.tipo !== 'token');
-    return [e.tipo, e.mundo, e.celda, e.clase, e.nombre];
-  };
-  assert.deepEqual(celda(sobreAlgo), ['sustituir', 2, '2000000000', 0, 'florecer']);
-  assert.deepEqual(celda(lejos), ['anclado', 7, '7000000000', 0, 'arco al futuro']);
-  // Lo escrito va en el PV donde se escribe: el último dígito de su posición.
-  assert.deepEqual(celda(muyLejos), ['anclado', 1, '7310000000', 0, 'anclar']);
-  // Un array anclado donde el foco no tiene nada: todo lo que trae se ancla.
-  const rama = await escribe(eje, 'cocina', menu.id, '6000000000', ['la semana pasada', 'cerrado']);
-  assert.deepEqual(efectosDe(eje, rama).filter((e) => e.tipo !== 'token').map((e) => [e.etiqueta, e.tipo, e.nombre]), [
-    ['0.0.0', 'anclado', 'mostrar'],
-    ['1.0.0', 'anclado', 'anclar'],
+test('el ciclo del motor: una fase por registro, sin leer su payload como celdas, y cada mundo la ve a su manera', async () => {
+  const { eje, compra, c, a, e } = await cicloCompleto();
+  const deMotor = (ev) => sinTokens(efectosDe(eje, ev));
+  // Ni «jardín · brotar» por la evidencia, ni «fábrica · paso» por '==autorizo': solo la transición.
+  for (const ev of [c, a, e]) assert.equal(deMotor(ev).length, 1, ev.contexto.fase);
+  const fase = (ev) => deMotor(ev)[0];
+  assert.deepEqual([c, a, e].map((ev) => [fase(ev).tipo, fase(ev).fase, fase(ev).mundo, fase(ev).celda, fase(ev).clase, fase(ev).nombre]), [
+    ['fase', 'consolidado', 4, FABRICA, 0, 'consolidar'],
+    ['fase', 'autorizado', 4, FABRICA, 0, 'autorizar'],
+    ['fase', 'ejecutado', 4, FABRICA, 0, 'ejecutar'],
   ]);
-});
-
-test('el ciclo del motor: consolidar, autorizar y ejecutar son efectos de la fábrica, y cada mundo los ve a su manera', async () => {
-  const { eje, c, a, e } = await cicloCompleto();
-  const fase = (ev) => efectosDe(eje, ev).find((x) => x.tipo === 'fase');
-  assert.deepEqual([c, a, e].map((ev) => [fase(ev).fase, fase(ev).mundo, fase(ev).celda, fase(ev).clase, fase(ev).nombre]), [
-    ['consolidado', 4, FABRICA, 0, 'consolidar'],
-    ['autorizado', 4, FABRICA, 0, 'autorizar'],
-    ['ejecutado', 4, FABRICA, 0, 'ejecutar'],
+  for (const ev of [c, a, e]) assert.ok(fase(ev).decisiones.includes(MARCAS_EFECTO.claseFase));
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  // La consolidación dice qué fijó en cada posición del foco, sin animarlo aparte.
+  assert.deepEqual(fase(c).elecciones.map((x) => [x.posicion, x.celda, x.desde]), [
+    [1, '1000000000', 'elegida'], [2, '2000000000', 'nueva'], [3, '3000000000', 'heredada'], [4, '4000000000', 'nueva'],
   ]);
+  assert.equal(fase(c).elecciones[2].ref, compra.id);
+  assert.deepEqual(fase(e).evidencia, [c.id, a.id]);
   // La misma operación vista desde otros mundos.
   const vista = (ef, m) => verEn(ef, m)?.nombre ?? null;
   assert.deepEqual([7, 9, 2, 6].map((m) => vista(fase(c), m)), ['arco al futuro', 'previsualizar', 'fructificar', null]);
@@ -213,34 +275,78 @@ test('el ciclo del motor: consolidar, autorizar y ejecutar son efectos de la fá
   assert.equal(vista(fase(a), 9), null);
   assert.equal(vista(fase(a), 0), 'mostrar'); // la lente lo muestra todo
   assert.equal(vista(fase(a), 5), 'inspeccionar');
-  // La ejecución mueve los EUR reales: mercancía que fluye; su referencia a la consolidación (su foco) es herencia.
-  const ejecucion = efectosDe(eje, e);
-  assert.ok(ejecucion.some((x) => x.tipo === 'token' && x.serie === 'E:casa/EUR' && x.cantidad === 14 && x.nombre === 'mercancía que fluye'));
-  assert.ok(!ejecucion.some((x) => x.etiqueta === '1.0.0'));
-  // La consolidación: la elección de recursos (la cuenta) cae en la 1 bajo la fábrica, el criterio nuevo brota.
-  assert.deepEqual(efectosDe(eje, c).filter((x) => x.tipo !== 'token' && x.tipo !== 'fase').map((x) => [x.celda, x.mundo, x.tipo]), [
-    ['4000000000', 0, 'sustituir'],
-    ['4100000000', 1, 'sustituir'],
-    ['4200000000', 2, 'escrito'],
-    ['4400000000', 4, 'escrito'],
-  ]);
+  assert.ok(verEn(fase(c), 7).decisiones[0].startsWith(X));
+  // La ejecución mueve los EUR reales: mercancía que fluye.
+  assert.ok(efectosDe(eje, e).some((x) => x.tipo === 'token' && x.serie === 'E:casa/EUR' && x.cantidad === 14 && x.nombre === 'mercancía que fluye'));
+});
+
+test('lo que el motor no reconoce no es una transición: ruido, con su motivo', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
+  const motor = (autor, sobre, en, fase, payload, contexto = {}) => escribe(eje, autor, sobre, en, payload, { motor: 'fabrica', fase, ...contexto });
+  const ruido = (ev) => {
+    const r = sinTokens(efectosDe(eje, ev));
+    assert.equal(r.length, 1);
+    assert.equal(r[0].tipo, 'ruido');
+    return r[0];
+  };
+  // cocina no tiene poder: su «autorización» no cambia el estado, y el efecto tampoco lo finge.
+  const sinPoder = await motor('cocina', c.id, FABRICA, 'autorizado', '==autorizo');
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  const r = ruido(sinPoder);
+  assert.deepEqual([r.fase, r.motivo, r.mundo, r.celda, r.nombre], ['autorizado', 'sin poder (P) sobre la consolidación', 4, FABRICA, 'ruido']);
+  assert.ok(r.decisiones.includes(SIN_NOMBRE));
+  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'autorizado', '==me autorizo')).motivo, 'el autor no se autoriza a sí mismo');
+  assert.equal(ruido(await motor('casa', compra.id, FABRICA, 'autorizado', '==autorizo')).motivo, 'no es sobre una consolidación');
+  // Una ejecución forjada por quien no es el autor: ni «ejecutar» ni «ancla» en los hilos.
+  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
+  const forjada = await motor('cocina', c.id, FABRICA, 'ejecutado', ['Ejecutado', { ref: c.id }, { ref: a.id }], { evidencia: [c.id, a.id] });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  const f = ruido(forjada);
+  assert.equal(f.motivo, 'ejecuta quien no es el autor de la consolidación');
+  assert.deepEqual([6, 7].map((m) => verEn(f, m)), [null, null]);
+  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'hecho', { evidencia: ['f'.repeat(64)] })).motivo, 'evidencia rota');
+  // Una segunda autorización o una segunda ejecución no son otra transición.
+  assert.equal(ruido(await motor('casa', c.id, FABRICA, 'autorizado', '==también')).motivo, 'ya estaba autorizada');
+  const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
+  assert.equal(sinTokens(efectosDe(eje, e))[0].tipo, 'fase');
+  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'otra vez', { evidencia: [c.id, a.id] })).motivo, 'ya estaba ejecutada');
+  // Una «consolidación» fuera de la posición 4 no la lista el motor.
+  const fuera = await motor('huesped', compra.id, '7000000000', 'consolidado', ['Fuera', 'algo']);
+  assert.deepEqual([ruido(fuera).motivo, ruido(fuera).mundo], ['fuera de la fábrica: el motor consolida en la posición 4 de su camino', 7]);
+  // Los tokens del ruido sí se movieron: salen como siempre.
+  assert.equal(efectosDe(eje, sinPoder).filter((x) => x.tipo === 'token').length, 1);
+});
+
+test('la fase se juzga como la juzga el motor, con el eje de ahora: no sale solo del evento', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
+  const falsa = await escribe(eje, 'cocina', c.id, FABRICA, '==autorizo', { motor: 'fabrica', fase: 'autorizado' });
+  assert.equal(sinTokens(efectosDe(eje, falsa))[0].tipo, 'ruido');
+  // La casa da poder a cocina después: el motor cuenta ya esa autorización, y el efecto lo sigue.
+  await eje.escribir({
+    autor: 'casa', sobre: eje.genesisId, t: T, payload: 'poder a cocina',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'cocina' }],
+  });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  assert.deepEqual(sinTokens(efectosDe(eje, falsa)).map((x) => [x.tipo, x.nombre]), [['fase', 'autorizar']]);
 });
 
 test('el génesis: escribe la raíz y emite sus series', async () => {
   const { eje } = await ejemploCompra();
   const efectos = efectosDe(eje, eje.genesisId);
-  assert.deepEqual(efectos.map((x) => [x.tipo, x.movimiento ?? null, x.token ?? null, nombreMundo(x.mundo), x.nombre]), [
-    ['escrito', null, null, 'lente', 'mostrar'],
-    ['token', 'emitir', 'T', 'fábrica', 'emitir T'],
-    ['token', 'emitir', 'T', 'fábrica', 'emitir T'],
-    ['token', 'emitir', 'E', 'ciudad', 'abrir vía'],
-    ['token', 'emitir', 'P', 'jardín', 'calor'],
+  assert.deepEqual(efectos.map((x) => [x.tipo, x.movimiento ?? null, x.serie ?? x.celda, nombreMundo(x.mundo), x.nombre]), [
+    ['escrito', null, '0000000000', 'lente', 'mostrar'],
+    ['token', 'emitir', 'T:hora', 'fábrica', 'emitir T'],
+    ['token', 'emitir', 'T:minuto', 'fábrica', 'emitir T'],
+    ['token', 'emitir', 'E:casa/EUR', 'ciudad', 'abrir vía'],
+    ['token', 'emitir', 'P:genesis', 'jardín', 'calor'],
   ]);
-  assert.equal(efectos[1].decision, SIN_NOMBRE); // solo el génesis emite T: el corpus no lo nombra
-  assert.deepEqual([efectos[3].de, efectos[3].a, efectos[3].serie], [null, 'casa', 'E:casa/EUR']);
+  assert.equal(efectos[1].decisiones[0], SIN_NOMBRE); // solo el génesis emite T: el corpus no lo nombra
+  assert.deepEqual([efectos[3].de, efectos[3].a], [null, 'casa']);
 });
 
-test('solo del evento: lo mismo desde un eje reconstruido, sin tocar nada', async () => {
+test('lo mismo desde un eje reconstruido, sin tocar nada', async () => {
   const { eje, c } = await cicloCompleto();
   const antes = JSON.stringify(eje.orden.map((id) => eje.obtener(id)));
   const todos = efectosDelEje(eje);
@@ -251,19 +357,27 @@ test('solo del evento: lo mismo desde un eje reconstruido, sin tocar nada', asyn
   assert.equal(JSON.stringify(eje.orden.map((id) => eje.obtener(id))), antes);
 });
 
-test('render sobrio: una línea por efecto, «mundo · efecto · celda»', async () => {
+test('render sobrio: una línea por efecto, «mundo · efecto · lugar»; el lugar de un movimiento es su serie', async () => {
   const { eje } = await cicloCompleto();
   const todos = efectosDelEje(eje);
-  const lineas = sobrio(todos).split('\n');
-  assert.equal(lineas.length, todos.length);
-  for (const l of lineas) assert.match(l, /^[^·]+ · [^·]+ · \d{10}$/);
+  const filas = sobrio(todos).split('\n');
+  assert.equal(filas.length, todos.length);
+  todos.forEach((e, i) => assert.match(filas[i], e.tipo === 'token' ? /^[^·]+ · [^·]+ · [EPRT]:\S+$/ : /^[^·]+ · [^·]+ · \d{10}$/));
   assert.equal(render(todos), sobrio(todos));
   const conDetalle = render(todos, 'sobrio', { detalle: true }).split('\n');
-  assert.ok(conDetalle.includes('ciudad · mercancía que fluye · 4000000000 · E:casa/EUR 14 huesped→cocina'));
+  assert.ok(conDetalle.includes('ciudad · mercancía que fluye · E:casa/EUR · 14 huesped→cocina'));
   assert.ok(conDetalle.includes('fábrica · consolidar · 4000000000 · consolidado'));
-  assert.ok(conDetalle.includes('jardín · brotar · 4200000000 · 2.0.0 escrito'));
+  assert.ok(conDetalle.includes('ciudad · encarecer o abaratar · 1000000000 · registro 1.0.0 sustituir'));
+  assert.ok(!conDetalle.some((l) => l.includes('4200000000')), 'la consolidación no se lee celda a celda');
   assert.throws(() => render(todos, 'animado'), /render no disponible/);
   assert.throws(() => nombreMundo(10), /fuera de 0–9/);
+});
+
+test('los nombres del módulo no chocan con los del índice', () => {
+  const planos = new Set(Object.keys(indice));
+  const propios = Object.keys(efectosModulo);
+  assert.deepEqual(propios.filter((n) => planos.has(n)), []);
+  assert.ok(!propios.includes('TIPOS') && !propios.includes('FASES'));
 });
 
 test('errores: evento o foco desconocidos', async () => {
