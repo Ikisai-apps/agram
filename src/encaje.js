@@ -222,8 +222,11 @@ export function caminosDe(payload, dir) {
  * camino, lo que alcanza si es referencia, y los escritos cuya dirección de
  * anclaje, sin ceros finales (indicesDe, como se lee toda dirección), es ese
  * camino. Sin él (una dirección: «nombra la colisión entera»), todos.
+ *
+ * Con { autores } (un Set de identidades), de los escritos solo los de esos
+ * autores: los elegibles del dueño (R8, src/elegibles.js). Sin él, todos.
  */
-export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = false } = {}) {
+export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = false, autores } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const dir = direccion(indices);
@@ -234,7 +237,11 @@ export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = 
     lista.push(conEncaje({ tipo: 'propio', evento: id, dir, camino: c.indices, contenido: c.contenido, origen: dir, procedencia: [id + ':' + dir + '#' + c.indices.join('.')] }, dir));
     if (esReferencia(c.contenido)) lista.push(conEncaje(seguir(eje, c.contenido, [id + ':' + dir + '#' + c.indices.join('.')]), dir));
   }
-  for (const h of exacto && !esEse(indicesDe(dir)) ? [] : eje.sobre(id, dir)) {
+  // Con `autores` (un Set; R8, src/elegibles.js), solo los escritos de esos autores, por el índice del eje si lo tiene.
+  const anclados = exacto && !esEse(indicesDe(dir)) ? []
+    : !autores ? eje.sobre(id, dir)
+      : typeof eje.sobreDe === 'function' ? eje.sobreDe(id, dir, autores) : eje.sobre(id, dir).filter((h) => autores.has(h.autor));
+  for (const h of anclados) {
     // Un escrito está anclado exactamente en la dirección buscada: su ruta coincide entera.
     lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }

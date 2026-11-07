@@ -8,6 +8,7 @@ const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null
 
 async function mundo() {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'casa',
     emision: [
       { token: 'T', escala: 'hora', cantidad: 100 },

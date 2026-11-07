@@ -49,6 +49,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   for (const id of ['casa', ...COSAS]) claves[id] ??= await generarClaves();
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [

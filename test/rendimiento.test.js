@@ -78,7 +78,7 @@ test('marcarEmpates es lineal: veinte mil ocupantes en una posición no tardan s
 
 test('sobre(id, en) por el índice de direcciones da lo mismo que filtrar los hijos, en orden, y es una copia', async () => {
   const r = azar(11);
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 10000 }], foco: ['g', 1, 2], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 10000 }], foco: ['g', 1, 2], t: T0 });
   for (let k = 0; k < 400; k++) {
     const sobre = eje.orden[Math.floor(r() * eje.orden.length)];
     const en = r() < 0.2 ? '0000000000' : direccion(r() < 0.7 ? [Math.floor(r() * 10)] : [Math.floor(r() * 10), Math.floor(r() * 10)]);
@@ -106,7 +106,7 @@ test('sobre(id, en) por el índice de direcciones da lo mismo que filtrar los hi
 
 test('conPrefijo da lo mismo que filtrar eje.orden, y REF, «@id» y Scened resuelven igual', async () => {
   const r = azar(23);
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 10000 }], foco: ['g', 1], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 10000 }], foco: ['g', 1], t: T0 });
   for (let k = 0; k < 300; k++) {
     await eje.escribir({ autor: 'r', sobre: eje.orden[Math.floor(r() * eje.orden.length)], t: T0, movimientos: [gastaT('r')], payload: ['e' + k, k] });
   }
@@ -177,7 +177,7 @@ test('verificar recuerda las claves congeladas y no las que pueden cambiar', asy
 
 test('el eje verifica con su clave guardada (congelada) en cada evento firmado', async () => {
   const par = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada });
   assert.ok(Object.isFrozen(eje.clave('r')));
   for (let k = 0; k < 5; k++) await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'e' + k }, par.privada);
   const otra = await generarClaves();

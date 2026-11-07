@@ -48,7 +48,7 @@ import { esFormula, desescapar, analizar, evaluar, consultar, formato, ESTADOS, 
 Comprobación mínima (una línea, desde la raíz; en bash y en PowerShell con comillas simples exteriores):
 
 ```sh
-node --input-type=module -e 'import { Eje } from "./src/eje.js"; import { consultar } from "./src/bql.js"; const eje = await Eje.genesis({ identidad: "casa", emision: [{ token: "T", escala: "hora", cantidad: 1 }], foco: ["x", "12 EUR"], t: "2026-11-07T15:00:00Z" }); console.log(consultar(eje, eje.genesisId, [1], `LOCAL(1) + 3 EUR`).texto); console.log(consultar(eje, eje.genesisId, [1], `CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "propio"))`).texto);'
+node --input-type=module -e 'import { Eje } from "./src/eje.js"; import { consultar } from "./src/bql.js"; const eje = await Eje.genesis({ demostracion: true, identidad: "casa", emision: [{ token: "T", escala: "hora", cantidad: 1 }], foco: ["x", "12 EUR"], t: "2026-11-07T15:00:00Z" }); console.log(consultar(eje, eje.genesisId, [1], `LOCAL(1) + 3 EUR`).texto); console.log(consultar(eje, eje.genesisId, [1], `CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "propio"))`).texto);'
 ```
 
 Salida:
@@ -87,7 +87,7 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | `undefined` (posición no desarrollada, o camino que atraviesa un terminal) | parada **PENDIENTE** `posición sin desarrollar` | — |
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
-| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 4598f23e'` (ocho primeros caracteres del id) |
+| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ d367743b'` (ocho primeros caracteres del id) |
 | cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios). **[X] decidir VG**: cómo se escribe una magnitud en BTML; el mapa y el corpus no lo deciden, y esta lectura por la forma del texto convierte también nombres con número (`'Habitación 101'`, `'Mesa 4'`) | `'12 EUR'` |
 | cadena de exactamente diez dígitos, `'2000000000'` | `texto` (es una **dirección**, no un número: mapa §12, «un texto de diez dígitos es dirección») | `'2000000000'` |
 | cadena `'7'`, `'0034'`, `'1.5'` | `texto`: una cadena de cifras es una cadena literal (corpus 03: «Número literal: `120`; cadena literal: `"Yogur"`»); el número lo da el JSON. `'0034'` conserva sus ceros (auditoría de ajuste 2) | `'7'` |
@@ -104,7 +104,7 @@ Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`):
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ 4598f23e` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ d367743b` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0)')` | RESUELTO | `[3 posiciones]` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
 | `consultar(eje, compra.id, [9], 'REF("<menu.id>", "1100000000")')` | RESUELTO | `guiso` |
@@ -178,7 +178,7 @@ Todo valor BQL es un objeto con `tipo`:
 | `magnitud` | `{ cantidad, unidad, desglose: [{ cantidad, unidad }, …] }` (`desglose` siempre presente; con un solo sumando tiene un elemento) | `cantidad unidad`, y entre paréntesis el desglose si tiene más de un sumando | `14 EUR (12 EUR + 2 EUR)` |
 | `composicion` | `{ partes: [magnitud, …] }` (unidades distintas) | partes unidas por ` + ` | `300 m (200 m + 100 m) + 5 EUR` |
 | `array` | `{ valor: any[] }` (el subarray crudo) | `[n posiciones]` | `[3 posiciones]` |
-| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 4598f23e` |
+| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ d367743b` |
 | `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75`; `0 candidatos` |
 
 ---
@@ -335,7 +335,9 @@ Devuelve la **coleccion de ocupantes** de una posición del evento de la fórmul
 - **índice** (números): `BUSCAR(i, j, …)` busca en el **camino exacto** `[…anfitrión, i, j, …]`, relativo al anfitrión. `BUSCAR(1)` es la posición 1 y `BUSCAR(1, 0)` la 1.0, sin colisión por ceros entre ellas.
 - **dirección** (un texto de diez dígitos): `BUSCAR("2000000000")` busca en esa dirección del registro, absoluta, y nombra **la colisión entera** (`1`, `1.0`, `1.0.0`…). Es la forma del ejemplo integral del corpus, `BUSCAR(LOCAL(5))`, con la dirección «dónde encaja lo que busco» guardada en la posición 5 (una cadena de diez dígitos en un slot se lee como texto, §3). Otro texto, o un texto con más argumentos → `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos`.
 
-Si hay más de `limites.candidatos` ocupantes (1000 por defecto) → `PENDIENTE POR LÍMITE` con `parcial: { examinados, de }`: no se presenta como completo lo que no se examinó entero. Si el gancho `puedeLeer` no autoriza la posición buscada, o algún ocupante, o algún salto de la cadena de un ocupante por referencia → `PENDIENTE DE AUTORIZACIÓN`, antes de exponer nada de ningún ocupante (§9.6).
+**Elegibilidad antes que límites** (R8; mapa §12 [D] «Quién ocupa una posición ajena»; `src/elegibles.js`). Colisionar es libre, pero solo entran los ocupantes **elegibles** según el criterio del dueño del registro (su autor): lo propio de su payload, y los escritos de quien nombra la lista de su 2.3 («criterio · con quién», un nombre o una lista de nombres) o, si no la hay, los suyos y los de quien aparece en su 3. Un grupo nombrado cuenta como un ocupante (sus miembros no entran por él). Los escritos que no son elegibles no se exponen ni cuentan para nada: la colección lleva `noElegibles`, un recuento informativo que `CONTAR` no ve, y el texto lo dice («(y 3 no elegibles, sin contar)»). **[X] decidir VG**: cómo dice el dueño «cualquiera» (hoy no se puede) y si su lista explícita le excluye a él (hoy no).
+
+Si hay más de `limites.candidatos` ocupantes **elegibles** (1000 por defecto) → `PENDIENTE POR LÍMITE` con `parcial: { examinados, de }`: no se presenta como completo lo que no se examinó entero. El ruido ajeno no agota el límite. Si el gancho `puedeLeer` no autoriza la posición buscada, o algún ocupante, o algún salto de la cadena de un ocupante por referencia → `PENDIENTE DE AUTORIZACIÓN`, antes de exponer nada de ningún ocupante (§9.6).
 
 Ocupantes, en orden de llegada:
 
@@ -371,15 +373,15 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `4 candidatos: propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la posición 4 y las propinas ancladas en ella) |
-| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio f9e59d1e` (solo la 4.0, `'pagar'`) |
-| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio f9e59d1e · propio f9e59d1e · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la colisión entera: 4, 4.0 y los escritos) |
+| `BUSCAR(4)` | RESUELTO | `4 candidatos: propio d5064f4a · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la posición 4 y las propinas ancladas en ella) |
+| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio d5064f4a` (solo la 4.0, `'pagar'`) |
+| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio d5064f4a · propio d5064f4a · escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75` (la colisión entera: 4, 4.0 y los escritos) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
 | `BUSCAR("4")` | ERROR | `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos` |
-| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio f9e59d1e · escrito c70bfa6e` |
-| `BUSCAR(1, 0)` | RESUELTO | `2 candidatos: propio f9e59d1e · referencia 4598f23e` (la 1.0 y lo que alcanza) |
-| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio f9e59d1e · propio f9e59d1e · referencia 4598f23e · escrito c70bfa6e` |
+| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio d5064f4a · escrito 7e00c893` |
+| `BUSCAR(1, 0)` | RESUELTO | `2 candidatos: propio d5064f4a · referencia d367743b` (la 1.0 y lo que alcanza) |
+| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio d5064f4a · propio d5064f4a · referencia d367743b · escrito 7e00c893` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -392,7 +394,7 @@ La misma firma en los dos modos, `ACTUAL(pv, cantidad?)`: el segundo parámetro 
 | Caso | Resultado |
 |---|---|
 | `ACTUAL(pv)` o `ACTUAL(pv, 1)` | el **valor** del primer candidato (no una colección): `ACTUAL(4)` → `[2 posiciones]` |
-| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio f9e59d1e · escrito d567acc1`; `CONTAR(ACTUAL(4, 99))` → `4` |
+| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio d5064f4a · escrito d567acc1`; `CONTAR(ACTUAL(4, 99))` → `4` |
 | sin candidatos | PENDIENTE `sin candidatos en la posición <pv>` |
 | `ACTUAL()` (sin ámbito activo) | PENDIENTE `ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer` (corpus: «sin ámbito activo, no inventa un origen y queda pendiente») |
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
@@ -770,7 +772,7 @@ const T = '2026-11-07T15:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 // Génesis: la identidad «casa» recibe tokens; el foco raíz es un texto.
-const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
 
 // Un registro con fórmulas en sus slots (posiciones 1–4 de la décupla).
 const compra = await eje.escribir({
@@ -848,13 +850,13 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 5819876e
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → f364f580
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
 dependencias de compra [3]: [
-  '5819876e…:3000000000',
-  '5819876e…:2000000000',
-  '5819876e…:1200000000'
+  'f364f580…:3000000000',
+  'f364f580…:2000000000',
+  'f364f580…:1200000000'
 ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
@@ -866,20 +868,20 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     4 candidatos: propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
-BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 5819876e · propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
+BUSCAR(4)                                                  → RESUELTO     4 candidatos: propio f364f580 · escrito 4902037b · escrito 889c8fbb · escrito bcfb87d3
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio f364f580 · propio f364f580 · escrito 4902037b · escrito 889c8fbb · escrito bcfb87d3
 CONTAR(BUSCAR(4))                                          → RESUELTO     4
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: array y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 4c1ca012 · escrito aee8e3b3
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito aee8e3b3
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 4902037b · escrito 889c8fbb
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito 889c8fbb
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     4
 ACTUAL(4)                                                  → RESUELTO     [2 posiciones]
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 5819876e · escrito 4c1ca012
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio f364f580 · escrito 4902037b
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

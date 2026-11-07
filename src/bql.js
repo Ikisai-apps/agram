@@ -39,7 +39,7 @@
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
-import { ocupantes } from './encaje.js';
+import { ocupantesElegibles } from './elegibles.js';
 import { valorDeBases } from './bases.js';
 // CAJA y FRESCURA. Ciclo de importación (bases.js y tiempo.js importan este
 // módulo): lo importado aquí solo se usa dentro de funciones, nunca al cargar.
@@ -408,6 +408,10 @@ function resolverId(ctx, v) {
  * la colisión entera (mapa §12 [D]). Cada ocupante pasa por el gancho de
  * autorización antes de exponerse. Más de `limites.candidatos` → PENDIENTE
  * POR LÍMITE: no se presenta como completo lo que no se examinó entero.
+ * Elegibilidad antes que límites (R8, src/elegibles.js): solo entran los
+ * ocupantes elegibles según el criterio del dueño del registro, y el límite
+ * se aplica a ellos. Los escritos que no lo son quedan en `noElegibles`, un
+ * recuento informativo de la colección que no entra en CONTAR ni en nada.
  */
 function buscar(ctx, evId, indices, { exacto }) {
   if (!ctx.eje.obtener(evId)) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
@@ -415,7 +419,7 @@ function buscar(ctx, evId, indices, { exacto }) {
   const dir = direccion(indices);
   autorizar(ctx, evId, indices);
   // Orden por defecto: el del encaje (coincidencias de ruta, luego llegada). ORDENAR lo discute.
-  const lista = ocupantes(ctx.eje, evId, indices, { exacto });
+  const { lista, noElegibles } = ocupantesElegibles(ctx.eje, evId, indices, { exacto });
   for (const o of lista) autorizarOcupante(ctx, o, evId, dir);
   const items = lista.map((o) => ({
     origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
@@ -423,7 +427,7 @@ function buscar(ctx, evId, indices, { exacto }) {
   }));
   const tope = ctx.limites.candidatos;
   if (items.length > tope) throw limite('más de ' + tope + ' candidatos en ' + evId.slice(0, 8) + ':' + dir, { examinados: tope, de: items.length });
-  return col(items);
+  return noElegibles > 0 ? { ...col(items), noElegibles } : col(items);
 }
 
 /** Valor de un candidato, o de su subposición k... (leyendo fórmulas si las hay). */
@@ -779,7 +783,8 @@ export function formato(v) {
     case 'composicion': return v.partes.map(formato).join(' + ');
     case 'array': return '[' + v.valor.length + ' posiciones]';
     case 'referencia': return '→ ' + v.valor.ref.slice(0, 8);
-    case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '');
+    case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '')
+      + (v.noElegibles ? ' (y ' + v.noElegibles + ' no elegibles, sin contar)' : '');
     default: return '?';
   }
 }

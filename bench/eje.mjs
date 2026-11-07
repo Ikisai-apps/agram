@@ -160,6 +160,7 @@ async function construir(n, semilla) {
   const claveG = await generarClaves();
   privadas.set(GENESIS, claveG.privada);
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: GENESIS,
     tipo: 'grupo',
     emision: [

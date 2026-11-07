@@ -9,10 +9,11 @@ const T = '2026-11-07T15:00:00Z';
 async function escenario() {
   const { eje, compra, menu } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
-  // Tres propinas escritas en la fábrica (posición 4) de la compra, por distintas identidades.
+  // Tres propinas escritas en la fábrica (posición 4) de la compra por las dos identidades que la compra nombra en
+  // su 3 (huesped y cocina): son elegibles (R8, src/elegibles.js). Una de la casa, que no está en el 3, no lo es.
   const p1 = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('huesped')], payload: '2 EUR' });
-  const p2 = await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '5 EUR' });
-  const p3 = await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('cocina')], payload: '1 EUR' });
+  const p2 = await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('cocina')], payload: '5 EUR' });
+  const p3 = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('huesped')], payload: '1 EUR' });
   return { eje, compra, menu, cuenta, p1, p2, p3 };
 }
 
@@ -32,6 +33,12 @@ test('BUSCAR devuelve los candidatos de la posición sin registrar nada', async 
   assert.deepEqual(exacto.map((i) => [i.origen, i.indices]), [['propio', [4]], ['escrito', []], ['escrito', []], ['escrito', []]]);
   assert.deepEqual(consultar(eje, compra.id, [4], 'BUSCAR(4, 0)').valor.items.map((i) => [i.origen, i.indices]), [['propio', [4, 0]]]);
   assert.equal(consultar(eje, compra.id, [4], 'BUSCAR(7)').texto, '0 candidatos');
+  // R8: la casa no está en el 3 de la compra; su propina colisiona (queda en el eje) pero no es elegible, y solo se cuenta aparte.
+  await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '9 EUR' });
+  const conCasa = consultar(eje, compra.id, [4], 'BUSCAR("4000000000")');
+  assert.deepEqual([conCasa.valor.items.length, conCasa.valor.noElegibles], [5, 1]);
+  assert.match(conCasa.texto, /\(y 1 no elegibles, sin contar\)$/);
+  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(BUSCAR("4000000000"))').texto, '5');
 });
 
 test('FILTRAR con ACTUAL como candidato; LOCAL sigue siendo el anfitrión', async () => {

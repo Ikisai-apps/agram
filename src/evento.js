@@ -50,16 +50,17 @@ export function congelar(x) {
 
 /**
  * Copia de un evento tal como se guarda: solo sus campos (los del cuerpo, el
- * id y, si va firmado, firmante y firma), con `en` y `contexto` por defecto,
+ * id y, si va firmado, firmante y firma; en un alta, las pruebas de posesión
+ * de las claves que declara, `posesion`), con `en` y `contexto` por defecto,
  * pasada por JSON y congelada en profundidad. El eje guarda esta copia y no
  * el objeto que le pasan: lo que llegue de más no entra, y mutar lo pasado
  * después no cambia nada. Lanza si no cabe en JSON.
  */
 export function normalizarEvento(ev) {
   if (!ev || typeof ev !== 'object') return ev;
-  const { autor, sobre, en, t, movimientos, payload, contexto, id, firmante, firma } = ev;
+  const { autor, sobre, en, t, movimientos, payload, contexto, id, firmante, firma, posesion } = ev;
   // El mismo orden de campos que crearEvento y firmar: guardar y restaurar da los mismos bytes.
-  return congelar(aJSON({ autor, sobre, en: en === undefined ? RAIZ : en, t, movimientos, payload, contexto: contexto ?? {}, id, firmante, firma }));
+  return congelar(aJSON({ autor, sobre, en: en === undefined ? RAIZ : en, t, movimientos, payload, contexto: contexto ?? {}, id, firmante, firma, posesion }));
 }
 
 /** SHA-256 en hexadecimal, igual en Node y en el navegador. */
@@ -154,6 +155,11 @@ export function validarForma(ev, { tLaxo = false } = {}) {
   }
   if (ev.contexto !== undefined && ev.contexto !== null && (typeof ev.contexto !== 'object' || Array.isArray(ev.contexto))) {
     errores.push('contexto debe ser un objeto');
+  }
+  // Pruebas de posesión de un alta (R9): { identidad: firma de su clave nueva sobre el id }.
+  if (ev.posesion !== undefined && (ev.posesion === null || typeof ev.posesion !== 'object' || Array.isArray(ev.posesion)
+    || Object.values(ev.posesion).some((f) => typeof f !== 'string'))) {
+    errores.push('posesion debe ser un objeto { identidad: firma }');
   }
   const p = validarPayload(ev.payload);
   if (!p.ok) errores.push(...p.errores.map((e) => 'payload ' + e));

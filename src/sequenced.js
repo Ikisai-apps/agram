@@ -6,6 +6,7 @@ import { decupla } from './pointed.js';
 import { ARIDAD, esReferencia } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
 import { MODOS, alcanceDe } from './modos.js';
+import { hijosElegibles } from './elegibles.js';
 
 /**
  * Secuencia de décuplas a partir de un foco.
@@ -15,15 +16,20 @@ import { MODOS, alcanceDe } from './modos.js';
  * `alcance` da los tres números del modo (VG, 7-11 noche): lo conseguido en
  * posiciones (cada décupla traída, diez, como lectura()), el mínimo (10) y
  * el máximo (100). No llegar al mínimo no es error: se dice.
+ * En 'hijos', elegibilidad antes que el tope (R8, src/elegibles.js): la
+ * hilera son los hijos elegibles según el criterio del dueño del foco, y
+ * `total` los cuenta; los demás quedan en `noElegibles`, un recuento
+ * informativo. Así el ruido ajeno no tapa lo del dueño.
  */
 export function secuencia(eje, id, { sentido = 'hilo', maximo = MODOS.sequenced.decuplas, epoca = EPOCA_0 } = {}) {
   if (!eje.obtener(id)) throw new Error('foco desconocido: ' + id);
   if (sentido !== 'hilo' && sentido !== 'hijos') throw new Error('sentido desconocido: ' + sentido);
   const e = epocaDe(epoca);
-  const eventos = sentido === 'hilo' ? eje.hilo(id) : eje.sobre(id);
+  const hijos = sentido === 'hijos' ? hijosElegibles(eje, id) : null;
+  const eventos = hijos ? hijos.lista : eje.hilo(id);
   const total = eventos.length;
   const decuplas = eventos.slice(0, maximo).map((ev) => decupla(ev, e));
-  return { foco: id, sentido, total, decuplas, alcance: alcanceDe(decuplas.length * ARIDAD, 'sequenced') };
+  return { foco: id, sentido, total, decuplas, ...(hijos ? { noElegibles: hijos.noElegibles } : {}), alcance: alcanceDe(decuplas.length * ARIDAD, 'sequenced') };
 }
 
 function breve(contenido) {
@@ -34,7 +40,7 @@ function breve(contenido) {
 
 /** Render sobrio: una línea por décupla con solo sus posiciones desarrolladas. */
 export function sobrio(seq) {
-  const cab = seq.sentido + ' de ' + seq.foco.slice(0, 8) + ' · ' + seq.decuplas.length + ' de ' + seq.total;
+  const cab = seq.sentido + ' de ' + seq.foco.slice(0, 8) + ' · ' + seq.decuplas.length + ' de ' + seq.total + (seq.noElegibles ? ' · ' + seq.noElegibles + ' no elegibles' : '');
   const lineas = seq.decuplas.map((d, i) => {
     const partes = d.terminal !== undefined
       ? [breve(d.terminal)] // un terminal no tiene posiciones

@@ -64,7 +64,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el foco, su hilo y s
   assert.deepEqual(m.alcance, { conseguido: traidos.size * 10, minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
   // Una cadena larga: el foco y diez de su hilo, 110 posiciones, por encima del mínimo.
   const T0 = '2026-11-06T20:00:00Z';
-  const larga = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
+  const larga = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
   let sobre = larga.genesisId;
   for (let i = 1; i <= 15; i++) sobre = (await larga.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'paso ' + i })).id;
   assert.deepEqual(mapa(larga, sobre).alcance, { conseguido: 110, minimo: 100, maximo: 1000, alMinimo: true });

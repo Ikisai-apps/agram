@@ -27,7 +27,7 @@ const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null
 const en = (payload, h) => String(h).split('.').map(Number).reduce((n, x) => n[x], payload);
 
 /** Un eje propio con mucho T, para escribir registros grandes. */
-const ejeGrande = (minutos) => Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: minutos }], foco: 'Casa de ejemplo', t: T });
+const ejeGrande = (minutos) => Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: minutos }], foco: 'Casa de ejemplo', t: T });
 
 /** Una ficha cuyo precio [1][2] desarrolla las clases 0–3. */
 const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.genesisId, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, ['EUR 12', 'de huesped', 'precio fijo', 'aviso a cocina']]] });
