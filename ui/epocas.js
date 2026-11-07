@@ -1,10 +1,11 @@
 // Selector de época. La época está fuera del dato: el mismo eje se lee desde
 // cualquier época, y la regla corta de cada una nombra cada dígito en cada
 // profundidad. Aquí se elige con qué época se nombran las posiciones en los
-// tres modos. Las épocas disponibles son las que exporte src/epocas.js:
-// EPOCAS si existe (la PR #33 trae la época 1 propuesta); si no, solo la
-// época 0. Se importa el espacio de nombres entero para no romper cuando
-// EPOCAS aún no existe.
+// tres modos. Las épocas disponibles son las que exporte src/epocas.js
+// (EPOCAS): hoy solo la época 0, con las cien reglas cortas (profundidad 0 =
+// los diez PV; en toda profundidad n ≥ 1, el PV aplicado al nodo de arriba);
+// las épocas futuras traerán reglas largas. Se importa el espacio de nombres
+// entero para no romper si EPOCAS faltara.
 //
 // Con qué profundidad se nombra cada cosa en la pantalla:
 // - la décupla del foco, la posición «en» y los pasos del 9: la profundidad
@@ -65,7 +66,7 @@ function selector() {
   const lista = epocasDisponibles();
   const solo = lista.length < 2;
   const opciones = lista.map((e) => `<option value="${escapar(e.nombre)}" ${e === actual ? 'selected' : ''}>${escapar(e.nombre)}${e.estado && e.estado !== 'decidida' ? ' · ' + escapar(e.estado) : ''}</option>`).join('');
-  const titulo = solo ? 'solo hay época 0 en este núcleo; la época 1 propuesta llega con la PR #33' : 'la época nombra las posiciones; el dato no cambia';
+  const titulo = solo ? 'solo hay época 0 en este núcleo; las épocas futuras pulirán sus reglas con reglas largas' : 'la época nombra las posiciones; el dato no cambia';
   return `<label class="ajuste" title="${escapar(titulo)}">época <select name="epoca" ${solo ? 'disabled' : ''}>${opciones}</select></label>`;
 }
 

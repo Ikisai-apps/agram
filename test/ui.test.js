@@ -14,7 +14,7 @@ import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEnc
 import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../ui/fabrica.js';
 import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../ui/saldos.js';
 import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../ui/ejemplos.js';
-import { dirCorta, vectorCorto, escapar } from '../ui/comun.js';
+import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras } from '../ui/comun.js';
 
 const { motor, encaje, PV, EPOCA_0 } = nucleo;
 
@@ -52,7 +52,8 @@ test('épocas: los nombres de las posiciones salen de la época elegida, profund
   }
   assert.equal(elegirEpoca('época que no existe'), EPOCA_0);
   assert.deepEqual(nombresPV(0), [...PV]);
-  assert.equal(nombrePV(4, 2), PV[4]); // época 0: dígito = PV en todas las profundidades
+  assert.equal(nombrePV(4, 0), PV[4]); // época 0, profundidad 0: dígito = PV
+  assert.equal(nombrePV(4, 2), 'qué se hace'); // profundidades 1 a 9: el PV aplicado al nodo de arriba
 });
 
 // ---------- encaje en Pointed ----------
@@ -295,3 +296,11 @@ for (const x of EJEMPLOS.slice(1)) {
     elegirEjemplo('compra');
   });
 }
+
+test('las tres cifras del modo, discretas junto a su nombre (VG, 7-11 noche)', () => {
+  assert.equal(textoCifras(nucleo.alcanceDe(7, 'sequenced')), '7 · mín 10 · máx 100');
+  assert.equal(textoCifras(nucleo.alcanceDe(5, 'be')), '5 · mín sin fijar · máx todos');
+  const bajo = htmlCifras('Sequenced', nucleo.alcanceDe(7, 'sequenced'));
+  assert.match(bajo, /^<span class="cifras bajo" title="[^"]*no llega al mínimo[^"]*">Sequenced · 7 · mín 10 · máx 100<\/span>$/);
+  assert.match(htmlCifras('Pointed', nucleo.alcanceDe(10, 'pointed')), /^<span class="cifras" title="[^"]*">Pointed · 10 · mín 1 · máx 10<\/span>$/);
+});

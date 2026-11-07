@@ -2,6 +2,8 @@
 
 Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dice el corpus (citas literales con archivo y línea), lo que hoy hace el código, las cuatro lecturas que se hicieron esta noche y las opciones abiertas. Lo que es deducción del asistente va marcado como tal. `docs/FUNDAMENTOS.md` («El vector de encaje») remite a esta nota.
 
+> **Estado en `main` (`03dbf34`, 7-11 noche, tras la integración #55).** VG eligió la **opción B** (mapa §12 [D], 7-11 tarde) y está implementada (PR #28; el gancho de la época, PR #29). Lo que §4 cuenta como «hoy» es el código de antes de esas PR y **ya no se cumple**: el vector es candidato − buscado (una referencia a la 7 colocada en la 2 da `+5`, «reducir»); un escrito anclado en la dirección buscada es exacto (acuerdo 10, no «completar»); ordenan el acuerdo de prefijo y la llegada, y la distancia solo ordenaría en una profundidad que una época declare ordinal (ninguna lo hace). `docs/FUNDAMENTOS.md` ya no dice «pendiente de VG». Lo vigente está en `docs/BTML.md` §6.5 y `docs/BQL.md` §7.4. Siguen abiertas la orientación (opción E) y las decisiones transversales de §5.
+
 Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `02_BTML` = `agx/01_NUCLEO_V4/02_BTML_ESTRUCTURA_POSICIONES_Y_CEROS.md`.
 
 ## 1. La cuestión en tres frases

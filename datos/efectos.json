@@ -13,6 +13,7 @@
     "sinNombre": "[X] decidir VG: el corpus no nombra este efecto en este mundo",
     "matriz": "[X] decidir VG: leer lo que un registro trae dentro como la matriz 10×10×10 (posición, subposición, clase) está decidido solo para el registro de salida de la fábrica (mapa §12 y §13); hoy ningún registro de main lo es con certeza (la PR #40 lo trae; si escritura y consolidar son la misma salida sigue abierto, FABRICA_10X10 D1/D2). Aquí es propuesta",
     "marco": "[X] decidir VG: el registro no guarda desde qué camino del foco se escribió; se lee desde la raíz del foco (mapa §13 con n = 0). Escrito desde un camino más hondo, su mundo y su clase serían otros",
+    "marcoLectura": "[X] decidir VG: el registro no guarda desde qué camino del foco se escribió; aquí se lee desde el camino de quien mira (mapa §13 con n = su profundidad), porque está anclado en él o bajo él. Si se escribió desde otro camino, su mundo y su clase serían otros",
     "familia": "[X] decidir VG: el mundo y la clase de cada familia de tokens salen de los cuatro moduladores del jardín, que el corpus da como «metáfora, no equivalencia técnica aprobada» (V3 PV2). Coinciden con los nombres que VG dio a las clases 1 a 4 (impulso de recursos, criterio, comunicación, acción) y con P = poder/criterio (FUNDAMENTOS)",
     "claseFase": "[X] decidir VG: qué clase lleva una fase del motor. Leída en la posición 4 de su camino, donde el motor la ancla, sale 0, como en la PR #40 (AUDITORIA_AJUSTE C9)"
   },

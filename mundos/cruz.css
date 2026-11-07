@@ -1,0 +1,35 @@
+/* La cruz: cielo 8 arriba, hilos 6 y 7 a los lados del 5, camino 9 abajo. */
+.cruz{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1fr);grid-template-areas:"b8 b8 b8" "b6 b5 b7" "b9 b9 b9";gap:12px 8px;margin:8px 0 16px;align-items:center}
+.brazo{min-width:0;position:relative}
+.b8{grid-area:b8} .b6{grid-area:b6} .b5{grid-area:b5;align-self:stretch} .b7{grid-area:b7} .b9{grid-area:b9}
+.brazo-cab{font-size:11px;color:var(--muted);letter-spacing:.02em;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.b5 .brazo-cab{color:var(--accent)}
+/* las cuatro uniones con el 5 */
+.b8::after,.b9::before{content:"";position:absolute;left:50%;height:12px;border-left:1.5px solid var(--accent)}
+.b8::after{bottom:-12px} .b9::before{top:-12px}
+.b6::after,.b7::before{content:"";position:absolute;top:58%;width:8px;border-top:1.5px solid var(--accent)}
+.b6::after{right:-8px} .b7::before{left:-8px}
+.centro5{border:1.5px solid var(--accent);border-radius:12px;background:var(--panel2);padding:8px;min-width:0;height:calc(100% - 17px)}
+.centro5 .lente{font-weight:600;font-size:15px;line-height:1.25;overflow-wrap:anywhere}
+.centro5 .quien{font-family:var(--mono);font-size:11px;color:var(--muted);margin:2px 0 4px}
+.js-arbol{font-family:var(--mono);font-size:11px;line-height:1.5;overflow-wrap:anywhere;max-height:340px;overflow:auto}
+.js-arbol details{margin:0}
+.js-arbol summary{cursor:pointer}
+.js-hijos{padding-left:9px;border-left:1px dotted var(--muted);margin-left:3px}
+.js-clave{color:var(--muted);margin-right:5px}
+.js-clave::after{content:":"}
+.js-resumen,.js-vacio{color:var(--muted)}
+.js-texto{color:var(--fg)} .js-numero{color:var(--ok)} .js-bool,.js-nulo{color:var(--warn)}
+.js-ref{font:inherit;border:0;background:none;color:var(--accent);padding:0;cursor:pointer;text-decoration:underline dotted;text-align:left;overflow-wrap:anywhere}
+.b6 svg.hilos,.b7 svg.hilos{margin:0}
+.b6 .chips,.b7 .chips{max-height:220px;overflow:auto}
+.cruz-completa{margin:-6px 0 16px}
+.cruz-cab{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between}
+.cruz-cab .ver-hilos{font:inherit;font-size:12px;border:1px solid var(--rule);border-radius:6px;background:var(--panel2);color:var(--fg);padding:6px 9px;min-height:32px;cursor:pointer}
+/* en el móvil, los brazos se apilan (8 arriba; 6, 5 y 7 como pasado, presente y futuro; 9 abajo): a lo ancho, los hilos no se leen */
+@media (max-width:640px){
+  .cruz{grid-template-columns:minmax(0,1fr);grid-template-areas:"b8" "b6" "b5" "b7" "b9";gap:14px}
+  .b6::after,.b7::before,.b8::after,.b9::before{display:none}
+  .centro5{height:auto}
+}
+@media (max-width:480px){.js-arbol{font-size:10.5px}.centro5 .lente{font-size:14px}}
