@@ -265,7 +265,7 @@ function panelFabrica(m) {
   }).join('');
   const desc = motor.descubrir(estado.eje, m.foco, { camino: m.camino });
   const campos = desc.map((p) => {
-    const opciones = p.candidatos.map((c, k) => `<option value="c${k}">${c.origen} ${corto(c.evento)} · ${escapar(c.texto.slice(0, 40))}</option>`).join('');
+    const opciones = p.candidatos.map((c, k) => `<option value="c${k}">${c.origen} ${corto(c.evento)} · ${escapar((c.etiqueta ?? c.texto).slice(0, 40))}</option>`).join('');
     return `<label class="celda-form"><span>${p.posicion} ${nombrePV(p.posicion, m.camino.length)}</span>
       <select name="e${p.posicion}"><option value="">— nada (se hereda del foco si existe) —</option>${opciones}<option value="nuevo">terminal nuevo ↓</option></select>
       <input name="n${p.posicion}" maxlength="120" placeholder="terminal nuevo para ${p.posicion}"></label>`;

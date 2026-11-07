@@ -88,13 +88,13 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
 | `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 4598f23e'` (ocho primeros caracteres del id) |
-| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
+| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios). **[X] decidir VG**: cómo se escribe una magnitud en BTML; el mapa y el corpus no lo deciden, y esta lectura por la forma del texto convierte también nombres con número (`'Habitación 101'`, `'Mesa 4'`) | `'12 EUR'` |
 | cadena de exactamente diez dígitos, `'2000000000'` | `texto` (es una **dirección**, no un número: mapa §12, «un texto de diez dígitos es dirección») | `'2000000000'` |
-| cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
+| cadena `'7'`, `'0034'`, `'1.5'` | `texto`: una cadena de cifras es una cadena literal (corpus 03: «Número literal: `120`; cadena literal: `"Yogur"`»); el número lo da el JSON. `'0034'` conserva sus ceros (auditoría de ajuste 2) | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
 | cualquier otra cadena | `texto` | la cadena |
 
-Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` son magnitudes (las siete unidades de T se escriben como se llaman). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
+Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` se leen hoy como magnitudes (las siete unidades de T se escriben como se llaman; [X] decidir VG, ver la tabla). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
 
 Asimetría: en un **slot** la unidad puede ir delante (`'EUR 12'`); dentro de una **fórmula** solo detrás (`12 EUR`): `=EUR 12` es `ERROR: identificador suelto: EUR`. Las unidades son **etiquetas**: `min` o `h` no tienen relación con las escalas de T (`minuto`, `hora`), ni `EUR` con la denominación del token E (que además va ligada a su emisor: la serie es `E:<emisor>/EUR`). Una magnitud BQL no mueve nada; para pagar lo que calcula una fórmula hay que pasar a mano `valor.cantidad` y `valor.unidad` al movimiento (`docs/MOTOR.md` §2.1).
 

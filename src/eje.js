@@ -3,7 +3,9 @@
 // Una identidad existe cuando ha recibido tokens; quien la da de alta declara
 // su clave y su tipo (persona, grupo o cosa) en el mismo evento. El génesis
 // emite; después emiten su serie de E o de R su emisor, a sí mismo, y solo si
-// es persona o grupo (VG, 7-11). T y P solo los emite el génesis.
+// es persona o grupo (VG, 7-11). T y P solo los emite el génesis: es el estado de
+// hoy; VG decidió (mapa §12, 7-11 noche) que emita una persona, escalonado
+// T→R→P→E y P solo por ámbito: encargado, pendiente de implementar.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';

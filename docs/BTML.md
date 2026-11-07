@@ -151,7 +151,7 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 
 [D] (VG, 7-11, mapa §12): E con la denominación ligada al emisor como en R; R declarada por su emisor, ampliable solo por él y con rastro visible; P por delegación desde un registro de dominio; emitir es de personas y grupos, y las cosas son titulares que no emiten. Todo implementado (§2.4, §2.5, §7.1).
 
-[X] decidir VG: si una identidad puede emitir su propio tiempo como serie limitada (T fuera del génesis: «no tocar hasta que lo diga»); qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante, que acumula error; T ya va en enteros).
+Quién emite T y P fuera del génesis ya está decidido (mapa §12, 7-11 noche: cada persona emite su T con tope, escalonado T→R→P→E) y pendiente de implementar. [X] decidir VG: qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante, que acumula error; T ya va en enteros).
 
 ### 2.2 Forma de un movimiento
 
@@ -237,7 +237,7 @@ Emitir (iniciar una serie o ampliarla) es lo único reservado a **personas y gru
 
 Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o el id de la habitación y la dirección de la plaza, como propone la PR #21), siempre sin `|`, `:` ni `/`. [X] decidir VG.
 
-La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). T y P no se emiten fuera del génesis.
+La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). T y P no se emiten fuera del génesis: es el estado de hoy, no la regla; quién emite está decidido por VG en el mapa §12 (7-11 noche, decisión 5 de §14.1): emite siempre una persona, P solo por ámbito y nunca «P total», escalonado T→R→P→E; encargado y pendiente de implementar.
 
 ```js
 eje.tipo(identidad)   // → 'persona' | 'grupo' | 'cosa' | null (sin tipo declarado)
@@ -283,7 +283,7 @@ T:minuto 60 · E:casa/EUR 500 · E:casa/cama@2026-11-13 2 · E:bea/cama@2026-11-
 
 ### 2.5 P por delegación
 
-VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P solo se emite en el génesis (`P:genesis`, todo el eje), y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro; es lo que mira el motor para autorizar. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»).
+VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P solo se emite en el génesis (`P:genesis`, todo el eje; estado de hoy, no la regla: quién emite P está decidido por VG en el mapa §12 (7-11 noche, decisión 5 de §14.1): emite siempre una persona, P solo por ámbito y nunca «P total», escalonado T→R→P→E; encargado y pendiente de implementar), y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro; es lo que mira el motor para autorizar. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»).
 
 - El ámbito lo fija el movimiento (`ambito`), no el `sobre` del evento que delega: la delegación puede escribirse en cualquier sitio.
 - El ámbito cubre lo que **cuelga** del registro por `sobre` (su subárbol de hilos), no lo que solo lo referencia: una nota escrita en otra rama que cita el dominio con `{ ref: dominio }` queda fuera.
@@ -445,7 +445,8 @@ EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito]
 leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real; epoca por objeto o por nombre ('época 1 (propuesta)')
 EPOCAS                                   // { 'época 0': EPOCA_0, 'época 1 (propuesta)': EPOCA_1_PROPUESTA }
 epocaDe(epoca = EPOCA_0)                 // → la época, por objeto o por nombre; un nombre que no existe (también 'época 1') lanza «época desconocida»
-cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, reglas, dudas }
+cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, cortes?, reglas, dudas }
+epoca.cortes(clave)                      // → nueve umbrales crecientes de las cajas del 8 para esa medida o serie, o undefined (mapa §12 [D]: «Cortes de las cajas = regla de la época»); la época 0 aún no los trae en sus datos
 epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en la época 0 ni en la propuesta
 pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, terminal, posiciones: [{ indice, significado, contenido }] × 10 }; terminal: el payload si es un terminal (sin posición 0), si no undefined; epoca por objeto o por nombre
 sequenced.secuencia(eje, id, { epoca })  // igual: objeto o nombre
@@ -1176,7 +1177,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Decisión de VG sobre la «época 1 (propuesta)»; reglas largas; cómo cambia el vector con la época; qué profundidad es ordinal, si alguna (el gancho `epoca.ordinal` existe; ni la época 0 ni la época 1 (propuesta) declaran ninguna; el signo ya está decidido: opción B, mapa §12 [D]) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
 | Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
-| Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
+| Emisión de T y de P por cada persona, escalonada T→R→P→E (decidida, mapa §12, 7-11 noche; pendiente de implementar); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
 | Retirar o rechazar reputación dada; nombre de la plaza en la denominación; el id del génesis como segundo nombre del ámbito `genesis` ([X] decidir VG) | §2.4, §2.5 |
 | Dónde van las noches de la reserva (dentro, y entonces qué llevan 5 y 6, o ancladas en el 7); dónde se ancla lo lejano, en el foco o en la décupla ([X] decidir VG) | §5 |
 | Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |
