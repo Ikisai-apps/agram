@@ -5,7 +5,7 @@ AGRAM es el motor: la ejecución real sobre la estructura de datos (BTML, `docs/
 Convenciones:
 
 - Los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `2983477b`, alta `240c6005`, menú `579144c6`, compra `ec0734c3`, cuenta `c7c163ae`. En las salidas los ids se acortan a ocho caracteres con `corto`. (`docs/BTML.md` y `docs/BQL.md` citan ids anteriores a la PR #18, que puso ámbito al token P del génesis y con ello cambió toda la cadena de ids; el contenido es el mismo.)
+- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `2983477b`, alta `240c6005`, menú `579144c6`, compra `ec0734c3`, cuenta `c7c163ae`. En las salidas los ids se acortan a ocho caracteres con `corto`. Los tres documentos citan ya los mismos ids; en un programa no se copian, se usan `compra.id`, `cuenta.id`… (cambian en cuanto cambia el cuerpo de un evento: pasó con la PR #18 y, para las consolidaciones, con la PR #28, que cambió el vector que guardan).
 - Toda escritura recibe `t` explícito. `escribirDesde` y `ejecutar` usan `new Date().toISOString()` si falta, y entonces los ids no son reproducibles.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se trabaja. Una «consolidación» es el registro que escribe `consolidar`.
 
@@ -13,7 +13,7 @@ Convenciones:
 
 | Módulo | Qué define | Exports |
 |---|---|---|
-| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES` |
+| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES`, `OPERADORES` |
 | `src/escritura.js` | El registro de salida de cada modo | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `costeT`, `escribirDesde`, `esReferencia` |
 | `src/modos.js` | Capacidad de lectura y escritura por modo | `MODOS`, `lectura`, `escritura`, `contarPosiciones`, `cabeEscritura` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8) | `banda`, `ejeTemporal`, `medir`, `comparar`, `HITOS` |
@@ -25,7 +25,7 @@ Dependencias: el motor lee el eje (`src/eje.js`), el encaje (`src/encaje.js`, `o
 
 ## 1. El ciclo
 
-Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecutar**. Los tres últimos son eventos normales del eje (transiciones de tokens con payload BTML), anclados en la fábrica del foco (posición 4) y encadenados por `sobre`; por eso la evidencia es el propio hilo: ejecución → consolidación → foco → … → génesis. Nada se borra ni se modifica en sitio.
+Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecutar**, con un paso opcional entre los dos primeros: `proponer` construye las elecciones desde las fórmulas del foco (§2.1). Los tres últimos son eventos normales del eje (transiciones de tokens con payload BTML), anclados en la fábrica del foco (posición 4) y encadenados por `sobre`; por eso la evidencia es el propio hilo: ejecución → consolidación → foco → … → génesis. Nada se borra ni se modifica en sitio.
 
 | Paso | Función | Quién | Escribe (`payload`) | `sobre` / `en` | `contexto` | Mueve |
 |---|---|---|---|---|---|---|
@@ -88,7 +88,7 @@ console.log('registros antes y después:', eje.orden.length);
   propio     ec0734c3 camino [1] visible [1,0] · RESUELTO · → 579144c6 · exacto
   propio     ec0734c3 camino [1,0] visible [1,0] · RESUELTO · → 579144c6 · exacto
   referencia 579144c6 camino [1] visible [1,0] · RESUELTO · ensalada · exacto
-  escrito    c7c163ae camino [] visible [0] · RESUELTO · Cuenta del menú · completar
+  escrito    c7c163ae camino [] visible [0] · RESUELTO · Cuenta del menú · exacto
 2 2000000000 3 candidatos
   propio     ec0734c3 camino [2] visible [2,0] · RESUELTO · → 579144c6 · exacto
   propio     ec0734c3 camino [2,0] visible [2,0] · RESUELTO · → 579144c6 · exacto
@@ -103,7 +103,58 @@ console.log('registros antes y después:', eje.orden.length);
 registros antes y después: 5
 ```
 
-Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (ambos muestran la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`completar`: viene de la raíz, le falta la profundidad 0).
+Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (ambos muestran la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`exacto`: está anclada justo en la dirección buscada). Los cuatro son exactos y salen en orden de llegada; con la convención vigente (`docs/BTML.md` §6.5) solo una referencia que alcanza otra dirección tiene vector distinto de cero.
+
+### 2.1 Proponer (operador B): elecciones desde las fórmulas del foco
+
+`proponer` (PR #26, posterior a la primera versión de este documento) construye las `elecciones` de una consolidación leyendo las posiciones del foco. Los operadores del ciclo son `OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' }`: Q interroga, B construye la propuesta, C la fija; el orden importa. No escribe nada.
+
+```js
+proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {})  // → { foco, elecciones, origenes, pendientes }
+```
+
+| Lo que hay en `[...camino, i]` del foco | Qué propone en `elecciones[i]` | `origenes[k].desde` |
+|---|---|---|
+| sin desarrollar | nada (la posición no entra) | — |
+| fórmula que resuelve a una **colección** | `{ candidato }` con su primer ítem (el mejor encaje, salvo que la fórmula ORDENE otra cosa) | `'formula'` |
+| fórmula que resuelve a un **número** | el número | `'formula'` |
+| fórmula que resuelve a otro valor (magnitud, composición, texto…) | su **texto** formateado (`r.texto`), como terminal nuevo | `'formula'` |
+| contenido literal (terminal, array o referencia) | `{ ref: foco, dir }`: lo literal se propone por referencia | `'foco'` |
+| fórmula PENDIENTE, INCOMPATIBLE o ERROR, o colección vacía | nada; se informa en `pendientes` (`{ posicion, motivo }`) | — |
+
+Ejemplo: el ciclo entero sobre la cuenta, con el pago tomado de la fórmula en vez de teclearlo.
+
+```sh
+node --input-type=module -e "
+import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { proponer, consolidar, autorizar, ejecutar, estadoDe, OPERADORES } from './src/motor.js';
+import { evaluar } from './src/bql.js';
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
+const { eje, compra } = await ejemploCompra();
+const cuenta = await ejemploCuenta(eje, compra);
+console.log(JSON.stringify(OPERADORES));
+const p = proponer(eje, cuenta.id);
+console.log(corto(p.elecciones));
+console.log(corto(p.origenes.map((o) => o.posicion + ':' + o.desde)), corto(p.pendientes));
+const T = '2026-11-07T16:00:00Z';
+const cons = await consolidar(eje, { autor: 'huesped', foco: cuenta.id, t: T, titulo: 'Pago de la cuenta', elecciones: p.elecciones });
+console.log(corto(cons.payload), '·', evaluar(eje, cons.id, [1]).valor.tipo);
+const importe = evaluar(eje, cuenta.id, [1]).valor;
+await autorizar(eje, { autorizante: 'casa', consolidacion: cons.id, t: T });
+await ejecutar(eje, { autor: 'huesped', consolidacion: cons.id, t: T, movimientos: [{ token: 'E', denominacion: importe.unidad, cantidad: importe.cantidad, de: 'huesped', a: 'cocina' }] });
+console.log(estadoDe(eje, cons.id), importe.cantidad, importe.unidad, '· EUR cocina', eje.saldo('cocina', 'E:EUR'), 'huesped', eje.saldo('huesped', 'E:EUR'));
+"
+```
+
+```text
+{"Q":"descubrir","B":"proponer","C":"consolidar"}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"c7c163ae","dir":"3000000000"}}
+["1:formula","2:formula","3:foco"] []
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"c7c163ae","dir":"3000000000"}] · texto
+EJECUTADO 14 EUR · EUR cocina 26 huesped 34
+```
+
+Lectura: la cuenta tiene fórmulas en 1 y 2 y un texto escapado en 3; la 4 no existe y no propone. La consolidación guarda el **texto** de la magnitud con su desglose (`"14 EUR (12 EUR + 2 EUR)"`), que BQL vuelve a leer como `texto`, no como magnitud (§13.16). El importe del pago no sale de la consolidación: se toma de la fórmula (`evaluar(...).valor`) y se pasa a mano a `ejecutar`, con `unidad` como denominación de E (las unidades de BQL son etiquetas, `docs/BQL.md` §3). Nada comprueba que el texto consolidado y el movimiento ejecutado digan lo mismo.
 
 ## 3. Consolidar
 
@@ -129,8 +180,8 @@ Las claves de `elecciones` son posiciones **1–9**. Se recorren de 1 hasta la m
 
 | Valor en `elecciones[i]` | Qué se guarda en `payload[i]` | `fuentes` | `encaje[k]` |
 |---|---|---|---|
-| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan) |
-| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector }` (sin `tipo` ni `signo`) |
+| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan). `origen` es el `origenDir` del candidato, no el `dir` de la referencia guardada: para un escrito, la referencia apunta a su raíz (`dir: '0000000000'`, el payload entero) y `origen` es su anclaje, igual a `destino` (vector cero, `exacto`) |
+| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector }` con `vector(origen, destino)` = candidato − buscado (sin `tipo` ni `signo`) |
 | cualquier otro valor BTML (terminal o array) | tal cual | — | — |
 | ausente (hueco, `i` < última elegida) | `{ ref: foco, dir: direccion([...camino, i]) }` si `ocupantes(eje, foco, [...camino, i])` no está vacío; si no, error | — | — |
 
@@ -163,7 +214,7 @@ console.log(estadoDe(eje, c.id));
 ```text
 true true huesped
 ["Pago del menú",{"ref":"c7c163ae","dir":"0000000000"},"sin lactosa",{"ref":"ec0734c3","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fase":"consolidado","fuentes":["c7c163ae"],"encaje":[{"posicion":1,"evento":"c7c163ae","tipo":"escrito","origen":"0000000000","destino":"1000000000","vector":[1,0,0,0,0,0,0,0,0,0],"signo":"completar"}],"modo":"mapped"}
+{"motor":"fabrica","fase":"consolidado","fuentes":["c7c163ae"],"encaje":[{"posicion":1,"evento":"c7c163ae","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 PENDIENTE DE AUTORIZACIÓN
 ```
@@ -804,13 +855,13 @@ posición 2 propio → f3542a2a (exacto) · referencia sin gluten (exacto)
 posición 3 propio huesped (exacto) · propio huesped (exacto)
 posición 4 nada
 consolidación ["Pedido del guiso",{"ref":"f3542a2a","dir":"1100000000"},"sin lactosa",{"ref":"c9652eb2","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
-encaje guardado [{"posicion":1,"evento":"f3542a2a","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,-1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
+encaje guardado [{"posicion":1,"evento":"f3542a2a","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 puede autorizar casa=true cocina=true huesped=false
 rechazo: el autor no se autoriza a sí mismo
 autorización "==sale en 10 minutos" · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"c0c8c554"},{"ref":"b0059d5b"}] · evidencia ["c0c8c554","b0059d5b"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"e94bf406"},{"ref":"75b8be7e"}] · evidencia ["e94bf406","75b8be7e"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
-consolidaciones del pedido [{"id":"c0c8c554","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["f3542a2a"]}]
+consolidaciones del pedido [{"id":"e94bf406","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["f3542a2a"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 comparar: posición 1 de 2 · huesped=9 casa=3
 restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lactosa
@@ -819,7 +870,7 @@ restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lacto
 Lectura de la salida:
 
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
-- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, -1, …]`, signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
+- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: cocina, por los 2 P con ámbito el menú (el pedido cuelga del menú); la casa, por los 3 P que le quedan sobre `genesis`; la persona huésped no, porque es el autor.
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
@@ -833,7 +884,9 @@ Lectura de la salida:
 export const FABRICA = '4000000000';
 export const FASES = ['consolidado', 'autorizado', 'ejecutado'];
 export function caminoVisible(ocupante): number[];
+export const OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' };
 export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { posicion, dir, candidatos: Candidato[] }[];
+export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes: { posicion, desde, texto }[], pendientes: { posicion, motivo }[] };
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada?): Promise<Evento>;
 export function puedeAutorizar(eje, identidad, consolidacion): boolean;
 export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada?): Promise<Evento>;
@@ -914,3 +967,6 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 13. `escribirDesde` y `ejecutar` usan el reloj si falta `t`: ids no reproducibles.
 14. `comparar` compara hermanos por `sobre` sin distinguir `en`; la puntuación `posiciones + 2 × escritos + movimientos` es cartón piedra, sin respaldo en el corpus.
 15. La regla V0 permite que el autor de una consolidación sea quien tenga todo el poder: entonces nadie puede autorizarla (la casa consolidando sobre su propio eje sin haber delegado P).
+16. `proponer` convierte el valor de una fórmula que no es número en su **texto** formateado: una magnitud se consolida como `"14 EUR (12 EUR + 2 EUR)"`, que BQL relee como `texto` (el paréntesis del desglose impide leerla como magnitud). El importe deja de ser operable en la consolidación (§2.1).
+17. `ejecutar` sobre una consolidación pendiente lanza `Error('PENDIENTE DE AUTORIZACIÓN')`: el mensaje es el nombre del estado, sin prefijo que diga qué falló, y coincide con el valor normal de `estadoDe`.
+18. Nada une el texto de la acción consolidada (`'pagar 14 EUR'`) con los `movimientos` de la ejecución: se puede consolidar «pagar 14 EUR» y ejecutar 1000 EUR (si hay saldo) o nada.

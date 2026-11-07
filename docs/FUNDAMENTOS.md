@@ -38,7 +38,7 @@ Una dirección con ceros finales nombra a la vez la posición 1, la 1.0, la 1.0.
 
 ### El vector de encaje
 
-Cada ocupante lleva su origen (de dónde viene), su destino (dónde se coloca) y el vector de diez diferencias con signo, dígito a dígito (corpus V4). Ordena la **distancia**, siempre positiva, profundidad a profundidad y sin sumar enteros: exactos primero, luego más profundidades de acuerdo, luego menor distancia, empates por llegada. El signo es solo informativo: positivo, al candidato le falta (completar); negativo, le sobra (reducir); y solo cuenta donde la regla de esa dimensión lo permita. Pendiente de VG: si el signo es por componente o del vector entero, y el orden que impone que la información crezca desde el cero (nota en `docs/notas/`).
+Cada ocupante lleva su origen (la dirección del candidato), su destino (la dirección buscada) y el vector de diez diferencias con signo, dígito a dígito (corpus V4): **candidato − buscado**, como el ejemplo del corpus «+2 en el quinto dígito». Positivo, al candidato le sobra en esa profundidad (reducir); negativo, le falta (completar). Lo escrito anclado en la dirección buscada es encaje exacto. Decidido por VG el 7-11 (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`): el signo es información por componente, y **ni el signo ni la distancia ordenan** hasta que una época haga ordinal una profundidad (entonces solo ahí). Ordenan las coincidencias de ruta (el acuerdo de prefijo) y, a igualdad, la llegada; el corpus prohíbe «puntuar por cercanía ciega». La orientación (opción E) queda apuntada para cuando lleguen las reglas cortas. Lectura anterior, retirada: «ordena la distancia» y «positivo = falta».
 
 ### Tokens según el corpus
 
