@@ -489,7 +489,7 @@ async function conTitere(eje, alta, { minutos = 10, t = T0 } = {}) {
   await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'alta de un títere', contexto: { tipos: { titere: 'persona' } }, movimientos: [daT('ana', 'titere', minutos)] });
 }
 
-test('NEU-01 alta gratis: sigue abierta, la decide el estudio de neutralidad (PROVISIONAL [X])', async () => {
+test('NEU-01 (revisión de la #62) alta gratis: sigue abierta, la decide el estudio de neutralidad (PROVISIONAL [X])', async () => {
   // No se añade coste por alta (lo decide el estudio de neutralidad ante agrupación y división). La prueba fija
   // lo que pasa hoy: ana da de alta a un títere con un minuto, el títere emite su mínimo de T en cada escala y le
   // devuelve el minuto. Ana queda igual y el títere se queda con un año, un ciclo, una semana, un día, una hora y
@@ -503,7 +503,7 @@ test('NEU-01 alta gratis: sigue abierta, la decide el estudio de neutralidad (PR
   assert.deepEqual(eje.tiempos('titere'), ['segundo', 'hora', 'dia', 'semana', 'ciclo', 'anio'].map((escala) => ({ escala, cantidad: 1 })));
 });
 
-test('NEU-02 alta retrofechada: cerrada, ningún evento es anterior a su foco ni al alta de su autor', async () => {
+test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es anterior a su foco ni al alta de su autor', async () => {
   const { eje, alta } = await mundo();
   // El ataque: dar de alta a un títere en un evento fechado en 1900 para que el reloj le diera ~4e9 T:segundo.
   const viejo = '1900-01-01T00:00:00Z';
@@ -517,7 +517,7 @@ test('NEU-02 alta retrofechada: cerrada, ningún evento es anterior a su foco ni
   await assert.rejects(eje.escribir({ autor: 'titere', sobre: eje.genesisId, t: viejo, payload: 'x', movimientos: [gasta('titere')] }), /es anterior al alta de titere/);
 });
 
-test('NEU-03 el títere que autoriza: el P acuñado sobre lo propio no autoriza lo que una propone ([X] confirmar VG)', async () => {
+test('NEU-03 (revisión de la #62) el títere que autoriza: el P acuñado sobre lo propio no autoriza lo que una propone ([X] confirmar VG)', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30 });
   // El ataque: ana escribe su registro, acuña P sobre él (con su R en juego ante el títere), se lo delega al títere,
@@ -551,7 +551,7 @@ test('NEU-03 el títere que autoriza: el P acuñado sobre lo propio no autoriza 
   assert.equal(puedeAutorizar(eje, 'titere', debajo.id), true);
 });
 
-test('NEU-04 el delegado que acuña: quien solo tiene P lo transfiere, no lo acuña', async () => {
+test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo transfiere, no lo acuña', async () => {
   const { eje } = await mundo();
   const reg = await taller(eje, 'ana');
   const g = eje.genesisId;
