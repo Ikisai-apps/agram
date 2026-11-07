@@ -16,3 +16,5 @@ export * as autoridad from './autoridad.js';
 export * as tiempo from './tiempo.js';
 export * as persistencia from './persistencia.js';
 export * as bases from './bases.js';
+export * as efectos from './efectos.js';
+export * as validez from './validez.js';

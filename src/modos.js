@@ -4,7 +4,11 @@
 // Sequenced entre un quinto y un décimo; Mapped entre un cuarto y un tercio.
 // Topes duros de posiciones emitidas (VG, 7-11-2026): Pointed 10, Sequenced
 // 100, Mapped 1000 (la matriz 10×10×10 de la fábrica), Scened 10000,
-// «además de la proporción» (mapa §12). Scened no tiene render todavía.
+// «además de la proporción» (mapa §12). Son de lo EMITIDO: lo que un modo
+// lee (lectura) es capacidad, no tope duro; Scened corta su escena en
+// lectura('scened') por defecto y se puede cambiar (src/scened.js, [X]
+// decidir VG si la lectura tiene tope duro). Scened tiene render sobrio y no
+// tiene formulario de escritura.
 // La escritura (src/escritura.js) comprueba las dos, en este orden: el
 // máximo de la proporción sobre las posiciones del registro (lo heredado
 // incluido), que rechaza como antes del 7-11 y con el mismo mensaje, y el
@@ -22,7 +26,7 @@ export const MODOS = Object.freeze({
   pointed: Object.freeze({ nombre: 'Pointed', decuplas: 1, proporcion: [1 / 10, 1 / 10], tope: 10 }),
   sequenced: Object.freeze({ nombre: 'Sequenced', decuplas: 10, proporcion: [1 / 10, 1 / 5], tope: 100 }),
   mapped: Object.freeze({ nombre: 'Mapped', decuplas: 100, proporcion: [1 / 4, 1 / 3], tope: 1000 }),
-  scened: Object.freeze({ nombre: 'Scened', decuplas: 1000, proporcion: null, tope: 10000 }), // proporción sin fijar; sin render
+  scened: Object.freeze({ nombre: 'Scened', decuplas: 1000, proporcion: null, tope: 10000 }), // proporción sin fijar; sin formulario de escritura
 });
 
 function modoDe(modo) {

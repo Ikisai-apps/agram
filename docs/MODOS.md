@@ -14,9 +14,9 @@ Convenciones, las de `docs/MOTOR.md`: los ejemplos se ejecutan desde la raíz de
 | **Scened** | unas mil | 10000 | `src/scened.js` | `escena(eje, focos, { camino, epoca })`: varios mapas y sus ejes temporales en un marco común | sobrio |
 | Be / Dragón | sin cardinalidad | — | no existe | — | — |
 
-«Lee de una vez» es `lectura(modo)` de `src/modos.js`: décuplas × 10. El propio módulo dice que son **capacidad representativa, no cifras obligatorias**, y el mapa (§2.7 [A]) habla de «unas mil» piezas para Scened. No hay que confundirlo con los **topes duros** de §12 (Pointed 10, Sequenced 100, Mapped 1000, Scened 10000): esos son de lo **emitido** por la fábrica en el registro de salida (PR #40, `modos.tope`), no de lo leído.
+«Lee de una vez» es `lectura(modo)` de `src/modos.js`: décuplas × 10. El propio módulo dice que son **capacidad representativa, no cifras obligatorias**, y el mapa (§2.7 [A]) habla de «unas mil» piezas para Scened. No hay que confundirlo con los **topes duros** de §12 (Pointed 10, Sequenced 100, Mapped 1000, Scened 10000): esos son de lo **emitido** por la fábrica en el registro de salida (`tope(modo)` en `src/modos.js`, desde la #40), no de lo leído.
 
-Tres reglas valen para todos [A/D]: **cambiar de modo no muta el contenido** (un modo solo lee); **sobrio y animado son dos renders de la misma operación** (§10.3; hoy solo existe el sobrio, y pedir `'animado'` lanza «render no disponible»); y la época va **fuera del dato** (§9): cada modo recibe la época con la que se lee.
+Tres reglas valen para todos [A/D]: **cambiar de modo no muta el contenido** (un modo solo lee); **sobrio y animado son dos renders de la misma operación** (§10.3; en estos módulos solo existe el sobrio, y pedir `'animado'` lanza «render no disponible»; el primer mundo animado, los hilos del 6 y 7, está en el frontend: `mundos/hilos.js`); y la época va **fuera del dato** (§9): cada modo recibe la época con la que se lee.
 
 `src/index.js` los expone como espacios de nombres: `pointed`, `sequenced`, `mapped`, `scened`.
 
@@ -108,7 +108,7 @@ Las referencias (BTML o REF) a registros que no están en la escena no son arist
 
 ## 6. La capacidad y el corte
 
-**La capacidad de Scened es, por defecto, 10000 posiciones**: `lectura('scened')`, mil décuplas de diez, la capacidad representativa de `src/modos.js`. **No es un tope duro**: se puede bajar, subir o quitar con la opción `capacidad`. El tope duro de Scened que fija §12 (10000) es de **escritura**: posiciones emitidas por la fábrica en el registro de salida (PR #40, `modos.tope('scened')`). Coincide en número y es otra cosa: aquí no se escribe.
+**La capacidad de Scened es, por defecto, 10000 posiciones**: `lectura('scened')`, mil décuplas de diez, la capacidad representativa de `src/modos.js`. **No es un tope duro**: se puede bajar, subir o quitar con la opción `capacidad`. El tope duro de Scened que fija §12 (10000) es de **escritura**: posiciones emitidas por la fábrica en el registro de salida (`tope('scened')` en `src/modos.js`, desde la #40; lo aplica `escribirDesde`, `docs/MOTOR.md` §7.1). Coincide en número y es otra cosa: aquí no se escribe.
 
 **[X] decidir VG:** ¿Scened tiene tope duro de lectura, o solo el de emisión del §12? Mientras no se decida, la capacidad corta por defecto (para que una escena de todo el eje no se lea entera sin aviso) y se puede cambiar.
 
@@ -213,8 +213,8 @@ Lectura de la primera escena: se pidieron en desorden y el marco las coloca por 
 | **[X] decidir VG:** si las referencias reordenan | Solo son aristas (§3). |
 | **[X] decidir VG** en `src/tiempo.js`: las cohortes (qué es el proyecto, si incluye todo lo que cuelga de él, si los hermanos exigen la misma posición `en`) | `escenaDe` usa `tiempo.comparables` tal cual (§2). |
 | **[X] decidir VG:** más alcances | `hermanos`, `proyecto`, `general` (las tres cohortes de §12) y `hilo` (linaje hacia arriba). No existe «el hilo hacia abajo» desde el foco (lo escrito encima, recursivo). |
-| Escritura desde Scened | No existe: la proporción de Scened está sin fijar en `src/modos.js`, y su tope duro de emisión (10000) va en la PR #40 (`modos.tope('scened')`), que no es la capacidad de esta escena. |
-| Render animado y mundos | Solo el sobrio. |
+| Escritura desde Scened | Sin formulario: la proporción de Scened está sin fijar (`escritura('scened')` es `null`). Su tope duro de emisión (10000, `tope('scened')`, desde la #40) ya está y `escribirDesde` lo aplica (`docs/MOTOR.md` §7.1); no es la capacidad de esta escena. |
+| Render animado y mundos | Solo el sobrio. El primer mundo animado (`mundos/hilos.js`, en el frontend) anima el eje temporal de un foco, no una escena. |
 | Colisiones entre focos (dos focos que ocupan la misma dirección de un tercero) | No son aristas; están en `encaje.ocupantes` de cada registro. |
 | Bases del 8 en la escena (confluencia) | Las medidas de cada mapa se suman; no se funden bases. |
 | Aristas de BQL evaluado (`BUSCAR`, `ACTUAL`…, o un `REF` con argumentos calculados) | Solo `REF` con argumentos literales, leído en el árbol de la fórmula, sin evaluar (§4). |
