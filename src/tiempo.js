@@ -1,13 +1,17 @@
 // Eje temporal (PV6 y PV7) y comparabilidad (PV8). El presente es la costura:
 // a la izquierda los registros, a la derecha las proyecciones. Las bandas
 // son las siete escalas del tiempo; lo cercano con detalle, lo lejano
-// comprimido. PV8 es comparabilidad relativa entre comparables accesibles
-// (los hermanos del foco); las estrellas no son verdad.
+// comprimido. PV8 es comparabilidad relativa entre comparables accesibles;
+// las estrellas no son verdad. Cuando hay muchos registros, confluyen hacia
+// arriba en el 8: las «bases» (distribuciones por medida y por posición)
+// sobre las que el foco se sitúa sin recibir nivel ni grado.
 
-import { SEGUNDOS, ESCALAS_T } from './tokens.js';
+import { SEGUNDOS, ESCALAS_T, FAMILIAS, cantidadBase } from './tokens.js';
 import { direccion, resolver } from './btml.js';
 import { consolidaciones } from './motor.js';
 import { MODOS } from './modos.js';
+import { esFormula, evaluar } from './bql.js';
+import { EPOCA_0 } from './epocas.js';
 
 /** Banda de una distancia temporal en segundos: la escala más pequeña que la contiene. */
 export function banda(deltaSegundos) {
@@ -86,4 +90,151 @@ export function comparar(eje, foco) {
   lista.sort((a, b) => b.puntuacion - a.puntuacion);
   const posicion = lista.findIndex((x) => x.id === foco) + 1;
   return { foco, posicion, de: lista.length, comparables: lista, hitos: HITOS };
+}
+
+// ---------- confluencia del 8: las bases ----------
+
+/**
+ * Alcances de comparación, anidados: los hermanos del foco (escritos sobre
+ * el mismo padre) ⊂ el hilo (el foco, sus antepasados hasta el génesis y lo
+ * escrito directamente sobre cada uno de ellos) ⊂ todo el eje.
+ * [X] decidir VG: la cohorte de comparación sigue abierta en el mapa; estos
+ * tres alcances son el mínimo para que el 8 tenga comparables reales.
+ */
+export const ALCANCES = Object.freeze(['hermanos', 'hilo', 'todo']);
+
+/** Medidas que confluyen, con su etiqueta para mostrarlas. Ninguna es un nivel ni un grado. */
+export const MEDIDAS = Object.freeze([
+  { clave: 'posiciones', etiqueta: 'posiciones desarrolladas' },
+  { clave: 'escritos', etiqueta: 'escritos encima' },
+  { clave: 'movimientos', etiqueta: 'movimientos' },
+  { clave: 'E', etiqueta: 'E movido (recursos)' },
+  { clave: 'P', etiqueta: 'P movido (poder)' },
+  { clave: 'R', etiqueta: 'R movido (reputación)' },
+  { clave: 'T', etiqueta: 'T movido (segundos)' },
+  { clave: 'identidades', etiqueta: 'identidades distintas' },
+  { clave: 'profundidadHilo', etiqueta: 'profundidad del hilo' },
+  { clave: 'formulasResueltas', etiqueta: 'fórmulas resueltas' },
+  { clave: 'formulasPendientes', etiqueta: 'fórmulas pendientes' },
+]);
+
+/** Comparables accesibles del foco según el alcance, en orden de llegada al eje. El foco siempre está. */
+export function comparables(eje, foco, alcance = 'hermanos') {
+  const ev = eje.obtener(foco);
+  if (!ev) throw new Error('foco desconocido: ' + foco);
+  if (!ALCANCES.includes(alcance)) throw new Error('alcance desconocido: ' + alcance);
+  const ids = new Set([foco]);
+  if (alcance === 'todo') {
+    for (const id of eje.orden) ids.add(id);
+  } else if (alcance === 'hilo') {
+    for (const h of eje.hilo(foco)) {
+      ids.add(h.id);
+      for (const e of eje.sobre(h.id)) ids.add(e.id);
+    }
+  } else if (ev.sobre !== null) {
+    for (const e of eje.sobre(ev.sobre)) ids.add(e.id);
+  }
+  return eje.orden.filter((id) => ids.has(id)).map((id) => eje.obtener(id));
+}
+
+/**
+ * Medidas de un registro para la confluencia: las de medir() más los tokens
+ * movidos por familia (en su unidad de saldo: T en segundos; E, P y R sin
+ * distinguir denominación), las identidades distintas que tocan sus
+ * movimientos, la profundidad del hilo y las fórmulas de su payload
+ * resueltas frente a las no resueltas (PENDIENTE, INCOMPATIBLE o ERROR
+ * cuentan como pendientes).
+ */
+export function medidasDe(eje, id) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  const m = { ...medir(eje, id), E: 0, P: 0, R: 0, T: 0, identidades: 0, profundidadHilo: eje.hilo(id).length - 1, formulasResueltas: 0, formulasPendientes: 0 };
+  const identidades = new Set();
+  for (const mov of ev.movimientos) {
+    if (FAMILIAS.includes(mov.token)) m[mov.token] += cantidadBase(mov);
+    if (mov.de) identidades.add(mov.de);
+    if (mov.a) identidades.add(mov.a);
+  }
+  m.identidades = identidades.size;
+  const recorrer = (nodo, indices) => {
+    if (Array.isArray(nodo)) {
+      nodo.forEach((hijo, i) => recorrer(hijo, [...indices, i]));
+      return;
+    }
+    if (!esFormula(nodo)) return;
+    if (evaluar(eje, id, indices).estado === 'RESUELTO') m.formulasResueltas++;
+    else m.formulasPendientes++;
+  };
+  recorrer(ev.payload, []);
+  return m;
+}
+
+function mediana(valores) {
+  const v = [...valores].sort((a, b) => a - b);
+  const k = v.length >> 1;
+  return v.length % 2 ? v[k] : (v[k - 1] + v[k]) / 2;
+}
+
+/**
+ * Distribución de una medida entre los comparables (foco incluido) y dónde
+ * cae el foco: cuantil entre 0 y 1 frente a los demás (proporción de los
+ * otros comparables con menos, contando los empates a medias; null si el
+ * foco está solo), y cuántos otros tienen menos, lo mismo o más.
+ */
+export function distribucion(valores, valorFoco) {
+  const otros = valores.length - 1;
+  let menores = 0;
+  let iguales = 0;
+  let mayores = 0;
+  for (const v of valores) {
+    if (v < valorFoco) menores++;
+    else if (v > valorFoco) mayores++;
+    else iguales++;
+  }
+  iguales--; // el propio foco no se compara consigo mismo
+  return {
+    foco: valorFoco,
+    minimo: Math.min(...valores),
+    mediana: mediana(valores),
+    maximo: Math.max(...valores),
+    cuantil: otros ? (menores + iguales / 2) / otros : null,
+    menores,
+    iguales,
+    mayores,
+  };
+}
+
+/**
+ * Confluencia del 8: las «bases» del foco frente a sus comparables
+ * accesibles. Por cada medida, su distribución y dónde cae el foco; por
+ * cada posición 0–9, cuántos comparables la tienen desarrollada (propia en
+ * el payload o escrita encima) y si el foco la tiene. Límite conocido: lo
+ * escrito en la raíz (en = 0000000000) colisiona con la posición 0, así que
+ * cuenta como escrito en ella; por eso propias y escritas van separadas.
+ * No asigna nivel ni grado: los HITOS se devuelven solo como tabla.
+ * Consulta sin efectos.
+ */
+export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
+  const lista = comparables(eje, foco, alcance);
+  const filas = lista.map((e) => ({ id: e.id, autor: e.autor, t: e.t, ...medidasDe(eje, e.id) }));
+  const delFoco = filas.find((f) => f.id === foco);
+  const medidas = {};
+  for (const { clave } of MEDIDAS) medidas[clave] = distribucion(filas.map((f) => f[clave]), delFoco[clave]);
+  const posiciones = [];
+  for (let i = 0; i < 10; i++) {
+    const dir = direccion([i]);
+    const tiene = (e) => ({ propia: Array.isArray(e.payload) && e.payload[i] !== undefined, escrita: eje.sobre(e.id, dir).length > 0 });
+    let propias = 0;
+    let escritas = 0;
+    let desarrolladas = 0;
+    for (const e of lista) {
+      const t = tiene(e);
+      if (t.propia) propias++;
+      if (t.escrita) escritas++;
+      if (t.propia || t.escrita) desarrolladas++;
+    }
+    const f = tiene(eje.obtener(foco));
+    posiciones.push({ indice: i, significado: epoca.reglaCorta(0, i), comparables: desarrolladas, propias, escritas, proporcion: desarrolladas / lista.length, foco: f.propia || f.escrita });
+  }
+  return { foco, alcance, n: lista.length, comparables: filas, medidas, posiciones, hitos: HITOS };
 }
