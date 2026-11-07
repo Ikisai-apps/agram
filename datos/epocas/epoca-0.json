@@ -12,6 +12,10 @@
     "Los ejemplos de las profundidades 3 a 9 recorren una sola lectura ilustrativa de una reserva (1.7.2.1.3.4.7.6.1), construida para recorrer las profundidades y no como modelo de reserva; ningún caso real llega todavía tan hondo."
   ],
   "ordinales": [],
+  "cortes": {
+    "todas": [1, 2, 3, 4, 6, 10, 16, 26, 42],
+    "decision": "VG, 7-11 noche (mapa §12 [D] «Cortes y etiquetas del 8»): los cortes de las diez cajas del 8 son regla de la época; la época 0 trae esta escala provisional creciente a saltos, sin más pretensión, y se cambiará con datos reales. Las bases guardan con qué cortes se escribieron. [X] decidir VG: sus valores, y si alguna medida lleva los suyos."
+  },
   "reglas": [
     {
       "profundidad": 0,
@@ -74,7 +78,7 @@
       "digito": 8,
       "nombre": "comparabilidad",
       "significado": "PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad.",
-      "ejemplo": "comparar(eje, compra) sitúa la compra entre sus hermanos."
+      "ejemplo": "situar(eje, compra) sitúa la compra en su caja entre sus hermanos, leyendo la base escrita en el 8 del menú."
     },
     {
       "profundidad": 0,

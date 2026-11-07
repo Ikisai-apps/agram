@@ -2,13 +2,15 @@
 //
 // Sobrio y animado son dos renders de la misma lectura (mapa §10.3 [D]): el
 // sobrio es la tabla de medidas situadas (htmlCieloSobrio) y el animado, el
-// cielo (svgCielo). Los dos leen datosCielo(), que a su vez lee las bases del
-// 8 (src/bases.js; mapa §12 [D] «Cohortes y bases del 8»). Nada simulado: si
-// el 8 de la cohorte no tiene base escrita, la base se calcula al vuelo con
-// las mismas funciones (medir, fundir) y se marca «sin escribir».
+// cielo (svgCielo). Los dos leen datosCielo(), que lee la base ESCRITA en el
+// 8 que resume la cohorte (bases.leerBase y bases.situar; mapa §14.2: una sola
+// verdad del 8, la escrita). Nada simulado: si ese 8 no tiene base escrita,
+// se usa el respaldo declarado (bases.situar con respaldo, que es
+// bases.confluir: las mismas funciones medir y fundir, al vuelo) y se dice
+// «sin base escrita».
 //
 // Qué se ve:
-// - una constelación por medida de la confluencia (tiempo.MEDIDAS) y por
+// - una constelación por medida del 8 (bases.MEDIDAS) y por
 //   serie de token: diez estrellas, una por caja, en el orden de los valores
 //   (de la caja 0 a la 9), sobre una bóveda simétrica (ni sube ni baja: el
 //   orden de las cajas es de valores, no de grados);
@@ -43,23 +45,21 @@
 //   medidas) y el orden (las de la confluencia, la décupla, las series);
 // - en la celda 8 de Mapped solo caben las medidas de la confluencia;
 // - recomponer al cambiar de cohorte no es un efecto del catálogo: es lectura;
-// - sin base escrita, el cielo calcula al vuelo la cohorte entera (lo que
-//   leería del 8 si cada registro tuviera su base al día), no la base que
-//   escribiría ahora el registro (bases.calcularBase), que no cuenta lo que
-//   cuelga de un hijo sin base;
-// - el cielo no escribe bases: las escribe la propia cosa con su clave
-//   (bases.escribirBase) y en los ejemplos de la app ningún registro tiene
-//   identidad propia (bases.identidadDe), así que la app no ofrece botón;
-//   una base que llega se anima igual;
+// - sin base escrita, el respaldo (bases.confluir) calcula al vuelo la
+//   cohorte entera (lo que leería del 8 si cada registro tuviera su base al
+//   día), no la base que escribiría ahora el registro (bases.calcularBase),
+//   que no cuenta lo que cuelga de un hijo sin base;
+// - el cielo no escribe bases: las escribe la propia cosa o quien tiene P
+//   sobre el registro, con su clave (bases.escribirBase); la app no ofrece
+//   botón (ui/ no es de este mundo); una base que llega se anima igual;
 // - cómo nace una base nueva (las estrellas, caja a caja).
 //
 // Sin DOM: las funciones devuelven texto (SVG o HTML) para el navegador y
 // para las pruebas de Node.
 
 import {
-  medir, unitaria, fundir, estadisticaVacia, bloqueDe, leerBase, situar, clavesDeMedidas,
+  ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, leerBase, situar, clavesDeMedidas, proyectoDe, etiquetaClave,
 } from '../src/bases.js';
-import { ALCANCES, MEDIDAS as MEDIDAS_CONFLUENCIA, comparables, proyectoDe, cajaDe, etiquetaClave } from '../src/tiempo.js';
 import { verEn, efectosDe } from '../src/efectos.js';
 import { PV, EPOCA_0 } from '../src/epocas.js';
 
@@ -84,7 +84,7 @@ export const EFECTOS = Object.freeze({
 /**
  * El registro cuyo 8 resume una cohorte del foco y qué estadística de su
  * base se lee (la misma regla que bases.situar): hermanos → los hijos del 8
- * del padre; proyecto → el subárbol del 8 del proyecto (tiempo.proyectoDe);
+ * del padre; proyecto → el subárbol del 8 del proyecto (bases.proyectoDe);
  * general → el subárbol del 8 del génesis. null si el foco no tiene esa
  * cohorte (los hermanos del génesis).
  */
@@ -94,43 +94,6 @@ export function registroDeCohorte(eje, foco, cohorte = 'hermanos') {
   if (!ev) throw new Error('registro desconocido: ' + foco);
   if (cohorte === 'hermanos') return ev.sobre === null ? null : { registro: ev.sobre, seccion: 'hijos' };
   return { registro: cohorte === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId, seccion: 'subarbol' };
-}
-
-/**
- * La estadística de una cohorte calculada al vuelo, sin escribirla: mide uno
- * a uno sus registros (tiempo.comparables: los hijos del padre, el subárbol
- * del proyecto o del génesis, sin bases) y los funde con las funciones de
- * las bases (unitaria, fundir), con los cortes de la época o los
- * provisionales: lo mismo que se leería del 8 si cada registro tuviera su
- * base al día. No escribe nada.
- */
-export function baseAlVuelo(eje, foco, cohorte = 'hermanos', { epoca = EPOCA_0 } = {}) {
-  const lista = comparables(eje, foco, cohorte);
-  let est = estadisticaVacia();
-  for (const e of lista) est = fundir(est, unitaria(medir(eje, e.id), epoca));
-  return { ...est, refs: lista.map((e) => e.id), escrita: false };
-}
-
-/** Un bloque con el foco situado en él: lo mismo que hace bases.situar con cada medida. */
-function situado(bloque, valor) {
-  const k = cajaDe(valor, bloque.cortes);
-  const suma = (l) => l.reduce((s, c) => s + c, 0);
-  return {
-    ...bloque, cortes: [...bloque.cortes], cajas: [...bloque.cajas], foco: valor, caja: k, enCaja: bloque.cajas[k],
-    debajo: suma(bloque.cajas.slice(0, k)), encima: suma(bloque.cajas.slice(k + 1)), media: bloque.n ? bloque.suma / bloque.n : null,
-  };
-}
-
-/** Sitúa las medidas de un registro (bases.medir) en una estadística en memoria, como bases.situar con una escrita. */
-export function situarEnEstadistica(est, m, { epoca = EPOCA_0 } = {}) {
-  const medidas = {};
-  for (const clave of clavesDeMedidas()) medidas[clave] = situado(est.medidas[clave], m[clave]);
-  const tokens = {};
-  for (const clave of [...new Set([...Object.keys(est.tokens), ...Object.keys(m.tokens)])].sort()) {
-    tokens[clave] = { etiqueta: etiquetaClave(clave), ...situado(bloqueDe(est, clave, epoca), m.tokens[clave] ?? 0) };
-  }
-  const posiciones = est.posiciones.map((p, i) => ({ indice: i, ...p, proporcion: p.comparables / est.n, foco: m.procedencias[i].tiene }));
-  return { n: est.n, medidas, tokens, posiciones };
 }
 
 /** Tramo de valores de una caja según sus cortes: «0», «4–5», «≥ 42» con cortes enteros; «[a, b)» si no. */
@@ -152,7 +115,7 @@ const CORTOS = Object.freeze({
 /** Nombre legible de una medida, una serie de token o la décupla (largo para la tabla, corto para el cielo). */
 export function nombreMedida(medida, { corto = false } = {}) {
   if (medida === DECUPLA) return corto ? 'posiciones por PV' : 'posiciones por PV: cuántos tienen desarrollada cada una';
-  const m = MEDIDAS_CONFLUENCIA.find((x) => x.clave === medida);
+  const m = MEDIDAS_DEL_8.find((x) => x.clave === medida);
   if (m) return corto ? CORTOS[medida] ?? medida : m.etiqueta;
   if (/^[TEPR]:./.test(medida)) {
     if (!corto) return etiquetaClave(medida);
@@ -176,10 +139,11 @@ function grupoDe(medida) {
 /**
  * Lo que dibuja el cielo de un foco en una cohorte. Lee la base escrita en el
  * 8 que resume la cohorte (bases.leerBase y bases.situar); si ese 8 no tiene
- * base, la calcula al vuelo (baseAlVuelo) y lo dice: escrita = false. No
- * escribe. Devuelve { cohorte, foco, estado: 'RESUELTO' | 'SIN COHORTE',
- * motivo?, registro, seccion, escrita, base: { id, autor, t, n, anteriores,
- * frescura }, incluido, cambiadas, medidas }, con las medidas en el orden
+ * base escrita, usa el respaldo declarado (bases.situar con respaldo, es
+ * decir, bases.confluir al vuelo) y lo dice: escrita = false y frescura
+ * SIN_BASE_ESCRITA. No escribe. Devuelve { cohorte, foco, estado: 'RESUELTO'
+ * | 'SIN COHORTE', motivo?, registro, seccion, escrita, base: { id, autor, t,
+ * n, anteriores, frescura }, incluido, cambiadas, medidas }, con las medidas en el orden
  * del cielo: las de la confluencia (tipo 'caja': n, cajas, cortes, valor,
  * caja, enCaja, debajo, encima, minimo, maximo, media), la décupla (tipo
  * 'pv': cajas = cuántos tienen cada posición, focoEn) y las series de token.
@@ -189,22 +153,13 @@ export function datosCielo(eje, foco, { cohorte = 'hermanos', epoca = EPOCA_0 } 
   if (!c) {
     return { cohorte, foco, estado: 'SIN COHORTE', motivo: 'el génesis no tiene padre', registro: null, seccion: null, escrita: false, base: null, incluido: null, cambiadas: [], medidas: [] };
   }
-  const escrita = leerBase(eje, c.registro);
-  let s;
-  let base;
-  let incluido;
-  let cambiadas = [];
-  if (escrita) {
-    s = situar(eje, foco, { alcance: cohorte, epoca });
-    incluido = s.incluido;
-    cambiadas = s.cambiadas;
-    base = { id: escrita.id, autor: escrita.autor, t: escrita.t, n: s.n, anteriores: escrita.anteriores, frescura: escrita.frescura, efectos: efectosEnCielo(eje, escrita.id) };
-  } else {
-    const est = baseAlVuelo(eje, foco, cohorte, { epoca });
-    s = situarEnEstadistica(est, medir(eje, foco), { epoca });
-    incluido = est.refs.includes(foco);
-    base = { id: null, autor: null, t: null, n: est.n, anteriores: 0, frescura: null, efectos: [] };
-  }
+  const s = situar(eje, foco, { alcance: cohorte, epoca, respaldo: true });
+  const escrita = s.escrita === true ? leerBase(eje, c.registro) : null;
+  const base = escrita
+    ? { id: escrita.id, autor: escrita.autor, t: escrita.t, n: s.n, anteriores: escrita.anteriores, frescura: escrita.frescura, efectos: efectosEnCielo(eje, escrita.id) }
+    : { id: null, autor: null, t: null, n: s.n, anteriores: 0, frescura: SIN_BASE_ESCRITA, efectos: [] };
+  const incluido = escrita ? s.incluido : s.comparables.some((f) => f.id === foco);
+  const cambiadas = escrita ? s.cambiadas : [];
   // Sin el hito que da situar: el cielo rotula las cajas con su tramo de valores, no con niveles.
   const deCaja = (medida, x) => ({
     medida, tipo: 'caja', n: x.n, cajas: [...x.cajas], cortes: [...x.cortes], valor: x.foco, caja: x.caja, enCaja: x.enCaja,
@@ -378,7 +333,7 @@ export function svgCielo(datos, { compacto = false, anterior = null, nuevos = ne
   const clases = ['cielo', compacto ? 'compacto' : '', datos.escrita ? 'escrita' : 'sin-escribir', previas ? 'recompone' : '', nace ? 'nueva' : ''].filter(Boolean).join(' ');
   const etiqueta = datos.estado !== 'RESUELTO'
     ? `Cielo sin cohorte (${datos.cohorte}): ${datos.motivo}`
-    : `Cielo de ${corto(datos.foco)} entre ${datos.cohorte}: ${plural(n, 'registro', 'registros')}, ${plural(medidas.length, 'constelación', 'constelaciones')}${datos.escrita ? '' : ', base sin escribir'}`;
+    : `Cielo de ${corto(datos.foco)} entre ${datos.cohorte}: ${plural(n, 'registro', 'registros')}, ${plural(medidas.length, 'constelación', 'constelaciones')}${datos.escrita ? '' : ', ' + SIN_BASE_ESCRITA}`;
   const vacio = datos.estado !== 'RESUELTO'
     ? `<text class="rotulo-vacio" x="${g.W / 2}" y="${H / 2}">${compacto ? 'sin cohorte' : escapar('sin cohorte: ' + datos.motivo)}</text>` : '';
   const evento = datos.base?.id ? ` data-evento="${escapar(datos.base.id)}"` : '';
@@ -398,14 +353,14 @@ export function selectorCohorte(actual) {
   return `<div class="cohortes" role="group" aria-label="cohorte">${COHORTES.map((c) => `<button class="cohorte" data-cohorte="${c}" aria-pressed="${c === actual}">${c}</button>`).join('')}</div>`;
 }
 
-/** Línea de estado de la base: escrita (quién, cuándo, frescura) o «sin escribir». */
+/** Línea de estado de la base: escrita (quién, cuándo, frescura) o «sin base escrita» (respaldo al vuelo). */
 export function estadoBase(datos) {
   if (datos.estado !== 'RESUELTO') return `<span class="sin-cohorte">sin cohorte: ${escapar(datos.motivo)}</span>`;
   const b = datos.base;
   const que = datos.seccion === 'hijos' ? 'los hijos' : 'el subárbol';
   const enlace = `<button class="enlace" data-ir="${escapar(datos.registro)}">${corto(datos.registro)}</button>`;
   const donde = `${que} del 8 de ${enlace}`;
-  if (!datos.escrita) return `<span class="marca-sin-escribir">sin escribir</span> calculada al vuelo sobre ${plural(b.n, 'registro', 'registros')} (${que} de ${enlace}): su 8 no tiene base escrita`;
+  if (!datos.escrita) return `<span class="marca-sin-escribir">${SIN_BASE_ESCRITA}</span> respaldo calculado al vuelo sobre ${plural(b.n, 'registro', 'registros')} (${que} de ${enlace}): su 8 no tiene base escrita`;
   const f = b.frescura;
   const novedades = [
     f?.hijosNuevos ? plural(f.hijosNuevos, 'hijo nuevo', 'hijos nuevos') : '',

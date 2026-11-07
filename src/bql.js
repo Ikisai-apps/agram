@@ -32,7 +32,7 @@
 // (presupuesto, profundidad o candidatos agotados; `parcial` dice cuánto se
 // examinó cuando se sabe).
 //
-// CAJA y FRESCURA leen el 8 y no escriben nada: sin base escrita, PENDIENTE
+// BASES, CAJA y FRESCURA leen el 8 y no escriben nada: sin base escrita, PENDIENTE
 // con el modo de escribirla; si leer la base cuesta más que el presupuesto
 // que queda, PENDIENTE POR LÍMITE (docs/BQL.md §7.14).
 //
@@ -40,11 +40,11 @@
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
-import { valorDeBases } from './bases.js';
-// CAJA y FRESCURA. Ciclo de importación (bases.js y tiempo.js importan este
-// módulo): lo importado aquí solo se usa dentro de funciones, nunca al cargar.
-import { CIELO, COSTE_BASE, basesEn, clavesDeMedidas, identidadDe, leerBase } from './bases.js';
-import { ALCANCES, proyectoDe } from './tiempo.js';
+// BASES, CAJA y FRESCURA. Ciclo de importación (bases.js importa este módulo
+// para medir fórmulas): lo importado aquí solo se usa dentro de funciones.
+import {
+  CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
+} from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
@@ -564,18 +564,18 @@ function funcion(ctx, nodo, evId, base) {
       return acc ?? num(0);
     }
     case 'BASES': {
-      // Leer una base es leer un escrito anclado en el 8 de su registro; situar al anfitrión es leerlo entero.
-      const valores = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
-      const r = valorDeBases(ctx.eje, evId, valores);
+      // Como CAJA y FRESCURA (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer y
+      // presupuesto): primero se valida, luego se lee (y se cobra y se autoriza) el 8; situar al anfitrión es
+      // leerlo entero, y la medida evalúa sus fórmulas sin el gancho, así que con gancho no se cuentan.
+      const crudos = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
+      const mal = erroresDeBases(crudos);
+      if (mal) throw new Parada('ERROR', mal);
+      leerCohorte(ctx, evId, crudos.length ? crudos[0] : PROPIO);
+      const r = valorDeBases(ctx.eje, evId, crudos);
       if (r.mideAnfitrion) {
         autorizar(ctx, evId, []);
-        // Como en CAJA: la medida evalúa las fórmulas del anfitrión sin el gancho, así que con gancho no se cuentan
-        // (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer).
-        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(valores[1])) throw sinGanchoEnFormulas(evId);
-      }
-      if (r.base) {
-        autorizar(ctx, r.base, [], 'leer la base del 8 de ' + r.registro.slice(0, 8));
-        ctx.dependencias.add(r.base + ':' + direccion([]));
+        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(crudos[1])) throw sinGanchoEnFormulas(evId);
+        ctx.dependencias.add(evId + ':' + direccion([]));
       }
       if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo);
       return num(r.valor);
@@ -597,7 +597,7 @@ function funcion(ctx, nodo, evId, base) {
   }
 }
 
-// ---------- CAJA y FRESCURA: leen el 8 ----------
+// ---------- BASES, CAJA y FRESCURA: leen el 8 ----------
 // El foco es el anfitrión (el registro de la fórmula), como en BASES. El
 // alcance elige qué 8 se lee: el del padre (hermanos), el del proyecto o el
 // del génesis (mapa §12 [D] «Cohortes y bases del 8»). La lectura la hace
@@ -628,7 +628,7 @@ function esSerie(clave) {
   return barra < 0;
 }
 
-/** Una medida de tiempo.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
+/** Una medida de bases.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
 function medidaDe(arg) {
   if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
   if (clavesDeMedidas().includes(arg.valor) || esSerie(arg.valor)) return arg.valor;
@@ -650,18 +650,31 @@ function exigirSerie(eje, clave) {
   throw new Parada('PENDIENTE', 'CAJA: ' + que + ' (series emitidas: ' + lista + ')');
 }
 
-/** Cómo escribir la base que falta (el motivo de PENDIENTE lo dice). La identidad se nombra si el gancho deja leer el registro. */
+/**
+ * Cómo escribir la base que falta (el motivo de PENDIENTE lo dice): la
+ * escribe la propia cosa o quien tiene P sobre el registro, con clave. La
+ * cosa (que sale del contexto del registro) se nombra solo si el gancho deja
+ * leer el registro; quienes tienen P (que salen de los saldos del eje), siempre.
+ */
 function comoEscribirla(ctx, registro, alcance) {
+  const { eje } = ctx;
   const id8 = registro.slice(0, 8);
-  const cosa = identidadDe(ctx.eje, registro);
-  if (!cosa) return id8 + ' no tiene identidad propia con clave (identidadDe): nadie puede escribir su base.';
-  const quien = !ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []) ? cosa + ', su identidad propia' : 'su identidad propia';
-  const que = alcance === 'hermanos'
+  const cosa = identidadDe(eje, registro);
+  const conPoder = eje.identidades().filter((x) => x !== cosa && eje.clave(x) && eje.poderSobre(x, registro) > 0).sort();
+  if (!cosa && !conPoder.length) {
+    return id8 + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.';
+  }
+  const nombrarCosa = Boolean(cosa) && (!ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []));
+  const quien = [...(cosa ? [nombrarCosa ? cosa + ' (su identidad propia)' : 'su identidad propia'] : []), ...conPoder.map((x) => x + ' (con P sobre él)')].join(' o ');
+  const que = alcance === 'hermanos' || alcance === PROPIO
     ? 'mide sus hijos'
     : 'mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)';
-  return 'Para escribirla: escribirBase(eje, { registro, privada }) con registro = ' + id8 + ' y la clave privada de ' + quien
+  return 'Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = ' + id8 + ', firmada por ' + quien
     + '; ' + que + ' y gasta ' + COSTE_BASE.cantidad + ' ' + COSTE_BASE.escala + ' de su ' + COSTE_BASE.token + '.';
 }
+
+/** Alcance interno de BASES() sin argumentos: el 8 del propio anfitrión. */
+const PROPIO = 'propio';
 
 /**
  * La base vigente del 8 que resume el alcance del foco (leerBase, con su
@@ -671,13 +684,15 @@ function comoEscribirla(ctx, registro, alcance) {
  * hijos nuevos); y, como hace la frescura, los escritos sobre cada hijo
  * medido (su 8) y, bajando por las bases fundidas que siguen vigentes, lo
  * mismo en cada una. En cuanto no cabe, PENDIENTE POR LÍMITE, «al menos»
- * (se deja de contar). Sin base, PENDIENTE con el modo de escribirla.
+ * (se deja de contar). Sin base escrita, PENDIENTE con el modo de escribirla:
+ * BQL nunca calcula al vuelo. El alcance PROPIO (BASES() sin argumentos) lee
+ * el 8 del propio foco.
  */
 function leerCohorte(ctx, foco, alcance) {
   const { eje } = ctx;
   const ev = eje.obtener(foco);
   if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + foco.slice(0, 8));
-  const registro = alcance === 'hermanos' ? ev.sobre : alcance === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId;
+  const registro = alcance === PROPIO ? foco : alcance === 'hermanos' ? ev.sobre : alcance === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId;
   if (registro === null) throw new Parada('PENDIENTE', 'sin cohorte: el génesis no tiene padre');
   ctx.dependencias.add(registro + ':' + CIELO); // el 8 leído: una base que llegue cambia el resultado
   const quedan = Math.max(ctx.presupuesto, 0);
@@ -691,7 +706,8 @@ function leerCohorte(ctx, foco, alcance) {
   const base = vigente(registro);
   if (!base) {
     ctx.presupuesto -= coste;
-    throw new Parada('PENDIENTE', 'sin base en el 8 de ' + registro.slice(0, 8) + ' (alcance ' + alcance + '). ' + comoEscribirla(ctx, registro, alcance));
+    const donde = alcance === PROPIO ? 'su propio 8' : 'alcance ' + alcance;
+    throw new Parada('PENDIENTE', SIN_BASE_ESCRITA + ' en el 8 de ' + registro.slice(0, 8) + ' (' + donde + '). ' + comoEscribirla(ctx, registro, alcance));
   }
   const porVisitar = [base];
   while (porVisitar.length) {

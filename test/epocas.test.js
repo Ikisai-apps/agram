@@ -132,6 +132,23 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
   assert.throws(() => mapa(eje, compra.id, { epoca: 'época 1' }), /época desconocida/);
 });
 
+test('cortes del 8: regla de la época (VG, 7-11 noche); la época 0 trae 1 2 3 4 6 10 16 26 42; por medida, todas o el respaldo', () => {
+  const ESCALA_0 = [1, 2, 3, 4, 6, 10, 16, 26, 42];
+  assert.deepEqual(EPOCA_0.cortes('terminales'), ESCALA_0);
+  assert.deepEqual(EPOCA_0.cortes('E:casa/EUR'), ESCALA_0);
+  assert.match(EPOCA_0_DATOS.cortes.decision, /\[X\] decidir VG/);
+  const copia = EPOCA_0.cortes('escritos');
+  copia[0] = 99;
+  assert.equal(EPOCA_0.cortes('escritos')[0], 1); // se devuelve una copia
+  const propia = cargarEpoca({ nombre: 'con cortes', reglas: generales, cortes: { escritos: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }, { respaldo: EPOCA_0 });
+  assert.deepEqual(propia.cortes('escritos'), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(propia.cortes('terminales'), undefined); // lo que no trae: las bases usan los de la época 0 (bases.cortesDe, origen 'respaldo')
+  assert.deepEqual(cargarEpoca({ nombre: 'todas', reglas: generales, cortes: { todas: [1, 2, 3, 4, 5, 6, 7, 8, 9], decision: 'prueba' } }).cortes('T:hora'), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.equal(cargarEpoca({ nombre: 'sin cortes', reglas: generales }).cortes('escritos'), undefined);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: { todas: [3, 2, 1] } }), /nueve umbrales crecientes/);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [1, 2, 3, 4, 5, 6, 7, 8, 9] }), /cortes es un objeto/);
+});
+
 test('cargarEpoca: regla de todas las profundidades, regla propia y respaldo', () => {
   const e = cargarEpoca({ nombre: 'prueba', reglas: [...generales, { profundidad: 3, digito: 1, nombre: 'propia' }] });
   assert.equal(e.reglaCorta(3, 1), 'propia');
