@@ -183,8 +183,8 @@ export class Eje {
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
     // así que el emisor puede emitir y dar en el mismo evento.
     const vista = new Map();
-    const ver = (id, k) => vista.get(id + '|' + k) ?? this.saldo(id, k);
-    const poner = (id, k, v) => vista.set(id + '|' + k, v);
+    const ver = (id, k) => vista.get(JSON.stringify([id, k])) ?? this.saldo(id, k);
+    const poner = (id, k, v) => vista.set(JSON.stringify([id, k]), v);
     const emitido = new Map();
     for (const m of ev.movimientos ?? []) {
       if (validarMovimiento(m).length) continue; // ya lo cuenta validarForma
