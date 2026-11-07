@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
-import { desdePointed, desdeSequenced, desdeMapped, escribirDesde, item, resolverRef, costeT } from '../src/escritura.js';
+import { desdePointed, desdeSequenced, desdeMapped, escribirDesde, escribirSalida, alcanceDeRegistro, item, resolverRef, costeT } from '../src/escritura.js';
 import { resolver } from '../src/btml.js';
 
 test('ítems: texto, número y referencia por prefijo', async () => {
@@ -94,4 +94,28 @@ test('la proporción del modo se respeta, como antes, y además el tope duro', a
     escribirDesde(eje, { modo: 'otro', autor: 'huesped', sobre: compra.id, payload: 'x', t: '2026-11-07T14:00:00Z' }),
     /^Error: modo desconocido: otro$/,
   );
+});
+
+test('emitir por debajo del mínimo del modo se admite y se informa con los tres números (VG, 7-11 noche)', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const T = '2026-11-07T14:00:00Z';
+  // Pointed: un terminal llega al mínimo (1).
+  const p = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: 'servido', t: T });
+  assert.deepEqual(alcanceDeRegistro(p), { conseguido: 1, minimo: 1, maximo: 10, alMinimo: true });
+  // Sequenced: tres posiciones, por debajo de 10; se escribe igual.
+  const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: ['a', 'b', 'c'], t: T });
+  assert.equal(eje.obtener(s.id), s);
+  assert.deepEqual(alcanceDeRegistro(s), { conseguido: 3, minimo: 10, maximo: 100, alMinimo: false });
+  // Mapped con la salida entera: lo heredado no se emite y no cuenta; el alcance va en el resultado.
+  const celdas = [];
+  celdas[2] = ['sin lactosa'];
+  const salida = desdeMapped(eje, celdas, compra.id);
+  assert.deepEqual(salida.heredadas, [0, 1]);
+  const r = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
+  assert.deepEqual(r.alcance, { conseguido: 1, minimo: 100, maximo: 1000, alMinimo: false });
+  assert.deepEqual(alcanceDeRegistro(r.registro), r.alcance);
+  // Scened: sin proporción, el mínimo (1000) solo se dice; el máximo sigue siendo duro.
+  const sc = await escribirDesde(eje, { modo: 'scened', autor: 'huesped', sobre: compra.id, payload: ['x', 'y'], t: T });
+  assert.deepEqual(alcanceDeRegistro(sc), { conseguido: 2, minimo: 1000, maximo: 10000, alMinimo: false });
+  assert.throws(() => alcanceDeRegistro(eje.obtener(compra.id)), /no dice desde qué modo/);
 });
