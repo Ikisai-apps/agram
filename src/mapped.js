@@ -36,13 +36,10 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
   const p = payloadEn(ev, camino);
   const celdas = [];
   for (let i = 0; i < ARIDAD; i++) {
-    let contenido;
-    if (Array.isArray(p)) contenido = p[i];
-    else if (i === 0) contenido = p;
     celdas.push({
       indice: i,
       significado: e.reglaCorta(camino.length, i),
-      contenido,
+      contenido: Array.isArray(p) ? p[i] : undefined, // un terminal no tiene posición 0: va aparte, en `terminal`
       escritos: eje.sobre(id, direccion([...camino, i])).length,
     });
   }
@@ -60,7 +57,8 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
     identidades: identidades.size,
     posicionesDesarrolladas: celdas.filter((c) => c.contenido !== undefined).length,
   };
-  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], celdas, hilo, hijos, medidas };
+  const terminal = Array.isArray(p) ? undefined : p;
+  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, celdas, hilo, hijos, medidas };
 }
 
 function breve(c) {
@@ -74,7 +72,7 @@ function breve(c) {
 export function sobrio(m) {
   const celda = (i) => {
     const c = m.celdas[i];
-    const texto = i === 5 ? m.foco.slice(0, 8) : breve(c.contenido);
+    const texto = i === 5 ? m.foco.slice(0, 8) + (m.terminal === undefined ? '' : ' ' + breve(m.terminal)) : breve(c.contenido);
     return (i + ' ' + c.significado).padEnd(17) + texto.padEnd(14) + (c.escritos ? '↳' + c.escritos : '').padEnd(4);
   };
   const filas = MATRIZ.map((fila) => fila.map(celda).join(' | '));
