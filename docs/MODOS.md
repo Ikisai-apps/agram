@@ -1,6 +1,6 @@
 # Los modos de experiencia: de Pointed a Scened
 
-Este documento describe **lo que existe hoy** de los modos de experiencia (mapa global §2.7) y, sobre todo, el modo nuevo: **Scened**, varios focos en escena. Fuente de verdad: `src/modos.js`, `src/pointed.js`, `src/sequenced.js`, `src/mapped.js`, `src/scened.js` y sus pruebas (`test/modos.test.js`, `test/pointed.test.js`, `test/sequenced.test.js`, `test/mapped.test.js`, `test/scened.test.js`). Lo que el mapa no decide se marca «[X] decidir VG». La escritura desde cada modo (registro de salida y proporción) está en `docs/MOTOR.md` §7.
+Este documento describe **lo que existe hoy** de los modos de experiencia (mapa global §2.7) y, sobre todo, el modo nuevo: **Scened**, varios focos en escena. Fuente de verdad: `src/modos.js`, `src/pointed.js`, `src/sequenced.js`, `src/mapped.js`, `src/scened.js` y sus pruebas (`test/modos.test.js`, `test/pointed.test.js`, `test/sequenced.test.js`, `test/mapped.test.js`, `test/scened.test.js`); la vista de Scened en el navegador, `ui/escena.js` y `test/escena-ui.test.js` (§10). Lo que el mapa no decide se marca «[X] decidir VG». La escritura desde cada modo (registro de salida y proporción) está en `docs/MOTOR.md` §7.
 
 Convenciones, las de `docs/MOTOR.md`: los ejemplos se ejecutan desde la raíz del repositorio con Node ≥ 20 y la salida que sigue a cada uno es la real; el eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados) con ids deterministas: génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`.
 
@@ -68,7 +68,7 @@ Resultado de `escena` (`escenaDe` añade `alcance`):
 | `corte` | `null`, o `{ tope, posicionesLeidas, necesitaba, foco, fuera }` (§6) |
 | `avisos` | textos; el del corte va el primero |
 
-Cada pieza de `focos`: `posicion`, `id`, `autor`, `t`, `sobre`, `en`, `nivel`, `centro`, `hermano: { indice, de }` (entre los focos de la escena con el mismo padre), `hermanosEnEje` (cuántos hay en el eje), `representacion` (la celda 0 del mapa en el camino), `salen` (sus aristas), `entran` (cuántas llegan), `mapa` y `tiempo`.
+Cada pieza de `focos`: `posicion`, `id`, `autor`, `t`, `sobre`, `en`, `nivel`, `centro`, `hermano: { indice, de }` (entre los focos de la escena con el mismo padre), `hermanosEnEje` (cuántos hay en el eje), `representacion` (la celda 0 del mapa en el camino; si lo que hay en el camino es un terminal, ese terminal, porque un terminal no tiene posición 0: el génesis del ejemplo se representa por `'Casa de ejemplo'`), `salen` (sus aristas), `entran` (cuántas llegan), `mapa` y `tiempo`.
 
 ## 3. El marco común
 
@@ -174,7 +174,7 @@ escena · 4 de 4 focos · común 6c1c5968 · época 0 · camino raíz · 70 de 1
 2 n2 4598f23e cocina Menú del día · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
 3*n3 f9e59d1e huesped Compra del menú del día · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
-recuentos: grupos 4 · escritos 6 · movimientos 13 · posiciones 11 · pasado 12 · futuro 0
+recuentos: grupos 4 · escritos 6 · movimientos 13 · posiciones 10 · pasado 12 · futuro 0
 ---
 escena · 3 de 3 focos · común 4598f23e · época 0 · camino raíz · 70 de 10000 posiciones leídas
 0 n1 f9e59d1e huesped Compra del menú del día · hermano 1 de 3 · pasado 4 futuro 0
@@ -200,13 +200,24 @@ Lectura de la primera escena: se pidieron en desorden y el marco las coloca por 
 | **[X] decidir VG:** unidad del tope de lectura | Décupla leída × 10, cada registro una vez (§6). |
 | **[X] decidir VG:** política de corte | En el orden pedido, se corta en el primero que no cabe (§6). |
 | **[X] decidir VG:** si las referencias reordenan | Solo son aristas (§3). |
-| **[X] decidir VG:** más alcances | `hermanos` y `hilo` (linaje hacia arriba). Las tres cohortes de §12 son hermanos, linaje/proyecto y general (el ámbito): «general» no tiene alcance todavía, ni lo tiene «el hilo hacia abajo» (lo escrito encima, recursivo). |
+| **[X] decidir VG:** más alcances | `escenaDe`: `hermanos` y `hilo` (linaje hacia arriba). La vista del navegador (§10) añade las otras dos cohortes del 8 que ya calcula `tiempo.comparables`: `proyecto` (todo lo que cuelga del registro del hilo que cuelga del génesis) y `general` (todo el eje). Sin alcance: «el hilo hacia abajo» (lo escrito encima, recursivo, desde el foco y no desde su proyecto). |
+| **[X] decidir VG:** prioridad cuando hay corte | El foco primero y los demás por orden de llegada, en los cuatro alcances. |
 | Escritura desde Scened | No existe: la proporción de Scened está sin fijar en `src/modos.js` y el tope de emisión va en la PR de la fábrica. |
 | Render animado y mundos | Solo el sobrio. |
 | Colisiones entre focos (dos focos que ocupan la misma dirección de un tercero) | No son aristas; están en `encaje.ocupantes` de cada registro. |
 | Bases del 8 en la escena (confluencia) | Las medidas de cada mapa se suman; no se funden bases. |
 | Aristas de BQL evaluado (`BUSCAR`, `ACTUAL`…) | Solo `REF` leído en el árbol de la fórmula, sin evaluar. |
 
-## 10. Cómo entraría en el frontend
+## 10. En el frontend: la vista sobria de Scened
 
-`app.js` no cambia en esta pieza. Entraría así: un cuarto botón `data-modo="scened"` en `index.html`; en `app.js`, `scened` desde `./src/index.js` y un `pintarScened()` que llame a `scened.escenaDe(estado.eje, estado.foco, { alcance, camino: estado.camino })` con un selector `hermanos | hilo`; una fila por foco con los mismos datos que el render sobrio (posición, nivel como sangría, aristas como enlaces a la posición de destino); tocar una fila cambia el foco y abre ese foco en Mapped; el aviso de corte, visible arriba y abajo de la lista. Sin formulario de escritura en Scened mientras su proporción no esté fijada.
+Un cuarto botón, **Scened**, junto a Pointed, Sequenced y Mapped (`index.html`). La vista vive en `ui/escena.js`; `app.js` solo la engancha (una rama en `pintar()` y `pintarScened()`). Render sobrio, a 400 px sin desbordar:
+
+- **Alcance**, cuatro botones: `hermanos` e `hilo` (los de `escenaDe`), `proyecto` y `todo el eje` (las cohortes `proyecto` y `general` de `tiempo.comparables`, las mismas que lee el 8). En los cuatro, el foco es el centro y va primero en prioridad; los demás, por llegada (**[X] decidir VG**, §9). El alcance elegido se recuerda en el navegador (`agram.escena.alcance`), como comodidad.
+- **Lectura frente al tope**: «Scened · n de m focos · común · camino · época», una barra de posiciones leídas sobre 10000 y la cifra exacta («70 de 10000 posiciones leídas · tope duro de Scened»). La vista no puede subir el tope: lo impide `escena`.
+- **El corte se ve arriba y abajo de la lista**, con el mismo aviso de `escena` (§6), la barra en color de aviso y «n focos fuera» junto a la cifra. Si no cabe ni el foco, la vista lo dice en vez de quedar vacía. Con todo el eje de mil dos registros (prueba en `test/escena-ui.test.js`), entran mil y el aviso dice cuáles quedan fuera.
+- **Una fila por foco**, en el orden del marco común (§3): posición, id corto, autor, «centro», la representación (un terminal se representa por su terminal), y debajo nivel, hermanos, pasado, futuro y cuántas aristas entran. La sangría es el nivel, hasta seis.
+- **Aristas como enlaces** a la fila de su destino (`#escena-n`): `hilo → 0 en 1000000000`, `ref 1.0 → 2 : 1000000000`, `fórmula 1 → 3 : 1200000000`; el título de cada una dice qué significa («su posición 1.0 es una referencia a la 1000000000 de …, no copia»).
+- **Tocar un foco** lo pone en el centro de la escena (el `data-ir` de siempre); **«Mapped»** abre ese foco en Mapped.
+- Solo lee: no hay formulario de escritura en Scened mientras su proporción no esté fijada. Sin selector de época propio: usa la época 0, como el resto de la pantalla en `main`.
+
+Comprobado en el navegador a 400 px con los dos ejemplos (comida y reserva): sin errores en la consola y sin desbordamiento horizontal; la reserva, con todo el eje, son catorce focos hasta el nivel 5.

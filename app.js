@@ -2,7 +2,8 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado se declara pendiente.
+// en el navegador. Scened (ui/escena.js) pone varios focos en escena y solo
+// lee. Render sobrio; el animado se declara pendiente.
 
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
@@ -340,8 +341,17 @@ function pintar() {
   document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
+  else if (estado.modo === 'scened') pintarScened();
   else pintarSequenced();
   pintarSaldos();
+}
+
+// Scened (ui/escena.js): varios focos en escena, solo lectura; aquí solo se engancha.
+import { vistaEscena, instalarEscena } from './ui/escena.js';
+
+function pintarScened() {
+  instalarEscena({ estado, pintar, irA });
+  $('#vista').innerHTML = cabecera(estado.eje.obtener(estado.foco)) + vistaEscena(estado.eje, estado.foco, { camino: estado.camino });
 }
 
 function guardar() {

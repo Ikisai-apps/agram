@@ -232,7 +232,7 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
       centro: a.id === centro,
       hermano: { indice: indiceEnGrupo.get(a.id), de: grupos.get(ev.sobre).length },
       hermanosEnEje: hermanosEnEje(ev.sobre),
-      representacion: a.mapa.celdas[0].contenido,
+      representacion: a.mapa.terminal ?? a.mapa.celdas[0].contenido, // un terminal no tiene posición 0 (mapa §12): lo representa su terminal
       salen: salen[i],
       entran: entran[i],
       mapa: a.mapa,
