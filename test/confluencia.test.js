@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
-import { confluir, comparables, medidasDe, posicionesDe, clavesDe, etiquetaClave, distribucion, fundir, ALCANCES, MEDIDAS, HITOS, medir } from '../src/tiempo.js';
+import { confluir, comparables, proyectoDe, medidasDe, posicionesDe, clavesDe, etiquetaClave, distribucion, fundir, ALCANCES, MEDIDAS, HITOS, medir } from '../src/tiempo.js';
 
 /** La compra ampliada: diez compras hermanas sobre el menú, la cuenta sobre la compra, un criterio de cocina. */
 async function ampliada() {
@@ -65,30 +65,64 @@ test('fundir dos bases es O(1): recuentos, sumas y extremos siempre; las cajas s
   assert.equal(g.cortes, null);
 });
 
-test('comparables: hermanos ⊂ linaje ⊂ general, en orden de llegada y con el foco siempre dentro', async () => {
+test('comparables: hermanos ⊂ proyecto ⊂ general, en orden de llegada y con el foco siempre dentro', async () => {
   const { eje, menu, rapida, alta, cuenta, alta2, criterioCocina } = await ampliada();
   const hermanos = comparables(eje, rapida.id, 'hermanos');
   assert.equal(hermanos.length, 10);
   assert.ok(hermanos.every((e) => e.sobre === menu.id));
   assert.ok(hermanos.some((e) => e.id === rapida.id));
-  const linaje = comparables(eje, rapida.id, 'linaje');
-  const idsLinaje = linaje.map((e) => e.id);
-  assert.equal(linaje.length, 14); // génesis, alta, alta2, menú y las diez compras
-  for (const id of [eje.genesisId, alta.id, alta2.id, menu.id, ...hermanos.map((e) => e.id)]) assert.ok(idsLinaje.includes(id));
-  assert.ok(!idsLinaje.includes(cuenta.id)); // la cuenta está sobre la compra, no sobre el hilo de la rápida
-  assert.ok(!idsLinaje.includes(criterioCocina.id));
-  // El linaje no es el hilo: el hilo de la rápida son cuatro registros.
+  // El proyecto es el registro del hilo que cuelga del génesis (el 8 del génesis funde los de los proyectos).
+  assert.equal(proyectoDe(eje, rapida.id).id, alta.id);
+  assert.equal(proyectoDe(eje, cuenta.id).id, alta.id);
+  assert.equal(proyectoDe(eje, alta.id).id, alta.id); // un proyecto es su propio proyecto
+  assert.equal(proyectoDe(eje, eje.genesisId).id, eje.genesisId);
+  const proyecto = comparables(eje, rapida.id, 'proyecto');
+  const ids = proyecto.map((e) => e.id);
+  assert.equal(proyecto.length, 14); // el alta, el menú, las diez compras, la cuenta y el criterio de cocina
+  for (const id of [alta.id, menu.id, cuenta.id, criterioCocina.id, ...hermanos.map((e) => e.id)]) assert.ok(ids.includes(id));
+  assert.ok(!ids.includes(eje.genesisId)); // el génesis es el ámbito, no el proyecto
+  assert.ok(!ids.includes(alta2.id)); // otro proyecto
+  assert.deepEqual(ids, eje.orden.filter((id) => ids.includes(id))); // orden de llegada
+  assert.deepEqual(comparables(eje, cuenta.id, 'proyecto').map((e) => e.id), ids); // todo el proyecto comparte cohorte
+  // La cohorte no es el hilo: el hilo de la rápida son cuatro registros.
   assert.equal(eje.hilo(rapida.id).length, 4);
+  // Un foco que es él mismo un proyecto: su cohorte es lo que cuelga de él; sus hermanos, los otros proyectos.
+  assert.deepEqual(comparables(eje, alta2.id, 'proyecto').map((e) => e.id), [alta2.id]);
+  assert.deepEqual(comparables(eje, alta.id, 'hermanos').map((e) => e.id), [alta.id, alta2.id]);
   const general = comparables(eje, rapida.id, 'general');
-  assert.equal(general.length, eje.orden.length);
   assert.deepEqual(general.map((e) => e.id), eje.orden); // orden de llegada
-  assert.deepEqual(ALCANCES, ['hermanos', 'linaje', 'general']); // las tres cohortes de VG (7-11)
+  assert.deepEqual(comparables(eje, eje.genesisId, 'proyecto').map((e) => e.id), eje.orden); // el proyecto del génesis es todo el eje
+  assert.deepEqual(ALCANCES, ['hermanos', 'proyecto', 'general']); // las tres cohortes de VG (7-11)
   assert.equal(comparables(eje, eje.genesisId).length, 1); // el génesis no tiene hermanos
-  for (const viejo of ['hilo', 'vecindad', 'todo']) assert.throws(() => comparables(eje, rapida.id, viejo), /alcance desconocido/);
+  for (const viejo of ['hilo', 'vecindad', 'linaje', 'todo']) assert.throws(() => comparables(eje, rapida.id, viejo), /alcance desconocido/);
   assert.throws(() => confluir(eje, 'nadie'), /foco desconocido/);
 });
 
-test('posicionesDe: las diez posiciones leídas del árbol lógico, con su procedencia', async () => {
+test('el proyecto se recorre por el índice de hijos: solo su subárbol, en orden de llegada aunque los proyectos se intercalen', async () => {
+  const t = '2026-11-07T09:00:00Z';
+  const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: 'raíz', t });
+  const escribe = (sobre, payload) => eje.escribir({ autor: 'casa', sobre, t, movimientos: [gasta('casa')], payload });
+  const a = await escribe(eje.genesisId, ['Proyecto A']);
+  const b = await escribe(eje.genesisId, ['Proyecto B']);
+  const ultimo = new Map([[a.id, a.id], [b.id, b.id]]);
+  const del = new Map([[a.id, [a.id]], [b.id, [b.id]]]);
+  for (let i = 0; i < 150; i++) {
+    for (const p of [a, b]) {
+      const e = await escribe(i % 3 === 0 ? p.id : ultimo.get(p.id), ['paso ' + i]); // ramas desde el proyecto y cadenas hondas
+      ultimo.set(p.id, e.id);
+      del.get(p.id).push(e.id);
+    }
+  }
+  const foco = ultimo.get(a.id);
+  assert.equal(proyectoDe(eje, foco).id, a.id);
+  assert.deepEqual(comparables(eje, foco, 'proyecto').map((e) => e.id), del.get(a.id));
+  const c = confluir(eje, foco, { alcance: 'proyecto' });
+  assert.equal(c.n, 151);
+  assert.equal(c.tokens['T:minuto'].suma, 151);
+  assert.deepEqual(comparables(eje, b.id, 'hermanos').map((e) => e.id), [a.id, b.id]);
+});
+
+test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procedencia', async () => {
   const { eje, menu, compra, vecinas } = await ampliada();
   // La compra: 0 propia; 1 propia (array) + alcanzada (1.0 es referencia) + escrita (la cuenta, en 1); 2 propia + alcanzada; 3 y 4 propias.
   const c = posicionesDe(eje, compra.id);
@@ -103,6 +137,9 @@ test('posicionesDe: las diez posiciones leídas del árbol lógico, con su proce
   // Un registro que es solo una referencia es un terminal: no tiene posición 0.
   const soloRef = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:00Z', movimientos: [gasta('huesped')], payload: { ref: menu.id, dir: '1000000000' } });
   assert.equal(posicionesDe(eje, soloRef.id).desarrolladas, 0);
+  // Los ocupantes de la 1 son 1, 1.0, 1.0.0…: una referencia en el camino 1.1 ocupa la 1.1, no la 1.
+  const honda = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:30Z', movimientos: [gasta('huesped')], payload: ['Compra', ['EUR 3', { ref: menu.id, dir: '1000000000' }]] });
+  assert.deepEqual(posicionesDe(eje, honda.id).posiciones[1], { indice: 1, propia: true, referencia: false, escrita: false, tiene: true });
   // Lo escrito por debajo de la profundidad 0 desarrolla la posición: en 1.2 desarrolla la 1.
   const sin1 = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:31:00Z', movimientos: [gasta('huesped')], payload: ['Solo título'] });
   assert.equal(posicionesDe(eje, sin1.id).desarrolladas, 1);
@@ -307,18 +344,22 @@ test('bases por posición: lo escrito por debajo de la profundidad 0 cuenta, y l
   assert.deepEqual(leida.medidas, base.medidas);
 });
 
-test('las cohortes linaje y general cambian las bases; el génesis solo se compara consigo mismo', async () => {
+test('las cohortes proyecto y general cambian las bases; el génesis solo se compara consigo mismo', async () => {
   const { eje, rapida } = await ampliada();
-  const linaje = confluir(eje, rapida.id, { alcance: 'linaje' });
-  assert.equal(linaje.n, 14);
-  assert.equal(linaje.medidas.profundidadHilo.minimo, 0); // el génesis
-  assert.equal(linaje.medidas.profundidadHilo.maximo, 3);
-  assert.equal(linaje.medidas.profundidadHilo.caja, 9); // el foco está en lo más hondo de su linaje
-  assert.deepEqual(Object.keys(linaje.tokens), ['E:casa/EUR', 'P:genesis', 'T:hora', 'T:minuto']); // el génesis emite poder sobre el eje
+  const proyecto = confluir(eje, rapida.id, { alcance: 'proyecto' });
+  assert.equal(proyecto.alcance, 'proyecto');
+  assert.equal(proyecto.n, 14);
+  assert.equal(proyecto.medidas.profundidadHilo.minimo, 1); // el alta: el génesis no es del proyecto
+  assert.equal(proyecto.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
+  assert.equal(proyecto.medidas.profundidadHilo.foco, 3);
+  assert.deepEqual(Object.keys(proyecto.tokens), ['E:casa/EUR', 'T:hora', 'T:minuto']); // sin el génesis, nadie del proyecto mueve poder
   const general = confluir(eje, rapida.id, { alcance: 'general' });
   assert.equal(general.n, eje.orden.length);
+  assert.equal(general.medidas.profundidadHilo.minimo, 0); // el génesis
   assert.equal(general.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
   assert.equal(general.medidas.formulasResueltas.maximo, 2); // la cuenta
+  assert.deepEqual(Object.keys(general.tokens), ['E:casa/EUR', 'P:genesis', 'T:hora', 'T:minuto']); // el génesis emite poder sobre el eje
+  assert.equal(confluir(eje, eje.genesisId, { alcance: 'proyecto' }).n, eje.orden.length); // el proyecto del génesis es todo el eje
   const g = confluir(eje, eje.genesisId);
   assert.equal(g.n, 1);
   assert.deepEqual(g.medidas.posiciones.cajas, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // solo: no hay con quién compararse

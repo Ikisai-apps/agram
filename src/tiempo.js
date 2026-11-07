@@ -8,7 +8,7 @@
 
 import { SEGUNDOS, ESCALAS_T, AMBITO_GENESIS, claveToken, cantidadBase, partirClave } from './tokens.js';
 import { ARIDAD, direccion, resolver, indicesDe, esReferencia } from './btml.js';
-import { arbol } from './encaje.js';
+import { ocupantes } from './encaje.js';
 import { consolidaciones } from './motor.js';
 import { MODOS } from './modos.js';
 import { esFormula, evaluar } from './bql.js';
@@ -97,21 +97,26 @@ export function comparar(eje, foco) {
 
 /**
  * Cohortes de comparación (VG, 7-11 tarde: «exactamente lo que buscábamos»):
- * hermanos = elementos similares; linaje (o proyecto) = dónde estoy;
- * general = el ámbito. Aquí, anidadas: los hermanos del foco (escritos sobre
- * el mismo padre, en cualquier posición) ⊂ el linaje (el foco, sus
- * antepasados hasta el génesis y lo escrito directamente sobre cada uno de
- * ellos: hermanos, «tíos» e hijos del foco) ⊂ general (todo el eje, el
- * ámbito del génesis). El linaje no es el hilo: el hilo (§10) es solo la
- * cadena foco → génesis.
- * [X] decidir VG: la composición exacta de cada cohorte. Dos variantes que
- * el ejemplo deja ver: hermanos por mismo padre Y misma posición `en` (hoy
- * solo el padre: la cuenta, en 1, es hermana de los criterios de cocina, en
- * 2: ¿son «elementos similares»?); y si el linaje es esta vecindad o el
- * proyecto (un registro concreto del hilo cuyo 8 se lee). Cambiar cohorte =
- * cambiar solo comparables().
+ * hermanos = elementos similares; proyecto = dónde estoy; general = el
+ * ámbito. Cada cohorte es lo que leerá el 8 de un registro (§12): el del
+ * padre, el del proyecto o el del génesis.
+ * - hermanos: los registros escritos sobre el mismo padre, en cualquier
+ *   posición (el índice de hijos del padre, ya en orden de llegada).
+ * - proyecto: el proyecto del foco y todo lo que cuelga de él, recorrido por
+ *   el índice de hijos. El proyecto es el registro del hilo que cuelga del
+ *   génesis (el 8 del génesis funde las bases de los proyectos); el de un
+ *   proyecto es él mismo, y el del génesis, el génesis (todo el eje). La
+ *   cohorte no es el hilo: el hilo (§10) es solo la cadena foco → génesis.
+ * - general: todo el eje, el ámbito del génesis.
+ * Anidadas (hermanos ⊂ proyecto ⊂ general), salvo cuando el foco es él
+ * mismo un proyecto: sus hermanos son los otros proyectos.
+ * [X] decidir VG: qué registro del hilo es el proyecto (aquí, el que cuelga
+ * del génesis) y si la cohorte es todo lo que cuelga de él (aquí) o solo sus
+ * hijos; y si los hermanos exigen además la misma posición `en` (hoy solo
+ * el padre: la cuenta, en 1, es hermana de los criterios de cocina, en 2:
+ * ¿son «elementos similares»?). Cambiar cohorte = cambiar solo comparables().
  */
-export const ALCANCES = Object.freeze(['hermanos', 'linaje', 'general']);
+export const ALCANCES = Object.freeze(['hermanos', 'proyecto', 'general']);
 
 /**
  * Medidas que confluyen, con su etiqueta para mostrarlas. Ninguna es un nivel
@@ -145,56 +150,72 @@ export function etiquetaClave(clave) {
   return clave;
 }
 
-/** Comparables accesibles del foco según la cohorte, en orden de llegada al eje. El foco siempre está. */
+/** El proyecto del foco: el registro de su hilo que cuelga del génesis; el de un proyecto, él mismo; el del génesis, el génesis. */
+export function proyectoDe(eje, foco) {
+  const hilo = eje.hilo(foco);
+  if (!hilo.length) throw new Error('foco desconocido: ' + foco);
+  return hilo[Math.max(0, hilo.length - 2)];
+}
+
+/**
+ * Comparables accesibles del foco según la cohorte, en orden de llegada al
+ * eje. El foco siempre está. Coste: los hermanos son el índice de hijos del
+ * padre, tal cual; el proyecto se recorre por el índice de hijos y se ordena
+ * con una pasada por el orden del eje; general es el orden del eje.
+ */
 export function comparables(eje, foco, alcance = 'hermanos') {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   if (!ALCANCES.includes(alcance)) throw new Error('alcance desconocido: ' + alcance);
-  const ids = new Set([foco]);
-  if (alcance === 'general') {
-    for (const id of eje.orden) ids.add(id);
-  } else if (alcance === 'linaje') {
-    for (const h of eje.hilo(foco)) {
-      ids.add(h.id);
-      for (const e of eje.sobre(h.id)) ids.add(e.id);
-    }
-  } else if (ev.sobre !== null) {
-    for (const e of eje.sobre(ev.sobre)) ids.add(e.id);
+  if (alcance === 'hermanos') return ev.sobre === null ? [ev] : eje.sobre(ev.sobre);
+  if (alcance === 'general') return eje.orden.map((id) => eje.obtener(id));
+  const ids = new Set();
+  const pendientes = [proyectoDe(eje, foco).id];
+  while (pendientes.length) {
+    const id = pendientes.pop();
+    ids.add(id);
+    for (const h of eje.sobre(id)) pendientes.push(h.id);
   }
   return eje.orden.filter((id) => ids.has(id)).map((id) => eje.obtener(id));
 }
 
 /**
- * Las diez posiciones de profundidad 0 de un registro, leídas del árbol
- * lógico del encaje (§12: el 8 compara ocupantes). Una posición está
- * desarrollada si tiene algún ocupante, y se dice por qué procedencia:
- * propia (contenido del payload que no es una referencia; «1.0» y «1.0.0»
- * colisionan en la 1 y cuentan en ella), referencia (la posición contiene
- * una referencia: alcanzada, no propia, porque las referencias no copian) o
- * escrita (algún registro anclado en esa posición o más hondo: `en` 1.2
- * desarrolla la 1). El registro entero (camino vacío) no es una posición:
- * un terminal no tiene posición 0. Lo escrito en la raíz (`en` 0000000000)
- * colisiona con la posición 0 por §12 y cuenta en ella; además se devuelve
- * aparte como `raiz`, para que el 8 pueda distinguirlo.
+ * Las diez posiciones de profundidad 0 de un registro, leídas de sus
+ * ocupantes (encaje.ocupantes; §12: el 8 compara ocupantes). Los ocupantes
+ * de la posición k son los de su dirección: los caminos del payload que
+ * colisionan en ella (k, k.0, k.0.0…), lo que alcanzan las referencias y lo
+ * escrito anclado ahí. Una posición está desarrollada si tiene alguno, y se
+ * dice por qué procedencia: propia (un camino del payload que no es una
+ * referencia), referencia (un camino que es una referencia: alcanzada, no
+ * propia, porque las referencias no copian) o escrita (un registro anclado
+ * ahí o más hondo: `en` 1.2 desarrolla la 1; lo más hondo sale del índice
+ * de hijos). Una referencia más honda (en el camino 1.1) ocupa la 1.1,
+ * no la 1. El registro entero (camino vacío) no es una posición: un terminal
+ * no tiene posición 0. La dirección de la posición 0 es la de la raíz
+ * (0000000000): lo escrito en la raíz colisiona con la 0 (§12) y cuenta en
+ * ella; además se devuelve aparte como `raiz`, para que el 8 lo distinga.
  * [X] decidir VG (§10.6): si lo escrito sin posición se anida en la raíz o
  * siempre en una posición concreta; mientras tanto, la raíz es ruido en la 0.
  */
 export function posicionesDe(eje, id) {
+  if (!eje.obtener(id)) throw new Error('registro desconocido: ' + id);
   const posiciones = Array.from({ length: ARIDAD }, (_, indice) => ({ indice, propia: false, referencia: false, escrita: false, tiene: false }));
   const raiz = { escrita: false };
-  for (const [dir, lista] of arbol(eje, id)) {
-    const primera = indicesDe(dir)[0]; // undefined: la raíz
-    for (const o of lista) {
+  for (const p of posiciones) {
+    for (const o of ocupantes(eje, id, [p.indice], { orden: 'llegada' })) {
       if (o.tipo === 'propio') {
-        const k = o.camino[0];
-        if (k === undefined) continue; // el registro entero, no una posición
-        posiciones[k][esReferencia(o.contenido) ? 'referencia' : 'propia'] = true;
+        if (o.camino.length === 0) continue; // el registro entero, no una posición
+        p[esReferencia(o.contenido) ? 'referencia' : 'propia'] = true;
       } else if (o.tipo === 'escrito') {
-        if (primera === undefined) raiz.escrita = true;
-        posiciones[primera ?? 0].escrita = true;
+        p.escrita = true;
+        if (p.indice === 0) raiz.escrita = true; // la dirección de la 0 es la de la raíz
       }
-      // Un ocupante por referencia nace siempre de un propio que contiene la referencia: ya está contado.
+      // Un ocupante por referencia nace siempre de un propio que es la referencia: ya está contado.
     }
+  }
+  for (const h of eje.sobre(id)) {
+    const indices = indicesDe(h.en);
+    if (indices.length > 1) posiciones[indices[0]].escrita = true; // más hondo que la posición: la desarrolla
   }
   for (const p of posiciones) p.tiene = p.propia || p.referencia || p.escrita;
   return { posiciones, raiz, desarrolladas: posiciones.filter((p) => p.tiene).length };
@@ -343,15 +364,18 @@ export function fundir(a, b) {
 
 /**
  * Confluencia del 8: las «bases» del foco frente a una cohorte de
- * comparables accesibles. Por cada medida (MEDIDAS) y por cada clave de
- * token que algún comparable mueve, su base fundible y la caja del foco; por
+ * comparables accesibles (ALCANCES). Por cada medida (MEDIDAS) y por cada
+ * serie de token que algún comparable mueve (contadas por serie: ni P entre
+ * ámbitos ni R entre emisores se suman), su base fundible y la caja del foco; por
  * cada posición 0–9, cuántos comparables la tienen desarrollada, por qué
  * procedencia (propia, referencia, escrita) y si el foco la tiene; y aparte,
  * cuántos tienen algo escrito en la raíz. La época pone el significado de
  * cada posición (regla corta) y, si los tiene, los cortes de las cajas
  * (`epoca.cortes(clave)`). No asigna nivel ni grado: los HITOS se devuelven
- * solo como tabla. Consulta sin efectos: escribir las bases como registros
- * en la posición 8 (VG, 7-11) es otra pieza.
+ * solo como tabla. Consulta sin efectos: es el cálculo que producirá las
+ * bases. Escribirlas como registros en la posición 8 del registro que
+ * resumen (VG, 7-11: con referencias a lo medido, fecha y frescura,
+ * fundibles hacia arriba) es la pieza siguiente.
  */
 export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
   const lista = comparables(eje, foco, alcance);
