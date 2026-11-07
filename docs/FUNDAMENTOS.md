@@ -22,9 +22,9 @@ La época es una convención paralela, **fuera del dato**. Un dato se puede leer
 
 La unidad de información es el evento (identidad, firmante, contexto, metadatos) con un payload: un terminal (número, palabra, HTML, archivo, referencia) o un array posicional de hasta diez posiciones, sin nulos ni huecos, cuyas posiciones contienen terminales, subarrays o referencias a otros eventos. Las referencias no copian. Las direcciones son cadenas de diez dígitos; el ID no es la dirección. Los dígitos son posiciones semánticas: el significado de cada profundidad lo da la regla corta de la época.
 
-## Modos y proporción de escritura
+## Modos, proporción y topes de escritura
 
-Pointed (~1 décupla), Sequenced (~10), Mapped (~100), Scened (~1000). La unidad de cuenta es la posición. Desde Pointed se escribe un décimo de lo leído; desde Sequenced entre un quinto y un décimo; desde Mapped entre un cuarto y un tercio. El registro de salida se anida sobre el contenido del foco.
+Pointed (~1 décupla), Sequenced (~10), Mapped (~100), Scened (~1000). La unidad de cuenta es la posición. Desde Pointed se escribe un décimo de lo leído; desde Sequenced entre un quinto y un décimo; desde Mapped entre un cuarto y un tercio: es el estándar, y desde el 7-11 informa, no rechaza. Lo que rechaza son los **topes duros** de posiciones emitidas de una vez (7-11): Pointed 10, Sequenced 100, Mapped 1000, Scened 10000, lo mismo que cada modo lee. El registro de salida se anida sobre el contenido del foco.
 
 ## Sobrio y animado
 
@@ -74,3 +74,15 @@ Los lenguajes se hicieron para que programaran personas; aquí programan IA. Por
 **P.** La casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. P solo se emite en el génesis; delegar estrecha el ámbito.
 
 Decidido [D] (VG, 7-11, mapa §12) e implementado: lo anterior. Abierto [X] decidir VG: si una identidad puede emitir su propio tiempo como serie limitada (T fuera del génesis: «no tocar hasta que lo diga»); qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante); cómo firma un grupo (es de AARPIA).
+
+## Añadido el 7-11-2026 (tarde)
+
+### La fábrica: la matriz 10×10×10
+
+La fábrica (PV4) parte de la matriz de 100 del foco (10 posiciones × 10 subposiciones), que ya está y no se emite. El registro de salida emite **solo las celdas modificadas**. La tercera dimensión es la **clase de modificación**, y son los diez PV como **tercer dígito** bajo la época 0 («siempre estamos aplicando los puntos de vista»): 0 ver/sustituir, 1 impulso de recursos, 2 criterio, 3 comunicación, 4 acción, 5 estructura, 6 pasado, 7 futuro, 8 comparabilidad, 9 camino. Una modificación de clase k sobre la celda [i][j] se escribe en `payload[i][j][k]`: pagar el precio de una compra (la celda [1][2]) es [1][2][4]. **Ver ya es una modificación** (clase 0), así que siempre se emite algo. La matriz completa son 1000 posiciones, el tope de Mapped.
+
+Lo no modificado anterior a lo modificado se hereda del foco por referencia (no hay huecos: no se rellena macizo, se va por las ramas a las hojas necesarias). Lo lejano, para lo que el foco no tiene base, no se rechaza: se **ancla** en su posición (`en`). La consolidación guarda la clase de cada elección y la ejecución es clase 4. Detalle en `docs/MOTOR.md` §7.
+
+### Topes duros por modo
+
+Pointed 10, Sequenced 100, Mapped 1000, Scened 10000 posiciones emitidas de una vez, además de la proporción, que pasa a ser el estándar que informa. Scened tiene tope pero aún no tiene render.

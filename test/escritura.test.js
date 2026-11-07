@@ -55,25 +55,30 @@ test('Mapped escribe una décupla y hereda del foco por referencia las celdas va
   assert.deepEqual(resolver(eje.obtener(compra.id).payload, payload[3].dir), ['huesped', 'cocina']);
 });
 
-test('Mapped rechaza huecos que el foco no puede heredar', async () => {
+test('Mapped ancla en su posición lo que el foco no puede heredar, en vez de rechazarlo', async () => {
   const { eje, compra } = await ejemploCompra();
   const celdas = [];
   celdas[7] = ['más tarde'];
-  assert.throws(() => desdeMapped(eje, celdas, compra.id), /hueco en 5/);
+  const { payload, anclados } = desdeMapped(eje, celdas, compra.id);
+  assert.equal(payload, null); // nada cabe dentro: el foco no tiene 5 ni 6
+  assert.deepEqual(anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'más tarde', faltan: ['5', '6'] }]);
   assert.throws(() => desdeMapped(eje, [], compra.id), /vacía/);
 });
 
-test('la proporción del modo se respeta', async () => {
+test('el tope duro del modo se respeta; la proporción informa y no rechaza', async () => {
   const { eje, compra } = await ejemploCompra();
-  await assert.rejects(
-    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: ['a', 'b'], t: '2026-11-07T14:00:00Z' }),
-    /pointed escribe como mucho 1/,
-  );
   const grande = Array(10).fill(Array(3).fill('x'));
   await assert.rejects(
-    escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
-    /sequenced escribe como mucho 20/,
+    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
+    /Pointed emite como mucho 10 posiciones; este registro tiene 30/,
   );
+  // 30 posiciones superan la proporción de Sequenced (20) pero caben en su tope (100).
+  const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
+  assert.equal(s.movimientos[0].cantidad, 30);
   const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
   assert.equal(ev.movimientos[0].cantidad, 30);
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'otro', autor: 'huesped', sobre: compra.id, payload: 'x', t: '2026-11-07T14:00:00Z' }),
+    /^Error: modo desconocido: otro$/,
+  );
 });

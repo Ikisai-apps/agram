@@ -85,7 +85,7 @@ test('la consolidación guarda el encaje de cada fuente elegida', async () => {
   const d = descubrir(eje, compra.id);
   const candidatoCuenta = d[0].candidatos.find((x) => x.evento === cuenta.id);
   const cons = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: { candidato: candidatoCuenta }, 4: 'pagar' } });
-  const e = cons.contexto.encaje;
+  const e = cons.contexto.encaje.filter((x) => x.evento); // las fuentes; el terminal nuevo lleva solo su clase
   assert.equal(e.length, 1);
   assert.equal(e[0].posicion, 1);
   assert.equal(e[0].evento, cuenta.id);
