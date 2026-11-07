@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
-import { confluir, comparables, medidasDe, posicionesDe, clavesDe, etiquetaClave, distribucion, ALCANCES, MEDIDAS, HITOS, medir } from '../src/tiempo.js';
+import { confluir, comparables, medidasDe, posicionesDe, clavesDe, etiquetaClave, distribucion, fundir, ALCANCES, MEDIDAS, HITOS, medir } from '../src/tiempo.js';
 
 /** La compra ampliada: diez compras hermanas sobre el menú, la cuenta sobre la compra, un criterio de cocina. */
 async function ampliada() {
@@ -14,43 +14,77 @@ async function ampliada() {
 
 const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
-test('distribucion: mínimo, mediana, máximo y cuantil del foco frente a los demás', () => {
-  assert.deepEqual(distribucion([1, 2, 3, 4], 4), { foco: 4, minimo: 1, mediana: 2.5, maximo: 4, cuantil: 1, menores: 3, iguales: 0, mayores: 0 });
-  assert.deepEqual(distribucion([1, 2, 3, 4, 9], 1), { foco: 1, minimo: 1, mediana: 3, maximo: 9, cuantil: 0, menores: 0, iguales: 0, mayores: 4 });
-  assert.equal(distribucion([5, 5, 5], 5).cuantil, 0.5); // todos iguales: ni arriba ni abajo
-  assert.equal(distribucion([2, 5, 5, 7], 5).cuantil, (1 + 1 / 2) / 3); // los empates cuentan a medias
-  assert.equal(distribucion([3], 3).cuantil, null); // solo: no hay con quién compararse
-  // Un foco que no está entre los valores no resta nada: todos son «los demás».
-  assert.deepEqual(distribucion([1, 2, 3], 5), { foco: 5, minimo: 1, mediana: 2, maximo: 3, cuantil: 1, menores: 3, iguales: 0, mayores: 0 });
-  assert.equal(distribucion([1, 2, 3], 0).cuantil, 0);
+test('distribucion: solo lo fundible (recuento, suma, mínimo, máximo, diez cajas) y la caja del foco', () => {
+  const d = distribucion([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 10);
+  assert.equal(d.n, 11);
+  assert.equal(d.suma, 55);
+  assert.equal(d.minimo, 0);
+  assert.equal(d.maximo, 10);
+  assert.equal(d.origenCortes, 'cohorte'); // la época 0 no da cortes: provisionales, de igual anchura en la cohorte
+  assert.equal(d.cortes.length, 9);
+  assert.equal(d.cajas.length, 10); // una décupla por medida: sus diez posiciones son los diez hitos del 8
+  assert.equal(d.cajas.reduce((s, x) => s + x, 0), 11);
+  assert.equal(d.caja, 9); // el máximo cae en la última caja
+  assert.equal(distribucion([0, 10], 0).caja, 0);
+  // Lo no fundible no está: ni mediana, ni cuantil, ni cuántos tienen más o menos que el foco.
+  for (const k of ['mediana', 'cuantil', 'menores', 'iguales', 'mayores', 'nivel', 'grado']) assert.ok(!(k in d), k);
+  // Todos iguales: sin cortes, todo en la caja 0; nadie está arriba ni abajo.
+  assert.deepEqual(distribucion([5, 5, 5], 5).cajas, [3, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(distribucion([5, 5, 5], 5).cortes, []);
+  // Cortes de la época: se usan tal cual y el foco se sitúa con ellos.
+  const cortes = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const e = distribucion([0, 3, 3, 12], 3, { cortes });
+  assert.equal(e.origenCortes, 'epoca');
+  assert.deepEqual(e.cajas, [1, 0, 0, 2, 0, 0, 0, 0, 0, 1]);
+  assert.equal(e.caja, 3);
   // Muchos comparables: sin desbordar la pila.
   const muchos = Array.from({ length: 300000 }, (_, i) => i);
-  const d = distribucion(muchos, 5);
-  assert.equal(d.minimo, 0);
-  assert.equal(d.maximo, 299999);
-  assert.equal(d.menores, 5);
+  const m = distribucion(muchos, 5);
+  assert.equal(m.minimo, 0);
+  assert.equal(m.maximo, 299999);
+  assert.equal(m.caja, 0);
 });
 
-test('comparables: hermanos ⊂ vecindad ⊂ todo, en orden de llegada y con el foco siempre dentro', async () => {
+test('fundir dos bases es O(1): recuentos, sumas y extremos siempre; las cajas solo con los mismos cortes', () => {
+  const cortes = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const a = distribucion([0, 2, 4], 2, { cortes });
+  const b = distribucion([4, 9], 9, { cortes });
+  const f = fundir(a, b);
+  assert.equal(f.n, 5);
+  assert.equal(f.suma, 19);
+  assert.equal(f.minimo, 0);
+  assert.equal(f.maximo, 9);
+  assert.deepEqual(f.cortes, cortes);
+  assert.deepEqual(f.cajas, distribucion([0, 2, 4, 4, 9], 0, { cortes }).cajas); // fundir = medir todo junto
+  assert.ok(!('foco' in f) && !('caja' in f)); // el foco no se funde: se vuelve a situar contra la base fundida
+  // Con cortes de cohorte distintos, el histograma no se funde (falta la regla de la época); lo demás sí.
+  const g = fundir(distribucion([0, 10], 0), distribucion([0, 20], 0));
+  assert.equal(g.n, 4);
+  assert.equal(g.maximo, 20);
+  assert.equal(g.cajas, null);
+  assert.equal(g.cortes, null);
+});
+
+test('comparables: hermanos ⊂ linaje ⊂ general, en orden de llegada y con el foco siempre dentro', async () => {
   const { eje, menu, rapida, alta, cuenta, alta2, criterioCocina } = await ampliada();
   const hermanos = comparables(eje, rapida.id, 'hermanos');
   assert.equal(hermanos.length, 10);
   assert.ok(hermanos.every((e) => e.sobre === menu.id));
   assert.ok(hermanos.some((e) => e.id === rapida.id));
-  const vecindad = comparables(eje, rapida.id, 'vecindad');
-  const idsVecindad = vecindad.map((e) => e.id);
-  assert.equal(vecindad.length, 14); // génesis, alta, alta2, menú y las diez compras
-  for (const id of [eje.genesisId, alta.id, alta2.id, menu.id, ...hermanos.map((e) => e.id)]) assert.ok(idsVecindad.includes(id));
-  assert.ok(!idsVecindad.includes(cuenta.id)); // la cuenta está sobre la compra, no sobre el hilo de la rápida
-  assert.ok(!idsVecindad.includes(criterioCocina.id));
-  // La vecindad no es el hilo: el hilo de la rápida son cuatro registros.
+  const linaje = comparables(eje, rapida.id, 'linaje');
+  const idsLinaje = linaje.map((e) => e.id);
+  assert.equal(linaje.length, 14); // génesis, alta, alta2, menú y las diez compras
+  for (const id of [eje.genesisId, alta.id, alta2.id, menu.id, ...hermanos.map((e) => e.id)]) assert.ok(idsLinaje.includes(id));
+  assert.ok(!idsLinaje.includes(cuenta.id)); // la cuenta está sobre la compra, no sobre el hilo de la rápida
+  assert.ok(!idsLinaje.includes(criterioCocina.id));
+  // El linaje no es el hilo: el hilo de la rápida son cuatro registros.
   assert.equal(eje.hilo(rapida.id).length, 4);
-  const todo = comparables(eje, rapida.id, 'todo');
-  assert.equal(todo.length, eje.orden.length);
-  assert.deepEqual(todo.map((e) => e.id), eje.orden); // orden de llegada
-  assert.deepEqual(ALCANCES, ['hermanos', 'vecindad', 'todo']);
+  const general = comparables(eje, rapida.id, 'general');
+  assert.equal(general.length, eje.orden.length);
+  assert.deepEqual(general.map((e) => e.id), eje.orden); // orden de llegada
+  assert.deepEqual(ALCANCES, ['hermanos', 'linaje', 'general']); // las tres cohortes de VG (7-11)
   assert.equal(comparables(eje, eje.genesisId).length, 1); // el génesis no tiene hermanos
-  assert.throws(() => comparables(eje, rapida.id, 'hilo'), /alcance desconocido/);
+  for (const viejo of ['hilo', 'vecindad', 'todo']) assert.throws(() => comparables(eje, rapida.id, viejo), /alcance desconocido/);
   assert.throws(() => confluir(eje, 'nadie'), /foco desconocido/);
 });
 
@@ -91,8 +125,8 @@ test('medidasDe: posiciones frente a terminales, tokens por clave, identidades, 
   assert.equal(m.terminales, 9);
   assert.equal(m.posiciones, 5); // 0–4 desarrolladas: la misma definición que las bases por posición
   assert.equal(m.escritos, 1);
-  assert.deepEqual(m.tokens, { T: 3600, 'E:EUR': 12 }); // por clave de saldo; sin P ni R totales
-  assert.ok(!('E' in m.tokens) && !('P' in m.tokens) && !('R' in m.tokens));
+  assert.deepEqual(m.tokens, { 'T:hora': 1, 'E:casa/EUR': 12 }); // por serie; sin totales de familia
+  for (const familia of ['T', 'E', 'P', 'R']) assert.ok(!(familia in m.tokens));
   assert.equal(m.identidades, 2); // huesped y cocina
   assert.equal(m.profundidadHilo, 3);
   assert.equal(m.formulasResueltas, 0);
@@ -109,7 +143,7 @@ test('medidasDe: posiciones frente a terminales, tokens por clave, identidades, 
   const g = medidasDe(eje, eje.genesisId);
   assert.equal(g.identidades, 1);
   assert.equal(g.profundidadHilo, 0);
-  assert.deepEqual(g.tokens, { T: 1000 * 3600, 'E:EUR': 500, 'P:genesis': 10 });
+  assert.deepEqual(g.tokens, { 'T:hora': 1000, 'T:minuto': 1000, 'E:casa/EUR': 500, 'P:genesis': 10 }); // una hora no son sesenta minutos
   assert.deepEqual(clavesDe(eje.obtener(eje.genesisId)), g.tokens);
   assert.throws(() => medidasDe(eje, 'nadie'), /registro desconocido/);
 });
@@ -118,7 +152,8 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
   const t = '2026-11-07T09:00:00Z';
   const eje = await Eje.genesis({
     identidad: 'casa',
-    emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
+    tipo: 'grupo',
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
     foco: 'raíz',
     t,
   });
@@ -128,6 +163,7 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
     t,
     movimientos: [gasta('casa'), { token: 'P', cantidad: 2, ambito: 'genesis', de: 'casa', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'casa', de: 'casa', a: 'ana' }],
     payload: ['Alta de Ana', ['ana']],
+    contexto: { tipos: { ana: 'persona' } },
   });
   const estrecha = await eje.escribir({
     autor: 'casa',
@@ -136,20 +172,22 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
     movimientos: [gasta('casa'), { token: 'P', cantidad: 3, ambito: alta.id, de: 'casa', a: 'ana' }],
     payload: 'poder solo sobre el alta',
   });
-  const c = confluir(eje, estrecha.id, { alcance: 'todo' });
-  assert.deepEqual(Object.keys(c.tokens), ['P:' + alta.id, 'P:genesis', 'R:casa', 'T']);
-  assert.ok(!('P' in c.tokens) && !('R' in c.tokens) && !('E' in c.tokens));
+  const c = confluir(eje, estrecha.id, { alcance: 'general' });
+  assert.deepEqual(Object.keys(c.tokens), ['P:' + alta.id, 'P:genesis', 'R:casa', 'T:minuto']);
+  for (const familia of ['T', 'E', 'P', 'R']) assert.ok(!(familia in c.tokens));
   assert.equal(c.tokens['P:genesis'].foco, 0);
   assert.equal(c.tokens['P:genesis'].maximo, 5);
+  assert.equal(c.tokens['P:genesis'].suma, 5 + 2); // el génesis emite 5 y el alta delega 2: misma serie
   assert.equal(c.tokens['P:' + alta.id].foco, 3);
-  assert.equal(c.tokens['P:' + alta.id].cuantil, 1); // nadie más movió poder sobre el alta
+  assert.equal(c.tokens['P:' + alta.id].caja, 9); // nadie más movió poder sobre el alta: el foco está solo arriba
+  assert.equal(c.tokens['P:' + alta.id].cajas[9], 1);
   assert.equal(c.tokens['R:casa'].maximo, 3);
-  assert.deepEqual(c.comparables[1].tokens, { T: 60, 'P:genesis': 2, 'R:casa': 1 }); // el alta: dos claves de poder y reputación, ningún total
+  assert.deepEqual(c.comparables[1].tokens, { 'T:minuto': 1, 'P:genesis': 2, 'R:casa': 1 }); // el alta: una clave por serie, ningún total
   assert.equal(c.tokens['P:genesis'].etiqueta, 'P movido sobre el eje');
   assert.equal(etiquetaClave('P:' + alta.id), 'P movido sobre ' + alta.id.slice(0, 8));
   assert.equal(etiquetaClave('R:casa'), 'R movida de casa');
-  assert.equal(etiquetaClave('E:EUR'), 'E movido (EUR)');
-  assert.equal(etiquetaClave('T'), 'T movido (segundos)');
+  assert.equal(etiquetaClave('E:casa/EUR'), 'E movido (EUR de casa)');
+  assert.equal(etiquetaClave('T:minuto'), 'T movido en minuto');
 });
 
 test('confluir: las bases del foco entre sus hermanos, sin nivel ni grado', async () => {
@@ -161,36 +199,47 @@ test('confluir: las bases del foco entre sus hermanos, sin nivel ni grado', asyn
   assert.equal(c.n, 10);
   assert.equal(c.comparables.length, 10);
   assert.deepEqual(Object.keys(c.medidas), MEDIDAS.map((m) => m.clave));
-  assert.deepEqual(Object.keys(c.tokens), ['E:EUR', 'T']); // solo las claves que alguien mueve
+  assert.deepEqual(Object.keys(c.tokens), ['E:casa/EUR', 'T:hora', 'T:minuto']); // solo las series que alguien mueve
   for (const d of [...Object.values(c.medidas), ...Object.values(c.tokens)]) {
-    assert.ok(!('nivel' in d) && !('grado' in d) && !('puntuacion' in d));
-    assert.ok(d.cuantil >= 0 && d.cuantil <= 1);
-    assert.equal(d.menores + d.iguales + d.mayores, 9);
+    assert.ok(!('nivel' in d) && !('grado' in d) && !('puntuacion' in d) && !('cuantil' in d) && !('mediana' in d));
+    assert.equal(d.n, 10);
+    assert.equal(d.cajas.length, 10);
+    assert.equal(d.cajas.reduce((s, x) => s + x, 0), 10);
+    assert.ok(Number.isInteger(d.caja) && d.caja >= 0 && d.caja <= 9);
   }
   assert.ok(!('nivel' in c) && !('grado' in c) && !('puntuacion' in c) && !('posicion' in c));
-  // Tiempo: la compra original gastó una hora; las otras nueve, un minuto.
-  assert.deepEqual(c.tokens.T, { etiqueta: 'T movido (segundos)', foco: 60, minimo: 60, mediana: 60, maximo: 3600, cuantil: (0 + 8 / 2) / 9, menores: 0, iguales: 8, mayores: 1 });
-  // Recursos: solo la compra y la rápida pagaron 12 EUR; quien no mueve EUR cuenta 0.
-  assert.equal(c.tokens['E:EUR'].foco, 12);
-  assert.equal(c.tokens['E:EUR'].minimo, 0);
-  assert.equal(c.tokens['E:EUR'].cuantil, (8 + 1 / 2) / 9);
-  // Todas las hermanas comparten la profundidad del hilo: nadie está arriba ni abajo.
-  assert.equal(c.medidas.profundidadHilo.cuantil, 0.5);
-  assert.equal(c.medidas.profundidadHilo.iguales, 9);
+  // Tiempo, por escala: la compra original gastó una hora; las otras nueve, un minuto. Una hora no son sesenta minutos.
+  assert.equal(c.tokens['T:hora'].suma, 1);
+  assert.equal(c.tokens['T:hora'].foco, 0);
+  assert.equal(c.tokens['T:hora'].caja, 0);
+  assert.equal(c.tokens['T:minuto'].etiqueta, 'T movido en minuto');
+  assert.equal(c.tokens['T:minuto'].suma, 9);
+  assert.equal(c.tokens['T:minuto'].foco, 1);
+  assert.equal(c.tokens['T:minuto'].caja, 9);
+  assert.deepEqual(c.tokens['T:minuto'].cajas, [1, 0, 0, 0, 0, 0, 0, 0, 0, 9]);
+  // Recursos: solo la compra y la rápida pagaron 12 EUR de la casa; quien no mueve EUR cuenta 0.
+  assert.equal(c.tokens['E:casa/EUR'].foco, 12);
+  assert.equal(c.tokens['E:casa/EUR'].minimo, 0);
+  assert.equal(c.tokens['E:casa/EUR'].suma, 24);
+  assert.deepEqual(c.tokens['E:casa/EUR'].cajas, [8, 0, 0, 0, 0, 0, 0, 0, 0, 2]);
+  // Todas las hermanas comparten la profundidad del hilo: sin cortes, todas en la misma caja.
+  assert.deepEqual(c.medidas.profundidadHilo.cajas, [10, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(c.medidas.profundidadHilo.cortes, []);
   // Nadie ha escrito sobre la rápida; sobre dos hermanas sí.
   assert.equal(c.medidas.escritos.foco, 0);
-  assert.equal(c.medidas.escritos.mayores, 2);
+  assert.equal(c.medidas.escritos.caja, 0);
+  assert.equal(c.medidas.escritos.suma, 2);
   assert.equal(c.medidas.escritos.maximo, 1);
   assert.equal(c.hitos, HITOS); // solo como tabla
-  // La compra original es la más desarrollada en terminales; en posiciones empata con la compra del grupo.
+  // La compra original es la más desarrollada en terminales; en posiciones comparte la caja de arriba con la compra del grupo.
   const d = confluir(eje, compra.id);
   assert.equal(d.medidas.terminales.foco, 9);
-  assert.equal(d.medidas.terminales.cuantil, 1);
+  assert.equal(d.medidas.terminales.maximo, 9);
+  assert.equal(d.medidas.terminales.caja, 9);
   assert.equal(d.medidas.posiciones.foco, 5);
   assert.equal(d.medidas.posiciones.maximo, 5);
-  assert.equal(d.medidas.posiciones.iguales, 1);
-  assert.equal(d.medidas.posiciones.cuantil, (8 + 1 / 2) / 9);
-  assert.equal(d.medidas.escritos.cuantil, (8 + 1 / 2) / 9);
+  assert.equal(d.medidas.posiciones.caja, 9);
+  assert.equal(d.medidas.posiciones.cajas[9], 2);
   assert.equal(d.medidas.formulasResueltas.foco, 0);
   assert.equal(d.medidas.formulasPendientes.maximo, 1);
 });
@@ -258,23 +307,23 @@ test('bases por posición: lo escrito por debajo de la profundidad 0 cuenta, y l
   assert.deepEqual(leida.medidas, base.medidas);
 });
 
-test('alcance vecindad y todo cambian las bases; el génesis solo se compara consigo mismo', async () => {
+test('las cohortes linaje y general cambian las bases; el génesis solo se compara consigo mismo', async () => {
   const { eje, rapida } = await ampliada();
-  const vecindad = confluir(eje, rapida.id, { alcance: 'vecindad' });
-  assert.equal(vecindad.n, 14);
-  assert.equal(vecindad.medidas.profundidadHilo.minimo, 0); // el génesis
-  assert.equal(vecindad.medidas.profundidadHilo.maximo, 3);
-  assert.ok(vecindad.medidas.profundidadHilo.cuantil > 0.5); // el foco está en lo más hondo de su hilo
-  assert.deepEqual(Object.keys(vecindad.tokens), ['E:EUR', 'P:genesis', 'T']); // el génesis emite poder sobre el eje
-  const todo = confluir(eje, rapida.id, { alcance: 'todo' });
-  assert.equal(todo.n, eje.orden.length);
-  assert.equal(todo.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
-  assert.equal(todo.medidas.formulasResueltas.maximo, 2); // la cuenta
+  const linaje = confluir(eje, rapida.id, { alcance: 'linaje' });
+  assert.equal(linaje.n, 14);
+  assert.equal(linaje.medidas.profundidadHilo.minimo, 0); // el génesis
+  assert.equal(linaje.medidas.profundidadHilo.maximo, 3);
+  assert.equal(linaje.medidas.profundidadHilo.caja, 9); // el foco está en lo más hondo de su linaje
+  assert.deepEqual(Object.keys(linaje.tokens), ['E:casa/EUR', 'P:genesis', 'T:hora', 'T:minuto']); // el génesis emite poder sobre el eje
+  const general = confluir(eje, rapida.id, { alcance: 'general' });
+  assert.equal(general.n, eje.orden.length);
+  assert.equal(general.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
+  assert.equal(general.medidas.formulasResueltas.maximo, 2); // la cuenta
   const g = confluir(eje, eje.genesisId);
   assert.equal(g.n, 1);
-  assert.equal(g.medidas.posiciones.cuantil, null);
+  assert.deepEqual(g.medidas.posiciones.cajas, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // solo: no hay con quién compararse
   assert.equal(g.tokens['P:genesis'].foco, 10);
-  assert.equal(g.tokens['P:genesis'].cuantil, null);
+  assert.equal(g.tokens['P:genesis'].n, 1);
   // El génesis de ejemplo es un terminal: no tiene posición 0 propia. Pero las altas están ancladas
   // en su raíz (en = 0000000000), que colisiona con la posición 0 (§12: colisiones, no apaños);
   // la raíz se devuelve aparte para que el 8 pueda distinguirla.
@@ -282,4 +331,22 @@ test('alcance vecindad y todo cambian las bases; el génesis solo se compara con
   assert.equal(g.posiciones[0].escritas, 1);
   assert.equal(g.posiciones[0].comparables, 1);
   assert.deepEqual(g.raiz, { comparables: 1, proporcion: 1, foco: true });
+});
+
+test('una época con cortes hace las bases fundibles entre cohortes', async () => {
+  const { eje, rapida } = await ampliada();
+  const cortes = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const conCortes = { nombre: 'con cortes', reglaCorta: (p, d) => 'd' + d, cortes: () => cortes };
+  const hermanos = confluir(eje, rapida.id, { epoca: conCortes });
+  const general = confluir(eje, rapida.id, { alcance: 'general', epoca: conCortes });
+  assert.equal(hermanos.medidas.posiciones.origenCortes, 'epoca');
+  assert.deepEqual(hermanos.medidas.posiciones.cortes, cortes);
+  const f = fundir(hermanos.medidas.posiciones, general.medidas.posiciones);
+  assert.equal(f.n, hermanos.n + general.n);
+  assert.deepEqual(f.cajas, hermanos.medidas.posiciones.cajas.map((x, i) => x + general.medidas.posiciones.cajas[i]));
+  // Con la época 0 (sin cortes) el histograma de una cohorte no se funde con el de otra.
+  const h0 = confluir(eje, rapida.id);
+  const g0 = confluir(eje, rapida.id, { alcance: 'general' });
+  assert.equal(h0.medidas.posiciones.origenCortes, 'cohorte');
+  assert.equal(fundir(h0.medidas.profundidadHilo, g0.medidas.profundidadHilo).cajas, null); // cortes de cohorte distintos
 });

@@ -3,10 +3,10 @@
 // son las siete escalas del tiempo; lo cercano con detalle, lo lejano
 // comprimido. PV8 es comparabilidad relativa entre comparables accesibles;
 // las estrellas no son verdad. Cuando hay muchos registros, confluyen hacia
-// arriba en el 8: las «bases» (distribuciones por medida y por posición)
+// arriba en el 8: las «bases» (fundibles, por medida y por posición)
 // sobre las que el foco se sitúa sin recibir nivel ni grado.
 
-import { SEGUNDOS, ESCALAS_T, AMBITO_GENESIS, claveToken, cantidadBase } from './tokens.js';
+import { SEGUNDOS, ESCALAS_T, AMBITO_GENESIS, claveToken, cantidadBase, partirClave } from './tokens.js';
 import { ARIDAD, direccion, resolver, indicesDe, esReferencia } from './btml.js';
 import { arbol } from './encaje.js';
 import { consolidaciones } from './motor.js';
@@ -96,20 +96,22 @@ export function comparar(eje, foco) {
 // ---------- confluencia del 8: las bases ----------
 
 /**
- * Alcances de comparación, anidados: los hermanos del foco (escritos sobre
- * el mismo padre, en cualquier posición) ⊂ la vecindad (el foco, sus
+ * Cohortes de comparación (VG, 7-11 tarde: «exactamente lo que buscábamos»):
+ * hermanos = elementos similares; linaje (o proyecto) = dónde estoy;
+ * general = el ámbito. Aquí, anidadas: los hermanos del foco (escritos sobre
+ * el mismo padre, en cualquier posición) ⊂ el linaje (el foco, sus
  * antepasados hasta el génesis y lo escrito directamente sobre cada uno de
- * ellos: hermanos, «tíos» e hijos del foco) ⊂ todo el eje. «Vecindad» no es
- * el hilo: el hilo (§10) es solo la cadena foco → génesis.
- * [X] decidir VG: la cohorte de comparación sigue abierta en el mapa (§2.2).
- * Estos tres alcances son el mínimo para que el 8 tenga comparables reales.
- * Dos variantes que el ejemplo deja ver y no están decididas: hermanos por
- * mismo padre Y misma posición `en` (hoy solo el padre: la cuenta, en 1, es
- * hermana de los criterios de cocina, en 2); y si el hilo real (foco y
- * antepasados, sin hermanos) merece ser un alcance. Cambiar cohorte = cambiar
- * solo comparables().
+ * ellos: hermanos, «tíos» e hijos del foco) ⊂ general (todo el eje, el
+ * ámbito del génesis). El linaje no es el hilo: el hilo (§10) es solo la
+ * cadena foco → génesis.
+ * [X] decidir VG: la composición exacta de cada cohorte. Dos variantes que
+ * el ejemplo deja ver: hermanos por mismo padre Y misma posición `en` (hoy
+ * solo el padre: la cuenta, en 1, es hermana de los criterios de cocina, en
+ * 2: ¿son «elementos similares»?); y si el linaje es esta vecindad o el
+ * proyecto (un registro concreto del hilo cuyo 8 se lee). Cambiar cohorte =
+ * cambiar solo comparables().
  */
-export const ALCANCES = Object.freeze(['hermanos', 'vecindad', 'todo']);
+export const ALCANCES = Object.freeze(['hermanos', 'linaje', 'general']);
 
 /**
  * Medidas que confluyen, con su etiqueta para mostrarlas. Ninguna es un nivel
@@ -129,25 +131,29 @@ export const MEDIDAS = Object.freeze([
   { clave: 'formulasPendientes', etiqueta: 'fórmulas pendientes' },
 ]);
 
-/** Etiqueta de una clave de saldo (claveToken) para mostrar su base: T, E:EUR, P:<ámbito>, R:<emisor>. */
+/**
+ * Etiqueta de una clave de saldo (claveToken) para mostrar su base. Cada
+ * serie es la suya: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>,
+ * R:<emisor>. Nada se convierte ni se suma entre series.
+ */
 export function etiquetaClave(clave) {
-  if (clave === 'T') return 'T movido (segundos)';
-  const [familia, resto] = [clave.slice(0, 1), clave.slice(2)];
-  if (familia === 'E') return 'E movido' + (resto ? ' (' + resto + ')' : '');
-  if (familia === 'P') return 'P movido sobre ' + (resto === AMBITO_GENESIS ? 'el eje' : resto.slice(0, 8));
-  if (familia === 'R') return 'R movida de ' + resto;
+  const s = partirClave(clave);
+  if (s.token === 'T') return 'T movido en ' + s.escala;
+  if (s.token === 'E') return 'E movido (' + s.denominacion + ' de ' + s.emisor + ')';
+  if (s.token === 'P') return 'P movido sobre ' + (s.ambito === AMBITO_GENESIS ? 'el eje' : s.ambito.slice(0, 8));
+  if (s.token === 'R') return 'R movida de ' + s.emisor;
   return clave;
 }
 
-/** Comparables accesibles del foco según el alcance, en orden de llegada al eje. El foco siempre está. */
+/** Comparables accesibles del foco según la cohorte, en orden de llegada al eje. El foco siempre está. */
 export function comparables(eje, foco, alcance = 'hermanos') {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   if (!ALCANCES.includes(alcance)) throw new Error('alcance desconocido: ' + alcance);
   const ids = new Set([foco]);
-  if (alcance === 'todo') {
+  if (alcance === 'general') {
     for (const id of eje.orden) ids.add(id);
-  } else if (alcance === 'vecindad') {
+  } else if (alcance === 'linaje') {
     for (const h of eje.hilo(foco)) {
       ids.add(h.id);
       for (const e of eje.sobre(h.id)) ids.add(e.id);
@@ -194,7 +200,7 @@ export function posicionesDe(eje, id) {
   return { posiciones, raiz, desarrolladas: posiciones.filter((p) => p.tiene).length };
 }
 
-/** Tokens movidos por un evento, por clave de saldo (T; E:denominación; P:ámbito; R:emisor), en su unidad de saldo. */
+/** Tokens movidos por un evento, por clave de saldo (T:escala, E:emisor/denominación, P:ámbito, R:emisor), en su unidad de saldo. */
 export function clavesDe(ev) {
   const porClave = {};
   for (const mov of ev.movimientos) {
@@ -252,69 +258,111 @@ export function medidasDe(eje, id) {
   return m;
 }
 
-function mediana(valores) {
-  const v = [...valores].sort((a, b) => a - b);
-  const k = v.length >> 1;
-  return v.length % 2 ? v[k] : (v[k - 1] + v[k]) / 2;
+/** Diez cajas: las diez posiciones de la décupla de una medida, que son los diez hitos del 8. */
+export const CAJAS = ARIDAD;
+
+/**
+ * Cortes provisionales de las cajas de una medida en una cohorte: nueve
+ * umbrales de igual anchura entre el mínimo y el máximo de la cohorte.
+ * [X] decidir VG: los cortes de las cajas son regla de la época (VG, 7-11) y
+ * la época 0 no los tiene. Con cortes de la cohorte el histograma no se
+ * funde con el de otra cohorte (fundir exige los mismos cortes); cuando una
+ * época dé `cortes(medida)`, confluir los usa y las bases se funden.
+ */
+export function cortesDeCohorte(minimo, maximo) {
+  if (!(maximo > minimo)) return [];
+  const ancho = (maximo - minimo) / CAJAS;
+  return Array.from({ length: CAJAS - 1 }, (_, j) => minimo + (j + 1) * ancho);
+}
+
+/** Caja de un valor: cuántos cortes deja por debajo o en él (0–9). Sin cortes, la 0. */
+export function cajaDe(valor, cortes) {
+  let k = 0;
+  while (k < cortes.length && valor >= cortes[k]) k++;
+  return k;
 }
 
 /**
- * Distribución de una medida entre los comparables y dónde cae el foco:
- * mínimo, mediana y máximo de `valores`; cuántos de los demás tienen menos,
- * lo mismo o más que `valorFoco`; y el cuantil del foco entre 0 y 1 frente a
- * los demás. Si el valor del foco está en `valores`, se descuenta una vez
- * (el foco no se compara consigo mismo); si no está, todos son «los demás».
- * [X] decidir VG: convención del cuantil: proporción de los demás con menos,
- * empates a medias (0 = todos tienen más, 1 = todos tienen menos, 0,5 = como
- * todos); null si el foco está solo. No es un nivel ni un grado.
+ * Base de una medida en una cohorte (VG, 7-11 tarde): solo lo FUNDIBLE.
+ * Recuento, suma, mínimo, máximo e histograma de diez cajas (una décupla
+ * por medida, cuyas diez posiciones son los diez hitos del 8), y la caja
+ * donde se sitúa el foco. Lo no fundible (medianas exactas, cuantiles,
+ * cuántos tienen más o menos que el foco) no está: VG lo descarta o lo
+ * aproxima. `cortes` (nueve umbrales crecientes) viene de la época; sin
+ * ellos, los provisionales de la cohorte (ver cortesDeCohorte).
+ * No es un nivel ni un grado: la caja es dónde cae el foco, no lo que vale.
  */
-export function distribucion(valores, valorFoco) {
+export function distribucion(valores, valorFoco, { cortes } = {}) {
+  let n = 0;
+  let suma = 0;
   let minimo = Infinity;
   let maximo = -Infinity;
-  let menores = 0;
-  let iguales = 0;
-  let mayores = 0;
   for (const v of valores) {
+    n++;
+    suma += v;
     if (v < minimo) minimo = v;
     if (v > maximo) maximo = v;
-    if (v < valorFoco) menores++;
-    else if (v > valorFoco) mayores++;
-    else iguales++;
   }
-  const dentro = iguales > 0;
-  if (dentro) iguales--; // el propio foco no se compara consigo mismo
-  const otros = valores.length - (dentro ? 1 : 0);
+  const deEpoca = Array.isArray(cortes);
+  const usados = deEpoca ? [...cortes] : cortesDeCohorte(minimo, maximo);
+  const cajas = new Array(CAJAS).fill(0);
+  for (const v of valores) cajas[cajaDe(v, usados)]++;
   return {
     foco: valorFoco,
-    minimo,
-    mediana: mediana(valores),
-    maximo,
-    cuantil: otros ? (menores + iguales / 2) / otros : null,
-    menores,
-    iguales,
-    mayores,
+    n,
+    suma,
+    minimo: n ? minimo : null,
+    maximo: n ? maximo : null,
+    cortes: usados,
+    origenCortes: deEpoca ? 'epoca' : 'cohorte',
+    cajas,
+    caja: cajaDe(valorFoco, usados),
   };
 }
 
 /**
- * Confluencia del 8: las «bases» del foco frente a sus comparables
- * accesibles. Por cada medida (MEDIDAS) y por cada clave de token que algún
- * comparable mueve, su distribución y dónde cae el foco; por cada posición
- * 0–9, cuántos comparables la tienen desarrollada, por qué procedencia
- * (propia, referencia, escrita) y si el foco la tiene; y aparte, cuántos
- * tienen algo escrito en la raíz. La época solo pone el significado de cada
- * posición (regla corta). No asigna nivel ni grado: los HITOS se devuelven
- * solo como tabla. Consulta sin efectos.
+ * Fundir dos bases de la misma medida es O(1) (VG, 7-11): recuentos y sumas
+ * se suman, mínimo y máximo se combinan, y las cajas se suman una a una si
+ * las dos usan los mismos cortes; si no, el histograma no se puede fundir y
+ * queda en null (lo demás sí). El foco no se funde: se vuelve a situar
+ * contra la base fundida.
+ */
+export function fundir(a, b) {
+  const mismos = a.cortes.length === b.cortes.length && a.cortes.every((c, i) => c === b.cortes[i]);
+  const extremo = (f, x, y) => (x === null ? y : y === null ? x : f(x, y));
+  return {
+    n: a.n + b.n,
+    suma: a.suma + b.suma,
+    minimo: extremo(Math.min, a.minimo, b.minimo),
+    maximo: extremo(Math.max, a.maximo, b.maximo),
+    cortes: mismos ? [...a.cortes] : null,
+    origenCortes: mismos && a.origenCortes === b.origenCortes ? a.origenCortes : null,
+    cajas: mismos ? a.cajas.map((x, i) => x + b.cajas[i]) : null,
+  };
+}
+
+/**
+ * Confluencia del 8: las «bases» del foco frente a una cohorte de
+ * comparables accesibles. Por cada medida (MEDIDAS) y por cada clave de
+ * token que algún comparable mueve, su base fundible y la caja del foco; por
+ * cada posición 0–9, cuántos comparables la tienen desarrollada, por qué
+ * procedencia (propia, referencia, escrita) y si el foco la tiene; y aparte,
+ * cuántos tienen algo escrito en la raíz. La época pone el significado de
+ * cada posición (regla corta) y, si los tiene, los cortes de las cajas
+ * (`epoca.cortes(clave)`). No asigna nivel ni grado: los HITOS se devuelven
+ * solo como tabla. Consulta sin efectos: escribir las bases como registros
+ * en la posición 8 (VG, 7-11) es otra pieza.
  */
 export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
   const lista = comparables(eje, foco, alcance);
   const filas = lista.map((e) => ({ id: e.id, autor: e.autor, t: e.t, ...medidasDe(eje, e.id) }));
   const delFoco = filas.find((f) => f.id === foco);
+  const cortesDe = (clave) => (typeof epoca.cortes === 'function' ? epoca.cortes(clave) : undefined);
   const medidas = {};
-  for (const { clave } of MEDIDAS) medidas[clave] = distribucion(filas.map((f) => f[clave]), delFoco[clave]);
+  for (const { clave } of MEDIDAS) medidas[clave] = distribucion(filas.map((f) => f[clave]), delFoco[clave], { cortes: cortesDe(clave) });
   const claves = [...new Set(filas.flatMap((f) => Object.keys(f.tokens)))].sort();
   const tokens = {};
-  for (const clave of claves) tokens[clave] = { etiqueta: etiquetaClave(clave), ...distribucion(filas.map((f) => f.tokens[clave] ?? 0), delFoco.tokens[clave] ?? 0) };
+  for (const clave of claves) tokens[clave] = { etiqueta: etiquetaClave(clave), ...distribucion(filas.map((f) => f.tokens[clave] ?? 0), delFoco.tokens[clave] ?? 0, { cortes: cortesDe(clave) }) };
   const posiciones = [];
   for (let i = 0; i < ARIDAD; i++) {
     const cuenta = { comparables: 0, propias: 0, referencias: 0, escritas: 0 };

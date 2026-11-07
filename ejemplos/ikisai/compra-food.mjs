@@ -119,13 +119,19 @@ export async function ejemploCuenta(eje, compra, privadaCocina) {
 export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const priv = (id) => privadas[id];
   const gasta = (de, minutos = 1) => ({ token: 'T', escala: 'minuto', cantidad: minutos, de, a: null });
-  const paga = (de, eur) => ({ token: 'E', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
+  const paga = (de, eur) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
   const alta2 = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t: '2026-11-07T12:00:00Z',
-    movimientos: [gasta('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' }, { token: 'E', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' }],
+    movimientos: [
+      gasta('casa'),
+      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' },
+      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'huesped2' },
+      { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
+    ],
     payload: ['Alta de otra persona huésped', ['huesped2']],
+    contexto: { tipos: { huesped2: 'persona' } },
   }, priv('casa'));
   const criterios = [{ ref: menu.id, dir: '2000000000' }];
   const recursos = [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'];
