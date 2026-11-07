@@ -315,7 +315,7 @@ Ocupantes, en orden de llegada:
 2. **referencia**: justo detrás de cada propio que es una referencia, lo que esa referencia alcanza (siguiendo cadenas, hasta 20 saltos).
 3. **escrito**: los eventos con `sobre = <este evento>` y `en = <la dirección>`, en orden de entrada en el eje.
 
-Orden por defecto (**encaje**, `ordenarPorEncaje`): más profundidades de acuerdo primero; a igual acuerdo, menor distancia profundidad a profundidad; a igual distancia, orden de llegada. El signo no ordena.
+Orden por defecto (**encaje**, `ordenarPorEncaje`): más profundidades de acuerdo primero (coincidencias de ruta); a igual acuerdo, orden de llegada. Ni el signo ni la distancia ordenan: son información (opción B, decidida por VG el 7-11 por la tarde, mapa §12 [D]); la distancia solo ordenaría en una profundidad que la época haga ordinal, y en la época 0 ninguna lo es.
 
 **Estructura de un candidato** (`valor.items[k]`):
 
@@ -326,14 +326,14 @@ Orden por defecto (**encaje**, `ordenarPorEncaje`): más profundidades de acuerd
 | `indices` | number[] | Camino dentro de `evento` (propio: el camino exacto, p. ej. `[4, 0]`; referencia: la posición alcanzada; escrito: `[]`, su payload entero). |
 | `procedencia` | string[] | Cadena de lugares: `'<id>:<dir>#<camino>'` para propios, `'<id>:<dir>'` para referencias y escritos. |
 | `autor`, `t` | string | Solo en escritos; `undefined` en los demás. |
-| `vector` | number[10] | `destino − origen`, dígito a dígito. |
-| `distancia` | number[10] | `|vector|` por profundidad. |
+| `vector` | number[10] | `origenDir − destino` (candidato − buscado), dígito a dígito. |
+| `distancia` | number[10] | `|vector|` por profundidad; información, no orden. |
 | `acuerdo` | 0–10 | Profundidades iniciales con diferencia 0. |
-| `signo` | texto | `exacto` (todo 0), `completar` (solo positivos), `reducir` (solo negativos), `mixto`. |
-| `faltas`, `excedentes` | number | Profundidades con diferencia positiva / negativa. |
+| `signo` | texto | `exacto` (todo 0), `completar` (solo negativos: al candidato le falta), `reducir` (solo positivos: le sobra), `mixto`. |
+| `faltas`, `excedentes` | number | Profundidades con diferencia negativa (falta) / positiva (sobra). |
 | `origenDir`, `destino` | string | Direcciones de diez dígitos. |
 
-Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir = '0000000000'` (el hijo nace en su raíz y se le coloca en `destino`: para `destino = '4000000000'`, vector `[4, 0, …]`, `completar`, faltas 1, acuerdo 0, desplazamiento 4); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[-5, 0, …]`, `reducir`, excedentes 1; una referencia a `1000000000` colocada en `[1]` es `exacto`).
+Origen del vector según el tipo: propio → `origenDir = destino` (vector todo ceros, `exacto`, acuerdo 10); escrito → `origenDir = destino` (está anclado exactamente en la dirección buscada: vector todo ceros, `exacto`, acuerdo 10; su `dir` sigue siendo `'0000000000'`, la raíz de su payload); referencia → `origenDir` = la dirección alcanzada en el otro registro (una referencia a `7000000000` colocada en `[2]` da vector `[5, 0, …]`, `reducir`, excedentes 1, acuerdo 0; una referencia a `1000000000` colocada en `[1]` es `exacto`).
 
 El valor de un candidato (lo que leen `ACTUAL()`, `SUMAR`, `ORDENAR`) es `leerSlot(evento, indices)`: sigue fórmulas y referencias; un escrito terminal da su terminal; un propio array da un `array`.
 
@@ -384,8 +384,8 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `CONTAR(FILTRAR(BUSCAR(4), LOCAL(0) = "Compra del menú del día"))` | RESUELTO | `5` |
 | `FILTRAR(BUSCAR(4), 1)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera verdadero o falso, no numero` |
 | `FILTRAR(1, 1 < 2)` | INCOMPATIBLE | `INCOMPATIBLE: FILTRAR espera una colección, no numero` |
-| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` | RESUELTO | `3` |
-| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `2` |
+| `CONTAR(FILTRAR(BUSCAR(4), FALTAS() = 1))` (los escritos anclados en `4000000000` son exactos) | RESUELTO | `0` |
+| `CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0)))` | RESUELTO | `5` |
 
 ### 7.7 `ORDENAR(col, expr, "desc"?)`
 
@@ -399,7 +399,7 @@ Dos modos, según si hay candidato iterado (`ctx.actual`):
 | `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL())` | `3 candidatos: escrito 9a726a75 · escrito d567acc1 · escrito 59bd2354` (1, 2, 5 EUR) |
 | `ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")` | `3 candidatos: escrito 59bd2354 · escrito d567acc1 · escrito 9a726a75` (5, 2, 1 EUR) |
 | `ORDENAR(BUSCAR(4), ORIGEN())` | escritos antes que propios (orden alfabético de `escrito` < `propio`) |
-| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | los tres escritos (4) antes que los dos propios (0) |
+| `ORDENAR(BUSCAR(4), DESPLAZAMIENTO(), "desc")` | todos tienen desplazamiento 0 (propios y escritos son exactos): se conserva el orden de entrada, los dos propios y luego los tres escritos |
 
 ### 7.8 `ELEGIR(col, k?)`
 
@@ -432,10 +432,10 @@ Solo dentro de `FILTRAR`/`ORDENAR`; fuera, ERROR `<NOMBRE> solo dentro de FILTRA
 | `SIGNO()` | texto `exacto` / `completar` / `reducir` / `mixto` | `signo` (`exacto` si falta) |
 | `ACUERDO()` | numero 0–10 | `acuerdo` (10 si falta) |
 | `DESPLAZAMIENTO()` | numero: Σ \|vector[k]\| | `vector` (0 si falta) |
-| `FALTAS()` | numero: profundidades con diferencia > 0 | `faltas` (0 si falta) |
-| `EXCEDENTES()` | numero: profundidades con diferencia < 0 | `excedentes` (0 si falta) |
+| `FALTAS()` | numero: profundidades con diferencia < 0 (al candidato le falta) | `faltas` (0 si falta) |
+| `EXCEDENTES()` | numero: profundidades con diferencia > 0 (al candidato le sobra) | `excedentes` (0 si falta) |
 
-Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `3` (`[1]`, `[1, 0]` y la referencia al menú); `… SIGNO() = "completar"` → `1` (la cuenta); `… FALTAS() = 1` → `1`; `… DESPLAZAMIENTO() > 0` → `1`; `… ACUERDO() = 10` → `3`.
+Verificado sobre la compra con la cuenta escrita en `1000000000` (`test/vector.test.js`, slot `[1]`): `CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))` → `4` (`[1]`, `[1, 0]`, la referencia al menú y la cuenta, anclada en la dirección buscada); `… SIGNO() = "completar"` → `0`; `… FALTAS() = 0` → `4`; `… DESPLAZAMIENTO() > 0` → `0`; `… ACUERDO() = 10` → `4`.
 
 ### 7.12 `Y`, `O`, `NO`
 
@@ -621,8 +621,8 @@ FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO
 ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito aee8e3b3
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
-CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     3
-CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     2
+CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
+CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     [2 posiciones]
 ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 5819876e · propio 5819876e
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7

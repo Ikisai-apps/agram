@@ -3,21 +3,23 @@
 // misma décupla; aquí solo existe el sobrio.
 
 import { ARIDAD, esReferencia } from './btml.js';
-import { EPOCA_0 } from './epocas.js';
+import { EPOCA_0, epocaDe } from './epocas.js';
 
 /**
  * Décupla de un evento: diez posiciones { indice, significado, contenido }.
  * Un payload terminal ocupa la posición 0 (representación); el resto no está
- * desarrollado (contenido undefined).
+ * desarrollado (contenido undefined). La época va por objeto o por nombre
+ * ('época 0', 'época 1 (propuesta)'), como en leerDireccion.
  */
 export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
+  const e = epocaDe(epoca);
   const p = ev.payload;
   const posiciones = [];
   for (let i = 0; i < ARIDAD; i++) {
     let contenido;
     if (Array.isArray(p)) contenido = p[i];
     else if (i === 0) contenido = p;
-    posiciones.push({ indice: i, significado: epoca.reglaCorta(profundidad, i), contenido });
+    posiciones.push({ indice: i, significado: e.reglaCorta(profundidad, i), contenido });
   }
   return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, posiciones };
 }

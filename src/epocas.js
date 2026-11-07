@@ -2,9 +2,11 @@
 // cualquier época. La regla corta dice qué significa cada dígito en cada
 // profundidad: diez profundidades por diez dígitos, cien reglas cortas.
 // Época 0 (decidida): cada dígito es uno de los diez puntos de vista en todas
-// las profundidades. Época 1 (propuesta): el mismo PV, con el grano de cada
-// profundidad nombrado. Las épocas viven como datos en datos/epocas/*.json;
-// datos/epocas/epocas.js es su copia generada para importarlas sin fetch.
+// las profundidades. «Época 1 (propuesta)», pendiente de VG: el mismo PV, con
+// el grano de cada profundidad nombrado; no ocupa el nombre «época 1», que
+// queda libre para la que VG decida. Las épocas viven como datos en
+// datos/epocas/*.json; datos/epocas/epocas.js es su copia generada para
+// importarlas sin fetch.
 
 import { ARIDAD, indicesDe } from './btml.js';
 import { EPOCA_0_DATOS, EPOCA_1_PROPUESTA_DATOS } from '../datos/epocas/epocas.js';
@@ -100,13 +102,17 @@ export function cargarEpoca(datos, { respaldo } = {}) {
 export const EPOCA_0 = cargarEpoca(EPOCA_0_DATOS);
 if (!PV.every((n, d) => EPOCA_0.reglaCorta(0, d) === n)) throw new Error('época 0: los datos no coinciden con los diez PV');
 
-/** Época 1, propuesta (pendiente de VG): el mismo PV, con el grano de cada profundidad nombrado. */
-export const EPOCA_1 = cargarEpoca(EPOCA_1_PROPUESTA_DATOS, { respaldo: EPOCA_0 });
+/**
+ * «Época 1 (propuesta)», pendiente de VG: el mismo PV, con el grano de cada
+ * profundidad nombrado. Se llama así, y no «época 1», para no ocupar el nombre
+ * definitivo.
+ */
+export const EPOCA_1_PROPUESTA = cargarEpoca(EPOCA_1_PROPUESTA_DATOS, { respaldo: EPOCA_0 });
 
-/** Épocas por nombre. */
-export const EPOCAS = Object.freeze({ [EPOCA_0.nombre]: EPOCA_0, [EPOCA_1.nombre]: EPOCA_1 });
+/** Épocas por nombre: 'época 0' y 'época 1 (propuesta)'. */
+export const EPOCAS = Object.freeze({ [EPOCA_0.nombre]: EPOCA_0, [EPOCA_1_PROPUESTA.nombre]: EPOCA_1_PROPUESTA });
 
-/** Una época por objeto o por nombre ('época 0', 'época 1'). */
+/** Una época por objeto o por nombre ('época 0', 'época 1 (propuesta)'). */
 export function epocaDe(epoca = EPOCA_0) {
   const e = typeof epoca === 'string' ? EPOCAS[epoca] : epoca;
   if (!e || typeof e.reglaCorta !== 'function') throw new TypeError('época desconocida: ' + (typeof epoca === 'string' ? epoca : typeof epoca));

@@ -10,7 +10,7 @@ export const EPOCA_0_DATOS = {
     "La época está fuera del dato: un dato se lee desde cualquier época; BTML no lleva época dentro (mapa §9 [D]).",
     "Dígito = PV en todas las profundidades: una dirección es una cadena de miradas aplicadas desde el tronco; bajar un nivel es aplicar otra perspectiva al elemento (mapa §8, §10.4 [D]).",
     "Es el respaldo: lo que otra época no especialice se lee con ella (corpus V2 y V3: la época 0 es el fallback de las profundidades sin consolidar).",
-    "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (mapa §12, opción B)."
+    "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (opción B, decidida por VG el 7-11 tarde: mapa §12 [D], «Signo del vector: opción B»)."
   ],
   "ordinales": [],
   "reglas": [
@@ -90,23 +90,23 @@ export const EPOCA_0_DATOS = {
 
 // epoca-1-propuesta.json
 export const EPOCA_1_PROPUESTA_DATOS = {
-  "nombre": "época 1",
+  "nombre": "época 1 (propuesta)",
   "estado": "propuesta",
   "decision": "[X] decidir VG. Síntesis de cuatro propuestas y tres jueces (7-11): base la mejor puntuada (desde BQL), con injertos de las otras tres.",
   "principios": [
-    "Invariancia. Un escrito se ancla con su raíz («en») en cualquier dirección y BUSCAR devuelve juntos propios, referencias y escritos; dentro de FILTRAR, ACTUAL(m) lee la posición m de la raíz del escrito y la m un nivel más abajo del propio (src/bql.js). Para que ACTUAL(m) no sea ambiguo, el dígito m tiene que nombrar el mismo PV en todas las profundidades. La época 1 no cambia el PV de ningún dígito: nombra su grano. Coincide con lo decidido para la época 0 (mapa §10.4 [D]).",
+    "Invariancia. Un escrito se ancla con su raíz («en») en cualquier dirección y BUSCAR devuelve juntos propios, referencias y escritos; dentro de FILTRAR, ACTUAL(m) lee la posición m de la raíz del escrito y la m un nivel más abajo del propio (src/bql.js). Para que ACTUAL(m) no sea ambiguo, el dígito m tiene que nombrar el mismo PV en todas las profundidades. La época 1 (propuesta) no cambia el PV de ningún dígito: nombra su grano. Coincide con lo decidido para la época 0 (mapa §10.4 [D]).",
     "Derivación. La profundidad d+1 es el PV aplicado a lo que hay en la posición de profundidad d: aplicar un PV es volver a interrogar el resultado, y el orden importa (13 no es 31, D04). Su nombre es la pregunta que el PV le hace a ese contenido: 0 qué, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo.",
     "Profundidad 0 = época 0 con la cruceta de VG (mapa §9 [D] y §9.4 [D]): 5 el registro en foco, 0 la lente sobre él, 6·7 el eje de hilos, 8 su confluencia, 9 los caminos que bajan, 1–4 los ramales donde va la mano, y en 4 se ejecuta. Lectura cruz → X; escritura X → cruz.",
-    "Profundidad 2 = el detalle. Cuando lo que hay en la profundidad 1 es un valor, sus diez preguntas son la anatomía del valor tal como BQL ya lo maneja: valor mostrado, cantidad, unidad o condición, quién lo dice, operación, firma y referencia, desglose, vigencia, frente a lo previsto, fórmula. Un terminal no tiene posiciones (mapa §12 [D]): sobre un terminal es una lectura de BQL, no un nodo de BTML.",
-    "Profundidades 3 a 9 sin especializar. Ningún caso real llega ahí; la época 0 es el respaldo de lo no consolidado y las reglas no se inventan sin casos (cierre V4). Se leen con la misma decena de preguntas de la profundidad 1, un grano más abajo, sin significado nuevo; se prueban con una lectura de punta a punta de una reserva hasta '1721347610'.",
+    "Profundidad 2 = el detalle. Cuando lo que hay en la profundidad 1 es un valor, sus diez preguntas son la anatomía del valor tal como BQL ya lo maneja: valor mostrado, cantidad, unidad o condición, quién lo dice, operación, firma y referencia, desglose, vigencia, frente a lo previsto, fórmula. Un terminal no tiene posiciones (mapa §12 [D]): sobre un terminal es una lectura de BQL, no un nodo de BTML. En el registro de salida de la fábrica la profundidad 2 es la clase de modificación: los diez PV como tercer dígito, matriz 10×10×10 (VG, 7-11 tarde, mapa §12 [D]); coincide con la invariancia.",
+    "Profundidades 3 a 9 sin especializar. Ningún caso real llega ahí; la época 0 es el respaldo de lo no consolidado y las reglas no se inventan sin casos (cierre V4). Se leen con la misma decena de preguntas de la profundidad 1, un grano más abajo, sin significado nuevo; se prueban con una lectura de punta a punta de una reserva hasta '1721347610', construida para recorrer las profundidades y no como modelo de reserva (dónde se ancla una reserva lo decidió VG: en la plaza 1.k, con las noches en su 7; mapa §12 [D]).",
     "Lo escrito se lee siempre como registro. Lo escrito «en» una dirección es el payload entero de un registro nuevo (mapa §10.4 [D]): su raíz se lee desde su profundidad 0, sea cual sea la profundidad del anclaje, y el anclaje se lee con la regla del foco. Es lo que hace src/encaje.js: los escritos tienen origen '0000000000'.",
     "Ceros (mapa §12 [D], colisiones, no apaños). x.0 es la cara de x y colisiona con ella: '1000000000' nombra 1, 1.0, 1.0.0…, todos ocupantes con su camino exacto. Un terminal no tiene posición 0: ACTUAL(0) sobre él es PENDIENTE.",
-    "Varios en una posición: dos maneras que no se confunden. Hilera: varios ítems dentro de un registro, en el orden de quien escribe, hasta diez (Sequenced escribe una hilera, mapa §10.6). Ocupantes: varios registros en la misma dirección, en el orden del encaje, sin límite (mapa §12). El repositorio hace las dos cosas; la época 1 no elige ([X] decidir VG, duda 2).",
+    "Varios en una posición: dos maneras que no se confunden. Hilera: varios ítems dentro de un registro, en el orden de quien escribe, hasta diez (Sequenced escribe una hilera, mapa §10.6). Ocupantes: varios registros en la misma dirección, en el orden del encaje, sin límite (mapa §12). El repositorio hace las dos cosas; la época 1 (propuesta) no elige ([X] decidir VG, duda 2).",
     "Más de diez: nunca un undécimo dígito ni una hilera de hileras, sino un registro propio referenciado por elemento o una vista BQL (BUSCAR, ACTUAL), las dos vías del corpus V4. Al agotar las diez profundidades, una referencia es cambio de foco y el registro referido se lee desde su 0.",
-    "Orden y signo. En la época 1 las diez profundidades son nominales: ordinal(k) es falso para todas. En el encaje ordenan el acuerdo de prefijo y la llegada; signo y distancia son información (mapa §12, opción B). Solo una regla larga podría declarar ordinal un prefijo (hitos de PV8, escalas de T, pasos de 9); las reglas largas aún no existen ([X] decidir VG, duda 6).",
+    "Orden y signo. En la época 1 (propuesta) las diez profundidades son nominales: ordinal(k) es falso para todas. Opción B, decidida por VG el 7-11 tarde (mapa §12 [D]): en el encaje ordenan el acuerdo de prefijo y la llegada; el signo, por componente, y la distancia son información, y solo ordenarían en una profundidad que una época haga ordinal, y solo ahí. Las candidatas que han salido (hitos de PV8, escalas de T, pasos de 9) son prefijos concretos y no profundidades enteras ([X] decidir VG, duda 6).",
     "Modo no es profundidad. La proporción de Pointed, Sequenced y Mapped (10, 100 y 1000 posiciones, mapa §10.1 [D]) cuenta posiciones vistas; no da significado al dígito. Ninguna regla corta nombra un modo (corpus V4: más profundidad no es más zoom).",
-    "Compatibilidad. Cada regla de la época 1 refina la de la época 0 en el mismo dígito; un mismo dato se lee desde las dos (la época está fuera del dato, mapa §9 [D]). Las reglas largas podrán especializar prefijos sin contradecir las cortas (corpus V2).",
-    "Itinerario. El corpus propone que cada época consolide una profundidad y permite estudiar las cien desde el principio: esta época 1 consolida la 1, adelanta la 2 y deja de la 3 a la 9 en respaldo."
+    "Compatibilidad. Cada regla de la época 1 (propuesta) refina la de la época 0 en el mismo dígito; un mismo dato se lee desde las dos (la época está fuera del dato, mapa §9 [D]). Las reglas largas podrán especializar prefijos sin contradecir las cortas (corpus V2).",
+    "Itinerario. El corpus propone que cada época consolide una profundidad y permite estudiar las cien desde el principio: esta época 1 (propuesta) consolida la 1, adelanta la 2 y deja de la 3 a la 9 en respaldo."
   ],
   "ordinales": [],
   "reglas": [
@@ -220,7 +220,7 @@ export const EPOCA_1_PROPUESTA_DATOS = {
       "digito": 5,
       "nombre": "dónde encaja",
       "significado": "PV5 de la parte: la dirección o referencia donde encaja en el árbol; lo que BUSCAR(LOCAL(5)) recibiría.",
-      "ejemplo": "Una reserva con 1.5 = {ref: calendario, dir: '7000000000'}. BUSCAR por dirección no existe todavía; hoy BUSCAR toma índices del anfitrión (duda 11)."
+      "ejemplo": "Una reserva con 1.5 = {ref: calendario, dir: '7000000000'}. BUSCAR por dirección está decidido (VG, 7-11 tarde, mapa §12 [D]: un texto de diez dígitos es dirección), pero el código aún solo toma índices del anfitrión (duda 11)."
     },
     {
       "profundidad": 1,
@@ -276,7 +276,7 @@ export const EPOCA_1_PROPUESTA_DATOS = {
       "digito": 3,
       "nombre": "quién lo dice",
       "significado": "PV3 del detalle: quién lo fija, lo cobra o responde por él.",
-      "ejemplo": "El precio de compra 1.2 lo fija cocina; el movimiento E de la compra lleva 12 EUR de huésped a cocina."
+      "ejemplo": "El precio de compra 1.2 lo fija cocina; el movimiento E:casa/EUR de la compra lleva 12 de huésped a cocina (la serie la emite la casa, que la respalda)."
     },
     {
       "profundidad": 2,
@@ -324,506 +324,506 @@ export const EPOCA_1_PROPUESTA_DATOS = {
       "profundidad": 3,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2 = la condición de la salida; 1.7.2.0 = 'late checkout' y '1720000000' nombra 1.7.2 y 1.7.2.0 a la vez."
     },
     {
       "profundidad": 3,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1 = '15 EUR'; =REF(reserva, \"1721000000\") → 15 EUR."
     },
     {
       "profundidad": 3,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.2 = 'si hay disponibilidad'."
     },
     {
       "profundidad": 3,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.3 = 'recepción' (quien lo concede)."
     },
     {
       "profundidad": 3,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.4 = 'solicitar'."
     },
     {
       "profundidad": 3,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.5 = {ref: normas de la casa, dir: '2000000000'}."
     },
     {
       "profundidad": 3,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.6 = 'desde 2025'."
     },
     {
       "profundidad": 3,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.7 = 'hasta las 14:00'."
     },
     {
       "profundidad": 3,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.8 = 'habitual en casas comparables'."
     },
     {
       "profundidad": 3,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 2: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.9 = 'pedirlo la víspera'."
     },
     {
       "profundidad": 4,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1 = los 15 EUR del late checkout; 1.7.2.1.0 = '15 EUR'."
     },
     {
       "profundidad": 4,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.1 = 15."
     },
     {
       "profundidad": 4,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.2 = 'pago en recepción'."
     },
     {
       "profundidad": 4,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3 = 'recepción' (quien cobra). El ejemplo de encaje del corpus V4 cae en este dígito: '8412300000' es un 3 en la profundidad 4, y el candidato '8412500000' difiere en +2 aquí (acuerdo 4, reducir)."
     },
     {
       "profundidad": 4,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.4 = 'cobrar al salir'."
     },
     {
       "profundidad": 4,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.5 = {ref: tarifas, dir: '1200000000'}."
     },
     {
       "profundidad": 4,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.6 = 'antes 10 EUR'."
     },
     {
       "profundidad": 4,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.7 = 'esta temporada'."
     },
     {
       "profundidad": 4,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.8 = 'por debajo de la media de la zona'."
     },
     {
       "profundidad": 4,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 3: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.9 = 'se calcula con la tarifa vigente'."
     },
     {
       "profundidad": 5,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3 = recepción; 1.7.2.1.3.0 = 'recepción'."
     },
     {
       "profundidad": 5,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.1 = '1 persona de turno'."
     },
     {
       "profundidad": 5,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.2 = 'con caja abierta'."
     },
     {
       "profundidad": 5,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.3 = 'huésped' (con quien trata)."
     },
     {
       "profundidad": 5,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4 = 'cobrar'."
     },
     {
       "profundidad": 5,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.5 = {ref: turno de recepción, dir: '4000000000'}."
     },
     {
       "profundidad": 5,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.6 = 'desde las 8:00'."
     },
     {
       "profundidad": 5,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.7 = 'hasta las 22:00'."
     },
     {
       "profundidad": 5,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.8 = '3.2' (resolución profesional, el hito del índice 4)."
     },
     {
       "profundidad": 5,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 4: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.9 = 'siguiente: entregar recibo'."
     },
     {
       "profundidad": 6,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4 = cobrar; 1.7.2.1.3.4.0 = 'cobrar'."
     },
     {
       "profundidad": 6,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.1 = '15 EUR'."
     },
     {
       "profundidad": 6,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.2 = 'efectivo o tarjeta'."
     },
     {
       "profundidad": 6,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.3 = 'a la huésped'."
     },
     {
       "profundidad": 6,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.4 = 'ejecutar' (lo que se hace con el cobro)."
     },
     {
       "profundidad": 6,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.5 = {ref: consolidación del cobro}."
     },
     {
       "profundidad": 6,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.6 = 'consolidado a las 11:50'."
     },
     {
       "profundidad": 6,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7 = 'al salir, 12:00'."
     },
     {
       "profundidad": 6,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.8 = 'frente a otros cobros del día'."
     },
     {
       "profundidad": 6,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 5: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.9 = 'siguiente: recibo'."
     },
     {
       "profundidad": 7,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7 = al salir; 1.7.2.1.3.4.7.0 = '12:00'."
     },
     {
       "profundidad": 7,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.1 = '1 hora de margen'."
     },
     {
       "profundidad": 7,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.2 = 'si no hay late checkout'."
     },
     {
       "profundidad": 7,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.3 = 'recepción avisa'."
     },
     {
       "profundidad": 7,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.4 = 'avisar'."
     },
     {
       "profundidad": 7,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.5 = {ref: calendario, dir: '7000000000'}."
     },
     {
       "profundidad": 7,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6 = 'desde la apertura de caja, 8:00'. vector('1721347600', '1721347000') tiene +6 en la profundidad 7: acuerdo 7, signo reducir (al candidato le sobra)."
     },
     {
       "profundidad": 7,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.7 = 'tope 14:00'."
     },
     {
       "profundidad": 7,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.8 = 'habitual'."
     },
     {
       "profundidad": 7,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 6: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.9 = 'siguiente: cierre de caja'."
     },
     {
       "profundidad": 8,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6 = desde las 8:00; 1.7.2.1.3.4.7.6.0 = '8:00'."
     },
     {
       "profundidad": 8,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1 = '4 horas'; =REF(reserva, \"1721347610\") → 4 horas."
     },
     {
       "profundidad": 8,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.2 = 'días laborables'."
     },
     {
       "profundidad": 8,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.3 = 'turno de mañana'."
     },
     {
       "profundidad": 8,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.4 = 'abrir caja'."
     },
     {
       "profundidad": 8,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.5 = {ref: caja, dir: '1000000000'}."
     },
     {
       "profundidad": 8,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.6 = 'desde el 1-11'."
     },
     {
       "profundidad": 8,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.7 = 'hasta el cambio de horario'."
     },
     {
       "profundidad": 8,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.8 = 'igual que otras casas'."
     },
     {
       "profundidad": 8,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 7: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.9 = 'siguiente: cuadre'."
     },
     {
       "profundidad": 9,
       "digito": 0,
       "nombre": "qué",
-      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. Colisiona con la posición de arriba.",
+      "significado": "PV0 (representación) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). Colisiona con la posición de arriba.",
       "ejemplo": "Lectura de prueba en una reserva: '1721347610' nombra a la vez 1.7.2.1.3.4.7.6.1 (las 4 horas) y su 0: es la última colisión posible, no hay undécimo dígito."
     },
     {
       "profundidad": 9,
       "digito": 1,
       "nombre": "cuánto",
-      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV1 (recursos) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.1 = 4."
     },
     {
       "profundidad": 9,
       "digito": 2,
       "nombre": "con qué condición",
-      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV2 (criterios) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.2 = 'hora': una escala de T; 4 horas + 30 min se compone, no se convierte."
     },
     {
       "profundidad": 9,
       "digito": 3,
       "nombre": "con quién",
-      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV3 (comunicación) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.3 = 'turno' (a quién se le cuentan)."
     },
     {
       "profundidad": 9,
       "digito": 4,
       "nombre": "qué se hace",
-      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV4 (fábrica) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.4 = 'contar'."
     },
     {
       "profundidad": 9,
       "digito": 5,
       "nombre": "dónde encaja",
-      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
-      "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.5 = {ref: saldo T del turno}."
+      "significado": "PV5 (estructura) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
+      "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.5 = {ref: saldo T:hora del turno}."
     },
     {
       "profundidad": 9,
       "digito": 6,
       "nombre": "de dónde viene",
-      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV6 (pasado) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.6 = 'antes 3 horas'."
     },
     {
       "profundidad": 9,
       "digito": 7,
       "nombre": "para cuándo",
-      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV7 (futuro) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.7 = 'este ciclo de 28 días'."
     },
     {
       "profundidad": 9,
       "digito": 8,
       "nombre": "frente a otros",
-      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1.",
+      "significado": "PV8 (comparabilidad) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta).",
       "ejemplo": "Lectura de prueba en una reserva: 1.7.2.1.3.4.7.6.1.8 = 'en la media'."
     },
     {
       "profundidad": 9,
       "digito": 9,
       "nombre": "cómo",
-      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1. No hay profundidad 10: una referencia aquí es cambio de foco.",
+      "significado": "PV9 (camino) aplicado a lo que hay en la profundidad 8: la misma pregunta que en la profundidad 1, un grano más abajo. Sin especializar en la época 1 (propuesta). No hay profundidad 10: una referencia aquí es cambio de foco.",
       "ejemplo": "Lectura de prueba en una reserva: '1721347619' con {ref: cuadre de caja}: no hay más profundidad; la referencia es cambio de foco y el cuadre se lee desde su profundidad 0."
     }
   ],
   "dudas": [
-    "1 · [X] decidir VG. ¿En la época 1 el dígito sigue siendo el PV en toda profundidad y la época solo nombra el grano? Es lo que exige ACTUAL(m) (principio de invariancia). Si alguna profundidad tiene que cambiar el significado del dígito, hay que cambiar también ACTUAL y BUSCAR.",
-    "2 · [X] decidir VG. Varios en una posición: ¿hilera, ocupantes o las dos? Hoy menú 1 = ['ensalada', 'guiso', 'fruta'] y, bajo la época 1, LOCAL(1, 1) = 'guiso' sale como «cuánto» (en la época 0, «recursos»). Opciones: (a) aceptar que una hilera escrita en una posición de PV se lea como décupla y que la procedencia diga que vino de una hilera; (b) que una lista sean ocupantes (tres platos = tres escritos en '1000000000', tres minutos de T); (c) que alguna profundidad sea de orden, lo que rompe el principio de invariancia. De esto depende que exista alguna profundidad ordinal.",
-    "3 · [X] decidir VG. ¿Son estas las etiquetas que Mapped debe mostrar al bajar dentro de una posición (qué, cuánto, con qué condición…)? Basta con pasar epoca: EPOCA_1 a mapped.mapa; la pantalla no se ha tocado.",
-    "4 · [X] decidir VG. Anatomía del valor en la profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda (unidad, desglose, dependencias)?",
+    "1 · [X] decidir VG. ¿La época 1 (propuesta) solo nombra el grano de cada profundidad, con estos nombres? Que el dígito sea el PV en toda profundidad lo sostienen ya la época 0 (mapa §10.4 [D]) y la fábrica (VG, 7-11 tarde, mapa §12 [D]: el tercer dígito son los diez PV, «siempre estamos aplicando los puntos de vista»), y es lo que exige ACTUAL(m) (principio de invariancia). Si alguna profundidad tiene que cambiar el significado del dígito, hay que cambiar también ACTUAL y BUSCAR.",
+    "2 · [X] decidir VG. Varios en una posición: ¿hilera, ocupantes o las dos? Hoy menú 1 = ['ensalada', 'guiso', 'fruta'] y, bajo la época 1 (propuesta), LOCAL(1, 1) = 'guiso' sale como «cuánto» (en la época 0, «recursos»). Opciones: (a) aceptar que una hilera escrita en una posición de PV se lea como décupla y que la procedencia diga que vino de una hilera; (b) que una lista sean ocupantes (tres platos = tres escritos en '1000000000', tres T:minuto); (c) que alguna profundidad sea de orden, lo que rompe el principio de invariancia. De esto depende que exista alguna profundidad ordinal.",
+    "3 · [X] decidir VG. ¿Son estas las etiquetas que Mapped debe mostrar al bajar dentro de una posición (qué, cuánto, con qué condición…)? Basta con pasar epoca: 'época 1 (propuesta)' a mapped.mapa; la pantalla no se ha tocado.",
+    "4 · [X] decidir VG. Anatomía del valor en la profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda (unidad, desglose, dependencias)? En el registro de salida de la fábrica ya está decidido (VG, 7-11 tarde, mapa §12 [D]): el tercer dígito es la clase de modificación (0 ver/sustituir, 1 impulso de recursos, 2 criterio, 3 comunicación, 4 acción…), matriz 10×10×10. Queda fuera de la fábrica.",
     "5 · [X] decidir VG. Profundidades 3 a 9: ¿la decena de preguntas de la profundidad 1, o los nombres de PV de la época 0 tal cual, hasta que un caso real llegue ahí?",
-    "6 · [X] decidir VG. ¿Alguna profundidad ordinal? Se decide junto con las opciones A–E de docs/notas/SIGNO_DEL_VECTOR.md. Candidatas, como reglas largas de prefijo: los diez hitos de PV8 (índice = hito), las siete escalas de T en 6·7, los pasos de 9.",
-    "7 · [X] decidir VG. Cruz y X dentro de cada pieza: ¿0 y 5–9 los dan el eje y la reconstrucción y 1–4 los escribe la mano también en las profundidades 1 y 2, de modo que el motor pueda proponer el 1–4 de una pieza desde sus 6·7·8·9 (1 entre 6 y 8, 2 entre 8 y 7, 3 entre 6 y 9, 4 entre 7 y 9)? Y lo declarado frente a lo derivado en 5, 6 y 8: ¿dos ocupantes que colisionan?",
+    "6 · [X] decidir VG. ¿Qué profundidad es ordinal, si alguna? El signo ya está decidido (VG, 7-11 tarde, mapa §12 [D]: opción B de docs/notas/SIGNO_DEL_VECTOR.md; ni signo ni distancia ordenan hasta que una época haga ordinal una profundidad, y entonces solo ahí). Candidatas: los diez hitos de PV8 (índice = hito), las siete escalas de T en 6·7, los pasos de 9; son prefijos concretos, así que irían como reglas largas de prefijo o haciendo ordinal la profundidad entera.",
+    "7 · [X] decidir VG. Cruz y X dentro de cada pieza: ¿0 y 5–9 los dan el eje y la reconstrucción y 1–4 los escribe la mano también en las profundidades 1 y 2, de modo que el motor pueda proponer el 1–4 de una pieza desde sus 6·7·8·9 (1 entre 6 y 8, 2 entre 8 y 7, 3 entre 6 y 9, 4 entre 7 y 9)? Y lo declarado frente a lo derivado en 5 y 6: ¿dos ocupantes que colisionan? En el 8 ya lo resuelven las bases (VG, 7-11 tarde, mapa §12 [D]): lo derivado son registros escritos en el 8 de lo que resumen, ocupantes que colisionan con lo declarado; corregir es añadir otra base.",
     "8 · [X] decidir VG. Candidatos pendientes (comprobado en el código): sobre la compra, FILTRAR(BUSCAR(4), ACTUAL(0) = \"pagar\") da PENDIENTE aunque 4.0 sea 'pagar', porque el candidato 'pagar' es terminal, no tiene 0, y un PENDIENTE para todo el FILTRAR. El corpus V4 deja abierta la «política de filtrado de candidatos pendientes». ¿Se aparta y se cuenta el candidato pendiente, o se para la consulta?",
     "9 · [X] decidir VG. motor.ejecutar() pone las referencias a la consolidación y a la autorización en las posiciones 1 y 2 del payload; por PV les tocarían 5 (firma y referencia) y 6 (de dónde viene). ¿Se cambia?",
-    "10 · [X] decidir VG. La fase de la fábrica vive hoy en contexto.fase: ¿se escribe en el payload para que BQL la lea (el 4 del 4)? Y la cadena consolidación → autorización → ejecución, anclada cada una en el 4 del registro anterior: ¿se lee como profundidad dentro del foco (4.4…) o como cambio de foco en cada paso? Hoy arbol() no concatena anclajes.",
-    "11 · [X] decidir VG. BUSCAR por dirección (corpus V4: BUSCAR(\"8412300000\"), BUSCAR(LOCAL(5))) además de por índices del anfitrión, que es lo que existe. ¿Las dos? ¿El 5 guarda la dirección donde encaja lo buscado?",
-    "12 · [X] decidir VG. compra 3 = ['huesped', 'cocina'] se lee en la época 1 como 3.0 «qué» y 3.1 «cuánto». ¿Se reescribe el ejemplo (por ejemplo 3 = ['pide el menú', 1, 'sin gluten', 'cocina'], que obliga a rellenar 3.1 y 3.2) o se acepta la hilera (duda 2)?",
+    "10 · [X] decidir VG. La fase de la fábrica vive hoy en contexto.fase: ¿se escribe en el payload para que BQL la lea (el 4 del 4)? Y la cadena consolidación → autorización → ejecución, anclada cada una en el 4 del registro anterior: ¿se lee como profundidad dentro del foco (4.4…) o como cambio de foco en cada paso? Hoy arbol() no concatena anclajes. Ya decidido alrededor (mapa §12 [D]): la autorización y la ejecución reales son de AARPIA, y el registro de salida de la fábrica es la matriz 10×10×10 con la clase de modificación como tercer dígito.",
+    "11 · [X] decidir VG. ¿El 5 guarda la dirección donde encaja lo buscado, de modo que BUSCAR(LOCAL(5)) tenga sentido (corpus V4)? Lo demás ya lo decidió VG (7-11 tarde, mapa §12 [D]): BUSCAR por índice y por dirección, las dos sin ambigüedad; un número es índice (camino exacto, relativo al anfitrión) y un texto de diez dígitos es dirección (absoluta en el registro, nombra la colisión entera), como BUSCAR(\"8412300000\"), igual que las referencias. El código aún solo toma índices (src/bql.js).",
+    "12 · [X] decidir VG. compra 3 = ['huesped', 'cocina'] se lee en la época 1 (propuesta) como 3.0 «qué» y 3.1 «cuánto». ¿Se reescribe el ejemplo (por ejemplo 3 = ['pide el menú', 1, 'sin gluten', 'cocina'], que obliga a rellenar 3.1 y 3.2) o se acepta la hilera (duda 2)?",
     "13 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL, como propone el principio?",
     "14 · [X] decidir VG. Subir desde una fórmula honda: LOCAL lee hermanos de su misma profundidad (en 1.2, LOCAL(1) es 1.1); para leer el foco hace falta REF(id del foco, dirección). ¿Basta o hace falta un ámbito para el foco?"
   ]

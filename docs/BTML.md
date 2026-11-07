@@ -18,7 +18,7 @@ Convenciones de este documento:
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
-| `src/epocas.js` | Significado de cada dígito: época 0 y época 1 propuesta, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCA_1`, `EPOCAS`, `cargarEpoca`, `leerDireccion` |
+| `src/epocas.js` | Significado de cada dígito: la época 0 y la «época 1 (propuesta)», cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCA_1_PROPUESTA`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
 `src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js` y `epocas.js` en plano, y `encaje`, `autoridad`, `persistencia` (entre otros) como espacios de nombres: `import { Eje, crearEvento, encaje } from './src/index.js'`.
@@ -415,14 +415,17 @@ La época es una convención paralela, **fuera del dato**: BTML no lleva época 
 ```js
 PV                              // array congelado de los diez nombres
 EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito]
-leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real; epoca puede ser un nombre ('época 1')
-EPOCAS                                   // { 'época 0': EPOCA_0, 'época 1': EPOCA_1 }
+leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real; epoca por objeto o por nombre ('época 1 (propuesta)')
+EPOCAS                                   // { 'época 0': EPOCA_0, 'época 1 (propuesta)': EPOCA_1_PROPUESTA }
+epocaDe(epoca = EPOCA_0)                 // → la época, por objeto o por nombre; un nombre que no existe (también 'época 1') lanza «época desconocida»
 cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, reglas, dudas }
-epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en las épocas 0 y 1
-pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, posiciones: [{ indice, significado, contenido }] × 10 }
+epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en la época 0 ni en la propuesta
+pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, posiciones: [{ indice, significado, contenido }] × 10 }; epoca por objeto o por nombre
+sequenced.secuencia(eje, id, { epoca })  // igual: objeto o nombre
+mapped.mapa(eje, id, { camino, epoca })  // igual: objeto o nombre
 ```
 
-`EPOCA_1` es una **propuesta** de las cien reglas cortas (el mismo PV, con el grano de cada profundidad nombrado), pendiente de VG: ver `docs/REGLAS_CORTAS.md`. Pendiente: la decisión sobre la época 1 y las reglas largas.
+`EPOCA_1_PROPUESTA` (nombre `'época 1 (propuesta)'`) es una **propuesta** de las cien reglas cortas (el mismo PV, con el grano de cada profundidad nombrado), pendiente de VG: ver `docs/REGLAS_CORTAS.md`. No ocupa el nombre «época 1», que queda libre para la que VG decida. Pendiente: la decisión sobre la propuesta y las reglas largas.
 
 ```sh
 node --input-type=module -e "
@@ -546,7 +549,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 
 ```js
 caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0
-ocupantes(eje, id, indices, { orden = 'encaje' } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'
+ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'; la época dice qué profundidades son ordinales
 seguir(eje, ref, procedencia = [])             // → ocupante de origen 'referencia' tras seguir hasta 20 saltos; rota: true si no llega
 caminoDe(o)                                    // → o.camino ?? indicesDe(o.dir)
 ```
@@ -645,7 +648,7 @@ Orden por encaje (`ordenarPorEncaje`, el orden por defecto de `ocupantes` y de B
 2. después, solo en las profundidades que la época declare ordinales (`epoca.ordinal(profundidad)`), menor distancia; en la época 0 los dígitos son nominales y ninguna lo es;
 3. los empates conservan el orden de llegada.
 
-El signo **no ordena** (VG, 7-11: opción B de `docs/notas/SIGNO_DEL_VECTOR.md`): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Un escrito anclado en la dirección buscada encaja exacto. Pendiente: cómo cambia el vector con la época.
+El signo **no ordena**, ni la distancia salvo en una profundidad que una época haga ordinal (opción B de `docs/notas/SIGNO_DEL_VECTOR.md`, decidida por VG el 7-11 por la tarde, mapa §12 [D]): es informativo por componente (positivo = al candidato le sobra, negativo = le falta) y `signo(v)` resume el vector entero. Un escrito anclado en la dirección buscada encaja exacto. Pendiente: cómo cambia el vector con la época.
 
 ```sh
 node --input-type=module -e "
@@ -1062,16 +1065,16 @@ export class Eje {
 }
 
 // src/encaje.js
-export function vector(origen, destino): number[10];
+export function vector(candidato, buscado): number[10];  // candidato − buscado (origenDir − destino)
 export function distancia(v): number[10];
 export function acuerdo(v): number;
 export function norma(v): number;
 export function faltas(v): number;
 export function excedentes(v): number;
 export function signo(v): 'exacto' | 'completar' | 'reducir' | 'mixto';
-export function ordenarPorEncaje(lista: { vector }[]): typeof lista;
+export function ordenarPorEncaje(lista: { vector }[], { epoca }?): typeof lista;  // acuerdo, luego distancia solo en profundidades ordinales, luego llegada
 export function caminosDe(payload, dir): { indices: number[], contenido }[];
-export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada' } = {}): Ocupante[];
+export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada', epoca } = {}): Ocupante[];
 export function seguir(eje, ref, procedencia = []): Ocupante;
 export function arbol(eje, id, { profundidad = 10 } = {}): Map<string, Ocupante[]>;
 export function colisiones(mapa): { dir, ocupantes }[];
@@ -1091,7 +1094,7 @@ export const TODAS = 'todas';
 export function cargarEpoca(datos, { respaldo }?): Epoca;
 // Epoca: { nombre, estado, principios, dudas, reglas[100], regla(p, d), reglaCorta(p, d), ordinal(p) }
 export const EPOCA_0: Epoca;  // decidida: dígito = PV en todas las profundidades
-export const EPOCA_1: Epoca;  // propuesta, pendiente de VG
+export const EPOCA_1_PROPUESTA: Epoca;  // 'época 1 (propuesta)', pendiente de VG; no ocupa el nombre 'época 1'
 export const EPOCAS: { [nombre]: Epoca };
 export function epocaDe(epoca = EPOCA_0): Epoca;  // por objeto o por nombre
 export function leerDireccion(dir, epoca = EPOCA_0): { profundidad, digito, significado }[];
@@ -1119,7 +1122,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
 | Posición 0 de un terminal (encaje no la da; Pointed sí) | §4.2 |
 | Cambio de foco al agotar diez niveles | §3.2 |
-| Decisión de VG sobre la época 1 propuesta; reglas largas; profundidades ordinales (cómo cambia el vector con la época) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
+| Decisión de VG sobre la «época 1 (propuesta)»; reglas largas; qué profundidad es ordinal, si alguna (el signo ya está decidido: opción B, mapa §12 [D]) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
 | Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |

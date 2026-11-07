@@ -5,30 +5,30 @@ Una regla corta dice qué significa cada dígito de una dirección en una profun
 Estado:
 
 - **Época 0, decidida por VG** (mapa §10.4 [D]): cada dígito es un PV en todas las profundidades. No cambia.
-- **Época 1, propuesta.** Nada de ella es canon hasta que VG decida; las preguntas están al final, marcadas «[X] decidir VG». El código la carga y la lee, pero ninguna pantalla la usa por defecto.
+- **Época 1 (propuesta).** Se llama así y no «época 1»: el nombre definitivo queda libre para la que VG decida. Nada de ella es canon hasta que VG decida; las preguntas están al final, marcadas «[X] decidir VG». El código la carga y la lee, pero ninguna pantalla la usa por defecto.
 
 ## Dónde viven
 
 | Archivo | Qué es |
 |---|---|
 | `datos/epocas/epoca-0.json` | La época 0: diez reglas que valen en todas las profundidades (`"profundidad": "todas"`). |
-| `datos/epocas/epoca-1-propuesta.json` | La época 1 propuesta: nombre, estado, principios, las cien reglas `{ profundidad, digito, nombre, significado, ejemplo }` y las dudas. |
+| `datos/epocas/epoca-1-propuesta.json` | La época 1 (propuesta): nombre, estado, principios, las cien reglas `{ profundidad, digito, nombre, significado, ejemplo }` y las dudas. |
 | `datos/epocas/epocas.js` | Copia generada de los JSON (`export const`), para importarlos sin fetch en Node y en el navegador. Se regenera con `npm run epocas`; una prueba avisa si está desfasada. |
-| `src/epocas.js` | `PV`, `EPOCA_0` (igual que antes), `EPOCA_1`, `EPOCAS` (nombre → época), `cargarEpoca(datos, { respaldo })`, `leerDireccion(dir, época o nombre)`. |
+| `src/epocas.js` | `PV`, `EPOCA_0` (igual que antes), `EPOCA_1_PROPUESTA`, `EPOCAS` (nombre → época), `cargarEpoca(datos, { respaldo })`, `leerDireccion(dir, época o nombre)`. |
 
 ```js
-import { EPOCA_1, EPOCAS, cargarEpoca, leerDireccion } from './src/epocas.js';
-EPOCA_1.reglaCorta(1, 2)            // → 'con qué condición'
-EPOCA_1.regla(1, 2)                 // → { profundidad, digito, nombre, significado, ejemplo }
-EPOCA_1.ordinal(3)                  // → false: en la época 1 todas las profundidades son nominales
-leerDireccion('1200000000', 'época 1')
+import { EPOCA_1_PROPUESTA, EPOCAS, cargarEpoca, leerDireccion } from './src/epocas.js';
+EPOCA_1_PROPUESTA.reglaCorta(1, 2)            // → 'con qué condición'
+EPOCA_1_PROPUESTA.regla(1, 2)                 // → { profundidad, digito, nombre, significado, ejemplo }
+EPOCA_1_PROPUESTA.ordinal(3)                  // → false: en la época 1 (propuesta) todas las profundidades son nominales
+leerDireccion('1200000000', 'época 1 (propuesta)')
 // → [{ profundidad: 0, digito: 1, significado: 'recursos' }, { profundidad: 1, digito: 2, significado: 'con qué condición' }]
 cargarEpoca(datos, { respaldo: EPOCAS['época 0'] })  // lo que falte se lee con la época 0
 ```
 
-Una época puede declarar `"ordinales": [k, …]`: las profundidades donde el dígito es orden y no nombre. Se convierte en `epoca.ordinal(k)`, el gancho que ya usa `src/encaje.js`: solo ahí la distancia del vector ordena. La época 0 y la época 1 no declaran ninguna.
+Una época puede declarar `"ordinales": [k, …]`: las profundidades donde el dígito es orden y no nombre. Se convierte en `epoca.ordinal(k)`, el gancho que ya usa `src/encaje.js`: solo ahí la distancia del vector ordena (opción B, decidida por VG el 7-11 tarde, mapa §12 [D]). La época 0 y la época 1 (propuesta) no declaran ninguna.
 
-Pointed, Sequenced y Mapped ya aceptan la época que se les pase (`decupla(ev, EPOCA_1, profundidad)`, `mapa(eje, id, { epoca: EPOCA_1 })`); por defecto siguen con la época 0.
+Pointed, Sequenced y Mapped aceptan la época por objeto o por nombre, igual que `leerDireccion` (`decupla(ev, 'época 1 (propuesta)', profundidad)`, `secuencia(eje, id, { epoca: 'época 1 (propuesta)' })`, `mapa(eje, id, { epoca: EPOCA_1_PROPUESTA })`); por defecto siguen con la época 0. Un nombre que no existe, también «época 1», da `época desconocida`.
 
 ## Época 0 (decidida)
 
@@ -47,7 +47,7 @@ Pointed, Sequenced y Mapped ya aceptan la época que se les pase (`decupla(ev, E
 
 ## El principio de derivación
 
-**El dígito sigue siendo el PV en todas las profundidades; lo que la época 1 añade es el nombre del grano.**
+**El dígito sigue siendo el PV en todas las profundidades; lo que la época 1 (propuesta) añade es el nombre del grano.**
 
 Por qué no puede cambiar el PV del dígito. Un escrito se ancla con su raíz en cualquier dirección (`en`), y `BUSCAR` devuelve juntos propios, referencias y escritos. Dentro de `FILTRAR`, `ACTUAL(m)` lee la posición m de cada candidato: en un escrito, la m de su raíz (profundidad 0); en un propio, la m un nivel más abajo (`src/bql.js`). Si el dígito m significara cosas distintas según la profundidad, la misma `ACTUAL(m)` leería dos cosas distintas en la misma colección. Es la misma conclusión que la decisión de VG para la época 0.
 
@@ -57,23 +57,23 @@ Cómo se deriva cada profundidad de la anterior. Aplicar un PV es volver a inter
 
 Tres de las cuatro propuestas llegaron por caminos distintos a esta misma decena. En la profundidad 0 se queda la décupla del registro con la cruceta de VG; en la 2, cuando lo de arriba es un valor, la decena se concreta en la anatomía del valor que BQL ya maneja; de la 3 a la 9 no se especializa nada.
 
-### Principios de la época 1
+### Principios de la época 1 (propuesta)
 
-1. Invariancia. Un escrito se ancla con su raíz («en») en cualquier dirección y BUSCAR devuelve juntos propios, referencias y escritos; dentro de FILTRAR, ACTUAL(m) lee la posición m de la raíz del escrito y la m un nivel más abajo del propio (src/bql.js). Para que ACTUAL(m) no sea ambiguo, el dígito m tiene que nombrar el mismo PV en todas las profundidades. La época 1 no cambia el PV de ningún dígito: nombra su grano. Coincide con lo decidido para la época 0 (mapa §10.4 [D]).
+1. Invariancia. Un escrito se ancla con su raíz («en») en cualquier dirección y BUSCAR devuelve juntos propios, referencias y escritos; dentro de FILTRAR, ACTUAL(m) lee la posición m de la raíz del escrito y la m un nivel más abajo del propio (src/bql.js). Para que ACTUAL(m) no sea ambiguo, el dígito m tiene que nombrar el mismo PV en todas las profundidades. La época 1 (propuesta) no cambia el PV de ningún dígito: nombra su grano. Coincide con lo decidido para la época 0 (mapa §10.4 [D]).
 2. Derivación. La profundidad d+1 es el PV aplicado a lo que hay en la posición de profundidad d: aplicar un PV es volver a interrogar el resultado, y el orden importa (13 no es 31, D04). Su nombre es la pregunta que el PV le hace a ese contenido: 0 qué, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo.
 3. Profundidad 0 = época 0 con la cruceta de VG (mapa §9 [D] y §9.4 [D]): 5 el registro en foco, 0 la lente sobre él, 6·7 el eje de hilos, 8 su confluencia, 9 los caminos que bajan, 1–4 los ramales donde va la mano, y en 4 se ejecuta. Lectura cruz → X; escritura X → cruz.
-4. Profundidad 2 = el detalle. Cuando lo que hay en la profundidad 1 es un valor, sus diez preguntas son la anatomía del valor tal como BQL ya lo maneja: valor mostrado, cantidad, unidad o condición, quién lo dice, operación, firma y referencia, desglose, vigencia, frente a lo previsto, fórmula. Un terminal no tiene posiciones (mapa §12 [D]): sobre un terminal es una lectura de BQL, no un nodo de BTML.
-5. Profundidades 3 a 9 sin especializar. Ningún caso real llega ahí; la época 0 es el respaldo de lo no consolidado y las reglas no se inventan sin casos (cierre V4). Se leen con la misma decena de preguntas de la profundidad 1, un grano más abajo, sin significado nuevo; se prueban con una lectura de punta a punta de una reserva hasta '1721347610'.
+4. Profundidad 2 = el detalle. Cuando lo que hay en la profundidad 1 es un valor, sus diez preguntas son la anatomía del valor tal como BQL ya lo maneja: valor mostrado, cantidad, unidad o condición, quién lo dice, operación, firma y referencia, desglose, vigencia, frente a lo previsto, fórmula. Un terminal no tiene posiciones (mapa §12 [D]): sobre un terminal es una lectura de BQL, no un nodo de BTML. En el registro de salida de la fábrica la profundidad 2 es la clase de modificación: los diez PV como tercer dígito, matriz 10×10×10 (VG, 7-11 tarde, mapa §12 [D]); coincide con la invariancia.
+5. Profundidades 3 a 9 sin especializar. Ningún caso real llega ahí; la época 0 es el respaldo de lo no consolidado y las reglas no se inventan sin casos (cierre V4). Se leen con la misma decena de preguntas de la profundidad 1, un grano más abajo, sin significado nuevo; se prueban con una lectura de punta a punta de una reserva hasta '1721347610', construida para recorrer las profundidades y no como modelo de reserva (dónde se ancla una reserva lo decidió VG: en la plaza 1.k, con las noches en su 7; mapa §12 [D]).
 6. Lo escrito se lee siempre como registro. Lo escrito «en» una dirección es el payload entero de un registro nuevo (mapa §10.4 [D]): su raíz se lee desde su profundidad 0, sea cual sea la profundidad del anclaje, y el anclaje se lee con la regla del foco. Es lo que hace src/encaje.js: los escritos tienen origen '0000000000'.
 7. Ceros (mapa §12 [D], colisiones, no apaños). x.0 es la cara de x y colisiona con ella: '1000000000' nombra 1, 1.0, 1.0.0…, todos ocupantes con su camino exacto. Un terminal no tiene posición 0: ACTUAL(0) sobre él es PENDIENTE.
-8. Varios en una posición: dos maneras que no se confunden. Hilera: varios ítems dentro de un registro, en el orden de quien escribe, hasta diez (Sequenced escribe una hilera, mapa §10.6). Ocupantes: varios registros en la misma dirección, en el orden del encaje, sin límite (mapa §12). El repositorio hace las dos cosas; la época 1 no elige ([X] decidir VG, duda 2).
+8. Varios en una posición: dos maneras que no se confunden. Hilera: varios ítems dentro de un registro, en el orden de quien escribe, hasta diez (Sequenced escribe una hilera, mapa §10.6). Ocupantes: varios registros en la misma dirección, en el orden del encaje, sin límite (mapa §12). El repositorio hace las dos cosas; la época 1 (propuesta) no elige ([X] decidir VG, duda 2).
 9. Más de diez: nunca un undécimo dígito ni una hilera de hileras, sino un registro propio referenciado por elemento o una vista BQL (BUSCAR, ACTUAL), las dos vías del corpus V4. Al agotar las diez profundidades, una referencia es cambio de foco y el registro referido se lee desde su 0.
-10. Orden y signo. En la época 1 las diez profundidades son nominales: ordinal(k) es falso para todas. En el encaje ordenan el acuerdo de prefijo y la llegada; signo y distancia son información (mapa §12, opción B). Solo una regla larga podría declarar ordinal un prefijo (hitos de PV8, escalas de T, pasos de 9); las reglas largas aún no existen ([X] decidir VG, duda 6).
+10. Orden y signo. En la época 1 (propuesta) las diez profundidades son nominales: ordinal(k) es falso para todas. Opción B, decidida por VG el 7-11 tarde (mapa §12 [D]): en el encaje ordenan el acuerdo de prefijo y la llegada; el signo, por componente, y la distancia son información, y solo ordenarían en una profundidad que una época haga ordinal, y solo ahí. Las candidatas que han salido (hitos de PV8, escalas de T, pasos de 9) son prefijos concretos y no profundidades enteras ([X] decidir VG, duda 6).
 11. Modo no es profundidad. La proporción de Pointed, Sequenced y Mapped (10, 100 y 1000 posiciones, mapa §10.1 [D]) cuenta posiciones vistas; no da significado al dígito. Ninguna regla corta nombra un modo (corpus V4: más profundidad no es más zoom).
-12. Compatibilidad. Cada regla de la época 1 refina la de la época 0 en el mismo dígito; un mismo dato se lee desde las dos (la época está fuera del dato, mapa §9 [D]). Las reglas largas podrán especializar prefijos sin contradecir las cortas (corpus V2).
-13. Itinerario. El corpus propone que cada época consolide una profundidad y permite estudiar las cien desde el principio: esta época 1 consolida la 1, adelanta la 2 y deja de la 3 a la 9 en respaldo.
+12. Compatibilidad. Cada regla de la época 1 (propuesta) refina la de la época 0 en el mismo dígito; un mismo dato se lee desde las dos (la época está fuera del dato, mapa §9 [D]). Las reglas largas podrán especializar prefijos sin contradecir las cortas (corpus V2).
+13. Itinerario. El corpus propone que cada época consolide una profundidad y permite estudiar las cien desde el principio: esta época 1 (propuesta) consolida la 1, adelanta la 2 y deja de la 3 a la 9 en respaldo.
 
-## La época 1 propuesta, de un vistazo
+## La época 1 (propuesta), de un vistazo
 
 | Dígito | PV | Prof. 0 | Prof. 1 | Prof. 2 | Prof. 3 a 9 |
 |---|---|---|---|---|---|
@@ -112,7 +112,7 @@ Tres de las cuatro propuestas llegaron por caminos distintos a esta misma decena
 | 2 | **con qué condición** | PV2 de la parte: el criterio que la distingue o condiciona: precio, requisito, límite. | compra 1.2 = 'EUR 12': =REF(compra, "1200000000") → 12 EUR. Una corrección escrita en '1200000000' sería otro ocupante: corregir es añadir. |
 | 3 | **con quién** | PV3 de la parte: su contraparte: quién la provee, la recibe o responde por ella, persona o cosa. | Una reserva con 1.3 = 'recepción'. Hoy compra 3 = ['huesped', 'cocina'] es una hilera: LOCAL(3, 1) = 'cocina' sale como «cuánto» (duda 12). |
 | 4 | **qué se hace** | PV4 de la parte: lo que se hace o se hará con ella. El 4 del 4 es la acción de la acción. | 1.4 = 'pagar' (lo que se hace con el recurso); 3.4 = 'avisar'. La autorización y la ejecución se escriben en el 4 de la consolidación, que está en el 4 del foco (duda 10). |
-| 5 | **dónde encaja** | PV5 de la parte: la dirección o referencia donde encaja en el árbol; lo que BUSCAR(LOCAL(5)) recibiría. | Una reserva con 1.5 = {ref: calendario, dir: '7000000000'}. BUSCAR por dirección no existe todavía; hoy BUSCAR toma índices del anfitrión (duda 11). |
+| 5 | **dónde encaja** | PV5 de la parte: la dirección o referencia donde encaja en el árbol; lo que BUSCAR(LOCAL(5)) recibiría. | Una reserva con 1.5 = {ref: calendario, dir: '7000000000'}. BUSCAR por dirección está decidido (VG, 7-11 tarde, mapa §12 [D]: un texto de diez dígitos es dirección), pero el código aún solo toma índices del anfitrión (duda 11). |
 | 6 | **de dónde viene** | PV6 de la parte: su origen y procedencia: de dónde sale, desde cuándo, qué había antes. | La cuenta 1 sale de la compra 1.2: evaluar(eje, cuenta, '1000000000') da la dependencia «compra:1200000000». Una reserva con 1.6 = 'entrada 14-11'. |
 | 7 | **para cuándo** | PV7 de la parte: su plazo o compromiso: hasta cuándo vale o cuándo se cumple. | Una reserva con 1.7 = 'salida 16-11 12:00'; un menú con 1.7 = 'hasta las 16:00'. |
 | 8 | **frente a otros** | PV8 de la parte: dónde queda frente a sus comparables: diferencia, nivel, hito requerido. | Una tarea con 4.8 = '3.1' (aprendizaje profesional, el hito del índice 3). |
@@ -125,7 +125,7 @@ Tres de las cuatro propuestas llegaron por caminos distintos a esta misma decena
 | 0 | **valor mostrado** | PV0 del detalle: el valor tal como se muestra. Colisiona con el detalle (x.y.0 ocupa la dirección de x.y). Si el detalle es un terminal, no tiene posiciones en BTML (un terminal no tiene 0): esta lectura es de BQL sobre el valor, no un nodo (duda 4). | compra 1.2 = 'EUR 12' es terminal: 1.2.0 no existe en BTML; BQL lo muestra como '12 EUR' (formato()). |
 | 1 | **cantidad** | PV1 del detalle: el número puro. Si el detalle es un terminal, no tiene posiciones en BTML (un terminal no tiene 0): esta lectura es de BQL sobre el valor, no un nodo (duda 4). | La cantidad de compra 1.2 es 12 (la magnitud de BQL guarda cantidad 12). |
 | 2 | **unidad o condición** | PV2 del detalle: el criterio que separa magnitudes del mismo número: la unidad o la condición que lo hace válido; unidades distintas no se suman, se componen. Si el detalle es un terminal, no tiene posiciones en BTML (un terminal no tiene 0): esta lectura es de BQL sobre el valor, no un nodo (duda 4). | La unidad de compra 1.2 es EUR. La cuenta en 2: =LOCAL(1) + 15 min → '14 EUR (12 EUR + 2 EUR) + 15 min': mismas cantidades no se funden si la unidad difiere. |
-| 3 | **quién lo dice** | PV3 del detalle: quién lo fija, lo cobra o responde por él. | El precio de compra 1.2 lo fija cocina; el movimiento E de la compra lleva 12 EUR de huésped a cocina. |
+| 3 | **quién lo dice** | PV3 del detalle: quién lo fija, lo cobra o responde por él. | El precio de compra 1.2 lo fija cocina; el movimiento E:casa/EUR de la compra lleva 12 de huésped a cocina (la serie la emite la casa, que la respalda). |
 | 4 | **operación** | PV4 del detalle: el acto u operación que lo produjo: suma, producto, elección, consolidación. | Los 14 EUR de la cuenta nacen de una suma (=REF(…) + 2 EUR). |
 | 5 | **firma y referencia** | PV5 del detalle: dónde vive y quién lo firma: registro, dirección, camino de índices, firma. | La cuenta 1 depende de «compra:1200000000» (dependencias de evaluar()); es lo que vigilan la pila de ciclos y la caché. |
 | 6 | **desglose** | PV6 del detalle: de dónde sale: operandos, desglose y procedencia (el pasado del valor). | 14 EUR (12 EUR + 2 EUR): el desglose de la magnitud; un ocupante alcanzado por referencia lleva su procedencia. |
@@ -135,9 +135,9 @@ Tres de las cuatro propuestas llegaron por caminos distintos a esta misma decena
 
 ### Profundidades 3 a 9: sin especializar
 
-La misma decena de la profundidad 1, un grano más abajo. Ningún caso real llega ahí; se comprueba con una lectura de punta a punta (construida, no vivida): la dirección `'1721347610'` en una reserva.
+La misma decena de la profundidad 1, un grano más abajo. Ningún caso real llega ahí; se comprueba con una lectura de punta a punta (construida, no vivida): la dirección `'1721347610'` en una reserva. Recorre las profundidades; no es el modelo de una reserva, cuyo anclaje decidió VG (7-11 tarde, mapa §12 [D]): en la plaza, dentro de los recursos de la disponibilidad (1.k), con las noches en el 7 de la propia reserva.
 
-| Prof. | Dígito | Época 0 | Época 1 | En la reserva |
+| Prof. | Dígito | Época 0 | Época 1 (propuesta) | En la reserva |
 |---|---|---|---|---|
 | 0 | 1 | recursos | recursos | la habitación (recursos de la reserva) |
 | 1 | 7 | futuro | para cuándo | la salida, 16-11 12:00 |
@@ -218,7 +218,7 @@ Las setenta reglas, con su ejemplo:
 | 9 | 2 | con qué condición | 1.7.2.1.3.4.7.6.1.2 = 'hora': una escala de T; 4 horas + 30 min se compone, no se convierte. |
 | 9 | 3 | con quién | 1.7.2.1.3.4.7.6.1.3 = 'turno' (a quién se le cuentan). |
 | 9 | 4 | qué se hace | 1.7.2.1.3.4.7.6.1.4 = 'contar'. |
-| 9 | 5 | dónde encaja | 1.7.2.1.3.4.7.6.1.5 = {ref: saldo T del turno}. |
+| 9 | 5 | dónde encaja | 1.7.2.1.3.4.7.6.1.5 = {ref: saldo T:hora del turno}. |
 | 9 | 6 | de dónde viene | 1.7.2.1.3.4.7.6.1.6 = 'antes 3 horas'. |
 | 9 | 7 | para cuándo | 1.7.2.1.3.4.7.6.1.7 = 'este ciclo de 28 días'. |
 | 9 | 8 | frente a otros | 1.7.2.1.3.4.7.6.1.8 = 'en la media'. |
@@ -234,7 +234,7 @@ Cuatro propuestas de cien reglas (desde el corpus literal, desde los casos de Ik
 
 Correcciones sobre la base, por lo que dijeron los jueces y por lo ya decidido:
 
-- La distancia no desempata: con la opción B del encaje (mapa §12) ordenan el acuerdo de prefijo y la llegada.
+- La distancia no desempata: con la opción B del encaje, decidida por VG el 7-11 tarde (mapa §12 [D]), ordenan el acuerdo de prefijo y la llegada.
 - Un terminal no tiene posiciones: la anatomía de la profundidad 2 es una lectura de BQL sobre un terminal, no un nodo.
 - Ninguna regla nombra un modo: la proporción de Pointed, Sequenced y Mapped cuenta posiciones, no da significado.
 - «Un array nunca es una lista» no se adopta: el repositorio escribe hileras (Sequenced) y la pregunta queda para VG (duda 2).
@@ -242,17 +242,19 @@ Correcciones sobre la base, por lo que dijeron los jueces y por lo ya decidido:
 
 ## Dudas para VG
 
-- 1 · [X] decidir VG. ¿En la época 1 el dígito sigue siendo el PV en toda profundidad y la época solo nombra el grano? Es lo que exige ACTUAL(m) (principio de invariancia). Si alguna profundidad tiene que cambiar el significado del dígito, hay que cambiar también ACTUAL y BUSCAR.
-- 2 · [X] decidir VG. Varios en una posición: ¿hilera, ocupantes o las dos? Hoy menú 1 = ['ensalada', 'guiso', 'fruta'] y, bajo la época 1, LOCAL(1, 1) = 'guiso' sale como «cuánto» (en la época 0, «recursos»). Opciones: (a) aceptar que una hilera escrita en una posición de PV se lea como décupla y que la procedencia diga que vino de una hilera; (b) que una lista sean ocupantes (tres platos = tres escritos en '1000000000', tres minutos de T); (c) que alguna profundidad sea de orden, lo que rompe el principio de invariancia. De esto depende que exista alguna profundidad ordinal.
-- 3 · [X] decidir VG. ¿Son estas las etiquetas que Mapped debe mostrar al bajar dentro de una posición (qué, cuánto, con qué condición…)? Basta con pasar epoca: EPOCA_1 a mapped.mapa; la pantalla no se ha tocado.
-- 4 · [X] decidir VG. Anatomía del valor en la profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda (unidad, desglose, dependencias)?
+Decisiones de VG del 7-11 por la tarde (mapa §12 [D]) que ya responden parte de lo que esta propuesta preguntaba, y que se recogen en cada duda: el signo, opción B (duda 6 y principio 10); BUSCAR por índice y por dirección (duda 11 y regla 1.5); las bases del 8 (duda 7); la fábrica como matriz 10×10×10 con la clase de modificación en el tercer dígito (dudas 1, 4 y 10, principio 4); el anclaje de la reserva (la lectura de prueba de las profundidades 3 a 9). Lo que queda abierto sigue marcado «[X] decidir VG».
+
+- 1 · [X] decidir VG. ¿La época 1 (propuesta) solo nombra el grano de cada profundidad, con estos nombres? Que el dígito sea el PV en toda profundidad lo sostienen ya la época 0 (mapa §10.4 [D]) y la fábrica (VG, 7-11 tarde, mapa §12 [D]: el tercer dígito son los diez PV, «siempre estamos aplicando los puntos de vista»), y es lo que exige ACTUAL(m) (principio de invariancia). Si alguna profundidad tiene que cambiar el significado del dígito, hay que cambiar también ACTUAL y BUSCAR.
+- 2 · [X] decidir VG. Varios en una posición: ¿hilera, ocupantes o las dos? Hoy menú 1 = ['ensalada', 'guiso', 'fruta'] y, bajo la época 1 (propuesta), LOCAL(1, 1) = 'guiso' sale como «cuánto» (en la época 0, «recursos»). Opciones: (a) aceptar que una hilera escrita en una posición de PV se lea como décupla y que la procedencia diga que vino de una hilera; (b) que una lista sean ocupantes (tres platos = tres escritos en '1000000000', tres T:minuto); (c) que alguna profundidad sea de orden, lo que rompe el principio de invariancia. De esto depende que exista alguna profundidad ordinal.
+- 3 · [X] decidir VG. ¿Son estas las etiquetas que Mapped debe mostrar al bajar dentro de una posición (qué, cuánto, con qué condición…)? Basta con pasar epoca: 'época 1 (propuesta)' a mapped.mapa; la pantalla no se ha tocado.
+- 4 · [X] decidir VG. Anatomía del valor en la profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda (unidad, desglose, dependencias)? En el registro de salida de la fábrica ya está decidido (VG, 7-11 tarde, mapa §12 [D]): el tercer dígito es la clase de modificación (0 ver/sustituir, 1 impulso de recursos, 2 criterio, 3 comunicación, 4 acción…), matriz 10×10×10. Queda fuera de la fábrica.
 - 5 · [X] decidir VG. Profundidades 3 a 9: ¿la decena de preguntas de la profundidad 1, o los nombres de PV de la época 0 tal cual, hasta que un caso real llegue ahí?
-- 6 · [X] decidir VG. ¿Alguna profundidad ordinal? Se decide junto con las opciones A–E de docs/notas/SIGNO_DEL_VECTOR.md. Candidatas, como reglas largas de prefijo: los diez hitos de PV8 (índice = hito), las siete escalas de T en 6·7, los pasos de 9.
-- 7 · [X] decidir VG. Cruz y X dentro de cada pieza: ¿0 y 5–9 los dan el eje y la reconstrucción y 1–4 los escribe la mano también en las profundidades 1 y 2, de modo que el motor pueda proponer el 1–4 de una pieza desde sus 6·7·8·9 (1 entre 6 y 8, 2 entre 8 y 7, 3 entre 6 y 9, 4 entre 7 y 9)? Y lo declarado frente a lo derivado en 5, 6 y 8: ¿dos ocupantes que colisionan?
+- 6 · [X] decidir VG. ¿Qué profundidad es ordinal, si alguna? El signo ya está decidido (VG, 7-11 tarde, mapa §12 [D]: opción B de docs/notas/SIGNO_DEL_VECTOR.md; ni signo ni distancia ordenan hasta que una época haga ordinal una profundidad, y entonces solo ahí). Candidatas: los diez hitos de PV8 (índice = hito), las siete escalas de T en 6·7, los pasos de 9; son prefijos concretos, así que irían como reglas largas de prefijo o haciendo ordinal la profundidad entera.
+- 7 · [X] decidir VG. Cruz y X dentro de cada pieza: ¿0 y 5–9 los dan el eje y la reconstrucción y 1–4 los escribe la mano también en las profundidades 1 y 2, de modo que el motor pueda proponer el 1–4 de una pieza desde sus 6·7·8·9 (1 entre 6 y 8, 2 entre 8 y 7, 3 entre 6 y 9, 4 entre 7 y 9)? Y lo declarado frente a lo derivado en 5 y 6: ¿dos ocupantes que colisionan? En el 8 ya lo resuelven las bases (VG, 7-11 tarde, mapa §12 [D]): lo derivado son registros escritos en el 8 de lo que resumen, ocupantes que colisionan con lo declarado; corregir es añadir otra base.
 - 8 · [X] decidir VG. Candidatos pendientes (comprobado en el código): sobre la compra, FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar") da PENDIENTE aunque 4.0 sea 'pagar', porque el candidato 'pagar' es terminal, no tiene 0, y un PENDIENTE para todo el FILTRAR. El corpus V4 deja abierta la «política de filtrado de candidatos pendientes». ¿Se aparta y se cuenta el candidato pendiente, o se para la consulta?
 - 9 · [X] decidir VG. motor.ejecutar() pone las referencias a la consolidación y a la autorización en las posiciones 1 y 2 del payload; por PV les tocarían 5 (firma y referencia) y 6 (de dónde viene). ¿Se cambia?
-- 10 · [X] decidir VG. La fase de la fábrica vive hoy en contexto.fase: ¿se escribe en el payload para que BQL la lea (el 4 del 4)? Y la cadena consolidación → autorización → ejecución, anclada cada una en el 4 del registro anterior: ¿se lee como profundidad dentro del foco (4.4…) o como cambio de foco en cada paso? Hoy arbol() no concatena anclajes.
-- 11 · [X] decidir VG. BUSCAR por dirección (corpus V4: BUSCAR("8412300000"), BUSCAR(LOCAL(5))) además de por índices del anfitrión, que es lo que existe. ¿Las dos? ¿El 5 guarda la dirección donde encaja lo buscado?
-- 12 · [X] decidir VG. compra 3 = ['huesped', 'cocina'] se lee en la época 1 como 3.0 «qué» y 3.1 «cuánto». ¿Se reescribe el ejemplo (por ejemplo 3 = ['pide el menú', 1, 'sin gluten', 'cocina'], que obliga a rellenar 3.1 y 3.2) o se acepta la hilera (duda 2)?
+- 10 · [X] decidir VG. La fase de la fábrica vive hoy en contexto.fase: ¿se escribe en el payload para que BQL la lea (el 4 del 4)? Y la cadena consolidación → autorización → ejecución, anclada cada una en el 4 del registro anterior: ¿se lee como profundidad dentro del foco (4.4…) o como cambio de foco en cada paso? Hoy arbol() no concatena anclajes. Ya decidido alrededor (mapa §12 [D]): la autorización y la ejecución reales son de AARPIA, y el registro de salida de la fábrica es la matriz 10×10×10 con la clase de modificación como tercer dígito.
+- 11 · [X] decidir VG. ¿El 5 guarda la dirección donde encaja lo buscado, de modo que BUSCAR(LOCAL(5)) tenga sentido (corpus V4)? Lo demás ya lo decidió VG (7-11 tarde, mapa §12 [D]): BUSCAR por índice y por dirección, las dos sin ambigüedad; un número es índice (camino exacto, relativo al anfitrión) y un texto de diez dígitos es dirección (absoluta en el registro, nombra la colisión entera), como BUSCAR("8412300000"), igual que las referencias. El código aún solo toma índices (src/bql.js).
+- 12 · [X] decidir VG. compra 3 = ['huesped', 'cocina'] se lee en la época 1 (propuesta) como 3.0 «qué» y 3.1 «cuánto». ¿Se reescribe el ejemplo (por ejemplo 3 = ['pide el menú', 1, 'sin gluten', 'cocina'], que obliga a rellenar 3.1 y 3.2) o se acepta la hilera (duda 2)?
 - 13 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL, como propone el principio?
 - 14 · [X] decidir VG. Subir desde una fórmula honda: LOCAL lee hermanos de su misma profundidad (en 1.2, LOCAL(1) es 1.1); para leer el foco hace falta REF(id del foco, dirección). ¿Basta o hace falta un ámbito para el foco?

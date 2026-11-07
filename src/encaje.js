@@ -21,7 +21,8 @@ const MAX_SALTOS = 20;
  * El corpus prohíbe «puntuar por cercanía ciega» y «descartar por mera
  * distancia numérica». Lo que ordena son las coincidencias de ruta (el
  * acuerdo de prefijo) y la llegada. El cero de orientación es el tercer cero.
- * Opción B de docs/notas/SIGNO_DEL_VECTOR.md; pendiente de que VG elija.
+ * Opción B de docs/notas/SIGNO_DEL_VECTOR.md, decidida por VG el 7-11 por la
+ * tarde (mapa §12 [D]).
  */
 export function vector(candidato, buscado) {
   const c = indicesCompletos(candidato);
