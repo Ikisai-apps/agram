@@ -111,8 +111,10 @@ test('R2·2: el tope es por franja (lo que va tras la última «@»): cada noche
   const familia = familiaDe(serieE('casa', 'cama@n1', A));
   assert.equal(familia, 'E:casa/cama@*@' + A);
   assert.deepEqual([franjaDe('cama@n1'), franjaDe('a@b@2026-11-13'), franjaDe('EUR')], ['n1', '2026-11-13', '']);
-  // g le delega a la casa 1 de P sobre A (estrechado de su P:genesis): le deja P disponible sobre A para seguir emitiendo.
-  await delega(eje, A, 'casa', 1, 'g');
+  // g le da a la casa 1 de P sobre todo el eje: le deja P disponible que cubre A para seguir emitiendo (escalonado). Antes
+  // se lo delegaba estrechado a A; con R3 (VG, 7-11 noche) P:A es una serie cerrada y estrechar hacia ella no vale.
+  await assert.rejects(delega(eje, A, 'casa', 1, 'g'), /P:[0-9a-f]{8} es una serie cerrada: se delega el P:[0-9a-f]{8} que se tiene \(0\)/);
+  await eje.escribir({ autor: 'g', sobre: A, t: T0, payload: unico('delega'), movimientos: [minuto('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'casa' }] });
   // La casa bloquea sus 4 de P:A una vez, para la familia «cama», y con ellos respalda 4 camas cada noche.
   const bloqueoFamilia = { token: 'P', ambito: A, cantidad: 4, de: 'casa', a: 'casa', estado: 'bloqueo', salida: familia };
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 4, otros: [bloqueoFamilia] }));

@@ -2,12 +2,26 @@
 // (Booking) en una casa rural. Existe para forzar que el núcleo sea genérico y
 // no esté moldeado por la compra de comida: otro dominio, otra décupla, otro
 // ciclo. Construye su propio eje: génesis de la casa (una persona); altas de
-// recepción y de una persona huésped; la casa escribe su dominio
-// «Alojamiento» y delega en recepción el poder (P) con ese ámbito; publica la
-// disponibilidad (el elemento habitación, con sus plazas en 1.k) y abre la
+// recepción y de una persona huésped; la casa escribe el dominio de sus
+// «Reservas», emite su P sobre él (una vez) y delega en recepción la mayor
+// parte; bajo él escribe su «Alojamiento», que declara la capacidad; publica
+// la disponibilidad (el elemento habitación, con sus plazas en 1.k) y abre la
 // temporada emitiendo la serie de plazas; la persona huésped escribe la
 // reserva anclada en una plaza, con las noches en su propio 7; recepción
-// confirma por el ciclo del motor: consolidar → autorizar → ejecutar.
+// confirma por el ciclo del motor: consolidar → autorizar (bloquear su P sobre
+// las Reservas) → ejecutar.
+//
+// Autorizar es bloquear P sobre el registro del recurso, con el umbral del
+// dueño (VG, 7-11 noche). El recurso de las dos partes de la confirmación es
+// la raíz del dominio, las Reservas de la casa (src/autorizacion.js), no la
+// reserva de quien reserva: quien reserva no acuña P sobre su reserva para
+// dárselo a recepción (el apaño de la #62, deshecho). Las Reservas no
+// declaran umbral, así que rige más de la mitad: recepción, con 6 de los 10
+// P:Reservas, autoriza sola; la casa, con 4, no. ¿Por qué no el Alojamiento?
+// Porque su P respalda las plazas (R2): la casa lo bloquea entero, plaza a
+// plaza, mientras vivan sus noches, y no queda P:Alojamiento libre con el que
+// autorizar. Decisiones y respaldo van en registros distintos ([X] decidir VG:
+// R2 y R5 compiten por el mismo P:X cuando la capacidad la declara la raíz).
 //
 // La plaza (VG, 7-11, «las dos cosas a la vez»): una POSICIÓN de la
 // habitación donde las reservas colisionan (se escriben y se ven todas), y una
@@ -52,10 +66,14 @@ import { direccion, indicesDe, esReferencia } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
 import { familiaDe } from '../../src/tokens.js';
-import { descubrir, consolidar, autorizar, ejecutar, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
+import { descubrir, consolidar, autorizar, ejecutar, liberar, bloqueosDeP, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
 
 /** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
 export const CASA = 'casa';
+
+/** P:Reservas que emite la casa, y lo que delega en recepción (más de la mitad: autoriza sola). */
+export const P_RESERVAS = 10;
+export const P_RECEPCION = 6;
 
 /** Las plazas de la habitación: cada una en la posición 1.k de sus recursos. */
 export const PLAZAS = Object.freeze({ matrimonio: 0, individual: 1, litera: 2 });
@@ -217,27 +235,44 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     contexto: { tipos: { recepcion: 'persona', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
-  // El dominio (VG, 7-11): un registro «Alojamiento» de la casa. Todo lo de
-  // Booking cuelga de él, y el poder de recepción tiene ese ámbito. Declara
-  // su capacidad (R2): 4 plazas por noche.
-  const alojamiento = await eje.escribir({
+  // El dominio (VG, 7-11): un registro «Reservas» de la casa, raíz de todo lo
+  // de Booking. Decide lo que cuelga de él: autorizar es bloquear P sobre él
+  // (VG, 7-11 noche).
+  const dominio = await eje.escribir({
     autor: CASA,
     sobre: eje.genesisId,
     t,
     movimientos: [minutos(CASA)],
-    payload: structuredClone(ALOJAMIENTO),
+    payload: 'Reservas',
   }, priv('casa'));
 
-  // La casa delega en recepción el poder de confirmar, con el ámbito del
-  // dominio: recepción autoriza lo que cuelga del Alojamiento (y puede
-  // delegar hacia abajo), nada más. Va en un evento propio: P exige un ámbito
-  // que ya exista.
+  // La casa emite su P sobre el dominio (P:Reservas, una serie cerrada: la
+  // emite una vez; ampliarla sería una consolidación autorizada, R3) y delega
+  // en recepción 6 de 10: más de la mitad, así que recepción autoriza sola lo
+  // que cuelga de las Reservas. Emitir P es el tercer escalón (T + R + P): la
+  // casa gasta T y pone en juego un R:casa ante recepción. Va en un evento
+  // propio: P exige un ámbito que ya exista.
   const delegacion = await eje.escribir({
     autor: CASA,
-    sobre: alojamiento.id,
+    sobre: dominio.id,
     t,
-    movimientos: [minutos(CASA), { token: 'P', cantidad: 3, ambito: alojamiento.id, de: CASA, a: 'recepcion' }],
-    payload: 'Recepción atiende el alojamiento',
+    movimientos: [
+      minutos(CASA),
+      { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' },
+      { token: 'P', cantidad: P_RESERVAS, ambito: dominio.id, de: null, a: CASA },
+      { token: 'P', cantidad: P_RECEPCION, ambito: dominio.id, de: CASA, a: 'recepcion' },
+    ],
+    payload: 'Recepción atiende las reservas',
+  }, priv('casa'));
+
+  // El Alojamiento, bajo el dominio: declara su capacidad (R2), 4 plazas por
+  // noche, y su P respalda las plazas (abrirTemporada).
+  const alojamiento = await eje.escribir({
+    autor: CASA,
+    sobre: dominio.id,
+    t,
+    movimientos: [minutos(CASA)],
+    payload: structuredClone(ALOJAMIENTO),
   }, priv('casa'));
 
   // La casa publica la disponibilidad (la habitación con sus plazas) sobre el dominio.
@@ -271,7 +306,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     privada: priv('huesped'),
   });
 
-  const resultado = { eje, alta, alojamiento, delegacion, habitacion, abierta, temporada, reserva };
+  const resultado = { eje, alta, dominio, alojamiento, delegacion, habitacion, abierta, temporada, reserva };
   if (!confirmar) return resultado;
   return { ...resultado, ...(await confirmarReserva(eje, reserva, { claves })) };
 }
@@ -283,7 +318,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
  * Es la serie limitada que respalda las plazas; solo la casa la amplía.
  * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
  * casa gasta su T, pone en juego su reputación ante recepción (un R:casa) y
- * tiene P sobre la habitación (el suyo cubre todo el eje).
+ * tiene P sobre la habitación (su P:Reservas y el del génesis la cubren).
  * Y emitir E cuesta P bloqueado (R2): si aún no lo tiene, la casa acuña su P
  * sobre el alojamiento, tanto como su capacidad (4), y bloquea de él, por
  * cada plaza, tanto como la plaza admite, con la salida = la familia de la
@@ -326,13 +361,10 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
  * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
  *
- * Con el tramo, quien reserva deja en manos de recepción confirmar lo que la
- * casa le entregue sobre su reserva: acuña un P sobre ella (es su registro;
- * T + R + P: pone en juego un R propio ante recepción) y se lo delega. Sin
- * eso nadie podría autorizar la entrega de la casa: para autorizar lo que la
- * casa propone solo cuenta el P sobre un registro del hilo que la casa no
- * escribió ([X] confirmar VG, src/motor.js poderParaAutorizar), y el de
- * recepción sobre el Alojamiento lo escribió la casa.
+ * Quien reserva no acuña P sobre su reserva: lo que se consolida sobre ella
+ * (la entrega de la casa y el pago) lo autoriza el P sobre el registro del
+ * recurso, la raíz del dominio, las Reservas de la casa (VG, 7-11 noche:
+ * «autorizar = bloquear P con el umbral del dueño»; deshace el apaño de la #62).
  */
 export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
   const [entrada, salida] = noches;
@@ -358,13 +390,7 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
     sobre: reserva.id,
     en: direccion([7]),
     t,
-    movimientos: [
-      minutos(autor, costeT(tramo)),
-      { token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, // su reputación, en juego ante recepción
-      { token: 'R', emisor: autor, cantidad: 1, de: autor, a: 'recepcion' },
-      { token: 'P', ambito: reserva.id, cantidad: 1, de: null, a: autor }, // P sobre su reserva, que escribió
-      { token: 'P', ambito: reserva.id, cantidad: 1, de: autor, a: 'recepcion' }, // y recepción confirma por ella
-    ],
+    movimientos: [minutos(autor, costeT(tramo))],
     payload: tramo,
   }, privada);
   return reserva;
@@ -415,12 +441,18 @@ async function cumplir(eje, { autor, reserva, titulo, elecciones, recepcion, t, 
     ?? await autorizar(eje, { autorizante: recepcion, consolidacion: consolidacion.id, t, nota: 'confirmada' }, priv(recepcion));
   const hecha = ejecucionDe(eje, consolidacion)
     ?? await ejecutar(eje, { autor, consolidacion: consolidacion.id, t, titulo: ejecucion, movimientos: movimientos(consolidacion) }, priv(autor));
+  // Ejecutada, el P que recepción bloqueó por ella queda liberable, y solo
+  // ella lo libera (nadie mueve tokens ajenos): lo recupera para la siguiente.
+  if (bloqueosDeP(eje, recepcion, consolidacion.id).length) await liberar(eje, { titular: recepcion, consolidacion: consolidacion.id, t }, priv(recepcion));
   return { consolidacion, autorizacion, ejecucion: hecha };
 }
 
 /**
  * Confirmación por el ciclo del motor, en dos partes autorizadas por
- * recepción (tiene P sobre el Alojamiento y no es autora de ninguna):
+ * recepción, que bloquea su P sobre las Reservas (6 de 10: más de la mitad)
+ * y lo libera al ejecutarse cada una. Si una ejecución falla, su bloqueo
+ * sigue puesto (la consolidación queda AUTORIZADA) hasta que recepción lo
+ * retire con motor.liberar:
  * 1. ocupar: la casa consolida sobre la reserva la plaza y la acción
  *    «ocupar» (por referencia), y al ejecutar entrega a la persona huésped
  *    un token «<plaza>@<noche>» por noche. Si otra reserva ya se llevó el

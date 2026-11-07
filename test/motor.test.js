@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, FABRICA, capacidadDe, tramoDe, ocupacion, registrosEn, CRITERIO_CAPACIDAD } from '../src/motor.js';
+import { descubrir, consolidar, autorizar, ejecutar, liberar, estadoDe, consolidaciones, FABRICA, capacidadDe, tramoDe, ocupacion, registrosEn, CRITERIO_CAPACIDAD } from '../src/motor.js';
 import { evaluar } from '../src/bql.js';
 import { Eje } from '../src/eje.js';
 
@@ -61,11 +61,13 @@ test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar �
   void menu;
 });
 
-test('autoriza quien tiene poder y no es el autor; ejecuta el autor; lo demás no cuenta', async () => {
+// VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye «autoriza quien tiene poder y no es el
+// autor»: lo que cuenta es el P bloqueado sobre el registro del recurso, no quién lo bloquea.
+test('autoriza el P bloqueado sobre el registro del recurso; ejecuta el autor; lo demás no cuenta', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  await assert.rejects(autorizar(eje, { autorizante: 'huesped', consolidacion: c.id, t: T }), /no se autoriza a sí mismo/);
-  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: c.id, t: T }), /no tiene poder/);
+  await assert.rejects(autorizar(eje, { autorizante: 'huesped', consolidacion: c.id, t: T }), /huesped no tiene P que cuente para autorizar/);
+  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: c.id, t: T }), /cocina no tiene P que cuente para autorizar/);
   // Un «autorizado» escrito a mano por quien no puede no cambia el estado.
   await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: '==autorizo', contexto: { fase: 'autorizado' } });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
@@ -124,6 +126,7 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
     const c = await consolidar(eje, { autor: r.autor, foco: r.id, t: tarde, elecciones: { 1: 'lo ocupo' } });
     await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t: tarde });
     await ejecutar(eje, { autor: r.autor, consolidacion: c.id, t: tarde });
+    await liberar(eje, { titular: 'g', consolidacion: c.id, t: tarde }); // g recupera su P para la siguiente
     return estadoDe(eje, c.id);
   };
 

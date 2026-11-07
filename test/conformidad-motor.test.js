@@ -141,9 +141,10 @@ async function casaConUnaPlaza() {
 /**
  * La reserva de un huésped en la plaza 1 de la habitación: el huésped la pide en la plaza (los pedidos colisionan
  * ahí) y deja a recepción confirmar por él (acuña P sobre su pedido, con su R en juego, y se lo delega); la casa
- * consolida sobre el pedido y recepción la autoriza. Antes la casa consolidaba sobre la habitación y recepción
- * autorizaba con el P que la casa le había delegado; ya no cuenta: para autorizar lo que propone la casa solo
- * cuenta el P sobre un registro del hilo que la casa no escribió ([X] confirmar VG, motor.poderParaAutorizar).
+ * consolida sobre el pedido y recepción la autoriza bloqueando ese P. Aquí la habitación es el génesis, así que
+ * el pedido cuelga directamente de él: es la raíz de su propio dominio y el registro del recurso de lo que se
+ * consolide sobre él (VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso; la raíz del dominio,
+ * [X] confirmar VG, src/autorizacion.js). Con su P:pedido (1 de 1), recepción pasa de la mitad.
  */
 async function reservaDeLaCasa(eje, hab, huesped) {
   const pedido = await eje.escribir({ autor: huesped, sobre: hab, en: direccion([1, 4]), t: T0, movimientos: [gastaT(huesped)], payload: 'reserva de ' + huesped + ', noche del 7-11' });
@@ -804,8 +805,9 @@ test('MOT-48 C consolida y la autoridad decide después: una consolidación de q
   assert.equal(OPERADORES.C, 'consolidar');
   const c = await consolidar(eje, { autor: 'bea', foco: g, t: T0, elecciones: { 1: 'x' } });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /no se autoriza a sí mismo/);
-  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /no tiene poder/);
+  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso; sin él no se autoriza, sea o no el autor.
+  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /bea no tiene P que cuente para autorizar/);
+  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /ana no tiene P que cuente para autorizar/);
 });
 
 test('MOT-48b C solo consolida lo que permite un contrato válido (con autoridad)',
@@ -1095,12 +1097,14 @@ test('M:TOK-02 el coste en minutos se paga con T de minuto, no con horas convert
   await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'raiz', sobre: eje.genesisId, en: '1000000000', payload: 'nota', t: T0 }), /saldo insuficiente/);
 });
 
-test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo se mueven al ejecutar', async () => {
+test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo cambian de manos al ejecutar', async () => {
   const { eje, g } = await mundo();
   const { c, a } = await autorizada(eje, g);
   const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 2)] });
   for (const ev of [c, a, e]) assert.ok(minutosDe(ev) >= 1, ev.contexto.fase);
-  assert.deepEqual([c, a].map((ev) => ev.movimientos.map((m) => m.token)), [['T'], ['T']]);
+  assert.deepEqual(c.movimientos.map((m) => m.token), ['T']);
+  // VG, 7-11 noche: autorizar es bloquear P; el P no cambia de titular, pasa a bloqueado con la consolidación de salida.
+  assert.deepEqual(a.movimientos.map((m) => [m.token, m.estado ?? null, m.de === m.a]), [['T', null, false], ['P', 'bloqueo', true]]);
   assert.deepEqual(e.movimientos.map((m) => m.token), ['T', 'E']);
 });
 
@@ -1466,13 +1470,18 @@ test('TOK-32 P es poder con ámbito: no existe un P total', async () => {
   assert.equal(eje.poderSobre('ana', g), 0);
 });
 
-test('TOK-34 P no es un permiso automático: tener P no basta por sí solo para autorizar',
-  { skip: 'TOK-34: motor.puedeAutorizar deja autorizar a quien tiene P > 0 sobre el registro y no es el autor: es la regla V0 provisional (MOT-42, hueco de AARPIA)' },
-  async () => {
-    const { eje, g } = await mundo();
-    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-    assert.equal(puedeAutorizar(eje, 'raiz', c.id), false);
-  });
+// Ya no se salta (VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño): tener P no autoriza nada; lo que
+// autoriza es el P bloqueado por la consolidación, y solo si alcanza el umbral.
+test('TOK-34 P no es un permiso automático: tener P no basta por sí solo para autorizar', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  assert.equal(puedeAutorizar(eje, 'raiz', c.id), true); // puede bloquear P que cuenta…
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN'); // …pero tenerlo no autoriza
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, cantidad: 2, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN'); // 2 de 5: no pasa de la mitad
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, cantidad: 1, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO'); // 3 de 5
+});
 
 test('TOK-35 nadie mueve tokens ajenos: todo movimiento con origen sale del autor', async () => {
   const { eje, g } = await mundo();
@@ -1552,7 +1561,7 @@ test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura,
   await escribe(eje, g, 'una', undefined, 'pobre');
   await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente/); // T
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /no tiene poder/); // P
+  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /bea no tiene P que cuente para autorizar/); // P
   await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
   await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'bea', 10)] });
   assert.equal(eje.saldo('bea', 'E:raiz/EUR'), 10); // E
@@ -1890,8 +1899,10 @@ test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona
 // Serie del motor
 //   MOT-40 [abierto]   el motor no genera derechos, firmas, pruebas, pagos ni ejecuciones: puede invocar servicios
 //                      autorizados. [!] Choca con MOT-39 (el motor es la ejecución real) y MOT-41 (AARPIA ejecuta).
-//   MOT-42 [propuesta] regla V0: autoriza quien tiene P > 0 sobre el registro y no es el autor; ejecuta el autor
-//                      (hueco provisional hasta AARPIA; hoy implementada en puedeAutorizar y ejecutar).
+//   MOT-42 [decidido VG, 7-11 noche] autorizar es bloquear P sobre el registro del recurso, con la consolidación como
+//                      salida; AUTORIZADO cuando lo bloqueado (de cualquiera, el autor incluido) alcanza el umbral del
+//                      dueño (por defecto, más de la mitad del P emitido); ejecuta el autor (src/autorizacion.js).
+//                      Sustituye la regla V0 «P > 0 y no ser el autor». Abierto: si X es la raíz del dominio.
 //   MOT-45 [abierto]   qué ejecuciones necesitan la autorización de otra identidad («cuando corresponda»).
 //   MOT-52 [abierto]   si C exige que antes haya habido Q y B (hoy consolidar no lo exige).
 //   MOT-53 [propuesta] que el orden cambie el resultado depende del contexto; no es un axioma «siempre diferentes».

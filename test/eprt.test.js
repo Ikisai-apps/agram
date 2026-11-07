@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
-import { consolidar, autorizar, puedeAutorizar } from '../src/motor.js';
+import { consolidar, autorizar, puedeAutorizar, recursoDe, estadoDe } from '../src/motor.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
@@ -68,17 +68,24 @@ test('R: por emisor y no fungible; quien la recibe no puede pasarla', async () =
   void g;
 });
 
-test('autoriza quien tiene poder sobre el registro de la consolidación', async () => {
-  const { eje, g, menu, evento } = await mundo();
+// VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG), con el
+// umbral del dueño. Antes autorizaba cualquier P que cubriera el registro de la consolidación.
+test('autoriza el P sobre el registro del recurso: la raíz del dominio, o el del eje si no tiene P propio', async () => {
+  const { eje, g, alta, menu, evento } = await mundo();
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: menu.id, de: 'casa', a: 'cocina' }], payload: 'poder de cocina' });
   const cMenu = await consolidar(eje, { autor: 'sala', foco: menu.id, t: T0, elecciones: { 1: 'dos menús' } });
   const cBoda = await consolidar(eje, { autor: 'sala', foco: evento.id, t: T0, elecciones: { 1: 'catering' } });
-  assert.equal(puedeAutorizar(eje, 'cocina', cMenu.id), true); // su poder cubre el menú y lo que cuelga de él
-  assert.equal(puedeAutorizar(eje, 'cocina', cBoda.id), false); // la boda no está en su ámbito
-  assert.equal(puedeAutorizar(eje, 'casa', cBoda.id), true); // el génesis cubre todo
-  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: cBoda.id, t: T0 }), /no tiene poder \(P\) sobre este registro/);
-  const a = await autorizar(eje, { autorizante: 'cocina', consolidacion: cMenu.id, t: T0 });
-  assert.equal(a.autor, 'cocina');
+  // Las dos cuelgan de las altas de la casa, que no tienen P propio: cuenta el P sobre todo el eje.
+  assert.deepEqual([recursoDe(eje, cMenu.id), recursoDe(eje, cBoda.id)], [alta.id, alta.id]);
+  assert.equal(puedeAutorizar(eje, 'cocina', cMenu.id), false); // su P estrechado al menú no es el del recurso
+  assert.equal(puedeAutorizar(eje, 'casa', cBoda.id), true); // el del eje, sí
+  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: cMenu.id, t: T0 }), /cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso .*, que no tiene P propio emitido: el P sobre todo el eje/);
+  // A la casa le quedan 3 de los 5 P:genesis: más de la mitad.
+  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: cMenu.id, t: T0 });
+  assert.deepEqual([a.autor, a.contexto.autoridad.bloquea], ['casa', [{ clave: 'P:genesis', cantidad: 3 }]]);
+  assert.equal(estadoDe(eje, cMenu.id), 'AUTORIZADO');
+  // Bloqueado por el menú, no le queda P para la boda hasta que lo libere.
+  assert.equal(puedeAutorizar(eje, 'casa', cBoda.id), false);
 });
 
 test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega, recepción autoriza lo que cuelga y delega hacia abajo', async () => {

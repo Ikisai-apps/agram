@@ -57,7 +57,8 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * propio; ver cicloOk); nadie mueve tokens ajenos; R solo la mueve su emisor
  * (quien la tiene solo se la devuelve); P exige ámbito (el eje o un registro) y
  * delegar estrecha: se debita del ámbito exacto y, si no alcanza, de los que
- * lo cubren (su hilo y el eje); | : / reservados.
+ * lo cubren (su hilo y el eje), salvo hacia una serie P cerrada o hacia la raíz de un
+ * dominio ajeno, y P:X se emite una sola vez (R3, VG 7-11 noche); | : / reservados.
  */
 class Modelo {
   constructor(genesisId, autor, tipo, emision) {
@@ -70,6 +71,8 @@ class Modelo {
     this.tipos = new Map([[autor, tipo]]);
     this.existe = new Set([autor]);
     for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
+    // R3 (VG, 7-11 noche): lo emitido de cada serie P, para saber si está cerrada.
+    this.emitidoP = new Map(emision.filter(([k]) => k.startsWith('P:')).map(([k, v]) => [k.slice(2), v]));
   }
   /**
    * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
@@ -99,6 +102,8 @@ class Modelo {
         if (lleva > 1) return false;
       }
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
+      // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
+      if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
     }
     if (!emitidas.size) return true;
     const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a !== autor);
@@ -108,6 +113,11 @@ class Modelo {
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
     }
     return true;
+  }
+  /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
+  emitidoDeP(ambito) {
+    const familia = ambito === 'genesis' || ambito === this.g ? ['genesis', this.g] : [ambito];
+    return familia.reduce((s, a) => s + (this.emitidoP.get(a) ?? 0), 0);
   }
   cubren(ambito) {
     if (ambito === 'genesis') return ['genesis', this.g];
@@ -140,15 +150,23 @@ class Modelo {
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
     if (!this.cicloOk(ev)) return null;
+    const emitidasAqui = new Set();
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
+        if (m.token === 'P') emitidasAqui.add(m.ambito);
         poner(m.a, k, ver(m.a, k) + m.cantidad);
         continue;
       }
       if (m.de !== ev.autor) return null;
       if (m.token === 'P') {
         if (m.ambito !== 'genesis' && !this.padre.has(m.ambito)) return null;
+        // R3: estrechar (tomar de un ámbito que cubre) no vale hacia una serie cerrada, y hacia la raíz de un
+        // dominio (un registro sobre el génesis) solo lo hace su autor.
+        if (m.ambito !== 'genesis' && m.ambito !== this.g && ver(m.de, k) < m.cantidad) {
+          if (this.emitidoDeP(m.ambito) > 0 || emitidasAqui.has(m.ambito)) return null;
+          if (this.padre.get(m.ambito) === this.g && this.autorDe.get(m.ambito) !== ev.autor) return null;
+        }
         let resta = m.cantidad;
         for (const a of this.cubren(m.ambito)) {
           const hay = ver(m.de, 'P:' + a);
@@ -171,6 +189,7 @@ class Modelo {
       for (const m of ev.movimientos) {
         if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
         if (m.a !== null) this.existe.add(m.a);
+        if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
       }
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);

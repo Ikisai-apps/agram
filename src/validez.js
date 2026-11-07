@@ -33,7 +33,8 @@ import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
-import { estadoDe, puedeAutorizar, poderParaAutorizar, autorizacionesValidas, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
+import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
+import { pesoDe, estadoPorPeso } from './autorizacion.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -156,6 +157,29 @@ function contextoCiclo(eje, libro, ev) {
     ambitosQueCubren: (ambito) => eje.ambitosQueCubren(ambito),
     saldo: (id, k) => saldoEn(libro, id, k),
     reglas: libro.reglas,
+    genesisId: eje.genesisId,
+    autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
+  };
+}
+
+/**
+ * El lector de src/autorizacion.js sobre el libro de justo antes de un
+ * registro: lo que había escrito, emitido y bloqueado en ese momento.
+ */
+function lectorDelLibro(eje, libro) {
+  return {
+    obtener: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
+    genesisId: eje.genesisId,
+    emitido: (k) => libro.series.get(k)?.emitido ?? 0,
+    bloqueadoCon: (k, salida) => {
+      let total = 0;
+      for (const [kb, v] of libro.bloqueados) {
+        const [, clave, s] = JSON.parse(kb);
+        if (clave === k && s === salida) total += v;
+      }
+      return total;
+    },
+    sobre: (id, en) => eje.sobre(id, en).filter((e) => libro.ids.has(e.id)),
   };
 }
 
@@ -513,11 +537,19 @@ function permisoDelLibro(eje, ev, libro) {
   return r;
 }
 
-/** Quién puede autorizar hoy una consolidación (regla V0 del motor). Para una que aún no está en el eje, con el poder sobre su foco. */
+/**
+ * Quién puede autorizar hoy una consolidación: quien tiene P disponible que
+ * cuente (el del registro del recurso), el autor incluido. Para una que aún
+ * no está en el eje, se lee como borrador.
+ */
 function quienesPuedenAutorizar(eje, ev, id, enEje) {
-  return eje.identidades().filter((x) => (enEje
-    ? puedeAutorizar(eje, x, id)
-    : x !== ev.autor && poderParaAutorizar(eje, x, ev.sobre, ev.autor).reduce((s, p) => s + p.cantidad, 0) > 0));
+  return eje.identidades().filter((x) => puedeAutorizar(eje, x, enEje ? id : ev));
+}
+
+/** Texto del peso de una autorización: cuánto P hay bloqueado de cuánto emitido, y el umbral. */
+function textoPeso(peso) {
+  const serie = peso.delEje ? 'P del eje' : 'P:' + String(peso.recurso).slice(0, 8);
+  return peso.bloqueado + ' de ' + peso.emitido + ' ' + serie + ' bloqueado; umbral: ' + peso.umbral.texto;
 }
 
 /** Por qué una autorización no cuenta; vacío si cuenta. */
@@ -525,23 +557,32 @@ function faltasDeAutorizacion(eje, ev) {
   const c = eje.obtener(ev.sobre);
   if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no autoriza nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
-  if (ev.autor === c.autor) return [['falla', 'el autor no se autoriza a sí mismo']];
-  if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro que cuente para autorizar a ' + c.autor + ' (solo cuenta el P sobre un registro del hilo que ' + c.autor + ' no escribió): el escrito existe, pero no cuenta']];
+  const peso = pesoAutorizacion(eje, c.id);
+  const claves = new Set(peso.claves);
+  const bloquea = lista(ev.movimientos).some((m) => m?.token === 'P' && m.estado === 'bloqueo' && m.salida === c.id && m.de === ev.autor && claves.has(claveToken(m)));
+  if (!bloquea) {
+    return [['falla', ev.autor + ' no bloquea P que cuente para autorizar (autorizar es bloquear P sobre el registro del recurso ' + String(peso.recurso).slice(0, 8)
+      + (peso.delEje ? ', que no tiene P propio: el P del eje' : '') + ', con la consolidación como salida): el escrito existe, pero no cuenta']];
+  }
   return [];
 }
 
-/** Por qué una ejecución no cuenta; vacío si cuenta. Exige en su evidencia una autorización válida (docs/MOTOR.md §13.2). */
+/**
+ * Por qué una ejecución no cuenta; vacío si cuenta. Exige que la
+ * consolidación estuviera AUTORIZADA justo antes de ejecutarla: el P
+ * bloqueado por ella en ese momento alcanzaba el umbral (docs/MOTOR.md §13.2).
+ * Después se libera, así que se mira el libro de justo antes.
+ */
 function faltasDeEjecucion(eje, ev) {
   const c = eje.obtener(ev.sobre);
   if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no ejecuta nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor !== c.autor) return [['falla', 'ejecuta el autor de la consolidación (' + c.autor + '), no ' + ev.autor]];
-  const evidencia = lista(ev.contexto?.evidencia);
-  const validas = new Set(autorizacionesValidas(eje, c.id).map((a) => a.id));
-  const faltas = [];
-  if (!evidencia.some((x) => validas.has(x))) faltas.push(['falla', 'su evidencia no incluye una autorización válida: ejecutar exige autorización']);
+  const k = eje.orden.indexOf(ev.id);
+  const peso = pesoDe(lectorDelLibro(eje, libroAntes(eje, k >= 0 ? k : eje.orden.length)), c);
   // Si un id de la evidencia no está en el eje, lo dice la capa 2 (referencias del contexto).
-  return faltas;
+  if (!peso.alcanza) return [['falla', 'al ejecutar no estaba AUTORIZADA (' + textoPeso(peso) + '): ejecutar exige autorización']];
+  return [];
 }
 
 /**
@@ -561,20 +602,21 @@ function permisoDelMotor(eje, ev, id, enEje) {
     const ejecuciones = enFabrica.filter((e) => e.contexto?.fase === 'ejecutado');
     const queCuentan = ejecuciones.filter((e) => faltasDeEjecucion(eje, e).length === 0);
     const quienes = puedenAutorizar.length ? 'pueden autorizar: ' + puedenAutorizar.join(', ') : 'nadie puede autorizar hoy';
-    const porQuien = 'por ' + validas.map((a) => a.autor).join(', ');
+    const peso = enEje ? pesoAutorizacion(eje, id) : null;
+    const porQuien = 'por ' + [...new Set(validas.map((a) => a.autor))].join(', ') + (peso ? ' (' + textoPeso(peso) + ')' : '');
     let texto = estadoMotor;
     if (!ESTADO_MOTOR[estadoMotor]) r.pendiente('estado del motor sin traducir a esta capa: ' + estadoMotor);
     else if (estadoMotor === 'PENDIENTE DE AUTORIZACIÓN') {
       const comoBorrador = enEje ? '' : ' (no está en el eje: se lee como borrador)';
-      texto += comoBorrador + ' · ' + quienes;
-      r.pendiente(estadoMotor + comoBorrador + ' · ' + quienes + ' (regla V0)');
+      texto += comoBorrador + ' · ' + quienes + (peso ? ' · ' + textoPeso(peso) : '');
+      r.pendiente(estadoMotor + comoBorrador + ' · ' + quienes + (peso ? ' · ' + textoPeso(peso) : ''));
       // Lo escrito por quien no puede explica por qué sigue pendiente; no cambia el estado.
       for (const e of noCuentan) r.pendiente('«autorizado» de ' + e.autor + ' que no cuenta: ' + faltasDeAutorizacion(eje, e).map(([, t]) => t).join('; '));
     } else if (estadoMotor === 'AUTORIZADO') {
       texto += ' ' + porQuien + ' · falta ejecutar';
       r.pendiente('AUTORIZADO ' + porQuien + ' · falta ejecutar: consolidar no es ejecutar');
     } else if (estadoMotor === 'EJECUTADO' && !queCuentan.length) {
-      r.falla('el motor da EJECUTADO, pero ninguna ejecución lleva en su evidencia una autorización válida (docs/MOTOR.md §13.2)');
+      r.falla('el motor da EJECUTADO, pero ninguna ejecución se hizo con la consolidación AUTORIZADA: P bloqueado por ella que alcanzara el umbral justo antes (docs/MOTOR.md §13.2)');
     }
     return {
       r,
@@ -592,7 +634,7 @@ function permisoDelMotor(eje, ev, id, enEje) {
     for (const [estado, texto] of faltas) r[estado](texto);
     const c = eje.obtener(ev.sobre);
     const estadoConsolidacion = esConsolidacion(c) ? estadoDe(eje, c.id) : null;
-    const texto = (faltas.length ? fase + ' que no cuenta' : fase === 'autorizado' ? 'autorización que cuenta (regla V0)' : 'ejecución con evidencia de su autorización')
+    const texto = (faltas.length ? fase + ' que no cuenta' : fase === 'autorizado' ? 'autorización que cuenta: bloquea P sobre el registro del recurso' : 'ejecución de una consolidación autorizada')
       + (estadoConsolidacion ? ' · consolidación ' + estadoConsolidacion : '');
     return { r, motor: { fase, consolidacion: c?.id ?? null, estadoConsolidacion, cuenta: faltas.length === 0 }, texto };
   }

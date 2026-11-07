@@ -21,6 +21,7 @@
 
 import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
+import { esConsolidacion, FABRICA } from './autorizacion.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
@@ -74,6 +75,9 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   ambitosQueCubren(ambito) los ámbitos de P que cubren un registro
  *   saldo(id, clave)         saldo disponible
  *   reglas                   2 si el evento se guardó con la versión 2; si no, las de ahora
+ *   genesisId                el id del génesis
+ *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
+ *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -112,6 +116,8 @@ export function reglasDelCiclo(ev, ctx) {
     return validos.some(({ m }) => m.token === 'P' && (m.de === autor || m.a === autor) && cubren.has(m.ambito));
   };
   const tienePoder = (registro) => poderAntes(registro) > 0 || pEnEvento(registro);
+  // Lo emitido de la serie P de un registro antes del evento (sobre el génesis, P:genesis y P:<id> juntas).
+  const emitidoAntes = (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
 
   const tipoAutor = ctx.tipo(autor);
   const emitidas = new Set();
@@ -166,6 +172,16 @@ export function reglasDelCiclo(ev, ctx) {
       // registro; nadie más.
       if (registro.autor !== autor) {
         falla(i, 5, 'P sobre ' + corto(m.ambito) + ' lo acuña solo quien escribió el registro (' + registro.autor + '): ' + autor + ' puede transferir el P que tenga, no acuñarlo');
+        continue;
+      }
+      // R3 (VG, 7-11 noche): P:X es una serie cerrada. Su autor la emite UNA
+      // vez (en su primera emisión; varios movimientos del mismo evento son la
+      // misma); ampliarla después es ejecutar una consolidación sobre X que
+      // esté AUTORIZADA (src/autorizacion.js), y solo entonces vale. Sobre el
+      // génesis, P:genesis (el del génesis) y P:<id del génesis> son la misma
+      // serie: lo que emitió el génesis ya la abrió.
+      if (emitidoAntes(m.ambito) > 0 && !esAmpliacionAutorizada(ev, m.ambito, ctx)) {
+        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3)');
       }
     }
     if (m.token === 'E') {
@@ -176,6 +192,42 @@ export function reglasDelCiclo(ev, ctx) {
       const esta = m.caduca ?? null;
       if (fijada === undefined) caducas.set(k, esta);
       else if (!mismaCaducidad(fijada, esta)) falla(i, 4, 'la serie ' + k + (fijada ? ' caduca el ' + fijada : ' no caduca') + ': una ampliación no cambia su caducidad');
+    }
+  }
+
+  // R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el eje
+  // debita del ámbito exacto y, si no alcanza, de los que lo cubren) o lo
+  // bloquea. Delegar con el ámbito de un registro X tomando de un ámbito más
+  // amplio (estrechar) crea P:X que no viene de la emisión de X, así que:
+  // hacia una serie cerrada (P:X ya emitida) no se estrecha; y hacia la raíz
+  // de un dominio (un registro sobre el génesis, el que decide al autorizar:
+  // src/autorizacion.js) solo estrecha su autor ([X] confirmar VG). Si no,
+  // quien tiene P del eje lo convertiría en P de la raíz antes de que su autor
+  // emita, y el P del génesis contaría donde la raíz tiene P propio. Estrechar
+  // hacia un registro que no es raíz sigue libre: ese P no autoriza nada.
+  const exacto = new Map(); // ámbito → P:ámbito exacto disponible del autor, durante el evento
+  const verExacto = (a) => (exacto.has(a) ? exacto.get(a) : Math.max(0, ctx.saldo(autor, 'P:' + a)));
+  const emitidaAqui = new Set(); // ámbitos de P emitidos en este evento
+  for (const { m, i } of validos) {
+    if (m.token !== 'P') continue;
+    const a = m.ambito;
+    if (m.de === null) {
+      emitidaAqui.add(a);
+      if (m.a === autor) exacto.set(a, verExacto(a) + m.cantidad);
+      continue;
+    }
+    if (m.de !== autor) continue;
+    if (m.estado === 'liberacion') { exacto.set(a, verExacto(a) + m.cantidad); continue; }
+    const hay = verExacto(a);
+    exacto.set(a, Math.max(0, hay - m.cantidad));
+    if (m.estado === undefined && m.a === autor) exacto.set(a, exacto.get(a) + m.cantidad);
+    if (m.estado !== undefined || hay >= m.cantidad || a === AMBITO_GENESIS || a === ctx.genesisId) continue;
+    const registro = ctx.registro(a);
+    if (!registro) continue; // el ámbito desconocido lo rechaza el eje
+    if (emitidoAntes(a) > 0 || emitidaAqui.has(a)) {
+      falla(i, 5, 'P:' + corto(a) + ' es una serie cerrada: se delega el P:' + corto(a) + ' que se tiene (' + hay + '); estrecharlo desde un ámbito más amplio la ampliaría (R3)');
+    } else if (registro.sobre === ctx.genesisId && registro.autor !== autor) {
+      falla(i, 5, 'estrechar P hacia ' + corto(a) + ', la raíz de un dominio, es solo de quien la escribió (' + registro.autor + '): ' + autor + ' delega el P que tiene con su ámbito (R3)');
     }
   }
 
@@ -197,6 +249,25 @@ export function reglasDelCiclo(ev, ctx) {
     }
   }
   return errores;
+}
+
+/** Las claves de la serie P de un ámbito: sobre el génesis, P:genesis y P:<id del génesis>, que son la misma. */
+function clavesDeSerieP(ambito, genesisId) {
+  return ambito === AMBITO_GENESIS || ambito === genesisId ? ['P:' + AMBITO_GENESIS, ...(genesisId ? ['P:' + genesisId] : [])] : ['P:' + ambito];
+}
+
+/**
+ * ¿Es `ev` la ejecución de una consolidación sobre el registro `ambito` que
+ * está AUTORIZADA justo antes (y aún sin ejecutar)? Es lo único que amplía
+ * una serie P:X ya emitida (R3). La ejecuta su autor (ejecutar en el motor;
+ * aquí, el autor de la consolidación, que ha de ser quien emite: el autor de X).
+ */
+function esAmpliacionAutorizada(ev, ambito, ctx) {
+  const c = ctx.registro(ev.sobre);
+  if (!esConsolidacion(c) || c.autor !== ev.autor || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return false;
+  const sobreElGenesis = ambito === AMBITO_GENESIS || ambito === ctx.genesisId;
+  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return false;
+  return ctx.autorizada?.(c.id) === true;
 }
 
 /** Las reglas de emisión de la versión 2, para los eventos guardados con ella. */

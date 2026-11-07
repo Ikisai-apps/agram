@@ -20,8 +20,9 @@
 // - «ejecutar» solo en una consolidación autorizada y para su autor (la
 //   regla V0 del motor: ejecuta el autor). Al ejecutar, el paso se consolida
 //   con animación al rehacer la vista, y el registro aparece en los hilos.
-// - además, los que ya ofrece la fábrica: autorizar (quien tiene P y no es
-//   el autor) y consolidar la propuesta; y «escribir aquí» para una
+// - además, los que ya ofrece la fábrica: autorizar (bloquear P sobre el
+//   registro del recurso, hasta el umbral del dueño; VG, 7-11 noche) y
+//   consolidar la propuesta; y «escribir aquí» para una
 //   posición sin desarrollar (lleva a Pointed con esa posición elegida).
 //
 // [X] decidir VG (abierto en este mundo):
@@ -247,7 +248,7 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     const ejecutar = !pendiente && identidad === c.autor;
     const autorizar = pendiente && Boolean(identidad) && motor.puedeAutorizar(eje, identidad, c.id);
     const motivo = pendiente
-      ? 'falta autorizar: autoriza quien no es su autor (' + c.autor + ') y tiene P sobre un registro del hilo que ' + c.autor + ' no escribió'
+      ? 'falta autorizar: bloquear P sobre el registro del recurso hasta ' + umbralTexto(eje, c.id) + ' (el autor cuenta como cualquiera)'
       : ejecutar ? '' : 'ejecuta su autor: ' + c.autor;
     pasos.push({
       clave: tipo + ':' + c.id, tipo, evento: c.id, autor: c.autor, t: c.t, estado: c.estado, titulo,
@@ -264,6 +265,12 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
 }
 
 // ---------- previsualizar: la operación real sobre una copia ----------
+
+/** El umbral de una consolidación en palabras, con lo que lleva bloqueado: «más de la mitad (0 de 10)». Lo calcula el motor. */
+function umbralTexto(eje, consolidacion) {
+  const p = motor.pesoAutorizacion(eje, consolidacion);
+  return p.umbral.texto + ' (' + p.bloqueado + ' de ' + p.emitido + ')';
+}
 
 /** Copia del eje, reconstruida y validada evento a evento (como al cargar). Lo que se escriba en ella no toca el original. */
 export async function copiar(eje) {

@@ -110,8 +110,8 @@ test('BTML-02b el evento lleva un metadato propio de autoridad cuando aplica', a
   const c = await consolidar(eje, { autor: 'ana', foco: id, t: T0, elecciones: { 1: 'algo' } });
   const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
   assert.ok(a.autoridad ?? a.contexto.autoridad);
-  // En los metadatos, no en el payload: la regla y el poder en que se apoya.
-  assert.deepEqual(a.contexto.autoridad.poderes, [{ ambito: 'genesis', cantidad: 5 }]);
+  // En los metadatos, no en el payload: la regla y el P que bloquea (VG, 7-11 noche: autorizar = bloquear P).
+  assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 5 }]);
   assert.equal(JSON.stringify(a.payload).includes('genesis'), false);
   // Donde no aplica, no aparece: ni en un registro cualquiera ni en la consolidación.
   assert.equal(c.contexto.autoridad, undefined);

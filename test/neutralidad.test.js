@@ -62,7 +62,7 @@ function repartir(g, n, k) {
  * demostración, sin claves (R9): lo que se compara aquí son cantidades, no
  * firmas. NEU-08 construye el suyo con claves.
  */
-async function mundo(personas, { tercero = 'C', tipos = {} } = {}) {
+async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = 'normas' } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
@@ -77,7 +77,7 @@ async function mundo(personas, { tercero = 'C', tipos = {} } = {}) {
   });
   const casa = await eje.escribir({
     autor: tercero, sobre: eje.genesisId, t: T0, movimientos: [minuto(tercero)],
-    payload: ['casa', ['plaza', 30, 4], 'normas', 'anfitrión', 'ficha', 'estructura', 'pasado', 'futuro', 'medidas', 'camino'],
+    payload: ['casa', ['plaza', 30, 4], criterio, 'anfitrión', 'ficha', 'estructura', 'pasado', 'futuro', 'medidas', 'camino'],
   });
   // Emisión escalonada (VG, 7-11 noche: T + R + P + E): C gasta T, pone en juego un R:C ante g, acuña P sobre
   // su casa y emite E sobre ella. Es igual en todos los mundos, así que no cambia lo que se compara.
@@ -85,7 +85,7 @@ async function mundo(personas, { tercero = 'C', tipos = {} } = {}) {
     autor: tercero, sobre: casa.id, t: T0,
     movimientos: [minuto(tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero }, { token: 'R', emisor: tercero, cantidad: 1, de: tercero, a: 'g' },
       // Sus EUR admiten fracciones (céntimos): divisible en la primera emisión (R2, VG 7-11 noche).
-      { token: 'P', ambito: casa.id, cantidad: 1, de: null, a: tercero }, { ...eur(tercero, 1e6, null, tercero), divisible: true }],
+      { token: 'P', ambito: casa.id, cantidad: pX, de: null, a: tercero }, { ...eur(tercero, 1e6, null, tercero), divisible: true }],
     payload: 'emisión de ' + tercero,
   });
   return { eje, X: casa.id };
@@ -175,14 +175,15 @@ test('neutral: delegar P reparte y no copia; dividir el P recibido no cambia lo 
     const k = g.int(2, 6);
     const p = g.int(1, 9);
     const aC = g.int(0, p);
-    const uno = await mundo(['A']);
-    await uno.eje.escribir({ autor: 'g', sobre: uno.X, t: T0, movimientos: [minuto('g'), { token: 'P', ambito: uno.X, cantidad: p, de: 'g', a: 'A' }], payload: unico('delega') });
+    // R3 (VG, 7-11 noche): P:X es una serie cerrada; quien la reparte es su dueño, C, que emitió 10.
+    const uno = await mundo(['A'], { pX: 10 });
+    await uno.eje.escribir({ autor: 'C', sobre: uno.X, t: T0, movimientos: [minuto('C'), { token: 'P', ambito: uno.X, cantidad: p, de: 'C', a: 'A' }], payload: unico('delega') });
     if (aC) await uno.eje.escribir({ autor: 'A', sobre: uno.X, t: T0, movimientos: [minuto('A'), { token: 'P', ambito: uno.X, cantidad: aC, de: 'A', a: 'C' }], payload: unico('delega') });
 
     const ids = nombres('A', k);
-    const div = await mundo(ids);
+    const div = await mundo(ids, { pX: 10 });
     const reparto = repartir(g, p, k);
-    await div.eje.escribir({ autor: 'g', sobre: div.X, t: T0, movimientos: [minuto('g'), ...reparto.map((c, i) => [c, ids[i]]).filter(([c]) => c > 0).map(([c, a]) => ({ token: 'P', ambito: div.X, cantidad: c, de: 'g', a }))], payload: unico('delega') });
+    await div.eje.escribir({ autor: 'C', sobre: div.X, t: T0, movimientos: [minuto('C'), ...reparto.map((c, i) => [c, ids[i]]).filter(([c]) => c > 0).map(([c, a]) => ({ token: 'P', ambito: div.X, cantidad: c, de: 'C', a }))], payload: unico('delega') });
     let resta = aC;
     for (const id of ids) {
       const c = Math.min(resta, div.eje.saldo(id, 'P:' + div.X));
@@ -192,7 +193,8 @@ test('neutral: delegar P reparte y no copia; dividir el P recibido no cambia lo 
     const msg = 'caso ' + caso;
     assert.equal(div.eje.poderSobre('C', div.X), uno.eje.poderSobre('C', uno.X), msg + ': el P que llega al tercero');
     assert.equal(ids.reduce((s, id) => s + div.eje.poderSobre(id, div.X), 0), uno.eje.poderSobre('A', uno.X), msg + ': el P de la coalición');
-    assert.equal(div.eje.saldo('g', 'P:genesis'), uno.eje.saldo('g', 'P:genesis'), msg + ': el P del génesis');
+    assert.equal(div.eje.saldo('C', 'P:' + div.X), uno.eje.saldo('C', 'P:' + uno.X), msg + ': el P que conserva el dueño');
+    assert.equal(div.eje.serie('P:' + div.X).emitido, 10, msg + ': lo emitido no crece al repartir');
   }
 });
 
@@ -225,31 +227,73 @@ async function consolidacionDeA(personas) {
   return { ...m, c: c.id };
 }
 
-test('NEU-01: con una segunda identidad, A se autoriza su propia consolidación; sola no puede',
-  { skip: 'NEU-01: concesión «autorizar por nombre y por umbral P > 0» (src/motor.js:puedeAutorizar, REGLA_AUTORIZAR V0; mapa §14 [D] «ejecutar exige autorización de quien tiene poder y no es el autor»). Hoy A sola queda PENDIENTE y con A2 (1e-9 de P delegado por A) queda AUTORIZADO: dividirse da autonomía. [X] decidir VG: autorizar por P bloqueado contra un umbral, contando el P del autor como cualquier otro (recomendación R5 de la nota)' },
+// NEU-01 y NEU-02 ya no se saltan (VG, 7-11 noche: «autorizar = bloquear P con el umbral del dueño», R5 de la nota):
+// autorizar es bloquear P sobre el registro del recurso X, y AUTORIZADO es que lo bloqueado, de quien sea, alcance el
+// umbral sobre el P:X emitido. Ni el nombre de quien autoriza ni cuántos son cuentan.
+test('NEU-01: con una segunda identidad, A no se autoriza su propia consolidación; sola tampoco',
   async () => {
     const uno = await consolidacionDeA(['A']);
-    // Sola, A no puede autorizarse.
-    await assert.rejects(motor.autorizar(uno.eje, { autorizante: 'A', consolidacion: uno.c, t: T0 }), /no se autoriza a sí mismo/);
+    // Sola, A no tiene P sobre la casa de C (el registro del recurso, con P propio: su P del eje no cuenta).
+    await assert.rejects(motor.autorizar(uno.eje, { autorizante: 'A', consolidacion: uno.c, t: T0 }), /A no tiene P que cuente para autorizar/);
 
     const dos = await consolidacionDeA(['A', 'A2']);
     await dos.eje.escribir({ autor: 'A', sobre: dos.X, t: T0, movimientos: [minuto('A'), { token: 'P', ambito: 'genesis', cantidad: 1e-9, de: 'A', a: 'A2' }], payload: 'polvo' });
     if (motor.puedeAutorizar(dos.eje, 'A2', dos.c)) await motor.autorizar(dos.eje, { autorizante: 'A2', consolidacion: dos.c, t: T0 });
     assert.equal(motor.estadoDe(dos.eje, dos.c), motor.estadoDe(uno.eje, uno.c), 'dividirse no debe cambiar el estado de la consolidación');
+    assert.equal(motor.estadoDe(dos.eje, dos.c), 'PENDIENTE DE AUTORIZACIÓN');
   });
 
 test('NEU-02: repartir el mismo P entre más identidades no da más autorizantes',
-  { skip: 'NEU-02: concesión «umbral binario de P» (src/motor.js:puedeAutorizar: P > 0 basta, sin cantidad ni cuórum, y autorizar no bloquea P). Con 1 de P en una identidad hay 1 autorizante válido; repartido en 5 × 0,2 hay 5, y 1e-9 autoriza igual que 1. [X] decidir VG: peso = P bloqueado (recomendación R5)' },
   async () => {
-    const autorizantes = async (k) => {
-      const m = await consolidacionDeA(['A', ...nombres('B', k)]);
+    // El peso es la suma bloqueada: 1 de P:X en una identidad pesa lo mismo que 5 × 0,2, y 1e-9 no autoriza nada.
+    const estado = async (k) => {
       const ids = nombres('B', k);
-      await m.eje.escribir({ autor: 'g', sobre: m.X, t: T0, movimientos: [minuto('g'), ...ids.map((b) => ({ token: 'P', ambito: m.X, cantidad: 1 / k, de: 'g', a: b }))], payload: unico('delega') });
-      // Peso total de quienes pueden autorizar, contado como «votos»: hoy, uno por cabeza.
-      return ids.filter((b) => motor.puedeAutorizar(m.eje, b, m.c)).length;
+      const m = await consolidacionDeA(['A', ...ids]);
+      await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((b) => ({ token: 'P', ambito: m.X, cantidad: 1 / k, de: 'C', a: b }))], payload: unico('delega') });
+      for (const b of ids) {
+        if (motor.estadoDe(m.eje, m.c) === 'PENDIENTE DE AUTORIZACIÓN') await motor.autorizar(m.eje, { autorizante: b, consolidacion: m.c, t: T0 });
+      }
+      return motor.estadoDe(m.eje, m.c);
     };
-    assert.equal(await autorizantes(5), await autorizantes(1));
+    assert.equal(await estado(5), await estado(1));
+    assert.equal(await estado(1), 'AUTORIZADO');
+    // Con polvo no se autoriza: 1e-9 de 1 no pasa de la mitad.
+    const polvo = await consolidacionDeA(['A', 'B']);
+    await polvo.eje.escribir({ autor: 'C', sobre: polvo.X, t: T0, movimientos: [minuto('C'), { token: 'P', ambito: polvo.X, cantidad: 1e-9, de: 'C', a: 'B' }], payload: 'polvo' });
+    await motor.autorizar(polvo.eje, { autorizante: 'B', consolidacion: polvo.c, t: T0 });
+    assert.equal(motor.estadoDe(polvo.eje, polvo.c), 'PENDIENTE DE AUTORIZACIÓN');
   });
+
+test('propiedad (NEU-02): repartir el mismo P:X entre k identidades no cambia si una consolidación queda AUTORIZADA', async () => {
+  const g = prng(SEMILLA + 3);
+  const criterios = ['normas', 'umbral 2/3', 'umbral 1/4', 'umbral 0.5'];
+  for (let caso = 0; caso < CASOS / 2; caso++) {
+    const n = g.int(2, 20); // P:X que emite C, dueño de la casa
+    const b = g.int(0, n); // lo que la coalición tiene y bloquea por la consolidación
+    const k = g.int(2, 6);
+    const criterio = g.pick(criterios);
+    const reparto = repartir(g, b, k);
+    // El mismo guion con una identidad o con k; la consolidación es de la propia coalición (el autor cuenta como cualquiera).
+    const estado = async (ids, partes) => {
+      const m = await mundo(ids, { pX: n, criterio });
+      const delegar = partes.map((c, i) => [c, ids[i]]).filter(([c]) => c > 0);
+      if (delegar.length) await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...delegar.map(([c, a]) => ({ token: 'P', ambito: m.X, cantidad: c, de: 'C', a }))], payload: unico('delega') });
+      const c = await motor.consolidar(m.eje, { autor: ids[0], foco: m.X, t: T0, elecciones: { 1: 'reserva', 2: 'sin normas', 3: ids[0], 4: 'pagar 30' } });
+      // Cada una bloquea todo lo que tiene, a mano: sin pasar por la puerta de autorizar(), que para al llegar al umbral.
+      for (const [cantidad, id] of delegar) {
+        await m.eje.escribir({ autor: id, sobre: c.id, en: motor.FABRICA, t: T0, payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' },
+          movimientos: [minuto(id), { token: 'P', ambito: m.X, cantidad, de: id, a: id, estado: 'bloqueo', salida: c.id }] });
+      }
+      return motor.estadoDe(m.eje, c.id);
+    };
+    const uno = await estado(['A'], [b]);
+    const dividido = await estado(nombres('A', k), reparto);
+    const esperado = criterio === 'normas' ? 2 * b > n : criterio === 'umbral 2/3' ? 3 * b >= 2 * n : criterio === 'umbral 1/4' ? 4 * b >= n : 2 * b >= n;
+    const msg = 'caso ' + caso + ' (n=' + n + ', b=' + b + ', k=' + k + ', ' + criterio + ')';
+    assert.equal(dividido, uno, msg);
+    assert.equal(uno, esperado ? 'AUTORIZADO' : 'PENDIENTE DE AUTORIZACIÓN', msg);
+  }
+});
 
 // NEU-03 ya no se salta: el ciclo E/P/R/T (PR #62, VG 7-11 noche: «emite siempre una persona») lo implementa
 // (src/tokens.js: EMITEN = ['persona']; src/ciclo.js).
@@ -357,9 +401,13 @@ test('neutral (R2): partir el recurso en subregistros no esquiva el tope del anc
     const capacidad = g.int(1, 6);
     const pH = fuentes.length;
     const H = await casaDe(m, { capacidad, pH, fuentes, partes: fuentes.map(() => 1) });
-    // Además, g les delega P:H estrechado de su P:genesis: cuenta como P:H bloqueado pero no como emitido,
-    // así que la suma de las cuotas pasa de la capacidad y lo que la para es el tope.
-    await m.eje.escribir({ autor: 'g', sobre: H, t: T0, payload: unico('estrecha'), movimientos: [minuto('g'), ...fuentes.map((f) => ({ token: 'P', ambito: H, cantidad: pH, de: 'g', a: f }))] });
+    // Antes, g les delegaba además P:H estrechado de su P:genesis (contaba como P:H bloqueado pero no como emitido, y la
+    // suma de las cuotas pasaba de la capacidad). Con R3 (VG, 7-11 noche: P:X es una serie cerrada) ya no cabe: estrechar
+    // hacia una serie ya emitida la ampliaría. Lo que se prueba sigue igual: ningún subregistro esquiva el tope de H.
+    await assert.rejects(
+      m.eje.escribir({ autor: 'g', sobre: H, t: T0, payload: unico('estrecha'), movimientos: [minuto('g'), ...fuentes.map((f) => ({ token: 'P', ambito: H, cantidad: pH, de: 'g', a: f }))] }),
+      /es una serie cerrada: se delega el P:[0-9a-f]{8} que se tiene \(0\); estrecharlo desde un ámbito más amplio la ampliaría \(R3\)/,
+    );
     // Cada fuente escribe dentro de H un subregistro suyo, con capacidad propia (a veces mucho mayor) o sin ella, y se acuña todo su P.
     const subs = [];
     for (const f of fuentes) {
