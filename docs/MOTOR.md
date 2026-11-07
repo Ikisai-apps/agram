@@ -89,20 +89,19 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     dd4ab35f camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d173ab58 · exacto
-  propio     dd4ab35f camino [1,0] visible [1,0] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
-  referencia d173ab58 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta ensalada · exacto
-  escrito    233c9da6 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
-2 2000000000 3 candidatos
-  propio     dd4ab35f camino [2] visible [2,0] · RESUELTO · [1 posiciones] · etiqueta → d173ab58 · exacto
-  propio     dd4ab35f camino [2,0] visible [2,0] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
-  referencia d173ab58 camino [2] visible [2,0] · RESUELTO · [2 posiciones] · etiqueta sin gluten · exacto
+  propio     1aca7eb8 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d173ab58 · exacto
+  propio     1aca7eb8 camino [1,0] visible [1,0] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
+  referencia d173ab58 camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
+  escrito    b391e6b4 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
+2 2000000000 2 candidatos
+  propio     1aca7eb8 camino [2] visible [2] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
+  referencia d173ab58 camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     dd4ab35f camino [3] visible [3,0] · RESUELTO · [2 posiciones] · etiqueta huesped · exacto
-  propio     dd4ab35f camino [3,0] visible [3,0] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     1aca7eb8 camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
+  propio     1aca7eb8 camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
 4 4000000000 2 candidatos
-  propio     dd4ab35f camino [4] visible [4,0] · RESUELTO · [2 posiciones] · etiqueta pagar · exacto
-  propio     dd4ab35f camino [4,0] visible [4,0] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     1aca7eb8 camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
+  propio     1aca7eb8 camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
@@ -152,9 +151,9 @@ console.log(estadoDe(eje, cons.id), importe.cantidad, importe.unidad, '· EUR co
 
 ```text
 {"Q":"descubrir","B":"proponer","C":"consolidar"}
-{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"233c9da6","dir":"3000000000"}}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"b391e6b4","dir":"3000000000"}}
 ["1:formula","2:formula","3:foco"] []
-["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"233c9da6","dir":"3000000000"}] · texto
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"b391e6b4","dir":"3000000000"}] · texto
 EJECUTADO 14 EUR · EUR cocina 26 huesped 34
 ```
 
@@ -218,8 +217,8 @@ console.log(estadoDe(eje, c.id));
 
 ```text
 true true huesped
-["Pago del menú",{"ref":"233c9da6","dir":"0000000000"},"sin lactosa",{"ref":"dd4ab35f","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fase":"consolidado","fuentes":["233c9da6"],"encaje":[{"posicion":1,"evento":"233c9da6","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
+["Pago del menú",{"ref":"b391e6b4","dir":"0000000000"},"sin lactosa",{"ref":"1aca7eb8","dir":"3000000000"},"pagar 14 EUR"]
+{"motor":"fabrica","fase":"consolidado","fuentes":["b391e6b4"],"encaje":[{"posicion":1,"evento":"b391e6b4","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 PENDIENTE DE AUTORIZACIÓN
 ```
@@ -267,7 +266,7 @@ fuente desconocida en 1
 mapped escribe como mucho 333 posiciones; este registro tiene 1001
 mapped escribe como mucho 333 posiciones; este registro tiene 401
 evento rechazado: foco desconocido: nadie
-ok ["Consolidación",["dos","menús"],{"ref":"dd4ab35f","dir":"2000000000"},{"ref":"d173ab58","dir":"2000000000"}] en 4000000000
+ok ["Consolidación",["dos","menús"],{"ref":"1aca7eb8","dir":"2000000000"},{"ref":"d173ab58","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
 
@@ -408,7 +407,7 @@ escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
 true 4000000000 "==vale" BQL lo lee como "=vale" {"motor":"fabrica","fase":"autorizado","autoridad":{"regla":"V0 provisional hasta AARPIA: autoriza quien no es el autor y tiene P > 0 sobre un registro del hilo que el autor no escribió ([X] confirmar VG); ejecuta el autor","poderes":[{"ambito":"genesis","cantidad":10}]},"modo":"pointed"} 1 casa
 escritos en la fábrica 2 · válidos 1 · AUTORIZADO
 ya está autorizado
-no es una consolidación: dd4ab35f
+no es una consolidación: 1aca7eb8
 ```
 
 ## 5. Ejecutar
@@ -461,13 +460,13 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"05aa2b96"},{"ref":"9e602de2"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["05aa2b96","9e602de2"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+true 4000000000 ["Pagado",{"ref":"338fda02"},{"ref":"2817ddab"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["338fda02","2817ddab"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
 cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 472
-EJECUTADO · hilo: 8df7f157 → 05aa2b96 → dd4ab35f → d173ab58 → 06b890b5 → 49ee3fca
+EJECUTADO · hilo: b4c3921d → 338fda02 → 1aca7eb8 → d173ab58 → 06b890b5 → 49ee3fca
 evidencia: true true
 ya ejecutado
-[{"id":"05aa2b96","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
+[{"id":"338fda02","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
 ```
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
@@ -748,11 +747,11 @@ referencia desconocida: ffff
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa",{"ref":"dd4ab35f","dir":"3000000000"},["pagado","servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"1aca7eb8","dir":"0000000000"},{"ref":"1aca7eb8","dir":"1000000000"},"sin lactosa",{"ref":"1aca7eb8","dir":"3000000000"},[["pagado"],"servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"dd4ab35f","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+con camino [1]: {"payload":[{"ref":"1aca7eb8","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
-una línea «d.d» es texto: [{"ref":"dd4ab35f","dir":"0000000000"},"1.5 kg de harina"]
+una línea «d.d» es texto: [{"ref":"1aca7eb8","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
@@ -776,7 +775,7 @@ const pagar = desdeMapped(eje, [{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }]
 console.log('pagar 1.2.4:', corto(pagar));
 const lineas = []; lineas[1] = ['@:2.4 pagar 12 EUR']; lineas[4] = ['pagado', '@:0.1 con tarjeta'];
 const conMarca = desdeMapped(eje, lineas, compra.id);
-console.log('con marca: [4] =', corto(conMarca.payload[4]), '· anclados', corto(conMarca.anclados.map((a) => a.celda.join('.') + ' en ' + a.en)));
+console.log('con marca: [4] =', corto(conMarca.payload?.[4] ?? null), '· anclados', corto(conMarca.anclados.map((a) => a.celda.join('.') + ' en ' + a.en)));
 for (const c of [[1, 2, 4], [2, 0, 0], [7, 0, 0], [1, 5, 0]]) console.log('ubicar', c.join('.'), corto(ubicar(eje, compra.id, c)));
 for (const modo of ['mapped', 'pointed']) console.log('ubicar 2.0.0 en', modo, corto(ubicar(eje, compra.id, [2, 0, 0], { modo })));
 const mezcla = []; mezcla[2] = ['sin lactosa']; mezcla[7] = ['repetir el sábado'];
@@ -798,22 +797,22 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"dd4ab35f","dir":"0000000000"},[{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"1aca7eb8","dir":"0000000000"},[[{"ref":"1aca7eb8","dir":"1000000000"}],{"ref":"1aca7eb8","dir":"1100000000"},{"ref":"1aca7eb8","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
-con marca: [4] = [{"ref":"dd4ab35f","dir":"4000000000"},"pagado"] · anclados ["1.2.4 en 1240000000","4.0.1 en 4010000000"]
+con marca: [4] = null · anclados ["1.2.4 en 1240000000","4.0.1 en 4010000000","4.1.0 en 4100000000"]
 ubicar 1.2.4 {"ubicacion":"anclado","en":"1240000000","dir":"1240000000","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}
 ubicar 2.0.0 {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan":["5","6"]}
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 2.0.0 en pointed {"ubicacion":"anclado","en":"2000000000","dir":"2000000000","faltan":[],"motivo":"pointed escribe como mucho 1 posiciones; dentro, el registro tiene 3"}
-salida {"payload":[{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
+salida {"payload":[{"ref":"1aca7eb8","dir":"0000000000"},{"ref":"1aca7eb8","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo"}
+registro en 0000000000 [{"ref":"1aca7eb8","dir":"0000000000"},{"ref":"1aca7eb8","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo"}
 celda 9.0.0 → 9000000000 "volver"
-celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
+celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"1aca7eb8","dir":"1000000000"},{"ref":"1aca7eb8","dir":"1100000000"},{"ref":"1aca7eb8","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
 celda 3.0.0 bajo [1] en Pointed → 1300000000 "flan" · 1 minuto
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
@@ -860,9 +859,9 @@ celda 2.4.0 bajo [1] → anclado en 1240000000 · cae en 1240000000 · clase 0 (
 celda 0.1.0 bajo [1] → anclado en 1010000000 · cae en 1010000000 · clase 0 (desde la raíz 1)
 celda 7.3.4 bajo [1] → anclado en 1734000000 · cae en 1734000000 · clase 4 (desde la raíz 3)
 celda 1.0.4 bajo [1,2] → anclado en 1210400000 · cae en 1210400000 · clase 4 (desde la raíz 1)
-salida bajo [1]: registro en 1000000000 [{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
+salida bajo [1]: registro en 1000000000 [{"ref":"1aca7eb8","dir":"1000000000"},{"ref":"1aca7eb8","dir":"1100000000"},{"ref":"1aca7eb8","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
 génesis (terminal): [{"ref":"49ee3fca","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
-bajo [1, 2] (el precio, terminal): [{"ref":"dd4ab35f","dir":"1200000000"},"algo"] · la 0 alcanza "EUR 12"
+bajo [1, 2] (el precio, terminal): [{"ref":"1aca7eb8","dir":"1200000000"},"algo"] · la 0 alcanza "EUR 12"
 ```
 
 Lectura: pagar el precio desde la raíz es la celda `1.2.4` (clase 4); la misma dirección `1240000000`, leída bajo `[1]`, es la celda `2.4.0`, de clase 0. Bajo `[1]`, `@:0.4 pagar 12 EUR` en la posición 2 es la celda `2.0.4`: cae en `1204000000` y su clase, leída desde `[1]`, es 4 (desde la raíz sería 0). El génesis y el precio son terminales: escribir en su posición 1 hereda la 0, cuya dirección alcanza el terminal (como en `main`; **[X] decidir VG**, §7.2).
@@ -978,13 +977,13 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      5eed2389 huesped  2026-11-07T14:30:00Z   -1800 hora
-  pasado registro      233c9da6 cocina   2026-11-07T14:10:00Z   -3000 hora
+  pasado registro      0642ba4e huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      b391e6b4 cocina   2026-11-07T14:10:00Z   -3000 hora
   pasado registro      d173ab58 cocina   2026-11-07T09:00:00Z  -21600 dia
   pasado registro      06b890b5 casa     2026-11-07T09:00:00Z  -21600 dia
   pasado registro      49ee3fca casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion 5eed2389 huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
-  futuro proyeccion    fd9032b5 huesped  2026-11-13T13:30:00Z  513000 semana 
+  futuro consolidacion 0642ba4e huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
+  futuro proyeccion    48231961 huesped  2026-11-13T13:30:00Z  513000 semana
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
@@ -1162,19 +1161,19 @@ console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.i
 ```
 
 ```text
-pedido [{"ref":"46ff5dd9","dir":"0000000000"},[{"ref":"46ff5dd9","dir":"1100000000"},1],{"ref":"46ff5dd9","dir":"2000000000"},["huesped","cocina"]] · heredadas [0,2] · coste 6 min
-posición 1 propio → 46ff5dd9 (exacto) · propio → 46ff5dd9 (exacto) · referencia guiso (reducir)
-posición 2 propio → 46ff5dd9 (exacto) · referencia sin gluten (exacto)
-posición 3 propio huesped (exacto) · propio huesped (exacto)
+pedido [{"ref":"46ff5dd9","dir":"0000000000"},[[{"ref":"46ff5dd9","dir":"1100000000"}],1],{"ref":"46ff5dd9","dir":"2000000000"},[["huesped"],"cocina"]] · heredadas [0,2] · coste 6 min
+posición 1 propio [2 posiciones] (exacto) · propio → 46ff5dd9 (exacto) · referencia guiso (reducir)
+posición 2 propio → 46ff5dd9 (exacto) · referencia sin gluten · vegetariano (exacto)
+posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
-consolidación ["Pedido del guiso",{"ref":"46ff5dd9","dir":"1100000000"},"sin lactosa",{"ref":"0f4572a1","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
+consolidación ["Pedido del guiso",{"ref":"46ff5dd9","dir":"1100000000"},"sin lactosa",{"ref":"fa931475","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
 encaje guardado [{"posicion":1,"evento":"46ff5dd9","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 puede autorizar casa=true cocina=true huesped=false
 rechazo: el autor no se autoriza a sí mismo
 autorización "==sale en 10 minutos" · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"c0f3626f"},{"ref":"8dea7eb1"}] · evidencia ["c0f3626f","8dea7eb1"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"e29ba4d3"},{"ref":"85b59d3a"}] · evidencia ["e29ba4d3","85b59d3a"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
-consolidaciones del pedido [{"id":"c0f3626f","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
+consolidaciones del pedido [{"id":"e29ba4d3","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 8 entre hermanos: sin base escrita · n 2 · terminales: foco 6 caja 5 · debajo 1 · encima 0
 restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lactosa

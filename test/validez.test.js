@@ -35,6 +35,7 @@ test('la compra del ejemplo: cinco capas independientes, cada una con estado y m
   assert.equal(v.forma, v.capas[0]);
   assert.equal(v.permiso, v.capas[4]);
   // Señales de cada capa.
+  // Por hojas (VG, 7-11 noche): compra 1.0 = [menú] es una lista; el índice de un ocupante no es una profundidad.
   assert.equal(v.forma.profundidad, 2);
   assert.equal(v.interpretacion.resumen, 'sin fórmulas · 2 de 2 referencias resuelven');
   assert.deepEqual(v.interpretacion.referencias.map((r) => r.estado), ['ok', 'ok']); // las referencias son de la capa 2
@@ -322,7 +323,8 @@ test('la época está fuera del dato: el mismo registro, legible bajo la época 
 test('más de diez profundidades: no es fallo de forma; la capa 2 da lo mismo que BQL en main', async () => {
   const { eje, compra } = await ejemploCompra();
   let hondo = 'hoja';
-  for (let i = 0; i < 11; i++) hondo = [hondo];
+  // VG, 7-11 noche: por hojas. El array más hondo, ['hoja'], es una lista y no añade profundidad: hacen falta doce.
+  for (let i = 0; i < 12; i++) hondo = [hondo];
   const ev = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina')], payload: hondo });
   const v = await validez(eje, ev.id);
   // Auditoría l.299: «El límite es de posicionamiento por foco, no de forma». [X] docs/VALIDEZ.md §8.

@@ -66,7 +66,9 @@ export function precioDe(k) {
  * La disponibilidad (mapa §12: «en la plaza, dentro de los recursos de la
  * disponibilidad (1.k)»): un elemento por habitación, colgado del dominio
  * Alojamiento. 0 su nombre; 1 sus recursos, que son sus plazas (1.k), una
- * subdécupla por plaza [nombre, precio por noche, capacidad]; 2 criterios;
+ * subdécupla por plaza [[nombre], precio por noche, capacidad] (por hojas,
+ * VG 7-11 noche: el nombre va envuelto para que la plaza sea décupla y no
+ * una lista de tres ocupantes); 2 criterios, una lista;
  * 3 quién atiende; 4 la acción que ofrece. La capacidad va en el criterio de
  * la plaza (su posición 2: cuántas reservas caben a la vez; [X] en
  * motor.CRITERIO_CAPACIDAD) y dice cuántos tokens emite la casa por noche.
@@ -76,12 +78,12 @@ export function precioDe(k) {
 export const HABITACION = Object.freeze([
   'Habitación del jardín', // 0 representación
   [
-    ['cama de matrimonio', 'EUR 80', 1], // 1.0 plaza: una pareja por noche
-    ['cama individual', 'EUR 55', 1], // 1.1 plaza: una persona por noche
-    ['litera', 'EUR 25', 2], // 1.2 plaza: dos camas, dos reservas a la vez
+    [['cama de matrimonio'], 'EUR 80', 1], // 1.0 plaza: una pareja por noche
+    [['cama individual'], 'EUR 55', 1], // 1.1 plaza: una persona por noche
+    [['litera'], 'EUR 25', 2], // 1.2 plaza: dos camas, dos reservas a la vez
   ], // 1 recursos: las plazas
-  ['sin humo', 'con desayuno'], // 2 criterios
-  ['recepcion'], // 3 comunicación: quién atiende
+  ['sin humo', 'con desayuno'], // 2 criterios: una lista de dos ocupantes
+  ['recepcion'], // 3 comunicación: quién atiende (una lista de uno)
   'reservar', // 4 fábrica: la acción que se ofrece
 ]);
 
@@ -265,17 +267,17 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
   const n = nochesEntre(entrada, salida).length;
   const plazaElegida = habitacion.payload[1][k];
   const payload = [
-    nombre ?? 'Reserva de la ' + plazaElegida[0] + ', ' + n + ' noches', // 0 representación
+    nombre ?? 'Reserva de la ' + plazaElegida[0][0] + ', ' + n + ' noches', // 0 representación
     [
-      { ref: habitacion.id, dir: plaza(k) }, // 1.0 la plaza: [nombre, precio, capacidad]
+      [{ ref: habitacion.id, dir: plaza(k) }], // 1.0 la plaza: [[nombre], precio, capacidad] (envuelta: la 1 es una décupla)
       n, // 1.1 noches
       { ref: habitacion.id, dir: precioDe(k) }, // 1.2 precio por noche: dentro de la plaza elegida
       '=LOCAL(2) * LOCAL(1)', // 1.3 total: precio por noche × noches
       '=LOCAL(3) + LOCAL(1) * 1 dia', // 1.4 el total compuesto con el tiempo que ocupa
     ], // 1 recursos
-    [{ ref: habitacion.id, dir: '2100000000' }], // 2 criterios: el que importa, con desayuno
+    [{ ref: habitacion.id, dir: '2000000000' }], // 2 criterios: los de la habitación (una dirección no entra en su lista)
     [autor, 'recepcion'], // 3 comunicación: quién habla con quién
-    ['pagar', 'ocupar'], // 4 fábrica: lo que prepara
+    [['pagar'], 'ocupar'], // 4 fábrica: lo que prepara, una décupla (por hojas: el 0 envuelto) para que la entrega elija 4.1 «ocupar» por dirección
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
   const tramo = [entrada, salida];
@@ -307,7 +309,8 @@ export function nochesDe(eje, reserva) {
   const r = eje.obtener(reserva.id ?? reserva);
   if (!r) throw new Error('reserva desconocida');
   const corto = r.id.slice(0, 8);
-  const laPlaza = Array.isArray(r.payload) && Array.isArray(r.payload[1]) ? r.payload[1][0] : undefined;
+  // La plaza va envuelta en la 1.0 (por hojas): una lista de un ocupante, la referencia.
+  const laPlaza = Array.isArray(r.payload) && Array.isArray(r.payload[1]) && Array.isArray(r.payload[1][0]) ? r.payload[1][0][0] : undefined;
   if (!esReferencia(laPlaza) || laPlaza.ref !== r.sobre || (laPlaza.dir ?? '0000000000') !== r.en) {
     throw new Error('la reserva ' + corto + ' no está anclada en la plaza que referencia: anclada en ' + r.en + (esReferencia(laPlaza) ? ', referencia ' + (laPlaza.dir ?? '0000000000') + ' de ' + laPlaza.ref.slice(0, 8) : ', sin plaza en 1.0'));
   }

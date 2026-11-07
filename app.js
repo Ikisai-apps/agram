@@ -250,7 +250,7 @@ function celdaMapa(m, i, eje67, o8) {
       <div class="pista">sin nivel ni grado: las estrellas no son verdad</div>${propio}${marca}</div>`;
   }
   if (i === 9) {
-    // Con el payload: un índice de la lista de una posición es un ocupante por llegada, sin PV (VG, 7-11 noche).
+    // Con el payload: en una décupla, la regla corta; un índice de una lista (solo hojas) es un ocupante por llegada, sin PV (VG, 7-11 noche: por hojas).
     const pasos = m.camino.length ? leerCamino(m.camino, epocaActual(), { payload: estado.eje.obtener(m.foco).payload }).map((x) => `<span class="paso">${x.digito} ${escapar(x.significado)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
     const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
     const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidaci${pendientes.length > 1 ? 'ones' : 'ón'} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';

@@ -250,7 +250,8 @@ export function movimientosDeEjecucion(eje, consolidacionId, tareaId) {
     const donde = indicesDe(ref.dir);
     const importe = evaluar(eje, ref.ref, donde).valor;
     if (importe?.tipo !== 'magnitud' || importe.unidad !== precio.valor.unidad) throw new Error('partida sin importe en ' + precio.valor.unidad);
-    const concepto = evaluar(eje, ref.ref, [...donde.slice(0, -1), 0]).valor;
+    // El concepto es el ocupante 0 de la 1.k.0 (una lista de uno): se lee por índice, que sí entra en una lista.
+    const concepto = evaluar(eje, ref.ref, [...donde.slice(0, -1), 0, 0]).valor;
     if (concepto?.tipo !== 'texto') throw new Error('partida sin concepto');
     const emisor = eje.obtener(ref.ref).autor;
     const serie = eje.serie(claveToken({ token: 'E', emisor, denominacion: concepto.valor }));
@@ -344,7 +345,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     t: T0,
     payload: [
       'Partidas del sábado', // 0
-      ['Partidas', ...PARTIDAS.map(([concepto, importe]) => [concepto, importe + ' EUR'])], // 1 recursos: 1.k = [concepto, importe]
+      // Por hojas (VG, 7-11 noche): cada partida es una décupla [[concepto], importe] (el 0 envuelto), para que
+      // su importe tenga dirección (1.k.1); [concepto, importe] sería una lista de dos ocupantes.
+      ['Partidas', ...PARTIDAS.map(([concepto, importe]) => [[concepto], importe + ' EUR'])], // 1 recursos: 1.k = [[concepto], importe]
     ],
   }, priv('casa'));
 

@@ -14,9 +14,10 @@
 //   (el camino), porque cada celda refleja la posición [camino, i] del foco
 //   (se hereda de ahí, y ahí apunta el destino del vector);
 // - la hilera de Sequenced: la profundidad 0 del registro nuevo;
-// - al bajar dentro de una posición, los índices de un array NO llevan regla
-//   corta: son la lista de la posición, sus ocupantes por llegada, fuera del
-//   árbol («ocupante k»; VG, 7-11 noche). La regla corta sigue en las
+// - al bajar dentro de una posición, por hojas (VG, 7-11 noche): los índices
+//   de una décupla (un array con algún array) llevan la regla corta; los de
+//   una lista (un array solo de hojas) NO: son sus ocupantes por llegada,
+//   fuera del árbol («ocupante k»). La regla corta sigue también en las
 //   subposiciones escritas por dirección (la posición «en», los huecos de
 //   Clasificar).
 // [X] decidir VG: si lo que se escribe se nombra siempre desde la
