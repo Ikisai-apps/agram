@@ -108,7 +108,7 @@ Las tres leen solo la base escrita y comparten la lectura del 8: heredan el **pr
 
 ### 2.10 La celda 8 de Mapped y el cielo
 
-`mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 de Mapped: la base escrita en el 8 de la cohorte (`escrita`, `base`, `frescura`, `n`) o el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`), y por medida la caja del foco con lo que queda debajo, en ella y encima; sin puesto ni puntuación. `mapped.textoOcho` lo pone en texto (`8 · hermanos · base <id8> (sin novedades) · n 4` o `8 · hermanos · sin base escrita (respaldo al vuelo) · n 4`). `mapa()` no lo calcula (se pide por cada registro de una escena). El cielo (`mundos/cielo.js`, `datosCielo`) lee igual con `situar` y su respaldo, y dice «sin base escrita». `app.js` aún pinta la celda 8 con `tiempo.comparar`, retirado: queda pendiente de integrar (otro agente trabaja en `app.js`).
+`mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 de Mapped: la base escrita en el 8 de la cohorte (`escrita`, `base`, `frescura`, `n`) o el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`), y por medida la caja del foco con lo que queda debajo, en ella y encima; sin puesto ni puntuación. `mapped.textoOcho` lo pone en texto (`8 · hermanos · base <id8> (sin novedades) · n 4` o `8 · hermanos · sin base escrita (respaldo al vuelo) · n 4`). `mapa()` no lo calcula (se pide por cada registro de una escena). El cielo (`mundos/cielo.js`, `datosCielo`) lee igual con `situar` y su respaldo, y dice «sin base escrita». `app.js` pinta con `ocho` la celda 8 en sobrio («entre hermanos» la base leída o «sin base escrita (respaldo al vuelo)», y la caja del foco por medida).
 
 ### 2.11 Ejemplo ejecutado
 
@@ -205,4 +205,3 @@ Lo decidido en `MAPA` §12 y §14.2 está construido: la verdad del 8 es la escr
 - Lo escrito sobre una compra (que no es una cosa) no entra en el subárbol de su menú mientras nadie escriba la base de la compra (`sinBase`); quien tiene P sobre ella puede escribirla.
 - Validar una base escrita por poder repasa los movimientos de P anteriores a ella (una vez por base: la partición del 8 se guarda).
 - `mapped.mapa().medidas` y la suma de Scened siguen siendo recuentos de la vista (hilo, escritos, movimientos, identidades, posiciones del camino), no la medida del 8; la celda 8 lee `mapped.ocho()`.
-- `app.js` sigue llamando a `tiempo.comparar` en la celda 8 de Mapped, que ya no existe: pendiente de integrar con `mapped.ocho` (y `textoOcho`) o con el cielo compacto, que ya lee la base escrita.
