@@ -47,3 +47,8 @@ test('leer dirección bajo época 0', () => {
   );
   assert.deepEqual(leerDireccion('0000000000'), []);
 });
+
+test('décupla: alcance con los tres números de Pointed; una décupla cuenta diez (VG, 7-11 noche)', () => {
+  assert.deepEqual(decupla(ev).alcance, { conseguido: 10, minimo: 1, maximo: 10, alMinimo: true });
+  assert.deepEqual(decupla({ ...ev, payload: 42 }).alcance, { conseguido: 10, minimo: 1, maximo: 10, alMinimo: true });
+});

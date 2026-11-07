@@ -9,25 +9,27 @@
 // el sobrio. Cambiar de modo no muta el contenido: la escena solo lee.
 //
 // Capacidad: lo que la escena trae se cuenta en posiciones (una décupla =
-// diez, como en lectura()) contra una capacidad que por defecto es
-// lectura('scened') = 10000, la capacidad REPRESENTATIVA de src/modos.js
-// («no cifras obligatorias»). No es un tope duro: se puede bajar, subir o
-// quitar (Infinity). Los topes duros de §12 (Scened 10000) son de lo EMITIDO
-// por la fábrica, no de lo leído. Al pasar la capacidad la escena se corta
-// con un aviso explícito, nunca en silencio.
-// [X] decidir VG: ¿Scened tiene tope duro de lectura, o solo el de emisión
-// del §12? Mientras no se decida, la capacidad corta por defecto y se puede
-// cambiar.
+// diez, como en lectura()). El máximo de Scened es duro y es el mismo para
+// representar y para emitir: maximo('scened') = 10000 posiciones (VG, 7-11
+// noche: «ese es el máximo de datos que se pueden representar»). La
+// capacidad de una escena se puede bajar, nunca subir por encima del
+// máximo ni quitar (Infinity es un error). Al pasarla, la escena se corta
+// con un aviso explícito, nunca en silencio: dice cuántas posiciones trae
+// de cuántas harían falta. La escena devuelve siempre los tres números en
+// `cifras` ({ conseguido, minimo, maximo, alMinimo, necesario }; se llama
+// así y no `alcance` porque escenaDe ya usa `alcance` para la cohorte): lo
+// conseguido, el mínimo que intenta (1000) y el máximo (10000). No llegar
+// al mínimo no es error: se dice.
 
 import { esReferencia, esDireccion, ARIDAD } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
-import { lectura } from './modos.js';
+import { maximo as maximoDe, alcanceDe } from './modos.js';
 import { mapa } from './mapped.js';
 import { ejeTemporal, comparables } from './tiempo.js';
 import { esFormula, analizar } from './bql.js';
 
-/** Capacidad representativa de Scened en posiciones (lectura('scened'): mil décuplas × 10). No es tope duro: se cambia con la opción capacidad. */
-export const CAPACIDAD = lectura('scened');
+/** Capacidad de Scened en posiciones: su máximo duro, maximo('scened') = mil décuplas × 10 (VG, 7-11 noche). La opción capacidad solo la baja. */
+export const CAPACIDAD = maximoDe('scened');
 
 /** Cómo elige focos escenaDe: las tres cohortes de §12 (tiempo.comparables) y el hilo hacia arriba. */
 export const ALCANCES = Object.freeze(['hermanos', 'proyecto', 'general', 'hilo']);
@@ -116,7 +118,8 @@ function compararClaves(a, b) {
  * desde el mismo camino y la misma época; la época, por objeto o por
  * nombre), ahora (el presente de los ejes temporales), maximo (registros de
  * hilo, de hijos y de eje temporal que trae cada foco, como en mapa; entero
- * ≥ 0), capacidad (posiciones; por defecto CAPACIDAD; Infinity = sin corte)
+ * ≥ 0), capacidad (posiciones; por defecto CAPACIDAD, el máximo de
+ * Scened; un entero de 1 a CAPACIDAD: por encima, o Infinity, es un error)
  * y centro (un foco que se marca).
  *
  * Marco común: el antecesor común de todos los focos en el hilo; cada foco
@@ -133,10 +136,18 @@ function compararClaves(a, b) {
  * dirección) y 'formula' (un REF de una fórmula BQL a otro foco). Las
  * referencias no reordenan: solo apuntan hacia atrás en el eje (un id es el
  * hash de un registro que ya existe).
+ *
+ * Cifras (VG, 7-11 noche): { conseguido, minimo, maximo, alMinimo,
+ * necesario }. conseguido = posiciones en escena; minimo y maximo, los de
+ * Scened (1000 y 10000); alMinimo, si llega al mínimo; necesario, las
+ * posiciones que traería la escena entera sin corte (igual que conseguido
+ * si no se corta). Con corte, el aviso dice «trae X de Y posiciones».
  */
 export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new Date().toISOString(), maximo, capacidad = CAPACIDAD, centro } = {}) {
   if (!Array.isArray(focos) || focos.length === 0) throw new Error('una escena necesita al menos un foco');
-  if (!(capacidad === Infinity || (Number.isInteger(capacidad) && capacidad > 0))) throw new Error('capacidad inválida: ' + capacidad + ' (un entero positivo o Infinity)');
+  if (!(Number.isInteger(capacidad) && capacidad > 0 && capacidad <= CAPACIDAD)) {
+    throw new Error('capacidad inválida: ' + capacidad + ' (un entero de 1 a ' + CAPACIDAD + ': el máximo de Scened es duro; se puede pedir menos, nunca más)');
+  }
   if (maximo !== undefined && !(Number.isInteger(maximo) && maximo >= 0)) throw new Error('maximo inválido: ' + maximo + ' (un entero ≥ 0)');
   const e = epocaDe(epoca);
   const avisos = [];
@@ -154,27 +165,37 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
   const opcionesMapa = { camino, epoca: e, ...(maximo !== undefined ? { maximo } : {}) };
   const opcionesTiempo = { camino, ahora, ...(maximo !== undefined ? { maximo } : {}) };
   const traidos = new Set();
+  const todos = new Set(); // lo que traería la escena entera, sin corte: para decir «trae X de Y»
   const admitidos = [];
   let corte = null;
+  let enCorte = -1; // índice del foco donde se corta
   for (let k = 0; k < pedidos.length; k++) {
     const id = pedidos[k];
     const m = mapa(eje, id, opcionesMapa);
     const te = ejeTemporal(eje, id, opcionesTiempo);
     const cadena = eje.hilo(id).map((x) => x.id).reverse(); // del génesis al foco
-    const nuevos = [...traidosDe(m, te, cadena)].filter((x) => !traidos.has(x));
+    const suyos = traidosDe(m, te, cadena);
+    for (const x of suyos) todos.add(x);
+    if (corte) continue; // ya cortada: solo se cuenta lo que faltaría
+    const nuevos = [...suyos].filter((x) => !traidos.has(x));
     const necesita = (traidos.size + nuevos.length) * ARIDAD;
     if (necesita > capacidad) {
-      const fuera = pedidos.slice(k);
-      corte = { capacidad, posicionesEnEscena: traidos.size * ARIDAD, necesitaba: necesita, foco: id, fuera };
-      avisos.unshift(
-        'capacidad de la escena: ' + capacidad + ' posiciones. El foco ' + corto(id) + ' (' + (k + 1) + 'º de ' + pedidos.length + ') la llevaría a ' + necesita +
-        '; la escena se corta ahí y quedan fuera ' + fuera.length + (fuera.length === 1 ? ' foco: ' : ' focos: ') +
-        fuera.slice(0, 10).map(corto).join(' ') + (fuera.length > 10 ? ' …' : ''),
-      );
-      break;
+      corte = { capacidad, posicionesEnEscena: traidos.size * ARIDAD, necesitaba: necesita, foco: id, fuera: pedidos.slice(k) };
+      enCorte = k;
+      continue;
     }
     for (const x of nuevos) traidos.add(x);
     admitidos.push({ id, mapa: m, tiempo: te, cadena });
+  }
+  const cifras = { ...alcanceDe(traidos.size * ARIDAD, 'scened'), necesario: todos.size * ARIDAD };
+  if (corte) {
+    const { fuera } = corte;
+    avisos.unshift(
+      'capacidad de la escena: ' + capacidad + ' posiciones. El foco ' + corto(corte.foco) + ' (' + (enCorte + 1) + 'º de ' + pedidos.length + ') la llevaría a ' + corte.necesitaba +
+      '; la escena se corta ahí y quedan fuera ' + fuera.length + (fuera.length === 1 ? ' foco: ' : ' focos: ') +
+      fuera.slice(0, 10).map(corto).join(' ') + (fuera.length > 10 ? ' …' : '') +
+      '. Trae ' + cifras.conseguido + ' de ' + cifras.necesario + ' posiciones.',
+    );
   }
 
   // Marco común: el antecesor común en el hilo y el orden por el árbol del hilo, en preorden.
@@ -277,7 +298,7 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
     pasado: suma((a) => a.tiempo.totalPasado),
     futuro: suma((a) => a.tiempo.totalFuturo),
   };
-  return { modo: 'scened', comun, camino: [...camino], epoca: e.nombre, ahora, focos: piezas, aristas, recuentos, corte, avisos };
+  return { modo: 'scened', comun, camino: [...camino], epoca: e.nombre, ahora, focos: piezas, aristas, recuentos, cifras, corte, avisos };
 }
 
 /**
@@ -321,7 +342,8 @@ function textoArista(x) {
 }
 
 /**
- * Render sobrio: cabecera con el marco común, una línea por foco (posición,
+ * Render sobrio: cabecera con el marco común y las cifras (lo conseguido de
+ * la capacidad, el mínimo y el máximo de Scened), una línea por foco (posición,
  * nivel, id, autor, contenido en el camino, hermanos, tiempo y aristas que
  * salen), las aristas y los recuentos, y los avisos. El corte se dice siempre.
  */
@@ -329,7 +351,8 @@ export function sobrio(e) {
   const r = e.recuentos;
   const cab =
     'escena · ' + r.enEscena + ' de ' + r.pedidos + ' focos · común ' + (e.comun ? corto(e.comun) : '—') + ' · ' + e.epoca +
-    ' · camino ' + (e.camino.length ? e.camino.join('.') : 'raíz') + ' · ' + r.posicionesEnEscena + (r.capacidad === Infinity ? ' posiciones (sin capacidad)' : ' de ' + r.capacidad + ' posiciones');
+    ' · camino ' + (e.camino.length ? e.camino.join('.') : 'raíz') + ' · ' + r.posicionesEnEscena + ' de ' + r.capacidad + ' posiciones' +
+    ' · mín ' + e.cifras.minimo + (e.cifras.alMinimo ? '' : ' (no llega)') + ' · máx ' + e.cifras.maximo;
   const ancho = String(Math.max(0, e.focos.length - 1)).length;
   const lineas = e.focos.map((f) => {
     const partes = [
