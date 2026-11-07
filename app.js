@@ -3,7 +3,9 @@
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
 // en el navegador. Render sobrio; el animado (mundos/) empieza por los hilos
-// del 6 y 7: celdas 6 y 7 de Mapped y la vista «hilos».
+// del 6 y 7 (celdas 6 y 7 de Mapped y la vista «hilos») y sigue con la X:
+// fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 (celdas 1–4 y la del
+// centro, 0 sobre 5, de Mapped, y la vista «X»).
 
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
@@ -12,6 +14,7 @@ import {
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from './ejemplos/ikisai/reserva-booking.mjs';
 import * as hilos from './mundos/hilos.js';
+import * as x from './mundos/x.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -19,6 +22,7 @@ const estado = {
   render: 'sobrio', reproducir: false, // sobrio o animado: dos renders de la misma lectura
 };
 const memoriaHilos = hilos.memoria(); // qué eventos ya se vieron en los hilos: solo lo nuevo se anima
+const memoriaX = x.memoria(); // lo mismo para los cinco mundos de la X, con su propio estado
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
 const CLAVE_CLAVES = 'agram.claves';
@@ -212,15 +216,19 @@ function chipTemporal(x) {
   return `<button class="chip" data-ir="${x.id}"><b>${corto(x.id)}</b> ${escapar(texto)}${etiqueta} <small>${x.banda}</small></button>`;
 }
 
-function celdaMapa(m, i, eje67, comp, anim) {
+function celdaMapa(m, i, eje67, comp, anim, animX) {
   const c = m.celdas[i];
   const marca = c.escritos ? `<span class="hijos">↳ ${c.escritos}</span>` : '';
   const propio = c.contenido !== undefined ? `<div class="val">${slot(c.contenido, m.foco, [...m.camino, i], false)}</div>` : '';
+  if (animX && i >= 1 && i <= 4) return celdaMundo(m, i, c, animX, marca);
   if (i === 5) {
     const ev = estado.eje.obtener(m.foco);
     const json = JSON.stringify({ id: corto(ev.id), autor: ev.autor, firmante: ev.firmante ?? null, sobre: ev.sobre ? corto(ev.sobre) : null, en: ev.en, t: ev.t, movimientos: ev.movimientos, contexto: ev.contexto, payload: c.contenido }, null, 1);
-    return `<div class="celda c5"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
-      <div class="lente">${escapar(breve(m.terminal ?? m.celdas[0].contenido))}</div>
+    const lente = animX
+      ? x.svgMundo(0, animX.datos[0], { compacto: true, nuevos: animX.nuevos })
+      : `<div class="lente">${escapar(breve(m.terminal ?? m.celdas[0].contenido))}</div>`;
+    return `<div class="celda c5${animX ? ' x-celda' : ''}"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
+      ${lente}${animX ? '<button class="ver-x" data-modo="x">ver la X</button>' : ''}
       <details><summary>estructura</summary><pre>${escapar(json)}</pre></details></div>`;
   }
   if ((i === 6 || i === 7) && anim) {
@@ -288,11 +296,24 @@ function panelFabrica(m) {
     </section>`;
 }
 
+/** Celda 1–4 de Mapped en animado: su mundo de la X, compacto, con la acción de la celda sobria y el paso a la vista X. */
+function celdaMundo(m, i, c, animX, marca) {
+  const ct = c.contenido;
+  let accion = `data-posicion="${i}"`;
+  let que = 'escribir aquí';
+  if (Array.isArray(ct)) { accion = `data-desarrollar="${i}"`; que = 'entrar'; }
+  else if (esReferencia(ct)) { accion = `data-ir="${ct.ref}" data-dir="${ct.dir ?? ''}"`; que = 'ir'; }
+  const svg = x.svgMundo(i, animX.datos[i], { compacto: true, nuevos: animX.nuevos });
+  return `<div class="celda esquina x-celda c${i}"><div class="pvn">${i} ${c.significado}</div>${svg}`
+    + `<div class="x-botones"><button class="ver-x" ${accion}>${que}</button><button class="ver-x" data-modo="x">ver la X</button></div>${marca}</div>`;
+}
+
 function pintarMapped() {
   const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino });
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
   const comp = tiempo.comparar(estado.eje, estado.foco);
+  const animX = estado.render === 'animado' ? mundosX() : null; // antes que los hilos: los dos leen «reproducir»
   const anim = estado.render === 'animado' ? hilosAnimados() : null;
   const e = escritura('mapped');
   const base = payloadEnFoco();
@@ -303,7 +324,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp, anim)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp, anim, animX)).join('')}</div>`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
@@ -336,6 +357,27 @@ function pintarHilos() {
     cuerpo = `<section class="hilos-listas"><div class="titulo">6 ${PV[6]} · ${e.totalPasado}</div>${lista(e.pasado, 'génesis')}<div class="titulo">7 ${PV[7]} · ${e.totalFuturo}</div>${lista(e.futuro, 'nada proyectado')}</section>`;
   }
   $('#vista').innerHTML = cabecera(ev) + `<div class="pista">Hilos del foco (6 y 7) · render ${estado.render} · el mismo eje temporal en los dos</div>` + cuerpo;
+}
+
+// ---------- La X (4, 1, 2, 3 y 0): sobrio o animado, la misma lectura ----------
+
+function mundosX() {
+  const datos = x.datosX(estado.eje, estado.foco, { camino: estado.camino });
+  const nuevos = memoriaX.nuevos(estado.eje, { reproducir: estado.reproducir });
+  return { datos, nuevos };
+}
+
+function pintarX() {
+  const ev = estado.eje.obtener(estado.foco);
+  let cuerpo;
+  if (estado.render === 'animado') {
+    const { datos, nuevos } = mundosX();
+    estado.reproducir = false;
+    cuerpo = x.htmlX(datos, { nuevos });
+  } else {
+    cuerpo = x.sobrioX(x.datosX(estado.eje, estado.foco, { camino: estado.camino }));
+  }
+  $('#vista').innerHTML = cabecera(ev) + `<div class="pista">La X del foco: fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 · render ${estado.render} · la misma lectura en los dos</div>` + cuerpo;
 }
 
 // ---------- común ----------
@@ -375,6 +417,7 @@ function pintar() {
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
   else if (estado.modo === 'hilos') pintarHilos();
+  else if (estado.modo === 'x') pintarX();
   else pintarSequenced();
   pintarSaldos();
 }
@@ -475,7 +518,7 @@ function insertarRef(id) {
 }
 
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('button, svg [data-ir]'); // en los hilos animados, los nodos del SVG llevan data-ir
+  const b = e.target.closest('button, svg [data-ir]'); // en los mundos animados (hilos y X), los elementos del SVG llevan data-ir
   if (!b) return;
   if (b.dataset.modo) { estado.modo = b.dataset.modo; estado.exito = ''; estado.aviso = ''; pintar(); }
   else if (b.dataset.render !== undefined) { estado.render = estado.render === 'animado' ? 'sobrio' : 'animado'; pintar(); }
