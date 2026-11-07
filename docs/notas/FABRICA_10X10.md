@@ -4,6 +4,8 @@ Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dicen 
 
 Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `V2/` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/`; `V3/` = `agx/80_HERENCIA_V3_INTEGRA/`; `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `ESPEC_V3` = `V3/03_TRANSICION/ESPECIFICACION_EXPLORATORIA_V3_INTEGRA.md`.
 
+> **Estado en `main` (`7090c8c`, 7-11 noche).** §3 sigue describiendo `main`: la matriz 10×10×10, la clase de modificación por celda y los topes duros por modo los trae la PR #40 (abierta). Después de esta nota, VG decidió que la matriz es **relativa al camino** del foco (mapa §13): la celda i.j.k bajo el camino c se escribe en `direccion([...c, i, j, k])` y su clase es el dígito de la profundidad n + 2. La PR #33 que cita §5 ya no está abierta: entró en `main` con la #51 (`docs/REGLAS_CORTAS.md`). El resumen de lo decidido está en `docs/FUNDAMENTOS.md` («El registro de salida de la fábrica»).
+
 ## 1. La cuestión en tres frases
 
 1. El 6-11 VG corrigió la lectura de la fábrica: «La fábrica (PV4) es el finalizador de una acción de registro: lo que consolida diez interpretaciones por diez interacciones en un registro»; la frase no está en el corpus, que solo tiene antecedentes (las pasadas 4×4 = 16 de la fábrica V3, «qué se modificó» por posición) y la orden de no fundir cuentas de diez.

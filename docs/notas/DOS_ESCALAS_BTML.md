@@ -4,6 +4,8 @@ Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dice e
 
 Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `V2/` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/`; `V3/` = `agx/80_HERENCIA_V3_INTEGRA/`; `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `02_BTML` = `agx/01_NUCLEO_V4/02_BTML_ESTRUCTURA_POSICIONES_Y_CEROS.md`.
 
+> **Estado en `main` (`7090c8c`, 7-11 noche).** §3 sigue valiendo: comprobado de nuevo que un payload de once niveles pasa `validarPayload`, que `direccion` con once índices lanza `RangeError: entre 0 y 10 índices` y que el coste en T y `contarPosiciones` cuentan terminales (una referencia cuenta uno). Lo nuevo desde la nota: BQL ya no lanza con más de diez profundidades, da `PENDIENTE` (decidido en la integración del 7-11 y marcado [X] para revisar: `docs/BQL.md` §8), y la profundidad máxima de un payload está apuntada como [X] en `docs/BTML.md` §11. Nada de la nota está decidido.
+
 ## 1. La cuestión en tres frases
 
 1. En septiembre VG decidió «distinguir esas **dos escalas de datos**, en lugar de aplastarlas en una única estructura indiferenciada» (D07), y desde entonces todo el corpus conserva `matrix_data` y `block_data` como **nombres**, sin decir en ningún sitio qué son.

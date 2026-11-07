@@ -167,6 +167,17 @@ Solo lo que el mapa no decide. Dos puntos de la primera versión de esta nota ya
 
 Código, salida, dudas y lo que les faltó en los documentos, sin editar salvo las rutas locales (`file:///<repo>/` en lugar de la ruta del repositorio en la máquina). Los ids y los mensajes son los que dio `main` en `8d73b44`. Las secciones de los documentos que citan («BTML §6.5 decía…») son las de su versión anterior a esta PR.
 
+**Contra `main` en `7090c8c` (7-11, noche)**, con `<repo>` sustituido por el repositorio, los cuatro scripts dan esto. El anexo no se reescribe: es el registro de lo que entregaron. Los ids del ejemplo son hoy génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e` y cuenta `c70bfa6e` (antes `2983477b`, `240c6005`, `579144c6`, `ec0734c3` y `c7c163ae`).
+
+| Script | ¿Corre? | Qué cambia |
+|---|---|---|
+| Tarea 1, `extranjero-reserva.mjs` | **no**: para en el alta con `evento mal formado: movimiento 2: E exige emisor: la serie es de quien la emite` | Las series de tokens (PR #35): E lleva emisor. La versión corregida de §2 sí corre y da su salida. |
+| Tarea 2, `extranjero-formulas.mjs` | sí | `CONTAR(BUSCAR(4))` da 1 (antes 2) sin propinas y 4 (antes 5) con ellas: un número en `BUSCAR` es el camino exacto, y la 4.0 ya no entra (mapa §12 [D]). Lo demás, igual. |
+| Tarea 3, `extranjero-direccion.mjs` | sí | Desde la compra, `BUSCAR(1)` filtrado por `SIGNO() = "exacto"` o `ACUERDO() = 10` da 2 (antes 4): el camino exacto `[1]` y la cuenta escrita. Los minutos de la persona huésped son 480 → 479 (antes 1380 → 1379): minutos y horas son series distintas. El «resumen de lo que demuestra la salida» del final es texto del extranjero, no salida del script. Lo demás, igual con los ids nuevos. |
+| Tarea 4, `extranjero-ciclo.mjs` | **no**: llega a la autorización y para al ejecutar con `evento mal formado: movimiento 1: E exige emisor: la serie es de quien la emite` | Las series de tokens: el pago necesita `emisor: 'casa'` y los saldos se leen en `E:casa/EUR` (el script lee `E:EUR`, que hoy da 0). La autorización lleva además `contexto.autoridad` con la regla V0 declarada. |
+
+Los ejemplos ejecutables de esta nota que no son del anexo (el de §2) se comprueban con `node docs/comprobar.mjs`.
+
 ### Tarea 1: reserva de alojamiento (eje propio)
 
 <details>

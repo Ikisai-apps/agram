@@ -4,6 +4,8 @@ Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dice e
 
 Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `V2/` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/`; `V3/` = `agx/80_HERENCIA_V3_INTEGRA/`; `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `06_EPOCAS` = `agx/01_NUCLEO_V4/06_EPOCAS_TIEMPO_EPRT_Y_FRONTERAS.md`; `04_AGRAM` = `agx/01_NUCLEO_V4/04_AGRAM_OPERACIONES_AUTORIZACION_Y_REGISTRO.md`.
 
+> **Estado en `main` (`7090c8c`, 7-11 noche).** Las dos PR que §3 da por abiertas ya están en `main`: la #35 (series de tokens) se fusionó, y con ella **ya no es verdad que «solo el génesis emite»**: personas y grupos emiten su serie de E y de R, y P solo el génesis (`docs/FUNDAMENTOS.md`, «Series de tokens»); la #36 entró con la integración del 7-11 (#51): `PENDIENTE POR LÍMITE` con parciales y el gancho `puedeLeer`, que ahora recibe también el camino exacto (`docs/BQL.md` §9.6). La época 1 (propuesta) está en datos, pero sigue sin haber comprobación de forma bajo una época. La autorización declara su regla V0 en `contexto.autoridad.regla`. La opción B (un módulo de solo lectura con las cinco capas) la propone la PR #49, abierta. Ninguna capa está decidida.
+
 ## 1. La cuestión en tres frases
 
 1. V2 separó cinco capas de validez de un registro (forma y época; interpretable; criptográficamente comprobable; materialmente acreditado; autorizado y ejecutado); V3 y V4 las conservan, el MAPA las marca [A] y VG nunca las ha decidido como tales: el corpus solo pide que no se confundan y que PV5 las inspeccione sin garantizarlas.
