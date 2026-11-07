@@ -8,7 +8,12 @@ import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ,
 } from './src/index.js';
-import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+// Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
+import { listaOcupantes as listaEncaje, instalarEncaje } from './ui/encaje.js';
+import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, trasPintarFabrica } from './ui/fabrica.js';
+import { epocaActual, nombrePV, nombresPV, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
+import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
+import { htmlSaldos } from './ui/saldos.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -73,7 +78,7 @@ function direccionEn() {
 }
 
 function etiquetaEn() {
-  return estado.en === '' ? 'la raíz del foco' : estado.en + ' ' + PV[Number(estado.en)];
+  return estado.en === '' ? 'la raíz del foco' : estado.en + ' ' + nombrePV(Number(estado.en), estado.camino.length);
 }
 
 function fecha(t) {
@@ -100,7 +105,7 @@ function selectores() {
         <select name="identidad">${ids.map((i) => `<option ${i === estado.identidad ? 'selected' : ''}>${i}</option>`).join('')}</select>
       </label>
       <label>En la posición
-        <select name="en"><option value="" ${estado.en === '' ? 'selected' : ''}>raíz del foco</option>${PV.map((n, i) => `<option value="${i}" ${String(i) === estado.en ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>
+        <select name="en"><option value="" ${estado.en === '' ? 'selected' : ''}>raíz del foco</option>${nombresPV(estado.camino.length).map((n, i) => `<option value="${i}" ${String(i) === estado.en ? 'selected' : ''}>${i} ${n}</option>`).join('')}</select>
       </label>
     </div>`;
 }
@@ -110,21 +115,14 @@ function mensajes() {
 }
 
 function listaOcupantes(indices) {
-  const oc = encaje.ocupantes(estado.eje, estado.foco, indices);
-  if (!oc.length) return '<div class="nada">sin ocupantes</div>';
-  return `<div class="ocupantes">${oc.map((o) => {
-    const r = bql.evaluar(estado.eje, o.evento, motor.caminoVisible(o));
-    const quien = o.autor ? ' · ' + escapar(o.autor) : '';
-    const camino = o.camino && o.camino.length ? ' <small>' + o.camino.join('.') + '</small>' : '';
-    return `<button class="chip" data-ir="${o.evento}" ${o.origen !== 'escrito' && o.dir !== RAIZ ? `data-dir="${o.dir}"` : ''}><i>${o.origen}</i>${camino} <b>${corto(o.evento)}</b>${quien} · ${escapar(r.texto)}</button>`;
-  }).join('')}</div>`;
+  return listaEncaje(estado.eje, estado.foco, indices, { epoca: epocaActual() }); // camino, procedencia, acuerdo y signo; orden por encaje o por llegada
 }
 
 // ---------- Pointed ----------
 
 function pintarPointed() {
   const ev = estado.eje.obtener(estado.foco);
-  const d = pointed.decupla({ ...ev, payload: payloadEnFoco() }, undefined, estado.camino.length);
+  const d = pointed.decupla({ ...ev, payload: payloadEnFoco() }, epocaActual(), estado.camino.length);
   const filas = d.posiciones.map((p) => {
     const c = p.contenido;
     const indices = [...estado.camino, p.indice];
@@ -158,7 +156,7 @@ function pintarPointed() {
 
 function filaSecuencia(d, i) {
   const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
-  const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
+  const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en, epocaActual()).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
   return `<div class="fila"><button class="abrir" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button><button class="ref" data-ref="${d.id}" title="insertar como referencia en la hilera">@</button></div>`;
 }
 
@@ -172,7 +170,7 @@ function pintarSequenced() {
       ${s.decuplas.length ? s.decuplas.map(filaSecuencia).join('') : '<div class="nada">nada todavía</div>'}
     </section>`;
   const e = escritura('sequenced');
-  const inputs = PV.map((n, i) => `<input name="h${i}" maxlength="160" placeholder="${i} ${n}">`).join('');
+  const inputs = nombresPV(0).map((n, i) => `<input name="h${i}" maxlength="160" placeholder="${i} ${n}">`).join('');
   $('#vista').innerHTML = cabecera(ev) + bloque(hilo, 'Hilo hacia el génesis') + bloque(hijos, 'Escrito sobre el foco') + `
     <form id="escribir" data-modo="sequenced" class="escribir">
       <div class="titulo">Escribir una hilera sobre el foco · Sequenced escribe de ${e[0]} a ${e[1]} posiciones de 100 · sin huecos</div>
@@ -222,7 +220,7 @@ function celdaMapa(m, i, eje67, comp) {
       <div class="pista">sin nivel ni grado: las estrellas no son verdad</div>${propio}${marca}</div>`;
   }
   if (i === 9) {
-    const pasos = m.camino.length ? m.camino.map((p) => `<span class="paso">${p} ${PV[p]}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
+    const pasos = m.camino.length ? m.camino.map((p, k) => `<span class="paso">${p} ${nombrePV(p, k)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
     const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
     const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidación${pendientes.length > 1 ? 'es' : ''} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
     return `<div class="celda c9"><div class="pvn">9 ${c.significado}</div><div class="pasos">${pasos}</div>${guia}${propio}${marca}</div>`;
@@ -246,12 +244,13 @@ function panelFabrica(m) {
       ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
       ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P) sobre este registro'}</span>` : ''}
       ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
+      ${contextoConsolidacion(estado.eje, c.id)}
     </div>`;
   }).join('');
   const desc = motor.descubrir(estado.eje, m.foco, { camino: m.camino });
   const campos = desc.map((p) => {
     const opciones = p.candidatos.map((c, k) => `<option value="c${k}">${c.origen} ${corto(c.evento)} · ${escapar(c.texto.slice(0, 40))}</option>`).join('');
-    return `<label class="celda-form"><span>${p.posicion} ${PV[p.posicion]}</span>
+    return `<label class="celda-form"><span>${p.posicion} ${nombrePV(p.posicion, m.camino.length)}</span>
       <select name="e${p.posicion}"><option value="">— nada (se hereda del foco si existe) —</option>${opciones}<option value="nuevo">terminal nuevo ↓</option></select>
       <input name="n${p.posicion}" maxlength="120" placeholder="terminal nuevo para ${p.posicion}"></label>`;
   }).join('');
@@ -262,6 +261,7 @@ function panelFabrica(m) {
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
         <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.celdas[0].contenido))}"></label>
+        ${botonProponer()}${cajaPropuesta(estado.eje, m.foco, m.camino)}
         <div class="decupla-form">${campos}</div>
         <button type="submit">Consolidar en la fábrica del foco</button>
         ${mensajes()}
@@ -270,13 +270,13 @@ function panelFabrica(m) {
 }
 
 function pintarMapped() {
-  const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino });
+  const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino, epoca: epocaActual() });
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
   const comp = tiempo.comparar(estado.eje, estado.foco);
   const e = escritura('mapped');
   const base = payloadEnFoco();
-  const celdasForm = PV.map((n, i) => {
+  const celdasForm = nombresPV(estado.camino.length).map((n, i) => {
     const hay = Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined;
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
@@ -296,15 +296,8 @@ function pintarMapped() {
 // ---------- común ----------
 
 function pintarSaldos() {
-  const eje = estado.eje;
-  // Cada familia es una serie: T por escala (tokens distintos, sin conversión), E por denominación, P por ámbito, R por emisor.
-  const ESCALA = { segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' };
-  const tiempos = (id) => eje.tiempos(id).reverse().map((x) => x.cantidad + ' ' + ESCALA[x.escala]).join(' · ') || 'T 0'; // de la escala mayor a la menor
-  const recursos = (id) => eje.recursos(id).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + (x.emisor === id ? '' : ' de ' + escapar(x.emisor))).join(' · ') || 'E 0'; // cada serie de E es de su emisor
-  $('#saldos').innerHTML = eje.identidades().map((id) =>
-    `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${recursos(id)}</span><span>${tiempos(id)}</span><span>${eje.poderes(id).length ? eje.poderes(id).map((p) => 'P ' + p.cantidad + '@' + (p.ambito === 'genesis' ? 'eje' : corto(p.ambito))).join(' ') : 'P 0'}${eje.reputaciones(id).length ? ' · ' + eje.reputaciones(id).map((r) => 'R ' + r.cantidad + ' de ' + escapar(r.emisor)).join(' ') : ''}</span></div>`).join('')
-    + `<div class="guardado">series emitidas · ${eje.series().map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor))).join(' · ')}</div>`
-    + `<div class="guardado">${escapar(estado.guardado)}</div>`;
+  // Cada familia es una serie (T por escala, E por emisor y denominación, P por ámbito, R por emisor): ui/saldos.js.
+  $('#saldos').innerHTML = htmlSaldos(estado.eje) + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
 function pintar() {
@@ -313,6 +306,9 @@ function pintar() {
   else if (estado.modo === 'mapped') pintarMapped();
   else pintarSequenced();
   pintarSaldos();
+  trasPintarEpocas();
+  trasPintarFabrica(estado);
+  trasPintarEjemplos(estado);
 }
 
 function guardar() {
@@ -461,9 +457,7 @@ async function cargarClaves() {
 }
 
 async function ejemploNuevo() {
-  const { eje, compra } = await ejemploCompra({ claves: estado.claves });
-  await ejemploCuenta(eje, compra, estado.claves.cocina?.privada);
-  return { eje, foco: compra.id };
+  return crearEjemplo(estado); // el elegido en el selector (comida, reserva o tarea), con las claves que le falten
 }
 
 async function reiniciar() {
@@ -478,13 +472,17 @@ async function reiniciar() {
   irA(foco);
 }
 
+instalarEjemplos({ reiniciar });
+instalarEpocas({ pintar });
+instalarEncaje({ pintar });
+instalarFabrica({ estado, pintar });
 estado.claves = await cargarClaves();
 let cargado = await persistencia.cargarLocal(CLAVE_EJE);
 let foco;
 if (cargado && estado.claves.casa && JSON.stringify(cargado.clave('casa')) !== JSON.stringify(estado.claves.casa.publica)) cargado = null; // claves de otra sesión
 if (cargado) {
   estado.eje = cargado;
-  foco = cargado.orden[3] ?? cargado.genesisId;
+  foco = restaurarEjemplo(cargado, estado) ?? cargado.orden[3] ?? cargado.genesisId;
   estado.guardado = 'cargado del navegador · ' + cargado.orden.length + ' registros';
 } else {
   // Lo que había y no se puede abrir (formato anterior, claves de otra sesión) se aparta antes de guardar el ejemplo encima.
@@ -496,5 +494,4 @@ if (cargado) {
   if (apartado) estado.aviso = 'El eje guardado en este navegador no se ha podido abrir (formato anterior o claves de otra sesión). Queda apartado en «' + CLAVE_EJE + '.anterior» y se empieza con el ejemplo.';
 }
 estado.foco = foco;
-$('#pv').textContent = PV.map((n, i) => i + ' ' + n).join(' · ');
 pintar();
