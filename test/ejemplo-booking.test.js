@@ -36,12 +36,12 @@ function plazasDe(eje, id, habitacion) {
 }
 
 test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, plazas, poderes, tipos e hilo)', async () => {
-  const { eje, alta, alojamiento, delegacion, habitacion, temporada, reserva, entrega, pago: pagada } = await ejemploReserva();
+  const { eje, alta, alojamiento, delegacion, habitacion, abierta, temporada, reserva, entrega, pago: pagada } = await ejemploReserva();
   assert.deepEqual(eje.identidades(), [CASA, 'recepcion', 'huesped']);
   // VG, 7-11 noche: la casa que emite plazas es una persona (antes, un grupo).
   assert.deepEqual([CASA, 'recepcion', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'persona', 'persona']);
-  // génesis, altas, alojamiento, delegación, habitación, temporada, reserva, sus noches; entrega y pago (consolidación, autorización, ejecución cada una)
-  assert.equal(eje.orden.length, 14);
+  // génesis, altas, alojamiento, delegación, habitación, su oferta pública («cualquiera» en su 2.3, R8), temporada, reserva, sus noches; entrega y pago (consolidación, autorización, ejecución cada una)
+  assert.equal(eje.orden.length, 15);
   // Dinero, de la serie de la casa: dio 300 a la persona huésped y cobró 165 al ejecutar.
   assert.equal(eje.saldo(CASA, EUR), 365);
   assert.equal(eje.saldo('huesped', EUR), 135);
@@ -72,10 +72,10 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.equal(eje.poderSobre('recepcion', eje.genesisId), 0);
   // Tiempo, por escala: cada registro gasta minutos de su autor; las horas solo se reparten.
   assert.equal(eje.saldoT(CASA, 'hora'), 1000 - 40 - 72);
-  // altas, alojamiento, delegación, habitación, temporada, consolidación y ejecución de la entrega
+  // altas, alojamiento, delegación, habitación, su oferta pública (1), temporada, consolidación y ejecución de la entrega
   // Integración 7-11: con #42 la ejecución cuesta un minuto por posición escrita (3), no uno fijo; se lee de su movimiento.
   assert.equal(entrega.ejecucion.movimientos[0].cantidad, 3);
-  assert.equal(eje.saldoT(CASA, 'minuto'), 5000 - 1 - 600 - 600 - 1 - 1 - 10 - 1 - entrega.consolidacion.movimientos[0].cantidad - entrega.ejecucion.movimientos[0].cantidad);
+  assert.equal(eje.saldoT(CASA, 'minuto'), 5000 - 1 - 600 - 600 - 1 - 1 - 10 - 1 - 1 - entrega.consolidacion.movimientos[0].cantidad - entrega.ejecucion.movimientos[0].cantidad);
   assert.equal(eje.saldoT('recepcion', 'minuto'), 600 - entrega.autorizacion.movimientos[0].cantidad - pagada.autorizacion.movimientos[0].cantidad);
   // reserva (11 posiciones), sus noches (2), consolidación y ejecución del pago
   assert.equal(eje.saldoT('huesped', 'minuto'), 600 - 11 - 2 - pagada.consolidacion.movimientos[0].cantidad - pagada.ejecucion.movimientos[0].cantidad);
@@ -83,7 +83,7 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual(eje.hilo(pagada.ejecucion.id).map((x) => x.id), [pagada.ejecucion.id, pagada.consolidacion.id, reserva.id, habitacion.id, alojamiento.id, eje.genesisId]);
   assert.deepEqual(eje.hilo(entrega.ejecucion.id).map((x) => x.autor), [CASA, CASA, 'huesped', CASA, CASA, CASA]);
   assert.deepEqual(eje.sobre(alojamiento.id).map((x) => x.id), [delegacion.id, habitacion.id]);
-  assert.deepEqual(eje.sobre(habitacion.id).map((x) => x.id), [temporada.id, reserva.id]);
+  assert.deepEqual(eje.sobre(habitacion.id).map((x) => x.id), [abierta.id, temporada.id, reserva.id]);
   assert.deepEqual([entrega.autorizacion.autor, pagada.autorizacion.autor], ['recepcion', 'recepcion']);
   assert.deepEqual([entrega.ejecucion.payload[0], pagada.ejecucion.payload[0]], ['Plaza entregada', 'Pagada']);
   const texto = render(decupla(reserva));
@@ -216,9 +216,11 @@ test('anclaje: la reserva vive en la plaza (1.1) de la habitación, con las noch
   const oc = ocupantes(eje, habitacion.id, [1, 1]);
   assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'escrito']);
   assert.equal(oc[2].evento, reserva.id);
-  // El motor la ve desde la habitación bajando a sus recursos: descubrir con camino [1] mira las plazas.
+  // El motor la ve desde la habitación bajando a sus recursos: descubrir con camino [1] mira las plazas. Es
+  // elegible porque la habitación declara en su 2.3 que `cualquiera` puede reservar (R8, src/elegibles.js).
   const d = descubrir(eje, habitacion.id, { camino: [1], posiciones: [1] });
   assert.ok(d[0].candidatos.some((c) => c.origen === 'escrito' && c.evento === reserva.id));
+  assert.equal(d[0].noElegibles, 0);
   // El tramo sale del 7 de la reserva: lo anclado ahí por su autora.
   const [noches] = eje.sobre(reserva.id, SIETE);
   const tramo = tramoDe(eje, reserva.id);
@@ -235,7 +237,7 @@ test('anclaje: la reserva vive en la plaza (1.1) de la habitación, con las noch
 
 test('estado del ciclo: la casa entrega la plaza y la persona huésped paga, cada parte con su consolidación autorizada por recepción', async () => {
   const { eje, habitacion, reserva } = await ejemploReserva({ confirmar: false });
-  assert.equal(eje.orden.length, 8);
+  assert.equal(eje.orden.length, 9);
   assert.deepEqual(consolidaciones(eje, reserva.id), []);
   const d = descubrir(eje, reserva.id);
   const laPlaza = d[0].candidatos.find((c) => c.origen === 'referencia');

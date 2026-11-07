@@ -8,6 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 
 async function ejeBase() {
   return Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     emision: [
       { token: 'T', escala: 'hora', cantidad: 100 },
@@ -94,6 +95,7 @@ test('hilo encadenado por referencia, no por orden temporal', async () => {
 
 test('T por escala: sin conversión; el evento mínimo mueve T de cualquier escala', async () => {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'dia', cantidad: 1 }],
     foco: 'g',
@@ -263,12 +265,12 @@ test('una serie limitada no llega a infinito', async () => {
   await eje.escribir({ ...base, movimientos: [gastaT('bea'), enJuego('bea'), emite('bea', 'BTC', 1.7e308)] });
   await assert.rejects(eje.escribir({ ...base, movimientos: [gastaT('bea'), enJuego('bea'), emite('bea', 'BTC', 1.7e308)] }), /no admite tanto/);
   assert.equal(eje.serie('E:bea/BTC').emitido, 1.7e308);
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'E', denominacion: 'X', cantidad: 1.7e308 }, { token: 'E', denominacion: 'X', cantidad: 1.7e308 }], foco: 'g', t: T0 }), /no admite tanto/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'E', denominacion: 'X', cantidad: 1.7e308 }, { token: 'E', denominacion: 'X', cantidad: 1.7e308 }], foco: 'g', t: T0 }), /no admite tanto/);
 });
 
 test('T en enteros: sin fracciones no hay error de coma flotante', async () => {
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 0.3 }], foco: 'g', t: T0 }), /T va en enteros/);
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 18 }], foco: 'g', t: T0 });
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 0.3 }], foco: 'g', t: T0 }), /T va en enteros/);
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 18 }], foco: 'g', t: T0 });
   const base = { autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'x' };
   await eje.escribir({ ...base, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 6, de: 'raiz', a: null }] });
   await eje.escribir({ ...base, payload: 'y', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 12, de: 'raiz', a: null }] });
@@ -276,11 +278,11 @@ test('T en enteros: sin fracciones no hay error de coma flotante', async () => {
 });
 
 test('el génesis emite a su autor; sus series de E y R quedan a su nombre; su autor es una persona', async () => {
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'E', denominacion: 'EUR', cantidad: 1, emisor: 'otra' }], foco: 'g', t: T0 }), /emisión de E va a su propio emisor/);
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', tipo: 'cosa', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser cosa/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'E', denominacion: 'EUR', cantidad: 1, emisor: 'otra' }], foco: 'g', t: T0 }), /emisión de E va a su propio emisor/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'cosa', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser cosa/);
   // VG, 7-11 noche: «todos son emitidos por una persona individualmente»; un grupo ya no firma el génesis.
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', tipo: 'grupo', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser grupo/);
-  const g = await Eje.genesis({ identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'R', cantidad: 3 }], foco: 'g', t: T0 });
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'grupo', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser grupo/);
+  const g = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'R', cantidad: 3 }], foco: 'g', t: T0 });
   assert.equal(g.tipo('raiz'), 'persona');
   assert.deepEqual(g.serie('R:raiz'), { emisor: 'raiz', emitido: 3 });
   const eje = await ejeBase();

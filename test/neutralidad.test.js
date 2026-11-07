@@ -23,6 +23,7 @@ import * as tiempo from '../src/tiempo.js';
 import { medir, confluir } from '../src/bases.js';
 import { evaluar } from '../src/bql.js';
 import { direccion } from '../src/btml.js';
+import { generarClaves } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
@@ -57,10 +58,13 @@ function repartir(g, n, k) {
 /**
  * Mundo mínimo: génesis «g» (persona) con T y P sobre todo el eje; altas de
  * personas con T; el tercero «C» emite su serie E:C/EUR y su R:C; C escribe
- * la casa X (diez posiciones; la plaza 1 declara capacidad 4).
+ * la casa X (diez posiciones; la plaza 1 declara capacidad 4). Es un eje de
+ * demostración, sin claves (R9): lo que se compara aquí son cantidades, no
+ * firmas. NEU-08 construye el suyo con claves.
  */
 async function mundo(personas, { tercero = 'C', tipos = {} } = {}) {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
     emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
@@ -412,27 +416,86 @@ test('NEU-06: lo que el 8 mide de un pago no cambia al repartirlo entre más ide
     assert.deepEqual(await medidas(8), await medidas(1));
   });
 
-test('NEU-07: escritos ajenos que el dueño no considera elegibles no le bloquean su BUSCAR',
-  { skip: 'NEU-07: concesión «el límite de candidatos se aplica antes de la elegibilidad» (src/bql.js:buscar, LIMITES.candidatos; src/motor.js:proponer toma el primer candidato). Con T por persona, N identidades son N relojes: el ruido solo es irrelevante si no llega a terceros. Hoy cuatro escritos de identidades ajenas dejan =BUSCAR(1) del dueño en PENDIENTE POR LÍMITE (límite 3 en la prueba). Depende de TK-01 (mapa §14 [D] «Quién ocupa una posición ajena»: elegible por defecto = el autor y su posición 3). [X] decidir VG (recomendación R8)' },
-  async () => {
-    const buscar = async (ruido) => {
-      const ids = nombres('S', Math.max(ruido, 1));
-      const m = await mundo(ids);
-      // El mercado del dueño: su posición 2 (criterio) busca entre los candidatos de su posición 1.
-      const Z = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: ['mercado', 'ofertas', '=BUSCAR(1)'] });
-      await m.eje.escribir({ autor: 'C', sobre: Z.id, en: direccion([1]), t: T0, movimientos: [minuto('C')], payload: 'oferta del dueño' });
-      for (let i = 0; i < ruido; i++) await m.eje.escribir({ autor: ids[i], sobre: Z.id, en: direccion([1]), t: T0, movimientos: [minuto(ids[i])], payload: 'ruido ' + i });
-      return evaluar(m.eje, Z.id, [2], { limites: { candidatos: 3 } }).estado;
-    };
-    assert.equal(await buscar(4), await buscar(0));
-  });
+// NEU-07 ya no se salta: R8, elegibilidad antes que límites (src/elegibles.js; mapa §12 [D] «Quién ocupa una
+// posición ajena»: elegible por defecto = el autor y quien aparece en su posición 3). BUSCAR filtra los elegibles y
+// después aplica el límite; el ruido ajeno solo se cuenta (noElegibles).
+test('NEU-07: escritos ajenos que el dueño no considera elegibles no le bloquean su BUSCAR', async () => {
+  const buscar = async (ruido) => {
+    const ids = nombres('S', Math.max(ruido, 1));
+    const m = await mundo(ids);
+    // El mercado del dueño: su posición 2 (criterio) busca entre los candidatos de su posición 1.
+    const Z = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: ['mercado', 'ofertas', '=BUSCAR(1)'] });
+    await m.eje.escribir({ autor: 'C', sobre: Z.id, en: direccion([1]), t: T0, movimientos: [minuto('C')], payload: 'oferta del dueño' });
+    for (let i = 0; i < ruido; i++) await m.eje.escribir({ autor: ids[i], sobre: Z.id, en: direccion([1]), t: T0, movimientos: [minuto(ids[i])], payload: 'ruido ' + i });
+    const r = evaluar(m.eje, Z.id, [2], { limites: { candidatos: 3 } });
+    return { estado: r.estado, candidatos: r.valor?.items.map((i) => [i.origen, i.evento]), fuera: r.valor?.noElegibles ?? 0 };
+  };
+  const [con, sin] = [await buscar(4), await buscar(0)];
+  assert.deepEqual([con.estado, con.candidatos], [sin.estado, sin.candidatos]);
+  assert.equal(con.estado, 'RESUELTO');
+  assert.deepEqual([con.fuera, sin.fuera], [4, 0]); // el recuento informa y no puntúa
+});
 
-test('NEU-08: sin clave no se actúa: nadie escribe como otra identidad ni mueve sus tokens',
-  { skip: 'NEU-08: concesión «identidad sin clave» (src/eje.js:validar solo exige firma si hay clave registrada; exigirFirmas = false por defecto). Cualquiera escribe un evento con autor S2 y le quita T, E o P, o autoriza en su nombre: N nombres sin clave son N votos gratis. [X] decidir VG: firma obligatoria para mover tokens o autorizar, con un modo demostración marcado (recomendación R9)' },
-  async () => {
-    const { eje, X } = await mundo(['S2']);
-    const antes = eje.saldo('S2', 'T:minuto');
-    // «g» escribe en nombre de S2 (que no tiene clave): el eje no puede saber que no es S2.
-    await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por g' }));
-    assert.equal(eje.saldo('S2', 'T:minuto'), antes);
+test('propiedad (R8): N identidades falsas con ruido en la posición del dueño no cambian lo que su BUSCAR devuelve ni su orden', async () => {
+  const g = prng(SEMILLA + 7);
+  for (let caso = 0; caso < CASOS / 3; caso++) {
+    const guion = Array.from({ length: g.int(1, 5) }, (_, i) => ({ autor: g.pick(['C', 'A']), texto: 'oferta ' + i, dir: g.pick([[1], [1], [1, 2]]) }));
+    const falsas = nombres('F', g.int(1, 8));
+    const ruido = Array.from({ length: g.int(1, 12) }, (_, i) => ({ autor: g.pick(falsas), texto: 'ruido ' + i, dir: g.pick([[1], [1, 2], [1, 0]]), antes: g.int(0, guion.length) }));
+    const limite = guion.length + 1; // cabe lo del dueño y lo de A; con el ruido delante, hoy no cabría
+    const correr = async (conRuido) => {
+      // A aparece en el 3 del mercado: es elegible. Las falsas solo existen en el mundo con ruido.
+      const m = await mundo(conRuido ? ['A', ...falsas] : ['A']);
+      const Z = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: ['mercado', 'ofertas', '=BUSCAR("1000000000")', 'A'] });
+      for (let k = 0; k <= guion.length; k++) {
+        if (conRuido) for (const x of ruido.filter((r) => r.antes === k)) await m.eje.escribir({ autor: x.autor, sobre: Z.id, en: direccion(x.dir), t: T0, movimientos: [minuto(x.autor)], payload: x.texto });
+        const x = guion[k];
+        if (x) await m.eje.escribir({ autor: x.autor, sobre: Z.id, en: direccion(x.dir), t: T0, movimientos: [minuto(x.autor)], payload: x.texto });
+      }
+      const r = evaluar(m.eje, Z.id, [2], { limites: { candidatos: limite } });
+      const propuesta = motor.proponer(m.eje, Z.id, { posiciones: [2] }).elecciones[2]?.candidato.evento;
+      return { estado: r.estado, orden: r.valor?.items.map((i) => [i.origen, i.evento, i.autor ?? null]), propuesta };
+    };
+    const [sin, con] = [await correr(false), await correr(true)];
+    // El mercado, sus escritos y los de A tienen el mismo id en los dos mundos: cuelgan de X, que no depende de las altas.
+    assert.deepEqual(con, sin, 'caso ' + caso);
+    assert.equal(sin.estado, 'RESUELTO', 'caso ' + caso);
+  }
+});
+
+/**
+ * Un eje con claves, sin demostración (R9): g firma el génesis; S2 entra con
+ * su clave y su prueba de posesión, y S3 recibe tokens sin clave.
+ */
+async function mundoConClaves() {
+  const [kg, k2] = [await generarClaves(), await generarClaves()];
+  const eje = await Eje.genesis({
+    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'], clave: kg.publica, privada: kg.privada,
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
+  const X = await eje.escribir({
+    autor: 'g', sobre: eje.genesisId, t: T0, movimientos: [minuto('g'), minuto('g', 5000, 'S2'), minuto('g', 5000, 'S3')], payload: 'altas',
+    contexto: { tipos: { S2: 'persona', S3: 'persona' }, claves: { S2: k2.publica } },
+  }, kg.privada, { S2: k2.privada });
+  return { eje, X: X.id, kg, k2 };
+}
+
+// NEU-08 ya no se salta: R9, sin clave no se actúa (src/eje.js:validar), salvo en un eje marcado como demostración.
+test('NEU-08: sin clave no se actúa: nadie escribe como otra identidad ni mueve sus tokens', async () => {
+  const { eje, X, kg, k2 } = await mundoConClaves();
+  const antes = [eje.saldo('S2', 'T:minuto'), eje.saldo('S3', 'T:minuto')];
+  // «g» escribe en nombre de S2 (que tiene clave): sin su firma, o con la de g, no entra.
+  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por g' }), /firma ausente de S2/);
+  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por g' }, kg.privada), /firma inválida de S2/);
+  // Ni en nombre de S3, que no tiene clave: N nombres sin clave no son N votos gratis.
+  await assert.rejects(eje.escribir({ autor: 'S3', sobre: X, t: T0, movimientos: [minuto('S3', 1, 'g')], payload: 'escrito por g' }), /sin clave no se actúa: S3 no tiene clave registrada/);
+  assert.deepEqual([eje.saldo('S2', 'T:minuto'), eje.saldo('S3', 'T:minuto')], antes);
+  // S2 sí actúa, con su firma.
+  await eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por S2' }, k2.privada);
+  assert.equal(eje.saldo('S2', 'T:minuto'), antes[0] - 1);
+  // Un eje de demostración conserva lo de antes, y lo dice: el génesis lo lleva en su contexto.
+  const demo = await mundo(['S3']);
+  assert.equal(demo.eje.demostracion, true);
+  assert.equal(demo.eje.obtener(demo.eje.genesisId).contexto.demostracion, true);
+  await demo.eje.escribir({ autor: 'S3', sobre: demo.X, t: T0, movimientos: [minuto('S3', 1, 'g')], payload: 'escrito por g' });
+});

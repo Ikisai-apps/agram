@@ -30,7 +30,7 @@ const unico = (texto) => texto + ' #' + (++cuenta);
  */
 async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'] } = {}) {
   const eje = await Eje.genesis({
-    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
+    demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
     emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }],
   });
   await eje.escribir({
@@ -236,7 +236,7 @@ test('R2·4: fracciones solo en series divisibles; la cuota de una divisible no 
 });
 
 test('R2·4: el génesis fija también si su E es divisible; no nombra registro ni emite en conjunto', async () => {
-  const base = { identidad: 'g', tipo: 'persona', t: T0, foco: 'g' };
+  const base = { demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: 'g' };
   await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 10.5 }] }), /E:g\/EUR va en enteros/);
   const eje = await Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 10.5, divisible: true }] });
   assert.deepEqual(eje.serie('E:g/EUR'), { emisor: 'g', emitido: 10.5, divisible: true });

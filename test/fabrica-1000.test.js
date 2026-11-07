@@ -31,7 +31,7 @@ const en = (payload, h) => {
 };
 
 /** Un eje propio con mucho T, para escribir registros grandes. */
-const ejeGrande = (minutos) => Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: minutos }], foco: 'Casa de ejemplo', t: T });
+const ejeGrande = (minutos) => Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: minutos }], foco: 'Casa de ejemplo', t: T });
 
 /**
  * Una ficha cuyo precio [1][2] desarrolla las clases 0–3. VG, 7-11 noche: por hojas: el precio es una

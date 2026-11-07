@@ -50,11 +50,12 @@ export const FECHA_LIMITE = '2026-11-14T09:00:00Z';
  * BUSCAR por índice y por dirección, llegado con la #36): el texto de diez
  * dígitos del 5 nombra la colisión entera del 1.
  *
- * [X] decidir VG: quién puede ocupar una posición de recursos ajena. El 1 es
- * de la tarea (lo escribe la organizadora) y cualquiera con minutos escribe
- * en él: el proveedor, la casa o alguien que no está en la tarea. El eje y el
- * motor no lo limitan, y la fórmula del 9 no puede (no lee el autor de un
- * candidato). Este ejemplo solo lo para al pagar (movimientosDeEjecucion).
+ * Quién ocupa una posición ajena (mapa §12 [D], VG 7-11 noche; R8, src/elegibles.js):
+ * el 1 es de la tarea (lo escribe la organizadora) y cualquiera con minutos
+ * escribe en él, pero solo es ELEGIBLE lo de quien la tarea nombra en su 3
+ * (la organizadora y el proveedor). Lo de los demás colisiona y queda en el
+ * eje, y BUSCAR, proponer y descubrir solo lo cuentan (noElegibles). El pago
+ * (movimientosDeEjecucion) lo vuelve a comprobar.
  */
 export const EN_PRESUPUESTO = '1000000000';
 
@@ -297,6 +298,7 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   // partida (su capacidad, E:casa/<concepto>), minutos (escribir), horas
   // (trabajar) y poder sobre todo su eje.
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [

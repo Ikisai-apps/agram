@@ -29,6 +29,7 @@ const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 /** Un eje mínimo: la raíz tiene tiempo y poder; su foco es el payload dado. */
 async function ejeCon(payload) {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }],
     foco: payload,

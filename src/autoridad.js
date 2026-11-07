@@ -67,14 +67,38 @@ export async function firmar(ev, privada, firmante = ev.autor) {
  * unos bytes manipulados no pasen por la misma firma.
  */
 export async function verificar(ev, publica) {
-  if (typeof ev.firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(ev.firma) || !ev.id) return false;
+  return verificarFirma(ev.firma, ev.id, publica);
+}
+
+/** Una firma (base64url canónico) del id con la clave pública (JWK). */
+async function verificarFirma(firma, id, publica) {
+  if (typeof firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(firma) || !id) return false;
   try {
-    const bytes = deBase64url(ev.firma);
-    if (aBase64url(bytes) !== ev.firma) return false;
-    return await subtle().verify(FIRMA, await importarVerificadora(publica), bytes, aBytes(ev.id));
+    const bytes = deBase64url(firma);
+    if (aBase64url(bytes) !== firma) return false;
+    return await subtle().verify(FIRMA, await importarVerificadora(publica), bytes, aBytes(id));
   } catch {
     return false;
   }
+}
+
+/**
+ * Prueba de posesión (R9, docs/notas/NEUTRALIDAD_IDENTIDAD.md §4): la clave
+ * que un alta declara para `identidad` firma el id del propio evento del
+ * alta. Va en `posesion` ({ identidad: firma }), fuera del cuerpo como la
+ * firma del autor, así que no cambia el id. Devuelve el evento con la prueba.
+ */
+export async function firmarPosesion(ev, identidad, privada) {
+  if (!ev.id) throw new Error('el evento no tiene id');
+  const firma = aBase64url(await subtle().sign(FIRMA, privada, aBytes(ev.id)));
+  return Object.freeze({ ...ev, posesion: { ...(ev.posesion ?? {}), [identidad]: firma } });
+}
+
+/** ¿Firma `posesion[identidad]` el id del evento con la clave pública declarada para ella? */
+export async function verificarPosesion(ev, identidad, publica) {
+  const p = ev.posesion;
+  const firma = p && typeof p === 'object' && !Array.isArray(p) && Object.hasOwn(p, identidad) ? p[identidad] : undefined;
+  return verificarFirma(firma, ev.id, publica);
 }
 
 /**

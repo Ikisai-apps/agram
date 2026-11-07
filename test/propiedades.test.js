@@ -118,7 +118,7 @@ test('propiedad: direccion e indicesDe son inversas; resolver sigue el camino ex
 test('regresión: un array disperso tiene huecos (Array(3), [1, , 3]) y no entra en el eje', async () => {
   assert.equal(validarPayload(Array(3)).ok, false);
   assert.deepEqual(validarPayload([1, , 3]).errores, ['1: hueco']); // eslint-disable-line no-sparse-arrays
-  await assert.rejects(Eje.genesis({ identidad: 'ana', emision: [{ token: 'T', cantidad: 10, escala: 'hora' }], foco: [1, , 3], t: T0 }), /hueco/); // eslint-disable-line no-sparse-arrays
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'ana', emision: [{ token: 'T', cantidad: 10, escala: 'hora' }], foco: [1, , 3], t: T0 }), /hueco/); // eslint-disable-line no-sparse-arrays
   await assert.rejects(crearEvento({ autor: 'ana', sobre: 'g', t: T0, movimientos: [gastaT('ana')], payload: Array(2) }), /hueco/);
 });
 
@@ -167,14 +167,14 @@ test('propiedad: el id no cambia al pasar por JSON y lo creado no depende de lo 
 });
 
 test('regresión: undefined en el contexto o en la referencia no cambia el id tras guardar', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: { ref: eje.genesisId, dir: undefined }, contexto: { nota: undefined } });
   const otro = await restaurar(ida(eje));
   assert.deepEqual(otro.orden, eje.orden);
 });
 
 test('regresión: mutar el payload después de escribir no corrompe el eje', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   const p = ['a'];
   const ev = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: p });
   p[0] = 'z';
@@ -183,7 +183,7 @@ test('regresión: mutar el payload después de escribir no corrompe el eje', asy
 });
 
 test('regresión: una consolidación con un candidato sin tipo (undefined en el contexto) se restaura', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['g', 'uno'], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['g', 'uno'], t: T0 });
   await motor.consolidar(eje, { autor: 'r', foco: eje.genesisId, elecciones: { 1: { candidato: { evento: eje.genesisId, dir: '1000000000' } } }, t: T0 });
   assert.deepEqual((await restaurar(ida(eje))).orden, eje.orden);
 });
@@ -192,7 +192,7 @@ test('regresión: un movimiento null o un contexto que no es objeto dan errores,
   const base = { autor: 'r', sobre: 'g', t: T0, payload: 'x' };
   assert.ok(validarForma({ ...base, movimientos: [null, gastaT('r')] }).some((e) => /no es objeto/.test(e)));
   assert.ok(validarForma({ ...base, movimientos: [gastaT('r')], contexto: 5 }).some((e) => /contexto/.test(e)));
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   const ev = await crearEvento({ ...base, sobre: eje.genesisId, movimientos: [gastaT('r')] });
   for (const movimientos of [[...ev.movimientos, null], {}, 5]) {
     const errores = await eje.validar({ ...ev, movimientos });
@@ -204,7 +204,7 @@ test('regresión: un movimiento null o un contexto que no es objeto dan errores,
 // ---------- tokens y eje ----------
 
 test('regresión: la cadena vacía no es una identidad', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: '' }], payload: 'x' }), /identidad/);
 });
 
@@ -212,8 +212,8 @@ test('regresión: el génesis con clave va firmado con ella (como exige restaura
   const { publica } = await generarClaves();
   const otra = await generarClaves();
   const emision = [{ token: 'T', escala: 'minuto', cantidad: 600 }];
-  await assert.rejects(Eje.genesis({ identidad: 'r', emision, foco: 'g', t: T0, clave: publica }), /firmado/);
-  await assert.rejects(Eje.genesis({ identidad: 'r', emision, foco: 'g', t: T0, clave: publica, privada: otra.privada }), /firmado/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'r', emision, foco: 'g', t: T0, clave: publica }), /firmado/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'r', emision, foco: 'g', t: T0, clave: publica, privada: otra.privada }), /firmado/);
 });
 
 test('regresión: restaurar exige al génesis lo mismo que Eje.genesis (solo emite a su autor, P con ámbito genesis, claves del autor)', async () => {
@@ -226,15 +226,15 @@ test('regresión: restaurar exige al génesis lo mismo que Eje.genesis (solo emi
   for (const extra of casos) {
     const g = await crearEvento({ autor: 'r', sobre: null, t: T0, payload: 'g', contexto: { genesis: true }, movimientos: [T, ...extra] });
     await assert.rejects(restaurar({ version: 2, eventos: [g] }), /génesis rechazado: el P del génesis/);
-    await assert.rejects(Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'P', ambito: extra[0].ambito, cantidad: 1 }], foco: 'g', t: T0 }), /el P del génesis/);
+    await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }, { token: 'P', ambito: extra[0].ambito, cantidad: 1 }], foco: 'g', t: T0 }), /el P del génesis/);
   }
   const g = await crearEvento({ autor: 'r', sobre: null, t: T0, payload: 'g', contexto: { genesis: true, claves: { fantasma } }, movimientos: [T] });
   await assert.rejects(restaurar({ version: 2, eventos: [g] }), /génesis rechazado: el génesis solo declara la clave de su autor/);
-  await assert.rejects(Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0, contexto: { claves: { fantasma } } }), /clave de su autor/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0, contexto: { claves: { fantasma } } }), /clave de su autor/);
 });
 
 test('regresión: una clave declarada debe ser pública e importable (sin d, sin x/y basura)', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   const par = await generarClaves();
   const alta = (clave) => eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a: 'bea' }], payload: 'alta', contexto: { claves: { bea: clave } } });
   await assert.rejects(alta({ ...par.publica, d: 'PRIVADA' }), /clave inválida/);
@@ -243,7 +243,7 @@ test('regresión: una clave declarada debe ser pública e importable (sin d, sin
 });
 
 test('regresión: P sobre el génesis por su id cubre lo mismo que P «genesis»', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', ambito: 'genesis', cantidad: 10 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', ambito: 'genesis', cantidad: 10 }], foco: 'g', t: T0 });
   await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x' });
   await eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, movimientos: [gastaT('b'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'b', a: 'c' }], payload: 'y' });
   assert.equal(eje.saldo('b', 'P:' + eje.genesisId), 3);
@@ -253,7 +253,7 @@ test('regresión: P sobre el génesis por su id cubre lo mismo que P «genesis»
 test('mover T de uno a sí mismo no paga la escritura',
   { skip: 'TOK-02: [X] decidir VG si mover T de uno a sí mismo cuenta como «el autor mueve T»; hoy se acepta y la escritura sale sin coste (el saldo no cambia)' },
   async () => {
-    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
     await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }));
   });
 
@@ -274,7 +274,7 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
   const quienes = ['b', 'c', 'hab'];
   const vistos = { emisionDeOtros: 0, cosaMueve: 0, cosaNoEmite: 0 };
   for (let s = 0; s < 12; s++) {
-    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
     // Alta: b es persona, c es grupo y hab es una cosa (con cartera, sin emisión).
     const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
     const consumido = new Map([['T:minuto', 1]]);
@@ -355,7 +355,7 @@ test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca 
   for (let i = 0; i < 150; i++) {
     const minutos = g.pick([0, 1, 2, 5, 20, 400]);
     const emision = [{ token: 'T', escala: 'hora', cantidad: 1000 }, ...(minutos ? [{ token: 'T', escala: 'minuto', cantidad: minutos }] : [])];
-    const eje = await Eje.genesis({ identidad: 'r', emision, foco: ['g', ['a', 'b']], t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision, foco: ['g', ['a', 'b']], t: T0 });
     const modo = g.pick(['pointed', 'sequenced', 'mapped']);
     const payload = g.si(0.3) ? g.pick(['plaza', 7, { ref: eje.genesisId, dir: '1000000000' }]) : payloadEje(g, [eje.genesisId]);
     const coste = costeT(payload);
@@ -400,7 +400,7 @@ function payloadEje(g, ids, prof = 0, formula) {
 
 async function ejeAleatorio(semilla, { n = 6, formula } = {}) {
   const g = prng(semilla);
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadEje(g, [], 0, formula), t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadEje(g, [], 0, formula), t: T0 });
   const ids = [eje.genesisId];
   for (let i = 0; i < n; i++) {
     const en = g.si() ? direccion([g.int(0, 3), g.int(0, 2)].slice(0, g.int(0, 2))) : '0000000000';
@@ -557,7 +557,7 @@ test('propiedad: BQL con fórmulas generadas por gramática nunca lanza, nunca e
 
 // Integración 7-11: con BQL según el corpus (#36, O-33/E-09) agotar un límite es PENDIENTE POR LÍMITE, no ERROR.
 test('propiedad: los ciclos acaban en ERROR y el presupuesto en PENDIENTE POR LÍMITE', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['=LOCAL(1)', '=LOCAL(0)', '=LOCAL(2)', ...Array.from({ length: 7 }, (_, i) => (i < 6 ? '=LOCAL(' + (i + 4) + ') + LOCAL(' + (i + 4) + ')' : 1))], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['=LOCAL(1)', '=LOCAL(0)', '=LOCAL(2)', ...Array.from({ length: 7 }, (_, i) => (i < 6 ? '=LOCAL(' + (i + 4) + ') + LOCAL(' + (i + 4) + ')' : 1))], t: T0 });
   assert.match(B.evaluar(eje, eje.genesisId, [0]).texto, /^ERROR: ciclo/);
   assert.match(B.evaluar(eje, eje.genesisId, [2]).texto, /^ERROR: ciclo/);
   assert.equal(B.evaluar(eje, eje.genesisId, [3]).texto, '64');
@@ -569,7 +569,7 @@ test('propiedad: los ciclos acaban en ERROR y el presupuesto en PENDIENTE POR L�
 test('regresión: BUSCAR, ACTUAL o una fórmula más allá de diez profundidades dan PENDIENTE, no RangeError', async () => {
   let p = '=BUSCAR(1, 1, 0)'; // VG, 7-11 noche: el último número es el índice en la lista; el camino, 1.1 más hondo
   for (let i = 0; i < 10; i++) p = [p];
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: p, t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: p, t: T0 });
   const fondo = Array(10).fill(0);
   const PROFUNDO = 'PENDIENTE: posición sin desarrollar: más de diez profundidades';
   assert.equal(B.evaluar(eje, eje.genesisId, fondo).texto, PROFUNDO);
@@ -578,14 +578,14 @@ test('regresión: BUSCAR, ACTUAL o una fórmula más allá de diez profundidades
   assert.equal(B.consultar(eje, eje.genesisId, [...fondo, 0], 'ACTUAL(1, 2)').texto, PROFUNDO);
   let q = '=1+1';
   for (let i = 0; i < 11; i++) q = [q];
-  const hondo = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: q, t: T0 });
+  const hondo = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: q, t: T0 });
   assert.equal(B.evaluar(hondo, hondo.genesisId, Array(11).fill(0)).texto, PROFUNDO);
   assert.equal(B.consultar(hondo, hondo.genesisId, [0], 'LOCAL(' + Array(11).fill(0).join(',') + ')').texto, PROFUNDO);
 });
 
 // Integración 7-11: con #36 la anidación tiene límite propio (limites.profundidad): PENDIENTE POR LÍMITE, no ERROR.
 test('regresión: una fórmula anidada miles de veces da PENDIENTE POR LÍMITE, no desborda la pila', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   for (const f of ['('.repeat(20000) + '1' + ')'.repeat(20000), 'NO('.repeat(20000) + '1=1' + ')'.repeat(20000), '-'.repeat(50000) + '1']) {
     const r = B.consultar(eje, eje.genesisId, [0], f);
     assert.equal(r.estado, 'PENDIENTE POR LÍMITE');
@@ -593,7 +593,7 @@ test('regresión: una fórmula anidada miles de veces da PENDIENTE POR LÍMITE, 
 });
 
 test('regresión: una función sin el argumento que espera da ERROR, no TypeError', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['g', 'a'], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['g', 'a'], t: T0 });
   // Integración 7-11: con #36, las funciones de colección dicen qué esperan (docs/BQL.md §8).
   assert.equal(B.consultar(eje, eje.genesisId, [0], 'NO()').texto, 'ERROR: NO espera un argumento');
   for (const f of ['CONTAR()', 'SUMAR()', 'FILTRAR()', 'ORDENAR()', 'ELEGIR()']) {
@@ -607,7 +607,7 @@ async function ejeConFirmas(g, pares) {
   const firmas = g.si(0.6);
   const [pr, pb] = pares;
   const priv = { r: firmas ? pr.privada : undefined, b: firmas ? pb.privada : undefined };
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
   const ids = [eje.genesisId];
   const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: firmas ? { claves: { b: pb.publica } } : {} }, priv.r);
   ids.push(alta.id);
@@ -652,7 +652,7 @@ test('propiedad: serializar→restaurar es idempotente y los bytes manipulados s
 
 test('regresión: el firmante del génesis es su autor; la firma es base64url canónica', async () => {
   const par = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada });
   const ev = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' }, par.privada);
   const datos = () => ida(eje);
   const sinFirmante = datos(); delete sinFirmante.eventos[0].firmante;
@@ -669,7 +669,7 @@ test('regresión: el firmante del génesis es su autor; la firma es base64url ca
 });
 
 test('regresión: campos desconocidos o por defecto en un evento guardado no cambian lo restaurado', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' });
   const S = JSON.stringify(serializar(eje));
   for (const cambio of [(d) => { d.eventos[1].saldo = 999; }, (d) => { delete d.eventos[1].en; }, (d) => { delete d.eventos[1].contexto; }, (d) => { d.eventos[0].contexto.x = undefined; }]) {
@@ -683,7 +683,7 @@ test('un archivo que rebaja exigirFirmas no se restaura',
   { skip: 'BTML-06: [X] decidir VG si exigirFirmas entra en lo firmado; hoy va fuera (en la cabecera de serializar) y un archivo sin exigirFirmas restaura con la política rebajada' },
   async () => {
     const par = await generarClaves();
-    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada, exigirFirmas: true });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada, exigirFirmas: true });
     const d = ida(eje);
     delete d.exigirFirmas;
     await assert.rejects(restaurar(d));
@@ -692,7 +692,7 @@ test('un archivo que rebaja exigirFirmas no se restaura',
 test('la firma de un autor sin clave registrada no se guarda sin verificar',
   { skip: 'BTML-06: [X] decidir VG qué hacer con la firma de un autor sin clave registrada; hoy se guarda sin verificar y admite cualquier texto («basura» restaura)' },
   async () => {
-    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' });
     const d = ida(eje);
     d.eventos[1].firmante = 'r';

@@ -69,6 +69,7 @@ const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantid
  */
 async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina', 'pagar']) {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
     foco,
@@ -126,6 +127,7 @@ const nombresExportados = () => Object.entries(agram).flatMap(([k, v]) => (Objec
 /** La casa como génesis: una plaza (un token por plaza y noche), una habitación con una cama, recepción con poder y dos huéspedes. */
 async function casaConUnaPlaza() {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'casa',
     emision: [...EMISION, { token: 'E', denominacion: 'plaza-7-11', cantidad: 1 }],
     foco: ['Habitación 1', 'cama A'],
@@ -158,7 +160,7 @@ async function reservaDeLaCasa(eje, hab, huesped) {
  * persona (antes, un grupo), con P delegado y su R en juego.
  */
 async function reservaDelHuesped() {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'Mundo', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'Mundo', t: T0 });
   const g = eje.genesisId;
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 120), daT('raiz', 'huesped', 120), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', huesped: 'persona' } } });
   // La casa emite su serie limitada: un token por plaza y noche.
@@ -425,7 +427,7 @@ test('MOT-15 las etapas van en orden: solo se autoriza una consolidación, solo 
 
 test('MOT-16 descubrir conserva las alternativas que ocupan la misma posición con distinto id', async () => {
   const { eje, g } = await mundo(['Compra', 'a', 'b', 'c', [['fábrica'], 'x']]); // VG, 7-11 noche: por hojas: 4 décupla, 4.0 lista de uno
-  const h = await escribe(eje, g, 'otra fábrica', FABRICA, 'ana');
+  const h = await escribe(eje, g, 'otra fábrica', FABRICA); // del dueño: ana no es elegible en el génesis de raiz (R8)
   const [p4] = descubrir(eje, g, { posiciones: [4] });
   assert.deepEqual(p4.candidatos.map((c) => [c.origen, c.camino.join('.')]), [['propio', '4'], ['propio', '4.0'], ['escrito', '']]); // [4] y [4.0] colisionan
   assert.equal(p4.candidatos[2].evento, h.id);
@@ -928,7 +930,7 @@ test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 10
 
 test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y permiso se comprueban por separado', async () => {
   const raiz = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   // 1 · forma
   assert.ok(validarForma({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }).length > 0);
@@ -965,7 +967,7 @@ test('MOT-61c un informe por capas: cinco estados independientes, sin veredicto 
 test('MOT-62 las capas no se confunden: estructura válida y firmada no es autorización; la firma solo prueba quién escribe', async () => {
   const raiz = await generarClaves();
   const bea = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas', contexto: { claves: { bea: bea.publica } } }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
@@ -977,7 +979,7 @@ test('MOT-62 las capas no se confunden: estructura válida y firmada no es autor
 
 test('MOT-63 en el registro en foco se pueden inspeccionar señales de validez, que no la garantizan', async () => {
   const raiz = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
   const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['Dice', 'que está pagado'] }, raiz.privada);
   // Señales: forma, id y firma.
   assert.deepEqual(validarForma(ev), []);
@@ -1089,7 +1091,7 @@ test('M:TOK-01b ejecutar también paga un minuto por posición escrita', async (
 });
 
 test('M:TOK-02 el coste en minutos se paga con T de minuto, no con horas convertidas', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: ['Casa', 'x'], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: ['Casa', 'x'], t: T0 });
   await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'raiz', sobre: eje.genesisId, en: '1000000000', payload: 'nota', t: T0 }), /saldo insuficiente/);
 });
 
@@ -1132,7 +1134,7 @@ test('TOK-01 todo evento es una transición de tokens: no existe evento sin movi
 });
 
 test('TOK-02 el evento mínimo mueve T del autor (en el génesis, el autor lo recibe)', async () => {
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 }), /el génesis debe emitir T al autor/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 }), /el génesis debe emitir T al autor/);
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /el autor debe mover T/);
   const minimo = await escribe(eje, g, 'nota', undefined, 'ana');
@@ -1153,6 +1155,7 @@ test('TOK-03b los tokens viven en una base de datos',
 
 test('TOK-04 las series siguen la misma mecánica: E por denominación, P por ámbito, R por emisor', async () => {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'E', denominacion: 'kg', cantidad: 5 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
     foco: 'x',
@@ -1166,7 +1169,7 @@ test('TOK-04 las series siguen la misma mecánica: E por denominación, P por á
 });
 
 test('TOK-04b también T es una serie: un saldo por escala', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'minuto', cantidad: 120 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'minuto', cantidad: 120 }], foco: 'x', t: T0 });
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'hora', cantidad: 3, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
 });
 
@@ -1175,26 +1178,26 @@ test('TOK-04b también T es una serie: un saldo por escala', async () => {
 // =====================================================================
 
 test('TOK-05 T son siete tokens, uno por escala, cada uno con su propio saldo', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'x', t: T0 });
   assert.equal(eje.saldoT('raiz', 'hora'), 1);
   assert.equal(eje.saldoT('raiz', 'minuto'), 0);
 });
 
 test('TOK-06 las escalas de T no se convierten entre sí: gastar en una no consume saldo de otra', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'anio', cantidad: 1 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'anio', cantidad: 1 }], foco: 'x', t: T0 });
   const g = eje.genesisId;
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'dia', cantidad: 300, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
 });
 
 test('TOK-07 una misma actividad puede mover a la vez varias escalas de T', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: ESCALAS_T.map((escala) => ({ token: 'T', escala, cantidad: 10 })), foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: ESCALAS_T.map((escala) => ({ token: 'T', escala, cantidad: 10 })), foco: 'x', t: T0 });
   const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: ['minuto', 'dia', 'semana', 'anio'].map((escala) => ({ token: 'T', escala, cantidad: 1, de: 'raiz', a: null })), payload: 'intervención, atención, horizonte, estrategia' });
   assert.deepEqual(ev.movimientos.map((m) => m.escala), ['minuto', 'dia', 'semana', 'anio']);
 });
 
 test('TOK-07b las escalas que mueve una actividad son saldos independientes', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'T', escala: 'dia', cantidad: 10 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'T', escala: 'dia', cantidad: 10 }], foco: 'x', t: T0 });
   await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'dia', cantidad: 1, de: 'raiz', a: null }], payload: 'x' });
   assert.deepEqual([eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'dia')], [9, 9]);
 });
@@ -1376,17 +1379,17 @@ test('TOK-25b ni un génesis manipulado deja a nadie en negativo', async () => {
 });
 
 test('TOK-26 E se cuenta por denominación: recursos distintos no se suman', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 10 }, { token: 'E', denominacion: 'BTC', cantidad: 10 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 10 }, { token: 'E', denominacion: 'BTC', cantidad: 10 }], foco: 'x', t: T0 });
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'EUR', cantidad: 15, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
   assert.deepEqual([eje.saldo('raiz', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/BTC')], [10, 10]);
 });
 
 test('TOK-26b no hay E sin denominación', async () => {
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'E', cantidad: 5 }], foco: 'x', t: T0 }));
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [...EMISION, { token: 'E', cantidad: 5 }], foco: 'x', t: T0 }));
 });
 
 test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos casas son series distintas', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
   // VG, 7-11 noche: las casas que emiten son personas (antes, grupos), con P delegado y su R en juego.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casaA', 60), daT('raiz', 'casaB', 60), daP('raiz', 'casaA'), daP('raiz', 'casaB')], payload: 'altas', contexto: { tipos: { casaA: 'persona', casaB: 'persona' } } });
@@ -1398,7 +1401,7 @@ test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos
 });
 
 test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y solo él amplía su serie', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
   // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', otro: 'persona' } } });
@@ -1411,13 +1414,13 @@ test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y s
 });
 
 test('TOK-29 nadie emite una serie ajena: la R se emite a su propio emisor', async () => {
-  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'R', cantidad: 5, emisor: 'otra' }], foco: 'x', t: T0 }), /la emisión de R va a su propio emisor/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [...EMISION, { token: 'R', cantidad: 5, emisor: 'otra' }], foco: 'x', t: T0 }), /la emisión de R va a su propio emisor/);
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: null, a: 'raiz' }], payload: 'x' }));
 });
 
 test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía la serie de otro', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, tipo: 'persona' });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, tipo: 'persona' });
   const g = eje.genesisId;
   // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daP('raiz', 'casa')], payload: 'alta', contexto: { tipos: { casa: 'persona' } } });
@@ -1801,7 +1804,7 @@ test('TOK-72 AGRAM no firma por nadie: la firma la pone el autor con su clave', 
   const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
   for (const ev of [c, a, e]) assert.equal(ev.firma, undefined); // sin clave del autor, nada firmado
   const ana = await generarClaves();
-  const eje2 = await Eje.genesis({ identidad: 'ana', emision: EMISION, foco: ['F', 'a'], t: T0, clave: ana.publica, privada: ana.privada });
+  const eje2 = await Eje.genesis({ demostracion: true, identidad: 'ana', emision: EMISION, foco: ['F', 'a'], t: T0, clave: ana.publica, privada: ana.privada });
   const c2 = await consolidar(eje2, { autor: 'ana', foco: eje2.genesisId, t: T0, elecciones: { 1: 'x' } }, ana.privada);
   assert.equal(c2.firmante, 'ana');
   assert.equal(await verificar(c2, ana.publica), true);
@@ -1835,7 +1838,7 @@ test('TOK-74 fuera quedan AARPIA, Nostr y Bitcoin, salvo instancias y transicion
 
 test('TOK-75 firmar no hace verdadero el contenido, y publicar no hace a un evento descubrible por todos', async () => {
   const raiz = await generarClaves();
-  const crear = () => Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
+  const crear = () => Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
   const aqui = await crear();
   const alli = await crear();
   assert.equal(aqui.genesisId, alli.genesisId);
@@ -1866,7 +1869,7 @@ test('TOK-78 el viejo Core no vuelve: no hay módulo ni ontología Core en el n�
 
 test('TOK-79 capas de validez separadas: el eje valida forma, id, firma y saldos por su lado', async () => {
   const raiz = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }, raiz.privada), /en debe ser/); // forma
   const bueno = await firmar(await crearEvento({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'x' }), raiz.privada);

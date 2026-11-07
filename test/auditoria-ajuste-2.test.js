@@ -76,6 +76,7 @@ test('A2-06: cargarEpoca lee y valida los cortes; confluir acepta la época por 
 // A2-01 · una cadena de cifras es una cadena literal; el número lo da el JSON.
 test('A2-01: «0034» y «120» escritos como texto se leen como texto, sin perder ceros', async () => {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz', tipo: 'persona', t: T,
     emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }],
     foco: ['Registro', 'x', '0034', '120', 'Mesa 4', '12 EUR', 120],

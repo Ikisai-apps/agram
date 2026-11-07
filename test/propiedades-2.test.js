@@ -211,7 +211,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     // VG, 7-11 noche: el génesis lo emite una persona (o quien no declara tipo, que después no emite); ya no un grupo.
     const tipoG = g.pick(['persona', undefined]);
     const emision = [['T:minuto', 300], ['T:hora', 50], ['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
     const ids = [eje.genesisId];
     const consumido = new Map();
@@ -284,7 +284,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
 });
 
 test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuál, y nada a medias se restaura', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'g', t: T0 });
   const d = ida(eje);
   // Desde el ciclo E/P/R/T (VG, 7-11 noche) la versión es la 3; la 2 se migra (test/persistencia.test.js).
   await assert.rejects(restaurar({ ...d, version: 1 }), /versión 1; esta es la 3/);
@@ -295,7 +295,7 @@ test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuá
 test('cantidades no enteras de E y P: 0,3 − 0,1 no alcanza para 0,2',
   { skip: 'TOK-03: [X] decidir VG con qué aritmética van las fracciones de E (solo en las series declaradas divisibles, R2, VG 7-11 noche) y de P. Hoy, con 0,3 EUR divisibles, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
   async () => {
-    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
     const pago = (c) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: c, de: 'r', a: null });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.1)], payload: 'a' });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.2)], payload: 'b' });
@@ -352,7 +352,7 @@ function payloadAl(g, ids, prof = 0) {
 }
 
 async function ejeAl(g) {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadAl(g, []), t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadAl(g, []), t: T0 });
   const ids = [eje.genesisId];
   for (let i = 0; i < g.int(2, 6); i++) {
     const ev = await eje.escribir({ autor: 'r', sobre: g.pick(ids), en: g.si(0.7) ? dirAl(g) : '0000000000', t: T0, movimientos: [gastaT('r')], payload: payloadAl(g, ids), contexto: { i } });
@@ -471,7 +471,7 @@ test('propiedad: BQL — estados, gancho de autorización (todo permitido = sin 
 });
 
 test('regresión: un dato que falta en FILTRAR no se vuelve «falso» (corpus 03 l.46)', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 50 }], foco: ['g', 'propio'], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 50 }], foco: ['g', 'propio'], t: T0 });
   for (const p of [['a', 5], ['b']]) await eje.escribir({ autor: 'r', sobre: eje.genesisId, en: '1000000000', t: T0, movimientos: [gastaT('r')], payload: p });
   // El segundo escrito no tiene posición 1: la condición queda PENDIENTE para él y no se descarta en silencio.
   const r = B.consultar(eje, eje.genesisId, [0], 'CONTAR(FILTRAR(FILTRAR(BUSCAR("1000000000"), ORIGEN() = "escrito"), ACTUAL(1) > 1))');
@@ -704,7 +704,7 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
     const payload = (ids, prof = 0) => (prof >= 2 || g.r() < 0.3
       ? (ids.length && g.si(0.6) ? { ref: g.pick(ids), dir: dirAl(g) } : g.pick([1, 'x']))
       : Array.from({ length: g.int(1, 4) }, () => payload(ids, prof + 1)));
-    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payload([]), t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payload([]), t: T0 });
     const ids = [eje.genesisId];
     for (let i = 0; i < 6; i++) ids.push((await eje.escribir({ autor: 'r', sobre: g.pick(ids), en: dirAl(g), t: T0, movimientos: [gastaT('r')], payload: g.si(0.3) ? { ref: g.pick(ids), dir: dirAl(g) } : payload(ids), contexto: { i } })).id);
     for (const id of ids) {

@@ -246,7 +246,7 @@ test('se cuenta el hilo entero que usa el marco, aunque el mapa enseñe menos; m
 });
 
 test('mil compras hermanas: la escena llega a las diez mil posiciones y lo dice', async () => {
-  const eje = await Eje.genesis({ identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 2000 }], foco: 'Casa de prueba', t: '2026-11-07T09:00:00Z' }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 2000 }], foco: 'Casa de prueba', t: '2026-11-07T09:00:00Z' }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
   const menu = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [gastaT('casa')], payload: ['Menú', ['sopa', 'pan']] });
   const compras = [];
   for (let i = 0; i < 1000; i++) {

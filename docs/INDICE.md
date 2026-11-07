@@ -58,6 +58,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | las bases del 8 | `docs/notas/BASES_DEL_8.md`, `docs/MOTOR.md` §14, `docs/BQL.md` §7.13–§7.14 | `src/bases.js`, `src/bql.js` | `test/bases.test.js`, `test/bases-bql.test.js` |
 | efectos | `docs/EFECTOS.md` | `src/efectos.js`, `datos/efectos.json` | `test/efectos.test.js` |
 | validez | `docs/VALIDEZ.md` | `src/validez.js` | `test/validez.test.js` |
+| neutralidad: elegibles antes que límites (R8), sin clave no se actúa (R9), el tipo no da renta (R10) | `docs/FUNDAMENTOS.md` («Neutralidad»), `docs/notas/NEUTRALIDAD_IDENTIDAD.md`, `docs/BQL.md` §7.4 | `src/elegibles.js`, `src/eje.js`, `src/autoridad.js`, `src/ciclo.js` | `test/neutralidad.test.js`, `test/neutralidad-reglas.test.js` |
 | Pointed, Sequenced, Mapped, Scened | `docs/MODOS.md` | `src/pointed.js`, `src/sequenced.js`, `src/mapped.js`, `src/scened.js` | `test/pointed.test.js`, `test/sequenced.test.js`, `test/mapped.test.js`, `test/scened.test.js` |
 | la pantalla | `docs/MODOS.md` §10 (Scened) | `index.html`, `app.js`, `ui/comun.js`, `ui/encaje.js`, `ui/fabrica.js`, `ui/epocas.js`, `ui/ejemplos.js`, `ui/saldos.js`, `ui/escena.js` | `test/ui.test.js`, `test/escena-ui.test.js` |
 | los mundos animados: la cruz y la X | `docs/MUNDOS.md`, `docs/EFECTOS.md` («Los mundos») | `mundos/` (`hilos-ui.js`, `cruz-ui.js` y `x-ui.js` los enganchan a `app.js`) | `test/hilos.test.js`, `test/cielo.test.js`, `test/camino.test.js`, `test/cruz.test.js`, `test/cruz-ui.test.js`, `test/mundos-x.test.js`, `test/ganchos-app.test.js` |
@@ -67,6 +68,6 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 ## Convenciones de todos los documentos
 
 - Los ejemplos se ejecutan **desde la raíz del repositorio** con Node ≥ 20, y la salida que sigue a cada uno es la real. `node docs/comprobar.mjs` los vuelve a ejecutar todos y dice cuál no da lo impreso. Un fragmento que no se ejecuta solo (usa un `eje` que no define) lleva encima `<!-- comprobar: fragmento -->` y no se ejecuta; un comando de `sh` que no es `node --input-type=module -e` es una instrucción, no un ejemplo.
-- Los ids del ejemplo de la compra son deterministas: génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`. En un programa no se copian: cambian en cuanto cambia el cuerpo de un evento.
+- Los ids del ejemplo de la compra son deterministas: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `936b43ee`, cuenta `2b75f87f`. En un programa no se copian: cambian en cuanto cambia el cuerpo de un evento.
 - «[X] decidir VG» es lo que nadie ha decidido; «pendiente», lo que no existe; [D], [A] y [H] son las marcas del mapa (decidido, acuerdo, hipótesis).
 - El repositorio es público: datos inventados, ningún secreto.

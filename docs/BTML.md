@@ -5,7 +5,7 @@ BTML es la estructura de datos de AGRAM. Este documento describe BTML **tal como
 Convenciones de este documento:
 
 - Todos los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`.
+- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `936b43ee`, cuenta `2b75f87f`.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
 
 Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, con la PR #28, que cambió el vector guardado en las consolidaciones, y con la PR #35, que puso el génesis en series: minutos, `E:casa/EUR`, tipo `grupo`). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
@@ -115,7 +115,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532",
+  "sobre": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -124,13 +124,13 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ [ { "ref": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532", "dir": "1000000000" } ], 1, "EUR 12" ],
-    [ { "ref": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532", "dir": "2000000000" } ],
+    [ [ { "ref": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97", "dir": "1000000000" } ], 1, "EUR 12" ],
+    [ { "ref": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97", "dir": "2000000000" } ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "1aca7eb813144f4b0cfebcad04077490556d2b023e4f5783d0bec2604a8e4997"
+  "id": "936b43ee0ba67beded31a279af45ceeb52f58db974bb65811d4eb04eca44407a"
 }
 ```
 
@@ -276,7 +276,7 @@ const da = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa
 const emite = (emisor, denominacion, cantidad) => ({ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor });
 const cama = (cantidad, de, a) => ({ token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', cantidad, de, a });
 const enJuego = (persona, a) => [{ token: 'R', emisor: persona, cantidad: 1, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
-const eje = await Eje.genesis({ identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
 const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), da('bea', 5), da('hab-2', 5), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'bea' }], payload: 'altas', contexto: { tipos: { bea: 'persona', 'hab-2': 'cosa' } } });
 const plazas = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa'), ...enJuego('casa', 'bea'), emite('casa', 'cama@2026-11-13', 2), cama(2, 'casa', 'hab-2')], payload: 'dos camas el 13-11, para la habitación 2' });
 console.log(JSON.stringify(eje.serie('E:casa/cama@2026-11-13')), JSON.stringify(eje.recursos('hab-2')), eje.tipo('hab-2'));
@@ -298,7 +298,7 @@ console.log(eje.series().map((x) => x.clave + ' ' + x.emitido).join(' · '));
 {"emisor":"casa","emitido":2} [{"emisor":"casa","denominacion":"cama@2026-11-13","cantidad":2}] cosa
 {"emisor":"bea","emitido":1} {"emisor":"casa","emitido":2}
 evento rechazado: nadie emite en nombre de otro: casa no es el autor; emitir E exige R propia en juego en el mismo evento: mover R:bea de bea a otra identidad o al registro
-evento rechazado: solo las personas emiten: hab-2 es cosa; emitir E exige R propia en juego en el mismo evento: mover R:hab-2 de hab-2 a otra identidad o al registro; emitir E exige P del autor sobre el registro c76485b1 (saldo o movimiento de P en el mismo evento)
+evento rechazado: solo las personas emiten: hab-2 es cosa; emitir E exige R propia en juego en el mismo evento: mover R:hab-2 de hab-2 a otra identidad o al registro; emitir E exige P del autor sobre el registro 554b6ec0 (saldo o movimiento de P en el mismo evento)
 evento rechazado: saldo insuficiente de E:casa/cama@2026-11-13 en hab-2
 evento rechazado: tope de T:hora para casa: llevaría 2 emitido y el reloj da 1 desde su alta (2026-11-07T09:00:00Z)
 1 [{"emisor":"casa","cantidad":3}]
@@ -362,7 +362,7 @@ Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), ín
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
 - `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4). Tampoco que `dir` exista en ese evento: una referencia a una posición que no desarrolla se guarda y, al seguirla, alcanza `contenido: undefined` **sin** `rota` (BQL la lee PENDIENTE `posición sin desarrollar`).
-- `ref` debe ser el **id completo**. Los prefijos (`'f9e59d1e'`) solo los resuelven BQL (`REF("f9e59d1e")`) y la entrada de texto de `escritura.item` (`'@f9e59d1e:1200000000'`), que los convierten en id completo antes de guardar.
+- `ref` debe ser el **id completo**. Los prefijos (`'936b43ee'`) solo los resuelven BQL (`REF("936b43ee")`) y la entrada de texto de `escritura.item` (`'@936b43ee:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
 
@@ -553,7 +553,7 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 
 ```text
 "EUR 12"
-[[{"ref":"d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532","dir":"1000000000"}],1,"EUR 12"]
+[[{"ref":"d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97","dir":"1000000000"}],1,"EUR 12"]
 undefined undefined
 true ["ensalada","guiso","fruta"] undefined
 ```
@@ -596,7 +596,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-b391e6b4@1000000000 fdc219d7@7000000000
+2b75f87f@1000000000 4e6da628@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -665,10 +665,10 @@ console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.conteni
 
 ```text
 [[1],[1,0]]
-propio [1] 1aca7eb8 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1"]
-propio [1,0] 1aca7eb8 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1.0[0]"]
-referencia [1] d173ab58 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1.0[0]","d173ab58:1000000000"]
-escrito [] b391e6b4 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["b391e6b4:0000000000"]
+propio [1] 936b43ee 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["936b43ee:1000000000#1"]
+propio [1,0] 936b43ee 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["936b43ee:1000000000#1.0[0]"]
+referencia [1] d367743b 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["936b43ee:1000000000#1.0[0]","d367743b:1000000000"]
+escrito [] 2b75f87f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["2b75f87f:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 0:huesped 1:cocina
@@ -682,13 +682,13 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 {
   "tipo": "referencia",
   "origen": "referencia",
-  "evento": "4598f23e1341e47b99f2a22131f75880e5c5ec18d72ae46c0b49c1d4da1bac91",
+  "evento": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97",
   "dir": "1000000000",
   "camino": [1],
   "contenido": ["ensalada", "guiso", "fruta"],
   "procedencia": [
-    "f9e59d1ec7eb227d0faf3b22708cbf8e99c83443d406570e7c72b8766a2b7497:1000000000#1.0",
-    "4598f23e1341e47b99f2a22131f75880e5c5ec18d72ae46c0b49c1d4da1bac91:1000000000"
+    "936b43ee0ba67beded31a279af45ceeb52f58db974bb65811d4eb04eca44407a:1000000000#1.0",
+    "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97:1000000000"
   ],
   "origenDir": "1000000000",
   "destino": "1000000000",
@@ -718,7 +718,7 @@ console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
 ```
 
 ```text
-d173ab58 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["d173ab58"]
+d367743b 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["d367743b"]
 true undefined []
 ```
 
@@ -861,8 +861,8 @@ console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) 
 ```
 
 ```text
-0 propio 1 [[{"ref":"d173ab58dcd8ea65ae1f34b3a3c7ef
-1 escrito raíz ["Cuenta del menú","=REF(\"1aca7eb8\", \
+0 propio 1 [[{"ref":"d367743bd56eb5f722ace18466010f
+1 escrito raíz ["Cuenta del menú","=REF(\"936b43ee\", \
 0 propio 0 ensalada
 0 propio 1 guiso
 0 propio 2 fruta
@@ -905,7 +905,9 @@ eje.clave(identidad)           // → JWK pública o undefined
 - Una clave pública es un JWK EC P-256: `{ kty: 'EC', crv: 'P-256', x, y }`. Al declararla, el eje comprueba que Web Crypto la importa para verificar y que no lleva parte privada (`d`): si no, `clave inválida para <id>` (`autoridad.clavePublicaValida`).
 - El génesis solo declara la clave de su autor; si la declara, el génesis va firmado con ella por su autor, igual al crearlo (`Eje.genesis`) que al restaurarlo (`Eje.desde`).
 - Se declara en `contexto.claves[identidad]` **del mismo evento en que esa identidad recibe tokens por primera vez** (el génesis para el autor inicial, con `clave`; el alta para las demás). Una clave declarada para una identidad que ya existe, o para una que no recibe tokens en ese evento, se rechaza. **No se puede cambiar una clave registrada.**
-- Pendiente: prueba de posesión de la clave al dar de alta (hoy quien da de alta declara la clave sin que la identidad nueva demuestre tenerla).
+- **Sin clave no se actúa** (R9, regla madre de la neutralidad aceptada por VG el 7-11 noche; `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §4). Una identidad sin clave registrada puede recibir tokens, pero no escribe: no mueve tokens, no autoriza ni escribe bases (`sin clave no se actúa: <id> no tiene clave registrada`). El génesis declara la clave de su autor y va firmado con ella; sin `clave`, `Eje.genesis` lanza.
+- **Prueba de posesión.** Cada clave que declara un alta llega firmando el id del propio alta: `posesion: { <identidad>: <firma> }`, fuera del cuerpo como la firma del autor (no cambia el id; `autoridad.firmarPosesion`, o el tercer argumento de `eje.escribir`). Sin ella, `la clave de <id> llega sin prueba de posesión`; firmada con otra clave, `prueba de posesión inválida para <id>`; para una identidad que no declara clave en ese evento, `prueba de posesión de <id> sin clave declarada`.
+- **Demostración.** Un eje creado con `Eje.genesis({ …, demostracion: true })` lleva `contexto.demostracion: true` en su génesis (`eje.demostracion`, visible en la interfaz) y conserva lo de antes: sin clave se escribe sin firma, y la prueba de posesión es opcional (si va, se comprueba). Los ejemplos de Ikisai, la app y casi todas las pruebas son de demostración. Un eje que viene de la versión 2 se trata igual (**[X] confirmar VG**).
 
 ### 7.3 Firmas
 
@@ -913,6 +915,9 @@ eje.clave(identidad)           // → JWK pública o undefined
 generarClaves()              // → Promise<{ publica: JWK, privada: CryptoKey }>
 firmar(ev, privada, firmante = ev.autor)  // → Promise<evento congelado con firmante y firma>; firma = ECDSA P-256 / SHA-256 sobre los bytes del id, en base64url
 verificar(ev, publica)       // → Promise<boolean>
+firmarPosesion(ev, identidad, privada)    // → Promise<evento con posesion[identidad]>: la clave nueva firma el id (R9)
+verificarPosesion(ev, identidad, publica) // → Promise<boolean>
+eje.escribir(datos, privada, { <identidad>: privada }?)  // el tercer argumento añade la prueba de posesión de cada clave nueva
 exportarPrivada(privada)     // → Promise<JWK>   (para guardarla en local; nunca entra en el eje)
 importarPrivada(jwk)         // → Promise<CryptoKey>
 huella(publica)              // → primeros 8 caracteres de x, para mostrar
@@ -931,7 +936,7 @@ const T = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const ev = await crearEvento({ autor: 'casa', sobre: 'g', t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'hola' });
 const f = await firmar(ev, casa.privada);
 console.log(f.id === ev.id, f.firmante, await verificar(f, casa.publica), await verificar(f, bea.publica), await verificar(ev, casa.publica));
-const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
 const g = eje.obtener(eje.genesisId);
 console.log(g.firmante, JSON.stringify(Object.keys(g.contexto.claves)), g.contexto.claves.casa.kty, g.contexto.claves.casa.crv);
 await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'sin firma' }).catch((e) => console.log(e.message));
@@ -994,6 +999,8 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 | `autor desconocido: <id>` | el autor no ha recibido tokens nunca |
 | `firma ausente de <autor>` / `el firmante debe ser el autor` / `firma inválida de <autor>` | el autor tiene clave y no firma, firma otro, o la firma no verifica |
 | `autor sin clave: <autor>` | `exigirFirmas` y el autor no tiene clave |
+| `sin clave no se actúa: <autor> no tiene clave registrada (solo un eje de demostración lo admite)` | R9: fuera de la demostración, el autor no tiene clave |
+| `la clave de <id> llega sin prueba de posesión: …` / `prueba de posesión inválida para <id>: …` / `prueba de posesión de <id> sin clave declarada para él en este evento` | R9: la prueba de posesión del alta falta (fuera de la demostración), no la firma la clave declarada, o sobra |
 | `no se puede cambiar la clave de <id>` / `clave declarada para <id> sin darle tokens` / `clave inválida para <id>` | `contexto.claves` mal usado |
 | `no se puede cambiar el tipo de <id>` / `tipo declarado para <id> sin darle tokens` / `tipo inválido para <id>: <tipo>` | `contexto.tipos` mal usado |
 | `solo las personas emiten: <autor> es <grupo o cosa>` / `… no declaró tipo en su alta` | una emisión fuera del génesis por quien no es persona (VG, 7-11 noche) |
@@ -1014,7 +1021,7 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: 'g', t: '2026-11-06T20:00:00Z' });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: 'g', t: '2026-11-06T20:00:00Z' });
 const T = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const base = { autor: 'raiz', sobre: eje.genesisId, t: '2026-11-06T20:00:00Z', payload: 'x' };
 const intentos = [
@@ -1039,8 +1046,8 @@ evento rechazado: foco desconocido: nadie
 evento rechazado: autor desconocido: bea; saldo insuficiente de T:minuto en bea
 evento mal formado: el autor debe mover T
 evento rechazado: solo las personas emiten: raiz no declaró tipo en su alta
-evento rechazado: solo las personas emiten: raiz no declaró tipo en su alta; emitir E exige R propia en juego en el mismo evento: mover R:raiz de raiz a otra identidad o al registro; emitir E exige P del autor sobre el registro ae563531 (saldo o movimiento de P en el mismo evento)
-evento rechazado: solo las personas emiten: raiz no declaró tipo en su alta; emitir E exige R propia en juego en el mismo evento: mover R:raiz de raiz a otra identidad o al registro; emitir E exige P del autor sobre el registro ae563531 (saldo o movimiento de P en el mismo evento)
+evento rechazado: solo las personas emiten: raiz no declaró tipo en su alta; emitir E exige R propia en juego en el mismo evento: mover R:raiz de raiz a otra identidad o al registro; emitir E exige P del autor sobre el registro 68a9eb53 (saldo o movimiento de P en el mismo evento)
+evento rechazado: solo las personas emiten: raiz no declaró tipo en su alta; emitir E exige R propia en juego en el mismo evento: mover R:raiz de raiz a otra identidad o al registro; emitir E exige P del autor sobre el registro 68a9eb53 (saldo o movimiento de P en el mismo evento)
 evento rechazado: saldo insuficiente de T:minuto en raiz
 evento rechazado: saldo insuficiente de T:hora en raiz
 evento mal formado: en debe ser una dirección de diez dígitos
@@ -1053,11 +1060,13 @@ evento mal formado: el génesis debe emitir T al autor
 El génesis es el primer evento del eje. Se escribe **por convención, fuera del sistema**: emite libremente (`de: null`) series de las cuatro familias a su autor (después solo emiten las personas, escalonado, §2.4), es el único sin foco (`sobre: null`) y lleva `contexto.genesis: true`. Fija el foco raíz (su `payload`) y la primera identidad, y puede declarar su tipo. A partir de él, todo se genera dentro.
 
 ```js
-Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, tipo, exigirFirmas = false })  // → Promise<Eje>
+Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, tipo, exigirFirmas = false, demostracion = false })  // → Promise<Eje>
 //   identidad: primera identidad; emision: [{ token, cantidad, escala | denominacion | ambito | emisor }] (se completa con de: null, a: identidad; en E y R, emisor: identidad)
 //   tipo: 'persona' | 'grupo' (contexto.tipos); sin tipo, su autor no emite fuera del génesis
 //   lanza si una serie de E o R del génesis lleva otro emisor, si el génesis declara el tipo de otra identidad o si su autor es una cosa
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
+//   sin clave no se actúa (R9): sin clave/privada lanza, salvo con demostracion: true (contexto.demostracion,
+//   eje.demostracion), que conserva lo de antes: sin claves y sin prueba de posesión obligatoria
 Eje.desde(eventos, { exigirFirmas = false } = {})  // → Promise<Eje>  reconstruye validando cada evento (ids, firmas, saldos); el primero debe ser el génesis
 eje.genesisId                                      // id del génesis
 ```
@@ -1065,7 +1074,7 @@ eje.genesisId                                      // id del génesis
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'T', escala: 'minuto', cantidad: 480 }, { token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'T', escala: 'minuto', cantidad: 480 }, { token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
 console.log(JSON.stringify(eje.obtener(eje.genesisId)));
 const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, en: '1000000000', t: '2026-11-06T20:01:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'hora', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea' });
 console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:raiz/EUR'), JSON.stringify(eje.serie('E:raiz/EUR')));
@@ -1074,7 +1083,7 @@ console.log(alta.sobre === eje.genesisId, alta.en, eje.sobre(eje.genesisId, '100
 ```
 
 ```text
-{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"T","escala":"hora","cantidad":10,"de":null,"a":"raiz"},{"token":"T","escala":"minuto","cantidad":480,"de":null,"a":"raiz"},{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true},"id":"00b4d289e180f867647972b909df60c1496e1c80f15866e48d0f63e6973283f5"}
+{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"T","escala":"hora","cantidad":10,"de":null,"a":"raiz"},{"token":"T","escala":"minuto","cantidad":480,"de":null,"a":"raiz"},{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true,"demostracion":true},"id":"80512ae0261847b7031c81e313654fd0d0b7de094f23ce84f3c33cdb3b6236bf"}
 ["raiz","bea"] 479 8 2 5 {"emisor":"raiz","emitido":5}
 true 1000000000 1
 ```
@@ -1095,7 +1104,7 @@ El génesis del eje de ejemplo:
   ],
   "payload": "Casa de ejemplo",
   "contexto": { "genesis": true, "tipos": { "casa": "grupo" } },
-  "id": "6c1c59685fe87c600e9b66f3a34fbdfb45649f1d7399d958c411a0ba129f52ff"
+  "id": "2d970a485fe0e95c35bd2c5ec5eef1e5cb5584031949ae80c04d3330c610f84c"
 }
 ```
 
@@ -1128,7 +1137,7 @@ await restaurar(datos).catch((e) => console.log(e.message));
 ```
 
 ```text
-3 false 5 49ee3fca 06b890b5 d173ab58 1aca7eb8 b391e6b4
+3 false 5 2d970a48 a8efd9b0 d367743b 936b43ee 2b75f87f
 12 ["casa","cocina","huesped"] 5
 evento rechazado: id no corresponde al cuerpo
 ```
@@ -1141,11 +1150,11 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 
 | Evento | id | autor | sobre | en | payload |
 |---|---|---|---|---|---|
-| génesis | `6c1c5968…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
-| alta | `ccf5a120…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
-| menú | `4598f23e…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
-| compra | `f9e59d1e…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
-| cuenta | `c70bfa6e…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"f9e59d1e\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
+| génesis | `2d970a48…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
+| alta | `a8efd9b0…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| menú | `d367743b…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
+| compra | `936b43ee…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
+| cuenta | `2b75f87f…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"936b43ee\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
 Series: la casa (una persona: `tipo: 'persona'` en el génesis; VG, 7-11 noche: solo emiten personas) emite 1000 `T:hora`, 1000 `T:minuto`, 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor) y 10 `P:genesis`; las altas reparten horas y minutos, que son tokens distintos, y declaran el tipo de cocina (grupo) y huesped (persona). Saldos tras los cinco eventos: casa 936 h y 279 min de T (1000 − 40 − 24; 1000 − 1 − 240 − 480), 440 EUR, 10 P; cocina 38 h y 237 min (40 − 2; 240 − 3), 12 EUR; huesped 23 h y 480 min (24 − 1), 48 EUR.
 
@@ -1206,9 +1215,9 @@ export async function verificarId(ev): Promise<boolean>;
 // src/eje.js
 export class Eje {
   constructor({ exigirFirmas = false } = {});
-  static async genesis({ identidad, emision, foco, t, contexto, clave, privada, tipo, exigirFirmas }): Promise<Eje>;
+  static async genesis({ identidad, emision, foco, t, contexto, clave, privada, tipo, exigirFirmas, demostracion = false }): Promise<Eje>;  // sin clave lanza, salvo demostracion (R9)
   static async desde(eventos, { exigirFirmas = false } = {}): Promise<Eje>;
-  eventos: Map<id, Evento>; orden: id[]; saldos: Map<identidad, Map<clave, number>>; bloqueados: Map<identidad, Map<clave, Map<salida, number>>>; claves: Map<identidad, JWK>; exigirFirmas: boolean;   // series, tipos y altas son privados: se leen con serie(), series(), tipo(), alta()
+  eventos: Map<id, Evento>; orden: id[]; saldos: Map<identidad, Map<clave, number>>; bloqueados: Map<identidad, Map<clave, Map<salida, number>>>; claves: Map<identidad, JWK>; exigirFirmas: boolean; demostracion: boolean;   // series, tipos y altas son privados: se leen con serie(), series(), tipo(), alta()
   get genesisId(): string;
   obtener(id): Evento | undefined;
   identidades(): string[];
@@ -1231,14 +1240,24 @@ export class Eje {
   tipo(identidad): 'persona' | 'grupo' | 'cosa' | null;
   async validar(ev): Promise<string[]>;
   async anadir(ev): Promise<Evento>;                       // lanza 'evento rechazado: …'
-  async escribir(datos, privada?): Promise<Evento>;        // crearEvento + (firmar) + anadir
+  async escribir(datos, privada?, posesion?): Promise<Evento>;  // crearEvento + (firmarPosesion por cada { identidad: privada }) + (firmar) + anadir
   hilo(id): Evento[];                                      // hasta el génesis
   sobre(id, en?): Evento[];                                // hijos directos
+  sobreDe(id, en, autores: Set): Evento[];                 // los anclados en (id, en) por esos autores, en orden de entrada (índice por autor, R8)
+  cuantosSobre(id, en): number;                            // cuántos anclados en (id, en)
 }
 export function caducada(eje, clave, t): boolean;          // solo lee la caducidad de una serie de E; nada se ejecuta solo
 
 // src/ciclo.js
 export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // quién emite y el escalonado T → R → P → E; lo usan eje.validar y validez
+export function aNombreDeGrupo(ctx, emisor): boolean;  // ¿emisión a nombre de un grupo? Con EMITEN, el único uso del tipo (R10)
+
+// src/elegibles.js (R8: elegibilidad antes que límites)
+export function elegibles(eje, id): { dueno, todos, autores: Set | null, origen: 'lista' | 'defecto' };  // 2.3 si es una lista de nombres (con 'cualquiera', todos); si no, el autor y quien aparece en su 3; más lo que el dueño ancle ahí
+export function esElegible(ocupante, { todos, autores }): boolean;
+export function ocupantesElegibles(eje, id, indices, opciones?): { lista, noElegibles, elegibles };
+export function hijosElegibles(eje, id): { lista, elegiblesN, noElegibles, elegibles };  // elegibles delante, luego los demás
+export const LISTA = [2, 3]; export const CON_QUIEN = 3; export const CUALQUIERA = 'cualquiera';
 
 // src/encaje.js
 export function vector(candidato, buscado): number[10];   // candidato − buscado (§6.5)
@@ -1250,7 +1269,7 @@ export function excedentes(v): number;
 export function signo(v): 'exacto' | 'completar' | 'reducir' | 'mixto';
 export function ordenarPorEncaje(lista: { vector }[], { epoca } = {}): typeof lista;  // acuerdo, distancia solo en profundidades ordinales de la época, llegada
 export function caminosDe(payload, dir): { indices: number[], contenido }[];
-export function ocupantes(eje, id, indices: number[], { orden = 'encaje' | 'llegada', epoca, exacto = false } = {}): Ocupante[];
+export function ocupantes(eje, id, indices: number[], { orden = 'encaje' | 'llegada', epoca, exacto = false, autores?: Set } = {}): Ocupante[];  // autores: solo los escritos de esos autores (R8)
 export function seguir(eje, ref, procedencia = []): Ocupante;
 export function marcarEmpates(lista: { vector }[], { epoca } = {}): (typeof lista[number] & { empate, empatados })[];
 export function justificar(o: Ocupante): string;
@@ -1264,6 +1283,8 @@ export async function exportarPrivada(privada): Promise<JWK>;
 export async function importarPrivada(jwk): Promise<CryptoKey>;
 export async function firmar(ev, privada, firmante = ev.autor): Promise<Evento>;
 export async function verificar(ev, publica): Promise<boolean>;
+export async function firmarPosesion(ev, identidad, privada): Promise<Evento>;  // R9: la clave nueva firma el id del alta (posesion)
+export async function verificarPosesion(ev, identidad, publica): Promise<boolean>;
 export function huella(publica): string;
 
 // src/epocas.js

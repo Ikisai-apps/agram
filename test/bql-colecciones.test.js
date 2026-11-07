@@ -9,10 +9,11 @@ const T = '2026-11-07T15:00:00Z';
 async function escenario() {
   const { eje, compra, menu } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
-  // Tres propinas escritas en la fábrica (posición 4) de la compra, por distintas identidades.
+  // Tres propinas escritas en la fábrica (posición 4) de la compra por las dos identidades que la compra nombra en
+  // su 3 (huesped y cocina): son elegibles (R8, src/elegibles.js). Una de la casa, que no está en el 3, no lo es.
   const p1 = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('huesped')], payload: '2 EUR' });
-  const p2 = await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '5 EUR' });
-  const p3 = await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('cocina')], payload: '1 EUR' });
+  const p2 = await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('cocina')], payload: '5 EUR' });
+  const p3 = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('huesped')], payload: '1 EUR' });
   return { eje, compra, menu, cuenta, p1, p2, p3 };
 }
 
@@ -42,6 +43,12 @@ test('BUSCAR devuelve los candidatos de la posición sin registrar nada', async 
   assert.equal(consultar(eje, compra.id, [4], 'LOCAL(4, 0)').texto, 'pagar'); // por índice, LOCAL sí entra en la lista
   assert.equal(consultar(eje, compra.id, [4], 'LOCAL(4, 1)').texto, 'servir');
   assert.equal(consultar(eje, compra.id, [4], 'BUSCAR(7)').texto, '0 candidatos');
+  // R8: la casa no está en el 3 de la compra; su propina colisiona (queda en el eje) pero no es elegible, y solo se cuenta aparte.
+  await eje.escribir({ autor: 'casa', sobre: compra.id, en: '4000000000', t: T, movimientos: [gastaT('casa')], payload: '9 EUR' });
+  const conCasa = consultar(eje, compra.id, [4], 'BUSCAR("4000000000")');
+  assert.deepEqual([conCasa.valor.items.length, conCasa.valor.noElegibles], [5, 1]);
+  assert.match(conCasa.texto, /\(y 1 no elegibles, sin contar\)$/);
+  assert.equal(consultar(eje, compra.id, [4], 'CONTAR(BUSCAR("4000000000"))').texto, '5');
 });
 
 test('FILTRAR con ACTUAL como candidato; LOCAL sigue siendo el anfitrión', async () => {
@@ -113,7 +120,8 @@ test('décupla y lista por hojas: BUSCAR despliega la lista, el índice entra en
   // la décupla [[ref menú:1], 1, 'EUR 12'] (el 0 envuelto).
   const { eje, compra, menu } = await escenario();
   const e1 = await eje.escribir({ autor: 'cocina', sobre: menu.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload: 'pan' });
-  const e2 = await eje.escribir({ autor: 'casa', sobre: menu.id, en: '1000000000', t: T, movimientos: [gastaT('casa')], payload: 'agua' });
+  // Los dos de cocina, la dueña del menú: un escrito de la casa no sería elegible (R8, src/elegibles.js).
+  const e2 = await eje.escribir({ autor: 'cocina', sobre: menu.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload: 'agua' });
   const q = (f) => consultar(eje, menu.id, [8], f);
   // BUSCAR(1): un candidato por elemento de la lista, en su orden, y detrás los escritos.
   const todos = q('BUSCAR(1)').valor.items;
