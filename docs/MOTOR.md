@@ -18,7 +18,7 @@ Convenciones:
 | `src/modos.js` | Capacidad de lectura, tope duro y proporción por modo | `MODOS`, `nombreModo`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8) | `banda`, `ejeTemporal`, `medir`, `comparar`, `HITOS` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal`, `apartarLocal`, `VERSION` |
-| `src/bases.js` | Bases del 8: registros fundibles en la posición 8 (§14) | `medir`, `caja`, `baseVacia`, `baseUnitaria`, `fundir`, `baseDe`, `fundirHaciaArriba`, `escribirBase`, `leerBase`, `situar`, `cajasEtiquetadas`, `CIELO`, `CORTES`, `COHORTES`, … |
+| `src/bases.js` | Bases del 8: registros fundibles en la posición 8, escritos por la propia cosa (§14) | `identidadDe`, `medir`, `unitaria`, `fundir`, `calcularBase`, `escribirBase`, `leerBase`, `frescura`, `comprobar`, `situar`, `valorDeBases`, `cajasEtiquetadas`, `CIELO`, `CORTES_PROVISIONALES`, … |
 
 `src/index.js` reexporta `modos.js` en plano y los demás como espacios de nombres: `motor`, `salida` (= `escritura.js`), `tiempo`, `persistencia`, `bases`. Es decir: `import { motor, salida, tiempo, persistencia, lectura } from './src/index.js'`.
 
@@ -967,25 +967,25 @@ declarado:cena el sábado:0:segundo · pasado 2 de 4
 ### 8.3 Comparabilidad relativa (PV8)
 
 ```js
-medir(eje, id)      // → { posiciones, escritos, movimientos }  posiciones desarrolladas del payload, hijos directos, movimientos del evento
+medir(eje, id)      // → { posiciones, escritos, movimientos }  posiciones desarrolladas del payload, hijos directos (sin sus bases del 8), movimientos del evento
 comparar(eje, foco) // → { foco, posicion, de, comparables: [{ id, autor, posiciones, escritos, movimientos, puntuacion }], hitos: HITOS }
 HITOS               // diez hitos { indice, nivel, nombre }, congelados
 ```
 
-Los **comparables accesibles** del foco son sus hermanos: los registros escritos sobre el mismo padre (`eje.sobre(foco.sobre)`, sin distinguir `en`). El génesis solo se compara consigo mismo. La puntuación es `posiciones + 2 × escritos + movimientos` (cartón piedra); la lista va de mayor a menor puntuación y `posicion` es la del foco (1 = más medido). No asigna nivel ni grado: `HITOS` es una tabla heredada sin algoritmo que la aplique (pendiente). Las estrellas no son verdad.
+Los **comparables accesibles** del foco son sus hermanos: los registros escritos sobre el mismo padre, sin sus bases del 8 (`bases.hijos(eje, foco.sobre)`, sin distinguir `en`). El génesis y una base del 8 solo se comparan consigo mismos. La puntuación es `posiciones + 2 × escritos + movimientos` (cartón piedra); la lista va de mayor a menor puntuación y `posicion` es la del foco (1 = más medido). No asigna nivel ni grado: `HITOS` es la tabla de los diez hitos, con sus etiquetas literales (mapa §2.2 [D20]), sin algoritmo que la aplique (pendiente). Las estrellas no son verdad.
 
 | Índice | Nivel | Nombre |
 |---|---|---|
 | 0 | 0.3 | idea |
 | 1 | 1.1 | aprendizaje |
-| 2 | 2.1 | aprendizaje avanzado |
+| 2 | 2.1 | avanzado |
 | 3 | 3.1 | aprendizaje profesional |
 | 4 | 3.2 | resolución profesional |
 | 5 | 4.1 | aprendizaje superior |
 | 6 | 4.2 | solución profesional avanzada |
 | 7 | 5.1 | investigación |
 | 8 | 5.2 | trabajo maestro |
-| 9 | 5.3 | resolución experimental |
+| 9 | 5.3 | resolución experimental muy avanzada |
 
 ```sh
 node --input-type=module -e "
@@ -1005,10 +1005,10 @@ console.log('nota: posición', comparar(eje, nota.id).posicion, '· génesis: de
 ```text
 menú {"posiciones":6,"escritos":1,"movimientos":1} · nota {"posiciones":1,"escritos":0,"movimientos":1} · compra {"posiciones":9,"escritos":1,"movimientos":2}
 menú: posición 1 de 2 · 4598f23e cocina 9 | 33fe0503 casa 2
-nota: posición 2 · génesis: de 1 · hitos true 10 5.3 resolución experimental
+nota: posición 2 · génesis: de 1 · hitos true 10 5.3 resolución experimental muy avanzada
 ```
 
-Pendiente: proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado. Las bases del 8 ya se escriben como registros en la posición 8 (§14, `src/bases.js`); `tiempo.confluir` las calcula sin escribir.
+Las bases del 8 se escriben como registros en la posición 8 de lo que resumen (§14); `tiempo.confluir` calcula lo mismo al vuelo. Pendiente: proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
 
 ## 9. Persistencia
 
@@ -1249,7 +1249,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Anidar hileras o décuplas en una posición por decisión | Sin celda, `en` lo elige quien llama (`direccion(camino)` por defecto); con celda o con `escribirSalida`, el registro va en la dirección del camino y lo anclado en la de su celda. |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
-| Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 ya se escriben como registros fundibles (§14); `BASES()` en BQL, no. |
+| Nivel y grado; `HITOS` aplicados; retirar `comparar` (auditoría C18) | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 se escriben como registros fundibles en el 8 de lo que resumen y se leen con `BASES()` en BQL (§14). |
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
@@ -1278,30 +1278,34 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 
 ## 14. Bases del 8 (`src/bases.js`)
 
-Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido; no hay base de datos aparte (mapa §12, [D] «Cohortes y bases del 8»). Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
+Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido; no hay base de datos aparte (mapa §12, [D] «Cohortes y bases del 8»). Lo que se mide, las cohortes, la caja y cómo se funde una medida son los de la confluencia (§8.3 y `tiempo.confluir`): una base es lo fundible de `confluir` sobre una cohorte, escrito en el 8 y fundible hacia arriba. Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
 
 ```js
-medir(eje, id)                     // → { 'posiciones.0'…'posiciones.9', posiciones, escritos, identidades, profundidad, 'formulas.resueltas', 'formulas.pendientes', 'movimientos.<clave de serie>' }
-caja(medida, valor)                // → 0–9 según CORTES (constante; [X] cortes = regla de la época)
-baseVacia(); baseUnitaria(medidas) // → { cortes, n, medidas: { <medida>: { cajas: [10], suma, minimo, maximo } } }
-fundir(a, b)                       // → suma caja a caja, sumas, n, mín y máx; O(1) respecto a lo medido; rechaza cortes o profundidades distintos
-baseDe(eje, padre)                 // → la base de los hijos (hermanos entre sí), profundidad 1, refs = hijos medidos, hasta = el último
-fundirHaciaArriba(eje, id, { profundidad }) // → la base desde las bases del 8 de los hijos, sin releer registros; refs = bases fundidas; sinBase, vacios
-escribirBase(eje, { autor, padre, privada, t, desde: 'hijos' | 'bases', profundidad }) // → evento en el 8 del padre, firmado, 1 minuto de T
-leerBase(eje, id, { profundidad, autor }) // → la más reciente por llegada, con anteriores y frescura { t, hijosNuevos, basesNuevas, alDia }, o null
-situar(eje, foco, { cohorte: 'hermanos' | 'proyecto' | 'general', proyecto, autor }) // → por medida { valor, caja, etiqueta, enCaja, debajo, encima, minimo, maximo, media }
-cajasEtiquetadas(base, medida)     // → [{ caja, nivel, nombre, cuenta }]: HITOS solo como etiquetas de caja
+medir(eje, id)                       // → tiempo.medidasDe(eje, id), con un guarda: BASES() dentro del propio registro no lo vuelve a medir
+cortesDe(clave, epoca)               // → { cortes, origen }: los de epoca.cortes(clave) ('epoca') o los provisionales ('provisional', [X] sus valores)
+unitaria(m, epoca); fundir(a, b)     // → estadística { n, medidas, tokens, posiciones, raiz }; fundir usa tiempo.fundir en cada medida y rechaza cortes distintos
+identidadDe(eje, id)                 // → la cosa (con clave) que el propio registro da de alta; la del génesis, su autor ([X]); si no, null
+hijos(eje, id); esBase(eje, ev)      // → lo escrito sobre el registro sin sus bases válidas; si un evento es una base válida
+calcularBase(eje, registro, { epoca }) // → { hijos, subarbol, refsHijos, refsBases, hasta, sinBase, epoca }, sin escribir
+escribirBase(eje, { registro, privada, t, epoca }) // → evento en el 8 del registro, firmado por su cosa, que gasta 1 minuto de su T
+leerBase(eje, id)                    // → la vigente (la última llegada), con anteriores y frescura { t, hijosNuevos, basesNuevas, debajo, sinNovedades }, o null
+comprobar(eje, base, { epoca })      // → { alDia, diferencias }: recalcula y compara, bajando por las bases fundidas que siguen vigentes
+situar(eje, foco, { alcance, epoca }) // → la forma de tiempo.confluir leída del 8 (medidas, tokens, posiciones, raiz), más incluido y cambiadas
+valorDeBases(eje, id, args)          // → lo que devuelve BASES() en BQL
 ```
 
 | Paso | Quién | `sobre` / `en` | `contexto` | Mueve |
 |---|---|---|---|---|
-| base de hermanos | identidad con clave, firmando ([X] debería ser la propia cosa; en el ejemplo, la casa) | el padre / `CIELO` | `{ bases: true, n, hasta, profundidad: 1, desde: 'hijos', cortes }` | `COSTE_BASE`: 1 minuto de T ([X] coste) |
-| base fundida (proyecto, génesis) | igual | el registro / `CIELO` | `{ bases: true, n, hasta, profundidad: ≥ 2, desde: 'bases', cortes }` | igual |
+| escribir una base | la propia cosa del registro (`identidadDe`), firmando | el registro / `CIELO` | `{ bases: true, n, nSubarbol, hasta, epoca, sinBase }` | `COSTE_BASE`: 1 minuto de su T ([X] coste) |
 
-- **Cohortes.** `hermanos` lee el 8 del padre; `proyecto`, el del registro del hilo que cuelga del génesis ([X] qué es el proyecto); `general`, el del génesis. La profundidad de la base es la distancia del foco a ese registro: la cohorte son los registros a su misma altura.
-- **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`. Solo cuentan bases firmadas por una identidad con clave y bien formadas.
-- **Frescura.** `hijosNuevos`: hijos llegados después de `hasta`; `basesNuevas` (fundidas): hijos cuya base vigente ya no es la fundida.
-- **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS`; `situar` dice en qué caja cae el foco y cuántos quedan debajo, en ella y encima.
-- Las bases no son hijas de lo que miden: `medir` no las cuenta como escritos y `baseDe` no las mide. `tiempo.comparar` y `tiempo.medir` aún sí: límite observado, no corregido aquí (`src/tiempo.js` no se toca en esta pieza).
+- **Dos estadísticas por base.** `hijos`: los hijos del registro medidos uno a uno (la cohorte de hermanos de cada uno). `subarbol`: el registro y todo lo que cuelga de él (la cohorte de proyecto y la general). El subárbol funde, **sin releer registros**, el subárbol de la base vigente de cada hijo; un hijo sin base cuenta por sí mismo y, si tiene descendencia, queda en `sinBase` ([X] cómo se completa).
+- **Cohortes** (las de `tiempo.comparables`). `hermanos` lee los hijos del 8 del padre; `proyecto`, el subárbol del 8 de `tiempo.proyectoDe`; `general`, el subárbol del 8 del génesis. Con los mismos cortes, `situar` da los mismos números que `confluir` (lo comprueba `test/bases.test.js`).
+- **Cortes = regla de la época.** Se leen de `epoca.cortes(clave)`, con las claves de `confluir`. La época 0 no los declara: `confluir` saca entonces los de cada cohorte, que no se funden; una base usa unos provisionales fijos ([X] sus valores). Cada bloque guarda sus cortes y no se funden bloques con cortes distintos.
+- **Validez.** Solo es base lo que firma en el 8 la propia cosa del registro, gastando T, con exactamente ese `contexto`, un payload coherente (cajas que suman n, extremos compatibles con la suma y con las cajas ocupadas, cortes crecientes), las referencias a **todos** los hijos llegados hasta `hasta`, en orden, y bases fundidas válidas de esos hijos. Lo demás escrito en el 8 es un hijo más: lo cuentan `escritos`, `comparar` y la confluencia.
+- **Las bases no son hermanas, escritos ni comparables** de lo que miden: `tiempo.medir`, `comparar`, `comparables` y `posicionesDe` las saltan, así que escribir una base no cambia lo que mide.
+- **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`.
+- **Frescura y comprobación.** `frescura` cuenta lo llegado sin releer: hijos después de `hasta`, hijos cuya base vigente ya no es la fundida y lo mismo, sumado, en las fundidas (`debajo`). No ve cambios en lo ya medido; para eso, `comprobar` recalcula. `situar` dice en `cambiadas` las medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya.
+- **`BASES()` en BQL** (`docs/BQL.md` §7.13). `BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k | campo)` = una caja o un dato. La dependencia es la base leída; el gancho `puedeLeer` decide leer la base y, si hay que situarlo, el anfitrión.
+- **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`); nada asigna nivel ni grado.
 
-Pendiente: `BASES()` en BQL (propuesta en la nota, §4); cortes como regla de la época; que la base la escriba la propia cosa.
+Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes provisionales; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si la interfaz lee solo las bases escritas y se retiran `comparar` y el cálculo al vuelo (auditoría C18).

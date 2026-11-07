@@ -18,6 +18,7 @@
 //   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
 //   =ACUERDO() =DESPLAZAMIENTO() =SIGNO() =FALTAS() =EXCEDENTES()   el encaje del candidato: profundidades de acuerdo, suma de distancias, signo (exacto/completar/reducir/mixto), faltas y excedentes
 //   =CONTAR(col) =SUMAR(col)
+//   =BASES(alcance?, medida?, k | campo?)   lee las bases del 8 (src/bases.js, valorDeBases): n, la caja del anfitrión o un dato de la base
 //   comparaciones  = <> < > <= >=   solo entre el mismo tipo escalar (y la misma unidad)   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO; PENDIENTE (falta un dato, un evento que no ha llegado o
@@ -33,6 +34,7 @@
 
 import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
+import { valorDeBases } from './bases.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -541,6 +543,17 @@ function funcion(ctx, nodo, evId, base) {
         acc = acc === null ? v : sumar(acc, v);
       });
       return acc ?? num(0);
+    }
+    case 'BASES': {
+      // Leer una base es leer un escrito anclado en el 8 de su registro; situar al anfitrión es leerlo entero.
+      const r = valorDeBases(ctx.eje, evId, args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null)));
+      if (r.mideAnfitrion) autorizar(ctx, evId, []);
+      if (r.base) {
+        autorizar(ctx, r.base, [], 'leer la base del 8 de ' + r.registro.slice(0, 8));
+        ctx.dependencias.add(r.base + ':' + direccion([]));
+      }
+      if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo);
+      return num(r.valor);
     }
     case 'Y': return bool(args.every((a) => exigirBool(a, 'Y')));
     case 'O': return bool(args.some((a) => exigirBool(a, 'O')));
