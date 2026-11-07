@@ -5,6 +5,9 @@
 // lo que otros han escrito en esa dirección. Se ordenan sin borrar
 // alternativas; cada ocupante lleva su procedencia y su camino exacto de
 // índices. El árbol lógico se reconstruye desde los eventos; no se guarda.
+// La lista de una posición (lista()) son esos ocupantes por llegada, fuera
+// del árbol: un array dentro de una posición son sus ocupantes, no dígitos
+// con PV (VG, 7-11 noche, mapa §12 [D]).
 
 import { ARIDAD, esReferencia, direccion, indicesDe, resolver } from './btml.js';
 
@@ -241,6 +244,48 @@ export function arbol(eje, id, { profundidad = ARIDAD, epoca } = {}) {
     if (!mapa.has(h.en)) mapa.set(h.en, ocupantes(eje, id, indicesDe(h.en), { epoca }));
   }
   return mapa;
+}
+
+/**
+ * La lista de una posición (VG, 7-11 noche, mapa §12 [D]): los ocupantes que
+ * hay en ella, por LLEGADA. La lista no está en el árbol («en la profundidad
+ * 11»): no corresponde a los puntos de vista y su índice es de llegada, no un
+ * dígito; los PV de un elemento solo existen cuando se escribe en una
+ * subposición por dirección (`en`). Es de n: el límite de diez es por evento
+ * (por payload), no por posición.
+ *
+ * - Posición de la cruceta (`[p]`): primero el contenido propio del payload
+ *   en p (si es un array, cada elemento es un ocupante, en el orden del
+ *   array; si es un terminal o una referencia, uno solo), luego los escritos
+ *   anclados en su dirección, en orden de entrada en el eje.
+ * - Raíz (`[]`): el payload raíz es la cruceta, no una lista: solo los
+ *   escritos anclados en la raíz.
+ * - Subposición escrita por dirección (`[p, d, …]`): solo los escritos
+ *   anclados en esa dirección. El índice d de un array del payload no es la
+ *   subposición d: es un ocupante de la lista de p.
+ *
+ * Cada ocupante: { llegada, tipo: 'propio' | 'escrito', evento, camino,
+ * contenido, autor?, t?, en?, alcanza? }, con `camino` el camino exacto en
+ * el registro `evento` ([] para un escrito: su raíz) y `alcanza`, si el
+ * contenido es una referencia, lo que alcanza (seguir, con su procedencia).
+ * Nada se borra ni se ordena por encaje: la llegada manda.
+ */
+export function lista(eje, id, indices) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  const dir = direccion(indices);
+  const propios = [];
+  if (indices.length === 1) {
+    const nodo = Array.isArray(ev.payload) ? ev.payload[indices[0]] : undefined;
+    if (Array.isArray(nodo)) nodo.forEach((c, k) => propios.push({ camino: [...indices, k], contenido: c }));
+    else if (nodo !== undefined) propios.push({ camino: [...indices], contenido: nodo });
+  }
+  const conAlcance = (o) => (esReferencia(o.contenido) ? { ...o, alcanza: seguir(eje, o.contenido, [o.evento + ':' + o.camino.join('.')]) } : o);
+  const salida = propios.map((p, k) => conAlcance({ llegada: k, tipo: 'propio', evento: id, camino: p.camino, contenido: p.contenido }));
+  for (const h of eje.sobre(id, dir)) {
+    salida.push(conAlcance({ llegada: salida.length, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, en: h.en }));
+  }
+  return salida;
 }
 
 /** Direcciones con más de un ocupante: las colisiones del árbol. */

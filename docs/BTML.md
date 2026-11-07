@@ -18,9 +18,9 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
-| `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
+| `src/encaje.js` | Ocupantes de una dirección, la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
-| `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion` |
+| `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
 `src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos` y `validez`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
@@ -104,6 +104,7 @@ true true 0000000000 {}
 | `tipos: { identidad: 'persona' \| 'grupo' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
+| `clasifica: { posicion, evento, camino }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
 | `motor`, `fase`, `fuentes`, `encaje`, `nuevos`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución (`docs/MOTOR.md` §3). `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación se lee de una dirección con el camino desde el que se escribe (la matriz es relativa al camino: bajo un camino de profundidad n, el dígito n + 2; sin camino, el tercero; `docs/MOTOR.md` §7.2). |
 
 ### 1.5 Un evento real: la compra
@@ -453,6 +454,16 @@ sequenced.secuencia(eje, id, { epoca })  // igual: objeto o nombre
 mapped.mapa(eje, id, { camino, epoca })  // igual: objeto o nombre
 ```
 
+Las reglas cortas nombran **subposiciones escritas por dirección** (`en`), no los índices de una lista: un array dentro de una posición son sus ocupantes por llegada, fuera del árbol (VG, 7-11 noche; §6.7). Con el payload, `leerDireccion` y `leerCamino` lo dicen así:
+
+```js
+leerDireccion(dir, epoca, { payload })     // con payload: el índice de un array dentro de una posición → { profundidad, digito, ocupante, posicion, significado: 'ocupante 3 de la posición 1' }, sin regla corta ni larga
+leerCamino(indices, epoca, { payload })    // lo mismo sobre un camino de índices ([1, 0] es el ocupante 1, que una dirección no puede nombrar)
+nombreEnNodo(nodo, profundidad, digito, epoca)  // → { ocupante, significado: 'ocupante k' } si el nodo es un array dentro de una posición y el dígito cae en él; si no, { significado: regla corta }
+```
+
+`pointed.decupla` (con `profundidad` ≥ 1) y `mapped.mapa` (con `camino`) nombran así sus posiciones: al bajar a la posición 1 de la compra salen «ocupante 1», «ocupante 2», «ocupante 3» y, en lo que la lista no ocupa, las reglas cortas de la profundidad 1 («con quién», «qué se hace»…). Se retira la lectura de la PR #58 que nombraba esos índices con la pregunta de la profundidad («1.1 = cuánto»).
+
 La «época 1 (propuesta)» se retiró como época (VG, 7-11 noche): sus preguntas son las reglas de las profundidades 1 a 9 de la época 0 (`docs/REGLAS_CORTAS.md`). El nombre «época 1» queda libre para la primera época que pula reglas largas; el cargador ya las admite, y todavía no hay contenido de reglas largas.
 
 ```sh
@@ -775,6 +786,49 @@ false
 ```
 
 Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
+
+### 6.7 La lista de una posición: colisiones fuera del árbol
+
+Decisión de VG (7-11 noche, mapa §12 [D]): la lista de una posición no está en el árbol. Es la lista que se monta en esa posición con los ocupantes que hay, de n elementos, fuera de los puntos de vista («en la profundidad 11»). Un array dentro de una posición del payload son **sus ocupantes, con índice de llegada** (el orden del array y luego los escritos), no dígitos con PV. Los PV de un elemento solo existen cuando se escribe en una subposición por dirección (`en`). El límite de diez es por evento (cada payload), no por posición ([X] anotado en el mapa).
+
+```js
+lista(eje, id, indices)  // → [{ llegada, tipo: 'propio' | 'escrito', evento, camino, contenido, autor?, t?, en?, alcanza? }]
+```
+
+- Posición de la cruceta (`[p]`): lo propio del payload en p (cada elemento si es un array; el terminal o la referencia si no) y luego los escritos anclados en su dirección, en orden de entrada en el eje.
+- Raíz (`[]`): solo los escritos anclados en la raíz; el payload raíz es la cruceta.
+- Subposición por dirección (`[p, d, …]`): solo sus escritos. El índice d del array de la posición p no es la subposición p.d.
+- `alcanza`: si el ocupante es una referencia, lo que alcanza (`seguir`), sin copiar.
+
+`ocupantes` (§6.1) sigue siendo el encaje de una **dirección**: la colisión entera, con el array de la posición como un ocupante y su camino 1.0 como otro. `lista` es la lista de la **posición**, por llegada y sin encaje. `BUSCAR` por índice no cambia: `BUSCAR(1, 2)` es el camino exacto [1, 2], el ocupante de llegada 3; `BUSCAR(1)` da lo propio de la posición y luego los escritos, por llegada (`docs/BQL.md` §7.4).
+
+```sh
+node --input-type=module -e "
+import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { lista } from './src/encaje.js';
+import { leerDireccion } from './src/epocas.js';
+const { eje, compra } = await ejemploCompra();
+await ejemploCuenta(eje, compra);
+for (const o of lista(eje, compra.id, [1])) console.log(o.llegada, o.tipo, o.camino.join('.') || 'raíz', JSON.stringify(o.contenido).slice(0, 40));
+console.log(lista(eje, compra.id, [1, 2]).length);
+console.log(leerDireccion('1200000000').map((x) => x.significado).join(' › '));
+console.log(leerDireccion('1200000000', 'época 0', { payload: compra.payload }).map((x) => x.significado).join(' › '));
+"
+```
+
+```text
+0 propio 1.0 {"ref":"4598f23e1341e47b99f2a22131f75880
+1 propio 1.1 1
+2 propio 1.2 "EUR 12"
+3 escrito raíz ["Cuenta del menú","=REF(\"f9e59d1e\", \
+0
+recursos › con qué condición
+recursos › ocupante 3 de la posición 1
+```
+
+Lectura: la posición 1 de la compra tiene cuatro ocupantes por llegada (los tres del array y la cuenta escrita en ella). La subposición 1.2 está vacía: nadie ha escrito en `'1200000000'`; el 'EUR 12' es el ocupante 3 de la lista de la 1. Como dirección pura, `'1200000000'` se lee «recursos › con qué condición»; con el payload, el 2 cae en la lista y es «ocupante 3 de la posición 1».
+
+**Clasificar** (`ui/clasificar.js`, botón «Clasificar» de la app): la lista de la posición en foco como piezas por clasificar y la cruceta como diez huecos (las subposiciones de la posición, con la regla corta de su profundidad y, bajo la raíz, el PV de la cruceta como subtítulo). En modo **lente** colocar una pieza solo la muestra interpretada con ese hueco; no escribe nada y se recuerda solo en el navegador. En modo **crear** colocar escribe el elemento en la subposición por dirección (`en = direccion([...posicion, hueco])`) con `salida.escribirDesde` en modo Pointed (un terminal, un minuto de T del autor, firmado si hay clave), y el registro lleva `contexto.clasifica` (§1.4): la pieza sale de «por clasificar». Lo que se escribe: un terminal propio que no es fórmula, tal cual; un escrito, una referencia a él; una fórmula o un array propios, una referencia a su camino (el ocupante 1 de una lista no se puede nombrar por dirección: §4.2, y se dice).
 
 ## 7. Identidades, claves y firmas
 
