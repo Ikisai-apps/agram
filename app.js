@@ -278,7 +278,8 @@ function celdaMapa(m, i, eje67, o8) {
  */
 function pistaAutorizar(id, sinP) {
   const p = motor.pesoAutorizacion(estado.eje, id);
-  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado; umbral: ' + p.umbral.texto;
+  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado'
+    + (p.respaldo > 0 ? ' (' + p.respaldo + ' respaldando E del recurso)' : '') + '; umbral: ' + p.umbral.texto;
   return escapar((sinP ? sinP + ' no tiene P sobre el registro del recurso · ' : '') + peso);
 }
 

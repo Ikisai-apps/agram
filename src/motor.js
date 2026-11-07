@@ -14,7 +14,7 @@ import { escribirDesde, costeT } from './escritura.js';
 import { contarPosiciones } from './modos.js';
 import { AMBITO_GENESIS, SEGUNDOS, claveToken } from './tokens.js';
 import { msUTC } from './instante.js';
-import { FABRICA, esConsolidacion, lectorDelEje, recursoDe as recursoDel, clavesDeP, pesoDe, estadoPorPeso } from './autorizacion.js';
+import { FABRICA, esConsolidacion, lectorDelEje, recursoDe as recursoDel, clavesDeP, pesoDe, estadoPorPeso, respaldoDe, esActoDeRespaldo, conActoDeRespaldo, alcanzaUmbral } from './autorizacion.js';
 
 // Ningún registro del motor guarda clase: la de una dirección se lee con
 // claseDe(dir, camino), relativa al camino desde el que se escribe (la
@@ -203,7 +203,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
  * regla provisional de la #62 («autoriza quien no es el autor y tiene P > 0
  * sobre un registro del hilo que el autor no escribió»).
  */
-export const REGLA_AUTORIZAR = 'autorizar es bloquear P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG) con la consolidación como salida; AUTORIZADO cuando el P bloqueado, de cualquiera y el autor incluido, alcanza el umbral del dueño (su posición 2, «umbral a/b»; si no dice nada, más de la mitad del P emitido sobre el recurso, o del P del eje si el recurso no tiene P propio); ejecuta el autor';
+export const REGLA_AUTORIZAR = 'autorizar es bloquear P sobre el registro del recurso (el más cercano del hilo del foco con P propio emitido; si no hay ninguno, el génesis: VG, 8-11) con la consolidación como salida; AUTORIZADO cuando el P bloqueado, de cualquiera y el autor incluido, alcanza el umbral del dueño (su posición 2, «umbral a/b»; si no dice nada, más de la mitad del P emitido sobre el recurso, o del P del eje si el recurso no tiene P propio); el P que ya respalda E del recurso cuenta también, sin volver a bloquearlo, si su titular lo dice al autorizar (VG, 8-11); ejecuta el autor';
 
 /**
  * Plazo por defecto de un bloqueo de autorización: un ciclo (28 días) desde
@@ -214,7 +214,7 @@ export const REGLA_AUTORIZAR = 'autorizar es bloquear P sobre el registro del re
  */
 export const PLAZO_AUTORIZACION = 'ciclo';
 
-/** X, el registro del recurso de una consolidación (la raíz de su dominio; src/autorizacion.js). */
+/** X, el registro del recurso de una consolidación: el más cercano del hilo de su foco con P propio emitido, o el génesis (VG, 8-11; src/autorizacion.js). */
 export function recursoDe(eje, consolidacion) {
   return recursoDel(lectorDelEje(eje), consolidacion);
 }
@@ -243,15 +243,33 @@ export function poderParaBloquear(eje, identidad, consolidacion) {
 }
 
 /**
- * Quién puede autorizar: quien tiene P disponible que cuente (poderParaBloquear),
- * el autor incluido (VG, 7-11 noche: desaparece «no ser el autor», que
- * premiaba la segunda identidad). Poder autorizar no es bastar: el estado lo
- * da la suma bloqueada contra el umbral. Quién ejecuta: el autor de la
- * consolidación.
+ * El P que `identidad` ya tiene bloqueado respaldando E del registro del
+ * recurso de la consolidación y que contaría para autorizarla si lo dice
+ * (VG, 8-11 madrugada: «inmovilizar poder en un recurso es ya el compromiso,
+ * y vale para las dos cosas»): [{ clave, ambito, salida, cantidad }]
+ * (src/autorizacion.js, respaldoDe). `consolidacion` es un id del eje o un
+ * evento (un borrador que aún no está).
+ */
+export function respaldoParaAutorizar(eje, identidad, consolidacion) {
+  const lector = lectorDelEje(eje);
+  const c = typeof consolidacion === 'string' ? eje.obtener(consolidacion) : consolidacion;
+  if (!c) return [];
+  const recurso = recursoDel(lector, c);
+  return respaldoDe(lector, identidad, recurso, clavesDeP(lector, recurso).claves)
+    .map(({ clave, salida, cantidad }) => ({ clave, ambito: clave.slice(2), salida, cantidad }));
+}
+
+/**
+ * Quién puede autorizar: quien tiene P disponible que cuente (poderParaBloquear)
+ * o P que ya respalda E del recurso (respaldoParaAutorizar), el autor incluido
+ * (VG, 7-11 noche: desaparece «no ser el autor», que premiaba la segunda
+ * identidad). Poder autorizar no es bastar: el estado lo da la suma bloqueada
+ * contra el umbral. Quién ejecuta: el autor de la consolidación.
  */
 export function puedeAutorizar(eje, identidad, consolidacion) {
   const c = typeof consolidacion === 'string' ? eje.obtener(consolidacion) : consolidacion;
-  return esConsolidacion(c) && conClave(eje, identidad) && poderParaBloquear(eje, identidad, c).length > 0;
+  return esConsolidacion(c) && conClave(eje, identidad)
+    && (poderParaBloquear(eje, identidad, c).length > 0 || respaldoParaAutorizar(eje, identidad, c).length > 0);
 }
 
 /** Sin clave no se actúa (R9): fuera de un eje de demostración, solo autoriza quien tiene clave registrada. */
@@ -277,8 +295,19 @@ function caducidad(t, plazo) {
  * ciclo; null, sin plazo). El registro lleva en contexto.autoridad la regla,
  * el recurso y lo que bloquea: es una declaración; el estado se recalcula
  * con el eje.
+ *
+ * El P que ya respalda E (VG, 8-11 madrugada): si quien autoriza tiene P que
+ * cuenta bloqueado respaldando E del recurso (respaldoParaAutorizar) y
+ * `respaldo` es true (lo es por defecto cuando no se da `cantidad`), el
+ * registro lo dice (`contexto.autoridad.respaldo: true`, y en `respalda` lo
+ * que respalda en ese momento) y ese P cuenta desde entonces para esta
+ * consolidación, sin volver a bloquearlo: es el acto de voluntad, un registro
+ * que mueve el T de escribirlo y ningún P. Se usa primero: sin `cantidad`,
+ * solo se bloquea además el P disponible (todo) si con el respaldo no se
+ * alcanza el umbral. Con `cantidad`, se bloquea esa cantidad del disponible y
+ * el respaldo solo se usa si se pide (`respaldo: true`).
  */
-export async function autorizar(eje, { autorizante, consolidacion, cantidad, t, nota = 'autorizo', plazo = PLAZO_AUTORIZACION }, privada) {
+export async function autorizar(eje, { autorizante, consolidacion, cantidad, respaldo, t, nota = 'autorizo', plazo = PLAZO_AUTORIZACION }, privada) {
   const c = eje.obtener(consolidacion);
   if (!esConsolidacion(c)) throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   const estado = estadoDe(eje, consolidacion);
@@ -286,12 +315,17 @@ export async function autorizar(eje, { autorizante, consolidacion, cantidad, t, 
   const peso = pesoAutorizacion(eje, c);
   const poder = poderParaBloquear(eje, autorizante, c);
   const disponible = poder.reduce((s, p) => s + p.cantidad, 0);
-  if (!(disponible > 0)) {
+  const respalda = (respaldo ?? cantidad === undefined) ? respaldoParaAutorizar(eje, autorizante, c) : [];
+  const respaldado = respalda.reduce((s, b) => s + b.cantidad, 0);
+  if (!(disponible > 0) && !(respaldado > 0)) {
     throw new Error(autorizante + ' no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso ' + String(peso.recurso).slice(0, 8)
       + (peso.delEje ? ', que no tiene P propio emitido: el P sobre todo el eje («' + AMBITO_GENESIS + '»)' : ' (P:' + String(peso.recurso).slice(0, 8) + ')'));
   }
-  const quiere = cantidad ?? disponible;
-  if (!(quiere > 0) || quiere > disponible) throw new Error('la cantidad a bloquear va de 0 (excluido) a ' + disponible + ': ' + quiere);
+  // Lo que el respaldo añade: nada si su acto ya estaba en pie (ya cuenta).
+  const suma = conActoDeRespaldo(lectorDelEje(eje), c).has(autorizante) ? 0 : respaldado;
+  const basta = respaldado > 0 && alcanzaUmbral(peso.bloqueado + suma, peso.emitido, peso.umbral);
+  const quiere = cantidad ?? (basta ? 0 : disponible);
+  if (cantidad !== undefined && (!(quiere > 0) || quiere > disponible)) throw new Error('la cantidad a bloquear va de 0 (excluido) a ' + disponible + ': ' + quiere);
   const bloqueos = [];
   let resta = quiere;
   for (const p of poder) {
@@ -307,7 +341,8 @@ export async function autorizar(eje, { autorizante, consolidacion, cantidad, t, 
     sobre: consolidacion,
     en: FABRICA,
     t: instante,
-    // Cartón piedra, como todo registro: un minuto de T por posición escrita; y el bloqueo, que es la autorización.
+    // Cartón piedra, como todo registro: un minuto de T por posición escrita; y el bloqueo, que es la autorización
+    // (o, con el P que ya respalda E, el acto de voluntad que lo dice: ningún bloqueo nuevo).
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autorizante, a: null }, ...bloqueos],
     payload,
     contexto: {
@@ -318,6 +353,7 @@ export async function autorizar(eje, { autorizante, consolidacion, cantidad, t, 
         regla: REGLA_AUTORIZAR,
         recurso: peso.recurso,
         bloquea: bloqueos.map((b) => ({ clave: 'P:' + b.ambito, cantidad: b.cantidad })),
+        ...(respaldado > 0 ? { respaldo: true, respalda: respalda.map(({ clave, salida, cantidad }) => ({ clave, salida, cantidad })) } : {}),
         umbral: peso.umbral.texto,
         caduca: caducidad(instante, plazo),
       },
@@ -350,7 +386,9 @@ const liberacion = (titular, salida) => (b) => ({ token: 'P', ambito: b.ambito, 
  * la consolidación y a las autorizaciones que bloquean P por ella. En el
  * mismo evento libera el P que el autor tenía bloqueado por ella; el de los
  * demás queda LIBERABLE: solo su titular lo libera (nadie mueve tokens
- * ajenos), con liberar(). La capacidad de una posición no se cuenta aquí: la
+ * ajenos), con liberar(). El P que respalda E y contó por el acto de voluntad
+ * (VG, 8-11) no se libera: no está bloqueado por la consolidación, sigue
+ * respaldando la E viva y el eje no lo suelta mientras viva. La capacidad de una posición no se cuenta aquí: la
  * limita una serie de tokens que la ejecución mueve (si quien ejecuta ya no
  * los tiene, el eje la rechaza por saldo insuficiente); el contador de
  * ocupacion() es solo informativo.
@@ -387,13 +425,17 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
  * Sirve para lo que queda liberable tras ejecutar, para retirar una
  * autorización antes de que se ejecute (R5: «quien bloqueó puede retirarlo
  * antes de ejecutar»; si la suma baja del umbral, vuelve a PENDIENTE) y para
- * un bloqueo caducado. El eje solo deja liberar al titular.
+ * un bloqueo caducado. El eje solo deja liberar al titular. El mismo registro
+ * (`contexto.libera`) retira el acto de voluntad con el P que respalda E: ese
+ * P deja de contar para la consolidación, pero sigue bloqueado respaldando la
+ * E (no lo mueve).
  */
 export async function liberar(eje, { titular, consolidacion, t, nota = 'libero' }, privada) {
   const c = eje.obtener(consolidacion);
   if (!esConsolidacion(c)) throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   const bloqueos = bloqueosDeP(eje, titular, consolidacion);
-  if (!bloqueos.length) throw new Error(titular + ' no tiene P bloqueado por ' + String(consolidacion).slice(0, 8));
+  const conActo = conActoDeRespaldo(lectorDelEje(eje), c).has(titular);
+  if (!bloqueos.length && !conActo) throw new Error(titular + ' no tiene P bloqueado por ' + String(consolidacion).slice(0, 8) + ' ni autoriza con el P que respalda E');
   const payload = '==' + nota;
   return eje.escribir({
     autor: titular,
@@ -409,16 +451,27 @@ export async function liberar(eje, { titular, consolidacion, t, nota = 'libero' 
 /**
  * Autorizaciones que cuentan: los registros «autorizado» en la fábrica de la
  * consolidación que bloquean, de su autor, P de una clave que cuenta (la del
- * registro del recurso) con la consolidación como salida. Lo demás es ruido.
- * Cuántas haya no decide nada: decide la suma bloqueada (estadoDe).
+ * registro del recurso) con la consolidación como salida; y los actos de
+ * voluntad con el P que respalda E (VG, 8-11) de quien lo tiene en pie y aún
+ * respalda E del recurso con P que cuenta. Lo demás es ruido. Cuántas haya no
+ * decide nada: decide la suma bloqueada (estadoDe).
  */
 export function autorizacionesValidas(eje, consolidacion) {
   const c = eje.obtener(consolidacion);
   if (!esConsolidacion(c)) return [];
   const lector = lectorDelEje(eje);
-  const claves = new Set(clavesDeP(lector, recursoDel(lector, c)).claves);
-  return eje.sobre(consolidacion, FABRICA).filter((e) => e.contexto?.fase === 'autorizado' && e.movimientos.some((m) =>
-    m.token === 'P' && m.estado === 'bloqueo' && m.salida === c.id && m.de === e.autor && claves.has(claveToken(m))));
+  const recurso = recursoDel(lector, c);
+  const lista = clavesDeP(lector, recurso).claves;
+  const claves = new Set(lista);
+  const enPie = conActoDeRespaldo(lector, c);
+  const respalda = new Map();
+  const respaldaAhora = (id) => {
+    if (!respalda.has(id)) respalda.set(id, enPie.has(id) && respaldoDe(lector, id, recurso, lista).length > 0);
+    return respalda.get(id);
+  };
+  return eje.sobre(consolidacion, FABRICA).filter((e) => e.contexto?.fase === 'autorizado' && (e.movimientos.some((m) =>
+    m.token === 'P' && m.estado === 'bloqueo' && m.salida === c.id && m.de === e.autor && claves.has(claveToken(m)))
+    || (esActoDeRespaldo(e, c.id) && respaldaAhora(e.autor))));
 }
 
 /**
