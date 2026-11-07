@@ -18,7 +18,7 @@ Convenciones de este documento:
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
-| `src/epocas.js` | Significado de cada dígito (época 0) | `PV`, `EPOCA_0`, `leerDireccion` |
+| `src/epocas.js` | Significado de cada dígito: época 0 y época 1 propuesta, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCA_1`, `EPOCAS`, `cargarEpoca`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
 `src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js` y `epocas.js` en plano, y `encaje`, `autoridad`, `persistencia` (entre otros) como espacios de nombres: `import { Eje, crearEvento, encaje } from './src/index.js'`.
@@ -397,7 +397,7 @@ Consecuencias conocidas:
 
 ### 4.3 Significado de los dígitos: época 0
 
-La época es una convención paralela, **fuera del dato**: BTML no lleva época dentro y cualquier dirección se lee desde cualquier época. Solo existe `EPOCA_0`, cuya regla corta vale en todas las profundidades: **cada dígito es un punto de vista**.
+La época es una convención paralela, **fuera del dato**: BTML no lleva época dentro y cualquier dirección se lee desde cualquier época. Las épocas viven como datos en `datos/epocas/*.json` (copia generada en `datos/epocas/epocas.js`). La decidida es `EPOCA_0`, cuya regla corta vale en todas las profundidades: **cada dígito es un punto de vista**.
 
 | Dígito | PV | Significado |
 |---|---|---|
@@ -415,11 +415,14 @@ La época es una convención paralela, **fuera del dato**: BTML no lleva época 
 ```js
 PV                              // array congelado de los diez nombres
 EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito]
-leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real
+leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real; epoca puede ser un nombre ('época 1')
+EPOCAS                                   // { 'época 0': EPOCA_0, 'época 1': EPOCA_1 }
+cargarEpoca(datos, { respaldo })         // → época desde { nombre, estado, principios, ordinales?, reglas, dudas }
+epoca.ordinal(profundidad)               // → true donde el dígito es orden (gancho del encaje); ninguna en las épocas 0 y 1
 pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, posiciones: [{ indice, significado, contenido }] × 10 }
 ```
 
-Pendiente: reglas cortas de otras épocas, las cien reglas cortas por profundidad y las reglas largas.
+`EPOCA_1` es una **propuesta** de las cien reglas cortas (el mismo PV, con el grano de cada profundidad nombrado), pendiente de VG: ver `docs/REGLAS_CORTAS.md`. Pendiente: la decisión sobre la época 1 y las reglas largas.
 
 ```sh
 node --input-type=module -e "
@@ -1084,7 +1087,13 @@ export function huella(publica): string;
 
 // src/epocas.js
 export const PV: string[10];
-export const EPOCA_0: { nombre, reglaCorta(profundidad, digito) };
+export const TODAS = 'todas';
+export function cargarEpoca(datos, { respaldo }?): Epoca;
+// Epoca: { nombre, estado, principios, dudas, reglas[100], regla(p, d), reglaCorta(p, d), ordinal(p) }
+export const EPOCA_0: Epoca;  // decidida: dígito = PV en todas las profundidades
+export const EPOCA_1: Epoca;  // propuesta, pendiente de VG
+export const EPOCAS: { [nombre]: Epoca };
+export function epocaDe(epoca = EPOCA_0): Epoca;  // por objeto o por nombre
 export function leerDireccion(dir, epoca = EPOCA_0): { profundidad, digito, significado }[];
 
 // src/persistencia.js
@@ -1110,7 +1119,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
 | Posición 0 de un terminal (encaje no la da; Pointed sí) | §4.2 |
 | Cambio de foco al agotar diez niveles | §3.2 |
-| Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
+| Decisión de VG sobre la época 1 propuesta; reglas largas; profundidades ordinales (cómo cambia el vector con la época) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
 | Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |
