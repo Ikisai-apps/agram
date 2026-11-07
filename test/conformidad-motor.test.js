@@ -33,8 +33,8 @@ import {
   descubrir, proponer, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, puedeAutorizar,
   autorizacionesValidas, FABRICA, OPERADORES,
 } from '../src/motor.js';
-import { escribirDesde, desdePointed, desdeSequenced, desdeMapped, costeT } from '../src/escritura.js';
-import { contarPosiciones, escritura, lectura, cabeEscritura, MODOS } from '../src/modos.js';
+import { escribirDesde, desdePointed, desdeSequenced, desdeMapped, costeT, proporcionDeRegistro } from '../src/escritura.js';
+import { contarPosiciones, escritura, lectura, cabeEscritura, proporcionDe, MODOS } from '../src/modos.js';
 import { EPOCA_0, PV, leerDireccion } from '../src/epocas.js';
 import { decupla } from '../src/pointed.js';
 import { mapa, sobrio as sobrioMapa } from '../src/mapped.js';
@@ -885,24 +885,31 @@ test('MOT-56 la proporción se cuenta en posiciones: una por terminal o referenc
   assert.equal(costeT(['a', ['b', 'c']]), 3);
 });
 
-test('MOT-57 desde Pointed se escribe una posición de cada diez leídas', async () => {
+// VG, 7-11 noche: la proporción propone, el máximo manda (decisión 10.3). Antes, MOT-57/58/59 rechazaban por la proporción.
+test('MOT-57 desde Pointed se propone una posición de cada diez leídas; el máximo (10) manda', async () => {
   assert.equal(lectura('pointed'), 10);
   assert.deepEqual(escritura('pointed'), [1, 1]);
   assert.equal(cabeEscritura('x', 'pointed'), true);
-  assert.equal(cabeEscritura(['x', 'y'], 'pointed'), false);
+  assert.equal(cabeEscritura(['x', 'y'], 'pointed'), false); // fuera de la propuesta: solo informa
   const { eje, g } = await mundo();
-  await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', 'b'], t: T0 }), /pointed escribe como mucho 1/);
+  const dos = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', 'b'], t: T0 });
+  assert.equal(proporcionDeRegistro(dos).estado, 'por encima'); // se escribe y se avisa
+  await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']], t: T0 }), /Pointed emite como mucho 10 posiciones; este registro tiene 11/);
   const { a } = await autorizada(eje, g);
   assert.equal(a.contexto.modo, 'pointed');
   assert.equal(contarPosiciones(a.payload), 1);
 });
 
-test('MOT-58 desde Sequenced se escribe como mucho una quinta parte de lo leído (20 de 100)', async () => {
+test('MOT-58 desde Sequenced se propone como mucho una quinta parte de lo leído (20 de 100); el máximo (100) manda', async () => {
   assert.equal(lectura('sequenced'), 100);
   assert.deepEqual(escritura('sequenced'), [10, 20]);
   const { eje, g } = await mundo();
   const veintiuna = [Array(10).fill('x'), Array(10).fill('y'), 'z'];
-  await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: veintiuna, t: T0 }), /sequenced escribe como mucho 20/);
+  const ev = await escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: veintiuna, t: T0 });
+  assert.match(proporcionDeRegistro(ev).aviso, /^Sequenced propone escribir de 10 a 20 posiciones .*esto tiene 21, por encima\. No es error/);
+  const cientoUna = [...Array(9).fill(Array(10).fill('x')), [...Array(9).fill('y'), ['z', 'z', 'z']]];
+  assert.equal(contarPosiciones(cientoUna), 102);
+  await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: cientoUna, t: T0 }), /Sequenced emite como mucho 100 posiciones; este registro tiene 102/);
 });
 
 test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído',
@@ -912,13 +919,18 @@ test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído
     await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: ['solo una'], t: T0 }));
   });
 
-test('MOT-59 desde Mapped se escribe como mucho un tercio de lo leído (333 de 1000)', async () => {
+test('MOT-59 desde Mapped se propone como mucho un tercio de lo leído (333 de 1000); el máximo (1000) manda', async () => {
   assert.equal(lectura('mapped'), 1000);
   assert.deepEqual(escritura('mapped'), [250, 333]);
   const { eje, g } = await mundo();
-  const demasiado = Array.from({ length: 10 }, () => Array.from({ length: 10 }, () => Array(4).fill('x'))); // 400 posiciones
-  assert.equal(contarPosiciones(demasiado), 400);
-  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: demasiado, t: T0 }), /mapped escribe como mucho 333/);
+  const encima = Array.from({ length: 10 }, () => Array.from({ length: 10 }, () => Array(4).fill('x'))); // 400 posiciones
+  assert.equal(contarPosiciones(encima), 400);
+  // Por encima de la propuesta, dentro del máximo: la escritura no lo rechaza (aquí falla por saldo de T, no por la proporción).
+  assert.equal(proporcionDe(400, 'mapped').estado, 'por encima');
+  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: encima, t: T0 }), /saldo insuficiente de T:minuto/);
+  const milUna = Array.from({ length: 10 }, (_, i) => Array.from({ length: 10 }, (_, j) => (i === 9 && j === 9 ? Array(11).fill('x') : Array(10).fill('x'))));
+  assert.equal(contarPosiciones(milUna), 1001);
+  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: milUna, t: T0 }), /Mapped emite como mucho 1000 posiciones; este registro tiene 1001/);
 });
 
 test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 1000)',

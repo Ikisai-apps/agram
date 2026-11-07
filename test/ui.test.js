@@ -302,7 +302,9 @@ for (const x of EJEMPLOS.slice(1)) {
 
 test('las tres cifras del modo, discretas junto a su nombre (VG, 7-11 noche)', () => {
   assert.equal(textoCifras(nucleo.alcanceDe(7, 'sequenced')), '7 · mín 10 · máx 100');
-  assert.equal(textoCifras(nucleo.alcanceDe(5, 'be')), '5 · mín sin fijar · máx todos');
+  // VG, 7-11 noche: Be no tiene mínimo propio, responde lo que se le pide: conseguido, pedido y máximo.
+  assert.equal(textoCifras(nucleo.alcanceDe(5, 'be')), '5 · pedido 5 · máx todos');
+  assert.equal(textoCifras(nucleo.alcanceDe(5, 'be', { pedido: 7 })), '5 · pedido 7 · máx todos');
   const bajo = htmlCifras('Sequenced', nucleo.alcanceDe(7, 'sequenced'));
   assert.match(bajo, /^<span class="cifras bajo" title="[^"]*no llega al mínimo[^"]*">Sequenced · 7 · mín 10 · máx 100<\/span>$/);
   assert.match(htmlCifras('Pointed', nucleo.alcanceDe(10, 'pointed')), /^<span class="cifras" title="[^"]*">Pointed · 10 · mín 1 · máx 10<\/span>$/);

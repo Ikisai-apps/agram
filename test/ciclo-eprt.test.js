@@ -16,6 +16,7 @@ import { reglasDelCiclo } from '../src/ciclo.js';
 import { validarMovimiento, topeT, TOPE_T_MINIMO, EMITEN } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { validez } from '../src/validez.js';
+import { generarClaves } from '../src/autoridad.js';
 import { consolidar, autorizar, ejecutar, liberar, estadoDe, puedeAutorizar, recursoDe, FABRICA } from '../src/motor.js';
 import { colateral } from '../src/lente.js';
 
@@ -652,16 +653,78 @@ test('R3: P:X la emite una sola vez su autor; ampliarla es ejecutar una consolid
   assert.deepEqual(eje.bloqueos('raiz').map((b) => [b.clave, b.salida, b.cantidad]), [['R:raiz', 'R:raiz', 1]]);
 });
 
+// ---------- SEG-01..03 (revisión de main 7-11 noche) ----------
+
+test('SEG-01 (revisión de main 7-11 noche) ampliar P:X exige una ejecución real (con evidencia que resuelve) y una consolidación respalda una sola ampliación', async () => {
+  const { eje } = await mundo();
+  const reg = await taller(eje, 'ana');
+  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
+  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
+  const a = await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  // Una «ejecución» que solo lo dice: en la fábrica, del autor, fase ejecutado, sin evidencia. Antes ampliaba.
+  const falsa = (contexto, payload) => eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload, contexto: { motor: 'fabrica', fase: 'ejecutado', ...contexto }, movimientos: amplia(2) });
+  await assert.rejects(falsa({}, 'sin evidencia'), /es una serie cerrada.*\(R3\): una ejecución lleva su evidencia \(contexto\.evidencia\), y esta no la lleva/);
+  await assert.rejects(falsa({ evidencia: [] }, 'evidencia vacía'), /y esta no la lleva/);
+  // Con una referencia que no resuelve (así no contaba como ejecución y se repetía sin fin), tampoco.
+  await assert.rejects(falsa({ evidencia: [c.id, 'f'.repeat(64)] }, 'evidencia rota'), /la evidencia cita ffffffff, que no está en el eje/);
+  // Ni con evidencia que no cita la consolidación.
+  await assert.rejects(falsa({ evidencia: [a.id] }, 'otra evidencia'), /la evidencia no cita la consolidación [0-9a-f]{8}/);
+  assert.equal(eje.serie('P:' + reg.id).emitido, 1);
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  // La ampliación legítima sigue pasando.
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
+  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
+  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
+  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
+  // Una segunda sobre la misma consolidación, con evidencia que resuelve: rechazada, ya respaldó una.
+  await assert.rejects(falsa({ evidencia: [c.id, a.id] }, 'otra vez'), /la consolidación [0-9a-f]{8} ya respaldó una ampliación: respalda una sola/);
+  // Las reglas del ciclo lo dicen igual aunque el contexto la diera por AUTORIZADA: manda el índice.
+  const otra = await crearEvento({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra más', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id, a.id] }, movimientos: amplia(2) });
+  const ctx = { ...contexto(eje), tMaximo: () => eje.tMaximo(), autorizada: () => true };
+  assert.match(reglasDelCiclo(otra, { ...ctx, ampliada: (id) => id === c.id }).map((x) => x.texto).join('; '), /ya respaldó una ampliación/);
+  assert.doesNotMatch(reglasDelCiclo(otra, { ...ctx, ampliada: () => false }).map((x) => x.texto).join('; '), /serie cerrada/);
+  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
+});
+
+test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no es de demostración: la exención de clave vale solo en su prefijo', async () => {
+  const g = await crearEvento({ autor: 'raiz', sobre: null, t: T0, payload: 'Viejo',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'raiz' }], contexto: { genesis: true, tipos: { raiz: 'persona' } } });
+  const alta = await crearEvento({ autor: 'raiz', sobre: g.id, t: T0, payload: 'alta de ana sin clave',
+    movimientos: [gasta('raiz'), daT('raiz', 'ana', 10)], contexto: { tipos: { ana: 'persona' } } });
+  const eje = await restaurar(JSON.parse(JSON.stringify({ version: 2, eventos: [g, alta] })));
+  // El prefijo se restaura entero, sin claves.
+  assert.deepEqual([eje.orden.length, eje.eventosV2, eje.demostracion], [2, 2, false]);
+  for (const id of eje.orden) assert.equal((await validez(eje, id)).capas[2].estado, 'ok');
+  // Lo nuevo, no: sin clave no se actúa (antes el eje entero pasaba por demostración).
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'nuevo', movimientos: [gasta('ana')] }), /sin clave no se actúa: ana no tiene clave registrada/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'nuevo', movimientos: [gasta('raiz')] }), /sin clave no se actúa: raiz/);
+  // Ni dando de alta a otra con su clave sin prueba de posesión.
+  const otra = await generarClaves();
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'alta de bea', contexto: { tipos: { bea: 'persona' }, claves: { bea: otra.publica } }, movimientos: [gasta('raiz'), daT('raiz', 'bea', 1)] }),
+    /sin clave no se actúa: raiz.*la clave de bea llega sin prueba de posesión/);
+  // Con la bandera firmada en su génesis, sí es de demostración, venga de la versión que venga.
+  const gDemo = await crearEvento({ autor: 'raiz', sobre: null, t: T0, payload: 'Viejo de demostración',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'raiz' }], contexto: { genesis: true, demostracion: true, tipos: { raiz: 'persona' } } });
+  const demo = await restaurar(JSON.parse(JSON.stringify({ version: 2, eventos: [gDemo] })));
+  assert.equal(demo.demostracion, true);
+  await demo.escribir({ autor: 'raiz', sobre: gDemo.id, t: T0, payload: 'nuevo', movimientos: [gasta('raiz')] });
+});
+
 // ---------- 11 · un eje de la versión 2 se restaura con sus reglas ----------
 
 test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, con las de ahora', async () => {
   // Un eje v2 que las reglas nuevas rechazan: génesis de un grupo, E emitido fuera del génesis sin escalonado y un
-  // evento fechado antes que su foco. Se escribe a mano, como lo guardó la versión 2.
+  // evento fechado antes que su foco. Se escribe a mano, como lo guardó la versión 2. Ana entra con su clave (la
+  // versión 2 ya las declaraba, sin prueba de posesión): un eje migrado no es de demostración (SEG-02), y lo nuevo
+  // lo escribe quien tiene clave.
+  const llaves = await generarClaves();
   const g = await crearEvento({ autor: 'club', sobre: null, t: T0, payload: 'Club',
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'club' }, { token: 'E', emisor: 'club', denominacion: 'vale', cantidad: 10, de: null, a: 'club' }],
     contexto: { genesis: true, tipos: { club: 'grupo' } } });
   const viejo = await crearEvento({ autor: 'club', sobre: g.id, t: '2026-11-06T09:00:00Z', payload: 'más vales y un alta',
-    movimientos: [gasta('club'), emiteE('club', 'vale', 5), daT('club', 'ana', 10)], contexto: { tipos: { ana: 'persona' } } });
+    movimientos: [gasta('club'), emiteE('club', 'vale', 5), daT('club', 'ana', 10)], contexto: { tipos: { ana: 'persona' }, claves: { ana: llaves.publica } } });
   // Y uno con un t que solo Date.parse lee (sin T ni zona), como admitía la versión 2: se escribe sin crearEvento.
   const laxoCuerpo = { autor: 'club', sobre: viejo.id, en: '0000000000', t: '2026-11-06 10:00', movimientos: [gasta('club')], payload: 'nota', contexto: {} };
   const laxo = { ...laxoCuerpo, id: await hash(canonico(cuerpo(laxoCuerpo))) };
@@ -676,14 +739,14 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   // Lo nuevo ya va con las reglas de ahora: el grupo no emite, ni se escribe antes del foco.
   await assert.rejects(eje.escribir({ autor: 'club', sobre: viejo.id, t: T0, payload: 'x', movimientos: [gasta('club'), emiteE('club', 'vale', 1)] }), /solo las personas emiten: club es grupo/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: '2026-11-06T08:00:00Z', payload: 'x', movimientos: [gasta('ana')] }), /es anterior al de su foco/);
-  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: T0, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] });
+  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: T0, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] }, llaves.privada);
   // El alta de ana (en el prefijo, el 6-11 a las 9:00) cuenta para el tope desde el primer evento de la versión 3 (T0):
   // una hora después, 60 minutos y no los más de 1500 que daría su alta de la versión 2 (revisión de seguridad).
   assert.equal(eje.alta('ana').t, '2026-11-06T09:00:00Z');
   const unaHora = '2026-11-07T11:00:00Z';
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] }),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] }, llaves.privada),
     /tope de T:minuto para ana: llevaría 61 emitido y el reloj da 60 desde su alta \(2026-11-07T10:00:00Z\)/);
-  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'mi hora', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 59, de: null, a: 'ana' }] });
+  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'mi hora', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 59, de: null, a: 'ana' }] }, llaves.privada);
   // Al guardar, la marca se conserva y el eje se vuelve a restaurar igual.
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
   assert.deepEqual([datos.version, datos.v2, datos.eventosV2, datos.eventos.length], [3, { eventos: 3, ultimo: laxo.id }, undefined, 5]);

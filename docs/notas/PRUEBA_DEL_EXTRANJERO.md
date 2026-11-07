@@ -33,13 +33,13 @@ Ningún intento tuvo un error de código. Los cuatro escribieron registros váli
 - **Posiciones 5 y 6 rellenadas para poder usar la 7.** Válido (un array no admite huecos), pero no según la regla: el mapa (§12, «Posiciones sin contenido», 7-11) decide prefijo denso y sin «no aplicable», con las celdas sin cambio como **referencia al foco** (`{ ref: foco, dir }`, lo que ya hacen `desdeMapped` y `consolidar`) y lo lejano por anclaje. El extranjero puso otra cosa (la disponibilidad entera y el alta). Con las noches en el 7 (decisión de VG) esto pasará en toda reserva; el ejemplo de abajo sigue la regla.
 - Cobró 16 minutos de T (uno por posición) escribiendo con `eje.escribir`; no hacía falta (el eje solo exige mover algo de T). Ahora lo dice `docs/BTML.md` §2.3.
 
-La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir; puesto al día el 7-11 noche: el génesis lo emite una persona, PR #62, y cada plaza es una décupla con el 0 envuelto, VG «por hojas»):
+La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir; puesto al día el 7-11 noche: el génesis lo emite una persona (PR #62), sin clave solo como demostración (`demostracion: true`), y cada plaza es una décupla con el 0 envuelto, VG «por hojas»):
 
 ```js
 import { Eje, encaje, bql } from './src/index.js';
 const t = '2026-11-07T10:00:00Z';
 const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-const eje = await Eje.genesis({ identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
 const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'ana' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']], contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
 const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
 const reserva = (quien, noches) => eje.escribir({
@@ -49,7 +49,7 @@ const reserva = (quien, noches) => eje.escribir({
 const ra = await reserva('ana', 2);
 const rb = await reserva('bea', 3);
 console.log('plaza 1.1:', encaje.ocupantes(eje, disp.id, [1, 1]).map((o) => o.origen + (o.autor ? ' ' + o.autor : ' ' + JSON.stringify(o.camino))).join(' · '));
-console.log('reservas en la plaza:', bql.consultar(eje, disp.id, [1, 9], 'CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"))').texto);
+console.log('reservas en la plaza:', encaje.ocupantes(eje, disp.id, [1, 1]).filter((o) => o.origen === 'escrito').length);
 console.log('total ana:', bql.evaluar(eje, ra.id, [4]).texto, '· total bea:', bql.evaluar(eje, rb.id, [4]).texto);
 ```
 
@@ -1411,7 +1411,7 @@ const rb = await reserva('bea', ['2026-11-14', '2026-11-15'], '10:05');
 
 // 5. La colisión: las dos reservas son ocupantes de la plaza.
 console.log('ocupantes de la plaza 1.1:', encaje.ocupantes(eje, disp.id, [1, 1]).map((o) => o.origen + (o.autor ? ':' + o.autor : '') + ':' + o.signo).join(' · '));
-console.log('BQL desde [1, 9] de la disponibilidad:', bql.consultar(eje, disp.id, [1, 9], 'CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"))').texto, 'reservas en la plaza');
+console.log('BQL desde [1, 9] de la disponibilidad:', bql.consultar(eje, disp.id, [1, 9], 'CONTAR(FILTRAR(BUSCAR("1100000000"), ORIGEN() = "escrito"))').texto, 'reservas en la plaza');
 console.log('5 de la reserva de ana:', bql.evaluar(eje, ra.id, [5]).texto, '· leída en fórmula:', bql.consultar(eje, ra.id, [9], 'LOCAL(5)').texto, '· seguida:', JSON.stringify(encaje.seguir(eje, ra.payload[5]).contenido), encaje.seguir(eje, ra.payload[5]).rota);
 const solape = ra.payload[7].filter((n) => rb.payload[7].includes(n));
 console.log('noches solapadas (calculado en JS):', solape.join(', '));

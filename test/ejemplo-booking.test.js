@@ -97,7 +97,11 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([entrega.ejecucion.payload[0], pagada.ejecucion.payload[0]], ['Plaza entregada', 'Pagada']);
   const texto = render(decupla(reserva));
   assert.match(texto, /^1 recursos\s+\[5 posiciones\]$/m);
-  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m); // VG, 7-11 noche: por hojas: [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1)
+  // VG, 7-11 noche: por hojas, la 4 es [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1). Y Pointed corta duro en 10
+  // (decisión 10.2): la reserva tiene 11 posiciones con contenido, así que 'ocupar', la última por índice, queda fuera y se avisa.
+  assert.match(texto, /^4 fábrica\s+\[1 posiciones\] \(cortada\)$/m);
+  assert.match(texto, /^aviso: Pointed corta en su máximo \(10 posiciones\): .*queda cortada la 4\. Trae 10 de 11 posiciones\.$/m);
+  assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // leer no muta el registro
 });
 
 test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capacidad, y la casa emite su serie por plaza y noche', async () => {
@@ -169,7 +173,7 @@ test('las referencias no copian: plaza y precio son un solo nodo, y las fórmula
   assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // por hojas: una décupla, el 0 envuelto
   // Lo lejano, por anclaje: las noches en el 7 de la propia reserva, escritas por quien reserva.
   const [noches] = eje.sobre(reserva.id, SIETE);
-  assert.deepEqual([noches.autor, noches.payload], ['huesped', ['2026-11-20', '2026-11-23']]);
+  assert.deepEqual([noches.autor, noches.payload], ['huesped', [['2026-11-20'], '2026-11-23']]);
 });
 
 test('encaje de la dirección 1 de la reserva: colisiones por ceros, lo alcanzado por la referencia y su procedencia', async () => {
@@ -393,7 +397,7 @@ test('antes de mover nada: la reserva ha de estar anclada en la plaza que refere
   let minuto = 10;
   // Después de las reservas a mano (21:10, 21:11…): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
   const t = '2026-11-08T22:00:00Z';
-  const escribir = async ({ en = plaza(PLAZAS.individual), refPlaza = plaza(PLAZAS.individual), noches = 3, tramo = ['2026-11-20', '2026-11-23'] } = {}) => {
+  const escribir = async ({ en = plaza(PLAZAS.individual), refPlaza = plaza(PLAZAS.individual), noches = 3, tramo = [['2026-11-20'], '2026-11-23'] } = {}) => {
     const t = '2026-11-08T21:' + minuto++ + ':00Z'; // cada reserva a mano es un registro distinto
     const r = await eje.escribir({
       autor: 'huesped', sobre: habitacion.id, en, t, movimientos: [minutos('huesped', 11)],
@@ -414,9 +418,9 @@ test('antes de mover nada: la reserva ha de estar anclada en la plaza que refere
   await sinNada(await escribir({ en: plaza(PLAZAS.litera) }), /no está anclada en la plaza que referencia: anclada en 1200000000, referencia 1100000000/);
   // Sin tramo en el 7, o ilegible: un tramo es acotado.
   await sinNada(await escribir({ tramo: null }), /sin tramo en el 7/);
-  await sinNada(await escribir({ tramo: ['2026-11-23', '2026-11-20'] }), /tramo ilegible en el 7/);
+  await sinNada(await escribir({ tramo: [['2026-11-23'], '2026-11-20'] }), /tramo ilegible en el 7/);
   // Por horas no: las noches van por fecha.
-  await sinNada(await escribir({ tramo: ['2026-11-20T15:00:00Z', '2026-11-23T11:00:00Z'] }), /las noches van por fecha/);
+  await sinNada(await escribir({ tramo: [['2026-11-20T15:00:00Z'], '2026-11-23T11:00:00Z'] }), /las noches van por fecha/);
   // Un tramo anclado por otra identidad no es el de la reserva.
   const ajena = await escribir({ tramo: null });
   await eje.escribir({ autor: 'recepcion', sobre: ajena.id, en: SIETE, t, movimientos: [minutos('recepcion', 2)], payload: ['2026-11-20', '2026-11-23'] });
@@ -491,6 +495,9 @@ test('E atada al recurso (R2): 4 plazas por noche; un segundo emisor no añade u
   const despues = caducaNoche('2026-11-20');
   assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-20').map((x) => x.vivo), [0]);
   assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-21').map((x) => x.vivo), [4]);
+  // El eje lo ve pasar cuando llega ahí (SEG-03): fechar la emisión después no basta; un registro de la casa con ese t, sí.
+  await assert.rejects(eje.escribir(otra('2026-11-20', despues)), /en la franja «2026-11-20».*llegaría a 5 y su capacidad es 4/);
+  await eje.escribir({ autor: CASA, sobre: alojamiento.id, t: despues, payload: 'pasó la noche del 20', movimientos: [minutos(CASA)] });
   await eje.escribir(otra('2026-11-20', despues));
   // El P de la casa respalda todas las noches de cada cama: no se suelta mientras viva alguna.
   const suelta = { token: 'P', ambito: alojamiento.id, cantidad: 1, de: CASA, a: CASA, estado: 'liberacion', salida: familiaPlaza(habitacion.id, PLAZAS.matrimonio) };

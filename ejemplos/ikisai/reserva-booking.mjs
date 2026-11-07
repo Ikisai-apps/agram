@@ -361,7 +361,7 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * precio van por referencia (no copias) y las fórmulas viven en la misma
  * décupla anidada (1), porque LOCAL lee a su profundidad; 4 es lo que
  * prepara, las dos partes de la ejecución. Lo lejano, por anclaje: las
- * noches [entrada, salida] se anclan en el 7 de la propia reserva (la
+ * noches (la décupla [[entrada], salida]) se anclan en el 7 de la propia reserva (la
  * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
  * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
  *
@@ -388,7 +388,7 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
     [['pagar'], 'ocupar'], // 4 fábrica: lo que prepara, una décupla (por hojas: el 0 envuelto) para que la entrega elija 4.1 «ocupar» por dirección
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
-  const tramo = [entrada, salida];
+  const tramo = [[entrada], salida]; // una décupla (por hojas: el 0 envuelto): [entrada, salida] sería una lista de dos ocupantes
   await eje.escribir({
     autor,
     sobre: reserva.id,

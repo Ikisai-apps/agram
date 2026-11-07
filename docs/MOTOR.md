@@ -69,7 +69,7 @@ caminoVisible(ocupante)                                                // → nu
 | `autor`, `t` | encaje | solo en escritos |
 | `origenDir`, `destino`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | encaje | el encaje del candidato en la posición |
 | `empate`, `empatados`, `justificacion` | encaje | si el encaje no lo separa de otro (y con cuántos) y el motivo del encaje en texto |
-| `estado`, `texto` | `bql.evaluar(eje, evento, candidato.camino)` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor del **camino exacto** del ocupante (`docs/BQL.md` §1; mapa §12 [D]: «todos son ocupantes con su camino exacto»). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. |
+| `estado`, `texto` | `bql.evaluar(eje, evento, candidato.camino)` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor del **camino exacto** del ocupante (`docs/BQL.md` §1; mapa §12 [D]: «todos son ocupantes con su camino exacto»). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. Un elemento de una lista (`enLista`, `indice`) es un candidato aparte y muestra **su propio valor** (`LOCAL` por índice), no el de la lista entera: el menú de tres platos da tres candidatos, «ensalada», «guiso» y «fruta». |
 | `etiqueta` | `bql.evaluar(eje, evento, caminoVisible(candidato)).texto` | el texto que se muestra: de un array, el de su posición 0; si no, el mismo `texto`. No decide el estado: una fórmula pendiente en la posición 0 no vuelve pendiente al candidato, y `[1]` y `[1, 0]` se distinguen por su estado y su texto (auditoría de ajuste 2). |
 
 `caminoVisible` añade un `0` al camino cuando el contenido es un array con posición 0: de un array, la etiqueta es su posición 0; el estado no. De un terminal o una referencia se muestra lo que hay. BQL no sigue la referencia en `evaluar` (texto `→ <id>`), sí la sigue el candidato de origen `referencia`, que ya es lo alcanzado.
@@ -94,18 +94,18 @@ console.log('registros antes y después:', eje.orden.length);
 ```text
 1 1000000000 4 candidatos
   propio     936b43ee camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d367743b · exacto
-  propio     936b43ee camino [1,0] visible [1,0] · RESUELTO · → d367743b · etiqueta → d367743b · exacto
+  propio     936b43ee camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
   referencia d367743b camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
   escrito    2b75f87f camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 2 candidatos
-  propio     936b43ee camino [2] visible [2] · RESUELTO · → d367743b · etiqueta → d367743b · exacto
+  propio     936b43ee camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
   referencia d367743b camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
-  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
+  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     936b43ee camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
 4 4000000000 2 candidatos
-  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
-  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
+  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     936b43ee camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
@@ -197,7 +197,7 @@ Las claves de `elecciones` son posiciones **1–9**. Se recorren de 1 hasta la m
 
 ### 3.3 El registro resultante
 
-Se escribe con `escribirDesde` en modo `mapped` (§7): `sobre = foco`, `en = direccion([...camino, 4])`, `payload = [titulo, …]`, `contexto = { motor: 'fabrica', fase: 'consolidado', fuentes, encaje, nuevos, modo: 'mapped' }`, y un solo movimiento: T del autor, un minuto por posición (las referencias heredadas cuentan). Límites de Mapped (§7.1): como mucho 333 posiciones del registro (la proporción, que rechaza como antes y se mira primero: **[X] decidir VG**) y 1000 posiciones emitidas (el tope duro, que con la proporción rechazando no se llega a alcanzar). El estado inicial es `PENDIENTE DE AUTORIZACIÓN`.
+Se escribe con `escribirDesde` en modo `mapped` (§7): `sobre = foco`, `en = direccion([...camino, 4])`, `payload = [titulo, …]`, `contexto = { motor: 'fabrica', fase: 'consolidado', fuentes, encaje, nuevos, modo: 'mapped' }`, y un solo movimiento: T del autor, un minuto por posición (las referencias heredadas cuentan). Límites de Mapped (§7.1): como mucho 1000 posiciones emitidas (el tope duro, el único que rechaza); la proporción (250–333) solo propone y avisa (VG, 7-11 noche: la proporción propone, el máximo manda). El estado inicial es `PENDIENTE DE AUTORIZACIÓN`.
 
 ```sh
 node --input-type=module -e "
@@ -237,7 +237,7 @@ La posición 3 no se eligió y queda por debajo de la 4: se hereda de la compra 
 | `las elecciones van en posiciones 1–9` | alguna clave no es un entero de 1 a 9 (`0`, `10`, `'a'`) |
 | `hueco en <i>: elige algo o quita las posiciones siguientes` | la posición `i` no se eligió, está por debajo de la última y el foco no tiene ningún ocupante en `[...camino, i]` |
 | `fuente desconocida en <i>` | una elección `{ ref }` cuyo `ref` no está en el eje |
-| `mapped escribe como mucho 333 posiciones; este registro tiene <n>` | la proporción de Mapped (§7.1), que rechaza como antes y se mira primero (**[X] decidir VG**): también cuando el registro pasa del tope (1000) |
+| `Mapped emite como mucho 1000 posiciones; este registro tiene <n>` | el máximo de Mapped (§7.1), el único límite que rechaza; la proporción solo propone (VG, 7-11 noche) |
 | `Mapped emite como mucho 1000 posiciones; este registro tiene <n>` | el tope duro de Mapped (§7.1); mientras la proporción rechace, no se llega a él |
 | `evento rechazado: …` / `registro desconocido: <id>` | lo que rechace el eje (foco inexistente, autor sin T, firma…) o el encaje al buscar ocupantes de un foco inexistente |
 
@@ -254,7 +254,6 @@ await intenta({ elecciones: { 10: 'x' } });
 await intenta({ elecciones: { 7: 'más tarde' } });
 await intenta({ elecciones: { 1: { ref: 'nadie' } } });
 await intenta({ elecciones: { 1: Array(10).fill(Array(10).fill(Array(10).fill('x'))) } });
-await intenta({ elecciones: { 1: Array(10).fill(Array(10).fill(Array(4).fill('x'))) } });
 await intenta({ foco: 'nadie', elecciones: { 1: 'x' } });
 await intenta({ elecciones: { 1: ['dos', 'menús'], 3: { ref: menu.id, dir: '2000000000' } } });
 await intenta({ elecciones: { 1: 'uno' }, camino: [1] });
@@ -267,8 +266,7 @@ las elecciones van en posiciones 1–9
 las elecciones van en posiciones 1–9
 hueco en 5: elige algo o quita las posiciones siguientes
 fuente desconocida en 1
-mapped escribe como mucho 333 posiciones; este registro tiene 1001
-mapped escribe como mucho 333 posiciones; este registro tiene 401
+Mapped emite como mucho 1000 posiciones; este registro tiene 1001
 evento rechazado: foco desconocido: nadie
 ok ["Consolidación",["dos","menús"],{"ref":"936b43ee","dir":"2000000000"},{"ref":"d367743b","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
@@ -530,14 +528,14 @@ Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos 
 ```js
 CRITERIO_CAPACIDAD = 2                 // dónde declara una décupla (una posición o el payload de un registro) su capacidad; de src/tokens.js
 capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined; de src/tokens.js
-tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin); sin 7 o ilegible, error
+tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin), escrito como décupla `[[inicio], fin]`; sin 7 o ilegible (también una lista de dos hojas, que son dos ocupantes), error
 registrosEn(eje, sobre, dir)            // → eventos anclados en la posición o que la referencian desde donde estén, por llegada
 ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }]: solo informa
 ```
 
 - **Declaración** (`[X] decidir VG`): la décupla de la posición lleva un entero positivo en su criterio (subposición 2: «cuántos caben»), como una plaza `[nombre, precio, capacidad]` bajo la época 0. Sin ese entero la posición no declara nada.
 - **Qué posición ocupa un registro**: la de su anclaje (`sobre` + `en`). La dirección nombra la colisión entera (§12 del mapa: `1000000000` es a la vez `[1]`, `[1.0]`, `[1.0.0]`), así que se mira cada camino que nombra y cuenta el que declare capacidad. Al contar a los demás, entran también los que **referencian** la posición desde otro anclaje (`registrosEn`): ninguno escapa al contador por elegir otro `en`.
-- **Tramo** (`[X] decidir VG`): `[inicio, fin]` en ISO, con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
+- **Tramo** (`[X] decidir VG`): una décupla `[[inicio], fin]` en ISO (el 0 envuelto, como en el resto de ejemplos), con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. Por hojas, `[inicio, fin]` es una lista de dos ocupantes, no un tramo: `tramoDe` no la lee como par y el error lo dice. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
 - **Cuántos a la vez**: los otros registros de la posición con consolidación ejecutada que se solapan con el tramo, y el máximo que coincide en un mismo instante (barrido por los inicios). Con capacidad 2, dos estancias encadenadas y una tercera que las cruza caben; una cuarta que coincide con dos, no.
 - `ejecutar` **no** consulta `ocupacion`.
 
@@ -599,41 +597,42 @@ El tercer caso es un defecto observado (§13): `ejecutar` exige la autorización
 
 ### 7.1 Modos, topes duros y proporción (`src/modos.js`)
 
-La unidad de cuenta es la **posición** (cada terminal, referencias incluidas, cuenta una; un array cuenta la suma de las suyas). Cada modo tiene estas cifras:
+La unidad de cuenta es la **posición con contenido** (VG, 7-11 noche, decisión 10.1: «lo leído se cuenta por lo que hay»; `contenido(payload)`, con `contarPosiciones` como alias): cada terminal, referencias incluidas, cuenta una; cada ocupante de una lista, uno; un array, la suma de las suyas. La misma medida vale para leer y para emitir. Cada modo tiene estas cifras:
 
-- el **máximo** o **tope duro** (VG, 7-11-2026; confirmado VG, 7-11 noche): cuántas posiciones puede **emitir** de una vez, y es el mismo máximo que el de **representar**: «todo lo que no se pueda representar realmente no se puede alterar y por lo tanto no tiene sentido emitirlo». `maximo(modo)`; `lectura` y `tope` son alias. Lo comprueban `escribirDesde` y `escribirSalida` (y por tanto `consolidar` y `autorizar`) sobre lo emitido: las referencias de relleno heredadas del foco no se emiten («se emiten solo las décuplas modificadas», mapa §12) y no cuentan cuando la escritura sabe cuáles son (§7.3);
-- el **mínimo** (VG, 7-11 noche): lo que el modo intenta representar y emitir (Pointed 1, Sequenced 10, Mapped 100, Scened 1000; Be sin fijar, **[X] decidir VG**). No rechaza: lo emitido por debajo se escribe y se informa con `alcanceDe` (`{ conseguido, minimo, maximo, alMinimo }`): `escribirSalida` lo devuelve en `alcance` y, para el evento de `escribirDesde`, `alcanceDeRegistro(evento)` (§7.3). Detalle y cita en `docs/MODOS.md` §0;
-- la **proporción** de escritura sobre lectura (VG, 6-11-2026): el estándar. Se exige su máximo (1, 20, 333) sobre **todas las posiciones del registro**, lo heredado incluido, como antes del 7-11 (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`); el mínimo no se exige. `proporcion` y `proporcionDe` dicen dónde queda un registro y `escribirSalida` lo devuelve.
+- el **máximo** o **tope duro** (VG, 7-11-2026; confirmado VG, 7-11 noche): cuántas posiciones puede **emitir** de una vez, y es el mismo máximo que el de **representar**: «todo lo que no se pueda representar realmente no se puede alterar y por lo tanto no tiene sentido emitirlo». `maximo(modo)`; `tope` es alias, y `lectura` da la misma cifra como capacidad representativa (la base de la proporción). Es **el único límite que rechaza** (`cabeTope`, la regla dura). Lo comprueban `escribirDesde` y `escribirSalida` (y por tanto `consolidar` y `autorizar`) sobre lo emitido: las referencias de relleno heredadas del foco no se emiten («se emiten solo las décuplas modificadas», mapa §12) y no cuentan cuando la escritura sabe cuáles son (§7.3);
+- el **mínimo** (VG, 7-11 noche): lo que el modo intenta representar y emitir (Pointed 1, Sequenced 10, Mapped 100, Scened 1000; Be no tiene: responde exactamente lo que se le pide, VG 7-11 noche, y sus tres números son conseguido, pedido y máximo). No rechaza: lo emitido por debajo se escribe y se informa con `alcanceDe` (`{ conseguido, minimo, maximo, alMinimo }`): `escribirSalida` lo devuelve en `alcance` y, para el evento de `escribirDesde`, `alcanceDeRegistro(evento)` (§7.3). Detalle y cita en `docs/MODOS.md` §0;
+- la **proporción** de escritura sobre lectura (VG, 6-11-2026): desde la decisión 10.3 (VG, 7-11 noche: **la proporción propone, el máximo manda**) ya no es tope, sino **lo que la fábrica propone por defecto**, el tamaño normal de lo escrito respecto de lo leído: `escritura(modo)` o su alias `propuesta(modo)` (Pointed `[1, 1]`, Sequenced `[10, 20]`, Mapped `[250, 333]`). Se mide sobre **todas las posiciones del registro**, lo heredado incluido. Lo que se sale de ella **se escribe y se avisa**, nunca es error: `proporcionDe(posiciones, modo)` da `{ posiciones, rango, estado, aviso }`, con `aviso` en texto fuera de la proporción (`Sequenced propone escribir de 10 a 20 posiciones (la proporción sobre lo leído); esto tiene 21, por encima. No es error: la proporción propone, el máximo (100) manda.`) y `null` dentro o sin fijar. `escribirSalida` lo devuelve en `proporcion` y en `avisos`; para el evento de `escribirDesde`, `proporcionDeRegistro(evento)`. `cabeEscritura` solo informa.
 
-Se mira **primero la proporción** y después el tope: así, todo lo que antes del 7-11 se rechazaba se sigue rechazando con el mismo mensaje, también cuando además pasa del tope (treinta posiciones en Pointed dan `pointed escribe como mucho 1 posiciones; este registro tiene 30`, como en `main`). Mientras la proporción rechace, en Pointed, Sequenced y Mapped se llega antes a ella que al tope (las posiciones del registro nunca son menos que las emitidas, y 1 < 10, 20 < 100, 333 < 1000): el mensaje del tope (`<Modo> emite como mucho <tope> posiciones; …`) solo sale en Scened, que no tiene proporción.
+Antes del 7-11 noche se miraba primero la proporción y rechazaba (`pointed escribe como mucho 1 posiciones; …`); ese mensaje ya no existe. Hoy el único rechazo de límites es el del máximo: `<Modo> emite como mucho <tope> posiciones; <qué> tiene <n>` (treinta posiciones en Pointed: `Pointed emite como mucho 10 posiciones; este registro tiene 30`). La matriz entera de la fábrica (1000) cabe ya en Mapped, con el aviso de la proporción.
 
-Quién tiene en cuenta los límites al ubicar: `ubicar` con modo, y por tanto `escribirDesde` con una celda, ubica **una celda**: si tiene base pero dentro del registro, con su relleno, no cabe, la ancla sola (§7.3). `desdeMapped` conforma **varias celdas** y las ubica solo por la base, sin modo; `escribirSalida` mide después la salida entera y, si no cabe, la **rechaza** sin anclar nada. Con la misma celda y el mismo modo, pues, `escribirDesde` con celda puede anclarla y escribir donde `desdeMapped` + `escribirSalida` rechaza (**[X] decidir VG** si `desdeMapped` también ancla por límites, y qué celdas).
-
-**[X] decidir VG**: el mapa dice «topes duros por modo … (además de la proporción)», pero no dice si la proporción rechaza o solo informa. Hasta que VG lo decida se conserva lo que había: rechaza. Con las dos rechazando, el tope solo decide en Scened, y la matriz de 1000 no cabe en Mapped. Si la proporción solo informara, bastaría con quitar su comprobación de `fueraDeLimite` (`src/escritura.js`).
+Quién tiene en cuenta los límites al ubicar: `ubicar` con modo, y por tanto `escribirDesde` con una celda, ubica **una celda**: si tiene base pero dentro del registro lo emitido no cabe en el máximo, la ancla sola (§7.3). `desdeMapped` conforma **varias celdas** y las ubica solo por la base, sin modo; `escribirSalida` mide después la salida entera y, si no cabe, la **rechaza** sin anclar nada. Con la misma celda y el mismo modo, pues, `escribirDesde` con celda puede anclarla y escribir donde `desdeMapped` + `escribirSalida` rechaza (**[X] decidir VG** si `desdeMapped` también ancla por límites, y qué celdas).
 
 ```js
-MODOS                         // { pointed, sequenced, mapped, scened, be } → { nombre, decuplas, proporcion: [mín, máx] | null, minimo, maximo }
+MODOS                         // { pointed, sequenced, mapped, scened, be } → { nombre, orden, decuplas, proporcion: [mín, máx] | null, minimo, maximo }
 nombreModo(modo)              // → 'Pointed' | 'Sequenced' | 'Mapped' | 'Scened' | 'Be'
 maximo(modo)                  // → máximo duro: posiciones que el modo representa y emite como mucho de una vez (Be: Infinity)
-minimo(modo)                  // → mínimo que el modo intenta representar y emitir; solo se informa (Be: null, sin fijar)
+minimo(modo)                  // → mínimo que el modo intenta representar y emitir; solo se informa (Be: null, no aplica: responde lo que se le pide)
 alcanceDe(conseguido, modo)   // → { conseguido, minimo, maximo, alMinimo }: los tres números de una lectura o una emisión
-lectura(modo)                 // → alias de maximo: posiciones que el modo lee de una vez
+lectura(modo)                 // → la capacidad representativa (décuplas × 10 = el máximo): base de la proporción, no lo que una lectura trae
 tope(modo)                    // → alias de maximo: posiciones que el modo emite como mucho de una vez
-escritura(modo)               // → [mínimo, máximo] según la proporción (floor de lectura × proporción), o null si no está fijada
-contarPosiciones(payload)     // → número de terminales del payload (anidado incluido); 0 si no es BTML
-cabeTope(payload, modo, heredadas = [])  // → contarPosiciones(payload) − heredadas.length <= tope(modo): el tope cuenta lo emitido; cada heredada es una posición de relleno
-cabeEscritura(payload, modo)  // → contarPosiciones(payload) <= máximo de la proporción, lo heredado incluido; true si no está fijada (la escritura rechaza con este criterio)
-proporcionDe(posiciones, modo)  // → { posiciones, rango: [mín, máx] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' }; posiciones = las del registro, lo heredado incluido
-proporcion(payload, modo)     // → proporcionDe(contarPosiciones(payload), modo): cuenta todo el payload, también lo heredado, como la proporción
+escritura(modo), propuesta(modo)  // → [mínimo, máximo] que la fábrica propone según la proporción (floor de lectura × proporción), o null si no está fijada
+contenido(payload)            // → posiciones con contenido: cada terminal una, cada ocupante de una lista uno; 0 si no es BTML
+contarPosiciones(payload)     // → alias de contenido
+recortar(payload, max), admitir(cantidades, max), avisoCorte(modo, x, y, detalle)  // → el corte duro de las vistas (docs/MODOS.md §0.2)
+cabeTope(payload, modo, heredadas = [])  // → contenido(payload) − heredadas.length <= tope(modo): la regla dura; cuenta lo emitido; cada heredada es una posición de relleno
+cabeEscritura(payload, modo)  // → contenido(payload) <= máximo de la propuesta, lo heredado incluido; true si no está fijada (solo informa)
+proporcionDe(posiciones, modo)  // → { posiciones, rango: [mín, máx] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar', aviso: texto | null }; posiciones = las del registro, lo heredado incluido
+proporcion(payload, modo)     // → proporcionDe(contenido(payload), modo): cuenta todo el payload, también lo heredado, como la proporción
+orden(posiciones), minimoDe(n), maximoDe(n), ordenDeEscala(escalaT)  // → los órdenes de magnitud (docs/MODOS.md §0.4)
 ```
 
-| Modo | Décuplas | Mínimo (informa) | Máximo: lee y emite (rechaza; cuenta lo emitido) | Proporción (rechaza su máximo, como antes; [X]) | Según la proporción `[mín, máx]` |
+| Modo | Décuplas | Mínimo (informa) | Máximo: lee y emite (rechaza; cuenta lo emitido) | Proporción (propone; fuera, avisa) | Propuesta `[mín, máx]` |
 |---|---|---|---|---|---|
 | `pointed` | 1 | 1 | 10 | 1/10 | `[1, 1]` |
 | `sequenced` | 10 | 10 | 100 | 1/10 – 1/5 | `[10, 20]` |
 | `mapped` | 100 | 100 | 1000 (la matriz 10×10×10) | 1/4 – 1/3 | `[250, 333]` |
 | `scened` | 1000 | 1000 | 10000 | sin fijar (`null`) | `null` |
-| `be` | — | sin fijar (`null`, [X]) | todos (`Infinity`) | sin fijar (`null`, [X]) | `null` |
+| `be` | — | no tiene: responde lo que se le pide (`null`, VG 7-11 noche) | todos (`Infinity`) | sin propuesta (`null`, [X]) | `null` |
 
 Scened tiene máximo duro de emisión y de lectura (su escena corta en 10000 posiciones, `docs/MODOS.md` §6) y render sobrio (`src/scened.js`), pero no formulario de escritura. Be no tiene interfaz gráfica. Un modo que no está en `MODOS` da `Error('modo desconocido: <modo>')` en `lectura`, `tope`, `escritura`, `escribirDesde`…
 
@@ -659,12 +658,12 @@ Scened     décuplas 1000 · mín 1000 · lee    10000 · tope    10000 · propo
 Be         décuplas null · mín null · lee Infinity · tope Infinity · proporción null
 1 4 2 0 0
 true false true false false true
-11 false true {"posiciones":11,"rango":[10,20],"estado":"dentro"}
-pointed   {"posiciones":1,"rango":[1,1],"estado":"dentro"}
-sequenced {"posiciones":5,"rango":[10,20],"estado":"por debajo"}
-sequenced {"posiciones":30,"rango":[10,20],"estado":"por encima"}
-mapped    {"posiciones":1000,"rango":[250,333],"estado":"por encima"}
-scened    {"posiciones":1000,"rango":null,"estado":"sin fijar"}
+11 false true {"posiciones":11,"rango":[10,20],"estado":"dentro","aviso":null}
+pointed   {"posiciones":1,"rango":[1,1],"estado":"dentro","aviso":null}
+sequenced {"posiciones":5,"rango":[10,20],"estado":"por debajo","aviso":"Sequenced propone escribir de 10 a 20 posiciones (la proporción sobre lo leído); esto tiene 5, por debajo. No es error: la proporción propone, el máximo (100) manda."}
+sequenced {"posiciones":30,"rango":[10,20],"estado":"por encima","aviso":"Sequenced propone escribir de 10 a 20 posiciones (la proporción sobre lo leído); esto tiene 30, por encima. No es error: la proporción propone, el máximo (100) manda."}
+mapped    {"posiciones":1000,"rango":[250,333],"estado":"por encima","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 1000, por encima. No es error: la proporción propone, el máximo (1000) manda."}
+scened    {"posiciones":1000,"rango":null,"estado":"sin fijar","aviso":null}
 modo desconocido: otro
 ```
 
@@ -743,11 +742,11 @@ Errores: `la décupla está vacía: ver ya es una modificación (clase 0); escri
 
 Respecto de la décupla anterior a la matriz cambian dos cosas: lo lejano se ancla en vez de dar `hueco en <i>`; y una línea con la forma exacta `@:j.k texto`, que antes era texto, es una celda marcada. Las demás líneas significan lo mismo, también las que empiezan por `@:` sin esa forma. Un foco terminal hereda su posición 0 como antes (§7.2, **[X]**). **[X] decidir VG**: la marca (propuesta: `@:j.k`) y si el formulario de Mapped pide la clase de cada celda (`app.js` no enseña la marca).
 
-**`ubicar(eje, foco, celda, { camino, escritas, modo, contenido })`** decide entre «dentro del registro» y «anclado en la posición» para una celda objetivo (`[i]`, `[i, j]` o `[i, j, k]` bajo `camino`). `escritas` son las celdas que ya van dentro del mismo registro (cuentan como base). `en` es donde va el registro (dentro, `direccion(camino)`; anclado, la dirección de la celda) y `dir`, donde cae la celda en los dos casos: `direccion([...camino, ...celda])`, de clase `claseDe(dir, camino)`. **Con `modo`**, tiene en cuenta sus límites (§7.1) con `contenido` (un terminal si falta; cada una de `escritas` cuenta una posición): si la celda tiene base pero el registro, con su relleno heredado, no cabría, la ancla sola y lo dice en `motivo` (`pointed escribe como mucho 1 posiciones; dentro, el registro tiene 3`); si ni sola cabe, error (`… esta celda tiene <n>`). Sin `modo` solo mira la base: así ubica `desdeMapped`, cuya salida se mide entera al escribirla (y se rechaza si no cabe). No escribe nada.
+**`ubicar(eje, foco, celda, { camino, escritas, modo, contenido })`** decide entre «dentro del registro» y «anclado en la posición» para una celda objetivo (`[i]`, `[i, j]` o `[i, j, k]` bajo `camino`). `escritas` son las celdas que ya van dentro del mismo registro (cuentan como base). `en` es donde va el registro (dentro, `direccion(camino)`; anclado, la dirección de la celda) y `dir`, donde cae la celda en los dos casos: `direccion([...camino, ...celda])`, de clase `claseDe(dir, camino)`. **Con `modo`**, tiene en cuenta sus límites (§7.1) con `contenido` (un terminal si falta; cada una de `escritas` cuenta una posición): si la celda tiene base pero lo emitido dentro del registro (sus `escritas` y ella) no cabría en el máximo del modo, la ancla sola y lo dice en `motivo` (`Pointed emite como mucho 10 posiciones; dentro, el registro tiene 11`); si ni sola cabe, error (`… esta celda tiene <n>`). La proporción no ancla ni rechaza (VG, 7-11 noche: la proporción propone, el máximo manda). Sin `modo` solo mira la base: así ubica `desdeMapped`, cuya salida se mide entera al escribirla (y se rechaza si no cabe). No escribe nada.
 
-**`escribirDesde`** escribe **un** registro en `sobre` + `en` (`en` vale por defecto `direccion(camino)`: la raíz sin camino). Comprueba los **límites** del modo (§7.1): primero el máximo de la **proporción** sobre todas las posiciones del registro (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`, como antes) y después el **tope duro** sobre lo **emitido** (`<Modo> emite como mucho <tope> posiciones; este registro tiene <n>`). Con `heredadas` (las de `desdeMapped`), esas posiciones son relleno y no cuentan para el tope; cada una ha de ser una referencia al foco en su dirección bajo `camino`, y el foco ha de tener contenido en ese camino exacto (`la heredada <h> no es una referencia al foco en <dir>`, `la heredada <h> no alcanza nada en el foco: solo se hereda lo que el foco tiene`, `heredada no válida: <h>`); quedan en `contexto.heredadas`. Con `heredadas`, el registro va en `direccion(camino)`, como con `celda`: otro `en` se rechaza (`con heredadas, el registro va en <dir del camino> (la dirección de su camino), no en <en>`). Sin `heredadas`, todo el payload cuenta como emitido. Añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }` (el coste sí cuenta el relleno). Con **`celda`**, `payload` es el contenido de esa celda del foco `sobre` y se ubica con `ubicar` **con el modo**: dentro, se envuelve en la matriz (con lo anterior heredado por referencia, apuntado en `contexto.heredadas`); anclado (sin base, o porque dentro no cabría), se escribe tal cual. El registro va en el `en` de `ubicar` y la celda cae en su `dir`; otro `en` se rechaza (`la celda <i.j.k> cae en <dir>: el registro va en <en de ubicar>, no en <en>`). `payload` nulo → `nada que escribir en el registro…`; todo heredado → `nada que emitir: todo el registro es herencia del foco`. Si el `payload` viene de `desdeMapped` y dejó celdas ancladas, escribirlo solo las perdería: se rechaza con `<n> celda(s) sin base en el foco se ancla(n) aparte (<i.j.k> en <dir>, …): escribe la salida entera con escribirSalida`. El aviso va con el objeto `payload` que devolvió `desdeMapped` (una copia no lo lleva) y dura hasta que `escribirSalida` ha escrito la salida entera: si `escribirSalida` falla (por ejemplo, por saldo de T), el aviso sigue.
+**`escribirDesde`** escribe **un** registro en `sobre` + `en` (`en` vale por defecto `direccion(camino)`: la raíz sin camino). Comprueba el **límite** del modo (§7.1): el **tope duro** sobre lo **emitido** (`<Modo> emite como mucho <tope> posiciones; este registro tiene <n>`); la **proporción** ya no rechaza: lo que se sale de ella se escribe y lo dice `proporcionDeRegistro(evento).aviso` (VG, 7-11 noche: la proporción propone, el máximo manda). Con `heredadas` (las de `desdeMapped`), esas posiciones son relleno y no cuentan para el tope; cada una ha de ser una referencia al foco en su dirección bajo `camino`, y el foco ha de tener contenido en ese camino exacto (`la heredada <h> no es una referencia al foco en <dir>`, `la heredada <h> no alcanza nada en el foco: solo se hereda lo que el foco tiene`, `heredada no válida: <h>`); quedan en `contexto.heredadas`. Con `heredadas`, el registro va en `direccion(camino)`, como con `celda`: otro `en` se rechaza (`con heredadas, el registro va en <dir del camino> (la dirección de su camino), no en <en>`). Sin `heredadas`, todo el payload cuenta como emitido. Añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }` (el coste sí cuenta el relleno). Con **`celda`**, `payload` es el contenido de esa celda del foco `sobre` y se ubica con `ubicar` **con el modo**: dentro, se envuelve en la matriz (con lo anterior heredado por referencia, apuntado en `contexto.heredadas`); anclado (sin base, o porque dentro no cabría), se escribe tal cual. El registro va en el `en` de `ubicar` y la celda cae en su `dir`; otro `en` se rechaza (`la celda <i.j.k> cae en <dir>: el registro va en <en de ubicar>, no en <en>`). `payload` nulo → `nada que escribir en el registro…`; todo heredado → `nada que emitir: todo el registro es herencia del foco`. Si el `payload` viene de `desdeMapped` y dejó celdas ancladas, escribirlo solo las perdería: se rechaza con `<n> celda(s) sin base en el foco se ancla(n) aparte (<i.j.k> en <dir>, …): escribe la salida entera con escribirSalida`. El aviso va con el objeto `payload` que devolvió `desdeMapped` (una copia no lo lleva) y dura hasta que `escribirSalida` ha escrito la salida entera: si `escribirSalida` falla (por ejemplo, por saldo de T), el aviso sigue.
 
-**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `direccion(salida.camino)`, con sus `heredadas`, y cada celda anclada en su `en`. No se le pasa `en` ni `camino`: los dice la salida, para que cada celda caiga en su dirección. Los límites miden **la salida entera** antes de escribir nada: primero la proporción, todas sus posiciones (`… escribe como mucho <máx> posiciones; esta salida tiene <n>`, **[X] decidir VG**); después el tope, lo emitido sin las heredadas (`… emite como mucho <tope> posiciones; esta salida tiene <n>`). Si no cabe, la rechaza entera: no ancla celdas por límites como `ubicar` con modo (**[X] decidir VG**, §7.1). Una salida de otro foco no pasa (sus heredadas no son referencias a `sobre`). Devuelve también `proporcion`: dónde quedan las posiciones de la salida respecto de la proporción del modo (por debajo o dentro; por encima no llega a escribirse); y `alcance`, los tres números de lo emitido (`{ conseguido, minimo, maximo, alMinimo }`, VG 7-11 noche): por debajo del mínimo del modo se escribe igual y se dice. `escribirDesde` devuelve el evento del eje (congelado y firmado); sus tres números, con `alcanceDeRegistro(evento)` (lo emitido = posiciones del registro menos `contexto.heredadas`, en el modo de `contexto.modo`). No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
+**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `direccion(salida.camino)`, con sus `heredadas`, y cada celda anclada en su `en`. No se le pasa `en` ni `camino`: los dice la salida, para que cada celda caiga en su dirección. El tope mide **la salida entera** antes de escribir nada: lo emitido sin las heredadas (`… emite como mucho <tope> posiciones; esta salida tiene <n>`). Si no cabe, la rechaza entera: no ancla celdas por límites como `ubicar` con modo (**[X] decidir VG**, §7.1). Una salida de otro foco no pasa (sus heredadas no son referencias a `sobre`). Devuelve también `proporcion`: dónde quedan las posiciones de la salida (todas, lo heredado incluido) respecto de la proporción del modo, con su `aviso` si se sale (por debajo o por encima se escribe igual: la proporción propone, el máximo manda, VG 7-11 noche); `avisos`, los textos que la vista enseña; y `alcance`, los tres números de lo emitido (`{ conseguido, minimo, maximo, alMinimo }`, VG 7-11 noche): por debajo del mínimo del modo se escribe igual y se dice. `escribirDesde` devuelve el evento del eje (congelado y firmado); sus tres números, con `alcanceDeRegistro(evento)` (lo emitido = posiciones del registro menos `contexto.heredadas`, en el modo de `contexto.modo`). No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
 
 ```sh
 node --input-type=module -e "
@@ -835,7 +834,7 @@ console.log('celda 9.0.0 →', celda.en, corto(celda.payload));
 const postre = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'postre', t: T });
 console.log('celda 3.0.0 bajo [1] en Mapped →', postre.en, corto(postre.payload), JSON.stringify(postre.contexto), '·', postre.movimientos[0].cantidad, 'minutos');
 const flan = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'flan', t: T });
-console.log('celda 3.0.0 bajo [1] en Pointed →', flan.en, corto(flan.payload), '·', flan.movimientos[0].cantidad, 'minuto');
+console.log('celda 3.0.0 bajo [1] en Pointed →', flan.en, corto(flan.payload), '·', flan.movimientos[0].cantidad, 'minutos');
 await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], en: '4000000000', payload: 'postre', t: T }).catch((e) => console.log(e.message));
 "
 ```
@@ -852,13 +851,13 @@ ubicar 2.0.0 {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan"
 ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan":["5","6"]}
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
-ubicar 2.0.0 en pointed {"ubicacion":"anclado","en":"2000000000","dir":"2000000000","faltan":[],"motivo":"pointed escribe como mucho 1 posiciones; dentro, el registro tiene 3"}
+ubicar 2.0.0 en pointed {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 salida {"payload":[{"ref":"936b43ee","dir":"0000000000"},{"ref":"936b43ee","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"936b43ee","dir":"0000000000"},{"ref":"936b43ee","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo"}
+registro en 0000000000 [{"ref":"936b43ee","dir":"0000000000"},{"ref":"936b43ee","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
 celda 9.0.0 → 9000000000 "volver"
 celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"936b43ee","dir":"1000000000"},{"ref":"936b43ee","dir":"1100000000"},{"ref":"936b43ee","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
-celda 3.0.0 bajo [1] en Pointed → 1300000000 "flan" · 1 minuto
+celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"936b43ee","dir":"1000000000"},{"ref":"936b43ee","dir":"1100000000"},{"ref":"936b43ee","dir":"1200000000"},"flan"] · 4 minutos
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
 
@@ -867,10 +866,10 @@ Lectura:
 - `ver 1.2`: ver el precio emite una referencia a él (`1200000000`) y hereda por referencia lo anterior (la posición 0 y las subposiciones 1.0 y 1.1): cuatro posiciones, una emitida. Ver lo que la compra no tiene (2.3, 0.5) se rechaza.
 - `pagar 1.2.4`: el precio (`'EUR 12'`) es un terminal y no tiene clases 0–3 que heredar: el pago se ancla en `1240000000`, un registro de una posición.
 - `con marca`: `'@:0.1 con tarjeta'` fija la subposición 0 con clase 1 (impulso de recursos), así que `'pagado'` va a la subposición libre siguiente, la 1, y `4.0` se hereda (`4000000000`). La clase 1 de `4.0` (que es `'pagar'`, un terminal) no tiene base y se ancla en `4010000000`, igual que `@:2.4` en `1240000000`. Sin la marca `@:`, las líneas serían texto, como antes.
-- `ubicar 2.0.0 en mapped / en pointed`: la celda tiene base (la compra tiene 0 y 1). En Mapped cabe dentro; en Pointed, dentro serían 3 posiciones (dos heredadas y la celda) y la proporción de Pointed admite 1: `ubicar` la ancla sola en `2000000000` y dice por qué.
+- `ubicar 2.0.0 en mapped / en pointed`: la celda tiene base (la compra tiene 0 y 1). En Mapped y en Pointed cabe dentro: serían 3 posiciones (dos heredadas y la celda) y una emitida, dentro del máximo de los dos; que Pointed proponga 1 no ancla nada (VG, 7-11 noche: la proporción propone, el máximo manda).
 - `ubicar 1.5.0`: la posición 1 de la compra tiene subposiciones 0–2; la 5 está lejos (faltan 1.3 y 1.4) y se ancla en `1500000000`.
-- `salida`: la posición 2 cabe dentro; la 7 se ancla. `escribirDesde` con solo el payload la perdería y se rechaza; `escribirSalida` escribe el registro (3 posiciones, `contexto.heredadas` = `[0, 1]`) y el anclado (1): cuatro minutos. Lo emitido son 2 posiciones (lo escrito, no lo heredado: lo que cuenta el tope); la proporción cuenta las 4 posiciones de la salida y la deja por debajo de su mínimo (250), que no se exige. Lo anclado es un ocupante escrito de `7000000000` en la compra (`docs/BTML.md` §6).
-- `celda 3.0.0 bajo [1]`: bajo la posición 1 de la compra la celda tiene base. En Mapped va dentro: el registro va en `1000000000` (la dirección del camino) y el postre cae en `1300000000`, como dice `ubicar`; cuatro posiciones y cuatro minutos, una sola emitida. En Pointed, esas cuatro posiciones no caben en la proporción (1): `ubicar` la ancla y el flan se escribe solo en `1300000000`, la misma dirección, con un minuto. Pedirle otro `en` se rechaza.
+- `salida`: la posición 2 cabe dentro; la 7 se ancla. `escribirDesde` con solo el payload la perdería y se rechaza; `escribirSalida` escribe el registro (3 posiciones, `contexto.heredadas` = `[0, 1]`) y el anclado (1): cuatro minutos. Lo emitido son 2 posiciones (lo escrito, no lo heredado: lo que cuenta el tope); la proporción cuenta las 4 posiciones de la salida, la deja por debajo de lo que propone (250) y lo avisa, sin rechazar. Lo anclado es un ocupante escrito de `7000000000` en la compra (`docs/BTML.md` §6).
+- `celda 3.0.0 bajo [1]`: bajo la posición 1 de la compra la celda tiene base. En Mapped va dentro: el registro va en `1000000000` (la dirección del camino) y el postre cae en `1300000000`, como dice `ubicar`; cuatro posiciones y cuatro minutos, una sola emitida. En Pointed también va dentro (una emitida cabe en su máximo, 10; la proporción, 1, solo avisa): el flan va en `1000000000` con sus tres heredadas, cuatro minutos. Pedirle otro `en` se rechaza.
 
 La matriz bajo un camino: la misma dirección es otra celda, con otra clase, según desde dónde se lea; y la raíz de un foco terminal hereda su posición 0, como antes.
 
@@ -936,8 +935,8 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, p
 ```text
 true 4000000000 {"modo":"pointed"} [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null}] minutos 1
 0000000000 {"nota":"libre","modo":"sequenced"} 3 hijos de la compra 2
-pointed escribe como mucho 1 posiciones; este registro tiene 30
-sequenced escribe como mucho 20 posiciones; este registro tiene 30
+Pointed emite como mucho 10 posiciones; este registro tiene 30
+sequenced 30
 mapped 30
 scened 100
 Scened emite como mucho 10000 posiciones; este registro tiene 10001
@@ -945,7 +944,7 @@ Error: modo desconocido: otro
 nada que escribir en el registro (si todo se ancla, escribe la salida con escribirSalida)
 ```
 
-Treinta posiciones superan la proporción de Pointed (1) y también su tope (10): lo dice la proporción, que se mira primero, con el mensaje de siempre. En Sequenced, igual con su proporción (20) (**[X] decidir VG** si rechaza, §7.1). Scened no tiene proporción: solo su tope, que rechaza 10001 posiciones emitidas.
+Treinta posiciones superan el tope de Pointed (10): se rechazan con el mensaje del máximo. En Sequenced (máximo 100) y Mapped caben y se escriben, aunque se salgan de lo que propone su proporción (20 y 250–333), que solo avisa (VG, 7-11 noche: la proporción propone, el máximo manda). Scened no tiene proporción: solo su tope, que rechaza 10001 posiciones emitidas.
 
 ### 7.4 Qué usa el motor
 
@@ -1211,7 +1210,7 @@ console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.i
 
 ```text
 pedido [{"ref":"8a12d201","dir":"0000000000"},[[{"ref":"8a12d201","dir":"1100000000"}],1],{"ref":"8a12d201","dir":"2000000000"},[["huesped"],"cocina"]] · heredadas [0,2] · coste 6 min
-posición 1 propio [2 posiciones] (exacto) · propio → 8a12d201 (exacto) · referencia guiso (reducir)
+posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
 posición 2 propio → 8a12d201 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
@@ -1232,7 +1231,7 @@ restaurado 9 eventos · EJECUTADO · posición 2 de la consolidación: sin lacto
 Lectura de la salida:
 
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
-- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
+- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso, que cae dentro de la lista del menú: por eso sale `PENDIENTE`, una dirección no nombra ocupantes de una lista) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: autorizar es bloquear P sobre el registro del recurso, la raíz del dominio (el alta de la casa), que no tiene P propio: cuenta el P del eje. La casa tiene los 3 que le quedan sobre `genesis` (de 5: más de la mitad) y los bloquea; los 2 P de cocina, estrechados al menú, no son ese P; la persona huésped no tiene ninguno (si lo tuviera, contaría aunque sea la autora).
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
@@ -1338,7 +1337,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Ejecución de varias partes (intercambio atómico: plaza por pago) | Cada movimiento sale del autor de la consolidación: una consolidación por parte, sin atomicidad (§5). [X] decidir VG (AARPIA). |
 | Recibos de terceros referenciados por la operación raíz (aceptación, despacho, recepción) | La evidencia es consolidación + autorizaciones; nada más se enlaza. |
 | Cierre de una interacción en la interfaz | Fuera del motor. |
-| Mínimo de la proporción de escritura; si la proporción rechaza o solo informa (**[X] decidir VG**, §7.1); proporción de Scened | Solo se comprueba el máximo, como antes: rechaza (1/20/333) sobre las posiciones del registro, y se mira primero, con el mensaje de siempre; además, el tope duro (10/100/1000/10000) rechaza sobre lo emitido (solo decide en Scened, sin proporción). |
+| Proporción de Scened y de Be (**[X] decidir VG**, §7.1) | Sin propuesta (`null`). Decidido (VG, 7-11 noche, 10.3): la proporción propone y avisa, no rechaza; solo el tope duro (10/100/1000/10000) rechaza, sobre lo emitido. |
 | Si `desdeMapped` ancla por límites, como `ubicar` con modo, y qué celdas (**[X] decidir VG**, §7.1) | `ubicar` con modo y `escribirDesde` con una celda la anclan sola si dentro no cabe; `desdeMapped` ubica solo por la base, y `escribirSalida` rechaza entera la salida que no cabe. |
 | Nombre de las clases 5–9 (**[X] decidir VG**, §7.2) | `CLASES[5…9]` valen `null`. |
 | Escritura desde Scened (formulario, proporción) | Scened tiene tope de emisión (10000), lectura y composición con render sobrio (`src/scened.js`, `docs/MODOS.md`); su proporción está sin fijar y ninguna pantalla escribe desde él. |

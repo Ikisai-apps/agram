@@ -26,18 +26,17 @@
 // rechazarse. El registro dice qué heredó (contexto.heredadas): lo demás se
 // vio o se escribió.
 //
-// Límites por modo (src/modos.js). Los dos rechazan, y se miran en este
-// orden:
-// - la proporción, como antes de la matriz: su máximo (1, 20, 333) sobre
-//   las posiciones del registro, lo heredado incluido, con el mensaje de
-//   siempre. [X] decidir VG si rechaza o solo informa: el mapa §12 dice
-//   «además de la proporción» y no lo decide; se conserva lo que había;
-// - el máximo del modo, tope duro (Pointed 10, Sequenced 100, Mapped 1000,
-//   Scened 10000), cuenta las posiciones EMITIDAS: lo heredado no se emite
-//   y no cuenta. Es el mismo máximo que el de representar: lo que no se
-//   puede representar no se puede alterar, y no se emite (VG, 7-11 noche).
-//   Mientras la proporción rechace, en Pointed, Sequenced y Mapped se llega
-//   antes a ella; el máximo solo decide en Scened, que no tiene proporción.
+// Límites por modo (src/modos.js). La proporción propone, el máximo manda
+// (VG, 7-11 noche, decisión 10.3):
+// - solo rechaza el máximo del modo, tope duro (Pointed 10, Sequenced 100,
+//   Mapped 1000, Scened 10000), que cuenta el contenido EMITIDO: lo heredado
+//   no se emite y no cuenta. Es el mismo máximo que el de representar: lo
+//   que no se puede representar no se puede alterar, y no se emite;
+// - la proporción (Pointed 1, Sequenced 10-20, Mapped 250-333, sobre las
+//   posiciones del registro, lo heredado incluido) es lo que la fábrica
+//   propone por defecto: lo que se sale de ella se escribe igual y se
+//   avisa (modos.proporcionDe(...).aviso; escribirSalida lo devuelve en
+//   `proporcion` y en `avisos`), nunca es error.
 // El mínimo del modo (Pointed 1, Sequenced 10, Mapped 100, Scened 1000) no
 // rechaza: lo emitido por debajo se admite y se informa con los tres
 // números, { conseguido, minimo, maximo, alMinimo } (modos.alcanceDe), como
@@ -55,7 +54,7 @@
 // se cobra).
 
 import { ARIDAD, esDireccion, esReferencia, esTerminal, esLista, direccion, validarPayload } from './btml.js';
-import { contarPosiciones, nombreModo, tope, escritura, proporcionDe, alcanceDe } from './modos.js';
+import { contarPosiciones, nombreModo, tope, proporcionDe, alcanceDe } from './modos.js';
 
 /**
  * Las clases de modificación: los diez PV como dígito de clase (VG,
@@ -139,15 +138,12 @@ export function desdeSequenced(eje, textos) {
 // ---------- límites del modo ----------
 
 /**
- * Si unas posiciones caben en el modo. Primero el máximo de la proporción
- * sobre las posiciones del registro (lo heredado incluido), con el mensaje
- * de siempre, como antes de la matriz ([X] decidir VG si la proporción
- * rechaza); después el tope duro sobre lo emitido. → null si caben; si no,
- * el motivo.
+ * Si unas posiciones caben en el modo: el tope duro (el máximo del modo)
+ * sobre lo emitido. La proporción ya no rechaza (VG, 7-11 noche, decisión
+ * 10.3: la proporción propone, el máximo manda): lo que se sale de ella se
+ * avisa con proporcionDe. → null si caben; si no, el motivo.
  */
-function fueraDeLimite({ emitidas, posiciones }, modo, que) {
-  const e = escritura(modo);
-  if (e && posiciones > e[1]) return modo + ' escribe como mucho ' + e[1] + ' posiciones; ' + que + ' tiene ' + posiciones;
+function fueraDeLimite({ emitidas }, modo, que) {
   const max = tope(modo);
   if (emitidas > max) return nombreModo(modo) + ' emite como mucho ' + max + ' posiciones; ' + que + ' tiene ' + emitidas;
   return null;
@@ -464,9 +460,9 @@ function comprobarHeredadas(eje, payload, heredadas, foco, camino) {
 /**
  * Escribe un registro de salida de un modo sobre el foco (`sobre` + `en`;
  * `en` vale por defecto la dirección de `camino`, la raíz sin camino).
- * Comprueba los límites del modo: el máximo de la proporción sobre las
- * posiciones del registro ([X] decidir VG) y el máximo del modo (tope duro) sobre lo emitido
- * (las `heredadas`, si se dan, no cuentan: cada una ha de ser una referencia
+ * Comprueba el límite del modo: su máximo (tope duro) sobre lo emitido; la
+ * proporción no rechaza (decisión 10.3: se lee con
+ * proporcionDeRegistro(evento)) (las `heredadas`, si se dan, no cuentan: cada una ha de ser una referencia
  * al foco en su dirección que alcance algo, y quedan en contexto.heredadas;
  * con ellas, el registro va en la dirección de `camino`, y otro `en` se
  * rechaza). Mueve T del autor: un minuto por posición del registro.
@@ -536,17 +532,32 @@ export function alcanceDeRegistro(ev) {
 }
 
 /**
+ * Dónde queda un registro de salida respecto de la proporción de su modo
+ * (contexto.modo), lo que la fábrica propone (VG, 7-11 noche, decisión
+ * 10.3): modos.proporcionDe con todas sus posiciones, lo heredado incluido.
+ * Fuera de la proporción, `aviso` lo dice; nunca es error.
+ */
+export function proporcionDeRegistro(ev) {
+  const modo = ev?.contexto?.modo;
+  if (modo === undefined) throw new Error('el registro no dice desde qué modo se escribió (contexto.modo)');
+  return proporcionDe(contarPosiciones(ev.payload), modo);
+}
+
+/**
  * Escribe la salida entera de desdeMapped: el registro (si hay algo dentro)
  * en la dirección de su camino, con sus heredadas, y cada celda anclada en
- * su posición. Los límites del modo cuentan la salida entera (la
- * proporción, todas sus posiciones; el tope, lo emitido) antes de escribir
- * nada: si no cabe, la rechaza entera, no ancla celdas por límites como
- * `ubicar` con modo ([X] decidir VG). No es atómica: si el eje rechaza un
- * anclado, lo anterior queda escrito. La marca que impide escribir el
- * payload solo (sin lo anclado) se borra cuando todo se ha escrito.
- * → { registro: evento | null, anclados: [evento], proporcion, alcance }
- * proporcion: dónde quedan las posiciones de la salida respecto de la
- * proporción del modo (por encima no llega a escribirse).
+ * su posición. El máximo del modo cuenta lo emitido por la salida entera
+ * antes de escribir nada: si no cabe, la rechaza entera, no ancla celdas
+ * por límites como `ubicar` con modo ([X] decidir VG). No es atómica: si el
+ * eje rechaza un anclado, lo anterior queda escrito. La marca que impide
+ * escribir el payload solo (sin lo anclado) se borra cuando todo se ha
+ * escrito.
+ * → { registro: evento | null, anclados: [evento], proporcion, alcance, avisos }
+ * proporcion: dónde quedan las posiciones de la salida (todas, lo heredado
+ * incluido) respecto de la proporción del modo, lo que la fábrica propone
+ * (decisión 10.3: la proporción propone, el máximo manda): por debajo o por
+ * encima se escribe igual, con su `aviso`.
+ * avisos: los textos que la vista enseña (hoy, el de la proporción, si lo hay).
  * alcance: los tres números de lo emitido por la salida entera (VG, 7-11
  * noche): { conseguido, minimo, maximo, alMinimo }; por debajo del mínimo
  * se escribe igual y se dice (alMinimo false).
@@ -565,7 +576,8 @@ export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, salid
   const escritos = [];
   for (const a of anclados) escritos.push(await escribirRegistro(eje, { modo, autor, sobre, en: a.en, payload: a.payload, t, contexto }, privada));
   if (payload !== null) PENDIENTES.delete(payload);
-  return { registro, anclados: escritos, proporcion: proporcionDe(posiciones, modo), alcance: alcanceDe(emitidas, modo) };
+  const proporcion = proporcionDe(posiciones, modo);
+  return { registro, anclados: escritos, proporcion, alcance: alcanceDe(emitidas, modo), avisos: proporcion.aviso ? [proporcion.aviso] : [] };
 }
 
 export { esReferencia };

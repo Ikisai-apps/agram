@@ -16,7 +16,7 @@ import * as B from '../src/bql.js';
 import * as motor from '../src/motor.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { escribirDesde, costeT } from '../src/escritura.js';
-import { cabeEscritura } from '../src/modos.js';
+import { cabeTope } from '../src/modos.js';
 import { generarClaves, verificar } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
@@ -347,7 +347,7 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
 /**
  * Escribir cuesta minutos: escribirDesde mueve un minuto de T por posición
  * (costeT) y cada escala es su propio token, así que las horas no pagan.
- * Se acepta si cabe en el modo y hay minutos; si no, nada cambia.
+ * Se acepta si cabe en el máximo del modo y hay minutos; si no, nada cambia.
  */
 test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca las demás escalas', async () => {
   const g = prng(SEMILLA + 6);
@@ -359,7 +359,7 @@ test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca 
     const modo = g.pick(['pointed', 'sequenced', 'mapped']);
     const payload = g.si(0.3) ? g.pick(['plaza', 7, { ref: eje.genesisId, dir: '1000000000' }]) : payloadEje(g, [eje.genesisId]);
     const coste = costeT(payload);
-    const cabe = cabeEscritura(payload, modo);
+    const cabe = cabeTope(payload, modo); // VG, 7-11 noche: la proporción propone, el máximo manda (antes, cabeEscritura)
     const antes = foto(eje);
     let ev;
     try {
