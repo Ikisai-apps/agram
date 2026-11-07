@@ -557,8 +557,14 @@ function funcion(ctx, nodo, evId, base) {
     }
     case 'BASES': {
       // Leer una base es leer un escrito anclado en el 8 de su registro; situar al anfitrión es leerlo entero.
-      const r = valorDeBases(ctx.eje, evId, args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null)));
-      if (r.mideAnfitrion) autorizar(ctx, evId, []);
+      const valores = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
+      const r = valorDeBases(ctx.eje, evId, valores);
+      if (r.mideAnfitrion) {
+        autorizar(ctx, evId, []);
+        // Como en CAJA: la medida evalúa las fórmulas del anfitrión sin el gancho, así que con gancho no se cuentan
+        // (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer).
+        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(valores[1])) throw sinGanchoEnFormulas(evId);
+      }
       if (r.base) {
         autorizar(ctx, r.base, [], 'leer la base del 8 de ' + r.registro.slice(0, 8));
         ctx.dependencias.add(r.base + ':' + direccion([]));
@@ -590,6 +596,11 @@ function funcion(ctx, nodo, evId, base) {
 // src/bases.js (basesEn, leerBase, valorDeBases); aquí no se escribe nada.
 
 const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes']);
+
+/** Con gancho, las medidas de fórmulas del anfitrión no se dan (CAJA y BASES): medirlas evalúa sus fórmulas sin el gancho. */
+function sinGanchoEnFormulas(foco) {
+  return new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
+}
 const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>';
 
 function alcanceDe(arg, nombre) {
@@ -701,9 +712,7 @@ function cajaDelFoco(ctx, foco, medida, alcance) {
   exigirSerie(ctx.eje, medida);
   leerCohorte(ctx, foco, alcance);
   autorizar(ctx, foco, []);
-  if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(medida)) {
-    throw new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
-  }
+  if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(medida)) throw sinGanchoEnFormulas(foco);
   ctx.dependencias.add(foco + ':' + direccion([]));
   const r = valorDeBases(ctx.eje, foco, [alcance, medida]);
   if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo.replace(/^BASES/, 'CAJA'));
