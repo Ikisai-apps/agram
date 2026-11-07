@@ -167,7 +167,7 @@ test('las referencias no copian: plaza y precio son un solo nodo, y las fórmula
   assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // por hojas: una décupla, el 0 envuelto
   // Lo lejano, por anclaje: las noches en el 7 de la propia reserva, escritas por quien reserva.
   const [noches] = eje.sobre(reserva.id, SIETE);
-  assert.deepEqual([noches.autor, noches.payload], ['huesped', ['2026-11-20', '2026-11-23']]);
+  assert.deepEqual([noches.autor, noches.payload], ['huesped', [['2026-11-20'], '2026-11-23']]);
 });
 
 test('encaje de la dirección 1 de la reserva: colisiones por ceros, lo alcanzado por la referencia y su procedencia', async () => {
@@ -391,7 +391,7 @@ test('antes de mover nada: la reserva ha de estar anclada en la plaza que refere
   let minuto = 10;
   // Después de las reservas a mano (21:10, 21:11…): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
   const t = '2026-11-08T22:00:00Z';
-  const escribir = async ({ en = plaza(PLAZAS.individual), refPlaza = plaza(PLAZAS.individual), noches = 3, tramo = ['2026-11-20', '2026-11-23'] } = {}) => {
+  const escribir = async ({ en = plaza(PLAZAS.individual), refPlaza = plaza(PLAZAS.individual), noches = 3, tramo = [['2026-11-20'], '2026-11-23'] } = {}) => {
     const t = '2026-11-08T21:' + minuto++ + ':00Z'; // cada reserva a mano es un registro distinto
     const r = await eje.escribir({
       autor: 'huesped', sobre: habitacion.id, en, t, movimientos: [minutos('huesped', 11)],
@@ -412,9 +412,9 @@ test('antes de mover nada: la reserva ha de estar anclada en la plaza que refere
   await sinNada(await escribir({ en: plaza(PLAZAS.litera) }), /no está anclada en la plaza que referencia: anclada en 1200000000, referencia 1100000000/);
   // Sin tramo en el 7, o ilegible: un tramo es acotado.
   await sinNada(await escribir({ tramo: null }), /sin tramo en el 7/);
-  await sinNada(await escribir({ tramo: ['2026-11-23', '2026-11-20'] }), /tramo ilegible en el 7/);
+  await sinNada(await escribir({ tramo: [['2026-11-23'], '2026-11-20'] }), /tramo ilegible en el 7/);
   // Por horas no: las noches van por fecha.
-  await sinNada(await escribir({ tramo: ['2026-11-20T15:00:00Z', '2026-11-23T11:00:00Z'] }), /las noches van por fecha/);
+  await sinNada(await escribir({ tramo: [['2026-11-20T15:00:00Z'], '2026-11-23T11:00:00Z'] }), /las noches van por fecha/);
   // Un tramo anclado por otra identidad no es el de la reserva.
   const ajena = await escribir({ tramo: null });
   await eje.escribir({ autor: 'recepcion', sobre: ajena.id, en: SIETE, t, movimientos: [minutos('recepcion', 2)], payload: ['2026-11-20', '2026-11-23'] });
