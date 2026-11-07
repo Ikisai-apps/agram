@@ -928,7 +928,7 @@ test('BTML-61 lo escrito va en el PV donde se escribe: es el payload entero del 
   assert.ok(enRaiz.some((e) => e.id === enCero.id));
 });
 
-test('BTML-63 herencia por referencia: las celdas vacías anteriores a la última se rellenan con {ref: foco, dir}; sin esa posición en el foco, se rechaza', async () => {
+test('BTML-63 herencia por referencia: las celdas vacías anteriores a la última se rellenan con {ref: foco, dir}; sin esa posición en el foco, consolidar rechaza y desdeMapped ancla lo lejano', async () => {
   const { eje, id } = await ejeCon(['Casa', 'recurso', 'criterio']);
   const celdas = [];
   celdas[2] = ['otro criterio'];
@@ -937,7 +937,10 @@ test('BTML-63 herencia por referencia: las celdas vacías anteriores a la últim
   assert.deepEqual(payload, [{ ref: id, dir: '0000000000' }, { ref: id, dir: '1000000000' }, 'otro criterio']);
   const lejos = [];
   lejos[5] = ['más allá'];
-  assert.throws(() => desdeMapped(eje, lejos, id), /hueco en 3/);
+  // Lo lejano se ancla (mapa §12, «lo lejano = anclaje»; PR #40): sin base en 3 y 4, la 5 no se rechaza, va aparte en su dirección.
+  const r = desdeMapped(eje, lejos, id);
+  assert.equal(r.payload, null);
+  assert.deepEqual(r.anclados.map((x) => [x.en, x.payload, x.faltan]), [['5000000000', 'más allá', ['3', '4']]]);
   await alta(eje, 'ana');
   const c = await consolidar(eje, { autor: 'ana', foco: id, t: T0, elecciones: { 2: 'x' } });
   assert.deepEqual(c.payload[1], { ref: id, dir: '1000000000' });

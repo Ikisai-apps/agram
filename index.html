@@ -3,8 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="./mundos/hilos.css">
 <title>AGRAM</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" href="data:,">
 <style>
 :root{
   --bg:#faf7f1; --fg:#1f1b16; --muted:#6b6257; --rule:#e2d9cc; --panel:#f1ebe0; --panel2:#e8e0d2;
@@ -103,15 +105,13 @@ header .kicker{color:var(--muted);font-size:13px}
 .cons{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .accion{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-fg);cursor:pointer}
 .guardado{font-size:12px;color:var(--muted);margin-top:6px}
-.saldo{grid-template-columns:1fr auto auto auto auto}
 .formula{font-family:var(--mono);font-size:.86em;color:var(--muted);overflow-wrap:anywhere}
 .res{font-weight:600} .res.resuelto{color:var(--ok)} .res.pendiente{color:var(--muted)} .res.incompatible,.res.error{color:var(--warn)}
 .nada{color:var(--muted);font-size:14px;padding:6px 2px}
 #saldos{display:grid;gap:4px;margin-top:18px;padding-top:12px;border-top:1px solid var(--rule)}
-.saldo{display:grid;grid-template-columns:1fr auto auto auto;gap:12px;font-size:14px;font-variant-numeric:tabular-nums}
-.saldo span{color:var(--muted)}
 footer{margin-top:22px;font-size:12px;color:var(--muted)}
 </style>
+<link rel="stylesheet" href="./ui/ui.css">
 </head>
 <body>
 <main>
@@ -125,9 +125,8 @@ footer{margin-top:22px;font-size:12px;color:var(--muted)}
     <button data-modo="sequenced" aria-pressed="false">Sequenced</button>
     <button data-modo="mapped" aria-pressed="false">Mapped</button>
     <button data-genesis>génesis</button>
-    <button disabled title="render animado pendiente">animado</button>
+    <button data-render aria-pressed="false" title="alterna sobrio y animado: en Mapped, las celdas 6 y 7 se dibujan como hilos">animado</button>
     <button data-reiniciar title="borra lo guardado en este navegador y vuelve al ejemplo">reiniciar</button>
-    <button data-ejemplo title="cambia al otro ejemplo: compra de comida o reserva de alojamiento (borra lo guardado en este navegador)">cambiar de ejemplo</button>
   </div>
   <div id="vista"></div>
   <div id="saldos"></div>

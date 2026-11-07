@@ -1,0 +1,65 @@
+/* Frontend sobrio, piezas de ui/: ajustes (ejemplo, época), encaje de los
+   ocupantes, propuesta y contexto de la fábrica, saldos por series. Usa los
+   colores de index.html (--bg, --fg, --muted, --rule, --panel, --panel2,
+   --accent, --ok, --warn) y cabe en un móvil de 400 px. */
+
+.ajustes{display:flex;flex-wrap:wrap;gap:6px 14px;margin:-2px 0 10px;font-size:13px;color:var(--muted)}
+.ajuste{display:inline-flex;align-items:center;gap:6px}
+.ajuste select{font:inherit;font-size:13px;padding:4px 8px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);max-width:11.5em}
+.ajuste select:disabled{opacity:.7}
+.ajuste-ejemplo{display:contents}
+.nota-ajuste{flex-basis:100%;order:1;font-size:12px;color:var(--warn);background:var(--warnbg);border-radius:6px;padding:3px 8px}
+
+/* Pointed: ocupantes con su encaje */
+.oc-cab{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;font-size:12px;color:var(--muted);padding:2px 0}
+.oc-cab span{margin-right:2px}
+.orden-oc{font:inherit;font-size:12px;padding:1px 9px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.orden-oc[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.oc-fila{display:grid;gap:1px;min-width:0;padding:3px 0 5px;border-bottom:1px dashed var(--rule)}
+.oc-fila:last-child{border-bottom:0}
+.oc-fila .chip{width:100%}
+.oc-encaje,.oc-proc{font-size:11px;color:var(--muted);padding:0 6px;overflow-wrap:anywhere}
+.oc-proc{font-family:var(--mono);font-size:10.5px}
+
+/* Mapped: fábrica */
+.proponer{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.propuesta{display:grid;gap:4px;border:1px dashed var(--accent);border-radius:8px;padding:8px 10px;font-size:13px}
+.propuesta ul,.ctx ul{margin:0;padding:0;list-style:none;display:grid;gap:2px}
+.propuesta li{overflow-wrap:anywhere}
+.propuesta li i{font-style:normal;color:var(--ok)}
+.propuesta li.pend{color:var(--warn)}
+.escribir .proponer .accion{font-size:13px;padding:5px 14px}
+.escribir .propuesta .miga{justify-self:start;font-size:12px;padding:2px 9px;background:var(--panel2);color:var(--fg)}
+.celda-form.propuesto select{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+/* Una consolidación con título largo no ensancha la página: la columna de la fábrica cabe en el móvil.
+   El chip de cada consolidación parte en líneas en vez de cortarse: su estado (pendiente, autorizado,
+   ejecutado) va al final y tiene que verse siempre, también a 400 px. */
+.fabrica{grid-template-columns:minmax(0,1fr)}
+.cons{row-gap:2px}
+.cons .chip{max-width:100%;white-space:normal;overflow-wrap:anywhere}
+.ctx{flex-basis:100%;font-size:12px;color:var(--muted);padding:0 0 4px 8px;border-left:2px solid var(--rule);min-width:0}
+.ctx-t{display:block;margin-bottom:1px}
+.ctx li{overflow-wrap:anywhere}
+.ctx li b{color:var(--fg);font-family:var(--mono)}
+.ctx .enlace{font-size:11px;padding:0 5px}
+
+/* Saldos por series */
+.carteras{display:grid;gap:6px}
+.cartera{display:grid;gap:2px;font-size:13px;min-width:0}
+.cartera .quien{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px}
+.cartera .quien span{color:var(--muted);font-size:12px}
+.cartera .huella{font-family:var(--mono);font-size:11px}
+.fams{display:flex;flex-wrap:wrap;gap:3px 6px;font-variant-numeric:tabular-nums}
+.fam{background:var(--panel);border-radius:6px;padding:1px 7px;overflow-wrap:anywhere}
+.fam b{font-family:var(--mono);color:var(--accent);margin-right:2px}
+.fam.cero{color:var(--muted);background:transparent;border:1px solid var(--rule)}
+.fam-mas{font-size:12px;color:var(--muted)}
+.fam-mas summary{cursor:pointer;padding:1px 4px}
+.fam-mas[open]{flex-basis:100%}
+.series-emitidas{margin-top:10px}
+.series-emitidas summary{cursor:pointer;color:var(--muted);font-size:13px;padding-bottom:3px}
+.series{width:100%;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}
+.series th{text-align:left;font-weight:500;color:var(--muted);border-bottom:1px solid var(--rule);padding:2px 4px}
+.series td{padding:2px 4px;border-bottom:1px solid var(--rule);overflow-wrap:anywhere}
+.series th:nth-child(n+3),.series td:nth-child(n+3){text-align:right}
+.series td b{font-family:var(--mono);color:var(--accent)}
