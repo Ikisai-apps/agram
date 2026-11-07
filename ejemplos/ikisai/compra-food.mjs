@@ -2,6 +2,13 @@
 // de eventos. Muestra el eje de punta a punta: génesis, identidades que nacen
 // al recibir tokens, un evento de compra con payload BTML y su décupla en
 // Pointed. Nada de esto es real.
+//
+// Las series de tokens: la casa (un grupo) emite en el génesis sus EUR (la
+// serie E:casa/EUR, ligada a ella como R) y las dos escalas de T que usa:
+// horas y minutos, tokens distintos sin conversión (escribir cuesta minutos;
+// comprar, horas). Las altas reparten ambas y declaran qué es cada identidad
+// (cocina, un grupo; huesped, una persona). Las plazas de alojamiento son otra
+// serie, la de Booking.
 
 import { Eje } from '../../src/eje.js';
 
@@ -15,10 +22,12 @@ export async function ejemploCompra({ claves = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
+    tipo: 'grupo', // solo personas y grupos emiten
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'E', denominacion: 'EUR', cantidad: 500 },
-      { token: 'P', cantidad: 10 },
+      { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas
+      { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR: el génesis completa emisor = casa
+      { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa de ejemplo',
     t,
@@ -26,7 +35,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
     privada: priv('casa'),
   });
 
-  // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens.
+  // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens, y el alta declara su tipo.
   const declaradas = {};
   for (const id of ['cocina', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const alta = await eje.escribir({
@@ -36,11 +45,13 @@ export async function ejemploCompra({ claves = {} } = {}) {
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
-      { token: 'E', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
+      { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
+      { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
       { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
+      { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
+    contexto: { tipos: { cocina: 'grupo', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
@@ -59,7 +70,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
     t: '2026-11-07T13:30:00Z',
     movimientos: [
       { token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: null },
-      { token: 'E', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
+      { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' },
     ],
     payload: [
       'Compra del menú del día',
@@ -98,10 +109,12 @@ export async function ejemploCuenta(eje, compra, privadaCocina) {
  * La compra ampliada, para que el 8 tenga comparables reales: la casa da de
  * alta a otra persona huésped, y sobre el mismo menú se escriben nueve
  * compras vecinas de la compra original (diez hermanas en total). Siete de
- * las diez tienen criterios (posición 2), seis en su propio payload y una
- * porque cocina escribió un criterio encima; tres no: la compra rápida, una
- * nota terminal y una compra sin criterios. Una compra lleva una fórmula
- * pendiente y otra una fórmula resuelta. Todo inventado.
+ * las diez tienen criterios (posición 2): cinco en su propio payload (un
+ * array que apunta a los del menú), una solo por referencia directa al menú
+ * (alcanzada, no propia: las referencias no copian) y una porque cocina
+ * escribió un criterio encima; tres no: la compra rápida, una nota terminal
+ * y una compra sin criterios. Una compra lleva en recursos (posición 1) una
+ * fórmula pendiente y otra una fórmula resuelta. Todo inventado.
  */
 export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const priv = (id) => privadas[id];
@@ -126,9 +139,9 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   }, priv('huesped2'));
   const vecinas = [];
   const payloads = [
-    ['Compra con fórmula pendiente', 'EUR 10', '=LOCAL(5)'], // 2: fórmula que espera la posición 5
-    ['Compra con fórmula resuelta', 'EUR 10', '=LOCAL(1) + 1 EUR'], // 2: 11 EUR
-    ['Compra de mediodía', recursos, criterios],
+    ['Compra con fórmula pendiente', '=LOCAL(5)', criterios], // 1: fórmula que espera la posición 5 (estructura)
+    ['Compra con fórmula resuelta', ['EUR 10', '=LOCAL(0) + 1 EUR'], criterios], // 1.1: 11 EUR, leyendo 1.0
+    ['Compra de mediodía', recursos, { ref: menu.id, dir: '2000000000' }], // 2: solo por referencia, sin array propio
     ['Compra para llevar', recursos, criterios, ['huesped2', 'cocina']],
     ['Compra del grupo', recursos, criterios, ['huesped', 'cocina'], ['pagar']],
     ['Compra sin criterios todavía', recursos], // criterios se los escribe cocina encima

@@ -244,7 +244,7 @@ function panelFabrica(m) {
     return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.estado.toLowerCase()}</i></button>
       ${puedeAut ? `<button class="accion" data-autorizar="${c.id}">autorizar como ${escapar(yo)}</button>` : ''}
       ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
-      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P)'}</span>` : ''}
+      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P) sobre este registro'}</span>` : ''}
       ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
     </div>`;
   }).join('');
@@ -297,8 +297,13 @@ function pintarMapped() {
 
 function pintarSaldos() {
   const eje = estado.eje;
+  // Cada familia es una serie: T por escala (tokens distintos, sin conversión), E por denominación, P por ámbito, R por emisor.
+  const ESCALA = { segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' };
+  const tiempos = (id) => eje.tiempos(id).reverse().map((x) => x.cantidad + ' ' + ESCALA[x.escala]).join(' · ') || 'T 0'; // de la escala mayor a la menor
+  const recursos = (id) => eje.recursos(id).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + (x.emisor === id ? '' : ' de ' + escapar(x.emisor))).join(' · ') || 'E 0'; // cada serie de E es de su emisor
   $('#saldos').innerHTML = eje.identidades().map((id) =>
-    `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${eje.saldo(id, 'E:EUR')} €</span><span>${Math.round(eje.saldoT(id, 'hora') * 100) / 100} h</span><span>P ${eje.saldo(id, 'P')}</span></div>`).join('')
+    `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${recursos(id)}</span><span>${tiempos(id)}</span><span>${eje.poderes(id).length ? eje.poderes(id).map((p) => 'P ' + p.cantidad + '@' + (p.ambito === 'genesis' ? 'eje' : corto(p.ambito))).join(' ') : 'P 0'}${eje.reputaciones(id).length ? ' · ' + eje.reputaciones(id).map((r) => 'R ' + r.cantidad + ' de ' + escapar(r.emisor)).join(' ') : ''}</span></div>`).join('')
+    + `<div class="guardado">series emitidas · ${eje.series().map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor))).join(' · ')}</div>`
     + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
@@ -482,10 +487,13 @@ if (cargado) {
   foco = cargado.orden[3] ?? cargado.genesisId;
   estado.guardado = 'cargado del navegador · ' + cargado.orden.length + ' registros';
 } else {
+  // Lo que había y no se puede abrir (formato anterior, claves de otra sesión) se aparta antes de guardar el ejemplo encima.
+  const apartado = persistencia.apartarLocal(CLAVE_EJE);
   const nuevo = await ejemploNuevo();
   estado.eje = nuevo.eje;
   foco = nuevo.foco;
   guardar();
+  if (apartado) estado.aviso = 'El eje guardado en este navegador no se ha podido abrir (formato anterior o claves de otra sesión). Queda apartado en «' + CLAVE_EJE + '.anterior» y se empieza con el ejemplo.';
 }
 estado.foco = foco;
 $('#pv').textContent = PV.map((n, i) => i + ' ' + n).join(' · ');

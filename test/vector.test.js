@@ -9,10 +9,12 @@ const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null
 const T = '2026-11-07T16:00:00Z';
 
 test('vector: destino menos origen, dígito a dígito; distancia positiva, acuerdo y signo informativo', () => {
+  // candidato − buscado, como el ejemplo del corpus («+2 en el quinto dígito»)
   assert.deepEqual(vector('1000000000', '1000000000'), [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  assert.deepEqual(vector('0000000000', '4000000000'), [4, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  assert.deepEqual(vector('7000000000', '2000000000'), [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
-  assert.deepEqual(vector('1230000000', '1200000000'), [0, 0, -3, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(vector('0000000000', '4000000000'), [-4, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // le falta
+  assert.deepEqual(vector('7000000000', '2000000000'), [5, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // le sobra
+  assert.deepEqual(vector('1230000000', '1200000000'), [0, 0, 3, 0, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(vector('1200020000', '1200000000'), [0, 0, 0, 0, 0, 2, 0, 0, 0, 0]);
   const exacto = vector('1000000000', '1000000000');
   assert.equal(acuerdo(exacto), 10);
   assert.equal(signo(exacto), 'exacto');
@@ -29,7 +31,7 @@ test('vector: destino menos origen, dígito a dígito; distancia positiva, acuer
   assert.throws(() => vector('12', '1200000000'), TypeError);
 });
 
-test('ordenar por encaje: exactos, luego acuerdo, luego distancia profundidad a profundidad; empates por llegada', () => {
+test('ordenar por encaje: coincidencias de ruta (acuerdo de prefijo) y llegada; la distancia por dígito no ordena', () => {
   const lista = [
     { nombre: 'ref desde 7', vector: vector('7000000000', '2000000000') },
     { nombre: 'escrito en 2', vector: vector('0000000000', '2000000000') },
@@ -37,7 +39,12 @@ test('ordenar por encaje: exactos, luego acuerdo, luego distancia profundidad a 
     { nombre: 'desvío hondo', vector: vector('2300000000', '2000000000') },
     { nombre: 'otro escrito', vector: vector('0000000000', '2000000000') },
   ];
-  assert.deepEqual(ordenarPorEncaje(lista).map((x) => x.nombre), ['exacto', 'desvío hondo', 'escrito en 2', 'otro escrito', 'ref desde 7']);
+  assert.deepEqual(ordenarPorEncaje(lista).map((x) => x.nombre), ['exacto', 'desvío hondo', 'ref desde 7', 'escrito en 2', 'otro escrito']);
+  // Una época que declare ordinal la profundidad 0 deja que la distancia ordene ahí (la regla de la dimensión).
+  const epocaOrdinal = { ordinal: (k) => k === 0 };
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: epocaOrdinal }).map((x) => x.nombre), ['exacto', 'desvío hondo', 'escrito en 2', 'otro escrito', 'ref desde 7']);
+  // La época 0 no declara nada ordinal: igual que sin época.
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: { nombre: 'época 0' } }).map((x) => x.nombre), ordenarPorEncaje(lista).map((x) => x.nombre));
 });
 
 test('los ocupantes llevan su vector y salen por encaje; la llegada sigue disponible', async () => {
@@ -49,11 +56,11 @@ test('los ocupantes llevan su vector y salen por encaje; la llegada sigue dispon
   const hijo = await eje.escribir({ autor: 'casa', sobre: x.id, en: '2000000000', t: T, movimientos: [gastaT('casa')], payload: 'criterio escrito' });
   const llegada = ocupantes(eje, x.id, [2], { orden: 'llegada' });
   assert.deepEqual(llegada.map((o) => o.origen), ['propio', 'referencia', 'escrito']);
-  assert.deepEqual(llegada.map((o) => o.signo), ['exacto', 'reducir', 'completar']);
-  assert.deepEqual(llegada[1].vector.slice(0, 1), [-5]);
-  assert.deepEqual(llegada[2].vector.slice(0, 1), [2]);
+  assert.deepEqual(llegada.map((o) => o.signo), ['exacto', 'reducir', 'exacto']); // el escrito está anclado justo ahí
+  assert.deepEqual(llegada[1].vector.slice(0, 1), [5]);
+  assert.deepEqual(llegada[2].vector.slice(0, 1), [0]);
   const encaje = ocupantes(eje, x.id, [2]);
-  assert.deepEqual(encaje.map((o) => o.origen), ['propio', 'escrito', 'referencia']); // menor distancia antes
+  assert.deepEqual(encaje.map((o) => o.origen), ['propio', 'escrito', 'referencia']); // más coincidencia de ruta antes
   assert.equal(encaje[1].evento, hijo.id);
   // Las colisiones por ceros son encajes exactos entre sí.
   const oc = ocupantes(eje, compra.id, [1]);
@@ -64,11 +71,11 @@ test('BQL: BUSCAR sale por encaje y SIGNO/FALTAS/ACUERDO/DESPLAZAMIENTO son cons
   const { eje, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   const c = (f) => consultar(eje, compra.id, [1], f);
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))').texto, '3'); // [1], [1.0] y la referencia al menú:1
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "completar"))').texto, '1'); // la cuenta, escrita en 1: le falta el 1
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), FALTAS() = 1))').texto, '1');
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), DESPLAZAMIENTO() > 0))').texto, '1');
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), ACUERDO() = 10))').texto, '3');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))').texto, '4'); // [1], [1.0], la referencia al menú:1 y la cuenta anclada en 1
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "completar"))').texto, '0');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), FALTAS() = 0))').texto, '4');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), DESPLAZAMIENTO() > 0))').texto, '0');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), ACUERDO() = 10))').texto, '4');
   assert.equal(c('SIGNO()').estado, 'ERROR');
 });
 
@@ -82,7 +89,7 @@ test('la consolidación guarda el encaje de cada fuente elegida', async () => {
   assert.equal(e.length, 1);
   assert.equal(e[0].posicion, 1);
   assert.equal(e[0].evento, cuenta.id);
-  assert.equal(e[0].signo, 'completar');
-  assert.deepEqual(e[0].vector.slice(0, 2), [1, 0]);
+  assert.equal(e[0].signo, 'exacto'); // la cuenta está anclada en la posición 1 de la compra
+  assert.deepEqual(e[0].vector.slice(0, 2), [0, 0]);
   assert.deepEqual(cons.contexto.fuentes, [cuenta.id]);
 });

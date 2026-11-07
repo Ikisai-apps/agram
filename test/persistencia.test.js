@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal } from '../src/persistencia.js';
+import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, apartarLocal, VERSION } from '../src/persistencia.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
 
@@ -9,11 +9,12 @@ test('serializar y restaurar reconstruye el eje validando todo', async () => {
   const { eje, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
-  assert.equal(datos.version, 1);
+  assert.equal(datos.version, 2);
+  assert.equal(datos.version, VERSION);
   assert.equal(datos.eventos.length, 5);
   const otro = await restaurar(datos);
   assert.deepEqual(otro.orden, eje.orden);
-  assert.equal(otro.saldo('cocina', 'E:EUR'), 12);
+  assert.equal(otro.saldo('cocina', 'E:casa/EUR'), 12);
   assert.deepEqual(otro.identidades(), eje.identidades());
   assert.equal(evaluar(otro, otro.orden[4], [1]).texto, '14 EUR (12 EUR + 2 EUR)');
 });
@@ -54,6 +55,23 @@ test('guardar y cargar en un localStorage simulado', async () => {
     assert.deepEqual(otro.orden, eje.orden);
     borrarLocal();
     assert.equal(await cargarLocal(), null);
+    assert.equal(apartarLocal(), false); // nada que apartar
+  } finally {
+    delete globalThis.localStorage;
+  }
+});
+
+test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de perderse', async () => {
+  const almacen = new Map();
+  globalThis.localStorage = { getItem: (k) => almacen.get(k) ?? null, setItem: (k, v) => almacen.set(k, v), removeItem: (k) => almacen.delete(k) };
+  try {
+    const { eje } = await ejemploCompra();
+    const antiguo = JSON.stringify({ ...serializar(eje), version: 1 });
+    await assert.rejects(restaurar(JSON.parse(antiguo)), /eje de la versión 1; esta es la 2/);
+    almacen.set('agram.eje', antiguo);
+    assert.equal(await cargarLocal(), null);
+    assert.equal(apartarLocal(), true);
+    assert.equal(almacen.get('agram.eje.anterior'), antiguo);
   } finally {
     delete globalThis.localStorage;
   }
