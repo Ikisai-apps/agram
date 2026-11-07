@@ -8,7 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 async function ejeCon(payload) {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: payload, t: T0 });
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: payload, t: T0 });
   return { eje, id: eje.genesisId };
 }
 
@@ -91,8 +91,8 @@ test('las referencias BTML se siguen al leer un slot', async () => {
 test('la evaluación no tiene efectos', async () => {
   const { eje, id } = await ejeCon(['x', '=1 + 1']);
   const antes = eje.orden.length;
-  const saldo = eje.saldo('raiz', 'T');
+  const saldo = eje.saldo('raiz', 'T:minuto');
   evaluar(eje, id, '1000000000');
   assert.equal(eje.orden.length, antes);
-  assert.equal(eje.saldo('raiz', 'T'), saldo);
+  assert.equal(eje.saldo('raiz', 'T:minuto'), saldo);
 });
