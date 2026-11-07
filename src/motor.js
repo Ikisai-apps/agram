@@ -6,7 +6,7 @@
 //
 // Estados de una consolidación: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO.
 
-import { direccion, esReferencia } from './btml.js';
+import { direccion, esReferencia, esDireccion, indicesDe } from './btml.js';
 import { ocupantes, vector, signo, caminosDe } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
@@ -22,7 +22,7 @@ import { AMBITO_GENESIS } from './tokens.js';
 // llevan).
 export const FABRICA = '4000000000';
 
-/** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
+/** Camino de la etiqueta que se muestra de un ocupante: su posición 0 si es un array, si no él mismo. Solo para mostrar: no decide su estado. */
 export function caminoVisible(o) {
   const base = o.camino ?? [];
   return Array.isArray(o.contenido) && o.contenido[0] !== undefined ? [...base, 0] : base;
@@ -100,8 +100,14 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], e
     const todos = ocupantes(eje, foco, indices, { epoca });
     const candidatos = todos.slice(0, maximo).map((o) => {
       // Lo que el encaje ya sabe pendiente (una referencia ausente) no se evalúa: no hay nada que leer.
-      const r = o.estado ? { estado: o.estado, texto: o.estado + ': ' + o.motivo } : evaluar(eje, o.evento, caminoVisible(o));
-      return { ...o, estado: r.estado, texto: r.texto };
+      // El estado y el texto son los del camino exacto del ocupante (MAPA §12:
+      // «todos son ocupantes con su camino exacto»); la etiqueta de su posición
+      // 0, si es un array, va aparte y no decide el estado (auditoría de ajuste 2).
+      if (o.estado) return { ...o, estado: o.estado, texto: o.estado + ': ' + o.motivo };
+      const r = evaluar(eje, o.evento, o.camino ?? []);
+      const visible = caminoVisible(o);
+      const etiqueta = visible.length > (o.camino ?? []).length ? evaluar(eje, o.evento, visible).texto : r.texto;
+      return { ...o, estado: r.estado, texto: r.texto, etiqueta };
     });
     return { posicion: i, dir: direccion(indices), candidatos, total: todos.length, limitada: candidatos.length < todos.length };
   });
@@ -197,6 +203,22 @@ export function poderParaAutorizar(eje, identidad, foco, autorPropuesta) {
 }
 
 /**
+ * Qué es una consolidación: un registro que escribió consolidar, es decir,
+ * con fase 'consolidado', motor 'fabrica' y anclado en la fábrica (la
+ * posición 4) de un camino de su foco, el mismo anclaje con que consolidar
+ * escribe (direccion([...camino, 4])). La fase es un metadato y se puede
+ * declarar a mano; el anclaje no se fía de ella (MAPA §11: «consolidar
+ * (fábrica, anclado en 4 …)»). Un solo criterio para estadoDe, autorizar,
+ * ejecutar y consolidaciones (auditoría de ajuste 2).
+ */
+export function esConsolidacion(ev) {
+  if (!ev || ev.contexto?.fase !== 'consolidado' || ev.contexto?.motor !== 'fabrica') return false;
+  if (!ev.sobre || !esDireccion(ev.en)) return false;
+  const indices = indicesDe(ev.en);
+  return indices.length > 0 && indices[indices.length - 1] === 4;
+}
+
+/**
  * Quién puede autorizar (regla V0, por defecto hasta que VG decida otra):
  * una identidad distinta del autor de la consolidación con P > 0 que cuente
  * (poderParaAutorizar: sobre un registro del hilo que no escribió el autor).
@@ -220,7 +242,7 @@ export const REGLA_AUTORIZAR = 'V0 provisional hasta AARPIA: autoriza quien no e
  */
 export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada) {
   const c = eje.obtener(consolidacion);
-  if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
+  if (!esConsolidacion(c)) throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (!puedeAutorizar(eje, autorizante, consolidacion)) {
     throw new Error(autorizante === c.autor
       ? 'el autor no se autoriza a sí mismo'
@@ -249,7 +271,7 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
-  if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
+  if (!esConsolidacion(c)) throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (autor !== c.autor) throw new Error('ejecuta el autor de la consolidación: ' + c.autor);
   const estado = estadoDe(eje, consolidacion);
   if (estado === 'PENDIENTE DE AUTORIZACIÓN') throw new Error('PENDIENTE DE AUTORIZACIÓN');
@@ -281,7 +303,7 @@ export function autorizacionesValidas(eje, consolidacion) {
  */
 export function estadoDe(eje, consolidacion) {
   const c = eje.obtener(consolidacion);
-  if (!c || c.contexto?.fase !== 'consolidado') return undefined;
+  if (!esConsolidacion(c)) return undefined;
   const escritos = eje.sobre(consolidacion, FABRICA);
   if (escritos.some((e) => e.contexto?.fase === 'ejecutado' && e.autor === c.autor && (e.contexto.evidencia ?? []).every((id) => eje.obtener(id)))) return 'EJECUTADO';
   if (autorizacionesValidas(eje, consolidacion).length) return 'AUTORIZADO';
@@ -291,7 +313,7 @@ export function estadoDe(eje, consolidacion) {
 /** Consolidaciones de un foco con su estado. */
 export function consolidaciones(eje, foco, camino = []) {
   return eje.sobre(foco, direccion([...camino, 4]))
-    .filter((e) => e.contexto?.fase === 'consolidado')
+    .filter(esConsolidacion)
     .map((e) => ({ id: e.id, autor: e.autor, t: e.t, titulo: e.payload[0], estado: estadoDe(eje, e.id), fuentes: e.contexto.fuentes ?? [] }));
 }
 

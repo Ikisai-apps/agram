@@ -32,7 +32,7 @@ import { reglasDelCiclo, EMITEN_V2 } from './ciclo.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
-import { estadoDe, puedeAutorizar, poderParaAutorizar, autorizacionesValidas, FABRICA, REGLA_AUTORIZAR } from './motor.js';
+import { estadoDe, puedeAutorizar, poderParaAutorizar, autorizacionesValidas, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -477,7 +477,7 @@ function quienesPuedenAutorizar(eje, ev, id, enEje) {
 /** Por qué una autorización no cuenta; vacío si cuenta. */
 function faltasDeAutorizacion(eje, ev) {
   const c = eje.obtener(ev.sobre);
-  if (!c || c.contexto?.fase !== 'consolidado') return [['falla', 'no es sobre una consolidación: no autoriza nada']];
+  if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no autoriza nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor === c.autor) return [['falla', 'el autor no se autoriza a sí mismo']];
   if (!puedeAutorizar(eje, ev.autor, c.id)) return [['falla', ev.autor + ' no tiene poder (P) sobre este registro que cuente para autorizar a ' + c.autor + ' (solo cuenta el P sobre un registro del hilo que ' + c.autor + ' no escribió): el escrito existe, pero no cuenta']];
@@ -487,7 +487,7 @@ function faltasDeAutorizacion(eje, ev) {
 /** Por qué una ejecución no cuenta; vacío si cuenta. Exige en su evidencia una autorización válida (docs/MOTOR.md §13.2). */
 function faltasDeEjecucion(eje, ev) {
   const c = eje.obtener(ev.sobre);
-  if (!c || c.contexto?.fase !== 'consolidado') return [['falla', 'no es sobre una consolidación: no ejecuta nada']];
+  if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no ejecuta nada']];
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor !== c.autor) return [['falla', 'ejecuta el autor de la consolidación (' + c.autor + '), no ' + ev.autor]];
   const evidencia = lista(ev.contexto?.evidencia);
@@ -545,7 +545,7 @@ function permisoDelMotor(eje, ev, id, enEje) {
     const faltas = fase === 'autorizado' ? faltasDeAutorizacion(eje, ev) : faltasDeEjecucion(eje, ev);
     for (const [estado, texto] of faltas) r[estado](texto);
     const c = eje.obtener(ev.sobre);
-    const estadoConsolidacion = c?.contexto?.fase === 'consolidado' ? estadoDe(eje, c.id) : null;
+    const estadoConsolidacion = esConsolidacion(c) ? estadoDe(eje, c.id) : null;
     const texto = (faltas.length ? fase + ' que no cuenta' : fase === 'autorizado' ? 'autorización que cuenta (regla V0)' : 'ejecución con evidencia de su autorización')
       + (estadoConsolidacion ? ' · consolidación ' + estadoConsolidacion : '');
     return { r, motor: { fase, consolidacion: c?.id ?? null, estadoConsolidacion, cuenta: faltas.length === 0 }, texto };

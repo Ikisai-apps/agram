@@ -15,7 +15,7 @@ test('descubrir: candidatos por posición de interacción, con fórmulas resuelt
   const p1 = d[0];
   assert.deepEqual(p1.candidatos.map((c) => c.origen), ['propio', 'propio', 'referencia', 'escrito']);
   assert.equal(p1.candidatos[3].evento, cuenta.id);
-  assert.equal(p1.candidatos[3].texto, 'Cuenta del menú');
+  assert.equal(p1.candidatos[3].etiqueta, 'Cuenta del menú'); // la etiqueta es su PV0; el estado, el del camino exacto
   assert.equal(d[3].candidatos.length, 2); // [4] y [4.0] colisionan
 });
 

@@ -18,6 +18,13 @@ Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, 
 npm test
 ```
 
+El banco de rendimiento del núcleo (`bench/eje.mjs`, sin dependencias) construye ejes de 1.000, 5.000 y 20.000 registros con una semilla y mide escribir, validar, leer, BQL, confluir y guardar; los resultados comentados están en `docs/notas/RENDIMIENTO.md`:
+
+```sh
+npm run bench
+npm run bench -- --tamanos 1000 --solo ocupantes,bql
+```
+
 JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed, Sequenced y Mapped sobre el ejemplo elegido: comida, reserva o tarea; con «animado», las celdas 6 y 7 de Mapped dibujan los hilos y «ver los hilos» abre la vista completa debajo, en `mundos/hilos-ui.js`; en `ui/`, el encaje de cada ocupante, proponer, la época y los saldos por series; Scened, que solo lee, en `ui/escena.js`); los ejemplos de los documentos se comprueban con `node docs/comprobar.mjs`; se publica en GitHub Pages en cada push a `main`: https://ikisai-apps.github.io/agram/ (dominio `agram.ikisai.com` pendiente del CNAME en DNS).
 
 Render animado (`mundos/`): la cruz entera sobre el mismo eje que el sobrio, con el 5 en el centro: hilos del 6 y 7, cielo del 8 (las bases como constelaciones) y camino del 9 (los pasos hacia la acción, con previsualizar sin escribir). Entran con Mapped (`mundos/hilos-ui.js` y `mundos/cruz-ui.js`): en animado, las celdas 8 y 9 dibujan el cielo y la senda, y «ver la cruz» la abre entera debajo de la matriz. Después, la X (`mundos/x.js` y `mundos/x-ui.js`): fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 en las celdas 1–4 y en el centro, y «ver la X». Ver `docs/MUNDOS.md`.

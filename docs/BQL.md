@@ -88,13 +88,13 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
 | `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 4598f23e'` (ocho primeros caracteres del id) |
-| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
+| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios). **[X] decidir VG**: cómo se escribe una magnitud en BTML; el mapa y el corpus no lo deciden, y esta lectura por la forma del texto convierte también nombres con número (`'Habitación 101'`, `'Mesa 4'`) | `'12 EUR'` |
 | cadena de exactamente diez dígitos, `'2000000000'` | `texto` (es una **dirección**, no un número: mapa §12, «un texto de diez dígitos es dirección») | `'2000000000'` |
-| cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
+| cadena `'7'`, `'0034'`, `'1.5'` | `texto`: una cadena de cifras es una cadena literal (corpus 03: «Número literal: `120`; cadena literal: `"Yogur"`»); el número lo da el JSON. `'0034'` conserva sus ceros (auditoría de ajuste 2) | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
 | cualquier otra cadena | `texto` | la cadena |
 
-Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` son magnitudes (las siete unidades de T se escriben como se llaman). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
+Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` se leen hoy como magnitudes (las siete unidades de T se escriben como se llaman; [X] decidir VG, ver la tabla). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
 
 Asimetría: en un **slot** la unidad puede ir delante (`'EUR 12'`); dentro de una **fórmula** solo detrás (`12 EUR`): `=EUR 12` es `ERROR: identificador suelto: EUR`. Las unidades son **etiquetas**: `min` o `h` no tienen relación con las escalas de T (`minuto`, `hora`), ni `EUR` con la denominación del token E (que además va ligada a su emisor: la serie es `E:<emisor>/EUR`). Una magnitud BQL no mueve nada; para pagar lo que calcula una fórmula hay que pasar a mano `valor.cantidad` y `valor.unidad` al movimiento (`docs/MOTOR.md` §2.1).
 
@@ -569,7 +569,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | PENDIENTE POR LÍMITE | `el alcance <a> (8 de <id8>) exige examinar al menos <k> registros y quedan <q> pasos de presupuesto` | La lectura no cabe (abajo); `parcial: { examinados: 0, de: <k> }`, cota inferior. |
 | PENDIENTE DE AUTORIZACIÓN | `leer la base del 8 de <id8> exige una autorización que no hay` | El gancho no deja leer la base (su raíz), como en `BASES`. |
 | PENDIENTE DE AUTORIZACIÓN | `leer <id8>:0000000000 (camino raíz) exige una autorización que no hay` | `CAJA`: el gancho no deja leer el anfitrión entero (situarlo es medirlo). |
-| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo). |
+| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo); igual `BASES(alcance, "formulasResueltas" \| "formulasPendientes", …)` cuando sitúa al anfitrión. |
 | ERROR | `CAJA espera una medida y, si acaso, un alcance` · `FRESCURA espera, si acaso, un alcance` · `CAJA espera el nombre de una medida entre comillas, no <tipo>` · `CAJA: medida desconocida: <m> (…)` · `<FN>: el alcance es hermanos, proyecto, general` | Argumentos. |
 
 **Orden.** Primero los argumentos; después la base; solo si la hay, el anfitrión (`CAJA`). Sin base no se mide nada ni se pregunta por el anfitrión.
@@ -582,7 +582,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 
 **Dependencias** (§9.5): `<registro>:8000000000`, el 8 leído (una base que llegue cambia el resultado; se anota también cuando queda PENDIENTE: es lo que hay que vigilar); `<base>:0000000000`, la base leída; y en `CAJA`, `<anfitrión>:0000000000` (medido entero). Los hijos nuevos, que cambian `FRESCURA`, no se anotan: no son una posición ([X] decidir VG cómo se vigila la llegada de hijos).
 
-**Autorización** (§9.6): la base, por su raíz y con el mismo motivo que en `BASES`; en `CAJA`, además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`tiempo.medidasDe` llama a `evaluar` sin opciones), así que, con gancho, `CAJA` no da las dos medidas de fórmulas: dejarían ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las demás medidas, sí. `BASES(alcance, "formulasResueltas")` sí las da (§7.13). [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
+**Autorización** (§9.6): la base, por su raíz y con el mismo motivo que en `BASES`; en `CAJA`, además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`tiempo.medidasDe` llama a `evaluar` sin opciones), así que, con gancho, `CAJA` no da las dos medidas de fórmulas: dejarían ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las demás medidas, sí. `BASES` hace lo mismo cuando sitúa al anfitrión (`BASES(alcance, "formulasResueltas")`, o con un campo del anfitrión): antes las daba con gancho y dejaba ver, por el recuento, si se resolvían fórmulas que leen lo que el gancho niega (pruebas de propiedades 2; mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer). Lo que solo lee la base (una caja `k`, `suma`, `minimo`, `maximo`, `media`) sigue respondiendo. [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
 
 Ejemplo ejecutado (las compras hermanas de `ejemplos/ikisai/compras-hermanas.mjs`, datos inventados). Guardar como `caja-frescura-ejemplo.mjs` en la raíz y ejecutar `node --input-type=module < caja-frescura-ejemplo.mjs`:
 
@@ -916,7 +916,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | `Y`/`O` perezosos (cortocircuito) | Evalúan todos los argumentos. |
 | `CAJA`/`FRESCURA` (y `BASES`) de un candidato dentro de `FILTRAR`/`ORDENAR` | El anfitrión es siempre el registro de la fórmula (§7.14): [X] decidir VG si dentro debe ser el candidato. |
 | Vigilar la llegada de hijos (lo que cambia `FRESCURA`) | Las dependencias nombran el 8 leído, la base y el anfitrión, no «los hijos de»: [X] decidir VG. |
-| Medir al anfitrión con el gancho de quien consulta | La medida evalúa sus fórmulas sin gancho; con gancho, `CAJA` no da las dos medidas de fórmulas (§7.14): [X] decidir VG. |
+| Medir al anfitrión con el gancho de quien consulta | La medida evalúa sus fórmulas sin gancho; con gancho, ni `CAJA` ni `BASES` (cuando sitúa al anfitrión) dan las dos medidas de fórmulas (§7.14): [X] decidir VG. |
 | Mediana, cuantiles, correlaciones (lo no fundible; mapa §12: «se aproxima o se descarta») | No hay. La forma B de `BASES` daba una mediana aproximada desde las cajas (§7.14): [X] decidir VG qué firma queda. |
 | Comparación encadenada (`1 < x < 3`) | `SyntaxError`. |
 | Literales booleanos, comillas simples, exponentes, `.5`, unidades con `/` | No hay. (Las unidades con acentos y `ñ`, `día`, `año`, sí: §4.1.) |
@@ -937,7 +937,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 8. La resta de magnitudes se muestra con el sumando negativo en el desglose (`10 EUR (12 EUR + -2 EUR)`).
 9. Una cadena de diez dígitos en un slot es texto (dirección), no número: `'1234567890' + 1` es INCOMPATIBLE. Un número JS de diez cifras sí es número.
 10. `SUMAR` de una colección vacía es el numero `0` sin unidad, así que no se suma con una magnitud: `SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + 1 EUR` sobre el eje de ejemplo (sin escritos en la 4) es INCOMPATIBLE.
-11. La medida del anfitrión de `CAJA` (y de `BASES` cuando lo sitúa: `medir` en `src/bases.js`, que es `tiempo.medidasDe`) evalúa sus fórmulas con `evaluar` sin opciones: sin el gancho `puedeLeer` y con los límites por defecto, en un cálculo aparte que no gasta el presupuesto de la consulta. Por eso, con gancho, `CAJA` no da las medidas de fórmulas (§7.14).
+11. La medida del anfitrión de `CAJA` (y de `BASES` cuando lo sitúa: `medir` en `src/bases.js`, que es `tiempo.medidasDe`) evalúa sus fórmulas con `evaluar` sin opciones: sin el gancho `puedeLeer` y con los límites por defecto, en un cálculo aparte que no gasta el presupuesto de la consulta. Por eso, con gancho, ni `CAJA` ni `BASES` (cuando sitúa al anfitrión) dan las medidas de fórmulas (§7.14).
 12. `FRESCURA` no ve que un registro ya medido cambie (escritos nuevos encima, fórmulas que se resuelven): solo cuenta llegadas (§7.14). `0` no es «al día»: eso lo dice `comprobar()`.
 13. Lo que se guarda en el 8 depende del 8 anterior por las fórmulas que leen el 8 sin situar a su registro (`FRESCURA`, `BASES` sin medida o con un dato de la base): la primera base las cuenta como pendientes y la siguiente como resueltas, sin que llegue nada (§7.14).
 

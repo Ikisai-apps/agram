@@ -12,7 +12,7 @@ import { ocupantes } from './encaje.js';
 import { consolidaciones } from './motor.js';
 import { MODOS } from './modos.js';
 import { esFormula, evaluar } from './bql.js';
-import { EPOCA_0 } from './epocas.js';
+import { EPOCA_0, epocaDe } from './epocas.js';
 // Las bases del 8 (src/bases.js) no son hermanas, ni escritos, ni comparables de lo que miden.
 import { hijos, esBase } from './bases.js';
 
@@ -290,10 +290,14 @@ export const CAJAS = ARIDAD;
 /**
  * Cortes provisionales de las cajas de una medida en una cohorte: nueve
  * umbrales de igual anchura entre el mínimo y el máximo de la cohorte.
- * [X] decidir VG: los cortes de las cajas son regla de la época (VG, 7-11) y
- * la época 0 no los tiene. Con cortes de la cohorte el histograma no se
- * funde con el de otra cohorte (fundir exige los mismos cortes); cuando una
- * época dé `cortes(medida)`, confluir los usa y las bases se funden.
+ * Los cortes de las cajas son regla de la época (MAPA §12 [D]); una época
+ * los declara en sus datos (`cortes`, src/epocas.js) y confluir los usa por
+ * epoca.cortes(medida). La época 0 aún no los trae en sus datos: VG decidió
+ * (MAPA §14, 7-11 noche) que traiga la escala provisional 1 2 3 4 6 10 16
+ * 26 42, pendiente de escribirla con la reescritura de epoca-0.json; para
+ * qué medidas vale es [X] decidir VG. Mientras tanto, con cortes de la
+ * cohorte el histograma no se funde con el de otra cohorte (fundir exige
+ * los mismos cortes).
  */
 export function cortesDeCohorte(minimo, maximo) {
   if (!(maximo > minimo)) return [];
@@ -382,7 +386,8 @@ export function fundir(a, b) {
  * 7-11: con referencias a lo medido, fecha y frescura, fundibles hacia
  * arriba) y lee con situar() y BASES() en BQL.
  */
-export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
+export function confluir(eje, foco, { alcance = 'hermanos', epoca: epocaPedida = EPOCA_0 } = {}) {
+  const epoca = epocaDe(epocaPedida); // por objeto o por nombre, como los demás modos
   const lista = comparables(eje, foco, alcance);
   const filas = lista.map((e) => ({ id: e.id, autor: e.autor, t: e.t, ...medidasDe(eje, e.id) }));
   const delFoco = filas.find((f) => f.id === foco);

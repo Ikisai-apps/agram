@@ -167,9 +167,9 @@ test('encaje de la dirección 1 de la reserva: colisiones por ceros, lo alcanzad
   assert.deepEqual(oc4.map((o) => o.origen), ['propio', 'propio', 'escrito', 'escrito']);
   assert.deepEqual(oc4.slice(2).map((o) => o.evento), [entrega.consolidacion.id, pagada.consolidacion.id]);
   assert.ok(oc4.slice(2).every((o) => o.signo === 'exacto'));
-  // Descubrir muestra lo alcanzado por su representación: la plaza se lee «cama individual».
+  // Descubrir etiqueta lo alcanzado con su posición 0: la plaza se lee «cama individual» (la etiqueta no decide el estado).
   const d = descubrir(eje, reserva.id);
-  assert.equal(d[0].candidatos.find((c) => c.origen === 'referencia').texto, 'cama individual');
+  assert.equal(d[0].candidatos.find((c) => c.origen === 'referencia').etiqueta, 'cama individual');
   const c = colisiones(arbol(eje, reserva.id));
   assert.equal(c.find((x) => x.dir === '1000000000').ocupantes.length, 3);
   assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 3);
@@ -219,7 +219,7 @@ test('estado del ciclo: la casa entrega la plaza y la persona huésped paga, cad
   assert.deepEqual(consolidaciones(eje, reserva.id), []);
   const d = descubrir(eje, reserva.id);
   const laPlaza = d[0].candidatos.find((c) => c.origen === 'referencia');
-  assert.equal(laPlaza.texto, 'cama individual');
+  assert.equal(laPlaza.etiqueta, 'cama individual');
   // Pagar: la persona huésped consolida, recepción autoriza, ella ejecuta con el pago E.
   const c = await consolidar(eje, { autor: 'huesped', foco: reserva.id, t: T, titulo: 'Reserva en firme', elecciones: { 1: { candidato: laPlaza }, 4: 'pagar 165 EUR' } });
   assert.equal(c.en, FABRICA);

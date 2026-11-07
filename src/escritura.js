@@ -96,18 +96,24 @@ export function claseDe(dir, camino = []) {
 export function resolverRef(eje, prefijo) {
   const p = prefijo.replace(/^@/, '').toLowerCase();
   if (p.length < 4) throw new Error('referencia demasiado corta: ' + prefijo);
-  const ids = eje.orden.filter((id) => id.startsWith(p));
+  const ids = typeof eje.conPrefijo === 'function' ? eje.conPrefijo(p) : eje.orden.filter((id) => id.startsWith(p)); // índice del eje, mismo resultado
   if (ids.length === 0) throw new Error('referencia desconocida: ' + prefijo);
   if (ids.length > 1) throw new Error('referencia ambigua: ' + prefijo);
   return { ref: ids[0] };
 }
 
-/** Un ítem de entrada: texto («@id» es referencia; «@id:1200000000» con subposición) o número. */
+/** Un ítem de entrada: texto («@id» es referencia; «@id:1200000000» con subposición; diez dígitos, dirección) o número. */
 export function item(eje, texto) {
   const t = String(texto).trim();
   if (!t) throw new Error('ítem vacío');
   const m = /^@([0-9a-f]{4,64})(?::([0-9]{10}))?$/i.exec(t);
   if (m) return m[2] ? { ...resolverRef(eje, m[1]), dir: m[2] } : resolverRef(eje, m[1]);
+  // Un texto de diez dígitos es una dirección (MAPA §2.1 y §12): se queda
+  // como texto, igual que lo lee BQL (esDireccion), y no pierde su cero.
+  if (esDireccion(t)) return t;
+  // [X] decidir VG: un número que no se representa exacto (String(Number(t))
+  // distinto de t: «0034», «12345678901234567890») se convierte igual; si
+  // se conserva como texto o se rechaza lo decide VG (auditoría de ajuste 2).
   if (/^-?\d+(\.\d+)?$/.test(t)) return Number(t);
   return t;
 }

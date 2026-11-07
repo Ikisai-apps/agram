@@ -349,7 +349,10 @@ test('BTML-13 la décupla es el aspecto de un payload al desarrollar sus diez po
   const porProfundidad = { nombre: 'prueba', reglaCorta: (p, d) => 'p' + p + 'd' + d };
   assert.equal(decupla(ev, porProfundidad, 0).posiciones[3].significado, 'p0d3');
   assert.equal(decupla(ev, porProfundidad, 2).posiciones[3].significado, 'p2d3');
-  assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[1].significado, 'p1d1');
+  // Bajo la posición 1, ['sub', 'x'] es su lista de ocupantes por llegada, sin PV (VG, 7-11 noche);
+  // la regla corta de la profundidad sigue en lo que la lista no ocupa (subposiciones por dirección).
+  assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[1].significado, 'ocupante 2');
+  assert.equal(mapa(eje, id, { camino: [1], epoca: porProfundidad }).celdas[2].significado, 'p1d2');
 });
 
 // =====================================================================
