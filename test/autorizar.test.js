@@ -26,11 +26,12 @@ async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, // sin claves: un eje de demostración (R9)
     identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 5000 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 5000 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 5000 }],
   });
   const ids = ['d', 'a', 'b', 't'];
+  // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 300, de: 'g', a }))],
+    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 300, de: 'g', a }))],
     contexto: { tipos: Object.fromEntries(ids.map((id) => [id, 'persona'])) } });
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {

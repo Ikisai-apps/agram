@@ -27,7 +27,7 @@ import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, 
 import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
-import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
+import { crearEvento, validarForma, verificarId, normalizarEvento, esConsumoT } from './evento.js';
 import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
@@ -38,6 +38,7 @@ export class Eje {
   #tipos;
   #altas;
   #emitidoT;
+  #tiempoSobre = new Map(); // id → Map(escala → T consumido por los eventos escritos sobre él)
   #hijosEn;
   #prefijos;
   #porAutor = new Map(); // id → Map(en → Map(autor → los eventos anclados ahí por ese autor, en orden de entrada))
@@ -133,6 +134,40 @@ export class Eje {
 
   emitidoT(identidad, escala) {
     return this.#emitidoT.get(JSON.stringify([identidad, escala])) ?? 0;
+  }
+
+  /**
+   * T consumido SOBRE un registro, por escala (VG, 7-11 noche: «escribir
+   * consume T y el consumo queda registrado en el registro que soporta»): la
+   * suma de los consumos de T (de = autor, a = null) de los eventos escritos
+   * sobre `id` (sus hijos directos, sus bases del 8 incluidas). Es lo que ese
+   * registro acumula y enseña: { segundo: n, minuto: m, … }, solo las escalas
+   * con algo, en el orden de las escalas. Se ve desde fuera, pero ninguna
+   * regla lo usa para conceder nada a terceros (ni autorizar, ni topes de E,
+   * ni elegibilidad, ni orden de candidatos). O(1): se lleva al añadir.
+   */
+  tiempoSobre(id) {
+    const porEscala = this.#tiempoSobre.get(id);
+    const r = {};
+    for (const e of ESCALAS_T) if (porEscala?.get(e)) r[e] = porEscala.get(e);
+    return r;
+  }
+
+  /**
+   * T consumido sobre un registro y sobre todo lo que cuelga de él, por
+   * escala: tiempoSobre de `id` y de cada descendiente, sumado. Recorre el
+   * subárbol; el 8 lo da sin recorrer (bases.medir lo funde por escala en la
+   * estadística del subárbol, con las claves «tiempo:<escala>»).
+   */
+  tiempoBajo(id) {
+    const r = {};
+    const pendientes = [id];
+    while (pendientes.length) {
+      const x = pendientes.pop();
+      for (const [e, n] of this.#tiempoSobre.get(x) ?? []) r[e] = (r[e] ?? 0) + n;
+      for (const h of this.hijos.get(x) ?? []) pendientes.push(h.id);
+    }
+    return Object.fromEntries(ESCALAS_T.filter((e) => r[e]).map((e) => [e, r[e]]));
   }
 
   /**
@@ -358,6 +393,8 @@ export class Eje {
     return [...this.#series.entries()].map(([clave, s]) => {
       const partes = partirClave(clave);
       const base = { clave, ...partes, emisor: s.emisor, emitido: s.emitido, bloqueado: bloqueado.get(clave) ?? 0 };
+      // T (VG, 7-11 noche): lo consumido al escribir y lo que se acuñó al gastarse; lo de cada registro, tiempoSobre.
+      if (partes.token === 'T') return { ...base, consumido: s.consumido ?? 0, acunado: s.acunado ?? 0 };
       if (partes.token !== 'E') return base;
       const tope = this.#topesDe(s.registro)[0]?.capacidad ?? null;
       return {
@@ -496,6 +533,16 @@ export class Eje {
         const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, ver);
         if (!plan) { errores.push('saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de); continue; }
         for (const [kp, delta] of plan) poner(m.de, kp, ver(m.de, kp) + delta);
+      } else if (acunaAlGastar(m, ev.autor, this.orden.length < this.eventosV2)) {
+        // T se acuña al gastarse (VG, 7-11 noche: «T es tu medidor anti-spam
+        // propio»; [X] decidir VG): lo que falta de saldo para consumir T
+        // propio se emite en ese momento, a nombre del autor. Nadie más lo
+        // recibe ni lo usa, y queda anotado en el registro que soporta.
+        const usa = Math.min(Math.max(0, ver(m.de, k)), c);
+        const total = (emitido.get(k) ?? this.serie(k).emitido) + (c - usa);
+        if (!Number.isFinite(total)) { errores.push('la serie ' + k + ' no admite tanto'); continue; }
+        emitido.set(k, total);
+        poner(m.de, k, ver(m.de, k) - usa);
       } else {
         if (ver(m.de, k) < c) { errores.push('saldo insuficiente de ' + k + ' en ' + m.de); continue; }
         poner(m.de, k, ver(m.de, k) - c);
@@ -677,6 +724,18 @@ export class Eje {
           // Delegar poder estrecha el ámbito: se debita del ámbito exacto y, si no alcanza, de los que lo cubren.
           const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, (id, k) => this.saldo(id, k));
           for (const [k, delta] of plan ?? [[clave, -c]]) this.#ajustar(m.de, k, delta);
+        } else if (m.token === 'T' && esConsumoT(m, ev.autor)) {
+          // Consumir T: del saldo lo que haya; lo que falte se acuña al gastarse (validar ya lo admitió).
+          const usa = Math.min(Math.max(0, this.saldo(m.de, clave)), c);
+          this.#ajustar(m.de, clave, -usa);
+          const s = this.#series.get(clave) ?? { emisor: ev.autor, emitido: 0 };
+          this.#series.set(clave, { ...s, emitido: s.emitido + (c - usa), acunado: (s.acunado ?? 0) + (c - usa), consumido: (s.consumido ?? 0) + c });
+          // El consumo se anota en el registro que soporta (VG, 7-11 noche): tiempoSobre.
+          if (ev.sobre !== null) {
+            if (!this.#tiempoSobre.has(ev.sobre)) this.#tiempoSobre.set(ev.sobre, new Map());
+            const porEscala = this.#tiempoSobre.get(ev.sobre);
+            porEscala.set(m.escala, (porEscala.get(m.escala) ?? 0) + c);
+          }
         } else {
           this.#ajustar(m.de, clave, -c);
         }
@@ -732,6 +791,17 @@ export class Eje {
     const porTitular = porClaveS.get(clave);
     porTitular.set(identidad, (porTitular.get(identidad) ?? 0) + delta);
   }
+}
+
+/**
+ * ¿Se acuña al gastarse este movimiento? Un consumo de T del autor (de =
+ * autor, a = null, sin estado) fuera del prefijo de la versión 2: lo que falte
+ * de saldo se emite en ese momento a su nombre (VG, 7-11 noche: T es el
+ * medidor propio y no cruza de persona; [X] decidir VG). Lo usan el eje y las
+ * capas de validez (src/validez.js), que dicen lo mismo.
+ */
+export function acunaAlGastar(m, autor, v2 = false) {
+  return !v2 && esConsumoT(m, autor);
 }
 
 /**

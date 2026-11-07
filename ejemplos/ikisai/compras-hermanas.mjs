@@ -39,7 +39,9 @@ import { escribirBase, identidadDe } from '../../src/bases.js';
 const T = '2026-11-07T09:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
 const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-const minutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+// T no cruza de persona (VG, 7-11 noche): los minutos que la casa cede a otro son E de su serie,
+// denominada en su tiempo (E:casa/minuto). Quien los recibe existe (su alta) y escribe con su propio T.
+const minutos = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'minuto', cantidad, de, a });
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
 /** Las cosas del ejemplo: cada registro que resume a otros es una cosa con su clave. */
@@ -65,6 +67,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 },
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
+      { token: 'E', denominacion: 'minuto', cantidad: 1000 }, // el tiempo que la casa cede a otros (E:casa/minuto)
       { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
     foco: 'Casa de ejemplo',
@@ -83,12 +86,9 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     t: T,
     movimientos: [
       minuto('casa'),
-      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       minutos('casa', 'cocina', 240),
       eur('casa', 'huesped', 60),
-      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
       eur('casa', 'vecina', 40),
-      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'vecina' },
       minutos('casa', 'comedor', 10),
     ],
     payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],

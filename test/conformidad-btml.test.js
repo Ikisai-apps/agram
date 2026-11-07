@@ -34,9 +34,12 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { generarClaves, firmar, verificar } from '../src/autoridad.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }];
+// El génesis emite también su tiempo como E (E:<génesis>/minuto): T no cruza de persona (VG, 7-11 noche), y el
+// tiempo que se cede a otro es E de la serie del que lo da. Cada uno escribe con su propio T (se acuña al gastarse).
+const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }];
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+/** Ceder minutos a otra identidad: E de la serie de tiempo de quien los da. */
+const daT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
 const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 
 /** Un eje mínimo: la raíz tiene tiempo (minutos) y poder sobre todo el eje; su foco es el payload dado. */
@@ -163,7 +166,7 @@ test('B:TOK-02 el evento más pequeño mueve T; E, P y R entran solo cuando el e
   const g = eje.genesisId;
   await alta(eje, 'ana');
   // Sin T no hay evento, aunque mueva E.
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'E', emisor: 'raiz', denominacion: 'EUR', cantidad: 5, de: 'raiz', a: 'ana' }], payload: 'pago' }), /el autor debe mover T/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'E', emisor: 'raiz', denominacion: 'EUR', cantidad: 5, de: 'raiz', a: 'ana' }], payload: 'pago' }), /escribir consume T del autor/);
   // Solo T: válido, y no toca E, P ni R.
   const minimo = await escribe(eje, g, 'nota');
   assert.deepEqual(minimo.movimientos.map((m) => m.token), ['T']);

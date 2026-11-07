@@ -29,6 +29,7 @@ import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, EMITEN_V2 } from './ciclo.js';
+import { acunaAlGastar } from './eje.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
@@ -224,6 +225,12 @@ function aplicar(eje, libro, ev) {
       }
     } else if (m.token === 'P') {
       for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
+    } else if (acunaAlGastar(m, ev.autor, eje.esDeV2?.(ev.id))) {
+      // T se acuña al gastarse (como en el eje): del saldo lo que haya; lo que falte se emite a su nombre.
+      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
+      ajustar(m.de, k, -usa);
+      const st = libro.series.get(k) ?? { emisor: ev.autor, emitido: 0 };
+      libro.series.set(k, { ...st, emitido: st.emitido + (m.cantidad - usa) });
     } else {
       ajustar(m.de, k, -m.cantidad);
     }
@@ -490,6 +497,13 @@ function capaAcreditacion(eje, ev, libro) {
       const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
+    } else if (acunaAlGastar(m, ev.autor, libro.reglas === 2)) {
+      // T se acuña al gastarse (VG, 7-11 noche; src/eje.js, acunaAlGastar): consumir T propio no se queda
+      // corto por saldo; lo que falta se emite a su nombre en ese momento.
+      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
+      const s = serie(k);
+      emitido.set(k, { ...(s ?? {}), emisor: s?.emisor ?? ev.autor, emitido: (s?.emitido ?? 0) + (m.cantidad - usa) });
+      poner(m.de, k, ver(m.de, k) - usa);
     } else {
       const s = serie(k);
       if (!s || !(s.emitido > 0)) return mal('falla', 'la serie ' + k + ' no se ha emitido: nada respalda estos tokens');

@@ -169,7 +169,8 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   const g = medir(eje, eje.genesisId);
   assert.equal(g.identidades, 1);
   assert.equal(g.profundidadHilo, 0);
-  assert.deepEqual(g.tokens, { 'T:hora': 1000, 'T:minuto': 1000, 'E:casa/EUR': 500, 'P:genesis': 10 }); // una hora no son sesenta minutos
+  // Una hora no son sesenta minutos; y el tiempo que la casa cede a otros es E:casa/hora (T no cruza de persona).
+  assert.deepEqual(g.tokens, { 'T:hora': 1000, 'T:minuto': 1000, 'E:casa/EUR': 500, 'E:casa/hora': 1000, 'P:genesis': 10 });
   assert.deepEqual(clavesDe(eje.obtener(eje.genesisId)), g.tokens);
   assert.throws(() => medir(eje, 'nadie'), /registro desconocido/);
 });
@@ -348,13 +349,13 @@ test('las cohortes proyecto y general cambian las bases; el génesis solo se com
   assert.equal(proyecto.medidas.profundidadHilo.minimo, 1); // el alta: el génesis no es del proyecto
   assert.equal(proyecto.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
   assert.equal(proyecto.medidas.profundidadHilo.foco, 3);
-  assert.deepEqual(Object.keys(proyecto.tokens), ['E:casa/EUR', 'T:hora', 'T:minuto']); // sin el génesis, nadie del proyecto mueve poder
+  assert.deepEqual(Object.keys(proyecto.tokens), ['E:casa/EUR', 'E:casa/hora', 'T:hora', 'T:minuto']); // sin el génesis, nadie del proyecto mueve poder
   const general = confluir(eje, rapida.id, { alcance: 'general' });
   assert.equal(general.n, eje.orden.length);
   assert.equal(general.medidas.profundidadHilo.minimo, 0); // el génesis
   assert.equal(general.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
   assert.equal(general.medidas.formulasResueltas.maximo, 2); // la cuenta
-  assert.deepEqual(Object.keys(general.tokens), ['E:casa/EUR', 'P:genesis', 'T:hora', 'T:minuto']); // el génesis emite poder sobre el eje
+  assert.deepEqual(Object.keys(general.tokens), ['E:casa/EUR', 'E:casa/hora', 'P:genesis', 'T:hora', 'T:minuto']); // el génesis emite poder sobre el eje
   assert.equal(confluir(eje, eje.genesisId, { alcance: 'proyecto' }).n, eje.orden.length); // el proyecto del génesis es todo el eje
   const g = confluir(eje, eje.genesisId);
   assert.equal(g.n, 1);

@@ -199,8 +199,8 @@ async function construir(n, semilla) {
   const escritores = [GENESIS];
   const autorizadores = [GENESIS];
   const proyectos = []; // { id, identidad }
+  // T no cruza de persona (VG, 7-11 noche): cada una escribe con su propio T, que se acuña al gastarse.
   const dotacion = (a) => [
-    { token: 'T', escala: 'minuto', cantidad: 1e8, de: GENESIS, a },
     { token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 1e6, de: GENESIS, a },
   ];
   for (let k = 0; k < nProyectos; k++) {

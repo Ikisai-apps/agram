@@ -9,15 +9,19 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.deepEqual(eje.identidades(), ['casa', 'cocina', 'huesped']);
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), 12);
   assert.equal(eje.saldo('huesped', 'E:casa/EUR'), 48);
-  assert.equal(eje.saldoT('huesped', 'hora'), 23);
-  // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y las dos escalas de T que usa; las altas reparten ambas y declaran tipo.
+  // T no cruza de persona (VG, 7-11 noche): la persona huésped no recibió T; la hora que gasta al comprar se
+  // acuña al gastarse y queda anotada en el menú, el registro que soporta la compra.
+  assert.equal(eje.saldoT('huesped', 'hora'), 0);
+  assert.equal(eje.tiempoSobre(menu.id).hora, 1);
+  // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR, las dos escalas de T que usa y
+  // el tiempo que cede a otros (E:casa/hora); las altas declaran tipo.
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
-  assert.deepEqual(eje.series().map((s) => s.clave), ['T:hora', 'T:minuto', 'E:casa/EUR', 'P:genesis']);
+  assert.deepEqual(eje.series().map((s) => s.clave), ['T:hora', 'T:minuto', 'E:casa/EUR', 'E:casa/hora', 'P:genesis']);
   // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,
   // sin capacidad declarada en su hilo, no tienen tope: son deuda del emisor.
   const eur = eje.series().find((s) => s.clave === 'E:casa/EUR');
   assert.deepEqual([eur.registro, eur.tope, eur.nota, eur.divisible], [eje.genesisId, null, 'sin capacidad declarada: deuda del emisor', false]);
-  assert.deepEqual(eje.tiempos('huesped'), [{ escala: 'minuto', cantidad: 480 }, { escala: 'hora', cantidad: 23 }]);
+  assert.deepEqual(eje.tiempos('huesped'), []);
   assert.deepEqual(eje.recursos('huesped'), [{ emisor: 'casa', denominacion: 'EUR', cantidad: 48 }]);
   assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'grupo', 'persona']);
   assert.equal(eje.hilo(compra.id).length, 4);

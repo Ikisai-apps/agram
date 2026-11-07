@@ -21,6 +21,8 @@ for (const id of ['casa', ...COSAS, 'cocina']) claves[id] = await generarClaves(
 const nuevo = () => ejemploComprasHermanas({ claves });
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
 const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+/** El alta de una cosa: un minuto de la casa como E (E:casa/minuto; T no cruza de persona, VG 7-11 noche). */
+const cedeMinuto = (a) => ({ token: 'E', emisor: 'casa', denominacion: 'minuto', cantidad: 1, de: 'casa', a });
 
 /** Estadística comparable: claves en orden. */
 const ordenar = (o) => Object.fromEntries(Object.entries(o).sort(([x], [y]) => (x < y ? -1 : 1)));
@@ -67,10 +69,10 @@ test('identidadDe: la propia cosa que el registro da de alta; la del génesis, s
   assert.equal(identidadDe(eje, ej.guisos.id), null); // una compra no es una cosa con clave
   // Una cosa sin clave, o dos cosas en el mismo registro: no hay identidad propia.
   const [x, y] = [await generarClaves(), await generarClaves()];
-  const sinClave = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T_BASES, movimientos: [minuto('casa'), { ...minuto('casa'), a: 'caja' }], payload: 'Caja', contexto: { tipos: { caja: 'cosa' } } }, claves.casa.privada);
+  const sinClave = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T_BASES, movimientos: [minuto('casa'), cedeMinuto('caja')], payload: 'Caja', contexto: { tipos: { caja: 'cosa' } } }, claves.casa.privada);
   const dos = await eje.escribir({
     autor: 'casa', sobre: eje.genesisId, t: T_BASES,
-    movimientos: [minuto('casa'), { ...minuto('casa'), a: 'x' }, { ...minuto('casa'), a: 'y' }],
+    movimientos: [minuto('casa'), cedeMinuto('x'), cedeMinuto('y')],
     payload: 'Dos cosas', contexto: { tipos: { x: 'cosa', y: 'cosa' }, claves: { x: x.publica, y: y.publica } },
   }, claves.casa.privada);
   assert.equal(identidadDe(eje, sinClave.id), null);
@@ -91,7 +93,8 @@ test('medir: una sola medida (bases.medir); tiempo.js ya no mide', async () => {
   // Un terminal no tiene posición 0: un terminal, ninguna posición.
   assert.deepEqual([medir(eje, ej.cafe.id).terminales, medir(eje, ej.cafe.id).posiciones], [1, 0]);
   assert.equal(medir(eje, ej.menu.id).escritos, 4);
-  assert.deepEqual(medir(eje, ej.mercado.id).tokens, { 'T:minuto': 11, 'E:casa/EUR': 30 });
+  // T:minuto: el que gasta la casa al escribirlo; los diez minutos que cede al mercado son E:casa/minuto (VG, 7-11 noche).
+  assert.deepEqual(medir(eje, ej.mercado.id).tokens, { 'T:minuto': 1, 'E:casa/minuto': 10, 'E:casa/EUR': 30 });
   assert.equal(medir(eje, eje.genesisId).profundidadHilo, 0);
 });
 
@@ -105,9 +108,9 @@ test('fundir: cada medida con tiempo.fundir; conmutativa, asociativa, con neutro
   const abc = fundir(fundir(a, b), c);
   assert.equal(abc.n, 3);
   for (const k of [...Object.keys(abc.medidas), ...Object.keys(abc.tokens)]) assert.equal(sumaCajas(bloqueDe(abc, k)), 3, k);
-  // T:minuto solo lo mueve el mercado (11): los otros dos valen cero en esa serie.
+  // T:minuto solo lo mueve el mercado (1): los otros dos valen cero en esa serie.
   const minutos = abc.tokens['T:minuto'];
-  assert.deepEqual([minutos.cajas, minutos.suma, minutos.minimo, minutos.maximo], [[2, 0, 0, 0, 0, 0, 1, 0, 0, 0], 11, 0, 11]);
+  assert.deepEqual([minutos.cajas, minutos.suma, minutos.minimo, minutos.maximo], [[2, 1, 0, 0, 0, 0, 0, 0, 0, 0], 1, 0, 1]);
   assert.deepEqual(bloqueDe(a, 'T:minuto').cajas, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   assert.deepEqual([abc.medidas.terminales.suma, abc.medidas.terminales.minimo, abc.medidas.terminales.maximo], [9 + 1 + 3, 1, 9]);
   // Por posición: cuántos la tienen desarrollada y por qué procedencia; la raíz aparte.
@@ -143,11 +146,14 @@ test('calcularBase: los hijos y el subárbol; lo que cuelga de un hijo sin base 
 test('escribirBase: la escribe la propia cosa en el 8 del registro, firmada, y gasta su T', async () => {
   const ej = await nuevo();
   const { eje } = ej;
-  assert.equal(eje.saldoT('menu-dia', 'minuto'), 10);
+  // T no cruza de persona (VG, 7-11 noche): la cosa no tiene saldo de T; el que gasta se acuña al gastarse y se
+  // anota en el registro que soporta la base, el propio menú.
+  assert.equal(eje.saldoT('menu-dia', 'minuto'), 0);
+  const antes = eje.tiempoSobre(ej.menu.id).minuto ?? 0;
   const ev = await escribirBase(eje, { registro: ej.menu.id, privada: claves['menu-dia'].privada, t: T_BASES });
   assert.deepEqual([ev.autor, ev.firmante, ev.sobre, ev.en], ['menu-dia', 'menu-dia', ej.menu.id, CIELO]);
   assert.deepEqual(ev.contexto, { bases: true, n: 4, nSubarbol: 5, hasta: ej.cafe.id, epoca: 'época 0', sinBase: 0 });
-  assert.equal(eje.saldoT('menu-dia', 'minuto'), 9);
+  assert.equal(eje.tiempoSobre(ej.menu.id).minuto, antes + 1);
   assert.ok(validarPayload(ev.payload).ok);
   assert.ok(esBase(eje, ev));
   // La base no es hija de lo que mide, ni un escrito, ni desarrolla su posición 8.
@@ -160,7 +166,7 @@ test('escribirBase: la escribe la propia cosa en el 8 del registro, firmada, y g
   await assert.rejects(escribirBase(eje, { registro: ej.menu.id, privada: claves.casa.privada, t: T_BASES }), /firma inválida de menu-dia/);
   // Una cosa sin nada encima: nada que medir.
   const vacia = await generarClaves();
-  const nada = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T_BASES, movimientos: [minuto('casa'), { ...minuto('casa'), a: 'vacia' }], payload: 'Nada', contexto: { tipos: { vacia: 'cosa' }, claves: { vacia: vacia.publica } } }, claves.casa.privada);
+  const nada = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T_BASES, movimientos: [minuto('casa'), cedeMinuto('vacia')], payload: 'Nada', contexto: { tipos: { vacia: 'cosa' }, claves: { vacia: vacia.publica } } }, claves.casa.privada);
   await assert.rejects(escribirBase(eje, { registro: nada.id, privada: vacia.privada, t: T_BASES }), /nada que medir/);
 });
 

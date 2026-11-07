@@ -29,6 +29,8 @@ export async function ejemploCompra({ claves = {} } = {}) {
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR: el génesis completa emisor = casa
+      // T no cruza de persona (VG, 7-11 noche): el tiempo que la casa cede a otros es E de su serie, en horas.
+      { token: 'E', denominacion: 'hora', cantidad: 1000 },
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa de ejemplo',
@@ -46,11 +48,10 @@ export async function ejemploCompra({ claves = {} } = {}) {
     t,
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
-      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
-      { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
+      // Cada una escribe con su propio T (se acuña al gastarse); la casa cede a cocina 40 horas de su
+      // tiempo como E:casa/hora (T no cruza de persona, VG 7-11 noche) y a la persona huésped, euros.
+      { token: 'E', emisor: 'casa', denominacion: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
     contexto: { tipos: { cocina: 'grupo', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
@@ -132,8 +133,6 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
     t: '2026-11-07T12:00:00Z',
     movimientos: [
       gasta('casa'),
-      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' },
-      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'huesped2' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
     ],
     payload: ['Alta de otra persona huésped', ['huesped2']],

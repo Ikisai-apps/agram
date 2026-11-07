@@ -186,11 +186,11 @@ test('fábrica: cada consolidación enseña de dónde vino cada fuente y, si exi
 test('saldos: las series de cada identidad en corto y las series emitidas con lo que queda en carteras', async () => {
   const { eje } = await compra();
   const casa = familiasDe(eje, 'casa');
-  assert.deepEqual(casa.E, ['440 €']);
+  assert.deepEqual(casa.E, ['440 €', '960 hora']); // con el tiempo que cede a otros (E:casa/hora; T no cruza de persona)
   assert.deepEqual(casa.P, ['10 sobre eje']);
   assert.equal(casa.T.length, 2);
   assert.match(casa.T[0], / h$/); // de la escala mayor a la menor
-  assert.deepEqual(familiasDe(eje, 'cocina').E, ['12 € de casa']);
+  assert.deepEqual(familiasDe(eje, 'cocina').E, ['40 hora de casa', '12 € de casa']);
   assert.deepEqual(familiasDe(eje, 'huesped').R, []);
   const minutos = eje.identidades().reduce((s, id) => s + eje.saldoT(id, 'minuto'), 0);
   assert.equal(enCarteras(eje, 'T:minuto'), minutos);
@@ -198,9 +198,10 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.equal(nombreSerie(eje.series().find((s) => s.token === 'E')), 'casa/€');
   const html = htmlSaldos(eje);
   assert.match(html, /<details class="series-emitidas" data-plegado="series" open>/);
-  assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
+  assert.match(html, /Series emitidas · 5 \(T 2 · E 2 · P 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
-  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>1000</td><td>${minutos}</td>`));
+  // Lo emitido de T:minuto incluye lo que cocina y la persona huésped acuñaron al gastarlo (VG, 7-11 noche).
+  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });
 

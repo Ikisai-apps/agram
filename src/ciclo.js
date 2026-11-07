@@ -22,6 +22,7 @@
 import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
+import { esConsumoT } from './evento.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
@@ -233,13 +234,14 @@ export function reglasDelCiclo(ev, ctx) {
 
   // Escalonado: R exige T; P exige T y R propia en juego; E exige T, R propia en juego y P sobre el registro.
   if (emitidas.size) {
-    // «Mover T» es T consumido o transferido a otra identidad: bloquearlo,
-    // liberarlo o dárselo a uno mismo no cuesta nada, así que no cuenta.
-    const mueveT = validos.some(({ m }) => m.token === 'T' && m.de === autor && m.a !== autor && m.estado === undefined);
+    // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
+    // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
+    // cruza de persona (src/evento.js), así que solo cuenta el consumo.
+    const mueveT = validos.some(({ m }) => esConsumoT(m, autor));
     const rEnJuego = validos.some(({ m }) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor && m.estado === undefined);
     for (const token of ['R', 'P', 'E']) {
       if (!emitidas.has(token)) continue;
-      if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad');
+      if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
       if (token !== 'R' && !rEnJuego) {
         falla(null, 5, 'emitir ' + token + ' exige R propia en juego en el mismo evento: mover R:' + autor + ' de ' + autor + ' a otra identidad o al registro');
       }

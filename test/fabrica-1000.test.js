@@ -89,10 +89,12 @@ test('ver es clase 0, emite una referencia a lo visto y solo ve lo que el foco t
   assert.deepEqual(dos.payload, salida.payload);
   assert.deepEqual(dos.heredadas, [0, '1.1']);
   assert.deepEqual(dos.vistas, ['1.0', '1.2']);
-  const antes = eje.saldoT('huesped', 'minuto');
+  // Lo gastado se ve en el registro que lo soporta (VG, 7-11 noche: el consumo de T se anota en `sobre`).
+  const gastado = () => eje.tiempoSobre(compra.id).minuto ?? 0;
+  const antes = gastado();
   const { registro } = await escribirSalida(eje, { autor: 'huesped', sobre: compra.id, salida, t: T });
   assert.deepEqual(registro.contexto.heredadas, [0, '1.0', '1.1']);
-  assert.equal(antes - eje.saldoT('huesped', 'minuto'), 4); // el coste cuenta las posiciones del registro, heredadas incluidas
+  assert.equal(gastado() - antes, 4); // el coste cuenta las posiciones del registro, heredadas incluidas
   const { registro: otro } = await escribirSalida(eje, { autor: 'huesped', sobre: compra.id, salida: dos, t: T });
   assert.deepEqual(otro.contexto.heredadas, [0, '1.1']);
   // [X] decidir VG: ver la subposición 0 da una dirección con ceros finales, que nombra la colisión con la posición.
@@ -387,7 +389,8 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'nadie', sobre: compra.id, salida, t: T }), /evento rechazado/);
   assert.equal(eje.sobre(compra.id).length, 0);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
-  const antes = eje.saldoT('huesped', 'minuto');
+  // Lo gastado se ve en el registro que lo soporta (VG, 7-11 noche: el consumo de T se anota en `sobre`).
+  const antes = eje.tiempoSobre(compra.id).minuto ?? 0;
   const { registro, anclados, proporcion: p } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
   assert.equal(registro.en, '0000000000');
   assert.deepEqual(registro.contexto.heredadas, [0, 1]);
@@ -396,7 +399,7 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.equal(anclados[0].sobre, compra.id);
   assert.equal(anclados[0].payload, 'repetir el sábado');
   assert.equal(anclados[0].contexto.heredadas, undefined);
-  assert.equal(antes - eje.saldoT('huesped', 'minuto'), 4); // tres posiciones dentro, una anclada
+  assert.equal((eje.tiempoSobre(compra.id).minuto ?? 0) - antes, 4); // tres posiciones dentro, una anclada
   assert.deepEqual(p, { posiciones: 4, rango: [250, 333], estado: 'por debajo' }); // la proporción cuenta todas las posiciones de la salida
   // Lo anclado es un ocupante escrito de la posición lejana.
   assert.deepEqual(ocupantes(eje, compra.id, [7]).map((o) => o.evento), [anclados[0].id]);

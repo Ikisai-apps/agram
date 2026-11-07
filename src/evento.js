@@ -142,9 +142,10 @@ export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimient
  * Validación de forma, sin mirar el eje. `t` es un instante ISO-8601 estricto
  * con zona explícita (src/instante.js). Con `tLaxo` basta con que Date.parse
  * lo lea: solo para los eventos de un eje guardado con la versión 2, que se
- * validan con las reglas de entonces.
+ * validan con las reglas de entonces (`v2`, que por defecto sigue a `tLaxo`:
+ * entonces bastaba con que el autor moviese T, y T se daba a otros).
  */
-export function validarForma(ev, { tLaxo = false } = {}) {
+export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
   if (!ev || typeof ev !== 'object') return ['evento no es objeto'];
   const errores = [];
   if (typeof ev.autor !== 'string' || !ev.autor) errores.push('autor obligatorio');
@@ -158,10 +159,26 @@ export function validarForma(ev, { tLaxo = false } = {}) {
     errores.push('todo evento mueve tokens');
   } else {
     ev.movimientos.forEach((m, i) => validarMovimiento(m).forEach((e) => errores.push('movimiento ' + i + ': ' + e)));
-    // El evento mínimo mueve T. En el génesis el autor lo recibe; después lo gasta.
+    // El evento mínimo mueve T. En el génesis el autor lo recibe; después lo
+    // CONSUME (VG, 7-11 noche): de = autor, a = null, sin estado. Ni dárselo a
+    // uno mismo ni bloquearlo o liberarlo cuenta como escribir: no cuesta nada.
+    // El consumo queda anotado en el registro que soporta, `sobre` (eje.tiempoSobre).
     const esGenesis = ev.contexto?.genesis === true;
-    const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && (esGenesis ? m.a === ev.autor : m.de === ev.autor));
-    if (!mueveT) errores.push(esGenesis ? 'el génesis debe emitir T al autor' : 'el autor debe mover T');
+    const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor));
+    const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && cuenta(m));
+    if (!mueveT) {
+      errores.push(esGenesis ? 'el génesis debe emitir T al autor'
+        : v2 ? 'el autor debe mover T' : 'escribir consume T del autor: un movimiento de T con de = ' + ev.autor + ' y a = null (VG, 7-11 noche)');
+    }
+    // T no cruza de persona (VG, 7-11 noche): «recibir T solo es un registro de
+    // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
+    // recurso de otra persona». Quien quiere dar su tiempo a otro emite E de su
+    // serie, denominada en su tiempo (E:<persona>/hora), no T.
+    if (!v2) ev.movimientos.forEach((m, i) => {
+      if (m && m.token === 'T' && typeof m.a === 'string' && m.a !== ev.autor) {
+        errores.push('movimiento ' + i + ': T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + ev.autor + '/' + (m.escala ?? 'hora') + ')');
+      }
+    });
   }
   if (ev.contexto !== undefined && ev.contexto !== null && (typeof ev.contexto !== 'object' || Array.isArray(ev.contexto))) {
     errores.push('contexto debe ser un objeto');
@@ -174,6 +191,14 @@ export function validarForma(ev, { tLaxo = false } = {}) {
   const p = validarPayload(ev.payload);
   if (!p.ok) errores.push(...p.errores.map((e) => 'payload ' + e));
   return errores;
+}
+
+/**
+ * ¿Es `m` un consumo de T de `autor`? De = autor, a = null y sin estado: lo
+ * único que cuenta como «escribir consume T» (VG, 7-11 noche).
+ */
+export function esConsumoT(m, autor) {
+  return Boolean(m) && m.token === 'T' && m.de === autor && m.a === null && m.estado === undefined;
 }
 
 /** Comprueba que el id corresponde al cuerpo. */

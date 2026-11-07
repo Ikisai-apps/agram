@@ -129,7 +129,7 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
     assert.match(err('CAJA("' + m + '")', ej), desconocida, m + ' sin base: se valida antes de leer');
   }
   // Bien formada pero sin emitir en el eje: PENDIENTE (la emisión puede llegar), con las que hay.
-  const emitidas = ' (series emitidas: T:hora, T:minuto, E:casa/EUR, P:genesis)';
+  const emitidas = ' (series emitidas: T:hora, T:minuto, E:casa/EUR, E:casa/minuto, P:genesis)';
   for (const [m, motivo] of [['E:csa/EUR', 'la serie E:csa/EUR no se ha emitido en el eje'], ['T:dia', 'la serie T:dia no se ha emitido en el eje'], ['R:casa', 'la serie R:casa no se ha emitido en el eje'], ['P:abc', 'el ámbito de P:abc no es un registro del eje']]) {
     const r = q(conBase, 'CAJA("' + m + '")');
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', 'CAJA: ' + motivo + emitidas], m);

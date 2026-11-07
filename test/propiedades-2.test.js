@@ -106,7 +106,8 @@ class Modelo {
       if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
     }
     if (!emitidas.size) return true;
-    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a !== autor);
+    // VG, 7-11 noche: mover T es CONSUMIRLO (de = autor, a = null).
+    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a === null);
     const rEnJuego = ev.movimientos.some((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor);
     for (const t of ['R', 'P', 'E']) {
       if (!emitidas.has(t)) continue;
@@ -149,6 +150,9 @@ class Modelo {
     const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
+    // VG, 7-11 noche: escribir consume T del autor, y T no cruza de persona.
+    if (!ev.movimientos.some((m) => m.token === 'T' && m.de === ev.autor && m.a === null)) return null;
+    if (ev.movimientos.some((m) => m.token === 'T' && m.a !== null && m.a !== ev.autor)) return null;
     if (!this.cicloOk(ev)) return null;
     const emitidasAqui = new Set();
     for (const m of ev.movimientos) {
@@ -176,6 +180,9 @@ class Modelo {
           resta -= usa;
         }
         if (resta > 0) return null;
+      } else if (m.token === 'T' && m.a === null) {
+        // Consumir T propio: lo que falte se acuña al gastarse (VG, 7-11 noche).
+        poner(m.de, k, Math.max(0, ver(m.de, k) - m.cantidad));
       } else {
         if (ver(m.de, k) < m.cantidad) return null;
         poner(m.de, k, ver(m.de, k) - m.cantidad);
@@ -234,7 +241,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'T', escala: 'minuto', cantidad: 40, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
     consumido.set('T:minuto', 1);
@@ -250,7 +257,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       if (g.si(0.3)) {
         const nuevo = g.pick(IDS);
         tipos[nuevo] = g.pick(['persona', 'grupo', 'cosa', 'robot']);
-        if (g.si(0.8)) movimientos.push({ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: nuevo });
+        // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
+        if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
       const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto: { tipos } };
       const antes = fotoEje(eje);
@@ -755,8 +763,9 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
 // ---------- caso Booking ----------
 
 const dia = (n) => new Date(Date.parse('2026-11-12') + n * 86400000).toISOString().slice(0, 10);
-async function altaHuesped(eje, id, eur, minutos) {
-  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), { token: 'T', escala: 'minuto', cantidad: minutos, de: BK.CASA, a: id }], payload: ['Alta', [id]], contexto: { tipos: { [id]: 'persona' } } });
+// Los minutos que se pasaban ya no se dan: T no cruza de persona (VG, 7-11 noche); se ignoran.
+async function altaHuesped(eje, id, eur) {
+  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]], contexto: { tipos: { [id]: 'persona' } } });
 }
 
 /**
@@ -811,26 +820,26 @@ test('propiedad: Booking — series de plaza conservadas y acotadas por la capac
   assert.ok(Object.values(vistos).every((n) => n > 0), JSON.stringify(vistos));
 });
 
-test('regresión Booking: sin minutos para pagar, la plaza no se entrega sin cobrar',
-  { skip: 'BK-01: [X] decidir VG (atomicidad de las dos partes, ejemplos/ikisai/reserva-booking.mjs l.21-28; «la atomicidad es de AARPIA»). La comprobación previa de confirmarReserva solo mira los EUR, no los minutos de T que cuesta escribir la consolidación y la ejecución del pago: con 5 minutos la casa entrega la litera y la ejecución del pago falla por «saldo insuficiente de T:minuto en h0» (fuzz 2, semilla 15003)' },
-  async () => {
-    const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
-    await altaHuesped(eje, 'h0', 30, 18);
-    const r = await BK.reservar(eje, { autor: 'h0', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
-    await BK.confirmarReserva(eje, r).catch(() => {});
-    const estados = consolidaciones(eje, r.id).map((c) => [c.autor, c.estado]);
-    assert.ok(!estados.some(([autor, estado]) => autor === BK.CASA && estado === 'EJECUTADO') || estados.some(([autor, estado]) => autor === 'h0' && estado === 'EJECUTADO'), JSON.stringify(estados));
-  });
+// BK-01 y BK-02 ya no se saltan: T no se agota (VG, 7-11 noche: T es el medidor propio, no cruza de persona y lo
+// que falta se acuña al gastarse), así que ninguna de las dos partes se queda a medias por falta de minutos.
+test('regresión Booking: sin minutos para pagar, la plaza no se entrega sin cobrar', async () => {
+  const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
+  await altaHuesped(eje, 'h0', 30, 18);
+  const r = await BK.reservar(eje, { autor: 'h0', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
+  await BK.confirmarReserva(eje, r).catch(() => {});
+  const estados = consolidaciones(eje, r.id).map((c) => [c.autor, c.estado]);
+  assert.ok(!estados.some(([autor, estado]) => autor === BK.CASA && estado === 'EJECUTADO') || estados.some(([autor, estado]) => autor === 'h0' && estado === 'EJECUTADO'), JSON.stringify(estados));
+});
 
-test('regresión Booking: reservar sin minutos para las noches no deja una reserva sin su 7',
-  { skip: 'BK-02: [X] decidir VG (ejemplo, no núcleo): reservar escribe la reserva y luego sus noches en dos eventos; con 12 minutos la reserva (11) entra y las noches (2) no, y queda una reserva anclada en la plaza sin tramo («sin tramo en el 7», fuzz 2, semilla 15006)' },
-  async () => {
-    const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
-    await altaHuesped(eje, 'h1', 30, 12);
-    const n0 = eje.orden.length;
-    await BK.reservar(eje, { autor: 'h1', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' }).catch(() => {});
-    assert.equal(eje.orden.length, n0);
-  });
+test('regresión Booking: reservar sin minutos para las noches no deja una reserva sin su 7', async () => {
+  const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
+  await altaHuesped(eje, 'h1', 30, 12);
+  const n0 = eje.orden.length;
+  // Sin T que se agote, la reserva y sus noches entran las dos: nunca una reserva sin su 7.
+  const r = await BK.reservar(eje, { autor: 'h1', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
+  assert.equal(eje.orden.length, n0 + 2);
+  assert.ok(eje.sobre(r.id, '7000000000').length > 0, 'la reserva tiene su tramo en el 7');
+});
 
 // ---------- caso Tasks ----------
 
