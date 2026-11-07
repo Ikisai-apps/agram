@@ -574,14 +574,18 @@ test('BTML-36 un terminal no tiene posición 0: pedirla da PENDIENTE', async () 
   assert.deepEqual(ocupantes(eje, id, [1]).map((o) => o.camino), [[1]]);
 });
 
-test('BTML-36b la décupla, el mapa y la herencia tampoco ponen un terminal en su posición 0', async () => {
+test('BTML-36b la décupla y el mapa tampoco ponen un terminal en su posición 0; la herencia de su raíz se conserva ([X], mapa §13)', async () => {
   const { eje, id } = await ejeCon('foco terminal');
   const ev = eje.obtener(id);
   assert.equal(decupla(ev).posiciones[0].contenido, undefined);
   assert.equal(mapa(eje, id).celdas[0].contenido, undefined);
   const celdas = [];
   celdas[1] = ['algo'];
-  assert.throws(() => desdeMapped(eje, celdas, id), /hueco en 0/);
+  // Integración 7-11: #42 pedía «hueco en 0»; el mapa §13 manda conservar, como en main y marcada [X],
+  // la herencia de la raíz de un foco terminal: la posición 0 es una referencia al foco entero.
+  const { payload, heredadas } = desdeMapped(eje, celdas, id);
+  assert.deepEqual(payload, [{ ref: id, dir: '0000000000' }, 'algo']);
+  assert.deepEqual(heredadas, [0]);
   // El terminal no se pierde: se entrega aparte, sin posición.
   assert.equal(decupla(ev).terminal, 'foco terminal');
   assert.equal(mapa(eje, id).terminal, 'foco terminal');

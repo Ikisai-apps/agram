@@ -398,7 +398,7 @@ Consecuencias conocidas:
 - `direccion([1, 0]) === direccion([1])`: **no se puede nombrar un índice 0 real que sea el último del camino**. Se trata como colisión (ambos caminos son ocupantes de la misma dirección), no como error.
 - `'0000000000'` nombra la raíz del payload (camino `[]`) y su posición 0 (camino `[0]`).
 - `'1100000000'` y `'0000000011'` no son equivalentes: la segunda es `[0,0,0,0,0,0,0,0,1,1]`, un camino de diez niveles.
-- Un terminal no tiene posición 0 (mapa §12: se retira la convención de la representación). Ni el encaje (`caminosDe` se detiene en él) ni `pointed.decupla`, `mapped.mapa` o `escritura.desdeMapped` lo ponen en la posición 0: `decupla` y `mapa` entregan un payload terminal aparte, en `terminal`, con las diez posiciones sin contenido, y `desdeMapped` no hereda una posición 0 de un foco terminal (es un hueco).
+- Un terminal no tiene posición 0 (mapa §12: se retira la convención de la representación). Ni el encaje (`caminosDe` se detiene en él) ni `pointed.decupla` o `mapped.mapa` lo ponen en la posición 0: `decupla` y `mapa` entregan un payload terminal aparte, en `terminal`, con las diez posiciones sin contenido. `escritura.desdeMapped` sí conserva, como en main, la herencia de la raíz de un foco terminal: su posición 0 es una referencia al foco entero ([X] decidir VG, mapa §13).
 
 ### 4.3 Significado de los dígitos: época 0
 
