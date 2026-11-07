@@ -68,7 +68,7 @@ caminoVisible(ocupante)                                                // → nu
 | `autor`, `t` | encaje | solo en escritos |
 | `origenDir`, `destino`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | encaje | el encaje del candidato en la posición |
 | `empate`, `empatados`, `justificacion` | encaje | si el encaje no lo separa de otro (y con cuántos) y el motivo del encaje en texto |
-| `estado`, `texto` | `bql.evaluar(eje, evento, candidato.camino)` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor del **camino exacto** del ocupante (`docs/BQL.md` §1; mapa §12 [D]: «todos son ocupantes con su camino exacto»). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. |
+| `estado`, `texto` | `bql.evaluar(eje, evento, candidato.camino)` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor del **camino exacto** del ocupante (`docs/BQL.md` §1; mapa §12 [D]: «todos son ocupantes con su camino exacto»). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. Un elemento de una lista (`enLista`, `indice`) es un candidato aparte y muestra **su propio valor** (`LOCAL` por índice), no el de la lista entera: el menú de tres platos da tres candidatos, «ensalada», «guiso» y «fruta». |
 | `etiqueta` | `bql.evaluar(eje, evento, caminoVisible(candidato)).texto` | el texto que se muestra: de un array, el de su posición 0; si no, el mismo `texto`. No decide el estado: una fórmula pendiente en la posición 0 no vuelve pendiente al candidato, y `[1]` y `[1, 0]` se distinguen por su estado y su texto (auditoría de ajuste 2). |
 
 `caminoVisible` añade un `0` al camino cuando el contenido es un array con posición 0: de un array, la etiqueta es su posición 0; el estado no. De un terminal o una referencia se muestra lo que hay. BQL no sigue la referencia en `evaluar` (texto `→ <id>`), sí la sigue el candidato de origen `referencia`, que ya es lo alcanzado.
@@ -93,18 +93,18 @@ console.log('registros antes y después:', eje.orden.length);
 ```text
 1 1000000000 4 candidatos
   propio     936b43ee camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d367743b · exacto
-  propio     936b43ee camino [1,0] visible [1,0] · RESUELTO · → d367743b · etiqueta → d367743b · exacto
+  propio     936b43ee camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
   referencia d367743b camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
   escrito    2b75f87f camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 2 candidatos
-  propio     936b43ee camino [2] visible [2] · RESUELTO · → d367743b · etiqueta → d367743b · exacto
+  propio     936b43ee camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
   referencia d367743b camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
-  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · cocina · etiqueta huesped · cocina · exacto
+  propio     936b43ee camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     936b43ee camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
 4 4000000000 2 candidatos
-  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
-  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · servir · etiqueta pagar · servir · exacto
+  propio     936b43ee camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     936b43ee camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
@@ -529,14 +529,14 @@ Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos 
 ```js
 CRITERIO_CAPACIDAD = 2                 // dónde declara una décupla (una posición o el payload de un registro) su capacidad; de src/tokens.js
 capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined; de src/tokens.js
-tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin); sin 7 o ilegible, error
+tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin), escrito como décupla `[[inicio], fin]`; sin 7 o ilegible (también una lista de dos hojas, que son dos ocupantes), error
 registrosEn(eje, sobre, dir)            // → eventos anclados en la posición o que la referencian desde donde estén, por llegada
 ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }]: solo informa
 ```
 
 - **Declaración** (`[X] decidir VG`): la décupla de la posición lleva un entero positivo en su criterio (subposición 2: «cuántos caben»), como una plaza `[nombre, precio, capacidad]` bajo la época 0. Sin ese entero la posición no declara nada.
 - **Qué posición ocupa un registro**: la de su anclaje (`sobre` + `en`). La dirección nombra la colisión entera (§12 del mapa: `1000000000` es a la vez `[1]`, `[1.0]`, `[1.0.0]`), así que se mira cada camino que nombra y cuenta el que declare capacidad. Al contar a los demás, entran también los que **referencian** la posición desde otro anclaje (`registrosEn`): ninguno escapa al contador por elegir otro `en`.
-- **Tramo** (`[X] decidir VG`): `[inicio, fin]` en ISO, con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
+- **Tramo** (`[X] decidir VG`): una décupla `[[inicio], fin]` en ISO (el 0 envuelto, como en el resto de ejemplos), con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. Por hojas, `[inicio, fin]` es una lista de dos ocupantes, no un tramo: `tramoDe` no la lee como par y el error lo dice. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
 - **Cuántos a la vez**: los otros registros de la posición con consolidación ejecutada que se solapan con el tramo, y el máximo que coincide en un mismo instante (barrido por los inicios). Con capacidad 2, dos estancias encadenadas y una tercera que las cruza caben; una cuarta que coincide con dos, no.
 - `ejecutar` **no** consulta `ocupacion`.
 
@@ -1210,7 +1210,7 @@ console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.i
 
 ```text
 pedido [{"ref":"8a12d201","dir":"0000000000"},[[{"ref":"8a12d201","dir":"1100000000"}],1],{"ref":"8a12d201","dir":"2000000000"},[["huesped"],"cocina"]] · heredadas [0,2] · coste 6 min
-posición 1 propio [2 posiciones] (exacto) · propio → 8a12d201 (exacto) · referencia guiso (reducir)
+posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
 posición 2 propio → 8a12d201 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
@@ -1231,7 +1231,7 @@ restaurado 9 eventos · EJECUTADO · posición 2 de la consolidación: sin lacto
 Lectura de la salida:
 
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
-- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
+- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso, que cae dentro de la lista del menú: por eso sale `PENDIENTE`, una dirección no nombra ocupantes de una lista) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: autorizar es bloquear P sobre el registro del recurso, la raíz del dominio (el alta de la casa), que no tiene P propio: cuenta el P del eje. La casa tiene los 3 que le quedan sobre `genesis` (de 5: más de la mitad) y los bloquea; los 2 P de cocina, estrechados al menú, no son ese P; la persona huésped no tiene ninguno (si lo tuviera, contaría aunque sea la autora).
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).

@@ -146,10 +146,12 @@ async function construir(n, semilla) {
   const privadas = new Map(); // identidad → CryptoKey privada
   const fases = new Map(); // tipo → { n, total, crear, firmar, anadir }
   let paso = 0;
-  const instante = () => {
+  // Un evento no puede ser anterior a su foco (src/ciclo.js): con fecha futura, el t no baja del de los focos que se le pasan.
+  const instante = (...focos) => {
     paso++;
     const t = T0 + paso * MINUTO;
-    return new Date(az.prob(0.05) ? t + 30 * DIA : t).toISOString(); // un 5 % con fecha futura: proyecciones
+    const suelo = Math.max(0, ...focos.map((f) => Date.parse(eje.obtener(f)?.t) || 0));
+    return new Date(Math.max(suelo, az.prob(0.05) ? t + 30 * DIA : t)).toISOString(); // un 5 % con fecha futura: proyecciones
   };
   const anotar = (tipo, total, crear = 0, firma = 0, anadir = 0) => {
     const f = fases.get(tipo) ?? { n: 0, total: 0, crear: 0, firmar: 0, anadir: 0 };
@@ -163,7 +165,7 @@ async function construir(n, semilla) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: GENESIS,
-    tipo: 'grupo',
+    tipo: 'persona',
     emision: [
       { token: 'T', escala: 'minuto', cantidad: 1e12 },
       { token: 'T', escala: 'hora', cantidad: 1e9 },
@@ -206,7 +208,7 @@ async function construir(n, semilla) {
     const par = await generarClaves();
     privadas.set(id, par.privada);
     const ev = await escribir('alta', {
-      autor: GENESIS, sobre: g, t: instante(),
+      autor: GENESIS, sobre: g, t: instante(g),
       movimientos: dotacion(id),
       payload: ['Proyecto ' + k, ['recursos', az.ent(100), (1 + az.ent(90)) + ' EUR'], ['criterios', az.de(PALABRAS)], 'comunicación', '=CONTAR(BUSCAR(4))'],
       contexto: { tipos: { [id]: 'cosa' }, claves: { [id]: par.publica } },
@@ -232,7 +234,7 @@ async function construir(n, semilla) {
       nombres.push(id);
       escritores.push(id);
     }
-    await escribir('alta', { autor: GENESIS, sobre: g, t: instante(), movimientos, payload: ['Altas', nombres], contexto: { tipos, ...(Object.keys(claves).length ? { claves } : {}) } });
+    await escribir('alta', { autor: GENESIS, sobre: g, t: instante(g), movimientos, payload: ['Altas', nombres], contexto: { tipos, ...(Object.keys(claves).length ? { claves } : {}) } });
   }
 
   // Focos calientes: el primer proyecto es la «plaza» donde todo colisiona.
@@ -304,7 +306,7 @@ async function construir(n, semilla) {
     const elecciones = { 1: referencia(), 2: az.de(PALABRAS) };
     if (az.prob(0.5)) elecciones[3] = referencia();
     let a = ahoraMs();
-    const c = await consolidar(eje, { autor, foco, elecciones, t: instante() }, privadas.get(autor));
+    const c = await consolidar(eje, { autor, foco, elecciones, t: instante(foco) }, privadas.get(autor));
     anotar('motor: consolidar', ahoraMs() - a);
     ciclos++;
     if (eje.orden.length >= n || !az.prob(0.8)) return;
@@ -314,15 +316,15 @@ async function construir(n, semilla) {
     const autorizante = GENESIS;
     const { emitido } = pesoAutorizacion(eje, c.id);
     a = ahoraMs();
-    await autorizar(eje, { autorizante, consolidacion: c.id, cantidad: Math.floor(emitido / 2) + 1, t: instante() }, privadas.get(autorizante));
+    await autorizar(eje, { autorizante, consolidacion: c.id, cantidad: Math.floor(emitido / 2) + 1, t: instante(foco, c.id) }, privadas.get(autorizante));
     anotar('motor: autorizar', ahoraMs() - a);
     if (eje.orden.length < n && az.prob(0.7)) {
       a = ahoraMs();
-      await ejecutar(eje, { autor, consolidacion: c.id, t: instante(), movimientos: [{ token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 5, de: autor, a: az.de(escritores) }] }, privadas.get(autor));
+      await ejecutar(eje, { autor, consolidacion: c.id, t: instante(foco, c.id), movimientos: [{ token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 5, de: autor, a: az.de(escritores) }] }, privadas.get(autor));
       anotar('motor: ejecutar', ahoraMs() - a);
     }
     a = ahoraMs();
-    await liberar(eje, { titular: autorizante, consolidacion: c.id, t: instante() }, privadas.get(autorizante));
+    await liberar(eje, { titular: autorizante, consolidacion: c.id, t: instante(foco, c.id) }, privadas.get(autorizante));
     anotar('motor: liberar', ahoraMs() - a);
   }
 
@@ -333,7 +335,7 @@ async function construir(n, semilla) {
     const p = payload();
     const movimientos = [{ token: 'T', escala: 'minuto', cantidad: contarPosiciones(p), de: autor, a: null }];
     if (az.prob(0.1)) movimientos.push({ token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 1 + az.ent(20), de: autor, a: az.de(escritores) });
-    await escribir('escrito', { autor, sobre, en: elegirEn(sobre), t: instante(), movimientos, payload: p });
+    await escribir('escrito', { autor, sobre, en: elegirEn(sobre), t: instante(sobre), movimientos, payload: p });
   }
 
   return { eje, az, privadas, escritores, autorizadores, proyectos, superCaliente, ciclos, fases, instante, msConstruir: ahoraMs() - inicio };
@@ -395,7 +397,8 @@ async function pasada(n, semilla, solo = null) {
     const lista = [];
     for (let k = 0; k < cuantos && autores.length; k++) {
       const autor = autores[k % autores.length];
-      let ev = await crearEvento({ autor, sobre: az.de(eje.orden), en: direccion([1 + az.ent(9)]), t: b.instante(), movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: null }], payload: ['banco', az.ent(1000), { ref: az.de(eje.orden) }] });
+      const sobre = az.de(eje.orden);
+      let ev = await crearEvento({ autor, sobre, en: direccion([1 + az.ent(9)]), t: b.instante(sobre), movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: null }], payload: ['banco', az.ent(1000), { ref: az.de(eje.orden) }] });
       if (b.privadas.has(autor)) ev = await firmar(ev, b.privadas.get(autor));
       lista.push(ev);
     }
@@ -498,10 +501,10 @@ async function pasada(n, semilla, solo = null) {
     const eb = await unaVez(async () => {
       for (const p of b.proyectos) {
         if (!bases.hijos(eje, p.id).length) continue;
-        await bases.escribirBase(eje, { registro: p.id, privada: b.privadas.get(p.identidad), t: b.instante() });
+        await bases.escribirBase(eje, { registro: p.id, privada: b.privadas.get(p.identidad), t: b.instante(p.id) });
         escritas++;
       }
-      await bases.escribirBase(eje, { registro: eje.genesisId, privada: b.privadas.get(GENESIS), t: b.instante() });
+      await bases.escribirBase(eje, { registro: eje.genesisId, privada: b.privadas.get(GENESIS), t: b.instante(eje.genesisId) });
       escritas++;
     });
     fila('bases', 'escribirBase (ms por base)', eb.mediana / escritas, escritas + ' bases, de abajo arriba: los proyectos y el génesis');
@@ -541,7 +544,8 @@ async function pasada(n, semilla, solo = null) {
   const nuevos = [];
   for (let k = 0; k < 100; k++) {
     const autor = conClave[k % conClave.length];
-    nuevos.push({ autor, sobre: az.de(eje.orden), en: '1000000000', t: b.instante(), movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: null }], payload: ['nuevo', k, '=CONTAR(BUSCAR(1))'] });
+    const sobre = az.de(eje.orden);
+    nuevos.push({ autor, sobre, en: '1000000000', t: b.instante(sobre), movimientos: [{ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: null }], payload: ['nuevo', k, '=CONTAR(BUSCAR(1))'] });
   }
   fila('escribir', 'eje.escribir firmado: crear + firmar + añadir (ms/evento)', await porElemento(nuevos, (d) => eje.escribir(d, b.privadas.get(d.autor))), nuevos.length + ' eventos');
   return r;
