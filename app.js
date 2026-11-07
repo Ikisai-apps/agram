@@ -9,14 +9,16 @@ import {
   indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ,
 } from './src/index.js';
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { ejemploReserva } from './ejemplos/ikisai/reserva-booking.mjs';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
-  aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '',
+  aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '', ejemplo: 'compra',
 };
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
 const CLAVE_CLAVES = 'agram.claves';
+const CLAVE_EJEMPLO = 'agram.ejemplo';
 
 function corto(id) {
   return id.slice(0, 8);
@@ -423,6 +425,7 @@ document.addEventListener('click', (e) => {
   else if (b.dataset.subir !== undefined) { estado.camino = estado.camino.slice(0, -1); estado.verOcupantes = null; pintar(); }
   else if (b.dataset.genesis !== undefined) irA(estado.eje.genesisId);
   else if (b.dataset.reiniciar !== undefined) reiniciar();
+  else if (b.dataset.ejemplo !== undefined) { estado.ejemplo = estado.ejemplo === 'reserva' ? 'compra' : 'reserva'; reiniciar(); }
 });
 
 document.addEventListener('change', (e) => {
@@ -447,7 +450,7 @@ async function cargarClaves() {
   } catch { /* sin claves guardadas */ }
   const claves = {};
   const exportables = {};
-  for (const id of ['casa', 'cocina', 'huesped']) {
+  for (const id of ['casa', 'cocina', 'huesped', 'recepcion']) {
     claves[id] = await autoridad.generarClaves();
     exportables[id] = { publica: claves[id].publica, privada: await autoridad.exportarPrivada(claves[id].privada) };
   }
@@ -455,7 +458,15 @@ async function cargarClaves() {
   return claves;
 }
 
-async function ejemploNuevo() {
+/** Selector de ejemplo: compra de comida o reserva de alojamiento. Guarda la elección en estado y en el navegador, y construye el eje elegido. */
+async function ejemploNuevo(nombre = estado.ejemplo) {
+  estado.ejemplo = nombre === 'reserva' ? 'reserva' : 'compra';
+  try { globalThis.localStorage?.setItem(CLAVE_EJEMPLO, estado.ejemplo); } catch { /* sin almacenamiento */ }
+  $('[data-ejemplo]').textContent = 'ejemplo: ' + (estado.ejemplo === 'reserva' ? 'reserva' : 'comida');
+  if (estado.ejemplo === 'reserva') {
+    const { eje, reserva } = await ejemploReserva({ claves: estado.claves });
+    return { eje, foco: reserva.id };
+  }
   const { eje, compra } = await ejemploCompra({ claves: estado.claves });
   await ejemploCuenta(eje, compra, estado.claves.cocina?.privada);
   return { eje, foco: compra.id };
@@ -473,6 +484,8 @@ async function reiniciar() {
   irA(foco);
 }
 
+try { estado.ejemplo = globalThis.localStorage?.getItem(CLAVE_EJEMPLO) === 'reserva' ? 'reserva' : 'compra'; } catch { /* sin almacenamiento */ }
+$('[data-ejemplo]').textContent = 'ejemplo: ' + (estado.ejemplo === 'reserva' ? 'reserva' : 'comida');
 estado.claves = await cargarClaves();
 let cargado = await persistencia.cargarLocal(CLAVE_EJE);
 let foco;
