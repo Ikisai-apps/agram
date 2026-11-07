@@ -13,6 +13,8 @@ import * as E from '../src/encaje.js';
 import * as B from '../src/bql.js';
 import * as motor from '../src/motor.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { escribirDesde, costeT } from '../src/escritura.js';
+import { cabeEscritura } from '../src/modos.js';
 import { generarClaves, verificar } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
@@ -254,24 +256,37 @@ test.skip('[X] decidir VG: ¿mover T de uno a sí mismo cuenta como «el autor m
  * cada intento: si se rechaza, nada cambia (atomicidad de anadir) y el
  * rechazo es controlado; saldos finitos y no negativos; conservación por
  * serie (Σ saldos + consumido = emitido, con lo emitido que lleva el eje; P
- * por familia, porque delegar cambia de ámbito). Al final, restaurar
- * reproduce el eje.
+ * por familia, porque delegar cambia de ámbito); toda emisión aceptada es de
+ * una persona o un grupo y va a su propia serie (E:<emisor>/<denominación>,
+ * R:<emisor>); una cosa no emite, pero recibe, conserva y mueve. Al final,
+ * restaurar reproduce el eje.
  */
 test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conservación y restauración', async () => {
   const g = prng(SEMILLA + 3);
   const fam = (k) => (k.startsWith('P:') ? 'P' : k);
+  const quienes = ['b', 'c', 'hab'];
+  const vistos = { emisionDeOtros: 0, cosaMueve: 0, cosaNoEmite: 0 };
   for (let s = 0; s < 12; s++) {
-    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', denominacion: 'EUR', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
-    const consumido = new Map();
-    const ids = [eje.genesisId];
+    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
+    // Alta: b es persona, c es grupo y hab es una cosa (con cartera, sin emisión).
+    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
+    const consumido = new Map([['T:minuto', 1]]);
+    const ids = [eje.genesisId, alta.id];
     for (let paso = 0; paso < 25; paso++) {
-      const autor = g.pick(['r', 'r', 'b', 'c', 'nadie']);
-      const mov = [{ token: 'T', escala: g.pick(['segundo', 'minuto']), cantidad: g.int(1, 3), de: autor, a: g.si(0.3) ? g.pick(['b', 'c']) : null }];
+      const autor = g.pick(['r', 'r', 'b', 'c', 'hab', 'nadie']);
+      const mov = [{ token: 'T', escala: g.pick(['segundo', 'minuto']), cantidad: g.int(1, 3), de: autor, a: g.si(0.3) ? g.pick(quienes) : null }];
       const op = g.int(0, 9);
-      if (op === 0) mov.push({ token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: g.int(1, 30), de: autor, a: g.pick(['b', 'c', null]) });
-      if (op === 1) mov.push({ token: 'P', ambito: g.pick([...ids, 'genesis']), cantidad: g.int(1, 4), de: autor, a: g.pick(['b', 'c']) });
-      if (op === 2) mov.push({ token: 'R', emisor: 'r', cantidad: g.int(1, 3), de: autor, a: g.pick(['b', 'c']) });
-      if (op === 3) mov.push({ token: 'E', denominacion: g.pick(['EUR', 'plaza']), emisor: autor, cantidad: g.int(1, 3), de: null, a: autor }); // emite su serie (solo personas y grupos)
+      if (op === 0) mov.push({ token: 'E', denominacion: g.pick(['EUR', 'plaza']), emisor: g.pick(['r', autor]), cantidad: g.int(1, 30), de: autor, a: g.pick([...quienes, null]) });
+      if (op === 1) mov.push({ token: 'P', ambito: g.pick([...ids, 'genesis']), cantidad: g.int(1, 4), de: autor, a: g.pick(quienes) });
+      if (op === 2) mov.push({ token: 'R', emisor: 'r', cantidad: g.int(1, 3), de: autor, a: g.pick(quienes) });
+      if (op === 3) {
+        // Emite su serie (solo personas y grupos) y a veces da plazas a la cosa en el mismo evento.
+        if (g.si(0.8)) {
+          const denominacion = g.pick(['EUR', 'plaza']);
+          mov.push({ token: 'E', denominacion, emisor: autor, cantidad: g.int(1, 3), de: null, a: autor });
+          if (g.si()) mov.push({ token: 'E', denominacion, emisor: autor, cantidad: 1, de: autor, a: 'hab' });
+        } else mov.push({ token: 'R', emisor: autor, cantidad: g.int(1, 3), de: null, a: autor });
+      }
       if (op === 4) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: autor }); // tokens ajenos si autor ≠ r
       if (op === 5) mov.push({ token: 'T', escala: 'anio', cantidad: 100, de: autor, a: 'b' }); // saldo insuficiente
       if (op === 7) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor }); // T solo lo emite el génesis
@@ -284,9 +299,23 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
         assert.equal(e.constructor, Error, e.message);
         assert.match(e.message, /evento (rechazado|mal formado)/);
         assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
+        if (autor === 'hab' && op === 3) {
+          assert.match(e.message, /solo personas y grupos emiten: hab es cosa/);
+          vistos.cosaNoEmite++;
+        }
         continue;
       }
       ids.push(ev.id);
+      for (const m of ev.movimientos.filter((x) => x.de === null)) {
+        assert.equal(m.emisor, ev.autor);
+        if (ev.autor !== 'r') vistos.emisionDeOtros++;
+      }
+      if (ev.autor === 'hab') vistos.cosaMueve++;
+      for (const serie of eje.series()) {
+        assert.ok(['persona', 'grupo'].includes(eje.tipo(serie.emisor)), serie.clave + ' la emite ' + serie.emisor);
+        if (serie.token === 'E') assert.equal(serie.clave, 'E:' + serie.emisor + '/' + serie.denominacion);
+        if (serie.token === 'R') assert.equal(serie.clave, 'R:' + serie.emisor);
+      }
       for (const m of ev.movimientos) if (m.a === null) consumido.set(fam(claveToken(m)), (consumido.get(fam(claveToken(m))) ?? 0) + cantidadBase(m));
       for (const [id, saldos] of eje.saldos) for (const [k, v] of saldos) assert.ok(Number.isFinite(v) && v >= 0, id + ' ' + k + ' = ' + v);
       const total = new Map();
@@ -300,6 +329,46 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
     assert.equal(foto(otro), foto(eje));
     assert.deepEqual(ida(otro), ida(eje));
   }
+  assert.ok(vistos.emisionDeOtros > 0 && vistos.cosaMueve > 0 && vistos.cosaNoEmite > 0, JSON.stringify(vistos));
+});
+
+/**
+ * Escribir cuesta minutos: escribirDesde mueve un minuto de T por posición
+ * (costeT) y cada escala es su propio token, así que las horas no pagan.
+ * Se acepta si cabe en el modo y hay minutos; si no, nada cambia.
+ */
+test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca las demás escalas', async () => {
+  const g = prng(SEMILLA + 6);
+  const vistos = { aceptado: 0, sinMinutos: 0, noCabe: 0 };
+  for (let i = 0; i < 150; i++) {
+    const minutos = g.pick([0, 1, 2, 5, 20, 400]);
+    const emision = [{ token: 'T', escala: 'hora', cantidad: 1000 }, ...(minutos ? [{ token: 'T', escala: 'minuto', cantidad: minutos }] : [])];
+    const eje = await Eje.genesis({ identidad: 'r', emision, foco: ['g', ['a', 'b']], t: T0 });
+    const modo = g.pick(['pointed', 'sequenced', 'mapped']);
+    const payload = g.si(0.3) ? g.pick(['plaza', 7, { ref: eje.genesisId, dir: '1000000000' }]) : payloadEje(g, [eje.genesisId]);
+    const coste = costeT(payload);
+    const cabe = cabeEscritura(payload, modo);
+    const antes = foto(eje);
+    let ev;
+    try {
+      ev = await escribirDesde(eje, { modo, autor: 'r', sobre: eje.genesisId, payload, t: T0 });
+    } catch (e) {
+      assert.ok(!cabe || minutos < coste, 'rechazado sin motivo: ' + e.message);
+      assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
+      if (!cabe) vistos.noCabe++;
+      else {
+        assert.match(e.message, /saldo insuficiente de T:minuto/);
+        vistos.sinMinutos++;
+      }
+      continue;
+    }
+    assert.ok(cabe && minutos >= coste, 'aceptado sin caber o sin minutos: ' + modo + ' ' + coste + '/' + minutos);
+    assert.deepEqual(ev.movimientos.map((m) => [m.token, m.escala, m.cantidad, m.de, m.a]), [['T', 'minuto', coste, 'r', null]]);
+    assert.equal(eje.saldoT('r', 'minuto'), minutos - coste);
+    assert.equal(eje.saldoT('r', 'hora'), 1000, 'las horas no pagan minutos');
+    vistos.aceptado++;
+  }
+  assert.ok(vistos.aceptado > 0 && vistos.sinMinutos > 0 && vistos.noCabe > 0, JSON.stringify(vistos));
 });
 
 // ---------- encaje ----------
@@ -507,7 +576,7 @@ async function ejeConFirmas(g, pares) {
   const firmas = g.si(0.6);
   const [pr, pb] = pares;
   const priv = { r: firmas ? pr.privada : undefined, b: firmas ? pb.privada : undefined };
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
+  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
   const ids = [eje.genesisId];
   const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: firmas ? { claves: { b: pb.publica } } : {} }, priv.r);
   ids.push(alta.id);
