@@ -129,8 +129,9 @@ export function validarMovimiento(m) {
     if (typeof m[campo] === 'string' && /[|:/]/.test(m[campo])) errores.push(campo + ' no puede llevar | : ni /');
   }
   if (m.de === undefined || m.a === undefined) errores.push('de y a son obligatorios (null permitido)');
-  if (m.de !== null && typeof m.de !== 'string') errores.push('de debe ser identidad o null');
-  if (m.a !== null && typeof m.a !== 'string') errores.push('a debe ser identidad o null');
+  // Una identidad es una cadena no vacía, como el autor: '' no podría escribir nunca.
+  if (m.de !== null && !texto(m.de)) errores.push('de debe ser identidad o null');
+  if (m.a !== null && !texto(m.a)) errores.push('a debe ser identidad o null');
   if (m.de === null && m.a === null) errores.push('movimiento sin origen ni destino');
   return errores;
 }

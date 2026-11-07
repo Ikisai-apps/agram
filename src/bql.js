@@ -20,7 +20,7 @@
 // Estados: RESUELTO, PENDIENTE (falta algo por desarrollar), INCOMPATIBLE
 // (tipos que no operan), ERROR (sintaxis, función desconocida, ciclo, presupuesto).
 
-import { esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
+import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
 
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -212,11 +212,13 @@ function comparar(a, b, op) {
 }
 
 function exigirBool(v, donde) {
+  if (v === undefined) throw new Parada('ERROR', donde + ' espera un argumento');
   if (v.tipo !== 'booleano') throw new Parada('INCOMPATIBLE', donde + ' espera verdadero o falso, no ' + describir(v));
   return v.valor;
 }
 
 function exigirColeccion(v, donde) {
+  if (v === undefined) throw new Parada('ERROR', donde + ' espera un argumento');
   if (v.tipo !== 'coleccion') throw new Parada('INCOMPATIBLE', donde + ' espera una colección, no ' + describir(v));
   return v;
 }
@@ -238,6 +240,7 @@ function leerPosicion(ctx, evId, indices) {
 function leerSlot(ctx, evId, indices) {
   const contenido = leerPosicion(ctx, evId, indices);
   if (esFormula(contenido)) {
+    exigirDireccion(indices);
     const clave = evId + ':' + direccion(indices);
     if (ctx.pila.has(clave)) throw new Parada('ERROR', 'ciclo en ' + evId.slice(0, 8) + ':' + direccion(indices));
     ctx.pila.add(clave);
@@ -267,8 +270,18 @@ function resolverId(ctx, v) {
   throw new Parada('ERROR', ids.length ? 'referencia ambigua: ' + p : 'referencia desconocida: ' + p);
 }
 
+/**
+ * Una posición con más de diez profundidades no tiene dirección (no se
+ * concatena un undécimo dígito): ni se busca en ella ni se evalúa una fórmula
+ * que esté allí. Es un ERROR del slot, no una excepción.
+ */
+function exigirDireccion(indices) {
+  if (indices.length > ARIDAD) throw new Parada('ERROR', 'más de ' + ARIDAD + ' profundidades: la posición no tiene dirección');
+}
+
 /** Candidatos que ocupan una posición del anfitrión, como colección BQL. */
 function buscar(ctx, evId, indices) {
+  exigirDireccion(indices);
   // Orden por defecto: el del encaje (exactos, luego acuerdo, luego desplazamiento). ORDENAR lo discute.
   const items = ocupantes(ctx.eje, evId, indices).map((o) => ({
     origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
@@ -433,10 +446,23 @@ export function evaluar(eje, evId, dir) {
     const valor = leerSlot(ctx, evId, indices);
     return { estado: 'RESUELTO', valor, texto: formato(valor), dependencias: [...ctx.dependencias] };
   } catch (e) {
-    if (e instanceof Parada) return { estado: e.estado, motivo: e.message, texto: e.estado + ': ' + e.message, dependencias: [...ctx.dependencias] };
-    if (e instanceof SyntaxError) return { estado: 'ERROR', motivo: e.message, texto: 'ERROR: ' + e.message, dependencias: [] };
-    throw e;
+    return estadoDeError(e, ctx);
   }
+}
+
+/**
+ * Lo que para una evaluación es un estado del slot, no una excepción: una
+ * Parada, un error de sintaxis o la pila agotada por una fórmula anidada
+ * miles de veces (RangeError), que cuenta como presupuesto agotado.
+ */
+function estadoDeError(e, ctx) {
+  if (e instanceof Parada) return { estado: e.estado, motivo: e.message, texto: e.estado + ': ' + e.message, dependencias: [...ctx.dependencias] };
+  if (e instanceof SyntaxError) return { estado: 'ERROR', motivo: e.message, texto: 'ERROR: ' + e.message, dependencias: [] };
+  if (e instanceof RangeError) {
+    const motivo = 'presupuesto agotado: ' + (/call stack/i.test(e.message) ? 'anidamiento demasiado profundo' : e.message);
+    return { estado: 'ERROR', motivo, texto: 'ERROR: ' + motivo, dependencias: [...ctx.dependencias] };
+  }
+  throw e;
 }
 
 /** Evalúa una fórmula suelta (sin «=») en el contexto de un slot. Para consultas desde fuera. */
@@ -447,9 +473,7 @@ export function consultar(eje, evId, dir, formula) {
     const valor = evaluarArbol(ctx, analizar(formula.replace(/^=/, '')), evId, indices);
     return { estado: 'RESUELTO', valor, texto: formato(valor), dependencias: [...ctx.dependencias] };
   } catch (e) {
-    if (e instanceof Parada) return { estado: e.estado, motivo: e.message, texto: e.estado + ': ' + e.message, dependencias: [...ctx.dependencias] };
-    if (e instanceof SyntaxError) return { estado: 'ERROR', motivo: e.message, texto: 'ERROR: ' + e.message, dependencias: [] };
-    throw e;
+    return estadoDeError(e, ctx);
   }
 }
 
