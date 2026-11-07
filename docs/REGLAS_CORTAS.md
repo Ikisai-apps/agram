@@ -81,6 +81,8 @@ leerDireccion('1400000000', e1)
 
 Una regla larga se aplica a la entrada de `leerDireccion` cuya ruta (los dígitos hasta esa profundidad) coincide exactamente con la suya, también cuando la dirección sigue más abajo; y gana a la corta. Las de la propia época mandan sobre las del respaldo. `epoca.reglaLarga(ruta)` da el nombre, `epoca.larga(ruta)` la regla entera y `epoca.largas` la lista de las propias. El ejemplo es de uso: no hay contenido de reglas largas escrito.
 
+Los cortes de las diez cajas del 8 son una sola escala de nueve umbrales para todas las medidas (`cortes`, una lista) y se heredan del respaldo igual que las reglas cortas; si nadie los trae, vale la escala provisional `1 2 3 4 6 10 16 26 42` (VG, 8-11).
+
 Una época puede declarar `"ordinales": [k, …]`: las profundidades donde el dígito es orden y no nombre. Se convierte en `epoca.ordinal(k)`, el gancho que ya usa `src/encaje.js`: solo ahí la distancia del vector ordena (opción B, mapa §12 [D]). La época 0 no declara ninguna.
 
 Pointed, Sequenced y Mapped aceptan la época por objeto o por nombre, igual que `leerDireccion` (`decupla(ev, 'época 0', profundidad)`, `secuencia(eje, id, { epoca })`, `mapa(eje, id, { camino, epoca })`); por defecto, la época 0. Un nombre que no existe, también «época 1» y «época 1 (propuesta)», da `época desconocida`.
