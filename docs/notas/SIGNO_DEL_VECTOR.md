@@ -2,7 +2,7 @@
 
 Nota de lectura para VG · 7-11-2026 · **No decide nada.** Recoge lo que dice el corpus (citas literales con archivo y línea), lo que hoy hace el código, las cuatro lecturas que se hicieron esta noche y las opciones abiertas. Lo que es deducción del asistente va marcado como tal. `docs/FUNDAMENTOS.md` («El vector de encaje») remite a esta nota.
 
-Rutas abreviadas: `agx/` = `C:\Users\acer\AppData\Local\Temp\agx\`; `MAPA` = `C:\Users\acer\Documents\Ikisai\MUELA\equipo\agram\MAPA_GLOBAL_AGRAM.md`; `02_BTML` = `agx/01_NUCLEO_V4/02_BTML_ESTRUCTURA_POSICIONES_Y_CEROS.md`.
+Rutas abreviadas: `agx/` = raíz del paquete del corpus V4 (copia local de trabajo); `MAPA` = `MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md` (fuera de este repositorio); `02_BTML` = `agx/01_NUCLEO_V4/02_BTML_ESTRUCTURA_POSICIONES_Y_CEROS.md`.
 
 ## 1. La cuestión en tres frases
 

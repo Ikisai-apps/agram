@@ -13,6 +13,8 @@ import { consolidaciones } from './motor.js';
 import { MODOS } from './modos.js';
 import { esFormula, evaluar } from './bql.js';
 import { EPOCA_0 } from './epocas.js';
+// Las bases del 8 (src/bases.js) no son hermanas, ni escritos, ni comparables de lo que miden.
+import { hijos, esBase } from './bases.js';
 
 /** Banda de una distancia temporal en segundos: la escala más pequeña que la contiene. */
 export function banda(deltaSegundos) {
@@ -53,25 +55,25 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
   return { foco, ahora, pasado: unico(pasado).slice(0, maximo), futuro: unico(futuro).slice(0, maximo), totalPasado: pasado.length, totalFuturo: futuro.length };
 }
 
-/** Diez hitos heredados (índice → nivel.grado). Etiquetas provisionales; sin algoritmo que los asigne. */
+/** Diez hitos de PV8 (índice → nivel.grado), con sus etiquetas literales (mapa §2.2 [D20]); escala ordinal, sin algoritmo que los asigne. */
 export const HITOS = Object.freeze([
   { indice: 0, nivel: '0.3', nombre: 'idea' },
   { indice: 1, nivel: '1.1', nombre: 'aprendizaje' },
-  { indice: 2, nivel: '2.1', nombre: 'aprendizaje avanzado' },
+  { indice: 2, nivel: '2.1', nombre: 'avanzado' },
   { indice: 3, nivel: '3.1', nombre: 'aprendizaje profesional' },
   { indice: 4, nivel: '3.2', nombre: 'resolución profesional' },
   { indice: 5, nivel: '4.1', nombre: 'aprendizaje superior' },
   { indice: 6, nivel: '4.2', nombre: 'solución profesional avanzada' },
   { indice: 7, nivel: '5.1', nombre: 'investigación' },
   { indice: 8, nivel: '5.2', nombre: 'trabajo maestro' },
-  { indice: 9, nivel: '5.3', nombre: 'resolución experimental' },
+  { indice: 9, nivel: '5.3', nombre: 'resolución experimental muy avanzada' },
 ]);
 
-/** Medida simple de un registro: posiciones desarrolladas, escritos encima, movimientos. */
+/** Medida simple de un registro: posiciones desarrolladas, escritos encima (sin sus bases del 8), movimientos. */
 export function medir(eje, id) {
   const ev = eje.obtener(id);
   const contar = (p) => (Array.isArray(p) ? p.reduce((n, h) => n + contar(h), 0) : 1);
-  return { posiciones: contar(ev.payload), escritos: eje.sobre(id).length, movimientos: ev.movimientos.length };
+  return { posiciones: contar(ev.payload), escritos: hijos(eje, id).length, movimientos: ev.movimientos.length };
 }
 
 /**
@@ -83,7 +85,8 @@ export function medir(eje, id) {
 export function comparar(eje, foco) {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
-  const hermanos = ev.sobre === null ? [ev] : eje.sobre(ev.sobre);
+  const delPadre = ev.sobre === null ? [] : hijos(eje, ev.sobre);
+  const hermanos = delPadre.some((h) => h.id === foco) ? delPadre : [ev]; // el génesis y una base del 8 solo se comparan consigo mismos
   const lista = hermanos.map((h) => {
     const m = medir(eje, h.id);
     return { id: h.id, autor: h.autor, ...m, puntuacion: m.posiciones + 2 * m.escritos + m.movimientos };
@@ -167,14 +170,15 @@ export function comparables(eje, foco, alcance = 'hermanos') {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   if (!ALCANCES.includes(alcance)) throw new Error('alcance desconocido: ' + alcance);
-  if (alcance === 'hermanos') return ev.sobre === null ? [ev] : eje.sobre(ev.sobre);
-  if (alcance === 'general') return eje.orden.map((id) => eje.obtener(id));
+  if (esBase(eje, ev)) return [ev]; // una base del 8 solo se compara consigo misma
+  if (alcance === 'hermanos') return ev.sobre === null ? [ev] : hijos(eje, ev.sobre);
+  if (alcance === 'general') return eje.orden.map((id) => eje.obtener(id)).filter((e) => !esBase(eje, e));
   const ids = new Set();
   const pendientes = [proyectoDe(eje, foco).id];
   while (pendientes.length) {
     const id = pendientes.pop();
     ids.add(id);
-    for (const h of eje.sobre(id)) pendientes.push(h.id);
+    for (const h of hijos(eje, id)) pendientes.push(h.id);
   }
   return eje.orden.filter((id) => ids.has(id)).map((id) => eje.obtener(id));
 }
@@ -207,13 +211,14 @@ export function posicionesDe(eje, id) {
         if (o.camino.length === 0) continue; // el registro entero, no una posición
         p[esReferencia(o.contenido) ? 'referencia' : 'propia'] = true;
       } else if (o.tipo === 'escrito') {
+        if (esBase(eje, eje.obtener(o.evento))) continue; // la base del 8 no desarrolla lo que mide
         p.escrita = true;
         if (p.indice === 0) raiz.escrita = true; // la dirección de la 0 es la de la raíz
       }
       // Un ocupante por referencia nace siempre de un propio que es la referencia: ya está contado.
     }
   }
-  for (const h of eje.sobre(id)) {
+  for (const h of hijos(eje, id)) {
     const indices = indicesDe(h.en);
     if (indices.length > 1) posiciones[indices[0]].escrita = true; // más hondo que la posición: la desarrolla
   }
@@ -372,10 +377,10 @@ export function fundir(a, b) {
  * cuántos tienen algo escrito en la raíz. La época pone el significado de
  * cada posición (regla corta) y, si los tiene, los cortes de las cajas
  * (`epoca.cortes(clave)`). No asigna nivel ni grado: los HITOS se devuelven
- * solo como tabla. Consulta sin efectos: es el cálculo que producirá las
- * bases. Escribirlas como registros en la posición 8 del registro que
- * resumen (VG, 7-11: con referencias a lo medido, fecha y frescura,
- * fundibles hacia arriba) es la pieza siguiente.
+ * solo como tabla. Consulta sin efectos: el mismo cálculo que src/bases.js
+ * escribe como registros en la posición 8 del registro que resumen (VG,
+ * 7-11: con referencias a lo medido, fecha y frescura, fundibles hacia
+ * arriba) y lee con situar() y BASES() en BQL.
  */
 export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
   const lista = comparables(eje, foco, alcance);

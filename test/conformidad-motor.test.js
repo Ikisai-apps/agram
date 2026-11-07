@@ -474,7 +474,7 @@ test('MOT-20 consultar, elegir, preparar, consolidar, firmar y ejecutar son acto
 });
 
 test('MOT-20b acreditar el resultado material es un acto propio',
-  { skip: 'MOT-20: no existe el acto de acreditar el resultado material (capa 4 de validez)' },
+  { skip: 'MOT-20: no existe el acto de acreditar el resultado material. La capa 4 de src/validez.js (desde la #49) solo mira el respaldo en el libro y dice «externa: sin acreditar»; acreditar lo ocurrido en el mundo es de AARPIA, fuera de AGRAM' },
   sinForma('MOT-20'));
 
 test('MOT-21 una compra autorizada no es una compra hecha: AUTORIZADO ≠ EJECUTADO y los recursos solo se mueven al ejecutar', async () => {
@@ -613,7 +613,7 @@ test('MOT-30 lo consolidado en un registro ocupa un espacio de diez por diez', a
 });
 
 test('MOT-30b las diez posiciones del registro se pueden elegir: diez interpretaciones por diez interacciones',
-  { skip: 'MOT-30: el mapa §12 (7-11) fija los ejes: posición × subposición del foco, de 0 a 9, con la clase de modificación como tercera dimensión (la matriz 10×10×10 llega con la #40, en src/escritura.js). consolidar() aún reserva la posición 0 para su título y no deja elegirla, así que solo caben nueve por diez' },
+  { skip: 'MOT-30: el mapa §12 (7-11) fija los ejes: posición × subposición del foco, de 0 a 9, con la clase de modificación como tercera dimensión (la matriz 10×10×10 está en src/escritura.js desde la #40). consolidar() aún reserva la posición 0 para su título y no deja elegirla, así que solo caben nueve por diez' },
   async () => {
     const { eje, g } = await mundo(['Foco']);
     const elecciones = {};
@@ -844,7 +844,10 @@ test('MOT-55 forma por modo: Pointed un terminal; Sequenced una hilera de 1–10
   assert.deepEqual(payload[3], 'nuevo aviso');
   const lejos = [];
   lejos[7] = ['x'];
-  assert.throws(() => desdeMapped(eje, lejos, g), /hueco en 5/);
+  // Lo lejano se ancla (mapa §12, «lo lejano = anclaje»; PR #40): la 7 va aparte, en su dirección, sin rellenar 5 y 6.
+  const r = desdeMapped(eje, lejos, g);
+  assert.equal(r.payload, null);
+  assert.deepEqual(r.anclados.map((x) => [x.en, x.payload, x.faltan]), [['7000000000', 'x', ['5', '6']]]);
 });
 
 test('MOT-56 la proporción se cuenta en posiciones: una por terminal o referencia', () => {
@@ -875,7 +878,7 @@ test('MOT-58 desde Sequenced se escribe como mucho una quinta parte de lo leído
 });
 
 test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído',
-  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. El mapa §12 fija topes duros por modo (Sequenced 100) además de la proporción, y que siempre se emite algo (la #40 pone los topes); no fija un mínimo. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
+  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. El mapa §12 fija topes duros por modo (Sequenced 100) además de la proporción, y que siempre se emite algo (los topes están en src/modos.js desde la #40); no fija un mínimo. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: ['solo una'], t: T0 }));
@@ -891,7 +894,7 @@ test('MOT-59 desde Mapped se escribe como mucho un tercio de lo leído (333 de 1
 });
 
 test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 1000)',
-  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped llega como mucho a 100 y consolidar() escribe en Mapped con pocas posiciones. El mapa §12 fija topes duros por modo (Mapped 1000) además de la proporción (la #40 pone los topes); no fija un mínimo. [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
+  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped conforma la matriz 10×10×10 bajo un camino y consolidar() escribe en Mapped con pocas posiciones. El mapa §12 fija topes duros por modo (Mapped 1000) además de la proporción (están en src/modos.js desde la #40); no fija un mínimo. [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: ['una'], t: T0 }));
@@ -922,8 +925,20 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
 });
 
 test('MOT-61b la acreditación material (capa 4) y un informe por capas',
-  { skip: 'MOT-61: la capa 4 (acreditación material) no existe y no hay ningún informe de validez por capas' },
+  { skip: 'MOT-61: el informe por capas ya existe (src/validez.js, desde la #49; lo comprueba MOT-61c), pero su capa 4 solo mira el respaldo en el libro: acreditar el resultado material en el mundo no tiene acto ni dato propio (AARPIA, fuera de AGRAM)' },
   sinForma('MOT-61'));
+
+test('MOT-61c un informe por capas: cinco estados independientes, sin veredicto global', async () => {
+  const { validez, CAPAS, ESTADOS_CAPA } = await import('../src/validez.js');
+  const { eje, g } = await mundo();
+  const alta = eje.sobre(g)[0];
+  const v = await validez(eje, alta.id);
+  assert.deepEqual(v.capas.map((c) => c.capa), [1, 2, 3, 4, 5]);
+  assert.deepEqual(CAPAS.map((c) => c.clave), ['forma', 'interpretacion', 'criptografia', 'acreditacion', 'permiso']);
+  for (const c of v.capas) assert.ok(ESTADOS_CAPA.includes(c.estado), c.clave + ': ' + c.estado);
+  for (const global of ['valido', 'valida', 'veredicto', 'puntuacion']) assert.equal(v[global], undefined, global);
+  assert.match(v.acreditacion.resumen, /externa: sin acreditar/); // la capa 4 mira el libro; el mundo queda fuera
+});
 
 test('MOT-62 las capas no se confunden: estructura válida y firmada no es autorización; la firma solo prueba quién escribe', async () => {
   const raiz = await generarClaves();
@@ -1505,7 +1520,7 @@ test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura,
 });
 
 test('TOK-48b los cuatro tokens tienen presencia visible, no solo cifras',
-  { skip: 'TOK-48: la vista es una lista de cifras por identidad (app.js); no hay render animado ni presencia de los tokens en los mundos' },
+  { skip: 'TOK-48: desde la #50 los movimientos de un evento nuevo se ven en el mundo de los hilos (mundos/hilos.js: un punto por movimiento de «de» a «a», con un color por familia, tentativo), pero solo al animarse; en reposo los saldos siguen siendo cifras por identidad (ui/saldos.js) y los demás mundos no existen todavía' },
   sinForma('TOK-48'));
 
 test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
@@ -1799,7 +1814,7 @@ test('TOK-79 capas de validez separadas: el eje valida forma, id, firma y saldos
 });
 
 test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona',
-  { skip: 'TOK-79: no hay acreditación material ni un modelo de capas' },
+  { skip: 'TOK-79: el modelo de capas ya existe (src/validez.js, desde la #49; MOT-61c), pero no hay acreditación material del mundo ni una vista de PV5 que lo inspeccione en app.js' },
   sinForma('TOK-79'));
 
 // =====================================================================
