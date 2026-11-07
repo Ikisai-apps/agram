@@ -345,6 +345,7 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 | `BUSCAR(4, 0)` | RESUELTO | los mismos 5 (misma dirección) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
+| `BUSCAR(1, 1, …)` con más de diez profundidades contando las del anfitrión | ERROR | `ERROR: más de 10 profundidades: la posición no tiene dirección` (igual con `ACTUAL(pv)` y con una fórmula escrita por debajo del décimo nivel) |
 | `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio f9e59d1e · propio f9e59d1e · referencia 4598f23e · escrito c70bfa6e` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
@@ -470,6 +471,9 @@ La evaluación se detiene en la primera parada; el estado de la consulta es el d
 | ERROR | `función desconocida: <NOMBRE>` | Nombre no listado en §7.0. |
 | ERROR | `ciclo en <id8>:<dir>` | Un slot con fórmula se vuelve a leer mientras se está evaluando (autorreferencia, ciclo entre eventos, `=ACTUAL(1)` en `[1]`). |
 | ERROR | `presupuesto agotado` | Más de 2000 nodos evaluados en una consulta (§9.3). |
+| ERROR | `presupuesto agotado: anidamiento demasiado profundo` | Una fórmula anidada miles de veces (`((((…1…))))`, `NO(NO(…))`) agota la pila del análisis o de la evaluación: es un estado, no una excepción. |
+| ERROR | `más de 10 profundidades: la posición no tiene dirección` | `BUSCAR`/`ACTUAL` o una fórmula en una posición por debajo del décimo nivel (no se concatena un undécimo dígito). |
+| ERROR | `<FN> espera un argumento` | `NO()`, `CONTAR()`, `SUMAR()`, `FILTRAR()`, `ORDENAR()`, `ELEGIR()` sin su primer argumento. |
 | ERROR | `evento desconocido: <id8>` | `evaluar`/`LOCAL`/`BUSCAR` sobre un id que no está en el eje, o una referencia BTML rota (`{ ref: 'nadie' }`) leída desde una fórmula o como candidato. |
 | ERROR | `referencia desconocida: <p>` / `referencia ambigua: <p>` | `REF` con prefijo que no resuelve a exactamente un evento. |
 | ERROR | `LOCAL espera al menos un índice`, `<FN> espera índices 0–9`, `REF espera un id entre comillas`, `REF espera una dirección de diez dígitos`, `BUSCAR espera una posición`, `ACTUAL fuera de FILTRAR espera una posición`, `ACTUAL espera una cantidad entera ≥ 1`, `FILTRAR espera una condición`, `ORDENAR espera una expresión`, `ELEGIR espera una cantidad entera ≥ 1`, `<FN> solo dentro de FILTRAR u ORDENAR` | Argumentos mal formados (§7). |
@@ -658,7 +662,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 
 ## 12. Límites y defectos observados (pendiente, no corregidos aquí)
 
-1. **Funciones sin argumentos que esperan uno**: `NO()`, `CONTAR()`, `SUMAR()`, `FILTRAR()`, `ORDENAR()`, `ELEGIR()` lanzan `TypeError: Cannot read properties of undefined (reading 'tipo')` **fuera** de `evaluar`/`consultar` (no devuelven un Resultado). Quien construya fórmulas debe garantizar el argumento.
+1. ~~Funciones sin argumentos que esperan uno lanzaban `TypeError`~~: corregido, hoy dan `ERROR: <FN> espera un argumento` (§8; regresión en `test/propiedades.test.js`).
 2. `1e3` se analiza como magnitud `1 e3` (no hay notación exponencial).
 3. `1 / 0` devuelve numero `Infinity` (texto `Infinity`), sin parada.
 4. `=`/`<>` entre tipos distintos comparan el texto formateado: `1 = "1"` es verdadero; dos arrays de igual longitud son iguales; dos colecciones con el mismo texto son iguales.

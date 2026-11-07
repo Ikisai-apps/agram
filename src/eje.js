@@ -6,8 +6,8 @@
 // es persona o grupo (VG, 7-11). T y P solo los emite el génesis.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { crearEvento, validarForma, verificarId } from './evento.js';
-import { verificar, firmar } from './autoridad.js';
+import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
+import { verificar, firmar, clavePublicaValida } from './autoridad.js';
 
 export class Eje {
   #series;
@@ -44,10 +44,10 @@ export class Eje {
       contexto: { ...contexto, genesis: true, ...(clave ? { claves: { [identidad]: clave } } : {}), ...(tipo ? { tipos: { [identidad]: tipo } } : {}) },
     });
     if (privada) ev = await firmar(ev, privada);
-    const errores = erroresGenesis(ev);
+    // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella.
+    const errores = [...erroresGenesis(ev), ...(await erroresFirmaGenesis(ev))];
     if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
-    if (clave) eje.claves.set(identidad, clave);
-    if (exigirFirmas && !(clave && (await verificar(ev, clave)))) throw new Error('el génesis debe ir firmado');
+    if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(ev);
     return eje;
   }
@@ -67,17 +67,17 @@ export class Eje {
    * validando cada uno: ids, firmas, saldos. Nada se da por bueno.
    */
   static async desde(eventos, { exigirFirmas = false } = {}) {
-    const [g, ...resto] = eventos;
-    if (!g || g.contexto?.genesis !== true || g.sobre !== null) throw new Error('el primer evento debe ser el génesis');
+    const [crudo, ...resto] = eventos;
+    if (!crudo || crudo.contexto?.genesis !== true || crudo.sobre !== null) throw new Error('el primer evento debe ser el génesis');
+    const g = copiaGuardable(crudo);
     const errores = [...validarForma(g), ...erroresGenesis(g)];
     if (!(await verificarId(g))) errores.push('id del génesis no corresponde');
+    if (!errores.length) errores.push(...(await erroresFirmaGenesis(g)));
     if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
     const eje = new Eje({ exigirFirmas });
-    const clave = g.contexto.claves?.[g.autor];
-    if (clave && !(await verificar(g, clave))) throw new Error('firma del génesis inválida');
-    if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
-    eje.#aplicar(Object.freeze({ ...g }));
-    for (const ev of resto) await eje.anadir(Object.freeze({ ...ev }));
+    if (exigirFirmas && !g.contexto.claves?.[g.autor]) throw new Error('el génesis debe ir firmado');
+    eje.#aplicar(g);
+    for (const ev of resto) await eje.anadir(ev);
     return eje;
   }
 
@@ -149,9 +149,21 @@ export class Eje {
     return this.#porSerie(identidad, 'R').map(({ emisor, cantidad }) => ({ emisor, cantidad }));
   }
 
-  /** Errores que impedirían añadir el evento; vacío si es admisible. */
-  async validar(ev) {
+  /**
+   * Errores que impedirían añadir el evento; vacío si es admisible. Se valida
+   * la copia que se guardaría (normalizarEvento), nunca lanza por la forma.
+   */
+  async validar(crudo) {
+    let ev;
+    try {
+      ev = normalizarEvento(crudo);
+    } catch (e) {
+      return ['no cabe en JSON: ' + e.message];
+    }
     const errores = validarForma(ev);
+    if (!ev || typeof ev !== 'object') return errores;
+    // Los movimientos que no son objeto ya los cuenta validarForma; aquí no se miran.
+    const movimientos = Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : [];
     if (typeof ev.id !== 'string' || !(await verificarId(ev))) errores.push('id no corresponde al cuerpo');
     if (this.eventos.has(ev.id)) errores.push('evento ya registrado');
     if (ev.contexto?.genesis) errores.push('ya hay génesis');
@@ -170,14 +182,14 @@ export class Eje {
     // Las claves que declara el evento solo pueden ser de identidades nuevas (que reciben tokens en él).
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) {
       if (this.claves.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar la clave de ' + id);
-      else if (!(ev.movimientos ?? []).some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
-      else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) errores.push('clave inválida para ' + id);
+      else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
+      else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
     }
     // Igual con los tipos: se declaran en el alta y no cambian.
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
       if (!TIPOS.includes(tipo)) errores.push('tipo inválido para ' + id + ': ' + tipo);
       else if (this.#tipos.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar el tipo de ' + id);
-      else if (!(ev.movimientos ?? []).some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
+      else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
     }
     // Simulación de los movimientos, en orden, sobre una vista de los saldos y
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
@@ -186,7 +198,7 @@ export class Eje {
     const ver = (id, k) => vista.get(JSON.stringify([id, k])) ?? this.saldo(id, k);
     const poner = (id, k, v) => vista.set(JSON.stringify([id, k]), v);
     const emitido = new Map();
-    for (const m of ev.movimientos ?? []) {
+    for (const m of movimientos) {
       if (validarMovimiento(m).length) continue; // ya lo cuenta validarForma
       const k = claveToken(m);
       const c = cantidadBase(m);
@@ -217,8 +229,12 @@ export class Eje {
     return errores;
   }
 
-  /** Añade un evento válido y aplica sus movimientos. Lanza si no es admisible. */
-  async anadir(ev) {
+  /**
+   * Añade un evento válido y aplica sus movimientos. Lanza si no es admisible.
+   * Guarda y devuelve su copia normalizada y congelada, no el objeto recibido.
+   */
+  async anadir(crudo) {
+    const ev = copiaGuardable(crudo);
     const errores = await this.validar(ev);
     if (errores.length) throw new Error('evento rechazado: ' + errores.join('; '));
     this.#aplicar(ev);
@@ -281,7 +297,8 @@ export class Eje {
 
   /** Ámbitos de P que cubren un ámbito dado: él mismo, los registros de su hilo y el génesis. */
   ambitosQueCubren(ambito) {
-    if (ambito === AMBITO_GENESIS) return [AMBITO_GENESIS];
+    // El génesis nombrado por su id cubre lo mismo que «genesis»: todo el eje.
+    if (ambito === AMBITO_GENESIS) return this.genesisId ? [AMBITO_GENESIS, this.genesisId] : [AMBITO_GENESIS];
     const hilo = this.eventos.has(ambito) ? this.hilo(ambito).map((e) => e.id) : [ambito];
     return [...hilo, AMBITO_GENESIS];
   }
@@ -309,13 +326,19 @@ export class Eje {
   }
 }
 
-/** El génesis emite a su autor, sus series de E y R quedan a su nombre, y solo declara el tipo de su autor. */
+/**
+ * El génesis emite a su autor, sus series de E y R quedan a su nombre, su P
+ * es sobre todo el eje («genesis»: aún no existe ningún otro registro) y solo
+ * declara el tipo y la clave de su autor.
+ */
 function erroresGenesis(g) {
   const errores = [];
   const totales = new Map();
-  for (const m of g.movimientos ?? []) {
+  const movimientos = Array.isArray(g.movimientos) ? g.movimientos.filter((m) => m && typeof m === 'object') : [];
+  for (const m of movimientos) {
     if (m.de !== null || m.a !== g.autor) errores.push('el génesis solo emite a su autor');
     else if ((m.token === 'E' || m.token === 'R') && m.emisor !== g.autor) errores.push('en el génesis emite su autor: ' + m.emisor);
+    else if (m.token === 'P' && m.ambito !== AMBITO_GENESIS) errores.push('el P del génesis es sobre todo el eje: ámbito «' + AMBITO_GENESIS + '»');
     else {
       const k = claveToken(m);
       totales.set(k, (totales.get(k) ?? 0) + cantidadBase(m));
@@ -327,5 +350,32 @@ function erroresGenesis(g) {
     else if (!TIPOS.includes(tipo)) errores.push('tipo inválido para ' + id + ': ' + tipo);
     else if (!EMITEN.includes(tipo)) errores.push('el génesis emite: su autor es persona o grupo, no ' + tipo);
   }
+  for (const id of Object.keys(g.contexto?.claves ?? {})) {
+    if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');
+  }
   return errores;
+}
+
+/**
+ * Si el génesis declara la clave de su autor, la clave es pública e
+ * importable y el génesis va firmado con ella por su autor. Es la misma regla
+ * al crear el eje y al restaurarlo.
+ */
+async function erroresFirmaGenesis(g) {
+  const clave = g.contexto?.claves?.[g.autor];
+  if (!clave) return [];
+  if (!(await clavePublicaValida(clave))) return ['clave inválida para ' + g.autor];
+  if (!g.firma) return ['el génesis con clave debe ir firmado con ella'];
+  if (g.firmante !== g.autor) return ['el firmante del génesis debe ser su autor'];
+  if (!(await verificar(g, clave))) return ['firma del génesis inválida: debe ir firmado con la clave de su autor'];
+  return [];
+}
+
+/** La copia que guarda el eje (normalizarEvento); lo que no cabe en JSON se rechaza. */
+function copiaGuardable(ev) {
+  try {
+    return normalizarEvento(ev);
+  } catch (e) {
+    throw new Error('evento rechazado: no cabe en JSON (' + e.message + ')');
+  }
 }
