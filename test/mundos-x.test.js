@@ -267,7 +267,10 @@ test('ciudad: en Booking, las plazas entregadas cierran su vía: una venta, no u
   assert.match(reserva, /ya dio todo lo que emitió/);
   assert.match(reserva, /cerrada \(el emisor ya lo dio todo\)/);
   assert.ok(d.vias.find((v) => v.clave === 'E:casa/EUR').abierta);
-  assert.equal(etiquetaSerie(plazas[0].denominacion), r.habitacion.id.slice(0, 8) + '.1100000000@2026-11-20');
+  // R2: la habitación ya no va en la denominación sino en el registro de la serie; el rótulo la lleva tras «@».
+  assert.equal(plazas[0].registro, r.habitacion.id);
+  assert.equal(plazas[0].etiqueta, '1100000000@2026-11-20@' + r.habitacion.id.slice(0, 8));
+  assert.equal(etiquetaSerie('x.' + 'a'.repeat(64)), 'x.aaaaaaaa');
   // La habitación: la temporada emite 42 series; se dibujan seis y el resto se cuenta.
   const h = datosCiudad(r.eje, r.habitacion.id);
   assert.equal(h.vias.length, 6);

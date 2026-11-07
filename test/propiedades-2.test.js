@@ -293,9 +293,9 @@ test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuá
 });
 
 test('cantidades no enteras de E y P: 0,3 − 0,1 no alcanza para 0,2',
-  { skip: 'TOK-03: [X] decidir VG si E y P admiten fracciones (hoy solo T exige enteros) y con qué aritmética. Hoy, con 0,3 EUR, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
+  { skip: 'TOK-03: [X] decidir VG con qué aritmética van las fracciones de E (solo en las series declaradas divisibles, R2, VG 7-11 noche) y de P. Hoy, con 0,3 EUR divisibles, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
   async () => {
-    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
     const pago = (c) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: c, de: 'r', a: null });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.1)], payload: 'a' });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.2)], payload: 'b' });
