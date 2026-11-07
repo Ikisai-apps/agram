@@ -1,0 +1,1830 @@
+// Conformidad del motor y de los tokens: pruebas escritas DESDE LA
+// ESPECIFICACIÓN (corpus V4 04_AGRAM_OPERACIONES, 05_DIEZ_PV, 06_EPOCAS_TIEMPO,
+// herencia V2/V3, STATE de decisiones y MAPA_GLOBAL_AGRAM §2.4–§2.8, §9–§12),
+// no desde el código. Cada prueba corresponde a una regla con fuerza
+// «decidido» o «acuerdo», con su id. Lo que el código no cumple todavía está
+// igualmente escrito, en { skip } con su id y el motivo; no se maquilla. Cuando
+// una regla se cumple en parte, la parte cumplida es la prueba «NN» y la que
+// falta es «NNb» (skip). Las reglas con fuerza «propuesta» o «abierto» van en
+// el bloque comentado del final, con su id.
+//
+// Dos series de reglas viven aquí y comparten números TOK-nn:
+//   MOT-01…MOT-68 y M:TOK-01…M:TOK-04   serie del motor (M:TOK = los tokens vistos desde el motor)
+//   TOK-01…TOK-79                       serie de tokens, tiempo, épocas y fronteras
+// (B:TOK-01, B:TOK-02 y B:MOT-01…03 son de la serie BTML: test/conformidad-btml.test.js.)
+//
+// Ejes pequeños con Eje.genesis + escribir; datos inventados; los ids nacen al
+// escribir. El génesis emite T en minutos (la escala que se gasta al escribir),
+// así las pruebas no dependen de convertir unas escalas en otras; y lo que se
+// lee de los saldos de T se lee por escala (saldoT) o por el rechazo del eje.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readdirSync, readFileSync } from 'node:fs';
+import { Eje } from '../src/eje.js';
+import { crearEvento, validarForma, verificarId } from '../src/evento.js';
+import { validarPayload, esDireccion, direccion } from '../src/btml.js';
+import * as tokens from '../src/tokens.js';
+import { ESCALAS_T, SEGUNDOS, validarMovimiento } from '../src/tokens.js';
+import { ocupantes, seguir, caminosDe, vector, signo, ordenarPorEncaje, arbol } from '../src/encaje.js';
+import { evaluar, consultar, analizar } from '../src/bql.js';
+import * as motor from '../src/motor.js';
+import {
+  descubrir, proponer, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, puedeAutorizar,
+  autorizacionesValidas, FABRICA, OPERADORES,
+} from '../src/motor.js';
+import { escribirDesde, desdePointed, desdeSequenced, desdeMapped, costeT } from '../src/escritura.js';
+import { contarPosiciones, escritura, lectura, cabeEscritura, MODOS } from '../src/modos.js';
+import { EPOCA_0, PV, leerDireccion } from '../src/epocas.js';
+import { decupla } from '../src/pointed.js';
+import { mapa, sobrio as sobrioMapa } from '../src/mapped.js';
+import { secuencia } from '../src/sequenced.js';
+import { banda, ejeTemporal, comparar } from '../src/tiempo.js';
+import { serializar } from '../src/persistencia.js';
+import { generarClaves, firmar, verificar } from '../src/autoridad.js';
+import * as agram from '../src/index.js';
+
+const T0 = '2026-11-07T10:00:00Z';
+const AHORA = '2026-11-07T12:00:00Z';
+const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }];
+const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+const daE = (de, a, cantidad, denominacion = 'EUR') => ({ token: 'E', denominacion, cantidad, de, a });
+const ID_INEXISTENTE = 'f'.repeat(64);
+
+/**
+ * El mundo del motor: la raíz (génesis, con poder sobre todo el eje, euros y
+ * reputación propia), ana (escribe y consolida, sin poder) y bea (sin poder).
+ * El foco del génesis tiene contenido en las posiciones 1–4.
+ */
+async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina', 'pagar']) {
+  const eje = await Eje.genesis({
+    identidad: 'raiz',
+    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
+    foco,
+    t: T0,
+  });
+  const g = eje.genesisId;
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 300), daT('raiz', 'bea', 120), daE('raiz', 'ana', 50)], payload: 'altas de ana y bea' });
+  return { eje, g };
+}
+
+/** Escribe un registro sobre otro, opcionalmente anclado en una dirección. */
+const escribe = (eje, sobre, payload, en, autor = 'raiz', t = T0) =>
+  eje.escribir({ autor, sobre, en, t, movimientos: [gastaT(autor)], payload });
+
+/** Una consolidación de ana sobre el foco, ya autorizada por la raíz. */
+async function autorizada(eje, foco, elecciones = { 1: 'dos yogures' }) {
+  const c = await consolidar(eje, { autor: 'ana', foco, t: T0, elecciones });
+  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  return { c, a };
+}
+
+/** Huella del eje (registros y saldos) para comprobar que algo no tiene efectos. */
+const huella = (eje) => JSON.stringify([eje.orden, [...eje.saldos].map(([k, v]) => [k, [...v]])]);
+
+/** Minutos de T que mueve el autor en un evento. */
+const minutosDe = (ev) => ev.movimientos.filter((m) => m.token === 'T' && m.escala === 'minuto' && m.de === ev.autor).reduce((s, m) => s + m.cantidad, 0);
+
+/** Época espía: anota las profundidades por las que se le pregunta. */
+function epocaEspia() {
+  const consultadas = [];
+  return { consultadas, epoca: { nombre: 'espía', ordinal: (k) => { consultadas.push(k); return false; }, reglaCorta: (p, d) => PV[d] } };
+}
+
+/**
+ * Cuerpo de una prueba en skip cuya regla aún no tiene forma observable en el
+ * código. Falla a propósito: quitar el skip sin escribir la prueba no puede dar
+ * un verde vacío.
+ */
+const sinForma = (id) => () => assert.fail(id + ': la regla aún no tiene forma observable; escribir la prueba al implementarla');
+
+/** Los especificadores de import de src/: todos relativos (nada de fuera). */
+function importsDeSrc() {
+  const dir = new URL('../src/', import.meta.url);
+  const lista = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.js'))) {
+    const texto = readFileSync(new URL(f, dir), 'utf8');
+    for (const m of texto.matchAll(/(?:from\s+|import\s*\(\s*)'([^']+)'/g)) lista.push([f, m[1]]);
+  }
+  return lista;
+}
+
+/** Nombres que exporta el núcleo, también dentro de sus módulos con espacio de nombres. */
+const nombresExportados = () => Object.entries(agram).flatMap(([k, v]) => (Object.prototype.toString.call(v) === '[object Module]' ? [k, ...Object.keys(v)] : [k]));
+
+/** La casa como génesis: una plaza (un token por plaza y noche), una habitación con una cama, recepción con poder y dos huéspedes. */
+async function casaConUnaPlaza() {
+  const eje = await Eje.genesis({
+    identidad: 'casa',
+    emision: [...EMISION, { token: 'E', denominacion: 'plaza-7-11', cantidad: 1 }],
+    foco: ['Habitación 1', 'cama A'],
+    t: T0,
+  });
+  const hab = eje.genesisId;
+  await eje.escribir({ autor: 'casa', sobre: hab, t: T0, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas' });
+  return { eje, hab };
+}
+
+/** La reserva de un huésped en la plaza 1 de la habitación: la casa la consolida, recepción la autoriza. */
+async function reservaDeLaCasa(eje, hab, huesped) {
+  const c = await consolidar(eje, { autor: 'casa', foco: hab, camino: [1], t: T0, elecciones: { 1: 'reserva de ' + huesped + ', noche del 7-11' } });
+  await autorizar(eje, { autorizante: 'recepcion', consolidacion: c.id, t: T0 });
+  return c;
+}
+
+/** El huésped reserva y la casa (que no es el génesis) respalda la plaza con su propia serie. Forma de la PR #35 para emitir. */
+async function reservaDelHuesped() {
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'Mundo', t: T0 });
+  const g = eje.genesisId;
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 120), daT('raiz', 'huesped', 120)], payload: 'altas' });
+  // La casa emite su serie limitada: un token por plaza y noche.
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
+  const hab = await escribe(eje, g, ['Habitación 1', 'cama A'], undefined, 'casa');
+  const c = await consolidar(eje, { autor: 'huesped', foco: hab.id, camino: [1], t: T0, elecciones: { 1: 'reserva noche del 7-11' } });
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  // Ejecutar la reserva en la fábrica mueve la plaza de la casa al huésped.
+  await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T0, movimientos: [daE('casa', 'huesped', 1, 'plaza')] });
+  return { eje, c };
+}
+
+// =====================================================================
+// Motor · capacidades
+// =====================================================================
+
+test('MOT-01 las seis capacidades existen como primitivas del motor: interpretar, resolver, posicionar, comparar, calcular y componer', async () => {
+  const { eje, g } = await mundo();
+  // INTERPRETAR: forma, gramática y regla de la época.
+  assert.equal(validarPayload(['x', ['y']]).ok, true);
+  assert.equal(analizar('LOCAL(1) + 2').tipo, 'bin');
+  assert.equal(leerDireccion(FABRICA)[0].significado, 'fábrica');
+  // RESOLVER: referencias con procedencia.
+  const a = await escribe(eje, g, ['A', 'dato']);
+  assert.equal(seguir(eje, { ref: a.id, dir: '1000000000' }).contenido, 'dato');
+  // POSICIONAR: rutas locales y colisiones por ceros.
+  assert.equal(direccion([4]), FABRICA);
+  assert.equal(caminosDe(['x', ['y']], '1000000000').length, 2);
+  // COMPARAR: vector y orden por encaje.
+  assert.deepEqual(vector('4100000000', FABRICA).slice(0, 2), [0, 1]);
+  assert.equal(ordenarPorEncaje([]).length, 0);
+  // CALCULAR: magnitudes.
+  assert.equal(consultar(eje, g, [0], '12 EUR + 2 EUR').texto, '14 EUR (12 EUR + 2 EUR)');
+  // COMPONER: propuesta y consolidación.
+  assert.ok(Object.keys(proponer(eje, g).elecciones).length > 0);
+  assert.equal(typeof consolidar, 'function');
+});
+
+test('MOT-01b las seis capacidades tienen nombre en el motor',
+  { skip: 'MOT-01: no hay módulo ni nombres para las seis capacidades; están repartidas entre epocas, bql, btml, encaje y motor. [X] decidir VG si se nombran en el código (abajo, forma supuesta) o solo en la documentación' },
+  () => {
+    assert.deepEqual(Object.keys(motor.CAPACIDADES ?? {}), ['INTERPRETAR', 'RESOLVER', 'POSICIONAR', 'COMPARAR', 'CALCULAR', 'COMPONER']);
+  });
+
+test('MOT-02 las seis capacidades no son palabras reservadas de BQL', async () => {
+  const { eje, g } = await mundo();
+  for (const nombre of ['INTERPRETAR', 'RESOLVER', 'POSICIONAR', 'COMPARAR', 'CALCULAR', 'COMPONER']) {
+    const r = consultar(eje, g, [0], nombre + '(1)');
+    assert.equal(r.estado, 'ERROR', nombre);
+    assert.match(r.motivo, /función desconocida/);
+  }
+});
+
+test('MOT-03 INTERPRETAR lee tipo y forma, la gramática de la expresión y la regla corta de la época', async () => {
+  assert.deepEqual(validarPayload(['a', []]).ok, false); // forma
+  assert.equal(analizar('REF("abc", "1000000000")').nombre, 'REF'); // gramática
+  assert.throws(() => analizar('1 +'), SyntaxError);
+  const otra = { nombre: 'otra', reglaCorta: (p, d) => 'd' + d + '@' + p };
+  assert.equal(leerDireccion('8400000000', otra)[1].significado, 'd4@1'); // la regla de la época elegida
+  assert.equal(leerDireccion('8400000000')[1].significado, 'fábrica');
+});
+
+test('MOT-03b INTERPRETAR aplica también reglas largas y el significado del contexto',
+  { skip: 'MOT-03: solo existe la regla corta (época 0); no hay reglas largas que refinen prefijos ni significado de contexto (ver TOK-65). Forma supuesta abajo' },
+  () => {
+    const conLarga = { nombre: 'con larga', reglaCorta: (p, d) => PV[d], reglaLarga: (prefijo) => (prefijo === '84' ? 'compras' : undefined) };
+    assert.equal(leerDireccion('8412000000', conLarga)[1].significado, 'compras');
+    assert.equal(leerDireccion('7412000000', conLarga)[1].significado, PV[4]);
+  });
+
+test('MOT-04 RESOLVER sigue LOCAL, REF y ACTUAL, con procedencia y ciclos detectados', async () => {
+  const { eje, g } = await mundo();
+  const a = await escribe(eje, g, ['A', 'dato']);
+  const x = await escribe(eje, g, ['X', 'propio', '=LOCAL(1)', '=REF("' + a.id + '", "1000000000")', '=ACTUAL(1)', '=LOCAL(6)', '=LOCAL(5)']);
+  assert.equal(evaluar(eje, x.id, [2]).texto, 'propio');
+  assert.equal(evaluar(eje, x.id, [3]).texto, 'dato');
+  assert.ok(evaluar(eje, x.id, [3]).dependencias.includes(a.id + ':1000000000'));
+  assert.equal(evaluar(eje, x.id, [4]).texto, 'propio');
+  assert.match(evaluar(eje, x.id, [5]).motivo, /ciclo/);
+  assert.deepEqual(seguir(eje, { ref: a.id, dir: '1000000000' }).procedencia, [a.id + ':1000000000']);
+});
+
+test('MOT-04b RESOLVER comprueba permisos de lectura',
+  { skip: 'MOT-04: no hay permisos de lectura: todo el eje se puede leer' },
+  sinForma('MOT-04'));
+
+test('MOT-05 POSICIONAR obtiene posiciones por rutas locales, anclajes y ceros, sin pasar de diez profundidades', async () => {
+  const { eje, g } = await mundo();
+  assert.equal(direccion([8, 4, 1, 2]), '8412000000'); // ruta local
+  assert.throws(() => direccion(Array(11).fill(1)), RangeError);
+  const h = await escribe(eje, g, 'anclado', '3000000000'); // anclaje
+  assert.ok(ocupantes(eje, g, [3]).some((o) => o.evento === h.id));
+  const x = await escribe(eje, g, ['X', ['uno', 'dos']]);
+  assert.deepEqual(ocupantes(eje, x.id, [1]).map((o) => o.camino), [[1], [1, 0]]); // ceros
+});
+
+test('MOT-05b POSICIONAR usa la orientación (el tercer cero)',
+  { skip: 'MOT-05: la orientación (tercer cero) no está implementada; sus reglas están abiertas (BTML-37)' },
+  sinForma('MOT-05'));
+
+test('MOT-06 COMPARAR mira coincidencia de ruta, el vector de diez diferencias con signo y las relaciones entre candidatos', async () => {
+  const { eje, g } = await mundo();
+  const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'tres']);
+  const x = await escribe(eje, g, ['X', 'r', { ref: plan.id, dir: '3000000000' }]);
+  await escribe(eje, x.id, 'escrito', '2000000000');
+  const oc = ocupantes(eje, x.id, [2]);
+  assert.deepEqual(oc.map((o) => o.origen), ['propio', 'escrito', 'referencia']);
+  assert.deepEqual(oc.map((o) => o.acuerdo), [10, 10, 0]);
+  assert.deepEqual(oc[2].vector, [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(signo(oc[2].vector), 'reducir');
+});
+
+test('MOT-06b COMPARAR usa preferencias según el contexto, precedentes consolidados y compatibilidad demostrada',
+  { skip: 'MOT-06: no hay preferencias, precedentes consolidados ni compatibilidad demostrada como criterio; ordenan el acuerdo de prefijo y la llegada (opción B)' },
+  sinForma('MOT-06'));
+
+test('MOT-07 CALCULAR opera magnitudes con tipo, sin dar por hecha un álgebra universal', async () => {
+  const { eje, g } = await mundo();
+  const c = (f) => consultar(eje, g, [0], f);
+  assert.equal(c('12 EUR + 2 EUR').texto, '14 EUR (12 EUR + 2 EUR)');
+  assert.equal(c('200 m + 5 EUR').valor.tipo, 'composicion'); // no se suman
+  assert.equal(c('12 EUR * 2 EUR').estado, 'INCOMPATIBLE'); // ni todo opera con todo
+  assert.equal(c('3 * 4 EUR').texto, '12 EUR');
+});
+
+test('MOT-07b CALCULAR opera estructuras y matrices tipadas, con versiones de implementación',
+  { skip: 'MOT-07: no hay matrices tipadas ni versiones de implementación en BQL' },
+  sinForma('MOT-07'));
+
+test('MOT-08 COMPONER construye una propuesta sin escribir, mantiene referencias y solo mueve recursos al ejecutar lo autorizado', async () => {
+  const { eje, g } = await mundo();
+  const antes = huella(eje);
+  const p = proponer(eje, g);
+  assert.equal(huella(eje), antes); // la vista provisional no escribe
+  assert.deepEqual(p.elecciones[1], { ref: g, dir: '1000000000' }); // referencias, no copias
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: p.elecciones });
+  assert.deepEqual(c.payload[1], { ref: g, dir: '1000000000' });
+  assert.equal(eje.saldo('ana', 'E:EUR'), 50);
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  assert.equal(eje.saldo('ana', 'E:EUR'), 50);
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 5)] });
+  assert.equal(eje.saldo('ana', 'E:EUR'), 45);
+});
+
+test('MOT-08b COMPONER solo emite el cambio que se consolidó y autorizó',
+  { skip: 'MOT-08: ejecutar() acepta cualquier movimiento del autor aunque la consolidación no lo nombre, y consolidar() escribe su registro sin autorización. [X] decidir VG si «emitir un cambio» incluye el propio registro de la consolidación' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g, { 1: 'pagar 5 EUR a raiz' });
+    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'bea', 5)] }));
+  });
+
+// =====================================================================
+// Motor · entradas y salidas
+// =====================================================================
+
+test('MOT-09 el motor no exige volver a escribir los datos: resuelve las referencias que ya existen', async () => {
+  const { eje, g } = await mundo();
+  const oferta = await escribe(eje, g, ['Oferta', 'dos por uno'], '1000000000');
+  const elegido = descubrir(eje, g, { posiciones: [1] })[0].candidatos.find((x) => x.evento === oferta.id);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { candidato: elegido }, 3: 'nuevo' } });
+  assert.deepEqual(c.payload[2], { ref: g, dir: '2000000000' }); // el hueco se hereda por referencia
+  assert.equal(JSON.stringify(c.payload).includes('dos por uno'), false);
+  assert.equal(consultar(eje, c.id, [0], 'LOCAL(1)').valor.tipo, 'array'); // y se lee siguiendo la referencia
+  assert.equal(consultar(eje, c.id, [0], 'LOCAL(2)').texto, 'sin lactosa');
+});
+
+test('MOT-10 si falta información, el motor devuelve un pendiente explicado y no inventa el dato', async () => {
+  const { eje, g } = await mundo();
+  const plan = await escribe(eje, g, ['Plan', '=LOCAL(9)', '=1 +', '=ELEGIR(BUSCAR(7))']);
+  const p = proponer(eje, plan.id);
+  assert.deepEqual(Object.keys(p.elecciones), []);
+  assert.deepEqual(p.pendientes.map((x) => x.posicion), [1, 2, 3]);
+  assert.match(p.pendientes[0].motivo, /PENDIENTE/);
+  assert.match(p.pendientes[1].motivo, /ERROR/);
+  assert.equal(p.pendientes[2].motivo, 'sin candidatos');
+  await assert.rejects(consolidar(eje, { autor: 'ana', foco: plan.id, t: T0, elecciones: { 6: 'x' } }), /hueco en 4/);
+});
+
+test('MOT-11 descubrir devuelve candidatos identificados y ordenados, con distancias vectoriales y referencias', async () => {
+  const { eje, g } = await mundo();
+  const h = await escribe(eje, g, 'otro yogur', '1000000000');
+  const [p1] = descubrir(eje, g, { posiciones: [1] });
+  assert.deepEqual(p1.candidatos.map((c) => c.evento), [g, h.id]);
+  for (const c of p1.candidatos) {
+    for (const campo of ['evento', 'origen', 'vector', 'distancia', 'acuerdo', 'signo', 'procedencia', 'estado', 'texto']) assert.ok(c[campo] !== undefined, campo);
+  }
+});
+
+test('MOT-11b descubrir señala el empate y da un motivo de encaje',
+  { skip: 'MOT-11: el empate no se señala (se resuelve por llegada) y no hay motivo de encaje en texto; nombres de campo supuestos' },
+  async () => {
+    const { eje, g } = await mundo();
+    await escribe(eje, g, 'uno', '1000000000');
+    await escribe(eje, g, 'dos', '1000000000');
+    const [p1] = descubrir(eje, g, { posiciones: [1] });
+    assert.ok(p1.candidatos.every((c) => typeof c.motivo === 'string' && c.motivo.length > 0));
+    assert.ok(p1.candidatos.filter((c) => c.origen === 'escrito').every((c) => c.empate === true));
+  });
+
+test('MOT-12 el motor entrega las diferencias entre lo propuesto y lo vigente y pide la selección o confirmación',
+  { skip: 'MOT-12: no existe ningún cálculo de diferencias entre propuesta o consolidación y lo vigente; solo los pendientes de proponer()' },
+  sinForma('MOT-12'));
+
+test('MOT-13 antes de consolidar se ven las alternativas, lo que se registra, a qué se refiere y lo que sigue pendiente', async () => {
+  const { eje, g } = await mundo();
+  const alternativa = await escribe(eje, g, 'otro yogur', '1000000000');
+  const [p1] = descubrir(eje, g, { posiciones: [1] }); // alternativas
+  assert.deepEqual(p1.candidatos.map((c) => c.evento), [g, alternativa.id]);
+  const plan = await escribe(eje, g, ['Plan', '=LOCAL(9)']);
+  assert.equal(proponer(eje, plan.id).pendientes.length, 1); // lo que sigue pendiente
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { candidato: p1.candidatos[1] }, 3: 'nuevo aviso' } });
+  assert.deepEqual(c.contexto.fuentes, [alternativa.id]); // a qué se refiere
+  assert.deepEqual(c.payload[2], { ref: g, dir: '2000000000' }); // lo heredado
+  assert.equal(c.payload[3], 'nuevo aviso'); // lo nuevo que se registra
+});
+
+test('MOT-13b en PV4 se muestran diferencias, se pueden combinar candidatos y se ve qué se reemplaza',
+  { skip: 'MOT-13: no se calculan diferencias, no se pueden combinar dos candidatos en una posición (consolidar los mete crudos y el payload sale mal formado) y no se indica qué se reemplaza; la interfaz (app.js, panelFabrica) tampoco' },
+  async () => {
+    const { eje, g } = await mundo();
+    const otra = await escribe(eje, g, 'otro yogur', '1000000000');
+    const [p1] = descubrir(eje, g, { posiciones: [1] });
+    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: [{ candidato: p1.candidatos[0] }, { candidato: p1.candidatos[1] }] } });
+    assert.deepEqual([...c.contexto.fuentes].sort(), [g, otra.id].sort());
+  });
+
+// =====================================================================
+// Motor · ciclo
+// =====================================================================
+
+test('MOT-14 el ciclo: descubrir → elegir o crear → consolidar en PV4 → ejecutar con autorización → registrar evidencia', async () => {
+  const { eje, g } = await mundo();
+  const d = descubrir(eje, g);
+  assert.deepEqual(d.map((x) => x.posicion), [1, 2, 3, 4]);
+  const elecciones = { 1: { candidato: d[0].candidatos[0] }, 2: 'sin azúcar' }; // elegir y crear
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones, titulo: 'Compra del yogur' });
+  assert.equal(c.en, FABRICA);
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 3)] });
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
+});
+
+test('MOT-15 las etapas van en orden: solo se autoriza una consolidación, solo se ejecuta lo autorizado y no dos veces', async () => {
+  const { eje, g } = await mundo();
+  const nota = await escribe(eje, g, 'una nota cualquiera');
+  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
+  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 }), /ya está autorizado/);
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /ya ejecutado/);
+});
+
+test('MOT-16 descubrir conserva las alternativas que ocupan la misma posición con distinto id', async () => {
+  const { eje, g } = await mundo(['Compra', 'a', 'b', 'c', ['fábrica', 'x']]);
+  const h = await escribe(eje, g, 'otra fábrica', FABRICA, 'ana');
+  const [p4] = descubrir(eje, g, { posiciones: [4] });
+  assert.deepEqual(p4.candidatos.map((c) => [c.origen, c.camino.join('.')]), [['propio', '4'], ['propio', '4.0'], ['escrito', '']]); // [4] y [4.0] colisionan
+  assert.equal(p4.candidatos[2].evento, h.id);
+});
+
+test('MOT-17 elegir no escribe: es reversible hasta consolidar y deja mezclar candidatos y terminales nuevos', async () => {
+  const { eje, g } = await mundo();
+  const antes = huella(eje);
+  const p = proponer(eje, g);
+  const elecciones = { ...p.elecciones };
+  elecciones[2] = 'cambiado a mano'; // modificar la candidatura
+  delete elecciones[4]; // deshacer una elección
+  consultar(eje, g, [1], 'ELEGIR(BUSCAR(1))'); // ELEGIR no publica
+  assert.equal(huella(eje), antes);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones });
+  assert.deepEqual(c.payload.slice(1), [{ ref: g, dir: '1000000000' }, 'cambiado a mano', { ref: g, dir: '3000000000' }]);
+});
+
+test('MOT-18 consolidar fija la decisión con sus fuentes y vínculos, sin copiar el árbol', async () => {
+  const { eje, g } = await mundo();
+  const oferta = await escribe(eje, g, ['Oferta', ['muy', 'honda']], '1000000000');
+  const elegido = descubrir(eje, g, { posiciones: [1] })[0].candidatos.find((x) => x.evento === oferta.id);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { candidato: elegido } } });
+  assert.deepEqual(c.contexto.fuentes, [oferta.id]);
+  assert.equal(c.contexto.encaje[0].evento, oferta.id);
+  assert.equal(c.sobre, g);
+  assert.equal(JSON.stringify(c.payload).includes('honda'), false);
+});
+
+test('MOT-18b consolidar registra también la época, las reglas y los criterios aplicados',
+  { skip: 'MOT-18: el contexto de la consolidación solo tiene {motor, fase, fuentes, encaje, modo}: ni época ni reglas ni criterios (nombres de campo supuestos)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+    assert.ok(c.contexto.epoca);
+    assert.ok(c.contexto.criterios);
+  });
+
+// =====================================================================
+// Motor · consolidar ≠ ejecutar
+// =====================================================================
+
+test('MOT-19 consolidar no es ejecutar: elegir un yogur no lo compra; no mueve recursos', async () => {
+  const { eje, g } = await mundo();
+  const antes = [eje.saldo('ana', 'E:EUR'), eje.saldo('raiz', 'E:EUR'), eje.poderes('ana'), eje.reputaciones('ana')];
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'comprar el yogur', 4: 'pagar 2 EUR' } });
+  assert.deepEqual([eje.saldo('ana', 'E:EUR'), eje.saldo('raiz', 'E:EUR'), eje.poderes('ana'), eje.reputaciones('ana')], antes);
+  assert.deepEqual(c.movimientos.map((m) => m.token), ['T']);
+  assert.notEqual(estadoDe(eje, c.id), 'EJECUTADO');
+});
+
+test('MOT-20 consultar, elegir, preparar, consolidar, firmar y ejecutar son actos distintos', async () => {
+  const { eje, g } = await mundo();
+  const antes = huella(eje);
+  consultar(eje, g, [1], 'ELEGIR(BUSCAR(1))'); // consultar y elegir: sin registro
+  const p = proponer(eje, g); // preparar: sin registro
+  assert.equal(huella(eje), antes);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: p.elecciones });
+  assert.equal(c.contexto.fase, 'consolidado');
+  assert.equal(c.firma, undefined); // consolidar no firma
+  const { publica, privada } = await generarClaves();
+  const f = await firmar(await crearEvento({ autor: 'x', sobre: g, t: T0, movimientos: [gastaT('x')], payload: 'y' }), privada);
+  assert.equal(await verificar(f, publica), true); // firmar es otro acto
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.equal(e.contexto.fase, 'ejecutado');
+  assert.notEqual(e.id, c.id);
+});
+
+test('MOT-20b acreditar el resultado material es un acto propio',
+  { skip: 'MOT-20: no existe el acto de acreditar el resultado material (capa 4 de validez)' },
+  sinForma('MOT-20'));
+
+test('MOT-21 una compra autorizada no es una compra hecha: AUTORIZADO ≠ EJECUTADO y los recursos solo se mueven al ejecutar', async () => {
+  const { eje, g } = await mundo();
+  const { c } = await autorizada(eje, g, { 1: 'comprar', 4: 'pagar 7 EUR' });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  assert.equal(eje.saldo('ana', 'E:EUR'), 50);
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 7)] });
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  assert.equal(eje.saldo('ana', 'E:EUR'), 43);
+});
+
+// =====================================================================
+// Motor · ejecutar
+// =====================================================================
+
+test('MOT-22 ejecutar exige el acto del autor de la consolidación y una autorización válida', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  await assert.rejects(ejecutar(eje, { autor: 'bea', consolidacion: c.id, t: T0 }), /ejecuta el autor de la consolidación/);
+  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: c.id, t: T0 }), /ejecuta el autor de la consolidación/);
+});
+
+test('MOT-22b ejecutar respeta reglas, condiciones y límites de gasto, tiempo y alcance',
+  { skip: 'MOT-22: no hay reglas, condiciones ni límites: ejecutar() mueve todo el saldo E del autor aunque la consolidación no lo mencione' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g, { 1: 'un yogur', 4: 'pagar 2 EUR' });
+    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 50)] }));
+  });
+
+test('MOT-23 evaluar una fórmula «=» nunca ejecuta nada: leer no tiene efectos', async () => {
+  const { eje, g } = await mundo();
+  const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', '=ELEGIR(BUSCAR(1))', '=LOCAL(1)']);
+  const antes = huella(eje);
+  assert.equal(evaluar(eje, plan.id, [7]).estado, 'RESUELTO');
+  evaluar(eje, plan.id, [8]);
+  consultar(eje, plan.id, [7], 'CONTAR(BUSCAR(1))');
+  descubrir(eje, plan.id);
+  proponer(eje, plan.id);
+  assert.equal(huella(eje), antes);
+  assert.deepEqual(consolidaciones(eje, plan.id), []);
+});
+
+test('MOT-24 PV7 guarda el horizonte: un plan declarado en 7 no se convierte en hecho', async () => {
+  const { eje, g } = await mundo();
+  const antes = [eje.saldo('ana', 'E:EUR'), eje.saldo('raiz', 'E:EUR')];
+  const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'pagar el viernes si llega el pedido'], undefined, 'ana');
+  const e = ejeTemporal(eje, plan.id, { ahora: AHORA });
+  assert.ok(e.futuro.some((x) => x.tipo === 'declarado' && x.contenido === 'pagar el viernes si llega el pedido'));
+  assert.deepEqual([eje.saldo('ana', 'E:EUR'), eje.saldo('raiz', 'E:EUR')], antes);
+  assert.deepEqual(consolidaciones(eje, plan.id), []);
+});
+
+test('MOT-24b PV7 aloja la ejecución condicional y autorizada',
+  { skip: 'MOT-24: no existe ejecución condicional ni con fecha; tiempo.ejeTemporal solo lista lo declarado en 7 y las consolidaciones pendientes' },
+  sinForma('MOT-24'));
+
+test('MOT-25 registrar el resultado distingue éxito, rechazo, no ocurrido, parcial y sin confirmación',
+  { skip: 'MOT-25: solo existe EJECUTADO; una ejecución rechazada lanza un error, no deja registro y el estado sigue en AUTORIZADO (nombre de fase supuesto: cualquier fase de resultado distinta de «autorizado»)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g);
+    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nadie mueve tokens ajenos/);
+    const resultado = eje.sobre(c.id, FABRICA).find((e) => e.contexto?.fase && e.contexto.fase !== 'autorizado');
+    assert.ok(resultado);
+    assert.notEqual(estadoDe(eje, c.id), 'AUTORIZADO');
+  });
+
+test('MOT-26 la ejecución deja evidencia: un registro nuevo que referencia la consolidación y su autorización, encadenado en el hilo', async () => {
+  const { eje, g } = await mundo();
+  const { c, a } = await autorizada(eje, g);
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.deepEqual(e.payload.slice(1), [{ ref: c.id }, { ref: a.id }]);
+  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
+  assert.deepEqual(eje.hilo(e.id).slice(0, 3).map((x) => x.id), [e.id, c.id, g]);
+});
+
+test('MOT-26b la evidencia acredita el resultado material, no solo el proceso',
+  { skip: 'MOT-26: la evidencia es del proceso (consolidación y autorización); la acreditación del resultado material (capa 4) no existe' },
+  sinForma('MOT-26'));
+
+// =====================================================================
+// Motor · fronteras y autoridad
+// =====================================================================
+
+test('MOT-27 PV4 no es el único almacén: lo escrito en 3, 6, 7 y 9 queda en su PV', async () => {
+  const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
+  for (const pv of [3, 6, 7, 9]) {
+    const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, en: direccion([pv]), payload: 'en el PV ' + pv, t: T0 });
+    assert.equal(ev.en, direccion([pv]));
+    assert.ok(ocupantes(eje, g, [pv]).some((o) => o.evento === ev.id));
+  }
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  assert.deepEqual(consolidaciones(eje, g).map((x) => x.id), [c.id]); // solo lo de 4 es consolidación
+});
+
+test('MOT-27b registro, autorización y verificación material son fronteras independientes',
+  { skip: 'MOT-27: la verificación material no existe (consolidación, autorización y ejecución viven todas en la posición 4)' },
+  sinForma('MOT-27'));
+
+test('MOT-28 un flujo puede empezar desde cualquier PV, pero la posición no da autoridad', async () => {
+  const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', ['siete', 'x']]);
+  const desde7 = await consolidar(eje, { autor: 'ana', foco: g, camino: [7], t: T0, elecciones: { 1: 'desde el 7' } });
+  assert.equal(desde7.en, '7400000000');
+  // Escribir en la fábrica con fase «autorizado» o «ejecutado» no da autoridad a quien no la tiene.
+  await eje.escribir({ autor: 'bea', sobre: desde7.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' } });
+  assert.equal(estadoDe(eje, desde7.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await eje.escribir({ autor: 'bea', sobre: desde7.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: 'hecho', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [desde7.id] } });
+  assert.equal(estadoDe(eje, desde7.id), 'PENDIENTE DE AUTORIZACIÓN');
+});
+
+// =====================================================================
+// Motor · fábrica
+// =====================================================================
+
+test('MOT-29 la fábrica cierra una sola acción de registro: cada consolidación es un único evento', async () => {
+  const { eje, g } = await mundo();
+  for (const camino of [[], [1]]) {
+    const antes = eje.orden.length;
+    const c = await consolidar(eje, { autor: 'ana', foco: g, camino, t: T0, elecciones: { 1: 'x' } });
+    assert.equal(eje.orden.length, antes + 1);
+    assert.equal(c.en, direccion([...camino, 4]));
+  }
+});
+
+test('MOT-30 lo consolidado en un registro ocupa un espacio de diez por diez', async () => {
+  const { eje, g } = await mundo(['Foco']);
+  const elecciones = {};
+  for (let i = 1; i <= 9; i++) elecciones[i] = Array.from({ length: 10 }, (_, k) => 'i' + i + ' k' + k);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones });
+  assert.equal(c.payload.length, 10);
+  assert.ok(c.payload.slice(1).every((fila) => Array.isArray(fila) && fila.length === 10));
+});
+
+test('MOT-30b las diez posiciones del registro se pueden elegir: diez interpretaciones por diez interacciones',
+  { skip: 'MOT-30: la posición 0 es el título y no se puede elegir, así que solo caben nueve por diez; el sentido de «interpretaciones por interacciones» no está modelado. [X] decidir VG qué ocupa cada eje del diez por diez' },
+  async () => {
+    const { eje, g } = await mundo(['Foco']);
+    const elecciones = {};
+    for (let i = 0; i <= 9; i++) elecciones[i] = Array.from({ length: 10 }, (_, k) => 'i' + i + ' k' + k);
+    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones });
+    assert.equal(contarPosiciones(c.payload), 100);
+  });
+
+test('MOT-31 la fábrica, en 4, emite un evento nuevo con el array consolidado y referencias a sus fuentes; ejecutar es otro acto', async () => {
+  const { eje, g } = await mundo();
+  const fuente = await escribe(eje, g, 'yogur griego', '1000000000');
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { ref: fuente.id } } });
+  assert.equal(c.en, FABRICA);
+  assert.deepEqual(c.payload, ['Consolidación', { ref: fuente.id }]);
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/); // otra autoridad
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.notEqual(e.id, c.id);
+});
+
+test('MOT-32 consolidar no borra nada: varias consolidaciones del mismo foco conviven, cada una con su estado', async () => {
+  const { eje, g } = await mundo();
+  const c1 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'primera' } });
+  const { c: c2 } = await autorizada(eje, g, { 1: 'segunda' });
+  const c3 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'corrección de la primera' } });
+  assert.deepEqual(consolidaciones(eje, g).map((x) => [x.id, x.estado]), [[c1.id, 'PENDIENTE DE AUTORIZACIÓN'], [c2.id, 'AUTORIZADO'], [c3.id, 'PENDIENTE DE AUTORIZACIÓN']]);
+  assert.ok(eje.obtener(c1.id));
+});
+
+test('MOT-33 la consolidación guarda el vector de encaje de cada fuente', async () => {
+  const { eje, g } = await mundo();
+  const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'siete']);
+  const x = await escribe(eje, g, ['X', { ref: plan.id, dir: '7000000000' }]);
+  const ref = descubrir(eje, x.id, { posiciones: [1] })[0].candidatos.find((o) => o.origen === 'referencia');
+  const c = await consolidar(eje, { autor: 'ana', foco: x.id, t: T0, elecciones: { 1: { candidato: ref } } });
+  const [e] = c.contexto.encaje;
+  assert.equal(e.evento, plan.id);
+  assert.equal(e.origen, '7000000000');
+  assert.equal(e.destino, '1000000000');
+  assert.deepEqual(e.vector, [6, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  assert.equal(e.signo, 'reducir');
+});
+
+test('MOT-34 la consolidación se ancla en la posición 4 del foco; los huecos se heredan del foco o se rechazan', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 3: 'solo la tercera' } });
+  assert.equal(c.en, FABRICA);
+  assert.deepEqual(c.payload.slice(1, 3), [{ ref: g, dir: '1000000000' }, { ref: g, dir: '2000000000' }]);
+  await assert.rejects(consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 7: 'lejos' } }), /hueco en 5/);
+});
+
+test('MOT-35 la consolidación dura: otros escriben sus propios registros sobre ella sin apropiarse de ella', async () => {
+  const { eje, g } = await mundo();
+  const { c, a } = await autorizada(eje, g);
+  assert.equal(a.autor, 'raiz');
+  assert.equal(a.sobre, c.id);
+  assert.equal(eje.obtener(c.id).autor, 'ana'); // la operación sigue siendo de ana
+  assert.deepEqual(eje.obtener(c.id), c);
+});
+
+test('MOT-35b la consolidación referencia los recibos de terceros (aceptación, despacho, recepción)',
+  { skip: 'MOT-35: otros solo pueden escribir una autorización que cuente; no hay recibos de aceptación, despacho o recepción ni estados de la frontera externa (nombre de campo supuesto: recibos)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g);
+    const recibo = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: 'despachado', contexto: { fase: 'despachado' } });
+    assert.ok(consolidaciones(eje, g)[0].recibos.includes(recibo.id));
+  });
+
+test('MOT-36 cerrar una tarea permite empezar otra sin fingir que la anterior ya no está pendiente', async () => {
+  const { eje, g } = await mundo();
+  const otra = await escribe(eje, g, ['Otra tarea', 'a']);
+  const c1 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'primera' } });
+  await consolidar(eje, { autor: 'ana', foco: otra.id, t: T0, elecciones: { 1: 'segunda' } });
+  assert.equal(consolidaciones(eje, g)[0].estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.ok(ejeTemporal(eje, g, { ahora: AHORA }).futuro.some((x) => x.id === c1.id && x.tipo === 'consolidacion'));
+});
+
+test('MOT-37 las consolidaciones no ejecutadas son futuro subjetivo', async () => {
+  const { eje, g } = await mundo();
+  const { c } = await autorizada(eje, g);
+  const enFuturo = () => ejeTemporal(eje, g, { ahora: AHORA }).futuro.find((x) => x.id === c.id && x.tipo === 'consolidacion');
+  assert.equal(enFuturo().estado, 'AUTORIZADO');
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.equal(enFuturo(), undefined);
+});
+
+test('MOT-38 se ejecuta en 4 y la ejecución es un registro nuevo que entra en el eje (X → cruz)', async () => {
+  const { eje, g } = await mundo();
+  const { c } = await autorizada(eje, g);
+  const antes = eje.orden.length;
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.equal(e.en, FABRICA);
+  assert.equal(e.sobre, c.id);
+  assert.equal(eje.orden.length, antes + 1);
+  assert.ok(ocupantes(eje, c.id, [4]).some((o) => o.evento === e.id));
+});
+
+test('MOT-39 papeles: BTML es la estructura, BQL la vista sin efectos y el motor la ejecución real', async () => {
+  const { eje, g } = await mundo(['Compra', 'yogur', '=LOCAL(1)']);
+  const antes = huella(eje);
+  evaluar(eje, g, [2]);
+  consultar(eje, g, [0], 'BUSCAR(1)');
+  assert.equal(huella(eje), antes); // BQL no mueve nada
+  const { c } = await autorizada(eje, g);
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 4)] });
+  assert.equal(eje.saldo('raiz', 'E:EUR'), 54); // el motor sí
+});
+
+test('MOT-41 AARPIA es el motor real de autorización y ejecución',
+  { skip: 'MOT-41: no hay AARPIA; autorizar y ejecutar viven en src/motor.js (por decisión de VG del 6-11 AARPIA queda fuera salvo instancias y transiciones, TOK-74)' },
+  sinForma('MOT-41'));
+
+test('MOT-43 lo que escribe quien no puede autorizar o ejecutar no cambia el estado', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { fase: 'autorizado' } });
+  assert.equal(autorizacionesValidas(eje, c.id).length, 0);
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  await eje.escribir({ autor: 'raiz', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('raiz')], payload: 'hecho', contexto: { fase: 'ejecutado', evidencia: [c.id] } });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO'); // ejecutar es del autor
+});
+
+test('MOT-44 tres estados: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO; el pendiente es un estado, no un fallo', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } }); // no lanza
+  const estados = [estadoDe(eje, c.id)];
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  estados.push(estadoDe(eje, c.id));
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  estados.push(estadoDe(eje, c.id));
+  assert.deepEqual(estados, ['PENDIENTE DE AUTORIZACIÓN', 'AUTORIZADO', 'EJECUTADO']);
+});
+
+// =====================================================================
+// Motor · operadores Q/B/C
+// =====================================================================
+
+test('MOT-46 Q interroga: aplicar un PV es volver a interrogar el resultado, y consultar no cambia ningún hecho', async () => {
+  const { eje, g } = await mundo(['Compra', ['recursos', 'yogur', 'leche'], 'b']);
+  assert.equal(OPERADORES.Q, 'descubrir');
+  const antes = huella(eje);
+  const fuera = descubrir(eje, g, { posiciones: [1] });
+  const dentro = descubrir(eje, g, { camino: [1], posiciones: [1, 2] }); // el resultado de 1, interrogado otra vez
+  assert.equal(fuera[0].dir, '1000000000');
+  assert.deepEqual(dentro.map((x) => [x.dir, x.candidatos[0].texto]), [['1100000000', 'yogur'], ['1200000000', 'leche']]);
+  evaluar(eje, g, [1, 1]);
+  assert.equal(huella(eje), antes);
+});
+
+test('MOT-47 B construye una propuesta de cambio sin certificarla', async () => {
+  const { eje, g } = await mundo();
+  assert.equal(OPERADORES.B, 'proponer');
+  const antes = huella(eje);
+  const p = proponer(eje, g);
+  assert.equal(huella(eje), antes);
+  assert.deepEqual(Object.keys(p).sort(), ['elecciones', 'foco', 'origenes', 'pendientes']);
+  assert.deepEqual(consolidaciones(eje, g), []);
+});
+
+test('MOT-48 C consolida y la autoridad decide después: una consolidación de quien no tiene poder no certifica nada', async () => {
+  const { eje, g } = await mundo();
+  assert.equal(OPERADORES.C, 'consolidar');
+  const c = await consolidar(eje, { autor: 'bea', foco: g, t: T0, elecciones: { 1: 'x' } });
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /no se autoriza a sí mismo/);
+  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /no tiene poder/);
+});
+
+test('MOT-48b C solo consolida lo que permite un contrato válido (con autoridad)',
+  { skip: 'MOT-48: consolidar() no comprueba autoridad ni contrato: quien no tiene P consolida; la autoridad llega al autorizar. [!] Choca con V4 (consolidar = registrar la intención; la autorización es para ejecutar). [X] decidir VG' },
+  async () => {
+    const { eje, g } = await mundo();
+    await assert.rejects(consolidar(eje, { autor: 'bea', foco: g, t: T0, elecciones: { 1: 'x' } }));
+  });
+
+test('MOT-49 el orden de composición importa: 13 no es 31 (primero i, después j)', async () => {
+  assert.deepEqual(leerDireccion('1300000000').map((x) => x.significado), ['recursos', 'comunicación']);
+  assert.deepEqual(leerDireccion('3100000000').map((x) => x.significado), ['comunicación', 'recursos']);
+  const { eje, g } = await mundo(['F', ['1.0', '1.1', '1.2', 'uno y tres'], 'b', ['3.0', 'tres y uno']]);
+  assert.equal(ocupantes(eje, g, [1, 3])[0].contenido, 'uno y tres');
+  assert.equal(ocupantes(eje, g, [3, 1])[0].contenido, 'tres y uno');
+});
+
+test('MOT-49b existe un operador que vuelve a interrogar el resultado de una aplicación (Q_j∘Q_i)',
+  { skip: 'MOT-49: el orden solo cuenta al leer direcciones; no hay operadores Q_i componibles ni PVPath' },
+  sinForma('MOT-49'));
+
+test('MOT-50 componer PV de lado y bajar en profundidad son dimensiones distintas',
+  { skip: 'MOT-50: el código solo tiene profundidad (direcciones); no hay composición lateral. [!] El mapa (§2.1, §8) lee una dirección como cadena de perspectivas: bajar es aplicar otra perspectiva' },
+  sinForma('MOT-50'));
+
+test('MOT-51 la dirección BTML es una cadena de diez dígitos distinta de un PVPath («2342») y de la geometría (4^4)', () => {
+  assert.equal(esDireccion('8412300000'), true);
+  assert.equal(esDireccion('2342'), false);
+  assert.equal(esDireccion('4^4'), false);
+  assert.throws(() => leerDireccion('2342'), TypeError);
+});
+
+test('MOT-51b PVPath, dirección BTML y geometría tienen nombres distintos en el código',
+  { skip: 'MOT-51: solo existe la dirección BTML, y en la época 0 se lee como cadena de perspectivas (leerDireccion), lo que la acerca a PVPath. [X] decidir VG si en la época 0 coinciden' },
+  sinForma('MOT-51'));
+
+// =====================================================================
+// Motor · registro de salida y proporción por modo
+// =====================================================================
+
+test('MOT-54 el registro de salida se anida sobre el foco y va en el PV donde se escribe; el génesis solo en la raíz', async () => {
+  const { eje, g } = await mundo();
+  const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, en: '2000000000', payload: 'criterio', t: T0 });
+  assert.deepEqual([ev.sobre, ev.en], [g, '2000000000']);
+  await assert.rejects(crearEvento({ autor: 'x', sobre: null, en: '2000000000', t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'x' }], payload: 'g', contexto: { genesis: true } }), /el génesis solo se anida en la raíz/);
+});
+
+test('MOT-55 forma por modo: Pointed un terminal; Sequenced una hilera de 1–10 sin huecos; Mapped una décupla con herencia por referencia', async () => {
+  const { eje, g } = await mundo();
+  assert.equal(desdePointed(eje, 'servido'), 'servido');
+  assert.deepEqual(desdePointed(eje, '@' + g.slice(0, 8)), { ref: g }); // un terminal: también una referencia
+  assert.throws(() => desdePointed(eje, '   '), /vacío/);
+  assert.deepEqual(desdeSequenced(eje, ['a', 'b', '3']), ['a', 'b', 3]);
+  assert.throws(() => desdeSequenced(eje, ['a', '', 'c']), /hueco/);
+  assert.throws(() => desdeSequenced(eje, Array(11).fill('x')), /más de 10/);
+  const celdas = [];
+  celdas[3] = ['nuevo aviso'];
+  const { payload, heredadas } = desdeMapped(eje, celdas, g);
+  assert.deepEqual(heredadas, [0, 1, 2]);
+  assert.deepEqual(payload[3], 'nuevo aviso');
+  const lejos = [];
+  lejos[7] = ['x'];
+  assert.throws(() => desdeMapped(eje, lejos, g), /hueco en 5/);
+});
+
+test('MOT-56 la proporción se cuenta en posiciones: una por terminal o referencia', () => {
+  assert.equal(contarPosiciones('x'), 1);
+  assert.equal(contarPosiciones({ ref: 'a'.repeat(64) }), 1);
+  assert.equal(contarPosiciones(['a', ['b', 'c'], { ref: 'a'.repeat(64) }]), 4);
+  assert.equal(costeT(['a', ['b', 'c']]), 3);
+});
+
+test('MOT-57 desde Pointed se escribe una posición de cada diez leídas', async () => {
+  assert.equal(lectura('pointed'), 10);
+  assert.deepEqual(escritura('pointed'), [1, 1]);
+  assert.equal(cabeEscritura('x', 'pointed'), true);
+  assert.equal(cabeEscritura(['x', 'y'], 'pointed'), false);
+  const { eje, g } = await mundo();
+  await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', 'b'], t: T0 }), /pointed escribe como mucho 1/);
+  const { a } = await autorizada(eje, g);
+  assert.equal(a.contexto.modo, 'pointed');
+  assert.equal(contarPosiciones(a.payload), 1);
+});
+
+test('MOT-58 desde Sequenced se escribe como mucho una quinta parte de lo leído (20 de 100)', async () => {
+  assert.equal(lectura('sequenced'), 100);
+  assert.deepEqual(escritura('sequenced'), [10, 20]);
+  const { eje, g } = await mundo();
+  const veintiuna = [Array(10).fill('x'), Array(10).fill('y'), 'z'];
+  await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: veintiuna, t: T0 }), /sequenced escribe como mucho 20/);
+});
+
+test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído',
+  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG (y MOT-60: tope o banda)' },
+  async () => {
+    const { eje, g } = await mundo();
+    await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: ['solo una'], t: T0 }));
+  });
+
+test('MOT-59 desde Mapped se escribe como mucho un tercio de lo leído (333 de 1000)', async () => {
+  assert.equal(lectura('mapped'), 1000);
+  assert.deepEqual(escritura('mapped'), [250, 333]);
+  const { eje, g } = await mundo();
+  const demasiado = Array.from({ length: 10 }, () => Array.from({ length: 10 }, () => Array(4).fill('x'))); // 400 posiciones
+  assert.equal(contarPosiciones(demasiado), 400);
+  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: demasiado, t: T0 }), /mapped escribe como mucho 333/);
+});
+
+test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 1000)',
+  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped llega como mucho a 100 y consolidar() escribe en Mapped con pocas posiciones. [X] MOT-60: tope o banda obligatoria' },
+  async () => {
+    const { eje, g } = await mundo();
+    await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: ['una'], t: T0 }));
+  });
+
+// =====================================================================
+// Motor · cinco capas de validez y evaluación segura
+// =====================================================================
+
+test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y permiso se comprueban por separado', async () => {
+  const raiz = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const g = eje.genesisId;
+  // 1 · forma
+  assert.ok(validarForma({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }).length > 0);
+  // 2 · interpretación
+  const p = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['P', '=LOCAL(9)', { ref: ID_INEXISTENTE }] }, raiz.privada);
+  assert.equal(evaluar(eje, p.id, [1]).estado, 'PENDIENTE');
+  assert.equal(ocupantes(eje, p.id, [2]).find((o) => o.origen === 'referencia').rota, true);
+  // 3 · criptografía y procedencia
+  assert.equal(await verificarId(p), true);
+  assert.equal(await verificarId({ ...p, payload: 'cambiado' }), false);
+  assert.equal(await verificar(p, raiz.publica), true);
+  // 5 · permiso y ejecución
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta' }, raiz.privada);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+});
+
+test('MOT-61b la acreditación material (capa 4) y un informe por capas',
+  { skip: 'MOT-61: la capa 4 (acreditación material) no existe y no hay ningún informe de validez por capas' },
+  sinForma('MOT-61'));
+
+test('MOT-62 las capas no se confunden: estructura válida y firmada no es autorización; la firma solo prueba quién escribe', async () => {
+  const raiz = await generarClaves();
+  const bea = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const g = eje.genesisId;
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas', contexto: { claves: { bea: bea.publica } } }, raiz.privada);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  const firmada = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' } }, bea.privada);
+  assert.deepEqual(validarForma(firmada), []);
+  assert.equal(await verificar(firmada, bea.publica), true);
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+});
+
+test('MOT-63 en el registro en foco se pueden inspeccionar señales de validez, que no la garantizan', async () => {
+  const raiz = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['Dice', 'que está pagado'] }, raiz.privada);
+  // Señales: forma, id y firma.
+  assert.deepEqual(validarForma(ev), []);
+  assert.equal(await verificarId(ev), true);
+  assert.equal(ev.firmante, 'raiz');
+  assert.equal(await verificar(ev, raiz.publica), true);
+  // Que lo diga un registro bien formado y firmado no lo hace pagado: no hay estado ni movimiento de E.
+  assert.deepEqual(ev.movimientos.map((m) => m.token), ['T']);
+});
+
+test('MOT-63b una vista por registro de las señales de las capas 2, 4 y 5',
+  { skip: 'MOT-63: app.js muestra «firmado/sin firma» y el JSON (capas 1 y 3); no hay vista por registro de las capas 2, 4 y 5. [!] Según §9, PV5 es el propio registro en foco y PV0 la lente' },
+  sinForma('MOT-63'));
+
+test('MOT-64 un fallo no borra alternativas ni hace pasar un pendiente por incompatible', async () => {
+  const { eje, g } = await mundo();
+  const roto = await escribe(eje, g, '=1 +', '1000000000');
+  const [p1] = descubrir(eje, g, { posiciones: [1] });
+  assert.deepEqual(p1.candidatos.map((c) => [c.evento, c.estado]), [[g, 'RESUELTO'], [roto.id, 'ERROR']]);
+  const plan = await escribe(eje, g, ['Plan', '=LOCAL(9)', '="a" + 1']);
+  assert.equal(evaluar(eje, plan.id, [1]).estado, 'PENDIENTE');
+  assert.equal(evaluar(eje, plan.id, [2]).estado, 'INCOMPATIBLE');
+  assert.match(proponer(eje, plan.id).pendientes[0].motivo, /^PENDIENTE/);
+});
+
+test('MOT-65 la evaluación retiene procedencia y vectores para auditoría y tiene límites de cálculo', async () => {
+  const { eje, g } = await mundo();
+  const fuente = await escribe(eje, g, 'otro', '1000000000');
+  const elegido = descubrir(eje, g, { posiciones: [1] })[0].candidatos.find((x) => x.evento === fuente.id);
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { candidato: elegido } } });
+  assert.equal(c.contexto.encaje[0].evento, fuente.id);
+  assert.equal(c.contexto.encaje[0].vector.length, 10);
+  const enorme = '=' + Array.from({ length: 3000 }, () => '1').join(' + ');
+  const x = await escribe(eje, g, ['X', enorme]);
+  assert.notEqual(evaluar(eje, x.id, [1]).estado, 'RESUELTO');
+});
+
+test('MOT-65b la evaluación limita el número de candidatos y guarda caché, snapshot y versiones',
+  { skip: 'MOT-65: descubrir() no limita los candidatos; no hay snapshot de reglas ni de época, ni caché, ni versiones de implementación (nombre de opción supuesto: maximo)' },
+  async () => {
+    const { eje, g } = await mundo();
+    await escribe(eje, g, 'uno', '1000000000');
+    await escribe(eje, g, 'dos', '1000000000');
+    assert.ok(descubrir(eje, g, { posiciones: [1], maximo: 1 })[0].candidatos.length <= 1);
+  });
+
+// =====================================================================
+// Motor · genericidad
+// =====================================================================
+
+test('MOT-67 el motor es genérico: sin funciones por sector, y una composición puede ser nodo de otra', async () => {
+  const { eje, g } = await mundo();
+  const c1 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'primera composición' } });
+  // La consolidación es foco y fuente de otra, sin código especial.
+  const c2 = await consolidar(eje, { autor: 'ana', foco: c1.id, t: T0, elecciones: { 1: { ref: c1.id, dir: '1000000000' } } });
+  assert.deepEqual(c2.contexto.fuentes, [c1.id]);
+  assert.equal(consultar(eje, c2.id, [0], 'LOCAL(1)').texto, 'primera composición');
+  for (const nombre of Object.keys(motor)) assert.equal(/ikisai|reserva|booking|compra|yogur|menu|hotel/i.test(nombre), false, nombre);
+});
+
+test('MOT-68 no se impone una máquina de estados a todo: el ciclo de autorización es solo de las consolidaciones', async () => {
+  const { eje, g } = await mundo();
+  const nota = await escribe(eje, g, 'una nota');
+  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
+  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
+  assert.equal(nota.contexto.fase, undefined);
+  assert.deepEqual(consolidaciones(eje, g), []);
+});
+
+test('MOT-68b ningún registro recibe un estado que no le corresponde, y los contextos tienen sus propios estados',
+  { skip: 'MOT-68: estadoDe() da «PENDIENTE DE AUTORIZACIÓN» a cualquier registro, también al génesis; y toda consolidación tiene el mismo ciclo de tres estados, sin estados propios del contexto (aceptado, despachado, recibido…). [X] decidir VG si el ciclo de autorización cuenta como máquina de estados universal' },
+  async () => {
+    const { eje, g } = await mundo();
+    assert.equal(estadoDe(eje, g), undefined);
+  });
+
+// =====================================================================
+// Motor · tokens (M:TOK)
+// =====================================================================
+
+test('M:TOK-01 cada posición escrita mueve un minuto de T del autor (consolidar y autorizar)', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'uno', 2: ['dos', 'tres'] } });
+  assert.equal(minutosDe(c), contarPosiciones(c.payload));
+  assert.equal(minutosDe(c), 4);
+  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  assert.equal(minutosDe(a), contarPosiciones(a.payload));
+});
+
+test('M:TOK-01b ejecutar también paga un minuto por posición escrita',
+  { skip: 'M:TOK-01: ejecutar() escribe 3 posiciones (título y dos referencias) y cobra un solo minuto; no pasa por escribirDesde' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g);
+    const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+    assert.equal(minutosDe(e), contarPosiciones(e.payload));
+  });
+
+test('M:TOK-02 el coste en minutos se paga con T de minuto, no con horas convertidas',
+  { skip: 'M:TOK-02: tokens.js tiene un único T en segundos y SEGUNDOS convierte: quien solo tiene horas paga los minutos de escribir (la PR #35, abierta, separa las escalas)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: ['Casa', 'x'], t: T0 });
+    await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'raiz', sobre: eje.genesisId, en: '1000000000', payload: 'nota', t: T0 }), /saldo insuficiente/);
+  });
+
+test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo se mueven al ejecutar', async () => {
+  const { eje, g } = await mundo();
+  const { c, a } = await autorizada(eje, g);
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 2)] });
+  for (const ev of [c, a, e]) assert.ok(minutosDe(ev) >= 1, ev.contexto.fase);
+  assert.deepEqual([c, a].map((ev) => ev.movimientos.map((m) => m.token)), [['T'], ['T']]);
+  assert.deepEqual(e.movimientos.map((m) => m.token), ['T', 'E']);
+});
+
+test('M:TOK-04 la reserva: la plaza es una serie limitada; la segunda reserva solapada se escribe y colisiona, pero no se ejecuta por saldo', async () => {
+  // Así funciona hoy solo si la casa es el génesis, consolida y ejecuta (ver M:TOK-04b).
+  const { eje, hab } = await casaConUnaPlaza();
+  const r1 = await reservaDeLaCasa(eje, hab, 'h1');
+  const r2 = await reservaDeLaCasa(eje, hab, 'h2');
+  assert.deepEqual(ocupantes(eje, hab, [1, 4]).filter((o) => o.origen === 'escrito').map((o) => o.evento), [r1.id, r2.id]); // colisionan
+  await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11')] });
+  assert.equal(eje.saldo('h1', 'E:plaza-7-11'), 1);
+  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11')] }), /saldo insuficiente/);
+  assert.deepEqual([estadoDe(eje, r1.id), estadoDe(eje, r2.id)], ['EJECUTADO', 'AUTORIZADO']);
+});
+
+test('M:TOK-04b la reserva del huésped mueve la plaza de la casa al huésped, y la casa emite su propia serie',
+  { skip: 'M:TOK-04: ejecuta el autor de la consolidación y nadie mueve tokens ajenos: el huésped no puede mover la E de la casa; y solo el génesis emite series. [X] decidir VG cómo casa con TOK-35' },
+  async () => {
+    const { eje } = await reservaDelHuesped();
+    assert.equal(eje.saldo('huesped', 'E:plaza'), 1);
+  });
+
+// =====================================================================
+// Tokens · base y series
+// =====================================================================
+
+test('TOK-01 todo evento es una transición de tokens: no existe evento sin movimiento', async () => {
+  const { eje, g } = await mundo();
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [], payload: 'quieto' }), /todo evento mueve tokens/);
+  assert.ok([...eje.eventos.values()].every((ev) => ev.movimientos.length > 0));
+});
+
+test('TOK-02 el evento mínimo mueve T del autor (en el génesis, el autor lo recibe)', async () => {
+  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 }), /el génesis debe emitir T al autor/);
+  const { eje, g } = await mundo();
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /el autor debe mover T/);
+  const minimo = await escribe(eje, g, 'nota', undefined, 'ana');
+  assert.deepEqual(minimo.movimientos.map((m) => [m.token, m.de]), [['T', 'ana']]);
+});
+
+test('TOK-03 E/P/R/T son registros del eje, sin Nostr ni Bitcoin: los saldos se derivan de los eventos', async () => {
+  const { eje } = await mundo();
+  for (const [f, especificador] of importsDeSrc()) assert.ok(especificador.startsWith('.'), f + ' importa ' + especificador);
+  const datos = JSON.parse(JSON.stringify(serializar(eje)));
+  const otro = await Eje.desde(datos.eventos);
+  assert.equal(huella(otro), huella(eje));
+});
+
+test('TOK-03b los tokens viven en una base de datos',
+  { skip: 'TOK-03: el eje vive en memoria y en localStorage; la persistencia en base de datos está pendiente (MAPA §11)' },
+  sinForma('TOK-03'));
+
+test('TOK-04 las series siguen la misma mecánica: E por denominación, P por ámbito, R por emisor', async () => {
+  const eje = await Eje.genesis({
+    identidad: 'raiz',
+    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'E', denominacion: 'kg', cantidad: 5 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
+    foco: 'x',
+    t: T0,
+  });
+  const g = eje.genesisId;
+  assert.deepEqual([eje.saldo('raiz', 'E:EUR'), eje.saldo('raiz', 'E:kg')], [100, 5]);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'E', denominacion: 'kg', cantidad: 6, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  assert.deepEqual(eje.poderes('raiz'), [{ ambito: 'genesis', cantidad: 5 }]);
+  assert.deepEqual(eje.reputaciones('raiz'), [{ emisor: 'raiz', cantidad: 10 }]);
+});
+
+test('TOK-04b también T es una serie: un saldo por escala',
+  { skip: 'TOK-04: claveToken da una sola clave «T» y suma todas las escalas en segundos (la PR #35, abierta, la parte por escala)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'minuto', cantidad: 120 }], foco: 'x', t: T0 });
+    await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'hora', cantidad: 3, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  });
+
+// =====================================================================
+// Tokens · T (escalas, zoom, calendario)
+// =====================================================================
+
+test('TOK-05 T son siete tokens, uno por escala, cada uno con su propio saldo',
+  { skip: 'TOK-05: hay un único saldo de T en segundos; saldoT() expresa ese saldo en cualquier escala (el «T único en segundos» está retirado por VG)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'x', t: T0 });
+    assert.equal(eje.saldoT('raiz', 'hora'), 1);
+    assert.equal(eje.saldoT('raiz', 'minuto'), 0);
+  });
+
+test('TOK-06 las escalas de T no se convierten entre sí: gastar en una no consume saldo de otra',
+  { skip: 'TOK-06: cantidadBase pasa todo a segundos: con 100 horas y 1 año se pueden gastar 300 días, y con horas se pagan minutos' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'anio', cantidad: 1 }], foco: 'x', t: T0 });
+    const g = eje.genesisId;
+    await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'dia', cantidad: 300, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+    await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  });
+
+test('TOK-07 una misma actividad puede mover a la vez varias escalas de T', async () => {
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: ESCALAS_T.map((escala) => ({ token: 'T', escala, cantidad: 10 })), foco: 'x', t: T0 });
+  const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: ['minuto', 'dia', 'semana', 'anio'].map((escala) => ({ token: 'T', escala, cantidad: 1, de: 'raiz', a: null })), payload: 'intervención, atención, horizonte, estrategia' });
+  assert.deepEqual(ev.movimientos.map((m) => m.escala), ['minuto', 'dia', 'semana', 'anio']);
+});
+
+test('TOK-07b las escalas que mueve una actividad son saldos independientes',
+  { skip: 'TOK-07: los movimientos de T de escalas distintas se suman en el saldo único en segundos' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'T', escala: 'dia', cantidad: 10 }], foco: 'x', t: T0 });
+    await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'dia', cantidad: 1, de: 'raiz', a: null }], payload: 'x' });
+    assert.deepEqual([eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'dia')], [9, 9]);
+  });
+
+test('TOK-08 las escalas de T son exactamente siete: segundo, minuto, hora, día, semana, ciclo de 28 días y año', () => {
+  assert.deepEqual([...ESCALAS_T], ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']);
+  for (const mala of ['mes', 'trimestre', 'decada']) {
+    assert.ok(validarMovimiento({ token: 'T', escala: mala, cantidad: 1, de: 'x', a: null }).some((e) => /escala T inválida/.test(e)), mala);
+  }
+});
+
+test('TOK-09 T tiene hoy siete escalas', () => {
+  assert.equal(ESCALAS_T.length, 7);
+  assert.equal(Object.isFrozen(ESCALAS_T), true);
+});
+
+test('TOK-09b T se puede ampliar como máximo hasta diez escalas',
+  { skip: 'TOK-09: ESCALAS_T está congelado en siete, sin tope de diez ni forma de ampliarlo. [X] decidir VG cuáles y cuándo (la PR #35, abierta, declara el tope)' },
+  () => {
+    assert.equal(tokens.MAXIMO_ESCALAS_T, 10);
+  });
+
+test('TOK-11 elegir una escala o un zoom de tiempo no concede tiempo: cambiar la vista no mueve saldos', async () => {
+  const { eje, g } = await mundo();
+  const antes = huella(eje);
+  for (const e of ESCALAS_T) banda(SEGUNDOS[e]);
+  for (const maximo of [1, 10, 100]) ejeTemporal(eje, g, { ahora: AHORA, maximo });
+  ejeTemporal(eje, g, { ahora: '2030-01-01T00:00:00Z' });
+  mapa(eje, g);
+  secuencia(eje, g, { sentido: 'hijos' });
+  assert.equal(huella(eje), antes);
+});
+
+test('TOK-12 PV6 y PV7 usan las siete escalas como bandas de los hilos', async () => {
+  const { eje, g } = await mundo();
+  await escribe(eje, g, 'mañana', undefined, 'ana', '2026-11-08T12:00:00Z');
+  const e = ejeTemporal(eje, g, { ahora: AHORA });
+  for (const x of [...e.pasado, ...e.futuro]) assert.ok([...ESCALAS_T, 'mas'].includes(x.banda), x.banda);
+  assert.equal(e.futuro.find((x) => x.tipo === 'proyeccion').banda, 'semana'); // justo un día ya no cabe en «dia»: la banda siguiente
+});
+
+test('TOK-12b la escala elegida en PV4 cambia la expectativa, la exigencia y la resolución de la fábrica',
+  { skip: 'TOK-12: PV4 no tiene escala elegible; consolidar() no la recibe ni la registra (nombre supuesto: escala)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' }, escala: 'semana' });
+    assert.equal(c.contexto.escala, 'semana');
+  });
+
+test('TOK-14 el 7 de la geometría 7^7 de PV4 no es el número de escalas de T', async () => {
+  assert.equal(ESCALAS_T.length, 7);
+  for (const m of Object.keys(MODOS)) assert.notEqual(lectura(m), 7 ** 7, m);
+  const { eje, g } = await mundo(['Foco']);
+  const elecciones = Object.fromEntries(Array.from({ length: 9 }, (_, i) => [i + 1, 'p' + (i + 1)]));
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones });
+  assert.equal(c.payload.length, 10); // la fábrica tiene diez posiciones, no siete
+});
+
+test('TOK-16 el ciclo nativo es siempre de 28 días y la semana de 7; el mes gregoriano no es una escala', () => {
+  assert.equal(SEGUNDOS.ciclo, 28 * 86400);
+  assert.equal(SEGUNDOS.semana, 7 * 86400);
+  assert.equal(SEGUNDOS.anio, (13 * 28 + 1) * 86400);
+  assert.equal(ESCALAS_T.includes('mes'), false);
+  assert.equal(banda(27 * 86400), 'ciclo');
+  assert.equal(banda(29 * 86400), 'anio'); // 29 días no caben en un ciclo, aunque sí en un mes civil
+});
+
+test('TOK-16b el calendario civil es una vista alternativa de las fechas nativas',
+  { skip: 'TOK-16: no hay vista nativa de una fecha (año, ciclo, día) ni vista civil alternativa; los t de los eventos son ISO civiles' },
+  sinForma('TOK-16'));
+
+test('TOK-19 los hilos son cadenas de registros encadenados por referencia (sobre), no una secuencia temporal', async () => {
+  const { eje, g } = await mundo();
+  const a = await escribe(eje, g, 'a', undefined, 'ana', '2026-11-07T11:00:00Z');
+  const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T09:00:00Z');
+  const c = await escribe(eje, b.id, 'c', undefined, 'ana', '2026-11-07T11:30:00Z');
+  assert.deepEqual(eje.hilo(c.id).map((e) => e.id), [c.id, b.id, a.id, g]);
+});
+
+test('TOK-19b el eje temporal ordena el pasado por la posición en el hilo, no por la fecha',
+  { skip: 'TOK-19: ejeTemporal ordena el pasado por fecha frente a ahora (tiempo.js), no por la posición en el hilo' },
+  async () => {
+    const { eje, g } = await mundo();
+    const a = await escribe(eje, g, 'a', undefined, 'ana', '2026-11-07T11:00:00Z');
+    const b = await escribe(eje, a.id, 'b', undefined, 'ana', '2026-11-07T09:00:00Z');
+    const c = await escribe(eje, b.id, 'c', undefined, 'ana', '2026-11-07T11:30:00Z');
+    const e = ejeTemporal(eje, c.id, { ahora: AHORA });
+    assert.deepEqual(e.pasado.map((x) => x.id), eje.hilo(c.id).slice(1).map((x) => x.id));
+  });
+
+test('TOK-20 en el eje 6/7 los registros van al pasado y las proyecciones al futuro; el presente es la costura', async () => {
+  const { eje, g } = await mundo();
+  const ayer = await escribe(eje, g, 'ayer', undefined, 'ana', '2026-11-06T12:00:00Z');
+  const manana = await escribe(eje, g, 'mañana', undefined, 'ana', '2026-11-08T12:00:00Z');
+  const e = ejeTemporal(eje, g, { ahora: AHORA });
+  assert.ok(e.pasado.some((x) => x.id === ayer.id));
+  assert.ok(e.futuro.some((x) => x.id === manana.id && x.tipo === 'proyeccion'));
+  assert.ok(e.pasado.every((x) => x.delta <= 0));
+  assert.ok(e.futuro.filter((x) => x.tipo === 'proyeccion').every((x) => x.delta > 0));
+});
+
+test('TOK-20b Mapped no pinta a la derecha (futuro) lo que ya ocurrió',
+  { skip: 'TOK-20: mapped.js pinta a la derecha del foco todos sus hijos, también los ya ocurridos' },
+  async () => {
+    const { eje, g } = await mundo();
+    const ayer = await escribe(eje, g, 'ayer', undefined, 'ana', '2026-11-06T12:00:00Z');
+    const derecha = sobrioMapa(mapa(eje, g)).split('] →')[1];
+    assert.equal(derecha.includes(ayer.id.slice(0, 8)), false);
+  });
+
+test('TOK-21 más resolución cerca del presente: las distancias se agrupan en bandas de las siete escalas', () => {
+  const distancias = [0, 30, 3599, 86399, 6 * 86400, 27 * 86400, 300 * 86400];
+  assert.deepEqual(distancias.map(banda), ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']);
+  assert.equal(banda(-30), banda(30)); // pasado y futuro con la misma escala
+});
+
+test('TOK-21b lo lejano se comprime y agrupa por bandas, sin truncarse',
+  { skip: 'TOK-21: ejeTemporal corta en `maximo` en vez de agrupar lo que no cabe (forma del grupo supuesta: una entrada con cantidad)' },
+  async () => {
+    const { eje, g } = await mundo();
+    for (let k = 0; k < 12; k++) await escribe(eje, g, 'r' + k, undefined, 'ana', new Date(Date.parse(T0) - k * 86400000).toISOString());
+    const e = ejeTemporal(eje, g, { ahora: AHORA, maximo: 10 });
+    const contadas = e.pasado.reduce((n, x) => n + (x.cantidad ?? 1), 0);
+    assert.equal(contadas, e.totalPasado);
+  });
+
+test('TOK-23 PV7 guarda previsiones: lo declarado en 7 es futuro y no se convierte en hecho', async () => {
+  const { eje, g } = await mundo();
+  const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cenar el sábado'], undefined, 'ana');
+  const e = ejeTemporal(eje, plan.id, { ahora: AHORA });
+  const declarado = e.futuro.find((x) => x.tipo === 'declarado');
+  assert.equal(declarado.contenido, 'cenar el sábado');
+  assert.equal(e.pasado.some((x) => x.tipo === 'declarado'), false);
+  assert.deepEqual(consolidaciones(eje, plan.id), []);
+});
+
+test('TOK-23b lo declarado en 7 no inventa distancia ni banda, y tiene expiración y ejecución condicional',
+  { skip: 'TOK-23: lo declarado en 7 sale con delta 0 y banda «segundo» inventados; no hay expiración ni ejecución condicional' },
+  async () => {
+    const { eje, g } = await mundo();
+    const plan = await escribe(eje, g, ['Plan', 'a', 'b', 'c', 'd', 'e', 'f', 'cenar el sábado'], undefined, 'ana');
+    const declarado = ejeTemporal(eje, plan.id, { ahora: AHORA }).futuro.find((x) => x.tipo === 'declarado');
+    assert.equal(declarado.banda, undefined);
+  });
+
+// =====================================================================
+// Tokens · E y capacidad
+// =====================================================================
+
+test('TOK-24 E es una cantidad por denominación', async () => {
+  const { eje } = await mundo();
+  assert.equal(eje.saldo('ana', 'E:EUR'), 50);
+  assert.equal(eje.saldo('ana', 'E:kg'), 0);
+});
+
+test('TOK-24b E abarca disponibilidad (bloqueado o libre), derechos y obligaciones',
+  { skip: 'TOK-24: E es solo una cantidad por denominación; no hay disponible/bloqueado, derechos ni obligaciones' },
+  sinForma('TOK-24'));
+
+test('TOK-25 declarar no prueba poseer: un payload no crea saldo y nadie gasta lo que no tiene', async () => {
+  const { eje, g } = await mundo();
+  await escribe(eje, g, ['Tengo', '1000 EUR'], undefined, 'bea');
+  assert.equal(eje.saldo('bea', 'E:EUR'), 0);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: g, t: T0, movimientos: [gastaT('bea'), daE('bea', 'ana', 1)], payload: 'pago' }), /saldo insuficiente/);
+  for (const id of eje.identidades()) for (const [, v] of eje.saldos.get(id)) assert.ok(v >= 0, id);
+});
+
+test('TOK-25b ni un génesis manipulado deja a nadie en negativo',
+  { skip: 'TOK-25: Eje.desde acepta un génesis con un movimiento de = «mallory» y deja su saldo en −50' },
+  async () => {
+    const g = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'raiz' }, daE('mallory', 'raiz', 50)], payload: 'x', contexto: { genesis: true } });
+    await assert.rejects(Eje.desde([g]));
+  });
+
+test('TOK-26 E se cuenta por denominación: recursos distintos no se suman', async () => {
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 10 }, { token: 'E', denominacion: 'BTC', cantidad: 10 }], foco: 'x', t: T0 });
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', denominacion: 'EUR', cantidad: 15, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  assert.deepEqual([eje.saldo('raiz', 'E:EUR'), eje.saldo('raiz', 'E:BTC')], [10, 10]);
+});
+
+test('TOK-26b no hay E sin denominación',
+  { skip: 'TOK-26: se admite E sin denominación (clave «E»)' },
+  async () => {
+    await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'E', cantidad: 5 }], foco: 'x', t: T0 }));
+  });
+
+test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos casas son series distintas',
+  { skip: 'TOK-27: la clave de E no incluye al emisor y solo emite el génesis: dos casas no pueden tener cada una su serie «plaza»' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+    const g = eje.genesisId;
+    await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casaA', 60), daT('raiz', 'casaB', 60)], payload: 'altas' });
+    for (const [casa, n] of [['casaA', 2], ['casaB', 3]]) {
+      await eje.escribir({ autor: casa, sobre: g, t: T0, movimientos: [gastaT(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
+    }
+  });
+
+test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y solo él amplía su serie',
+  { skip: 'TOK-28: el eje rechaza toda emisión después del génesis («solo el génesis emite»)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+    const g = eje.genesisId;
+    await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60)], payload: 'altas' });
+    await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
+    await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
+    await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'otro', cantidad: 1, de: null, a: 'otro' }], payload: 'amplío la serie ajena' }));
+  });
+
+test('TOK-29 nadie emite una serie ajena: la R se emite a su propio emisor', async () => {
+  await assert.rejects(Eje.genesis({ identidad: 'raiz', emision: [...EMISION, { token: 'R', cantidad: 5, emisor: 'otra' }], foco: 'x', t: T0 }), /la emisión de R va a su propio emisor/);
+  const { eje, g } = await mundo();
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: null, a: 'raiz' }], payload: 'x' }));
+});
+
+test('TOK-29b nadie emite una denominación de E ajena',
+  { skip: 'TOK-29: no hay vínculo entre denominación y emisor, y solo el génesis emite (puede emitir cualquier denominación)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+    const g = eje.genesisId;
+    await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60)], payload: 'alta' });
+    await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
+    await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'E', denominacion: 'plaza', emisor: 'raiz', cantidad: 1, de: null, a: 'raiz' }], payload: 'plaza ajena' }));
+  });
+
+test('TOK-30 la capacidad es una serie limitada de quien respalda el recurso; ejecutar la reserva la mueve de la casa al huésped',
+  { skip: 'TOK-30: la casa solo tiene plazas si es el génesis, y ejecutar() del huésped con un movimiento casa→huésped se rechaza («nadie mueve tokens ajenos»). [X] decidir VG cómo encaja con TOK-35' },
+  async () => {
+    const { eje, c } = await reservaDelHuesped();
+    assert.equal(eje.saldo('casa', 'E:plaza'), 0);
+    assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  });
+
+test('TOK-31 la plaza es una posición donde las reservas colisionan; la segunda solapada se escribe pero no se ejecuta por saldo', async () => {
+  // Con la casa como génesis y autora de las reservas; el huésped que reserva es TOK-30 (skip).
+  const { eje, hab } = await casaConUnaPlaza();
+  const r1 = await reservaDeLaCasa(eje, hab, 'h1');
+  const r2 = await reservaDeLaCasa(eje, hab, 'h2');
+  const enLaPlaza = ocupantes(eje, hab, [1, 4]).map((o) => o.evento);
+  assert.ok(enLaPlaza.includes(r1.id) && enLaPlaza.includes(r2.id)); // se ven todas
+  await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11')] });
+  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11')] }), /saldo insuficiente/);
+  assert.ok(eje.obtener(r2.id)); // escrita sigue
+  assert.equal(estadoDe(eje, r2.id), 'AUTORIZADO');
+});
+
+// =====================================================================
+// Tokens · P y R
+// =====================================================================
+
+test('TOK-32 P es poder con ámbito: no existe un P total', async () => {
+  const { eje, g } = await mundo();
+  assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'raiz', a: 'ana' }).some((e) => /P exige ámbito/.test(e)));
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, de: 'raiz', a: 'ana' }], payload: 'x' }), /ámbito/);
+  const sub = await escribe(eje, g, 'subárbol');
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 2, ambito: sub.id, de: 'raiz', a: 'ana' }], payload: 'delegación' });
+  assert.deepEqual(eje.poderes('ana'), [{ ambito: sub.id, cantidad: 2 }]);
+  assert.equal(eje.poderSobre('ana', g), 0);
+});
+
+test('TOK-34 P no es un permiso automático: tener P no basta por sí solo para autorizar',
+  { skip: 'TOK-34: motor.puedeAutorizar deja autorizar a quien tiene P > 0 sobre el registro y no es el autor: es la regla V0 provisional (MOT-42, hueco de AARPIA)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+    assert.equal(puedeAutorizar(eje, 'raiz', c.id), false);
+  });
+
+test('TOK-35 nadie mueve tokens ajenos: todo movimiento con origen sale del autor', async () => {
+  const { eje, g } = await mundo();
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: g, t: T0, movimientos: [gastaT('bea'), daE('ana', 'bea', 1)], payload: 'x' }), /nadie mueve tokens ajenos/);
+  const { c } = await autorizada(eje, g);
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nadie mueve tokens ajenos/);
+});
+
+test('TOK-37 PV8 no emite P por subir de posición ni por reunir registros', async () => {
+  const { eje, g } = await mundo();
+  const a = await escribe(eje, g, ['A', 'mucho', 'contenido'], undefined, 'ana');
+  for (let k = 0; k < 3; k++) await escribe(eje, a.id, 'apoyo ' + k, undefined, 'bea');
+  const antes = huella(eje);
+  assert.equal(comparar(eje, a.id).posicion, 1);
+  assert.equal(huella(eje), antes);
+  assert.deepEqual(eje.poderes('ana'), []);
+});
+
+test('TOK-38 R se cuenta por emisor y no es fungible ni popularidad', async () => {
+  const { eje, g } = await mundo();
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 3, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'buen trato' });
+  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 3 }]);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'ana', a: 'bea' }], payload: 'x' }), /no es fungible/);
+  for (let k = 0; k < 3; k++) await escribe(eje, g, 'me gusta ana ' + k, undefined, 'bea'); // la popularidad no es R
+  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 3 }]);
+});
+
+test('TOK-41 PV3 no es R: comunicar no emite reputación', async () => {
+  const { eje, g } = await mundo();
+  const antes = eje.reputaciones('ana');
+  const msg = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, en: '3000000000', payload: 'hola a todos', t: T0 });
+  assert.deepEqual(msg.movimientos.map((m) => m.token), ['T']);
+  assert.deepEqual(eje.reputaciones('ana'), antes);
+});
+
+test('TOK-42 la R viaja en un evento con su contexto: se sabe quién la dio, cuándo y por qué', async () => {
+  const { eje, g } = await mundo();
+  const ev = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 2, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: ['Reconocimiento', 'entregó a tiempo'] });
+  const conR = [...eje.eventos.values()].filter((e) => e.movimientos.some((m) => m.token === 'R' && m.a === 'ana'));
+  assert.deepEqual(conR.map((e) => [e.autor, e.payload[1]]), [['raiz', 'entregó a tiempo']]);
+  assert.equal(conR[0].id, ev.id);
+});
+
+test('TOK-42b la R enlaza con historial, compromisos, juicios y evidencias',
+  { skip: 'TOK-42: R es una cantidad por emisor; su único contexto es el payload del evento que la mueve, sin enlace a evidencias' },
+  sinForma('TOK-42'));
+
+test('TOK-43 los tokens recorren los diez PV: cualquier evento, en cualquier posición, puede mover cualquier familia', async () => {
+  const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  await eje.escribir({ autor: 'raiz', sobre: g, en: '3000000000', t: T0, movimientos: [gastaT('raiz'), daE('raiz', 'ana', 1)], payload: 'E en el 3' });
+  await eje.escribir({ autor: 'raiz', sobre: g, en: '1000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }], payload: 'P en el 1' });
+  await eje.escribir({ autor: 'raiz', sobre: g, en: '7000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'R en el 7' });
+  await eje.escribir({ autor: 'raiz', sobre: g, en: '2000000000', t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 5)], payload: 'T en el 2' });
+  assert.equal(eje.saldo('ana', 'E:EUR'), 51);
+  assert.equal(eje.poderSobre('ana', g), 1);
+  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 1 }]);
+});
+
+test('TOK-47 se ven los tokens: P por ámbito y R por emisor, separados de los recursos', async () => {
+  const { eje, g } = await mundo();
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
+  assert.deepEqual(eje.poderes('ana'), [{ ambito: 'genesis', cantidad: 1 }]);
+  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 1 }]);
+  assert.equal(eje.saldo('ana', 'E:EUR'), 50);
+});
+
+test('TOK-47b se ven todas las denominaciones de E y todas las escalas de T',
+  { skip: 'TOK-47: el eje no da las escalas de T ni la lista de denominaciones de E de una identidad; app.js muestra solo E:EUR y T sumado en horas (eso no se prueba aquí). Nombres supuestos: tiempos y recursos' },
+  async () => {
+    const { eje } = await mundo();
+    assert.deepEqual(eje.tiempos('ana'), [{ escala: 'minuto', cantidad: 300 }]);
+    assert.deepEqual(eje.recursos('ana'), [{ denominacion: 'EUR', cantidad: 50 }]);
+  });
+
+test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura, P autoriza, R no es fungible, E se mueve al ejecutar', async () => {
+  const { eje, g } = await mundo();
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'pobre', 1)], payload: 'alta con un minuto' });
+  await escribe(eje, g, 'una', undefined, 'pobre');
+  await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente/); // T
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /no tiene poder/); // P
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'bea', 10)] });
+  assert.equal(eje.saldo('bea', 'E:EUR'), 10); // E
+});
+
+test('TOK-48b los cuatro tokens tienen presencia visible, no solo cifras',
+  { skip: 'TOK-48: la vista es una lista de cifras por identidad (app.js); no hay render animado ni presencia de los tokens en los mundos' },
+  sinForma('TOK-48'));
+
+test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
+  const { eje, g } = await mundo();
+  const antes = eje.saldo('ana', 'E:EUR');
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 10), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
+  assert.equal(eje.saldo('ana', 'E:EUR'), antes); // nada se convierte en E
+  assert.ok([...eje.saldos.get('ana').keys()].every((k) => /^(T|E:|P:|R:)/.test(k))); // ni hay una cifra total
+  assert.equal(typeof eje.total, 'undefined');
+});
+
+test('TOK-50 más transferencias no son más riqueza: mover tokens no es progreso automático',
+  { skip: 'TOK-50: tiempo.comparar puntúa posiciones + 2·escritos + movimientos: un hermano con cuatro movimientos queda por delante de uno con uno' },
+  async () => {
+    const { eje, g } = await mundo();
+    const padre = await escribe(eje, g, 'padre');
+    const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
+    await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
+    assert.equal(comparar(eje, a.id).comparables[0].id, a.id);
+  });
+
+test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {
+  const { eje, g } = await mundo();
+  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5), daE('ana', 'cris', 5)], payload: 'ana da de alta a cris' });
+  const ev = await escribe(eje, g, 'cris participa', undefined, 'cris');
+  assert.equal(ev.autor, 'cris');
+  assert.equal(eje.saldo('cris', 'E:EUR'), 5);
+});
+
+test('TOK-54b una identidad que no es el génesis puede emitir sus propias series',
+  { skip: 'TOK-54: solo el génesis emite, así que todos los tokens vienen de la primera identidad, y el P de ámbito «genesis» cubre todo el eje (ver TOK-28)' },
+  async () => {
+    const { eje, g } = await mundo();
+    await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 5, emisor: 'ana', de: null, a: 'ana' }], payload: 'mi reputación' });
+    assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'ana', cantidad: 5 }]);
+  });
+
+test('TOK-55 las alternativas descentralizadas se ofrecen por defecto («multinacional de autónomos»)',
+  { skip: 'TOK-55: no hay ningún mecanismo para ello' },
+  sinForma('TOK-55'));
+
+test('TOK-56 el génesis es la emisión inicial a la primera identidad, con un foco raíz y T incluido', async () => {
+  const { eje, g } = await mundo();
+  const gen = eje.obtener(g);
+  assert.ok(gen.movimientos.every((m) => m.de === null && m.a === 'raiz'));
+  assert.ok(gen.movimientos.some((m) => m.token === 'T'));
+  assert.equal(gen.sobre, null);
+});
+
+test('TOK-56b un génesis reconstruido solo vale si todo son emisiones a su autor',
+  { skip: 'TOK-56: Eje.desde acepta un génesis con un movimiento de = «mallory» o con emisión a otra identidad' },
+  async () => {
+    const emitir = (a) => ({ token: 'T', escala: 'minuto', cantidad: 60, de: null, a });
+    const conMallory = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), daE('mallory', 'raiz', 50)], payload: 'x', contexto: { genesis: true } });
+    const aOtra = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), emitir('otra')], payload: 'x', contexto: { genesis: true } });
+    await assert.rejects(Eje.desde([conMallory]));
+    await assert.rejects(Eje.desde([aOtra]));
+  });
+
+test('TOK-57 una identidad existe cuando recibe tokens; quien la da de alta la declara, con su clave en el mismo evento', async () => {
+  const { eje, g } = await mundo();
+  await assert.rejects(escribe(eje, g, 'x', undefined, 'dani'), /autor desconocido/);
+  assert.equal(eje.identidades().includes('dani'), false);
+  const dani = await generarClaves();
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'dani', 10)], payload: 'alta de dani', contexto: { claves: { dani: dani.publica } } });
+  assert.ok(eje.identidades().includes('dani'));
+  assert.deepEqual(eje.clave('dani'), dani.publica);
+});
+
+test('TOK-58 el token-identidad no es token-valor: las claves van aparte de los saldos', async () => {
+  const { eje, g } = await mundo();
+  const dani = await generarClaves();
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'dani', 10)], payload: 'alta', contexto: { claves: { dani: dani.publica } } });
+  assert.ok(eje.claves.has('dani'));
+  assert.ok([...eje.saldos.get('dani').keys()].every((k) => !/clave/i.test(k)));
+  assert.equal(eje.claves.has('ana'), false); // tener saldo no da identidad criptográfica
+  assert.ok(eje.saldos.has('ana'));
+});
+
+test('TOK-59 cada posición escrita cuesta al autor un minuto de T', async () => {
+  const { eje, g } = await mundo();
+  for (const [modo, payload] of [['pointed', 'uno'], ['sequenced', ['a', 'b', 'c']], ['mapped', ['a', ['b', 'c'], 'd']]]) {
+    const ev = await escribirDesde(eje, { modo, autor: 'ana', sobre: g, payload, t: T0 });
+    assert.equal(minutosDe(ev), contarPosiciones(payload), modo);
+  }
+});
+
+test('TOK-59b también ejecutar paga un minuto por posición',
+  { skip: 'TOK-59: ejecutar() cobra 1 minuto por un payload de 3 posiciones y no pasa por escribirDesde (motor.js)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await autorizada(eje, g);
+    const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+    assert.equal(minutosDe(e), contarPosiciones(e.payload));
+  });
+
+// =====================================================================
+// Épocas
+// =====================================================================
+
+test('TOK-60 la época es una convención paralela, fuera del dato: se elige al leer', async () => {
+  const { eje, g } = await mundo();
+  const ev = eje.obtener(g);
+  assert.equal('epoca' in ev, false);
+  const otra = { nombre: 'otra', reglaCorta: (p, d) => 'otra ' + d };
+  assert.equal(decupla(ev, otra).posiciones[4].significado, 'otra 4');
+  assert.equal(mapa(eje, g, { epoca: otra }).celdas[4].significado, 'otra 4');
+  assert.equal(leerDireccion(FABRICA, otra)[0].significado, 'otra 4');
+});
+
+test('TOK-60b el motor, BQL y el tiempo también leen bajo la época elegida',
+  { skip: 'TOK-60: BQL, el motor y tiempo no aceptan época (descubrir no la pasa al encaje)' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { consultadas, epoca } = epocaEspia();
+    descubrir(eje, g, { posiciones: [1], epoca });
+    assert.ok(consultadas.length > 0);
+  });
+
+test('TOK-61 la época actual es la confluencia de las pasadas y fija cómo se calculará la siguiente',
+  { skip: 'TOK-61: no implementado' },
+  sinForma('TOK-61'));
+
+test('TOK-62 una época es un árbol ordinario adoptado como tronco compartido',
+  { skip: 'TOK-62: EPOCA_0 es un objeto del código, no un árbol de eventos (la PR #33, abierta, la pasa a JSON de datos, tampoco como árbol)' },
+  sinForma('TOK-62'));
+
+test('TOK-63 en la época 0 la regla corta vale en todas las profundidades: cada dígito es un PV', () => {
+  for (let p = 0; p < 10; p++) for (let d = 0; d < 10; d++) assert.equal(EPOCA_0.reglaCorta(p, d), PV[d]);
+});
+
+test('TOK-64 la regla corta es exhaustiva: cubre los diez dígitos en las diez profundidades', () => {
+  let cubiertas = 0;
+  for (let p = 0; p < 10; p++) for (let d = 0; d < 10; d++) if (typeof EPOCA_0.reglaCorta(p, d) === 'string' && EPOCA_0.reglaCorta(p, d)) cubiertas++;
+  assert.equal(cubiertas, 100);
+});
+
+test('TOK-64b las cien reglas cortas propias de cada profundidad',
+  { skip: 'TOK-64: solo existe la época 0, con la misma regla en todas las profundidades; las cien reglas se trabajan en V5 con ejemplos y UI (la PR #33, abierta, propone una época 1)' },
+  sinForma('TOK-64'));
+
+test('TOK-65 las reglas largas refinan rutas y prefijos completos, parciales y dispersas',
+  { skip: 'TOK-65: no implementado: leerDireccion solo pregunta a la época por (profundidad, dígito), nunca por el prefijo. Forma supuesta abajo' },
+  () => {
+    const conLarga = { nombre: 'con larga', reglaCorta: (p, d) => PV[d], reglaLarga: (prefijo) => (prefijo === '84' ? 'compras' : undefined) };
+    assert.equal(leerDireccion('8412000000', conLarga)[1].significado, 'compras');
+  });
+
+test('TOK-66 la época 0 da las reglas por defecto de toda lectura', async () => {
+  const { eje, g } = await mundo();
+  assert.deepEqual(leerDireccion('1300000000'), leerDireccion('1300000000', EPOCA_0));
+  assert.deepEqual(decupla(eje.obtener(g)).posiciones.map((p) => p.significado), PV);
+  assert.deepEqual(mapa(eje, g).celdas.map((c) => c.significado), PV);
+});
+
+test('TOK-66b diez épocas, con la 0 como respaldo, y bifurcaciones que convergen por referencias sin borrar ramas',
+  { skip: 'TOK-66: no hay otras épocas ni respaldo entre épocas' },
+  sinForma('TOK-66'));
+
+test('TOK-68 una implementación referenciada por hash no da permiso para ejecutar código', async () => {
+  const { eje, g } = await mundo();
+  const hash = 'a'.repeat(64);
+  const x = await escribe(eje, g, ['Regla', '=IMPL("' + hash + '")', '=REF("' + hash + '")', 'sha256:' + hash]);
+  const antes = huella(eje);
+  assert.equal(evaluar(eje, x.id, [1]).estado, 'ERROR');
+  assert.match(evaluar(eje, x.id, [1]).motivo, /función desconocida/);
+  assert.notEqual(evaluar(eje, x.id, [2]).estado, 'RESUELTO');
+  assert.equal(evaluar(eje, x.id, [3]).valor.tipo, 'texto');
+  assert.equal(huella(eje), antes);
+});
+
+test('TOK-69 la época cambia cómo se ordenan los ocupantes', () => {
+  const lista = [{ n: 'desde 9', vector: vector('9000000000', '2000000000') }, { n: 'desde 3', vector: vector('3000000000', '2000000000') }];
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: EPOCA_0 }).map((x) => x.n), ['desde 9', 'desde 3']);
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: { ordinal: (k) => k === 0 } }).map((x) => x.n), ['desde 3', 'desde 9']);
+});
+
+test('TOK-69b la época cambia qué ocupantes aparecen y los vectores',
+  { skip: 'TOK-69: nada filtra ocupantes por época, vector() usa los dígitos sin más y arbol() no recibe época' },
+  async () => {
+    const { eje, g } = await mundo();
+    const { consultadas, epoca } = epocaEspia();
+    arbol(eje, g, { epoca });
+    assert.ok(consultadas.length > 0);
+  });
+
+test('TOK-70 elegir una época no prueba legitimidad, verdad ni autoridad de ejecución', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  const antes = [huella(eje), estadoDe(eje, c.id), puedeAutorizar(eje, 'bea', c.id)];
+  const generosa = { nombre: 'generosa', ordinal: () => true, reglaCorta: () => 'todo autorizado' };
+  leerDireccion(c.en, generosa);
+  decupla(c, generosa);
+  ocupantes(eje, g, [4], { epoca: generosa });
+  assert.deepEqual([huella(eje), estadoDe(eje, c.id), puedeAutorizar(eje, 'bea', c.id)], antes);
+});
+
+test('TOK-71 el cambio de época compone aportaciones de varias ramas en vez de elegir una ganadora',
+  { skip: 'TOK-71: no implementado' },
+  sinForma('TOK-71'));
+
+// =====================================================================
+// Fronteras
+// =====================================================================
+
+test('TOK-72 AGRAM no firma por nadie: la firma la pone el autor con su clave', async () => {
+  const { eje, g } = await mundo();
+  const { c, a } = await autorizada(eje, g);
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  for (const ev of [c, a, e]) assert.equal(ev.firma, undefined); // sin clave del autor, nada firmado
+  const ana = await generarClaves();
+  const eje2 = await Eje.genesis({ identidad: 'ana', emision: EMISION, foco: ['F', 'a'], t: T0, clave: ana.publica, privada: ana.privada });
+  const c2 = await consolidar(eje2, { autor: 'ana', foco: eje2.genesisId, t: T0, elecciones: { 1: 'x' } }, ana.privada);
+  assert.equal(c2.firmante, 'ana');
+  assert.equal(await verificar(c2, ana.publica), true);
+});
+
+test('TOK-72b AGRAM no genera por sí mismo pagos ni ejecuciones: invoca servicios autorizados',
+  { skip: 'TOK-72: motor.ejecutar mueve tokens dentro del eje, como hueco provisional de AARPIA. [!] Choca con MOT-39 (el motor es la ejecución real); [X] decidir VG (MOT-40)' },
+  sinForma('TOK-72'));
+
+test('TOK-73 la regla de autorización del motor es un hueco provisional en un solo punto: puedeAutorizar', async () => {
+  const { eje, g } = await mundo();
+  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
+  for (const quien of ['ana', 'bea', 'raiz']) {
+    const puede = puedeAutorizar(eje, quien, c.id);
+    if (puede) await autorizar(eje, { autorizante: quien, consolidacion: c.id, t: T0 });
+    else await assert.rejects(autorizar(eje, { autorizante: quien, consolidacion: c.id, t: T0 }));
+  }
+  assert.deepEqual(autorizacionesValidas(eje, c.id).map((x) => x.autor), ['raiz']);
+});
+
+test('TOK-73b una frontera con AARPIA, el motor real de autorización y ejecución',
+  { skip: 'TOK-73: la regla provisional está en motor.js sin frontera con AARPIA' },
+  sinForma('TOK-73'));
+
+test('TOK-74 fuera quedan AARPIA, Nostr y Bitcoin, salvo instancias y transiciones', async () => {
+  const { eje, g } = await mundo();
+  for (const [f, especificador] of importsDeSrc()) assert.equal(/nostr|bitcoin|stateark|aarpia/i.test(especificador), false, f);
+  const ev = eje.obtener(g); // una instancia…
+  assert.ok(Array.isArray(ev.movimientos) && ev.movimientos.length > 0); // …con sus transiciones
+});
+
+test('TOK-75 firmar no hace verdadero el contenido, y publicar no hace a un evento descubrible por todos', async () => {
+  const raiz = await generarClaves();
+  const crear = () => Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
+  const aqui = await crear();
+  const alli = await crear();
+  assert.equal(aqui.genesisId, alli.genesisId);
+  const falso = await aqui.escribir({ autor: 'raiz', sobre: aqui.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'la luna es de queso' }, raiz.privada);
+  assert.equal(await verificar(falso, raiz.publica), true); // firmado, y no por eso cierto
+  assert.equal(alli.obtener(falso.id), undefined); // publicado aquí, no descubierto allí
+});
+
+test('TOK-76 no hay anclaje (raíz Merkle, StateArk, Bitcoin) ni se afirma ninguna integración', async () => {
+  for (const nombre of nombresExportados()) assert.equal(/merkle|anclar|anclaje|stateark|bitcoin/i.test(nombre), false, nombre);
+  const { eje } = await mundo();
+  assert.equal(/merkle|raizMerkle/i.test(JSON.stringify(serializar(eje))), false);
+});
+
+test('TOK-77 ningún token sale del eje: todo movimiento va a una identidad del eje o se consume', async () => {
+  const { eje, g } = await mundo();
+  const { c } = await autorizada(eje, g);
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 1)] });
+  const identidades = new Set(eje.identidades());
+  for (const ev of eje.eventos.values()) for (const m of ev.movimientos) assert.ok(m.a === null || identidades.has(m.a), m.a);
+});
+
+test('TOK-78 el viejo Core no vuelve: no hay módulo ni ontología Core en el núcleo', () => {
+  const ficheros = readdirSync(new URL('../src/', import.meta.url));
+  assert.equal(ficheros.some((f) => /core/i.test(f)), false);
+  assert.equal(nombresExportados().some((n) => /^core$/i.test(n)), false);
+});
+
+test('TOK-79 capas de validez separadas: el eje valida forma, id, firma y saldos por su lado', async () => {
+  const raiz = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, clave: raiz.publica, privada: raiz.privada });
+  const g = eje.genesisId;
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }, raiz.privada), /en debe ser/); // forma
+  const bueno = await firmar(await crearEvento({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'x' }), raiz.privada);
+  await assert.rejects(eje.anadir({ ...bueno, payload: 'y' }), /id no corresponde/); // id
+  await assert.rejects(eje.anadir({ ...bueno, firma: bueno.firma.slice(0, -4) + 'AAAA' }), /firma inválida/); // firma
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz', 100000)], payload: 'x' }, raiz.privada), /saldo insuficiente/); // saldos
+});
+
+test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona',
+  { skip: 'TOK-79: no hay acreditación material ni un modelo de capas' },
+  sinForma('TOK-79'));
+
+// =====================================================================
+// Reglas con fuerza «propuesta» o «abierto»: sin prueba hasta que VG decida.
+// Se listan con su id para que no se conviertan en regla por accidente.
+// =====================================================================
+//
+// Serie del motor
+//   MOT-40 [abierto]   el motor no genera derechos, firmas, pruebas, pagos ni ejecuciones: puede invocar servicios
+//                      autorizados. [!] Choca con MOT-39 (el motor es la ejecución real) y MOT-41 (AARPIA ejecuta).
+//   MOT-42 [propuesta] regla V0: autoriza quien tiene P > 0 sobre el registro y no es el autor; ejecuta el autor
+//                      (hueco provisional hasta AARPIA; hoy implementada en puedeAutorizar y ejecutar).
+//   MOT-45 [abierto]   qué ejecuciones necesitan la autorización de otra identidad («cuando corresponda»).
+//   MOT-52 [abierto]   si C exige que antes haya habido Q y B (hoy consolidar no lo exige).
+//   MOT-53 [propuesta] que el orden cambie el resultado depende del contexto; no es un axioma «siempre diferentes».
+//   MOT-60 [abierto]   si la proporción por modo es un tope o una banda con mínimo, y si obliga a autorizar y ejecutar.
+//   MOT-66 [propuesta] un registro rechazado no produce efectos económicos; una respuesta provisional no es autorización
+//                      (hoy eje.validar simula y, si algo falla, nada cambia).
+//
+// Serie de tokens
+//   TOK-10 [abierto]   quién emite T de cada escala: solo el génesis, o cada identidad su tiempo como serie limitada.
+//   TOK-13 [propuesta] la escala que muestra la interfaz y el presupuesto real de trabajo son dos controles distintos.
+//   TOK-15 [propuesta] año nativo = 13 ciclos de 28 días + 1 día fuera de ciclos (hoy solo como duración).
+//   TOK-17 [abierto]   años bisiestos y sincronización con el calendario civil.
+//   TOK-18 [abierto]   uso del día fuera de ciclos y su vínculo con el token anual y la elección de época.
+//   TOK-22 [propuesta] cada banda más lejana ocupa unos dos tercios del espacio de la anterior.
+//   TOK-33 [abierto]   qué es un ámbito de P: un área (P_Derecho) o el subárbol de un registro (hoy, el subárbol).
+//   TOK-36 [abierto]   la delegación de P (hoy hacia un ámbito igual o más estrecho).
+//   TOK-39 [propuesta] transferir R sin sustituir a su emisor (hoy solo la mueve su emisor).
+//   TOK-40 [propuesta] emisión de R en doble entrada, con conservación al liquidar, bloqueo y aceptación.
+//   TOK-44 [propuesta] en PV2, luz/E, calor/P, agua/R y vida/T como metáfora visual flexible.
+//   TOK-45 [propuesta] en PV3 los tokens condicionan paquetes, atención y pagos por comunicación.
+//   TOK-46 [propuesta] en PV4 los tokens representan producción desagregada.
+//   TOK-51 [abierto]   emisión, transferencia, conservación, precios, derechos, microeconomía y liquidación.
+//   TOK-52 [propuesta] kernel V10: Value con siete relaciones y las primitivas ISSUE, TRANSFER, LOCK, RELEASE, CONSUME.
+//   TOK-53 [propuesta] T cubre presupuestos, reservas, bloqueos, ventanas y respaldo; el T futuro no emitido no es valor bloqueado.
+//   TOK-67 [abierto]   legitimidad y selección del tronco; compatibilidad histórica.
