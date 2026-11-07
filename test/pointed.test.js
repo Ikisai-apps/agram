@@ -43,7 +43,7 @@ test('render sobrio: una línea por posición', () => {
 test('leer dirección bajo época 0', () => {
   assert.deepEqual(
     leerDireccion('1200000000').map((x) => x.significado),
-    ['recursos', 'criterios'],
+    ['recursos', 'con qué condición'],
   );
   assert.deepEqual(leerDireccion('0000000000'), []);
 });

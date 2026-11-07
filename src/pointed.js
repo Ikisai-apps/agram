@@ -10,7 +10,7 @@ import { EPOCA_0, epocaDe } from './epocas.js';
  * Lo no desarrollado queda sin contenido (undefined). Un terminal no tiene
  * posición 0 (MAPA §12: se retira la convención de la representación): un
  * payload terminal no se reparte en posiciones y va aparte, en `terminal`.
- * La época va por objeto o por nombre ('época 0', 'época 1 (propuesta)'),
+ * La época va por objeto o por nombre ('época 0'),
  * como en leerDireccion.
  */
 export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
