@@ -5,31 +5,29 @@
 // escena; «Mapped» lo abre en Mapped.
 //
 // Solo lee: Scened no escribe mientras su proporción no esté fijada
-// (src/modos.js). Tope duro: 10000 posiciones leídas (scened.TOPE, mapa §12).
-// La escena se corta en el primer foco que no cabe y el corte se dice arriba y
-// abajo de la lista, nunca en silencio.
+// (src/modos.js). Lo que la escena trae se cuenta contra la capacidad de
+// src/scened.js (CAPACIDAD = lectura('scened') = 10000 posiciones por
+// defecto). [X] decidir VG: ¿tope duro de lectura de 10000 o capacidad
+// ajustable? (mapa §13). Los topes duros del §12 son de EMISIÓN. La escena se
+// corta en el primer foco que no cabe y el corte se dice arriba y abajo de la
+// lista, nunca en silencio.
 //
-// Alcances: los dos de scened.escenaDe (hermanos, hilo) y las otras dos
-// cohortes del 8 que ya calcula tiempo.comparables (proyecto, general; mapa
-// §12, «Cohortes y bases del 8»). En las cuatro el foco va primero y es el
-// centro; los demás, por orden de llegada. [X] decidir VG: la prioridad
-// cuando hay corte (hoy, el foco y después la llegada).
-//
-// Las piezas que comparte con el resto del frontend (escapar, acortar) se
-// repiten aquí para no depender de ui/comun.js mientras la PR #47 no esté en
-// main.
+// Alcances: los cuatro de scened.escenaDe, en su orden (hermanos, proyecto,
+// general, hilo); los tres primeros son las cohortes del 8 que calcula
+// tiempo.comparables. El foco va primero y es el centro; los demás, por
+// llegada. [X] decidir VG: la prioridad cuando hay corte.
 
-import { escena, escenaDe, TOPE } from '../src/scened.js';
-import { comparables } from '../src/tiempo.js';
+import { escenaDe, CAPACIDAD, ALCANCES } from '../src/scened.js';
 import { esReferencia } from '../src/btml.js';
 import { esFormula, desescapar } from '../src/bql.js';
+import { escapar, corto, leerLocal, guardarLocal } from './comun.js';
 
-/** Alcances de la vista, en el orden de los botones. */
+/** Alcances de la vista, en el orden de los botones (el de scened.ALCANCES). */
 export const ALCANCES_VISTA = Object.freeze([
   Object.freeze({ alcance: 'hermanos', nombre: 'hermanos', pista: 'el foco y lo escrito sobre su mismo padre: los comparables del 8' }),
-  Object.freeze({ alcance: 'hilo', nombre: 'hilo', pista: 'el foco y sus antecesores hasta el génesis' }),
   Object.freeze({ alcance: 'proyecto', nombre: 'proyecto', pista: 'todo lo que cuelga del proyecto del foco (el registro de su hilo que cuelga del génesis)' }),
   Object.freeze({ alcance: 'general', nombre: 'todo el eje', pista: 'el foco y todos los registros del eje' }),
+  Object.freeze({ alcance: 'hilo', nombre: 'hilo', pista: 'el foco y sus antecesores hasta el génesis' }),
 ]);
 
 const NOMBRES = ALCANCES_VISTA.map((a) => a.alcance);
@@ -38,44 +36,20 @@ const RAIZ = '0000000000';
 /** Sangría máxima: a 400 px, más de seis niveles no caben; el nivel exacto se lee en la fila. */
 const SANGRIA_MAXIMA = 6;
 
-function escapar(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** El ancla de la fila de un foco: por id, no por posición, para que no cambie al recentrar. */
+const ancla = (id) => 'escena-' + id;
+
+/** Lo que representa a un foco en una línea: su terminal (un terminal no tiene posición 0) o su posición 0. */
+export function representacion(f) {
+  return f.mapa.terminal ?? f.mapa.celdas[0]?.contenido;
 }
 
-function corto(id) {
-  return String(id ?? '').slice(0, 8);
-}
-
-/** Lo que representa a un foco en una línea: su terminal o su posición 0 (la escena ya lo trae en `representacion`). */
 function representar(c) {
   if (c === undefined) return '—';
   if (Array.isArray(c)) return c.length + (c.length === 1 ? ' posición' : ' posiciones');
   if (esReferencia(c)) return '→ ' + corto(c.ref) + (c.dir && c.dir !== RAIZ ? ' : ' + c.dir : '');
   const s = esFormula(c) ? String(c) : String(desescapar(c));
   return s.length > 80 ? s.slice(0, 79) + '…' : s;
-}
-
-/**
- * Focos de un alcance, en orden de prioridad: el foco primero y los demás
- * por llegada. 'hermanos' e 'hilo' los elige scened.escenaDe; 'proyecto' y
- * 'general' salen de tiempo.comparables, las mismas cohortes que lee el 8.
- */
-export function focosDe(eje, foco, alcance) {
-  if (!NOMBRES.includes(alcance)) throw new Error('alcance desconocido: ' + alcance + ' (' + NOMBRES.join(', ') + ')');
-  if (alcance === 'hilo') return eje.hilo(foco).map((e) => e.id);
-  const resto = comparables(eje, foco, alcance).map((e) => e.id).filter((id) => id !== foco);
-  return [foco, ...resto];
-}
-
-/**
- * La escena de la vista: la de scened, con el foco como centro. Opciones:
- * alcance, camino (todos los focos se miran desde el mismo camino), ahora y
- * tope (solo para bajarlo en pruebas: scened no deja subirlo de 10000).
- */
-export function escenaVista(eje, foco, { alcance = 'hermanos', camino = [], ahora, tope } = {}) {
-  const opciones = { camino, ...(ahora !== undefined ? { ahora } : {}), ...(tope !== undefined ? { tope } : {}) };
-  if (alcance === 'hermanos' || alcance === 'hilo') return escenaDe(eje, foco, { alcance, ...opciones });
-  return { ...escena(eje, focosDe(eje, foco, alcance), { ...opciones, centro: foco }), alcance };
 }
 
 function textoArista(x) {
@@ -93,12 +67,12 @@ function tituloArista(x, e) {
 }
 
 function filaFoco(f, e) {
-  const aristas = f.salen.map((x) => `<a class="arista a-${x.tipo}" href="#escena-${x.a}" title="${escapar(tituloArista(x, e))}">${escapar(textoArista(x))}</a>`).join('');
+  const aristas = f.salen.map((x) => `<a class="arista a-${x.tipo}" href="#${ancla(x.aId)}" title="${escapar(tituloArista(x, e))}">${escapar(textoArista(x))}</a>`).join('');
   const hermanos = 'hermano ' + f.hermano.indice + ' de ' + f.hermano.de + (f.hermanosEnEje > f.hermano.de ? ' (' + f.hermanosEnEje + ' en el eje)' : '');
   const meta = ['n' + f.nivel, hermanos, 'pasado ' + f.tiempo.totalPasado, 'futuro ' + f.tiempo.totalFuturo, ...(f.entran ? ['← ' + f.entran] : [])].join(' · ');
-  return `<li class="pieza${f.centro ? ' centro' : ''}" id="escena-${f.posicion}" style="--nivel:${Math.min(f.nivel, SANGRIA_MAXIMA)}">
+  return `<li class="pieza${f.centro ? ' centro' : ''}" id="${ancla(f.id)}" style="--nivel:${Math.min(f.nivel, SANGRIA_MAXIMA)}">
       <div class="pieza-fila">
-        <button class="abrir" data-ir="${escapar(f.id)}" title="poner este foco en el centro de la escena"><span class="n">${f.posicion}</span><span class="quien">${corto(f.id)} · ${escapar(f.autor)}${f.centro ? ' · centro' : ''}</span><span class="rep">${escapar(representar(f.representacion))}</span></button>
+        <button class="abrir" data-ir="${escapar(f.id)}" title="poner este foco en el centro de la escena"><span class="n">${f.posicion}</span><span class="quien">${corto(f.id)} · ${escapar(f.autor)}${f.centro ? ' · centro' : ''}</span><span class="rep">${escapar(representar(representacion(f)))}</span></button>
         <button class="ref" data-escena-mapped="${escapar(f.id)}" title="abrir este foco en Mapped">Mapped</button>
       </div>
       <div class="meta">${escapar(meta)}</div>
@@ -110,16 +84,26 @@ function avisos(e) {
   return e.avisos.map((a) => `<div class="aviso">${escapar(a)}</div>`).join('');
 }
 
-/** HTML sobrio de una escena: alcance, lectura frente al tope, avisos arriba, una fila por foco, recuentos y avisos abajo. */
+/** Qué capacidad se aplica, en palabras. */
+function textoCapacidad(c) {
+  if (c === Infinity) return 'sin capacidad';
+  return c === CAPACIDAD ? 'capacidad de Scened (' + CAPACIDAD + ' por defecto) · [X] decidir VG: tope duro o capacidad ajustable' : 'capacidad cambiada (' + CAPACIDAD + ' por defecto)';
+}
+
+/** HTML sobrio de una escena: alcance, lectura frente a la capacidad, avisos arriba, una fila por foco, recuentos y avisos abajo. */
 export function htmlEscena(e) {
   const r = e.recuentos;
   const botones = ALCANCES_VISTA.map((a) => `<button data-alcance="${a.alcance}" aria-pressed="${a.alcance === e.alcance}" title="${escapar(a.pista)}">${escapar(a.nombre)}</button>`).join('');
-  const parte = Math.min(100, (r.posicionesLeidas / r.tope) * 100);
+  const finita = r.capacidad !== Infinity;
+  const parte = finita ? Math.min(100, (r.posicionesEnEscena / r.capacidad) * 100) : 0;
+  const barra = finita
+    ? `<div class="barra${e.corte ? ' llena' : ''}" role="meter" aria-label="posiciones en escena" aria-valuemin="0" aria-valuemax="${r.capacidad}" aria-valuenow="${r.posicionesEnEscena}"><span style="width:${parte.toFixed(2)}%"></span></div>`
+    : '';
   const lectura = `
     <div class="lectura">
       <div class="titulo">Scened · ${r.enEscena} de ${r.pedidos} focos · común ${e.comun ? corto(e.comun) : '—'} · camino ${e.camino.length ? e.camino.join('.') : 'raíz'} · ${escapar(e.epoca)}</div>
-      <div class="barra${e.corte ? ' llena' : ''}" role="meter" aria-label="posiciones leídas" aria-valuemin="0" aria-valuemax="${r.tope}" aria-valuenow="${r.posicionesLeidas}"><span style="width:${parte.toFixed(2)}%"></span></div>
-      <div class="pista">${r.posicionesLeidas} de ${r.tope} posiciones leídas${r.tope === TOPE ? ' · tope duro de Scened' : ' · tope rebajado'}${r.fuera ? ' · ' + r.fuera + (r.fuera === 1 ? ' foco fuera' : ' focos fuera') : ''}</div>
+      ${barra}
+      <div class="pista">${r.posicionesEnEscena}${finita ? ' de ' + r.capacidad : ''} posiciones en escena · ${escapar(textoCapacidad(r.capacidad))}${r.fuera ? ' · ' + r.fuera + (r.fuera === 1 ? ' foco fuera' : ' focos fuera') : ''}</div>
     </div>`;
   const filas = e.focos.length ? `<ol class="piezas">${e.focos.map((f) => filaFoco(f, e)).join('')}</ol>` : '<div class="nada">ningún foco cabe en la escena</div>';
   const recuentos = `
@@ -144,19 +128,15 @@ export function htmlEscena(e) {
 let alcanceVista = null;
 
 function alcanceGuardado() {
-  try {
-    const a = globalThis.localStorage?.getItem(CLAVE_ALCANCE);
-    return NOMBRES.includes(a) ? a : 'hermanos';
-  } catch {
-    return 'hermanos';
-  }
+  const a = leerLocal(CLAVE_ALCANCE);
+  return NOMBRES.includes(a) ? a : 'hermanos';
 }
 
 /** La vista Scened del foco, lista para #vista. Si algo falla, lo dice en vez de dejar la vista vacía. */
 export function vistaEscena(eje, foco, { camino = [], alcance } = {}) {
   alcanceVista ??= alcanceGuardado();
   try {
-    return htmlEscena(escenaVista(eje, foco, { alcance: alcance ?? alcanceVista, camino }));
+    return htmlEscena(escenaDe(eje, foco, { alcance: alcance ?? alcanceVista, camino }));
   } catch (err) {
     return `<div class="aviso">No se puede componer la escena: ${escapar(err.message ?? err)}</div>`;
   }
@@ -177,7 +157,7 @@ export function instalarEscena({ estado, pintar, irA }) {
     if (!b) return;
     if (b.dataset.alcance !== undefined) {
       alcanceVista = NOMBRES.includes(b.dataset.alcance) ? b.dataset.alcance : 'hermanos';
-      try { globalThis.localStorage?.setItem(CLAVE_ALCANCE, alcanceVista); } catch { /* sin almacenamiento */ }
+      guardarLocal(CLAVE_ALCANCE, alcanceVista);
       pintar();
     } else if (b.dataset.escenaMapped !== undefined) {
       estado.modo = 'mapped';
@@ -185,3 +165,6 @@ export function instalarEscena({ estado, pintar, irA }) {
     }
   });
 }
+
+// Comprobación: el orden de los botones es el de scened.ALCANCES.
+if (NOMBRES.join() !== ALCANCES.join()) throw new Error('ui/escena.js: los alcances de la vista no son los de src/scened.js');

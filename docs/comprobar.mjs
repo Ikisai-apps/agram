@@ -5,9 +5,15 @@
 //   node docs/comprobar.mjs BQL        solo los documentos cuyo nombre contiene «BQL»
 //
 // Qué cuenta como ejemplo ejecutable:
-// - un bloque ```sh que es `node --input-type=module -e '…'` o `-e "…"`;
-// - un bloque ```js seguido (a pocas líneas) de un bloque de salida (```text
-//   o ``` sin lenguaje): se ejecuta entero, como `node --input-type=module < archivo.mjs`.
+// - un bloque ```sh que es `node --input-type=module -e '…'` o `-e "…"` (otro
+//   comando, como `node datos/generar-efectos.mjs`, es una instrucción, no un
+//   ejemplo con salida: no se ejecuta);
+// - un bloque ```js seguido (a pocas líneas y sin un título en medio) de un
+//   bloque de salida (```text o ``` sin lenguaje): se ejecuta entero, como
+//   `node --input-type=module < archivo.mjs`.
+// Un fragmento que no se ejecuta solo (usa un `eje` que no define, por
+// ejemplo) lleva justo encima la línea `<!-- comprobar: fragmento -->`: se
+// cuenta aparte y no se ejecuta.
 // Los bloques que importan por `file:///<repo>/` son anexos históricos (la
 // salida es la de otro commit, y la nota lo dice): se cuentan, no se ejecutan.
 //
@@ -25,18 +31,24 @@ const archivos = [
   ...readdirSync('docs/notas').filter((f) => f.endsWith('.md')).map((f) => 'docs/notas/' + f),
 ].filter((a) => !filtro || a.includes(filtro));
 
+const FRAGMENTO = '<!-- comprobar: fragmento -->';
+
 function bloquesDe(archivo) {
   const bloques = [];
   let dentro = null;
-  readFileSync(archivo, 'utf8').split('\n').forEach((linea, i) => {
-    const l = linea.replace(/\r$/, '');
+  const lineas = readFileSync(archivo, 'utf8').split('\n').map((x) => x.replace(/\r$/, ''));
+  lineas.forEach((l, i) => {
     const apertura = l.match(/^```(\w*)\s*$/);
-    if (apertura && !dentro) dentro = { linea: i + 1, lenguaje: apertura[1], texto: [] };
+    if (apertura && !dentro) dentro = { linea: i + 1, lenguaje: apertura[1], texto: [], fragmento: lineas[i - 1]?.trim() === FRAGMENTO };
     else if (l.startsWith('```') && dentro) {
       bloques.push({ ...dentro, fin: i + 1, texto: dentro.texto.join('\n') });
       dentro = null;
     } else if (dentro) dentro.texto.push(l);
   });
+  // Si entre un bloque y el siguiente hay un título, el siguiente no es su salida.
+  for (let k = 0; k + 1 < bloques.length; k++) {
+    bloques[k].tituloDetras = lineas.slice(bloques[k].fin, bloques[k + 1].linea - 1).some((l) => /^#{1,6}\s/.test(l));
+  }
   return bloques;
 }
 
@@ -54,13 +66,18 @@ const normal = (s) => s.replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+
 let total = 0;
 let distintos = 0;
 let historicos = 0;
+let fragmentos = 0;
 for (const archivo of archivos) {
   const bloques = bloquesDe(archivo);
   bloques.forEach((b, k) => {
     const siguiente = bloques[k + 1];
-    const salida = siguiente && (siguiente.lenguaje === 'text' || siguiente.lenguaje === '') && siguiente.linea - b.fin <= 8 ? siguiente : null;
+    const salida = siguiente && (siguiente.lenguaje === 'text' || siguiente.lenguaje === '') && siguiente.linea - b.fin <= 8 && !b.tituloDetras ? siguiente : null;
     let codigo = null;
-    if (b.lenguaje === 'sh' && /^\s*node\b/.test(b.texto)) {
+    if (b.fragmento) {
+      fragmentos++;
+      return;
+    }
+    if (b.lenguaje === 'sh' && /^\s*node --input-type=module -e\b/.test(b.texto)) {
       codigo = codigoDeComando(b.texto);
       if (codigo === null) {
         total++;
@@ -97,5 +114,5 @@ for (const archivo of archivos) {
     }
   });
 }
-console.log(`\n${total - distintos} de ${total} ejemplos dan la salida impresa${historicos ? ` · ${historicos} anexos históricos sin ejecutar` : ''}`);
+console.log(`\n${total - distintos} de ${total} ejemplos dan la salida impresa${historicos ? ` · ${historicos} anexos históricos sin ejecutar` : ''}${fragmentos ? ` · ${fragmentos} ${fragmentos === 1 ? 'fragmento' : 'fragmentos'} sin ejecutar` : ''}`);
 process.exitCode = distintos ? 1 : 0;

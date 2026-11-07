@@ -277,6 +277,7 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `Y(a, b, …)` | 0 o más booleanos | booleano (todos; `Y()` = verdadero) | siempre |
 | `O(a, b, …)` | 0 o más booleanos | booleano (alguno; `O()` = falso) | siempre |
 | `NO(a)` | 1 booleano | booleano | siempre |
+| `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una medida o de una serie de token, y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
 
 «Dentro» = mientras se evalúa el segundo argumento de `FILTRAR` o de `ORDENAR`. Fuera, las seis funciones de encaje dan `ERROR: <NOMBRE> solo dentro de FILTRAR u ORDENAR`.
 
@@ -395,6 +396,8 @@ La misma firma en los dos modos, `ACTUAL(pv, cantidad?)`: el segundo parámetro 
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
 | `=ACTUAL(1)` escrito en el slot `[1]` | ERROR `ciclo en …` (el primer candidato de `[1]` es la propia fórmula) |
 
+El primer candidato es el **más antiguo**: propios primero y escritos por orden de llegada (todos exactos, §7.4). Como corregir es añadir un ocupante (mapa §12), `ACTUAL(pv)` da el original y no la corrección, y BQL no tiene forma de quedarse con el último (§7.7, §11).
+
 **Dentro de FILTRAR/ORDENAR**: el ámbito es el candidato iterado, uno solo.
 
 | Caso | Resultado |
@@ -434,6 +437,7 @@ Ya no hay subposiciones anidadas del candidato por `ACTUAL(k, j)` (antes `ACTUAL
 - Las claves (el resultado de `expr` en cada candidato) tienen que ser **escalares de un mismo tipo**: todas numero, todas texto, todas booleano, o todas magnitud **de la misma unidad** (se ordena por la cantidad). Una clave array, referencia, colección o composición → INCOMPATIBLE `ORDENAR no ordena por <tipo>`; claves de tipos o unidades mezclados → INCOMPATIBLE `ORDENAR con claves de tipos distintos: <tipos>` (BQL-29: validar tipos y dimensiones antes de operar).
 - Ascendente con `<`/`>` de JavaScript; orden estable (los empates conservan el orden de entrada, que por defecto es el de encaje). Tercer argumento: el texto `desc` en cualquier combinación de mayúsculas invierte **el comparador**, no la lista: el orden sigue siendo estable y los empates conservan el orden de entrada también en descendente. Cualquier otro valor se ignora en silencio (ascendente).
 - No tiene efectos: devuelve una colección nueva.
+- No invierte la llegada: con candidatos que empatan en la clave (todos los escritos exactos de una posición, ordenados por `ORIGEN()`, `ACUERDO()` o cualquier clave constante), `"desc"` deja el mismo orden. Así, «el escrito más reciente» no se puede elegir en BQL: `ELEGIR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))` da el más antiguo, y ni la llegada ni `t` son accesibles como clave (§11). Desde JavaScript, `valor.items.at(-1)` de la colección.
 
 | Fórmula (slot `[4]`; propinas 2, 5 y 1 EUR escritas en ese orden) | `texto` |
 |---|---|
@@ -492,6 +496,41 @@ Verificado sobre la compra con la cuenta escrita en `1000000000` (slot `[1]`, `t
 | `O(1 > 2, NO(2 > 3))` | `verdadero` |
 | `NO(1 < 2)` | `falso` |
 | `Y(1, 2)` | `INCOMPATIBLE: Y espera verdadero o falso, no numero` |
+
+### 7.13 `BASES(alcance?, medida?, k | campo?)`
+
+Lee las **bases del 8** (`src/bases.js`, `docs/MOTOR.md` §14): las estadísticas escritas como registros en la posición 8 del registro que resumen, firmadas por la propia cosa (mapa §12 [D]: «BASES() en BQL; la cohorte se elige leyendo el 8 del padre, del proyecto o del génesis»). El registro de la fórmula es el anfitrión.
+
+| Forma | Devuelve |
+|---|---|
+| `BASES()` | n de la base vigente del 8 del anfitrión (sus hijos) |
+| `BASES(alcance)` | n de la cohorte: `"hermanos"` (los hijos del 8 del padre), `"proyecto"` (el subárbol del 8 del proyecto) o `"general"` (el subárbol del 8 del génesis) |
+| `BASES(alcance, medida)` | la caja (0–9) del anfitrión en esa cohorte |
+| `BASES(alcance, medida, k)` | cuántos hay en la caja `k` (0–9) |
+| `BASES(alcance, medida, campo)` | de la base: `"suma"`, `"minimo"`, `"maximo"`, `"media"`; del anfitrión: `"foco"` (su valor), `"caja"`, `"enCaja"`, `"debajo"`, `"encima"` |
+
+La medida es una de `tiempo.MEDIDAS` (`"posiciones"`, `"terminales"`, `"escritos"`, `"movimientos"`, `"identidades"`, `"profundidadHilo"`, `"formulasResueltas"`, `"formulasPendientes"`) o una clave de serie de token (`"T:hora"`, `"E:casa/EUR"`…); una serie que la base no nombra vale cero en todos. Sin base o sin cohorte → PENDIENTE con el motivo; un alcance, una medida o un campo que no existen → ERROR. La dependencia anotada es la base leída (`<id de la base>:0000000000`). Con el gancho `puedeLeer` (§9.6), leer la base es leer un escrito anclado en el 8 (`leer la base del 8 de <id8> …`), y lo que sitúa al anfitrión lo lee entero (su raíz `[]`). Una fórmula `BASES(…)` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma).
+
+Verificado sobre `ejemplos/ikisai/compras-hermanas.mjs`, desde la compra de dos guisos, con las seis bases del ejemplo escritas (`test/bases.test.js`):
+
+| Fórmula | `texto` |
+|---|---|
+| `BASES("hermanos")` (antes de escribir las bases) | `PENDIENTE: sin base en el 8 de <menú>` |
+| `BASES("hermanos")` | `4` |
+| `BASES("proyecto")` | `9` |
+| `BASES("general")` | `14` |
+| `BASES("hermanos", "terminales")` | `5` |
+| `BASES("hermanos", "terminales", 5)` | `3` |
+| `BASES("hermanos", "terminales", "debajo")` | `1` |
+| `BASES("hermanos", "terminales", "media")` | `6.25` |
+| `BASES("general", "E:casa/EUR", "suma")` | `685` |
+| `BASES("hermanos", "T:siglo", 0)` | `4` |
+| `BASES("linaje")` | `ERROR: BASES: el alcance es hermanos, proyecto, general` |
+| `BASES()` en el menú | `4` |
+| `BASES("hermanos")` en el génesis | `PENDIENTE: sin cohorte: el génesis no tiene padre` |
+| con `puedeLeer` que niega las bases | `PENDIENTE DE AUTORIZACIÓN: leer la base del 8 de <comedor> exige una autorización que no hay` |
+
+[X] decidir VG: la firma de `BASES()` (el mapa solo la nombra).
 
 ---
 
@@ -732,6 +771,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | Comparar composiciones heterogéneas (corpus: abierto) | INCOMPATIBLE (§6.4): [X] decidir VG. |
 | Un camino de más de diez profundidades (decidido en la integración del 7-11, sin revisar) | PENDIENTE `posición sin desarrollar: más de diez profundidades` (§8), como hace la PR #36; la #43 pedía ERROR. Las dos evitan el `RangeError`: [X] decidir VG. |
 | Lectura absoluta dentro del propio registro con `LOCAL` o `ACTUAL` (§7.1) | Solo `BUSCAR` por dirección la da; [X] decidir VG si `LOCAL` y `ACTUAL` la admiten también. |
+| Elegir el último por llegada (el escrito más reciente, la última corrección) o por `t` | No hay: `"desc"` no invierte los empates, no hay `ULTIMO` ni `INVERTIR`, y ni la llegada ni `t` son accesibles (§7.7). [X] decidir VG: que el desempate por llegada deje delante lo más reciente (corregir es añadir un ocupante), una función para el último, o que `"desc"` invierta también los empates. |
 | Valor del candidato elegido de una colección cualquiera (p. ej. de `ELEGIR(ORDENAR(…))`) | No hay función: `ACTUAL(pv)` da el valor del primero de `BUSCAR(pv)` en su orden por defecto; para otra colección, desde JavaScript `valor.items[0]`, o `SUMAR` de una colección de un ítem (§12.3, un defecto, no una vía). |
 | Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») y profundidades ordinales por época | El signo se calcula siempre y solo informa; ninguna regla lo filtra. Ni signo ni distancia ordenan mientras ninguna época declare una profundidad ordinal (ni la época 0 ni la «época 1 (propuesta)» lo hacen). |
 | `ORDENAR` con varias claves; orden por encaje explícito | Una clave; el orden por encaje es el de `BUSCAR` por defecto. |
