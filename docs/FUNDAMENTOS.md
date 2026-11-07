@@ -44,6 +44,10 @@ Cada ocupante lleva su origen (de dónde viene), su destino (dónde se coloca) y
 
 **P** (poder/criterio) exige siempre un ámbito: el registro cuyo subárbol cubre, o `genesis` (todo el eje). No existe un P total. Delegar poder estrecha el ámbito y se debita del ámbito que lo cubre. El motor autoriza con el poder sobre el registro de la consolidación. **R** (reputación) exige emisor y no es fungible: solo su emisor la mueve; quien la recibe la tiene «de X» y no puede pasarla. **E** por denominación. **T** un solo token en segundos; la escala es la unidad. La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
 
+### Comparabilidad (PV8): el 8 compara ocupantes
+
+La confluencia hacia arriba (`tiempo.confluir`) no asigna nivel ni grado: construye las **bases** del foco frente a sus comparables accesibles (hermanos ⊂ vecindad ⊂ todo; la cohorte sigue abierta) y dice dónde cae el foco. Por cada medida (posiciones desarrolladas, terminales, escritos, movimientos, identidades, profundidad del hilo, fórmulas) y por cada clave de token que alguien mueve (`T`, `E:EUR`, `P:<ámbito>`, `R:<emisor>`: no hay P total ni R fungible), su distribución y el cuantil del foco. Por cada posición 0–9, cuántos comparables la tienen en su árbol lógico y por qué procedencia: propia, alcanzada por referencia (las referencias no copian) o escrita encima, también por debajo de la profundidad 0. Lo escrito en la raíz colisiona con la posición 0 y se devuelve aparte. Los HITOS heredados son solo una tabla. Consulta sin efectos.
+
 ### AARPIA e identidades
 
 La autorización y la ejecución reales son de AARPIA, que aún no existe; lo que hay en el motor (autoriza quien tiene poder sobre el registro y no es el autor; ejecuta el autor) es un hueco provisional. Las identidades son usuarios o cosas; quien da de alta a una identidad declara su clave en el mismo evento que le da tokens.

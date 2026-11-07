@@ -98,10 +98,12 @@ export async function ejemploCuenta(eje, compra, privadaCocina) {
  * La compra ampliada, para que el 8 tenga comparables reales: la casa da de
  * alta a otra persona huésped, y sobre el mismo menú se escriben nueve
  * compras vecinas de la compra original (diez hermanas en total). Siete de
- * las diez tienen criterios (posición 2), seis en su propio payload y una
- * porque cocina escribió un criterio encima; tres no: la compra rápida, una
- * nota terminal y una compra sin criterios. Una compra lleva una fórmula
- * pendiente y otra una fórmula resuelta. Todo inventado.
+ * las diez tienen criterios (posición 2): cinco en su propio payload (un
+ * array que apunta a los del menú), una solo por referencia directa al menú
+ * (alcanzada, no propia: las referencias no copian) y una porque cocina
+ * escribió un criterio encima; tres no: la compra rápida, una nota terminal
+ * y una compra sin criterios. Una compra lleva en recursos (posición 1) una
+ * fórmula pendiente y otra una fórmula resuelta. Todo inventado.
  */
 export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const priv = (id) => privadas[id];
@@ -126,9 +128,9 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   }, priv('huesped2'));
   const vecinas = [];
   const payloads = [
-    ['Compra con fórmula pendiente', 'EUR 10', '=LOCAL(5)'], // 2: fórmula que espera la posición 5
-    ['Compra con fórmula resuelta', 'EUR 10', '=LOCAL(1) + 1 EUR'], // 2: 11 EUR
-    ['Compra de mediodía', recursos, criterios],
+    ['Compra con fórmula pendiente', '=LOCAL(5)', criterios], // 1: fórmula que espera la posición 5 (estructura)
+    ['Compra con fórmula resuelta', ['EUR 10', '=LOCAL(0) + 1 EUR'], criterios], // 1.1: 11 EUR, leyendo 1.0
+    ['Compra de mediodía', recursos, { ref: menu.id, dir: '2000000000' }], // 2: solo por referencia, sin array propio
     ['Compra para llevar', recursos, criterios, ['huesped2', 'cocina']],
     ['Compra del grupo', recursos, criterios, ['huesped', 'cocina'], ['pagar']],
     ['Compra sin criterios todavía', recursos], // criterios se los escribe cocina encima
