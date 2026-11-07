@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import * as nucleo from '../src/index.js';
-import { PV, TODAS, EPOCA_0, EPOCAS, cargarEpoca, epocaDe, leerDireccion } from '../src/epocas.js';
+import { PV, TODAS, EPOCA_0, EPOCAS, cargarEpoca, epocaDe, leerDireccion, leerCamino } from '../src/epocas.js';
 import { EPOCA_0_DATOS } from '../datos/epocas/epocas.js';
 import { generar, nombreDeConstante } from '../datos/epocas/generar.mjs';
 import { ordenarPorEncaje } from '../src/encaje.js';
@@ -109,11 +109,17 @@ test('lectura: la dirección entera, profundidad a profundidad', () => {
 
 test('los modos leen con la época que se les pase, por objeto o por nombre', async () => {
   const ev = { id: 'ab', autor: 'x', t: '2026-11-07T10:00:00Z', sobre: null, payload: ['Compra', 1, 'EUR 12'] };
-  // Bajo una posición, un array es su lista de ocupantes por llegada, sin PV (VG, 7-11 noche);
-  // lo que el array no ocupa son subposiciones por dirección, con la regla corta.
+  // VG, 7-11 noche: por hojas. Bajo una posición, un array solo de hojas es una lista: sus elementos son
+  // ocupantes por llegada, sin PV; lo que la lista no ocupa se lee con la regla corta.
   const lista = ['ocupante 1', 'ocupante 2', 'ocupante 3'];
   assert.deepEqual(decupla(ev, EPOCA_0, 1).posiciones.map((p) => p.significado).slice(0, 3), lista);
   assert.deepEqual(decupla(ev, 'época 0', 1).posiciones.map((p) => p.significado), [...lista, ...PREGUNTAS.slice(3)]);
+  assert.deepEqual(decupla(ev, EPOCA_0, 1).lista, ['Compra', 1, 'EUR 12']);
+  // Con el 0 envuelto es una décupla y vuelve la regla corta: qué es, cuánto, con qué condición.
+  const envuelto = { ...ev, payload: [['Compra'], 1, 'EUR 12'] };
+  assert.deepEqual(decupla(envuelto, EPOCA_0, 1).posiciones.map((p) => p.significado), PREGUNTAS);
+  assert.deepEqual(decupla(envuelto, EPOCA_0, 1).posiciones.slice(0, 3).map((p) => p.significado), ['qué es', 'cuánto', 'con qué condición']);
+  assert.equal(decupla(envuelto, EPOCA_0, 1).lista, undefined);
   assert.deepEqual(decupla({ ...ev, payload: 'terminal' }, EPOCA_0, 1).posiciones.map((p) => p.significado), PREGUNTAS);
   assert.deepEqual(decupla(ev).posiciones.map((p) => p.significado), [...PV]); // profundidad 0: la cruceta
   assert.throws(() => decupla(ev, 'época 1'), /época desconocida/);
@@ -126,10 +132,45 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
 
   const m = mapa(eje, compra.id, { camino: [1], epoca: 'época 0' });
   assert.deepEqual(m, mapa(eje, compra.id, { camino: [1], epoca: EPOCA_0 }));
-  assert.deepEqual(m.celdas.map((c) => c.significado), [...lista, ...PREGUNTAS.slice(3)]); // compra 1: tres ocupantes por llegada
-  assert.deepEqual(m.celdas.map((c) => c.ocupante), [0, 1, 2, undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
+  // Compra 1 = [[menú], 1, 'EUR 12'] es décupla (su 0 va envuelto): la regla corta de la profundidad 1.
+  assert.deepEqual(m.celdas.map((c) => c.significado), PREGUNTAS);
+  assert.ok(m.celdas.every((c) => c.ocupante === undefined));
+  assert.equal(m.lista, undefined);
+  // Su 1.0 es la lista de uno [menú]: se nombra «ocupante 1»; el resto, regla corta de la profundidad 2.
+  const m10 = mapa(eje, compra.id, { camino: [1, 0] });
+  assert.deepEqual(m10.celdas.map((c) => c.significado), ['ocupante 1', ...PREGUNTAS.slice(1)]);
+  assert.equal(m10.celdas[0].ocupante, 0);
+  assert.equal(m10.lista.length, 1);
   assert.deepEqual(mapa(eje, compra.id).celdas.map((c) => c.significado), [...PV]);
   assert.throws(() => mapa(eje, compra.id, { epoca: 'época 1' }), /época desconocida/);
+});
+
+test('por hojas: leerCamino lee una décupla con la regla corta y una lista como ocupantes (VG, 7-11 noche)', () => {
+  const payload = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  assert.deepEqual(leerCamino([1, 1], EPOCA_0, { payload }).map((x) => x.significado), ['recursos', 'cuánto']);
+  assert.deepEqual(leerCamino([1, 2], EPOCA_0, { payload }).map((x) => x.significado), ['recursos', 'con qué condición']);
+  const enLista = leerCamino([2, 1], EPOCA_0, { payload });
+  assert.deepEqual(enLista[1], { profundidad: 1, digito: 1, ocupante: 1, posicion: '2', significado: 'ocupante 2 de la posición 2' });
+  // La raíz nunca es lista, aunque sean solo hojas; sin payload, regla corta.
+  assert.equal(leerCamino([1], EPOCA_0, { payload: ['a', 'b'] })[0].significado, 'recursos');
+  assert.equal(leerCamino([2, 1])[1].significado, 'cuánto');
+});
+
+test('cortes del 8: regla de la época (VG, 7-11 noche); la época 0 trae 1 2 3 4 6 10 16 26 42; por medida, todas o el respaldo', () => {
+  const ESCALA_0 = [1, 2, 3, 4, 6, 10, 16, 26, 42];
+  assert.deepEqual(EPOCA_0.cortes('terminales'), ESCALA_0);
+  assert.deepEqual(EPOCA_0.cortes('E:casa/EUR'), ESCALA_0);
+  assert.match(EPOCA_0_DATOS.cortes.decision, /\[X\] decidir VG/);
+  const copia = EPOCA_0.cortes('escritos');
+  copia[0] = 99;
+  assert.equal(EPOCA_0.cortes('escritos')[0], 1); // se devuelve una copia
+  const propia = cargarEpoca({ nombre: 'con cortes', reglas: generales, cortes: { escritos: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }, { respaldo: EPOCA_0 });
+  assert.deepEqual(propia.cortes('escritos'), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+  assert.equal(propia.cortes('terminales'), undefined); // lo que no trae: las bases usan los de la época 0 (bases.cortesDe, origen 'respaldo')
+  assert.deepEqual(cargarEpoca({ nombre: 'todas', reglas: generales, cortes: { todas: [1, 2, 3, 4, 5, 6, 7, 8, 9], decision: 'prueba' } }).cortes('T:hora'), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.equal(cargarEpoca({ nombre: 'sin cortes', reglas: generales }).cortes('escritos'), undefined);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: { todas: [3, 2, 1] } }), /nueve umbrales crecientes/);
+  assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [1, 2, 3, 4, 5, 6, 7, 8, 9] }), /cortes es un objeto/);
 });
 
 test('cargarEpoca: regla de todas las profundidades, regla propia y respaldo', () => {

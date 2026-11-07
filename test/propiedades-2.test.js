@@ -13,7 +13,7 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { claveToken, partirClave } from '../src/tokens.js';
 import { serializar, restaurar, VERSION } from '../src/persistencia.js';
-import { direccion, indicesDe, ARIDAD } from '../src/btml.js';
+import { direccion, indicesDe, esReferencia, ARIDAD } from '../src/btml.js';
 import * as B from '../src/bql.js';
 import * as E from '../src/encaje.js';
 import { cargarEpoca, leerDireccion, EPOCA_0, PV } from '../src/epocas.js';
@@ -414,16 +414,25 @@ test('propiedad: BUSCAR por dirección es absoluta y da la colisión entera; por
         assert.deepEqual(itemsDe(r1), itemsDe(r2), 'la dirección no depende del anfitrión');
         if (r1.estado === 'RESUELTO') assert.equal(r1.valor.items.length, E.ocupantes(eje, id, indicesDe(d)).length, 'la colisión entera');
         const h = Array.from({ length: g.int(0, 3) }, () => g.int(0, 3));
+        // VG, 7-11 noche: por hojas. Con dos o más números, el último de BUSCAR es el índice en la lista de la
+        // posición (por llegada: cada elemento de una lista propia y cada escrito) y los demás, el camino; con uno
+        // solo, el camino.
+        const conK = g.si(0.5);
         const i = Array.from({ length: g.int(1, 3) }, () => g.int(0, 3));
-        const ra = B.consultar(eje, id, [...h, g.int(0, 9)], 'BUSCAR(' + i.join(', ') + ')', SIN_TOPE);
-        const rb = B.consultar(eje, id, [g.int(0, 9)], 'BUSCAR(' + [...h, ...i].join(', ') + ')', SIN_TOPE);
-        assert.deepEqual(itemsDe(ra), itemsDe(rb), 'el índice es relativo al anfitrión');
+        const k = conK ? [g.int(0, 3)] : [];
+        const ra = B.consultar(eje, id, [...h, g.int(0, 9)], 'BUSCAR(' + [...i, ...k].join(', ') + ')', SIN_TOPE);
+        // Desde la raíz, el mismo camino; sin índice en la lista solo es lo mismo si el anfitrión no añade nada.
+        if (conK || h.length === 0) {
+          const rb = B.consultar(eje, id, [g.int(0, 9)], 'BUSCAR(' + [...h, ...i, ...k].join(', ') + ')', SIN_TOPE);
+          assert.deepEqual(itemsDe(ra), itemsDe(rb), 'el índice es relativo al anfitrión');
+        }
         const camino = [...h, ...i];
         const rd = B.consultar(eje, id, [0], 'BUSCAR("' + direccion(camino) + '")', SIN_TOPE);
         if (ra.estado === 'RESUELTO' && rd.estado === 'RESUELTO') {
           const todos = new Set(itemsDe(rd));
           for (const it of itemsDe(ra)) assert.ok(todos.has(it), 'el índice no da nada que la dirección no tenga');
           for (const it of ra.valor.items.filter((x) => x.origen === 'propio')) assert.deepEqual(it.indices, camino, 'índice = camino exacto');
+          if (conK) assert.ok(ra.valor.items.filter((x) => x.origen !== 'referencia').length <= 1, 'el índice en la lista da un ocupante');
           comparados++;
         }
       }
@@ -695,9 +704,20 @@ test('propiedad: ordenarPorEncaje con epoca.ordinal — acuerdo, distancia solo 
  * ningún ocupante: el gancho existe pero no actúa. [X] decidir VG (ver el
  * PR «Pruebas de propiedades 2»): qué candidatos de una misma dirección
  * deben llevar vector propio para que la época ordene algo.
+ *
+ * Por hojas (VG, 7-11 noche): una lista bajo la raíz da un ocupante por
+ * elemento, y tras cada elemento que es una referencia va lo que alcanza.
+ * Con una lista de referencias, una dirección puede tener varios ocupantes
+ * con vector distinto de cero, y entre los de igual acuerdo la época sí
+ * puede ordenar. Lo que se mantiene: solo una referencia seguida tiene
+ * vector distinto de cero, una por cada propio que es referencia; sin
+ * elementos de lista, como mucho una, y la época no cambia el orden; con
+ * ellos, la época no quita ni añade ocupantes, no rompe el orden por
+ * acuerdo y deja en su orden a los de vector cero.
  */
 test('propiedad: en una dirección de un registro hay como mucho un ocupante con vector distinto de cero, y la época no cambia el orden de ocupantes', async () => {
   let direcciones = 0;
+  let conLista = 0;
   for (let s = 0; s < 10; s++) {
     const g = prng(SEMILLA + 450 + s);
     const payload = (ids, prof = 0) => (prof >= 2 || g.r() < 0.3
@@ -709,13 +729,27 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
     for (const id of ids) {
       for (const [dir, oc] of E.arbol(eje, id)) {
         direcciones++;
-        assert.ok(oc.filter((o) => o.acuerdo < ARIDAD).length <= 1, dir);
+        const noExactos = oc.filter((o) => o.acuerdo < ARIDAD);
+        assert.ok(noExactos.every((o) => o.origen === 'referencia'), dir);
+        assert.equal(oc.filter((o) => o.origen === 'referencia').length, oc.filter((o) => o.origen === 'propio' && esReferencia(o.contenido)).length, dir);
         const epoca = cargarEpoca({ nombre: 'época de prueba', reglas: [], ordinales: [g.int(0, 9), g.int(0, 9)] }, { respaldo: EPOCA_0 });
-        assert.deepEqual(E.ocupantes(eje, id, indicesDe(dir), { epoca }).map((o) => o.procedencia), oc.map((o) => o.procedencia));
+        const conEpoca = E.ocupantes(eje, id, indicesDe(dir), { epoca });
+        const proc = (lista) => lista.map((o) => JSON.stringify(o.procedencia));
+        if (!oc.some((o) => o.enLista)) {
+          assert.ok(noExactos.length <= 1, dir);
+          assert.deepEqual(proc(conEpoca), proc(oc));
+        } else {
+          conLista++;
+          assert.deepEqual([...proc(conEpoca)].sort(), [...proc(oc)].sort(), 'la época no quita ni añade');
+          for (let i = 1; i < conEpoca.length; i++) assert.ok(conEpoca[i - 1].acuerdo >= conEpoca[i].acuerdo, 'orden por acuerdo');
+          const ceros = (lista) => proc(lista.filter((o) => o.acuerdo === ARIDAD));
+          assert.deepEqual(ceros(conEpoca), ceros(oc), 'los de vector cero, en su orden');
+        }
       }
     }
   }
   assert.ok(direcciones > 100, String(direcciones));
+  assert.ok(conLista > 0, 'hay direcciones con elementos de lista');
 });
 
 // ---------- caso Booking ----------

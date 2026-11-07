@@ -6,12 +6,16 @@
     "La época está fuera del dato: un dato se lee desde cualquier época; BTML no lleva época dentro (mapa §9 [D]).",
     "Dígito = PV en todas las profundidades: una dirección es una cadena de miradas aplicadas desde el tronco; bajar un nivel es aplicar otra perspectiva al elemento (mapa §8, §10.4 [D]).",
     "Reglas cortas = época 0; reglas largas = lo que pulen las épocas: en toda profundidad n ≥ 1 el dígito es el PV aplicado al nodo de arriba (0 qué es, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo). La profundidad 0 es la cruceta: los diez PV sobre el registro en foco (VG, 7-11 noche).",
-    "La lista de una posición está fuera del árbol (VG, 7-11 noche: «son las dos soluciones al mismo tiempo»): un array dentro de una posición son sus ocupantes por llegada, sin PV, y las reglas cortas nombran subposiciones escritas por dirección (en), no los índices de esa lista. La cruceta es la lente para ver la lista o clasificarla, sin aplicarla.",
+    "Décupla y lista, por hojas (VG, 7-11 noche: por hojas): dentro de una posición, un array solo de hojas (terminales o referencias) es una LISTA, sus ocupantes por llegada, sin PV y fuera del árbol; un array con algún array dentro es una DÉCUPLA, y sus índices son dígitos con las reglas cortas. La raíz es siempre la décupla de lo escrito. Una dirección nombra subposiciones de décuplas, nunca un ocupante de una lista (que se alcanza por índice). Para que un grupo de hojas sea décupla se envuelve su 0: compra 1 = [[menú], 1, 'EUR 12'].",
     "Es el respaldo: lo que otra época no especialice se lee con ella (corpus V2 y V3: la época 0 es el fallback de las profundidades sin consolidar).",
     "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (opción B, decidida por VG el 7-11 tarde: mapa §12 [D], «Signo del vector: opción B»).",
     "Los ejemplos de las profundidades 3 a 9 recorren una sola lectura ilustrativa de una reserva (1.7.2.1.3.4.7.6.1), construida para recorrer las profundidades y no como modelo de reserva; ningún caso real llega todavía tan hondo."
   ],
   "ordinales": [],
+  "cortes": {
+    "todas": [1, 2, 3, 4, 6, 10, 16, 26, 42],
+    "decision": "VG, 7-11 noche (mapa §12 [D] «Cortes y etiquetas del 8»): los cortes de las diez cajas del 8 son regla de la época; la época 0 trae esta escala provisional creciente a saltos, sin más pretensión, y se cambiará con datos reales. Las bases guardan con qué cortes se escribieron. [X] decidir VG: sus valores, y si alguna medida lleva los suyos."
+  },
   "reglas": [
     {
       "profundidad": 0,
@@ -25,7 +29,7 @@
       "digito": 1,
       "nombre": "recursos",
       "significado": "PV1, reino o ciudad: cantidades, entradas y salidas, costes, disponibilidad.",
-      "ejemplo": "compra 1 = [ref menú:1, 1, 'EUR 12']: tres ocupantes de la posición, por llegada (lo comprado, la cantidad, el precio), sin PV propios."
+      "ejemplo": "compra 1 = [[ref menú:1], 1, 'EUR 12']: qué, cuánto, a qué precio (una décupla: su 0 va envuelto)."
     },
     {
       "profundidad": 0,
@@ -46,7 +50,7 @@
       "digito": 4,
       "nombre": "fábrica",
       "significado": "PV4: preparar la actuación con recursos, criterios y comunicaciones y consolidar la elección; en 4 se ejecuta.",
-      "ejemplo": "compra 4 = ['pagar', 'servir']; consolidar() escribe en '4000000000' (FABRICA)."
+      "ejemplo": "compra 4 = ['pagar', 'servir'] (una lista: dos acciones, dos ocupantes); consolidar() escribe en '4000000000' (FABRICA)."
     },
     {
       "profundidad": 0,
@@ -74,7 +78,7 @@
       "digito": 8,
       "nombre": "comparabilidad",
       "significado": "PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad.",
-      "ejemplo": "comparar(eje, compra) sitúa la compra entre sus hermanos."
+      "ejemplo": "situar(eje, compra) sitúa la compra en su caja entre sus hermanos, leyendo la base escrita en el 8 del menú."
     },
     {
       "profundidad": 0,
@@ -88,21 +92,21 @@
       "digito": 0,
       "nombre": "qué es",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): qué es la parte; su nombre o cara, lo que se ve si no se desarrolla.",
-      "ejemplo": "Un escrito en la 4.0 de la compra dice qué es su fábrica; cae en '4000000000', la dirección de la 4 (colisión por ceros). compra 4 = ['pagar', 'servir'] son dos ocupantes de la 4, no la 4.0 y la 4.1."
+      "ejemplo": "compra 1.0 = [ref menú:1]: qué es lo comprado; =LOCAL(1, 0, 0) lee su ocupante (la referencia, seguida); x.0 ocupa la misma dirección que x (colisión por ceros)."
     },
     {
       "profundidad": 1,
       "digito": 1,
       "nombre": "cuánto",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): cuánto; su magnitud (número con unidad, veces, duración), donde SUMAR y el producto tienen sentido.",
-      "ejemplo": "Un escrito en la 1.1 de la compra = 1 (un menú): cuánto de sus recursos. El 1 del payload es el ocupante 2 de la lista de la posición 1, no la 1.1."
+      "ejemplo": "compra 1.1 = 1 (un menú): =LOCAL(1, 1) * 12 EUR da 12 EUR."
     },
     {
       "profundidad": 1,
       "digito": 2,
       "nombre": "con qué condición",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): con qué condición; el criterio que la distingue o la condiciona: precio, requisito, límite.",
-      "ejemplo": "Un escrito en la 1.2 de la compra = 'EUR 12': la condición de sus recursos, el precio. Hoy =REF(compra, \"1200000000\") lee el ocupante 3 de la lista de la 1 ('EUR 12'), porque resolver baja por el array; lo escrito en '1200000000' es otro ocupante de esa dirección."
+      "ejemplo": "compra 1.2 = 'EUR 12': =REF(compra, \"1200000000\") da 12 EUR; una corrección escrita en '1200000000' es otro ocupante."
     },
     {
       "profundidad": 1,
@@ -130,7 +134,7 @@
       "digito": 6,
       "nombre": "de dónde viene",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): de dónde viene; su origen y procedencia, desde cuándo y qué había antes.",
-      "ejemplo": "La cuenta 1 sale del precio de la compra (el ocupante 3 de su lista de recursos); un escrito en la 1.6 de una reserva = 'entrada 14-11'."
+      "ejemplo": "La cuenta 1 sale de la compra 1.2; un escrito en la 1.6 de una reserva = 'entrada 14-11'."
     },
     {
       "profundidad": 1,
@@ -716,6 +720,8 @@
   ],
   "dudas": [
     "1 · [X] decidir VG. Profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda el valor (unidad, desglose, dependencias)? En el registro de salida de la fábrica ya está decidido: el tercer dígito es la clase de modificación.",
-    "2 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL? La lista de una posición ya es de n (VG, 7-11 noche): el límite de diez queda por evento."
+    "2 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL? Una lista ya es de n (VG, 7-11 noche: por hojas): el límite de diez queda por evento y por décupla.",
+    "3 · [X] decidir VG. Una referencia BTML es una dirección y una dirección no entra en una lista: ¿cómo se referencia un ocupante concreto de una lista (el guiso del menú)? Hoy se referencia la lista entera.",
+    "4 · [X] decidir VG. La convención para que un grupo de hojas sea décupla (envolver su 0: [[qué], cuánto, …]) es de los ejemplos; ¿se fija como forma canónica u otra (por ejemplo, envolver todas)?"
   ]
 }

@@ -10,7 +10,8 @@ import { evaluar, consultar } from '../src/bql.js';
 import { ocupantes } from '../src/encaje.js';
 import { proponer, consolidar, autorizar, ejecutar, estadoDe, consolidaciones } from '../src/motor.js';
 import { escribirDesde } from '../src/escritura.js';
-import { ejeTemporal, comparar } from '../src/tiempo.js';
+import { ejeTemporal } from '../src/tiempo.js';
+import { situar } from '../src/bases.js';
 import { generarClaves } from '../src/autoridad.js';
 
 /** La serie de E de una partida: la emite la casa, que la respalda. */
@@ -125,12 +126,17 @@ test('hilo y fórmulas: las partidas se referencian, no se copian; coste, tiempo
 test('encaje de la dirección 1: lo propio y los presupuestos colisionan; corregir es añadir un ocupante', async () => {
   const { eje, tarea, presupuestos: [caro, corregido] } = await ejemploTarea({ hasta: 'presupuestos' });
   const oc = ocupantes(eje, tarea.id, [1]);
-  assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'propio', 'escrito', 'escrito']);
-  assert.deepEqual(oc.map((o) => o.camino), [[1], [1, 0], [1, 0, 0], [], []]); // 1, 1.0 y 1.0.0 son el mismo lugar
+  // VG, 7-11 noche: por hojas. 1.0 = ['Partidas', ref, ref, ref] es una lista: cada elemento es un ocupante
+  // propio en el camino de la lista (1 y 1.0 son el mismo lugar), con su índice; lo que alcanzan las tres
+  // referencias (los importes, en 1.k.1 de las partidas) va al final, porque no encaja exacto.
+  assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'propio', 'propio', 'propio', 'escrito', 'escrito', 'referencia', 'referencia', 'referencia']);
+  assert.deepEqual(oc.slice(0, 7).map((o) => o.camino), [[1], [1, 0], [1, 0], [1, 0], [1, 0], [], []]);
+  assert.deepEqual(oc.slice(1, 5).map((o) => [o.enLista, o.indice]), [[true, 0], [true, 1], [true, 2], [true, 3]]);
+  assert.deepEqual(oc.slice(7).map((o) => o.contenido), ['250 EUR', '60 EUR', '40 EUR']);
   // La corrección no sustituye al original: los dos quedan, por orden de llegada.
-  assert.deepEqual(oc.slice(3).map((o) => o.evento), [caro.id, corregido.id]);
-  // Todos exactos, con diez profundidades de acuerdo: entre los escritos ordena la llegada.
-  assert.ok(oc.every((o) => o.signo === 'exacto' && o.acuerdo === 10));
+  assert.deepEqual(oc.slice(5, 7).map((o) => o.evento), [caro.id, corregido.id]);
+  // Lo propio y lo escrito, exactos, con diez profundidades de acuerdo: entre los escritos ordena la llegada.
+  assert.ok(oc.slice(0, 7).every((o) => o.signo === 'exacto' && o.acuerdo === 10));
   assert.equal(recibidos(eje, tarea), '2');
   // El 9 se queda con el primero que cabe: el caro (420 EUR > 350 EUR) sigue ahí, pero no cabe.
   assert.deepEqual(evaluar(eje, tarea.id, [9]).valor.items.map((i) => i.evento), [corregido.id]);
@@ -318,9 +324,11 @@ test('comparar entre tareas hermanas: misma décupla, mismas direcciones', async
   });
   assert.equal(evaluar(eje, escenario.id, indicesDe(DIR_COSTE)).texto, '120 EUR');
   assert.equal(tiempoPrevisto(eje, escenario.id).texto, '3 h (2 h + 1 h)');
-  const c = comparar(eje, tarea.id);
-  assert.deepEqual([c.posicion, c.de], [1, 2]);
+  // VG, 7-11 noche: se retira comparar(); sin base escrita en el 8 de las partidas, el respaldo al vuelo lo dice.
+  const c = situar(eje, tarea.id, { respaldo: true });
+  assert.deepEqual([c.n, c.escrita, c.frescura], [2, false, 'sin base escrita']);
   assert.equal(c.comparables[1].id, escenario.id);
+  assert.ok(!('posicion' in c));
   // Misma estructura, mismas direcciones: el coste y el tiempo de una hermana se leen donde están los propios,
   // aunque una tenga cuatro pasos y la otra dos.
   const id = escenario.id.slice(0, 12);

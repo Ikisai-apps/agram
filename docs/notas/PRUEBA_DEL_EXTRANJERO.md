@@ -33,15 +33,15 @@ Ningún intento tuvo un error de código. Los cuatro escribieron registros váli
 - **Posiciones 5 y 6 rellenadas para poder usar la 7.** Válido (un array no admite huecos), pero no según la regla: el mapa (§12, «Posiciones sin contenido», 7-11) decide prefijo denso y sin «no aplicable», con las celdas sin cambio como **referencia al foco** (`{ ref: foco, dir }`, lo que ya hacen `desdeMapped` y `consolidar`) y lo lejano por anclaje. El extranjero puso otra cosa (la disponibilidad entera y el alta). Con las noches en el 7 (decisión de VG) esto pasará en toda reserva; el ejemplo de abajo sigue la regla.
 - Cobró 16 minutos de T (uno por posición) escribiendo con `eje.escribir`; no hacía falta (el eje solo exige mover algo de T). Ahora lo dice `docs/BTML.md` §2.3.
 
-La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir):
+La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir; puesto al día el 7-11 noche: el génesis lo emite una persona, PR #62, y cada plaza es una décupla con el 0 envuelto, VG «por hojas»):
 
 ```js
 import { Eje, encaje, bql } from './src/index.js';
 const t = '2026-11-07T10:00:00Z';
 const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-const eje = await Eje.genesis({ identidad: 'casa', tipo: 'grupo', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
+const eje = await Eje.genesis({ identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
 const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'ana' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']], contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
-const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', ['doble', '80 EUR'], ['individual', '50 EUR']]] });
+const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
 const reserva = (quien, noches) => eje.escribir({
   autor: quien, sobre: disp.id, en: '1100000000', t, movimientos: [gasta(quien)],
   payload: ['Reserva de ' + quien, [{ ref: disp.id, dir: '1110000000' }], 'sin mascotas', [quien, 'casa'], '=LOCAL(1, 0) * LOCAL(7) + LOCAL(7) * 24 h', { ref: disp.id, dir: '1150000000' }, { ref: disp.id, dir: '1160000000' }, noches],

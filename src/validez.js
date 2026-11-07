@@ -24,14 +24,14 @@
 // y el motor son los de justo antes de él; si no está (un borrador, uno
 // recibido, una copia manipulada con el mismo id), los de ahora.
 
-import { ARIDAD, esReferencia, esDireccion, direccion } from './btml.js';
+import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
-import { evaluar, esFormula } from './bql.js';
+import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
 import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
 import { pesoDe, estadoPorPeso } from './autorizacion.js';
@@ -96,11 +96,19 @@ function motivos() {
 /**
  * Recorre el payload: cada nodo con su camino de índices (la raíz es []).
  * Baja una profundidad más de diez, para ver lo que se pasa, y no recorre
- * más de diez posiciones por array (lo demás ya es un fallo de forma).
+ * más de diez posiciones por décupla (lo demás ya es un fallo de forma).
+ * Por hojas (VG, 7-11 noche): una lista (fuera de la raíz, solo hojas) no
+ * añade profundidad: cada elemento se visita con el camino de su posición y
+ * su índice en la lista, `visitar(elemento, camino, k)`, todos, aunque pasen
+ * de diez.
  */
 function recorrer(payload, visitar, c = []) {
   visitar(payload, c);
   if (!Array.isArray(payload) || c.length > ARIDAD) return;
+  if (c.length > 0 && esLista(payload)) {
+    payload.forEach((x, k) => visitar(x, c, k));
+    return;
+  }
   for (let i = 0; i < Math.min(payload.length, ARIDAD); i++) recorrer(payload[i], visitar, [...c, i]);
 }
 
@@ -279,26 +287,30 @@ function capaInterpretacion(eje, vista, ev, id) {
   const formulas = [];
   const referencias = [];
   let hondo = null;
-  recorrer(ev.payload, (nodo, c) => {
+  recorrer(ev.payload, (nodo, c, k) => {
     if (c.length > ARIDAD) {
       if (!hondo) hondo = c;
       return;
     }
+    // Un elemento de una lista va por el camino de su posición y su índice en ella: «1[2]» (por hojas).
+    const donde = camino(c) + (k === undefined ? '' : '[' + k + ']');
+    const enLista = k === undefined ? {} : { lista: k };
     if (esFormula(nodo)) {
       // Una fórmula, con BQL en su celda. =REF a un evento ausente da PENDIENTE, igual que { ref }.
+      // Dentro de una lista no tiene dirección propia: se evalúa desde la posición de la lista, como la lee BQL.
       let x;
       try {
-        x = evaluar(vista, id, c);
+        x = k === undefined ? evaluar(vista, id, c) : consultar(vista, id, c, nodo);
       } catch (e) {
         x = { estado: 'ERROR', texto: 'ERROR: ' + e.message };
       }
-      const f = { camino: c, dir: direccion(c), formula: nodo, estado: x.estado, texto: x.texto, capa: estadoDeBql(x.estado) };
+      const f = { camino: c, ...enLista, dir: direccion(c), formula: nodo, estado: x.estado, texto: x.texto, capa: estadoDeBql(x.estado) };
       formulas.push(f);
-      if (f.capa !== 'ok') r[f.capa](camino(c) + ': ' + f.texto);
+      if (f.capa !== 'ok') r[f.capa](donde + ': ' + f.texto);
     } else if (esReferencia(nodo)) {
       const { s, estado, texto } = leerReferencia(vista, nodo);
-      referencias.push({ desde: 'payload', camino: c, ref: nodo.ref, dir: nodo.dir ?? RAIZ, estado, procedencia: s.procedencia });
-      if (estado !== 'ok') r[estado](camino(c) + ': ' + texto);
+      referencias.push({ desde: 'payload', camino: c, ...enLista, ref: nodo.ref, dir: nodo.dir ?? RAIZ, estado, procedencia: s.procedencia });
+      if (estado !== 'ok') r[estado](donde + ': ' + texto);
     }
   });
   // Más de diez profundidades: ninguna dirección llega ahí en este foco. Mismo

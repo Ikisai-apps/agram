@@ -39,7 +39,8 @@ import { EPOCA_0, PV, leerDireccion } from '../src/epocas.js';
 import { decupla } from '../src/pointed.js';
 import { mapa, sobrio as sobrioMapa } from '../src/mapped.js';
 import { secuencia } from '../src/sequenced.js';
-import { banda, ejeTemporal, comparar } from '../src/tiempo.js';
+import { banda, ejeTemporal } from '../src/tiempo.js';
+import { situar, confluir } from '../src/bases.js';
 import { serializar } from '../src/persistencia.js';
 import { generarClaves, firmar, verificar } from '../src/autoridad.js';
 import * as agram from '../src/index.js';
@@ -186,7 +187,8 @@ test('MOT-01 las seis capacidades existen como primitivas del motor: interpretar
   assert.equal(seguir(eje, { ref: a.id, dir: '1000000000' }).contenido, 'dato');
   // POSICIONAR: rutas locales y colisiones por ceros.
   assert.equal(direccion([4]), FABRICA);
-  assert.equal(caminosDe(['x', ['y']], '1000000000').length, 2);
+  // VG, 7-11 noche: por hojas: [['y']] es décupla (1 y 1.0); ['y'] sería una lista.
+  assert.equal(caminosDe(['x', [['y']]], '1000000000').length, 2);
   // COMPARAR: vector y orden por encaje.
   assert.deepEqual(vector('4100000000', FABRICA).slice(0, 2), [0, 1]);
   assert.equal(ordenarPorEncaje([]).length, 0);
@@ -251,7 +253,7 @@ test('MOT-05 POSICIONAR obtiene posiciones por rutas locales, anclajes y ceros, 
   assert.throws(() => direccion(Array(11).fill(1)), RangeError);
   const h = await escribe(eje, g, 'anclado', '3000000000'); // anclaje
   assert.ok(ocupantes(eje, g, [3]).some((o) => o.evento === h.id));
-  const x = await escribe(eje, g, ['X', ['uno', 'dos']]);
+  const x = await escribe(eje, g, ['X', [['uno'], 'dos']]); // VG, 7-11 noche: por hojas: la posición 0 envuelta hace de 1 una décupla
   assert.deepEqual(ocupantes(eje, x.id, [1]).map((o) => o.camino), [[1], [1, 0]]); // ceros
 });
 
@@ -423,7 +425,7 @@ test('MOT-15 las etapas van en orden: solo se autoriza una consolidación, solo 
 });
 
 test('MOT-16 descubrir conserva las alternativas que ocupan la misma posición con distinto id', async () => {
-  const { eje, g } = await mundo(['Compra', 'a', 'b', 'c', ['fábrica', 'x']]);
+  const { eje, g } = await mundo(['Compra', 'a', 'b', 'c', [['fábrica'], 'x']]); // VG, 7-11 noche: por hojas: 4 décupla, 4.0 lista de uno
   const h = await escribe(eje, g, 'otra fábrica', FABRICA, 'ana');
   const [p4] = descubrir(eje, g, { posiciones: [4] });
   assert.deepEqual(p4.candidatos.map((c) => [c.origen, c.camino.join('.')]), [['propio', '4'], ['propio', '4.0'], ['escrito', '']]); // [4] y [4.0] colisionan
@@ -775,7 +777,7 @@ test('MOT-44 tres estados: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTA
 // =====================================================================
 
 test('MOT-46 Q interroga: aplicar un PV es volver a interrogar el resultado, y consultar no cambia ningún hecho', async () => {
-  const { eje, g } = await mundo(['Compra', ['recursos', 'yogur', 'leche'], 'b']);
+  const { eje, g } = await mundo(['Compra', [['recursos'], 'yogur', 'leche'], 'b']); // VG, 7-11 noche: por hojas: 1 décupla
   assert.equal(OPERADORES.Q, 'descubrir');
   const antes = huella(eje);
   const fuera = descubrir(eje, g, { posiciones: [1] });
@@ -816,7 +818,7 @@ test('MOT-48b C solo consolida lo que permite un contrato válido (con autoridad
 test('MOT-49 el orden de composición importa: 13 no es 31 (primero i, después j)', async () => {
   assert.deepEqual(leerDireccion('1300000000').map((x) => x.significado), ['recursos', 'con quién']);
   assert.deepEqual(leerDireccion('3100000000').map((x) => x.significado), ['comunicación', 'cuánto']);
-  const { eje, g } = await mundo(['F', ['1.0', '1.1', '1.2', 'uno y tres'], 'b', ['3.0', 'tres y uno']]);
+  const { eje, g } = await mundo(['F', [['1.0'], '1.1', '1.2', 'uno y tres'], 'b', [['3.0'], 'tres y uno']]); // VG, 7-11 noche: por hojas: 1 y 3 décuplas
   assert.equal(ocupantes(eje, g, [1, 3])[0].contenido, 'uno y tres');
   assert.equal(ocupantes(eje, g, [3, 1])[0].contenido, 'tres y uno');
 });
@@ -1490,7 +1492,8 @@ test('TOK-37 PV8 no emite P por subir de posición ni por reunir registros', asy
   const a = await escribe(eje, g, ['A', 'mucho', 'contenido'], undefined, 'ana');
   for (let k = 0; k < 3; k++) await escribe(eje, a.id, 'apoyo ' + k, undefined, 'bea');
   const antes = huella(eje);
-  assert.equal(comparar(eje, a.id).posicion, 1);
+  // VG, 7-11 noche: se retira comparar(); leer el 8 (aquí, el respaldo al vuelo: no hay base escrita) no escribe ni emite.
+  assert.equal(situar(eje, a.id, { respaldo: true }).medidas.escritos.foco, 3);
   assert.equal(huella(eje), antes);
   assert.deepEqual(eje.poderes('ana'), []);
 });
@@ -1574,15 +1577,18 @@ test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
   assert.equal(typeof eje.total, 'undefined');
 });
 
-test('TOK-50 más transferencias no son más riqueza: mover tokens no es progreso automático',
-  { skip: 'TOK-50: tiempo.comparar puntúa posiciones + 2·escritos + movimientos: un hermano con cuatro movimientos queda por delante de uno con uno. Terreno de src/tiempo.js (otro agente): no se toca aquí' },
-  async () => {
-    const { eje, g } = await mundo();
-    const padre = await escribe(eje, g, 'padre');
-    const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
-    await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
-    assert.equal(comparar(eje, a.id).comparables[0].id, a.id);
-  });
+test('TOK-50 más transferencias no son más riqueza: mover tokens no es progreso automático', async () => {
+  const { eje, g } = await mundo();
+  const padre = await escribe(eje, g, 'padre');
+  const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
+  await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
+  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos. Sin puesto: la hermana que mueve más
+  // tokens solo cae en otra caja de «movimientos»; en lo demás, las dos comparten caja.
+  const c = confluir(eje, a.id);
+  assert.ok(!('posicion' in c) && !('puntuacion' in c) && c.comparables.every((x) => !('puntuacion' in x)));
+  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.debajo, c.medidas.movimientos.encima], [1, 0, 1]);
+  assert.equal(c.medidas.terminales.enCaja, 2);
+});
 
 test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {
   const { eje, g } = await mundo();

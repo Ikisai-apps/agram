@@ -67,7 +67,10 @@ test('encaje: cada ocupante enseña su camino, su procedencia, su acuerdo y su s
   assert.equal((html.match(/class="oc-fila"/g) ?? []).length, 4);
   assert.match(html, /camino 1 · acuerdo 10 de 10 · signo exacto/);
   assert.match(html, /camino 1\.0 · acuerdo 10 de 10 · signo exacto/); // la colisión por ceros, con su camino exacto
-  assert.ok(html.includes('procedencia ' + c.id.slice(0, 8) + '·1#1.0 → ' + c.payload[1][0].ref.slice(0, 8) + '·1')); // la referencia, con su cadena
+  // VG, 7-11 noche: por hojas. Compra 1.0 = [menú] es una lista de uno: su elemento 0 es el ocupante, y la
+  // procedencia lo dice con su índice.
+  assert.match(html, /elemento 1 de la lista, propio del registro, camino 1\.0/);
+  assert.ok(html.includes('procedencia ' + c.id.slice(0, 8) + '·1#1.0[0] → ' + c.payload[1][0][0].ref.slice(0, 8) + '·1')); // la referencia, con su cadena
   assert.ok(html.includes('procedencia ' + cuenta.id.slice(0, 8) + '·raíz')); // el escrito anclado en el 1
   assert.match(html, /data-orden-ocupantes="encaje" aria-pressed="true"/);
 });

@@ -104,7 +104,8 @@ test('S-03 el contenido de un slot es un número literal, una cadena literal o u
 
 test('S-06 una posición explícita pasada como parámetro es una cadena de exactamente diez dígitos: REF(id, dir?)', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['cero', 'uno', 'dos']]);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de la 1 una décupla, direccionable por dígitos.
+  const a = await escribe(eje, id, ['A', [['cero'], 'uno', 'dos']]);
   const c = (f) => consultar(eje, id, [0], f);
   assert.equal(c('REF("' + a.id + '", "1200000000")').texto, 'dos');
   assert.equal(c('REF("' + a.id + '")').valor.tipo, 'array'); // sin subposición: el registro entero
@@ -218,7 +219,8 @@ test('S-17b las unidades «día» y «año» se escriben como se llaman', async 
 });
 
 test('S-18 los resultados no son tipos excluyentes: literal, estructura, colección o composición', async () => {
-  const { eje, id } = await ejeCon(['Casa', ['sub', 'x'], '=LOCAL(1)', '=BUSCAR(1)', '=1 m + 1 EUR', '=1 + 1', '=LOCAL(1, 1)']);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de la 1 una décupla (['sub', 'x'] sería una lista).
+  const { eje, id } = await ejeCon(['Casa', [['sub'], 'x'], '=LOCAL(1)', '=BUSCAR(1)', '=1 m + 1 EUR', '=1 + 1', '=LOCAL(1, 1)']);
   assert.equal(evaluar(eje, id, [2]).valor.tipo, 'array'); // estructura
   assert.equal(evaluar(eje, id, [3]).valor.tipo, 'coleccion'); // candidatos
   assert.equal(evaluar(eje, id, [4]).valor.tipo, 'composicion');
@@ -249,7 +251,8 @@ test('S-21 los marcadores #A/#T/#B de los ejemplos son simbólicos: REF no finge
 
 test('S-23 sin árbol BQL aparte: la anidación del array fija el anfitrión y la recursividad no consume profundidad', async () => {
   const doce = 'NO('.repeat(12) + '1 < 2' + ')'.repeat(12); // doce niveles > diez dígitos
-  const { eje, id } = await ejeCon(['Casa', ['sub', 'dentro', '=LOCAL(1)'], '=LOCAL(1)', '=' + doce]);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace del subarray una décupla anfitriona.
+  const { eje, id } = await ejeCon(['Casa', [['sub'], 'dentro', '=LOCAL(1)'], '=LOCAL(1)', '=' + doce]);
   assert.equal(evaluar(eje, id, [1, 2]).texto, 'dentro'); // anfitrión: el subarray
   assert.equal(evaluar(eje, id, [2]).valor.tipo, 'array'); // anfitrión: la raíz
   assert.equal(evaluar(eje, id, [3]).texto, 'verdadero');
@@ -284,7 +287,8 @@ test('S-26 los ejemplos BQL del corpus no son declaraciones aprobadas de product
 // =====================================================================
 
 test('O-01 una expresión vive en un único slot; la anidación del array que la contiene fija su anfitrión', async () => {
-  const { eje, id } = await ejeCon(['Casa', ['sub', 'valor del sub', '=LOCAL(1)'], '=LOCAL(1)']);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace del subarray una décupla anfitriona.
+  const { eje, id } = await ejeCon(['Casa', [['sub'], 'valor del sub', '=LOCAL(1)'], '=LOCAL(1)']);
   assert.equal(evaluar(eje, id, [1, 2]).texto, 'valor del sub');
   assert.equal(evaluar(eje, id, [2]).valor.tipo, 'array'); // la misma fórmula en otro slot: otro anfitrión
 });
@@ -328,7 +332,8 @@ test('O-06 el anfitrión es la décupla que contiene el slot, a su profundidad, 
 
 test('O-07 REF(id, dir?) lee otro elemento por id o forma referencial admitida, con subposición opcional', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['cero', 'uno', 'dos']]);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de la 1 una décupla, direccionable por dígitos.
+  const a = await escribe(eje, id, ['A', [['cero'], 'uno', 'dos']]);
   const c = (f) => consultar(eje, id, [0], f);
   assert.equal(c('REF("' + a.id + '")').valor.tipo, 'array');
   assert.equal(c('REF("' + a.id.slice(0, 12) + '", "1100000000")').texto, 'uno'); // prefijo único
@@ -382,7 +387,8 @@ test('O-10 una relación circular A→B y B→A es legítima; solo la evaluació
 
 test('O-11 las referencias no copian; LOCAL y REF las siguen hasta el contenido conservando la traza', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const menu = await escribe(eje, id, ['Menú', ['ensalada', 'guiso', 'fruta']]);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de la 1 una décupla, para leer la 1.1 por dirección.
+  const menu = await escribe(eje, id, ['Menú', [['ensalada'], 'guiso', 'fruta']]);
   const compra = await escribe(eje, id, ['Compra', { ref: menu.id, dir: '1000000000' }, '=LOCAL(1)', '=REF("' + menu.id + '", "1100000000")']);
   assert.deepEqual(eje.obtener(compra.id).payload[1], { ref: menu.id, dir: '1000000000' }); // sigue siendo referencia
   const porLocal = evaluar(eje, compra.id, [2]);
@@ -396,9 +402,10 @@ test('O-11 las referencias no copian; LOCAL y REF las siguen hasta el contenido 
 
 test('O-12 navegar referencias a otros eventos no consume profundidad BTML ni concatena dígitos', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const a = await escribe(eje, id, ['A', ['a1', 'fondo']]);
-  const b = await escribe(eje, id, ['B', ['b1', { ref: a.id, dir: '1100000000' }]]);
-  const c3 = await escribe(eje, id, ['C', ['c1', { ref: b.id, dir: '1100000000' }], '=LOCAL(1, 1)']);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de cada 1 una décupla, para seguir la 1.1 por dirección.
+  const a = await escribe(eje, id, ['A', [['a1'], 'fondo']]);
+  const b = await escribe(eje, id, ['B', [['b1'], { ref: a.id, dir: '1100000000' }]]);
+  const c3 = await escribe(eje, id, ['C', [['c1'], { ref: b.id, dir: '1100000000' }], '=LOCAL(1, 1)']);
   assert.equal(evaluar(eje, c3.id, [2]).texto, 'fondo'); // tres eventos, dos dígitos cada uno
   const d = await escribe(eje, id, ['D', ['d1', ['d11', ['d111', '=REF("' + c3.id + '", "1100000000")']]]]);
   assert.equal(evaluar(eje, d.id, [1, 1, 1, 1]).texto, 'fondo'); // desde profundidad 4 sin sumar profundidades
@@ -438,7 +445,8 @@ test('O-12c BUSCAR pregunta al gancho por cada ocupante y por cada salto antes d
   const { eje, id } = await ejeCon(['Casa']);
   const secreto = await escribe(eje, id, ['Secreto', '30 EUR']);
   const puente = await escribe(eje, id, ['Puente', { ref: secreto.id, dir: '1000000000' }]);
-  const lector = await escribe(eje, id, ['Lector', '10 EUR', 'x', { ref: puente.id, dir: '1000000000' }, ['a', 'b']]);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de la 4 una décupla, con colisión por ceros entre la 4 y la 4.0.
+  const lector = await escribe(eje, id, ['Lector', '10 EUR', 'x', { ref: puente.id, dir: '1000000000' }, [['a'], 'b']]);
   const escrito = await escribe(eje, lector.id, '5 EUR', '1000000000');
   const sin = (...ids) => ({ puedeLeer: (evId) => !ids.includes(evId) });
   // Escrito ajeno no autorizado: la consulta entera queda pendiente y el motivo no nombra su id.
@@ -463,7 +471,7 @@ test('O-12c BUSCAR pregunta al gancho por cada ocupante y por cada salto antes d
   assert.equal(consultar(eje, lector.id, [4], 'CONTAR(BUSCAR("4000000000"))').texto, '2');
   // Autorizar una posición expone su subárbol propio (el valor array lleva el subarray crudo); los escritos y las referencias se preguntan aparte.
   const solo4 = { puedeLeer: (e, d, i) => e === lector.id && i.join('.') === '4' };
-  assert.deepEqual(consultar(eje, lector.id, [4], 'LOCAL(4)', solo4).valor.valor, ['a', 'b']);
+  assert.deepEqual(consultar(eje, lector.id, [4], 'LOCAL(4)', solo4).valor.valor, [['a'], 'b']);
   assert.equal(consultar(eje, lector.id, [4], 'LOCAL(4, 0)', solo4).estado, 'PENDIENTE DE AUTORIZACIÓN');
 });
 
@@ -540,13 +548,35 @@ test('O-20 las colisiones se conservan: propio, alcanzado por referencia, escrit
   assert.equal(r.find((i) => i.origen === 'referencia').evento, plan.id);
   assert.ok(r.every((i) => i.procedencia.length > 0 && Array.isArray(i.indices)));
   // Colisión por ceros: la posición 1 y la 1.0 son dos ocupantes, no uno. La dirección nombra la colisión entera.
-  const y = await escribe(eje, id, ['Y', ['p', 'q']]);
+  // VG, 7-11 noche: por hojas: para que la 1 sea una décupla (con 1.0) se envuelve su 0; la 1.0 es la lista ['p'].
+  const y = await escribe(eje, id, ['Y', [['p'], 'q']]);
   const ceros = consultar(eje, y.id, [1], 'BUSCAR("1000000000")').valor.items;
-  assert.deepEqual(ceros.map((i) => i.indices), [[1], [1, 0]]);
+  assert.deepEqual(ceros.map((i) => [i.indices, i.lista]), [[[1], undefined], [[1, 0], 0]]); // la décupla y el elemento de la 1.0
   assert.ok(ceros.every((i) => i.origen === 'propio'));
-  // El índice es camino exacto (mapa §12 [D], VG 7-11): 1 es la 1 y 1, 0 es la 1.0, sin ambigüedad.
+  // El índice es camino exacto (mapa §12 [D], VG 7-11): 1 es la 1, sin la 1.0.
   assert.deepEqual(consultar(eje, y.id, [1], 'BUSCAR(1)').valor.items.map((i) => i.indices), [[1]]);
-  assert.deepEqual(consultar(eje, y.id, [1], 'BUSCAR(1, 0)').valor.items.map((i) => i.indices), [[1, 0]]);
+  // BUSCAR(1, 0) es el ocupante 0 de la lista de la 1 por llegada: la décupla, uno solo; no es la 1.0, que se
+  // lee por dígito con LOCAL(1, 0) (la lista de uno) y su elemento por índice con LOCAL(1, 0, 0).
+  assert.deepEqual(consultar(eje, y.id, [1], 'BUSCAR(1, 0)').valor.items.map((i) => i.indices), [[1]]);
+  assert.equal(consultar(eje, y.id, [1], 'BUSCAR(1, 1)').texto, '0 candidatos');
+  const lista10 = consultar(eje, y.id, [1], 'LOCAL(1, 0)');
+  assert.deepEqual([lista10.valor.tipo, lista10.texto], ['lista', 'p']); // una lista se escribe con sus elementos
+  assert.equal(consultar(eje, y.id, [1], 'LOCAL(1, 0, 0)').texto, 'p');
+  assert.equal(consultar(eje, id, [0], 'REF("' + y.id + '", "1100000000")').texto, 'q'); // por dirección, la décupla
+  // Una lista no es una décupla: un ocupante por elemento, sin colisión por ceros (la dirección no entra en ella).
+  const z = await escribe(eje, id, ['Z', ['p', 'q']]);
+  const enLista = consultar(eje, z.id, [1], 'BUSCAR("1000000000")').valor.items;
+  assert.deepEqual(enLista.map((i) => [i.origen, i.indices, i.lista]), [['propio', [1], 0], ['propio', [1], 1]]);
+  assert.deepEqual(consultar(eje, z.id, [1], 'BUSCAR(1)').valor.items.map((i) => i.lista), [0, 1]);
+  // Lo escrito en la 1 va detrás de la lista, por llegada: BUSCAR(1, 2) es el escrito.
+  const zEscrito = await escribe(eje, z.id, 'r', '1000000000');
+  assert.deepEqual(consultar(eje, z.id, [1], 'BUSCAR(1, 1)').valor.items.map((i) => i.lista), [1]);
+  assert.deepEqual(consultar(eje, z.id, [1], 'BUSCAR(1, 2)').valor.items.map((i) => i.evento), [zEscrito.id]);
+  assert.equal(consultar(eje, z.id, [1], 'BUSCAR(1, 3)').texto, '0 candidatos');
+  assert.equal(consultar(eje, z.id, [1], 'LOCAL(1, 1)').texto, 'q'); // por índice, LOCAL entra en la lista
+  const porDir = consultar(eje, id, [0], 'REF("' + z.id + '", "1100000000")'); // por dirección, no
+  assert.equal(porDir.estado, 'PENDIENTE');
+  assert.match(porDir.motivo, /cae dentro de la lista de la 1/);
   void x;
 });
 
@@ -952,9 +982,10 @@ test('E-24b toda lectura queda en las dependencias, también la de un literal po
 
 test('E-25 navegar referencias entre eventos no consume profundidad BTML', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  let anterior = await escribe(eje, id, ['Fondo', ['nivel', 'tesoro']]);
-  for (let k = 0; k < 5; k++) anterior = await escribe(eje, id, ['Salto ' + k, ['nivel', { ref: anterior.id, dir: '1100000000' }]]);
-  const lector = await escribe(eje, id, ['Lector', ['nivel', '=LOCAL(0)'], '=REF("' + anterior.id + '", "1100000000")']);
+  // VG, 7-11 noche: por hojas: el 0 envuelto hace de cada 1 una décupla, para seguir la 1.1 por dirección.
+  let anterior = await escribe(eje, id, ['Fondo', [['nivel'], 'tesoro']]);
+  for (let k = 0; k < 5; k++) anterior = await escribe(eje, id, ['Salto ' + k, [['nivel'], { ref: anterior.id, dir: '1100000000' }]]);
+  const lector = await escribe(eje, id, ['Lector', [['nivel'], '=LOCAL(0, 0)'], '=REF("' + anterior.id + '", "1100000000")']);
   assert.equal(evaluar(eje, lector.id, [2]).texto, 'tesoro'); // seis saltos de dos dígitos sin concatenar
   assert.equal(evaluar(eje, lector.id, [1, 1]).texto, 'nivel'); // y el anfitrión local sigue siendo el subarray
 });

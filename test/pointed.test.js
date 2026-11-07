@@ -8,7 +8,8 @@ const ev = {
   autor: 'raiz',
   t: '2026-11-06T20:00:00Z',
   sobre: null,
-  payload: ['Menú del día', ['menú', 1, 'EUR 12'], ['sin gluten'], { ref: 'ffff0000aaaa', dir: '3000000000' }],
+  // Por hojas (VG, 7-11 noche): la 1 es una décupla (su 0 va envuelto); la 2, una lista de uno.
+  payload: ['Menú del día', [['menú'], 1, 'EUR 12'], ['sin gluten'], { ref: 'ffff0000aaaa', dir: '3000000000' }],
 };
 
 test('décupla: diez posiciones con significado de época 0', () => {
@@ -16,7 +17,7 @@ test('décupla: diez posiciones con significado de época 0', () => {
   assert.equal(d.posiciones.length, 10);
   assert.deepEqual(d.posiciones.map((p) => p.significado), [...PV]);
   assert.equal(d.posiciones[0].contenido, 'Menú del día');
-  assert.deepEqual(d.posiciones[1].contenido, ['menú', 1, 'EUR 12']);
+  assert.deepEqual(d.posiciones[1].contenido, [['menú'], 1, 'EUR 12']);
   assert.equal(d.posiciones[9].contenido, undefined);
 });
 
@@ -34,6 +35,7 @@ test('render sobrio: una línea por posición', () => {
   assert.equal(lineas.length, 11);
   assert.match(lineas[1], /^0 representación\s+Menú del día$/);
   assert.match(lineas[2], /^1 recursos\s+\[3 posiciones\]$/);
+  assert.match(lineas[3], /^2 criterios\s+lista de 1: sin gluten$/);
   assert.match(lineas[4], /^3 comunicación\s+→ ffff0000:3000000000$/);
   assert.match(lineas[10], /^9 camino\s+—$/);
   assert.equal(render(decupla(ev)), texto);

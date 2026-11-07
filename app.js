@@ -220,7 +220,7 @@ function chipTemporal(x) {
   return `<button class="chip" data-ir="${x.id}"><b>${corto(x.id)}</b> ${escapar(texto)}${etiqueta} <small>${x.banda}</small></button>`;
 }
 
-function celdaMapa(m, i, eje67, comp) {
+function celdaMapa(m, i, eje67, o8) {
   const c = m.celdas[i];
   const marca = c.escritos ? `<span class="hijos">↳ ${c.escritos}</span>` : '';
   const propio = c.contenido !== undefined ? `<div class="val">${slot(c.contenido, m.foco, [...m.camino, i], false)}</div>` : '';
@@ -239,12 +239,18 @@ function celdaMapa(m, i, eje67, comp) {
   }
   if (i === 8) {
     const d = m.medidas;
+    // La verdad del 8 es la base escrita (VG, 7-11 noche); sin ella, el respaldo al vuelo lo dice. Sin puesto ni puntuación.
+    const lectura = o8.estado !== 'RESUELTO' ? o8.motivo
+      : o8.escrita ? 'base ' + o8.base.slice(0, 8) + (o8.frescura.sinNovedades ? ' · sin novedades' : ' · con novedades')
+      : 'sin base escrita (respaldo al vuelo)';
+    const cajas = o8.medidas.map((x) => `<span>${escapar(x.clave)} <b>caja ${x.caja}</b></span>`).join('');
     return `<div class="celda c8"><div class="pvn">8 ${c.significado}</div>
-      <div class="medidas"><span>entre hermanos <b>${comp.posicion} de ${comp.de}</b></span><span>hilo <b>${d.profundidadHilo}</b></span><span>escritos <b>${d.escritos}</b></span><span>movimientos <b>${d.movimientos}</b></span><span>posiciones <b>${d.posicionesDesarrolladas}</b></span></div>
+      <div class="medidas"><span>entre hermanos <b>${escapar(lectura)}</b> · n ${o8.n}</span>${cajas}</div>
+      <div class="medidas"><span>hilo <b>${d.profundidadHilo}</b></span><span>escritos <b>${d.escritos}</b></span><span>movimientos <b>${d.movimientos}</b></span><span>posiciones <b>${d.posicionesDesarrolladas}</b></span></div>
       <div class="pista">sin nivel ni grado: las estrellas no son verdad</div>${propio}${marca}</div>`;
   }
   if (i === 9) {
-    // Con el payload: un índice de la lista de una posición es un ocupante por llegada, sin PV (VG, 7-11 noche).
+    // Con el payload: en una décupla, la regla corta; un índice de una lista (solo hojas) es un ocupante por llegada, sin PV (VG, 7-11 noche: por hojas).
     const pasos = m.camino.length ? leerCamino(m.camino, epocaActual(), { payload: estado.eje.obtener(m.foco).payload }).map((x) => `<span class="paso">${x.digito} ${escapar(x.significado)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
     const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
     const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidaci${pendientes.length > 1 ? 'ones' : 'ón'} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
@@ -258,6 +264,16 @@ function celdaMapa(m, i, eje67, comp) {
     <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
+/**
+ * Lo que falta para autorizar (VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, hasta el
+ * umbral del dueño): cuánto P hay bloqueado de cuánto emitido, y si quien mira no tiene P que cuente.
+ */
+function pistaAutorizar(id, sinP) {
+  const p = motor.pesoAutorizacion(estado.eje, id);
+  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado; umbral: ' + p.umbral.texto;
+  return escapar((sinP ? sinP + ' no tiene P sobre el registro del recurso · ' : '') + peso);
+}
+
 function panelFabrica(m) {
   const lista = motor.consolidaciones(estado.eje, m.foco, m.camino);
   const yo = estado.identidad;
@@ -267,7 +283,7 @@ function panelFabrica(m) {
     return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.estado.toLowerCase()}</i></button>
       ${puedeAut ? `<button class="accion" data-autorizar="${c.id}">autorizar como ${escapar(yo)}</button>` : ''}
       ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
-      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P) sobre este registro'}</span>` : ''}
+      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' ? `<span class="pista">${pistaAutorizar(c.id, puedeAut ? '' : yo)}</span>` : ''}
       ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
       ${contextoConsolidacion(estado.eje, c.id)}
     </div>`;
@@ -298,7 +314,7 @@ function pintarMapped() {
   const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino, epoca: epocaActual() });
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
-  const comp = tiempo.comparar(estado.eje, estado.foco);
+  const o8 = mapped.ocho(estado.eje, estado.foco, { epoca: epocaActual() }); // la celda 8 lee la base escrita (tiempo.comparar se retira)
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = nombresPV(estado.camino.length).map((n, i) => {
@@ -308,7 +324,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div><div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div><div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, o8)).join('')}</div>`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>

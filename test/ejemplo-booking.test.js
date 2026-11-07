@@ -88,7 +88,7 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([entrega.ejecucion.payload[0], pagada.ejecucion.payload[0]], ['Plaza entregada', 'Pagada']);
   const texto = render(decupla(reserva));
   assert.match(texto, /^1 recursos\s+\[5 posiciones\]$/m);
-  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m);
+  assert.match(texto, /^4 fábrica\s+\[2 posiciones\]$/m); // VG, 7-11 noche: por hojas: [['pagar'], 'ocupar'], una décupla (la entrega elige 4.1)
 });
 
 test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capacidad, y la casa emite su serie por plaza y noche', async () => {
@@ -98,8 +98,9 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   assert.deepEqual(PLAZAS, { matrimonio: 0, individual: 1, litera: 2 });
   assert.equal(plaza(PLAZAS.individual), '1100000000');
   assert.equal(precioDe(PLAZAS.litera), '1210000000');
-  assert.deepEqual(resolver(habitacion.payload, plaza(PLAZAS.individual)), ['cama individual', 'EUR 55', 1]);
-  assert.deepEqual(resolver(habitacion.payload, plaza(PLAZAS.litera)), ['litera', 'EUR 25', 2]);
+  // VG, 7-11 noche: por hojas: la plaza es una décupla con el nombre envuelto (1.k.0 es una lista de uno).
+  assert.deepEqual(resolver(habitacion.payload, plaza(PLAZAS.individual)), [['cama individual'], 'EUR 55', 1]);
+  assert.deepEqual(resolver(habitacion.payload, plaza(PLAZAS.litera)), [['litera'], 'EUR 25', 2]);
   assert.equal(resolver(habitacion.payload, precioDe(PLAZAS.litera)), 'EUR 25');
   // Límite conocido de los ceros finales: la primera plaza colisiona con la posición 1 entera y con su nombre.
   assert.deepEqual(ocupantes(eje, habitacion.id, [1, 0]).map((o) => o.camino), [[1], [1, 0], [1, 0, 0]]);
@@ -125,10 +126,10 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
 
 test('las referencias no copian: plaza y precio son un solo nodo, y las fórmulas BQL calculan el total y lo componen con el tiempo', async () => {
   const { eje, habitacion, reserva, pago: pagada } = await ejemploReserva();
-  const laPlaza = reserva.payload[1][0];
+  const laPlaza = reserva.payload[1][0][0]; // VG, 7-11 noche: por hojas: la 1.0 es una lista de uno, la referencia
   const precio = reserva.payload[1][2];
   assert.equal(laPlaza.ref, habitacion.id);
-  assert.deepEqual(resolver(eje.obtener(laPlaza.ref).payload, laPlaza.dir), ['cama individual', 'EUR 55', 1]);
+  assert.deepEqual(resolver(eje.obtener(laPlaza.ref).payload, laPlaza.dir), [['cama individual'], 'EUR 55', 1]);
   assert.equal(resolver(eje.obtener(precio.ref).payload, precio.dir), 'EUR 55');
   assert.deepEqual(indicesDe(laPlaza.dir), [1, 1]);
   assert.deepEqual(indicesDe(precio.dir), [1, 1, 1]); // el precio cuelga de la plaza
@@ -146,7 +147,7 @@ test('las referencias no copian: plaza y precio son un solo nodo, y las fórmula
   assert.equal(evaluar(eje, pagada.consolidacion.id, [4]).texto, '165 EUR');
   // Prefijo denso, sin relleno: de 0 a 4 (4 es lo que prepara: las dos partes de la ejecución); ni 5 ni 6.
   assert.equal(reserva.payload.length, 5);
-  assert.deepEqual(reserva.payload[4], ['pagar', 'ocupar']);
+  assert.deepEqual(reserva.payload[4], [['pagar'], 'ocupar']); // por hojas: una décupla, el 0 envuelto
   // Lo lejano, por anclaje: las noches en el 7 de la propia reserva, escritas por quien reserva.
   const [noches] = eje.sobre(reserva.id, SIETE);
   assert.deepEqual([noches.autor, noches.payload], ['huesped', ['2026-11-20', '2026-11-23']]);
@@ -159,15 +160,18 @@ test('encaje de la dirección 1 de la reserva: colisiones por ceros, lo alcanzad
   assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'referencia']);
   assert.deepEqual(oc.map((o) => o.camino), [[1], [1, 0], [1, 1]]);
   assert.ok(oc.slice(0, 2).every((o) => o.signo === 'exacto' && o.acuerdo === 10));
-  assert.deepEqual(oc[2].contenido, ['cama individual', 'EUR 55', 1]);
+  assert.deepEqual(oc[2].contenido, [['cama individual'], 'EUR 55', 1]); // VG, 7-11 noche: por hojas: el nombre de la plaza va envuelto
   assert.equal(oc[2].evento, habitacion.id);
   assert.equal(oc[2].origenDir, '1100000000');
   assert.equal(oc[2].destino, '1000000000');
-  assert.deepEqual(oc[2].procedencia, [reserva.id + ':1000000000#1.0', habitacion.id + ':1100000000']);
+  // VG, 7-11 noche: por hojas: la referencia es el elemento 0 de la lista de la 1.0, y su procedencia lo dice.
+  assert.deepEqual(oc[2].procedencia, [reserva.id + ':1000000000#1.0[0]', habitacion.id + ':1100000000']);
   assert.ok(Array.isArray(oc[2].vector) && oc[2].vector.length === 10); // el vector es información; no ordena
+  // VG, 7-11 noche: por hojas: la 2 es una lista de una referencia (a la lista entera de criterios de la
+  // habitación): su elemento es el ocupante propio, y lo alcanzado es esa lista.
   const oc2 = ocupantes(eje, reserva.id, [2]);
-  assert.deepEqual(oc2.map((o) => o.origen), ['propio', 'propio', 'referencia']);
-  assert.equal(oc2[2].contenido, 'con desayuno');
+  assert.deepEqual(oc2.map((o) => o.origen), ['propio', 'referencia']);
+  assert.deepEqual(oc2[1].contenido, ['sin humo', 'con desayuno']);
   // En 4, lo propio (lo que prepara) y las dos consolidaciones escritas encima, ancladas justo ahí, por llegada.
   const oc4 = ocupantes(eje, reserva.id, [4]);
   assert.deepEqual(oc4.map((o) => o.origen), ['propio', 'propio', 'escrito', 'escrito']);
@@ -178,14 +182,15 @@ test('encaje de la dirección 1 de la reserva: colisiones por ceros, lo alcanzad
   assert.equal(d[0].candidatos.find((c) => c.origen === 'referencia').etiqueta, 'cama individual');
   const c = colisiones(arbol(eje, reserva.id));
   assert.equal(c.find((x) => x.dir === '1000000000').ocupantes.length, 3);
-  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 3);
+  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 2); // VG, 7-11 noche: por hojas: el elemento y lo que alcanza
   // Integración 7-11: con #36 la colisión entera se pide por dirección; por índice, BUSCAR(1) es el camino exacto (solo [1]).
   assert.equal(consultar(eje, reserva.id, [1], 'CONTAR(BUSCAR("1000000000"))').texto, '3');
   assert.equal(consultar(eje, reserva.id, [1], 'CONTAR(FILTRAR(BUSCAR("1000000000"), SIGNO() = "exacto"))').texto, '2');
   assert.equal(consultar(eje, reserva.id, [1], 'CONTAR(BUSCAR(1))').texto, '1');
   // Cada consolidación guarda el encaje de sus fuentes: de dónde vino cada elección y dónde se colocó.
   const e = pagada.consolidacion.contexto.encaje;
-  assert.deepEqual(e.map((x) => [x.posicion, x.evento, x.origen, x.destino]), [[1, habitacion.id, '1100000000', '1000000000'], [2, habitacion.id, '2100000000', '2000000000']]);
+  // VG, 7-11 noche: por hojas: el criterio de la reserva referencia la lista entera (2000000000), no un elemento.
+  assert.deepEqual(e.map((x) => [x.posicion, x.evento, x.origen, x.destino]), [[1, habitacion.id, '1100000000', '1000000000'], [2, habitacion.id, '2000000000', '2000000000']]);
   assert.deepEqual(pagada.consolidacion.contexto.fuentes, [habitacion.id]);
   // La de la casa elige la plaza y, por referencia, la acción «ocupar» de lo que prepara la reserva (4.1).
   assert.deepEqual(entrega.consolidacion.payload[4], { ref: reserva.id, dir: '4100000000' });
@@ -371,7 +376,8 @@ test('antes de mover nada: la reserva ha de estar anclada en la plaza que refere
     const t = '2026-11-08T21:' + minuto++ + ':00Z'; // cada reserva a mano es un registro distinto
     const r = await eje.escribir({
       autor: 'huesped', sobre: habitacion.id, en, t, movimientos: [minutos('huesped', 11)],
-      payload: ['Reserva a mano', [{ ref: habitacion.id, dir: refPlaza }, noches, { ref: habitacion.id, dir: precioDe(indicesDe(refPlaza)[1] ?? 0) }, '=LOCAL(2) * LOCAL(1)'], ['con desayuno'], ['huesped', 'recepcion'], ['pagar', 'ocupar']],
+      // VG, 7-11 noche: por hojas: la plaza va envuelta en la 1.0 para que la 1 sea una décupla.
+      payload: ['Reserva a mano', [[{ ref: habitacion.id, dir: refPlaza }], noches, { ref: habitacion.id, dir: precioDe(indicesDe(refPlaza)[1] ?? 0) }, '=LOCAL(2) * LOCAL(1)'], ['con desayuno'], ['huesped', 'recepcion'], ['pagar', 'ocupar']],
     });
     if (tramo) await eje.escribir({ autor: 'huesped', sobre: r.id, en: SIETE, t, movimientos: [minutos('huesped', 2)], payload: tramo });
     return r;

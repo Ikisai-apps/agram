@@ -8,7 +8,10 @@
 //   =REF(id, dir?)          lee otro evento (id o prefijo), subposición de diez dígitos opcional
 //   = 12 EUR + 2 EUR        magnitudes: misma unidad se suma conservando el desglose
 //   = 12 EUR + 5 min        unidades distintas: composición heterogénea, operandos preservados
-//   =BUSCAR(n, ...)         candidatos del camino n del anfitrión (un número es índice: camino exacto, relativo al anfitrión)
+//   =BUSCAR(n)              la lista de la posición n del anfitrión (un número es índice: camino exacto, relativo al anfitrión);
+//                           por hojas, cada elemento de una lista (un array solo de hojas bajo la raíz) es un candidato aparte
+//   =BUSCAR(n, ..., k)      el ocupante k (desde 0) de esa lista, por llegada: el último número es el índice en la lista,
+//                           los anteriores, el camino (VG, 7-11 noche: la lista está fuera de los dígitos)
 //   =BUSCAR("2000000000")   candidatos de esa dirección del registro (un texto de diez dígitos es dirección: absoluta, la colisión entera)
 //   =FILTRAR(col, cond)     cond se evalúa por candidato; dentro, ACTUAL es el candidato y LOCAL sigue siendo el anfitrión
 //   =ORDENAR(col, expr, "desc"?)   ordena por expr evaluada en cada candidato (claves escalares de un mismo tipo)
@@ -32,19 +35,19 @@
 // (presupuesto, profundidad o candidatos agotados; `parcial` dice cuánto se
 // examinó cuando se sabe).
 //
-// CAJA y FRESCURA leen el 8 y no escriben nada: sin base escrita, PENDIENTE
+// BASES, CAJA y FRESCURA leen el 8 y no escriben nada: sin base escrita, PENDIENTE
 // con el modo de escribirla; si leer la base cuesta más que el presupuesto
 // que queda, PENDIENTE POR LÍMITE (docs/BQL.md §7.14).
 //
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
-import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.js';
+import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantes } from './encaje.js';
-import { valorDeBases } from './bases.js';
-// CAJA y FRESCURA. Ciclo de importación (bases.js y tiempo.js importan este
-// módulo): lo importado aquí solo se usa dentro de funciones, nunca al cargar.
-import { CIELO, COSTE_BASE, basesEn, clavesDeMedidas, identidadDe, leerBase } from './bases.js';
-import { ALCANCES, proyectoDe } from './tiempo.js';
+// BASES, CAJA y FRESCURA. Ciclo de importación (bases.js importa este módulo
+// para medir fórmulas): lo importado aquí solo se usa dentro de funciones.
+import {
+  CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
+} from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
@@ -207,7 +210,9 @@ const ESCALARES = Object.freeze(['numero', 'magnitud', 'texto', 'booleano']);
 const RE_MAGNITUD_SLOT = /^(?:(-?\d+(?:\.\d+)?)\s*([\p{L}€$%][\p{L}\p{N}_€$%]*)|([\p{L}€$%][\p{L}\p{N}_€$%]*)\s*(-?\d+(?:\.\d+)?))$/u;
 
 /** Convierte el contenido crudo de un slot en valor BQL. */
-function valorDe(contenido) {
+function valorDe(contenido, indices = []) {
+  // Por hojas (VG, 7-11 noche): bajo la raíz, un array solo de hojas es una lista; sus ocupantes, con BUSCAR.
+  if (indices.length > 0 && esLista(contenido)) return { tipo: 'lista', valor: contenido };
   if (contenido === undefined) throw new Parada('PENDIENTE', 'posición sin desarrollar');
   if (typeof contenido === 'number') return num(contenido);
   if (Array.isArray(contenido)) return { tipo: 'array', valor: contenido };
@@ -349,16 +354,35 @@ function autorizarOcupante(ctx, o, evId, dir) {
   for (const s of o.saltos ?? []) autorizar(ctx, s.evento, s.indices);
 }
 
-/** Contenido crudo de una posición. Evento que no está en el eje → PENDIENTE (puede llegar). */
-function leerPosicion(ctx, evId, indices) {
+/**
+ * Contenido crudo de una posición. Evento que no está en el eje → PENDIENTE
+ * (puede llegar). Por hojas (VG, 7-11 noche), una lista (bajo la raíz, un
+ * array solo de hojas) se alcanza por índice y nunca por dirección: con
+ * índices (LOCAL, un candidato de BUSCAR, evaluar con un camino) el número
+ * siguiente es el lugar en la lista; con una dirección (`porDireccion`: REF,
+ * una referencia BTML, evaluar con diez dígitos) seguir dentro de la lista
+ * no existe: PENDIENTE, como una posición sin desarrollar, y el motivo lo
+ * dice.
+ */
+function leerPosicion(ctx, evId, indices, { porDireccion = false } = {}) {
   const ev = ctx.eje.obtener(evId);
   if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
   autorizar(ctx, evId, indices);
   let nodo = ev.payload;
-  for (const i of indices) {
+  for (let p = 0; p < indices.length; p++) {
+    if (porDireccion && p > 0 && esLista(nodo)) {
+      throw new Parada('PENDIENTE', 'posición sin desarrollar: ' + direccion(indices) + ' cae dentro de la lista de la ' + indices.slice(0, p).join('.') + '; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL)');
+    }
     if (!Array.isArray(nodo)) return undefined;
-    nodo = nodo[i];
+    nodo = nodo[indices[p]];
   }
+  return nodo;
+}
+
+/** El elemento `lista` de la lista que hay en `contenido` y, si se pide, su subposición `sub` (un elemento es una hoja: no tiene). */
+function elementoDeLista(contenido, { lista, sub = [] }) {
+  let nodo = esLista(contenido) ? contenido[lista] : undefined;
+  for (const i of sub) nodo = Array.isArray(nodo) ? nodo[i] : undefined;
   return nodo;
 }
 
@@ -369,19 +393,23 @@ function leerPosicion(ctx, evId, indices) {
  * se está leyendo es un ciclo (ERROR); más de `limites.profundidad` lecturas
  * encadenadas es PENDIENTE POR LÍMITE.
  */
-function leerSlot(ctx, evId, indices) {
+function leerSlot(ctx, evId, indices, { elemento, porDireccion = false } = {}) {
   if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
-  const clave = evId + ':' + direccion(indices);
-  ctx.dependencias.add(clave);
-  const contenido = leerPosicion(ctx, evId, indices);
-  if (!esFormula(contenido) && !esReferencia(contenido)) return valorDe(contenido);
+  // Un elemento de una lista depende de la posición de la lista; en la pila va aparte, con su índice en ella.
+  const lugar = evId + ':' + direccion(indices);
+  const clave = elemento ? lugar + '[' + elemento.lista + ']' + (elemento.sub?.length ? '.' + elemento.sub.join('.') : '') : lugar;
+  ctx.dependencias.add(lugar);
+  const enPosicion = leerPosicion(ctx, evId, indices, { porDireccion });
+  const contenido = elemento ? elementoDeLista(enPosicion, elemento) : enPosicion;
+  if (!esFormula(contenido) && !esReferencia(contenido)) return valorDe(contenido, elemento ? [] : indices);
   if (ctx.pila.has(clave)) throw new Parada('ERROR', 'ciclo en ' + evId.slice(0, 8) + ':' + direccion(indices));
   if (ctx.pila.size >= ctx.limites.profundidad) throw limite('más de ' + ctx.limites.profundidad + ' lecturas encadenadas');
   ctx.pila.add(clave);
   const actualGuardado = ctx.actual;
   ctx.actual = null; // una fórmula ajena no hereda nuestro candidato
   try {
-    if (esReferencia(contenido)) return leerSlot(ctx, contenido.ref, contenido.dir ? indicesDe(contenido.dir) : []);
+    if (esReferencia(contenido)) return leerSlot(ctx, contenido.ref, contenido.dir ? indicesDe(contenido.dir) : [], { porDireccion: true });
+    // Una fórmula dentro de una lista se evalúa desde la posición de la lista: LOCAL lee su décupla anfitriona.
     return evaluarArbol(ctx, analizar(contenido.slice(1), ctx.limites), evId, indices);
   } finally {
     ctx.pila.delete(clave);
@@ -409,16 +437,26 @@ function resolverId(ctx, v) {
  * autorización antes de exponerse. Más de `limites.candidatos` → PENDIENTE
  * POR LÍMITE: no se presenta como completo lo que no se examinó entero.
  */
-function buscar(ctx, evId, indices, { exacto }) {
+function buscar(ctx, evId, indices, { exacto, llegada }) {
   if (!ctx.eje.obtener(evId)) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
   if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
   const dir = direccion(indices);
   autorizar(ctx, evId, indices);
   // Orden por defecto: el del encaje (coincidencias de ruta, luego llegada). ORDENAR lo discute.
-  const lista = ocupantes(ctx.eje, evId, indices, { exacto });
+  let lista = ocupantes(ctx.eje, evId, indices, { exacto, ...(llegada === undefined ? {} : { orden: 'llegada' }) });
+  if (llegada !== undefined) {
+    // El ocupante k por llegada (VG, 7-11 noche): cada propio, elemento de lista o escrito es uno; lo que
+    // alcanza una referencia va con ella, detrás, como en BUSCAR(n).
+    const porLlegada = [];
+    for (const o of lista) {
+      if (o.tipo === 'referencia' && porLlegada.length) porLlegada.at(-1).push(o);
+      else porLlegada.push([o]);
+    }
+    lista = porLlegada[llegada] ?? [];
+  }
   for (const o of lista) autorizarOcupante(ctx, o, evId, dir);
   const items = lista.map((o) => ({
-    origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
+    origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), ...(o.enLista ? { lista: o.indice } : {}), procedencia: o.procedencia, autor: o.autor, t: o.t,
     vector: o.vector, distancia: o.distancia, acuerdo: o.acuerdo, signo: o.signo, faltas: o.faltas, excedentes: o.excedentes, origenDir: o.origenDir, destino: o.destino,
   }));
   const tope = ctx.limites.candidatos;
@@ -426,8 +464,9 @@ function buscar(ctx, evId, indices, { exacto }) {
   return col(items);
 }
 
-/** Valor de un candidato, o de su subposición k... (leyendo fórmulas si las hay). */
+/** Valor de un candidato, o de su subposición k... (leyendo fórmulas si las hay). Un elemento de lista se lee dentro de su lista. */
 function valorCandidato(ctx, item, sub = []) {
+  if (item.lista !== undefined) return leerSlot(ctx, item.evento, item.indices, { elemento: { lista: item.lista, sub } });
   return leerSlot(ctx, item.evento, [...item.indices, ...sub]);
 }
 
@@ -494,7 +533,7 @@ function funcion(ctx, nodo, evId, base) {
         if (args[1].tipo !== 'texto' || !esDireccion(args[1].valor)) throw new Parada('ERROR', 'REF espera una dirección de diez dígitos');
         idx = indicesDe(args[1].valor);
       }
-      return leerSlot(ctx, resolverId(ctx, args[0]), idx);
+      return leerSlot(ctx, resolverId(ctx, args[0]), idx, { porDireccion: true }); // una dirección nunca entra en una lista
     }
     case 'BUSCAR': {
       if (!args.length) throw new Parada('ERROR', 'BUSCAR espera una posición');
@@ -503,7 +542,11 @@ function funcion(ctx, nodo, evId, base) {
         if (args.length > 1 || !esDireccion(args[0].valor)) throw new Parada('ERROR', 'BUSCAR espera índices 0–9 o una dirección de diez dígitos');
         return buscar(ctx, evId, indicesDe(args[0].valor), { exacto: false }); // dirección: la colisión entera
       }
-      return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'BUSCAR')], { exacto: true }); // índice: camino exacto
+      if (args.length === 1) return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args, 'BUSCAR')], { exacto: true }); // índice: camino exacto
+      // Con dos o más números, el último es el índice en la lista de la posición (por llegada, desde 0, sin tope de diez).
+      const k = args.at(-1);
+      if (k.tipo !== 'numero' || !Number.isInteger(k.valor) || k.valor < 0) throw new Parada('ERROR', 'BUSCAR espera como último número el índice en la lista, entero ≥ 0');
+      return buscar(ctx, evId, [...anfitrion, ...indicesDeArgs(args.slice(0, -1), 'BUSCAR')], { exacto: true, llegada: k.valor });
     }
     case 'ACTUAL': {
       if (args.length > 2) throw new Parada('ERROR', 'ACTUAL espera una posición y, si acaso, una cantidad');
@@ -564,18 +607,18 @@ function funcion(ctx, nodo, evId, base) {
       return acc ?? num(0);
     }
     case 'BASES': {
-      // Leer una base es leer un escrito anclado en el 8 de su registro; situar al anfitrión es leerlo entero.
-      const valores = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
-      const r = valorDeBases(ctx.eje, evId, valores);
+      // Como CAJA y FRESCURA (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer y
+      // presupuesto): primero se valida, luego se lee (y se cobra y se autoriza) el 8; situar al anfitrión es
+      // leerlo entero, y la medida evalúa sus fórmulas sin el gancho, así que con gancho no se cuentan.
+      const crudos = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
+      const mal = erroresDeBases(crudos);
+      if (mal) throw new Parada('ERROR', mal);
+      leerCohorte(ctx, evId, crudos.length ? crudos[0] : PROPIO);
+      const r = valorDeBases(ctx.eje, evId, crudos);
       if (r.mideAnfitrion) {
         autorizar(ctx, evId, []);
-        // Como en CAJA: la medida evalúa las fórmulas del anfitrión sin el gancho, así que con gancho no se cuentan
-        // (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer).
-        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(valores[1])) throw sinGanchoEnFormulas(evId);
-      }
-      if (r.base) {
-        autorizar(ctx, r.base, [], 'leer la base del 8 de ' + r.registro.slice(0, 8));
-        ctx.dependencias.add(r.base + ':' + direccion([]));
+        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(crudos[1])) throw sinGanchoEnFormulas(evId);
+        ctx.dependencias.add(evId + ':' + direccion([]));
       }
       if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo);
       return num(r.valor);
@@ -597,7 +640,7 @@ function funcion(ctx, nodo, evId, base) {
   }
 }
 
-// ---------- CAJA y FRESCURA: leen el 8 ----------
+// ---------- BASES, CAJA y FRESCURA: leen el 8 ----------
 // El foco es el anfitrión (el registro de la fórmula), como en BASES. El
 // alcance elige qué 8 se lee: el del padre (hermanos), el del proyecto o el
 // del génesis (mapa §12 [D] «Cohortes y bases del 8»). La lectura la hace
@@ -628,7 +671,7 @@ function esSerie(clave) {
   return barra < 0;
 }
 
-/** Una medida de tiempo.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
+/** Una medida de bases.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
 function medidaDe(arg) {
   if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
   if (clavesDeMedidas().includes(arg.valor) || esSerie(arg.valor)) return arg.valor;
@@ -650,18 +693,31 @@ function exigirSerie(eje, clave) {
   throw new Parada('PENDIENTE', 'CAJA: ' + que + ' (series emitidas: ' + lista + ')');
 }
 
-/** Cómo escribir la base que falta (el motivo de PENDIENTE lo dice). La identidad se nombra si el gancho deja leer el registro. */
+/**
+ * Cómo escribir la base que falta (el motivo de PENDIENTE lo dice): la
+ * escribe la propia cosa o quien tiene P sobre el registro, con clave. La
+ * cosa (que sale del contexto del registro) se nombra solo si el gancho deja
+ * leer el registro; quienes tienen P (que salen de los saldos del eje), siempre.
+ */
 function comoEscribirla(ctx, registro, alcance) {
+  const { eje } = ctx;
   const id8 = registro.slice(0, 8);
-  const cosa = identidadDe(ctx.eje, registro);
-  if (!cosa) return id8 + ' no tiene identidad propia con clave (identidadDe): nadie puede escribir su base.';
-  const quien = !ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []) ? cosa + ', su identidad propia' : 'su identidad propia';
-  const que = alcance === 'hermanos'
+  const cosa = identidadDe(eje, registro);
+  const conPoder = eje.identidades().filter((x) => x !== cosa && eje.clave(x) && eje.poderSobre(x, registro) > 0).sort();
+  if (!cosa && !conPoder.length) {
+    return id8 + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.';
+  }
+  const nombrarCosa = Boolean(cosa) && (!ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []));
+  const quien = [...(cosa ? [nombrarCosa ? cosa + ' (su identidad propia)' : 'su identidad propia'] : []), ...conPoder.map((x) => x + ' (con P sobre él)')].join(' o ');
+  const que = alcance === 'hermanos' || alcance === PROPIO
     ? 'mide sus hijos'
     : 'mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)';
-  return 'Para escribirla: escribirBase(eje, { registro, privada }) con registro = ' + id8 + ' y la clave privada de ' + quien
+  return 'Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = ' + id8 + ', firmada por ' + quien
     + '; ' + que + ' y gasta ' + COSTE_BASE.cantidad + ' ' + COSTE_BASE.escala + ' de su ' + COSTE_BASE.token + '.';
 }
+
+/** Alcance interno de BASES() sin argumentos: el 8 del propio anfitrión. */
+const PROPIO = 'propio';
 
 /**
  * La base vigente del 8 que resume el alcance del foco (leerBase, con su
@@ -671,13 +727,15 @@ function comoEscribirla(ctx, registro, alcance) {
  * hijos nuevos); y, como hace la frescura, los escritos sobre cada hijo
  * medido (su 8) y, bajando por las bases fundidas que siguen vigentes, lo
  * mismo en cada una. En cuanto no cabe, PENDIENTE POR LÍMITE, «al menos»
- * (se deja de contar). Sin base, PENDIENTE con el modo de escribirla.
+ * (se deja de contar). Sin base escrita, PENDIENTE con el modo de escribirla:
+ * BQL nunca calcula al vuelo. El alcance PROPIO (BASES() sin argumentos) lee
+ * el 8 del propio foco.
  */
 function leerCohorte(ctx, foco, alcance) {
   const { eje } = ctx;
   const ev = eje.obtener(foco);
   if (!ev) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + foco.slice(0, 8));
-  const registro = alcance === 'hermanos' ? ev.sobre : alcance === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId;
+  const registro = alcance === PROPIO ? foco : alcance === 'hermanos' ? ev.sobre : alcance === 'proyecto' ? proyectoDe(eje, foco).id : eje.genesisId;
   if (registro === null) throw new Parada('PENDIENTE', 'sin cohorte: el génesis no tiene padre');
   ctx.dependencias.add(registro + ':' + CIELO); // el 8 leído: una base que llegue cambia el resultado
   const quedan = Math.max(ctx.presupuesto, 0);
@@ -691,7 +749,8 @@ function leerCohorte(ctx, foco, alcance) {
   const base = vigente(registro);
   if (!base) {
     ctx.presupuesto -= coste;
-    throw new Parada('PENDIENTE', 'sin base en el 8 de ' + registro.slice(0, 8) + ' (alcance ' + alcance + '). ' + comoEscribirla(ctx, registro, alcance));
+    const donde = alcance === PROPIO ? 'su propio 8' : 'alcance ' + alcance;
+    throw new Parada('PENDIENTE', SIN_BASE_ESCRITA + ' en el 8 de ' + registro.slice(0, 8) + ' (' + donde + '). ' + comoEscribirla(ctx, registro, alcance));
   }
   const porVisitar = [base];
   while (porVisitar.length) {
@@ -751,8 +810,10 @@ export function evaluar(eje, evId, dir, opciones) {
   const ctx = contexto(eje, opciones);
   return resultado(ctx, () => {
     if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
-    const contenido = leerPosicion(ctx, evId, indices);
-    return esFormula(contenido) ? leerSlot(ctx, evId, indices) : valorDe(contenido);
+    // Diez dígitos son una dirección (no entra en una lista); un camino de índices, sí.
+    const porDireccion = !Array.isArray(dir);
+    const contenido = leerPosicion(ctx, evId, indices, { porDireccion });
+    return esFormula(contenido) ? leerSlot(ctx, evId, indices, { porDireccion }) : valorDe(contenido, indices);
   });
 }
 
@@ -778,6 +839,8 @@ export function formato(v) {
     }
     case 'composicion': return v.partes.map(formato).join(' + ');
     case 'array': return '[' + v.valor.length + ' posiciones]';
+    // Una lista (por hojas) se escribe con sus ocupantes, en su orden: 'ensalada · guiso · fruta'.
+    case 'lista': return v.valor.map((x) => (esReferencia(x) ? '→ ' + x.ref.slice(0, 8) : typeof x === 'string' ? desescapar(x) : String(x))).join(' · ');
     case 'referencia': return '→ ' + v.valor.ref.slice(0, 8);
     case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '');
     default: return '?';

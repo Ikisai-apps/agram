@@ -133,14 +133,12 @@ lente · mostrar · 0000000000 · registro 0.0.0 sustituir
 ciudad · abrir tienda · 1100000000 · 1.1.0 escrito
 ciudad · abrir tienda · 1200000000 · 1.2.0 escrito
 parque · hablar · 3000000000 · 3.0.0 escrito
-parque · hablar · 3100000000 · 3.1.0 escrito
 fábrica · paso · 4000000000 · 4.0.0 escrito
-fábrica · paso · 4100000000 · 4.1.0 escrito
 fábrica · línea que se mueve · T:hora · 1 huesped→∅
 ciudad · mercancía que fluye · E:casa/EUR · 12 huesped→cocina
 ```
 
-La compra ocupa la raíz del menú, donde ya estaban el menú y su representación: colisiona. Sus referencias al menú (sus posiciones 1.0 y 2.0) son herencia: no salen. Su título es su representación. Lo demás va celda a celda, con la marca de la matriz. Y una autorización sin poder:
+La compra ocupa la raíz del menú, donde ya estaban el menú y su representación: colisiona. Sus referencias al menú (las listas de uno de la 1.0 y de la 2) son herencia: no salen. Por hojas (VG, 7-11 noche), la 3 y la 4 son listas: una celda cada una, sin 3.1 ni 4.1. Su título es su representación. Lo demás va celda a celda, con la marca de la matriz. Y una autorización sin poder:
 
 ```
 fábrica · línea que se mueve · T:minuto · 1 cocina→∅

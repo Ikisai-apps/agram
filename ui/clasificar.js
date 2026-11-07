@@ -1,9 +1,13 @@
 // Clasificar: la lista de una posición y la cruceta como lente (VG, 7-11
 // noche, mapa §12 [D]). La lista de la posición son colisiones fuera del
 // árbol («en la profundidad 11»): sus ocupantes, por llegada, no tienen PV.
+// La materia prima es esa lista (encaje.lista): lo propio de la posición
+// (por hojas, VG 7-11 noche: una décupla o un terminal es UNA pieza; cada
+// elemento de una lista, un array solo de hojas, una pieza aparte) y lo
+// escrito en ella, por llegada.
 // Aquí se ven como piezas sueltas «por clasificar» junto a los diez huecos de
-// la cruceta (las subposiciones de la posición, nombradas por la regla corta
-// de su profundidad). Dos modos:
+// la cruceta (las subposiciones de la décupla de la posición, nombradas por
+// la regla corta de su profundidad). Dos modos:
 // - lente: solo ver. Colocar una pieza en un hueco la muestra interpretada
 //   con esa lente; no escribe nada. Lo colocado se recuerda solo en este
 //   navegador, como comodidad (si no hay almacenamiento, no pasa nada).
@@ -47,10 +51,17 @@ export function elegirModoClasificar(m) {
   return modo;
 }
 
-/** Clave estable de una pieza: el registro y el camino exacto ('id#1.2'; un escrito, 'id#'). */
+/**
+ * Clave estable de una pieza: el registro y el camino exacto ('id#1'; un
+ * escrito, 'id#') y, si es un elemento de una lista explícita, su índice en
+ * ella ('id#1[2]').
+ */
 export function claveDe(pieza) {
-  return pieza.evento + '#' + pieza.camino.join('.');
+  return pieza.evento + '#' + pieza.camino.join('.') + (Number.isInteger(pieza.indice) ? '[' + pieza.indice + ']' : '');
 }
+
+/** Si la pieza es un escrito anclado en la posición. */
+const deEscrito = (o) => o.tipo === 'escrito';
 
 const mismaLista = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, k) => x === b[k]);
 const claveLente = (foco, posicion) => foco + '#' + posicion.join('.');
@@ -61,7 +72,7 @@ export function posicionDe(estado) {
   return estado.en === '' || estado.en === undefined || estado.en === null ? camino : [...camino, Number(estado.en)];
 }
 
-/** Si un registro es una colocación hecha en «crear», qué pieza clasifica: { posicion, evento, camino }, o null. */
+/** Si un registro es una colocación hecha en «crear», qué pieza clasifica: { posicion, evento, camino, indice? }, o null. */
 export function colocacionDe(ev) {
   const c = ev?.contexto?.clasifica;
   if (!c || typeof c.evento !== 'string' || !Array.isArray(c.camino) || !Array.isArray(c.posicion)) return null;
@@ -80,8 +91,11 @@ export function textoPieza(eje, pieza) {
   const c = pieza.contenido;
   if (c === undefined) return pieza.alcanza?.estado ?? '—';
   if (Array.isArray(c)) {
-    const primero = c.find((x) => typeof x === 'string' || typeof x === 'number');
-    return (primero !== undefined ? bql.desescapar(String(primero)) + ' · ' : '') + '[' + c.length + ']';
+    // Una décupla (o la raíz de un escrito) se nombra por lo que es: su primera hoja, bajando por el 0 (por hojas, el 0 puede ir envuelto).
+    let primero = c[0];
+    while (Array.isArray(primero)) primero = primero[0];
+    const cara = typeof primero === 'string' || typeof primero === 'number' ? bql.desescapar(String(primero)) : esReferencia(primero) ? '→ ' + corto(primero.ref) : undefined;
+    return (cara !== undefined ? cara + ' · ' : '') + '[' + c.length + ']';
   }
   if (esReferencia(c)) {
     const a = pieza.alcanza?.contenido;
@@ -89,6 +103,8 @@ export function textoPieza(eje, pieza) {
     return '→ ' + corto(c.ref) + visto;
   }
   if (bql.esFormula(c)) {
+    // Una fórmula dentro de una lista no tiene dirección propia: se dice, sin evaluarla aquí.
+    if (Number.isInteger(pieza.indice)) return c;
     const r = bql.evaluar(eje, pieza.evento, pieza.camino);
     return c + ' → ' + (r.estado === 'RESUELTO' ? r.texto : r.estado.toLowerCase());
   }
@@ -97,15 +113,22 @@ export function textoPieza(eje, pieza) {
 
 /**
  * Lo que se escribe al colocar una pieza en «crear»: el elemento.
- * - Un terminal propio que no es fórmula (texto, número, referencia) se escribe tal cual.
+ * - Un terminal que no es fórmula (texto, número, referencia) se escribe tal cual, también si es
+ *   un elemento de una lista.
  * - Un escrito de la lista se escribe como referencia a él (su raíz): las referencias no copian.
- * - Una fórmula o un array propios, como referencia a su camino: copiar una fórmula cambiaría lo que lee.
- *   Una dirección no distingue un 0 final (1.0 es la 1), así que el ocupante 1 de una lista, si es
- *   array o fórmula, no se puede nombrar: se dice, no se apaña.
+ * - Una fórmula o una décupla propias, como referencia a su camino: copiar una fórmula cambiaría lo
+ *   que lee. Una dirección no distingue un 0 final (1.0 es la 1), así que una pieza en un camino que
+ *   acaba en 0, si es décupla o fórmula, no se puede nombrar: se dice, no se apaña.
+ * - Un elemento de una lista que es fórmula tampoco: una dirección no entra en una lista (VG, 7-11
+ *   noche, por hojas). Se dice.
  */
 export function elementoDe(pieza) {
-  if (pieza.tipo === 'escrito') return { ref: pieza.evento };
   const c = pieza.contenido;
+  if (pieza.enLista) {
+    if (esTerminal(c) && !bql.esFormula(c)) return c;
+    throw new Error('el ocupante ' + ((pieza.indice ?? 0) + 1) + ' de una lista no se puede nombrar por dirección (una dirección no entra en una lista): escríbelo a mano');
+  }
+  if (pieza.tipo === 'escrito') return { ref: pieza.evento };
   if (esTerminal(c) && !bql.esFormula(c)) return c;
   const dir = direccion(pieza.camino);
   if (!mismaLista(indicesDe(dir), pieza.camino)) {
@@ -139,8 +162,10 @@ export function modeloClasificar(eje, foco, posicion, { epoca = EPOCA_0, lenteLo
   const colocaciones = hijos.map((h) => ({ h, c: colocacionDe(h) })).filter(({ c }) => c && mismaLista(c.posicion, posicion));
   const yaColocadas = new Set(colocaciones.map(({ c }) => claveDe(c)));
   const deEstaPosicion = new Set(colocaciones.map(({ h }) => h.id));
+  // `n`: el lugar de la pieza en la lista (desde 1); los elementos de una misma lista comparten llegada.
   const todas = encaje.lista(eje, foco, posicion)
-    .filter((o) => !(o.tipo === 'escrito' && deEstaPosicion.has(o.evento)))
+    .map((o, k) => ({ ...o, n: k + 1 }))
+    .filter((o) => !(deEscrito(o) && deEstaPosicion.has(o.evento)))
     .map((o) => ({ ...o, clave: claveDe(o), texto: textoPieza(eje, o) }));
   const piezas = todas.filter((p) => !yaColocadas.has(p.clave));
   const clasificadas = todas.filter((p) => yaColocadas.has(p.clave));
@@ -215,16 +240,17 @@ export async function escribirColocacion(eje, { foco, posicion, clave, hueco, au
     en: m.huecos[hueco].dir,
     payload: elementoDe(pieza),
     ...(t ? { t } : {}),
-    contexto: { clasifica: { posicion: [...posicion], evento: pieza.evento, camino: [...pieza.camino] } },
+    contexto: { clasifica: { posicion: [...posicion], evento: pieza.evento, camino: [...pieza.camino], ...(Number.isInteger(pieza.indice) ? { indice: pieza.indice } : {}) } },
   }, privada);
 }
 
 // ---------- HTML ----------
 
 function botonPieza(p, sel) {
-  const quien = p.tipo === 'escrito' ? ' · ' + escapar(p.autor) + ' ' + corto(p.evento) : '';
+  const quien = deEscrito(p) ? ' · ' + escapar(p.autor) + ' ' + corto(p.evento) : '';
+  const deLista = p.enLista ? ' · en lista' : '';
   return `<li><button type="button" class="cl-pieza" data-pieza="${escapar(p.clave)}" draggable="true" aria-pressed="${sel ? 'true' : 'false'}"
-    aria-label="Pieza ${p.llegada + 1}, por llegada: ${escapar(p.texto)}${sel ? ', elegida' : ''}"><span class="cl-n">${p.llegada + 1}</span><span class="cl-t">${escapar(p.texto)}${quien}</span></button></li>`;
+    aria-label="Pieza ${p.n}, por llegada: ${escapar(p.texto)}${sel ? ', elegida' : ''}"><span class="cl-n">${p.n}</span><span class="cl-t">${escapar(p.texto)}${quien}${deLista}</span></button></li>`;
 }
 
 function htmlHueco(h, modoVista) {
@@ -266,7 +292,7 @@ export function htmlClasificar(m, { modo: modoVista = modo, elegida: sel = elegi
   return `<section class="clasificar" aria-labelledby="cl-titulo">
     <div class="titulo" id="cl-titulo">Clasificar · ${escapar(m.nombre)} · ${m.piezas.length + m.clasificadas.length} en la lista</div>
     ${chipsPos}
-    <p class="pista">La lista de una posición está fuera del árbol: sus ocupantes van por llegada y no tienen punto de vista. La cruceta es la lente para verlos o para colocarlos.</p>
+    <p class="pista">La lista de una posición está fuera del árbol: sus ocupantes van por llegada y no tienen punto de vista. Una décupla es una sola pieza; cada elemento de una lista de hojas, una. La cruceta es la lente para verlos o para colocarlos.</p>
     ${modos}
     <p class="pista">${explica}</p>
     ${quien}

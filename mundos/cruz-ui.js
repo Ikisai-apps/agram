@@ -89,7 +89,7 @@ export function piezasCruz(estado, ui, { animado = false, ahora, chip = chipSimp
   let hilos = null;
   if (animado) {
     const siguiente = cielo.COHORTES[(cielo.COHORTES.indexOf(ui.cohorte) + 1) % cielo.COHORTES.length];
-    const nota = `<div class="nota-celda">${escapar(ui.cohorte)}${dCielo.estado !== 'RESUELTO' ? ' · sin cohorte' : dCielo.escrita ? '' : ' · sin escribir'}</div>`;
+    const nota = `<div class="nota-celda">${escapar(ui.cohorte)}${dCielo.estado !== 'RESUELTO' ? ' · sin cohorte' : dCielo.escrita ? '' : ' · sin base escrita'}</div>`;
     celda8 = nota + cielo.svgCielo(dCielo, { compacto: true, anterior, nuevos })
       + `<div class="botones-celda"><button class="ver-hilos" data-cohorte="${siguiente}" title="cohorte: ${cielo.COHORTES.join(', ')}">→ ${siguiente}</button>${boton}</div>`;
     celda9 = `<div class="nota-celda">${dCamino.pasos.length} paso${dCamino.pasos.length === 1 ? '' : 's'} hacia la acción</div>`

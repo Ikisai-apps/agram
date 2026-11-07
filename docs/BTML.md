@@ -19,7 +19,7 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
 | `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC | `esInstante`, `msUTC`, `msDeGuardado` (solo para eventos de la versión 2) |
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
-| `src/encaje.js` | Ocupantes de una dirección, la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
+| `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
@@ -105,7 +105,7 @@ true true 0000000000 {}
 | `tipos: { identidad: 'persona' \| 'grupo' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
-| `clasifica: { posicion, evento, camino }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
+| `clasifica: { posicion, evento, camino, indice? }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito) y, si es un elemento de una lista, `indice` (su lugar en ella). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
 | `motor`, `fase`, `fuentes`, `encaje`, `nuevos`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución (`docs/MOTOR.md` §3). `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación se lee de una dirección con el camino desde el que se escribe (la matriz es relativa al camino: bajo un camino de profundidad n, el dígito n + 2; sin camino, el tercero; `docs/MOTOR.md` §7.2). |
 
 ### 1.5 Un evento real: la compra
@@ -115,7 +115,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "4598f23e1341e47b99f2a22131f75880e5c5ec18d72ae46c0b49c1d4da1bac91",
+  "sobre": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -124,17 +124,17 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ { "ref": "4598f23e1341e47b99f2a22131f75880e5c5ec18d72ae46c0b49c1d4da1bac91", "dir": "1000000000" }, 1, "EUR 12" ],
-    [ { "ref": "4598f23e1341e47b99f2a22131f75880e5c5ec18d72ae46c0b49c1d4da1bac91", "dir": "2000000000" } ],
+    [ [ { "ref": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532", "dir": "1000000000" } ], 1, "EUR 12" ],
+    [ { "ref": "d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532", "dir": "2000000000" } ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "f9e59d1ec7eb227d0faf3b22708cbf8e99c83443d406570e7c72b8766a2b7497"
+  "id": "1aca7eb813144f4b0cfebcad04077490556d2b023e4f5783d0bec2604a8e4997"
 }
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Dentro de la posición 1 el dígito es el PV aplicado al nodo de arriba (VG, 7-11 noche): 1.0 qué es (la referencia al menú:1), 1.1 cuánto (`1`), 1.2 con qué condición (`"EUR 12"`). El comentario del ejemplo («qué, cuánto, a qué precio») coincide ahora con esa lectura; quien lo copie como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1; el 0 va envuelto para que la 1 sea décupla), 1.1 cuánto (`1`), 1.2 con qué condición (`"EUR 12"`). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -332,16 +332,23 @@ No son terminales: `''`, `NaN`, `Infinity`, `true`/`false`, `null`, `undefined`,
 
 Pendiente: terminales HTML y archivo (el mapa §2.1 los nombra; hoy un HTML es una cadena y no hay archivos).
 
-### 3.2 Arrays posicionales
+### 3.2 Arrays posicionales: décupla y lista, por hojas
 
-Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9, **sin `null`, `undefined` ni huecos**, y cada posición contiene un terminal u otro array. Consecuencias:
+Decisión de VG (7-11 noche: por hojas). Una **hoja** es un terminal o una referencia (`esHoja`). Dentro de una posición (fuera de la raíz):
+
+- un array cuyos elementos son **todos hojas** es una **lista** (`esLista`): cada elemento es un **ocupante** de esa posición, con la misma llegada y el mismo encaje que el evento y en el orden de la lista (desempate estable). No tiene tope de diez (el tope por evento lo pone el modo, que cuenta cada elemento: `modos.cabeTope`). Se alcanza por **índice** (`encaje.lista`, BQL `BUSCAR(n, k)` y `LOCAL`), **nunca por dirección**: una dirección que caiga dentro de una lista no existe (§4.4). Está fuera de los dígitos: no lleva PV;
+- un array con **al menos un array** dentro es una **décupla** (`esDecupla`): sus índices 0–9 son las subposiciones (los PV aplicados al nodo de arriba, §4.3), direccionables por dígitos. Dentro de una décupla, una hoja suelta es **un** ocupante de esa subposición.
+
+El payload **raíz** es siempre la décupla de lo escrito (la cruceta), aunque sean solo hojas: `['Compra', 1, 'EUR 12']` en la raíz son las posiciones 0, 1 y 2. Convención de los ejemplos: para que un grupo de hojas sea décupla se **envuelve su posición 0** (qué es): `compra 1 = [[menú], 1, 'EUR 12']` (1.0 = la lista de uno `[menú]`, 1.1 = `1`, 1.2 = `'EUR 12'`); `[menú, 1]` sería una lista de dos ocupantes. ([X] decidir VG: si esa convención es la forma canónica.)
+
+Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9, **sin `null`, `undefined` ni huecos**, y cada posición contiene una hoja u otro array; una lista tiene al menos un elemento, sin huecos ni nulos. Consecuencias:
 
 - No hace falta envolver un terminal en un array de una posición: un payload puede ser un terminal directamente (el génesis de ejemplo es `'Casa de ejemplo'`).
 - La información se genera de 0 hacia arriba: **si existe la posición d, existen 0…d−1**. Para escribir en la posición 4 hay que rellenar 0–3, con contenido o con referencias (así lo hacen `escritura.desdeMapped` y `motor.consolidar`: heredan del foco por referencia). `desdeMapped` solo hereda lo que el foco tiene en ese camino exacto (lo que cuelga de un terminal no tiene base, salvo la posición 0 de la raíz de un foco terminal, que se hereda como antes: §4.2), así que una referencia heredada siempre alcanza algo; si el foco no tiene base, no rechaza: ancla lo lejano en su posición con `en` (`docs/MOTOR.md` §7.3).
-- Un array de un elemento es válido. La décupla de diez posiciones solo se desarrolla cuando corresponde.
+- Un array de un elemento es válido: en una posición, `[x]` es una lista de uno. La décupla de diez posiciones solo se desarrolla cuando corresponde.
 - `validarPayload` no limita la profundidad; `direccion` sí (diez índices). Un nodo por debajo del décimo nivel existe pero no tiene dirección. Pendiente: cambio de foco al agotar diez niveles (mapa §2.1).
 
-`modos.contarPosiciones(payload)` cuenta las posiciones desarrolladas: cada terminal cuenta una.
+`modos.contarPosiciones(payload)` cuenta las posiciones desarrolladas: cada terminal cuenta una (cada elemento de una lista, uno).
 
 ### 3.3 Referencias
 
@@ -360,16 +367,20 @@ Pendiente: referencias a «una rama» distinta de evento + dirección (mapa §2.
 ### 3.4 `validarPayload`
 
 ```js
-validarPayload(payload, ruta = '')  // → { ok: boolean, errores: string[] }
+validarPayload(payload, ruta = '', ancestros, raiz = true)  // → { ok: boolean, errores: string[] }
+esHoja(x)      // un terminal o una referencia
+esLista(x)     // fuera de la raíz: un array no vacío solo de hojas
+esDecupla(x)   // un array con algún array dentro (la raíz siempre lo es)
 ```
 
-Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = posición 2, subposición 1) o `'raíz'`. Solo se recorren las posiciones 0–9 (un array más largo ya es error), así que `'10'` es siempre la posición 1, subposición 0.
+Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = posición 2, subposición 1) o `'raíz'`. En la raíz y en las décuplas solo se recorren las posiciones 0–9 (un array más largo ya es error), así que `'10'` es siempre la posición 1, subposición 0. Una lista puede pasar de diez: entonces sus elementos han de ser hojas y no tener huecos (se cuentan sus claves presentes, sin recorrer la longitud).
 
 | Error | Causa |
 |---|---|
 | `ruta: ni terminal ni array` | booleano, `null` suelto en la raíz, objeto sin `ref`, cadena vacía, `NaN`… |
 | `ruta: array vacío` | `[]` |
-| `ruta: más de 10 posiciones` | longitud > 10. Se comprueba antes que nada y no se mira dentro: un array disperso con una longitud enorme no se recorre, y sus posiciones no dan más errores |
+| `ruta: más de 10 posiciones` | la raíz con más de diez, o un array de más de diez que no es una lista (tiene algún array dentro: una décupla). Se comprueba antes que nada y no se mira dentro |
+| `ruta: hueco en la lista` | un array de más de diez fuera de la raíz con posiciones ausentes o nulas: un disperso con una longitud enorme no se recorre |
 | `ruta: hueco` | `null` o `undefined` en una posición, o una posición ausente de un array disperso de JavaScript (`Array(3)`, `[1, , 3]`, o un array con solo `[3]` asignado) |
 | `ruta: ciclo` | un array que se contiene a sí mismo (no es un árbol) |
 
@@ -380,6 +391,7 @@ console.log(JSON.stringify(validarPayload(['a', ['b', 2], { ref: 'x' }])));
 console.log(JSON.stringify(validarPayload(['a', null, ['b', []], true])));
 console.log(JSON.stringify(validarPayload([])));
 console.log(JSON.stringify(validarPayload(Array(11).fill(1))));
+console.log(JSON.stringify(validarPayload(['Mesa', Array(12).fill('invitado')])), JSON.stringify(validarPayload(['Mesa', [...Array(11).fill('x'), ['y']]])));
 console.log(esTerminal(''), esTerminal(NaN), esTerminal(true), esTerminal({ ref: 'x', dir: '12' }), esTerminal({ ref: 'x' }));
 "
 ```
@@ -389,6 +401,7 @@ console.log(esTerminal(''), esTerminal(NaN), esTerminal(true), esTerminal({ ref:
 {"ok":false,"errores":["1: hueco","21: array vacío","3: ni terminal ni array"]}
 {"ok":false,"errores":["raíz: array vacío"]}
 {"ok":false,"errores":["raíz: más de 10 posiciones"]}
+{"ok":true,"errores":[]} {"ok":false,"errores":["1: más de 10 posiciones (una décupla; solo una lista de hojas pasa de diez)"]}
 false false false false true
 ```
 
@@ -474,15 +487,15 @@ sequenced.secuencia(eje, id, { epoca })  // igual: objeto o nombre
 mapped.mapa(eje, id, { camino, epoca })  // igual: objeto o nombre
 ```
 
-Las reglas cortas nombran **subposiciones escritas por dirección** (`en`), no los índices de una lista: un array dentro de una posición son sus ocupantes por llegada, fuera del árbol (VG, 7-11 noche; §6.7). Con el payload, `leerDireccion` y `leerCamino` lo dicen así:
+Las reglas cortas nombran **subposiciones de décuplas** (y las escritas por dirección, `en`); nunca los elementos de una lista (por hojas, VG 7-11 noche; §3.2). Vuelve la regla corta por profundidad de la PR #58 («compra 1.1 = cuánto»), que la PR #64 había retirado al leer todo array como lista. Una dirección se lee sin mirar el payload; con el payload, `leerCamino` y `nombreEnNodo` nombran los índices de una lista como ocupantes:
 
 ```js
-leerDireccion(dir, epoca, { payload })     // con payload: el índice de un array dentro de una posición → { profundidad, digito, ocupante, posicion, significado: 'ocupante 3 de la posición 1' }, sin regla corta ni larga
-leerCamino(indices, epoca, { payload })    // lo mismo sobre un camino de índices ([1, 0] es el ocupante 1, que una dirección no puede nombrar)
-nombreEnNodo(nodo, profundidad, digito, epoca)  // → { ocupante, significado: 'ocupante k' } si el nodo es un array dentro de una posición y el dígito cae en él; si no, { significado: regla corta }
+leerDireccion(dir, epoca)                  // regla corta (o larga) por dígito: una dirección solo nombra subposiciones de décuplas
+leerCamino(indices, epoca, { payload })    // en una décupla, la regla; un índice que cae en una lista (profundidad ≥ 1) → { profundidad, digito, ocupante, posicion, significado: 'ocupante 2 de la posición 3' }, sin regla corta ni larga
+nombreEnNodo(nodo, profundidad, digito, epoca)  // → { ocupante, significado: 'ocupante k' } si profundidad ≥ 1, el nodo es una lista y el dígito cae en ella; si no, { significado: regla corta }
 ```
 
-`pointed.decupla` (con `profundidad` ≥ 1) y `mapped.mapa` (con `camino`) nombran así sus posiciones: al bajar a la posición 1 de la compra salen «ocupante 1», «ocupante 2», «ocupante 3» y, en lo que la lista no ocupa, las reglas cortas de la profundidad 1 («con quién», «qué se hace»…). Se retira la lectura de la PR #58 que nombraba esos índices con la pregunta de la profundidad («1.1 = cuánto»).
+`pointed.decupla` (con `profundidad` ≥ 1) y `mapped.mapa` (con `camino`) nombran así sus posiciones: bajo la posición 1 de la compra (una décupla) salen las reglas cortas de la profundidad 1 («qué es», «cuánto», «con qué condición»…); bajo la 1 del menú (la lista de platos) salen «ocupante 1», «ocupante 2», «ocupante 3» y la lista entera en `lista`, y en lo que la lista no ocupa, las reglas cortas.
 
 La «época 1 (propuesta)» se retiró como época (VG, 7-11 noche): sus preguntas son las reglas de las profundidades 1 a 9 de la época 0 (`docs/REGLAS_CORTAS.md`). El nombre «época 1» queda libre para la primera época que pula reglas largas; el cargador ya las admite, y todavía no hay contenido de reglas largas.
 
@@ -514,10 +527,12 @@ for (const p of decupla(compra).posiciones) console.log(p.indice, p.significado,
 ### 4.4 `resolver`: descender por una dirección
 
 ```js
-resolver(payload, dir)  // → contenido en esa dirección, o undefined si el camino atraviesa un terminal o una posición ausente
+resolver(payload, dir)  // → contenido en esa dirección, o undefined si el camino atraviesa un terminal, una posición ausente o una lista
+dentroDeLista(payload, dirOIndices)  // → el camino de la lista en la que entra esa dirección, o null
+nodoEn(payload, indices)             // → el nodo en ese camino, bajando por la raíz y por décuplas
 ```
 
-Desciende por los índices reales (`indicesDe`). No sigue referencias: si el camino pasa por una referencia, devuelve `undefined` más allá de ella.
+Desciende por los índices reales (`indicesDe`). No sigue referencias: si el camino pasa por una referencia, devuelve `undefined` más allá de ella. **Nunca entra en una lista** (por hojas, VG 7-11 noche): en la dirección de la lista devuelve el array entero; una dirección que siga dentro (la 1.1 del menú, cuya 1 es la lista de platos) no existe y da `undefined`, lo mismo que una posición vacía. Los ocupantes de una lista se alcanzan por índice (§6.7).
 
 ```sh
 node --input-type=module -e "
@@ -527,16 +542,16 @@ const { eje, compra, menu } = await ejemploCompra();
 console.log(JSON.stringify(resolver(compra.payload, '1200000000')));
 console.log(JSON.stringify(resolver(compra.payload, '1000000000')));
 console.log(resolver(compra.payload, '1020000000'), resolver(compra.payload, '7000000000'));
-const r = resolver(compra.payload, '1000000000')[0];
-console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payload, r.dir)));
+const r = resolver(compra.payload, '1000000000')[0][0];
+console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payload, r.dir)), resolver(menu.payload, '1100000000'));
 "
 ```
 
 ```text
 "EUR 12"
-[{"ref":"d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532","dir":"1000000000"},1,"EUR 12"]
+[[{"ref":"d173ab58dcd8ea65ae1f34b3a3c7efb09ca19d42867c3dc209799f22d6f3b532","dir":"1000000000"}],1,"EUR 12"]
 undefined undefined
-true ["ensalada","guiso","fruta"]
+true ["ensalada","guiso","fruta"] undefined
 ```
 
 ## 5. Anclaje hijo → padre: `sobre` y `en`
@@ -577,7 +592,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-233c9da6@1000000000 27aa7352@7000000000
+b391e6b4@1000000000 fdc219d7@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -594,7 +609,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 
 | `origen` | Qué es | De dónde sale |
 |---|---|---|
-| `'propio'` | Cada camino del payload de `id` que colisiona en esa dirección (por los ceros finales: `[1]`, `[1,0]`, `[1,0,0]`…) | `caminosDe(payload, dir)` |
+| `'propio'` | Cada camino del payload de `id` que colisiona en esa dirección (por los ceros finales: `[1]`, `[1,0]`, `[1,0,0]`…, sin entrar en una lista). Si el camino es una **lista** (por hojas), no es un ocupante: lo es **cada elemento**, con `enLista: true` e `indice` | `caminosDe(payload, dir)` |
 | `'referencia'` | Lo que alcanza cada ocupante propio que es una referencia, con la cadena de procedencia | `seguir(eje, ref, procedencia)` |
 | `'escrito'` | Cada evento hijo anclado en esa dirección (`sobre === id` y `en === dir`), con su payload entero | `eje.sobre(id, dir)` |
 
@@ -607,6 +622,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `dir` | Dirección dentro de `evento`: la buscada (propio), la alcanzada (referencia), `'0000000000'` (escrito). |
 | `camino` | Índices exactos **dentro de `evento`**: `[1]`, `[1, 0]` (propio, dentro del foco); `indicesDe(dir)` (referencia, dentro del registro alcanzado, no del foco); `[]` (escrito, su payload entero). El camino por el que se llegó desde el foco solo está en `procedencia`. |
 | `contenido` | Lo que hay ahí; `undefined` si la referencia está rota. |
+| `enLista`, `indice` | Solo en un elemento de una lista (por hojas): `true` y su lugar en la lista. Su `camino` es el de la posición de la lista y su procedencia acaba en `[k]` (`'<id>:<dir>#3[1]'`). Los elementos de una lista comparten llegada y encaje (mismo vector, acuerdo y signo): empatan y el orden estable los deja en el orden de la lista. |
 | `procedencia` | Cadena de pasos. Propio: `['<id>:<dir>#<camino con puntos>']`. Referencia: el paso propio seguido de `'<id alcanzado>:<dir>'` por salto. Escrito: `['<id hijo>:0000000000']`. |
 | `autor`, `t` | Solo en escritos. |
 | `rota` | `true` si la referencia no llegó a un evento: id desconocido o más de 20 saltos (solo en referencias). Una referencia a una posición que el evento no desarrolla da `contenido: undefined` **sin** `rota`. Cuando no hay rotura el campo **no existe** (no es `false`). |
@@ -617,7 +633,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `justificacion` | Texto: de dónde viene, cómo encaja y si empata. Por ejemplo `'escrito por raiz, anclado en 1000000000; encaje exacto; empata con 2 (decide la llegada)'`. Solo informa. |
 
 ```js
-caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0
+caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0 (sin entrar en una lista)
 ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = false } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'; la época dice qué profundidades son ordinales; exacto: solo el camino `indices` tal cual (BQL `BUSCAR` por índice), sin la colisión por ceros
 seguir(eje, ref, procedencia = [])             // → ocupante de origen 'referencia' tras seguir hasta 20 saltos; rota: true si no llega
 marcarEmpates(lista, { epoca } = {})           // → la lista con empate y empatados en cada ocupante
@@ -627,7 +643,7 @@ caminoDe(o)                                    // → o.camino ?? indicesDe(o.di
 
 ### 6.3 Ejemplo real: la posición 1 de la compra
 
-En `f9e59d1e`, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (array), la 1.0 (la referencia al menú), lo que alcanza esa referencia (el menú:1) y la cuenta de cocina, anclada en `1000000000`.
+En la compra, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (la décupla), el elemento de la 1.0 (la lista de uno con la referencia al menú), lo que alcanza esa referencia (la lista de platos del menú, entera) y la cuenta de cocina, anclada en `1000000000`.
 
 ```sh
 node --input-type=module -e "
@@ -639,20 +655,22 @@ console.log(JSON.stringify(caminosDe(compra.payload, '1000000000').map((c) => c.
 for (const o of ocupantes(eje, compra.id, [1])) console.log(o.origen, JSON.stringify(o.camino), o.evento.slice(0, 8), o.origenDir, JSON.stringify(o.vector), o.signo, o.acuerdo, JSON.stringify(o.procedencia.map((p) => p.slice(0, 8) + p.slice(64))));
 console.log(ocupantes(eje, compra.id, [1, 0]).length, ocupantes(eje, compra.id, [1, 1]).length, ocupantes(eje, compra.id, [7]).length);
 console.log(JSON.stringify(ocupantes(eje, compra.id, [1])[2].contenido), JSON.stringify(ocupantes(eje, compra.id, [1])[3].contenido[0]));
+console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.contenido).join(' '));
 "
 ```
 
 ```text
 [[1],[1,0]]
-propio [1] dd4ab35f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["dd4ab35f:1000000000#1"]
-propio [1,0] dd4ab35f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["dd4ab35f:1000000000#1.0"]
-referencia [1] d173ab58 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["dd4ab35f:1000000000#1.0","d173ab58:1000000000"]
-escrito [] 233c9da6 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["233c9da6:0000000000"]
+propio [1] 1aca7eb8 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1"]
+propio [1,0] 1aca7eb8 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1.0[0]"]
+referencia [1] d173ab58 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["1aca7eb8:1000000000#1.0[0]","d173ab58:1000000000"]
+escrito [] b391e6b4 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["b391e6b4:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
+0:huesped 1:cocina
 ```
 
-Los cuatro son encaje exacto: la cuenta está anclada justo en `1000000000`, así que su `origenDir` es esa dirección (§6.2). Como empatan en acuerdo, salen en orden de llegada. Contar los ocupantes de una dirección cuenta también la colisión por ceros: `[1]` y `[1, 0]` son dos ocupantes aunque el segundo sea la posición 0 del primero (decisión de VG, «colisiones, no apaños», mapa §12: la dirección nombra la colisión entera; buscar por índice, decidido como camino exacto, aún no existe: `docs/BQL.md` §11).
+Los cuatro son encaje exacto (el elemento de la 1.0 lleva `enLista` e `indice: 0`, y la 3, `['huesped', 'cocina']`, da un ocupante por elemento): la cuenta está anclada justo en `1000000000`, así que su `origenDir` es esa dirección (§6.2). Como empatan en acuerdo, salen en orden de llegada. Contar los ocupantes de una dirección cuenta también la colisión por ceros: `[1]` y `[1, 0]` son dos ocupantes aunque el segundo sea la posición 0 del primero (decisión de VG, «colisiones, no apaños», mapa §12: la dirección nombra la colisión entera; buscar por índice, decidido como camino exacto, aún no existe: `docs/BQL.md` §11).
 
 Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referencia seguida):
 
@@ -688,7 +706,7 @@ node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { seguir } from './src/encaje.js';
 const { eje, compra } = await ejemploCompra();
-const r = seguir(eje, compra.payload[1][0]);
+const r = seguir(eje, compra.payload[1][0][0]);
 console.log(r.evento.slice(0, 8), r.dir, JSON.stringify(r.camino), JSON.stringify(r.contenido), r.rota, JSON.stringify(r.procedencia.map((p) => p.slice(0, 8))));
 const rota = seguir(eje, { ref: 'ffff' });
 console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
@@ -799,59 +817,58 @@ console.log(arbol(eje, compra.id, { profundidad: 1 }).has('1200000000'));
 1000000000 propio#1 propio#1.0 referencia#1 escrito#
 1100000000 propio#1.1
 1200000000 propio#1.2
-2000000000 propio#2 propio#2.0 referencia#2
-3000000000 propio#3 propio#3.0
-3100000000 propio#3.1
-4000000000 propio#4 propio#4.0
-4100000000 propio#4.1
-0000000000:2 1000000000:4 2000000000:3 3000000000:2 4000000000:2
+2000000000 propio#2 referencia#2
+3000000000 propio#3 propio#3
+4000000000 propio#4 propio#4
+0000000000:2 1000000000:4 2000000000:2 3000000000:2 4000000000:2
 false
 ```
 
-Lectura: cada array con posición 0 colisiona con ella (`0000000000`, `1000000000`, `2000000000`…); `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
+Lectura: cada décupla con posición 0 colisiona con ella (`0000000000`, `1000000000`); una lista no (por hojas, VG 7-11 noche): en `2000000000` la lista de uno da su referencia y lo que alcanza, y en `3000000000` y `4000000000` cada elemento es un ocupante, sin 3.1 ni 4.1, porque el árbol no baja por una lista; `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
 
 ### 6.7 La lista de una posición: colisiones fuera del árbol
 
-Decisión de VG (7-11 noche, mapa §12 [D]): la lista de una posición no está en el árbol. Es la lista que se monta en esa posición con los ocupantes que hay, de n elementos, fuera de los puntos de vista («en la profundidad 11»). Un array dentro de una posición del payload son **sus ocupantes, con índice de llegada** (el orden del array y luego los escritos), no dígitos con PV. Los PV de un elemento solo existen cuando se escribe en una subposición por dirección (`en`). El límite de diez es por evento (cada payload), no por posición ([X] anotado en el mapa).
+Decisión de VG (7-11 noche: por hojas; corrige la de la PR #64, que leía todo array dentro de una posición como su lista). La lista de una posición no está en el árbol: son los ocupantes que colisionan en esa posición, de n elementos, fuera de los dígitos («profundidad 11»), **por llegada**. Se alcanza por **índice** (`lista(...)[k]`, BQL `BUSCAR(n, k)`), **nunca por dirección**: una dirección de diez dígitos solo nombra subposiciones de la décupla, y `REF(compra, "1200000000")` es la subposición 1.2 (vacía si no se escribió), no un ocupante.
+
+- Lo **propio** es el contenido del payload en el camino exacto: una **décupla** (un array con algún array) o una hoja es **un** ocupante; una **lista** (un array solo de hojas, §3.2) son **tantos como elementos**, con la misma llegada, en su orden, con `enLista` e `indice`. Así se declaran varios ocupantes en un solo evento: `menú 1 = ['ensalada', 'guiso', 'fruta']`.
+- Luego, los **escritos** anclados en la dirección, uno por escrito (el payload de un escrito es su raíz, una décupla), por orden de entrada en el eje.
+- En la raíz no hay propio (el payload raíz es la cruceta): solo lo escrito en ella. El límite de diez es por evento y por décupla, no por lista ([X] en el mapa).
 
 ```js
-lista(eje, id, indices)  // → [{ llegada, tipo: 'propio' | 'escrito', evento, camino, contenido, autor?, t?, en?, alcanza? }]
+lista(eje, id, indices)  // → [{ llegada, tipo: 'propio' | 'escrito', evento, camino, contenido, autor?, t?, en?, alcanza?, enLista?, indice? }]
 ```
 
-- Posición de la cruceta (`[p]`): lo propio del payload en p (cada elemento si es un array; el terminal o la referencia si no) y luego los escritos anclados en su dirección, en orden de entrada en el eje.
-- Raíz (`[]`): solo los escritos anclados en la raíz; el payload raíz es la cruceta.
-- Subposición por dirección (`[p, d, …]`): solo sus escritos. El índice d del array de la posición p no es la subposición p.d.
-- `alcanza`: si el ocupante es una referencia, lo que alcanza (`seguir`), sin copiar.
+`llegada` es el orden del **evento** (0 lo propio, 1, 2… cada escrito): los elementos de una lista comparten llegada. `alcanza`, si el contenido es una referencia, es lo que alcanza (`seguir`), sin copiar.
 
-`ocupantes` (§6.1) sigue siendo el encaje de una **dirección**: la colisión entera, con el array de la posición como un ocupante y su camino 1.0 como otro. `lista` es la lista de la **posición**, por llegada y sin encaje. `BUSCAR` por índice no cambia: `BUSCAR(1, 2)` es el camino exacto [1, 2], el ocupante de llegada 3; `BUSCAR(1)` da lo propio de la posición y luego los escritos, por llegada (`docs/BQL.md` §7.4).
+`ocupantes` (§6.1) sigue siendo el encaje de una **dirección**: la colisión entera, con la décupla de la posición como un ocupante, su camino 1.0 como otro (o sus elementos, si es una lista) y lo que alcanzan las referencias. `lista` es la lista de la **posición**, por llegada y sin encaje. En BQL (`docs/BQL.md` §7.4), `BUSCAR(1)` da la lista de la posición 1 con cada elemento aparte, `BUSCAR(1, k)` el ocupante k por llegada, y `LOCAL` (índices) sí entra en una lista; `REF` (dirección) no.
 
 ```sh
 node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 import { lista } from './src/encaje.js';
-import { leerDireccion } from './src/epocas.js';
-const { eje, compra } = await ejemploCompra();
+import { leerDireccion, leerCamino } from './src/epocas.js';
+const { eje, compra, menu } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
 for (const o of lista(eje, compra.id, [1])) console.log(o.llegada, o.tipo, o.camino.join('.') || 'raíz', JSON.stringify(o.contenido).slice(0, 40));
-console.log(lista(eje, compra.id, [1, 2]).length);
+for (const o of lista(eje, menu.id, [1])) console.log(o.llegada, o.tipo, o.indice, o.contenido);
 console.log(leerDireccion('1200000000').map((x) => x.significado).join(' › '));
-console.log(leerDireccion('1200000000', 'época 0', { payload: compra.payload }).map((x) => x.significado).join(' › '));
+console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) => x.significado).join(' › '));
 "
 ```
 
 ```text
-0 propio 1.0 {"ref":"d173ab58dcd8ea65ae1f34b3a3c7efb0
-1 propio 1.1 1
-2 propio 1.2 "EUR 12"
-3 escrito raíz ["Cuenta del menú","=REF(\"dd4ab35f\", \
-0
+0 propio 1 [[{"ref":"d173ab58dcd8ea65ae1f34b3a3c7ef
+1 escrito raíz ["Cuenta del menú","=REF(\"1aca7eb8\", \
+0 propio 0 ensalada
+0 propio 1 guiso
+0 propio 2 fruta
 recursos › con qué condición
-recursos › ocupante 3 de la posición 1
+comunicación › ocupante 2 de la posición 3
 ```
 
-Lectura: la posición 1 de la compra tiene cuatro ocupantes por llegada (los tres del array y la cuenta escrita en ella). La subposición 1.2 está vacía: nadie ha escrito en `'1200000000'`; el 'EUR 12' es el ocupante 3 de la lista de la 1. Como dirección pura, `'1200000000'` se lee «recursos › con qué condición»; con el payload, el 2 cae en la lista y es «ocupante 3 de la posición 1».
+Lectura: la posición 1 de la compra tiene dos ocupantes por llegada: la décupla (uno) y la cuenta escrita en ella. La 1 del menú, una lista, tiene tres, con la misma llegada y en su orden. Una dirección se lee siempre por dígitos («recursos › con qué condición»); un índice que cae en una lista es «ocupante k de la posición p».
 
-**Clasificar** (`ui/clasificar.js`, botón «Clasificar» de la app): la lista de la posición en foco como piezas por clasificar y la cruceta como diez huecos (las subposiciones de la posición, con la regla corta de su profundidad y, bajo la raíz, el PV de la cruceta como subtítulo). En modo **lente** colocar una pieza solo la muestra interpretada con ese hueco; no escribe nada y se recuerda solo en el navegador. En modo **crear** colocar escribe el elemento en la subposición por dirección (`en = direccion([...posicion, hueco])`) con `salida.escribirDesde` en modo Pointed (un terminal, un minuto de T del autor, firmado si hay clave), y el registro lleva `contexto.clasifica` (§1.4): la pieza sale de «por clasificar». Lo que se escribe: un terminal propio que no es fórmula, tal cual; un escrito, una referencia a él; una fórmula o un array propios, una referencia a su camino (el ocupante 1 de una lista no se puede nombrar por dirección: §4.2, y se dice).
+**Clasificar** (`ui/clasificar.js`, botón «Clasificar» de la app): la lista de la posición en foco como piezas por clasificar y la cruceta como diez huecos (las subposiciones de la posición, con la regla corta de su profundidad y, bajo la raíz, el PV de la cruceta como subtítulo). En modo **lente** colocar una pieza solo la muestra interpretada con ese hueco; no escribe nada y se recuerda solo en el navegador. En modo **crear** colocar escribe el elemento en la subposición por dirección (`en = direccion([...posicion, hueco])`) con `salida.escribirDesde` en modo Pointed (un terminal, un minuto de T del autor, firmado si hay clave), y el registro lleva `contexto.clasifica` (§1.4): la pieza sale de «por clasificar». Las piezas son la lista de la posición: una décupla es una pieza; cada elemento de una lista, una pieza aparte (clave `id#3[1]`). Lo que se escribe: un terminal que no es fórmula, tal cual (también un elemento de una lista); un escrito, una referencia a él; una fórmula o una décupla propias, una referencia a su camino (una pieza en un camino que acaba en 0 no se puede nombrar por dirección: §4.2, y se dice; un elemento de lista que es fórmula tampoco, porque una dirección no entra en una lista).
 
 ## 7. Identidades, claves y firmas
 
@@ -1107,7 +1124,7 @@ await restaurar(datos).catch((e) => console.log(e.message));
 ```
 
 ```text
-3 false 5 49ee3fca 06b890b5 d173ab58 dd4ab35f 233c9da6
+3 false 5 49ee3fca 06b890b5 d173ab58 1aca7eb8 b391e6b4
 12 ["casa","cocina","huesped"] 5
 evento rechazado: id no corresponde al cuerpo
 ```
@@ -1146,10 +1163,15 @@ export const ARIDAD = 10;
 export function esReferencia(x): boolean;                 // { ref: string no vacía, dir?: dirección }
 export function esTerminal(x): boolean;                   // número finito | cadena no vacía | referencia
 export function esDireccion(s): boolean;                  // /^[0-9]{10}$/
-export function validarPayload(payload, ruta = ''): { ok: boolean, errores: string[] };
+export function esHoja(x): boolean;                       // terminal o referencia (por hojas, VG 7-11 noche)
+export function esLista(x): boolean;                      // fuera de la raíz: array no vacío solo de hojas (ocupantes por llegada)
+export function esDecupla(x): boolean;                    // array con algún array dentro (la raíz siempre es décupla)
+export function validarPayload(payload, ruta = '', ancestros, raiz = true): { ok: boolean, errores: string[] };
 export function direccion(indices: number[]): string;     // ≤ 10 índices 0–9 → diez dígitos (RangeError)
 export function indicesDe(dir: string): number[];         // quita ceros finales (TypeError si no es dirección)
-export function resolver(payload, dir: string): any;      // undefined si no se llega; no sigue referencias
+export function resolver(payload, dir: string): any;      // undefined si no se llega o si entra en una lista; no sigue referencias
+export function dentroDeLista(payload, dirOIndices): number[] | null;  // el camino de la lista en la que entra esa dirección
+export function nodoEn(payload, indices: number[]): any;  // bajando por la raíz y por décuplas
 
 // src/tokens.js
 export const AMBITO_GENESIS = 'genesis';
