@@ -19,17 +19,30 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, EMITEN, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
+import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
+import { msUTC, msDeGuardado } from './instante.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
 
+/** [X] confirmar VG: cuánto puede ir un evento por delante del mayor t del eje (un anio, en milisegundos). */
+export const ADELANTO_MAXIMO_MS = SEGUNDOS.anio * 1000;
+
 const corto = (x) => String(x).slice(0, 8);
 
-/** Dos caducidades son la misma si faltan las dos o nombran el mismo instante (no el mismo texto). */
+/** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
 function mismaCaducidad(a, b) {
   if (a === null || b === null) return a === b;
-  return Date.parse(a) === Date.parse(b);
+  return msUTC(a) === msUTC(b);
+}
+
+/**
+ * El alta de quien entró en el prefijo de la versión 2 (con las reglas viejas,
+ * que no ataban el t) cuenta, para el reloj y el tope de T, desde el primer
+ * evento de la versión 3 (`tPrimeroV3`) si este es posterior.
+ */
+export function acotarAltaV2(alta, tPrimeroV3) {
+  return msDeGuardado(alta.t) >= msDeGuardado(tPrimeroV3) ? alta : { id: alta.id, t: tPrimeroV3 };
 }
 
 /**
@@ -42,7 +55,8 @@ function mismaCaducidad(a, b) {
  *
  * ctx, todo de antes del evento:
  *   tipo(id)                 'persona' | 'grupo' | 'cosa' | null
- *   alta(id)                 { id, t } del evento que la dio de alta, o null
+ *   alta(id)                 { id, t } del evento que la dio de alta, o null (acotada si es del prefijo v2)
+ *   tMaximo()                el mayor t aceptado en el eje, en milisegundos UTC
  *   emitidoT(id, escala)     T que esa persona lleva emitido en esa escala (sin el génesis)
  *   serie(clave)             { emisor, emitido, caduca } o null
  *   registro(id)             el evento con ese id, o undefined
@@ -64,12 +78,20 @@ export function reglasDelCiclo(ev, ctx) {
   // (`sobre`) ni al del alta de su autor; el alta toma el t del evento que la
   // hace. Sin esto, un alta retrofechada (un evento fechado en 1900) daría
   // miles de millones de T:segundo con el tope de abajo.
-  const t = Date.parse(ev.t);
+  // Y por arriba, [X] confirmar VG: sin reloj externo (T no vale nada para
+  // terceros), lo que hay en el eje: un evento no va más de un año (anio) por
+  // delante del mayor t ya aceptado. Sin esto, fechar a futuro inflaría el tope.
+  // Todo se compara en milisegundos UTC (src/instante.js).
+  const t = msUTC(ev.t);
   if (!Number.isNaN(t)) {
     const foco = ctx.registro(ev.sobre);
-    if (foco && t < Date.parse(foco.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al de su foco ' + corto(ev.sobre) + ' (' + foco.t + ')');
+    if (foco && t < msDeGuardado(foco.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al de su foco ' + corto(ev.sobre) + ' (' + foco.t + ')');
     const altaAutor = ctx.alta(autor);
-    if (altaAutor && t < Date.parse(altaAutor.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al alta de ' + autor + ' (' + altaAutor.t + ')');
+    if (altaAutor && t < msDeGuardado(altaAutor.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al alta de ' + autor + ' (' + altaAutor.t + ')');
+    const maximo = ctx.tMaximo?.() ?? -Infinity;
+    if (Number.isFinite(maximo) && t > maximo + ADELANTO_MAXIMO_MS) {
+      falla(null, 4, 'el t del evento (' + ev.t + ') va más de un año (anio) por delante del mayor t del eje (' + new Date(maximo).toISOString() + ')');
+    }
   }
 
   // P del autor sobre un registro: saldo disponible en un ámbito que lo cubre, o P que mueve o recibe en este evento con ese ámbito.
@@ -171,6 +193,15 @@ function reglasV2(autor, validos, ctx) {
   const errores = [];
   const tipo = ctx.tipo(autor);
   for (const { m, i } of validos) {
+    // Lo que la versión 2 no conocía no cabe en su prefijo.
+    if (m.estado !== undefined || m.salida !== undefined || m.caduca !== undefined) {
+      errores.push({ i, capa: 5, texto: 'estado, salida y caduca no existían en la versión 2: no caben en su prefijo' });
+      continue;
+    }
+    if (m.token === 'R' && m.de !== null && m.de !== m.emisor) {
+      errores.push({ i, capa: 5, texto: 'R no es fungible: solo la mueve su emisor ' + m.emisor + ' (reglas de la versión 2: tampoco se devolvía)' });
+      continue;
+    }
     if (m.de !== null) continue;
     if (m.token === 'T' || m.token === 'P') errores.push({ i, capa: 5, texto: 'solo el génesis emite ' + m.token + ' (reglas de la versión 2)' });
     else if (m.emisor !== autor) errores.push({ i, capa: 5, texto: 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor (reglas de la versión 2)' });

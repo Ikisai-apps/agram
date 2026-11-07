@@ -17,6 +17,7 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
 | `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
+| `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC | `esInstante`, `msUTC`, `msDeGuardado` (solo para eventos de la versión 2) |
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
@@ -84,7 +85,7 @@ true true 0000000000 {}
 | `sobre debe ser id o null` | `sobre` no es cadena ni `null` |
 | `en debe ser una dirección de diez dígitos` | `en` no cumple `/^[0-9]{10}$/` |
 | `el génesis solo se anida en la raíz` | `sobre === null` y `en !== '0000000000'` |
-| `t debe ser instante ISO` | `Date.parse(t)` es `NaN` |
+| `t debe ser instante ISO-8601 con zona explícita (…)` | `t` no es `AAAA-MM-DDThh:mm[:ss[.fff]]` con `Z` o `±hh:mm` y una fecha real (`src/instante.js`; revisión de seguridad, 7-11 noche: Date.parse es laxo y depende del motor). Solo los eventos de un eje guardado con la versión 2 se leen con Date.parse |
 | `todo evento mueve tokens` | `movimientos` vacío o no array |
 | `movimiento i: …` | un movimiento inválido (ver §2.3) |
 | `el autor debe mover T` | ningún movimiento T con `de === autor` (evento normal) |
@@ -175,7 +176,7 @@ Quién emite T y P fuera del génesis está decidido (mapa §12, 7-11 noche: cad
 | `emisor` | obligatorio en E (la serie es suya) y en R; prohibido en T/P. En R, además, `de` solo puede ser el emisor o `null`, salvo para devolvérsela al emisor (`a` = el emisor; regla nueva, **[X] confirmar VG**, §2.4) |
 | `de` | identidad (cadena) o `null`. `null` = **emisión** (§2.3, §2.4); en E y R, `a` debe ser el propio emisor. |
 | `estado`, `salida` | opcionales: `estado: 'bloqueo' \| 'liberacion'` con `de` = `a` (no cambia de titular) y `salida` (texto no vacío, la condición de liberación: declarada, no verificable todavía; el propio titular libera cuando quiere; **[X] decidir VG** qué la hace verificable, p. ej. que la liberación cite un evento de otra identidad); `salida` solo con `estado` |
-| `caduca` | opcional, solo en la emisión de E: instante ISO, campo del contrato de la serie |
+| `caduca` | opcional, solo en la emisión de E: instante ISO-8601 estricto con zona explícita, campo del contrato de la serie; se compara en UTC |
 | texto de los campos | `de`, `a`, `emisor`, `denominacion`, `ambito` y `escala` no llevan `\|`, `:` ni `/`, los separadores de las claves de serie (PR #41): ni las identidades ni las denominaciones. Una denominación con hora (`cama@2026-11-13T00:00`) se rechaza; con fecha sola, no. |
 | `a` | identidad o `null`. `null` = **consumo**. |
 | `de` y `a` | ambos presentes; no pueden ser `null` los dos |
@@ -226,7 +227,7 @@ Todos los errores de `validarMovimiento` (en un evento salen como `evento mal fo
 | `P exige ámbito: no hay poder total` / `ámbito solo en P` | el ámbito de P |
 | `R exige emisor` / `R no es fungible: solo la mueve su emisor <emisor>; quien la tiene solo puede devolvérsela` | la serie de R; el segundo, si `de` no es el emisor ni `null` y `a` no es el emisor: quien tiene R de otro solo puede devolvérsela (regla nueva, **[X] confirmar VG**: antes no podía moverla); tampoco la consume ni la bloquea |
 | `estado inválido: <x> (bloqueo o liberacion)` / `<estado>: de y a son el mismo titular (no cambia de manos)` / `<estado> exige salida: la condición de liberación, declarada (no verificable todavía)` / `salida solo con estado (bloqueo o liberacion)` | bloquear y liberar (VG, 7-11 noche) |
-| `caduca solo en la emisión de E` / `caduca debe ser instante ISO` | la caducidad, campo del contrato de una serie de E |
+| `caduca solo en la emisión de E` / `caduca debe ser instante ISO-8601 con zona explícita` | la caducidad, campo del contrato de una serie de E |
 | `la emisión de <E o R> va a su propio emisor` / `emisor solo en E y en R` | emisión a otro; `emisor` en T o P |
 | `<campo> no puede llevar \| : ni /` | separadores reservados en `de`, `a`, `emisor`, `denominacion`, `ambito` o `escala` |
 | `de y a son obligatorios (null permitido)` / `de debe ser identidad o null` / `a debe ser identidad o null` / `movimiento sin origen ni destino` | origen y destino |
@@ -979,7 +980,7 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 | `emitir a nombre del grupo <g> exige P sobre su registro (<id8>): <autor> no lo tiene` | emisión de E o R a nombre de un grupo sin P sobre su alta |
 | `T lo emite cada persona para sí misma: a debe ser <autor>` / `tope de T:<escala> para <autor>: llevaría <n> emitido y el reloj da <m> desde su alta (<t>)` | emisión de T a otro, o por encima del tope del reloj |
 | `la emisión de P va a quien la emite: <autor>` / `P sobre todo el eje («genesis») solo lo emite el génesis` / `P fuera del génesis va sobre un registro existente: ámbito desconocido <id8>` / `P sobre <id8> lo acuña solo quien escribió el registro (<autor>): <x> puede transferir el P que tenga, no acuñarlo` | emisión de P fuera del génesis |
-| `el t del evento (<t>) es anterior al de su foco <id8> (<t>)` / `el t del evento (<t>) es anterior al alta de <autor> (<t>)` | el reloj no va hacia atrás (**[X] confirmar VG**) |
+| `el t del evento (<t>) es anterior al de su foco <id8> (<t>)` / `el t del evento (<t>) es anterior al alta de <autor> (<t>)` / `el t del evento (<t>) va más de un año (anio) por delante del mayor t del eje (<t>)` | el reloj no va hacia atrás, ni más de un año hacia delante (**[X] confirmar VG**) |
 | `emitir <R, P o E> exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad` / `emitir <P o E> exige R propia en juego en el mismo evento: …` / `emitir E exige P del autor sobre el registro <id8> (saldo o movimiento de P en el mismo evento)` | el escalonado T → R → P → E |
 | `la serie <clave> caduca el <t>: una ampliación no cambia su caducidad` / `la serie <clave> no caduca: …` | una ampliación de E con otra caducidad |
 | `saldo disponible insuficiente para bloquear <clave> en <autor>` / `no hay <n> de <clave> bloqueado en <autor> con la salida «<salida>»` | bloquear más de lo disponible, o liberar lo que no está bloqueado con esa salida |
@@ -1081,10 +1082,10 @@ El génesis del eje de ejemplo:
 
 El eje se guarda como **la lista de sus eventos en orden**; nada más. Al restaurar se vuelve a validar todo (ids, firmas, saldos). El árbol lógico, los saldos, las claves, los tipos y las series se reconstruyen.
 
-La versión 2 (7-11) llega con las series de tokens (T por escala, E ligada a su emisor, tipos en el alta): un eje guardado con la versión 1 no se restaura. La versión 3 (7-11 noche) trae el ciclo de vida de los tokens (solo emiten personas, emisión escalonada, bloqueo, caducidad): lo guardado sigue siendo la lista de eventos, pero las reglas nuevas rechazarían un eje de la versión 2 (un génesis de un grupo, E o R emitidos fuera del génesis sin el escalonado, eventos fechados antes que su foco). Por eso `migrar` marca todos sus eventos (`eventosV2`) y `restaurar` los revalida con las reglas de la 2; las nuevas rigen lo que se añada después, y `serializar` conserva la marca (`docs/MOTOR.md` §9). Lo que ni las reglas de la 2 admiten no se restaura, y la app lo aparta igual. La app, en vez de pisarlo en silencio, lo aparta en `agram.eje.anterior` y avisa antes de empezar con el ejemplo.
+La versión 2 (7-11) llega con las series de tokens (T por escala, E ligada a su emisor, tipos en el alta): un eje guardado con la versión 1 no se restaura. La versión 3 (7-11 noche) trae el ciclo de vida de los tokens (solo emiten personas, emisión escalonada, bloqueo, caducidad): lo guardado sigue siendo la lista de eventos, pero las reglas nuevas rechazarían un eje de la versión 2 (un génesis de un grupo, E o R emitidos fuera del génesis sin el escalonado, eventos fechados antes que su foco). Por eso `migrar` marca todos sus eventos (`v2: { eventos, ultimo }`, con el id del último, que `restaurar` comprueba) y `restaurar` los revalida con las reglas de la 2; las nuevas rigen lo que se añada después, y `serializar` conserva la marca. Un `eventosV2` suelto en un guardado se rechaza (`docs/MOTOR.md` §9). Lo que ni las reglas de la 2 admiten no se restaura, y la app lo aparta igual. La app, en vez de pisarlo en silencio, lo aparta en `agram.eje.anterior` y avisa antes de empezar con el ejemplo.
 
 ```js
-serializar(eje)    // → { version: 3, exigirFirmas, eventosV2?, eventos: evento[] }
+serializar(eje)    // → { version: 3, exigirFirmas, v2?: { eventos, ultimo }, eventos: evento[] }  v2 solo si el eje viene de una migración
 restaurar(datos)   // → Promise<Eje>; lanza 'eje de la versión 1; esta es la 3' con un guardado antiguo, o si algún evento no cuadra
 guardarLocal(eje, clave = 'agram.eje') / cargarLocal(clave) / borrarLocal(clave)   // localStorage si existe; false / null si no
 apartarLocal(clave = 'agram.eje', destino = clave + '.anterior')                 // copia lo guardado sin borrarlo; true si había algo
@@ -1252,7 +1253,7 @@ export function leerDireccion(dir, epoca = EPOCA_0): { profundidad, digito, sign
 // src/persistencia.js
 export const VERSION = 3;
 export function serializar(eje): { version, exigirFirmas, eventos };
-export function migrar(datos): datos;  // de la versión 2 a la 3: version 3 y eventosV2 (sus eventos se validan con las reglas de la 2)
+export function migrar(datos): datos;  // de la versión 2 a la 3: version 3 y la marca v2 = { eventos, ultimo } (sus eventos se validan con las reglas de la 2)
 export async function restaurar(datos): Promise<Eje>;
 export function guardarLocal(eje, clave = 'agram.eje'): boolean;
 export async function cargarLocal(clave = 'agram.eje'): Promise<Eje | null>;

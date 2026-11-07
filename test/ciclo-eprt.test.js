@@ -9,7 +9,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje, caducada } from '../src/eje.js';
-import { crearEvento } from '../src/evento.js';
+import { crearEvento, hash, canonico, cuerpo } from '../src/evento.js';
+import { msUTC, esInstante } from '../src/instante.js';
+import { ADELANTO_MAXIMO_MS } from '../src/ciclo.js';
 import { reglasDelCiclo } from '../src/ciclo.js';
 import { validarMovimiento, topeT, TOPE_T_MINIMO, EMITEN } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
@@ -443,6 +445,43 @@ test('el t de un evento no es anterior al de su foco ni al alta de su autor ([X]
   assert.match(v.acreditacion.motivos.join(' '), /es anterior al de su foco/);
 });
 
+test('el reloj por arriba: un evento no va más de un año (anio) por delante del mayor t del eje ([X] confirmar VG)', async () => {
+  // Revisión de seguridad: fechar a futuro inflaba el tope de T. Sin reloj externo, se acota con lo que hay en el eje.
+  const { eje, alta } = await mundo();
+  assert.equal(ADELANTO_MAXIMO_MS, 365 * 86400 * 1000);
+  assert.equal(eje.tMaximo(), msUTC(T0));
+  const limite = new Date(msUTC(T0) + ADELANTO_MAXIMO_MS).toISOString();
+  const pasado = new Date(msUTC(T0) + ADELANTO_MAXIMO_MS + 1000).toISOString();
+  // Un segundo de más: rechazado, también para emitir T, y validez lo dice en la capa 4.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: pasado, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'ana' }] }),
+    /el t del evento \(2027-11-07T10:00:01\.000Z\) va más de un año \(anio\) por delante del mayor t del eje \(2026-11-07T10:00:00\.000Z\)/);
+  const v = await validez(eje, await crearEvento({ autor: 'ana', sobre: alta.id, t: pasado, payload: 'x', movimientos: [gasta('ana')] }));
+  assert.match(v.acreditacion.motivos.join(' '), /va más de un año \(anio\) por delante/);
+  // Justo en el límite, sí; y el límite avanza con el mayor t aceptado.
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: limite, payload: 'dentro de un año', movimientos: [gasta('ana')] });
+  assert.equal(eje.tMaximo(), msUTC(limite));
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: pasado, payload: 'ya cabe', movimientos: [gasta('bea')] });
+});
+
+test('t es un instante ISO-8601 estricto con zona explícita, y se compara en UTC', async () => {
+  // Revisión de seguridad: Date.parse es laxo y depende del motor.
+  for (const malo of ['2026-11-07', '2026-11-07 10:00', '2026-11-07T10:00:00', '2026-11-07T10:00', '2026-02-30T10:00:00Z', '2026-11-07T24:00:00Z',
+    '2026-11-07T10:00:00.1234Z', '2026-11-07T10:00:00+0100', 'Sat, 07 Nov 2026 10:00:00 GMT', 'mañana']) {
+    assert.equal(esInstante(malo), false, malo);
+    await assert.rejects(crearEvento({ autor: 'raiz', sobre: null, t: malo, payload: 'g', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }], contexto: { genesis: true } }),
+      /t debe ser instante ISO-8601 con zona explícita/, malo);
+  }
+  for (const bueno of ['2026-11-07T10:00:00Z', '2026-11-07T10:00Z', '2026-11-07T10:00:00.5Z', '2026-11-07T11:00:00+01:00', '2024-02-29T00:00:00-05:30']) assert.equal(esInstante(bueno), true, bueno);
+  assert.equal(msUTC('2026-11-07T11:00:00+01:00'), msUTC('2026-11-07T10:00:00Z'));
+  assert.equal(msUTC('2026-11-07T10:00:00.5Z') - msUTC('2026-11-07T10:00:00Z'), 500);
+  // Comparar en UTC: las 10:20 en Madrid (+01:00) son las 9:20 UTC, antes que un foco de las 10:00 UTC.
+  const { eje, alta } = await mundo();
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: '2026-11-07T10:20:00+01:00', payload: 'x', movimientos: [gasta('ana')] }), /es anterior al de su foco/);
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: '2026-11-07T11:20:00+01:00', payload: 'bien', movimientos: [gasta('ana')] });
+  // Y la caducidad, igual de estricta (caducada() también: ver la prueba de la caducidad).
+  assert.ok(validarMovimiento(emiteE('ana', 'bono', 1, { caduca: '2026-11-30' })).some((e) => /caduca debe ser instante ISO-8601 con zona explícita/.test(e)));
+});
+
 // ---------- 10 · los cuatro ataques de la revisión adversarial (neutralidad ante identidades) ----------
 
 /** Ana da de alta a un títere: una persona que controla ella. */
@@ -542,21 +581,35 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
     contexto: { genesis: true, tipos: { club: 'grupo' } } });
   const viejo = await crearEvento({ autor: 'club', sobre: g.id, t: '2026-11-06T09:00:00Z', payload: 'más vales y un alta',
     movimientos: [gasta('club'), emiteE('club', 'vale', 5), daT('club', 'ana', 10)], contexto: { tipos: { ana: 'persona' } } });
-  const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g, viejo] }));
+  // Y uno con un t que solo Date.parse lee (sin T ni zona), como admitía la versión 2: se escribe sin crearEvento.
+  const laxoCuerpo = { autor: 'club', sobre: viejo.id, en: '0000000000', t: '2026-11-06 10:00', movimientos: [gasta('club')], payload: 'nota', contexto: {} };
+  const laxo = { ...laxoCuerpo, id: await hash(canonico(cuerpo(laxoCuerpo))) };
+  const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g, viejo, laxo] }));
   // Con las reglas nuevas no entraría.
   await assert.rejects(restaurar({ ...v2, version: 3 }), /génesis rechazado: el génesis lo emite una persona: su autor no puede ser grupo/);
   const eje = await restaurar(v2);
-  assert.equal(eje.eventosV2, 2);
+  assert.equal(eje.eventosV2, 3);
+  assert.equal(eje.esDeV2(laxo.id), true);
   assert.deepEqual(eje.serie('E:club/vale'), { emisor: 'club', emitido: 15 });
   for (const id of eje.orden) assert.deepEqual((await validez(eje, id)).capas.map((c) => c.estado), ['ok', 'ok', 'ok', 'ok', 'ok']);
   // Lo nuevo ya va con las reglas de ahora: el grupo no emite, ni se escribe antes del foco.
   await assert.rejects(eje.escribir({ autor: 'club', sobre: viejo.id, t: T0, payload: 'x', movimientos: [gasta('club'), emiteE('club', 'vale', 1)] }), /solo las personas emiten: club es grupo/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: '2026-11-06T08:00:00Z', payload: 'x', movimientos: [gasta('ana')] }), /es anterior al de su foco/);
   await eje.escribir({ autor: 'ana', sobre: viejo.id, t: T0, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] });
+  // El alta de ana (en el prefijo, el 6-11 a las 9:00) cuenta para el tope desde el primer evento de la versión 3 (T0):
+  // una hora después, 60 minutos y no los más de 1500 que daría su alta de la versión 2 (revisión de seguridad).
+  assert.equal(eje.alta('ana').t, '2026-11-06T09:00:00Z');
+  const unaHora = '2026-11-07T11:00:00Z';
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] }),
+    /tope de T:minuto para ana: llevaría 61 emitido y el reloj da 60 desde su alta \(2026-11-07T10:00:00Z\)/);
+  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'mi hora', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 59, de: null, a: 'ana' }] });
   // Al guardar, la marca se conserva y el eje se vuelve a restaurar igual.
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
-  assert.deepEqual([datos.version, datos.eventosV2, datos.eventos.length], [3, 2, 3]);
+  assert.deepEqual([datos.version, datos.v2, datos.eventosV2, datos.eventos.length], [3, { eventos: 3, ultimo: laxo.id }, undefined, 5]);
   const otro = await restaurar(datos);
   assert.deepEqual(otro.series(), eje.series());
-  assert.equal(otro.emitidoT('ana', 'minuto'), 1);
+  assert.equal(otro.emitidoT('ana', 'minuto'), 60);
+  // En el prefijo no cabe lo que la versión 2 no conocía (bloquear, caducidad, devolver R).
+  const conBloqueo = await crearEvento({ autor: 'club', sobre: g.id, t: T0, payload: 'x', movimientos: [gasta('club'), { ...gasta('club'), a: 'club', estado: 'bloqueo', salida: 's' }] });
+  await assert.rejects(restaurar(JSON.parse(JSON.stringify({ version: 2, eventos: [g, conBloqueo] }))), /estado, salida y caduca no existían en la versión 2/);
 });

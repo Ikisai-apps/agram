@@ -1038,18 +1038,18 @@ Las bases del 8 se escriben como registros en la posición 8 de lo que resumen (
 
 ```js
 VERSION = 3                         // 7-11 noche (ciclo de vida de los tokens); la 2, desde la PR #35 (series de tokens); un eje de la versión 1 no se restaura
-serializar(eje)                     // → { version: 3, exigirFirmas, eventosV2?, eventos: evento[] }  los eventos, en orden; eventosV2 solo si el eje viene de la versión 2
-migrar(datos)                       // → los datos en la versión actual: de la 2 a la 3, version: 3 y eventosV2 = número de eventos (todos se validan con las reglas de la 2)
-restaurar(datos)                    // → Promise<Eje>  migra y Eje.desde(eventos, { eventosV2 }): vuelve a validar ids, firmas, saldos y reglas de emisión (las de la 2 para los primeros eventosV2); lanza si algo no cuadra
+serializar(eje)                     // → { version: 3, exigirFirmas, v2?: { eventos, ultimo }, eventos: evento[] }  los eventos, en orden; v2 solo si el eje viene de una migración
+migrar(datos)                       // → los datos en la versión actual: de la 2 a la 3, version: 3 y v2 = { eventos: n, ultimo: id del último } (todos se validan con las reglas de la 2)
+restaurar(datos)                    // → Promise<Eje>  migra, comprueba la marca v2 y Eje.desde(eventos, { eventosV2: n }): vuelve a validar ids, firmas, saldos y reglas de emisión (las de la 2 para los primeros eventosV2); lanza si algo no cuadra
 guardarLocal(eje, clave = 'agram.eje')  // → boolean  localStorage.setItem(clave, JSON); false si lanza
 cargarLocal(clave = 'agram.eje')        // → Promise<Eje | null>  null si no hay nada o algo falla
 borrarLocal(clave = 'agram.eje')        // → void
 apartarLocal(clave = 'agram.eje', destino = clave + '.anterior')  // → boolean  copia lo guardado sin borrarlo (la app aparta así un eje de la versión 1)
 ```
 
-Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `eje de la versión <n>; esta es la 3` (un guardado de otra versión sin migración, p. ej. anterior a las series), `datos de eje inválidos` (sin `version`, sin eventos), `el primer evento debe ser el génesis`, `eventosV2 debe ser un entero entre 0 y el número de eventos`. Lo mismo en `docs/BTML.md` §8.1.
+Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `eje de la versión <n>; esta es la 3` (un guardado de otra versión sin migración, p. ej. anterior a las series), `datos de eje inválidos` (sin `version`, sin eventos), `el primer evento debe ser el génesis`, `eventosV2 no se declara en un guardado: …`, `la marca de la versión 2 no corresponde a sus eventos`. Lo mismo en `docs/BTML.md` §8.1.
 
-**De la versión 2 a la 3 la migración no es trivial.** Las reglas de la 3 (solo emiten personas, emisión escalonada, el `t` de un evento no anterior al de su foco ni al alta de su autor) rechazarían un eje v2 con un génesis de grupo, con E o R emitidos fuera del génesis sin el escalonado o con eventos fechados hacia atrás. Por eso `migrar` marca todos los eventos de un eje v2 (`eventosV2`), `restaurar` los revalida con las reglas de la 2 (T y P solo los emite el génesis; E y R, su emisor a sí mismo, persona o grupo; sin escalonado ni regla del reloj; `src/ciclo.js`) y los eventos que se añadan después siguen las reglas de la 3. `serializar` conserva `eventosV2` y validez lee cada registro con las reglas que le tocan. **[X] confirmar VG**: unos datos de la 3 pueden declarar `eventosV2` a mano; es lo mismo que presentarlos como versión 2, que también se admite.
+**De la versión 2 a la 3 la migración no es trivial.** Las reglas de la 3 (solo emiten personas, emisión escalonada, el `t` de un evento no anterior al de su foco ni al alta de su autor) rechazarían un eje v2 con un génesis de grupo, con E o R emitidos fuera del génesis sin el escalonado o con eventos fechados hacia atrás. Por eso `migrar`, y solo desde unos datos de la versión 2, marca el prefijo (`v2: { eventos: n, ultimo: <id del último> }`), `restaurar` comprueba que el evento n tiene ese id (los ids se vuelven a verificar) y revalida esos n eventos con las reglas de la 2 (T y P solo los emite el génesis; E y R, su emisor a sí mismo, persona o grupo; R no se devuelve; sin estado, salida ni caduca; sin escalonado ni regla del reloj; el `t` vale si Date.parse lo lee; `src/ciclo.js`). Los eventos que se añadan después siguen las reglas de la 3, y el alta de quien entró en el prefijo cuenta, para el reloj y el tope de T, desde el primer evento de la 3. `serializar` conserva la marca y validez lee cada registro con las reglas que le tocan. Un `eventosV2` suelto en un guardado se rechaza (revisión de seguridad, 7-11 noche). Lo que la marca no es: una firma; quien escribe el archivo puede escribirla, igual que podría presentar sus eventos como versión 2, que también se admite, y no gana nada que la versión 2 no diera ya (**[X] confirmar VG**).
 
 En Node no hay `localStorage`: `guardarLocal` devuelve `true` sin guardar nada (no lanza) y `cargarLocal` devuelve `null`. En el navegador, `localStorage` es una comodidad por visor. Pendiente: base de datos y anclaje a una cadena; la forma de los eventos no cambia con eso.
 
@@ -1243,7 +1243,7 @@ export function comparar(eje, foco): { foco, posicion, de, comparables, hitos };
 // src/persistencia.js
 export const VERSION = 3;
 export function serializar(eje): { version, exigirFirmas, eventos };
-export function migrar(datos): datos;  // de la versión 2 a la 3: version 3 y eventosV2 (sus eventos se validan con las reglas de la 2)
+export function migrar(datos): datos;  // de la versión 2 a la 3: version 3 y la marca v2 = { eventos, ultimo } (sus eventos se validan con las reglas de la 2)
 export async function restaurar(datos): Promise<Eje>;
 export function guardarLocal(eje, clave = 'agram.eje'): boolean;
 export async function cargarLocal(clave = 'agram.eje'): Promise<Eje | null>;

@@ -8,7 +8,8 @@
 // titular: el saldo es lo disponible y lo bloqueado se lleva aparte.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
 import { verificar, firmar, clavePublicaValida } from './autoridad.js';
 
@@ -22,6 +23,8 @@ export class Eje {
   #emitidoT;
   #hijosEn;
   #prefijos;
+  #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
+  #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -93,6 +96,16 @@ export class Eje {
   }
 
   /** T que una persona lleva emitido en una escala fuera del génesis (lo que cuenta para el tope del reloj). */
+  /** ¿Es el evento uno de los guardados con la versión 2 (el prefijo que se valida con sus reglas)? */
+  esDeV2(id) {
+    return this.#prefijoV2.has(id);
+  }
+
+  /** El mayor t aceptado en el eje, en milisegundos UTC (-Infinity si está vacío). */
+  tMaximo() {
+    return this.#tMax;
+  }
+
   emitidoT(identidad, escala) {
     return this.#emitidoT.get(JSON.stringify([identidad, escala])) ?? 0;
   }
@@ -106,7 +119,7 @@ export class Eje {
     if (!crudo || crudo.contexto?.genesis !== true || crudo.sobre !== null) throw new Error('el primer evento debe ser el génesis');
     if (!Number.isSafeInteger(eventosV2) || eventosV2 < 0 || eventosV2 > eventos.length) throw new Error('eventosV2 debe ser un entero entre 0 y el número de eventos');
     const g = copiaGuardable(crudo);
-    const errores = [...validarForma(g), ...erroresGenesis(g, eventosV2 > 0 ? 2 : 3)];
+    const errores = [...validarForma(g, { tLaxo: eventosV2 > 0 }), ...erroresGenesis(g, eventosV2 > 0 ? 2 : 3)];
     if (!(await verificarId(g))) errores.push('id del génesis no corresponde');
     if (!errores.length) errores.push(...(await erroresFirmaGenesis(g)));
     if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
@@ -254,7 +267,7 @@ export class Eje {
     } catch (e) {
       return ['no cabe en JSON: ' + e.message];
     }
-    const errores = validarForma(ev);
+    const errores = validarForma(ev, { tLaxo: this.orden.length < this.eventosV2 });
     if (!ev || typeof ev !== 'object') return errores;
     // Los movimientos que no son objeto ya los cuenta validarForma; aquí no se miran.
     const movimientos = Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : [];
@@ -289,7 +302,7 @@ export class Eje {
     // reloj, escalonado T → R → P → E) y la del t del evento están en
     // src/ciclo.js y leen el eje de antes del evento. Un evento guardado con la
     // versión 2 se valida con las reglas de entonces.
-    for (const { texto } of reglasDelCiclo(ev, this.#contextoCiclo())) errores.push(texto);
+    for (const { texto } of reglasDelCiclo(ev, this.#contextoCiclo(ev))) errores.push(texto);
     // Simulación de los movimientos, en orden, sobre una vista de los saldos y
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
     // así que el emisor puede emitir y dar en el mismo evento. Lo bloqueado
@@ -344,11 +357,20 @@ export class Eje {
     return errores;
   }
 
-  /** Lo que leen las reglas del ciclo (src/ciclo.js): el eje de antes del evento. */
-  #contextoCiclo() {
+  /**
+   * Lo que leen las reglas del ciclo (src/ciclo.js): el eje de antes del evento
+   * `ev`. El alta de quien entró en el prefijo de la versión 2 cuenta, para el
+   * reloj y el tope de T, desde el primer evento de la versión 3 (acotarAltaV2).
+   */
+  #contextoCiclo(ev) {
+    const primeroV3 = () => (this.orden.length > this.eventosV2 ? this.obtener(this.orden[this.eventosV2]).t : ev.t);
     return {
       tipo: (id) => this.tipo(id),
-      alta: (id) => this.alta(id),
+      alta: (id) => {
+        const a = this.alta(id);
+        return a && this.#prefijoV2.has(a.id) ? acotarAltaV2(a, primeroV3()) : a;
+      },
+      tMaximo: () => this.#tMax,
       emitidoT: (id, escala) => this.emitidoT(id, escala),
       serie: (k) => this.#series.get(k) ?? null,
       registro: (id) => this.eventos.get(id),
@@ -398,6 +420,9 @@ export class Eje {
   #aplicar(ev) {
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
+    if (this.orden.length <= this.eventosV2) this.#prefijoV2.add(ev.id);
+    const ms = msDeGuardado(ev.t);
+    if (ms > this.#tMax) this.#tMax = ms;
     const cabeza = ev.id.slice(0, PREFIJO);
     if (!this.#prefijos.has(cabeza)) this.#prefijos.set(cabeza, []);
     this.#prefijos.get(cabeza).push(ev.id);
@@ -494,9 +519,9 @@ export class Eje {
 export function caducada(eje, clave, t) {
   const caduca = eje.serie(clave).caduca;
   if (!caduca) return false;
-  const ahora = Date.parse(t);
-  if (Number.isNaN(ahora)) throw new Error('caducada: t debe ser instante ISO');
-  return ahora >= Date.parse(caduca);
+  const ahora = msUTC(t);
+  if (Number.isNaN(ahora)) throw new Error('caducada: t debe ser instante ISO-8601 con zona explícita');
+  return ahora >= msUTC(caduca);
 }
 
 /**

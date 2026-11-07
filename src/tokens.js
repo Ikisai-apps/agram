@@ -21,6 +21,8 @@
 // Sin conversión entre series: una hora NO son sesenta minutos, son tokens
 // distintos (como un euro no es un bitcoin, y los EUR de la casa no son los de otro).
 
+import { esInstante, msDeGuardado } from './instante.js';
+
 /** Ámbito reservado de P: el génesis del eje, es decir, todo el eje. */
 export const AMBITO_GENESIS = 'genesis';
 
@@ -106,10 +108,12 @@ export const TOPE_T_MINIMO = 1;
  * génesis cuenta como alta de su autor). Lo emitido en el génesis no cuenta.
  * El alta toma el t del evento que la hace, y ese t no es anterior al de su
  * foco ni al alta de su autor ([X] confirmar VG, src/ciclo.js): un alta no se
- * retrofecha para ganar T. Fechar a futuro sí da más T (concesión abierta).
+ * retrofecha para ganar T. Fechar a futuro da más T, pero como mucho un año
+ * por delante del mayor t del eje ([X] confirmar VG, src/ciclo.js).
+ * Los instantes se comparan en milisegundos UTC (src/instante.js).
  */
 export function topeT(alta, t, escala) {
-  const ms = Date.parse(t) - Date.parse(alta);
+  const ms = msDeGuardado(t) - msDeGuardado(alta);
   const unidades = Number.isFinite(ms) ? Math.ceil(ms / (SEGUNDOS[escala] * 1000)) : 0;
   return Math.max(TOPE_T_MINIMO, unidades);
 }
@@ -199,7 +203,7 @@ export function validarMovimiento(m) {
   } else if (m.salida !== undefined) errores.push('salida solo con estado (bloqueo o liberacion)');
   if (m.caduca !== undefined) {
     if (m.token !== 'E' || m.de !== null) errores.push('caduca solo en la emisión de E');
-    else if (typeof m.caduca !== 'string' || Number.isNaN(Date.parse(m.caduca))) errores.push('caduca debe ser instante ISO');
+    else if (!esInstante(m.caduca)) errores.push('caduca debe ser instante ISO-8601 con zona explícita');
   }
   return errores;
 }

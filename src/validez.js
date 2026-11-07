@@ -28,7 +28,8 @@ import { ARIDAD, esReferencia, esDireccion, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
@@ -113,19 +114,34 @@ function libroAntes(eje, hasta) {
     altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
     // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
     reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
+    tMax: -Infinity, // el mayor t hasta aquí, en milisegundos UTC
   };
-  for (let k = 0; k < hasta; k++) aplicar(eje, libro, eje.obtener(eje.orden[k]));
+  for (let k = 0; k < hasta; k++) {
+    const ev = eje.obtener(eje.orden[k]);
+    aplicar(eje, libro, ev);
+    libro.tMax = Math.max(libro.tMax, msDeGuardado(ev.t));
+  }
   return libro;
 }
 
 const saldoEn = (libro, id, k) => libro.saldos.get(llave(id, k)) ?? 0;
 const bloqueadoEn = (libro, id, k, salida) => libro.bloqueados.get(JSON.stringify([id, k, salida])) ?? 0;
 
-/** Lo que leen las reglas del ciclo (src/ciclo.js), desde el libro de justo antes del registro. */
-function contextoCiclo(eje, libro) {
+/**
+ * Lo que leen las reglas del ciclo (src/ciclo.js), desde el libro de justo
+ * antes del registro `ev`; el alta del prefijo de la versión 2, acotada como
+ * en el eje (acotarAltaV2).
+ */
+function contextoCiclo(eje, libro, ev) {
+  const v2 = eje.eventosV2 ?? 0;
+  const primeroV3 = () => (eje.orden.length > v2 ? eje.obtener(eje.orden[v2]).t : ev.t);
   return {
     tipo: (id) => libro.tipos.get(id) ?? null,
-    alta: (id) => libro.altas.get(id) ?? null,
+    alta: (id) => {
+      const a = libro.altas.get(id) ?? null;
+      return a && eje.esDeV2?.(a.id) ? acotarAltaV2(a, primeroV3()) : a;
+    },
+    tMaximo: () => libro.tMax,
     emitidoT: (id, escala) => libro.emitidoT.get(JSON.stringify([id, escala])) ?? 0,
     serie: (k) => libro.series.get(k) ?? null,
     registro: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
@@ -192,9 +208,9 @@ function vistaCon(eje, ev, id) {
 
 // ---------- 1 · forma y época ----------
 
-function capaForma(ev, epoca) {
+function capaForma(ev, epoca, { tLaxo = false } = {}) {
   const r = motivos();
-  const errores = validarForma(ev);
+  const errores = validarForma(ev, { tLaxo }); // el t laxo, solo en un registro guardado con la versión 2
   errores.forEach((e) => r.falla(e));
   let profundidad = 0;
   const sinRegla = new Set();
@@ -373,7 +389,7 @@ function capaAcreditacion(eje, ev, libro) {
   // El respaldo de las emisiones según el ciclo (src/ciclo.js): el tope del reloj en T, un registro existente en P, la caducidad de la serie en E.
   // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
   const delCiclo = new Map();
-  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro))) {
+  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
     if (e.capa !== 4) continue;
     if (e.i === null) r.falla(e.texto);
     else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
@@ -452,7 +468,7 @@ function permisoDelLibro(eje, ev, libro) {
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
   // a nombre de un grupo con P sobre él, escalonado T → R → P → E (src/ciclo.js).
   // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
-  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro))) {
+  for (const e of reglasDelCiclo(ev, contextoCiclo(eje, libro, ev))) {
     if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
   }
   // El tipo se declara en el alta, como la clave, y solo sirve para saber quién emite.
@@ -608,7 +624,7 @@ export async function validez(eje, evento, { epoca = EPOCA_0 } = {}) {
   const libro = libroAntes(eje, enEje ? indice : eje.orden.length);
   const vista = vistaCon(eje, ev, id);
   const capas = [
-    await protegida(1, () => capaForma(ev, epoca)),
+    await protegida(1, () => capaForma(ev, epoca, { tLaxo: libro.reglas === 2 })),
     await protegida(2, () => capaInterpretacion(eje, vista, ev, id)),
     await protegida(3, () => capaCriptografia(eje, ev, id, libro, enEje, idCorrecto)),
     await protegida(4, () => capaAcreditacion(eje, ev, libro)),

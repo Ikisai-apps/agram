@@ -84,15 +84,23 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   assert.deepEqual(migrar(v2).eventos, v2.eventos);
   // La migración no es trivial: todos sus eventos se marcan como de la versión 2 y se validan con aquellas reglas;
   // las nuevas rigen lo que se añada después (lo que solo admitía la 2 está en test/ciclo-eprt.test.js).
-  assert.equal(migrar(v2).eventosV2, v2.eventos.length);
+  // La marca la pone solo migrar: cuántos eventos y el id del último, que restaurar comprueba.
+  const marca = { eventos: v2.eventos.length, ultimo: v2.eventos[v2.eventos.length - 1].id };
+  assert.deepEqual(migrar(v2).v2, marca);
+  assert.equal(migrar({ ...v2, eventosV2: 1, v2: { eventos: 1, ultimo: 'x' } }).v2.eventos, v2.eventos.length); // lo que traiga, se descarta
   const otro = await restaurar(v2);
   assert.deepEqual(otro.orden, eje.orden);
   assert.equal(otro.eventosV2, v2.eventos.length);
-  assert.equal(serializar(otro).eventosV2, v2.eventos.length); // al volver a guardar se conserva
-  assert.equal(serializar(eje).eventosV2, undefined); // un eje de la 3 no lo lleva
+  assert.deepEqual(serializar(otro).v2, marca); // al volver a guardar se conserva
+  assert.equal(serializar(eje).v2, undefined); // un eje de la 3 no la lleva
+  // Revisión de seguridad: un guardado de la 3 no declara eventosV2, y una marca que no corresponde se rechaza.
+  const v3 = migrar(v2);
+  await assert.rejects(restaurar({ ...v3, eventosV2: 2 }), /eventosV2 no se declara en un guardado/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: 2, ultimo: marca.ultimo } }), /la marca de la versión 2 no corresponde a sus eventos/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: v2.eventos.length + 1, ultimo: marca.ultimo } }), /no corresponde/);
+  await assert.rejects(restaurar({ ...v3, v2: { eventos: 0, ultimo: marca.ultimo } }), /no corresponde/);
   // Un evento manipulado no se restaura con ninguna de las dos reglas.
   const tocado = JSON.parse(JSON.stringify(v2));
   tocado.eventos[0].contexto.tipos.casa = 'grupo';
   await assert.rejects(restaurar(tocado), /génesis rechazado: id del génesis no corresponde/);
-  await assert.rejects(restaurar({ ...migrar(v2), eventosV2: -1 }), /eventosV2 debe ser un entero/);
 });
