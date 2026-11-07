@@ -16,7 +16,7 @@ El primer registro se escribe por convención, fuera del sistema: emite tokens i
 
 ## Épocas
 
-La época es una convención paralela, **fuera del dato**. Un dato se puede leer desde cualquier época. La época actual es la confluencia de las pasadas y predefine cómo se calculará la siguiente. BTML no lleva época dentro.
+La época es una convención paralela, **fuera del dato**. Un dato se puede leer desde cualquier época. La época actual es la confluencia de las pasadas y predefine cómo se calculará la siguiente. BTML no lleva época dentro. Las épocas viven como datos en `datos/epocas/`: la época 0 (un PV por dígito, en toda profundidad) y la «época 1 (propuesta)», pendiente de VG (`docs/REGLAS_CORTAS.md`).
 
 ## BTML
 
@@ -34,7 +34,7 @@ Cada operación es una sola: la transición con su efecto nombrado. Sobrio y ani
 
 ### Colisiones, no apaños
 
-Una dirección con ceros finales nombra a la vez la posición 1, la 1.0, la 1.0.0… Todos son ocupantes legítimos de esa dirección, con su camino exacto y su procedencia. Un terminal no tiene posición 0. Las colisiones se conservan y se ordenan sin borrar nada: son la materia prima de `BUSCAR`, de los criterios (`ORDENAR`), de `ACTUAL` y `ELEGIR` (que no publica) y de la fábrica (consolidar es la única fijación, y no borra). No existe modificar en sitio: corregir es añadir un ocupante.
+Una dirección con ceros finales nombra a la vez la posición 1, la 1.0, la 1.0.0… Todos son ocupantes legítimos de esa dirección, con su camino exacto y su procedencia. Un terminal no tiene posición 0. Las colisiones se conservan y se ordenan sin borrar nada: son la materia prima de `BUSCAR`, de los criterios (`ORDENAR`), de `ACTUAL` y `ELEGIR` (que no publica) y de la fábrica (consolidar es la única fijación, y no borra). No existe modificar en sitio: corregir es añadir un ocupante. `BUSCAR` las pide de dos maneras, sin ambigüedad (VG, 7-11): con un número es índice (el camino exacto, relativo al anfitrión); con un texto de diez dígitos es dirección (absoluta en el registro, la colisión entera).
 
 ### El vector de encaje
 
