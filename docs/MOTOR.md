@@ -974,7 +974,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Anidar hileras o décuplas en una posición por decisión | `en` lo elige quien llama (raíz por defecto). |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
-| Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. |
+| Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. Las bases del 8 ya se escriben como registros fundibles (§14); `BASES()` en BQL, no. |
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
@@ -1000,3 +1000,33 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 16. `proponer` convierte el valor de una fórmula que no es número en su **texto** formateado: una magnitud se consolida como `"14 EUR (12 EUR + 2 EUR)"`, que BQL relee como `texto` (el paréntesis del desglose impide leerla como magnitud). El importe deja de ser operable en la consolidación (§2.1).
 17. `ejecutar` sobre una consolidación pendiente lanza `Error('PENDIENTE DE AUTORIZACIÓN')`: el mensaje es el nombre del estado, sin prefijo que diga qué falló, y coincide con el valor normal de `estadoDe`.
 18. Nada une el texto de la acción consolidada (`'pagar 14 EUR'`) con los `movimientos` de la ejecución: se puede consolidar «pagar 14 EUR» y ejecutar 1000 EUR (si hay saldo) o nada.
+
+## 14. Bases del 8 (`src/bases.js`)
+
+Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido; no hay base de datos aparte (mapa §12, [D] «Cohortes y bases del 8»). Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
+
+```js
+medir(eje, id)                     // → { 'posiciones.0'…'posiciones.9', posiciones, escritos, identidades, profundidad, 'formulas.resueltas', 'formulas.pendientes', 'movimientos.<clave de serie>' }
+caja(medida, valor)                // → 0–9 según CORTES (constante; [X] cortes = regla de la época)
+baseVacia(); baseUnitaria(medidas) // → { cortes, n, medidas: { <medida>: { cajas: [10], suma, minimo, maximo } } }
+fundir(a, b)                       // → suma caja a caja, sumas, n, mín y máx; O(1) respecto a lo medido; rechaza cortes o profundidades distintos
+baseDe(eje, padre)                 // → la base de los hijos (hermanos entre sí), profundidad 1, refs = hijos medidos, hasta = el último
+fundirHaciaArriba(eje, id, { profundidad }) // → la base desde las bases del 8 de los hijos, sin releer registros; refs = bases fundidas; sinBase, vacios
+escribirBase(eje, { autor, padre, privada, t, desde: 'hijos' | 'bases', profundidad }) // → evento en el 8 del padre, firmado, 1 minuto de T
+leerBase(eje, id, { profundidad, autor }) // → la más reciente por llegada, con anteriores y frescura { t, hijosNuevos, basesNuevas, alDia }, o null
+situar(eje, foco, { cohorte: 'hermanos' | 'proyecto' | 'general', proyecto, autor }) // → por medida { valor, caja, etiqueta, enCaja, debajo, encima, minimo, maximo, media }
+cajasEtiquetadas(base, medida)     // → [{ caja, nivel, nombre, cuenta }]: HITOS solo como etiquetas de caja
+```
+
+| Paso | Quién | `sobre` / `en` | `contexto` | Mueve |
+|---|---|---|---|---|
+| base de hermanos | identidad con clave, firmando ([X] debería ser la propia cosa; en el ejemplo, la casa) | el padre / `CIELO` | `{ bases: true, n, hasta, profundidad: 1, desde: 'hijos', cortes }` | `COSTE_BASE`: 1 minuto de T ([X] coste) |
+| base fundida (proyecto, génesis) | igual | el registro / `CIELO` | `{ bases: true, n, hasta, profundidad: ≥ 2, desde: 'bases', cortes }` | igual |
+
+- **Cohortes.** `hermanos` lee el 8 del padre; `proyecto`, el del registro del hilo que cuelga del génesis ([X] qué es el proyecto); `general`, el del génesis. La profundidad de la base es la distancia del foco a ese registro: la cohorte son los registros a su misma altura.
+- **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`. Solo cuentan bases firmadas por una identidad con clave y bien formadas.
+- **Frescura.** `hijosNuevos`: hijos llegados después de `hasta`; `basesNuevas` (fundidas): hijos cuya base vigente ya no es la fundida.
+- **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS`; `situar` dice en qué caja cae el foco y cuántos quedan debajo, en ella y encima.
+- Las bases no son hijas de lo que miden: `medir` no las cuenta como escritos y `baseDe` no las mide. `tiempo.comparar` y `tiempo.medir` aún sí: límite observado, no corregido aquí (`src/tiempo.js` no se toca en esta pieza).
+
+Pendiente: `BASES()` en BQL (propuesta en la nota, §4); cortes como regla de la época; que la base la escriba la propia cosa.
