@@ -66,6 +66,7 @@ import { direccion, indicesDe, esReferencia } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
 import { familiaDe } from '../../src/tokens.js';
+import { colateral, colateralDe, colateralMinimo, cubre } from '../../src/lente.js';
 import { descubrir, consolidar, autorizar, ejecutar, liberar, bloqueosDeP, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
 
 /** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
@@ -250,15 +251,16 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   // emite una vez; ampliarla sería una consolidación autorizada, R3) y delega
   // en recepción 6 de 10: más de la mitad, así que recepción autoriza sola lo
   // que cuelga de las Reservas. Emitir P es el tercer escalón (T + R + P): la
-  // casa gasta T y pone en juego un R:casa ante recepción. Va en un evento
-  // propio: P exige un ámbito que ya exista.
+  // casa gasta T y pone en juego su R: bloquea un R:casa como colateral de su
+  // serie (R6, src/lente.js: la décima parte de los 10 que emitió). Va en un
+  // evento propio: P exige un ámbito que ya exista.
   const delegacion = await eje.escribir({
     autor: CASA,
     sobre: dominio.id,
     t,
     movimientos: [
       minutos(CASA),
-      { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' },
+      colateral(CASA, 1),
       { token: 'P', cantidad: P_RESERVAS, ambito: dominio.id, de: null, a: CASA },
       { token: 'P', cantidad: P_RECEPCION, ambito: dominio.id, de: CASA, a: 'recepcion' },
     ],
@@ -317,7 +319,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
  * atados a la habitación (R2) y con caducidad a la salida del día siguiente.
  * Es la serie limitada que respalda las plazas; solo la casa la amplía.
  * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
- * casa gasta su T, pone en juego su reputación ante recepción (un R:casa) y
+ * casa gasta su T, tiene su R en juego (el colateral de R:casa, R6; si aún no, lo bloquea) y
  * tiene P sobre la habitación (su P:Reservas y el del génesis la cubren).
  * Y emitir E cuesta P bloqueado (R2): si aún no lo tiene, la casa acuña su P
  * sobre el alojamiento, tanto como su capacidad (4), y bloquea de él, por
@@ -330,7 +332,9 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
   const alojamiento = eje.obtener(habitacion.sobre);
   const capacidad = capacidadDe(alojamiento?.payload);
   const ambito = alojamiento.id;
-  const movimientos = [minutos(CASA), { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' }];
+  const movimientos = [minutos(CASA)];
+  const falta = colateralMinimo(eje.serie('R:' + CASA).emitido) - colateralDe(eje, CASA);
+  if (!cubre(colateralDe(eje, CASA), eje.serie('R:' + CASA).emitido) || colateralDe(eje, CASA) <= 0) movimientos.push(colateral(CASA, Math.max(falta, 1)));
   if (capacidad && !eje.serie('P:' + ambito).emitido) movimientos.push({ token: 'P', ambito, cantidad: capacidad, de: null, a: CASA });
   habitacion.payload[1].forEach((laPlaza, k) => {
     const plazas = capacidadDe(laPlaza);

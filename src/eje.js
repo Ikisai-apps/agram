@@ -26,6 +26,7 @@
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
+import { reglasDeR, devolucionesDe } from './lente.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
 import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
@@ -451,6 +452,9 @@ export class Eje {
     // emisores), el tope compartido igual a la capacidad, la cuota por P
     // bloqueado y que ese P no se libere mientras viva la E que respalda.
     for (const { texto } of reglasDelTope(ev, this.#contextoTope())) errores.push(texto);
+    // R6 (VG, 7-11 noche): emitir R exige colateral (R propia bloqueada con la salida = la serie), que no se
+    // libera mientras haya devoluciones sin atender; atender es citar la devolución (src/lente.js).
+    for (const { texto } of reglasDeR(ev, this.#contextoR())) errores.push(texto);
     // Simulación de los movimientos, en orden, sobre una vista de los saldos y
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
     // así que el emisor puede emitir y dar en el mismo evento. Lo bloqueado
@@ -528,6 +532,20 @@ export class Eje {
       genesisId: this.genesisId,
       // R3: ampliar P:X exige una consolidación AUTORIZADA (autorizar = bloquear P; src/autorizacion.js).
       autorizada: (id) => estadoPorPeso(lectorDelEje(this), id) === 'AUTORIZADO',
+      // R6: la R propia en juego es R:<autor> bloqueada como colateral (src/lente.js, rPropiaEnJuego).
+      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
+    };
+  }
+
+  /** Lo que leen las reglas de R (src/lente.js, reglasDeR): el eje de antes del evento. */
+  #contextoR() {
+    const dev = devolucionesDe(this);
+    return {
+      reglas: this.orden.length < this.eventosV2 ? 2 : 3,
+      serie: (k) => this.#series.get(k) ?? null,
+      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
+      pendientes: dev.pendientes,
+      devolucion: dev.devolucion,
     };
   }
 

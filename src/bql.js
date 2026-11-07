@@ -24,6 +24,8 @@
 //   =BASES(alcance?, medida?, k | campo?)   lee las bases del 8 (src/bases.js, valorDeBases): n, la caja del anfitrión o un dato de la base
 //   =CAJA(medida, alcance?)  la caja (0–9) del anfitrión en esa medida (= BASES(alcance, medida)); alcance "hermanos" por defecto
 //   =FRESCURA(alcance?)      llegadas desde la base que lee ese alcance (0 = ninguna llegada; no ve cambios en lo ya medido)
+//   =VALOR_R("titular")     el valor de la R que tiene titular, con la lente firmada del lector que consulta (src/lente.js, R6)
+//   =LENTE("emisor")        el peso (0–1) que el lector que consulta da a ese emisor en su lente; 0 si no lo nombra
 //   comparaciones  = <> < > <= >=   solo entre el mismo tipo escalar (y la misma unidad)   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO; PENDIENTE (falta un dato, un evento que no ha llegado o
@@ -39,7 +41,13 @@
 // con el modo de escribirla; si leer la base cuesta más que el presupuesto
 // que queda, PENDIENTE POR LÍMITE (docs/BQL.md §7.14).
 //
-// Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
+// VALOR_R y LENTE leen la lente de R del LECTOR que consulta (opciones.lector):
+// sin lector, o si el lector no ha declarado lente, PENDIENTE (sin lente, R no
+// vale nada). Leer la lente y las tenencias pasa por el gancho y cuesta
+// presupuesto: un paso por cada declaración de la lente y por cada evento que
+// movió esa R al titular o desde él (docs/BQL.md §7.15).
+//
+// Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos }, lector }.
 
 import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from './btml.js';
 import { ocupantesElegibles } from './elegibles.js';
@@ -49,6 +57,7 @@ import {
   CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
 } from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
+import { lenteDe, detalleValor, anclasDeLente, POSICION_LENTE } from './lente.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -323,6 +332,7 @@ function contexto(eje, opciones = {}) {
     presupuesto: limites.presupuesto,
     actual: null,
     puedeLeer: typeof opciones.puedeLeer === 'function' ? opciones.puedeLeer : null,
+    lector: typeof opciones.lector === 'string' && opciones.lector ? opciones.lector : null, // quien lee: su lente valora la R (R6)
   };
 }
 
@@ -639,6 +649,14 @@ function funcion(ctx, nodo, evId, base) {
       const { frescura: f } = leerCohorte(ctx, evId, alcanceDe(args[0], 'FRESCURA')).base;
       return num(f.hijosNuevos + f.basesNuevas + f.debajo);
     }
+    case 'VALOR_R': {
+      if (args.length !== 1 || args[0].tipo !== 'texto' || !args[0].valor) throw new Parada('ERROR', 'VALOR_R espera el nombre del titular entre comillas');
+      return num(valorConLente(ctx, args[0].valor));
+    }
+    case 'LENTE': {
+      if (args.length !== 1 || args[0].tipo !== 'texto' || !args[0].valor) throw new Parada('ERROR', 'LENTE espera el nombre de un emisor de R entre comillas');
+      return num(lenteDelLector(ctx, 'LENTE').pesos.get(args[0].valor) ?? 0);
+    }
     case 'Y': return bool(args.every((a) => exigirBool(a, 'Y')));
     case 'O': return bool(args.some((a) => exigirBool(a, 'O')));
     case 'NO': return bool(!exigirBool(args[0], 'NO'));
@@ -790,6 +808,50 @@ function cajaDelFoco(ctx, foco, medida, alcance) {
   const r = valorDeBases(ctx.eje, foco, [alcance, medida]);
   if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo.replace(/^BASES/, 'CAJA'));
   return r.valor;
+}
+
+// ---------- VALOR_R y LENTE: la lente de R (R6) ----------
+// R vale solo ante quien la lee, con la lente que ese lector firmó
+// (src/lente.js). Aquí no se suma nada: la suma ponderada es de
+// lente.detalleValor.
+
+/** Cobra `coste` pasos del presupuesto; si no caben, PENDIENTE POR LÍMITE sin haber leído nada. */
+function cobrar(ctx, coste, que) {
+  const quedan = Math.max(ctx.presupuesto, 0);
+  if (coste > quedan) throw limite(que + ' exige examinar ' + coste + ' registros y quedan ' + quedan + ' pasos de presupuesto', { examinados: 0, de: coste });
+  ctx.presupuesto -= coste;
+}
+
+/**
+ * La lente del lector que consulta, leída con el gancho y cobrada (un paso
+ * por declaración). Sin lector o sin lente, PENDIENTE: puede llegar una
+ * declaración (por eso el resultado depende de la posición 3 de cada ancla).
+ */
+function lenteDelLector(ctx, nombre) {
+  if (!ctx.lector) throw new Parada('PENDIENTE', nombre + ': sin lector no hay lente, y sin lente R no vale nada (opciones.lector)');
+  for (const a of anclasDeLente(ctx.eje, ctx.lector)) ctx.dependencias.add(a + ':' + POSICION_LENTE);
+  const lente = lenteDe(ctx.eje, ctx.lector);
+  if (!lente) {
+    throw new Parada('PENDIENTE', nombre + ': ' + ctx.lector + ' no ha declarado su lente de R (un evento suyo en la posición 3 de su alta, con pares [emisor, peso]); sin lente, R no vale nada');
+  }
+  cobrar(ctx, lente.declaraciones.length, nombre + ' (la lente de ' + ctx.lector + ')');
+  for (const id of lente.declaraciones) {
+    autorizar(ctx, id, [], 'leer la lente de ' + ctx.lector);
+    ctx.dependencias.add(id + ':' + direccion([]));
+  }
+  return lente;
+}
+
+/** VALOR_R(titular): Σ peso × participación sobre los emisores de la lente (lente.detalleValor), con el gancho y el presupuesto. */
+function valorConLente(ctx, titular) {
+  lenteDelLector(ctx, 'VALOR_R');
+  const d = detalleValor(ctx.eje, ctx.lector, titular);
+  cobrar(ctx, d.eventos.length, 'VALOR_R (las tenencias de R de ' + titular + ')');
+  for (const id of d.eventos) {
+    autorizar(ctx, id, [], 'leer una tenencia de R de ' + titular);
+    ctx.dependencias.add(id + ':' + direccion([]));
+  }
+  return d.valor;
 }
 
 /** Ejecuta fn y lo convierte en Resultado. Una parada, un error de sintaxis o la pila de JavaScript agotada no se escapan. */

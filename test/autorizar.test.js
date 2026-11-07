@@ -35,7 +35,7 @@ async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {
     await eje.escribir({ autor: 'd', sobre: X.id, t: T0, payload: 'poder sobre la sala', movimientos: [gasta('d'),
-      { token: 'R', emisor: 'd', cantidad: 1, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
+      { token: 'R', emisor: 'd', cantidad: 2, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 0.5, de: 'd', a: 'd', estado: 'bloqueo', salida: 'R:d' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
       { token: 'P', ambito: X.id, cantidad: pX, de: null, a: 'd' }] });
   }
   return { eje, X: X.id };
@@ -125,7 +125,7 @@ test('un títere sin P:X no autoriza nada: ni con P del eje donde X tiene P prop
   // Ni un subregistro del títere dentro de X: el recurso sigue siendo X, y su P sobre el subregistro no es P:X.
   const sub = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'lo del títere', movimientos: [gasta('t')] });
   await eje.escribir({ autor: 't', sobre: sub.id, t: T0, payload: 'poder del títere', movimientos: [gasta('t'),
-    { token: 'R', emisor: 't', cantidad: 1, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
+    { token: 'R', emisor: 't', cantidad: 2, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 0.5, de: 't', a: 't', estado: 'bloqueo', salida: 'R:t' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
   const debajo = await consolidacionDe(eje, 'a', sub.id);
   assert.equal(recursoDe(eje, debajo.id), X);
   assert.equal(puedeAutorizar(eje, 't', debajo.id), false);

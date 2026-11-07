@@ -12,6 +12,7 @@ import { descubrir, consolidar, autorizar, ejecutar, liberar, recursoDe, estadoD
 import { ejeTemporal } from '../src/tiempo.js';
 import { generarClaves } from '../src/autoridad.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { colateral } from '../src/lente.js';
 
 const T = '2026-11-09T09:00:00Z';
 const SIETE = '7000000000';
@@ -118,8 +119,9 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   assert.deepEqual([noches[0], noches[13]], ['2026-11-16', '2026-11-29']);
   assert.equal(temporada.autor, CASA);
   assert.equal(temporada.sobre, habitacion.id);
-  // VG, 7-11 noche: T, R de la casa en juego, su P sobre el alojamiento, un bloqueo de ese P por plaza (R2) y las plazas por noche.
-  assert.equal(temporada.movimientos.length, 2 + 1 + 3 + 3 * 14);
+  // VG, 7-11 noche: T, su P sobre el alojamiento, un bloqueo de ese P por plaza (R2) y las plazas por noche. La R de la
+  // casa ya está en juego: su colateral (R6), bloqueado al emitir P sobre las Reservas.
+  assert.equal(temporada.movimientos.length, 1 + 1 + 3 + 3 * 14);
   assert.equal(seriePlaza(habitacion.id, PLAZAS.litera, '2026-11-20'), 'E:casa/1200000000@2026-11-20@' + habitacion.id);
   for (const [k, capacidad] of [[PLAZAS.matrimonio, 1], [PLAZAS.individual, 1], [PLAZAS.litera, 2]]) {
     for (const n of noches) {
@@ -469,7 +471,7 @@ test('E atada al recurso (R2): 4 plazas por noche; un segundo emisor no añade u
   assert.deepEqual([eje.serie('P:' + alojamiento.id).emitido, eje.saldo('recepcion', 'P:' + alojamiento.id)], [8, 4]);
   // Recepción quiere respaldar una litera más: con 2 de 8 bloqueados su cuota da 1, pero el tope es del alojamiento en
   // esa noche, sumando emisores y plazas.
-  await eje.escribir({ autor: 'recepcion', sobre: eje.genesisId, t: T, payload: 'R de recepción', movimientos: [minutos('recepcion'), { token: 'R', emisor: 'recepcion', cantidad: 5, de: null, a: 'recepcion' }] });
+  await eje.escribir({ autor: 'recepcion', sobre: eje.genesisId, t: T, payload: 'R de recepción', movimientos: [minutos('recepcion'), { token: 'R', emisor: 'recepcion', cantidad: 5, de: null, a: 'recepcion' }, colateral('recepcion', 1)] });
   const otra = (noche, t = T) => {
     const denominacion = denominacionPlaza(PLAZAS.litera, noche);
     return {

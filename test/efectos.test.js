@@ -340,7 +340,8 @@ test('la fase se juzga como la juzga el motor, con el eje de ahora: no sale solo
     autor: 'casa', sobre: alta.id, t: T, payload: 'poder sobre las altas',
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
-      { token: 'R', emisor: 'casa', cantidad: 1, de: null, a: 'casa' },
+      { token: 'R', emisor: 'casa', cantidad: 2, de: null, a: 'casa' },
+      { token: 'R', emisor: 'casa', cantidad: 0.5, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }, // R6: el colateral
       { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'cocina' },
       { token: 'P', ambito: alta.id, cantidad: 4, de: null, a: 'casa' },
     ],
