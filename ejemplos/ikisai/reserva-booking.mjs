@@ -1,47 +1,78 @@
 // Segundo ejemplo transversal con datos inventados: una reserva de alojamiento
 // (Booking) en una casa rural. Existe para forzar que el núcleo sea genérico y
 // no esté moldeado por la compra de comida: otro dominio, otra décupla, otro
-// ciclo. Construye su propio eje: génesis de la casa; altas de recepción y de
-// una persona huésped (con dinero, E); la casa publica la disponibilidad y
-// delega en recepción el poder (P) sobre ella; la persona huésped escribe la
-// reserva sobre esa disponibilidad con referencias (no copias) y fórmulas
-// BQL; recepción confirma por el ciclo del motor: consolidar → autorizar →
-// ejecutar con el pago. Nada de esto es real.
+// ciclo. Construye su propio eje: génesis de la casa (un grupo); altas de
+// recepción y de una persona huésped; la casa escribe su dominio
+// «Alojamiento» y delega en recepción el poder (P) con ese ámbito; publica el
+// elemento habitación con sus plazas; la persona huésped escribe la reserva
+// anclada en una plaza, con las noches en su propio 7; recepción confirma por
+// el ciclo del motor: consolidar → autorizar → ejecutar con el pago.
 //
-// [X] decidir VG: la habitación-noche como recurso escaso. Hoy la habitación
-// es texto BTML en la disponibilidad y la reserva solo mueve T (y E al
-// ejecutar: el pago). Nada de la casa queda comprometido ni descontado, y el
-// eje acepta una segunda reserva de la misma habitación en las mismas fechas.
-// El mapa dice «tokens como base, no perímetro» y E = cantidad,
-// disponibilidad, derechos y obligaciones: la alternativa es que la
-// habitación-noche sea un E de la casa que se mueve o se bloquea al
-// confirmar, lo que exige dos partes (compromiso de la casa + pago de la
-// persona huésped; hueco AARPIA del mapa §12). Mientras tanto la ejecución se
-// titula «Pagada»: solo hay evidencia del pago, no de la ocupación.
+// La plaza (VG, 7-11): una POSICIÓN con capacidad dentro del elemento
+// habitación. Las reservas son sus ocupantes: colisionan en la plaza y se
+// ven todas, pero solo tantas como su capacidad pueden ser VÁLIDAS a la vez
+// (una por cama y noche). La validez se fija al EJECUTAR en la fábrica: el
+// motor se niega a ejecutar una reserva si la plaza ya tiene, en su tramo,
+// tantas reservas ejecutadas como capacidad (motor.ocupacion).
+//
+// Pendiente, decidido por VG (mapa §12, 7-11: «las dos cosas a la vez»): la
+// serie limitada de tokens de plaza. Además de la posición con capacidad, la
+// casa emite una serie de E (un token por plaza y noche, tantos como
+// capacidad) y ejecutar la reserva mueve esos tokens al huésped. Aquí solo
+// está la mitad «posición»: la otra exige que la ejecución mueva en el mismo
+// acto tokens de la casa (o de la habitación, como cosa titular) y del
+// huésped, y el motor V0 ejecuta solo el autor de la consolidación y nadie
+// mueve tokens ajenos.
+// [X] decidir VG: la ejecución de dos partes mientras AARPIA no exista (quién
+// entrega los tokens de plaza, con qué consolidación y en qué orden respecto
+// al pago). Mientras tanto la ejecución se titula «Pagada y válida»: hay
+// evidencia del pago y de que la plaza tenía sitio.
 
 import { Eje } from '../../src/eje.js';
+import { direccion } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
 import { descubrir, consolidar, autorizar, ejecutar, consolidaciones, autorizacionesValidas, FABRICA } from '../../src/motor.js';
 
-/**
- * Dónde se ancla la reserva en la disponibilidad: en su futuro (7), que es
- * donde viven las fechas. [X] decidir VG: alternativa, en recursos (1), porque
- * ocupa una habitación. No es solo semántica: descubrir y consolidaciones
- * miran 1–4, así que desde la disponibilidad la reserva hoy solo se ve por
- * ocupantes(7), BUSCAR(7) y el eje temporal, no por la fábrica.
- */
-export const EN_RESERVA = '7000000000';
+/** Las plazas de la habitación: cada una en la posición 1.k de sus recursos. */
+export const PLAZAS = Object.freeze({ matrimonio: 0, individual: 1, litera: 2 });
+
+/** Dirección de una plaza dentro de la habitación (1.k): ahí se anclan sus reservas. */
+export function plaza(k) {
+  return direccion([1, k]);
+}
+
+/** Dirección del precio de una plaza (1.k.1): dentro de la plaza, no en un array aparte. */
+export function precioDe(k) {
+  return direccion([1, k, 1]);
+}
 
 /**
- * Marca honesta de relleno. Un array BTML no admite huecos, así que para
- * declarar el 7 hay que escribir algo en 3–6; lo que este ejemplo no
- * desarrolla lo dice con un texto llano (no empieza por «=», así que no
- * necesita el escape «==», que solo protege un «=» inicial).
- * [X] decidir VG: cómo se escribe «sin desarrollar» o «no aplicable» sin null
- * (mapa §4.6). Una referencia al propio registro no sirve de marca: el id no
- * existe hasta que el registro está escrito.
+ * El elemento habitación: 0 su nombre; 1 sus recursos, que son sus plazas
+ * (1.k), cada una [nombre, precio por noche, capacidad]; 2 criterios; 3 quién
+ * atiende; 4 la acción que ofrece. La capacidad va en el criterio de la plaza
+ * (su posición 2: cuántas reservas caben a la vez) y es lo que lee el motor
+ * (motor.capacidadDe; [X] en motor.CRITERIO_CAPACIDAD).
+ * Límite conocido de los ceros finales: la primera plaza (1.0) colisiona con
+ * la posición 1 entera y con su propio nombre (1.0.0) en 1000000000; el
+ * motor mira toda la colisión y solo la plaza declara capacidad.
  */
-export const SIN_DESARROLLAR = 'sin desarrollar';
+export const HABITACION = Object.freeze([
+  'Habitación del jardín', // 0 representación
+  [
+    ['cama de matrimonio', 'EUR 80', 1], // 1.0 plaza: una pareja por noche
+    ['cama individual', 'EUR 55', 1], // 1.1 plaza: una persona por noche
+    ['litera', 'EUR 25', 2], // 1.2 plaza: dos camas, dos reservas a la vez
+  ], // 1 recursos: las plazas
+  ['sin humo', 'con desayuno'], // 2 criterios
+  ['recepcion'], // 3 comunicación: quién atiende
+  'reservar', // 4 fábrica: la acción que se ofrece
+]);
+
+/** Movimiento de T: escribir cuesta minutos de quien escribe. */
+const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+
+/** EUR de la casa: la serie E:casa/EUR. */
+const eur = (cantidad, de, a) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
 /**
  * claves (opcional): { casa: {publica, privada}, recepcion: {...}, huesped: {...} }.
@@ -54,9 +85,11 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
+    tipo: 'grupo', // solo personas y grupos emiten
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'E', denominacion: 'EUR', cantidad: 500 },
+      { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
+      { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa rural de ejemplo',
@@ -66,8 +99,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
   });
 
   // La casa da de alta a recepción y a una persona huésped (con dinero para
-  // pagar): existen al recibir tokens. El poder de recepción no cabe aquí: P
-  // exige un ámbito que ya exista, y la disponibilidad aún no está escrita.
+  // pagar): existen al recibir tokens, y el alta declara qué es cada una.
   const declaradas = {};
   for (const id of ['recepcion', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const alta = await eje.escribir({
@@ -75,106 +107,118 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
     sobre: eje.genesisId,
     t,
     movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
+      minutos('casa'),
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'recepcion' },
-      { token: 'E', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'huesped' },
+      { token: 'T', escala: 'minuto', cantidad: 600, de: 'casa', a: 'recepcion' },
+      eur(300, 'casa', 'huesped'),
       { token: 'T', escala: 'hora', cantidad: 72, de: 'casa', a: 'huesped' },
+      { token: 'T', escala: 'minuto', cantidad: 600, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas de la temporada', ['recepcion', 'huesped']],
-    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
+    contexto: { tipos: { recepcion: 'persona', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
-  // La casa publica la disponibilidad sobre las altas. Cada habitación es una
-  // subdécupla [nombre, precio por noche]: un solo nodo referenciable, sin
-  // arrays paralelos. Límite conocido de los ceros finales: la primera
-  // habitación (1.0.0, «doble») no se puede nombrar con precisión, porque
-  // 1000000000 nombra a la vez [1], [1.0], [1.0.0] y [1.0.0.0]. Un array BTML
-  // no admite huecos, así que para declarar el futuro (7) hay que escribir
-  // 3–6: 3 y 4 dicen algo; 5 y 6 llevan la marca de relleno.
-  const disponibilidad = await eje.escribir({
+  // El dominio (VG, 7-11): un registro «Alojamiento» de la casa. Todo lo de
+  // Booking cuelga de él, y el poder de recepción tiene ese ámbito.
+  const alojamiento = await eje.escribir({
     autor: 'casa',
-    sobre: alta.id,
+    sobre: eje.genesisId,
     t,
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 10, de: 'casa', a: null }],
-    payload: [
-      'Habitaciones libres del 20 al 23 de noviembre', // 0 representación
-      [
-        [['doble', 'EUR 80'], ['individual', 'EUR 55'], ['familiar', 'EUR 120']], // 1.0 habitaciones: cada una [nombre, precio por noche]
-        3, // 1.1 noches
-      ], // 1 recursos
-      ['sin humo', 'con desayuno'], // 2 criterios
-      ['recepcion'], // 3 comunicación: quién atiende
-      'reservar', // 4 fábrica: la acción que se ofrece
-      SIN_DESARROLLAR, // 5 relleno para llegar al 7 (ver [X] en SIN_DESARROLLAR)
-      SIN_DESARROLLAR, // 6 relleno para llegar al 7
-      ['2026-11-20', '2026-11-23'], // 7 futuro: fechas
-    ],
+    movimientos: [minutos('casa')],
+    payload: 'Alojamiento',
   }, priv('casa'));
 
-  // La casa delega en recepción el poder de confirmar: P con ámbito, que
-  // estrecha el poder de la casa a un registro y lo que cuelgue de él. Va en
-  // un evento propio, después de publicar la disponibilidad, con el ámbito
-  // mínimo: la disponibilidad misma (cubre la reserva y su fábrica).
-  // [X] decidir VG: el ámbito del poder de recepción. Alternativas: 'genesis'
-  // (recepción autorizaría todo el eje) o alta.id (todo lo publicado desde
-  // las altas). Con el mínimo, recepción no puede autorizar nada fuera de esta
-  // disponibilidad.
+  // La casa delega en recepción el poder de confirmar, con el ámbito del
+  // dominio: recepción autoriza lo que cuelga del Alojamiento (y puede
+  // delegar hacia abajo), nada más. Va en un evento propio: P exige un ámbito
+  // que ya exista.
   const delegacion = await eje.escribir({
     autor: 'casa',
-    sobre: disponibilidad.id,
+    sobre: alojamiento.id,
     t,
-    movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
-      { token: 'P', cantidad: 3, ambito: disponibilidad.id, de: 'casa', a: 'recepcion' },
-    ],
-    payload: 'Recepción atiende esta disponibilidad',
+    movimientos: [minutos('casa'), { token: 'P', cantidad: 3, ambito: alojamiento.id, de: 'casa', a: 'recepcion' }],
+    payload: 'Recepción atiende el alojamiento',
   }, priv('casa'));
 
-  // La persona huésped escribe la reserva sobre la disponibilidad, anclada en
-  // su futuro. La habitación elegida es una referencia a su subdécupla
-  // (1.0.1: la segunda habitación) y el precio, una referencia dentro de esa
-  // misma subdécupla (1.0.1.1), no copias: la dirección del precio cuelga de
-  // la de la habitación. Las fórmulas viven en la misma décupla anidada (1):
-  // LOCAL lee a su profundidad. Límite del núcleo: LOCAL(0, 1) no lee el
-  // precio a través de la referencia de 1.0 (leerPosicion no sigue
-  // referencias a mitad de camino), por eso el precio va como referencia.
-  const reserva = await eje.escribir({
-    autor: 'huesped',
-    sobre: disponibilidad.id,
-    en: EN_RESERVA,
-    t: '2026-11-08T18:30:00Z',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 15, de: 'huesped', a: null }],
-    payload: [
-      'Reserva de la individual, tres noches', // 0 representación
-      [
-        { ref: disponibilidad.id, dir: '1010000000' }, // 1.0 habitación elegida: [individual, EUR 55]
-        3, // 1.1 noches
-        { ref: disponibilidad.id, dir: '1011000000' }, // 1.2 precio por noche: dentro de la habitación elegida
-        '=LOCAL(2) * LOCAL(1)', // 1.3 total: precio por noche × noches
-        '=LOCAL(3) + LOCAL(1) * 1 dia', // 1.4 el total compuesto con el tiempo que ocupa
-      ],
-      [{ ref: disponibilidad.id, dir: '2100000000' }], // 2 criterios: el que importa, con desayuno
-      ['huesped', 'recepcion'], // 3 comunicación: quién habla con quién
-    ],
-  }, priv('huesped'));
+  // La casa publica el elemento habitación con sus plazas, sobre el dominio.
+  const habitacion = await eje.escribir({
+    autor: 'casa',
+    sobre: alojamiento.id,
+    t,
+    movimientos: [minutos('casa', 10)],
+    payload: structuredClone(HABITACION), // copia: el payload de un evento no comparte arrays con nadie
+  }, priv('casa'));
 
-  const resultado = { eje, alta, disponibilidad, delegacion, reserva };
+  const reserva = await reservar(eje, {
+    autor: 'huesped',
+    habitacion,
+    plaza: PLAZAS.individual,
+    noches: ['2026-11-20', '2026-11-23'],
+    t: '2026-11-08T18:30:00Z',
+    privada: priv('huesped'),
+  });
+
+  const resultado = { eje, alta, alojamiento, delegacion, habitacion, reserva };
   if (!confirmar) return resultado;
   return { ...resultado, ...(await confirmarReserva(eje, reserva, { claves })) };
 }
 
 /**
- * Confirmación por el ciclo del motor. La persona huésped consolida en la
- * fábrica de su reserva lo que elige (habitación y criterio, por referencia a
- * la disponibilidad; lo que va a pagar, como fórmula que lee el total);
- * recepción autoriza (tiene P sobre la disponibilidad y no es la autora); la
- * persona huésped ejecuta con el pago E a la casa. Consolidar no es pagar: el
- * E se mueve al ejecutar. Idempotente: si la reserva ya tiene una
- * consolidación ejecutada, devuelve esa confirmación (con yaConfirmada) y no
- * cobra dos veces. El motor por sí solo no lo impide (acepta N
- * consolidaciones ejecutadas sobre un foco): la exclusividad vive aquí.
+ * Una reserva: la escribe quien reserva sobre la habitación, ANCLADA EN LA
+ * PLAZA (en = 1.k), con las noches en su propio futuro (7): [entrada,
+ * salida], la salida no se ocupa. La plaza y su precio van por referencia
+ * (no copias); las fórmulas viven en la misma décupla anidada (1), porque
+ * LOCAL lee a su profundidad. Las reservas de una plaza colisionan en ella:
+ * escribirlas no reserva nada; la validez llega al ejecutar.
+ * [X] decidir VG: qué llevan 4–6 de una reserva para llegar al 7 sin huecos
+ * (VG: sin «no aplicable»). Aquí, contenido propio: 4 las acciones que
+ * prepara, 5 su lugar en el árbol (la plaza que ocupa, mapa §8) y 6 el hilo
+ * de donde viene (la habitación, §10: hilos = cadena por referencia).
+ * [X] BQL no resta fechas: el número de noches (1.1) se escribe aparte del
+ * tramo (7); en el dato, nada comprueba que coincidan.
  */
-export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11-09T09:00:00Z' } = {}) {
+export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
+  const [entrada, salida] = noches;
+  const n = Math.round((Date.parse(salida) - Date.parse(entrada)) / 86400000);
+  const plazaElegida = habitacion.payload[1][k];
+  return eje.escribir({
+    autor,
+    sobre: habitacion.id,
+    en: plaza(k),
+    t,
+    movimientos: [minutos(autor, 15)],
+    payload: [
+      nombre ?? 'Reserva de la ' + plazaElegida[0] + ', ' + n + ' noches', // 0 representación
+      [
+        { ref: habitacion.id, dir: plaza(k) }, // 1.0 la plaza: [nombre, precio, capacidad]
+        n, // 1.1 noches
+        { ref: habitacion.id, dir: precioDe(k) }, // 1.2 precio por noche: dentro de la plaza elegida
+        '=LOCAL(2) * LOCAL(1)', // 1.3 total: precio por noche × noches
+        '=LOCAL(3) + LOCAL(1) * 1 dia', // 1.4 el total compuesto con el tiempo que ocupa
+      ], // 1 recursos
+      [{ ref: habitacion.id, dir: '2100000000' }], // 2 criterios: el que importa, con desayuno
+      [autor, 'recepcion'], // 3 comunicación: quién habla con quién
+      ['pagar', 'ocupar'], // 4 fábrica: lo que prepara
+      { ref: habitacion.id, dir: plaza(k) }, // 5 estructura: su lugar en el árbol, la plaza que ocupa
+      { ref: habitacion.id }, // 6 pasado: el hilo de donde viene
+      [entrada, salida], // 7 futuro: las noches (tramo)
+    ],
+  }, privada);
+}
+
+/**
+ * Confirmación por el ciclo del motor. Quien reservó consolida en la fábrica
+ * de su reserva lo que elige (la plaza y el criterio, por referencia a la
+ * habitación; lo que va a pagar, como fórmula que lee el total); recepción
+ * autoriza (tiene P sobre el Alojamiento y no es la autora); quien reservó
+ * ejecuta con el pago E a la casa. Consolidar no es pagar: el E se mueve al
+ * ejecutar. Y la fábrica fija la validez: si la plaza ya está llena en esas
+ * noches, ejecutar se niega («capacidad agotada») y la reserva queda escrita
+ * y autorizada pero no válida, sin cobro. Idempotente: si la reserva ya
+ * tiene una consolidación ejecutada, devuelve esa confirmación (con
+ * yaConfirmada) y no cobra dos veces.
+ */
+export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11-09T09:00:00Z', recepcion = 'recepcion' } = {}) {
   const hecha = consolidaciones(eje, reserva.id).find((c) => c.estado === 'EJECUTADO');
   if (hecha) {
     const consolidacion = eje.obtener(hecha.id);
@@ -183,29 +227,30 @@ export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11
     return { consolidacion, autorizacion, ejecucion, yaConfirmada: true };
   }
   const priv = (id) => claves[id]?.privada;
+  const quien = reserva.autor;
   const d = descubrir(eje, reserva.id);
   const alcanzado = (posicion) => d.find((p) => p.posicion === posicion).candidatos.find((c) => c.origen === 'referencia');
   const consolidacion = await consolidar(eje, {
-    autor: 'huesped',
+    autor: quien,
     foco: reserva.id,
     t,
     titulo: 'Reserva en firme',
     elecciones: {
-      1: { candidato: alcanzado(1) }, // la habitación alcanzada por la referencia
+      1: { candidato: alcanzado(1) }, // la plaza alcanzada por la referencia
       2: { candidato: alcanzado(2) }, // el criterio alcanzado por la referencia
-      4: '=REF("' + reserva.id + '", "1300000000")', // lo que se va a pagar: el total de la reserva (id completo, no prefijo)
+      4: '=REF("' + reserva.id + '", "1300000000")', // lo que se va a pagar: el total de la reserva (id completo)
     },
-  }, priv('huesped'));
-  const autorizacion = await autorizar(eje, { autorizante: 'recepcion', consolidacion: consolidacion.id, t, nota: 'confirmada' }, priv('recepcion'));
+  }, priv(quien));
+  const autorizacion = await autorizar(eje, { autorizante: recepcion, consolidacion: consolidacion.id, t, nota: 'confirmada' }, priv(recepcion));
   // La consulta no tiene efectos: el efecto es la ejecución, que mueve el E.
   const total = evaluar(eje, consolidacion.id, [4]);
   if (total.estado !== 'RESUELTO' || total.valor.tipo !== 'magnitud' || total.valor.unidad !== 'EUR') throw new Error('total no resuelto: ' + total.texto);
   const ejecucion = await ejecutar(eje, {
-    autor: 'huesped',
+    autor: quien,
     consolidacion: consolidacion.id,
     t,
-    titulo: 'Pagada', // solo hay evidencia del pago (ver [X] habitación-noche en la cabecera)
-    movimientos: [{ token: 'E', denominacion: 'EUR', cantidad: total.valor.cantidad, de: 'huesped', a: 'casa' }],
-  }, priv('huesped'));
+    titulo: 'Pagada y válida', // evidencia del pago y de que la plaza tenía sitio (ver [X] tokens de plaza en la cabecera)
+    movimientos: [eur(total.valor.cantidad, quien, 'casa')],
+  }, priv(quien));
   return { consolidacion, autorizacion, ejecucion };
 }

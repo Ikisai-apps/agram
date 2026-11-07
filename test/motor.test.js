@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, FABRICA } from '../src/motor.js';
+import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, FABRICA, capacidadDe, tramoDe, ocupacion, CRITERIO_CAPACIDAD } from '../src/motor.js';
 import { evaluar } from '../src/bql.js';
+import { Eje } from '../src/eje.js';
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -93,4 +94,45 @@ test('consolidar no ejecuta: no mueve E, solo el T de escribir', async () => {
   assert.equal(c.movimientos.length, 1);
   assert.equal(c.movimientos[0].token, 'T');
   assert.equal(evaluar(eje, c.id, [1]).texto, 'dos menús');
+});
+
+test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a la vez; la fábrica no ejecuta el que no cabe', async () => {
+  // La declaración: un entero positivo en el criterio (2) de la décupla de la posición.
+  assert.equal(CRITERIO_CAPACIDAD, 2);
+  assert.equal(capacidadDe(['sitio', 'precio', 3]), 3);
+  for (const nodo of ['sitio', ['sitio', 'precio'], ['sitio', 'precio', '3'], ['sitio', 'precio', 0], ['sitio', 'precio', 1.5], ['sitio', 'precio', ['x']]]) assert.equal(capacidadDe(nodo), undefined);
+  // El tramo: el 7 del registro, [inicio, fin) en ISO; sin 7, todo el tiempo; ilegible, error.
+  const conSiete = (siete) => ({ id: 'abcdef0123', payload: ['r', 'a', 'b', 'c', 'd', 'e', 'f', siete] });
+  assert.deepEqual(tramoDe(conSiete(['2026-12-01', '2026-12-03'])), { inicio: Date.parse('2026-12-01'), fin: Date.parse('2026-12-03'), texto: '2026-12-01 – 2026-12-03' });
+  assert.equal(tramoDe({ id: 'x', payload: 'terminal' }).inicio, -Infinity);
+  assert.throws(() => tramoDe(conSiete(['2026-12-03', '2026-12-01'])), /tramo ilegible/);
+  assert.throws(() => tramoDe(conSiete('mañana')), /tramo ilegible/);
+
+  // Un elemento neutro: su posición 1 admite un ocupante válido; su posición 2 no declara nada.
+  const t = '2026-12-01T09:00:00Z';
+  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const eje = await Eje.genesis({ identidad: 'g', tipo: 'grupo', emision: [{ token: 'T', escala: 'minuto', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'raíz', t });
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'g', a: 'ana' }, { token: 'T', escala: 'minuto', cantidad: 100, de: 'g', a: 'beto' }], payload: 'altas', contexto: { tipos: { ana: 'persona', beto: 'persona' } } });
+  const elemento = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g')], payload: ['elemento', ['sitio', 'precio', 1], ['otro sitio', 'precio']] });
+  const validar = async (autor, en, minuto) => {
+    const tt = '2026-12-01T10:' + minuto + ':00Z';
+    const r = await eje.escribir({ autor, sobre: elemento.id, en, t: tt, movimientos: [gasta(autor)], payload: 'ocupo' }); // sin 7: todo el tiempo
+    const c = await consolidar(eje, { autor, foco: r.id, t: tt, elecciones: { 1: 'lo ocupo' } });
+    await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t: tt });
+    return { r, c, ejecutar: () => ejecutar(eje, { autor, consolidacion: c.id, t: tt }) };
+  };
+  const primero = await validar('ana', '1000000000', 10);
+  await primero.ejecutar();
+  assert.equal(estadoDe(eje, primero.c.id), 'EJECUTADO');
+  const segundo = await validar('beto', '1000000000', 11);
+  await assert.rejects(segundo.ejecutar(), /capacidad agotada en 1000000000 de .*: 1 de 1 ya válidas a la vez en el tramo todo el tiempo/);
+  assert.equal(estadoDe(eje, segundo.c.id), 'AUTORIZADO');
+  assert.deepEqual(ocupacion(eje, segundo.r.id).map((o) => [o.camino, o.capacidad, o.aLaVez, o.cabe]), [[[1], 1, 1, false]]);
+  // Donde no hay capacidad declarada, la fábrica no limita: dos ocupantes válidos a la vez.
+  const tercero = await validar('ana', '2000000000', 12);
+  const cuarto = await validar('beto', '2000000000', 13);
+  await tercero.ejecutar();
+  await cuarto.ejecutar();
+  assert.deepEqual([tercero.c.id, cuarto.c.id].map((id) => estadoDe(eje, id)), ['EJECUTADO', 'EJECUTADO']);
+  assert.deepEqual(ocupacion(eje, cuarto.r.id), []);
 });

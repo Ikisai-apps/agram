@@ -7,7 +7,7 @@
 // Estados de una consolidación: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO.
 
 import { direccion, esReferencia } from './btml.js';
-import { ocupantes, vector, signo } from './encaje.js';
+import { ocupantes, vector, signo, caminosDe } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
@@ -178,7 +178,9 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
 /**
  * Ejecutar: con la consolidación autorizada, el evento final mueve los
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
- * la consolidación y a su autorización.
+ * la consolidación y a su autorización. Antes, la fábrica fija la validez:
+ * si el registro consolidado ocupa una posición con capacidad y en su tramo
+ * ya no cabe (ver ocupacion), se niega a ejecutar.
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
@@ -187,6 +189,12 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
   const estado = estadoDe(eje, consolidacion);
   if (estado === 'PENDIENTE DE AUTORIZACIÓN') throw new Error('PENDIENTE DE AUTORIZACIÓN');
   if (estado === 'EJECUTADO') throw new Error('ya ejecutado');
+  for (const o of ocupacion(eje, c.sobre)) {
+    if (!o.cabe) {
+      throw new Error('capacidad agotada en ' + o.dir + ' de ' + o.sobre.slice(0, 8) + ': ' + o.aLaVez + ' de ' + o.capacidad
+        + ' ya válidas a la vez en el tramo ' + o.tramo.texto + ' (' + o.validos.map((v) => v.id.slice(0, 8)).join(', ') + ')');
+    }
+  }
   const autorizacion = autorizacionesValidas(eje, consolidacion)[0];
   const payload = [titulo, { ref: consolidacion }, { ref: autorizacion.id }];
   const mov = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }, ...movimientos];
@@ -221,4 +229,87 @@ export function consolidaciones(eje, foco, camino = []) {
   return eje.sobre(foco, direccion([...camino, 4]))
     .filter((e) => e.contexto?.fase === 'consolidado')
     .map((e) => ({ id: e.id, autor: e.autor, t: e.t, titulo: e.payload[0], estado: estadoDe(eje, e.id), fuentes: e.contexto.fuentes ?? [] }));
+}
+
+// ---------- capacidad: cuántos ocupantes de una posición pueden ser válidos ----------
+
+/**
+ * Capacidad de una posición (VG, 7-11 mediodía). Una posición admite muchos
+ * ocupantes (colisiones: se escriben y se ven todos), pero puede declarar
+ * cuántos de ellos pueden ser VÁLIDOS a la vez en un mismo tramo. La validez
+ * se fija al EJECUTAR en la fábrica: un ocupante es válido cuando tiene una
+ * consolidación EJECUTADA, y la fábrica se niega a ejecutar el que ya no cabe.
+ * [X] decidir VG: cómo declara una posición su capacidad. V0: la décupla de
+ * la posición lleva en su criterio (subposición 2: «cuántos caben a la vez»)
+ * un entero positivo, como una plaza [nombre, precio, capacidad] bajo la
+ * época 0 (0 representación, 1 recursos, 2 criterios). Alternativa: en sus
+ * recursos (1), junto al precio. Sin ese entero, la posición no limita nada;
+ * con él, limita a cualquier registro anclado ahí, sea del dominio que sea.
+ */
+export const CRITERIO_CAPACIDAD = 2;
+
+/** Capacidad que declara el contenido de una posición, o undefined si no declara ninguna. */
+export function capacidadDe(nodo) {
+  if (!Array.isArray(nodo)) return undefined;
+  const c = nodo[CRITERIO_CAPACIDAD];
+  return Number.isSafeInteger(c) && c > 0 ? c : undefined;
+}
+
+/**
+ * Tramo de un registro: su futuro (posición 7) como [inicio, fin), dos
+ * fechas o instantes ISO; el fin no cuenta (la noche de la salida no se
+ * ocupa). Sin 7, el registro ocupa todo el tiempo.
+ * [X] decidir VG: la forma del tramo en el 7 (dos fechas, fin excluido) y
+ * qué ocupa un registro sin tramo (aquí, todo el tiempo).
+ */
+export function tramoDe(ev) {
+  const siete = Array.isArray(ev.payload) ? ev.payload[7] : undefined;
+  if (siete === undefined) return { inicio: -Infinity, fin: Infinity, texto: 'todo el tiempo' };
+  const [a, b] = Array.isArray(siete) ? siete : [];
+  const inicio = typeof a === 'string' ? Date.parse(a) : NaN;
+  const fin = typeof b === 'string' ? Date.parse(b) : NaN;
+  if (!(inicio < fin)) throw new Error('tramo ilegible en el 7 de ' + ev.id.slice(0, 8) + ': hacen falta [inicio, fin] en ISO, con inicio antes que fin');
+  return { inicio, fin, texto: a + ' – ' + b };
+}
+
+/** Un ocupante ya válido con el 7 ilegible no se descarta: ocupa todo el tiempo. */
+function tramoOTodo(ev) {
+  try { return tramoDe(ev); } catch { return { inicio: -Infinity, fin: Infinity, texto: 'todo el tiempo' }; }
+}
+
+/** Cuántos tramos coinciden a la vez, como mucho, dentro de otro (barrido por los inicios). */
+function maximoALaVez(tramos, dentro) {
+  const puntos = [dentro.inicio, ...tramos.map((x) => x.inicio).filter((p) => p > dentro.inicio && p < dentro.fin)];
+  let maximo = 0;
+  for (const p of puntos) maximo = Math.max(maximo, tramos.filter((x) => x.inicio <= p && p < x.fin).length);
+  return maximo;
+}
+
+/**
+ * Ocupación de las posiciones con capacidad donde está anclado un registro.
+ * La dirección `en` nombra la colisión entera (§12: «1» y «1.0» son el mismo
+ * lugar), así que cuenta cada camino que la dirección nombra y que declara
+ * capacidad. Por cada uno: la capacidad, el tramo del registro, los OTROS
+ * ocupantes de esa dirección ya válidos que se solapan con él, cuántos
+ * coinciden a la vez como mucho (una plaza con capacidad 2 admite dos
+ * estancias encadenadas y una tercera que las cruza) y si cabe uno más.
+ * Consulta sin efectos.
+ */
+export function ocupacion(eje, id) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  if (ev.sobre === null) return [];
+  const padre = eje.obtener(ev.sobre);
+  const conCapacidad = caminosDe(padre.payload, ev.en).filter((c) => capacidadDe(c.contenido) !== undefined);
+  if (!conCapacidad.length) return [];
+  const tramo = tramoDe(ev);
+  const validos = eje.sobre(ev.sobre, ev.en)
+    .filter((o) => o.id !== id && consolidaciones(eje, o.id).some((c) => c.estado === 'EJECUTADO'))
+    .map((o) => ({ id: o.id, autor: o.autor, tramo: tramoOTodo(o) }))
+    .filter((o) => o.tramo.inicio < tramo.fin && tramo.inicio < o.tramo.fin);
+  const aLaVez = maximoALaVez(validos.map((o) => o.tramo), tramo);
+  return conCapacidad.map((c) => {
+    const capacidad = capacidadDe(c.contenido);
+    return { sobre: ev.sobre, dir: ev.en, camino: c.indices, capacidad, tramo, validos, aLaVez, cabe: aLaVez < capacidad };
+  });
 }
