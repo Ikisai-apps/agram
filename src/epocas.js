@@ -40,6 +40,33 @@ export const TODAS = 'todas';
 const esIndice = (x) => Number.isInteger(x) && x >= 0 && x < ARIDAD;
 const esRuta = (x) => typeof x === 'string' && /^[0-9]{2,10}$/.test(x);
 
+/** Escala provisional de las diez cajas del 8 (nueve umbrales crecientes a saltos, VG, 7-11 noche: «sin más pretensión, se cambiará con datos reales»). Vale solo si ninguna época de la cadena trae cortes. [X] decidir VG: sus valores. */
+export const CORTES_PROVISIONALES = Object.freeze([1, 2, 3, 4, 6, 10, 16, 26, 42]);
+
+const sonCortes = (c) => Array.isArray(c) && c.length === ARIDAD - 1 && c.every(Number.isFinite) && c.every((x, k) => k === 0 || x > c[k - 1]);
+
+/**
+ * Reduce el campo `cortes` de una época a su escala única, o undefined si no
+ * trae ninguna: una lista de nueve umbrales, o (forma por medida, EN DESUSO)
+ * un objeto cuya escala es la de la clave `*`, `todas` o `por defecto`, o si
+ * no la de la primera medida; `decision` es texto, no una escala.
+ */
+function escalaDeCortes(cortes, nombre) {
+  if (cortes === undefined || cortes === null) return undefined;
+  let lista = cortes;
+  if (!Array.isArray(cortes)) {
+    if (typeof cortes !== 'object') throw new TypeError(nombre + ': cortes es una lista de nueve umbrales crecientes (o, en desuso, un objeto por medida)');
+    const claves = Object.keys(cortes).filter((k) => k !== 'decision');
+    const clave = ['*', 'todas', 'por defecto'].find((k) => claves.includes(k)) ?? claves[0];
+    if (clave === undefined) return undefined;
+    lista = cortes[clave];
+    if (!sonCortes(lista)) throw new TypeError(nombre + ': los cortes de ' + clave + ' han de ser nueve umbrales crecientes');
+  } else if (!sonCortes(lista)) {
+    throw new TypeError(nombre + ': los cortes han de ser nueve umbrales crecientes');
+  }
+  return { cortes: lista, origen: 'epoca' };
+}
+
 /**
  * Carga una época desde sus datos: { nombre, estado, principios, ordinales?,
  * reglas, dudas }. Una regla corta es { profundidad, digito, nombre,
@@ -53,13 +80,21 @@ const esRuta = (x) => typeof x === 'string' && /^[0-9]{2,10}$/.test(x);
  * respaldo valen donde la propia no dice nada.
  * `ordinales` son las profundidades donde el dígito es orden y no un nombre:
  * da el gancho epoca.ordinal(profundidad) que usa el encaje.
- * `cortes` (opcional) son los cortes de las diez cajas del 8 por medida o
- * serie: { <clave>: [nueve umbrales crecientes], todas?: [nueve umbrales],
- * decision?: texto }. Son regla de la época (MAPA §12: «Cortes de las cajas
- * = regla de la época»; VG, 7-11 noche: la época 0 trae 1 2 3 4 6 10 16 26
- * 42): da el gancho epoca.cortes(clave) que leen las bases (src/bases.js) y
- * su respaldo confluir(): los de esa clave, si no los de `todas`; undefined
- * si la época no los trae (las bases usan entonces los de la época 0).
+ * `cortes` (opcional) es UNA SOLA escala de nueve umbrales crecientes para las
+ * diez cajas del 8 y para todas las medidas (VG, 8-11: las cajas se calculan
+ * sobre cantidades y cuotas, no sobre recuentos; antes, VG 7-11 noche, decisión
+ * 2: son regla de la época, MAPA §12 «Cortes de las cajas = regla de la época»;
+ * la época 0 trae 1 2 3 4 6 10 16 26 42). Va como una lista de nueve números;
+ * por compatibilidad se admite un objeto por medida { <clave>: [...], todas?:
+ * [...], decision?: texto }, pero esa forma queda EN DESUSO: se reduce a la
+ * escala única (la clave `*`, `todas` o `por defecto`, o si no la primera) y
+ * ya no hay una escala por medida. Una época sin `cortes` HEREDA los de su
+ * respaldo (recursivo), igual que hereda las reglas cortas (VG, 8-11); si
+ * nadie los trae, vale CORTES_PROVISIONALES. Da el gancho epoca.cortes(clave),
+ * que devuelve siempre esa escala única (la clave solo se acepta por
+ * compatibilidad con quien lee por medida: src/bases.js), y
+ * epoca.cortesConOrigen(), { cortes, origen }, con origen 'epoca' (los trae la
+ * época o su respaldo) o 'provisional' (nadie los trae).
  */
 export function cargarEpoca(datos, { respaldo } = {}) {
   if (!datos || typeof datos !== 'object') throw new TypeError('época: faltan los datos');
@@ -67,15 +102,12 @@ export function cargarEpoca(datos, { respaldo } = {}) {
   if (!Array.isArray(datos.reglas)) throw new TypeError(datos.nombre + ': faltan las reglas');
   const ordinales = datos.ordinales ?? [];
   if (!Array.isArray(ordinales) || !ordinales.every(esIndice)) throw new TypeError(datos.nombre + ': ordinales son profundidades 0–9');
-  const cortes = datos.cortes ?? {};
-  if (!cortes || typeof cortes !== 'object' || Array.isArray(cortes)) throw new TypeError(datos.nombre + ': cortes es un objeto { <clave>: [nueve umbrales], todas?, decision? }');
-  const tablaCortes = new Map();
-  for (const [clave, c] of Object.entries(cortes)) {
-    if (clave === 'decision') continue; // texto: de dónde salen
-    const ok = Array.isArray(c) && c.length === ARIDAD - 1 && c.every(Number.isFinite) && c.every((x, k) => k === 0 || x > c[k - 1]);
-    if (!ok) throw new TypeError(datos.nombre + ': los cortes de ' + clave + ' han de ser nueve umbrales crecientes');
-    tablaCortes.set(clave, Object.freeze([...c]));
-  }
+  const escalaPropia = escalaDeCortes(datos.cortes, datos.nombre);
+  const escala = escalaPropia
+    ?? (typeof respaldo?.cortesConOrigen === 'function' ? respaldo.cortesConOrigen() : undefined)
+    ?? { cortes: CORTES_PROVISIONALES, origen: 'provisional' };
+  const origenCortes = escalaPropia ? 'epoca' : escala.origen;
+  const cortesFijos = Object.freeze([...(escalaPropia ?? escala).cortes]);
 
   const propias = new Map(); // 'p.d' → regla
   const generales = new Map(); // d → regla de todas las profundidades
@@ -154,10 +186,13 @@ export function cargarEpoca(datos, { respaldo } = {}) {
     ordinal(profundidad) {
       return esOrdinal.has(profundidad);
     },
-    /** Cortes de las cajas del 8 para una medida o serie (los suyos o los de `todas`), o undefined si la época no los trae. */
-    cortes(clave) {
-      const c = tablaCortes.get(clave) ?? tablaCortes.get('todas');
-      return c ? [...c] : undefined;
+    /** La escala única de cortes de las cajas del 8 (VG, 8-11): la misma para toda medida o serie, así que `clave` no cambia nada. La propia, la heredada del respaldo o la provisional. */
+    cortes(clave) { // eslint-disable-line no-unused-vars
+      return [...cortesFijos];
+    },
+    /** { cortes, origen } de la escala única: origen 'epoca' (propia o heredada del respaldo) o 'provisional' (nadie la trae). */
+    cortesConOrigen() {
+      return { cortes: [...cortesFijos], origen: origenCortes };
     },
   });
 }
