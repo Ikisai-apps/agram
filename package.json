@@ -6,7 +6,8 @@
   "private": true,
   "engines": { "node": ">=20" },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "epocas": "node datos/epocas/generar.mjs"
   },
   "license": "UNLICENSED"
 }
