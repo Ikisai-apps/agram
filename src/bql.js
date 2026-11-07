@@ -215,8 +215,13 @@ function valorDe(contenido) {
   const s = desescapar(contenido);
   if (esDireccion(s)) return texto(s); // un texto de diez dígitos es una dirección, no un número
   const m = RE_MAGNITUD_SLOT.exec(s.trim());
+  // [X] decidir VG: cómo se escribe una magnitud en BTML («12 EUR», un par u
+  // otra forma). V0 lee como magnitud un texto «número palabra» o «palabra
+  // número»; el mapa y el corpus no lo deciden (auditoría de ajuste 2).
   if (m) return m[1] !== undefined ? mag(Number(m[1]), m[2]) : mag(Number(m[4]), m[3]);
-  if (/^-?\d+(?:\.\d+)?$/.test(s.trim())) return num(Number(s));
+  // Una cadena de cifras es una cadena literal (corpus 03: «Número literal:
+  // `120`; cadena literal: `"Yogur"`»): el número lo da el JSON. Así «0034»
+  // no pierde sus ceros y «120» = "120" compara como texto.
   return texto(s);
 }
 

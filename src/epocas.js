@@ -46,6 +46,11 @@ const esRuta = (x) => typeof x === 'string' && /^[0-9]{2,10}$/.test(x);
  * respaldo valen donde la propia no dice nada.
  * `ordinales` son las profundidades donde el dígito es orden y no un nombre:
  * da el gancho epoca.ordinal(profundidad) que usa el encaje.
+ * `cortes` (opcional) son los cortes de las diez cajas del 8 por medida o
+ * serie: { <clave>: [nueve umbrales crecientes] }. Son regla de la época
+ * (MAPA §12: «Cortes de las cajas = regla de la época»): da el gancho
+ * epoca.cortes(clave) que leen confluir() y las bases; undefined si la
+ * época no los trae para esa clave.
  */
 export function cargarEpoca(datos, { respaldo } = {}) {
   if (!datos || typeof datos !== 'object') throw new TypeError('época: faltan los datos');
@@ -53,6 +58,13 @@ export function cargarEpoca(datos, { respaldo } = {}) {
   if (!Array.isArray(datos.reglas)) throw new TypeError(datos.nombre + ': faltan las reglas');
   const ordinales = datos.ordinales ?? [];
   if (!Array.isArray(ordinales) || !ordinales.every(esIndice)) throw new TypeError(datos.nombre + ': ordinales son profundidades 0–9');
+  const cortes = datos.cortes ?? {};
+  if (!cortes || typeof cortes !== 'object' || Array.isArray(cortes)) throw new TypeError(datos.nombre + ': cortes es { clave: [nueve umbrales] }');
+  for (const [clave, c] of Object.entries(cortes)) {
+    const ok = Array.isArray(c) && c.length === ARIDAD - 1 && c.every(Number.isFinite) && c.every((x, k) => k === 0 || x > c[k - 1]);
+    if (!ok) throw new TypeError(datos.nombre + ': los cortes de ' + clave + ' han de ser nueve umbrales crecientes');
+  }
+  const tablaCortes = new Map(Object.entries(cortes).map(([clave, c]) => [clave, Object.freeze([...c])]));
 
   const propias = new Map(); // 'p.d' → regla
   const generales = new Map(); // d → regla de todas las profundidades
@@ -130,6 +142,11 @@ export function cargarEpoca(datos, { respaldo } = {}) {
     /** ¿El dígito es orden (y no un nombre) en esa profundidad? */
     ordinal(profundidad) {
       return esOrdinal.has(profundidad);
+    },
+    /** Cortes de las cajas del 8 para una medida o serie, o undefined si la época no los trae. */
+    cortes(clave) {
+      const c = tablaCortes.get(clave);
+      return c ? [...c] : undefined;
     },
   });
 }

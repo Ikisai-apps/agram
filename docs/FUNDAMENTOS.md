@@ -116,9 +116,9 @@ Comprobación de que este documento recoge cada [D] del §12 del mapa (noche del
 
 **R.** Su emisor la declara y solo él la amplía (`{ token: 'R', emisor, cantidad, de: null, a: emisor }`); cada ampliación es un evento suyo en el eje, que es el rastro visible.
 
-**P.** La casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. P solo se emite en el génesis; delegar estrecha el ámbito.
+**P.** La casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo; delegar estrecha el ámbito. Hoy P solo se emite en el génesis (ámbito `genesis`, todo el eje): es el estado de partida, no la regla (ver abajo).
 
-Decidido [D] (VG, 7-11, mapa §12) e implementado: lo anterior. Abierto [X] decidir VG: si una identidad puede emitir su propio tiempo como serie limitada (T fuera del génesis: «no tocar hasta que lo diga»); qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante); cómo firma un grupo (es de AARPIA).
+Decidido [D] (VG, 7-11, mapa §12) e implementado: lo anterior, salvo que T y P solo se emitan en el génesis, que es el estado de hoy. Quién emite T y P está decidido por VG en el mapa §12 (7-11 noche, decisión 5 de §14.1): emite siempre una persona, P solo por ámbito y nunca «P total», escalonado T→R→P→E; encargado y pendiente de implementar; mientras tanto, el P de ámbito `genesis` hace de poder sobre todo el eje, que es lo que esa decisión excluye. Abierto [X] decidir VG: qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante); cómo firma un grupo (es de AARPIA).
 
 ## Añadido el 7-11-2026 (tarde)
 
