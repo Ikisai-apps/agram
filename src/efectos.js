@@ -29,7 +29,7 @@ import { ARIDAD, esReferencia, esDireccion, indicesDe, direccion } from './btml.
 import { claveToken } from './tokens.js';
 import { RAIZ } from './evento.js';
 import { ocupantes } from './encaje.js';
-import { FABRICA, FASES as FASES_MOTOR, autorizacionesValidas, consolidaciones } from './motor.js';
+import { FABRICA, FASES as FASES_MOTOR, autorizacionesValidas, consolidaciones, esConsolidacion } from './motor.js';
 import { CATALOGO_EFECTOS } from '../datos/efectos.js';
 
 function congelar(x) {
@@ -200,7 +200,7 @@ function faseReconocida(eje, ev) {
     return listada ? { cuenta: true } : { cuenta: false, motivo: 'fuera de la fábrica: el motor consolida en la posición 4 de su camino' };
   }
   const c = eje.obtener(ev.sobre);
-  if (c?.contexto?.fase !== 'consolidado') return { cuenta: false, motivo: 'no es sobre una consolidación' };
+  if (!esConsolidacion(c)) return { cuenta: false, motivo: 'no es sobre una consolidación' };
   if (en !== FABRICA) return { cuenta: false, motivo: 'fuera de la fábrica de la consolidación' };
   if (fase === 'autorizado') {
     const validas = autorizacionesValidas(eje, c.id);

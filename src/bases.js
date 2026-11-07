@@ -33,7 +33,7 @@
 // Lo que el mapa no decide va marcado «[X] decidir VG».
 
 import { ARIDAD, esReferencia, indicesDe } from './btml.js';
-import { EPOCA_0 } from './epocas.js';
+import { EPOCA_0, epocaDe } from './epocas.js';
 import { AMBITO_GENESIS, claveToken, cantidadBase, partirClave } from './tokens.js';
 import { ocupantes } from './encaje.js';
 // bql.js importa este módulo (BASES, CAJA, FRESCURA): la importación es
@@ -160,6 +160,7 @@ function sonCortes(c) {
  */
 export function cortesDe(clave, epoca = EPOCA_0) {
   if (!esMedida(clave)) throw new Error('medida desconocida: ' + clave);
+  if (typeof epoca === 'string') epoca = epocaDe(epoca); // por nombre, como los modos
   const leer = (e) => (typeof e?.cortes === 'function' ? e.cortes(clave) : undefined);
   const propios = leer(epoca);
   const [cortes, origen, quien] = propios !== undefined && propios !== null
@@ -559,7 +560,8 @@ export function cajasEtiquetadas(est, clave, epoca = EPOCA_0) {
  *   no cuenta y se dice; releerlo rompería «fundir es O(1)»).
  * Devuelve { registro, epoca, hijos, subarbol, refsHijos, refsBases, hasta, sinBase }.
  */
-export function calcularBase(eje, registro, { epoca = EPOCA_0 } = {}) {
+export function calcularBase(eje, registro, { epoca: pedida = EPOCA_0 } = {}) {
+  const epoca = epocaDe(pedida); // por objeto o por nombre
   if (!eje.obtener(registro)) throw new Error('registro desconocido: ' + registro);
   const lista = hijos(eje, registro);
   const unidades = lista.map((h) => unitaria(medir(eje, h.id), epoca));
@@ -964,7 +966,8 @@ function situarEn(est, m, epoca) {
  * cálculo al vuelo de confluir(), que lo declara (escrita: false, frescura:
  * SIN_BASE_ESCRITA). No asigna nivel ni grado: el hito es la etiqueta de la caja.
  */
-export function situar(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0, respaldo = false } = {}) {
+export function situar(eje, foco, { alcance = 'hermanos', epoca: pedida = EPOCA_0, respaldo = false } = {}) {
+  const epoca = epocaDe(pedida); // por objeto o por nombre, como los modos
   if (!eje.obtener(foco)) throw new Error('registro desconocido: ' + foco);
   const { registro, seccion } = cohorteDe(eje, foco, alcance);
   const comun = { alcance, foco, registro, seccion };
@@ -1004,7 +1007,8 @@ export function situar(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0, respa
  * etiquetas). Con base escrita al día y sin hijos sin base, coincide con lo
  * leído del 8. No asigna nivel ni grado ni puntúa.
  */
-export function confluir(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
+export function confluir(eje, foco, { alcance = 'hermanos', epoca: pedida = EPOCA_0 } = {}) {
+  const epoca = epocaDe(pedida); // por objeto o por nombre, como los modos
   const lista = comparables(eje, foco, alcance);
   const filas = lista.map((e) => ({ id: e.id, autor: e.autor, t: e.t, ...medir(eje, e.id) }));
   const est = filas.reduce((a, f) => fundir(a, unitaria(f, epoca)), estadisticaVacia());

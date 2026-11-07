@@ -13,7 +13,7 @@ import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
 import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
-  indicesDe, direccion, esReferencia, escritura, PV, RAIZ,
+  indicesDe, direccion, esReferencia, escritura, PV, RAIZ, leerCamino,
 } from './src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
 import { listaOcupantes as listaEncaje, instalarEncaje } from './ui/encaje.js';
@@ -244,7 +244,8 @@ function celdaMapa(m, i, eje67, comp) {
       <div class="pista">sin nivel ni grado: las estrellas no son verdad</div>${propio}${marca}</div>`;
   }
   if (i === 9) {
-    const pasos = m.camino.length ? m.camino.map((p, k) => `<span class="paso">${p} ${nombrePV(p, k)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
+    // Con el payload: un índice de la lista de una posición es un ocupante por llegada, sin PV (VG, 7-11 noche).
+    const pasos = m.camino.length ? leerCamino(m.camino, epocaActual(), { payload: estado.eje.obtener(m.foco).payload }).map((x) => `<span class="paso">${x.digito} ${escapar(x.significado)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
     const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
     const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidaci${pendientes.length > 1 ? 'ones' : 'ón'} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
     return `<div class="celda c9"><div class="pvn">9 ${c.significado}</div><div class="pasos">${pasos}</div>${guia}${propio}${marca}</div>`;
@@ -273,7 +274,7 @@ function panelFabrica(m) {
   }).join('');
   const desc = motor.descubrir(estado.eje, m.foco, { camino: m.camino });
   const campos = desc.map((p) => {
-    const opciones = p.candidatos.map((c, k) => `<option value="c${k}">${c.origen} ${corto(c.evento)} · ${escapar(c.texto.slice(0, 40))}</option>`).join('');
+    const opciones = p.candidatos.map((c, k) => `<option value="c${k}">${c.origen} ${corto(c.evento)} · ${escapar((c.etiqueta ?? c.texto).slice(0, 40))}</option>`).join('');
     return `<label class="celda-form"><span>${p.posicion} ${nombrePV(p.posicion, m.camino.length)}</span>
       <select name="e${p.posicion}"><option value="">— nada (se hereda del foco si existe) —</option>${opciones}<option value="nuevo">terminal nuevo ↓</option></select>
       <input name="n${p.posicion}" maxlength="120" placeholder="terminal nuevo para ${p.posicion}"></label>`;
@@ -331,6 +332,7 @@ function pintar() {
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
   else if (estado.modo === 'scened') pintarScened();
+  else if (estado.modo === 'clasificar') pintarClasificar();
   else pintarSequenced();
   trasPintarHilos(estado); // en animado, los hilos en las celdas 6 y 7 de Mapped
   trasPintarCruz(estado); // después de los hilos: el cielo y el camino en las celdas 8 y 9, y la cruz si está abierta
@@ -347,6 +349,13 @@ import { vistaEscena, instalarEscena } from './ui/escena.js';
 function pintarScened() {
   instalarEscena({ estado, pintar, irA });
   $('#vista').innerHTML = cabecera(estado.eje.obtener(estado.foco)) + vistaEscena(estado.eje, estado.foco, { camino: estado.camino });
+}
+
+// Clasificar (ui/clasificar.js): la lista de la posición, fuera del árbol, y la cruceta como lente o para crear; aquí solo se engancha.
+import { vistaClasificar, instalarClasificar } from './ui/clasificar.js';
+
+function pintarClasificar() {
+  $('#vista').innerHTML = cabecera(estado.eje.obtener(estado.foco)) + vistaClasificar(estado, { epoca: epocaActual() }) + mensajes();
 }
 
 function guardar() {
@@ -554,6 +563,7 @@ instalarEjemplos({ reiniciar });
 instalarEpocas({ pintar });
 instalarEncaje({ pintar });
 instalarFabrica({ estado, pintar });
+instalarClasificar({ estado, pintar, guardar, fallo, privadaDe, epoca: epocaActual });
 estado.claves = await cargarClaves();
 let cargado = await persistencia.cargarLocal(CLAVE_EJE);
 let foco;

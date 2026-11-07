@@ -13,7 +13,7 @@ Convenciones:
 
 | Módulo | Qué define | Exports |
 |---|---|---|
-| `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
+| `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `esConsolidacion`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
 | `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
 | `src/modos.js` | Mínimo y máximo por modo (los mismos para leer y emitir), proporción | `MODOS`, `nombreModo`, `maximo`, `minimo`, `alcanceDe`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7), §8; reexporta de `bases.js` lo del 8 que otros módulos leían aquí (§8.3) | `banda`, `ejeTemporal`; de `bases.js`: `HITOS`, `ALCANCES`, `MEDIDAS`, `comparables`, `confluir`, `proyectoDe`, `etiquetaClave`, `SIN_BASE_ESCRITA` |
@@ -53,10 +53,10 @@ Pendiente: las seis capacidades del motor que nombra el mapa (interpretar, resol
 
 ```js
 descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {})  // → [{ posicion, dir, candidatos, total, limitada }]
-caminoVisible(ocupante)                                                // → number[]  camino que se muestra: el del ocupante y, si su contenido es un array con posición 0, un 0 más
+caminoVisible(ocupante)                                                // → number[]  camino de la etiqueta: el del ocupante y, si su contenido es un array con posición 0, un 0 más (solo para mostrar)
 ```
 
-`descubrir` no escribe. Para cada posición de interacción (por defecto 1–4: recursos, criterios, comunicación, fábrica) devuelve la dirección `direccion([...camino, i])` y sus **candidatos**: los ocupantes de esa dirección en el foco (`encaje.ocupantes`, orden por encaje bajo la `epoca` que se elija al leer; ver `docs/BTML.md` §6) más dos campos calculados con BQL sobre lo visible de cada uno. Con `maximo`, entrega como mucho esos candidatos por posición (los primeros por encaje) sin presentar el corte como completo: `total` dice cuántos hay y `limitada` si se cortó.
+`descubrir` no escribe. Para cada posición de interacción (por defecto 1–4: recursos, criterios, comunicación, fábrica) devuelve la dirección `direccion([...camino, i])` y sus **candidatos**: los ocupantes de esa dirección en el foco (`encaje.ocupantes`, orden por encaje bajo la `epoca` que se elija al leer; ver `docs/BTML.md` §6) más tres campos calculados con BQL: el estado y el texto de su camino exacto, y una etiqueta para mostrarlo. Con `maximo`, entrega como mucho esos candidatos por posición (los primeros por encaje) sin presentar el corte como completo: `total` dice cuántos hay y `limitada` si se cortó.
 
 | Campo del candidato | Origen | Contenido |
 |---|---|---|
@@ -65,9 +65,10 @@ caminoVisible(ocupante)                                                // → nu
 | `autor`, `t` | encaje | solo en escritos |
 | `origenDir`, `destino`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | encaje | el encaje del candidato en la posición |
 | `empate`, `empatados`, `justificacion` | encaje | si el encaje no lo separa de otro (y con cuántos) y el motivo del encaje en texto |
-| `estado`, `texto` | `bql.evaluar(eje, evento, caminoVisible(candidato))` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor (`docs/BQL.md` §1). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. |
+| `estado`, `texto` | `bql.evaluar(eje, evento, candidato.camino)` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor del **camino exacto** del ocupante (`docs/BQL.md` §1; mapa §12 [D]: «todos son ocupantes con su camino exacto»). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. |
+| `etiqueta` | `bql.evaluar(eje, evento, caminoVisible(candidato)).texto` | el texto que se muestra: de un array, el de su posición 0; si no, el mismo `texto`. No decide el estado: una fórmula pendiente en la posición 0 no vuelve pendiente al candidato, y `[1]` y `[1, 0]` se distinguen por su estado y su texto (auditoría de ajuste 2). |
 
-`caminoVisible` añade un `0` al camino cuando el contenido es un array con posición 0: de un array se muestra su representación (PV0). De un terminal o una referencia se muestra lo que hay. BQL no sigue la referencia en `evaluar` (texto `→ <id>`), sí la sigue el candidato de origen `referencia`, que ya es lo alcanzado.
+`caminoVisible` añade un `0` al camino cuando el contenido es un array con posición 0: de un array, la etiqueta es su posición 0; el estado no. De un terminal o una referencia se muestra lo que hay. BQL no sigue la referencia en `evaluar` (texto `→ <id>`), sí la sigue el candidato de origen `referencia`, que ya es lo alcanzado.
 
 Errores: `foco desconocido: <id>` si el foco no está en el eje.
 
@@ -79,7 +80,7 @@ const { eje, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
 for (const p of descubrir(eje, compra.id)) {
   console.log(p.posicion, p.dir, p.candidatos.length + ' candidatos');
-  for (const c of p.candidatos) console.log('  ' + c.origen.padEnd(11) + c.evento.slice(0, 8) + ' camino ' + JSON.stringify(c.camino) + ' visible ' + JSON.stringify(caminoVisible(c)) + ' · ' + c.estado + ' · ' + c.texto + ' · ' + c.signo);
+  for (const c of p.candidatos) console.log('  ' + c.origen.padEnd(11) + c.evento.slice(0, 8) + ' camino ' + JSON.stringify(c.camino) + ' visible ' + JSON.stringify(caminoVisible(c)) + ' · ' + c.estado + ' · ' + c.texto + ' · etiqueta ' + c.etiqueta + ' · ' + c.signo);
 }
 console.log(JSON.stringify(descubrir(eje, compra.id, { camino: [1], posiciones: [1, 2] }).map((p) => [p.dir, p.candidatos.map((c) => c.origen + ':' + c.texto)])));
 console.log('registros antes y después:', eje.orden.length);
@@ -88,25 +89,25 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     f9e59d1e camino [1] visible [1,0] · RESUELTO · → 4598f23e · exacto
-  propio     f9e59d1e camino [1,0] visible [1,0] · RESUELTO · → 4598f23e · exacto
-  referencia 4598f23e camino [1] visible [1,0] · RESUELTO · ensalada · exacto
-  escrito    c70bfa6e camino [] visible [0] · RESUELTO · Cuenta del menú · exacto
+  propio     f9e59d1e camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → 4598f23e · exacto
+  propio     f9e59d1e camino [1,0] visible [1,0] · RESUELTO · → 4598f23e · etiqueta → 4598f23e · exacto
+  referencia 4598f23e camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta ensalada · exacto
+  escrito    c70bfa6e camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 3 candidatos
-  propio     f9e59d1e camino [2] visible [2,0] · RESUELTO · → 4598f23e · exacto
-  propio     f9e59d1e camino [2,0] visible [2,0] · RESUELTO · → 4598f23e · exacto
-  referencia 4598f23e camino [2] visible [2,0] · RESUELTO · sin gluten · exacto
+  propio     f9e59d1e camino [2] visible [2,0] · RESUELTO · [1 posiciones] · etiqueta → 4598f23e · exacto
+  propio     f9e59d1e camino [2,0] visible [2,0] · RESUELTO · → 4598f23e · etiqueta → 4598f23e · exacto
+  referencia 4598f23e camino [2] visible [2,0] · RESUELTO · [2 posiciones] · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     f9e59d1e camino [3] visible [3,0] · RESUELTO · huesped · exacto
-  propio     f9e59d1e camino [3,0] visible [3,0] · RESUELTO · huesped · exacto
+  propio     f9e59d1e camino [3] visible [3,0] · RESUELTO · [2 posiciones] · etiqueta huesped · exacto
+  propio     f9e59d1e camino [3,0] visible [3,0] · RESUELTO · huesped · etiqueta huesped · exacto
 4 4000000000 2 candidatos
-  propio     f9e59d1e camino [4] visible [4,0] · RESUELTO · pagar · exacto
-  propio     f9e59d1e camino [4,0] visible [4,0] · RESUELTO · pagar · exacto
+  propio     f9e59d1e camino [4] visible [4,0] · RESUELTO · [2 posiciones] · etiqueta pagar · exacto
+  propio     f9e59d1e camino [4,0] visible [4,0] · RESUELTO · pagar · etiqueta pagar · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
 
-Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (ambos muestran la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`exacto`: está anclada justo en la dirección buscada). Los cuatro son exactos y salen en orden de llegada; con la convención vigente (`docs/BTML.md` §6.5) solo una referencia que alcanza otra dirección tiene vector distinto de cero.
+Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (cada uno con su estado y su texto; los dos llevan la misma etiqueta, la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`exacto`: está anclada justo en la dirección buscada). Los cuatro son exactos y salen en orden de llegada; con la convención vigente (`docs/BTML.md` §6.5) solo una referencia que alcanza otra dirección tiene vector distinto de cero.
 
 ### 2.1 Proponer (operador B): elecciones desde las fórmulas del foco
 
@@ -468,6 +469,8 @@ Dos consecuencias de «ejecuta el autor» y «nadie mueve tokens ajenos»:
 
 Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos ocupantes (colisiones: se escriben y se ven todos), y puede declarar una **capacidad**: cuántos de ellos pueden ser **válidos** a la vez. Quien la hace cumplir es una **serie limitada de tokens E** que emite quien respalda la posición: en Booking, la casa emite `E:casa/<plaza>@<noche>`, un token por plaza y noche, tantos como capacidad, y ejecutar la reserva los mueve de la casa a la persona huésped. Una segunda reserva solapada se escribe y colisiona, pero su ejecución no pasa: la casa ya no tiene el token de esa noche (`evento rechazado: saldo insuficiente de E:casa/…@<noche> en casa`). La fábrica no cuenta nada: el contador de este apartado es **informativo** (para la interfaz y para saber cuántos tokens emitir).
 
+**[X] decidir VG** (auditoría de ajuste 2, A2-07): la corrección de VG sobre titulares (mapa §12 [D], 7-11 tarde) dice que «una persona emite los tokens de plaza de una habitación y se los da a la habitación; la habitación los conserva y los maneja». El ejemplo sigue la decisión de mediodía (mapa §12 [D] «Capacidad y tokens casan»: «mover esos tokens de la casa al huésped»): la serie se queda en la cartera de la casa, `libres` lee el saldo de la casa y la entrega la consolida y ejecuta la casa. Para pasar a la habitación hace falta decidir cómo se liga el registro de la habitación con la identidad (una cosa) que es titular de sus plazas, y quién consolida y ejecuta la entrega en su nombre; con eso, la casa emitiría y movería la serie a la habitación en el mismo evento (docs/FUNDAMENTOS.md: «para darla se mueve después, en el mismo evento si quiere»).
+
 ```js
 CRITERIO_CAPACIDAD = 2                 // dónde declara la décupla de una posición su capacidad
 capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined
@@ -489,7 +492,10 @@ Lo que no hace el motor: mover tokens de dos partes en un solo acto. El motor V0
 ```js
 estadoDe(eje, consolidacion)            // → 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined (si no existe o no es una consolidación)
 consolidaciones(eje, foco, camino = []) // → [{ id, autor, t, titulo, estado, fuentes }]  las consolidaciones ancladas en direccion([...camino, 4]) del foco
+esConsolidacion(evento)                 // → boolean: el único criterio de qué es una consolidación
 ```
+
+Qué es una consolidación lo dice `esConsolidacion`, el mismo criterio para `estadoDe`, `autorizar`, `ejecutar`, `consolidaciones` y las capas de validez y de efectos: `contexto.fase === 'consolidado'`, `contexto.motor === 'fabrica'` y anclada (`en`) en la fábrica de un camino de su foco, es decir, una dirección cuyo último índice real es el 4, como la escribe `consolidar` (`direccion([...camino, 4])`). La fase es un metadato que cualquiera puede declarar; el anclaje es lo que la separa de un registro escrito a mano fuera de la fábrica, que no tiene estado (auditoría de ajuste 2, mapa §11: «consolidar (fábrica, anclado en 4 …)»).
 
 `estadoDe` mira los escritos sobre la consolidación en `FABRICA` (`eje.sobre(consolidacion, FABRICA)`), en este orden:
 
@@ -641,7 +647,7 @@ Decisión de VG (7-11-2026, tarde): «siempre estamos aplicando los puntos de vi
 ### 7.3 Conformar el registro de salida (`src/escritura.js`)
 
 ```js
-item(eje, texto)                           // → terminal: número, texto, o referencia {ref, dir?} si el texto es '@<prefijo>' o '@<prefijo>:<dirección>'
+item(eje, texto)                           // → terminal: número, texto, o referencia {ref, dir?} si el texto es '@<prefijo>' o '@<prefijo>:<dirección>'; diez dígitos exactos son una dirección y se quedan como texto ('0400000000')
 resolverRef(eje, prefijo)                  // → { ref: id completo }  el prefijo (con o sin '@', ≥ 4 caracteres) debe ser único en eje.orden
 desdePointed(eje, texto)                   // → un terminal (una referencia también vale)
 desdeSequenced(eje, textos)                // → array de 1 a 10 ítems sin huecos (los vacíos finales se descartan)
@@ -1177,6 +1183,7 @@ export const FABRICA = '4000000000';
 export const FASES = ['consolidado', 'autorizado', 'ejecutado'];
 export const REGLA_AUTORIZAR: string;   // la regla V0 en texto; va en contexto.autoridad.regla de cada autorización
 export function caminoVisible(ocupante): number[];
+export function esConsolidacion(evento): boolean;  // fase 'consolidado', motor 'fabrica' y anclada en la fábrica (posición 4) de un camino de su foco
 export const OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' };
 export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {}): { posicion, dir, candidatos: Candidato[], total, limitada }[];
 export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes: { posicion, desde, texto }[], pendientes: { posicion, motivo }[] };

@@ -70,9 +70,9 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
   assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
     + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
-  // Con un gancho que no deja leer el registro, las identidades no se nombran.
+  // Con un gancho que no deja leer el registro, la cosa (que sale de su contexto) no se nombra; quien tiene P (los saldos), sí.
   const callado = q(ej, 'FRESCURA()', ej.guisos.id, { puedeLeer: (id) => id !== ej.menu.id });
-  assert.match(callado.motivo, /firmada por su identidad propia o quien tiene P sobre él; mide sus hijos/);
+  assert.match(callado.motivo, /firmada por su identidad propia o casa \(con P sobre él\); mide sus hijos/);
   // Lo escrito en el 8 que no es una base válida (no la firma la cosa del menú) no cuenta.
   await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, en: CIELO, t: '2026-11-07T17:40:00Z', movimientos: [hora('huesped')], payload: ['Bases del 8', 4], contexto: { bases: true } });
   assert.equal(q(ej, 'FRESCURA()').estado, 'PENDIENTE');

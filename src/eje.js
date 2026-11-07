@@ -3,15 +3,22 @@
 // Una identidad existe cuando ha recibido tokens; quien la da de alta declara
 // su clave y su tipo (persona, grupo o cosa) en el mismo evento. El génesis
 // emite; después emiten su serie de E o de R su emisor, a sí mismo, y solo si
-// es persona o grupo (VG, 7-11). T y P solo los emite el génesis.
+// es persona o grupo (VG, 7-11). T y P solo los emite el génesis: es el estado de
+// hoy; VG decidió (mapa §12, 7-11 noche) que emita una persona, escalonado
+// T→R→P→E y P solo por ámbito: encargado, pendiente de implementar.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
 import { verificar, firmar, clavePublicaValida } from './autoridad.js';
 
+/** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
+const PREFIJO = 4;
+
 export class Eje {
   #series;
   #tipos;
+  #hijosEn;
+  #prefijos;
 
   /** exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave. */
   constructor({ exigirFirmas = false } = {}) {
@@ -20,6 +27,8 @@ export class Eje {
     this.saldos = new Map(); // identidad → Map(clave → cantidad)
     this.claves = new Map(); // identidad → clave pública (JWK)
     this.hijos = new Map(); // id → eventos escritos sobre él, en orden de entrada (índice)
+    this.#hijosEn = new Map(); // id → Map(en → los mismos eventos, solo los anclados en esa dirección, en orden de entrada)
+    this.#prefijos = new Map(); // primeros PREFIJO caracteres del id → ids, en orden de entrada (índice de conPrefijo)
     this.#series = new Map(); // clave de serie → { emisor, emitido }: lo emitido de cada serie, génesis incluido
     this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona, grupo o cosa)
     this.exigirFirmas = exigirFirmas;
@@ -83,6 +92,18 @@ export class Eje {
 
   get genesisId() {
     return this.orden[0];
+  }
+
+  /**
+   * Ids que empiezan por `prefijo`, en orden de entrada: lo mismo que
+   * `eje.orden.filter((id) => id.startsWith(prefijo))`, sin recorrer el eje
+   * entero cuando el prefijo tiene al menos PREFIJO caracteres (un índice por
+   * los primeros; docs/notas/RENDIMIENTO.md). Lo usan las referencias por
+   * prefijo («@25ddaa89», REF("25ddaa89")).
+   */
+  conPrefijo(prefijo) {
+    if (typeof prefijo !== 'string' || prefijo.length < PREFIJO) return this.orden.filter((id) => id.startsWith(prefijo));
+    return (this.#prefijos.get(prefijo.slice(0, PREFIJO)) ?? []).filter((id) => id.startsWith(prefijo));
   }
 
   obtener(id) {
@@ -261,16 +282,24 @@ export class Eje {
 
   /** Eventos escritos sobre un registro (sus hijos directos), opcionalmente solo en una posición. */
   sobre(id, en) {
-    const lista = this.hijos.get(id) ?? [];
-    return en === undefined ? [...lista] : lista.filter((e) => e.en === en);
+    if (en === undefined) return this.hijos.get(id)?.slice() ?? [];
+    // Lo mismo que filtrar los hijos por `e.en === en`, sin recorrerlos (docs/notas/RENDIMIENTO.md).
+    return this.#hijosEn.get(id)?.get(en)?.slice() ?? [];
   }
 
   #aplicar(ev) {
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
+    const cabeza = ev.id.slice(0, PREFIJO);
+    if (!this.#prefijos.has(cabeza)) this.#prefijos.set(cabeza, []);
+    this.#prefijos.get(cabeza).push(ev.id);
     if (ev.sobre !== null) {
       if (!this.hijos.has(ev.sobre)) this.hijos.set(ev.sobre, []);
       this.hijos.get(ev.sobre).push(ev);
+      if (!this.#hijosEn.has(ev.sobre)) this.#hijosEn.set(ev.sobre, new Map());
+      const porEn = this.#hijosEn.get(ev.sobre);
+      if (!porEn.has(ev.en)) porEn.set(ev.en, []);
+      porEn.get(ev.en).push(ev);
     }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tipos.set(id, tipo);

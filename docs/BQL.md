@@ -88,13 +88,13 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
 | `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 4598f23e'` (ocho primeros caracteres del id) |
-| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
+| cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios). **[X] decidir VG**: cómo se escribe una magnitud en BTML; el mapa y el corpus no lo deciden, y esta lectura por la forma del texto convierte también nombres con número (`'Habitación 101'`, `'Mesa 4'`) | `'12 EUR'` |
 | cadena de exactamente diez dígitos, `'2000000000'` | `texto` (es una **dirección**, no un número: mapa §12, «un texto de diez dígitos es dirección») | `'2000000000'` |
-| cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
+| cadena `'7'`, `'0034'`, `'1.5'` | `texto`: una cadena de cifras es una cadena literal (corpus 03: «Número literal: `120`; cadena literal: `"Yogur"`»); el número lo da el JSON. `'0034'` conserva sus ceros (auditoría de ajuste 2) | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
 | cualquier otra cadena | `texto` | la cadena |
 
-Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` son magnitudes (las siete unidades de T se escriben como se llaman). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
+Unidad admitida en un literal de slot: primer carácter una letra de cualquier alfabeto o `€ $ %`, luego letras, dígitos, `_`, `€`, `$`, `%`. `'3 días'`, `'1 año'` y `'año 2'` se leen hoy como magnitudes (las siete unidades de T se escriben como se llaman; [X] decidir VG, ver la tabla). Un número JS de diez cifras en el slot sigue siendo `numero`; solo la **cadena** de diez dígitos es dirección.
 
 Asimetría: en un **slot** la unidad puede ir delante (`'EUR 12'`); dentro de una **fórmula** solo detrás (`12 EUR`): `=EUR 12` es `ERROR: identificador suelto: EUR`. Las unidades son **etiquetas**: `min` o `h` no tienen relación con las escalas de T (`minuto`, `hora`), ni `EUR` con la denominación del token E (que además va ligada a su emisor: la serie es `E:<emisor>/EUR`). Una magnitud BQL no mueve nada; para pagar lo que calcula una fórmula hay que pasar a mano `valor.cantidad` y `valor.unidad` al movimiento (`docs/MOTOR.md` §2.1).
 
@@ -560,7 +560,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | Estado | Motivo | Cuándo |
 |---|---|---|
 | RESUELTO | — | Hay base válida en el 8 del alcance. |
-| PENDIENTE | `sin base escrita en el 8 de <id8> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <id8>, firmada por <cosa> (su identidad propia) o <x> (con P sobre él); mide sus hijos y gasta 1 minuto de su T.` | No hay base escrita. Nombra a la propia cosa y a quienes tienen clave y P sobre el registro. En `proyecto` y `general` dice además `funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)`. Si el gancho no deja leer el registro, nadie se nombra (`firmada por su identidad propia o quien tiene P sobre él`). |
+| PENDIENTE | `sin base escrita en el 8 de <id8> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <id8>, firmada por <cosa> (su identidad propia) o <x> (con P sobre él); mide sus hijos y gasta 1 minuto de su T.` | No hay base escrita. Nombra a la propia cosa y a quienes tienen clave y P sobre el registro. En `proyecto` y `general` dice además `funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)`. Si el gancho no deja leer el registro, la cosa no se nombra (`firmada por su identidad propia o <x> (con P sobre él)`): sale del contexto del registro; quienes tienen P salen de los saldos y se nombran siempre. |
 | PENDIENTE | `sin base escrita en el 8 de <id8> (alcance <a>). <id8> no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.` | El registro no da de alta a una cosa con clave y nadie con clave tiene P sobre él ([X] decidir VG cómo se identifica un registro con una identidad, nota de las bases §3.1). |
 | PENDIENTE | `sin cohorte: el génesis no tiene padre` | `"hermanos"` desde el génesis. |
 | PENDIENTE | `evento ausente del eje: <id8>` | El anfitrión no está en el eje (puede llegar). |
@@ -569,7 +569,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | PENDIENTE POR LÍMITE | `el alcance <a> (8 de <id8>) exige examinar al menos <k> registros y quedan <q> pasos de presupuesto` | La lectura no cabe (abajo); `parcial: { examinados: 0, de: <k> }`, cota inferior. |
 | PENDIENTE DE AUTORIZACIÓN | `leer la base del 8 de <id8> exige una autorización que no hay` | El gancho no deja leer la base (su raíz), como en `BASES`. |
 | PENDIENTE DE AUTORIZACIÓN | `leer <id8>:0000000000 (camino raíz) exige una autorización que no hay` | `CAJA`: el gancho no deja leer el anfitrión entero (situarlo es medirlo). |
-| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo). |
+| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo); igual `BASES(alcance, "formulasResueltas" \| "formulasPendientes", …)` cuando sitúa al anfitrión. |
 | ERROR | `CAJA espera una medida y, si acaso, un alcance` · `FRESCURA espera, si acaso, un alcance` · `CAJA espera el nombre de una medida entre comillas, no <tipo>` · `CAJA: medida desconocida: <m> (…)` · `<FN>: el alcance es hermanos, proyecto, general` | Argumentos. |
 
 **Orden.** Primero los argumentos; después la base; solo si la hay, el anfitrión (`CAJA`, y `BASES` cuando lo sitúa). Sin base no se mide nada ni se pregunta por el anfitrión.

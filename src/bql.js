@@ -215,8 +215,13 @@ function valorDe(contenido) {
   const s = desescapar(contenido);
   if (esDireccion(s)) return texto(s); // un texto de diez dígitos es una dirección, no un número
   const m = RE_MAGNITUD_SLOT.exec(s.trim());
+  // [X] decidir VG: cómo se escribe una magnitud en BTML («12 EUR», un par u
+  // otra forma). V0 lee como magnitud un texto «número palabra» o «palabra
+  // número»; el mapa y el corpus no lo deciden (auditoría de ajuste 2).
   if (m) return m[1] !== undefined ? mag(Number(m[1]), m[2]) : mag(Number(m[4]), m[3]);
-  if (/^-?\d+(?:\.\d+)?$/.test(s.trim())) return num(Number(s));
+  // Una cadena de cifras es una cadena literal (corpus 03: «Número literal:
+  // `120`; cadena literal: `"Yogur"`»): el número lo da el JSON. Así «0034»
+  // no pierde sus ceros y «120» = "120" compara como texto.
   return texto(s);
 }
 
@@ -384,11 +389,14 @@ function leerSlot(ctx, evId, indices) {
   }
 }
 
+/** Ids del eje que empiezan por p, en orden de entrada: por su índice (Eje.conPrefijo) o, si el eje no lo tiene, recorriéndolo. */
+const conPrefijo = (eje, p) => (typeof eje.conPrefijo === 'function' ? eje.conPrefijo(p) : eje.orden.filter((id) => id.startsWith(p)));
+
 /** Id de un evento a partir de un id o prefijo. Ninguno → PENDIENTE (puede llegar); varios o mal formado → ERROR. */
 function resolverId(ctx, v) {
   const p = String(v.valor ?? v).replace(/^@/, '').toLowerCase();
   if (!/^[0-9a-f]+$/.test(p)) throw new Parada('ERROR', 'referencia mal formada: ' + p);
-  const ids = ctx.eje.orden.filter((id) => id.startsWith(p));
+  const ids = conPrefijo(ctx.eje, p);
   if (ids.length === 1) return ids[0];
   if (ids.length > 1) throw new Parada('ERROR', 'referencia ambigua: ' + p);
   throw new Parada('PENDIENTE', 'referencia ausente del eje: ' + p);
@@ -556,8 +564,9 @@ function funcion(ctx, nodo, evId, base) {
       return acc ?? num(0);
     }
     case 'BASES': {
-      // Como CAJA y FRESCURA: primero se valida, luego se lee (y se cobra y se autoriza) el 8;
-      // situar al anfitrión es leerlo entero (y contar sus fórmulas, evaluarlas sin el gancho).
+      // Como CAJA y FRESCURA (mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer y
+      // presupuesto): primero se valida, luego se lee (y se cobra y se autoriza) el 8; situar al anfitrión es
+      // leerlo entero, y la medida evalúa sus fórmulas sin el gancho, así que con gancho no se cuentan.
       const crudos = args.map((a) => (a.tipo === 'numero' || a.tipo === 'texto' ? a.valor : null));
       const mal = erroresDeBases(crudos);
       if (mal) throw new Parada('ERROR', mal);
@@ -565,9 +574,7 @@ function funcion(ctx, nodo, evId, base) {
       const r = valorDeBases(ctx.eje, evId, crudos);
       if (r.mideAnfitrion) {
         autorizar(ctx, evId, []);
-        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(crudos[1])) {
-          throw new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + evId.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
-        }
+        if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(crudos[1])) throw sinGanchoEnFormulas(evId);
         ctx.dependencias.add(evId + ':' + direccion([]));
       }
       if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo);
@@ -597,6 +604,11 @@ function funcion(ctx, nodo, evId, base) {
 // src/bases.js (basesEn, leerBase, valorDeBases); aquí no se escribe nada.
 
 const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes']);
+
+/** Con gancho, las medidas de fórmulas del anfitrión no se dan (CAJA y BASES): medirlas evalúa sus fórmulas sin el gancho. */
+function sinGanchoEnFormulas(foco) {
+  return new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
+}
 const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>';
 
 function alcanceDe(arg, nombre) {
@@ -640,8 +652,9 @@ function exigirSerie(eje, clave) {
 
 /**
  * Cómo escribir la base que falta (el motivo de PENDIENTE lo dice): la
- * escribe la propia cosa o quien tiene P sobre el registro, con clave. Las
- * identidades se nombran si el gancho deja leer el registro.
+ * escribe la propia cosa o quien tiene P sobre el registro, con clave. La
+ * cosa (que sale del contexto del registro) se nombra solo si el gancho deja
+ * leer el registro; quienes tienen P (que salen de los saldos del eje), siempre.
  */
 function comoEscribirla(ctx, registro, alcance) {
   const { eje } = ctx;
@@ -651,10 +664,8 @@ function comoEscribirla(ctx, registro, alcance) {
   if (!cosa && !conPoder.length) {
     return id8 + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.';
   }
-  const nombrar = !ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []);
-  const quien = nombrar
-    ? [...(cosa ? [cosa + ' (su identidad propia)'] : []), ...conPoder.map((x) => x + ' (con P sobre él)')].join(' o ')
-    : [...(cosa ? ['su identidad propia'] : []), ...(conPoder.length ? ['quien tiene P sobre él'] : [])].join(' o ');
+  const nombrarCosa = Boolean(cosa) && (!ctx.puedeLeer || ctx.puedeLeer(registro, direccion([]), []));
+  const quien = [...(cosa ? [nombrarCosa ? cosa + ' (su identidad propia)' : 'su identidad propia'] : []), ...conPoder.map((x) => x + ' (con P sobre él)')].join(' o ');
   const que = alcance === 'hermanos' || alcance === PROPIO
     ? 'mide sus hijos'
     : 'mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)';
@@ -725,9 +736,7 @@ function cajaDelFoco(ctx, foco, medida, alcance) {
   exigirSerie(ctx.eje, medida);
   leerCohorte(ctx, foco, alcance);
   autorizar(ctx, foco, []);
-  if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(medida)) {
-    throw new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
-  }
+  if (ctx.puedeLeer && MEDIDAS_FORMULAS.includes(medida)) throw sinGanchoEnFormulas(foco);
   ctx.dependencias.add(foco + ':' + direccion([]));
   const r = valorDeBases(ctx.eje, foco, [alcance, medida]);
   if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo.replace(/^BASES/, 'CAJA'));

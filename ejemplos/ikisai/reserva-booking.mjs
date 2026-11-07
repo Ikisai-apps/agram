@@ -18,6 +18,16 @@
 // esa noche (saldo insuficiente). El contador del motor (motor.ocupacion)
 // solo informa.
 //
+// [X] decidir VG: titular de los tokens de plaza. La corrección de VG sobre
+// titulares (mapa §12, 7-11 tarde) dice que una persona emite los tokens de
+// plaza «y se los da a la habitación; la habitación los conserva y los
+// maneja». Este ejemplo sigue la decisión anterior (mapa §12, mediodía:
+// «mover esos tokens de la casa al huésped»): la serie se queda en la
+// cartera de la casa y la entrega la ejecuta la casa. Pasarla a la habitación
+// exige decidir cómo se liga el registro de la habitación con la identidad
+// (una cosa) titular de sus plazas y quién consolida y ejecuta la entrega en
+// su nombre (docs/MOTOR.md §5.1).
+//
 // [X] decidir VG: la ejecución de dos partes mientras AARPIA no exista. El
 // motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens
 // ajenos, así que confirmar son dos consolidaciones sobre la reserva, las dos

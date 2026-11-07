@@ -1,5 +1,6 @@
 /* Frontend sobrio, piezas de ui/: ajustes (ejemplo, época), encaje de los
-   ocupantes, propuesta y contexto de la fábrica, saldos por series. Usa los
+   ocupantes, propuesta y contexto de la fábrica, saldos por series y la
+   vista clasificar. Usa los
    colores de index.html (--bg, --fg, --muted, --rule, --panel, --panel2,
    --accent, --ok, --warn) y cabe en un móvil de 400 px. */
 
@@ -68,3 +69,45 @@
 .cifras{display:inline-block;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:0;white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}
 .cifras-fila{margin:-2px 0 6px}
 .hilera .titulo .cifras{display:block}
+
+/* Clasificar: la lista de la posición (fuera del árbol) y la cruceta como lente.
+   Piezas que se tocan y huecos que reciben; a 400 px la cruceta son tres columnas
+   estrechas que parten el texto, sin desbordar. */
+.clasificar{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;margin:6px 0 16px;min-width:0}
+.clasificar .titulo{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.clasificar .pista{margin:0}
+.cl-posiciones,.cl-modos{display:flex;flex-wrap:wrap;gap:6px}
+.cl-posiciones button,.cl-modos button{font:inherit;font-size:13px;padding:4px 11px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer;min-height:32px}
+.cl-posiciones button small{color:var(--muted);margin-left:2px}
+.cl-posiciones button[aria-pressed="true"],.cl-modos button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.cl-posiciones button[aria-pressed="true"] small{color:inherit}
+.cl-quien{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:13px}
+.cl-quien select{font:inherit;font-size:13px;padding:4px 8px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg)}
+.cl-quien small{color:var(--muted)}
+.cl-cab{font-size:12px;color:var(--muted);letter-spacing:.02em}
+.cl-piezas{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.cl-piezas li{min-width:0;max-width:100%}
+.cl-pieza{display:inline-flex;align-items:baseline;gap:6px;max-width:100%;font:inherit;font-size:14px;text-align:left;padding:6px 10px;border-radius:10px;border:1px dashed var(--accent);background:var(--panel);color:var(--fg);cursor:grab;min-height:36px}
+.cl-pieza .cl-n{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.cl-pieza .cl-t{overflow-wrap:anywhere;min-width:0}
+.cl-pieza[aria-pressed="true"]{border-style:solid;background:var(--accent);color:var(--accent-fg)}
+.cl-pieza[aria-pressed="true"] .cl-n{color:inherit}
+.cl-pieza:focus-visible,.cl-destino:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.cl-estado{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.cl-quitar-todo{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);border-radius:999px;padding:2px 10px;cursor:pointer}
+.cl-cruceta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;min-width:0}
+.cl-hueco{display:grid;align-content:start;gap:4px;min-width:0;border:1px solid var(--rule);border-radius:10px;background:var(--panel);padding:4px}
+.cl-hueco.c5{background:var(--panel2)}
+.cl-hueco.c0{grid-column:1 / -1}
+.cl-destino{font:inherit;font-size:12px;text-align:left;border:0;border-radius:7px;background:transparent;color:var(--muted);padding:4px 5px;cursor:pointer;overflow-wrap:anywhere;min-height:32px;min-width:0}
+.cl-destino .cl-d{font-family:var(--mono);color:var(--fg)}
+.cl-destino small{display:block;font-size:11px;opacity:.85}
+.cl-cruceta.esperando .cl-destino{background:var(--panel2);color:var(--fg);box-shadow:inset 0 0 0 1px var(--accent)}
+.cl-dentro{list-style:none;margin:0;padding:0;display:grid;gap:3px;min-width:0}
+.cl-dentro li{font-size:12px;min-width:0;overflow-wrap:anywhere}
+.cl-dentro .chip{width:100%;white-space:normal;overflow-wrap:anywhere}
+.cl-escrito.colocado .chip{box-shadow:inset 3px 0 0 var(--ok)}
+.cl-en-lente{background:var(--bg);border:1px dashed var(--accent);border-radius:6px;padding:2px 4px;display:flex;flex-wrap:wrap;gap:0 4px;align-items:baseline}
+.cl-en-lente i{font-style:normal;color:var(--muted);font-size:11px}
+.cl-quitar{font:inherit;font-size:13px;line-height:1;border:0;background:transparent;color:var(--warn);cursor:pointer;padding:2px 4px;margin-left:auto;min-width:24px;min-height:24px}
+.cl-vacio{color:var(--muted);font-size:11px;padding:0 5px}

@@ -5,6 +5,9 @@
 // lo que otros han escrito en esa dirección. Se ordenan sin borrar
 // alternativas; cada ocupante lleva su procedencia y su camino exacto de
 // índices. El árbol lógico se reconstruye desde los eventos; no se guarda.
+// La lista de una posición (lista()) son esos ocupantes por llegada, fuera
+// del árbol: un array dentro de una posición son sus ocupantes, no dígitos
+// con PV (VG, 7-11 noche, mapa §12 [D]).
 
 import { ARIDAD, esReferencia, direccion, indicesDe, resolver } from './btml.js';
 
@@ -85,9 +88,17 @@ export function ordenarPorEncaje(lista, { epoca } = {}) {
     .map((x) => x.o);
 }
 
+/** Hasta cuántos ocupantes marcarEmpates compara cada par (medido en el banco: por debajo de ~12, por pares es más rápido). */
+const POR_PARES = 12;
+
+/** Profundidades que la época declara ordinales (ninguna sin época o sin el gancho). */
+function ordinalesDe(epoca) {
+  return epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
+}
+
 /** El criterio del encaje sin la llegada: negativo si a va antes que b; 0 si el encaje no los separa. */
 function comparadorEncaje({ epoca } = {}) {
-  const ordinales = epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
+  const ordinales = ordinalesDe(epoca);
   const porDistancia = (va, vb) => {
     for (const k of ordinales) {
       const d = Math.abs(va[k]) - Math.abs(vb[k]);
@@ -104,11 +115,48 @@ function comparadorEncaje({ epoca } = {}) {
  * lleva `empate: true` si el encaje no lo separa de otro (mismo acuerdo de
  * prefijo y, en las profundidades que la época declare ordinales, misma
  * distancia), y `empatados`, con cuántos. Entre ellos solo decide la llegada.
+ * Coste lineal (banco de rendimiento, docs/notas/RENDIMIENTO.md): en vez de
+ * comparar cada par, cada ocupante lleva la clave de lo que el comparador
+ * mira (el acuerdo y, en cada profundidad ordinal, la distancia) y se cuentan
+ * las claves iguales. Dos ocupantes empatan si y solo si sus claves son
+ * iguales; una distancia que no es un número finito no empata con nada,
+ * igual que en la comparación (NaN o Infinity − Infinity no dan 0). Hasta
+ * POR_PARES ocupantes se compara cada par, que ahí sale más barato.
  */
 export function marcarEmpates(lista, { epoca } = {}) {
-  const porEncaje = comparadorEncaje({ epoca });
+  // Con pocos ocupantes (lo normal) comparar cada par es más barato que montar las claves; el resultado es el mismo.
+  if (lista.length <= POR_PARES) {
+    const porEncaje = comparadorEncaje({ epoca });
+    return lista.map((o) => {
+      const empatados = lista.filter((p) => p !== o && porEncaje(o, p) === 0).length;
+      return { ...o, empate: empatados > 0, empatados };
+    });
+  }
+  // Cuántas veces está cada objeto: uno no empata consigo mismo (`p !== o`).
+  const veces = new Map();
+  for (const o of lista) veces.set(o, (veces.get(o) ?? 0) + 1);
+  // Sin dos objetos distintos no hay nada que comparar (y no se lee ningún vector).
+  if (veces.size < 2) return lista.map((o) => ({ ...o, empate: false, empatados: 0 }));
+  const ordinales = ordinalesDe(epoca);
+  let unica = 0;
+  const claveDe = (o) => {
+    const partes = [acuerdo(o.vector)];
+    for (const k of ordinales) {
+      const d = Math.abs(o.vector[k]);
+      if (!Number.isFinite(d)) return '#' + unica++; // no empata con nadie
+      partes.push(d);
+    }
+    return partes.join(',');
+  };
+  const claves = new Map(); // una clave por objeto, aunque esté repetido
+  const cuenta = new Map(); // clave → cuántos de la lista la tienen
+  for (const [o, n] of veces) {
+    const k = claveDe(o);
+    claves.set(o, k);
+    cuenta.set(k, (cuenta.get(k) ?? 0) + n);
+  }
   return lista.map((o) => {
-    const empatados = lista.filter((p) => p !== o && porEncaje(o, p) === 0).length;
+    const empatados = cuenta.get(claves.get(o)) - veces.get(o);
     return { ...o, empate: empatados > 0, empatados };
   });
 }
@@ -241,6 +289,48 @@ export function arbol(eje, id, { profundidad = ARIDAD, epoca } = {}) {
     if (!mapa.has(h.en)) mapa.set(h.en, ocupantes(eje, id, indicesDe(h.en), { epoca }));
   }
   return mapa;
+}
+
+/**
+ * La lista de una posición (VG, 7-11 noche, mapa §12 [D]): los ocupantes que
+ * hay en ella, por LLEGADA. La lista no está en el árbol («en la profundidad
+ * 11»): no corresponde a los puntos de vista y su índice es de llegada, no un
+ * dígito; los PV de un elemento solo existen cuando se escribe en una
+ * subposición por dirección (`en`). Es de n: el límite de diez es por evento
+ * (por payload), no por posición.
+ *
+ * - Posición de la cruceta (`[p]`): primero el contenido propio del payload
+ *   en p (si es un array, cada elemento es un ocupante, en el orden del
+ *   array; si es un terminal o una referencia, uno solo), luego los escritos
+ *   anclados en su dirección, en orden de entrada en el eje.
+ * - Raíz (`[]`): el payload raíz es la cruceta, no una lista: solo los
+ *   escritos anclados en la raíz.
+ * - Subposición escrita por dirección (`[p, d, …]`): solo los escritos
+ *   anclados en esa dirección. El índice d de un array del payload no es la
+ *   subposición d: es un ocupante de la lista de p.
+ *
+ * Cada ocupante: { llegada, tipo: 'propio' | 'escrito', evento, camino,
+ * contenido, autor?, t?, en?, alcanza? }, con `camino` el camino exacto en
+ * el registro `evento` ([] para un escrito: su raíz) y `alcanza`, si el
+ * contenido es una referencia, lo que alcanza (seguir, con su procedencia).
+ * Nada se borra ni se ordena por encaje: la llegada manda.
+ */
+export function lista(eje, id, indices) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  const dir = direccion(indices);
+  const propios = [];
+  if (indices.length === 1) {
+    const nodo = Array.isArray(ev.payload) ? ev.payload[indices[0]] : undefined;
+    if (Array.isArray(nodo)) nodo.forEach((c, k) => propios.push({ camino: [...indices, k], contenido: c }));
+    else if (nodo !== undefined) propios.push({ camino: [...indices], contenido: nodo });
+  }
+  const conAlcance = (o) => (esReferencia(o.contenido) ? { ...o, alcanza: seguir(eje, o.contenido, [o.evento + ':' + o.camino.join('.')]) } : o);
+  const salida = propios.map((p, k) => conAlcance({ llegada: k, tipo: 'propio', evento: id, camino: p.camino, contenido: p.contenido }));
+  for (const h of eje.sobre(id, dir)) {
+    salida.push(conAlcance({ llegada: salida.length, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, en: h.en }));
+  }
+  return salida;
 }
 
 /** Direcciones con más de un ocupante: las colisiones del árbol. */

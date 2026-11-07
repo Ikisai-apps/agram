@@ -277,7 +277,8 @@ test('camino y época: todos los focos se miran desde el mismo sitio y bajo la m
   const e = escena(eje, [menu.id, compra.id], { ahora: AHORA, camino: [1], epoca });
   assert.deepEqual(e.camino, [1]);
   assert.equal(e.epoca, 'época de prueba');
-  assert.equal(e.focos[0].mapa.celdas[2].significado, 'p1d2');
+  assert.equal(e.focos[0].mapa.celdas[2].significado, 'ocupante 3'); // menú 1 = ['ensalada', 'guiso', 'fruta']: la lista de la posición, por llegada
+  assert.equal(e.focos[0].mapa.celdas[3].significado, 'p1d3'); // lo que la lista no ocupa: subposición por dirección
   assert.deepEqual(e.focos[0].mapa, mapa(eje, menu.id, { camino: [1], epoca }));
   const lineas = render(e).split('\n');
   assert.match(lineas[0], /· época de prueba · camino 1 ·/);
@@ -288,7 +289,8 @@ test('camino y época: todos los focos se miran desde el mismo sitio y bajo la m
   assert.equal(p.epoca, 'época 0');
   assert.deepEqual(p.focos[0].mapa, mapa(eje, menu.id, { camino: [1], epoca: EPOCA_0 }));
   assert.match(render(p).split('\n')[0], / · época 0 · camino 1 · /);
-  assert.equal(p.focos[0].mapa.celdas[2].significado, 'con qué condición'); // profundidad 1: el PV aplicado al nodo de arriba
+  assert.equal(p.focos[0].mapa.celdas[2].significado, 'ocupante 3'); // un índice de la lista no lleva regla corta
+  assert.equal(p.focos[0].mapa.celdas[4].significado, 'qué se hace'); // profundidad 1, fuera de la lista: el PV aplicado al nodo de arriba
   assert.throws(() => escena(eje, [menu.id], { epoca: 'época 9' }), /época desconocida/);
 });
 

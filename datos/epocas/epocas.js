@@ -10,6 +10,7 @@ export const EPOCA_0_DATOS = {
     "La época está fuera del dato: un dato se lee desde cualquier época; BTML no lleva época dentro (mapa §9 [D]).",
     "Dígito = PV en todas las profundidades: una dirección es una cadena de miradas aplicadas desde el tronco; bajar un nivel es aplicar otra perspectiva al elemento (mapa §8, §10.4 [D]).",
     "Reglas cortas = época 0; reglas largas = lo que pulen las épocas: en toda profundidad n ≥ 1 el dígito es el PV aplicado al nodo de arriba (0 qué es, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo). La profundidad 0 es la cruceta: los diez PV sobre el registro en foco (VG, 7-11 noche).",
+    "La lista de una posición está fuera del árbol (VG, 7-11 noche: «son las dos soluciones al mismo tiempo»): un array dentro de una posición son sus ocupantes por llegada, sin PV, y las reglas cortas nombran subposiciones escritas por dirección (en), no los índices de esa lista. La cruceta es la lente para ver la lista o clasificarla, sin aplicarla.",
     "Es el respaldo: lo que otra época no especialice se lee con ella (corpus V2 y V3: la época 0 es el fallback de las profundidades sin consolidar).",
     "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (opción B, decidida por VG el 7-11 tarde: mapa §12 [D], «Signo del vector: opción B»).",
     "Los ejemplos de las profundidades 3 a 9 recorren una sola lectura ilustrativa de una reserva (1.7.2.1.3.4.7.6.1), construida para recorrer las profundidades y no como modelo de reserva; ningún caso real llega todavía tan hondo."
@@ -42,7 +43,7 @@ export const EPOCA_0_DATOS = {
       "digito": 1,
       "nombre": "recursos",
       "significado": "PV1, reino o ciudad: cantidades, entradas y salidas, costes, disponibilidad.",
-      "ejemplo": "compra 1 = [ref menú:1, 1, 'EUR 12']: qué, cuánto, a qué precio."
+      "ejemplo": "compra 1 = [ref menú:1, 1, 'EUR 12']: tres ocupantes de la posición, por llegada (lo comprado, la cantidad, el precio), sin PV propios."
     },
     {
       "profundidad": 0,
@@ -105,98 +106,98 @@ export const EPOCA_0_DATOS = {
       "digito": 0,
       "nombre": "qué es",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): qué es la parte; su nombre o cara, lo que se ve si no se desarrolla.",
-      "ejemplo": "compra 4.0 = 'pagar': =LOCAL(4, 0) lo devuelve; x.0 ocupa la misma dirección que x (colisión por ceros)."
+      "ejemplo": "Un escrito en la 4.0 de la compra dice qué es su fábrica; cae en '4000000000', la dirección de la 4 (colisión por ceros). compra 4 = ['pagar', 'servir'] son dos ocupantes de la 4, no la 4.0 y la 4.1."
     },
     {
       "profundidad": 1,
       "digito": 1,
       "nombre": "cuánto",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): cuánto; su magnitud (número con unidad, veces, duración), donde SUMAR y el producto tienen sentido.",
-      "ejemplo": "compra 1.1 = 1 (un menú): =LOCAL(1, 1) * 12 EUR da 12 EUR."
+      "ejemplo": "Un escrito en la 1.1 de la compra = 1 (un menú): cuánto de sus recursos. El 1 del payload es el ocupante 2 de la lista de la posición 1, no la 1.1."
     },
     {
       "profundidad": 1,
       "digito": 2,
       "nombre": "con qué condición",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): con qué condición; el criterio que la distingue o la condiciona: precio, requisito, límite.",
-      "ejemplo": "compra 1.2 = 'EUR 12': =REF(compra, \"1200000000\") da 12 EUR; una corrección escrita en '1200000000' es otro ocupante."
+      "ejemplo": "Un escrito en la 1.2 de la compra = 'EUR 12': la condición de sus recursos, el precio. Hoy =REF(compra, \"1200000000\") lee el ocupante 3 de la lista de la 1 ('EUR 12'), porque resolver baja por el array; lo escrito en '1200000000' es otro ocupante de esa dirección."
     },
     {
       "profundidad": 1,
       "digito": 3,
       "nombre": "con quién",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): con quién; su contraparte, quién la provee, la recibe o responde por ella.",
-      "ejemplo": "Reserva de Booking con 1.3 = 'recepción': quién atiende los recursos de la reserva."
+      "ejemplo": "Un escrito en la 1.3 de una reserva de Booking = 'recepción': quién atiende los recursos de la reserva."
     },
     {
       "profundidad": 1,
       "digito": 4,
       "nombre": "qué se hace",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): qué se hace; lo que se hace o se hará con ella. El 4 del 4 es la acción de la acción.",
-      "ejemplo": "compra 1.4 = 'pagar' (lo que se hace con el recurso) y 3.4 = 'avisar'."
+      "ejemplo": "Escritos en la 1.4 de la compra = 'pagar' (lo que se hace con el recurso) y en la 3.4 = 'avisar'."
     },
     {
       "profundidad": 1,
       "digito": 5,
       "nombre": "dónde encaja",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): dónde encaja; la dirección o referencia donde encaja en el árbol, lo que BUSCAR(LOCAL(5)) recibiría.",
-      "ejemplo": "Reserva de Booking con 1.5 = { ref: calendario, dir: '7000000000' }: dónde encajan sus recursos."
+      "ejemplo": "Un escrito en la 1.5 de una reserva de Booking = { ref: calendario, dir: '7000000000' }: dónde encajan sus recursos."
     },
     {
       "profundidad": 1,
       "digito": 6,
       "nombre": "de dónde viene",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): de dónde viene; su origen y procedencia, desde cuándo y qué había antes.",
-      "ejemplo": "La cuenta 1 sale de la compra 1.2; la reserva de Booking con 1.6 = 'entrada 14-11'."
+      "ejemplo": "La cuenta 1 sale del precio de la compra (el ocupante 3 de su lista de recursos); un escrito en la 1.6 de una reserva = 'entrada 14-11'."
     },
     {
       "profundidad": 1,
       "digito": 7,
       "nombre": "para cuándo",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): para cuándo; su plazo o compromiso, hasta cuándo vale o cuándo se cumple.",
-      "ejemplo": "Reserva de Booking con 1.7 = 'salida 16-11 12:00'; un menú con 1.7 = 'hasta las 16:00'."
+      "ejemplo": "Un escrito en la 1.7 de una reserva de Booking = 'salida 16-11 12:00'; en la 1.7 de un menú = 'hasta las 16:00'."
     },
     {
       "profundidad": 1,
       "digito": 8,
       "nombre": "frente a otros",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): frente a otros; dónde queda frente a sus comparables: diferencia, nivel, hito requerido.",
-      "ejemplo": "Tarea con 4.8 = '3.1' (aprendizaje profesional, el hito del índice 3)."
+      "ejemplo": "Un escrito en la 4.8 de una tarea = '3.1' (aprendizaje profesional, el hito del índice 3)."
     },
     {
       "profundidad": 1,
       "digito": 9,
       "nombre": "cómo",
       "significado": "Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): cómo; cómo se consigue, se usa o se aplica, y el siguiente paso.",
-      "ejemplo": "Reserva de Booking con 1.9 = 'check-in a partir de las 15:00'; tarea con 4.9 = 'poner manteles'."
+      "ejemplo": "Un escrito en la 1.9 de una reserva de Booking = 'check-in a partir de las 15:00'; en la 4.9 de una tarea = 'poner manteles'."
     },
     {
       "profundidad": 2,
       "digito": 0,
       "nombre": "qué es",
       "significado": "Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): qué es; el valor tal como se muestra. Colisiona con el detalle (x.y.0 ocupa la dirección de x.y). Si el detalle es un terminal no tiene posiciones: la lectura es de BQL sobre el valor.",
-      "ejemplo": "compra 1.2 = 'EUR 12' es terminal: BQL lo muestra como '12 EUR'; un terminal no tiene posición 0 en BTML."
+      "ejemplo": "Un precio escrito en la 1.2 de la compra = 'EUR 12' es terminal: BQL lo muestra como '12 EUR'; un terminal no tiene posición 0 en BTML."
     },
     {
       "profundidad": 2,
       "digito": 1,
       "nombre": "cuánto",
       "significado": "Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): cuánto; la cantidad, el número puro. Sobre un terminal, lectura de BQL.",
-      "ejemplo": "La cantidad de compra 1.2 es 12, el número puro."
+      "ejemplo": "La cantidad del precio escrito en la 1.2 es 12, el número puro."
     },
     {
       "profundidad": 2,
       "digito": 2,
       "nombre": "con qué condición",
       "significado": "Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): con qué condición; la unidad o la condición que hace válido el valor; separa magnitudes del mismo número. Sobre un terminal, lectura de BQL.",
-      "ejemplo": "La unidad de compra 1.2 es EUR; unidades distintas no se suman, se componen (14 EUR + 15 min no se funden)."
+      "ejemplo": "La unidad del precio escrito en la 1.2 es EUR; unidades distintas no se suman, se componen (14 EUR + 15 min no se funden)."
     },
     {
       "profundidad": 2,
       "digito": 3,
       "nombre": "con quién",
       "significado": "Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): con quién; quién fija el valor, lo cobra o responde por él.",
-      "ejemplo": "El precio de compra 1.2 lo fija cocina y lo paga el huésped."
+      "ejemplo": "El precio escrito en la 1.2 lo fija cocina y lo paga el huésped."
     },
     {
       "profundidad": 2,
@@ -732,10 +733,7 @@ export const EPOCA_0_DATOS = {
     }
   ],
   "dudas": [
-    "1 · [X] decidir VG. Varios en una posición: hoy menú 1 = ['ensalada', 'guiso', 'fruta'] es una hilera y LOCAL(1, 1) = 'guiso' se lee como «cuánto». ¿Se acepta que una hilera escrita en una posición de PV se lea como décupla, o una lista son ocupantes (tres platos = tres escritos en '1000000000')?",
-    "2 · [X] decidir VG. compra 3 = ['huesped', 'cocina'] se lee ahora como 3.0 «qué es» y 3.1 «cuánto». ¿Se reescribe el ejemplo (por ejemplo 3 = ['pide el menú', 1, 'sin gluten', 'cocina']) o se acepta la hilera?",
-    "3 · [X] decidir VG. Profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda el valor (unidad, desglose, dependencias)? En el registro de salida de la fábrica ya está decidido: el tercer dígito es la clase de modificación.",
-    "4 · [X] decidir VG. ¿Son estas las etiquetas que Mapped debe mostrar al bajar dentro de una posición? Hoy las muestra al elegir cualquier profundidad ≥ 1.",
-    "5 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL?"
+    "1 · [X] decidir VG. Profundidad 2: ¿posiciones consultables (LOCAL(1, 2, 2) = 'EUR') o lectura de BQL sobre los campos que ya guarda el valor (unidad, desglose, dependencias)? En el registro de salida de la fábrica ya está decidido: el tercer dígito es la clase de modificación.",
+    "2 · [X] decidir VG. Más de diez (mesas de doce, grupos grandes): ¿registro propio referenciado o vista BQL? La lista de una posición ya es de n (VG, 7-11 noche): el límite de diez queda por evento."
   ]
 };

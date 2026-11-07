@@ -109,9 +109,12 @@ test('lectura: la dirección entera, profundidad a profundidad', () => {
 
 test('los modos leen con la época que se les pase, por objeto o por nombre', async () => {
   const ev = { id: 'ab', autor: 'x', t: '2026-11-07T10:00:00Z', sobre: null, payload: ['Compra', 1, 'EUR 12'] };
-  const grano = ['qué es', 'cuánto', 'con qué condición'];
-  assert.deepEqual(decupla(ev, EPOCA_0, 1).posiciones.map((p) => p.significado).slice(0, 3), grano);
-  assert.deepEqual(decupla(ev, 'época 0', 1).posiciones.map((p) => p.significado), PREGUNTAS);
+  // Bajo una posición, un array es su lista de ocupantes por llegada, sin PV (VG, 7-11 noche);
+  // lo que el array no ocupa son subposiciones por dirección, con la regla corta.
+  const lista = ['ocupante 1', 'ocupante 2', 'ocupante 3'];
+  assert.deepEqual(decupla(ev, EPOCA_0, 1).posiciones.map((p) => p.significado).slice(0, 3), lista);
+  assert.deepEqual(decupla(ev, 'época 0', 1).posiciones.map((p) => p.significado), [...lista, ...PREGUNTAS.slice(3)]);
+  assert.deepEqual(decupla({ ...ev, payload: 'terminal' }, EPOCA_0, 1).posiciones.map((p) => p.significado), PREGUNTAS);
   assert.deepEqual(decupla(ev).posiciones.map((p) => p.significado), [...PV]); // profundidad 0: la cruceta
   assert.throws(() => decupla(ev, 'época 1'), /época desconocida/);
 
@@ -123,7 +126,8 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
 
   const m = mapa(eje, compra.id, { camino: [1], epoca: 'época 0' });
   assert.deepEqual(m, mapa(eje, compra.id, { camino: [1], epoca: EPOCA_0 }));
-  assert.deepEqual(m.celdas.map((c) => c.significado), PREGUNTAS);
+  assert.deepEqual(m.celdas.map((c) => c.significado), [...lista, ...PREGUNTAS.slice(3)]); // compra 1: tres ocupantes por llegada
+  assert.deepEqual(m.celdas.map((c) => c.ocupante), [0, 1, 2, undefined, undefined, undefined, undefined, undefined, undefined, undefined]);
   assert.deepEqual(mapa(eje, compra.id).celdas.map((c) => c.significado), [...PV]);
   assert.throws(() => mapa(eje, compra.id, { epoca: 'época 1' }), /época desconocida/);
 });
@@ -138,7 +142,8 @@ test('cortes del 8: regla de la época (VG, 7-11 noche); la época 0 trae 1 2 3 
   assert.equal(EPOCA_0.cortes('escritos')[0], 1); // se devuelve una copia
   const propia = cargarEpoca({ nombre: 'con cortes', reglas: generales, cortes: { escritos: [0, 1, 2, 3, 4, 5, 6, 7, 8] } }, { respaldo: EPOCA_0 });
   assert.deepEqual(propia.cortes('escritos'), [0, 1, 2, 3, 4, 5, 6, 7, 8]);
-  assert.deepEqual(propia.cortes('terminales'), ESCALA_0); // lo que no dice, del respaldo
+  assert.equal(propia.cortes('terminales'), undefined); // lo que no trae: las bases usan los de la época 0 (bases.cortesDe, origen 'respaldo')
+  assert.deepEqual(cargarEpoca({ nombre: 'todas', reglas: generales, cortes: { todas: [1, 2, 3, 4, 5, 6, 7, 8, 9], decision: 'prueba' } }).cortes('T:hora'), [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.equal(cargarEpoca({ nombre: 'sin cortes', reglas: generales }).cortes('escritos'), undefined);
   assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: { todas: [3, 2, 1] } }), /nueve umbrales crecientes/);
   assert.throws(() => cargarEpoca({ nombre: 'x', reglas: generales, cortes: [1, 2, 3, 4, 5, 6, 7, 8, 9] }), /cortes es un objeto/);
