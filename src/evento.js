@@ -2,20 +2,63 @@
 // BTML encima. Se anida sobre el registro en foco (hijo → padre); los hilos son
 // cadenas de eventos encadenados por esa referencia.
 
-import { validarPayload, esDireccion } from './btml.js';
+import { ARIDAD, validarPayload, esDireccion } from './btml.js';
 import { validarMovimiento } from './tokens.js';
 
 /** Posición raíz del foco: el registro entero. */
 export const RAIZ = '0000000000';
 
-/** JSON canónico: claves ordenadas, sin espacios. */
+/**
+ * JSON canónico: claves ordenadas, sin espacios, con la semántica de JSON
+ * (lo que se hashea es lo que se guarda): una clave con undefined o con una
+ * función no está, un undefined en un array es null y toJSON se respeta. Así
+ * el id de un evento no cambia al pasar por JSON.
+ */
 export function canonico(valor) {
-  if (Array.isArray(valor)) return '[' + valor.map(canonico).join(',') + ']';
+  return ordenado(aJSON(valor));
+}
+
+function ordenado(valor) {
+  if (Array.isArray(valor)) return '[' + valor.map(ordenado).join(',') + ']';
   if (valor !== null && typeof valor === 'object') {
     const claves = Object.keys(valor).sort();
-    return '{' + claves.map((k) => JSON.stringify(k) + ':' + canonico(valor[k])).join(',') + '}';
+    return '{' + claves.map((k) => JSON.stringify(k) + ':' + ordenado(valor[k])).join(',') + '}';
   }
   return JSON.stringify(valor);
+}
+
+/** El valor tal como queda tras guardarlo en JSON. Lanza si no cabe en JSON (ciclos, BigInt). */
+export function aJSON(valor) {
+  const texto = JSON.stringify(valor);
+  return texto === undefined ? null : JSON.parse(texto);
+}
+
+/**
+ * Congela en profundidad un valor JSON propio (una copia: no toca lo que pasó
+ * quien escribe): payload, movimientos y contexto incluidos. No existe
+ * modificar en sitio: corregir es añadir un ocupante, también en memoria.
+ * Devuelve el mismo objeto.
+ */
+export function congelar(x) {
+  if (x !== null && typeof x === 'object') {
+    for (const v of Object.values(x)) congelar(v);
+    Object.freeze(x);
+  }
+  return x;
+}
+
+/**
+ * Copia de un evento tal como se guarda: solo sus campos (los del cuerpo, el
+ * id y, si va firmado, firmante y firma), con `en` y `contexto` por defecto,
+ * pasada por JSON y congelada en profundidad. El eje guarda esta copia y no
+ * el objeto que le pasan: lo que llegue de más no entra, y mutar lo pasado
+ * después no cambia nada. Lanza si no cabe en JSON.
+ */
+export function normalizarEvento(ev) {
+  if (!ev || typeof ev !== 'object') return ev;
+  const { autor, sobre, en, t, movimientos, payload, contexto, id, firmante, firma } = ev;
+  // El mismo orden de campos que crearEvento y firmar: guardar y restaurar da los mismos bytes.
+  return congelar(aJSON({ autor, sobre, en: en === undefined ? RAIZ : en, t, movimientos, payload, contexto: contexto ?? {}, id, firmante, firma }));
 }
 
 /** SHA-256 en hexadecimal, igual en Node y en el navegador. */
@@ -39,22 +82,53 @@ export function cuerpo(ev) {
 }
 
 /**
+ * Ruta del primer array del payload con más de ARIDAD posiciones, o null.
+ * Mira la longitud sin recorrerla ni pasar por JSON: JSON.stringify recorre
+ * la longitud entera, y un array disperso puede declarar 2^32 − 1 posiciones
+ * vacías. Solo baja por las posiciones presentes de los arrays que caben.
+ */
+function arrayDemasiadoLargo(x, ruta = '', ancestros = new Set()) {
+  if (!Array.isArray(x) || ancestros.has(x)) return null;
+  if (x.length > ARIDAD) return ruta || 'raíz';
+  ancestros.add(x);
+  for (let i = 0; i < x.length; i++) {
+    if (!(i in x)) continue;
+    const r = arrayDemasiadoLargo(x[i], ruta + i, ancestros);
+    if (r !== null) return r;
+  }
+  ancestros.delete(x);
+  return null;
+}
+
+/**
  * Crea un evento con su id = hash del cuerpo canónico.
  * autor: identidad que escribe. sobre: id del registro en foco (null solo en génesis).
  * en: posición del foco donde se anida lo escrito (dirección de diez dígitos; raíz por defecto).
  * Lo escrito va en el PV donde se escribe (VG, 6-11-2026).
  * t: instante ISO. movimientos: lista de movimientos de tokens. payload: BTML.
+ * Se valida, se hashea y se devuelve la copia en JSON de lo pasado (lo que se
+ * guardará), congelada en profundidad: quien lo crea puede seguir usando sus
+ * arrays, y el evento no cambia. Un array de más de diez posiciones en el
+ * payload se rechaza antes de copiar, sin recorrer su longitud.
  */
 export async function crearEvento({ autor, sobre = null, en = RAIZ, t, movimientos, payload, contexto = {} }) {
-  const ev = { autor, sobre, en, t, movimientos, payload, contexto };
+  const largo = arrayDemasiadoLargo(payload);
+  if (largo !== null) throw new Error('evento mal formado: payload ' + largo + ': más de ' + ARIDAD + ' posiciones');
+  let ev;
+  try {
+    ev = aJSON({ autor, sobre, en, t, movimientos, payload, contexto });
+  } catch (e) {
+    throw new Error('evento mal formado: no cabe en JSON (' + e.message + ')');
+  }
   const errores = validarForma(ev);
   if (errores.length) throw new Error('evento mal formado: ' + errores.join('; '));
   ev.id = await hash(canonico(cuerpo(ev)));
-  return Object.freeze(ev);
+  return congelar(ev);
 }
 
 /** Validación de forma, sin mirar el eje. */
 export function validarForma(ev) {
+  if (!ev || typeof ev !== 'object') return ['evento no es objeto'];
   const errores = [];
   if (typeof ev.autor !== 'string' || !ev.autor) errores.push('autor obligatorio');
   if (ev.sobre !== null && typeof ev.sobre !== 'string') errores.push('sobre debe ser id o null');
@@ -67,8 +141,11 @@ export function validarForma(ev) {
     ev.movimientos.forEach((m, i) => validarMovimiento(m).forEach((e) => errores.push('movimiento ' + i + ': ' + e)));
     // El evento mínimo mueve T. En el génesis el autor lo recibe; después lo gasta.
     const esGenesis = ev.contexto?.genesis === true;
-    const mueveT = ev.movimientos.some((m) => m.token === 'T' && (esGenesis ? m.a === ev.autor : m.de === ev.autor));
+    const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && (esGenesis ? m.a === ev.autor : m.de === ev.autor));
     if (!mueveT) errores.push(esGenesis ? 'el génesis debe emitir T al autor' : 'el autor debe mover T');
+  }
+  if (ev.contexto !== undefined && ev.contexto !== null && (typeof ev.contexto !== 'object' || Array.isArray(ev.contexto))) {
+    errores.push('contexto debe ser un objeto');
   }
   const p = validarPayload(ev.payload);
   if (!p.ok) errores.push(...p.errores.map((e) => 'payload ' + e));

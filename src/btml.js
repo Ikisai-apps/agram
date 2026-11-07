@@ -4,16 +4,16 @@
 
 export const ARIDAD = 10;
 
-/** Referencia a otro evento, con subposición opcional de diez dígitos. */
+/**
+ * Referencia a otro evento: exactamente { ref } o { ref, dir }, como claves
+ * propias, con dir una dirección de diez dígitos. Nada más viaja dentro: las
+ * referencias no copian.
+ */
 export function esReferencia(x) {
-  return (
-    x !== null &&
-    typeof x === 'object' &&
-    !Array.isArray(x) &&
-    typeof x.ref === 'string' &&
-    x.ref.length > 0 &&
-    (x.dir === undefined || esDireccion(x.dir))
-  );
+  if (x === null || typeof x !== 'object' || Array.isArray(x)) return false;
+  const claves = Object.keys(x);
+  if (!claves.includes('ref') || !claves.every((k) => k === 'ref' || k === 'dir')) return false;
+  return typeof x.ref === 'string' && x.ref.length > 0 && (!claves.includes('dir') || esDireccion(x.dir));
 }
 
 /** Terminal: número finito, cadena no vacía o referencia. */
@@ -30,9 +30,15 @@ export function esDireccion(s) {
 
 /**
  * Valida un payload. Devuelve { ok, errores } con rutas legibles.
- * Un array debe tener entre 1 y 10 posiciones, ninguna nula ni vacía.
+ * Un array debe tener entre 1 y 10 posiciones, ninguna nula ni vacía. Una
+ * posición ausente (un array disperso de JavaScript, como ['a', , 'c'])
+ * también es un hueco, igual que null: si se usa el índice 3, los índices 0,
+ * 1 y 2 tienen contenido real. Un array vacío o de más de diez se rechaza sin
+ * mirar dentro, así que el coste nunca pasa de diez posiciones por nivel y
+ * una ruta no se confunde: '10' es siempre la posición 1, subposición 0. Un
+ * array que se contiene a sí mismo no es un árbol: «ciclo».
  */
-export function validarPayload(payload, ruta = '') {
+export function validarPayload(payload, ruta = '', ancestros = new Set()) {
   const errores = [];
   const aqui = ruta || 'raíz';
   if (esTerminal(payload)) return { ok: true, errores };
@@ -40,16 +46,32 @@ export function validarPayload(payload, ruta = '') {
     errores.push(aqui + ': ni terminal ni array');
     return { ok: false, errores };
   }
-  if (payload.length === 0) errores.push(aqui + ': array vacío');
-  if (payload.length > ARIDAD) errores.push(aqui + ': más de ' + ARIDAD + ' posiciones');
-  payload.forEach((hijo, i) => {
+  if (ancestros.has(payload)) {
+    errores.push(aqui + ': ciclo');
+    return { ok: false, errores };
+  }
+  // La longitud primero, y se sale: un array disperso puede declarar una
+  // longitud enorme sin contenido, y no se recorre.
+  if (payload.length === 0) {
+    errores.push(aqui + ': array vacío');
+    return { ok: false, errores };
+  }
+  if (payload.length > ARIDAD) {
+    errores.push(aqui + ': más de ' + ARIDAD + ' posiciones');
+    return { ok: false, errores };
+  }
+  ancestros.add(payload);
+  // Un for hasta ARIDAD como mucho, no forEach: forEach se salta las
+  // posiciones ausentes y las daría por buenas.
+  for (let i = 0; i < payload.length; i++) {
     const r = ruta + i;
-    if (hijo === null || hijo === undefined) {
+    if (!(i in payload) || payload[i] === null || payload[i] === undefined) {
       errores.push(r + ': hueco');
-      return;
+      continue;
     }
-    errores.push(...validarPayload(hijo, r).errores);
-  });
+    errores.push(...validarPayload(payload[i], r, ancestros).errores);
+  }
+  ancestros.delete(payload);
   return { ok: errores.length === 0, errores };
 }
 

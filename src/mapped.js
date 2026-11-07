@@ -8,7 +8,7 @@
 // donde va la mano. Cartón piedra: sin confluencia estadística todavía.
 
 import { ARIDAD, esReferencia, direccion } from './btml.js';
-import { EPOCA_0 } from './epocas.js';
+import { EPOCA_0, epocaDe } from './epocas.js';
 import { MODOS } from './modos.js';
 
 export const MATRIZ = Object.freeze([
@@ -26,21 +26,20 @@ function payloadEn(ev, camino) {
 /**
  * Mapa del foco: una celda por PV con su contenido en la profundidad del
  * camino y cuántos registros se han escrito en esa posición; el eje (hilo
- * hacia atrás y escritos sobre el foco); y las medidas del 8.
+ * hacia atrás y escritos sobre el foco); y las medidas del 8. La época va
+ * por objeto o por nombre, como en leerDireccion.
  */
 export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.sequenced.decuplas } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('foco desconocido: ' + id);
+  const e = epocaDe(epoca);
   const p = payloadEn(ev, camino);
   const celdas = [];
   for (let i = 0; i < ARIDAD; i++) {
-    let contenido;
-    if (Array.isArray(p)) contenido = p[i];
-    else if (i === 0) contenido = p;
     celdas.push({
       indice: i,
-      significado: epoca.reglaCorta(camino.length, i),
-      contenido,
+      significado: e.reglaCorta(camino.length, i),
+      contenido: Array.isArray(p) ? p[i] : undefined, // un terminal no tiene posición 0: va aparte, en `terminal`
       escritos: eje.sobre(id, direccion([...camino, i])).length,
     });
   }
@@ -58,7 +57,8 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
     identidades: identidades.size,
     posicionesDesarrolladas: celdas.filter((c) => c.contenido !== undefined).length,
   };
-  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], celdas, hilo, hijos, medidas };
+  const terminal = Array.isArray(p) ? undefined : p;
+  return { foco: id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, camino: [...camino], terminal, celdas, hilo, hijos, medidas };
 }
 
 function breve(c) {
@@ -72,7 +72,7 @@ function breve(c) {
 export function sobrio(m) {
   const celda = (i) => {
     const c = m.celdas[i];
-    const texto = i === 5 ? m.foco.slice(0, 8) : breve(c.contenido);
+    const texto = i === 5 ? m.foco.slice(0, 8) + (m.terminal === undefined ? '' : ' ' + breve(m.terminal)) : breve(c.contenido);
     return (i + ' ' + c.significado).padEnd(17) + texto.padEnd(14) + (c.escritos ? '↳' + c.escritos : '').padEnd(4);
   };
   const filas = MATRIZ.map((fila) => fila.map(celda).join(' | '));

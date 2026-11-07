@@ -5,7 +5,7 @@ AGRAM es el motor: la ejecución real sobre la estructura de datos (BTML, `docs/
 Convenciones:
 
 - Los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`. En las salidas los ids se acortan a ocho caracteres con `corto`. `docs/BTML.md` y `docs/BQL.md` citan los mismos ids.
+- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `6c1c5968`, alta `ccf5a120`, menú `4598f23e`, compra `f9e59d1e`, cuenta `c70bfa6e`. En las salidas los ids se acortan a ocho caracteres con `corto`. Los tres documentos (`docs/BTML.md`, `docs/BQL.md` y este) citan los mismos ids; en un programa no se copian, se usan `compra.id`, `cuenta.id`… (cambian en cuanto cambia el cuerpo de un evento: pasó con la PR #18, con la PR #28, que cambió el vector que guardan las consolidaciones, y con la PR #35, que puso el génesis en series).
 - Toda escritura recibe `t` explícito. `escribirDesde` y `ejecutar` usan `new Date().toISOString()` si falta, y entonces los ids no son reproducibles.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se trabaja. Una «consolidación» es el registro que escribe `consolidar`.
 
@@ -13,7 +13,7 @@ Convenciones:
 
 | Módulo | Qué define | Exports |
 |---|---|---|
-| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES` |
+| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR` |
 | `src/escritura.js` | El registro de salida de cada modo | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `costeT`, `escribirDesde`, `esReferencia` |
 | `src/modos.js` | Capacidad de lectura y escritura por modo | `MODOS`, `lectura`, `escritura`, `contarPosiciones`, `cabeEscritura` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8) | `banda`, `ejeTemporal`, `medir`, `comparar`, `HITOS` |
@@ -25,18 +25,18 @@ Dependencias: el motor lee el eje (`src/eje.js`), el encaje (`src/encaje.js`, `o
 
 ## 1. El ciclo
 
-Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecutar**. Los tres últimos son eventos normales del eje (transiciones de tokens con payload BTML), anclados en la fábrica del foco (posición 4) y encadenados por `sobre`; por eso la evidencia es el propio hilo: ejecución → consolidación → foco → … → génesis. Nada se borra ni se modifica en sitio.
+Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecutar**, con un paso opcional entre los dos primeros: `proponer` construye las elecciones desde las fórmulas del foco (§2.1). Los tres últimos son eventos normales del eje (transiciones de tokens con payload BTML), anclados en la fábrica del foco (posición 4) y encadenados por `sobre`; por eso la evidencia es el propio hilo: ejecución → consolidación → foco → … → génesis. Nada se borra ni se modifica en sitio.
 
 | Paso | Función | Quién | Escribe (`payload`) | `sobre` / `en` | `contexto` | Mueve |
 |---|---|---|---|---|---|---|
-| descubrir | `descubrir(eje, foco, { camino, posiciones })` | cualquiera | nada | — | — | nada |
+| descubrir | `descubrir(eje, foco, { camino, posiciones, epoca, maximo })` | cualquiera | nada | — | — | nada |
 | consolidar | `consolidar(eje, { autor, foco, elecciones, titulo, t, camino }, privada)` | cualquier identidad con T | `[titulo, elección 1, …, elección n]` | foco / `direccion([...camino, 4])` | `{ motor: 'fabrica', fase: 'consolidado', fuentes, encaje, modo: 'mapped' }` | T del autor: 1 minuto por posición |
-| autorizar | `autorizar(eje, { autorizante, consolidacion, t, nota }, privada)` | identidad con P > 0 sobre la consolidación y distinta del autor | `'==' + nota` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'autorizado', modo: 'pointed' }` | T del autorizante: 1 minuto |
-| ejecutar | `ejecutar(eje, { autor, consolidacion, movimientos, t, titulo }, privada)` | el autor de la consolidación | `[titulo, { ref: consolidación }, { ref: autorización }]` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }` | T del autor: 1 minuto, más `movimientos` |
+| autorizar | `autorizar(eje, { autorizante, consolidacion, t, nota }, privada)` | identidad con P > 0 sobre la consolidación y distinta del autor | `'==' + nota` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'autorizado', autoridad: { regla, poderes }, modo: 'pointed' }` | T del autorizante: 1 minuto |
+| ejecutar | `ejecutar(eje, { autor, consolidacion, movimientos, t, titulo }, privada)` | el autor de la consolidación | `[titulo, { ref: consolidación }, { ref: autorización }]` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }` | T del autor: 1 minuto por posición (3 con un título terminal), más `movimientos` |
 
 Constantes: `FABRICA = '4000000000'` (la posición 4 en la raíz del foco); `FASES = ['consolidado', 'autorizado', 'ejecutado']` (los valores de `contexto.fase`).
 
-Estados de una consolidación (`estadoDe`): `PENDIENTE DE AUTORIZACIÓN` → `AUTORIZADO` → `EJECUTADO`. No se guardan: se calculan cada vez a partir de lo escrito sobre la consolidación en `FABRICA` por quien puede (§6).
+Estados de una consolidación (`estadoDe`): `PENDIENTE DE AUTORIZACIÓN` → `AUTORIZADO` → `EJECUTADO`. No se guardan: se calculan cada vez a partir de lo escrito sobre la consolidación en `FABRICA` por quien puede (§6). Solo las consolidaciones tienen estado: para cualquier otro registro (el génesis, una nota, una autorización) `estadoDe` devuelve `undefined`.
 
 Reglas de fondo, tal como están en el código:
 
@@ -50,11 +50,11 @@ Pendiente: las seis capacidades del motor que nombra el mapa (interpretar, resol
 ## 2. Descubrir
 
 ```js
-descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {})  // → [{ posicion, dir, candidatos }]
+descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {})  // → [{ posicion, dir, candidatos, total, limitada }]
 caminoVisible(ocupante)                                                // → number[]  camino que se muestra: el del ocupante y, si su contenido es un array con posición 0, un 0 más
 ```
 
-`descubrir` no escribe. Para cada posición de interacción (por defecto 1–4: recursos, criterios, comunicación, fábrica) devuelve la dirección `direccion([...camino, i])` y sus **candidatos**: los ocupantes de esa dirección en el foco (`encaje.ocupantes`, orden por encaje; ver `docs/BTML.md` §6) más dos campos calculados con BQL sobre lo visible de cada uno:
+`descubrir` no escribe. Para cada posición de interacción (por defecto 1–4: recursos, criterios, comunicación, fábrica) devuelve la dirección `direccion([...camino, i])` y sus **candidatos**: los ocupantes de esa dirección en el foco (`encaje.ocupantes`, orden por encaje bajo la `epoca` que se elija al leer; ver `docs/BTML.md` §6) más dos campos calculados con BQL sobre lo visible de cada uno. Con `maximo`, entrega como mucho esos candidatos por posición (los primeros por encaje) sin presentar el corte como completo: `total` dice cuántos hay y `limitada` si se cortó.
 
 | Campo del candidato | Origen | Contenido |
 |---|---|---|
@@ -62,7 +62,8 @@ caminoVisible(ocupante)                                                // → nu
 | `evento`, `dir`, `camino`, `contenido`, `procedencia` | encaje | dónde vive el contenido (`docs/BTML.md` §6.2) |
 | `autor`, `t` | encaje | solo en escritos |
 | `origenDir`, `destino`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | encaje | el encaje del candidato en la posición |
-| `estado`, `texto` | `bql.evaluar(eje, evento, caminoVisible(candidato))` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor (`docs/BQL.md` §1) |
+| `empate`, `empatados`, `justificacion` | encaje | si el encaje no lo separa de otro (y con cuántos) y el motivo del encaje en texto |
+| `estado`, `texto` | `bql.evaluar(eje, evento, caminoVisible(candidato))` | `RESUELTO` / `PENDIENTE` / `INCOMPATIBLE` / `ERROR` y el texto del valor (`docs/BQL.md` §1). Una referencia a un evento ausente no se evalúa: es `PENDIENTE` (`PENDIENTE: evento ausente del eje: <id8>`), como dice el encaje. |
 
 `caminoVisible` añade un `0` al camino cuando el contenido es un array con posición 0: de un array se muestra su representación (PV0). De un terminal o una referencia se muestra lo que hay. BQL no sigue la referencia en `evaluar` (texto `→ <id>`), sí la sigue el candidato de origen `referencia`, que ya es lo alcanzado.
 
@@ -103,7 +104,58 @@ console.log('registros antes y después:', eje.orden.length);
 registros antes y después: 5
 ```
 
-Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (ambos muestran la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`exacto`: un escrito anclado en la dirección buscada encaja exacto).
+Lectura: en la posición 1 de la compra colisionan `[1]` y `[1, 0]` (ambos muestran la referencia al menú), lo que esa referencia alcanza (`ensalada`, representación del menú:1) y la cuenta que cocina escribió en `1000000000` (`exacto`: está anclada justo en la dirección buscada). Los cuatro son exactos y salen en orden de llegada; con la convención vigente (`docs/BTML.md` §6.5) solo una referencia que alcanza otra dirección tiene vector distinto de cero.
+
+### 2.1 Proponer (operador B): elecciones desde las fórmulas del foco
+
+`proponer` (PR #26, posterior a la primera versión de este documento) construye las `elecciones` de una consolidación leyendo las posiciones del foco. Los operadores del ciclo son `OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' }`: Q interroga, B construye la propuesta, C la fija; el orden importa. No escribe nada.
+
+```js
+proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {})  // → { foco, elecciones, origenes, pendientes }
+```
+
+| Lo que hay en `[...camino, i]` del foco | Qué propone en `elecciones[i]` | `origenes[k].desde` |
+|---|---|---|
+| sin desarrollar | nada (la posición no entra) | — |
+| fórmula que resuelve a una **colección** | `{ candidato }` con su primer ítem (el mejor encaje, salvo que la fórmula ORDENE otra cosa) | `'formula'` |
+| fórmula que resuelve a un **número** | el número | `'formula'` |
+| fórmula que resuelve a otro valor (magnitud, composición, texto…) | su **texto** formateado (`r.texto`), como terminal nuevo | `'formula'` |
+| contenido literal (terminal, array o referencia) | `{ ref: foco, dir }`: lo literal se propone por referencia | `'foco'` |
+| fórmula PENDIENTE, INCOMPATIBLE o ERROR, o colección vacía | nada; se informa en `pendientes` (`{ posicion, motivo }`) | — |
+
+Ejemplo: el ciclo entero sobre la cuenta, con el pago tomado de la fórmula en vez de teclearlo.
+
+```sh
+node --input-type=module -e "
+import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { proponer, consolidar, autorizar, ejecutar, estadoDe, OPERADORES } from './src/motor.js';
+import { evaluar } from './src/bql.js';
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
+const { eje, compra } = await ejemploCompra();
+const cuenta = await ejemploCuenta(eje, compra);
+console.log(JSON.stringify(OPERADORES));
+const p = proponer(eje, cuenta.id);
+console.log(corto(p.elecciones));
+console.log(corto(p.origenes.map((o) => o.posicion + ':' + o.desde)), corto(p.pendientes));
+const T = '2026-11-07T16:00:00Z';
+const cons = await consolidar(eje, { autor: 'huesped', foco: cuenta.id, t: T, titulo: 'Pago de la cuenta', elecciones: p.elecciones });
+console.log(corto(cons.payload), '·', evaluar(eje, cons.id, [1]).valor.tipo);
+const importe = evaluar(eje, cuenta.id, [1]).valor;
+await autorizar(eje, { autorizante: 'casa', consolidacion: cons.id, t: T });
+await ejecutar(eje, { autor: 'huesped', consolidacion: cons.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: importe.unidad, cantidad: importe.cantidad, de: 'huesped', a: 'cocina' }] });
+console.log(estadoDe(eje, cons.id), importe.cantidad, importe.unidad, '· EUR cocina', eje.saldo('cocina', 'E:casa/EUR'), 'huesped', eje.saldo('huesped', 'E:casa/EUR'));
+"
+```
+
+```text
+{"Q":"descubrir","B":"proponer","C":"consolidar"}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"c70bfa6e","dir":"3000000000"}}
+["1:formula","2:formula","3:foco"] []
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"c70bfa6e","dir":"3000000000"}] · texto
+EJECUTADO 14 EUR · EUR cocina 26 huesped 34
+```
+
+Lectura: la cuenta tiene fórmulas en 1 y 2 y un texto escapado en 3; la 4 no existe y no propone. La consolidación guarda el **texto** de la magnitud con su desglose (`"14 EUR (12 EUR + 2 EUR)"`), que BQL vuelve a leer como `texto`, no como magnitud (§13.16). El importe del pago no sale de la consolidación: se toma de la fórmula (`evaluar(...).valor`) y se pasa a mano a `ejecutar`, con `unidad` como denominación de E y el emisor de la serie escrito aparte (`emisor: 'casa'`: desde la PR #35 la serie es `E:casa/EUR`). Las unidades de BQL son etiquetas y no dicen de quién es la serie (`docs/BQL.md` §3). Nada comprueba que el texto consolidado y el movimiento ejecutado digan lo mismo.
 
 ## 3. Consolidar
 
@@ -129,9 +181,10 @@ Las claves de `elecciones` son posiciones **1–9**. Se recorren de 1 hasta la m
 
 | Valor en `elecciones[i]` | Qué se guarda en `payload[i]` | `fuentes` | `encaje[k]` |
 |---|---|---|---|
-| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan) |
-| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector }` (sin `tipo` ni `signo`) |
-| cualquier otro valor BTML (terminal o array) | tal cual | — | — |
+| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan). `origen` es el `origenDir` del candidato, no el `dir` de la referencia guardada: para un escrito, la referencia apunta a su raíz (`dir: '0000000000'`, el payload entero) y `origen` es su anclaje, igual a `destino` (vector cero, `exacto`) |
+| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector }` con `vector(origen, destino)` = candidato − buscado (sin `tipo` ni `signo`) |
+| un array de elecciones (combinar) | el array, con cada elemento tratado como arriba: candidatos y referencias pasan a referencias; terminales y subarrays, tal cual | las de cada elemento | una entrada por cada fuente, todas con la misma `posicion` |
+| cualquier otro valor BTML (terminal) | tal cual | — | — |
 | ausente (hueco, `i` < última elegida) | `{ ref: foco, dir: direccion([...camino, i]) }` si `ocupantes(eje, foco, [...camino, i])` no está vacío; si no, error | — | — |
 
 `destino` es siempre `direccion([...camino, i])`. `fuentes` se deduplica (`[...new Set]`). Los huecos se **heredan del foco por referencia** porque un array BTML no admite huecos y una referencia no copia.
@@ -260,7 +313,9 @@ autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada)  /
 autorizacionesValidas(eje, consolidacion)                                     // → evento[]  escritos en FABRICA sobre la consolidación con fase 'autorizado' cuyo autor puede autorizar
 ```
 
-`autorizar` escribe con `escribirDesde` en modo `pointed`: `sobre = consolidación`, `en = FABRICA`, `payload = '==' + nota` (texto escapado para BQL), `contexto = { motor: 'fabrica', fase: 'autorizado', modo: 'pointed' }`, un minuto de T del autorizante. Solo escribe si la consolidación está `PENDIENTE DE AUTORIZACIÓN` y el autorizante puede.
+`autorizar` escribe con `escribirDesde` en modo `pointed`: `sobre = consolidación`, `en = FABRICA`, `payload = '==' + nota` (texto escapado para BQL), `contexto = { motor: 'fabrica', fase: 'autorizado', autoridad: { regla: REGLA_AUTORIZAR, poderes }, modo: 'pointed' }`, un minuto de T del autorizante. Solo escribe si la consolidación está `PENDIENTE DE AUTORIZACIÓN` y el autorizante puede.
+
+`contexto.autoridad` es el metadato de autoridad del evento (corpus: «firmante, contexto, autoridad cuando aplique»): la regla aplicada y los poderes del autorizante que cubren el registro (`[{ ambito, cantidad }]`, los que suma `poderSobre`) en el momento de autorizar. Es una declaración: el estado se vuelve a calcular con el eje y no se fía de ella. Los demás registros no lo llevan.
 
 Lo que no cumple la regla **no cuenta**: un registro con `fase: 'autorizado'` escrito a mano por quien no puede autorizar queda en el eje (es un evento válido) pero `autorizacionesValidas` no lo devuelve y el estado no cambia.
 
@@ -295,7 +350,7 @@ await autorizar(eje, { autorizante: 'casa', consolidacion: compra.id, t: T }).ca
 el autor no se autoriza a sí mismo
 cocina no tiene poder (P) sobre este registro
 escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
-true 4000000000 "==vale" BQL lo lee como "=vale" {"motor":"fabrica","fase":"autorizado","modo":"pointed"} 1 casa
+true 4000000000 "==vale" BQL lo lee como "=vale" {"motor":"fabrica","fase":"autorizado","autoridad":{"regla":"V0 provisional hasta AARPIA: autoriza quien tiene P > 0 sobre el registro y no es su autor; ejecuta el autor","poderes":[{"ambito":"genesis","cantidad":10}]},"modo":"pointed"} 1 casa
 escritos en la fábrica 2 · válidos 1 · AUTORIZADO
 ya está autorizado
 no es una consolidación: f9e59d1e
@@ -307,11 +362,11 @@ no es una consolidación: f9e59d1e
 ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada)  // → Promise<evento>
 ```
 
-Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado'`; `autor` es el autor de la consolidación; el estado es `AUTORIZADO` (ni pendiente ni ejecutado). Entonces escribe **directamente con `eje.escribir`** (no pasa por `escribirDesde`: sin `contexto.modo`, sin comprobar proporción):
+Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado'`; `autor` es el autor de la consolidación; el estado es `AUTORIZADO` (ni pendiente ni ejecutado). La capacidad de una posición no se cuenta aquí: la limita una serie de tokens que la ejecución mueve, y sin saldo el eje rechaza (§5.1). Entonces escribe **directamente con `eje.escribir`** (no pasa por `escribirDesde`: sin `contexto.modo`, sin comprobar proporción):
 
 - `sobre = consolidación`, `en = FABRICA`, `t` (si falta, el reloj);
 - `payload = [titulo, { ref: consolidación }, { ref: autorización }]`, donde la autorización es la **primera** de `autorizacionesValidas`;
-- `movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }, ...movimientos]`: aquí se mueven los tokens reales (E, P, R, más T). Como en todo evento, cada movimiento debe salir del autor (`de === autor`) y su saldo debe cubrirlo; si no, el eje rechaza el evento entero y nada cambia;
+- `movimientos = [{ token: 'T', escala: 'minuto', cantidad: contarPosiciones(payload), de: autor, a: null }, ...movimientos]` (un minuto por posición escrita, como todo registro de salida: 3 con un título terminal): aquí se mueven los tokens reales (E, P, R, más T). Como en todo evento, cada movimiento debe salir del autor (`de === autor`) y su saldo debe cubrirlo; si no, el eje rechaza el evento entero y nada cambia;
 - `contexto = { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }`.
 
 | Mensaje | Causa |
@@ -320,7 +375,7 @@ Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado
 | `ejecuta el autor de la consolidación: <autor>` | otro autor |
 | `PENDIENTE DE AUTORIZACIÓN` | sin autorización válida |
 | `ya ejecutado` | ya hay ejecución válida |
-| `evento rechazado: …` | lo que rechace el eje (`nadie mueve tokens ajenos`, `saldo insuficiente…`) |
+| `evento rechazado: …` | lo que rechace el eje (`nadie mueve tokens ajenos`, `saldo insuficiente…`; también una plaza sin token esa noche, §5.1) |
 
 ```sh
 node --input-type=module -e "
@@ -351,10 +406,10 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"f0b21935"},{"ref":"b8315a04"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["f0b21935","b8315a04"]} [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
-cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 474
-EJECUTADO · hilo: 9a9334c3 → f0b21935 → f9e59d1e → 4598f23e → ccf5a120 → 6c1c5968
+true 4000000000 ["Pagado",{"ref":"f0b21935"},{"ref":"6136f92e"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["f0b21935","6136f92e"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 472
+EJECUTADO · hilo: 61e6db35 → f0b21935 → f9e59d1e → 4598f23e → ccf5a120 → 6c1c5968
 evidencia: true true
 ya ejecutado
 [{"id":"f0b21935","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
@@ -362,10 +417,30 @@ ya ejecutado
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
 
+### 5.1 Capacidad: cuántos ocupantes de una posición pueden ser válidos
+
+Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos ocupantes (colisiones: se escriben y se ven todos), y puede declarar una **capacidad**: cuántos de ellos pueden ser **válidos** a la vez. Quien la hace cumplir es una **serie limitada de tokens E** que emite quien respalda la posición: en Booking, la casa emite `E:casa/<plaza>@<noche>`, un token por plaza y noche, tantos como capacidad, y ejecutar la reserva los mueve de la casa a la persona huésped. Una segunda reserva solapada se escribe y colisiona, pero su ejecución no pasa: la casa ya no tiene el token de esa noche (`evento rechazado: saldo insuficiente de E:casa/…@<noche> en casa`). La fábrica no cuenta nada: el contador de este apartado es **informativo** (para la interfaz y para saber cuántos tokens emitir).
+
+```js
+CRITERIO_CAPACIDAD = 2                 // dónde declara la décupla de una posición su capacidad
+capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined
+tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin); sin 7 o ilegible, error
+registrosEn(eje, sobre, dir)            // → eventos anclados en la posición o que la referencian desde donde estén, por llegada
+ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }]: solo informa
+```
+
+- **Declaración** (`[X] decidir VG`): la décupla de la posición lleva un entero positivo en su criterio (subposición 2: «cuántos caben»), como una plaza `[nombre, precio, capacidad]` bajo la época 0. Sin ese entero la posición no declara nada.
+- **Qué posición ocupa un registro**: la de su anclaje (`sobre` + `en`). La dirección nombra la colisión entera (§12 del mapa: `1000000000` es a la vez `[1]`, `[1.0]`, `[1.0.0]`), así que se mira cada camino que nombra y cuenta el que declare capacidad. Al contar a los demás, entran también los que **referencian** la posición desde otro anclaje (`registrosEn`): ninguno escapa al contador por elegir otro `en`.
+- **Tramo** (`[X] decidir VG`): `[inicio, fin]` en ISO, con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
+- **Cuántos a la vez**: los otros registros de la posición con consolidación ejecutada que se solapan con el tramo, y el máximo que coincide en un mismo instante (barrido por los inicios). Con capacidad 2, dos estancias encadenadas y una tercera que las cruza caben; una cuarta que coincide con dos, no.
+- `ejecutar` **no** consulta `ocupacion`.
+
+Lo que no hace el motor: mover tokens de dos partes en un solo acto. El motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens ajenos, así que Booking confirma con **dos consolidaciones** sobre la reserva, autorizadas por recepción: la casa entrega los tokens de plaza y después la persona huésped paga (`ejemplos/ikisai/reserva-booking.mjs`, `[X] decidir VG`; la atomicidad es de AARPIA).
+
 ## 6. Estado y lista de consolidaciones
 
 ```js
-estadoDe(eje, consolidacion)            // → 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined (si no existe)
+estadoDe(eje, consolidacion)            // → 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined (si no existe o no es una consolidación)
 consolidaciones(eje, foco, camino = []) // → [{ id, autor, t, titulo, estado, fuentes }]  las consolidaciones ancladas en direccion([...camino, 4]) del foco
 ```
 
@@ -470,7 +545,7 @@ escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payload, t = ahora, contexto
 
 **Sequenced** escribe una hilera: se recortan los textos, se quitan los vacíos finales; vacía → `la hilera está vacía`; > 10 → `la hilera tiene más de 10 posiciones`; un vacío intermedio → `hueco en la posición <i>: rellénala o quita las siguientes`.
 
-**Mapped** escribe una décupla por PV: `celdas[i]` es la lista de textos de la posición `i` (una celda con un ítem guarda el ítem; con varios, un subarray). Las celdas vacías **anteriores a la última escrita** se heredan del foco por referencia `{ ref: foco, dir: direccion([...camino, i]) }` si el foco tiene esa posición en su payload (bajo `camino`); si no, `hueco en <i>: el foco no tiene esa posición; rellénala o quita las siguientes`. Todo vacío → `la décupla está vacía`. `heredadas` lista los índices heredados. Un foco terminal solo puede heredar la posición 0 (él mismo).
+**Mapped** escribe una décupla por PV: `celdas[i]` es la lista de textos de la posición `i` (una celda con un ítem guarda el ítem; con varios, un subarray). Las celdas vacías **anteriores a la última escrita** se heredan del foco por referencia `{ ref: foco, dir: direccion([...camino, i]) }` si el foco tiene esa posición en su payload (bajo `camino`); si no, `hueco en <i>: el foco no tiene esa posición; rellénala o quita las siguientes`. Todo vacío → `la décupla está vacía`. `heredadas` lista los índices heredados. Un terminal no tiene posición 0 en la décupla ni en el mapa (mapa §12), pero un foco terminal sigue heredando su raíz en la posición 0, como en main: `{ ref: foco, dir: direccion([...camino, 0]) }`, el foco entero ([X] decidir VG, mapa §13); de la 1 en adelante no tiene nada que heredar.
 
 **`escribirDesde`** comprueba la proporción del modo (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`), añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }`. El registro se anida en `sobre` + `en` (raíz por defecto).
 
@@ -681,7 +756,7 @@ menú: posición 1 de 2 · 4598f23e cocina 9 | 33fe0503 casa 2
 nota: posición 2 · génesis: de 1 · hitos true 10 5.3 resolución experimental
 ```
 
-Pendiente: confluencia estadística del 8 (bases por medida y por posición), proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
+Pendiente: las bases del 8 escritas como registros en la posición 8 (`tiempo.confluir` ya las calcula sin escribir), proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
 
 ## 9. Persistencia
 
@@ -808,7 +883,7 @@ encaje guardado [{"posicion":1,"evento":"46ff5dd9","tipo":"referencia","origen":
 puede autorizar casa=true cocina=true huesped=false
 rechazo: el autor no se autoriza a sí mismo
 autorización "==sale en 10 minutos" · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"c78ead25"},{"ref":"3cdef2a4"}] · evidencia ["c78ead25","3cdef2a4"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"c78ead25"},{"ref":"7d521126"}] · evidencia ["c78ead25","7d521126"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
 consolidaciones del pedido [{"id":"c78ead25","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
@@ -819,7 +894,7 @@ restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lacto
 Lectura de la salida:
 
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
-- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
+- `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: cocina, por los 2 P con ámbito el menú (el pedido cuelga del menú); la casa, por los 3 P que le quedan sobre `genesis`; la persona huésped no, porque es el autor.
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
@@ -832,8 +907,11 @@ Lectura de la salida:
 // src/motor.js
 export const FABRICA = '4000000000';
 export const FASES = ['consolidado', 'autorizado', 'ejecutado'];
+export const REGLA_AUTORIZAR: string;   // la regla V0 en texto; va en contexto.autoridad.regla de cada autorización
 export function caminoVisible(ocupante): number[];
-export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { posicion, dir, candidatos: Candidato[] }[];
+export const OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' };
+export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {}): { posicion, dir, candidatos: Candidato[], total, limitada }[];
+export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes: { posicion, desde, texto }[], pendientes: { posicion, motivo }[] };
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada?): Promise<Evento>;
 export function puedeAutorizar(eje, identidad, consolidacion): boolean;
 export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada?): Promise<Evento>;
@@ -841,6 +919,11 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
 export function autorizacionesValidas(eje, consolidacion): Evento[];
 export function estadoDe(eje, consolidacion): 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined;
 export function consolidaciones(eje, foco, camino = []): { id, autor, t, titulo, estado, fuentes }[];
+export const CRITERIO_CAPACIDAD = 2;
+export function capacidadDe(nodo): number | undefined;
+export function tramoDe(eje, id): { inicio, fin, extremos, texto, desde };
+export function registrosEn(eje, sobre, dir): Evento[];
+export function ocupacion(eje, id): { sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }[];
 
 // src/escritura.js
 export function resolverRef(eje, prefijo): { ref };
@@ -887,7 +970,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Recibos de terceros referenciados por la operación raíz (aceptación, despacho, recepción) | La evidencia es consolidación + autorización; nada más se enlaza. |
 | Cierre de una interacción en la interfaz | Fuera del motor. |
 | Mínimo de la proporción de escritura; proporción de Scened | Solo se comprueba el máximo; Scened escribe sin límite. |
-| Coste real de las operaciones | Un minuto de T por posición escrita, y uno por autorización o ejecución. |
+| Coste real de las operaciones | Un minuto de T por posición escrita, también al autorizar y al ejecutar. |
 | Anidar hileras o décuplas en una posición por decisión | `en` lo elige quien llama (raíz por defecto). |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
@@ -903,8 +986,8 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 2. `estadoDe` declara `EJECUTADO` ante cualquier escrito del autor con `fase: 'ejecutado'` cuya `evidencia` exista o falte, **sin comprobar que haya autorización válida**: un autor puede escribir a mano un «ejecutado» sobre una consolidación nunca autorizada (§6). `ejecutar` sí lo impide; `eje.escribir` no.
 3. Hueco heredado cuando el foco no desarrolla la posición pero tiene escritos en ella: `consolidar` hereda `{ ref: foco, dir }` porque hay ocupantes, pero esa referencia alcanza `undefined` en el payload del foco; el escrito que justificó la herencia no queda referenciado. `desdeMapped` no tiene este caso (mira solo el payload).
 4. `consolidar` no comprueba el foco antes de construir el payload: sin huecos, el error llega del eje (`evento rechazado: foco desconocido`); con huecos, del encaje (`registro desconocido`).
-5. Una elección que es un array se guarda como subarray aunque el código la llame «terminal nuevo»; una elección `{ ref, dir }` no comprueba que `dir` exista en la fuente.
-6. `ejecutar` no pasa por `escribirDesde`: su registro no lleva `contexto.modo` y no se comprueba proporción. Toma como evidencia la primera autorización válida aunque haya varias.
+5. Una elección `{ ref, dir }` no comprueba que `dir` exista en la fuente.
+6. `ejecutar` no pasa por `escribirDesde`: su registro no lleva `contexto.modo` y no se comprueba proporción (sí paga un minuto por posición). Toma como evidencia la primera autorización válida aunque haya varias.
 7. `escribirDesde` con un modo desconocido lanza `TypeError` en vez de un error controlado.
 8. `guardarLocal` devuelve `true` en Node sin `localStorage` aunque no haya guardado nada.
 9. `banda` usa «estrictamente menor»: 60 s es `hora`, 3600 s es `dia`, 86400 s es `semana`.
@@ -914,3 +997,6 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 13. `escribirDesde` y `ejecutar` usan el reloj si falta `t`: ids no reproducibles.
 14. `comparar` compara hermanos por `sobre` sin distinguir `en`; la puntuación `posiciones + 2 × escritos + movimientos` es cartón piedra, sin respaldo en el corpus.
 15. La regla V0 permite que el autor de una consolidación sea quien tenga todo el poder: entonces nadie puede autorizarla (la casa consolidando sobre su propio eje sin haber delegado P).
+16. `proponer` convierte el valor de una fórmula que no es número en su **texto** formateado: una magnitud se consolida como `"14 EUR (12 EUR + 2 EUR)"`, que BQL relee como `texto` (el paréntesis del desglose impide leerla como magnitud). El importe deja de ser operable en la consolidación (§2.1).
+17. `ejecutar` sobre una consolidación pendiente lanza `Error('PENDIENTE DE AUTORIZACIÓN')`: el mensaje es el nombre del estado, sin prefijo que diga qué falló, y coincide con el valor normal de `estadoDe`.
+18. Nada une el texto de la acción consolidada (`'pagar 14 EUR'`) con los `movimientos` de la ejecución: se puede consolidar «pagar 14 EUR» y ejecutar 1000 EUR (si hay saldo) o nada.

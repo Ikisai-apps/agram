@@ -20,10 +20,12 @@ test('décupla: diez posiciones con significado de época 0', () => {
   assert.equal(d.posiciones[9].contenido, undefined);
 });
 
-test('décupla de un terminal: solo la posición 0', () => {
+test('décupla de un terminal: no tiene posición 0; el terminal va aparte (MAPA §12)', () => {
   const d = decupla({ ...ev, payload: 42 });
-  assert.equal(d.posiciones[0].contenido, 42);
-  assert.equal(d.posiciones[1].contenido, undefined);
+  assert.equal(d.terminal, 42);
+  assert.ok(d.posiciones.every((p) => p.contenido === undefined));
+  assert.equal(decupla(ev).terminal, undefined);
+  assert.match(sobrio(d).split('\n')[1], /^terminal 42$/);
 });
 
 test('render sobrio: una línea por posición', () => {

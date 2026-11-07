@@ -68,6 +68,8 @@ export function desdeMapped(eje, celdas, foco, camino = []) {
       const items = listas[i].map((t) => item(eje, t));
       payload.push(items.length === 1 ? items[0] : items);
     } else if (Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined) {
+      // [X] decidir VG (mapa §13): un foco terminal hereda su raíz en la posición 0,
+      // como en main, aunque un terminal no tenga posición 0 en la décupla ni en el mapa (mapa §12).
       payload.push({ ref: foco, dir: direccion([...camino, i]) });
       heredadas.push(i);
     } else {
