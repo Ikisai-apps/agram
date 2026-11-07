@@ -736,7 +736,7 @@ menú: posición 1 de 2 · 4598f23e cocina 9 | 33fe0503 casa 2
 nota: posición 2 · génesis: de 1 · hitos true 10 5.3 resolución experimental
 ```
 
-Pendiente: confluencia estadística del 8 (bases por medida y por posición), proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
+Pendiente: las bases del 8 escritas como registros en la posición 8 (`tiempo.confluir` ya las calcula sin escribir), proyecciones reales en PV7 (timelocks, hashlocks, fechas en el payload más allá de la posición 7), nivel y grado.
 
 ## 9. Persistencia
 
