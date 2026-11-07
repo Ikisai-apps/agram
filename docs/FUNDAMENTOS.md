@@ -8,7 +8,7 @@ El eje horizontal es la cadena de registros: pasado a la izquierda, presente en 
 
 ## Eventos sobre tokens
 
-Todo evento **es** una transición de tokens; el payload BTML viaja encima. No hay evento sin movimiento. El evento mínimo mueve **T** (tiempo; siete escalas: segundo, minuto, hora, día, semana, ciclo de 28 días, año). E (recursos), P (poder/criterio), R (reputación) entran cuando el evento los toca. Los tokens son tokens de base de datos; sin Nostr ni Bitcoin por ahora.
+Todo evento **es** una transición de tokens; el payload BTML viaja encima. No hay evento sin movimiento. El evento mínimo mueve **T** (tiempo; siete escalas: segundo, minuto, hora, día, semana, ciclo de 28 días, año; cada escala es un token distinto). E (recursos), P (poder/criterio), R (reputación) entran cuando el evento los toca. Los tokens son tokens de base de datos; sin Nostr ni Bitcoin por ahora.
 
 ## Génesis
 
@@ -42,7 +42,7 @@ Cada ocupante lleva su origen (de dónde viene), su destino (dónde se coloca) y
 
 ### Tokens según el corpus
 
-**P** (poder/criterio) exige siempre un ámbito: el registro cuyo subárbol cubre, o `genesis` (todo el eje). No existe un P total. Delegar poder estrecha el ámbito y se debita del ámbito que lo cubre. El motor autoriza con el poder sobre el registro de la consolidación. **R** (reputación) exige emisor y no es fungible: solo su emisor la mueve; quien la recibe la tiene «de X» y no puede pasarla. **E** por denominación. **T** un solo token en segundos; la escala es la unidad. La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
+**P** (poder/criterio) exige siempre un ámbito: el registro cuyo subárbol cubre, o `genesis` (todo el eje). No existe un P total. Delegar poder estrecha el ámbito y se debita del ámbito que lo cubre. El motor autoriza con el poder sobre el registro de la consolidación. **R** (reputación) exige emisor y no es fungible: solo su emisor la mueve; quien la recibe la tiene «de X» y no puede pasarla. **E** por denominación. **T** por escala (ver «Series de tokens», 7-11; antes era un solo token en segundos). La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
 
 ### AARPIA e identidades
 
@@ -51,3 +51,20 @@ La autorización y la ejecución reales son de AARPIA, que aún no existe; lo qu
 ### Lenguaje para IA
 
 Los lenguajes se hicieron para que programaran personas; aquí programan IA. Por eso: posiciones en vez de nombres (coordenadas), referencias que no copian (conexiones), colisiones como distribución, vector como distancia, consolidar como colapso con traza, época como lectura por contexto. El léxico es una capa (las reglas cortas) sobre las posiciones; las fórmulas son cortas y locales; el frontend es la única parte pensada para personas.
+
+## Series de tokens (VG, 7-11-2026)
+
+«Las series de tokens son una constante y se estandarizan.» Toda familia de tokens es una **serie de denominaciones**; la serie es limitada y la emite quien la respalda. La constante, en una línea por familia (familia: clave de serie: quién la emite):
+
+| Familia | Clave de serie | Quién la emite |
+|---|---|---|
+| **T** tiempo | `T:<escala>` (segundo, minuto, hora, dia, semana, ciclo, anio) | el génesis |
+| **E** recursos | `E:<denominación>` (EUR, BTC, `cama-2@2026-11-13`…) | su emisor registrado: quien la emite por primera vez (el génesis para las suyas) |
+| **P** poder/criterio | `P:<ámbito>` (un registro o `genesis`) | el génesis, sobre todo el eje; delegar estrecha el ámbito y no emite |
+| **R** reputación | `R:<emisor>` | su emisor; hoy solo el génesis emite la suya |
+
+**T.** Siete tokens distintos, uno por escala, ampliable hasta diez. Sin conversión: una hora **no** son sesenta minutos, son tokens distintos, como un euro no es un bitcoin. Escribir cuesta minutos, así que quien escribe necesita minutos; el génesis del ejemplo emite minutos y horas y las altas reparten ambos. La duración de cada escala solo sirve para medir distancias (las bandas del eje temporal), nunca para cambiar un token por otro.
+
+**E.** Una identidad puede **emitir una serie limitada** de una denominación que ella respalda (la casa emite un token por plaza y noche). La emisión es un movimiento `{ token: 'E', denominacion, cantidad, de: null, a, emisor }` válido solo si `emisor` es el autor del evento y la denominación es nueva (queda registrada a su nombre, como las claves) o ya es suya. Nadie emite una denominación ajena ni en nombre de otro. Lo emitido de cada serie se puede consultar (`eje.serie(denominación)`, `eje.series()`).
+
+Abierto [X] decidir VG: si una identidad puede emitir su propia serie de T (el tiempo de alguien como serie limitada) o de R fuera del génesis; quién emite P sobre un ámbito sin pasar por el génesis; qué escalas completan las diez de T.

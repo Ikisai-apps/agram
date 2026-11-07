@@ -76,7 +76,7 @@ Regla de conversión (`valorDe`), aplicada a todo slot que **no** sea fórmula:
 | `undefined` (posición no desarrollada, o camino que atraviesa un terminal) | parada **PENDIENTE** `posición sin desarrollar` | — |
 | número JS | `numero` | `'12'` |
 | array | `array` | `'[3 posiciones]'` |
-| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ 37c58bd2'` (ocho primeros caracteres del id) |
+| `{ ref, dir? }` | `referencia` (solo en `evaluar`; en fórmulas se sigue, ver abajo) | `'→ daad9ad8'` (ocho primeros caracteres del id) |
 | cadena `'12 EUR'`, `'EUR 12'`, `'-3 EUR'`, `'12.5 m'` | `magnitud` (número y unidad, en cualquier orden, separados o no por espacios) | `'12 EUR'` |
 | cadena `'7'`, `'-3'`, `'1.5'` | `numero` | `'7'` |
 | cadena `'==x'` | `texto` `=x` | `'=x'` |
@@ -90,7 +90,7 @@ Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`):
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ 37c58bd2` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ daad9ad8` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0)')` | RESUELTO | `[3 posiciones]` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
 | `consultar(eje, compra.id, [9], 'REF("<menu.id>", "1100000000")')` | RESUELTO | `guiso` |
@@ -164,7 +164,7 @@ Todo valor BQL es un objeto con `tipo`:
 | `magnitud` | `{ cantidad, unidad, desglose: [{ cantidad, unidad }, …] }` | `cantidad unidad`, y entre paréntesis el desglose si tiene más de un sumando | `14 EUR (12 EUR + 2 EUR)` |
 | `composicion` | `{ partes: [magnitud, …] }` (unidades distintas) | partes unidas por ` + ` | `300 m (200 m + 100 m) + 5 EUR` |
 | `array` | `{ valor: any[] }` (el subarray crudo) | `[n posiciones]` | `[3 posiciones]` |
-| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 37c58bd2` |
+| `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ daad9ad8` |
 | `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba`; `0 candidatos` |
 
 ---
@@ -341,11 +341,11 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio 25ddaa89 · propio 25ddaa89 · escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba` |
+| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio ba13e220 · propio ba13e220 · escrito 57e2022e · escrito 8203c0c4 · escrito 91cde3ba` |
 | `BUSCAR(4, 0)` | RESUELTO | los mismos 5 (misma dirección) |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
-| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio 25ddaa89 · propio 25ddaa89 · referencia 37c58bd2 · escrito 441d7a2b` |
+| `BUSCAR(1)` (compra: `[1, 0]` es referencia al menú; la cuenta está escrita en `1000000000`) | RESUELTO | `4 candidatos: propio ba13e220 · propio ba13e220 · referencia daad9ad8 · escrito 31d3a67f` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -523,7 +523,7 @@ const T = '2026-11-07T15:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 // Génesis: la identidad «casa» recibe tokens; el foco raíz es un texto.
-const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }], foco: 'Casa de ejemplo', t: T });
+const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
 
 // Un registro con fórmulas en sus slots (posiciones 1–4 de la décupla).
 const compra = await eje.escribir({
@@ -599,10 +599,10 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 8b4c5de6
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 5819876e
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
-dependencias de compra [3]: [ '8b4c5de6…:2000000000', '8b4c5de6…:3000000000' ]
+dependencias de compra [3]: [ '5819876e…:2000000000', '5819876e…:3000000000' ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
 LOCAL(0)                                                   → RESUELTO     menú
@@ -612,19 +612,19 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 8b4c5de6 · propio 8b4c5de6 · escrito 0c25ea4a · escrito 176238f6 · escrito 1f9c6e9c
+BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 5819876e · propio 5819876e · escrito 4c1ca012 · escrito aee8e3b3 · escrito 472af969
 CONTAR(BUSCAR(4))                                          → RESUELTO     5
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: array y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 0c25ea4a · escrito 176238f6
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito 176238f6
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 4c1ca012 · escrito aee8e3b3
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito aee8e3b3
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     3
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     2
 ACTUAL(4)                                                  → RESUELTO     [2 posiciones]
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 8b4c5de6 · propio 8b4c5de6
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 5819876e · propio 5819876e
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

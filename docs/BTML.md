@@ -5,7 +5,7 @@ BTML es la estructura de datos de AGRAM. Este documento describe BTML **tal como
 Convenciones de este documento:
 
 - Todos los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `1b133344`, alta `2a2a06e3`, menú `37c58bd2`, compra `25ddaa89`, cuenta `441d7a2b`.
+- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `7bfe589b`, alta `e9742ff2`, menú `daad9ad8`, compra `ba13e220`, cuenta `31d3a67f`.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
 
 ## 0. Mapa de módulos
@@ -13,9 +13,9 @@ Convenciones de este documento:
 | Módulo | Qué define | Funciones principales |
 |---|---|---|
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
-| `src/tokens.js` | Familias de tokens y movimientos | `FAMILIAS`, `ESCALAS_T`, `SEGUNDOS`, `validarMovimiento`, `claveToken`, `cantidadBase` |
+| `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.identidades`, `eje.clave` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.identidades`, `eje.clave` |
 | `src/encaje.js` | Ocupantes de una dirección, colisiones, vector, árbol lógico | `ocupantes`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito (época 0) | `PV`, `EPOCA_0`, `leerDireccion` |
@@ -107,7 +107,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78",
+  "sobre": "daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -116,13 +116,13 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ { "ref": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78", "dir": "1000000000" }, 1, "EUR 12" ],
-    [ { "ref": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78", "dir": "2000000000" } ],
+    [ { "ref": "daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b", "dir": "1000000000" }, 1, "EUR 12" ],
+    [ { "ref": "daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b", "dir": "2000000000" } ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "25ddaa89ee95cb3b10a1e559af57fca63e401f090c8d1a61b7c798d387344de3"
+  "id": "ba13e220c2e0eec08ae2cf7016d52acca485cb3b9b32a8e7ca04409f08326f73"
 }
 ```
 
@@ -130,23 +130,29 @@ Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, 
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
-### 2.1 Familias y escalas
+### 2.1 Familias y series: la constante
 
-| Familia | Nombre | Clave de saldo | Notas |
-|---|---|---|---|
-| `T` | tiempo | `'T'` | Un solo token, en segundos. Cada movimiento declara su `escala`. |
-| `E` | recursos | `'E'` o `'E:<denominacion>'` | `denominacion` opcional (p. ej. `EUR`). |
-| `P` | poder / criterio | `'P'` o `'P:<denominacion>'` | |
-| `R` | reputación | `'R'` o `'R:<denominacion>'` | |
+Toda familia de tokens es una **serie de denominaciones** (VG, 7-11-2026: «las series de tokens son una constante y se estandarizan»). La serie es limitada y la emite quien la respalda. Cada movimiento nombra su serie con un campo (`SERIE`), y la clave de saldo es `familia:serie`. En una línea por familia: familia, clave de serie, quién la emite.
 
-`ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']`. Segundos por escala (`SEGUNDOS`): segundo 1, minuto 60, hora 3600, dia 86400, semana 7·86400, ciclo 28·86400, anio (13·28+1)·86400 = 365 días.
+| Familia | Nombre | Campo de serie | Clave de saldo | Quién la emite |
+|---|---|---|---|---|
+| `T` | tiempo | `escala` | `'T:<escala>'` | el génesis |
+| `E` | recursos | `denominacion` | `'E:<denominacion>'` | su emisor registrado: quien la emite por primera vez (§2.4) |
+| `P` | poder / criterio | `ambito` | `'P:<ambito>'` | el génesis (`'P:genesis'`, todo el eje); delegar estrecha el ámbito y no emite |
+| `R` | reputación | `emisor` | `'R:<emisor>'` | su emisor; hoy solo el génesis emite la suya |
+
+`ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']`: siete tokens distintos, ampliable hasta `MAXIMO_ESCALAS_T = 10`. **Sin conversión entre escalas**: una hora no son sesenta minutos; `T:hora` y `T:minuto` son saldos distintos, como `E:EUR` y `E:BTC`. `SEGUNDOS` (segundo 1, minuto 60, hora 3600, dia 86400, semana 7·86400, ciclo 28·86400, anio (13·28+1)·86400 = 365 días) es la duración de cada escala para medir distancias de tiempo (las bandas de `src/tiempo.js`); no convierte saldos.
+
+[X] decidir VG: si una identidad puede emitir su propia serie de T o de R fuera del génesis; quién emite P sobre un ámbito sin pasar por el génesis; qué escalas completan las diez de T.
 
 ### 2.2 Forma de un movimiento
 
 ```js
-{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }          // T: consumo de 2 horas
-{ token: 'E', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' } // E: pago
-{ token: 'P', cantidad: 10, de: null, a: 'casa' }                            // emisión (solo génesis)
+{ token: 'T', escala: 'minuto', cantidad: 2, de: 'cocina', a: null }          // T: consumo de 2 minutos (T:minuto)
+{ token: 'E', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' } // E: pago (E:EUR)
+{ token: 'P', cantidad: 2, ambito: '<id>', de: 'casa', a: 'cocina' }          // P: delegar poder sobre un subárbol
+{ token: 'R', cantidad: 3, emisor: 'casa', de: 'casa', a: 'cocina' }          // R: la casa da reputación suya
+{ token: 'E', denominacion: 'cama@2026-11-13', cantidad: 2, de: null, a: 'casa', emisor: 'casa' } // emisión de una serie de E (§2.4)
 ```
 
 | Campo | Regla |
@@ -154,39 +160,81 @@ Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos (qué, 
 | `token` | uno de `FAMILIAS = ['E', 'P', 'R', 'T']` |
 | `cantidad` | número finito > 0 |
 | `escala` | obligatoria y válida si `token === 'T'`; prohibida en E/P/R |
-| `denominacion` | opcional en E/P/R; forma parte de la clave de saldo |
-| `de` | identidad (cadena) o `null`. `null` = **emisión**: solo el génesis. |
+| `denominacion` | obligatoria en E; prohibida en T/P/R |
+| `ambito` | obligatorio en P (no hay P total); prohibido en el resto |
+| `emisor` | obligatorio en R (solo él la mueve; su emisión va a él mismo) y en la emisión de E (`de === null`); prohibido en una transferencia de E y en T/P |
+| `de` | identidad (cadena) o `null`. `null` = **emisión** (§2.3, §2.4). |
 | `a` | identidad o `null`. `null` = **consumo**. |
 | `de` y `a` | ambos presentes; no pueden ser `null` los dos |
 
 ```js
+SERIE                 // { T: 'escala', E: 'denominacion', P: 'ambito', R: 'emisor' }
 validarMovimiento(m)  // → string[]  errores; [] si es válido
-claveToken(m)         // → 'T' | 'E' | 'E:EUR' | 'P' | …   clave del saldo que mueve
-cantidadBase(m)       // → número en la unidad del saldo: T pasa a segundos; E/P/R tal cual
+claveToken(m)         // → 'T:hora' | 'E:EUR' | 'P:genesis' | 'R:casa' | …   familia + ':' + m[SERIE[familia]]
+partirClave(clave)    // → { token, serie }   'E:cama@2026-11-13' → { token: 'E', serie: 'cama@2026-11-13' }
+cantidadBase(m)       // → m.cantidad: sin conversión, cada serie se cuenta en su propia unidad
 ```
 
 ```sh
 node --input-type=module -e "
-import { claveToken, cantidadBase, validarMovimiento, SEGUNDOS } from './src/tokens.js';
-console.log(claveToken({ token: 'T', escala: 'hora', cantidad: 1 }), cantidadBase({ token: 'T', escala: 'hora', cantidad: 1 }));
-console.log(claveToken({ token: 'E', denominacion: 'EUR', cantidad: 12 }), cantidadBase({ token: 'E', denominacion: 'EUR', cantidad: 12 }));
-console.log(claveToken({ token: 'P', cantidad: 1 }), SEGUNDOS.anio / 86400);
+import { claveToken, cantidadBase, partirClave, validarMovimiento, SERIE, ESCALAS_T, MAXIMO_ESCALAS_T, SEGUNDOS } from './src/tokens.js';
+console.log(claveToken({ token: 'T', escala: 'hora', cantidad: 1 }), cantidadBase({ token: 'T', escala: 'hora', cantidad: 1 }), claveToken({ token: 'T', escala: 'minuto', cantidad: 60 }));
+console.log(claveToken({ token: 'E', denominacion: 'EUR', cantidad: 12 }), claveToken({ token: 'P', ambito: 'genesis' }), claveToken({ token: 'R', emisor: 'casa' }));
+console.log(JSON.stringify(SERIE), ESCALAS_T.length, MAXIMO_ESCALAS_T, SEGUNDOS.anio / 86400, JSON.stringify(partirClave('E:cama@2026-11-13')));
 console.log(JSON.stringify(validarMovimiento({ token: 'T', cantidad: 0, escala: 'mes', de: 'a' })));
 console.log(JSON.stringify(validarMovimiento({ token: 'E', cantidad: 1, escala: 'hora', de: null, a: null })));
+console.log(JSON.stringify(validarMovimiento({ token: 'E', denominacion: 'EUR', cantidad: 1, de: 'a', a: 'b', emisor: 'a' })));
 "
 ```
 
 ```text
-T 3600
-E:EUR 12
-P 365
+T:hora 1 T:minuto
+E:EUR P:genesis R:casa
+{"T":"escala","E":"denominacion","P":"ambito","R":"emisor"} 7 10 365 {"token":"E","serie":"cama@2026-11-13"}
 ["cantidad debe ser > 0","escala T inválida: mes","de y a son obligatorios (null permitido)","a debe ser identidad o null"]
-["escala solo en T","movimiento sin origen ni destino"]
+["escala solo en T","E exige denominación","la emisión de E exige emisor","movimiento sin origen ni destino"]
+["emisor en E solo al emitir"]
 ```
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), solo el génesis emite (`de === null`), y el saldo del autor debe cubrir la suma de lo que mueve por clave de saldo. El evento mínimo mueve T del autor: el coste de escribir es tiempo.
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo (`escribirDesde` cobra un minuto por posición, así que escribir exige `T:minuto`). Emitir (`de === null`): el génesis emite cualquier familia; después solo se emiten series de E, cada una por su emisor (§2.4).
+
+### 2.4 Emisión de series de E
+
+Una identidad puede **emitir una serie limitada** de una denominación de E que ella respalda (ejemplo: la casa emite un token por plaza y noche). La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` el propio emisor o quien él diga. Es válida solo si la denominación es nueva (queda registrada a nombre del emisor en `eje.emisores`, como las claves) o ya es suya. Nadie emite una denominación ajena ni en nombre de otro. Las series de E del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo.
+
+```js
+eje.emisores                  // Map<denominación, identidad>
+eje.serie(denominacion)       // → { emisor, emitido }  ({ emisor: null, emitido: 0 } si nadie la ha emitido)
+eje.series()                  // → [{ clave, token, serie, emisor, emitido }] todas las series emitidas (las cuatro familias), por orden de emisión
+```
+
+```sh
+node --input-type=module -e "
+import { Eje } from './src/eje.js';
+const t = '2026-11-07T09:00:00Z';
+const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }], foco: 'Casa', t });
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'T', escala: 'minuto', cantidad: 5, de: 'casa', a: 'bea' }], payload: 'alta de bea' });
+const plazas = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa'), { token: 'E', denominacion: 'cama@2026-11-13', cantidad: 2, de: null, a: 'casa', emisor: 'casa' }], payload: 'dos camas el 13-11' });
+console.log(JSON.stringify(eje.serie('cama@2026-11-13')), JSON.stringify(eje.serie('EUR')), eje.saldo('casa', 'E:cama@2026-11-13'));
+await eje.escribir({ autor: 'bea', sobre: plazas.id, t, movimientos: [gasta('bea'), { token: 'E', denominacion: 'cama@2026-11-13', cantidad: 1, de: null, a: 'bea', emisor: 'bea' }], payload: 'x' }).catch((e) => console.log(e.message));
+await eje.escribir({ autor: 'bea', sobre: plazas.id, t, movimientos: [gasta('bea'), { token: 'E', denominacion: 'cama@2026-11-14', cantidad: 1, de: null, a: 'bea', emisor: 'casa' }], payload: 'x' }).catch((e) => console.log(e.message));
+await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('casa'), { token: 'E', denominacion: 'cama@2026-11-13', cantidad: 3, de: 'casa', a: 'bea' }], payload: 'x' }).catch((e) => console.log(e.message));
+await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('casa'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'casa' }], payload: 'x' }).catch((e) => console.log(e.message));
+console.log(eje.series().map((x) => x.clave + ' ' + x.emitido + ' de ' + x.emisor).join(' · '));
+"
+```
+
+```text
+{"emisor":"casa","emitido":2} {"emisor":"casa","emitido":500} 2
+evento rechazado: nadie emite una denominación ajena: cama@2026-11-13 la emite casa
+evento rechazado: nadie emite en nombre de otro: casa no es el autor
+evento rechazado: saldo insuficiente de E:cama@2026-11-13 en casa
+evento rechazado: solo el génesis emite T
+T:minuto 60 de casa · E:EUR 500 de casa · E:cama@2026-11-13 2 de casa
+```
 
 ## 3. El payload
 
@@ -223,7 +271,7 @@ Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9,
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
 - `esReferencia` solo comprueba la forma: `ref` cadena no vacía y `dir`, si está, dirección válida. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`.
-- `ref` debe ser el **id completo**. Los prefijos (`'25ddaa89'`) solo los resuelven BQL (`REF("25ddaa89")`) y la entrada de texto de `escritura.item` (`'@25ddaa89:1200000000'`), que los convierten en id completo antes de guardar.
+- `ref` debe ser el **id completo**. Los prefijos (`'ba13e220'`) solo los resuelven BQL (`REF("ba13e220")`) y la entrada de texto de `escritura.item` (`'@ba13e220:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
 
@@ -387,7 +435,7 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 
 ```text
 "EUR 12"
-[{"ref":"37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78","dir":"1000000000"},1,"EUR 12"]
+[{"ref":"daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b","dir":"1000000000"},1,"EUR 12"]
 undefined undefined
 true ["ensalada","guiso","fruta"]
 ```
@@ -423,7 +471,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-441d7a2b@1000000000 a19c4143@7000000000
+31d3a67f@1000000000 6941e321@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -468,7 +516,7 @@ caminoDe(o)                                    // → o.camino ?? indicesDe(o.di
 
 ### 6.3 Ejemplo real: la posición 1 de la compra
 
-En `25ddaa89`, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (array), la 1.0 (la referencia al menú), lo que alcanza esa referencia (el menú:1) y la cuenta de cocina, anclada en `1000000000`.
+En `ba13e220`, la dirección `1000000000` tiene cuatro ocupantes una vez escrita la cuenta: la posición 1 (array), la 1.0 (la referencia al menú), lo que alcanza esa referencia (el menú:1) y la cuenta de cocina, anclada en `1000000000`.
 
 ```sh
 node --input-type=module -e "
@@ -485,10 +533,10 @@ console.log(JSON.stringify(ocupantes(eje, compra.id, [1])[2].contenido), JSON.st
 
 ```text
 [[1],[1,0]]
-propio [1] 25ddaa89 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1"]
-propio [1,0] 25ddaa89 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1.0"]
-referencia [1] 37c58bd2 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["25ddaa89:1000000000#1.0","37c58bd2:1000000000"]
-escrito [] 441d7a2b 0000000000 [1,0,0,0,0,0,0,0,0,0] completar 0 ["441d7a2b:0000000000"]
+propio [1] ba13e220 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ba13e220:1000000000#1"]
+propio [1,0] ba13e220 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ba13e220:1000000000#1.0"]
+referencia [1] daad9ad8 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["ba13e220:1000000000#1.0","daad9ad8:1000000000"]
+escrito [] 31d3a67f 0000000000 [1,0,0,0,0,0,0,0,0,0] completar 0 ["31d3a67f:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 ```
@@ -499,13 +547,13 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 {
   "tipo": "referencia",
   "origen": "referencia",
-  "evento": "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78",
+  "evento": "daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b",
   "dir": "1000000000",
   "camino": [1],
   "contenido": ["ensalada", "guiso", "fruta"],
   "procedencia": [
-    "25ddaa89ee95cb3b10a1e559af57fca63e401f090c8d1a61b7c798d387344de3:1000000000#1.0",
-    "37c58bd274eb65e75d749d93055c0ae0cbb87d42448ce6ea5ee4581f66a9db78:1000000000"
+    "ba13e220c2e0eec08ae2cf7016d52acca485cb3b9b32a8e7ca04409f08326f73:1000000000#1.0",
+    "daad9ad8bba3064a6c2ae41af5d73b637431595f68c26ee9d27fc1025ec0754b:1000000000"
   ],
   "origenDir": "1000000000",
   "destino": "1000000000",
@@ -535,7 +583,7 @@ console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
 ```
 
 ```text
-37c58bd2 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["37c58bd2"]
+daad9ad8 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["daad9ad8"]
 true undefined []
 ```
 
@@ -653,8 +701,12 @@ Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
-eje.saldo(identidad, clave)    // → número; clave de saldo ('T', 'E:EUR', 'P', …); 0 si no existe
-eje.saldoT(identidad, escala = 'segundo')  // → saldo de T expresado en la escala
+eje.saldo(identidad, clave)    // → número; clave de saldo ('T:minuto', 'E:EUR', 'P:genesis', 'R:casa', …); 0 si no existe
+eje.saldoT(identidad, escala)  // → saldo(identidad, 'T:' + escala), sin conversión; lanza si la escala no existe
+eje.tiempos(identidad)         // → [{ escala, cantidad }] en el orden de ESCALAS_T, solo saldos > 0
+eje.recursos(identidad)        // → [{ denominacion, cantidad }]
+eje.poderes(identidad)         // → [{ ambito, cantidad }]
+eje.reputaciones(identidad)    // → [{ emisor, cantidad }]
 eje.clave(identidad)           // → JWK pública o undefined
 ```
 
@@ -688,11 +740,11 @@ const T = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const ev = await crearEvento({ autor: 'casa', sobre: 'g', t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'hola' });
 const f = await firmar(ev, casa.privada);
 console.log(f.id === ev.id, f.firmante, await verificar(f, casa.publica), await verificar(f, bea.publica), await verificar(ev, casa.publica));
-const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
+const eje = await Eje.genesis({ identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
 const g = eje.obtener(eje.genesisId);
 console.log(g.firmante, JSON.stringify(Object.keys(g.contexto.claves)), g.contexto.claves.casa.kty, g.contexto.claves.casa.crv);
 await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'sin firma' }).catch((e) => console.log(e.message));
-const alta = await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa'), { token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: 'bea' }], payload: 'alta de bea', contexto: { claves: { bea: bea.publica } } }, casa.privada);
+const alta = await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: 'alta de bea', contexto: { claves: { bea: bea.publica } } }, casa.privada);
 console.log(alta.firmante, eje.clave('bea').x === bea.publica.x);
 await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, casa.privada).catch((e) => console.log(e.message));
 const ok = await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, bea.privada);
@@ -721,8 +773,9 @@ Un génesis firmado tiene esta forma (la firma varía en cada ejecución; el id 
   "t": "2026-11-07T09:00:00Z",
   "movimientos": [
     { "token": "T", "escala": "hora", "cantidad": 1000, "de": null, "a": "casa" },
-    { "token": "E", "denominacion": "EUR", "cantidad": 500, "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "de": null, "a": "casa" }
+    { "token": "T", "escala": "minuto", "cantidad": 1000, "de": null, "a": "casa" },
+    { "token": "E", "denominacion": "EUR", "cantidad": 500, "emisor": "casa", "de": null, "a": "casa" },
+    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
   ],
   "payload": "Casa de ejemplo",
   "contexto": {
@@ -750,22 +803,26 @@ Un génesis firmado tiene esta forma (la firma varía en cada ejecución; el id 
 | `firma ausente de <autor>` / `el firmante debe ser el autor` / `firma inválida de <autor>` | el autor tiene clave y no firma, firma otro, o la firma no verifica |
 | `autor sin clave: <autor>` | `exigirFirmas` y el autor no tiene clave |
 | `no se puede cambiar la clave de <id>` / `clave declarada para <id> sin darle tokens` / `clave inválida para <id>` | `contexto.claves` mal usado |
-| `solo el génesis emite` | un movimiento con `de === null` |
+| `solo el génesis emite <T, P o R>` | un movimiento con `de === null` de T, P o R fuera del génesis |
+| `nadie emite en nombre de otro: <emisor> no es el autor` | emisión de E cuyo `emisor` no es el autor |
+| `nadie emite una denominación ajena: <denominación> la emite <emisor>` | emisión de E de una denominación registrada a otra identidad |
 | `nadie mueve tokens ajenos: <de> no es el autor` | un movimiento con `de !== autor` |
-| `saldo insuficiente de <clave> en <autor>` | la suma de lo movido por clave supera el saldo |
+| `saldo insuficiente de <clave> en <autor>` | la suma de lo movido por clave supera el saldo (sin conversión: `T:minuto` no se paga con `T:hora`) |
 
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: '2026-11-06T20:00:00Z' });
+const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: 'g', t: '2026-11-06T20:00:00Z' });
 const T = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const base = { autor: 'raiz', sobre: eje.genesisId, t: '2026-11-06T20:00:00Z', payload: 'x' };
 const intentos = [
   { ...base, sobre: 'nadie', movimientos: [T('raiz')] },
   { ...base, autor: 'bea', movimientos: [T('bea')] },
   { ...base, movimientos: [{ token: 'E', denominacion: 'EUR', cantidad: 1, de: 'raiz', a: 'bea' }] },
-  { ...base, movimientos: [T('raiz'), { token: 'E', denominacion: 'EUR', cantidad: 1, de: null, a: 'raiz' }] },
+  { ...base, movimientos: [T('raiz'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }] },
+  { ...base, movimientos: [T('raiz'), { token: 'E', denominacion: 'EUR', cantidad: 1, de: null, a: 'raiz', emisor: 'bea' }] },
   { ...base, movimientos: [T('raiz', 1000)] },
+  { ...base, movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'raiz', a: null }] },
   { ...base, en: '4', movimientos: [T('raiz')] },
   { ...base, movimientos: [T('raiz')], payload: ['a', null] },
   { ...base, movimientos: [T('raiz')], contexto: { genesis: true } },
@@ -776,10 +833,12 @@ for (const d of intentos) await eje.escribir(d).catch((e) => console.log(e.messa
 
 ```text
 evento rechazado: foco desconocido: nadie
-evento rechazado: autor desconocido: bea; saldo insuficiente de T en bea
+evento rechazado: autor desconocido: bea; saldo insuficiente de T:minuto en bea
 evento mal formado: el autor debe mover T
-evento rechazado: solo el génesis emite
-evento rechazado: saldo insuficiente de T en raiz
+evento rechazado: solo el génesis emite T
+evento rechazado: nadie emite en nombre de otro: bea no es el autor
+evento rechazado: saldo insuficiente de T:minuto en raiz
+evento rechazado: saldo insuficiente de T:hora en raiz
 evento mal formado: en debe ser una dirección de diez dígitos
 evento mal formado: payload 1: hueco
 evento mal formado: el génesis debe emitir T al autor
@@ -787,11 +846,12 @@ evento mal formado: el génesis debe emitir T al autor
 
 ## 8. Génesis
 
-El génesis es el primer evento del eje. Se escribe **por convención, fuera del sistema**: es el único que emite tokens (`de: null`), el único sin foco (`sobre: null`) y lleva `contexto.genesis: true`. Fija el foco raíz (su `payload`) y la primera identidad. A partir de él, todo se genera dentro.
+El génesis es el primer evento del eje. Se escribe **por convención, fuera del sistema**: emite libremente (`de: null`) series de las cuatro familias a su autor (después solo se emiten series de E, cada una por su emisor, §2.4), es el único sin foco (`sobre: null`) y lleva `contexto.genesis: true`. Fija el foco raíz (su `payload`) y la primera identidad. A partir de él, todo se genera dentro.
 
 ```js
 Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, exigirFirmas = false })  // → Promise<Eje>
-//   identidad: primera identidad; emision: [{ token, cantidad, escala?, denominacion? }] (se completa con de: null, a: identidad)
+//   identidad: primera identidad; emision: [{ token, cantidad, escala | denominacion | ambito | emisor }] (se completa con de: null, a: identidad; en E, emisor: identidad)
+//   lanza 'génesis rechazado: …' si una serie de E del génesis lleva otro emisor
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
 Eje.desde(eventos, { exigirFirmas = false } = {})  // → Promise<Eje>  reconstruye validando cada evento (ids, firmas, saldos); el primero debe ser el génesis
 eje.genesisId                                      // id del génesis
@@ -800,17 +860,17 @@ eje.genesisId                                      // id del génesis
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
+const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }, { token: 'T', escala: 'minuto', cantidad: 480 }, { token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
 console.log(JSON.stringify(eje.obtener(eje.genesisId)));
 const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, en: '1000000000', t: '2026-11-06T20:01:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'hora', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea' });
-console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:EUR'), eje.saldo('bea', 'E:EUR'));
+console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:EUR'), JSON.stringify(eje.serie('EUR')));
 console.log(alta.sobre === eje.genesisId, alta.en, eje.sobre(eje.genesisId, '1000000000').length);
 "
 ```
 
 ```text
-{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"T","escala":"hora","cantidad":10,"de":null,"a":"raiz"},{"token":"E","denominacion":"EUR","cantidad":5,"de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true},"id":"b1eaa3c4bd3a32f5593b693f53cf17628ad752449467a0cc73e8ae62980e2f4c"}
-["raiz","bea"] 479 2 5 0
+{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"T","escala":"hora","cantidad":10,"de":null,"a":"raiz"},{"token":"T","escala":"minuto","cantidad":480,"de":null,"a":"raiz"},{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true},"id":"00b4d289e180f867647972b909df60c1496e1c80f15866e48d0f63e6973283f5"}
+["raiz","bea"] 479 8 2 5 {"emisor":"raiz","emitido":5}
 true 1000000000 1
 ```
 
@@ -824,12 +884,13 @@ El génesis del eje de ejemplo:
   "t": "2026-11-07T09:00:00Z",
   "movimientos": [
     { "token": "T", "escala": "hora", "cantidad": 1000, "de": null, "a": "casa" },
-    { "token": "E", "denominacion": "EUR", "cantidad": 500, "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "de": null, "a": "casa" }
+    { "token": "T", "escala": "minuto", "cantidad": 1000, "de": null, "a": "casa" },
+    { "token": "E", "denominacion": "EUR", "cantidad": 500, "emisor": "casa", "de": null, "a": "casa" },
+    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
   ],
   "payload": "Casa de ejemplo",
   "contexto": { "genesis": true },
-  "id": "1b13334441df0ac63f6a16f170d5ef0c772256eeb24837bb6727cc9cc7344ee4"
+  "id": "7bfe589b7136a08faa6e73b4122b380882721d40164d26d821acd3864634cae6"
 }
 ```
 
@@ -859,7 +920,7 @@ await restaurar(datos).catch((e) => console.log(e.message));
 ```
 
 ```text
-1 false 5 1b133344 2a2a06e3 37c58bd2 25ddaa89 441d7a2b
+1 false 5 7bfe589b e9742ff2 daad9ad8 ba13e220 31d3a67f
 12 ["casa","cocina","huesped"] 5
 evento rechazado: id no corresponde al cuerpo
 ```
@@ -872,13 +933,13 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 
 | Evento | id | autor | sobre | en | payload |
 |---|---|---|---|---|---|
-| génesis | `1b133344…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
-| alta | `2a2a06e3…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
-| menú | `37c58bd2…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
-| compra | `25ddaa89…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
-| cuenta | `441d7a2b…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"25ddaa89\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
+| génesis | `7bfe589b…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
+| alta | `e9742ff2…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| menú | `daad9ad8…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
+| compra | `ba13e220…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
+| cuenta | `31d3a67f…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"ba13e220\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
-Saldos tras los cinco eventos: casa 1000 h − 1 min − 40 h − 24 h de T, 440 EUR, 10 P; cocina 40 h − 2 h − 3 min de T, 12 EUR; huesped 24 h − 1 h de T, 48 EUR.
+Series: la casa emite en el génesis 1000 `T:hora`, 1000 `T:minuto`, 500 `E:EUR` (la serie EUR queda a su nombre) y 10 `P:genesis`; las altas reparten horas y minutos, que son tokens distintos. Saldos tras los cinco eventos: casa 936 h y 279 min de T (1000 − 40 − 24; 1000 − 1 − 240 − 480), 440 EUR, 10 P; cocina 38 h y 237 min (40 − 2; 240 − 3), 12 EUR; huesped 23 h y 480 min (24 − 1), 48 EUR.
 
 ```js
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
@@ -902,12 +963,16 @@ export function indicesDe(dir: string): number[];         // quita ceros finales
 export function resolver(payload, dir: string): any;      // undefined si no se llega; no sigue referencias
 
 // src/tokens.js
+export const AMBITO_GENESIS = 'genesis';
 export const FAMILIAS = ['E', 'P', 'R', 'T'];
+export const SERIE = { T: 'escala', E: 'denominacion', P: 'ambito', R: 'emisor' };
 export const ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio'];
-export const SEGUNDOS = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 604800, ciclo: 2419200, anio: 31536000 };
+export const MAXIMO_ESCALAS_T = 10;
+export const SEGUNDOS = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 604800, ciclo: 2419200, anio: 31536000 };  // solo para medir distancias
 export function validarMovimiento(m): string[];
-export function claveToken(m): string;                    // 'T' | 'E' | 'E:EUR' | …
-export function cantidadBase(m): number;                  // T en segundos
+export function claveToken(m): string;                    // 'T:hora' | 'E:EUR' | 'P:genesis' | 'R:casa' | …
+export function partirClave(clave): { token, serie };
+export function cantidadBase(m): number;                  // m.cantidad, sin conversión
 
 // src/evento.js
 export const RAIZ = '0000000000';
@@ -923,12 +988,18 @@ export class Eje {
   constructor({ exigirFirmas = false } = {});
   static async genesis({ identidad, emision, foco, t, contexto, clave, privada, exigirFirmas }): Promise<Eje>;
   static async desde(eventos, { exigirFirmas = false } = {}): Promise<Eje>;
-  eventos: Map<id, Evento>; orden: id[]; saldos: Map<identidad, Map<clave, number>>; claves: Map<identidad, JWK>; exigirFirmas: boolean;
+  eventos: Map<id, Evento>; orden: id[]; saldos: Map<identidad, Map<clave, number>>; claves: Map<identidad, JWK>; emisores: Map<denominacion, identidad>; exigirFirmas: boolean;
   get genesisId(): string;
   obtener(id): Evento | undefined;
   identidades(): string[];
   saldo(identidad, clave): number;
-  saldoT(identidad, escala = 'segundo'): number;
+  saldoT(identidad, escala): number;                       // saldo de 'T:' + escala
+  tiempos(identidad): { escala, cantidad }[];
+  recursos(identidad): { denominacion, cantidad }[];
+  poderes(identidad): { ambito, cantidad }[];
+  reputaciones(identidad): { emisor, cantidad }[];
+  serie(denominacion): { emisor, emitido };
+  series(): { clave, token, serie, emisor, emitido }[];
   clave(identidad): JWK | undefined;
   async validar(ev): Promise<string[]>;
   async anadir(ev): Promise<Evento>;                       // lanza 'evento rechazado: …'
@@ -990,6 +1061,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Cambio de foco al agotar diez niveles | §3.2 |
 | Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
+| Emisión de series de T, P y R fuera del génesis; escalas de T octava a décima ([X] decidir VG) | §2.1, §2.4 |
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
 | Comprobación de `t` contra un reloj o contra el orden del eje | §1.1: solo `Date.parse` |

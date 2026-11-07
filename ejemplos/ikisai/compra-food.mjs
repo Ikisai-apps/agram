@@ -2,6 +2,11 @@
 // de eventos. Muestra el eje de punta a punta: génesis, identidades que nacen
 // al recibir tokens, un evento de compra con payload BTML y su décupla en
 // Pointed. Nada de esto es real.
+//
+// Las series de tokens: la casa emite en el génesis los EUR (serie de E a su
+// nombre) y las dos escalas de T que usa: horas y minutos, tokens distintos
+// sin conversión (escribir cuesta minutos; comprar, horas). Las altas
+// reparten ambas. Las plazas de alojamiento son otra serie, la de Booking.
 
 import { Eje } from '../../src/eje.js';
 
@@ -17,7 +22,8 @@ export async function ejemploCompra({ claves = {} } = {}) {
     identidad: 'casa',
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'E', denominacion: 'EUR', cantidad: 500 },
+      { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas
+      { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie EUR queda a nombre de la casa
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa de ejemplo',
@@ -36,8 +42,10 @@ export async function ejemploCompra({ claves = {} } = {}) {
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
+      { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
       { token: 'E', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
       { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
+      { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
     contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},

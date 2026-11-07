@@ -1,22 +1,41 @@
-// Tokens de base de datos. Cuatro familias y siete escalas de tiempo.
-// Todo evento mueve tokens; el evento mínimo mueve T.
-//   E  recursos: por denominación (EUR, kg…), fungible.
-//   P  poder/criterio: SIEMPRE con ámbito (el registro cuyo subárbol cubre;
-//      «genesis» = todo el eje). No existe un P total.
-//   R  reputación: por emisor y no fungible: solo el emisor la mueve; quien la
-//      recibe no puede pasarla. Se cuenta como «R de X» en quien la tiene.
-//   T  tiempo: un solo token en segundos; la escala es la unidad del movimiento.
+// Tokens de base de datos. Cuatro familias, y cada familia es una SERIE de
+// denominaciones (VG, 7-11: «las series de tokens son una constante y se
+// estandarizan»). La serie es limitada y la emite quien la respalda.
+//
+//   familia: clave de serie            : quién la emite
+//   T  tiempo:      T:<escala>         : el génesis (siete escalas, hasta diez)
+//   E  recursos:    E:<denominacion>   : su emisor registrado (el primero que la emite)
+//   P  poder:       P:<ambito>         : el génesis, sobre todo el eje; delegar estrecha el ámbito
+//   R  reputación:  R:<emisor>         : su emisor; no fungible, solo él la mueve
+//
+// Todo evento mueve tokens; el evento mínimo mueve T (cualquier escala).
+// Sin conversión entre denominaciones: una hora NO son sesenta minutos, son
+// tokens distintos (como un euro no es un bitcoin).
 
 /** Ámbito reservado de P: el génesis del eje, es decir, todo el eje. */
 export const AMBITO_GENESIS = 'genesis';
 
 export const FAMILIAS = Object.freeze(['E', 'P', 'R', 'T']);
 
+/**
+ * La constante: el campo del movimiento que nombra la serie dentro de cada
+ * familia. La clave de saldo es familia + ':' + ese campo.
+ */
+export const SERIE = Object.freeze({ T: 'escala', E: 'denominacion', P: 'ambito', R: 'emisor' });
+
+/** Siete escalas de T, cada una un token distinto. Ampliable hasta MAXIMO_ESCALAS_T. */
 export const ESCALAS_T = Object.freeze([
   'segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio',
 ]);
 
-/** Segundos por escala. Año = 13 ciclos de 28 días + 1. */
+/** Tope de escalas de T (VG, 7-11: «a lo mejor creamos alguna más para llegar hasta diez»). */
+export const MAXIMO_ESCALAS_T = 10;
+
+/**
+ * Duración de cada escala en segundos, para MEDIR distancias de tiempo (las
+ * bandas del eje temporal). No convierte tokens: los saldos de T no se
+ * suman entre escalas. Año = 13 ciclos de 28 días + 1.
+ */
 export const SEGUNDOS = Object.freeze({
   segundo: 1,
   minuto: 60,
@@ -27,22 +46,28 @@ export const SEGUNDOS = Object.freeze({
   anio: (13 * 28 + 1) * 86400,
 });
 
-/** Clave de saldo: T un solo token; E por denominación; P por ámbito; R por emisor. */
+/** Clave de saldo: familia + ':' + su serie (T:hora, E:EUR, P:<ámbito>, R:<emisor>). */
 export function claveToken(m) {
-  if (m.token === 'T') return 'T';
-  if (m.token === 'P') return 'P:' + m.ambito;
-  if (m.token === 'R') return 'R:' + m.emisor;
-  return m.denominacion ? 'E:' + m.denominacion : 'E';
+  return m.token + ':' + m[SERIE[m.token]];
 }
 
-/** Cantidad del movimiento en su unidad de saldo: T pasa a segundos. */
-export function cantidadBase(m) {
-  return m.token === 'T' ? m.cantidad * SEGUNDOS[m.escala] : m.cantidad;
+/** Parte una clave de saldo en { token, serie }: 'T:hora' → { token: 'T', serie: 'hora' }. */
+export function partirClave(clave) {
+  const i = clave.indexOf(':');
+  return { token: clave.slice(0, i), serie: clave.slice(i + 1) };
 }
+
+/** Cantidad del movimiento en su saldo: la misma, sin conversión (cada escala de T es su propio token). */
+export function cantidadBase(m) {
+  return m.cantidad;
+}
+
+const texto = (x) => typeof x === 'string' && x.length > 0;
 
 /**
- * Movimiento: { token, cantidad, de, a, escala? (T), denominacion? (E), ambito (P), emisor (R) }.
- * de = null es emisión (solo génesis). a = null es consumo.
+ * Movimiento: { token, cantidad, de, a, escala (T), denominacion (E), ambito (P), emisor (R y emisión de E) }.
+ * de = null es emisión: el génesis emite; después solo se emiten series de E,
+ * y las emite su emisor. a = null es consumo.
  */
 export function validarMovimiento(m) {
   const errores = [];
@@ -51,14 +76,20 @@ export function validarMovimiento(m) {
   if (!(Number.isFinite(m.cantidad) && m.cantidad > 0)) errores.push('cantidad debe ser > 0');
   if (m.token === 'T' && !ESCALAS_T.includes(m.escala)) errores.push('escala T inválida: ' + m.escala);
   if (m.token !== 'T' && m.escala !== undefined) errores.push('escala solo en T');
-  if (m.token === 'P' && !(typeof m.ambito === 'string' && m.ambito)) errores.push('P exige ámbito: no hay poder total');
+  if (m.token === 'E') {
+    if (!texto(m.denominacion)) errores.push('E exige denominación');
+    if (m.de === null && !texto(m.emisor)) errores.push('la emisión de E exige emisor');
+    if (m.de !== null && m.emisor !== undefined) errores.push('emisor en E solo al emitir');
+  }
+  if (m.token !== 'E' && m.denominacion !== undefined) errores.push('denominación solo en E');
+  if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
   if (m.token === 'R') {
-    if (!(typeof m.emisor === 'string' && m.emisor)) errores.push('R exige emisor');
+    if (!texto(m.emisor)) errores.push('R exige emisor');
     else if (m.de !== null && m.de !== m.emisor) errores.push('R no es fungible: solo la mueve su emisor ' + m.emisor);
     else if (m.de === null && m.a !== m.emisor) errores.push('la emisión de R va a su propio emisor');
   }
   if (m.token !== 'P' && m.ambito !== undefined) errores.push('ámbito solo en P');
-  if (m.token !== 'R' && m.emisor !== undefined) errores.push('emisor solo en R');
+  if (m.token !== 'R' && m.token !== 'E' && m.emisor !== undefined) errores.push('emisor solo en R y en la emisión de E');
   if (m.de === undefined || m.a === undefined) errores.push('de y a son obligatorios (null permitido)');
   if (m.de !== null && typeof m.de !== 'string') errores.push('de debe ser identidad o null');
   if (m.a !== null && typeof m.a !== 'string') errores.push('a debe ser identidad o null');
