@@ -13,7 +13,7 @@
 //   =ELEGIR(col, k?)        los k primeros (1 por defecto); no publica nada
 //   =ACTUAL(pv, cantidad?)  fuera de FILTRAR: la colección activa de la posición pv, limitada a cantidad (1 por defecto)
 //   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
-//   =SENTIDO() =ACUERDO() =DESPLAZAMIENTO()   el encaje del candidato: sentido (exacto/lectura/escritura), profundidades de acuerdo, suma de |diferencias|
+//   =ACUERDO() =DESPLAZAMIENTO() =SIGNO() =FALTAS() =EXCEDENTES()   el encaje del candidato: profundidades de acuerdo, suma de distancias, signo (exacto/completar/reducir/mixto), faltas y excedentes
 //   =CONTAR(col) =SUMAR(col)
 //   comparaciones  = <> < > <= >=   y   Y(a, b)  O(a, b)  NO(a)
 //
@@ -272,7 +272,7 @@ function buscar(ctx, evId, indices) {
   // Orden por defecto: el del encaje (exactos, luego acuerdo, luego desplazamiento). ORDENAR lo discute.
   const items = ocupantes(ctx.eje, evId, indices).map((o) => ({
     origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
-    vector: o.vector, acuerdo: o.acuerdo, sentido: o.sentido, origenDir: o.origenDir, destino: o.destino,
+    vector: o.vector, distancia: o.distancia, acuerdo: o.acuerdo, signo: o.signo, faltas: o.faltas, excedentes: o.excedentes, origenDir: o.origenDir, destino: o.destino,
   }));
   return col(items);
 }
@@ -383,9 +383,17 @@ function funcion(ctx, nodo, evId, base) {
       if (!ctx.actual) throw new Parada('ERROR', 'ORIGEN solo dentro de FILTRAR u ORDENAR');
       return texto(ctx.actual.origen);
     }
-    case 'SENTIDO': {
-      if (!ctx.actual) throw new Parada('ERROR', 'SENTIDO solo dentro de FILTRAR u ORDENAR');
-      return texto(ctx.actual.sentido ?? 'exacto');
+    case 'SIGNO': {
+      if (!ctx.actual) throw new Parada('ERROR', 'SIGNO solo dentro de FILTRAR u ORDENAR');
+      return texto(ctx.actual.signo ?? 'exacto');
+    }
+    case 'FALTAS': {
+      if (!ctx.actual) throw new Parada('ERROR', 'FALTAS solo dentro de FILTRAR u ORDENAR');
+      return num(ctx.actual.faltas ?? 0);
+    }
+    case 'EXCEDENTES': {
+      if (!ctx.actual) throw new Parada('ERROR', 'EXCEDENTES solo dentro de FILTRAR u ORDENAR');
+      return num(ctx.actual.excedentes ?? 0);
     }
     case 'ACUERDO': {
       if (!ctx.actual) throw new Parada('ERROR', 'ACUERDO solo dentro de FILTRAR u ORDENAR');

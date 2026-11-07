@@ -11,11 +11,13 @@ import { ARIDAD, esReferencia, direccion, indicesDe, resolver } from './btml.js'
 const MAX_SALTOS = 20;
 
 /**
- * Vector de diez diferencias con signo: destino menos origen, dígito a
- * dígito. Todo ceros = encaje exacto. El signo es la dirección del flujo en
- * la cruceta: negativo, el candidato viene leyendo (de la cruz a la X);
- * positivo, viene escribiendo (de la X a la cruz). El cero de orientación es
- * el tercer cero: ninguna diferencia en esa profundidad.
+ * Vector de diez diferencias con signo (corpus V4): destino menos origen,
+ * dígito a dígito, un dígito por componente. Todo ceros = encaje exacto.
+ * Lo que ordena es la DISTANCIA, siempre positiva (|diferencia| por
+ * profundidad, sin sumar enteros gigantes). El signo solo indica, en cada
+ * profundidad, si al candidato le falta (positivo: completar) o le sobra
+ * (negativo: reducir), y solo cuenta si la regla de esa dimensión lo permite.
+ * El cero de orientación es el tercer cero: ninguna diferencia ahí.
  */
 export function vector(origen, destino) {
   const o = indicesCompletos(origen);
@@ -35,26 +37,51 @@ export function acuerdo(v) {
   return n;
 }
 
-/** Suma de los valores absolutos: cuánto se desplaza en total. */
+/** Distancia por profundidad: los valores absolutos, siempre positivos. */
+export function distancia(v) {
+  return v.map((x) => Math.abs(x));
+}
+
+/** Suma de las distancias: una medida de consulta, no el criterio de orden. */
 export function norma(v) {
   return v.reduce((s, x) => s + Math.abs(x), 0);
 }
 
-/** Sentido del flujo: exacto, lectura (cruz → X) o escritura (X → cruz), por la primera diferencia. */
-export function sentido(v) {
-  const primera = v.find((x) => x !== 0);
-  return primera === undefined ? 'exacto' : primera < 0 ? 'lectura' : 'escritura';
+/** Faltas: profundidades donde al candidato le falta (diferencia positiva: completar). */
+export function faltas(v) {
+  return v.filter((x) => x > 0).length;
+}
+
+/** Excedentes: profundidades donde al candidato le sobra (diferencia negativa: reducir). */
+export function excedentes(v) {
+  return v.filter((x) => x < 0).length;
+}
+
+/** Signo global, solo informativo: exacto, completar, reducir o mixto. */
+export function signo(v) {
+  const f = faltas(v);
+  const e = excedentes(v);
+  return f === 0 && e === 0 ? 'exacto' : e === 0 ? 'completar' : f === 0 ? 'reducir' : 'mixto';
+}
+
+/** Compara dos distancias profundidad a profundidad (orden contextual, sin sumar). */
+function compararDistancia(a, b) {
+  for (let k = 0; k < a.length; k++) {
+    const d = Math.abs(a[k]) - Math.abs(b[k]);
+    if (d !== 0) return d;
+  }
+  return 0;
 }
 
 /**
  * Orden por encaje, sin borrar nada: exactos primero; luego más profundidades
- * de acuerdo; luego menor desplazamiento; los empates conservan la llegada.
- * El sentido no ordena: agrupa, y el criterio (PV2) puede tratarlo distinto.
+ * de acuerdo; luego menor distancia profundidad a profundidad; los empates
+ * conservan la llegada. El signo no ordena.
  */
 export function ordenarPorEncaje(lista) {
   return lista
     .map((o, i) => ({ o, i }))
-    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || (norma(a.o.vector) - norma(b.o.vector)) || (a.i - b.i))
+    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || compararDistancia(a.o.vector, b.o.vector) || (a.i - b.i))
     .map((x) => x.o);
 }
 
@@ -62,7 +89,7 @@ function conEncaje(o, destino) {
   // Para un ocupante por referencia, el origen es la dirección alcanzada en el otro registro.
   const origenDir = o.tipo === 'referencia' ? o.dir : o.origen;
   const v = vector(origenDir, destino);
-  return { ...o, origenDir, destino, vector: v, acuerdo: acuerdo(v), sentido: sentido(v) };
+  return { ...o, origenDir, destino, vector: v, distancia: distancia(v), acuerdo: acuerdo(v), signo: signo(v), faltas: faltas(v), excedentes: excedentes(v) };
 }
 
 /**
@@ -94,8 +121,8 @@ export function caminosDe(payload, dir) {
  * 2. referencia: tras cada propio que es una referencia, lo que alcanza (con la cadena de procedencia);
  * 3. escritos: los registros anclados en esa dirección (`sobre` + `en`).
  * Cada ocupante lleva su origen (la dirección de donde viene), su destino
- * (la dirección donde se le coloca), el vector de diferencias, las
- * profundidades de acuerdo y el sentido. Orden por defecto: por encaje;
+ * (la dirección donde se le coloca), el vector de diferencias, la distancia,
+ * las profundidades de acuerdo y el signo. Orden por defecto: por encaje;
  * con { orden: 'llegada' }, el de llegada. Nada se borra.
  */
 export function ocupantes(eje, id, indices, { orden = 'encaje' } = {}) {

@@ -7,7 +7,7 @@
 // Estados de una consolidación: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO.
 
 import { direccion, esReferencia } from './btml.js';
-import { ocupantes, vector, sentido } from './encaje.js';
+import { ocupantes, vector, signo } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
@@ -71,7 +71,8 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       fuentes.push(c.evento);
       const origen = c.origenDir ?? c.dir ?? '0000000000';
       const destino = direccion([...camino, i]);
-      encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: c.vector ?? vector(origen, destino), sentido: c.sentido ?? sentido(c.vector ?? vector(origen, destino)) });
+      const v = c.vector ?? vector(origen, destino);
+      encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: v, signo: c.signo ?? signo(v) });
     } else {
       payload.push(e); // terminal nuevo
     }
