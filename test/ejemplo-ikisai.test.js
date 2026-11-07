@@ -13,6 +13,10 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y las dos escalas de T que usa; las altas reparten ambas y declaran tipo.
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
   assert.deepEqual(eje.series().map((s) => s.clave), ['T:hora', 'T:minuto', 'E:casa/EUR', 'P:genesis']);
+  // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,
+  // sin capacidad declarada en su hilo, no tienen tope: son deuda del emisor.
+  const eur = eje.series().find((s) => s.clave === 'E:casa/EUR');
+  assert.deepEqual([eur.registro, eur.tope, eur.nota, eur.divisible], [eje.genesisId, null, 'sin capacidad declarada: deuda del emisor', false]);
   assert.deepEqual(eje.tiempos('huesped'), [{ escala: 'minuto', cantidad: 480 }, { escala: 'hora', cantidad: 23 }]);
   assert.deepEqual(eje.recursos('huesped'), [{ emisor: 'casa', denominacion: 'EUR', cantidad: 48 }]);
   assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'grupo', 'persona']);

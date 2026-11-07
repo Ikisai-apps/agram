@@ -18,6 +18,21 @@
 // esa noche (saldo insuficiente). El contador del motor (motor.ocupacion)
 // solo informa.
 //
+// La E atada al recurso (VG, 7-11 noche, R2 del estudio de neutralidad): la
+// casa declara la capacidad en su registro de alojamiento (posición 2 de su
+// payload: las plazas-noche de la temporada), acuña su P sobre él y lo
+// bloquea serie a serie; cada serie de plaza va atada a la habitación
+// (`registro`, en la clave tras la última «@») y hereda el tope del
+// alojamiento: el E vivo de plazas, sumando todas las noches, plazas y
+// emisores, no pasa de esa capacidad, y ninguna otra identidad añade plazas
+// por encima. Cada noche caduca a la hora de salida del día siguiente, y
+// entonces su E deja de estar vivo.
+// [X] decidir VG: el tope suma todas las denominaciones, así que no es por
+// noche: con una capacidad de 4 plazas, la casa solo tiene 4 plazas-noche
+// vivas a la vez. Para vender la temporada por adelantado, el alojamiento
+// declara las plazas-noche de toda la temporada (4 × 14 = 56); que ninguna
+// noche pase de 4 lo guarda la emisión de la casa, no el eje.
+//
 // [X] decidir VG: titular de los tokens de plaza. La corrección de VG sobre
 // titulares (mapa §12, 7-11 tarde) dice que una persona emite los tokens de
 // plaza «y se los da a la habitación; la habitación los conserva y los
@@ -87,18 +102,45 @@ export const HABITACION = Object.freeze([
 
 /**
  * Denominación de la serie de una plaza en una noche: «<plaza>@<noche>»,
- * con la plaza nombrada por su lugar exacto en el eje (el id completo de la
- * habitación y la dirección 1.k), para que dos habitaciones no compartan
- * serie. Va sin «|», «:» ni «/», como toda denominación.
+ * con la plaza nombrada por su dirección en la habitación (1.k). La
+ * habitación ya no va en la denominación: es el REGISTRO de la serie (R2),
+ * así que dos habitaciones no comparten serie. Va sin «|», «:» ni «/», como
+ * toda denominación.
  * [X] decidir VG: cómo se nombra la plaza dentro de la denominación.
  */
-export function denominacionPlaza(habitacionId, k, noche) {
-  return habitacionId + '.' + plaza(k) + '@' + noche;
+export function denominacionPlaza(k, noche) {
+  return plaza(k) + '@' + noche;
 }
 
-/** Clave de saldo de esa serie: E:casa/<plaza>@<noche>. */
+/** Clave de saldo de esa serie: E:casa/<plaza>@<noche>@<habitación>. */
 export function seriePlaza(habitacionId, k, noche) {
-  return 'E:' + CASA + '/' + denominacionPlaza(habitacionId, k, noche);
+  return 'E:' + CASA + '/' + denominacionPlaza(k, noche) + '@' + habitacionId;
+}
+
+/** Movimiento de tokens de plaza: la serie de la casa atada a la habitación. */
+export function tokenPlaza(habitacionId, k, noche, cantidad, de, a) {
+  return { token: 'E', emisor: CASA, denominacion: denominacionPlaza(k, noche), registro: habitacionId, cantidad, de, a };
+}
+
+/**
+ * [X] decidir VG: a qué hora deja de estar viva la plaza de una noche. Aquí,
+ * a las 12:00 UTC del día siguiente (la hora de salida).
+ */
+export function caducaNoche(noche) {
+  return new Date(Date.parse(noche) + 86400000 + 12 * 3600000).toISOString().replace('.000Z', 'Z');
+}
+
+/** Plazas por noche de la habitación: la suma de las capacidades de sus plazas (1 + 1 + 2 = 4). */
+export const PLAZAS_POR_NOCHE = HABITACION[1].reduce((s, p) => s + (capacidadDe(p) ?? 0), 0);
+
+/**
+ * El registro de alojamiento de la casa (R2): declara en su posición 2 la
+ * capacidad que respalda, en plazas-noche de la temporada (plazas por noche
+ * × noches). Es el tope del E vivo de todas las plazas que cuelguen de él.
+ */
+export function alojamientoDe(noches = TEMPORADA) {
+  const capacidad = PLAZAS_POR_NOCHE * nochesEntre(...noches).length;
+  return ['Alojamiento', ['plazas-noche', noches[0], noches[1]], capacidad];
 }
 
 /** Tokens de una plaza y noche que la casa aún tiene: los que quedan por reservar. */
@@ -129,8 +171,10 @@ const eur = (cantidad, de, a) => ({ token: 'E', emisor: CASA, denominacion: 'EUR
  * Con claves, la casa firma el génesis y declara las claves de las altas, y
  * cada identidad firma lo suyo. Sin claves, el eje funciona sin firmas.
  * confirmar: con false se detiene en la reserva escrita (sin ciclo del motor).
+ * temporada: las noches [primera, fin) que abre la casa (TEMPORADA por
+ * defecto); el alojamiento declara sus plazas-noche como capacidad.
  */
-export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
+export async function ejemploReserva({ claves = {}, confirmar = true, temporada: noches = TEMPORADA } = {}) {
   const t = '2026-11-07T10:00:00Z';
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
@@ -170,13 +214,14 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
   }, priv('casa'));
 
   // El dominio (VG, 7-11): un registro «Alojamiento» de la casa. Todo lo de
-  // Booking cuelga de él, y el poder de recepción tiene ese ámbito.
+  // Booking cuelga de él, y el poder de recepción tiene ese ámbito. Declara
+  // su capacidad (R2): las plazas-noche de la temporada.
   const alojamiento = await eje.escribir({
     autor: CASA,
     sobre: eje.genesisId,
     t,
     movimientos: [minutos(CASA)],
-    payload: 'Alojamiento',
+    payload: alojamientoDe(noches),
   }, priv('casa'));
 
   // La casa delega en recepción el poder de confirmar, con el ámbito del
@@ -200,7 +245,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
     payload: structuredClone(HABITACION), // copia: el payload de un evento no comparte arrays con nadie
   }, priv('casa'));
 
-  const temporada = await abrirTemporada(eje, habitacion, { t, privada: priv('casa') });
+  const temporada = await abrirTemporada(eje, habitacion, { noches, t, privada: priv('casa') });
 
   const reserva = await reservar(eje, {
     autor: 'huesped',
@@ -218,19 +263,37 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
 
 /**
  * La casa abre la temporada: emite, por cada plaza de la habitación y cada
- * noche de [primera, fin), tantos tokens «<plaza>@<noche>» como capacidad.
+ * noche de [primera, fin), tantos tokens «<plaza>@<noche>» como capacidad,
+ * atados a la habitación (R2) y con caducidad a la salida del día siguiente.
  * Es la serie limitada que respalda las plazas; solo la casa la amplía.
  * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
  * casa gasta su T, pone en juego su reputación ante recepción (un R:casa) y
  * tiene P sobre la habitación (el suyo cubre todo el eje).
+ * Y emitir E cuesta P bloqueado (R2): si aún no lo tiene, la casa acuña su P
+ * sobre el alojamiento, tanto como su capacidad, y bloquea de él, por cada
+ * serie, tanto como la serie emite (con la salida = la clave de la serie):
+ * su cuota es P bloqueado ÷ P emitido × capacidad. Ese P no se libera
+ * mientras viva la noche; el de las noches que ya no viven (consumidas o
+ * caducadas en `t`), la casa lo libera aquí mismo para respaldar las nuevas.
  */
 export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, privada } = {}) {
+  const alojamiento = eje.obtener(habitacion.sobre);
+  const capacidad = capacidadDe(alojamiento?.payload);
+  const ambito = alojamiento.id;
   const movimientos = [minutos(CASA), { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' }];
+  if (capacidad && !eje.serie('P:' + ambito).emitido) movimientos.push({ token: 'P', ambito, cantidad: capacidad, de: null, a: CASA });
+  for (const b of eje.bloqueos(CASA)) {
+    if (b.clave === 'P:' + ambito && b.salida.startsWith('E:') && eje.vivo(b.salida, t) === 0) {
+      movimientos.push({ token: 'P', ambito, cantidad: b.cantidad, de: CASA, a: CASA, estado: 'liberacion', salida: b.salida });
+    }
+  }
   habitacion.payload[1].forEach((laPlaza, k) => {
-    const capacidad = capacidadDe(laPlaza);
-    if (!capacidad) return;
+    const plazas = capacidadDe(laPlaza);
+    if (!plazas) return;
     for (const noche of nochesEntre(...noches)) {
-      movimientos.push({ token: 'E', emisor: CASA, denominacion: denominacionPlaza(habitacion.id, k, noche), cantidad: capacidad, de: null, a: CASA });
+      const salida = seriePlaza(habitacion.id, k, noche);
+      if (capacidad) movimientos.push({ token: 'P', ambito, cantidad: plazas, de: CASA, a: CASA, estado: 'bloqueo', salida });
+      movimientos.push({ ...tokenPlaza(habitacion.id, k, noche, plazas, null, CASA), caduca: caducaNoche(noche) });
     }
   });
   return eje.escribir({
@@ -386,7 +449,7 @@ export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11
       4: { ref: reserva.id, dir: direccion([4, 1]) }, // la acción: «ocupar», de lo que prepara la reserva
     }),
     ejecucion: 'Plaza entregada',
-    movimientos: () => noches.map((noche) => ({ token: 'E', emisor: CASA, denominacion: denominacionPlaza(habitacion.id, k, noche), cantidad: 1, de: CASA, a: quien })),
+    movimientos: () => noches.map((noche) => tokenPlaza(habitacion.id, k, noche, 1, CASA, quien)),
   });
   const pago = await cumplir(eje, {
     autor: quien,

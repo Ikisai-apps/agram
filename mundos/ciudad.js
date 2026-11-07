@@ -40,9 +40,13 @@ import {
   escapar, n1, corto, recorte, baseDe, descendientes, nombreEn, sinOperacion, ritmo, atributos, ordenPlano, textoCorto,
 } from './comun.js';
 
-/** Denominación legible: los ids de 64 cifras se acortan a 8 (las plazas de Booking llevan el id de su habitación). */
-export function etiquetaSerie(denominacion) {
-  return String(denominacion).replace(/[0-9a-f]{64}/g, (id) => id.slice(0, 8));
+/**
+ * Denominación legible: los ids de 64 cifras se acortan a 8. Con `registro`
+ * (R2: la serie atada a su recurso; las plazas de Booking, a su habitación),
+ * lo añade tras «@», también acortado.
+ */
+export function etiquetaSerie(denominacion, registro) {
+  return (String(denominacion) + (registro ? '@' + registro : '')).replace(/[0-9a-f]{64}/g, (id) => id.slice(0, 8));
 }
 
 /** El evento que dejó a cero el saldo del emisor en una serie: el último movimiento suyo de esa serie. */
@@ -97,7 +101,7 @@ export function datosCiudad(eje, foco, { camino = [], maximoVias = 6, maximoCasa
     for (const m of e.movimientos) {
       if (m.token !== 'E') continue;
       const clave = claveToken(m);
-      if (!series.has(clave)) series.set(clave, { clave, emisor: m.emisor, denominacion: m.denominacion, movimientos: [] });
+      if (!series.has(clave)) series.set(clave, { clave, emisor: m.emisor, denominacion: m.denominacion, ...(m.registro ? { registro: m.registro } : {}), movimientos: [] });
       series.get(clave).movimientos.push({ evento: e.id, de: m.de, a: m.a, cantidad: m.cantidad, movimiento: m.de === null ? 'emitir' : m.a === null ? 'consumir' : 'mover' });
     }
   }
@@ -108,7 +112,7 @@ export function datosCiudad(eje, foco, { camino = [], maximoVias = 6, maximoCasa
     const abierta = saldoEmisor > 0;
     const titulares = eje.identidades().map((id) => ({ id, cantidad: eje.saldo(id, v.clave) })).filter((x) => x.cantidad > 0);
     return {
-      ...v, etiqueta: etiquetaSerie(v.denominacion), emitido: eje.serie(v.clave).emitido, saldoEmisor, abierta, titulares,
+      ...v, etiqueta: etiquetaSerie(v.denominacion, v.registro), emitido: eje.serie(v.clave).emitido, saldoEmisor, abierta, titulares,
       cierre: abierta ? null : cierreDe(eje, v.clave, v.emisor),
     };
   });
