@@ -23,7 +23,7 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/epocas.js` | Significado de cada dígito: la época 0 y la «época 1 (propuesta)», cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCA_1_PROPUESTA`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
-`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo` y `persistencia`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`.
+`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo` y `persistencia`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
 
 ## 1. El evento
 
@@ -169,9 +169,10 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 | `cantidad` | número finito > 0; en T, entero (cada escala es un token) |
 | `escala` | obligatoria y válida si `token === 'T'`; prohibida en E/P/R |
 | `denominacion` | obligatoria en E; prohibida en T/P/R |
-| `ambito` | obligatorio en P (no hay P total); prohibido en el resto |
-| `emisor` | obligatorio en E (la serie es suya; sin `/`) y en R (solo él la mueve); prohibido en T/P |
+| `ambito` | obligatorio en P (no hay P total): `'genesis'` o el id de un registro del eje (si no existe, el eje rechaza `ámbito desconocido`, §7.4); prohibido en el resto |
+| `emisor` | obligatorio en E (la serie es suya) y en R; prohibido en T/P. En R, además, `de` solo puede ser el emisor o `null`: la reputación solo sale de la cartera de su emisor (§2.4) |
 | `de` | identidad (cadena) o `null`. `null` = **emisión** (§2.3, §2.4); en E y R, `a` debe ser el propio emisor. |
+| texto de los campos | `de`, `a`, `emisor`, `denominacion`, `ambito` y `escala` no llevan `\|`, `:` ni `/`, los separadores de las claves de serie (PR #41): ni las identidades ni las denominaciones. Una denominación con hora (`cama@2026-11-13T00:00`) se rechaza; con fecha sola, no. |
 | `a` | identidad o `null`. `null` = **consumo**. |
 | `de` y `a` | ambos presentes; no pueden ser `null` los dos |
 
@@ -209,6 +210,19 @@ E:casa/EUR P:genesis R:casa
 ["T va en enteros: cada escala es un token"]
 ```
 
+Todos los errores de `validarMovimiento` (en un evento salen como `evento mal formado: movimiento <i>: <error>`, §1.3):
+
+| Error | Causa |
+|---|---|
+| `movimiento no es objeto` / `token desconocido: <x>` / `cantidad debe ser > 0` | forma básica |
+| `escala T inválida: <x>` / `T va en enteros: cada escala es un token` / `escala solo en T` | la escala de T |
+| `E exige denominación` / `E exige emisor: la serie es de quien la emite` / `el emisor de E no lleva «/»` / `denominación solo en E` | la serie de E |
+| `P exige ámbito: no hay poder total` / `ámbito solo en P` | el ámbito de P |
+| `R exige emisor` / `R no es fungible: solo la mueve su emisor <emisor>` | la serie de R; el segundo, si `de` no es el emisor ni `null` (también cuando el emisor intenta retirar lo que dio: el mensaje lo nombra a él, pero lo que falla es que `de` es otro) |
+| `la emisión de <E o R> va a su propio emisor` / `emisor solo en E y en R` | emisión a otro; `emisor` en T o P |
+| `<campo> no puede llevar \| : ni /` | separadores reservados en `de`, `a`, `emisor`, `denominacion`, `ambito` o `escala` |
+| `de y a son obligatorios (null permitido)` / `de debe ser identidad o null` / `a debe ser identidad o null` / `movimiento sin origen ni destino` | origen y destino |
+
 ### 2.3 Reglas del eje sobre los movimientos
 
 Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después, E y R los emite su emisor, a sí mismo, si es persona o grupo (§2.4); T y P, solo el génesis. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
@@ -218,7 +232,9 @@ Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el au
 Emitir (iniciar una serie o ampliarla) es lo único reservado a **personas y grupos** (VG, 7-11): el tipo se declara en el alta (`contexto.tipos`, §7.1). Una **cosa** (una habitación, una plaza) es titular: recibe, conserva y mueve tokens y firma con su clave, pero no emite. Quien no declaró tipo tampoco emite.
 
 - **E**: una persona o un grupo emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene.
-- **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2).
+- **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2), y eso quiere decir que **solo sale de la cartera de su emisor**: quien la recibe (persona, grupo o cosa) la conserva y no puede pasarla, devolverla ni consumirla (`R no es fungible: solo la mueve su emisor <emisor>`), y el emisor tampoco la retira: el movimiento saldría de otra cartera (`de` distinto del emisor) y se rechaza ya en la forma, con ese mismo mensaje y antes de que el eje mire quién mueve qué (la tabla de §2.2). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si el emisor puede retirar reputación dada, o quien la recibe rechazarla.
+
+Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o el id de la habitación y la dirección de la plaza, como propone la PR #21), siempre sin `|`, `:` ni `/`. [X] decidir VG.
 
 La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). T y P no se emiten fuera del génesis.
 
@@ -268,6 +284,11 @@ T:minuto 60 · E:casa/EUR 500 · E:casa/cama@2026-11-13 2 · E:bea/cama@2026-11-
 
 VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P solo se emite en el génesis (`P:genesis`, todo el eje), y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro; es lo que mira el motor para autorizar. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»).
 
+- El ámbito lo fija el movimiento (`ambito`), no el `sobre` del evento que delega: la delegación puede escribirse en cualquier sitio.
+- El ámbito cubre lo que **cuelga** del registro por `sobre` (su subárbol de hilos), no lo que solo lo referencia: una nota escrita en otra rama que cita el dominio con `{ ref: dominio }` queda fuera.
+- Quien recibe P con ámbito puede delegar hacia abajo (un registro que cuelgue del suyo); hacia arriba o de lado se rechaza por saldo: `saldo insuficiente de P sobre el eje en <autor>` (ámbito `genesis`) o `saldo insuficiente de P sobre <id8> en <autor>` (un registro que su P no cubre). Un ámbito que no es un registro del eje: `ámbito desconocido: <id8>` (§7.4).
+- El id del génesis también vale como ámbito y autoriza en todo el eje, igual que `'genesis'` (`poderSobre` lo encuentra en el hilo de cualquier registro), pero con otra clave de saldo (`P:<id del génesis>`), y los dos nombres no son intercambiables al delegar. Con P sobre `genesis` se delega con ámbito el id del génesis (`ambitosQueCubren(<id del génesis>)` da `[<id del génesis>, 'genesis']`); con P sobre el id del génesis se delega a cualquier registro o al propio id, pero no con ámbito `'genesis'`, porque `ambitosQueCubren('genesis')` solo da `['genesis']`: `saldo insuficiente de P sobre el eje en <autor>`. [X] decidir VG si el id del génesis como ámbito se rechaza o se trata como `genesis`.
+
 ```js
 eje.poderes(identidad)              // → [{ ambito, cantidad }]   no hay P total
 eje.poderSobre(identidad, registro) // → número: P con ámbito 'genesis' o un registro del hilo de `registro`
@@ -308,7 +329,7 @@ Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9,
 ```
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
-- `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4).
+- `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4). Tampoco que `dir` exista en ese evento: una referencia a una posición que no desarrolla se guarda y, al seguirla, alcanza `contenido: undefined` **sin** `rota` (BQL la lee PENDIENTE `posición sin desarrollar`).
 - `ref` debe ser el **id completo**. Los prefijos (`'f9e59d1e'`) solo los resuelven BQL (`REF("f9e59d1e")`) y la entrada de texto de `escritura.item` (`'@f9e59d1e:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
@@ -496,7 +517,8 @@ Un evento declara dónde se anida: `sobre` es el id del registro en foco y `en` 
 - **Hilo**: la cadena `evento → sobre → sobre → … → génesis`. Es una cadena por referencia, no un orden temporal.
 - `en` puede ser **cualquier** dirección válida del foco, la desarrolle o no su payload: el ejemplo de abajo ancla una nota en `7000000000` de una compra que no tiene posición 7. El eje no comprueba que la posición exista.
 - Varios escritos en la misma dirección salen **en orden de entrada en el eje**, no por `t`: un escrito con un `t` anterior que entra después sale detrás.
-- Dónde anclar es decisión de quien escribe; el código no la toma. Decidido por VG para la reserva de alojamiento (mapa §12, 7-11): la reserva se ancla **en la plaza**, dentro de los recursos de la disponibilidad (`sobre: disponibilidad`, `en: direccion([1, k])`; para la plaza 1.1, `'1100000000'`), las noches van en el 7 de la propia reserva, y las reservas de la misma plaza colisionan en esa dirección (§6). Las posiciones sin contenido propio que preceden a la 7 (5 y 6) se rellenan como las celdas sin cambio de la fábrica: referencia al foco (`{ ref: foco, dir }`), sin «no aplicable» (mapa §12, «Posiciones sin contenido»). Para otros casos no hay criterio escrito: [X] decidir VG.
+- Dónde anclar es decisión de quien escribe; el código no la toma. Decidido por VG para la reserva de alojamiento (mapa §12, 7-11): la reserva se ancla **en la plaza**, dentro de los recursos de la disponibilidad (`sobre: disponibilidad`, `en: direccion([1, k])`; para la plaza 1.1, `'1100000000'`), las noches van en el 7 de la propia reserva, y las reservas de la misma plaza colisionan en esa dirección (§6). Si las noches van dentro, las posiciones sin contenido propio que preceden a la 7 (5 y 6) tienen que llevar algo y no «no aplicable» (mapa §12, «Posiciones sin contenido»: «celdas sin cambio = referencia al foco»), pero ni el mapa ni el código fijan qué `dir` llevan. El extranjero de la ronda 2 (`docs/notas/PRUEBA_DEL_EXTRANJERO.md`, R2.2) puso referencias al foco con el camino del anclaje (`{ ref: disponibilidad, dir: direccion([1, k, 5]) }` y lo mismo con 6). Se parecen a las heredadas de `consolidar` con `camino` solo en la forma: `consolidar` hereda una posición únicamente si el foco tiene ocupantes en ella, y aquí rechazaría con `hueco en 5: elige algo o quita las posiciones siguientes`; `desdeMapped` tampoco las fabrica (`hueco en 5: el foco no tiene esa posición; …`). Esas referencias **no alcanzan nada**, porque la disponibilidad no desarrolla 1.k.5 ni 1.k.6 (la plaza es un terminal o una subdécupla corta): `seguir` da `contenido: undefined` sin `rota` (§3.3) y BQL las lee PENDIENTE. [X] decidir VG: las noches dentro del payload de la reserva (y entonces qué llevan 5 y 6: referencias así, que no alcanzan nada, u otra cosa) o ancladas aparte en el 7 de la reserva (`sobre: reserva`, `en: '7000000000'`: lo lejano por anclaje, abajo), que no obliga a rellenar 5 y 6. Con la capacidad como serie limitada (§2.4), la segunda reserva solapada se escribe y colisiona en la plaza, pero su ejecución se rechaza por saldo (`docs/MOTOR.md` §5). Para otros casos no hay criterio escrito: [X] decidir VG.
+- **Lo lejano por anclaje** (mapa §12, «Posiciones sin contenido»: «celdas sin cambio = referencia al foco», «lo lejano = anclaje»). Una celda que cae lejos del prefijo desarrollado (la 9 de una décupla que llega a la 3) no se escribe dentro rellenando 4–8, sino como registro aparte anclado con `en`. **Dónde** se ancla no lo decide el mapa: el §12 solo dice «lo lejano = anclaje», y el §13 fija las coordenadas de la matriz de salida de la fábrica («la celda i.j.k bajo el camino c se escribe en `direccion([...c, i, j, k])`»), no de qué registro cuelga el ancla. Hay dos sitios, los dos BTML válidos, y cambian quién ve la celda: **en el foco**, en la dirección de la celda bajo el camino (la ve quien busca en el foco; así lo hace la PR #40, abierta), o **en la propia décupla** (la ve quien busca en la décupla y no quien busca en el foco; así lo hizo el extranjero de la ronda 2). Mientras no se decida, lo elige quien escribe. `desdeMapped` de este código no ancla: rechaza el hueco (`docs/MOTOR.md` §7.2). [X] decidir VG: dónde se ancla lo lejano, en el foco o en la décupla.
 
 ```js
 eje.sobre(id, en?)  // → hijos directos de `id`, en orden de entrada; con `en`, solo los anclados en esa dirección
@@ -551,7 +573,7 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `contenido` | Lo que hay ahí; `undefined` si la referencia está rota. |
 | `procedencia` | Cadena de pasos. Propio: `['<id>:<dir>#<camino con puntos>']`. Referencia: el paso propio seguido de `'<id alcanzado>:<dir>'` por salto. Escrito: `['<id hijo>:0000000000']`. |
 | `autor`, `t` | Solo en escritos. |
-| `rota` | `true` si una referencia no llegó a contenido (solo en referencias). Cuando no hay rotura el campo **no existe** (no es `false`). |
+| `rota` | `true` si la referencia no llegó a un evento: id desconocido o más de 20 saltos (solo en referencias). Una referencia a una posición que el evento no desarrolla da `contenido: undefined` **sin** `rota`. Cuando no hay rotura el campo **no existe** (no es `false`). |
 | `estado`, `motivo` | Solo en una referencia a un evento que no está en el eje: `'PENDIENTE'` y `'evento ausente del eje: <id8>'`. Puede llegar: no es un error. |
 | `origenDir`, `destino` | `destino` es la dirección buscada. `origenDir` es la dirección del candidato: la buscada (propio), la alcanzada en el otro registro (referencia), y **la de su anclaje `en`**, que es la buscada (escrito). Por eso propios y escritos son siempre encaje exacto y solo una referencia que alcanza otra dirección tiene vector distinto de cero. Para un escrito, `dir` (`0000000000`, su raíz) y `origenDir` (su anclaje) no coinciden: son cosas distintas. |
 | `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje del candidato (`origenDir`) en lo buscado (`destino`) (§6.5). |
@@ -875,6 +897,8 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 | `la serie <clave> no admite tanto` | lo emitido de la serie dejaría de ser un número finito |
 | `nadie mueve tokens ajenos: <de> no es el autor` | un movimiento con `de !== autor` |
 | `saldo insuficiente de <clave> en <autor>` | la suma de lo movido por clave supera el saldo (sin conversión: `T:minuto` no se paga con `T:hora`) |
+| `ámbito desconocido: <id8>` | un movimiento de P cuyo `ambito` no es `'genesis'` ni un registro del eje |
+| `saldo insuficiente de P sobre el eje en <autor>` / `saldo insuficiente de P sobre <id8> en <autor>` | delegar P con un ámbito que el P del autor no cubre (más ancho, o de otra rama): §2.5 |
 
 ```sh
 node --input-type=module -e "
@@ -1151,6 +1175,8 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
+| Retirar o rechazar reputación dada; nombre de la plaza en la denominación; el id del génesis como segundo nombre del ámbito `genesis` ([X] decidir VG) | §2.4, §2.5 |
+| Dónde van las noches de la reserva (dentro, y entonces qué llevan 5 y 6, o ancladas en el 7); dónde se ancla lo lejano, en el foco o en la décupla ([X] decidir VG); anclar lo lejano desde `desdeMapped` (PR #40) | §5 |
 | Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
