@@ -399,7 +399,7 @@ test('BTML-19 navegar referencias no consume profundidad BTML: el límite de die
 });
 
 test('BTML-19b los permisos de lectura limitan el recorrido de referencias',
-  { skip: 'BTML-19: no hay permisos de lectura: seguir() y REF leen todo el eje que tiene el observador (ver BTML-65b). El eje y el encaje no tienen modelo de permisos; la PR #36, abierta, añade un gancho puedeLeer solo en BQL (terreno de src/bql.js, otro agente)' },
+  { skip: 'BTML-19: en el encaje no hay permisos de lectura: seguir() recorre las referencias por todo el eje que tiene el observador (ver BTML-65b). Solo BQL limita el recorrido: desde la PR #36, integrada, pregunta al gancho opcional puedeLeer por cada salto de la cadena de REF y da PENDIENTE DE AUTORIZACIÓN (O-12b, O-12c); el gancho lo pasa quien llama y el modelo de permisos es de AARPIA (mapa §12)' },
   sinForma('BTML-19'));
 
 test('BTML-20 contexto ausente → PENDIENTE; tipo imposible → INCOMPATIBLE; ciclo irresoluble → ERROR', async () => {
@@ -422,14 +422,12 @@ test('BTML-20b en el encaje, una referencia a un evento ausente es PENDIENTE (co
   assert.equal(seguir(eje, { ref: a.id }).estado, undefined);
 });
 
-test('BTML-20c en BQL, una referencia a un evento ausente es PENDIENTE, no ERROR',
-  { skip: 'BTML-20: REF a un id que no está en el eje da ERROR «referencia desconocida» y LOCAL sobre una referencia ausente da ERROR «evento desconocido». Terreno de src/bql.js (otro agente; la PR #36, abierta, lo cumple): no se toca aquí' },
-  async () => {
-    const { eje, id } = await ejeCon(['Casa']);
-    const b = await escribe(eje, id, ['B', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
-    assert.equal(consultar(eje, id, [0], 'REF("' + ID_INEXISTENTE + '")').estado, 'PENDIENTE');
-    assert.equal(evaluar(eje, b.id, [2]).estado, 'PENDIENTE');
-  });
+test('BTML-20c en BQL, una referencia a un evento ausente es PENDIENTE, no ERROR', async () => {
+  const { eje, id } = await ejeCon(['Casa']);
+  const b = await escribe(eje, id, ['B', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
+  assert.equal(consultar(eje, id, [0], 'REF("' + ID_INEXISTENTE + '")').estado, 'PENDIENTE');
+  assert.equal(evaluar(eje, b.id, [2]).estado, 'PENDIENTE');
+});
 
 test('BTML-23 la yuxtaposición de referencias no significa por sí sola suma, concatenación ni traducción', async () => {
   const { eje, id } = await ejeCon(['Casa']);
@@ -968,7 +966,7 @@ test('BTML-65 lo disponible depende del descubrimiento: observadores con distint
 });
 
 test('BTML-65b los permisos de lectura limitan lo que cada observador reúne',
-  { skip: 'BTML-65: no hay permisos de lectura: arbol() lee todo el eje que tiene el observador. El eje no tiene modelo de permisos de lectura (la PR #36, abierta, añade un gancho solo en BQL)' },
+  { skip: 'BTML-65: no hay permisos de lectura en el eje ni en el encaje: arbol() y ocupantes() reúnen todo el eje que tiene el observador. Solo BQL pregunta, desde la PR #36, integrada, al gancho opcional puedeLeer por cada lectura y por cada ocupante (O-12b, O-12c); el modelo de permisos es de AARPIA (mapa §12)' },
   sinForma('BTML-65'));
 
 // =====================================================================
@@ -1015,15 +1013,13 @@ test('B:MOT-01b al descubrir, la referencia ausente es un candidato pendiente ex
   assert.equal(p1.candidatos.length, 2); // y sin borrar la alternativa
 });
 
-test('B:MOT-01c en BQL, la referencia ausente es un pendiente explicado',
-  { skip: 'B:MOT-01: BQL convierte la referencia ausente en ERROR («referencia desconocida» / «evento desconocido»). Terreno de src/bql.js (otro agente; la PR #36, abierta, lo cumple): no se toca aquí' },
-  async () => {
-    const { eje, id } = await ejeCon(['Casa']);
-    const x = await escribe(eje, id, ['X', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
-    const r = evaluar(eje, x.id, [2]);
-    assert.equal(r.estado, 'PENDIENTE');
-    assert.ok(r.motivo);
-  });
+test('B:MOT-01c en BQL, la referencia ausente es un pendiente explicado', async () => {
+  const { eje, id } = await ejeCon(['Casa']);
+  const x = await escribe(eje, id, ['X', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
+  const r = evaluar(eje, x.id, [2]);
+  assert.equal(r.estado, 'PENDIENTE');
+  assert.ok(r.motivo);
+});
 
 test('B:MOT-02 descubrir no elige una sola opción: conserva por posición las alternativas de igual posición y distinto id', async () => {
   const { eje, id } = await ejeCon(['Casa', 'recurso']);

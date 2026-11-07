@@ -201,7 +201,7 @@ test('MOT-03 INTERPRETAR lee tipo y forma, la gramática de la expresión y la r
 });
 
 test('MOT-03b INTERPRETAR aplica también reglas largas y el significado del contexto',
-  { skip: 'MOT-03: solo existe la regla corta (época 0); no hay reglas largas que refinen prefijos ni significado de contexto (ver TOK-65). Forma supuesta abajo. Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'MOT-03: las épocas solo tienen reglas cortas (la 0 y la 1 (propuesta)); no hay reglas largas que refinen prefijos ni significado de contexto (ver TOK-65). Forma supuesta abajo. Terreno de src/epocas.js (otro agente): no se toca aquí' },
   () => {
     const conLarga = { nombre: 'con larga', reglaCorta: (p, d) => PV[d], reglaLarga: (prefijo) => (prefijo === '84' ? 'compras' : undefined) };
     assert.equal(leerDireccion('8412000000', conLarga)[1].significado, 'compras');
@@ -221,7 +221,7 @@ test('MOT-04 RESOLVER sigue LOCAL, REF y ACTUAL, con procedencia y ciclos detect
 });
 
 test('MOT-04b RESOLVER comprueba permisos de lectura',
-  { skip: 'MOT-04: no hay permisos de lectura: todo el eje se puede leer. El eje y el encaje no tienen modelo de permisos; la PR #36, abierta, añade un gancho puedeLeer solo en BQL (terreno de src/bql.js, otro agente)' },
+  { skip: 'MOT-04: el motor no comprueba permisos de lectura: descubrir() llama a evaluar() sin gancho y el eje y el encaje leen todo. BQL, desde la PR #36, integrada, pregunta al gancho opcional puedeLeer por cada lectura, ocupante y salto y da PENDIENTE DE AUTORIZACIÓN (O-12b, O-12c), pero el motor no lo pasa ni tiene modelo de permisos; ese modelo es de AARPIA (mapa §12)' },
   sinForma('MOT-04'));
 
 test('MOT-05 POSICIONAR obtiene posiciones por rutas locales, anclajes y ceros, sin pasar de diez profundidades', async () => {
@@ -1635,7 +1635,7 @@ test('TOK-61 la época actual es la confluencia de las pasadas y fija cómo se c
   sinForma('TOK-61'));
 
 test('TOK-62 una época es un árbol ordinario adoptado como tronco compartido',
-  { skip: 'TOK-62: EPOCA_0 es un objeto del código, no un árbol de eventos (la PR #33, abierta, la pasa a JSON de datos, tampoco como árbol). Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'TOK-62: las épocas son datos JSON (datos/epocas/*.json, desde la PR #33, integrada) que cargarEpoca convierte en un objeto; ninguna es un árbol de eventos del eje ni se adopta como tronco compartido. Terreno de src/epocas.js (otro agente): no se toca aquí' },
   sinForma('TOK-62'));
 
 test('TOK-63 en la época 0 la regla corta vale en todas las profundidades: cada dígito es un PV', () => {
@@ -1649,7 +1649,7 @@ test('TOK-64 la regla corta es exhaustiva: cubre los diez dígitos en las diez p
 });
 
 test('TOK-64b las cien reglas cortas propias de cada profundidad',
-  { skip: 'TOK-64: solo existe la época 0, con la misma regla en todas las profundidades; las cien reglas se trabajan en V5 con ejemplos y UI (la PR #33, abierta, propone una época 1). Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'TOK-64: la única época decidida es la 0, con la misma regla en todas las profundidades. La «época 1 (propuesta)» (PR #33, integrada; datos/epocas/epoca-1-propuesta.json) trae cien reglas propias, una por profundidad y dígito, pero está pendiente de VG: [X] decidir VG; las cien reglas se trabajan en V5 con ejemplos y UI. Terreno de src/epocas.js (otro agente): no se toca aquí' },
   sinForma('TOK-64'));
 
 test('TOK-65 las reglas largas refinan rutas y prefijos completos, parciales y dispersas',
@@ -1667,7 +1667,7 @@ test('TOK-66 la época 0 da las reglas por defecto de toda lectura', async () =>
 });
 
 test('TOK-66b diez épocas, con la 0 como respaldo, y bifurcaciones que convergen por referencias sin borrar ramas',
-  { skip: 'TOK-66: no hay otras épocas ni respaldo entre épocas. Terreno de src/epocas.js (otro agente): no se toca aquí' },
+  { skip: 'TOK-66: el respaldo existe (cargarEpoca(datos, { respaldo }); src/epocas.js carga la época 1 (propuesta) con la época 0 de respaldo, probado en test/epocas.test.js), pero solo hay dos épocas, la 0 y la 1 (propuesta, pendiente de VG), y no hay bifurcaciones ni convergencia por referencias: las épocas son datos JSON, no árboles del eje (ver TOK-62). Terreno de src/epocas.js (otro agente): no se toca aquí' },
   sinForma('TOK-66'));
 
 test('TOK-68 una implementación referenciada por hash no da permiso para ejecutar código', async () => {
