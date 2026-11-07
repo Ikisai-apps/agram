@@ -12,7 +12,7 @@ Estado: cartón piedra completo del ciclo. Eje (génesis, identidades, transicio
 node ejemplos/ikisai/correr.mjs
 ```
 
-Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
+Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados: una compra de comida (`compra-food.mjs`) y una reserva de alojamiento (`reserva-booking.mjs`: las reservas colisionan en la plaza, y la casa emite una serie de tokens, uno por plaza y noche, que la ejecución entrega a quien reserva; sin token, no se ejecuta), dos dominios sobre el mismo núcleo. Este repositorio es público: nada real, ningún secreto.
 
 ```sh
 npm test
