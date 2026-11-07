@@ -16,6 +16,7 @@ svg.cielo{display:block;width:100%;height:auto;max-width:100%;font-family:var(--
 .cielo text{fill:var(--cielo-texto);font-size:7.5px;text-anchor:middle;pointer-events:none}
 .cielo .rotulo-valor{fill:var(--cielo-foco);font-size:7px}
 .cielo .rotulo-vacio{font-size:10px}
+.cielo .rotulo-pv{font-size:6.5px}
 .cielo .estrella,.cielo .foco-cielo{transform-box:fill-box;transform-origin:center}
 
 /* al cambiar de cohorte, cada estrella crece o mengua desde su brillo anterior y el foco cambia de caja */

@@ -1,148 +1,130 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { generarClaves } from '../src/autoridad.js';
 import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
-import { baseDe, leerBase, situar, MEDIDAS_REGISTRO, COHORTES, ETIQUETAS } from '../src/bases.js';
+import { calcularBase, situar, medir, clavesDeMedidas, ETIQUETAS } from '../src/bases.js';
 import { verEn } from '../src/efectos.js';
 import {
-  EFECTOS, registroDeCohorte, baseAlVuelo, situarEnBase, rangoDeCaja, datosCielo, svgCielo, htmlCielo, htmlCieloSobrio,
-  selectorCohorte, brillo, ordenMedidas,
+  COHORTES, DECUPLA, EFECTOS, registroDeCohorte, baseAlVuelo, situarEnEstadistica, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
+  htmlCieloSobrio, selectorCohorte, brillo,
 } from '../mundos/cielo.js';
-import { medir } from '../src/bases.js';
 
-/** Lo estadístico de una base: n y, por medida, cajas, suma, mínimo y máximo. */
-const estadistica = (b) => ({ n: b.n, medidas: b.medidas });
-/** Etiquetas de apertura de las constelaciones del SVG. */
-const constelaciones = (svg) => [...svg.matchAll(/<g class="constelacion" data-medida="([^"]+)"/g)].map((m) => m[1]);
+/** Las constelaciones del SVG, en orden. */
+const constelaciones = (svg) => [...svg.matchAll(/<g class="constelacion[^"]*" data-medida="([^"]+)"/g)].map((m) => m[1]);
+/** El trozo del SVG de una constelación. */
+const bloqueDe = (svg, medida) => svg.slice(svg.indexOf(`data-medida="${medida}"`)).split('<g class="constelacion')[0];
+/** Lo estadístico de una estadística de base. */
+const est = (e) => ({ n: e.n, medidas: e.medidas, tokens: e.tokens, posiciones: e.posiciones, raiz: e.raiz });
 
 let compartido;
-async function ejemplo() {
-  compartido ??= (async () => {
-    const casa = await generarClaves();
-    const ej = await ejemploComprasHermanas({ claves: { casa } });
-    return { ej, casa };
-  })();
-  return compartido;
-}
+/** El ejemplo de las compras hermanas, sin bases escritas (compartido: no se escribe en él). */
+const sinBases = () => (compartido ??= ejemploComprasHermanas());
 
-/** Un eje nuevo con las bases del ejemplo escritas en el 8. */
-async function conBases() {
-  const casa = await generarClaves();
-  const ej = await ejemploComprasHermanas({ claves: { casa } });
-  await escribirBasesDelEjemplo(ej, casa.privada);
-  return ej;
-}
-
-test('cohortes: el mismo registro y la misma profundidad que bases.situar; sin cohorte en el génesis y en el propio proyecto', async () => {
-  const { ej } = await ejemplo();
+test('cohortes: el mismo registro y la misma estadística que bases.situar; los hermanos del génesis no existen', async () => {
+  const ej = await sinBases();
   const { eje } = ej;
-  for (const foco of [ej.guisos.id, ej.compra.id, ej.manzanas.id, ej.menu.id, ej.cuenta.id]) {
+  for (const foco of [ej.guisos.id, ej.compra.id, ej.manzanas.id, ej.menu.id, ej.comedor.id]) {
     for (const cohorte of COHORTES) {
       const c = registroDeCohorte(eje, foco, cohorte);
-      const s = situar(eje, foco, { cohorte });
-      if (c) assert.deepEqual([c.registro, c.profundidad], [s.registro, s.profundidad], cohorte);
-      else assert.equal(s.estado, 'PENDIENTE');
+      const s = situar(eje, foco, { alcance: cohorte });
+      assert.deepEqual([c.registro, c.seccion], [s.registro, s.seccion], cohorte);
     }
   }
   assert.equal(registroDeCohorte(eje, eje.genesisId, 'hermanos'), null);
-  assert.equal(registroDeCohorte(eje, ej.alta.id, 'proyecto'), null, 'un proyecto no tiene proyecto encima');
-  assert.deepEqual(registroDeCohorte(eje, ej.guisos.id, 'general'), { registro: eje.genesisId, profundidad: 3 });
+  assert.deepEqual(registroDeCohorte(eje, eje.genesisId, 'proyecto'), { registro: eje.genesisId, seccion: 'subarbol' });
+  assert.deepEqual(registroDeCohorte(eje, ej.guisos.id, 'proyecto'), { registro: ej.comedor.id, seccion: 'subarbol' });
   assert.throws(() => registroDeCohorte(eje, ej.guisos.id, 'mejores'), /cohorte desconocida/);
 });
 
-test('base al vuelo: la de hermanos es baseDe; la general, la misma que funden las bases escritas', async () => {
-  const ej = await conBases();
+test('al vuelo: los hermanos son los hijos que escribiría calcularBase; no escribe nada', async () => {
+  const ej = await sinBases();
   const { eje } = ej;
   const n = eje.orden.length;
-  const v = baseAlVuelo(eje, ej.menu.id, 1);
-  assert.deepEqual(estadistica(v), estadistica(baseDe(eje, ej.menu.id)));
+  const v = baseAlVuelo(eje, ej.guisos.id, 'hermanos');
+  assert.deepEqual(est(v), est(calcularBase(eje, ej.menu.id).hijos));
+  assert.deepEqual(v.refs, calcularBase(eje, ej.menu.id).refsHijos);
   assert.equal(v.escrita, false);
-  assert.equal(v.desde, 'al vuelo');
-  assert.deepEqual(v.refs, baseDe(eje, ej.menu.id).refs);
-  // Las bases fundidas del 8 del génesis (profundidad 3) resumen lo mismo que medir las compras una a una.
-  const g = leerBase(eje, eje.genesisId);
-  const alVuelo = baseAlVuelo(eje, eje.genesisId, 3);
-  assert.equal(alVuelo.n, g.n);
-  for (const m of Object.keys(g.medidas)) assert.deepEqual(alVuelo.medidas[m], g.medidas[m], m);
+  assert.equal(baseAlVuelo(eje, ej.guisos.id, 'general').n, eje.orden.length, 'general: todo el eje (sin bases)');
   assert.equal(eje.orden.length, n, 'no escribe');
-  assert.throws(() => baseAlVuelo(eje, ej.menu.id, 0), /profundidad/);
 });
 
-test('datos: con base escrita leen el 8 (lo mismo que situar, sin la etiqueta de hitos); sin base, al vuelo y marcada', async () => {
-  const { ej } = await ejemplo();
-  const sin = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'hermanos' });
-  assert.equal(sin.estado, 'RESUELTO');
-  assert.equal(sin.escrita, false);
-  assert.equal(sin.base.id, null);
-  assert.equal(sin.incluido, true);
-  assert.equal(sin.base.n, baseDe(ej.eje, ej.menu.id).n);
-  const enMemoria = situarEnBase(baseAlVuelo(ej.eje, ej.menu.id, 1), medir(ej.eje, ej.guisos.id));
-  for (const m of sin.medidas) {
-    const { medida, cajas, ...resto } = m;
-    assert.deepEqual(resto, enMemoria[medida], medida);
-    assert.equal(cajas.reduce((s, c) => s + c, 0), sin.base.n, 'las diez cajas suman n');
+test('escrita o al vuelo, el cielo dice lo mismo: con las bases del ejemplo escritas, situar da los números que se calcularon al vuelo', async () => {
+  const ej = await ejemploComprasHermanas();
+  const focos = [ej.guisos.id, ej.cafe.id, ej.manzanas.id, ej.cena.id];
+  const antes = Object.fromEntries(focos.flatMap((f) => COHORTES.map((c) => [f + c, datosCielo(ej.eje, f, { cohorte: c })])));
+  for (const d of Object.values(antes)) {
+    assert.equal(d.escrita, false);
+    assert.equal(d.base.id, null);
+    assert.equal(d.incluido, true);
   }
-
-  const con = await conBases();
-  for (const cohorte of COHORTES) {
-    const d = datosCielo(con.eje, con.guisos.id, { cohorte });
-    const s = situar(con.eje, con.guisos.id, { cohorte });
-    assert.equal(d.escrita, true, cohorte);
-    assert.equal(d.base.id, s.base);
-    assert.equal(d.base.n, s.n);
-    assert.deepEqual(d.base.frescura, s.frescura);
-    for (const m of d.medidas) {
-      const { etiqueta, ...esperado } = s.medidas[m.medida];
-      const { medida, cajas, ...resto } = m;
-      assert.deepEqual(resto, esperado, cohorte + ' ' + medida);
-      assert.ok(!('etiqueta' in m), 'sin hitos: el cielo no asigna nivel');
+  await escribirBasesDelEjemplo(ej);
+  for (const f of focos) {
+    for (const c of COHORTES) {
+      const d = datosCielo(ej.eje, f, { cohorte: c });
+      const s = situar(ej.eje, f, { alcance: c });
+      assert.equal(d.escrita, true, c);
+      assert.equal(d.base.id, s.base);
+      assert.equal(d.base.n, s.n);
+      assert.deepEqual(d.base.frescura, s.frescura);
+      assert.equal(d.incluido, s.incluido);
+      assert.deepEqual(d.cambiadas, s.cambiadas);
+      assert.deepEqual(d.medidas, antes[f + c].medidas, 'misma lectura: ' + c);
+      assert.ok(d.medidas.every((m) => !('hito' in m) && !('etiqueta' in m)), 'sin hitos: el cielo no asigna nivel');
     }
-    // Situar en memoria con la base leída da lo mismo que situar con la escrita.
-    const leida = leerBase(con.eje, d.registro, { profundidad: d.profundidad });
-    const mem = situarEnBase(leida, medir(con.eje, con.guisos.id));
-    for (const m of d.medidas) assert.equal(mem[m.medida].caja, m.caja);
   }
+  // Situar en memoria con una estadística leída del 8 da lo mismo que bases.situar.
+  const s = situar(ej.eje, ej.guisos.id, { alcance: 'proyecto' });
+  const leida = calcularBase(ej.eje, ej.comedor.id).subarbol;
+  const mem = situarEnEstadistica(leida, medir(ej.eje, ej.guisos.id));
+  for (const k of clavesDeMedidas()) {
+    const { hito, ...esperado } = s.medidas[k];
+    assert.deepEqual(mem.medidas[k], esperado, k);
+  }
+  assert.deepEqual(mem.posiciones.map((p) => [p.comparables, p.foco]), s.posiciones.map((p) => [p.comparables, p.foco]));
 });
 
 test('sin cohorte: el génesis no tiene hermanos; el cielo lo dice sin inventar nada', async () => {
-  const { ej } = await ejemplo();
+  const ej = await sinBases();
   const d = datosCielo(ej.eje, ej.eje.genesisId);
   assert.equal(d.estado, 'SIN COHORTE');
   assert.match(d.motivo, /génesis no tiene padre/);
   assert.deepEqual(d.medidas, []);
   const svg = svgCielo(d);
-  assert.ok(svg.includes('sin cohorte') && !svg.includes('class="constelacion"'));
-  assert.equal(datosCielo(ej.eje, ej.alta.id, { cohorte: 'proyecto' }).estado, 'SIN COHORTE');
+  assert.ok(svg.includes('sin cohorte') && !svg.includes('class="constelacion'));
   assert.match(htmlCielo(d), /sin cohorte: el génesis no tiene padre/);
+  assert.equal(datosCielo(ej.eje, ej.eje.genesisId, { cohorte: 'general' }).estado, 'RESUELTO');
 });
 
 test('svg: función pura, una constelación por medida con diez estrellas y el foco en su caja', async () => {
-  const { ej } = await ejemplo();
+  const ej = await sinBases();
   const d = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'general' });
   const svg = svgCielo(d);
   assert.equal(svgCielo(d), svg, 'determinista');
   assert.ok(svg.startsWith('<svg class="cielo sin-escribir" viewBox="0 0 400 '));
   assert.ok(svg.endsWith('</svg>'));
-  assert.ok(!/NaN|undefined|Infinity/.test(svg), 'sin números rotos');
+  assert.ok(!/NaN|undefined|Infinity|null/.test(svg), 'sin números rotos');
   assert.ok(svg.includes('data-escrita="false"') && !svg.includes('data-evento='), 'sin escribir: no hay evento detrás');
-  assert.deepEqual(constelaciones(svg), d.medidas.map((m) => m.medida));
-  assert.deepEqual(d.medidas.map((m) => m.medida), ordenMedidas(d.medidas.map((m) => m.medida)), 'orden fijo de medidas');
-  assert.deepEqual(d.medidas.slice(0, 6).map((m) => m.medida), MEDIDAS_REGISTRO);
+  const tokens = d.medidas.filter((m) => /^[TEPR]:/.test(m.medida)).map((m) => m.medida);
+  assert.deepEqual(constelaciones(svg), [...clavesDeMedidas(), DECUPLA, ...tokens]);
+  assert.deepEqual(tokens, [...tokens].sort());
   for (const m of d.medidas) {
-    const bloque = svg.slice(svg.indexOf(`data-medida="${m.medida}"`)).split('</g><g class="constelacion"')[0];
+    const bloque = bloqueDe(svg, m.medida);
     const estrellas = [...bloque.matchAll(/<g class="estrella[^"]*" data-caja="(\d)" data-cuenta="(\d+)"/g)];
     assert.equal(estrellas.length, 10, m.medida);
     assert.deepEqual(estrellas.map((e) => Number(e[2])), m.cajas, 'cada estrella es una caja con su recuento');
-    // El anillo del foco está sobre la estrella de su caja.
-    const cxCaja = new RegExp(`data-caja="${m.caja}"[^]*?<circle class="astro" cx="([\\d.]+)" cy="([\\d.]+)"`).exec(bloque);
-    const anillo = /<circle class="anillo" cx="([\d.]+)" cy="([\d.]+)"/.exec(bloque);
-    assert.deepEqual([anillo[1], anillo[2]], [cxCaja[1], cxCaja[2]], m.medida);
+    const centros = [...bloque.matchAll(/<circle class="astro" cx="([\d.]+)" cy="([\d.]+)"/g)].map((x) => x[1] + ',' + x[2]);
+    const anillos = [...bloque.matchAll(/<circle class="anillo" cx="([\d.]+)" cy="([\d.]+)"/g)].map((x) => x[1] + ',' + x[2]);
+    if (m.tipo === 'pv') {
+      assert.deepEqual(anillos, centros.filter((_, k) => m.focoEn[k]), 'la décupla: un anillo en cada posición que tiene el foco');
+    } else {
+      assert.equal(m.cajas.reduce((s, c) => s + c, 0), d.base.n, 'las diez cajas suman n');
+      assert.deepEqual(anillos, [centros[m.caja]], 'el anillo del foco, sobre la estrella de su caja');
+    }
   }
-  assert.equal((svg.match(/class="anillo"/g) ?? []).length, d.medidas.length, 'un foco por constelación');
   assert.ok(svg.includes(`data-efecto="${EFECTOS.constelacion}"`) && svg.includes(`data-efecto="${EFECTOS.caja}"`));
   assert.ok([...svg.matchAll(/data-decision="([^"]*)"/g)].every((x) => x[1].startsWith('[X] decidir VG')));
   // Con base escrita, el SVG apunta a su evento.
-  const con = await conBases();
+  const con = await ejemploComprasHermanas();
+  await escribirBasesDelEjemplo(con);
   const dc = datosCielo(con.eje, con.guisos.id);
   const sc = svgCielo(dc);
   assert.ok(sc.includes('class="cielo escrita"') && sc.includes(`data-evento="${dc.base.id}"`));
@@ -152,16 +134,13 @@ test('brillo: proporcional al recuento (área y opacidad crecen con él); una ca
   const n = 8;
   const b = [0, 1, 2, 4, 8].map((c) => brillo(c, n));
   assert.equal(b[0].encendida, false);
-  for (let i = 2; i < b.length; i++) {
-    assert.ok(b[i].r > b[i - 1].r && b[i].o > b[i - 1].o, 'crece con el recuento');
-  }
-  // Área proporcional: el doble de registros, el doble de área.
-  assert.ok(Math.abs((b[4].r / b[3].r) ** 2 - 2) < 1e-9);
+  for (let i = 2; i < b.length; i++) assert.ok(b[i].r > b[i - 1].r && b[i].o > b[i - 1].o, 'crece con el recuento');
+  assert.ok(Math.abs((b[4].r / b[3].r) ** 2 - 2) < 1e-9, 'el doble de registros, el doble de área');
   assert.equal(brillo(3, 0).encendida, false);
 });
 
 test('sin nivel ni grado: las cajas se rotulan con su tramo de valores; las cohortes van siempre en el mismo orden', async () => {
-  const { ej } = await ejemplo();
+  const ej = await sinBases();
   for (const cohorte of COHORTES) {
     const d = datosCielo(ej.eje, ej.guisos.id, { cohorte });
     const html = htmlCielo(d) + htmlCieloSobrio(d);
@@ -171,15 +150,14 @@ test('sin nivel ni grado: las cajas se rotulan con su tramo de valores; las coho
     assert.deepEqual(orden.slice(0, 3).filter((x) => x[2] === 'true').map((x) => x[1]), [cohorte]);
   }
   assert.equal(selectorCohorte('general'), selectorCohorte('general'));
-  assert.equal(rangoDeCaja('posiciones', 0), '0');
-  assert.equal(rangoDeCaja('posiciones', 4), '4–5');
-  assert.equal(rangoDeCaja('posiciones', 9), '≥ 42');
-  assert.equal(rangoDeCaja('identidades', 3), '3');
-  assert.equal(rangoDeCaja('movimientos.T:hora', 9), '≥ 9');
+  const recuentos = [1, 2, 3, 4, 6, 10, 16, 26, 42];
+  assert.deepEqual([0, 3, 4, 5, 9].map((k) => rangoDeCaja(recuentos, k)), ['0', '3', '4–5', '6–9', '≥ 42']);
+  assert.deepEqual([0, 1, 9].map((k) => rangoDeCaja([0.5, 1.5, 2, 3, 4, 5, 6, 7, 8], k)), ['< 0.5', '[0.5, 1.5)', '≥ 8']);
+  assert.equal(rangoDeCaja([], 0), 'todos');
 });
 
 test('transición: al cambiar de cohorte cada estrella y el foco se recomponen desde la cohorte anterior', async () => {
-  const { ej } = await ejemplo();
+  const ej = await sinBases();
   const hermanos = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'hermanos' });
   const general = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'general' });
   assert.notEqual(hermanos.base.n, general.base.n);
@@ -189,7 +167,11 @@ test('transición: al cambiar de cohorte cada estrella y el foco se recomponen d
   assert.equal(estrellas.length, general.medidas.length * 10, 'cada estrella sabe de dónde viene');
   assert.ok(estrellas.some((e) => Number(e[1]) !== 1), 'alguna cambia de brillo');
   assert.ok(estrellas.every((e) => Number(e[2]) <= 1));
-  assert.equal((svg.match(/class="foco-cielo"[^>]*style="--dx0:/g) ?? []).length, general.medidas.length);
+  // El foco se desplaza desde su caja anterior en las constelaciones que también estaban en la otra cohorte.
+  const antes = new Set(hermanos.medidas.map((m) => m.medida));
+  const comunes = general.medidas.filter((m) => m.tipo === 'caja' && antes.has(m.medida)).length;
+  assert.ok(comunes < general.medidas.length - 1, 'general mueve series que los hermanos no mueven');
+  assert.equal((svg.match(/class="foco-cielo"[^>]*style="--dx0:/g) ?? []).length, comunes);
   // Sin anterior, con la misma cohorte o con otro foco, nada se recompone.
   assert.ok(!svgCielo(general).includes('recompone'));
   assert.ok(!svgCielo(general, { anterior: general }).includes('recompone'));
@@ -197,22 +179,24 @@ test('transición: al cambiar de cohorte cada estrella y el foco se recomponen d
   assert.ok(!svgCielo(general, { anterior: datosCielo(ej.eje, ej.eje.genesisId) }).includes('recompone'));
 });
 
-test('celda 8 de Mapped: las seis medidas del registro, sin rótulos, en la caja de las celdas de los hilos', async () => {
-  const { ej } = await ejemplo();
-  const d = datosCielo(ej.eje, ej.guisos.id);
-  const svg = svgCielo(d, { compacto: true });
+test('celda 8 de Mapped: las medidas de la confluencia, sin rótulos, en la caja de las celdas de los hilos', async () => {
+  const ej = await sinBases();
+  const svg = svgCielo(datosCielo(ej.eje, ej.guisos.id), { compacto: true });
   assert.ok(svg.startsWith('<svg class="cielo compacto sin-escribir" viewBox="0 0 200 124"'));
-  assert.deepEqual(constelaciones(svg), MEDIDAS_REGISTRO);
+  assert.deepEqual(constelaciones(svg), clavesDeMedidas());
   assert.ok(!svg.includes('<text'));
 });
 
 test('sobrio y animado leen lo mismo: la tabla dice el valor del foco, su caja y cuántos quedan debajo, en ella y encima', async () => {
-  const { ej } = await ejemplo();
+  const ej = await sinBases();
   const d = datosCielo(ej.eje, ej.guisos.id, { cohorte: 'proyecto' });
   const html = htmlCieloSobrio(d);
-  const filas = [...html.matchAll(/<div class="medida-fila">/g)];
-  assert.equal(filas.length, d.medidas.length);
-  for (const m of d.medidas) assert.ok(html.includes(`foco <b>${m.valor}</b> · caja ${m.caja} (${rangoDeCaja(m.medida, m.caja)})</span><span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima`), m.medida);
+  assert.equal((html.match(/<div class="medida-fila">/g) ?? []).length, d.medidas.length);
+  for (const m of d.medidas.filter((x) => x.tipo === 'caja')) {
+    assert.ok(html.includes(`foco <b>${m.valor}</b> · caja ${m.caja} (${rangoDeCaja(m.cortes, m.caja)})</span><span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima`), m.medida);
+  }
+  const pv = d.medidas.find((m) => m.tipo === 'pv');
+  assert.ok(html.includes(`el foco tiene <b>${pv.valor}</b> de 10`));
   assert.match(html, /sin escribir/);
   assert.match(htmlCielo(d), /<figure class="cielo-vista">.*<svg class="cielo/s);
 });
