@@ -12,10 +12,12 @@ Estado: cartón piedra completo del ciclo. Eje (génesis, identidades, transicio
 node ejemplos/ikisai/correr.mjs
 ```
 
-Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto. El ejemplo de Tasks (`ejemplos/ikisai/tarea-tasks.mjs`) lleva una tarea con plazo, pasos y dinero por el mismo núcleo: presupuestos que colisionan en recursos, una fórmula que elige el que cabe y el ciclo del motor hasta el pago y las horas.
+Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
 
 ```sh
 npm test
 ```
+
+El ejemplo de Tasks (`ejemplos/ikisai/tarea-tasks.mjs`, con sus pruebas en `test/ejemplo-tasks.test.js`) lleva una tarea con plazo, pasos y dinero por el mismo núcleo: presupuestos que colisionan en recursos, una fórmula que se queda con el primero que cabe, partidas respaldadas por series de tokens y el ciclo del motor hasta la entrega y el pago.
 
 JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed y Sequenced sobre el eje de ejemplo); se publica en GitHub Pages en cada push a `main`: https://ikisai-apps.github.io/agram/ (dominio `agram.ikisai.com` pendiente del CNAME en DNS).
