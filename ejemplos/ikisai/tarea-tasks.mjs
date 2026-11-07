@@ -46,10 +46,9 @@ export const FECHA_LIMITE = '2026-11-14T09:00:00Z';
  * Dónde busca la tarea sus presupuestos: en sus recursos (1). La tarea lo
  * guarda en su 5, «dónde encaja lo que busco» (mapa §2.3), y el proveedor
  * escribe ahí, así que los presupuestos colisionan con lo propio.
- * Pendiente de código, no de decisión: la fórmula del 9 buscaría con
- * BUSCAR(LOCAL(5)), por dirección (mapa §12: BUSCAR por índice y por
- * dirección), que llega con la #36. Hoy busca por índice, BUSCAR(1), que
- * nombra la misma colisión.
+ * La fórmula del 9 busca con BUSCAR(LOCAL(5)), por dirección (mapa §12:
+ * BUSCAR por índice y por dirección, llegado con la #36): el texto de diez
+ * dígitos del 5 nombra la colisión entera del 1.
  *
  * [X] decidir VG: quién puede ocupar una posición de recursos ajena. El 1 es
  * de la tarea (lo escribe la organizadora) y cualquiera con minutos escribe
@@ -127,7 +126,7 @@ export const DIR_TIEMPO = '4100000000';
  * mismo choque que en la tarea: `proponer` pone cada elección en la posición
  * de su fórmula, y el 1 de la tarea ya guarda los recursos.
  */
-export const FORMULA_ELECCION = '=ELEGIR(FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"), Y(ACTUAL(1) <= LOCAL(1, 1), ACTUAL(2) <= LOCAL(2, 1))))';
+export const FORMULA_ELECCION = '=ELEGIR(FILTRAR(FILTRAR(BUSCAR(LOCAL(5)), ORIGEN() = "escrito"), Y(ACTUAL(1) <= LOCAL(1, 1), ACTUAL(2) <= LOCAL(2, 1))))';
 
 /**
  * La décupla de una tarea. En la raíz cada posición es un PV (época 0):
