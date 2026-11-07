@@ -1,0 +1,47 @@
+/* Mundo del cielo (PV8): render animado de las bases del 8. El cielo es un
+   panel de noche en los dos temas (las estrellas necesitan fondo oscuro); el
+   resto usa los colores del tema sobrio (index.html). */
+:root{--cielo-fondo:#1f2635;--cielo-astro:#f6e4b5;--cielo-foco:#ff9b54;--cielo-texto:#a9b2c7;--cielo-trazo:#d3dbee;--cielo-borde:#8a95ad}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--cielo-fondo:#0d111a;--cielo-astro:#f3deab;--cielo-foco:#ffab6b;--cielo-texto:#8f99b0;--cielo-trazo:#c5cfe5;--cielo-borde:#4d576c}}
+:root[data-theme="dark"]{--cielo-fondo:#0d111a;--cielo-astro:#f3deab;--cielo-foco:#ffab6b;--cielo-texto:#8f99b0;--cielo-trazo:#c5cfe5;--cielo-borde:#4d576c}
+
+svg.cielo{display:block;width:100%;height:auto;max-width:100%;font-family:var(--sans)}
+.cielo .fondo-cielo{fill:var(--cielo-fondo)}
+.cielo.sin-escribir .fondo-cielo{stroke:var(--cielo-borde);stroke-width:1.5;stroke-dasharray:5 4}
+.cielo .astro,.cielo .halo{fill:var(--cielo-astro)}
+.cielo .hueco .astro{fill:var(--cielo-texto)}
+.cielo .trazo{fill:none;stroke:var(--cielo-trazo);stroke-width:.6;stroke-opacity:.45}
+.cielo .anillo{fill:none;stroke:var(--cielo-foco);stroke-width:1.3}
+.cielo.compacto .anillo{stroke-width:1.5}
+.cielo text{fill:var(--cielo-texto);font-size:7.5px;text-anchor:middle;pointer-events:none}
+.cielo .rotulo-valor{fill:var(--cielo-foco);font-size:7px}
+.cielo .rotulo-vacio{font-size:10px}
+.cielo .estrella,.cielo .foco-cielo{transform-box:fill-box;transform-origin:center}
+
+/* al cambiar de cohorte, cada estrella crece o mengua desde su brillo anterior y el foco cambia de caja */
+.cielo.recompone .estrella{animation:cielo-estrella 1s cubic-bezier(.2,.7,.2,1) both}
+@keyframes cielo-estrella{from{transform:scale(var(--s0,1));opacity:var(--o0,1)}}
+.cielo.recompone .foco-cielo{animation:cielo-foco 1s cubic-bezier(.2,.7,.2,1) both}
+@keyframes cielo-foco{from{transform:translate(var(--dx0,0px),var(--dy0,0px))}}
+.cielo.recompone .trazo{animation:cielo-trazo 1.1s ease-out both}
+@keyframes cielo-trazo{from{opacity:0}}
+@media (prefers-reduced-motion: reduce){.cielo.recompone *{animation:none!important}}
+
+/* vista del cielo (cruz) y celda 8 de Mapped */
+.cielo-vista{margin:0;display:grid;gap:6px;min-width:0}
+.cohortes{display:flex;flex-wrap:wrap;gap:6px}
+.cohorte{font:inherit;font-size:13px;padding:4px 11px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.cohorte[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.cielo-estado{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.cielo-estado .enlace{font-size:12px;padding:0 5px}
+.marca-sin-escribir{display:inline-block;font-size:11px;font-weight:600;color:var(--warn);border:1px dashed var(--warn);border-radius:5px;padding:0 5px;margin-right:2px}
+.cielo-leyenda{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:12px;color:var(--muted)}
+.cielo-leyenda .ley-estrella::before,.cielo-leyenda .ley-foco::before{content:"";display:inline-block;width:8px;height:8px;margin-right:5px;border-radius:50%;vertical-align:0;background:var(--cielo-astro);box-shadow:0 0 0 2px var(--cielo-fondo)}
+.cielo-leyenda .ley-foco::before{background:var(--cielo-fondo);border:1.5px solid var(--cielo-foco);width:7px;height:7px;box-shadow:none}
+.cielo-sobrio{display:grid;gap:6px}
+.medidas-cielo{display:grid;gap:4px}
+.medida-fila{display:grid;gap:1px;padding:5px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--panel);font-size:12px;min-width:0}
+.medida-nombre{font-weight:600;font-size:13px}
+.medida-valor b{font-family:var(--mono)}
+.medida-cohorte{color:var(--muted);overflow-wrap:anywhere}
+.celda.c8 svg.cielo{margin:2px -2px 0}

@@ -1,0 +1,80 @@
+/* Mundo del camino (PV9): la senda del foco hacia la acción. Usa los
+   colores del tema sobrio (index.html) y añade el suelo de la senda. */
+:root{--camino-suelo:#e7dece;--camino-linea:#b8a88d}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--camino-suelo:#2d271f;--camino-linea:#5e5343}}
+:root[data-theme="dark"]{--camino-suelo:#2d271f;--camino-linea:#5e5343}
+
+svg.camino{display:block;width:100%;height:auto;max-width:100%;font-family:var(--sans);-webkit-tap-highlight-color:transparent}
+.camino .suelo{fill:none;stroke:var(--camino-suelo);stroke-width:15;stroke-linecap:round;stroke-linejoin:round}
+.camino.compacto .suelo{stroke-width:9}
+.camino .linea{fill:none;stroke:var(--camino-linea);stroke-width:1;stroke-dasharray:3 4}
+.camino .toque{fill:transparent;stroke:none}
+.camino [data-previsualizar],.camino [data-ir]{cursor:pointer}
+.camino .piedra{fill:var(--bg);stroke:var(--fg);stroke-width:1.5}
+.camino .tipo-desarrollar .piedra{stroke:var(--muted);stroke-dasharray:2.5 2}
+.camino .tipo-formula .piedra{stroke:var(--warn)}
+.camino .tipo-propuesta .piedra{stroke:var(--accent);stroke-dasharray:3 2}
+.camino .tipo-autorizar .piedra{stroke:var(--accent)}
+.camino .tipo-ejecutar .piedra{fill:var(--accent);stroke:var(--accent)}
+.camino .tipo-dado .piedra{fill:var(--ok);stroke:var(--ok)}
+.camino .nudo{fill:var(--ok);stroke:var(--bg);stroke-width:1.2;transform-box:fill-box;transform-origin:center}
+.camino .simbolo-ancla{fill:none;stroke:var(--bg);stroke-width:1.6;stroke-linecap:round}
+.camino .anillo-foco{fill:var(--bg);stroke:var(--accent);stroke-width:2}
+.camino .marca-foco{fill:var(--accent)}
+.camino .mastil{stroke:var(--fg);stroke-width:1.5;stroke-linecap:round}
+.camino .bandera{fill:var(--accent)}
+.camino text{fill:var(--muted);font-size:8.5px;text-anchor:middle;pointer-events:none}
+.camino .num{fill:var(--fg);font-size:8px;font-weight:600}
+.camino .tipo-ejecutar .num{fill:var(--accent-fg)}
+.camino .rotulo{fill:var(--fg);font-size:9px}
+.camino .rotulo-efecto{fill:var(--muted);font-size:7.5px;font-style:italic}
+.camino .rotulo-contador{fill:var(--fg);font-size:10px;font-weight:600}
+.camino .onda{fill:none;stroke:var(--ok);stroke-width:1.5;opacity:0}
+.camino .previsto .piedra{stroke-width:2.5}
+
+/* animaciones: cada una el efecto de un evento real (o la previsualización en curso) */
+.camino .aparece{animation:camino-aparece .7s cubic-bezier(.2,.7,.2,1) var(--retardo,0s) both}
+@keyframes camino-aparece{from{transform:scale(0);opacity:0}}
+.camino .anuda .nudo{animation:camino-anuda .7s ease-out both}
+@keyframes camino-anuda{0%{transform:scale(0)}60%{transform:scale(1.9)}100%{transform:none}}
+.camino .consolida .piedra{animation:camino-consolida 1.1s ease-out var(--retardo,0s) both}
+@keyframes camino-consolida{0%{fill:var(--accent);stroke:var(--accent);transform:scale(1.6)}55%{fill:var(--ok);stroke:var(--ok);transform:scale(.88)}100%{transform:none}}
+.camino .consolida .simbolo-ancla{animation:camino-ancla 1.1s ease-out var(--retardo,0s) both}
+@keyframes camino-ancla{0%,45%{opacity:0}100%{opacity:1}}
+.camino .consolida .onda{animation:camino-onda 1.3s ease-out var(--retardo,0s) both}
+@keyframes camino-onda{from{opacity:.9;transform:scale(1)}to{opacity:0;transform:scale(3.2)}}
+.camino .previsto .piedra{animation:camino-late 1.6s ease-in-out infinite}
+@keyframes camino-late{50%{transform:scale(1.22)}}
+@media (prefers-reduced-motion: reduce){.camino *{animation:none!important}.camino .consolida .onda{display:none}}
+
+/* lista de pasos (los dos renders) y celda 9 de Mapped */
+.camino-vista{display:grid;gap:8px;margin:0;min-width:0}
+.camino-cab{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between}
+.camino-cab .titulo{font-size:13px;color:var(--muted)}
+.como{font-size:13px;color:var(--muted)}
+.como select{font:inherit;font-size:13px;padding:3px 6px;border-radius:6px;border:1px solid var(--rule);background:var(--bg);color:var(--fg)}
+.pasos-camino{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.paso-c{border:1px solid var(--rule);border-radius:10px;background:var(--panel);padding:8px 10px;display:grid;gap:4px;min-width:0}
+.paso-c.tipo-ejecutar{border-color:var(--accent)}
+.paso-c.tipo-dado{background:transparent}
+.paso-c.nuevo{animation:camino-tarjeta 1.4s ease-out both}
+@keyframes camino-tarjeta{from{background:var(--panel2);border-color:var(--ok)}}
+.paso-cab{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;min-width:0}
+.paso-n{font-family:var(--mono);font-size:12px;color:var(--muted);min-width:1.2em}
+.paso-cab b{font-weight:600;font-size:14px;overflow-wrap:anywhere}
+.paso-tipo{font-size:12px;color:var(--muted);margin-left:auto}
+.paso-detalle,.paso-efecto{font-size:12px;color:var(--muted);overflow-wrap:anywhere}
+.paso-detalle code{font-family:var(--mono);color:var(--fg)}
+.paso-detalle .enlace{font-size:12px;padding:0 5px}
+.paso-efecto b{color:var(--fg);font-weight:500}
+.decidir{color:var(--warn);font-family:var(--mono);font-size:11px;cursor:help}
+.paso-acciones{display:flex;flex-wrap:wrap;gap:6px}
+.accion-sec{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);cursor:pointer}
+.accion:disabled{opacity:.45;cursor:not-allowed}
+.previa{border-left:3px solid var(--accent);background:var(--bg);border-radius:6px;padding:6px 8px;display:grid;gap:4px;font-size:12px;min-width:0}
+.previa-cab{color:var(--accent);font-weight:600}
+.previa-efectos{margin:0;padding-left:16px;font-family:var(--mono);font-size:11px;overflow-wrap:anywhere}
+.previa-evento{overflow-wrap:anywhere}
+.previa-evento pre{margin:2px 0 0;font-family:var(--mono);font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:120px;overflow:auto}
+.titulo-hechos{font-size:12px;color:var(--muted)}
+.celda.c9 svg.camino{margin:2px -2px 0}

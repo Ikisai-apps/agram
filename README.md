@@ -19,3 +19,5 @@ npm test
 ```
 
 JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed y Sequenced sobre el eje de ejemplo); se publica en GitHub Pages en cada push a `main`: https://ikisai-apps.github.io/agram/ (dominio `agram.ikisai.com` pendiente del CNAME en DNS).
+
+Render animado (`mundos/`): la cruz entera sobre el mismo eje que el sobrio, hilos del 6 y 7, cielo del 8 (las bases como constelaciones) y camino del 9 (los pasos hacia la acción, con previsualizar sin escribir), con el 5 en el centro. Ver `docs/MUNDOS.md`.
