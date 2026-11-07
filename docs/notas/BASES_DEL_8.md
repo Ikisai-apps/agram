@@ -91,6 +91,8 @@ La frescura no ve cambios en lo ya medido (un escrito sobre un hijo sin base, un
 
 `BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k)` = cuántos hay en la caja k; `BASES(alcance, medida, campo)` = `suma`, `minimo`, `maximo`, `media` de la base o `foco`, `caja`, `enCaja`, `debajo`, `encima` del anfitrión. La dependencia es la base leída; el gancho `puedeLeer` de BQL decide leer la base y, si hay que situarlo, el anfitrión entero. Una fórmula `BASES()` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma). Detalle y ejemplos en `docs/BQL.md` §7.13. **[X] decidir VG: la firma de `BASES()`.**
 
+Encima, `CAJA(medida, alcance?)` (= `BASES(alcance, medida)`, con `"hermanos"` por defecto) y `FRESCURA(alcance?)` (las llegadas que cuenta la frescura de la base): cobran lo que examina la lectura, no miden al anfitrión si no hay base y, sin base, el motivo dice cómo escribirla. `docs/BQL.md` §7.14; pruebas en `test/bases-bql.test.js`.
+
 ### 2.10 Ejemplo ejecutado
 
 Árbol de `ejemplos/ikisai/compras-hermanas.mjs`: dos proyectos bajo el génesis (el comedor, con el menú del día y el de la cena; el mercado, con un puesto) y ocho compras. Cada registro que resume a otros da de alta, en su propio evento, a su cosa (`comedor`, `menu-dia`, `menu-cena`, `mercado`, `puesto`) con clave y unos minutos de T. `escribirBasesDelEjemplo` escribe las seis bases de abajo arriba, cada una firmada por su cosa; la del génesis, por la casa.
@@ -170,7 +172,7 @@ Lo decidido en `MAPA` §12 está construido: la base la escribe la propia cosa c
 7. **«Más reciente» por llegada**, no por `t`: una base con `t` atrasado escrita después manda.
 8. **Qué es la frescura** (§2.7): hoy, lo llegado; aparte, `comprobar`.
 9. **Lo que cuelga de un hijo sin base** no cuenta y se dice (`sinBase`, §2.4).
-10. **La firma de `BASES()`** (§2.9).
+10. **La firma de `BASES()`** (§2.9). Hay dos formas que no caben juntas: la de aquí (números) y la primera de la #52 (`BASES(cohorte?)`, un valor `bases` con la mediana aproximada desde las cajas); las compara `docs/BQL.md` §7.14.
 11. **Dos lecturas del 8**: `confluir` (al vuelo, fresca) y las bases (escritas). Si la interfaz y BQL deben leer solo las bases escritas y retirar `comparar` y el cálculo al vuelo (auditoría C18) o conservar las dos.
 
 ## 4. Límites observados
@@ -178,5 +180,6 @@ Lo decidido en `MAPA` §12 está construido: la base la escribe la propia cosa c
 - `movimientos.P:<ámbito>` y cada serie de token crean un bloque por serie: con muchas series la base crece (sigue sin depender de n).
 - Medir evalúa fórmulas en el momento: la misma compra puede pasar de pendiente a resuelta sin que la base lo vea hasta que se reescriba (`comprobar` sí lo ve).
 - Una fórmula `BASES()` en un registro cuenta como pendiente en la medida de ese registro para una base, y como resuelta si `confluir` lo mide directamente: la medida de un registro con `BASES()` dentro depende de quién la pide.
+- Lo que se guarda en el 8 depende del 8 anterior por las fórmulas que leen el 8 sin situar a su registro (`FRESCURA`, `BASES` sin medida o con un dato de la base): sin base escrita cuentan como pendientes y con base, como resueltas. La primera base de un 8 y la siguiente, sin que llegue nada, difieren; la frescura de la primera no lo ve y `comprobar` sí (`docs/BQL.md` §7.14). **[X] decidir VG: si las fórmulas que leen el 8 deben contar en `formulasResueltas` y `formulasPendientes`.**
 - Lo escrito sobre una compra (que no es una cosa) no entra en el subárbol de su menú: la compra no tiene base que lo resuma (`sinBase`).
-- `app.js` sigue mostrando `comparar` en la celda 8 de Mapped; mostrar las bases es trabajo del frontend.
+- `app.js` sigue mostrando `comparar` en la celda 8 de Mapped («entre hermanos X de Y», ordenado por la puntuación fija `posiciones + 2 × escritos + movimientos` de `tiempo.comparar`: un ranking de «más = mejor»); mostrar las bases es trabajo del frontend. **[X] decidir VG: si la celda 8 debe leer las bases (`BASES`, `CAJA`, `FRESCURA`) en lugar de ese puesto.**
