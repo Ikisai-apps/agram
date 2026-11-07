@@ -13,6 +13,7 @@
 //   =ELEGIR(col, k?)        los k primeros (1 por defecto); no publica nada
 //   =ACTUAL(pv, cantidad?)  fuera de FILTRAR: la colección activa de la posición pv, limitada a cantidad (1 por defecto)
 //   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
+//   =SENTIDO() =ACUERDO() =DESPLAZAMIENTO()   el encaje del candidato: sentido (exacto/lectura/escritura), profundidades de acuerdo, suma de |diferencias|
 //   =CONTAR(col) =SUMAR(col)
 //   comparaciones  = <> < > <= >=   y   Y(a, b)  O(a, b)  NO(a)
 //
@@ -268,8 +269,10 @@ function resolverId(ctx, v) {
 
 /** Candidatos que ocupan una posición del anfitrión, como colección BQL. */
 function buscar(ctx, evId, indices) {
+  // Orden por defecto: el del encaje (exactos, luego acuerdo, luego desplazamiento). ORDENAR lo discute.
   const items = ocupantes(ctx.eje, evId, indices).map((o) => ({
     origen: o.origen, evento: o.evento, indices: o.camino ?? indicesDe(o.dir), procedencia: o.procedencia, autor: o.autor, t: o.t,
+    vector: o.vector, acuerdo: o.acuerdo, sentido: o.sentido, origenDir: o.origenDir, destino: o.destino,
   }));
   return col(items);
 }
@@ -379,6 +382,18 @@ function funcion(ctx, nodo, evId, base) {
     case 'ORIGEN': {
       if (!ctx.actual) throw new Parada('ERROR', 'ORIGEN solo dentro de FILTRAR u ORDENAR');
       return texto(ctx.actual.origen);
+    }
+    case 'SENTIDO': {
+      if (!ctx.actual) throw new Parada('ERROR', 'SENTIDO solo dentro de FILTRAR u ORDENAR');
+      return texto(ctx.actual.sentido ?? 'exacto');
+    }
+    case 'ACUERDO': {
+      if (!ctx.actual) throw new Parada('ERROR', 'ACUERDO solo dentro de FILTRAR u ORDENAR');
+      return num(ctx.actual.acuerdo ?? 10);
+    }
+    case 'DESPLAZAMIENTO': {
+      if (!ctx.actual) throw new Parada('ERROR', 'DESPLAZAMIENTO solo dentro de FILTRAR u ORDENAR');
+      return num((ctx.actual.vector ?? []).reduce((s, x) => s + Math.abs(x), 0));
     }
     case 'CONTAR': return num(exigirColeccion(args[0], 'CONTAR').items.length);
     case 'SUMAR': {

@@ -7,7 +7,7 @@
 // Estados de una consolidación: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO.
 
 import { direccion, esReferencia } from './btml.js';
-import { ocupantes } from './encaje.js';
+import { ocupantes, vector, sentido } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
@@ -47,6 +47,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
   const payload = [titulo];
   const fuentes = [];
+  const encaje = []; // de dónde vino cada elección, cuánto se desplazó y en qué sentido
   const indicesElegidos = Object.keys(elecciones).map(Number).sort((a, b) => a - b);
   const ultimo = indicesElegidos[indicesElegidos.length - 1];
   if (indicesElegidos.some((i) => !Number.isInteger(i) || i < 1 || i > 9)) throw new Error('las elecciones van en posiciones 1–9');
@@ -63,10 +64,14 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       if (!eje.obtener(e.ref)) throw new Error('fuente desconocida en ' + i);
       payload.push(e);
       fuentes.push(e.ref);
+      encaje.push({ posicion: i, evento: e.ref, origen: e.dir ?? '0000000000', destino: direccion([...camino, i]), vector: vector(e.dir ?? '0000000000', direccion([...camino, i])) });
     } else if (e && typeof e === 'object' && e.candidato) {
       const c = e.candidato;
       payload.push({ ref: c.evento, dir: c.dir ?? '0000000000' });
       fuentes.push(c.evento);
+      const origen = c.origenDir ?? c.dir ?? '0000000000';
+      const destino = direccion([...camino, i]);
+      encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: c.vector ?? vector(origen, destino), sentido: c.sentido ?? sentido(c.vector ?? vector(origen, destino)) });
     } else {
       payload.push(e); // terminal nuevo
     }
@@ -78,7 +83,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
     en: direccion([...camino, 4]),
     payload,
     t,
-    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)] },
+    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)], encaje },
   }, privada);
 }
 
