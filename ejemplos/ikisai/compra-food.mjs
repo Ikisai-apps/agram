@@ -74,9 +74,11 @@ export async function ejemploCompra({ claves = {} } = {}) {
     ],
     payload: [
       'Compra del menú del día',
-      [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'], // 1 recursos: qué, cuánto, a qué precio
+      // Cada array de una posición es su lista de ocupantes, por llegada y sin PV (VG, 7-11 noche):
+      // los PV de un elemento solo existen si se escribe en una subposición por dirección (en).
+      [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'], // 1 recursos: lo comprado, la cantidad y el precio, tres ocupantes
       [{ ref: menu.id, dir: '2000000000' }], // 2 criterios: los del menú
-      ['huesped', 'cocina'], // 3 comunicación: quién habla con quién
+      ['huesped', 'cocina'], // 3 comunicación: quién habla con quién, dos ocupantes
       ['pagar', 'servir'], // 4 fábrica: la acción que se registra
     ],
   }, priv('huesped'));

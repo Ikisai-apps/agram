@@ -3,11 +3,14 @@
 // misma décupla; aquí solo existe el sobrio.
 
 import { ARIDAD, esReferencia } from './btml.js';
-import { EPOCA_0, epocaDe } from './epocas.js';
+import { EPOCA_0, epocaDe, nombreEnNodo } from './epocas.js';
 import { alcanceDe } from './modos.js';
 
 /**
  * Décupla de un evento: diez posiciones { indice, significado, contenido }.
+ * Bajo una posición (profundidad ≥ 1), si el payload es un array, sus
+ * índices son la lista de ocupantes de esa posición, por llegada: llevan
+ * `ocupante` (la llegada) y significado 'ocupante k', no la regla corta.
  * Lo no desarrollado queda sin contenido (undefined). Un terminal no tiene
  * posición 0 (MAPA §12: se retira la convención de la representación): un
  * payload terminal no se reparte en posiciones y va aparte, en `terminal`.
@@ -21,7 +24,9 @@ export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
   const p = ev.payload;
   const posiciones = [];
   for (let i = 0; i < ARIDAD; i++) {
-    posiciones.push({ indice: i, significado: e.reglaCorta(profundidad, i), contenido: Array.isArray(p) ? p[i] : undefined });
+    // Dentro de una posición (profundidad ≥ 1), un array es la lista de sus ocupantes por llegada:
+    // sin PV (VG, 7-11 noche). Lo que el array no ocupa son subposiciones por dirección, con su regla corta.
+    posiciones.push({ indice: i, ...nombreEnNodo(p, profundidad, i, e), contenido: Array.isArray(p) ? p[i] : undefined });
   }
   return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, terminal: Array.isArray(p) ? undefined : p, posiciones, alcance: alcanceDe(ARIDAD, 'pointed') };
 }

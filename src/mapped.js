@@ -8,7 +8,7 @@
 // donde va la mano. Cartón piedra: sin confluencia estadística todavía.
 
 import { ARIDAD, esReferencia, direccion } from './btml.js';
-import { EPOCA_0, epocaDe } from './epocas.js';
+import { EPOCA_0, epocaDe, nombreEnNodo } from './epocas.js';
 import { MODOS, alcanceDe } from './modos.js';
 
 export const MATRIZ = Object.freeze([
@@ -41,7 +41,9 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
   for (let i = 0; i < ARIDAD; i++) {
     celdas.push({
       indice: i,
-      significado: e.reglaCorta(camino.length, i),
+      // Bajo una posición, un array es la lista de sus ocupantes por llegada, sin PV (VG, 7-11 noche):
+      // 'ocupante k' y `ocupante`; lo que no ocupa, subposiciones por dirección con su regla corta.
+      ...nombreEnNodo(p, camino.length, i, e),
       contenido: Array.isArray(p) ? p[i] : undefined, // un terminal no tiene posición 0: va aparte, en `terminal`
       escritos: eje.sobre(id, direccion([...camino, i])).length,
     });
