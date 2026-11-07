@@ -54,7 +54,7 @@
 // del autor, la heredada también, como antes ([X] decidir VG si el relleno
 // se cobra).
 
-import { ARIDAD, esDireccion, esReferencia, esTerminal, direccion, validarPayload } from './btml.js';
+import { ARIDAD, esDireccion, esReferencia, esTerminal, esLista, direccion, validarPayload } from './btml.js';
 import { contarPosiciones, nombreModo, tope, escritura, proporcionDe, alcanceDe } from './modos.js';
 
 /**
@@ -177,12 +177,13 @@ function baseDe(payload, camino) {
  * alcanza el terminal por la colisión de ceros finales). [X] decidir VG:
  * el mapa §12 dice «un terminal no tiene posición 0 (PENDIENTE)».
  */
-function hayContenido(base, indices) {
+function hayContenido(base, indices, raiz = false) {
   if (base !== undefined && !Array.isArray(base) && indices.length === 1 && indices[0] === 0) return true;
   let nodo = base;
-  for (const x of indices) {
-    if (!Array.isArray(nodo)) return false;
-    nodo = nodo[x];
+  for (let p = 0; p < indices.length; p++) {
+    // Por hojas (VG, 7-11 noche): una lista (fuera de la raíz) no tiene subposiciones; sus elementos son ocupantes.
+    if (!Array.isArray(nodo) || (!(raiz && p === 0) && esLista(nodo))) return false;
+    nodo = nodo[indices[p]];
   }
   return nodo !== undefined;
 }
@@ -193,10 +194,10 @@ function hayContenido(base, indices) {
  * posición 4 y 0.0, la raíz, también cuando son terminales ([X] decidir VG
  * la huella de ver una subposición 0).
  */
-function hayQueVer(base, i, j) {
+function hayQueVer(base, i, j, raiz = false) {
   const camino = [i, j];
   while (camino.length && camino[camino.length - 1] === 0) camino.pop();
-  return hayContenido(base, camino);
+  return hayContenido(base, camino, raiz);
 }
 
 function comprobarCelda(celda, camino) {
@@ -253,7 +254,7 @@ function ubicarSobre(base, celda, camino, cubiertos) {
   for (let n = 0; n < celda.length; n++) {
     for (let s = 0; s < celda[n]; s++) {
       const hueco = [...celda.slice(0, n), s];
-      if (!cubiertos.has(etiqueta(hueco)) && !hayContenido(base, hueco)) faltan.push(etiqueta(hueco));
+      if (!cubiertos.has(etiqueta(hueco)) && !hayContenido(base, hueco, camino.length === 0)) faltan.push(etiqueta(hueco));
     }
   }
   const dir = direccion([...camino, ...celda]);
@@ -285,7 +286,10 @@ function construir(foco, camino, celdas, heredadas) {
         heredadas.push(hueco.length === 1 ? s : etiqueta(hueco));
       }
     }
-    return d > 0 && arr.length === 1 && esTerminal(arr[0]) ? arr[0] : arr;
+    if (d > 0 && arr.length === 1 && esTerminal(arr[0])) return arr[0];
+    // Por hojas (VG, 7-11 noche): bajo la raíz, un array solo de hojas sería una lista; la salida es una
+    // décupla, así que su 0 va envuelto (la convención de los ejemplos): [[ref 1.0], ref 1.1, …].
+    return d > 0 && esLista(arr) ? [[arr[0]], ...arr.slice(1)] : arr;
   };
   return nivel([], celdas);
 }
@@ -347,7 +351,7 @@ function valorDe(eje, c, foco, camino, base) {
   const { contenido } = c;
   if (sinContenido(contenido)) {
     if (c.k !== 0) throw new Error('falta el contenido de ' + etiqueta([c.i, c.j, c.k]) + ': solo ver (clase 0) va sin contenido');
-    if (!hayQueVer(base, c.i, c.j)) throw new Error('no hay nada que ver en ' + etiqueta([c.i, c.j]) + ': el foco no tiene esa celda');
+    if (!hayQueVer(base, c.i, c.j, camino.length === 0)) throw new Error('no hay nada que ver en ' + etiqueta([c.i, c.j]) + ': el foco no tiene esa celda');
     return { ref: foco, dir: direccion([...camino, c.i, c.j]) };
   }
   if (typeof contenido === 'string') return item(eje, contenido);
@@ -448,11 +452,12 @@ function comprobarHeredadas(eje, payload, heredadas, foco, camino) {
     repetidas.add(clave);
     let nodo = payload;
     for (const x of indices) nodo = Array.isArray(nodo) ? nodo[x] : undefined;
+    if (indices.length > 1 && esLista(nodo) && nodo.length === 1) nodo = nodo[0]; // el 0 envuelto de una décupla (construir)
     const dir = direccion([...camino, ...indices]);
     if (!esReferencia(nodo) || nodo.ref !== foco || nodo.dir !== dir) {
       throw new Error('la heredada ' + clave + ' no es una referencia al foco en ' + dir);
     }
-    if (!hayContenido(base, indices)) throw new Error('la heredada ' + clave + ' no alcanza nada en el foco: solo se hereda lo que el foco tiene');
+    if (!hayContenido(base, indices, camino.length === 0)) throw new Error('la heredada ' + clave + ' no alcanza nada en el foco: solo se hereda lo que el foco tiene');
   }
 }
 
