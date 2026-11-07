@@ -12,7 +12,7 @@ Estado: cartón piedra completo del ciclo. Eje (génesis, identidades, transicio
 node ejemplos/ikisai/correr.mjs
 ```
 
-Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados: una compra de comida (`compra-food.mjs`), una reserva de alojamiento (`reserva-booking.mjs`: las reservas colisionan en la plaza, y la casa emite una serie de tokens, uno por plaza y noche, que la ejecución entrega a quien reserva; sin token, no se ejecuta) y una tarea de Tasks (`tarea-tasks.mjs`: presupuestos que colisionan en recursos, una fórmula que se queda con el primero que cabe, partidas respaldadas por series de tokens y el ciclo del motor hasta la entrega y el pago), tres dominios sobre el mismo núcleo, cada uno con sus pruebas (`test/ejemplo-*.test.js`). Este repositorio es público: nada real, ningún secreto.
+Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados: una compra de comida (`compra-food.mjs`), una reserva de alojamiento (`reserva-booking.mjs`: las reservas colisionan en la plaza, y la casa emite una serie de tokens, uno por plaza y noche, atada a la habitación y sin pasar de la capacidad que declara el alojamiento, que la ejecución entrega a quien reserva; sin token, no se ejecuta) y una tarea de Tasks (`tarea-tasks.mjs`: presupuestos que colisionan en recursos, una fórmula que se queda con el primero que cabe, partidas respaldadas por series de tokens y el ciclo del motor hasta la entrega y el pago), tres dominios sobre el mismo núcleo, cada uno con sus pruebas (`test/ejemplo-*.test.js`). Este repositorio es público: nada real, ningún secreto.
 
 ```sh
 npm test

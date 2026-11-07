@@ -16,6 +16,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
+import { crearEvento } from '../src/evento.js';
 import * as motor from '../src/motor.js';
 import { ocupantes } from '../src/encaje.js';
 import * as tiempo from '../src/tiempo.js';
@@ -79,7 +80,8 @@ async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = '
   await eje.escribir({
     autor: tercero, sobre: casa.id, t: T0,
     movimientos: [minuto(tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero }, { token: 'R', emisor: tercero, cantidad: 1, de: tercero, a: 'g' },
-      { token: 'P', ambito: casa.id, cantidad: pX, de: null, a: tercero }, eur(tercero, 1e6, null, tercero)],
+      // Sus EUR admiten fracciones (céntimos): divisible en la primera emisión (R2, VG 7-11 noche).
+      { token: 'P', ambito: casa.id, cantidad: pX, de: null, a: tercero }, { ...eur(tercero, 1e6, null, tercero), divisible: true }],
     payload: 'emisión de ' + tercero,
   });
   return { eje, X: casa.id };
@@ -300,25 +302,130 @@ test('NEU-03: agruparse no añade un emisor (el grupo es un registro; emite una 
     );
   });
 
-test('NEU-04: dos fuentes no respaldan más E sobre el mismo recurso que una (la casa tiene 4 plazas)',
-  { skip: 'NEU-04: concesión «E sin lazo con el registro ni con su capacidad» (src/eje.js:validar solo mira Number.isFinite del total; la serie es E:<emisor>/<d>, no del recurso). A y A2 emiten 4 + 4 plazas sobre la misma casa de 4 y el eje lo acepta (también una sola identidad emite 8). [X] decidir VG: tope de E vivo por recurso, compartido entre emisores y repartido por P bloqueado (recomendación R2)' },
-  async () => {
-    const emitido = async (fuentes) => {
+/**
+ * La casa de `capacidad` plazas (R2, VG 7-11 noche): un registro H de C que
+ * declara su capacidad en la posición 2, con `pH` de P:H acuñado por C, que
+ * lo reparte entre las fuentes según `partes`. Cada fuente emite antes su R
+ * (T + R), para poder ponerla en juego al emitir E (T + R + P + E).
+ */
+async function casaDe(m, { capacidad = 4, pH = 4, fuentes, partes }) {
+  const H = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: ['casa de ' + capacidad, ['plaza', 30], capacidad] });
+  await m.eje.escribir({ autor: 'C', sobre: H.id, t: T0, payload: 'P de la casa',
+    movimientos: [minuto('C'), { token: 'R', emisor: 'C', cantidad: 1, de: 'C', a: 'g' }, { token: 'P', ambito: H.id, cantidad: pH, de: null, a: 'C' }] });
+  await m.eje.escribir({ autor: 'C', sobre: H.id, t: T0, payload: unico('reparte'), movimientos: [minuto('C'), ...fuentes.map((f, i) => ({ token: 'P', ambito: H.id, cantidad: partes[i], de: 'C', a: f }))] });
+  for (const f of fuentes) await m.eje.escribir({ autor: f, sobre: m.X, t: T0, payload: unico('R de ' + f), movimientos: [minuto(f), { token: 'R', emisor: f, cantidad: 10, de: null, a: f }] });
+  return H.id;
+}
+
+/** Evento de `f` que bloquea `bloquea` de P:`ambito` con la salida = la serie y emite `cantidad` de E atada a `registro`. */
+function emiteAtada(f, { registro, sobre = registro, ambito = registro, denominacion = 'plaza-noche', cantidad, bloquea = 0, emisores, otros = [] }) {
+  const clave = 'E:' + f + '/' + denominacion + '@' + registro;
+  return {
+    autor: f, sobre, t: T0, payload: unico('respaldo ' + cantidad),
+    movimientos: [
+      minuto(f), { token: 'R', emisor: f, cantidad: 1, de: f, a: 'g' }, ...otros,
+      ...(bloquea ? [{ token: 'P', ambito, cantidad: bloquea, de: f, a: f, estado: 'bloqueo', salida: clave }] : []),
+      { token: 'E', emisor: f, denominacion, registro, cantidad, de: null, a: f, ...(emisores ? { emisores } : {}) },
+    ],
+  };
+}
+
+/** Lo más que acepta el eje de una emisión (de `desde` hacia abajo), sin escribirla; 0 si nada. */
+async function maximoAceptado(eje, hacer, desde) {
+  for (let c = desde; c > 0; c--) {
+    const ev = await crearEvento(hacer(c));
+    if (!(await eje.validar(ev)).length) return c;
+  }
+  return 0;
+}
+
+test('NEU-04: dos fuentes no respaldan más E sobre el mismo recurso que una (la casa tiene 4 plazas)', async () => {
+  // Antes (concesión C4): A y A2 emitían 4 + 4 plazas sobre la misma casa de 4. Con R2 la serie va atada al
+  // registro H, el E vivo de H no pasa de su capacidad y cada fuente emite en proporción a su P:H bloqueado.
+  const emitido = async (fuentes) => {
+    const m = await mundo(fuentes);
+    const H = await casaDe(m, { capacidad: 4, pH: 4, fuentes, partes: fuentes.map(() => 4 / fuentes.length) });
+    let total = 0;
+    for (const f of fuentes) {
+      const cada = 4 / fuentes.length;
+      // Cada fuente intenta respaldar las 4 plazas y se queda con lo que el eje le acepta.
+      const c = await maximoAceptado(m.eje, (cantidad) => emiteAtada(f, { registro: H, cantidad, bloquea: cada }), 4);
+      if (c) await m.eje.escribir(emiteAtada(f, { registro: H, cantidad: c, bloquea: cada }));
+      total += c;
+    }
+    assert.ok(m.eje.topes(H, T0)[0].vivo <= 4);
+    return total;
+  };
+  const capacidad = motor.capacidadDe(['plaza', 30, 4]);
+  assert.ok(await emitido(['A']) <= capacidad);
+  assert.equal(await emitido(['A', 'A2']), await emitido(['A']));
+  assert.equal(await emitido(['A', 'A2', 'A3', 'A4']), await emitido(['A']));
+});
+
+test('neutral (R2): repartir la capacidad de un registro entre k emisores con el mismo P total no cambia el E vivo máximo', async () => {
+  const g = prng(SEMILLA + 4);
+  for (let caso = 0; caso < 20; caso++) {
+    const capacidad = g.int(1, 9);
+    const pH = g.int(1, 6);
+    const k = g.int(2, 4);
+    const total = g.int(k, Math.max(k, pH));
+    const partes = repartir(g, total - k, k).map((x) => x + 1); // cada una al menos 1: cada coemisor firma con su bloqueo
+    const maximo = async (fuentes, cuotas) => {
       const m = await mundo(fuentes);
-      for (const f of fuentes) await m.eje.escribir({ autor: 'g', sobre: m.X, t: T0, movimientos: [minuto('g'), { token: 'P', ambito: m.X, cantidad: 1, de: 'g', a: f }], payload: unico('delega') });
-      let total = 0;
-      for (const f of fuentes) {
-        try {
-          await m.eje.escribir({ autor: f, sobre: m.X, en: direccion([1]), t: T0, movimientos: [minuto(f), { token: 'E', emisor: f, denominacion: 'plaza-noche', cantidad: 4, de: null, a: f }], payload: 'respaldo 4 plazas' });
-          total += 4;
-        } catch { /* rechazada: no suma */ }
+      const H = await casaDe(m, { capacidad, pH: Math.max(pH, total), fuentes, partes: cuotas });
+      const S = 'E:' + fuentes[0] + '/plaza-noche@' + H;
+      // Los coemisores firman con su bloqueo; el primero bloquea el suyo y emite por todos.
+      for (let i = 1; i < fuentes.length; i++) {
+        await m.eje.escribir({ autor: fuentes[i], sobre: H, t: T0, payload: unico('firma'), movimientos: [minuto(fuentes[i]), { token: 'P', ambito: H, cantidad: cuotas[i], de: fuentes[i], a: fuentes[i], estado: 'bloqueo', salida: S }] });
       }
-      return total;
+      const conjunta = fuentes.length > 1 ? fuentes : undefined;
+      return maximoAceptado(m.eje, (c) => emiteAtada(fuentes[0], { registro: H, cantidad: c, bloquea: cuotas[0], emisores: conjunta }), capacidad + 1);
     };
-    const capacidad = motor.capacidadDe(['plaza', 30, 4]);
-    assert.ok(await emitido(['A']) <= capacidad);
-    assert.equal(await emitido(['A', 'A2']), await emitido(['A']));
-  });
+    const uno = await maximo(['A'], [total]);
+    const varios = await maximo(nombres('A', k), partes);
+    assert.equal(uno, Math.min(capacidad, Math.floor((total * capacidad) / Math.max(pH, total))), 'caso ' + caso);
+    assert.equal(varios, uno, 'caso ' + caso + ': ' + JSON.stringify({ capacidad, pH, k, total, partes }));
+  }
+});
+
+test('neutral (R2): partir el recurso en subregistros no esquiva el tope del ancestro', async () => {
+  const g = prng(SEMILLA + 5);
+  let aceptadas = 0;
+  for (let caso = 0; caso < 8; caso++) {
+    const fuentes = nombres('A', g.int(2, 3));
+    const m = await mundo(fuentes);
+    const capacidad = g.int(1, 6);
+    const pH = fuentes.length;
+    const H = await casaDe(m, { capacidad, pH, fuentes, partes: fuentes.map(() => 1) });
+    // Antes, g les delegaba además P:H estrechado de su P:genesis (contaba como P:H bloqueado pero no como emitido, y la
+    // suma de las cuotas pasaba de la capacidad). Con R3 (VG, 7-11 noche: P:X es una serie cerrada) ya no cabe: estrechar
+    // hacia una serie ya emitida la ampliaría. Lo que se prueba sigue igual: ningún subregistro esquiva el tope de H.
+    await assert.rejects(
+      m.eje.escribir({ autor: 'g', sobre: H, t: T0, payload: unico('estrecha'), movimientos: [minuto('g'), ...fuentes.map((f) => ({ token: 'P', ambito: H, cantidad: pH, de: 'g', a: f }))] }),
+      /es una serie cerrada: se delega el P:[0-9a-f]{8} que se tiene \(0\); estrecharlo desde un ámbito más amplio la ampliaría \(R3\)/,
+    );
+    // Cada fuente escribe dentro de H un subregistro suyo, con capacidad propia (a veces mucho mayor) o sin ella, y se acuña todo su P.
+    const subs = [];
+    for (const f of fuentes) {
+      const declarada = g.pick([undefined, capacidad, 10 * capacidad + 7]);
+      const S = await m.eje.escribir({ autor: f, sobre: H, t: T0, movimientos: [minuto(f)], payload: declarada ? ['rincón de ' + f, ['camas'], declarada] : ['rincón de ' + f, ['camas']] });
+      await m.eje.escribir({ autor: f, sobre: S.id, t: T0, payload: unico('P del rincón'), movimientos: [minuto(f), { token: 'R', emisor: f, cantidad: 1, de: f, a: 'g' }, { token: 'P', ambito: S.id, cantidad: 5, de: null, a: f }] });
+      subs.push({ f, id: S.id, declarada });
+    }
+    for (let intento = 0; intento < 10; intento++) {
+      const { f, id } = g.pick(subs);
+      const registro = g.pick([id, H]);
+      const otros = registro === H ? [] : [{ token: 'P', ambito: id, cantidad: 1, de: f, a: f, estado: 'bloqueo', salida: 'E:' + f + '/d' + intento + '@' + registro }];
+      const disponible = m.eje.saldo(f, 'P:' + H);
+      const ev = emiteAtada(f, { registro, ambito: H, denominacion: 'd' + intento, cantidad: g.int(1, 2 * capacidad), bloquea: disponible > 0 ? g.int(1, disponible) : 0, otros });
+      await m.eje.escribir(ev).then(() => aceptadas++, () => {}); // rechazada: no cuenta
+      const [deH] = m.eje.topes(H, T0).filter((x) => x.registro === H);
+      assert.ok(deH.vivo <= capacidad, 'caso ' + caso + ': el E vivo de H (' + deH.vivo + ') pasa de su capacidad ' + capacidad);
+      for (const s of subs) for (const x of m.eje.topes(s.id, T0)) assert.ok(x.vivo <= x.capacidad);
+    }
+  }
+  assert.ok(aceptadas > 0, 'alguna emisión ha de entrar: si no, la prueba no prueba nada');
+});
 
 test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o en autores (VG, 7-11 noche: se retira comparar())', async () => {
   // La concesión «ranking por recuentos» (tiempo.comparar: posiciones + 2·escritos + movimientos) ya no existe:

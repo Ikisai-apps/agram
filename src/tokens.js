@@ -5,7 +5,7 @@
 //
 //   familia: clave de serie              : quién la emite
 //   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); PROVISIONAL [X]
-//   E  recursos:    E:<emisor>/<denom.>  : una persona, a su nombre o al de un grupo sobre el que tiene P
+//   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre o al de un grupo sobre el que tiene P; atada al registro del recurso
 //   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
 //   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
 //
@@ -32,14 +32,90 @@ export const FAMILIAS = Object.freeze(['E', 'P', 'R', 'T']);
  * La constante: los campos del movimiento que nombran la serie dentro de cada
  * familia. La clave de saldo es familia + ':' + esos campos unidos por '/'.
  * En E la serie es del emisor (como en R): dos emisores con la misma
- * denominación son dos series distintas.
+ * denominación son dos series distintas. Y E lleva además el REGISTRO del
+ * recurso (VG, 7-11 noche, R2 del estudio de neutralidad): el id del evento
+ * donde vive lo que respalda (la casa, el menú, la plaza). Va al final, tras
+ * SEPARADOR_REGISTRO y no tras '/': 'E:casa/cama-2@2026-11-13@<id>'. Es
+ * opcional: sin él, la serie queda atada al registro del propio emisor (su
+ * alta; el génesis para quien lo escribió), que es como eran todas antes
+ * ('E:casa/EUR'). [X] decidir VG si se vuelve obligatorio fuera del génesis.
  */
 export const SERIE = Object.freeze({
   T: Object.freeze(['escala']),
-  E: Object.freeze(['emisor', 'denominacion']),
+  E: Object.freeze(['emisor', 'denominacion', 'registro']),
   P: Object.freeze(['ambito']),
   R: Object.freeze(['emisor']),
 });
+
+/**
+ * Separador del registro en la clave de E: la ÚLTIMA '@', seguida de un id de
+ * evento (64 hexadecimales en minúscula) y de nada más. La denominación puede
+ * llevar '@' (cama-2@2026-11-13), pero no puede acabar en '@<id>': así la
+ * clave se parte sin ambigüedad, lleve registro o no.
+ */
+export const SEPARADOR_REGISTRO = '@';
+
+/** Forma del id de un evento: el hash SHA-256 de su cuerpo, en hexadecimal (src/evento.js). */
+const ID_EVENTO = /^[0-9a-f]{64}$/;
+const COLA_REGISTRO = /@([0-9a-f]{64})$/;
+
+/**
+ * La FRANJA de una denominación de E (VG, 7-11 noche: «capacidad = serie
+ * limitada de E (cama-2@noche) emitida por la casa»; una casa de 4 plazas
+ * tiene 4 POR NOCHE): lo que va tras su última '@' (`cama-2@2026-11-13` →
+ * `2026-11-13`). El tope compartido de un registro se cuenta por franja. Es
+ * texto opaco: el eje no interpreta fechas ni ordena franjas; quien respalda
+ * el recurso elige su granularidad (una noche, un turno, un día, nada). Las
+ * denominaciones sin '@' forman una sola franja, la de siempre: ''.
+ */
+export function franjaDe(denominacion) {
+  const i = typeof denominacion === 'string' ? denominacion.lastIndexOf('@') : -1;
+  return i < 0 ? '' : denominacion.slice(i + 1);
+}
+
+/**
+ * Franja reservada: «todas las franjas». Bloquear P con la salida = la clave
+ * de la serie con esta franja (`familiaDe`) respalda a la vez todas las
+ * franjas de esa denominación (la cama de matrimonio, todas las noches).
+ * Ninguna denominación acaba en '@*'.
+ */
+export const TODAS_LAS_FRANJAS = '*';
+
+/**
+ * Clave de la familia de una serie de E: la misma clave con la franja
+ * cambiada por TODAS_LAS_FRANJAS ('E:casa/cama@2026-11-13@<id>' →
+ * 'E:casa/cama@*@<id>'; sin franja, 'E:casa/EUR' → 'E:casa/EUR@*').
+ */
+export function familiaDe(clave) {
+  const p = partirClave(clave);
+  if (p.token !== 'E') return clave;
+  const i = p.denominacion.lastIndexOf('@');
+  const base = i < 0 ? p.denominacion : p.denominacion.slice(0, i);
+  return claveToken({ token: 'E', emisor: p.emisor, denominacion: base + '@' + TODAS_LAS_FRANJAS, registro: p.registro });
+}
+
+/** ¿Tiene `x` la forma del id de un evento (lo que nombra el registro de una serie de E)? */
+export function esIdRegistro(x) {
+  return typeof x === 'string' && ID_EVENTO.test(x);
+}
+
+/**
+ * Capacidad (VG, 7-11). Una décupla declara cuántos caben con un entero
+ * positivo en su criterio, la posición 2: una plaza [nombre, precio,
+ * capacidad] bajo la época 0 (0 representación, 1 recursos, 2 criterios).
+ * La leen el motor, para el contador informativo de una posición
+ * (motor.ocupacion), y el eje, para el TOPE de E de un registro: la capacidad
+ * de un registro es la que declara su payload raíz en la posición 2.
+ * [X] decidir VG: cómo se declara la capacidad (alternativa: en los recursos, 1).
+ */
+export const CRITERIO_CAPACIDAD = 2;
+
+/** Capacidad que declara una décupla (el contenido de una posición o el payload de un registro), o undefined. */
+export function capacidadDe(nodo) {
+  if (!Array.isArray(nodo)) return undefined;
+  const c = nodo[CRITERIO_CAPACIDAD];
+  return Number.isSafeInteger(c) && c > 0 ? c : undefined;
+}
 
 /** Siete escalas de T, cada una un token distinto. Ampliable hasta MAXIMO_ESCALAS_T. */
 export const ESCALAS_T = Object.freeze([
@@ -118,16 +194,23 @@ export function topeT(alta, t, escala) {
   return Math.max(TOPE_T_MINIMO, unidades);
 }
 
-/** Clave de saldo: familia + ':' + su serie (T:hora, E:casa/EUR, P:<ámbito>, R:<emisor>). */
+/**
+ * Clave de saldo: familia + ':' + su serie (T:hora, E:casa/EUR,
+ * E:casa/cama@2026-11-13@<registro>, P:<ámbito>, R:<emisor>).
+ */
 export function claveToken(m) {
+  if (m.token === 'E') return 'E:' + m.emisor + '/' + m.denominacion + (m.registro === undefined ? '' : SEPARADOR_REGISTRO + m.registro);
   return m.token + ':' + (SERIE[m.token] ?? []).map((campo) => m[campo]).join('/');
 }
 
 /**
  * Parte una clave de saldo en la familia, la serie y sus campos:
  * 'T:hora' → { token: 'T', serie: 'hora', escala: 'hora' };
- * 'E:casa/EUR' → { token: 'E', serie: 'casa/EUR', emisor: 'casa', denominacion: 'EUR' }.
- * El emisor de E no lleva '/', así que la primera '/' separa sin ambigüedad.
+ * 'E:casa/EUR' → { token: 'E', serie: 'casa/EUR', emisor: 'casa', denominacion: 'EUR' };
+ * 'E:casa/cama@2026-11-13@<id>' → { …, denominacion: 'cama@2026-11-13', registro: '<id>' }.
+ * El emisor de E no lleva '/', así que la primera '/' separa sin ambigüedad;
+ * el registro es la cola '@<id>' (SEPARADOR_REGISTRO), que ninguna
+ * denominación puede llevar. Sin registro, la clave no lleva el campo.
  */
 export function partirClave(clave) {
   const i = clave.indexOf(':');
@@ -136,7 +219,10 @@ export function partirClave(clave) {
   const campos = SERIE[token] ?? [];
   if (campos.length === 1) return { token, serie, [campos[0]]: serie };
   const j = serie.indexOf('/');
-  return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: serie.slice(j + 1) };
+  const resto = serie.slice(j + 1);
+  const cola = token === 'E' ? COLA_REGISTRO.exec(resto) : null;
+  if (!cola) return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: resto };
+  return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: resto.slice(0, cola.index), registro: cola[1] };
 }
 
 /** Cantidad del movimiento en su saldo: la misma, sin conversión (cada escala de T es su propio token). */
@@ -147,12 +233,17 @@ export function cantidadBase(m) {
 const texto = (x) => typeof x === 'string' && x.length > 0;
 
 /**
- * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor y caduca (E), ambito (P), emisor (R), estado y salida }.
+ * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor, registro, caduca, divisible y emisores (E), ambito (P), emisor (R), estado y salida }.
  * de = null es emisión: nace en la cartera de quien la emite (en E y R, su
  * emisor; quién puede emitir lo dice el eje). a = null es consumo.
  * estado ('bloqueo' | 'liberacion') no cambia de titular (de = a) y exige salida.
  * caduca (ISO) solo en la emisión de E: es un campo del contrato de la serie y
- * no se ejecuta solo.
+ * no se ejecuta solo. Del mismo contrato, y también solo en la emisión de E:
+ * divisible (true: la serie admite fracciones; sin él, va en enteros) y
+ * emisores (la emisión conjunta: dos o más identidades, el emisor entre
+ * ellas, que suman el P que tienen bloqueado para la serie). registro (el id
+ * del evento donde vive el recurso) es parte de la serie: va en todo
+ * movimiento de ella. Lo que exige el contrato lo comprueba el eje.
  */
 export function validarMovimiento(m) {
   const errores = [];
@@ -169,6 +260,20 @@ export function validarMovimiento(m) {
     if (!texto(m.denominacion)) errores.push('E exige denominación');
     if (!texto(m.emisor)) errores.push('E exige emisor: la serie es de quien la emite');
     else if (m.emisor.includes('/')) errores.push('el emisor de E no lleva «/»');
+    // La cola '@<id>' es la del registro: una denominación que acabase así no se distinguiría de él.
+    if (texto(m.denominacion) && COLA_REGISTRO.test(m.denominacion)) errores.push('la denominación de E no acaba en «@<id de evento>»: esa cola es la del registro');
+    if (texto(m.denominacion) && franjaDe(m.denominacion) === TODAS_LAS_FRANJAS) errores.push('la denominación de E no acaba en «@*»: es la franja reservada a «todas las franjas»');
+    if (m.registro !== undefined && !esIdRegistro(m.registro)) errores.push('el registro de E es el id de un evento (64 hexadecimales en minúscula)');
+    if (m.divisible !== undefined && m.divisible !== true) errores.push('divisible solo admite true (sin él, la serie va en enteros)');
+    if (m.emisores !== undefined) {
+      const lista = Array.isArray(m.emisores) && m.emisores.length >= 2 && m.emisores.every(texto) && new Set(m.emisores).size === m.emisores.length;
+      if (!lista) errores.push('emisores es la emisión conjunta: dos o más identidades distintas');
+      else if (m.emisores.some((x) => /[|:/]/.test(x))) errores.push('emisores no puede llevar | : ni /');
+      else if (!m.emisores.includes(m.emisor)) errores.push('emisores incluye al emisor de la serie: ' + m.emisor);
+    }
+    if (m.de !== null && (m.divisible !== undefined || m.emisores !== undefined)) errores.push('divisible y emisores solo en la emisión de E: son del contrato de la serie');
+  } else {
+    for (const campo of ['registro', 'divisible', 'emisores']) if (m[campo] !== undefined) errores.push(campo + ' solo en E');
   }
   if (m.token !== 'E' && m.denominacion !== undefined) errores.push('denominación solo en E');
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
