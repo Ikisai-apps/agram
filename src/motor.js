@@ -95,7 +95,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
  */
 export function puedeAutorizar(eje, identidad, consolidacion) {
   const c = eje.obtener(consolidacion);
-  return Boolean(c) && identidad !== c.autor && eje.saldo(identidad, 'P') > 0;
+  return Boolean(c) && identidad !== c.autor && eje.poderSobre(identidad, consolidacion) > 0;
 }
 
 /**
@@ -106,7 +106,7 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
   const c = eje.obtener(consolidacion);
   if (!c || c.contexto?.fase !== 'consolidado') throw new Error('no es una consolidación: ' + String(consolidacion).slice(0, 8));
   if (!puedeAutorizar(eje, autorizante, consolidacion)) {
-    throw new Error(autorizante === c.autor ? 'el autor no se autoriza a sí mismo' : autorizante + ' no tiene poder (P) para autorizar');
+    throw new Error(autorizante === c.autor ? 'el autor no se autoriza a sí mismo' : autorizante + ' no tiene poder (P) sobre este registro');
   }
   if (estadoDe(eje, consolidacion) !== 'PENDIENTE DE AUTORIZACIÓN') throw new Error('ya está ' + estadoDe(eje, consolidacion).toLowerCase());
   return escribirDesde(eje, {
