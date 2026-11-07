@@ -1,7 +1,9 @@
 // Pruebas de propiedades del núcleo: casos generados con un PRNG con semilla
 // fija (mulberry32), pocos cientos por propiedad, y cada fallo real que
-// encontró el fuzz como regresión. Lo que exige una decisión queda con skip
-// y «[X] decidir VG». El fuzz largo (miles de casos) vive fuera del repo.
+// encontró el fuzz como regresión. Lo que exige una decisión queda en
+// { skip: '<id>: motivo' }, como en las pruebas de conformidad: el id es el de
+// la regla del corpus que toca y el motivo lleva «[X] decidir VG» y lo que
+// pasa hoy. El fuzz largo (miles de casos) vive fuera del repo.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -139,11 +141,13 @@ test('regresión: las rutas de error no confunden el índice 10 con el camino 1�
   assert.deepEqual(validarPayload(['x', [null]]).errores, ['10: hueco']);
 });
 
-test.skip('[X] decidir VG: profundidad máxima del payload, ligada al cambio de foco pendiente (hoy validarPayload agota la pila con 20 000 niveles)', () => {
-  let p = 'x';
-  for (let i = 0; i < 20000; i++) p = [p];
-  assert.equal(validarPayload(p).ok, false);
-});
+test('un payload más hondo que la profundidad máxima se rechaza sin agotar la pila',
+  { skip: 'BTML-26: [X] decidir VG la profundidad máxima del payload, ligada al cambio de foco pendiente (BTML-40, ver BTML-26b); hoy validarPayload agota la pila (RangeError) con 20 000 niveles' },
+  () => {
+    let p = 'x';
+    for (let i = 0; i < 20000; i++) p = [p];
+    assert.equal(validarPayload(p).ok, false);
+  });
 
 // ---------- evento y canónico ----------
 
@@ -246,10 +250,12 @@ test('regresión: P sobre el génesis por su id cubre lo mismo que P «genesis»
   assert.equal(eje.saldo('c', 'P:genesis'), 1);
 });
 
-test.skip('[X] decidir VG: ¿mover T de uno a sí mismo cuenta como «el autor mueve T»? (hoy escribe sin coste)', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
-  await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }));
-});
+test('mover T de uno a sí mismo no paga la escritura',
+  { skip: 'TOK-02: [X] decidir VG si mover T de uno a sí mismo cuenta como «el autor mueve T»; hoy se acepta y la escritura sale sin coste (el saldo no cambia)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+    await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }));
+  });
 
 /**
  * Secuencias aleatorias de escrituras (válidas e inválidas) con enteros. Tras
@@ -542,6 +548,7 @@ test('propiedad: los ciclos acaban en ERROR y el presupuesto en PENDIENTE POR L�
 });
 
 // Integración 7-11: #43 pedía ERROR; BQL según el corpus (#36) da PENDIENTE «posición sin desarrollar: más de diez profundidades» (docs/BQL.md §8). Lo que se vigila sigue igual: un estado, no RangeError.
+// [X] decidir VG: PENDIENTE (lo de hoy, #36) o ERROR (lo que pedía #43). Se decidió en la integración y está sin revisar; si VG prefiere ERROR, cambian los tres `throw new Parada('PENDIENTE', '… más de diez profundidades')` de src/bql.js y estas pruebas.
 test('regresión: BUSCAR, ACTUAL o una fórmula más allá de diez profundidades dan PENDIENTE, no RangeError', async () => {
   let p = '=BUSCAR(1, 1)';
   for (let i = 0; i < 10; i++) p = [p];
@@ -654,19 +661,23 @@ test('regresión: campos desconocidos o por defecto en un evento guardado no cam
   }
 });
 
-test.skip('[X] decidir VG: exigirFirmas va fuera de lo firmado (un archivo manipulado restaura con la política rebajada)', async () => {
-  const par = await generarClaves();
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada, exigirFirmas: true });
-  const d = ida(eje);
-  delete d.exigirFirmas;
-  await assert.rejects(restaurar(d));
-});
+test('un archivo que rebaja exigirFirmas no se restaura',
+  { skip: 'BTML-06: [X] decidir VG si exigirFirmas entra en lo firmado; hoy va fuera (en la cabecera de serializar) y un archivo sin exigirFirmas restaura con la política rebajada' },
+  async () => {
+    const par = await generarClaves();
+    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: par.publica, privada: par.privada, exigirFirmas: true });
+    const d = ida(eje);
+    delete d.exigirFirmas;
+    await assert.rejects(restaurar(d));
+  });
 
-test.skip('[X] decidir VG: la firma de un autor sin clave registrada se guarda sin verificar (y admite cualquier texto)', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
-  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' });
-  const d = ida(eje);
-  d.eventos[1].firmante = 'r';
-  d.eventos[1].firma = 'basura';
-  await assert.rejects(restaurar(d));
-});
+test('la firma de un autor sin clave registrada no se guarda sin verificar',
+  { skip: 'BTML-06: [X] decidir VG qué hacer con la firma de un autor sin clave registrada; hoy se guarda sin verificar y admite cualquier texto («basura» restaura)' },
+  async () => {
+    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+    await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' });
+    const d = ida(eje);
+    d.eventos[1].firmante = 'r';
+    d.eventos[1].firma = 'basura';
+    await assert.rejects(restaurar(d));
+  });

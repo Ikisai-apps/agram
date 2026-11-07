@@ -503,7 +503,7 @@ La evaluación se detiene en la primera parada; el estado de la consulta es el d
 |---|---|---|
 | RESUELTO | — | Hay valor. |
 | PENDIENTE | `posición sin desarrollar` | Se lee una posición que no existe, o un camino que atraviesa un terminal o una referencia (en `evaluar`, `LOCAL`, `REF`, `ACTUAL`, valor de un candidato, posición de un candidato). |
-| PENDIENTE | `posición sin desarrollar: más de diez profundidades` | El camino pedido pasa de diez índices: ninguna dirección BTML llega ahí. |
+| PENDIENTE | `posición sin desarrollar: más de diez profundidades` | El camino pedido pasa de diez índices: ninguna dirección BTML llega ahí. [X] decidir VG: PENDIENTE (lo de hoy, de la PR #36) o ERROR (lo que pedía la #43); se eligió PENDIENTE en la integración del 7-11, sin revisar. |
 | PENDIENTE | `sin candidatos en la posición <pv>` | `ACTUAL(pv, …)` fuera de FILTRAR sobre una posición sin ocupantes. |
 | PENDIENTE | `evento ausente del eje: <id8>` | `evaluar`/`LOCAL`/`BUSCAR` sobre un id que no está en el eje, o una referencia BTML (`{ ref }`) a un evento que no ha llegado, leída desde una fórmula o como candidato. Corpus: «referencia/contexto ausente → PENDIENTE». |
 | PENDIENTE | `referencia ausente del eje: <p>` | `REF` con un id o prefijo que ningún evento del eje tiene. |
@@ -730,6 +730,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | Permiso del subárbol en un valor `array` | Autorizar una posición expone su subárbol propio (el valor lleva el subarray crudo); no se pregunta por cada subposición (§9.6): [X] decidir VG. |
 | Cantidad > 1 de `ACTUAL` dentro de FILTRAR/ORDENAR (corpus: abierto) | PENDIENTE (§7.5): [X] decidir VG. |
 | Comparar composiciones heterogéneas (corpus: abierto) | INCOMPATIBLE (§6.4): [X] decidir VG. |
+| Un camino de más de diez profundidades (decidido en la integración del 7-11, sin revisar) | PENDIENTE `posición sin desarrollar: más de diez profundidades` (§8), como hace la PR #36; la #43 pedía ERROR. Las dos evitan el `RangeError`: [X] decidir VG. |
 | Lectura absoluta dentro del propio registro con `LOCAL` o `ACTUAL` (§7.1) | Solo `BUSCAR` por dirección la da; [X] decidir VG si `LOCAL` y `ACTUAL` la admiten también. |
 | Valor del candidato elegido de una colección cualquiera (p. ej. de `ELEGIR(ORDENAR(…))`) | No hay función: `ACTUAL(pv)` da el valor del primero de `BUSCAR(pv)` en su orden por defecto; para otra colección, desde JavaScript `valor.items[0]`, o `SUMAR` de una colección de un ítem (§12.3, un defecto, no una vía). |
 | Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») y profundidades ordinales por época | El signo se calcula siempre y solo informa; ninguna regla lo filtra. Ni signo ni distancia ordenan mientras ninguna época declare una profundidad ordinal (ni la época 0 ni la «época 1 (propuesta)» lo hacen). |
