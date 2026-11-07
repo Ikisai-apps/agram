@@ -1236,7 +1236,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Mínimo de la proporción de escritura; si la proporción rechaza o solo informa (**[X] decidir VG**, §7.1); proporción de Scened | Solo se comprueba el máximo, como antes: rechaza (1/20/333) sobre las posiciones del registro, y se mira primero, con el mensaje de siempre; además, el tope duro (10/100/1000/10000) rechaza sobre lo emitido (solo decide en Scened, sin proporción). |
 | Si `desdeMapped` ancla por límites, como `ubicar` con modo, y qué celdas (**[X] decidir VG**, §7.1) | `ubicar` con modo y `escribirDesde` con una celda la anclan sola si dentro no cabe; `desdeMapped` ubica solo por la base, y `escribirSalida` rechaza entera la salida que no cabe. |
 | Nombre de las clases 5–9 (**[X] decidir VG**, §7.2) | `CLASES[5…9]` valen `null`. |
-| Render de Scened | Scened tiene tope (10000) y lectura, sin render. |
+| Escritura desde Scened (formulario, proporción) | Scened tiene tope de emisión (10000), lectura y composición con render sobrio (`src/scened.js`, `docs/MODOS.md`); su proporción está sin fijar y ninguna pantalla escribe desde él. |
 | La marca de celda en las líneas de Mapped (propuesta: `@:j.k texto`) y si el formulario pide la clase de cada celda (`app.js`, **[X] decidir VG**, §7.3) | Una línea sin marca es texto con clase 0, como antes, también si empieza por `@:` sin la forma exacta; `@:j.k texto` fija la celda, y una línea con esa forma no se puede escribir como texto (no hay escape); `app.js` no enseña la marca. `app.js` escribe con `escribirDesde` y no con `escribirSalida`: lo que se ancla se rechaza con aviso, no se pierde. |
 | «Ver» como registro mínimo desde la interfaz; marca propia de ver en el payload (**[X] decidir VG**, §7.2) | `desdeMapped` lo admite (celda de clase 0 sin contenido, si su dirección alcanza algo en el foco); ninguna pantalla lo emite. Ver y heredar se distinguen por `contexto.heredadas`. |
 | Referencia exacta a una subposición 0, y registro bajo un camino que acaba en 0 (**[X] decidir VG**, §7.2) | Ver o heredar `i.0` usa la dirección de `i` (colisión de ceros finales); un registro bajo `[…, 0]` va en la dirección de su padre. |
@@ -1253,7 +1253,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
-| Render animado de las operaciones (sobrio/animado) | Solo renders sobrios en `pointed.js`, `sequenced.js`, `mapped.js`; el frontend (`app.js`) queda fuera de este documento. |
+| Render animado de las operaciones (sobrio/animado) | Solo renders sobrios en `pointed.js`, `sequenced.js`, `mapped.js`, `scened.js`; el frontend (`app.js`) queda fuera de este documento. |
 
 ## 13. Límites y defectos observados (no corregidos aquí)
 
