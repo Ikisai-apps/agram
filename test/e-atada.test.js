@@ -156,8 +156,32 @@ test('R2·2: caducar baja el E vivo; la capacidad se vuelve a usar', async () =>
   // Caducada la noche, su P se libera y respalda otra serie de la misma franja, en el mismo evento.
   const suelta = { token: 'P', ambito: A, cantidad: 2, de: 'casa', a: 'casa', estado: 'liberacion', salida: n1 };
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, otros: [suelta] })), /respalda 2 de E vivo/); // antes de caducar, no
+  // Fechada después de caducar, tampoco mientras el eje no haya llegado ahí (SEG-03): la caducidad se mira con el
+  // menor entre su t y el mayor t aceptado antes. Cuando otra identidad escribe con ese t, sí.
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: despues, otros: [suelta] })), /respalda 2 de E vivo/);
+  await eje.escribir({ autor: 'g', sobre: A, t: despues, payload: unico('pasa la noche'), movimientos: [minuto('g')] });
   await eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: despues, otros: [suelta] }));
   assert.deepEqual(eje.topes(A, despues), [{ registro: A, capacidad: 2, franja: 'n1', vivo: 2, libre: 0 }]);
+});
+
+test('SEG-03 (revisión de main 7-11 noche) fechar a futuro no vacía la franja ni libera el P: la caducidad se mira con el reloj del eje', async () => {
+  const { eje, A } = await mundo({ capacidad: 2, pA: 2 });
+  const n1 = serieE('casa', 'cama@n1', A);
+  const caduca = '2026-11-09T12:00:00Z';
+  await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 2, bloquea: 2, extra: { caduca } }));
+  const suelta = { token: 'P', ambito: A, cantidad: 2, de: 'casa', a: 'casa', estado: 'liberacion', salida: n1 };
+  // La emisora se fecha el día después de caducar (dentro del año que admite el reloj): ni libera el P que respalda la
+  // E viva, ni con él vuelve a llenar la franja.
+  await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: caduca, payload: unico('suelta'), movimientos: [minuto('casa'), suelta] }), /respalda 2 de E vivo: no se libera mientras viva/);
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: caduca, otros: [suelta] })),
+    /respalda 2 de E vivo.*tope de E del registro [0-9a-f]{8} en la franja «n1».*llegaría a 4 y su capacidad es 2/);
+  assert.equal(eje.bloqueado('casa', 'P:' + A, n1), 2);
+  // Un registro de otra identidad con t anterior a la caducidad no basta; con t ≥ caduca, el eje llega ahí y sí.
+  await eje.escribir({ autor: 'bea', sobre: A, t: '2026-11-09T11:59:00Z', payload: unico('casi'), movimientos: [minuto('bea')] });
+  await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: caduca, payload: unico('suelta'), movimientos: [minuto('casa'), suelta] }), /respalda 2 de E vivo/);
+  await eje.escribir({ autor: 'bea', sobre: A, t: caduca, payload: unico('ya es mañana'), movimientos: [minuto('bea')] });
+  await eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: caduca, otros: [suelta] }));
+  assert.deepEqual(eje.topes(A, caduca), [{ registro: A, capacidad: 2, franja: 'n1', vivo: 2, libre: 0 }]);
 });
 
 test('R2·2: partir el recurso en subregistros no esquiva el tope del ancestro (aunque declaren más capacidad)', async () => {

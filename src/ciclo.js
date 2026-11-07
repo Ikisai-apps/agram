@@ -78,6 +78,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   genesisId                el id del génesis
  *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
  *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
+ *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -180,8 +181,9 @@ export function reglasDelCiclo(ev, ctx) {
       // esté AUTORIZADA (src/autorizacion.js), y solo entonces vale. Sobre el
       // génesis, P:genesis (el del génesis) y P:<id del génesis> son la misma
       // serie: lo que emitió el génesis ya la abrió.
-      if (emitidoAntes(m.ambito) > 0 && !esAmpliacionAutorizada(ev, m.ambito, ctx)) {
-        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3)');
+      const noAmplia = emitidoAntes(m.ambito) > 0 ? porQueNoAmplia(ev, m.ambito, ctx) : null;
+      if (noAmplia) {
+        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3): ' + noAmplia);
       }
     }
     if (m.token === 'E') {
@@ -257,17 +259,41 @@ function clavesDeSerieP(ambito, genesisId) {
 }
 
 /**
- * ¿Es `ev` la ejecución de una consolidación sobre el registro `ambito` que
- * está AUTORIZADA justo antes (y aún sin ejecutar)? Es lo único que amplía
- * una serie P:X ya emitida (R3). La ejecuta su autor (ejecutar en el motor;
- * aquí, el autor de la consolidación, que ha de ser quien emite: el autor de X).
+ * La consolidación cuya ejecución es `ev` si emite P (la que respalda esa
+ * emisión), o null. El eje y las capas de validez la marcan como usada al
+ * aplicar el evento: una consolidación respalda UNA ampliación de P.
  */
-function esAmpliacionAutorizada(ev, ambito, ctx) {
+export function consolidacionQueAmplia(ev) {
+  if (!ev || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado' || typeof ev.sobre !== 'string') return null;
+  const emiteP = (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) => m && m.token === 'P' && m.de === null);
+  return emiteP ? ev.sobre : null;
+}
+
+/**
+ * Por qué `ev` no amplía la serie P:`ambito`, o null si la amplía: ha de ser la
+ * ejecución REAL de una consolidación sobre el registro `ambito` que está
+ * AUTORIZADA justo antes (y aún sin ejecutar), y que no haya respaldado ya otra
+ * ampliación. Es lo único que amplía una serie P:X ya emitida (R3). La ejecuta
+ * su autor (ejecutar en el motor; aquí, el autor de la consolidación, que ha
+ * de ser quien emite: el autor de X). Real (SEG-01, revisión de main 7-11
+ * noche): no basta con decir `fase: 'ejecutado'`; lleva la evidencia que deja
+ * motor.ejecutar, no vacía, con el id de la consolidación, y todas sus
+ * referencias son eventos del eje.
+ */
+function porQueNoAmplia(ev, ambito, ctx) {
   const c = ctx.registro(ev.sobre);
-  if (!esConsolidacion(c) || c.autor !== ev.autor || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return false;
+  if (!esConsolidacion(c) || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return 'no es la ejecución de una consolidación';
+  if (c.autor !== ev.autor) return 'la ejecuta el autor de la consolidación (' + c.autor + ')';
   const sobreElGenesis = ambito === AMBITO_GENESIS || ambito === ctx.genesisId;
-  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return false;
-  return ctx.autorizada?.(c.id) === true;
+  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return 'la consolidación ' + corto(c.id) + ' no es sobre ' + corto(ambito);
+  const evidencia = ev.contexto?.evidencia;
+  if (!Array.isArray(evidencia) || !evidencia.length) return 'una ejecución lleva su evidencia (contexto.evidencia), y esta no la lleva';
+  if (!evidencia.includes(c.id)) return 'la evidencia no cita la consolidación ' + corto(c.id);
+  const rota = evidencia.find((id) => typeof id !== 'string' || !ctx.registro(id));
+  if (rota !== undefined) return 'la evidencia cita ' + corto(rota) + ', que no está en el eje';
+  if (ctx.ampliada?.(c.id) === true) return 'la consolidación ' + corto(c.id) + ' ya respaldó una ampliación: respalda una sola';
+  if (ctx.autorizada?.(c.id) !== true) return 'la consolidación ' + corto(c.id) + ' no está AUTORIZADA (o ya se ejecutó)';
+  return null;
 }
 
 /** Las reglas de emisión de la versión 2, para los eventos guardados con ella. */

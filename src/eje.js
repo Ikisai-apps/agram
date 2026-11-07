@@ -24,7 +24,7 @@
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
@@ -45,6 +45,7 @@ export class Eje {
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
   #porSalida = new Map(); // salida → Map(clave → Map(identidad → cantidad bloqueada)): el índice de bloqueadoCon y bloqueosCon
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
+  #ampliadas = new Set(); // ids de las consolidaciones que ya respaldaron una ampliación de P (R3: una sola)
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -528,6 +529,8 @@ export class Eje {
       genesisId: this.genesisId,
       // R3: ampliar P:X exige una consolidación AUTORIZADA (autorizar = bloquear P; src/autorizacion.js).
       autorizada: (id) => estadoPorPeso(lectorDelEje(this), id) === 'AUTORIZADO',
+      // Y la consolidación respalda una sola ampliación (SEG-01).
+      ampliada: (id) => this.#ampliadas.has(id),
     };
   }
 
@@ -540,6 +543,7 @@ export class Eje {
     };
     return {
       reglas: this.orden.length < this.eventosV2 ? 2 : 3,
+      tMaximo: () => this.#tMax,
       registro: (id) => this.eventos.get(id),
       alta: (id) => this.alta(id),
       serie: (k) => this.#series.get(k) ?? null,
@@ -621,9 +625,12 @@ export class Eje {
   }
 
   #aplicar(ev) {
-    // Demostración: lo marca el génesis. Un eje que viene de la versión 2 es anterior a R9 (sus altas no podían
-    // probar la posesión de su clave) y se trata igual ([X] confirmar VG).
-    if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true || this.eventosV2 > 0;
+    // Demostración: solo la bandera firmada del génesis (SEG-02, revisión de main 7-11 noche). Un eje que viene
+    // de la versión 2 no es de demostración por serlo: la exención de clave vale solo dentro de su prefijo
+    // (#exigeClave), no para lo que se le añade después.
+    if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true;
+    const amplia = consolidacionQueAmplia(ev);
+    if (amplia) this.#ampliadas.add(amplia);
     this.#llegada.set(ev.id, this.orden.length);
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
@@ -793,7 +800,9 @@ function contratoE(m, registroEmisor) {
  *    elige quien respalda el recurso; sin '@', una sola franja, ''. Para cada
  *    registro del hilo del de la serie (él incluido) que declara capacidad
  *    (tokens.capacidadDe sobre su payload raíz), el E vivo en el t del evento
- *    (emitido − consumido, y nada si la serie caducó) de ese registro y de
+ *    (emitido − consumido, y nada si la serie caducó; la caducidad, con el
+ *    reloj del eje: el menor entre el t del evento y el mayor t aceptado
+ *    antes de él, SEG-03 [X] confirmar VG) de ese registro y de
  *    todos sus descendientes, sumando todas las denominaciones y todos los
  *    emisores DE LA MISMA FRANJA, no pasa de esa capacidad: una casa de 4
  *    plazas tiene 4 por noche (VG, 7-11 noche). Se miran TODOS los que la
@@ -826,6 +835,7 @@ function contratoE(m, registroEmisor) {
  *
  * ctx, todo de antes del evento:
  *   reglas                     2 si el evento se guardó con la versión 2
+ *   tMaximo()                  el mayor t aceptado en el eje antes del evento, en milisegundos UTC (el reloj de la caducidad)
  *   registro(id)               el evento con ese id, o undefined
  *   alta(id)                   { id, t } del alta, o null
  *   serie(clave)               { emisor, emitido, consumido, caduca, registro, divisible, emisores } (E) o { emisor, emitido } (P), o null
@@ -903,8 +913,12 @@ export function reglasDelTope(ev, ctx) {
     }
   }
 
-  const t = ev.t;
-  const caducaYa = (s) => Boolean(s.caduca) && esInstante(t) && msUTC(t) >= msUTC(s.caduca);
+  // La caducidad solo RELAJA (la E caducada no cuenta para el tope, la cuota ni el P que la respalda), así que se
+  // mira con el reloj del eje, no con el del autor (SEG-03, [X] confirmar VG): el menor entre el t del evento y el
+  // mayor t aceptado ANTES de él. Fechar a futuro no hace caducar la E viva en beneficio propio.
+  const tMax = ctx.tMaximo?.() ?? Infinity;
+  const tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
+  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(tReloj) && tReloj >= msUTC(s.caduca);
   const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
 
   // Todas las series de E tras el evento, con su franja; calculado una vez.
