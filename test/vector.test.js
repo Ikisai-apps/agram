@@ -40,6 +40,11 @@ test('ordenar por encaje: coincidencias de ruta (acuerdo de prefijo) y llegada; 
     { nombre: 'otro escrito', vector: vector('0000000000', '2000000000') },
   ];
   assert.deepEqual(ordenarPorEncaje(lista).map((x) => x.nombre), ['exacto', 'desvío hondo', 'ref desde 7', 'escrito en 2', 'otro escrito']);
+  // Una época que declare ordinal la profundidad 0 deja que la distancia ordene ahí (la regla de la dimensión).
+  const epocaOrdinal = { ordinal: (k) => k === 0 };
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: epocaOrdinal }).map((x) => x.nombre), ['exacto', 'desvío hondo', 'escrito en 2', 'otro escrito', 'ref desde 7']);
+  // La época 0 no declara nada ordinal: igual que sin época.
+  assert.deepEqual(ordenarPorEncaje(lista, { epoca: { nombre: 'época 0' } }).map((x) => x.nombre), ordenarPorEncaje(lista).map((x) => x.nombre));
 });
 
 test('los ocupantes llevan su vector y salen por encaje; la llegada sigue disponible', async () => {

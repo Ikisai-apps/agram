@@ -70,15 +70,24 @@ export function signo(v) {
 
 /**
  * Orden por encaje, sin borrar nada: más coincidencias de ruta primero (el
- * acuerdo de prefijo: los exactos tienen diez), y los empates conservan la
- * llegada. Ni el signo ni la distancia por dígito ordenan mientras ninguna
- * regla corta haga ordinal a un dígito (corpus: «no puntuar por cercanía
- * ciega»). Cuando una época lo haga, entrará aquí como regla de esa dimensión.
+ * acuerdo de prefijo: los exactos tienen diez); después, solo en las
+ * profundidades que la época declare ordinales (epoca.ordinal(profundidad)),
+ * menor distancia; y los empates conservan la llegada. Sin época, o con la
+ * época 0 (dígitos nominales), ni el signo ni la distancia ordenan (corpus:
+ * «no puntuar por cercanía ciega»). La regla de la dimensión vive en la época.
  */
-export function ordenarPorEncaje(lista) {
+export function ordenarPorEncaje(lista, { epoca } = {}) {
+  const ordinales = epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
+  const porDistancia = (va, vb) => {
+    for (const k of ordinales) {
+      const d = Math.abs(va[k]) - Math.abs(vb[k]);
+      if (d !== 0) return d;
+    }
+    return 0;
+  };
   return lista
     .map((o, i) => ({ o, i }))
-    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || (a.i - b.i))
+    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || porDistancia(a.o.vector, b.o.vector) || (a.i - b.i))
     .map((x) => x.o);
 }
 
@@ -122,7 +131,7 @@ export function caminosDe(payload, dir) {
  * las profundidades de acuerdo y el signo. Orden por defecto: por encaje;
  * con { orden: 'llegada' }, el de llegada. Nada se borra.
  */
-export function ocupantes(eje, id, indices, { orden = 'encaje' } = {}) {
+export function ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const dir = direccion(indices);
@@ -136,7 +145,7 @@ export function ocupantes(eje, id, indices, { orden = 'encaje' } = {}) {
     lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }
   const conOrigen = lista.map((o) => ({ ...o, origen: o.tipo }));
-  return orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen);
+  return orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen, { epoca });
 }
 
 /** Sigue una referencia hasta un contenido que no sea referencia. Conserva la procedencia. */
