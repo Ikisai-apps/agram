@@ -1,0 +1,91 @@
+/* Mundo de los hilos (PV6 y PV7): render animado. Usa los colores del tema
+   sobrio (index.html) y añade uno por familia de tokens, con los moduladores
+   del corpus (V3E §06.2, tentativos): T vida, E luz, P calor, R agua. */
+:root{--hilos-T:#2e7d4f;--hilos-E:#a8760a;--hilos-P:#b9461f;--hilos-R:#2b6aa3}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--hilos-T:#8fd6a8;--hilos-E:#e6c35c;--hilos-P:#f08a64;--hilos-R:#86b8e8}}
+:root[data-theme="dark"]{--hilos-T:#8fd6a8;--hilos-E:#e6c35c;--hilos-P:#f08a64;--hilos-R:#86b8e8}
+
+svg.hilos{display:block;width:100%;height:auto;max-width:100%;font-family:var(--sans);-webkit-tap-highlight-color:transparent}
+.hilos text{fill:var(--muted);font-size:8px;text-anchor:middle;pointer-events:none}
+.hilos .banda{fill:var(--fg)} .hilos .banda.b0{fill-opacity:.025} .hilos .banda.b1{fill-opacity:.07}
+.hilos .rotulo-banda{font-size:8px;letter-spacing:.02em}
+.hilos .eje{stroke:var(--muted);stroke-width:1.2}
+.hilos .presente{stroke:var(--accent);stroke-width:1;stroke-dasharray:3 3}
+.hilos .rotulo-presente{fill:var(--accent);font-size:9px}
+.hilos .toque{fill:transparent;stroke:none}
+.hilos [data-ir]{cursor:pointer}
+
+/* pasado: registros encadenados por referencia */
+.hilos .hilo{fill:none;stroke:var(--muted);stroke-width:1.2;stroke-opacity:.75}
+.hilos .nodo .marca{fill:var(--bg);stroke:var(--fg);stroke-width:1.5}
+.hilos .nodo.en-hilo .marca{fill:var(--fg)}
+.hilos .nodo.genesis .marca{fill:var(--accent);stroke:var(--accent)}
+.hilos .nodo.fase-consolidado .marca,.hilos .nodo.fase-autorizado .marca{stroke:var(--accent)}
+.hilos .contador text{fill:var(--fg);font-size:9px;font-weight:600}
+
+/* presente: el foco en la costura */
+.hilos .foco .anillo{fill:var(--bg);stroke:var(--accent);stroke-width:2}
+.hilos .foco .marca{fill:var(--accent)}
+.hilos .rotulo-foco{fill:var(--fg);font-size:10px;font-weight:600}
+
+/* futuro: arcos que salen del foco */
+.hilos .futuro,.hilos .ancla,.hilos .suelta{transform-box:view-box}
+.hilos .futuro .arco{fill:none;stroke:var(--accent);stroke-width:1.5}
+.hilos .futuro.pendiente .arco{stroke-dasharray:.04 .025}
+.hilos .futuro .bloque{fill:var(--bg);stroke:var(--accent);stroke-width:1.5}
+.hilos .futuro.autorizado .bloque{fill:var(--accent)}
+.hilos .futuro.proyeccion .arco{stroke:var(--ok)} .hilos .futuro.proyeccion .bloque{stroke:var(--ok);fill:var(--ok)}
+.hilos .futuro.declarado .arco{stroke:var(--muted);stroke-dasharray:.012 .03} .hilos .futuro.declarado .bloque{stroke:var(--muted)}
+.hilos .nudo circle{fill:var(--ok);stroke:var(--bg);stroke-width:1.5}
+.hilos .nudo{transform-box:fill-box;transform-origin:center}
+
+/* ejecución: el arco se ancla en el hilo */
+.hilos .arco-anclado{fill:none;stroke:var(--ok);stroke-width:1.6}
+.hilos .simbolo-ancla{fill:none;stroke:var(--ok);stroke-width:1.8;stroke-linecap:round}
+.hilos .suelta{fill:none;stroke:var(--accent);stroke-width:1.5;opacity:0}
+
+/* carteras y tokens */
+.hilos .cartera circle{fill:var(--panel2);stroke:var(--muted);stroke-width:1}
+.hilos .cartera.vacio circle{fill:none;stroke-dasharray:2 2}
+.hilos .punto{opacity:0}
+.hilos .punto circle{fill:var(--hilos-T)} .hilos .punto .rotulo-punto{fill:var(--hilos-T);font-size:8px;font-weight:600}
+.hilos .token-E circle{fill:var(--hilos-E)} .hilos .token-E .rotulo-punto{fill:var(--hilos-E)}
+.hilos .token-P circle{fill:var(--hilos-P)} .hilos .token-P .rotulo-punto{fill:var(--hilos-P)}
+.hilos .token-R circle{fill:var(--hilos-R)} .hilos .token-R .rotulo-punto{fill:var(--hilos-R)}
+
+/* animaciones: solo lo nuevo, cada una el efecto de un evento real */
+.hilos .entra{animation:hilos-entra .8s cubic-bezier(.2,.7,.2,1) var(--retardo,0s) both}
+@keyframes hilos-entra{from{transform:translateX(-48px);opacity:0}to{transform:none;opacity:1}}
+.hilos .hilo.traza{stroke-dasharray:1;animation:hilos-traza .9s ease-out var(--retardo,0s) both}
+@keyframes hilos-traza{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+.hilos .proyecta{animation:hilos-proyecta 1s cubic-bezier(.2,.7,.2,1) var(--retardo,0s) both}
+@keyframes hilos-proyecta{from{transform:scale(0);opacity:0}30%{opacity:1}to{transform:none;opacity:1}}
+.hilos .anuda{animation:hilos-anuda .7s ease-out var(--retardo,0s) both}
+@keyframes hilos-anuda{0%{transform:scale(0)}60%{transform:scale(1.9)}100%{transform:none}}
+.hilos .suelta{animation:hilos-suelta .9s ease-in var(--retardo,0s) both}
+@keyframes hilos-suelta{0%{opacity:1;transform:none}100%{opacity:0;transform:scale(0)}}
+.hilos .ancla-cae{animation:hilos-ancla .8s cubic-bezier(.2,.7,.2,1) var(--retardo,0s) both}
+@keyframes hilos-ancla{from{transform:scale(0);opacity:0}to{transform:none;opacity:1}}
+.hilos .punto{animation:hilos-punto-x 1.2s linear var(--retardo,0s) both}
+.hilos .punto .sube{animation:hilos-punto-y 1.2s ease-in-out var(--retardo,0s) both}
+@keyframes hilos-punto-x{0%{transform:none;opacity:0}8%{opacity:1}88%{opacity:1}100%{transform:translateX(var(--dx,0px));opacity:0}}
+@keyframes hilos-punto-y{0%,100%{transform:none}50%{transform:translateY(-30px)}}
+@media (prefers-reduced-motion: reduce){
+  .hilos .nuevo,.hilos .nuevo *{animation:none!important}
+  .hilos .punto,.hilos .suelta{display:none}
+}
+
+/* vista «hilos» y celdas 6 y 7 de Mapped */
+.hilos-vista{margin:6px 0 14px;display:grid;gap:8px;min-width:0}
+.hilos-leyenda{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.hilos-leyenda .ley::before{content:"";display:inline-block;width:9px;height:9px;margin-right:5px;vertical-align:-1px;border-radius:50%;background:var(--fg)}
+.hilos-leyenda .ley-hilo::before{height:2px;width:12px;border-radius:0;background:var(--muted);vertical-align:3px}
+.hilos-leyenda .ley-arco::before{height:0;width:12px;border-radius:0;background:none;border-top:2px dashed var(--accent);vertical-align:3px}
+.hilos-leyenda .ley-nudo::before{background:var(--ok)}
+.hilos-leyenda .ley-ancla::before{content:"⚓";width:auto;height:auto;background:none;color:var(--ok);vertical-align:0}
+.hilos-leyenda .ley-punto::before{background:var(--hilos-T)}
+.hilos-reproducir{justify-self:start;font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.hilos-listas{display:grid;gap:10px;margin:6px 0 14px}
+.hilos-listas .titulo{font-size:13px;color:var(--muted)}
+.celda.c6 svg.hilos,.celda.c7 svg.hilos{margin:2px -2px 0}
+.celda .ver-hilos{align-self:flex-start;font:inherit;font-size:11px;border:0;border-radius:6px;background:var(--panel2);color:var(--fg);padding:3px 7px;cursor:pointer}
