@@ -19,3 +19,5 @@ npm test
 ```
 
 JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El frontend de cartón piedra es `index.html` + `app.js` (Pointed, Sequenced y Mapped sobre el ejemplo elegido: comida, reserva o tarea; con «animado», las celdas 6 y 7 de Mapped dibujan los hilos y «ver los hilos» abre la vista completa debajo, en `mundos/hilos-ui.js`; en `ui/`, el encaje de cada ocupante, proponer, la época y los saldos por series); se publica en GitHub Pages en cada push a `main`: https://ikisai-apps.github.io/agram/ (dominio `agram.ikisai.com` pendiente del CNAME en DNS).
+
+Render animado (`mundos/`): la cruz entera sobre el mismo eje que el sobrio, con el 5 en el centro: hilos del 6 y 7, cielo del 8 (las bases como constelaciones) y camino del 9 (los pasos hacia la acción, con previsualizar sin escribir). Entran con Mapped (`mundos/hilos-ui.js` y `mundos/cruz-ui.js`): en animado, las celdas 8 y 9 dibujan el cielo y la senda, y «ver la cruz» la abre entera debajo de la matriz. Ver `docs/MUNDOS.md`.

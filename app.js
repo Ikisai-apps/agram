@@ -2,10 +2,12 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado empieza por los hilos del 6 y 7,
-// en Mapped (mundos/hilos-ui.js).
+// en el navegador. Render sobrio; el animado cubre la cruz entera y entra
+// con Mapped: los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el
+// camino del 9 y la cruz con el 5 en el centro (mundos/cruz-ui.js).
 
 import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
+import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, PV, RAIZ,
@@ -28,6 +30,7 @@ const CLAVE_FOCO = 'agram.foco';
 /** Identidades de la comida y la reserva: cada una necesita su par de claves en este navegador; las que falten a otro ejemplo (la tarea) las genera ui/ejemplos.js al elegirlo. */
 const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
 instalarHilos({ pintar }); // botones «animado» y «ver los hilos»
+instalarCruz({ estado, pintar, irA, privadaDe, guardar, fallo, chip: chipTemporal, mensajes }); // cielo 8, camino 9 y «ver la cruz»
 
 function corto(id) {
   return id.slice(0, 8);
@@ -324,6 +327,7 @@ function pintar() {
   else if (estado.modo === 'mapped') pintarMapped();
   else pintarSequenced();
   trasPintarHilos(estado); // en animado, los hilos en las celdas 6 y 7 de Mapped
+  trasPintarCruz(estado); // después de los hilos: el cielo y el camino en las celdas 8 y 9, y la cruz si está abierta
   pintarSaldos();
   trasPintarEpocas();
   trasPintarFabrica(estado);
