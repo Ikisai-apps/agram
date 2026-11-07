@@ -6,18 +6,23 @@
 // esté en ok no sube ninguna otra, y que falle no baja ninguna otra.
 //
 //   1 forma y época               validarForma, y el payload y `en` leídos bajo la época elegida
-//   2 interpretación              cada fórmula del payload evaluada con BQL
-//   3 criptografía y procedencia  id, firma, foco, autor, claves declaradas y referencias que resuelven
-//   4 acreditación material       respaldo en el libro: series emitidas por su emisor, ningún saldo negativo
+//   2 interpretación              fórmulas (BQL), referencias (encaje) y posiciones: lo que se puede leer
+//   3 criptografía y procedencia  id, firma, foco, autor y claves declaradas
+//   4 acreditación material       respaldo en el libro: series emitidas por quien las respalda, ningún saldo negativo
 //   5 permiso y ejecución         quién mueve y quién emite; en la fábrica, el estado del motor y quién pudo autorizar
+//
+// Las referencias van en la capa 2, escritas como { ref } o como =REF: el
+// corpus pone en ella «contexto, referencias y posiciones» (V4 06 l.36) y la
+// «resolución de referencias suficiente» (V2 05).
 //
 // PV5 inspecciona estas señales; no las garantiza. Lo que ninguna capa
 // comprueba (que lo afirmado ocurrió en el mundo, que los efectos externos se
 // confirmaron) es de AARPIA y de lo que venga fuera de AGRAM: docs/VALIDEZ.md.
 //
-// Las capas se leen en el lugar del registro: si el evento está en el eje, el
-// libro (saldos, series, claves, tipos) es el de justo antes de él; si no
-// está (un borrador, uno recibido, uno manipulado), el de ahora.
+// Las capas se leen en el lugar del registro: si el evento está en el eje (su
+// id está y corresponde a su cuerpo), el libro (saldos, series, claves, tipos)
+// y el motor son los de justo antes de él; si no está (un borrador, uno
+// recibido, una copia manipulada con el mismo id), los de ahora.
 
 import { ARIDAD, esReferencia, esDireccion, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
@@ -159,21 +164,20 @@ function capaForma(ev, epoca) {
   const errores = validarForma(ev);
   errores.forEach((e) => r.falla(e));
   let profundidad = 0;
-  const hondos = [];
   const sinRegla = new Set();
   const leer = (p, d) => {
     if (p < ARIDAD && epoca.reglaCorta(p, d) === undefined) sinRegla.add(p + '.' + d);
   };
   recorrer(ev.payload, (nodo, c) => {
     profundidad = Math.max(profundidad, c.length);
-    if (c.length > ARIDAD) hondos.push(c);
     c.forEach((d, p) => leer(p, d));
   });
-  // BTML: hasta diez profundidades por foco; al agotarlas se cambia de foco, no se concatena un undécimo dígito (MAPA §2.1 [A]).
-  if (hondos.length) r.falla('más de diez profundidades en ' + camino(hondos[0].slice(0, ARIDAD + 1)) + ': sin dirección posible; se cambia de foco');
+  // Pasar de diez profundidades no es un fallo de forma: el límite es de
+  // posicionamiento por foco (docs/notas/AUDITORIA_AJUSTE.md l.299). Lo dice la capa 2.
   const en = esDireccion(ev.en) ? leerDireccion(ev.en, epoca) : [];
   en.forEach(({ profundidad: p, digito: d }) => leer(p, d));
-  // La época está fuera del dato (MAPA §9 [D]): lo que no se lee bajo esta época no es un error del registro.
+  // La época está fuera del dato (MAPA §9 [D]): lo que no se lee bajo esta época
+  // no es un error del registro. Que quede pendiente es provisional: [X] docs/VALIDEZ.md §8.
   for (const pd of sinRegla) r.pendiente('sin regla corta en ' + (epoca.nombre ?? 'la época') + ' para ' + pd + ': no legible bajo esta época');
   const nombre = epoca.nombre ?? 'la época elegida';
   const resumen = r.estado === 'ok'
@@ -182,59 +186,107 @@ function capaForma(ev, epoca) {
   return parte(1, r.estado, r.textos, resumen, { errores, epoca: nombre, profundidad, lectura: { en } });
 }
 
-// ---------- 2 · interpretación ----------
+// ---------- 2 · interpretación: fórmulas, referencias y posiciones ----------
 
-function capaInterpretacion(vista, ev, id) {
+/**
+ * Una referencia BTML seguida con el encaje. Ausente o sin desarrollar →
+ * pendiente: puede llegar (corpus V4 02 l.49: «Referencia/contexto ausente →
+ * PENDIENTE»). Cadena sin fin → falla.
+ */
+function leerReferencia(vista, nodo) {
+  const s = seguir(vista, nodo);
+  if (s.rota && !vista.obtener(s.evento)) return { s, estado: 'pendiente', texto: 'referencia a un evento ausente del eje: ' + corto(s.evento) };
+  if (s.rota) return { s, estado: 'falla', texto: 'cadena de referencias sin fin desde ' + corto(nodo.ref) };
+  if (s.contenido === undefined) return { s, estado: 'pendiente', texto: 'posición sin desarrollar en ' + corto(s.evento) + ':' + s.dir };
+  return { s, estado: 'ok', texto: null };
+}
+
+function capaInterpretacion(eje, vista, ev, id) {
+  const r = motivos();
   const formulas = [];
+  const referencias = [];
+  let hondo = null;
   recorrer(ev.payload, (nodo, c) => {
-    if (c.length > ARIDAD || !esFormula(nodo)) return;
-    let r;
-    try {
-      r = evaluar(vista, id, c);
-    } catch (e) {
-      r = { estado: 'ERROR', texto: 'ERROR: ' + e.message };
+    if (c.length > ARIDAD) {
+      if (!hondo) hondo = c;
+      return;
     }
-    formulas.push({ camino: c, dir: direccion(c), formula: nodo, estado: r.estado, texto: r.texto, capa: estadoDeBql(r.estado) });
+    if (esFormula(nodo)) {
+      // Una fórmula, con BQL en su celda. =REF a un evento ausente da PENDIENTE, igual que { ref }.
+      let x;
+      try {
+        x = evaluar(vista, id, c);
+      } catch (e) {
+        x = { estado: 'ERROR', texto: 'ERROR: ' + e.message };
+      }
+      const f = { camino: c, dir: direccion(c), formula: nodo, estado: x.estado, texto: x.texto, capa: estadoDeBql(x.estado) };
+      formulas.push(f);
+      if (f.capa !== 'ok') r[f.capa](camino(c) + ': ' + f.texto);
+    } else if (esReferencia(nodo)) {
+      const { s, estado, texto } = leerReferencia(vista, nodo);
+      referencias.push({ desde: 'payload', camino: c, ref: nodo.ref, dir: nodo.dir ?? RAIZ, estado, procedencia: s.procedencia });
+      if (estado !== 'ok') r[estado](camino(c) + ': ' + texto);
+    }
   });
-  const estado = peor(formulas.map((f) => f.capa));
-  const textos = formulas.filter((f) => f.capa !== 'ok').map((f) => camino(f.camino) + ': ' + f.texto);
+  // Más de diez profundidades: ninguna dirección llega ahí en este foco. Mismo
+  // estado y texto que BQL en main (integración del 7-11, sin revisar): [X] docs/VALIDEZ.md §8.
+  if (hondo) r.pendiente('más de diez profundidades en ' + camino(hondo.slice(0, ARIDAD + 1)) + ': posición sin desarrollar (falta el cambio de foco)');
+  // Las referencias del contexto (fuentes de una consolidación, evidencia de una ejecución) son ids del eje.
+  for (const campo of ['fuentes', 'evidencia']) {
+    for (const x of lista(ev.contexto?.[campo])) {
+      if (typeof x !== 'string') {
+        referencias.push({ desde: 'contexto.' + campo, ref: x, estado: 'falla' });
+        r.falla('contexto.' + campo + ': ' + JSON.stringify(x) + ' no es un id');
+        continue;
+      }
+      const hay = Boolean(eje.obtener(x));
+      referencias.push({ desde: 'contexto.' + campo, ref: x, estado: hay ? 'ok' : 'pendiente' });
+      if (!hay) r.pendiente('contexto.' + campo + ': ' + corto(x) + ' ausente del eje');
+    }
+  }
   const cuenta = (e) => formulas.filter((f) => f.capa === e).length;
-  const resumen = formulas.length === 0
-    ? 'sin fórmulas: literales y referencias'
-    : (formulas.length === 1 ? '1 fórmula' : formulas.length + ' fórmulas') + ' · resueltas: ' + cuenta('ok') + ' · pendientes: ' + cuenta('pendiente') + ' · con error: ' + cuenta('falla');
-  return parte(2, estado, textos, resumen, { formulas });
+  const resueltas = referencias.filter((x) => x.estado === 'ok').length;
+  const resumen = [
+    formulas.length === 0
+      ? 'sin fórmulas'
+      : (formulas.length === 1 ? '1 fórmula' : formulas.length + ' fórmulas') + ' · resueltas: ' + cuenta('ok') + ' · pendientes: ' + cuenta('pendiente') + ' · con error: ' + cuenta('falla'),
+    referencias.length ? resueltas + ' de ' + referencias.length + ' referencias resuelven' : 'sin referencias',
+    ...(hondo ? ['más de diez profundidades'] : []),
+  ].join(' · ');
+  return parte(2, r.estado, r.textos, resumen, { formulas, referencias });
 }
 
 // ---------- 3 · criptografía y procedencia ----------
 
-async function capaCriptografia(eje, vista, ev, id, libro, enEje) {
+async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   const r = motivos();
   const esGenesis = ev.contexto?.genesis === true;
 
   // El id es el hash del cuerpo canónico: si no corresponde, el registro no es el que dice ser.
-  let idCorrecto = false;
   if (id === SIN_ID) r.falla('sin id');
-  else {
-    try { idCorrecto = await verificarId(ev); } catch { idCorrecto = false; }
-    if (!idCorrecto) r.falla('el id no corresponde al cuerpo: el registro no es el que dice ser');
-  }
+  else if (!idCorrecto) r.falla('el id no corresponde al cuerpo: el registro no es el que dice ser');
 
   // Firma: verificada si el autor tiene clave; sin clave, sin firma (salvo que el eje exija firmas).
   const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.claves.get(ev.autor);
+  const conAlta = esGenesis || libro.identidades.has(ev.autor);
   let firma;
   if (clave) {
     if (!ev.firma) { firma = 'ausente'; r.falla('firma ausente de ' + ev.autor + ': tiene clave'); }
     else if (ev.firmante !== ev.autor) { firma = 'de otro'; r.falla('firmado por ' + ev.firmante + ', no por el autor ' + ev.autor); }
     else if (!(await verificar(ev, clave))) { firma = 'inválida'; r.falla('firma inválida de ' + ev.autor); }
     else firma = 'verificada';
-  } else if (ev.firma) {
+  } else if (ev.firma && !conAlta) {
+    // La clave puede llegar con el alta del autor; entonces se podrá verificar.
     firma = 'sin verificar';
-    r.pendiente('firmado, pero ' + ev.autor + ' no tiene clave registrada contra la que verificar');
+    r.pendiente('firmado, pero ' + ev.autor + ' aún no tiene alta: su clave puede llegar con ella');
   } else if (eje.exigirFirmas) {
-    firma = 'ausente';
+    firma = ev.firma ? 'sin verificar' : 'ausente';
     r.falla('el eje exige firmas y ' + ev.autor + ' no tiene clave');
   } else {
-    firma = 'sin firma';
+    // G1 ([X] docs/VALIDEZ.md §8): sin clave no se exige firma. Una firma que
+    // nunca podrá verificarse (el autor ya tiene alta y su clave no se puede
+    // añadir) no prueba nada: cuenta como sin firma.
+    firma = ev.firma ? 'sin verificar' : 'sin firma';
   }
 
   // Procedencia del registro: su foco (el hilo hasta el génesis) y su autor.
@@ -260,49 +312,23 @@ async function capaCriptografia(eje, vista, ev, id, libro, enEje) {
     }
   }
 
-  // Referencias: las del payload se siguen con el encaje; las del contexto (fuentes, evidencia) se buscan.
-  const referencias = [];
-  recorrer(ev.payload, (nodo, c) => {
-    if (c.length > ARIDAD || !esReferencia(nodo)) return;
-    const s = seguir(vista, nodo);
-    const ref = { desde: 'payload', camino: c, ref: nodo.ref, dir: nodo.dir ?? RAIZ, procedencia: s.procedencia };
-    if (s.rota && !vista.obtener(s.evento)) {
-      ref.estado = 'pendiente';
-      r.pendiente(camino(c) + ': referencia a un evento ausente del eje: ' + corto(s.evento));
-    } else if (s.rota) {
-      ref.estado = 'falla';
-      r.falla(camino(c) + ': cadena de referencias sin fin desde ' + corto(nodo.ref));
-    } else if (s.contenido === undefined) {
-      ref.estado = 'pendiente';
-      r.pendiente(camino(c) + ': posición sin desarrollar en ' + corto(s.evento) + ':' + s.dir);
-    } else {
-      ref.estado = 'ok';
-    }
-    referencias.push(ref);
-  });
-  for (const campo of ['fuentes', 'evidencia']) {
-    for (const x of lista(ev.contexto?.[campo])) {
-      const hay = typeof x === 'string' && Boolean(eje.obtener(x));
-      referencias.push({ desde: 'contexto.' + campo, ref: x, estado: hay ? 'ok' : 'pendiente' });
-      if (!hay) r.pendiente(campo + ': ' + corto(x) + ' ausente del eje');
-    }
-  }
-
-  const resueltas = referencias.filter((x) => x.estado === 'ok').length;
-  const textoFirma = firma === 'verificada' ? 'firma verificada de ' + ev.autor : firma === 'sin firma' ? 'sin firma (' + ev.autor + ' no tiene clave)' : 'firma ' + firma;
+  const textoFirma = firma === 'verificada' ? 'firma verificada de ' + ev.autor
+    : firma === 'sin firma' ? 'sin firma (' + ev.autor + ' no tiene clave)'
+      : firma === 'sin verificar' ? 'firma sin verificar (' + ev.autor + ' no tiene clave)'
+        : 'firma ' + firma;
   const resumen = [
     idCorrecto ? 'id correcto' : 'id incorrecto',
     textoFirma,
     esGenesis ? 'génesis' : 'foco ' + (libro.ids.has(ev.sobre) ? 'en el eje' : 'ausente'),
-    referencias.length ? resueltas + ' de ' + referencias.length + ' referencias resuelven' : 'sin referencias',
   ].join(' · ');
-  return parte(3, r.estado, r.textos, resumen, { idCorrecto, firma, firmante: ev.firmante ?? null, clavesDeclaradas, referencias, enEje });
+  return parte(3, r.estado, r.textos, resumen, { idCorrecto, firma, firmante: ev.firmante ?? null, clavesDeclaradas, enEje });
 }
 
 // ---------- 4 · acreditación material (el respaldo en el libro) ----------
 
 function capaAcreditacion(eje, ev, libro) {
   const r = motivos();
+  const esGenesis = ev.contexto?.genesis === true;
   const vista = new Map();
   const ver = (id, k) => (vista.has(llave(id, k)) ? vista.get(llave(id, k)) : saldoEn(libro, id, k));
   const poner = (id, k, v) => vista.set(llave(id, k), v);
@@ -310,18 +336,22 @@ function capaAcreditacion(eje, ev, libro) {
   const serie = (k) => emitido.get(k) ?? libro.series.get(k);
   const movimientos = [];
   const movs = lista(ev.movimientos);
-  if (!movs.length) r.pendiente('sin movimientos que respaldar (capa 1)');
+  // Un evento no cambia: lo que no se puede comprobar ahora no se podrá nunca, así que falla (no pendiente).
+  if (!movs.length) r.falla('sin movimientos: no hay respaldo que comprobar (todo evento mueve T; capa 1)');
   movs.forEach((m, i) => {
     const fila = { i, clave: null, de: m?.de ?? null, a: m?.a ?? null, cantidad: m?.cantidad, estado: 'ok' };
     movimientos.push(fila);
     const mal = (estado, texto) => { fila.estado = estado; fila.motivo = texto; r[estado]('movimiento ' + i + ': ' + texto); };
-    if (validarMovimiento(m).length) return mal('pendiente', 'mal formado (capa 1): su respaldo no se comprueba');
+    if (validarMovimiento(m).length) return mal('falla', 'mal formado (capa 1): su respaldo no se puede comprobar');
     const k = claveToken(m);
     fila.clave = k;
     if (m.de === null) {
-      // Emisión: la respalda su emisor. En E y R el emisor va en la serie; en T y P, la serie es de quien la inició.
+      // Emisión. T y P: sus series solo las respalda el génesis (tokens.js), así
+      // que fuera de él una emisión de T o de P no tiene respaldo. E y R: las
+      // respalda su emisor, que va en la serie.
+      if (!esEoR(m) && !esGenesis) return mal('falla', 'la serie ' + k + ' solo la respalda el génesis: esta emisión no tiene respaldo');
       const s = serie(k);
-      const emisor = esEoR(m) ? m.emisor : s?.emisor ?? ev.autor;
+      const emisor = esEoR(m) ? m.emisor : ev.autor;
       if (emisor !== ev.autor) return mal('falla', 'la serie ' + k + ' es de ' + emisor + ' y la emite ' + ev.autor + ': nadie la respalda en nombre de otro');
       const total = (s?.emitido ?? 0) + m.cantidad;
       if (!Number.isFinite(total)) return mal('falla', 'la serie ' + k + ' no admite tanto');
@@ -360,6 +390,9 @@ function permisoDelLibro(ev, libro) {
         if (m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
       } else if (m.token === 'T' || m.token === 'P') {
         r.falla('movimiento ' + i + ': solo el génesis emite ' + m.token);
+      } else if (m.emisor !== ev.autor) {
+        // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
+        r.falla('movimiento ' + i + ': nadie emite en nombre de otro: ' + m.emisor + ' no es el autor');
       } else {
         const tipo = libro.tipos.get(ev.autor);
         if (!EMITEN.includes(tipo)) r.falla('movimiento ' + i + ': solo personas y grupos emiten: ' + ev.autor + (tipo ? ' es ' + tipo : ' no declaró tipo en su alta'));
@@ -407,11 +440,15 @@ function faltasDeEjecucion(eje, ev) {
   const validas = new Set(autorizacionesValidas(eje, c.id).map((a) => a.id));
   const faltas = [];
   if (!evidencia.some((x) => validas.has(x))) faltas.push(['falla', 'su evidencia no incluye una autorización válida: ejecutar exige autorización']);
-  const ausentes = evidencia.filter((x) => !eje.obtener(x));
-  if (ausentes.length) faltas.push(['pendiente', 'evidencia ausente del eje: ' + ausentes.map(corto).join(', ')]);
+  // Si un id de la evidencia no está en el eje, lo dice la capa 2 (referencias del contexto).
   return faltas;
 }
 
+/**
+ * La fábrica vista desde este registro. Con `enEje` (el registro del eje con
+ * ese id, no una copia manipulada), el estado del motor es el del eje; si no,
+ * se lee como un borrador: lo que diría el motor si entrara.
+ */
 function permisoDelMotor(eje, ev, id, enEje) {
   const fase = ev.contexto?.fase;
   const r = motivos();
@@ -428,8 +465,9 @@ function permisoDelMotor(eje, ev, id, enEje) {
     let texto = estadoMotor;
     if (!ESTADO_MOTOR[estadoMotor]) r.pendiente('estado del motor sin traducir a esta capa: ' + estadoMotor);
     else if (estadoMotor === 'PENDIENTE DE AUTORIZACIÓN') {
-      texto += ' · ' + quienes;
-      r.pendiente(estadoMotor + (enEje ? '' : ' (aún no está en el eje)') + ' · ' + quienes + ' (regla V0)');
+      const comoBorrador = enEje ? '' : ' (no está en el eje: se lee como borrador)';
+      texto += comoBorrador + ' · ' + quienes;
+      r.pendiente(estadoMotor + comoBorrador + ' · ' + quienes + ' (regla V0)');
       // Lo escrito por quien no puede explica por qué sigue pendiente; no cambia el estado.
       for (const e of noCuentan) r.pendiente('«autorizado» de ' + e.autor + ' que no cuenta: ' + faltasDeAutorizacion(eje, e).map(([, t]) => t).join('; '));
     } else if (estadoMotor === 'AUTORIZADO') {
@@ -494,6 +532,10 @@ async function protegida(n, fn) {
  * lee (la época 0 por defecto): la época está fuera del dato. No escribe
  * nada ni toca el evento.
  *
+ * `enEje` dice si el registro es el del eje: su id está en el eje y
+ * corresponde a su cuerpo. Una copia con el mismo id y otro cuerpo no lo es:
+ * se lee como un borrador, con el libro y el motor de ahora.
+ *
  * Devuelve { id, enEje, epoca, capas: [5 partes], forma, interpretacion,
  * criptografia, acreditacion, permiso, resumen }.
  */
@@ -503,14 +545,18 @@ export async function validez(eje, evento, { epoca = EPOCA_0 } = {}) {
   const ev = typeof evento === 'string' ? eje.obtener(evento) : evento;
   if (!ev || typeof ev !== 'object') throw new Error('registro desconocido: ' + corto(evento));
   const id = typeof ev.id === 'string' && ev.id ? ev.id : SIN_ID;
-  const indice = eje.orden.indexOf(id);
+  let idCorrecto = false;
+  if (id !== SIN_ID) {
+    try { idCorrecto = await verificarId(ev); } catch { idCorrecto = false; }
+  }
+  const indice = idCorrecto ? eje.orden.indexOf(id) : -1;
   const enEje = indice >= 0;
   const libro = libroAntes(eje, enEje ? indice : eje.orden.length);
   const vista = vistaCon(eje, ev, id);
   const capas = [
     await protegida(1, () => capaForma(ev, epoca)),
-    await protegida(2, () => capaInterpretacion(vista, ev, id)),
-    await protegida(3, () => capaCriptografia(eje, vista, ev, id, libro, enEje)),
+    await protegida(2, () => capaInterpretacion(eje, vista, ev, id)),
+    await protegida(3, () => capaCriptografia(eje, ev, id, libro, enEje, idCorrecto)),
     await protegida(4, () => capaAcreditacion(eje, ev, libro)),
     await protegida(5, () => capaPermiso(eje, ev, libro, id, enEje)),
   ];
