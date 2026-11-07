@@ -83,3 +83,9 @@ test('movimientos inválidos', () => {
   assert.ok(validarMovimiento({ token: 'E', emisor: 'a', denominacion: 'EUR', cantidad: 1, de: 'a' }).length);
   assert.ok(validarMovimiento({ token: 'E', emisor: 'a', denominacion: 'EUR', cantidad: Infinity, de: 'a', a: 'b' }).length);
 });
+
+test('los separadores de las claves de serie están reservados', () => {
+  assert.ok(validarMovimiento({ token: 'E', denominacion: 'EUR', emisor: 'casa', cantidad: 1, de: 'a|b', a: 'c' }).some((e) => /no puede llevar/.test(e)));
+  assert.ok(validarMovimiento({ token: 'E', denominacion: 'x/y', emisor: 'casa', cantidad: 1, de: 'casa', a: 'c' }).some((e) => /no puede llevar/.test(e)));
+  assert.ok(validarMovimiento({ token: 'P', ambito: 'a:b', cantidad: 1, de: 'casa', a: 'c' }).some((e) => /no puede llevar/.test(e)));
+});
