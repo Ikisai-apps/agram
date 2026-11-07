@@ -9,7 +9,7 @@ Las cinco capas vienen del corpus V2 y se conservan en V3 y V4. El mapa global l
 - V4 `06_EPOCAS_TIEMPO_EPRT_Y_FRONTERAS.md` l.33–41: las cinco capas, y «PV5 permite inspeccionar señales, no garantizar las cinco capas».
 - Contrato v0.2 l.293: «Los estados pueden coexistir por campo o afirmación. No colapsarlos en una puntuación global inventada.»
 
-La nota de lectura `docs/notas/CAPAS_DE_VALIDEZ.md` (PR #39, abierta) recoge las citas y las opciones A–J. Esta pieza corresponde a la opción B, un módulo de solo lectura, con el vocabulario `ok`/`pendiente`/`falla` del encargo. La opción C, pintar las capas en PV5, queda fuera de esta pieza.
+La nota de lectura `docs/notas/CAPAS_DE_VALIDEZ.md` recoge las citas y las opciones A–J. Esta pieza corresponde a la opción B, un módulo de solo lectura, con el vocabulario `ok`/`pendiente`/`falla` del encargo. También responde al hallazgo C29 de `docs/notas/AUDITORIA_AJUSTE.md` («no se sabe qué capa falló»), sin tocar `eje.validar`. La opción C, pintar las capas en PV5, queda fuera de esta pieza.
 
 ## 1. Principios que el código respeta
 
@@ -97,7 +97,7 @@ Motor → capa 5 (`ESTADO_MOTOR`):
 
 Cada registro se lee en su lugar del eje. Si el evento está en el eje (un evento con su id), el libro (saldos, series, claves y tipos) se rehace con los eventos anteriores a él, así que las capas 3, 4 y 5 dicen lo que valía cuando entró. Si no está, se lee con el libro de ahora. El libro se rehace leyendo `eje.orden`, sin tocar el eje; el poder P se descuenta igual que en el eje, del ámbito más concreto al más amplio (`eje.ambitosQueCubren`).
 
-La excepción es quién puede autorizar. Se calcula con el poder de ahora, igual que hace el motor (`puedeAutorizar`, `autorizacionesValidas`, `estadoDe`): si la casa delega todo su P después de autorizar, su autorización deja de contar. Es la regla V0 tal como está (ver [X] 8 en el §8).
+La excepción es quién puede autorizar. Se calcula con el poder de ahora, igual que hace el motor (`puedeAutorizar`, `autorizacionesValidas`, `estadoDe`): si la casa delega todo su P después de autorizar, su autorización deja de contar. Es la regla V0 tal como está (ver el punto 8 del §8).
 
 ## 6. Lo que el eje rechaza, por capa
 
@@ -171,11 +171,11 @@ Lo que el mapa no decide y aquí no se inventa. El código toma la opción indic
 
 1. **Vocabulario.** `ok`/`pendiente`/`falla` es el vocabulario de trabajo del encargo. La nota (opción D) lista cuatro candidatos del corpus y ninguno está ratificado. Cambiarlo toca `ESTADOS_CAPA`, `ESTADO_MOTOR` y `estadoDeBql`.
 2. **Grano.** Hoy es el registro. La nota (opción E) propone bajar las capas 2 y 3 a posición u ocupante. Las fórmulas y las referencias ya salen una a una en el detalle.
-3. **Capa 4 en `ok` cuando el libro respalda.** El encargo pide el respaldo en el libro; el corpus pide evidencia externa. Hoy la capa queda en `ok` y dice «externa: sin acreditar». La alternativa (opción F1 de la nota) es dejarla en `pendiente` mientras no haya nada externo.
+3. **Capa 4 en `ok` cuando el libro respalda.** El encargo pide el respaldo en el libro; el corpus pide evidencia externa. Hoy la capa queda en `ok` y dice «externa: sin acreditar». Hay dos alternativas: dejarla en `pendiente` mientras no haya nada externo (opción F1 de la nota) o marcarla siempre «no comprobada» (auditoría, C29).
 4. **Autor sin clave.** Hoy la capa 3 queda en `ok` con «sin firma» (opción G1). Las alternativas: exigir firmas (G2) o exigir prueba de posesión de la clave al dar de alta (G3).
 5. **`EJECUTADO` en `ok`.** Hoy significa que la transición de tokens entró en el eje, no que ocurrió fuera. Falta saber quién declara el resultado (opción H de la nota) y si esa declaración pertenece a la capa 4 o a la 5.
-6. **Más de diez profundidades = falla.** Es una lectura del [A] del MAPA §2.1 («al agotar diez niveles se cambia de foco»). El eje lo admite hoy.
+6. **Más de diez profundidades = falla.** Es una lectura del [A] del MAPA §2.1 («al agotar diez niveles se cambia de foco»). El eje lo admite hoy. La auditoría (F1) pide un estado común en todos los módulos; las PR abiertas difieren: la #36 da PENDIENTE y la #43 da ERROR.
 7. **`INCOMPATIBLE` → falla.** Podría ser `pendiente` si se entiende que falta una conversión. Hoy no hay conversiones y BQL lo trata como fallo de tipos.
-8. **Quién pudo autorizar.** Hoy se calcula con el P de ahora, como el motor. Leerlo con el P del momento de la autorización cambiaría también `motor.estadoDe`.
+8. **Quién pudo autorizar.** Hoy se calcula con el P de ahora, como el motor. Leerlo con el P del momento de la autorización cambiaría también `motor.estadoDe`. Es la misma pregunta que deja abierta la auditoría (§2, motor).
 9. **La capa 5 exige autorización en la evidencia de una ejecución y `estadoDe` no** (`docs/MOTOR.md` §13.2). Falta decidir si se arregla en el motor (`src/motor.js` lo tocan las PR #21, #40 y #42).
 10. **Exponer las capas.** Hay dos piezas pendientes, fuera de esta PR para no chocar con otras: exportar `validez` en `src/index.js` (la PR #44 lo toca) y pintarlo en PV5 (opción C de la nota, `app.js`).
