@@ -2,12 +2,14 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado cubre la cruz entera y entra
-// con Mapped: los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el
-// camino del 9 y la cruz con el 5 en el centro (mundos/cruz-ui.js).
+// en el navegador. Render sobrio; el animado entra con Mapped y cubre la
+// cruz entera: los hilos del 6 y 7 (mundos/hilos-ui.js), el cielo del 8, el
+// camino del 9 y la cruz con el 5 en el centro (mundos/cruz-ui.js); y la X:
+// fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 (mundos/x-ui.js).
 
 import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
 import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
+import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, PV, RAIZ,
@@ -31,6 +33,7 @@ const CLAVE_FOCO = 'agram.foco';
 const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
 instalarHilos({ pintar }); // botones «animado» y «ver los hilos»
 instalarCruz({ estado, pintar, irA, privadaDe, guardar, fallo, chip: chipTemporal, mensajes }); // cielo 8, camino 9 y «ver la cruz»
+instalarX({ pintar, irA: (id) => irA(id) }); // «ver la X», «reproducir la llegada» y los registros del SVG de la vista
 
 function corto(id) {
   return id.slice(0, 8);
@@ -248,7 +251,7 @@ function celdaMapa(m, i, eje67, comp) {
   let accion = `data-posicion="${i}"`;
   if (Array.isArray(ct)) accion = `data-desarrollar="${i}"`;
   else if (esReferencia(ct)) accion = `data-ir="${ct.ref}" data-dir="${ct.dir ?? ''}"`;
-  return `<button class="celda esquina ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
+  return `<button class="celda esquina c${i} ${ct === undefined ? 'vacia' : ''}" ${accion}><div class="pvn">${i} ${c.significado}</div>
     <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
@@ -328,6 +331,7 @@ function pintar() {
   else pintarSequenced();
   trasPintarHilos(estado); // en animado, los hilos en las celdas 6 y 7 de Mapped
   trasPintarCruz(estado); // después de los hilos: el cielo y el camino en las celdas 8 y 9, y la cruz si está abierta
+  trasPintarX(estado); // después de la cruz: en animado, la X en las celdas 1–4 y 0 de Mapped
   pintarSaldos();
   trasPintarEpocas();
   trasPintarFabrica(estado);

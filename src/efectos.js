@@ -120,8 +120,8 @@ function ocupantesPrevios(eje, ev, foco, en) {
  * su camino es el de `en` sin ceros finales. Clase 0: ver si el registro es
  * una referencia a su foco; sustituir si colisiona; anclado si es el primero.
  */
-function efectoDelRegistro(eje, ev, foco, en) {
-  const sitio = situar(indicesDe(en), []);
+function efectoDelRegistro(eje, ev, foco, en, marco = []) {
+  const sitio = situar(indicesDe(en), marco);
   if (!foco) return { tipo: 'escrito', ...sitio, ruta: [], colisiona: 0, con: [] };
   const con = ocupantesPrevios(eje, ev, foco, en);
   const verFoco = esReferencia(ev.payload) && ev.payload.ref === ev.sobre;
@@ -144,18 +144,19 @@ function marcasDe(lista) {
 
 /**
  * Celdas de un array: cada nodo cuya dirección (`en` seguido de su ruta)
- * llega a la profundidad 3, o un terminal antes; lo que cuelga más hondo es
- * contenido de esa celda. La posición 0, 0.0… es la representación del
+ * llega a la profundidad 3 tras el marco (3 desde la raíz), o un terminal
+ * antes; lo que cuelga más hondo es contenido de esa celda. La posición 0, 0.0… es la representación del
  * registro: colisiona con él en su dirección (encaje.caminosDe) y no da un
  * efecto aparte.
  */
-function celdasDe(ev, en) {
+function celdasDe(ev, en, marco = []) {
   if (!Array.isArray(ev.payload)) return [];
+  const hondo = marco.length + MATRIZ;
   const base = indicesDe(en);
   const celdas = [];
   const recorrer = (nodo, ruta) => {
     const camino = [...base, ...ruta];
-    if (Array.isArray(nodo) && camino.length < MATRIZ) {
+    if (Array.isArray(nodo) && camino.length < hondo) {
       nodo.forEach((h, x) => recorrer(h, [...ruta, x]));
       return;
     }
@@ -277,11 +278,32 @@ export function verEn(efecto, mundo) {
 // ---------- efectos ----------
 
 /**
+ * El marco desde el que se lee un registro: el que pide quien mira si `en`
+ * está en él o bajo él (el marco es exacto: [1, 0] no es [1]) y deja sitio a
+ * la clase; si no, la raíz del foco.
+ */
+function marcoDeLectura(en, marco) {
+  if (marco === undefined) return [];
+  const m = comoCamino(marco);
+  if (!m.length || m.length + 2 >= ARIDAD) return [];
+  const camino = indicesDe(en);
+  return camino.length >= m.length && m.every((x, k) => camino[k] === x) ? [...m] : [];
+}
+
+/**
  * Efectos de un evento (o de su id): el registro entero, lo que trae dentro,
  * los movimientos de tokens y la fase del motor, en ese orden. No escribe ni
  * guarda nada.
+ *
+ * `marco` (opcional): el camino del foco desde el que mira quien lee, como
+ * lista de índices o dirección. Si el registro está anclado en él o bajo él,
+ * su registro y sus celdas se sitúan desde ese marco (mapa §13 [D]: la
+ * clase es el dígito n+2) y lo que trae dentro se lee hasta la profundidad 3
+ * tras el marco; si no, desde la raíz, como sin marco. Cada efecto dice en
+ * `marco` desde dónde se leyó. Las fases del motor no cambian: se leen en la
+ * fábrica de su camino.
  */
-export function efectosDe(eje, evento) {
+export function efectosDe(eje, evento, { marco } = {}) {
   const ev = typeof evento === 'string' ? eje?.obtener(evento) : evento;
   if (!ev || typeof ev !== 'object') throw new Error('evento desconocido: ' + String(evento).slice(0, 8));
   const en = ev.en ?? RAIZ;
@@ -296,15 +318,18 @@ export function efectosDe(eje, evento) {
   // Fuera de la raíz, el registro no dice desde qué camino se escribió.
   const sinCamino = en === RAIZ ? [] : [MARCAS_EFECTO.marco];
   const fase = FASES_MOTOR.includes(ev.contexto?.fase) && foco ? ev.contexto.fase : null;
+  const lectura = marcoDeLectura(en, marco);
+  // Leído desde el camino de quien mira: tampoco es seguro que se escribiera desde él.
+  const sinCaminoLeido = lectura.length ? [MARCAS_EFECTO.marcoLectura] : sinCamino;
 
   if (!fase) {
-    anadir(efectoDelRegistro(eje, ev, foco, en), sinCamino);
+    anadir(efectoDelRegistro(eje, ev, foco, en, lectura), sinCaminoLeido);
     const vistas = marcasDe(ev.contexto?.vistas);
     const heredadas = marcasDe(ev.contexto?.heredadas);
-    for (const c of celdasDe(ev, en)) {
-      const sitio = situar(c.camino, []);
+    for (const c of celdasDe(ev, en, lectura)) {
+      const sitio = situar(c.camino, lectura);
       const tipo = tipoDeCelda(ev, c, sitio.clase, vistas, heredadas);
-      if (tipo) anadir({ tipo, ...sitio, ruta: c.ruta }, [MARCAS_EFECTO.matriz, ...sinCamino]);
+      if (tipo) anadir({ tipo, ...sitio, ruta: c.ruta }, [MARCAS_EFECTO.matriz, ...sinCaminoLeido]);
     }
   }
 
@@ -332,8 +357,8 @@ export function efectosDe(eje, evento) {
 }
 
 /** Efectos de todo el eje, evento a evento en orden de entrada. */
-export function efectosDelEje(eje) {
-  return eje.orden.flatMap((id) => efectosDe(eje, id));
+export function efectosDelEje(eje, opciones) {
+  return eje.orden.flatMap((id) => efectosDe(eje, id, opciones));
 }
 
 // ---------- renders ----------
