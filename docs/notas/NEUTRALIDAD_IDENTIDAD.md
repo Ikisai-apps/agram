@@ -2,7 +2,7 @@
 
 Nota de estudio · 7-11-2026 (noche) · Base: `main` en fef5438 · Prueba: `test/neutralidad.test.js` · No cambia el núcleo ni decide nada: lo que no está decidido va marcado **[X] decidir VG**. Actualización (7-11 noche): VG decidió R2 y está implementada (§4, §7).
 
-> **Actualización (7-11 noche, después del estudio).** VG decidió R5 («autorizar = bloquear P con el umbral del dueño») y R3 («P:X es una serie cerrada»), y las dos están **implementadas** (`src/autorizacion.js`, `src/motor.js`, `src/ciclo.js`; `docs/MOTOR.md` §4). NEU-01 y NEU-02 ya no se saltan. Con R2 (#67), son tres las implementadas; las demás siguen sin implementar.
+**Estado.** VG aceptó la regla madre (§4) el 7-11 noche. Están en el código R2 (#67), R3 y R5 («autorizar = bloquear P con el umbral del dueño», «P:X es una serie cerrada»: `src/autorizacion.js`, `src/motor.js`, `src/ciclo.js`, `docs/MOTOR.md` §4) y R8, R9 y R10 (#68: `src/elegibles.js`, `src/eje.js`, `src/autoridad.js`, `src/validez.js`, `src/ciclo.js`; pruebas en `test/neutralidad-reglas.test.js`). NEU-01, NEU-02, NEU-03, NEU-04, NEU-07 y NEU-08 ya no se saltan. Lo que necesita criterio de VG (R6 lente de R, y los [X] de R2, R3 y R5) sigue abierto. El resumen está en `docs/FUNDAMENTOS.md` («Neutralidad»).
 
 Rutas abreviadas: `MAPA` = el mapa global de AGRAM (`MUELA/equipo/agram/MAPA_GLOBAL_AGRAM.md`, fuera del repositorio), §12 y §14; `AUDITORIA` = `90_FUENTES_CONSULTA/STATE_Auditoria_PV1_PV4_Recuperacion_Historica_2026-10-20.md` del corpus V2 (§4–§7); `EPRT` = `02_CONTEXTO/05_PROTOCOLOS_EPRT_Y_VERIFICACION.md` del mismo corpus.
 

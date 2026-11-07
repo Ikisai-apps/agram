@@ -6,6 +6,19 @@
 // las reglas de src/ciclo.js: T para sí mismas con el tope del reloj, y R, P y
 // E escalonados. Un movimiento puede bloquear o liberar tokens sin cambiar de
 // titular: el saldo es lo disponible y lo bloqueado se lleva aparte.
+//
+// Sin clave no se actúa (R9, docs/notas/NEUTRALIDAD_IDENTIDAD.md §4; regla
+// madre aceptada por VG, 7-11 noche): una identidad sin clave registrada no
+// escribe, así que no mueve tokens, no autoriza ni escribe bases (todo evento
+// mueve T de su autor). El génesis declara la clave de su autor y va firmado
+// con ella, y cada clave que declara un alta llega con su prueba de posesión
+// (`posesion`: la clave nueva firma el id del alta). Un eje marcado como
+// DEMOSTRACIÓN en su génesis (`contexto.demostracion: true`) conserva lo de
+// antes: sin clave no se firma, y la prueba de posesión es opcional (si va,
+// se comprueba). Los ejemplos de Ikisai y la interfaz son de demostración.
+// El tipo (persona, grupo, cosa) solo dice quién firma emisiones (R10): fuera
+// de esta validación y de src/ciclo.js nada lo lee para conceder algo.
+//
 // La E va atada al registro del recurso, con un tope compartido igual a su
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
@@ -15,7 +28,7 @@ import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
-import { verificar, firmar, clavePublicaValida } from './autoridad.js';
+import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
 const PREFIJO = 4;
@@ -27,6 +40,8 @@ export class Eje {
   #emitidoT;
   #hijosEn;
   #prefijos;
+  #porAutor = new Map(); // id → Map(en → Map(autor → los eventos anclados ahí por ese autor, en orden de entrada))
+  #llegada = new Map(); // id → su número de entrada en el eje (0 el génesis)
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
   #porSalida = new Map(); // salida → Map(clave → Map(identidad → cantidad bloqueada)): el índice de bloqueadoCon y bloqueosCon
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
@@ -51,6 +66,8 @@ export class Eje {
     this.#emitidoT = new Map(); // JSON [persona, escala] → T emitido fuera del génesis (para el tope del reloj)
     this.exigirFirmas = exigirFirmas;
     this.eventosV2 = eventosV2;
+    // Lo marca el génesis (contexto.demostracion) al aplicarse; un eje que no lo dice no es de demostración.
+    this.demostracion = false;
   }
 
   /**
@@ -58,8 +75,11 @@ export class Eje {
    * a la primera identidad y fija el foco raíz (payload). `tipo` declara qué es
    * esa identidad: una persona (VG, 7-11 noche: solo las personas emiten), o
    * nada, como antes, y entonces no emite después del génesis.
+   * Sin clave no se actúa (R9): el génesis lleva `clave` y `privada` de su
+   * autor, salvo que se cree como `demostracion: true` (queda en su
+   * contexto y se ve en la interfaz), que conserva lo de antes: sin claves.
    */
-  static async genesis({ identidad, emision, foco, t = new Date().toISOString(), contexto = {}, clave, privada, tipo, exigirFirmas = false }) {
+  static async genesis({ identidad, emision, foco, t = new Date().toISOString(), contexto = {}, clave, privada, tipo, exigirFirmas = false, demostracion = false }) {
     const eje = new Eje({ exigirFirmas });
     // El génesis emite libremente a su identidad; sus series de E y de R quedan a su nombre.
     const deEmisor = (m) => m.token === 'E' || m.token === 'R';
@@ -70,7 +90,7 @@ export class Eje {
       t,
       movimientos,
       payload: foco,
-      contexto: { ...contexto, genesis: true, ...(clave ? { claves: { [identidad]: clave } } : {}), ...(tipo ? { tipos: { [identidad]: tipo } } : {}) },
+      contexto: { ...contexto, genesis: true, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}), ...(tipo ? { tipos: { [identidad]: tipo } } : {}) },
     });
     if (privada) ev = await firmar(ev, privada);
     // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella.
@@ -398,12 +418,23 @@ export class Eje {
       else if (!(await verificar(ev, clave))) errores.push('firma inválida de ' + ev.autor);
     } else if (this.exigirFirmas) {
       errores.push('autor sin clave: ' + ev.autor);
+    } else if (this.#exigeClave()) {
+      // R9: sin clave no se actúa (mover tokens, autorizar, escribir bases: todo evento mueve T de su autor).
+      errores.push('sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)');
     }
-    // Las claves que declara el evento solo pueden ser de identidades nuevas (que reciben tokens en él).
-    for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) {
+    // Las claves que declara el evento solo pueden ser de identidades nuevas (que reciben tokens en él),
+    // y llegan con su prueba de posesión (R9): la clave nueva firma el id del alta.
+    const declaradas = ev.contexto?.claves ?? {};
+    for (const [id, jwk] of Object.entries(declaradas)) {
       if (this.claves.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar la clave de ' + id);
       else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
       else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
+      else if (!Object.hasOwn(ev.posesion ?? {}, id)) {
+        if (this.#exigeClave()) errores.push('la clave de ' + id + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
+      } else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
+    }
+    for (const id of Object.keys(ev.posesion ?? {})) {
+      if (!Object.hasOwn(declaradas, id)) errores.push('prueba de posesión de ' + id + ' sin clave declarada para él en este evento');
     }
     // Igual con los tipos: se declaran en el alta y no cambian.
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
@@ -532,9 +563,23 @@ export class Eje {
     return ev;
   }
 
-  /** Crea, valida y añade en un paso. Con `privada`, firma antes de añadir. */
-  async escribir(datos, privada) {
+  /**
+   * ¿Rige aquí «sin clave no se actúa» (R9)? Sí, salvo en un eje de
+   * demostración y en los eventos del prefijo de la versión 2, que se validan
+   * con las reglas de entonces.
+   */
+  #exigeClave() {
+    return !this.demostracion && this.orden.length >= this.eventosV2;
+  }
+
+  /**
+   * Crea, valida y añade en un paso. Con `privada`, firma antes de añadir.
+   * `posesion` ({ identidad: privada }) añade la prueba de posesión de cada
+   * clave que el evento declara en su contexto (R9): la clave nueva firma el id.
+   */
+  async escribir(datos, privada, posesion = {}) {
     let ev = await crearEvento(datos);
+    for (const [id, priv] of Object.entries(posesion)) ev = await firmarPosesion(ev, id, priv);
     if (privada) ev = await firmar(ev, privada);
     return this.anadir(ev);
   }
@@ -557,7 +602,29 @@ export class Eje {
     return this.#hijosEn.get(id)?.get(en)?.slice() ?? [];
   }
 
+  /**
+   * Escritos anclados en (`id`, `en`) cuyos autores están en `autores` (un
+   * Set), en orden de entrada: lo mismo que filtrar `sobre(id, en)` por autor,
+   * sin recorrer lo de los demás (R8: el ruido ajeno no cuesta al dueño).
+   */
+  sobreDe(id, en, autores) {
+    const porAutor = this.#porAutor.get(id)?.get(en);
+    if (!porAutor) return [];
+    const listas = [...autores].map((a) => porAutor.get(a)).filter(Boolean);
+    if (listas.length === 1) return listas[0].slice();
+    return listas.flat().sort((a, b) => this.#llegada.get(a.id) - this.#llegada.get(b.id));
+  }
+
+  /** Cuántos escritos hay anclados en (`id`, `en`), sin copiarlos. */
+  cuantosSobre(id, en) {
+    return this.#hijosEn.get(id)?.get(en)?.length ?? 0;
+  }
+
   #aplicar(ev) {
+    // Demostración: lo marca el génesis. Un eje que viene de la versión 2 es anterior a R9 (sus altas no podían
+    // probar la posesión de su clave) y se trata igual ([X] confirmar VG).
+    if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true || this.eventosV2 > 0;
+    this.#llegada.set(ev.id, this.orden.length);
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
     if (this.orden.length <= this.eventosV2) this.#prefijoV2.add(ev.id);
@@ -573,6 +640,13 @@ export class Eje {
       const porEn = this.#hijosEn.get(ev.sobre);
       if (!porEn.has(ev.en)) porEn.set(ev.en, []);
       porEn.get(ev.en).push(ev);
+      // El índice por autor (R8, sobreDe): id → en → autor → eventos.
+      if (!this.#porAutor.has(ev.sobre)) this.#porAutor.set(ev.sobre, new Map());
+      const enDe = this.#porAutor.get(ev.sobre);
+      if (!enDe.has(ev.en)) enDe.set(ev.en, new Map());
+      const deAutor = enDe.get(ev.en);
+      if (!deAutor.has(ev.autor)) deAutor.set(ev.autor, []);
+      deAutor.get(ev.autor).push(ev);
     }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tipos.set(id, tipo);
@@ -938,6 +1012,13 @@ function erroresGenesis(g, reglas = 3) {
   }
   for (const id of Object.keys(g.contexto?.claves ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');
+  }
+  // R9: sin clave no se actúa. Fuera de la demostración, el génesis declara la clave de su autor (y va firmado
+  // con ella: erroresFirmaGenesis, que es su prueba de posesión). Un eje guardado con la versión 2 no la conocía.
+  const demo = g.contexto?.demostracion;
+  if (demo !== undefined && demo !== true) errores.push('demostracion va como true o no va');
+  if (reglas !== 2 && demo !== true && !g.contexto?.claves?.[g.autor]) {
+    errores.push('sin clave no se actúa: el génesis declara la clave de su autor y va firmado con ella (o se crea como demostración, { demostracion: true })');
   }
   return errores;
 }

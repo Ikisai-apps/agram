@@ -199,6 +199,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   const t = '2026-11-07T10:00:00Z';
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: CASA,
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
@@ -283,6 +284,17 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     payload: structuredClone(HABITACION), // copia: el payload de un evento no comparte arrays con nadie
   }, priv('casa'));
 
+  // Oferta pública (R8, src/elegibles.js): la casa ancla en el 2.3 de la habitación (criterio · con quién) que
+  // `cualquiera` puede reservar. Así las reservas de quien sea son elegibles en sus plazas; elegible no es elegido.
+  const abierta = await eje.escribir({
+    autor: CASA,
+    sobre: habitacion.id,
+    en: '2300000000',
+    t,
+    movimientos: [minutos(CASA)],
+    payload: 'cualquiera',
+  }, priv('casa'));
+
   const temporada = await abrirTemporada(eje, habitacion, { noches, t, privada: priv('casa') });
 
   const reserva = await reservar(eje, {
@@ -294,7 +306,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     privada: priv('huesped'),
   });
 
-  const resultado = { eje, alta, dominio, alojamiento, delegacion, habitacion, temporada, reserva };
+  const resultado = { eje, alta, dominio, alojamiento, delegacion, habitacion, abierta, temporada, reserva };
   if (!confirmar) return resultado;
   return { ...resultado, ...(await confirmarReserva(eje, reserva, { claves })) };
 }

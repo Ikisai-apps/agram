@@ -42,7 +42,7 @@
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos } }.
 
 import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from './btml.js';
-import { ocupantes } from './encaje.js';
+import { ocupantesElegibles } from './elegibles.js';
 // BASES, CAJA y FRESCURA. Ciclo de importación (bases.js importa este módulo
 // para medir fórmulas): lo importado aquí solo se usa dentro de funciones.
 import {
@@ -436,6 +436,10 @@ function resolverId(ctx, v) {
  * la colisión entera (mapa §12 [D]). Cada ocupante pasa por el gancho de
  * autorización antes de exponerse. Más de `limites.candidatos` → PENDIENTE
  * POR LÍMITE: no se presenta como completo lo que no se examinó entero.
+ * Elegibilidad antes que límites (R8, src/elegibles.js): solo entran los
+ * ocupantes elegibles según el criterio del dueño del registro, y el límite
+ * se aplica a ellos. Los escritos que no lo son quedan en `noElegibles`, un
+ * recuento informativo de la colección que no entra en CONTAR ni en nada.
  */
 function buscar(ctx, evId, indices, { exacto, llegada }) {
   if (!ctx.eje.obtener(evId)) throw new Parada('PENDIENTE', 'evento ausente del eje: ' + evId.slice(0, 8));
@@ -443,7 +447,9 @@ function buscar(ctx, evId, indices, { exacto, llegada }) {
   const dir = direccion(indices);
   autorizar(ctx, evId, indices);
   // Orden por defecto: el del encaje (coincidencias de ruta, luego llegada). ORDENAR lo discute.
-  let lista = ocupantes(ctx.eje, evId, indices, { exacto, ...(llegada === undefined ? {} : { orden: 'llegada' }) });
+  const elegidos = ocupantesElegibles(ctx.eje, evId, indices, { exacto, ...(llegada === undefined ? {} : { orden: 'llegada' }) });
+  const { noElegibles } = elegidos;
+  let lista = elegidos.lista;
   if (llegada !== undefined) {
     // El ocupante k por llegada (VG, 7-11 noche): cada propio, elemento de lista o escrito es uno; lo que
     // alcanza una referencia va con ella, detrás, como en BUSCAR(n).
@@ -461,7 +467,7 @@ function buscar(ctx, evId, indices, { exacto, llegada }) {
   }));
   const tope = ctx.limites.candidatos;
   if (items.length > tope) throw limite('más de ' + tope + ' candidatos en ' + evId.slice(0, 8) + ':' + dir, { examinados: tope, de: items.length });
-  return col(items);
+  return noElegibles > 0 ? { ...col(items), noElegibles } : col(items);
 }
 
 /** Valor de un candidato, o de su subposición k... (leyendo fórmulas si las hay). Un elemento de lista se lee dentro de su lista. */
@@ -842,7 +848,8 @@ export function formato(v) {
     // Una lista (por hojas) se escribe con sus ocupantes, en su orden: 'ensalada · guiso · fruta'.
     case 'lista': return v.valor.map((x) => (esReferencia(x) ? '→ ' + x.ref.slice(0, 8) : typeof x === 'string' ? desescapar(x) : String(x))).join(' · ');
     case 'referencia': return '→ ' + v.valor.ref.slice(0, 8);
-    case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '');
+    case 'coleccion': return v.items.length + (v.items.length === 1 ? ' candidato' : ' candidatos') + (v.items.length ? ': ' + v.items.map((i) => i.origen + ' ' + i.evento.slice(0, 8)).join(' · ') : '')
+      + (v.noElegibles ? ' (y ' + v.noElegibles + ' no elegibles, sin contar)' : '');
     default: return '?';
   }
 }

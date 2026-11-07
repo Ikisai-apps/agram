@@ -340,7 +340,9 @@ function pintarMapped() {
 
 function pintarSaldos() {
   // Cada familia es una serie (T por escala, E por emisor y denominación, P por ámbito, R por emisor): ui/saldos.js.
-  $('#saldos').innerHTML = htmlSaldos(estado.eje) + `<div class="guardado">${escapar(estado.guardado)}</div>`;
+  // R9: un eje de demostración lo dice (su génesis lleva contexto.demostracion); fuera de él, sin clave no se actúa.
+  const demo = estado.eje.demostracion ? `<div class="guardado demostracion" title="contexto.demostracion del génesis">eje de demostración: aquí una identidad sin clave también escribe y mueve tokens; fuera de la demostración, sin clave no se actúa</div>` : '';
+  $('#saldos').innerHTML = demo + htmlSaldos(estado.eje) + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
 function pintar() {

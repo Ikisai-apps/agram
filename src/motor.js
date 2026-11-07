@@ -9,6 +9,7 @@
 import { direccion, esReferencia } from './btml.js';
 import { ocupantes, vector, signo, caminosDe } from './encaje.js';
 import { evaluar } from './bql.js';
+import { ocupantesElegibles } from './elegibles.js';
 import { escribirDesde, costeT } from './escritura.js';
 import { contarPosiciones } from './modos.js';
 import { AMBITO_GENESIS, SEGUNDOS, claveToken } from './tokens.js';
@@ -93,13 +94,17 @@ function resolverCrudo(payload, indices) {
  * candidatos. `maximo` limita cuántos se entregan por posición sin
  * esconder el resto: cada posición dice su `total` y si va `limitada`.
  * Una referencia a un evento ausente es un candidato PENDIENTE, no un ERROR.
+ * Elegibilidad antes que límites (R8, src/elegibles.js): los candidatos son
+ * los ocupantes elegibles según el criterio del dueño del foco, y `maximo` y
+ * `total` cuentan solo esos; los escritos que no lo son van en `noElegibles`,
+ * un recuento informativo que no puntúa.
  */
 export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {}) {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   return posiciones.map((i) => {
     const indices = [...camino, i];
-    const todos = ocupantes(eje, foco, indices, { epoca });
+    const { lista: todos, noElegibles } = ocupantesElegibles(eje, foco, indices, { epoca });
     const candidatos = todos.slice(0, maximo).map((o) => {
       // Lo que el encaje ya sabe pendiente (una referencia ausente) no se evalúa: no hay nada que leer.
       // El estado y el texto son los del camino exacto del ocupante (MAPA §12:
@@ -111,7 +116,7 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], e
       const etiqueta = visible.length > (o.camino ?? []).length ? evaluar(eje, o.evento, visible).texto : r.texto;
       return { ...o, estado: r.estado, texto: r.texto, etiqueta };
     });
-    return { posicion: i, dir: direccion(indices), candidatos, total: todos.length, limitada: candidatos.length < todos.length };
+    return { posicion: i, dir: direccion(indices), candidatos, total: todos.length, limitada: candidatos.length < todos.length, noElegibles };
   });
 }
 
@@ -240,8 +245,11 @@ export function poderParaBloquear(eje, identidad, consolidacion) {
  */
 export function puedeAutorizar(eje, identidad, consolidacion) {
   const c = typeof consolidacion === 'string' ? eje.obtener(consolidacion) : consolidacion;
-  return esConsolidacion(c) && poderParaBloquear(eje, identidad, c).length > 0;
+  return esConsolidacion(c) && conClave(eje, identidad) && poderParaBloquear(eje, identidad, c).length > 0;
 }
+
+/** Sin clave no se actúa (R9): fuera de un eje de demostración, solo autoriza quien tiene clave registrada. */
+const conClave = (eje, identidad) => eje.demostracion !== false || Boolean(eje.clave?.(identidad));
 
 /** El instante en que caduca lo que se autoriza en `t` con el plazo dado (una escala de T), o null sin plazo. */
 function caducidad(t, plazo) {

@@ -8,7 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 async function cadena(n) {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   let sobre = eje.genesisId;
   for (let i = 1; i <= n; i++) {
     const ev = await eje.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'paso ' + i });

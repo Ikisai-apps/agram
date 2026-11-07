@@ -33,6 +33,7 @@ const mueveE = (emisor, denominacion, cantidad, de, a) => ({ token: 'E', emisor,
  */
 async function mundo() {
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'raiz',
     tipo: 'persona',
     emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }],
@@ -77,8 +78,8 @@ test('solo emiten personas: un grupo, una cosa o quien no declaró tipo no emite
   await assert.rejects(eje.escribir({ autor: 'club', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('club'), emiteR('club', 1)] }), /solo las personas emiten: club es grupo/);
   await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('sala'), emiteR('sala', 1)] }), /solo las personas emiten: sala es cosa/);
   // El génesis lo emite una persona (o quien no declara tipo, como antes): ni un grupo ni una cosa.
-  await assert.rejects(Eje.genesis({ identidad: 'x', tipo: 'grupo', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser grupo/);
-  const sinTipo = await Eje.genesis({ identidad: 'x', emision: [{ token: 'T', escala: 'minuto', cantidad: 5 }], foco: 'g', t: T0 });
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'x', tipo: 'grupo', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser grupo/);
+  const sinTipo = await Eje.genesis({ demostracion: true, identidad: 'x', emision: [{ token: 'T', escala: 'minuto', cantidad: 5 }], foco: 'g', t: T0 });
   await assert.rejects(sinTipo.escribir({ autor: 'x', sobre: sinTipo.genesisId, t: T0, payload: 'x', movimientos: [gasta('x'), emiteR('x', 1)] }), /solo las personas emiten: x no declaró tipo en su alta/);
 });
 

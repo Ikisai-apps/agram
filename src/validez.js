@@ -26,9 +26,9 @@
 
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
-import { verificar } from './autoridad.js';
+import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, EMITEN_V2 } from './ciclo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
@@ -354,6 +354,9 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   // Firma: verificada si el autor tiene clave; sin clave, sin firma (salvo que el eje exija firmas).
   const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.claves.get(ev.autor);
   const conAlta = esGenesis || libro.identidades.has(ev.autor);
+  // R9: fuera de un eje de demostración (lo marca su génesis) y del prefijo de la versión 2, sin clave no se actúa.
+  const demostracion = esGenesis ? ev.contexto?.demostracion === true || (eje.eventosV2 ?? 0) > 0 : eje.demostracion !== false;
+  const exigeClave = !demostracion && libro.reglas !== 2;
   let firma;
   if (clave) {
     if (!ev.firma) { firma = 'ausente'; r.falla('firma ausente de ' + ev.autor + ': tiene clave'); }
@@ -367,6 +370,12 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   } else if (eje.exigirFirmas) {
     firma = ev.firma ? 'sin verificar' : 'ausente';
     r.falla('el eje exige firmas y ' + ev.autor + ' no tiene clave');
+  } else if (exigeClave) {
+    // R9: sin clave no se actúa (fuera de un eje de demostración).
+    firma = ev.firma ? 'sin verificar' : 'ausente';
+    r.falla(esGenesis
+      ? 'sin clave no se actúa: el génesis declara la clave de su autor y va firmado con ella (o es de demostración)'
+      : 'sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)');
   } else {
     // G1 ([X] docs/VALIDEZ.md §8): sin clave no se exige firma. Una firma que
     // nunca podrá verificarse (el autor ya tiene alta y su clave no se puede
@@ -389,11 +398,20 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   // Claves declaradas en un alta: solo de identidades nuevas que reciben tokens en ese evento.
   const clavesDeclaradas = [];
   if (!esGenesis) {
-    for (const [nueva, jwk] of Object.entries(ev.contexto?.claves ?? {})) {
-      clavesDeclaradas.push({ identidad: nueva, por: ev.autor, posesion: 'sin probar' });
+    const declaradas = ev.contexto?.claves ?? {};
+    for (const [nueva, jwk] of Object.entries(declaradas)) {
+      // La prueba de posesión (R9): la clave nueva firma el id del alta (`posesion`, src/autoridad.js).
+      const conPrueba = Boolean(ev.posesion) && typeof ev.posesion === 'object' && Object.hasOwn(ev.posesion, nueva);
+      const posesion = !conPrueba ? 'sin probar' : (await verificarPosesion(ev, nueva, jwk)) ? 'probada' : 'falla';
+      clavesDeclaradas.push({ identidad: nueva, por: ev.autor, posesion });
       if (libro.claves.has(nueva) || libro.identidades.has(nueva)) r.falla('no se puede cambiar la clave de ' + nueva);
       else if (!lista(ev.movimientos).some((m) => m?.a === nueva)) r.falla('clave declarada para ' + nueva + ' sin darle tokens');
       else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) r.falla('clave inválida para ' + nueva);
+      else if (posesion === 'falla') r.falla('prueba de posesión inválida para ' + nueva + ': no la firma la clave que se declara');
+      else if (posesion === 'sin probar' && exigeClave) r.falla('la clave de ' + nueva + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
+    }
+    for (const otra of Object.keys(ev.posesion && typeof ev.posesion === 'object' ? ev.posesion : {})) {
+      if (!Object.hasOwn(declaradas, otra)) r.falla('prueba de posesión de ' + otra + ' sin clave declarada para él en este evento');
     }
   }
 
@@ -406,7 +424,7 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
     textoFirma,
     esGenesis ? 'génesis' : 'foco ' + (libro.ids.has(ev.sobre) ? 'en el eje' : 'ausente'),
   ].join(' · ');
-  return parte(3, r.estado, r.textos, resumen, { idCorrecto, firma, firmante: ev.firmante ?? null, clavesDeclaradas, enEje });
+  return parte(3, r.estado, r.textos, resumen, { idCorrecto, firma, firmante: ev.firmante ?? null, clavesDeclaradas, enEje, demostracion });
 }
 
 // ---------- 4 · acreditación material (el respaldo en el libro) ----------
@@ -448,7 +466,7 @@ function capaAcreditacion(eje, ev, libro) {
       if (!esGenesis && delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       const s = serie(k);
       const emisor = esEoR(m) ? m.emisor : ev.autor;
-      if (emisor !== ev.autor && !(esEoR(m) && !esGenesis && libro.tipos.get(emisor) === 'grupo')) {
+      if (emisor !== ev.autor && !(esEoR(m) && !esGenesis && aNombreDeGrupo(contextoCiclo(eje, libro, ev), emisor))) {
         return mal('falla', 'la serie ' + k + ' es de ' + emisor + ' y la emite ' + ev.autor + ': nadie la respalda en nombre de otro');
       }
       const total = (s?.emitido ?? 0) + m.cantidad;

@@ -31,6 +31,17 @@ export const ADELANTO_MAXIMO_MS = SEGUNDOS.anio * 1000;
 
 const corto = (x) => String(x).slice(0, 8);
 
+/**
+ * ¿Se emite E o R a nombre de `emisor` porque es un grupo? Lo que «emite el
+ * grupo» lo emite y lo firma una persona con P sobre su registro (lo comprueba
+ * reglasDelCiclo). Es uno de los dos sitios donde se lee el tipo, y los dos
+ * solo deciden quién firma emisiones (R10: el tipo no da renta; el otro es
+ * EMITEN). Lo usan el eje y las capas de validez (src/validez.js).
+ */
+export function aNombreDeGrupo(ctx, emisor) {
+  return ctx.tipo(emisor) === 'grupo';
+}
+
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
 function mismaCaducidad(a, b) {
   if (a === null || b === null) return a === b;
@@ -122,7 +133,7 @@ export function reglasDelCiclo(ev, ctx) {
     }
     if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
       // A nombre de un grupo: lo emite una persona con P sobre el registro del grupo (su alta).
-      if (ctx.tipo(m.emisor) !== 'grupo') { falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor'); continue; }
+      if (!aNombreDeGrupo(ctx, m.emisor)) { falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor'); continue; }
       const registro = ctx.alta(m.emisor)?.id;
       if (!registro || !tienePoder(registro)) {
         falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P sobre su registro' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + autor + ' no lo tiene');
