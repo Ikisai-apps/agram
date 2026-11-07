@@ -93,3 +93,60 @@ export async function ejemploCuenta(eje, compra, privadaCocina) {
     ],
   }, privadaCocina);
 }
+
+/**
+ * La compra ampliada, para que el 8 tenga comparables reales: la casa da de
+ * alta a otra persona huésped, y sobre el mismo menú se escriben nueve
+ * compras vecinas de la compra original (diez hermanas en total). Siete de
+ * las diez tienen criterios (posición 2), seis en su propio payload y una
+ * porque cocina escribió un criterio encima; tres no: la compra rápida, una
+ * nota terminal y una compra sin criterios. Una compra lleva una fórmula
+ * pendiente y otra una fórmula resuelta. Todo inventado.
+ */
+export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
+  const priv = (id) => privadas[id];
+  const gasta = (de, minutos = 1) => ({ token: 'T', escala: 'minuto', cantidad: minutos, de, a: null });
+  const paga = (de, eur) => ({ token: 'E', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
+  const alta2 = await eje.escribir({
+    autor: 'casa',
+    sobre: eje.genesisId,
+    t: '2026-11-07T12:00:00Z',
+    movimientos: [gasta('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' }, { token: 'E', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' }],
+    payload: ['Alta de otra persona huésped', ['huesped2']],
+  }, priv('casa'));
+  const criterios = [{ ref: menu.id, dir: '2000000000' }];
+  const recursos = [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'];
+  // La compra rápida: solo recursos, sin criterios. Es el foco natural para preguntarle al 8.
+  const rapida = await eje.escribir({
+    autor: 'huesped2',
+    sobre: menu.id,
+    t: '2026-11-07T13:35:00Z',
+    movimientos: [gasta('huesped2'), paga('huesped2', 12)],
+    payload: ['Compra rápida', recursos],
+  }, priv('huesped2'));
+  const vecinas = [];
+  const payloads = [
+    ['Compra con fórmula pendiente', 'EUR 10', '=LOCAL(5)'], // 2: fórmula que espera la posición 5
+    ['Compra con fórmula resuelta', 'EUR 10', '=LOCAL(1) + 1 EUR'], // 2: 11 EUR
+    ['Compra de mediodía', recursos, criterios],
+    ['Compra para llevar', recursos, criterios, ['huesped2', 'cocina']],
+    ['Compra del grupo', recursos, criterios, ['huesped', 'cocina'], ['pagar']],
+    ['Compra sin criterios todavía', recursos], // criterios se los escribe cocina encima
+    'nota sobre el menú', // terminal: no tiene posiciones
+    ['Compra sin criterios', recursos],
+  ];
+  let minuto = 40;
+  for (const payload of payloads) {
+    const autor = vecinas.length % 2 ? 'huesped2' : 'huesped';
+    vecinas.push(await eje.escribir({ autor, sobre: menu.id, t: '2026-11-07T13:' + minuto++ + ':00Z', movimientos: [gasta(autor)], payload }, priv(autor)));
+  }
+  const criterioCocina = await eje.escribir({
+    autor: 'cocina',
+    sobre: vecinas[5].id,
+    en: '2000000000',
+    t: '2026-11-07T13:50:00Z',
+    movimientos: [gasta('cocina')],
+    payload: ['Criterio de cocina', 'sin picante'],
+  }, priv('cocina'));
+  return { alta2, rapida, vecinas, criterioCocina };
+}
