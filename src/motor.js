@@ -7,7 +7,7 @@
 // Estados de una consolidación: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO.
 
 import { direccion, esReferencia } from './btml.js';
-import { ocupantes, vector, signo } from './encaje.js';
+import { ocupantes, vector, signo, caminosDe } from './encaje.js';
 import { evaluar } from './bql.js';
 import { escribirDesde } from './escritura.js';
 
@@ -178,7 +178,10 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
 /**
  * Ejecutar: con la consolidación autorizada, el evento final mueve los
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
- * la consolidación y a su autorización.
+ * la consolidación y a su autorización. La capacidad de una posición no se
+ * cuenta aquí: la limita una serie de tokens que la ejecución mueve (si quien
+ * ejecuta ya no los tiene, el eje la rechaza por saldo insuficiente); el
+ * contador de ocupacion() es solo informativo.
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
@@ -221,4 +224,119 @@ export function consolidaciones(eje, foco, camino = []) {
   return eje.sobre(foco, direccion([...camino, 4]))
     .filter((e) => e.contexto?.fase === 'consolidado')
     .map((e) => ({ id: e.id, autor: e.autor, t: e.t, titulo: e.payload[0], estado: estadoDe(eje, e.id), fuentes: e.contexto.fuentes ?? [] }));
+}
+
+// ---------- capacidad: un contador informativo; el límite es una serie de tokens ----------
+
+/**
+ * Capacidad de una posición (VG, 7-11). Una posición admite muchos
+ * ocupantes (colisiones: se escriben y se ven todos), y puede declarar
+ * cuántos de ellos pueden ser VÁLIDOS a la vez en un mismo tramo. Lo que lo
+ * hace cumplir no es este contador sino una SERIE LIMITADA de tokens E que
+ * emite quien respalda la posición (en Booking, la casa: un token por plaza
+ * y noche, tantos como capacidad): ejecutar mueve esos tokens y, sin saldo,
+ * el eje no ejecuta. El contador (ocupacion) queda INFORMATIVO: para la
+ * interfaz y para saber cuántos tokens emitir; no bloquea nada.
+ * [X] decidir VG: cómo declara una posición su capacidad. V0: la décupla de
+ * la posición lleva en su criterio (subposición 2: «cuántos caben a la vez»)
+ * un entero positivo, como una plaza [nombre, precio, capacidad] bajo la
+ * época 0 (0 representación, 1 recursos, 2 criterios). Alternativa: en sus
+ * recursos (1), junto al precio. Sin ese entero, la posición no declara nada.
+ */
+export const CRITERIO_CAPACIDAD = 2;
+
+/** Capacidad que declara el contenido de una posición, o undefined si no declara ninguna. */
+export function capacidadDe(nodo) {
+  if (!Array.isArray(nodo)) return undefined;
+  const c = nodo[CRITERIO_CAPACIDAD];
+  return Number.isSafeInteger(c) && c > 0 ? c : undefined;
+}
+
+const SIETE = direccion([7]);
+
+/**
+ * Tramo de un registro: su futuro (posición 7) como [inicio, fin), dos
+ * fechas o instantes ISO; el fin no cuenta (la noche de la salida no se
+ * ocupa). El 7 es una colisión: vale lo propio (payload[7], o lo que alcance
+ * si es una referencia) y lo que el AUTOR del registro ancle en su 7 («lo
+ * lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero en
+ * el orden de encaje (exactos, luego la llegada). Un tramo es acotado: sin
+ * 7 o ilegible, error.
+ * [X] decidir VG: la forma del tramo en el 7 (dos fechas, fin excluido) y
+ * que solo el autor del registro ancle su tramo.
+ */
+export function tramoDe(eje, id) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  const [primero] = ocupantes(eje, id, [7])
+    .filter((o) => (o.origen === 'escrito' ? o.autor === ev.autor : !esReferencia(o.contenido)));
+  if (!primero) throw new Error('sin tramo en el 7 de ' + id.slice(0, 8) + ': hace falta [inicio, fin] en ISO, propio o anclado en ' + SIETE + ' por su autor');
+  const [a, b] = Array.isArray(primero.contenido) ? primero.contenido : [];
+  const inicio = typeof a === 'string' ? Date.parse(a) : NaN;
+  const fin = typeof b === 'string' ? Date.parse(b) : NaN;
+  if (!(inicio < fin)) throw new Error('tramo ilegible en el 7 de ' + id.slice(0, 8) + ': hacen falta [inicio, fin] en ISO, con inicio antes que fin');
+  return { inicio, fin, extremos: [a, b], texto: a + ' – ' + b, desde: primero.evento };
+}
+
+/** Un ocupante ya válido sin tramo legible no se descarta: para contar, ocupa todo el tiempo. */
+function tramoOTodo(eje, id) {
+  try { return tramoDe(eje, id); } catch { return { inicio: -Infinity, fin: Infinity, texto: 'todo el tiempo' }; }
+}
+
+/** Si un payload lleva, a cualquier profundidad, una referencia a la dirección `dir` de `id`. */
+function referencia(payload, id, dir) {
+  if (esReferencia(payload)) return payload.ref === id && (payload.dir ?? '0000000000') === dir;
+  return Array.isArray(payload) && payload.some((h) => referencia(h, id, dir));
+}
+
+/**
+ * Registros que ocupan una posición: los anclados en ella (`sobre` + `en`) y
+ * los que la REFERENCIAN desde donde estén anclados, sin repetir, por orden
+ * de llegada. Así ningún ocupante escapa al contador por elegir otro `en`.
+ */
+export function registrosEn(eje, sobre, dir) {
+  const anclados = new Set(eje.sobre(sobre, dir).map((e) => e.id));
+  return eje.orden
+    .map((id) => eje.obtener(id))
+    .filter((e) => anclados.has(e.id) || (e.id !== sobre && referencia(e.payload, sobre, dir)));
+}
+
+/** Cuántos tramos coinciden a la vez, como mucho, dentro de otro (barrido por los inicios). */
+function maximoALaVez(tramos, dentro) {
+  const puntos = [dentro.inicio, ...tramos.map((x) => x.inicio).filter((p) => p > dentro.inicio && p < dentro.fin)];
+  let maximo = 0;
+  for (const p of puntos) maximo = Math.max(maximo, tramos.filter((x) => x.inicio <= p && p < x.fin).length);
+  return maximo;
+}
+
+/**
+ * Ocupación de las posiciones con capacidad donde está anclado un registro.
+ * Solo INFORMA: la fábrica no la consulta. La dirección `en` nombra la
+ * colisión entera (§12: «1» y «1.0» son el mismo lugar), así que mira cada
+ * camino que la dirección nombra y que declara capacidad. Si hay alguno, el
+ * registro ha de tener un tramo acotado (tramoDe; si no, error). Por cada
+ * uno: la capacidad, el tramo, los OTROS registros de esa posición ya
+ * válidos (con consolidación EJECUTADA; anclados en ella o que la
+ * referencian desde otro sitio) que se solapan con el tramo, cuántos
+ * coinciden a la vez como mucho (con capacidad 2 caben dos estancias
+ * encadenadas y una tercera que las cruza) y si cabría uno más. Consulta sin
+ * efectos.
+ */
+export function ocupacion(eje, id) {
+  const ev = eje.obtener(id);
+  if (!ev) throw new Error('registro desconocido: ' + id);
+  if (ev.sobre === null) return [];
+  const padre = eje.obtener(ev.sobre);
+  const conCapacidad = caminosDe(padre.payload, ev.en).filter((c) => capacidadDe(c.contenido) !== undefined);
+  if (!conCapacidad.length) return [];
+  const tramo = tramoDe(eje, id);
+  const validos = registrosEn(eje, ev.sobre, ev.en)
+    .filter((o) => o.id !== id && consolidaciones(eje, o.id).some((c) => c.estado === 'EJECUTADO'))
+    .map((o) => ({ id: o.id, autor: o.autor, anclado: o.sobre === ev.sobre && o.en === ev.en, tramo: tramoOTodo(eje, o.id) }))
+    .filter((o) => o.tramo.inicio < tramo.fin && tramo.inicio < o.tramo.fin);
+  const aLaVez = maximoALaVez(validos.map((o) => o.tramo), tramo);
+  return conCapacidad.map((c) => {
+    const capacidad = capacidadDe(c.contenido);
+    return { sobre: ev.sobre, dir: ev.en, camino: c.indices, capacidad, tramo, validos, aLaVez, cabe: aLaVez < capacidad };
+  });
 }

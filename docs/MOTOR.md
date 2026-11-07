@@ -307,7 +307,7 @@ no es una consolidación: f9e59d1e
 ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada)  // → Promise<evento>
 ```
 
-Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado'`; `autor` es el autor de la consolidación; el estado es `AUTORIZADO` (ni pendiente ni ejecutado). Entonces escribe **directamente con `eje.escribir`** (no pasa por `escribirDesde`: sin `contexto.modo`, sin comprobar proporción):
+Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado'`; `autor` es el autor de la consolidación; el estado es `AUTORIZADO` (ni pendiente ni ejecutado). La capacidad de una posición no se cuenta aquí: la limita una serie de tokens que la ejecución mueve, y sin saldo el eje rechaza (§5.1). Entonces escribe **directamente con `eje.escribir`** (no pasa por `escribirDesde`: sin `contexto.modo`, sin comprobar proporción):
 
 - `sobre = consolidación`, `en = FABRICA`, `t` (si falta, el reloj);
 - `payload = [titulo, { ref: consolidación }, { ref: autorización }]`, donde la autorización es la **primera** de `autorizacionesValidas`;
@@ -320,7 +320,7 @@ Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado
 | `ejecuta el autor de la consolidación: <autor>` | otro autor |
 | `PENDIENTE DE AUTORIZACIÓN` | sin autorización válida |
 | `ya ejecutado` | ya hay ejecución válida |
-| `evento rechazado: …` | lo que rechace el eje (`nadie mueve tokens ajenos`, `saldo insuficiente…`) |
+| `evento rechazado: …` | lo que rechace el eje (`nadie mueve tokens ajenos`, `saldo insuficiente…`; también una plaza sin token esa noche, §5.1) |
 
 ```sh
 node --input-type=module -e "
@@ -361,6 +361,26 @@ ya ejecutado
 ```
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
+
+### 5.1 Capacidad: cuántos ocupantes de una posición pueden ser válidos
+
+Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos ocupantes (colisiones: se escriben y se ven todos), y puede declarar una **capacidad**: cuántos de ellos pueden ser **válidos** a la vez. Quien la hace cumplir es una **serie limitada de tokens E** que emite quien respalda la posición: en Booking, la casa emite `E:casa/<plaza>@<noche>`, un token por plaza y noche, tantos como capacidad, y ejecutar la reserva los mueve de la casa a la persona huésped. Una segunda reserva solapada se escribe y colisiona, pero su ejecución no pasa: la casa ya no tiene el token de esa noche (`evento rechazado: saldo insuficiente de E:casa/…@<noche> en casa`). La fábrica no cuenta nada: el contador de este apartado es **informativo** (para la interfaz y para saber cuántos tokens emitir).
+
+```js
+CRITERIO_CAPACIDAD = 2                 // dónde declara la décupla de una posición su capacidad
+capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined
+tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin); sin 7 o ilegible, error
+registrosEn(eje, sobre, dir)            // → eventos anclados en la posición o que la referencian desde donde estén, por llegada
+ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }]: solo informa
+```
+
+- **Declaración** (`[X] decidir VG`): la décupla de la posición lleva un entero positivo en su criterio (subposición 2: «cuántos caben»), como una plaza `[nombre, precio, capacidad]` bajo la época 0. Sin ese entero la posición no declara nada.
+- **Qué posición ocupa un registro**: la de su anclaje (`sobre` + `en`). La dirección nombra la colisión entera (§12 del mapa: `1000000000` es a la vez `[1]`, `[1.0]`, `[1.0.0]`), así que se mira cada camino que nombra y cuenta el que declare capacidad. Al contar a los demás, entran también los que **referencian** la posición desde otro anclaje (`registrosEn`): ninguno escapa al contador por elegir otro `en`.
+- **Tramo** (`[X] decidir VG`): `[inicio, fin]` en ISO, con el fin excluido (la noche de la salida no se ocupa), en el 7 del registro. El 7 es una colisión: vale lo propio (`payload[7]`) o lo que el **autor** del registro ancle en su 7 («lo lejano = anclaje»: se llega al 7 sin rellenar 5 y 6); manda el primero por encaje y llegada. Un tramo es acotado: con capacidad, sin 7 o ilegible es error. Un ocupante ya válido sin tramo legible cuenta como todo el tiempo.
+- **Cuántos a la vez**: los otros registros de la posición con consolidación ejecutada que se solapan con el tramo, y el máximo que coincide en un mismo instante (barrido por los inicios). Con capacidad 2, dos estancias encadenadas y una tercera que las cruza caben; una cuarta que coincide con dos, no.
+- `ejecutar` **no** consulta `ocupacion`.
+
+Lo que no hace el motor: mover tokens de dos partes en un solo acto. El motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens ajenos, así que Booking confirma con **dos consolidaciones** sobre la reserva, autorizadas por recepción: la casa entrega los tokens de plaza y después la persona huésped paga (`ejemplos/ikisai/reserva-booking.mjs`, `[X] decidir VG`; la atomicidad es de AARPIA).
 
 ## 6. Estado y lista de consolidaciones
 
@@ -841,6 +861,11 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
 export function autorizacionesValidas(eje, consolidacion): Evento[];
 export function estadoDe(eje, consolidacion): 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined;
 export function consolidaciones(eje, foco, camino = []): { id, autor, t, titulo, estado, fuentes }[];
+export const CRITERIO_CAPACIDAD = 2;
+export function capacidadDe(nodo): number | undefined;
+export function tramoDe(eje, id): { inicio, fin, extremos, texto, desde };
+export function registrosEn(eje, sobre, dir): Evento[];
+export function ocupacion(eje, id): { sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }[];
 
 // src/escritura.js
 export function resolverRef(eje, prefijo): { ref };

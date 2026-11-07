@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, FABRICA } from '../src/motor.js';
+import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, FABRICA, capacidadDe, tramoDe, ocupacion, registrosEn, CRITERIO_CAPACIDAD } from '../src/motor.js';
 import { evaluar } from '../src/bql.js';
+import { Eje } from '../src/eje.js';
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -93,4 +94,67 @@ test('consolidar no ejecuta: no mueve E, solo el T de escribir', async () => {
   assert.equal(c.movimientos.length, 1);
   assert.equal(c.movimientos[0].token, 'T');
   assert.equal(evaluar(eje, c.id, [1]).texto, 'dos menús');
+});
+
+test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a la vez; el contador solo informa y la fábrica no lo consulta', async () => {
+  // La declaración: un entero positivo en el criterio (2) de la décupla de la posición.
+  assert.equal(CRITERIO_CAPACIDAD, 2);
+  assert.equal(capacidadDe(['sitio', 'precio', 3]), 3);
+  for (const nodo of ['sitio', ['sitio', 'precio'], ['sitio', 'precio', '3'], ['sitio', 'precio', 0], ['sitio', 'precio', 1.5], ['sitio', 'precio', ['x']]]) assert.equal(capacidadDe(nodo), undefined);
+
+  // Un elemento neutro: su posición 1 declara capacidad 1; su posición 2 no declara nada.
+  const t = '2026-12-01T09:00:00Z';
+  const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+  const eje = await Eje.genesis({ identidad: 'g', tipo: 'grupo', emision: [{ token: 'T', escala: 'minuto', cantidad: 900 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'raíz', t });
+  const dar = ['ana', 'beto', 'carla'].map((a) => ({ token: 'T', escala: 'minuto', cantidad: 100, de: 'g', a }));
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), ...dar], payload: 'altas', contexto: { tipos: { ana: 'persona', beto: 'persona', carla: 'persona' } } });
+  const elemento = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g')], payload: ['elemento', ['sitio', 'precio', 1], ['otro sitio', 'precio']] });
+  let minuto = 10;
+  /** Un ocupante: el registro y, si se da, su tramo anclado en su 7 por quien lo escribe («lo lejano = anclaje»). */
+  const ocupar = async (autor, { en = '1000000000', tramo, payload = 'ocupo', sobre = elemento.id } = {}) => {
+    const tt = '2026-12-01T10:' + minuto++ + ':00Z';
+    const r = await eje.escribir({ autor, sobre, en, t: tt, movimientos: [gasta(autor)], payload });
+    if (tramo) await eje.escribir({ autor, sobre: r.id, en: '7000000000', t: tt, movimientos: [gasta(autor, 2)], payload: tramo });
+    return r;
+  };
+  const validar = async (r) => {
+    const c = await consolidar(eje, { autor: r.autor, foco: r.id, t, elecciones: { 1: 'lo ocupo' } });
+    await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t });
+    await ejecutar(eje, { autor: r.autor, consolidacion: c.id, t });
+    return estadoDe(eje, c.id);
+  };
+
+  // El tramo: el 7 como colisión, [inicio, fin) en ISO. Vale lo propio o lo que el autor ancle en su 7; lo de otro, no.
+  const propio = await ocupar('ana', { en: '2000000000', payload: ['r', 'a', 'b', 'c', 'd', 'e', 'f', ['2026-12-01', '2026-12-03']] });
+  assert.deepEqual(tramoDe(eje, propio.id), { inicio: Date.parse('2026-12-01'), fin: Date.parse('2026-12-03'), extremos: ['2026-12-01', '2026-12-03'], texto: '2026-12-01 – 2026-12-03', desde: propio.id });
+  const anclado = await ocupar('ana', { en: '2000000000', tramo: ['2026-12-05', '2026-12-06'] });
+  assert.deepEqual(tramoDe(eje, anclado.id).extremos, ['2026-12-05', '2026-12-06']);
+  assert.equal(tramoDe(eje, anclado.id).desde, eje.sobre(anclado.id, '7000000000')[0].id);
+  const deOtro = await ocupar('ana', { en: '2000000000' });
+  await eje.escribir({ autor: 'beto', sobre: deOtro.id, en: '7000000000', t, movimientos: [gasta('beto', 2)], payload: ['2026-12-01', '2026-12-09'] });
+  assert.throws(() => tramoDe(eje, deOtro.id), /sin tramo en el 7/);
+  // Acotado y legible: sin 7, al revés o sin fechas, error.
+  const [sinSiete, alReves, sinFechas] = [await ocupar('ana', { en: '2000000000' }), await ocupar('ana', { en: '2000000000', tramo: ['2026-12-03', '2026-12-01'] }), await ocupar('ana', { en: '2000000000', tramo: 'mañana' })];
+  assert.throws(() => tramoDe(eje, sinSiete.id), /sin tramo en el 7/);
+  assert.throws(() => tramoDe(eje, alReves.id), /tramo ilegible/);
+  assert.throws(() => tramoDe(eje, sinFechas.id), /tramo ilegible/);
+
+  // Dos ocupantes solapados en la posición con capacidad 1: el contador dice que no cabría, pero la fábrica
+  // no lo consulta (el límite es una serie de tokens que la ejecución mueve, como en Booking) y ejecuta los dos.
+  const primero = await ocupar('ana', { tramo: ['2026-12-01', '2026-12-03'] });
+  assert.equal(await validar(primero), 'EJECUTADO');
+  const segundo = await ocupar('beto', { tramo: ['2026-12-02', '2026-12-04'] });
+  assert.deepEqual(ocupacion(eje, segundo.id).map((o) => [o.camino, o.capacidad, o.aLaVez, o.cabe]), [[[1], 1, 1, false]]);
+  assert.equal(await validar(segundo), 'EJECUTADO');
+  // Con capacidad, el tramo es obligatorio para contar.
+  const sinTramo = await ocupar('carla');
+  assert.throws(() => ocupacion(eje, sinTramo.id), /sin tramo en el 7/);
+  // Cuenta también lo que referencia la posición desde otro anclaje (aquí, sobre el génesis).
+  const fuera = await ocupar('carla', { sobre: eje.genesisId, en: '0000000000', payload: ['fuera', { ref: elemento.id, dir: '1000000000' }], tramo: ['2026-12-10', '2026-12-12'] });
+  assert.equal(await validar(fuera), 'EJECUTADO');
+  assert.ok(registrosEn(eje, elemento.id, '1000000000').some((r) => r.id === fuera.id));
+  const tercero = await ocupar('beto', { tramo: ['2026-12-11', '2026-12-13'] });
+  assert.deepEqual(ocupacion(eje, tercero.id)[0].validos.map((v) => [v.id, v.anclado]), [[fuera.id, false]]);
+  // Donde no hay capacidad declarada, no hay nada que contar.
+  assert.deepEqual(ocupacion(eje, propio.id), []);
 });
