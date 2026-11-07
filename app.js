@@ -2,18 +2,22 @@
 // ejemplo, en el navegador, con el mismo núcleo que corre en Node. Se lee y
 // se escribe desde los tres modos con su proporción; cada identidad firma
 // con su clave; la fábrica consolida, autoriza y ejecuta; el eje se guarda
-// en el navegador. Render sobrio; el animado se declara pendiente.
+// en el navegador. Render sobrio; el animado (mundos/) empieza por los hilos
+// del 6 y 7: celdas 6 y 7 de Mapped y la vista «hilos».
 
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ,
 } from './src/index.js';
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import * as hilos from './mundos/hilos.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
   aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '',
+  render: 'sobrio', reproducir: false, // sobrio o animado: dos renders de la misma lectura
 };
+const memoriaHilos = hilos.memoria(); // qué eventos ya se vieron en los hilos: solo lo nuevo se anima
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
 const CLAVE_CLAVES = 'agram.claves';
@@ -198,7 +202,7 @@ function chipTemporal(x) {
   return `<button class="chip" data-ir="${x.id}"><b>${corto(x.id)}</b> ${escapar(texto)}${etiqueta} <small>${x.banda}</small></button>`;
 }
 
-function celdaMapa(m, i, eje67, comp) {
+function celdaMapa(m, i, eje67, comp, anim) {
   const c = m.celdas[i];
   const marca = c.escritos ? `<span class="hijos">↳ ${c.escritos}</span>` : '';
   const propio = c.contenido !== undefined ? `<div class="val">${slot(c.contenido, m.foco, [...m.camino, i], false)}</div>` : '';
@@ -208,6 +212,11 @@ function celdaMapa(m, i, eje67, comp) {
     return `<div class="celda c5"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
       <div class="lente">${escapar(breve(m.celdas[0].contenido))}</div>
       <details><summary>estructura</summary><pre>${escapar(json)}</pre></details></div>`;
+  }
+  if ((i === 6 || i === 7) && anim) {
+    const total = i === 6 ? eje67.totalPasado : eje67.totalFuturo;
+    const svg = hilos.svgHilos(anim.datos, { ventana: i === 6 ? 'pasado' : 'futuro', compacto: true, nuevos: anim.nuevos });
+    return `<div class="celda c${i}"><div class="pvn">${i} ${c.significado} · ${total}</div>${svg}<button class="ver-hilos" data-modo="hilos">ver hilos</button>${i === 6 ? propio : ''}${marca}</div>`;
   }
   if (i === 6) {
     return `<div class="celda c6"><div class="pvn">6 ${c.significado} · ${eje67.totalPasado}</div><div class="chips">${eje67.pasado.length ? eje67.pasado.map(chipTemporal).join('') : '<span class="nada">génesis</span>'}</div>${propio}${marca}</div>`;
@@ -274,6 +283,7 @@ function pintarMapped() {
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
   const comp = tiempo.comparar(estado.eje, estado.foco);
+  const anim = estado.render === 'animado' ? hilosAnimados() : null;
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = PV.map((n, i) => {
@@ -281,7 +291,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp, anim)).join('')}</div>`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
@@ -291,6 +301,29 @@ function pintarMapped() {
       <button type="submit">Registrar la décupla en ${etiquetaEn()}</button>
       ${mensajes()}
     </form>`;
+}
+
+// ---------- Hilos (6 y 7): sobrio o animado, la misma lectura ----------
+
+function hilosAnimados() {
+  const datos = hilos.datosHilos(estado.eje, estado.foco, { camino: estado.camino });
+  const nuevos = memoriaHilos.nuevos(estado.eje, { reproducir: estado.reproducir });
+  estado.reproducir = false;
+  return { datos, nuevos };
+}
+
+function pintarHilos() {
+  const ev = estado.eje.obtener(estado.foco);
+  let cuerpo;
+  if (estado.render === 'animado') {
+    const { datos, nuevos } = hilosAnimados();
+    cuerpo = hilos.htmlHilos(datos, { nuevos });
+  } else {
+    const e = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
+    const lista = (l, vacio) => `<div class="chips">${l.length ? l.map(chipTemporal).join('') : `<span class="nada">${vacio}</span>`}</div>`;
+    cuerpo = `<section class="hilos-listas"><div class="titulo">6 ${PV[6]} · ${e.totalPasado}</div>${lista(e.pasado, 'génesis')}<div class="titulo">7 ${PV[7]} · ${e.totalFuturo}</div>${lista(e.futuro, 'nada proyectado')}</section>`;
+  }
+  $('#vista').innerHTML = cabecera(ev) + `<div class="pista">Hilos del foco (6 y 7) · render ${estado.render} · el mismo eje temporal en los dos</div>` + cuerpo;
 }
 
 // ---------- común ----------
@@ -309,8 +342,10 @@ function pintarSaldos() {
 
 function pintar() {
   document.querySelectorAll('[data-modo]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.modo === estado.modo)));
+  document.querySelectorAll('[data-render]').forEach((b) => b.setAttribute('aria-pressed', String(estado.render === 'animado')));
   if (estado.modo === 'pointed') pintarPointed();
   else if (estado.modo === 'mapped') pintarMapped();
+  else if (estado.modo === 'hilos') pintarHilos();
   else pintarSequenced();
   pintarSaldos();
 }
@@ -411,9 +446,11 @@ function insertarRef(id) {
 }
 
 document.addEventListener('click', (e) => {
-  const b = e.target.closest('button');
+  const b = e.target.closest('button, svg [data-ir]'); // en los hilos animados, los nodos del SVG llevan data-ir
   if (!b) return;
   if (b.dataset.modo) { estado.modo = b.dataset.modo; estado.exito = ''; estado.aviso = ''; pintar(); }
+  else if (b.dataset.render !== undefined) { estado.render = estado.render === 'animado' ? 'sobrio' : 'animado'; pintar(); }
+  else if (b.dataset.reproducir !== undefined) { estado.reproducir = true; pintar(); }
   else if (b.dataset.ref) insertarRef(b.dataset.ref);
   else if (b.dataset.ocupantes !== undefined) { const i = Number(b.dataset.ocupantes); estado.verOcupantes = estado.verOcupantes === i ? null : i; pintar(); }
   else if (b.dataset.autorizar) autorizarDesdeBoton(b.dataset.autorizar);
