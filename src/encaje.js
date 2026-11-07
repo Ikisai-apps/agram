@@ -11,18 +11,22 @@ import { ARIDAD, esReferencia, direccion, indicesDe, resolver } from './btml.js'
 const MAX_SALTOS = 20;
 
 /**
- * Vector de diez diferencias con signo (corpus V4): destino menos origen,
- * dígito a dígito, un dígito por componente. Todo ceros = encaje exacto.
- * Lo que ordena es la DISTANCIA, siempre positiva (|diferencia| por
- * profundidad, sin sumar enteros gigantes). El signo solo indica, en cada
- * profundidad, si al candidato le falta (positivo: completar) o le sobra
- * (negativo: reducir), y solo cuenta si la regla de esa dimensión lo permite.
- * El cero de orientación es el tercer cero: ninguna diferencia ahí.
+ * Vector de diez diferencias con signo (corpus V4): candidato menos buscado,
+ * dígito a dígito, un dígito por componente (el ejemplo del corpus: «+2 en el
+ * quinto dígito»). Todo ceros = encaje exacto. Positivo: al candidato le
+ * sobra en esa profundidad (reducir); negativo: le falta (completar). El
+ * signo solo cuenta si la regla corta de esa profundidad hace ordinal al
+ * dígito; en la época 0 los dígitos son nominales (cada uno es un PV), así
+ * que ni el signo ni la distancia por dígito ordenan: son información.
+ * El corpus prohíbe «puntuar por cercanía ciega» y «descartar por mera
+ * distancia numérica». Lo que ordena son las coincidencias de ruta (el
+ * acuerdo de prefijo) y la llegada. El cero de orientación es el tercer cero.
+ * Opción B de docs/notas/SIGNO_DEL_VECTOR.md; pendiente de que VG elija.
  */
-export function vector(origen, destino) {
-  const o = indicesCompletos(origen);
-  const d = indicesCompletos(destino);
-  return d.map((x, k) => x - o[k]);
+export function vector(candidato, buscado) {
+  const c = indicesCompletos(candidato);
+  const b = indicesCompletos(buscado);
+  return c.map((x, k) => x - b[k]);
 }
 
 function indicesCompletos(dir) {
@@ -47,14 +51,14 @@ export function norma(v) {
   return v.reduce((s, x) => s + Math.abs(x), 0);
 }
 
-/** Faltas: profundidades donde al candidato le falta (diferencia positiva: completar). */
+/** Faltas: profundidades donde al candidato le falta (diferencia negativa: completar). */
 export function faltas(v) {
-  return v.filter((x) => x > 0).length;
+  return v.filter((x) => x < 0).length;
 }
 
-/** Excedentes: profundidades donde al candidato le sobra (diferencia negativa: reducir). */
+/** Excedentes: profundidades donde al candidato le sobra (diferencia positiva: reducir). */
 export function excedentes(v) {
-  return v.filter((x) => x < 0).length;
+  return v.filter((x) => x > 0).length;
 }
 
 /** Signo global, solo informativo: exacto, completar, reducir o mixto. */
@@ -64,24 +68,17 @@ export function signo(v) {
   return f === 0 && e === 0 ? 'exacto' : e === 0 ? 'completar' : f === 0 ? 'reducir' : 'mixto';
 }
 
-/** Compara dos distancias profundidad a profundidad (orden contextual, sin sumar). */
-function compararDistancia(a, b) {
-  for (let k = 0; k < a.length; k++) {
-    const d = Math.abs(a[k]) - Math.abs(b[k]);
-    if (d !== 0) return d;
-  }
-  return 0;
-}
-
 /**
- * Orden por encaje, sin borrar nada: exactos primero; luego más profundidades
- * de acuerdo; luego menor distancia profundidad a profundidad; los empates
- * conservan la llegada. El signo no ordena.
+ * Orden por encaje, sin borrar nada: más coincidencias de ruta primero (el
+ * acuerdo de prefijo: los exactos tienen diez), y los empates conservan la
+ * llegada. Ni el signo ni la distancia por dígito ordenan mientras ninguna
+ * regla corta haga ordinal a un dígito (corpus: «no puntuar por cercanía
+ * ciega»). Cuando una época lo haga, entrará aquí como regla de esa dimensión.
  */
 export function ordenarPorEncaje(lista) {
   return lista
     .map((o, i) => ({ o, i }))
-    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || compararDistancia(a.o.vector, b.o.vector) || (a.i - b.i))
+    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || (a.i - b.i))
     .map((x) => x.o);
 }
 
@@ -135,7 +132,8 @@ export function ocupantes(eje, id, indices, { orden = 'encaje' } = {}) {
     if (esReferencia(c.contenido)) lista.push(conEncaje(seguir(eje, c.contenido, [id + ':' + dir + '#' + c.indices.join('.')]), dir));
   }
   for (const h of eje.sobre(id, dir)) {
-    lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: '0000000000', procedencia: [h.id + ':0000000000'] }, dir));
+    // Un escrito está anclado exactamente en la dirección buscada: su ruta coincide entera.
+    lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }
   const conOrigen = lista.map((o) => ({ ...o, origen: o.tipo }));
   return orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen);
