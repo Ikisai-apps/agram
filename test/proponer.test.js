@@ -37,8 +37,7 @@ test('proponer: las fórmulas del foco construyen las elecciones; lo literal se 
   const c = await consolidar(eje, { autor: 'huesped', foco: plan2.id, t: T, elecciones: p.elecciones, titulo: 'Propuesto por fórmulas' });
   assert.equal(c.payload[2], '14 EUR');
   assert.deepEqual(c.payload[1], { ref: plan2.id, dir: '1000000000' });
-  assert.equal(c.contexto.encaje.length, 4); // cada elección lleva su clase; el terminal nuevo, sin origen ni vector
-  assert.deepEqual(c.contexto.encaje.map((e) => e.tipo ?? 'ref'), ['ref', 'nuevo', 'ref', 'propio']);
+  assert.equal(c.contexto.encaje.length, 3); // dos referencias al foco y un candidato llevan encaje; el terminal no
   void cuenta;
 });
 

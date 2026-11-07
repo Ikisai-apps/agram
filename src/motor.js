@@ -9,12 +9,9 @@
 import { direccion, esReferencia } from './btml.js';
 import { ocupantes, vector, signo } from './encaje.js';
 import { evaluar } from './bql.js';
-import { escribirDesde, claseDe } from './escritura.js';
+import { escribirDesde } from './escritura.js';
 
 export const FABRICA = '4000000000';
-
-/** Clase de modificación del registro ejecutado: 4, acción (el tercer dígito bajo la época 0). */
-export const CLASE_EJECUTADO = 4;
 
 /** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
 export function caminoVisible(o) {
@@ -100,16 +97,12 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } 
  * (por posición: un candidato elegido como referencia, o un terminal nuevo)
  * se funden en un array consolidado con referencias a sus fuentes y se
  * registran como evento anclado a la fábrica del foco. No ejecuta nada.
- * El encaje guarda, por cada elección, su clase de modificación: el tercer
- * dígito de su destino (bajo la celda [i][j] del camino, la posición elegida
- * es la clase: 4 = acción). Un terminal nuevo lleva solo posición, destino y
- * clase (tipo 'nuevo').
  */
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada) {
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
   const payload = [titulo];
   const fuentes = [];
-  const encaje = []; // de dónde vino cada elección, cuánto se desplazó, en qué sentido y con qué clase
+  const encaje = []; // de dónde vino cada elección, cuánto se desplazó y en qué sentido
   const indicesElegidos = Object.keys(elecciones).map(Number).sort((a, b) => a - b);
   const ultimo = indicesElegidos[indicesElegidos.length - 1];
   if (indicesElegidos.some((i) => !Number.isInteger(i) || i < 1 || i > 9)) throw new Error('las elecciones van en posiciones 1–9');
@@ -126,8 +119,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       if (!eje.obtener(e.ref)) throw new Error('fuente desconocida en ' + i);
       payload.push(e);
       fuentes.push(e.ref);
-      const destino = direccion([...camino, i]);
-      encaje.push({ posicion: i, evento: e.ref, origen: e.dir ?? '0000000000', destino, vector: vector(e.dir ?? '0000000000', destino), clase: claseDe(destino) });
+      encaje.push({ posicion: i, evento: e.ref, origen: e.dir ?? '0000000000', destino: direccion([...camino, i]), vector: vector(e.dir ?? '0000000000', direccion([...camino, i])) });
     } else if (e && typeof e === 'object' && e.candidato) {
       const c = e.candidato;
       payload.push({ ref: c.evento, dir: c.dir ?? '0000000000' });
@@ -135,11 +127,9 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       const origen = c.origenDir ?? c.dir ?? '0000000000';
       const destino = direccion([...camino, i]);
       const v = c.vector ?? vector(origen, destino);
-      encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: v, signo: c.signo ?? signo(v), clase: claseDe(destino) });
+      encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: v, signo: c.signo ?? signo(v) });
     } else {
       payload.push(e); // terminal nuevo
-      const destino = direccion([...camino, i]);
-      encaje.push({ posicion: i, tipo: 'nuevo', destino, clase: claseDe(destino) });
     }
   }
   return escribirDesde(eje, {
@@ -188,8 +178,7 @@ export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'au
 /**
  * Ejecutar: con la consolidación autorizada, el evento final mueve los
  * tokens reales (además del T del autor) y deja la evidencia: referencia a
- * la consolidación y a su autorización. Es una modificación de clase 4
- * (acción), y lo registra en contexto.clase.
+ * la consolidación y a su autorización.
  */
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada) {
   const c = eje.obtener(consolidacion);
@@ -208,7 +197,7 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
     t: t ?? new Date().toISOString(),
     movimientos: mov,
     payload,
-    contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidacion, autorizacion.id], clase: CLASE_EJECUTADO },
+    contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidacion, autorizacion.id] },
   }, privada);
 }
 

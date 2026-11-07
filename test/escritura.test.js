@@ -72,7 +72,7 @@ test('el tope duro del modo se respeta; la proporción informa y no rechaza', as
     escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
     /Pointed emite como mucho 10 posiciones; este registro tiene 30/,
   );
-  // 30 posiciones superan la proporción de Sequenced (20) pero caben en su tope (100).
+  // 30 posiciones superan la proporción de Sequenced (20) pero caben en su tope (100). Provisional: [X] decidir VG si la proporción rechaza.
   const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
   assert.equal(s.movimientos[0].cantidad, 30);
   const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });

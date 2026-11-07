@@ -13,9 +13,9 @@ Convenciones:
 
 | Módulo | Qué define | Exports |
 |---|---|---|
-| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES`, `OPERADORES`, `CLASE_EJECUTADO` |
+| `src/motor.js` | El ciclo de la fábrica (PV4) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `FABRICA`, `FASES`, `OPERADORES` |
 | `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
-| `src/modos.js` | Capacidad de lectura, tope duro y proporción por modo | `MODOS`, `nombreModo`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion` |
+| `src/modos.js` | Capacidad de lectura, tope duro y proporción por modo | `MODOS`, `nombreModo`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8) | `banda`, `ejeTemporal`, `medir`, `comparar`, `HITOS` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal`, `VERSION` |
 
@@ -30,11 +30,11 @@ Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecuta
 | Paso | Función | Quién | Escribe (`payload`) | `sobre` / `en` | `contexto` | Mueve |
 |---|---|---|---|---|---|---|
 | descubrir | `descubrir(eje, foco, { camino, posiciones })` | cualquiera | nada | — | — | nada |
-| consolidar | `consolidar(eje, { autor, foco, elecciones, titulo, t, camino }, privada)` | cualquier identidad con T | `[titulo, elección 1, …, elección n]` | foco / `direccion([...camino, 4])` | `{ motor: 'fabrica', fase: 'consolidado', fuentes, encaje, modo: 'mapped' }`; cada entrada de `encaje` lleva su `clase` | T del autor: 1 minuto por posición |
+| consolidar | `consolidar(eje, { autor, foco, elecciones, titulo, t, camino }, privada)` | cualquier identidad con T | `[titulo, elección 1, …, elección n]` | foco / `direccion([...camino, 4])` | `{ motor: 'fabrica', fase: 'consolidado', fuentes, encaje, modo: 'mapped' }` | T del autor: 1 minuto por posición |
 | autorizar | `autorizar(eje, { autorizante, consolidacion, t, nota }, privada)` | identidad con P > 0 sobre la consolidación y distinta del autor | `'==' + nota` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'autorizado', modo: 'pointed' }` | T del autorizante: 1 minuto |
-| ejecutar | `ejecutar(eje, { autor, consolidacion, movimientos, t, titulo }, privada)` | el autor de la consolidación | `[titulo, { ref: consolidación }, { ref: autorización }]` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización], clase: 4 }` | T del autor: 1 minuto, más `movimientos` |
+| ejecutar | `ejecutar(eje, { autor, consolidacion, movimientos, t, titulo }, privada)` | el autor de la consolidación | `[titulo, { ref: consolidación }, { ref: autorización }]` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }` | T del autor: 1 minuto, más `movimientos` |
 
-Constantes: `FABRICA = '4000000000'` (la posición 4 en la raíz del foco); `FASES = ['consolidado', 'autorizado', 'ejecutado']` (los valores de `contexto.fase`); `CLASE_EJECUTADO = 4` (la clase de modificación del registro ejecutado: acción, §7.2).
+Constantes: `FABRICA = '4000000000'` (la posición 4 en la raíz del foco); `FASES = ['consolidado', 'autorizado', 'ejecutado']` (los valores de `contexto.fase`).
 
 Estados de una consolidación (`estadoDe`): `PENDIENTE DE AUTORIZACIÓN` → `AUTORIZADO` → `EJECUTADO`. No se guardan: se calculan cada vez a partir de lo escrito sobre la consolidación en `FABRICA` por quien puede (§6).
 
@@ -43,8 +43,8 @@ Reglas de fondo, tal como están en el código:
 - **Consolidar no es ejecutar.** La consolidación solo mueve el T de escribir; E, P y R se mueven en `ejecutar`, y solo si el autor los pasa en `movimientos`.
 - **La posición no da autoridad.** Cualquiera consolida; autoriza quien tiene poder (P) sobre el registro; ejecuta el autor. Es la regla V0, un hueco provisional hasta que exista AARPIA (§4.1).
 - **Elegir no publica.** `ELEGIR` de BQL devuelve una colección; la única fijación es `consolidar`, y no borra alternativas: las elecciones se guardan como referencias a sus fuentes, con el vector de encaje de cada una.
-- **Cada cambio tiene clase.** La fábrica parte de la matriz de 100 del foco y emite solo lo modificado, en la matriz 10×10×10 (posición × subposición × clase de modificación); la clase es el tercer dígito bajo la época 0 (§7.2). La consolidación guarda la clase de cada elección y la ejecución es clase 4 (acción).
-- **Todo cuesta tiempo.** Cada registro mueve T del autor: un minuto por posición escrita (cartón piedra, §7.3). Es el token `T:minuto`: cada escala de T es un token distinto, sin conversión, así que escribir exige tener minutos. Y cada modo tiene un tope duro de posiciones emitidas (§7.1).
+- **Cada cambio tiene clase.** La fábrica parte de la matriz de 100 del foco y emite solo lo modificado, en la matriz 10×10×10 (posición × subposición × clase de modificación); la clase es el tercer dígito bajo la época 0 (§7.2) y se lee de la dirección: ni la consolidación ni la ejecución guardan un campo de clase (§3.5, §5).
+- **Todo cuesta tiempo.** Cada registro mueve T del autor: un minuto por posición del registro, heredadas incluidas (cartón piedra, §7.3). Es el token `T:minuto`: cada escala de T es un token distinto, sin conversión, así que escribir exige tener minutos. Y cada modo tiene un tope duro de posiciones emitidas (§7.1).
 
 Pendiente: las seis capacidades del motor que nombra el mapa (interpretar, resolver, posicionar, comparar, calcular, componer) no existen como funciones; son nombres descriptivos.
 
@@ -130,14 +130,12 @@ Las claves de `elecciones` son posiciones **1–9**. Se recorren de 1 hasta la m
 
 | Valor en `elecciones[i]` | Qué se guarda en `payload[i]` | `fuentes` | `encaje[k]` |
 |---|---|---|---|
-| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo, clase }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan) |
-| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector, clase }` (sin `tipo` ni `signo`) |
-| cualquier otro valor BTML (terminal o array): un terminal nuevo | tal cual | — | `{ posicion, tipo: 'nuevo', destino, clase }` (sin origen ni vector: nace ahí) |
-| ausente (hueco, `i` < última elegida) | `{ ref: foco, dir: direccion([...camino, i]) }` si `ocupantes(eje, foco, [...camino, i])` no está vacío; si no, error | — | — (no es una elección) |
+| `{ candidato }` (un candidato de `descubrir`) | `{ ref: candidato.evento, dir: candidato.dir ?? '0000000000' }` | `candidato.evento` | `{ posicion, evento, tipo, origen, destino, vector, signo }` con el encaje del candidato (`origenDir`/`vector`/`signo` si los trae; si no, se calculan) |
+| `{ ref, dir? }` (una referencia BTML) | tal cual | `ref` (debe existir en el eje) | `{ posicion, evento, origen: dir ?? '0000000000', destino, vector }` (sin `tipo` ni `signo`) |
+| cualquier otro valor BTML (terminal o array) | tal cual | — | — |
+| ausente (hueco, `i` < última elegida) | `{ ref: foco, dir: direccion([...camino, i]) }` si `ocupantes(eje, foco, [...camino, i])` no está vacío; si no, error | — | — |
 
-`destino` es siempre `direccion([...camino, i])`. `fuentes` se deduplica (`[...new Set]`). Los huecos se **heredan del foco por referencia** porque un array BTML no admite huecos y una referencia no copia.
-
-`clase` es la **clase de modificación** de la elección: el tercer dígito de su `destino` (`claseDe`, §7.2). En la raíz del foco (`camino = []`) toda elección cae en la subposición 0 de su posición y su clase es 0 (ver/sustituir). Bajo una celda (`camino = [i, j]`) la posición elegida **es** la clase: la elección 4 bajo la celda del precio `[1, 2]` va a `1240000000`, clase 4 (acción: pagar). Ver §3.5.
+`destino` es siempre `direccion([...camino, i])`. `fuentes` se deduplica (`[...new Set]`). Los huecos se **heredan del foco por referencia** porque un array BTML no admite huecos y una referencia no copia. `encaje` dice de dónde vino cada elección: solo llevan entrada las fuentes (candidatos y referencias), con su `evento`, `origen` y `vector`.
 
 ### 3.3 El registro resultante
 
@@ -166,12 +164,12 @@ console.log(estadoDe(eje, c.id));
 ```text
 true true huesped
 ["Pago del menú",{"ref":"c70bfa6e","dir":"0000000000"},"sin lactosa",{"ref":"f9e59d1e","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fase":"consolidado","fuentes":["c70bfa6e"],"encaje":[{"posicion":1,"evento":"c70bfa6e","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto","clase":0},{"posicion":2,"tipo":"nuevo","destino":"2000000000","clase":0},{"posicion":4,"tipo":"nuevo","destino":"4000000000","clase":0}],"modo":"mapped"}
+{"motor":"fabrica","fase":"consolidado","fuentes":["c70bfa6e"],"encaje":[{"posicion":1,"evento":"c70bfa6e","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 PENDIENTE DE AUTORIZACIÓN
 ```
 
-La posición 3 no se eligió y queda por debajo de la 4: se hereda de la compra (`{ ref: compra, dir: '3000000000' }`, que alcanza `['huesped', 'cocina']` sin copiarlo) y no lleva encaje porque no es una elección. Cinco posiciones, cinco minutos. Los 14 EUR no se mueven: consolidar no ejecuta. Las tres elecciones son de clase 0: en la raíz del foco, elegir es ver o sustituir la posición.
+La posición 3 no se eligió y queda por debajo de la 4: se hereda de la compra (`{ ref: compra, dir: '3000000000' }`, que alcanza `['huesped', 'cocina']` sin copiarlo) y no lleva encaje porque no es una elección; los terminales nuevos (2 y 4) tampoco. Cinco posiciones, cinco minutos. Los 14 EUR no se mueven: consolidar no ejecuta.
 
 ### 3.4 Errores
 
@@ -217,38 +215,42 @@ ok ["Consolidación","uno"] en 1400000000
 
 En la penúltima, la posición 2 (hueco entre la 1 y la 3) se heredó de la compra. En la última, `camino: [1]` ancla la consolidación en `1400000000`: la fábrica de la posición 1 del foco.
 
-### 3.5 La clase de cada elección
+### 3.5 La clase de una elección: se lee, no se guarda
 
-La consolidación guarda en `contexto.encaje` la clase de modificación de cada elección: el tercer dígito de su destino (§7.2). Consolidar bajo la celda del precio de la compra (`camino: [1, 2]`) hace que cada posición elegida sea una clase sobre esa celda: 1 impulso de recursos, 2 criterio, 3 comunicación, 4 acción. La ejecución que sigue es siempre clase 4 (`CLASE_EJECUTADO`, en `contexto.clase`).
+`consolidar` no guarda clase. La clase de modificación de una dirección es su tercer dígito (§7.2), así que se lee al leer: `claseDe(destino)` para una elección, `claseDe(en)` para un registro. En la raíz del foco (`camino = []`) todo destino tiene tercer dígito 0. Bajo una celda (`camino = [i, j]`) el destino de la elección `n` es `i.j.n`, de tercer dígito `n`; pero la consolidación se ancla en `i.j.4` (la fábrica de ese camino), así que esa elección vive físicamente en `i.j.4.n`.
 
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { consolidar, autorizar, ejecutar } from './src/motor.js';
-import { CLASES } from './src/escritura.js';
+import { CLASES, claseDe } from './src/escritura.js';
+import { direccion } from './src/btml.js';
 const T = '2026-11-07T16:00:00Z';
 const { eje, compra } = await ejemploCompra();
-const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, camino: [1, 2], titulo: 'Pago del precio', elecciones: { 1: '12 EUR de huesped', 2: 'precio del menú', 3: 'aviso a cocina', 4: 'pagar 12 EUR' } });
-console.log('consolidación en', c.en);
-for (const e of c.contexto.encaje) console.log(' ', e.posicion, e.tipo, e.destino, 'clase', e.clase, CLASES[e.clase]);
+const elecciones = { 1: '12 EUR de huesped', 2: 'precio del menú', 3: 'aviso a cocina', 4: 'pagar 12 EUR' };
+const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, camino: [1, 2], titulo: 'Pago del precio', elecciones });
+console.log('consolidación en', c.en, '· contexto', JSON.stringify(Object.keys(c.contexto)));
+for (const n of Object.keys(elecciones).map(Number)) { const d = direccion([1, 2, n]); console.log(' ', n, 'destino', d, 'clase', claseDe(d), CLASES[claseDe(d)]); }
 await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, camino: [1, 2], elecciones: { 4: 'pagar' } }).catch((e) => console.log(e.message));
 await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
 const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }] });
-console.log('ejecutado: clase', e.contexto.clase, CLASES[e.contexto.clase]);
+console.log('ejecutado en', e.en, '· tercer dígito', claseDe(e.en), '· contexto', JSON.stringify(Object.keys(e.contexto)));
 "
 ```
 
 ```text
-consolidación en 1240000000
-  1 nuevo 1210000000 clase 1 impulso de recursos
-  2 nuevo 1220000000 clase 2 criterio
-  3 nuevo 1230000000 clase 3 comunicación
-  4 nuevo 1240000000 clase 4 acción
+consolidación en 1240000000 · contexto ["motor","fase","fuentes","encaje","modo"]
+  1 destino 1210000000 clase 1 impulso de recursos
+  2 destino 1220000000 clase 2 criterio
+  3 destino 1230000000 clase 3 comunicación
+  4 destino 1240000000 clase 4 acción
 hueco en 1: elige algo o quita las posiciones siguientes
-ejecutado: clase 4 acción
+ejecutado en 4000000000 · tercer dígito 0 · contexto ["motor","fase","evidencia"]
 ```
 
-La segunda consolidación se rechaza: el precio (`'EUR 12'`) es un terminal y no tiene posiciones 1–3 que heredar, y `consolidar` todavía rechaza el hueco (no ancla lo lejano como `desdeMapped`, §7.3). **[X] decidir VG**: si `consolidar` debe heredar las clases sin modificar de una celda con base como hace `desdeMapped` (referencia a `i.j.k`) o anclar lo lejano en vez de rechazar.
+La segunda consolidación se rechaza: el precio (`'EUR 12'`) es un terminal y no tiene posiciones 1–3 que heredar, y `consolidar` rechaza el hueco (no ancla lo lejano como `desdeMapped`, §7.3). La ejecución es una acción, pero se escribe en `FABRICA`, de tercer dígito 0.
+
+**[X] decidir VG**: qué clase tiene una elección de la consolidación (la de su destino `i.j.n` o la 4 de la fábrica `i.j.4` donde se ancla el registro); si `consolidar` debe usar la matriz como `desdeMapped` (heredar lo que el foco tenga en el camino exacto y anclar lo lejano) en vez de rechazar el hueco; en qué dirección se escribe la ejecución para que su clase salga de ella (por ejemplo `4040000000` sobre la consolidación, en vez de `FABRICA`), o si la ejecución no lleva clase.
 
 ## 4. Autorizar
 
@@ -348,7 +350,7 @@ Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado
 - `sobre = consolidación`, `en = FABRICA`, `t` (si falta, el reloj);
 - `payload = [titulo, { ref: consolidación }, { ref: autorización }]`, donde la autorización es la **primera** de `autorizacionesValidas`;
 - `movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }, ...movimientos]`: aquí se mueven los tokens reales (E, P, R, más T). Como en todo evento, cada movimiento debe salir del autor (`de === autor`) y su saldo debe cubrirlo; si no, el eje rechaza el evento entero y nada cambia;
-- `contexto = { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización], clase: 4 }`: ejecutar es una modificación de clase 4, acción (`CLASE_EJECUTADO`, §7.2).
+- `contexto = { motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }`. Sin clase: la de un registro es el tercer dígito de su dirección, y el de `FABRICA` es 0 aunque ejecutar sea una acción (**[X] decidir VG**, §3.5).
 
 | Mensaje | Causa |
 |---|---|
@@ -387,13 +389,13 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"e3a6b8cb"},{"ref":"2b31255e"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["e3a6b8cb","2b31255e"],"clase":4} [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+true 4000000000 ["Pagado",{"ref":"f0b21935"},{"ref":"b8315a04"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["f0b21935","b8315a04"]} [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
 cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 474
-EJECUTADO · hilo: 78948939 → e3a6b8cb → f9e59d1e → 4598f23e → ccf5a120 → 6c1c5968
+EJECUTADO · hilo: 9a9334c3 → f0b21935 → f9e59d1e → 4598f23e → ccf5a120 → 6c1c5968
 evidencia: true true
 ya ejecutado
-[{"id":"e3a6b8cb","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
+[{"id":"f0b21935","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
 ```
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
@@ -453,8 +455,10 @@ El tercer caso es un defecto observado (§13): `ejecutar` exige la autorización
 
 La unidad de cuenta es la **posición** (cada terminal, referencias incluidas, cuenta una; un array cuenta la suma de las suyas). Cada modo tiene dos cifras:
 
-- el **tope duro** (VG, 7-11-2026): cuántas posiciones puede emitir de una vez. Es lo único que rechaza una escritura (`escribirDesde`, `escribirSalida`, y por tanto `consolidar` y `autorizar`). Coincide con lo que el modo lee: no se emite más de lo que se ve;
-- la **proporción** de escritura sobre lectura (VG, 6-11-2026): el estándar. Informa (`proporcion`), no rechaza. Hasta el 7-11 se exigía su máximo (1, 20, 333); con los topes duros ha pasado a ser información. **[X] decidir VG**: si la interfaz debe avisar cuando un registro queda por encima o por debajo de la proporción.
+- el **tope duro** (VG, 7-11-2026): cuántas posiciones puede **emitir** de una vez. Coincide con lo que el modo lee: no se emite más de lo que se ve. Lo comprueban `escribirDesde` y `escribirSalida` (y por tanto `consolidar` y `autorizar`) sobre lo emitido: las referencias de relleno heredadas del foco no se emiten («se emiten solo las décuplas modificadas», mapa §12) y no cuentan cuando la escritura sabe cuáles son (§7.3);
+- la **proporción** de escritura sobre lectura (VG, 6-11-2026): el estándar. Hasta el 7-11 se exigía su máximo (1, 20, 333). Hoy, provisionalmente, informa y no rechaza: `proporcion` y `proporcionDe` la calculan y `escribirSalida` la devuelve.
+
+**[X] decidir VG**: el mapa dice «topes duros por modo … (además de la proporción)». Si la proporción sigue rechazando, ningún tope llega a aplicarse (1 < 10, 20 < 100, 333 < 1000) y la matriz de 1000 no cabe en Mapped; si solo informa (hoy), falta decidir qué hace la interfaz cuando un registro queda por encima o por debajo. Hasta que VG lo decida, esto es una decisión de camino, no del canon.
 
 ```js
 MODOS                         // { pointed, sequenced, mapped, scened } → { nombre, decuplas, proporcion: [mín, máx] | null, tope }
@@ -464,11 +468,12 @@ tope(modo)                    // → tope duro: posiciones que el modo emite com
 escritura(modo)               // → [mínimo, máximo] según la proporción (floor de lectura × proporción), o null si no está fijada
 contarPosiciones(payload)     // → número de terminales del payload (anidado incluido); 0 si no es BTML
 cabeTope(payload, modo)       // → contarPosiciones(payload) <= tope(modo)
-cabeEscritura(payload, modo)  // → contarPosiciones(payload) <= máximo de la proporción; true si no está fijada (ya no se usa para rechazar)
-proporcion(payload, modo)     // → { posiciones, rango: [mín, máx] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' }
+cabeEscritura(payload, modo)  // → contarPosiciones(payload) <= máximo de la proporción; true si no está fijada (hoy no se usa para rechazar)
+proporcionDe(posiciones, modo)  // → { posiciones, rango: [mín, máx] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' }
+proporcion(payload, modo)     // → proporcionDe(contarPosiciones(payload), modo): cuenta todo el payload, también lo heredado
 ```
 
-| Modo | Décuplas | Lee | Tope duro (rechaza) | Proporción (informa) | Según la proporción `[mín, máx]` |
+| Modo | Décuplas | Lee | Tope duro (rechaza) | Proporción (hoy informa, [X]) | Según la proporción `[mín, máx]` |
 |---|---|---|---|---|---|
 | `pointed` | 1 | 10 | 10 | 1/10 | `[1, 1]` |
 | `sequenced` | 10 | 100 | 100 | 1/10 – 1/5 | `[10, 20]` |
@@ -510,7 +515,7 @@ Decisión de VG (7-11-2026, tarde): «siempre estamos aplicando los puntos de vi
 
 - La fábrica (PV4) parte de la **matriz de 100 del foco**: 10 posiciones × 10 subposiciones. Ya está y **no se emite**.
 - El registro de salida emite **solo las celdas modificadas**. La tercera dimensión es la **clase de modificación**, escrita como **tercer dígito** bajo la época 0: los diez PV. Una modificación de clase `k` sobre la celda `[i][j]` se escribe en `payload[i][j][k]`; su dirección es `i j k 0000000`. Matriz completa: 10 × 10 × 10 = 1000 posiciones, el tope de Mapped.
-- **Ver ya es una modificación** (clase 0): siempre se emite algo. Sin nada visto ni escrito, `desdeMapped` rechaza (`la décupla está vacía…`).
+- **Ver ya es una modificación** (clase 0): siempre se emite algo. Sin nada visto ni escrito, `desdeMapped` rechaza (`la décupla está vacía…`). Solo se ve lo que existe: la dirección de la celda vista ha de alcanzar algo en el foco (§7.3).
 - Lo no modificado **anterior** a lo modificado (posiciones antes de `i`, subposiciones antes de `j`, clases antes de `k`) se **hereda del foco por referencia** `{ ref: foco, dir }`: un array BTML no admite huecos y una referencia no copia.
 - Lo **lejano sin base** en el foco no se rechaza: se **ancla** en su posición, en un registro aparte con `en` = la dirección de la celda (`ubicar`, §7.3).
 
@@ -521,17 +526,17 @@ Decisión de VG (7-11-2026, tarde): «siempre estamos aplicando los puntos de vi
 | 2 | criterio | criterios |
 | 3 | comunicación | comunicación |
 | 4 | acción | fábrica |
-| 5 | estructura | estructura |
-| 6 | pasado | pasado |
-| 7 | futuro | futuro |
-| 8 | comparabilidad | comparabilidad |
-| 9 | camino | camino |
+| 5–9 | `null`: **[X] decidir VG** (VG nombró 0–4 y «…») | estructura, pasado, futuro, comparabilidad, camino |
 
-`claseDe(dir)` devuelve el tercer dígito de una dirección: `claseDe('1240000000') === 4`. El motor guarda la clase de cada elección en la consolidación (§3.5) y la clase 4 en la ejecución (§5).
+`claseDe(dir)` devuelve el tercer dígito de una dirección: `claseDe('1240000000') === 4`. La clase se lee de la dirección; ningún registro guarda un campo de clase aparte (ni la consolidación ni la ejecución, §3.5).
 
-**Base en el foco.** Un hueco de posición o de subposición tiene base si el foco tiene contenido en ese camino (un terminal es su propia posición 0: colisión de ceros finales). Un hueco de **clase** tiene base si **existe la celda** `[i][j]`: la matriz de 100 del foco ya está, y cada celda se puede ver desde cualquiera de los diez PV. Por eso, para pagar el precio de la compra (`[1][2][4]`), las clases 0–3 del precio se heredan por referencia a `1200000000`…`1230000000` (la 0 es la propia celda; las demás nombran el precio visto desde el PV 1, 2 y 3, que la compra no desarrolla). **[X] decidir VG**: si las clases sin modificar se heredan por referencia a `i.j.k` (hoy) o todas a la celda `i.j`.
+**Base en el foco.** Un hueco (de posición, de subposición o de clase) tiene base si el foco tiene contenido **en ese camino exacto**, sin seguir referencias. Un terminal no tiene posiciones, tampoco la 0 (mapa §12: se retiró la convención de la representación; igual que en el encaje, `docs/BTML.md` §4.2): lo que cuelga de un terminal no tiene base. Así, toda referencia heredada alcanza algo en el foco (lo comprueba `test/fabrica-1000.test.js` celda a celda). Para pagar el precio de la compra (`[1][2][4]`), el precio es un terminal (`'EUR 12'`) y no tiene clases 0–3 que heredar: la celda se **ancla** en `1240000000`. Si el foco desarrolla las clases de la celda (`[1][2]` es un array), se heredan por referencia a `1200000000`…`1230000000` y el pago va dentro. **[X] decidir VG**: si, mientras el foco no desarrolla las clases de una celda, lo no modificado se hereda por referencia a la celda `i.j` (dentro del registro) en vez de anclarse (hoy).
 
-**Compactación.** Bajo la raíz, un array de un solo terminal se guarda como el terminal: la dirección `2000000000` nombra a la vez `[2]`, `[2][0]` y `[2][0][0]`, así que no se pierde nada. Por eso una celda con solo la clase 0, sola en su posición, ocupa `payload[i]` como antes de la matriz (compatibilidad con las décuplas de líneas). La raíz del registro es siempre un array.
+**Ceros finales.** Una dirección con ceros finales nombra la colisión (mapa §12): la heredada o la vista de una subposición 0 (`4.0`, `1.2.0`) se escribe con la dirección de la posición (`4000000000`, `1200000000`), y `resolver` da la posición entera (`['pagar', 'servir']`, no `'pagar'`); ver `0.0` alcanza el registro entero. **[X] decidir VG**: si ver o heredar una subposición 0 necesita una referencia por índice exacto (como BUSCAR por índice, mapa §12).
+
+**Ver y heredar.** Una celda vista (`{ ref: foco, dir: i.j }` en `[i][j][0]`) y una heredada en la misma celda son el mismo valor. Lo que las distingue es `contexto.heredadas`: el registro dice qué heredó, y lo demás se vio o se escribió (`desdeMapped` devuelve además `vistas`). **[X] decidir VG**: si ver necesita una marca propia en el payload.
+
+**Compactación.** Bajo la raíz, un array de un solo terminal se guarda como el terminal: la dirección `2000000000` nombra a la vez `[2]`, `[2][0]` y `[2][0][0]` (colisión de ceros finales). Por eso una celda con solo la clase 0, sola en su posición, ocupa `payload[i]` como antes de la matriz (compatibilidad con las décuplas de líneas). La raíz del registro es siempre un array.
 
 ### 7.3 Conformar el registro de salida (`src/escritura.js`)
 
@@ -540,12 +545,12 @@ item(eje, texto)                           // → terminal: número, texto, o re
 resolverRef(eje, prefijo)                  // → { ref: id completo }  el prefijo (con o sin '@', ≥ 4 caracteres) debe ser único en eje.orden
 desdePointed(eje, texto)                   // → un terminal (una referencia también vale)
 desdeSequenced(eje, textos)                // → array de 1 a 10 ítems sin huecos (los vacíos finales se descartan)
-desdeMapped(eje, entrada, foco, camino = [])  // → { payload | null, heredadas, anclados }  la matriz 10×10×10 (§7.2)
+desdeMapped(eje, entrada, foco, camino = [], { prefijo = false } = {})  // → { payload | null, heredadas, vistas, anclados, camino }  la matriz 10×10×10 (§7.2)
 ubicar(eje, foco, celda, { camino = [], escritas = [] } = {})  // → { ubicacion: 'dentro' | 'anclado', dir, en?, faltan }
-costeT(payload)                            // → minutos de T que mueve el registro = contarPosiciones(payload)
-escribirDesde(eje, { modo, autor, sobre, en = RAIZ, payload, t = ahora, contexto = {}, celda?, camino = [] }, privada)  // → Promise<evento>
-escribirSalida(eje, { modo = 'mapped', autor, sobre, en = RAIZ, camino = [], salida, t = ahora, contexto = {} }, privada)  // → Promise<{ registro | null, anclados: evento[] }>
-CLASES                                     // los diez nombres de clase (§7.2)
+costeT(payload)                            // → minutos de T que mueve el registro = contarPosiciones(payload), heredadas incluidas
+escribirDesde(eje, { modo, autor, sobre, en = direccion(camino), payload, t = ahora, contexto = {}, celda?, camino = [], heredadas = [] }, privada)  // → Promise<evento>
+escribirSalida(eje, { modo = 'mapped', autor, sobre, salida, t = ahora, contexto = {} }, privada)  // → Promise<{ registro | null, anclados: evento[], proporcion }>
+CLASES                                     // los nombres de clase: 0–4 de VG; 5–9 null, [X] decidir VG (§7.2)
 claseDe(dir)                               // → tercer dígito de la dirección
 ```
 
@@ -559,24 +564,26 @@ claseDe(dir)                               // → tercer dígito de la direcció
 
 | Forma | Ejemplo | Lectura |
 |---|---|---|
-| Diez listas de líneas, una por posición (la del formulario de hoy) | `lineas[4] = ['pagado', '0.1 con tarjeta']` | Una línea **sin clase** va con clase 0 a la **subposición siguiente libre** (primero se colocan las que fijan subposición). Una línea **`j.k texto`** fija subposición `j` y clase `k`. |
-| Lista de celdas | `[{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }]` | `j` y `k` valen 0 si faltan. `contenido`: texto (pasa por `item`) o valor BTML. **Sin contenido y con clase 0 es ver**: una referencia a la celda del foco. |
+| Diez listas de líneas, una por posición (la del formulario de hoy) | `lineas[4] = ['pagado', 'servido']` | Cada línea es **texto** (pasa por `item`) y va con clase 0 a la **subposición siguiente libre**: la décupla de siempre. Una línea que empieza por `d.d ` (`'1.5 kg de harina'`) sigue siendo texto. Solo con `{ prefijo: true }`, una línea **`j.k texto`** fija subposición `j` y clase `k` (primero se colocan las que fijan subposición). |
+| Lista de celdas | `[{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }]` | `j` y `k` valen 0 si faltan. `contenido`: texto (pasa por `item`) o valor BTML. **Sin contenido y con clase 0 es ver**: una referencia a la celda del foco, cuya dirección ha de alcanzar algo en el foco (`no hay nada que ver en <i.j>…` si no). |
 
-Cada celda se ubica con `ubicar`, en orden de dirección: **dentro** si cada hueco anterior de su ruta ya está escrito en el mismo registro o tiene base en el foco (§7.2); si no, **anclada**. Devuelve:
+Cada celda se ubica con `ubicar`, en orden de dirección: **dentro** si cada hueco anterior de su ruta ya está escrito en el mismo registro o el foco tiene contenido en ese camino exacto (§7.2); si no, **anclada**. Devuelve:
 
 - `payload`: la matriz con lo que va dentro (lo anterior no modificado, heredado del foco por referencia), o `null` si todo se ancla;
-- `heredadas`: lo heredado, en orden: posiciones como número (`3`) y subposiciones o clases como texto (`'1.0'`, `'1.2.3'`);
-- `anclados`: `[{ celda: [i, j, k], en, payload, faltan }]`, una entrada por celda sin base: `en` es la dirección de la celda y `faltan` los huecos sin base que la alejan (`['5', '6']`).
+- `heredadas`: lo heredado, en orden: posiciones como número (`3`) y subposiciones o clases como texto (`'1.0'`, `'1.2.3'`). Cada una alcanza algo en el foco;
+- `vistas`: las celdas vistas (`'1.2'`);
+- `anclados`: `[{ celda: [i, j, k], en, payload, faltan }]`, una entrada por celda sin base: `en` es la dirección de la celda y `faltan` los huecos sin base que la alejan (`['5', '6']`);
+- `camino`: el camino del foco; el registro va en `direccion(camino)`, de modo que cada celda cae en su dirección.
 
-Errores: `la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda`; `la celda <i.j.k> está dos veces`; `celda fuera de la matriz: <i.j.k>`; `falta el contenido de <i.j.k>: solo ver (clase 0) va sin contenido`; `la posición <i> no admite más de 10 subposiciones`; `la décupla tiene más de 10 posiciones`; `la celda <…> no cabe bajo un camino de <n> profundidades`; `contenido no válido en <i.j.k>: …`; `foco desconocido: <id>`.
+Errores: `la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda`; `no hay nada que ver en <i.j>: el foco no tiene esa celda`; `la celda <i.j.k> está dos veces`; `celda fuera de la matriz: <i.j.k>`; `falta el contenido de <i.j.k>: solo ver (clase 0) va sin contenido`; `la posición <i> no admite más de 10 subposiciones`; `la décupla tiene más de 10 posiciones`; `la celda <…> no cabe bajo un camino de <n> profundidades`; `contenido no válido en <i.j.k>: …`; `foco desconocido: <id>`.
 
-Ambigüedad conocida del prefijo: una línea que empieza por `d.d ` (`'1.5 kg'`) se lee como subposición 1, clase 5 y texto `kg`. Para escribir ese texto tal cual se le pone delante su celda: `'0.0 1.5 kg'`. **[X] decidir VG**: si el prefijo de celda necesita una marca propia.
+Respecto de la décupla anterior a la matriz cambian dos cosas: lo lejano se ancla en vez de dar `hueco en <i>`, y un foco terminal no hereda su posición 0 (un terminal no tiene posiciones). Las líneas significan lo mismo. **[X] decidir VG**: si el formulario de Mapped pide la clase de cada celda y con qué marca (hoy el prefijo `j.k` es opcional y solo se lee con `{ prefijo: true }`).
 
-**`ubicar(eje, foco, celda, { camino, escritas })`** decide entre «dentro del registro» y «anclado en la posición» para una celda objetivo (`[i]`, `[i, j]` o `[i, j, k]` bajo `camino`). `escritas` son las celdas que ya van dentro del mismo registro (cuentan como base). No escribe nada.
+**`ubicar(eje, foco, celda, { camino, escritas })`** decide entre «dentro del registro» y «anclado en la posición» para una celda objetivo (`[i]`, `[i, j]` o `[i, j, k]` bajo `camino`). `escritas` son las celdas que ya van dentro del mismo registro (cuentan como base). `dir` es la dirección donde cae la celda en los dos casos. No escribe nada.
 
-**`escribirDesde`** escribe **un** registro: comprueba el **tope duro** del modo (`<Modo> emite como mucho <tope> posiciones; este registro tiene <n>`), añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }`. El registro se anida en `sobre` + `en` (raíz por defecto). Con **`celda`**, `payload` es el contenido de esa celda del foco `sobre` y se ubica con `ubicar`: dentro, se envuelve en la matriz (con lo anterior heredado por referencia) y se escribe en `en`; anclado, se escribe tal cual con `en` = la dirección de la celda. `payload` nulo → `nada que escribir en el registro…`. Si el `payload` viene de `desdeMapped` y dejó celdas ancladas, escribirlo solo las perdería: se rechaza con `<n> celda(s) sin base en el foco se ancla(n) aparte (<i.j.k> en <dir>, …): escribe la salida entera con escribirSalida`.
+**`escribirDesde`** escribe **un** registro en `sobre` + `en` (`en` vale por defecto `direccion(camino)`: la raíz sin camino). Comprueba el **tope duro** del modo sobre lo **emitido** (`<Modo> emite como mucho <tope> posiciones; este registro tiene <n>`): con `heredadas` (las de `desdeMapped`), esas posiciones son relleno y no cuentan; cada una ha de ser una referencia al foco en su dirección bajo `camino` (`la heredada <h> no es una referencia al foco en <dir>`, `heredada no válida: <h>`), y quedan en `contexto.heredadas`. Sin `heredadas`, cuenta todo el payload. Añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }` (el coste sí cuenta el relleno). Con **`celda`**, `payload` es el contenido de esa celda del foco `sobre` y se ubica con `ubicar`: dentro, se envuelve en la matriz (con lo anterior heredado por referencia, apuntado en `contexto.heredadas`) y el registro va en `direccion(camino)`; anclado, se escribe tal cual en la dirección de la celda. En los dos casos la celda cae en la `dir` de `ubicar`; otro `en` se rechaza (`la celda <i.j.k> cae en <dir>: el registro va en <sitio>, no en <en>`). `payload` nulo → `nada que escribir en el registro…`; todo heredado → `nada que emitir: todo el registro es herencia del foco`. Si el `payload` viene de `desdeMapped` y dejó celdas ancladas, escribirlo solo las perdería: se rechaza con `<n> celda(s) sin base en el foco se ancla(n) aparte (<i.j.k> en <dir>, …): escribe la salida entera con escribirSalida`.
 
-**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `en` y cada celda anclada en su posición (con `escribirDesde` y `celda`). El tope cuenta **la salida entera** (`… emite como mucho <tope> posiciones; esta salida tiene <n>`), antes de escribir nada. No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
+**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `direccion(salida.camino)`, con sus `heredadas`, y cada celda anclada en su `en`. No se le pasa `en` ni `camino`: los dice la salida, para que cada celda caiga en su dirección. El tope cuenta lo **emitido por la salida entera**, sin las heredadas (`… emite como mucho <tope> posiciones; esta salida tiene <n>`), antes de escribir nada. Una salida de otro foco no pasa (sus heredadas no son referencias a `sobre`). Devuelve también `proporcion`: dónde queda lo emitido respecto de la proporción del modo (informa, **[X] decidir VG**). No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
 
 ```sh
 node --input-type=module -e "
@@ -600,6 +607,8 @@ const sub = []; sub[1] = ['dos'];
 console.log('con camino [1]:', corto(desdeMapped(eje, sub, compra.id, [1])));
 const tarde = []; tarde[7] = ['más tarde'];
 console.log('lo lejano se ancla:', corto(desdeMapped(eje, tarde, compra.id)));
+const kilo = []; kilo[1] = ['1.5 kg de harina'];
+console.log('una línea «d.d» es texto:', corto(desdeMapped(eje, kilo, compra.id).payload));
 try { desdeMapped(eje, [], compra.id); } catch (e) { console.log(e.message); }
 "
 ```
@@ -621,12 +630,13 @@ la hilera está vacía
 la hilera tiene más de 10 posiciones
 [{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa",{"ref":"f9e59d1e","dir":"3000000000"},["pagado","servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"f9e59d1e","dir":"1000000000"},"dos"],"heredadas":[0],"anclados":[]}
-lo lejano se ancla: {"payload":null,"heredadas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}]}
+con camino [1]: {"payload":[{"ref":"f9e59d1e","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
+una línea «d.d» es texto: [{"ref":"f9e59d1e","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
-Nota: `'@zzzz'` (no hexadecimal), `'@ab'` (corto) y `'@4598f23e:12'` (la subposición necesita diez dígitos) no casan con la forma de referencia y se guardan como texto. Las tres referencias heredadas de la décupla cuestan un minuto cada una: el coste cuenta posiciones del registro, no solo las tecleadas. Las líneas sin clase de la décupla son celdas `2.0.0`, `4.0.0` y `4.1.0`; compactadas, dan la misma décupla que antes de la matriz. La posición 7 está lejos (la compra solo desarrolla 0–4): se ancla en `7000000000` en vez de rechazarse.
+Nota: `'@zzzz'` (no hexadecimal), `'@ab'` (corto) y `'@4598f23e:12'` (la subposición necesita diez dígitos) no casan con la forma de referencia y se guardan como texto. Las tres referencias heredadas de la décupla cuestan un minuto cada una: el coste cuenta posiciones del registro, no solo las tecleadas (el tope no las cuenta si se le dicen las `heredadas`). Las líneas de la décupla son celdas `2.0.0`, `4.0.0` y `4.1.0`; compactadas, dan la misma décupla que antes de la matriz, y una línea que empieza por `d.d ` sigue siendo texto. La posición 7 está lejos (la compra solo desarrolla 0–4): se ancla en `7000000000` en vez de rechazarse.
 
 La matriz sobre la compra del menú: ver el precio, pagarlo, ubicar celdas y escribir una salida con parte anclada.
 
@@ -639,49 +649,57 @@ const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0
 const T = '2026-11-07T16:00:00Z';
 const { eje, compra } = await ejemploCompra();
 console.log(CLASES.map((c, k) => k + ' ' + c).join(' · '));
-const ver = desdeMapped(eje, [{ i: 1, j: 2, k: 0 }], compra.id);
-console.log('ver 1.2.0:', corto(ver.payload), '· heredadas', JSON.stringify(ver.heredadas));
+const ver = desdeMapped(eje, [{ i: 1, j: 2 }], compra.id);
+console.log('ver 1.2:', corto(ver.payload), '· heredadas', JSON.stringify(ver.heredadas), '· vistas', JSON.stringify(ver.vistas));
+for (const c of [{ i: 2, j: 3 }, { i: 0, j: 5 }]) try { desdeMapped(eje, [c], compra.id); } catch (e) { console.log(e.message); }
 const pagar = desdeMapped(eje, [{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }], compra.id);
-console.log('pagar 1.2.4: [1][2] =', corto(pagar.payload[1][2]), '· heredadas', JSON.stringify(pagar.heredadas));
+console.log('pagar 1.2.4:', corto(pagar));
 const lineas = []; lineas[1] = ['2.4 pagar 12 EUR']; lineas[4] = ['pagado', '0.1 con tarjeta'];
-console.log('por líneas: [4] =', corto(desdeMapped(eje, lineas, compra.id).payload[4]));
-for (const c of [[1, 2, 4], [7, 0, 0], [1, 5, 0]]) console.log('ubicar', c.join('.'), corto(ubicar(eje, compra.id, c)));
+const conPrefijo = desdeMapped(eje, lineas, compra.id, [], { prefijo: true });
+console.log('con prefijo: [4] =', corto(conPrefijo.payload[4]), '· anclados', corto(conPrefijo.anclados.map((a) => a.celda.join('.') + ' en ' + a.en)));
+for (const c of [[1, 2, 4], [2, 0, 0], [7, 0, 0], [1, 5, 0]]) console.log('ubicar', c.join('.'), corto(ubicar(eje, compra.id, c)));
 const mezcla = []; mezcla[2] = ['sin lactosa']; mezcla[7] = ['repetir el sábado'];
 const salida = desdeMapped(eje, mezcla, compra.id);
 console.log('salida', corto(salida));
 await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }).catch((e) => console.log(e.message));
 const antes = eje.saldoT('huesped', 'minuto');
-const { registro, anclados } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
-console.log('registro en', registro.en, corto(registro.payload), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', antes - eje.saldoT('huesped', 'minuto'), 'minutos');
+const { registro, anclados, proporcion } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
+console.log('registro en', registro.en, corto(registro.payload), JSON.stringify(registro.contexto), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', antes - eje.saldoT('huesped', 'minuto'), 'minutos ·', JSON.stringify(proporcion));
 const celda = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [9, 0, 0], payload: 'volver', t: T });
 console.log('celda 9.0.0 →', celda.en, corto(celda.payload));
-const dentro = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [1, 2, 4], payload: 'pagar 12 EUR', t: T });
-console.log('celda 1.2.4 →', dentro.en, dentro.payload[1][2][4], '·', dentro.movimientos[0].cantidad, 'posiciones');
+const postre = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'postre', t: T });
+console.log('celda 3.0.0 bajo [1] →', postre.en, corto(postre.payload), JSON.stringify(postre.contexto), '·', postre.movimientos[0].cantidad, 'minutos');
+await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], en: '4000000000', payload: 'postre', t: T }).catch((e) => console.log(e.message));
 "
 ```
 
 ```text
-0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 estructura · 6 pasado · 7 futuro · 8 comparabilidad · 9 camino
-ver 1.2.0: [{"ref":"f9e59d1e","dir":"0000000000"},[{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"]
-pagar 1.2.4: [1][2] = [{"ref":"f9e59d1e","dir":"1200000000"},{"ref":"f9e59d1e","dir":"1210000000"},{"ref":"f9e59d1e","dir":"1220000000"},{"ref":"f9e59d1e","dir":"1230000000"},"pagar 12 EUR"] · heredadas [0,"1.0","1.1","1.2.0","1.2.1","1.2.2","1.2.3"]
-por líneas: [4] = [[{"ref":"f9e59d1e","dir":"4000000000"},"con tarjeta"],"pagado"]
-ubicar 1.2.4 {"ubicacion":"dentro","dir":"1240000000","faltan":[]}
+0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
+ver 1.2: [{"ref":"f9e59d1e","dir":"0000000000"},[{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+no hay nada que ver en 2.3: el foco no tiene esa celda
+no hay nada que ver en 0.5: el foco no tiene esa celda
+pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
+con prefijo: [4] = [{"ref":"f9e59d1e","dir":"4000000000"},"pagado"] · anclados ["1.2.4 en 1240000000","4.0.1 en 4010000000"]
+ubicar 1.2.4 {"ubicacion":"anclado","en":"1240000000","dir":"1240000000","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}
+ubicar 2.0.0 {"ubicacion":"dentro","dir":"2000000000","faltan":[]}
 ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan":["5","6"]}
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
-salida {"payload":[{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}]}
+salida {"payload":[{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"] · anclado en 7000000000 "repetir el sábado" · 4 minutos
+registro en 0000000000 [{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":2,"rango":[250,333],"estado":"por debajo"}
 celda 9.0.0 → 9000000000 "volver"
-celda 1.2.4 → 0000000000 pagar 12 EUR · 8 posiciones
+celda 3.0.0 bajo [1] → 1000000000 [{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"},"postre"] {"modo":"pointed","heredadas":[0,1,2]} · 4 minutos
+la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
 
 Lectura:
 
-- `ver 1.2.0`: ver el precio emite una referencia a él (`1200000000`) y hereda por referencia lo anterior (la posición 0 y las subposiciones 1.0 y 1.1): cuatro posiciones.
-- `pagar 1.2.4`: el pago está en `payload[1][2][4]`; las clases 0–3 del precio no se modificaron y se heredan (la 0 es el propio precio). Ocho posiciones.
-- `por líneas`: `'0.1 con tarjeta'` ocupa la subposición 0 con clase 1 (impulso de recursos), así que `'pagado'` va a la subposición libre siguiente, la 1. La clase 0 de `4.0` se hereda (`4000000000`, la acción `pagar` de la compra).
+- `ver 1.2`: ver el precio emite una referencia a él (`1200000000`) y hereda por referencia lo anterior (la posición 0 y las subposiciones 1.0 y 1.1): cuatro posiciones, una emitida. Ver lo que la compra no tiene (2.3, 0.5) se rechaza.
+- `pagar 1.2.4`: el precio (`'EUR 12'`) es un terminal y no tiene clases 0–3 que heredar: el pago se ancla en `1240000000`, un registro de una posición.
+- `con prefijo`: `'0.1 con tarjeta'` fija la subposición 0 con clase 1 (impulso de recursos), así que `'pagado'` va a la subposición libre siguiente, la 1, y `4.0` se hereda (`4000000000`). La clase 1 de `4.0` (que es `'pagar'`, un terminal) no tiene base y se ancla en `4010000000`, igual que `2.4` en `1240000000`. Sin `{ prefijo: true }`, las tres líneas serían texto.
 - `ubicar 1.5.0`: la posición 1 de la compra tiene subposiciones 0–2; la 5 está lejos (faltan 1.3 y 1.4) y se ancla en `1500000000`.
-- `salida`: la posición 2 cabe dentro; la 7 se ancla. `escribirDesde` con solo el payload la perdería y se rechaza; `escribirSalida` escribe el registro (3 posiciones) y el anclado (1): cuatro minutos. Lo anclado es un ocupante escrito de `7000000000` en la compra (`docs/BTML.md` §6).
+- `salida`: la posición 2 cabe dentro; la 7 se ancla. `escribirDesde` con solo el payload la perdería y se rechaza; `escribirSalida` escribe el registro (3 posiciones, `contexto.heredadas` = `[0, 1]`) y el anclado (1): cuatro minutos. Lo emitido son 2 posiciones (lo escrito, no lo heredado), y la proporción de Mapped lo da por debajo (informa). Lo anclado es un ocupante escrito de `7000000000` en la compra (`docs/BTML.md` §6).
+- `celda 3.0.0 bajo [1]`: bajo la posición 1 de la compra la celda va dentro; el registro va en `1000000000` (la dirección del camino), así que el postre cae en `1300000000`, como dice `ubicar`. Son cuatro posiciones y cuatro minutos, pero una sola emitida: cabe en Pointed. Pedirle otro `en` se rechaza.
 
 ```sh
 node --input-type=module -e "
@@ -714,7 +732,7 @@ Error: modo desconocido: otro
 nada que escribir en el registro (si todo se ancla, escribe la salida con escribirSalida)
 ```
 
-Treinta posiciones superan el tope de Pointed (10) y la proporción de Sequenced (20), pero caben en el tope de Sequenced (100): se escriben.
+Treinta posiciones superan el tope de Pointed (10) y la proporción de Sequenced (20), pero caben en el tope de Sequenced (100): hoy se escriben (la proporción informa, **[X] decidir VG**, §7.1).
 
 ### 7.4 Qué usa el motor
 
@@ -722,11 +740,11 @@ Treinta posiciones superan el tope de Pointed (10) y la proporción de Sequenced
 |---|---|---|---|
 | consolidación | `escribirDesde` | `mapped` | 1 + posiciones elegidas o heredadas (≤ 1000) |
 | autorización | `escribirDesde` | `pointed` | 1 |
-| ejecución | `eje.escribir` directo | — (sin `modo`, sin comprobar tope; `contexto.clase = 4`) | 3 |
+| ejecución | `eje.escribir` directo | — (sin `modo`, sin comprobar tope) | 3 |
 
 `consolidar` no usa todavía `desdeMapped` ni `ubicar`: sus huecos se heredan si el foco tiene ocupantes y si no se rechazan (§3.4, §3.5).
 
-Pendiente: si una hilera o una décupla deben anidarse en una posición concreta por decisión o siempre en la raíz del foco (hoy `en` lo elige quien llama; lo anclado va siempre a la dirección de su celda); el coste real de cada operación (hoy un minuto por posición, cartón piedra).
+Pendiente: si una hilera o una décupla deben anidarse en una posición concreta por decisión o siempre en la raíz del foco (hoy, sin celda, `en` lo elige quien llama; con celda o con `escribirSalida`, el registro va en la dirección del camino y lo anclado en la de su celda); el coste real de cada operación (hoy un minuto por posición del registro, heredadas incluidas, cartón piedra: **[X] decidir VG** si el relleno se cobra).
 
 ## 8. Eje temporal y comparabilidad
 
@@ -791,12 +809,12 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      08bdf337 huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      c7d69015 huesped  2026-11-07T14:30:00Z   -1800 hora
   pasado registro      c70bfa6e cocina   2026-11-07T14:10:00Z   -3000 hora
   pasado registro      4598f23e cocina   2026-11-07T09:00:00Z  -21600 dia
   pasado registro      ccf5a120 casa     2026-11-07T09:00:00Z  -21600 dia
   pasado registro      6c1c5968 casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion 08bdf337 huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
+  futuro consolidacion c7d69015 huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
   futuro proyeccion    72bf0b74 huesped  2026-11-13T13:30:00Z  513000 semana 
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
@@ -968,13 +986,13 @@ posición 2 propio → 46ff5dd9 (exacto) · referencia sin gluten (exacto)
 posición 3 propio huesped (exacto) · propio huesped (exacto)
 posición 4 nada
 consolidación ["Pedido del guiso",{"ref":"46ff5dd9","dir":"1100000000"},"sin lactosa",{"ref":"0f4572a1","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
-encaje guardado [{"posicion":1,"evento":"46ff5dd9","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir","clase":0},{"posicion":2,"tipo":"nuevo","destino":"2000000000","clase":0},{"posicion":4,"tipo":"nuevo","destino":"4000000000","clase":0}]
+encaje guardado [{"posicion":1,"evento":"46ff5dd9","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 puede autorizar casa=true cocina=true huesped=false
 rechazo: el autor no se autoriza a sí mismo
 autorización "==sale en 10 minutos" · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"936b2cd1"},{"ref":"97ec0c43"}] · evidencia ["936b2cd1","97ec0c43"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"c78ead25"},{"ref":"3cdef2a4"}] · evidencia ["c78ead25","3cdef2a4"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
-consolidaciones del pedido [{"id":"936b2cd1","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
+consolidaciones del pedido [{"id":"c78ead25","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["46ff5dd9"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 comparar: posición 1 de 2 · huesped=9 casa=3
 restaurado 8 eventos · EJECUTADO · posición 2 de la consolidación: sin lactosa
@@ -984,7 +1002,7 @@ Lectura de la salida:
 
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
 - `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
-- `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido más los dos terminales nuevos (2 y 4), cada uno con su clase: 0, porque en la raíz del foco elegir es ver o sustituir la posición.
+- `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: cocina, por los 2 P con ámbito el menú (el pedido cuelga del menú); la casa, por los 3 P que le quedan sobre `genesis`; la persona huésped no, porque es el autor.
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
 - `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `comparar`: los hermanos del pedido son lo escrito sobre el menú: el pedido (6 posiciones + 2 × 1 escrito + 1 movimiento = 9) y la delegación de poder (1 + 0 + 2 = 3).
@@ -996,7 +1014,6 @@ Lectura de la salida:
 // src/motor.js
 export const FABRICA = '4000000000';
 export const FASES = ['consolidado', 'autorizado', 'ejecutado'];
-export const CLASE_EJECUTADO = 4;
 export const OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' };
 export function caminoVisible(ocupante): number[];
 export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes, pendientes };
@@ -1014,12 +1031,12 @@ export function resolverRef(eje, prefijo): { ref };
 export function item(eje, texto): number | string | { ref, dir? };
 export function desdePointed(eje, texto): terminal;
 export function desdeSequenced(eje, textos: string[]): terminal[];
-export function desdeMapped(eje, entrada: string[][] | { i, j?, k?, contenido? }[], foco, camino = []): { payload: any[] | null, heredadas: (number | string)[], anclados: { celda, en, payload, faltan }[] };
+export function desdeMapped(eje, entrada: string[][] | { i, j?, k?, contenido? }[], foco, camino = [], { prefijo = false } = {}): { payload: any[] | null, heredadas: (number | string)[], vistas: string[], anclados: { celda, en, payload, faltan }[], camino: number[] };
 export function ubicar(eje, foco, celda: number[], { camino = [], escritas = [] } = {}): { ubicacion: 'dentro' | 'anclado', dir, en?, faltan: string[] };
 export function costeT(payload): number;
-export async function escribirDesde(eje, { modo, autor, sobre, en = '0000000000', payload, t = ahora, contexto = {}, celda?, camino = [] }, privada?): Promise<Evento>;
-export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, en = '0000000000', camino = [], salida, t = ahora, contexto = {} }, privada?): Promise<{ registro: Evento | null, anclados: Evento[] }>;
-export const CLASES: string[10];  // ver/sustituir, impulso de recursos, criterio, comunicación, acción, estructura, pasado, futuro, comparabilidad, camino
+export async function escribirDesde(eje, { modo, autor, sobre, en = direccion(camino), payload, t = ahora, contexto = {}, celda?, camino = [], heredadas = [] }, privada?): Promise<Evento>;
+export async function escribirSalida(eje, { modo = 'mapped', autor, sobre, salida, t = ahora, contexto = {} }, privada?): Promise<{ registro: Evento | null, anclados: Evento[], proporcion }>;
+export const CLASES: (string | null)[10];  // ver/sustituir, impulso de recursos, criterio, comunicación, acción; 5–9 null ([X] decidir VG)
 export function claseDe(dir): number;
 export { esReferencia };
 
@@ -1032,7 +1049,8 @@ export function escritura(modo): [number, number] | null;
 export function contarPosiciones(payload): number;
 export function cabeTope(payload, modo): boolean;
 export function cabeEscritura(payload, modo): boolean;
-export function proporcion(payload, modo): { posiciones, rango: [number, number] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' };
+export function proporcionDe(posiciones, modo): { posiciones, rango: [number, number] | null, estado: 'por debajo' | 'dentro' | 'por encima' | 'sin fijar' };
+export function proporcion(payload, modo): ReturnType<proporcionDe>;
 
 // src/tiempo.js
 export function banda(deltaSegundos): string;
@@ -1061,16 +1079,17 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Rechazar, revocar, caducar; varias autorizaciones (quórum); ejecución por tramos | Tres estados y una sola autorización válida basta; `ejecutar` toma la primera. |
 | Recibos de terceros referenciados por la operación raíz (aceptación, despacho, recepción) | La evidencia es consolidación + autorización; nada más se enlaza. |
 | Cierre de una interacción en la interfaz | Fuera del motor. |
-| Qué hace la interfaz con la proporción (**[X] decidir VG**: avisar o rechazar); proporción de Scened | Solo rechaza el tope duro (10/100/1000/10000); `proporcion` informa; Scened sin proporción. |
+| Si la proporción rechaza o informa, y qué hace la interfaz con ella (**[X] decidir VG**, §7.1); proporción de Scened | Provisional: solo rechaza el tope duro (10/100/1000/10000) sobre lo emitido; `proporcion`/`proporcionDe` informan y `escribirSalida` la devuelve; Scened sin proporción. |
+| Nombre de las clases 5–9 (**[X] decidir VG**, §7.2) | `CLASES[5…9]` valen `null`. |
 | Render de Scened | Scened tiene tope (10000) y lectura, sin render. |
-| El formulario de Mapped pide la clase de cada celda (`app.js`) | Hoy pide líneas por posición: sin prefijo, clase 0; `j.k texto` fija subposición y clase. `app.js` escribe con `escribirDesde` y no con `escribirSalida`: lo que se ancla se rechaza con aviso, no se pierde. |
-| «Ver» como registro mínimo desde la interfaz | `desdeMapped` lo admite (celda de clase 0 sin contenido); ninguna pantalla lo emite. |
-| `consolidar` con la matriz: clases heredadas y anclaje de lo lejano (**[X] decidir VG**, §3.5) | `consolidar` guarda la clase de cada elección, pero hereda por ocupantes y rechaza el hueco sin ellos. |
-| Clase de la autorización (**[X] decidir VG**: ¿2, criterio?) | `autorizar` no guarda clase; la ejecución guarda la 4. |
-| Clases sin modificar de una celda: referencia a `i.j.k` o a la celda (**[X] decidir VG**, §7.2) | Referencia a `i.j.k`. |
-| Marca propia para el prefijo de celda en las líneas (**[X] decidir VG**, §7.3) | `j.k texto`; un texto que empieza por `d.d ` se escribe con su celda delante. |
-| Coste real de las operaciones | Un minuto de T por posición escrita, y uno por autorización o ejecución. |
-| Anidar hileras o décuplas en una posición por decisión | `en` lo elige quien llama (raíz por defecto); lo anclado va a la dirección de su celda. |
+| El formulario de Mapped pide la clase de cada celda, y con qué marca (`app.js`, **[X] decidir VG**, §7.3) | Hoy pide líneas por posición, que son texto con clase 0; el prefijo `j.k texto` solo se lee con `{ prefijo: true }` y `app.js` no lo pide. `app.js` escribe con `escribirDesde` y no con `escribirSalida`: lo que se ancla se rechaza con aviso, no se pierde. |
+| «Ver» como registro mínimo desde la interfaz; marca propia de ver en el payload (**[X] decidir VG**, §7.2) | `desdeMapped` lo admite (celda de clase 0 sin contenido, si su dirección alcanza algo en el foco); ninguna pantalla lo emite. Ver y heredar se distinguen por `contexto.heredadas`. |
+| Referencia exacta a una subposición 0 (**[X] decidir VG**, §7.2) | Ver o heredar `i.0` usa la dirección de `i` (colisión de ceros finales). |
+| `consolidar` con la matriz: herencia por camino exacto y anclaje de lo lejano; clase de sus elecciones (**[X] decidir VG**, §3.5) | `consolidar` hereda por ocupantes y rechaza el hueco sin ellos; no guarda clase (se lee de `destino`). |
+| Clase de la autorización y de la ejecución (**[X] decidir VG**: ¿2, criterio?; ¿4 escrita en otra dirección?, §3.5) | Ninguna guarda clase; las dos se escriben en `FABRICA`, de tercer dígito 0. |
+| Clases sin modificar de una celda sin desarrollar: heredar por referencia a la celda `i.j` o anclar (**[X] decidir VG**, §7.2) | Se ancla: solo se hereda lo que el foco tiene en el camino exacto. |
+| Coste real de las operaciones; si el relleno heredado se cobra (**[X] decidir VG**) | Un minuto de T por posición del registro (heredadas incluidas), y uno por autorización o ejecución. |
+| Anidar hileras o décuplas en una posición por decisión | Sin celda, `en` lo elige quien llama (`direccion(camino)` por defecto); con celda o con `escribirSalida`, el registro va en la dirección del camino y lo anclado en la de su celda. |
 | Reglas por dimensión para el signo guardado en `encaje`; cambio del encaje con la época | El vector se guarda tal cual; ninguna regla lo filtra. |
 | Caché y snapshot en la evaluación segura | BQL tiene pila de ciclos y presupuesto; no hay caché (`docs/BQL.md` §9). |
 | Confluencia estadística del 8; nivel y grado; `HITOS` aplicados | `comparar` ordena hermanos por una puntuación fija; `HITOS` es una tabla. |
@@ -1092,7 +1111,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 9. `banda` usa «estrictamente menor»: 60 s es `hora`, 3600 s es `dia`, 86400 s es `semana`.
 10. `ejeTemporal` pone en `pasado` todos los antecesores del hilo aunque su `t` sea posterior a `ahora` (delta positivo en el pasado).
 11. `consolidaciones(eje, foco, camino)` solo ve la fábrica de ese camino; una consolidación anclada en otra profundidad no aparece en el eje temporal de la raíz.
-12. `costeT` cobra las referencias heredadas como posiciones escritas, y el tope las cuenta como emitidas: «se emiten solo las celdas modificadas», pero lo anterior heredado por referencia también ocupa posiciones del registro.
+12. `costeT` cobra las referencias heredadas como posiciones del registro (el tope ya no las cuenta cuando la escritura sabe cuáles son: con `celda`, con `heredadas` o desde `escribirSalida`). Un payload de `desdeMapped` escrito con `escribirDesde` sin pasarle `heredadas` (así lo hace `app.js`) cuenta el relleno también para el tope y no deja `contexto.heredadas`.
 13. `escribirDesde` y `ejecutar` usan el reloj si falta `t`: ids no reproducibles.
 14. `comparar` compara hermanos por `sobre` sin distinguir `en`; la puntuación `posiciones + 2 × escritos + movimientos` es cartón piedra, sin respaldo en el corpus.
 15. La regla V0 permite que el autor de una consolidación sea quien tenga todo el poder: entonces nadie puede autorizarla (la casa consolidando sobre su propio eje sin haber delegado P).

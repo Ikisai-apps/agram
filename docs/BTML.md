@@ -99,7 +99,8 @@ true true 0000000000 {}
 | `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor) y quien da de alta | Clave pública de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
 | `tipos: { identidad: 'persona' \| 'grupo' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
-| `motor`, `fase`, `fuentes`, `encaje`, `evidencia`, `clase` | `motor.js` | Fábrica: consolidación (cada entrada de `encaje` lleva su clase de modificación), autorización, ejecución (`clase: 4`). Ver `docs/MOTOR.md`. |
+| `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección (se comprueba). No se emiten y no cuentan para el tope del modo; lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
+| `motor`, `fase`, `fuentes`, `encaje`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución. Fuera de este documento. |
 
 ### 1.5 Un evento real: la compra
 
@@ -291,7 +292,7 @@ Pendiente: terminales HTML y archivo (el mapa §2.1 los nombra; hoy un HTML es u
 Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9, **sin `null`, `undefined` ni huecos**, y cada posición contiene un terminal u otro array. Consecuencias:
 
 - No hace falta envolver un terminal en un array de una posición: un payload puede ser un terminal directamente (el génesis de ejemplo es `'Casa de ejemplo'`).
-- La información se genera de 0 hacia arriba: **si existe la posición d, existen 0…d−1**. Para escribir en la posición 4 hay que rellenar 0–3, con contenido o con referencias (así lo hacen `escritura.desdeMapped` y `motor.consolidar`: heredan del foco por referencia). Si el foco no tiene base para rellenarlas, `desdeMapped` no rechaza: ancla lo lejano en su posición con `en` (`docs/MOTOR.md` §7.3).
+- La información se genera de 0 hacia arriba: **si existe la posición d, existen 0…d−1**. Para escribir en la posición 4 hay que rellenar 0–3, con contenido o con referencias (así lo hacen `escritura.desdeMapped` y `motor.consolidar`: heredan del foco por referencia). `desdeMapped` solo hereda lo que el foco tiene en ese camino exacto (un terminal no tiene posiciones, tampoco la 0), así que una referencia heredada siempre alcanza algo; si el foco no tiene base, no rechaza: ancla lo lejano en su posición con `en` (`docs/MOTOR.md` §7.3).
 - Un array de un elemento es válido. La décupla de diez posiciones solo se desarrolla cuando corresponde.
 - `validarPayload` no limita la profundidad; `direccion` sí (diez índices). Un nodo por debajo del décimo nivel existe pero no tiene dirección. Pendiente: cambio de foco al agotar diez niveles (mapa §2.1).
 
