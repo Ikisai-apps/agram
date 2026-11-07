@@ -13,7 +13,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje, reglasDelTope, SIN_CAPACIDAD } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
-import { claveToken } from '../src/tokens.js';
+import { claveToken, franjaDe, familiaDe } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 
 const T0 = '2026-11-08T10:00:00Z';
@@ -97,13 +97,40 @@ test('R2·2: el E vivo de un registro no pasa de su capacidad, sumando denominac
   await delega(eje, A, 'socia', 2);
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 2, bloquea: 2 }));
   await eje.escribir(emision('socia', { A, denominacion: 'litera@n1', cantidad: 2, bloquea: 2 }));
-  assert.deepEqual(eje.topes(A, T0), [{ registro: A, capacidad: 4, vivo: 4, libre: 0 }]);
-  // Otra denominación, otro emisor: el tope es del registro, no de la serie.
-  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 1, bloquea: 0 })), /tope de E del registro .*llegaría a 5 y su capacidad es 4/);
+  assert.deepEqual(eje.topes(A, T0), [{ registro: A, capacidad: 4, franja: 'n1', vivo: 4, libre: 0 }]);
+  // Otra denominación, otro emisor: el tope es del registro en esa franja, no de la serie.
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 1, bloquea: 0 })), /tope de E del registro .* en la franja «n1».*llegaría a 5 y su capacidad es 4/);
   // Con capacidad libre, sí: consumir baja el E vivo.
   await eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'noche consumida', movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'cama@n1', registro: A, cantidad: 1, de: 'casa', a: null }] });
   assert.equal(eje.vivo(serieE('casa', 'cama@n1', A), T0), 1);
   assert.equal(eje.topes(A, T0)[0].vivo, 3);
+});
+
+test('R2·2: el tope es por franja (lo que va tras la última «@»): cada noche tiene su capacidad; un bloqueo de familia respalda todas', async () => {
+  const { eje, A } = await mundo({ capacidad: 4, pA: 4 });
+  const familia = familiaDe(serieE('casa', 'cama@n1', A));
+  assert.equal(familia, 'E:casa/cama@*@' + A);
+  assert.deepEqual([franjaDe('cama@n1'), franjaDe('a@b@2026-11-13'), franjaDe('EUR')], ['n1', '2026-11-13', '']);
+  // g le delega a la casa 1 de P sobre A (estrechado de su P:genesis): le deja P disponible sobre A para seguir emitiendo.
+  await delega(eje, A, 'casa', 1, 'g');
+  // La casa bloquea sus 4 de P:A una vez, para la familia «cama», y con ellos respalda 4 camas cada noche.
+  const bloqueoFamilia = { token: 'P', ambito: A, cantidad: 4, de: 'casa', a: 'casa', estado: 'bloqueo', salida: familia };
+  await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 4, otros: [bloqueoFamilia] }));
+  for (const n of ['n2', 'n3']) await eje.escribir(emision('casa', { A, denominacion: 'cama@' + n, cantidad: 4 }));
+  assert.deepEqual(eje.topes(A, T0).map((x) => [x.franja, x.vivo, x.libre]), [['n1', 4, 0], ['n2', 4, 0], ['n3', 4, 0]]);
+  // Una quinta plaza en n2 no cabe, sea cama o sofá; en n4, sí: otra franja, la misma capacidad.
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n2', cantidad: 1 })), /en la franja «n2».*llegaría a 5 y su capacidad es 4/);
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n2', cantidad: 1, bloquea: 1 })), /en la franja «n2».*llegaría a 5 y su capacidad es 4/);
+  await eje.escribir(emision('casa', { A, denominacion: 'cama@n4', cantidad: 4 }));
+  // La cuota sigue siendo por serie: el bloqueo de familia da 4 por noche, no 5.
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n5', cantidad: 5 })), /cuota de E:casa\/cama@n5@.*da 4 de 4/);
+  // Las denominaciones sin «@» son una sola franja, la de siempre ('').
+  assert.deepEqual(eje.topes(A, T0, '').map((x) => [x.franja, x.vivo]), [['', 0]]);
+  // El bloqueo de familia no se suelta mientras viva alguna noche de la cama.
+  await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'suelta', movimientos: [minuto('casa'), { ...bloqueoFamilia, estado: 'liberacion' }] }), /respalda 16 de E vivo: no se libera mientras viva/);
+  assert.equal(eje.vivo(familia, T0), 16);
+  // «@*» es la franja reservada a la familia: ninguna denominación la lleva.
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@*', cantidad: 1 })), /franja reservada/);
 });
 
 test('R2·2: sin capacidad declarada no hay tope ni hace falta P bloqueado (deuda del emisor)', async () => {
@@ -120,15 +147,15 @@ test('R2·2: caducar baja el E vivo; la capacidad se vuelve a usar', async () =>
   const { eje, A } = await mundo({ capacidad: 2, pA: 2 });
   const n1 = serieE('casa', 'cama@n1', A);
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 2, bloquea: 2, extra: { caduca: '2026-11-09T12:00:00Z' } }));
-  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n2', cantidad: 1 })), /tope de E del registro/);
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 1 })), /tope de E del registro .* en la franja «n1»/);
   const despues = '2026-11-09T12:00:00Z';
   assert.equal(eje.vivo(n1, despues), 0);
   assert.equal(eje.vivo(n1, T0), 2);
-  // Caducada la noche, su P se libera y respalda la siguiente, en el mismo evento.
+  // Caducada la noche, su P se libera y respalda otra serie de la misma franja, en el mismo evento.
   const suelta = { token: 'P', ambito: A, cantidad: 2, de: 'casa', a: 'casa', estado: 'liberacion', salida: n1 };
-  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n2', cantidad: 2, bloquea: 2, otros: [suelta] })), /respalda 2 de E vivo/); // antes de caducar, no
-  await eje.escribir(emision('casa', { A, denominacion: 'cama@n2', cantidad: 2, bloquea: 2, t: despues, otros: [suelta] }));
-  assert.deepEqual(eje.topes(A, despues), [{ registro: A, capacidad: 2, vivo: 2, libre: 0 }]);
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, otros: [suelta] })), /respalda 2 de E vivo/); // antes de caducar, no
+  await eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: despues, otros: [suelta] }));
+  assert.deepEqual(eje.topes(A, despues), [{ registro: A, capacidad: 2, franja: 'n1', vivo: 2, libre: 0 }]);
 });
 
 test('R2·2: partir el recurso en subregistros no esquiva el tope del ancestro (aunque declaren más capacidad)', async () => {
@@ -146,8 +173,8 @@ test('R2·2: partir el recurso en subregistros no esquiva el tope del ancestro (
   await eje.escribir({ ...y1, payload: unico('uno'), movimientos: y1.movimientos.map((m) => (m.token === 'E' && m.de === null ? { ...m, cantidad: 1 } : m)) });
   // La casa llena el resto en el propio alojamiento: el E del rincón cuenta en el tope de A.
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 3, bloquea: 3 }));
-  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n2', cantidad: 1, bloquea: 0 })), /tope de E del registro .*llegaría a 5 y su capacidad es 4/);
-  assert.deepEqual(eje.topes(Y.id, T0).map((x) => [x.registro, x.capacidad, x.vivo]), [[Y.id, 100, 1], [A, 4, 4]]);
+  await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 1, bloquea: 0 })), /tope de E del registro .* en la franja «n1».*llegaría a 5 y su capacidad es 4/);
+  assert.deepEqual(eje.topes(Y.id, T0).map((x) => [x.registro, x.capacidad, x.franja, x.vivo]), [[Y.id, 100, 'n1', 1], [A, 4, 'n1', 4]]);
 });
 
 // ---------- 3 · la cuota por P bloqueado y el bloqueo que no se libera ----------

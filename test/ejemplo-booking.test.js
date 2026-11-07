@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   ejemploReserva, confirmarReserva, reservar, nochesDe, nochesEntre, plaza, precioDe, denominacionPlaza, seriePlaza, libres,
-  abrirTemporada, tokenPlaza, caducaNoche, alojamientoDe, PLAZAS, PLAZAS_POR_NOCHE, HABITACION, TEMPORADA, CASA, EUR,
+  abrirTemporada, tokenPlaza, familiaPlaza, caducaNoche, ALOJAMIENTO, PLAZAS, PLAZAS_POR_NOCHE, HABITACION, TEMPORADA, CASA, EUR,
 } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { decupla, render } from '../src/pointed.js';
 import { resolver, indicesDe } from '../src/btml.js';
@@ -56,11 +56,13 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   // un registro del hilo que la casa no escribió ([X] confirmar VG, motor.poderParaAutorizar).
   assert.deepEqual(eje.poderes('recepcion'), [{ ambito: alojamiento.id, cantidad: 3 }, { ambito: reserva.id, cantidad: 1 }]);
   assert.deepEqual(eje.poderes('huesped'), []);
-  // El alojamiento declara su capacidad (R2): las plazas-noche de la temporada, 4 × 14.
-  assert.deepEqual(alojamiento.payload, ['Alojamiento', ['plazas-noche', '2026-11-16', '2026-11-30'], 56]);
-  // Su P lo acuñó la casa al abrir la temporada y lo tiene bloqueado entero, serie a serie, mientras vivan las noches.
-  assert.equal(eje.serie('P:' + alojamiento.id).emitido, 56);
-  assert.equal(eje.bloqueado(CASA, 'P:' + alojamiento.id), 56);
+  // El alojamiento declara su capacidad (R2): 4 plazas, que el eje cuenta por noche (la franja).
+  assert.deepEqual(alojamiento.payload, ['Alojamiento', ['plazas por noche'], 4]);
+  assert.deepEqual(ALOJAMIENTO, alojamiento.payload);
+  // Su P lo acuñó la casa al abrir la temporada y lo tiene bloqueado entero, plaza a plaza (1 + 1 + 2), para todas las noches.
+  assert.equal(eje.serie('P:' + alojamiento.id).emitido, 4);
+  assert.deepEqual([PLAZAS.matrimonio, PLAZAS.individual, PLAZAS.litera].map((k) => eje.bloqueado(CASA, 'P:' + alojamiento.id, familiaPlaza(habitacion.id, k))), [1, 1, 2]);
+  assert.equal(familiaPlaza(habitacion.id, PLAZAS.litera), 'E:casa/1200000000@*@' + habitacion.id);
   assert.equal(delegacion.sobre, alojamiento.id);
   assert.deepEqual(delegacion.movimientos[1], { token: 'P', cantidad: 3, ambito: alojamiento.id, de: CASA, a: 'recepcion' });
   // Recepción autoriza lo que cuelga del Alojamiento (la disponibilidad, la reserva), no las altas ni el génesis.
@@ -107,8 +109,8 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   assert.deepEqual([noches[0], noches[13]], ['2026-11-16', '2026-11-29']);
   assert.equal(temporada.autor, CASA);
   assert.equal(temporada.sobre, habitacion.id);
-  // VG, 7-11 noche: T, R de la casa en juego, su P sobre el alojamiento y, por plaza y noche, el bloqueo de ese P y las plazas (R2).
-  assert.equal(temporada.movimientos.length, 2 + 1 + 2 * 3 * 14);
+  // VG, 7-11 noche: T, R de la casa en juego, su P sobre el alojamiento, un bloqueo de ese P por plaza (R2) y las plazas por noche.
+  assert.equal(temporada.movimientos.length, 2 + 1 + 3 + 3 * 14);
   assert.equal(seriePlaza(habitacion.id, PLAZAS.litera, '2026-11-20'), 'E:casa/1200000000@2026-11-20@' + habitacion.id);
   for (const [k, capacidad] of [[PLAZAS.matrimonio, 1], [PLAZAS.individual, 1], [PLAZAS.litera, 2]]) {
     for (const n of noches) {
@@ -120,8 +122,11 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   }
   assert.equal(caducaNoche('2026-11-20'), '2026-11-21T12:00:00Z');
   assert.equal(libres(eje, habitacion.id, PLAZAS.individual, '2026-11-30'), 0); // fuera de la temporada no hay plaza
-  // La habitación hereda el tope del alojamiento: las 56 plazas-noche están vivas y no cabe ni una más.
-  assert.deepEqual(eje.topes(habitacion.id, T).map((x) => [x.capacidad, x.vivo]), [[PLAZAS_POR_NOCHE * 14, 56]]);
+  // La habitación hereda el tope del alojamiento, por noche: catorce noches de 4, y en ninguna cabe una más.
+  const topes = eje.topes(habitacion.id, T);
+  assert.deepEqual(topes.map((x) => x.franja), noches);
+  assert.ok(topes.every((x) => x.registro === eje.obtener(habitacion.sobre).id && x.capacidad === PLAZAS_POR_NOCHE && x.vivo === 4 && x.libre === 0));
+  assert.deepEqual(eje.topes(habitacion.id, T, '2026-11-30').map((x) => [x.franja, x.vivo, x.libre]), [['2026-11-30', 0, 4]]);
   // Nadie emite la serie de otro: la persona huésped no puede fabricarse plazas de la casa.
   const falsa = { ...tokenPlaza(habitacion.id, PLAZAS.individual, '2026-11-20', 1, null, CASA) };
   await assert.rejects(eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: T, movimientos: [minutos('huesped'), falsa], payload: 'plazas' }), /nadie emite en nombre de otro/);
@@ -421,41 +426,37 @@ test('el contador informativo cuenta también lo que referencia la plaza desde o
   assert.ok(consolidaciones(eje, otra.id).every((x) => x.estado === 'EJECUTADO'));
 });
 
-test('E atada al recurso (R2): con una noche abierta, dos emisores no pasan de las cuatro plazas; el E vivo baja al pasar la noche', async () => {
-  const noche = ['2026-11-20', '2026-11-21'];
-  const { eje, alojamiento, habitacion, reserva } = await ejemploReserva({ temporada: noche, confirmar: false });
-  // Una noche: el alojamiento declara 4 plazas-noche, y la casa las respalda todas con su P bloqueado.
-  assert.deepEqual(alojamiento.payload, alojamientoDe(noche));
+test('E atada al recurso (R2): 4 plazas por noche; un segundo emisor no añade una quinta esa noche, sí en otra; el E vivo baja al pasar la noche', async () => {
+  const { eje, alojamiento, habitacion } = await ejemploReserva({ confirmar: false });
+  // La casa respalda las catorce noches de 4 con 4 de P (uno por cama, para todas las noches).
   assert.equal(alojamiento.payload[2], 4);
-  assert.deepEqual(eje.topes(habitacion.id, T).map((x) => [x.registro, x.capacidad, x.vivo, x.libre]), [[alojamiento.id, 4, 4, 0]]);
-  // Recepción tiene 3 de P sobre el alojamiento (estrechado del de la casa) y quiere respaldar una plaza más:
-  // su cuota daría 3, pero el tope es del alojamiento, sumando emisores y plazas.
+  assert.deepEqual(eje.topes(habitacion.id, T, '2026-11-20').map((x) => [x.registro, x.capacidad, x.vivo, x.libre]), [[alojamiento.id, 4, 4, 0]]);
+  // Recepción tiene 3 de P sobre el alojamiento (estrechado del de la casa) y quiere respaldar una litera más:
+  // su cuota daría 3, pero el tope es del alojamiento en esa noche, sumando emisores y plazas.
   await eje.escribir({ autor: 'recepcion', sobre: eje.genesisId, t: T, payload: 'R de recepción', movimientos: [minutos('recepcion'), { token: 'R', emisor: 'recepcion', cantidad: 5, de: null, a: 'recepcion' }] });
-  const denominacion = denominacionPlaza(PLAZAS.litera, '2026-11-20');
-  const salida = 'E:recepcion/' + denominacion + '@' + habitacion.id;
-  const otra = (cantidad, t = T) => ({
-    autor: 'recepcion', sobre: habitacion.id, t, payload: 'otra litera',
-    movimientos: [
-      minutos('recepcion'), { token: 'R', emisor: 'recepcion', cantidad: 1, de: 'recepcion', a: CASA },
-      { token: 'P', ambito: alojamiento.id, cantidad: 3, de: 'recepcion', a: 'recepcion', estado: 'bloqueo', salida },
-      { token: 'E', emisor: 'recepcion', denominacion, registro: habitacion.id, cantidad, de: null, a: 'recepcion' },
-    ],
-  });
-  await assert.rejects(eje.escribir(otra(1)), /tope de E del registro .*llegaría a 5 y su capacidad es 4/);
-  // La reserva de la persona huésped se entrega con esos mismos tokens: no hay más plazas que las respaldadas.
-  // (Del 20 al 23: con una sola noche abierta, el 21 y el 22 no tienen token y la entrega no pasa.)
-  await assert.rejects(confirmarReserva(eje, reserva, { t: T }), /saldo insuficiente de E:casa\/1100000000@2026-11-21@/);
-  // Pasada la noche (sale a las 12:00 del día siguiente), su E deja de estar vivo y el alojamiento vuelve a tener sitio.
+  const otra = (noche, t = T) => {
+    const denominacion = denominacionPlaza(PLAZAS.litera, noche);
+    return {
+      autor: 'recepcion', sobre: habitacion.id, t, payload: 'otra litera el ' + noche,
+      movimientos: [
+        minutos('recepcion'), { token: 'R', emisor: 'recepcion', cantidad: 1, de: 'recepcion', a: CASA },
+        { token: 'P', ambito: alojamiento.id, cantidad: 1, de: 'recepcion', a: 'recepcion', estado: 'bloqueo', salida: 'E:recepcion/' + denominacion + '@' + habitacion.id },
+        { token: 'E', emisor: 'recepcion', denominacion, registro: habitacion.id, cantidad: 1, de: null, a: 'recepcion' },
+      ],
+    };
+  };
+  await assert.rejects(eje.escribir(otra('2026-11-20')), /tope de E del registro .* en la franja «2026-11-20».*llegaría a 5 y su capacidad es 4/);
+  // Otra noche (fuera de la temporada de la casa) tiene sus propias 4 plazas: ahí sí cabe.
+  await eje.escribir(otra('2026-11-30'));
+  assert.deepEqual(eje.topes(habitacion.id, T, '2026-11-30').map((x) => [x.vivo, x.libre]), [[1, 3]]);
+  // Pasada la noche del 20 (sale a las 12:00 del 21), su E deja de estar vivo y esa noche vuelve a tener sitio.
   const despues = caducaNoche('2026-11-20');
-  assert.deepEqual(eje.topes(habitacion.id, despues).map((x) => x.vivo), [0]);
-  // La casa libera el P de la noche pasada y abre la siguiente con él; recepción ya no cabe tampoco.
-  const siguiente = await abrirTemporada(eje, habitacion, { noches: ['2026-11-21', '2026-11-22'], t: despues });
-  assert.equal(siguiente.movimientos.filter((m) => m.estado === 'liberacion').length, 3);
-  assert.deepEqual(eje.topes(habitacion.id, despues).map((x) => x.vivo), [4]);
-  await assert.rejects(eje.escribir(otra(1, despues)), /tope de E del registro/);
-  // Antes de pasar la noche, la casa no podía soltar ese P: respaldaba E vivo.
-  const pronto = await ejemploReserva({ temporada: noche, confirmar: false });
-  await assert.rejects(abrirTemporada(pronto.eje, pronto.habitacion, { noches: ['2026-11-21', '2026-11-22'], t: T }), /saldo disponible insuficiente para bloquear P:|tope de E/);
+  assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-20').map((x) => x.vivo), [0]);
+  assert.deepEqual(eje.topes(habitacion.id, despues, '2026-11-21').map((x) => x.vivo), [4]);
+  await eje.escribir(otra('2026-11-20', despues));
+  // El P de la casa respalda todas las noches de cada cama: no se suelta mientras viva alguna.
+  const suelta = { token: 'P', ambito: alojamiento.id, cantidad: 1, de: CASA, a: CASA, estado: 'liberacion', salida: familiaPlaza(habitacion.id, PLAZAS.matrimonio) };
+  await assert.rejects(eje.escribir({ autor: CASA, sobre: alojamiento.id, t: despues, payload: 'suelta', movimientos: [minutos(CASA), suelta] }), /respalda 9 de E vivo: no se libera mientras viva/); // del 21 al 29
 });
 
 test('con claves, cada identidad firma lo suyo y el eje se reconstruye verificando todo', async () => {

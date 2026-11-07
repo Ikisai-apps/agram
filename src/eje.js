@@ -10,7 +10,7 @@
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
-import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
+import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
@@ -237,11 +237,18 @@ export class Eje {
   /**
    * E vivo de una serie (R2, VG 7-11 noche): lo emitido menos lo consumido, y
    * nada si ha caducado en `t` (caducada). Sin `t` no mira la caducidad.
-   * Lo que no es una serie de E emitida da 0.
+   * Lo que no es una serie de E emitida da 0. Con la clave de una familia
+   * (la franja «*», tokens.familiaDe), la suma de todas sus franjas.
    */
   vivo(clave, t) {
+    if (!clave.startsWith('E:')) return 0;
+    if (franjaDe(partirClave(clave).denominacion) === TODAS_LAS_FRANJAS) {
+      let total = 0;
+      for (const k of this.#series.keys()) if (k.startsWith('E:') && k !== clave && familiaDe(k) === clave) total += this.vivo(k, t);
+      return total;
+    }
     const s = this.#series.get(clave);
-    if (!s || !clave.startsWith('E:')) return 0;
+    if (!s) return 0;
     if (t !== undefined && caducada(this, clave, t)) return 0;
     return s.emitido - s.consumido;
   }
@@ -259,19 +266,29 @@ export class Eje {
    * Los topes de E que alcanzan a un registro (R2): cada registro de su hilo
    * (él mismo incluido, hasta el génesis) que declara capacidad
    * (tokens.capacidadDe sobre su payload raíz), del más cercano al génesis,
-   * con el E vivo en `t` de ese registro y de todos sus descendientes, sumando
-   * todas las denominaciones y todos los emisores: [{ registro, capacidad, vivo, libre }].
-   * Vacío si nadie en el hilo declara capacidad: entonces no hay tope.
+   * con el E vivo en `t` de ese registro y de todos sus descendientes POR
+   * FRANJA (tokens.franjaDe), sumando todas las denominaciones y todos los
+   * emisores de esa franja: [{ registro, capacidad, franja, vivo, libre }].
+   * Con `franja`, una fila por registro para esa franja; sin ella, una por
+   * cada franja que tenga alguna serie debajo (o la franja '' si no hay
+   * ninguna), en orden de texto. Vacío si nadie en el hilo declara capacidad:
+   * entonces no hay tope.
    */
-  topes(registro, t) {
+  topes(registro, t, franja) {
     const declarados = this.#topesDe(registro);
     if (!declarados.length) return [];
-    return declarados.map(({ id, capacidad }) => {
-      let vivo = 0;
+    return declarados.flatMap(({ id, capacidad }) => {
+      const porFranja = new Map();
       for (const [clave, s] of this.#series) {
-        if (clave.startsWith('E:') && s.registro && this.hilo(s.registro).some((e) => e.id === id)) vivo += this.vivo(clave, t);
+        if (!clave.startsWith('E:') || !s.registro || !this.hilo(s.registro).some((e) => e.id === id)) continue;
+        const f = franjaDe(partirClave(clave).denominacion);
+        porFranja.set(f, (porFranja.get(f) ?? 0) + this.vivo(clave, t));
       }
-      return { registro: id, capacidad, vivo, libre: capacidad - vivo };
+      const franjas = franja !== undefined ? [franja] : porFranja.size ? [...porFranja.keys()].sort() : [''];
+      return franjas.map((f) => {
+        const vivo = porFranja.get(f) ?? 0;
+        return { registro: id, capacidad, franja: f, vivo, libre: capacidad - vivo };
+      });
     });
   }
 
@@ -666,21 +683,30 @@ function contratoE(m, registroEmisor) {
  * 1. El registro. La serie de E lleva el id del evento donde vive el recurso
  *    (`registro`, en la clave tras la última '@'); ha de existir en el eje.
  *    Sin él, la serie queda atada al registro de su emisor (su alta).
- * 2. El tope compartido. Para cada registro del hilo del de la serie (él
- *    incluido) que declara capacidad (tokens.capacidadDe sobre su payload
- *    raíz), el E vivo en el t del evento (emitido − consumido, y nada si la
- *    serie caducó) de ese registro y de todos sus descendientes, sumando todas
- *    las denominaciones y todos los emisores, no pasa de esa capacidad. Se
- *    miran TODOS los que la declaran, no solo el más cercano: así un
- *    subregistro que declare más capacidad no esquiva el tope de su ancestro.
- *    Sin ninguno no hay tope: deuda del emisor (SIN_CAPACIDAD).
- * 3. La cuota por P bloqueado. Con tope, para cada registro A que lo declara,
- *    el E vivo de la serie no pasa de ⌊P bloqueado ÷ P emitido × capacidad⌋,
- *    donde el P es P:A si A tiene P propio emitido y, si no, P:genesis («el
- *    génesis solo manda donde nadie ha emitido P», VG), y el bloqueado es el
- *    de los emisores de la serie con la salida = la clave de la serie.
+ * 2. El tope compartido, POR FRANJA. La franja es lo que va tras la última
+ *    '@' de la denominación (tokens.franjaDe: `cama-2@2026-11-13` →
+ *    `2026-11-13`); texto opaco que el eje no interpreta y cuya granularidad
+ *    elige quien respalda el recurso; sin '@', una sola franja, ''. Para cada
+ *    registro del hilo del de la serie (él incluido) que declara capacidad
+ *    (tokens.capacidadDe sobre su payload raíz), el E vivo en el t del evento
+ *    (emitido − consumido, y nada si la serie caducó) de ese registro y de
+ *    todos sus descendientes, sumando todas las denominaciones y todos los
+ *    emisores DE LA MISMA FRANJA, no pasa de esa capacidad: una casa de 4
+ *    plazas tiene 4 por noche (VG, 7-11 noche). Se miran TODOS los que la
+ *    declaran, no solo el más cercano: así un subregistro que declare más
+ *    capacidad no esquiva el tope de su ancestro. Sin ninguno no hay tope:
+ *    deuda del emisor (SIN_CAPACIDAD).
+ * 3. La cuota por P bloqueado, por serie. Con tope, para cada registro A que
+ *    lo declara, el E vivo de la serie no pasa de ⌊P bloqueado ÷ P emitido ×
+ *    capacidad⌋, donde el P es P:A si A tiene P propio emitido y, si no,
+ *    P:genesis («el génesis solo manda donde nadie ha emitido P», VG), y el
+ *    bloqueado es el de los emisores de la serie con la salida = la clave de
+ *    la serie o la de su FAMILIA (tokens.familiaDe: la franja cambiada por
+ *    «*»): [X] un mismo bloqueo respalda así la misma cama todas las noches,
+ *    porque la capacidad se repite en cada franja.
  * 4. Ese bloqueo no se libera: un P bloqueado con la salida = la clave de una
- *    serie de E no se libera mientras quede E vivo de esa serie.
+ *    serie de E no se libera mientras quede E vivo de esa serie, ni con la de
+ *    una familia mientras quede E vivo en alguna de sus franjas.
  * 5. El redondeo. Fracciones solo en las series declaradas divisibles
  *    (`divisible: true` en la primera emisión; las ampliaciones coinciden,
  *    como `caduca`); en ellas la cuota no se redondea. Cuando la unidad no se
@@ -777,50 +803,58 @@ export function reglasDelTope(ev, ctx) {
   const caducaYa = (s) => Boolean(s.caduca) && esInstante(t) && msUTC(t) >= msUTC(s.caduca);
   const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
 
-  // 4. El P que respalda E vivo no se libera.
-  for (const { i, salida } of liberaciones) {
-    if (typeof salida !== 'string' || !salida.startsWith('E:')) continue;
-    const vivo = vivoDe(estado(salida));
-    if (vivo > MARGEN) falla(i, 4, 'el P bloqueado con la salida «' + salida + '» respalda ' + vivo + ' de E vivo: no se libera mientras viva');
-  }
-
-  // 5. La emisión conjunta: cada coemisor la firma con su propio bloqueo de P para la serie.
-  for (const { i, clave, emisores } of conjuntas) {
-    for (const e of emisores) {
-      if (e === ev.autor) continue;
-      let suyo = ctx.bloqueadoP(e, clave);
-      for (const [llave, d] of bloqueos) {
-        const [id, kp, salida] = JSON.parse(llave);
-        if (id === e && kp.startsWith('P:') && salida === clave) suyo += d;
-      }
-      if (!(suyo > 0)) falla(i, 5, 'emisión conjunta de ' + clave + ': ' + e + ' no tiene P bloqueado para la serie (su firma es ese bloqueo, con la salida = la clave de la serie)');
-    }
-  }
-
-  // 2 y 3. El tope compartido y la cuota, para cada serie que el evento emite.
-  let todas = null; // [[clave, serie]] de todas las series de E tras el evento, calculado una vez
+  // Todas las series de E tras el evento, con su franja; calculado una vez.
+  let todas = null;
   const series = () => {
     if (todas) return todas;
     const vistas2 = new Map(ctx.seriesE());
     for (const [k, s] of vistas) if (s) vistas2.set(k, s);
-    todas = [...vistas2];
+    todas = [...vistas2].map(([k, s]) => [k, s, franjaDe(partirClave(k).denominacion)]);
     return todas;
   };
+
+  // 4. El P que respalda E vivo no se libera: el de una serie, o el de una familia (todas sus franjas).
+  for (const { i, salida } of liberaciones) {
+    if (typeof salida !== 'string' || !salida.startsWith('E:')) continue;
+    const familia = franjaDe(partirClave(salida).denominacion) === TODAS_LAS_FRANJAS;
+    const vivo = familia
+      ? series().filter(([k]) => familiaDe(k) === salida).reduce((suma, [, s]) => suma + vivoDe(s), 0)
+      : vivoDe(estado(salida));
+    if (vivo > MARGEN) falla(i, 4, 'el P bloqueado con la salida «' + salida + '» respalda ' + vivo + ' de E vivo: no se libera mientras viva');
+  }
+
+  // 5. La emisión conjunta: cada coemisor la firma con su propio bloqueo de P para la serie (o para su familia).
+  for (const { i, clave, emisores } of conjuntas) {
+    const salidas = [clave, familiaDe(clave)];
+    for (const e of emisores) {
+      if (e === ev.autor) continue;
+      let suyo = salidas.reduce((suma, x) => suma + ctx.bloqueadoP(e, x), 0);
+      for (const [llave, d] of bloqueos) {
+        const [id, kp, salida] = JSON.parse(llave);
+        if (id === e && kp.startsWith('P:') && salidas.includes(salida)) suyo += d;
+      }
+      if (!(suyo > 0)) falla(i, 5, 'emisión conjunta de ' + clave + ': ' + e + ' no tiene P bloqueado para la serie (su firma es ese bloqueo, con la salida = la clave de la serie o de su familia)');
+    }
+  }
+
+  // 2 y 3. El tope compartido, por franja, y la cuota, por serie, para cada serie que el evento emite.
   for (const [k, i] of emitidas) {
     const s = estado(k);
     const topes = ctx.topes(s.registro);
     if (!topes.length) continue; // sin capacidad declarada: deuda del emisor
     const vivoSerie = vivoDe(s);
+    const franja = franjaDe(partirClave(k).denominacion);
     for (const { id: A, capacidad } of topes) {
       let vivo = 0;
-      for (const [, otra] of series()) if (ctx.dentro(otra.registro, A)) vivo += vivoDe(otra);
+      for (const [, otra, f] of series()) if (f === franja && ctx.dentro(otra.registro, A)) vivo += vivoDe(otra);
       if (vivo > capacidad + MARGEN) {
-        falla(i, 4, 'tope de E del registro ' + corto(A) + ': su E vivo (con sus descendientes, todas las denominaciones y todos los emisores) llegaría a ' + vivo + ' y su capacidad es ' + capacidad);
+        falla(i, 4, 'tope de E del registro ' + corto(A) + ' en la franja «' + franja + '»: su E vivo (con sus descendientes, todas las denominaciones y todos los emisores de esa franja) llegaría a ' + vivo + ' y su capacidad es ' + capacidad);
       }
       const kp = verP('P:' + A) > 0 ? 'P:' + A : 'P:' + AMBITO_GENESIS;
       const emitidoP = verP(kp);
       const emisores = s.emisores ?? [s.emisor];
-      const bloqueado = emisores.reduce((suma, e) => suma + verB(e, kp, k), 0);
+      const familia = familiaDe(k);
+      const bloqueado = emisores.reduce((suma, e) => suma + verB(e, kp, k) + verB(e, kp, familia), 0);
       const exacta = emitidoP > 0 ? (bloqueado * capacidad) / emitidoP : 0;
       const cuota = s.divisible ? exacta : Math.floor(exacta + MARGEN);
       if (vivoSerie > cuota + MARGEN) {

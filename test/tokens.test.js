@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  validarMovimiento, claveToken, cantidadBase, partirClave, esIdRegistro, capacidadDe,
+  validarMovimiento, claveToken, cantidadBase, partirClave, esIdRegistro, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS,
   SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS, TIPOS, EMITEN,
 } from '../src/tokens.js';
 
@@ -135,6 +135,16 @@ test('E atada al registro (R2): forma del registro, divisible y emisores', () =>
   for (const campo of ['registro', 'divisible', 'emisores']) {
     assert.ok(validarMovimiento({ token: 'R', emisor: 'a', cantidad: 1, de: 'a', a: 'b', [campo]: valor[campo] }).includes(campo + ' solo en E'));
   }
+});
+
+test('franja de una denominación (tras su última «@», texto opaco) y familia de una serie (la franja «*»)', () => {
+  const reg = 'cd'.repeat(32);
+  assert.deepEqual(['cama-2@2026-11-13', 'a@b@turno-3', 'EUR', '@x', 'x@'].map(franjaDe), ['2026-11-13', 'turno-3', '', 'x', '']);
+  assert.equal(TODAS_LAS_FRANJAS, '*');
+  assert.equal(familiaDe('E:casa/cama-2@2026-11-13@' + reg), 'E:casa/cama-2@*@' + reg);
+  assert.equal(familiaDe('E:casa/EUR'), 'E:casa/EUR@*');
+  assert.equal(familiaDe('T:hora'), 'T:hora');
+  assert.ok(validarMovimiento({ token: 'E', emisor: 'casa', denominacion: 'cama@*', cantidad: 1, de: 'casa', a: 'b' }).some((e) => /franja reservada/.test(e)));
 });
 
 test('capacidad: un entero positivo en la posición 2 de una décupla (la plaza o el payload raíz de un registro)', () => {

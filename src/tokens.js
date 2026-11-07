@@ -59,6 +59,41 @@ export const SEPARADOR_REGISTRO = '@';
 const ID_EVENTO = /^[0-9a-f]{64}$/;
 const COLA_REGISTRO = /@([0-9a-f]{64})$/;
 
+/**
+ * La FRANJA de una denominación de E (VG, 7-11 noche: «capacidad = serie
+ * limitada de E (cama-2@noche) emitida por la casa»; una casa de 4 plazas
+ * tiene 4 POR NOCHE): lo que va tras su última '@' (`cama-2@2026-11-13` →
+ * `2026-11-13`). El tope compartido de un registro se cuenta por franja. Es
+ * texto opaco: el eje no interpreta fechas ni ordena franjas; quien respalda
+ * el recurso elige su granularidad (una noche, un turno, un día, nada). Las
+ * denominaciones sin '@' forman una sola franja, la de siempre: ''.
+ */
+export function franjaDe(denominacion) {
+  const i = typeof denominacion === 'string' ? denominacion.lastIndexOf('@') : -1;
+  return i < 0 ? '' : denominacion.slice(i + 1);
+}
+
+/**
+ * Franja reservada: «todas las franjas». Bloquear P con la salida = la clave
+ * de la serie con esta franja (`familiaDe`) respalda a la vez todas las
+ * franjas de esa denominación (la cama de matrimonio, todas las noches).
+ * Ninguna denominación acaba en '@*'.
+ */
+export const TODAS_LAS_FRANJAS = '*';
+
+/**
+ * Clave de la familia de una serie de E: la misma clave con la franja
+ * cambiada por TODAS_LAS_FRANJAS ('E:casa/cama@2026-11-13@<id>' →
+ * 'E:casa/cama@*@<id>'; sin franja, 'E:casa/EUR' → 'E:casa/EUR@*').
+ */
+export function familiaDe(clave) {
+  const p = partirClave(clave);
+  if (p.token !== 'E') return clave;
+  const i = p.denominacion.lastIndexOf('@');
+  const base = i < 0 ? p.denominacion : p.denominacion.slice(0, i);
+  return claveToken({ token: 'E', emisor: p.emisor, denominacion: base + '@' + TODAS_LAS_FRANJAS, registro: p.registro });
+}
+
 /** ¿Tiene `x` la forma del id de un evento (lo que nombra el registro de una serie de E)? */
 export function esIdRegistro(x) {
   return typeof x === 'string' && ID_EVENTO.test(x);
@@ -227,6 +262,7 @@ export function validarMovimiento(m) {
     else if (m.emisor.includes('/')) errores.push('el emisor de E no lleva «/»');
     // La cola '@<id>' es la del registro: una denominación que acabase así no se distinguiría de él.
     if (texto(m.denominacion) && COLA_REGISTRO.test(m.denominacion)) errores.push('la denominación de E no acaba en «@<id de evento>»: esa cola es la del registro');
+    if (texto(m.denominacion) && franjaDe(m.denominacion) === TODAS_LAS_FRANJAS) errores.push('la denominación de E no acaba en «@*»: es la franja reservada a «todas las franjas»');
     if (m.registro !== undefined && !esIdRegistro(m.registro)) errores.push('el registro de E es el id de un evento (64 hexadecimales en minúscula)');
     if (m.divisible !== undefined && m.divisible !== true) errores.push('divisible solo admite true (sin él, la serie va en enteros)');
     if (m.emisores !== undefined) {
