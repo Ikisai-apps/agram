@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const CARPETA = dirname(fileURLToPath(import.meta.url));
 const SALIDA = join(CARPETA, 'epocas.js');
 
-/** 'epoca-1-propuesta.json' → 'EPOCA_1_PROPUESTA_DATOS'. */
+/** 'epoca-0.json' → 'EPOCA_0_DATOS'. */
 export function nombreDeConstante(archivo) {
   return archivo.replace(/\.json$/, '').replace(/[^A-Za-z0-9]+/g, '_').toUpperCase() + '_DATOS';
 }

@@ -11,10 +11,10 @@ import { alcanceDe } from './modos.js';
  * Lo no desarrollado queda sin contenido (undefined). Un terminal no tiene
  * posición 0 (MAPA §12: se retira la convención de la representación): un
  * payload terminal no se reparte en posiciones y va aparte, en `terminal`.
- * La época va por objeto o por nombre ('época 0', 'época 1 (propuesta)'),
- * como en leerDireccion. `alcance` da los tres números del modo (VG, 7-11
- * noche): lo conseguido en posiciones (una décupla = diez, como lectura()),
- * el mínimo (1) y el máximo (10).
+ * La época va por objeto o por nombre ('época 0'), como en
+ * leerDireccion. `alcance` da los tres números del modo (VG, 7-11 noche):
+ * lo conseguido en posiciones (una décupla = diez, como lectura()), el
+ * mínimo (1) y el máximo (10).
  */
 export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
   const e = epocaDe(epoca);

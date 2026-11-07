@@ -6,7 +6,7 @@ import { mapa } from '../src/mapped.js';
 import { ejeTemporal, comparables } from '../src/tiempo.js';
 import { lectura, maximo, minimo } from '../src/modos.js';
 import { consultar } from '../src/bql.js';
-import { EPOCA_1_PROPUESTA } from '../src/epocas.js';
+import { EPOCA_0 } from '../src/epocas.js';
 import { Eje } from '../src/eje.js';
 import * as agram from '../src/index.js';
 
@@ -284,10 +284,11 @@ test('camino y época: todos los focos se miran desde el mismo sitio y bajo la m
   assert.match(lineas[1], / cocina · 0 ensalada · /); // la posición 1.0 del menú
   assert.match(lineas[2], / huesped · 0 →[0-9a-f]{8} · /); // la 1.0 de la compra es una referencia
   // La época también por nombre, como en mapa; la escena dice la resuelta.
-  const p = escena(eje, [menu.id], { ahora: AHORA, epoca: 'época 1 (propuesta)' });
-  assert.equal(p.epoca, 'época 1 (propuesta)');
-  assert.deepEqual(p.focos[0].mapa, mapa(eje, menu.id, { epoca: EPOCA_1_PROPUESTA }));
-  assert.match(render(p).split('\n')[0], / · época 1 \(propuesta\) · camino raíz · /);
+  const p = escena(eje, [menu.id], { ahora: AHORA, camino: [1], epoca: 'época 0' });
+  assert.equal(p.epoca, 'época 0');
+  assert.deepEqual(p.focos[0].mapa, mapa(eje, menu.id, { camino: [1], epoca: EPOCA_0 }));
+  assert.match(render(p).split('\n')[0], / · época 0 · camino 1 · /);
+  assert.equal(p.focos[0].mapa.celdas[2].significado, 'con qué condición'); // profundidad 1: el PV aplicado al nodo de arriba
   assert.throws(() => escena(eje, [menu.id], { epoca: 'época 9' }), /época desconocida/);
 });
 

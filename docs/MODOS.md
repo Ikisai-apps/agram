@@ -63,7 +63,7 @@ RENDERS     // { sobrio }
 | Opción | Qué hace |
 |---|---|
 | `focos` | ids de registros **en orden de prioridad**: si la escena se corta por la capacidad, entran los primeros. Un repetido cuenta una vez y deja un aviso. Un id desconocido lanza `foco desconocido`; una lista vacía lanza. |
-| `camino`, `epoca` | Los de `mapped.mapa`: todos los focos se miran desde el mismo camino y bajo la misma época. La época va por objeto o por nombre (`'época 1 (propuesta)'`), como en `mapa`. `camino` llega también a `ejeTemporal` (consolidaciones y lo declarado en 7). |
+| `camino`, `epoca` | Los de `mapped.mapa`: todos los focos se miran desde el mismo camino y bajo la misma época. La época va por objeto o por nombre (`'época 0'`), como en `mapa`. `camino` llega también a `ejeTemporal` (consolidaciones y lo declarado en 7). |
 | `ahora` | El presente de los ejes temporales (por defecto, el reloj). Con `ahora` fijo la escena es reproducible. |
 | `maximo` | Registros de hilo, de hijos y de eje temporal que trae cada foco, como en `mapa` y `ejeTemporal` (por defecto, los suyos: 10). Un entero ≥ 0; si no, lanza `maximo inválido`. El marco usa siempre el hilo entero (§6). |
 | `capacidad` | Posiciones como máximo. Por defecto `CAPACIDAD` (10000, el máximo de Scened). Se puede bajar (vistas previas, pruebas), **nunca subir ni quitar**: lo que no es un entero de 1 a 10000 (también `Infinity`) lanza `capacidad inválida … el máximo de Scened es duro; se puede pedir menos, nunca más`. |
