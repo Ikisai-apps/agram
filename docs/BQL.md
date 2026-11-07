@@ -569,7 +569,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | PENDIENTE POR LÍMITE | `el alcance <a> (8 de <id8>) exige examinar al menos <k> registros y quedan <q> pasos de presupuesto` | La lectura no cabe (abajo); `parcial: { examinados: 0, de: <k> }`, cota inferior. |
 | PENDIENTE DE AUTORIZACIÓN | `leer la base del 8 de <id8> exige una autorización que no hay` | El gancho no deja leer la base (su raíz), como en `BASES`. |
 | PENDIENTE DE AUTORIZACIÓN | `leer <id8>:0000000000 (camino raíz) exige una autorización que no hay` | `CAJA`: el gancho no deja leer el anfitrión entero (situarlo es medirlo). |
-| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo). |
+| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo); igual `BASES(alcance, "formulasResueltas" \| "formulasPendientes", …)` cuando sitúa al anfitrión. |
 | ERROR | `CAJA espera una medida y, si acaso, un alcance` · `FRESCURA espera, si acaso, un alcance` · `CAJA espera el nombre de una medida entre comillas, no <tipo>` · `CAJA: medida desconocida: <m> (…)` · `<FN>: el alcance es hermanos, proyecto, general` | Argumentos. |
 
 **Orden.** Primero los argumentos; después la base; solo si la hay, el anfitrión (`CAJA`). Sin base no se mide nada ni se pregunta por el anfitrión.
@@ -582,7 +582,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 
 **Dependencias** (§9.5): `<registro>:8000000000`, el 8 leído (una base que llegue cambia el resultado; se anota también cuando queda PENDIENTE: es lo que hay que vigilar); `<base>:0000000000`, la base leída; y en `CAJA`, `<anfitrión>:0000000000` (medido entero). Los hijos nuevos, que cambian `FRESCURA`, no se anotan: no son una posición ([X] decidir VG cómo se vigila la llegada de hijos).
 
-**Autorización** (§9.6): la base, por su raíz y con el mismo motivo que en `BASES`; en `CAJA`, además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`tiempo.medidasDe` llama a `evaluar` sin opciones), así que, con gancho, `CAJA` no da las dos medidas de fórmulas: dejarían ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las demás medidas, sí. `BASES(alcance, "formulasResueltas")` sí las da (§7.13). [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
+**Autorización** (§9.6): la base, por su raíz y con el mismo motivo que en `BASES`; en `CAJA`, además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`tiempo.medidasDe` llama a `evaluar` sin opciones), así que, con gancho, `CAJA` no da las dos medidas de fórmulas: dejarían ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las demás medidas, sí. `BASES` hace lo mismo cuando sitúa al anfitrión (`BASES(alcance, "formulasResueltas")`, o con un campo del anfitrión): antes las daba con gancho y dejaba ver, por el recuento, si se resolvían fórmulas que leen lo que el gancho niega (pruebas de propiedades 2; mapa §12 [D] «Una sola verdad del 8»: BASES/CAJA/FRESCURA heredan puedeLeer). Lo que solo lee la base (una caja `k`, `suma`, `minimo`, `maximo`, `media`) sigue respondiendo. [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
 
 Ejemplo ejecutado (las compras hermanas de `ejemplos/ikisai/compras-hermanas.mjs`, datos inventados). Guardar como `caja-frescura-ejemplo.mjs` en la raíz y ejecutar `node --input-type=module < caja-frescura-ejemplo.mjs`:
 
@@ -916,7 +916,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | `Y`/`O` perezosos (cortocircuito) | Evalúan todos los argumentos. |
 | `CAJA`/`FRESCURA` (y `BASES`) de un candidato dentro de `FILTRAR`/`ORDENAR` | El anfitrión es siempre el registro de la fórmula (§7.14): [X] decidir VG si dentro debe ser el candidato. |
 | Vigilar la llegada de hijos (lo que cambia `FRESCURA`) | Las dependencias nombran el 8 leído, la base y el anfitrión, no «los hijos de»: [X] decidir VG. |
-| Medir al anfitrión con el gancho de quien consulta | La medida evalúa sus fórmulas sin gancho; con gancho, `CAJA` no da las dos medidas de fórmulas (§7.14): [X] decidir VG. |
+| Medir al anfitrión con el gancho de quien consulta | La medida evalúa sus fórmulas sin gancho; con gancho, ni `CAJA` ni `BASES` (cuando sitúa al anfitrión) dan las dos medidas de fórmulas (§7.14): [X] decidir VG. |
 | Mediana, cuantiles, correlaciones (lo no fundible; mapa §12: «se aproxima o se descarta») | No hay. La forma B de `BASES` daba una mediana aproximada desde las cajas (§7.14): [X] decidir VG qué firma queda. |
 | Comparación encadenada (`1 < x < 3`) | `SyntaxError`. |
 | Literales booleanos, comillas simples, exponentes, `.5`, unidades con `/` | No hay. (Las unidades con acentos y `ñ`, `día`, `año`, sí: §4.1.) |
@@ -937,7 +937,7 @@ registros en el eje antes y después de consultar: sin efectos → 6
 8. La resta de magnitudes se muestra con el sumando negativo en el desglose (`10 EUR (12 EUR + -2 EUR)`).
 9. Una cadena de diez dígitos en un slot es texto (dirección), no número: `'1234567890' + 1` es INCOMPATIBLE. Un número JS de diez cifras sí es número.
 10. `SUMAR` de una colección vacía es el numero `0` sin unidad, así que no se suma con una magnitud: `SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + 1 EUR` sobre el eje de ejemplo (sin escritos en la 4) es INCOMPATIBLE.
-11. La medida del anfitrión de `CAJA` (y de `BASES` cuando lo sitúa: `medir` en `src/bases.js`, que es `tiempo.medidasDe`) evalúa sus fórmulas con `evaluar` sin opciones: sin el gancho `puedeLeer` y con los límites por defecto, en un cálculo aparte que no gasta el presupuesto de la consulta. Por eso, con gancho, `CAJA` no da las medidas de fórmulas (§7.14).
+11. La medida del anfitrión de `CAJA` (y de `BASES` cuando lo sitúa: `medir` en `src/bases.js`, que es `tiempo.medidasDe`) evalúa sus fórmulas con `evaluar` sin opciones: sin el gancho `puedeLeer` y con los límites por defecto, en un cálculo aparte que no gasta el presupuesto de la consulta. Por eso, con gancho, ni `CAJA` ni `BASES` (cuando sitúa al anfitrión) dan las medidas de fórmulas (§7.14).
 12. `FRESCURA` no ve que un registro ya medido cambie (escritos nuevos encima, fórmulas que se resuelven): solo cuenta llegadas (§7.14). `0` no es «al día»: eso lo dice `comprobar()`.
 13. Lo que se guarda en el 8 depende del 8 anterior por las fórmulas que leen el 8 sin situar a su registro (`FRESCURA`, `BASES` sin medida o con un dato de la base): la primera base las cuenta como pendientes y la siguiente como resueltas, sin que llegue nada (§7.14).
 
