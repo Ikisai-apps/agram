@@ -287,8 +287,10 @@ function pintarMapped() {
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = PV.map((n, i) => {
-    const hay = Array.isArray(base) && base[i] !== undefined; // un terminal no tiene posición 0 que heredar
-    const ph = hay ? '← del foco: ' + breve(base[i]) : 'vacía';
+    // Lo mismo que hereda desdeMapped. [X] decidir VG (mapa §13): un foco terminal hereda su raíz en la
+    // posición 0, como en main, aunque un terminal no tenga posición 0 en la décupla ni en el mapa (mapa §12).
+    const hay = Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined;
+    const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
   $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
