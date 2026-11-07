@@ -13,6 +13,7 @@ export class Eje {
     this.orden = []; // ids en orden de entrada
     this.saldos = new Map(); // identidad → Map(clave → cantidad)
     this.claves = new Map(); // identidad → clave pública (JWK)
+    this.hijos = new Map(); // id → eventos escritos sobre él, en orden de entrada (índice)
     this.exigirFirmas = exigirFirmas;
   }
 
@@ -177,12 +178,17 @@ export class Eje {
 
   /** Eventos escritos sobre un registro (sus hijos directos), opcionalmente solo en una posición. */
   sobre(id, en) {
-    return this.orden.map((x) => this.eventos.get(x)).filter((e) => e.sobre === id && (en === undefined || e.en === en));
+    const lista = this.hijos.get(id) ?? [];
+    return en === undefined ? [...lista] : lista.filter((e) => e.en === en);
   }
 
   #aplicar(ev) {
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
+    if (ev.sobre !== null) {
+      if (!this.hijos.has(ev.sobre)) this.hijos.set(ev.sobre, []);
+      this.hijos.get(ev.sobre).push(ev);
+    }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const m of ev.movimientos) {
       const clave = claveToken(m);
