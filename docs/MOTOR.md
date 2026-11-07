@@ -15,7 +15,7 @@ Convenciones:
 |---|---|---|
 | `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
 | `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
-| `src/modos.js` | Capacidad de lectura, tope duro y proporción por modo | `MODOS`, `nombreModo`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
+| `src/modos.js` | Mínimo y máximo por modo (los mismos para leer y emitir), proporción | `MODOS`, `nombreModo`, `maximo`, `minimo`, `alcanceDe`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7) y comparabilidad (PV8), §8; la confluencia del 8 y sus cohortes, que usan las bases (§14 y `docs/FUNDAMENTOS.md`) | `banda`, `ejeTemporal`, `medir`, `comparar`, `comparables`, `proyectoDe`, `confluir`, `fundir`, `medidasDe`, `posicionesDe`, `distribucion`, `cortesDeCohorte`, `cajaDe`, `clavesDe`, `etiquetaClave`, `ALCANCES`, `CAJAS`, `MEDIDAS`, `HITOS` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal`, `apartarLocal`, `VERSION` |
 | `src/bases.js` | Bases del 8: registros fundibles en la posición 8, escritos por la propia cosa (§14) | `identidadDe`, `medir`, `unitaria`, `fundir`, `calcularBase`, `escribirBase`, `leerBase`, `frescura`, `comprobar`, `situar`, `valorDeBases`, `cajasEtiquetadas`, `hijos`, `esBase`, `basesEn`, `basePorId`, `baseDePayload`, `payloadDeBase`, `empaquetar`, `bloqueDe`, `cortesDe`, `clavesDeMedidas`, `estadisticaVacia`, `CIELO`, `CORTES_PROVISIONALES`, `COSTE_BASE`, `CAMPOS_BASE`, `CAMPOS_FOCO`, `ETIQUETAS`, `NINGUNA`, `ORIGENES_CORTES`, `SECCIONES`, `TITULO` |
@@ -537,9 +537,10 @@ El tercer caso es un defecto observado (§13): `ejecutar` exige la autorización
 
 ### 7.1 Modos, topes duros y proporción (`src/modos.js`)
 
-La unidad de cuenta es la **posición** (cada terminal, referencias incluidas, cuenta una; un array cuenta la suma de las suyas). Cada modo tiene dos cifras:
+La unidad de cuenta es la **posición** (cada terminal, referencias incluidas, cuenta una; un array cuenta la suma de las suyas). Cada modo tiene estas cifras:
 
-- el **tope duro** (VG, 7-11-2026): cuántas posiciones puede **emitir** de una vez. Coincide con lo que el modo lee: no se emite más de lo que se ve. Lo comprueban `escribirDesde` y `escribirSalida` (y por tanto `consolidar` y `autorizar`) sobre lo emitido: las referencias de relleno heredadas del foco no se emiten («se emiten solo las décuplas modificadas», mapa §12) y no cuentan cuando la escritura sabe cuáles son (§7.3);
+- el **máximo** o **tope duro** (VG, 7-11-2026; confirmado VG, 7-11 noche): cuántas posiciones puede **emitir** de una vez, y es el mismo máximo que el de **representar**: «todo lo que no se pueda representar realmente no se puede alterar y por lo tanto no tiene sentido emitirlo». `maximo(modo)`; `lectura` y `tope` son alias. Lo comprueban `escribirDesde` y `escribirSalida` (y por tanto `consolidar` y `autorizar`) sobre lo emitido: las referencias de relleno heredadas del foco no se emiten («se emiten solo las décuplas modificadas», mapa §12) y no cuentan cuando la escritura sabe cuáles son (§7.3);
+- el **mínimo** (VG, 7-11 noche): lo que el modo intenta representar y emitir (Pointed 1, Sequenced 10, Mapped 100, Scened 1000; Be sin fijar, **[X] decidir VG**). No rechaza: lo emitido por debajo se escribe y se informa con `alcanceDe` (`{ conseguido, minimo, maximo, alMinimo }`): `escribirSalida` lo devuelve en `alcance` y, para el evento de `escribirDesde`, `alcanceDeRegistro(evento)` (§7.3). Detalle y cita en `docs/MODOS.md` §0;
 - la **proporción** de escritura sobre lectura (VG, 6-11-2026): el estándar. Se exige su máximo (1, 20, 333) sobre **todas las posiciones del registro**, lo heredado incluido, como antes del 7-11 (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`); el mínimo no se exige. `proporcion` y `proporcionDe` dicen dónde queda un registro y `escribirSalida` lo devuelve.
 
 Se mira **primero la proporción** y después el tope: así, todo lo que antes del 7-11 se rechazaba se sigue rechazando con el mismo mensaje, también cuando además pasa del tope (treinta posiciones en Pointed dan `pointed escribe como mucho 1 posiciones; este registro tiene 30`, como en `main`). Mientras la proporción rechace, en Pointed, Sequenced y Mapped se llega antes a ella que al tope (las posiciones del registro nunca son menos que las emitidas, y 1 < 10, 20 < 100, 333 < 1000): el mensaje del tope (`<Modo> emite como mucho <tope> posiciones; …`) solo sale en Scened, que no tiene proporción.
@@ -549,10 +550,13 @@ Quién tiene en cuenta los límites al ubicar: `ubicar` con modo, y por tanto `e
 **[X] decidir VG**: el mapa dice «topes duros por modo … (además de la proporción)», pero no dice si la proporción rechaza o solo informa. Hasta que VG lo decida se conserva lo que había: rechaza. Con las dos rechazando, el tope solo decide en Scened, y la matriz de 1000 no cabe en Mapped. Si la proporción solo informara, bastaría con quitar su comprobación de `fueraDeLimite` (`src/escritura.js`).
 
 ```js
-MODOS                         // { pointed, sequenced, mapped, scened } → { nombre, decuplas, proporcion: [mín, máx] | null, tope }
-nombreModo(modo)              // → 'Pointed' | 'Sequenced' | 'Mapped' | 'Scened'
-lectura(modo)                 // → posiciones que el modo lee de una vez: decuplas × 10
-tope(modo)                    // → tope duro: posiciones que el modo emite como mucho de una vez
+MODOS                         // { pointed, sequenced, mapped, scened, be } → { nombre, decuplas, proporcion: [mín, máx] | null, minimo, maximo }
+nombreModo(modo)              // → 'Pointed' | 'Sequenced' | 'Mapped' | 'Scened' | 'Be'
+maximo(modo)                  // → máximo duro: posiciones que el modo representa y emite como mucho de una vez (Be: Infinity)
+minimo(modo)                  // → mínimo que el modo intenta representar y emitir; solo se informa (Be: null, sin fijar)
+alcanceDe(conseguido, modo)   // → { conseguido, minimo, maximo, alMinimo }: los tres números de una lectura o una emisión
+lectura(modo)                 // → alias de maximo: posiciones que el modo lee de una vez
+tope(modo)                    // → alias de maximo: posiciones que el modo emite como mucho de una vez
 escritura(modo)               // → [mínimo, máximo] según la proporción (floor de lectura × proporción), o null si no está fijada
 contarPosiciones(payload)     // → número de terminales del payload (anidado incluido); 0 si no es BTML
 cabeTope(payload, modo, heredadas = [])  // → contarPosiciones(payload) − heredadas.length <= tope(modo): el tope cuenta lo emitido; cada heredada es una posición de relleno
@@ -561,19 +565,20 @@ proporcionDe(posiciones, modo)  // → { posiciones, rango: [mín, máx] | null,
 proporcion(payload, modo)     // → proporcionDe(contarPosiciones(payload), modo): cuenta todo el payload, también lo heredado, como la proporción
 ```
 
-| Modo | Décuplas | Lee | Tope duro (rechaza; cuenta lo emitido) | Proporción (rechaza su máximo, como antes; [X]) | Según la proporción `[mín, máx]` |
+| Modo | Décuplas | Mínimo (informa) | Máximo: lee y emite (rechaza; cuenta lo emitido) | Proporción (rechaza su máximo, como antes; [X]) | Según la proporción `[mín, máx]` |
 |---|---|---|---|---|---|
-| `pointed` | 1 | 10 | 10 | 1/10 | `[1, 1]` |
-| `sequenced` | 10 | 100 | 100 | 1/10 – 1/5 | `[10, 20]` |
-| `mapped` | 100 | 1000 | 1000 (la matriz 10×10×10) | 1/4 – 1/3 | `[250, 333]` |
-| `scened` | 1000 | 10000 | 10000 | sin fijar (`null`) | `null` |
+| `pointed` | 1 | 1 | 10 | 1/10 | `[1, 1]` |
+| `sequenced` | 10 | 10 | 100 | 1/10 – 1/5 | `[10, 20]` |
+| `mapped` | 100 | 100 | 1000 (la matriz 10×10×10) | 1/4 – 1/3 | `[250, 333]` |
+| `scened` | 1000 | 1000 | 10000 | sin fijar (`null`) | `null` |
+| `be` | — | sin fijar (`null`, [X]) | todos (`Infinity`) | sin fijar (`null`, [X]) | `null` |
 
-Scened tiene tope de emisión y render sobrio (`src/scened.js`), pero no formulario de escritura. Lo que su escena lee es capacidad, no tope duro (`docs/MODOS.md` §6). Un modo que no está en `MODOS` da `Error('modo desconocido: <modo>')` en `lectura`, `tope`, `escritura`, `escribirDesde`…
+Scened tiene máximo duro de emisión y de lectura (su escena corta en 10000 posiciones, `docs/MODOS.md` §6) y render sobrio (`src/scened.js`), pero no formulario de escritura. Be no tiene interfaz gráfica. Un modo que no está en `MODOS` da `Error('modo desconocido: <modo>')` en `lectura`, `tope`, `escritura`, `escribirDesde`…
 
 ```sh
 node --input-type=module -e "
-import { MODOS, lectura, tope, escritura, contarPosiciones, cabeTope, proporcion, nombreModo } from './src/modos.js';
-for (const m of Object.keys(MODOS)) console.log(nombreModo(m).padEnd(10), 'décuplas', String(MODOS[m].decuplas).padStart(4), '· lee', String(lectura(m)).padStart(5), '· tope', String(tope(m)).padStart(5), '· proporción', JSON.stringify(escritura(m)));
+import { MODOS, lectura, tope, minimo, escritura, contarPosiciones, cabeTope, proporcion, nombreModo } from './src/modos.js';
+for (const m of Object.keys(MODOS)) console.log(nombreModo(m).padEnd(10), 'décuplas', String(MODOS[m].decuplas).padStart(4), '· mín', String(minimo(m)).padStart(4), '· lee', String(lectura(m)).padStart(8), '· tope', String(tope(m)).padStart(8), '· proporción', JSON.stringify(escritura(m)));
 console.log(contarPosiciones('x'), contarPosiciones(['a', ['b', 'c'], { ref: 'r' }]), contarPosiciones([{ ref: 'a' }, { ref: 'b', dir: '1000000000' }]), contarPosiciones(undefined), contarPosiciones(null));
 const mil = Array(10).fill(Array(10).fill(Array(10).fill('x')));
 console.log(cabeTope(Array(10).fill('x'), 'pointed'), cabeTope(Array(11).fill('x'), 'pointed'), cabeTope(mil, 'mapped'), cabeTope(mil, 'sequenced'), cabeTope([mil, 'y'], 'mapped'), cabeTope([mil, 'y'], 'scened'));
@@ -585,10 +590,11 @@ try { tope('otro'); } catch (e) { console.log(e.message); }
 ```
 
 ```text
-Pointed    décuplas    1 · lee    10 · tope    10 · proporción [1,1]
-Sequenced  décuplas   10 · lee   100 · tope   100 · proporción [10,20]
-Mapped     décuplas  100 · lee  1000 · tope  1000 · proporción [250,333]
-Scened     décuplas 1000 · lee 10000 · tope 10000 · proporción null
+Pointed    décuplas    1 · mín    1 · lee       10 · tope       10 · proporción [1,1]
+Sequenced  décuplas   10 · mín   10 · lee      100 · tope      100 · proporción [10,20]
+Mapped     décuplas  100 · mín  100 · lee     1000 · tope     1000 · proporción [250,333]
+Scened     décuplas 1000 · mín 1000 · lee    10000 · tope    10000 · proporción null
+Be         décuplas null · mín null · lee Infinity · tope Infinity · proporción null
 1 4 2 0 0
 true false true false false true
 11 false true {"posiciones":11,"rango":[10,20],"estado":"dentro"}
@@ -679,7 +685,7 @@ Respecto de la décupla anterior a la matriz cambian dos cosas: lo lejano se anc
 
 **`escribirDesde`** escribe **un** registro en `sobre` + `en` (`en` vale por defecto `direccion(camino)`: la raíz sin camino). Comprueba los **límites** del modo (§7.1): primero el máximo de la **proporción** sobre todas las posiciones del registro (`<modo> escribe como mucho <máx> posiciones; este registro tiene <n>`, como antes) y después el **tope duro** sobre lo **emitido** (`<Modo> emite como mucho <tope> posiciones; este registro tiene <n>`). Con `heredadas` (las de `desdeMapped`), esas posiciones son relleno y no cuentan para el tope; cada una ha de ser una referencia al foco en su dirección bajo `camino`, y el foco ha de tener contenido en ese camino exacto (`la heredada <h> no es una referencia al foco en <dir>`, `la heredada <h> no alcanza nada en el foco: solo se hereda lo que el foco tiene`, `heredada no válida: <h>`); quedan en `contexto.heredadas`. Con `heredadas`, el registro va en `direccion(camino)`, como con `celda`: otro `en` se rechaza (`con heredadas, el registro va en <dir del camino> (la dirección de su camino), no en <en>`). Sin `heredadas`, todo el payload cuenta como emitido. Añade `contexto.modo` al contexto que se le pase y escribe con `eje.escribir` un solo movimiento: `{ token: 'T', escala: 'minuto', cantidad: costeT(payload), de: autor, a: null }` (el coste sí cuenta el relleno). Con **`celda`**, `payload` es el contenido de esa celda del foco `sobre` y se ubica con `ubicar` **con el modo**: dentro, se envuelve en la matriz (con lo anterior heredado por referencia, apuntado en `contexto.heredadas`); anclado (sin base, o porque dentro no cabría), se escribe tal cual. El registro va en el `en` de `ubicar` y la celda cae en su `dir`; otro `en` se rechaza (`la celda <i.j.k> cae en <dir>: el registro va en <en de ubicar>, no en <en>`). `payload` nulo → `nada que escribir en el registro…`; todo heredado → `nada que emitir: todo el registro es herencia del foco`. Si el `payload` viene de `desdeMapped` y dejó celdas ancladas, escribirlo solo las perdería: se rechaza con `<n> celda(s) sin base en el foco se ancla(n) aparte (<i.j.k> en <dir>, …): escribe la salida entera con escribirSalida`. El aviso va con el objeto `payload` que devolvió `desdeMapped` (una copia no lo lleva) y dura hasta que `escribirSalida` ha escrito la salida entera: si `escribirSalida` falla (por ejemplo, por saldo de T), el aviso sigue.
 
-**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `direccion(salida.camino)`, con sus `heredadas`, y cada celda anclada en su `en`. No se le pasa `en` ni `camino`: los dice la salida, para que cada celda caiga en su dirección. Los límites miden **la salida entera** antes de escribir nada: primero la proporción, todas sus posiciones (`… escribe como mucho <máx> posiciones; esta salida tiene <n>`, **[X] decidir VG**); después el tope, lo emitido sin las heredadas (`… emite como mucho <tope> posiciones; esta salida tiene <n>`). Si no cabe, la rechaza entera: no ancla celdas por límites como `ubicar` con modo (**[X] decidir VG**, §7.1). Una salida de otro foco no pasa (sus heredadas no son referencias a `sobre`). Devuelve también `proporcion`: dónde quedan las posiciones de la salida respecto de la proporción del modo (por debajo o dentro; por encima no llega a escribirse). No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
+**`escribirSalida`** escribe la salida entera de `desdeMapped`: el registro (si hay algo dentro) en `direccion(salida.camino)`, con sus `heredadas`, y cada celda anclada en su `en`. No se le pasa `en` ni `camino`: los dice la salida, para que cada celda caiga en su dirección. Los límites miden **la salida entera** antes de escribir nada: primero la proporción, todas sus posiciones (`… escribe como mucho <máx> posiciones; esta salida tiene <n>`, **[X] decidir VG**); después el tope, lo emitido sin las heredadas (`… emite como mucho <tope> posiciones; esta salida tiene <n>`). Si no cabe, la rechaza entera: no ancla celdas por límites como `ubicar` con modo (**[X] decidir VG**, §7.1). Una salida de otro foco no pasa (sus heredadas no son referencias a `sobre`). Devuelve también `proporcion`: dónde quedan las posiciones de la salida respecto de la proporción del modo (por debajo o dentro; por encima no llega a escribirse); y `alcance`, los tres números de lo emitido (`{ conseguido, minimo, maximo, alMinimo }`, VG 7-11 noche): por debajo del mínimo del modo se escribe igual y se dice. `escribirDesde` devuelve el evento del eje (congelado y firmado); sus tres números, con `alcanceDeRegistro(evento)` (lo emitido = posiciones del registro menos `contexto.heredadas`, en el modo de `contexto.modo`). No es atómica: si el eje rechaza un anclado (por ejemplo, por saldo de T), lo anterior queda escrito.
 
 ```sh
 node --input-type=module -e "

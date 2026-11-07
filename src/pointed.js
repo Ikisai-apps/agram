@@ -4,14 +4,17 @@
 
 import { ARIDAD, esReferencia } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
+import { alcanceDe } from './modos.js';
 
 /**
  * Décupla de un evento: diez posiciones { indice, significado, contenido }.
  * Lo no desarrollado queda sin contenido (undefined). Un terminal no tiene
  * posición 0 (MAPA §12: se retira la convención de la representación): un
  * payload terminal no se reparte en posiciones y va aparte, en `terminal`.
- * La época va por objeto o por nombre ('época 0'),
- * como en leerDireccion.
+ * La época va por objeto o por nombre ('época 0'), como en
+ * leerDireccion. `alcance` da los tres números del modo (VG, 7-11 noche):
+ * lo conseguido en posiciones (una décupla = diez, como lectura()), el
+ * mínimo (1) y el máximo (10).
  */
 export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
   const e = epocaDe(epoca);
@@ -20,7 +23,7 @@ export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
   for (let i = 0; i < ARIDAD; i++) {
     posiciones.push({ indice: i, significado: e.reglaCorta(profundidad, i), contenido: Array.isArray(p) ? p[i] : undefined });
   }
-  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, terminal: Array.isArray(p) ? undefined : p, posiciones };
+  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, terminal: Array.isArray(p) ? undefined : p, posiciones, alcance: alcanceDe(ARIDAD, 'pointed') };
 }
 
 function textoDe(contenido) {

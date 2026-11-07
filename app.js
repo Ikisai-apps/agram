@@ -21,6 +21,7 @@ import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, t
 import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
+import { htmlCifras } from './ui/comun.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -161,7 +162,7 @@ function pintarPointed() {
   const e = escritura('pointed');
   // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
   const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
-  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${terminal}${filas.join('')}</div>
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Pointed', d.alcance)}</div><div class="decupla">${terminal}${filas.join('')}</div>
     <form id="escribir" data-modo="pointed" class="escribir">
       <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
@@ -189,7 +190,7 @@ function pintarSequenced() {
   const hijos = sequenced.secuencia(estado.eje, estado.foco, { sentido: 'hijos' });
   const bloque = (s, titulo) => `
     <section class="hilera">
-      <div class="titulo">${titulo} · ${s.decuplas.length} de ${s.total}</div>
+      <div class="titulo">${titulo} · ${s.decuplas.length} de ${s.total} ${htmlCifras('Sequenced', s.alcance)}</div>
       ${s.decuplas.length ? s.decuplas.map(filaSecuencia).join('') : '<div class="nada">nada todavía</div>'}
     </section>`;
   const e = escritura('sequenced');
@@ -306,7 +307,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div><div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, comp)).join('')}</div>`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped escribe de ${e[0]} a ${e[1]} posiciones de 1000 · una línea por ítem</div>
