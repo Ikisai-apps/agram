@@ -1259,7 +1259,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Proyecciones reales en PV7: timelocks, hashlocks, fechas dentro del payload | Solo escritos con `t > ahora` y la posición 7 del foco. |
 | Comprobar `t` contra un reloj o contra el orden del eje | Solo `Date.parse`. |
 | Persistencia en base de datos; anclaje a una cadena; sincronización entre visores | Lista de eventos en memoria; `localStorage` por visor. |
-| Render animado de las operaciones (sobrio/animado) | Solo renders sobrios en `pointed.js`, `sequenced.js`, `mapped.js`, `scened.js`; el frontend (`app.js`) queda fuera de este documento. |
+| Render animado de las operaciones (sobrio/animado) | Solo renders sobrios en `pointed.js`, `sequenced.js`, `mapped.js` y `scened.js`; el frontend (`app.js`) queda fuera de este documento: los modos y su vista en el navegador están en `docs/MODOS.md`. |
 
 ## 13. Límites y defectos observados (no corregidos aquí)
 
@@ -1312,6 +1312,7 @@ valorDeBases(eje, id, args)          // → lo que devuelve BASES() en BQL
 - **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`.
 - **Frescura y comprobación.** `frescura` cuenta lo llegado sin releer: hijos después de `hasta`, hijos cuya base vigente ya no es la fundida y lo mismo, sumado, en las fundidas (`debajo`). No ve cambios en lo ya medido; para eso, `comprobar` recalcula. `situar` dice en `cambiadas` las medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya.
 - **`BASES()` en BQL** (`docs/BQL.md` §7.13). `BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k | campo)` = una caja o un dato. La dependencia es la base leída; el gancho `puedeLeer` decide leer la base y, si hay que situarlo, el anfitrión.
+- **`CAJA` y `FRESCURA` en BQL** (`docs/BQL.md` §7.14). `CAJA(medida, alcance?)` = `BASES(alcance, medida)`, con `"hermanos"` por defecto; `FRESCURA(alcance?)` = las llegadas que cuenta la frescura de la base (0 no es «al día»). Cobran lo que examina la lectura, no miden al anfitrión sin base y, sin base, el motivo dice cómo escribirla. Las fórmulas que leen el 8 sin situar a su registro hacen que una base dependa de la anterior (cuentan como pendientes o resueltas según haya base): [X] decidir VG.
 - **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`); nada asigna nivel ni grado.
 
 Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes provisionales; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si la interfaz lee solo las bases escritas y se retiran `comparar` y el cálculo al vuelo (auditoría C18).

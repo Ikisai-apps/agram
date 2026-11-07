@@ -24,6 +24,7 @@ La nota de lectura `docs/notas/CAPAS_DE_VALIDEZ.md` recoge las citas y las opcio
 
 ## 2. Uso
 
+<!-- comprobar: fragmento -->
 ```js
 import { validez, CAPAS, ESTADOS_CAPA, ESTADO_MOTOR, estadoDeBql } from './src/validez.js';
 
