@@ -21,6 +21,61 @@ export function caminoVisible(o) {
 export const FASES = Object.freeze(['consolidado', 'autorizado', 'ejecutado']);
 
 /**
+ * Operadores del ciclo (C3-G): Q interroga (descubrir), B construye la
+ * propuesta (proponer), C consolida (consolidar). El orden importa.
+ */
+export const OPERADORES = Object.freeze({ Q: 'descubrir', B: 'proponer', C: 'consolidar' });
+
+/**
+ * Proponer (operador B): construye las elecciones de una consolidación a
+ * partir de lo que dicen las posiciones del foco. Una posición con fórmula
+ * BQL propone: si resuelve a una colección, su primer candidato (el mejor
+ * encaje, salvo que la fórmula ORDENE otra cosa) es la elección; si
+ * resuelve a un valor, ese valor es un terminal nuevo. Una posición con
+ * contenido literal propone ese contenido por referencia al foco. Las
+ * posiciones sin desarrollar no proponen. No escribe nada.
+ */
+export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}) {
+  const ev = eje.obtener(foco);
+  if (!ev) throw new Error('foco desconocido: ' + foco);
+  const elecciones = {};
+  const origenes = [];
+  const pendientes = [];
+  for (const i of posiciones) {
+    const indices = [...camino, i];
+    const crudo = resolverCrudo(ev.payload, indices);
+    if (crudo === undefined) continue; // sin desarrollar: no propone
+    const r = evaluar(eje, foco, indices);
+    if (r.estado !== 'RESUELTO') { pendientes.push({ posicion: i, motivo: r.texto }); continue; }
+    const v = r.valor;
+    const esFormula = typeof crudo === 'string' && crudo.startsWith('=') && !crudo.startsWith('==');
+    if (v.tipo === 'coleccion') {
+      const primero = v.items[0];
+      if (!primero) { pendientes.push({ posicion: i, motivo: 'sin candidatos' }); continue; }
+      const candidato = { evento: primero.evento, dir: direccion(primero.indices ?? []), tipo: primero.origen, origenDir: primero.origenDir, vector: primero.vector, signo: primero.signo };
+      elecciones[i] = { candidato };
+      origenes.push({ posicion: i, desde: 'formula', texto: r.texto });
+    } else if (esFormula) {
+      elecciones[i] = v.tipo === 'numero' ? v.valor : r.texto;
+      origenes.push({ posicion: i, desde: 'formula', texto: r.texto });
+    } else {
+      elecciones[i] = { ref: foco, dir: direccion(indices) };
+      origenes.push({ posicion: i, desde: 'foco', texto: r.texto });
+    }
+  }
+  return { foco, elecciones, origenes, pendientes };
+}
+
+function resolverCrudo(payload, indices) {
+  let nodo = payload;
+  for (const i of indices) {
+    if (!Array.isArray(nodo)) return undefined;
+    nodo = nodo[i];
+  }
+  return nodo;
+}
+
+/**
  * Descubrir: qué hay en las posiciones de interacción (1–4) del foco, con
  * sus candidatos (encaje) y las fórmulas resueltas. No escribe.
  */
