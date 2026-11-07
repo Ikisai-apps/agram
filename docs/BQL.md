@@ -1,6 +1,6 @@
 # BQL V0 — referencia para programar
 
-BQL es la lógica de vistas de AGRAM: fórmulas que viven dentro de un slot BTML y se evalúan sin efectos. Este documento describe **lo que existe hoy en `src/bql.js`**, con firmas, tablas y ejemplos ejecutados con Node 24 desde la raíz del repositorio. Lo que no existe se marca «pendiente»; lo que falta decidir, «[X] decidir VG». Fuente de verdad: `src/bql.js`, `test/bql.test.js`, `test/bql-colecciones.test.js`, `test/vector.test.js`, `test/bases-bql.test.js` (BASES, CAJA y FRESCURA) y `test/conformidad-bql.test.js` (una prueba por regla del corpus, con su id S-/O-/E-).
+BQL es la lógica de vistas de AGRAM: fórmulas que viven dentro de un slot BTML y se evalúan sin efectos. Este documento describe **lo que existe hoy en `src/bql.js`**, con firmas, tablas y ejemplos ejecutados con Node 24 desde la raíz del repositorio. Lo que no existe se marca «pendiente»; lo que falta decidir, «[X] decidir VG». Fuente de verdad: `src/bql.js`, `test/bql.test.js`, `test/bql-colecciones.test.js`, `test/vector.test.js` y `test/conformidad-bql.test.js` (una prueba por regla del corpus, con su id S-/O-/E-).
 
 Vocabulario mínimo: un **evento** tiene un `payload` BTML (terminal, o array de 1 a 10 posiciones sin huecos; las posiciones contienen terminales, subarrays o referencias `{ ref, dir? }`). Una **dirección** es una cadena de diez dígitos (`'1200000000'` = índices `[1, 2]`; los ceros finales no cuentan). La **décupla** es el array desarrollado en sus posiciones 0–9. El **eje** (`src/eje.js`) guarda los eventos; `eje.obtener(id)`, `eje.orden`, `eje.sobre(id, dir)`.
 
@@ -180,7 +180,6 @@ Todo valor BQL es un objeto con `tipo`:
 | `array` | `{ valor: any[] }` (el subarray crudo) | `[n posiciones]` | `[3 posiciones]` |
 | `referencia` | `{ valor: { ref, dir? } }` | `→ ` + 8 primeros caracteres del id | `→ 4598f23e` |
 | `coleccion` | `{ items: [candidato, …] }` (§7.4) | `n candidato(s)` + `: origen id8 · …` | `3 candidatos: escrito d567acc1 · escrito 59bd2354 · escrito 9a726a75`; `0 candidatos` |
-| `bases` | `{ cohorte, foco, registro, profundidad, base, autor, t, desde, n, incluido, frescura, medidas }` (§7.13) | cabecera y, por medida, caja del foco, mínimo, mediana aproximada y máximo | `hermanos · n 4 · base 1a2b3c4d del 2026-11-07 · al día — posiciones 9: caja 5 (mín 1, mediana ≈ 6.75, máx 9); …; 5 medidas a cero` |
 
 ---
 
@@ -278,9 +277,7 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `Y(a, b, …)` | 0 o más booleanos | booleano (todos; `Y()` = verdadero) | siempre |
 | `O(a, b, …)` | 0 o más booleanos | booleano (alguno; `O()` = falso) | siempre |
 | `NO(a)` | 1 booleano | booleano | siempre |
-| `BASES(cohorte?)` | texto `"hermanos"` (por defecto), `"proyecto"` o `"general"` | valor `bases`: la última base del 8 de la cohorte del registro de la fórmula, con el foco situado por medida (§7.13) | siempre |
-| `CAJA(medida, cohorte?)` | texto con el nombre de una medida; cohorte | numero 0–9: la caja del foco en esa medida | siempre |
-| `FRESCURA(cohorte?)` | cohorte | numero: novedades desde la base (0 = al día) | siempre |
+| `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una medida o de una serie de token, y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
 
 «Dentro» = mientras se evalúa el segundo argumento de `FILTRAR` o de `ORDENAR`. Fuera, las seis funciones de encaje dan `ERROR: <NOMBRE> solo dentro de FILTRAR u ORDENAR`.
 
@@ -497,144 +494,40 @@ Verificado sobre la compra con la cuenta escrita en `1000000000` (slot `[1]`, `t
 | `NO(1 < 2)` | `falso` |
 | `Y(1, 2)` | `INCOMPATIBLE: Y espera verdadero o falso, no numero` |
 
-### 7.13 `BASES`, `CAJA` y `FRESCURA`: leer el 8
+### 7.13 `BASES(alcance?, medida?, k | campo?)`
 
-Las estadísticas del 8 son **registros** («bases») escritos en la posición 8 del registro que resumen, con referencias a lo medido; no hay base de datos aparte (mapa §12 [D] «Cohortes y bases del 8»; código en `src/bases.js`, resumen en `docs/MOTOR.md` §14, detalle en `docs/notas/BASES_DEL_8.md`). Estas tres funciones las **leen, sin efectos**. Escribirlas no es de BQL: es `escribirBase` (firma y gasta T). Pruebas: `test/bases-bql.test.js`.
+Lee las **bases del 8** (`src/bases.js`, `docs/MOTOR.md` §14): las estadísticas escritas como registros en la posición 8 del registro que resumen, firmadas por la propia cosa (mapa §12 [D]: «BASES() en BQL; la cohorte se elige leyendo el 8 del padre, del proyecto o del génesis»). El registro de la fórmula es el anfitrión.
 
-**El foco** es el registro de la fórmula (el `evId` de `evaluar` o `consultar`): ni el anfitrión ni el candidato, también dentro de `FILTRAR`/`ORDENAR` ([X] decidir VG si ahí debe ser el candidato). **La cohorte** elige qué 8 se lee (VG: «hermanos = elementos similares; linaje/proyecto = dónde estoy; general = el ámbito»):
-
-| Cohorte | Lee el 8 de | Profundidad de la base | La cohorte son |
-|---|---|---|---|
-| `"hermanos"` (por defecto) | el padre del foco (`sobre`) | 1: base de hijos (`desde: 'hijos'`) | los hijos del padre |
-| `"proyecto"` | el proyecto: el registro del hilo que cuelga del génesis (`proyectoDe`; [X] decidir VG qué registro es el proyecto) | la distancia del foco al proyecto (fundida si es 2 o más) | los registros del proyecto a la altura del foco |
-| `"general"` | el génesis | la profundidad del foco | los registros del eje a la altura del foco |
-
-La cohorte no distingue mayúsculas (`"PROYECTO"` vale). De ese 8 se lee la **última base válida a esa profundidad** (`leerBase`: la más reciente por llegada, firmada por una identidad con clave y bien formada; lo demás escrito en el 8 se ignora).
-
-| Función | Devuelve |
+| Forma | Devuelve |
 |---|---|
-| `BASES(cohorte?)` | un valor de tipo `bases` (abajo) |
-| `CAJA(medida, cohorte?)` | numero 0–9: la caja de esa medida en la que cae el foco (la misma que da `situar`) |
-| `FRESCURA(cohorte?)` | numero: novedades desde la base, `hijosNuevos + basesNuevas` de `leerBase`; `0` = al día. En `hermanos` son los registros nuevos (hermanos llegados después del último medido). En las fundidas, los hijos nuevos del registro más los hijos cuya base vigente ya no es la que se fundió: no baja a contar registros ([X] decidir VG: bajar costaría recorrer el árbol de bases). No mide el foco. |
+| `BASES()` | n de la base vigente del 8 del anfitrión (sus hijos) |
+| `BASES(alcance)` | n de la cohorte: `"hermanos"` (los hijos del 8 del padre), `"proyecto"` (el subárbol del 8 del proyecto) o `"general"` (el subárbol del 8 del génesis) |
+| `BASES(alcance, medida)` | la caja (0–9) del anfitrión en esa cohorte |
+| `BASES(alcance, medida, k)` | cuántos hay en la caja `k` (0–9) |
+| `BASES(alcance, medida, campo)` | de la base: `"suma"`, `"minimo"`, `"maximo"`, `"media"`; del anfitrión: `"foco"` (su valor), `"caja"`, `"enCaja"`, `"debajo"`, `"encima"` |
 
-**Medidas** (las de `src/bases.js`): `posiciones.0` … `posiciones.9`, `posiciones`, `escritos`, `identidades`, `profundidad`, `formulas.resueltas`, `formulas.pendientes` y una `movimientos.<serie>` por serie de token (`movimientos.T:hora`, `movimientos.E:casa/EUR`…). Otro nombre en `CAJA` → ERROR `medida desconocida`. Una serie que ni la base ni el foco mueven vale cero: caja 0.
+La medida es una de `tiempo.MEDIDAS` (`"posiciones"`, `"terminales"`, `"escritos"`, `"movimientos"`, `"identidades"`, `"profundidadHilo"`, `"formulasResueltas"`, `"formulasPendientes"`) o una clave de serie de token (`"T:hora"`, `"E:casa/EUR"`…); una serie que la base no nombra vale cero en todos. Sin base o sin cohorte → PENDIENTE con el motivo; un alcance, una medida o un campo que no existen → ERROR. La dependencia anotada es la base leída (`<id de la base>:0000000000`). Con el gancho `puedeLeer` (§9.6), leer la base es leer un escrito anclado en el 8 (`leer la base del 8 de <id8> …`), y lo que sitúa al anfitrión lo lee entero (su raíz `[]`). Una fórmula `BASES(…)` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma).
 
-**El valor `bases`:**
+Verificado sobre `ejemplos/ikisai/compras-hermanas.mjs`, desde la compra de dos guisos, con las seis bases del ejemplo escritas (`test/bases.test.js`):
 
-```js
-{
-  tipo: 'bases', cohorte, foco,
-  registro,          // cuyo 8 se leyó
-  profundidad,       // de la base: distancia del foco al registro
-  base, autor, t,    // id, autor y fecha de la base leída
-  desde,             // 'hijos' | 'bases' (fundida)
-  n,                 // registros que resume la base
-  incluido,          // la base de hermanos mide al foco (true/false); null en las fundidas
-  frescura: { t, hijosNuevos, basesNuevas, alDia, nuevos },   // nuevos = FRESCURA()
-  medidas: {
-    '<medida>': {
-      valor,                    // del foco, medido ahora
-      caja, etiqueta,           // caja 0–9 del foco y su hito (HITOS[caja]): etiqueta de caja, no un grado
-      cajas,                    // los diez recuentos de la base
-      debajo, enCaja, encima,   // cuántos de la base caen por debajo, en la caja del foco y por encima (suman n)
-      minimo, mediana, cajaMediana, maximo, media,
-    },
-  },
-}
-```
+| Fórmula | `texto` |
+|---|---|
+| `BASES("hermanos")` (antes de escribir las bases) | `PENDIENTE: sin base en el 8 de <menú>` |
+| `BASES("hermanos")` | `4` |
+| `BASES("proyecto")` | `9` |
+| `BASES("general")` | `14` |
+| `BASES("hermanos", "terminales")` | `5` |
+| `BASES("hermanos", "terminales", 5)` | `3` |
+| `BASES("hermanos", "terminales", "debajo")` | `1` |
+| `BASES("hermanos", "terminales", "media")` | `6.25` |
+| `BASES("general", "E:casa/EUR", "suma")` | `685` |
+| `BASES("hermanos", "T:siglo", 0)` | `4` |
+| `BASES("linaje")` | `ERROR: BASES: el alcance es hermanos, proyecto, general` |
+| `BASES()` en el menú | `4` |
+| `BASES("hermanos")` en el génesis | `PENDIENTE: sin cohorte: el génesis no tiene padre` |
+| con `puedeLeer` que niega las bases | `PENDIENTE DE AUTORIZACIÓN: leer la base del 8 de <comedor> exige una autorización que no hay` |
 
-`n` y `frescura` son de la base, comunes a todas las medidas. `minimo`, `maximo`, `cajas` y `media` (suma entre n) salen exactos de la base. La **mediana es aproximada** (mapa §12: «lo no fundible se aproxima o se descarta»): las medidas son recuentos, así que la caja k abarca de `cortes[k-1]` a `cortes[k] - 1`, recortada a [mínimo, máximo]; dentro de su caja, los registros se reparten por igual entre esos extremos (uno solo, en el punto medio) y la mediana es el del centro, o la media de los dos del centro si n es par. Es exacta cuando cada caja ocupada admite un solo valor (cortes lineales por debajo de 9, recuentos por debajo de 4: en la prueba, todas las medidas menos `posiciones`). `cajaMediana` es la caja de ese valor. [X] decidir VG: el método.
-
-**`formato`**: una línea. Cabecera `<cohorte> · n <n> · base <id8> del <fecha> · al día` (o `no al día: 1 registro nuevo`; en las fundidas, `no al día: 0 hijos nuevos y 1 base renovada`) y, por medida, `<medida> <valor del foco>: caja <k> (mín <a>, mediana ≈ <m>, máx <b>)`. Las medidas en las que el foco y la base valen cero no se listan: se cuentan al final (`5 medidas a cero`).
-
-**Estados.**
-
-| Estado | Motivo | Cuándo |
-|---|---|---|
-| RESUELTO | — | Hay base válida en el 8 de la cohorte, a la profundidad del foco. |
-| PENDIENTE | `sin base en el 8 de <id8> a profundidad 1 (cohorte hermanos). Para escribirla: escribirBase(eje, { autor, padre, privada }) con padre = <id8>, firmada por una identidad con clave; mide sus hijos y cuesta 1 minuto de T.` | No hay base de hermanos. |
-| PENDIENTE | `sin base en el 8 de <id8> a profundidad <p> (cohorte <c>). Para escribirla: primero la base de profundidad <p-1> en el 8 de cada hijo de <id8>; luego escribirBase(eje, { autor, padre, privada, desde: 'bases', profundidad: <p> }) con padre = <id8>, …; funde esas bases sin releer registros y cuesta 1 minuto de T.` | No hay base fundida a esa profundidad. |
-| PENDIENTE | `sin cohorte: el foco no tiene padre (cohorte hermanos)` / `sin cohorte: el foco es el propio registro (cohorte <c>)` | El génesis no tiene padre; un proyecto no tiene proyecto encima, ni el génesis génesis. Es el motivo de `situar`. |
-| PENDIENTE | `evento ausente del eje: <id8>` | El foco no está en el eje (puede llegar). |
-| PENDIENTE POR LÍMITE | `la cohorte <c> (8 de <id8>) exige examinar [al menos] <k> registros y quedan <q> pasos de presupuesto` | Lo que la lectura examina no cabe en el presupuesto que queda; `parcial: { examinados: 0, de: <k> }`. En las fundidas se cuentan primero los hijos y luego los nietos, y se deja de contar en cuanto no cabe: entonces el motivo dice «al menos» y `de` es una cota inferior. |
-| PENDIENTE POR LÍMITE | `más de <n> medidas de bases encadenadas` | Más de `limites.profundidad` focos midiéndose a la vez (fórmulas de bases que llevan, por referencias, a fórmulas de bases de otros focos). |
-| PENDIENTE DE AUTORIZACIÓN | el de §9.6 | El gancho no deja leer el 8 del registro, la base o, en `BASES` y `CAJA`, el foco. |
-| ERROR | `<FN> espera una cohorte: "hermanos", "proyecto", "general" (no "<x>")` / `…, no <tipo>` | Cohorte desconocida, o que no es texto. |
-| ERROR | `BASES espera, si acaso, una cohorte` · `FRESCURA espera, si acaso, una cohorte` · `CAJA espera una medida y, si acaso, una cohorte` · `CAJA espera el nombre de una medida entre comillas, no <tipo>` · `medida desconocida: <m> (…)` | Argumentos. Se validan antes de leer: una medida mal escrita es ERROR aunque no haya base. |
-| ERROR | `ciclo: las bases de <id8> miden el foco y medirlo vuelve a evaluar esta fórmula` | Solo se ve desde dentro de la medida (abajo). |
-| INCOMPATIBLE | `bases y <tipo> no se suman` / `bases y bases no se comparan`… | El valor `bases` no opera con nada; `CAJA` y `FRESCURA` dan números, que sí. |
-
-**Coste: el presupuesto.** Leer una base no relee lo medido: su `n` no se cobra. Se cobra lo que la lectura examina de verdad, contado antes de examinarlo: 1 (la base), más los hijos del registro (la frescura los recorre y el 8 se busca entre ellos), más, si la base es fundida, los hijos de cada hijo (el 8 de cada uno se busca entre ellos: el eje no indexa por posición). Sale del mismo `presupuesto` que el resto de la fórmula (§9.3): `FRESCURA() + FRESCURA()` cobra dos veces. En el ejemplo, la cohorte de hermanos de los guisos cuesta 6 (la base y los cinco hijos del menú: cuatro compras y la base) y la general 9.
-
-**Una fórmula de bases dentro de su propio foco.** `BASES` y `CAJA` sitúan el foco, y situarlo es medirlo, lo que evalúa sus fórmulas. Si el foco lleva una fórmula de bases (`['Compra', '=CAJA("posiciones")']`), esa fórmula se vuelve a evaluar mientras se mide: esa segunda evaluación para en `ERROR: ciclo…` y, vista desde dentro, cuenta en `formulas.pendientes`. Vista desde fuera (`medir`, o al escribir la base) se resuelve y cuenta como resuelta. `FRESCURA` no mide el foco y no entra en ese ciclo. La guarda es por foco, así que también para los ciclos entre registros. [X] decidir VG si una fórmula de bases debe contarse a sí misma al medirse.
-
-**Dependencias** (§9.5): `<registro>:8000000000`, el 8 leído (otra base que llegue cambia el resultado; se anota también cuando queda PENDIENTE: es lo que hay que vigilar); `<base>:0000000000`; y, en `BASES` y `CAJA`, `<foco>:0000000000` (el foco medido entero). Los hijos nuevos del registro, que cambian `FRESCURA`, no se anotan: no son una posición ([X] decidir VG cómo se vigila la llegada de hijos).
-
-**Autorización** (§9.6): se pregunta por el 8 del registro (`registro`, `8000000000`, `[8]`), por la raíz de la base y, en `BASES` y `CAJA`, por la raíz del foco (medirlo lee el registro entero). La frescura cuenta los hijos del registro sin exponer ninguno. Límite: las fórmulas del foco que la medida evalúa no reciben el gancho (§12).
-
-Ejemplo ejecutado (compras hermanas de `ejemplos/ikisai/compras-hermanas.mjs`, datos inventados). Guardar como `bases-bql-ejemplo.mjs` en la raíz y ejecutar `node --input-type=module < bases-bql-ejemplo.mjs`:
-
-```js
-import { generarClaves } from './src/autoridad.js';
-import { ejemploComprasHermanas, escribirBasesDelEjemplo } from './ejemplos/ikisai/compras-hermanas.mjs';
-import { escribirBase } from './src/bases.js';
-import { consultar } from './src/bql.js';
-
-const casa = await generarClaves(); // la casa firma las bases
-const ej = await ejemploComprasHermanas({ claves: { casa } });
-const { eje } = ej;
-const sinIds = (s) => s.replace(/[0-9a-f]{8}/g, '<id8>'); // la clave de la casa entra en el génesis: los ids cambian en cada ejecución
-const q = (f, opciones) => {
-  const r = consultar(eje, ej.guisos.id, [], f, opciones); // el foco: la compra de dos guisos
-  console.log(f.padEnd(32), '→', sinIds(r.texto));
-  return r;
-};
-
-console.log('--- sin base en el 8 del menú');
-q('CAJA("posiciones")');
-console.log('--- la casa escribe la base de los hermanos');
-await escribirBase(eje, { autor: 'casa', padre: ej.menu.id, privada: casa.privada, t: '2026-11-07T18:00:00Z' });
-q('BASES()');
-q('CAJA("posiciones")');
-q('CAJA("formulas.pendientes") > 0');
-q('FRESCURA()');
-q('BASES("proyecto")');
-console.log('--- las seis bases del ejemplo (las de los hermanos, otra vez, una hora después)');
-await escribirBasesDelEjemplo(ej, casa.privada, { t: '2026-11-07T19:00:00Z' });
-for (const c of ['hermanos', 'proyecto', 'general']) q('CAJA("posiciones", "' + c + '")');
-const v = q('BASES("general")').valor;
-console.log('general: n', v.n, '· profundidad', v.profundidad, '· posiciones', JSON.stringify({ ...v.medidas.posiciones, etiqueta: v.medidas.posiciones.etiqueta.nombre }));
-console.log('--- llega un té al menú');
-await eje.escribir({ autor: 'vecina', sobre: ej.menu.id, t: '2026-11-07T19:30:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null }], payload: ['Un té', '=CAJA("posiciones")'] });
-q('FRESCURA()');
-q('FRESCURA("proyecto")');
-console.log('--- límites');
-q('BASES("general")', { limites: { presupuesto: 8 } });
-```
-
-```text
---- sin base en el 8 del menú
-CAJA("posiciones")               → PENDIENTE: sin base en el 8 de <id8> a profundidad 1 (cohorte hermanos). Para escribirla: escribirBase(eje, { autor, padre, privada }) con padre = <id8>, firmada por una identidad con clave; mide sus hijos y cuesta 1 minuto de T.
---- la casa escribe la base de los hermanos
-BASES()                          → hermanos · n 4 · base <id8> del 2026-11-07 · al día — posiciones.0 1: caja 1 (mín 0, mediana ≈ 1, máx 1); posiciones.1 3: caja 3 (mín 0, mediana ≈ 3, máx 3); posiciones.2 1: caja 1 (mín 0, mediana ≈ 1, máx 2); posiciones.3 2: caja 2 (mín 0, mediana ≈ 1, máx 2); posiciones.4 2: caja 2 (mín 0, mediana ≈ 1, máx 2); posiciones 9: caja 5 (mín 1, mediana ≈ 6.75, máx 9); escritos 0: caja 0 (mín 0, mediana ≈ 0, máx 1); identidades 2: caja 2 (mín 2, mediana ≈ 2, máx 2); profundidad 3: caja 3 (mín 3, mediana ≈ 3, máx 3); formulas.resueltas 1: caja 1 (mín 0, mediana ≈ 0, máx 1); formulas.pendientes 1: caja 1 (mín 0, mediana ≈ 0, máx 1); movimientos.E:casa/EUR 1: caja 1 (mín 1, mediana ≈ 1, máx 1); movimientos.T:hora 1: caja 1 (mín 1, mediana ≈ 1, máx 1); 5 medidas a cero
-CAJA("posiciones")               → 5
-CAJA("formulas.pendientes") > 0  → verdadero
-FRESCURA()                       → 0
-BASES("proyecto")                → PENDIENTE: sin base en el 8 de <id8> a profundidad 2 (cohorte proyecto). Para escribirla: primero la base de profundidad 1 en el 8 de cada hijo de <id8>; luego escribirBase(eje, { autor, padre, privada, desde: 'bases', profundidad: 2 }) con padre = <id8>, firmada por una identidad con clave; funde esas bases sin releer registros y cuesta 1 minuto de T.
---- las seis bases del ejemplo (las de los hermanos, otra vez, una hora después)
-CAJA("posiciones", "hermanos")   → 5
-CAJA("posiciones", "proyecto")   → 5
-CAJA("posiciones", "general")    → 5
-BASES("general")                 → general · n 8 · base <id8> del 2026-11-07 · al día — posiciones.0 1: caja 1 (mín 0, mediana ≈ 1, máx 1); posiciones.1 3: caja 3 (mín 0, mediana ≈ 3, máx 3); posiciones.2 1: caja 1 (mín 0, mediana ≈ 0.5, máx 2); posiciones.3 2: caja 2 (mín 0, mediana ≈ 0, máx 2); posiciones.4 2: caja 2 (mín 0, mediana ≈ 0, máx 2); posiciones 9: caja 5 (mín 1, mediana ≈ 5.5, máx 9); escritos 0: caja 0 (mín 0, mediana ≈ 0, máx 1); identidades 2: caja 2 (mín 2, mediana ≈ 2, máx 2); profundidad 3: caja 3 (mín 3, mediana ≈ 3, máx 3); formulas.resueltas 1: caja 1 (mín 0, mediana ≈ 0, máx 1); formulas.pendientes 1: caja 1 (mín 0, mediana ≈ 0, máx 1); movimientos.E:casa/EUR 1: caja 1 (mín 1, mediana ≈ 1, máx 1); movimientos.T:hora 1: caja 1 (mín 1, mediana ≈ 1, máx 1); 5 medidas a cero
-general: n 8 · profundidad 3 · posiciones {"valor":9,"caja":5,"etiqueta":"aprendizaje superior","cajas":[0,1,0,0,3,4,0,0,0,0],"debajo":4,"enCaja":4,"encima":0,"minimo":1,"mediana":5.5,"cajaMediana":4,"maximo":9,"media":5.375}
---- llega un té al menú
-FRESCURA()                       → 1
-FRESCURA("proyecto")             → 0
---- límites
-BASES("general")                 → PENDIENTE POR LÍMITE: la cohorte general (8 de <id8>) exige examinar al menos 7 registros y quedan 6 pasos de presupuesto
-```
-
-Lectura: los guisos (nueve posiciones) caen en la caja 5 de `posiciones` en las tres cohortes; lo que cambia es lo de alrededor (con sus hermanos, uno por debajo; en el ámbito general, cuatro). «Aprendizaje superior» es la etiqueta de la caja 5, no un grado de la compra. El té nuevo deja anticuada la base de hermanos (`FRESCURA()` = 1), pero no la del proyecto, que solo ve hijos nuevos y bases renovadas: hasta que alguien reescriba la base del menú, el 8 del proyecto no se entera (`FRESCURA("proyecto")` = 0). Con `presupuesto: 8`, la llamada y su argumento gastan dos pasos y la cohorte general pide al menos 7: no cabe.
+[X] decidir VG: la firma de `BASES()` (el mapa solo la nombra).
 
 ---
 
@@ -664,7 +557,6 @@ La evaluación se detiene en la primera parada; el estado de la consulta es el d
 | INCOMPATIBLE | `ORDENAR no ordena por <tipo>` / `ORDENAR con claves de tipos distintos: <tipos>` | Claves de `ORDENAR` no escalares, o de tipos o unidades mezclados (§7.7). |
 | ERROR | `carácter inesperado en <n>: …`, `se esperaba <x> en el token <n>`, `fórmula incompleta`, `identificador suelto: <x>`, `token inesperado: <x>`, `sobra: <x>` | Sintaxis (§4). |
 | ERROR | `función desconocida: <NOMBRE>` | Nombre no listado en §7.0. |
-| PENDIENTE, PENDIENTE POR LÍMITE, ERROR… | los de §7.13 | `BASES`, `CAJA` y `FRESCURA`: sin base escrita (el motivo dice cómo escribirla), sin cohorte, cohorte más cara que el presupuesto, cohorte o medida desconocidas, ciclo al medir el foco. |
 | ERROR | `ciclo en <id8>:<dir>` | Un slot con fórmula o referencia se vuelve a leer mientras se está leyendo (autorreferencia, ciclo entre eventos, `=ACTUAL(1)` en `[1]`). |
 | ERROR | `referencia ambigua: <p>` / `referencia mal formada: <p>` | `REF` con un prefijo que tienen varios eventos, o con algo que no puede ser un id (`#T`, `zzz`, vacío). |
 | ERROR | `LOCAL espera al menos un índice`, `<FN> espera índices 0–9`, `REF espera un id entre comillas`, `REF espera una dirección de diez dígitos`, `BUSCAR espera una posición`, `BUSCAR espera índices 0–9 o una dirección de diez dígitos`, `ACTUAL espera una posición y, si acaso, una cantidad`, `ACTUAL espera una cantidad entera ≥ 1`, `FILTRAR espera una condición`, `ORDENAR espera una expresión`, `ELEGIR espera una cantidad entera ≥ 1`, `<FN> espera un argumento`, `<FN> espera una colección`, `<FN> solo dentro de FILTRAR u ORDENAR` | Argumentos mal formados o que faltan (§7). |
@@ -677,7 +569,7 @@ Propagación: una parada dentro de la condición de `FILTRAR`, de la expresión 
 
 ### 9.1 Sin efectos
 
-`evaluar` y `consultar` no escriben en el eje ni mueven tokens: `eje.orden.length` y los saldos son iguales antes y después (`test/bql.test.js`, «la evaluación no tiene efectos»). `BUSCAR`, `FILTRAR`, `ORDENAR`, `ELEGIR` devuelven colecciones nuevas; nada se registra. `BASES`, `CAJA` y `FRESCURA` leen el 8 y no escriben bases: escribirlas es `escribirBase`, fuera de BQL (§7.13; `test/bases-bql.test.js`).
+`evaluar` y `consultar` no escriben en el eje ni mueven tokens: `eje.orden.length` y los saldos son iguales antes y después (`test/bql.test.js`, «la evaluación no tiene efectos»). `BUSCAR`, `FILTRAR`, `ORDENAR`, `ELEGIR` devuelven colecciones nuevas; nada se registra.
 
 ### 9.2 Pila de ciclos
 
@@ -689,7 +581,7 @@ Agotar un recurso no es un fallo: es una espera explicada, `PENDIENTE POR LÍMIT
 
 | Límite | Por defecto | Qué cuenta | Motivo |
 |---|---|---|---|
-| `presupuesto` | 2000 | Pasos de evaluación: cada literal, operador, comparación y función consume uno; las condiciones perezosas consumen por candidato; las fórmulas ajenas leídas por `LOCAL`/`REF`/`ACTUAL` consumen del mismo presupuesto; `BASES`, `CAJA` y `FRESCURA` cobran lo que examinan de la cohorte (§7.13). | `presupuesto de cálculo agotado: más de 2000 pasos`; `la cohorte <c> (8 de <id8>) exige examinar <k> registros y quedan <q> pasos de presupuesto` |
+| `presupuesto` | 2000 | Pasos de evaluación: cada literal, operador, comparación y función consume uno; las condiciones perezosas consumen por candidato; las fórmulas ajenas leídas por `LOCAL`/`REF`/`ACTUAL` consumen del mismo presupuesto. | `presupuesto de cálculo agotado: más de 2000 pasos` |
 | `profundidad` | 100 | La anidación de una fórmula al analizarla, y las lecturas encadenadas (fórmulas que leen fórmulas, referencias que siguen referencias). Si aun así se agotara la pila de JavaScript, también para aquí. | `fórmula anidada más de 100 niveles`, `más de 100 lecturas encadenadas`, `profundidad de cálculo agotada` |
 | `candidatos` | 1000 | Ocupantes de una posición en `BUSCAR` (y en `ACTUAL` fuera de FILTRAR). | `más de 1000 candidatos en <id8>:<dir>` |
 
@@ -880,10 +772,6 @@ registros en el eje antes y después de consultar: sin efectos → 6
 | Reglas por dimensión para el signo (corpus V4: «solo cuenta si la regla de esa dimensión lo permite») y profundidades ordinales por época | El signo se calcula siempre y solo informa; ninguna regla lo filtra. Ni signo ni distancia ordenan mientras ninguna época declare una profundidad ordinal (ni la época 0 ni la «época 1 (propuesta)» lo hacen). |
 | `ORDENAR` con varias claves; orden por encaje explícito | Una clave; el orden por encaje es el de `BUSCAR` por defecto. |
 | `Y`/`O` perezosos (cortocircuito) | Evalúan todos los argumentos. |
-| `BASES`/`CAJA` de un candidato dentro de `FILTRAR`/`ORDENAR` | El foco es siempre el registro de la fórmula (§7.13): [X] decidir VG si dentro debe ser el candidato. |
-| Proyecto explícito, autor de la base, otras cohortes | `situar` admite `{ proyecto, autor }`; BQL no los expone. Las cohortes son las tres decididas (mapa §12 [D]). |
-| Mediana exacta, cuantiles, correlaciones (lo no fundible) | No hay: la mediana de `BASES` es aproximada desde las cajas (§7.13); [X] decidir VG el método. |
-| Vigilar la llegada de hijos (lo que cambia `FRESCURA`) | Las dependencias nombran el 8 leído, la base y el foco, no «los hijos de»: [X] decidir VG. |
 | Comparación encadenada (`1 < x < 3`) | `SyntaxError`. |
 | Literales booleanos, comillas simples, exponentes, `.5`, unidades con `/` | No hay. (Las unidades con acentos y `ñ`, `día`, `año`, sí: §4.1.) |
 | Identificadores estables de operadores e idioma, llamadas por hash, matrices tipadas, política de candidatos pendientes (mapa §2.3 «abierto») | No hay. Los nombres son los españoles en mayúsculas de §7.0. |
@@ -903,8 +791,5 @@ registros en el eje antes y después de consultar: sin efectos → 6
 8. La resta de magnitudes se muestra con el sumando negativo en el desglose (`10 EUR (12 EUR + -2 EUR)`).
 9. Una cadena de diez dígitos en un slot es texto (dirección), no número: `'1234567890' + 1` es INCOMPATIBLE. Un número JS de diez cifras sí es número.
 10. `SUMAR` de una colección vacía es el numero `0` sin unidad, así que no se suma con una magnitud: `SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito")) + 1 EUR` sobre el eje de ejemplo (sin escritos en la 4) es INCOMPATIBLE.
-11. La medida del foco de `BASES` y `CAJA` (`medir` en `src/bases.js`) evalúa sus fórmulas con `evaluar` sin opciones: sin el gancho `puedeLeer` y con los límites por defecto, en un cálculo aparte que no gasta el presupuesto de la consulta. Lo único que deja ver es si cada fórmula se resuelve (cuenta en `formulas.resueltas` o `formulas.pendientes`).
-12. En las bases fundidas, la frescura busca el 8 de cada hijo recorriendo todos sus hijos (el eje no indexa por la posición `en`): leer la cohorte cuesta tantos pasos como nietos tiene el registro. Por eso se cobran (§7.13).
-13. `FRESCURA` no ve que un registro ya medido cambie (escritos nuevos encima, fórmulas que se resuelven): solo cuenta hijos nuevos y bases renovadas (`docs/notas/BASES_DEL_8.md` §3.9).
 
 Corregidos en esta versión (estaban aquí): las funciones sin el argumento que esperan (`NO()`, `CONTAR()`…) ya devuelven `ERROR: <FN> espera un argumento`/`una colección` en vez de lanzar `TypeError`; `=`/`<>` entre tipos o unidades distintos ya son INCOMPATIBLE (antes comparaban el texto formateado); `ORDENAR` con claves mezcladas ya es INCOMPATIBLE (antes ordenaba sin definir); más de diez índices ya no lanza `RangeError`; una anidación muy honda ya no revienta la pila; la suma ya no aplana el operando derecho (`(1 EUR + 2 EUR) + (3 EUR + 4 EUR)` daba `10 EUR (1 EUR + 2 EUR + 7 EUR)`, §6.1); el gancho `puedeLeer` ya recibe el camino exacto y se aplica por ocupante y por salto (§9.6); `BUSCAR(índice)` ya es camino exacto (§7.4).
