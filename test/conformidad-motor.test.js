@@ -39,7 +39,8 @@ import { EPOCA_0, PV, leerDireccion } from '../src/epocas.js';
 import { decupla } from '../src/pointed.js';
 import { mapa, sobrio as sobrioMapa } from '../src/mapped.js';
 import { secuencia } from '../src/sequenced.js';
-import { banda, ejeTemporal, comparar } from '../src/tiempo.js';
+import { banda, ejeTemporal } from '../src/tiempo.js';
+import { situar, confluir } from '../src/bases.js';
 import { serializar } from '../src/persistencia.js';
 import { generarClaves, firmar, verificar } from '../src/autoridad.js';
 import * as agram from '../src/index.js';
@@ -1484,7 +1485,8 @@ test('TOK-37 PV8 no emite P por subir de posición ni por reunir registros', asy
   const a = await escribe(eje, g, ['A', 'mucho', 'contenido'], undefined, 'ana');
   for (let k = 0; k < 3; k++) await escribe(eje, a.id, 'apoyo ' + k, undefined, 'bea');
   const antes = huella(eje);
-  assert.equal(comparar(eje, a.id).posicion, 1);
+  // VG, 7-11 noche: se retira comparar(); leer el 8 (aquí, el respaldo al vuelo: no hay base escrita) no escribe ni emite.
+  assert.equal(situar(eje, a.id, { respaldo: true }).medidas.escritos.foco, 3);
   assert.equal(huella(eje), antes);
   assert.deepEqual(eje.poderes('ana'), []);
 });
@@ -1568,15 +1570,18 @@ test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
   assert.equal(typeof eje.total, 'undefined');
 });
 
-test('TOK-50 más transferencias no son más riqueza: mover tokens no es progreso automático',
-  { skip: 'TOK-50: tiempo.comparar puntúa posiciones + 2·escritos + movimientos: un hermano con cuatro movimientos queda por delante de uno con uno. Terreno de src/tiempo.js (otro agente): no se toca aquí' },
-  async () => {
-    const { eje, g } = await mundo();
-    const padre = await escribe(eje, g, 'padre');
-    const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
-    await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
-    assert.equal(comparar(eje, a.id).comparables[0].id, a.id);
-  });
+test('TOK-50 más transferencias no son más riqueza: mover tokens no es progreso automático', async () => {
+  const { eje, g } = await mundo();
+  const padre = await escribe(eje, g, 'padre');
+  const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
+  await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
+  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos. Sin puesto: la hermana que mueve más
+  // tokens solo cae en otra caja de «movimientos»; en lo demás, las dos comparten caja.
+  const c = confluir(eje, a.id);
+  assert.ok(!('posicion' in c) && !('puntuacion' in c) && c.comparables.every((x) => !('puntuacion' in x)));
+  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.debajo, c.medidas.movimientos.encima], [1, 0, 1]);
+  assert.equal(c.medidas.terminales.enCaja, 2);
+});
 
 test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {
   const { eje, g } = await mundo();

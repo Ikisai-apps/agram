@@ -13,6 +13,8 @@
 // con la misma función, en el mismo JSON. Las épocas viven como datos en
 // datos/epocas/*.json; datos/epocas/epocas.js es su copia generada para
 // importarlas sin fetch.
+// Los cortes de las diez cajas del 8 también son regla de la época (VG, 7-11
+// noche, decisión 2): `cortes` en el JSON, leídos con epoca.cortes(medida).
 
 import { ARIDAD, indicesDe } from './btml.js';
 import { EPOCA_0_DATOS } from '../datos/epocas/epocas.js';
@@ -50,10 +52,12 @@ const esRuta = (x) => typeof x === 'string' && /^[0-9]{2,10}$/.test(x);
  * `ordinales` son las profundidades donde el dígito es orden y no un nombre:
  * da el gancho epoca.ordinal(profundidad) que usa el encaje.
  * `cortes` (opcional) son los cortes de las diez cajas del 8 por medida o
- * serie: { <clave>: [nueve umbrales crecientes] }. Son regla de la época
- * (MAPA §12: «Cortes de las cajas = regla de la época»): da el gancho
- * epoca.cortes(clave) que leen confluir() y las bases; undefined si la
- * época no los trae para esa clave.
+ * serie: { <clave>: [nueve umbrales crecientes], todas?: [nueve umbrales],
+ * decision?: texto }. Son regla de la época (MAPA §12: «Cortes de las cajas
+ * = regla de la época»; VG, 7-11 noche: la época 0 trae 1 2 3 4 6 10 16 26
+ * 42): da el gancho epoca.cortes(clave) que leen las bases (src/bases.js) y
+ * su respaldo confluir(): los de esa clave, si no los de `todas`; undefined
+ * si la época no los trae (las bases usan entonces los de la época 0).
  */
 export function cargarEpoca(datos, { respaldo } = {}) {
   if (!datos || typeof datos !== 'object') throw new TypeError('época: faltan los datos');
@@ -62,12 +66,14 @@ export function cargarEpoca(datos, { respaldo } = {}) {
   const ordinales = datos.ordinales ?? [];
   if (!Array.isArray(ordinales) || !ordinales.every(esIndice)) throw new TypeError(datos.nombre + ': ordinales son profundidades 0–9');
   const cortes = datos.cortes ?? {};
-  if (!cortes || typeof cortes !== 'object' || Array.isArray(cortes)) throw new TypeError(datos.nombre + ': cortes es { clave: [nueve umbrales] }');
+  if (!cortes || typeof cortes !== 'object' || Array.isArray(cortes)) throw new TypeError(datos.nombre + ': cortes es un objeto { <clave>: [nueve umbrales], todas?, decision? }');
+  const tablaCortes = new Map();
   for (const [clave, c] of Object.entries(cortes)) {
+    if (clave === 'decision') continue; // texto: de dónde salen
     const ok = Array.isArray(c) && c.length === ARIDAD - 1 && c.every(Number.isFinite) && c.every((x, k) => k === 0 || x > c[k - 1]);
     if (!ok) throw new TypeError(datos.nombre + ': los cortes de ' + clave + ' han de ser nueve umbrales crecientes');
+    tablaCortes.set(clave, Object.freeze([...c]));
   }
-  const tablaCortes = new Map(Object.entries(cortes).map(([clave, c]) => [clave, Object.freeze([...c])]));
 
   const propias = new Map(); // 'p.d' → regla
   const generales = new Map(); // d → regla de todas las profundidades
@@ -146,9 +152,9 @@ export function cargarEpoca(datos, { respaldo } = {}) {
     ordinal(profundidad) {
       return esOrdinal.has(profundidad);
     },
-    /** Cortes de las cajas del 8 para una medida o serie, o undefined si la época no los trae. */
+    /** Cortes de las cajas del 8 para una medida o serie (los suyos o los de `todas`), o undefined si la época no los trae. */
     cortes(clave) {
-      const c = tablaCortes.get(clave);
+      const c = tablaCortes.get(clave) ?? tablaCortes.get('todas');
       return c ? [...c] : undefined;
     },
   });

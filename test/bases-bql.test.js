@@ -4,11 +4,13 @@
 // test/bases.test.js). Ejemplo: las compras hermanas de
 // ejemplos/ikisai/compras-hermanas.mjs (datos inventados).
 
-// tiempo.js va primero a propósito: tiempo → motor → bql → bases → tiempo es
-// un ciclo de importación, y entrar por aquí no debe romper la carga.
+// tiempo.js va primero a propósito: tiempo → motor → bql → bases → bql es un
+// ciclo de importación (y tiempo reexporta de bases), y entrar por aquí no
+// debe romper la carga.
 import { HITOS, ALCANCES } from '../src/tiempo.js';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { Eje } from '../src/eje.js';
 import { generarClaves } from '../src/autoridad.js';
 import { consultar, evaluar, esPendiente } from '../src/bql.js';
 import { CIELO, ETIQUETAS, clavesDeMedidas, medir, leerBase, basesEn, situar, comprobar, esBase } from '../src/bases.js';
@@ -45,24 +47,32 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   const ej = await nuevo();
   const { eje } = ej;
   const menu8 = ej.menu.id.slice(0, 8);
-  const hermanos = 'sin base en el 8 de ' + menu8 + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, privada }) con registro = '
-    + menu8 + ' y la clave privada de menu-dia, su identidad propia; mide sus hijos y gasta 1 minuto de su T.';
-  for (const f of ['CAJA("terminales")', 'FRESCURA()', 'CAJA("E:casa/EUR", "hermanos")', 'FRESCURA("hermanos")']) {
+  // La escribe la propia cosa o quien tiene P sobre el registro (VG, 7-11 noche): aquí, la cosa del menú o la casa.
+  const hermanos = 'sin base escrita en el 8 de ' + menu8 + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
+    + menu8 + ', firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.';
+  for (const f of ['CAJA("terminales")', 'FRESCURA()', 'CAJA("E:casa/EUR", "hermanos")', 'FRESCURA("hermanos")', 'BASES("hermanos")', 'BASES("hermanos", "terminales")']) {
     const r = q(ej, f);
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', hermanos], f);
     assert.ok(r.dependencias.includes(ej.menu.id + ':' + CIELO), f); // lo que hay que vigilar: el 8 donde llegará la base
   }
   // En los alcances que funden, la base de arriba funde las de abajo: se escriben antes.
   const proyecto = q(ej, 'FRESCURA("proyecto")').motivo;
-  assert.ok(proyecto.startsWith('sin base en el 8 de ' + ej.comedor.id.slice(0, 8) + ' (alcance proyecto). '), proyecto);
-  assert.match(proyecto, /la clave privada de comedor, su identidad propia; mide sus hijos y funde la base vigente del 8 de cada uno \(se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo\)/);
-  assert.match(q(ej, 'CAJA("terminales", "general")').motivo, /la clave privada de casa, su identidad propia/);
-  // Un registro sin identidad propia (una compra) no puede escribir su base, y se dice.
+  assert.ok(proyecto.startsWith('sin base escrita en el 8 de ' + ej.comedor.id.slice(0, 8) + ' (alcance proyecto). '), proyecto);
+  assert.match(proyecto, /firmada por comedor \(su identidad propia\) o casa \(con P sobre él\); mide sus hijos y funde la base vigente del 8 de cada uno \(se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo\)/);
+  assert.match(q(ej, 'CAJA("terminales", "general")').motivo, /firmada por casa \(su identidad propia\);/);
+  // Un registro sin identidad propia (una compra): solo quien tiene P sobre él puede escribir su base, y se dice.
   const nota = await eje.escribir({ autor: 'huesped', sobre: ej.guisos.id, t: '2026-11-07T17:30:00Z', movimientos: [hora('huesped')], payload: 'Sin picante' });
-  assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). ' + ej.guisos.id.slice(0, 8) + ' no tiene identidad propia con clave (identidadDe): nadie puede escribir su base.');
-  // Con un gancho que no deja leer el registro, la identidad no se nombra.
+  assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
+    + ej.guisos.id.slice(0, 8) + ', firmada por casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.');
+  // Sin identidad propia y sin nadie con clave y P sobre él, nadie puede escribirla.
+  const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
+  const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Lista' });
+  const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
+  assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
+    + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
+  // Con un gancho que no deja leer el registro, la cosa (que sale de su contexto) no se nombra; quien tiene P (los saldos), sí.
   const callado = q(ej, 'FRESCURA()', ej.guisos.id, { puedeLeer: (id) => id !== ej.menu.id });
-  assert.match(callado.motivo, /la clave privada de su identidad propia; mide sus hijos/);
+  assert.match(callado.motivo, /firmada por su identidad propia o casa \(con P sobre él\); mide sus hijos/);
   // Lo escrito en el 8 que no es una base válida (no la firma la cosa del menú) no cuenta.
   await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, en: CIELO, t: '2026-11-07T17:40:00Z', movimientos: [hora('huesped')], payload: ['Bases del 8', 4], contexto: { bases: true } });
   assert.equal(q(ej, 'FRESCURA()').estado, 'PENDIENTE');
@@ -201,6 +211,14 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   // CAJA cobra la misma lectura (medir el anfitrión aparte: §7.14).
   assert.equal(conPresupuesto('CAJA("terminales")', 2 + costeHermanos).estado, 'RESUELTO');
   assert.equal(conPresupuesto('CAJA("terminales")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
+  // BASES hereda el presupuesto: cobra la misma lectura del 8 (VG, 7-11 noche); BASES() lee el 8 del propio anfitrión.
+  assert.equal(conPresupuesto('BASES("hermanos")', 2 + costeHermanos).estado, 'RESUELTO');
+  assert.equal(conPresupuesto('BASES("hermanos")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
+  assert.equal(conPresupuesto('BASES("hermanos", "terminales", "suma")', 4 + costeHermanos).estado, 'RESUELTO');
+  assert.equal(conPresupuesto('BASES("hermanos", "terminales", "suma")', 3 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
+  const costePropio = 1 + coste(ej.menu.id);
+  assert.equal(q(ej, 'BASES()', ej.menu.id, { limites: { presupuesto: 1 + costePropio } }).texto, '4');
+  assert.equal(q(ej, 'BASES()', ej.menu.id, { limites: { presupuesto: costePropio } }).estado, 'PENDIENTE POR LÍMITE');
   // El presupuesto es de toda la fórmula: dos lecturas se suman.
   assert.equal(conPresupuesto('FRESCURA() + FRESCURA()', 3 + 2 * costeHermanos).estado, 'RESUELTO');
   assert.equal(conPresupuesto('FRESCURA() + FRESCURA()', 2 + 2 * costeHermanos).estado, 'PENDIENTE POR LÍMITE');
@@ -281,6 +299,15 @@ test('autorización: la base y, en CAJA, el anfitrión pasan por el gancho; el a
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + ej.guisos.id.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan'], m);
     assert.equal(q(ej, 'CAJA("' + m + '")').estado, 'RESUELTO', m);
   }
+  // BASES hereda el gancho de CAJA y FRESCURA (VG, 7-11 noche): la base, el anfitrión y sus fórmulas.
+  for (const f of ['BASES("hermanos")', 'BASES("hermanos", "terminales", "suma")', 'BASES("hermanos", "terminales")']) {
+    const r = q(ej, f, ej.guisos.id, sinBases);
+    assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'leer la base del 8 de ' + ej.menu.id.slice(0, 8) + ' exige una autorización que no hay'], f);
+  }
+  assert.equal(q(ej, 'BASES("hermanos", "terminales")', ej.guisos.id, sinFoco).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(q(ej, 'BASES("hermanos", "terminales", "suma")', ej.guisos.id, sinFoco).estado, 'RESUELTO'); // un dato de la base no lee el anfitrión
+  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")', ej.guisos.id, todo).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")').estado, 'RESUELTO');
 });
 
 test('sin cohorte o sin anfitrión: PENDIENTE', async () => {

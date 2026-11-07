@@ -18,7 +18,8 @@ import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import * as motor from '../src/motor.js';
 import { ocupantes } from '../src/encaje.js';
-import { comparar, medidasDe } from '../src/tiempo.js';
+import * as tiempo from '../src/tiempo.js';
+import { medir, confluir } from '../src/bases.js';
 import { evaluar } from '../src/bql.js';
 import { direccion } from '../src/btml.js';
 import { generarClaves } from '../src/autoridad.js';
@@ -279,28 +280,34 @@ test('NEU-04: dos fuentes no respaldan más E sobre el mismo recurso que una (la
     assert.equal(await emitido(['A', 'A2']), await emitido(['A']));
   });
 
-test('NEU-05: el ranking del 8 no cambia al partir un escrito en piezas o en autores',
-  { skip: 'NEU-05: concesión «ranking por recuentos» (src/tiempo.js:comparar: puntuación = posiciones + 2·escritos + movimientos, leída por la celda 8 de app.js). Un hijo de 10 posiciones suma 2; diez hijos de 1 (de diez identidades o de una) suman 20. Retirada ya por la decisión 7 del mapa §12 [D] («se retira comparar() con pesos»); pendiente en el código' },
-  async () => {
-    const puntuacion = async (k) => {
+test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o en autores (VG, 7-11 noche: se retira comparar())', async () => {
+  // La concesión «ranking por recuentos» (tiempo.comparar: posiciones + 2·escritos + movimientos) ya no existe:
+  // el 8 sitúa en cajas por medida, sin puesto ni puntuación. Que los recuentos de escritos sigan contando
+  // piezas es la concesión de NEU-06 ([X] decidir VG, recomendación R7).
+  assert.equal(tiempo.comparar, undefined);
+  {
+    const puesto = async (k) => {
       const ids = nombres('A', k);
       const m = await mundo(['A', ...ids.filter((x) => x !== 'A')]);
       const Y = await m.eje.escribir({ autor: 'A', sobre: m.X, t: T0, movimientos: [minuto('A')], payload: 'Y' });
       if (k === 1) await m.eje.escribir({ autor: 'A', sobre: Y.id, t: T0, movimientos: [minuto('A', 10)], payload: Array.from({ length: 10 }, (_, i) => 'p' + i) });
       else for (let i = 0; i < 10; i++) await m.eje.escribir({ autor: ids[i % k], sobre: Y.id, t: T0, movimientos: [minuto(ids[i % k])], payload: 'p' + i });
-      return comparar(m.eje, Y.id).comparables.find((x) => x.id === Y.id).puntuacion;
+      const c = confluir(m.eje, Y.id);
+      return [c.posicion, c.puntuacion, ...c.comparables.map((x) => x.puntuacion)].filter((x) => x !== undefined);
     };
-    assert.equal(await puntuacion(10), await puntuacion(1));
-  });
+    assert.deepEqual(await puesto(10), []);
+    assert.deepEqual(await puesto(1), []);
+  }
+});
 
 test('NEU-06: lo que el 8 mide de un pago no cambia al repartirlo entre más identidades',
-  { skip: 'NEU-06: concesión «el 8 cuenta cabezas» (src/tiempo.js:medidasDe: identidades = Set.size, movimientos = número; src/bases.js:CORTES_PROVISIONALES.RECUENTOS). C paga 8 EUR a A: identidades 2, movimientos 2; los mismos 8 EUR a 8 identidades: 9 y 9. Las sumas por serie sí son iguales. [X] decidir VG: que en el 8 que se compara entren solo sumas y cuotas por serie (recomendación R7)' },
+  { skip: 'NEU-06: concesión «el 8 cuenta cabezas» (src/bases.js:medir, la única medida: identidades = Set.size, movimientos = número; cortes de la época 0, 1 2 3 4 6 10 16 26 42). C paga 8 EUR a A: identidades 2, movimientos 2; los mismos 8 EUR a 8 identidades: 9 y 9. Las sumas por serie sí son iguales. [X] decidir VG: que en el 8 que se compara entren solo sumas y cuotas por serie (recomendación R7)' },
   async () => {
     const medidas = async (k) => {
       const ids = nombres('A', k);
       const m = await mundo(ids);
       const ev = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((a) => eur('C', 8 / k, 'C', a))], payload: unico('pago') });
-      const x = medidasDe(m.eje, ev.id);
+      const x = medir(m.eje, ev.id);
       return { identidades: x.identidades, movimientos: x.movimientos };
     };
     assert.deepEqual(await medidas(8), await medidas(1));

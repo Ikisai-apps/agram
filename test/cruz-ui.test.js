@@ -42,7 +42,7 @@ test('animado: el cielo y la senda en las celdas 8 y 9; la primera mirada no ani
   const ui = crearUi();
   const primera = piezasCruz(estado, ui, { animado: true, ahora: AHORA });
   assert.ok(primera.celda8.includes('<svg class="cielo compacto') && /data-cohorte="proyecto" title="cohorte: hermanos, proyecto, general">→ proyecto</.test(primera.celda8));
-  assert.ok(primera.celda8.startsWith('<div class="nota-celda">hermanos · sin escribir</div>'));
+  assert.ok(primera.celda8.startsWith('<div class="nota-celda">hermanos · sin base escrita</div>'));
   assert.ok(primera.celda9.includes('<svg class="camino compacto"') && primera.celda9.includes('data-cruz-vista'));
   assert.ok(!animaAlgo(primera.celda8) && !animaAlgo(primera.celda9), 'la primera mirada no anima');
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T15:10:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });

@@ -64,7 +64,8 @@ test('A2-06: cargarEpoca lee y valida los cortes; confluir acepta la época por 
   const conCortes = cargarEpoca({ nombre: 'prueba', reglas: [], cortes: { posiciones: cortes } }, { respaldo: EPOCA_0 });
   assert.deepEqual(conCortes.cortes('posiciones'), cortes);
   assert.equal(conCortes.cortes('escritos'), undefined);
-  assert.equal(EPOCA_0.cortes('posiciones'), undefined); // la época 0 aún no los trae en sus datos
+  // VG, 7-11 noche (decisión 2): la época 0 trae la escala provisional 1 2 3 4 6 10 16 26 42 en sus datos.
+  assert.deepEqual(EPOCA_0.cortes('posiciones'), [1, 2, 3, 4, 6, 10, 16, 26, 42]);
   assert.throws(() => cargarEpoca({ nombre: 'mal', reglas: [], cortes: { posiciones: [3, 2, 1] } }, { respaldo: EPOCA_0 }), /nueve umbrales crecientes/);
   const { eje, compra } = await ejemploCompra();
   assert.doesNotThrow(() => confluir(eje, compra.id, { epoca: 'época 0' }));

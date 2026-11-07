@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { banda, ejeTemporal, comparar, HITOS, medir } from '../src/tiempo.js';
+import * as tiempo from '../src/tiempo.js';
+import { banda, ejeTemporal, HITOS } from '../src/tiempo.js';
+import * as bases from '../src/bases.js';
 import { consolidar } from '../src/motor.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
@@ -42,18 +44,19 @@ test('lo declarado en la posición 7 aparece como futuro declarado', async () =>
   assert.equal(e.futuro[0].contenido, 'cena el sábado');
 });
 
-test('comparar: el foco frente a sus hermanos, sin nivel ni grado', async () => {
+test('se retira comparar() (VG, 7-11 noche: se retira comparar()): tiempo.js ni puntúa ni mide; el 8 se lee de las bases', async () => {
+  // Ni el puesto con pesos (posiciones + 2 × escritos + movimientos) ni la medida simple: una sola medida, bases.medir.
+  for (const viejo of ['comparar', 'medir', 'medidasDe', 'distribucion', 'cortesDeCohorte', 'fundir']) assert.equal(tiempo[viejo], undefined, viejo);
+  // Lo del 8 que se sigue exportando desde aquí es lo de bases.js (una sola verdad).
+  for (const nombre of ['HITOS', 'ALCANCES', 'MEDIDAS', 'comparables', 'confluir', 'proyectoDe', 'etiquetaClave']) assert.equal(tiempo[nombre], bases[nombre], nombre);
+  assert.equal(HITOS[9].nivel, '5.3');
   const { eje, compra, alta } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
-  const hermana = await eje.escribir({ autor: 'casa', sobre: alta.id, t: '2026-11-07T10:00:00Z', movimientos: [gastaT('casa')], payload: 'nota breve' });
-  // El menú y la nota son hermanos (ambos escritos sobre el alta). El menú tiene más posiciones y un escrito encima.
+  await eje.escribir({ autor: 'casa', sobre: alta.id, t: '2026-11-07T10:00:00Z', movimientos: [gastaT('casa')], payload: 'nota breve' });
   const menu = eje.sobre(alta.id)[0];
-  const c = comparar(eje, menu.id);
-  assert.equal(c.de, 2);
-  assert.equal(c.posicion, 1);
-  assert.equal(c.comparables[1].id, hermana.id);
-  assert.equal(c.hitos, HITOS);
-  assert.equal(HITOS[9].nivel, '5.3');
-  assert.deepEqual(medir(eje, hermana.id), { posiciones: 1, escritos: 0, movimientos: 1 });
-  assert.equal(comparar(eje, eje.genesisId).de, 1);
+  // Lo que comparar() decía («primero de dos») se lee ahora sin puesto: la caja del menú entre sus hermanos.
+  const s = bases.situar(eje, menu.id, { respaldo: true });
+  assert.deepEqual([s.n, s.escrita, s.frescura], [2, false, bases.SIN_BASE_ESCRITA]);
+  assert.ok(!('posicion' in s) && !('puntuacion' in s) && s.comparables.every((x) => !('puntuacion' in x)));
+  assert.equal(s.medidas.escritos.foco, 1);
 });

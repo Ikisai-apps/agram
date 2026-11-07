@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mapa, render, MATRIZ } from '../src/mapped.js';
+import { mapa, render, MATRIZ, ocho, textoOcho } from '../src/mapped.js';
+import { MEDIDAS, SIN_BASE_ESCRITA, leerBase } from '../src/bases.js';
+import { generarClaves } from '../src/autoridad.js';
+import { COSAS, ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { direccion } from '../src/btml.js';
 import { Eje } from '../src/eje.js';
@@ -68,4 +71,29 @@ test('mapa: alcance con los tres números de Mapped; cuenta el foco, su hilo y s
   let sobre = larga.genesisId;
   for (let i = 1; i <= 15; i++) sobre = (await larga.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'paso ' + i })).id;
   assert.deepEqual(mapa(larga, sobre).alcance, { conseguido: 110, minimo: 100, maximo: 1000, alMinimo: true });
+});
+
+test('celda 8: ocho() lee la base escrita del 8; sin ella, el respaldo al vuelo lo dice; sin puesto ni puntuación', async () => {
+  const claves = {};
+  for (const id of ['casa', ...COSAS]) claves[id] = await generarClaves();
+  const ej = await ejemploComprasHermanas({ claves });
+  const { eje } = ej;
+  // Sin base escrita: el respaldo, declarado.
+  const antes = ocho(eje, ej.guisos.id);
+  assert.deepEqual([antes.estado, antes.escrita, antes.base, antes.frescura, antes.n, antes.registro], ['RESUELTO', false, null, SIN_BASE_ESCRITA, 4, ej.menu.id]);
+  assert.deepEqual(antes.medidas.map((m) => m.clave), MEDIDAS.map((m) => m.clave));
+  assert.ok(antes.medidas.every((m) => m.debajo + m.enCaja + m.encima === 4 && !('posicion' in m) && !('puntuacion' in m)));
+  assert.match(textoOcho(antes), /^8 · hermanos · sin base escrita \(respaldo al vuelo\) · n 4\nposiciones 5: caja 4 · /);
+  // Con la base escrita: la lee, con su frescura.
+  await escribirBasesDelEjemplo(ej);
+  const despues = ocho(eje, ej.guisos.id);
+  const base = leerBase(eje, ej.menu.id);
+  assert.deepEqual([despues.escrita, despues.base, despues.frescura, despues.n], [true, base.id, base.frescura, 4]);
+  assert.deepEqual(despues.medidas, antes.medidas); // la misma verdad: la escrita al día coincide con el cálculo al vuelo
+  assert.ok(textoOcho(despues).startsWith('8 · hermanos · base ' + base.id.slice(0, 8) + ' (sin novedades) · n 4'));
+  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 14);
+  // El génesis no tiene hermanos.
+  const g = ocho(eje, eje.genesisId);
+  assert.deepEqual([g.estado, g.medidas], ['PENDIENTE', []]);
+  assert.equal(textoOcho(g), '8 · hermanos · sin cohorte: el génesis no tiene padre');
 });

@@ -26,7 +26,8 @@ import { ocupantes, arbol } from '../src/encaje.js';
 import { consultar, evaluar, esFormula } from '../src/bql.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { mapa } from '../src/mapped.js';
-import { ejeTemporal, confluir, medidasDe } from '../src/tiempo.js';
+import { ejeTemporal, confluir } from '../src/tiempo.js';
+import { medir } from '../src/bases.js'; // la única medida del 8 (tiempo.medidasDe se retira: VG, 7-11 noche)
 import { consolidar, autorizar, ejecutar } from '../src/motor.js';
 
 // ---------- argumentos ----------
@@ -465,11 +466,11 @@ async function pasada(n, semilla, solo = null) {
   fila('BQL', 'evaluar una fórmula del eje (ms/fórmula)', ev.mediana / Math.max(1, slots.length), slots.length + ' de 300 registros al azar: ' + Object.entries(estados).map(([k, v]) => k + ' ' + v).join(', '));
   }
 
-  // Confluencia del 8 recalculada (tiempo.confluir).
+  // Confluencia del 8 recalculada al vuelo (confluir: el respaldo declarado de bases.js).
   const hijoCaliente = eje.sobre(b.superCaliente)[0]?.id ?? focos.hoja;
   if (quiere('confluir')) {
   const muestra = Array.from({ length: 200 }, () => az.de(eje.orden));
-  fila('confluir', 'medidasDe de un registro (ms)', await porElemento(muestra, (id) => medidasDe(eje, id)), 'mediana de 200 al azar');
+  fila('confluir', 'medir de un registro (ms)', await porElemento(muestra, (id) => medir(eje, id)), 'mediana de 200 al azar');
   for (const alcance of ['hermanos', 'proyecto', 'general']) {
     log('  confluir ' + alcance + '…');
     const c = await unaVez(() => confluir(eje, hijoCaliente, { alcance }));

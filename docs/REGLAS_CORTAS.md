@@ -102,7 +102,7 @@ Los diez PV sobre el registro en foco, tal como estaban: 5 es el registro en foc
 | 5 | **estructura** | PV5: el registro en foco, el centro de la cruceta (mapa §9 [D]); su estructura, referencias y firmas. *Ejemplo:* Los campos de encaje de un candidato (ORIGEN(), ACUERDO(), SIGNO()) son su 5. |
 | 6 | **pasado** | PV6: hilos del pasado, registros encadenados por referencia; procedencia; más detalle cerca del presente. *Ejemplo:* El hilo de la compra: compra → menú → altas → génesis (por «sobre»). |
 | 7 | **futuro** | PV7: hilos del futuro: previsiones, compromisos, expiración, ejecución condicional autorizada. *Ejemplo:* Una consolidación pendiente de autorización aparece como futuro del foco (ejeTemporal). |
-| 8 | **comparabilidad** | PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad. *Ejemplo:* comparar(eje, compra) sitúa la compra entre sus hermanos. |
+| 8 | **comparabilidad** | PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad. *Ejemplo:* situar(eje, compra) sitúa la compra en su caja entre sus hermanos, leyendo la base escrita en el 8 del menú. |
 | 9 | **camino** | PV9: la guía que baja de las bases: secuencias, tutoriales, siguiente paso; sugerir no es ejecutar. *Ejemplo:* Décupla del corpus V4: 9 = 'Confirmar la elección antes de registrar'. |
 
 ### Profundidad 1: la parte
