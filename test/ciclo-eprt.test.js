@@ -16,7 +16,7 @@ import { reglasDelCiclo } from '../src/ciclo.js';
 import { validarMovimiento, topeT, TOPE_T_MINIMO, EMITEN } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { validez } from '../src/validez.js';
-import { consolidar, autorizar, ejecutar, estadoDe, puedeAutorizar, poderParaAutorizar, FABRICA } from '../src/motor.js';
+import { consolidar, autorizar, ejecutar, liberar, estadoDe, puedeAutorizar, recursoDe, FABRICA } from '../src/motor.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
@@ -63,6 +63,8 @@ const contexto = (eje) => ({
   registro: (id) => eje.obtener(id),
   ambitosQueCubren: (a) => eje.ambitosQueCubren(a),
   saldo: (id, k) => eje.saldo(id, k),
+  genesisId: eje.genesisId,
+  autorizada: (id) => estadoDe(eje, id) === 'AUTORIZADO',
 });
 
 // ---------- 1 · solo emiten personas ----------
@@ -189,9 +191,12 @@ test('escalonado: emitir P exige R propia en juego hacia otra identidad o hacia 
   await eje.escribir({ autor: 'raiz', sobre: reg.id, t: T0, payload: 'confío en ana', movimientos: [gasta('raiz'), mueveR('raiz', 1, 'raiz', 'ana')] });
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), mueveR('raiz', 1, 'ana', 'raiz'), emiteP('ana', reg.id)] }), /emitir P exige R propia en juego/);
   await intento([mueveR('ana', 1, 'ana', reg.id)]); // hacia el registro
-  await intento([mueveR('ana', 1, 'ana', 'bea')]); // hacia alguien
-  assert.equal(eje.poderSobre('ana', reg.id), 2);
+  assert.equal(eje.poderSobre('ana', reg.id), 1);
   assert.equal(eje.saldo(reg.id, 'R:ana'), 1);
+  // Hacia alguien también vale, en otro registro suyo: sobre el mismo, P:taller ya es una serie cerrada (R3).
+  const otro = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'otro taller', movimientos: [gasta('ana')] });
+  await eje.escribir({ autor: 'ana', sobre: otro.id, t: T0, payload: 'poder', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', otro.id)] });
+  assert.equal(eje.poderSobre('ana', otro.id), 1);
 });
 
 test('P fuera del génesis: lo acuña solo quien escribió el registro; quien solo tiene P lo transfiere', async () => {
@@ -415,7 +420,7 @@ test('bloquear P: de la clave exacta, solo lo disponible y propio; lo bloqueado 
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] }), /saldo insuficiente de P/);
   const c = await consolidar(eje, { autor: 'bea', foco: reg.id, t: T0, elecciones: { 1: 'otra mesa' } });
   assert.equal(puedeAutorizar(eje, 'ana', c.id), false);
-  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /ana no tiene poder \(P\) sobre este registro/);
+  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /ana no tiene P que cuente para autorizar/);
   // Liberar exige la misma salida (declarada, no verificable todavía: [X] decidir VG).
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1, 'otra'), estado: 'liberacion' }] }), /no hay 1 de P:[0-9a-f]{64} bloqueado en ana con la salida «otra»/);
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'inventario entregado', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1), estado: 'liberacion' }] });
@@ -517,41 +522,52 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
   await assert.rejects(eje.escribir({ autor: 'titere', sobre: eje.genesisId, t: viejo, payload: 'x', movimientos: [gasta('titere')] }), /es anterior al alta de titere/);
 });
 
-test('NEU-03 (revisión de la #62) el títere que autoriza: el P acuñado sobre lo propio no autoriza lo que una propone ([X] confirmar VG)', async () => {
+// VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye la regla de Core de esta revisión («solo
+// cuenta el P sobre un registro del hilo que el autor no escribió»): el P del autor cuenta como cualquier otro, y lo
+// que decide es el P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG), no quién lo bloquea.
+test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el registro del recurso es la raíz del dominio', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30 });
-  // El ataque: ana escribe su registro, acuña P sobre él (con su R en juego ante el títere), se lo delega al títere,
-  // consolida sobre él y el títere le autoriza.
-  const suyo = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'lo mío', movimientos: [gasta('ana')] });
+  // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él y se lo delega al títere.
+  const suyo = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo mío', movimientos: [gasta('ana')] });
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'poder sobre lo mío',
     movimientos: [gasta('ana'), emiteR('ana', 1), mueveR('ana', 1, 'ana', 'titere'), emiteP('ana', suyo.id), { token: 'P', ambito: suyo.id, cantidad: 1, de: 'ana', a: 'titere' }] });
   assert.equal(eje.poderSobre('titere', suyo.id), 1);
   const c = await consolidar(eje, { autor: 'ana', foco: suyo.id, t: T0, elecciones: { 1: 'me lo apruebo' } });
-  assert.deepEqual(poderParaAutorizar(eje, 'titere', c.id, 'ana'), []);
+  // El recurso es la raíz del dominio, las altas, sin P propio: cuenta el P del eje. Ni ana ni el títere lo tienen.
+  assert.equal(recursoDe(eje, c.id), alta.id);
   assert.equal(puedeAutorizar(eje, 'titere', c.id), false);
   await assert.rejects(autorizar(eje, { autorizante: 'titere', consolidacion: c.id, t: T0 }),
-    /titere no tiene poder \(P\) sobre este registro que cuente para autorizar a ana: solo cuenta el P sobre un registro del hilo que ana no escribió/);
-  // Escrita a mano, la autorización existe pero no cuenta, y no se ejecuta.
+    /titere no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso [0-9a-f]{8}, que no tiene P propio emitido/);
+  // Escrita a mano, sin bloquear P, la autorización existe pero no cuenta, y no se ejecuta.
   await eje.escribir({ autor: 'titere', sobre: c.id, en: FABRICA, t: T0, payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' }, movimientos: [gasta('titere')] });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  // Lo positivo: autoriza el dominio ajeno. La raíz (P sobre el génesis, que no escribió ana) sí, y ana ejecuta.
-  assert.deepEqual(poderParaAutorizar(eje, 'raiz', c.id, 'ana'), [{ ambito: 'genesis', cantidad: 5 }]);
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  assert.deepEqual(a.contexto.autoridad.poderes, [{ ambito: 'genesis', cantidad: 5 }]);
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  // Concesión que queda abierta ([X]): si el títere escribe su propio registro en el hilo y acuña P sobre él, ese
-  // registro es dominio ajeno para ana, y lo que ana consolide debajo lo autoriza el títere.
+  // Cerrada la concesión que quedaba abierta: un subregistro del títere debajo tampoco cuenta; el recurso sigue siendo la raíz.
   const delTitere = await eje.escribir({ autor: 'titere', sobre: suyo.id, t: T0, payload: 'lo del títere', movimientos: [gasta('titere')] });
   await eje.escribir({ autor: 'titere', sobre: delTitere.id, t: T0, payload: 'poder del títere',
     movimientos: [gasta('titere'), emiteR('titere', 1), mueveR('titere', 1, 'titere', 'ana'), emiteP('titere', delTitere.id)] });
   const debajo = await consolidar(eje, { autor: 'ana', foco: delTitere.id, t: T0, elecciones: { 1: 'otra cosa mía' } });
-  assert.equal(puedeAutorizar(eje, 'titere', debajo.id), true);
+  assert.equal(recursoDe(eje, debajo.id), alta.id);
+  assert.equal(puedeAutorizar(eje, 'titere', debajo.id), false);
+  // Lo positivo: la raíz bloquea su P del eje (5 de 5) y ana ejecuta; lo bloqueado por la raíz queda liberable.
+  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 5 }]);
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  assert.equal(eje.bloqueado('raiz', 'P:genesis', c.id), 5);
+  await liberar(eje, { titular: 'raiz', consolidacion: c.id, t: T0 });
+  assert.equal(eje.saldo('raiz', 'P:genesis'), 5);
+  // En su propio dominio (un registro suyo sobre el génesis) ana se autoriza con su P: el del autor cuenta.
+  const propio = await taller(eje, 'ana', { ante: 'titere' });
+  const enLoPropio = await consolidar(eje, { autor: 'ana', foco: propio.id, t: T0, elecciones: { 1: 'lo decido yo' } });
+  assert.equal(recursoDe(eje, enLoPropio.id), propio.id);
+  await autorizar(eje, { autorizante: 'ana', consolidacion: enLoPropio.id, t: T0 });
+  assert.equal(estadoDe(eje, enLoPropio.id), 'AUTORIZADO');
 });
 
-test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo transfiere, no lo acuña', async () => {
+test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo transfiere, no lo acuña ni lo estrecha hacia una serie cerrada', async () => {
   const { eje } = await mundo();
   const reg = await taller(eje, 'ana');
   const g = eje.genesisId;
@@ -562,13 +578,53 @@ test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo
   await assert.rejects(intento(g), /P sobre [0-9a-f]{8} lo acuña solo quien escribió el registro \(raiz\): bea puede transferir el P que tenga, no acuñarlo/);
   await assert.rejects(intento('genesis'), /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
   await assert.rejects(intento(reg.id), /lo acuña solo quien escribió el registro \(ana\)/);
-  // Transferir sí: estrechando el ámbito y conservando la cantidad.
-  await eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'paso mi poder al taller', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'bea', a: 'sala' }] });
-  assert.deepEqual([eje.poderSobre('bea', reg.id), eje.poderSobre('sala', reg.id)], [0, 1]);
+  // R3 (VG, 7-11 noche): P:<taller> es una serie cerrada (ana ya la emitió). Estrechar hacia ella el P del eje la
+  // ampliaría sin pasar por ana: no vale. Antes (#62) se aceptaba.
+  const estrecha = (ambito) => eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'paso mi poder', movimientos: [gasta('bea'), { token: 'P', ambito, cantidad: 1, de: 'bea', a: 'sala' }] });
+  await assert.rejects(estrecha(reg.id), /P:[0-9a-f]{8} es una serie cerrada: se delega el P:[0-9a-f]{8} que se tiene \(0\); estrecharlo desde un ámbito más amplio la ampliaría \(R3\)/);
+  // Hacia la raíz de un dominio sin P propio, solo estrecha su autor; hacia un registro que no es raíz, cualquiera.
+  const raizSinP = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'otro dominio de ana', movimientos: [gasta('ana')] });
+  await assert.rejects(estrecha(raizSinP.id), /estrechar P hacia [0-9a-f]{8}, la raíz de un dominio, es solo de quien la escribió \(ana\): bea delega el P que tiene con su ámbito \(R3\)/);
+  const hoja = await eje.escribir({ autor: 'ana', sobre: raizSinP.id, t: T0, payload: 'una mesa', movimientos: [gasta('ana')] });
+  await estrecha(hoja.id);
+  assert.deepEqual([eje.poderSobre('bea', reg.id), eje.poderSobre('sala', hoja.id)], [0, 1]);
   assert.deepEqual([eje.serie('P:genesis').emitido, eje.serie('P:' + reg.id).emitido], [5, 1]);
-  // [X] confirmar VG: el autor del génesis sí amplía después el P sobre todo el eje, con el id del génesis.
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'más poder', movimientos: [gasta('raiz'), emiteR('raiz', 1), mueveR('raiz', 1, 'raiz', 'ana'), emiteP('raiz', g)] });
-  assert.equal(eje.serie('P:' + g).emitido, 1);
+});
+
+test('R3: P:X la emite una sola vez su autor; ampliarla es ejecutar una consolidación sobre X que esté AUTORIZADA', async () => {
+  const { eje } = await mundo();
+  const reg = await taller(eje, 'ana'); // ana emite P:taller (1) con su R en juego ante bea
+  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
+  // Una segunda emisión suelta no vale: la serie está cerrada.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'más poder', movimientos: amplia() }),
+    /P:[0-9a-f]{8} es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre [0-9a-f]{8} que esté AUTORIZADA \(R3\)/);
+  // Ana delega su P en bea: ahora la ampliación la decide bea (1 de 1), no ana.
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
+  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
+  assert.equal(recursoDe(eje, c.id), reg.id);
+  // Pendiente, ni ejecutándola vale la emisión.
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) }), /PENDIENTE DE AUTORIZACIÓN/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'a mano', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id] }, movimientos: amplia(2) }),
+    /P:[0-9a-f]{8} es una serie cerrada/);
+  await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
+  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
+  assert.equal(eje.saldo('ana', 'P:' + reg.id), 2);
+  // Ejecutada, ya no amplía otra vez: la misma autorización no sirve dos veces.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra vez', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id] }, movimientos: amplia(2) }),
+    /P:[0-9a-f]{8} es una serie cerrada/);
+  // La capa 5 lo reconoce: la ejecución contó con la consolidación AUTORIZADA justo antes.
+  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
+  // Sobre el génesis, P:genesis y P:<id> son la misma serie: la raíz no la amplía sin una consolidación autorizada.
+  const g = eje.genesisId;
+  const ampliaG = [gasta('raiz'), mueveR('raiz', 1, 'raiz', 'ana'), emiteP('raiz', g)];
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'más poder', movimientos: ampliaG }), /es una serie cerrada/);
+  const cg = await consolidar(eje, { autor: 'raiz', foco: g, t: T0, titulo: 'Ampliar el P del eje', elecciones: { 1: 'uno más' } });
+  await autorizar(eje, { autorizante: 'raiz', consolidacion: cg.id, t: T0 });
+  await ejecutar(eje, { autor: 'raiz', consolidacion: cg.id, t: T0, movimientos: ampliaG.slice(1) });
+  assert.deepEqual([eje.serie('P:genesis').emitido, eje.serie('P:' + g).emitido], [5, 1]);
+  assert.deepEqual(eje.bloqueos('raiz'), []); // la ejecución libera lo que bloqueó su autor
 });
 
 // ---------- 11 · un eje de la versión 2 se restaura con sus reglas ----------

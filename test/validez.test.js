@@ -178,13 +178,13 @@ test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
-  // Con P sobre la compra, cocina puede autorizar lo que se consolide sobre ella, salvo lo que proponga quien
-  // escribió la compra: para autorizar solo cuenta el P sobre un registro del hilo que no escribió el autor de la
-  // consolidación ([X] confirmar VG, motor.poderParaAutorizar). Al huésped le autoriza la casa (P sobre el génesis).
+  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, la raíz del dominio (las altas de la casa,
+  // sin P propio: cuenta el P del eje). El P de cocina sobre la compra no es ese, y el autor cuenta como cualquiera:
+  // a las dos consolidaciones las puede autorizar la casa, también a la suya.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
   assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa']);
   const deLaCasa = await consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 1: 'otro menú' } });
-  assert.deepEqual((await validez(eje, deLaCasa.id)).permiso.motor.puedenAutorizar, ['cocina']);
+  assert.deepEqual((await validez(eje, deLaCasa.id)).permiso.motor.puedenAutorizar, ['casa']);
   // Los registros anteriores siguen en ok: cada uno se lee con el libro de su momento.
   for (const id of eje.orden) assert.equal((await validez(eje, id)).acreditacion.estado, 'ok');
 });
@@ -236,13 +236,13 @@ test('consolidación sin autorizar: permiso pendiente, quién puede autorizar y 
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'ok', 'pendiente']);
   assert.equal(v.permiso.motor.estadoMotor, 'PENDIENTE DE AUTORIZACIÓN');
   assert.deepEqual(v.permiso.motor.puedenAutorizar, ['casa']);
-  assert.match(v.permiso.motivos[0], /pueden autorizar: casa \(regla V0\)/);
+  assert.match(v.permiso.motivos[0], /pueden autorizar: casa · 0 de 10 P del eje bloqueado; umbral: más de la mitad/);
 
-  // Cocina escribe a mano «autorizado» sin poder: el escrito existe, entra en el eje y no cuenta.
+  // Cocina escribe a mano «autorizado» sin bloquear P: el escrito existe, entra en el eje y no cuenta.
   const falso = await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [gastaT('cocina')], payload: '==autorizo', contexto: { fase: 'autorizado' } });
   const f = await validez(eje, falso.id);
   assert.deepEqual(estados(f), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(f.permiso.motivos[0], /cocina no tiene poder \(P\) sobre este registro/);
+  assert.match(f.permiso.motivos[0], /cocina no bloquea P que cuente para autorizar/);
   assert.equal(f.permiso.motor.cuenta, false);
   v = await validez(eje, c.id);
   assert.equal(v.permiso.estado, 'pendiente');
@@ -254,7 +254,7 @@ test('consolidación sin autorizar: permiso pendiente, quién puede autorizar y 
   v = await validez(eje, c.id);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'ok', 'pendiente']);
   assert.equal(v.permiso.motor.estadoMotor, 'AUTORIZADO');
-  assert.match(v.permiso.motivos[0], /AUTORIZADO por casa · falta ejecutar/);
+  assert.match(v.permiso.motivos[0], /AUTORIZADO por casa \(10 de 10 P del eje bloqueado; umbral: más de la mitad\) · falta ejecutar/);
 
   // Ejecuta el autor, con evidencia: la capa 5 en ok, y los efectos externos siguen sin confirmar.
   const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }] });
@@ -276,10 +276,10 @@ test('un «ejecutado» a mano sin autorización: el motor dice EJECUTADO y la ca
   assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
   const v = await validez(eje, c.id);
   assert.equal(v.permiso.estado, 'falla');
-  assert.match(v.permiso.motivos[0], /ninguna ejecución lleva en su evidencia una autorización válida/);
+  assert.match(v.permiso.motivos[0], /ninguna ejecución se hizo con la consolidación AUTORIZADA/);
   const r = await validez(eje, aMano.id);
   assert.deepEqual(estados(r), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(r.permiso.motivos[0], /su evidencia no incluye una autorización válida/);
+  assert.match(r.permiso.motivos[0], /al ejecutar no estaba AUTORIZADA \(0 de 10 P del eje bloqueado; umbral: más de la mitad\): ejecutar exige autorización/);
 });
 
 test('id que no corresponde al cuerpo: falla la capa 3, y la copia no se lee como el registro del eje', async () => {

@@ -9,6 +9,7 @@
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
 import { reglasDelCiclo, acotarAltaV2, EMITEN_V2 } from './ciclo.js';
+import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento } from './evento.js';
 import { verificar, firmar, clavePublicaValida } from './autoridad.js';
@@ -24,6 +25,7 @@ export class Eje {
   #hijosEn;
   #prefijos;
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
+  #porSalida = new Map(); // salida → Map(clave → Map(identidad → cantidad bloqueada)): el índice de bloqueadoCon y bloqueosCon
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
 
   /**
@@ -167,6 +169,26 @@ export class Eje {
     let total = 0;
     for (const v of porSalida.values()) total += v;
     return total;
+  }
+
+  /**
+   * Lo bloqueado de una serie con una salida, sumando todos los titulares.
+   * Autorizar es bloquear P con la consolidación como salida
+   * (src/autorizacion.js): el peso de una autorización es esta suma.
+   */
+  bloqueadoCon(clave, salida) {
+    let total = 0;
+    for (const v of this.#porSalida.get(salida)?.get(clave)?.values() ?? []) total += v;
+    return total;
+  }
+
+  /** Bloqueos con una salida, de cualquier titular y serie: [{ identidad, clave, cantidad }] con cantidad > 0. */
+  bloqueosCon(salida) {
+    const lista = [];
+    for (const [clave, porTitular] of this.#porSalida.get(salida) ?? new Map()) {
+      for (const [identidad, cantidad] of porTitular) if (cantidad > 0) lista.push({ identidad, clave, cantidad });
+    }
+    return lista;
   }
 
   /** Bloqueos de una identidad: [{ clave, token, serie, ...campos, salida, cantidad }] con cantidad > 0. */
@@ -377,6 +399,9 @@ export class Eje {
       ambitosQueCubren: (ambito) => this.ambitosQueCubren(ambito),
       saldo: (id, k) => this.saldo(id, k),
       reglas: this.orden.length < this.eventosV2 ? 2 : 3,
+      genesisId: this.genesisId,
+      // R3: ampliar P:X exige una consolidación AUTORIZADA (autorizar = bloquear P; src/autorizacion.js).
+      autorizada: (id) => estadoPorPeso(lectorDelEje(this), id) === 'AUTORIZADO',
     };
   }
 
@@ -507,6 +532,11 @@ export class Eje {
     if (!porClave.has(clave)) porClave.set(clave, new Map());
     const porSalida = porClave.get(clave);
     porSalida.set(salida, (porSalida.get(salida) ?? 0) + delta);
+    if (!this.#porSalida.has(salida)) this.#porSalida.set(salida, new Map());
+    const porClaveS = this.#porSalida.get(salida);
+    if (!porClaveS.has(clave)) porClaveS.set(clave, new Map());
+    const porTitular = porClaveS.get(clave);
+    porTitular.set(identidad, (porTitular.get(identidad) ?? 0) + delta);
   }
 }
 

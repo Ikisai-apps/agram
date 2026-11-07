@@ -34,13 +34,15 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   assert.deepEqual(E('casa'), [0, 0, 0, 120]);
   assert.deepEqual(E('organizadora'), [0, 0, 40, 0]);
   assert.deepEqual(E('proveedor'), [250, 60, 0, 0]);
-  // P por ámbito: la casa conserva su poder sobre todo el eje; autorizar no lo gasta.
+  // P por ámbito: la casa conserva su poder sobre todo el eje. Autorizar no lo gasta: lo bloquea, y ejecutada la
+  // tarea la casa lo libera (VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño).
   assert.deepEqual(eje.poderes('casa'), [{ ambito: 'genesis', cantidad: 10 }]);
+  assert.deepEqual(eje.bloqueos('casa'), []);
   assert.deepEqual(eje.poderes('organizadora'), []);
   assert.deepEqual(eje.poderes('proveedor'), []);
   // T por escala: minutos para escribir, horas para trabajar.
   const T = (id) => [eje.saldoT(id, 'minuto'), eje.saldoT(id, 'hora')];
-  assert.deepEqual(T('casa'), [406, 140]);
+  assert.deepEqual(T('casa'), [405, 140]); // la liberación de su P, un minuto más
   // Integración 7-11: con #42 ejecutar cuesta un minuto por posición escrita (3: título, consolidación y autorización), no uno fijo.
   assert.deepEqual(T('organizadora'), [74, 40]);
   assert.deepEqual(T('proveedor'), [50, 14]);
@@ -212,9 +214,12 @@ test('ciclo: consolidar → la casa autoriza con P → ejecutar paga en las seri
 
   const T = '2026-11-08T11:00:00Z';
   await assert.rejects(ejecutar(eje, { autor: 'organizadora', consolidacion: c.id, t: T }), /PENDIENTE DE AUTORIZACIÓN/);
-  await assert.rejects(autorizar(eje, { autorizante: 'organizadora', consolidacion: c.id, t: T }), /no se autoriza a sí mismo/);
-  await assert.rejects(autorizar(eje, { autorizante: 'proveedor', consolidacion: c.id, t: T }), /no tiene poder/);
+  // Autoriza el P sobre el registro del recurso (aquí, el del eje: la raíz no tiene P propio); ni la organizadora ni el
+  // proveedor lo tienen. La casa bloquea los 10 que tiene: más de la mitad.
+  await assert.rejects(autorizar(eje, { autorizante: 'organizadora', consolidacion: c.id, t: T }), /organizadora no tiene P que cuente para autorizar/);
+  await assert.rejects(autorizar(eje, { autorizante: 'proveedor', consolidacion: c.id, t: T }), /proveedor no tiene P que cuente para autorizar/);
   const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
+  assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 10 }]);
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
 
   // El pago sale de BQL: el precio elegido (310 EUR), repartido por orden en las series de la casa de las partidas de la tarea.

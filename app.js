@@ -453,7 +453,7 @@ async function consolidarDesdeFormulario(form) {
     const c = await motor.consolidar(estado.eje, { autor: estado.identidad, foco: estado.foco, camino: estado.camino, elecciones, titulo: String(datos.get('titulo') || 'Consolidación') }, privadaDe(estado.identidad));
     guardar();
     estado.aviso = '';
-    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien tiene poder y no es el autor.';
+    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien bloquea P sobre el registro del recurso, hasta el umbral del dueño.';
     pintar();
   } catch (e) {
     fallo(e, form);

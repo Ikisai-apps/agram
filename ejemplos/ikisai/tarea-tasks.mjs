@@ -25,7 +25,8 @@
 //      E:casa/<concepto> (ver PARTIDAS). La organizadora recibe las series de
 //      las partidas de su tarea y ningún otro E, así que el núcleo no la deja
 //      pagar más que el coste total de la tarea.
-//   P: por ámbito (aquí «genesis»: la casa autoriza sobre todo su eje).
+//   P: por ámbito (aquí «genesis»: la casa autoriza bloqueando su P sobre todo
+//      su eje, y lo libera tras la ejecución).
 //   R: por emisor (no aparece en esta tarea).
 // Emitir es solo de personas (VG, 7-11 noche): la casa es la persona que la
 // lleva y emite en el génesis; las altas declaran a la organizadora y al
@@ -36,7 +37,7 @@ import { evaluar } from '../../src/bql.js';
 import { indicesDe } from '../../src/btml.js';
 import { claveToken } from '../../src/tokens.js';
 import { costeT, escribirDesde } from '../../src/escritura.js';
-import { descubrir, proponer, consolidar, autorizar, ejecutar, FABRICA } from '../../src/motor.js';
+import { descubrir, proponer, consolidar, autorizar, ejecutar, liberar, FABRICA } from '../../src/motor.js';
 
 /** Calendario inventado: hoy es sábado 7; la fiesta, el sábado 14. */
 export const T0 = '2026-11-07T09:00:00Z';
@@ -410,7 +411,10 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   }, priv('organizadora'));
   if (tope < 3) return r;
 
-  // La casa autoriza con su poder (P sobre todo el eje); no es la autora.
+  // La casa autoriza bloqueando su P (VG, 7-11 noche: autorizar = bloquear P
+  // con el umbral del dueño). El registro del recurso es la raíz del dominio,
+  // las altas de la casa, que no tiene P propio: cuenta el P sobre todo el
+  // eje, y la casa tiene los 10 que emitió el génesis (más de la mitad).
   r.autorizacion = await autorizar(eje, { autorizante: 'casa', consolidacion: r.consolidacion.id, t: '2026-11-08T11:00:00Z' }, priv('casa'));
   if (tope < 4) return r;
 
@@ -442,5 +446,7 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     titulo: 'Carpa montada y pagada',
     movimientos: movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id),
   }, priv('organizadora'));
+  // Ejecutada, el P que bloqueó la casa queda liberable, y solo ella lo libera.
+  r.liberacion = await liberar(eje, { titular: 'casa', consolidacion: r.consolidacion.id, t: '2026-11-13T18:30:00Z' }, priv('casa'));
   return r;
 }

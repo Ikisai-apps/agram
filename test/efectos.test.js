@@ -290,13 +290,14 @@ test('lo que el motor no reconoce no es una transición: ruido, con su motivo', 
     assert.equal(r[0].tipo, 'ruido');
     return r[0];
   };
-  // cocina no tiene poder: su «autorización» no cambia el estado, y el efecto tampoco lo finge.
+  // Autorizar es bloquear P sobre el registro del recurso (VG, 7-11 noche): una «autorización» que no lo bloquea no
+  // cambia el estado, y el efecto tampoco lo finge. Da igual quién la escriba, el autor incluido.
   const sinPoder = await motor('cocina', c.id, FABRICA, 'autorizado', '==autorizo');
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   const r = ruido(sinPoder);
-  assert.deepEqual([r.fase, r.motivo, r.mundo, r.celda, r.nombre], ['autorizado', 'sin poder (P) sobre la consolidación', 4, FABRICA, 'ruido']);
+  assert.deepEqual([r.fase, r.motivo, r.mundo, r.celda, r.nombre], ['autorizado', 'no bloquea P sobre el registro del recurso', 4, FABRICA, 'ruido']);
   assert.ok(r.decisiones.includes(SIN_NOMBRE));
-  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'autorizado', '==me autorizo')).motivo, 'el autor no se autoriza a sí mismo');
+  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'autorizado', '==me autorizo')).motivo, 'no bloquea P sobre el registro del recurso');
   assert.equal(ruido(await motor('casa', compra.id, FABRICA, 'autorizado', '==autorizo')).motivo, 'no es sobre una consolidación');
   // Una ejecución forjada por quien no es el autor: ni «ejecutar» ni «ancla» en los hilos.
   const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
@@ -306,8 +307,8 @@ test('lo que el motor no reconoce no es una transición: ruido, con su motivo', 
   assert.equal(f.motivo, 'ejecuta quien no es el autor de la consolidación');
   assert.deepEqual([6, 7].map((m) => verEn(f, m)), [null, null]);
   assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'hecho', { evidencia: ['f'.repeat(64)] })).motivo, 'evidencia rota');
-  // Una segunda autorización o una segunda ejecución no son otra transición.
-  assert.equal(ruido(await motor('casa', c.id, FABRICA, 'autorizado', '==también')).motivo, 'ya estaba autorizada');
+  // Otra «autorización» que no bloquea P, o una segunda ejecución, no son otra transición.
+  assert.equal(ruido(await motor('casa', c.id, FABRICA, 'autorizado', '==también')).motivo, 'no bloquea P sobre el registro del recurso');
   const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
   assert.equal(sinTokens(efectosDe(eje, e))[0].tipo, 'fase');
   assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'otra vez', { evidencia: [c.id, a.id] })).motivo, 'ya estaba ejecutada');
@@ -319,17 +320,27 @@ test('lo que el motor no reconoce no es una transición: ruido, con su motivo', 
 });
 
 test('la fase se juzga como la juzga el motor, con el eje de ahora: no sale solo del evento', async () => {
-  const { eje, compra } = await ejemploCompra();
+  const { eje, compra, alta } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
   const falsa = await escribe(eje, 'cocina', c.id, FABRICA, '==autorizo', { motor: 'fabrica', fase: 'autorizado' });
   assert.equal(sinTokens(efectosDe(eje, falsa))[0].tipo, 'ruido');
-  // La casa da poder a cocina después: el motor cuenta ya esa autorización, y el efecto lo sigue.
-  await eje.escribir({
-    autor: 'casa', sobre: eje.genesisId, t: T, payload: 'poder a cocina',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'cocina' }],
-  });
+  // La casa autoriza bloqueando su P del eje (la raíz del dominio, sus altas, aún no tiene P propio): cuenta.
+  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  assert.deepEqual(sinTokens(efectosDe(eje, falsa)).map((x) => [x.tipo, x.nombre]), [['fase', 'autorizar']]);
+  assert.deepEqual(sinTokens(efectosDe(eje, a)).map((x) => [x.tipo, x.nombre]), [['fase', 'autorizar']]);
+  // Después la casa emite P propio sobre sus altas: desde entonces cuenta ese y no el del eje, así que la misma
+  // autorización deja de contar, y el efecto lo sigue.
+  await eje.escribir({
+    autor: 'casa', sobre: alta.id, t: T, payload: 'poder sobre las altas',
+    movimientos: [
+      { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
+      { token: 'R', emisor: 'casa', cantidad: 1, de: null, a: 'casa' },
+      { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'cocina' },
+      { token: 'P', ambito: alta.id, cantidad: 4, de: null, a: 'casa' },
+    ],
+  });
+  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  assert.deepEqual(sinTokens(efectosDe(eje, a)).map((x) => [x.tipo, x.motivo]), [['ruido', 'no bloquea P sobre el registro del recurso']]);
 });
 
 test('el génesis: escribe la raíz y emite sus series', async () => {
