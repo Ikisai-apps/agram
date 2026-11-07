@@ -28,7 +28,7 @@ import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
@@ -121,6 +121,7 @@ function libroAntes(eje, hasta) {
   const libro = {
     saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
     altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
+    ampliadas: new Set(), // consolidaciones que ya respaldaron una ampliación de P (como en el eje)
     // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
     reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
     tMax: -Infinity, // el mayor t hasta aquí, en milisegundos UTC
@@ -159,6 +160,7 @@ function contextoCiclo(eje, libro, ev) {
     reglas: libro.reglas,
     genesisId: eje.genesisId,
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
+    ampliada: (id) => libro.ampliadas.has(id),
   };
 }
 
@@ -201,6 +203,8 @@ function planP(eje, ver, identidad, ambito, cantidad) {
 
 function aplicar(eje, libro, ev) {
   libro.ids.add(ev.id);
+  const amplia = consolidacionQueAmplia(ev);
+  if (amplia) libro.ampliadas.add(amplia);
   for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) libro.claves.set(id, jwk);
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
   const ver = (id, k) => saldoEn(libro, id, k);
@@ -355,7 +359,8 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.claves.get(ev.autor);
   const conAlta = esGenesis || libro.identidades.has(ev.autor);
   // R9: fuera de un eje de demostración (lo marca su génesis) y del prefijo de la versión 2, sin clave no se actúa.
-  const demostracion = esGenesis ? ev.contexto?.demostracion === true || (eje.eventosV2 ?? 0) > 0 : eje.demostracion !== false;
+  // La demostración la da solo la bandera del génesis (SEG-02); el prefijo v2 lo exime libro.reglas.
+  const demostracion = esGenesis ? ev.contexto?.demostracion === true : eje.demostracion !== false;
   const exigeClave = !demostracion && libro.reglas !== 2;
   let firma;
   if (clave) {
