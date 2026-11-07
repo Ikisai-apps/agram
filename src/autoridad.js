@@ -27,6 +27,28 @@ async function importarPublica(jwk) {
   return subtle().importKey('jwk', { ...jwk, ext: true }, ALG, true, ['verify']);
 }
 
+// Claves públicas ya importadas, por el objeto JWK. Importar cuesta casi lo
+// mismo que verificar (docs/notas/RENDIMIENTO.md), y el eje verifica muchas
+// veces con la misma clave: la que guarda congelada desde el alta. Solo se
+// recuerdan las JWK congeladas. Object.isFrozen mira solo el primer nivel:
+// el material de la clave (kty, crv, x, y) son textos de ese nivel y no
+// cambian; un array key_ops de dentro sí podría, y solo decide si la clave se
+// puede importar para verificar. El eje congela entera la copia que guarda,
+// así que con sus claves el resultado es el mismo que importar cada vez. Una
+// importación fallida no se recuerda.
+const importadas = new WeakMap();
+
+function importarVerificadora(jwk) {
+  if (!jwk || typeof jwk !== 'object' || !Object.isFrozen(jwk)) return importarPublica(jwk);
+  let promesa = importadas.get(jwk);
+  if (!promesa) {
+    promesa = importarPublica(jwk);
+    importadas.set(jwk, promesa);
+    promesa.catch(() => importadas.delete(jwk));
+  }
+  return promesa;
+}
+
 const aBytes = (hex) => Uint8Array.from(hex.match(/.{2}/g), (h) => parseInt(h, 16));
 const aBase64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const deBase64url = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
@@ -49,7 +71,7 @@ export async function verificar(ev, publica) {
   try {
     const bytes = deBase64url(ev.firma);
     if (aBase64url(bytes) !== ev.firma) return false;
-    return await subtle().verify(FIRMA, await importarPublica(publica), bytes, aBytes(ev.id));
+    return await subtle().verify(FIRMA, await importarVerificadora(publica), bytes, aBytes(ev.id));
   } catch {
     return false;
   }
