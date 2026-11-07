@@ -246,7 +246,7 @@ function panelFabrica(m) {
     return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.estado.toLowerCase()}</i></button>
       ${puedeAut ? `<button class="accion" data-autorizar="${c.id}">autorizar como ${escapar(yo)}</button>` : ''}
       ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
-      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P)'}</span>` : ''}
+      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P) sobre este registro'}</span>` : ''}
       ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
     </div>`;
   }).join('');
@@ -300,7 +300,7 @@ function pintarMapped() {
 function pintarSaldos() {
   const eje = estado.eje;
   $('#saldos').innerHTML = eje.identidades().map((id) =>
-    `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${eje.saldo(id, 'E:EUR')} €</span><span>${Math.round(eje.saldoT(id, 'hora') * 100) / 100} h</span><span>P ${eje.saldo(id, 'P')}</span></div>`).join('')
+    `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${eje.saldo(id, 'E:EUR')} €</span><span>${Math.round(eje.saldoT(id, 'hora') * 100) / 100} h</span><span>${eje.poderes(id).length ? eje.poderes(id).map((p) => 'P ' + p.cantidad + '@' + (p.ambito === 'genesis' ? 'eje' : corto(p.ambito))).join(' ') : 'P 0'}${eje.reputaciones(id).length ? ' · ' + eje.reputaciones(id).map((r) => 'R ' + r.cantidad + ' de ' + escapar(r.emisor)).join(' ') : ''}</span></div>`).join('')
     + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
