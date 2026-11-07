@@ -1227,11 +1227,11 @@ export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // quién
 export function aNombreDeGrupo(ctx, emisor): boolean;  // ¿emisión a nombre de un grupo? Con EMITEN, el único uso del tipo (R10)
 
 // src/elegibles.js (R8: elegibilidad antes que límites)
-export function elegibles(eje, id): { dueno, autores: Set, origen: 'lista' | 'defecto' };  // 2.3 si es una lista de nombres; si no, el autor y quien aparece en su 3
-export function esElegible(ocupante, { autores }): boolean;
+export function elegibles(eje, id): { dueno, todos, autores: Set | null, origen: 'lista' | 'defecto' };  // 2.3 si es una lista de nombres (con 'cualquiera', todos); si no, el autor y quien aparece en su 3; más lo que el dueño ancle ahí
+export function esElegible(ocupante, { todos, autores }): boolean;
 export function ocupantesElegibles(eje, id, indices, opciones?): { lista, noElegibles, elegibles };
-export function hijosElegibles(eje, id): { lista, noElegibles, elegibles };
-export const LISTA = [2, 3]; export const CON_QUIEN = 3;
+export function hijosElegibles(eje, id): { lista, elegiblesN, noElegibles, elegibles };  // elegibles delante, luego los demás
+export const LISTA = [2, 3]; export const CON_QUIEN = 3; export const CUALQUIERA = 'cualquiera';
 
 // src/encaje.js
 export function vector(candidato, buscado): number[10];   // candidato − buscado (§6.5)

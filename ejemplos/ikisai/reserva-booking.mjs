@@ -80,7 +80,9 @@ export const HABITACION = Object.freeze([
     ['cama individual', 'EUR 55', 1], // 1.1 plaza: una persona por noche
     ['litera', 'EUR 25', 2], // 1.2 plaza: dos camas, dos reservas a la vez
   ], // 1 recursos: las plazas
-  ['sin humo', 'con desayuno'], // 2 criterios
+  // 2 criterios. 2.3 (criterio · con quién): `cualquiera` puede reservar. Es una oferta pública: las reservas de
+  // quien sea son elegibles en las plazas (R8, src/elegibles.js; elegible no es elegido).
+  ['sin humo', 'con desayuno', 'entrada desde las 15:00', ['cualquiera']],
   ['recepcion'], // 3 comunicación: quién atiende
   'reservar', // 4 fábrica: la acción que se ofrece
 ]);

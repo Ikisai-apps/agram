@@ -102,13 +102,48 @@ test('R8 el límite se aplica después, a los elegibles: el ruido no lo agota, p
   assert.deepEqual([corto.estado, corto.parcial], ['PENDIENTE POR LÍMITE', { examinados: 2, de: 3 }]);
 });
 
-test('R8 en las vistas con tope: el ruido no tapa los hijos del dueño en Sequenced, y se cuenta', async () => {
+test('R8 en las vistas con tope: el ruido no tapa los hijos del dueño en Sequenced; solo ocupa el sitio que sobra, y se cuenta', async () => {
   const eje = await demo(['dueña', 'r1', 'r2', 'r3']);
   const r = await escribe(eje, 'dueña', eje.genesisId, ['Diario', 'notas']);
-  for (const x of ['r1', 'r2', 'r3']) await escribe(eje, x, r.id, 'ruido de ' + x);
+  const ruido = [];
+  for (const x of ['r1', 'r2', 'r3']) ruido.push(await escribe(eje, x, r.id, 'ruido de ' + x));
   const suya = await escribe(eje, 'dueña', r.id, 'nota de la dueña');
   const s = secuencia(eje, r.id, { sentido: 'hijos', maximo: 1 });
-  assert.deepEqual([s.decuplas.map((d) => d.id), s.total, s.noElegibles], [[suya.id], 1, 3]);
+  assert.deepEqual([s.decuplas.map((d) => d.id), s.total, s.noElegibles], [[suya.id], 4, 3]);
+  // Con sitio, lo demás va detrás, en su orden de entrada y marcado: la vista sirve para navegar.
+  const todo = secuencia(eje, r.id, { sentido: 'hijos', maximo: 10 });
+  assert.deepEqual(todo.decuplas.map((d) => [d.id, d.elegible ?? true]), [[suya.id, true], ...ruido.map((e) => [e.id, false])]);
+});
+
+test('R8 «cualquiera» en el 2.3 abre la elegibilidad a todos: oferta pública, sin recuento por cabeza', async () => {
+  const eje = await demo(['casa', 'ana', 'bea']);
+  const menu = await escribe(eje, 'casa', eje.genesisId, ['Menú', 'platos', ['sin gluten', 'vegetariano', 'hasta las 16:00', ['cualquiera']]]);
+  assert.deepEqual([elegibles(eje, menu.id).todos, elegibles(eje, menu.id).autores], [true, null]);
+  const deAna = await escribe(eje, 'ana', menu.id, 'pido uno', [1]);
+  const deBea = await escribe(eje, 'bea', menu.id, 'pido dos', [1]);
+  const { lista, noElegibles } = ocupantesElegibles(eje, menu.id, [1], { exacto: true });
+  assert.deepEqual([lista.filter((o) => o.tipo === 'escrito').map((o) => o.evento), noElegibles], [[deAna.id, deBea.id], 0]);
+  // Negativo: sin `cualquiera`, el mismo menú no las ve.
+  const cerrado = await escribe(eje, 'casa', eje.genesisId, ['Menú cerrado', 'platos', ['sin gluten']]);
+  await escribe(eje, 'ana', cerrado.id, 'pido uno', [1]);
+  assert.equal(ocupantesElegibles(eje, cerrado.id, [1], { exacto: true }).noElegibles, 1);
+});
+
+test('R8 las correcciones del dueño en su 2.3 y en su 3 cuentan (se añaden); las de otros no', async () => {
+  const eje = await demo(['dueña', 'ana', 'bea', 'intrusa']);
+  const r = await escribe(eje, 'dueña', eje.genesisId, ['Mercado', 'ofertas', '=BUSCAR(1)', ['ana']]);
+  // Alguien ajeno se nombra en el 3 y en el 2.3 de la dueña: no cuenta.
+  await escribe(eje, 'intrusa', r.id, 'intrusa', [3]);
+  await escribe(eje, 'intrusa', r.id, 'cualquiera', [2, 3]);
+  assert.deepEqual([elegibles(eje, r.id).origen, [...elegibles(eje, r.id).autores].sort()], ['defecto', ['ana', 'dueña']]);
+  // La dueña añade a bea en su 3: entra con ana.
+  await escribe(eje, 'dueña', r.id, ['bea'], [3]);
+  assert.deepEqual([...elegibles(eje, r.id).autores].sort(), ['ana', 'bea', 'dueña']);
+  // Y luego ancla una lista en su 2.3: manda la lista (el autor sigue dentro), y con `cualquiera`, todos.
+  await escribe(eje, 'dueña', r.id, 'bea', [2, 3]);
+  assert.deepEqual([elegibles(eje, r.id).origen, [...elegibles(eje, r.id).autores].sort()], ['lista', ['bea', 'dueña']]);
+  await escribe(eje, 'dueña', r.id, ['cualquiera'], [2, 3]);
+  assert.equal(elegibles(eje, r.id).todos, true);
 });
 
 test('R8 el índice por autor del eje (sobreDe) da lo mismo que filtrar sobre() y en orden de entrada', async () => {

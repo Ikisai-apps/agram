@@ -196,12 +196,11 @@ test('anclaje: la reserva vive en la plaza (1.1) de la habitación, con las noch
   const oc = ocupantes(eje, habitacion.id, [1, 1]);
   assert.deepEqual(oc.map((o) => o.origen), ['propio', 'propio', 'escrito']);
   assert.equal(oc[2].evento, reserva.id);
-  // Desde la habitación, bajando a sus recursos (descubrir con camino [1] mira las plazas), la reserva colisiona
-  // pero no es elegible (R8, src/elegibles.js): la habitación no nombra a la huésped ni en su 3 (recepción) ni en
-  // su 2.3, así que solo se cuenta. [X] decidir VG cómo dice el dueño «cualquiera puede reservar».
+  // El motor la ve desde la habitación bajando a sus recursos: descubrir con camino [1] mira las plazas. Es
+  // elegible porque la habitación declara en su 2.3 que `cualquiera` puede reservar (R8, src/elegibles.js).
   const d = descubrir(eje, habitacion.id, { camino: [1], posiciones: [1] });
-  assert.equal(d[0].candidatos.some((c) => c.evento === reserva.id), false);
-  assert.equal(d[0].noElegibles, 1);
+  assert.ok(d[0].candidatos.some((c) => c.origen === 'escrito' && c.evento === reserva.id));
+  assert.equal(d[0].noElegibles, 0);
   // El tramo sale del 7 de la reserva: lo anclado ahí por su autora.
   const [noches] = eje.sobre(reserva.id, SIETE);
   const tramo = tramoDe(eje, reserva.id);
