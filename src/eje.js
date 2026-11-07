@@ -2,7 +2,7 @@
 // una base de datos o anclado a una cadena, sin cambiar el modelo.
 // Una identidad existe cuando ha recibido tokens. Solo el génesis emite.
 
-import { claveToken, cantidadBase, SEGUNDOS } from './tokens.js';
+import { claveToken, cantidadBase, SEGUNDOS, AMBITO_GENESIS } from './tokens.js';
 import { crearEvento, validarForma, verificarId } from './evento.js';
 import { verificar, firmar } from './autoridad.js';
 
@@ -83,6 +83,26 @@ export class Eje {
     return this.saldo(identidad, 'T') / SEGUNDOS[escala];
   }
 
+  /** Poderes de una identidad: [{ ambito, cantidad }]. No hay P total. */
+  poderes(identidad) {
+    return [...(this.saldos.get(identidad) ?? new Map()).entries()]
+      .filter(([k, v]) => k.startsWith('P:') && v > 0)
+      .map(([k, v]) => ({ ambito: k.slice(2), cantidad: v }));
+  }
+
+  /** Poder de una identidad sobre un registro: la suma de P cuyo ámbito es el eje entero o un registro del hilo del foco. */
+  poderSobre(identidad, foco) {
+    const hilo = new Set(this.hilo(foco).map((e) => e.id));
+    return this.poderes(identidad).filter((p) => p.ambito === AMBITO_GENESIS || hilo.has(p.ambito)).reduce((s, p) => s + p.cantidad, 0);
+  }
+
+  /** Reputación de una identidad: [{ emisor, cantidad }], no fungible. */
+  reputaciones(identidad) {
+    return [...(this.saldos.get(identidad) ?? new Map()).entries()]
+      .filter(([k, v]) => k.startsWith('R:') && v > 0)
+      .map(([k, v]) => ({ emisor: k.slice(2), cantidad: v }));
+  }
+
   /** Errores que impedirían añadir el evento; vacío si es admisible. */
   async validar(ev) {
     const errores = validarForma(ev);
@@ -107,18 +127,24 @@ export class Eje {
       else if (!(ev.movimientos ?? []).some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
       else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) errores.push('clave inválida para ' + id);
     }
-    const gasto = new Map();
+    // Simulación de los movimientos sobre una vista de los saldos: si algo falla, nada cambia.
+    const vista = new Map();
+    const ver = (id, k) => vista.get(id + '|' + k) ?? this.saldo(id, k);
+    const poner = (id, k, v) => vista.set(id + '|' + k, v);
     for (const m of ev.movimientos ?? []) {
-      if (m.de === null) errores.push('solo el génesis emite');
-      else if (m.de !== ev.autor) errores.push('nadie mueve tokens ajenos: ' + m.de + ' no es el autor');
-      else {
-        const clave = m.de + '|' + claveToken(m);
-        gasto.set(clave, (gasto.get(clave) ?? 0) + cantidadBase(m));
+      if (m.de === null) { errores.push('solo el génesis emite'); continue; }
+      if (m.de !== ev.autor) { errores.push('nadie mueve tokens ajenos: ' + m.de + ' no es el autor'); continue; }
+      if (m.token === 'P') {
+        if (m.ambito !== AMBITO_GENESIS && !this.eventos.has(m.ambito)) { errores.push('ámbito desconocido: ' + String(m.ambito).slice(0, 8)); continue; }
+        const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, ver);
+        if (!plan) { errores.push('saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de); continue; }
+        for (const [k, delta] of plan) poner(m.de, k, ver(m.de, k) + delta);
+        continue;
       }
-    }
-    for (const [clave, total] of gasto) {
-      const [de, token] = clave.split('|');
-      if (this.saldo(de, token) < total) errores.push('saldo insuficiente de ' + token + ' en ' + de);
+      const k = claveToken(m);
+      const c = cantidadBase(m);
+      if (ver(m.de, k) < c) { errores.push('saldo insuficiente de ' + k + ' en ' + m.de); continue; }
+      poner(m.de, k, ver(m.de, k) - c);
     }
     return errores;
   }
@@ -161,9 +187,40 @@ export class Eje {
     for (const m of ev.movimientos) {
       const clave = claveToken(m);
       const c = cantidadBase(m);
-      if (m.de !== null) this.#ajustar(m.de, clave, -c);
+      if (m.de !== null) {
+        if (m.token === 'P') {
+          // Delegar poder estrecha el ámbito: se debita del ámbito exacto y, si no alcanza, de los que lo cubren.
+          const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, (id, k) => this.saldo(id, k));
+          for (const [k, delta] of plan ?? [[clave, -c]]) this.#ajustar(m.de, k, delta);
+        } else {
+          this.#ajustar(m.de, clave, -c);
+        }
+      }
       if (m.a !== null) this.#ajustar(m.a, clave, c);
     }
+  }
+
+  /** Ámbitos de P que cubren un ámbito dado: él mismo, los registros de su hilo y el génesis. */
+  ambitosQueCubren(ambito) {
+    if (ambito === AMBITO_GENESIS) return [AMBITO_GENESIS];
+    const hilo = this.eventos.has(ambito) ? this.hilo(ambito).map((e) => e.id) : [ambito];
+    return [...hilo, AMBITO_GENESIS];
+  }
+
+  /** Plan de débito de P: pares [clave, delta] del ámbito más concreto al más amplio; null si no alcanza. */
+  #planDebitoP(identidad, ambito, cantidad, ver) {
+    const plan = [];
+    let resta = cantidad;
+    for (const a of this.ambitosQueCubren(ambito)) {
+      const k = 'P:' + a;
+      const hay = ver(identidad, k);
+      if (hay <= 0) continue;
+      const usa = Math.min(hay, resta);
+      plan.push([k, -usa]);
+      resta -= usa;
+      if (resta <= 0) return plan;
+    }
+    return null;
   }
 
   #ajustar(identidad, clave, delta) {

@@ -18,7 +18,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
-      { token: 'P', cantidad: 10 },
+      { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
     foco: 'Casa de ejemplo',
     t,
