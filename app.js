@@ -306,10 +306,27 @@ function pintarSaldos() {
   // Cada familia es una serie: T por escala (tokens distintos, sin conversión), E por denominación, P por ámbito, R por emisor.
   const ESCALA = { segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' };
   const tiempos = (id) => eje.tiempos(id).reverse().map((x) => x.cantidad + ' ' + ESCALA[x.escala]).join(' · ') || 'T 0'; // de la escala mayor a la menor
-  const recursos = (id) => eje.recursos(id).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + (x.emisor === id ? '' : ' de ' + escapar(x.emisor))).join(' · ') || 'E 0'; // cada serie de E es de su emisor
+  // Las series «<plaza>@<noche>» (Booking: una por plaza y noche, nombrada con el id de la habitación) son muchas: se resumen por emisor.
+  const esPlazaNoche = (denominacion) => denominacion.includes('@');
+  const porEmisor = (lista) => {
+    const m = new Map();
+    for (const x of lista) m.set(x.emisor, { cantidad: (m.get(x.emisor)?.cantidad ?? 0) + x.cantidad, series: (m.get(x.emisor)?.series ?? 0) + 1 });
+    return [...m];
+  };
+  const recursos = (id) => { // cada serie de E es de su emisor
+    const deEmisor = (emisor) => (emisor === id ? '' : ' de ' + escapar(emisor));
+    const todas = eje.recursos(id);
+    const sueltas = todas.filter((x) => !esPlazaNoche(x.denominacion)).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + deEmisor(x.emisor));
+    const plazas = porEmisor(todas.filter((x) => esPlazaNoche(x.denominacion))).map(([emisor, x]) => x.cantidad + ' plaza·noche' + deEmisor(emisor));
+    return [...sueltas, ...plazas].join(' · ') || 'E 0';
+  };
+  const series = eje.series();
+  const plazaNoche = (s) => s.token === 'E' && esPlazaNoche(s.denominacion);
+  const emitidas = series.filter((s) => !plazaNoche(s)).map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor)))
+    .concat(porEmisor(series.filter(plazaNoche).map((s) => ({ emisor: s.emisor, cantidad: s.emitido }))).map(([emisor, x]) => escapar('E:' + emisor + '/<plaza>@<noche>') + ' ' + x.cantidad + ' en ' + x.series + ' series'));
   $('#saldos').innerHTML = eje.identidades().map((id) =>
     `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${recursos(id)}</span><span>${tiempos(id)}</span><span>${eje.poderes(id).length ? eje.poderes(id).map((p) => 'P ' + p.cantidad + '@' + (p.ambito === 'genesis' ? 'eje' : corto(p.ambito))).join(' ') : 'P 0'}${eje.reputaciones(id).length ? ' · ' + eje.reputaciones(id).map((r) => 'R ' + r.cantidad + ' de ' + escapar(r.emisor)).join(' ') : ''}</span></div>`).join('')
-    + `<div class="guardado">series emitidas · ${eje.series().map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor))).join(' · ')}</div>`
+    + `<div class="guardado">series emitidas · ${emitidas.join(' · ')}</div>`
     + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
