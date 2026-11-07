@@ -4,13 +4,19 @@
 // de qué serie es cada token.
 //
 //   familia: clave de serie              : quién la emite
-//   T  tiempo:      T:<escala>           : el génesis (siete escalas, hasta diez)
-//   E  recursos:    E:<emisor>/<denom.>  : su emisor, en su propio espacio de nombres (como R)
-//   P  poder:       P:<ambito>           : el génesis, sobre todo el eje; llega a los demás por delegación
-//   R  reputación:  R:<emisor>           : su emisor, ampliable solo por él; no fungible
+//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); PROVISIONAL [X]
+//   E  recursos:    E:<emisor>/<denom.>  : una persona, a su nombre o al de un grupo sobre el que tiene P
+//   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro suyo o sobre el que ya tiene P
+//   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
 //
-// Emitir (iniciar una serie o ampliarla) es lo único reservado a PERSONAS y
-// GRUPOS; las COSAS reciben, conservan y mueven tokens como cualquiera (VG, 7-11).
+// VG, 7-11 noche: «todos son emitidos por una persona individualmente.
+// Siempre es X persona respalda Y recurso concreto, poder de decisión sobre
+// algo, reputación cedida a otros para requerir atención, o tiempo usado por
+// alguien en algo». Emitir (iniciar una serie o ampliarla) es solo de
+// PERSONAS; un grupo es un registro con P delegado (lo que «emite el grupo» lo
+// emite una persona con P sobre él), y las COSAS reciben, conservan y mueven
+// tokens como cualquiera. La emisión es escalonada (src/ciclo.js): «normalmente
+// será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E».
 // Todo evento mueve tokens; el evento mínimo mueve T (cualquier escala).
 // Sin conversión entre series: una hora NO son sesenta minutos, son tokens
 // distintos (como un euro no es un bitcoin, y los EUR de la casa no son los de otro).
@@ -45,8 +51,21 @@ if (ESCALAS_T.length > MAXIMO_ESCALAS_T) throw new Error('T admite como mucho ' 
 /** Tipos de identidad que se declaran en el alta. Solo sirven para saber quién emite. */
 export const TIPOS = Object.freeze(['persona', 'grupo', 'cosa']);
 
-/** Quien puede emitir (iniciar o ampliar una serie): personas y grupos (VG, 7-11). */
-export const EMITEN = Object.freeze(['persona', 'grupo']);
+/**
+ * Quien puede emitir (iniciar o ampliar una serie): solo las personas (VG,
+ * 7-11 noche: «todos son emitidos por una persona individualmente»). Lo que
+ * se emite a nombre de un grupo lo emite y lo firma una persona con P sobre
+ * el registro del grupo.
+ */
+export const EMITEN = Object.freeze(['persona']);
+
+/**
+ * Estados de un movimiento que no cambia de titular (VG, 7-11 noche): bloquear
+ * pasa tokens del disponible al bloqueado de quien los tiene; liberar los
+ * devuelve al disponible. Los dos exigen `salida`, la condición verificable de
+ * liberación (corpus V10: «LOCK exige salida verificable explícita»).
+ */
+export const ESTADOS = Object.freeze(['bloqueo', 'liberacion']);
 
 /**
  * Duración de cada escala en segundos, para MEDIR distancias de tiempo (las
@@ -62,6 +81,32 @@ export const SEGUNDOS = Object.freeze({
   ciclo: 28 * 86400,
   anio: (13 * 28 + 1) * 86400,
 });
+
+// PROVISIONAL [X] (VG, 7-11 noche): «emitir desde dos fuentes es igual de
+// válido que emitir el doble desde una única fuente; no da más». El T por
+// identidad y reloj de abajo es justo lo que una identidad falsa multiplica
+// (y el mínimo da un token por escala a cada alta), así que la regla final
+// saldrá del estudio de neutralidad ante agrupación y división.
+
+/**
+ * [X] regla de la época, PROVISIONAL (ver arriba): el mínimo del tope de T. Una persona puede emitir,
+ * por escala y en total, tantos tokens de T como unidades de esa escala han
+ * pasado desde su alta, redondeando hacia arriba, y nunca menos que este
+ * mínimo: el reloj marca el tope (VG, 7-11 noche).
+ */
+export const TOPE_T_MINIMO = 1;
+
+/**
+ * [X] regla de la época, PROVISIONAL (neutralidad ante agrupación y división). Tope de T que una persona puede llevar emitido en una
+ * escala en el instante `t`: ⌈(t − alta) / SEGUNDOS[escala]⌉, con un mínimo de
+ * TOPE_T_MINIMO. `alta` es el instante del evento que la dio de alta (el
+ * génesis cuenta como alta de su autor). Lo emitido en el génesis no cuenta.
+ */
+export function topeT(alta, t, escala) {
+  const ms = Date.parse(t) - Date.parse(alta);
+  const unidades = Number.isFinite(ms) ? Math.ceil(ms / (SEGUNDOS[escala] * 1000)) : 0;
+  return Math.max(TOPE_T_MINIMO, unidades);
+}
 
 /** Clave de saldo: familia + ':' + su serie (T:hora, E:casa/EUR, P:<ámbito>, R:<emisor>). */
 export function claveToken(m) {
@@ -92,9 +137,12 @@ export function cantidadBase(m) {
 const texto = (x) => typeof x === 'string' && x.length > 0;
 
 /**
- * Movimiento: { token, cantidad, de, a, escala (T), denominacion y emisor (E), ambito (P), emisor (R) }.
- * de = null es emisión: el génesis emite; después emiten su serie de E o de R
- * su emisor, a sí mismo. a = null es consumo.
+ * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor y caduca (E), ambito (P), emisor (R), estado y salida }.
+ * de = null es emisión: nace en la cartera de quien la emite (en E y R, su
+ * emisor; quién puede emitir lo dice el eje). a = null es consumo.
+ * estado ('bloqueo' | 'liberacion') no cambia de titular (de = a) y exige salida.
+ * caduca (ISO) solo en la emisión de E: es un campo del contrato de la serie y
+ * no se ejecuta solo.
  */
 export function validarMovimiento(m) {
   const errores = [];
@@ -116,7 +164,8 @@ export function validarMovimiento(m) {
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
   if (m.token === 'R') {
     if (!texto(m.emisor)) errores.push('R exige emisor');
-    else if (m.de !== null && m.de !== m.emisor) errores.push('R no es fungible: solo la mueve su emisor ' + m.emisor);
+    // VG, 7-11 noche: quien tiene R de otro solo puede devolvérsela a su emisor (pedirle atención).
+    else if (m.de !== null && m.de !== m.emisor && m.a !== m.emisor) errores.push('R no es fungible: solo la mueve su emisor ' + m.emisor + '; quien la tiene solo puede devolvérsela');
   }
   // Una serie nace en la cartera de su emisor (E y R); de ahí se mueve.
   if ((m.token === 'E' || m.token === 'R') && texto(m.emisor) && m.de === null && m.a !== m.emisor) {
@@ -133,5 +182,16 @@ export function validarMovimiento(m) {
   if (m.de !== null && !texto(m.de)) errores.push('de debe ser identidad o null');
   if (m.a !== null && !texto(m.a)) errores.push('a debe ser identidad o null');
   if (m.de === null && m.a === null) errores.push('movimiento sin origen ni destino');
+  if (m.estado !== undefined) {
+    if (!ESTADOS.includes(m.estado)) errores.push('estado inválido: ' + m.estado + ' (bloqueo o liberacion)');
+    else {
+      if (m.de === null || m.a !== m.de) errores.push(m.estado + ': de y a son el mismo titular (no cambia de manos)');
+      if (!texto(m.salida)) errores.push(m.estado + ' exige salida: la condición verificable de liberación');
+    }
+  } else if (m.salida !== undefined) errores.push('salida solo con estado (bloqueo o liberacion)');
+  if (m.caduca !== undefined) {
+    if (m.token !== 'E' || m.de !== null) errores.push('caduca solo en la emisión de E');
+    else if (typeof m.caduca !== 'string' || Number.isNaN(Date.parse(m.caduca))) errores.push('caduca debe ser instante ISO');
+  }
   return errores;
 }

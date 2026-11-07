@@ -50,7 +50,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
-    tipo: 'grupo',
+    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 },

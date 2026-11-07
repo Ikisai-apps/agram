@@ -5,18 +5,36 @@
 //
 // Versión 2 (7-11): series de tokens (T por escala, E ligada a su emisor,
 // tipos en el alta). Un eje de la versión 1 no se restaura: se aparta.
+// Versión 3 (7-11 noche): ciclo de vida de E/P/R/T (solo emiten personas,
+// emisión escalonada, bloqueo y liberación, caducidad de E). Lo guardado sigue
+// siendo la lista de eventos, y lo bloqueado se reconstruye al revalidarlos,
+// así que la migración desde la 2 es trivial: cambia el número y se revalida
+// todo con las reglas nuevas (lo que ya no las cumple no se restaura).
 
 import { Eje } from './eje.js';
 
-export const VERSION = 2;
+export const VERSION = 3;
+
+/** Versiones anteriores que se migran al restaurar: de cada una, la función que lleva sus datos a la siguiente. */
+const MIGRACIONES = Object.freeze({
+  2: (datos) => ({ ...datos, version: 3 }),
+});
 
 /** Forma guardable del eje: solo los eventos, en orden. */
 export function serializar(eje) {
   return { version: VERSION, exigirFirmas: eje.exigirFirmas, eventos: eje.orden.map((id) => eje.obtener(id)) };
 }
 
-/** Reconstruye un eje validando cada evento. Lanza si algo no cuadra. */
-export async function restaurar(datos) {
+/** Lleva datos guardados a la versión actual; los de una versión sin migración se devuelven tal cual. */
+export function migrar(datos) {
+  let d = datos;
+  while (d && Number.isInteger(d.version) && MIGRACIONES[d.version]) d = MIGRACIONES[d.version](d);
+  return d;
+}
+
+/** Reconstruye un eje validando cada evento (tras migrar los datos de una versión anterior). Lanza si algo no cuadra. */
+export async function restaurar(guardados) {
+  const datos = migrar(guardados);
   if (datos && Number.isInteger(datos.version) && datos.version !== VERSION) throw new Error('eje de la versión ' + datos.version + '; esta es la ' + VERSION);
   if (!datos || datos.version !== VERSION || !Array.isArray(datos.eventos) || !datos.eventos.length) throw new Error('datos de eje inválidos');
   return Eje.desde(datos.eventos, { exigirFirmas: Boolean(datos.exigirFirmas) });

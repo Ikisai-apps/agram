@@ -38,7 +38,8 @@ function plazasDe(eje, id, habitacion) {
 test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, plazas, poderes, tipos e hilo)', async () => {
   const { eje, alta, alojamiento, delegacion, habitacion, temporada, reserva, entrega, pago: pagada } = await ejemploReserva();
   assert.deepEqual(eje.identidades(), [CASA, 'recepcion', 'huesped']);
-  assert.deepEqual([CASA, 'recepcion', 'huesped'].map((id) => eje.tipo(id)), ['grupo', 'persona', 'persona']);
+  // VG, 7-11 noche: la casa que emite plazas es una persona (antes, un grupo).
+  assert.deepEqual([CASA, 'recepcion', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'persona', 'persona']);
   // génesis, altas, alojamiento, delegación, habitación, temporada, reserva, sus noches; entrega y pago (consolidación, autorización, ejecución cada una)
   assert.equal(eje.orden.length, 14);
   // Dinero, de la serie de la casa: dio 300 a la persona huésped y cobró 165 al ejecutar.
@@ -99,7 +100,7 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   assert.deepEqual([noches[0], noches[13]], ['2026-11-16', '2026-11-29']);
   assert.equal(temporada.autor, CASA);
   assert.equal(temporada.sobre, habitacion.id);
-  assert.equal(temporada.movimientos.length, 1 + 3 * 14);
+  assert.equal(temporada.movimientos.length, 2 + 3 * 14); // VG, 7-11 noche: T, R de la casa en juego y las plazas
   assert.equal(seriePlaza(habitacion.id, PLAZAS.litera, '2026-11-20'), 'E:casa/' + habitacion.id + '.1200000000@2026-11-20');
   for (const [k, capacidad] of [[PLAZAS.matrimonio, 1], [PLAZAS.individual, 1], [PLAZAS.litera, 2]]) {
     for (const n of noches) {

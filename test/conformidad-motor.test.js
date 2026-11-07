@@ -51,6 +51,13 @@ const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, 
 const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
 const daE = (de, a, cantidad, denominacion = 'EUR', emisor = 'raiz') => ({ token: 'E', emisor, denominacion, cantidad, de, a });
 const ID_INEXISTENTE = 'f'.repeat(64);
+/** P delegado (por defecto, sobre todo el eje): quien emite E necesita P sobre el registro. */
+const daP = (de, a, cantidad = 1, ambito = 'genesis') => ({ token: 'P', ambito, cantidad, de, a });
+/**
+ * VG, 7-11 noche: emitir P o E exige R propia en juego en el mismo evento. La
+ * persona emite un R suyo y lo pone en manos de otra (por defecto, la raíz).
+ */
+const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantidad: 1, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
 
 /**
  * El mundo del motor: la raíz (génesis, con poder sobre todo el eje, euros y
@@ -135,13 +142,17 @@ async function reservaDeLaCasa(eje, hab, huesped) {
   return c;
 }
 
-/** El huésped reserva y la casa (que no es el génesis, y es un grupo: emite) respalda la plaza con su propia serie (E:casa/plaza). */
+/**
+ * El huésped reserva y la casa (que no es el génesis) respalda la plaza con su
+ * propia serie (E:casa/plaza). VG, 7-11 noche: la casa que emite es una
+ * persona (antes, un grupo), con P delegado y su R en juego.
+ */
 async function reservaDelHuesped() {
   const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'Mundo', t: T0 });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 120), daT('raiz', 'huesped', 120)], payload: 'altas', contexto: { tipos: { casa: 'grupo', huesped: 'persona' } } });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 120), daT('raiz', 'huesped', 120), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', huesped: 'persona' } } });
   // La casa emite su serie limitada: un token por plaza y noche.
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
   const hab = await escribe(eje, g, ['Habitación 1', 'cama A'], undefined, 'casa');
   const c = await consolidar(eje, { autor: 'huesped', foco: hab.id, camino: [1], t: T0, elecciones: { 1: 'reserva noche del 7-11' } });
   await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
@@ -1356,9 +1367,10 @@ test('TOK-26b no hay E sin denominación', async () => {
 test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos casas son series distintas', async () => {
   const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casaA', 60), daT('raiz', 'casaB', 60)], payload: 'altas', contexto: { tipos: { casaA: 'grupo', casaB: 'grupo' } } });
+  // VG, 7-11 noche: las casas que emiten son personas (antes, grupos), con P delegado y su R en juego.
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casaA', 60), daT('raiz', 'casaB', 60), daP('raiz', 'casaA'), daP('raiz', 'casaB')], payload: 'altas', contexto: { tipos: { casaA: 'persona', casaB: 'persona' } } });
   for (const [casa, n] of [['casaA', 2], ['casaB', 3]]) {
-    await eje.escribir({ autor: casa, sobre: g, t: T0, movimientos: [gastaT(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
+    await eje.escribir({ autor: casa, sobre: g, t: T0, movimientos: [gastaT(casa), ...rEnJuego(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
   }
   assert.deepEqual([eje.saldo('casaA', 'E:casaA/plaza'), eje.saldo('casaB', 'E:casaB/plaza')], [2, 3]);
   assert.equal(eje.saldo('casaA', 'E:casaB/plaza'), 0); // la misma palabra, dos series
@@ -1367,8 +1379,9 @@ test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos
 test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y solo él amplía su serie', async () => {
   const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60)], payload: 'altas', contexto: { tipos: { casa: 'grupo', otro: 'persona' } } });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
+  // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', otro: 'persona' } } });
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
   assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa')], [2, 5]);
   // Solo la casa amplía su serie: otro no puede emitir a nombre de la casa.
@@ -1385,11 +1398,12 @@ test('TOK-29 nadie emite una serie ajena: la R se emite a su propio emisor', asy
 test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía la serie de otro', async () => {
   const eje = await Eje.genesis({ identidad: 'raiz', emision: EMISION, foco: 'x', t: T0, tipo: 'persona' });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60)], payload: 'alta', contexto: { tipos: { casa: 'grupo' } } });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /nadie emite en nombre de otro/);
+  // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daP('raiz', 'casa')], payload: 'alta', contexto: { tipos: { casa: 'persona' } } });
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /nadie emite en nombre de otro/);
   // Lo que la raíz llame «plaza» es su propia serie (E:raiz/plaza): la de la casa no cambia.
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'E', denominacion: 'plaza', emisor: 'raiz', cantidad: 1, de: null, a: 'raiz' }], payload: 'plaza de la raíz' });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'raiz', cantidad: 1, de: null, a: 'raiz' }], payload: 'plaza de la raíz' });
   assert.deepEqual([eje.serie('E:casa/plaza').emitido, eje.serie('E:raiz/plaza').emitido], [1, 1]);
 });
 
@@ -1552,14 +1566,27 @@ test('TOK-54 ninguna organización es imprescindible para participar: los tokens
 
 test('TOK-54b una identidad que no es el génesis puede emitir sus propias series', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 5, emisor: 'ana', de: null, a: 'ana' }, { token: 'E', denominacion: 'horas de clase', emisor: 'ana', cantidad: 3, de: null, a: 'ana' }], payload: 'mi reputación y mis horas de clase' });
+  // VG, 7-11 noche: E es el último escalón. Ana pone en juego un R suyo (ante bea) y escribe sobre un registro suyo, sobre el que emite P.
+  const suyo = await escribe(eje, g, 'mis clases', undefined, 'ana');
+  await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'mi reputación y mis horas de clase', movimientos: [gastaT('ana'),
+    { token: 'R', cantidad: 6, emisor: 'ana', de: null, a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'bea' },
+    { token: 'P', ambito: suyo.id, cantidad: 1, de: null, a: 'ana' },
+    { token: 'E', denominacion: 'horas de clase', emisor: 'ana', cantidad: 3, de: null, a: 'ana' }] });
   assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'ana', cantidad: 5 }]);
   assert.equal(eje.saldo('ana', 'E:ana/horas de clase'), 3);
 });
 
-test('TOK-54c ninguna organización permanente es imprescindible: T y P no dependen solo de la primera identidad',
-  { skip: 'TOK-54: E y R ya los emite cualquier persona o grupo, pero T y P solo los emite el génesis y el P de ámbito «genesis» cubre todo el eje: todo el tiempo y todo el poder salen de la primera identidad. Quién emite T es abierto (TOK-10 [X] decidir VG)' },
-  sinForma('TOK-54'));
+test('TOK-54c ninguna organización permanente es imprescindible: T y P no dependen solo de la primera identidad', async () => {
+  // VG, 7-11 noche: cada persona emite su T (con el tope del reloj) y su P sobre registros suyos; antes solo el génesis.
+  const { eje, g } = await mundo();
+  const unaHoraDespues = '2026-11-07T11:00:00Z';
+  await eje.escribir({ autor: 'ana', sobre: g, t: unaHoraDespues, payload: 'mi tiempo', movimientos: [gastaT('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] });
+  assert.equal(eje.emitidoT('ana', 'minuto'), 60);
+  const suyo = await escribe(eje, g, 'mi taller', undefined, 'ana', unaHoraDespues);
+  await eje.escribir({ autor: 'ana', sobre: suyo.id, t: unaHoraDespues, payload: 'mi poder', movimientos: [gastaT('ana'), ...rEnJuego('ana', 'bea'), { token: 'P', ambito: suyo.id, cantidad: 2, de: null, a: 'ana' }] });
+  assert.equal(eje.poderSobre('ana', suyo.id), 2);
+  assert.equal(eje.serie('P:' + suyo.id).emisor, 'ana');
+});
 
 test('TOK-55 las alternativas descentralizadas se ofrecen por defecto («multinacional de autónomos»)',
   { skip: 'TOK-55: no hay ningún mecanismo para ello' },
@@ -1835,7 +1862,8 @@ test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona
 //                      (hoy eje.validar simula y, si algo falla, nada cambia).
 //
 // Serie de tokens
-//   TOK-10 [abierto]   quién emite T de cada escala: solo el génesis, o cada identidad su tiempo como serie limitada.
+//   TOK-10 [decidido]  quién emite T de cada escala: cada persona, para sí misma, con el tope del reloj desde su alta
+//                      (VG, 7-11 noche; src/ciclo.js). El génesis sigue emitiendo T, y eso no cuenta para el tope.
 //   TOK-13 [propuesta] la escala que muestra la interfaz y el presupuesto real de trabajo son dos controles distintos.
 //   TOK-15 [propuesta] año nativo = 13 ciclos de 28 días + 1 día fuera de ciclos (hoy solo como duración).
 //   TOK-17 [abierto]   años bisiestos y sincronización con el calendario civil.
@@ -1843,12 +1871,12 @@ test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona
 //   TOK-22 [propuesta] cada banda más lejana ocupa unos dos tercios del espacio de la anterior.
 //   TOK-33 [abierto]   qué es un ámbito de P: un área (P_Derecho) o el subárbol de un registro (hoy, el subárbol).
 //   TOK-36 [abierto]   la delegación de P (hoy hacia un ámbito igual o más estrecho).
-//   TOK-39 [propuesta] transferir R sin sustituir a su emisor (hoy solo la mueve su emisor).
-//   TOK-40 [propuesta] emisión de R en doble entrada, con conservación al liquidar, bloqueo y aceptación.
+//   TOK-39 [propuesta] transferir R sin sustituir a su emisor (hoy la mueve su emisor; quien la tiene solo puede devolvérsela: VG, 7-11 noche).
+//   TOK-40 [propuesta] emisión de R en doble entrada, con conservación al liquidar, bloqueo y aceptación (7-11 noche: hay obligaciones del emisor y bloqueo con salida; la aceptación no).
 //   TOK-44 [propuesta] en PV2, luz/E, calor/P, agua/R y vida/T como metáfora visual flexible.
 //   TOK-45 [propuesta] en PV3 los tokens condicionan paquetes, atención y pagos por comunicación.
 //   TOK-46 [propuesta] en PV4 los tokens representan producción desagregada.
 //   TOK-51 [abierto]   emisión, transferencia, conservación, precios, derechos, microeconomía y liquidación.
-//   TOK-52 [propuesta] kernel V10: Value con siete relaciones y las primitivas ISSUE, TRANSFER, LOCK, RELEASE, CONSUME.
+//   TOK-52 [propuesta] kernel V10: Value con siete relaciones y las primitivas ISSUE, TRANSFER, LOCK, RELEASE, CONSUME (7-11 noche: LOCK y RELEASE son el estado bloqueo/liberacion de un movimiento).
 //   TOK-53 [propuesta] T cubre presupuestos, reservas, bloqueos, ventanas y respaldo; el T futuro no emitido no es valor bloqueado.
 //   TOK-67 [abierto]   legitimidad y selección del tronco; compatibilidad histórica.

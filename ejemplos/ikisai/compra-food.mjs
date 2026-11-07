@@ -3,7 +3,8 @@
 // al recibir tokens, un evento de compra con payload BTML y su décupla en
 // Pointed. Nada de esto es real.
 //
-// Las series de tokens: la casa (un grupo) emite en el génesis sus EUR (la
+// Las series de tokens: la casa (una persona: solo las personas emiten, VG,
+// 7-11 noche) emite en el génesis sus EUR (la
 // serie E:casa/EUR, ligada a ella como R) y las dos escalas de T que usa:
 // horas y minutos, tokens distintos sin conversión (escribir cuesta minutos;
 // comprar, horas). Las altas reparten ambas y declaran qué es cada identidad
@@ -22,7 +23,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: 'casa',
-    tipo: 'grupo', // solo personas y grupos emiten
+    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas

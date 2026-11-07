@@ -1,7 +1,7 @@
 // Segundo ejemplo transversal con datos inventados: una reserva de alojamiento
 // (Booking) en una casa rural. Existe para forzar que el núcleo sea genérico y
 // no esté moldeado por la compra de comida: otro dominio, otra décupla, otro
-// ciclo. Construye su propio eje: génesis de la casa (un grupo); altas de
+// ciclo. Construye su propio eje: génesis de la casa (una persona); altas de
 // recepción y de una persona huésped; la casa escribe su dominio
 // «Alojamiento» y delega en recepción el poder (P) con ese ámbito; publica la
 // disponibilidad (el elemento habitación, con sus plazas en 1.k) y abre la
@@ -33,7 +33,7 @@ import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
 import { descubrir, consolidar, autorizar, ejecutar, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
 
-/** La casa: el grupo que respalda las plazas y emite su serie. */
+/** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
 export const CASA = 'casa';
 
 /** Las plazas de la habitación: cada una en la posición 1.k de sus recursos. */
@@ -125,12 +125,13 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     identidad: CASA,
-    tipo: 'grupo', // solo personas y grupos emiten
+    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
+      { token: 'R', cantidad: 10 }, // reputación de la casa (R:casa): la pone en juego al emitir plazas
     ],
     foco: 'Casa rural de ejemplo',
     t,
@@ -209,9 +210,12 @@ export async function ejemploReserva({ claves = {}, confirmar = true } = {}) {
  * La casa abre la temporada: emite, por cada plaza de la habitación y cada
  * noche de [primera, fin), tantos tokens «<plaza>@<noche>» como capacidad.
  * Es la serie limitada que respalda las plazas; solo la casa la amplía.
+ * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
+ * casa gasta su T, pone en juego su reputación ante recepción (un R:casa) y
+ * tiene P sobre la habitación (el suyo cubre todo el eje).
  */
 export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, privada } = {}) {
-  const movimientos = [minutos(CASA)];
+  const movimientos = [minutos(CASA), { token: 'R', emisor: CASA, cantidad: 1, de: CASA, a: 'recepcion' }];
   habitacion.payload[1].forEach((laPlaza, k) => {
     const capacidad = capacidadDe(laPlaza);
     if (!capacidad) return;

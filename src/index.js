@@ -18,3 +18,4 @@ export * as persistencia from './persistencia.js';
 export * as bases from './bases.js';
 export * as efectos from './efectos.js';
 export * as validez from './validez.js';
+export * as ciclo from './ciclo.js';

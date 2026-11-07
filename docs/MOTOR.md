@@ -1013,9 +1013,10 @@ Las bases del 8 se escriben como registros en la posición 8 de lo que resumen (
 ## 9. Persistencia
 
 ```js
-VERSION = 2                         // desde la PR #35 (series de tokens): un eje de la versión 1 no se restaura
-serializar(eje)                     // → { version: 2, exigirFirmas, eventos: evento[] }  solo los eventos, en orden
-restaurar(datos)                    // → Promise<Eje>  Eje.desde(eventos): vuelve a validar ids, firmas y saldos; lanza si algo no cuadra
+VERSION = 3                         // 7-11 noche (ciclo de vida de los tokens); la 2, desde la PR #35 (series de tokens); un eje de la versión 1 no se restaura
+serializar(eje)                     // → { version: 3, exigirFirmas, eventos: evento[] }  solo los eventos, en orden
+migrar(datos)                       // → los datos en la versión actual: de la 2 a la 3 solo cambia el número (lo bloqueado se rehace al revalidar)
+restaurar(datos)                    // → Promise<Eje>  migra y Eje.desde(eventos): vuelve a validar ids, firmas, saldos y reglas de emisión; lanza si algo no cuadra
 guardarLocal(eje, clave = 'agram.eje')  // → boolean  localStorage.setItem(clave, JSON); false si lanza
 cargarLocal(clave = 'agram.eje')        // → Promise<Eje | null>  null si no hay nada o algo falla
 borrarLocal(clave = 'agram.eje')        // → void
@@ -1212,8 +1213,9 @@ export function medir(eje, id): { posiciones, escritos, movimientos };
 export function comparar(eje, foco): { foco, posicion, de, comparables, hitos };
 
 // src/persistencia.js
-export const VERSION = 2;
+export const VERSION = 3;
 export function serializar(eje): { version, exigirFirmas, eventos };
+export function migrar(datos): datos;  // de la versión 2 a la 3: solo cambia el número
 export async function restaurar(datos): Promise<Eje>;
 export function guardarLocal(eje, clave = 'agram.eje'): boolean;
 export async function cargarLocal(clave = 'agram.eje'): Promise<Eje | null>;

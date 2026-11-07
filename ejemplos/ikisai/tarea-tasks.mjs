@@ -1,7 +1,7 @@
 // Ejemplo transversal con datos inventados: una tarea (Tasks) en una casa
 // de eventos. Tiempo, pasos y dinero sobre el mismo núcleo que la compra de
 // comida. Construye su propio eje:
-//   - génesis de la casa (un grupo): emite una serie de E por partida del
+//   - génesis de la casa (una persona): emite una serie de E por partida del
 //     sábado, minutos, horas y poder sobre todo el eje;
 //   - altas de una persona organizadora y de un proveedor externo;
 //   - la casa escribe las partidas del sábado;
@@ -27,9 +27,9 @@
 //      pagar más que el coste total de la tarea.
 //   P: por ámbito (aquí «genesis»: la casa autoriza sobre todo su eje).
 //   R: por emisor (no aparece en esta tarea).
-// Emitir es de personas y grupos: la casa es un grupo y emite en el génesis;
-// las altas declaran a la organizadora y al proveedor como personas, que aquí
-// no emiten.
+// Emitir es solo de personas (VG, 7-11 noche): la casa es la persona que la
+// lleva y emite en el génesis; las altas declaran a la organizadora y al
+// proveedor como personas, que aquí no emiten.
 
 import { Eje } from '../../src/eje.js';
 import { evaluar } from '../../src/bql.js';
@@ -292,12 +292,12 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   const priv = (id) => claves[id]?.privada;
   const r = {};
 
-  // Génesis: la casa, un grupo, emite y respalda sus series: una de E por
+  // Génesis: la casa, una persona, emite y respalda sus series: una de E por
   // partida (su capacidad, E:casa/<concepto>), minutos (escribir), horas
   // (trabajar) y poder sobre todo su eje.
   const eje = await Eje.genesis({
     identidad: 'casa',
-    tipo: 'grupo', // solo personas y grupos emiten
+    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
       { token: 'T', escala: 'minuto', cantidad: 600 },

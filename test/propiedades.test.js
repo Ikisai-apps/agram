@@ -263,9 +263,10 @@ test('mover T de uno a sí mismo no paga la escritura',
  * rechazo es controlado; saldos finitos y no negativos; conservación por
  * serie (Σ saldos + consumido = emitido, con lo emitido que lleva el eje; P
  * por familia, porque delegar cambia de ámbito); toda emisión aceptada es de
- * una persona o un grupo y va a su propia serie (E:<emisor>/<denominación>,
- * R:<emisor>); una cosa no emite, pero recibe, conserva y mueve. Al final,
- * restaurar reproduce el eje.
+ * una persona (VG, 7-11 noche; antes, también de un grupo), nace en su cartera
+ * y va a su propia serie (E:<emisor>/<denominación>, R:<emisor>, y T para sí
+ * misma); un grupo o una cosa no emite, pero recibe, conserva y mueve. Al
+ * final, restaurar reproduce el eje.
  */
 test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conservación y restauración', async () => {
   const g = prng(SEMILLA + 3);
@@ -286,16 +287,19 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
       if (op === 1) mov.push({ token: 'P', ambito: g.pick([...ids, 'genesis']), cantidad: g.int(1, 4), de: autor, a: g.pick(quienes) });
       if (op === 2) mov.push({ token: 'R', emisor: 'r', cantidad: g.int(1, 3), de: autor, a: g.pick(quienes) });
       if (op === 3) {
-        // Emite su serie (solo personas y grupos) y a veces da plazas a la cosa en el mismo evento.
+        // Emite su serie (solo personas) y a veces da plazas a la cosa en el mismo evento.
+        // VG, 7-11 noche: E exige además R propia en juego (a veces la pone) y P sobre el registro (solo r lo tiene).
         if (g.si(0.8)) {
           const denominacion = g.pick(['EUR', 'plaza']);
+          if (g.si()) mov.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 1, de: autor, a: g.pick(quienes) });
           mov.push({ token: 'E', denominacion, emisor: autor, cantidad: g.int(1, 3), de: null, a: autor });
           if (g.si()) mov.push({ token: 'E', denominacion, emisor: autor, cantidad: 1, de: autor, a: 'hab' });
         } else mov.push({ token: 'R', emisor: autor, cantidad: g.int(1, 3), de: null, a: autor });
       }
       if (op === 4) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: autor }); // tokens ajenos si autor ≠ r
       if (op === 5) mov.push({ token: 'T', escala: 'anio', cantidad: 100, de: autor, a: 'b' }); // saldo insuficiente
-      if (op === 7) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor }); // T solo lo emite el génesis
+      // VG, 7-11 noche: cada persona emite su T (antes, solo el génesis); en T0 el reloj da un minuto, y el segundo se rechaza.
+      if (op === 7) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor });
       const datos = { autor, sobre: g.si(0.9) ? g.pick(ids) : hex(g), en: direccion([g.int(0, 2)]), t: T0, movimientos: mov, payload: op === 6 ? ['x', null] : ['p', paso, s], contexto: { paso } };
       const antes = foto(eje);
       let ev;
@@ -306,19 +310,21 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
         assert.match(e.message, /evento (rechazado|mal formado)/);
         assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
         if (autor === 'hab' && op === 3) {
-          assert.match(e.message, /solo personas y grupos emiten: hab es cosa/);
+          assert.match(e.message, /solo las personas emiten: hab es cosa/);
           vistos.cosaNoEmite++;
         }
         continue;
       }
       ids.push(ev.id);
       for (const m of ev.movimientos.filter((x) => x.de === null)) {
-        assert.equal(m.emisor, ev.autor);
+        assert.equal(eje.tipo(ev.autor), 'persona'); // VG, 7-11 noche: solo emiten personas
+        assert.equal(m.a, ev.autor); // la emisión nace en la cartera de quien la emite
+        if (m.token === 'E' || m.token === 'R') assert.equal(m.emisor, ev.autor);
         if (ev.autor !== 'r') vistos.emisionDeOtros++;
       }
       if (ev.autor === 'hab') vistos.cosaMueve++;
       for (const serie of eje.series()) {
-        assert.ok(['persona', 'grupo'].includes(eje.tipo(serie.emisor)), serie.clave + ' la emite ' + serie.emisor);
+        assert.equal(eje.tipo(serie.emisor), 'persona', serie.clave + ' la emite ' + serie.emisor);
         if (serie.token === 'E') assert.equal(serie.clave, 'E:' + serie.emisor + '/' + serie.denominacion);
         if (serie.token === 'R') assert.equal(serie.clave, 'R:' + serie.emisor);
       }
