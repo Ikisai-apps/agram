@@ -57,7 +57,8 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * propio; ver cicloOk); nadie mueve tokens ajenos; R solo la mueve su emisor
  * (quien la tiene solo se la devuelve); P exige ámbito (el eje o un registro) y
  * delegar estrecha: se debita del ámbito exacto y, si no alcanza, de los que
- * lo cubren (su hilo y el eje); | : / reservados.
+ * lo cubren (su hilo y el eje), salvo hacia una serie P cerrada o hacia la raíz de un
+ * dominio ajeno, y P:X se emite una sola vez (R3, VG 7-11 noche); | : / reservados.
  */
 class Modelo {
   constructor(genesisId, autor, tipo, emision) {
@@ -70,6 +71,8 @@ class Modelo {
     this.tipos = new Map([[autor, tipo]]);
     this.existe = new Set([autor]);
     for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
+    // R3 (VG, 7-11 noche): lo emitido de cada serie P, para saber si está cerrada.
+    this.emitidoP = new Map(emision.filter(([k]) => k.startsWith('P:')).map(([k, v]) => [k.slice(2), v]));
   }
   /**
    * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
@@ -99,6 +102,8 @@ class Modelo {
         if (lleva > 1) return false;
       }
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
+      // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
+      if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
     }
     if (!emitidas.size) return true;
     const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a !== autor);
@@ -108,6 +113,11 @@ class Modelo {
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
     }
     return true;
+  }
+  /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
+  emitidoDeP(ambito) {
+    const familia = ambito === 'genesis' || ambito === this.g ? ['genesis', this.g] : [ambito];
+    return familia.reduce((s, a) => s + (this.emitidoP.get(a) ?? 0), 0);
   }
   cubren(ambito) {
     if (ambito === 'genesis') return ['genesis', this.g];
@@ -140,15 +150,23 @@ class Modelo {
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
     if (!this.cicloOk(ev)) return null;
+    const emitidasAqui = new Set();
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
+        if (m.token === 'P') emitidasAqui.add(m.ambito);
         poner(m.a, k, ver(m.a, k) + m.cantidad);
         continue;
       }
       if (m.de !== ev.autor) return null;
       if (m.token === 'P') {
         if (m.ambito !== 'genesis' && !this.padre.has(m.ambito)) return null;
+        // R3: estrechar (tomar de un ámbito que cubre) no vale hacia una serie cerrada, y hacia la raíz de un
+        // dominio (un registro sobre el génesis) solo lo hace su autor.
+        if (m.ambito !== 'genesis' && m.ambito !== this.g && ver(m.de, k) < m.cantidad) {
+          if (this.emitidoDeP(m.ambito) > 0 || emitidasAqui.has(m.ambito)) return null;
+          if (this.padre.get(m.ambito) === this.g && this.autorDe.get(m.ambito) !== ev.autor) return null;
+        }
         let resta = m.cantidad;
         for (const a of this.cubren(m.ambito)) {
           const hay = ver(m.de, 'P:' + a);
@@ -171,6 +189,7 @@ class Modelo {
       for (const m of ev.movimientos) {
         if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
         if (m.a !== null) this.existe.add(m.a);
+        if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
       }
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
@@ -211,7 +230,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     // VG, 7-11 noche: el génesis lo emite una persona (o quien no declara tipo, que después no emite); ya no un grupo.
     const tipoG = g.pick(['persona', undefined]);
     const emision = [['T:minuto', 300], ['T:hora', 50], ['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
     const ids = [eje.genesisId];
     const consumido = new Map();
@@ -284,7 +303,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
 });
 
 test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuál, y nada a medias se restaura', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'g', t: T0 });
   const d = ida(eje);
   // Desde el ciclo E/P/R/T (VG, 7-11 noche) la versión es la 3; la 2 se migra (test/persistencia.test.js).
   await assert.rejects(restaurar({ ...d, version: 1 }), /versión 1; esta es la 3/);
@@ -293,9 +312,9 @@ test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuá
 });
 
 test('cantidades no enteras de E y P: 0,3 − 0,1 no alcanza para 0,2',
-  { skip: 'TOK-03: [X] decidir VG si E y P admiten fracciones (hoy solo T exige enteros) y con qué aritmética. Hoy, con 0,3 EUR, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
+  { skip: 'TOK-03: [X] decidir VG con qué aritmética van las fracciones de E (solo en las series declaradas divisibles, R2, VG 7-11 noche) y de P. Hoy, con 0,3 EUR divisibles, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
   async () => {
-    const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3 }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
     const pago = (c) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: c, de: 'r', a: null });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.1)], payload: 'a' });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.2)], payload: 'b' });
@@ -352,7 +371,7 @@ function payloadAl(g, ids, prof = 0) {
 }
 
 async function ejeAl(g) {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadAl(g, []), t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payloadAl(g, []), t: T0 });
   const ids = [eje.genesisId];
   for (let i = 0; i < g.int(2, 6); i++) {
     const ev = await eje.escribir({ autor: 'r', sobre: g.pick(ids), en: g.si(0.7) ? dirAl(g) : '0000000000', t: T0, movimientos: [gastaT('r')], payload: payloadAl(g, ids), contexto: { i } });
@@ -471,7 +490,7 @@ test('propiedad: BQL — estados, gancho de autorización (todo permitido = sin 
 });
 
 test('regresión: un dato que falta en FILTRAR no se vuelve «falso» (corpus 03 l.46)', async () => {
-  const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 50 }], foco: ['g', 'propio'], t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 50 }], foco: ['g', 'propio'], t: T0 });
   for (const p of [['a', 5], ['b']]) await eje.escribir({ autor: 'r', sobre: eje.genesisId, en: '1000000000', t: T0, movimientos: [gastaT('r')], payload: p });
   // El segundo escrito no tiene posición 1: la condición queda PENDIENTE para él y no se descarta en silencio.
   const r = B.consultar(eje, eje.genesisId, [0], 'CONTAR(FILTRAR(FILTRAR(BUSCAR("1000000000"), ORIGEN() = "escrito"), ACTUAL(1) > 1))');
@@ -704,7 +723,7 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
     const payload = (ids, prof = 0) => (prof >= 2 || g.r() < 0.3
       ? (ids.length && g.si(0.6) ? { ref: g.pick(ids), dir: dirAl(g) } : g.pick([1, 'x']))
       : Array.from({ length: g.int(1, 4) }, () => payload(ids, prof + 1)));
-    const eje = await Eje.genesis({ identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payload([]), t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: payload([]), t: T0 });
     const ids = [eje.genesisId];
     for (let i = 0; i < 6; i++) ids.push((await eje.escribir({ autor: 'r', sobre: g.pick(ids), en: dirAl(g), t: T0, movimientos: [gastaT('r')], payload: g.si(0.3) ? { ref: g.pick(ids), dir: dirAl(g) } : payload(ids), contexto: { i } })).id);
     for (const id of ids) {

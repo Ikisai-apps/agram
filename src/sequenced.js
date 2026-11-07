@@ -14,6 +14,7 @@ import { decuplaEntera } from './pointed.js';
 import { esReferencia } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
 import { MODOS, alcanceDe, maximo as maximoDe, contenido, admitir, avisoCorte } from './modos.js';
+import { hijosElegibles } from './elegibles.js';
 
 /**
  * Registros que se pueden pedir como mucho: cada registro trae al menos una
@@ -36,6 +37,11 @@ export const MAXIMO_REGISTROS = maximoDe('sequenced');
  * registros que hay en ese sentido; `corte` es null o { maximo, conseguido,
  * necesario, fuera: [ids] }, con necesario = el contenido de los registros
  * pedidos; y `avisos[0]` dice el corte.
+ * En 'hijos', elegibilidad antes que el tope (R8, src/elegibles.js): van
+ * delante los hijos elegibles según el criterio del dueño del foco y después
+ * los demás, cada grupo por orden de entrada, y el corte duro sigue ese
+ * orden. Así el ruido ajeno no tapa lo del dueño; lo que no es elegible solo ocupa el
+ * sitio que sobra, lleva `elegible: false` y se cuenta en `noElegibles`.
  */
 export function secuencia(eje, id, { sentido = 'hilo', maximo = MODOS.sequenced.decuplas, epoca = EPOCA_0 } = {}) {
   if (!eje.obtener(id)) throw new Error('foco desconocido: ' + id);
@@ -44,11 +50,12 @@ export function secuencia(eje, id, { sentido = 'hilo', maximo = MODOS.sequenced.
     throw new Error('maximo inválido: ' + maximo + ' (un entero de 0 a ' + MAXIMO_REGISTROS + ' registros: cada uno trae al menos una posición y el máximo de Sequenced es duro; se puede pedir menos, nunca más)');
   }
   const e = epocaDe(epoca);
-  const eventos = sentido === 'hilo' ? eje.hilo(id) : eje.sobre(id);
+  const hijos = sentido === 'hijos' ? hijosElegibles(eje, id) : null;
+  const eventos = hijos ? hijos.lista : eje.hilo(id);
   const total = eventos.length;
   const pedidos = eventos.slice(0, maximo);
   const a = admitir(pedidos.map((ev) => contenido(ev.payload)), maximoDe('sequenced'));
-  const decuplas = pedidos.slice(0, a.entran).map((ev) => decuplaEntera(ev, e));
+  const decuplas = pedidos.slice(0, a.entran).map((ev, k) => (hijos && k >= hijos.elegiblesN ? { ...decuplaEntera(ev, e), elegible: false } : decuplaEntera(ev, e)));
   let corte = null;
   const avisos = [];
   if (a.cortado) {
@@ -57,7 +64,7 @@ export function secuencia(eje, id, { sentido = 'hilo', maximo = MODOS.sequenced.
     const detalle = 'entran ' + a.entran + ' de ' + pedidos.length + ' registros por llegada y ' + (fuera.length === 1 ? 'queda fuera 1: ' : 'quedan fuera ' + fuera.length + ': ') + fuera.slice(0, 10).map((x) => x.slice(0, 8)).join(' ') + (fuera.length > 10 ? ' …' : '');
     avisos.push(avisoCorte('sequenced', a.conseguido, a.necesario, detalle));
   }
-  return { foco: id, sentido, total, decuplas, alcance: alcanceDe(a.conseguido, 'sequenced'), corte, avisos };
+  return { foco: id, sentido, total, decuplas, ...(hijos ? { noElegibles: hijos.noElegibles } : {}), alcance: alcanceDe(a.conseguido, 'sequenced'), corte, avisos };
 }
 
 function breve(contenido) {
@@ -68,7 +75,7 @@ function breve(contenido) {
 
 /** Render sobrio: una línea por décupla con solo sus posiciones desarrolladas; el aviso de corte, arriba y abajo. */
 export function sobrio(seq) {
-  const cab = seq.sentido + ' de ' + seq.foco.slice(0, 8) + ' · ' + seq.decuplas.length + ' de ' + seq.total;
+  const cab = seq.sentido + ' de ' + seq.foco.slice(0, 8) + ' · ' + seq.decuplas.length + ' de ' + seq.total + (seq.noElegibles ? ' · ' + seq.noElegibles + ' no elegibles' : '');
   const lineas = seq.decuplas.map((d, i) => {
     const partes = d.terminal !== undefined
       ? [breve(d.terminal)] // un terminal no tiene posiciones

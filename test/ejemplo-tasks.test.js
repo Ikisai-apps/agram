@@ -35,13 +35,15 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   assert.deepEqual(E('casa'), [0, 0, 0, 120]);
   assert.deepEqual(E('organizadora'), [0, 0, 40, 0]);
   assert.deepEqual(E('proveedor'), [250, 60, 0, 0]);
-  // P por ámbito: la casa conserva su poder sobre todo el eje; autorizar no lo gasta.
+  // P por ámbito: la casa conserva su poder sobre todo el eje. Autorizar no lo gasta: lo bloquea, y ejecutada la
+  // tarea la casa lo libera (VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño).
   assert.deepEqual(eje.poderes('casa'), [{ ambito: 'genesis', cantidad: 10 }]);
+  assert.deepEqual(eje.bloqueos('casa'), []);
   assert.deepEqual(eje.poderes('organizadora'), []);
   assert.deepEqual(eje.poderes('proveedor'), []);
   // T por escala: minutos para escribir, horas para trabajar.
   const T = (id) => [eje.saldoT(id, 'minuto'), eje.saldoT(id, 'hora')];
-  assert.deepEqual(T('casa'), [406, 140]);
+  assert.deepEqual(T('casa'), [405, 140]); // la liberación de su P, un minuto más
   // Integración 7-11: con #42 ejecutar cuesta un minuto por posición escrita (3: título, consolidación y autorización), no uno fijo.
   assert.deepEqual(T('organizadora'), [74, 40]);
   assert.deepEqual(T('proveedor'), [50, 14]);
@@ -89,6 +91,10 @@ test('partidas: cada una es una posición con capacidad respaldada por una serie
     assert.equal(importe.unidad, 'EUR');
     // Del eje: la serie es de quien escribe las partidas, y lleva emitido tanto como la capacidad.
     assert.deepEqual(eje.serie('E:' + partidas.autor + '/' + concepto), { emisor: 'casa', emitido: importe.cantidad });
+    // R2 (VG, 7-11 noche): las emite el génesis, así que van atadas a él; el importe de la partida es capacidad de
+    // una POSICIÓN (la del motor, que solo informa), no de un registro: sin tope en el eje, deuda del emisor.
+    const s = eje.series().find((x) => x.clave === 'E:casa/' + concepto);
+    assert.deepEqual([s.registro, s.tope, s.nota], [eje.genesisId, null, 'sin capacidad declarada: deuda del emisor']);
   });
   // La organizadora tiene en E exactamente el coste total de su tarea: las series de sus partidas y nada más.
   const coste = evaluar(eje, tarea.id, indicesDe(DIR_COSTE)).valor;
@@ -175,22 +181,22 @@ test('[X] decidir VG: preferir la corrección; si el original también cabe, el 
   assert.deepEqual(evaluar(eje, tarea.id, [9]).valor.items.map((i) => i.evento), [original.id]);
 });
 
-test('[X] decidir VG: quién puede ocupar una posición de recursos ajena; el 9 no lo mira, el pago del ejemplo sí', async () => {
+test('quién ocupa una posición ajena (mapa §12 [D], R8): la casa escribe en los recursos de la tarea, colisiona y no es elegible; el 9 elige al proveedor', async () => {
   const { eje, tarea } = await ejemploTarea({ hasta: 'tarea' });
-  // La casa escribe un «presupuesto» en los recursos de la tarea de la organizadora: cabe y llega primero.
+  // La casa escribe un «presupuesto» en los recursos de la tarea de la organizadora: cabe y llega primero. Colisionar
+  // es libre (queda como ocupante), pero la tarea solo nombra en su 3 a la organizadora y al proveedor.
   const ajeno = await presupuesto(eje, tarea, '2026-11-07T16:00:00Z', ['yo mismo', '349 EUR', '1 h', 'casa'], 'casa');
-  await presupuesto(eje, tarea, '2026-11-08T09:30:00Z', ['Presupuesto corregido: carpa sin suelo', '310 EUR', '6 h', 'proveedor']);
+  const delProveedor = await presupuesto(eje, tarea, '2026-11-08T09:30:00Z', ['Presupuesto corregido: carpa sin suelo', '310 EUR', '6 h', 'proveedor']);
+  assert.ok(ocupantes(eje, tarea.id, [1]).some((o) => o.evento === ajeno.id));
+  const buscados = consultar(eje, tarea.id, [9], 'BUSCAR(LOCAL(5))');
+  assert.deepEqual([buscados.valor.items.some((i) => i.evento === ajeno.id), buscados.valor.noElegibles], [false, 1]);
   const p = proponer(eje, tarea.id, { posiciones: [1, 2, 3, 4, 8, 9] });
-  assert.equal(p.elecciones[9].candidato.evento, ajeno.id);
+  assert.equal(p.elecciones[9].candidato.evento, delProveedor.id);
   const c = await consolidar(eje, { autor: 'organizadora', foco: tarea.id, t: '2026-11-08T10:00:00Z', elecciones: p.elecciones });
-  // La casa autoriza una consolidación cuya fuente es suya: la regla V0 solo mira el autor de la consolidación.
   await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: '2026-11-08T11:00:00Z' });
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  // El ejemplo no paga a quien no está en el 3 de la tarea.
-  assert.throws(() => movimientosDeEjecucion(eje, c.id, tarea.id), /casa no cobra/);
-  // A mano, el núcleo sí acepta el pago a quien autoriza.
-  await ejecutar(eje, { autor: 'organizadora', consolidacion: c.id, t: '2026-11-13T18:00:00Z', movimientos: [{ token: 'E', emisor: 'casa', denominacion: PARTIDAS[0][0], cantidad: 250, de: 'organizadora', a: 'casa' }] });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  // El pago va a quien está en el 3 de la tarea.
+  assert.equal(movimientosDeEjecucion(eje, c.id, tarea.id).some((m) => m.a === 'proveedor'), true);
 });
 
 test('[X] decidir VG: una nota terminal en 1 deja la elección PENDIENTE', async () => {
@@ -218,9 +224,12 @@ test('ciclo: consolidar → la casa autoriza con P → ejecutar paga en las seri
 
   const T = '2026-11-08T11:00:00Z';
   await assert.rejects(ejecutar(eje, { autor: 'organizadora', consolidacion: c.id, t: T }), /PENDIENTE DE AUTORIZACIÓN/);
-  await assert.rejects(autorizar(eje, { autorizante: 'organizadora', consolidacion: c.id, t: T }), /no se autoriza a sí mismo/);
-  await assert.rejects(autorizar(eje, { autorizante: 'proveedor', consolidacion: c.id, t: T }), /no tiene poder/);
+  // Autoriza el P sobre el registro del recurso (aquí, el del eje: la raíz no tiene P propio); ni la organizadora ni el
+  // proveedor lo tienen. La casa bloquea los 10 que tiene: más de la mitad.
+  await assert.rejects(autorizar(eje, { autorizante: 'organizadora', consolidacion: c.id, t: T }), /organizadora no tiene P que cuente para autorizar/);
+  await assert.rejects(autorizar(eje, { autorizante: 'proveedor', consolidacion: c.id, t: T }), /proveedor no tiene P que cuente para autorizar/);
   const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
+  assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 10 }]);
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
 
   // El pago sale de BQL: el precio elegido (310 EUR), repartido por orden en las series de la casa de las partidas de la tarea.

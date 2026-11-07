@@ -272,6 +272,16 @@ function celdaMapa(m, i, eje67, o8) {
     <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
+/**
+ * Lo que falta para autorizar (VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, hasta el
+ * umbral del dueño): cuánto P hay bloqueado de cuánto emitido, y si quien mira no tiene P que cuente.
+ */
+function pistaAutorizar(id, sinP) {
+  const p = motor.pesoAutorizacion(estado.eje, id);
+  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado; umbral: ' + p.umbral.texto;
+  return escapar((sinP ? sinP + ' no tiene P sobre el registro del recurso · ' : '') + peso);
+}
+
 function panelFabrica(m) {
   const lista = motor.consolidaciones(estado.eje, m.foco, m.camino);
   const yo = estado.identidad;
@@ -281,7 +291,7 @@ function panelFabrica(m) {
     return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.estado.toLowerCase()}</i></button>
       ${puedeAut ? `<button class="accion" data-autorizar="${c.id}">autorizar como ${escapar(yo)}</button>` : ''}
       ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
-      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' && !puedeAut ? `<span class="pista">${yo === c.autor ? 'el autor no se autoriza a sí mismo' : yo + ' no tiene poder (P) sobre este registro'}</span>` : ''}
+      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' ? `<span class="pista">${pistaAutorizar(c.id, puedeAut ? '' : yo)}</span>` : ''}
       ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
       ${contextoConsolidacion(estado.eje, c.id)}
     </div>`;
@@ -338,7 +348,9 @@ function pintarMapped() {
 
 function pintarSaldos() {
   // Cada familia es una serie (T por escala, E por emisor y denominación, P por ámbito, R por emisor): ui/saldos.js.
-  $('#saldos').innerHTML = htmlSaldos(estado.eje) + `<div class="guardado">${escapar(estado.guardado)}</div>`;
+  // R9: un eje de demostración lo dice (su génesis lleva contexto.demostracion); fuera de él, sin clave no se actúa.
+  const demo = estado.eje.demostracion ? `<div class="guardado demostracion" title="contexto.demostracion del génesis">eje de demostración: aquí una identidad sin clave también escribe y mueve tokens; fuera de la demostración, sin clave no se actúa</div>` : '';
+  $('#saldos').innerHTML = demo + htmlSaldos(estado.eje) + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
 function pintar() {
@@ -470,7 +482,7 @@ async function consolidarDesdeFormulario(form) {
     const c = await motor.consolidar(estado.eje, { autor: estado.identidad, foco: estado.foco, camino: estado.camino, elecciones, titulo: String(datos.get('titulo') || 'Consolidación') }, privadaDe(estado.identidad));
     guardar();
     estado.aviso = '';
-    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien tiene poder y no es el autor.';
+    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien bloquea P sobre el registro del recurso, hasta el umbral del dueño.';
     pintar();
   } catch (e) {
     fallo(e, form);

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
-import { consolidar, autorizar, ejecutar, descubrir } from '../src/motor.js';
+import { consolidar, autorizar, ejecutar, liberar, descubrir } from '../src/motor.js';
 import { memoria, partir, nombreEn, ritmo, PASO, ORDEN_X, descendientes } from '../mundos/comun.js';
 import { datosFabrica, svgFabrica, lineasFabrica, hayPuesto, ESTACIONES } from '../mundos/fabrica.js';
 import { claseRelativa } from '../src/efectos.js';
@@ -46,8 +46,10 @@ async function ciclo() {
   const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús', 2: { candidato: criterio } }, titulo: 'Pedir dos' });
   const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:25:00Z' });
   const ejec = await ejecutar(eje, { autor: 'huesped', consolidacion: hecha.id, t: '2026-11-07T14:40:00Z', movimientos: [eur(12, 'huesped', 'cocina')] });
+  // Autorizar es bloquear P (VG, 7-11 noche): ejecutada, la casa libera el suyo y bloquea 6 de 10 para la siguiente.
+  await liberar(eje, { titular: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:45:00Z' });
   const autorizada = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, t: '2026-11-07T14:55:00Z' });
+  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, cantidad: 6, t: '2026-11-07T14:55:00Z' });
   const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & <café>' });
   return { eje, compra, menu, alta, cuenta, criterio, hecha, aut, ejec, autorizada, aut2, pendiente };
 }
@@ -267,7 +269,10 @@ test('ciudad: en Booking, las plazas entregadas cierran su vía: una venta, no u
   assert.match(reserva, /ya dio todo lo que emitió/);
   assert.match(reserva, /cerrada \(el emisor ya lo dio todo\)/);
   assert.ok(d.vias.find((v) => v.clave === 'E:casa/EUR').abierta);
-  assert.equal(etiquetaSerie(plazas[0].denominacion), r.habitacion.id.slice(0, 8) + '.1100000000@2026-11-20');
+  // R2: la habitación ya no va en la denominación sino en el registro de la serie; el rótulo la lleva tras «@».
+  assert.equal(plazas[0].registro, r.habitacion.id);
+  assert.equal(plazas[0].etiqueta, '1100000000@2026-11-20@' + r.habitacion.id.slice(0, 8));
+  assert.equal(etiquetaSerie('x.' + 'a'.repeat(64)), 'x.aaaaaaaa');
   // La habitación: la temporada emite 42 series; se dibujan seis y el resto se cuenta.
   const h = datosCiudad(r.eje, r.habitacion.id);
   assert.equal(h.vias.length, 6);

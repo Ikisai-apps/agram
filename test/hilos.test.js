@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
-import { consolidar, autorizar, ejecutar, FABRICA } from '../src/motor.js';
+import { consolidar, autorizar, ejecutar, liberar, FABRICA } from '../src/motor.js';
 import { ejeTemporal } from '../src/tiempo.js';
 import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
 import {
@@ -39,8 +39,10 @@ async function ciclo() {
   const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
   const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:25:00Z' });
   const ejec = await ejecutar(eje, { autor: 'huesped', consolidacion: hecha.id, t: '2026-11-07T14:40:00Z', movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }] });
+  // Autorizar es bloquear P (VG, 7-11 noche): ejecutada, la casa libera el suyo y bloquea 6 de 10 para la siguiente.
+  await liberar(eje, { titular: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:45:00Z' });
   const autorizada = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, t: '2026-11-07T14:55:00Z' });
+  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, cantidad: 6, t: '2026-11-07T14:55:00Z' });
   const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & café' });
   return { eje, compra, menu, alta, cuenta, viernes, hecha, aut, ejec, autorizada, aut2, pendiente };
 }

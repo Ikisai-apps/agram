@@ -207,11 +207,10 @@ function faseReconocida(eje, ev) {
   if (en !== FABRICA) return { cuenta: false, motivo: 'fuera de la fábrica de la consolidación' };
   if (fase === 'autorizado') {
     const validas = autorizacionesValidas(eje, c.id);
-    if (!validas.some((a) => a.id === ev.id)) {
-      return { cuenta: false, motivo: ev.autor === c.autor ? 'el autor no se autoriza a sí mismo' : 'sin poder (P) sobre la consolidación' };
-    }
-    // autorizar() rechaza una segunda; ejecutar() toma la primera como evidencia.
-    return validas[0].id === ev.id ? { cuenta: true } : { cuenta: false, motivo: 'ya estaba autorizada' };
+    // Autorizar es bloquear P sobre el registro del recurso (VG, 7-11 noche): cuenta cada una que lo bloquea,
+    // también la del autor; si la consolidación queda AUTORIZADA lo decide la suma contra el umbral.
+    if (!validas.some((a) => a.id === ev.id)) return { cuenta: false, motivo: 'no bloquea P sobre el registro del recurso' };
+    return { cuenta: true };
   }
   // ejecutado: la misma condición con la que estadoDe() da EJECUTADO.
   if (ev.autor !== c.autor) return { cuenta: false, motivo: 'ejecuta quien no es el autor de la consolidación' };

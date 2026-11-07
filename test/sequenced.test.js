@@ -8,7 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 async function cadena(n) {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   let sobre = eje.genesisId;
   for (let i = 1; i <= n; i++) {
     const ev = await eje.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'paso ' + i });
@@ -80,7 +80,7 @@ test('secuencia: alcance con los tres números de Sequenced; mínimo no consegui
 
 // VG, 7-11 noche (10.2): todos cortan duro, también Sequenced, con el aviso de Scened.
 test('secuencia: corta duro en 100 posiciones por llegada, con aviso; pedir más registros del máximo es un error', async () => {
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   // Doce hijos de diez posiciones cada uno: 120 > 100.
   const hijos = [];
   for (let i = 0; i < 12; i++) {

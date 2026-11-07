@@ -160,7 +160,7 @@ async function consolidarPropuesta() {
     const c = await motor.consolidar(estado.eje, { autor: estado.identidad, foco: estado.foco, camino: estado.camino, elecciones, titulo }, app.privadaDe(estado.identidad));
     app.guardar();
     estado.aviso = '';
-    estado.exito = 'Consolidado ' + c.id.slice(0, 8) + ' desde la propuesta del camino · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien tiene poder y no es el autor.';
+    estado.exito = 'Consolidado ' + c.id.slice(0, 8) + ' desde la propuesta del camino · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien bloquea P sobre el registro del recurso, hasta el umbral del dueño.';
     app.pintar();
   } catch (e) { app.fallo(e); }
 }

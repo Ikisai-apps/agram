@@ -76,7 +76,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el contenido real de
   assert.deepEqual(m.avisos, []);
   // Una cadena larga: el foco y diez de su hilo, de diez posiciones cada uno: 110, por encima del mínimo.
   const T0 = '2026-11-06T20:00:00Z';
-  const larga = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
+  const larga = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
   let sobre = larga.genesisId;
   for (let i = 1; i <= 15; i++) sobre = (await larga.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: ['paso ' + i, ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']] })).id;
   assert.deepEqual(mapa(larga, sobre).alcance, { conseguido: 110, minimo: 100, maximo: 1000, alMinimo: true });
@@ -85,7 +85,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el contenido real de
 // VG, 7-11 noche (10.2): todos cortan duro, también Mapped, con el aviso de Scened.
 test('mapa: corta duro en 1000 posiciones (el foco, el hilo y los hijos, por ese orden), con aviso; pedir más es un error', async () => {
   const T0 = '2026-11-06T20:00:00Z';
-  const eje = await Eje.genesis({ identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }], foco: 'g', t: T0 });
   const lista = (n) => Array.from({ length: n }, (_, i) => 'o' + i);
   // El foco, 1 + 300 = 301, y su hilo, el génesis, 1; los hijos, 301 cada uno: entran dos (904) y el tercero pasaría (1205).
   const foco = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['foco', lista(300)] });

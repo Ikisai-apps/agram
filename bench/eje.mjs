@@ -28,7 +28,7 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { mapa } from '../src/mapped.js';
 import { ejeTemporal, confluir } from '../src/tiempo.js';
 import { medir } from '../src/bases.js'; // la única medida del 8 (tiempo.medidasDe se retira: VG, 7-11 noche)
-import { consolidar, autorizar, ejecutar } from '../src/motor.js';
+import { consolidar, autorizar, ejecutar, liberar, pesoAutorizacion } from '../src/motor.js';
 
 // ---------- argumentos ----------
 
@@ -161,6 +161,7 @@ async function construir(n, semilla) {
   const claveG = await generarClaves();
   privadas.set(GENESIS, claveG.privada);
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: GENESIS,
     tipo: 'grupo',
     emision: [
@@ -307,14 +308,22 @@ async function construir(n, semilla) {
     anotar('motor: consolidar', ahoraMs() - a);
     ciclos++;
     if (eje.orden.length >= n || !az.prob(0.8)) return;
-    const autorizante = az.de(autorizadores.filter((x) => x !== autor));
+    // Autorizar es bloquear P sobre el registro del recurso hasta el umbral (VG, 7-11 noche): aquí las raíces no
+    // emiten P propio, así que cuenta el P del eje, y la mayoría la tiene el génesis. Bloquea lo justo para pasar
+    // de la mitad y, ejecutada o no, lo libera: así sigue teniendo P para la siguiente.
+    const autorizante = GENESIS;
+    const { emitido } = pesoAutorizacion(eje, c.id);
     a = ahoraMs();
-    await autorizar(eje, { autorizante, consolidacion: c.id, t: instante() }, privadas.get(autorizante));
+    await autorizar(eje, { autorizante, consolidacion: c.id, cantidad: Math.floor(emitido / 2) + 1, t: instante() }, privadas.get(autorizante));
     anotar('motor: autorizar', ahoraMs() - a);
-    if (eje.orden.length >= n || !az.prob(0.7)) return;
+    if (eje.orden.length < n && az.prob(0.7)) {
+      a = ahoraMs();
+      await ejecutar(eje, { autor, consolidacion: c.id, t: instante(), movimientos: [{ token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 5, de: autor, a: az.de(escritores) }] }, privadas.get(autor));
+      anotar('motor: ejecutar', ahoraMs() - a);
+    }
     a = ahoraMs();
-    await ejecutar(eje, { autor, consolidacion: c.id, t: instante(), movimientos: [{ token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 5, de: autor, a: az.de(escritores) }] }, privadas.get(autor));
-    anotar('motor: ejecutar', ahoraMs() - a);
+    await liberar(eje, { titular: autorizante, consolidacion: c.id, t: instante() }, privadas.get(autorizante));
+    anotar('motor: liberar', ahoraMs() - a);
   }
 
   while (eje.orden.length < n) {

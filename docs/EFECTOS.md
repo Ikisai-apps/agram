@@ -83,7 +83,7 @@ Un registro con `contexto.fase` (`consolidado`, `autorizado` o `ejecutado`) tien
 | Fase | Cuenta si | Si no, `ruido` con el motivo |
 |---|---|---|
 | consolidado | `consolidaciones()` la lista: está en la posición 4 de su camino | fuera de la fábrica |
-| autorizado | es la primera de `autorizacionesValidas()`: sobre una consolidación, en su fábrica, de quien tiene poder y no es su autor | no es sobre una consolidación · fuera de la fábrica · el autor no se autoriza a sí mismo · sin poder (P) · ya estaba autorizada |
+| autorizado | está en `autorizacionesValidas()`: sobre una consolidación, en su fábrica, y bloquea, de su autor, P sobre el registro del recurso con la consolidación de salida (VG, 7-11 noche: autorizar = bloquear P; el autor de la consolidación cuenta como cualquiera, y varias suman) | no es sobre una consolidación · fuera de la fábrica · no bloquea P sobre el registro del recurso |
 | ejecutado | es la primera que cumple la condición de EJECUTADO de `estadoDe()`: del autor, con la evidencia en el eje | ejecuta quien no es el autor · evidencia rota · ya estaba ejecutada |
 
 Una fase que cuenta está en la fábrica (mundo 4), en la dirección donde el motor la ancla, leída desde su camino (`en` sin el 4): clase 0 ([X]). La consolidación dice qué fijó en cada posición del foco (`elecciones`: elegida, nueva o heredada) y la ejecución su `evidencia`; no se animan aparte. El ruido no es una transición: sus tokens sí se movieron y salen como siempre, pero ningún mundo lo nombra, y los hilos no lo ven.
@@ -170,5 +170,5 @@ Una prueba comprueba que `datos/efectos.js` está al día. El módulo exporta `C
 7. **La clase de las fases** (0, como en la #40) y la de las clases 5 a 9 (sin nombre).
 8. **El parque no sabe aún si se habla a una persona o a un grupo.**
 9. **Qué operación produce** cerrar vía, marchitar, silenciar, previsualizar y fundir.
-10. **La fase se juzga con el eje de ahora**, porque así la juzga el motor (regla V0, provisional hasta AARPIA). Además, `estadoDe` da EJECUTADO sin mirar si hubo autorización (`ejecutar` sí la exige); los efectos siguen a `estadoDe`.
+10. **La fase se juzga con el eje de ahora**, porque así la juzga el motor: una autorización deja de contar si el registro del recurso emite después P propio y lo que bloqueó era P del eje (`test/efectos.test.js`). Además, `estadoDe` da EJECUTADO sin mirar si hubo autorización (`ejecutar` sí la exige); los efectos siguen a `estadoDe`.
 11. **Cómo se ve el ruido** en el animado, si se ve: hoy ningún mundo lo nombra.

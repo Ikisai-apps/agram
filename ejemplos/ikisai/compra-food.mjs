@@ -22,6 +22,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
   const t = '2026-11-07T09:00:00Z';
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
+    demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
