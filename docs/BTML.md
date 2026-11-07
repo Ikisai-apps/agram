@@ -41,7 +41,7 @@ La unidad de información es el evento: **una transición de tokens con un paylo
 | `id` | 64 hex | lo calcula `crearEvento` | SHA-256 del cuerpo canónico. |
 | `firmante`, `firma` | cadena, base64url | solo si se firma | Los añade `firmar`. No forman parte del id. Ver §7. |
 
-El objeto que devuelve `crearEvento` está congelado (`Object.freeze`) y siempre lleva `en` y `contexto` rellenos. Lo que se guarda y se transmite es ese objeto tal cual, en JSON.
+El objeto que devuelve `crearEvento` está congelado entero (`congelar`: también `payload`, `movimientos` y `contexto`, a todos los niveles) y siempre lleva `en` y `contexto` rellenos. Guarda su propia copia de los datos: quien lo crea puede seguir usando sus arrays sin cambiar el evento. El eje también congela entero lo que añade o reconstruye (`anadir`, `desde`). No existe modificar en sitio, tampoco en memoria. Lo que se guarda y se transmite es ese objeto tal cual, en JSON.
 
 ### 1.2 Cuerpo canónico e id
 
@@ -304,7 +304,7 @@ Un array BTML tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9,
 ```
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
-- `esReferencia` solo comprueba la forma: `ref` cadena no vacía y `dir`, si está, dirección válida. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`.
+- `esReferencia` solo comprueba la forma: `ref` cadena no vacía y `dir`, si está, dirección válida. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4).
 - `ref` debe ser el **id completo**. Los prefijos (`'f9e59d1e'`) solo los resuelven BQL (`REF("f9e59d1e")`) y la entrada de texto de `escritura.item` (`'@f9e59d1e:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
@@ -323,8 +323,8 @@ Cada error lleva su ruta: los índices concatenados desde la raíz (`'21'` = pos
 |---|---|
 | `ruta: ni terminal ni array` | booleano, `null` suelto en la raíz, objeto sin `ref`, cadena vacía, `NaN`… |
 | `ruta: array vacío` | `[]` |
-| `ruta: más de 10 posiciones` | longitud > 10 |
-| `ruta: hueco` | `null` o `undefined` en una posición |
+| `ruta: más de 10 posiciones` | longitud > 10. Se comprueba antes que nada y no se mira dentro: un array disperso con una longitud enorme no se recorre, y sus posiciones no dan más errores |
+| `ruta: hueco` | `null` o `undefined` en una posición, o una posición ausente de un array disperso de JavaScript (`['a', , 'c']`, o un array con solo `[3]` asignado) |
 
 ```sh
 node --input-type=module -e "
@@ -393,7 +393,7 @@ Consecuencias conocidas:
 - `direccion([1, 0]) === direccion([1])`: **no se puede nombrar un índice 0 real que sea el último del camino**. Se trata como colisión (ambos caminos son ocupantes de la misma dirección), no como error.
 - `'0000000000'` nombra la raíz del payload (camino `[]`) y su posición 0 (camino `[0]`).
 - `'1100000000'` y `'0000000011'` no son equivalentes: la segunda es `[0,0,0,0,0,0,0,0,1,1]`, un camino de diez niveles.
-- Un terminal no tiene posición 0 en el encaje (`caminosDe` se detiene en él). En Pointed, `decupla` muestra un payload terminal en la posición 0. **Pendiente** de decisión (mapa §12).
+- Un terminal no tiene posición 0 (mapa §12: se retira la convención de la representación). Ni el encaje (`caminosDe` se detiene en él) ni `pointed.decupla`, `mapped.mapa` o `escritura.desdeMapped` lo ponen en la posición 0: `decupla` y `mapa` entregan un payload terminal aparte, en `terminal`, con las diez posiciones sin contenido, y `desdeMapped` no hereda una posición 0 de un foco terminal (es un hueco).
 
 ### 4.3 Significado de los dígitos: época 0
 
@@ -416,7 +416,7 @@ La época es una convención paralela, **fuera del dato**: BTML no lleva época 
 PV                              // array congelado de los diez nombres
 EPOCA_0.reglaCorta(profundidad, digito)  // → PV[digito]
 leerDireccion(dir, epoca = EPOCA_0)      // → [{ profundidad, digito, significado }] una entrada por índice real
-pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, posiciones: [{ indice, significado, contenido }] × 10 }
+pointed.decupla(ev, epoca = EPOCA_0, profundidad = 0)  // → { id, autor, t, sobre, en, terminal, posiciones: [{ indice, significado, contenido }] × 10 }; terminal: el payload si es un terminal (sin posición 0), si no undefined
 ```
 
 Pendiente: reglas cortas de otras épocas, las cien reglas cortas por profundidad y las reglas largas.
@@ -538,13 +538,18 @@ Una dirección puede tener **varios ocupantes**. Eso es el estado normal, no un 
 | `procedencia` | Cadena de pasos. Propio: `['<id>:<dir>#<camino con puntos>']`. Referencia: el paso propio seguido de `'<id alcanzado>:<dir>'` por salto. Escrito: `['<id hijo>:0000000000']`. |
 | `autor`, `t` | Solo en escritos. |
 | `rota` | `true` si una referencia no llegó a contenido (solo en referencias). |
+| `estado`, `motivo` | Solo en una referencia a un evento que no está en el eje: `'PENDIENTE'` y `'evento ausente del eje: <id8>'`. Puede llegar: no es un error. |
 | `origenDir`, `destino` | Dirección de donde viene el contenido y dirección donde se coloca. |
 | `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes` | El encaje de `origenDir` en `destino` (§6.5). |
+| `empate`, `empatados` | `true` si el encaje no lo separa de otro ocupante (mismo acuerdo y, en las profundidades que la época declare ordinales, misma distancia), y con cuántos; entre ellos decide la llegada. |
+| `justificacion` | Texto: de dónde viene, cómo encaja y si empata. Por ejemplo `'escrito por raiz, anclado en 1000000000; encaje exacto; empata con 2 (decide la llegada)'`. Solo informa. |
 
 ```js
 caminosDe(payload, dir)                        // → [{ indices, contenido }] el camino base y los caminos con un 0 más mientras haya posición 0
-ocupantes(eje, id, indices, { orden = 'encaje' } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'
+ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {})  // → ocupante[]; orden 'encaje' (por defecto) o 'llegada'
 seguir(eje, ref, procedencia = [])             // → ocupante de origen 'referencia' tras seguir hasta 20 saltos; rota: true si no llega
+marcarEmpates(lista, { epoca } = {})           // → la lista con empate y empatados en cada ocupante
+justificar(ocupante)                           // → string, la justificación de un ocupante ya marcado
 caminoDe(o)                                    // → o.camino ?? indicesDe(o.dir)
 ```
 
@@ -602,7 +607,7 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 
 ### 6.4 Seguir referencias
 
-`seguir` parte de una referencia y salta mientras el contenido alcanzado sea otra referencia (máximo 20 saltos). Devuelve un ocupante de origen `'referencia'`; si el id no existe o se agotan los saltos, `contenido` es `undefined` y `rota` es `true`.
+`seguir` parte de una referencia y salta mientras el contenido alcanzado sea otra referencia (máximo 20 saltos). Devuelve un ocupante de origen `'referencia'`; si el id no existe o se agotan los saltos, `contenido` es `undefined` y `rota` es `true`. Si el id no existe, además `estado: 'PENDIENTE'` y `motivo` (el evento puede llegar).
 
 ```sh
 node --input-type=module -e "
@@ -694,7 +699,7 @@ propio:exacto:0 escrito:exacto:0 referencia:reducir:5
 ### 6.6 Árbol lógico y colisiones
 
 ```js
-arbol(eje, id, { profundidad = 10 } = {})  // → Map<dir, ocupante[]> para cada dirección desarrollada del payload y cada dirección con escritos
+arbol(eje, id, { profundidad = 10, epoca } = {})  // → Map<dir, ocupante[]> para cada dirección desarrollada del payload y cada dirección con escritos; bajo la época elegida (hoy decide el orden)
 colisiones(mapa)                            // → [{ dir, ocupantes }] solo las direcciones con más de un ocupante
 ```
 
@@ -1068,9 +1073,11 @@ export function excedentes(v): number;
 export function signo(v): 'exacto' | 'completar' | 'reducir' | 'mixto';
 export function ordenarPorEncaje(lista: { vector }[]): typeof lista;
 export function caminosDe(payload, dir): { indices: number[], contenido }[];
-export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada' } = {}): Ocupante[];
+export function ocupantes(eje, id, indices, { orden = 'encaje' | 'llegada', epoca } = {}): Ocupante[];
 export function seguir(eje, ref, procedencia = []): Ocupante;
-export function arbol(eje, id, { profundidad = 10 } = {}): Map<string, Ocupante[]>;
+export function marcarEmpates(lista: { vector }[], { epoca } = {}): (typeof lista[number] & { empate, empatados })[];
+export function justificar(o: Ocupante): string;
+export function arbol(eje, id, { profundidad = 10, epoca } = {}): Map<string, Ocupante[]>;
 export function colisiones(mapa): { dir, ocupantes }[];
 export function caminoDe(o): number[];
 
@@ -1105,11 +1112,10 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 |---|---|
 | Terminales HTML y archivo | §3.1: hoy solo número, cadena, referencia |
 | Referencias a una rama que no sea evento + dirección | §3.3 |
-| Comprobar al escribir que una referencia apunta a un evento existente | §3.3: se detecta al seguirla (`rota`) |
+| Comprobar al escribir que una referencia apunta a un evento existente | §3.3: se detecta al seguirla (`rota`, PENDIENTE) |
 | Cero de orientación y reglas por dimensión para el signo del vector | §4.2, §6.5 |
 | Nombrar un índice 0 real al final del camino | §4.2: se trata como colisión |
-| Posición 0 de un terminal (encaje no la da; Pointed sí) | §4.2 |
-| Cambio de foco al agotar diez niveles | §3.2 |
+| Cambio de foco al agotar diez niveles; qué hacer con un payload de más de diez niveles (rechazarlo o cambiar de foco) | §3.2 |
 | Reglas cortas de otras épocas, cien reglas cortas, reglas largas; cómo cambia el vector con la época | §4.3, §6.5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
 | Emisión de T fuera del génesis (el tiempo de alguien como serie propia); escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |

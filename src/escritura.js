@@ -67,7 +67,7 @@ export function desdeMapped(eje, celdas, foco, camino = []) {
     if (listas[i].length) {
       const items = listas[i].map((t) => item(eje, t));
       payload.push(items.length === 1 ? items[0] : items);
-    } else if (Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined) {
+    } else if (Array.isArray(base) && base[i] !== undefined) { // un terminal no tiene posición 0 que heredar
       payload.push({ ref: foco, dir: direccion([...camino, i]) });
       heredadas.push(i);
     } else {

@@ -7,19 +7,17 @@ import { EPOCA_0 } from './epocas.js';
 
 /**
  * Décupla de un evento: diez posiciones { indice, significado, contenido }.
- * Un payload terminal ocupa la posición 0 (representación); el resto no está
- * desarrollado (contenido undefined).
+ * Lo no desarrollado queda sin contenido (undefined). Un terminal no tiene
+ * posición 0 (MAPA §12: se retira la convención de la representación): un
+ * payload terminal no se reparte en posiciones y va aparte, en `terminal`.
  */
 export function decupla(ev, epoca = EPOCA_0, profundidad = 0) {
   const p = ev.payload;
   const posiciones = [];
   for (let i = 0; i < ARIDAD; i++) {
-    let contenido;
-    if (Array.isArray(p)) contenido = p[i];
-    else if (i === 0) contenido = p;
-    posiciones.push({ indice: i, significado: epoca.reglaCorta(profundidad, i), contenido });
+    posiciones.push({ indice: i, significado: epoca.reglaCorta(profundidad, i), contenido: Array.isArray(p) ? p[i] : undefined });
   }
-  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, posiciones };
+  return { id: ev.id, autor: ev.autor, t: ev.t, sobre: ev.sobre, en: ev.en, terminal: Array.isArray(p) ? undefined : p, posiciones };
 }
 
 function textoDe(contenido) {
@@ -29,11 +27,12 @@ function textoDe(contenido) {
   return String(contenido);
 }
 
-/** Render sobrio: una línea por posición. */
+/** Render sobrio: una línea por posición; si el payload es un terminal, va en su propia línea antes de las posiciones. */
 export function sobrio(d) {
   const cab = d.id.slice(0, 8) + ' · ' + d.autor + ' · ' + d.t;
+  const terminal = d.terminal === undefined ? [] : ['terminal ' + textoDe(d.terminal)];
   const lineas = d.posiciones.map((pos) => pos.indice + ' ' + pos.significado.padEnd(15) + ' ' + textoDe(pos.contenido));
-  return [cab, ...lineas].join('\n');
+  return [cab, ...terminal, ...lineas].join('\n');
 }
 
 export const RENDERS = Object.freeze({ sobrio });

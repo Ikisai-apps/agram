@@ -77,6 +77,15 @@ export function signo(v) {
  * «no puntuar por cercanía ciega»). La regla de la dimensión vive en la época.
  */
 export function ordenarPorEncaje(lista, { epoca } = {}) {
+  const porEncaje = comparadorEncaje({ epoca });
+  return lista
+    .map((o, i) => ({ o, i }))
+    .sort((a, b) => porEncaje(a.o, b.o) || (a.i - b.i))
+    .map((x) => x.o);
+}
+
+/** El criterio del encaje sin la llegada: negativo si a va antes que b; 0 si el encaje no los separa. */
+function comparadorEncaje({ epoca } = {}) {
   const ordinales = epoca && typeof epoca.ordinal === 'function' ? [...Array(ARIDAD).keys()].filter((k) => epoca.ordinal(k)) : [];
   const porDistancia = (va, vb) => {
     for (const k of ordinales) {
@@ -85,10 +94,36 @@ export function ordenarPorEncaje(lista, { epoca } = {}) {
     }
     return 0;
   };
-  return lista
-    .map((o, i) => ({ o, i }))
-    .sort((a, b) => (acuerdo(b.o.vector) - acuerdo(a.o.vector)) || porDistancia(a.o.vector, b.o.vector) || (a.i - b.i))
-    .map((x) => x.o);
+  return (a, b) => (acuerdo(b.vector) - acuerdo(a.vector)) || porDistancia(a.vector, b.vector);
+}
+
+/**
+ * Empate (paso 5 del encaje, corpus V4: «entregar candidatos,
+ * justificaciones, diferencias, faltas/excedentes y empate»): cada ocupante
+ * lleva `empate: true` si el encaje no lo separa de otro (mismo acuerdo de
+ * prefijo y, en las profundidades que la época declare ordinales, misma
+ * distancia), y `empatados`, con cuántos. Entre ellos solo decide la llegada.
+ */
+export function marcarEmpates(lista, { epoca } = {}) {
+  const porEncaje = comparadorEncaje({ epoca });
+  return lista.map((o) => {
+    const empatados = lista.filter((p) => p !== o && porEncaje(o, p) === 0).length;
+    return { ...o, empate: empatados > 0, empatados };
+  });
+}
+
+/** Justificación en texto de un ocupante: de dónde viene, cómo encaja y si empata. Solo informa. */
+export function justificar(o) {
+  const de = o.tipo === 'escrito'
+    ? 'escrito por ' + o.autor + ', anclado en ' + o.destino
+    : o.tipo === 'referencia'
+      ? (o.estado ? 'referencia a ' + o.evento.slice(0, 8) + ': ' + o.estado + ', ' + o.motivo : 'alcanzado por referencia en ' + o.evento.slice(0, 8) + ':' + o.origenDir)
+      : 'propio del registro, camino ' + (o.camino.length ? o.camino.join('.') : 'raíz');
+  const como = o.acuerdo === ARIDAD
+    ? 'encaje exacto'
+    : o.acuerdo + ' de ' + ARIDAD + ' profundidades de acuerdo; ' + o.signo + ' (' + o.faltas + ' por completar, ' + o.excedentes + ' por reducir: el signo informa, no ordena)';
+  const empate = o.empate ? '; empata con ' + o.empatados + ' (decide la llegada)' : '';
+  return de + '; ' + como + empate;
 }
 
 function conEncaje(o, destino) {
@@ -125,11 +160,13 @@ export function caminosDe(payload, dir) {
  * Ocupantes de la dirección que nombran `indices` en el registro `id`:
  * 1. propio: cada camino del payload que colisiona en esa dirección;
  * 2. referencia: tras cada propio que es una referencia, lo que alcanza (con la cadena de procedencia);
+ *    si el evento referido no está en el eje, el ocupante sigue ahí: rota, estado PENDIENTE y su motivo;
  * 3. escritos: los registros anclados en esa dirección (`sobre` + `en`).
  * Cada ocupante lleva su origen (la dirección de donde viene), su destino
  * (la dirección donde se le coloca), el vector de diferencias, la distancia,
- * las profundidades de acuerdo y el signo. Orden por defecto: por encaje;
- * con { orden: 'llegada' }, el de llegada. Nada se borra.
+ * las profundidades de acuerdo, el signo, el empate y una justificación en
+ * texto. Orden por defecto: por encaje; con { orden: 'llegada' }, el de
+ * llegada. Nada se borra.
  */
 export function ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {}) {
   const ev = eje.obtener(id);
@@ -145,7 +182,8 @@ export function ocupantes(eje, id, indices, { orden = 'encaje', epoca } = {}) {
     lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }
   const conOrigen = lista.map((o) => ({ ...o, origen: o.tipo }));
-  return orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen, { epoca });
+  const ordenados = orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen, { epoca });
+  return marcarEmpates(ordenados, { epoca }).map((o) => ({ ...o, justificacion: justificar(o) }));
 }
 
 /** Sigue una referencia hasta un contenido que no sea referencia. Conserva la procedencia. */
@@ -155,7 +193,8 @@ export function seguir(eje, ref, procedencia = []) {
   for (let salto = 0; salto < MAX_SALTOS; salto++) {
     const ev = eje.obtener(actual.ref);
     const dir = actual.dir ?? '0000000000';
-    if (!ev) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, rota: true };
+    // Referencia ausente → PENDIENTE (puede llegar), no ERROR; sin dato inventado (corpus V4).
+    if (!ev) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, rota: true, estado: 'PENDIENTE', motivo: 'evento ausente del eje: ' + actual.ref.slice(0, 8) };
     cadena.push(actual.ref + ':' + dir);
     const contenido = resolver(ev.payload, dir);
     if (!esReferencia(contenido)) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido, procedencia: cadena };
@@ -168,21 +207,23 @@ export function seguir(eje, ref, procedencia = []) {
 /**
  * Árbol lógico del registro `id`: por cada dirección desarrollada (hasta
  * diez profundidades) sus ocupantes, colisiones incluidas. Devuelve un Map
- * dir → ocupantes. Incluye las direcciones donde solo hay escritos.
+ * dir → ocupantes. Incluye las direcciones donde solo hay escritos. Se
+ * reconstruye bajo la época que se elige al leer (`epoca`); hoy la época
+ * decide el orden de los ocupantes (sus profundidades ordinales).
  */
-export function arbol(eje, id, { profundidad = ARIDAD } = {}) {
+export function arbol(eje, id, { profundidad = ARIDAD, epoca } = {}) {
   const ev = eje.obtener(id);
   if (!ev) throw new Error('registro desconocido: ' + id);
   const mapa = new Map();
   const visitar = (indices, nodo) => {
     if (indices.length > profundidad) return;
     const dir = direccion(indices);
-    if (!mapa.has(dir)) mapa.set(dir, ocupantes(eje, id, indices));
+    if (!mapa.has(dir)) mapa.set(dir, ocupantes(eje, id, indices, { epoca }));
     if (Array.isArray(nodo)) nodo.forEach((hijo, i) => visitar([...indices, i], hijo));
   };
   visitar([], ev.payload);
   for (const h of eje.sobre(id)) {
-    if (!mapa.has(h.en)) mapa.set(h.en, ocupantes(eje, id, indicesDe(h.en)));
+    if (!mapa.has(h.en)) mapa.set(h.en, ocupantes(eje, id, indicesDe(h.en), { epoca }));
   }
   return mapa;
 }
