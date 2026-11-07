@@ -1,14 +1,14 @@
 // Ejemplo transversal con datos inventados: una tarea (Tasks) en una casa
 // de eventos. Tiempo, pasos y dinero sobre el mismo núcleo que la compra de
 // comida. Construye su propio eje:
-//   - génesis de la casa: emite una serie de E por partida del sábado,
-//     minutos, horas y poder sobre todo el eje;
+//   - génesis de la casa (un grupo): emite una serie de E por partida del
+//     sábado, minutos, horas y poder sobre todo el eje;
 //   - altas de una persona organizadora y de un proveedor externo;
 //   - la casa escribe las partidas del sábado;
 //   - la organizadora escribe la tarea «montar la carpa del sábado», una
 //     décupla con sus fórmulas BQL;
-//   - el proveedor escribe presupuestos que colisionan en los recursos (1)
-//     de la tarea;
+//   - el proveedor escribe presupuestos donde la tarea dice que busca (su 5):
+//     en sus recursos (1), donde colisionan con lo propio;
 //   - el motor: descubrir → proponer (la fórmula del 9 deja los presupuestos
 //     que caben en coste y en plazo y se queda con el primero que llegó) →
 //     consolidar → la casa autoriza (P) → el proveedor entrega y consume sus
@@ -16,25 +16,25 @@
 //     partidas.
 // Nada de esto es real.
 //
-// Tokens según las decisiones de VG del 7-11: cada familia es una serie de
-// denominaciones.
-//   T: siete tokens, uno por escala y sin conversión. Escribir cuesta minutos
-//      y trabajar cuesta horas, así que la casa reparte las dos series.
-//      [X] decidir VG: que nadie pague minutos con horas es disciplina de este
-//      ejemplo, no algo que garantice el núcleo de hoy: el núcleo guarda T en
-//      segundos y un registro que pasa de los minutos de su autor se cobra de
-//      sus horas (lo fija la prueba «T por escala»).
-//   E: por denominación, emitida en serie limitada por quien la respalda.
-//      Cada partida es una posición con capacidad (su importe) respaldada por
-//      una serie de E de la casa (ver PARTIDAS). La organizadora recibe las
-//      series de las partidas de su tarea y ningún otro E, así que el núcleo
-//      no la deja pagar más que el coste total de la tarea.
-//   P: por ámbito (aquí «genesis»).
+// Las series de tokens (VG, 7-11; src/tokens.js):
+//   T: un token por escala y sin conversión: T:minuto y T:hora son series
+//      distintas. Escribir cuesta minutos (uno por posición) y trabajar
+//      cuesta horas, así que la casa reparte las dos.
+//   E: E:<emisor>/<denominación>. Cada partida es una posición con capacidad
+//      (su importe) respaldada por una serie limitada de E que emite la casa,
+//      E:casa/<concepto> (ver PARTIDAS). La organizadora recibe las series de
+//      las partidas de su tarea y ningún otro E, así que el núcleo no la deja
+//      pagar más que el coste total de la tarea.
+//   P: por ámbito (aquí «genesis»: la casa autoriza sobre todo su eje).
 //   R: por emisor (no aparece en esta tarea).
+// Emitir es de personas y grupos: la casa es un grupo y emite en el génesis;
+// las altas declaran a la organizadora y al proveedor como personas, que aquí
+// no emiten.
 
 import { Eje } from '../../src/eje.js';
 import { evaluar } from '../../src/bql.js';
 import { indicesDe } from '../../src/btml.js';
+import { claveToken } from '../../src/tokens.js';
 import { costeT, escribirDesde } from '../../src/escritura.js';
 import { descubrir, proponer, consolidar, autorizar, ejecutar, FABRICA } from '../../src/motor.js';
 
@@ -42,17 +42,32 @@ import { descubrir, proponer, consolidar, autorizar, ejecutar, FABRICA } from '.
 export const T0 = '2026-11-07T09:00:00Z';
 export const FECHA_LIMITE = '2026-11-14T09:00:00Z';
 
-/** Los presupuestos se escriben en los recursos (1) de la tarea: colisionan con lo propio. */
+/**
+ * Dónde busca la tarea sus presupuestos: en sus recursos (1). La tarea lo
+ * guarda en su 5, «dónde encaja lo que busco» (mapa §2.3), y el proveedor
+ * escribe ahí, así que los presupuestos colisionan con lo propio.
+ * Pendiente de código, no de decisión: la fórmula del 9 buscaría con
+ * BUSCAR(LOCAL(5)), por dirección (mapa §12: BUSCAR por índice y por
+ * dirección), que llega con la #36. Hoy busca por índice, BUSCAR(1), que
+ * nombra la misma colisión.
+ *
+ * [X] decidir VG: quién puede ocupar una posición de recursos ajena. El 1 es
+ * de la tarea (lo escribe la organizadora) y cualquiera con minutos escribe
+ * en él: el proveedor, la casa o alguien que no está en la tarea. El eje y el
+ * motor no lo limitan, y la fórmula del 9 no puede (no lee el autor de un
+ * candidato). Este ejemplo solo lo para al pagar (movimientosDeEjecucion).
+ */
 export const EN_PRESUPUESTO = '1000000000';
 
 /**
  * Partidas del sábado: [concepto, importe en EUR]. Cada una es una posición
  * con capacidad (su importe, en el registro de partidas) respaldada por una
- * serie limitada de E que emite la casa: la denominación es el concepto y
- * hay un token por euro. Las tres primeras son las de la carpa.
- * [X] decidir VG: el nombre de la serie (el concepto) y «un token = un EUR»
- * son convención de este ejemplo. BQL ve «250 EUR» y el eje ve 250 tokens de
- * «alquiler de la carpa»; la traducción va a mano (ver ESCALA_DE_UNIDAD).
+ * serie limitada de E que emite la casa, E:casa/<concepto>, con tantos tokens
+ * como euros de capacidad (mapa §12: la plaza y su serie). Las tres primeras
+ * son las de la carpa.
+ * [X] decidir VG: que la denominación sea el concepto y que un token valga un
+ * EUR es convención de este ejemplo. BQL ve «250 EUR» y el eje ve 250 tokens
+ * de E:casa/alquiler de la carpa; la traducción va a mano (ver ESCALA_DE_UNIDAD).
  */
 export const PARTIDAS = Object.freeze([
   Object.freeze(['alquiler de la carpa', 250]),
@@ -84,47 +99,41 @@ export const DIR_COSTE = '1100000000';
 export const DIR_TIEMPO = '4100000000';
 
 /**
- * La fórmula del 5: cuántos presupuestos (escritos) colisionan en los recursos.
- * [X] decidir VG: un recuento en el 5 (estructura, el registro en foco). El
- * mapa (§10.5) pone los recuentos entre las medidas del 8, pero el 8 ya
- * lleva la composición y cada posición de la raíz admite una sola fórmula:
- * LOCAL y BUSCAR solo miran desde su anfitrión, así que lo que cruza PV no
- * puede bajar a 8.x.
- */
-export const FORMULA_RECIBIDOS = '=CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"))';
-
-/**
- * La fórmula del 9 (camino): de los ocupantes del 1, los escritos; de ellos,
+ * La fórmula del 9: de los ocupantes del 1, los escritos (ORIGEN); de ellos,
  * los que caben: precio (su 1) dentro del coste total de la tarea (1.1) y
  * plazo (su 2) dentro del plazo de la tarea (2.1); y de esos, el primero en
  * el orden de BUSCAR. Todo escrito anclado en el 1 encaja exacto (diez
- * profundidades de acuerdo), así que ese orden es el de llegada: la fórmula
- * se queda con el primero que llegó de los que caben. Los dos FILTRAR van
- * anidados porque Y evalúa todos sus argumentos: ACTUAL(1) sobre lo propio
- * (un array) pararía la consulta.
+ * profundidades de acuerdo), así que ese orden es el de llegada (mapa §12:
+ * los empates, por llegada). Los dos FILTRAR van anidados porque Y evalúa
+ * todos sus argumentos: ACTUAL(1) sobre lo propio (un array) pararía la
+ * consulta.
  *
- * [X] decidir VG: corregir no gana. Corregir es añadir un ocupante, y los dos
- * presupuestos se conservan, pero si el original también cabe la fórmula
- * sigue eligiéndolo. Para preferir la corrección haría falta leer el autor o
- * la llegada de un candidato, y BQL no tiene función para eso (los
- * candidatos de BUSCAR llevan `autor` y `t`, pero nada los expone).
- * [X] decidir VG: por lo mismo, la fórmula no mira quién escribe:
- * cualquiera con minutos puede escribir un presupuesto en el 1 y salir
- * elegido. Este ejemplo lo para al pagar (movimientosDeEjecucion), no aquí.
+ * Corregir es añadir un ocupante (mapa §12): un presupuesto corregido no
+ * sustituye al original. Los dos quedan en el 1, y la fórmula elige entre
+ * ellos por llegada sin borrar ninguno.
+ * [X] decidir VG: preferir la corrección. Con ORIGEN y la llegada, la fórmula
+ * solo puede quedarse con el PRIMERO que cabe: si el original también cabe,
+ * sale el original. Preferir la corrección pide algo que BQL no expresa:
+ * leer el autor y la llegada de cada candidato (los candidatos de BUSCAR los
+ * llevan, pero ninguna función los expone) o tomar el ÚLTIMO de una colección
+ * (ELEGIR toma desde el principio y ORDENAR no tiene clave de llegada). Aquí
+ * no se inventa una función para eso.
  *
- * [X] decidir VG: la elección vive en el 9 (camino) y no en el 1. La
- * consolidación tiene un solo hueco por PV: su 1 guarda o los recursos
- * literales de la tarea (por referencia) o el presupuesto elegido, no las
- * dos cosas. `consolidar` aceptaría el candidato en el 1 (no comprueba qué
- * va en cada posición); este ejemplo lo deja en el 9 para no perder los
- * recursos. Es el mismo choque que en la tarea: `proponer` pone cada
- * elección en la posición de su fórmula, y el 1 de la tarea ya guarda los
- * recursos.
+ * [X] decidir VG: la elección vive en el 9 y no en el 1. La consolidación
+ * tiene un solo hueco por PV: su 1 guarda o los recursos literales de la
+ * tarea (por referencia) o el presupuesto elegido, no las dos cosas.
+ * `consolidar` aceptaría el candidato en el 1 (no comprueba qué va en cada
+ * posición); este ejemplo lo deja en el 9 para no perder los recursos. Es el
+ * mismo choque que en la tarea: `proponer` pone cada elección en la posición
+ * de su fórmula, y el 1 de la tarea ya guarda los recursos.
  */
 export const FORMULA_ELECCION = '=ELEGIR(FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"), Y(ACTUAL(1) <= LOCAL(1, 1), ACTUAL(2) <= LOCAL(2, 1))))';
 
 /**
- * La décupla de una tarea. En la raíz cada posición es un PV (época 0).
+ * La décupla de una tarea. En la raíz cada posición es un PV (época 0):
+ *   0 el título; 1 recursos; 2 criterios; 3 quién habla con quién;
+ *   4 fábrica; 5 dónde encaja lo que busco (EN_PRESUPUESTO); 6 de dónde
+ *   viene; 7 la fecha límite; 8 la composición «EUR + horas»; 9 la elección.
  * Debajo hay hileras: una lista con su nombre en .0 (la representación) y
  * sus ítems por orden en .1, .2… (partidas, materiales, criterios, quién y
  * pasos). Recursos (1) y fábrica (4) agrupan una hilera en x.0 y su cantidad
@@ -132,14 +141,31 @@ export const FORMULA_ELECCION = '=ELEGIR(FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "
  * (DIR_COSTE) y el tiempo previsto en 4.1 (DIR_TIEMPO). Las fórmulas viven
  * donde alcanzan lo que leen, porque LOCAL solo mira dentro de su anfitrión:
  * el coste dentro de recursos, el tiempo dentro de la fábrica, y lo que cruza
- * PV en la raíz (el recuento del 5, la composición «EUR + horas» del 8 y la
- * elección del 9).
+ * PV en la raíz (la composición del 8 y la elección del 9).
  *
  *   partidas: referencias a los importes de las partidas (no copias), de una a nueve.
  *   materiales: textos, de uno a nueve.
  *   quien: identidades que hablan en la tarea, de una a nueve.
  *   pasos: [[nombre, '2 h'], …], de uno a nueve.
  *   origen: referencia para el 6 (de dónde viene la tarea).
+ *
+ * [X] decidir VG: el relleno hasta el 9. La elección vive en el 9 y un array
+ * BTML no tiene huecos, así que del 5 al 8 hay que escribir algo. El mapa
+ * (§12) dice «sin no aplicable; prefijo denso y anclaje»: lo lejano se ancla
+ * en vez de rellenar. Anclar la elección en el 9 no funciona hoy: `proponer`
+ * solo lee las fórmulas del payload del foco, y una fórmula anclada busca
+ * candidatos en su propio registro (BUSCAR mira desde su anfitrión, también
+ * por dirección), no en la colisión del 1 de la tarea. Qué queda en cada
+ * posición:
+ *   - 5: lo que el corpus le da, dónde encaja lo que busco. Antes llevaba un
+ *     recuento de presupuestos, que se quita: el mapa (§12) pone los
+ *     recuentos en las bases del 8, registros escritos en el 8 (#19). Ahora
+ *     el recuento es una consulta y no ocupa posición.
+ *   - 6 y 7 dicen lo de su PV (de dónde viene, la fecha límite), pero repiten
+ *     lo que ya dicen el hilo (la tarea se escribe sobre las partidas) y la
+ *     proyección anclada en el 7.
+ *   - 8: la composición «EUR + horas», que comparan las tareas hermanas, es
+ *     de este ejemplo. El 8 del mapa son las bases.
  *
  * [X] decidir VG: hileras ordinales. La época 0 dice que cada dígito es un PV
  * en todas las profundidades. Por debajo de la raíz lo cumplen el nombre de
@@ -173,11 +199,11 @@ export function decuplaTarea({ titulo, partidas, materiales, plazo, calidad, qui
       ['Pasos', ...pasos], // 4.0 hilera de pasos
       tiempo, // 4.1 tiempo previsto = suma de los pasos
     ], // 4 fábrica
-    FORMULA_RECIBIDOS, // 5 estructura: presupuestos recibidos ([X] en FORMULA_RECIBIDOS)
-    origen, // 6 pasado: de dónde viene
-    fechaLimite, // 7 futuro: fecha límite
-    '=LOCAL(1, 1) + LOCAL(4, 1)', // 8 comparabilidad: composición «EUR + horas»
-    FORMULA_ELECCION, // 9 camino: el primer presupuesto que cabe
+    EN_PRESUPUESTO, // 5 estructura: dónde encaja lo que busco (los presupuestos, en el 1)
+    origen, // 6 pasado: de dónde viene ([X] relleno: repite el hilo)
+    fechaLimite, // 7 futuro: la fecha límite ([X] relleno: repite la proyección anclada)
+    '=LOCAL(1, 1) + LOCAL(4, 1)', // 8 ([X] relleno): la composición «EUR + horas» de este ejemplo
+    FORMULA_ELECCION, // 9 la elección: el primer presupuesto que cabe
   ];
 }
 
@@ -197,8 +223,10 @@ function presupuestoElegido(eje, consolidacionId) {
  * El pago, leído con BQL y no tecleado: el precio del presupuesto elegido
  * (su 1) pasa de quien ejecuta al autor del presupuesto, en las series de las
  * partidas de la tarea, por su orden (1.0.1, 1.0.2…) y hasta el importe de
- * cada una. La serie de cada partida es su concepto (1.k.0 del registro de
- * partidas), leído a través de la referencia.
+ * cada una. La serie de cada partida es la de quien la escribe y la respalda:
+ * E:<autor del registro de partidas>/<concepto>, con el concepto en 1.k.0,
+ * leído a través de la referencia. Esa serie tiene que estar emitida por él
+ * con al menos el importe de la partida (su capacidad).
  *
  * Antes comprueba lo que la fórmula del 9 no puede comprobar: que quien
  * cobra esté en el 3 de la tarea (quién habla con quién) y no sea quien paga.
@@ -225,8 +253,11 @@ export function movimientosDeEjecucion(eje, consolidacionId, tareaId) {
     if (importe?.tipo !== 'magnitud' || importe.unidad !== precio.valor.unidad) throw new Error('partida sin importe en ' + precio.valor.unidad);
     const concepto = evaluar(eje, ref.ref, [...donde.slice(0, -1), 0]).valor;
     if (concepto?.tipo !== 'texto') throw new Error('partida sin concepto');
+    const emisor = eje.obtener(ref.ref).autor;
+    const serie = eje.serie(claveToken({ token: 'E', emisor, denominacion: concepto.valor }));
+    if (serie.emisor !== emisor || serie.emitido < importe.cantidad) throw new Error('partida sin respaldo: ' + emisor + ' no ha emitido ' + importe.cantidad + ' de ' + concepto.valor);
     const parte = Math.min(resta, importe.cantidad);
-    if (parte > 0) movimientos.push({ token: 'E', denominacion: concepto.valor, cantidad: parte, de: c.autor, a: presupuesto.autor });
+    if (parte > 0) movimientos.push({ token: 'E', emisor, denominacion: concepto.valor, cantidad: parte, de: c.autor, a: presupuesto.autor });
     resta -= parte;
   }
   if (resta > 0) throw new Error('el precio pasa del coste de las partidas en ' + resta + ' ' + precio.valor.unidad);
@@ -238,8 +269,10 @@ export function movimientosDeEjecucion(eje, consolidacionId, tareaId) {
  * 2), que consume su autor, porque es quien trabaja y solo él mueve sus
  * tokens. Las horas previstas de la tarea (4.1) son una previsión de la
  * organizadora y no se consumen.
- * [X] decidir VG: son las horas que el proveedor declara en su presupuesto;
- * nadie comprueba las reales.
+ * [X] decidir VG: el 2 del presupuesto es su plazo, un criterio (el que la
+ * fórmula del 9 compara con el 2.1 de la tarea), y este ejemplo lo consume
+ * como horas de trabajo. Son las horas que el proveedor declara; nadie
+ * comprueba las reales.
  */
 export function horasDeEntrega(eje, consolidacionId) {
   const presupuesto = presupuestoElegido(eje, consolidacionId);
@@ -260,12 +293,14 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   const priv = (id) => claves[id]?.privada;
   const r = {};
 
-  // Génesis: la casa emite y respalda sus series: una de E por partida (su
-  // capacidad), minutos (escribir), horas (trabajar) y poder sobre todo su eje.
+  // Génesis: la casa, un grupo, emite y respalda sus series: una de E por
+  // partida (su capacidad, E:casa/<concepto>), minutos (escribir), horas
+  // (trabajar) y poder sobre todo su eje.
   const eje = await Eje.genesis({
     identidad: 'casa',
+    tipo: 'grupo', // solo personas y grupos emiten
     emision: [
-      ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })),
+      ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
       { token: 'T', escala: 'minuto', cantidad: 600 },
       { token: 'T', escala: 'hora', cantidad: 200 },
       { token: 'P', cantidad: 10, ambito: 'genesis' },
@@ -279,8 +314,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
 
   // Altas: la organizadora recibe las series de las partidas de la carpa
   // (y ningún otro E), minutos y horas; el proveedor externo, minutos para
-  // escribir y horas para trabajar. Existen al recibir tokens. Escribir
-  // cuesta un minuto por posición. La tarima se queda en la casa.
+  // escribir y horas para trabajar. Existen al recibir tokens, y el alta
+  // declara qué son. Escribir cuesta un minuto por posición. La tarima se
+  // queda en la casa.
   const declaradas = {};
   for (const id of ['organizadora', 'proveedor']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const altas = ['Altas para la fiesta del sábado', ['organizadora', 'proveedor']];
@@ -290,14 +326,14 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     t: T0,
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: costeT(altas), de: 'casa', a: null },
-      ...DE_LA_CARPA.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe, de: 'casa', a: 'organizadora' })),
+      ...DE_LA_CARPA.map(([concepto, importe]) => ({ token: 'E', emisor: 'casa', denominacion: concepto, cantidad: importe, de: 'casa', a: 'organizadora' })),
       { token: 'T', escala: 'minuto', cantidad: 120, de: 'casa', a: 'organizadora' },
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'organizadora' },
       { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'proveedor' },
       { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'proveedor' },
     ],
     payload: altas,
-    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
+    contexto: { tipos: { organizadora: 'persona', proveedor: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Partidas del sábado: la casa escribe cada partida [concepto, importe] en
@@ -347,17 +383,17 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   }, priv('organizadora'));
   if (tope < 1) return r;
 
-  // El proveedor escribe un presupuesto en los recursos de la tarea (colisión
-  // en 1), por PV: 1 su precio, 2 su plazo, 3 con quién hablar. Se pasa del
-  // coste total, y lo corrige. Corregir no es modificar: añade un segundo
-  // presupuesto y los dos quedan como ocupantes. Aquí la fórmula del 9 elige
-  // el corregido solo porque el primero no cabe (ver FORMULA_ELECCION).
+  // El proveedor escribe un presupuesto donde la tarea dice que busca (su 5:
+  // los recursos), por PV: 1 su precio, 2 su plazo, 3 con quién hablar. Se
+  // pasa del coste total, y lo corrige. Corregir no es modificar: añade un
+  // segundo presupuesto y los dos quedan como ocupantes. Aquí la fórmula del
+  // 9 elige el corregido solo porque el primero no cabe (ver FORMULA_ELECCION).
   r.presupuestos = [];
   for (const [t, payload] of [
     ['2026-11-07T17:00:00Z', ['Presupuesto: carpa con suelo de madera', '420 EUR', '5 h', 'proveedor']],
     ['2026-11-08T09:30:00Z', ['Presupuesto corregido: carpa sin suelo', '310 EUR', '6 h', 'proveedor']],
   ]) {
-    r.presupuestos.push(await escribirDesde(eje, { modo: 'sequenced', autor: 'proveedor', sobre: r.tarea.id, en: EN_PRESUPUESTO, t, payload }, priv('proveedor')));
+    r.presupuestos.push(await escribirDesde(eje, { modo: 'sequenced', autor: 'proveedor', sobre: r.tarea.id, en: r.tarea.payload[5], t, payload }, priv('proveedor')));
   }
   if (tope < 2) return r;
 
