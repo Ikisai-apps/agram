@@ -13,6 +13,13 @@ import { escribirDesde } from './escritura.js';
 import { contarPosiciones } from './modos.js';
 import { AMBITO_GENESIS } from './tokens.js';
 
+// Ningún registro del motor guarda clase: la de una dirección se lee con
+// claseDe(dir, camino), relativa al camino desde el que se escribe (la
+// matriz es relativa al camino: el dígito n + 2 bajo un camino de
+// profundidad n). Autorizar y ejecutar se escriben en FABRICA, sin camino:
+// la celda 4.0.0, de clase 0, aunque ejecutar sea una acción ([X] decidir VG
+// en qué dirección se escriben para que su clase salga de ella, o si no la
+// llevan).
 export const FABRICA = '4000000000';
 
 /** Camino que se muestra de un ocupante: su posición 0 si es un array (su representación), si no él mismo. */
@@ -106,12 +113,21 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], e
  * o varias en un array, que se combinan en la misma posición) se funden en
  * un array consolidado con referencias a sus fuentes y se registran como
  * evento anclado a la fábrica del foco. No ejecuta nada.
+ * `encaje` dice de dónde vino cada elección con fuente; los terminales
+ * nuevos, que no vienen de ninguna, van aparte en `nuevos` ({ posicion,
+ * destino }). Ninguno guarda clase: la de una elección se lee con
+ * claseDe(destino, camino). Con la matriz relativa al camino, la elección i
+ * es la celda i.0.0 bajo `camino`, de clase 0 con cualquier camino. [X]
+ * decidir VG: si la clase de una elección es la de su destino o la 4 de la
+ * fábrica (direccion([...camino, 4])) donde se ancla el registro; y si el
+ * registro guarda su camino (hoy no: sin él no se sabe desde dónde leer).
  */
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada) {
   if (!elecciones || !Object.keys(elecciones).length) throw new Error('nada que consolidar');
   const payload = [titulo];
   const fuentes = [];
   const encaje = []; // de dónde vino cada elección, cuánto se desplazó y en qué sentido
+  const nuevos = []; // dónde va cada terminal nuevo: no viene de ninguna fuente, así que no tiene encaje
   const indicesElegidos = Object.keys(elecciones).map(Number).sort((a, b) => a - b);
   const ultimo = indicesElegidos[indicesElegidos.length - 1];
   if (indicesElegidos.some((i) => !Number.isInteger(i) || i < 1 || i > 9)) throw new Error('las elecciones van en posiciones 1–9');
@@ -133,12 +149,17 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
       encaje.push({ posicion: i, evento: c.evento, tipo: c.tipo ?? c.origen, origen, destino, vector: v, signo: c.signo ?? signo(v) });
       return { ref: c.evento, dir: c.dir ?? '0000000000' };
     }
-    return e; // terminal nuevo
+    // Terminal nuevo: no viene de ninguna fuente. Una entrada por posición, también si se combinan varios.
+    if (!nuevos.some((n) => n.posicion === i)) nuevos.push({ posicion: i, destino });
+    return e;
   };
   for (let i = 1; i <= ultimo; i++) {
     const e = elecciones[i];
     if (e === undefined) {
-      // Hueco: se hereda del foco por referencia si existe; si no, se rechaza.
+      // Hueco: se hereda del foco por referencia si tiene ocupantes en esa
+      // dirección; si no, se rechaza. [X] decidir VG: si consolidar usa la
+      // matriz como desdeMapped (heredar solo lo que el foco tiene en el
+      // camino exacto y anclar lo lejano en su posición en vez de rechazarlo).
       const hay = ocupantes(eje, foco, [...camino, i]).length > 0;
       if (!hay) throw new Error('hueco en ' + i + ': elige algo o quita las posiciones siguientes');
       payload.push({ ref: foco, dir: direccion([...camino, i]) });
@@ -153,7 +174,7 @@ export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Conso
     en: direccion([...camino, 4]),
     payload,
     t,
-    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)], encaje },
+    contexto: { motor: 'fabrica', fase: 'consolidado', fuentes: [...new Set(fuentes)], encaje, nuevos },
   }, privada);
 }
 

@@ -55,25 +55,43 @@ test('Mapped escribe una décupla y hereda del foco por referencia las celdas va
   assert.deepEqual(resolver(eje.obtener(compra.id).payload, payload[3].dir), ['huesped', 'cocina']);
 });
 
-test('Mapped rechaza huecos que el foco no puede heredar', async () => {
+test('Mapped ancla en su posición lo que el foco no puede heredar, en vez de rechazarlo', async () => {
   const { eje, compra } = await ejemploCompra();
   const celdas = [];
   celdas[7] = ['más tarde'];
-  assert.throws(() => desdeMapped(eje, celdas, compra.id), /hueco en 5/);
+  const { payload, anclados } = desdeMapped(eje, celdas, compra.id);
+  assert.equal(payload, null); // nada cabe dentro: el foco no tiene 5 ni 6
+  assert.deepEqual(anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'más tarde', faltan: ['5', '6'] }]);
   assert.throws(() => desdeMapped(eje, [], compra.id), /vacía/);
 });
 
-test('la proporción del modo se respeta', async () => {
+test('la proporción del modo se respeta, como antes, y además el tope duro', async () => {
   const { eje, compra } = await ejemploCompra();
+  // La proporción rechaza como antes del 7-11 ([X] decidir VG si rechaza o solo informa).
   await assert.rejects(
     escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: ['a', 'b'], t: '2026-11-07T14:00:00Z' }),
-    /pointed escribe como mucho 1/,
+    /^Error: pointed escribe como mucho 1 posiciones; este registro tiene 2$/,
   );
   const grande = Array(10).fill(Array(3).fill('x'));
   await assert.rejects(
     escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
-    /sequenced escribe como mucho 20/,
+    /^Error: sequenced escribe como mucho 20 posiciones; este registro tiene 30$/,
   );
   const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' });
   assert.equal(ev.movimientos[0].cantidad, 30);
+  // La proporción se mira primero: el mensaje es el de siempre aunque también se pase el tope (30 > 10 en Pointed), como en main.
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, payload: grande, t: '2026-11-07T14:00:00Z' }),
+    /^Error: pointed escribe como mucho 1 posiciones; este registro tiene 30$/,
+  );
+  // Además, el tope duro: decide donde la proporción no rechaza (Scened no tiene proporción).
+  const diezMilUno = [Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z')))), 'una más'];
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'scened', autor: 'huesped', sobre: compra.id, payload: diezMilUno, t: '2026-11-07T14:00:00Z' }),
+    /^Error: Scened emite como mucho 10000 posiciones; este registro tiene 10001$/,
+  );
+  await assert.rejects(
+    escribirDesde(eje, { modo: 'otro', autor: 'huesped', sobre: compra.id, payload: 'x', t: '2026-11-07T14:00:00Z' }),
+    /^Error: modo desconocido: otro$/,
+  );
 });

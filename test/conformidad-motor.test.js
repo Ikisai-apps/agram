@@ -613,7 +613,7 @@ test('MOT-30 lo consolidado en un registro ocupa un espacio de diez por diez', a
 });
 
 test('MOT-30b las diez posiciones del registro se pueden elegir: diez interpretaciones por diez interacciones',
-  { skip: 'MOT-30: el mapa §12 (7-11) fija los ejes: posición × subposición del foco, de 0 a 9, con la clase de modificación como tercera dimensión (la matriz 10×10×10 llega con la #40, en src/escritura.js). consolidar() aún reserva la posición 0 para su título y no deja elegirla, así que solo caben nueve por diez' },
+  { skip: 'MOT-30: el mapa §12 (7-11) fija los ejes: posición × subposición del foco, de 0 a 9, con la clase de modificación como tercera dimensión (la matriz 10×10×10 está en src/escritura.js desde la #40). consolidar() aún reserva la posición 0 para su título y no deja elegirla, así que solo caben nueve por diez' },
   async () => {
     const { eje, g } = await mundo(['Foco']);
     const elecciones = {};
@@ -844,7 +844,10 @@ test('MOT-55 forma por modo: Pointed un terminal; Sequenced una hilera de 1–10
   assert.deepEqual(payload[3], 'nuevo aviso');
   const lejos = [];
   lejos[7] = ['x'];
-  assert.throws(() => desdeMapped(eje, lejos, g), /hueco en 5/);
+  // Lo lejano se ancla (mapa §12, «lo lejano = anclaje»; PR #40): la 7 va aparte, en su dirección, sin rellenar 5 y 6.
+  const r = desdeMapped(eje, lejos, g);
+  assert.equal(r.payload, null);
+  assert.deepEqual(r.anclados.map((x) => [x.en, x.payload, x.faltan]), [['7000000000', 'x', ['5', '6']]]);
 });
 
 test('MOT-56 la proporción se cuenta en posiciones: una por terminal o referencia', () => {
@@ -875,7 +878,7 @@ test('MOT-58 desde Sequenced se escribe como mucho una quinta parte de lo leído
 });
 
 test('MOT-58b desde Sequenced se escribe al menos una décima parte de lo leído',
-  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. El mapa §12 fija topes duros por modo (Sequenced 100) además de la proporción, y que siempre se emite algo (la #40 pone los topes); no fija un mínimo. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
+  { skip: 'MOT-58: el mínimo no se exige (escribirDesde acepta una posición) y desdeSequenced solo llega a 10 posiciones. El mapa §12 fija topes duros por modo (Sequenced 100) además de la proporción, y que siempre se emite algo (los topes están en src/modos.js desde la #40); no fija un mínimo. [!] §10.1 dice «Sequenced 1–2 de 100», que no cuadra con «entre un quinto y un décimo». [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'sequenced', autor: 'ana', sobre: g, payload: ['solo una'], t: T0 }));
@@ -891,7 +894,7 @@ test('MOT-59 desde Mapped se escribe como mucho un tercio de lo leído (333 de 1
 });
 
 test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 1000)',
-  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped llega como mucho a 100 y consolidar() escribe en Mapped con pocas posiciones. El mapa §12 fija topes duros por modo (Mapped 1000) además de la proporción (la #40 pone los topes); no fija un mínimo. [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
+  { skip: 'MOT-59: solo se exige el máximo; escribirDesde en Mapped acepta una posición, desdeMapped conforma la matriz 10×10×10 bajo un camino y consolidar() escribe en Mapped con pocas posiciones. El mapa §12 fija topes duros por modo (Mapped 1000) además de la proporción (están en src/modos.js desde la #40); no fija un mínimo. [X] decidir VG si el mínimo de la banda es obligatorio (MOT-60)' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: ['una'], t: T0 }));
