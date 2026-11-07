@@ -1,58 +1,115 @@
-// Ejemplo ampliado de la compra, con datos inventados: varias compras
-// hermanas en dos menús de la casa y en un puesto del mercado, para tener
-// cohortes que resumir en el 8 (bases del 8, src/bases.js). Nada es real.
+// Ejemplo de compras hermanas, con datos inventados: dos proyectos de una
+// casa con menús y un puesto, y compras sobre cada uno, para tener cohortes
+// que resumir en el 8 (bases del 8, src/bases.js). Nada es real.
 //
-//   génesis «Casa de ejemplo» (casa)
-//   ├─ alta «Altas del fin de semana» (casa)          ← proyecto A
-//   │  ├─ menú del día (cocina)
-//   │  │  ├─ compra del menú (huesped)  ← la del ejemplo base, con su cuenta encima
+//   génesis «Casa de ejemplo» (casa)                    ← la casa escribe la base del génesis
+//   ├─ «Comedor del fin de semana» (casa)  cosa comedor  ← proyecto A
+//   │  ├─ «Menú del día» (cocina)          cosa menu-dia
+//   │  │  ├─ compra del menú (huesped)
 //   │  │  ├─ compra de fruta (huesped)
 //   │  │  ├─ compra de dos guisos (vecina) ← una fórmula resuelta y otra pendiente
 //   │  │  └─ «Un café» (huesped)           ← un terminal
-//   │  └─ menú de la cena (cocina)
+//   │  └─ «Menú de la cena» (cocina)       cosa menu-cena
 //   │     ├─ compra de la cena (huesped)
 //   │     └─ sopa para llevar (vecina)
-//   └─ «Mercado del sábado» (casa, da de alta a vecina) ← proyecto B
-//      └─ puesto de fruta (cocina)
+//   └─ «Mercado del sábado» (casa)         cosa mercado  ← proyecto B
+//      └─ «Puesto de fruta» (cocina)       cosa puesto
 //         ├─ compra de manzanas (vecina)
 //         └─ compra de peras (huesped)
 //
-// Las bases las escribe la casa (tiene clave y firma); [X] decidir VG:
-// deberían escribirlas las propias cosas.
+// La base de cada registro la escribe la propia cosa, con su clave y gastando
+// su T (mapa §12). Cada registro que resume a otros da de alta, en su mismo
+// evento, a su cosa: tipo 'cosa', su clave y unos minutos de T. Así se
+// identifica hoy un registro con su identidad ([X] decidir VG, src/bases.js
+// identidadDe); la del génesis es su autor, la casa.
 
-import { ejemploCompra, ejemploCuenta } from './compra-food.mjs';
-import { escribirBase } from '../../src/bases.js';
+import { Eje } from '../../src/eje.js';
+import { generarClaves } from '../../src/autoridad.js';
+import { escribirBase, identidadDe } from '../../src/bases.js';
 
+const T = '2026-11-07T09:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
 const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const minutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
+/** Las cosas del ejemplo: cada registro que resume a otros es una cosa con su clave. */
+export const COSAS = Object.freeze(['comedor', 'menu-dia', 'menu-cena', 'mercado', 'puesto']);
+
+/** Da de alta a una cosa en el propio registro: tipo, clave y minutos para escribir sus bases. */
+const altaDeCosa = (cosa, claves) => ({ tipos: { [cosa]: 'cosa' }, claves: { [cosa]: claves[cosa].publica } });
+
 /**
- * claves: { casa: {publica, privada}, ... }. La casa necesita clave para
- * escribir bases. Devuelve el eje y los ids de cada registro.
+ * claves (opcional): { casa, comedor, 'menu-dia', 'menu-cena', mercado,
+ * puesto, ... } con { publica, privada }; las que falten de la casa y de las
+ * cosas se generan. Devuelve el eje, las claves y cada registro.
  */
-export async function ejemploComprasHermanas({ claves = {} } = {}) {
+export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
+  const claves = { ...dadas };
+  for (const id of ['casa', ...COSAS]) claves[id] ??= await generarClaves();
   const priv = (id) => claves[id]?.privada;
-  const { eje, alta, menu, compra } = await ejemploCompra({ claves });
-  const cuenta = await ejemploCuenta(eje, compra, priv('cocina'));
+  const eje = await Eje.genesis({
+    identidad: 'casa',
+    tipo: 'grupo',
+    emision: [
+      { token: 'T', escala: 'hora', cantidad: 1000 },
+      { token: 'T', escala: 'minuto', cantidad: 1000 },
+      { token: 'E', denominacion: 'EUR', cantidad: 500 },
+      { token: 'P', cantidad: 10, ambito: 'genesis' },
+    ],
+    foco: 'Casa de ejemplo',
+    t: T,
+    clave: claves.casa.publica,
+    privada: priv('casa'),
+  });
   const escribir = (datos) => eje.escribir(datos, priv(datos.autor));
 
-  // Proyecto B: el mercado, que además da de alta a una vecina (persona).
-  const mercado = await escribir({
+  // Proyecto A: el comedor da de alta a cocina, huesped y vecina, y a su cosa.
+  const personas = {};
+  for (const id of ['cocina', 'huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
+  const comedor = await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
-    t: '2026-11-07T15:00:00Z',
+    t: T,
     movimientos: [
       minuto('casa'),
+      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
+      minutos('casa', 'cocina', 240),
+      eur('casa', 'huesped', 60),
+      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
+      eur('casa', 'vecina', 40),
       { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'vecina' },
-      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'vecina' },
-      eur('casa', 'vecina', 30),
+      minutos('casa', 'comedor', 10),
     ],
-    payload: ['Mercado del sábado', ['fruta', 'pan']],
-    contexto: { tipos: { vecina: 'persona' } },
+    payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],
+    contexto: {
+      tipos: { cocina: 'grupo', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
+      claves: { ...personas, comedor: claves.comedor.publica },
+    },
   });
 
-  // Compras hermanas de la compra del ejemplo base, sobre el menú del día.
+  // El menú del día y sus cuatro compras hermanas.
+  const menu = await escribir({
+    autor: 'cocina',
+    sobre: comedor.id,
+    t: T,
+    movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: 'cocina', a: null }, minutos('cocina', 'menu-dia', 10)],
+    payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano']],
+    contexto: altaDeCosa('menu-dia', claves),
+  });
+  const compra = await escribir({
+    autor: 'huesped',
+    sobre: menu.id,
+    t: '2026-11-07T13:30:00Z',
+    movimientos: [hora('huesped'), eur('huesped', 'cocina', 12)],
+    payload: [
+      'Compra del menú del día',
+      [{ ref: menu.id, dir: '1000000000' }, 1, 'EUR 12'],
+      [{ ref: menu.id, dir: '2000000000' }],
+      ['huesped', 'cocina'],
+      ['pagar', 'servir'],
+    ],
+  });
   const fruta = await escribir({
     autor: 'huesped',
     sobre: menu.id,
@@ -84,10 +141,11 @@ export async function ejemploComprasHermanas({ claves = {} } = {}) {
   // El menú de la cena, hermano del menú del día, con dos compras.
   const cena = await escribir({
     autor: 'cocina',
-    sobre: alta.id,
+    sobre: comedor.id,
     t: '2026-11-07T16:00:00Z',
-    movimientos: [hora('cocina')],
+    movimientos: [hora('cocina'), minutos('cocina', 'menu-cena', 10)],
     payload: ['Menú de la cena', ['sopa', 'tortilla'], ['vegetariano']],
+    contexto: altaDeCosa('menu-cena', claves),
   });
   const compraCena = await escribir({
     autor: 'huesped',
@@ -104,13 +162,22 @@ export async function ejemploComprasHermanas({ claves = {} } = {}) {
     payload: ['Sopa para llevar', [{ ref: cena.id, dir: '1000000000' }, 1, '=9 EUR - 2 EUR']],
   });
 
-  // El puesto del mercado, con dos compras.
+  // Proyecto B: el mercado, su cosa y un puesto con dos compras.
+  const mercado = await escribir({
+    autor: 'casa',
+    sobre: eje.genesisId,
+    t: '2026-11-07T15:00:00Z',
+    movimientos: [minuto('casa'), minutos('casa', 'mercado', 10), eur('casa', 'vecina', 30)],
+    payload: ['Mercado del sábado', ['fruta', 'pan']],
+    contexto: altaDeCosa('mercado', claves),
+  });
   const puesto = await escribir({
     autor: 'cocina',
     sobre: mercado.id,
     t: '2026-11-07T17:00:00Z',
-    movimientos: [hora('cocina')],
+    movimientos: [hora('cocina'), minutos('cocina', 'puesto', 10)],
     payload: ['Puesto de fruta', ['manzanas', 'peras']],
+    contexto: altaDeCosa('puesto', claves),
   });
   const manzanas = await escribir({
     autor: 'vecina',
@@ -127,26 +194,24 @@ export async function ejemploComprasHermanas({ claves = {} } = {}) {
     payload: ['Compra de peras', [{ ref: puesto.id, dir: '1100000000' }, 2, 'EUR 3']],
   });
 
-  return { eje, alta, menu, compra, cuenta, fruta, guisos, cafe, cena, compraCena, sopa, mercado, puesto, manzanas, peras };
+  return { eje, claves, comedor, menu, compra, fruta, guisos, cafe, cena, compraCena, sopa, mercado, puesto, manzanas, peras };
+}
+
+/** Escribe la base de un registro del ejemplo: la firma su propia cosa. */
+export function escribirBaseDe(ej, registro, { t = '2026-11-07T18:00:00Z' } = {}) {
+  const cosa = identidadDe(ej.eje, registro);
+  return escribirBase(ej.eje, { registro, privada: ej.claves[cosa]?.privada, t });
 }
 
 /**
- * Escribe las bases del ejemplo, de abajo arriba: las de los hermanos en el
- * 8 del menú, de la cena y del puesto; las fundidas en el 8 de los dos
- * proyectos (alta y mercado) y en el del génesis. Todas firmadas por la casa.
+ * Escribe las seis bases del ejemplo, de abajo arriba (cada una funde las de
+ * los hijos ya escritas): los dos menús y el puesto; los dos proyectos; el
+ * génesis. Cada una la firma su propia cosa.
  */
-export async function escribirBasesDelEjemplo(ej, privadaCasa, { t = '2026-11-07T18:00:00Z' } = {}) {
-  const { eje } = ej;
-  const escribir = (padre, desde) => escribirBase(eje, { autor: 'casa', padre, privada: privadaCasa, t, desde });
-  const hermanos = {
-    menu: await escribir(ej.menu.id, 'hijos'),
-    cena: await escribir(ej.cena.id, 'hijos'),
-    puesto: await escribir(ej.puesto.id, 'hijos'),
-  };
-  const proyectos = {
-    alta: await escribir(ej.alta.id, 'bases'),
-    mercado: await escribir(ej.mercado.id, 'bases'),
-  };
-  const general = await escribir(eje.genesisId, 'bases');
-  return { hermanos, proyectos, general };
+export async function escribirBasesDelEjemplo(ej, { t = '2026-11-07T18:00:00Z' } = {}) {
+  const de = (registro) => escribirBaseDe(ej, registro, { t });
+  const menus = { menu: await de(ej.menu.id), cena: await de(ej.cena.id), puesto: await de(ej.puesto.id) };
+  const proyectos = { comedor: await de(ej.comedor.id), mercado: await de(ej.mercado.id) };
+  const general = await de(ej.eje.genesisId);
+  return { menus, proyectos, general };
 }

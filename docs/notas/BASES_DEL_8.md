@@ -1,6 +1,6 @@
 # Bases del 8: registros fundibles en la posición 8
 
-Nota de la pieza · 7-11-2026 · Código: `src/bases.js`. Pruebas: `test/bases.test.js`. Ejemplo: `ejemplos/ikisai/compras-hermanas.mjs` (datos inventados). Resumen en `docs/MOTOR.md` §14. Lo que el mapa no decide va marcado **[X] decidir VG**; nada de eso se ha inventado como decisión, solo como valor provisional para que el código funcione.
+Nota de la pieza · 7-11-2026 · Código: `src/bases.js` (y el filtro de las bases en `src/tiempo.js`, `BASES()` en `src/bql.js`). Pruebas: `test/bases.test.js`. Ejemplo: `ejemplos/ikisai/compras-hermanas.mjs` (datos inventados). Resumen en `docs/MOTOR.md` §14 y `docs/BQL.md` §7.13. Lo que el mapa no decide va marcado **[X] decidir VG**; nada de eso se ha inventado como decisión, solo como valor provisional para que el código funcione.
 
 Rutas abreviadas: `MAPA` = `C:\Users\acer\Documents\Ikisai\MUELA\equipo\agram\MAPA_GLOBAL_AGRAM.md`; `PV8_R1` = `agx/80_HERENCIA_V3_INTEGRA/80_V2_INTEGRO/90_FUENTES_CONSULTA/AGRAM_PV8_R1_Calibracion_Dinamica_Comparabilidad_Impugnacion_v1.1-candidata.md` (herencia V2, candidata).
 
@@ -10,161 +10,173 @@ Rutas abreviadas: `MAPA` = `C:\Users\acer\Documents\Ikisai\MUELA\equipo\agram\MA
 
 > tres cohortes útiles (hermanos = elementos similares; linaje/proyecto = dónde estoy; general = el ámbito). Sin base de datos aparte: las estadísticas son REGISTROS escritos en la posición 8 del registro que resumen («bases»), con referencias a lo medido; el 8 del proyecto funde las bases de sus hijos; el 8 del génesis funde las de los proyectos. Corregir = añadir otra base (historia gratis). Medidas FUNDIBLES: recuentos, sumas, mín, máx e histograma de diez cajas por medida = una décupla por medida, cuyas diez posiciones son los diez niveles/hitos del 8; el foco se sitúa en su caja en cada cohorte. Fundir es O(1); la base lleva fecha y frescura. La escribe la propia cosa (proyecto) con su clave y gastando su T. Cortes de las cajas = regla de la época. Lo no fundible (medianas exactas, correlaciones) se aproxima o se descarta. Código: bases en el 8 con fundir/frescura y BASES() en BQL; la cohorte se elige leyendo el 8 del padre, del proyecto o del génesis.
 
-Del corpus heredado (V2, candidato; solo como apoyo, no decide): «La misma evidencia en una cohorte nueva: posición **relativa** distinta» y «No borrar las valoraciones anteriores. Cada valoración es un producto contextual con identificador, perfil de reglas, snapshot del corpus accesible, cohorte y resultado» (`PV8_R1` l.235 y l.238); «Dos cohortes no conectadas — Comparar por separado; no inventar escala puente» (`PV8_R1` l.376, R29); distinguir `n_registros` de `n_actores_declarados` (`PV8_R1` §6.2).
+Y `MAPA` §12, [D] «Corrección de VG sobre titulares»: las cosas tienen clave privada y pública, firman por sí mismas y tienen cartera; quien da de alta declara persona, grupo o cosa. Los diez hitos llevan sus etiquetas literales (`MAPA` §2.2 [D20]).
+
+Del corpus heredado (V2, candidato; solo como apoyo, no decide): «La misma evidencia en una cohorte nueva: posición **relativa** distinta» y «No borrar las valoraciones anteriores. Cada valoración es un producto contextual con identificador, perfil de reglas, snapshot del corpus accesible, cohorte y resultado» (`PV8_R1` l.235 y l.238); «Dos cohortes no conectadas — Comparar por separado; no inventar escala puente» (`PV8_R1` l.376, R29).
 
 ## 2. Qué hace el código
 
-### 2.1 Medidas de un registro: `medir(eje, id)`
+### 2.1 Una sola verdad con la confluencia
 
-Recuentos, todos fundibles. Un objeto plano `{ <medida>: número }`:
+La confluencia del 8 (`tiempo.confluir`, PR #19, ya en `main`) calcula al vuelo las bases de una cohorte. Las bases del 8 son **lo mismo, escrito**: `bases.medir` es `tiempo.medidasDe` (con un guarda para `BASES()`), las cohortes son las de `tiempo.comparables` (`tiempo.proyectoDe` para el proyecto), la caja es `tiempo.cajaDe`, cada medida se funde con `tiempo.fundir` y los cortes salen del mismo gancho `epoca.cortes(clave)`. Con los mismos cortes, `situar` da los mismos números que `confluir` en las tres cohortes (lo comprueba `test/bases.test.js`).
 
-| Medida | Qué cuenta |
-|---|---|
-| `posiciones.0` … `posiciones.9` | posiciones desarrolladas (terminales, referencias incluidas) bajo la posición k de la raíz del payload: una décupla por registro. Un payload terminal no tiene posición 0: cuenta 0 en cada PV. |
-| `posiciones` | posiciones desarrolladas del payload entero (un terminal = 1). |
-| `escritos` | registros escritos encima (hijos), **sin contar las bases**. |
-| `identidades` | identidades distintas entre el autor y los `de`/`a` de sus movimientos. |
-| `profundidad` | del hilo: génesis = 0. |
-| `formulas.resueltas`, `formulas.pendientes` | fórmulas BQL del payload evaluadas al medir; pendiente = no resuelta (PENDIENTE, INCOMPATIBLE o ERROR). |
-| `movimientos.<clave de serie>` | movimientos del evento en cada serie de token (`movimientos.T:hora`, `movimientos.E:casa/EUR`, `movimientos.P:<ámbito>`, `movimientos.R:<emisor>`). Una por serie movida; sin conversión ni suma entre series. |
+Una estadística guarda, para un conjunto de registros: `n`; por cada medida de `tiempo.MEDIDAS` (posiciones desarrolladas, terminales, escritos, movimientos, identidades, profundidad del hilo, fórmulas resueltas y pendientes) y por cada serie de token movida (`T:hora`, `E:casa/EUR`…), un bloque `{ n, suma, minimo, maximo, cortes, origenCortes, cajas }`; por cada posición 0–9, cuántos la tienen desarrollada y por qué procedencia (propia, referencia, escrita); y cuántos tienen algo escrito en la raíz. Todo se funde sumando: O(1) respecto a lo medido.
 
-Las dieciséis primeras son fijas (`MEDIDAS`); las de movimientos aparecen con las series. Una serie que una base no nombra vale cero en sus n registros, así que fundir es exacto.
+### 2.2 La escribe la propia cosa
 
-### 2.2 Histograma de diez cajas y cortes
+`escribirBase(eje, { registro, privada, t, epoca })` escribe un evento en el 8 del registro (`sobre`: el registro, `en`: `CIELO = '8000000000'`), firmado por la **identidad propia** del registro y gastando un minuto de su T (`COSTE_BASE`). El contexto es `{ bases: true, n, nSubarbol, hasta, epoca, sinBase }`.
 
-Por medida, una base guarda `{ cajas: [diez recuentos], suma, minimo, maximo }` y la base entera `n`. Las diez posiciones de `cajas` son los diez niveles/hitos del 8: `ETIQUETAS` = `HITOS` de `src/tiempo.js`, **solo como etiquetas** (`cajasEtiquetadas(base, medida)`); nada asigna nivel ni grado a nadie.
+`identidadDe(eje, id)` dice cuál es esa identidad: la única cosa (tipo `cosa`, con clave) a la que el propio registro da de alta en su contexto; la del génesis, su autor (el génesis solo declara a su autor). Sin identidad propia, el registro no escribe bases. **[X] decidir VG: cómo se identifica un registro con una identidad** (es de AARPIA; esto es lo mínimo que el eje ya permite: dar de alta una cosa con su clave y su T en el mismo evento).
 
-Cortes fijos por medida (`CORTES`, nueve umbrales; caja k = valores con `cortes[k-1] <= v < cortes[k]`):
+### 2.3 Cortes: regla de la época
 
-| Medidas | Cortes | Cajas |
+Los cortes de las cajas de una medida salen de `epoca.cortes(clave)`, con las claves de `confluir` (`'terminales'`, `'T:hora'`…). La época 0 no los declara. Sin ellos, `confluir` saca los de cada cohorte (igual anchura), que no se funden; una base no puede, porque sus cajas se funden con las de otras bases, así que usa unos provisionales fijos (`CORTES_PROVISIONALES`, `origenCortes: 'provisional'`):
+
+| Medidas | Cortes provisionales | Cajas |
 |---|---|---|
-| `posiciones.*`, `posiciones`, `escritos` | 1 2 3 4 6 10 16 26 42 | 0 · 1 · 2 · 3 · 4–5 · 6–9 · 10–15 · 16–25 · 26–41 · ≥42 |
-| `identidades`, `profundidad`, `formulas.*`, `movimientos.*` | 1 2 3 4 5 6 7 8 9 | 0 · 1 · … · 8 · ≥9 |
+| `terminales`, `escritos`, cantidades de token | 1 2 3 4 6 10 16 26 42 | 0 · 1 · 2 · 3 · 4–5 · 6–9 · 10–15 · 16–25 · 26–41 · ≥42 |
+| `posiciones`, `movimientos`, `identidades`, `profundidadHilo`, `formulasResueltas`, `formulasPendientes` | 1 2 3 4 5 6 7 8 9 | 0 · 1 · … · 8 · ≥9 |
 
-**[X] decidir VG: cortes = regla de la época.** Hoy son una constante (`VERSION_CORTES = 'cortes-0'`) que va en el contexto de cada base; `fundir` rechaza bases con cortes distintos (no se inventa escala puente).
+Que los cortes son regla de la época está decidido; **[X] decidir VG: sus valores**. Cada bloque guarda sus cortes y `fundir` rechaza bloques con cortes distintos (no se inventa escala puente); los mismos cortes de orígenes distintos sí se funden, y el bloque lo dice (`origenCortes: 'mixto'`).
 
-### 2.3 Fundir: `fundir(a, b)`
+### 2.4 Una base por 8, con dos estadísticas
 
-Suma caja a caja, suma las sumas y `n`, toma mínimo y máximo. Coste fijo (dieciséis medidas más las series), independiente de cuántos registros resuma cada base: O(1) respecto a lo medido. Conmutativa y asociativa, con neutro `baseVacia()`. Rechaza cortes distintos y profundidades distintas. Devuelve solo la estadística; las referencias las pone quien construye la base.
+`calcularBase(eje, registro)` calcula lo que se escribe:
 
-Lo no fundible no está: ni medianas ni cuantiles ni correlaciones. La media sale de `suma / n`.
+- **hijos**: los hijos del registro, medidos uno a uno: los hermanos entre sí. Es la cohorte de hermanos de cada hijo.
+- **subárbol**: el registro y todo lo que cuelga de él. Es la cohorte de proyecto (en el 8 del proyecto) y la general (en el del génesis). Funde, **sin releer registros**, el subárbol de la base vigente de cada hijo: así el 8 del proyecto funde las bases de sus hijos y el del génesis las de los proyectos. Un hijo sin base cuenta por sí mismo; si además tiene descendencia, esa descendencia no cuenta y el hijo queda en `sinBase`. **[X] decidir VG: cómo se completa lo que cuelga de un hijo sin base** (releerlo rompería «fundir es O(1)»).
 
-### 2.4 El 8 del padre: `baseDe(eje, padre)` y `escribirBase`
+Las referencias `{ref}` del payload apuntan a los hijos medidos y a las bases fundidas. `hasta` es el último hijo medido.
 
-`baseDe` mide uno a uno los hijos del padre (los hermanos entre sí, sin las bases) y los funde. `escribirBase(eje, { autor, padre, privada, t, desde = 'hijos' })` la escribe como un evento normal:
+### 2.5 Qué cuenta como base
 
-| Campo | Valor |
-|---|---|
-| `sobre` / `en` | el padre / `CIELO` = `'8000000000'` |
-| `autor` | una identidad **con clave**, que firma (`privada` obligatoria) |
-| `movimientos` | `COSTE_BASE`: un minuto de T del autor |
-| `contexto` | `{ bases: true, n, hasta, profundidad, desde, cortes }`; `hasta` = id del último hijo medido |
-| `payload` | `['Bases del 8', n, [diez bloques de posiciones.0–9], [seis bloques del registro], [pares (clave de serie, bloque)], [referencias {ref} a lo medido]]`, con `bloque = [cajas, suma, mínimo, máximo]`; las listas de más de diez se anidan en décuplas (`empaquetar`) |
+Solo es base (`esBase`, `basesEn`) lo que, en el 8 del registro:
 
-No se escribe una base vacía (`nada que medir`). **Corregir = escribir otra base**: la anterior se queda en el 8 como un ocupante más (colisión); `encaje.ocupantes(eje, padre, [8])` las da todas.
+1. firma la identidad propia del registro, que gasta T en el evento;
+2. lleva exactamente el contexto `{ bases, n, nSubarbol, hasta, epoca, sinBase }`, con tipos válidos, que casa con el payload;
+3. tiene un payload coherente: cajas que suman n, cortes crecientes, mínimo ≤ máximo, `n·mínimo ≤ suma ≤ n·máximo`, primera y última caja ocupadas iguales a las del mínimo y del máximo, recuentos por posición posibles;
+4. mide **todos** los hijos llegados hasta `hasta`, en su orden;
+5. funde bases válidas del 8 de esos hijos (como mucho una por hijo), y su `nSubarbol` es 1 más lo que aporta cada hijo.
 
-### 2.5 Hacia arriba: `fundirHaciaArriba(eje, id, { profundidad })`
+Lo demás escrito en el 8 (una compra que se declara base, una base bien formada firmada por otro, un contexto raro, unas referencias que no son los hijos) es **un hijo más**: cuenta en `escritos`, en `comparar` y en la confluencia, y deja la base vieja con novedades. Nadie se esconde declarándose base, y nadie falsea la estadística de una cosa que no es suya.
 
-La base de un registro a partir de las bases escritas en el 8 de sus hijos, **sin releer registros**. `profundidad` dice a cuántas generaciones por debajo están los registros medidos: la base de hijos es la 1; la del proyecto, que funde las de sus hijos, la 2; la del génesis sobre los proyectos, la 3 en el ejemplo. Así la cohorte siempre son registros a la misma altura y no se mezclan hijos con nietos. Sin `profundidad`, se infiere de las bases de los hijos (todas iguales, o error). Las referencias son las **bases fundidas**; los hijos con descendencia y sin base a esa profundidad quedan en `sinBase` (no cuentan: hay que escribirla antes), los que no tienen descendencia en `vacios`. Se escribe con `escribirBase(…, { desde: 'bases' })`.
+### 2.6 Las bases no son hermanas, escritos ni comparables
 
-### 2.6 Leer: `leerBase(eje, id, { profundidad, autor })`
+`bases.hijos(eje, id)` es lo escrito sobre un registro sin sus bases válidas. `src/tiempo.js` lo usa en `medir` (escritos), `comparar` (hermanos), `comparables` (las tres cohortes de `confluir`) y `posicionesDe` (una base en el 8 no desarrolla esa posición). Así escribir una base no cambia lo que mide, y `comparar` en la vista Mapped (`app.js`, celda 8) da lo mismo antes y después de escribir las bases. Una base solo se compara consigo misma.
 
-La base más reciente **por llegada** en el 8 de `id`, o `null`. Solo cuenta lo que está firmado por una identidad con clave y bien formado (cajas que suman n, extremos finitos, `n` igual al del contexto); lo demás escrito en el 8 se ignora. Devuelve la estadística, las referencias, los metadatos, `anteriores` (bases válidas anteriores en ese 8) y la **frescura**: `{ t, hijosNuevos, basesNuevas, alDia }`; `hijosNuevos` = hijos llegados después de `hasta`; `basesNuevas` (solo en las fundidas) = hijos cuya base vigente ya no es la fundida.
+### 2.7 Leer, frescura y comprobación
 
-### 2.7 Situar: `situar(eje, foco, { cohorte })`
+`leerBase(eje, id)` da la base vigente (la última llegada; **[X] decidir VG: «más reciente» por llegada, no por `t`**), con `anteriores` (las bases válidas anteriores: colisiones en el 8) y su **frescura**, que cuenta lo LLEGADO sin releer:
 
-| Cohorte | Lee el 8 de | Profundidad |
+- `hijosNuevos`: hijos del registro llegados después de `hasta`;
+- `basesNuevas`: hijos medidos cuya base vigente ya no es la fundida (o no la tenían);
+- `debajo`: lo mismo, sumado, en las bases fundidas que siguen vigentes, a cualquier altura;
+- `sinNovedades`: si todo es cero.
+
+La frescura no ve cambios en lo ya medido (un escrito sobre un hijo sin base, una fórmula que se resuelve). Para eso está `comprobar(eje, base)`, que recalcula la base y la compara, bajando por las fundidas vigentes, y dice `alDia` y qué difiere. **[X] decidir VG: qué es la frescura de una base** (el mapa solo dice que la lleva).
+
+### 2.8 Situar
+
+`situar(eje, foco, { alcance })` lee el 8 de la cohorte y devuelve la forma de `confluir`: por medida y por serie, el bloque con el foco situado (`foco`, `caja`, `hito`: la etiqueta de la caja, `enCaja`, `debajo`, `encima`, `media`); por posición, cuántos la tienen y si el foco la tiene; y la raíz. Añade `incluido` (si la base mide al foco, bajando por las fundidas) y `cambiadas` (medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya: ha cambiado desde entonces).
+
+| Alcance | Lee | Estadística |
 |---|---|---|
-| `hermanos` | el padre | 1 |
-| `proyecto` | el proyecto: el registro del hilo que cuelga del génesis (`proyectoDe`), o el `proyecto` dado si está en el hilo | distancia del foco al proyecto |
-| `general` | el génesis | profundidad del foco |
+| `hermanos` | el 8 del padre | hijos |
+| `proyecto` | el 8 de `tiempo.proyectoDe` (el registro del hilo que cuelga del génesis) | subárbol |
+| `general` | el 8 del génesis | subárbol |
 
-Por medida: `{ valor, caja, etiqueta (HITOS de esa caja), enCaja, debajo, encima, minimo, maximo, media }`, con `debajo + enCaja + encima = n`. Estado `RESUELTO`, o `PENDIENTE` con motivo: `sin cohorte` (el génesis no tiene padre; un proyecto no tiene proyecto encima) o `sin base en el 8 de …`. `incluido` dice si la base de hermanos mide al foco.
+`PENDIENTE` con el motivo si no hay base o cohorte (el génesis no tiene padre). Nada asigna nivel ni grado.
 
-### 2.8 Ejemplo ejecutado
+### 2.9 `BASES()` en BQL
 
-Árbol de `ejemplos/ikisai/compras-hermanas.mjs`: dos proyectos bajo el génesis (las altas, con el menú del día y el de la cena; el mercado, con un puesto), ocho compras a profundidad 3. La casa escribe seis bases (`escribirBasesDelEjemplo`): hermanos en el 8 del menú, de la cena y del puesto; fundidas en el 8 de los dos proyectos y del génesis.
+`BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k)` = cuántos hay en la caja k; `BASES(alcance, medida, campo)` = `suma`, `minimo`, `maximo`, `media` de la base o `foco`, `caja`, `enCaja`, `debajo`, `encima` del anfitrión. La dependencia es la base leída; el gancho `puedeLeer` de BQL decide leer la base y, si hay que situarlo, el anfitrión entero. Una fórmula `BASES()` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma). Detalle y ejemplos en `docs/BQL.md` §7.13. **[X] decidir VG: la firma de `BASES()`.**
+
+### 2.10 Ejemplo ejecutado
+
+Árbol de `ejemplos/ikisai/compras-hermanas.mjs`: dos proyectos bajo el génesis (el comedor, con el menú del día y el de la cena; el mercado, con un puesto) y ocho compras. Cada registro que resume a otros da de alta, en su propio evento, a su cosa (`comedor`, `menu-dia`, `menu-cena`, `mercado`, `puesto`) con clave y unos minutos de T. `escribirBasesDelEjemplo` escribe las seis bases de abajo arriba, cada una firmada por su cosa; la del génesis, por la casa.
 
 ```sh
 node --input-type=module -e "
-import { generarClaves } from './src/autoridad.js';
-import { ejemploComprasHermanas, escribirBasesDelEjemplo } from './ejemplos/ikisai/compras-hermanas.mjs';
-import { medir, leerBase, escribirBase, situar, cajasEtiquetadas, COHORTES } from './src/bases.js';
-const casa = await generarClaves();
-const ej = await ejemploComprasHermanas({ claves: { casa } });
+import { ejemploComprasHermanas, escribirBaseDe, escribirBasesDelEjemplo } from './ejemplos/ikisai/compras-hermanas.mjs';
+import { medir, leerBase, situar, comprobar, cajasEtiquetadas, identidadDe } from './src/bases.js';
+import { ALCANCES, comparar } from './src/tiempo.js';
+import { consultar } from './src/bql.js';
+const ej = await ejemploComprasHermanas();
 const { eje } = ej;
-console.log('guisos', JSON.stringify(medir(eje, ej.guisos.id)));
-await escribirBasesDelEjemplo(ej, casa.privada);
-const nombres = [['menú', ej.menu.id], ['cena', ej.cena.id], ['puesto', ej.puesto.id], ['alta', ej.alta.id], ['mercado', ej.mercado.id], ['génesis', eje.genesisId]];
+const g = medir(eje, ej.guisos.id);
+console.log('guisos', JSON.stringify({ posiciones: g.posiciones, terminales: g.terminales, escritos: g.escritos, identidades: g.identidades, profundidadHilo: g.profundidadHilo, formulasResueltas: g.formulasResueltas, formulasPendientes: g.formulasPendientes, tokens: g.tokens }));
+const antes = comparar(eje, ej.guisos.id);
+await escribirBasesDelEjemplo(ej);
+const nombres = [['menú', ej.menu.id], ['cena', ej.cena.id], ['puesto', ej.puesto.id], ['comedor', ej.comedor.id], ['mercado', ej.mercado.id], ['génesis', eje.genesisId]];
 for (const [nombre, id] of nombres) {
   const b = leerBase(eje, id);
-  console.log(nombre.padEnd(8), 'n', b.n, '· prof.', b.profundidad, '·', b.desde.padEnd(5), '· refs', b.refs.length, '· posiciones', b.medidas.posiciones.cajas.join(' '), '· suma', b.medidas.posiciones.suma, '· al día', b.frescura.alDia);
+  console.log(nombre.padEnd(8), 'firma', identidadDe(eje, id).padEnd(9), '· hijos', b.hijos.n, '· subárbol', String(b.subarbol.n).padStart(2), '· fundidas', b.refsBases.length, '· terminales', b.subarbol.medidas.terminales.cajas.join(' '), '· sin novedades', b.frescura.sinNovedades);
 }
-console.log(cajasEtiquetadas(leerBase(eje, eje.genesisId), 'posiciones').map((c) => c.caja + ' ' + c.nivel + ' ' + c.nombre + ': ' + c.cuenta).join(' | '));
-for (const cohorte of COHORTES) {
-  const s = situar(eje, ej.guisos.id, { cohorte });
-  const p = s.medidas.posiciones;
-  const f = s.medidas['formulas.pendientes'];
-  console.log(cohorte.padEnd(8), s.estado, '· n', s.n, '· posiciones', p.valor, 'caja', p.caja, '(' + p.etiqueta.nombre + ')', 'debajo', p.debajo, 'en caja', p.enCaja, 'encima', p.encima, '· pendientes', f.valor, 'caja', f.caja, 'debajo', f.debajo);
+console.log(cajasEtiquetadas(leerBase(eje, eje.genesisId).subarbol, 'terminales').map((c) => c.caja + ' ' + c.nombre + ': ' + c.cuenta).join(' | '));
+for (const alcance of ALCANCES) {
+  const s = situar(eje, ej.guisos.id, { alcance });
+  const t = s.medidas.terminales;
+  console.log(alcance.padEnd(8), s.estado, '· n', String(s.n).padStart(2), '· terminales', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', 'debajo', t.debajo, 'en caja', t.enCaja, 'encima', t.encima, '· pendientes', s.medidas.formulasPendientes.foco, 'debajo', s.medidas.formulasPendientes.debajo, '· la 4 en', s.posiciones[4].comparables + '/' + s.n);
 }
+const q = (f) => consultar(eje, ej.guisos.id, [], f).texto;
+console.log('BQL:', ['BASES(\"hermanos\")', 'BASES(\"general\")', 'BASES(\"proyecto\", \"terminales\")', 'BASES(\"general\", \"E:casa/EUR\", \"suma\")'].map((f) => f + ' = ' + q(f)).join(' · '));
+console.log('comparar igual tras las bases:', JSON.stringify(comparar(eje, ej.guisos.id).comparables.map((x) => x.id)) === JSON.stringify(antes.comparables.map((x) => x.id)));
 await eje.escribir({ autor: 'vecina', sobre: ej.menu.id, t: '2026-11-07T18:30:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null }], payload: 'Un té' });
-console.log('menú tras un té:', JSON.stringify(leerBase(eje, ej.menu.id).frescura));
-await escribirBase(eje, { autor: 'casa', padre: ej.menu.id, privada: casa.privada, t: '2026-11-07T19:00:00Z' });
+console.log('menú tras un té:', JSON.stringify(leerBase(eje, ej.menu.id).frescura), '· génesis:', JSON.stringify(leerBase(eje, eje.genesisId).frescura));
+await escribirBaseDe(ej, ej.menu.id, { t: '2026-11-07T19:00:00Z' });
 const m = leerBase(eje, ej.menu.id);
-console.log('menú corregido: n', m.n, '· anteriores', m.anteriores, '· al día', m.frescura.alDia, '· alta:', JSON.stringify(leerBase(eje, ej.alta.id).frescura));
-console.log('sin base:', situar(eje, ej.fruta.id, { cohorte: 'hermanos', autor: 'cocina' }).motivo.replace(/[0-9a-f]{8}/, '<menú>'), '· génesis:', situar(eje, eje.genesisId).motivo);
+console.log('menú corregido: hijos', m.hijos.n, '· anteriores', m.anteriores, '· comedor:', JSON.stringify(leerBase(eje, ej.comedor.id).frescura));
+await eje.escribir({ autor: 'vecina', sobre: ej.cafe.id, en: '4000000000', t: '2026-11-07T19:30:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null }], payload: 'Sin azúcar' });
+const c = comprobar(eje, leerBase(eje, ej.menu.id));
+console.log('nota sobre el café: sin novedades', leerBase(eje, ej.menu.id).frescura.sinNovedades, '· comprobar', c.alDia, JSON.stringify(c.diferencias.map((d) => d.hijos)));
 "
 ```
 
 ```text
-guisos {"posiciones.0":1,"posiciones.1":3,"posiciones.2":1,"posiciones.3":2,"posiciones.4":2,"posiciones.5":0,"posiciones.6":0,"posiciones.7":0,"posiciones.8":0,"posiciones.9":0,"posiciones":9,"escritos":0,"identidades":2,"profundidad":3,"formulas.resueltas":1,"formulas.pendientes":1,"movimientos.T:hora":1,"movimientos.E:casa/EUR":1}
-menú     n 4 · prof. 1 · hijos · refs 4 · posiciones 0 1 0 0 0 3 0 0 0 0 · suma 25 · al día true
-cena     n 2 · prof. 1 · hijos · refs 2 · posiciones 0 0 0 0 1 1 0 0 0 0 · suma 10 · al día true
-puesto   n 2 · prof. 1 · hijos · refs 2 · posiciones 0 0 0 0 2 0 0 0 0 0 · suma 8 · al día true
-alta     n 6 · prof. 2 · bases · refs 2 · posiciones 0 1 0 0 1 4 0 0 0 0 · suma 35 · al día true
-mercado  n 2 · prof. 2 · bases · refs 1 · posiciones 0 0 0 0 2 0 0 0 0 0 · suma 8 · al día true
-génesis  n 8 · prof. 3 · bases · refs 2 · posiciones 0 1 0 0 3 4 0 0 0 0 · suma 43 · al día true
-0 0.3 idea: 0 | 1 1.1 aprendizaje: 1 | 2 2.1 aprendizaje avanzado: 0 | 3 3.1 aprendizaje profesional: 0 | 4 3.2 resolución profesional: 3 | 5 4.1 aprendizaje superior: 4 | 6 4.2 solución profesional avanzada: 0 | 7 5.1 investigación: 0 | 8 5.2 trabajo maestro: 0 | 9 5.3 resolución experimental: 0
-hermanos RESUELTO · n 4 · posiciones 9 caja 5 (aprendizaje superior) debajo 1 en caja 3 encima 0 · pendientes 1 caja 1 debajo 3
-proyecto RESUELTO · n 6 · posiciones 9 caja 5 (aprendizaje superior) debajo 2 en caja 4 encima 0 · pendientes 1 caja 1 debajo 5
-general  RESUELTO · n 8 · posiciones 9 caja 5 (aprendizaje superior) debajo 4 en caja 4 encima 0 · pendientes 1 caja 1 debajo 7
-menú tras un té: {"t":"2026-11-07T18:00:00Z","hijosNuevos":1,"basesNuevas":0,"alDia":false}
-menú corregido: n 5 · anteriores 1 · al día true · alta: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":1,"alDia":false}
-sin base: sin base en el 8 de <menú> a profundidad 1 · génesis: sin cohorte: el foco no tiene padre
+guisos {"posiciones":5,"terminales":9,"escritos":0,"identidades":2,"profundidadHilo":3,"formulasResueltas":1,"formulasPendientes":1,"tokens":{"T:hora":1,"E:casa/EUR":12}}
+menú     firma menu-dia  · hijos 4 · subárbol  5 · fundidas 0 · terminales 0 1 0 0 0 4 0 0 0 0 · sin novedades true
+cena     firma menu-cena · hijos 2 · subárbol  3 · fundidas 0 · terminales 0 0 0 0 2 1 0 0 0 0 · sin novedades true
+puesto   firma puesto    · hijos 2 · subárbol  3 · fundidas 0 · terminales 0 0 0 1 2 0 0 0 0 0 · sin novedades true
+comedor  firma comedor   · hijos 2 · subárbol  9 · fundidas 2 · terminales 0 1 0 0 3 5 0 0 0 0 · sin novedades true
+mercado  firma mercado   · hijos 1 · subárbol  4 · fundidas 1 · terminales 0 0 0 2 2 0 0 0 0 0 · sin novedades true
+génesis  firma casa      · hijos 2 · subárbol 14 · fundidas 2 · terminales 0 2 0 2 5 5 0 0 0 0 · sin novedades true
+0 idea: 0 | 1 aprendizaje: 2 | 2 avanzado: 0 | 3 aprendizaje profesional: 2 | 4 resolución profesional: 5 | 5 aprendizaje superior: 5 | 6 solución profesional avanzada: 0 | 7 investigación: 0 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
+hermanos RESUELTO · n  4 · terminales 9 caja 5 (aprendizaje superior) debajo 1 en caja 3 encima 0 · pendientes 1 debajo 3 · la 4 en 2/4
+proyecto RESUELTO · n  9 · terminales 9 caja 5 (aprendizaje superior) debajo 4 en caja 5 encima 0 · pendientes 1 debajo 8 · la 4 en 2/9
+general  RESUELTO · n 14 · terminales 9 caja 5 (aprendizaje superior) debajo 9 en caja 5 encima 0 · pendientes 1 debajo 13 · la 4 en 2/14
+BQL: BASES("hermanos") = 4 · BASES("general") = 14 · BASES("proyecto", "terminales") = 5 · BASES("general", "E:casa/EUR", "suma") = 685
+comparar igual tras las bases: true
+menú tras un té: {"t":"2026-11-07T18:00:00Z","hijosNuevos":1,"basesNuevas":0,"debajo":0,"sinNovedades":false} · génesis: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":0,"debajo":1,"sinNovedades":false}
+menú corregido: hijos 5 · anteriores 1 · comedor: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":1,"debajo":0,"sinNovedades":false}
+nota sobre el café: sin novedades true · comprobar false [["escritos","posiciones","posiciones por PV"]]
 ```
 
-Los ids no se imprimen: la clave de la casa es nueva en cada ejecución y entra en el génesis, así que cambian.
+Los ids no se imprimen: las claves de la casa y de las cosas son nuevas en cada ejecución y entran en los eventos, así que cambian.
 
-Lectura: la compra de dos guisos (nueve posiciones, una fórmula pendiente) cae en la caja 5 de `posiciones` en las tres cohortes, pero la cohorte cambia lo que hay alrededor: con sus hermanos, uno por debajo y tres en su caja; en el ámbito general, cuatro por debajo. Es la única con una fórmula pendiente: en `formulas.pendientes` todo el resto queda por debajo. La etiqueta «aprendizaje superior» es la de la caja 5, no un grado de la compra.
+Lectura: la compra de dos guisos (nueve terminales, una fórmula pendiente) cae en la caja 5 de `terminales` en las tres cohortes, pero la cohorte cambia lo que hay alrededor: con sus hermanos, uno por debajo y tres en su caja; en el ámbito general, nueve por debajo. Es la única con una fórmula pendiente: en `formulasPendientes` todo el resto queda por debajo. La etiqueta «aprendizaje superior» es la de la caja 5, no un grado de la compra. Un té sobre el menú deja su base con novedades, y el génesis lo ve debajo (a través de la base del comedor); al corregir la base del menú, la del comedor ve una base nueva en sus hijos. Una nota sobre el café no es una llegada al menú: la frescura no la ve y `comprobar` sí.
+
+`E:casa/EUR` suma 685 en el ámbito general: son los euros movidos por los catorce registros (los 500 que emite el génesis, los que reparten el comedor y el mercado y los de las compras). Cada serie va por su clave y no se suma con otras.
 
 ## 3. Abiertos ([X] decidir VG)
 
-1. **Cortes = regla de la época.** Hoy, constante `CORTES` (`cortes-0`). Cuando la época los declare, cada base dirá con qué cortes se hizo y no se fundirán bases de cortes distintos (ya es así).
-2. **Quién escribe.** El mapa: «la propia cosa (proyecto) con su clave». Hoy: cualquier identidad con clave que firme y tenga T; en el ejemplo, la casa. Debería ser el registro resumido como identidad (una cosa con clave). Y quién puede escribir bases en un 8 ajeno (hoy cualquiera con clave: es de AARPIA).
-3. **Coste.** Un minuto de T, como la ejecución. Con la regla de escritura (un minuto por posición) serían cientos de minutos: cada medida ocupa trece posiciones.
-4. **Qué registro es el proyecto.** Hoy, el del hilo que cuelga del génesis (como en la PR #19); `situar` admite otro con `{ proyecto }` si está en el hilo.
-5. **Hermanos y la posición `en`.** Hoy los hermanos son todos los hijos del padre, anclados donde sea (como `comparar`).
-6. **Fórmulas pendientes.** PENDIENTE, INCOMPATIBLE y ERROR cuentan juntas como pendientes.
-7. **Disposición del payload.** Hoy una lista (título, n, PV, registro, series, referencias). Podría ir por PV (cada familia de medidas en el PV que le toca).
-8. **«Más reciente» por llegada**, no por `t`: una base con `t` atrasado escrita después manda.
-9. **Frescura** solo cuenta hijos nuevos y bases nuevas; no ve que un hijo ya medido haya cambiado (escritos nuevos encima, fórmulas que se resuelven).
+Lo decidido en `MAPA` §12 está construido: la base la escribe la propia cosa con su clave y gastando su T; los cortes salen de la época; `BASES()` está en BQL. Queda por decidir:
 
-## 4. BASES() en BQL (propuesta, no implementada)
+1. **Cómo se identifica un registro con una identidad.** Hoy, la única cosa con clave que el propio registro da de alta; la del génesis, su autor (§2.2).
+2. **Valores de los cortes** mientras la época no los declara (§2.3).
+3. **Coste de una base.** Un minuto de T, como la ejecución. Con la regla de escritura (un minuto por posición, `src/escritura.js`) serían cientos de minutos: una base ocupa cientos de posiciones.
+4. **Composición de las cohortes**, la misma que en `tiempo.comparables` (#19): qué registro es el proyecto, si su cohorte es todo lo que cuelga de él o solo sus hijos, y si los hermanos exigen además la misma posición `en`.
+5. **Fórmulas pendientes.** PENDIENTE, INCOMPATIBLE y ERROR cuentan juntas (como en `tiempo.medidasDe`).
+6. **Disposición del payload.** Hoy una lista (título, n, las dos estadísticas, las referencias): `n` cae en la posición 1 y las series en la 4 de cada estadística, sin atender al PV de cada posición. Podría ir por PV.
+7. **«Más reciente» por llegada**, no por `t`: una base con `t` atrasado escrita después manda.
+8. **Qué es la frescura** (§2.7): hoy, lo llegado; aparte, `comprobar`.
+9. **Lo que cuelga de un hijo sin base** no cuenta y se dice (`sinBase`, §2.4).
+10. **La firma de `BASES()`** (§2.9).
+11. **Dos lecturas del 8**: `confluir` (al vuelo, fresca) y las bases (escritas). Si la interfaz y BQL deben leer solo las bases escritas y retirar `comparar` y el cálculo al vuelo (auditoría C18) o conservar las dos.
 
-`src/bql.js` no se toca en esta pieza. Lo que BQL debería exponer, con el anfitrión del slot como registro:
+## 4. Límites observados
 
-| Función | Devuelve |
-|---|---|
-| `BASES()` | numero: `n` de la base vigente del 8 del anfitrión |
-| `BASES("medida", k)` | numero: recuento de la caja k (0–9) de esa medida en esa base |
-| `BASES("medida", "suma" \| "minimo" \| "maximo")` | numero |
-| `SITUAR("medida", "hermanos" \| "proyecto" \| "general")` | numero: la caja (0–9) del anfitrión en esa cohorte |
-
-PENDIENTE con el motivo de `leerBase`/`situar` cuando no hay base o cohorte; la dependencia anotada es la base leída (`<id de la base>:0000000000`). Ojo al ciclo de importación: `bases.js` usa `evaluar` de BQL para contar fórmulas; si `bql.js` importa `bases.js`, ninguno de los dos debe usar al otro al cargar.
-
-## 5. Relación con la PR #19 y límites observados
-
-- La PR #19 (`confluir` en `src/tiempo.js`, abierta) **calcula** cohortes y bases sin escribirlas, con medidas casi iguales (allí `cajas: null` si los cortes salen de la cohorte). Esta pieza las **escribe** como registros, con cortes fijos. Si se fusionan las dos, `medir` debería ser uno solo.
-- `tiempo.comparar` y `tiempo.medir` (no tocados) cuentan las bases como hermanos y como escritos; al integrarlas deberían filtrar `esBase`.
-- `movimientos.P:<ámbito>` crea una medida por ámbito: con muchos ámbitos la base crece (sigue sin depender de n).
-- Medir evalúa fórmulas en el momento: la misma compra puede pasar de pendiente a resuelta sin que la base lo vea hasta que se reescriba.
+- `movimientos.P:<ámbito>` y cada serie de token crean un bloque por serie: con muchas series la base crece (sigue sin depender de n).
+- Medir evalúa fórmulas en el momento: la misma compra puede pasar de pendiente a resuelta sin que la base lo vea hasta que se reescriba (`comprobar` sí lo ve).
+- Una fórmula `BASES()` en un registro cuenta como pendiente en la medida de ese registro para una base, y como resuelta si `confluir` lo mide directamente: la medida de un registro con `BASES()` dentro depende de quién la pide.
+- Lo escrito sobre una compra (que no es una cosa) no entra en el subárbol de su menú: la compra no tiene base que lo resuma (`sinBase`).
+- `app.js` sigue mostrando `comparar` en la celda 8 de Mapped; mostrar las bases es trabajo del frontend.
