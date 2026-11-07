@@ -474,7 +474,7 @@ test('MOT-20 consultar, elegir, preparar, consolidar, firmar y ejecutar son acto
 });
 
 test('MOT-20b acreditar el resultado material es un acto propio',
-  { skip: 'MOT-20: no existe el acto de acreditar el resultado material (capa 4 de validez)' },
+  { skip: 'MOT-20: no existe el acto de acreditar el resultado material. La capa 4 de src/validez.js (desde la #49) solo mira el respaldo en el libro y dice «externa: sin acreditar»; acreditar lo ocurrido en el mundo es de AARPIA, fuera de AGRAM' },
   sinForma('MOT-20'));
 
 test('MOT-21 una compra autorizada no es una compra hecha: AUTORIZADO ≠ EJECUTADO y los recursos solo se mueven al ejecutar', async () => {
@@ -925,8 +925,20 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
 });
 
 test('MOT-61b la acreditación material (capa 4) y un informe por capas',
-  { skip: 'MOT-61: la capa 4 (acreditación material) no existe y no hay ningún informe de validez por capas' },
+  { skip: 'MOT-61: el informe por capas ya existe (src/validez.js, desde la #49; lo comprueba MOT-61c), pero su capa 4 solo mira el respaldo en el libro: acreditar el resultado material en el mundo no tiene acto ni dato propio (AARPIA, fuera de AGRAM)' },
   sinForma('MOT-61'));
+
+test('MOT-61c un informe por capas: cinco estados independientes, sin veredicto global', async () => {
+  const { validez, CAPAS, ESTADOS_CAPA } = await import('../src/validez.js');
+  const { eje, g } = await mundo();
+  const alta = eje.sobre(g)[0];
+  const v = await validez(eje, alta.id);
+  assert.deepEqual(v.capas.map((c) => c.capa), [1, 2, 3, 4, 5]);
+  assert.deepEqual(CAPAS.map((c) => c.clave), ['forma', 'interpretacion', 'criptografia', 'acreditacion', 'permiso']);
+  for (const c of v.capas) assert.ok(ESTADOS_CAPA.includes(c.estado), c.clave + ': ' + c.estado);
+  for (const global of ['valido', 'valida', 'veredicto', 'puntuacion']) assert.equal(v[global], undefined, global);
+  assert.match(v.acreditacion.resumen, /externa: sin acreditar/); // la capa 4 mira el libro; el mundo queda fuera
+});
 
 test('MOT-62 las capas no se confunden: estructura válida y firmada no es autorización; la firma solo prueba quién escribe', async () => {
   const raiz = await generarClaves();
@@ -1508,7 +1520,7 @@ test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura,
 });
 
 test('TOK-48b los cuatro tokens tienen presencia visible, no solo cifras',
-  { skip: 'TOK-48: la vista es una lista de cifras por identidad (app.js); no hay render animado ni presencia de los tokens en los mundos' },
+  { skip: 'TOK-48: desde la #50 los movimientos de un evento nuevo se ven en el mundo de los hilos (mundos/hilos.js: un punto por movimiento de «de» a «a», con un color por familia, tentativo), pero solo al animarse; en reposo los saldos siguen siendo cifras por identidad (ui/saldos.js) y los demás mundos no existen todavía' },
   sinForma('TOK-48'));
 
 test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
@@ -1802,7 +1814,7 @@ test('TOK-79 capas de validez separadas: el eje valida forma, id, firma y saldos
 });
 
 test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona',
-  { skip: 'TOK-79: no hay acreditación material ni un modelo de capas' },
+  { skip: 'TOK-79: el modelo de capas ya existe (src/validez.js, desde la #49; MOT-61c), pero no hay acreditación material del mundo ni una vista de PV5 que lo inspeccione en app.js' },
   sinForma('TOK-79'));
 
 // =====================================================================
