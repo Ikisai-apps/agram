@@ -12,7 +12,7 @@ Estado: cartón piedra completo del ciclo. Eje (génesis, identidades, transicio
 node ejemplos/ikisai/correr.mjs
 ```
 
-Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto.
+Las apps de Ikisai aparecen solo como ejemplo transversal en `ejemplos/ikisai`, con datos inventados. Este repositorio es público: nada real, ningún secreto. El ejemplo de Tasks (`ejemplos/ikisai/tarea-tasks.mjs`) lleva una tarea con plazo, pasos y dinero por el mismo núcleo: presupuestos que colisionan en recursos, una fórmula que elige el que cabe y el ciclo del motor hasta el pago y las horas.
 
 ```sh
 npm test
