@@ -9,14 +9,19 @@ import {
   indicesDe, direccion, esReferencia, escritura, leerDireccion, PV, RAIZ,
 } from './src/index.js';
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+import { ejemploReserva } from './ejemplos/ikisai/reserva-booking.mjs';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
-  aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '',
+  aviso: '', exito: '', verOcupantes: null, claves: {}, guardado: '', ejemplo: 'compra',
 };
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
 const CLAVE_CLAVES = 'agram.claves';
+const CLAVE_EJEMPLO = 'agram.ejemplo';
+const CLAVE_FOCO = 'agram.foco';
+/** Identidades de los dos ejemplos: cada una necesita su par de claves en este navegador. */
+const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
 
 function corto(id) {
   return id.slice(0, 8);
@@ -38,6 +43,7 @@ function irA(id, camino = []) {
   estado.aviso = '';
   estado.exito = '';
   estado.verOcupantes = null;
+  try { globalThis.localStorage?.setItem(CLAVE_FOCO, id); } catch { /* sin almacenamiento */ }
   pintar();
 }
 
@@ -142,7 +148,9 @@ function pintarPointed() {
     </div>`;
   });
   const e = escritura('pointed');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${filas.join('')}</div>
+  // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
+  const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
+  $('#vista').innerHTML = cabecera(ev) + `<div class="decupla">${terminal}${filas.join('')}</div>
     <form id="escribir" data-modo="pointed" class="escribir">
       <div class="titulo">Escribir sobre el foco · Pointed escribe ${e[1]} posición de 10 · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
@@ -157,7 +165,9 @@ function pintarPointed() {
 // ---------- Sequenced ----------
 
 function filaSecuencia(d, i) {
-  const partes = d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
+  const partes = d.terminal !== undefined
+    ? [`<span class="celda-s">${slot(d.terminal, d.id, [], false)}</span>`] // un terminal, sin posición 0
+    : d.posiciones.filter((p) => p.contenido !== undefined).map((p) => `<span class="celda-s"><i>${p.indice}</i>${slot(p.contenido, d.id, [p.indice], false)}</span>`);
   const en = d.en && d.en !== RAIZ ? ` · en ${leerDireccion(d.en).map((x) => x.digito + ' ' + x.significado).join(' › ')}` : '';
   return `<div class="fila"><button class="abrir" data-ir="${d.id}"><span class="n">${i}</span><span class="quien">${corto(d.id)} · ${escapar(d.autor)}${en}</span><span class="celdas">${partes.join('')}</span></button><button class="ref" data-ref="${d.id}" title="insertar como referencia en la hilera">@</button></div>`;
 }
@@ -206,7 +216,7 @@ function celdaMapa(m, i, eje67, comp) {
     const ev = estado.eje.obtener(m.foco);
     const json = JSON.stringify({ id: corto(ev.id), autor: ev.autor, firmante: ev.firmante ?? null, sobre: ev.sobre ? corto(ev.sobre) : null, en: ev.en, t: ev.t, movimientos: ev.movimientos, contexto: ev.contexto, payload: c.contenido }, null, 1);
     return `<div class="celda c5"><div class="pvn">5 ${c.significado} · 0 ${m.celdas[0].significado}</div>
-      <div class="lente">${escapar(breve(m.celdas[0].contenido))}</div>
+      <div class="lente">${escapar(breve(m.terminal ?? m.celdas[0].contenido))}</div>
       <details><summary>estructura</summary><pre>${escapar(json)}</pre></details></div>`;
   }
   if (i === 6) {
@@ -261,7 +271,7 @@ function panelFabrica(m) {
       ${filas || '<div class="nada">nada consolidado sobre este foco</div>'}
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
-        <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.celdas[0].contenido))}"></label>
+        <label>Título <input name="titulo" maxlength="80" value="Acción sobre ${escapar(breve(m.terminal ?? m.celdas[0].contenido))}"></label>
         <div class="decupla-form">${campos}</div>
         <button type="submit">Consolidar en la fábrica del foco</button>
         ${mensajes()}
@@ -277,6 +287,8 @@ function pintarMapped() {
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = PV.map((n, i) => {
+    // Lo mismo que hereda desdeMapped. [X] decidir VG (mapa §13): un foco terminal hereda su raíz en la
+    // posición 0, como en main, aunque un terminal no tenga posición 0 en la décupla ni en el mapa (mapa §12).
     const hay = Array.isArray(base) ? base[i] !== undefined : i === 0 && base !== undefined;
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
@@ -300,10 +312,27 @@ function pintarSaldos() {
   // Cada familia es una serie: T por escala (tokens distintos, sin conversión), E por denominación, P por ámbito, R por emisor.
   const ESCALA = { segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' };
   const tiempos = (id) => eje.tiempos(id).reverse().map((x) => x.cantidad + ' ' + ESCALA[x.escala]).join(' · ') || 'T 0'; // de la escala mayor a la menor
-  const recursos = (id) => eje.recursos(id).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + (x.emisor === id ? '' : ' de ' + escapar(x.emisor))).join(' · ') || 'E 0'; // cada serie de E es de su emisor
+  // Las series «<plaza>@<noche>» (Booking: una por plaza y noche, nombrada con el id de la habitación) son muchas: se resumen por emisor.
+  const esPlazaNoche = (denominacion) => denominacion.includes('@');
+  const porEmisor = (lista) => {
+    const m = new Map();
+    for (const x of lista) m.set(x.emisor, { cantidad: (m.get(x.emisor)?.cantidad ?? 0) + x.cantidad, series: (m.get(x.emisor)?.series ?? 0) + 1 });
+    return [...m];
+  };
+  const recursos = (id) => { // cada serie de E es de su emisor
+    const deEmisor = (emisor) => (emisor === id ? '' : ' de ' + escapar(emisor));
+    const todas = eje.recursos(id);
+    const sueltas = todas.filter((x) => !esPlazaNoche(x.denominacion)).map((x) => x.cantidad + ' ' + (x.denominacion === 'EUR' ? '€' : escapar(x.denominacion)) + deEmisor(x.emisor));
+    const plazas = porEmisor(todas.filter((x) => esPlazaNoche(x.denominacion))).map(([emisor, x]) => x.cantidad + ' plaza·noche' + deEmisor(emisor));
+    return [...sueltas, ...plazas].join(' · ') || 'E 0';
+  };
+  const series = eje.series();
+  const plazaNoche = (s) => s.token === 'E' && esPlazaNoche(s.denominacion);
+  const emitidas = series.filter((s) => !plazaNoche(s)).map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor)))
+    .concat(porEmisor(series.filter(plazaNoche).map((s) => ({ emisor: s.emisor, cantidad: s.emitido }))).map(([emisor, x]) => escapar('E:' + emisor + '/<plaza>@<noche>') + ' ' + x.cantidad + ' en ' + x.series + ' series'));
   $('#saldos').innerHTML = eje.identidades().map((id) =>
     `<div class="saldo"><b>${escapar(id)}</b><span>${eje.clave(id) ? '🔑 ' + autoridad.huella(eje.clave(id)) : 'sin clave'}</span><span>${recursos(id)}</span><span>${tiempos(id)}</span><span>${eje.poderes(id).length ? eje.poderes(id).map((p) => 'P ' + p.cantidad + '@' + (p.ambito === 'genesis' ? 'eje' : corto(p.ambito))).join(' ') : 'P 0'}${eje.reputaciones(id).length ? ' · ' + eje.reputaciones(id).map((r) => 'R ' + r.cantidad + ' de ' + escapar(r.emisor)).join(' ') : ''}</span></div>`).join('')
-    + `<div class="guardado">series emitidas · ${eje.series().map((s) => escapar(s.token + ':' + (s.token === 'P' && s.serie !== 'genesis' ? corto(s.serie) : s.serie)) + ' ' + s.emitido + (s.token === 'E' || s.token === 'R' ? '' : ' de ' + escapar(s.emisor))).join(' · ')}</div>`
+    + `<div class="guardado">series emitidas · ${emitidas.join(' · ')}</div>`
     + `<div class="guardado">${escapar(estado.guardado)}</div>`;
 }
 
@@ -428,6 +457,7 @@ document.addEventListener('click', (e) => {
   else if (b.dataset.subir !== undefined) { estado.camino = estado.camino.slice(0, -1); estado.verOcupantes = null; pintar(); }
   else if (b.dataset.genesis !== undefined) irA(estado.eje.genesisId);
   else if (b.dataset.reiniciar !== undefined) reiniciar();
+  else if (b.dataset.ejemplo !== undefined) { estado.ejemplo = estado.ejemplo === 'reserva' ? 'compra' : 'reserva'; reiniciar(); }
 });
 
 document.addEventListener('change', (e) => {
@@ -441,26 +471,43 @@ document.addEventListener('submit', (e) => {
 
 // ---------- arranque: claves, eje guardado o ejemplo ----------
 
+/** Claves de las identidades de ejemplo: las guardadas en este navegador, y se generan las que falten (p. ej. una sesión anterior sin `recepcion`). */
 async function cargarClaves() {
-  try {
-    const guardadas = JSON.parse(globalThis.localStorage?.getItem(CLAVE_CLAVES) ?? 'null');
-    if (guardadas) {
-      const claves = {};
-      for (const [id, par] of Object.entries(guardadas)) claves[id] = { publica: par.publica, privada: await autoridad.importarPrivada(par.privada) };
-      return claves;
-    }
-  } catch { /* sin claves guardadas */ }
   const claves = {};
   const exportables = {};
-  for (const id of ['casa', 'cocina', 'huesped']) {
+  try {
+    const guardadas = JSON.parse(globalThis.localStorage?.getItem(CLAVE_CLAVES) ?? 'null') ?? {};
+    for (const [id, par] of Object.entries(guardadas)) {
+      claves[id] = { publica: par.publica, privada: await autoridad.importarPrivada(par.privada) };
+      exportables[id] = par;
+    }
+  } catch { /* sin claves guardadas o ilegibles: se generan */ }
+  let nuevas = false;
+  for (const id of IDENTIDADES_EJEMPLO) {
+    if (claves[id]) continue;
     claves[id] = await autoridad.generarClaves();
     exportables[id] = { publica: claves[id].publica, privada: await autoridad.exportarPrivada(claves[id].privada) };
+    nuevas = true;
   }
-  try { globalThis.localStorage?.setItem(CLAVE_CLAVES, JSON.stringify(exportables)); } catch { /* sin almacenamiento */ }
+  if (nuevas) {
+    try { globalThis.localStorage?.setItem(CLAVE_CLAVES, JSON.stringify(exportables)); } catch { /* sin almacenamiento */ }
+  }
   return claves;
 }
 
+/** El botón dice la acción, no el estado: desde la compra se cambia a la reserva y al revés. */
+function pintarBotonEjemplo() {
+  $('[data-ejemplo]').textContent = estado.ejemplo === 'reserva' ? 'cambiar a comida' : 'cambiar a reserva';
+}
+
+/** Construye el eje del ejemplo elegido (estado.ejemplo: compra de comida o reserva de alojamiento) y guarda la elección en el navegador. */
 async function ejemploNuevo() {
+  try { globalThis.localStorage?.setItem(CLAVE_EJEMPLO, estado.ejemplo); } catch { /* sin almacenamiento */ }
+  pintarBotonEjemplo();
+  if (estado.ejemplo === 'reserva') {
+    const { eje, reserva } = await ejemploReserva({ claves: estado.claves });
+    return { eje, foco: reserva.id };
+  }
   const { eje, compra } = await ejemploCompra({ claves: estado.claves });
   await ejemploCuenta(eje, compra, estado.claves.cocina?.privada);
   return { eje, foco: compra.id };
@@ -478,13 +525,18 @@ async function reiniciar() {
   irA(foco);
 }
 
+try { estado.ejemplo = globalThis.localStorage?.getItem(CLAVE_EJEMPLO) === 'reserva' ? 'reserva' : 'compra'; } catch { /* sin almacenamiento */ }
+pintarBotonEjemplo();
 estado.claves = await cargarClaves();
 let cargado = await persistencia.cargarLocal(CLAVE_EJE);
 let foco;
 if (cargado && estado.claves.casa && JSON.stringify(cargado.clave('casa')) !== JSON.stringify(estado.claves.casa.publica)) cargado = null; // claves de otra sesión
 if (cargado) {
   estado.eje = cargado;
-  foco = cargado.orden[3] ?? cargado.genesisId;
+  // Vuelve al foco donde se quedó (guardado al navegar); si no hay o ya no existe, al génesis.
+  let recordado = null;
+  try { recordado = globalThis.localStorage?.getItem(CLAVE_FOCO); } catch { /* sin almacenamiento */ }
+  foco = recordado && cargado.obtener(recordado) ? recordado : cargado.genesisId;
   estado.guardado = 'cargado del navegador · ' + cargado.orden.length + ' registros';
 } else {
   // Lo que había y no se puede abrir (formato anterior, claves de otra sesión) se aparta antes de guardar el ejemplo encima.

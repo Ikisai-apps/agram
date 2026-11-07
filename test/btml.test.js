@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarPayload, direccion, resolver, esDireccion, esTerminal, indicesDe } from '../src/btml.js';
+import { validarPayload, direccion, resolver, esDireccion, esTerminal, indicesDe, ARIDAD } from '../src/btml.js';
+import { crearEvento } from '../src/evento.js';
 
 test('terminales: número, palabra, referencia', () => {
   assert.equal(esTerminal(3), true);
@@ -26,6 +27,36 @@ test('array inválido: vacío, hueco, más de diez', () => {
   const anidado = validarPayload(['a', ['b', []]]);
   assert.equal(anidado.ok, false);
   assert.match(anidado.errores[0], /^11: array vacío/);
+});
+
+/**
+ * Un array disperso con la longitud máxima de JavaScript y una sola posición
+ * presente. Vigila cuántas posiciones se miran: si alguien recorre la longitud
+ * en vez de rechazarla, falla al pasar de ARIDAD en lugar de colgarse.
+ */
+function dispersoEnorme() {
+  const enorme = [];
+  enorme.length = 2 ** 32 - 1;
+  enorme[0] = 'x';
+  let miradas = 0;
+  const mira = (k) => {
+    if (typeof k === 'string' && /^[0-9]+$/.test(k) && ++miradas > ARIDAD) throw new Error('recorre la longitud');
+  };
+  return new Proxy(enorme, {
+    has: (t, k) => (mira(k), Reflect.has(t, k)),
+    get: (t, k, r) => (mira(k), Reflect.get(t, k, r)),
+  });
+}
+
+test('array disperso de longitud enorme: se rechaza por la longitud, sin recorrerlo', async () => {
+  assert.deepEqual(validarPayload(dispersoEnorme()).errores, ['raíz: más de 10 posiciones']);
+  assert.deepEqual(validarPayload(['a', dispersoEnorme()]).errores, ['1: más de 10 posiciones']);
+  // Por crearEvento también: la copia del payload no recorre la longitud.
+  const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }];
+  await assert.rejects(
+    crearEvento({ autor: 'raiz', sobre: 'f'.repeat(64), t: '2026-11-07T10:00:00Z', movimientos, payload: ['a', dispersoEnorme()] }),
+    /payload 1: más de 10 posiciones/,
+  );
 });
 
 test('direcciones: diez dígitos, ceros finales', () => {

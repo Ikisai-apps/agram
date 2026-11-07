@@ -71,11 +71,13 @@ test('BQL: BUSCAR sale por encaje y SIGNO/FALTAS/ACUERDO/DESPLAZAMIENTO son cons
   const { eje, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
   const c = (f) => consultar(eje, compra.id, [1], f);
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))').texto, '4'); // [1], [1.0], la referencia al menú:1 y la cuenta anclada en 1
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "completar"))').texto, '0');
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), FALTAS() = 0))').texto, '4');
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), DESPLAZAMIENTO() > 0))').texto, '0');
-  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), ACUERDO() = 10))').texto, '4');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR("1000000000"), SIGNO() = "exacto"))').texto, '4'); // la dirección nombra la colisión entera: [1], [1.0], la referencia al menú:1 y la cuenta anclada en 1
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR("1000000000"), SIGNO() = "completar"))').texto, '0');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR("1000000000"), FALTAS() = 0))').texto, '4');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR("1000000000"), DESPLAZAMIENTO() > 0))').texto, '0');
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR("1000000000"), ACUERDO() = 10))').texto, '4');
+  // El índice es camino exacto: [1] y la cuenta anclada en 1; ni [1.0] ni lo que alcanza su referencia.
+  assert.equal(c('CONTAR(FILTRAR(BUSCAR(1), SIGNO() = "exacto"))').texto, '2');
   assert.equal(c('SIGNO()').estado, 'ERROR');
 });
 
