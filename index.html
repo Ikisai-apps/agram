@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="./mundos/hilos.css">
 <title>AGRAM</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="icon" href="data:,">
@@ -110,7 +111,6 @@ header .kicker{color:var(--muted);font-size:13px}
 #saldos{display:grid;gap:4px;margin-top:18px;padding-top:12px;border-top:1px solid var(--rule)}
 footer{margin-top:22px;font-size:12px;color:var(--muted)}
 </style>
-<link rel="stylesheet" href="./mundos/hilos.css">
 <link rel="stylesheet" href="./ui/ui.css">
 </head>
 <body>
@@ -124,9 +124,8 @@ footer{margin-top:22px;font-size:12px;color:var(--muted)}
     <button data-modo="pointed" aria-pressed="true">Pointed</button>
     <button data-modo="sequenced" aria-pressed="false">Sequenced</button>
     <button data-modo="mapped" aria-pressed="false">Mapped</button>
-    <button data-modo="hilos" aria-pressed="false" title="los hilos del 6 y 7: pasado y futuro del foco">hilos</button>
     <button data-genesis>génesis</button>
-    <button data-render aria-pressed="false" title="alterna sobrio y animado: celdas 6 y 7 de Mapped y la vista hilos">animado</button>
+    <button data-render aria-pressed="false" title="alterna sobrio y animado: en Mapped, las celdas 6 y 7 se dibujan como hilos">animado</button>
     <button data-reiniciar title="borra lo guardado en este navegador y vuelve al ejemplo">reiniciar</button>
   </div>
   <div id="vista"></div>
