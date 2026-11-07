@@ -482,11 +482,13 @@ Dos consecuencias de «ejecuta el autor» y «nadie mueve tokens ajenos»:
 
 Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos ocupantes (colisiones: se escriben y se ven todos), y puede declarar una **capacidad**: cuántos de ellos pueden ser **válidos** a la vez. Quien la hace cumplir es una **serie limitada de tokens E** que emite quien respalda la posición: en Booking, la casa emite `E:casa/<plaza>@<noche>`, un token por plaza y noche, tantos como capacidad, y ejecutar la reserva los mueve de la casa a la persona huésped. Una segunda reserva solapada se escribe y colisiona, pero su ejecución no pasa: la casa ya no tiene el token de esa noche (`evento rechazado: saldo insuficiente de E:casa/…@<noche> en casa`). La fábrica no cuenta nada: el contador de este apartado es **informativo** (para la interfaz y para saber cuántos tokens emitir).
 
+**La capacidad de un registro sí la hace cumplir el eje** (VG, 7-11 noche; R2 del estudio de neutralidad; `eje.reglasDelTope`, detalle en `docs/FUNDAMENTOS.md`, «E atada al recurso, con tope compartido»). La misma forma (un entero positivo en la posición 2), en el **payload raíz de un registro**, es el tope del E vivo de las series atadas a él y a sus descendientes (`registro` en la serie: `E:casa/1100000000@<noche>@<habitación>`), **por franja**: lo que va tras la última `@` de la denominación (la noche), sumando todas las denominaciones y todos los emisores de esa franja. La franja es texto opaco (el eje no interpreta fechas) y su granularidad la elige quien respalda el recurso; sin `@`, una sola franja. Cada serie emite en proporción al P bloqueado con su clave (o la de su familia, la franja `*`) como salida, y ese P no se libera mientras viva. Por eso `capacidadDe` vive ahora en `src/tokens.js` y el motor la reexporta. En Booking, el alojamiento declara 4 plazas, la casa bloquea un P por cama para todas las noches y son catorce noches de 4: nadie añade una quinta plaza en una noche, aunque otra tenga sitio; cada noche caduca a la salida del día siguiente. La capacidad de una **posición** (la plaza 1.k) sigue siendo solo informativa: el eje mira la del registro.
+
 **[X] decidir VG** (auditoría de ajuste 2, A2-07): la corrección de VG sobre titulares (mapa §12 [D], 7-11 tarde) dice que «una persona emite los tokens de plaza de una habitación y se los da a la habitación; la habitación los conserva y los maneja». El ejemplo sigue la decisión de mediodía (mapa §12 [D] «Capacidad y tokens casan»: «mover esos tokens de la casa al huésped»): la serie se queda en la cartera de la casa, `libres` lee el saldo de la casa y la entrega la consolida y ejecuta la casa. Para pasar a la habitación hace falta decidir cómo se liga el registro de la habitación con la identidad (una cosa) que es titular de sus plazas, y quién consolida y ejecuta la entrega en su nombre; con eso, la casa emitiría y movería la serie a la habitación en el mismo evento (docs/FUNDAMENTOS.md: «para darla se mueve después, en el mismo evento si quiere»).
 
 ```js
-CRITERIO_CAPACIDAD = 2                 // dónde declara la décupla de una posición su capacidad
-capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined
+CRITERIO_CAPACIDAD = 2                 // dónde declara una décupla (una posición o el payload de un registro) su capacidad; de src/tokens.js
+capacidadDe(nodo)                       // → entero positivo en nodo[2], o undefined; de src/tokens.js
 tramoDe(eje, id)                        // → { inicio, fin, extremos, texto, desde }: el 7 del registro como [inicio, fin); sin 7 o ilegible, error
 registrosEn(eje, sobre, dir)            // → eventos anclados en la posición o que la referencian desde donde estén, por llegada
 ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }]: solo informa
@@ -1211,8 +1213,7 @@ export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t,
 export function autorizacionesValidas(eje, consolidacion): Evento[];
 export function estadoDe(eje, consolidacion): 'PENDIENTE DE AUTORIZACIÓN' | 'AUTORIZADO' | 'EJECUTADO' | undefined;
 export function consolidaciones(eje, foco, camino = []): { id, autor, t, titulo, estado, fuentes }[];
-export const CRITERIO_CAPACIDAD = 2;
-export function capacidadDe(nodo): number | undefined;
+export { CRITERIO_CAPACIDAD, capacidadDe } from './tokens.js';  // CRITERIO_CAPACIDAD = 2; capacidadDe(nodo): number | undefined
 export function tramoDe(eje, id): { inicio, fin, extremos, texto, desde };
 export function registrosEn(eje, sobre, dir): Evento[];
 export function ocupacion(eje, id): { sobre, dir, camino, capacidad, tramo, validos, aLaVez, cabe }[];

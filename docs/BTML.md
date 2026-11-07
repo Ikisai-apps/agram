@@ -15,10 +15,10 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | Módulo | Qué define | Funciones principales |
 |---|---|---|
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
-| `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `validarMovimiento`, `claveToken`, `partirClave`, `cantidadBase` |
+| `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `SEPARADOR_REGISTRO`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `CRITERIO_CAPACIDAD`, `validarMovimiento`, `claveToken`, `partirClave`, `esIdRegistro`, `capacidadDe`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
 | `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC | `esInstante`, `msUTC`, `msDeGuardado` (solo para eventos de la versión 2) |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.tipo`, `eje.identidades`, `eje.clave` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.tipo`, `eje.identidades`, `eje.clave`, `reglasDelTope`, `SIN_CAPACIDAD` |
 | `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
@@ -145,7 +145,7 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 | Familia | Nombre | Campos de serie | Clave de saldo | Quién la emite |
 |---|---|---|---|---|
 | `T` | tiempo | `escala` | `'T:<escala>'` | cada persona, para sí misma, con el tope del reloj; también el génesis (§2.4) |
-| `E` | recursos | `emisor`, `denominacion` | `'E:<emisor>/<denominacion>'` | una persona, a su nombre o al de un grupo sobre cuyo registro tiene P; la denominación va ligada al emisor como en R (§2.4) |
+| `E` | recursos | `emisor`, `denominacion`, `registro` (opcional) | `'E:<emisor>/<denominacion>'` o `'E:<emisor>/<denominacion>@<registro>'` | una persona, a su nombre o al de un grupo sobre cuyo registro tiene P; la denominación va ligada al emisor como en R, y la serie al registro del recurso, con tope compartido (§2.4) |
 | `P` | poder / criterio | `ambito` | `'P:<ambito>'` | el génesis (`'P:genesis'`, todo el eje); una persona, solo sobre un registro que escribió ella; a los demás les llega por delegación (§2.5), y quien solo lo tiene lo transfiere pero no lo acuña |
 | `R` | reputación | `emisor` | `'R:<emisor>'` | una persona, a su nombre o al de un grupo sobre cuyo registro tiene P: la declara y solo ella la amplía (§2.4) |
 
@@ -153,7 +153,7 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 
 [D] (VG, 7-11, mapa §12): E con la denominación ligada al emisor como en R; R declarada por su emisor, ampliable solo por él y con rastro visible; P por delegación desde un registro de dominio; las cosas son titulares que no emiten. [D] (VG, 7-11 noche): solo emiten las personas (un grupo es un registro con P delegado), T lo emite cada persona para sí misma con el tope del reloj, la emisión es escalonada T → R → P → E, hay bloqueo y liberación con salida, obligación del emisor de R y caducidad de E. Todo implementado (§2.4, §2.5, §7.1); el ciclo de vida completo está en `docs/FUNDAMENTOS.md` («Ciclo de vida de cada token»).
 
-Quién emite T y P fuera del génesis está decidido (mapa §12, 7-11 noche: cada persona emite su T con tope, escalonado T→R→P→E) e implementado (§2.4); la regla de T es PROVISIONAL [X] (neutralidad ante agrupación y división). [X] decidir VG: qué escalas completan las diez de T; si E, P y R admiten fracciones (hoy sí, en coma flotante, que acumula error; T ya va en enteros).
+Quién emite T y P fuera del génesis está decidido (mapa §12, 7-11 noche: cada persona emite su T con tope, escalonado T→R→P→E) e implementado (§2.4); la regla de T es PROVISIONAL [X] (neutralidad ante agrupación y división). [X] decidir VG: qué escalas completan las diez de T; si P y R admiten fracciones (hoy sí, en coma flotante, que acumula error; T ya va en enteros, y E también salvo en las series declaradas `divisible`, R2).
 
 ### 2.2 Forma de un movimiento
 
@@ -163,6 +163,7 @@ Quién emite T y P fuera del génesis está decidido (mapa §12, 7-11 noche: cad
 { token: 'P', cantidad: 2, ambito: '<id>', de: 'casa', a: 'cocina' }                          // P: delegar poder sobre un subárbol
 { token: 'R', cantidad: 3, emisor: 'casa', de: 'casa', a: 'cocina' }                          // R: la casa da reputación suya
 { token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', cantidad: 2, de: null, a: 'casa' } // emisión de una serie de E (§2.4)
+{ token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', registro: '<id>', cantidad: 2, de: null, a: 'casa' } // E atada al registro del recurso (E:casa/cama@2026-11-13@<id>)
 { token: 'R', cantidad: 10, emisor: 'casa', de: null, a: 'casa' }                             // emisión de R: la casa amplía la suya (§2.4)
 ```
 
@@ -209,7 +210,7 @@ console.log(JSON.stringify(validarMovimiento({ token: 'T', escala: 'hora', canti
 ```text
 T:hora 1 T:minuto
 E:casa/EUR P:genesis R:casa
-{"T":["escala"],"E":["emisor","denominacion"],"P":["ambito"],"R":["emisor"]} 7 10 365
+{"T":["escala"],"E":["emisor","denominacion","registro"],"P":["ambito"],"R":["emisor"]} 7 10 365
 {"token":"E","serie":"casa/cama@2026-11-13","emisor":"casa","denominacion":"cama@2026-11-13"}
 ["cantidad debe ser > 0","escala T inválida: mes","de y a son obligatorios (null permitido)","a debe ser identidad o null"]
 ["escala solo en T","E exige denominación","E exige emisor: la serie es de quien la emite","movimiento sin origen ni destino"]
@@ -244,10 +245,10 @@ La emisión es escalonada («normalmente será T + (opc) R; si T + R + (opc) P; 
 
 - **T** (PROVISIONAL [X] (VG, 7-11 noche): «emitir desde dos fuentes es igual de válido que emitir el doble desde una única fuente; no da más». «T por identidad y reloj» es justo lo que una identidad falsa multiplica, así que la regla final saldrá del estudio de neutralidad ante agrupación y división.): cada persona emite el suyo a sí misma (`a` = el autor). La serie es `T:<escala>`, sin emisor en la clave, para que el T de distintas personas se intercambie. Tope ([X] regla de la época, `tokens.topeT`): por persona y escala, lo emitido acumulado no pasa de ⌈(t − alta) / duración de la escala⌉, con un mínimo de `TOPE_T_MINIMO = 1`; el alta es el `t` del evento en que recibió tokens por primera vez (el génesis, para su autor), y lo emitido en el génesis no cuenta. `eje.emitidoT(persona, escala)` dice cuánto lleva.
 - **P**: el génesis emite `P:genesis`; fuera de él, una persona acuña `P:<ámbito>` a sí misma solo si el ámbito es un registro existente que escribió ella. Quien solo tiene P (delegado) lo transfiere, estrechando el ámbito y conservando la cantidad, pero no lo acuña. `genesis` como ámbito solo lo emite el génesis; con el id del génesis lo amplía después su autor (**[X] confirmar VG**).
-- **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene.
+- **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene. Y va **atada al registro del recurso** (VG, 7-11 noche; R2): el campo `registro` (el id de un evento del eje) entra en la clave tras la última `@` (`E:casa/cama@2026-11-13@<id>`; una denominación no puede acabar en `@<id>`), y sin él la serie queda atada al registro del emisor. El E vivo de un registro y sus descendientes, por franja (lo que va tras la última `@` de la denominación: la noche en `cama@2026-11-13`; texto opaco cuya granularidad elige el dueño; sin `@`, una sola franja), no pasa de la capacidad que declara cualquier registro de su hilo (un entero en la posición 2 del payload raíz); cada serie emite en proporción al P bloqueado con su clave, o la de su familia (franja `*`), como salida (P del registro que declara la capacidad, o `P:genesis` si nadie emitió ese P), y ese P no se libera mientras la serie viva. Fracciones solo con `divisible: true`; emisión conjunta con `emisores: [...]`. Detalle en `docs/FUNDAMENTOS.md` («E atada al recurso, con tope compartido»).
 - **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2): quien la recibe (persona, grupo o cosa) la conserva y no puede pasarla a un tercero, consumirla ni bloquearla; **solo puede devolvérsela a su emisor** (`de`: quien la tiene, `a`: el emisor), que es el acto de «pedir atención» (regla nueva, **[X] confirmar VG**: sale de la «reputación cedida a otros para requerir atención» de VG, 7-11 noche, pero antes quien la tenía no podía moverla). El emisor no la retira por su cuenta: el movimiento saldría de otra cartera y se rechaza ya en la forma (`R no es fungible: …`, la tabla de §2.2). Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
 
-Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o el id de la habitación y la dirección de la plaza, como propone la PR #21), siempre sin `|`, `:` ni `/`. [X] decidir VG.
+Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o la dirección de la plaza, como hace Booking: `1100000000@<noche>`, con la habitación como registro de la serie), siempre sin `|`, `:` ni `/`. [X] decidir VG.
 
 La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento (o al grupo en cuyo nombre emite) y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
 
@@ -255,8 +256,11 @@ La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento 
 eje.tipo(identidad)          // → 'persona' | 'grupo' | 'cosa' | null (sin tipo declarado)
 eje.alta(identidad)          // → { id, t } del evento en que recibió tokens por primera vez (el registro de un grupo), o null
 eje.emitidoT(persona, escala) // → T que lleva emitido fuera del génesis (para el tope del reloj)
-eje.serie(clave)             // → { emisor, emitido } de la serie con esa clave de saldo ({ emisor: null, emitido: 0 } si nadie la ha emitido), y caduca si la tiene
-eje.series()                 // → [{ clave, token, serie, ...campos, emisor, emitido, bloqueado, caduca (solo E) }] todas las series emitidas, por orden de emisión
+eje.serie(clave)             // → { emisor, emitido } de la serie con esa clave de saldo ({ emisor: null, emitido: 0 } si nadie la ha emitido), y caduca, divisible y emisores si los tiene
+eje.series()                 // → [{ clave, token, serie, ...campos, emisor, emitido, bloqueado, caduca, registro, consumido, divisible, emisores, tope, nota (solo E) }] todas las series emitidas, por orden de emisión
+eje.vivo(clave, t)           // → E vivo de una serie: emitido − consumido, y 0 si caducó en t (R2)
+eje.registroDe(clave)        // → el registro al que está atada una serie de E: el de su clave o el de su emisor
+eje.topes(registro, t, franja) // → [{ registro, capacidad, franja, vivo, libre }] por cada registro de su hilo que declara capacidad y cada franja (R2)
 eje.bloqueado(id, clave)     // → lo bloqueado de esa serie en id (con un tercer argumento, solo lo de esa salida); eje.saldo es lo disponible
 eje.bloqueos(id)             // → [{ clave, ...campos, salida, cantidad }]
 eje.obligaciones(emisor)     // → su R en manos ajenas

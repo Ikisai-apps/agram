@@ -341,15 +341,12 @@ export function consolidaciones(eje, foco, camino = []) {
  * un entero positivo, como una plaza [nombre, precio, capacidad] bajo la
  * época 0 (0 representación, 1 recursos, 2 criterios). Alternativa: en sus
  * recursos (1), junto al precio. Sin ese entero, la posición no declara nada.
+ * La misma forma, en el payload raíz de un REGISTRO, es la capacidad que hace
+ * cumplir el eje como tope de E vivo (src/eje.js, reglasDelTope): por eso
+ * capacidadDe vive en src/tokens.js y aquí se reexporta.
  */
-export const CRITERIO_CAPACIDAD = 2;
-
-/** Capacidad que declara el contenido de una posición, o undefined si no declara ninguna. */
-export function capacidadDe(nodo) {
-  if (!Array.isArray(nodo)) return undefined;
-  const c = nodo[CRITERIO_CAPACIDAD];
-  return Number.isSafeInteger(c) && c > 0 ? c : undefined;
-}
+export { CRITERIO_CAPACIDAD, capacidadDe } from './tokens.js';
+import { capacidadDe } from './tokens.js';
 
 const SIETE = direccion([7]);
 

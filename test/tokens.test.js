@@ -1,6 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validarMovimiento, claveToken, cantidadBase, partirClave, SERIE, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS, TIPOS, EMITEN } from '../src/tokens.js';
+import {
+  validarMovimiento, claveToken, cantidadBase, partirClave, esIdRegistro, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS,
+  SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS, TIPOS, EMITEN,
+} from '../src/tokens.js';
 
 test('T: un token por escala, sin conversión entre escalas', () => {
   const m = { token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: null };
@@ -19,13 +22,13 @@ test('T va en enteros: cada escala es un token (media hora serían minutos)', ()
   assert.ok(validarMovimiento({ token: 'T', escala: 'hora', cantidad: 0.5, de: 'ana', a: null }).some((e) => /T va en enteros/.test(e)));
   assert.ok(validarMovimiento({ token: 'T', escala: 'hora', cantidad: 2 ** 53, de: 'ana', a: null }).some((e) => /T va en enteros/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'T', escala: 'minuto', cantidad: 30, de: 'ana', a: null }), []);
-  // E sigue admitiendo fracciones (céntimos): [X] decidir VG.
+  // La forma admite fracciones en E; el eje solo las acepta en las series declaradas divisibles (R2, VG 7-11 noche).
   assert.deepEqual(validarMovimiento({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12.5, de: 'ana', a: 'cocina' }), []);
 });
 
 test('la constante: cada familia es una serie; E es del emisor como R', () => {
   assert.deepEqual(Object.keys(SERIE).sort(), [...FAMILIAS].sort());
-  assert.deepEqual(SERIE, { T: ['escala'], E: ['emisor', 'denominacion'], P: ['ambito'], R: ['emisor'] });
+  assert.deepEqual(SERIE, { T: ['escala'], E: ['emisor', 'denominacion', 'registro'], P: ['ambito'], R: ['emisor'] });
   const claves = [
     claveToken({ token: 'T', escala: 'dia' }),
     claveToken({ token: 'E', emisor: 'casa', denominacion: 'cama-2@2026-11-13' }),
@@ -88,4 +91,65 @@ test('los separadores de las claves de serie están reservados', () => {
   assert.ok(validarMovimiento({ token: 'E', denominacion: 'EUR', emisor: 'casa', cantidad: 1, de: 'a|b', a: 'c' }).some((e) => /no puede llevar/.test(e)));
   assert.ok(validarMovimiento({ token: 'E', denominacion: 'x/y', emisor: 'casa', cantidad: 1, de: 'casa', a: 'c' }).some((e) => /no puede llevar/.test(e)));
   assert.ok(validarMovimiento({ token: 'P', ambito: 'a:b', cantidad: 1, de: 'casa', a: 'c' }).some((e) => /no puede llevar/.test(e)));
+});
+
+test('E atada al registro (R2): la clave lleva el registro tras la última «@» y se parte sin ambigüedad', () => {
+  const reg = 'ab'.repeat(32); // un id de evento: 64 hexadecimales
+  const m = { token: 'E', emisor: 'casa', denominacion: 'cama-2@2026-11-13', registro: reg, cantidad: 1, de: 'casa', a: 'bea' };
+  assert.deepEqual(validarMovimiento(m), []);
+  assert.equal(SEPARADOR_REGISTRO, '@');
+  assert.equal(claveToken(m), 'E:casa/cama-2@2026-11-13@' + reg);
+  assert.deepEqual(partirClave(claveToken(m)), { token: 'E', serie: 'casa/cama-2@2026-11-13@' + reg, emisor: 'casa', denominacion: 'cama-2@2026-11-13', registro: reg });
+  // Sin registro la clave es la de siempre, y la '@' de la denominación no se toma por registro.
+  assert.equal(claveToken({ ...m, registro: undefined }), 'E:casa/cama-2@2026-11-13');
+  assert.equal(partirClave('E:casa/cama-2@2026-11-13').registro, undefined);
+  // Ida y vuelta, con y sin registro, también con '@' dentro de la denominación.
+  for (const d of ['EUR', 'a@b', 'x@' + 'f'.repeat(63), 'cama@2026-11-13']) {
+    for (const r of [undefined, reg]) {
+      const p = partirClave(claveToken({ token: 'E', emisor: 'e', denominacion: d, registro: r }));
+      assert.equal(p.denominacion, d);
+      assert.equal(p.registro, r);
+    }
+  }
+  assert.ok(esIdRegistro(reg));
+  assert.ok(!esIdRegistro('AB'.repeat(32)) && !esIdRegistro('ab') && !esIdRegistro(null));
+});
+
+test('E atada al registro (R2): forma del registro, divisible y emisores', () => {
+  const reg = '0123456789abcdef'.repeat(4);
+  const emite = (extra) => ({ token: 'E', emisor: 'casa', denominacion: 'cama', cantidad: 1, de: null, a: 'casa', ...extra });
+  assert.deepEqual(validarMovimiento(emite({ registro: reg, divisible: true, emisores: ['casa', 'bea'] })), []);
+  assert.ok(validarMovimiento(emite({ registro: 'casa' })).some((e) => /registro de E es el id de un evento/.test(e)));
+  assert.ok(validarMovimiento(emite({ registro: reg.toUpperCase() })).some((e) => /registro de E es el id de un evento/.test(e)));
+  // Una denominación que acabase en '@<id>' se confundiría con el registro.
+  assert.ok(validarMovimiento(emite({ denominacion: 'cama@' + reg })).some((e) => /esa cola es la del registro/.test(e)));
+  assert.ok(validarMovimiento(emite({ divisible: false })).some((e) => /divisible solo admite true/.test(e)));
+  assert.ok(validarMovimiento(emite({ emisores: ['casa'] })).some((e) => /dos o más identidades/.test(e)));
+  assert.ok(validarMovimiento(emite({ emisores: ['casa', 'casa'] })).some((e) => /dos o más identidades/.test(e)));
+  assert.ok(validarMovimiento(emite({ emisores: ['ana', 'bea'] })).some((e) => /incluye al emisor de la serie/.test(e)));
+  assert.ok(validarMovimiento(emite({ emisores: ['casa', 'b/c'] })).some((e) => /no puede llevar/.test(e)));
+  // divisible y emisores son del contrato: solo en la emisión. El registro va en todo movimiento de la serie.
+  assert.ok(validarMovimiento({ ...emite({ divisible: true }), de: 'casa', a: 'bea' }).some((e) => /solo en la emisión de E/.test(e)));
+  assert.deepEqual(validarMovimiento({ ...emite({ registro: reg }), de: 'casa', a: 'bea' }), []);
+  const valor = { registro: reg, divisible: true, emisores: ['a', 'b'] };
+  for (const campo of ['registro', 'divisible', 'emisores']) {
+    assert.ok(validarMovimiento({ token: 'R', emisor: 'a', cantidad: 1, de: 'a', a: 'b', [campo]: valor[campo] }).includes(campo + ' solo en E'));
+  }
+});
+
+test('franja de una denominación (tras su última «@», texto opaco) y familia de una serie (la franja «*»)', () => {
+  const reg = 'cd'.repeat(32);
+  assert.deepEqual(['cama-2@2026-11-13', 'a@b@turno-3', 'EUR', '@x', 'x@'].map(franjaDe), ['2026-11-13', 'turno-3', '', 'x', '']);
+  assert.equal(TODAS_LAS_FRANJAS, '*');
+  assert.equal(familiaDe('E:casa/cama-2@2026-11-13@' + reg), 'E:casa/cama-2@*@' + reg);
+  assert.equal(familiaDe('E:casa/EUR'), 'E:casa/EUR@*');
+  assert.equal(familiaDe('T:hora'), 'T:hora');
+  assert.ok(validarMovimiento({ token: 'E', emisor: 'casa', denominacion: 'cama@*', cantidad: 1, de: 'casa', a: 'b' }).some((e) => /franja reservada/.test(e)));
+});
+
+test('capacidad: un entero positivo en la posición 2 de una décupla (la plaza o el payload raíz de un registro)', () => {
+  assert.equal(CRITERIO_CAPACIDAD, 2);
+  assert.equal(capacidadDe(['plaza', 'EUR 30', 4]), 4);
+  assert.equal(capacidadDe(['Alojamiento', ['camas'], 4]), 4);
+  for (const x of [['a', 'b', 0], ['a', 'b', 2.5], ['a', 'b', '4'], ['a'], 'casa', null]) assert.equal(capacidadDe(x), undefined);
 });

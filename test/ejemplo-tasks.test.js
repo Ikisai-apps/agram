@@ -89,6 +89,10 @@ test('partidas: cada una es una posición con capacidad respaldada por una serie
     assert.equal(importe.unidad, 'EUR');
     // Del eje: la serie es de quien escribe las partidas, y lleva emitido tanto como la capacidad.
     assert.deepEqual(eje.serie('E:' + partidas.autor + '/' + concepto), { emisor: 'casa', emitido: importe.cantidad });
+    // R2 (VG, 7-11 noche): las emite el génesis, así que van atadas a él; el importe de la partida es capacidad de
+    // una POSICIÓN (la del motor, que solo informa), no de un registro: sin tope en el eje, deuda del emisor.
+    const s = eje.series().find((x) => x.clave === 'E:casa/' + concepto);
+    assert.deepEqual([s.registro, s.tope, s.nota], [eje.genesisId, null, 'sin capacidad declarada: deuda del emisor']);
   });
   // La organizadora tiene en E exactamente el coste total de su tarea: las series de sus partidas y nada más.
   const coste = evaluar(eje, tarea.id, indicesDe(DIR_COSTE)).valor;
