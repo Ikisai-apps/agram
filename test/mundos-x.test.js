@@ -221,7 +221,10 @@ test('ciudad: la manzana de la posición 1, los otros ocupantes y la vía de los
 
 test('ciudad: emitir una serie abre su vía; sin saldo del emisor, la vía se cierra', async () => {
   const { eje, compra } = await ejemploCompra();
-  const abre = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa'), { token: 'E', emisor: 'casa', denominacion: 'vales', cantidad: 5, de: null, a: 'casa' }], payload: 'Vales de bebida' });
+  // VG, 7-11 noche: emitir E es el último escalón (T + R + P + E): la casa gasta su T, pone en juego un R propio
+  // ante la persona huésped y tiene P sobre la compra (el suyo cubre todo el eje).
+  const rEnJuego = [{ token: 'R', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'huesped' }];
+  const abre = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa'), ...rEnJuego, { token: 'E', emisor: 'casa', denominacion: 'vales', cantidad: 5, de: null, a: 'casa' }], payload: 'Vales de bebida' });
   let d = datosCiudad(eje, compra.id);
   let v = d.vias.find((x) => x.clave === 'E:casa/vales');
   assert.ok(v.abierta);

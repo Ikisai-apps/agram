@@ -13,7 +13,7 @@ Convenciones:
 
 | Módulo | Qué define | Exports |
 |---|---|---|
-| `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `autorizacionesValidas`, `estadoDe`, `esConsolidacion`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
+| `src/motor.js` | El ciclo de la fábrica (PV4); la capacidad de una posición (§5.1, solo informa) | `descubrir`, `proponer`, `consolidar`, `autorizar`, `ejecutar`, `puedeAutorizar`, `poderParaAutorizar`, `autorizacionesValidas`, `estadoDe`, `esConsolidacion`, `consolidaciones`, `caminoVisible`, `capacidadDe`, `tramoDe`, `registrosEn`, `ocupacion`, `FABRICA`, `FASES`, `OPERADORES`, `REGLA_AUTORIZAR`, `CRITERIO_CAPACIDAD` |
 | `src/escritura.js` | El registro de salida de cada modo; la matriz 10×10×10 de la fábrica | `item`, `resolverRef`, `desdePointed`, `desdeSequenced`, `desdeMapped`, `ubicar`, `costeT`, `escribirDesde`, `escribirSalida`, `CLASES`, `claseDe`, `esReferencia` |
 | `src/modos.js` | Mínimo y máximo por modo (los mismos para leer y emitir), proporción | `MODOS`, `nombreModo`, `maximo`, `minimo`, `alcanceDe`, `lectura`, `tope`, `escritura`, `contarPosiciones`, `cabeTope`, `cabeEscritura`, `proporcion`, `proporcionDe` |
 | `src/tiempo.js` | Eje temporal (PV6/PV7), §8; reexporta de `bases.js` lo del 8 que otros módulos leían aquí (§8.3) | `banda`, `ejeTemporal`; de `bases.js`: `HITOS`, `ALCANCES`, `MEDIDAS`, `comparables`, `confluir`, `proyectoDe`, `etiquetaClave`, `SIN_BASE_ESCRITA` |
@@ -32,7 +32,7 @@ Cuatro pasos sobre un foco: **descubrir → consolidar → autorizar → ejecuta
 |---|---|---|---|---|---|---|
 | descubrir | `descubrir(eje, foco, { camino, posiciones, epoca, maximo })` | cualquiera | nada | — | — | nada |
 | consolidar | `consolidar(eje, { autor, foco, elecciones, titulo, t, camino }, privada)` | cualquier identidad con T | `[titulo, elección 1, …, elección n]` | foco / `direccion([...camino, 4])` | `{ motor: 'fabrica', fase: 'consolidado', fuentes, encaje, modo: 'mapped' }` | T del autor: 1 minuto por posición |
-| autorizar | `autorizar(eje, { autorizante, consolidacion, t, nota }, privada)` | identidad con P > 0 sobre la consolidación y distinta del autor | `'==' + nota` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'autorizado', autoridad: { regla, poderes }, modo: 'pointed' }` | T del autorizante: 1 minuto |
+| autorizar | `autorizar(eje, { autorizante, consolidacion, t, nota }, privada)` | identidad distinta del autor con P > 0 sobre un registro del hilo que el autor no escribió (§4.1, [X] confirmar VG) | `'==' + nota` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'autorizado', autoridad: { regla, poderes }, modo: 'pointed' }` | T del autorizante: 1 minuto |
 | ejecutar | `ejecutar(eje, { autor, consolidacion, movimientos, t, titulo }, privada)` | el autor de la consolidación | `[titulo, { ref: consolidación }, { ref: autorización }]` | consolidación / `FABRICA` | `{ motor: 'fabrica', fase: 'ejecutado', evidencia: [consolidación, autorización] }` | T del autor: 1 minuto por posición (3 con un título terminal), más `movimientos` |
 
 Constantes: `FABRICA = '4000000000'` (la posición 4 en la raíz del foco); `FASES = ['consolidado', 'autorizado', 'ejecutado']` (los valores de `contexto.fase`).
@@ -42,7 +42,7 @@ Estados de una consolidación (`estadoDe`): `PENDIENTE DE AUTORIZACIÓN` → `AU
 Reglas de fondo, tal como están en el código:
 
 - **Consolidar no es ejecutar.** La consolidación solo mueve el T de escribir; E, P y R se mueven en `ejecutar`, y solo si el autor los pasa en `movimientos`.
-- **La posición no da autoridad.** Cualquiera consolida; autoriza quien tiene poder (P) sobre el registro; ejecuta el autor. Es la regla V0, un hueco provisional hasta que exista AARPIA (§4.1).
+- **La posición no da autoridad.** Cualquiera consolida; autoriza quien tiene poder (P) sobre el registro, sin contar el P sobre registros que escribió el propio autor; ejecuta el autor. Es la regla V0, un hueco provisional hasta que exista AARPIA (§4.1).
 - **Elegir no publica.** `ELEGIR` de BQL devuelve una colección; la única fijación es `consolidar`, y no borra alternativas: las elecciones se guardan como referencias a sus fuentes, con el vector de encaje de cada una.
 - **Cada cambio tiene clase.** La fábrica parte de la matriz de 100 del foco y emite solo lo modificado, en la matriz 10×10×10 (posición × subposición × clase de modificación). La matriz es **relativa al camino**: bajo un camino de profundidad n, la clase es el dígito n + 2 de la dirección (el tercero desde el camino; sin camino, el tercero), y se lee de la dirección con el camino, `claseDe(dir, camino)` (§7.2): ni la consolidación ni la ejecución guardan un campo de clase (§3.5, §5).
 - **Todo cuesta tiempo.** Cada registro mueve T del autor: un minuto por posición del registro, heredadas incluidas (cartón piedra, §7.3). Es el token `T:minuto`: cada escala de T es un token distinto, sin conversión, así que escribir exige tener minutos. Y cada modo tiene dos límites que rechazan: la proporción de siempre, que se mira primero y con el mensaje de siempre, y además un tope duro de posiciones emitidas (§7.1).
@@ -89,20 +89,20 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     f9e59d1e camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → 4598f23e · exacto
-  propio     f9e59d1e camino [1,0] visible [1,0] · RESUELTO · → 4598f23e · etiqueta → 4598f23e · exacto
-  referencia 4598f23e camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta ensalada · exacto
-  escrito    c70bfa6e camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
+  propio     dd4ab35f camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d173ab58 · exacto
+  propio     dd4ab35f camino [1,0] visible [1,0] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
+  referencia d173ab58 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta ensalada · exacto
+  escrito    233c9da6 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 3 candidatos
-  propio     f9e59d1e camino [2] visible [2,0] · RESUELTO · [1 posiciones] · etiqueta → 4598f23e · exacto
-  propio     f9e59d1e camino [2,0] visible [2,0] · RESUELTO · → 4598f23e · etiqueta → 4598f23e · exacto
-  referencia 4598f23e camino [2] visible [2,0] · RESUELTO · [2 posiciones] · etiqueta sin gluten · exacto
+  propio     dd4ab35f camino [2] visible [2,0] · RESUELTO · [1 posiciones] · etiqueta → d173ab58 · exacto
+  propio     dd4ab35f camino [2,0] visible [2,0] · RESUELTO · → d173ab58 · etiqueta → d173ab58 · exacto
+  referencia d173ab58 camino [2] visible [2,0] · RESUELTO · [2 posiciones] · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     f9e59d1e camino [3] visible [3,0] · RESUELTO · [2 posiciones] · etiqueta huesped · exacto
-  propio     f9e59d1e camino [3,0] visible [3,0] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     dd4ab35f camino [3] visible [3,0] · RESUELTO · [2 posiciones] · etiqueta huesped · exacto
+  propio     dd4ab35f camino [3,0] visible [3,0] · RESUELTO · huesped · etiqueta huesped · exacto
 4 4000000000 2 candidatos
-  propio     f9e59d1e camino [4] visible [4,0] · RESUELTO · [2 posiciones] · etiqueta pagar · exacto
-  propio     f9e59d1e camino [4,0] visible [4,0] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     dd4ab35f camino [4] visible [4,0] · RESUELTO · [2 posiciones] · etiqueta pagar · exacto
+  propio     dd4ab35f camino [4,0] visible [4,0] · RESUELTO · pagar · etiqueta pagar · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
@@ -152,9 +152,9 @@ console.log(estadoDe(eje, cons.id), importe.cantidad, importe.unidad, '· EUR co
 
 ```text
 {"Q":"descubrir","B":"proponer","C":"consolidar"}
-{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"c70bfa6e","dir":"3000000000"}}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"233c9da6","dir":"3000000000"}}
 ["1:formula","2:formula","3:foco"] []
-["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"c70bfa6e","dir":"3000000000"}] · texto
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"233c9da6","dir":"3000000000"}] · texto
 EJECUTADO 14 EUR · EUR cocina 26 huesped 34
 ```
 
@@ -218,8 +218,8 @@ console.log(estadoDe(eje, c.id));
 
 ```text
 true true huesped
-["Pago del menú",{"ref":"c70bfa6e","dir":"0000000000"},"sin lactosa",{"ref":"f9e59d1e","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fase":"consolidado","fuentes":["c70bfa6e"],"encaje":[{"posicion":1,"evento":"c70bfa6e","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
+["Pago del menú",{"ref":"233c9da6","dir":"0000000000"},"sin lactosa",{"ref":"dd4ab35f","dir":"3000000000"},"pagar 14 EUR"]
+{"motor":"fabrica","fase":"consolidado","fuentes":["233c9da6"],"encaje":[{"posicion":1,"evento":"233c9da6","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 PENDIENTE DE AUTORIZACIÓN
 ```
@@ -267,7 +267,7 @@ fuente desconocida en 1
 mapped escribe como mucho 333 posiciones; este registro tiene 1001
 mapped escribe como mucho 333 posiciones; este registro tiene 401
 evento rechazado: foco desconocido: nadie
-ok ["Consolidación",["dos","menús"],{"ref":"f9e59d1e","dir":"2000000000"},{"ref":"4598f23e","dir":"2000000000"}] en 4000000000
+ok ["Consolidación",["dos","menús"],{"ref":"dd4ab35f","dir":"2000000000"},{"ref":"d173ab58","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
 
@@ -318,34 +318,46 @@ Las cuatro elecciones son, desde su camino, las celdas `1.0.0` a `4.0.0`: clase 
 puedeAutorizar(eje, identidad, consolidacion)  // → boolean
 ```
 
-`true` cuando la consolidación existe, `identidad` **no es su autor** y `eje.poderSobre(identidad, consolidacion) > 0`. El poder sobre un registro es la suma de los saldos de P cuyo ámbito es `'genesis'` (todo el eje) o cualquier registro del **hilo** de la consolidación (consolidación → foco → … → génesis). Es decir: quien tiene poder sobre un registro lo tiene sobre todo lo que cuelga de él. P exige ámbito y delegarlo lo estrecha (`src/eje.js`, `test/eprt.test.js`).
+```js
+poderParaAutorizar(eje, identidad, foco, autorPropuesta)  // → [{ ambito, cantidad }]  el P de identidad que cuenta para autorizar lo que autorPropuesta propone sobre foco
+```
 
-Esta regla es un **hueco provisional**: la autorización y la ejecución reales son de AARPIA, que no existe (pendiente). Lo que hoy hay es «P > 0 sobre el registro y no ser el autor».
+`true` cuando la consolidación existe, `identidad` **no es su autor** y tiene P > 0 que **cuente** (`poderParaAutorizar`). Cuenta el P cuyo ámbito es un registro del **hilo** de la consolidación (consolidación → foco → … → génesis; `'genesis'` es el registro del génesis) **que no escribió el autor de la consolidación**. Es decir: quien tiene poder sobre un registro lo tiene sobre todo lo que cuelga de él, salvo para autorizar a quien escribió ese registro. P exige ámbito y delegarlo lo estrecha (`src/eje.js`, `test/eprt.test.js`).
+
+La condición «que no escribió el autor» es regla de Core tras la revisión adversarial del 7-11 noche (**[X] confirmar VG**). Sin ella, el autor acuñaba P sobre su propio registro, se lo delegaba a una identidad suya (un títere) y esa le autorizaba: la ejecución salía `EJECUTADO`. Ahora autoriza el **dominio ajeno** (la casa, con P sobre el génesis, autoriza la compra del huésped), nunca el P acuñado por quien propone sobre lo suyo; ese P sirve para delegar criterio sobre lo suyo (que otros propongan ahí). Como el saldo de P no guarda de dónde viene, tampoco cuenta el P sobre ese registro que otro haya delegado estrechando el suyo. Queda abierto (**[X]**): un títere que escribe su propio registro en el hilo y acuña P sobre él autoriza lo que el autor consolide debajo (`test/ciclo-eprt.test.js`, NEU-03). En Booking, la persona huésped delega a recepción P sobre su reserva para que recepción pueda autorizar la entrega de la casa (`ejemplos/ikisai/reserva-booking.mjs`, `reservar`).
+
+Esta regla es un **hueco provisional**: la autorización y la ejecución reales son de AARPIA, que no existe (pendiente). Lo que hoy hay es «no ser el autor y tener P > 0 sobre un registro del hilo que el autor no escribió».
 
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
-import { consolidar, puedeAutorizar } from './src/motor.js';
+import { consolidar, puedeAutorizar, poderParaAutorizar } from './src/motor.js';
 const T = '2026-11-07T16:00:00Z';
 const { eje, alta, menu, compra } = await ejemploCompra();
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
 console.log(JSON.stringify(eje.poderes('casa')), JSON.stringify(eje.poderes('cocina')));
 // La casa delega a cocina 2 P con ámbito el menú: cubre el menú y lo que cuelga de él.
 await eje.escribir({ autor: 'casa', sobre: menu.id, t: T, movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: menu.id, de: 'casa', a: 'cocina' }], payload: 'cocina decide sobre su menú' });
-console.log(JSON.stringify(eje.poderes('cocina')).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8)), 'casa P:genesis', eje.saldo('casa', 'P:genesis'));
+console.log(corto(eje.poderes('cocina')), 'casa P:genesis', eje.saldo('casa', 'P:genesis'));
 const sobreCompra = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
 const sobreAlta = await consolidar(eje, { autor: 'huesped', foco: alta.id, t: T, elecciones: { 1: 'otra alta' } });
-console.log('sobre la compra (cuelga del menú): cocina', puedeAutorizar(eje, 'cocina', sobreCompra.id), eje.poderSobre('cocina', sobreCompra.id), '· casa', puedeAutorizar(eje, 'casa', sobreCompra.id), eje.poderSobre('casa', sobreCompra.id), '· huesped (autor)', puedeAutorizar(eje, 'huesped', sobreCompra.id));
+console.log('sobre la compra (cuelga del menú): cocina', puedeAutorizar(eje, 'cocina', sobreCompra.id), corto(poderParaAutorizar(eje, 'cocina', sobreCompra.id, 'huesped')), '· casa', puedeAutorizar(eje, 'casa', sobreCompra.id), '· huesped (autor)', puedeAutorizar(eje, 'huesped', sobreCompra.id));
 console.log('sobre el alta (por encima del menú): cocina', puedeAutorizar(eje, 'cocina', sobreAlta.id), eje.poderSobre('cocina', sobreAlta.id), '· casa', puedeAutorizar(eje, 'casa', sobreAlta.id));
+// Cocina pasa 1 P sobre su menú al huésped y consolida sobre el menú: el huésped no la autoriza con ese P (el menú lo escribió cocina).
+await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T, movimientos: [gastaT('cocina'), { token: 'P', cantidad: 1, ambito: menu.id, de: 'cocina', a: 'huesped' }], payload: 'el huésped opina del menú' });
+const deCocina = await consolidar(eje, { autor: 'cocina', foco: menu.id, t: T, elecciones: { 1: 'menú de mañana' } });
+console.log('sobre el menú, de cocina: huesped', puedeAutorizar(eje, 'huesped', deCocina.id), eje.poderSobre('huesped', deCocina.id), corto(poderParaAutorizar(eje, 'huesped', deCocina.id, 'cocina')), '· casa', puedeAutorizar(eje, 'casa', deCocina.id));
 console.log('sobre algo que no existe:', puedeAutorizar(eje, 'casa', 'nadie'));
 "
 ```
 
 ```text
 [{"ambito":"genesis","cantidad":10}] []
-[{"ambito":"4598f23e","cantidad":2}] casa P:genesis 8
-sobre la compra (cuelga del menú): cocina true 2 · casa true 8 · huesped (autor) false
+[{"ambito":"d173ab58","cantidad":2}] casa P:genesis 8
+sobre la compra (cuelga del menú): cocina true [{"ambito":"d173ab58","cantidad":2}] · casa true · huesped (autor) false
 sobre el alta (por encima del menú): cocina false 0 · casa true
+sobre el menú, de cocina: huesped false 1 [] · casa true
 sobre algo que no existe: false
 ```
 
@@ -358,7 +370,7 @@ autorizacionesValidas(eje, consolidacion)                                     //
 
 `autorizar` escribe con `escribirDesde` en modo `pointed`: `sobre = consolidación`, `en = FABRICA`, `payload = '==' + nota` (texto escapado para BQL), `contexto = { motor: 'fabrica', fase: 'autorizado', autoridad: { regla: REGLA_AUTORIZAR, poderes }, modo: 'pointed' }`, un minuto de T del autorizante. Solo escribe si la consolidación está `PENDIENTE DE AUTORIZACIÓN` y el autorizante puede.
 
-`contexto.autoridad` es el metadato de autoridad del evento (corpus: «firmante, contexto, autoridad cuando aplique»): la regla aplicada y los poderes del autorizante que cubren el registro (`[{ ambito, cantidad }]`, los que suma `poderSobre`) en el momento de autorizar. Es una declaración: el estado se vuelve a calcular con el eje y no se fía de ella. Los demás registros no lo llevan.
+`contexto.autoridad` es el metadato de autoridad del evento (corpus: «firmante, contexto, autoridad cuando aplique»): la regla aplicada y los poderes del autorizante que cuentan (`[{ ambito, cantidad }]`, los de `poderParaAutorizar`) en el momento de autorizar. Es una declaración: el estado se vuelve a calcular con el eje y no se fía de ella. Los demás registros no lo llevan.
 
 Lo que no cumple la regla **no cuenta**: un registro con `fase: 'autorizado'` escrito a mano por quien no puede autorizar queda en el eje (es un evento válido) pero `autorizacionesValidas` no lo devuelve y el estado no cambia.
 
@@ -366,7 +378,7 @@ Lo que no cumple la regla **no cuenta**: un registro con `fase: 'autorizado'` es
 |---|---|
 | `no es una consolidación: <id8>` | `consolidacion` no existe o su `contexto.fase` no es `'consolidado'` |
 | `el autor no se autoriza a sí mismo` | `autorizante === consolidación.autor` |
-| `<autorizante> no tiene poder (P) sobre este registro` | `poderSobre` = 0 |
+| `<autorizante> no tiene poder (P) sobre este registro que cuente para autorizar a <autor>: solo cuenta el P sobre un registro del hilo que <autor> no escribió` | `poderParaAutorizar` no suma nada |
 | `ya está autorizado` / `ya está ejecutado` | el estado ya no es `PENDIENTE DE AUTORIZACIÓN` |
 
 ```sh
@@ -391,12 +403,12 @@ await autorizar(eje, { autorizante: 'casa', consolidacion: compra.id, t: T }).ca
 
 ```text
 el autor no se autoriza a sí mismo
-cocina no tiene poder (P) sobre este registro
+cocina no tiene poder (P) sobre este registro que cuente para autorizar a huesped: solo cuenta el P sobre un registro del hilo que huesped no escribió
 escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
-true 4000000000 "==vale" BQL lo lee como "=vale" {"motor":"fabrica","fase":"autorizado","autoridad":{"regla":"V0 provisional hasta AARPIA: autoriza quien tiene P > 0 sobre el registro y no es su autor; ejecuta el autor","poderes":[{"ambito":"genesis","cantidad":10}]},"modo":"pointed"} 1 casa
+true 4000000000 "==vale" BQL lo lee como "=vale" {"motor":"fabrica","fase":"autorizado","autoridad":{"regla":"V0 provisional hasta AARPIA: autoriza quien no es el autor y tiene P > 0 sobre un registro del hilo que el autor no escribió ([X] confirmar VG); ejecuta el autor","poderes":[{"ambito":"genesis","cantidad":10}]},"modo":"pointed"} 1 casa
 escritos en la fábrica 2 · válidos 1 · AUTORIZADO
 ya está autorizado
-no es una consolidación: f9e59d1e
+no es una consolidación: dd4ab35f
 ```
 
 ## 5. Ejecutar
@@ -449,13 +461,13 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"bc65b251"},{"ref":"6c17f8d7"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["bc65b251","6c17f8d7"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+true 4000000000 ["Pagado",{"ref":"05aa2b96"},{"ref":"9e602de2"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["05aa2b96","9e602de2"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
 cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 472
-EJECUTADO · hilo: dd8cd194 → bc65b251 → f9e59d1e → 4598f23e → ccf5a120 → 6c1c5968
+EJECUTADO · hilo: 8df7f157 → 05aa2b96 → dd4ab35f → d173ab58 → 06b890b5 → 49ee3fca
 evidencia: true true
 ya ejecutado
-[{"id":"bc65b251","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
+[{"id":"05aa2b96","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
 ```
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
@@ -722,25 +734,25 @@ try { desdeMapped(eje, [], compra.id); } catch (e) { console.log(e.message); }
 ```
 
 ```text
-["hola",12.5,-3,"12 EUR",{"ref":"4598f23e"},{"ref":"4598f23e","dir":"1000000000"},"=LOCAL(1)"]
+["hola",12.5,-3,"12 EUR",{"ref":"d173ab58"},{"ref":"d173ab58","dir":"1000000000"},"=LOCAL(1)"]
 ítem vacío
 referencia desconocida: ffff
 "@zzzz"
 "@ab"
-"@4598f23e:12"
-{"ref":"4598f23e"}
+"@d173ab58:12"
+{"ref":"d173ab58"}
 referencia demasiado corta: @ab
 referencia desconocida: ffff
-"servido" {"ref":"4598f23e"}
-["llegar",{"ref":"4598f23e"},3]
+"servido" {"ref":"d173ab58"}
+["llegar",{"ref":"d173ab58"},3]
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa",{"ref":"f9e59d1e","dir":"3000000000"},["pagado","servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa",{"ref":"dd4ab35f","dir":"3000000000"},["pagado","servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"f9e59d1e","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+con camino [1]: {"payload":[{"ref":"dd4ab35f","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
-una línea «d.d» es texto: [{"ref":"f9e59d1e","dir":"0000000000"},"1.5 kg de harina"]
+una línea «d.d» es texto: [{"ref":"dd4ab35f","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
@@ -786,22 +798,22 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"f9e59d1e","dir":"0000000000"},[{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"dd4ab35f","dir":"0000000000"},[{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
-con marca: [4] = [{"ref":"f9e59d1e","dir":"4000000000"},"pagado"] · anclados ["1.2.4 en 1240000000","4.0.1 en 4010000000"]
+con marca: [4] = [{"ref":"dd4ab35f","dir":"4000000000"},"pagado"] · anclados ["1.2.4 en 1240000000","4.0.1 en 4010000000"]
 ubicar 1.2.4 {"ubicacion":"anclado","en":"1240000000","dir":"1240000000","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}
 ubicar 2.0.0 {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan":["5","6"]}
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 2.0.0 en pointed {"ubicacion":"anclado","en":"2000000000","dir":"2000000000","faltan":[],"motivo":"pointed escribe como mucho 1 posiciones; dentro, el registro tiene 3"}
-salida {"payload":[{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
+salida {"payload":[{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"f9e59d1e","dir":"0000000000"},{"ref":"f9e59d1e","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo"}
+registro en 0000000000 [{"ref":"dd4ab35f","dir":"0000000000"},{"ref":"dd4ab35f","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo"}
 celda 9.0.0 → 9000000000 "volver"
-celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
+celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
 celda 3.0.0 bajo [1] en Pointed → 1300000000 "flan" · 1 minuto
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
@@ -848,9 +860,9 @@ celda 2.4.0 bajo [1] → anclado en 1240000000 · cae en 1240000000 · clase 0 (
 celda 0.1.0 bajo [1] → anclado en 1010000000 · cae en 1010000000 · clase 0 (desde la raíz 1)
 celda 7.3.4 bajo [1] → anclado en 1734000000 · cae en 1734000000 · clase 4 (desde la raíz 3)
 celda 1.0.4 bajo [1,2] → anclado en 1210400000 · cae en 1210400000 · clase 4 (desde la raíz 1)
-salida bajo [1]: registro en 1000000000 [{"ref":"f9e59d1e","dir":"1000000000"},{"ref":"f9e59d1e","dir":"1100000000"},{"ref":"f9e59d1e","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
-génesis (terminal): [{"ref":"6c1c5968","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
-bajo [1, 2] (el precio, terminal): [{"ref":"f9e59d1e","dir":"1200000000"},"algo"] · la 0 alcanza "EUR 12"
+salida bajo [1]: registro en 1000000000 [{"ref":"dd4ab35f","dir":"1000000000"},{"ref":"dd4ab35f","dir":"1100000000"},{"ref":"dd4ab35f","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
+génesis (terminal): [{"ref":"49ee3fca","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
+bajo [1, 2] (el precio, terminal): [{"ref":"dd4ab35f","dir":"1200000000"},"algo"] · la 0 alcanza "EUR 12"
 ```
 
 Lectura: pagar el precio desde la raíz es la celda `1.2.4` (clase 4); la misma dirección `1240000000`, leída bajo `[1]`, es la celda `2.4.0`, de clase 0. Bajo `[1]`, `@:0.4 pagar 12 EUR` en la posición 2 es la celda `2.0.4`: cae en `1204000000` y su clase, leída desde `[1]`, es 4 (desde la raíz sería 0). El génesis y el precio son terminales: escribir en su posición 1 hereda la 0, cuya dirección alcanza el terminal (como en `main`; **[X] decidir VG**, §7.2).
@@ -966,13 +978,13 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      f4efadf5 huesped  2026-11-07T14:30:00Z   -1800 hora
-  pasado registro      c70bfa6e cocina   2026-11-07T14:10:00Z   -3000 hora
-  pasado registro      4598f23e cocina   2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      ccf5a120 casa     2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      6c1c5968 casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion f4efadf5 huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
-  futuro proyeccion    72bf0b74 huesped  2026-11-13T13:30:00Z  513000 semana 
+  pasado registro      5eed2389 huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      233c9da6 cocina   2026-11-07T14:10:00Z   -3000 hora
+  pasado registro      d173ab58 cocina   2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      06b890b5 casa     2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      49ee3fca casa     2026-11-07T09:00:00Z  -21600 dia
+  futuro consolidacion 5eed2389 huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
+  futuro proyeccion    fd9032b5 huesped  2026-11-13T13:30:00Z  513000 semana 
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
@@ -1032,16 +1044,19 @@ Donde antes `comparar` decía «posición 1 de 2», ahora se lee la caja del men
 ## 9. Persistencia
 
 ```js
-VERSION = 2                         // desde la PR #35 (series de tokens): un eje de la versión 1 no se restaura
-serializar(eje)                     // → { version: 2, exigirFirmas, eventos: evento[] }  solo los eventos, en orden
-restaurar(datos)                    // → Promise<Eje>  Eje.desde(eventos): vuelve a validar ids, firmas y saldos; lanza si algo no cuadra
+VERSION = 3                         // 7-11 noche (ciclo de vida de los tokens); la 2, desde la PR #35 (series de tokens); un eje de la versión 1 no se restaura
+serializar(eje)                     // → { version: 3, exigirFirmas, v2?: { eventos, ultimo }, eventos: evento[] }  los eventos, en orden; v2 solo si el eje viene de una migración
+migrar(datos)                       // → los datos en la versión actual: de la 2 a la 3, version: 3 y v2 = { eventos: n, ultimo: id del último } (todos se validan con las reglas de la 2)
+restaurar(datos)                    // → Promise<Eje>  migra, comprueba la marca v2 y Eje.desde(eventos, { eventosV2: n }): vuelve a validar ids, firmas, saldos y reglas de emisión (las de la 2 para los primeros eventosV2); lanza si algo no cuadra
 guardarLocal(eje, clave = 'agram.eje')  // → boolean  localStorage.setItem(clave, JSON); false si lanza
 cargarLocal(clave = 'agram.eje')        // → Promise<Eje | null>  null si no hay nada o algo falla
 borrarLocal(clave = 'agram.eje')        // → void
 apartarLocal(clave = 'agram.eje', destino = clave + '.anterior')  // → boolean  copia lo guardado sin borrarlo (la app aparta así un eje de la versión 1)
 ```
 
-Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `eje de la versión <n>; esta es la 2` (un guardado de otra versión, p. ej. anterior a las series), `datos de eje inválidos` (sin `version`, sin eventos), `el primer evento debe ser el génesis`. Lo mismo en `docs/BTML.md` §8.1.
+Se guarda **la lista de eventos y nada más**. Todo lo demás se reconstruye al restaurar: saldos, identidades, claves, índice de hijos, el árbol lógico y, con él, los estados de la fábrica (`estadoDe` vuelve a calcularse desde los escritos). Un evento manipulado en el guardado se rechaza (`id no corresponde al cuerpo`); una firma quitada también (`firma ausente`). Errores propios: `eje de la versión <n>; esta es la 3` (un guardado de otra versión sin migración, p. ej. anterior a las series), `datos de eje inválidos` (sin `version`, sin eventos), `el primer evento debe ser el génesis`, `eventosV2 no se declara en un guardado: …`, `la marca de la versión 2 no corresponde a sus eventos`. Lo mismo en `docs/BTML.md` §8.1.
+
+**De la versión 2 a la 3 la migración no es trivial.** Las reglas de la 3 (solo emiten personas, emisión escalonada, el `t` de un evento no anterior al de su foco ni al alta de su autor) rechazarían un eje v2 con un génesis de grupo, con E o R emitidos fuera del génesis sin el escalonado o con eventos fechados hacia atrás. Por eso `migrar`, y solo desde unos datos de la versión 2, marca el prefijo (`v2: { eventos: n, ultimo: <id del último> }`), `restaurar` comprueba que el evento n tiene ese id (los ids se vuelven a verificar) y revalida esos n eventos con las reglas de la 2 (T y P solo los emite el génesis; E y R, su emisor a sí mismo, persona o grupo; R no se devuelve; sin estado, salida ni caduca; sin escalonado ni regla del reloj; el `t` vale si Date.parse lo lee; `src/ciclo.js`). Los eventos que se añadan después siguen las reglas de la 3, y el alta de quien entró en el prefijo cuenta, para el reloj y el tope de T, desde el primer evento de la 3. `serializar` conserva la marca y validez lee cada registro con las reglas que le tocan. Un `eventosV2` suelto en un guardado se rechaza (revisión de seguridad, 7-11 noche). Lo que la marca no es: una firma; quien escribe el archivo puede escribirla, igual que podría presentar sus eventos como versión 2, que también se admite, y no gana nada que la versión 2 no diera ya (**[X] confirmar VG**).
 
 En Node no hay `localStorage`: `guardarLocal` devuelve `true` sin guardar nada (no lanza) y `cargarLocal` devuelve `null`. En el navegador, `localStorage` es una comodidad por visor. Pendiente: base de datos y anclaje a una cadena; la forma de los eventos no cambia con eso.
 
@@ -1189,6 +1204,7 @@ export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], e
 export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes: { posicion, desde, texto }[], pendientes: { posicion, motivo }[] };
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada?): Promise<Evento>;
 export function puedeAutorizar(eje, identidad, consolidacion): boolean;
+export function poderParaAutorizar(eje, identidad, foco, autorPropuesta): { ambito, cantidad }[];  // el P que cuenta: sobre un registro del hilo que autorPropuesta no escribió
 export async function autorizar(eje, { autorizante, consolidacion, t, nota = 'autorizo' }, privada?): Promise<Evento>;
 export async function ejecutar(eje, { autor, consolidacion, movimientos = [], t, titulo = 'Ejecutado' }, privada?): Promise<Evento>;
 export function autorizacionesValidas(eje, consolidacion): Evento[];
@@ -1243,8 +1259,9 @@ export function ocho(eje, foco, { alcance = 'hermanos', epoca } = {}): { alcance
 export function textoOcho(o): string;
 
 // src/persistencia.js
-export const VERSION = 2;
+export const VERSION = 3;
 export function serializar(eje): { version, exigirFirmas, eventos };
+export function migrar(datos): datos;  // de la versión 2 a la 3: version 3 y la marca v2 = { eventos, ultimo } (sus eventos se validan con las reglas de la 2)
 export async function restaurar(datos): Promise<Eje>;
 export function guardarLocal(eje, clave = 'agram.eje'): boolean;
 export async function cargarLocal(clave = 'agram.eje'): Promise<Eje | null>;
@@ -1258,7 +1275,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 
 | Pendiente | Hoy |
 |---|---|
-| AARPIA: autorización y ejecución reales, con sus agentes | Regla V0: autoriza quien tiene P > 0 sobre el registro y no es el autor; ejecuta el autor (§4.1). |
+| AARPIA: autorización y ejecución reales, con sus agentes | Regla V0: autoriza quien no es el autor y tiene P > 0 sobre un registro del hilo que el autor no escribió ([X] confirmar VG); ejecuta el autor (§4.1). |
 | Las seis capacidades del motor (interpretar, resolver, posicionar, comparar, calcular, componer) como operaciones | No existen como funciones. |
 | Rechazar, revocar, caducar; varias autorizaciones (quórum); ejecución por tramos | Tres estados y una sola autorización válida basta; `ejecutar` toma la primera. Una ejecución que el eje rechaza deja la consolidación en `AUTORIZADO` (§5). |
 | Ejecución de varias partes (intercambio atómico: plaza por pago) | Cada movimiento sale del autor de la consolidación: una consolidación por parte, sin atomicidad (§5). [X] decidir VG (AARPIA). |

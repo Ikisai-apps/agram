@@ -52,9 +52,10 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
 
 /**
  * Modelo independiente de Eje.validar/aplicar, escrito desde las reglas
- * (src/tokens.js y mapa §12 [D] «series de tokens»): solo personas y grupos
- * emiten, E y R a sí mismos; T y P solo en el génesis; nadie mueve tokens
- * ajenos; R solo la mueve su emisor; P exige ámbito (el eje o un registro) y
+ * (src/tokens.js y mapa §12 [D] «series de tokens»; desde el ciclo E/P/R/T,
+ * VG 7-11 noche: solo personas emiten, escalonado, T con tope, P sobre lo
+ * propio; ver cicloOk); nadie mueve tokens ajenos; R solo la mueve su emisor
+ * (quien la tiene solo se la devuelve); P exige ámbito (el eje o un registro) y
  * delegar estrecha: se debita del ámbito exacto y, si no alcanza, de los que
  * lo cubren (su hilo y el eje); | : / reservados.
  */
@@ -62,10 +63,51 @@ class Modelo {
   constructor(genesisId, autor, tipo, emision) {
     this.g = genesisId;
     this.padre = new Map([[genesisId, null]]);
+    this.autorDe = new Map([[genesisId, autor]]);
+    this.alta = new Map([[autor, genesisId]]);
+    this.emitidoT = new Map(); // autor + escala → T emitido fuera del génesis
     this.saldos = new Map();
     this.tipos = new Map([[autor, tipo]]);
     this.existe = new Set([autor]);
     for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
+  }
+  /**
+   * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
+   * src/ciclo.js: solo personas; E y R a su nombre o al de un grupo sobre cuya
+   * alta tiene P; T para sí mismas con el tope del reloj (todo va en T0, así
+   * que el tope es 1 por escala); P solo sobre un registro que escribió;
+   * escalonado T → R → P → E. true si el evento las cumple.
+   */
+  cicloOk(ev) {
+    const autor = ev.autor;
+    const pAntes = (reg) => this.cubren(reg).reduce((s, a) => s + Math.max(0, this.saldos.get(autor + '\u0000P:' + a) ?? 0), 0);
+    const pEnEvento = (reg) => ev.movimientos.some((m) => m.token === 'P' && (m.de === autor || m.a === autor) && this.cubren(reg).includes(m.ambito));
+    const tienePoder = (reg) => pAntes(reg) > 0 || pEnEvento(reg);
+    const emitidas = new Set();
+    const tEvento = new Map();
+    for (const m of ev.movimientos) {
+      if (m.de !== null) continue;
+      emitidas.add(m.token);
+      if (this.tipos.get(autor) !== 'persona') return false;
+      if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
+        if (this.tipos.get(m.emisor) !== 'grupo' || !this.alta.has(m.emisor) || !tienePoder(this.alta.get(m.emisor))) return false;
+      }
+      if (m.token === 'T') {
+        if (m.a !== autor) return false;
+        const lleva = (this.emitidoT.get(autor + m.escala) ?? 0) + (tEvento.get(m.escala) ?? 0) + m.cantidad;
+        tEvento.set(m.escala, (tEvento.get(m.escala) ?? 0) + m.cantidad);
+        if (lleva > 1) return false;
+      }
+      if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
+    }
+    if (!emitidas.size) return true;
+    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a !== autor);
+    const rEnJuego = ev.movimientos.some((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor);
+    for (const t of ['R', 'P', 'E']) {
+      if (!emitidas.has(t)) continue;
+      if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
+    }
+    return true;
   }
   cubren(ambito) {
     if (ambito === 'genesis') return ['genesis', this.g];
@@ -78,7 +120,7 @@ class Modelo {
     if (m.token === 'T' && (!ESCALAS.includes(m.escala) || !Number.isSafeInteger(m.cantidad))) return false;
     if (m.token === 'E' && (!texto(m.denominacion) || !texto(m.emisor))) return false;
     if ((m.token === 'P' && !texto(m.ambito)) || (m.token === 'R' && !texto(m.emisor))) return false;
-    if (m.token === 'R' && m.de !== null && m.de !== m.emisor) return false;
+    if (m.token === 'R' && m.de !== null && m.de !== m.emisor && m.a !== m.emisor) return false; // quien la tiene solo la devuelve
     if ((m.token === 'E' || m.token === 'R') && m.de === null && m.a !== m.emisor) return false;
     for (const c of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) if (typeof m[c] === 'string' && /[|:/]/.test(m[c])) return false;
     if ((m.de !== null && !texto(m.de)) || (m.a !== null && !texto(m.a)) || (m.de === null && m.a === null)) return false;
@@ -96,11 +138,11 @@ class Modelo {
     const vista = new Map(this.saldos);
     const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
+    if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
+    if (!this.cicloOk(ev)) return null;
     for (const m of ev.movimientos) {
-      if (!this.formaMov(m)) return null;
       const k = this.clave(m);
       if (m.de === null) {
-        if (m.token === 'T' || m.token === 'P' || m.emisor !== ev.autor || !['persona', 'grupo'].includes(this.tipos.get(ev.autor))) return null;
         poner(m.a, k, ver(m.a, k) + m.cantidad);
         continue;
       }
@@ -125,7 +167,12 @@ class Modelo {
     return () => {
       this.saldos = vista;
       this.padre.set(ev.id, ev.sobre);
-      for (const m of ev.movimientos) if (m.a !== null) this.existe.add(m.a);
+      this.autorDe.set(ev.id, ev.autor);
+      for (const m of ev.movimientos) {
+        if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
+        if (m.a !== null) this.existe.add(m.a);
+        if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
+      }
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
     };
   }
@@ -161,7 +208,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
   const vistos = { delegaEstrechando: 0, emiteOtro: 0, rechazoSeparador: 0, rNoEmisor: 0 };
   for (let s = 0; s < 14; s++) {
     const g = prng(SEMILLA + s);
-    const tipoG = g.pick(['persona', 'grupo']);
+    // VG, 7-11 noche: el génesis lo emite una persona (o quien no declara tipo, que después no emite); ya no un grupo.
+    const tipoG = g.pick(['persona', undefined]);
     const emision = [['T:minuto', 300], ['T:hora', 50], ['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
     const eje = await Eje.genesis({ identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
@@ -177,6 +225,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       const autor = g.si(0.9) ? g.pick(conocidos) : g.pick(IDS);
       const movimientos = [gastaT(autor)];
       for (let i = 0; i < g.int(0, 3); i++) movimientos.push(movAleatorio(g, autor, ids, conocidos));
+      // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia).
+      if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor });
       const tipos = {};
       if (g.si(0.3)) {
         const nuevo = g.pick(IDS);
@@ -215,7 +265,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       for (const se of eje.series()) {
         assert.equal(claveToken(partirClave(se.clave)), se.clave);
         if (se.token === 'E' || se.token === 'R') assert.equal(se.emisor, partirClave(se.clave).emisor);
-        assert.ok(['persona', 'grupo'].includes(eje.tipo(se.emisor)), se.clave + ' la emite ' + se.emisor);
+        // Fuera del génesis solo emiten personas (a su nombre o al de un grupo); el génesis puede no declarar tipo.
+        assert.ok(se.emisor === 'r' || ['persona', 'grupo'].includes(eje.tipo(se.emisor)), se.clave + ' la emite ' + se.emisor);
       }
       for (const id of conocidos) {
         const x = ev.id;
@@ -235,8 +286,9 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
 test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuál, y nada a medias se restaura', async () => {
   const eje = await Eje.genesis({ identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'g', t: T0 });
   const d = ida(eje);
-  await assert.rejects(restaurar({ ...d, version: 1 }), /versión 1; esta es la 2/);
-  await assert.rejects(restaurar({ ...d, version: 3 }), /versión 3; esta es la 2/);
+  // Desde el ciclo E/P/R/T (VG, 7-11 noche) la versión es la 3; la 2 se migra (test/persistencia.test.js).
+  await assert.rejects(restaurar({ ...d, version: 1 }), /versión 1; esta es la 3/);
+  await assert.rejects(restaurar({ ...d, version: 4 }), /versión 4; esta es la 3/);
   for (const malo of [{ ...d, version: '2' }, { ...d, eventos: [] }, { version: 2 }, null]) await assert.rejects(restaurar(malo), /datos de eje inválidos/);
 });
 

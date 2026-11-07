@@ -91,9 +91,10 @@ test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega,
   await eje.escribir({ autor: 'recepcion', sobre: reserva.id, t: T0, payload: 'turno de noche',
     movimientos: [gastaT('recepcion'), { token: 'P', cantidad: 1, ambito: reserva.id, de: 'recepcion', a: 'sala' }] });
   assert.deepEqual(eje.poderes('sala'), [{ ambito: reserva.id, cantidad: 1 }]);
-  // P no se emite fuera del génesis: llega por delegación.
+  // VG, 7-11 noche: P ya se emite fuera del génesis, pero solo una persona, sobre un registro suyo y con su R en juego.
+  // La casa de este mundo no declaró tipo y no pone R en juego: no lo emite (antes: «solo el génesis emite P»).
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'x',
-    movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: dominio.id, de: null, a: 'casa' }] }), /solo el génesis emite P/);
+    movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: dominio.id, de: null, a: 'casa' }] }), /solo las personas emiten: casa no declaró tipo en su alta.*emitir P exige R propia en juego/);
 });
 
 test('P y R encajan en la constante: familia, clave de serie, quién la emite', async () => {

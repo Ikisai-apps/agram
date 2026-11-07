@@ -247,7 +247,7 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     const ejecutar = !pendiente && identidad === c.autor;
     const autorizar = pendiente && Boolean(identidad) && motor.puedeAutorizar(eje, identidad, c.id);
     const motivo = pendiente
-      ? 'falta autorizar: autoriza quien tiene P sobre el registro y no es su autor (' + c.autor + ')'
+      ? 'falta autorizar: autoriza quien no es su autor (' + c.autor + ') y tiene P sobre un registro del hilo que ' + c.autor + ' no escribió'
       : ejecutar ? '' : 'ejecuta su autor: ' + c.autor;
     pasos.push({
       clave: tipo + ':' + c.id, tipo, evento: c.id, autor: c.autor, t: c.t, estado: c.estado, titulo,

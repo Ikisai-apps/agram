@@ -70,9 +70,9 @@ test('P exige ámbito; R exige emisor y no es fungible', () => {
   assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b', ambito: 'genesis', emisor: 'a' }).some((e) => /emisor solo en E y en R/.test(e)));
 });
 
-test('tipos de identidad: solo personas y grupos emiten', () => {
+test('tipos de identidad: solo las personas emiten (VG, 7-11 noche; antes, personas y grupos)', () => {
   assert.deepEqual(TIPOS, ['persona', 'grupo', 'cosa']);
-  assert.deepEqual(EMITEN, ['persona', 'grupo']);
+  assert.deepEqual(EMITEN, ['persona']);
 });
 
 test('movimientos inválidos', () => {

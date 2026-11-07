@@ -78,7 +78,8 @@ test('LOCAL lee la décupla anfitriona, también literales con unidad', async ()
 
 test('REF lee otro evento por id o prefijo, con subposición', async () => {
   const { eje, menu, compra } = await ejemploCompra();
-  const cuenta = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: T0, movimientos: [gastaT('cocina')],
+  // Después de la compra (13:30): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
+  const cuenta = await eje.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T14:00:00Z', movimientos: [gastaT('cocina')],
     payload: ['Cuenta', '=REF("' + compra.id.slice(0, 8) + '", "1200000000") + 2 EUR', '=REF("' + menu.id + '", "1000000000")'] });
   assert.equal(evaluar(eje, cuenta.id, '1000000000').texto, '14 EUR (12 EUR + 2 EUR)');
   assert.equal(evaluar(eje, cuenta.id, '2000000000').texto, '[3 posiciones]');
