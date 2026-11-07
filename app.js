@@ -19,6 +19,9 @@ const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
 const CLAVE_CLAVES = 'agram.claves';
 const CLAVE_EJEMPLO = 'agram.ejemplo';
+const CLAVE_FOCO = 'agram.foco';
+/** Identidades de los dos ejemplos: cada una necesita su par de claves en este navegador. */
+const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
 
 function corto(id) {
   return id.slice(0, 8);
@@ -40,6 +43,7 @@ function irA(id, camino = []) {
   estado.aviso = '';
   estado.exito = '';
   estado.verOcupantes = null;
+  try { globalThis.localStorage?.setItem(CLAVE_FOCO, id); } catch { /* sin almacenamiento */ }
   pintar();
 }
 
@@ -439,30 +443,39 @@ document.addEventListener('submit', (e) => {
 
 // ---------- arranque: claves, eje guardado o ejemplo ----------
 
+/** Claves de las identidades de ejemplo: las guardadas en este navegador, y se generan las que falten (p. ej. una sesión anterior sin `recepcion`). */
 async function cargarClaves() {
-  try {
-    const guardadas = JSON.parse(globalThis.localStorage?.getItem(CLAVE_CLAVES) ?? 'null');
-    if (guardadas) {
-      const claves = {};
-      for (const [id, par] of Object.entries(guardadas)) claves[id] = { publica: par.publica, privada: await autoridad.importarPrivada(par.privada) };
-      return claves;
-    }
-  } catch { /* sin claves guardadas */ }
   const claves = {};
   const exportables = {};
-  for (const id of ['casa', 'cocina', 'huesped', 'recepcion']) {
+  try {
+    const guardadas = JSON.parse(globalThis.localStorage?.getItem(CLAVE_CLAVES) ?? 'null') ?? {};
+    for (const [id, par] of Object.entries(guardadas)) {
+      claves[id] = { publica: par.publica, privada: await autoridad.importarPrivada(par.privada) };
+      exportables[id] = par;
+    }
+  } catch { /* sin claves guardadas o ilegibles: se generan */ }
+  let nuevas = false;
+  for (const id of IDENTIDADES_EJEMPLO) {
+    if (claves[id]) continue;
     claves[id] = await autoridad.generarClaves();
     exportables[id] = { publica: claves[id].publica, privada: await autoridad.exportarPrivada(claves[id].privada) };
+    nuevas = true;
   }
-  try { globalThis.localStorage?.setItem(CLAVE_CLAVES, JSON.stringify(exportables)); } catch { /* sin almacenamiento */ }
+  if (nuevas) {
+    try { globalThis.localStorage?.setItem(CLAVE_CLAVES, JSON.stringify(exportables)); } catch { /* sin almacenamiento */ }
+  }
   return claves;
 }
 
-/** Selector de ejemplo: compra de comida o reserva de alojamiento. Guarda la elección en estado y en el navegador, y construye el eje elegido. */
-async function ejemploNuevo(nombre = estado.ejemplo) {
-  estado.ejemplo = nombre === 'reserva' ? 'reserva' : 'compra';
+/** El botón dice la acción, no el estado: desde la compra se cambia a la reserva y al revés. */
+function pintarBotonEjemplo() {
+  $('[data-ejemplo]').textContent = estado.ejemplo === 'reserva' ? 'cambiar a comida' : 'cambiar a reserva';
+}
+
+/** Construye el eje del ejemplo elegido (estado.ejemplo: compra de comida o reserva de alojamiento) y guarda la elección en el navegador. */
+async function ejemploNuevo() {
   try { globalThis.localStorage?.setItem(CLAVE_EJEMPLO, estado.ejemplo); } catch { /* sin almacenamiento */ }
-  $('[data-ejemplo]').textContent = 'ejemplo: ' + (estado.ejemplo === 'reserva' ? 'reserva' : 'comida');
+  pintarBotonEjemplo();
   if (estado.ejemplo === 'reserva') {
     const { eje, reserva } = await ejemploReserva({ claves: estado.claves });
     return { eje, foco: reserva.id };
@@ -485,14 +498,17 @@ async function reiniciar() {
 }
 
 try { estado.ejemplo = globalThis.localStorage?.getItem(CLAVE_EJEMPLO) === 'reserva' ? 'reserva' : 'compra'; } catch { /* sin almacenamiento */ }
-$('[data-ejemplo]').textContent = 'ejemplo: ' + (estado.ejemplo === 'reserva' ? 'reserva' : 'comida');
+pintarBotonEjemplo();
 estado.claves = await cargarClaves();
 let cargado = await persistencia.cargarLocal(CLAVE_EJE);
 let foco;
 if (cargado && estado.claves.casa && JSON.stringify(cargado.clave('casa')) !== JSON.stringify(estado.claves.casa.publica)) cargado = null; // claves de otra sesión
 if (cargado) {
   estado.eje = cargado;
-  foco = cargado.orden[3] ?? cargado.genesisId;
+  // Vuelve al foco donde se quedó (guardado al navegar); si no hay o ya no existe, al génesis.
+  let recordado = null;
+  try { recordado = globalThis.localStorage?.getItem(CLAVE_FOCO); } catch { /* sin almacenamiento */ }
+  foco = recordado && cargado.obtener(recordado) ? recordado : cargado.genesisId;
   estado.guardado = 'cargado del navegador · ' + cargado.orden.length + ' registros';
 } else {
   const nuevo = await ejemploNuevo();
