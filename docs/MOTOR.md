@@ -799,7 +799,7 @@ referencia desconocida: ffff
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"bea2e06d","dir":"0000000000"},{"ref":"bea2e06d","dir":"1000000000"},"sin lactosa",{"ref":"bea2e06d","dir":"3000000000"},[["pagado"],"servido a las 14:05"]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"bea2e06d","dir":"0000000000"},{"ref":"bea2e06d","dir":"1000000000"},"sin lactosa",{"ref":"bea2e06d","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
 con camino [1]: {"payload":[{"ref":"bea2e06d","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
@@ -849,7 +849,7 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"bea2e06d","dir":"0000000000"},[[{"ref":"bea2e06d","dir":"1000000000"}],{"ref":"bea2e06d","dir":"1100000000"},{"ref":"bea2e06d","dir":"1200000000"}]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"bea2e06d","dir":"0000000000"},[[{"ref":"bea2e06d","dir":"1000000000"}],[{"ref":"bea2e06d","dir":"1100000000"}],[{"ref":"bea2e06d","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
@@ -1214,19 +1214,19 @@ console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.i
 ```
 
 ```text
-pedido [{"ref":"8a12d201","dir":"0000000000"},[[{"ref":"8a12d201","dir":"1100000000"}],1],{"ref":"8a12d201","dir":"2000000000"},[["huesped"],"cocina"]] · heredadas [0,2] · coste 6 min
+pedido [{"ref":"8a12d201","dir":"0000000000"},[[{"ref":"8a12d201","dir":"1100000000"}],[1]],{"ref":"8a12d201","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
 posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
 posición 2 propio → 8a12d201 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
-consolidación ["Pedido del guiso",{"ref":"8a12d201","dir":"1100000000"},"sin lactosa",{"ref":"a98f67bc","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
+consolidación ["Pedido del guiso",{"ref":"8a12d201","dir":"1100000000"},"sin lactosa",{"ref":"0ff9cf3f","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
 encaje guardado [{"posicion":1,"evento":"8a12d201","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 recurso = génesis true · puede autorizar casa=true cocina=false huesped=false
 rechazo: "cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso a2bbba5d, que no tiene P propio emitido: el P sobre todo el eje («genesis»)"
 autorización "==sale en 10 minutos" [{"clave":"P:genesis","cantidad":3}] · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"681a35db"},{"ref":"7f633adb"}] · evidencia ["681a35db","7f633adb"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"902df1fb"},{"ref":"6333423c"}] · evidencia ["902df1fb","6333423c"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
-consolidaciones del pedido [{"id":"681a35db","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["8a12d201"]}]
+consolidaciones del pedido [{"id":"902df1fb","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["8a12d201"]}]
 casa P:genesis 3 · bloqueado 0
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 8 entre hermanos: sin base escrita · n 2 · terminales: foco 6 caja 5 · debajo 1 · encima 0

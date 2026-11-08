@@ -69,11 +69,11 @@ test('ver es clase 0, emite una referencia a lo visto y solo ve lo que el foco t
   assert.deepEqual(salida.anclados, []);
   assert.deepEqual(salida.payload, [
     ref(compra.id, '0000000000'),
-    [[ref(compra.id, '1000000000')], ref(compra.id, '1100000000'), ref(compra.id, '1200000000')], // cada posición entre corchetes (forma canónica), para que sea décupla
+    [[ref(compra.id, '1000000000')], [ref(compra.id, '1100000000')], [ref(compra.id, '1200000000')]], // cada posición entre corchetes (forma canónica), para que sea décupla
   ]);
   assert.deepEqual(salida.heredadas, [0, '1.0', '1.1']); // lo no modificado anterior a lo visto, por referencia
   assert.deepEqual(salida.vistas, ['1.2']);
-  assert.deepEqual(resolver(compra.payload, resolver(salida.payload, direccion([1, 2, 0])).dir), ['EUR 12']); // 1.2 es la lista de un ocupante
+  assert.deepEqual(resolver(compra.payload, resolver(salida.payload, direccion([1, 2, 0]))[0].dir), ['EUR 12']); // 1.2 es la lista de un ocupante
   // No se ve lo que el foco no tiene: la compra no tiene 0.5 (su 0 es un terminal) ni 2.3.
   assert.throws(() => desdeMapped(eje, [{ i: 0, j: 5 }], compra.id), /^Error: no hay nada que ver en 0\.5: el foco no tiene esa celda$/);
   assert.throws(() => desdeMapped(eje, [{ i: 2, j: 3 }], compra.id), /no hay nada que ver en 2\.3/);
@@ -209,7 +209,7 @@ test('pagar dentro: cuando el foco desarrolla las clases de la celda, se heredan
   const ficha = await escribirFicha(eje);
   const salida = desdeMapped(eje, [{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }], ficha.id);
   assert.deepEqual(salida.anclados, []);
-  assert.equal(salida.payload[1][2][4], 'pagar 12 EUR');
+  assert.deepEqual(salida.payload[1][2][4], ['pagar 12 EUR']);
   assert.deepEqual(salida.heredadas, [0, '1.0', '1.1', '1.2.0', '1.2.1', '1.2.2', '1.2.3']);
   assert.deepEqual(['1.2.1', '1.2.2', '1.2.3'].map((h) => resolver(ficha.payload, en(salida.payload, h).dir)), [['de huesped'], ['precio fijo'], ['aviso a cocina']]);
   // 1.2.0 nombra la colisión con 1.2 (ceros finales): alcanza la celda entera.
@@ -341,7 +341,7 @@ test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avi
   assert.deepEqual(salida.anclados, []);
   const { payload } = salida;
   assert.equal(contarPosiciones(payload), 1000);
-  assert.equal(payload[1][2][4], '1.2.4');
+  assert.deepEqual(payload[1][2][4], ['1.2.4']);
   assert.equal(cabeTope(payload, 'mapped'), true);
   assert.equal(cabeTope(payload, 'sequenced'), false);
   // La proporción (de 250 a 333 en Mapped) ya no rechaza: propone, y lo que se sale se avisa.
@@ -475,7 +475,7 @@ test('líneas de Mapped: sin marca, texto como antes; con «@:j.k», la celda', 
   const lineas = [];
   lineas[4] = ['pagado', '0.1 con tarjeta', 'servido'];
   const llano = desdeMapped(eje, lineas, compra.id);
-  assert.deepEqual(llano.payload[4], [['pagado'], '0.1 con tarjeta', 'servido']); // la salida de Mapped aún envuelve solo el 0 (src/escritura.js, pendiente de integrar: forma canónica, VG 8-11)
+  assert.deepEqual(llano.payload[4], [['pagado'], ['0.1 con tarjeta'], ['servido']]); // la salida de Mapped es una décupla canónica (VG, 8-11)
   assert.deepEqual(llano.heredadas, [0, 1, 2, 3]);
   // Con la marca «@:j.k» (propuesta, [X] decidir VG), la línea fija subposición y clase; las demás van a las subposiciones libres con clase 0.
   const marcadas = [];
@@ -514,7 +514,7 @@ test('líneas de Mapped: sin marca, texto como antes; con «@:j.k», la celda', 
   assert.throws(() => desdeMapped(eje, repetida, compra.id), /la celda 2\.0\.0 está dos veces/);
   const sinMarca = [];
   sinMarca[2] = ['0.0 uno', '0.0 dos'];
-  assert.deepEqual(desdeMapped(eje, sinMarca, compra.id).payload[2], [['0.0 uno'], '0.0 dos']);
+  assert.deepEqual(desdeMapped(eje, sinMarca, compra.id).payload[2], [['0.0 uno'], ['0.0 dos']]);
   // Una referencia sigue siendo una referencia: «@» seguido del id.
   const conRef = [];
   conRef[2] = ['@' + compra.id.slice(0, 8)];
