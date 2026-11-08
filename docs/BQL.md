@@ -284,8 +284,8 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `Y(a, b, …)` | 0 o más booleanos | booleano (todos; `Y()` = verdadero) | siempre |
 | `O(a, b, …)` | 0 o más booleanos | booleano (alguno; `O()` = falso) | siempre |
 | `NO(a)` | 1 booleano | booleano | siempre |
-| `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una medida o de una serie de token, y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
-| `CAJA(medida, alcance?)` | texto de una medida o de una serie de token; alcance (`"hermanos"` por defecto) | numero 0–9: la caja del anfitrión, la de `BASES(alcance, medida)` (§7.14) | siempre |
+| `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una cantidad (una serie de token o `tiempo:<escala>`; R7: los recuentos no), y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
+| `CAJA(medida, alcance?)` | texto de una cantidad (una serie de token o `tiempo:<escala>`); alcance (`"hermanos"` por defecto) | numero 0–9: la caja del anfitrión, la de `BASES(alcance, medida)` (§7.14) | siempre |
 | `FRESCURA(alcance?)` | alcance (`"hermanos"` por defecto) | numero: llegadas desde la base que lee ese alcance (hijos nuevos, bases renovadas y lo mismo debajo). `0` = ninguna llegada, no «al día»: no ve cambios en lo ya medido (§7.14) | siempre |
 
 «Dentro» = mientras se evalúa el segundo argumento de `FILTRAR` o de `ORDENAR`. Fuera, las seis funciones de encaje dan `ERROR: <NOMBRE> solo dentro de FILTRAR u ORDENAR`.
@@ -524,7 +524,7 @@ Lee las **bases del 8** (`src/bases.js`, `docs/MOTOR.md` §14): las estadística
 | `BASES(alcance, medida, k)` | cuántos hay en la caja `k` (0–9) |
 | `BASES(alcance, medida, campo)` | de la base: `"suma"`, `"minimo"`, `"maximo"`, `"media"`; del anfitrión: `"foco"` (su valor), `"caja"`, `"enCaja"`, `"debajo"`, `"encima"` |
 
-La medida es una de `bases.MEDIDAS` (`"posiciones"`, `"terminales"`, `"escritos"`, `"movimientos"`, `"identidades"`, `"profundidadHilo"`, `"formulasResueltas"`, `"formulasPendientes"`) o una clave de serie de token (`"T:hora"`, `"E:casa/EUR"`…); una serie que la base no nombra vale cero en todos. Un alcance, una medida o un campo que no existen → ERROR (se valida antes de leer). Después, **la lectura del 8 es la de `CAJA` y `FRESCURA`** (§7.14): hereda el presupuesto (cobra lo que examina, y `BASES()` lee el 8 del propio anfitrión), el gancho `puedeLeer` (§9.6: leer la base es leer un escrito anclado en el 8, `leer la base del 8 de <id8> …`; lo que sitúa al anfitrión lo lee entero, su raíz `[]`, y con gancho no cuenta sus fórmulas) y los motivos: sin base escrita, `sin base escrita en el 8 de <id8> (alcance <a>). Para escribirla: …` (en `BASES()`, `(su propio 8)`); sin cohorte, `sin cohorte: el génesis no tiene padre`. Dependencias: el 8 leído (`<registro>:8000000000`), la base leída (`<id de la base>:0000000000`) y, si sitúa al anfitrión, `<anfitrión>:0000000000`. Una fórmula `BASES(…)` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma).
+La medida es una **cantidad** (R7, VG 7-11 noche: el 8 solo sitúa y compara cantidades): una clave de serie de token (`"T:hora"`, `"E:casa/EUR"`…) o el T consumido sobre el registro en una escala (`"tiempo:minuto"`); una serie que la base no nombra vale cero en todos. Las medidas de `bases.MEDIDAS` (`"posiciones"`, `"terminales"`, `"escritos"`, `"movimientos"`, `"identidades"`, `"profundidadHilo"`, `"formulasResueltas"`, `"formulasPendientes"`) son recuentos informativos: sin cortes ni cajas, ERROR (`BASES: <m> es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)`). Los campos del anfitrión son `foco`, `caja`, `cuota` (su suma ÷ la de la cohorte), `cajaCuota`, `enCaja`, `debajo` y `encima`; los de la base, `suma`, `minimo`, `maximo` y `media`. `enCaja`, `debajo`, `encima`, `media` y la cuenta de una caja cuentan registros: se dan, pero son informativos ([X] decidir VG si un criterio que concede puede usarlos, como `CONTAR(BUSCAR(…))`). Un alcance, una medida o un campo que no existen → ERROR (se valida antes de leer). Después, **la lectura del 8 es la de `CAJA` y `FRESCURA`** (§7.14): hereda el presupuesto (cobra lo que examina, y `BASES()` lee el 8 del propio anfitrión), el gancho `puedeLeer` (§9.6: leer la base es leer un escrito anclado en el 8, `leer la base del 8 de <id8> …`; lo que sitúa al anfitrión lo lee entero, su raíz `[]`, y con gancho no cuenta sus fórmulas) y los motivos: sin base escrita, `sin base escrita en el 8 de <id8> (alcance <a>). Para escribirla: …` (en `BASES()`, `(su propio 8)`); sin cohorte, `sin cohorte: el génesis no tiene padre`. Dependencias: el 8 leído (`<registro>:8000000000`), la base leída (`<id de la base>:0000000000`) y, si sitúa al anfitrión, `<anfitrión>:0000000000`. Una fórmula `BASES(…)` que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma).
 
 Verificado sobre `ejemplos/ikisai/compras-hermanas.mjs`, desde la compra de dos guisos, con las seis bases del ejemplo escritas (`test/bases.test.js`):
 
@@ -534,10 +534,13 @@ Verificado sobre `ejemplos/ikisai/compras-hermanas.mjs`, desde la compra de dos 
 | `BASES("hermanos")` | `4` |
 | `BASES("proyecto")` | `9` |
 | `BASES("general")` | `14` |
-| `BASES("hermanos", "terminales")` | `5` |
-| `BASES("hermanos", "terminales", 5)` | `3` |
-| `BASES("hermanos", "terminales", "debajo")` | `1` |
-| `BASES("hermanos", "terminales", "media")` | `6.25` |
+| `BASES("hermanos", "T:hora")` | `1` |
+| `BASES("hermanos", "T:hora", 1)` | `4` |
+| `BASES("hermanos", "T:hora", "debajo")` | `0` |
+| `BASES("hermanos", "T:hora", "cuota")` | `0.25` |
+| `BASES("hermanos", "E:casa/EUR", "cuota")` | `0.375` |
+| `BASES("hermanos", "E:casa/EUR", "cajaCuota")` | `3` |
+| `BASES("hermanos", "terminales")` | `ERROR: BASES: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)` |
 | `BASES("general", "E:casa/EUR", "suma")` | `685` |
 | `BASES("hermanos", "T:siglo", 0)` | `4` |
 | `BASES("linaje")` | `ERROR: BASES: el alcance es hermanos, proyecto, general` |
@@ -558,7 +561,7 @@ Leen el 8 como `BASES` (§7.13), sin efectos, con el mismo anfitrión (el regist
 
 **Alcance**: `"hermanos"` (por defecto: el 8 del padre, su estadística de los hijos), `"proyecto"` (el 8 de `bases.proyectoDe`, su subárbol) o `"general"` (el 8 del génesis, su subárbol). Exacto y en minúsculas, como en `BASES`.
 
-**Medida** (`CAJA`): una de `bases.MEDIDAS` (`"posiciones"`, `"terminales"`, `"escritos"`, `"movimientos"`, `"identidades"`, `"profundidadHilo"`, `"formulasResueltas"`, `"formulasPendientes"`) o una clave de serie bien formada: `T:<escala>` con una escala de `tokens.ESCALAS_T`, `E:<emisor>/<denominación>`, `P:<ámbito>` o `R:<emisor>`. Otro nombre es ERROR, aunque no haya base (se valida antes de leer); también los de la primera versión de esta pieza (`"posiciones.3"`, `"movimientos.E:casa/EUR"`). Una serie bien formada que el eje no tiene (sin emitir; en `P`, un ámbito que no es un registro) da PENDIENTE con la lista de las emitidas, en vez de leerse como «caja 0»: así se ve la errata (`"E:csa/EUR"`). Una serie emitida que nadie de la cohorte mueve sí vale cero: caja 0. (`BASES` no hace esta comprobación: `BASES("hermanos", "T:siglo", 0)` da `4`, §7.13.)
+***Medida** (`CAJA`): una cantidad (R7): una clave de serie bien formada, `T:<escala>` con una escala de `tokens.ESCALAS_T`, `E:<emisor>/<denominación>`, `P:<ámbito>` o `R:<emisor>`, o `tiempo:<escala>` (el T consumido sobre el registro). Una medida de `bases.MEDIDAS` es un recuento y da ERROR (`CAJA: <m> es un recuento informativo: …`). Otro nombre es ERROR, aunque no haya base (se valida antes de leer); también los de la primera versión de esta pieza (`"posiciones.3"`, `"movimientos.E:casa/EUR"`). Una serie bien formada que el eje no tiene (sin emitir; en `P`, un ámbito que no es un registro) da PENDIENTE con la lista de las emitidas, en vez de leerse como «caja 0»: así se ve la errata (`"E:csa/EUR"`). Una serie emitida que nadie de la cohorte mueve sí vale cero: caja 0. (`BASES` no hace esta comprobación: `BASES("hermanos", "T:siglo", 0)` da `4`, §7.13.)
 
 **`FRESCURA` cuenta llegadas, no cambios.** Es la frescura de la base entera (de sus dos estadísticas), sumada:
 
@@ -582,7 +585,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | PENDIENTE POR LÍMITE | `el alcance <a> (8 de <id8>) exige examinar al menos <k> registros y quedan <q> pasos de presupuesto` | La lectura no cabe (abajo); `parcial: { examinados: 0, de: <k> }`, cota inferior. |
 | PENDIENTE DE AUTORIZACIÓN | `leer la base del 8 de <id8> exige una autorización que no hay` | El gancho no deja leer la base (su raíz), como en `BASES`. |
 | PENDIENTE DE AUTORIZACIÓN | `leer <id8>:0000000000 (camino raíz) exige una autorización que no hay` | `CAJA`: el gancho no deja leer el anfitrión entero (situarlo es medirlo). |
-| PENDIENTE DE AUTORIZACIÓN | `contar las fórmulas de <id8> las evalúa sin el gancho de autorización: con gancho no se cuentan` | `CAJA("formulasResueltas")` o `CAJA("formulasPendientes")` con gancho (abajo); igual `BASES(alcance, "formulasResueltas" \| "formulasPendientes", …)` cuando sitúa al anfitrión. |
+| ERROR | `CAJA: <m> es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)` | Un recuento (`"formulasResueltas"`, `"terminales"`…): no se sitúa. Por eso tampoco se leen con gancho las fórmulas del anfitrión (abajo). |
 | ERROR | `CAJA espera una medida y, si acaso, un alcance` · `FRESCURA espera, si acaso, un alcance` · `CAJA espera el nombre de una medida entre comillas, no <tipo>` · `CAJA: medida desconocida: <m> (…)` · `<FN>: el alcance es hermanos, proyecto, general` | Argumentos. |
 
 **Orden.** Primero los argumentos; después la base; solo si la hay, el anfitrión (`CAJA`, y `BASES` cuando lo sitúa). Sin base no se mide nada ni se pregunta por el anfitrión.
@@ -595,7 +598,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 
 **Dependencias** (§9.5): `<registro>:8000000000`, el 8 leído (una base que llegue cambia el resultado; se anota también cuando queda PENDIENTE: es lo que hay que vigilar); `<base>:0000000000`, la base leída; y en `CAJA` (y en `BASES` cuando sitúa al anfitrión), `<anfitrión>:0000000000` (medido entero). Los hijos nuevos, que cambian `FRESCURA`, no se anotan: no son una posición ([X] decidir VG cómo se vigila la llegada de hijos).
 
-**Autorización** (§9.6): la base, por su raíz, con el mismo motivo en las tres; en `CAJA` (y en `BASES` cuando lo sitúa), además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`bases.medir` llama a `evaluar` sin opciones), así que, con gancho, ni `CAJA` ni `BASES` dan las dos medidas de fórmulas del anfitrión: dejarían ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las demás medidas, sí; y los datos de la base (`BASES(alcance, "formulasResueltas", "suma")`), también. [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
+**Autorización** (§9.6): la base, por su raíz, con el mismo motivo en las tres; en `CAJA` (y en `BASES` cuando lo sitúa), además, el anfitrión por su raíz. Las fórmulas del anfitrión que la medida evalúa no reciben el gancho (`bases.medir` llama a `evaluar` sin opciones), pero las fórmulas son un recuento y, desde R7 (VG, 7-11 noche), ni `CAJA` ni `BASES` las sitúan ni las leen, con gancho o sin él: no dejan ver si se resuelven fórmulas que leen lo que quien consulta no puede leer. Las cantidades del anfitrión sí se sitúan. [X] decidir VG: medir al anfitrión con el gancho de quien consulta.
 
 Ejemplo ejecutado (las compras hermanas de `ejemplos/ikisai/compras-hermanas.mjs`, datos inventados). Guardar como `caja-frescura-ejemplo.mjs` en la raíz y ejecutar `node --input-type=module < caja-frescura-ejemplo.mjs`:
 
@@ -613,13 +616,15 @@ const hora = { token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null };
 const alcances = ['hermanos', 'proyecto', 'general'];
 
 console.log('--- sin bases');
-q('CAJA("terminales")');
+q('CAJA("T:hora")');
 q('FRESCURA("proyecto")');
 console.log('--- las seis bases del ejemplo, cada una firmada por su cosa');
 await escribirBasesDelEjemplo(ej);
-for (const a of alcances) q('CAJA("terminales", "' + a + '")');
+for (const a of alcances) q('CAJA("T:hora", "' + a + '")');
 q('CAJA("E:casa/EUR", "general")');
 q('BASES("general", "E:casa/EUR")');
+q('BASES("hermanos", "E:casa/EUR", "cuota")');
+q('CAJA("terminales")');
 q('FRESCURA()');
 q('CAJA("E:csa/EUR")');
 q('CAJA("movimientos.E:casa/EUR")');
@@ -640,17 +645,19 @@ q('CAJA("formulasPendientes")', { puedeLeer: () => true });
 
 ```text
 --- sin bases
-CAJA("terminales")               → PENDIENTE: sin base escrita en el 8 de <menú> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <menú>, firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.
+CAJA("T:hora")                   → PENDIENTE: sin base escrita en el 8 de <menú> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <menú>, firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.
 FRESCURA("proyecto")             → PENDIENTE: sin base escrita en el 8 de <comedor> (alcance proyecto). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <comedor>, firmada por comedor (su identidad propia) o casa (con P sobre él); mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo) y gasta 1 minuto de su T.
 --- las seis bases del ejemplo, cada una firmada por su cosa
-CAJA("terminales", "hermanos")   → 5
-CAJA("terminales", "proyecto")   → 5
-CAJA("terminales", "general")    → 5
+CAJA("T:hora", "hermanos")       → 1
+CAJA("T:hora", "proyecto")       → 1
+CAJA("T:hora", "general")        → 1
 CAJA("E:casa/EUR", "general")    → 6
 BASES("general", "E:casa/EUR")   → 6
+BASES("hermanos", "E:casa/EUR", "cuota") → 0.375
+CAJA("terminales")               → ERROR: CAJA: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 FRESCURA()                       → 0
 CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: T:hora, T:minuto, E:casa/EUR, P:genesis)
-CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (posiciones, terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes o una serie T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>)
+CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
 --- llega un té al menú
 FRESCURA("hermanos")             → 1
 FRESCURA("proyecto")             → 1
@@ -664,10 +671,10 @@ FRESCURA()                       → 0
 comprobar(la base del menú).alDia → false
 --- límites y autorización
 FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 19 registros y quedan 18 pasos de presupuesto
-CAJA("formulasPendientes")       → PENDIENTE DE AUTORIZACIÓN: contar las fórmulas de <guisos> las evalúa sin el gancho de autorización: con gancho no se cuentan
+CAJA("formulasPendientes")       → ERROR: CAJA: formulasPendientes es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 ```
 
-Lectura: sin bases, el motivo dice quién puede escribir cada una: la propia cosa o la casa, que tiene P sobre todo el eje. Los guisos (nueve terminales) caen en la caja 5 de `terminales` (de 6 a 9, con los cortes de la época 0) en los tres alcances. `CAJA("E:casa/EUR", "general")` es la caja de sus 12 euros entre los catorce registros del ámbito, la misma que da `BASES("general", "E:casa/EUR")`. Una serie mal escrita no da caja 0, y un nombre de la primera versión de esta pieza es ERROR. El té es una llegada para las tres bases: la del menú lo tiene como hijo nuevo; la del comedor y la del génesis lo ven debajo. Al corregir la base del menú, la de los hermanos vuelve a `0`; las de arriba ven una base renovada hasta que se reescriban. La nota sobre el café cambia una compra ya medida: `FRESCURA()` da `0` y `comprobar()` dice que la base no está al día. Con `presupuesto: 20`, la llamada y su argumento gastan dos pasos y la lectura general pide al menos 19 (el árbol de bases ha crecido): no cabe.
+Lectura: sin bases, el motivo dice quién puede escribir cada una: la propia cosa o la casa, que tiene P sobre todo el eje. Los guisos (una hora gastada) caen en la caja 1 de `T:hora` (con los cortes de la época 0) en los tres alcances, y sus 12 euros son el 37,5 % de lo que movieron sus hermanos (`cuota`). Los terminales son un recuento: el 8 no los sitúa (R7). `CAJA("E:casa/EUR", "general")` es la caja de sus 12 euros entre los catorce registros del ámbito, la misma que da `BASES("general", "E:casa/EUR")`. Una serie mal escrita no da caja 0, y un nombre de la primera versión de esta pieza es ERROR. El té es una llegada para las tres bases: la del menú lo tiene como hijo nuevo; la del comedor y la del génesis lo ven debajo. Al corregir la base del menú, la de los hermanos vuelve a `0`; las de arriba ven una base renovada hasta que se reescriban. La nota sobre el café cambia una compra ya medida: `FRESCURA()` da `0` y `comprobar()` dice que la base no está al día. Con `presupuesto: 20`, la llamada y su argumento gastan dos pasos y la lectura general pide al menos 19 (el árbol de bases ha crecido): no cabe.
 
 #### Las dos formas de `BASES`: [X] decidir VG qué firma queda
 
