@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mapa, render, MATRIZ, ocho, textoOcho } from '../src/mapped.js';
-import { MEDIDAS, SIN_BASE_ESCRITA, leerBase } from '../src/bases.js';
+import { MEDIDAS, SIN_BASE_ESCRITA, leerBase, medir, ochoPorCantidades } from '../src/bases.js';
 import { generarClaves } from '../src/autoridad.js';
 import { COSAS, ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
@@ -10,14 +10,15 @@ import { Eje } from '../src/eje.js';
 import { contenido } from '../src/modos.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const soloMedidas = (m) => Object.fromEntries(MEDIDAS.map(({ clave }) => [clave, m[clave]]));
 
 test('la matriz es 1 8 2 / 6 5 7 / 3 9 4', () => {
   assert.deepEqual(MATRIZ, [[1, 8, 2], [6, 5, 7], [3, 9, 4]]);
 });
 
-test('mapa de la compra: celdas, eje y medidas', async () => {
+test('mapa de la compra: celdas, eje y, si se piden, las medidas del 8', async () => {
   const { eje, compra, menu } = await ejemploCompra();
-  const m = mapa(eje, compra.id);
+  const m = mapa(eje, compra.id, { medidas: true });
   assert.equal(m.celdas.length, 10);
   assert.equal(m.celdas[0].contenido, 'Compra del menú del día');
   assert.deepEqual(m.celdas[4].contenido, ['pagar', 'servir']);
@@ -25,16 +26,19 @@ test('mapa de la compra: celdas, eje y medidas', async () => {
   assert.deepEqual(m.hilo.map((e) => e.id)[0], menu.id);
   assert.equal(m.hilo.length, 3);
   assert.deepEqual(m.hijos, []);
+  // La medida única del 8 (bases.medir), no unos recuentos propios de la vista (VG, 8-11).
+  assert.deepEqual(m.medidas, { ...soloMedidas(medir(eje, compra.id)), tokens: { 'T:hora': 1, 'E:casa/EUR': 12 } });
   assert.equal(m.medidas.profundidadHilo, 3);
   assert.equal(m.medidas.movimientos, 2);
   assert.equal(m.medidas.identidades, 2);
-  assert.equal(m.medidas.posicionesDesarrolladas, 5);
+  assert.equal(m.medidas.posiciones, 5);
+  assert.equal(mapa(eje, compra.id).medidas, null); // sin la opción, no se mide
 });
 
 test('lo escrito en una posición cuenta en su celda y en el eje', async () => {
   const { eje, compra } = await ejemploCompra();
   await eje.escribir({ autor: 'huesped', sobre: compra.id, en: direccion([7]), t: '2026-11-07T14:00:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
-  const m = mapa(eje, compra.id);
+  const m = mapa(eje, compra.id, { medidas: true });
   assert.equal(m.celdas[7].escritos, 1);
   assert.equal(m.celdas[4].escritos, 0);
   assert.equal(m.hijos.length, 1);
@@ -61,7 +65,8 @@ test('render sobrio: tres filas, eje y medidas', async () => {
   assert.match(lineas[0], /^1 recursos\s+\[3\]\s+\| 8 comparabilidad\s+—\s+\| 2 criterios\s+\{1 en lista\}/);
   assert.match(lineas[1], /^6 pasado\s+—\s+\| 5 estructura\s+[0-9a-f]{8}\s+\| 7 futuro/);
   assert.match(lineas[3], /^eje: [0-9a-f]{8} ← [0-9a-f]{8} ← [0-9a-f]{8} ← \[[0-9a-f]{8}\] → $/);
-  assert.match(lineas[4], /^medidas: hilo 3 · escritos 0/);
+  assert.equal(lineas[4], 'medidas del 8: bajo demanda (la celda 8, o mapa con { medidas: true })');
+  assert.match(render(mapa(eje, compra.id, { medidas: true })).split('\n')[4], /^medidas del 8: hilo 3 · escritos 0 · movimientos 2 · identidades 2 · posiciones 5$/);
   assert.throws(() => render(mapa(eje, compra.id), 'animado'), /no disponible/);
 });
 
@@ -115,9 +120,8 @@ test('mapa: corta duro en 1000 posiciones (el foco, el hilo y los hijos, por ese
   for (const maximo of [-1, 1.5, '3']) assert.throws(() => mapa(eje, foco.id, { maximo }), /maximo inválido/);
 });
 
-test('celda 8: ocho() lee la base escrita del 8; sin ella, el respaldo al vuelo lo dice; sin puesto ni puntuación',
-  { skip: 'R7-01 (pendiente de integrar): el 8 solo sitúa cantidades (R7, VG 7-11 noche) y las medidas de MEDIDAS son recuentos sin caja; mapped.ocho las recorre buscando su caja. La celda 8 ha de leer bases.ochoPorCantidades (las cantidades con caja y cuota; los recuentos, informativos). src/mapped.js es de otro agente: no se toca aquí' },
-  async () => {
+// R7-01 (integrado): el 8 solo sitúa cantidades (R7, VG 7-11 noche); las medidas de MEDIDAS son recuentos sin caja.
+test('celda 8: ocho() lee la base escrita del 8 por cantidades; sin ella, el respaldo al vuelo lo dice; sin puesto ni puntuación', async () => {
   const claves = {};
   for (const id of ['casa', ...COSAS]) claves[id] = await generarClaves();
   const ej = await ejemploComprasHermanas({ claves });
@@ -125,19 +129,26 @@ test('celda 8: ocho() lee la base escrita del 8; sin ella, el respaldo al vuelo 
   // Sin base escrita: el respaldo, declarado.
   const antes = ocho(eje, ej.guisos.id);
   assert.deepEqual([antes.estado, antes.escrita, antes.base, antes.frescura, antes.n, antes.registro], ['RESUELTO', false, null, SIN_BASE_ESCRITA, 4, ej.menu.id]);
-  assert.deepEqual(antes.medidas.map((m) => m.clave), MEDIDAS.map((m) => m.clave));
-  assert.ok(antes.medidas.every((m) => m.debajo + m.enCaja + m.encima === 4 && !('posicion' in m) && !('puntuacion' in m)));
-  assert.match(textoOcho(antes), /^8 · hermanos · sin base escrita \(respaldo al vuelo\) · n 4\nposiciones 5: caja 4 · /);
+  assert.deepEqual(antes.recuentos.map((m) => m.clave), MEDIDAS.map((m) => m.clave));
+  assert.ok(antes.recuentos.every((m) => m.recuento === true && !('caja' in m)));
+  assert.ok(antes.cantidades.every((m) => m.debajo + m.enCaja + m.encima === 4 && 'cuota' in m && 'cajaCuota' in m && !('posicion' in m) && !('puntuacion' in m)));
+  // Lo mismo que bases.ochoPorCantidades, que esta lectura integra.
+  const porCantidades = ochoPorCantidades(eje, ej.guisos.id);
+  assert.deepEqual(antes.cantidades.map(({ clave, etiqueta, foco, caja, cuota, cajaCuota, debajo, enCaja, encima }) => ({ clave, etiqueta, foco, caja, cuota, cajaCuota, debajo, enCaja, encima })), [...porCantidades.cantidades].sort((a, b) => (a.clave < b.clave ? -1 : 1)));
+  assert.deepEqual(antes.recuentos.map(({ clave, etiqueta, foco }) => ({ clave, etiqueta, foco, recuento: true })), porCantidades.recuentos);
+  assert.match(textoOcho(antes), /^8 · hermanos · sin base escrita \(respaldo al vuelo\) · n 4\nE:[^\n]+: caja \d · cuota frente al padre [\d,]+ %\n/);
+  assert.match(textoOcho(antes), /\nrecuentos \(información\): hilo \d+ · escritos \d+ · movimientos \d+ · posiciones \d+ · identidades \d+$/);
   // Con la base escrita: la lee, con su frescura.
   await escribirBasesDelEjemplo(ej);
   const despues = ocho(eje, ej.guisos.id);
   const base = leerBase(eje, ej.menu.id);
   assert.deepEqual([despues.escrita, despues.base, despues.frescura, despues.n], [true, base.id, base.frescura, 4]);
-  assert.deepEqual(despues.medidas, antes.medidas); // la misma verdad: la escrita al día coincide con el cálculo al vuelo
+  assert.deepEqual(despues.cantidades, antes.cantidades); // la misma verdad: la escrita al día coincide con el cálculo al vuelo
+  assert.deepEqual(despues.recuentos, antes.recuentos);
   assert.ok(textoOcho(despues).startsWith('8 · hermanos · base ' + base.id.slice(0, 8) + ' (sin novedades) · n 4'));
   assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 14);
   // El génesis no tiene hermanos.
   const g = ocho(eje, eje.genesisId);
-  assert.deepEqual([g.estado, g.medidas], ['PENDIENTE', []]);
+  assert.deepEqual([g.estado, g.cantidades, g.recuentos], ['PENDIENTE', [], []]);
   assert.equal(textoOcho(g), '8 · hermanos · sin cohorte: el génesis no tiene padre');
 });

@@ -1319,8 +1319,10 @@ export async function escribirBase(eje, { registro, autor = identidadDe(eje, reg
 export function leerBase(eje, id): Base | null;
 
 // src/mapped.js (la celda 8)
-export function ocho(eje, foco, { alcance = 'hermanos', epoca } = {}): { alcance, foco, estado, motivo?, escrita, base, registro, n, frescura, medidas };
+export function ocho(eje, foco, { alcance = 'hermanos', epoca } = {}): { alcance, foco, estado, motivo?, escrita, base, registro, seccion, n, frescura, cantidades, cuota, recuentos, medidas, posiciones, incluido, cambiadas };
+export function cuota(eje, foco, { epoca } = {}): { padre, escrita, base, frescura, incluido, series: [{ clave, etiqueta, foco, padre, cuota }] } | null;
 export function textoOcho(o): string;
+export function mapa(eje, id, { camino, epoca, maximo, medidas = false } = {}): Mapa; // medidas: null salvo { medidas: true } (bases.medir)
 
 // src/persistencia.js
 export const VERSION = 3;
@@ -1397,7 +1399,7 @@ esRecuento(clave); esCantidad(clave) // → R7: qué es un recuento informativo 
 cortesDe(clave, epoca)               // → { cortes, origen } de una cantidad: epoca.cortes(clave) ('epoca'); si la época no los da, los de la época 0 ('respaldo'); un recuento no tiene
 cuotaDe(valor, suma); cajaDeCuota(c) // → la cuota del foco en su cohorte (null si la cohorte no tiene nada) y su caja (su décima parte)
 porMasa(eje, ids, serie); masaDe(eje, id) // → PV8: registros por masa en una serie (de más a menos; a igual masa, en su orden); las cantidades de un registro
-ochoPorCantidades(eje, foco, { alcance, epoca }) // → lo que leerá la celda 8 de Mapped: cantidades con caja y cuota, recuentos aparte
+ochoPorCantidades(eje, foco, { alcance, epoca }) // → cantidades con caja y cuota, recuentos aparte (la lectura que integra mapped.ocho)
 unitaria(m, epoca); fundir(a, b)     // → estadística { n, medidas, tokens, posiciones, raiz }; fundir es asociativo y conmutativo, con estadisticaVacia() de neutro; rechaza cortes distintos
 identidadDe(eje, id)                 // → la cosa (con clave) que el propio registro da de alta; la del génesis, su autor ([X]); si no, null
 puedeEscribirBase(eje, autor, id)    // → { puede, por: 'identidad' | 'poder' | null, motivo }: la propia cosa o quien tiene P sobre el registro, con clave
@@ -1427,7 +1429,7 @@ valorDeBases(eje, id, args); erroresDeBases(args) // → lo que devuelve BASES()
 - **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`.
 - **Frescura y comprobación.** `frescura` cuenta lo llegado sin releer: hijos después de `hasta`, hijos cuya base vigente ya no es la fundida y lo mismo, sumado, en las fundidas (`debajo`). No ve cambios en lo ya medido; para eso, `comprobar` recalcula. `situar` dice en `cambiadas` las medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya.
 - **`BASES()`, `CAJA()` y `FRESCURA()` en BQL** (`docs/BQL.md` §7.13 y §7.14). Leen la base escrita y heredan el gancho `puedeLeer` (leer la base y, si hay que situarlo, el anfitrión y sus fórmulas) y el presupuesto de la fórmula (cobran lo que examina la lectura del 8). Sin base, PENDIENTE «sin base escrita» con el modo de escribirla; nunca calculan al vuelo.
-- **La celda 8 de Mapped y el cielo.** `bases.ochoPorCantidades(eje, foco, { alcance, epoca })` da lo que lee la celda 8 (la base escrita o el respaldo, dicho): las cantidades con su caja y su cuota y los recuentos aparte; `app.js` pinta con ella la celda 8 en sobrio. `mapped.ocho` sigue recorriendo `MEDIDAS` buscando su caja y está **pendiente de integrar** (R7-01, en `skip`). `mundos/cielo.js` (`datosCielo`) dibuja una constelación por cantidad y la décupla, y enseña los recuentos aparte, como información.
+- **La celda 8 de Mapped y el cielo.** `mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 (la base escrita o el respaldo, dicho), por cantidades (R7; integra lo que daba `bases.ochoPorCantidades`): hermanos por defecto, proyecto o todo el eje; primero las cantidades por serie con su caja, su cuota en la cohorte y la caja de esa cuota, y la cuota del foco frente a su padre (`mapped.cuota`); después los recuentos, como información y sin caja; `mapped.textoOcho` es su texto. `mundos/cielo.js` (`datosCielo`) lee con la misma `ocho`: dibuja una constelación por cantidad y la décupla, enseña los recuentos aparte y dice «sin base escrita». En sobrio la pinta `ui/ocho.js`, al pintarse la celda: es ahí donde se mide el foco, porque `mapped.mapa` solo mide con `{ medidas: true }` y Scened solo suma bajo demanda (`docs/MODOS.md` §0.5).
 - **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`), texto informativo; nada asigna nivel ni grado ni puntúa.
 
 Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes de la época 0; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si el poder para escribir una base se mira al escribirla (hoy) o al leerla.

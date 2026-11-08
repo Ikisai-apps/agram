@@ -74,7 +74,9 @@ test('escena de la compra y el menú: marco común, aristas y recuentos', async 
   assert.equal(e.recuentos.pedidos, 2);
   assert.equal(e.recuentos.enEscena, 2);
   assert.equal(e.recuentos.fuera, 0);
-  assert.equal(e.recuentos.movimientos, 3); // uno del menú, dos de la compra
+  // Medidas perezosas (VG, 8-11): sin pedirlas no se mide; pedidas, la medida única del 8 sumada por foco.
+  assert.equal(e.recuentos.medidas, null);
+  assert.equal(escena(eje, [compra.id, menu.id], { ahora: AHORA, medidas: true }).recuentos.medidas.movimientos, 3); // uno del menú, dos de la compra
   assert.equal(e.corte, null);
   assert.deepEqual(e.avisos, []);
   // Las tres cifras: lo conseguido, el mínimo y el máximo de Scened. No llegar al mínimo no es error: se dice.
@@ -270,7 +272,7 @@ test('mil compras hermanas: la escena llega a las diez mil posiciones y lo dice'
   assert.equal(e.focos[998].hermanosEnEje, 1000);
   assert.equal(e.recuentos.referenciasFuera, 999); // el menú no está en escena
   const lineas = render(e).split('\n');
-  assert.equal(lineas.length, 1 + 999 + 2 + 1);
+  assert.equal(lineas.length, 1 + 999 + 3 + 1); // cabecera, focos, aristas, recuentos, medidas del 8 (bajo demanda) y el aviso
   assert.match(lineas.at(-1), /^aviso: capacidad de la escena: 10000 posiciones\. El foco [0-9a-f]{8} \(1000º de 1000\)/);
   // Más de diez mil posiciones: se consigue el máximo, y el aviso dice cuánto faltó (VG, 7-11 noche).
   assert.deepEqual(e.cifras, { conseguido: 10000, minimo: 1000, maximo: 10000, alMinimo: true, necesario: 10010 });

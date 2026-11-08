@@ -3,11 +3,12 @@
 // Sobrio y animado son dos renders de la misma lectura (mapa §10.3 [D]): el
 // sobrio es la tabla de medidas situadas (htmlCieloSobrio) y el animado, el
 // cielo (svgCielo). Los dos leen datosCielo(), que lee la base ESCRITA en el
-// 8 que resume la cohorte (bases.leerBase y bases.situar; mapa §14.2: una sola
-// verdad del 8, la escrita). Nada simulado: si ese 8 no tiene base escrita,
-// se usa el respaldo declarado (bases.situar con respaldo, que es
-// bases.confluir: las mismas funciones medir y fundir, al vuelo) y se dice
-// «sin base escrita».
+// 8 que resume la cohorte con la MISMA función que la celda 8 sobria de
+// Mapped, mapped.ocho (que es bases.situar; mapa §14.2: una sola verdad del
+// 8, la escrita; VG, 8-11: el cielo y la celda sobria, una sola lectura).
+// Nada simulado: si ese 8 no tiene base escrita, se usa el respaldo
+// declarado (bases.situar con respaldo, que es bases.confluir: las mismas
+// funciones medir y fundir, al vuelo) y se dice «sin base escrita».
 //
 // Qué se ve:
 // - una constelación por medida del 8 (bases.MEDIDAS) y por
@@ -58,8 +59,9 @@
 // para las pruebas de Node.
 
 import {
-  ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, TIEMPO, leerBase, situar, clavesDeMedidas, proyectoDe, etiquetaClave,
+  ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, TIEMPO, leerBase, clavesDeMedidas, proyectoDe, etiquetaClave,
 } from '../src/bases.js';
+import { ocho } from '../src/mapped.js';
 import { verEn, efectosDe } from '../src/efectos.js';
 import { PV, EPOCA_0 } from '../src/epocas.js';
 
@@ -143,9 +145,10 @@ function grupoDe(medida) {
 
 /**
  * Lo que dibuja el cielo de un foco en una cohorte. Lee la base escrita en el
- * 8 que resume la cohorte (bases.leerBase y bases.situar); si ese 8 no tiene
- * base escrita, usa el respaldo declarado (bases.situar con respaldo, es
- * decir, bases.confluir al vuelo) y lo dice: escrita = false y frescura
+ * 8 que resume la cohorte con mapped.ocho, la lectura de la celda 8 sobria
+ * (bases.situar), y de la base, su autor y su frescura (bases.leerBase); si
+ * ese 8 no tiene base escrita, usa el respaldo declarado (bases.situar con
+ * respaldo, es decir, bases.confluir al vuelo) y lo dice: escrita = false y frescura
  * SIN_BASE_ESCRITA. No escribe. Devuelve { cohorte, foco, estado: 'RESUELTO'
  * | 'SIN COHORTE', motivo?, registro, seccion, escrita, base: { id, autor, t,
  * n, anteriores, frescura }, incluido, cambiadas, medidas, recuentos }, con
@@ -162,28 +165,24 @@ export function datosCielo(eje, foco, { cohorte = 'hermanos', epoca = EPOCA_0 } 
   if (!c) {
     return { cohorte, foco, estado: 'SIN COHORTE', motivo: 'el génesis no tiene padre', registro: null, seccion: null, escrita: false, base: null, incluido: null, cambiadas: [], medidas: [], recuentos: [] };
   }
-  const s = situar(eje, foco, { alcance: cohorte, epoca, respaldo: true });
-  const escrita = s.escrita === true ? leerBase(eje, c.registro) : null;
+  // Una sola verdad (VG, 8-11): la misma lectura que la celda 8 sobria, mapped.ocho.
+  const o = ocho(eje, foco, { alcance: cohorte, epoca });
+  const escrita = o.escrita ? leerBase(eje, c.registro) : null;
   const base = escrita
-    ? { id: escrita.id, autor: escrita.autor, t: escrita.t, n: s.n, anteriores: escrita.anteriores, frescura: escrita.frescura, efectos: efectosEnCielo(eje, escrita.id) }
-    : { id: null, autor: null, t: null, n: s.n, anteriores: 0, frescura: SIN_BASE_ESCRITA, efectos: [] };
-  const incluido = escrita ? s.incluido : s.comparables.some((f) => f.id === foco);
-  const cambiadas = escrita ? s.cambiadas : [];
-  // Sin el hito que da situar: el cielo rotula las cajas con su tramo de valores, no con niveles.
-  const deCaja = (medida, x) => ({
-    medida, tipo: 'caja', n: x.n, cajas: [...x.cajas], cortes: [...x.cortes], valor: x.foco, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota,
+    ? { id: escrita.id, autor: escrita.autor, t: escrita.t, n: o.n, anteriores: escrita.anteriores, frescura: escrita.frescura, efectos: efectosEnCielo(eje, escrita.id) }
+    : { id: null, autor: null, t: null, n: o.n, anteriores: 0, frescura: SIN_BASE_ESCRITA, efectos: [] };
+  // Sin el hito: el cielo rotula las cajas con su tramo de valores, no con niveles.
+  const deCaja = (x) => ({
+    medida: x.clave, tipo: 'caja', n: x.n, cajas: [...x.cajas], cortes: [...x.cortes], valor: x.foco, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota,
     enCaja: x.enCaja, debajo: x.debajo, encima: x.encima, minimo: x.minimo, maximo: x.maximo, media: x.media,
   });
   const decupla = {
-    medida: DECUPLA, tipo: 'pv', n: s.n, cajas: s.posiciones.map((p) => p.comparables), focoEn: s.posiciones.map((p) => Boolean(p.foco)),
-    valor: s.posiciones.filter((p) => p.foco).length,
+    medida: DECUPLA, tipo: 'pv', n: o.n, cajas: o.posiciones.map((p) => p.comparables), focoEn: o.posiciones.map((p) => Boolean(p.foco)),
+    valor: o.posiciones.filter((p) => p.foco).length,
   };
-  const medidas = [decupla, ...Object.keys(s.tokens).sort().map((k) => deCaja(k, s.tokens[k]))];
-  const recuentos = clavesDeMedidas().map((k) => {
-    const x = s.medidas[k];
-    return { medida: k, tipo: 'recuento', valor: x.foco, n: x.n, suma: x.suma, minimo: x.minimo, maximo: x.maximo, media: x.media };
-  });
-  return { cohorte, foco, estado: 'RESUELTO', registro: c.registro, seccion: c.seccion, escrita: Boolean(escrita), base, incluido, cambiadas, medidas, recuentos };
+  const medidas = [decupla, ...o.cantidades.map(deCaja)];
+  const recuentos = o.recuentos.map((x) => ({ medida: x.clave, tipo: 'recuento', valor: x.foco, n: x.n, suma: x.suma, minimo: x.minimo, maximo: x.maximo, media: x.media }));
+  return { cohorte, foco, estado: 'RESUELTO', registro: c.registro, seccion: c.seccion, escrita: Boolean(escrita), base, incluido: o.incluido, cambiadas: [...o.cambiadas], medidas, recuentos };
 }
 
 // ---------- render: SVG como texto ----------

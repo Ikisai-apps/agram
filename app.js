@@ -12,7 +12,7 @@ import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
 import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
 import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
-  pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia, bases,
+  pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, maximo, PV, RAIZ, leerCamino,
 } from './src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
@@ -23,6 +23,7 @@ import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } 
 import { htmlSaldos } from './ui/saldos.js';
 import { htmlCifras, htmlAvisos } from './ui/comun.js';
 import { htmlLeido, instalarLeido } from './ui/leido.js';
+import { htmlOcho, instalarOcho } from './ui/ocho.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -230,7 +231,7 @@ function chipTemporal(x) {
   return `<button class="chip" data-ir="${x.id}"><b>${corto(x.id)}</b> ${escapar(texto)}${etiqueta} <small>${x.banda}</small></button>`;
 }
 
-function celdaMapa(m, i, eje67, o8) {
+function celdaMapa(m, i, eje67) {
   const c = m.celdas[i];
   const marca = c.escritos ? `<span class="hijos">↳ ${c.escritos}</span>` : '';
   const propio = c.contenido !== undefined ? `<div class="val">${slot(c.contenido, m.foco, [...m.camino, i], false)}</div>` : '';
@@ -248,15 +249,10 @@ function celdaMapa(m, i, eje67, o8) {
     return `<div class="celda c7"><div class="pvn">7 ${c.significado} · ${eje67.totalFuturo}</div><div class="chips">${eje67.futuro.length ? eje67.futuro.map(chipTemporal).join('') : '<span class="nada">nada proyectado</span>'}</div>${marca}</div>`;
   }
   if (i === 8) {
-    const d = m.medidas;
     // La verdad del 8 es la base escrita (VG, 7-11 noche); sin ella, el respaldo al vuelo lo dice. Sin puesto ni puntuación.
-    const lectura = o8.estado !== 'RESUELTO' ? o8.motivo
-      : o8.escrita ? 'base ' + o8.base.slice(0, 8) + (o8.frescura.sinNovedades ? ' · sin novedades' : ' · con novedades')
-      : 'sin base escrita (respaldo al vuelo)';
-    const cajas = o8.cantidades.map((x) => `<span>${escapar(x.clave)} <b>caja ${x.caja}</b>${x.cuota === null ? '' : ' · cuota ' + Math.round(x.cuota * 100) + ' %'}</span>`).join('');
+    // VG, 8-11: hermanos por defecto, cantidades y cuota primero, recuentos como información; se mide aquí, al pintar (ui/ocho.js).
     return `<div class="celda c8"><div class="pvn">8 ${c.significado}</div>
-      <div class="medidas"><span>entre hermanos <b>${escapar(lectura)}</b> · n ${o8.n}</span>${cajas}</div>
-      <div class="medidas"><span>hilo <b>${d.profundidadHilo}</b></span><span>escritos <b>${d.escritos}</b></span><span>movimientos <b>${d.movimientos}</b></span><span>posiciones <b>${d.posicionesDesarrolladas}</b></span></div>
+      ${htmlOcho(estado.eje, m.foco, { epoca: epocaActual() })}
       <div class="pista">sin nivel ni grado: las estrellas no son verdad</div>${propio}${marca}</div>`;
   }
   if (i === 9) {
@@ -325,9 +321,6 @@ function pintarMapped() {
   const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino, epoca: epocaActual() });
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
-  // La celda 8 lee la base escrita y solo sitúa cantidades (R7, VG 7-11 noche): bases.ochoPorCantidades hasta que
-  // mapped.ocho la integre (sus medidas son recuentos, sin caja).
-  const o8 = bases.ochoPorCantidades(estado.eje, estado.foco, { epoca: epocaActual() });
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = nombresPV(estado.camino.length).map((n, i) => {
@@ -337,7 +330,7 @@ function pintarMapped() {
     const ph = hay ? '← del foco: ' + breve(Array.isArray(base) ? base[i] : base) : 'vacía';
     return `<label class="celda-form"><span>${i} ${n}</span><textarea name="c${i}" rows="2" placeholder="${escapar(ph)}"></textarea></label>`;
   }).join('');
-  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div>${htmlAvisos(m.avisos)}<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67, o8)).join('')}</div>${htmlAvisos(m.avisos)}`
+  $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Mapped', m.alcance)}</div>${htmlAvisos(m.avisos)}<div class="matriz">${mapped.MATRIZ.flat().map((i) => celdaMapa(m, i, eje67)).join('')}</div>${htmlAvisos(m.avisos)}`
     + panelFabrica(m) + `
     <form id="escribir" data-modo="mapped" class="escribir">
       <div class="titulo">Escribir una décupla sobre el foco · Mapped propone de ${e[0]} a ${e[1]} posiciones (como mucho ${maximo('mapped')}) · una línea por ítem</div>
@@ -597,6 +590,7 @@ instalarEjemplos({ reiniciar });
 instalarEpocas({ pintar });
 instalarEncaje({ pintar });
 instalarLeido({ pintar }); // conmutador «leído»: el registro (Pointed) o la posición en foco (Clasificar) como texto
+instalarOcho({ pintar }); // botones de cohorte de la celda 8 de Mapped: hermanos, proyecto, todo el eje
 instalarFabrica({ estado, pintar });
 instalarClasificar({ estado, pintar, guardar, fallo, privadaDe, epoca: epocaActual });
 estado.claves = await cargarClaves();

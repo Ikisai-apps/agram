@@ -10,7 +10,7 @@ Convenciones, las de `docs/MOTOR.md`: los ejemplos se ejecutan desde la raíz de
 |---|---|---|---|---|---|---|---|
 | Pointed | una décupla | 1 | 1 | 10 | `src/pointed.js` | `decupla(ev, epoca)`: las diez posiciones del foco | sobrio |
 | Sequenced | unas diez | 2 | 10 | 100 | `src/sequenced.js` | `secuencia(eje, id, { sentido })`: el hilo del foco o lo escrito sobre él | sobrio |
-| Mapped | unas cien (la 3×3) | 3 | 100 | 1000 | `src/mapped.js` | `mapa(eje, id, { camino, epoca })`: matriz 1 8 2 / 6 5 7 / 3 9 4, eje 6·5·7 y medidas del 8 | sobrio |
+| Mapped | unas cien (la 3×3) | 3 | 100 | 1000 | `src/mapped.js` | `mapa(eje, id, { camino, epoca, medidas })`: matriz 1 8 2 / 6 5 7 / 3 9 4 y eje 6·5·7; la celda 8 con `ocho` y las medidas del 8 solo si se piden (§0.5) | sobrio |
 | **Scened** | unas mil | 4 | 1000 | 10000 | `src/scened.js` | `escena(eje, focos, { camino, epoca })`: varios mapas y sus ejes temporales en un marco común | sobrio |
 | Be | todos, sin interfaz gráfica | del 5 en adelante | no tiene: responde lo que se le pide (VG, 7-11 noche) | todos (`Infinity`) | solo en `src/modos.js` | — | — |
 
@@ -91,11 +91,62 @@ Tres reglas valen para todos [A/D]: **cambiar de modo no muta el contenido** (un
 
 `src/index.js` los expone como espacios de nombres: `pointed`, `sequenced`, `mapped`, `scened`.
 
+### 0.5 La celda 8 de Mapped y las medidas perezosas
+
+VG, 8-11 (mapa §14.1, punto 12: «bien a ambos»): la celda 8 de Mapped, en sobrio, lee el 8 de una cohorte del foco, **«hermanos» por defecto**, con un toque para pasar a «proyecto» o a «todo el eje»; enseña **primero las cantidades por serie y la cuota del foco frente a su padre** (lo que decide las cajas) y, en una segunda línea más discreta, **los recuentos como información**. Y las medidas que enseñan Mapped y Scened son la medida única del 8, **calculada solo cuando se pide**.
+
+| Función (`src/mapped.js`) | Qué da |
+|---|---|
+| `ocho(eje, foco, { alcance, epoca })` | La lectura de la celda 8, por cantidades (R7; integra lo que daba `bases.ochoPorCantidades`): `alcance` es `'hermanos'` (por defecto: el 8 del padre), `'proyecto'` (el 8 del proyecto) o `'general'` (todo el eje: el 8 del génesis), `COHORTES`. Lee la base escrita (`bases.situar`) o, si no la hay, el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`). Da `cantidades` (por serie: T movido por escala, E por emisor y denominación, P por ámbito, R por emisor y el T consumido sobre el registro, `tiempo:<escala>`; el valor del foco, su caja, su cuota en la cohorte con la caja de esa cuota, y cuántos quedan debajo, en ella y encima, que son información), `cuota` (frente al padre), `recuentos` (las medidas de `bases.MEDIDAS`: valor del foco y lo fundido, sin caja; la celda enseña cinco, `RECUENTOS` y `recuentosDeCelda`) y `posiciones` (la décupla de la cohorte, para quien la dibuje). Sin puesto ni puntuación. |
+| `cuota(eje, foco, { epoca })` | La cuota del foco frente a su padre, serie a serie: lo que mueve el foco ÷ lo que mueven entre todos los hijos del padre (la base del 8 del padre, o su respaldo). `null` sin padre. Es la `cuota` que da `bases.situar` entre hermanos (R7); en las otras cohortes, `ocho` da además la cuota en la cohorte en cada cantidad, y la celda enseña las dos. |
+| `textoOcho(o)`, `textoCuota(c)` | El texto sobrio de la celda (abajo): una línea por serie con la cantidad, su caja y su cuota frente al padre (y, fuera de hermanos, en la cohorte), y al final los recuentos como información; y una cuota como porcentaje («37,5 %», «—» si no hay nada de esa serie). |
+| `mapa(eje, id, { medidas: true })` | Con la opción, `medidas` es la medida única del 8 del foco (`medidasDe`, es decir, `bases.medir`: `posiciones`, `terminales`, `escritos`, `movimientos`, `identidades`, `profundidadHilo`, `formulasResueltas`, `formulasPendientes` y `tokens` por serie). **Sin la opción, `medidas` es `null` y no se mide nada**: Scened pide un mapa por cada foco. |
+| `medidasDe(eje, id)`, `medicionesPedidas()` | La medida que piden las vistas (la de `bases.medir`, sin el detalle por posición) y cuántas veces se ha pedido desde que se cargó el módulo: el contador con que las pruebas comprueban que `mapa()` sin la opción no mide. |
+
+Si la base escrita no mide al foco (llegó después), la cuota lo dice (`incluido: false`) y puede pasar de 1. **Para decidir VG:** si la suma del foco es solo el foco (hoy) o su subárbol, y si el denominador son los hijos del padre (hoy) o su subárbol.
+
+Las compras del menú del día (`ejemplos/ikisai/compras-hermanas.mjs`, datos inventados), sin bases escritas: la celda 8 de los guisos entre hermanos y en todo el eje, y `mapa` sin medir y midiendo:
+
+```sh
+node --input-type=module -e "
+import { ejemploComprasHermanas } from './ejemplos/ikisai/compras-hermanas.mjs';
+import { ocho, textoOcho, mapa, medicionesPedidas } from './src/mapped.js';
+const { eje, guisos } = await ejemploComprasHermanas();
+for (const alcance of ['hermanos', 'general']) console.log(textoOcho(ocho(eje, guisos.id, { alcance })));
+console.log('mapa sin la opción:', mapa(eje, guisos.id).medidas, '· medidas pedidas:', medicionesPedidas());
+const m = mapa(eje, guisos.id, { medidas: true }).medidas;
+console.log('con { medidas: true }:', m.escritos, 'escritos ·', m.movimientos, 'movimientos · medidas pedidas:', medicionesPedidas());
+"
+```
+
+```text
+8 · hermanos · sin base escrita (respaldo al vuelo) · n 4
+E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 %
+T:hora 1: caja 1 · cuota frente al padre 25 %
+recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
+8 · general · sin base escrita (respaldo al vuelo) · n 14
+E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 % · en la cohorte 1,8 %
+P:genesis 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+T:hora 1: caja 1 · cuota frente al padre 25 % · en la cohorte 0,1 %
+T:minuto 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+tiempo:hora 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+tiempo:minuto 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
+mapa sin la opción: null · medidas pedidas: 0
+con { medidas: true }: 0 escritos · 2 movimientos · medidas pedidas: 1
+```
+
+Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5 %) y una de sus cuatro horas de T (25 %). En todo el eje cambian las cajas (n 14), aparecen series que el padre no mueve («—») y se añade la cuota en la cohorte (12 EUR son el 1,8 % de los que se mueven en todo el eje); la cuota frente al padre no cambia.
+
+**Scened**, igual: `escena()` no mide ningún registro y `recuentos.medidas` es `null`; con `{ medidas: true }`, o después con `medidasDeEscena(eje, escena)`, suma la medida del 8 de cada foco en escena (la misma función, una vez por foco). El render sobrio lo dice en una línea propia (`medidas del 8: bajo demanda …` o `medidas del 8 (suma de n focos): …`).
+
+**En el frontend** (`ui/ocho.js`, enganchado en `app.js`): la celda 8 llama a `ocho` al pintarse (es ahí donde se mide el foco; `mapa()` se pide sin medidas). Arriba, tres botones reales con `aria-pressed` (`hermanos`, `proyecto`, `todo el eje`); la elegida se recuerda en el navegador (`agram.ocho.cohorte`) solo como comodidad, y sin almacenamiento vuelve a hermanos. Debajo, de dónde se lee («entre hermanos · base 1a2b3c4d · sin novedades · n 4» o «sin base escrita (respaldo al vuelo)»), una fila por serie con la cantidad del foco, su caja y su cuota, y en una línea más discreta, marcada «información», los recuentos. Todo envuelve: a 400 px, sin scroll horizontal (un P sobre un registro se enseña con ocho caracteres de su id). En Scened, un botón «medir la escena» pide la suma. El cielo animado (`mundos/cielo.js`, `datosCielo`) lee con `ocho`, la misma función que la celda sobria: una sola verdad.
+
 ## 1. Scened: qué es y qué no es
 
 El mapa (§2.7 [A]) lo describe como unas mil piezas en espacios panorámicos. Scened **no es el render animado** (los mundos llegan después, en el orden de §12: primero la cruz, luego la X): es la composición que un render, sobrio o animado, necesita para enseñar muchas piezas a la vez.
 
-Una escena es una **composición de mapas de Mapped**: cada foco se lee con `mapped.mapa` (sus diez celdas en el camino, su hilo, lo escrito sobre él y sus medidas) y con `tiempo.ejeTemporal` (pasado y futuro con bandas). Scened no recalcula nada de eso a su manera: guarda cada mapa y cada eje temporal tal como salen de sus módulos y añade lo que ninguno de ellos tiene:
+Una escena es una **composición de mapas de Mapped**: cada foco se lee con `mapped.mapa` (sus diez celdas en el camino, su hilo y lo escrito sobre él; sus medidas del 8, solo si se piden: §0.5) y con `tiempo.ejeTemporal` (pasado y futuro con bandas). Scened no recalcula nada de eso a su manera: guarda cada mapa y cada eje temporal tal como salen de sus módulos y añade lo que ninguno de ellos tiene:
 
 1. **un marco común**: el antecesor común de los focos en el hilo y la posición de cada foco en la escena;
 2. **las aristas** entre focos: hilo, referencias BTML y referencias de fórmulas BQL;
@@ -105,9 +156,11 @@ Una escena es una **composición de mapas de Mapped**: cada foco se lee con `map
 ## 2. API (`src/scened.js`)
 
 ```js
-escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora, maximo, capacidad = CAPACIDAD, centro } = {})
+escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora, maximo, capacidad = CAPACIDAD, centro, medidas = false } = {})
 escenaDe(eje, foco, { alcance = 'hermanos', ...opciones de escena })   // alcance: 'hermanos' | 'proyecto' | 'general' | 'hilo'
 render(escena, nombre = 'sobrio')   // sobrio(escena): texto
+medidasDeEscena(eje, escena)        // la suma de la medida del 8 de cada foco, bajo demanda (§0.5)
+textoMedidas(suma)                  // su línea en el render sobrio
 CAPACIDAD   // 10000 = maximo('scened'): el máximo duro de Scened (VG, 7-11 noche)
 ALCANCES    // ['hermanos', 'proyecto', 'general', 'hilo']
 ARISTAS     // ['hilo', 'referencia', 'formula']
@@ -122,6 +175,7 @@ RENDERS     // { sobrio }
 | `maximo` | Registros de hilo, de hijos y de eje temporal que trae cada foco, como en `mapa` y `ejeTemporal` (por defecto, los suyos: 10). Un entero de 0 a 499, como en `mapa` (pedir más es pedir más del máximo, §0.2); si no, lanza `maximo inválido`. El marco usa siempre el hilo entero (§6). |
 | `capacidad` | Posiciones como máximo. Por defecto `CAPACIDAD` (10000, el máximo de Scened). Se puede bajar (vistas previas, pruebas), **nunca subir ni quitar**: lo que no es un entero de 1 a 10000 (también `Infinity`) lanza `capacidad inválida … el máximo de Scened es duro; se puede pedir menos, nunca más`. |
 | `centro` | Un foco que se marca (`centro: true`, `*` en el render). Si no está entre los focos, lanza. |
+| `medidas` | `true`: `recuentos.medidas` suma la medida del 8 de cada foco en escena (`medidasDeEscena`). Por defecto, `false`: componer la escena no mide ningún registro (§0.5). |
 
 `escenaDe` elige los focos y pone el foco como centro y **primero en prioridad** (si hay corte, entra):
 
@@ -175,7 +229,7 @@ Las referencias (BTML o REF) a registros que no están en la escena no son arist
 | `grupos` | grupos de hermanos (padres distintos) |
 | `aristas` | `{ hilo, referencia, formula }` |
 | `referenciasFuera` | referencias a registros fuera de la escena |
-| `escritos`, `movimientos`, `posicionesDesarrolladas` | sumas de las medidas del 8 de cada mapa |
+| `medidas` | `null`, salvo con `{ medidas: true }`: entonces `{ focos, posiciones, terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes }`, la suma de la medida única del 8 de cada foco (§0.5) |
 | `pasado`, `futuro` | sumas de `totalPasado` y `totalFuturo` de cada eje temporal |
 
 ## 6. La capacidad y el corte
@@ -188,7 +242,7 @@ Cómo se cuenta:
 
 - Cada registro que la escena trae cuenta **su contenido real** (§0.1, VG 7-11 noche, decisión 10.1): un terminal, una posición; cada ocupante de una lista, uno; una décupla, sus posiciones con contenido. Antes contaba diez por registro.
 - Un foco trae: su propio registro; **su hilo entero** hasta el génesis (el marco común y las aristas de hilo salen de él, aunque `mapa.hilo` enseñe solo `maximo`); sus hijos tal como los trae el mapa (hasta `maximo`, y dentro del corte de Mapped, §0.2); y lo que aparece en su eje temporal (hasta `maximo`). Lo que comparten varios focos (el menú, el génesis) se cuenta **una sola vez**: mil compras hermanas traen el contenido de mil compras más el del menú y lo que haya por encima.
-- **No se cuentan** los números que los módulos calculan sobre el eje entero sin traer registros a la escena: las medidas del 8 de cada mapa (cuántos escritos, profundidad del hilo), los totales del eje temporal (`totalPasado`, `totalFuturo`) y `hermanosEnEje`. La capacidad limita lo que la escena trae, no lo que el código recorre para calcular esos números (**[X] decidir VG**, §9).
+- **No se cuentan** los números que los módulos calculan sobre el eje entero sin traer registros a la escena: las medidas del 8 (solo bajo demanda, §0.5), los totales del eje temporal (`totalPasado`, `totalFuturo`) y `hermanosEnEje`. La capacidad limita lo que la escena trae, no lo que el código recorre para calcular esos números (**[X] decidir VG**, §9).
 - Los focos entran **en el orden pedido**. Cuando el siguiente llevaría la cuenta por encima de la capacidad, la escena **se corta ahí**: ese foco y todos los que vienen detrás quedan fuera, y nada entra a medias. **[X] decidir VG:** cortar en el primero que no cabe (lo de hoy) o seguir admitiendo los siguientes que aún quepan.
 - El corte **nunca es silencioso**: `corte` lo describe, `recuentos.fuera` lo cuenta, `avisos[0]` lo dice («… Trae X de Y posiciones.», con Y = `cifras.necesario`) y el render lo imprime en su última línea. Si no cabe ni el primer foco, la escena queda vacía, con su aviso.
 
@@ -202,7 +256,7 @@ Coste: cada foco es un `mapa` y un `ejeTemporal`, también los que quedan fuera 
 
 ## 7. Render sobrio
 
-Una cabecera con el marco común y las cifras (`31 de 10000 posiciones · mín 1000 (no llega) · máx 10000`: lo conseguido de la capacidad, el mínimo y el máximo de Scened); **una línea por foco** con su posición, su nivel (`n0`, `n1`…), el centro (`*`), id, autor, su contenido en el camino (como en Sequenced: el terminal, o las posiciones desarrolladas con su índice), hermanos, pasado y futuro, las **aristas que salen** (con la posición de destino en la escena) y cuántas **entran** (`← n`); una línea de aristas, una de recuentos y los avisos.
+Una cabecera con el marco común y las cifras (`31 de 10000 posiciones · mín 1000 (no llega) · máx 10000`: lo conseguido de la capacidad, el mínimo y el máximo de Scened); **una línea por foco** con su posición, su nivel (`n0`, `n1`…), el centro (`*`), id, autor, su contenido en el camino (como en Sequenced: el terminal, o las posiciones desarrolladas con su índice), hermanos, pasado y futuro, las **aristas que salen** (con la posición de destino en la escena) y cuántas **entran** (`← n`); una línea de aristas, una de recuentos, una de medidas del 8 (o que se piden bajo demanda) y los avisos.
 
 | En la línea | Significa |
 |---|---|
@@ -229,7 +283,7 @@ const otra = (t, titulo, n) => eje.escribir({ autor: 'huesped', sobre: menu.id, 
 const c2 = await otra('2026-11-07T13:40:00Z', 'Segunda compra', 1);
 const c3 = await otra('2026-11-07T13:50:00Z', 'Tercera compra', 2);
 const ahora = '2026-11-07T15:00:00Z';
-console.log(render(escena(eje, [cuenta.id, c3.id, compra.id, c2.id, menu.id], { ahora })));
+console.log(render(escena(eje, [cuenta.id, c3.id, compra.id, c2.id, menu.id], { ahora, medidas: true })));
 console.log('---');
 console.log(render(escenaDe(eje, compra.id, { alcance: 'hilo', ahora })));
 console.log('---');
@@ -247,7 +301,8 @@ escena · 5 de 5 focos · común ff05e68f · época 0 · camino raíz · 31 de 1
 3 n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 4 n1 4dbd5c17 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 aristas: hilo 4 · referencia 4 · fórmula 1 · fuera de escena 0
-recuentos: grupos 3 · escritos 4 · movimientos 8 · posiciones desarrolladas 16 · pasado 19 · futuro 0
+recuentos: grupos 3 · pasado 19 · futuro 0
+medidas del 8 (suma de 5 focos): escritos 4 · movimientos 8 · posiciones 16 · identidades 8
 ---
 escena · 4 de 4 focos · común 2d970a48 · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
 0 n0 2d970a48 casa · Casa de ejemplo · hermano 1 de 1 · pasado 1 futuro 0 · ← 1
@@ -255,20 +310,23 @@ escena · 4 de 4 focos · común 2d970a48 · época 0 · camino raíz · 31 de 1
 2 n2 ff05e68f cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
 3*n3 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
-recuentos: grupos 4 · escritos 6 · movimientos 11 · posiciones desarrolladas 10 · pasado 12 · futuro 0
+recuentos: grupos 4 · pasado 12 · futuro 0
+medidas del 8: bajo demanda (escena con { medidas: true })
 ---
 escena · 3 de 3 focos · común ff05e68f · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
 0 n1 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0
 1*n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
 2 n1 4dbd5c17 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 4
-recuentos: grupos 1 · escritos 1 · movimientos 6 · posiciones desarrolladas 9 · pasado 10 · futuro 0
+recuentos: grupos 1 · pasado 10 · futuro 0
+medidas del 8: bajo demanda (escena con { medidas: true })
 ---
 escena · 2 de 4 focos · común ff05e68f · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
 0 n1 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
 1 n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 3
-recuentos: grupos 1 · escritos 1 · movimientos 4 · posiciones desarrolladas 7 · pasado 7 · futuro 0
+recuentos: grupos 1 · pasado 7 · futuro 0
+medidas del 8: bajo demanda (escena con { medidas: true })
 aviso: capacidad de la escena: 30 posiciones. El foco 4dbd5c17 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: 4dbd5c17 ff05e68f. Trae 27 de 31 posiciones.
 ```
 
@@ -292,7 +350,7 @@ Lectura de la primera escena: se pidieron en desorden y el marco las coloca por 
 | **[X] decidir VG:** si `ordenDeEscala` llega a rechazar | Solo informa (§0.4); nadie la aplica todavía. |
 | Render animado y mundos | Solo el sobrio. El primer mundo animado (`mundos/hilos.js`, en el frontend) anima el eje temporal de un foco, no una escena. |
 | Colisiones entre focos (dos focos que ocupan la misma dirección de un tercero) | No son aristas; están en `encaje.ocupantes` de cada registro. |
-| Bases del 8 en la escena (confluencia) | Las medidas de cada mapa se suman; no se funden bases. |
+| Bases del 8 en la escena (confluencia) | La medida del 8 de cada foco se suma bajo demanda (§0.5); no se funden bases. |
 | Aristas de BQL evaluado (`BUSCAR`, `ACTUAL`…, o un `REF` con argumentos calculados) | Solo `REF` con argumentos literales, leído en el árbol de la fórmula, sin evaluar (§4). |
 
 ## 10. En el frontend: la vista sobria de Scened
@@ -305,4 +363,5 @@ Un cuarto botón, **Scened**, junto a Pointed, Sequenced y Mapped (`index.html`)
 - **Una fila por foco**, en el orden del marco común (§3): posición, id corto, autor, «centro», la representación (`mapa.terminal` si el foco es un terminal, como el génesis, que no tiene posición 0; si no, su posición 0), y debajo nivel, hermanos, pasado, futuro y cuántas aristas entran. La sangría es el nivel, hasta seis.
 - **Aristas como enlaces** a la fila de su destino, anclada por id (`#escena-<id>`), no por posición: al recentrar, el enlace sigue llevando al mismo registro. Texto: `hilo → 0 en 1000000000`, `ref 1.0 → 2 : 1000000000`, `fórmula 1 → 3 : 1200000000`; el título de cada una dice qué significa («su posición 1.0 es una referencia a la 1000000000 de …, no copia»).
 - **Tocar un foco** lo pone en el centro de la escena (el `data-ir` de siempre); **«Mapped»**, un botón aparte en la fila, abre ese foco en Mapped. **[X] decidir VG:** la propuesta anterior de esta sección era que tocar una fila cambiara el foco y lo abriera en Mapped a la vez; aquí se separan para poder recorrer la escena sin salir de ella.
+- **Medidas del 8, bajo demanda** (VG, 8-11, §0.5): debajo de los recuentos, un botón «medir la escena» pide la suma de la medida del 8 de los focos de esa escena; hasta entonces no se mide ninguno. Cambiar de foco, de alcance o de camino vuelve al botón.
 - Solo lee: no hay formulario de escritura en Scened mientras su proporción no esté fijada. Sin selector de época propio: usa la época 0. No anima nada: no hay transiciones ni CSS de animación.

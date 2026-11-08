@@ -22,11 +22,17 @@
 // así y no `alcance` porque escenaDe ya usa `alcance` para la cohorte): lo
 // conseguido, el mínimo que intenta (1000) y el máximo (10000). No llegar
 // al mínimo no es error: se dice.
+//
+// Medidas perezosas (VG, 8-11): la suma de medidas de la escena es la de la
+// medida única del 8 (bases.medir, por mapped.medidasDe) y solo se calcula
+// bajo demanda, con { medidas: true } o medidasDeEscena(); escena() sin la
+// opción no mide ningún registro, porque pide un mapa por cada foco.
 
 import { esReferencia, esDireccion } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
 import { maximo as maximoDe, alcanceDe, contenido } from './modos.js';
-import { mapa, MAXIMO_REGISTROS } from './mapped.js';
+import { mapa, medidasDe, MAXIMO_REGISTROS } from './mapped.js';
+import { MEDIDAS } from './bases.js';
 import { ejeTemporal, comparables } from './tiempo.js';
 import { esFormula, analizar } from './bql.js';
 
@@ -123,7 +129,9 @@ function compararClaves(a, b) {
  * entero de 0 a mapped.MAXIMO_REGISTROS), capacidad (posiciones con
  * contenido; por defecto CAPACIDAD, el máximo de
  * Scened; un entero de 1 a CAPACIDAD: por encima, o Infinity, es un error)
- * y centro (un foco que se marca).
+ * centro (un foco que se marca) y medidas (true: `recuentos.medidas` suma la
+ * medida del 8 de cada foco en escena, medidasDeEscena; por defecto no se
+ * mide nada y `recuentos.medidas` es null).
  *
  * Marco común: el antecesor común de todos los focos en el hilo; cada foco
  * tiene su nivel (saltos desde él) y su posición, que sale de recorrer en
@@ -146,7 +154,7 @@ function compararClaves(a, b) {
  * posiciones que traería la escena entera sin corte (igual que conseguido
  * si no se corta). Con corte, el aviso dice «trae X de Y posiciones».
  */
-export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new Date().toISOString(), maximo, capacidad = CAPACIDAD, centro } = {}) {
+export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new Date().toISOString(), maximo, capacidad = CAPACIDAD, centro, medidas = false } = {}) {
   if (!Array.isArray(focos) || focos.length === 0) throw new Error('una escena necesita al menos un foco');
   if (!(Number.isInteger(capacidad) && capacidad > 0 && capacidad <= CAPACIDAD)) {
     throw new Error('capacidad inválida: ' + capacidad + ' (un entero de 1 a ' + CAPACIDAD + ': el máximo de Scened es duro; se puede pedir menos, nunca más)');
@@ -308,13 +316,37 @@ export function escena(eje, focos, { camino = [], epoca = EPOCA_0, ahora = new D
     grupos: grupos.size,
     aristas: porTipo,
     referenciasFuera,
-    escritos: suma((a) => a.mapa.medidas.escritos),
-    movimientos: suma((a) => a.mapa.medidas.movimientos),
-    posicionesDesarrolladas: suma((a) => a.mapa.medidas.posicionesDesarrolladas),
     pasado: suma((a) => a.tiempo.totalPasado),
     futuro: suma((a) => a.tiempo.totalFuturo),
+    medidas: null, // perezosas: solo con { medidas: true }
   };
-  return { modo: 'scened', comun, camino: [...camino], epoca: e.nombre, ahora, focos: piezas, aristas, recuentos, cifras, corte, avisos };
+  const compuesta = { modo: 'scened', comun, camino: [...camino], epoca: e.nombre, ahora, focos: piezas, aristas, recuentos, cifras, corte, avisos };
+  if (medidas) recuentos.medidas = medidasDeEscena(eje, compuesta);
+  return compuesta;
+}
+
+/**
+ * La suma de la escena, bajo demanda (VG, 8-11): la medida del 8 de cada
+ * foco en escena (mapped.medidasDe, es decir, bases.medir: la misma que lee
+ * la celda 8), sumada medida a medida (MEDIDAS), una vez por foco. Los
+ * tokens no se suman aquí: cada serie es la suya y se leen en el 8. Cuesta
+ * una medida por foco: la vista la pide con un botón, nunca al componer.
+ * Devuelve { focos, <clave de MEDIDAS>: suma }.
+ */
+export function medidasDeEscena(eje, e) {
+  const total = { focos: e.focos.length };
+  for (const { clave } of MEDIDAS) total[clave] = 0;
+  for (const f of e.focos) {
+    const m = medidasDe(eje, f.id);
+    for (const { clave } of MEDIDAS) total[clave] += m[clave];
+  }
+  return total;
+}
+
+/** Texto de la suma de medidas de una escena (medidasDeEscena), o que se pide bajo demanda si no está. */
+export function textoMedidas(m) {
+  if (!m) return 'medidas del 8: bajo demanda (escena con { medidas: true })';
+  return 'medidas del 8 (suma de ' + m.focos + (m.focos === 1 ? ' foco' : ' focos') + '): escritos ' + m.escritos + ' · movimientos ' + m.movimientos + ' · posiciones ' + m.posiciones + ' · identidades ' + m.identidades;
 }
 
 /**
@@ -363,7 +395,8 @@ function textoArista(x) {
  * Render sobrio: cabecera con el marco común y las cifras (lo conseguido de
  * la capacidad, el mínimo y el máximo de Scened), una línea por foco (posición,
  * nivel, id, autor, contenido en el camino, hermanos, tiempo y aristas que
- * salen), las aristas y los recuentos, y los avisos. El corte se dice siempre.
+ * salen), las aristas, los recuentos, la suma de medidas del 8 (o que se pide
+ * bajo demanda) y los avisos. El corte se dice siempre.
  */
 export function sobrio(e) {
   const r = e.recuentos;
@@ -384,8 +417,8 @@ export function sobrio(e) {
     return partes.join(' · ');
   });
   const aristas = 'aristas: hilo ' + r.aristas.hilo + ' · referencia ' + r.aristas.referencia + ' · fórmula ' + r.aristas.formula + ' · fuera de escena ' + r.referenciasFuera;
-  const recuentos = 'recuentos: grupos ' + r.grupos + ' · escritos ' + r.escritos + ' · movimientos ' + r.movimientos + ' · posiciones desarrolladas ' + r.posicionesDesarrolladas + ' · pasado ' + r.pasado + ' · futuro ' + r.futuro;
-  return [cab, ...lineas, aristas, recuentos, ...e.avisos.map((a) => 'aviso: ' + a)].join('\n');
+  const recuentos = 'recuentos: grupos ' + r.grupos + ' · pasado ' + r.pasado + ' · futuro ' + r.futuro;
+  return [cab, ...lineas, aristas, recuentos, textoMedidas(r.medidas), ...e.avisos.map((a) => 'aviso: ' + a)].join('\n');
 }
 
 export const RENDERS = Object.freeze({ sobrio });
