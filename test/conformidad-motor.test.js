@@ -47,9 +47,18 @@ import * as agram from '../src/index.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 const AHORA = '2026-11-07T12:00:00Z';
-const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }];
+/**
+ * Las altas del mundo, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del
+ * tope de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 su reloj le da de sobra (un minuto por minuto pasado).
+ */
+const ALTA = '2026-10-08T10:00:00Z';
+// El génesis emite también su tiempo como E (E:<génesis>/minuto): T no cruza de persona (VG, 7-11 noche), y el
+// tiempo que se cede a otro es E de la serie del que lo da, denominada en su tiempo. Cada uno escribe con su
+// propio T, que se acuña al gastarse.
+const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }];
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+/** Ceder minutos a otra identidad: E de la serie de tiempo de `emisor` (por defecto, la de quien los da). */
+const daT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
 const daE = (de, a, cantidad, denominacion = 'EUR', emisor = 'raiz') => ({ token: 'E', emisor, denominacion, cantidad, de, a });
 const ID_INEXISTENTE = 'f'.repeat(64);
 /** P delegado (por defecto, sobre todo el eje): quien emite E necesita P sobre el registro. */
@@ -73,12 +82,13 @@ async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina',
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
+    tipo: 'persona', // da T a sus cosas (Core, 8-11); a las personas, nunca: T no cruza de persona
     emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
     foco,
-    t: T0,
+    t: ALTA,
   });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 300), daT('raiz', 'bea', 120), daE('raiz', 'ana', 50)], payload: 'altas de ana y bea', contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 300), daT('raiz', 'bea', 120), daE('raiz', 'ana', 50)], payload: 'altas de ana y bea', contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
   return { eje, g };
 }
 
@@ -133,10 +143,12 @@ async function casaConUnaPlaza() {
     identidad: 'casa',
     emision: [...EMISION, { token: 'E', denominacion: 'plaza-7-11', cantidad: 1 }],
     foco: ['Habitación 1', 'cama A'],
-    t: T0,
+    t: ALTA,
   });
   const hab = eje.genesisId;
-  await eje.escribir({ autor: 'casa', sobre: hab, t: T0, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas', contexto: { tipos: { h1: 'persona', h2: 'persona' } } });
+  // Altas un mes antes: recepción y los huéspedes son personas y escriben con su propio T (se acuña al gastarlo
+  // dentro del tope de su reloj; T no cruza de persona, VG 7-11 noche).
+  await eje.escribir({ autor: 'casa', sobre: hab, t: ALTA, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas', contexto: { tipos: { recepcion: 'persona', h1: 'persona', h2: 'persona' } } });
   return { eje, hab };
 }
 
@@ -925,9 +937,12 @@ test('MOT-59 desde Mapped se propone como mucho un tercio de lo leído (333 de 1
   const { eje, g } = await mundo();
   const encima = Array.from({ length: 10 }, () => Array.from({ length: 10 }, () => Array(4).fill('x'))); // 400 posiciones
   assert.equal(contarPosiciones(encima), 400);
-  // Por encima de la propuesta, dentro del máximo: la escritura no lo rechaza (aquí falla por saldo de T, no por la proporción).
+  // Por encima de la propuesta, dentro del máximo: la escritura no lo rechaza. Cuesta 400 minutos de ana, que se
+  // acuñan al gastarse (VG, 7-11 noche) y se anotan en el registro que la soporta.
   assert.equal(proporcionDe(400, 'mapped').estado, 'por encima');
-  await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: encima, t: T0 }), /saldo insuficiente de T:minuto/);
+  const antes = eje.tiempoSobre(g).minuto ?? 0;
+  await escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: encima, t: T0 });
+  assert.equal(eje.tiempoSobre(g).minuto, antes + 400);
   const milUna = Array.from({ length: 10 }, (_, i) => Array.from({ length: 10 }, (_, j) => (i === 9 && j === 9 ? Array(11).fill('x') : Array(10).fill('x'))));
   assert.equal(contarPosiciones(milUna), 1001);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: g, payload: milUna, t: T0 }), /Mapped emite como mucho 1000 posiciones; este registro tiene 1001/);
@@ -946,7 +961,7 @@ test('MOT-59b desde Mapped se escribe al menos un cuarto de lo leído (250 de 10
 
 test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y permiso se comprueban por separado', async () => {
   const raiz = await generarClaves();
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: ALTA, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   // 1 · forma
   assert.ok(validarForma({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }).length > 0);
@@ -959,7 +974,7 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
   assert.equal(await verificarId({ ...p, payload: 'cambiado' }), false);
   assert.equal(await verificar(p, raiz.publica), true);
   // 5 · permiso y ejecución
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta' }, raiz.privada);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta', contexto: { tipos: { ana: 'persona' } } }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
 });
@@ -983,9 +998,9 @@ test('MOT-61c un informe por capas: cinco estados independientes, sin veredicto 
 test('MOT-62 las capas no se confunden: estructura válida y firmada no es autorización; la firma solo prueba quién escribe', async () => {
   const raiz = await generarClaves();
   const bea = await generarClaves();
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: ALTA, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas', contexto: { claves: { bea: bea.publica } } }, raiz.privada);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas', contexto: { tipos: { ana: 'persona', bea: 'persona' }, claves: { bea: bea.publica } } }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
   const firmada = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' } }, bea.privada);
   assert.deepEqual(validarForma(firmada), []);
@@ -1107,8 +1122,13 @@ test('M:TOK-01b ejecutar también paga un minuto por posición escrita', async (
 });
 
 test('M:TOK-02 el coste en minutos se paga con T de minuto, no con horas convertidas', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: ['Casa', 'x'], t: T0 });
-  await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'raiz', sobre: eje.genesisId, en: '1000000000', payload: 'nota', t: T0 }), /saldo insuficiente/);
+  // VG, 7-11 noche: T es el medidor propio y se acuña al gastarse; lo que se comprueba es que el coste en minutos
+  // se anota en minutos y no toca las horas (no se convierten).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 10 }], foco: ['Casa', 'x'], t: T0 });
+  const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'raiz', sobre: eje.genesisId, en: '1000000000', payload: 'nota', t: T0 });
+  assert.deepEqual(ev.movimientos.map((m) => [m.token, m.escala, m.de, m.a]), [['T', 'minuto', 'raiz', null]]);
+  assert.equal(eje.saldoT('raiz', 'hora'), 10);
+  assert.deepEqual(eje.tiempoSobre(eje.genesisId), { minuto: ev.movimientos[0].cantidad });
 });
 
 test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo cambian de manos al ejecutar', async () => {
@@ -1154,7 +1174,10 @@ test('TOK-01 todo evento es una transición de tokens: no existe evento sin movi
 test('TOK-02 el evento mínimo mueve T del autor (en el génesis, el autor lo recibe)', async () => {
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 }), /el génesis debe emitir T al autor/);
   const { eje, g } = await mundo();
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /el autor debe mover T/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /escribir consume T del autor/);
+  // VG, 7-11 noche: el mínimo es un CONSUMO (de = autor, a = null); dárselo a uno mismo no cuenta, y T no cruza de persona.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: 'ana' }], payload: 'x' }), /escribir consume T del autor/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: 'bea' }], payload: 'x' }), /T no cruza de persona/);
   const minimo = await escribe(eje, g, 'nota', undefined, 'ana');
   assert.deepEqual(minimo.movimientos.map((m) => [m.token, m.de]), [['T', 'ana']]);
 });
@@ -1187,8 +1210,14 @@ test('TOK-04 las series siguen la misma mecánica: E por denominación, P por á
 });
 
 test('TOK-04b también T es una serie: un saldo por escala', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'minuto', cantidad: 120 }], foco: 'x', t: T0 });
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'hora', cantidad: 3, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  // Gastar 3 horas con 2 de saldo no toca los minutos: la hora que falta se acuña al gastarse (VG, 7-11 noche) en su serie.
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }, { token: 'T', escala: 'minuto', cantidad: 120 }], foco: 'x', t: T0 });
+  // Sin tipo de persona no se acuña: saldo insuficiente, como siempre.
+  const sinTipo = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 2 }], foco: 'x', t: T0 });
+  await assert.rejects(sinTipo.escribir({ autor: 'raiz', sobre: sinTipo.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'hora', cantidad: 3, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente de T:hora en raiz: tiene 2 y gasta 3; solo una persona acuña/);
+  await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'hora', cantidad: 3, de: 'raiz', a: null }], payload: 'x' });
+  assert.deepEqual([eje.saldoT('raiz', 'hora'), eje.saldoT('raiz', 'minuto')], [0, 120]);
+  assert.deepEqual(['T:hora', 'T:minuto'].map((k) => eje.series().find((s) => s.clave === k)).map((s) => [s.emitido, s.consumido, s.acunado]), [[3, 3, 1], [120, 0, 0]]);
 });
 
 // =====================================================================
@@ -1202,10 +1231,15 @@ test('TOK-05 T son siete tokens, uno por escala, cada uno con su propio saldo', 
 });
 
 test('TOK-06 las escalas de T no se convierten entre sí: gastar en una no consume saldo de otra', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'anio', cantidad: 1 }], foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'anio', cantidad: 1 }], foco: 'x', t: T0 });
   const g = eje.genesisId;
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'dia', cantidad: 300, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
+  // Gastar días o minutos sin tenerlos los acuña en su escala, dentro del tope del reloj (VG, 7-11 noche; Core,
+  // 8-11): trescientos días en el instante del alta no caben; un minuto sí. Las horas y el año no se tocan.
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'dia', cantidad: 300, de: 'raiz', a: null }], payload: 'x' }),
+    /saldo insuficiente de T:dia en raiz: acuñar al gastar los 300 que faltan llevaría 300 emitido y el reloj da 1/);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'y' });
+  assert.deepEqual([eje.saldoT('raiz', 'hora'), eje.saldoT('raiz', 'anio'), eje.saldoT('raiz', 'dia')], [100, 1, 0]);
+  assert.deepEqual(eje.tiempoSobre(g), { minuto: 1 });
 });
 
 test('TOK-07 una misma actividad puede mover a la vez varias escalas de T', async () => {
@@ -1419,10 +1453,10 @@ test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos
 });
 
 test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y solo él amplía su serie', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: ALTA });
   const g = eje.genesisId;
   // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', otro: 'persona' } } });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas', contexto: { tipos: { casa: 'persona', otro: 'persona' } } });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 0.5, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }], payload: 'reputación de la casa' });
   // Con R6, su colateral (la décima parte de lo emitido) queda bloqueado: 7 emitidos, 1 bloqueado, 1 en la raíz.
@@ -1566,15 +1600,21 @@ test('TOK-47 se ven los tokens: P por ámbito y R por emisor, separados de los r
 
 test('TOK-47b se ven todas las denominaciones de E y todas las escalas de T', async () => {
   const { eje } = await mundo();
-  assert.deepEqual(eje.tiempos('ana'), [{ escala: 'minuto', cantidad: 300 }]);
-  assert.deepEqual(eje.recursos('ana'), [{ emisor: 'raiz', denominacion: 'EUR', cantidad: 50 }]); // cada serie de E con su emisor
+  // T no cruza de persona (VG, 7-11 noche): ana no recibió T; los 300 minutos que la raíz le cedió son E:raiz/minuto.
+  assert.deepEqual(eje.tiempos('ana'), []);
+  assert.deepEqual(eje.tiempos('raiz').map((x) => x.escala), ['minuto']);
+  assert.deepEqual(eje.recursos('ana'), [{ emisor: 'raiz', denominacion: 'minuto', cantidad: 300 }, { emisor: 'raiz', denominacion: 'EUR', cantidad: 50 }]); // cada serie de E con su emisor
 });
 
 test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura, P autoriza, R no es fungible, E se mueve al ejecutar', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'pobre', 1)], payload: 'alta con un minuto' });
+  // T (VG, 7-11 noche; Core, 8-11): pobre es una cosa, y la raíz (una persona) le da un minuto de su T. Cada
+  // escritura lo consume y queda anotada en el registro que la soporta; una cosa no acuña: sin T no escribe.
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: 'pobre' }], payload: 'alta con un minuto', contexto: { tipos: { pobre: 'cosa' } } });
+  const antes = eje.tiempoSobre(g).minuto ?? 0;
   await escribe(eje, g, 'una', undefined, 'pobre');
-  await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente/); // T
+  await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente de T:minuto en pobre: tiene 0 y gasta 1; solo una persona acuña/); // T
+  assert.equal(eje.tiempoSobre(g).minuto, antes + 1);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
   await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /bea no tiene P que cuente para autorizar/); // P
   await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
@@ -1600,17 +1640,17 @@ test('TOK-50 más transferencias no son más riqueza: mover tokens no es progres
   const padre = await escribe(eje, g, 'padre');
   const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
   await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
-  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos. Sin puesto: la hermana que mueve más
-  // tokens solo cae en otra caja de «movimientos»; en lo demás, las dos comparten caja.
+  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos, y el 8 solo sitúa cantidades (R7): mover más
+  // veces no da caja; los movimientos son un recuento informativo. Por cantidad, las dos comparten caja de T.
   const c = confluir(eje, a.id);
   assert.ok(!('posicion' in c) && !('puntuacion' in c) && c.comparables.every((x) => !('puntuacion' in x)));
-  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.debajo, c.medidas.movimientos.encima], [1, 0, 1]);
-  assert.equal(c.medidas.terminales.enCaja, 2);
+  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.maximo, c.medidas.movimientos.recuento, 'caja' in c.medidas.movimientos], [1, 4, true, false]);
+  assert.equal(c.tokens['T:minuto'].enCaja, 2);
 });
 
 test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5), daE('ana', 'cris', 5)], payload: 'ana da de alta a cris' });
+  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5, 'raiz'), daE('ana', 'cris', 5)], payload: 'ana da de alta a cris', contexto: { tipos: { cris: 'persona' } } });
   const ev = await escribe(eje, g, 'cris participa', undefined, 'cris');
   assert.equal(ev.autor, 'cris');
   assert.equal(eje.saldo('cris', 'E:raiz/EUR'), 5);
@@ -1633,7 +1673,7 @@ test('TOK-54c ninguna organización permanente es imprescindible: T y P no depen
   const { eje, g } = await mundo();
   const unaHoraDespues = '2026-11-07T11:00:00Z';
   await eje.escribir({ autor: 'ana', sobre: g, t: unaHoraDespues, payload: 'mi tiempo', movimientos: [gastaT('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] });
-  assert.equal(eje.emitidoT('ana', 'minuto'), 60);
+  assert.equal(eje.emitidoT('ana', 'minuto'), 61); // los 60 que emite y el que acuña al gastarlo (cuenta igual; Core, 8-11)
   const suyo = await escribe(eje, g, 'mi taller', undefined, 'ana', unaHoraDespues);
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: unaHoraDespues, payload: 'mi poder', movimientos: [gastaT('ana'), ...rEnJuego('ana', 'bea'), { token: 'P', ambito: suyo.id, cantidad: 2, de: null, a: 'ana' }] });
   assert.equal(eje.poderSobre('ana', suyo.id), 2);
@@ -1655,8 +1695,10 @@ test('TOK-56 el génesis es la emisión inicial a la primera identidad, con un f
 test('TOK-56b un génesis reconstruido solo vale si todo son emisiones a su autor', async () => {
   const emitir = (a) => ({ token: 'T', escala: 'minuto', cantidad: 60, de: null, a });
   const conMallory = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), daE('mallory', 'raiz', 50)], payload: 'x', contexto: { genesis: true } });
-  const aOtra = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), emitir('otra')], payload: 'x', contexto: { genesis: true } });
   await assert.rejects(Eje.desde([conMallory]));
+  const aOtraT = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), emitir('otra')], payload: 'x', contexto: { genesis: true } });
+  await assert.rejects(Eje.desde([aOtraT]));
+  const aOtra = await crearEvento({ autor: 'raiz', sobre: null, t: T0, movimientos: [emitir('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: null, a: 'otra' }], payload: 'x', contexto: { genesis: true } });
   await assert.rejects(Eje.desde([aOtra]));
 });
 
@@ -1899,7 +1941,7 @@ test('TOK-79 capas de validez separadas: el eje valida forma, id, firma y saldos
   const bueno = await firmar(await crearEvento({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'x' }), raiz.privada);
   await assert.rejects(eje.anadir({ ...bueno, payload: 'y' }), /id no corresponde/); // id
   await assert.rejects(eje.anadir({ ...bueno, firma: bueno.firma.slice(0, -4) + 'AAAA' }), /firma inválida/); // firma
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz', 100000)], payload: 'x' }, raiz.privada), /saldo insuficiente/); // saldos
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daE('raiz', 'raiz', 1e7, 'minuto')], payload: 'x' }, raiz.privada), /saldo insuficiente/); // saldos (T se acuña al gastarse; E no)
 });
 
 test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona',

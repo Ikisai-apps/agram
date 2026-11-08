@@ -80,7 +80,7 @@ test('clasificar, modo lente: colocar solo cambia cómo se ve; el eje no cambia'
 test('clasificar, modo crear: colocar escribe un evento real con su `en`, mueve T y la pieza sale de por clasificar', async () => {
   const { eje, compra: c } = await compra();
   const antes = eje.orden.length;
-  const minutos = eje.saldoT('huesped', 'minuto');
+  const minutos = eje.tiempoSobre(c.id).minuto ?? 0; // lo gastado sobre la compra (VG, 7-11 noche)
   const clave = c.id + '#3[0]';
   const ev = await escribirColocacion(eje, { foco: c.id, posicion: [3], clave, hueco: 3, autor: 'huesped', t: T });
   assert.equal(eje.orden.length, antes + 1);
@@ -90,7 +90,7 @@ test('clasificar, modo crear: colocar escribe un evento real con su `en`, mueve 
   assert.equal(ev.payload, 'huesped'); // el elemento de la lista, tal cual
   assert.deepEqual(ev.contexto.clasifica, { posicion: [3], evento: c.id, camino: [3], indice: 0 });
   assert.equal(ev.contexto.modo, 'pointed');
-  assert.equal(eje.saldoT('huesped', 'minuto'), minutos - 1); // un minuto de T, como cualquier escrito de Pointed
+  assert.equal(eje.tiempoSobre(c.id).minuto, minutos + 1); // un minuto de T, como cualquier escrito de Pointed, anotado en la compra
   const m = modeloClasificar(eje, c.id, [3]);
   assert.deepEqual(m.piezas.map((p) => p.clave), [c.id + '#3[1]']);
   assert.deepEqual(m.clasificadas.map((p) => p.clave), [clave]);

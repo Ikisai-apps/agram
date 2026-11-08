@@ -58,7 +58,7 @@
 // para las pruebas de Node.
 
 import {
-  ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, leerBase, situar, clavesDeMedidas, proyectoDe, etiquetaClave,
+  ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, TIEMPO, leerBase, situar, clavesDeMedidas, proyectoDe, etiquetaClave,
 } from '../src/bases.js';
 import { verEn, efectosDe } from '../src/efectos.js';
 import { PV, EPOCA_0 } from '../src/epocas.js';
@@ -117,6 +117,7 @@ export function nombreMedida(medida, { corto = false } = {}) {
   if (medida === DECUPLA) return corto ? 'posiciones por PV' : 'posiciones por PV: cuántos tienen desarrollada cada una';
   const m = MEDIDAS_DEL_8.find((x) => x.clave === medida);
   if (m) return corto ? CORTOS[medida] ?? medida : m.etiqueta;
+  if (medida.startsWith(TIEMPO)) return corto ? 'T sobre (' + medida.slice(TIEMPO.length) + ')' : etiquetaClave(medida);
   if (/^[TEPR]:./.test(medida)) {
     if (!corto) return etiquetaClave(medida);
     const [familia, serie] = [medida[0], medida.slice(2)];
@@ -131,9 +132,13 @@ export function efectosEnCielo(eje, id) {
   return [...new Set(efectosDe(eje, id).map((e) => verEn(e, 8)?.nombre).filter(Boolean))];
 }
 
-/** Grupo de una constelación: 0 las medidas de la confluencia, 1 la décupla, 2 las series de token. */
+/**
+ * Grupo de una constelación: 1 la décupla, 2 las cantidades (series de token y
+ * T consumido sobre el registro). Los recuentos (R7, VG 7-11 noche) no son
+ * constelaciones: no tienen cajas; se enseñan aparte, como información.
+ */
 function grupoDe(medida) {
-  return medida === DECUPLA ? 1 : clavesDeMedidas().includes(medida) ? 0 : 2;
+  return medida === DECUPLA ? 1 : 2;
 }
 
 /**
@@ -143,15 +148,19 @@ function grupoDe(medida) {
  * decir, bases.confluir al vuelo) y lo dice: escrita = false y frescura
  * SIN_BASE_ESCRITA. No escribe. Devuelve { cohorte, foco, estado: 'RESUELTO'
  * | 'SIN COHORTE', motivo?, registro, seccion, escrita, base: { id, autor, t,
- * n, anteriores, frescura }, incluido, cambiadas, medidas }, con las medidas en el orden
- * del cielo: las de la confluencia (tipo 'caja': n, cajas, cortes, valor,
- * caja, enCaja, debajo, encima, minimo, maximo, media), la décupla (tipo
- * 'pv': cajas = cuántos tienen cada posición, focoEn) y las series de token.
+ * n, anteriores, frescura }, incluido, cambiadas, medidas, recuentos }, con
+ * las medidas (las constelaciones) en el orden del cielo: la décupla (tipo
+ * 'pv': cajas = cuántos tienen cada posición, focoEn) y las CANTIDADES (tipo
+ * 'caja': n, cajas, cortes, valor, caja, cuota, cajaCuota, enCaja, debajo,
+ * encima, minimo, maximo, media), que son lo único que el 8 sitúa (R7, VG
+ * 7-11 noche). Los recuentos (identidades, escritos, movimientos…) van
+ * aparte en `recuentos`, informativos y sin cajas: { medida, tipo:
+ * 'recuento', valor, n, suma, minimo, maximo, media }.
  */
 export function datosCielo(eje, foco, { cohorte = 'hermanos', epoca = EPOCA_0 } = {}) {
   const c = registroDeCohorte(eje, foco, cohorte);
   if (!c) {
-    return { cohorte, foco, estado: 'SIN COHORTE', motivo: 'el génesis no tiene padre', registro: null, seccion: null, escrita: false, base: null, incluido: null, cambiadas: [], medidas: [] };
+    return { cohorte, foco, estado: 'SIN COHORTE', motivo: 'el génesis no tiene padre', registro: null, seccion: null, escrita: false, base: null, incluido: null, cambiadas: [], medidas: [], recuentos: [] };
   }
   const s = situar(eje, foco, { alcance: cohorte, epoca, respaldo: true });
   const escrita = s.escrita === true ? leerBase(eje, c.registro) : null;
@@ -162,19 +171,19 @@ export function datosCielo(eje, foco, { cohorte = 'hermanos', epoca = EPOCA_0 } 
   const cambiadas = escrita ? s.cambiadas : [];
   // Sin el hito que da situar: el cielo rotula las cajas con su tramo de valores, no con niveles.
   const deCaja = (medida, x) => ({
-    medida, tipo: 'caja', n: x.n, cajas: [...x.cajas], cortes: [...x.cortes], valor: x.foco, caja: x.caja, enCaja: x.enCaja,
-    debajo: x.debajo, encima: x.encima, minimo: x.minimo, maximo: x.maximo, media: x.media,
+    medida, tipo: 'caja', n: x.n, cajas: [...x.cajas], cortes: [...x.cortes], valor: x.foco, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota,
+    enCaja: x.enCaja, debajo: x.debajo, encima: x.encima, minimo: x.minimo, maximo: x.maximo, media: x.media,
   });
   const decupla = {
     medida: DECUPLA, tipo: 'pv', n: s.n, cajas: s.posiciones.map((p) => p.comparables), focoEn: s.posiciones.map((p) => Boolean(p.foco)),
     valor: s.posiciones.filter((p) => p.foco).length,
   };
-  const medidas = [
-    ...clavesDeMedidas().map((k) => deCaja(k, s.medidas[k])),
-    decupla,
-    ...Object.keys(s.tokens).sort().map((k) => deCaja(k, s.tokens[k])),
-  ];
-  return { cohorte, foco, estado: 'RESUELTO', registro: c.registro, seccion: c.seccion, escrita: Boolean(escrita), base, incluido, cambiadas, medidas };
+  const medidas = [decupla, ...Object.keys(s.tokens).sort().map((k) => deCaja(k, s.tokens[k]))];
+  const recuentos = clavesDeMedidas().map((k) => {
+    const x = s.medidas[k];
+    return { medida: k, tipo: 'recuento', valor: x.foco, n: x.n, suma: x.suma, minimo: x.minimo, maximo: x.maximo, media: x.media };
+  });
+  return { cohorte, foco, estado: 'RESUELTO', registro: c.registro, seccion: c.seccion, escrita: Boolean(escrita), base, incluido, cambiadas, medidas, recuentos };
 }
 
 // ---------- render: SVG como texto ----------
@@ -220,9 +229,9 @@ export function brillo(cuenta, n, rmax = 3.6) {
   return { r: Math.max(0.9, rmax * Math.sqrt(f)), o: 0.35 + 0.65 * f, encendida: true };
 }
 
-/** Qué medidas caben: en la celda de Mapped, solo las de la confluencia. */
+/** Qué medidas caben: en la celda de Mapped, la décupla y el T consumido sobre el registro (cantidades, R7). */
 function visibles(datos, compacto) {
-  return compacto ? datos.medidas.filter((m) => grupoDe(m.medida) === 0) : datos.medidas;
+  return compacto ? datos.medidas.filter((m) => m.medida === DECUPLA || m.medida.startsWith(TIEMPO)) : datos.medidas;
 }
 
 /** Filas del cielo: cada grupo empieza fila, con sus columnas y su alto. */
@@ -388,9 +397,13 @@ export function htmlCieloSobrio(datos) {
       return `<div class="medida-fila"><span class="medida-nombre">${escapar(nombreMedida(m.medida))}</span><span class="medida-valor">en el foco (●): <b>${posicionesDelFoco(m)}</b></span><span class="medida-cohorte">${escapar(lista)}</span></div>`;
     }
     return `<div class="medida-fila"><span class="medida-nombre">${escapar(nombreMedida(m.medida))}</span>`
-      + `<span class="medida-valor">foco <b>${escapar(m.valor)}</b> · caja ${m.caja} (${escapar(rangoDeCaja(m.cortes, m.caja))})</span>`
+      + `<span class="medida-valor">foco <b>${escapar(m.valor)}</b> · caja ${m.caja} (${escapar(rangoDeCaja(m.cortes, m.caja))}) · cuota ${m.cuota === null ? '—' : n2(m.cuota)}</span>`
       + `<span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima · mín ${m.minimo ?? '—'} · máx ${m.maximo ?? '—'} · media ${m.media === null ? '—' : n2(m.media)}</span></div>`;
   };
+  // Los recuentos (R7): información, sin caja; no sitúan ni deciden.
+  const recuento = (m) => `<div class="medida-fila recuento"><span class="medida-nombre">${escapar(nombreMedida(m.medida))}</span>`
+    + `<span class="medida-valor">foco <b>${escapar(m.valor)}</b> · recuento informativo</span>`
+    + `<span class="medida-cohorte">suma ${m.suma} · mín ${m.minimo ?? '—'} · máx ${m.maximo ?? '—'} · media ${m.media === null ? '—' : n2(m.media)}</span></div>`;
   return `<section class="cielo-sobrio">${selectorCohorte(datos.cohorte)}<div class="cielo-estado">${estadoBase(datos)}</div>`
-    + (datos.estado === 'RESUELTO' ? `<div class="medidas-cielo">${datos.medidas.map(fila).join('')}</div><div class="pista">sin nivel ni grado: las cajas son tramos de valores</div>` : '') + '</section>';
+    + (datos.estado === 'RESUELTO' ? `<div class="medidas-cielo">${datos.medidas.map(fila).join('')}</div><div class="medidas-cielo recuentos">${(datos.recuentos ?? []).map(recuento).join('')}</div><div class="pista">sin nivel ni grado: las cajas son tramos de cantidades; los recuentos solo informan</div>` : '') + '</section>';
 }

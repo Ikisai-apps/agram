@@ -28,7 +28,9 @@ import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, familiaDe, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos } from './ciclo.js';
+import { acunaAlGastar } from './eje.js';
+import { incongruenciaDe } from './tiempo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
@@ -163,6 +165,7 @@ function contextoCiclo(eje, libro, ev) {
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
     ampliada: (id) => libro.ampliadas.has(id),
     bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
+    bloqueadoTotal: (id, k) => [...libro.bloqueados].reduce((s, [kb, v]) => { const [i, c] = JSON.parse(kb); return i === id && c === k ? s + v : s; }, 0),
   };
 }
 
@@ -276,6 +279,17 @@ function aplicar(eje, libro, ev) {
       }
     } else if (m.token === 'P') {
       for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
+    } else if (acunaAlGastar(m, ev.autor, eje.esDeV2?.(ev.id))) {
+      // T se acuña al gastarse (como en el eje): del saldo lo que haya; lo que falte se emite a su nombre.
+      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
+      ajustar(m.de, k, -usa);
+      const st = libro.series.get(k) ?? { emisor: ev.autor, emitido: 0 };
+      libro.series.set(k, { ...st, emitido: st.emitido + (m.cantidad - usa) });
+      // Lo acuñado cuenta para el tope del reloj igual que una emisión explícita (src/ciclo.js).
+      if (m.cantidad > usa) {
+        const kt = JSON.stringify([ev.autor, m.escala]);
+        libro.emitidoT.set(kt, (libro.emitidoT.get(kt) ?? 0) + (m.cantidad - usa));
+      }
     } else {
       ajustar(m.de, k, -m.cantidad);
       if (m.token === 'E' && m.a === null && libro.series.has(k)) libro.series.set(k, { ...libro.series.get(k), consumido: (libro.series.get(k).consumido ?? 0) + m.cantidad });
@@ -391,7 +405,8 @@ function capaInterpretacion(eje, vista, ev, id) {
     referencias.length ? resueltas + ' de ' + referencias.length + ' referencias resuelven' : 'sin referencias',
     ...(hondo ? ['más de diez profundidades'] : []),
   ].join(' · ');
-  return parte(2, r.estado, r.textos, resumen, { formulas, referencias });
+  // La escala del T gastado frente al tamaño de lo emitido (VG, 7-11 noche): se enseña, nunca falla.
+  return parte(2, r.estado, r.textos, resumen, { formulas, referencias, incongruenciaT: incongruenciaDe(ev) });
 }
 
 // ---------- 3 · criptografía y procedencia ----------
@@ -545,6 +560,14 @@ function capaAcreditacion(eje, ev, libro) {
       const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
+    } else if (acunaAlGastar(m, ev.autor, libro.reglas === 2)) {
+      // T se acuña al gastarse (VG, 7-11 noche; src/eje.js, acunaAlGastar): lo que falta se emite a su nombre
+      // en ese momento, solo si es una persona y dentro del tope del reloj (src/ciclo.js lo dice por índice).
+      if (delCiclo.has(i)) return mal('falla', delCiclo.get(i));
+      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
+      const s = serie(k);
+      emitido.set(k, { ...(s ?? {}), emisor: s?.emisor ?? ev.autor, emitido: (s?.emitido ?? 0) + (m.cantidad - usa) });
+      poner(m.de, k, ver(m.de, k) - usa);
     } else {
       const s = serie(k);
       if (!s || !(s.emitido > 0)) return mal('falla', 'la serie ' + k + ' no se ha emitido: nada respalda estos tokens');
@@ -570,8 +593,9 @@ function permisoDelLibro(eje, ev, libro) {
     if (validarMovimiento(m).length) return; // capa 1
     if (m.de === null) {
       if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
-    } else if (m.de !== ev.autor) {
-      r.falla('movimiento ' + i + ': nadie mueve tokens ajenos: ' + m.de + ' no es el autor');
+    } else if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, contextoCiclo(eje, libro, ev))) {
+      // Lo de un grupo lo mueve una persona con P sobre él, por su cuenta (src/ciclo.js, [X] confirmar VG).
+      r.falla('movimiento ' + i + ': ' + motivoAjenos(ev, m.de));
     }
   });
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,

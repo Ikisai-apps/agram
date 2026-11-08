@@ -27,6 +27,9 @@ import { ALCANCES } from '../src/tiempo.js';
 
 const SEMILLA = 20261108;
 const T0 = '2026-11-07T00:00:00Z';
+/** El día antes de T0: la raíz y sus altas nacen aquí, y a T0 el reloj de cada persona le da su T (Core, 8-11). */
+const AYER = '2026-11-06T00:00:00Z';
+const SEG_ESCALA = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 7 * 86400, ciclo: 28 * 86400, anio: 365 * 86400 };
 
 function mulberry32(a) {
   return function () {
@@ -64,7 +67,8 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * es ese colateral de su propia serie (el generador solo bloquea, no libera).
  */
 class Modelo {
-  constructor(genesisId, autor, tipo, emision) {
+  constructor(genesisId, autor, tipo, emision, tGenesis = T0) {
+    this.altaT = new Map([[autor, tGenesis]]); // identidad → t de su alta: el tope del reloj a T0
     this.g = genesisId;
     this.padre = new Map([[genesisId, null]]);
     this.autorDe = new Map([[genesisId, autor]]);
@@ -105,14 +109,15 @@ class Modelo {
         if (m.a !== autor) return false;
         const lleva = (this.emitidoT.get(autor + m.escala) ?? 0) + (tEvento.get(m.escala) ?? 0) + m.cantidad;
         tEvento.set(m.escala, (tEvento.get(m.escala) ?? 0) + m.cantidad);
-        if (lleva > 1) return false;
+        if (lleva > this.tope(autor, m.escala)) return false;
       }
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
       // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
       if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
     }
     if (!emitidas.size) return true;
-    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a !== autor && m.estado === undefined);
+    // VG, 7-11 noche: mover T es CONSUMIRLO (de = autor, a = null).
+    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a === null && m.estado === undefined);
     // R6: el colateral tras el evento (R:<autor> bloqueada con la salida = la serie) cubre la décima parte de lo emitido.
     const colTras = (salida) => (this.colateral.get(autor + '\u0000' + salida) ?? 0)
       + ev.movimientos.filter((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.estado === 'bloqueo' && m.salida === salida).reduce((x, m) => x + m.cantidad, 0);
@@ -125,6 +130,11 @@ class Modelo {
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
     }
     return true;
+  }
+  /** Tope del reloj a T0 (todo se escribe en T0): las unidades de la escala desde su alta, y al menos una. */
+  tope(id, escala) {
+    const ms = Date.parse(T0) - Date.parse(this.altaT.get(id) ?? T0);
+    return Math.max(1, Math.ceil(ms / (SEG_ESCALA[escala] * 1000)));
   }
   /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
   emitidoDeP(ambito) {
@@ -162,8 +172,17 @@ class Modelo {
     const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
+    // VG, 7-11 noche: escribir consume T del autor, y T no cruza de persona.
+    if (!ev.movimientos.some((m) => m.token === 'T' && m.de === ev.autor && m.a === null)) return null;
+    // Salvo de una persona (o una cosa) a una cosa (Core, 8-11): la máquina gasta el T de su dueño.
+    const tipoDe = (id) => this.tipos.get(id) ?? ev.contexto?.tipos?.[id];
+    const aCosa = (m) => ['persona', 'cosa'].includes(this.tipos.get(ev.autor)) && tipoDe(m.a) === 'cosa';
+    if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
     if (!this.cicloOk(ev)) return null;
     const emitidasAqui = new Set();
+    // Lo que se acuña al gastar: solo una persona, y cuenta en lo emitido contra el tope (aquí 1 por escala).
+    const explicito = (e) => ev.movimientos.filter((m) => m.token === 'T' && m.de === null && m.a === ev.autor && m.escala === e).reduce((s, m) => s + m.cantidad, 0);
+    const acunado = new Map();
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
@@ -195,6 +214,16 @@ class Modelo {
           resta -= usa;
         }
         if (resta > 0) return null;
+      } else if (m.token === 'T' && m.a === null) {
+        // Consumir T propio: lo que falte se acuña al gastarse (VG, 7-11 noche), si es una persona y cabe en el tope.
+        const falta = Math.max(0, m.cantidad - Math.max(0, ver(m.de, k)));
+        if (falta > 0) {
+          if (this.tipos.get(ev.autor) !== 'persona') return null;
+          const lleva = (this.emitidoT.get(ev.autor + m.escala) ?? 0) + explicito(m.escala) + (acunado.get(m.escala) ?? 0) + falta;
+          if (lleva > this.tope(ev.autor, m.escala)) return null;
+          acunado.set(m.escala, (acunado.get(m.escala) ?? 0) + falta);
+        }
+        poner(m.de, k, Math.max(0, ver(m.de, k) - m.cantidad));
       } else {
         if (ver(m.de, k) < m.cantidad) return null;
         poner(m.de, k, ver(m.de, k) - m.cantidad);
@@ -206,13 +235,14 @@ class Modelo {
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const m of ev.movimientos) {
-        if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
+        if (m.a !== null && !this.alta.has(m.a)) { this.alta.set(m.a, ev.id); this.altaT.set(m.a, ev.t); }
         if (m.a !== null) this.existe.add(m.a);
         if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'R') this.emitidoR.set('R:' + m.emisor, (this.emitidoR.get('R:' + m.emisor) ?? 0) + m.cantidad);
         if (m.estado === 'bloqueo' && m.token === 'R') this.colateral.set(m.de + '\u0000' + m.salida, (this.colateral.get(m.de + '\u0000' + m.salida) ?? 0) + m.cantidad);
       }
+      for (const [e, n] of acunado) this.emitidoT.set(ev.autor + e, (this.emitidoT.get(ev.autor + e) ?? 0) + n);
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
     };
   }
@@ -251,11 +281,11 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     // VG, 7-11 noche: el génesis lo emite una persona (o quien no declara tipo, que después no emite); ya no un grupo.
     const tipoG = g.pick(['persona', undefined]);
     const emision = [['T:minuto', 300], ['T:hora', 50], ['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: T0 });
-    const mod = new Modelo(eje.genesisId, 'r', tipoG, emision);
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'T', escala: 'minuto', cantidad: 300 }, { token: 'T', escala: 'hora', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: AYER });
+    const mod = new Modelo(eje.genesisId, 'r', tipoG, emision, AYER);
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'T', escala: 'minuto', cantidad: 40, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
     consumido.set('T:minuto', 1);
@@ -273,7 +303,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       if (g.si(0.3)) {
         const nuevo = g.pick(IDS);
         tipos[nuevo] = g.pick(['persona', 'grupo', 'cosa', 'robot']);
-        if (g.si(0.8)) movimientos.push({ token: 'T', escala: 'minuto', cantidad: 3, de: autor, a: nuevo });
+        // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
+        if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
       const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto: { tipos } };
       const antes = fotoEje(eje);
@@ -588,14 +619,13 @@ test('regresión: con gancho, BASES no cuenta las fórmulas del anfitrión (como
   const hijo = await eje.escribir({ autor: 'casa', sobre: ej.comedor.id, t: '2026-11-07T19:00:00Z', movimientos: [gastaT('casa', 3)], payload: ['=REF("' + secreto + '", "0000000000") + 1', 'x'] }, ej.claves.casa.privada);
   const gancho = { puedeLeer: (id) => id !== secreto };
   assert.equal(B.consultar(eje, hijo.id, [1], 'REF("' + secreto + '")', gancho).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  // Sin gancho, la fórmula que lee el menú cuenta como pendiente: el recuento depende de lo que hay en el menú.
-  assert.equal(B.consultar(eje, hijo.id, [1], 'BASES("hermanos", "formulasPendientes", "foco")').texto, '1');
-  for (const f of ['CAJA("formulasPendientes")', 'BASES("hermanos", "formulasPendientes", "foco")', 'BASES("hermanos", "formulasResueltas")', 'BASES("proyecto", "formulasPendientes", "caja")']) {
-    const r = B.consultar(eje, hijo.id, [1], f, gancho);
-    assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + hijo.id.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan'], f);
+  // R7 (VG, 7-11 noche): las fórmulas son un recuento y el 8 no los sitúa: ni con gancho ni sin él se leen, así que no
+  // dejan ver nada de lo que el gancho niega.
+  for (const f of ['CAJA("formulasPendientes")', 'BASES("hermanos", "formulasPendientes", "foco")', 'BASES("hermanos", "formulasResueltas")', 'BASES("proyecto", "formulasPendientes", "caja")', 'BASES("hermanos", "formulasPendientes", 0)']) {
+    for (const opciones of [gancho, undefined]) assert.equal(B.consultar(eje, hijo.id, [1], f, opciones).estado, 'ERROR', f);
   }
   // Lo que solo lee la base sigue respondiendo con gancho.
-  for (const f of ['BASES("hermanos", "formulasPendientes", 0)', 'BASES("hermanos", "formulasResueltas", "suma")', 'BASES("hermanos", "terminales")']) {
+  for (const f of ['BASES("hermanos", "T:minuto", 0)', 'BASES("hermanos", "T:minuto", "suma")', 'BASES("hermanos")']) {
     assert.equal(B.consultar(eje, hijo.id, [1], f, gancho).estado, 'RESUELTO', f);
   }
 });
@@ -779,8 +809,9 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
 // ---------- caso Booking ----------
 
 const dia = (n) => new Date(Date.parse('2026-11-12') + n * 86400000).toISOString().slice(0, 10);
-async function altaHuesped(eje, id, eur, minutos) {
-  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), { token: 'T', escala: 'minuto', cantidad: minutos, de: BK.CASA, a: id }], payload: ['Alta', [id]], contexto: { tipos: { [id]: 'persona' } } });
+// Los minutos que se pasaban ya no se dan: T no cruza de persona (VG, 7-11 noche); se ignoran.
+async function altaHuesped(eje, id, eur) {
+  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]], contexto: { tipos: { [id]: 'persona' } } });
 }
 
 /**
@@ -835,26 +866,26 @@ test('propiedad: Booking — series de plaza conservadas y acotadas por la capac
   assert.ok(Object.values(vistos).every((n) => n > 0), JSON.stringify(vistos));
 });
 
-test('regresión Booking: sin minutos para pagar, la plaza no se entrega sin cobrar',
-  { skip: 'BK-01: [X] decidir VG (atomicidad de las dos partes, ejemplos/ikisai/reserva-booking.mjs l.21-28; «la atomicidad es de AARPIA»). La comprobación previa de confirmarReserva solo mira los EUR, no los minutos de T que cuesta escribir la consolidación y la ejecución del pago: con 5 minutos la casa entrega la litera y la ejecución del pago falla por «saldo insuficiente de T:minuto en h0» (fuzz 2, semilla 15003)' },
-  async () => {
-    const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
-    await altaHuesped(eje, 'h0', 30, 18);
-    const r = await BK.reservar(eje, { autor: 'h0', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
-    await BK.confirmarReserva(eje, r).catch(() => {});
-    const estados = consolidaciones(eje, r.id).map((c) => [c.autor, c.estado]);
-    assert.ok(!estados.some(([autor, estado]) => autor === BK.CASA && estado === 'EJECUTADO') || estados.some(([autor, estado]) => autor === 'h0' && estado === 'EJECUTADO'), JSON.stringify(estados));
-  });
+// BK-01 y BK-02 ya no se saltan: T no se agota (VG, 7-11 noche: T es el medidor propio, no cruza de persona y lo
+// que falta se acuña al gastarse), así que ninguna de las dos partes se queda a medias por falta de minutos.
+test('regresión Booking: sin minutos para pagar, la plaza no se entrega sin cobrar', async () => {
+  const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
+  await altaHuesped(eje, 'h0', 30, 18);
+  const r = await BK.reservar(eje, { autor: 'h0', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
+  await BK.confirmarReserva(eje, r).catch(() => {});
+  const estados = consolidaciones(eje, r.id).map((c) => [c.autor, c.estado]);
+  assert.ok(!estados.some(([autor, estado]) => autor === BK.CASA && estado === 'EJECUTADO') || estados.some(([autor, estado]) => autor === 'h0' && estado === 'EJECUTADO'), JSON.stringify(estados));
+});
 
-test('regresión Booking: reservar sin minutos para las noches no deja una reserva sin su 7',
-  { skip: 'BK-02: [X] decidir VG (ejemplo, no núcleo): reservar escribe la reserva y luego sus noches en dos eventos; con 12 minutos la reserva (11) entra y las noches (2) no, y queda una reserva anclada en la plaza sin tramo («sin tramo en el 7», fuzz 2, semilla 15006)' },
-  async () => {
-    const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
-    await altaHuesped(eje, 'h1', 30, 12);
-    const n0 = eje.orden.length;
-    await BK.reservar(eje, { autor: 'h1', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' }).catch(() => {});
-    assert.equal(eje.orden.length, n0);
-  });
+test('regresión Booking: reservar sin minutos para las noches no deja una reserva sin su 7', async () => {
+  const { eje, habitacion } = await BK.ejemploReserva({ confirmar: false });
+  await altaHuesped(eje, 'h1', 30, 12);
+  const n0 = eje.orden.length;
+  // Sin T que se agote, la reserva y sus noches entran las dos: nunca una reserva sin su 7.
+  const r = await BK.reservar(eje, { autor: 'h1', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
+  assert.equal(eje.orden.length, n0 + 2);
+  assert.ok(eje.sobre(r.id, '7000000000').length > 0, 'la reserva tiene su tramo en el 7');
+});
 
 // ---------- caso Tasks ----------
 

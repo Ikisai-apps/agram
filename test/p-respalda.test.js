@@ -19,6 +19,8 @@ import { validez } from '../src/validez.js';
 import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-08T10:00:00Z';
+/** Un día antes: las personas dadas de alta aquí escriben a T0 con su propio T (lo acuñan dentro del tope de su reloj). */
+const AYER = '2026-11-07T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const enJuego = (persona, a = 'g') => ({ token: 'R', emisor: persona, cantidad: 1, de: persona, a });
 let cuenta = 0;
@@ -35,12 +37,13 @@ const serieE = (emisor, denominacion, registro) => claveToken({ token: 'E', emis
  */
 async function mundo({ pA = 4, respalda = 3, enHabitacion = false, personas = ['casa', 'bea', 't', 'p1', 'p2', 'p3', 'p4', 'p5'] } = {}) {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
   });
+  // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
   await eje.escribir({
-    autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [minuto('g'), ...personas.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 5000, de: 'g', a }))],
+    autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
+    movimientos: [minuto('g'), ...personas.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a }))],
     contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {

@@ -55,6 +55,7 @@ import { ocupantesElegibles } from './elegibles.js';
 // para medir fórmulas): lo importado aquí solo se usa dentro de funciones.
 import {
   CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
+  esRecuento, TIEMPO,
 } from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
 import { lenteDe, detalleValor, anclasDeLente, POSICION_LENTE } from './lente.js';
@@ -676,7 +677,7 @@ const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes
 function sinGanchoEnFormulas(foco) {
   return new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
 }
-const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>';
+const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro)';
 
 function alcanceDe(arg, nombre) {
   if (arg === undefined) return 'hermanos';
@@ -686,6 +687,7 @@ function alcanceDe(arg, nombre) {
 
 /** Clave de serie bien formada: T con una escala que existe; E con emisor y denominación; P y R con un solo campo. */
 function esSerie(clave) {
+  if (clave.startsWith(TIEMPO)) return ESCALAS_T.includes(clave.slice(TIEMPO.length));
   const r = /^([TEPR]):(.+)$/.exec(clave);
   if (!r) return false;
   const [, token, serie] = r;
@@ -698,8 +700,10 @@ function esSerie(clave) {
 /** Una medida de bases.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
 function medidaDe(arg) {
   if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
-  if (clavesDeMedidas().includes(arg.valor) || esSerie(arg.valor)) return arg.valor;
-  throw new Parada('ERROR', 'CAJA: medida desconocida: ' + arg.valor + ' (' + clavesDeMedidas().join(', ') + ' o una serie ' + FORMAS_SERIE + ')');
+  // R7 (VG, 7-11 noche): el 8 solo sitúa cantidades; un recuento (identidades, escritos…) no tiene caja.
+  if (esRecuento(arg.valor)) throw new Parada('ERROR', 'CAJA: ' + arg.valor + ' es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)');
+  if (esSerie(arg.valor)) return arg.valor;
+  throw new Parada('ERROR', 'CAJA: medida desconocida: ' + arg.valor + ' (una cantidad: ' + FORMAS_SERIE + ')');
 }
 
 /**
@@ -708,7 +712,7 @@ function medidaDe(arg) {
  * emisión puede llegar), con las series que hay, para ver la errata.
  */
 function exigirSerie(eje, clave) {
-  if (clavesDeMedidas().includes(clave)) return;
+  if (clavesDeMedidas().includes(clave) || clave.startsWith(TIEMPO)) return; // el T consumido sobre el registro siempre se puede leer (vale 0)
   const [token, serie] = [clave[0], clave.slice(2)];
   if (token === 'P' ? serie === AMBITO_GENESIS || eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
   const hay = eje.series().map((s) => s.clave);

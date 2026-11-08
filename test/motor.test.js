@@ -108,8 +108,9 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   // Un elemento neutro: su posición 1 declara capacidad 1; su posición 2 no declara nada.
   const t = '2026-12-01T09:00:00Z';
   const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 900 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
-  const dar = ['ana', 'beto', 'carla'].map((a) => ({ token: 'T', escala: 'minuto', cantidad: 100, de: 'g', a }));
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 900 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  // T no cruza de persona (VG, 7-11 noche): el alta les cede minutos de g como E (E:g/minuto); cada una escribe con su propio T.
+  const dar = ['ana', 'beto', 'carla'].map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 100, de: 'g', a }));
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), ...dar], payload: 'altas', contexto: { tipos: { ana: 'persona', beto: 'persona', carla: 'persona' } } });
   const elemento = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g')], payload: ['elemento', [['sitio'], 'precio', 1], [['otro sitio'], 'precio']] }); // por hojas: 1 y 2 son décuplas
   let minuto = 10;

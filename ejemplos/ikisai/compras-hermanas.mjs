@@ -39,6 +39,8 @@ import { escribirBase, identidadDe } from '../../src/bases.js';
 const T = '2026-11-07T09:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
 const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+// Minutos de T para una cosa (su máquina): T no cruza de persona (VG, 7-11 noche), pero una persona da su T a
+// una cosa, y una cosa al resto de sus cosas (Core, 8-11). Las personas escriben con su propio T.
 const minutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
 const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad, de, a });
 
@@ -76,7 +78,9 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
 
   // Proyecto A: el comedor da de alta a cocina, huesped y vecina, y a su cosa.
   const personas = {};
-  for (const id of ['cocina', 'huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
+  // La cocina es una cosa de la casa (su máquina: escribe con el T que le da), sin clave en el eje de demostración:
+  // así la única cosa con clave que da de alta el comedor es el propio comedor (identidadDe).
+  for (const id of ['huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
   const comedor = await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
@@ -86,14 +90,12 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       minutos('casa', 'cocina', 240),
       eur('casa', 'huesped', 60),
-      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
       eur('casa', 'vecina', 40),
-      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'vecina' },
       minutos('casa', 'comedor', 10),
     ],
     payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],
     contexto: {
-      tipos: { cocina: 'grupo', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
+      tipos: { cocina: 'cosa', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
       claves: { ...personas, comedor: claves.comedor.publica },
     },
   });

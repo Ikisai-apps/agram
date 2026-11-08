@@ -21,8 +21,15 @@ import { consolidar, autorizar, ejecutar, liberar, estadoDe, puedeAutorizar, rec
 import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-07T10:00:00Z';
+/**
+ * Un mes antes de T0: el mundo nace aquí salvo que la prueba mire el reloj del alta. Cada persona escribe con su
+ * propio T, que acuña al gastarlo dentro del tope de su reloj (VG, 7-11 noche; Core, 8-11).
+ */
+const ALTA = '2026-10-08T10:00:00Z';
 const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const daT = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+/** Ceder minutos a otro (VG, 7-11 noche: T no cruza de persona): E de la serie de tiempo de `emisor`. */
+const cedeT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
 const emiteR = (persona, cantidad) => ({ token: 'R', emisor: persona, cantidad, de: null, a: persona });
 const mueveR = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const emiteP = (persona, ambito, cantidad = 1) => ({ token: 'P', ambito, cantidad, de: null, a: persona });
@@ -33,19 +40,19 @@ const mueveE = (emisor, denominacion, cantidad, de, a) => ({ token: 'E', emisor,
  * La raíz (una persona, con P sobre todo el eje y R propia) da de alta a ana
  * y bea (personas), al club (un grupo) y a la sala (una cosa).
  */
-async function mundo() {
+async function mundo({ t = ALTA } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
     tipo: 'persona',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
     foco: 'Mundo de ejemplo',
-    t: T0,
+    t,
   });
   const g = eje.genesisId;
-  const alta = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'altas',
+  const alta = await eje.escribir({ autor: 'raiz', sobre: g, t, payload: 'altas',
     contexto: { tipos: { ana: 'persona', bea: 'persona', club: 'grupo', sala: 'cosa' } },
-    movimientos: [gasta('raiz'), ...['ana', 'bea', 'club', 'sala'].map((a) => daT('raiz', a, 60))] });
+    movimientos: [gasta('raiz'), ...['ana', 'bea', 'club', 'sala'].map((a) => cedeT('raiz', a, 60))] });
   return { eje, g, alta };
 }
 
@@ -131,35 +138,36 @@ test('el tope de T: ⌈(t − alta) / escala⌉, con un mínimo de uno', () => {
 });
 
 test('T: cada persona emite el suyo, para sí misma, sin pasar del reloj desde su alta', async () => {
-  const { eje, alta } = await mundo();
+  const { eje, alta } = await mundo({ t: T0 });
   assert.deepEqual(eje.alta('ana'), { id: alta.id, t: T0 });
   // En el mismo instante del alta, el reloj da el mínimo: un minuto.
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi minuto', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi minuto', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] });
   assert.equal(eje.emitidoT('ana', 'minuto'), 1);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] }),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] }),
     /tope de T:minuto para ana: llevaría 2 emitido y el reloj da 1 desde su alta \(2026-11-07T10:00:00Z\)/);
   // Hora y media después: noventa minutos y dos horas en total.
   const t = '2026-11-07T11:30:00Z';
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 89, de: null, a: 'ana' }, { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'ana' }] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'mi tiempo', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 89, de: null, a: 'ana' }, { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'ana' }, gasta('ana')] });
   assert.deepEqual([eje.emitidoT('ana', 'minuto'), eje.emitidoT('ana', 'hora')], [90, 2]);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'ana' }] }), /tope de T:hora para ana/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'x', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] }), /tope de T:hora para ana/);
   // Para sí misma: no se emite T a otro.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: '2026-11-08T10:00:00Z', payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'bea' }] }),
     /T lo emite cada persona para sí misma: a debe ser ana/);
-  // La serie es constante, sin emisor en la clave: el T de ana y el de la raíz se intercambian.
+  // T no cruza de persona (VG, 7-11 noche): ana no da su hora a bea; darla es emitir E de su serie, en horas.
   assert.equal(eje.serie('T:hora').emitido, 2);
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'una hora para bea', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] });
-  assert.equal(eje.saldoT('bea', 'hora'), 1);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'una hora para bea', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] }),
+    /T no cruza de persona: bea no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo \(E:ana\/hora\)/);
+  assert.equal(eje.saldoT('bea', 'hora'), 0);
   // Un grupo no emite su tiempo.
-  await assert.rejects(eje.escribir({ autor: 'club', sobre: alta.id, t, payload: 'x', movimientos: [gasta('club'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'club' }] }), /solo las personas emiten: club es grupo/);
+  await assert.rejects(eje.escribir({ autor: 'club', sobre: alta.id, t, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'club' }, gasta('club')] }), /solo las personas emiten: club es grupo/);
 });
 
 test('el génesis sigue emitiendo T, eso no cuenta para el tope, y es el alta de su autor', async () => {
-  const { eje, g } = await mundo();
+  const { eje, g } = await mundo({ t: T0 });
   assert.equal(eje.serie('T:minuto').emitido, 600);
   assert.deepEqual(eje.alta('raiz'), { id: g, t: T0 });
   assert.equal(eje.emitidoT('raiz', 'minuto'), 0);
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'mi minuto', movimientos: [gasta('raiz'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }] });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'mi minuto', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }, gasta('raiz')] });
   assert.equal(eje.emitidoT('raiz', 'minuto'), 1);
   assert.equal(eje.serie('T:minuto').emitido, 601);
   assert.equal(eje.serie('T:minuto').emisor, 'raiz'); // en T, quien la emitió primero
@@ -171,21 +179,23 @@ test('escalonado: emitir R exige mover T del autor en el mismo evento', async ()
   const { eje, alta } = await mundo();
   // Todo evento mueve T (validarForma), así que la regla se comprueba sobre el contexto, con un evento que no lo haría.
   const sinT = { autor: 'ana', sobre: alta.id, t: T0, movimientos: [emiteR('ana', 1)] };
-  assert.deepEqual(reglasDelCiclo(sinT, contexto(eje)).map((e) => e.texto), ['emitir R exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad']);
+  assert.deepEqual(reglasDelCiclo(sinT, contexto(eje)).map((e) => e.texto), ['emitir R exige consumir T del autor en el mismo evento (de = ana, a = null; VG, 7-11 noche)']);
   const conT = { ...sinT, movimientos: [gasta('ana'), emiteR('ana', 1)] };
   assert.deepEqual(reglasDelCiclo(conT, contexto(eje)), []);
-  assert.deepEqual(reglasDelCiclo({ ...sinT, movimientos: [daT('ana', 'bea', 1), emiteR('ana', 1)] }, contexto(eje)), []); // darlo a otra identidad
+  // VG, 7-11 noche: solo el CONSUMO cuenta; darlo a otra identidad ya no (y T no cruza de persona: lo rechaza la forma).
+  assert.match(reglasDelCiclo({ ...sinT, movimientos: [daT('ana', 'bea', 1), emiteR('ana', 1)] }, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
   // T que recibe no es T que mueve.
   const recibeT = { ...sinT, movimientos: [daT('raiz', 'ana', 1), emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(recibeT, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige mover T del autor/);
+  assert.match(reglasDelCiclo(recibeT, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
   // Ni T que no cuesta nada: dárselo a sí misma, o bloquearlo y liberarlo en el mismo evento (revisión, m1).
   const aSiMisma = { ...sinT, movimientos: [daT('ana', 'ana', 1), emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(aSiMisma, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige mover T del autor/);
+  assert.match(reglasDelCiclo(aSiMisma, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
   const salida = 'cuando quiera';
   const bloqueaYLibera = { ...sinT, movimientos: [
     { ...daT('ana', 'ana', 1), estado: 'bloqueo', salida }, { ...daT('ana', 'ana', 1), estado: 'liberacion', salida }, emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(bloqueaYLibera, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige mover T del autor/);
-  await assert.rejects(eje.escribir({ ...bloqueaYLibera, payload: 'x' }), /emitir R exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad/);
+  assert.match(reglasDelCiclo(bloqueaYLibera, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
+  // En el eje lo rechaza ya la forma: el evento no consume T de su autor.
+  await assert.rejects(eje.escribir({ ...bloqueaYLibera, payload: 'x' }), /escribir consume T del autor/);
   // El génesis no pasa por el escalonado.
   assert.deepEqual(reglasDelCiclo(eje.obtener(eje.genesisId), contexto(eje)), []);
 });
@@ -288,34 +298,37 @@ test('movimiento con estado: bloqueo y liberacion exigen el mismo titular y una 
 });
 
 test('bloquear y liberar: del disponible al bloqueado con su salida, y vuelta; solo se gasta lo disponible', async () => {
+  // Con E: los 60 minutos que la raíz cedió a ana (E:raiz/minuto). T ya no se bloquea para escribir: se consume
+  // (VG, 7-11 noche), y bloquearlo no cuenta como escribir.
   const { eje, alta } = await mundo();
   const salida = 'cuando bea confirme la reserva del 13-11';
-  const bloqueo = (cantidad, s = salida) => ({ token: 'T', escala: 'minuto', cantidad, de: 'ana', a: 'ana', estado: 'bloqueo', salida: s });
+  const K = 'E:raiz/minuto';
+  const bloqueo = (cantidad, s = salida) => ({ ...cedeT('ana', 'ana', cantidad, 'raiz'), estado: 'bloqueo', salida: s });
   const liberacion = (cantidad, s = salida) => ({ ...bloqueo(cantidad, s), estado: 'liberacion' });
   const ev = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'reservo mi tiempo', movimientos: [gasta('ana'), bloqueo(10)] });
-  assert.equal(eje.saldo('ana', 'T:minuto'), 49); // 60 − 1 − 10: el saldo es lo disponible
-  assert.equal(eje.bloqueado('ana', 'T:minuto'), 10);
-  assert.equal(eje.bloqueado('ana', 'T:minuto', salida), 10);
-  assert.deepEqual(eje.bloqueos('ana'), [{ clave: 'T:minuto', token: 'T', serie: 'minuto', escala: 'minuto', salida, cantidad: 10 }]);
-  assert.equal(eje.series().find((s) => s.clave === 'T:minuto').bloqueado, 10);
-  assert.deepEqual(eje.tiempos('ana'), [{ escala: 'minuto', cantidad: 49 }]);
+  assert.equal(eje.saldo('ana', K), 50); // 60 − 10: el saldo es lo disponible
+  assert.equal(eje.bloqueado('ana', K), 10);
+  assert.equal(eje.bloqueado('ana', K, salida), 10);
+  assert.deepEqual(eje.bloqueos('ana'), [{ clave: K, token: 'E', serie: 'raiz/minuto', emisor: 'raiz', denominacion: 'minuto', salida, cantidad: 10 }]);
+  assert.equal(eje.series().find((s) => s.clave === K).bloqueado, 10);
+  assert.deepEqual(eje.recursos('ana'), [{ emisor: 'raiz', denominacion: 'minuto', cantidad: 50 }]);
   assert.deepEqual((await validez(eje, ev.id)).capas.map((c) => c.estado), ['ok', 'ok', 'ok', 'ok', 'ok']);
   // Consumir o transferir sale solo del disponible.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana', 50)] }), /saldo insuficiente de T:minuto en ana/);
-  const gastoBloqueado = await crearEvento({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), daT('ana', 'bea', 49)] });
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), cedeT('ana', 'bea', 51, 'raiz')] }), /saldo insuficiente de E:raiz\/minuto en ana/);
+  const gastoBloqueado = await crearEvento({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), cedeT('ana', 'bea', 51, 'raiz')] });
   assert.equal((await validez(eje, gastoBloqueado)).acreditacion.estado, 'falla');
   // No se bloquea lo que no está disponible, ni se bloquea lo ajeno.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueo(49)] }), /saldo disponible insuficiente para bloquear T:minuto en ana/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueo(51)] }), /saldo disponible insuficiente para bloquear E:raiz\/minuto en ana/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueo(1), de: 'bea', a: 'bea' }] }), /nadie mueve tokens ajenos: bea no es el autor/);
   await assert.rejects(crearEvento({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueo(1), salida: undefined }] }), /bloqueo exige salida/);
   // Liberar exige la misma salida y no más de lo bloqueado con ella.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), liberacion(5, 'otra cosa')] }), /no hay 5 de T:minuto bloqueado en ana con la salida «otra cosa»/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), liberacion(5, 'otra cosa')] }), /no hay 5 de E:raiz\/minuto bloqueado en ana con la salida «otra cosa»/);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'bea confirmó en parte', movimientos: [gasta('ana'), liberacion(4)] });
-  assert.deepEqual([eje.saldo('ana', 'T:minuto'), eje.bloqueado('ana', 'T:minuto')], [52, 6]);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), liberacion(7)] }), /no hay 7 de T:minuto bloqueado/);
+  assert.deepEqual([eje.saldo('ana', K), eje.bloqueado('ana', K)], [54, 6]);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), liberacion(7)] }), /no hay 7 de E:raiz\/minuto bloqueado/);
   // Restaurar rehace lo bloqueado desde los eventos.
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
-  assert.equal(otro.bloqueado('ana', 'T:minuto', salida), 6);
+  assert.equal(otro.bloqueado('ana', K, salida), 6);
   assert.deepEqual(otro.series(), eje.series());
   assert.deepEqual(otro.bloqueos('ana'), eje.bloqueos('ana'));
 });
@@ -390,8 +403,8 @@ test('ciclo completo: T → R → P → E (ejecución) y E → P → R → T (li
   const { eje, alta } = await mundo();
   const mediodia = '2026-11-07T12:00:00Z';
   // T: ana emite su tiempo (dos horas desde su alta de las diez) y bea el suyo.
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: mediodia, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'ana' }] });
-  await eje.escribir({ autor: 'bea', sobre: alta.id, t: mediodia, payload: 'mi tiempo', movimientos: [gasta('bea'), { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'bea' }] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: mediodia, payload: 'mi tiempo', movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'ana' }, gasta('ana')] });
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: mediodia, payload: 'mi tiempo', movimientos: [{ token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'bea' }, gasta('bea')] });
   // T + R: ana respalda su reputación.
   const rep = await eje.escribir({ autor: 'ana', sobre: alta.id, t: mediodia, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1)] });
   // T + R + P: escribe su taller y emite poder sobre él, cediendo un R a bea para que pueda requerir su atención.
@@ -402,10 +415,14 @@ test('ciclo completo: T → R → P → E (ejecución) y E → P → R → T (li
     movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteE('ana', 'clase', 3, { caduca: '2026-11-30T00:00:00Z' })] });
   assert.deepEqual([eje.saldo('ana', 'E:ana/clase'), eje.poderSobre('ana', tallerAna.id), eje.obligaciones('ana')], [3, 2, 2]);
 
-  // Vuelta. E: bea toma una plaza y paga con su T (el T de otra persona: la misma serie T:hora).
+  // Vuelta. E: bea toma una plaza y paga con tiempo. T no cruza de persona (VG, 7-11 noche: «recibir T solo es un
+  // registro de una cantidad de tiempo; podemos hacer que se transforme en E»): paga con E en minutos, los que la
+  // raíz le cedió (E:raiz/minuto), y su T:hora se queda con ella.
   await eje.escribir({ autor: 'ana', sobre: tallerAna.id, t: mediodia, payload: 'plaza para bea', movimientos: [gasta('ana'), mueveE('ana', 'clase', 1, 'ana', 'bea')] });
-  await eje.escribir({ autor: 'bea', sobre: tallerAna.id, t: mediodia, payload: 'pago la plaza', movimientos: [gasta('bea'), { token: 'T', escala: 'hora', cantidad: 1, de: 'bea', a: 'ana' }] });
-  assert.deepEqual([eje.saldoT('ana', 'hora'), eje.saldoT('bea', 'hora')], [3, 1]);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: tallerAna.id, t: mediodia, payload: 'pago la plaza', movimientos: [gasta('bea'), { token: 'T', escala: 'hora', cantidad: 1, de: 'bea', a: 'ana' }] }), /T no cruza de persona/);
+  await eje.escribir({ autor: 'bea', sobre: tallerAna.id, t: mediodia, payload: 'pago la plaza', movimientos: [gasta('bea'), cedeT('bea', 'ana', 30, 'raiz')] });
+  assert.deepEqual([eje.saldoT('ana', 'hora'), eje.saldoT('bea', 'hora')], [2, 2]);
+  assert.deepEqual([eje.saldo('ana', 'E:raiz/minuto'), eje.saldo('bea', 'E:raiz/minuto')], [90, 30]);
   // Bea bloquea su plaza hasta la clase, la libera cuando se da y la consume.
   const salida = 'clase del jueves 12-11 impartida';
   await eje.escribir({ autor: 'bea', sobre: tallerAna.id, t: mediodia, payload: 'reservo la plaza', movimientos: [gasta('bea'), { ...mueveE('ana', 'clase', 1, 'bea', 'bea'), estado: 'bloqueo', salida }] });
@@ -462,7 +479,7 @@ test('el t de un evento no es anterior al de su foco ni al alta de su autor ([X]
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: nota.id, t: '2026-11-07T10:30:00Z', payload: 'x', movimientos: [gasta('bea')] }),
     /el t del evento \(2026-11-07T10:30:00Z\) es anterior al de su foco [0-9a-f]{8} \(2026-11-07T11:00:00Z\)/);
   // El alta toma el t del evento que la hace: cris entra a las 11:00 y no escribe antes, ni sobre un foco más antiguo.
-  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: tarde, payload: 'alta de cris', contexto: { tipos: { cris: 'persona' } }, movimientos: [gasta('raiz'), daT('raiz', 'cris', 10)] });
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: tarde, payload: 'alta de cris', contexto: { tipos: { cris: 'persona' } }, movimientos: [gasta('raiz'), cedeT('raiz', 'cris', 10)] });
   assert.equal(eje.alta('cris').t, tarde);
   await assert.rejects(eje.escribir({ autor: 'cris', sobre: alta.id, t: '2026-11-07T10:30:00Z', payload: 'x', movimientos: [gasta('cris')] }),
     /el t del evento \(2026-11-07T10:30:00Z\) es anterior al alta de cris \(2026-11-07T11:00:00Z\)/);
@@ -477,13 +494,13 @@ test('el t de un evento no es anterior al de su foco ni al alta de su autor ([X]
 
 test('el reloj por arriba: un evento no va más de un año (anio) por delante del mayor t del eje ([X] confirmar VG)', async () => {
   // Revisión de seguridad: fechar a futuro inflaba el tope de T. Sin reloj externo, se acota con lo que hay en el eje.
-  const { eje, alta } = await mundo();
+  const { eje, alta } = await mundo({ t: T0 });
   assert.equal(ADELANTO_MAXIMO_MS, 365 * 86400 * 1000);
   assert.equal(eje.tMaximo(), msUTC(T0));
   const limite = new Date(msUTC(T0) + ADELANTO_MAXIMO_MS).toISOString();
   const pasado = new Date(msUTC(T0) + ADELANTO_MAXIMO_MS + 1000).toISOString();
   // Un segundo de más: rechazado, también para emitir T, y validez lo dice en la capa 4.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: pasado, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'ana' }] }),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: pasado, payload: 'x', movimientos: [{ token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] }),
     /el t del evento \(2027-11-07T10:00:01\.000Z\) va más de un año \(anio\) por delante del mayor t del eje \(2026-11-07T10:00:00\.000Z\)/);
   const v = await validez(eje, await crearEvento({ autor: 'ana', sobre: alta.id, t: pasado, payload: 'x', movimientos: [gasta('ana')] }));
   assert.match(v.acreditacion.motivos.join(' '), /va más de un año \(anio\) por delante/);
@@ -505,7 +522,7 @@ test('t es un instante ISO-8601 estricto con zona explícita, y se compara en UT
   assert.equal(msUTC('2026-11-07T11:00:00+01:00'), msUTC('2026-11-07T10:00:00Z'));
   assert.equal(msUTC('2026-11-07T10:00:00.5Z') - msUTC('2026-11-07T10:00:00Z'), 500);
   // Comparar en UTC: las 10:20 en Madrid (+01:00) son las 9:20 UTC, antes que un foco de las 10:00 UTC.
-  const { eje, alta } = await mundo();
+  const { eje, alta } = await mundo({ t: T0 });
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: '2026-11-07T10:20:00+01:00', payload: 'x', movimientos: [gasta('ana')] }), /es anterior al de su foco/);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: '2026-11-07T11:20:00+01:00', payload: 'bien', movimientos: [gasta('ana')] });
   // Y la caducidad, igual de estricta (caducada() también: ver la prueba de la caducidad).
@@ -516,20 +533,20 @@ test('t es un instante ISO-8601 estricto con zona explícita, y se compara en UT
 
 /** Ana da de alta a un títere: una persona que controla ella. */
 async function conTitere(eje, alta, { minutos = 10, t = T0 } = {}) {
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'alta de un títere', contexto: { tipos: { titere: 'persona' } }, movimientos: [daT('ana', 'titere', minutos)] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'alta de un títere', contexto: { tipos: { titere: 'persona' } }, movimientos: [gasta('ana'), cedeT('ana', 'titere', minutos, 'raiz')] });
 }
 
 test('NEU-01 (revisión de la #62) alta gratis: sigue abierta, la decide el estudio de neutralidad (PROVISIONAL [X])', async () => {
-  // No se añade coste por alta (lo decide el estudio de neutralidad ante agrupación y división). La prueba fija
-  // lo que pasa hoy: ana da de alta a un títere con un minuto, el títere emite su mínimo de T en cada escala y le
-  // devuelve el minuto. Ana queda igual y el títere se queda con un año, un ciclo, una semana, un día, una hora y
-  // un segundo que nadie ha pagado.
+  // No se añade coste por alta (lo decide el estudio de neutralidad ante agrupación y división). Antes, el títere
+  // emitía su mínimo de T en cada escala y se lo pasaba a ana. Con T que no cruza de persona (VG, 7-11 noche) el
+  // alta gratis ya no da nada a nadie: el T del títere se queda en el títere, que es su medidor propio.
   const { eje, alta } = await mundo();
   const antes = eje.saldoT('ana', 'minuto');
-  await conTitere(eje, alta, { minutos: 1 }); // dar el minuto es el T que mueve el evento
+  await conTitere(eje, alta, { minutos: 1 });
   const minimo = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio'].map((escala) => ({ token: 'T', escala, cantidad: TOPE_T_MINIMO, de: null, a: 'titere' }));
-  await eje.escribir({ autor: 'titere', sobre: alta.id, t: T0, payload: 'mi tiempo', movimientos: [...minimo, daT('titere', 'ana', 2)] });
-  assert.equal(eje.saldoT('ana', 'minuto'), antes + 1); // ana recupera el minuto y gana otro
+  await assert.rejects(eje.escribir({ autor: 'titere', sobre: alta.id, t: T0, payload: 'mi tiempo', movimientos: [gasta('titere'), ...minimo, daT('titere', 'ana', 2)] }), /T no cruza de persona: ana no es el autor/);
+  await eje.escribir({ autor: 'titere', sobre: alta.id, t: T0, payload: 'mi tiempo', movimientos: [...minimo, gasta('titere')] });
+  assert.equal(eje.saldoT('ana', 'minuto'), antes); // ana no gana nada
   assert.deepEqual(eje.tiempos('titere'), ['segundo', 'hora', 'dia', 'semana', 'ciclo', 'anio'].map((escala) => ({ escala, cantidad: 1 })));
 });
 
@@ -537,7 +554,7 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
   const { eje, alta } = await mundo();
   // El ataque: dar de alta a un títere en un evento fechado en 1900 para que el reloj le diera ~4e9 T:segundo.
   const viejo = '1900-01-01T00:00:00Z';
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: viejo, payload: 'alta antigua', contexto: { tipos: { titere: 'persona' } }, movimientos: [daT('ana', 'titere', 1)] }),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: viejo, payload: 'alta antigua', contexto: { tipos: { titere: 'persona' } }, movimientos: [gasta('ana'), cedeT('ana', 'titere', 1, 'raiz')] }),
     /el t del evento \(1900-01-01T00:00:00Z\) es anterior al de su foco [0-9a-f]{8}.*es anterior al alta de ana/);
   assert.equal(eje.alta('titere'), null);
   // Con el alta de hoy, el reloj solo da el mínimo, y el títere tampoco escribe antes de su alta.
@@ -555,7 +572,7 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
 // registro de la cadena de autoridad del dueño (escrito por el autor de la raíz o por quien tiene P delegado de ella).
 test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el subregistro propio con P no es el registro del recurso', async () => {
   const { eje, alta } = await mundo();
-  await conTitere(eje, alta, { minutos: 30 });
+  await conTitere(eje, alta, { minutos: 30, t: ALTA }); // un mes antes: el reloj del títere le da para escribir
   // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él y se lo delega al títere.
   const suyo = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo mío', movimientos: [gasta('ana')] });
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'poder sobre lo mío',
@@ -694,9 +711,11 @@ test('SEG-01 (revisión de main 7-11 noche) ampliar P:X exige una ejecución rea
 
 test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no es de demostración: la exención de clave vale solo en su prefijo', async () => {
   const g = await crearEvento({ autor: 'raiz', sobre: null, t: T0, payload: 'Viejo',
-    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'raiz' }], contexto: { genesis: true, tipos: { raiz: 'persona' } } });
-  const alta = await crearEvento({ autor: 'raiz', sobre: g.id, t: T0, payload: 'alta de ana sin clave',
-    movimientos: [gasta('raiz'), daT('raiz', 'ana', 10)], contexto: { tipos: { ana: 'persona' } } });
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'raiz' }, { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 100, de: null, a: 'raiz' }], contexto: { genesis: true, tipos: { raiz: 'persona' } } });
+  // La versión 2 daba T a otros (hoy T no cruza de persona: crearEvento ya no lo deja): se escribe sin crearEvento.
+  const altaCuerpo = { autor: 'raiz', sobre: g.id, en: '0000000000', t: T0, payload: 'alta de ana sin clave',
+    movimientos: [gasta('raiz'), daT('raiz', 'ana', 10)], contexto: { tipos: { ana: 'persona' } } };
+  const alta = { ...altaCuerpo, id: await hash(canonico(cuerpo(altaCuerpo))) };
   const eje = await restaurar(JSON.parse(JSON.stringify({ version: 2, eventos: [g, alta] })));
   // El prefijo se restaura entero, sin claves.
   assert.deepEqual([eje.orden.length, eje.eventosV2, eje.demostracion], [2, 2, false]);
@@ -706,7 +725,7 @@ test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no e
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'nuevo', movimientos: [gasta('raiz')] }), /sin clave no se actúa: raiz/);
   // Ni dando de alta a otra con su clave sin prueba de posesión.
   const otra = await generarClaves();
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'alta de bea', contexto: { tipos: { bea: 'persona' }, claves: { bea: otra.publica } }, movimientos: [gasta('raiz'), daT('raiz', 'bea', 1)] }),
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'alta de bea', contexto: { tipos: { bea: 'persona' }, claves: { bea: otra.publica } }, movimientos: [gasta('raiz'), cedeT('raiz', 'bea', 1)] }),
     /sin clave no se actúa: raiz.*la clave de bea llega sin prueba de posesión/);
   // Con la bandera firmada en su génesis, sí es de demostración, venga de la versión que venga.
   const gDemo = await crearEvento({ autor: 'raiz', sobre: null, t: T0, payload: 'Viejo de demostración',
@@ -763,8 +782,10 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   const g = await crearEvento({ autor: 'club', sobre: null, t: T0, payload: 'Club',
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: 100, de: null, a: 'club' }, { token: 'E', emisor: 'club', denominacion: 'vale', cantidad: 10, de: null, a: 'club' }],
     contexto: { genesis: true, tipos: { club: 'grupo' } } });
-  const viejo = await crearEvento({ autor: 'club', sobre: g.id, t: '2026-11-06T09:00:00Z', payload: 'más vales y un alta',
-    movimientos: [gasta('club'), emiteE('club', 'vale', 5), daT('club', 'ana', 10)], contexto: { tipos: { ana: 'persona' }, claves: { ana: llaves.publica } } });
+  // La versión 2 daba T a otros (hoy T no cruza de persona: crearEvento ya no lo deja): se escribe sin crearEvento.
+  const viejoCuerpo = { autor: 'club', sobre: g.id, en: '0000000000', t: '2026-11-06T09:00:00Z', payload: 'más vales y un alta',
+    movimientos: [gasta('club'), emiteE('club', 'vale', 5), daT('club', 'ana', 10)], contexto: { tipos: { ana: 'persona' }, claves: { ana: llaves.publica } } };
+  const viejo = { ...viejoCuerpo, id: await hash(canonico(cuerpo(viejoCuerpo))) };
   // Y uno con un t que solo Date.parse lee (sin T ni zona), como admitía la versión 2: se escribe sin crearEvento.
   const laxoCuerpo = { autor: 'club', sobre: viejo.id, en: '0000000000', t: '2026-11-06 10:00', movimientos: [gasta('club')], payload: 'nota', contexto: {} };
   const laxo = { ...laxoCuerpo, id: await hash(canonico(cuerpo(laxoCuerpo))) };
@@ -779,14 +800,14 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   // Lo nuevo ya va con las reglas de ahora: el grupo no emite, ni se escribe antes del foco.
   await assert.rejects(eje.escribir({ autor: 'club', sobre: viejo.id, t: T0, payload: 'x', movimientos: [gasta('club'), emiteE('club', 'vale', 1)] }), /solo las personas emiten: club es grupo/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: '2026-11-06T08:00:00Z', payload: 'x', movimientos: [gasta('ana')] }), /es anterior al de su foco/);
-  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: T0, payload: 'mi tiempo', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }] }, llaves.privada);
+  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: T0, payload: 'mi tiempo', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] }, llaves.privada);
   // El alta de ana (en el prefijo, el 6-11 a las 9:00) cuenta para el tope desde el primer evento de la versión 3 (T0):
   // una hora después, 60 minutos y no los más de 1500 que daría su alta de la versión 2 (revisión de seguridad).
   assert.equal(eje.alta('ana').t, '2026-11-06T09:00:00Z');
   const unaHora = '2026-11-07T11:00:00Z';
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'x', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }] }, llaves.privada),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 60, de: null, a: 'ana' }, gasta('ana')] }, llaves.privada),
     /tope de T:minuto para ana: llevaría 61 emitido y el reloj da 60 desde su alta \(2026-11-07T10:00:00Z\)/);
-  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'mi hora', movimientos: [gasta('ana'), { token: 'T', escala: 'minuto', cantidad: 59, de: null, a: 'ana' }] }, llaves.privada);
+  await eje.escribir({ autor: 'ana', sobre: viejo.id, t: unaHora, payload: 'mi hora', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 59, de: null, a: 'ana' }, gasta('ana')] }, llaves.privada);
   // Al guardar, la marca se conserva y el eje se vuelve a restaurar igual.
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
   assert.deepEqual([datos.version, datos.v2, datos.eventosV2, datos.eventos.length], [3, { eventos: 3, ultimo: laxo.id }, undefined, 5]);

@@ -12,7 +12,7 @@ import { instalarHilos, trasPintarHilos } from './mundos/hilos-ui.js';
 import { instalarCruz, trasPintarCruz } from './mundos/cruz-ui.js';
 import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
-  pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
+  pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia, bases,
   indicesDe, direccion, esReferencia, escritura, maximo, PV, RAIZ, leerCamino,
 } from './src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
@@ -253,7 +253,7 @@ function celdaMapa(m, i, eje67, o8) {
     const lectura = o8.estado !== 'RESUELTO' ? o8.motivo
       : o8.escrita ? 'base ' + o8.base.slice(0, 8) + (o8.frescura.sinNovedades ? ' · sin novedades' : ' · con novedades')
       : 'sin base escrita (respaldo al vuelo)';
-    const cajas = o8.medidas.map((x) => `<span>${escapar(x.clave)} <b>caja ${x.caja}</b></span>`).join('');
+    const cajas = o8.cantidades.map((x) => `<span>${escapar(x.clave)} <b>caja ${x.caja}</b>${x.cuota === null ? '' : ' · cuota ' + Math.round(x.cuota * 100) + ' %'}</span>`).join('');
     return `<div class="celda c8"><div class="pvn">8 ${c.significado}</div>
       <div class="medidas"><span>entre hermanos <b>${escapar(lectura)}</b> · n ${o8.n}</span>${cajas}</div>
       <div class="medidas"><span>hilo <b>${d.profundidadHilo}</b></span><span>escritos <b>${d.escritos}</b></span><span>movimientos <b>${d.movimientos}</b></span><span>posiciones <b>${d.posicionesDesarrolladas}</b></span></div>
@@ -325,7 +325,9 @@ function pintarMapped() {
   const m = mapped.mapa(estado.eje, estado.foco, { camino: estado.camino, epoca: epocaActual() });
   const ev = estado.eje.obtener(estado.foco);
   const eje67 = tiempo.ejeTemporal(estado.eje, estado.foco, { camino: estado.camino });
-  const o8 = mapped.ocho(estado.eje, estado.foco, { epoca: epocaActual() }); // la celda 8 lee la base escrita (tiempo.comparar se retira)
+  // La celda 8 lee la base escrita y solo sitúa cantidades (R7, VG 7-11 noche): bases.ochoPorCantidades hasta que
+  // mapped.ocho la integre (sus medidas son recuentos, sin caja).
+  const o8 = bases.ochoPorCantidades(estado.eje, estado.foco, { epoca: epocaActual() });
   const e = escritura('mapped');
   const base = payloadEnFoco();
   const celdasForm = nombresPV(estado.camino.length).map((n, i) => {

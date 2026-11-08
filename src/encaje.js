@@ -13,6 +13,18 @@
 // con subposiciones por dígito). Una dirección nunca entra en una lista.
 
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver, nodoEn } from './btml.js';
+import { esConsumoT } from './evento.js';
+
+/**
+ * El T que consumió un escrito, por escala ({ minuto: 3 }), para enseñarlo con
+ * su ocupante (VG, 7-11 noche: T se ve desde fuera). Solo se enseña: ni el
+ * orden de los candidatos ni la elegibilidad ni nada que conceda lo lee.
+ */
+function tiempoGastado(ev) {
+  const r = {};
+  for (const m of ev.movimientos ?? []) if (esConsumoT(m, ev.autor)) r[m.escala] = (r[m.escala] ?? 0) + m.cantidad;
+  return r;
+}
 
 const MAX_SALTOS = 20;
 
@@ -266,7 +278,7 @@ export function ocupantes(eje, id, indices, { orden = 'encaje', epoca, exacto = 
       : typeof eje.sobreDe === 'function' ? eje.sobreDe(id, dir, autores) : eje.sobre(id, dir).filter((h) => autores.has(h.autor));
   for (const h of anclados) {
     // Un escrito está anclado exactamente en la dirección buscada: su ruta coincide entera.
-    lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
+    lista.push(conEncaje({ tipo: 'escrito', evento: h.id, dir: '0000000000', camino: [], contenido: h.payload, autor: h.autor, t: h.t, tiempo: tiempoGastado(h), origen: dir, procedencia: [h.id + ':0000000000'] }, dir));
   }
   const conOrigen = lista.map((o) => ({ ...o, origen: o.tipo }));
   const ordenados = orden === 'llegada' ? conOrigen : ordenarPorEncaje(conOrigen, { epoca });
@@ -358,7 +370,7 @@ export function lista(eje, id, indices) {
   if (esLista(propio)) propio.forEach((x, k) => salida.push(conAlcance({ llegada: 0, tipo: 'propio', evento: id, camino: [...indices], enLista: true, indice: k, contenido: x })));
   else if (propio !== undefined) salida.push(conAlcance({ llegada: 0, tipo: 'propio', evento: id, camino: [...indices], contenido: propio }));
   let llegada = propio === undefined ? 0 : 1;
-  for (const h of eje.sobre(id, dir)) salida.push(conAlcance({ llegada: llegada++, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, en: h.en }));
+  for (const h of eje.sobre(id, dir)) salida.push(conAlcance({ llegada: llegada++, tipo: 'escrito', evento: h.id, camino: [], contenido: h.payload, autor: h.autor, t: h.t, tiempo: tiempoGastado(h), en: h.en }));
   return salida;
 }
 

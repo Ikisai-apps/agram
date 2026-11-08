@@ -4,7 +4,7 @@
 // de qué serie es cada token.
 //
 //   familia: clave de serie              : quién la emite
-//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); PROVISIONAL [X]
+//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); no cruza de persona (a una cosa, sí)
 //   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre o al de un grupo sobre el que tiene P; atada al registro del recurso
 //   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
 //   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
@@ -17,7 +17,8 @@
 // emite una persona con P sobre él), y las COSAS reciben, conservan y mueven
 // tokens como cualquiera. La emisión es escalonada (src/ciclo.js): «normalmente
 // será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E».
-// Todo evento mueve tokens; el evento mínimo mueve T (cualquier escala).
+// Todo evento mueve tokens; el evento mínimo CONSUME T del autor (cualquier escala), y el consumo se anota
+// en el registro que soporta (VG, 7-11 noche; src/evento.js, src/eje.js tiempoSobre).
 // Sin conversión entre series: una hora NO son sesenta minutos, son tokens
 // distintos (como un euro no es un bitcoin, y los EUR de la casa no son los de otro).
 

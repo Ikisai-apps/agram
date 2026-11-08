@@ -18,6 +18,8 @@ import {
 import { ejemploLente, valoresParaLaCasa, valorEnBql, LENTE_DE_LA_CASA, RECIEN } from '../ejemplos/ikisai/lente-booking.mjs';
 
 const T0 = '2026-11-08T10:00:00Z';
+/** Un día antes: las personas dadas de alta aquí escriben a T0 con su propio T (lo acuñan dentro del tope de su reloj). */
+const AYER = '2026-11-07T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 const libera = (persona, cantidad, emisor = persona) => ({ ...colateral(persona, cantidad, emisor), estado: 'liberacion' });
@@ -27,10 +29,11 @@ const cerca = (a, b) => Math.abs(a - b) < 1e-9;
 
 /** Eje de demostración: «g» da de alta a quien se diga (personas salvo que se diga otro tipo), con minutos de sobra. */
 async function demo(ids, tipos = {}) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }] });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
+  // T no cruza de persona (VG, 7-11 noche): a una cosa, g le da T; a las demás, minutos como E (E:g/minuto).
   const alta = await eje.escribir({
-    autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [minuto('g'), ...ids.map((id) => ({ token: 'T', escala: 'minuto', cantidad: 1000, de: 'g', a: id }))],
+    autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
+    movimientos: [minuto('g'), ...ids.map((id) => (tipos[id] === 'cosa' ? { token: 'T', escala: 'minuto', cantidad: 1000, de: 'g', a: id } : { token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1000, de: 'g', a: id }))],
     contexto: { tipos: Object.fromEntries(ids.map((id) => [id, tipos[id] ?? 'persona'])) },
   });
   return { eje, alta };
