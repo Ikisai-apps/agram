@@ -20,7 +20,7 @@ import { crearEvento } from '../src/evento.js';
 import * as motor from '../src/motor.js';
 import { ocupantes } from '../src/encaje.js';
 import * as tiempo from '../src/tiempo.js';
-import { medir, confluir } from '../src/bases.js';
+import { confluir } from '../src/bases.js';
 import { evaluar } from '../src/bql.js';
 import { direccion } from '../src/btml.js';
 import { generarClaves } from '../src/autoridad.js';
@@ -441,8 +441,7 @@ test('neutral (R2): partir el recurso en subregistros no esquiva el tope del anc
 
 test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o en autores (VG, 7-11 noche: se retira comparar())', async () => {
   // La concesión «ranking por recuentos» (tiempo.comparar: posiciones + 2·escritos + movimientos) ya no existe:
-  // el 8 sitúa en cajas por medida, sin puesto ni puntuación. Que los recuentos de escritos sigan contando
-  // piezas es la concesión de NEU-06 ([X] decidir VG, recomendación R7).
+  // el 8 sitúa en cajas, sin puesto ni puntuación, y solo por cantidades (R7, VG 7-11 noche).
   assert.equal(tiempo.comparar, undefined);
   {
     const puesto = async (k) => {
@@ -452,25 +451,33 @@ test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o 
       if (k === 1) await m.eje.escribir({ autor: 'A', sobre: Y.id, t: T0, movimientos: [minuto('A', 10)], payload: Array.from({ length: 10 }, (_, i) => 'p' + i) });
       else for (let i = 0; i < 10; i++) await m.eje.escribir({ autor: ids[i % k], sobre: Y.id, t: T0, movimientos: [minuto(ids[i % k])], payload: 'p' + i });
       const c = confluir(m.eje, Y.id);
-      return [c.posicion, c.puntuacion, ...c.comparables.map((x) => x.puntuacion)].filter((x) => x !== undefined);
+      const sitio = Object.fromEntries(Object.entries(c.tokens).map(([k, x]) => [k, [x.foco, x.caja, x.cuota, x.cajaCuota]]));
+      return { sinPuesto: [c.posicion, c.puntuacion, ...c.comparables.map((x) => x.puntuacion)].filter((x) => x !== undefined), sitio };
     };
-    assert.deepEqual(await puesto(10), []);
-    assert.deepEqual(await puesto(1), []);
+    const [diez, uno] = [await puesto(10), await puesto(1)];
+    assert.deepEqual([diez.sinPuesto, uno.sinPuesto], [[], []]);
+    // R7: partir el escrito en diez piezas de diez autores no cambia dónde cae Y por cantidades (su caja y su cuota).
+    assert.deepEqual(diez.sitio, uno.sitio);
+    assert.ok('tiempo:minuto' in uno.sitio, 'el T gastado encima de Y es una de sus cantidades');
   }
 });
 
-test('NEU-06: lo que el 8 mide de un pago no cambia al repartirlo entre más identidades',
-  { skip: 'NEU-06: concesión «el 8 cuenta cabezas» (src/bases.js:medir, la única medida: identidades = Set.size, movimientos = número; cortes de la época 0, 1 2 3 4 6 10 16 26 42). C paga 8 EUR a A: identidades 2, movimientos 2; los mismos 8 EUR a 8 identidades: 9 y 9. Las sumas por serie sí son iguales. [X] decidir VG: que en el 8 que se compara entren solo sumas y cuotas por serie (recomendación R7)' },
-  async () => {
-    const medidas = async (k) => {
-      const ids = nombres('A', k);
-      const m = await mundo(ids);
-      const ev = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((a) => eur('C', 8 / k, 'C', a))], payload: unico('pago') });
-      const x = medir(m.eje, ev.id);
-      return { identidades: x.identidades, movimientos: x.movimientos };
-    };
-    assert.deepEqual(await medidas(8), await medidas(1));
-  });
+// NEU-06 ya no se salta: R7, el 8 solo funde cantidades (VG, 7-11 noche). Lo que el 8 compara de un pago son las
+// sumas por serie y su cuota; identidades y movimientos siguen medidos, pero son recuentos informativos, sin caja.
+test('NEU-06: lo que el 8 compara de un pago no cambia al repartirlo entre más identidades', async () => {
+  const medidas = async (k) => {
+    const ids = nombres('A', k);
+    const m = await mundo(ids);
+    const ev = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((a) => eur('C', 8 / k, 'C', a))], payload: 'pago' });
+    const c = confluir(m.eje, ev.id);
+    const recuentos = [c.medidas.identidades, c.medidas.movimientos];
+    assert.ok(recuentos.every((x) => x.recuento === true && !('caja' in x)), 'los recuentos se informan y no se sitúan');
+    return Object.fromEntries(Object.entries(c.tokens).map(([s, x]) => [s, { foco: x.foco, suma: x.suma, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota }]));
+  };
+  const [ocho, uno] = [await medidas(8), await medidas(1)];
+  assert.deepEqual(ocho, uno);
+  assert.deepEqual([uno['E:C/EUR'].foco, uno['E:C/EUR'].cuota], [8, 8 / uno['E:C/EUR'].suma]);
+});
 
 // NEU-07 ya no se salta: R8, elegibilidad antes que límites (src/elegibles.js; mapa §12 [D] «Quién ocupa una
 // posición ajena»: elegible por defecto = el autor y quien aparece en su posición 3). BUSCAR filtra los elegibles y

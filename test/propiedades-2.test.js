@@ -595,14 +595,13 @@ test('regresión: con gancho, BASES no cuenta las fórmulas del anfitrión (como
   const hijo = await eje.escribir({ autor: 'casa', sobre: ej.comedor.id, t: '2026-11-07T19:00:00Z', movimientos: [gastaT('casa', 3)], payload: ['=REF("' + secreto + '", "0000000000") + 1', 'x'] }, ej.claves.casa.privada);
   const gancho = { puedeLeer: (id) => id !== secreto };
   assert.equal(B.consultar(eje, hijo.id, [1], 'REF("' + secreto + '")', gancho).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  // Sin gancho, la fórmula que lee el menú cuenta como pendiente: el recuento depende de lo que hay en el menú.
-  assert.equal(B.consultar(eje, hijo.id, [1], 'BASES("hermanos", "formulasPendientes", "foco")').texto, '1');
-  for (const f of ['CAJA("formulasPendientes")', 'BASES("hermanos", "formulasPendientes", "foco")', 'BASES("hermanos", "formulasResueltas")', 'BASES("proyecto", "formulasPendientes", "caja")']) {
-    const r = B.consultar(eje, hijo.id, [1], f, gancho);
-    assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + hijo.id.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan'], f);
+  // R7 (VG, 7-11 noche): las fórmulas son un recuento y el 8 no los sitúa: ni con gancho ni sin él se leen, así que no
+  // dejan ver nada de lo que el gancho niega.
+  for (const f of ['CAJA("formulasPendientes")', 'BASES("hermanos", "formulasPendientes", "foco")', 'BASES("hermanos", "formulasResueltas")', 'BASES("proyecto", "formulasPendientes", "caja")', 'BASES("hermanos", "formulasPendientes", 0)']) {
+    for (const opciones of [gancho, undefined]) assert.equal(B.consultar(eje, hijo.id, [1], f, opciones).estado, 'ERROR', f);
   }
   // Lo que solo lee la base sigue respondiendo con gancho.
-  for (const f of ['BASES("hermanos", "formulasPendientes", 0)', 'BASES("hermanos", "formulasResueltas", "suma")', 'BASES("hermanos", "terminales")']) {
+  for (const f of ['BASES("hermanos", "T:minuto", 0)', 'BASES("hermanos", "T:minuto", "suma")', 'BASES("hermanos")']) {
     assert.equal(B.consultar(eje, hijo.id, [1], f, gancho).estado, 'RESUELTO', f);
   }
 });

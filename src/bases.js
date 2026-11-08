@@ -7,9 +7,19 @@
 //     por PV (con su procedencia), terminales, escritos, movimientos (también
 //     por serie de token), identidades, profundidad del hilo y fórmulas
 //     resueltas y pendientes. tiempo.js ya no mide.
-//   - Lo medido es FUNDIBLE: por medida y por serie, n, suma, mínimo, máximo y
-//     diez cajas (fundir suma caja a caja: O(1) respecto a lo medido; es
-//     asociativo y conmutativo, con la estadística vacía como neutro).
+//   - Lo medido es FUNDIBLE: por medida y por serie, n, suma, mínimo, máximo y,
+//     en las cantidades, diez cajas (fundir suma caja a caja: O(1) respecto a
+//     lo medido; es asociativo y conmutativo, con la estadística vacía como
+//     neutro).
+//   - El 8 solo funde CANTIDADES (R7 del estudio de neutralidad, VG 7-11
+//     noche): lo que sitúa y compara son las sumas por serie (E, P, R y T
+//     movidos, y el T consumido sobre el registro, «tiempo:<escala>») y la
+//     CUOTA del foco (su suma ÷ la de la cohorte: el padre, el proyecto o el
+//     génesis), que no cambia al añadir hermanos vacíos ni al partir un
+//     escrito en diez. Identidades, escritos, movimientos, posiciones y las
+//     demás medidas que cuentan cosas son RECUENTOS informativos (recuento:
+//     true): se miden y se funden (n, suma, mínimo, máximo), pero no tienen
+//     cortes ni cajas, no se sitúan y ningún criterio decide con ellos.
 //   - Cortes de las cajas = regla de la época: epoca.cortes(medida). La época
 //     0 trae la escala provisional 1 2 3 4 6 10 16 26 42 (decisión 2 de VG,
 //     7-11 noche); cada base guarda con qué cortes se escribió. Las diez
@@ -34,7 +44,7 @@
 
 import { ARIDAD, esReferencia, indicesDe } from './btml.js';
 import { EPOCA_0, epocaDe } from './epocas.js';
-import { AMBITO_GENESIS, claveToken, cantidadBase, partirClave } from './tokens.js';
+import { AMBITO_GENESIS, ESCALAS_T, claveToken, cantidadBase, partirClave } from './tokens.js';
 import { ocupantes } from './encaje.js';
 // bql.js importa este módulo (BASES, CAJA, FRESCURA): la importación es
 // circular, así que de bql.js solo se usa dentro de funciones, nunca al cargar.
@@ -101,15 +111,31 @@ export const ALCANCES = Object.freeze(['hermanos', 'proyecto', 'general']);
  * medir sin inventar; el mapa (§9) solo dice «mediciones cuantitativas».
  */
 export const MEDIDAS = Object.freeze([
-  { clave: 'posiciones', etiqueta: 'posiciones desarrolladas (0–9)' },
-  { clave: 'terminales', etiqueta: 'terminales del payload' },
-  { clave: 'escritos', etiqueta: 'escritos encima' },
-  { clave: 'movimientos', etiqueta: 'movimientos' },
-  { clave: 'identidades', etiqueta: 'identidades distintas' },
-  { clave: 'profundidadHilo', etiqueta: 'profundidad del hilo' },
-  { clave: 'formulasResueltas', etiqueta: 'fórmulas resueltas' },
-  { clave: 'formulasPendientes', etiqueta: 'fórmulas pendientes' },
-]);
+  { clave: 'posiciones', etiqueta: 'posiciones desarrolladas (0–9)', recuento: true },
+  { clave: 'terminales', etiqueta: 'terminales del payload', recuento: true },
+  { clave: 'escritos', etiqueta: 'escritos encima', recuento: true },
+  { clave: 'movimientos', etiqueta: 'movimientos', recuento: true },
+  { clave: 'identidades', etiqueta: 'identidades distintas', recuento: true },
+  { clave: 'profundidadHilo', etiqueta: 'profundidad del hilo', recuento: true },
+  { clave: 'formulasResueltas', etiqueta: 'fórmulas resueltas', recuento: true },
+  { clave: 'formulasPendientes', etiqueta: 'fórmulas pendientes', recuento: true },
+].map(Object.freeze));
+
+/**
+ * ¿Es la clave un RECUENTO (R7, VG 7-11 noche)? Las medidas de MEDIDAS cuentan
+ * cosas (cabezas, escritos, movimientos, posiciones): partir un escrito en diez
+ * o dividirse en identidades las cambia. Son informativas: sin cortes ni
+ * cajas, fuera de situar y de cualquier criterio que decida.
+ */
+export function esRecuento(clave) {
+  return MEDIDAS.some((m) => m.clave === clave && m.recuento === true);
+}
+
+/** Prefijo de la cantidad «T consumido sobre el registro» en una escala (eje.tiempoSobre): «tiempo:minuto». */
+export const TIEMPO = 'tiempo:';
+
+/** Clave de la cantidad «T consumido sobre el registro» en una escala. */
+export const claveTiempo = (escala) => TIEMPO + escala;
 
 /** Las claves de las medidas (MEDIDAS), en su orden. */
 export function clavesDeMedidas() {
@@ -117,7 +143,12 @@ export function clavesDeMedidas() {
 }
 
 /** Clave de una serie de token (claveToken): T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor>. */
-const esClaveToken = (clave) => typeof clave === 'string' && /^[TEPR]:./.test(clave);
+const esClaveToken = (clave) => typeof clave === 'string' && (/^[TEPR]:./.test(clave) || (clave.startsWith(TIEMPO) && ESCALAS_T.includes(clave.slice(TIEMPO.length))));
+
+/** ¿Es la clave una CANTIDAD (R7): una serie de token o el T consumido sobre el registro en una escala? Lo único que el 8 sitúa y compara. */
+export function esCantidad(clave) {
+  return esClaveToken(clave);
+}
 
 function esMedida(clave) {
   return clavesDeMedidas().includes(clave) || esClaveToken(clave);
@@ -129,6 +160,7 @@ function esMedida(clave) {
  * convierte ni se suma entre series.
  */
 export function etiquetaClave(clave) {
+  if (clave.startsWith(TIEMPO)) return 'T consumido sobre el registro, en ' + clave.slice(TIEMPO.length);
   const s = partirClave(clave);
   if (s.token === 'T') return 'T movido en ' + s.escala;
   if (s.token === 'E') return 'E movido (' + s.denominacion + ' de ' + s.emisor + ')';
@@ -160,6 +192,7 @@ function sonCortes(c) {
  */
 export function cortesDe(clave, epoca = EPOCA_0) {
   if (!esMedida(clave)) throw new Error('medida desconocida: ' + clave);
+  if (esRecuento(clave)) throw new Error(clave + ' es un recuento informativo: no tiene cortes ni cajas; el 8 solo sitúa cantidades (R7)');
   if (typeof epoca === 'string') epoca = epocaDe(epoca); // por nombre, como los modos
   const leer = (e) => (typeof e?.cortes === 'function' ? e.cortes(clave) : undefined);
   const propios = leer(epoca);
@@ -395,6 +428,21 @@ export function clavesDe(ev) {
   return porClave;
 }
 
+/**
+ * El T consumido sobre un registro (eje.tiempoSobre), por escala y con las
+ * claves «tiempo:<escala>», sin lo que costaron sus bases del 8: la base no es
+ * hija de lo que mide, y escribirla no cambia la medida.
+ */
+function tiempoMedido(eje, id) {
+  const porEscala = { ...eje.tiempoSobre(id) };
+  for (const b of basesEn(eje, id)) {
+    for (const m of eje.obtener(b.id).movimientos) {
+      if (m.token === 'T' && m.de === b.autor && m.a === null && m.estado === undefined) porEscala[m.escala] -= m.cantidad;
+    }
+  }
+  return Object.fromEntries(Object.entries(porEscala).filter(([, n]) => n > 0).map(([e, n]) => [claveTiempo(e), n]));
+}
+
 // Registros que se están midiendo: BASES() dentro de uno de ellos no vuelve a
 // medirlo (sería un ciclo); queda PENDIENTE y cuenta como fórmula pendiente.
 const MIDIENDO = new Set();
@@ -432,7 +480,10 @@ export function medir(eje, id) {
       profundidadHilo: eje.hilo(id).length - 1,
       formulasResueltas: 0,
       formulasPendientes: 0,
-      tokens: clavesDe(ev),
+      // Las cantidades: los tokens que movió el evento, por serie, y el T consumido SOBRE el registro por quienes
+      // escriben encima, por escala (VG, 7-11 noche: el consumo se anota en el registro que soporta).
+      // Lo que cuestan sus propias bases del 8 no cuenta: no son hijos de lo que miden (escribir la base no la cambia).
+      tokens: { ...clavesDe(ev), ...tiempoMedido(eje, id) },
       procedencias: p.posiciones,
       raiz: p.raiz,
     };
@@ -453,9 +504,10 @@ export function medir(eje, id) {
 }
 
 // --- Estadísticas en memoria ---------------------------------------------
-// estadística = { n, medidas: { <clave>: bloque }, tokens: { <clave de serie>: bloque },
+// estadística = { n, medidas: { <clave>: recuento }, tokens: { <clave de cantidad>: bloque },
 //   posiciones: [diez { comparables, propias, referencias, escritas }], raiz }
-// bloque = { n, suma, minimo, maximo, cortes, origenCortes, cajas }. Una serie
+// bloque = { n, suma, minimo, maximo, cortes, origenCortes, cajas }: una cantidad.
+// recuento = { recuento: true, n, suma, minimo, maximo }: informativo, sin cortes ni cajas (R7). Una serie
 // que una estadística no nombra vale cero en sus n registros (así fundir es
 // exacto); cada bloque lleva los cortes con que se hizo. Lo no fundible
 // (medianas exactas, cuantiles, correlaciones) no está.
@@ -472,6 +524,10 @@ function bloqueDeValor(v, corte) {
   return { ...b, n: 1, suma: v, minimo: v, maximo: v };
 }
 
+// Un recuento (R7): se funde, pero sin cortes ni cajas.
+const recuentoCeros = (n) => ({ recuento: true, n, suma: 0, minimo: n ? 0 : null, maximo: n ? 0 : null });
+const recuentoDeValor = (v) => ({ recuento: true, n: 1, suma: v, minimo: v, maximo: v });
+
 const posicionVacia = () => ({ comparables: 0, propias: 0, referencias: 0, escritas: 0 });
 
 /** Estadística vacía: el neutro de fundir. */
@@ -483,7 +539,7 @@ export function estadisticaVacia() {
 export function unitaria(m, epoca = EPOCA_0) {
   const est = estadisticaVacia();
   est.n = 1;
-  for (const clave of clavesDeMedidas()) est.medidas[clave] = bloqueDeValor(m[clave], cortesDe(clave, epoca));
+  for (const clave of clavesDeMedidas()) est.medidas[clave] = recuentoDeValor(m[clave]);
   for (const [clave, v] of Object.entries(m.tokens)) est.tokens[clave] = bloqueDeValor(v, cortesDe(clave, epoca));
   est.posiciones = m.procedencias.map((p) => ({ comparables: +p.tiene, propias: +p.propia, referencias: +p.referencia, escritas: +p.escrita }));
   est.raiz = +m.raiz.escrita;
@@ -494,10 +550,13 @@ export function unitaria(m, epoca = EPOCA_0) {
 // combinan, las cajas se suman una a una. Con cortes distintos no se funde: no
 // se inventa escala puente.
 function fundirBloques(clave, a, b) {
+  const extremo = (f, x, y) => (x === null ? y : y === null ? x : f(x, y));
+  if (a.recuento || b.recuento) {
+    return { recuento: true, n: a.n + b.n, suma: a.suma + b.suma, minimo: extremo(Math.min, a.minimo, b.minimo), maximo: extremo(Math.max, a.maximo, b.maximo) };
+  }
   if (a.cortes.length !== b.cortes.length || a.cortes.some((c, i) => c !== b.cortes[i])) {
     throw new Error('bases con cortes distintos en ' + clave + ': no se inventa escala puente');
   }
-  const extremo = (f, x, y) => (x === null ? y : y === null ? x : f(x, y));
   return {
     n: a.n + b.n,
     suma: a.suma + b.suma,
@@ -520,7 +579,8 @@ export function fundir(a, b) {
     const r = {};
     for (const k of [...new Set([...Object.keys(x), ...Object.keys(y)])].sort()) {
       const corte = (bl) => ({ cortes: bl.cortes, origen: bl.origenCortes });
-      r[k] = fundirBloques(k, x[k] ?? bloqueCeros(nx, corte(y[k])), y[k] ?? bloqueCeros(ny, corte(x[k])));
+      const ceros = (n, otro) => (otro.recuento ? recuentoCeros(n) : bloqueCeros(n, corte(otro)));
+      r[k] = fundirBloques(k, x[k] ?? ceros(nx, y[k]), y[k] ?? ceros(ny, x[k]));
     }
     return r;
   };
@@ -540,11 +600,12 @@ export function fundir(a, b) {
 
 /** Bloque de una medida o serie en una estadística, aunque no la nombre (serie ausente = ceros con los cortes de la época). */
 export function bloqueDe(est, clave, epoca = EPOCA_0) {
-  return est.medidas[clave] ?? est.tokens[clave] ?? bloqueCeros(est.n, cortesDe(clave, epoca));
+  return est.medidas[clave] ?? est.tokens[clave] ?? (esRecuento(clave) ? recuentoCeros(est.n) : bloqueCeros(est.n, cortesDe(clave, epoca)));
 }
 
 /** Las diez cajas de una medida con su etiqueta: [{ caja, nivel, nombre, cuenta }]. Etiquetas, no grados. */
 export function cajasEtiquetadas(est, clave, epoca = EPOCA_0) {
+  if (esRecuento(clave)) throw new Error(clave + ' es un recuento informativo: no tiene cajas; el 8 solo sitúa cantidades (R7)');
   return bloqueDe(est, clave, epoca).cajas.map((cuenta, k) => ({ caja: k, nivel: HITOS[k].nivel, nombre: HITOS[k].nombre, cuenta }));
 }
 
@@ -600,7 +661,8 @@ export function calcularBase(eje, registro, { epoca: pedida = EPOCA_0 } = {}) {
 // [5] referencias {ref} a las bases fundidas de los hijos, en orden, o NINGUNA
 // series = pares [clave de serie, bloque], por clave, o NINGUNA
 // posiciones = décupla de [comparables, propias, referencias, escritas]
-// bloque = [cajas (diez recuentos), suma, mínimo, máximo, cortes (nueve umbrales), origen de los cortes]
+// bloque = [cajas (diez recuentos), suma, mínimo, máximo, cortes (nueve umbrales), origen de los cortes]: una cantidad
+// recuento = [suma, mínimo, máximo]: las medidas de MEDIDAS, informativas, sin cortes ni cajas (R7)
 // Las listas de más de diez se anidan en décuplas (empaquetar).
 // [X] decidir VG: la disposición del payload (aquí, una lista; podría ir por PV).
 
@@ -620,7 +682,7 @@ export function empaquetar(items) {
   return grupos;
 }
 
-const bloqueAPayload = (b) => [[...b.cajas], b.suma, b.minimo, b.maximo, [...b.cortes], b.origenCortes];
+const bloqueAPayload = (b) => (b.recuento ? [b.suma, b.minimo, b.maximo] : [[...b.cajas], b.suma, b.minimo, b.maximo, [...b.cortes], b.origenCortes]);
 
 function estadisticaAPayload(est) {
   const series = Object.keys(est.tokens).sort();
@@ -662,6 +724,14 @@ function bloqueDePayload(x, n) {
   return { n, suma, minimo, maximo, cortes: [...cortes], origenCortes: origen, cajas: [...cajas] };
 }
 
+// Un recuento bien formado: tres números finitos, mínimo ≤ máximo y una suma que cabe entre n·mínimo y n·máximo.
+function recuentoDePayload(x, n) {
+  if (!Array.isArray(x) || x.length !== 3 || !x.every(Number.isFinite)) return null;
+  const [suma, minimo, maximo] = x;
+  if (minimo > maximo || suma < n * minimo || suma > n * maximo) return null;
+  return { recuento: true, n, suma, minimo, maximo };
+}
+
 function estadisticaDePayload(x, n) {
   if (!Array.isArray(x) || x.length !== 4) return null;
   const [bloques, series, posiciones, raiz] = x;
@@ -669,7 +739,7 @@ function estadisticaDePayload(x, n) {
   if (!Array.isArray(bloques) || bloques.length !== claves.length) return null;
   const est = { n, medidas: {}, tokens: {}, posiciones: [], raiz };
   for (let k = 0; k < claves.length; k++) {
-    const b = bloqueDePayload(bloques[k], n);
+    const b = recuentoDePayload(bloques[k], n);
     if (!b) return null;
     est.medidas[claves[k]] = b;
   }
@@ -914,10 +984,34 @@ function incluidoEn(eje, base, seccion, foco) {
   return fundida ? incluidoEn(eje, fundida, 'subarbol', foco) : false;
 }
 
-// Un bloque con el foco situado en él: su caja, su etiqueta y lo que la caja deja alrededor.
+/**
+ * Lo que de un bloque situado es RECUENTO (R7): cuántos registros caen en la
+ * caja del foco, debajo y encima, y la media por n. Cambian al partir un
+ * escrito en diez o al añadir hermanos vacíos: se enseñan, no deciden.
+ */
+export const INFORMATIVOS = Object.freeze(['enCaja', 'debajo', 'encima', 'media']);
+
+/**
+ * Cuota del foco en una cantidad (R7): su valor ÷ la suma de la cohorte (el
+ * padre, el proyecto o el génesis), o null si la cohorte no tiene nada. No
+ * cambia al añadir hermanos vacíos (suman 0) ni al partir un escrito en diez
+ * (la suma es la misma).
+ */
+export function cuotaDe(valor, suma) {
+  return suma > 0 ? valor / suma : null;
+}
+
+/** La caja (0–9) de una cuota: su décima parte, la 9 para la cuota entera. null sin cuota. */
+export function cajaDeCuota(cuota) {
+  return cuota === null ? null : Math.min(ARIDAD - 1, Math.max(0, Math.floor(cuota * ARIDAD)));
+}
+
+// Un bloque con el foco situado en él: su caja (por su cantidad, con los cortes de la época), su etiqueta, su
+// cuota y la caja de su cuota (lo que sitúa: R7) y, como recuentos informativos, lo que la caja deja alrededor.
 function situado(bloque, valor) {
   const k = cajaDe(valor, bloque.cortes);
   const suma = (l) => l.reduce((s, c) => s + c, 0);
+  const cuota = cuotaDe(valor, bloque.suma);
   return {
     ...bloque,
     cortes: [...bloque.cortes],
@@ -925,18 +1019,27 @@ function situado(bloque, valor) {
     foco: valor,
     caja: k,
     hito: HITOS[k],
+    cuota,
+    cajaCuota: cajaDeCuota(cuota),
     enCaja: bloque.cajas[k],
     debajo: suma(bloque.cajas.slice(0, k)),
     encima: suma(bloque.cajas.slice(k + 1)),
     media: bloque.n ? bloque.suma / bloque.n : null,
+    informativos: [...INFORMATIVOS],
   };
+}
+
+// Un recuento con el foco: su valor y lo fundido, sin caja (R7: informativo).
+function recuentoConFoco(bloque, valor) {
+  return { ...bloque, recuento: true, foco: valor, media: bloque.n ? bloque.suma / bloque.n : null };
 }
 
 // La medida de un foco situada en una estadística: por medida y por serie, su
 // bloque situado; por posición, cuántos la tienen y si el foco la tiene; la raíz.
 function situarEn(est, m, epoca) {
+  // Los recuentos, informativos (R7): el valor del foco y lo fundido, sin caja.
   const medidas = {};
-  for (const clave of clavesDeMedidas()) medidas[clave] = situado(est.medidas[clave], m[clave]);
+  for (const clave of clavesDeMedidas()) medidas[clave] = recuentoConFoco(est.medidas[clave], m[clave]);
   const tokens = {};
   for (const clave of [...new Set([...Object.keys(est.tokens), ...Object.keys(m.tokens)])].sort()) {
     tokens[clave] = { etiqueta: etiquetaClave(clave), ...situado(bloqueDe(est, clave, epoca), m.tokens[clave] ?? 0) };
@@ -980,7 +1083,7 @@ export function situar(eje, foco, { alcance = 'hermanos', epoca: pedida = EPOCA_
   const est = base[seccion];
   const situada = situarEn(est, medir(eje, foco), epoca);
   const incluido = incluidoEn(eje, base, seccion, foco);
-  const cambiadas = incluido ? [...Object.entries(situada.medidas), ...Object.entries(situada.tokens)].filter(([, x]) => x.enCaja === 0).map(([k]) => k) : [];
+  const cambiadas = incluido ? Object.entries(situada.tokens).filter(([, x]) => x.enCaja === 0).map(([k]) => k) : [];
   return {
     ...comun,
     estado: 'RESUELTO',
@@ -1031,13 +1134,56 @@ export function confluir(eje, foco, { alcance = 'hermanos', epoca: pedida = EPOC
   };
 }
 
+// --- PV8: registros por masa y la celda 8 por cantidades (R7) ---------------------
+
+/**
+ * La masa de un registro (R7): la suma de sus cantidades por serie, las de
+ * medir (los tokens que movió y el T consumido sobre él). Es lo único por lo
+ * que PV8 ordena: REGISTROS por masa, nunca identidades ni recuentos.
+ */
+export function masaDe(eje, id) {
+  return { ...medir(eje, id).tokens };
+}
+
+/**
+ * PV8 ordena registros por masa (R7): de más a menos cantidad en `serie` (una
+ * clave de cantidad: "E:casa/EUR", "tiempo:minuto"…), y a igual masa en el
+ * orden en que se dieron. Nunca por identidades, escritos ni movimientos.
+ * Devuelve [{ id, masa }].
+ */
+export function porMasa(eje, ids, serie) {
+  if (!esCantidad(serie)) throw new Error('porMasa: ' + serie + ' no es una cantidad (R7: el 8 solo compara cantidades)');
+  return ids.map((id, i) => ({ id, masa: masaDe(eje, id)[serie] ?? 0, i }))
+    .sort((a, b) => b.masa - a.masa || a.i - b.i)
+    .map(({ id, masa }) => ({ id, masa }));
+}
+
+/**
+ * Lo que lee la celda 8 de Mapped por cantidades (R7), para que src/mapped.js
+ * lo integre (Pendiente de integrar: hoy mapped.ocho recorre MEDIDAS, que son
+ * recuentos sin caja). Lee situar (la base escrita o, si no la hay, el
+ * respaldo declarado) y devuelve { alcance, foco, estado, motivo?, escrita,
+ * base, registro, n, frescura, cantidades: [{ clave, etiqueta, foco, caja,
+ * cuota, cajaCuota, debajo, enCaja, encima }], recuentos: [{ clave, etiqueta,
+ * foco, recuento: true }] }. Sin puesto ni puntuación.
+ */
+export function ochoPorCantidades(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
+  const s = situar(eje, foco, { alcance, epoca: epocaDe(epoca), respaldo: true });
+  if (s.estado !== 'RESUELTO') {
+    return { alcance, foco, estado: s.estado, motivo: s.motivo, escrita: false, base: null, registro: s.registro, n: 0, frescura: null, cantidades: [], recuentos: [] };
+  }
+  const cantidades = Object.entries(s.tokens).map(([clave, x]) => ({ clave, etiqueta: x.etiqueta, foco: x.foco, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota, debajo: x.debajo, enCaja: x.enCaja, encima: x.encima }));
+  const recuentos = MEDIDAS.map(({ clave, etiqueta }) => ({ clave, etiqueta, foco: s.medidas[clave].foco, recuento: true }));
+  return { alcance, foco, estado: 'RESUELTO', escrita: s.escrita, base: s.escrita ? s.base : null, registro: s.registro, n: s.n, frescura: s.frescura, cantidades, recuentos };
+}
+
 // --- BASES() en BQL -----------------------------------------------------------
 
 /** Lo que BASES(alcance, medida, campo) puede pedir de la base, además de una caja 0–9. */
 export const CAMPOS_BASE = Object.freeze(['suma', 'minimo', 'maximo', 'media']);
 
 /** Lo que BASES(alcance, medida, campo) puede pedir del anfitrión situado en la cohorte. */
-export const CAMPOS_FOCO = Object.freeze(['foco', 'caja', 'enCaja', 'debajo', 'encima']);
+export const CAMPOS_FOCO = Object.freeze(['foco', 'caja', 'cuota', 'cajaCuota', 'enCaja', 'debajo', 'encima']);
 
 /** Por qué unos argumentos de BASES() no valen, sin leer nada (null si valen). */
 export function erroresDeBases(args = []) {
@@ -1046,6 +1192,7 @@ export function erroresDeBases(args = []) {
   if (args.length > 3) return 'BASES: como mucho tres argumentos';
   if (!ALCANCES.includes(alcance)) return 'BASES: el alcance es ' + ALCANCES.join(', ');
   if (medida !== undefined && !esMedida(medida)) return 'BASES: medida desconocida: ' + medida;
+  if (medida !== undefined && esRecuento(medida)) return 'BASES: ' + medida + ' es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)';
   const esCaja = Number.isInteger(campo) && campo >= 0 && campo < ARIDAD;
   if (campo !== undefined && !esCaja && !CAMPOS_BASE.includes(campo) && !CAMPOS_FOCO.includes(campo)) {
     return 'BASES: pide una caja 0–9 o ' + [...CAMPOS_BASE, ...CAMPOS_FOCO].join(', ');
@@ -1101,5 +1248,7 @@ export function valorDeBases(eje, id, args = []) {
   if (MIDIENDO.has(id)) return con({ estado: 'PENDIENTE', motivo: 'BASES no se evalúa mientras se mide su propio registro' });
   const m = medir(eje, id);
   const valor = esClaveToken(medida) ? m.tokens[medida] ?? 0 : m[medida];
-  return con({ estado: 'RESUELTO', valor: situado(bloque, valor)[campo ?? 'caja'] });
+  const dato = situado(bloque, valor)[campo ?? 'caja'];
+  if (dato === null) return con({ estado: 'PENDIENTE', motivo: 'BASES: sin cuota: la cohorte no tiene nada de ' + medida });
+  return con({ estado: 'RESUELTO', valor: dato });
 }

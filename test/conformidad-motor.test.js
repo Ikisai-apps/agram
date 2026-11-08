@@ -1637,12 +1637,12 @@ test('TOK-50 más transferencias no son más riqueza: mover tokens no es progres
   const padre = await escribe(eje, g, 'padre');
   const a = await escribe(eje, padre.id, 'igual', undefined, 'ana');
   await eje.escribir({ autor: 'raiz', sobre: padre.id, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 1), daT('raiz', 'bea', 1), daE('raiz', 'ana', 1)], payload: 'igual' });
-  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos. Sin puesto: la hermana que mueve más
-  // tokens solo cae en otra caja de «movimientos»; en lo demás, las dos comparten caja.
+  // VG, 7-11 noche: se retira comparar() y su puntuación con pesos, y el 8 solo sitúa cantidades (R7): mover más
+  // veces no da caja; los movimientos son un recuento informativo. Por cantidad, las dos comparten caja de T.
   const c = confluir(eje, a.id);
   assert.ok(!('posicion' in c) && !('puntuacion' in c) && c.comparables.every((x) => !('puntuacion' in x)));
-  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.debajo, c.medidas.movimientos.encima], [1, 0, 1]);
-  assert.equal(c.medidas.terminales.enCaja, 2);
+  assert.deepEqual([c.medidas.movimientos.foco, c.medidas.movimientos.maximo, c.medidas.movimientos.recuento, 'caja' in c.medidas.movimientos], [1, 4, true, false]);
+  assert.equal(c.tokens['T:minuto'].enCaja, 2);
 });
 
 test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {

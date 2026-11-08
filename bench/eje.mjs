@@ -199,8 +199,10 @@ async function construir(n, semilla) {
   const escritores = [GENESIS];
   const autorizadores = [GENESIS];
   const proyectos = []; // { id, identidad }
-  // T no cruza de persona (VG, 7-11 noche): cada una escribe con su propio T, que se acuña al gastarse.
+  // T no cruza de persona (VG, 7-11 noche), pero una persona sí da su T a una cosa (Core, 8-11): en el banco,
+  // quienes escriben son cosas de la raíz (sus máquinas), con el T que ella les da. Un grupo no recibe T.
   const dotacion = (a) => [
+    { token: 'T', escala: 'minuto', cantidad: 1e8, de: GENESIS, a },
     { token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 1e6, de: GENESIS, a },
   ];
   for (let k = 0; k < nProyectos; k++) {
@@ -209,7 +211,7 @@ async function construir(n, semilla) {
     privadas.set(id, par.privada);
     const ev = await escribir('alta', {
       autor: GENESIS, sobre: g, t: instante(g),
-      movimientos: dotacion(id),
+      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }, ...dotacion(id)], // escribir consume T
       payload: ['Proyecto ' + k, ['recursos', az.ent(100), (1 + az.ent(90)) + ' EUR'], ['criterios', az.de(PALABRAS)], 'comunicación', '=CONTAR(BUSCAR(4))'],
       contexto: { tipos: { [id]: 'cosa' }, claves: { [id]: par.publica } },
     });
@@ -219,11 +221,11 @@ async function construir(n, semilla) {
   for (let k = 0; k < nIdentidades; k += 5) {
     const tipos = {};
     const claves = {};
-    const movimientos = [];
+    const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }]; // escribir consume T
     const nombres = [];
     for (let j = k; j < Math.min(k + 5, nIdentidades); j++) {
       const id = 'p' + j;
-      tipos[id] = ['persona', 'persona', 'persona', 'grupo', 'cosa'][az.ent(5)];
+      tipos[id] = 'cosa';
       if (az.prob(0.85)) {
         const par = await generarClaves();
         privadas.set(id, par.privada);
