@@ -25,7 +25,7 @@ async function altaHuesped(eje, id, { eur = 200, t = '2026-11-08T08:00:00Z' } = 
     autor: CASA,
     sobre: eje.genesisId,
     t,
-    // T no cruza de persona (VG, 7-11 noche): la persona huésped escribe con su propio T, que acuña al gastarlo.
+    // T no cruza de persona (VG, 7-11 noche): la persona huésped escribe con su asignación del día (VG, 8-11).
     movimientos: [minutos(CASA), { token: 'E', emisor: CASA, denominacion: 'EUR', cantidad: eur, de: CASA, a: id }],
     payload: ['Alta de otra persona huésped', [id]],
     contexto: { tipos: { [id]: 'persona' } },
@@ -83,23 +83,24 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.equal(eje.bloqueos('recepcion').length, 2);
   // Tiempo, por escala: cada registro gasta minutos de su autor; las horas solo se reparten.
   // T no cruza de persona (VG, 7-11 noche): las horas que la casa cede son E:casa/hora; su T:hora queda entero.
-  assert.equal(eje.saldoT(CASA, 'hora'), 1000);
+  assert.equal(eje.saldo(CASA, 'T:hora'), 1000);
   // altas, alojamiento, delegación, habitación, su oferta pública (1), temporada, consolidación y ejecución de la entrega
   // Integración 7-11: con #42 la ejecución cuesta un minuto por posición escrita (3), no uno fijo; se lee de su movimiento.
   assert.equal(entrega.ejecucion.movimientos[0].cantidad, 3);
-  assert.equal(eje.saldoT(CASA, 'minuto'), 5000 - 1 - 1 - 1 - 10 - 1 - 1 - entrega.consolidacion.movimientos[0].cantidad - entrega.ejecucion.movimientos[0].cantidad);
-  const liberaciones = eje.orden.map((id) => eje.obtener(id)).filter((e) => e.autor === 'recepcion' && e.contexto?.libera);
-  assert.equal(liberaciones.length, 0);
-  // Recepción y la persona huésped no recibieron T: el que gastan lo acuñan al gastarlo (cuenta contra su reloj) y
-  // no les queda saldo; lo que gastaron se ve en lo que consumieron (y en el registro que soporta cada escrito).
+  // VG, 8-11: asignación diaria. Cada persona gasta primero la asignación del día; los 5000 minutos del génesis siguen enteros.
   const consumido = (id) => eje.orden.map((x) => eje.obtener(x)).filter((e) => e.autor === id && e.contexto?.genesis !== true)
     .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === 'minuto' && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0);
-  assert.deepEqual([eje.saldoT('recepcion', 'minuto'), eje.saldoT('huesped', 'minuto')], [0, 0]);
+  assert.equal(eje.saldo(CASA, 'T:minuto'), 5000);
+  assert.equal(consumido(CASA), 1 + 1 + 1 + 10 + 1 + 1 + entrega.consolidacion.movimientos[0].cantidad + entrega.ejecucion.movimientos[0].cantidad);
+  const liberaciones = eje.orden.map((id) => eje.obtener(id)).filter((e) => e.autor === 'recepcion' && e.contexto?.libera);
+  assert.equal(liberaciones.length, 0);
+  // Recepción y la persona huésped no recibieron T: escriben con su asignación del día y no tienen T explícito;
+  // lo que gastaron se ve en lo que consumieron (y en el registro que soporta cada escrito).
+  assert.deepEqual([eje.saldo('recepcion', 'T:minuto'), eje.saldo('huesped', 'T:minuto')], [0, 0]);
   // Recepción: su respaldo (1) y sus dos autorizaciones.
   assert.equal(consumido('recepcion'), 1 + entrega.autorizacion.movimientos[0].cantidad + pagada.autorizacion.movimientos[0].cantidad);
   // reserva (11 posiciones), sus noches (2), consolidación y ejecución del pago
   assert.equal(consumido('huesped'), 11 + 2 + pagada.consolidacion.movimientos[0].cantidad + pagada.ejecucion.movimientos[0].cantidad);
-  assert.equal(eje.emitidoT('huesped', 'minuto'), consumido('huesped')); // lo acuñado cuenta como emitido (Core, 8-11)
   // El hilo es la evidencia: ejecución → consolidación → reserva → habitación → alojamiento → génesis.
   assert.deepEqual(eje.hilo(pagada.ejecucion.id).map((x) => x.id), [pagada.ejecucion.id, pagada.consolidacion.id, reserva.id, habitacion.id, alojamiento.id, eje.genesisId]);
   assert.deepEqual(eje.hilo(entrega.ejecucion.id).map((x) => x.autor), [CASA, CASA, 'huesped', CASA, CASA, CASA]);

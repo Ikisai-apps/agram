@@ -10,7 +10,7 @@
 // que se sigue exportando desde aquí (cohortes, confluir como respaldo
 // declarado, etiquetas) es lo de src/bases.js, por compatibilidad.
 
-import { SEGUNDOS, ESCALAS_T } from './tokens.js';
+import { SEGUNDOS, ESCALAS_REALES } from './tokens.js';
 import { direccion, resolver } from './btml.js';
 import { consolidaciones } from './motor.js';
 import { MODOS, orden, ordenDeEscala, contarPosiciones } from './modos.js';
@@ -21,7 +21,7 @@ export { HITOS, ALCANCES, MEDIDAS, etiquetaClave, proyectoDe, comparables, confl
 /** Banda de una distancia temporal en segundos: la escala más pequeña que la contiene. */
 export function banda(deltaSegundos) {
   const d = Math.abs(deltaSegundos);
-  for (const e of ESCALAS_T) if (d < SEGUNDOS[e]) return e;
+  for (const e of ESCALAS_REALES) if (d < SEGUNDOS[e]) return e;
   return 'mas';
 }
 
@@ -76,9 +76,10 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
  */
 export function incongruenciaDe(ev) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true || !Array.isArray(ev.movimientos)) return null;
-  const escalas = ev.movimientos.filter((m) => esConsumoT(m, ev.autor) && ESCALAS_T.includes(m.escala)).map((m) => m.escala);
+  // Solo las escalas reales tienen orden: las informativas (pasado, futuro, inventado) no (VG, 8-11).
+  const escalas = ev.movimientos.filter((m) => esConsumoT(m, ev.autor) && ESCALAS_REALES.includes(m.escala)).map((m) => m.escala);
   if (!escalas.length) return null;
-  const escala = escalas.reduce((a, b) => (ESCALAS_T.indexOf(b) > ESCALAS_T.indexOf(a) ? b : a));
+  const escala = escalas.reduce((a, b) => (ESCALAS_REALES.indexOf(b) > ESCALAS_REALES.indexOf(a) ? b : a));
   const posiciones = contarPosiciones(ev.payload);
   const ordenEsperado = ordenDeEscala(escala);
   const ordenEmitido = orden(posiciones);

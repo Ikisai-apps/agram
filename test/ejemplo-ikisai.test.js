@@ -9,9 +9,10 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.deepEqual(eje.identidades(), ['casa', 'cocina', 'huesped']);
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), 12);
   assert.equal(eje.saldo('huesped', 'E:casa/EUR'), 48);
-  // T no cruza de persona (VG, 7-11 noche): la persona huésped no recibió T; la hora que gasta al comprar se
-  // acuña al gastarse y queda anotada en el menú, el registro que soporta la compra.
-  assert.equal(eje.saldoT('huesped', 'hora'), 0);
+  // T no cruza de persona (VG, 7-11 noche): la persona huésped no recibió T; la hora que gasta al comprar sale
+  // de su asignación del día (VG, 8-11) y queda anotada en el menú, el registro que soporta la compra.
+  assert.equal(eje.saldo('huesped', 'T:hora'), 0);
+  assert.equal(eje.saldoT('huesped', 'hora'), 23);
   assert.equal(eje.tiempoSobre(menu.id).hora, 1);
   // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y las dos escalas de T que usa; las
   // altas declaran tipo, y la casa da T a la cocina, que es una cosa suya (Core, 8-11).

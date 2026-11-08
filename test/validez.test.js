@@ -149,20 +149,23 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   const robo = await validez(eje, await borrador('huesped', [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'huesped' }]));
   assert.deepEqual(estados(robo), ['ok', 'ok', 'ok', 'ok', 'falla']);
   assert.match(robo.permiso.motivos[0], /nadie mueve tokens ajenos: casa no es el autor/);
-  // VG, 7-11 noche: T ya no es solo del génesis; cada persona emite el suyo con el tope del reloj desde su alta.
-  // Cocina (una cosa de la casa, Core 8-11) emite T: lo respalda el reloj (capa 4), pero solo las personas emiten (capa 5).
+  // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, todo su T.
+  // Cocina (una cosa de la casa, Core 8-11) emite T: solo las personas emiten (capa 5).
   const t = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'minuto', cantidad: 5, de: null, a: 'cocina' }]));
   assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'ok', 'falla']);
   assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es cosa/);
-  // Huesped (persona, de alta a las 9:00) emite a las 16:00 más horas de las que da el reloj: no hay respaldo (capa 4); el permiso sí (capa 5).
-  const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 8, de: null, a: 'huesped' }]));
+  // Huesped (persona) tampoco emite T: no se emite (capa 5).
+  const emite = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'huesped' }]));
+  assert.deepEqual(estados(emite), ['ok', 'ok', 'ok', 'ok', 'falla']);
+  assert.match(emite.permiso.motivos.join(' '), /T no se emite: cada persona recibe cada día su asignación de T/);
+  // Gasta más horas de las que le quedan del día: no hay respaldo (capa 4); el permiso sí (capa 5).
+  const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 25, de: 'huesped', a: null }]));
   assert.deepEqual(estados(horas), ['ok', 'ok', 'ok', 'falla', 'ok']);
-  assert.match(horas.acreditacion.motivos[0], /tope de T:hora para huesped: llevaría 9 emitido y el reloj da 7/); // 8 más la hora que acuñó al comprar (Core, 8-11)
+  assert.match(horas.acreditacion.motivos[0], /T del día agotado \(hora\): quedan \d+/);
   assert.doesNotMatch(horas.acreditacion.resumen, /respaldados/);
-  // Las que da el reloj, sí: seis horas (la séptima la acuñó al comprar) y, de una escala que el génesis nunca
-  // emitió, un año (el mínimo del tope).
+  // Lo que le queda del día, sí: una hora y la parte del año de hoy (una escala que el génesis nunca emitió).
   assert.equal(eje.serie('T:anio').emitido, 0);
-  const anio = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 6, de: null, a: 'huesped' }, { token: 'T', escala: 'anio', cantidad: 1, de: null, a: 'huesped' }]));
+  const anio = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: null }, { token: 'T', escala: 'anio', cantidad: 1, de: 'huesped', a: null }]));
   assert.deepEqual(estados(anio), TODO_OK);
   // P sobre todo el eje fuera del génesis: sin respaldo (capa 4) y sin R propia en juego (capa 5).
   const p = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: 'genesis', cantidad: 1, de: null, a: 'huesped' }]));

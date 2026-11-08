@@ -27,9 +27,8 @@
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
-import { claveToken, validarMovimiento, familiaDe, AMBITO_GENESIS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos } from './ciclo.js';
-import { acunaAlGastar } from './eje.js';
+import { claveToken, validarMovimiento, familiaDe, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
@@ -123,7 +122,7 @@ const llave = (id, k) => JSON.stringify([id, k]);
 function libroAntes(eje, hasta) {
   const libro = {
     saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
-    altas: new Map(), emitidoT: new Map(), identidades: new Set(), ids: new Set(),
+    altas: new Map(), gastadoT: new Map(), identidades: new Set(), ids: new Set(),
     ampliadas: new Set(), // consolidaciones que ya respaldaron una ampliación de P (como en el eje)
     // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
     reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
@@ -155,7 +154,7 @@ function contextoCiclo(eje, libro, ev) {
       return a && eje.esDeV2?.(a.id) ? acotarAltaV2(a, primeroV3()) : a;
     },
     tMaximo: () => libro.tMax,
-    emitidoT: (id, escala) => libro.emitidoT.get(JSON.stringify([id, escala])) ?? 0,
+    gastadoT: (id, escala, periodo) => libro.gastadoT.get(JSON.stringify([id, escala, periodo])) ?? 0,
     serie: (k) => libro.series.get(k) ?? null,
     registro: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
     ambitosQueCubren: (ambito) => eje.ambitosQueCubren(ambito),
@@ -258,6 +257,10 @@ function aplicar(eje, libro, ev) {
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
   const ver = (id, k) => saldoEn(libro, id, k);
   const ajustar = (id, k, d) => { libro.identidades.add(id); libro.saldos.set(llave(id, k), ver(id, k) + d); };
+  // La asignación diaria de T (VG, 8-11): fuera del prefijo de la versión 2, para una persona con alta.
+  const reglas3 = !eje.esDeV2?.(ev.id);
+  const tipoAutor = libro.tipos.get(ev.autor) ?? null;
+  const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && libro.altas.has(ev.autor);
   for (const m of ev.movimientos) {
     const k = claveToken(m);
     if (m.a !== null && !libro.altas.has(m.a)) libro.altas.set(m.a, { id: ev.id, t: ev.t });
@@ -272,23 +275,17 @@ function aplicar(eje, libro, ev) {
       // De una serie de E, también su registro (el que nombra o el alta de su emisor) y lo consumido: el E vivo (R2).
       const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0, ...(m.token === 'E' ? { caduca: m.caduca ?? null, registro: m.registro ?? libro.altas.get(m.emisor)?.id ?? null, consumido: 0 } : {}) };
       libro.series.set(k, { ...s, emitido: s.emitido + m.cantidad });
-      if (m.token === 'T' && ev.contexto?.genesis !== true) {
-        const kt = JSON.stringify([ev.autor, m.escala]);
-        libro.emitidoT.set(kt, (libro.emitidoT.get(kt) ?? 0) + m.cantidad);
-      }
     } else if (m.token === 'P') {
       for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
-    } else if (acunaAlGastar(m, ev.autor, eje.esDeV2?.(ev.id))) {
-      // T se acuña al gastarse (como en el eje): del saldo lo que haya; lo que falte se emite a su nombre.
-      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
-      ajustar(m.de, k, -usa);
-      const st = libro.series.get(k) ?? { emisor: ev.autor, emitido: 0 };
-      libro.series.set(k, { ...st, emitido: st.emitido + (m.cantidad - usa) });
-      // Lo acuñado cuenta para el tope del reloj igual que una emisión explícita (src/ciclo.js).
-      if (m.cantidad > usa) {
-        const kt = JSON.stringify([ev.autor, m.escala]);
-        libro.emitidoT.set(kt, (libro.emitidoT.get(kt) ?? 0) + (m.cantidad - usa));
-      }
+    } else if (reglas3 && esInformativoT(m)) {
+      continue; // T informativo (VG, 8-11): ilimitado, no toca saldos
+    } else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+      // T como asignación diaria (como en el eje): primero lo que queda del día de ev.t, luego el T explícito.
+      const a = asignacionT(ev.t, m.escala);
+      const kg = JSON.stringify([ev.autor, m.escala, a.periodo]);
+      const { asignacion, explicito } = repartirGastoT(a.cantidad - (libro.gastadoT.get(kg) ?? 0), m.cantidad);
+      if (asignacion) libro.gastadoT.set(kg, (libro.gastadoT.get(kg) ?? 0) + asignacion);
+      ajustar(m.de, k, -explicito);
     } else {
       ajustar(m.de, k, -m.cantidad);
       if (m.token === 'E' && m.a === null && libro.series.has(k)) libro.series.set(k, { ...libro.series.get(k), consumido: (libro.series.get(k).consumido ?? 0) + m.cantidad });
@@ -508,9 +505,16 @@ function capaAcreditacion(eje, ev, libro) {
   const vistaB = new Map();
   const verB = (id, k, salida) => (vistaB.has(JSON.stringify([id, k, salida])) ? vistaB.get(JSON.stringify([id, k, salida])) : bloqueadoEn(libro, id, k, salida));
   const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
-  // El respaldo de las emisiones según el ciclo (src/ciclo.js): el tope del reloj en T, un registro existente en P, la caducidad de la serie en E.
+  // El respaldo según el ciclo (src/ciclo.js): el T del día, un registro existente en P, la caducidad de la serie en E.
   // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
   const delCiclo = new Map();
+  const tipoAutor = libro.tipos.get(ev.autor) ?? null;
+  const conAsignacion = libro.reglas !== 2 && !esGenesis && EMITEN.includes(tipoAutor) && libro.altas.has(ev.autor);
+  const quedaA = new Map(); // escala → lo que queda de la asignación del autor, durante el evento
+  const verA = (e) => {
+    if (!quedaA.has(e)) { const a = asignacionT(ev.t, e); quedaA.set(e, Math.max(0, a.cantidad - (libro.gastadoT.get(JSON.stringify([ev.autor, e, a.periodo])) ?? 0))); }
+    return quedaA.get(e);
+  };
   for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
     if (e.capa !== 4) continue;
     if (e.i === null) r.falla(e.texto);
@@ -529,7 +533,7 @@ function capaAcreditacion(eje, ev, libro) {
     fila.clave = k;
     if (m.de === null) {
       // Emisión (VG, 7-11 noche). La respalda la persona que la emite: T, con
-      // el tope del reloj; P, sobre un registro que existe; E y R, a su nombre
+      // su asignación diaria (fuera del génesis no se emite); P, sobre un registro que existe; E y R, a su nombre
       // (no hay grupos que emitan: VG, 8-11).
       if (!esGenesis && delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       const s = serie(k);
@@ -559,14 +563,17 @@ function capaAcreditacion(eje, ev, libro) {
       const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
-    } else if (acunaAlGastar(m, ev.autor, libro.reglas === 2)) {
-      // T se acuña al gastarse (VG, 7-11 noche; src/eje.js, acunaAlGastar): lo que falta se emite a su nombre
-      // en ese momento, solo si es una persona y dentro del tope del reloj (src/ciclo.js lo dice por índice).
+    } else if (libro.reglas !== 2 && esInformativoT(m)) {
+      // T informativo (VG, 8-11): ilimitado, «si lo gastas te vuelve a salir uno»; queda registrado como tal.
+      return undefined;
+    } else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+      // T como asignación diaria (VG, 8-11): lo que queda del día y, si no alcanza, el T explícito; si tampoco,
+      // «T del día agotado» (src/ciclo.js lo dice por índice).
       if (delCiclo.has(i)) return mal('falla', delCiclo.get(i));
-      const usa = Math.min(Math.max(0, ver(m.de, k)), m.cantidad);
-      const s = serie(k);
-      emitido.set(k, { ...(s ?? {}), emisor: s?.emisor ?? ev.autor, emitido: (s?.emitido ?? 0) + (m.cantidad - usa) });
-      poner(m.de, k, ver(m.de, k) - usa);
+      const { asignacion, explicito } = repartirGastoT(verA(m.escala), m.cantidad);
+      if (ver(m.de, k) < explicito) return mal('falla', 'T del día agotado (' + m.escala + '): quedan ' + (verA(m.escala) + ver(m.de, k)));
+      quedaA.set(m.escala, verA(m.escala) - asignacion);
+      poner(m.de, k, ver(m.de, k) - explicito);
     } else {
       const s = serie(k);
       if (!s || !(s.emitido > 0)) return mal('falla', 'la serie ' + k + ' no se ha emitido: nada respalda estos tokens');

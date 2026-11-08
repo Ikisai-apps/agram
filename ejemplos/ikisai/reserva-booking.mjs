@@ -234,7 +234,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     t,
     movimientos: [
       minutos(CASA),
-      // Cada una escribe con su propio T (se acuña al gastarse). La casa cede a recepción 40 horas de su
+      // Cada una escribe con su asignación de T del día (VG, 8-11). La casa cede a recepción 40 horas de su
       // tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
       { token: 'E', emisor: CASA, denominacion: 'hora', cantidad: 40, de: CASA, a: 'recepcion' },
       eur(300, CASA, 'huesped'),

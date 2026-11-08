@@ -83,7 +83,7 @@ VG, 7-11 noche (mapa §12, «T, corregido por VG», punto 4): el tamaño de un �
 | `orden(posiciones)` | el n tal que 10^(n−1) < posiciones ≤ 10^n; 0 posiciones, orden 0; 1, orden 1 (1–10, 11–100, 101–1000…) |
 | `minimoDe(n)`, `maximoDe(n)` | 10^(n−1) y 10^n (el orden 0, 0 y 0) |
 | `MODOS[modo].orden` | Pointed 1, Sequenced 2, Mapped 3, Scened 4, Be del quinto en adelante (`orden` 5, por encima de Scened). Los cuatro primeros tienen por mínimo y máximo `minimoDe(orden)` y `maximoDe(orden)`; Be no tiene mínimo propio y su máximo es todos (VG, 7-11 noche) |
-| `ordenDeEscala(escalaT)`, `ORDENES_DE_ESCALA` | segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, año 7 (los nombres de `tokens.ESCALAS_T`: `dia`, `anio`) |
+| `ordenDeEscala(escalaT)`, `ORDENES_DE_ESCALA` | segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, año 7 (las siete reales, `tokens.ESCALAS_REALES`: `dia`, `anio`); las tres informativas de las diez de `tokens.ESCALAS_T` (pasado, futuro, inventado; VG, 8-11) son informativas sin orden: `null` |
 
 `ordenDeEscala` es **solo informativa**: nadie la aplica todavía. Otro encargo la usará para enseñar las incongruencias de T (lo emitido fuera del orden que declara la escala gastada se enseña, no se rechaza; **[X] decidir VG** si se quiere rechazo).
 

@@ -19,7 +19,7 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TIPOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
+import { AMBITO_GENESIS, EMITEN, ESCALAS_INFORMATIVAS, SEGUNDOS, TIPOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
@@ -71,9 +71,37 @@ export function acotarAltaV2(alta, tPrimeroV3) {
 }
 
 /**
+ * ¿Gasta este movimiento de la asignación diaria de T de su autor (VG, 8-11)?
+ * Un movimiento de T de una persona con alta, suyo, sin estado, que sale de
+ * sus manos (consumo o a otra identidad), en una escala real (las
+ * informativas son ilimitadas: esInformativoT). Lo usan el eje y las capas de
+ * validez al aplicar, como reglasDelCiclo al validar.
+ */
+export function gastaAsignacion(m, autor, tipoAutor) {
+  return Boolean(m) && m.token === 'T' && !ESCALAS_INFORMATIVAS.includes(m.escala) && EMITEN.includes(tipoAutor) && m.de === autor && m.a !== autor && m.estado === undefined;
+}
+
+/**
+ * ¿Es `m` un consumo de T informativo (pasado, futuro, inventado; VG, 8-11)?
+ * Ilimitado: no toca saldos ni asignación; solo queda registrado.
+ */
+export function esInformativoT(m) {
+  return Boolean(m) && m.token === 'T' && ESCALAS_INFORMATIVAS.includes(m.escala) && m.de !== null && m.a === null && m.estado === undefined;
+}
+
+/**
+ * Reparte el gasto `cantidad` de T: { asignacion, explicito }, lo que sale de
+ * lo que queda de la asignación (`queda`) y lo que sale del T explícito.
+ */
+export function repartirGastoT(queda, cantidad) {
+  const asignacion = Math.min(Math.max(0, queda), cantidad);
+  return { asignacion, explicito: cantidad - asignacion };
+}
+
+/**
  * Errores de las reglas de emisión de `ev`: [{ i, capa, texto }]. `i` es el
  * índice del movimiento (null si es del evento entero); `capa` es 4 si falta
- * respaldo (el tope del reloj, el t del evento, un ámbito que no existe, la
+ * respaldo (el T del día, el t del evento, un ámbito que no existe, la
  * caducidad de la serie) y 5 si falta permiso (quién emite, el escalonado).
  * El génesis no pasa por aquí: emite por convención (src/eje.js,
  * erroresGenesis).
@@ -82,7 +110,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   tipo(id)                 'persona' | 'cosa' | null ('grupo' solo en el prefijo de la versión 2)
  *   alta(id)                 { id, t } del evento que la dio de alta, o null (acotada si es del prefijo v2)
  *   tMaximo()                el mayor t aceptado en el eje, en milisegundos UTC
- *   emitidoT(id, escala)     T que esa persona lleva emitido en esa escala (sin el génesis)
+ *   gastadoT(id, e, periodo) T de la asignación de esa persona gastado en esa escala ese día (tokens.asignacionT)
  *   serie(clave)             { emisor, emitido, caduca } o null
  *   registro(id)             el evento con ese id, o undefined
  *   ambitosQueCubren(ambito) los ámbitos de P que cubren un registro
@@ -107,10 +135,10 @@ export function reglasDelCiclo(ev, ctx) {
   // El reloj, [X] confirmar VG: el t de un evento no es anterior al de su foco
   // (`sobre`) ni al del alta de su autor; el alta toma el t del evento que la
   // hace. Sin esto, un alta retrofechada (un evento fechado en 1900) daría
-  // miles de millones de T:segundo con el tope de abajo.
+  // decenas de miles de días de asignación de T (VG, 8-11: asignación diaria).
   // Y por arriba, [X] confirmar VG: sin reloj externo (T no vale nada para
   // terceros), lo que hay en el eje: un evento no va más de un año (anio) por
-  // delante del mayor t ya aceptado. Sin esto, fechar a futuro inflaría el tope.
+  // delante del mayor t ya aceptado. Sin esto, fechar a futuro abriría días de asignación sin fin.
   // Todo se compara en milisegundos UTC (src/instante.js).
   const t = msUTC(ev.t);
   if (!Number.isNaN(t)) {
@@ -136,7 +164,6 @@ export function reglasDelCiclo(ev, ctx) {
 
   const tipoAutor = ctx.tipo(autor);
   const emitidas = new Set();
-  const tDelEvento = new Map(); // escala → T emitido en este evento
   const caducas = new Map(); // clave → caducidad fijada en este evento
 
   for (const { m, i } of validos) {
@@ -153,17 +180,9 @@ export function reglasDelCiclo(ev, ctx) {
       continue;
     }
     if (m.token === 'T') {
-      // PROVISIONAL [X] (VG, 7-11 noche): «emitir desde dos fuentes es igual de válido que emitir el doble
-      // desde una única fuente; no da más». Este T por identidad y reloj es lo que una identidad falsa
-      // multiplica: la regla final saldrá del estudio de neutralidad ante agrupación y división.
-      if (m.a !== autor) { falla(i, 5, 'T lo emite cada persona para sí misma: a debe ser ' + autor); continue; }
-      const alta = ctx.alta(autor);
-      const tope = alta ? topeT(alta.t, ev.t, m.escala) : TOPE_T_MINIMO;
-      const llevaria = ctx.emitidoT(autor, m.escala) + (tDelEvento.get(m.escala) ?? 0) + m.cantidad;
-      tDelEvento.set(m.escala, (tDelEvento.get(m.escala) ?? 0) + m.cantidad);
-      if (llevaria > tope) {
-        falla(i, 4, 'tope de T:' + m.escala + ' para ' + autor + ': llevaría ' + llevaria + ' emitido y el reloj da ' + tope + (alta ? ' desde su alta (' + alta.t + ')' : ''));
-      }
+      // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, su asignación.
+      falla(i, 5, 'T no se emite: cada persona recibe cada día su asignación de T (VG, 8-11: asignación diaria)');
+      continue;
     }
     if (m.token === 'P') {
       // Acuñar P es solo de quien escribió el registro (sobre el eje entero,
@@ -208,36 +227,32 @@ export function reglasDelCiclo(ev, ctx) {
     }
   }
 
-  // T se acuña al gastarse (src/eje.js, acunaAlGastar): consumir T propio sin
-  // saldo es AZÚCAR de emitirlo y consumirlo en el mismo evento, así que rige
-  // lo mismo que una emisión explícita: solo lo hace una persona, y lo acuñado
-  // cuenta en lo emitido por escala y no pasa del tope del reloj (revisión de
-  // seguridad de Core, 8-11). Si no alcanza, saldo insuficiente, como antes.
-  const disponibleT = new Map(); // escala → T disponible del autor durante el evento
-  const verT = (e) => (disponibleT.has(e) ? disponibleT.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
-  for (const { m, i } of validos) {
-    if (m.token !== 'T') continue;
-    const e = m.escala;
-    if (m.de === null) { if (m.a === autor) disponibleT.set(e, verT(e) + m.cantidad); continue; }
-    if (m.de !== autor) continue;
-    if (m.estado === 'liberacion') { disponibleT.set(e, verT(e) + m.cantidad); continue; }
-    if (!esConsumoT(m, autor)) { if (m.estado === 'bloqueo' || m.a !== autor) disponibleT.set(e, Math.max(0, verT(e) - m.cantidad)); continue; }
-    const usa = Math.min(verT(e), m.cantidad);
-    disponibleT.set(e, verT(e) - usa);
-    const falta = m.cantidad - usa;
-    if (falta <= 0) continue;
-    const k = 'T:' + e;
-    // Solo las personas (Core, 8-11): una cosa gasta el T que le dio su persona.
-    if (!EMITEN.includes(tipoAutor)) {
-      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': tiene ' + usa + ' y gasta ' + m.cantidad + '; solo una persona acuña su T al gastarlo (' + autor + (tipoAutor ? ' es ' + tipoAutor : ' no declaró tipo en su alta') + ')');
-      continue;
-    }
-    const alta = ctx.alta(autor);
-    const tope = alta ? topeT(alta.t, ev.t, e) : TOPE_T_MINIMO;
-    const llevaria = ctx.emitidoT(autor, e) + (tDelEvento.get(e) ?? 0) + falta;
-    tDelEvento.set(e, (tDelEvento.get(e) ?? 0) + falta);
-    if (llevaria > tope) {
-      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': acuñar al gastar los ' + falta + ' que faltan llevaría ' + llevaria + ' emitido y el reloj da ' + tope + (alta ? ' desde su alta (' + alta.t + ')' : ''));
+  // T como asignación diaria (VG, 8-11: «te lo gastas como quieras, no te
+  // puedes gastar más»): lo que una persona dada de alta gasta de su T
+  // (consumirlo o dárselo a una cosa) sale primero de la asignación del día de ev.t
+  // (tokens.asignacionT) y, si no alcanza, del T explícito que tenga (el del
+  // génesis, el único que se acumula). Si tampoco alcanza: T del día agotado.
+  // Bloquear y liberar T mueven solo el T explícito. Lo que no es una persona
+  // gasta el T que tiene (el que le dio su persona): eso lo mira el saldo.
+  const altaAutor = EMITEN.includes(tipoAutor) ? ctx.alta(autor) : null;
+  if (altaAutor && ctx.gastadoT) {
+    const asignada = new Map(); // escala → lo que queda de la asignación, durante el evento
+    const explicito = new Map(); // escala → T explícito disponible, durante el evento
+    const verA = (e) => {
+      if (!asignada.has(e)) { const a = asignacionT(ev.t, e); asignada.set(e, Math.max(0, a.cantidad - ctx.gastadoT(autor, e, a.periodo))); }
+      return asignada.get(e);
+    };
+    const verX = (e) => (explicito.has(e) ? explicito.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
+    for (const { m, i } of validos) {
+      if (m.token !== 'T' || m.de !== autor || ESCALAS_INFORMATIVAS.includes(m.escala)) continue;
+      const e = m.escala;
+      if (m.estado === 'liberacion') { explicito.set(e, verX(e) + m.cantidad); continue; }
+      if (m.estado === 'bloqueo' || m.a === autor) { if (m.estado === 'bloqueo') explicito.set(e, Math.max(0, verX(e) - m.cantidad)); continue; }
+      const usa = Math.min(verA(e), m.cantidad);
+      const falta = m.cantidad - usa;
+      if (falta > verX(e)) { falla(i, 4, 'T del día agotado (' + e + '): quedan ' + (verA(e) + verX(e))); continue; }
+      asignada.set(e, verA(e) - usa);
+      explicito.set(e, verX(e) - falta);
     }
   }
 
@@ -298,7 +313,7 @@ export function reglasDelCiclo(ev, ctx) {
     // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
     // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
     // cruza de persona, así que solo cuenta el consumo.
-    const mueveT = validos.some(({ m }) => esConsumoT(m, autor));
+    const mueveT = validos.some(({ m }) => esConsumoT(m, autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
     // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
     const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
     for (const token of ['R', 'P', 'E']) {

@@ -18,7 +18,7 @@ import {
 import { ejemploLente, valoresParaLaCasa, valorEnBql, LENTE_DE_LA_CASA, RECIEN } from '../ejemplos/ikisai/lente-booking.mjs';
 
 const T0 = '2026-11-08T10:00:00Z';
-/** Un día antes: las personas dadas de alta aquí escriben a T0 con su propio T (lo acuñan dentro del tope de su reloj). */
+/** Un día antes (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)). */
 const AYER = '2026-11-07T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });

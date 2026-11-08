@@ -4,7 +4,7 @@
 // de qué serie es cada token.
 //
 //   familia: clave de serie              : quién la emite
-//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); no cruza de persona (a una cosa, sí)
+//   T  tiempo:      T:<escala>           : nadie lo emite: cada persona recibe su asignación diaria (VG, 8-11); el génesis, explícito; no cruza de persona (a una cosa, sí)
 //   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre; atada al registro del recurso
 //   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
 //   R  reputación:  R:<emisor>           : una persona, a su nombre
@@ -121,10 +121,30 @@ export function capacidadDe(nodo) {
   return Number.isSafeInteger(c) && c > 0 ? c : undefined;
 }
 
-/** Siete escalas de T, cada una un token distinto. Ampliable hasta MAXIMO_ESCALAS_T. */
-export const ESCALAS_T = Object.freeze([
+/** Las siete escalas reales de T: tiempo que se mide (SEGUNDOS) y tiene orden (modos.ordenDeEscala). */
+export const ESCALAS_REALES = Object.freeze([
   'segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio',
 ]);
+
+/**
+ * Tres escalas informativas (VG, 8-11): T PASADO (tiempo que no se registró
+ * en su momento y se registra ahora), T FUTURO (el que se quiere
+ * pre-registrar) y T INVENTADO. Son ILIMITADAS: «pondría uno, pero si lo
+ * gastas te vuelve a salir uno»; gastarlas no agota nada y no se rechazan por
+ * saldo. Lo que importa es que QUEDA REGISTRADO como tal: «tal persona, en tal
+ * día, dijo que un año antes había hecho tal cosa; no lo registró en ese
+ * momento». Por eso solo se consumen (a = null), y el movimiento lleva la
+ * fecha a la que se refiere (`refiere`, instante ISO con zona: obligatoria en
+ * pasado y futuro, opcional en inventado) además del t real del evento, y
+ * una `nota` opcional (texto). No miden: SEGUNDOS no las convierte (null), no
+ * tienen orden y se enseñan aparte de las reales (eje.tiempoInformativo).
+ * No cuentan como el T que consume escribir ([X] Core: si contasen, escribir
+ * saldría gratis).
+ */
+export const ESCALAS_INFORMATIVAS = Object.freeze(['pasado', 'futuro', 'inventado']);
+
+/** Diez escalas de T, cada una un token distinto: las siete reales y las tres informativas. */
+export const ESCALAS_T = Object.freeze([...ESCALAS_REALES, ...ESCALAS_INFORMATIVAS]);
 
 /** Tope de escalas de T (VG, 7-11: «a lo mejor creamos alguna más para llegar hasta diez»). */
 export const MAXIMO_ESCALAS_T = 10;
@@ -157,7 +177,7 @@ export const ESTADOS = Object.freeze(['bloqueo', 'liberacion']);
 
 /**
  * Duración de cada escala en segundos, para MEDIR distancias de tiempo (las
- * bandas del eje temporal). No convierte tokens: los saldos de T no se
+ * bandas del eje temporal), solo de las escalas reales. No convierte tokens: los saldos de T no se
  * suman entre escalas. Año = 13 ciclos de 28 días + 1.
  */
 export const SEGUNDOS = Object.freeze({
@@ -168,37 +188,69 @@ export const SEGUNDOS = Object.freeze({
   semana: 7 * 86400,
   ciclo: 28 * 86400,
   anio: (13 * 28 + 1) * 86400,
+  // Las informativas no miden tiempo: nada las convierte a segundos.
+  pasado: null,
+  futuro: null,
+  inventado: null,
 });
 
-// PROVISIONAL [X] (VG, 7-11 noche): «emitir desde dos fuentes es igual de
-// válido que emitir el doble desde una única fuente; no da más». El T por
-// identidad y reloj de abajo es justo lo que una identidad falsa multiplica
-// (y el mínimo da un token por escala a cada alta), así que la regla final
-// saldrá del estudio de neutralidad ante agrupación y división.
+// T como asignación diaria (VG, 8-11): «como en los videojuegos: llega a las
+// 12 de la noche y te da todo el T del día siguiente, todos los segundos,
+// todos los minutos, las horas, el día, el proporcional de la semana, de los
+// 28 días y del año. Te lo gastas como quieras, no te puedes gastar más. Es
+// suficiente para que no sea limitante». Sustituye al tope del reloj
+// acumulado desde el alta y a acuñar al gastar («VG, 8-11: asignación diaria»).
 
 /**
- * [X] regla de la época, PROVISIONAL (ver arriba): el mínimo del tope de T. Una persona puede emitir,
- * por escala y en total, tantos tokens de T como unidades de esa escala han
- * pasado desde su alta, redondeando hacia arriba, y nunca menos que este
- * mínimo: el reloj marca el tope (VG, 7-11 noche).
+ * Partes en que se dan, cada día, las escalas grandes (VG, 8-11: «tú
+ * diariamente tienes la posibilidad de poner uno partido de 7, 28 o 364 para
+ * que ese día decidas»): la persona recibe cada día 1/7 de semana, 1/28 de
+ * ciclo y 1/364 de año. Por eso la `cantidad` de T en estas tres escalas va
+ * en esas partes, enteras: 1 es un día de semana (1/7), y una semana entera
+ * son 7. Así T sigue en enteros y nada acumula error; se lee como fracción
+ * (textoT: «3/7 semana», «1 semana»).
  */
-export const TOPE_T_MINIMO = 1;
+export const PARTES_T = Object.freeze({ semana: 7, ciclo: 28, anio: 364 });
 
 /**
- * [X] regla de la época, PROVISIONAL (neutralidad ante agrupación y división). Tope de T que una persona puede llevar emitido en una
- * escala en el instante `t`: ⌈(t − alta) / SEGUNDOS[escala]⌉, con un mínimo de
- * TOPE_T_MINIMO. `alta` es el instante del evento que la dio de alta (el
- * génesis cuenta como alta de su autor). Lo emitido en el génesis no cuenta.
- * El alta toma el t del evento que la hace, y ese t no es anterior al de su
- * foco ni al alta de su autor ([X] confirmar VG, src/ciclo.js): un alta no se
- * retrofecha para ganar T. Fechar a futuro da más T, pero como mucho un año
- * por delante del mayor t del eje ([X] confirmar VG, src/ciclo.js).
- * Los instantes se comparan en milisegundos UTC (src/instante.js).
+ * Asignación diaria de T de una persona, por escala (en las grandes, en sus
+ * partes: un día de semana, de ciclo, de año). Las tres informativas no
+ * tienen asignación: son ilimitadas (siempre queda 1). Se renueva cada día civil de su propio reloj (el
+ * t de sus eventos, en UTC); lo no gastado NO se acumula ([X] confirmar VG).
  */
-export function topeT(alta, t, escala) {
-  const ms = msDeGuardado(t) - msDeGuardado(alta);
-  const unidades = Number.isFinite(ms) ? Math.ceil(ms / (SEGUNDOS[escala] * 1000)) : 0;
-  return Math.max(TOPE_T_MINIMO, unidades);
+export const ASIGNACION_T = Object.freeze({
+  segundo: 86400, minuto: 1440, hora: 24, dia: 1, semana: 1, ciclo: 1, anio: 1,
+});
+
+const MS_DIA = 86400 * 1000;
+const msDe = (x) => (typeof x === 'number' ? x : msDeGuardado(x));
+
+/** Día civil (UTC) de un instante: días enteros desde 1970-01-01. NaN si no es un instante. */
+export function diaCivil(t) {
+  const ms = msDe(t);
+  return Number.isFinite(ms) ? Math.floor(ms / MS_DIA) : NaN;
+}
+
+/**
+ * Asignación de T de una persona en la escala `escala` para el instante `t`:
+ * { periodo, cantidad }. `periodo` es el día civil de `t`: lo gastado se
+ * cuenta por día y, al cambiar de día, la asignación es la nueva entera.
+ */
+export function asignacionT(t, escala) {
+  const dia = diaCivil(t);
+  if (!Number.isFinite(dia) || !Object.hasOwn(ASIGNACION_T, escala)) return { periodo: null, cantidad: 0 };
+  return { periodo: dia, cantidad: ASIGNACION_T[escala] };
+}
+
+/**
+ * Cantidad de T para leer: en las escalas grandes, como fracción de sus
+ * partes o como entero cuando cuadra (textoT('semana', 3) → «3/7 semana»,
+ * textoT('semana', 7) → «1 semana»); en las demás, el número y la escala.
+ */
+export function textoT(escala, cantidad) {
+  const n = PARTES_T[escala];
+  if (!n || cantidad % n === 0) return (n ? cantidad / n : cantidad) + ' ' + escala;
+  return cantidad + '/' + n + ' ' + escala;
 }
 
 /**
@@ -260,9 +312,21 @@ export function validarMovimiento(m) {
   if (m.token === 'T') {
     if (!ESCALAS_T.includes(m.escala)) errores.push('escala T inválida: ' + m.escala);
     // Cada escala es un token: no hay medias horas (serían minutos), y los enteros no acumulan error.
+    // Semana, ciclo y año van en sus partes diarias (PARTES_T): también enteras.
     if (Number.isFinite(m.cantidad) && !Number.isSafeInteger(m.cantidad)) errores.push('T va en enteros: cada escala es un token');
   }
   if (m.token !== 'T' && m.escala !== undefined) errores.push('escala solo en T');
+  // El T informativo (VG, 8-11) queda registrado como tal: se consume, con la fecha a la que se refiere y una nota.
+  const informativa = m.token === 'T' && ESCALAS_INFORMATIVAS.includes(m.escala);
+  if (informativa) {
+    if (m.a !== null || m.estado !== undefined) errores.push('T ' + m.escala + ' solo se consume (a = null): se registra, no se da ni se bloquea');
+    if (m.refiere === undefined) { if (m.escala !== 'inventado') errores.push('T ' + m.escala + ' exige refiere: la fecha a la que se refiere (instante ISO-8601 con zona)'); }
+    else if (!esInstante(m.refiere)) errores.push('refiere debe ser instante ISO-8601 con zona explícita');
+    if (m.nota !== undefined && !texto(m.nota)) errores.push('la nota es texto');
+  } else {
+    if (m.nota !== undefined) errores.push('nota solo en T pasado, futuro o inventado');
+    if (m.refiere !== undefined) errores.push('refiere solo en T pasado, futuro o inventado');
+  }
   if (m.token === 'E') {
     if (!texto(m.denominacion)) errores.push('E exige denominación');
     if (!texto(m.emisor)) errores.push('E exige emisor: la serie es de quien la emite');
