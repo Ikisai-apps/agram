@@ -301,7 +301,9 @@ export function seguir(eje, ref, procedencia = []) {
     if (!ev) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido: undefined, procedencia: cadena, saltos, rota: true, estado: 'PENDIENTE', motivo: 'evento ausente del eje: ' + actual.ref.slice(0, 8) };
     cadena.push(actual.ref + ':' + dir);
     saltos.push({ evento: actual.ref, indices: indicesDe(dir) });
-    const contenido = resolver(ev.payload, dir);
+    let contenido = resolver(ev.payload, dir);
+    // Forma canónica (VG, 8-11): la lista de UN ocupante se lee como su ocupante ([ref] = ref, ['a'] = 'a').
+    if (indicesDe(dir).length > 0 && esLista(contenido) && contenido.length === 1) contenido = contenido[0];
     if (!esReferencia(contenido)) return { tipo: 'referencia', origen: 'referencia', evento: actual.ref, dir, camino: indicesDe(dir), contenido, procedencia: cadena, saltos };
     actual = contenido;
   }

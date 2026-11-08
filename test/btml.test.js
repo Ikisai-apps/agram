@@ -72,16 +72,16 @@ test('direcciones: diez dígitos, ceros finales', () => {
 });
 
 test('1100000000 y 0000000011 no son equivalentes', () => {
-  const p = [['x', 'y'], [['a'], 'b']]; // la 1 es décupla: su 0 va envuelto
-  assert.equal(resolver(p, '1100000000'), 'b');
+  const p = [['x', 'y'], [['a'], ['b']]]; // la 1 es décupla: cada posición va entre corchetes
+  assert.deepEqual(resolver(p, '1100000000'), ['b']);
   assert.equal(resolver(p, '0000000011'), undefined);
 });
 
 test('resolver desciende y se detiene en el terminal', () => {
-  const p = ['raíz', ['uno', [['dos'], 'tres']], 'fin']; // la 1.1 es décupla: su 0 va envuelto
-  assert.equal(resolver(p, '1110000000'), 'tres');
+  const p = ['raíz', ['uno', [['dos'], ['tres']]], 'fin']; // la 1.1 es décupla: cada posición va entre corchetes
+  assert.deepEqual(resolver(p, '1110000000'), ['tres']);
   assert.equal(resolver(p, '2000000000'), 'fin');
-  assert.deepEqual(resolver(p, '1000000000'), ['uno', [['dos'], 'tres']]);
+  assert.deepEqual(resolver(p, '1000000000'), ['uno', [['dos'], ['tres']]]);
   assert.equal(resolver(p, '5000000000'), undefined);
 });
 
@@ -96,8 +96,8 @@ test('indicesDe: ceros finales fuera, cero intermedio es índice real', () => {
 test('por hojas: solo hojas es lista; con un array dentro, décupla', () => {
   assert.equal(esLista(['a', 2, { ref: 'x' }]), true);
   assert.equal(esDecupla(['a', 2, { ref: 'x' }]), false);
-  assert.equal(esLista([['a'], 2]), false);
-  assert.equal(esDecupla([['a'], 2]), true);
+  assert.equal(esLista([['a'], [2]]), false);
+  assert.equal(esDecupla([['a'], [2]]), true);
   assert.equal(esLista([]), false);
   assert.equal(esLista('a'), false);
 });
@@ -128,17 +128,17 @@ test('por hojas: huecos y nulos en una lista se rechazan', () => {
 });
 
 test('por hojas: resolver no entra en una lista y la devuelve entera en su dirección', () => {
-  const p = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  const p = ['Compra', [['menú'], [1], ['EUR 12']], ['ensalada', 'guiso', 'fruta']];
   assert.deepEqual(resolver(p, '2000000000'), ['ensalada', 'guiso', 'fruta']);
   assert.equal(resolver(p, '2100000000'), undefined); // el «guiso» no tiene dirección
-  assert.deepEqual(resolver(p, '1000000000'), [['menú'], 1, 'EUR 12']);
-  assert.equal(resolver(p, '1100000000'), 1); // en una décupla, sí
+  assert.deepEqual(resolver(p, '1000000000'), [['menú'], [1], ['EUR 12']]);
+  assert.deepEqual(resolver(p, '1100000000'), [1]); // en una décupla, sí: la lista de su único ocupante
   // 1.0 es la lista de uno [menú]: no se entra en ella.
   assert.equal(resolver(p, '1010000000'), undefined);
 });
 
 test('por hojas: dentroDeLista dice qué posición tiene la lista en la que cae un camino', () => {
-  const p = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  const p = ['Compra', [['menú'], [1], ['EUR 12']], ['ensalada', 'guiso', 'fruta']];
   assert.deepEqual(dentroDeLista(p, '2100000000'), [2]);
   assert.deepEqual(dentroDeLista(p, [1, 0, 0]), [1, 0]);
   assert.equal(dentroDeLista(p, '2000000000'), null); // la propia lista no cuenta

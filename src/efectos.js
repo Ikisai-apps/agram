@@ -178,7 +178,7 @@ function celdasDe(ev, en, marco = []) {
  */
 function tipoDeCelda(ev, c, clase, vistas, heredadas) {
   const alFoco = (n) => esReferencia(n) && n.ref === ev.sobre;
-  // Por hojas (VG, 7-11 noche): una lista solo de referencias al foco (el 0 envuelto de una décupla heredada) es herencia igual.
+  // Por hojas (VG, 7-11 noche): una lista solo de referencias al foco (el 0 entre corchetes de una décupla heredada) es herencia igual.
   if (alFoco(c.nodo) || (esLista(c.nodo) && c.nodo.every(alFoco))) {
     if (clase !== 0) return null;
     const e = normal(c.ruta.join('.'));

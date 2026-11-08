@@ -15,10 +15,20 @@
 //   dirección las nombra dígito a dígito. Dentro de una décupla, una hoja
 //   suelta es UN solo ocupante de esa subposición.
 // El payload RAÍZ es siempre la décupla de lo escrito (la cruceta), aunque
-// sean solo hojas. Para que un grupo de hojas sea décupla se envuelve su
-// posición 0 (qué es): compra 1 = [[menú], 1, 'EUR 12'] → 1.0 qué es (la
-// lista de uno [menú]), 1.1 cuánto, 1.2 con qué condición; [menú, 1] sería
-// una lista de dos ocupantes.
+// sean solo hojas.
+//
+// FORMA CANÓNICA (VG, 8-11): en una décupla de solo hojas, CADA posición va
+// entre corchetes; un corchete de solo hojas es la lista de ocupantes de esa
+// posición. Las dos líneas de VG:
+//   menú   = ['Menú del día', ['ensalada', 'guiso', 'fruta']]
+//   compra = ['Compra', [[menú], [1]]]
+// compra 1 = [[menú], [1]] → 1.0 qué es (la lista de uno [menú]), 1.1 cuánto
+// (la lista de uno [1]); [menú, 1] sería una lista de dos ocupantes. Una hoja
+// suelta en una posición es la lista de un solo ocupante: sigue valiendo, pero
+// no es la canónica (se retira la convención de la #69, envolver solo el 0).
+// La posición 0 es el campo libre de cómo se ve y no actúa; [menú] puede
+// llevar más ocupantes; el 1 de 1.1 tendría a su vez su 0 si se desarrolla por
+// dirección.
 
 export const ARIDAD = 10;
 

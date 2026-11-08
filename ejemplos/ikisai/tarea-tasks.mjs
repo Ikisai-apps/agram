@@ -252,7 +252,7 @@ export function movimientosDeEjecucion(eje, consolidacionId, tareaId) {
   const movimientos = [];
   for (const ref of tarea.payload[1][0].slice(1)) {
     const donde = indicesDe(ref.dir);
-    const importe = evaluar(eje, ref.ref, donde).valor;
+    const importe = evaluar(eje, ref.ref, donde).valor; // 1.k.1 es [importe]: la lista de un ocupante se lee como su ocupante
     if (importe?.tipo !== 'magnitud' || importe.unidad !== precio.valor.unidad) throw new Error('partida sin importe en ' + precio.valor.unidad);
     // El concepto es el ocupante 0 de la 1.k.0 (una lista de uno): se lee por índice, que sí entra en una lista.
     const concepto = evaluar(eje, ref.ref, [...donde.slice(0, -1), 0, 0]).valor;
@@ -349,9 +349,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     t: T0,
     payload: [
       'Partidas del sábado', // 0
-      // Por hojas (VG, 7-11 noche): cada partida es una décupla [[concepto], importe] (el 0 envuelto), para que
-      // su importe tenga dirección (1.k.1); [concepto, importe] sería una lista de dos ocupantes.
-      ['Partidas', ...PARTIDAS.map(([concepto, importe]) => [[concepto], importe + ' EUR'])], // 1 recursos: 1.k = [[concepto], importe]
+      // Forma canónica (VG, 8-11): cada partida es una décupla [[concepto], [importe]] (cada posición entre
+      // corchetes), para que su importe tenga dirección (1.k.1); [concepto, importe] sería una lista de dos ocupantes.
+      ['Partidas', ...PARTIDAS.map(([concepto, importe]) => [[concepto], [importe + ' EUR']])], // 1 recursos: 1.k = [[concepto], [importe]]
     ],
   }, priv('casa'));
 

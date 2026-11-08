@@ -115,7 +115,7 @@ test('hilo y fórmulas: las partidas se referencian, no se copian; coste, tiempo
   // 1.0: las partidas de la tarea son referencias; su importe vive en el registro de partidas.
   const refs = tarea.payload[1][0].slice(1);
   assert.ok(refs.every((x) => esReferencia(x) && x.ref === partidas.id));
-  assert.deepEqual(refs.map((x) => resolver(eje.obtener(x.ref).payload, x.dir)), ['250 EUR', '60 EUR', '40 EUR']);
+  assert.deepEqual(refs.map((x) => resolver(eje.obtener(x.ref).payload, x.dir)), [['250 EUR'], ['60 EUR'], ['40 EUR']]);
   // 1.1 coste total = suma de las partidas, con su desglose y sus dependencias.
   const coste = evaluar(eje, tarea.id, indicesDe(DIR_COSTE));
   assert.equal(coste.texto, '350 EUR (250 EUR + 60 EUR + 40 EUR)');

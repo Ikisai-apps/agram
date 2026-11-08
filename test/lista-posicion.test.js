@@ -37,7 +37,7 @@ test('por hojas: solo hojas es una lista; con un array dentro, una décupla; la 
   assert.ok(esLista(menu.payload[1])); // los platos: ['ensalada', 'guiso', 'fruta']
   assert.ok(esLista(compra.payload[3])); // quién habla con quién: ['huesped', 'cocina']
   assert.ok(esLista(compra.payload[2])); // una lista de uno: la referencia a los criterios del menú
-  assert.ok(esDecupla(compra.payload[1]) && !esLista(compra.payload[1])); // [[menú], 1, 'EUR 12']
+  assert.ok(esDecupla(compra.payload[1]) && !esLista(compra.payload[1])); // [[menú], [1], ['EUR 12']]
   assert.ok(!esLista([]) && !esLista('a') && !esDecupla(['a', 'b']));
 });
 
@@ -53,7 +53,7 @@ test('lista: una lista en una posición son sus ocupantes, con la misma llegada 
   assert.deepEqual(lista(eje, compra.id, [3]).map((o) => [o.llegada, o.tipo, o.evento === compra.id ? 'compra' : o.evento]), [[0, 'propio', 'compra'], [0, 'propio', 'compra'], [1, 'escrito', nota.id], [2, 'escrito', otra.id]]);
 });
 
-test('lista: una décupla es un solo ocupante; su 0 envuelto es una lista de uno con lo que alcanza', async () => {
+test('lista: una décupla es un solo ocupante; su 0 es una lista de uno con lo que alcanza', async () => {
   const { eje, compra, menu, cuenta } = await compraConCuenta();
   const l = lista(eje, compra.id, [1]);
   assert.deepEqual(l.map((o) => [o.llegada, o.tipo, o.enLista ?? false]), [[0, 'propio', false], [1, 'escrito', false]]);
@@ -115,7 +115,7 @@ test('leerDireccion: una dirección solo nombra subposiciones de décuplas, con 
 test('leerCamino con el payload: en una décupla, la regla corta; en una lista, «ocupante k» sin regla', async () => {
   const { compra } = await compraConCuenta();
   const leer = (c, epoca = EPOCA_0) => leerCamino(c, epoca, { payload: compra.payload }).map((x) => x.significado);
-  assert.deepEqual(leer([1, 1]), ['recursos', 'cuánto']); // compra 1 = [[menú], 1, 'EUR 12']: 1.1 cuánto
+  assert.deepEqual(leer([1, 1]), ['recursos', 'cuánto']); // compra 1 = [[menú], [1], ['EUR 12']]: 1.1 cuánto
   assert.deepEqual(leer([1, 2]), ['recursos', 'con qué condición']);
   assert.deepEqual(leer([3, 1]), ['comunicación', 'ocupante 2 de la posición 3']); // ['huesped', 'cocina']
   assert.deepEqual(leer([1, 0, 0]), ['recursos', 'qué es', 'ocupante 1 de la posición 1.0']); // la lista de uno [menú]
@@ -132,7 +132,7 @@ test('nombreEnNodo, décupla y mapa: la décupla lleva la regla corta; la lista 
   const { eje, compra, menu } = await compraConCuenta();
   assert.deepEqual(nombreEnNodo(['a', 'b'], 1, 1), { ocupante: 1, significado: 'ocupante 2' });
   assert.deepEqual(nombreEnNodo(['a', 'b'], 1, 2), { significado: 'con qué condición' });
-  assert.deepEqual(nombreEnNodo([['a'], 'b'], 1, 1), { significado: 'cuánto' }); // una décupla
+  assert.deepEqual(nombreEnNodo([['a'], ['b']], 1, 1), { significado: 'cuánto' }); // una décupla
   assert.deepEqual(nombreEnNodo(['a', 'b'], 0, 1), { significado: PV[1] }); // la raíz es la cruceta
   // Pointed: la décupla de la compra vuelve a leer 1.1 = cuánto; la lista de platos del menú, ocupantes.
   assert.deepEqual(decupla({ ...compra, payload: compra.payload[1] }, EPOCA_0, 1).posiciones.map((p) => p.significado), PREGUNTAS);

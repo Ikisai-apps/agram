@@ -34,7 +34,7 @@ test('clasificar: la lista de la posición como piezas por llegada y la cruceta 
   // compra 3 = ['huesped', 'cocina']: una lista, dos piezas con la misma llegada y en su orden.
   const m = modeloClasificar(eje, c.id, [3]);
   assert.deepEqual(m.piezas.map((p) => [p.clave, p.n, p.llegada, p.texto]), [[c.id + '#3[0]', 1, 0, 'huesped'], [c.id + '#3[1]', 2, 0, 'cocina']]);
-  // compra 1 = [[menú], 1, 'EUR 12']: una décupla, una sola pieza; la cuenta, escrita encima, la segunda.
+  // compra 1 = [[menú], [1], ['EUR 12']]: una décupla, una sola pieza; la cuenta, escrita encima, la segunda.
   const uno = modeloClasificar(eje, c.id, [1]);
   assert.deepEqual(uno.piezas.map((p) => p.clave), [c.id + '#1', cuenta.id + '#']);
   assert.match(uno.piezas[0].texto, /^→ [0-9a-f]{8} · \[3\]$/); // la décupla se nombra por su 0: la referencia al menú
@@ -135,8 +135,8 @@ test('clasificar: el elemento que se escribe; lo que no se puede nombrar por dir
   assert.throws(() => elementoDe({ tipo: 'propio', enLista: true, indice: 2, evento: f, camino: [1], contenido: '=LOCAL(1) + 2 EUR' }), /ocupante 3 de una lista no se puede nombrar por dirección/);
   assert.equal(elementoDe({ tipo: 'propio', evento: f, camino: [1, 2], contenido: 'EUR 12' }), 'EUR 12');
   assert.deepEqual(elementoDe({ tipo: 'propio', evento: f, camino: [1, 2], contenido: '=LOCAL(1) + 2 EUR' }), { ref: f, dir: '1200000000' });
-  assert.deepEqual(elementoDe({ tipo: 'propio', evento: f, camino: [1], contenido: [['a'], 'b'] }), { ref: f, dir: '1000000000' });
-  assert.throws(() => elementoDe({ tipo: 'propio', evento: f, camino: [1, 0], contenido: [['a'], 'b'] }), /no se puede nombrar por dirección/);
+  assert.deepEqual(elementoDe({ tipo: 'propio', evento: f, camino: [1], contenido: [['a'], ['b']] }), { ref: f, dir: '1000000000' });
+  assert.throws(() => elementoDe({ tipo: 'propio', evento: f, camino: [1, 0], contenido: [['a'], ['b']] }), /no se puede nombrar por dirección/);
   assert.deepEqual(elementoDe({ tipo: 'escrito', evento: f, camino: [], contenido: 'x' }), { ref: f });
   assert.equal(claveDe({ evento: f, camino: [] }), f + '#');
   assert.equal(claveDe({ evento: f, camino: [3], indice: 1 }), f + '#3[1]');
