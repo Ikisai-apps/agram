@@ -35,9 +35,9 @@ const ejeGrande = (minutos) => Eje.genesis({ demostracion: true, identidad: 'cas
 
 /**
  * Una ficha cuyo precio [1][2] desarrolla las clases 0–3. VG, 7-11 noche: por hojas: el precio es una
- * décupla porque su 0 va envuelto (['EUR 12']); con solo hojas sería una lista de cuatro ocupantes.
+ * décupla porque cada posición va entre corchetes (['EUR 12']); con solo hojas sería una lista de cuatro ocupantes.
  */
-const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.genesisId, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, [['EUR 12'], 'de huesped', 'precio fijo', 'aviso a cocina']]] });
+const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.genesisId, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] });
 
 test('clases de modificación: VG nombró 0–4; las 5–9 están sin decidir; la clase es el dígito n+2 bajo el camino', () => {
   assert.equal(CLASES.length, 10);
@@ -69,11 +69,11 @@ test('ver es clase 0, emite una referencia a lo visto y solo ve lo que el foco t
   assert.deepEqual(salida.anclados, []);
   assert.deepEqual(salida.payload, [
     ref(compra.id, '0000000000'),
-    [[ref(compra.id, '1000000000')], ref(compra.id, '1100000000'), ref(compra.id, '1200000000')], // por hojas: el 0 envuelto, para que sea décupla
+    [[ref(compra.id, '1000000000')], [ref(compra.id, '1100000000')], [ref(compra.id, '1200000000')]], // cada posición entre corchetes (forma canónica), para que sea décupla
   ]);
   assert.deepEqual(salida.heredadas, [0, '1.0', '1.1']); // lo no modificado anterior a lo visto, por referencia
   assert.deepEqual(salida.vistas, ['1.2']);
-  assert.equal(resolver(compra.payload, resolver(salida.payload, direccion([1, 2, 0])).dir), 'EUR 12');
+  assert.deepEqual(resolver(compra.payload, resolver(salida.payload, direccion([1, 2, 0]))[0].dir), ['EUR 12']); // 1.2 es la lista de un ocupante
   // No se ve lo que el foco no tiene: la compra no tiene 0.5 (su 0 es un terminal) ni 2.3.
   assert.throws(() => desdeMapped(eje, [{ i: 0, j: 5 }], compra.id), /^Error: no hay nada que ver en 0\.5: el foco no tiene esa celda$/);
   assert.throws(() => desdeMapped(eje, [{ i: 2, j: 3 }], compra.id), /no hay nada que ver en 2\.3/);
@@ -163,11 +163,13 @@ test('la raíz de un foco terminal hereda su posición 0, como en main ([X] deci
   assert.deepEqual(app.payload, [ref(g, '0000000000'), 'algo']);
   const { registro } = await escribirSalida(eje, { autor: 'huesped', sobre: g, salida: s, t: T });
   assert.deepEqual(registro.contexto.heredadas, [0]);
-  // Lo mismo con un camino que lleva a un terminal: el precio de la compra, bajo [1, 2].
-  const bajo = desdeMapped(eje, lineas, compra.id, [1, 2]);
-  assert.deepEqual(bajo.payload, [ref(compra.id, '1200000000'), 'algo']);
-  assert.equal(resolver(compra.payload, bajo.payload[0].dir), 'EUR 12');
-  assert.equal(ubicar(eje, compra.id, [1, 0, 0], { camino: [1, 2] }).ubicacion, 'dentro');
+  // Lo mismo con un camino que lleva a un terminal: la cantidad de una ficha, bajo [1, 1] (en la compra canónica,
+  // 1.2 es la lista de un ocupante y no un terminal).
+  const ficha = await escribirFicha(eje);
+  const bajo = desdeMapped(eje, lineas, ficha.id, [1, 1]);
+  assert.deepEqual(bajo.payload, [ref(ficha.id, '1100000000'), 'algo']);
+  assert.equal(resolver(ficha.payload, bajo.payload[0].dir), 1);
+  assert.equal(ubicar(eje, ficha.id, [1, 0, 0], { camino: [1, 1] }).ubicacion, 'dentro');
   // Solo la posición 0 de la raíz: lo demás que cuelga de un terminal no tiene base y se ancla.
   assert.deepEqual(desdeMapped(eje, [{ i: 0, j: 1, k: 0, contenido: 'x' }], g).anclados, [{ celda: [0, 1, 0], en: '0100000000', payload: 'x', faltan: ['0.0'] }]);
   assert.deepEqual(desdeMapped(eje, [{ i: 2, contenido: 'x' }], g).anclados, [{ celda: [2, 0, 0], en: '2000000000', payload: 'x', faltan: ['1'] }]);
@@ -209,11 +211,11 @@ test('pagar dentro: cuando el foco desarrolla las clases de la celda, se heredan
   const ficha = await escribirFicha(eje);
   const salida = desdeMapped(eje, [{ i: 1, j: 2, k: 4, contenido: 'pagar 12 EUR' }], ficha.id);
   assert.deepEqual(salida.anclados, []);
-  assert.equal(salida.payload[1][2][4], 'pagar 12 EUR');
+  assert.deepEqual(salida.payload[1][2][4], ['pagar 12 EUR']);
   assert.deepEqual(salida.heredadas, [0, '1.0', '1.1', '1.2.0', '1.2.1', '1.2.2', '1.2.3']);
-  assert.deepEqual(['1.2.1', '1.2.2', '1.2.3'].map((h) => resolver(ficha.payload, en(salida.payload, h).dir)), ['de huesped', 'precio fijo', 'aviso a cocina']);
+  assert.deepEqual(['1.2.1', '1.2.2', '1.2.3'].map((h) => resolver(ficha.payload, en(salida.payload, h).dir)), [['de huesped'], ['precio fijo'], ['aviso a cocina']]);
   // 1.2.0 nombra la colisión con 1.2 (ceros finales): alcanza la celda entera.
-  assert.deepEqual(resolver(ficha.payload, en(salida.payload, '1.2.0').dir), [['EUR 12'], 'de huesped', 'precio fijo', 'aviso a cocina']);
+  assert.deepEqual(resolver(ficha.payload, en(salida.payload, '1.2.0').dir), [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]);
   // En Mapped, la celda va dentro: una sola emitida, siete heredadas; el registro va en la raíz, donde dice ubicar.
   const u = ubicar(eje, ficha.id, [1, 2, 4], { modo: 'mapped' });
   const ev = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: ficha.id, celda: [1, 2, 4], payload: 'pagar 12 EUR', t: T });
@@ -341,7 +343,7 @@ test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avi
   assert.deepEqual(salida.anclados, []);
   const { payload } = salida;
   assert.equal(contarPosiciones(payload), 1000);
-  assert.equal(payload[1][2][4], '1.2.4');
+  assert.deepEqual(payload[1][2][4], ['1.2.4']);
   assert.equal(cabeTope(payload, 'mapped'), true);
   assert.equal(cabeTope(payload, 'sequenced'), false);
   // La proporción (de 250 a 333 en Mapped) ya no rechaza: propone, y lo que se sale se avisa.
@@ -476,7 +478,7 @@ test('líneas de Mapped: sin marca, texto como antes; con «@:j.k», la celda', 
   const lineas = [];
   lineas[4] = ['pagado', '0.1 con tarjeta', 'servido'];
   const llano = desdeMapped(eje, lineas, compra.id);
-  assert.deepEqual(llano.payload[4], [['pagado'], '0.1 con tarjeta', 'servido']); // por hojas: la salida es una décupla, su 0 va envuelto
+  assert.deepEqual(llano.payload[4], [['pagado'], ['0.1 con tarjeta'], ['servido']]); // la salida de Mapped es una décupla canónica (VG, 8-11)
   assert.deepEqual(llano.heredadas, [0, 1, 2, 3]);
   // Con la marca «@:j.k» (propuesta, [X] decidir VG), la línea fija subposición y clase; las demás van a las subposiciones libres con clase 0.
   const marcadas = [];
@@ -515,7 +517,7 @@ test('líneas de Mapped: sin marca, texto como antes; con «@:j.k», la celda', 
   assert.throws(() => desdeMapped(eje, repetida, compra.id), /la celda 2\.0\.0 está dos veces/);
   const sinMarca = [];
   sinMarca[2] = ['0.0 uno', '0.0 dos'];
-  assert.deepEqual(desdeMapped(eje, sinMarca, compra.id).payload[2], [['0.0 uno'], '0.0 dos']);
+  assert.deepEqual(desdeMapped(eje, sinMarca, compra.id).payload[2], [['0.0 uno'], ['0.0 dos']]);
   // Una referencia sigue siendo una referencia: «@» seguido del id.
   const conRef = [];
   conRef[2] = ['@' + compra.id.slice(0, 8)];
@@ -580,7 +582,7 @@ test('la matriz es relativa al camino: celda, dirección y clase coinciden en to
   // La cadena entera, sobre la compra y sobre la ficha (que desarrolla el precio), con mucho T.
   const eje = await ejeGrande(100000);
   const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: base.compra.payload });
-  const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, [['EUR 12'], 'de huesped', 'precio fijo', 'aviso a cocina']]] }); // VG, 7-11 noche: por hojas (como escribirFicha)
+  const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] }); // VG, 7-11 noche: por hojas (como escribirFicha)
   const celdas = [[0, 0, 0], [0, 1, 0], [1, 0, 1], [2, 0, 4], [3, 0, 0], [3, 2, 1], [7, 3, 4], [9, 9, 9]];
   const vistos = { dentro: 0, anclado: 0 };
   let n = 0;

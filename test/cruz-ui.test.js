@@ -109,8 +109,8 @@ test('el 5: la lente es la posición 0 en el camino, como la celda 5 de Mapped',
   const ev = eje.obtener(compra.id);
   assert.equal(lenteDe(ev), String(ev.payload[0]));
   assert.equal(lenteDe({ payload: 'solo' }), 'solo');
-  assert.equal(lenteDe({ payload: [[['a'], 'b']] }), '[2]');
-  assert.equal(lenteDe({ payload: [[['a'], 'b']] }, [0]), '[1]');
+  assert.equal(lenteDe({ payload: [[['a'], ['b']]] }), '[2]');
+  assert.equal(lenteDe({ payload: [[['a'], ['b']]] }, [0]), '[1]');
   assert.equal(lenteDe({ payload: [{ ref: 'f'.repeat(64) }] }), '→ffffffff');
   assert.equal(lenteDe({ payload: ['x'] }, [3]), '—');
 });

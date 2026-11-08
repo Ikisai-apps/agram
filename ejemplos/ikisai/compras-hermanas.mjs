@@ -28,7 +28,7 @@
 // 1 y una dirección no entra en ellos. Por eso cada compra referencia la
 // lista entera ('1000000000') y no un plato por dirección; el plato lo dice
 // su representación. Los recursos de cada compra son una décupla con el 0
-// envuelto: [[lo comprado], cuánto, a qué precio].
+// entre corchetes (forma canónica, VG 8-11): [[lo comprado], [cuánto], [a qué precio]].
 // [X] decidir VG: cómo se referencia un elemento de una lista (una
 // referencia BTML es una dirección, y una dirección no entra en una lista).
 
@@ -116,7 +116,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     movimientos: [hora('huesped'), eur('huesped', 'cocina', 12)],
     payload: [
       'Compra del menú del día',
-      [[{ ref: menu.id, dir: '1000000000' }], 1, 'EUR 12'],
+      [[{ ref: menu.id, dir: '1000000000' }], [1], ['EUR 12']],
       [{ ref: menu.id, dir: '2000000000' }],
       ['huesped', 'cocina'],
       ['pagar', 'servir'],
@@ -127,7 +127,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     sobre: menu.id,
     t: '2026-11-07T15:10:00Z',
     movimientos: [hora('huesped'), eur('huesped', 'cocina', 6)],
-    payload: ['Compra de fruta', [[{ ref: menu.id, dir: '1000000000' }], 2, 'EUR 3'], ['huesped', 'cocina']],
+    payload: ['Compra de fruta', [[{ ref: menu.id, dir: '1000000000' }], [2], ['EUR 3']], ['huesped', 'cocina']],
   });
   const guisos = await escribir({
     autor: 'vecina',
@@ -136,7 +136,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     movimientos: [hora('vecina'), eur('vecina', 'cocina', 12)],
     payload: [
       'Compra de dos guisos',
-      [[{ ref: menu.id, dir: '1000000000' }], 2, '=2 * 6 EUR'], // fórmula resuelta
+      [[{ ref: menu.id, dir: '1000000000' }], [2], ['=2 * 6 EUR']], // fórmula resuelta
       [{ ref: menu.id, dir: '2000000000' }],
       ['vecina', 'cocina'],
       ['pagar', '=LOCAL(9)'], // fórmula pendiente: la 9 no está desarrollada
@@ -164,14 +164,14 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     sobre: cena.id,
     t: '2026-11-07T16:10:00Z',
     movimientos: [hora('huesped'), eur('huesped', 'cocina', 9)],
-    payload: ['Compra de la cena', [[{ ref: cena.id, dir: '1000000000' }], 1, 'EUR 9'], ['huesped', 'cocina']],
+    payload: ['Compra de la cena', [[{ ref: cena.id, dir: '1000000000' }], [1], ['EUR 9']], ['huesped', 'cocina']],
   });
   const sopa = await escribir({
     autor: 'vecina',
     sobre: cena.id,
     t: '2026-11-07T16:20:00Z',
     movimientos: [hora('vecina'), eur('vecina', 'cocina', 7)],
-    payload: ['Sopa para llevar', [[{ ref: cena.id, dir: '1000000000' }], 1, '=9 EUR - 2 EUR']],
+    payload: ['Sopa para llevar', [[{ ref: cena.id, dir: '1000000000' }], [1], ['=9 EUR - 2 EUR']]],
   });
 
   // Proyecto B: el mercado, su cosa y un puesto con dos compras.
@@ -196,14 +196,14 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     sobre: puesto.id,
     t: '2026-11-07T17:10:00Z',
     movimientos: [hora('vecina'), eur('vecina', 'cocina', 4)],
-    payload: ['Compra de manzanas', [[{ ref: puesto.id, dir: '1000000000' }], 3, 'EUR 4']],
+    payload: ['Compra de manzanas', [[{ ref: puesto.id, dir: '1000000000' }], [3], ['EUR 4']]],
   });
   const peras = await escribir({
     autor: 'huesped',
     sobre: puesto.id,
     t: '2026-11-07T17:20:00Z',
     movimientos: [hora('huesped'), eur('huesped', 'cocina', 3)],
-    payload: ['Compra de peras', [[{ ref: puesto.id, dir: '1000000000' }], 2, 'EUR 3']],
+    payload: ['Compra de peras', [[{ ref: puesto.id, dir: '1000000000' }], [2], ['EUR 3']]],
   });
 
   return { eje, claves, comedor, menu, compra, fruta, guisos, cafe, cena, compraCena, sopa, mercado, puesto, manzanas, peras };

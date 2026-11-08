@@ -134,7 +134,7 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
   assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '3.0.0 escrito', '4.0.0 escrito']);
   for (const e of sinTokens(efectos).slice(1)) assert.ok(e.decisiones.includes(MARCAS_EFECTO.matriz));
   // En la raíz no hay duda de marco; [1][0][0] y [2][0] son referencias al menú: herencia, no efecto.
-  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (el 0 envuelto).
+  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (cada posición entre corchetes).
   assert.ok(!registro.decisiones.includes(MARCAS_EFECTO.marco));
   assert.deepEqual(compra.payload[1][0], [{ ref: menu.id, dir: '1000000000' }]);
   assert.deepEqual(compra.payload[2][0], { ref: menu.id, dir: '2000000000' });
@@ -194,7 +194,7 @@ test('un solo marco para terminales y arrays: la misma celda da el mismo mundo, 
   // Tres registros en la raíz de la compra con algo en 1, 1.0 y 1.0.0: misma celda, caminos distintos.
   const en1 = async (payload) => efectosDe(eje, await escribe(eje, 'cocina', compra.id, '0000000000', ['Nota', payload])).find((e) => e.ruta.length);
   // VG, 7-11 noche: por hojas. Solo hojas bajo la raíz es una lista, una celda: para bajar a la 1.0 y la 1.0.0 hacen falta décuplas.
-  const caminos = [await en1('uno'), await en1([['uno'], 'dos']), await en1([[['uno'], 'dos']])];
+  const caminos = [await en1('uno'), await en1([['uno'], ['dos']]), await en1([[['uno'], ['dos']]])];
   assert.deepEqual(caminos.map((e) => [e.celda, e.camino]), [['1000000000', [1]], ['1000000000', [1, 0]], ['1000000000', [1, 0, 0]]]);
 });
 
@@ -202,10 +202,10 @@ test('la clase de una celda de dentro: impulso, modificar, y lo que el corpus no
   const { eje, compra } = await ejemploCompra();
   const ajuste = await escribe(eje, 'cocina', compra.id, '0000000000', [
     'Ajuste',
-    // VG, 7-11 noche: por hojas. Décuplas con el 0 envuelto, para que cada hoja sea su propia celda.
-    [['nuevo'], 'propina'],
-    [[['k0'], 'k1', 'k2', 'k3']],
-    [[['h0'], 'h1', 'h2', 'h3', 'h4', 'h5']],
+    // VG, 7-11 noche: por hojas. Décuplas con cada posición entre corchetes, para que cada hoja sea su propia celda.
+    [['nuevo'], ['propina']],
+    [[['k0'], ['k1'], ['k2'], ['k3']]],
+    [[['h0'], ['h1'], ['h2'], ['h3'], ['h4'], ['h5']]],
   ]);
   const celdas = sinTokens(efectosDe(eje, ajuste)).slice(1);
   const ver = (et) => celdas.find((e) => e.etiqueta === et);
@@ -410,7 +410,7 @@ test('marco de quien mira: un registro anclado en el camino se lee desde él, co
   const gasto = { token: 'T', escala: 'minuto', cantidad: 4, de: 'huesped', a: null };
   const bajo = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '1000000000', t: T, movimientos: [gasto],
-    payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], 'impulso']]],
+    payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], ['impulso']]]],
   });
   const celdas = (efectos) => efectos.filter((e) => DE_CELDA.includes(e.tipo)).map((e) => `${e.etiqueta}:${e.tipo}`);
   // Sin marco, desde la raíz: hasta la profundidad 3, la clase es el tercer dígito de la dirección.

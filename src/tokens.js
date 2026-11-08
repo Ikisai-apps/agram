@@ -102,8 +102,8 @@ export function esIdRegistro(x) {
 
 /**
  * Capacidad (VG, 7-11). Una décupla declara cuántos caben con un entero
- * positivo en su criterio, la posición 2: una plaza [nombre, precio,
- * capacidad] bajo la época 0 (0 representación, 1 recursos, 2 criterios).
+ * positivo en su criterio, la posición 2: una plaza [[nombre], [precio],
+ * [capacidad]] bajo la época 0 (0 representación, 1 recursos, 2 criterios).
  * La leen el motor, para el contador informativo de una posición
  * (motor.ocupacion), y el eje, para el TOPE de E de un registro: la capacidad
  * de un registro es la que declara su payload raíz en la posición 2.
@@ -114,7 +114,9 @@ export const CRITERIO_CAPACIDAD = 2;
 /** Capacidad que declara una décupla (el contenido de una posición o el payload de un registro), o undefined. */
 export function capacidadDe(nodo) {
   if (!Array.isArray(nodo)) return undefined;
-  const c = nodo[CRITERIO_CAPACIDAD];
+  // Forma canónica (VG, 8-11): cada posición entre corchetes; [2] es la lista de un ocupante, y una hoja suelta es lo mismo.
+  const p = nodo[CRITERIO_CAPACIDAD];
+  const c = Array.isArray(p) && p.length === 1 ? p[0] : p;
   return Number.isSafeInteger(c) && c > 0 ? c : undefined;
 }
 

@@ -104,12 +104,12 @@ Asimetría: en un **slot** la unidad puede ir delante (`'EUR 12'`); dentro de un
 
 **Listas: por índice sí, por dirección no** (VG, 7-11 noche: por hojas). Un array solo de hojas fuera de la raíz es una lista, sus ocupantes fuera de los dígitos. Los **índices** entran en ella: `LOCAL(3, 1)`, `evaluar(eje, id, [3, 1])` y el valor de un candidato de `BUSCAR` dan el elemento. Una **dirección** no: `REF(id, "1100000000")` sobre un menú cuya 1 es una lista, una referencia BTML con esa `dir` o `evaluar(eje, id, '1100000000')` dan `PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; …`. La dirección de la propia lista la da entera (valor `lista`).
 
-Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`; compra 1 = `[[ref menú:1], 1, 'EUR 12']`, 3 = `['huesped', 'cocina']`):
+Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`; compra 1 = `[[ref menú:1], [1], ['EUR 12']]`, 3 = `['huesped', 'cocina']`):
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ d367743b` (la lista de uno, con su referencia) |
-| `evaluar(eje, compra.id, [1, 0, 0])` | RESUELTO | `→ d367743b` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ ff05e68f` (la lista de uno, con su referencia) |
+| `evaluar(eje, compra.id, [1, 0, 0])` | RESUELTO | `→ ff05e68f` |
 | `evaluar(eje, compra.id, [3])` | RESUELTO | `huesped · cocina` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 0)')` | RESUELTO | `ensalada · guiso · fruta` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |
@@ -319,7 +319,7 @@ Lee `[…anfitrión, i, j, …]` del evento de la fórmula. Sigue fórmulas (con
 | `LOCAL(10)`, `LOCAL(1.5)`, `LOCAL("1")` | ERROR | `ERROR: LOCAL espera índices 0–9` |
 | `LOCAL(1)` en el slot `[1]` | ERROR | `ERROR: ciclo en <id8>:1000000000` |
 
-Con el payload `['Compra', [['menú'], 1, 'EUR 12'], '=LOCAL(1, 2) + 2 EUR', '=LOCAL(2) + 15 min']` (la 1 es una décupla: su 0 va envuelto): `evaluar(eje, id, [2])` → `14 EUR (12 EUR + 2 EUR)`; `evaluar(eje, id, [3])` → `14 EUR (12 EUR + 2 EUR) + 15 min`, con `dependencias` que incluyen `<id>:2000000000` y `<id>:3000000000`.
+Con el payload `['Compra', [['menú'], [1], ['EUR 12']], '=LOCAL(1, 2) + 2 EUR', '=LOCAL(2) + 15 min']` (la 1 es una décupla: cada posición va entre corchetes): `evaluar(eje, id, [2])` → `14 EUR (12 EUR + 2 EUR)`; `evaluar(eje, id, [3])` → `14 EUR (12 EUR + 2 EUR) + 15 min`, con `dependencias` que incluyen `<id>:2000000000` y `<id>:3000000000`.
 
 ### 7.3 `REF(id, dir?)`
 
@@ -384,18 +384,18 @@ Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pag
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio 936b43ee · propio 936b43ee · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (los dos elementos de la lista y las propinas ancladas en ella) |
-| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio 936b43ee` (el ocupante 0 por llegada: `'pagar'`) |
+| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio 3147f38b · propio 3147f38b · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (los dos elementos de la lista y las propinas ancladas en ella) |
+| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio 3147f38b` (el ocupante 0 por llegada: `'pagar'`) |
 | `BUSCAR(4, 2)` | RESUELTO | `1 candidato: escrito c35e43b1` (el ocupante 2: la primera propina) |
 | `BUSCAR(4, 9)` | RESUELTO | `0 candidatos` |
-| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio 936b43ee · propio 936b43ee · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (la colisión entera; no entra en la lista: sus elementos ya son los ocupantes) |
+| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio 3147f38b · propio 3147f38b · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (la colisión entera; no entra en la lista: sus elementos ya son los ocupantes) |
 | `ACTUAL(4)` | RESUELTO | `pagar` |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
 | `BUSCAR("4")` | ERROR | `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos` |
-| `BUSCAR(1)` (compra: la 1 es una décupla; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio 936b43ee · escrito 2b75f87f` |
-| `BUSCAR(1, 1)` | RESUELTO | `1 candidato: escrito 2b75f87f` (el ocupante 1 por llegada: la cuenta) |
-| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio 936b43ee · propio 936b43ee · referencia d367743b · escrito 2b75f87f` |
+| `BUSCAR(1)` (compra: la 1 es una décupla; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio 3147f38b · escrito bcc60646` |
+| `BUSCAR(1, 1)` | RESUELTO | `1 candidato: escrito bcc60646` (el ocupante 1 por llegada: la cuenta) |
+| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio 3147f38b · propio 3147f38b · referencia ff05e68f · escrito bcc60646` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -408,7 +408,7 @@ La misma firma en los dos modos, `ACTUAL(pv, cantidad?)`: el segundo parámetro 
 | Caso | Resultado |
 |---|---|
 | `ACTUAL(pv)` o `ACTUAL(pv, 1)` | el **valor** del primer candidato (no una colección): `ACTUAL(4)` → `pagar` (la 4 es la lista `['pagar', 'servir']`: su primer elemento; por hojas, VG 7-11 noche) |
-| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio 936b43ee · propio 936b43ee` (los dos elementos de la lista); `CONTAR(ACTUAL(4, 99))` → `5` |
+| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio 3147f38b · propio 3147f38b` (los dos elementos de la lista); `CONTAR(ACTUAL(4, 99))` → `5` |
 | sin candidatos | PENDIENTE `sin candidatos en la posición <pv>` |
 | `ACTUAL()` (sin ámbito activo) | PENDIENTE `ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer` (corpus: «sin ámbito activo, no inventa un origen y queda pendiente») |
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
@@ -825,7 +825,7 @@ const compra = await eje.escribir({
   autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')],
   payload: [
     'Compra',                    // 0
-    [['menú'], 1, 'EUR 12'],     // 1 recursos: qué, cuánto, precio (una décupla: por hojas, su 0 va envuelto)
+    [['menú'], [1], ['EUR 12']],     // 1 recursos: qué, cuánto, precio (una décupla: por hojas, cada posición va entre corchetes)
     '=LOCAL(1, 2) + 2 EUR',      // 2 fórmula: lee 1.2 del anfitrión y suma
     '=LOCAL(2) + 15 min',        // 3 fórmula que lee otra fórmula: composición heterogénea
     ['pagar', 'servir'],         // 4 fábrica: una lista, dos ocupantes
@@ -896,13 +896,13 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → e30fa065
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 18461554
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
 dependencias de compra [3]: [
-  'e30fa065…:3000000000',
-  'e30fa065…:2000000000',
-  'e30fa065…:1200000000'
+  '18461554…:3000000000',
+  '18461554…:2000000000',
+  '18461554…:1200000000'
 ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
@@ -914,20 +914,20 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio e30fa065 · propio e30fa065 · escrito 77601eb3 · escrito f4b61dfe · escrito c01296e9
-BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio e30fa065 · propio e30fa065 · escrito 77601eb3 · escrito f4b61dfe · escrito c01296e9
+BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 18461554 · propio 18461554 · escrito 286ca031 · escrito 7258cb1e · escrito a07e927e
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 18461554 · propio 18461554 · escrito 286ca031 · escrito 7258cb1e · escrito a07e927e
 CONTAR(BUSCAR(4))                                          → RESUELTO     5
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: texto y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 77601eb3 · escrito f4b61dfe
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito f4b61dfe
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 286ca031 · escrito 7258cb1e
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito 7258cb1e
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     pagar
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio e30fa065 · propio e30fa065
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 18461554 · propio 18461554
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

@@ -283,9 +283,9 @@ function construir(foco, camino, celdas, heredadas) {
       }
     }
     if (d > 0 && arr.length === 1 && esTerminal(arr[0])) return arr[0];
-    // Por hojas (VG, 7-11 noche): bajo la raíz, un array solo de hojas sería una lista; la salida es una
-    // décupla, así que su 0 va envuelto (la convención de los ejemplos): [[ref 1.0], ref 1.1, …].
-    return d > 0 && esLista(arr) ? [[arr[0]], ...arr.slice(1)] : arr;
+    // Forma canónica (VG, 8-11): bajo la raíz, un array solo de hojas sería una lista; la salida es una
+    // décupla, así que cada posición va entre corchetes: [[ref 1.0], [ref 1.1], …].
+    return d > 0 && esLista(arr) ? arr.map((x) => [x]) : arr;
   };
   return nivel([], celdas);
 }

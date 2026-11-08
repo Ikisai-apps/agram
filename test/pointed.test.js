@@ -8,8 +8,8 @@ const ev = {
   autor: 'raiz',
   t: '2026-11-06T20:00:00Z',
   sobre: null,
-  // Por hojas (VG, 7-11 noche): la 1 es una décupla (su 0 va envuelto); la 2, una lista de uno.
-  payload: ['Menú del día', [['menú'], 1, 'EUR 12'], ['sin gluten'], { ref: 'ffff0000aaaa', dir: '3000000000' }],
+  // Por hojas (VG, 7-11 noche): la 1 es una décupla (cada posición entre corchetes); la 2, una lista de uno.
+  payload: ['Menú del día', [['menú'], [1], ['EUR 12']], ['sin gluten'], { ref: 'ffff0000aaaa', dir: '3000000000' }],
 };
 
 test('décupla: diez posiciones con significado de época 0', () => {
@@ -17,7 +17,7 @@ test('décupla: diez posiciones con significado de época 0', () => {
   assert.equal(d.posiciones.length, 10);
   assert.deepEqual(d.posiciones.map((p) => p.significado), [...PV]);
   assert.equal(d.posiciones[0].contenido, 'Menú del día');
-  assert.deepEqual(d.posiciones[1].contenido, [['menú'], 1, 'EUR 12']);
+  assert.deepEqual(d.posiciones[1].contenido, [['menú'], [1], ['EUR 12']]);
   assert.equal(d.posiciones[9].contenido, undefined);
 });
 
@@ -52,7 +52,7 @@ test('leer dirección bajo época 0', () => {
 
 // VG, 7-11 noche (10.1): lo leído se cuenta por lo que hay; antes, una décupla contaba siempre diez.
 test('décupla: alcance con los tres números de Pointed; cuenta las posiciones con contenido, no diez', () => {
-  // 'Menú del día' 1 + [['menú'], 1, 'EUR 12'] 3 + ['sin gluten'] 1 + la referencia 1 = 6.
+  // 'Menú del día' 1 + [['menú'], [1], ['EUR 12']] 3 + ['sin gluten'] 1 + la referencia 1 = 6.
   assert.deepEqual(decupla(ev).alcance, { conseguido: 6, minimo: 1, maximo: 10, alMinimo: true });
   assert.deepEqual(decupla({ ...ev, payload: 42 }).alcance, { conseguido: 1, minimo: 1, maximo: 10, alMinimo: true }); // un terminal, una
   assert.deepEqual(decupla({ ...ev, payload: ['a', 'b', 'c'] }).alcance.conseguido, 3); // una décupla con tres posiciones, tres

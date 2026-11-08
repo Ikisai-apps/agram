@@ -5,7 +5,7 @@ BTML es la estructura de datos de AGRAM. Este documento describe BTML **tal como
 Convenciones de este documento:
 
 - Todos los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `936b43ee`, cuenta `2b75f87f`.
+- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `2d970a48`, alta `82aafc7b`, menú `ff05e68f`, compra `3147f38b`, cuenta `bcc60646`.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
 
 Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, con la PR #28, que cambió el vector guardado en las consolidaciones, y con la PR #35, que puso el génesis en series: minutos, `E:casa/EUR`, tipo `grupo`). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
@@ -116,7 +116,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97",
+  "sobre": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -125,13 +125,13 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ [ { "ref": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97", "dir": "1000000000" } ], 1, "EUR 12" ],
-    [ { "ref": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97", "dir": "2000000000" } ],
+    [ [ { "ref": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf", "dir": "1000000000" } ], [ 1 ], [ "EUR 12" ] ],
+    [ { "ref": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf", "dir": "2000000000" } ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "936b43ee0ba67beded31a279af45ceeb52f58db974bb65811d4eb04eca44407a"
+  "id": "3147f38b6bc7745265e82c9344b38ba9c68de5dda79c091781ed94a524841b5a"
 }
 ```
 
@@ -156,7 +156,7 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
 4 · fábrica: pagar · servir · 2 ocupantes
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1; el 0 va envuelto para que la 1 sea décupla), 1.1 cuánto (`1`), 1.2 con qué condición (`"EUR 12"`). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1), 1.1 cuánto (la lista de uno `[1]`), 1.2 con qué condición (la lista de uno `["EUR 12"]`); cada posición va entre corchetes (forma canónica, VG 8-11, §3.2). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -366,7 +366,20 @@ Decisión de VG (7-11 noche: por hojas). Una **hoja** es un terminal o una refer
 - un array cuyos elementos son **todos hojas** es una **lista** (`esLista`): cada elemento es un **ocupante** de esa posición, con la misma llegada y el mismo encaje que el evento y en el orden de la lista (desempate estable). No tiene tope de diez (el tope por evento lo pone el modo, que cuenta cada elemento: `modos.cabeTope`). Se alcanza por **índice** (`encaje.lista`, BQL `BUSCAR(n, k)` y `LOCAL`), **nunca por dirección**: una dirección que caiga dentro de una lista no existe (§4.4). Está fuera de los dígitos: no lleva PV;
 - un array con **al menos un array** dentro es una **décupla** (`esDecupla`): sus índices 0–9 son las subposiciones (los PV aplicados al nodo de arriba, §4.3), direccionables por dígitos. Dentro de una décupla, una hoja suelta es **un** ocupante de esa subposición.
 
-El payload **raíz** es siempre la décupla de lo escrito (la cruceta), aunque sean solo hojas: `['Compra', 1, 'EUR 12']` en la raíz son las posiciones 0, 1 y 2. Convención de los ejemplos: para que un grupo de hojas sea décupla se **envuelve su posición 0** (qué es): `compra 1 = [[menú], 1, 'EUR 12']` (1.0 = la lista de uno `[menú]`, 1.1 = `1`, 1.2 = `'EUR 12'`); `[menú, 1]` sería una lista de dos ocupantes. ([X] decidir VG: si esa convención es la forma canónica.)
+El payload **raíz** es siempre la décupla de lo escrito (la cruceta), aunque sean solo hojas: `['Compra', 1, 'EUR 12']` en la raíz son las posiciones 0, 1 y 2.
+
+**Forma canónica de la décupla y la lista (VG, 8-11).** Estas dos líneas son la forma correcta:
+
+```
+menú   = ['Menú del día', ['ensalada', 'guiso', 'fruta']]
+compra = ['Compra', [[menú], [1]]]
+```
+
+Regla de lectura, en tres frases. El payload raíz es siempre una décupla. Dentro de una posición, un corchete de solo hojas es la **lista** de ocupantes de esa posición, y un corchete que contiene corchetes es una **décupla**. Una hoja suelta en una posición es la lista de un solo ocupante (`1` vale lo mismo que `[1]`); la forma canónica de una décupla de solo hojas es **cada posición entre corchetes** (`[[menú], [1]]`, `[[menú], [1], ['EUR 12']]`), y se retira la convención de envolver solo la posición 0 (`[[menú], 1, 'EUR 12']`, la de la #69), que sigue siendo válida pero no es la canónica.
+
+Nota (VG, 8-11): la posición 0 es el campo libre de cómo se ve y no actúa; `[menú]` puede llevar más ocupantes; el `1` de 1.1 tendría a su vez su 0 si se desarrolla por dirección.
+
+Lectura de `compra`: la 1 es la décupla `[[menú], [1]]`; su 1.0 es la lista `[menú]` (un ocupante: la referencia al menú), su 1.1 la lista `[1]` (un ocupante: la cantidad). `[menú, 1]` sería una lista de dos ocupantes, no una décupla. Los lectores (BQL `LOCAL`/`REF`, `seguir`, el cálculo del tramo y de la capacidad) leen la lista de **un** ocupante como su único ocupante: `['=LOCAL(2) * LOCAL(1)']` es la fórmula, `[ref]` es la referencia, `[1]` es 1; `BUSCAR` y los elementos por índice siguen siendo estructurales (un ocupante por elemento).
 
 Las dos líneas de VG (8-11), escritas a mano (`menú` es una referencia al registro del menú):
 
@@ -436,7 +449,7 @@ Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), ín
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
 - `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4). Tampoco que `dir` exista en ese evento: una referencia a una posición que no desarrolla se guarda y, al seguirla, alcanza `contenido: undefined` **sin** `rota` (BQL la lee PENDIENTE `posición sin desarrollar`).
-- `ref` debe ser el **id completo**. Los prefijos (`'936b43ee'`) solo los resuelven BQL (`REF("936b43ee")`) y la entrada de texto de `escritura.item` (`'@936b43ee:1200000000'`), que los convierten en id completo antes de guardar.
+- `ref` debe ser el **id completo**. Los prefijos (`'3147f38b'`) solo los resuelven BQL (`REF("3147f38b")`) y la entrada de texto de `escritura.item` (`'@3147f38b:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
 
@@ -540,7 +553,7 @@ leerEvento(eje, id, { epoca = EPOCA_0, nombres, camino } = {})         // → st
 - **Contenido**: una hoja, su texto (una fórmula, tal cual, sin evaluar); una referencia, `→ <id corto>` y, si apunta a una posición, `:<dirección en corto>` (`→ menú:1`); con `eje`, además, entre paréntesis lo que alcanza en su posición 0 (§3.3); una lista, sus ocupantes separados por ` · ` y, si son más de uno, `· n ocupantes`; una décupla, nada en su línea: sus posiciones van debajo, una sangría más adentro.
 - Las posiciones vacías no se imprimen. Un payload terminal (sin posiciones, como el del génesis) se lee como su texto, en una línea.
 - `profundidad`: la del nodo que se lee. En la 0 el payload es la cruceta aunque sean solo hojas; en una n ≥ 1 un array solo de hojas es una lista y se lee en una línea.
-- `nombres`: un `Map`, un objeto o una función id → nombre corto, para leer `menú` en vez de `d367743b` (sin él, los ocho primeros caracteres del id).
+- `nombres`: un `Map`, un objeto o una función id → nombre corto, para leer `menú` en vez de `ff05e68f` (sin él, los ocho primeros caracteres del id).
 
 `leerEvento` pone delante una cabecera `<id corto> · <autor> · <t> · sobre <id corto> en <dirección>` (el génesis dice `génesis`) y, bajo cada posición, los **escritos anclados** en ella (`encaje.ocupantes`, camino exacto, por llegada), uno por línea: `↳ ocupante k · <autor> · <texto>`, con `k` su lugar en la lista de la posición (§6.7: los propios primero) y el texto de su posición 0. Los anclados en la raíz van al final, sin sangría. Con `camino`, solo la posición de ese camino (lo que enseña Clasificar). La compra con la cuenta de cocina escrita en `1000000000`:
 
@@ -722,8 +735,8 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 ```
 
 ```text
-"EUR 12"
-[[{"ref":"ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf","dir":"1000000000"}],1,"EUR 12"]
+["EUR 12"]
+[[{"ref":"ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf","dir":"1000000000"}],[1],["EUR 12"]]
 undefined undefined
 true ["ensalada","guiso","fruta"] undefined
 ```
@@ -766,7 +779,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-9baac45e@1000000000 ab1ce721@7000000000
+bcc60646@1000000000 abbe7763@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -835,10 +848,10 @@ console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.conteni
 
 ```text
 [[1],[1,0]]
-propio [1] 049f82ed 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["049f82ed:1000000000#1"]
-propio [1,0] 049f82ed 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["049f82ed:1000000000#1.0[0]"]
-referencia [1] ff05e68f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["049f82ed:1000000000#1.0[0]","ff05e68f:1000000000"]
-escrito [] 9baac45e 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["9baac45e:0000000000"]
+propio [1] 3147f38b 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["3147f38b:1000000000#1"]
+propio [1,0] 3147f38b 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["3147f38b:1000000000#1.0[0]"]
+referencia [1] ff05e68f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["3147f38b:1000000000#1.0[0]","ff05e68f:1000000000"]
+escrito [] bcc60646 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["bcc60646:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 0:huesped 1:cocina
@@ -852,13 +865,13 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 {
   "tipo": "referencia",
   "origen": "referencia",
-  "evento": "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97",
+  "evento": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf",
   "dir": "1000000000",
   "camino": [1],
   "contenido": ["ensalada", "guiso", "fruta"],
   "procedencia": [
-    "936b43ee0ba67beded31a279af45ceeb52f58db974bb65811d4eb04eca44407a:1000000000#1.0",
-    "d367743bd56eb5f722ace18466010fa58b34f366675675f6e086c447fac45c97:1000000000"
+    "3147f38b6bc7745265e82c9344b38ba9c68de5dda79c091781ed94a524841b5a:1000000000#1.0",
+    "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf:1000000000"
   ],
   "origenDir": "1000000000",
   "destino": "1000000000",
@@ -1032,7 +1045,7 @@ console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) 
 
 ```text
 0 propio 1 [[{"ref":"ff05e68f53e1739cec9f3f3bcf8389
-1 escrito raíz ["Cuenta del menú","=REF(\"049f82ed\", \
+1 escrito raíz ["Cuenta del menú","=REF(\"3147f38b\", \
 0 propio 0 ensalada
 0 propio 1 guiso
 0 propio 2 fruta
@@ -1310,7 +1323,7 @@ await restaurar(datos).catch((e) => console.log(e.message));
 ```
 
 ```text
-3 false 5 2d970a48 82aafc7b ff05e68f 049f82ed 9baac45e
+3 false 5 2d970a48 82aafc7b ff05e68f 3147f38b bcc60646
 12 ["casa","cocina","huesped"] 5
 evento rechazado: id no corresponde al cuerpo
 ```
@@ -1324,10 +1337,10 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 | Evento | id | autor | sobre | en | payload |
 |---|---|---|---|---|---|
 | génesis | `2d970a48…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
-| alta | `a8efd9b0…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
-| menú | `d367743b…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
-| compra | `936b43ee…` | huesped | menú | `0000000000` | `["Compra del menú del día", [{ref: menú, dir: "1000000000"}, 1, "EUR 12"], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
-| cuenta | `2b75f87f…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"936b43ee\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
+| alta | `82aafc7b…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| menú | `ff05e68f…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
+| compra | `3147f38b…` | huesped | menú | `0000000000` | `["Compra del menú del día", [[{ref: menú, dir: "1000000000"}], [1], ["EUR 12"]], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
+| cuenta | `bcc60646…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"3147f38b\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
 Series: la casa (una persona: `tipo: 'persona'` en el génesis; VG, 7-11 noche: solo emiten personas) emite 1000 `T:hora`, 1000 `T:minuto`, 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor) y 10 `P:genesis`; las altas reparten horas y minutos, que son tokens distintos, y declaran el tipo de cocina (grupo) y huesped (persona). Saldos tras los cinco eventos: casa 936 h y 279 min de T (1000 − 40 − 24; 1000 − 1 − 240 − 480), 440 EUR, 10 P; cocina 38 h y 237 min (40 − 2; 240 − 3), 12 EUR; huesped 23 h y 480 min (24 − 1), 48 EUR.
 

@@ -104,14 +104,14 @@ test('estados: PENDIENTE, INCOMPATIBLE, ERROR (sintaxis, función, ciclo)', asyn
 
 test('las referencias BTML se siguen al leer un slot', async () => {
   const { eje, compra, menu } = await ejemploCompra();
-  // VG, 7-11 noche: por hojas: la 1 de la compra es la décupla [[ref menú:1], 1, 'EUR 12'] (por dirección,
-  // ceros finales: la 1 entera); su 1.0 es la lista de uno con la referencia al menú:1, que se lee por índice.
+  // VG, 7-11 noche: por hojas: la 1 de la compra es la décupla [[ref menú:1], [1], ['EUR 12']] (por dirección,
+  // ceros finales: la 1 entera); su 1.0 es la lista de uno con la referencia al menú:1: se lee como esa referencia (o, por índice, su elemento 0).
   const r = evaluar(eje, compra.id, '1000000000');
   assert.equal(r.estado, 'RESUELTO');
   assert.equal(r.valor.tipo, 'array');
   const slot = evaluar(eje, compra.id, '1000000000');
   assert.equal(formato(slot.valor), '[3 posiciones]');
-  assert.equal(evaluar(eje, compra.id, [1, 0]).valor.tipo, 'lista');
+  assert.equal(evaluar(eje, compra.id, [1, 0]).valor.tipo, 'referencia'); // la lista de un ocupante se lee como su ocupante (forma canónica, VG 8-11)
   assert.equal(evaluar(eje, compra.id, [1, 0]).texto, '→ ' + menu.id.slice(0, 8));
   // El elemento 0 de esa lista es la referencia: LOCAL la lee por índice y la sigue hasta la lista de platos del menú.
   assert.equal(evaluar(eje, compra.id, [1, 0, 0]).valor.tipo, 'referencia');

@@ -390,6 +390,15 @@ function leerPosicion(ctx, evId, indices, { porDireccion = false } = {}) {
   return nodo;
 }
 
+/**
+ * Forma canónica (VG, 8-11): cada posición de una décupla de hojas va entre
+ * corchetes, y la lista de UN ocupante se lee igual que la hoja suelta
+ * ([1] = 1, ['=LOCAL(2)'] = '=LOCAL(2)', [ref] = ref). Solo al leer una
+ * posición como valor: BUSCAR y los elementos de lista siguen siendo
+ * estructurales (un ocupante por elemento).
+ */
+const deUno = (nodo, indices) => (indices.length > 0 && esLista(nodo) && nodo.length === 1 ? nodo[0] : nodo);
+
 /** El elemento `lista` de la lista que hay en `contenido` y, si se pide, su subposición `sub` (un elemento es una hoja: no tiene). */
 function elementoDeLista(contenido, { lista, sub = [] }) {
   let nodo = esLista(contenido) ? contenido[lista] : undefined;
@@ -410,7 +419,8 @@ function leerSlot(ctx, evId, indices, { elemento, porDireccion = false } = {}) {
   const lugar = evId + ':' + direccion(indices);
   const clave = elemento ? lugar + '[' + elemento.lista + ']' + (elemento.sub?.length ? '.' + elemento.sub.join('.') : '') : lugar;
   ctx.dependencias.add(lugar);
-  const enPosicion = leerPosicion(ctx, evId, indices, { porDireccion });
+  const crudo = leerPosicion(ctx, evId, indices, { porDireccion });
+  const enPosicion = elemento ? crudo : deUno(crudo, indices);
   const contenido = elemento ? elementoDeLista(enPosicion, elemento) : enPosicion;
   if (!esFormula(contenido) && !esReferencia(contenido)) return valorDe(contenido, elemento ? [] : indices);
   if (ctx.pila.has(clave)) throw new Parada('ERROR', 'ciclo en ' + evId.slice(0, 8) + ':' + direccion(indices));
@@ -884,7 +894,7 @@ export function evaluar(eje, evId, dir, opciones) {
     if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
     // Diez dígitos son una dirección (no entra en una lista); un camino de índices, sí.
     const porDireccion = !Array.isArray(dir);
-    const contenido = leerPosicion(ctx, evId, indices, { porDireccion });
+    const contenido = deUno(leerPosicion(ctx, evId, indices, { porDireccion }), indices);
     return esFormula(contenido) ? leerSlot(ctx, evId, indices, { porDireccion }) : valorDe(contenido, indices);
   });
 }

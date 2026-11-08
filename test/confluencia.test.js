@@ -130,7 +130,7 @@ test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procede
   const soloRef = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:00Z', movimientos: [gasta('huesped')], payload: { ref: menu.id, dir: '1000000000' } });
   assert.equal(posicionesDe(eje, soloRef.id).desarrolladas, 0);
   // Los ocupantes de la 1 son 1, 1.0, 1.0.0…: una referencia en el camino 1.1 ocupa la 1.1, no la 1.
-  const honda = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:30Z', movimientos: [gasta('huesped')], payload: ['Compra', [['EUR 3'], { ref: menu.id, dir: '1000000000' }]] }); // VG, 7-11 noche: por hojas: 1 décupla (0 envuelto)
+  const honda = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:30:30Z', movimientos: [gasta('huesped')], payload: ['Compra', [['EUR 3'], [{ ref: menu.id, dir: '1000000000' }]]] }); // VG, 7-11 noche: por hojas: 1 décupla (0 envuelto)
   assert.deepEqual(posicionesDe(eje, honda.id).posiciones[1], { indice: 1, propia: true, referencia: false, escrita: false, tiene: true });
   // Lo escrito por debajo de la profundidad 0 desarrolla la posición: en 1.2 desarrolla la 1.
   const sin1 = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T14:31:00Z', movimientos: [gasta('huesped')], payload: ['Solo título'] });
