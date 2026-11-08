@@ -46,14 +46,15 @@ export async function ejemploCompra({ claves = {} } = {}) {
     t,
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
+      // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
+      // persona da su T a una cosa, y el tope es el de la persona). T no cruza de persona: la persona huésped
+      // recibe euros y escribe con su propio T, que se acuña al gastarse dentro del tope del reloj.
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-    contexto: { tipos: { cocina: 'grupo', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
+    contexto: { tipos: { cocina: 'cosa', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
@@ -78,9 +79,9 @@ export async function ejemploCompra({ claves = {} } = {}) {
     ],
     payload: [
       'Compra del menú del día',
-      // Por hojas (VG, 7-11 noche): con un array dentro, la posición es una décupla (1.0 qué es, 1.1 cuánto,
-      // 1.2 con qué condición); la convención es envolver su 0. Solo hojas: una lista de ocupantes.
-      [[{ ref: menu.id, dir: '1000000000' }], 1, 'EUR 12'], // 1 recursos: qué (los platos del menú), cuánto, a qué precio
+      // Forma canónica (VG, 8-11): con un array dentro, la posición es una décupla (1.0 qué es, 1.1 cuánto,
+      // 1.2 con qué condición) y cada una de sus posiciones va entre corchetes: la lista de sus ocupantes.
+      [[{ ref: menu.id, dir: '1000000000' }], [1], ['EUR 12']], // 1 recursos: qué (los platos del menú), cuánto, a qué precio
       [{ ref: menu.id, dir: '2000000000' }], // 2 criterios: los del menú (una lista de uno)
       ['huesped', 'cocina'], // 3 comunicación: quién habla con quién, dos ocupantes
       ['pagar', 'servir'], // 4 fábrica: las acciones que se registran, dos ocupantes
@@ -132,15 +133,13 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
     t: '2026-11-07T12:00:00Z',
     movimientos: [
       gasta('casa'),
-      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' },
-      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'huesped2' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
     ],
     payload: ['Alta de otra persona huésped', ['huesped2']],
     contexto: { tipos: { huesped2: 'persona' } },
   }, priv('casa'));
   const criterios = [{ ref: menu.id, dir: '2000000000' }];
-  const recursos = [[{ ref: menu.id, dir: '1000000000' }], 1, 'EUR 12']; // una décupla: el 0 envuelto (por hojas)
+  const recursos = [[{ ref: menu.id, dir: '1000000000' }], [1], ['EUR 12']]; // una décupla: cada posición entre corchetes (forma canónica)
   // La compra rápida: solo recursos, sin criterios. Es el foco natural para preguntarle al 8.
   const rapida = await eje.escribir({
     autor: 'huesped2',
@@ -152,7 +151,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const vecinas = [];
   const payloads = [
     ['Compra con fórmula pendiente', '=LOCAL(5)', criterios], // 1: fórmula que espera la posición 5 (estructura)
-    ['Compra con fórmula resuelta', [['EUR 10'], '=LOCAL(0, 0) + 1 EUR'], criterios], // 1.1: 11 EUR, leyendo el ocupante 0 de la 1.0
+    ['Compra con fórmula resuelta', [['EUR 10'], ['=LOCAL(0, 0) + 1 EUR']], criterios], // 1.1: 11 EUR, leyendo el ocupante 0 de la 1.0
     ['Compra de mediodía', recursos, { ref: menu.id, dir: '2000000000' }], // 2: solo por referencia, sin array propio
     ['Compra para llevar', recursos, criterios, ['huesped2', 'cocina']],
     ['Compra del grupo', recursos, criterios, ['huesped', 'cocina'], ['pagar']],

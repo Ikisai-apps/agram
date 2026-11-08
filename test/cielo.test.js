@@ -43,7 +43,9 @@ test('sin base escrita: el respaldo declarado (bases.confluir) mide lo que escri
   const c = confluir(eje, ej.guisos.id);
   assert.deepEqual([d.escrita, d.base.id, d.base.frescura, d.base.n], [false, null, SIN_BASE_ESCRITA, calcularBase(eje, ej.menu.id).hijos.n]);
   assert.deepEqual(c.comparables.map((x) => x.id), calcularBase(eje, ej.menu.id).refsHijos);
-  for (const k of clavesDeMedidas()) assert.deepEqual(d.medidas.find((m) => m.medida === k).cajas, c.medidas[k].cajas, k);
+  // Las constelaciones son las cantidades (R7); los recuentos van aparte, como información y sin cajas.
+  for (const [k, x] of Object.entries(c.tokens)) assert.deepEqual(d.medidas.find((m) => m.medida === k).cajas, x.cajas, k);
+  for (const k of clavesDeMedidas()) assert.deepEqual([d.recuentos.find((r) => r.medida === k).valor, 'cajas' in d.recuentos.find((r) => r.medida === k)], [c.medidas[k].foco, false], k);
   assert.equal(datosCielo(eje, ej.guisos.id, { cohorte: 'general' }).base.n, eje.orden.length, 'general: todo el eje (sin bases)');
   assert.equal(eje.orden.length, n, 'no escribe');
 });
@@ -100,8 +102,10 @@ test('svg: función pura, una constelación por medida con diez estrellas y el f
   assert.ok(svg.endsWith('</svg>'));
   assert.ok(!/NaN|undefined|Infinity|null/.test(svg), 'sin números rotos');
   assert.ok(svg.includes('data-escrita="false"') && !svg.includes('data-evento='), 'sin escribir: no hay evento detrás');
-  const tokens = d.medidas.filter((m) => /^[TEPR]:/.test(m.medida)).map((m) => m.medida);
-  assert.deepEqual(constelaciones(svg), [...clavesDeMedidas(), DECUPLA, ...tokens]);
+  // R7: una constelación por cantidad (las series y el T consumido sobre el registro); los recuentos no tienen cielo.
+  const tokens = d.medidas.filter((m) => m.tipo === 'caja').map((m) => m.medida);
+  assert.ok(tokens.some((k) => k.startsWith('tiempo:')), 'el T consumido sobre el registro es una cantidad del 8');
+  assert.deepEqual(constelaciones(svg), [DECUPLA, ...tokens]);
   assert.deepEqual(tokens, [...tokens].sort());
   for (const m of d.medidas) {
     const bloque = bloqueDe(svg, m.medida);
@@ -124,7 +128,8 @@ test('svg: función pura, una constelación por medida con diez estrellas y el f
   const decupla = bloqueDe(svg, DECUPLA);
   assert.equal(new Set([...decupla.matchAll(/<circle class="astro" cx="[\d.]+" cy="([\d.]+)"/g)].map((x) => x[1])).size, 1, 'plana');
   assert.ok(!decupla.includes('class="trazo"'));
-  assert.ok(bloqueDe(svg, 'escritos').includes('class="trazo"') || d.medidas.find((m) => m.medida === 'escritos').cajas.filter(Boolean).length < 2);
+  const tminuto = d.medidas.find((m) => m.medida === 'T:minuto');
+  assert.ok(bloqueDe(svg, 'T:minuto').includes('class="trazo"') || tminuto.cajas.filter(Boolean).length < 2);
   // Con base escrita, el SVG apunta a su evento y cada constelación lleva el nombre que el catálogo da a ese evento visto desde el 8.
   const con = await ejemploComprasHermanas();
   await escribirBasesDelEjemplo(con);
@@ -235,11 +240,12 @@ test('transición: al cambiar de cohorte cada estrella y el foco se recomponen d
   assert.ok(!svgCielo(general, { anterior: datosCielo(ej.eje, ej.eje.genesisId) }).includes('recompone'));
 });
 
-test('celda 8 de Mapped: las medidas de la confluencia, sin rótulos, en la caja de las celdas de los hilos', async () => {
+test('celda 8 de Mapped: la décupla y el T consumido sobre el registro (cantidades, R7), sin rótulos, en la caja de las celdas de los hilos', async () => {
   const ej = await sinBases();
-  const svg = svgCielo(datosCielo(ej.eje, ej.guisos.id), { compacto: true });
+  const d = datosCielo(ej.eje, ej.guisos.id);
+  const svg = svgCielo(d, { compacto: true });
   assert.ok(svg.startsWith('<svg class="cielo compacto sin-escribir" viewBox="0 0 200 124"'));
-  assert.deepEqual(constelaciones(svg), clavesDeMedidas());
+  assert.deepEqual(constelaciones(svg), [DECUPLA, ...d.medidas.filter((m) => m.medida.startsWith('tiempo:')).map((m) => m.medida)]);
   assert.ok(!svg.includes('<text'));
 });
 
@@ -249,8 +255,12 @@ test('sobrio y animado leen lo mismo: la tabla dice el valor del foco, su caja y
   const html = htmlCieloSobrio(d);
   assert.equal((html.match(/<div class="medida-fila">/g) ?? []).length, d.medidas.length);
   for (const m of d.medidas.filter((x) => x.tipo === 'caja')) {
-    assert.ok(html.includes(`foco <b>${m.valor}</b> · caja ${m.caja} (${rangoDeCaja(m.cortes, m.caja)})</span><span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima`), m.medida);
+    const cuota = m.cuota === null ? '—' : String(Math.round(m.cuota * 100) / 100);
+    assert.ok(html.includes(`foco <b>${m.valor}</b> · caja ${m.caja} (${rangoDeCaja(m.cortes, m.caja)}) · cuota ${cuota}</span><span class="medida-cohorte">${m.debajo} debajo · ${m.enCaja} en su caja · ${m.encima} encima`), m.medida);
   }
+  // Los recuentos, aparte: informativos, sin caja (R7).
+  assert.equal((html.match(/<div class="medida-fila recuento">/g) ?? []).length, d.recuentos.length);
+  for (const r of d.recuentos) assert.ok(html.includes(`foco <b>${r.valor}</b> · recuento informativo`), r.medida);
   const pv = d.medidas.find((m) => m.tipo === 'pv');
   assert.ok(html.includes(`en el foco (●): <b>${posicionesDelFoco(pv)}</b>`));
   assert.equal(posicionesDelFoco(pv), pv.focoEn.map((t, k) => (t ? k : null)).filter((k) => k !== null).join(' '));

@@ -370,6 +370,8 @@ export function escenaDe(eje, foco, { alcance = 'hermanos', ...opciones } = {}) 
 }
 
 function breve(c) {
+  // Forma canónica (VG, 8-11): la lista de un ocupante se muestra como su ocupante ([1] = 1).
+  if (Array.isArray(c) && c.length === 1 && !Array.isArray(c[0])) return breve(c[0]);
   if (Array.isArray(c)) return '[' + c.length + ']';
   if (esReferencia(c)) return '→' + corto(c.ref);
   const s = String(c);

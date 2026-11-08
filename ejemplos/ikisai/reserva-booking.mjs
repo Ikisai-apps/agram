@@ -102,9 +102,9 @@ export function precioDe(k) {
  * La disponibilidad (mapa §12: «en la plaza, dentro de los recursos de la
  * disponibilidad (1.k)»): un elemento por habitación, colgado del dominio,
  * el Alojamiento. 0 su nombre; 1 sus recursos, que son sus plazas (1.k), una
- * subdécupla por plaza [[nombre], precio por noche, capacidad] (por hojas,
- * VG 7-11 noche: el nombre va envuelto para que la plaza sea décupla y no
- * una lista de tres ocupantes); 2 criterios, una lista;
+ * subdécupla por plaza [[nombre], [precio por noche], [capacidad]] (forma
+ * canónica, VG 8-11: cada posición entre corchetes, para que la plaza sea
+ * décupla y no una lista de tres ocupantes); 2 criterios, una lista;
  * 3 quién atiende; 4 la acción que ofrece. La capacidad va en el criterio de
  * la plaza (su posición 2: cuántas reservas caben a la vez; [X] en
  * motor.CRITERIO_CAPACIDAD) y dice cuántos tokens emite la casa por noche.
@@ -114,9 +114,9 @@ export function precioDe(k) {
 export const HABITACION = Object.freeze([
   'Habitación del jardín', // 0 representación
   [
-    [['cama de matrimonio'], 'EUR 80', 1], // 1.0 plaza: una pareja por noche
-    [['cama individual'], 'EUR 55', 1], // 1.1 plaza: una persona por noche
-    [['litera'], 'EUR 25', 2], // 1.2 plaza: dos camas, dos reservas a la vez
+    [['cama de matrimonio'], ['EUR 80'], [1]], // 1.0 plaza: una pareja por noche
+    [['cama individual'], ['EUR 55'], [1]], // 1.1 plaza: una persona por noche
+    [['litera'], ['EUR 25'], [2]], // 1.2 plaza: dos camas, dos reservas a la vez
   ], // 1 recursos: las plazas
   ['sin humo', 'con desayuno'], // 2 criterios: una lista de dos ocupantes
   ['recepcion'], // 3 comunicación: quién atiende (una lista de uno)
@@ -214,6 +214,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
+      { token: 'E', denominacion: 'hora', cantidad: 1000 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
       { token: 'R', cantidad: 10 }, // reputación de la casa (R:casa): la pone en juego al emitir plazas
     ],
@@ -233,11 +234,10 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     t,
     movimientos: [
       minutos(CASA),
-      { token: 'T', escala: 'hora', cantidad: 40, de: CASA, a: 'recepcion' },
-      { token: 'T', escala: 'minuto', cantidad: 600, de: CASA, a: 'recepcion' },
+      // Cada una escribe con su propio T (se acuña al gastarse). La casa cede a recepción 40 horas de su
+      // tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
+      { token: 'E', emisor: CASA, denominacion: 'hora', cantidad: 40, de: CASA, a: 'recepcion' },
       eur(300, CASA, 'huesped'),
-      { token: 'T', escala: 'hora', cantidad: 72, de: CASA, a: 'huesped' },
-      { token: 'T', escala: 'minuto', cantidad: 600, de: CASA, a: 'huesped' },
     ],
     payload: ['Altas de la temporada', ['recepcion', 'huesped']],
     contexto: { tipos: { recepcion: 'persona', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
@@ -390,7 +390,7 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
  * precio van por referencia (no copias) y las fórmulas viven en la misma
  * décupla anidada (1), porque LOCAL lee a su profundidad; 4 es lo que
  * prepara, las dos partes de la ejecución. Lo lejano, por anclaje: las
- * noches (la décupla [[entrada], salida]) se anclan en el 7 de la propia reserva (la
+ * noches (la décupla [[entrada], [salida]]) se anclan en el 7 de la propia reserva (la
  * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
  * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
  *
@@ -406,18 +406,18 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
   const payload = [
     nombre ?? 'Reserva de la ' + plazaElegida[0][0] + ', ' + n + ' noches', // 0 representación
     [
-      [{ ref: habitacion.id, dir: plaza(k) }], // 1.0 la plaza: [[nombre], precio, capacidad] (envuelta: la 1 es una décupla)
-      n, // 1.1 noches
-      { ref: habitacion.id, dir: precioDe(k) }, // 1.2 precio por noche: dentro de la plaza elegida
-      '=LOCAL(2) * LOCAL(1)', // 1.3 total: precio por noche × noches
-      '=LOCAL(3) + LOCAL(1) * 1 dia', // 1.4 el total compuesto con el tiempo que ocupa
+      [{ ref: habitacion.id, dir: plaza(k) }], // 1.0 la plaza: [[nombre], [precio], [capacidad]] (cada posición entre corchetes: la 1 es una décupla)
+      [n], // 1.1 noches
+      [{ ref: habitacion.id, dir: precioDe(k) }], // 1.2 precio por noche: dentro de la plaza elegida
+      ['=LOCAL(2) * LOCAL(1)'], // 1.3 total: precio por noche × noches
+      ['=LOCAL(3) + LOCAL(1) * 1 dia'], // 1.4 el total compuesto con el tiempo que ocupa
     ], // 1 recursos
     [{ ref: habitacion.id, dir: '2000000000' }], // 2 criterios: los de la habitación (una dirección no entra en su lista)
     [autor, 'recepcion'], // 3 comunicación: quién habla con quién
-    [['pagar'], 'ocupar'], // 4 fábrica: lo que prepara, una décupla (por hojas: el 0 envuelto) para que la entrega elija 4.1 «ocupar» por dirección
+    [['pagar'], ['ocupar']], // 4 fábrica: lo que prepara, una décupla (cada posición entre corchetes) para que la entrega elija 4.1 «ocupar» por dirección
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
-  const tramo = [[entrada], salida]; // una décupla (por hojas: el 0 envuelto): [entrada, salida] sería una lista de dos ocupantes
+  const tramo = [[entrada], [salida]]; // una décupla (cada posición entre corchetes): [entrada, salida] sería una lista de dos ocupantes
   await eje.escribir({
     autor,
     sobre: reserva.id,
@@ -440,7 +440,7 @@ export function nochesDe(eje, reserva) {
   const r = eje.obtener(reserva.id ?? reserva);
   if (!r) throw new Error('reserva desconocida');
   const corto = r.id.slice(0, 8);
-  // La plaza va envuelta en la 1.0 (por hojas): una lista de un ocupante, la referencia.
+  // La plaza va entre corchetes en la 1.0 (por hojas): una lista de un ocupante, la referencia.
   const laPlaza = Array.isArray(r.payload) && Array.isArray(r.payload[1]) && Array.isArray(r.payload[1][0]) ? r.payload[1][0][0] : undefined;
   if (!esReferencia(laPlaza) || laPlaza.ref !== r.sobre || (laPlaza.dir ?? '0000000000') !== r.en) {
     throw new Error('la reserva ' + corto + ' no está anclada en la plaza que referencia: anclada en ' + r.en + (esReferencia(laPlaza) ? ', referencia ' + (laPlaza.dir ?? '0000000000') + ' de ' + laPlaza.ref.slice(0, 8) : ', sin plaza en 1.0'));
@@ -450,7 +450,7 @@ export function nochesDe(eje, reserva) {
   if (uno !== 1 || resto.length || !capacidadDe(habitacion.payload?.[1]?.[k])) throw new Error('la reserva ' + corto + ' no está en una plaza con capacidad: ' + r.en);
   const tramo = tramoDe(eje, r.id);
   const noches = nochesEntre(...tramo.extremos);
-  const declaradas = r.payload[1][1];
+  const declaradas = [r.payload[1][1]].flat()[0]; // 1.1 entre corchetes (lista de un ocupante) o suelta: lo mismo
   if (declaradas !== noches.length) {
     throw new Error('las noches de 1.1 (' + declaradas + ') no coinciden con el tramo del 7 (' + tramo.texto + ': ' + noches.length + ') en la reserva ' + corto);
   }

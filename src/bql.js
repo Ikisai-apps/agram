@@ -55,6 +55,7 @@ import { ocupantesElegibles } from './elegibles.js';
 // para medir fórmulas): lo importado aquí solo se usa dentro de funciones.
 import {
   CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
+  esRecuento, TIEMPO,
 } from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
 import { lenteDe, detalleValor, anclasDeLente, POSICION_LENTE } from './lente.js';
@@ -389,6 +390,15 @@ function leerPosicion(ctx, evId, indices, { porDireccion = false } = {}) {
   return nodo;
 }
 
+/**
+ * Forma canónica (VG, 8-11): cada posición de una décupla de hojas va entre
+ * corchetes, y la lista de UN ocupante se lee igual que la hoja suelta
+ * ([1] = 1, ['=LOCAL(2)'] = '=LOCAL(2)', [ref] = ref). Solo al leer una
+ * posición como valor: BUSCAR y los elementos de lista siguen siendo
+ * estructurales (un ocupante por elemento).
+ */
+const deUno = (nodo, indices) => (indices.length > 0 && esLista(nodo) && nodo.length === 1 ? nodo[0] : nodo);
+
 /** El elemento `lista` de la lista que hay en `contenido` y, si se pide, su subposición `sub` (un elemento es una hoja: no tiene). */
 function elementoDeLista(contenido, { lista, sub = [] }) {
   let nodo = esLista(contenido) ? contenido[lista] : undefined;
@@ -409,7 +419,8 @@ function leerSlot(ctx, evId, indices, { elemento, porDireccion = false } = {}) {
   const lugar = evId + ':' + direccion(indices);
   const clave = elemento ? lugar + '[' + elemento.lista + ']' + (elemento.sub?.length ? '.' + elemento.sub.join('.') : '') : lugar;
   ctx.dependencias.add(lugar);
-  const enPosicion = leerPosicion(ctx, evId, indices, { porDireccion });
+  const crudo = leerPosicion(ctx, evId, indices, { porDireccion });
+  const enPosicion = elemento ? crudo : deUno(crudo, indices);
   const contenido = elemento ? elementoDeLista(enPosicion, elemento) : enPosicion;
   if (!esFormula(contenido) && !esReferencia(contenido)) return valorDe(contenido, elemento ? [] : indices);
   if (ctx.pila.has(clave)) throw new Parada('ERROR', 'ciclo en ' + evId.slice(0, 8) + ':' + direccion(indices));
@@ -676,7 +687,7 @@ const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes
 function sinGanchoEnFormulas(foco) {
   return new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
 }
-const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito> o R:<emisor>';
+const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro)';
 
 function alcanceDe(arg, nombre) {
   if (arg === undefined) return 'hermanos';
@@ -686,6 +697,7 @@ function alcanceDe(arg, nombre) {
 
 /** Clave de serie bien formada: T con una escala que existe; E con emisor y denominación; P y R con un solo campo. */
 function esSerie(clave) {
+  if (clave.startsWith(TIEMPO)) return ESCALAS_T.includes(clave.slice(TIEMPO.length));
   const r = /^([TEPR]):(.+)$/.exec(clave);
   if (!r) return false;
   const [, token, serie] = r;
@@ -698,8 +710,10 @@ function esSerie(clave) {
 /** Una medida de bases.MEDIDAS o una serie de token bien formada; otro nombre es ERROR, aunque no haya base. */
 function medidaDe(arg) {
   if (arg.tipo !== 'texto') throw new Parada('ERROR', 'CAJA espera el nombre de una medida entre comillas, no ' + describir(arg));
-  if (clavesDeMedidas().includes(arg.valor) || esSerie(arg.valor)) return arg.valor;
-  throw new Parada('ERROR', 'CAJA: medida desconocida: ' + arg.valor + ' (' + clavesDeMedidas().join(', ') + ' o una serie ' + FORMAS_SERIE + ')');
+  // R7 (VG, 7-11 noche): el 8 solo sitúa cantidades; un recuento (identidades, escritos…) no tiene caja.
+  if (esRecuento(arg.valor)) throw new Parada('ERROR', 'CAJA: ' + arg.valor + ' es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)');
+  if (esSerie(arg.valor)) return arg.valor;
+  throw new Parada('ERROR', 'CAJA: medida desconocida: ' + arg.valor + ' (una cantidad: ' + FORMAS_SERIE + ')');
 }
 
 /**
@@ -708,7 +722,7 @@ function medidaDe(arg) {
  * emisión puede llegar), con las series que hay, para ver la errata.
  */
 function exigirSerie(eje, clave) {
-  if (clavesDeMedidas().includes(clave)) return;
+  if (clavesDeMedidas().includes(clave) || clave.startsWith(TIEMPO)) return; // el T consumido sobre el registro siempre se puede leer (vale 0)
   const [token, serie] = [clave[0], clave.slice(2)];
   if (token === 'P' ? serie === AMBITO_GENESIS || eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
   const hay = eje.series().map((s) => s.clave);
@@ -880,7 +894,7 @@ export function evaluar(eje, evId, dir, opciones) {
     if (indices.length > ARIDAD) throw new Parada('PENDIENTE', 'posición sin desarrollar: más de diez profundidades');
     // Diez dígitos son una dirección (no entra en una lista); un camino de índices, sí.
     const porDireccion = !Array.isArray(dir);
-    const contenido = leerPosicion(ctx, evId, indices, { porDireccion });
+    const contenido = deUno(leerPosicion(ctx, evId, indices, { porDireccion }), indices);
     return esFormula(contenido) ? leerSlot(ctx, evId, indices, { porDireccion }) : valorDe(contenido, indices);
   });
 }

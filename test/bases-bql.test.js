@@ -50,7 +50,7 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   // La escribe la propia cosa o quien tiene P sobre el registro (VG, 7-11 noche): aquí, la cosa del menú o la casa.
   const hermanos = 'sin base escrita en el 8 de ' + menu8 + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
     + menu8 + ', firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.';
-  for (const f of ['CAJA("terminales")', 'FRESCURA()', 'CAJA("E:casa/EUR", "hermanos")', 'FRESCURA("hermanos")', 'BASES("hermanos")', 'BASES("hermanos", "terminales")']) {
+  for (const f of ['CAJA("T:hora")', 'FRESCURA()', 'CAJA("E:casa/EUR", "hermanos")', 'FRESCURA("hermanos")', 'BASES("hermanos")', 'BASES("hermanos", "T:hora")']) {
     const r = q(ej, f);
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', hermanos], f);
     assert.ok(r.dependencias.includes(ej.menu.id + ':' + CIELO), f); // lo que hay que vigilar: el 8 donde llegará la base
@@ -59,7 +59,7 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   const proyecto = q(ej, 'FRESCURA("proyecto")').motivo;
   assert.ok(proyecto.startsWith('sin base escrita en el 8 de ' + ej.comedor.id.slice(0, 8) + ' (alcance proyecto). '), proyecto);
   assert.match(proyecto, /firmada por comedor \(su identidad propia\) o casa \(con P sobre él\); mide sus hijos y funde la base vigente del 8 de cada uno \(se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo\)/);
-  assert.match(q(ej, 'CAJA("terminales", "general")').motivo, /firmada por casa \(su identidad propia\);/);
+  assert.match(q(ej, 'CAJA("T:hora", "general")').motivo, /firmada por casa \(su identidad propia\);/);
   // Un registro sin identidad propia (una compra): solo quien tiene P sobre él puede escribir su base, y se dice.
   const nota = await eje.escribir({ autor: 'huesped', sobre: ej.guisos.id, t: '2026-11-07T17:30:00Z', movimientos: [hora('huesped')], payload: 'Sin picante' });
   assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
@@ -86,23 +86,28 @@ test('CAJA(medida, alcance?): la caja del anfitrión, la misma que BASES(alcance
   await escribirBasesDelEjemplo(ej);
   for (const alcance of ALCANCES) {
     const s = situar(eje, ej.guisos.id, { alcance });
-    for (const m of [...clavesDeMedidas(), ...SERIES]) {
+    for (const m of [...SERIES, ...Object.keys(s.tokens).filter((k) => k.startsWith('tiempo:'))]) {
       const caja = valor(ej, 'CAJA("' + m + '", "' + alcance + '")');
-      assert.equal(caja, (s.medidas[m] ?? s.tokens[m]).caja, alcance + ' ' + m);
+      assert.equal(caja, s.tokens[m].caja, alcance + ' ' + m);
       assert.equal(caja, valor(ej, 'BASES("' + alcance + '", "' + m + '")'), alcance + ' ' + m);
     }
+    // Los recuentos no se sitúan (R7, VG 7-11 noche): ni CAJA ni BASES los aceptan.
+    for (const m of clavesDeMedidas()) {
+      assert.match(q(ej, 'CAJA("' + m + '", "' + alcance + '")').motivo, /es un recuento informativo: el 8 solo sitúa y compara cantidades \(R7\)/, m);
+      assert.equal(q(ej, 'BASES("' + alcance + '", "' + m + '")').estado, 'ERROR', m);
+    }
   }
-  // Por defecto, los hermanos: los guisos (nueve terminales) caen en la caja 5.
-  assert.equal(q(ej, 'CAJA("terminales")').texto, '5');
-  assert.equal(q(ej, 'CAJA("terminales") = 5').texto, 'verdadero'); // un número BQL más
-  assert.equal(q(ej, 'CAJA("terminales") + CAJA("escritos")').texto, '5');
+  // Por defecto, los hermanos: los guisos (una hora gastada) caen en la caja 1.
+  assert.equal(q(ej, 'CAJA("T:hora")').texto, '1');
+  assert.equal(q(ej, 'CAJA("T:hora") = 1').texto, 'verdadero'); // un número BQL más
+  assert.equal(q(ej, 'CAJA("T:hora") + CAJA("E:casa/EUR")').texto, String(1 + situar(eje, ej.guisos.id).tokens['E:casa/EUR'].caja));
   // Otro anfitrión, otro 8: las manzanas se sitúan entre los hijos del puesto.
-  assert.equal(valor(ej, 'CAJA("terminales")', ej.manzanas.id), situar(eje, ej.manzanas.id).medidas.terminales.caja);
+  assert.equal(valor(ej, 'CAJA("T:hora")', ej.manzanas.id), situar(eje, ej.manzanas.id).tokens['T:hora'].caja);
   // Una serie emitida que nadie de la cohorte mueve vale cero: caja 0, con todos.
   assert.equal(q(ej, 'CAJA("P:genesis")').texto, '0');
   // Sin efectos: nada escrito, nada movido.
   const antes = [eje.orden.length, eje.saldoT('menu-dia', 'minuto'), eje.saldoT('casa', 'minuto')];
-  for (const f of ['CAJA("terminales", "general")', 'FRESCURA("proyecto")', 'CAJA("E:casa/EUR")']) q(ej, f);
+  for (const f of ['CAJA("T:hora", "general")', 'FRESCURA("proyecto")', 'CAJA("E:casa/EUR")']) q(ej, f);
   assert.deepEqual([eje.orden.length, eje.saldoT('menu-dia', 'minuto'), eje.saldoT('casa', 'minuto')], antes);
 });
 
@@ -116,15 +121,15 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
     return r.motivo;
   };
   assert.equal(err('CAJA()'), 'CAJA espera una medida y, si acaso, un alcance');
-  assert.equal(err('CAJA("terminales", "hermanos", 1)'), 'CAJA espera una medida y, si acaso, un alcance');
+  assert.equal(err('CAJA("T:hora", "hermanos", 1)'), 'CAJA espera una medida y, si acaso, un alcance');
   assert.equal(err('CAJA(3)'), 'CAJA espera el nombre de una medida entre comillas, no numero');
-  assert.equal(err('CAJA("terminales", "linaje")'), 'CAJA: el alcance es hermanos, proyecto, general');
-  assert.equal(err('CAJA("terminales", 1)'), 'CAJA: el alcance es hermanos, proyecto, general');
+  assert.equal(err('CAJA("T:hora", "linaje")'), 'CAJA: el alcance es hermanos, proyecto, general');
+  assert.equal(err('CAJA("T:hora", 1)'), 'CAJA: el alcance es hermanos, proyecto, general');
   assert.equal(err('FRESCURA("vecinos")'), 'FRESCURA: el alcance es hermanos, proyecto, general');
   assert.equal(err('FRESCURA("hermanos", 2)'), 'FRESCURA espera, si acaso, un alcance');
-  const desconocida = /^CAJA: medida desconocida: .+ \(posiciones, terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes o una serie T:<escala>, E:<emisor>\/<denominación>, P:<ámbito> o R:<emisor>\)$/;
+  const desconocida = /^CAJA: medida desconocida: .+ \(una cantidad: T:<escala>, E:<emisor>\/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> \(el T consumido sobre el registro\)\)$/;
   // Nombres de la versión anterior de esta PR, series mal formadas y escalas que no existen.
-  for (const m of ['inventada', 'posiciones.3', 'movimientos.typo', 'movimientos.E:casa/EUR', 'E:typo', 'E:/EUR', 'E:casa/', 'T:siglo', 'R:a/b', 'X:hora']) {
+  for (const m of ['inventada', 'posiciones.3', 'movimientos.typo', 'movimientos.E:casa/EUR', 'E:typo', 'E:/EUR', 'E:casa/', 'T:siglo', 'R:a/b', 'X:hora', 'tiempo:siglo']) {
     assert.match(err('CAJA("' + m + '")'), desconocida, m);
     assert.match(err('CAJA("' + m + '")', ej), desconocida, m + ' sin base: se valida antes de leer');
   }
@@ -166,7 +171,7 @@ test('dependencias: el 8 leído y la base; CAJA, además, el anfitrión medido',
   const ej = await nuevo();
   await escribirBasesDelEjemplo(ej);
   const base = leerBase(ej.eje, ej.menu.id).id;
-  assert.deepEqual(q(ej, 'CAJA("terminales")').dependencias.sort(), [ej.menu.id + ':' + CIELO, base + ':' + RAIZ, ej.guisos.id + ':' + RAIZ].sort());
+  assert.deepEqual(q(ej, 'CAJA("T:hora")').dependencias.sort(), [ej.menu.id + ':' + CIELO, base + ':' + RAIZ, ej.guisos.id + ':' + RAIZ].sort());
   assert.deepEqual(q(ej, 'FRESCURA()').dependencias.sort(), [ej.menu.id + ':' + CIELO, base + ':' + RAIZ].sort());
   const general = leerBase(ej.eje, ej.eje.genesisId).id;
   assert.deepEqual(q(ej, 'FRESCURA("general")').dependencias.sort(), [ej.eje.genesisId + ':' + CIELO, general + ':' + RAIZ].sort());
@@ -209,13 +214,13 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   const pronto = conPresupuesto('FRESCURA("general")', 2 + 1 + sobre(eje.genesisId) + 1);
   assert.equal(pronto.motivo, 'el alcance general (8 de ' + eje.genesisId.slice(0, 8) + ') exige examinar al menos ' + (1 + sobre(eje.genesisId) + sobre(ej.comedor.id)) + ' registros y quedan ' + (1 + sobre(eje.genesisId) + 1) + ' pasos de presupuesto');
   // CAJA cobra la misma lectura (medir el anfitrión aparte: §7.14).
-  assert.equal(conPresupuesto('CAJA("terminales")', 2 + costeHermanos).estado, 'RESUELTO');
-  assert.equal(conPresupuesto('CAJA("terminales")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
+  assert.equal(conPresupuesto('CAJA("T:hora")', 2 + costeHermanos).estado, 'RESUELTO');
+  assert.equal(conPresupuesto('CAJA("T:hora")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
   // BASES hereda el presupuesto: cobra la misma lectura del 8 (VG, 7-11 noche); BASES() lee el 8 del propio anfitrión.
   assert.equal(conPresupuesto('BASES("hermanos")', 2 + costeHermanos).estado, 'RESUELTO');
   assert.equal(conPresupuesto('BASES("hermanos")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
-  assert.equal(conPresupuesto('BASES("hermanos", "terminales", "suma")', 4 + costeHermanos).estado, 'RESUELTO');
-  assert.equal(conPresupuesto('BASES("hermanos", "terminales", "suma")', 3 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
+  assert.equal(conPresupuesto('BASES("hermanos", "T:hora", "suma")', 4 + costeHermanos).estado, 'RESUELTO');
+  assert.equal(conPresupuesto('BASES("hermanos", "T:hora", "suma")', 3 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');
   const costePropio = 1 + coste(ej.menu.id);
   assert.equal(q(ej, 'BASES()', ej.menu.id, { limites: { presupuesto: 1 + costePropio } }).texto, '4');
   assert.equal(q(ej, 'BASES()', ej.menu.id, { limites: { presupuesto: costePropio } }).estado, 'PENDIENTE POR LÍMITE');
@@ -233,17 +238,17 @@ test('CAJA dentro de su propio registro no se mide a sí misma (ni se cuelga); F
     sobre: ej.menu.id,
     t: '2026-11-07T18:30:00Z',
     movimientos: [hora('vecina')],
-    payload: ['Compra con su caja', '=CAJA("terminales")', '=FRESCURA()', '=CAJA("formulasResueltas")'],
+    payload: ['Compra con su caja', '=CAJA("T:hora")', '=FRESCURA()', '=CAJA("E:casa/EUR")'],
   });
-  assert.equal(evaluar(eje, x.id, [1]).texto, '4'); // cuatro terminales: caja 4
+  assert.equal(evaluar(eje, x.id, [1]).texto, '1'); // una hora gastada: caja 1
   assert.equal(evaluar(eje, x.id, [2]).texto, '1'); // la propia x es una llegada
   // Medida para situarla, x no se vuelve a medir: sus dos CAJA cuentan como pendientes; FRESCURA se resuelve.
   assert.deepEqual([medir(eje, x.id).formulasResueltas, medir(eje, x.id).formulasPendientes], [1, 2]);
-  assert.equal(evaluar(eje, x.id, [3]).texto, '1'); // una resuelta: caja 1
+  assert.equal(evaluar(eje, x.id, [3]).texto, '0'); // no pagó EUR: caja 0
   const dentro = evaluar(eje, x.id, [1]);
   assert.equal(dentro.estado, 'RESUELTO');
   // Una referencia que vuelve al mismo registro por otro también termina.
-  const y = await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, t: '2026-11-07T19:10:00Z', movimientos: [hora('huesped')], payload: ['Mira la caja de x', { ref: x.id, dir: '1000000000' }, '=LOCAL(1) + CAJA("terminales")'] });
+  const y = await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, t: '2026-11-07T19:10:00Z', movimientos: [hora('huesped')], payload: ['Mira la caja de x', { ref: x.id, dir: '1000000000' }, '=LOCAL(1) + CAJA("T:hora")'] });
   assert.equal(evaluar(eje, y.id, [2]).estado, 'RESUELTO');
   assert.deepEqual([medir(eje, y.id).formulasResueltas, medir(eje, y.id).formulasPendientes], [0, 1]);
 });
@@ -269,7 +274,7 @@ test('lo que se guarda en el 8 depende del 8 anterior solo por las fórmulas que
   assert.equal(comprobar(eje, leerBase(eje, ej.menu.id)).alDia, true);
   // CAJA sitúa a su registro: al medirlo para una base queda pendiente, haya base o no. No depende del 8 anterior.
   const otro = await nuevo();
-  await otro.eje.escribir({ autor: 'vecina', sobre: otro.menu.id, t: '2026-11-07T17:30:00Z', movimientos: [hora('vecina')], payload: ['Leche', '=CAJA("terminales")', '=CAJA("terminales", "general")'] });
+  await otro.eje.escribir({ autor: 'vecina', sobre: otro.menu.id, t: '2026-11-07T17:30:00Z', movimientos: [hora('vecina')], payload: ['Leche', '=CAJA("T:hora")', '=CAJA("T:hora", "general")'] });
   await escribirBaseDe(otro, otro.menu.id, { t: '2026-11-07T18:00:00Z' });
   await escribirBaseDe(otro, otro.menu.id, { t: '2026-11-07T18:05:00Z' });
   const [o1, o2] = basesEn(otro.eje, otro.menu.id);
@@ -282,44 +287,44 @@ test('autorización: la base y, en CAJA, el anfitrión pasan por el gancho; el a
   const { eje } = ej;
   const sinFoco = { puedeLeer: (id) => id !== ej.guisos.id };
   // Sin base, el anfitrión no se mide ni se pide: PENDIENTE por la base, no por la autorización.
-  assert.equal(q(ej, 'CAJA("terminales")', ej.guisos.id, sinFoco).estado, 'PENDIENTE');
+  assert.equal(q(ej, 'CAJA("T:hora")', ej.guisos.id, sinFoco).estado, 'PENDIENTE');
   await escribirBasesDelEjemplo(ej);
   const sinBases = { puedeLeer: (id) => !esBase(eje, eje.obtener(id)) };
-  for (const f of ['CAJA("terminales")', 'FRESCURA()']) {
+  for (const f of ['CAJA("T:hora")', 'FRESCURA()']) {
     const r = q(ej, f, ej.guisos.id, sinBases);
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'leer la base del 8 de ' + ej.menu.id.slice(0, 8) + ' exige una autorización que no hay'], f);
   }
-  assert.equal(q(ej, 'CAJA("terminales")', ej.guisos.id, sinFoco).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(q(ej, 'CAJA("T:hora")', ej.guisos.id, sinFoco).estado, 'PENDIENTE DE AUTORIZACIÓN');
   assert.equal(q(ej, 'FRESCURA()', ej.guisos.id, sinFoco).texto, '0'); // FRESCURA no lee el anfitrión
   // Con gancho, las fórmulas del anfitrión no se cuentan: la medida las evaluaría sin él.
   const todo = { puedeLeer: () => true };
-  assert.equal(q(ej, 'CAJA("terminales")', ej.guisos.id, todo).texto, '5');
+  assert.equal(q(ej, 'CAJA("T:hora")', ej.guisos.id, todo).texto, '1');
+  // Las fórmulas son un recuento (R7): ni con gancho ni sin él se sitúan.
   for (const m of ['formulasResueltas', 'formulasPendientes']) {
-    const r = q(ej, 'CAJA("' + m + '")', ej.guisos.id, todo);
-    assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + ej.guisos.id.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan'], m);
-    assert.equal(q(ej, 'CAJA("' + m + '")').estado, 'RESUELTO', m);
+    assert.equal(q(ej, 'CAJA("' + m + '")', ej.guisos.id, todo).estado, 'ERROR', m);
+    assert.equal(q(ej, 'CAJA("' + m + '")').estado, 'ERROR', m);
   }
   // BASES hereda el gancho de CAJA y FRESCURA (VG, 7-11 noche): la base, el anfitrión y sus fórmulas.
-  for (const f of ['BASES("hermanos")', 'BASES("hermanos", "terminales", "suma")', 'BASES("hermanos", "terminales")']) {
+  for (const f of ['BASES("hermanos")', 'BASES("hermanos", "T:hora", "suma")', 'BASES("hermanos", "T:hora")']) {
     const r = q(ej, f, ej.guisos.id, sinBases);
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE DE AUTORIZACIÓN', 'leer la base del 8 de ' + ej.menu.id.slice(0, 8) + ' exige una autorización que no hay'], f);
   }
-  assert.equal(q(ej, 'BASES("hermanos", "terminales")', ej.guisos.id, sinFoco).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(q(ej, 'BASES("hermanos", "terminales", "suma")', ej.guisos.id, sinFoco).estado, 'RESUELTO'); // un dato de la base no lee el anfitrión
-  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")', ej.guisos.id, todo).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")').estado, 'RESUELTO');
+  assert.equal(q(ej, 'BASES("hermanos", "T:hora")', ej.guisos.id, sinFoco).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(q(ej, 'BASES("hermanos", "T:hora", "suma")', ej.guisos.id, sinFoco).estado, 'RESUELTO'); // un dato de la base no lee el anfitrión
+  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")', ej.guisos.id, todo).estado, 'ERROR'); // un recuento (R7)
+  assert.equal(q(ej, 'BASES("hermanos", "formulasPendientes")').estado, 'ERROR');
 });
 
 test('sin cohorte o sin anfitrión: PENDIENTE', async () => {
   const ej = await nuevo();
   await escribirBasesDelEjemplo(ej);
   const genesis = ej.eje.genesisId;
-  for (const f of ['CAJA("terminales")', 'FRESCURA("hermanos")']) {
+  for (const f of ['CAJA("T:hora")', 'FRESCURA("hermanos")']) {
     assert.deepEqual([q(ej, f, genesis).estado, q(ej, f, genesis).motivo], ['PENDIENTE', 'sin cohorte: el génesis no tiene padre'], f);
   }
   // El génesis sí está en su propio subárbol (proyecto y general).
   assert.equal(q(ej, 'FRESCURA("general")', genesis).texto, '0');
-  assert.equal(q(ej, 'CAJA("terminales", "general")', genesis).estado, 'RESUELTO');
+  assert.equal(q(ej, 'CAJA("T:hora", "general")', genesis).estado, 'RESUELTO');
   // Un anfitrión que no está en el eje puede llegar.
   assert.equal(consultar(ej.eje, 'f'.repeat(64), [], 'FRESCURA()').motivo, 'evento ausente del eje: ffffffff');
 });

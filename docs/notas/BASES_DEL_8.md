@@ -16,6 +16,8 @@ Rutas abreviadas: `MAPA` = el mapa global de AGRAM (`MUELA/equipo/agram/MAPA_GLO
 
 `MAPA` §12, [D] «Cortes y etiquetas del 8» (VG, 7-11 noche, decisión 2): los cortes de las diez cajas son regla de la época (`epoca.cortes`); la época 0 trae la escala provisional creciente a saltos `1 2 3 4 6 10 16 26 42`, sin más pretensión, y se cambiará con datos reales; las bases guardan con qué cortes se escribieron. Las diez etiquetas de los hitos son texto informativo de la caja, nunca un juicio.
 
+`MAPA` §12, [D] «Resto de la lista del estudio» (VG, 7-11 noche), R7: **el 8 solo funde cantidades** y sitúa por cuota; los recuentos (identidades, escritos, movimientos, posiciones, medias por n) son informativos, fuera de cortes y criterios; PV8 ordena registros por masa (sumas por serie), no identidades. Y de «T, corregido por VG»: el T consumido se anota en el registro que soporta y es parte de lo que ese registro acumula y enseña en su 8.
+
 Y `MAPA` §12, [D] «Corrección de VG sobre titulares»: las cosas tienen clave privada y pública, firman por sí mismas y tienen cartera; quien da de alta declara persona, grupo o cosa. Los diez hitos llevan sus etiquetas literales (`MAPA` §2.2 [D20]).
 
 Del corpus heredado (V2, candidato; solo como apoyo, no decide): «La misma evidencia en una cohorte nueva: posición **relativa** distinta» y «No borrar las valoraciones anteriores. Cada valoración es un producto contextual con identificador, perfil de reglas, snapshot del corpus accesible, cohorte y resultado» (`PV8_R1` l.235 y l.238); «Dos cohortes no conectadas — Comparar por separado; no inventar escala puente» (`PV8_R1` l.376, R29).
@@ -44,7 +46,7 @@ Una estadística guarda, para un conjunto de registros: `n`; por cada medida (`M
 
 ### 2.3 Cortes: regla de la época
 
-Los cortes de las cajas de una medida salen de `epoca.cortes(clave)` (`cortesDe`). La época 0 trae, para todas las medidas y series, la escala `1 2 3 4 6 10 16 26 42` (`datos/epocas/epoca-0.json`, campo `cortes`; `cargarEpoca` lo convierte en el gancho y lo hereda por respaldo). **[X] decidir VG: sus valores**, y si alguna medida lleva los suyos.
+Los cortes de las cajas de una cantidad salen de `epoca.cortes(clave)` (`cortesDe`); un recuento no tiene cortes ni cajas (R7: `cortesDe` y `cajasEtiquetadas` lo rechazan). La época 0 trae, para todas las claves, la escala `1 2 3 4 6 10 16 26 42` (`datos/epocas/epoca-0.json`, campo `cortes`; `cargarEpoca` lo convierte en el gancho y lo hereda por respaldo). **[X] decidir VG: sus valores**, y si alguna medida lleva los suyos.
 
 | Cortes de la época 0 | Cajas |
 |---|---|
@@ -92,7 +94,7 @@ Sin base escrita no hay frescura: la lectura dice «sin base escrita» (`SIN_BAS
 
 ### 2.8 Situar: leer la cohorte del 8
 
-`situar(eje, foco, { alcance, respaldo })` lee el 8 de la cohorte y devuelve, con `escrita: true`, la base leída (`base`, `autor`, `frescura`), por medida y por serie el bloque con el foco situado (`foco`, `caja`, `hito`: la etiqueta de la caja, `enCaja`, `debajo`, `encima`, `media`); por posición, cuántos la tienen y si el foco la tiene; la raíz; `incluido` (si la base mide al foco, bajando por las fundidas) y `cambiadas` (medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya: ha cambiado desde entonces).
+`situar(eje, foco, { alcance, respaldo })` lee el 8 de la cohorte y devuelve, con `escrita: true`, la base leída (`base`, `autor`, `frescura`); por **cantidad** (cada serie de token y el T consumido sobre el registro, `tiempo:<escala>`) el bloque con el foco situado (`foco`, `caja`, `hito`: la etiqueta de la caja, `cuota`: su suma ÷ la de la cohorte, `cajaCuota`, y como informativos, que cuentan registros, `enCaja`, `debajo`, `encima`, `media`); por **recuento** (las medidas de `MEDIDAS`, R7) solo el valor del foco y lo fundido (`recuento: true`, sin caja); por posición, cuántos la tienen y si el foco la tiene; la raíz; `incluido` (si la base mide al foco, bajando por las fundidas) y `cambiadas` (cantidades en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya: ha cambiado desde entonces).
 
 | Alcance | Lee | Estadística |
 |---|---|---|
@@ -104,13 +106,13 @@ Sin cohorte (el génesis no tiene padre): PENDIENTE con el motivo. Sin base escr
 
 ### 2.9 `BASES()`, `CAJA()` y `FRESCURA()` en BQL
 
-`BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, medida)` = la caja del anfitrión; `BASES(alcance, medida, k)` = cuántos hay en la caja k; `BASES(alcance, medida, campo)` = `suma`, `minimo`, `maximo`, `media` de la base o `foco`, `caja`, `enCaja`, `debajo`, `encima` del anfitrión. `CAJA(medida, alcance?)` = `BASES(alcance, medida)`, con `"hermanos"` por defecto; `FRESCURA(alcance?)` = las llegadas que cuenta la frescura de la base.
+`BASES()` = n de la base del 8 del anfitrión; `BASES(alcance)` = n de la cohorte; `BASES(alcance, cantidad)` = la caja del anfitrión; `BASES(alcance, cantidad, k)` = cuántos hay en la caja k; `BASES(alcance, cantidad, campo)` = `suma`, `minimo`, `maximo`, `media` de la base o `foco`, `caja`, `cuota`, `cajaCuota`, `enCaja`, `debajo`, `encima` del anfitrión. Un recuento (las medidas de `MEDIDAS`) es ERROR (R7). `CAJA(medida, alcance?)` = `BASES(alcance, medida)`, con `"hermanos"` por defecto; `FRESCURA(alcance?)` = las llegadas que cuenta la frescura de la base.
 
 Las tres leen solo la base escrita y comparten la lectura del 8: heredan el **presupuesto** de la fórmula (cobran lo que examina la lectura, antes de medir nada), el gancho **`puedeLeer`** (leer la base; si hay que situarlo, el anfitrión entero; con gancho no cuentan las fórmulas del anfitrión, que la medida evalúa sin él), los motivos (sin base: `sin base escrita en el 8 de <id8> (…)` y quién puede escribirla: la propia cosa o quienes tienen clave y P sobre el registro) y las dependencias (el 8 leído, la base y, si lo sitúa, el anfitrión). Una fórmula que sitúa a su propio registro, evaluada mientras ese registro se mide para una base, queda PENDIENTE (no se mide a sí misma). Detalle en `docs/BQL.md` §7.13 y §7.14. **[X] decidir VG: la firma de `BASES()`.**
 
 ### 2.10 La celda 8 de Mapped y el cielo
 
-`mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 de Mapped: la base escrita en el 8 de la cohorte (`escrita`, `base`, `frescura`, `n`) o el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`), y por medida la caja del foco con lo que queda debajo, en ella y encima; sin puesto ni puntuación. `mapped.textoOcho` lo pone en texto (`8 · hermanos · base <id8> (sin novedades) · n 4` o `8 · hermanos · sin base escrita (respaldo al vuelo) · n 4`). `mapa()` no lo calcula (se pide por cada registro de una escena). El cielo (`mundos/cielo.js`, `datosCielo`) lee con la misma `ocho`, y dice «sin base escrita». En sobrio la celda 8 la pinta `ui/ocho.js` (VG, 8-11): hermanos por defecto, cantidades y cuota frente al padre primero, recuentos como información (`docs/MODOS.md` §0.5).
+`mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 de Mapped, por cantidades (R7; integra lo que daba `bases.ochoPorCantidades`, prueba R7-01): la base escrita en el 8 de la cohorte (`escrita`, `base`, `frescura`, `n`) o el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`); por serie, la cantidad del foco, su caja, su cuota en la cohorte (`cuota`, `cajaCuota`) y lo que queda debajo, en ella y encima; la cuota del foco frente a su padre (`mapped.cuota`); y los recuentos, aparte y sin caja. Sin puesto ni puntuación. `mapped.textoOcho` lo pone en texto (`8 · hermanos · base <id8> (sin novedades) · n 4` o `8 · hermanos · sin base escrita (respaldo al vuelo) · n 4`, una línea por serie y los recuentos al final, como información). `mapa()` no lo calcula (se pide por cada registro de una escena). El cielo (`mundos/cielo.js`, `datosCielo`) lee con la misma `ocho`: una constelación por cantidad y la décupla, los recuentos aparte, y dice «sin base escrita». En sobrio la celda 8 la pinta `ui/ocho.js` (VG, 8-11): hermanos por defecto, cantidades y cuota frente al padre primero, recuentos como información (`docs/MODOS.md` §0.5).
 
 ### 2.11 Ejemplo ejecutado
 
@@ -133,17 +135,17 @@ await escribirBasesDelEjemplo(ej);
 const nombres = [['menú', ej.menu.id], ['cena', ej.cena.id], ['puesto', ej.puesto.id], ['comedor', ej.comedor.id], ['mercado', ej.mercado.id], ['génesis', eje.genesisId]];
 for (const [nombre, id] of nombres) {
   const b = leerBase(eje, id);
-  console.log(nombre.padEnd(8), 'firma', b.autor.padEnd(9), '(' + b.por + ') · hijos', b.hijos.n, '· subárbol', String(b.subarbol.n).padStart(2), '· fundidas', b.refsBases.length, '· terminales', b.subarbol.medidas.terminales.cajas.join(' '), '· sin novedades', b.frescura.sinNovedades);
+  console.log(nombre.padEnd(8), 'firma', b.autor.padEnd(9), '(' + b.por + ') · hijos', b.hijos.n, '· subárbol', String(b.subarbol.n).padStart(2), '· fundidas', b.refsBases.length, '· T:hora', b.subarbol.tokens['T:hora'].cajas.join(' '), '· sin novedades', b.frescura.sinNovedades);
 }
-console.log(cajasEtiquetadas(leerBase(eje, eje.genesisId).subarbol, 'terminales').map((c) => c.caja + ' ' + c.nombre + ': ' + c.cuenta).join(' | '));
+console.log(cajasEtiquetadas(leerBase(eje, eje.genesisId).subarbol, 'T:hora').map((c) => c.caja + ' ' + c.nombre + ': ' + c.cuenta).join(' | '));
 for (const alcance of ALCANCES) {
   const s = situar(eje, ej.guisos.id, { alcance });
-  const t = s.medidas.terminales;
-  console.log(alcance.padEnd(8), s.estado, s.escrita ? 'escrita' : 'al vuelo', '· n', String(s.n).padStart(2), '· terminales', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', 'debajo', t.debajo, 'en caja', t.enCaja, 'encima', t.encima, '· pendientes', s.medidas.formulasPendientes.foco, 'debajo', s.medidas.formulasPendientes.debajo, '· la 4 en', s.posiciones[4].comparables + '/' + s.n);
+  const t = s.tokens['E:casa/EUR'];
+  console.log(alcance.padEnd(8), s.estado, s.escrita ? 'escrita' : 'al vuelo', '· n', String(s.n).padStart(2), '· EUR', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', 'cuota', Math.round(t.cuota * 1000) / 1000, '· terminales (recuento)', s.medidas.terminales.foco, '· la 4 en', s.posiciones[4].comparables + '/' + s.n);
 }
 console.log('lo escrito = lo calculado al vuelo antes:', JSON.stringify(situar(eje, ej.guisos.id, { alcance: 'general' }).medidas) === JSON.stringify(alVuelo.medidas));
 const q = (f) => consultar(eje, ej.guisos.id, [], f).texto;
-console.log('BQL:', ['BASES(\"hermanos\")', 'BASES(\"general\")', 'BASES(\"proyecto\", \"terminales\")', 'BASES(\"general\", \"E:casa/EUR\", \"suma\")'].map((f) => f + ' = ' + q(f)).join(' · '));
+console.log('BQL:', ['BASES(\"hermanos\")', 'BASES(\"general\")', 'BASES(\"proyecto\", \"T:hora\")', 'BASES(\"proyecto\", \"E:casa/EUR\", \"cuota\")', 'BASES(\"general\", \"E:casa/EUR\", \"suma\")'].map((f) => f + ' = ' + q(f)).join(' · '));
 await eje.escribir({ autor: 'vecina', sobre: ej.menu.id, t: '2026-11-07T18:30:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null }], payload: 'Un té' });
 console.log('menú tras un té:', JSON.stringify(leerBase(eje, ej.menu.id).frescura), '· génesis:', JSON.stringify(leerBase(eje, eje.genesisId).frescura));
 await escribirBaseDe(ej, ej.menu.id, { t: '2026-11-07T19:00:00Z' });
@@ -159,26 +161,26 @@ console.log('nota sobre el café: sin novedades', leerBase(eje, ej.menu.id).fres
 guisos {"posiciones":5,"terminales":9,"escritos":0,"identidades":2,"profundidadHilo":3,"formulasResueltas":1,"formulasPendientes":1,"tokens":{"T:hora":1,"E:casa/EUR":12}}
 sin bases: PENDIENTE · sin base escrita · respaldo general: n 14 · sin base escrita
 quién escribe la base del menú: menu-dia identidad · casa poder · cocina no
-menú     firma menu-dia  (identidad) · hijos 4 · subárbol  5 · fundidas 0 · terminales 0 1 0 0 0 4 0 0 0 0 · sin novedades true
-cena     firma menu-cena (identidad) · hijos 2 · subárbol  3 · fundidas 0 · terminales 0 0 0 0 2 1 0 0 0 0 · sin novedades true
-puesto   firma puesto    (identidad) · hijos 2 · subárbol  3 · fundidas 0 · terminales 0 0 0 1 2 0 0 0 0 0 · sin novedades true
-comedor  firma comedor   (identidad) · hijos 2 · subárbol  9 · fundidas 2 · terminales 0 1 0 0 3 5 0 0 0 0 · sin novedades true
-mercado  firma mercado   (identidad) · hijos 1 · subárbol  4 · fundidas 1 · terminales 0 0 0 2 2 0 0 0 0 0 · sin novedades true
-génesis  firma casa      (identidad) · hijos 2 · subárbol 14 · fundidas 2 · terminales 0 2 0 2 5 5 0 0 0 0 · sin novedades true
-0 idea: 0 | 1 aprendizaje: 2 | 2 avanzado: 0 | 3 aprendizaje profesional: 2 | 4 resolución profesional: 5 | 5 aprendizaje superior: 5 | 6 solución profesional avanzada: 0 | 7 investigación: 0 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
-hermanos RESUELTO escrita · n  4 · terminales 9 caja 5 (aprendizaje superior) debajo 1 en caja 3 encima 0 · pendientes 1 debajo 3 · la 4 en 2/4
-proyecto RESUELTO escrita · n  9 · terminales 9 caja 5 (aprendizaje superior) debajo 4 en caja 5 encima 0 · pendientes 1 debajo 8 · la 4 en 2/9
-general  RESUELTO escrita · n 14 · terminales 9 caja 5 (aprendizaje superior) debajo 9 en caja 5 encima 0 · pendientes 1 debajo 13 · la 4 en 2/14
+menú     firma menu-dia  (identidad) · hijos 4 · subárbol  5 · fundidas 0 · T:hora 0 4 1 0 0 0 0 0 0 0 · sin novedades true
+cena     firma menu-cena (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
+puesto   firma puesto    (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
+comedor  firma comedor   (identidad) · hijos 2 · subárbol  9 · fundidas 2 · T:hora 0 7 1 0 0 0 0 0 1 0 · sin novedades true
+mercado  firma mercado   (identidad) · hijos 1 · subárbol  4 · fundidas 1 · T:hora 1 3 0 0 0 0 0 0 0 0 · sin novedades true
+génesis  firma casa      (identidad) · hijos 2 · subárbol 14 · fundidas 2 · T:hora 1 10 1 0 0 0 0 0 1 1 · sin novedades true
+0 idea: 1 | 1 aprendizaje: 10 | 2 avanzado: 1 | 3 aprendizaje profesional: 0 | 4 resolución profesional: 0 | 5 aprendizaje superior: 0 | 6 solución profesional avanzada: 0 | 7 investigación: 0 | 8 trabajo maestro: 1 | 9 resolución experimental muy avanzada: 1
+hermanos RESUELTO escrita · n  4 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.375 · terminales (recuento) 9 · la 4 en 2/4
+proyecto RESUELTO escrita · n  9 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.081 · terminales (recuento) 9 · la 4 en 2/9
+general  RESUELTO escrita · n 14 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.018 · terminales (recuento) 9 · la 4 en 2/14
 lo escrito = lo calculado al vuelo antes: true
-BQL: BASES("hermanos") = 4 · BASES("general") = 14 · BASES("proyecto", "terminales") = 5 · BASES("general", "E:casa/EUR", "suma") = 685
+BQL: BASES("hermanos") = 4 · BASES("general") = 14 · BASES("proyecto", "T:hora") = 1 · BASES("proyecto", "E:casa/EUR", "cuota") = 0.081 · BASES("general", "E:casa/EUR", "suma") = 685
 menú tras un té: {"t":"2026-11-07T18:00:00Z","hijosNuevos":1,"basesNuevas":0,"debajo":0,"sinNovedades":false} · génesis: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":0,"debajo":1,"sinNovedades":false}
 menú corregido: hijos 5 · anteriores 1 · comedor: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":1,"debajo":0,"sinNovedades":false}
-nota sobre el café: sin novedades true · comprobar false [["escritos","posiciones","posiciones por PV"]]
+nota sobre el café: sin novedades true · comprobar false [["escritos","posiciones","tiempo:hora","posiciones por PV"]]
 ```
 
 Los ids no se imprimen: las claves de la casa y de las cosas son nuevas en cada ejecución y entran en los eventos, así que cambian.
 
-Lectura: sin bases, `situar` no inventa nada: dice «sin base escrita», y el respaldo calcula al vuelo los catorce registros y lo declara. La base del menú la puede escribir su cosa (identidad) o la casa (poder); cocina, sin P sobre el menú, no. Escritas las seis bases, la compra de dos guisos (nueve terminales, una fórmula pendiente) cae en la caja 5 de `terminales` (de 6 a 9) en las tres cohortes, y la cohorte cambia lo que hay alrededor: con sus hermanos, uno por debajo y tres en su caja; en el ámbito general, nueve por debajo. Lo leído del 8 del génesis es exactamente lo que el respaldo calculaba al vuelo antes de escribir nada. Es la única con una fórmula pendiente: en `formulasPendientes` todo el resto queda por debajo. La etiqueta «aprendizaje superior» es la de la caja 5, no un grado de la compra. Un té sobre el menú deja su base con novedades, y el génesis lo ve debajo (a través de la base del comedor); al corregir la base del menú, la del comedor ve una base nueva en sus hijos. Una nota sobre el café no es una llegada al menú: la frescura no la ve y `comprobar` sí.
+Lectura: sin bases, `situar` no inventa nada: dice «sin base escrita», y el respaldo calcula al vuelo los catorce registros y lo declara. La base del menú la puede escribir su cosa (identidad) o la casa (poder); cocina, sin P sobre el menú, no. Escritas las seis bases, la compra de dos guisos (12 euros) cae en la caja 6 de `E:casa/EUR` (de 10 a 15) en las tres cohortes, y la cohorte cambia su **cuota**: el 37,5 % de lo que movieron sus hermanos, el 8,1 % del proyecto y el 1,8 % del ámbito. Sus nueve terminales son un recuento: se informan y no se sitúan (R7). Lo leído del 8 del génesis es exactamente lo que el respaldo calculaba al vuelo antes de escribir nada. La etiqueta «solución profesional avanzada» es la de la caja 6, no un grado de la compra. En `T:hora` caen arriba el génesis (las mil horas que emite) y el comedor (las cuarenta que la casa da en él a la cocina, una cosa suya: T no cruza de persona, pero sí va a una cosa). Un té sobre el menú deja su base con novedades, y el génesis lo ve debajo (a través de la base del comedor); al corregir la base del menú, la del comedor ve una base nueva en sus hijos. Una nota sobre el café no es una llegada al menú: la frescura no la ve y `comprobar` sí (también en `tiempo:hora`: la hora que consumió se anota en el café).
 
 `E:casa/EUR` suma 685 en el ámbito general: son los euros movidos por los catorce registros (los 500 que emite el génesis, los que reparten el comedor y el mercado y los de las compras). Cada serie va por su clave y no se suma con otras.
 
@@ -207,3 +209,5 @@ Lo decidido en `MAPA` §12 y §14.2 está construido: la verdad del 8 es la escr
 - Lo escrito sobre una compra (que no es una cosa) no entra en el subárbol de su menú mientras nadie escriba la base de la compra (`sinBase`); quien tiene P sobre ella puede escribirla.
 - Validar una base escrita por poder repasa los movimientos de P anteriores a ella (una vez por base: la partición del 8 se guarda).
 - Resuelto (VG, 8-11): `mapped.mapa().medidas` y la suma de Scened son la medida única del 8 (`bases.medir`), perezosa (solo con `{ medidas: true }` o al pintar la celda 8), y la celda 8 sobria (hermanos por defecto; cantidades y cuota frente al padre primero, recuentos como información) y el cielo leen con `mapped.ocho` (`docs/MODOS.md` §0.5).
+- Una base escrita con el formato anterior a R7 (recuentos con cajas) ya no se lee como base: se reescribe.
+- Lo que cuenta registros dentro de una caja (`enCaja`, `debajo`, `encima`, la cuenta de una caja) y la `media` se siguen dando, marcados `informativos`: partir un escrito en diez los cambia. **[X] decidir VG** si un criterio que concede puede usarlos en BQL.

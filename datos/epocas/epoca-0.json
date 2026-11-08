@@ -6,7 +6,7 @@
     "La época está fuera del dato: un dato se lee desde cualquier época; BTML no lleva época dentro (mapa §9 [D]).",
     "Dígito = PV en todas las profundidades: una dirección es una cadena de miradas aplicadas desde el tronco; bajar un nivel es aplicar otra perspectiva al elemento (mapa §8, §10.4 [D]).",
     "Reglas cortas = época 0; reglas largas = lo que pulen las épocas: en toda profundidad n ≥ 1 el dígito es el PV aplicado al nodo de arriba (0 qué es, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo). La profundidad 0 es la cruceta: los diez PV sobre el registro en foco (VG, 7-11 noche).",
-    "Décupla y lista, por hojas (VG, 7-11 noche: por hojas): dentro de una posición, un array solo de hojas (terminales o referencias) es una LISTA, sus ocupantes por llegada, sin PV y fuera del árbol; un array con algún array dentro es una DÉCUPLA, y sus índices son dígitos con las reglas cortas. La raíz es siempre la décupla de lo escrito. Una dirección nombra subposiciones de décuplas, nunca un ocupante de una lista (que se alcanza por índice). Para que un grupo de hojas sea décupla se envuelve su 0: compra 1 = [[menú], 1, 'EUR 12'].",
+    "Décupla y lista, por hojas (VG, 7-11 noche: por hojas): dentro de una posición, un array solo de hojas (terminales o referencias) es una LISTA, sus ocupantes por llegada, sin PV y fuera del árbol; un array con algún array dentro es una DÉCUPLA, y sus índices son dígitos con las reglas cortas. La raíz es siempre la décupla de lo escrito. Una dirección nombra subposiciones de décuplas, nunca un ocupante de una lista (que se alcanza por índice). Forma canónica (VG, 8-11): en una décupla de solo hojas, cada posición va entre corchetes: compra 1 = [[menú], [1], ['EUR 12']]; una hoja suelta es la lista de un solo ocupante y sigue valiendo, pero no es la canónica.",
     "Es el respaldo: lo que otra época no especialice se lee con ella (corpus V2 y V3: la época 0 es el fallback de las profundidades sin consolidar).",
     "Todos los dígitos son nominales: ninguna profundidad es ordinal, así que en el encaje ni el signo ni la distancia ordenan (opción B, decidida por VG el 7-11 tarde: mapa §12 [D], «Signo del vector: opción B»).",
     "Los ejemplos de las profundidades 3 a 9 recorren una sola lectura ilustrativa de una reserva (1.7.2.1.3.4.7.6.1), construida para recorrer las profundidades y no como modelo de reserva; ningún caso real llega todavía tan hondo."
@@ -29,7 +29,7 @@
       "digito": 1,
       "nombre": "recursos",
       "significado": "PV1, reino o ciudad: cantidades, entradas y salidas, costes, disponibilidad.",
-      "ejemplo": "compra 1 = [[ref menú:1], 1, 'EUR 12']: qué, cuánto, a qué precio (una décupla: su 0 va envuelto)."
+      "ejemplo": "compra 1 = [[ref menú:1], [1], ['EUR 12']]: qué, cuánto, a qué precio (una décupla: cada posición va entre corchetes)."
     },
     {
       "profundidad": 0,

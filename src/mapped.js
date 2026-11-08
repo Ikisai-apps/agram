@@ -159,9 +159,9 @@ export function mapa(eje, id, { camino = [], epoca = EPOCA_0, maximo = MODOS.seq
  * los hijos del padre: lo que mueve el foco, lo que mueven entre todos los
  * hijos del padre y el cociente (null si el padre no mueve nada en esa
  * serie). Nada se suma entre series.
- * src/bases.js no expone todavía una cuota (8-11): se calcula aquí con lo que
- * da situar (bases.medir y bases.fundir), sin tocar bases.js; si situar llega
- * a dar `cuota` en una serie, se usa la suya.
+ * Es la `cuota` que da bases.situar entre hermanos (R7: el valor ÷ la suma de
+ * la cohorte, que aquí es el padre); si una serie no la trajera, se calcula
+ * igual con su suma.
  * Si la base escrita no mide al foco (llegó después), `incluido` es false y
  * la cuota puede pasar de 1: la frescura lo dice.
  * [X] Para decidir VG: si la suma del foco es solo el foco (hoy) o su
@@ -185,9 +185,10 @@ export function cuota(eje, foco, { epoca = EPOCA_0, lectura } = {}) {
   return { padre: ev.sobre, escrita: s.escrita, base: s.escrita ? s.base : null, frescura: s.frescura, incluido, series };
 }
 
-// Un bloque situado, sin el hito: la caja es un tramo de valores, no un nivel.
-const bloque = (x) => ({
-  foco: x.foco, caja: x.caja, debajo: x.debajo, enCaja: x.enCaja, encima: x.encima,
+// Una cantidad situada, sin el hito: la caja es un tramo de valores, no un nivel.
+const cantidad = (clave, x) => ({
+  clave, etiqueta: x.etiqueta, foco: x.foco, caja: x.caja, cuota: x.cuota ?? null, cajaCuota: x.cajaCuota ?? null,
+  debajo: x.debajo, enCaja: x.enCaja, encima: x.encima,
   n: x.n, suma: x.suma, minimo: x.minimo, maximo: x.maximo, media: x.media, cortes: [...x.cortes], cajas: [...x.cajas],
 });
 
@@ -200,19 +201,19 @@ const bloque = (x) => ({
  * eje). Es la única lectura del 8 de las vistas: la celda sobria y el cielo
  * animado (mundos/cielo.js, datosCielo) leen de aquí. Se calcula al pintar
  * la celda 8, nunca por cada registro de una escena: mapa() no la llama.
- * Primero lo que decide las cajas (VG, 8-11; mapa §12, R7): las CANTIDADES
- * por serie y la CUOTA del foco frente a su padre (cuota()); después, como
- * información, los RECUENTOS del foco (RECUENTOS: hilo, escritos,
- * movimientos, posiciones, identidades), sin caja. `medidas` guarda todas
- * las medidas del 8 situadas (MEDIDAS) para quien las quiera dibujar, y
- * `posiciones`, la décupla de la cohorte. Sin puesto ni puntuación: por
- * medida o serie, el valor del foco, su caja y cuántos quedan debajo, en ella
- * y encima.
+ * Por cantidades (R7, VG 7-11 noche; integra lo que daba
+ * bases.ochoPorCantidades): primero lo que decide las cajas, las CANTIDADES
+ * por serie (su caja, su cuota en la cohorte y la caja de esa cuota) y la
+ * CUOTA del foco frente a su padre (cuota()); después, como información, los
+ * RECUENTOS de bases.MEDIDAS (valor del foco y lo fundido, sin caja; la celda
+ * enseña los de RECUENTOS). `posiciones` es la décupla de la cohorte. Sin
+ * puesto ni puntuación.
  * Devuelve { alcance, foco, estado, motivo?, escrita, base (id o null),
  * registro, seccion, n, frescura, cantidades: [{ clave, etiqueta, foco, caja,
- * debajo, enCaja, encima, n, suma, minimo, maximo, media, cortes, cajas }],
- * cuota (la de cuota(), o null), recuentos: [{ clave, etiqueta, valor }],
- * medidas (como cantidades, por MEDIDAS), posiciones, incluido, cambiadas }.
+ * cuota, cajaCuota, debajo, enCaja, encima, n, suma, minimo, maximo, media,
+ * cortes, cajas }], cuota (la de cuota(), o null), recuentos: [{ clave,
+ * etiqueta, foco, n, suma, minimo, maximo, media, recuento: true }],
+ * posiciones, incluido, cambiadas }.
  */
 export function ocho(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) {
   if (!COHORTES.includes(alcance)) throw new Error('cohorte desconocida: ' + alcance + ' (' + COHORTES.join(', ') + ')');
@@ -221,7 +222,7 @@ export function ocho(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) 
   if (s.estado !== 'RESUELTO') {
     return {
       alcance, foco, estado: s.estado, motivo: s.motivo, escrita: false, base: null, registro: s.registro, seccion: s.seccion ?? null, n: 0, frescura: null,
-      cantidades: [], cuota: null, recuentos: [], medidas: [], posiciones: [], incluido: null, cambiadas: [],
+      cantidades: [], cuota: null, recuentos: [], posiciones: [], incluido: null, cambiadas: [],
     };
   }
   return {
@@ -234,14 +235,21 @@ export function ocho(eje, foco, { alcance = 'hermanos', epoca = EPOCA_0 } = {}) 
     seccion: s.seccion,
     n: s.n,
     frescura: s.frescura,
-    cantidades: Object.keys(s.tokens).sort().map((clave) => ({ clave, etiqueta: s.tokens[clave].etiqueta, ...bloque(s.tokens[clave]) })),
+    cantidades: Object.keys(s.tokens).sort().map((clave) => cantidad(clave, s.tokens[clave])),
     cuota: cuota(eje, foco, { epoca: e, lectura: alcance === 'hermanos' ? s : undefined }),
-    recuentos: RECUENTOS.map(({ clave, etiqueta }) => ({ clave, etiqueta, valor: s.medidas[clave].foco })),
-    medidas: MEDIDAS.map(({ clave, etiqueta }) => ({ clave, etiqueta, ...bloque(s.medidas[clave]) })),
+    recuentos: MEDIDAS.map(({ clave, etiqueta }) => {
+      const x = s.medidas[clave];
+      return { clave, etiqueta, foco: x.foco, n: x.n, suma: x.suma, minimo: x.minimo, maximo: x.maximo, media: x.media, recuento: true };
+    }),
     posiciones: s.posiciones.map((p) => ({ ...p, delFoco: { ...p.delFoco } })),
     incluido: s.escrita ? s.incluido : s.comparables.some((f) => f.id === foco),
     cambiadas: s.escrita ? [...s.cambiadas] : [],
   };
+}
+
+/** Los recuentos que enseña la celda (RECUENTOS), con su nombre corto y el valor del foco, de una lectura de ocho(). */
+export function recuentosDeCelda(o) {
+  return RECUENTOS.map(({ clave, etiqueta }) => ({ clave, etiqueta, valor: o.recuentos.find((r) => r.clave === clave)?.foco }));
 }
 
 /** Una cuota como porcentaje en español, con coma y como mucho un decimal («33,3 %»); «—» si no hay. */
@@ -257,17 +265,19 @@ export function cuotaDe(o, clave) {
 
 /**
  * Texto de la celda 8 (render sobrio): de dónde se lee y su frescura; luego,
- * una línea por serie con la cantidad del foco, su caja y su cuota frente al
- * padre; y al final, aparte, los recuentos marcados como información.
+ * una línea por serie con la cantidad del foco, su caja, su cuota frente al
+ * padre y, fuera de hermanos, su cuota en la cohorte; y al final, aparte,
+ * los recuentos marcados como información.
  */
 export function textoOcho(o) {
   if (o.estado !== 'RESUELTO') return '8 · ' + o.alcance + ' · ' + o.motivo;
   const frescura = o.escrita ? (o.frescura.sinNovedades ? 'sin novedades' : 'con novedades') : o.frescura;
   const donde = o.escrita ? 'base ' + o.base.slice(0, 8) + ' (' + frescura + ')' : frescura + ' (respaldo al vuelo)';
   const filas = o.cantidades.length
-    ? o.cantidades.map((m) => m.clave + ' ' + m.foco + ': caja ' + m.caja + ' · ' + m.debajo + ' debajo · ' + m.enCaja + ' en su caja · ' + m.encima + ' encima · cuota frente al padre ' + textoCuota(cuotaDe(o, m.clave)))
+    ? o.cantidades.map((m) => m.clave + ' ' + m.foco + ': caja ' + m.caja + ' · cuota frente al padre ' + textoCuota(cuotaDe(o, m.clave))
+      + (o.alcance === 'hermanos' ? '' : ' · en la cohorte ' + textoCuota(m.cuota)))
     : ['ninguna serie movida en la cohorte'];
-  const recuentos = 'recuentos (información): ' + o.recuentos.map((r) => r.etiqueta + ' ' + r.valor).join(' · ');
+  const recuentos = 'recuentos (información): ' + recuentosDeCelda(o).map((r) => r.etiqueta + ' ' + r.valor).join(' · ');
   return ['8 · ' + o.alcance + ' · ' + donde + ' · n ' + o.n, ...filas, recuentos].join('\n');
 }
 

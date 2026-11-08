@@ -23,8 +23,10 @@ test('Pointed escribe un terminal y mueve un minuto', async () => {
   assert.equal(ev.en, '4000000000');
   assert.equal(ev.contexto.modo, 'pointed');
   assert.equal(ev.movimientos[0].cantidad, 1);
-  assert.equal(eje.saldoT('huesped', 'minuto'), 480 - 1); // gasta minutos; sus horas no se tocan
-  assert.equal(eje.saldoT('huesped', 'hora'), 23);
+  // Gasta un minuto suyo (VG, 7-11 noche: se acuña al gastarse y queda anotado en la compra, el registro que lo
+  // soporta); sus horas no se tocan: la que gastó al comprar sigue siendo la única.
+  assert.deepEqual(eje.tiempoSobre(compra.id), { minuto: 1 });
+  assert.equal(eje.tiempoSobre(eje.obtener(compra.id).sobre).hora, 1);
 });
 
 test('Sequenced escribe una hilera sin huecos, hasta diez', async () => {
@@ -50,7 +52,7 @@ test('Mapped escribe una décupla y hereda del foco por referencia las celdas va
   assert.deepEqual(payload[0], { ref: compra.id, dir: '0000000000' });
   assert.equal(payload[2], 'sin lactosa');
   assert.deepEqual(payload[3], { ref: compra.id, dir: '3000000000' });
-  assert.deepEqual(payload[4], [['pagado'], 'servido a las 14:05']); // VG, 7-11 noche: por hojas; la salida de Mapped es una décupla: su 0 va envuelto
+  assert.deepEqual(payload[4], [['pagado'], ['servido a las 14:05']]); // la salida de Mapped es una décupla canónica: cada posición entre corchetes (VG, 8-11)
   // Resolver la herencia devuelve el contenido del foco sin copiarlo.
   assert.deepEqual(resolver(eje.obtener(compra.id).payload, payload[3].dir), ['huesped', 'cocina']);
 });

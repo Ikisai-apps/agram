@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, apartarLocal, migrar, VERSION } from '../src/persistencia.js';
+import { Eje } from '../src/eje.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
 
@@ -78,7 +79,15 @@ test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de 
 });
 
 test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalidan con las reglas de la 2', async () => {
-  const { eje } = await ejemploCompra();
+  // Un eje que la versión 2 podía guardar: en ella no había T acuñado al gastarse (VG, 7-11 noche), así que solo
+  // escribe quien tiene T, la casa (el ejemplo de la compra ya no cabe: cocina escribe con su propio T).
+  const t = '2026-11-07T09:00:00Z';
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', t, foco: 'Casa de ejemplo',
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }, { token: 'E', denominacion: 'EUR', cantidad: 50 }] });
+  const gasta = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
+  const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']], contexto: { tipos: { huesped: 'persona' } },
+    movimientos: [gasta, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 10, de: 'casa', a: 'huesped' }] });
+  await eje.escribir({ autor: 'casa', sobre: alta.id, t, payload: ['Menú del día', ['ensalada', 'guiso']], movimientos: [{ ...gasta, cantidad: 3 }] });
   const v2 = JSON.parse(JSON.stringify({ ...serializar(eje), version: 2 }));
   assert.equal(migrar(v2).version, VERSION);
   assert.deepEqual(migrar(v2).eventos, v2.eventos);

@@ -149,7 +149,7 @@ test('fábrica: diez líneas con la matriz de 100 del foco; las piezas son las c
 test('fábrica: la matriz es relativa al camino', async () => {
   const { eje, compra } = await ejemploCompra();
   // Un registro anclado en la posición 1 de la compra, escrito como lo escribe la fábrica bajo el camino [1]: [i][j][k].
-  const bajo = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '1000000000', t: '2026-11-07T14:00:00Z', movimientos: [gastaT('huesped', 4)], payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], 'impulso']]] });
+  const bajo = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '1000000000', t: '2026-11-07T14:00:00Z', movimientos: [gastaT('huesped', 4)], payload: [{ ref: compra.id, dir: '1000000000' }, [{ ref: compra.id, dir: '1100000000' }, [['ver'], ['impulso']]]] });
   const raiz = datosFabrica(eje, compra.id);
   const enUno = datosFabrica(eje, compra.id, { camino: [1] });
   // Desde la raíz, todo cae en la línea 1; desde [1], en las líneas 0 y 1 de la matriz de la posición 1, con la clase en el tercer dígito.
@@ -201,7 +201,7 @@ test('fábrica: solo se anima lo nuevo; la caja recorre las estaciones con sus e
 test('ciudad: la manzana de la posición 1, los otros ocupantes y la vía de los EUR', async () => {
   const { eje, compra, cuenta, ejec } = await ciclo();
   const d = datosCiudad(eje, compra.id);
-  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (el 0 envuelto); la tienda
+  // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (cada posición entre corchetes); la tienda
   // la lee por su único ocupante, la referencia al menú, con su enlace.
   const alMenu = compra.payload[1][0][0].ref;
   assert.deepEqual(d.tiendas.filter((t) => !t.vacia).map((t) => [t.j, t.tipo, t.texto]), [[0, 'referencia', '→ ' + alMenu.slice(0, 8)], [1, 'propio', '1'], [2, 'propio', 'EUR 12']]);
@@ -301,8 +301,8 @@ test('jardín: una planta por ocupante de la posición 2; hierba si encaja exact
   assert.equal(criterio.flores.length, 1);
   assert.equal(criterio.frutos.length, 1);
   assert.match(lineasJardin(j).join('\n'), /hierba · sin humo · referencia · exacto · flor \(Reserva en firme\) · fruto/);
-  // El criterio alcanzado en otra dirección (la 2.1 de una décupla, el 0 envuelto) es un arbusto: acuerdo 1.
-  const fuente = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa')], payload: ['Criterios', 'x', [['sin humo'], 'con desayuno']] });
+  // El criterio alcanzado en otra dirección (la 2.1 de una décupla, cada posición entre corchetes) es un arbusto: acuerdo 1.
+  const fuente = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa')], payload: ['Criterios', 'x', [['sin humo'], ['con desayuno']]] });
   const pide = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:01:00Z', movimientos: [gastaT('casa')], payload: ['Pide', 'y', [{ ref: fuente.id, dir: '2100000000' }]] });
   const p = datosJardin(eje, pide.id);
   const arbusto = p.plantas.find((x) => x.forma === 'arbusto');
@@ -343,16 +343,16 @@ test('parque: piscinas de grupo, bañeras de persona y quién habla con quién s
   const d = datosParque(eje, compra.id);
   assert.deepEqual(d.declarados, ['huesped', 'cocina']);
   const agua = (id) => d.aguas.find((a) => a.id === id);
-  assert.equal(agua('cocina').forma, 'piscina');
+  assert.equal(agua('cocina').forma, 'muelle'); // la cocina es una cosa de la casa (Core, 8-11: un grupo no recibe T ni escribe)
   assert.equal(agua('huesped').forma, 'banera');
   assert.ok(agua('huesped').declarado && agua('cocina').declarado && !agua('casa').declarado);
   const m = (de, a) => d.mensajes.filter((x) => x.de === de && x.a === a);
-  assert.equal(m('huesped', 'cocina')[0].que, 'hablar a un grupo'); // la compra, escrita sobre el menú de cocina
+  assert.equal(m('huesped', 'cocina')[0].que, 'hablar'); // la cocina es una cosa (Core, 8-11); la compra, escrita sobre el menú de cocina
   assert.equal(m('cocina', 'huesped')[0].evento, cuenta.id); // la cuenta, escrita sobre la compra de huesped
   assert.equal(m('cocina', 'huesped')[0].que, 'hablar a una persona');
   assert.ok(m('casa', 'huesped').length >= 2); // las autorizaciones de la casa sobre las consolidaciones de huesped
   assert.equal(m('huesped', 'huesped').length, 0); // escribir sobre lo propio no es hablar con nadie
-  assert.match(lineasParque(d).join('\n'), /huesped → cocina: hablar a un grupo · 1/);
+  assert.match(lineasParque(d).join('\n'), /huesped → cocina: hablar · 1/);
 });
 
 test('parque: hablar deja una gota en el agua de quien recibe, un paquete si lleva tokens; escuchar hace onda', async () => {

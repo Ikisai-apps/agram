@@ -60,7 +60,7 @@ function cierreDe(eje, clave, emisor) {
 
 function tienda(eje, foco, indices, contenido, j) {
   if (contenido === undefined) return { j, vacia: true };
-  // Por hojas (VG, 7-11 noche): una lista de uno (el 0 envuelto de una décupla) es su único ocupante.
+  // Por hojas (VG, 7-11 noche): una lista de uno (una décupla con cada posición entre corchetes) es su único ocupante.
   if (esLista(contenido) && contenido.length === 1) return tienda(eje, foco, indices, contenido[0], j);
   if (esReferencia(contenido)) return { j, tipo: 'referencia', texto: '→ ' + corto(contenido.ref), ref: contenido.ref, dir: contenido.dir ?? null };
   if (Array.isArray(contenido)) return { j, tipo: 'propio', texto: textoCorto(contenido) };

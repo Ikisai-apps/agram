@@ -4,7 +4,7 @@
 // de qué serie es cada token.
 //
 //   familia: clave de serie              : quién la emite
-//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); PROVISIONAL [X]
+//   T  tiempo:      T:<escala>           : cada persona, para sí misma, con el tope del reloj (y el génesis); no cruza de persona (a una cosa, sí)
 //   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre o al de un grupo sobre el que tiene P; atada al registro del recurso
 //   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
 //   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
@@ -17,7 +17,8 @@
 // emite una persona con P sobre él), y las COSAS reciben, conservan y mueven
 // tokens como cualquiera. La emisión es escalonada (src/ciclo.js): «normalmente
 // será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E».
-// Todo evento mueve tokens; el evento mínimo mueve T (cualquier escala).
+// Todo evento mueve tokens; el evento mínimo CONSUME T del autor (cualquier escala), y el consumo se anota
+// en el registro que soporta (VG, 7-11 noche; src/evento.js, src/eje.js tiempoSobre).
 // Sin conversión entre series: una hora NO son sesenta minutos, son tokens
 // distintos (como un euro no es un bitcoin, y los EUR de la casa no son los de otro).
 
@@ -101,8 +102,8 @@ export function esIdRegistro(x) {
 
 /**
  * Capacidad (VG, 7-11). Una décupla declara cuántos caben con un entero
- * positivo en su criterio, la posición 2: una plaza [nombre, precio,
- * capacidad] bajo la época 0 (0 representación, 1 recursos, 2 criterios).
+ * positivo en su criterio, la posición 2: una plaza [[nombre], [precio],
+ * [capacidad]] bajo la época 0 (0 representación, 1 recursos, 2 criterios).
  * La leen el motor, para el contador informativo de una posición
  * (motor.ocupacion), y el eje, para el TOPE de E de un registro: la capacidad
  * de un registro es la que declara su payload raíz en la posición 2.
@@ -113,7 +114,9 @@ export const CRITERIO_CAPACIDAD = 2;
 /** Capacidad que declara una décupla (el contenido de una posición o el payload de un registro), o undefined. */
 export function capacidadDe(nodo) {
   if (!Array.isArray(nodo)) return undefined;
-  const c = nodo[CRITERIO_CAPACIDAD];
+  // Forma canónica (VG, 8-11): cada posición entre corchetes; [2] es la lista de un ocupante, y una hoja suelta es lo mismo.
+  const p = nodo[CRITERIO_CAPACIDAD];
+  const c = Array.isArray(p) && p.length === 1 ? p[0] : p;
   return Number.isSafeInteger(c) && c > 0 ? c : undefined;
 }
 

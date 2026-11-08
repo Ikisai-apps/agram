@@ -2,7 +2,7 @@
 
 Este documento describe **lo que existe hoy** de los modos de experiencia (mapa global §2.7) y, sobre todo, el modo nuevo: **Scened**, varios focos en escena. Fuente de verdad: `src/modos.js`, `src/pointed.js`, `src/sequenced.js`, `src/mapped.js`, `src/scened.js` y sus pruebas (`test/modos.test.js`, `test/pointed.test.js`, `test/sequenced.test.js`, `test/mapped.test.js`, `test/scened.test.js`). Lo que el mapa no decide se marca «[X] decidir VG». La escritura desde cada modo (registro de salida y proporción) está en `docs/MOTOR.md` §7.
 
-Convenciones, las de `docs/MOTOR.md`: los ejemplos se ejecutan desde la raíz del repositorio con Node ≥ 20 y la salida que sigue a cada uno es la real; el eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados) con ids deterministas: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `936b43ee`, cuenta `2b75f87f`.
+Convenciones, las de `docs/MOTOR.md`: los ejemplos se ejecutan desde la raíz del repositorio con Node ≥ 20 y la salida que sigue a cada uno es la real; el eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados) con ids deterministas: génesis `2d970a48`, alta `82aafc7b`, menú `ff05e68f`, compra `3147f38b`, cuenta `bcc60646`.
 
 ## 0. Los modos
 
@@ -97,9 +97,9 @@ VG, 8-11 (mapa §14.1, punto 12: «bien a ambos»): la celda 8 de Mapped, en sob
 
 | Función (`src/mapped.js`) | Qué da |
 |---|---|
-| `ocho(eje, foco, { alcance, epoca })` | La lectura de la celda 8: `alcance` es `'hermanos'` (por defecto: el 8 del padre), `'proyecto'` (el 8 del proyecto) o `'general'` (todo el eje: el 8 del génesis), `COHORTES`. Lee la base escrita (`bases.situar`) o, si no la hay, el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`). Da `cantidades` (por serie de token: T por escala, E por emisor y denominación, P por ámbito, R por emisor; el valor del foco, su caja y cuántos quedan debajo, en ella y encima), `cuota`, `recuentos` (hilo, escritos, movimientos, posiciones, identidades: valores del foco, sin caja; `RECUENTOS`), y además `medidas` (las de `bases.MEDIDAS`, situadas) y `posiciones` (la décupla de la cohorte) para quien las dibuje. Sin puesto ni puntuación. |
-| `cuota(eje, foco, { epoca })` | La cuota del foco frente a su padre, serie a serie: lo que mueve el foco ÷ lo que mueven entre todos los hijos del padre (la base del 8 del padre, o su respaldo). `null` sin padre. `src/bases.js` aún no da una cuota (8-11): se calcula aquí con lo que da `situar` (`medir` y `fundir`); si `situar` llega a darla en una serie, se usa la suya. En cualquier cohorte la cuota es la del padre. |
-| `textoOcho(o)`, `textoCuota(c)` | El texto sobrio de la celda (abajo) y una cuota como porcentaje («37,5 %», «—» si el padre no mueve esa serie). |
+| `ocho(eje, foco, { alcance, epoca })` | La lectura de la celda 8, por cantidades (R7; integra lo que daba `bases.ochoPorCantidades`): `alcance` es `'hermanos'` (por defecto: el 8 del padre), `'proyecto'` (el 8 del proyecto) o `'general'` (todo el eje: el 8 del génesis), `COHORTES`. Lee la base escrita (`bases.situar`) o, si no la hay, el respaldo al vuelo, dicho (`frescura: 'sin base escrita'`). Da `cantidades` (por serie: T movido por escala, E por emisor y denominación, P por ámbito, R por emisor y el T consumido sobre el registro, `tiempo:<escala>`; el valor del foco, su caja, su cuota en la cohorte con la caja de esa cuota, y cuántos quedan debajo, en ella y encima, que son información), `cuota` (frente al padre), `recuentos` (las medidas de `bases.MEDIDAS`: valor del foco y lo fundido, sin caja; la celda enseña cinco, `RECUENTOS` y `recuentosDeCelda`) y `posiciones` (la décupla de la cohorte, para quien la dibuje). Sin puesto ni puntuación. |
+| `cuota(eje, foco, { epoca })` | La cuota del foco frente a su padre, serie a serie: lo que mueve el foco ÷ lo que mueven entre todos los hijos del padre (la base del 8 del padre, o su respaldo). `null` sin padre. Es la `cuota` que da `bases.situar` entre hermanos (R7); en las otras cohortes, `ocho` da además la cuota en la cohorte en cada cantidad, y la celda enseña las dos. |
+| `textoOcho(o)`, `textoCuota(c)` | El texto sobrio de la celda (abajo): una línea por serie con la cantidad, su caja y su cuota frente al padre (y, fuera de hermanos, en la cohorte), y al final los recuentos como información; y una cuota como porcentaje («37,5 %», «—» si no hay nada de esa serie). |
 | `mapa(eje, id, { medidas: true })` | Con la opción, `medidas` es la medida única del 8 del foco (`medidasDe`, es decir, `bases.medir`: `posiciones`, `terminales`, `escritos`, `movimientos`, `identidades`, `profundidadHilo`, `formulasResueltas`, `formulasPendientes` y `tokens` por serie). **Sin la opción, `medidas` es `null` y no se mide nada**: Scened pide un mapa por cada foco. |
 | `medidasDe(eje, id)`, `medicionesPedidas()` | La medida que piden las vistas (la de `bases.medir`, sin el detalle por posición) y cuántas veces se ha pedido desde que se cargó el módulo: el contador con que las pruebas comprueban que `mapa()` sin la opción no mide. |
 
@@ -121,20 +121,22 @@ console.log('con { medidas: true }:', m.escritos, 'escritos ·', m.movimientos, 
 
 ```text
 8 · hermanos · sin base escrita (respaldo al vuelo) · n 4
-E:casa/EUR 12: caja 6 · 2 debajo · 2 en su caja · 0 encima · cuota frente al padre 37,5 %
-T:hora 1: caja 1 · 0 debajo · 4 en su caja · 0 encima · cuota frente al padre 25 %
+E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 %
+T:hora 1: caja 1 · cuota frente al padre 25 %
 recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
 8 · general · sin base escrita (respaldo al vuelo) · n 14
-E:casa/EUR 12: caja 6 · 9 debajo · 2 en su caja · 3 encima · cuota frente al padre 37,5 %
-P:genesis 0: caja 0 · 0 debajo · 13 en su caja · 1 encima · cuota frente al padre —
-T:hora 1: caja 1 · 1 debajo · 10 en su caja · 3 encima · cuota frente al padre 25 %
-T:minuto 0: caja 0 · 0 debajo · 8 en su caja · 6 encima · cuota frente al padre —
+E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 % · en la cohorte 1,8 %
+P:genesis 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+T:hora 1: caja 1 · cuota frente al padre 25 % · en la cohorte 0,1 %
+T:minuto 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+tiempo:hora 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
+tiempo:minuto 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
 recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
 mapa sin la opción: null · medidas pedidas: 0
 con { medidas: true }: 0 escritos · 2 movimientos · medidas pedidas: 1
 ```
 
-Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5 %) y una de sus cuatro horas de T (25 %). En todo el eje cambian las cajas (n 14) y aparecen series que el padre no mueve («—»), pero la cuota sigue siendo la del padre.
+Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5 %) y una de sus cuatro horas de T (25 %). En todo el eje cambian las cajas (n 14), aparecen series que el padre no mueve («—») y se añade la cuota en la cohorte (12 EUR son el 1,8 % de los que se mueven en todo el eje); la cuota frente al padre no cambia.
 
 **Scened**, igual: `escena()` no mide ningún registro y `recuentos.medidas` es `null`; con `{ medidas: true }`, o después con `medidasDeEscena(eje, escena)`, suma la medida del 8 de cada foco en escena (la misma función, una vez por foco). El render sobrio lo dice en una línea propia (`medidas del 8: bajo demanda …` o `medidas del 8 (suma de n focos): …`).
 
@@ -269,7 +271,7 @@ Una cabecera con el marco común y las cifras (`31 de 10000 posiciones · mín 1
 
 ## 8. Ejemplo ejecutable
 
-La compra del ejemplo, su cuenta (con la fórmula `=REF("936b43ee", "1200000000") + 2 EUR`) y dos compras hermanas más del mismo menú:
+La compra del ejemplo, su cuenta (con la fórmula `=REF("3147f38b", "1200000000") + 2 EUR`) y dos compras hermanas más del mismo menú:
 
 ```sh
 node --input-type=module -e "
@@ -292,40 +294,40 @@ console.log(render(escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora, capa
 ```
 
 ```text
-escena · 5 de 5 focos · común d367743b · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 d367743b cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
-1 n1 936b43ee huesped · 0 Compra del menú del día · 1 [3] · 2 [1] · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
-2 n2 2b75f87f cocina · 0 Cuenta del menú · 1 =REF("936b43ee", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
-3 n1 7a81cc50 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
-4 n1 f06e8c67 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+escena · 5 de 5 focos · común ff05e68f · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 ff05e68f cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
+1 n1 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
+2 n2 bcc60646 cocina · 0 Cuenta del menú · 1 =REF("3147f38b", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
+3 n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+4 n1 4dbd5c17 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 aristas: hilo 4 · referencia 4 · fórmula 1 · fuera de escena 0
 recuentos: grupos 3 · pasado 19 · futuro 0
 medidas del 8 (suma de 5 focos): escritos 4 · movimientos 8 · posiciones 16 · identidades 8
 ---
 escena · 4 de 4 focos · común 2d970a48 · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
 0 n0 2d970a48 casa · Casa de ejemplo · hermano 1 de 1 · pasado 1 futuro 0 · ← 1
-1 n1 a8efd9b0 casa · 0 Altas del fin de semana · 1 [2] · hermano 1 de 1 · pasado 2 futuro 0 · hilo→0 · ← 1
-2 n2 d367743b cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
-3*n3 936b43ee huesped · 0 Compra del menú del día · 1 [3] · 2 [1] · 3 [2] · 4 [2] · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
+1 n1 82aafc7b casa · 0 Altas del fin de semana · 1 [2] · hermano 1 de 1 · pasado 2 futuro 0 · hilo→0 · ← 1
+2 n2 ff05e68f cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
+3*n3 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
 recuentos: grupos 4 · pasado 12 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 3 de 3 focos · común d367743b · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 936b43ee huesped · 0 Compra del menú del día · 1 [3] · 2 [1] · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0
-1*n1 7a81cc50 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
-2 n1 f06e8c67 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
+escena · 3 de 3 focos · común ff05e68f · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0
+1*n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
+2 n1 4dbd5c17 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 4
 recuentos: grupos 1 · pasado 10 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 2 de 4 focos · común d367743b · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 936b43ee huesped · 0 Compra del menú del día · 1 [3] · 2 [1] · 3 [2] · 4 [2] · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
-1 n1 7a81cc50 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
+escena · 2 de 4 focos · común ff05e68f · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 3147f38b huesped · 0 Compra del menú del día · 1 [3] · 2 →ff05e68f · 3 [2] · 4 [2] · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
+1 n1 c909ec37 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 3
 recuentos: grupos 1 · pasado 7 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
-aviso: capacidad de la escena: 30 posiciones. El foco f06e8c67 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: f06e8c67 d367743b. Trae 27 de 31 posiciones.
+aviso: capacidad de la escena: 30 posiciones. El foco 4dbd5c17 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: 4dbd5c17 ff05e68f. Trae 27 de 31 posiciones.
 ```
 
 Lectura de la primera escena: se pidieron en desorden y el marco las coloca por el hilo, en preorden. El menú es el común (n0) y recibe siete aristas: el hilo de las tres compras y sus cuatro referencias. La cuenta (n2) cuelga de la compra anclada en su posición 1 (los recursos) y su fórmula lee la 1.2 de la compra (el precio); por eso va justo detrás de la compra y antes de la segunda compra: las tres compras siguen el orden de llegada, pero no van seguidas. En la segunda, el génesis es un terminal y sale como tal, sin índice. En la última, la compra trae 23 posiciones con contenido (ella 9, el menú 6, las altas 3, el génesis 1 y la cuenta escrita encima 4), la segunda compra suma 4 y la tercera pasaría de 30: se corta ahí y el menú, pedido detrás, también queda fuera.

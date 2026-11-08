@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-import { mapa, ocho, cuota, textoOcho, textoCuota, medicionesPedidas, medidasDe, COHORTES, RECUENTOS } from '../src/mapped.js';
+import { mapa, ocho, cuota, textoOcho, textoCuota, medicionesPedidas, medidasDe, recuentosDeCelda, COHORTES, RECUENTOS } from '../src/mapped.js';
 import { escena, escenaDe, medidasDeEscena, render } from '../src/scened.js';
 import { medir, hijos, MEDIDAS, SIN_BASE_ESCRITA } from '../src/bases.js';
 import { datosCielo } from '../mundos/cielo.js';
@@ -42,8 +42,8 @@ test('celda 8: hermanos por defecto y un toque para proyecto y todo el eje; cada
     assert.equal(o.n, n[c], c);
     const html = htmlOcho(eje, guisos.id, { alcance: c });
     assert.deepEqual(botones(html).filter(([, p]) => p).map(([a]) => a), [c]);
-    const nombre = COHORTES_VISTA.find((x) => x.alcance === c).nombre;
-    assert.ok(html.includes(`entre ${nombre} · <b>sin base escrita (respaldo al vuelo)</b> · n ${o.n}`), c);
+    const donde = { hermanos: 'entre hermanos', proyecto: 'en el proyecto', general: 'en todo el eje' }[c];
+    assert.ok(html.includes(`${donde} · <b>sin base escrita (respaldo al vuelo)</b> · n ${o.n}`), c);
   }
   // El toque elige y se queda (como comodidad); lo que no es una cohorte vuelve a hermanos.
   try {
@@ -71,6 +71,8 @@ test('celda 8: primero las cantidades por serie y la cuota frente al padre; los 
     assert.equal(x.foco, medir(eje, guisos.id).tokens[x.clave] ?? 0);
     assert.equal(x.debajo + x.enCaja + x.encima, o.n);
     assert.ok(!('hito' in x) && !('puesto' in x) && !('puntuacion' in x));
+    assert.equal(x.cuota, x.suma ? x.foco / x.suma : null); // la cuota en la cohorte, la de bases (R7)
+    assert.equal(x.cuota, o.cuota.series.find((y) => y.clave === x.clave).cuota); // entre hermanos, la cohorte es el padre
   }
   // La cuota: lo que mueve el foco ÷ lo que mueven entre todos los hijos de su padre, serie a serie (aquí, sin bases.js).
   const delPadre = (k) => hijos(eje, menu.id).reduce((s, h) => s + (medir(eje, h.id).tokens[k] ?? 0), 0);
@@ -80,16 +82,22 @@ test('celda 8: primero las cantidades por serie y la cuota frente al padre; los 
   assert.deepEqual([textoCuota(0.375), textoCuota(0.25), textoCuota(1 / 3), textoCuota(null)], ['37,5 %', '25 %', '33,3 %', '—']);
   // Frente al padre en cualquier cohorte: la de proyecto lee las cantidades del proyecto, pero la cuota sigue siendo la del padre.
   assert.deepEqual(ocho(eje, guisos.id, { alcance: 'proyecto' }).cuota, cuota(eje, guisos.id));
-  // Los recuentos: valores de la medida única, sin caja.
-  assert.deepEqual(o.recuentos.map((r) => r.clave), RECUENTOS.map((r) => r.clave));
-  assert.deepEqual(o.recuentos.map((r) => r.etiqueta), ['hilo', 'escritos', 'movimientos', 'posiciones', 'identidades']);
-  for (const r of o.recuentos) assert.deepEqual(Object.keys(r), ['clave', 'etiqueta', 'valor']);
-  assert.deepEqual(o.recuentos.map((r) => r.valor), RECUENTOS.map((r) => medir(eje, guisos.id)[r.clave]));
+  // Los recuentos: todas las medidas de bases.MEDIDAS, valores de la medida única, sin caja (R7).
+  assert.deepEqual(o.recuentos.map((r) => r.clave), MEDIDAS.map((m) => m.clave));
+  for (const r of o.recuentos) assert.ok(r.recuento === true && !('caja' in r) && !('cuota' in r), r.clave);
+  assert.deepEqual(o.recuentos.map((r) => r.foco), MEDIDAS.map((m) => medir(eje, guisos.id)[m.clave]));
+  // La celda enseña cinco, con su nombre corto.
+  const celda = recuentosDeCelda(o);
+  assert.deepEqual(celda.map((r) => r.clave), RECUENTOS.map((r) => r.clave));
+  assert.deepEqual(celda.map((r) => r.etiqueta), ['hilo', 'escritos', 'movimientos', 'posiciones', 'identidades']);
+  assert.deepEqual(celda.map((r) => r.valor), RECUENTOS.map((r) => medir(eje, guisos.id)[r.clave]));
   // En el texto: la lectura, las series y, al final, los recuentos marcados como información.
   const lineas = textoOcho(o).split('\n');
   assert.equal(lineas[0], '8 · hermanos · sin base escrita (respaldo al vuelo) · n 4');
-  assert.equal(lineas[1], 'E:casa/EUR 12: caja 6 · 2 debajo · 2 en su caja · 0 encima · cuota frente al padre 37,5 %');
-  assert.equal(lineas[2], 'T:hora 1: caja 1 · 0 debajo · 4 en su caja · 0 encima · cuota frente al padre 25 %');
+  assert.equal(lineas[1], 'E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 %');
+  assert.equal(lineas[2], 'T:hora 1: caja 1 · cuota frente al padre 25 %');
+  // Fuera de hermanos, también la cuota en la cohorte.
+  assert.match(textoOcho(ocho(eje, guisos.id, { alcance: 'general' })), /\nE:casa\/EUR 12: caja 6 · cuota frente al padre 37,5 % · en la cohorte [\d,]+ %\n/);
   assert.equal(lineas[3], 'recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2');
   // En el HTML: cantidades antes que recuentos; los recuentos, aparte y marcados.
   const html = htmlOcho(eje, guisos.id);
@@ -173,10 +181,11 @@ test('una sola verdad: el cielo animado y la celda sobria leen lo mismo, con la 
         assert.equal(d.base.id, o.base, donde);
         assert.equal(d.incluido, o.incluido, donde);
         assert.deepEqual(d.cambiadas, o.cambiadas, donde);
-        const deCaja = (x) => [x.clave, x.foco, x.caja, x.enCaja, x.debajo, x.encima, x.n, x.cajas, x.cortes];
-        const delCielo = (m) => [m.medida, m.valor, m.caja, m.enCaja, m.debajo, m.encima, m.n, m.cajas, m.cortes];
+        const deCaja = (x) => [x.clave, x.foco, x.caja, x.cuota, x.cajaCuota, x.enCaja, x.debajo, x.encima, x.n, x.cajas, x.cortes];
+        const delCielo = (m) => [m.medida, m.valor, m.caja, m.cuota, m.cajaCuota, m.enCaja, m.debajo, m.encima, m.n, m.cajas, m.cortes];
         const cajas = d.medidas.filter((m) => m.tipo === 'caja');
-        assert.deepEqual(cajas.map(delCielo), [...o.medidas, ...o.cantidades].map(deCaja), donde);
+        assert.deepEqual(cajas.map(delCielo), o.cantidades.map(deCaja), donde);
+        assert.deepEqual(d.recuentos.map((r) => [r.medida, r.valor, r.n, r.suma]), o.recuentos.map((r) => [r.clave, r.foco, r.n, r.suma]), donde);
         assert.deepEqual(d.medidas.find((m) => m.tipo === 'pv').cajas, o.posiciones.map((p) => p.comparables), donde);
       }
     }
@@ -202,6 +211,8 @@ test('celda 8 a 400 px: todo envuelve, sin scroll horizontal; la app la pinta co
   const ej = await ejemploComprasHermanas();
   const celda = htmlOcho(ej.eje, ej.guisos.id, { alcance: 'general' });
   assert.match(celda, />P:genesis<\/span>/);
+  assert.match(celda, />tiempo:minuto<\/span>/); // el T consumido sobre el registro, tal cual
+  assert.match(celda, /<span class="cuota">cuota 37,5 %<\/span> · <span class="cuota">[\d,]+ % en todo el eje<\/span>/);
   assert.doesNotMatch(celda.replace(/<[^>]+>/g, ' '), /[0-9a-f]{9,}/);
   // app.js: la celda 8 la pinta htmlOcho al pintarse; mapa() se pide sin medidas.
   const app = leer('../app.js');

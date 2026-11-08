@@ -53,9 +53,9 @@ test('escena de la compra y el menú: marco común, aristas y recuentos', async 
   // Cada foco lleva su mapa y su eje temporal tal cual: la escena compone, no recalcula a su manera.
   assert.deepEqual(e.focos[1].mapa, mapa(eje, compra.id));
   assert.deepEqual(e.focos[1].tiempo, ejeTemporal(eje, compra.id, { ahora: AHORA }));
-  assert.match(render(e).split('\n')[2], / huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[1\] · /); // como en Sequenced: cada posición con su índice
+  assert.match(render(e).split('\n')[2], / huesped · 0 Compra del menú del día · 1 \[3\] · 2 →[0-9a-f]{8} · /); // como en Sequenced: cada posición con su índice
   // Aristas: el hilo (la compra está escrita sobre el menú, en su raíz) y las dos referencias que no copian.
-  // VG, 7-11 noche: por hojas. Compra 1 = [[menú], 1, 'EUR 12']: la referencia es el elemento 0 de la lista 1.0.
+  // VG, 7-11 noche: por hojas. Compra 1 = [[menú], [1], ['EUR 12']]: la referencia es el elemento 0 de la lista 1.0.
   assert.deepEqual(e.aristas, [
     { tipo: 'hilo', de: 1, a: 0, deId: compra.id, aId: menu.id, saltos: 1, en: '0000000000' },
     { tipo: 'referencia', de: 1, a: 0, deId: compra.id, aId: menu.id, camino: [1, 0, 0], dir: '1000000000' },
@@ -293,7 +293,7 @@ test('camino y época: todos los focos se miran desde el mismo sitio y bajo la m
   assert.match(lineas[0], /· época de prueba · camino 1 ·/);
   assert.match(lineas[1], / cocina · 0 ensalada · /); // la posición 1.0 del menú
   // La 1.0 de la compra es la lista de uno [menú] (VG, 7-11 noche: por hojas): la 1.1, la cantidad; la 1.2, el precio.
-  assert.match(lineas[2], / huesped · 0 \[1\] · 1 1 · 2 EUR 12 · /);
+  assert.match(lineas[2], / huesped · 0 →[0-9a-f]{8} · 1 1 · 2 EUR 12 · /);
   // La época también por nombre, como en mapa; la escena dice la resuelta.
   const p = escena(eje, [menu.id], { ahora: AHORA, camino: [1], epoca: 'época 0' });
   assert.equal(p.epoca, 'época 0');
