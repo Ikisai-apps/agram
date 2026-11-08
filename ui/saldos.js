@@ -5,10 +5,12 @@
 // las series emitidas (eje.series()): quién emite cada una, cuánto ha
 // emitido y cuánto queda en carteras (lo demás se ha consumido).
 
-import { autoridad, ESCALAS_T, AMBITO_GENESIS } from '../src/index.js';
+import { autoridad, ESCALAS_T, PARTES_T, AMBITO_GENESIS } from '../src/index.js';
 import { escapar, corto } from './comun.js';
 
 const ESCALA = Object.freeze({ segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' });
+/** Semana, ciclo y año van en partes diarias (VG, 8-11): «3/7» o, si cuadra, el entero. */
+const cantidadT = (x) => { const n = PARTES_T[x.escala]; return !n ? x.cantidad : x.cantidad % n === 0 ? x.cantidad / n : x.cantidad + '/' + n; };
 
 /** Ids de registro dentro de un nombre de serie (una plaza por noche lleva el de su habitación), en corto. */
 const sinIdsLargos = (t) => String(t).replace(/[0-9a-f]{64}/g, (id) => corto(id));
@@ -23,7 +25,7 @@ const TABLA_ABIERTA_HASTA = 10;
 export function familiasDe(eje, id) {
   return {
     // De la escala mayor a la menor: es lo primero que se lee.
-    T: eje.tiempos(id).slice().reverse().map((x) => x.cantidad + ' ' + (ESCALA[x.escala] ?? x.escala)),
+    T: eje.tiempos(id).slice().reverse().map((x) => cantidadT(x) + ' ' + (ESCALA[x.escala] ?? x.escala)),
     E: eje.recursos(id).map((x) => x.cantidad + ' ' + denominacion(x.denominacion) + (x.emisor === id ? '' : ' de ' + x.emisor)),
     P: eje.poderes(id).map((x) => x.cantidad + ' sobre ' + ambito(x.ambito)),
     R: eje.reputaciones(id).map((x) => x.cantidad + ' de ' + x.emisor),

@@ -31,8 +31,9 @@
 // tamaño de un árbol se mide en órdenes; el orden n va de 10^(n−1) a 10^n
 // posiciones. Es una medida general, no algo de las UI: los modos nombran
 // los cuatro primeros (Pointed 1, Sequenced 2, Mapped 3, Scened 4) y Be,
-// del quinto en adelante; las siete escalas de T nombran siete
-// (ordenDeEscala, informativa).
+// del quinto en adelante; las siete escalas reales de T nombran siete
+// (ordenDeEscala, informativa). Las tres informativas (pasado, futuro,
+// inventado; VG, 8-11) no tienen orden: null.
 // La proporción de Scened y de Be no está fijada: null es «sin propuesta».
 // Proporción de escritura sobre lectura (VG, 6-11-2026): Pointed un décimo;
 // Sequenced entre un quinto y un décimo; Mapped entre un cuarto y un tercio;
@@ -50,6 +51,7 @@
 // posiciones del registro, lo heredado incluido, y solo informan.
 
 import { esTerminal } from './btml.js';
+import { ESCALAS_INFORMATIVAS } from './tokens.js';
 
 // ---------- órdenes de magnitud ----------
 
@@ -85,7 +87,7 @@ export function maximoDe(n) {
 /**
  * Orden de cada escala de T (VG, 7-11 noche, «T, corregido por VG», punto
  * 4): segundo 1 (1-10 posiciones), minuto 2, hora 3, día 4, semana 5, ciclo
- * 6, año 7 (10^6-10^7). Los nombres son los de tokens.ESCALAS_T.
+ * 6, año 7 (10^6-10^7). Los nombres son los de tokens.ESCALAS_REALES.
  */
 export const ORDENES_DE_ESCALA = Object.freeze({ segundo: 1, minuto: 2, hora: 3, dia: 4, semana: 5, ciclo: 6, anio: 7 });
 
@@ -98,6 +100,8 @@ export const ORDENES_DE_ESCALA = Object.freeze({ segundo: 1, minuto: 2, hora: 3,
  * si VG quiere rechazo).
  */
 export function ordenDeEscala(escala) {
+  // Las tres escalas informativas de T (VG, 8-11) son de las diez, pero no tienen orden.
+  if (ESCALAS_INFORMATIVAS.includes(escala)) return null;
   if (!Object.hasOwn(ORDENES_DE_ESCALA, escala)) throw new Error('escala T desconocida: ' + escala + ' (' + Object.keys(ORDENES_DE_ESCALA).join(', ') + ')');
   return ORDENES_DE_ESCALA[escala];
 }

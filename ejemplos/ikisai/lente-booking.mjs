@@ -55,8 +55,8 @@ const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a })
 export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
   const base = await ejemploReserva({ confirmar: false });
   const { eje } = base;
-  // Una hora después de las altas: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope de su
-  // reloj (VG, 7-11 noche; Core, 8-11). T no cruza de persona, y un grupo no recibe T.
+  // Una hora después de las altas: cada persona escribe con su asignación de T del día (VG, 8-11). T no cruza de
+  // persona, y un grupo no recibe T.
   const luego = new Date(Date.parse(t) + 3600e3).toISOString();
 
   // La casa da de alta a las secretarias y a «recien» (personas).

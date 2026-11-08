@@ -20,7 +20,7 @@
 //   T: un token por escala y sin conversión: T:minuto y T:hora son series
 //      distintas. Escribir cuesta minutos (uno por posición) y trabajar
 //      cuesta horas. T no cruza de persona (VG, 7-11 noche): cada una gasta
-//      el suyo (se acuña al gastarse) y el consumo queda anotado en el
+//      su asignación del día (VG, 8-11) y el consumo queda anotado en el
 //      registro que soporta; lo que la casa cede de su tiempo es E:casa/hora.
 //   E: E:<emisor>/<denominación>. Cada partida es una posición con capacidad
 //      (su importe) respaldada por una serie limitada de E que emite la casa,
@@ -332,7 +332,7 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: costeT(altas), de: 'casa', a: null },
       ...DE_LA_CARPA.map(([concepto, importe]) => ({ token: 'E', emisor: 'casa', denominacion: concepto, cantidad: importe, de: 'casa', a: 'organizadora' })),
-      // Cada una escribe y trabaja con su propio T (se acuña al gastarse). La casa cede al proveedor 20
+      // Cada una escribe y trabaja con su asignación de T del día (VG, 8-11). La casa cede al proveedor 20
       // horas de su tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
       { token: 'E', emisor: 'casa', denominacion: 'hora', cantidad: 20, de: 'casa', a: 'proveedor' },
     ],

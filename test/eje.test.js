@@ -22,7 +22,7 @@ async function ejeBase(t = T0) {
   });
 }
 
-/** Un mes antes de T0: las personas que entran ahí escriben a T0 con su propio T, dentro del tope de su reloj (Core, 8-11). */
+/** Un mes antes de T0 (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)). */
 const ALTA = '2026-10-06T20:00:00Z';
 
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'hora', cantidad, de, a: null });
@@ -225,11 +225,11 @@ test('E ligada al emisor como R: nadie se queda un nombre; la misma denominació
 test('emitir es solo de personas (VG, 7-11 noche); los grupos y las cosas reciben, conservan y mueven tokens', async () => {
   const { eje } = await conAltas();
   const dominio = await escalonE(eje, 'casa');
-  // La casa emite las plazas de la habitación y se las da en el mismo evento, con dos horas de su T para que la
-  // habitación (una cosa) escriba: T no cruza de persona, pero una persona sí lo da a una cosa (Core, 8-11).
+  // La casa emite las plazas de la habitación y se las da en el mismo evento, con dos horas de su T del día para que
+  // la habitación (una cosa) escriba: T no cruza de persona, pero una persona sí lo da a una cosa (Core, 8-11).
   const plazas = await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'plazas de la habitación 2',
     movimientos: [gastaT('casa'), enJuego('casa'), emite('casa', 'plaza@2026-11-13', 2), mueveE('casa', 'plaza@2026-11-13', 2, 'casa', 'habitacion-2'),
-      { token: 'T', escala: 'hora', cantidad: 2, de: null, a: 'casa' }, { token: 'T', escala: 'hora', cantidad: 2, de: 'casa', a: 'habitacion-2' }] });
+      { token: 'T', escala: 'hora', cantidad: 2, de: 'casa', a: 'habitacion-2' }] });
   assert.equal(eje.saldo('habitacion-2', 'E:casa/plaza@2026-11-13'), 2);
   // La habitación las maneja: cede una a bea.
   await eje.escribir({ autor: 'habitacion-2', sobre: plazas.id, t: T0, payload: 'reserva de bea',

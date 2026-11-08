@@ -300,8 +300,9 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
       }
       if (op === 4) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: autor }); // tokens ajenos si autor ≠ r
       if (op === 5) mov.push({ token: 'T', escala: 'anio', cantidad: 100, de: autor, a: 'b' }); // saldo insuficiente
-      // VG, 7-11 noche: cada persona emite su T (antes, solo el génesis); en T0 el reloj da un minuto, y el segundo se rechaza.
+      // VG, 8-11: T no se emite (cada persona tiene su asignación diaria); una persona emite su R con su colateral (R6).
       if (op === 7) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor });
+      if (op === 8) mov.push({ token: 'R', emisor: autor, cantidad: 10, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 1, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor });
       const datos = { autor, sobre: g.si(0.9) ? g.pick(ids) : hex(g), en: direccion([g.int(0, 2)]), t: T0, movimientos: mov, payload: op === 6 ? ['x', null] : ['p', paso, s], contexto: { paso } };
       const antes = foto(eje);
       let ev;
@@ -311,6 +312,7 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
         assert.equal(e.constructor, Error, e.message);
         assert.match(e.message, /evento (rechazado|mal formado)/);
         assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
+        if (op === 7 && /^evento rechazado/.test(e.message) && !/autor desconocido|foco desconocido/.test(e.message)) assert.match(e.message, /T no se emite|solo las personas emiten/);
         if (autor === 'hab' && op === 3) {
           assert.match(e.message, /solo las personas emiten: hab es cosa/);
           vistos.cosaNoEmite++;
@@ -334,8 +336,10 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
       for (const [id, saldos] of eje.saldos) for (const [k, v] of saldos) assert.ok(Number.isFinite(v) && v >= 0, id + ' ' + k + ' = ' + v);
       const total = new Map();
       for (const [, saldos] of eje.saldos) for (const [k, v] of saldos) total.set(fam(k), (total.get(fam(k)) ?? 0) + v);
+      for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) total.set(fam(b.clave), (total.get(fam(b.clave)) ?? 0) + b.cantidad);
       const emitido = new Map();
-      for (const serie of eje.series()) emitido.set(fam(serie.clave), (emitido.get(fam(serie.clave)) ?? 0) + serie.emitido);
+      // T (VG, 8-11): lo que sale de las asignaciones diarias entra sin emitirse (deAsignacion).
+      for (const serie of eje.series()) emitido.set(fam(serie.clave), (emitido.get(fam(serie.clave)) ?? 0) + serie.emitido + (serie.deAsignacion ?? 0));
       assert.deepEqual([...total.keys()].sort(), [...emitido.keys()].sort());
       for (const [k, e] of emitido) assert.equal(total.get(k) + (consumido.get(k) ?? 0), e, 'conservación de ' + k);
     }

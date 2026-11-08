@@ -13,7 +13,7 @@ test('T: un token por escala, sin conversión entre escalas', () => {
   assert.equal(claveToken({ token: 'T', escala: 'minuto', cantidad: 60 }), 'T:minuto');
   assert.notEqual(claveToken({ token: 'T', escala: 'minuto' }), claveToken({ token: 'T', escala: 'hora' }));
   assert.equal(cantidadBase({ token: 'T', escala: 'anio', cantidad: 1 }), 1);
-  assert.deepEqual(ESCALAS_T, ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio']);
+  assert.deepEqual(ESCALAS_T, ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio', 'pasado', 'futuro', 'inventado']);
   assert.ok(ESCALAS_T.length <= MAXIMO_ESCALAS_T); // tokens.js lanza al cargar si se pasa del tope
   assert.equal(MAXIMO_ESCALAS_T, 10);
 });

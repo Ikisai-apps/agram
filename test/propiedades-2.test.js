@@ -27,9 +27,10 @@ import { ALCANCES } from '../src/tiempo.js';
 
 const SEMILLA = 20261108;
 const T0 = '2026-11-07T00:00:00Z';
-/** El día antes de T0: la raíz y sus altas nacen aquí, y a T0 el reloj de cada persona le da su T (Core, 8-11). */
+/** El día antes de T0: la raíz y sus altas nacen aquí; a T0 cada persona tiene su asignación del día (VG, 8-11). */
 const AYER = '2026-11-06T00:00:00Z';
-const SEG_ESCALA = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 7 * 86400, ciclo: 28 * 86400, anio: 365 * 86400 };
+/** La asignación diaria de T de cada persona (VG, 8-11), escrita aparte de src/tokens.js. */
+const ASIGNACION = { segundo: 86400, minuto: 1440, hora: 24, dia: 1, semana: 1, ciclo: 1, anio: 1 };
 
 function mulberry32(a) {
   return function () {
@@ -68,12 +69,11 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  */
 class Modelo {
   constructor(genesisId, autor, tipo, emision, tGenesis = T0) {
-    this.altaT = new Map([[autor, tGenesis]]); // identidad → t de su alta: el tope del reloj a T0
+    this.gastado = new Map(); // persona + escala → T de su asignación gastado en T0 (VG, 8-11: todo va en T0, un solo día)
     this.g = genesisId;
     this.padre = new Map([[genesisId, null]]);
     this.autorDe = new Map([[genesisId, autor]]);
     this.alta = new Map([[autor, genesisId]]);
-    this.emitidoT = new Map(); // autor + escala → T emitido fuera del génesis
     this.saldos = new Map();
     this.tipos = new Map([[autor, tipo]]);
     this.existe = new Set([autor]);
@@ -87,8 +87,8 @@ class Modelo {
   /**
    * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
    * src/ciclo.js: solo personas; E y R a su nombre o al de un grupo sobre cuya
-   * alta tiene P; T para sí mismas con el tope del reloj (todo va en T0, así
-   * que el tope es 1 por escala); P solo sobre un registro que escribió;
+   * alta tiene P; T no se emite (VG, 8-11: cada persona tiene su asignación
+   * diaria); P solo sobre un registro que escribió;
    * escalonado T → R → P → E. true si el evento las cumple.
    */
   cicloOk(ev) {
@@ -97,7 +97,6 @@ class Modelo {
     const pEnEvento = (reg) => ev.movimientos.some((m) => m.token === 'P' && (m.de === autor || m.a === autor) && this.cubren(reg).includes(m.ambito));
     const tienePoder = (reg) => pAntes(reg) > 0 || pEnEvento(reg);
     const emitidas = new Set();
-    const tEvento = new Map();
     for (const m of ev.movimientos) {
       if (m.de !== null) continue;
       emitidas.add(m.token);
@@ -105,12 +104,7 @@ class Modelo {
       if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
         if (this.tipos.get(m.emisor) !== 'grupo' || !this.alta.has(m.emisor) || !tienePoder(this.alta.get(m.emisor))) return false;
       }
-      if (m.token === 'T') {
-        if (m.a !== autor) return false;
-        const lleva = (this.emitidoT.get(autor + m.escala) ?? 0) + (tEvento.get(m.escala) ?? 0) + m.cantidad;
-        tEvento.set(m.escala, (tEvento.get(m.escala) ?? 0) + m.cantidad);
-        if (lleva > this.tope(autor, m.escala)) return false;
-      }
+      if (m.token === 'T') return false;
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
       // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
       if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
@@ -130,11 +124,6 @@ class Modelo {
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
     }
     return true;
-  }
-  /** Tope del reloj a T0 (todo se escribe en T0): las unidades de la escala desde su alta, y al menos una. */
-  tope(id, escala) {
-    const ms = Date.parse(T0) - Date.parse(this.altaT.get(id) ?? T0);
-    return Math.max(1, Math.ceil(ms / (SEG_ESCALA[escala] * 1000)));
   }
   /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
   emitidoDeP(ambito) {
@@ -180,9 +169,9 @@ class Modelo {
     if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
     if (!this.cicloOk(ev)) return null;
     const emitidasAqui = new Set();
-    // Lo que se acuña al gastar: solo una persona, y cuenta en lo emitido contra el tope (aquí 1 por escala).
-    const explicito = (e) => ev.movimientos.filter((m) => m.token === 'T' && m.de === null && m.a === ev.autor && m.escala === e).reduce((s, m) => s + m.cantidad, 0);
-    const acunado = new Map();
+    // La asignación diaria (VG, 8-11): lo que una persona gasta de su T sale primero de lo que le queda del día.
+    const gastadoAqui = new Map();
+    const queda = (e) => ASIGNACION[e] - (this.gastado.get(ev.autor + e) ?? 0) - (gastadoAqui.get(e) ?? 0);
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
@@ -214,16 +203,12 @@ class Modelo {
           resta -= usa;
         }
         if (resta > 0) return null;
-      } else if (m.token === 'T' && m.a === null) {
-        // Consumir T propio: lo que falte se acuña al gastarse (VG, 7-11 noche), si es una persona y cabe en el tope.
-        const falta = Math.max(0, m.cantidad - Math.max(0, ver(m.de, k)));
-        if (falta > 0) {
-          if (this.tipos.get(ev.autor) !== 'persona') return null;
-          const lleva = (this.emitidoT.get(ev.autor + m.escala) ?? 0) + explicito(m.escala) + (acunado.get(m.escala) ?? 0) + falta;
-          if (lleva > this.tope(ev.autor, m.escala)) return null;
-          acunado.set(m.escala, (acunado.get(m.escala) ?? 0) + falta);
-        }
-        poner(m.de, k, Math.max(0, ver(m.de, k) - m.cantidad));
+      } else if (m.token === 'T' && m.a !== ev.autor && this.tipos.get(ev.autor) === 'persona') {
+        // Gastar T propio (consumirlo o darlo a una cosa): primero la asignación del día, luego el T explícito.
+        const usa = Math.min(Math.max(0, queda(m.escala)), m.cantidad);
+        if (ver(m.de, k) < m.cantidad - usa) return null;
+        gastadoAqui.set(m.escala, (gastadoAqui.get(m.escala) ?? 0) + usa);
+        poner(m.de, k, ver(m.de, k) - (m.cantidad - usa));
       } else {
         if (ver(m.de, k) < m.cantidad) return null;
         poner(m.de, k, ver(m.de, k) - m.cantidad);
@@ -235,14 +220,13 @@ class Modelo {
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const m of ev.movimientos) {
-        if (m.a !== null && !this.alta.has(m.a)) { this.alta.set(m.a, ev.id); this.altaT.set(m.a, ev.t); }
+        if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
         if (m.a !== null) this.existe.add(m.a);
         if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
-        if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'R') this.emitidoR.set('R:' + m.emisor, (this.emitidoR.get('R:' + m.emisor) ?? 0) + m.cantidad);
         if (m.estado === 'bloqueo' && m.token === 'R') this.colateral.set(m.de + '\u0000' + m.salida, (this.colateral.get(m.de + '\u0000' + m.salida) ?? 0) + m.cantidad);
       }
-      for (const [e, n] of acunado) this.emitidoT.set(ev.autor + e, (this.emitidoT.get(ev.autor + e) ?? 0) + n);
+      for (const [e, n] of gastadoAqui) this.gastado.set(ev.autor + e, (this.gastado.get(ev.autor + e) ?? 0) + n);
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
     };
   }
@@ -334,7 +318,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       for (const [, m] of eje.saldos) for (const [k, v] of m) total.set(fam(k), (total.get(fam(k)) ?? 0) + v);
       for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) total.set(fam(b.clave), (total.get(fam(b.clave)) ?? 0) + b.cantidad);
       const emitido = new Map();
-      for (const se of eje.series()) emitido.set(fam(se.clave), (emitido.get(fam(se.clave)) ?? 0) + se.emitido);
+      // T (VG, 8-11): lo que sale de las asignaciones diarias entra sin emitirse (deAsignacion).
+      for (const se of eje.series()) emitido.set(fam(se.clave), (emitido.get(fam(se.clave)) ?? 0) + se.emitido + (se.deAsignacion ?? 0));
       for (const [k, e] of emitido) assert.equal((total.get(k) ?? 0) + (consumido.get(k) ?? 0), e, 'conservación de ' + k);
       for (const se of eje.series()) {
         assert.equal(claveToken(partirClave(se.clave)), se.clave);

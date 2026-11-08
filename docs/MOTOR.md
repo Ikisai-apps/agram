@@ -208,13 +208,13 @@ const { eje, compra } = await ejemploCompra();
 const cuenta = await ejemploCuenta(eje, compra);
 const d = descubrir(eje, compra.id);
 const elegida = d[0].candidatos.find((c) => c.evento === cuenta.id);
-const antesT = eje.emitidoT('huesped', 'minuto'); // huesped no tiene T: acuña al gastarlo (VG, 7-11 noche), y cuenta aquí
+const antesT = eje.series().find((s) => s.clave === 'T:minuto').consumido; // huesped gasta su asignación del día (VG, 8-11); lo consumido cuenta aquí
 const antesEUR = eje.saldo('huesped', 'E:casa/EUR');
 const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T16:00:00Z', titulo: 'Pago del menú', elecciones: { 1: { candidato: elegida }, 2: 'sin lactosa', 4: 'pagar 14 EUR' } });
 console.log(c.sobre === compra.id, c.en === FABRICA, c.autor);
 console.log(corto(c.payload));
 console.log(corto(c.contexto));
-console.log(corto(c.movimientos), 'minutos gastados', eje.emitidoT('huesped', 'minuto') - antesT, 'EUR movidos', antesEUR - eje.saldo('huesped', 'E:casa/EUR'));
+console.log(corto(c.movimientos), 'minutos gastados', eje.series().find((s) => s.clave === 'T:minuto').consumido - antesT, 'EUR movidos', antesEUR - eje.saldo('huesped', 'E:casa/EUR'));
 console.log(estadoDe(eje, c.id));
 "
 ```
@@ -487,11 +487,11 @@ await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }).catch((e) =
 const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
 await ejecutar(eje, { autor: 'casa', consolidacion: c.id, t: T }).catch((e) => console.log(e.message));
 await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'cocina', a: 'huesped' }] }).catch((e) => console.log(e.message));
-const antes = [eje.saldo('cocina', 'E:casa/EUR'), eje.saldo('huesped', 'E:casa/EUR'), eje.emitidoT('huesped', 'minuto')]; // huesped acuña su T al gastarlo
+const antes = [eje.saldo('cocina', 'E:casa/EUR'), eje.saldo('huesped', 'E:casa/EUR'), eje.series().find((s) => s.clave === 'T:minuto').consumido]; // huesped gasta su asignación del día (VG, 8-11)
 const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, titulo: 'Pagado', movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }] });
 console.log(e.sobre === c.id, e.en, corto(e.payload));
 console.log(corto(e.contexto), corto(e.movimientos));
-console.log('cocina EUR', antes[0], '→', eje.saldo('cocina', 'E:casa/EUR'), '· huesped EUR', antes[1], '→', eje.saldo('huesped', 'E:casa/EUR'), '· huesped minutos gastados', antes[2], '→', eje.emitidoT('huesped', 'minuto'));
+console.log('cocina EUR', antes[0], '→', eje.saldo('cocina', 'E:casa/EUR'), '· huesped EUR', antes[1], '→', eje.saldo('huesped', 'E:casa/EUR'), '· minutos consumidos en el eje', antes[2], '→', eje.series().find((s) => s.clave === 'T:minuto').consumido);
 console.log(estadoDe(eje, c.id), '· hilo:', eje.hilo(e.id).map((x) => x.id.slice(0, 8)).join(' → '));
 console.log('evidencia:', e.contexto.evidencia[0] === c.id, e.contexto.evidencia[1] === a.id);
 await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }).catch((e) => console.log(e.message));
@@ -509,7 +509,7 @@ ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
 true 4000000000 ["Pagado",{"ref":"c3418d90"},{"ref":"11aa6d37"}]
 {"motor":"fabrica","fase":"ejecutado","evidencia":["c3418d90","11aa6d37"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
-cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos gastados 5 → 8
+cocina EUR 12 → 26 · huesped EUR 48 → 34 · minutos consumidos en el eje 10 → 13
 EJECUTADO · hilo: b5d5156d → c3418d90 → 3147f38b → ff05e68f → 82aafc7b → 2d970a48
 evidencia: true true
 ya ejecutado
@@ -834,9 +834,9 @@ const mezcla = []; mezcla[2] = ['sin lactosa']; mezcla[7] = ['repetir el sábado
 const salida = desdeMapped(eje, mezcla, compra.id);
 console.log('salida', corto(salida));
 await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }).catch((e) => console.log(e.message));
-const antes = eje.emitidoT('huesped', 'minuto'); // huesped acuña su T al gastarlo (VG, 7-11 noche)
+const antes = eje.series().find((s) => s.clave === 'T:minuto').consumido; // huesped gasta su asignación del día (VG, 8-11)
 const { registro, anclados, proporcion } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
-console.log('registro en', registro.en, corto(registro.payload), JSON.stringify(registro.contexto), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', eje.emitidoT('huesped', 'minuto') - antes, 'minutos ·', JSON.stringify(proporcion));
+console.log('registro en', registro.en, corto(registro.payload), JSON.stringify(registro.contexto), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', eje.series().find((s) => s.clave === 'T:minuto').consumido - antes, 'minutos ·', JSON.stringify(proporcion));
 const celda = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [9, 0, 0], payload: 'volver', t: T });
 console.log('celda 9.0.0 →', celda.en, corto(celda.payload));
 const postre = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'postre', t: T });
@@ -921,9 +921,9 @@ import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { escribirDesde, desdeSequenced } from './src/escritura.js';
 const T = '2026-11-07T16:00:00Z';
 const { eje, compra } = await ejemploCompra();
-const antes = eje.emitidoT('huesped', 'minuto'); // huesped acuña su T al gastarlo (VG, 7-11 noche)
+const antes = eje.series().find((s) => s.clave === 'T:minuto').consumido; // huesped gasta su asignación del día (VG, 8-11)
 const p = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, en: '4000000000', payload: 'servido', t: T });
-console.log(p.sobre === compra.id, p.en, JSON.stringify(p.contexto), JSON.stringify(p.movimientos), 'minutos', eje.emitidoT('huesped', 'minuto') - antes);
+console.log(p.sobre === compra.id, p.en, JSON.stringify(p.contexto), JSON.stringify(p.movimientos), 'minutos', eje.series().find((s) => s.clave === 'T:minuto').consumido - antes);
 const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: desdeSequenced(eje, ['llegar', 'pedir', 'pagar']), t: T, contexto: { nota: 'libre' } });
 console.log(s.en, JSON.stringify(s.contexto), s.movimientos[0].cantidad, 'hijos de la compra', eje.sobre(compra.id).length);
 const grande = Array(10).fill(Array(3).fill('x'));
@@ -1171,7 +1171,7 @@ const t = (hora) => '2026-11-07T' + hora + ':00Z';
 // 1. Génesis: la casa recibe tiempo (horas y minutos, tokens distintos), euros y poder sobre todo el eje (ámbito «genesis»).
 const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa de ejemplo', t: t('09:00') });
 // 2. Altas: cocina (una cosa de la casa, que escribe con el T que ella le da) y una persona huésped (escribe con
-//    su propio T, acuñado al gastarlo; T no cruza de persona, VG 7-11 noche) existen al recibir tokens.
+//    su asignación de T del día, VG 8-11; T no cruza de persona, VG 7-11 noche) existen al recibir tokens.
 const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('09:00'), movimientos: [gastaT('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'cocina' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: 'casa', a: 'huesped' }], payload: ['Altas', ['cocina', 'huesped']], contexto: { tipos: { cocina: 'cosa', huesped: 'persona' } } });
 // 3. Cocina publica el menú sobre el alta; la casa le delega poder sobre el menú (y lo que cuelgue de él).
 const menu = await eje.escribir({ autor: 'cocina', sobre: alta.id, t: t('09:30'), movimientos: [gastaT('cocina')], payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano'], ['cocina'], ['servir', 'cobrar 14 EUR']] });

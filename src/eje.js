@@ -3,7 +3,7 @@
 // Una identidad existe cuando ha recibido tokens; quien la da de alta declara
 // su clave y su tipo (persona, grupo o cosa) en el mismo evento. El génesis
 // emite por convención; después solo emiten las personas (VG, 7-11 noche), con
-// las reglas de src/ciclo.js: T para sí mismas con el tope del reloj, y R, P y
+// las reglas de src/ciclo.js: T, su asignación diaria (VG, 8-11), y R, P y
 // E escalonados. Un movimiento puede bloquear o liberar tokens sin cambiar de
 // titular: el saldo es lo disponible y lo bloqueado se lleva aparte.
 //
@@ -23,8 +23,8 @@
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
-import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos } from './ciclo.js';
+import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { reglasDeR, devolucionesDe } from './lente.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
@@ -38,8 +38,9 @@ export class Eje {
   #series;
   #tipos;
   #altas;
-  #emitidoT;
+  #gastadoT = new Map(); // JSON [persona, escala, día civil] → T de su asignación gastado ese día (VG, 8-11)
   #tiempoSobre = new Map(); // id → Map(escala → T consumido por los eventos escritos sobre él)
+  #informativo = new Map(); // id → T informativo consumido sobre él: [{ escala, cantidad, autor, t, refiere, nota, id }]
   #hijosEn;
   #prefijos;
   #porAutor = new Map(); // id → Map(en → Map(autor → los eventos anclados ahí por ese autor, en orden de entrada))
@@ -67,7 +68,6 @@ export class Eje {
     this.#series = new Map(); // clave de serie → { emisor, emitido, caduca (E) }: lo emitido de cada serie, génesis incluido
     this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona, grupo o cosa)
     this.#altas = new Map(); // identidad → { id, t } del evento en que recibió tokens por primera vez
-    this.#emitidoT = new Map(); // JSON [persona, escala] → T emitido fuera del génesis (para el tope del reloj)
     this.exigirFirmas = exigirFirmas;
     this.eventosV2 = eventosV2;
     // Lo marca el génesis (contexto.demostracion) al aplicarse; un eje que no lo dice no es de demostración.
@@ -124,7 +124,6 @@ export class Eje {
     return this.#altas.get(identidad) ?? null;
   }
 
-  /** T que una persona lleva emitido en una escala fuera del génesis (lo que cuenta para el tope del reloj). */
   /** ¿Es el evento uno de los guardados con la versión 2 (el prefijo que se valida con sus reglas)? */
   esDeV2(id) {
     return this.#prefijoV2.has(id);
@@ -143,8 +142,9 @@ export class Eje {
     return max;
   }
 
-  emitidoT(identidad, escala) {
-    return this.#emitidoT.get(JSON.stringify([identidad, escala])) ?? 0;
+  /** T de la asignación de una persona gastado en una escala un día (`periodo`, el día civil: tokens.asignacionT). */
+  gastadoT(identidad, escala, periodo) {
+    return this.#gastadoT.get(JSON.stringify([identidad, escala, periodo])) ?? 0;
   }
 
   /**
@@ -160,8 +160,19 @@ export class Eje {
   tiempoSobre(id) {
     const porEscala = this.#tiempoSobre.get(id);
     const r = {};
-    for (const e of ESCALAS_T) if (porEscala?.get(e)) r[e] = porEscala.get(e);
+    for (const e of ESCALAS_REALES) if (porEscala?.get(e)) r[e] = porEscala.get(e);
     return r;
+  }
+
+  /**
+   * El T informativo (pasado, futuro, inventado; VG, 8-11) consumido SOBRE un
+   * registro, aparte de las siete escalas reales: lo que quedó registrado como
+   * tal, con sus dos fechas, el t real del evento y la fecha a la que se
+   * refiere: [{ escala, cantidad, autor, t, refiere, nota, id }], en orden de
+   * entrada. Nada lo convierte a segundos ni lo suma a tiempoSobre.
+   */
+  tiempoInformativo(id) {
+    return (this.#informativo.get(id) ?? []).map((x) => ({ ...x }));
   }
 
   /**
@@ -178,7 +189,7 @@ export class Eje {
       for (const [e, n] of this.#tiempoSobre.get(x) ?? []) r[e] = (r[e] ?? 0) + n;
       for (const h of this.hijos.get(x) ?? []) pendientes.push(h.id);
     }
-    return Object.fromEntries(ESCALAS_T.filter((e) => r[e]).map((e) => [e, r[e]]));
+    return Object.fromEntries(ESCALAS_REALES.filter((e) => r[e]).map((e) => [e, r[e]]));
   }
 
   /**
@@ -281,10 +292,28 @@ export class Eje {
     return total;
   }
 
-  /** Saldo de T en una escala: cada escala es su propio token (T:<escala>), sin conversión. */
-  saldoT(identidad, escala) {
+  /**
+   * T disponible en una escala el día de `t` (VG, 8-11: asignación diaria):
+   * cada escala es su propio token (T:<escala>), sin conversión. Para una
+   * persona dada de alta, lo que queda de su asignación de ese día
+   * (tokens.asignacionT menos gastadoT) más el T explícito que tenga (el del
+   * génesis, el único que se acumula); para las demás, su T explícito (el que
+   * les dio su persona). Sin `t`, el día del último evento de esa identidad
+   * (su propio reloj) o el de su alta. Las tres informativas son ilimitadas:
+   * siempre queda 1. Semana, ciclo y año, en sus partes (tokens.PARTES_T).
+   */
+  saldoT(identidad, escala, t) {
     if (!ESCALAS_T.includes(escala)) throw new Error('escala T inválida: ' + escala);
-    return this.saldo(identidad, 'T:' + escala);
+    if (ESCALAS_INFORMATIVAS.includes(escala)) return 1;
+    return this.saldo(identidad, 'T:' + escala) + this.#quedaAsignacion(identidad, escala, t);
+  }
+
+  /** Lo que queda de la asignación diaria de T de `identidad` en `escala` el día de `t` (0 si no es una persona con alta). */
+  #quedaAsignacion(identidad, escala, t) {
+    const alta = this.alta(identidad);
+    if (!alta || !EMITEN.includes(this.tipo(identidad))) return 0;
+    const a = asignacionT(t ?? this.#tPorAutor.get(identidad) ?? alta.t, escala);
+    return Math.max(0, a.cantidad - this.gastadoT(identidad, escala, a.periodo));
   }
 
   /** Saldos de una familia por serie: [{ token, serie, ...campos de la serie, cantidad }] con saldo > 0. */
@@ -308,7 +337,7 @@ export class Eje {
 
   /**
    * Una serie por su clave de saldo ('E:casa/EUR', 'R:casa', 'T:hora', 'P:genesis'): quién la emite y cuánto ha emitido,
-   * y `caduca` si es una serie de E que la lleva. En T, `emisor` es quien la emitió primero; lo de cada persona, emitidoT.
+   * y `caduca` si es una serie de E que la lleva. En T, `emisor` es quien la emitió o la consumió primero; lo de cada persona, saldoT.
    * Del contrato de una serie de E, también `divisible` (si admite fracciones) y `emisores` (si la emisión es conjunta).
    */
   serie(clave) {
@@ -404,8 +433,12 @@ export class Eje {
     return [...this.#series.entries()].map(([clave, s]) => {
       const partes = partirClave(clave);
       const base = { clave, ...partes, emisor: s.emisor, emitido: s.emitido, bloqueado: bloqueado.get(clave) ?? 0 };
-      // T (VG, 7-11 noche): lo consumido al escribir y lo que se acuñó al gastarse; lo de cada registro, tiempoSobre.
-      if (partes.token === 'T') return { ...base, consumido: s.consumido ?? 0, acunado: s.acunado ?? 0 };
+      // T (VG, 8-11): lo consumido al escribir y lo que salió de la asignación diaria; lo de cada registro, tiempoSobre.
+      // Las tres informativas, marcadas aparte (informativa: true; lo registrado, tiempoInformativo).
+      if (partes.token === 'T') {
+        if (ESCALAS_INFORMATIVAS.includes(partes.escala)) return { ...base, consumido: s.consumido ?? 0, informativa: true };
+        return { ...base, consumido: s.consumido ?? 0, deAsignacion: s.deAsignacion ?? 0 };
+      }
       if (partes.token !== 'E') return base;
       const tope = this.#topesDe(s.registro)[0]?.capacidad ?? null;
       return {
@@ -513,6 +546,12 @@ export class Eje {
     const verB = (id, k, salida) => vistaB.get(JSON.stringify([id, k, salida])) ?? this.bloqueado(id, k, salida);
     const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
     const emitido = new Map();
+    // La asignación diaria de T del autor (VG, 8-11), si es una persona con alta: lo que queda, por escala, durante el evento.
+    const reglas3 = this.orden.length >= this.eventosV2;
+    const tipoAutor = this.tipo(ev.autor);
+    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
+    const quedaA = new Map();
+    const verA = (e) => (quedaA.has(e) ? quedaA.get(e) : this.#quedaAsignacion(ev.autor, e, ev.t));
     for (const m of movimientos) {
       if (validarMovimiento(m).length) continue; // ya lo cuenta validarForma
       const k = claveToken(m);
@@ -548,16 +587,16 @@ export class Eje {
         const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, ver);
         if (!plan) { errores.push('saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de); continue; }
         for (const [kp, delta] of plan) poner(m.de, kp, ver(m.de, kp) + delta);
-      } else if (acunaAlGastar(m, ev.autor, this.orden.length < this.eventosV2)) {
-        // T se acuña al gastarse (VG, 7-11 noche: «T es tu medidor anti-spam
-        // propio»; [X] decidir VG): lo que falta de saldo para consumir T
-        // propio se emite en ese momento, a nombre del autor. Nadie más lo
-        // recibe ni lo usa, y queda anotado en el registro que soporta.
-        const usa = Math.min(Math.max(0, ver(m.de, k)), c);
-        const total = (emitido.get(k) ?? this.serie(k).emitido) + (c - usa);
-        if (!Number.isFinite(total)) { errores.push('la serie ' + k + ' no admite tanto'); continue; }
-        emitido.set(k, total);
-        poner(m.de, k, ver(m.de, k) - usa);
+      } else if (reglas3 && esInformativoT(m)) {
+        // T informativo (VG, 8-11): ilimitado, «si lo gastas te vuelve a salir uno»; solo queda registrado.
+        continue;
+      } else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+        // T como asignación diaria (VG, 8-11): primero lo que queda del día, luego el T explícito.
+        // Si no alcanza, «T del día agotado» lo dicen las reglas del ciclo (src/ciclo.js).
+        const { asignacion, explicito } = repartirGastoT(verA(m.escala), c);
+        if (ver(m.de, k) < explicito) continue;
+        quedaA.set(m.escala, verA(m.escala) - asignacion);
+        poner(m.de, k, ver(m.de, k) - explicito);
       } else {
         if (ver(m.de, k) < c) { errores.push('saldo insuficiente de ' + k + ' en ' + m.de); continue; }
         poner(m.de, k, ver(m.de, k) - c);
@@ -581,7 +620,7 @@ export class Eje {
         return a && this.#prefijoV2.has(a.id) ? acotarAltaV2(a, primeroV3()) : a;
       },
       tMaximo: () => this.#tMax,
-      emitidoT: (id, escala) => this.emitidoT(id, escala),
+      gastadoT: (id, escala, periodo) => this.gastadoT(id, escala, periodo),
       serie: (k) => this.#series.get(k) ?? null,
       registro: (id) => this.eventos.get(id),
       ambitosQueCubren: (ambito) => this.ambitosQueCubren(ambito),
@@ -706,6 +745,10 @@ export class Eje {
     // de la versión 2 no es de demostración por serlo: la exención de clave vale solo dentro de su prefijo
     // (#exigeClave), no para lo que se le añade después.
     if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true;
+    // La asignación diaria de T (VG, 8-11) rige fuera del prefijo de la versión 2, para una persona con alta.
+    const reglas3 = this.orden.length >= this.eventosV2;
+    const tipoAutor = this.tipo(ev.autor);
+    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.#altas.has(ev.autor);
     const amplia = consolidacionQueAmplia(ev, () => this.#contextoCiclo(ev)); // la consolidación que usó para ampliar P (SEG-04)
     if (amplia) this.#ampliadas.add(amplia);
     this.#llegada.set(ev.id, this.orden.length);
@@ -752,32 +795,47 @@ export class Eje {
         const emisor = m.token === 'E' || m.token === 'R' ? m.emisor : ev.autor;
         const s = this.#series.get(clave) ?? { emisor, emitido: 0, ...(m.token === 'E' ? contratoE(m, this.#altas.get(m.emisor)?.id) : {}) };
         this.#series.set(clave, { ...s, emitido: s.emitido + c });
-        // El tope del reloj cuenta lo que cada persona emite de T fuera del génesis.
-        if (m.token === 'T' && ev.contexto?.genesis !== true) {
-          const k = JSON.stringify([ev.autor, m.escala]);
-          this.#emitidoT.set(k, (this.#emitidoT.get(k) ?? 0) + c);
-        }
       } else {
         if (m.token === 'P') {
           // Delegar poder estrecha el ámbito: se debita del ámbito exacto y, si no alcanza, de los que lo cubren.
           const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, (id, k) => this.saldo(id, k));
           for (const [k, delta] of plan ?? [[clave, -c]]) this.#ajustar(m.de, k, delta);
-        } else if (m.token === 'T' && esConsumoT(m, ev.autor)) {
-          // Consumir T: del saldo lo que haya; lo que falte se acuña al gastarse (validar ya lo admitió).
-          const usa = Math.min(Math.max(0, this.saldo(m.de, clave)), c);
-          this.#ajustar(m.de, clave, -usa);
+        } else if (m.token === 'T' && reglas3 && esInformativoT(m)) {
+          // T informativo (VG, 8-11): ilimitado, no toca saldos; queda registrado con sus dos fechas.
           const s = this.#series.get(clave) ?? { emisor: ev.autor, emitido: 0 };
-          this.#series.set(clave, { ...s, emitido: s.emitido + (c - usa), acunado: (s.acunado ?? 0) + (c - usa), consumido: (s.consumido ?? 0) + c });
-          // Lo acuñado cuenta para el tope del reloj igual que una emisión explícita (src/ciclo.js).
-          if (c > usa) {
-            const k = JSON.stringify([ev.autor, m.escala]);
-            this.#emitidoT.set(k, (this.#emitidoT.get(k) ?? 0) + (c - usa));
-          }
-          // El consumo se anota en el registro que soporta (VG, 7-11 noche): tiempoSobre.
+          this.#series.set(clave, { ...s, consumido: (s.consumido ?? 0) + c });
           if (ev.sobre !== null) {
-            if (!this.#tiempoSobre.has(ev.sobre)) this.#tiempoSobre.set(ev.sobre, new Map());
-            const porEscala = this.#tiempoSobre.get(ev.sobre);
-            porEscala.set(m.escala, (porEscala.get(m.escala) ?? 0) + c);
+            if (!this.#informativo.has(ev.sobre)) this.#informativo.set(ev.sobre, []);
+            this.#informativo.get(ev.sobre).push({ escala: m.escala, cantidad: c, autor: ev.autor, t: ev.t, refiere: m.refiere ?? null, nota: m.nota ?? null, id: ev.id });
+          }
+          continue;
+        } else if (m.token === 'T' && ((conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) || esConsumoT(m, ev.autor))) {
+          // T como asignación diaria (VG, 8-11): lo que una persona gasta sale primero de lo que queda de su
+          // asignación del día de ev.t y luego de su T explícito (validar ya lo admitió). Quien no tiene
+          // asignación gasta su T explícito.
+          let asignacion = 0;
+          if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+            const a = asignacionT(ev.t, m.escala);
+            const kg = JSON.stringify([ev.autor, m.escala, a.periodo]);
+            ({ asignacion } = repartirGastoT(a.cantidad - (this.#gastadoT.get(kg) ?? 0), c));
+            if (asignacion) this.#gastadoT.set(kg, (this.#gastadoT.get(kg) ?? 0) + asignacion);
+          }
+          this.#ajustar(m.de, clave, -(c - asignacion));
+          // deAsignacion: todo lo que salió de asignaciones (consumido o dado a una cosa); así se conserva:
+          // saldos + consumido = emitido + deAsignacion.
+          if (m.a === null || asignacion) {
+            const s = this.#series.get(clave) ?? { emisor: ev.autor, emitido: 0 };
+            this.#series.set(clave, { ...s, deAsignacion: (s.deAsignacion ?? 0) + asignacion });
+          }
+          if (m.a === null) {
+            const s = this.#series.get(clave);
+            this.#series.set(clave, { ...s, consumido: (s.consumido ?? 0) + c });
+            // El consumo se anota en el registro que soporta (VG, 7-11 noche): tiempoSobre.
+            if (ev.sobre !== null) {
+              if (!this.#tiempoSobre.has(ev.sobre)) this.#tiempoSobre.set(ev.sobre, new Map());
+              const porEscala = this.#tiempoSobre.get(ev.sobre);
+              porEscala.set(m.escala, (porEscala.get(m.escala) ?? 0) + c);
+            }
           }
         } else {
           this.#ajustar(m.de, clave, -c);
@@ -834,21 +892,6 @@ export class Eje {
     const porTitular = porClaveS.get(clave);
     porTitular.set(identidad, (porTitular.get(identidad) ?? 0) + delta);
   }
-}
-
-/**
- * ¿Se acuña al gastarse este movimiento? Un consumo de T del autor (de =
- * autor, a = null, sin estado) fuera del prefijo de la versión 2: lo que falte
- * de saldo se emite en ese momento a su nombre (VG, 7-11 noche: T es el
- * medidor propio y no cruza de persona; [X] decidir VG). Es solo AZÚCAR de
- * emitir y consumir en el mismo evento: las reglas del ciclo (src/ciclo.js)
- * exigen que el autor sea una persona y que lo acuñado, que cuenta en lo
- * emitido por escala, no pase del tope del reloj; si no, «saldo insuficiente
- * de T» (revisión de seguridad de Core, 8-11). Lo usan el eje y las capas de
- * validez (src/validez.js), que dicen lo mismo.
- */
-export function acunaAlGastar(m, autor, v2 = false) {
-  return !v2 && esConsumoT(m, autor);
 }
 
 /**

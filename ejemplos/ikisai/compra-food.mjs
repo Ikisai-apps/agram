@@ -47,8 +47,8 @@ export async function ejemploCompra({ claves = {} } = {}) {
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
       // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
-      // persona da su T a una cosa, y el tope es el de la persona). T no cruza de persona: la persona huésped
-      // recibe euros y escribe con su propio T, que se acuña al gastarse dentro del tope del reloj.
+      // persona da su T a una cosa, y sale de su asignación del día). T no cruza de persona: la persona huésped
+      // recibe euros y escribe con su asignación de T del día (VG, 8-11).
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },

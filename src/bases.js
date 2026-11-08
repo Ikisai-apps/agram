@@ -437,7 +437,7 @@ function tiempoMedido(eje, id) {
   const porEscala = { ...eje.tiempoSobre(id) };
   for (const b of basesEn(eje, id)) {
     for (const m of eje.obtener(b.id).movimientos) {
-      if (m.token === 'T' && m.de === b.autor && m.a === null && m.estado === undefined) porEscala[m.escala] -= m.cantidad;
+      if (m.token === 'T' && m.de === b.autor && m.a === null && m.estado === undefined && m.escala in porEscala) porEscala[m.escala] -= m.cantidad;
     }
   }
   return Object.fromEntries(Object.entries(porEscala).filter(([, n]) => n > 0).map(([e, n]) => [claveTiempo(e), n]));

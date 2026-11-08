@@ -4,7 +4,7 @@ import {
   lectura, escritura, contarPosiciones, cabeEscritura, maximo, minimo, tope, cabeTope, alcanceDe, nombreModo, MODOS,
   contenido, recortar, admitir, avisoCorte, orden, minimoDe, maximoDe, ordenDeEscala, ORDENES_DE_ESCALA,
 } from '../src/modos.js';
-import { ESCALAS_T } from '../src/tokens.js';
+import { ESCALAS_T, ESCALAS_REALES } from '../src/tokens.js';
 
 test('lectura por modo: una, diez, cien, mil décuplas', () => {
   assert.equal(lectura('pointed'), 10);
@@ -130,9 +130,9 @@ test('los modos se expresan por su orden: Pointed 1, Sequenced 2, Mapped 3, Scen
   assert.equal(orden(maximo('scened') + 1), MODOS.be.orden); // Be empieza donde acaba Scened
 });
 
-test('ordenDeEscala: segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, año 7, solo informativa', () => {
-  assert.deepEqual(ESCALAS_T.map(ordenDeEscala), [1, 2, 3, 4, 5, 6, 7]);
-  assert.deepEqual(Object.keys(ORDENES_DE_ESCALA), [...ESCALAS_T]); // las mismas escalas que tokens.js, en su orden
+test('ordenDeEscala: segundo 1, minuto 2, hora 3, día 4, semana 5, ciclo 6, año 7, solo informativa; pasado, futuro e inventado, sin orden', () => {
+  assert.deepEqual(ESCALAS_T.map(ordenDeEscala), [1, 2, 3, 4, 5, 6, 7, null, null, null]);
+  assert.deepEqual(Object.keys(ORDENES_DE_ESCALA), [...ESCALAS_REALES]); // las mismas escalas reales que tokens.js, en su orden
   assert.equal(ordenDeEscala('segundo'), 1);
   assert.equal(ordenDeEscala('dia'), 4);
   assert.equal(ordenDeEscala('anio'), 7);

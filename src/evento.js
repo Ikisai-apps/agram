@@ -3,7 +3,7 @@
 // cadenas de eventos encadenados por esa referencia.
 
 import { ARIDAD, validarPayload, esDireccion, esHoja } from './btml.js';
-import { validarMovimiento } from './tokens.js';
+import { validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { esInstante } from './instante.js';
 
 /** Posición raíz del foco: el registro entero. */
@@ -164,7 +164,8 @@ export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
     // uno mismo ni bloquearlo o liberarlo cuenta como escribir: no cuesta nada.
     // El consumo queda anotado en el registro que soporta, `sobre` (eje.tiempoSobre).
     const esGenesis = ev.contexto?.genesis === true;
-    const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor));
+    // El T informativo (pasado, futuro, inventado) es ilimitado: no cuenta como el T que consume escribir (VG, 8-11; [X] Core).
+    const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
     const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && cuenta(m));
     if (!mueveT) {
       errores.push(esGenesis ? 'el génesis debe emitir T al autor'

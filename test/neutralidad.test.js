@@ -27,8 +27,7 @@ import { generarClaves } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
-// Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
-// de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
+// Las altas, un mes antes de T0 (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)).
 const ALTA = '2026-10-07T22:00:00Z';
 const CASOS = 60;
 

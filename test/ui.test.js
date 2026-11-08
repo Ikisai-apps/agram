@@ -192,15 +192,15 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.match(casa.T[0], / h$/); // de la escala mayor a la menor
   assert.deepEqual(familiasDe(eje, 'cocina').E, ['12 € de casa']);
   assert.deepEqual(familiasDe(eje, 'huesped').R, []);
-  const minutos = eje.identidades().reduce((s, id) => s + eje.saldoT(id, 'minuto'), 0);
+  const minutos = eje.identidades().reduce((s, id) => s + eje.saldo(id, 'T:minuto'), 0); // el T explícito (sin las asignaciones del día)
   assert.equal(enCarteras(eje, 'T:minuto'), minutos);
-  assert.ok(minutos < eje.serie('T:minuto').emitido); // escribir consume minutos
+  assert.ok(eje.series().find((x) => x.clave === 'T:minuto').consumido > 0); // escribir consume minutos
   assert.equal(nombreSerie(eje.series().find((s) => s.token === 'E')), 'casa/€');
   const html = htmlSaldos(eje);
   assert.match(html, /<details class="series-emitidas" data-plegado="series" open>/);
   assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
-  // Lo emitido de T:minuto incluye lo que la persona huésped acuñó al gastarlo (VG, 7-11 noche; Core, 8-11).
+  // Lo emitido de T:minuto es el del génesis: lo que gastan las personas sale de su asignación diaria (VG, 8-11).
   assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });

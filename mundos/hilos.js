@@ -71,7 +71,7 @@
 // devuelven datos o texto, para el navegador y para las pruebas de Node.
 
 import { ejeTemporal, banda } from '../src/tiempo.js';
-import { SEGUNDOS, ESCALAS_T, partirClave } from '../src/tokens.js';
+import { SEGUNDOS, ESCALAS_REALES as ESCALAS_T, partirClave } from '../src/tokens.js';
 import { consolidaciones, FABRICA } from '../src/motor.js';
 import { esReferencia } from '../src/btml.js';
 import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
@@ -80,7 +80,7 @@ import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
 export const PASADO = 6;
 export const FUTURO = 7;
 
-/** Bandas del eje, de la más cercana al presente a la más lejana: las escalas de T y «más». */
+/** Bandas del eje, de la más cercana al presente a la más lejana: las siete escalas reales de T y «más». */
 export const BANDAS = Object.freeze([...ESCALAS_T, 'mas']);
 
 /** [X] 6: cada banda más lejana ocupa esta fracción de la interior. */
