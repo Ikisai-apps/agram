@@ -431,7 +431,7 @@ escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
 bloqueado 5 de 10 · PENDIENTE DE AUTORIZACIÓN
 true 4000000000 "==vale" BQL lo lee como "=vale"
 [{"token":"T","escala":"minuto","cantidad":1,"de":"casa","a":null},{"token":"P","ambito":"genesis","cantidad":5,"de":"casa","a":"casa","estado":"bloqueo","salida":"f4cd799c"}]
-{"modo":"pointed","motor":"fabrica","fase":"autorizado","autoridad":{"regla":"…","recurso":"a8efd9b0","bloquea":[{"clave":"P:genesis","cantidad":5}],"umbral":"más de la mitad","caduca":"2026-12-05T16:00:00.000Z"}}
+{"modo":"pointed","motor":"fabrica","fase":"autorizado","autoridad":{"regla":"…","recurso":"2d970a48","bloquea":[{"clave":"P:genesis","cantidad":5}],"umbral":"más de la mitad","caduca":"2026-12-05T16:00:00.000Z"}}
 bloqueado 10 · válidos 2 · AUTORIZADO · casa P:genesis disponible 0 bloqueado 10
 ya está autorizado
 no es una consolidación: bea2e06d
@@ -507,10 +507,10 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"93954edc"},{"ref":"da6a3e98"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["93954edc","da6a3e98"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+true 4000000000 ["Pagado",{"ref":"93954edc"},{"ref":"af0e7519"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["93954edc","af0e7519"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
 cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 472
-EJECUTADO · hilo: b5e3a04c → 93954edc → bea2e06d → d367743b → a8efd9b0 → 2d970a48
+EJECUTADO · hilo: 4e809d78 → 93954edc → bea2e06d → d367743b → a8efd9b0 → 2d970a48
 evidencia: true true
 ya ejecutado
 casa P:genesis disponible 0 · bloqueado por la consolidación 10
