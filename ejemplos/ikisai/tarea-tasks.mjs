@@ -19,7 +19,9 @@
 // Las series de tokens (VG, 7-11; src/tokens.js):
 //   T: un token por escala y sin conversión: T:minuto y T:hora son series
 //      distintas. Escribir cuesta minutos (uno por posición) y trabajar
-//      cuesta horas, así que la casa reparte las dos.
+//      cuesta horas. T no cruza de persona (VG, 7-11 noche): cada una gasta
+//      el suyo (se acuña al gastarse) y el consumo queda anotado en el
+//      registro que soporta; lo que la casa cede de su tiempo es E:casa/hora.
 //   E: E:<emisor>/<denominación>. Cada partida es una posición con capacidad
 //      (su importe) respaldada por una serie limitada de E que emite la casa,
 //      E:casa/<concepto> (ver PARTIDAS). La organizadora recibe las series de
@@ -306,6 +308,7 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
       ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
       { token: 'T', escala: 'minuto', cantidad: 600 },
       { token: 'T', escala: 'hora', cantidad: 200 },
+      { token: 'E', denominacion: 'hora', cantidad: 200 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
       { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
     foco: 'Casa de eventos de ejemplo',
@@ -316,10 +319,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   r.eje = eje;
 
   // Altas: la organizadora recibe las series de las partidas de la carpa
-  // (y ningún otro E), minutos y horas; el proveedor externo, minutos para
-  // escribir y horas para trabajar. Existen al recibir tokens, y el alta
-  // declara qué son. Escribir cuesta un minuto por posición. La tarima se
-  // queda en la casa.
+  // (y ningún otro E); el proveedor externo, horas de la casa (E:casa/hora).
+  // Existen al recibir tokens, y el alta declara qué son. Escribir cuesta un
+  // minuto por posición, de su propio T. La tarima se queda en la casa.
   const declaradas = {};
   for (const id of ['organizadora', 'proveedor']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
   const altas = ['Altas para la fiesta del sábado', ['organizadora', 'proveedor']];
@@ -330,10 +332,9 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: costeT(altas), de: 'casa', a: null },
       ...DE_LA_CARPA.map(([concepto, importe]) => ({ token: 'E', emisor: 'casa', denominacion: concepto, cantidad: importe, de: 'casa', a: 'organizadora' })),
-      { token: 'T', escala: 'minuto', cantidad: 120, de: 'casa', a: 'organizadora' },
-      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'organizadora' },
-      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'proveedor' },
-      { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'proveedor' },
+      // Cada una escribe y trabaja con su propio T (se acuña al gastarse). La casa cede al proveedor 20
+      // horas de su tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
+      { token: 'E', emisor: 'casa', denominacion: 'hora', cantidad: 20, de: 'casa', a: 'proveedor' },
     ],
     payload: altas,
     contexto: { tipos: { organizadora: 'persona', proveedor: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },

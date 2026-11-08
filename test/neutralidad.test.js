@@ -20,13 +20,16 @@ import { crearEvento } from '../src/evento.js';
 import * as motor from '../src/motor.js';
 import { ocupantes } from '../src/encaje.js';
 import * as tiempo from '../src/tiempo.js';
-import { medir, confluir } from '../src/bases.js';
+import { confluir } from '../src/bases.js';
 import { evaluar } from '../src/bql.js';
 import { direccion } from '../src/btml.js';
 import { generarClaves } from '../src/autoridad.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
+// Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
+// de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
+const ALTA = '2026-10-07T22:00:00Z';
 const CASOS = 60;
 
 function mulberry32(a) {
@@ -42,7 +45,9 @@ function prng(semilla) {
   return { r, int: (a, b) => a + Math.floor(r() * (b - a + 1)), pick: (xs) => xs[Math.floor(r() * xs.length)] };
 }
 
-const minuto = (de, cantidad = 1, a = null) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+// T no cruza de persona (VG, 7-11 noche): ceder minutos a otro es E de la serie de tiempo de quien los da
+// (E:<de>/minuto, que el génesis emite); sin destinatario, consumir T propio.
+const minuto = (de, cantidad = 1, a = null) => (a === null ? { token: 'T', escala: 'minuto', cantidad, de, a } : { token: 'E', emisor: de, denominacion: 'minuto', cantidad, de, a });
 const eur = (emisor, cantidad, de, a) => ({ token: 'E', emisor, denominacion: 'EUR', cantidad, de, a });
 let cuenta = 0;
 /** Payload único: dos pagos iguales serían el mismo evento (mismo id). */
@@ -65,12 +70,12 @@ function repartir(g, n, k) {
 async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = 'normas' } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const altas = [tercero, ...personas];
   await eje.escribir({
-    autor: 'g', sobre: eje.genesisId, t: T0,
+    autor: 'g', sobre: eje.genesisId, t: ALTA,
     movimientos: [minuto('g'), ...altas.map((id) => minuto('g', 5000, id))],
     payload: 'altas',
     contexto: { tipos: Object.fromEntries(altas.map((id) => [id, tipos[id] ?? 'persona'])) },
@@ -93,9 +98,12 @@ async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = '
   return { eje, X: casa.id };
 }
 
-/** Saldos de una identidad sin T (T es el medidor propio; VG, 7-11 noche). */
+/**
+ * Saldos de una identidad sin T (T es el medidor propio; VG, 7-11 noche) ni los minutos que g cede en las altas
+ * (E:g/minuto: T no cruza de persona, y lo que antes era T de las altas es ahora E de la serie de tiempo de g).
+ */
 function sinT(eje, id) {
-  return Object.fromEntries([...(eje.saldos.get(id) ?? new Map())].filter(([k, v]) => !k.startsWith('T:') && v !== 0).sort());
+  return Object.fromEntries([...(eje.saldos.get(id) ?? new Map())].filter(([k, v]) => !k.startsWith('T:') && k !== 'E:g/minuto' && v !== 0).sort());
 }
 /** Suma por serie, sin T, de un conjunto de identidades: lo que tiene la coalición. */
 function sumaCoalicion(eje, ids) {
@@ -435,8 +443,7 @@ test('neutral (R2): partir el recurso en subregistros no esquiva el tope del anc
 
 test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o en autores (VG, 7-11 noche: se retira comparar())', async () => {
   // La concesión «ranking por recuentos» (tiempo.comparar: posiciones + 2·escritos + movimientos) ya no existe:
-  // el 8 sitúa en cajas por medida, sin puesto ni puntuación. Que los recuentos de escritos sigan contando
-  // piezas es la concesión de NEU-06 ([X] decidir VG, recomendación R7).
+  // el 8 sitúa en cajas, sin puesto ni puntuación, y solo por cantidades (R7, VG 7-11 noche).
   assert.equal(tiempo.comparar, undefined);
   {
     const puesto = async (k) => {
@@ -446,25 +453,33 @@ test('NEU-05: el 8 no tiene ranking que cambie al partir un escrito en piezas o 
       if (k === 1) await m.eje.escribir({ autor: 'A', sobre: Y.id, t: T0, movimientos: [minuto('A', 10)], payload: Array.from({ length: 10 }, (_, i) => 'p' + i) });
       else for (let i = 0; i < 10; i++) await m.eje.escribir({ autor: ids[i % k], sobre: Y.id, t: T0, movimientos: [minuto(ids[i % k])], payload: 'p' + i });
       const c = confluir(m.eje, Y.id);
-      return [c.posicion, c.puntuacion, ...c.comparables.map((x) => x.puntuacion)].filter((x) => x !== undefined);
+      const sitio = Object.fromEntries(Object.entries(c.tokens).map(([k, x]) => [k, [x.foco, x.caja, x.cuota, x.cajaCuota]]));
+      return { sinPuesto: [c.posicion, c.puntuacion, ...c.comparables.map((x) => x.puntuacion)].filter((x) => x !== undefined), sitio };
     };
-    assert.deepEqual(await puesto(10), []);
-    assert.deepEqual(await puesto(1), []);
+    const [diez, uno] = [await puesto(10), await puesto(1)];
+    assert.deepEqual([diez.sinPuesto, uno.sinPuesto], [[], []]);
+    // R7: partir el escrito en diez piezas de diez autores no cambia dónde cae Y por cantidades (su caja y su cuota).
+    assert.deepEqual(diez.sitio, uno.sitio);
+    assert.ok('tiempo:minuto' in uno.sitio, 'el T gastado encima de Y es una de sus cantidades');
   }
 });
 
-test('NEU-06: lo que el 8 mide de un pago no cambia al repartirlo entre más identidades',
-  { skip: 'NEU-06: concesión «el 8 cuenta cabezas» (src/bases.js:medir, la única medida: identidades = Set.size, movimientos = número; cortes de la época 0, 1 2 3 4 6 10 16 26 42). C paga 8 EUR a A: identidades 2, movimientos 2; los mismos 8 EUR a 8 identidades: 9 y 9. Las sumas por serie sí son iguales. [X] decidir VG: que en el 8 que se compara entren solo sumas y cuotas por serie (recomendación R7)' },
-  async () => {
-    const medidas = async (k) => {
-      const ids = nombres('A', k);
-      const m = await mundo(ids);
-      const ev = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((a) => eur('C', 8 / k, 'C', a))], payload: unico('pago') });
-      const x = medir(m.eje, ev.id);
-      return { identidades: x.identidades, movimientos: x.movimientos };
-    };
-    assert.deepEqual(await medidas(8), await medidas(1));
-  });
+// NEU-06 ya no se salta: R7, el 8 solo funde cantidades (VG, 7-11 noche). Lo que el 8 compara de un pago son las
+// sumas por serie y su cuota; identidades y movimientos siguen medidos, pero son recuentos informativos, sin caja.
+test('NEU-06: lo que el 8 compara de un pago no cambia al repartirlo entre más identidades', async () => {
+  const medidas = async (k) => {
+    const ids = nombres('A', k);
+    const m = await mundo(ids);
+    const ev = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C'), ...ids.map((a) => eur('C', 8 / k, 'C', a))], payload: 'pago' });
+    const c = confluir(m.eje, ev.id);
+    const recuentos = [c.medidas.identidades, c.medidas.movimientos];
+    assert.ok(recuentos.every((x) => x.recuento === true && !('caja' in x)), 'los recuentos se informan y no se sitúan');
+    return Object.fromEntries(Object.entries(c.tokens).map(([s, x]) => [s, { foco: x.foco, suma: x.suma, caja: x.caja, cuota: x.cuota, cajaCuota: x.cajaCuota }]));
+  };
+  const [ocho, uno] = [await medidas(8), await medidas(1)];
+  assert.deepEqual(ocho, uno);
+  assert.deepEqual([uno['E:C/EUR'].foco, uno['E:C/EUR'].cuota], [8, 8 / uno['E:C/EUR'].suma]);
+});
 
 // NEU-07 ya no se salta: R8, elegibilidad antes que límites (src/elegibles.js; mapa §12 [D] «Quién ocupa una
 // posición ajena»: elegible por defecto = el autor y quien aparece en su posición 3). BUSCAR filtra los elegibles y
@@ -521,7 +536,7 @@ async function mundoConClaves() {
   const [kg, k2] = [await generarClaves(), await generarClaves()];
   const eje = await Eje.genesis({
     identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'], clave: kg.publica, privada: kg.privada,
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const X = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: T0, movimientos: [minuto('g'), minuto('g', 5000, 'S2'), minuto('g', 5000, 'S3')], payload: 'altas',
@@ -533,19 +548,21 @@ async function mundoConClaves() {
 // NEU-08 ya no se salta: R9, sin clave no se actúa (src/eje.js:validar), salvo en un eje marcado como demostración.
 test('NEU-08: sin clave no se actúa: nadie escribe como otra identidad ni mueve sus tokens', async () => {
   const { eje, X, kg, k2 } = await mundoConClaves();
-  const antes = [eje.saldo('S2', 'T:minuto'), eje.saldo('S3', 'T:minuto')];
+  // Lo que se mueve es lo suyo: un minuto de los que g le cedió (E:g/minuto; T no cruza de persona, VG 7-11 noche).
+  const devuelve = (de) => [minuto(de), { token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1, de, a: 'g' }];
+  const antes = [eje.saldo('S2', 'E:g/minuto'), eje.saldo('S3', 'E:g/minuto')];
   // «g» escribe en nombre de S2 (que tiene clave): sin su firma, o con la de g, no entra.
-  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por g' }), /firma ausente de S2/);
-  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por g' }, kg.privada), /firma inválida de S2/);
+  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: devuelve('S2'), payload: 'escrito por g' }), /firma ausente de S2/);
+  await assert.rejects(eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: devuelve('S2'), payload: 'escrito por g' }, kg.privada), /firma inválida de S2/);
   // Ni en nombre de S3, que no tiene clave: N nombres sin clave no son N votos gratis.
-  await assert.rejects(eje.escribir({ autor: 'S3', sobre: X, t: T0, movimientos: [minuto('S3', 1, 'g')], payload: 'escrito por g' }), /sin clave no se actúa: S3 no tiene clave registrada/);
-  assert.deepEqual([eje.saldo('S2', 'T:minuto'), eje.saldo('S3', 'T:minuto')], antes);
+  await assert.rejects(eje.escribir({ autor: 'S3', sobre: X, t: T0, movimientos: devuelve('S3'), payload: 'escrito por g' }), /sin clave no se actúa: S3 no tiene clave registrada/);
+  assert.deepEqual([eje.saldo('S2', 'E:g/minuto'), eje.saldo('S3', 'E:g/minuto')], antes);
   // S2 sí actúa, con su firma.
-  await eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: [minuto('S2', 1, 'g')], payload: 'escrito por S2' }, k2.privada);
-  assert.equal(eje.saldo('S2', 'T:minuto'), antes[0] - 1);
+  await eje.escribir({ autor: 'S2', sobre: X, t: T0, movimientos: devuelve('S2'), payload: 'escrito por S2' }, k2.privada);
+  assert.equal(eje.saldo('S2', 'E:g/minuto'), antes[0] - 1);
   // Un eje de demostración conserva lo de antes, y lo dice: el génesis lo lleva en su contexto.
   const demo = await mundo(['S3']);
   assert.equal(demo.eje.demostracion, true);
   assert.equal(demo.eje.obtener(demo.eje.genesisId).contexto.demostracion, true);
-  await demo.eje.escribir({ autor: 'S3', sobre: demo.X, t: T0, movimientos: [minuto('S3', 1, 'g')], payload: 'escrito por g' });
+  await demo.eje.escribir({ autor: 'S3', sobre: demo.X, t: T0, movimientos: devuelve('S3'), payload: 'escrito por g' });
 });

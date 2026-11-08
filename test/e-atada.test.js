@@ -18,6 +18,9 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-08T10:00:00Z';
+// Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
+// de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
+const ALTA = '2026-10-08T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 /** Da un R propio a otra identidad. La R propia en juego (VG, 7-11 noche: la exigen P y E) es el colateral que cada persona bloquea al emitir su R (R6, mundo). */
 const enJuego = (persona, a = 'g') => ({ token: 'R', emisor: persona, cantidad: 1, de: persona, a });
@@ -31,12 +34,14 @@ const unico = (texto) => texto + ' #' + (++cuenta);
  */
 async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'] } = {}) {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }],
+    demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }],
   });
+  // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E de su serie de tiempo (E:g/minuto),
+  // y cada persona escribe con su propio T, que se acuña al gastarse.
   await eje.escribir({
-    autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [minuto('g'), colateral('g', 10), ...personas.map((p) => minuto('g', 5000)).map((m, i) => ({ ...m, a: personas[i] }))],
+    autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
+    movimientos: [minuto('g'), colateral('g', 10), ...personas.map((p) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a: p }))],
     contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
@@ -81,7 +86,8 @@ test('R2·1: la serie lleva el registro del recurso, que ha de existir; sin él 
   assert.equal(k, 'E:casa/cama@n1@' + A);
   assert.equal(eje.saldo('casa', k), 1);
   assert.equal(eje.registroDe(k), A);
-  assert.deepEqual(eje.recursos('casa'), [{ emisor: 'casa', denominacion: 'cama@n1', registro: A, cantidad: 1 }]);
+  // Además de los minutos que g le cedió en su alta (E:g/minuto, sin registro: el de su emisor).
+  assert.deepEqual(eje.recursos('casa'), [{ emisor: 'g', denominacion: 'minuto', cantidad: 5000 }, { emisor: 'casa', denominacion: 'cama@n1', registro: A, cantidad: 1 }]);
   const s = eje.series().find((x) => x.clave === k);
   assert.deepEqual([s.registro, s.tope, s.emitido, s.consumido, s.divisible, s.emisores, s.nota], [A, 4, 1, 0, false, ['casa'], undefined]);
   // Sin registro: la serie queda atada al registro del emisor (su alta) y, sin capacidad, no tiene tope.

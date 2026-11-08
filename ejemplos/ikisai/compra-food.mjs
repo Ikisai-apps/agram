@@ -46,14 +46,15 @@ export async function ejemploCompra({ claves = {} } = {}) {
     t,
     movimientos: [
       { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
+      // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
+      // persona da su T a una cosa, y el tope es el de la persona). T no cruza de persona: la persona huésped
+      // recibe euros y escribe con su propio T, que se acuña al gastarse dentro del tope del reloj.
       { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'hora', cantidad: 24, de: 'casa', a: 'huesped' },
-      { token: 'T', escala: 'minuto', cantidad: 480, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-    contexto: { tipos: { cocina: 'grupo', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
+    contexto: { tipos: { cocina: 'cosa', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
@@ -132,8 +133,6 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
     t: '2026-11-07T12:00:00Z',
     movimientos: [
       gasta('casa'),
-      { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped2' },
-      { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'huesped2' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
     ],
     payload: ['Alta de otra persona huésped', ['huesped2']],

@@ -5,7 +5,7 @@ AGRAM es el motor: la ejecución real sobre la estructura de datos (BTML, `docs/
 Convenciones:
 
 - Los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `bea2e06d`, cuenta `ee80a426`. En las salidas los ids se acortan a ocho caracteres con `corto`. Los tres documentos (`docs/BTML.md`, `docs/BQL.md` y este) citan los mismos ids; en un programa no se copian, se usan `compra.id`, `cuenta.id`… (cambian en cuanto cambia el cuerpo de un evento: pasó con la PR #18, con la PR #28, que cambió el vector que guardan las consolidaciones, y con la PR #35, que puso el génesis en series).
+- El eje de ejemplo es `ejemplos/ikisai/compra-food.mjs` (datos inventados). Sus ids son deterministas (hash del cuerpo con `t` fijo): génesis `2d970a48`, alta `82aafc7b`, menú `ff05e68f`, compra `3147f38b`, cuenta `bcc60646`. En las salidas los ids se acortan a ocho caracteres con `corto`. Los tres documentos (`docs/BTML.md`, `docs/BQL.md` y este) citan los mismos ids; en un programa no se copian, se usan `compra.id`, `cuenta.id`… (cambian en cuanto cambia el cuerpo de un evento: pasó con la PR #18, con la PR #28, que cambió el vector que guardan las consolidaciones, y con la PR #35, que puso el génesis en series).
 - Toda escritura recibe `t` explícito. `escribirDesde` y `ejecutar` usan `new Date().toISOString()` si falta, y entonces los ids no son reproducibles.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se trabaja. Una «consolidación» es el registro que escribe `consolidar`.
 
@@ -93,19 +93,19 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     bea2e06d camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → d367743b · exacto
-  propio     bea2e06d camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
-  referencia d367743b camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
-  escrito    ee80a426 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
+  propio     3147f38b camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → ff05e68f · exacto
+  propio     3147f38b camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
+  referencia ff05e68f camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
+  escrito    bcc60646 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 2 candidatos
-  propio     bea2e06d camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
-  referencia d367743b camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
+  propio     3147f38b camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
+  referencia ff05e68f camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
 3 3000000000 2 candidatos
-  propio     bea2e06d camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
-  propio     bea2e06d camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
+  propio     3147f38b camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     3147f38b camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
 4 4000000000 2 candidatos
-  propio     bea2e06d camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
-  propio     bea2e06d camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
+  propio     3147f38b camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     3147f38b camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 5
 ```
@@ -155,9 +155,9 @@ console.log(estadoDe(eje, cons.id), importe.cantidad, importe.unidad, '· EUR co
 
 ```text
 {"Q":"descubrir","B":"proponer","C":"consolidar"}
-{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"ee80a426","dir":"3000000000"}}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"bcc60646","dir":"3000000000"}}
 ["1:formula","2:formula","3:foco"] []
-["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"ee80a426","dir":"3000000000"}] · texto
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"bcc60646","dir":"3000000000"}] · texto
 EJECUTADO 14 EUR · EUR cocina 26 huesped 34
 ```
 
@@ -208,21 +208,21 @@ const { eje, compra } = await ejemploCompra();
 const cuenta = await ejemploCuenta(eje, compra);
 const d = descubrir(eje, compra.id);
 const elegida = d[0].candidatos.find((c) => c.evento === cuenta.id);
-const antesT = eje.saldoT('huesped', 'minuto');
+const antesT = eje.emitidoT('huesped', 'minuto'); // huesped no tiene T: acuña al gastarlo (VG, 7-11 noche), y cuenta aquí
 const antesEUR = eje.saldo('huesped', 'E:casa/EUR');
 const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T16:00:00Z', titulo: 'Pago del menú', elecciones: { 1: { candidato: elegida }, 2: 'sin lactosa', 4: 'pagar 14 EUR' } });
 console.log(c.sobre === compra.id, c.en === FABRICA, c.autor);
 console.log(corto(c.payload));
 console.log(corto(c.contexto));
-console.log(corto(c.movimientos), 'minutos gastados', antesT - eje.saldoT('huesped', 'minuto'), 'EUR movidos', antesEUR - eje.saldo('huesped', 'E:casa/EUR'));
+console.log(corto(c.movimientos), 'minutos gastados', eje.emitidoT('huesped', 'minuto') - antesT, 'EUR movidos', antesEUR - eje.saldo('huesped', 'E:casa/EUR'));
 console.log(estadoDe(eje, c.id));
 "
 ```
 
 ```text
 true true huesped
-["Pago del menú",{"ref":"ee80a426","dir":"0000000000"},"sin lactosa",{"ref":"bea2e06d","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fase":"consolidado","fuentes":["ee80a426"],"encaje":[{"posicion":1,"evento":"ee80a426","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
+["Pago del menú",{"ref":"bcc60646","dir":"0000000000"},"sin lactosa",{"ref":"3147f38b","dir":"3000000000"},"pagar 14 EUR"]
+{"motor":"fabrica","fase":"consolidado","fuentes":["bcc60646"],"encaje":[{"posicion":1,"evento":"bcc60646","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 PENDIENTE DE AUTORIZACIÓN
 ```
@@ -268,7 +268,7 @@ hueco en 5: elige algo o quita las posiciones siguientes
 fuente desconocida en 1
 Mapped emite como mucho 1000 posiciones; este registro tiene 1001
 evento rechazado: foco desconocido: nadie
-ok ["Consolidación",["dos","menús"],{"ref":"bea2e06d","dir":"2000000000"},{"ref":"d367743b","dir":"2000000000"}] en 4000000000
+ok ["Consolidación",["dos","menús"],{"ref":"3147f38b","dir":"2000000000"},{"ref":"ff05e68f","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
 
@@ -430,11 +430,11 @@ cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del r
 escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
 bloqueado 5 de 10 · PENDIENTE DE AUTORIZACIÓN
 true 4000000000 "==vale" BQL lo lee como "=vale"
-[{"token":"T","escala":"minuto","cantidad":1,"de":"casa","a":null},{"token":"P","ambito":"genesis","cantidad":5,"de":"casa","a":"casa","estado":"bloqueo","salida":"f4cd799c"}]
+[{"token":"T","escala":"minuto","cantidad":1,"de":"casa","a":null},{"token":"P","ambito":"genesis","cantidad":5,"de":"casa","a":"casa","estado":"bloqueo","salida":"dabf7dbe"}]
 {"modo":"pointed","motor":"fabrica","fase":"autorizado","autoridad":{"regla":"…","recurso":"2d970a48","bloquea":[{"clave":"P:genesis","cantidad":5}],"umbral":"más de la mitad","caduca":"2026-12-05T16:00:00.000Z"}}
 bloqueado 10 · válidos 2 · AUTORIZADO · casa P:genesis disponible 0 bloqueado 10
 ya está autorizado
-no es una consolidación: bea2e06d
+no es una consolidación: 3147f38b
 ```
 
 ### 4.3 R3: P:X es una serie cerrada
@@ -487,11 +487,11 @@ await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }).catch((e) =
 const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
 await ejecutar(eje, { autor: 'casa', consolidacion: c.id, t: T }).catch((e) => console.log(e.message));
 await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'cocina', a: 'huesped' }] }).catch((e) => console.log(e.message));
-const antes = [eje.saldo('cocina', 'E:casa/EUR'), eje.saldo('huesped', 'E:casa/EUR'), eje.saldoT('huesped', 'minuto')];
+const antes = [eje.saldo('cocina', 'E:casa/EUR'), eje.saldo('huesped', 'E:casa/EUR'), eje.emitidoT('huesped', 'minuto')]; // huesped acuña su T al gastarlo
 const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, titulo: 'Pagado', movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }] });
 console.log(e.sobre === c.id, e.en, corto(e.payload));
 console.log(corto(e.contexto), corto(e.movimientos));
-console.log('cocina EUR', antes[0], '→', eje.saldo('cocina', 'E:casa/EUR'), '· huesped EUR', antes[1], '→', eje.saldo('huesped', 'E:casa/EUR'), '· huesped minutos', antes[2], '→', eje.saldoT('huesped', 'minuto'));
+console.log('cocina EUR', antes[0], '→', eje.saldo('cocina', 'E:casa/EUR'), '· huesped EUR', antes[1], '→', eje.saldo('huesped', 'E:casa/EUR'), '· huesped minutos gastados', antes[2], '→', eje.emitidoT('huesped', 'minuto'));
 console.log(estadoDe(eje, c.id), '· hilo:', eje.hilo(e.id).map((x) => x.id.slice(0, 8)).join(' → '));
 console.log('evidencia:', e.contexto.evidencia[0] === c.id, e.contexto.evidencia[1] === a.id);
 await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }).catch((e) => console.log(e.message));
@@ -507,15 +507,15 @@ console.log(corto(consolidaciones(eje, compra.id)));
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
 evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
-true 4000000000 ["Pagado",{"ref":"93954edc"},{"ref":"af0e7519"}]
-{"motor":"fabrica","fase":"ejecutado","evidencia":["93954edc","af0e7519"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
-cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos 475 → 472
-EJECUTADO · hilo: 4e809d78 → 93954edc → bea2e06d → d367743b → a8efd9b0 → 2d970a48
+true 4000000000 ["Pagado",{"ref":"c3418d90"},{"ref":"11aa6d37"}]
+{"motor":"fabrica","fase":"ejecutado","evidencia":["c3418d90","11aa6d37"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
+cocina EUR 12 → 26 · huesped EUR 48 → 34 · huesped minutos gastados 5 → 8
+EJECUTADO · hilo: b5d5156d → c3418d90 → 3147f38b → ff05e68f → 82aafc7b → 2d970a48
 evidencia: true true
 ya ejecutado
 casa P:genesis disponible 0 · bloqueado por la consolidación 10
-{"token":"P","ambito":"genesis","cantidad":10,"de":"casa","a":"casa","estado":"liberacion","salida":"93954edc"} {"modo":"pointed","motor":"fabrica","libera":"93954edc"} · casa P:genesis disponible 10
-[{"id":"93954edc","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
+{"token":"P","ambito":"genesis","cantidad":10,"de":"casa","a":"casa","estado":"liberacion","salida":"c3418d90"} {"modo":"pointed","motor":"fabrica","libera":"c3418d90"} · casa P:genesis disponible 10
+[{"id":"c3418d90","autor":"huesped","t":"2026-11-07T16:00:00Z","titulo":"Pago del menú","estado":"EJECUTADO","fuentes":[]}]
 ```
 
 El hilo de la ejecución es la evidencia: ejecución → consolidación → compra → menú → alta → génesis.
@@ -723,7 +723,7 @@ CLASES                                     // los nombres de clase: 0–4 de VG;
 claseDe(dir, camino = [])                  // → la clase de la dirección leída desde el camino: su dígito en la profundidad camino.length + 2 (sin camino, el tercero)
 ```
 
-**Ítems de entrada** (`item`): se recorta el texto; vacío → error `ítem vacío`; `/^@([0-9a-f]{4,64})(?::([0-9]{10}))?$/i` → referencia por prefijo hexadecimal (`resolverRef`: `referencia desconocida: <p>` si ningún id empieza así, `referencia ambigua: <p>` si varios); `/^-?\d+(\.\d+)?$/` → número JS; cualquier otra cosa → la cadena tal cual (`'12 EUR'` y `'=LOCAL(1)'` son cadenas; su sentido lo pone BQL). Un `@` seguido de algo que no es hexadecimal de 4 a 64 caracteres (`'@zzzz'`, `'@ab'`, `'@d367743b:12'`) **es texto**, no error; `referencia demasiado corta` solo lo da `resolverRef` llamado directamente con menos de cuatro caracteres.
+**Ítems de entrada** (`item`): se recorta el texto; vacío → error `ítem vacío`; `/^@([0-9a-f]{4,64})(?::([0-9]{10}))?$/i` → referencia por prefijo hexadecimal (`resolverRef`: `referencia desconocida: <p>` si ningún id empieza así, `referencia ambigua: <p>` si varios); `/^-?\d+(\.\d+)?$/` → número JS; cualquier otra cosa → la cadena tal cual (`'12 EUR'` y `'=LOCAL(1)'` son cadenas; su sentido lo pone BQL). Un `@` seguido de algo que no es hexadecimal de 4 a 64 caracteres (`'@zzzz'`, `'@ab'`, `'@ff05e68f:12'`) **es texto**, no error; `referencia demasiado corta` solo lo da `resolverRef` llamado directamente con menos de cuatro caracteres.
 
 **Pointed** escribe un terminal; si `item` no da un terminal → `Pointed escribe un terminal` (no ocurre con `item`, que siempre devuelve terminales).
 
@@ -785,29 +785,29 @@ try { desdeMapped(eje, [], compra.id); } catch (e) { console.log(e.message); }
 ```
 
 ```text
-["hola",12.5,-3,"12 EUR",{"ref":"d367743b"},{"ref":"d367743b","dir":"1000000000"},"=LOCAL(1)"]
+["hola",12.5,-3,"12 EUR",{"ref":"ff05e68f"},{"ref":"ff05e68f","dir":"1000000000"},"=LOCAL(1)"]
 ítem vacío
 referencia desconocida: ffff
 "@zzzz"
 "@ab"
-"@d367743b:12"
-{"ref":"d367743b"}
+"@ff05e68f:12"
+{"ref":"ff05e68f"}
 referencia demasiado corta: @ab
 referencia desconocida: ffff
-"servido" {"ref":"d367743b"}
-["llegar",{"ref":"d367743b"},3]
+"servido" {"ref":"ff05e68f"}
+["llegar",{"ref":"ff05e68f"},3]
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"bea2e06d","dir":"0000000000"},{"ref":"bea2e06d","dir":"1000000000"},"sin lactosa",{"ref":"bea2e06d","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"3147f38b","dir":"0000000000"},{"ref":"3147f38b","dir":"1000000000"},"sin lactosa",{"ref":"3147f38b","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"bea2e06d","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+con camino [1]: {"payload":[{"ref":"3147f38b","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
-una línea «d.d» es texto: [{"ref":"bea2e06d","dir":"0000000000"},"1.5 kg de harina"]
+una línea «d.d» es texto: [{"ref":"3147f38b","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
-Nota: `'@zzzz'` (no hexadecimal), `'@ab'` (corto) y `'@d367743b:12'` (la subposición necesita diez dígitos) no casan con la forma de referencia y se guardan como texto. Las tres referencias heredadas de la décupla cuestan un minuto cada una: el coste cuenta posiciones del registro, no solo las tecleadas (el tope no las cuenta si se le dicen las `heredadas`; la proporción sí, como antes). Las líneas de la décupla son celdas `2.0.0`, `4.0.0` y `4.1.0`; compactadas, dan la misma décupla que antes de la matriz, y una línea que empieza por `d.d ` sigue siendo texto. La posición 7 está lejos (la compra solo desarrolla 0–4): se ancla en `7000000000` en vez de rechazarse.
+Nota: `'@zzzz'` (no hexadecimal), `'@ab'` (corto) y `'@ff05e68f:12'` (la subposición necesita diez dígitos) no casan con la forma de referencia y se guardan como texto. Las tres referencias heredadas de la décupla cuestan un minuto cada una: el coste cuenta posiciones del registro, no solo las tecleadas (el tope no las cuenta si se le dicen las `heredadas`; la proporción sí, como antes). Las líneas de la décupla son celdas `2.0.0`, `4.0.0` y `4.1.0`; compactadas, dan la misma décupla que antes de la matriz, y una línea que empieza por `d.d ` sigue siendo texto. La posición 7 está lejos (la compra solo desarrolla 0–4): se ancla en `7000000000` en vez de rechazarse.
 
 La matriz sobre la compra del menú: ver el precio, pagarlo, ubicar celdas y escribir una salida con parte anclada.
 
@@ -834,9 +834,9 @@ const mezcla = []; mezcla[2] = ['sin lactosa']; mezcla[7] = ['repetir el sábado
 const salida = desdeMapped(eje, mezcla, compra.id);
 console.log('salida', corto(salida));
 await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }).catch((e) => console.log(e.message));
-const antes = eje.saldoT('huesped', 'minuto');
+const antes = eje.emitidoT('huesped', 'minuto'); // huesped acuña su T al gastarlo (VG, 7-11 noche)
 const { registro, anclados, proporcion } = await escribirSalida(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, salida, t: T });
-console.log('registro en', registro.en, corto(registro.payload), JSON.stringify(registro.contexto), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', antes - eje.saldoT('huesped', 'minuto'), 'minutos ·', JSON.stringify(proporcion));
+console.log('registro en', registro.en, corto(registro.payload), JSON.stringify(registro.contexto), '· anclado en', anclados[0].en, corto(anclados[0].payload), '·', eje.emitidoT('huesped', 'minuto') - antes, 'minutos ·', JSON.stringify(proporcion));
 const celda = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, celda: [9, 0, 0], payload: 'volver', t: T });
 console.log('celda 9.0.0 →', celda.en, corto(celda.payload));
 const postre = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, celda: [3, 0, 0], camino: [1], payload: 'postre', t: T });
@@ -849,7 +849,7 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"bea2e06d","dir":"0000000000"},[[{"ref":"bea2e06d","dir":"1000000000"}],[{"ref":"bea2e06d","dir":"1100000000"}],[{"ref":"bea2e06d","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"3147f38b","dir":"0000000000"},[[{"ref":"3147f38b","dir":"1000000000"}],[{"ref":"3147f38b","dir":"1100000000"}],[{"ref":"3147f38b","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
@@ -860,12 +860,12 @@ ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 2.0.0 en pointed {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
-salida {"payload":[{"ref":"bea2e06d","dir":"0000000000"},{"ref":"bea2e06d","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
+salida {"payload":[{"ref":"3147f38b","dir":"0000000000"},{"ref":"3147f38b","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"bea2e06d","dir":"0000000000"},{"ref":"bea2e06d","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
+registro en 0000000000 [{"ref":"3147f38b","dir":"0000000000"},{"ref":"3147f38b","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
 celda 9.0.0 → 9000000000 "volver"
-celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"bea2e06d","dir":"1000000000"},{"ref":"bea2e06d","dir":"1100000000"},{"ref":"bea2e06d","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
-celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"bea2e06d","dir":"1000000000"},{"ref":"bea2e06d","dir":"1100000000"},{"ref":"bea2e06d","dir":"1200000000"},"flan"] · 4 minutos
+celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"3147f38b","dir":"1000000000"},{"ref":"3147f38b","dir":"1100000000"},{"ref":"3147f38b","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
+celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"3147f38b","dir":"1000000000"},{"ref":"3147f38b","dir":"1100000000"},{"ref":"3147f38b","dir":"1200000000"},"flan"] · 4 minutos
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
 
@@ -909,7 +909,7 @@ celda 2.4.0 bajo [1] → anclado en 1240000000 · cae en 1240000000 · clase 0 (
 celda 0.1.0 bajo [1] → anclado en 1010000000 · cae en 1010000000 · clase 0 (desde la raíz 1)
 celda 7.3.4 bajo [1] → anclado en 1734000000 · cae en 1734000000 · clase 4 (desde la raíz 3)
 celda 1.0.4 bajo [1,2] → anclado en 1210400000 · cae en 1210400000 · clase 4 (desde la raíz 1)
-salida bajo [1]: registro en 1000000000 [{"ref":"bea2e06d","dir":"1000000000"},{"ref":"bea2e06d","dir":"1100000000"},{"ref":"bea2e06d","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
+salida bajo [1]: registro en 1000000000 [{"ref":"3147f38b","dir":"1000000000"},{"ref":"3147f38b","dir":"1100000000"},{"ref":"3147f38b","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
 génesis (terminal): [{"ref":"2d970a48","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
 ```
 
@@ -921,9 +921,9 @@ import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { escribirDesde, desdeSequenced } from './src/escritura.js';
 const T = '2026-11-07T16:00:00Z';
 const { eje, compra } = await ejemploCompra();
-const antes = eje.saldoT('huesped', 'minuto');
+const antes = eje.emitidoT('huesped', 'minuto'); // huesped acuña su T al gastarlo (VG, 7-11 noche)
 const p = await escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: compra.id, en: '4000000000', payload: 'servido', t: T });
-console.log(p.sobre === compra.id, p.en, JSON.stringify(p.contexto), JSON.stringify(p.movimientos), 'minutos', antes - eje.saldoT('huesped', 'minuto'));
+console.log(p.sobre === compra.id, p.en, JSON.stringify(p.contexto), JSON.stringify(p.movimientos), 'minutos', eje.emitidoT('huesped', 'minuto') - antes);
 const s = await escribirDesde(eje, { modo: 'sequenced', autor: 'huesped', sobre: compra.id, payload: desdeSequenced(eje, ['llegar', 'pedir', 'pagar']), t: T, contexto: { nota: 'libre' } });
 console.log(s.en, JSON.stringify(s.contexto), s.movimientos[0].cantidad, 'hijos de la compra', eje.sobre(compra.id).length);
 const grande = Array(10).fill(Array(3).fill('x'));
@@ -1026,13 +1026,13 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      140353de huesped  2026-11-07T14:30:00Z   -1800 hora
-  pasado registro      ee80a426 cocina   2026-11-07T14:10:00Z   -3000 hora
-  pasado registro      d367743b cocina   2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      a8efd9b0 casa     2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      f55e52de huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      bcc60646 cocina   2026-11-07T14:10:00Z   -3000 hora
+  pasado registro      ff05e68f cocina   2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      82aafc7b casa     2026-11-07T09:00:00Z  -21600 dia
   pasado registro      2d970a48 casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion 140353de huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
-  futuro proyeccion    9a8e9935 huesped  2026-11-13T13:30:00Z  513000 semana
+  futuro consolidacion f55e52de huesped  2026-11-07T14:30:00Z   -1800 hora PENDIENTE DE AUTORIZACIÓN
+  futuro proyeccion    32c651b6 huesped  2026-11-13T13:30:00Z  513000 semana
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
@@ -1045,6 +1045,8 @@ medir(eje, id)                              // bases.medir: la única medida (§
 situar(eje, foco, { alcance, respaldo })    // la caja del foco en su cohorte, leída del 8 (§14)
 HITOS                                       // diez etiquetas de caja { indice, nivel, nombre }, congeladas
 ```
+
+**El 8 solo funde cantidades** (R7 del estudio de neutralidad; VG, 7-11 noche). Lo que sitúa y compara son las sumas por serie (E, P, R y T movidos; y el T consumido sobre el registro, `tiempo:<escala>`) y la **cuota** del foco en su cohorte (su suma ÷ la de la cohorte), que no cambia al añadir hermanos vacíos ni al partir un escrito en diez. Las medidas de `MEDIDAS` son **recuentos** (`recuento: true`): se informan, sin cortes ni cajas, y no deciden nada. PV8 ordena **registros por masa** (`bases.porMasa`), nunca identidades. Detalle en §14.
 
 `HITOS` son las etiquetas de las diez cajas, literales (mapa §2.2 [D20]): texto informativo de la caja, nunca un juicio (decisión 2 de VG, 7-11 noche). Nada asigna nivel ni grado. Las estrellas no son verdad.
 
@@ -1074,8 +1076,8 @@ const breve = (m) => JSON.stringify({ posiciones: m.posiciones, terminales: m.te
 console.log('menú', breve(medir(eje, menu.id)), '· nota', breve(medir(eje, nota.id)));
 console.log('situar:', situar(eje, menu.id).estado, '·', situar(eje, menu.id).motivo.replace(alta.id.slice(0, 8), '<alta>'));
 const c = situar(eje, menu.id, { respaldo: true });
-const t = c.medidas.terminales;
-console.log('respaldo:', c.frescura, '· n', c.n, '· terminales: foco', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', '· debajo', t.debajo, '· encima', t.encima, '· cortes', t.cortes.join(' '));
+const t = c.tokens['T:hora'];
+console.log('respaldo:', c.frescura, '· n', c.n, '· T:hora: foco', t.foco, 'caja', t.caja, '(' + t.hito.nombre + ')', '· cuota', t.cuota, '· cortes', t.cortes.join(' '), '· terminales (recuento, sin caja):', c.medidas.terminales.foco);
 console.log('tiempo.js ya no tiene:', ['comparar', 'medir'].filter((f) => !(f in tiempo)).join(', '), '· génesis:', situar(eje, eje.genesisId).motivo, '· hitos', HITOS.length, HITOS[9].nivel, HITOS[9].nombre);
 "
 ```
@@ -1083,7 +1085,7 @@ console.log('tiempo.js ya no tiene:', ['comparar', 'medir'].filter((f) => !(f in
 ```text
 menú {"posiciones":3,"terminales":6,"escritos":1,"movimientos":1} · nota {"posiciones":0,"terminales":1,"escritos":0,"movimientos":1}
 situar: PENDIENTE · sin base escrita en el 8 de <alta>
-respaldo: sin base escrita · n 2 · terminales: foco 6 caja 5 (aprendizaje superior) · debajo 1 · encima 0 · cortes 1 2 3 4 6 10 16 26 42
+respaldo: sin base escrita · n 2 · T:hora: foco 2 caja 2 (avanzado) · cuota 1 · cortes 1 2 3 4 6 10 16 26 42 · terminales (recuento, sin caja): 6
 tiempo.js ya no tiene: comparar, medir · génesis: sin cohorte: el génesis no tiene padre · hitos 10 5.3 resolución experimental muy avanzada
 ```
 
@@ -1167,9 +1169,10 @@ const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null
 const t = (hora) => '2026-11-07T' + hora + ':00Z';
 
 // 1. Génesis: la casa recibe tiempo (horas y minutos, tokens distintos), euros y poder sobre todo el eje (ámbito «genesis»).
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa de ejemplo', t: t('09:00') });
-// 2. Altas: cocina y una persona huésped existen al recibir tokens.
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('09:00'), movimientos: [gastaT('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'huesped' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'huesped' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: 'casa', a: 'huesped' }], payload: ['Altas', ['cocina', 'huesped']] });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'hora', cantidad: 100 }, { token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa de ejemplo', t: t('09:00') });
+// 2. Altas: cocina (una cosa de la casa, que escribe con el T que ella le da) y una persona huésped (escribe con
+//    su propio T, acuñado al gastarlo; T no cruza de persona, VG 7-11 noche) existen al recibir tokens.
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t('09:00'), movimientos: [gastaT('casa'), { token: 'T', escala: 'hora', cantidad: 10, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'cocina' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: 'casa', a: 'huesped' }], payload: ['Altas', ['cocina', 'huesped']], contexto: { tipos: { cocina: 'cosa', huesped: 'persona' } } });
 // 3. Cocina publica el menú sobre el alta; la casa le delega poder sobre el menú (y lo que cuelgue de él).
 const menu = await eje.escribir({ autor: 'cocina', sobre: alta.id, t: t('09:30'), movimientos: [gastaT('cocina')], payload: ['Menú del día', ['ensalada', 'guiso', 'fruta'], ['sin gluten', 'vegetariano'], ['cocina'], ['servir', 'cobrar 14 EUR']] });
 await eje.escribir({ autor: 'casa', sobre: menu.id, t: t('09:35'), movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: menu.id, de: 'casa', a: 'cocina' }], payload: 'cocina decide sobre su menú' });
@@ -1206,30 +1209,30 @@ console.log('casa P:genesis', eje.saldo('casa', 'P:genesis'), '· bloqueado', ej
 const et = ejeTemporal(eje, pedido.id, { ahora: t('14:10') });
 console.log('pasado', et.pasado.map((x) => x.tipo + ':' + x.autor + ':' + x.banda).join(' '), '· futuro', et.futuro.length);
 const s8 = situar(eje, pedido.id, { respaldo: true }); // el 8 del menú no tiene base escrita: respaldo al vuelo, declarado
-const term = s8.medidas.terminales;
-console.log('8 entre hermanos:', s8.frescura, '· n', s8.n, '· terminales: foco', term.foco, 'caja', term.caja, '· debajo', term.debajo, '· encima', term.encima);
+const minutos = s8.tokens['T:minuto']; // R7: el 8 sitúa cantidades; los terminales son un recuento, sin caja
+console.log('8 entre hermanos:', s8.frescura, '· n', s8.n, '· T:minuto: foco', minutos.foco, 'caja', minutos.caja, '· cuota', minutos.cuota, '· terminales (recuento):', s8.medidas.terminales.foco);
 // 10. Persistir y restaurar: los estados se recalculan desde los eventos.
 const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
 console.log('restaurado', otro.orden.length, 'eventos ·', estadoDe(otro, cons.id), '· posición 2 de la consolidación:', evaluar(otro, cons.id, [2]).texto);
 ```
 
 ```text
-pedido [{"ref":"8a12d201","dir":"0000000000"},[[{"ref":"8a12d201","dir":"1100000000"}],[1]],{"ref":"8a12d201","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
+pedido [{"ref":"98ef7b57","dir":"0000000000"},[[{"ref":"98ef7b57","dir":"1100000000"}],[1]],{"ref":"98ef7b57","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
 posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
-posición 2 propio → 8a12d201 (exacto) · referencia sin gluten · vegetariano (exacto)
+posición 2 propio → 98ef7b57 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
-consolidación ["Pedido del guiso",{"ref":"8a12d201","dir":"1100000000"},"sin lactosa",{"ref":"0ff9cf3f","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
-encaje guardado [{"posicion":1,"evento":"8a12d201","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
+consolidación ["Pedido del guiso",{"ref":"98ef7b57","dir":"1100000000"},"sin lactosa",{"ref":"d3d70750","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
+encaje guardado [{"posicion":1,"evento":"98ef7b57","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 recurso = génesis true · puede autorizar casa=true cocina=false huesped=false
-rechazo: "cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso a2bbba5d, que no tiene P propio emitido: el P sobre todo el eje («genesis»)"
+rechazo: "cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso 59d18986, que no tiene P propio emitido: el P sobre todo el eje («genesis»)"
 autorización "==sale en 10 minutos" [{"clave":"P:genesis","cantidad":3}] · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"902df1fb"},{"ref":"6333423c"}] · evidencia ["902df1fb","6333423c"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"f50f5433"},{"ref":"8cc1f28f"}] · evidencia ["f50f5433","8cc1f28f"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
-consolidaciones del pedido [{"id":"902df1fb","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["8a12d201"]}]
+consolidaciones del pedido [{"id":"f50f5433","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["98ef7b57"]}]
 casa P:genesis 3 · bloqueado 0
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
-8 entre hermanos: sin base escrita · n 2 · terminales: foco 6 caja 5 · debajo 1 · encima 0
+8 entre hermanos: sin base escrita · n 2 · T:minuto: foco 6 caja 5 · cuota 0.8571428571428571 · terminales (recuento): 6
 restaurado 9 eventos · EJECUTADO · posición 2 de la consolidación: sin lactosa
 ```
 
@@ -1240,7 +1243,7 @@ Lectura de la salida:
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
 - `puede autorizar`: autorizar es bloquear P sobre el registro del recurso; nadie en el hilo del pedido (menú, alta de la casa) ha emitido P propio, así que es el génesis y cuenta el P del eje. La casa tiene los 3 que le quedan sobre `genesis` (de 5: más de la mitad) y los bloquea; los 2 P de cocina, estrechados al menú, no son ese P; la persona huésped no tiene ninguno (si lo tuviera, contaría aunque sea la autora).
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
-- `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `8 entre hermanos`: los hermanos del pedido son lo escrito sobre el menú (el pedido y la delegación de poder); nadie ha escrito la base del 8 del menú, así que `situar` usa el respaldo al vuelo y lo dice («sin base escrita»). Sin puesto: el pedido cae en la caja 5 de terminales (seis), con la delegación debajo.
+- `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `8 entre hermanos`: los hermanos del pedido son lo escrito sobre el menú (el pedido y la delegación de poder); nadie ha escrito la base del 8 del menú, así que `situar` usa el respaldo al vuelo y lo dice («sin base escrita»). Sin puesto, y solo por cantidades (R7, VG 7-11 noche): el pedido cae en su caja de `T:minuto` y se dice su cuota de los minutos movidos entre sus hermanos; sus seis terminales son un recuento, que se informa sin caja.
 - `casa P:genesis 3 · bloqueado 0`: tras la ejecución, la casa libera el P que bloqueó (solo ella puede).
 - `restaurado 9 eventos`: génesis, alta, menú, delegación, pedido, consolidación, autorización, ejecución y liberación; el estado `EJECUTADO` se recalcula desde ellos.
 
@@ -1389,8 +1392,12 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 **Una sola verdad del 8, la escrita** (VG, 7-11 noche, mapa §14.2 y §12 [D] «Una sola verdad del 8»). Las estadísticas del 8 son **registros** escritos en la posición 8 (el cielo, `CIELO = '8000000000'`) del registro que resumen, con referencias a lo medido y «hasta»; no hay base de datos aparte. Las cohortes se **leen** de esos registros, nunca recorriendo el eje; el cálculo al vuelo (`confluir`) queda solo como respaldo declarado («sin base escrita»). Detalle, ejemplo ejecutado y abiertos en `docs/notas/BASES_DEL_8.md`; pruebas en `test/bases.test.js` y `test/bases-bql.test.js`; ejemplo en `ejemplos/ikisai/compras-hermanas.mjs`. Se importa como `bases` desde `src/index.js`.
 
 ```js
-medir(eje, id)                       // → la ÚNICA medida de un registro: posiciones (y procedencias por PV), terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes, tokens por serie, raiz
-cortesDe(clave, epoca)               // → { cortes, origen }: epoca.cortes(clave) ('epoca'); si la época no los da, los de la época 0 ('respaldo')
+medir(eje, id)                       // → la ÚNICA medida de un registro: los recuentos (posiciones y procedencias por PV, terminales, escritos, movimientos, identidades, profundidadHilo, formulasResueltas, formulasPendientes, raiz) y las cantidades (tokens: por serie, y el T consumido sobre él como «tiempo:<escala>»)
+esRecuento(clave); esCantidad(clave) // → R7: qué es un recuento informativo (MEDIDAS, recuento: true) y qué es una cantidad (lo único que el 8 sitúa)
+cortesDe(clave, epoca)               // → { cortes, origen } de una cantidad: epoca.cortes(clave) ('epoca'); si la época no los da, los de la época 0 ('respaldo'); un recuento no tiene
+cuotaDe(valor, suma); cajaDeCuota(c) // → la cuota del foco en su cohorte (null si la cohorte no tiene nada) y su caja (su décima parte)
+porMasa(eje, ids, serie); masaDe(eje, id) // → PV8: registros por masa en una serie (de más a menos; a igual masa, en su orden); las cantidades de un registro
+ochoPorCantidades(eje, foco, { alcance, epoca }) // → lo que leerá la celda 8 de Mapped: cantidades con caja y cuota, recuentos aparte
 unitaria(m, epoca); fundir(a, b)     // → estadística { n, medidas, tokens, posiciones, raiz }; fundir es asociativo y conmutativo, con estadisticaVacia() de neutro; rechaza cortes distintos
 identidadDe(eje, id)                 // → la cosa (con clave) que el propio registro da de alta; la del génesis, su autor ([X]); si no, null
 puedeEscribirBase(eje, autor, id)    // → { puede, por: 'identidad' | 'poder' | null, motivo }: la propia cosa o quien tiene P sobre el registro, con clave
@@ -1413,13 +1420,14 @@ valorDeBases(eje, id, args); erroresDeBases(args) // → lo que devuelve BASES()
 - **Dos estadísticas por base.** `hijos`: el fundido de las medidas de los hijos del registro (la cohorte de hermanos de cada uno). `subarbol`: el registro y todo lo que cuelga de él (la cohorte de proyecto y la general). El subárbol funde, **sin releer registros**, el subárbol de la base vigente de cada hijo: el 8 del proyecto funde las bases de sus hijos y el del génesis, las de los proyectos. Un hijo sin base cuenta por sí mismo y, si tiene descendencia, queda en `sinBase` ([X] cómo se completa).
 - **Cohortes leídas del 8.** `hermanos` lee los hijos del 8 del padre; `proyecto`, el subárbol del 8 de `proyectoDe`; `general`, el subárbol del 8 del génesis. Con las bases al día (y sin hijos sin base), lo leído coincide con lo que `confluir` recalcula al vuelo (lo comprueba `test/bases.test.js`); si no, manda lo escrito y `comprobar` dice qué ha cambiado.
 - **Respaldo declarado.** Sin base escrita en el 8 de la cohorte, `situar` devuelve PENDIENTE con frescura «sin base escrita»; con `{ respaldo: true }` devuelve `confluir`, que recorre la cohorte, funde con las mismas funciones y lo dice (`escrita: false`, `respaldo: true`, `frescura: 'sin base escrita'`). BQL nunca usa el respaldo.
-- **Cortes = regla de la época** (decisión 2 de VG). Se leen de `epoca.cortes(clave)`; la época 0 trae `1 2 3 4 6 10 16 26 42` para todas las medidas (`datos/epocas/epoca-0.json`, `cortes`; [X] sus valores). Una época que no los da usa los de la época 0 (`origen: 'respaldo'`). Se retiran los cortes de cohorte: todas las cohortes comparten cortes y se funden. Cada bloque guarda sus cortes y no se funden bloques con cortes distintos.
+- **El 8 solo funde cantidades** (R7; VG, 7-11 noche). Las medidas de `MEDIDAS` son recuentos: un bloque `{ recuento: true, n, suma, minimo, maximo }`, sin cortes ni cajas (en el payload, `[suma, mínimo, máximo]`); `situar` y `confluir` los dan con el valor del foco y su media, sin caja; `cortesDe`, `cajasEtiquetadas`, `BASES` y `CAJA` los rechazan. Las cantidades se sitúan por su caja (con los cortes de la época) y por su **cuota** (`cuota`, `cajaCuota`); lo que cuenta registros dentro de una caja (`enCaja`, `debajo`, `encima`, `media`) va marcado en `informativos`. `cambiadas` solo mira cantidades. El T consumido sobre el registro (`eje.tiempoSobre`) entra como `tiempo:<escala>`, sin lo que cuestan sus propias bases. Una base escrita con el formato anterior (recuentos con cajas) ya no es válida: se reescribe.
+- **Cortes = regla de la época** (decisión 2 de VG). Se leen de `epoca.cortes(clave)` para las cantidades; la época 0 trae `1 2 3 4 6 10 16 26 42` para todas (`datos/epocas/epoca-0.json`, `cortes`; [X] sus valores). Una época que no los da usa los de la época 0 (`origen: 'respaldo'`). Se retiran los cortes de cohorte: todas las cohortes comparten cortes y se funden. Cada bloque guarda sus cortes y no se funden bloques con cortes distintos.
 - **Validez.** Solo es base lo que, en el 8 del registro, firma con su clave la propia cosa del registro o quien tenía P sobre él al escribirla (el poder se mira con lo llegado antes de la base, no hoy: [X]), gastando T, con exactamente ese `contexto`, un payload coherente (cajas que suman n, extremos compatibles con la suma y con las cajas ocupadas, cortes crecientes), las referencias a **todos** los hijos llegados hasta `hasta`, en orden, y bases fundidas válidas de esos hijos. Lo demás escrito en el 8 es un hijo más: lo cuentan `escritos` y el respaldo. Nadie sin P escribe la base de una cosa que no es suya.
 - **Las bases no son hermanas, escritos ni comparables** de lo que miden: `medir`, `comparables` y `posicionesDe` las saltan, así que escribir una base no cambia lo que mide.
 - **Corregir = escribir otra base.** La anterior queda en el 8 como colisión; `leerBase` da la última y cuenta las `anteriores`.
 - **Frescura y comprobación.** `frescura` cuenta lo llegado sin releer: hijos después de `hasta`, hijos cuya base vigente ya no es la fundida y lo mismo, sumado, en las fundidas (`debajo`). No ve cambios en lo ya medido; para eso, `comprobar` recalcula. `situar` dice en `cambiadas` las medidas en que el foco, medido ahora, cae en una caja vacía aunque la base lo incluya.
 - **`BASES()`, `CAJA()` y `FRESCURA()` en BQL** (`docs/BQL.md` §7.13 y §7.14). Leen la base escrita y heredan el gancho `puedeLeer` (leer la base y, si hay que situarlo, el anfitrión y sus fórmulas) y el presupuesto de la fórmula (cobran lo que examina la lectura del 8). Sin base, PENDIENTE «sin base escrita» con el modo de escribirla; nunca calculan al vuelo.
-- **La celda 8 de Mapped y el cielo.** `mapped.ocho(eje, foco, { alcance, epoca })` da lo que lee la celda 8 (la base escrita o el respaldo, dicho) y `mapped.textoOcho` su texto; `mundos/cielo.js` (`datosCielo`) lee igual con `situar` y dice «sin base escrita». `app.js` pinta la celda 8 en sobrio con `mapped.ocho`: «entre hermanos» la base leída o «sin base escrita (respaldo al vuelo)», y la caja del foco por medida.
+- **La celda 8 de Mapped y el cielo.** `bases.ochoPorCantidades(eje, foco, { alcance, epoca })` da lo que lee la celda 8 (la base escrita o el respaldo, dicho): las cantidades con su caja y su cuota y los recuentos aparte; `app.js` pinta con ella la celda 8 en sobrio. `mapped.ocho` sigue recorriendo `MEDIDAS` buscando su caja y está **pendiente de integrar** (R7-01, en `skip`). `mundos/cielo.js` (`datosCielo`) dibuja una constelación por cantidad y la décupla, y enseña los recuentos aparte, como información.
 - **Sin nivel ni grado.** Las diez cajas llevan las etiquetas de `HITOS` (`hito` en `situar`), texto informativo; nada asigna nivel ni grado ni puntúa.
 
 Abiertos ([X] decidir VG, en el código y en la nota §3): cómo se identifica un registro con una identidad; los valores de los cortes de la época 0; el coste de una base; la disposición del payload; «más reciente» por llegada; qué es la frescura; cómo se completa lo que cuelga de un hijo sin base; la firma de `BASES()`; si el poder para escribir una base se mira al escribirla (hoy) o al leerla.

@@ -234,9 +234,9 @@ test('regresión: restaurar exige al génesis lo mismo que Eje.genesis (solo emi
 });
 
 test('regresión: una clave declarada debe ser pública e importable (sin d, sin x/y basura)', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'E', denominacion: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   const par = await generarClaves();
-  const alta = (clave) => eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a: 'bea' }], payload: 'alta', contexto: { claves: { bea: clave } } });
+  const alta = (clave) => eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a: 'bea' }], payload: 'alta', contexto: { claves: { bea: clave } } });
   await assert.rejects(alta({ ...par.publica, d: 'PRIVADA' }), /clave inválida/);
   await assert.rejects(alta({ kty: 'EC', crv: 'P-256', x: 'zz', y: 'zz' }), /clave inválida/);
   assert.equal(eje.clave('bea'), undefined);
@@ -244,18 +244,20 @@ test('regresión: una clave declarada debe ser pública e importable (sin d, sin
 
 test('regresión: P sobre el génesis por su id cubre lo mismo que P «genesis»', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', ambito: 'genesis', cantidad: 10 }], foco: 'g', t: T0 });
-  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x' });
+  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x', contexto: { tipos: { b: 'persona' } } }); // b escribe con su T
   await eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, movimientos: [gastaT('b'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'b', a: 'c' }], payload: 'y' });
   assert.equal(eje.saldo('b', 'P:' + eje.genesisId), 3);
   assert.equal(eje.saldo('c', 'P:genesis'), 1);
 });
 
-test('mover T de uno a sí mismo no paga la escritura',
-  { skip: 'TOK-02: [X] decidir VG si mover T de uno a sí mismo cuenta como «el autor mueve T»; hoy se acepta y la escritura sale sin coste (el saldo no cambia)' },
-  async () => {
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
-    await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }));
-  });
+// TOK-02 ya no se salta (VG, 7-11 noche: «escribir consume T»): el evento mínimo es un consumo de T del autor.
+test('mover T de uno a sí mismo no paga la escritura', async () => {
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
+  await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r' }], payload: 'gratis' }), /escribir consume T del autor/);
+  await assert.rejects(eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 's' }], payload: 'gratis' }), /escribir consume T del autor/);
+  await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'r', a: null }], payload: 'pagada' });
+  assert.equal(eje.saldoT('r', 'minuto'), 599);
+});
 
 /**
  * Secuencias aleatorias de escrituras (válidas e inválidas) con enteros. Tras
@@ -274,9 +276,9 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
   const quienes = ['b', 'c', 'hab'];
   const vistos = { emisionDeOtros: 0, cosaMueve: 0, cosaNoEmite: 0 };
   for (let s = 0; s < 12; s++) {
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
     // Alta: b es persona, c es grupo y hab es una cosa (con cartera, sin emisión).
-    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
+    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => (a === 'hab' ? { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a } : { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
     const consumido = new Map([['T:minuto', 1]]);
     const ids = [eje.genesisId, alta.id];
     for (let paso = 0; paso < 25; paso++) {
@@ -348,6 +350,7 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
  * Escribir cuesta minutos: escribirDesde mueve un minuto de T por posición
  * (costeT) y cada escala es su propio token, así que las horas no pagan.
  * Se acepta si cabe en el máximo del modo y hay minutos; si no, nada cambia.
+ * La raíz no declaró ser persona: no acuña su T al gastarlo (Core, 8-11).
  */
 test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca las demás escalas', async () => {
   const g = prng(SEMILLA + 6);
@@ -607,9 +610,10 @@ async function ejeConFirmas(g, pares) {
   const firmas = g.si(0.6);
   const [pr, pb] = pares;
   const priv = { r: firmas ? pr.privada : undefined, b: firmas ? pb.privada : undefined };
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
+  // r es una persona y b una cosa suya, que escribe con el T que r le da (Core, 8-11).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 100 }], foco: payloadEje(g, []), t: T0, ...(firmas ? { clave: pr.publica, privada: pr.privada } : {}), exigirFirmas: firmas && g.si() });
   const ids = [eje.genesisId];
-  const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: firmas ? { claves: { b: pb.publica } } : {} }, priv.r);
+  const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'T', escala: 'minuto', cantidad: 100, de: 'r', a: 'b' }, { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 10, de: 'r', a: 'b' }], payload: 'alta', contexto: { tipos: { b: 'cosa' }, ...(firmas ? { claves: { b: pb.publica } } : {}) } }, priv.r);
   ids.push(alta.id);
   for (let i = 0; i < g.int(1, 4); i++) {
     const autor = g.pick(['r', 'b']);

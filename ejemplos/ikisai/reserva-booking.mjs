@@ -214,6 +214,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
       { token: 'T', escala: 'hora', cantidad: 1000 },
       { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
+      { token: 'E', denominacion: 'hora', cantidad: 1000 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
       { token: 'R', cantidad: 10 }, // reputación de la casa (R:casa): la pone en juego al emitir plazas
     ],
@@ -233,11 +234,10 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     t,
     movimientos: [
       minutos(CASA),
-      { token: 'T', escala: 'hora', cantidad: 40, de: CASA, a: 'recepcion' },
-      { token: 'T', escala: 'minuto', cantidad: 600, de: CASA, a: 'recepcion' },
+      // Cada una escribe con su propio T (se acuña al gastarse). La casa cede a recepción 40 horas de su
+      // tiempo como E:casa/hora (VG, 7-11 noche: T no cruza de persona, se transforma en E).
+      { token: 'E', emisor: CASA, denominacion: 'hora', cantidad: 40, de: CASA, a: 'recepcion' },
       eur(300, CASA, 'huesped'),
-      { token: 'T', escala: 'hora', cantidad: 72, de: CASA, a: 'huesped' },
-      { token: 'T', escala: 'minuto', cantidad: 600, de: CASA, a: 'huesped' },
     ],
     payload: ['Altas de la temporada', ['recepcion', 'huesped']],
     contexto: { tipos: { recepcion: 'persona', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },

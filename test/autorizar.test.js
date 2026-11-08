@@ -12,6 +12,9 @@ import {
 import { validez } from '../src/validez.js';
 
 const T0 = '2026-11-07T22:00:00Z';
+// Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
+// de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
+const ALTA = '2026-10-07T22:00:00Z';
 const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const daP = (de, a, cantidad, ambito) => ({ token: 'P', ambito, cantidad, de, a });
 let n = 0;
@@ -25,12 +28,13 @@ const unico = (texto) => texto + ' #' + (++n);
 async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, // sin claves: un eje de demostración (R9)
-    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 5000 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    emision: [{ token: 'T', escala: 'minuto', cantidad: 5000 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 5000 }],
   });
   const ids = ['d', 'a', 'b', 't'];
-  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, payload: 'altas',
-    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'T', escala: 'minuto', cantidad: 300, de: 'g', a }))],
+  // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
+    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 300, de: 'g', a }))],
     contexto: { tipos: Object.fromEntries(ids.map((id) => [id, 'persona'])) } });
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {

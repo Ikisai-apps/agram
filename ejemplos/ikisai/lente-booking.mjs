@@ -39,7 +39,7 @@ export const LENTE_DE_LA_CASA = Object.freeze({ 'vecinos-norte': 1, 'vecinos-sur
 export const RECIEN = 'recien';
 
 const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-const daMinutos = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
+const daEuro = (de, a) => ({ token: 'E', emisor: CASA, denominacion: 'EUR', cantidad: 1, de, a });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
 
 /**
@@ -50,13 +50,16 @@ const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a })
 export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
   const base = await ejemploReserva({ confirmar: false });
   const { eje } = base;
+  // Una hora después de las altas: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope de su
+  // reloj (VG, 7-11 noche; Core, 8-11). T no cruza de persona, y un grupo no recibe T.
+  const luego = new Date(Date.parse(t) + 3600e3).toISOString();
 
   // La casa da de alta a las asociaciones (grupos), a sus secretarias y a «recien» (personas).
   const grupos = Object.keys(ASOCIACIONES);
   const personas = [...grupos.map((g) => ASOCIACIONES[g].secretaria), RECIEN];
   const altas = await eje.escribir({
     autor: CASA, sobre: eje.genesisId, t, payload: ['Altas de vecinos', [...grupos, ...personas]],
-    movimientos: [minutos(CASA), ...[...grupos, ...personas].map((id) => daMinutos(CASA, id, 30))],
+    movimientos: [minutos(CASA), ...[...grupos, ...personas].map((id) => daEuro(CASA, id))], // existen al recibir tokens
     contexto: { tipos: { ...Object.fromEntries(grupos.map((g) => [g, 'grupo'])), ...Object.fromEntries(personas.map((p) => [p, 'persona'])) } },
   });
   // Cada secretaria recibe P sobre el registro de su grupo (su alta): con él emite en su nombre.
@@ -70,25 +73,26 @@ export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
     // La secretaria emite su R (con su colateral) y la R del grupo, respaldada con R suya bloqueada
     // con la salida «R:<grupo>»: la décima parte de lo que emite el grupo (R6).
     await eje.escribir({
-      autor: secretaria, sobre: altas.id, t, payload: 'Reputación de ' + g,
+      autor: secretaria, sobre: altas.id, t: luego, payload: 'Reputación de ' + g,
       movimientos: [
         minutos(secretaria),
         R(secretaria, 20, null, secretaria), colateral(secretaria, 2), colateral(secretaria, emite / 10, g),
         R(g, emite, null, g),
       ],
     });
-    // El grupo la reparte: una parte a la huésped.
-    await eje.escribir({ autor: g, sobre: altas.id, t, payload: g + ' avala a la huésped', movimientos: [minutos(g), R(g, aLaHuesped, g, 'huesped')] });
+    // El grupo la reparte: una parte a la huésped. Lo hace su secretaria, con P sobre el alta del grupo, por su
+    // cuenta (regla de Core, [X] confirmar VG: «lo que hace un grupo lo hace una persona con P sobre él, con su firma»).
+    await eje.escribir({ autor: secretaria, sobre: altas.id, t: luego, payload: g + ' avala a la huésped', contexto: { porCuenta: g }, movimientos: [minutos(secretaria), R(g, aLaHuesped, g, 'huesped')] });
   }
 
   // «recien» se autoemite mucha R (con su colateral) y la reparte: a la huésped y a la casa.
   await eje.escribir({
-    autor: RECIEN, sobre: altas.id, t, payload: 'Mucha reputación',
+    autor: RECIEN, sobre: altas.id, t: luego, payload: 'Mucha reputación',
     movimientos: [minutos(RECIEN), R(RECIEN, 1e6, null, RECIEN), colateral(RECIEN, 1e5), R(RECIEN, 5e5, RECIEN, 'huesped'), R(RECIEN, 1000, RECIEN, CASA)],
   });
 
   // La casa firma su lente: en la posición 3 de su alta (para la casa, el génesis).
-  const lente = await declararLente(eje, { lector: CASA, pesos: LENTE_DE_LA_CASA, t });
+  const lente = await declararLente(eje, { lector: CASA, pesos: LENTE_DE_LA_CASA, t: luego });
   return { ...base, altas, lente };
 }
 

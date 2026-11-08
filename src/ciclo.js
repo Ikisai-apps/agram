@@ -22,6 +22,7 @@
 import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
+import { esConsumoT } from './evento.js';
 import { rPropiaEnJuego } from './lente.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
@@ -41,6 +42,33 @@ const corto = (x) => String(x).slice(0, 8);
  */
 export function aNombreDeGrupo(ctx, emisor) {
   return ctx.tipo(emisor) === 'grupo';
+}
+
+/**
+ * ¿Mueve este evento lo de un grupo por su cuenta? Regla de Core (8-11), **[X]
+ * confirmar VG**, con la cita de VG: «lo que hace un grupo lo hace una persona
+ * con P sobre él, con su firma». Un grupo no recibe T ni escribe: «nadie mueve
+ * tokens ajenos» admite que `de` sea un GRUPO si el evento lo dice
+ * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P > 0 sobre
+ * el registro de alta del grupo (disponible o bloqueado, en un ámbito que lo
+ * cubre, como eje.poderSobre). El evento sigue siendo de la persona: su firma y
+ * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre ya
+ * es así (#62). Lo usan el eje y las capas de validez.
+ * ctx: tipo(id), alta(id), ambitosQueCubren(ambito), saldo(id, k), bloqueadoTotal(id, k).
+ */
+export function porCuentaDeGrupo(ev, de, ctx) {
+  if (!ev || ev.contexto?.porCuenta !== de || ctx.tipo(de) !== 'grupo' || ctx.tipo(ev.autor) !== 'persona') return false;
+  const alta = ctx.alta(de)?.id;
+  if (!alta) return false;
+  const poder = ctx.ambitosQueCubren(alta)
+    .reduce((s, a) => s + Math.max(0, ctx.saldo(ev.autor, 'P:' + a)) + Math.max(0, ctx.bloqueadoTotal?.(ev.autor, 'P:' + a) ?? 0), 0);
+  return poder > 0;
+}
+
+/** El motivo de rechazo cuando alguien mueve lo de otro (con la pista de porCuenta si la pide para un grupo). */
+export function motivoAjenos(ev, de) {
+  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor'
+    + (ev?.contexto?.porCuenta === de ? ' (por cuenta del grupo ' + de + ' mueve una persona con P sobre su alta)' : '');
 }
 
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
@@ -199,6 +227,55 @@ export function reglasDelCiclo(ev, ctx) {
     }
   }
 
+  // T se acuña al gastarse (src/eje.js, acunaAlGastar): consumir T propio sin
+  // saldo es AZÚCAR de emitirlo y consumirlo en el mismo evento, así que rige
+  // lo mismo que una emisión explícita: solo lo hace una persona, y lo acuñado
+  // cuenta en lo emitido por escala y no pasa del tope del reloj (revisión de
+  // seguridad de Core, 8-11). Si no alcanza, saldo insuficiente, como antes.
+  const disponibleT = new Map(); // escala → T disponible del autor durante el evento
+  const verT = (e) => (disponibleT.has(e) ? disponibleT.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
+  for (const { m, i } of validos) {
+    if (m.token !== 'T') continue;
+    const e = m.escala;
+    if (m.de === null) { if (m.a === autor) disponibleT.set(e, verT(e) + m.cantidad); continue; }
+    if (m.de !== autor) continue;
+    if (m.estado === 'liberacion') { disponibleT.set(e, verT(e) + m.cantidad); continue; }
+    if (!esConsumoT(m, autor)) { if (m.estado === 'bloqueo' || m.a !== autor) disponibleT.set(e, Math.max(0, verT(e) - m.cantidad)); continue; }
+    const usa = Math.min(verT(e), m.cantidad);
+    disponibleT.set(e, verT(e) - usa);
+    const falta = m.cantidad - usa;
+    if (falta <= 0) continue;
+    const k = 'T:' + e;
+    // Solo las personas (Core, 8-11): una cosa gasta el T que le dio su persona, y un grupo no tiene T.
+    if (!EMITEN.includes(tipoAutor)) {
+      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': tiene ' + usa + ' y gasta ' + m.cantidad + '; solo una persona acuña su T al gastarlo (' + autor + (tipoAutor ? ' es ' + tipoAutor : ' no declaró tipo en su alta') + ')');
+      continue;
+    }
+    const alta = ctx.alta(autor);
+    const tope = alta ? topeT(alta.t, ev.t, e) : TOPE_T_MINIMO;
+    const llevaria = ctx.emitidoT(autor, e) + (tDelEvento.get(e) ?? 0) + falta;
+    tDelEvento.set(e, (tDelEvento.get(e) ?? 0) + falta);
+    if (llevaria > tope) {
+      falla(i, 4, 'saldo insuficiente de ' + k + ' en ' + autor + ': acuñar al gastar los ' + falta + ' que faltan llevaría ' + llevaria + ' emitido y el reloj da ' + tope + (alta ? ' desde su alta (' + alta.t + ')' : ''));
+    }
+  }
+
+  // T no cruza de persona (VG, 7-11 noche: «recibir T solo es un registro de
+  // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
+  // recurso de otra persona»): de una persona a otra identidad, T se rechaza, y
+  // dar tiempo a otro es emitir E de la serie del que lo da, en su tiempo
+  // (E:<persona>/hora). Lo único que vale (Core, 8-11) es que una PERSONA dé su
+  // T a una COSA («T de segundo para automatismos y maquinaria»): la máquina
+  // gasta el T de su dueño, y el tope sigue siendo el de la persona (y una cosa
+  // lo pasa a otra cosa: no cruza de persona). Un grupo
+  // no recibe T: lo que escribe un grupo lo escribe una persona con P sobre él.
+  for (const { m, i } of validos) {
+    if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
+    const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;
+    if ((tipoAutor === 'persona' || tipoAutor === 'cosa') && tipoA === 'cosa') continue; // una cosa pasa a otra cosa el T de su persona
+    falla(i, 5, 'T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + autor + '/' + m.escala + '); solo se da T a una cosa');
+  }
+
   // R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el eje
   // debita del ámbito exacto y, si no alcanza, de los que lo cubren) o lo
   // bloquea. Delegar con el ámbito de un registro X tomando de un ámbito más
@@ -237,14 +314,15 @@ export function reglasDelCiclo(ev, ctx) {
 
   // Escalonado: R exige T; P exige T y R propia en juego; E exige T, R propia en juego y P sobre el registro.
   if (emitidas.size) {
-    // «Mover T» es T consumido o transferido a otra identidad: bloquearlo,
-    // liberarlo o dárselo a uno mismo no cuesta nada, así que no cuenta.
-    const mueveT = validos.some(({ m }) => m.token === 'T' && m.de === autor && m.a !== autor && m.estado === undefined);
+    // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
+    // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
+    // cruza de persona, así que solo cuenta el consumo.
+    const mueveT = validos.some(({ m }) => esConsumoT(m, autor));
     // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
     const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
     for (const token of ['R', 'P', 'E']) {
       if (!emitidas.has(token)) continue;
-      if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige mover T del autor en el mismo evento: consumirlo o darlo a otra identidad');
+      if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
       if (token !== 'R' && !rEnJuego) {
         falla(null, 5, 'emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
       }

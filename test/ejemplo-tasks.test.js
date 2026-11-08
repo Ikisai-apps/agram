@@ -41,12 +41,17 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   assert.deepEqual(eje.bloqueos('casa'), []);
   assert.deepEqual(eje.poderes('organizadora'), []);
   assert.deepEqual(eje.poderes('proveedor'), []);
-  // T por escala: minutos para escribir, horas para trabajar.
+  // T por escala: minutos para escribir, horas para trabajar. T no cruza de persona (VG, 7-11 noche): la casa no
+  // reparte su T (cede al proveedor 20 horas de su tiempo como E:casa/hora), y cada una gasta el suyo, que se
+  // acuña al gastarse: la organizadora y el proveedor no tienen saldo de T, y lo que gastaron se ve consumido.
   const T = (id) => [eje.saldoT(id, 'minuto'), eje.saldoT(id, 'hora')];
-  assert.deepEqual(T('casa'), [405, 140]); // la liberación de su P, un minuto más
+  const consumido = (id) => ['minuto', 'hora'].map((escala) => eje.orden.map((x) => eje.obtener(x)).filter((e) => e.autor === id && e.contexto?.genesis !== true)
+    .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === escala && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0));
+  assert.deepEqual(T('casa'), [585, 200]); // la liberación de su P, un minuto más
+  assert.deepEqual(eje.recursos('proveedor').filter((r) => r.denominacion === 'hora'), [{ emisor: 'casa', denominacion: 'hora', cantidad: 20 }]);
   // Integración 7-11: con #42 ejecutar cuesta un minuto por posición escrita (3: título, consolidación y autorización), no uno fijo.
-  assert.deepEqual(T('organizadora'), [74, 40]);
-  assert.deepEqual(T('proveedor'), [50, 14]);
+  assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [46, 0]]);
+  assert.deepEqual([T('proveedor'), consumido('proveedor')], [[0, 0], [10, 6]]);
   // Todo registro tras el génesis cuesta minutos a su autor; solo la entrega consume horas, y son del proveedor.
   for (const id of eje.orden.slice(1)) {
     const ev = eje.obtener(id);
@@ -54,17 +59,18 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   }
   const consumoHoras = eje.orden.map((id) => eje.obtener(id)).filter((ev) => ev.movimientos.some((m) => m.token === 'T' && m.escala === 'hora' && m.a === null));
   assert.deepEqual(consumoHoras.map((ev) => [ev.id, ev.autor]), [[entrega.id, 'proveedor']]);
-  // Los minutos no se pagan con horas: al proveedor le quedan 50 minutos y 14 horas, y un registro de 80 minutos se rechaza.
-  await assert.rejects(
-    eje.escribir({
-      autor: 'proveedor',
-      sobre: tarea.id,
-      t: '2026-11-13T19:00:00Z',
-      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 80, de: 'proveedor', a: null }],
-      payload: 'ochenta minutos',
-    }),
-    /saldo insuficiente de T:minuto en proveedor/,
-  );
+  // Los minutos no se pagan con horas: un registro de 80 minutos del proveedor gasta 80 minutos (acuñados al
+  // gastarse) y ninguna hora, y queda anotado en la tarea, el registro que lo soporta.
+  const antes = eje.tiempoSobre(tarea.id);
+  await eje.escribir({
+    autor: 'proveedor',
+    sobre: tarea.id,
+    t: '2026-11-13T19:00:00Z',
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 80, de: 'proveedor', a: null }],
+    payload: 'ochenta minutos',
+  });
+  assert.deepEqual(consumido('proveedor'), [90, 6]);
+  assert.deepEqual(eje.tiempoSobre(tarea.id), { ...antes, minuto: (antes.minuto ?? 0) + 80 });
 });
 
 test('etapas: «hasta» detiene el ejemplo en su último registro', async () => {

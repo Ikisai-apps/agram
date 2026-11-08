@@ -23,8 +23,10 @@ test('Pointed escribe un terminal y mueve un minuto', async () => {
   assert.equal(ev.en, '4000000000');
   assert.equal(ev.contexto.modo, 'pointed');
   assert.equal(ev.movimientos[0].cantidad, 1);
-  assert.equal(eje.saldoT('huesped', 'minuto'), 480 - 1); // gasta minutos; sus horas no se tocan
-  assert.equal(eje.saldoT('huesped', 'hora'), 23);
+  // Gasta un minuto suyo (VG, 7-11 noche: se acuña al gastarse y queda anotado en la compra, el registro que lo
+  // soporta); sus horas no se tocan: la que gastó al comprar sigue siendo la única.
+  assert.deepEqual(eje.tiempoSobre(compra.id), { minuto: 1 });
+  assert.equal(eje.tiempoSobre(eje.obtener(compra.id).sobre).hora, 1);
 });
 
 test('Sequenced escribe una hilera sin huecos, hasta diez', async () => {

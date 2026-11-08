@@ -343,16 +343,16 @@ test('parque: piscinas de grupo, bañeras de persona y quién habla con quién s
   const d = datosParque(eje, compra.id);
   assert.deepEqual(d.declarados, ['huesped', 'cocina']);
   const agua = (id) => d.aguas.find((a) => a.id === id);
-  assert.equal(agua('cocina').forma, 'piscina');
+  assert.equal(agua('cocina').forma, 'muelle'); // la cocina es una cosa de la casa (Core, 8-11: un grupo no recibe T ni escribe)
   assert.equal(agua('huesped').forma, 'banera');
   assert.ok(agua('huesped').declarado && agua('cocina').declarado && !agua('casa').declarado);
   const m = (de, a) => d.mensajes.filter((x) => x.de === de && x.a === a);
-  assert.equal(m('huesped', 'cocina')[0].que, 'hablar a un grupo'); // la compra, escrita sobre el menú de cocina
+  assert.equal(m('huesped', 'cocina')[0].que, 'hablar'); // la cocina es una cosa (Core, 8-11); la compra, escrita sobre el menú de cocina
   assert.equal(m('cocina', 'huesped')[0].evento, cuenta.id); // la cuenta, escrita sobre la compra de huesped
   assert.equal(m('cocina', 'huesped')[0].que, 'hablar a una persona');
   assert.ok(m('casa', 'huesped').length >= 2); // las autorizaciones de la casa sobre las consolidaciones de huesped
   assert.equal(m('huesped', 'huesped').length, 0); // escribir sobre lo propio no es hablar con nadie
-  assert.match(lineasParque(d).join('\n'), /huesped → cocina: hablar a un grupo · 1/);
+  assert.match(lineasParque(d).join('\n'), /huesped → cocina: hablar · 1/);
 });
 
 test('parque: hablar deja una gota en el agua de quien recibe, un paquete si lleva tokens; escuchar hace onda', async () => {

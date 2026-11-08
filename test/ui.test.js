@@ -200,7 +200,8 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.match(html, /<details class="series-emitidas" data-plegado="series" open>/);
   assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
-  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>1000</td><td>${minutos}</td>`));
+  // Lo emitido de T:minuto incluye lo que la persona huésped acuñó al gastarlo (VG, 7-11 noche; Core, 8-11).
+  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });
 
