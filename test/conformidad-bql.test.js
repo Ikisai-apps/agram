@@ -31,7 +31,7 @@ async function ejeCon(payload) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }],
+    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }],
     foco: payload,
     t: T0,
   });

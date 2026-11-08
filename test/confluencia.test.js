@@ -90,7 +90,7 @@ test('comparables: hermanos ⊂ proyecto ⊂ general, en orden de llegada y con 
 
 test('el proyecto se recorre por el índice de hijos: solo su subárbol, en orden de llegada aunque los proyectos se intercalen', async () => {
   const t = '2026-11-07T09:00:00Z';
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 1000 }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
   const escribe = (sobre, payload) => eje.escribir({ autor: 'casa', sobre, t, movimientos: [gasta('casa')], payload });
   const a = await escribe(eje.genesisId, ['Proyecto A']);
   const b = await escribe(eje.genesisId, ['Proyecto B']);
@@ -174,7 +174,7 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   assert.equal(g.identidades, 1);
   assert.equal(g.profundidadHilo, 0);
   // Una hora no son sesenta minutos; y el T consumido sobre el génesis, aparte.
-  assert.deepEqual(g.tokens, { 'T:hora': 1000, 'T:minuto': 1000, 'E:casa/EUR': 500, 'P:genesis': 10, 'tiempo:minuto': eje.tiempoSobre(eje.genesisId).minuto });
+  assert.deepEqual(g.tokens, { 'E:casa/EUR': 500, 'P:genesis': 10, 'tiempo:minuto': eje.tiempoSobre(eje.genesisId).minuto });
   assert.deepEqual(clavesDe(eje.obtener(eje.genesisId)), Object.fromEntries(Object.entries(g.tokens).filter(([k]) => !k.startsWith('tiempo:'))));
   assert.throws(() => medir(eje, 'nadie'), /registro desconocido/);
 });
@@ -185,7 +185,7 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
     demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
+    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
     foco: 'raíz',
     t,
   });

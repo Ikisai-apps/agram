@@ -37,7 +37,7 @@ const unico = (x) => x + ' #' + (++cuenta);
 async function mercado() {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'EUR', cantidad: 1e6, divisible: true }],
+    emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1e6, divisible: true }],
   });
   const ids = ['ana', 'bea', 'cris', 'dani'];
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas', contexto: { tipos: Object.fromEntries(ids.map((x) => [x, 'persona'])) },

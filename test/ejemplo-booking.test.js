@@ -82,15 +82,16 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual(porPlaza('recepcion'), [0, 1, 2]);
   assert.equal(eje.bloqueos('recepcion').length, 2);
   // Tiempo, por escala: cada registro gasta minutos de su autor; las horas solo se reparten.
-  // T no cruza de persona (VG, 7-11 noche): las horas que la casa cede son E:casa/hora; su T:hora queda entero.
-  assert.equal(eje.saldo(CASA, 'T:hora'), 1000);
+  // T no cruza de persona (VG, 7-11 noche): las horas que la casa cede son E:casa/hora. Y no tiene T explícito:
+  // el génesis no emite T (VG, 8-11: no hay T acumulable).
+  assert.equal(eje.saldo(CASA, 'T:hora'), 0);
   // altas, alojamiento, delegación, habitación, su oferta pública (1), temporada, consolidación y ejecución de la entrega
   // Integración 7-11: con #42 la ejecución cuesta un minuto por posición escrita (3), no uno fijo; se lee de su movimiento.
   assert.equal(entrega.ejecucion.movimientos[0].cantidad, 3);
-  // VG, 8-11: asignación diaria. Cada persona gasta primero la asignación del día; los 5000 minutos del génesis siguen enteros.
+  // VG, 8-11: asignación diaria. Cada persona gasta su asignación del día; ningún T se acumula.
   const consumido = (id) => eje.orden.map((x) => eje.obtener(x)).filter((e) => e.autor === id && e.contexto?.genesis !== true)
     .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === 'minuto' && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0);
-  assert.equal(eje.saldo(CASA, 'T:minuto'), 5000);
+  assert.equal(eje.saldo(CASA, 'T:minuto'), 0);
   assert.equal(consumido(CASA), 1 + 1 + 1 + 10 + 1 + 1 + entrega.consolidacion.movimientos[0].cantidad + entrega.ejecucion.movimientos[0].cantidad);
   const liberaciones = eje.orden.map((id) => eje.obtener(id)).filter((e) => e.autor === 'recepcion' && e.contexto?.libera);
   assert.equal(liberaciones.length, 0);

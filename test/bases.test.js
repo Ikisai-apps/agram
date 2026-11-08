@@ -520,8 +520,8 @@ test('payload: más de diez hijos o series se anidan en décuplas y se leen igua
   const ej = await nuevo();
   const { eje } = ej;
   for (let i = 0; i < 12; i++) {
-    // De la casa: la persona huésped no tiene tantas horas en su reloj (acuña su T dentro del tope; Core, 8-11).
-    await eje.escribir({ autor: 'casa', sobre: ej.puesto.id, t: '2026-11-07T18:' + String(10 + i) + ':00Z', movimientos: [hora('casa')], payload: 'nota ' + i }, claves.casa.privada);
+    // De la casa, en minutos: doce horas más no caben en su asignación del día (VG, 8-11).
+    await eje.escribir({ autor: 'casa', sobre: ej.puesto.id, t: '2026-11-07T18:' + String(10 + i) + ':00Z', movimientos: [minuto('casa')], payload: 'nota ' + i }, claves.casa.privada);
   }
   const calculada = calcularBase(eje, ej.puesto.id);
   for (let i = 0; i < 12; i++) calculada.hijos.tokens['E:serie' + String(i).padStart(2, '0') + '/X'] = bloqueDe(calculada.hijos, 'E:nada/X');

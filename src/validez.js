@@ -25,10 +25,10 @@
 // recibido, una copia manipulada con el mismo id), los de ahora.
 
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
-import { RAIZ, validarForma, verificarId } from './evento.js';
+import { RAIZ, validarForma, verificarId, esPresente } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, familiaDe, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
 import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
@@ -255,6 +255,7 @@ function aplicar(eje, libro, ev) {
   libro.ids.add(ev.id);
   for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) libro.claves.set(id, jwk);
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
+  if (ev.contexto?.genesis === true && !libro.altas.has(ev.autor)) { libro.altas.set(ev.autor, { id: ev.id, t: ev.t }); libro.identidades.add(ev.autor); } // como en el eje
   const ver = (id, k) => saldoEn(libro, id, k);
   const ajustar = (id, k, d) => { libro.identidades.add(id); libro.saldos.set(llave(id, k), ver(id, k) + d); };
   // La asignación diaria de T (VG, 8-11): fuera del prefijo de la versión 2, para una persona con alta.
@@ -576,7 +577,8 @@ function capaAcreditacion(eje, ev, libro) {
       poner(m.de, k, ver(m.de, k) - explicito);
     } else {
       const s = serie(k);
-      if (!s || !(s.emitido > 0)) return mal('falla', 'la serie ' + k + ' no se ha emitido: nada respalda estos tokens');
+      // T no se emite (VG, 8-11: no hay T acumulable): el T de una cosa lo respalda la asignación de su persona; basta el saldo.
+      if (m.token !== 'T' && (!s || !(s.emitido > 0))) return mal('falla', 'la serie ' + k + ' no se ha emitido: nada respalda estos tokens');
       if (esEoR(m) && s.emisor !== m.emisor) return mal('falla', 'la serie ' + k + ' es de ' + s.emisor + ', no de ' + m.emisor);
       const queda = ver(m.de, k) - m.cantidad;
       if (queda < 0) return mal('falla', 'saldo de ' + k + ' en ' + m.de + ': tiene ' + ver(m.de, k) + ', mueve ' + m.cantidad + ' (quedaría en ' + queda + ')');
@@ -599,6 +601,7 @@ function permisoDelLibro(eje, ev, libro) {
     if (validarMovimiento(m).length) return; // capa 1
     if (m.de === null) {
       if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
+      else if (esGenesis && m.token === 'T' && libro.reglas !== 2) r.falla('movimiento ' + i + ': ' + T_NO_SE_EMITE);
     } else if (m.de !== ev.autor) {
       // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación).
       r.falla('movimiento ' + i + ': ' + motivoAjenos(m.de));
@@ -801,6 +804,8 @@ export async function validez(eje, evento, { epoca = EPOCA_0 } = {}) {
     criptografia,
     acreditacion,
     permiso,
+    // VG, 8-11: pagado solo con T informativo, el registro es válido pero no presente (evento.esPresente).
+    presente: esPresente(ev),
     resumen: capas.map((c) => c.capa + ' ' + c.nombre + ': ' + c.estado + ' · ' + c.resumen).join('\n'),
   };
 }

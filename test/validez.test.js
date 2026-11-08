@@ -157,7 +157,7 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   // Huesped (persona) tampoco emite T: no se emite (capa 5).
   const emite = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(emite), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(emite.permiso.motivos.join(' '), /T no se emite: cada persona recibe cada día su asignación de T/);
+  assert.match(emite.permiso.motivos.join(' '), /T no se emite: ni el génesis; cada persona tiene su asignación del día/);
   // Gasta más horas de las que le quedan del día: no hay respaldo (capa 4); el permiso sí (capa 5).
   const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 25, de: 'huesped', a: null }]));
   assert.deepEqual(estados(horas), ['ok', 'ok', 'ok', 'falla', 'ok']);

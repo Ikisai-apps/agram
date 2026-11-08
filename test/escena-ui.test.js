@@ -98,7 +98,7 @@ test('vista Scened: si la capacidad corta la escena, el aviso sale arriba y abaj
 test('vista Scened: todo el eje con más de mil registros llega a la capacidad de 10000 y lo dice', async () => {
   const { Eje } = await import('../src/eje.js');
   // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo).
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 2000 }], foco: 'Casa de prueba', t: '2026-11-07T09:00:00Z' });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [], foco: 'Casa de prueba', t: '2026-11-07T09:00:00Z' });
   // VG, 7-11 noche (10.1): se cuenta lo que hay. El génesis es un terminal (1) y el menú trae 9.
   const menu = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [gastaT('casa')], payload: ['Menú', ['sopa', 'pan', 'agua', 'fruta', 'café', 'vino', 'postre', 'pan sin gluten']] });
   for (let i = 0; i < 1000; i++) {

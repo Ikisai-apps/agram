@@ -21,13 +21,13 @@ import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, t
 import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPintarEpocas } from './ui/epocas.js';
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
-import { htmlCifras, htmlAvisos } from './ui/comun.js';
+import { htmlCifras, htmlAvisos, htmlRecomendacionT } from './ui/comun.js';
 import { htmlLeido, instalarLeido } from './ui/leido.js';
 import { htmlOcho, instalarOcho } from './ui/ocho.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
-  aviso: '', exito: '', nota: null, verOcupantes: null, claves: {}, guardado: '',
+  aviso: '', exito: '', nota: null, recomendacion: null, verOcupantes: null, claves: {}, guardado: '',
 };
 const $ = (sel) => document.querySelector(sel);
 const CLAVE_EJE = 'agram.eje';
@@ -135,7 +135,9 @@ function selectores() {
 function mensajes() {
   // La nota de la proporción va con el éxito que la produjo (VG, 7-11 noche: la proporción propone, el máximo manda): una línea discreta, nunca error.
   const nota = estado.exito && estado.nota && estado.nota.de === estado.exito ? `<div class="pista nota">${escapar(estado.nota.texto)}</div>` : '';
-  return `${estado.aviso ? `<div class="aviso">${escapar(estado.aviso)}</div>` : ''}${estado.exito ? `<div class="exito">${escapar(estado.exito)}</div>` : ''}${nota}`;
+  // Y la escala de T recomendada para lo que se acaba de escribir (VG, 8-11): se recomienda, no se rechaza.
+  const escala = estado.exito && estado.recomendacion && estado.recomendacion.de === estado.exito ? estado.recomendacion.html : '';
+  return `${estado.aviso ? `<div class="aviso">${escapar(estado.aviso)}</div>` : ''}${estado.exito ? `<div class="exito">${escapar(estado.exito)}</div>` : ''}${nota}${escala}`;
 }
 
 function listaOcupantes(indices) {
@@ -428,6 +430,7 @@ async function registrar(form) {
       + (heredadas.length ? ' · heredadas del foco: ' + heredadas.join(', ') : '') + (ev.firma ? ' · firmado' : '') + '.';
     const aviso = salida.proporcionDeRegistro(ev).aviso;
     estado.nota = aviso ? { de: estado.exito, texto: aviso } : null;
+    estado.recomendacion = modo === 'sequenced' ? null : { de: estado.exito, html: htmlRecomendacionT(ev) }; // Pointed y Mapped
     pintar();
   } catch (e) {
     fallo(e, form);
@@ -458,6 +461,7 @@ async function registrarSalida(s) {
     + n + (n === 1 ? ' posición, 1 minuto' : ' posiciones, ' + n + ' minutos') + ' de T'
     + (s.heredadas.length ? ' · heredadas del foco: ' + s.heredadas.join(', ') : '') + (eventos.some((ev) => ev.firma) ? ' · firmado' : '') + '.';
   estado.nota = r.avisos.length ? { de: estado.exito, texto: r.avisos.join(' ') } : null;
+  estado.recomendacion = { de: estado.exito, html: eventos.map(htmlRecomendacionT).join('') }; // Mapped
   pintar();
 }
 

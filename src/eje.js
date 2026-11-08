@@ -2,10 +2,12 @@
 // una base de datos o anclado a una cadena, sin cambiar el modelo.
 // Una identidad existe cuando ha recibido tokens; quien la da de alta declara
 // su clave y su tipo (persona o cosa) en el mismo evento. El génesis
-// emite por convención; después solo emiten las personas (VG, 7-11 noche), con
-// las reglas de src/ciclo.js: T, su asignación diaria (VG, 8-11), y R, P y
-// E escalonados. Un movimiento puede bloquear o liberar tokens sin cambiar de
-// titular: el saldo es lo disponible y lo bloqueado se lleva aparte.
+// emite por convención E, P y R, nunca T (VG, 8-11: no hay T acumulable);
+// después solo emiten las personas (VG, 7-11 noche), con las reglas de
+// src/ciclo.js: T no se emite, es la asignación diaria de cada persona
+// (VG, 8-11), y R, P y E escalonados. Un movimiento puede bloquear o liberar
+// E, P o R (T no) sin cambiar de titular: el saldo es lo disponible y lo
+// bloqueado se lleva aparte.
 //
 // Sin clave no se actúa (R9, docs/notas/NEUTRALIDAD_IDENTIDAD.md §4; regla
 // madre aceptada por VG, 7-11 noche): una identidad sin clave registrada no
@@ -25,11 +27,11 @@
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { reglasDeR, devolucionesDe } from './lente.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
-import { crearEvento, validarForma, verificarId, normalizarEvento, esConsumoT } from './evento.js';
+import { crearEvento, validarForma, verificarId, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
@@ -78,15 +80,19 @@ export class Eje {
   /**
    * Génesis: escrito por convención, fuera del sistema. Emite tokens iniciales
    * a la primera identidad y fija el foco raíz (payload). `tipo` declara qué es
-   * esa identidad: una persona (VG, 7-11 noche: solo las personas emiten), o
-   * nada, como antes, y entonces no emite después del génesis.
+   * esa identidad: una persona por omisión (VG, 7-11 noche: solo las personas
+   * emiten; VG, 8-11: el génesis no emite T y su autor vive de su asignación
+   * del día, como cualquier persona), o nada (`tipo: null`), y entonces no
+   * escribe después del génesis: sin asignación, no tiene T. `emision` lleva
+   * E, P y R iniciales, si quiere; puede ir vacía.
    * Sin clave no se actúa (R9): el génesis lleva `clave` y `privada` de su
    * autor, salvo que se cree como `demostracion: true` (queda en su
    * contexto y se ve en la interfaz), que conserva lo de antes: sin claves.
    */
-  static async genesis({ identidad, emision, foco, t = new Date().toISOString(), contexto = {}, clave, privada, tipo, exigirFirmas = false, demostracion = false }) {
+  static async genesis({ identidad, emision = [], foco, t = new Date().toISOString(), contexto = {}, clave, privada, tipo = 'persona', exigirFirmas = false, demostracion = false }) {
     const eje = new Eje({ exigirFirmas });
-    // El génesis emite libremente a su identidad; sus series de E y de R quedan a su nombre.
+    // El génesis emite a su identidad E, P y R iniciales, si quiere; sus series de E y de R quedan a su nombre.
+    // T no (VG, 8-11: no hay T acumulable): su autor vive de su asignación diaria, como cualquier persona.
     const deEmisor = (m) => m.token === 'E' || m.token === 'R';
     const movimientos = emision.map((m) => ({ ...m, ...(deEmisor(m) ? { emisor: m.emisor ?? identidad } : {}), de: null, a: identidad }));
     let ev = await crearEvento({
@@ -162,6 +168,18 @@ export class Eje {
     const r = {};
     for (const e of ESCALAS_REALES) if (porEscala?.get(e)) r[e] = porEscala.get(e);
     return r;
+  }
+
+  /**
+   * ¿Es el registro `id` presente? (evento.esPresente). No lo es el que se pagó
+   * solo con T informativo (pasado, futuro, inventado): válido y gratis en T
+   * real, pero sin la marca de registro presente (VG, 8-11: «el pago es la
+   * ausencia de un registro presente, que puede ser un criterio en PV2 cuando
+   * el tiempo importe (p. ej. caducidad alimentaria)»). undefined si no está.
+   */
+  presente(id) {
+    const ev = this.eventos.get(id);
+    return ev ? esPresente(ev) : undefined;
   }
 
   /**
@@ -296,9 +314,11 @@ export class Eje {
    * T disponible en una escala el día de `t` (VG, 8-11: asignación diaria):
    * cada escala es su propio token (T:<escala>), sin conversión. Para una
    * persona dada de alta, lo que queda de su asignación de ese día
-   * (tokens.asignacionT menos gastadoT) más el T explícito que tenga (el del
-   * génesis, el único que se acumula); para las demás, su T explícito (el que
-   * les dio su persona). Sin `t`, el día del último evento de esa identidad
+   * (tokens.asignacionT menos gastadoT): ningún T se acumula (VG, 8-11: no hay
+   * T acumulable; el génesis no emite T). Solo quien viene del prefijo de la
+   * versión 2 suma el T explícito que arrastre de entonces. Para una cosa, que
+   * no tiene asignación, su T explícito: el que le dio su persona, que conserva
+   * hasta gastarlo. Sin `t`, el día del último evento de esa identidad
    * (su propio reloj) o el de su alta. Las tres informativas son ilimitadas:
    * siempre queda 1. Semana, ciclo y año, en sus partes (tokens.PARTES_T).
    */
@@ -777,6 +797,11 @@ export class Eje {
     }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tipos.set(id, tipo);
+    // El génesis es el alta de su autor aunque no emita nada (VG, 8-11: no emite T; vive de su asignación del día).
+    if (ev.contexto?.genesis === true && !this.#altas.has(ev.autor)) {
+      this.#altas.set(ev.autor, { id: ev.id, t: ev.t });
+      if (!this.saldos.has(ev.autor)) this.saldos.set(ev.autor, new Map());
+    }
     for (const m of ev.movimientos) {
       const clave = claveToken(m);
       const c = cantidadBase(m);
@@ -1166,6 +1191,7 @@ function erroresGenesis(g, reglas = 3) {
   const movimientos = Array.isArray(g.movimientos) ? g.movimientos.filter((m) => m && typeof m === 'object') : [];
   for (const m of movimientos) {
     if (m.de !== null || m.a !== g.autor) errores.push('el génesis solo emite a su autor');
+    else if (m.token === 'T' && reglas !== 2) errores.push(T_NO_SE_EMITE); // VG, 8-11: no hay T acumulable
     else if ((m.token === 'E' || m.token === 'R') && m.emisor !== g.autor) errores.push('en el génesis emite su autor: ' + m.emisor);
     else if (m.token === 'P' && m.ambito !== AMBITO_GENESIS) errores.push('el P del génesis es sobre todo el eje: ámbito «' + AMBITO_GENESIS + '»');
     else if (m.token === 'E' && reglas === 2 && (m.registro !== undefined || m.divisible !== undefined || m.emisores !== undefined)) {

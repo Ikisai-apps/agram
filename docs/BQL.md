@@ -49,7 +49,7 @@ import { esFormula, desescapar, analizar, evaluar, consultar, formato, ESTADOS, 
 Comprobación mínima (una línea, desde la raíz; en bash y en PowerShell con comillas simples exteriores):
 
 ```sh
-node --input-type=module -e 'import { Eje } from "./src/eje.js"; import { consultar } from "./src/bql.js"; const eje = await Eje.genesis({ demostracion: true, identidad: "casa", emision: [{ token: "T", escala: "hora", cantidad: 1 }], foco: ["x", "12 EUR"], t: "2026-11-07T15:00:00Z" }); console.log(consultar(eje, eje.genesisId, [1], `LOCAL(1) + 3 EUR`).texto); console.log(consultar(eje, eje.genesisId, [1], `CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "propio"))`).texto);'
+node --input-type=module -e 'import { Eje } from "./src/eje.js"; import { consultar } from "./src/bql.js"; const eje = await Eje.genesis({ demostracion: true, identidad: "casa", emision: [], foco: ["x", "12 EUR"], t: "2026-11-07T15:00:00Z" }); console.log(consultar(eje, eje.genesisId, [1], `LOCAL(1) + 3 EUR`).texto); console.log(consultar(eje, eje.genesisId, [1], `CONTAR(FILTRAR(BUSCAR(1), ORIGEN() = "propio"))`).texto);'
 ```
 
 Salida:
@@ -277,6 +277,7 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `CONTAR(col)` | coleccion | numero | siempre |
 | `SUMAR(col)` | coleccion | suma de los valores de los candidatos | siempre |
 | `ORIGEN()` | — | texto `propio` / `referencia` / `escrito` | solo dentro |
+| `PRESENTE()` | — | booleano: si el registro del candidato es presente (pagó con T real; VG, 8-11: el pagado solo con T informativo no lo es, `eje.presente`) | solo dentro |
 | `SIGNO()` | — | texto `exacto` / `completar` / `reducir` / `mixto` | solo dentro |
 | `ACUERDO()` | — | numero 0–10 | solo dentro |
 | `DESPLAZAMIENTO()` | — | numero (suma de las distancias) | solo dentro |
@@ -659,7 +660,7 @@ BASES("general", "E:casa/EUR")   → 6
 BASES("hermanos", "E:casa/EUR", "cuota") → 0.375
 CAJA("terminales")               → ERROR: CAJA: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 FRESCURA()                       → 0
-CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: T:hora, T:minuto, E:casa/EUR, P:genesis)
+CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: E:casa/EUR, P:genesis, T:minuto, T:hora)
 CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
 --- llega un té al menú
 FRESCURA("hermanos")             → 1
@@ -818,7 +819,7 @@ const T = '2026-11-07T15:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 // Génesis: la identidad «casa» recibe tokens; el foco raíz es un texto.
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'Casa de ejemplo', t: T }); // escribir cuesta minutos
 
 // Un registro con fórmulas en sus slots (posiciones 1–4 de la décupla).
 const compra = await eje.escribir({
@@ -896,13 +897,13 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 18461554
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 066b13b0
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
 dependencias de compra [3]: [
-  '18461554…:3000000000',
-  '18461554…:2000000000',
-  '18461554…:1200000000'
+  '066b13b0…:3000000000',
+  '066b13b0…:2000000000',
+  '066b13b0…:1200000000'
 ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
@@ -914,20 +915,20 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 18461554 · propio 18461554 · escrito 286ca031 · escrito 7258cb1e · escrito a07e927e
-BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 18461554 · propio 18461554 · escrito 286ca031 · escrito 7258cb1e · escrito a07e927e
+BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 066b13b0 · propio 066b13b0 · escrito d2d1a6fa · escrito a5fc3c96 · escrito ee6cea81
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 066b13b0 · propio 066b13b0 · escrito d2d1a6fa · escrito a5fc3c96 · escrito ee6cea81
 CONTAR(BUSCAR(4))                                          → RESUELTO     5
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: texto y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 286ca031 · escrito 7258cb1e
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito 7258cb1e
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito d2d1a6fa · escrito a5fc3c96
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito a5fc3c96
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     pagar
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 18461554 · propio 18461554
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 066b13b0 · propio 066b13b0
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

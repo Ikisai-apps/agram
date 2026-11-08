@@ -8,7 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 async function ejeCon(payload) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: payload, t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: payload, t: T0 });
   return { eje, id: eje.genesisId };
 }
 

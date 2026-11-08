@@ -355,13 +355,11 @@ test('el génesis: escribe la raíz y emite sus series', async () => {
   const efectos = efectosDe(eje, eje.genesisId);
   assert.deepEqual(efectos.map((x) => [x.tipo, x.movimiento ?? null, x.serie ?? x.celda, nombreMundo(x.mundo), x.nombre]), [
     ['escrito', null, '0000000000', 'lente', 'mostrar'],
-    ['token', 'emitir', 'T:hora', 'fábrica', 'emitir T'],
-    ['token', 'emitir', 'T:minuto', 'fábrica', 'emitir T'],
     ['token', 'emitir', 'E:casa/EUR', 'ciudad', 'abrir vía'],
     ['token', 'emitir', 'P:genesis', 'jardín', 'calor'],
   ]);
-  assert.equal(efectos[1].decisiones[0], SIN_NOMBRE); // el génesis emite T (VG, 7-11 noche: después, cada persona el suyo): el corpus no lo nombra
-  assert.deepEqual([efectos[3].de, efectos[3].a], [null, 'casa']);
+  // El génesis no emite T (VG, 8-11: no hay T acumulable): solo sus series de E, P y R.
+  assert.deepEqual([efectos[1].de, efectos[1].a], [null, 'casa']);
 });
 
 test('lo mismo desde un eje reconstruido, sin tocar nada', async () => {

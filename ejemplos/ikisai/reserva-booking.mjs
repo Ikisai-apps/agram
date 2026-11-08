@@ -211,8 +211,6 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     identidad: CASA,
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
-      { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'T', escala: 'minuto', cantidad: 5000 }, // otro token: escribir cuesta minutos
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'E', denominacion: 'hora', cantidad: 1000 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje

@@ -205,7 +205,8 @@ export function leerEvento(eje, id, { epoca = EPOCA_0, nombres, camino: enfoque 
   }
   const ctx = contexto({ epoca, eje, nombres, anclados, desdeRaiz: true });
   const cabecera = nombreDeId(ev.id, nombres) + ' · ' + ev.autor + ' · ' + ev.t
-    + (ev.sobre ? ' · sobre ' + nombreDeId(ev.sobre, nombres) + ' en ' + (ev.en ?? RAIZ) : ' · génesis');
+    + (ev.sobre ? ' · sobre ' + nombreDeId(ev.sobre, nombres) + ' en ' + (ev.en ?? RAIZ) : ' · génesis')
+    + (eje.presente?.(id) === false ? ' · no presente (pagado con T informativo; VG, 8-11)' : '');
   if (enfoque.length) {
     const padre = enfoque.slice(0, -1);
     const cuerpo = [];

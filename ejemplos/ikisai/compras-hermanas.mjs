@@ -64,8 +64,6 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
-      { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'T', escala: 'minuto', cantidad: 1000 },
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
       { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
@@ -87,7 +85,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     t: T,
     movimientos: [
       minuto('casa'),
-      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
+      { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'cocina' },
       minutos('casa', 'cocina', 240),
       eur('casa', 'huesped', 60),
       eur('casa', 'vecina', 40),

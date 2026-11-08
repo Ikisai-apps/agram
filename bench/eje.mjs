@@ -135,7 +135,7 @@ const PESOS_PV = [1, 4, 3, 2, 3, 1, 1, 2, 1, 1];
  * seguir escribiendo (claves privadas, escritores) y lo medido al construir.
  * Forma del eje: génesis; un proyecto por cada ~3·√n registros, cada uno con
  * su cosa con clave (la identidad que escribe su base del 8); identidades
- * (n/40: personas y cosas; el 85 % con clave; el 20 % con P para
+ * (n/40, personas: viven de su asignación de T del día; el 85 % con clave; el 20 % con P para
  * autorizar); y el resto, escritos sobre focos al azar (6 % sobre una «plaza»
  * donde todo colisiona, 12 % sobre otros focos calientes, 37 % sobre lo
  * reciente, el resto uniforme) con referencias, fórmulas BQL y, un 3 % de
@@ -167,8 +167,6 @@ async function construir(n, semilla) {
     identidad: GENESIS,
     tipo: 'persona',
     emision: [
-      { token: 'T', escala: 'minuto', cantidad: 1e12 },
-      { token: 'T', escala: 'hora', cantidad: 1e9 },
       { token: 'E', denominacion: 'EUR', cantidad: 1e12 },
       { token: 'P', ambito: 'genesis', cantidad: 1e6 },
     ],
@@ -199,10 +197,9 @@ async function construir(n, semilla) {
   const escritores = [GENESIS];
   const autorizadores = [GENESIS];
   const proyectos = []; // { id, identidad }
-  // T no cruza de persona (VG, 7-11 noche), pero una persona sí da su T a una cosa (Core, 8-11): en el banco,
-  // quienes escriben son cosas de la raíz (sus máquinas), con el T que ella les da.
+  // Ningún T se acumula (VG, 8-11: no hay T acumulable; el génesis no emite T): en el banco, quienes escriben son
+  // personas, cada una con su asignación del día; la raíz solo les da euros.
   const dotacion = (a) => [
-    { token: 'T', escala: 'minuto', cantidad: 1e8, de: GENESIS, a },
     { token: 'E', emisor: GENESIS, denominacion: 'EUR', cantidad: 1e6, de: GENESIS, a },
   ];
   for (let k = 0; k < nProyectos; k++) {
@@ -211,12 +208,13 @@ async function construir(n, semilla) {
     privadas.set(id, par.privada);
     const ev = await escribir('alta', {
       autor: GENESIS, sobre: g, t: instante(g),
-      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }, ...dotacion(id)], // escribir consume T
+      // La cosa del proyecto (la identidad propia que escribe su base: src/bases.js) no tiene asignación: la raíz le da
+      // unos minutos de la suya (Core, 8-11), que conserva hasta gastarlos, y no escribe nada más.
+      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }, { token: 'T', escala: 'minuto', cantidad: 5, de: GENESIS, a: id }, ...dotacion(id)], // escribir consume T
       payload: ['Proyecto ' + k, ['recursos', az.ent(100), (1 + az.ent(90)) + ' EUR'], ['criterios', az.de(PALABRAS)], 'comunicación', '=CONTAR(BUSCAR(4))'],
       contexto: { tipos: { [id]: 'cosa' }, claves: { [id]: par.publica } },
     });
     proyectos.push({ id: ev.id, identidad: id });
-    escritores.push(id);
   }
   for (let k = 0; k < nIdentidades; k += 5) {
     const tipos = {};
@@ -225,7 +223,7 @@ async function construir(n, semilla) {
     const nombres = [];
     for (let j = k; j < Math.min(k + 5, nIdentidades); j++) {
       const id = 'p' + j;
-      tipos[id] = 'cosa';
+      tipos[id] = 'persona';
       if (az.prob(0.85)) {
         const par = await generarClaves();
         privadas.set(id, par.privada);

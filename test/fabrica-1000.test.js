@@ -30,8 +30,22 @@ const en = (payload, h) => {
   return Array.isArray(n) && n.length === 1 && String(h).includes('.') ? n[0] : n;
 };
 
-/** Un eje propio con mucho T, para escribir registros grandes. */
-const ejeGrande = (minutos) => Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'T', escala: 'minuto', cantidad: minutos }], foco: 'Casa de ejemplo', t: T });
+const DIA = 86400 * 1000;
+/**
+ * Un eje propio para escribir registros grandes. Ningún T se acumula en una persona (VG, 8-11: no hay T
+ * acumulable): la casa tiene sus 1440 minutos del día. Para más (`minutos`), la casa da cada día, los días de antes
+ * de T, T de su asignación a una cosa suya, la fábrica, que lo conserva hasta gastarlo y escribe lo grande.
+ */
+const ejeGrande = async (minutos = 0) => {
+  const dias = Math.ceil(minutos / 1439);
+  const t0 = new Date(Date.parse(T) - dias * DIA).toISOString();
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'Casa de ejemplo', t: t0 });
+  for (let d = 0; d < dias; d++) {
+    await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: new Date(Date.parse(t0) + d * DIA).toISOString(), payload: 'T para la fábrica, día ' + d,
+      movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 1439, de: 'casa', a: 'fabrica' }], ...(d === 0 ? { contexto: { tipos: { fabrica: 'cosa' } } } : {}) });
+  }
+  return eje;
+};
 
 /**
  * Una ficha cuyo precio [1][2] desarrolla las clases 0–3. VG, 7-11 noche: por hojas: el precio es una
@@ -238,16 +252,16 @@ test('el tope cuenta lo emitido, no las referencias de relleno', async () => {
   assert.equal(solo.en, '4150000000');
   assert.equal(solo.movimientos[0].cantidad, 1);
   // Scened no tiene proporción: solo rechaza su tope. Diez mil posiciones emitidas y una heredada caben si se dice qué es heredado.
-  const grande = await ejeGrande(30000);
+  const grande = await ejeGrande(10001);
   const foco = await grande.escribir({ autor: 'casa', sobre: grande.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['algo'] });
   const diezMil = Array(10).fill(Array(10).fill(Array(10).fill(Array(10).fill('z'))));
   const payload = [ref(foco.id, '0000000000'), diezMil];
   assert.equal(contarPosiciones(payload), 10001);
   await assert.rejects(
-    escribirDesde(grande, { modo: 'scened', autor: 'casa', sobre: foco.id, payload, t: T }),
+    escribirDesde(grande, { modo: 'scened', autor: 'fabrica', sobre: foco.id, payload, t: T }),
     /^Error: Scened emite como mucho 10000 posiciones; este registro tiene 10001$/,
   );
-  const ev = await escribirDesde(grande, { modo: 'scened', autor: 'casa', sobre: foco.id, payload, heredadas: [0], t: T });
+  const ev = await escribirDesde(grande, { modo: 'scened', autor: 'fabrica', sobre: foco.id, payload, heredadas: [0], t: T });
   assert.deepEqual(ev.contexto.heredadas, [0]);
   assert.equal(ev.movimientos[0].cantidad, 10001); // el coste sí cuenta el relleno ([X] decidir VG)
   // Lo que se declara heredado ha de ser una referencia al foco en su dirección.
@@ -333,8 +347,8 @@ test('topes duros por modo: Pointed 10, Sequenced 100, Mapped 1000, Scened 10000
 
 // VG, 7-11 noche: la proporción propone, el máximo manda (decisión 10.3; antes, la proporción la rechazaba en Mapped).
 test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avisa', async () => {
-  // Escribir mil posiciones cuesta mil minutos: un eje propio cuyo génesis los emite.
-  const eje = await ejeGrande(3000);
+  // Escribir mil posiciones cuesta mil minutos: caben en la asignación del día de la casa (VG, 8-11), una vez al día.
+  const eje = await ejeGrande();
   const foco = eje.genesisId;
   const celdas = [];
   for (let i = 0; i < 10; i++) for (let j = 0; j < 10; j++) for (let k = 0; k < 10; k++) celdas.push({ i, j, k, contenido: i + '.' + j + '.' + k });
@@ -372,7 +386,7 @@ test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avi
   assert.deepEqual(m.avisos, [encima.aviso]);
   assert.deepEqual(m.alcance, { conseguido: 1000, minimo: 100, maximo: 1000, alMinimo: true });
   // Scened no tiene proporción: la matriz entera se escribe, sin aviso.
-  const r = await escribirSalida(eje, { modo: 'scened', autor: 'casa', sobre: foco, salida, t: T });
+  const r = await escribirSalida(eje, { modo: 'scened', autor: 'casa', sobre: foco, salida, t: new Date(Date.parse(T) + DIA).toISOString() }); // otro día
   assert.equal(r.registro.movimientos[0].cantidad, 1000);
   assert.deepEqual(r.proporcion, { posiciones: 1000, rango: null, estado: 'sin fijar', aviso: null });
   assert.deepEqual(r.avisos, []);
@@ -580,7 +594,7 @@ test('la matriz es relativa al camino: celda, dirección y clase coinciden en to
   const p = await escribirDesde(base.eje, { modo: 'mapped', autor: 'huesped', sobre: base.compra.id, celda: [0, 1, 0], camino: [1], payload: 'x', t: T });
   assert.equal(claseDe(p.en, [1]), 0);
   // La cadena entera, sobre la compra y sobre la ficha (que desarrolla el precio), con mucho T.
-  const eje = await ejeGrande(100000);
+  const eje = await ejeGrande();
   const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: base.compra.payload });
   const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] }); // VG, 7-11 noche: por hojas (como escribirFicha)
   const celdas = [[0, 0, 0], [0, 1, 0], [1, 0, 1], [2, 0, 4], [3, 0, 0], [3, 2, 1], [7, 3, 4], [9, 9, 9]];

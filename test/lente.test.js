@@ -29,7 +29,7 @@ const cerca = (a, b) => Math.abs(a - b) < 1e-9;
 
 /** Eje de demostración: «g» da de alta a quien se diga (personas salvo que se diga otro tipo), con minutos de sobra. */
 async function demo(ids, tipos = {}) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz', emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
   // T no cruza de persona (VG, 7-11 noche): a una cosa, g le da T; a las demás, minutos como E (E:g/minuto).
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',

@@ -298,16 +298,14 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   const r = {};
 
   // Génesis: la casa, una persona, emite y respalda sus series: una de E por
-  // partida (su capacidad, E:casa/<concepto>), minutos (escribir), horas
-  // (trabajar) y poder sobre todo su eje.
+  // partida (su capacidad, E:casa/<concepto>) y poder sobre todo su eje. T no
+  // (VG, 8-11: no hay T acumulable): escribe y trabaja con su asignación del día.
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
     emision: [
       ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
-      { token: 'T', escala: 'minuto', cantidad: 600 },
-      { token: 'T', escala: 'hora', cantidad: 200 },
       { token: 'E', denominacion: 'hora', cantidad: 200 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
       { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],

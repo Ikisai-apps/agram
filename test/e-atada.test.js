@@ -34,7 +34,7 @@ const unico = (texto) => texto + ' #' + (++cuenta);
 async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'] } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }],
+    emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }],
   });
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E de su serie de tiempo (E:g/minuto),
   // y cada persona escribe con su propio T, que se acuña al gastarse.
@@ -329,12 +329,12 @@ test('R2·4: fracciones solo en series divisibles; la cuota de una divisible no 
 
 test('R2·4: el génesis fija también si su E es divisible; no nombra registro ni emite en conjunto', async () => {
   const base = { demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: 'g' };
-  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 10.5 }] }), /E:g\/EUR va en enteros/);
-  const eje = await Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 10.5, divisible: true }] });
+  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 10.5 }] }), /E:g\/EUR va en enteros/);
+  const eje = await Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 10.5, divisible: true }] });
   assert.deepEqual(eje.serie('E:g/EUR'), { emisor: 'g', emitido: 10.5, divisible: true });
   assert.equal(eje.series().find((s) => s.clave === 'E:g/EUR').registro, eje.genesisId);
-  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 1, registro: 'a'.repeat(64) }] }), /en el génesis no hay registro que nombrar/);
-  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'T', escala: 'minuto', cantidad: 9 }, { token: 'E', denominacion: 'EUR', cantidad: 1, emisores: ['g', 'h'] }] }), /sin emisión conjunta/);
+  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1, registro: 'a'.repeat(64) }] }), /en el génesis no hay registro que nombrar/);
+  await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1, emisores: ['g', 'h'] }] }), /sin emisión conjunta/);
 });
 
 test('R2·4: emisión conjunta: varios suman su P bloqueado para alcanzar una unidad entera', async () => {
