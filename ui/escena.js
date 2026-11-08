@@ -18,7 +18,7 @@
 // tiempo.comparables. El foco va primero y es el centro; los demás, por
 // llegada. [X] decidir VG: la prioridad cuando hay corte.
 
-import { escenaDe, CAPACIDAD, ALCANCES } from '../src/scened.js';
+import { escenaDe, textoMedidas, CAPACIDAD, ALCANCES } from '../src/scened.js';
 import { esReferencia } from '../src/btml.js';
 import { esFormula, desescapar } from '../src/bql.js';
 import { escapar, corto, leerLocal, guardarLocal } from './comun.js';
@@ -90,7 +90,17 @@ function textoCapacidad(c) {
   return c === CAPACIDAD ? 'máximo de Scened (' + CAPACIDAD + ', tope duro)' : 'capacidad bajada (máximo ' + CAPACIDAD + ')';
 }
 
-/** HTML sobrio de una escena: alcance, lectura frente a la capacidad, avisos arriba, una fila por foco, recuentos y avisos abajo. */
+/**
+ * La suma de medidas del 8 de la escena (VG, 8-11: medidas perezosas): si
+ * ya se pidió, sus números (scened.medidasDeEscena, la misma medida que la
+ * celda 8); si no, un botón que la pide. Componer la escena no mide nada.
+ */
+export function htmlMedidas(m) {
+  if (m) return `<div class="medidas-escena">${escapar(textoMedidas(m))}</div>`;
+  return `<div class="medidas-escena"><button type="button" data-escena-medidas aria-pressed="false" title="medir cada foco en escena con la medida del 8: cuesta una medida por foco">medir la escena</button> <span class="pista">medidas del 8 bajo demanda</span></div>`;
+}
+
+/** HTML sobrio de una escena: alcance, lectura frente a la capacidad, avisos arriba, una fila por foco, recuentos, medidas del 8 (bajo demanda) y avisos abajo. */
 export function htmlEscena(e) {
   const r = e.recuentos;
   const botones = ALCANCES_VISTA.map((a) => `<button data-alcance="${a.alcance}" aria-pressed="${a.alcance === e.alcance}" title="${escapar(a.pista)}">${escapar(a.nombre)}</button>`).join('');
@@ -109,7 +119,8 @@ export function htmlEscena(e) {
   const recuentos = `
     <div class="recuentos">
       <div>aristas: hilo ${r.aristas.hilo} · referencia ${r.aristas.referencia} · fórmula ${r.aristas.formula} · a registros fuera de escena ${r.referenciasFuera}</div>
-      <div>recuentos: grupos ${r.grupos} · escritos ${r.escritos} · movimientos ${r.movimientos} · posiciones ${r.posicionesDesarrolladas} · pasado ${r.pasado} · futuro ${r.futuro}</div>
+      <div>recuentos: grupos ${r.grupos} · pasado ${r.pasado} · futuro ${r.futuro}</div>
+      ${htmlMedidas(r.medidas)}
     </div>`;
   return `
     <section class="escena" aria-label="escena">
@@ -126,17 +137,25 @@ export function htmlEscena(e) {
 // ---------- en el navegador ----------
 
 let alcanceVista = null;
+let medirPara = null; // la escena (foco, alcance y camino) cuyas medidas del 8 se han pedido
 
 function alcanceGuardado() {
   const a = leerLocal(CLAVE_ALCANCE);
   return NOMBRES.includes(a) ? a : 'hermanos';
 }
 
-/** La vista Scened del foco, lista para #vista. Si algo falla, lo dice en vez de dejar la vista vacía. */
-export function vistaEscena(eje, foco, { camino = [], alcance } = {}) {
+const claveEscena = (foco, alcance, camino) => foco + '|' + alcance + '|' + camino.join('.');
+
+/**
+ * La vista Scened del foco, lista para #vista. Si algo falla, lo dice en vez
+ * de dejar la vista vacía. Las medidas del 8 solo se calculan si se piden
+ * (`medidas: true`, o el botón «medir la escena» para esta misma escena).
+ */
+export function vistaEscena(eje, foco, { camino = [], alcance, medidas } = {}) {
   alcanceVista ??= alcanceGuardado();
+  const a = alcance ?? alcanceVista;
   try {
-    return htmlEscena(escenaDe(eje, foco, { alcance: alcance ?? alcanceVista, camino }));
+    return htmlEscena(escenaDe(eje, foco, { alcance: a, camino, medidas: medidas ?? medirPara === claveEscena(foco, a, camino) }));
   } catch (err) {
     return `<div class="aviso">No se puede componer la escena: ${escapar(err.message ?? err)}</div>`;
   }
@@ -158,6 +177,9 @@ export function instalarEscena({ estado, pintar, irA }) {
     if (b.dataset.alcance !== undefined) {
       alcanceVista = NOMBRES.includes(b.dataset.alcance) ? b.dataset.alcance : 'hermanos';
       guardarLocal(CLAVE_ALCANCE, alcanceVista);
+      pintar();
+    } else if (b.dataset.escenaMedidas !== undefined) {
+      medirPara = claveEscena(estado.foco, alcanceVista ?? alcanceGuardado(), estado.camino ?? []);
       pintar();
     } else if (b.dataset.escenaMapped !== undefined) {
       estado.modo = 'mapped';
