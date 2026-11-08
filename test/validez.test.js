@@ -168,7 +168,7 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   const p = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: 'genesis', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(p), ['ok', 'ok', 'ok', 'falla', 'falla']);
   assert.match(p.acreditacion.motivos[0], /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
-  assert.match(p.permiso.motivos[0], /emitir P exige R propia en juego en el mismo evento/);
+  assert.match(p.permiso.motivos[0], /emitir P exige R propia en juego: R:huesped bloqueada como colateral/);
 });
 
 test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza para autorizar', async () => {
@@ -180,8 +180,8 @@ test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
-  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, la raíz del dominio (las altas de la casa,
-  // sin P propio: cuenta el P del eje). El P de cocina sobre la compra no es ese, y el autor cuenta como cualquiera:
+  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso (VG, 8-11: nadie en el hilo tiene P propio
+  // emitido, así que es el génesis y cuenta el P del eje). El P de cocina sobre la compra no es ese, y el autor cuenta como cualquiera:
   // a las dos consolidaciones las puede autorizar la casa, también a la suya.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
   assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa']);

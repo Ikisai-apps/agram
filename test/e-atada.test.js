@@ -15,13 +15,14 @@ import { Eje, reglasDelTope, SIN_CAPACIDAD } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
 import { claveToken, franjaDe, familiaDe } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
+import { colateral } from '../src/lente.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 // Las altas, un mes antes de T0: cada persona escribe con su propio T, que acuña al gastarlo dentro del tope
 // de su reloj (VG, 7-11 noche; Core, 8-11), y a T0 el reloj le da de sobra.
 const ALTA = '2026-10-08T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-/** R propia en juego (VG, 7-11 noche: la exigen P y E). */
+/** Da un R propio a otra identidad. La R propia en juego (VG, 7-11 noche: la exigen P y E) es el colateral que cada persona bloquea al emitir su R (R6, mundo). */
 const enJuego = (persona, a = 'g') => ({ token: 'R', emisor: persona, cantidad: 1, de: persona, a });
 let cuenta = 0;
 const unico = (texto) => texto + ' #' + (++cuenta);
@@ -40,11 +41,11 @@ async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'
   // y cada persona escribe con su propio T, que se acuña al gastarse.
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
-    movimientos: [minuto('g'), ...personas.map((p) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a: p }))],
+    movimientos: [minuto('g'), colateral('g', 10), ...personas.map((p) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a: p }))],
     contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
-    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }] });
+    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }, colateral(p, 10)] });
   }
   const A = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], capacidad] });
   if (pA > 0) {

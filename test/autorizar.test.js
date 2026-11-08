@@ -39,7 +39,7 @@ async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {
     await eje.escribir({ autor: 'd', sobre: X.id, t: T0, payload: 'poder sobre la sala', movimientos: [gasta('d'),
-      { token: 'R', emisor: 'd', cantidad: 1, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
+      { token: 'R', emisor: 'd', cantidad: 2, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 0.5, de: 'd', a: 'd', estado: 'bloqueo', salida: 'R:d' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
       { token: 'P', ambito: X.id, cantidad: pX, de: null, a: 'd' }] });
   }
   return { eje, X: X.id };
@@ -126,13 +126,66 @@ test('un títere sin P:X no autoriza nada: ni con P del eje donde X tiene P prop
     movimientos: [gasta('t'), { token: 'P', ambito: 'genesis', cantidad: 10, de: 't', a: 't', estado: 'bloqueo', salida: c.id }] });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   assert.deepEqual(autorizacionesValidas(eje, c.id), []);
-  // Ni un subregistro del títere dentro de X: el recurso sigue siendo X, y su P sobre el subregistro no es P:X.
+  // Ni un subregistro del títere dentro de X con su P propio emitido: no es de la cadena de autoridad de la dueña (ni lo
+  // escribió ella ni el títere tiene P:X), así que se salta (VG, 8-11, con la salvedad del autor de Core, [X]) y el
+  // recurso sigue siendo X; su P sobre el subregistro no es P:X.
   const sub = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'lo del títere', movimientos: [gasta('t')] });
   await eje.escribir({ autor: 't', sobre: sub.id, t: T0, payload: 'poder del títere', movimientos: [gasta('t'),
-    { token: 'R', emisor: 't', cantidad: 1, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
+    { token: 'R', emisor: 't', cantidad: 2, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 0.5, de: 't', a: 't', estado: 'bloqueo', salida: 'R:t' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' }, { token: 'P', ambito: sub.id, cantidad: 1, de: null, a: 't' }] });
   const debajo = await consolidacionDe(eje, 'a', sub.id);
   assert.equal(recursoDe(eje, debajo.id), X);
   assert.equal(puedeAutorizar(eje, 't', debajo.id), false);
+});
+
+test('VG, 8-11: el registro del recurso es el más cercano del hilo con P propio emitido; si no hay ninguno, el génesis', async () => {
+  const { eje, X } = await mundo();
+  await reparte(eje, X, { b: 60 });
+  // La dueña escribe una habitación dentro de X y la gobierna aparte: acuña P:H y da 3 de 4 a «a».
+  const H = await eje.escribir({ autor: 'd', sobre: X, t: T0, payload: 'habitación', movimientos: [gasta('d')] });
+  await eje.escribir({ autor: 'd', sobre: H.id, t: T0, payload: 'poder sobre la habitación', movimientos: [gasta('d'),
+    { token: 'R', emisor: 'd', cantidad: 1, de: null, a: 'd' }, { token: 'R', emisor: 'd', cantidad: 1, de: 'd', a: 'a' },
+    { token: 'P', ambito: H.id, cantidad: 4, de: null, a: 'd' }, daP('d', 'a', 3, H.id)] });
+  const reserva = await eje.escribir({ autor: 'b', sobre: H.id, t: T0, payload: 'reserva de b', movimientos: [gasta('b')] });
+  // Habitación con P propio: autoriza su P, no el de la casa (b tiene 60 de 100 P:X y no cuenta ahí).
+  const c = await consolidacionDe(eje, 'b', reserva.id);
+  assert.equal(recursoDe(eje, c.id), H.id);
+  assert.deepEqual(pesoAutorizacion(eje, c.id).claves, ['P:' + H.id]);
+  assert.equal(puedeAutorizar(eje, 'b', c.id), false);
+  await assert.rejects(autorizar(eje, { autorizante: 'b', consolidacion: c.id, t: T0 }), /b no tiene P que cuente/);
+  await autorizar(eje, { autorizante: 'a', consolidacion: c.id, t: T0 });
+  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  // Habitación sin P propio: manda la casa (X), con su P:X.
+  const H2 = await eje.escribir({ autor: 'd', sobre: X, t: T0, payload: 'otra habitación', movimientos: [gasta('d')] });
+  const c2 = await consolidacionDe(eje, 'a', H2.id);
+  assert.equal(recursoDe(eje, c2.id), X);
+  await autorizar(eje, { autorizante: 'b', consolidacion: c2.id, t: T0 });
+  assert.equal(estadoDe(eje, c2.id), 'AUTORIZADO');
+  // Una habitación escrita por quien tiene P delegado de la casa (b, con P:X): su P propio también manda.
+  await liberar(eje, { titular: 'b', consolidacion: c2.id, t: T0 });
+  const H3 = await eje.escribir({ autor: 'b', sobre: X, t: T0, payload: 'habitación que lleva b', movimientos: [gasta('b')] });
+  await eje.escribir({ autor: 'b', sobre: H3.id, t: T0, payload: 'poder sobre la habitación de b', movimientos: [gasta('b'),
+    { token: 'R', emisor: 'b', cantidad: 2, de: null, a: 'b' }, { token: 'R', emisor: 'b', cantidad: 0.5, de: 'b', a: 'b', estado: 'bloqueo', salida: 'R:b' }, { token: 'R', emisor: 'b', cantidad: 1, de: 'b', a: 'a' },
+    { token: 'P', ambito: H3.id, cantidad: 2, de: null, a: 'b' }] });
+  const c4 = await consolidacionDe(eje, 'd', H3.id);
+  assert.equal(recursoDe(eje, c4.id), H3.id);
+  await autorizar(eje, { autorizante: 'b', consolidacion: c4.id, t: T0 });
+  assert.equal(estadoDe(eje, c4.id), 'AUTORIZADO');
+  // El subregistro del proponente con P propio (ni lo escribió la dueña ni tiene P:X) no autoriza nada: se salta y
+  // manda X, donde el proponente no tiene P. Queda PENDIENTE DE AUTORIZACIÓN.
+  const suyo = await eje.escribir({ autor: 't', sobre: X, t: T0, payload: 'lo del proponente', movimientos: [gasta('t')] });
+  await eje.escribir({ autor: 't', sobre: suyo.id, t: T0, payload: 'poder del proponente', movimientos: [gasta('t'),
+    { token: 'R', emisor: 't', cantidad: 2, de: null, a: 't' }, { token: 'R', emisor: 't', cantidad: 0.5, de: 't', a: 't', estado: 'bloqueo', salida: 'R:t' }, { token: 'R', emisor: 't', cantidad: 1, de: 't', a: 'a' },
+    { token: 'P', ambito: suyo.id, cantidad: 5, de: null, a: 't' }] });
+  const c5 = await consolidacionDe(eje, 't', suyo.id);
+  assert.equal(recursoDe(eje, c5.id), X);
+  await assert.rejects(autorizar(eje, { autorizante: 't', consolidacion: c5.id, t: T0 }), /t no tiene P que cuente/);
+  assert.equal(estadoDe(eje, c5.id), 'PENDIENTE DE AUTORIZACIÓN');
+  // Nada emitido en todo el hilo: manda el génesis, con el P del eje.
+  const Y = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: 'dominio sin P', movimientos: [gasta('d')] });
+  const sub = await eje.escribir({ autor: 'a', sobre: Y.id, t: T0, payload: 'algo en Y', movimientos: [gasta('a')] });
+  const c3 = await consolidacionDe(eje, 'a', sub.id);
+  assert.deepEqual([recursoDe(eje, c3.id), pesoAutorizacion(eje, c3.id).delEje], [eje.genesisId, true]);
+  assert.equal(puedeAutorizar(eje, 'g', c3.id), true);
 });
 
 test('P del eje: no cuenta donde X tiene P propio emitido, y sí donde no lo tiene (sobre lo emitido por el génesis)', async () => {
@@ -140,11 +193,11 @@ test('P del eje: no cuenta donde X tiene P propio emitido, y sí donde no lo tie
   const c = await consolidacionDe(eje, 'a', X);
   assert.equal(puedeAutorizar(eje, 'g', c.id), false);
   await assert.rejects(autorizar(eje, { autorizante: 'g', consolidacion: c.id, t: T0 }), /g no tiene P que cuente/);
-  // Un dominio sin P propio: cuenta el P del eje (10, todo en g). 5 no pasa de la mitad; 6 sí.
+  // Un dominio sin P propio: manda el génesis (VG, 8-11), con el P del eje (10, todo en g). 5 no pasa de la mitad; 6 sí.
   const Y = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: 'otro dominio de d', movimientos: [gasta('d')] });
   const cy = await consolidacionDe(eje, 'a', Y.id);
   const peso = pesoAutorizacion(eje, cy.id);
-  assert.deepEqual([peso.recurso, peso.delEje, peso.emitido], [Y.id, true, 10]);
+  assert.deepEqual([peso.recurso, peso.delEje, peso.emitido], [eje.genesisId, true, 10]);
   await autorizar(eje, { autorizante: 'g', consolidacion: cy.id, cantidad: 5, t: T0 });
   assert.equal(estadoDe(eje, cy.id), 'PENDIENTE DE AUTORIZACIÓN');
   await autorizar(eje, { autorizante: 'g', consolidacion: cy.id, cantidad: 1, t: T0 });

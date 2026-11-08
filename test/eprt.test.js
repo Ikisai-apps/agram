@@ -69,15 +69,18 @@ test('R: por emisor y no fungible; quien la recibe no puede pasarla', async () =
   void g;
 });
 
-// VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG), con el
-// umbral del dueño. Antes autorizaba cualquier P que cubriera el registro de la consolidación.
-test('autoriza el P sobre el registro del recurso: la raíz del dominio, o el del eje si no tiene P propio', async () => {
+// VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, con el umbral del dueño. Antes autorizaba
+// cualquier P que cubriera el registro de la consolidación. VG, 8-11: el registro del recurso es el más cercano del
+// hilo con P propio emitido; si no hay ninguno, el génesis.
+test('autoriza el P sobre el registro del recurso: el más cercano con P propio emitido, o el del eje si no hay ninguno', async () => {
   const { eje, g, alta, menu, evento } = await mundo();
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: menu.id, de: 'casa', a: 'cocina' }], payload: 'poder de cocina' });
   const cMenu = await consolidar(eje, { autor: 'sala', foco: menu.id, t: T0, elecciones: { 1: 'dos menús' } });
   const cBoda = await consolidar(eje, { autor: 'sala', foco: evento.id, t: T0, elecciones: { 1: 'catering' } });
-  // Las dos cuelgan de las altas de la casa, que no tienen P propio: cuenta el P sobre todo el eje.
-  assert.deepEqual([recursoDe(eje, cMenu.id), recursoDe(eje, cBoda.id)], [alta.id, alta.id]);
+  // Las dos cuelgan de las altas de la casa, y nadie en su hilo tiene P propio emitido (el de cocina sobre el menú es
+  // estrechado, no emitido): manda el génesis, con el P sobre todo el eje.
+  assert.deepEqual([recursoDe(eje, cMenu.id), recursoDe(eje, cBoda.id)], [g, g]);
+  void alta;
   assert.equal(puedeAutorizar(eje, 'cocina', cMenu.id), false); // su P estrechado al menú no es el del recurso
   assert.equal(puedeAutorizar(eje, 'casa', cBoda.id), true); // el del eje, sí
   await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: cMenu.id, t: T0 }), /cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso .*, que no tiene P propio emitido: el P sobre todo el eje/);

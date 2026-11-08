@@ -62,6 +62,9 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * delegar estrecha: se debita del ámbito exacto y, si no alcanza, de los que
  * lo cubren (su hilo y el eje), salvo hacia una serie P cerrada o hacia la raíz de un
  * dominio ajeno, y P:X se emite una sola vez (R3, VG 7-11 noche); | : / reservados.
+ * Y R6 (VG, 7-11 noche): emitir R:X exige R del autor bloqueada con la salida
+ * «R:X», al menos la décima parte de lo emitido de R:X, y «R propia en juego»
+ * es ese colateral de su propia serie (el generador solo bloquea, no libera).
  */
 class Modelo {
   constructor(genesisId, autor, tipo, emision, tGenesis = T0) {
@@ -77,6 +80,9 @@ class Modelo {
     for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
     // R3 (VG, 7-11 noche): lo emitido de cada serie P, para saber si está cerrada.
     this.emitidoP = new Map(emision.filter(([k]) => k.startsWith('P:')).map(([k, v]) => [k.slice(2), v]));
+    // R6: lo emitido de cada serie R y lo bloqueado como colateral (titular + salida → cantidad).
+    this.emitidoR = new Map(emision.filter(([k]) => k.startsWith('R:')));
+    this.colateral = new Map();
   }
   /**
    * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
@@ -111,8 +117,14 @@ class Modelo {
     }
     if (!emitidas.size) return true;
     // VG, 7-11 noche: mover T es CONSUMIRLO (de = autor, a = null).
-    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a === null);
-    const rEnJuego = ev.movimientos.some((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor);
+    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a === null && m.estado === undefined);
+    // R6: el colateral tras el evento (R:<autor> bloqueada con la salida = la serie) cubre la décima parte de lo emitido.
+    const colTras = (salida) => (this.colateral.get(autor + '\u0000' + salida) ?? 0)
+      + ev.movimientos.filter((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.estado === 'bloqueo' && m.salida === salida).reduce((x, m) => x + m.cantidad, 0);
+    const emiTras = (k) => (this.emitidoR.get(k) ?? 0) + ev.movimientos.filter((m) => m.token === 'R' && m.de === null && 'R:' + m.emisor === k).reduce((x, m) => x + m.cantidad, 0);
+    const cubre = (salida) => colTras(salida) * 10 + 1e-9 >= emiTras(salida);
+    for (const m of ev.movimientos) if (m.token === 'R' && m.de === null && !cubre('R:' + m.emisor)) return false;
+    const rEnJuego = colTras('R:' + autor) > 0 && cubre('R:' + autor);
     for (const t of ['R', 'P', 'E']) {
       if (!emitidas.has(t)) continue;
       if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
@@ -142,6 +154,7 @@ class Modelo {
     if ((m.token === 'P' && !texto(m.ambito)) || (m.token === 'R' && !texto(m.emisor))) return false;
     if (m.token === 'R' && m.de !== null && m.de !== m.emisor && m.a !== m.emisor) return false; // quien la tiene solo la devuelve
     if ((m.token === 'E' || m.token === 'R') && m.de === null && m.a !== m.emisor) return false;
+    if (m.estado !== undefined && (m.estado !== 'bloqueo' || m.de === null || m.a !== m.de || !texto(m.salida))) return false;
     for (const c of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) if (typeof m[c] === 'string' && /[|:/]/.test(m[c])) return false;
     if ((m.de !== null && !texto(m.de)) || (m.a !== null && !texto(m.a)) || (m.de === null && m.a === null)) return false;
     return true;
@@ -178,6 +191,12 @@ class Modelo {
         continue;
       }
       if (m.de !== ev.autor) return null;
+      if (m.estado === 'bloqueo') {
+        // Bloquear: del disponible de la clave exacta a lo bloqueado del mismo titular.
+        if (ver(m.de, k) < m.cantidad) return null;
+        poner(m.de, k, ver(m.de, k) - m.cantidad);
+        continue;
+      }
       if (m.token === 'P') {
         if (m.ambito !== 'genesis' && !this.padre.has(m.ambito)) return null;
         // R3: estrechar (tomar de un ámbito que cubre) no vale hacia una serie cerrada, y hacia la raíz de un
@@ -220,6 +239,8 @@ class Modelo {
         if (m.a !== null) this.existe.add(m.a);
         if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
         if (m.de === null && m.token === 'T') this.emitidoT.set(ev.autor + m.escala, (this.emitidoT.get(ev.autor + m.escala) ?? 0) + m.cantidad);
+        if (m.de === null && m.token === 'R') this.emitidoR.set('R:' + m.emisor, (this.emitidoR.get('R:' + m.emisor) ?? 0) + m.cantidad);
+        if (m.estado === 'bloqueo' && m.token === 'R') this.colateral.set(m.de + '\u0000' + m.salida, (this.colateral.get(m.de + '\u0000' + m.salida) ?? 0) + m.cantidad);
       }
       for (const [e, n] of acunado) this.emitidoT.set(ev.autor + e, (this.emitidoT.get(ev.autor + e) ?? 0) + n);
       for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
@@ -264,7 +285,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision, AYER);
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
     consumido.set('T:minuto', 1);
@@ -274,8 +295,10 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       const autor = g.si(0.9) ? g.pick(conocidos) : g.pick(IDS);
       const movimientos = [gastaT(autor)];
       for (let i = 0; i < g.int(0, 3); i++) movimientos.push(movAleatorio(g, autor, ids, conocidos));
-      // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia).
-      if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor });
+      // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia),
+      // con su colateral (R6: la décima parte, bloqueada con la salida = la serie). Las emisiones de R al azar
+      // (movAleatorio) van sin colateral: el modelo y el eje las rechazan igual.
+      if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 0.5, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor });
       const tipos = {};
       if (g.si(0.3)) {
         const nuevo = g.pick(IDS);
@@ -309,6 +332,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       }
       const total = new Map();
       for (const [, m] of eje.saldos) for (const [k, v] of m) total.set(fam(k), (total.get(fam(k)) ?? 0) + v);
+      for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) total.set(fam(b.clave), (total.get(fam(b.clave)) ?? 0) + b.cantidad);
       const emitido = new Map();
       for (const se of eje.series()) emitido.set(fam(se.clave), (emitido.get(fam(se.clave)) ?? 0) + se.emitido);
       for (const [k, e] of emitido) assert.equal((total.get(k) ?? 0) + (consumido.get(k) ?? 0), e, 'conservación de ' + k);

@@ -54,6 +54,8 @@ Los cortes de las cajas de una cantidad salen de `epoca.cortes(clave)` (`cortesD
 
 Una época que no da cortes para una clave usa los de la época 0 (`origenCortes: 'respaldo'`). Cada bloque guarda sus cortes y `fundir` rechaza bloques con cortes distintos (no se inventa escala puente); los mismos cortes de orígenes distintos sí se funden, y el bloque lo dice (`origenCortes: 'mixto'`). Como todas las cohortes comparten los cortes de la época, sus cajas se funden de una a otra; los cortes de cada cohorte (igual anchura entre su mínimo y su máximo) se retiran.
 
+Una sola escala (VG, 8-11): las cajas se calculan sobre cantidades y cuotas, no sobre recuentos, así que `cortes` es una única lista de nueve umbrales para todas las medidas y series; la forma por medida queda en desuso (se reduce a la escala única). Una época sin `cortes` hereda los de su respaldo, igual que hereda las reglas cortas; si nadie los trae, vale la escala provisional con origen `provisional` (`CORTES_PROVISIONALES`, `epoca.cortesConOrigen()`).
+
 ### 2.4 Una base por 8, con dos estadísticas
 
 `calcularBase(eje, registro)` calcula lo que se escribe:

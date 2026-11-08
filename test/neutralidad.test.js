@@ -84,11 +84,13 @@ async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = '
     autor: tercero, sobre: eje.genesisId, t: T0, movimientos: [minuto(tercero)],
     payload: ['casa', ['plaza', 30, 4], criterio, 'anfitrión', 'ficha', 'estructura', 'pasado', 'futuro', 'medidas', 'camino'],
   });
-  // Emisión escalonada (VG, 7-11 noche: T + R + P + E): C gasta T, pone en juego un R:C ante g, acuña P sobre
-  // su casa y emite E sobre ella. Es igual en todos los mundos, así que no cambia lo que se compara.
+  // Emisión escalonada (VG, 7-11 noche: T + R + P + E): C gasta T, emite su R con el colateral (R6: la décima
+  // parte bloqueada, que es su R en juego), da un R:C a g, acuña P sobre su casa y emite E sobre ella. Es igual en
+  // todos los mundos, así que no cambia lo que se compara.
   await eje.escribir({
     autor: tercero, sobre: casa.id, t: T0,
-    movimientos: [minuto(tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero }, { token: 'R', emisor: tercero, cantidad: 1, de: tercero, a: 'g' },
+    movimientos: [minuto(tercero), { token: 'R', emisor: tercero, cantidad: 1000, de: null, a: tercero },
+      { token: 'R', emisor: tercero, cantidad: 100, de: tercero, a: tercero, estado: 'bloqueo', salida: 'R:' + tercero }, { token: 'R', emisor: tercero, cantidad: 1, de: tercero, a: 'g' },
       // Sus EUR admiten fracciones (céntimos): divisible en la primera emisión (R2, VG 7-11 noche).
       { token: 'P', ambito: casa.id, cantidad: pX, de: null, a: tercero }, { ...eur(tercero, 1e6, null, tercero), divisible: true }],
     payload: 'emisión de ' + tercero,
@@ -318,14 +320,14 @@ test('NEU-03: agruparse no añade un emisor (el grupo es un registro; emite una 
  * La casa de `capacidad` plazas (R2, VG 7-11 noche): un registro H de C que
  * declara su capacidad en la posición 2, con `pH` de P:H acuñado por C, que
  * lo reparte entre las fuentes según `partes`. Cada fuente emite antes su R
- * (T + R), para poder ponerla en juego al emitir E (T + R + P + E).
+ * (T + R) con su colateral (R6), que es su R en juego al emitir E (T + R + P + E).
  */
 async function casaDe(m, { capacidad = 4, pH = 4, fuentes, partes }) {
   const H = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: ['casa de ' + capacidad, ['plaza', 30], capacidad] });
   await m.eje.escribir({ autor: 'C', sobre: H.id, t: T0, payload: 'P de la casa',
     movimientos: [minuto('C'), { token: 'R', emisor: 'C', cantidad: 1, de: 'C', a: 'g' }, { token: 'P', ambito: H.id, cantidad: pH, de: null, a: 'C' }] });
   await m.eje.escribir({ autor: 'C', sobre: H.id, t: T0, payload: unico('reparte'), movimientos: [minuto('C'), ...fuentes.map((f, i) => ({ token: 'P', ambito: H.id, cantidad: partes[i], de: 'C', a: f }))] });
-  for (const f of fuentes) await m.eje.escribir({ autor: f, sobre: m.X, t: T0, payload: unico('R de ' + f), movimientos: [minuto(f), { token: 'R', emisor: f, cantidad: 10, de: null, a: f }] });
+  for (const f of fuentes) await m.eje.escribir({ autor: f, sobre: m.X, t: T0, payload: unico('R de ' + f), movimientos: [minuto(f), { token: 'R', emisor: f, cantidad: 10, de: null, a: f }, { token: 'R', emisor: f, cantidad: 1, de: f, a: f, estado: 'bloqueo', salida: 'R:' + f }] });
   return H.id;
 }
 

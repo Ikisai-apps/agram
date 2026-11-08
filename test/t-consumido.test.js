@@ -23,6 +23,7 @@ import { elegibles } from '../src/elegibles.js';
 import { ocupantes } from '../src/encaje.js';
 import { incongruenciaDe } from '../src/tiempo.js';
 import { validez } from '../src/validez.js';
+import { colateral } from '../src/lente.js';
 
 const AYER = '2026-11-07T10:00:00Z';
 const T0 = '2026-11-08T10:00:00Z';
@@ -114,6 +115,35 @@ test('T no cruza de persona: a otra persona o a un grupo se rechaza; a una cosa,
 
 // ---------- acuñar al gastar: azúcar, solo personas, dentro del tope ----------
 
+test('por cuenta de un grupo: una persona con P sobre su alta mueve, bloquea y libera lo del grupo; sin P o sin decirlo, no (Core, 8-11, [X] confirmar VG)', async () => {
+  const { eje, alta } = await mundo();
+  const k = 'E:g/minuto';
+  // g le da a ana P sobre todo (ámbito génesis, que cubre el alta del club); bea no tiene P.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P a ana', movimientos: [gasta('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'ana' }] });
+  const porClub = { porCuenta: 'club' };
+  // Positivo: ana mueve E del club a bea, con su firma y su T.
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'el club paga a bea', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 3)] });
+  assert.equal(eje.saldo('club', k), 7);
+  assert.equal(eje.saldo('bea', k), 13);
+  // Bloquear y liberar lo del grupo, también por su cuenta.
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'reserva', contexto: porClub, movimientos: [gasta('ana'), { ...cedeE('club', 'club', 2), estado: 'bloqueo', salida: 'R:g' }] });
+  assert.equal(eje.saldo('club', k), 5);
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'suelta', contexto: porClub, movimientos: [gasta('ana'), { ...cedeE('club', 'club', 2), estado: 'liberacion', salida: 'R:g' }] });
+  assert.equal(eje.saldo('club', k), 7);
+  // Negativos: bea no tiene P sobre el alta del club; ana sin decir porCuenta; porCuenta de una cosa no vale.
+  const deBea = { autor: 'bea', sobre: alta.id, t: T0, payload: 'x', contexto: porClub, movimientos: [gasta('bea'), cedeE('club', 'bea', 1)] };
+  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: club no es el autor \(por cuenta del grupo club mueve una persona con P sobre su alta\)/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), cedeE('club', 'ana', 1)] }), /nadie mueve tokens ajenos: club no es el autor$/);
+  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', contexto: { porCuenta: 'robot' }, movimientos: [gasta('g'), daT('robot', 'robot', 1)] }), /nadie mueve tokens ajenos: robot no es el autor/);
+  assert.equal(eje.saldo('club', k), 7);
+  // Las capas de validez dicen lo mismo que el eje.
+  const vNo = await validez(eje, { ...deBea, en: '0000000000', id: 'x' });
+  assert.equal(vNo.permiso.estado, 'falla');
+  assert.match(vNo.permiso.motivos.join(' '), /nadie mueve tokens ajenos: club no es el autor/);
+  const vSi = await validez(eje, { autor: 'ana', sobre: alta.id, t: T0, payload: 'y', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 1)], en: '0000000000', id: 'y' });
+  assert.equal(vSi.permiso.libro.estado, 'ok');
+});
+
 test('acuñar al gastar: solo una persona, y lo acuñado cuenta contra el tope del reloj (Core, 8-11)', async () => {
   const { eje, alta } = await mundo();
   // ana entró hace un día: a T0 su reloj le da 1440 minutos y 24 horas.
@@ -150,13 +180,13 @@ async function mercado(gastos) {
   const { eje, alta } = await mundo();
   let k = 0;
   const g = () => gastos[k++ % gastos.length];
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', contexto: { tipos: { casa: 'persona' } }, movimientos: [gasta('g'), cedeE('g', 'casa', 10), { token: 'R', emisor: 'g', cantidad: 0.5, de: null, a: 'g' }] });
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', contexto: { tipos: { casa: 'persona' } }, movimientos: [gasta('g'), cedeE('g', 'casa', 10), { token: 'R', emisor: 'g', cantidad: 0.5, de: null, a: 'g' }, colateral('g', 0.05)] }); // R6: R propia en juego
   const X = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, payload: ['mercado', 'ofertas', '=BUSCAR(1)', 'ana'], movimientos: [gasta('casa', g())] });
   for (const [autor, texto] of [['bea', 'ruido'], ['ana', 'oferta de ana'], ['robot', 'oferta del robot'], ['casa', 'oferta de casa']]) {
     await eje.escribir({ autor, sobre: X.id, en: direccion([1]), t: T0, payload: texto, movimientos: [gasta(autor, g())] });
   }
   // P sobre el mercado (R en juego) y E atada a un alojamiento con capacidad 4, bloqueando P.
-  await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: 'poder', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 10, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' }, { token: 'P', ambito: X.id, cantidad: 4, de: null, a: 'casa' }] });
+  await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: 'poder', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 10, de: null, a: 'casa' }, colateral('casa', 1), { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' }, { token: 'P', ambito: X.id, cantidad: 4, de: null, a: 'casa' }] });
   const H = await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: ['alojamiento', ['plazas'], 4], movimientos: [gasta('casa', g())] });
   const clave = 'E:casa/cama@n1@' + H.id;
   await eje.escribir({ autor: 'casa', sobre: H.id, t: T0, payload: 'camas', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' },

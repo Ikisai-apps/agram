@@ -24,8 +24,9 @@
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2 } from './ciclo.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
+import { reglasDeR, devolucionesDe } from './lente.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { crearEvento, validarForma, verificarId, normalizarEvento, esConsumoT } from './evento.js';
 import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
@@ -498,6 +499,9 @@ export class Eje {
     // emisores), el tope compartido igual a la capacidad, la cuota por P
     // bloqueado y que ese P no se libere mientras viva la E que respalda.
     for (const { texto } of reglasDelTope(ev, this.#contextoTope())) errores.push(texto);
+    // R6 (VG, 7-11 noche): emitir R exige colateral (R propia bloqueada con la salida = la serie), que no se
+    // libera mientras haya devoluciones sin atender; atender es citar la devolución (src/lente.js).
+    for (const { texto } of reglasDeR(ev, this.#contextoR())) errores.push(texto);
     // Simulación de los movimientos, en orden, sobre una vista de los saldos y
     // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
     // así que el emisor puede emitir y dar en el mismo evento. Lo bloqueado
@@ -521,7 +525,8 @@ export class Eje {
         poner(m.a, k, ver(m.a, k) + c);
         continue;
       }
-      if (m.de !== ev.autor) { errores.push('nadie mueve tokens ajenos: ' + m.de + ' no es el autor'); continue; }
+      // Lo de un grupo lo mueve una persona con P sobre él, por su cuenta (porCuentaDeGrupo, [X] confirmar VG).
+      if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, this.#contextoCiclo(ev))) { errores.push(motivoAjenos(ev, m.de)); continue; }
       if (m.estado === 'bloqueo') {
         // Bloquear: del disponible al bloqueado del mismo titular, con su salida; de la clave exacta, también en P.
         if (ver(m.de, k) < c) { errores.push('saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de); continue; }
@@ -587,6 +592,22 @@ export class Eje {
       autorizada: (id) => estadoPorPeso(lectorDelEje(this), id) === 'AUTORIZADO',
       // Y la consolidación respalda una sola ampliación (SEG-01).
       ampliada: (id) => this.#ampliadas.has(id),
+      // R6: la R propia en juego es R:<autor> bloqueada como colateral (src/lente.js, rPropiaEnJuego).
+      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
+      // Lo bloqueado de una serie, de todas sus salidas (porCuentaDeGrupo: el P bloqueado también cuenta).
+      bloqueadoTotal: (id, k) => this.bloqueado(id, k),
+    };
+  }
+
+  /** Lo que leen las reglas de R (src/lente.js, reglasDeR): el eje de antes del evento. */
+  #contextoR() {
+    const dev = devolucionesDe(this);
+    return {
+      reglas: this.orden.length < this.eventosV2 ? 2 : 3,
+      serie: (k) => this.#series.get(k) ?? null,
+      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
+      pendientes: dev.pendientes,
+      devolucion: dev.devolucion,
     };
   }
 

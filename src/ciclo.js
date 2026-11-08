@@ -23,6 +23,7 @@ import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, val
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
+import { rPropiaEnJuego } from './lente.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
@@ -41,6 +42,33 @@ const corto = (x) => String(x).slice(0, 8);
  */
 export function aNombreDeGrupo(ctx, emisor) {
   return ctx.tipo(emisor) === 'grupo';
+}
+
+/**
+ * ¿Mueve este evento lo de un grupo por su cuenta? Regla de Core (8-11), **[X]
+ * confirmar VG**, con la cita de VG: «lo que hace un grupo lo hace una persona
+ * con P sobre él, con su firma». Un grupo no recibe T ni escribe: «nadie mueve
+ * tokens ajenos» admite que `de` sea un GRUPO si el evento lo dice
+ * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P > 0 sobre
+ * el registro de alta del grupo (disponible o bloqueado, en un ámbito que lo
+ * cubre, como eje.poderSobre). El evento sigue siendo de la persona: su firma y
+ * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre ya
+ * es así (#62). Lo usan el eje y las capas de validez.
+ * ctx: tipo(id), alta(id), ambitosQueCubren(ambito), saldo(id, k), bloqueadoTotal(id, k).
+ */
+export function porCuentaDeGrupo(ev, de, ctx) {
+  if (!ev || ev.contexto?.porCuenta !== de || ctx.tipo(de) !== 'grupo' || ctx.tipo(ev.autor) !== 'persona') return false;
+  const alta = ctx.alta(de)?.id;
+  if (!alta) return false;
+  const poder = ctx.ambitosQueCubren(alta)
+    .reduce((s, a) => s + Math.max(0, ctx.saldo(ev.autor, 'P:' + a)) + Math.max(0, ctx.bloqueadoTotal?.(ev.autor, 'P:' + a) ?? 0), 0);
+  return poder > 0;
+}
+
+/** El motivo de rechazo cuando alguien mueve lo de otro (con la pista de porCuenta si la pide para un grupo). */
+export function motivoAjenos(ev, de) {
+  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor'
+    + (ev?.contexto?.porCuenta === de ? ' (por cuenta del grupo ' + de + ' mueve una persona con P sobre su alta)' : '');
 }
 
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
@@ -80,6 +108,7 @@ export function acotarAltaV2(alta, tPrimeroV3) {
  *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
  *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
  *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia, que lee este mismo contexto)
+ *   bloqueado(id, k, salida) lo bloqueado de esa serie por esa identidad con esa salida (la R propia en juego, R6)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -287,14 +316,15 @@ export function reglasDelCiclo(ev, ctx) {
   if (emitidas.size) {
     // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
     // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
-    // cruza de persona (src/evento.js), así que solo cuenta el consumo.
+    // cruza de persona, así que solo cuenta el consumo.
     const mueveT = validos.some(({ m }) => esConsumoT(m, autor));
-    const rEnJuego = validos.some(({ m }) => m.token === 'R' && m.emisor === autor && m.de === autor && m.a !== null && m.a !== autor && m.estado === undefined);
+    // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
+    const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
     for (const token of ['R', 'P', 'E']) {
       if (!emitidas.has(token)) continue;
       if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
       if (token !== 'R' && !rEnJuego) {
-        falla(null, 5, 'emitir ' + token + ' exige R propia en juego en el mismo evento: mover R:' + autor + ' de ' + autor + ' a otra identidad o al registro');
+        falla(null, 5, 'emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
       }
       if (token === 'E' && ctx.registro(ev.sobre) && !tienePoder(ev.sobre)) {
         falla(null, 5, 'emitir E exige P del autor sobre el registro ' + corto(ev.sobre) + ' (saldo o movimiento de P en el mismo evento)');

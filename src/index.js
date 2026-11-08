@@ -20,4 +20,6 @@ export * as efectos from './efectos.js';
 export * as validez from './validez.js';
 export * as ciclo from './ciclo.js';
 export * as elegibles from './elegibles.js';
+export * as lente from './lente.js';
 export * as instante from './instante.js';
+export * from './lectura.js';
