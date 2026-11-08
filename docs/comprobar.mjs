@@ -14,6 +14,17 @@
 // Un fragmento que no se ejecuta solo (usa un `eje` que no define, por
 // ejemplo) lleva justo encima la línea `<!-- comprobar: fragmento -->`: se
 // cuenta aparte y no se ejecuta.
+// Un bloque «Leído:» (la lectura humana de un payload, src/lectura.js) lleva
+// su código justo encima, en un comentario que no se ve al leer el documento:
+//
+//   <!-- comprobar: leído
+//   import { leer } from './src/lectura.js';
+//   console.log(leer(['Compra', 1]));
+//   -->
+//
+// seguido (solo con líneas en blanco en medio) de un bloque ```text: se
+// ejecuta ese código y su salida ha de ser el bloque. Un bloque así nunca se
+// toma como la salida del bloque de código de encima (el payload que lee).
 // Los bloques que importan por `file:///<repo>/` son anexos históricos (la
 // salida es la de otro commit, y la nota lo dice): se cuentan, no se ejecutan.
 //
@@ -32,15 +43,33 @@ const archivos = [
 ].filter((a) => !filtro || a.includes(filtro));
 
 const FRAGMENTO = '<!-- comprobar: fragmento -->';
+const LEIDO = '<!-- comprobar: leído';
 
 function bloquesDe(archivo) {
   const bloques = [];
   let dentro = null;
+  let comentario = null; // un <!-- comprobar: leído … --> abierto
+  let leido = null; // el último cerrado: { codigo, fin }
   const lineas = readFileSync(archivo, 'utf8').split('\n').map((x) => x.replace(/\r$/, ''));
   lineas.forEach((l, i) => {
+    if (!dentro && comentario) {
+      if (l.trim() === '-->') {
+        leido = { codigo: comentario.join('\n'), fin: i + 1 };
+        comentario = null;
+      } else comentario.push(l);
+      return;
+    }
+    if (!dentro && l.trim() === LEIDO) {
+      comentario = [];
+      return;
+    }
     const apertura = l.match(/^```(\w*)\s*$/);
-    if (apertura && !dentro) dentro = { linea: i + 1, lenguaje: apertura[1], texto: [], fragmento: lineas[i - 1]?.trim() === FRAGMENTO };
-    else if (l.startsWith('```') && dentro) {
+    if (apertura && !dentro) {
+      dentro = { linea: i + 1, lenguaje: apertura[1], texto: [], fragmento: lineas[i - 1]?.trim() === FRAGMENTO };
+      // Un bloque de salida justo detrás de un comentario «leído» (solo líneas en blanco en medio) es la salida de ese código.
+      if (leido && (apertura[1] === 'text' || apertura[1] === '') && lineas.slice(leido.fin, i).every((x) => !x.trim())) dentro.leido = leido.codigo;
+      leido = null;
+    } else if (l.startsWith('```') && dentro) {
       bloques.push({ ...dentro, fin: i + 1, texto: dentro.texto.join('\n') });
       dentro = null;
     } else if (dentro) dentro.texto.push(l);
@@ -67,14 +96,47 @@ let total = 0;
 let distintos = 0;
 let historicos = 0;
 let fragmentos = 0;
+let leidos = 0;
+
+/** Ejecuta `codigo` y compara su salida con el bloque `salida`; `b` es el bloque que se cita en el informe. */
+function comparar(archivo, codigo, b, salida) {
+  total++;
+  const r = spawnSync(process.execPath, ['--input-type=module'], { input: codigo, encoding: 'utf8', timeout: 300000 });
+  const real = normal((r.stdout ?? '') + (r.stderr ?? ''));
+  if (!salida) {
+    distintos++;
+    console.log(`✗ ${archivo}:${b.linea} · sin bloque de salida detrás; salida real:\n${real}`);
+    return;
+  }
+  const esperado = normal(salida.texto);
+  if (real === esperado && r.status === 0) {
+    console.log(`✓ ${archivo}:${b.linea}${b.leido !== undefined ? ' · leído' : ''}`);
+    return;
+  }
+  distintos++;
+  console.log(`✗ ${archivo}:${b.linea} → salida en la línea ${salida.linea} (código de salida ${r.status})`);
+  const e = esperado.split('\n');
+  const g = real.split('\n');
+  for (let i = 0; i < Math.max(e.length, g.length); i++) {
+    if (e[i] !== g[i]) console.log(`    línea ${i + 1}\n      documento: ${e[i] ?? '∅'}\n      real:      ${g[i] ?? '∅'}`);
+  }
+}
+
 for (const archivo of archivos) {
   const bloques = bloquesDe(archivo);
   bloques.forEach((b, k) => {
     const siguiente = bloques[k + 1];
-    const salida = siguiente && (siguiente.lenguaje === 'text' || siguiente.lenguaje === '') && siguiente.linea - b.fin <= 8 && !b.tituloDetras ? siguiente : null;
+    // Un bloque «Leído:» nunca es la salida del bloque de código de encima: es la de su propio comentario.
+    const salida = siguiente && siguiente.leido === undefined && (siguiente.lenguaje === 'text' || siguiente.lenguaje === '') && siguiente.linea - b.fin <= 8 && !b.tituloDetras ? siguiente : null;
     let codigo = null;
     if (b.fragmento) {
       fragmentos++;
+      return;
+    }
+    if (b.leido !== undefined) {
+      // Un bloque «Leído:»: su código va en el comentario de encima y el propio bloque es la salida.
+      leidos++;
+      comparar(archivo, b.leido, b, b);
       return;
     }
     if (b.lenguaje === 'sh' && /^\s*node --input-type=module -e\b/.test(b.texto)) {
@@ -92,27 +154,8 @@ for (const archivo of archivos) {
       }
       codigo = b.texto;
     } else return;
-    total++;
-    const r = spawnSync(process.execPath, ['--input-type=module'], { input: codigo, encoding: 'utf8', timeout: 300000 });
-    const real = normal((r.stdout ?? '') + (r.stderr ?? ''));
-    if (!salida) {
-      distintos++;
-      console.log(`✗ ${archivo}:${b.linea} · sin bloque de salida detrás; salida real:\n${real}`);
-      return;
-    }
-    const esperado = normal(salida.texto);
-    if (real === esperado && r.status === 0) {
-      console.log(`✓ ${archivo}:${b.linea}`);
-      return;
-    }
-    distintos++;
-    console.log(`✗ ${archivo}:${b.linea} → salida en la línea ${salida.linea} (código de salida ${r.status})`);
-    const e = esperado.split('\n');
-    const g = real.split('\n');
-    for (let i = 0; i < Math.max(e.length, g.length); i++) {
-      if (e[i] !== g[i]) console.log(`    línea ${i + 1}\n      documento: ${e[i] ?? '∅'}\n      real:      ${g[i] ?? '∅'}`);
-    }
+    comparar(archivo, codigo, b, salida);
   });
 }
-console.log(`\n${total - distintos} de ${total} ejemplos dan la salida impresa${historicos ? ` · ${historicos} anexos históricos sin ejecutar` : ''}${fragmentos ? ` · ${fragmentos} ${fragmentos === 1 ? 'fragmento' : 'fragmentos'} sin ejecutar` : ''}`);
+console.log(`\n${total - distintos} de ${total} ejemplos dan la salida impresa${leidos ? ` (${leidos} ${leidos === 1 ? 'bloque leído' : 'bloques leídos'})` : ''}${historicos ? ` · ${historicos} anexos históricos sin ejecutar` : ''}${fragmentos ? ` · ${fragmentos} ${fragmentos === 1 ? 'fragmento' : 'fragmentos'} sin ejecutar` : ''}`);
 process.exitCode = distintos ? 1 : 0;
