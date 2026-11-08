@@ -69,6 +69,13 @@ header .kicker{color:var(--muted);font-size:13px}
 .chip{font:inherit;font-size:12px;text-align:left;border:0;border-radius:6px;background:var(--panel2);color:var(--fg);padding:4px 6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .chip b{font-family:var(--mono);font-weight:500;color:var(--muted)} .chip i{font-style:normal;color:var(--ok)}
 .medidas{display:flex;flex-wrap:wrap;gap:3px 8px;font-size:12px;color:var(--muted)} .medidas b{color:var(--fg)}
+/* Celda 8 sobria (ui/ocho.js): cohorte con un toque, cantidades y cuota primero, recuentos como información. Envuelve: sin scroll horizontal a 400 px. */
+.ocho-cohortes{display:flex;flex-wrap:wrap;gap:3px;min-width:0}
+.ocho-cohortes button{font:inherit;font-size:11px;line-height:1.2;min-height:28px;padding:3px 8px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.ocho-cohortes button[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.ocho-donde{font-size:11px;color:var(--muted);overflow-wrap:anywhere;min-width:0} .ocho-donde b{color:var(--fg);font-weight:500}
+.ocho-cantidades{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-size:12px;overflow-wrap:anywhere;min-width:0} .ocho-cantidades .serie{font-family:var(--mono);color:var(--muted)} .ocho-cantidades .cuota{white-space:nowrap}
+.ocho-recuentos{font-size:11px;color:var(--muted);opacity:.85;overflow-wrap:anywhere;min-width:0} .ocho-recuentos .marca{font-style:italic}
 .pasos{font-size:12px;color:var(--muted)} .paso{color:var(--fg)}
 .celda .nada{font-size:12px;color:var(--muted);padding:0}
 .escena{display:grid;gap:10px;margin:6px 0 16px;min-width:0}
@@ -92,6 +99,7 @@ header .kicker{color:var(--muted);font-size:13px}
 .arista{font-family:var(--mono);text-decoration:none;color:var(--fg);background:var(--panel2);border-radius:6px;padding:1px 6px;overflow-wrap:anywhere}
 .arista.a-hilo{color:var(--ok)} .arista.a-formula{color:var(--accent)}
 .recuentos{font-size:12px;color:var(--muted);display:grid;gap:2px}
+.medidas-escena{overflow-wrap:anywhere;min-width:0} .medidas-escena button{font:inherit;font-size:12px;min-height:28px;padding:3px 10px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
 @media (max-width:480px){.celda{min-height:84px;padding:6px} .celda .val{font-size:13px} .chip{font-size:11px}}
 .escribir{display:grid;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px}
 .escribir .titulo,.hilera .titulo{font-size:13px;color:var(--muted);letter-spacing:.02em}
