@@ -51,8 +51,8 @@ export function aNombreDeGrupo(ctx, emisor) {
  * tokens ajenos» admite que `de` sea un GRUPO si el evento lo dice
  * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P sobre el
  * registro de alta del grupo. El evento sigue siendo de la persona: su firma y
- * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre ya
- * es así (#62). Lo usan el eje y las capas de validez.
+ * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre
+ * sigue la misma regla (motivoPoderDeGrupo). Lo usan el eje y las capas de validez.
  *
  * Revisión de seguridad (VG, 8-11; **[X] confirmar VG** el detalle):
  *   · cuenta solo el P EXACTO sobre el alta del grupo (la clave
@@ -78,17 +78,33 @@ export function motivoPorCuenta(ev, de, ctx) {
   if (!ev || ev.contexto?.porCuenta !== de) return 'el evento no dice contexto.porCuenta';
   if (ctx.tipo(de) !== 'grupo') return de + ' no es un grupo';
   if (ctx.tipo(ev.autor) !== 'persona') return ev.autor + ' no es una persona';
-  const alta = ctx.alta(de)?.id;
-  if (!alta) return de + ' no tiene alta';
+  return motivoPoderDeGrupo(ev.autor, de, ctx);
+}
+
+/**
+ * LA regla del poder sobre un grupo (VG, 8-11; **[X] confirmar VG** el
+ * detalle), la misma para mover lo del grupo por su cuenta
+ * (porCuentaDeGrupo) y para emitir E o R a su nombre (reglasDelCiclo): por
+ * qué `persona` NO actúa por el grupo `grupo` (null si sí). Cuenta solo el
+ * P EXACTO sobre el alta del grupo (`P:<id del alta>`), disponible o
+ * bloqueado hacia ese mismo grupo (grupoDeSalida); ni el heredado de un
+ * ancestro o del génesis ni el bloqueado con otra salida. Y el alta solo
+ * habilita a su grupo: si dio de alta a varios grupos (gruposDeAlta), a
+ * ninguno. Se lee con el contexto de antes del evento: el P que llega en el
+ * mismo evento no cuenta todavía.
+ */
+export function motivoPoderDeGrupo(persona, grupo, ctx) {
+  const alta = ctx.alta(grupo)?.id;
+  if (!alta) return grupo + ' no tiene alta';
   const grupos = gruposDeAlta(ctx, alta);
   if (grupos.length > 1) return 'su alta (' + corto(alta) + ') dio de alta a varios grupos (' + grupos.join(', ') + '): el P sobre ella no habilita a ninguno; cada grupo, su propio alta';
   const k = 'P:' + alta;
-  const disponible = Math.max(0, ctx.saldo(ev.autor, k));
-  const haciaElGrupo = (ctx.bloqueosPor?.(ev.autor, k) ?? [])
-    .filter(([salida]) => grupoDeSalida(salida, de, alta))
+  const disponible = Math.max(0, ctx.saldo(persona, k));
+  const haciaElGrupo = (ctx.bloqueosPor?.(persona, k) ?? [])
+    .filter(([salida]) => grupoDeSalida(salida, grupo, alta))
     .reduce((s, [, c]) => s + Math.max(0, c), 0);
   if (disponible + haciaElGrupo > 0) return null;
-  return ev.autor + ' no tiene ' + k + ' (el P exacto sobre el alta del grupo, disponible o bloqueado hacia él; el heredado o el bloqueado para otra cosa no cuenta)';
+  return persona + ' no tiene ' + k + ' (el P exacto sobre el alta del grupo, disponible o bloqueado hacia él; el heredado o el bloqueado para otra cosa no cuenta)';
 }
 
 /**
@@ -215,11 +231,13 @@ export function reglasDelCiclo(ev, ctx) {
       continue;
     }
     if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
-      // A nombre de un grupo: lo emite una persona con P sobre el registro del grupo (su alta).
+      // A nombre de un grupo: lo emite una persona con P EXACTO sobre el registro del grupo (su alta), con la misma
+      // regla que mover lo del grupo por su cuenta (motivoPoderDeGrupo; VG, 8-11, [X] confirmar VG).
       if (!aNombreDeGrupo(ctx, m.emisor)) { falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor'); continue; }
-      const registro = ctx.alta(m.emisor)?.id;
-      if (!registro || !tienePoder(registro)) {
-        falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P sobre su registro' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + autor + ' no lo tiene');
+      const sinPoder = motivoPoderDeGrupo(autor, m.emisor, ctx);
+      if (sinPoder) {
+        const registro = ctx.alta(m.emisor)?.id;
+        falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P exacto sobre su alta' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + sinPoder);
         continue;
       }
     }

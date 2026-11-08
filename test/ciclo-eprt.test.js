@@ -96,12 +96,12 @@ test('solo emiten personas: un grupo, una cosa o quien no declaró tipo no emite
   await assert.rejects(sinTipo.escribir({ autor: 'x', sobre: sinTipo.genesisId, t: T0, payload: 'x', movimientos: [gasta('x'), emiteR('x', 1)] }), /solo las personas emiten: x no declaró tipo en su alta/);
 });
 
-test('a nombre de un grupo emite una persona con P sobre el registro del grupo (su alta), con su firma', async () => {
+test('a nombre de un grupo emite una persona con P exacto sobre el registro del grupo (su alta), con su firma', async () => {
   const { eje, alta } = await mundo();
   assert.equal(eje.alta('club').id, alta.id); // el registro del grupo es el de su alta
   // Sin P sobre ese registro, no.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteR('club', 1)] }),
-    /emitir a nombre del grupo club exige P sobre su registro \([0-9a-f]{8}\): ana no lo tiene/);
+    /emitir a nombre del grupo club exige P exacto sobre su alta \([0-9a-f]{8}\): ana no tiene P:[0-9a-f]+ \(el P exacto sobre el alta del grupo/);
   // La raíz le delega P sobre el alta del club; desde ahí ana emite a nombre del club. El autor es ella.
   await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'ana lleva el club', movimientos: [gasta('raiz'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'raiz', a: 'ana' }] });
   // Emitir R exige colateral (R6): R de ana bloqueada con la salida «R:club», al menos la décima parte de lo emitido.
@@ -121,6 +121,51 @@ test('a nombre de un grupo emite una persona con P sobre el registro del grupo (
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('club', 1)] }), /emitir a nombre del grupo club exige P/);
   // El grupo no emite por sí mismo, aunque firme.
   await assert.rejects(eje.escribir({ autor: 'club', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('club'), emiteR('club', 1)] }), /solo las personas emiten: club es grupo/);
+});
+
+test('SEG-08 (revisión de seguridad de la #81, VG 8-11) emitir a nombre de un grupo exige lo mismo que mover por su cuenta: P exacto sobre su alta; ni el heredado del génesis ni el bloqueado para otra cosa, y el alta de varios grupos no habilita', async () => {
+  const { eje, alta } = await mundo();
+  const kAlta = 'P:' + alta.id;
+  let n = 0;
+  // Emitir R del club con su colateral (R6): R de quien emite bloqueada con la salida «R:club».
+  const emiteRClub = (persona) => ({ autor: persona, sobre: alta.id, t: T0, payload: 'reputación del club ' + (++n),
+    movimientos: [gasta(persona), emiteR(persona, 10), colateral(persona, 1), colateral(persona, 1, 'club'), emiteR('club', 3)] });
+  const sinP = (quien) => new RegExp('emitir a nombre del grupo club exige P exacto sobre su alta \\([0-9a-f]{8}\\): ' + quien + ' no tiene P:[0-9a-f]+ \\(el P exacto sobre el alta del grupo');
+
+  // 1. El P heredado del génesis no basta: bea lo tiene (cubre el alta del club, y todo el eje) y no emite a nombre del club.
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'P del eje a bea', movimientos: [gasta('raiz'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'raiz', a: 'bea' }] });
+  assert.equal(eje.poderSobre('bea', alta.id), 1);
+  await assert.rejects(eje.escribir(emiteRClub('bea')), sinP('bea'));
+  // Ni E a nombre del club.
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('bea', 2), colateral('bea', 1), emiteE('club', 'vale', 1)] }), sinP('bea'));
+
+  // 2. P exacto, pero bloqueado para otra cosa: tampoco.
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'P exacto a bea', movimientos: [gasta('raiz'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'raiz', a: 'bea' }] });
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'lo comprometo en otra cosa', movimientos: [gasta('bea'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'bloqueo', salida: 'otra-cosa' }] });
+  assert.deepEqual([eje.saldo('bea', kAlta), eje.bloqueado('bea', kAlta, 'otra-cosa')], [0, 1]);
+  await assert.rejects(eje.escribir(emiteRClub('bea')), sinP('bea'));
+
+  // 3. Un alta que dio de alta a dos grupos no habilita a emitir a nombre de ninguno, ni con P exacto sobre ella.
+  const altaDoble = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'dos grupos', contexto: { tipos: { norte: 'grupo', sur: 'grupo' } }, movimientos: [gasta('raiz'), cedeT('raiz', 'norte', 5), cedeT('raiz', 'sur', 5)] });
+  await eje.escribir({ autor: 'raiz', sobre: altaDoble.id, t: T0, payload: 'P exacto a ana', movimientos: [gasta('raiz'), { token: 'P', ambito: altaDoble.id, cantidad: 1, de: 'raiz', a: 'ana' }] });
+  assert.equal(eje.saldo('ana', 'P:' + altaDoble.id), 1);
+  for (const grupo of ['norte', 'sur']) {
+    await assert.rejects(eje.escribir({ autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1), colateral('ana', 1, grupo), emiteR(grupo, 3)] }),
+      new RegExp('emitir a nombre del grupo ' + grupo + ' exige P exacto sobre su alta \\([0-9a-f]{8}\\): su alta \\([0-9a-f]{8}\\) dio de alta a varios grupos \\(norte, sur\\): el P sobre ella no habilita a ninguno; cada grupo, su propio alta'));
+  }
+
+  // 4. Lo positivo: P exacto sobre el alta propia del club, disponible.
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'P exacto a ana', movimientos: [gasta('raiz'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'raiz', a: 'ana' }] });
+  await eje.escribir(emiteRClub('ana'));
+  assert.deepEqual(eje.serie('R:club'), { emisor: 'club', emitido: 3 });
+
+  // Las capas de validez dicen lo mismo que el eje.
+  const vGenesis = await validez(eje, { ...emiteRClub('bea'), en: '0000000000', id: 'g' });
+  assert.equal(vGenesis.permiso.estado, 'falla');
+  assert.match(vGenesis.permiso.motivos.join(' '), /emitir a nombre del grupo club exige P exacto sobre su alta/);
+  const vDoble = await validez(eje, { autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1), colateral('ana', 1, 'norte'), emiteR('norte', 3)], en: '0000000000', id: 'd' });
+  assert.equal(vDoble.permiso.estado, 'falla');
+  assert.match(vDoble.permiso.motivos.join(' '), /dio de alta a varios grupos \(norte, sur\)/);
 });
 
 // ---------- 2 · T: cada persona, con el tope del reloj ----------

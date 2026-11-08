@@ -240,11 +240,11 @@ test('emitir es solo de personas (VG, 7-11 noche); los grupos y las cosas recibe
     movimientos: [gastaT('habitacion-2'), emite('habitacion-2', 'plaza@2026-11-13', 1)] }), /solo las personas emiten: habitacion-2 es cosa/);
   await assert.rejects(eje.escribir({ autor: 'habitacion-2', sobre: plazas.id, t: T0, payload: 'x',
     movimientos: [gastaT('habitacion-2'), { token: 'R', cantidad: 1, emisor: 'habitacion-2', de: null, a: 'habitacion-2' }] }), /solo las personas emiten: habitacion-2 es cosa/);
-  // VG, 7-11 noche: un grupo tampoco emite por sí mismo (antes sí); lo que emite a su nombre lo emite una persona con P sobre su registro.
+  // VG, 7-11 noche: un grupo tampoco emite por sí mismo (antes sí); lo que emite a su nombre lo emite una persona con P exacto sobre su alta.
   await assert.rejects(eje.escribir({ autor: 'club', sobre: plazas.id, t: T0, payload: 'x',
     movimientos: [gastaT('club'), { token: 'R', cantidad: 1, emisor: 'club', de: null, a: 'club' }] }), /solo las personas emiten: club es grupo/);
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: plazas.id, t: T0, payload: 'x',
-    movimientos: [gastaT('casa'), { token: 'R', cantidad: 1, emisor: 'club', de: null, a: 'club' }] }), /emitir a nombre del grupo club exige P sobre su registro/);
+    movimientos: [gastaT('casa'), { token: 'R', cantidad: 1, emisor: 'club', de: null, a: 'club' }] }), /emitir a nombre del grupo club exige P exacto sobre su alta/);
   // Quien no declaró tipo en su alta tampoco emite (raiz nació en un génesis sin tipo).
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: plazas.id, t: T0, payload: 'x',
     movimientos: [gastaT('raiz'), emite('raiz', 'EUR', 1)] }), /solo las personas emiten: raiz no declaró tipo en su alta/);
