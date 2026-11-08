@@ -94,6 +94,44 @@ export function registroDeFamilia(familia, altaDe) {
 }
 
 /**
+ * ¿Es el registro `r`, dentro del dominio de `raiz` (un registro sobre el
+ * génesis), de la cadena de autoridad del dueño, de modo que su P propio pueda
+ * mandar como registro del recurso (recursoDe)? Revisión de seguridad (VG,
+ * 8-11), **[X] confirmar VG** el detalle:
+ *
+ *   · la raíz misma, o un registro que escribió el autor de la raíz;
+ *   · uno que escribió quien tiene P sobre la raíz (P:<raíz>, disponible más
+ *     bloqueado) que ALCANZA EL UMBRAL de la raíz: el mismo con que el dueño
+ *     autoriza (umbralDe; por defecto, más de la mitad de lo emitido de
+ *     P:<raíz>). Antes bastaba P > 0, y una millonésima de P delegada servía
+ *     para fabricar un subdominio que se autoriza solo;
+ *   · uno establecido por una consolidación sobre la raíz que quedó
+ *     AUTORIZADA (o ya EJECUTADA): el registro lo dice con
+ *     `contexto.subdominio` = el id de esa consolidación, la escribe su mismo
+ *     autor, la consolidación va sobre la raíz (su foco es la raíz) y su
+ *     registro del recurso es la raíz. Así el dominio decide, con su umbral,
+ *     quién gobierna aparte un trozo suyo.
+ *
+ * Lo mira con el lector de ese momento (el eje de ahora, el de justo antes de
+ * un evento o el libro de justo antes de un registro).
+ */
+export function subregistroDelDueno(lector, r, raiz) {
+  if (!r || !raiz) return false;
+  if (r.id === raiz.id || r.autor === raiz.autor) return true;
+  const kRaiz = 'P:' + raiz.id;
+  const emitidoRaiz = lector.emitido(kRaiz);
+  if (typeof lector.poder === 'function' && alcanzaUmbral(lector.poder(r.autor, kRaiz), emitidoRaiz, umbralDe(lector, raiz.id))) return true;
+  const cId = r.contexto?.subdominio;
+  if (typeof cId !== 'string' || cId === r.id) return false;
+  const c = lector.obtener(cId);
+  if (!esConsolidacion(c) || c.autor !== r.autor || c.sobre !== raiz.id) return false;
+  // La consolidación va sobre la raíz: su hilo es solo la raíz, así que recursoDe no vuelve a pasar por aquí.
+  if (recursoDe(lector, c) !== raiz.id) return false;
+  const estado = estadoPorPeso(lector, c.id);
+  return estado === 'AUTORIZADO' || estado === 'EJECUTADO';
+}
+
+/**
  * X, el REGISTRO DEL RECURSO de una consolidación (VG, 8-11): el registro MÁS
  * CERCANO del hilo de su foco (el foco incluido) que tenga P propio emitido
  * (la serie P:X, que solo emite el autor de X, R3). Manda el más concreto con
@@ -107,12 +145,11 @@ export function registroDeFamilia(familia, altaDe) {
  * quien escribe un registro puede acuñar P sobre él (R3), así que sin más el
  * proponente escribiría un subregistro en el dominio de la casa, acuñaría P
  * sobre él y se autorizaría solo o con un títere. Por eso un registro por
- * debajo de la raíz del dominio solo cuenta como X si lo escribió el autor de
- * la raíz o alguien que tiene P delegado desde la raíz (P:<raíz>, disponible
- * o bloqueado): la cadena de autoridad del dueño. Si no (lo escribió el
- * proponente u otro ajeno), se salta y se sigue subiendo. La raíz cuenta
- * siempre que tenga P propio emitido. Ampliar la serie P:Y de un subregistro
- * ajeno exige así la autorización del dominio que lo envuelve.
+ * debajo de la raíz del dominio solo cuenta como X si es de la cadena de
+ * autoridad del dueño (subregistroDelDueno). Si no (lo escribió el proponente
+ * u otro ajeno), se salta y se sigue subiendo. La raíz cuenta siempre que
+ * tenga P propio emitido. Ampliar la serie P:Y de un subregistro ajeno exige
+ * así la autorización del dominio que lo envuelve.
  */
 export function recursoDe(lector, consolidacion) {
   const g = lector.genesisId;
@@ -129,8 +166,7 @@ export function recursoDe(lector, consolidacion) {
   }
   if (!hilo.length) return g;
   const raiz = hilo[hilo.length - 1];
-  const delDueno = (r) => r === raiz || r.autor === raiz.autor || (typeof lector.poder === 'function' && lector.poder(r.autor, 'P:' + raiz.id) > 0);
-  for (const r of hilo) if (lector.emitido('P:' + r.id) > 0 && delDueno(r)) return r.id;
+  for (const r of hilo) if (lector.emitido('P:' + r.id) > 0 && subregistroDelDueno(lector, r, raiz)) return r.id;
   return g;
 }
 

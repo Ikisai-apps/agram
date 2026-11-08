@@ -525,8 +525,8 @@ export class Eje {
         poner(m.a, k, ver(m.a, k) + c);
         continue;
       }
-      // Lo de un grupo lo mueve una persona con P sobre él, por su cuenta (porCuentaDeGrupo, [X] confirmar VG).
-      if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, this.#contextoCiclo(ev))) { errores.push(motivoAjenos(ev, m.de)); continue; }
+      // Lo de un grupo lo mueve una persona con P exacto sobre su alta, por su cuenta (porCuentaDeGrupo, [X] confirmar VG).
+      if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, this.#contextoCiclo(ev))) { errores.push(motivoAjenos(ev, m.de, this.#contextoCiclo(ev))); continue; }
       if (m.estado === 'bloqueo') {
         // Bloquear: del disponible al bloqueado del mismo titular, con su salida; de la clave exacta, también en P.
         if (ver(m.de, k) < c) { errores.push('saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de); continue; }
@@ -594,8 +594,8 @@ export class Eje {
       ampliada: (id) => this.#ampliadas.has(id),
       // R6: la R propia en juego es R:<autor> bloqueada como colateral (src/lente.js, rPropiaEnJuego).
       bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
-      // Lo bloqueado de una serie, de todas sus salidas (porCuentaDeGrupo: el P bloqueado también cuenta).
-      bloqueadoTotal: (id, k) => this.bloqueado(id, k),
+      // Lo bloqueado de una serie, por salida (porCuentaDeGrupo: cuenta el P bloqueado hacia el grupo, no el de otra salida).
+      bloqueosPor: (id, k) => [...(this.bloqueados.get(id)?.get(k) ?? new Map())],
     };
   }
 

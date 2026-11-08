@@ -115,11 +115,12 @@ test('T no cruza de persona: a otra persona o a un grupo se rechaza; a una cosa,
 
 // ---------- acuñar al gastar: azúcar, solo personas, dentro del tope ----------
 
-test('por cuenta de un grupo: una persona con P sobre su alta mueve, bloquea y libera lo del grupo; sin P o sin decirlo, no (Core, 8-11, [X] confirmar VG)', async () => {
+test('por cuenta de un grupo: una persona con P exacto sobre su alta mueve, bloquea y libera lo del grupo; sin P o sin decirlo, no (Core, 8-11, [X] confirmar VG)', async () => {
   const { eje, alta } = await mundo();
   const k = 'E:g/minuto';
-  // g le da a ana P sobre todo (ámbito génesis, que cubre el alta del club); bea no tiene P.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P a ana', movimientos: [gasta('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'ana' }] });
+  // g, que escribió el alta, le da a ana P exactamente sobre ella (P:<alta>, estrechado desde su P del eje); bea no tiene P.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P a ana', movimientos: [gasta('g'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'g', a: 'ana' }] });
+  assert.equal(eje.saldo('ana', 'P:' + alta.id), 1);
   const porClub = { porCuenta: 'club' };
   // Positivo: ana mueve E del club a bea, con su firma y su T.
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'el club paga a bea', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 3)] });
@@ -132,7 +133,7 @@ test('por cuenta de un grupo: una persona con P sobre su alta mueve, bloquea y l
   assert.equal(eje.saldo('club', k), 7);
   // Negativos: bea no tiene P sobre el alta del club; ana sin decir porCuenta; porCuenta de una cosa no vale.
   const deBea = { autor: 'bea', sobre: alta.id, t: T0, payload: 'x', contexto: porClub, movimientos: [gasta('bea'), cedeE('club', 'bea', 1)] };
-  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: club no es el autor \(por cuenta del grupo club mueve una persona con P sobre su alta\)/);
+  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: club no es el autor \(por cuenta del grupo club mueve una persona con P exacto sobre su alta: bea no tiene P:[0-9a-f]+/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), cedeE('club', 'ana', 1)] }), /nadie mueve tokens ajenos: club no es el autor$/);
   await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', contexto: { porCuenta: 'robot' }, movimientos: [gasta('g'), daT('robot', 'robot', 1)] }), /nadie mueve tokens ajenos: robot no es el autor/);
   assert.equal(eje.saldo('club', k), 7);
@@ -142,6 +143,65 @@ test('por cuenta de un grupo: una persona con P sobre su alta mueve, bloquea y l
   assert.match(vNo.permiso.motivos.join(' '), /nadie mueve tokens ajenos: club no es el autor/);
   const vSi = await validez(eje, { autor: 'ana', sobre: alta.id, t: T0, payload: 'y', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 1)], en: '0000000000', id: 'y' });
   assert.equal(vSi.permiso.libro.estado, 'ok');
+});
+
+test('SEG-06 (revisión de seguridad de main, 8-11) por cuenta de un grupo: solo el P exacto sobre su alta, disponible o bloqueado hacia él; el alta de varios grupos no habilita a ninguno', async () => {
+  const { eje, alta } = await mundo();
+  const porClub = { porCuenta: 'club' };
+  const kAlta = 'P:' + alta.id;
+  const mueveClub = (autor, payload) => ({ autor, sobre: alta.id, t: T0, payload, contexto: porClub, movimientos: [gasta(autor), cedeE('club', 'bea', 1)] });
+  const daP = (a, ambito, cantidad = 1) => ({ token: 'P', ambito, cantidad, de: 'g', a });
+  const sinP = (quien) => new RegExp('nadie mueve tokens ajenos: club no es el autor \\(por cuenta del grupo club mueve una persona con P exacto sobre su alta: ' + quien + ' no tiene P:[0-9a-f]+');
+
+  // 1. El P heredado del génesis no basta: cubre el alta del club, pero también todo el eje.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P del eje a ana', movimientos: [gasta('g'), daP('ana', 'genesis')] });
+  assert.equal(eje.poderSobre('ana', alta.id), 1);
+  await assert.rejects(eje.escribir(mueveClub('ana', 'el club paga')), sinP('ana'));
+  // Ni el heredado de un ancestro que no es el génesis: el coro tiene su alta debajo de un dominio de g, y bea tiene
+  // P sobre el dominio (que cubre el alta del coro), no sobre el alta.
+  const dominio = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'dominio', movimientos: [gasta('g')] });
+  const altaCoro = await eje.escribir({ autor: 'g', sobre: dominio.id, t: AYER, payload: 'alta del coro', contexto: { tipos: { coro: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'coro', 5)] });
+  await eje.escribir({ autor: 'g', sobre: dominio.id, t: AYER, payload: 'P del dominio a bea', movimientos: [gasta('g'), daP('bea', dominio.id)] });
+  assert.equal(eje.poderSobre('bea', altaCoro.id), 1);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: altaCoro.id, t: T0, payload: 'x', contexto: { porCuenta: 'coro' }, movimientos: [gasta('bea'), cedeE('coro', 'bea', 1)] }),
+    /nadie mueve tokens ajenos: coro no es el autor \(por cuenta del grupo coro mueve una persona con P exacto sobre su alta: bea no tiene P:[0-9a-f]+/);
+
+  // 2. P exacto, pero bloqueado para otra cosa (otra salida): no cuenta.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P exacto a bea', movimientos: [gasta('g'), daP('bea', alta.id)] });
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'lo comprometo en otra cosa', movimientos: [gasta('bea'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'bloqueo', salida: 'otra-cosa' }] });
+  assert.deepEqual([eje.saldo('bea', kAlta), eje.bloqueado('bea', kAlta, 'otra-cosa')], [0, 1]);
+  await assert.rejects(eje.escribir(mueveClub('bea', 'x')), sinP('bea'));
+  // Liberado y bloqueado hacia el grupo (salida = una serie que emite el grupo, o el propio grupo), sí cuenta.
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'lo suelto y lo comprometo con el club', movimientos: [gasta('bea'),
+    { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'liberacion', salida: 'otra-cosa' },
+    { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'bloqueo', salida: 'R:club' }] });
+  assert.deepEqual([eje.saldo('bea', kAlta), eje.bloqueado('bea', kAlta, 'R:club')], [0, 1]);
+  await eje.escribir(mueveClub('bea', 'el club paga, con el P de bea comprometido con él'));
+
+  // 3. Un alta que dio de alta a dos grupos no habilita a mover lo de ninguno, ni con P exacto sobre ella.
+  const altaDoble = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'dos grupos', contexto: { tipos: { norte: 'grupo', sur: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'norte', 5), cedeE('g', 'sur', 5)] });
+  await eje.escribir({ autor: 'g', sobre: altaDoble.id, t: AYER, payload: 'P exacto a ana', movimientos: [gasta('g'), daP('ana', altaDoble.id)] });
+  assert.equal(eje.saldo('ana', 'P:' + altaDoble.id), 1);
+  for (const grupo of ['norte', 'sur']) {
+    await assert.rejects(eje.escribir({ autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', contexto: { porCuenta: grupo }, movimientos: [gasta('ana'), cedeE(grupo, 'ana', 1)] }),
+      new RegExp('nadie mueve tokens ajenos: ' + grupo + ' no es el autor \\(por cuenta del grupo ' + grupo + ' mueve una persona con P exacto sobre su alta: su alta \\([0-9a-f]{8}\\) dio de alta a varios grupos \\(norte, sur\\): el P sobre ella no habilita a ninguno; cada grupo, su propio alta\\)'));
+  }
+
+  // 4. Lo positivo: el alta propia del grupo y P:<alta> exacto y disponible.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P exacto a ana', movimientos: [gasta('g'), daP('ana', alta.id)] });
+  const antes = eje.saldo('club', 'E:g/minuto');
+  await eje.escribir(mueveClub('ana', 'el club paga, por ana'));
+  assert.equal(eje.saldo('club', 'E:g/minuto'), antes - 1);
+
+  // Las capas de validez dicen lo mismo que el eje (con el libro de ahora: ana con P:<alta>, el doble no habilita).
+  const vSi = await validez(eje, { ...mueveClub('ana', 'otra vez'), en: '0000000000', id: 'si' });
+  assert.equal(vSi.permiso.libro.estado, 'ok');
+  const vDoble = await validez(eje, { autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', contexto: { porCuenta: 'norte' }, movimientos: [gasta('ana'), cedeE('norte', 'ana', 1)], en: '0000000000', id: 'doble' });
+  assert.equal(vDoble.permiso.estado, 'falla');
+  assert.match(vDoble.permiso.motivos.join(' '), /dio de alta a varios grupos \(norte, sur\)/);
+  const vCoro = await validez(eje, { autor: 'bea', sobre: altaCoro.id, t: T0, payload: 'x', contexto: { porCuenta: 'coro' }, movimientos: [gasta('bea'), cedeE('coro', 'bea', 1)], en: '0000000000', id: 'coro' });
+  assert.equal(vCoro.permiso.estado, 'falla');
+  assert.match(vCoro.permiso.motivos.join(' '), /bea no tiene P:[0-9a-f]+ \(el P exacto sobre el alta del grupo/);
 });
 
 test('acuñar al gastar: solo una persona, y lo acuñado cuenta contra el tope del reloj (Core, 8-11)', async () => {
