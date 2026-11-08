@@ -19,7 +19,7 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, EMITEN, ESCALAS_INFORMATIVAS, SEGUNDOS, asignacionT, claveToken, partirClave, validarMovimiento } from './tokens.js';
+import { AMBITO_GENESIS, EMITEN, ESCALAS_INFORMATIVAS, SEGUNDOS, TIPOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
@@ -33,110 +33,26 @@ export const ADELANTO_MAXIMO_MS = SEGUNDOS.anio * 1000;
 
 const corto = (x) => String(x).slice(0, 8);
 
-/**
- * ¿Se emite E o R a nombre de `emisor` porque es un grupo? Lo que «emite el
- * grupo» lo emite y lo firma una persona con P sobre su registro (lo comprueba
- * reglasDelCiclo). Es uno de los dos sitios donde se lee el tipo, y los dos
- * solo deciden quién firma emisiones (R10: el tipo no da renta; el otro es
- * EMITEN). Lo usan el eje y las capas de validez (src/validez.js).
- */
-export function aNombreDeGrupo(ctx, emisor) {
-  return ctx.tipo(emisor) === 'grupo';
-}
+/** Los tipos que admitía la versión 2 (con grupo). Solo para eventos guardados con ella. */
+export const TIPOS_V2 = Object.freeze(['persona', 'grupo', 'cosa']);
 
 /**
- * ¿Mueve este evento lo de un grupo por su cuenta? Regla de Core (8-11), **[X]
- * confirmar VG**, con la cita de VG: «lo que hace un grupo lo hace una persona
- * con P sobre él, con su firma». Un grupo no recibe T ni escribe: «nadie mueve
- * tokens ajenos» admite que `de` sea un GRUPO si el evento lo dice
- * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P sobre el
- * registro de alta del grupo. El evento sigue siendo de la persona: su firma y
- * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre
- * sigue la misma regla (motivoPoderDeGrupo). Lo usan el eje y las capas de validez.
- *
- * Revisión de seguridad (VG, 8-11; **[X] confirmar VG** el detalle):
- *   · cuenta solo el P EXACTO sobre el alta del grupo (la clave
- *     `P:<id del alta>`): ni el heredado de un ancestro ni el del génesis, que
- *     cubren mucho más que el grupo;
- *   · disponible, o bloqueado hacia ese mismo grupo (con salida = el grupo, su
- *     alta o una serie de E o R que emite el grupo: grupoDeSalida); el P
- *     bloqueado con otra salida está comprometido en otra cosa y no cuenta;
- *   · el alta solo habilita a su grupo: si el evento de alta dio de alta a
- *     varios grupos, el P sobre él no habilita a mover lo de ninguno (cada
- *     grupo, su propio alta: gruposDeAlta).
- * ctx: tipo(id), alta(id), registro(id), saldo(id, k), bloqueosPor(id, k) → [[salida, cantidad]].
+ * Por qué no vale declarar `tipo` para `id` en un alta (null si vale). No hay
+ * identidades de grupo (VG, 8-11; **[X] confirmar VG**): «lo único que tenemos
+ * de grupo es la delegación: yo te delego T, P, R, E para que tú lo uses; es
+ * la persona la que hace el registro». Un grupo es un registro: su autor
+ * emite P sobre él y lo delega. Los eventos de la versión 2 conservan su tipo
+ * grupo (TIPOS_V2).
  */
-export function porCuentaDeGrupo(ev, de, ctx) {
-  return motivoPorCuenta(ev, de, ctx) === null;
+export function motivoTipo(id, tipo, reglas) {
+  if ((reglas === 2 ? TIPOS_V2 : TIPOS).includes(tipo)) return null;
+  if (tipo === 'grupo') return 'tipo inválido para ' + id + ': no hay identidades de grupo: un grupo es un registro; su autor emite P sobre él y lo delega (VG, 8-11)';
+  return 'tipo inválido para ' + id + ': ' + tipo;
 }
 
-/**
- * Por qué `ev` NO mueve lo del grupo `de` por su cuenta (null si sí): las
- * reglas de porCuentaDeGrupo, con el motivo que se enseña.
- */
-export function motivoPorCuenta(ev, de, ctx) {
-  if (!ev || ev.contexto?.porCuenta !== de) return 'el evento no dice contexto.porCuenta';
-  if (ctx.tipo(de) !== 'grupo') return de + ' no es un grupo';
-  if (ctx.tipo(ev.autor) !== 'persona') return ev.autor + ' no es una persona';
-  return motivoPoderDeGrupo(ev.autor, de, ctx);
-}
-
-/**
- * LA regla del poder sobre un grupo (VG, 8-11; **[X] confirmar VG** el
- * detalle), la misma para mover lo del grupo por su cuenta
- * (porCuentaDeGrupo) y para emitir E o R a su nombre (reglasDelCiclo): por
- * qué `persona` NO actúa por el grupo `grupo` (null si sí). Cuenta solo el
- * P EXACTO sobre el alta del grupo (`P:<id del alta>`), disponible o
- * bloqueado hacia ese mismo grupo (grupoDeSalida); ni el heredado de un
- * ancestro o del génesis ni el bloqueado con otra salida. Y el alta solo
- * habilita a su grupo: si dio de alta a varios grupos (gruposDeAlta), a
- * ninguno. Se lee con el contexto de antes del evento: el P que llega en el
- * mismo evento no cuenta todavía.
- */
-export function motivoPoderDeGrupo(persona, grupo, ctx) {
-  const alta = ctx.alta(grupo)?.id;
-  if (!alta) return grupo + ' no tiene alta';
-  const grupos = gruposDeAlta(ctx, alta);
-  if (grupos.length > 1) return 'su alta (' + corto(alta) + ') dio de alta a varios grupos (' + grupos.join(', ') + '): el P sobre ella no habilita a ninguno; cada grupo, su propio alta';
-  const k = 'P:' + alta;
-  const disponible = Math.max(0, ctx.saldo(persona, k));
-  const haciaElGrupo = (ctx.bloqueosPor?.(persona, k) ?? [])
-    .filter(([salida]) => grupoDeSalida(salida, grupo, alta))
-    .reduce((s, [, c]) => s + Math.max(0, c), 0);
-  if (disponible + haciaElGrupo > 0) return null;
-  return persona + ' no tiene ' + k + ' (el P exacto sobre el alta del grupo, disponible o bloqueado hacia él; el heredado o el bloqueado para otra cosa no cuenta)';
-}
-
-/**
- * Los grupos que dio de alta el evento `altaId`: los que declaró grupo en
- * `contexto.tipos` y los grupos que recibieron en él sus primeros tokens.
- */
-export function gruposDeAlta(ctx, altaId) {
-  const ev = ctx.registro?.(altaId);
-  if (!ev) return [];
-  const candidatos = new Set([
-    ...Object.keys(ev.contexto?.tipos ?? {}),
-    ...(Array.isArray(ev.movimientos) ? ev.movimientos : []).map((m) => m?.a).filter((a) => typeof a === 'string'),
-  ]);
-  return [...candidatos].filter((id) => (ev.contexto?.tipos?.[id] ?? ctx.tipo(id)) === 'grupo' && (ev.contexto?.tipos?.[id] === 'grupo' || ctx.alta(id)?.id === altaId));
-}
-
-/** ¿Va un bloqueo con esta salida hacia el grupo? Salida = el grupo, su alta, o una serie de E o R que emite el grupo. */
-export function grupoDeSalida(salida, grupo, alta) {
-  if (typeof salida !== 'string') return false;
-  if (salida === grupo || salida === alta) return true;
-  if (!/^[ER]:/.test(salida)) return false;
-  return partirClave(salida).emisor === grupo;
-}
-
-/**
- * El motivo de rechazo cuando alguien mueve lo de otro, con la pista de
- * porCuenta si la pide para un grupo (y, con `ctx`, por qué no vale).
- */
-export function motivoAjenos(ev, de, ctx) {
-  if (ev?.contexto?.porCuenta !== de) return 'nadie mueve tokens ajenos: ' + de + ' no es el autor';
-  const por = ctx ? motivoPorCuenta(ev, de, ctx) : null;
-  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor (por cuenta del grupo ' + de + ' mueve una persona con P exacto sobre su alta' + (por ? ': ' + por : '') + ')';
+/** El motivo de rechazo cuando alguien mueve lo de otro: nadie mueve tokens ajenos (ni por cuenta de nadie). */
+export function motivoAjenos(de) {
+  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor';
 }
 
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
@@ -191,7 +107,7 @@ export function repartirGastoT(queda, cantidad) {
  * erroresGenesis).
  *
  * ctx, todo de antes del evento:
- *   tipo(id)                 'persona' | 'grupo' | 'cosa' | null
+ *   tipo(id)                 'persona' | 'cosa' | null ('grupo' solo en el prefijo de la versión 2)
  *   alta(id)                 { id, t } del evento que la dio de alta, o null (acotada si es del prefijo v2)
  *   tMaximo()                el mayor t aceptado en el eje, en milisegundos UTC
  *   gastadoT(id, e, periodo) T de la asignación de esa persona gastado en esa escala ese día (tokens.asignacionT)
@@ -258,15 +174,10 @@ export function reglasDelCiclo(ev, ctx) {
       continue;
     }
     if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
-      // A nombre de un grupo: lo emite una persona con P EXACTO sobre el registro del grupo (su alta), con la misma
-      // regla que mover lo del grupo por su cuenta (motivoPoderDeGrupo; VG, 8-11, [X] confirmar VG).
-      if (!aNombreDeGrupo(ctx, m.emisor)) { falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor'); continue; }
-      const sinPoder = motivoPoderDeGrupo(autor, m.emisor, ctx);
-      if (sinPoder) {
-        const registro = ctx.alta(m.emisor)?.id;
-        falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P exacto sobre su alta' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + sinPoder);
-        continue;
-      }
+      // Solo personas emiten, en su propio nombre (VG, 8-11: «en P y en R es la persona la que pone su R y su P,
+      // no maneja el del grupo; en E igual»). Lo que se hace por un grupo se hace con lo delegado.
+      falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor');
+      continue;
     }
     if (m.token === 'T') {
       // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, su asignación.
@@ -352,8 +263,8 @@ export function reglasDelCiclo(ev, ctx) {
   // (E:<persona>/hora). Lo único que vale (Core, 8-11) es que una PERSONA dé su
   // T a una COSA («T de segundo para automatismos y maquinaria»): la máquina
   // gasta el T de su dueño, y el tope sigue siendo el de la persona (y una cosa
-  // lo pasa a otra cosa: no cruza de persona). Un grupo
-  // no recibe T: lo que escribe un grupo lo escribe una persona con P sobre él.
+  // lo pasa a otra cosa: no cruza de persona). Delegar T (VG, 8-11: «yo te
+  // delego T, P, R, E para que tú lo uses») es esto: dar E en tiempo propio.
   for (const { m, i } of validos) {
     if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
     const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;

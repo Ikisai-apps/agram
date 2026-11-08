@@ -267,7 +267,7 @@ test('mover T de uno a sí mismo no paga la escritura', async () => {
  * por familia, porque delegar cambia de ámbito); toda emisión aceptada es de
  * una persona (VG, 7-11 noche; antes, también de un grupo), nace en su cartera
  * y va a su propia serie (E:<emisor>/<denominación>, R:<emisor>, y T para sí
- * misma); un grupo o una cosa no emite, pero recibe, conserva y mueve. Al
+ * misma); una cosa no emite, pero recibe, conserva y mueve. Al
  * final, restaurar reproduce el eje.
  */
 test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conservación y restauración', async () => {
@@ -277,8 +277,8 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
   const vistos = { emisionDeOtros: 0, cosaMueve: 0, cosaNoEmite: 0 };
   for (let s = 0; s < 12; s++) {
     const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 120 }, { token: 'T', escala: 'segundo', cantidad: 300 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 50 }, { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 50 }, { token: 'P', ambito: 'genesis', cantidad: 6 }, { token: 'R', emisor: 'r', cantidad: 5 }], foco: ['g', ['a', 'b']], t: T0 });
-    // Alta: b es persona, c es grupo y hab es una cosa (con cartera, sin emisión).
-    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => (a === 'hab' ? { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a } : { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } });
+    // Alta: b es persona, c y hab son cosas (con cartera, sin emisión; no hay identidades de grupo: VG, 8-11).
+    const alta = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), ...quienes.map((a) => (a === 'hab' ? { token: 'T', escala: 'minuto', cantidad: 5, de: 'r', a } : { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a })), { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 3, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'cosa', hab: 'cosa' } } });
     const consumido = new Map([['T:minuto', 1]]);
     const ids = [eje.genesisId, alta.id];
     for (let paso = 0; paso < 25; paso++) {

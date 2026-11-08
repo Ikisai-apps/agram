@@ -19,7 +19,7 @@
 //    posición 3 («con quién», POSICION_LENTE) de su registro de alta o de un
 //    registro «lente» suyo (uno que escribió él con `contexto.lente: true`).
 //    Su payload es una décupla de pares [emisor, peso], con el peso entre 0 y
-//    1: [["asociacion-norte", 1], ["asociacion-sur", 0.5]]. Hasta diez pares
+//    1: [["secretaria-norte", 1], ["secretaria-sur", 0.5]]. Hasta diez pares
 //    por evento; con más emisores, más eventos. La última declaración de cada
 //    emisor manda (peso 0 lo quita). Un par mal formado se ignora y se dice
 //    (`ignorados`); un evento de otro anclado ahí no cuenta.
@@ -37,8 +37,8 @@
 //    nadie: no es que otro responda por él.
 //
 // 3. Emitir R exige colateral (reglasDeR, que aplican eje.validar y las capas
-//    4 y 5 de validez). Para emitir R:Y (Y = el autor, o un grupo a cuyo
-//    nombre emite) el autor ha de tener R:<autor> BLOQUEADA con la salida =
+//    4 y 5 de validez). Para emitir R:Y (Y = el autor: nadie emite a nombre
+//    de otro, ni de un grupo; VG, 8-11) el autor ha de tener R:<autor> BLOQUEADA con la salida =
 //    'R:Y', al menos COLATERAL_R (una décima parte, [X] decidir VG) de lo
 //    emitido de R:Y tras el evento. En la primera emisión basta con bloquear
 //    parte de lo que se emite en el mismo evento. «R propia en juego» del

@@ -103,7 +103,7 @@ true true 0000000000 {}
 |---|---|---|
 | `genesis: true` | `Eje.genesis` | Marca el génesis. Solo puede haber uno por eje. |
 | `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor) y quien da de alta | Clave pública de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
-| `tipos: { identidad: 'persona' \| 'grupo' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
+| `tipos: { identidad: 'persona' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
 | `clasifica: { posicion, evento, camino, indice? }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito) y, si es un elemento de una lista, `indice` (su lugar en ella). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
@@ -167,9 +167,9 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 | Familia | Nombre | Campos de serie | Clave de saldo | Quién la emite |
 |---|---|---|---|---|
 | `T` | tiempo | `escala` | `'T:<escala>'` | nadie fuera del génesis: cada persona recibe cada día su asignación (VG, 8-11, §2.4); el génesis, T explícito |
-| `E` | recursos | `emisor`, `denominacion`, `registro` (opcional) | `'E:<emisor>/<denominacion>'` o `'E:<emisor>/<denominacion>@<registro>'` | una persona, a su nombre o al de un grupo sobre cuyo registro tiene P; la denominación va ligada al emisor como en R, y la serie al registro del recurso, con tope compartido (§2.4) |
+| `E` | recursos | `emisor`, `denominacion`, `registro` (opcional) | `'E:<emisor>/<denominacion>'` o `'E:<emisor>/<denominacion>@<registro>'` | una persona, a su nombre; la denominación va ligada al emisor como en R, y la serie al registro del recurso, con tope compartido (§2.4) |
 | `P` | poder / criterio | `ambito` | `'P:<ambito>'` | el génesis (`'P:genesis'`, todo el eje); una persona, solo sobre un registro que escribió ella; a los demás les llega por delegación (§2.5), y quien solo lo tiene lo transfiere pero no lo acuña |
-| `R` | reputación | `emisor` | `'R:<emisor>'` | una persona, a su nombre o al de un grupo sobre cuyo registro tiene P: la declara y solo ella la amplía (§2.4) |
+| `R` | reputación | `emisor` | `'R:<emisor>'` | una persona, a su nombre: la declara y solo ella la amplía (§2.4) |
 
 `ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio', 'pasado', 'futuro', 'inventado']`: diez tokens distintos, el tope `MAXIMO_ESCALAS_T = 10` (`tokens.js` no carga si se pasa). Las siete primeras son las reales (`ESCALAS_REALES`); las tres últimas (`ESCALAS_INFORMATIVAS`, VG, 8-11) registran tiempo pasado, futuro o inventado, son ilimitadas, no miden (`SEGUNDOS` las da `null`) ni tienen orden, y se enseñan aparte (§2.4). **Sin conversión entre escalas**: una hora no son sesenta minutos; `T:hora` y `T:minuto` son saldos distintos, como `E:casa/EUR` y `E:casa/BTC`. T va en **enteros**: cada escala es un token, y media hora serían minutos. `SEGUNDOS` (segundo 1, minuto 60, hora 3600, dia 86400, semana 7·86400, ciclo 28·86400, anio (13·28+1)·86400 = 365 días) es la duración de cada escala real para medir distancias de tiempo (las bandas de `src/tiempo.js`); no convierte saldos. Semana, ciclo y año van en **partes diarias** (`PARTES_T`: 7, 28 y 364): `cantidad: 1` en `semana` es 1/7 de semana, y una semana entera son 7; `textoT('semana', 3)` lo lee «3/7 semana».
 
@@ -207,7 +207,7 @@ Quién tiene T y quién emite P fuera del génesis está decidido (VG, 8-11: T c
 
 ```js
 SERIE                 // { T: ['escala'], E: ['emisor', 'denominacion'], P: ['ambito'], R: ['emisor'] }
-TIPOS, EMITEN         // ['persona', 'grupo', 'cosa'], ['persona']: quién puede emitir (VG, 7-11 noche)
+TIPOS, EMITEN         // ['persona', 'cosa'], ['persona']: quién puede emitir (VG, 7-11 noche; sin grupo, VG 8-11)
 ESTADOS               // ['bloqueo', 'liberacion']: movimientos que no cambian de titular
 asignacionT(t, escala), ASIGNACION_T, PARTES_T, diaCivil(t), textoT(escala, n)  // la asignación diaria de T (VG, 8-11, §2.4)
 validarMovimiento(m)  // → string[]  errores; [] si es válido
@@ -259,26 +259,26 @@ Todos los errores de `validarMovimiento` (en un evento salen como `evento mal fo
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor; la única excepción es un grupo: lo suyo lo mueve, bloquea o libera una persona con P exacto sobre su registro de alta, `P:<id del alta>`, disponible o bloqueado hacia el grupo, si el evento lo dice con `contexto.porCuenta = <grupo>`, con su firma y su T; ni el P heredado de un ancestro o del génesis ni el bloqueado para otra cosa cuentan, y el alta de varios grupos no habilita a ninguno; regla de Core, 8-11, y revisión de seguridad, VG, 8-11, [X] confirmar VG), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después solo emiten las personas, con las reglas de `src/ciclo.js` (§2.4): T no se emite (cada persona tiene su asignación diaria), P sobre un registro suyo o sobre el que ya tienen P, E y R a su nombre o al de un grupo sobre cuyo registro de alta tienen P exacto (la misma regla que por cuenta del grupo, `motivoPoderDeGrupo`; VG, 8-11, [X] confirmar VG), y todo escalonado. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor, sin excepciones: el «por cuenta de un grupo» se retiró, VG 8-11, «los grupos son solo delegación»), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después solo emiten las personas, con las reglas de `src/ciclo.js` (§2.4): T no se emite (cada persona tiene su asignación diaria), P sobre un registro suyo o sobre el que ya tienen P, E y R a su nombre, y todo escalonado. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
 
 ### 2.4 Emisión de series
 
-Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas** (VG, 7-11 noche: «todos son emitidos por una persona individualmente»): el tipo se declara en el alta (`contexto.tipos`, §7.1). Un **grupo** es un registro con P delegado: lo que se emite a su nombre (`emisor` = el grupo, en E y R) lo emite y lo firma una persona con P sobre el registro del grupo, que es su alta (`eje.alta(grupo)`); la serie nace en la cartera del grupo. Un grupo y una **cosa** (una habitación, una plaza) son titulares: reciben, conservan y mueven tokens y firman con su clave, pero no emiten. Quien no declaró tipo tampoco emite.
+Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas** (VG, 7-11 noche: «todos son emitidos por una persona individualmente»): el tipo se declara en el alta (`contexto.tipos`, §7.1). No hay identidades de grupo (VG, 8-11, [X] confirmar VG: «lo único que tenemos de grupo es la delegación: yo te delego T, P, R, E para que tú lo uses; es la persona la que hace el registro»): un grupo es un **registro**; su autor emite P sobre él y lo delega, y cada persona emite a su nombre. Una **cosa** (una habitación, una plaza) es titular: reciben, conservan y mueven tokens y firman con su clave, pero no emiten. Quien no declaró tipo tampoco emite.
 
 La emisión es escalonada («normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»): emitir R exige consumir T del autor en el mismo evento (bloquearlo, liberarlo o dárselo a sí mismo no cuenta, y T no se da a otra persona: VG, 7-11 noche) y su colateral (R6: R del autor bloqueada con la salida = la serie, la décima parte de lo emitido); P, además, R propia en juego (ese colateral de su propia serie, `R:<autor>`, bloqueado antes o en el mismo evento); E, además, P del autor sobre el registro `sobre` del evento (saldo, o P que mueve o recibe en el propio evento). Y el reloj no va hacia atrás (**[X] confirmar VG**): el `t` de cualquier evento que no sea el génesis no es anterior al de su `sobre` ni al del alta de su autor (el alta toma el `t` del evento que la hace), así que un alta no se retrofecha para ganar días de asignación. La tabla completa, con el ciclo de vida de cada familia, está en `docs/FUNDAMENTOS.md`.
 
 - **T** (VG, 8-11: «como en los videojuegos: llega a las 12 de la noche y te da todo el T del día siguiente, todos los segundos, todos los minutos, las horas, el día, el proporcional de la semana, de los 28 días y del año. Te lo gastas como quieras, no te puedes gastar más. Es suficiente para que no sea limitante»): nadie emite T fuera del génesis (`T no se emite: …`). Cada **persona** dada de alta tiene, por cada día civil de su propio reloj (el `t` de sus eventos, en UTC), su asignación entera (`ASIGNACION_T`): 86400 segundos, 1440 minutos, 24 horas, 1 día y una parte de semana, de ciclo y de año («tú diariamente tienes la posibilidad de poner uno partido de 7, 28 o 364 para que ese día decidas»). Lo no gastado **no se acumula** ([X] confirmar VG): al cambiar de día, la asignación es la nueva. Gastar (consumirlo o darlo a una cosa) sale primero de lo que queda del día y luego del T explícito, que solo da el génesis y es el único que se acumula; si no alcanza, `T del día agotado (<escala>): quedan <n>`. Una cosa gasta el T que le dio su persona; un grupo no tiene T. Las tres informativas (`pasado`, `futuro`, `inventado`) son ilimitadas («pondría uno, pero si lo gastas te vuelve a salir uno»): no se rechazan por saldo, solo quedan registradas, con su `refiere` y su `nota`, y no pagan la escritura. La serie es `T:<escala>`, sin emisor en la clave. `eje.saldoT(persona, escala, t)` dice lo que queda.
 - **P**: el génesis emite `P:genesis`; fuera de él, una persona acuña `P:<ámbito>` a sí misma solo si el ámbito es un registro existente que escribió ella. Quien solo tiene P (delegado) lo transfiere, estrechando el ámbito y conservando la cantidad, pero no lo acuña. `genesis` como ámbito solo lo emite el génesis; con el id del génesis lo amplía después su autor (**[X] confirmar VG**).
 - **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene. Y va **atada al registro del recurso** (VG, 7-11 noche; R2): el campo `registro` (el id de un evento del eje) entra en la clave tras la última `@` (`E:casa/cama@2026-11-13@<id>`; una denominación no puede acabar en `@<id>`), y sin él la serie queda atada al registro del emisor. El E vivo de un registro y sus descendientes, por franja (lo que va tras la última `@` de la denominación: la noche en `cama@2026-11-13`; texto opaco cuya granularidad elige el dueño; sin `@`, una sola franja), no pasa de la capacidad que declara cualquier registro de su hilo (un entero en la posición 2 del payload raíz); cada serie emite en proporción al P bloqueado con su clave, o la de su familia (franja `*`), como salida (P del registro que declara la capacidad, o `P:genesis` si nadie emitió ese P), y ese P no se libera mientras la serie viva. Fracciones solo con `divisible: true`; emisión conjunta con `emisores: [...]`. Detalle en `docs/FUNDAMENTOS.md` («E atada al recurso, con tope compartido»).
-- **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2): quien la recibe (persona, grupo o cosa) la conserva y no puede pasarla a un tercero, consumirla ni bloquearla; **solo puede devolvérsela a su emisor** (`de`: quien la tiene, `a`: el emisor), que es el acto de «pedir atención» (regla nueva, **[X] confirmar VG**: sale de la «reputación cedida a otros para requerir atención» de VG, 7-11 noche, pero antes quien la tenía no podía moverla). El emisor no la retira por su cuenta: el movimiento saldría de otra cartera y se rechaza ya en la forma (`R no es fungible: …`, la tabla de §2.2). Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. Emitirla exige colateral, el emisor **atiende** una devolución citándola (`contexto.atiende`) y, mientras no lo haga, su colateral no se libera; y la R no tiene un valor propio: vale ante quien la lee, con su lente firmada (R6, `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
+- **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2): quien la recibe (persona o cosa) la conserva y no puede pasarla a un tercero, consumirla ni bloquearla; **solo puede devolvérsela a su emisor** (`de`: quien la tiene, `a`: el emisor), que es el acto de «pedir atención» (regla nueva, **[X] confirmar VG**: sale de la «reputación cedida a otros para requerir atención» de VG, 7-11 noche, pero antes quien la tenía no podía moverla). El emisor no la retira por su cuenta: el movimiento saldría de otra cartera y se rechaza ya en la forma (`R no es fungible: …`, la tabla de §2.2). Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. Emitirla exige colateral, el emisor **atiende** una devolución citándola (`contexto.atiende`) y, mientras no lo haga, su colateral no se libera; y la R no tiene un valor propio: vale ante quien la lee, con su lente firmada (R6, `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
 
 Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o la dirección de la plaza, como hace Booking: `1100000000@<noche>`, con la habitación como registro de la serie), siempre sin `|`, `:` ni `/`. [X] decidir VG.
 
-La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento (o al grupo en cuyo nombre emite) y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
+La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
 
 ```js
-eje.tipo(identidad)          // → 'persona' | 'grupo' | 'cosa' | null (sin tipo declarado)
-eje.alta(identidad)          // → { id, t } del evento en que recibió tokens por primera vez (el registro de un grupo), o null
+eje.tipo(identidad)          // → 'persona' | 'cosa' | null (sin tipo declarado; 'grupo' solo en un eje de la versión 2)
+eje.alta(identidad)          // → { id, t } del evento en que recibió tokens por primera vez, o null
 eje.saldoT(id, escala, t)    // → T disponible el día de t: lo que queda de su asignación (si es persona) más su T explícito (VG, 8-11)
 eje.gastadoT(persona, escala, dia) // → lo gastado de su asignación ese día civil (tokens.asignacionT)
 eje.tiempoInformativo(id)    // → [{ escala, cantidad, autor, t, refiere, nota, id }]: el T pasado, futuro e inventado consumido sobre id, aparte
@@ -1066,7 +1066,7 @@ Lectura: la posición 1 de la compra tiene dos ocupantes por llegada: la décupl
 
 Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando ha recibido tokens**: la primera por el génesis, las demás porque un evento les mueve tokens (`a: 'cocina'`). No hay registro de identidades aparte de los saldos. Las identidades son personas, grupos de personas (la casa) o cosas (una habitación); quien da de alta lo declara.
 
-**Tipo.** Se declara en `contexto.tipos[identidad]` (`'persona'`, `'grupo'` o `'cosa'`) **del mismo evento en que esa identidad recibe tokens por primera vez**, igual que la clave (§7.2); el génesis declara el de su autor con `tipo`. Un tipo para una identidad que ya existe o que no recibe tokens en ese evento se rechaza, y no cambia. El tipo solo decide quién emite: solo las personas (VG, 7-11 noche); los grupos y las cosas son titulares (reciben, conservan y mueven tokens, firman con su clave) pero no emiten, y a nombre de un grupo emite una persona con P sobre su alta (§2.4). Quien no declaró tipo no emite fuera del génesis.
+**Tipo.** Se declara en `contexto.tipos[identidad]` (`'persona'` o `'cosa'`; `'grupo'` se rechaza: no hay identidades de grupo, VG 8-11) **del mismo evento en que esa identidad recibe tokens por primera vez**, igual que la clave (§7.2); el génesis declara el de su autor con `tipo`. Un tipo para una identidad que ya existe o que no recibe tokens en ese evento se rechaza, y no cambia. El tipo solo decide quién emite: solo las personas (VG, 7-11 noche); las cosas son titulares (reciben, conservan y mueven tokens, firman con su clave) pero no emiten, y nadie emite a nombre de otro (§2.4). Quien no declaró tipo no emite fuera del génesis.
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
@@ -1079,7 +1079,7 @@ eje.obligaciones(emisor)       // → su R en manos ajenas
 eje.saldoT(identidad, escala, t) // → T disponible el día de t (sin t, el de su último evento): lo que queda de la asignación de una persona más saldo(identidad, 'T:' + escala); sin conversión; lanza si la escala no existe
 eje.tiempos(identidad)         // → [{ escala, cantidad }] del T explícito, en el orden de ESCALAS_T, solo saldos > 0
 eje.recursos(identidad)        // → [{ emisor, denominacion, cantidad }]
-eje.tipo(identidad)            // → 'persona' | 'grupo' | 'cosa' | null
+eje.tipo(identidad)            // → 'persona' | 'cosa' | null
 eje.poderes(identidad)         // → [{ ambito, cantidad }] sus P con saldo > 0 (no hay P total)
 eje.poderSobre(identidad, id)  // → suma de sus P cuyo ámbito es 'genesis' o un registro del hilo de `id`
 eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
@@ -1163,7 +1163,7 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
   "contexto": {
     "genesis": true,
     "claves": { "casa": { "kty": "EC", "crv": "P-256", "x": "5-vP4RyU9PK1UGD3Zy6AkAg3Q-w3QunjJgiETVU0y84", "y": "Wt3mst49Jno-ckzR5uKCLRbmiwogElGJ1AYu6i6fjaw" } },
-    "tipos": { "casa": "grupo" }
+    "tipos": { "casa": "persona" }
   },
   "id": "a6f55e2a8efc77c1c0af196c633d4c27fa67d34c45bd6593ca245c706feb2472",
   "firmante": "casa",
@@ -1189,12 +1189,12 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 | `la clave de <id> llega sin prueba de posesión: …` / `prueba de posesión inválida para <id>: …` / `prueba de posesión de <id> sin clave declarada para él en este evento` | R9: la prueba de posesión del alta falta (fuera de la demostración), no la firma la clave declarada, o sobra |
 | `no se puede cambiar la clave de <id>` / `clave declarada para <id> sin darle tokens` / `clave inválida para <id>` | `contexto.claves` mal usado |
 | `no se puede cambiar el tipo de <id>` / `tipo declarado para <id> sin darle tokens` / `tipo inválido para <id>: <tipo>` | `contexto.tipos` mal usado |
-| `solo las personas emiten: <autor> es <grupo o cosa>` / `… no declaró tipo en su alta` | una emisión fuera del génesis por quien no es persona (VG, 7-11 noche) |
-| `nadie emite en nombre de otro: <emisor> no es el autor` | emisión de E o R cuyo `emisor` no es el autor ni un grupo |
-| `emitir a nombre del grupo <g> exige P exacto sobre su alta (<id8>): <por qué no>` («<autor> no tiene P:<alta> (…)» o «su alta (<id8>) dio de alta a varios grupos (…)») | emisión de E o R a nombre de un grupo sin P exacto sobre su alta, disponible o bloqueado hacia el grupo; el heredado de un ancestro o del génesis no cuenta, y el alta de varios grupos no habilita a ninguno (`motivoPoderDeGrupo`, la misma regla que por cuenta del grupo; VG, 8-11, [X] confirmar VG) |
+| `solo las personas emiten: <autor> es cosa` (o `grupo`, en un eje de la versión 2) / `… no declaró tipo en su alta` | una emisión fuera del génesis por quien no es persona (VG, 7-11 noche) |
+| `nadie emite en nombre de otro: <emisor> no es el autor` | emisión de E o R cuyo `emisor` no es el autor (tampoco a nombre de un grupo: VG, 8-11) |
+| `tipo inválido para <id>: no hay identidades de grupo: un grupo es un registro; su autor emite P sobre él y lo delega (VG, 8-11)` | un alta (o un génesis) que declara el tipo `grupo` |
 | `T no se emite: cada persona recibe cada día su asignación de T (VG, 8-11: asignación diaria)` | una emisión de T fuera del génesis |
 | `T del día agotado (<escala>): quedan <n>` | una persona gasta más T del que le queda del día más su T explícito (VG, 8-11) |
-| `T no cruza de persona: <a> no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:<autor>/<escala>); solo se da T a una cosa` | T a otra persona o a un grupo (VG, 7-11 noche) |
+| `T no cruza de persona: <a> no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:<autor>/<escala>); solo se da T a una cosa` | T a otra persona (VG, 7-11 noche) |
 | `la emisión de P va a quien la emite: <autor>` / `P sobre todo el eje («genesis») solo lo emite el génesis` / `P fuera del génesis va sobre un registro existente: ámbito desconocido <id8>` / `P sobre <id8> lo acuña solo quien escribió el registro (<autor>): <x> puede transferir el P que tenga, no acuñarlo` | emisión de P fuera del génesis |
 | `el t del evento (<t>) es anterior al de su foco <id8> (<t>)` / `el t del evento (<t>) es anterior al alta de <autor> (<t>)` / `el t del evento (<t>) va más de un año (anio) por delante del mayor t del eje (<t>)` | el reloj no va hacia atrás, ni más de un año hacia delante (**[X] confirmar VG**) |
 | `emitir <R, P o E> exige consumir T del autor en el mismo evento (de = <autor>, a = null; VG, 7-11 noche)` / `emitir <P o E> exige R propia en juego: R:<autor> bloqueada como colateral …` / `emitir E exige P del autor sobre el registro <id8> (saldo o movimiento de P en el mismo evento)` | el escalonado T → R → P → E |
@@ -1202,7 +1202,7 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 | `la serie <clave> caduca el <t>: una ampliación no cambia su caducidad` / `la serie <clave> no caduca: …` | una ampliación de E con otra caducidad |
 | `saldo disponible insuficiente para bloquear <clave> en <autor>` / `no hay <n> de <clave> bloqueado en <autor> con la salida «<salida>»` | bloquear más de lo disponible, o liberar lo que no está bloqueado con esa salida |
 | `la serie <clave> no admite tanto` | lo emitido de la serie dejaría de ser un número finito |
-| `nadie mueve tokens ajenos: <de> no es el autor` (con «(por cuenta del grupo <de> mueve una persona con P exacto sobre su alta: <por qué no>)» si el evento dice `contexto.porCuenta`: «<autor> no tiene P:<alta> (el P exacto sobre el alta del grupo, disponible o bloqueado hacia él; …)» o «su alta (<id>) dio de alta a varios grupos (<grupos>): el P sobre ella no habilita a ninguno; cada grupo, su propio alta») | un movimiento con `de !== autor`, salvo lo de un grupo movido por su cuenta por una persona con P exacto sobre su alta (`porCuentaDeGrupo`, `src/ciclo.js`; Core, 8-11; VG, 8-11; [X] confirmar VG) |
+| `nadie mueve tokens ajenos: <de> no es el autor` | un movimiento con `de !== autor`, sin excepciones (el «por cuenta de un grupo», `contexto.porCuenta`, se retiró: VG, 8-11) |
 | `saldo insuficiente de <clave> en <autor>` | la suma de lo movido por clave supera el saldo (sin conversión: `T:minuto` no se paga con `T:hora`) |
 | `ámbito desconocido: <id8>` | un movimiento de P cuyo `ambito` no es `'genesis'` ni un registro del eje |
 | `saldo insuficiente de P sobre el eje en <autor>` / `saldo insuficiente de P sobre <id8> en <autor>` | delegar P con un ámbito que el P del autor no cubre (más ancho, o de otra rama): §2.5 |
@@ -1251,7 +1251,7 @@ El génesis es el primer evento del eje. Se escribe **por convención, fuera del
 ```js
 Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, tipo, exigirFirmas = false, demostracion = false })  // → Promise<Eje>
 //   identidad: primera identidad; emision: [{ token, cantidad, escala | denominacion | ambito | emisor }] (se completa con de: null, a: identidad; en E y R, emisor: identidad)
-//   tipo: 'persona' | 'grupo' (contexto.tipos); sin tipo, su autor no emite fuera del génesis
+//   tipo: 'persona' (contexto.tipos); sin tipo, su autor no emite fuera del génesis; 'grupo' se rechaza (VG, 8-11)
 //   lanza si una serie de E o R del génesis lleva otro emisor, si el génesis declara el tipo de otra identidad o si su autor es una cosa
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
 //   sin clave no se actúa (R9): sin clave/privada lanza, salvo con demostracion: true (contexto.demostracion,
@@ -1292,8 +1292,8 @@ El génesis del eje de ejemplo:
     { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
   ],
   "payload": "Casa de ejemplo",
-  "contexto": { "genesis": true, "tipos": { "casa": "grupo" } },
-  "id": "2d970a485fe0e95c35bd2c5ec5eef1e5cb5584031949ae80c04d3330c610f84c"
+  "contexto": { "genesis": true, "tipos": { "casa": "persona" } },
+  "id": "49ee3fca3f1e794aeaba983213dd7622492658d56568724bc3957be212b66bd0"
 }
 ```
 
@@ -1387,7 +1387,7 @@ export const ESCALAS_REALES = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ci
 export const ESCALAS_INFORMATIVAS = ['pasado', 'futuro', 'inventado'];   // VG, 8-11: ilimitadas, con refiere y nota
 export const ESCALAS_T = [...ESCALAS_REALES, ...ESCALAS_INFORMATIVAS]; // diez
 export const MAXIMO_ESCALAS_T = 10;                       // tokens.js lanza al cargar si ESCALAS_T lo supera
-export const TIPOS = ['persona', 'grupo', 'cosa'];
+export const TIPOS = ['persona', 'cosa'];  // sin grupo (VG, 8-11): un grupo es un registro con P delegado
 export const EMITEN = ['persona'];                         // VG, 7-11 noche
 export const ESTADOS = ['bloqueo', 'liberacion'];
 export const ASIGNACION_T = { segundo: 86400, minuto: 1440, hora: 24, dia: 1, semana: 1, ciclo: 1, anio: 1 };  // VG, 8-11: cada día
@@ -1436,7 +1436,7 @@ export class Eje {
   gastadoT(identidad, escala, dia): number;
   tiempoInformativo(id): { escala, cantidad, autor, t, refiere, nota, id }[];
   clave(identidad): JWK | undefined;
-  tipo(identidad): 'persona' | 'grupo' | 'cosa' | null;
+  tipo(identidad): 'persona' | 'cosa' | null;  // 'grupo', solo en un eje de la versión 2
   async validar(ev): Promise<string[]>;
   async anadir(ev): Promise<Evento>;                       // lanza 'evento rechazado: …'
   async escribir(datos, privada?, posesion?): Promise<Evento>;  // crearEvento + (firmarPosesion por cada { identidad: privada }) + (firmar) + anadir
@@ -1449,11 +1449,8 @@ export function caducada(eje, clave, t): boolean;          // solo lee la caduci
 
 // src/ciclo.js
 export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // quién emite y el escalonado T → R → P → E; lo usan eje.validar y validez
-export function aNombreDeGrupo(ctx, emisor): boolean;  // ¿emisión a nombre de un grupo? Con EMITEN, el único uso del tipo (R10)
-export function porCuentaDeGrupo(ev, de, ctx): boolean;  // ¿mueve ev lo del grupo de por su cuenta? P exacto sobre su alta (P:<alta>), disponible o bloqueado hacia el grupo; el alta de varios grupos no habilita (VG, 8-11, [X])
-export function motivoPorCuenta(ev, de, ctx): string | null;  // por qué no (null si sí)
-export function motivoPoderDeGrupo(persona, grupo, ctx): string | null;  // LA regla del poder sobre un grupo, para mover por su cuenta y para emitir a su nombre
-export function gruposDeAlta(ctx, altaId): string[];     // los grupos que dio de alta ese evento
+export function motivoTipo(id, tipo, reglas): string | null;  // por qué no vale ese tipo en un alta (null si vale); 'grupo' se rechaza salvo en la versión 2 (TIPOS_V2)
+export function motivoAjenos(de): string;                  // «nadie mueve tokens ajenos: <de> no es el autor»
 
 // src/elegibles.js (R8: elegibilidad antes que límites)
 export function elegibles(eje, id): { dueno, todos, autores: Set | null, origen: 'lista' | 'defecto' };  // 2.3 si es una lista de nombres (con 'cualquiera', todos); si no, el autor y quien aparece en su 3; más lo que el dueño ancle ahí
@@ -1530,7 +1527,7 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | La regla de T por persona y reloj (PROVISIONAL, neutralidad ante agrupación y división) y las reglas del ciclo marcadas «[X] confirmar VG» (§2.4); qué hace verificable la salida de un bloqueo; escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
 | Retirar o rechazar reputación dada; nombre de la plaza en la denominación; el id del génesis como segundo nombre del ámbito `genesis` ([X] decidir VG) | §2.4, §2.5 |
 | Dónde van las noches de la reserva (dentro, y entonces qué llevan 5 y 6, o ancladas en el 7); dónde se ancla lo lejano, en el foco o en la décupla ([X] decidir VG) | §5 |
-| Cómo firma un grupo (hoy, una clave guardada por sus representantes; es de AARPIA) | §7.1 |
+| Un atajo de la lente por registro: `[registro, peso]` = «peso para quien tenga P sobre ese registro» (`docs/FUNDAMENTOS.md`, «Para decidir VG») | §2.4 |
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
 | Comprobación de `t` contra un reloj o contra el orden del eje | §1.1: solo `Date.parse` |

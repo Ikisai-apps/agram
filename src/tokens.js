@@ -5,16 +5,17 @@
 //
 //   familia: clave de serie              : quién la emite
 //   T  tiempo:      T:<escala>           : nadie lo emite: cada persona recibe su asignación diaria (VG, 8-11); el génesis, explícito; no cruza de persona (a una cosa, sí)
-//   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre o al de un grupo sobre el que tiene P; atada al registro del recurso
+//   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre; atada al registro del recurso
 //   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
-//   R  reputación:  R:<emisor>           : una persona, a su nombre o al de un grupo sobre el que tiene P
+//   R  reputación:  R:<emisor>           : una persona, a su nombre
 //
 // VG, 7-11 noche: «todos son emitidos por una persona individualmente.
 // Siempre es X persona respalda Y recurso concreto, poder de decisión sobre
 // algo, reputación cedida a otros para requerir atención, o tiempo usado por
 // alguien en algo». Emitir (iniciar una serie o ampliarla) es solo de
-// PERSONAS; un grupo es un registro con P delegado (lo que «emite el grupo» lo
-// emite una persona con P sobre él), y las COSAS reciben, conservan y mueven
+// PERSONAS, en su propio nombre; no hay identidades de grupo (VG, 8-11: «lo
+// único que tenemos de grupo es la delegación»): un grupo es un registro, su
+// autor emite P sobre él y lo delega, y las COSAS reciben, conservan y mueven
 // tokens como cualquiera. La emisión es escalonada (src/ciclo.js): «normalmente
 // será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E».
 // Todo evento mueve tokens; el evento mínimo CONSUME T del autor (cualquier escala), y el consumo se anota
@@ -149,14 +150,17 @@ export const ESCALAS_T = Object.freeze([...ESCALAS_REALES, ...ESCALAS_INFORMATIV
 export const MAXIMO_ESCALAS_T = 10;
 if (ESCALAS_T.length > MAXIMO_ESCALAS_T) throw new Error('T admite como mucho ' + MAXIMO_ESCALAS_T + ' escalas');
 
-/** Tipos de identidad que se declaran en el alta. Solo sirven para saber quién emite. */
-export const TIPOS = Object.freeze(['persona', 'grupo', 'cosa']);
+/**
+ * Tipos de identidad que se declaran en el alta. Solo sirven para saber quién
+ * emite. Sin grupo (VG, 8-11; [X] confirmar VG): un grupo es un registro con
+ * P delegado, no una identidad (src/ciclo.js, motivoTipo).
+ */
+export const TIPOS = Object.freeze(['persona', 'cosa']);
 
 /**
  * Quien puede emitir (iniciar o ampliar una serie): solo las personas (VG,
- * 7-11 noche: «todos son emitidos por una persona individualmente»). Lo que
- * se emite a nombre de un grupo lo emite y lo firma una persona con P sobre
- * el registro del grupo.
+ * 7-11 noche: «todos son emitidos por una persona individualmente»), en su
+ * propio nombre.
  */
 export const EMITEN = Object.freeze(['persona']);
 

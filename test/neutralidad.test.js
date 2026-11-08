@@ -306,12 +306,14 @@ test('propiedad (NEU-02): repartir el mismo P:X entre k identidades no cambia si
 
 // NEU-03 ya no se salta: el ciclo E/P/R/T (PR #62, VG 7-11 noche: «emite siempre una persona») lo implementa
 // (src/tokens.js: EMITEN = ['persona']; src/ciclo.js).
-test('NEU-03: agruparse no añade un emisor (el grupo es un registro; emite una persona con P sobre él)',
+// VG, 8-11: «lo único que tenemos de grupo es la delegación»: no hay identidades de grupo, y nadie emite a nombre de otro.
+test('NEU-03: agruparse no añade un emisor (no hay identidades de grupo; un grupo es un registro con P delegado)',
   async () => {
-    const { eje, X } = await mundo(['P1', 'P2', 'G'], { tipos: { G: 'grupo' } });
+    await assert.rejects(mundo(['P1', 'P2', 'G'], { tipos: { G: 'grupo' } }), /tipo inválido para G: no hay identidades de grupo/);
+    const { eje, X } = await mundo(['P1', 'P2']);
     await assert.rejects(
-      eje.escribir({ autor: 'G', sobre: X, t: T0, movimientos: [minuto('G'), { token: 'R', emisor: 'G', cantidad: 100, de: null, a: 'G' }], payload: 'R del grupo' }),
-      /solo las personas emiten: G es grupo/,
+      eje.escribir({ autor: 'P1', sobre: X, t: T0, movimientos: [minuto('P1'), { token: 'R', emisor: 'P2', cantidad: 100, de: null, a: 'P2' }], payload: 'R de los dos' }),
+      /nadie emite en nombre de otro: P2 no es el autor/,
     );
   });
 

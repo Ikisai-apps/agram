@@ -7,7 +7,7 @@
 //      ni topes de E, ni elegibilidad, ni orden de candidatos;
 //   3. T no cruza de persona: de una persona a otra se rechaza y se transforma
 //      en E; una persona sí da su T a una cosa (la máquina gasta el de su
-//      dueño); un grupo no recibe T;
+//      dueño); no hay grupos que reciban T (VG, 8-11: solo delegación);
 //   4. la escala del T consumido declara el orden de magnitud de lo emitido;
 //      si no casa, es una incongruencia que se enseña, nunca un rechazo.
 // T como asignación diaria (VG, 8-11, sustituye a acuñar al gastar y al tope
@@ -50,7 +50,7 @@ const gasta = (de, cantidad = 1, escala = 'minuto') => ({ token: 'T', escala, ca
 const daT = (de, a, cantidad, escala = 'minuto') => ({ token: 'T', escala, cantidad, de, a });
 const cedeE = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad, de, a });
 
-/** g (persona) da de alta a personas, una cosa y un grupo el día antes de T0. */
+/** g (persona) da de alta a personas y una cosa el día antes de T0 (no hay identidades de grupo: VG, 8-11). */
 async function mundo() {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
@@ -58,8 +58,8 @@ async function mundo() {
   });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
-    contexto: { tipos: { ana: 'persona', bea: 'persona', robot: 'cosa', club: 'grupo' } },
-    movimientos: [gasta('g'), cedeE('g', 'ana', 10), cedeE('g', 'bea', 10), daT('g', 'robot', 30), cedeE('g', 'club', 10)],
+    contexto: { tipos: { ana: 'persona', bea: 'persona', robot: 'cosa' } },
+    movimientos: [gasta('g'), cedeE('g', 'ana', 10), cedeE('g', 'bea', 10), daT('g', 'robot', 30)],
   });
   return { eje, g: eje.genesisId, alta };
 }
@@ -102,11 +102,10 @@ test('dárselo a uno mismo, bloquearlo o liberarlo no es consumir: no paga la es
 
 // ---------- 3 · T no cruza de persona ----------
 
-test('T no cruza de persona: a otra persona o a un grupo se rechaza; a una cosa, sí; dar tiempo a otra persona es E', async () => {
+test('T no cruza de persona: a otra persona se rechaza; a una cosa, sí; dar tiempo a otra persona es E', async () => {
   const { eje, alta } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('g'), daT('g', 'ana', 5)] }),
     /T no cruza de persona: ana no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo \(E:g\/minuto\)/);
-  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('g'), daT('g', 'club', 5)] }), /T no cruza de persona: club/);
   // Una cosa tampoco se lo pasa a una persona.
   await assert.rejects(eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('robot'), daT('robot', 'ana', 1)] }), /T no cruza de persona: ana/);
   // A una cosa, sí: la máquina gasta el T de su dueño; y una cosa a otra cosa nueva, también.
@@ -119,95 +118,23 @@ test('T no cruza de persona: a otra persona o a un grupo se rechaza; a una cosa,
   assert.equal(eje.saldo('ana', 'T:minuto'), 0); // ningún T explícito: solo su asignación del día
 });
 
-// ---------- acuñar al gastar: azúcar, solo personas, dentro del tope ----------
+// ---------- por cuenta de otro: nada (VG, 8-11) ----------
 
-test('por cuenta de un grupo: una persona con P exacto sobre su alta mueve, bloquea y libera lo del grupo; sin P o sin decirlo, no (Core, 8-11, [X] confirmar VG)', async () => {
+test('por cuenta de otro no se mueve nada (VG, 8-11: los grupos son solo delegación); lo delegado se usa con la propia firma', async () => {
+  // Retira SEG-06: ya no hay «por cuenta de un grupo» (contexto.porCuenta), ni con P exacto sobre su alta.
   const { eje, alta } = await mundo();
-  const k = 'E:g/minuto';
-  // g, que escribió el alta, le da a ana P exactamente sobre ella (P:<alta>, estrechado desde su P del eje); bea no tiene P.
   await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P a ana', movimientos: [gasta('g'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'g', a: 'ana' }] });
-  assert.equal(eje.saldo('ana', 'P:' + alta.id), 1);
-  const porClub = { porCuenta: 'club' };
-  // Positivo: ana mueve E del club a bea, con su firma y su T.
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'el club paga a bea', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 3)] });
-  assert.equal(eje.saldo('club', k), 7);
-  assert.equal(eje.saldo('bea', k), 13);
-  // Bloquear y liberar lo del grupo, también por su cuenta.
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'reserva', contexto: porClub, movimientos: [gasta('ana'), { ...cedeE('club', 'club', 2), estado: 'bloqueo', salida: 'R:g' }] });
-  assert.equal(eje.saldo('club', k), 5);
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'suelta', contexto: porClub, movimientos: [gasta('ana'), { ...cedeE('club', 'club', 2), estado: 'liberacion', salida: 'R:g' }] });
-  assert.equal(eje.saldo('club', k), 7);
-  // Negativos: bea no tiene P sobre el alta del club; ana sin decir porCuenta; porCuenta de una cosa no vale.
-  const deBea = { autor: 'bea', sobre: alta.id, t: T0, payload: 'x', contexto: porClub, movimientos: [gasta('bea'), cedeE('club', 'bea', 1)] };
-  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: club no es el autor \(por cuenta del grupo club mueve una persona con P exacto sobre su alta: bea no tiene P:[0-9a-f]+/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), cedeE('club', 'ana', 1)] }), /nadie mueve tokens ajenos: club no es el autor$/);
-  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', contexto: { porCuenta: 'robot' }, movimientos: [gasta('g'), daT('robot', 'robot', 1)] }), /nadie mueve tokens ajenos: robot no es el autor/);
-  assert.equal(eje.saldo('club', k), 7);
-  // Las capas de validez dicen lo mismo que el eje.
-  const vNo = await validez(eje, { ...deBea, en: '0000000000', id: 'x' });
-  assert.equal(vNo.permiso.estado, 'falla');
-  assert.match(vNo.permiso.motivos.join(' '), /nadie mueve tokens ajenos: club no es el autor/);
-  const vSi = await validez(eje, { autor: 'ana', sobre: alta.id, t: T0, payload: 'y', contexto: porClub, movimientos: [gasta('ana'), cedeE('club', 'bea', 1)], en: '0000000000', id: 'y' });
-  assert.equal(vSi.permiso.libro.estado, 'ok');
-});
-
-test('SEG-06 (revisión de seguridad de main, 8-11) por cuenta de un grupo: solo el P exacto sobre su alta, disponible o bloqueado hacia él; el alta de varios grupos no habilita a ninguno', async () => {
-  const { eje, alta } = await mundo();
-  const porClub = { porCuenta: 'club' };
-  const kAlta = 'P:' + alta.id;
-  const mueveClub = (autor, payload) => ({ autor, sobre: alta.id, t: T0, payload, contexto: porClub, movimientos: [gasta(autor), cedeE('club', 'bea', 1)] });
-  const daP = (a, ambito, cantidad = 1) => ({ token: 'P', ambito, cantidad, de: 'g', a });
-  const sinP = (quien) => new RegExp('nadie mueve tokens ajenos: club no es el autor \\(por cuenta del grupo club mueve una persona con P exacto sobre su alta: ' + quien + ' no tiene P:[0-9a-f]+');
-
-  // 1. El P heredado del génesis no basta: cubre el alta del club, pero también todo el eje.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P del eje a ana', movimientos: [gasta('g'), daP('ana', 'genesis')] });
-  assert.equal(eje.poderSobre('ana', alta.id), 1);
-  await assert.rejects(eje.escribir(mueveClub('ana', 'el club paga')), sinP('ana'));
-  // Ni el heredado de un ancestro que no es el génesis: el coro tiene su alta debajo de un dominio de g, y bea tiene
-  // P sobre el dominio (que cubre el alta del coro), no sobre el alta.
-  const dominio = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'dominio', movimientos: [gasta('g')] });
-  const altaCoro = await eje.escribir({ autor: 'g', sobre: dominio.id, t: AYER, payload: 'alta del coro', contexto: { tipos: { coro: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'coro', 5)] });
-  await eje.escribir({ autor: 'g', sobre: dominio.id, t: AYER, payload: 'P del dominio a bea', movimientos: [gasta('g'), daP('bea', dominio.id)] });
-  assert.equal(eje.poderSobre('bea', altaCoro.id), 1);
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: altaCoro.id, t: T0, payload: 'x', contexto: { porCuenta: 'coro' }, movimientos: [gasta('bea'), cedeE('coro', 'bea', 1)] }),
-    /nadie mueve tokens ajenos: coro no es el autor \(por cuenta del grupo coro mueve una persona con P exacto sobre su alta: bea no tiene P:[0-9a-f]+/);
-
-  // 2. P exacto, pero bloqueado para otra cosa (otra salida): no cuenta.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P exacto a bea', movimientos: [gasta('g'), daP('bea', alta.id)] });
-  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'lo comprometo en otra cosa', movimientos: [gasta('bea'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'bloqueo', salida: 'otra-cosa' }] });
-  assert.deepEqual([eje.saldo('bea', kAlta), eje.bloqueado('bea', kAlta, 'otra-cosa')], [0, 1]);
-  await assert.rejects(eje.escribir(mueveClub('bea', 'x')), sinP('bea'));
-  // Liberado y bloqueado hacia el grupo (salida = una serie que emite el grupo, o el propio grupo), sí cuenta.
-  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'lo suelto y lo comprometo con el club', movimientos: [gasta('bea'),
-    { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'liberacion', salida: 'otra-cosa' },
-    { token: 'P', ambito: alta.id, cantidad: 1, de: 'bea', a: 'bea', estado: 'bloqueo', salida: 'R:club' }] });
-  assert.deepEqual([eje.saldo('bea', kAlta), eje.bloqueado('bea', kAlta, 'R:club')], [0, 1]);
-  await eje.escribir(mueveClub('bea', 'el club paga, con el P de bea comprometido con él'));
-
-  // 3. Un alta que dio de alta a dos grupos no habilita a mover lo de ninguno, ni con P exacto sobre ella.
-  const altaDoble = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'dos grupos', contexto: { tipos: { norte: 'grupo', sur: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'norte', 5), cedeE('g', 'sur', 5)] });
-  await eje.escribir({ autor: 'g', sobre: altaDoble.id, t: AYER, payload: 'P exacto a ana', movimientos: [gasta('g'), daP('ana', altaDoble.id)] });
-  assert.equal(eje.saldo('ana', 'P:' + altaDoble.id), 1);
-  for (const grupo of ['norte', 'sur']) {
-    await assert.rejects(eje.escribir({ autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', contexto: { porCuenta: grupo }, movimientos: [gasta('ana'), cedeE(grupo, 'ana', 1)] }),
-      new RegExp('nadie mueve tokens ajenos: ' + grupo + ' no es el autor \\(por cuenta del grupo ' + grupo + ' mueve una persona con P exacto sobre su alta: su alta \\([0-9a-f]{8}\\) dio de alta a varios grupos \\(norte, sur\\): el P sobre ella no habilita a ninguno; cada grupo, su propio alta\\)'));
-  }
-
-  // 4. Lo positivo: el alta propia del grupo y P:<alta> exacto y disponible.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P exacto a ana', movimientos: [gasta('g'), daP('ana', alta.id)] });
-  const antes = eje.saldo('club', 'E:g/minuto');
-  await eje.escribir(mueveClub('ana', 'el club paga, por ana'));
-  assert.equal(eje.saldo('club', 'E:g/minuto'), antes - 1);
-
-  // Las capas de validez dicen lo mismo que el eje (con el libro de ahora: ana con P:<alta>, el doble no habilita).
-  const vSi = await validez(eje, { ...mueveClub('ana', 'otra vez'), en: '0000000000', id: 'si' });
-  assert.equal(vSi.permiso.libro.estado, 'ok');
-  const vDoble = await validez(eje, { autor: 'ana', sobre: altaDoble.id, t: T0, payload: 'x', contexto: { porCuenta: 'norte' }, movimientos: [gasta('ana'), cedeE('norte', 'ana', 1)], en: '0000000000', id: 'doble' });
-  assert.equal(vDoble.permiso.estado, 'falla');
-  assert.match(vDoble.permiso.motivos.join(' '), /dio de alta a varios grupos \(norte, sur\)/);
-  const vCoro = await validez(eje, { autor: 'bea', sobre: altaCoro.id, t: T0, payload: 'x', contexto: { porCuenta: 'coro' }, movimientos: [gasta('bea'), cedeE('coro', 'bea', 1)], en: '0000000000', id: 'coro' });
-  assert.equal(vCoro.permiso.estado, 'falla');
-  assert.match(vCoro.permiso.motivos.join(' '), /bea no tiene P:[0-9a-f]+ \(el P exacto sobre el alta del grupo/);
+  const deBea = { autor: 'ana', sobre: alta.id, t: T0, payload: 'x', contexto: { porCuenta: 'bea' }, movimientos: [gasta('ana'), cedeE('bea', 'ana', 1)] };
+  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: bea no es el autor/);
+  const v = await validez(eje, { ...deBea, en: '0000000000', id: 'x' });
+  assert.equal(v.permiso.estado, 'falla');
+  assert.match(v.permiso.motivos.join(' '), /nadie mueve tokens ajenos: bea no es el autor/);
+  // Delegar es dar (VG, 8-11: «yo te delego T, P, R, E para que tú lo uses»): bea da a ana minutos de su E, y ana los usa con su firma.
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'te delego', movimientos: [gasta('bea'), cedeE('bea', 'ana', 3)] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo uso', movimientos: [gasta('ana'), cedeE('ana', 'g', 3)] });
+  assert.deepEqual([eje.saldo('bea', 'E:g/minuto'), eje.saldo('ana', 'E:g/minuto')], [7, 10]);
+  // Y un alta de tipo grupo se rechaza.
+  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el coro', contexto: { tipos: { coro: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'coro', 5)] }), /no hay identidades de grupo/);
 });
 
 // ---------- T como asignación diaria (VG, 8-11) ----------
@@ -221,8 +148,8 @@ test('asignación diaria: cada persona tiene a las doce todo el T del día, sin 
   // Es del día civil (UTC) de su propio reloj: a las 23:59 y a las 00:00 son dos días.
   assert.equal(asignacionT('2026-11-08T23:59:59Z', 'minuto').periodo + 1, asignacionT('2026-11-09T00:00:00Z', 'minuto').periodo);
   assert.equal(diaCivil('2026-11-09T00:00:00+01:00'), diaCivil('2026-11-08T23:00:00Z'));
-  // Quien no es persona no tiene asignación: un grupo, nada; una cosa, el T que le dio su persona.
-  assert.deepEqual([eje.saldoT('club', 'minuto', T0), eje.saldoT('robot', 'minuto', T0)], [0, 30]);
+  // Quien no es persona no tiene asignación: una cosa, el T que le dio su persona.
+  assert.equal(eje.saldoT('robot', 'minuto', T0), 30);
 });
 
 test('gastar no puede superar la asignación: agotar los minutos del día y ser rechazado; validez dice lo mismo', async () => {
@@ -239,9 +166,8 @@ test('gastar no puede superar la asignación: agotar los minutos del día y ser 
   assert.match(v.acreditacion.motivos.join(' '), /T del día agotado \(minuto\): quedan 0/);
   // Nadie emite T fuera del génesis: la asignación no se amplía.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 41, de: null, a: 'ana' }, gasta('ana', 1, 'hora')] }), /T no se emite/);
-  // Una cosa gasta el T que le dieron, y un grupo no tiene: saldo insuficiente, como siempre.
+  // Una cosa gasta el T que le dieron: saldo insuficiente, como siempre.
   await assert.rejects(eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('robot', 31)] }), /saldo insuficiente de T:minuto en robot/);
-  await assert.rejects(eje.escribir({ autor: 'club', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('club')] }), /saldo insuficiente de T:minuto en club/);
 });
 
 test('el cambio de día renueva la asignación entera y no acumula lo que no se gastó', async () => {
