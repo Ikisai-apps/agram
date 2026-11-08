@@ -437,6 +437,8 @@ export function medir(eje, id) {
       raiz: p.raiz,
     };
     const recorrer = (nodo, indices) => {
+      // Forma canónica (VG, 8-11): la lista de un ocupante es la posición misma ([=f] = =f).
+      if (Array.isArray(nodo) && indices.length > 0 && nodo.length === 1 && !Array.isArray(nodo[0])) return recorrer(nodo[0], indices);
       if (Array.isArray(nodo)) {
         nodo.forEach((h, i) => recorrer(h, [...indices, i]));
         return;

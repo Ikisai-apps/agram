@@ -466,7 +466,7 @@ const SIETE = direccion([7]);
 
 /**
  * Tramo de un registro: su futuro (posición 7) como [inicio, fin), dos
- * fechas o instantes ISO escritos como décupla [[inicio], fin] (el 0 envuelto,
+ * fechas o instantes ISO escritos como décupla [[inicio], [fin]] (cada posición entre corchetes,
  * como en el resto: por hojas, [inicio, fin] sería una lista de dos ocupantes
  * y no se lee como tramo); el fin no cuenta (la noche de la salida no se
  * ocupa). El 7 es una colisión: vale lo propio (payload[7], o lo que alcance
@@ -482,15 +482,17 @@ export function tramoDe(eje, id) {
   if (!ev) throw new Error('registro desconocido: ' + id);
   const [primero] = ocupantes(eje, id, [7])
     .filter((o) => (o.origen === 'escrito' ? o.autor === ev.autor : !esReferencia(o.contenido)));
-  if (!primero) throw new Error('sin tramo en el 7 de ' + id.slice(0, 8) + ': hace falta [[inicio], fin] en ISO, propio o anclado en ' + SIETE + ' por su autor');
+  if (!primero) throw new Error('sin tramo en el 7 de ' + id.slice(0, 8) + ': hace falta [[inicio], [fin]] en ISO, propio o anclado en ' + SIETE + ' por su autor');
   const c = primero.contenido;
   const id8 = id.slice(0, 8);
   // Por hojas (#69): un array solo de hojas es una LISTA de ocupantes, no un par; un tramo es una décupla.
-  if (primero.enLista || (Array.isArray(c) && !c.some(Array.isArray))) throw new Error('tramo ilegible en el 7 de ' + id8 + ': ' + (primero.enLista ? 'el 7 es una lista de ocupantes (cada elemento es uno, no un tramo)' : 'una lista de hojas es una lista de ocupantes, no un tramo') + '; un tramo se escribe como décupla [[inicio], fin] en ISO');
-  const [a, b] = Array.isArray(c) && Array.isArray(c[0]) ? [c[0][0], c[1]] : [];
+  if (primero.enLista || (Array.isArray(c) && !c.some(Array.isArray))) throw new Error('tramo ilegible en el 7 de ' + id8 + ': ' + (primero.enLista ? 'el 7 es una lista de ocupantes (cada elemento es uno, no un tramo)' : 'una lista de hojas es una lista de ocupantes, no un tramo') + '; un tramo se escribe como décupla [[inicio], [fin]] en ISO');
+  // Forma canónica (VG, 8-11): [[inicio], [fin]]; la hoja suelta ([[inicio], fin]) sigue valiendo (lista de uno).
+  const unico = (x) => (Array.isArray(x) && x.length === 1 ? x[0] : x);
+  const [a, b] = Array.isArray(c) && Array.isArray(c[0]) ? [c[0][0], unico(c[1])] : [];
   const inicio = typeof a === 'string' ? Date.parse(a) : NaN;
   const fin = typeof b === 'string' ? Date.parse(b) : NaN;
-  if (!(inicio < fin)) throw new Error('tramo ilegible en el 7 de ' + id8 + ': hace falta la décupla [[inicio], fin] en ISO, con inicio antes que fin');
+  if (!(inicio < fin)) throw new Error('tramo ilegible en el 7 de ' + id8 + ': hace falta la décupla [[inicio], [fin]] en ISO, con inicio antes que fin');
   return { inicio, fin, extremos: [a, b], texto: a + ' – ' + b, desde: primero.evento };
 }
 

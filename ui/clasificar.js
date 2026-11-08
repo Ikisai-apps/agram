@@ -91,7 +91,7 @@ export function textoPieza(eje, pieza) {
   const c = pieza.contenido;
   if (c === undefined) return pieza.alcanza?.estado ?? '—';
   if (Array.isArray(c)) {
-    // Una décupla (o la raíz de un escrito) se nombra por lo que es: su primera hoja, bajando por el 0 (por hojas, el 0 puede ir envuelto).
+    // Una décupla (o la raíz de un escrito) se nombra por lo que es: su primera hoja, bajando por el 0 (por hojas, el 0 va entre corchetes).
     let primero = c[0];
     while (Array.isArray(primero)) primero = primero[0];
     const cara = typeof primero === 'string' || typeof primero === 'number' ? bql.desescapar(String(primero)) : esReferencia(primero) ? '→ ' + corto(primero.ref) : undefined;

@@ -117,7 +117,7 @@ test('una fórmula en slot puede usar colecciones y se evalúa desde el frontend
 
 test('décupla y lista por hojas: BUSCAR despliega la lista, el índice entra en ella y la dirección no', async () => {
   // VG, 7-11 noche: por hojas. La 1 del menú es la lista ['ensalada', 'guiso', 'fruta']; la 1 de la compra,
-  // la décupla [[ref menú:1], 1, 'EUR 12'] (el 0 envuelto).
+  // la décupla [[ref menú:1], [1], ['EUR 12']] (cada posición entre corchetes).
   const { eje, compra, menu } = await escenario();
   const e1 = await eje.escribir({ autor: 'cocina', sobre: menu.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload: 'pan' });
   // Los dos de cocina, la dueña del menú: un escrito de la casa no sería elegible (R8, src/elegibles.js).

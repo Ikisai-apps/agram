@@ -115,8 +115,8 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
   assert.deepEqual(decupla(ev, EPOCA_0, 1).posiciones.map((p) => p.significado).slice(0, 3), lista);
   assert.deepEqual(decupla(ev, 'época 0', 1).posiciones.map((p) => p.significado), [...lista, ...PREGUNTAS.slice(3)]);
   assert.deepEqual(decupla(ev, EPOCA_0, 1).lista, ['Compra', 1, 'EUR 12']);
-  // Con el 0 envuelto es una décupla y vuelve la regla corta: qué es, cuánto, con qué condición.
-  const envuelto = { ...ev, payload: [['Compra'], 1, 'EUR 12'] };
+  // Con cada posición entre corchetes es una décupla y vuelve la regla corta: qué es, cuánto, con qué condición.
+  const envuelto = { ...ev, payload: [['Compra'], [1], ['EUR 12']] };
   assert.deepEqual(decupla(envuelto, EPOCA_0, 1).posiciones.map((p) => p.significado), PREGUNTAS);
   assert.deepEqual(decupla(envuelto, EPOCA_0, 1).posiciones.slice(0, 3).map((p) => p.significado), ['qué es', 'cuánto', 'con qué condición']);
   assert.equal(decupla(envuelto, EPOCA_0, 1).lista, undefined);
@@ -132,7 +132,7 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
 
   const m = mapa(eje, compra.id, { camino: [1], epoca: 'época 0' });
   assert.deepEqual(m, mapa(eje, compra.id, { camino: [1], epoca: EPOCA_0 }));
-  // Compra 1 = [[menú], 1, 'EUR 12'] es décupla (su 0 va envuelto): la regla corta de la profundidad 1.
+  // Compra 1 = [[menú], [1], ['EUR 12']] es décupla (cada posición entre corchetes): la regla corta de la profundidad 1.
   assert.deepEqual(m.celdas.map((c) => c.significado), PREGUNTAS);
   assert.ok(m.celdas.every((c) => c.ocupante === undefined));
   assert.equal(m.lista, undefined);
@@ -146,7 +146,7 @@ test('los modos leen con la época que se les pase, por objeto o por nombre', as
 });
 
 test('por hojas: leerCamino lee una décupla con la regla corta y una lista como ocupantes (VG, 7-11 noche)', () => {
-  const payload = ['Compra', [['menú'], 1, 'EUR 12'], ['ensalada', 'guiso', 'fruta']];
+  const payload = ['Compra', [['menú'], [1], ['EUR 12']], ['ensalada', 'guiso', 'fruta']];
   assert.deepEqual(leerCamino([1, 1], EPOCA_0, { payload }).map((x) => x.significado), ['recursos', 'cuánto']);
   assert.deepEqual(leerCamino([1, 2], EPOCA_0, { payload }).map((x) => x.significado), ['recursos', 'con qué condición']);
   const enLista = leerCamino([2, 1], EPOCA_0, { payload });

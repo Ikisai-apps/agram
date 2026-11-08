@@ -195,6 +195,8 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
   // Fórmulas del foco que no resuelven.
   const formulas = new Set();
   const visitar = (nodo, indices) => {
+    // Forma canónica (VG, 8-11): la lista de un ocupante es la posición misma ([=f] = =f).
+    if (Array.isArray(nodo) && indices.length > 0 && nodo.length === 1 && !Array.isArray(nodo[0])) return visitar(nodo[0], indices);
     if (Array.isArray(nodo)) { nodo.forEach((h, k) => visitar(h, [...indices, k])); return; }
     if (!esFormula(nodo)) return;
     const r = evaluar(eje, foco, indices);

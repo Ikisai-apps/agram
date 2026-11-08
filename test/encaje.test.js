@@ -69,8 +69,8 @@ test('árbol lógico: todas las posiciones desarrolladas y las que solo tienen e
 });
 
 test('por hojas: una lista en una posición da un ocupante por elemento; una décupla, uno', async () => {
-  // VG, 7-11 noche: por hojas. La 1 es una lista de tres hojas; la 2, una décupla (el 0 envuelto).
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: ['X', ['a', 'b', 'c'], [['d'], 'e']], t: '2026-11-07T10:00:00Z' });
+  // VG, 7-11 noche: por hojas. La 1 es una lista de tres hojas; la 2, una décupla (cada posición entre corchetes).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: ['X', ['a', 'b', 'c'], [['d'], ['e']]], t: '2026-11-07T10:00:00Z' });
   const id = eje.genesisId;
   const oc = ocupantes(eje, id, [1], { orden: 'llegada' });
   assert.deepEqual(oc.map((o) => [o.tipo, o.enLista, o.indice, o.contenido]), [['propio', true, 0, 'a'], ['propio', true, 1, 'b'], ['propio', true, 2, 'c']]);
@@ -84,7 +84,7 @@ test('por hojas: una lista en una posición da un ocupante por elemento; una dé
   assert.deepEqual(lista(eje, id, [1]).map((o) => [o.llegada, o.indice, o.contenido]), [[0, 0, 'a'], [0, 1, 'b'], [0, 2, 'c']]);
   // Una décupla es un solo ocupante, sin índice de lista; su 2.0 (la lista ['d']) colisiona por ceros con ella.
   const d = ocupantes(eje, id, [2], { exacto: true });
-  assert.deepEqual(d.map((o) => [o.tipo, o.enLista, o.contenido]), [['propio', undefined, [['d'], 'e']]]);
+  assert.deepEqual(d.map((o) => [o.tipo, o.enLista, o.contenido]), [['propio', undefined, [['d'], ['e']]]]);
   assert.deepEqual(lista(eje, id, [2]).map((o) => [o.llegada, o.enLista]), [[0, undefined]]);
   assert.deepEqual(ocupantes(eje, id, [2]).map((o) => o.camino), [[2], [2, 0]]);
 });

@@ -50,7 +50,7 @@ test('Mapped escribe una décupla y hereda del foco por referencia las celdas va
   assert.deepEqual(payload[0], { ref: compra.id, dir: '0000000000' });
   assert.equal(payload[2], 'sin lactosa');
   assert.deepEqual(payload[3], { ref: compra.id, dir: '3000000000' });
-  assert.deepEqual(payload[4], [['pagado'], 'servido a las 14:05']); // VG, 7-11 noche: por hojas; la salida de Mapped es una décupla: su 0 va envuelto
+  assert.deepEqual(payload[4], [['pagado'], 'servido a las 14:05']); // la salida de Mapped aún envuelve solo el 0 (src/escritura.js, pendiente de integrar: forma canónica, VG 8-11)
   // Resolver la herencia devuelve el contenido del foco sin copiarlo.
   assert.deepEqual(resolver(eje.obtener(compra.id).payload, payload[3].dir), ['huesped', 'cocina']);
 });

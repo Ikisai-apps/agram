@@ -69,6 +69,6 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 ## Convenciones de todos los documentos
 
 - Los ejemplos se ejecutan **desde la raíz del repositorio** con Node ≥ 20, y la salida que sigue a cada uno es la real. `node docs/comprobar.mjs` los vuelve a ejecutar todos y dice cuál no da lo impreso. Un fragmento que no se ejecuta solo (usa un `eje` que no define) lleva encima `<!-- comprobar: fragmento -->` y no se ejecuta; un comando de `sh` que no es `node --input-type=module -e` es una instrucción, no un ejemplo.
-- Los ids del ejemplo de la compra son deterministas: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `936b43ee`, cuenta `2b75f87f`. En un programa no se copian: cambian en cuanto cambia el cuerpo de un evento.
+- Los ids del ejemplo de la compra son deterministas: génesis `2d970a48`, alta `a8efd9b0`, menú `d367743b`, compra `bea2e06d`, cuenta `ee80a426`. En un programa no se copian: cambian en cuanto cambia el cuerpo de un evento.
 - «[X] decidir VG» es lo que nadie ha decidido; «pendiente», lo que no existe; [D], [A] y [H] son las marcas del mapa (decidido, acuerdo, hipótesis).
 - El repositorio es público: datos inventados, ningún secreto.
