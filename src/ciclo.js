@@ -19,7 +19,7 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, topeT, validarMovimiento } from './tokens.js';
+import { AMBITO_GENESIS, EMITEN, SEGUNDOS, TOPE_T_MINIMO, claveToken, partirClave, topeT, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
@@ -49,26 +49,94 @@ export function aNombreDeGrupo(ctx, emisor) {
  * confirmar VG**, con la cita de VG: «lo que hace un grupo lo hace una persona
  * con P sobre él, con su firma». Un grupo no recibe T ni escribe: «nadie mueve
  * tokens ajenos» admite que `de` sea un GRUPO si el evento lo dice
- * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P > 0 sobre
- * el registro de alta del grupo (disponible o bloqueado, en un ámbito que lo
- * cubre, como eje.poderSobre). El evento sigue siendo de la persona: su firma y
- * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre ya
- * es así (#62). Lo usan el eje y las capas de validez.
- * ctx: tipo(id), alta(id), ambitosQueCubren(ambito), saldo(id, k), bloqueadoTotal(id, k).
+ * (`contexto.porCuenta` = el grupo) y su autor es una PERSONA con P sobre el
+ * registro de alta del grupo. El evento sigue siendo de la persona: su firma y
+ * su T. Vale para mover, bloquear y liberar lo del grupo; emitir a su nombre
+ * sigue la misma regla (motivoPoderDeGrupo). Lo usan el eje y las capas de validez.
+ *
+ * Revisión de seguridad (VG, 8-11; **[X] confirmar VG** el detalle):
+ *   · cuenta solo el P EXACTO sobre el alta del grupo (la clave
+ *     `P:<id del alta>`): ni el heredado de un ancestro ni el del génesis, que
+ *     cubren mucho más que el grupo;
+ *   · disponible, o bloqueado hacia ese mismo grupo (con salida = el grupo, su
+ *     alta o una serie de E o R que emite el grupo: grupoDeSalida); el P
+ *     bloqueado con otra salida está comprometido en otra cosa y no cuenta;
+ *   · el alta solo habilita a su grupo: si el evento de alta dio de alta a
+ *     varios grupos, el P sobre él no habilita a mover lo de ninguno (cada
+ *     grupo, su propio alta: gruposDeAlta).
+ * ctx: tipo(id), alta(id), registro(id), saldo(id, k), bloqueosPor(id, k) → [[salida, cantidad]].
  */
 export function porCuentaDeGrupo(ev, de, ctx) {
-  if (!ev || ev.contexto?.porCuenta !== de || ctx.tipo(de) !== 'grupo' || ctx.tipo(ev.autor) !== 'persona') return false;
-  const alta = ctx.alta(de)?.id;
-  if (!alta) return false;
-  const poder = ctx.ambitosQueCubren(alta)
-    .reduce((s, a) => s + Math.max(0, ctx.saldo(ev.autor, 'P:' + a)) + Math.max(0, ctx.bloqueadoTotal?.(ev.autor, 'P:' + a) ?? 0), 0);
-  return poder > 0;
+  return motivoPorCuenta(ev, de, ctx) === null;
 }
 
-/** El motivo de rechazo cuando alguien mueve lo de otro (con la pista de porCuenta si la pide para un grupo). */
-export function motivoAjenos(ev, de) {
-  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor'
-    + (ev?.contexto?.porCuenta === de ? ' (por cuenta del grupo ' + de + ' mueve una persona con P sobre su alta)' : '');
+/**
+ * Por qué `ev` NO mueve lo del grupo `de` por su cuenta (null si sí): las
+ * reglas de porCuentaDeGrupo, con el motivo que se enseña.
+ */
+export function motivoPorCuenta(ev, de, ctx) {
+  if (!ev || ev.contexto?.porCuenta !== de) return 'el evento no dice contexto.porCuenta';
+  if (ctx.tipo(de) !== 'grupo') return de + ' no es un grupo';
+  if (ctx.tipo(ev.autor) !== 'persona') return ev.autor + ' no es una persona';
+  return motivoPoderDeGrupo(ev.autor, de, ctx);
+}
+
+/**
+ * LA regla del poder sobre un grupo (VG, 8-11; **[X] confirmar VG** el
+ * detalle), la misma para mover lo del grupo por su cuenta
+ * (porCuentaDeGrupo) y para emitir E o R a su nombre (reglasDelCiclo): por
+ * qué `persona` NO actúa por el grupo `grupo` (null si sí). Cuenta solo el
+ * P EXACTO sobre el alta del grupo (`P:<id del alta>`), disponible o
+ * bloqueado hacia ese mismo grupo (grupoDeSalida); ni el heredado de un
+ * ancestro o del génesis ni el bloqueado con otra salida. Y el alta solo
+ * habilita a su grupo: si dio de alta a varios grupos (gruposDeAlta), a
+ * ninguno. Se lee con el contexto de antes del evento: el P que llega en el
+ * mismo evento no cuenta todavía.
+ */
+export function motivoPoderDeGrupo(persona, grupo, ctx) {
+  const alta = ctx.alta(grupo)?.id;
+  if (!alta) return grupo + ' no tiene alta';
+  const grupos = gruposDeAlta(ctx, alta);
+  if (grupos.length > 1) return 'su alta (' + corto(alta) + ') dio de alta a varios grupos (' + grupos.join(', ') + '): el P sobre ella no habilita a ninguno; cada grupo, su propio alta';
+  const k = 'P:' + alta;
+  const disponible = Math.max(0, ctx.saldo(persona, k));
+  const haciaElGrupo = (ctx.bloqueosPor?.(persona, k) ?? [])
+    .filter(([salida]) => grupoDeSalida(salida, grupo, alta))
+    .reduce((s, [, c]) => s + Math.max(0, c), 0);
+  if (disponible + haciaElGrupo > 0) return null;
+  return persona + ' no tiene ' + k + ' (el P exacto sobre el alta del grupo, disponible o bloqueado hacia él; el heredado o el bloqueado para otra cosa no cuenta)';
+}
+
+/**
+ * Los grupos que dio de alta el evento `altaId`: los que declaró grupo en
+ * `contexto.tipos` y los grupos que recibieron en él sus primeros tokens.
+ */
+export function gruposDeAlta(ctx, altaId) {
+  const ev = ctx.registro?.(altaId);
+  if (!ev) return [];
+  const candidatos = new Set([
+    ...Object.keys(ev.contexto?.tipos ?? {}),
+    ...(Array.isArray(ev.movimientos) ? ev.movimientos : []).map((m) => m?.a).filter((a) => typeof a === 'string'),
+  ]);
+  return [...candidatos].filter((id) => (ev.contexto?.tipos?.[id] ?? ctx.tipo(id)) === 'grupo' && (ev.contexto?.tipos?.[id] === 'grupo' || ctx.alta(id)?.id === altaId));
+}
+
+/** ¿Va un bloqueo con esta salida hacia el grupo? Salida = el grupo, su alta, o una serie de E o R que emite el grupo. */
+export function grupoDeSalida(salida, grupo, alta) {
+  if (typeof salida !== 'string') return false;
+  if (salida === grupo || salida === alta) return true;
+  if (!/^[ER]:/.test(salida)) return false;
+  return partirClave(salida).emisor === grupo;
+}
+
+/**
+ * El motivo de rechazo cuando alguien mueve lo de otro, con la pista de
+ * porCuenta si la pide para un grupo (y, con `ctx`, por qué no vale).
+ */
+export function motivoAjenos(ev, de, ctx) {
+  if (ev?.contexto?.porCuenta !== de) return 'nadie mueve tokens ajenos: ' + de + ' no es el autor';
+  const por = ctx ? motivoPorCuenta(ev, de, ctx) : null;
+  return 'nadie mueve tokens ajenos: ' + de + ' no es el autor (por cuenta del grupo ' + de + ' mueve una persona con P exacto sobre su alta' + (por ? ': ' + por : '') + ')';
 }
 
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
@@ -163,11 +231,13 @@ export function reglasDelCiclo(ev, ctx) {
       continue;
     }
     if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
-      // A nombre de un grupo: lo emite una persona con P sobre el registro del grupo (su alta).
+      // A nombre de un grupo: lo emite una persona con P EXACTO sobre el registro del grupo (su alta), con la misma
+      // regla que mover lo del grupo por su cuenta (motivoPoderDeGrupo; VG, 8-11, [X] confirmar VG).
       if (!aNombreDeGrupo(ctx, m.emisor)) { falla(i, 5, 'nadie emite en nombre de otro: ' + m.emisor + ' no es el autor'); continue; }
-      const registro = ctx.alta(m.emisor)?.id;
-      if (!registro || !tienePoder(registro)) {
-        falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P sobre su registro' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + autor + ' no lo tiene');
+      const sinPoder = motivoPoderDeGrupo(autor, m.emisor, ctx);
+      if (sinPoder) {
+        const registro = ctx.alta(m.emisor)?.id;
+        falla(i, 5, 'emitir a nombre del grupo ' + m.emisor + ' exige P exacto sobre su alta' + (registro ? ' (' + corto(registro) + ')' : '') + ': ' + sinPoder);
         continue;
       }
     }

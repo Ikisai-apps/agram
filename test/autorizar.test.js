@@ -188,6 +188,80 @@ test('VG, 8-11: el registro del recurso es el más cercano del hilo con P propio
   assert.equal(puedeAutorizar(eje, 'g', c3.id), true);
 });
 
+/** Quien escribe `registro` acuña P propio sobre él (T + R en juego + P), como la dueña sobre X. */
+async function acunaP(eje, autor, registro, cantidad = 2) {
+  await eje.escribir({ autor, sobre: registro, t: T0, payload: unico('poder de ' + autor), movimientos: [gasta(autor),
+    { token: 'R', emisor: autor, cantidad: 2, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 0.5, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor },
+    { token: 'P', ambito: registro, cantidad, de: null, a: autor }] });
+}
+
+test('SEG-07 (revisión de seguridad de main, 8-11) un subdominio cuenta como recurso si su autor tiene P:raíz que alcanza el umbral de la raíz, o si lo estableció una consolidación sobre la raíz AUTORIZADA', async () => {
+  // La dueña emite 4 P:X y reparte: 3 a b (la recepción) y una décima a «a».
+  const { eje, X } = await mundo({ pX: 4 });
+  await reparte(eje, X, { b: 3, a: 0.1 });
+
+  // Recepción con 3 de 4 P:X (más de la mitad, el umbral de X): su habitación con P propio manda.
+  const H = await eje.escribir({ autor: 'b', sobre: X, t: T0, payload: 'habitación de recepción', movimientos: [gasta('b')] });
+  await acunaP(eje, 'b', H.id);
+  const cH = await consolidacionDe(eje, 'd', H.id);
+  assert.equal(recursoDe(eje, cH.id), H.id);
+  await autorizar(eje, { autorizante: 'b', consolidacion: cH.id, t: T0 });
+  assert.equal(estadoDe(eje, cH.id), 'AUTORIZADO');
+
+  // El delegado con una décima de P:X (0,1 de 4) no fabrica un subdominio: su registro con P propio se salta y manda X,
+  // donde lo suyo no llega al umbral. Antes bastaba P > 0.
+  const A = await eje.escribir({ autor: 'a', sobre: X, t: T0, payload: 'lo de a', movimientos: [gasta('a')] });
+  await acunaP(eje, 'a', A.id, 5);
+  const cA = await consolidacionDe(eje, 'a', A.id);
+  assert.equal(recursoDe(eje, cA.id), X);
+  await autorizar(eje, { autorizante: 'a', consolidacion: cA.id, t: T0 }); // bloquea su 0,1 de P:X: no llega
+  assert.equal(estadoDe(eje, cA.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await assert.rejects(ejecutar(eje, { autor: 'a', consolidacion: cA.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
+
+  // Un subdominio establecido por una consolidación sobre X que quedó AUTORIZADA: el títere (sin P) lo propone, la
+  // recepción lo autoriza con su P:X y el títere lo escribe citándola en contexto.subdominio.
+  const cS = await consolidar(eje, { autor: 't', foco: X, t: T0, elecciones: { 1: 'un rincón que gobierna t' } });
+  const sub = (autor, citada) => eje.escribir({ autor, sobre: X, t: T0, payload: unico('rincón de ' + autor), contexto: { subdominio: citada }, movimientos: [gasta(autor)] });
+  // Mientras la consolidación está pendiente, el registro que la cita no cuenta.
+  const S0 = await sub('t', cS.id);
+  await acunaP(eje, 't', S0.id);
+  const cS0 = await consolidacionDe(eje, 'd', S0.id);
+  assert.equal(recursoDe(eje, cS0.id), X);
+  await autorizar(eje, { autorizante: 'b', consolidacion: cS.id, t: T0 });
+  assert.equal(estadoDe(eje, cS.id), 'AUTORIZADO');
+  // Autorizada, sí: el mismo registro, ya leído con la consolidación autorizada, y uno nuevo.
+  assert.equal(recursoDe(eje, cS0.id), S0.id);
+  const S = await sub('t', cS.id);
+  await acunaP(eje, 't', S.id);
+  const cDeS = await consolidacionDe(eje, 'b', S.id);
+  assert.equal(recursoDe(eje, cDeS.id), S.id);
+  await autorizar(eje, { autorizante: 't', consolidacion: cDeS.id, t: T0 });
+  assert.equal(estadoDe(eje, cDeS.id), 'AUTORIZADO');
+  // Ejecutada, sigue contando.
+  await ejecutar(eje, { autor: 't', consolidacion: cS.id, t: T0 });
+  assert.equal(estadoDe(eje, cS.id), 'EJECUTADO');
+  assert.equal(recursoDe(eje, cDeS.id), S.id);
+  // Citarla no sirve a otro autor que el de la consolidación, ni citar una que no va sobre la raíz.
+  const ajeno = await sub('a', cS.id);
+  await acunaP(eje, 'a', ajeno.id);
+  assert.equal(recursoDe(eje, (await consolidacionDe(eje, 'd', ajeno.id)).id), X);
+  const deOtra = await sub('t', cH.id); // cH va sobre H, no sobre X (y es de d)
+  await acunaP(eje, 't', deOtra.id);
+  assert.equal(recursoDe(eje, (await consolidacionDe(eje, 'd', deOtra.id)).id), X);
+
+  // El escrito por la autora de la raíz sigue contando, sin P:X que alcance nada (la dueña se queda con 0,9 de 4).
+  const D = await eje.escribir({ autor: 'd', sobre: X, t: T0, payload: 'lo de la dueña', movimientos: [gasta('d')] });
+  await eje.escribir({ autor: 'd', sobre: D.id, t: T0, payload: 'poder sobre lo de la dueña', movimientos: [gasta('d'), { token: 'P', ambito: D.id, cantidad: 1, de: null, a: 'd' }] });
+  assert.equal(recursoDe(eje, (await consolidacionDe(eje, 'a', D.id)).id), D.id);
+
+  // Las capas de validez leen lo mismo: la autorización de «a» sobre su registro no cuenta para el umbral (falla la
+  // ejecución escrita a mano).
+  const aMano = { autor: 'a', sobre: cA.id, en: FABRICA, t: T0, payload: 'a mano', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [cA.id] }, movimientos: [gasta('a')], id: 'x' };
+  const v = await validez(eje, aMano);
+  assert.equal(v.permiso.estado, 'falla');
+  assert.match(v.permiso.motivos.join(' '), /al ejecutar no estaba AUTORIZADA \(0\.1 de 4 P:[0-9a-f]{8} bloqueado; umbral: más de la mitad\)/);
+});
+
 test('P del eje: no cuenta donde X tiene P propio emitido, y sí donde no lo tiene (sobre lo emitido por el génesis)', async () => {
   const { eje, X } = await mundo();
   const c = await consolidacionDe(eje, 'a', X);

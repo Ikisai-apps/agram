@@ -165,7 +165,7 @@ function contextoCiclo(eje, libro, ev) {
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
     ampliada: (id) => libro.ampliadas.has(id),
     bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
-    bloqueadoTotal: (id, k) => [...libro.bloqueados].reduce((s, [kb, v]) => { const [i, c] = JSON.parse(kb); return i === id && c === k ? s + v : s; }, 0),
+    bloqueosPor: (id, k) => [...libro.bloqueados].flatMap(([kb, v]) => { const [i, c, salida] = JSON.parse(kb); return i === id && c === k ? [[salida, v]] : []; }),
   };
 }
 
@@ -594,8 +594,8 @@ function permisoDelLibro(eje, ev, libro) {
     if (m.de === null) {
       if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
     } else if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, contextoCiclo(eje, libro, ev))) {
-      // Lo de un grupo lo mueve una persona con P sobre él, por su cuenta (src/ciclo.js, [X] confirmar VG).
-      r.falla('movimiento ' + i + ': ' + motivoAjenos(ev, m.de));
+      // Lo de un grupo lo mueve una persona con P exacto sobre su alta, por su cuenta (src/ciclo.js, [X] confirmar VG).
+      r.falla('movimiento ' + i + ': ' + motivoAjenos(ev, m.de, contextoCiclo(eje, libro, ev)));
     }
   });
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
