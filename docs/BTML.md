@@ -22,9 +22,10 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
+| `src/lectura.js` | Lectura humana de un payload y de un registro: un esquema de texto, una línea por posición (§3.5) | `leer`, `leerEvento` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
-`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js` y `modos.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos` y `validez`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
+`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js`, `modos.js` y `lectura.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos` y `validez`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
 
 ## 1. El evento
 
@@ -132,6 +133,27 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   "contexto": {},
   "id": "bea2e06df3f8ce56b2b3670c4281dfc33dc2a88fa380f8e0a8e5f3477a1ee810"
 }
+```
+
+Leído (`leerEvento`, §3.5):
+
+<!-- comprobar: leído
+import { leerEvento } from './src/lectura.js';
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+const { eje, menu, compra } = await ejemploCompra();
+console.log(leerEvento(eje, compra.id, { nombres: { [menu.id]: 'menú', [compra.id]: 'compra' } }));
+-->
+
+```text
+compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
+0 · representación: Compra del menú del día
+1 · recursos:
+  0 · qué es: → menú:1 (ensalada · guiso · fruta)
+  1 · cuánto: 1
+  2 · con qué condición: EUR 12
+2 · criterios: → menú:2 (sin gluten · vegetariano)
+3 · comunicación: huesped · cocina · 2 ocupantes
+4 · fábrica: pagar · servir · 2 ocupantes
 ```
 
 Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1), 1.1 cuánto (la lista de uno `[1]`), 1.2 con qué condición (la lista de uno `["EUR 12"]`); cada posición va entre corchetes (forma canónica, VG 8-11, §3.2). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
@@ -307,7 +329,7 @@ T:minuto 60 · E:casa/EUR 500 · P:genesis 5 · R:casa 12 · E:casa/cama@2026-11
 
 ### 2.5 P por delegación
 
-VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que otros proponen en lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P sobre todo el eje solo lo emite el génesis (`P:genesis`); fuera de él, una persona acuña P solo sobre un registro que escribió ella, escalonado (§2.4, VG 7-11 noche), y **una sola vez**: `P:X` es una serie cerrada, y ampliarla es ejecutar una consolidación sobre X que esté autorizada (R3, VG 7-11 noche); quien solo tiene P lo transfiere, no lo acuña; y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`), salvo hacia una serie cerrada o hacia la raíz de un dominio ajeno (R3). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro. Para autorizar no basta tenerlo: autorizar es **bloquear** P sobre el registro del recurso (la raíz del dominio, **[X] confirmar VG**) y la consolidación queda autorizada cuando lo bloqueado alcanza el umbral del dueño (`docs/MOTOR.md` §4). En Booking, la casa emite su P sobre las Reservas (la raíz de su dominio; el Alojamiento cuelga de ellas y su P respalda las plazas, R2) y delega en recepción más de la mitad: recepción autoriza sola las dos partes de la confirmación. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»), `test/autorizar.test.js`.
+VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que otros proponen en lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P sobre todo el eje solo lo emite el génesis (`P:genesis`); fuera de él, una persona acuña P solo sobre un registro que escribió ella, escalonado (§2.4, VG 7-11 noche), y **una sola vez**: `P:X` es una serie cerrada, y ampliarla es ejecutar una consolidación sobre X que esté autorizada (R3, VG 7-11 noche); quien solo tiene P lo transfiere, no lo acuña; y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`), salvo hacia una serie cerrada o hacia la raíz de un dominio ajeno (R3). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro. Para autorizar no basta tenerlo: autorizar es **bloquear** P sobre el registro del recurso (el más cercano del hilo del foco con P propio emitido, o el génesis si nadie lo ha emitido: VG, 8-11) y la consolidación queda autorizada cuando lo bloqueado alcanza el umbral del dueño (`docs/MOTOR.md` §4); el P que ya respalda E del recurso cuenta también si su titular lo dice (VG, 8-11). En Booking, la casa emite su P sobre el Alojamiento (la raíz de su dominio), delega en recepción más de la mitad y ese P respalda las plazas (R2): recepción autoriza sola las dos partes de la confirmación con el P que respalda. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»), `test/autorizar.test.js`.
 
 - El ámbito lo fija el movimiento (`ambito`), no el `sobre` del evento que delega: la delegación puede escribirse en cualquier sitio.
 - El ámbito cubre lo que **cuelga** del registro por `sobre` (su subárbol de hilos), no lo que solo lo referencia: una nota escrita en otra rama que cita el dominio con `{ ref: dominio }` queda fuera.
@@ -358,6 +380,57 @@ Nota (VG, 8-11): la posición 0 es el campo libre de cómo se ve y no actúa; `[
 
 Lectura de `compra`: la 1 es la décupla `[[menú], [1]]`; su 1.0 es la lista `[menú]` (un ocupante: la referencia al menú), su 1.1 la lista `[1]` (un ocupante: la cantidad). `[menú, 1]` sería una lista de dos ocupantes, no una décupla. Los lectores (BQL `LOCAL`/`REF`, `seguir`, el cálculo del tramo y de la capacidad) leen la lista de **un** ocupante como su único ocupante: `['=LOCAL(2) * LOCAL(1)']` es la fórmula, `[ref]` es la referencia, `[1]` es 1; `BUSCAR` y los elementos por índice siguen siendo estructurales (un ocupante por elemento).
 
+Las dos líneas de VG (8-11), escritas a mano (`menú` es una referencia al registro del menú):
+
+```js
+menú = ['Menú del día', ['ensalada', 'guiso', 'fruta']]
+compra = ['Compra', [[menú], [1]]]
+```
+
+Leído, el menú: la 1 es una lista (solo hojas), tres ocupantes en una línea.
+
+<!-- comprobar: leído
+import { leer } from './src/lectura.js';
+console.log(leer(['Menú del día', ['ensalada', 'guiso', 'fruta']]));
+-->
+
+```text
+0 · representación: Menú del día
+1 · recursos: ensalada · guiso · fruta · 3 ocupantes
+```
+
+Leído, la compra (con el eje, la referencia dice lo que alcanza): la 1 tiene arrays dentro, así que es una décupla y sus posiciones van una sangría más adentro, con las preguntas de la profundidad 1.
+
+<!-- comprobar: leído
+import { leer } from './src/lectura.js';
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+const { eje, menu } = await ejemploCompra();
+const menú = { ref: menu.id };
+console.log(leer(['Compra', [[menú], [1]]], { eje, nombres: { [menu.id]: 'menú' } }));
+-->
+
+```text
+0 · representación: Compra
+1 · recursos:
+  0 · qué es: → menú (Menú del día)
+  1 · cuánto: 1
+```
+
+Sin envolver, `['Compra', [menú, 1]]` es otra cosa: la 1 es una lista de dos ocupantes.
+
+<!-- comprobar: leído
+import { leer } from './src/lectura.js';
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+const { eje, menu } = await ejemploCompra();
+const menú = { ref: menu.id };
+console.log(leer(['Compra', [menú, 1]], { eje, nombres: { [menu.id]: 'menú' } }));
+-->
+
+```text
+0 · representación: Compra
+1 · recursos: → menú (Menú del día) · 1 · 2 ocupantes
+```
+
 Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), índices 0–9, **sin `null`, `undefined` ni huecos**, y cada posición contiene una hoja u otro array; una lista tiene al menos un elemento, sin huecos ni nulos. Consecuencias:
 
 - No hace falta envolver un terminal en un array de una posición: un payload puede ser un terminal directamente (el génesis de ejemplo es `'Casa de ejemplo'`).
@@ -378,6 +451,50 @@ Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), ín
 - `ref` debe ser el **id completo**. Los prefijos (`'bea2e06d'`) solo los resuelven BQL (`REF("bea2e06d")`) y la entrada de texto de `escritura.item` (`'@bea2e06d:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
+
+Un payload con tres referencias al menú y a un evento que no está en el eje:
+
+```js
+['Compra de mediodía', [[{ ref: menú, dir: '1000000000' }], 1], { ref: menú, dir: '2000000000' }, [{ ref: 'ffff…' }]]
+```
+
+Leído sin eje, una referencia es solo su destino (`→ <id corto>:<dirección>`; sin dirección, el registro entero):
+
+<!-- comprobar: leído
+import { leer } from './src/lectura.js';
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+const { menu } = await ejemploCompra();
+const p = ['Compra de mediodía', [[{ ref: menu.id, dir: '1000000000' }], 1], { ref: menu.id, dir: '2000000000' }, [{ ref: 'f'.repeat(64) }]];
+console.log(leer(p, { nombres: { [menu.id]: 'menú' } }));
+-->
+
+```text
+0 · representación: Compra de mediodía
+1 · recursos:
+  0 · qué es: → menú:1
+  1 · cuánto: 1
+2 · criterios: → menú:2
+3 · comunicación: → ffffffff
+```
+
+Leído con el eje, cada una dice además, entre paréntesis, lo que alcanza (sin copiarlo): el texto de su posición 0, la lista entera si alcanza una lista, o que está pendiente si el evento no ha llegado:
+
+<!-- comprobar: leído
+import { leer } from './src/lectura.js';
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+const { eje, menu } = await ejemploCompra();
+const p = ['Compra de mediodía', [[{ ref: menu.id, dir: '1000000000' }], 1], { ref: menu.id, dir: '2000000000' }, [{ ref: 'f'.repeat(64) }]];
+console.log(leer(p, { eje, nombres: { [menu.id]: 'menú' } }));
+-->
+
+```text
+0 · representación: Compra de mediodía
+1 · recursos:
+  0 · qué es: → menú:1 (ensalada · guiso · fruta)
+  1 · cuánto: 1
+2 · criterios: → menú:2 (sin gluten · vegetariano)
+3 · comunicación: → ffffffff (pendiente: evento ausente del eje: ffffffff)
+```
 
 Pendiente: referencias a «una rama» distinta de evento + dirección (mapa §2.1).
 
@@ -421,6 +538,58 @@ console.log(esTerminal(''), esTerminal(NaN), esTerminal(true), esTerminal({ ref:
 {"ok":true,"errores":[]} {"ok":false,"errores":["1: más de 10 posiciones (una décupla; solo una lista de hojas pasa de diez)"]}
 false false false false true
 ```
+
+### 3.5 Lectura humana: `leer` y `leerEvento`
+
+VG, 8-11: «es muy difícil de leer para una persona, incluido para mí; por eso es muy difícil evaluarlo sin lentes». `src/lectura.js` imprime un payload como un esquema de texto plano, sin colores ni HTML: **una línea por posición con contenido**, `<dígito> · <nombre>: <contenido>`, con **dos espacios de sangría por nivel**. Vive aparte de `src/btml.js` para que BTML siga sin depender de las épocas; `src/index.js` lo reexporta en plano.
+
+```js
+leer(payload, { epoca = EPOCA_0, profundidad = 0, eje, nombres } = {})  // → string
+leerEvento(eje, id, { epoca = EPOCA_0, nombres, camino } = {})         // → string: cabecera, leer(payload) y los ocupantes anclados
+```
+
+- **Nombre**: la regla corta de la época en esa profundidad (§4.3). En la 0, la cruceta: representación, recursos, criterios…; en toda n ≥ 1, las preguntas: qué es, cuánto, con qué condición… Si la época tiene una regla larga para esa ruta exacta (leyendo desde la raíz), gana la larga.
+- **Contenido**: una hoja, su texto (una fórmula, tal cual, sin evaluar); una referencia, `→ <id corto>` y, si apunta a una posición, `:<dirección en corto>` (`→ menú:1`); con `eje`, además, entre paréntesis lo que alcanza en su posición 0 (§3.3); una lista, sus ocupantes separados por ` · ` y, si son más de uno, `· n ocupantes`; una décupla, nada en su línea: sus posiciones van debajo, una sangría más adentro.
+- Las posiciones vacías no se imprimen. Un payload terminal (sin posiciones, como el del génesis) se lee como su texto, en una línea.
+- `profundidad`: la del nodo que se lee. En la 0 el payload es la cruceta aunque sean solo hojas; en una n ≥ 1 un array solo de hojas es una lista y se lee en una línea.
+- `nombres`: un `Map`, un objeto o una función id → nombre corto, para leer `menú` en vez de `d367743b` (sin él, los ocho primeros caracteres del id).
+
+`leerEvento` pone delante una cabecera `<id corto> · <autor> · <t> · sobre <id corto> en <dirección>` (el génesis dice `génesis`) y, bajo cada posición, los **escritos anclados** en ella (`encaje.ocupantes`, camino exacto, por llegada), uno por línea: `↳ ocupante k · <autor> · <texto>`, con `k` su lugar en la lista de la posición (§6.7: los propios primero) y el texto de su posición 0. Los anclados en la raíz van al final, sin sangría. Con `camino`, solo la posición de ese camino (lo que enseña Clasificar). La compra con la cuenta de cocina escrita en `1000000000`:
+
+<!-- comprobar: leído
+import { leerEvento } from './src/lectura.js';
+import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
+const { eje, menu, compra } = await ejemploCompra();
+await ejemploCuenta(eje, compra);
+const nombres = { [menu.id]: 'menú', [compra.id]: 'compra' };
+console.log(leerEvento(eje, compra.id, { nombres }));
+console.log(leerEvento(eje, compra.id, { nombres, camino: [1] }));
+console.log(leerEvento(eje, eje.genesisId, { nombres }));
+-->
+
+```text
+compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
+0 · representación: Compra del menú del día
+1 · recursos:
+  0 · qué es: → menú:1 (ensalada · guiso · fruta)
+  1 · cuánto: 1
+  2 · con qué condición: EUR 12
+  ↳ ocupante 2 · cocina · Cuenta del menú
+2 · criterios: → menú:2 (sin gluten · vegetariano)
+3 · comunicación: huesped · cocina · 2 ocupantes
+4 · fábrica: pagar · servir · 2 ocupantes
+compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000 · posición 1
+1 · recursos:
+  0 · qué es: → menú:1 (ensalada · guiso · fruta)
+  1 · cuánto: 1
+  2 · con qué condición: EUR 12
+  ↳ ocupante 2 · cocina · Cuenta del menú
+2d970a48 · casa · 2026-11-07T09:00:00Z · génesis
+Casa de ejemplo
+↳ ocupante 1 · casa · Altas del fin de semana
+```
+
+La cuenta es el ocupante 2 de la posición 1: el 1 es la propia décupla de la compra. En la app, el conmutador «leído» de Pointed enseña `leerEvento` del foco, y el de Clasificar, el de la posición en foco. `node ejemplos/ikisai/leer.mjs` imprime la compra, el menú y la reserva leídos.
 
 ## 4. Direcciones
 
@@ -1199,6 +1368,10 @@ export function indicesDe(dir: string): number[];         // quita ceros finales
 export function resolver(payload, dir: string): any;      // undefined si no se llega o si entra en una lista; no sigue referencias
 export function dentroDeLista(payload, dirOIndices): number[] | null;  // el camino de la lista en la que entra esa dirección
 export function nodoEn(payload, indices: number[]): any;  // bajando por la raíz y por décuplas
+
+// src/lectura.js (§3.5)
+export function leer(payload, { epoca, profundidad = 0, eje, nombres } = {}): string;  // una línea por posición: «<dígito> · <nombre>: <contenido>», dos espacios por nivel
+export function leerEvento(eje, id, { epoca, nombres, camino } = {}): string;          // cabecera + leer(payload) + «↳ ocupante k · autor · texto» bajo cada posición
 
 // src/tokens.js
 export const AMBITO_GENESIS = 'genesis';

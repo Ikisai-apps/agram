@@ -549,8 +549,11 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
 
 // VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye la regla de Core de esta revisión («solo
 // cuenta el P sobre un registro del hilo que el autor no escribió»): el P del autor cuenta como cualquier otro, y lo
-// que decide es el P sobre el registro del recurso (la raíz del dominio, [X] confirmar VG), no quién lo bloquea.
-test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el registro del recurso es la raíz del dominio', async () => {
+// que decide es el P sobre el registro del recurso, no quién lo bloquea. VG, 8-11: el registro del recurso es el más
+// cercano del hilo del foco con P propio emitido (la raíz del dominio solo donde nadie ha emitido P por debajo, y el
+// génesis solo donde nadie ha emitido P); con la salvedad del autor (Core, [X]): por debajo de la raíz solo cuenta un
+// registro de la cadena de autoridad del dueño (escrito por el autor de la raíz o por quien tiene P delegado de ella).
+test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el subregistro propio con P no es el registro del recurso', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30 });
   // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él y se lo delega al títere.
@@ -559,8 +562,9 @@ test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el regis
     movimientos: [gasta('ana'), emiteR('ana', 1), colateral('ana', 0.1), emiteP('ana', suyo.id), { token: 'P', ambito: suyo.id, cantidad: 1, de: 'ana', a: 'titere' }] });
   assert.equal(eje.poderSobre('titere', suyo.id), 1);
   const c = await consolidar(eje, { autor: 'ana', foco: suyo.id, t: T0, elecciones: { 1: 'me lo apruebo' } });
-  // El recurso es la raíz del dominio, las altas, sin P propio: cuenta el P del eje. Ni ana ni el títere lo tienen.
-  assert.equal(recursoDe(eje, c.id), alta.id);
+  // Su registro tiene P propio, pero ana no es la dueña de las altas ni tiene P delegado de ellas: se salta. Las altas no
+  // tienen P propio, así que manda el génesis, con el P del eje. Ni ana ni el títere lo tienen.
+  assert.equal(recursoDe(eje, c.id), eje.genesisId);
   assert.equal(puedeAutorizar(eje, 'titere', c.id), false);
   await assert.rejects(autorizar(eje, { autorizante: 'titere', consolidacion: c.id, t: T0 }),
     /titere no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso [0-9a-f]{8}, que no tiene P propio emitido/);
@@ -568,12 +572,12 @@ test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el regis
   await eje.escribir({ autor: 'titere', sobre: c.id, en: FABRICA, t: T0, payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' }, movimientos: [gasta('titere')] });
   assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
   await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  // Cerrada la concesión que quedaba abierta: un subregistro del títere debajo tampoco cuenta; el recurso sigue siendo la raíz.
+  // Un subregistro del títere debajo, con su P propio, tampoco cuenta.
   const delTitere = await eje.escribir({ autor: 'titere', sobre: suyo.id, t: T0, payload: 'lo del títere', movimientos: [gasta('titere')] });
   await eje.escribir({ autor: 'titere', sobre: delTitere.id, t: T0, payload: 'poder del títere',
     movimientos: [gasta('titere'), emiteR('titere', 1), colateral('titere', 0.1), emiteP('titere', delTitere.id)] });
   const debajo = await consolidar(eje, { autor: 'ana', foco: delTitere.id, t: T0, elecciones: { 1: 'otra cosa mía' } });
-  assert.equal(recursoDe(eje, debajo.id), alta.id);
+  assert.equal(recursoDe(eje, debajo.id), eje.genesisId);
   assert.equal(puedeAutorizar(eje, 'titere', debajo.id), false);
   // Lo positivo: la raíz bloquea su P del eje (5 de 5) y ana ejecuta; lo bloqueado por la raíz queda liberable.
   const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });

@@ -21,6 +21,7 @@
 
 import { encaje, salida, bql, mapped, direccion, indicesDe, esReferencia, esTerminal, ARIDAD, EPOCA_0, epocaDe, leerCamino } from '../src/index.js';
 import { escapar, corto, leerLocal, guardarLocal } from './comun.js';
+import { htmlLeido } from './leido.js';
 
 export const MODOS_CLASIFICAR = Object.freeze(['lente', 'crear']);
 const CLAVE_MODO = 'agram.clasificar.modo';
@@ -272,7 +273,7 @@ function htmlHueco(h, modoVista) {
  * Mapped, con el 0 debajo). `posiciones`: [{ valor, etiqueta, n }] para
  * cambiar de posición; `identidades` y `identidad` para «crear».
  */
-export function htmlClasificar(m, { modo: modoVista = modo, elegida: sel = elegida, posiciones = [], identidades = [], identidad = '' } = {}) {
+export function htmlClasificar(m, { modo: modoVista = modo, elegida: sel = elegida, posiciones = [], identidades = [], identidad = '', leido = '' } = {}) {
   // En la lente, lo colocado se ve en su hueco y sale de las sueltas; en «crear», la lente no cuenta.
   const sueltas = modoVista === 'lente' ? m.piezas.filter((p) => m.lente[p.clave] === undefined) : m.piezas;
   const chipsPos = posiciones.length ? `<div class="cl-posiciones" role="group" aria-label="Posición que se clasifica">${posiciones.map((x) => `<button type="button" data-pos-clasificar="${x.valor}" aria-pressed="${x.actual ? 'true' : 'false'}">${escapar(x.etiqueta)} <small>${x.n}</small></button>`).join('')}</div>` : '';
@@ -300,6 +301,7 @@ export function htmlClasificar(m, { modo: modoVista = modo, elegida: sel = elegi
     <ul class="cl-piezas" aria-label="Piezas por clasificar">${sueltas.map((p) => botonPieza(p, p.clave === sel)).join('') || '<li class="nada">nada por clasificar</li>'}</ul>
     <div class="cl-estado" role="status" aria-live="polite">${estadoTexto} ${vaciar}</div>
     <div class="cl-cruceta${modoVista === 'crear' ? ' crear' : ''}${elegidaP ? ' esperando' : ''}">${orden.map((d) => htmlHueco(m.huecos[d], modoVista)).join('')}</div>
+    ${leido}
   </section>`;
 }
 
@@ -326,6 +328,8 @@ export function vistaClasificar(estado, { epoca = EPOCA_0 } = {}) {
     posiciones: posicionesDe(estado.eje, estado.foco, estado.camino ?? [], estado.en),
     identidades: estado.eje.identidades(),
     identidad: estado.identidad,
+    // «leído»: la posición en foco como texto, una línea por posición (src/lectura.js).
+    leido: htmlLeido(estado.eje, estado.foco, { epoca, camino: posicion, donde: 'clasificar' }),
   });
 }
 

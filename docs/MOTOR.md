@@ -319,38 +319,42 @@ Decisión de VG (7-11 noche, «La segunda»; R5 de `docs/notas/NEUTRALIDAD_IDENT
 
 ```js
 recursoDe(eje, consolidacion)                  // → id de X, el registro del recurso
-pesoAutorizacion(eje, consolidacion)           // → { recurso, ambito, claves, delEje, emitido, bloqueado, umbral, necesario, alcanza }
+pesoAutorizacion(eje, consolidacion)           // → { recurso, ambito, claves, delEje, emitido, bloqueado, directo, respaldo, respaldan, umbral, necesario, alcanza }
 poderParaBloquear(eje, identidad, consolidacion) // → [{ clave, ambito, cantidad }]  el P disponible de identidad que contaría al bloquearlo
-puedeAutorizar(eje, identidad, consolidacion)  // → boolean: tiene P que cuente (el autor incluido)
+respaldoParaAutorizar(eje, identidad, consolidacion) // → [{ clave, ambito, salida, cantidad }]  su P que ya respalda E del recurso y contaría si lo dice
+puedeAutorizar(eje, identidad, consolidacion)  // → boolean: tiene P que cuente, disponible o respaldando E del recurso (el autor incluido)
 leerUmbral(texto)                              // → { num, den, valor, texto } | null
 ```
 
-Tres piezas:
+Cuatro piezas:
 
-1. **X, el registro del recurso**, es la **raíz del dominio** donde se consolida: el registro del hilo de la consolidación que cuelga directamente del génesis (si se consolida sobre el génesis, X es el génesis). Nunca es la consolidación ni un subregistro que el autor escribió dentro del dominio de otro (la reserva de quien reserva, el subregistro de un títere): subir hasta la raíz los salta todos. Si la raíz la escribió el propio autor, el dominio es suyo. **[X] confirmar VG**: había dos lecturas, (a) subir desde el foco hasta el primer registro que no escribió el autor de la consolidación, o (b) la raíz del dominio. Con (a), la entrega de la casa en Booking, consolidada sobre la reserva de quien reserva, la autorizaría el P de quien reserva sobre su reserva (el apaño de la #62); con (b), las dos partes caen en la raíz del dominio de la casa (sus «Reservas», de las que cuelga el Alojamiento). El precio de (b): un subdominio con P propio dentro de otro (el plato de la cocina dentro del menú de la casa) no decide por sí mismo.
-2. **Qué P cuenta.** Si X tiene P propio emitido (la serie `P:X`, que solo emite su autor, R3), cuenta **solo** `P:X`, medido sobre lo emitido de `P:X`: el P del génesis no cuenta. Si no lo tiene, o X es el génesis, cuenta el P sobre todo el eje (`P:genesis` y `P:<id del génesis>`, el mismo ámbito), medido sobre lo emitido de los dos (propuesta de Core aceptada por VG; **[X]** si VG quiere otra cosa). El P estrechado hacia X desde un ámbito más amplio no cuenta mientras X no tenga P propio: quien quiera autorizar con el P del eje lo bloquea sin estrechar.
+1. **X, el registro del recurso** (VG, 8-11), es el registro **más cercano del hilo del foco** (el foco incluido) **que tenga P propio emitido** (la serie `P:X`, que solo emite su autor, R3). Manda el más concreto con poder emitido, escalón a escalón: la raíz del dominio solo manda donde nadie ha emitido P por debajo de ella, y el génesis solo donde nadie ha emitido P en todo el hilo. Así un ancestro intermedio con P propio (una habitación que la casa gobierna aparte) es el que manda sobre lo que cuelga de él. Nunca es la consolidación: se sube desde su foco. Sustituye «X = la raíz del dominio» (7-11 noche). En Booking, las dos partes de la confirmación, consolidadas sobre la reserva, suben por la habitación (sin P propio) hasta el Alojamiento de la casa, que lo tiene. **Salvedad del autor** (regla de Core tras la revisión de seguridad, **[X] confirmar VG**): quien escribe un registro puede acuñar P sobre él (R3), así que sin más el proponente escribiría un subregistro en el dominio de la casa, acuñaría P sobre él y se autorizaría solo o con un títere. Por eso, por debajo de la raíz, un registro con P propio solo cuenta como X si es de la **cadena de autoridad del dueño**: lo escribió el autor de la raíz, o alguien que tiene P delegado desde la raíz (`P:<raíz>`, disponible o bloqueado); si no (lo escribió el proponente u otro ajeno), se salta y se sigue subiendo. La habitación que la casa gobierna aparte manda; la que lleva recepción con el P que le delegó la casa, también; la reserva de quien reserva, aunque acuñe P sobre ella, no. Y ampliar la serie `P:Y` cerrada de un subregistro ajeno sigue exigiendo la autorización del dominio que lo envuelve. **Para decidir VG**: el P estrechado hacia un registro antes de que su autor emita P sobre él (R3 solo lo impide hacia la raíz de un dominio) contaría después como `P:X`, por encima de lo emitido.
+2. **Qué P cuenta.** Si X tiene P propio emitido (la serie `P:X`, que solo emite su autor, R3), cuenta **solo** `P:X`, medido sobre lo emitido de `P:X`: el P del génesis no cuenta. Si X es el génesis (nadie en el hilo ha emitido P), cuenta el P sobre todo el eje (`P:genesis` y `P:<id del génesis>`, el mismo ámbito), medido sobre lo emitido de los dos (propuesta de Core aceptada por VG; **[X]** si VG quiere otra cosa). El P estrechado hacia X desde un ámbito más amplio no cuenta mientras X no tenga P propio: quien quiera autorizar con el P del eje lo bloquea sin estrechar.
 3. **El umbral** lo fija el dueño de X en su posición 2 (su criterio): un terminal `umbral a/b` (fracción de enteros) o `umbral 0.x` (decimal), entre 0 (excluido) y 1, en el 2 de X o en un 2.k si el 2 es un array. Con umbral declarado basta **alcanzarlo** (≥); sin él rige **más de la mitad** (estrictamente mayor que 1/2). Lo que otro ancle en el 2 de X no cuenta: es el criterio del dueño. Un `umbral …` ilegible no se adivina: rige el de por defecto y `pesoAutorizacion(…).umbral.aviso` lo dice. No es un lenguaje de criterios: es la única forma que se lee.
+4. **El P que respalda E cuenta también** (VG, 8-11 madrugada, textual: «P bloqueado respaldando la E de un registro cuente también para autorizar sobre ese registro: inmovilizar poder en un recurso es ya el compromiso, y vale para las dos cosas»). El P de las claves que cuentan (pieza 2) bloqueado con salida = una serie de E atada a X o a un registro que cuelga de X, o su familia `@*` (§5.1), suma en el umbral de las consolidaciones sobre X como si estuviera bloqueado con salida = la consolidación, **sin volver a bloquearlo**. Solo el que respalda E **vivo** (emitido − consumido): es lo que lo inmoviliza (el eje no lo deja liberar mientras viva la E, `reglasDelTope` §4); un bloqueo hacia una serie que no existe, o ya consumida, se suelta cuando se quiera y no cuenta. **[X] confirmar VG**: la caducidad de la E no se mira aquí (el estado de una consolidación no depende del reloj): la E caducada deja de inmovilizar su P y, en cuanto su titular lo libera, deja de contar.
+
+   **El acto de voluntad.** No cuenta solo: cuenta cuando su titular lo dice, con un registro suyo en la fábrica de la consolidación con `contexto.autoridad.respaldo: true` (`autorizar` lo escribe, §4.2). Es la forma más simple que cumple «ningún evento sin movimiento»: el registro mueve el T de escribirlo, como todo registro, y ningún P (no hay bloqueo nuevo). Cuenta lo que respalda en cada momento, no lo que declaró (`contexto.autoridad.respalda` es informativo), y deja de contar si lo retira con `liberar` (un registro con `contexto.libera` posterior). **[X] confirmar VG la salvedad**: sin ese acto el P que respalda no cuenta, para que respaldar plazas no autorice sin querer cualquier consolidación ajena del dominio.
 
 Y **sin clave no se actúa** (R9, #68): fuera de un eje de demostración, `puedeAutorizar` solo da `true` a quien tiene clave registrada, y el eje rechaza que alguien sin clave bloquee P.
 
-Una consolidación queda **AUTORIZADA** cuando el P de esas claves bloqueado con salida = la consolidación, **de cualquiera y el autor incluido**, alcanza el umbral sobre lo emitido. Pesa la cantidad, no las cabezas: repartir el mismo P:X entre diez identidades no cambia nada (`test/neutralidad.test.js`, NEU-01, NEU-02 y su propiedad). Sin nada emitido, nadie autoriza. `puedeAutorizar` solo dice si la identidad tiene P que cuente; poder autorizar no es bastar.
+Una consolidación queda **AUTORIZADA** cuando el P de esas claves bloqueado con salida = la consolidación, **de cualquiera y el autor incluido**, más el P que respalda E del recurso de quienes lo dijeron (pieza 4), alcanza el umbral sobre lo emitido (`pesoAutorizacion`: `directo` + `respaldo` = `bloqueado`). Pesa la cantidad, no las cabezas: repartir el mismo P:X entre diez identidades no cambia nada, tampoco si respalda E en vez de ir bloqueado por la consolidación (`test/neutralidad.test.js`, NEU-01, NEU-02 y su propiedad; `test/p-respalda.test.js`). Sin nada emitido, nadie autoriza. `puedeAutorizar` solo dice si la identidad tiene P que cuente; poder autorizar no es bastar.
 
-Una consecuencia que conviene ver: con el umbral por defecto, en un dominio solo puede haber **una** consolidación AUTORIZADA y sin ejecutar a la vez con el mismo P (cada una necesita más de la mitad). Para llevar varias en paralelo, el dueño baja el umbral en su 2, o quien autoriza libera tras ejecutar (§5).
+Una consecuencia que conviene ver: con el umbral por defecto, en un dominio solo puede haber **una** consolidación AUTORIZADA y sin ejecutar a la vez con el mismo P **bloqueado por ella** (cada una necesita más de la mitad). Para llevar varias en paralelo, el dueño baja el umbral en su 2, o quien autoriza libera tras ejecutar (§5). El P que respalda E es distinto: no está bloqueado por ninguna consolidación, así que el mismo vale, con un acto de voluntad en cada una, para varias a la vez, mientras siga inmovilizado respaldando la E.
 
-Y otra: R2 (la E atada al recurso, §5.1) también bloquea P:X, para respaldar las plazas, y ese P no se libera mientras viva la E. Si el registro que declara la capacidad es la raíz del dominio, su P queda entero respaldando plazas y no queda P libre con el que autorizar. Por eso en Booking el Alojamiento (capacidad 4, su P:Alojamiento bloqueado plaza a plaza) cuelga de las «Reservas» de la casa, la raíz, cuyo P decide (**[X] decidir VG**: si respaldo y decisión deben vivir en registros distintos, o el umbral ha de poder contar el P bloqueado para otra salida).
+**Nota de neutralidad.** Antes, R2 (la E atada al recurso, §5.1) y R5 (autorizar) competían por el mismo P:X: el P que respaldaba plazas quedaba bloqueado mientras vivieran y no quedaba P libre con el que autorizar, y Booking partía el dominio en unas «Reservas» que decidían y un «Alojamiento» que respaldaba (#70). Con la pieza 4 ya no compiten: inmovilizar P en el recurso es el compromiso de las dos, y Booking vuelve a un solo Alojamiento que respalda y decide (§5.1). Lo que se mide sigue siendo una cantidad de P:X comprometida, nunca cuántas identidades la tienen: partir ese P entre k identidades (cada una con su acto) da la misma suma, y una identidad sin P:X que respalde E vivo del recurso no suma nada aunque escriba el acto a mano.
 
 ```sh
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { consolidar, puedeAutorizar, recursoDe, pesoAutorizacion, poderParaBloquear } from './src/motor.js';
 const T = '2026-11-07T16:00:00Z';
-const { eje, alta, menu, compra } = await ejemploCompra();
+const { eje, menu, compra } = await ejemploCompra();
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0, 8));
 // La casa delega a cocina 2 P con ámbito el menú: cubre el menú, pero no es el P del registro del recurso.
 await eje.escribir({ autor: 'casa', sobre: menu.id, t: T, movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: menu.id, de: 'casa', a: 'cocina' }], payload: 'cocina decide sobre su menú' });
 const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-console.log('recurso', corto(recursoDe(eje, c.id)), '= alta', recursoDe(eje, c.id) === alta.id);
+console.log('recurso', corto(recursoDe(eje, c.id)), '= génesis', recursoDe(eje, c.id) === eje.genesisId);
 const p = pesoAutorizacion(eje, c.id);
 console.log(corto({ claves: p.claves, delEje: p.delEje, emitido: p.emitido, bloqueado: p.bloqueado, umbral: p.umbral.texto, alcanza: p.alcanza }));
 for (const x of ['casa', 'cocina', 'huesped']) console.log(x, puedeAutorizar(eje, x, c.id), corto(poderParaBloquear(eje, x, c.id)));
@@ -359,7 +363,7 @@ console.log('sobre algo que no existe:', puedeAutorizar(eje, 'casa', 'nadie'));
 ```
 
 ```text
-recurso "a8efd9b0" = alta true
+recurso "2d970a48" = génesis true
 {"claves":["P:genesis","P:2d970a48"],"delEje":true,"emitido":10,"bloqueado":0,"umbral":"más de la mitad","alcanza":false}
 casa true [{"clave":"P:genesis","ambito":"genesis","cantidad":8}]
 cocina false []
@@ -367,21 +371,23 @@ huesped false []
 sobre algo que no existe: false
 ```
 
-La compra cuelga del menú, que cuelga de las altas de la casa: el recurso es esa raíz, sin P propio, así que cuenta el P del eje (10 emitidos por el génesis; a la casa le quedan 8 tras delegar 2 a cocina). El P de cocina, estrechado al menú, no es el del recurso.
+La compra cuelga del menú, que cuelga de las altas de la casa, y nadie en ese hilo ha emitido P propio: el recurso es el génesis (VG, 8-11) y cuenta el P del eje (10 emitidos por el génesis; a la casa le quedan 8 tras delegar 2 a cocina). El P de cocina, estrechado al menú, no es el del recurso.
 
 ### 4.2 Firma y registro
 
 ```js
-autorizar(eje, { autorizante, consolidacion, cantidad, t, nota = 'autorizo', plazo = PLAZO_AUTORIZACION }, privada)  // → Promise<evento>
-autorizacionesValidas(eje, consolidacion)    // → evento[]  los «autorizado» en FABRICA que bloquean, de su autor, P de una clave que cuenta con la consolidación de salida
+autorizar(eje, { autorizante, consolidacion, cantidad, respaldo, t, nota = 'autorizo', plazo = PLAZO_AUTORIZACION }, privada)  // → Promise<evento>
+autorizacionesValidas(eje, consolidacion)    // → evento[]  los «autorizado» en FABRICA que bloquean, de su autor, P de una clave que cuenta con la consolidación de salida, y los actos de voluntad con el P que respalda E que cuentan
 autorizacionCaducada(eje, autorizacion, t)   // → boolean: lee contexto.autoridad.caduca; nada caduca solo
 ```
 
 `autorizar` escribe con `eje.escribir` un registro de quien autoriza: `sobre = consolidación`, `en = FABRICA`, `payload = '==' + nota` (texto escapado para BQL), un minuto de T del autorizante y el **bloqueo**: `{ token: 'P', ambito, cantidad, de: autorizante, a: autorizante, estado: 'bloqueo', salida: consolidación }` por cada clave que cuenta, hasta `cantidad` (por defecto, todo lo que tiene disponible que cuente). `contexto = { modo: 'pointed', motor: 'fabrica', fase: 'autorizado', autoridad: { regla: REGLA_AUTORIZAR, recurso, bloquea: [{ clave, cantidad }], umbral, caduca } }`. Solo escribe si la consolidación está `PENDIENTE DE AUTORIZACIÓN`.
 
+**Con el P que ya respalda E** (§4.1, pieza 4): si el autorizante tiene P que cuenta bloqueado respaldando E del recurso (`respaldoParaAutorizar`) y `respaldo` es `true` (lo es por defecto cuando no se da `cantidad`), el registro lo dice: `autoridad.respaldo: true` y, informativo, `autoridad.respalda: [{ clave, salida, cantidad }]`. Ese es el acto de voluntad; no bloquea nada por él. El respaldo se usa **primero**: sin `cantidad`, solo bloquea además su P disponible (todo) si con el respaldo no se alcanza el umbral; con `cantidad`, bloquea esa cantidad y usa el respaldo solo si se pide (`respaldo: true`). `liberar` retira el acto (y devuelve el P bloqueado por la consolidación, si lo hay); el P que respalda sigue bloqueado respaldando la E.
+
 `contexto.autoridad` es el metadato de autoridad del evento (corpus: «firmante, contexto, autoridad cuando aplique»): es una declaración, y el estado se vuelve a calcular con el eje. `caduca` es el **plazo** del bloqueo: `t` más un `ciclo` (28 días) por defecto (`PLAZO_AUTORIZACION`, **[X] confirmar VG**), o `null` con `plazo: null`. Es un campo declarado, coherente con «la caducidad nunca es automática»: ni el estado lee el reloj ni nada se libera solo; `autorizacionCaducada` solo lo lee. Qué hace el motor con un bloqueo caducado es **[X] decidir VG**.
 
-Lo que no cumple la regla **no cuenta**: un registro con `fase: 'autorizado'` que no bloquea P de una clave que cuente queda en el eje (es un evento válido), pero `autorizacionesValidas` no lo devuelve y el estado no cambia. Y al revés: un bloqueo de P que cuenta con la consolidación de salida suma aunque no vaya en un registro «autorizado»; lo que decide es el P bloqueado, no el registro.
+Lo que no cumple la regla **no cuenta**: un registro con `fase: 'autorizado'` que no bloquea P de una clave que cuente (ni es el acto de quien respalda E del recurso con ese P) queda en el eje (es un evento válido), pero `autorizacionesValidas` no lo devuelve y el estado no cambia. Y al revés: un bloqueo de P que cuenta con la consolidación de salida suma aunque no vaya en un registro «autorizado»; lo que decide es el P bloqueado, no el registro.
 
 | Mensaje | Causa |
 |---|---|
@@ -419,8 +425,8 @@ await autorizar(eje, { autorizante: 'casa', consolidacion: compra.id, t: T }).ca
 ```
 
 ```text
-huesped no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso a8efd9b0, que no tiene P propio emitido: el P sobre todo el eje («genesis»)
-cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso a8efd9b0, que no tiene P propio emitido: el P sobre todo el eje («genesis»)
+huesped no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso 2d970a48, que no tiene P propio emitido: el P sobre todo el eje («genesis»)
+cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso 2d970a48, que no tiene P propio emitido: el P sobre todo el eje («genesis»)
 escritos en la fábrica 1 · válidos 0 · PENDIENTE DE AUTORIZACIÓN
 bloqueado 5 de 10 · PENDIENTE DE AUTORIZACIÓN
 true 4000000000 "==vale" BQL lo lee como "=vale"
@@ -450,6 +456,8 @@ bloqueosDeP(eje, identidad, consolidacion)                                      
 ```
 
 **Liberación** (VG, 7-11 noche). El eje solo deja liberar al titular (nadie mueve tokens ajenos), así que la ejecución libera en el mismo evento el P que **su autor** había bloqueado por la consolidación (si lo había: el autor cuenta como cualquiera), y el de los demás queda **liberable**: cada titular lo recupera con `liberar`, un registro suyo en la fábrica de la consolidación (`payload = '==' + nota`, un minuto de T, `contexto = { modo: 'pointed', motor: 'fabrica', libera: consolidación }`) que lleva la liberación `{ token: 'P', …, estado: 'liberacion', salida: consolidación }`. `liberar` sirve también para **retirar** una autorización antes de que se ejecute (R5: «quien bloqueó puede retirarlo antes de ejecutar»): si la suma baja del umbral, la consolidación vuelve a `PENDIENTE DE AUTORIZACIÓN` y `ejecutar` la rechaza. Y para un bloqueo caducado (§4.2): nada lo libera solo.
+
+**El P que respalda E no se libera al ejecutar** (VG, 8-11): el que contó por el acto de voluntad (§4.1, pieza 4) no está bloqueado por la consolidación, sino con la salida = una serie de E (o su familia), así que la ejecución no lo toca, y el eje no deja soltarlo mientras viva la E. Sigue respaldándola, y vale para la siguiente consolidación con otro acto. `liberar` sobre la consolidación solo retira el acto.
 
 Condiciones, en este orden: la consolidación existe y tiene `fase: 'consolidado'`; `autor` es el autor de la consolidación; el estado es `AUTORIZADO` (ni pendiente ni ejecutado): el P bloqueado por ella alcanza el umbral **ahora**, no solo cuando se autorizó. La capacidad de una posición no se cuenta aquí: la limita una serie de tokens que la ejecución mueve, y sin saldo el eje rechaza (§5.1). Entonces escribe **directamente con `eje.escribir`** (no pasa por `escribirDesde`: sin `contexto.modo`, sin comprobar proporción ni tope):
 
@@ -521,7 +529,7 @@ Dos consecuencias de «ejecuta el autor» y «nadie mueve tokens ajenos»:
 
 Decisión de VG (7-11, «las dos cosas a la vez»): una posición admite muchos ocupantes (colisiones: se escriben y se ven todos), y puede declarar una **capacidad**: cuántos de ellos pueden ser **válidos** a la vez. Quien la hace cumplir es una **serie limitada de tokens E** que emite quien respalda la posición: en Booking, la casa emite `E:casa/<plaza>@<noche>`, un token por plaza y noche, tantos como capacidad, y ejecutar la reserva los mueve de la casa a la persona huésped. Una segunda reserva solapada se escribe y colisiona, pero su ejecución no pasa: la casa ya no tiene el token de esa noche (`evento rechazado: saldo insuficiente de E:casa/…@<noche> en casa`). La fábrica no cuenta nada: el contador de este apartado es **informativo** (para la interfaz y para saber cuántos tokens emitir).
 
-**La capacidad de un registro sí la hace cumplir el eje** (VG, 7-11 noche; R2 del estudio de neutralidad; `eje.reglasDelTope`, detalle en `docs/FUNDAMENTOS.md`, «E atada al recurso, con tope compartido»). La misma forma (un entero positivo en la posición 2), en el **payload raíz de un registro**, es el tope del E vivo de las series atadas a él y a sus descendientes (`registro` en la serie: `E:casa/1100000000@<noche>@<habitación>`), **por franja**: lo que va tras la última `@` de la denominación (la noche), sumando todas las denominaciones y todos los emisores de esa franja. La franja es texto opaco (el eje no interpreta fechas) y su granularidad la elige quien respalda el recurso; sin `@`, una sola franja. Cada serie emite en proporción al P bloqueado con su clave (o la de su familia, la franja `*`) como salida, y ese P no se libera mientras viva. Por eso `capacidadDe` vive ahora en `src/tokens.js` y el motor la reexporta. En Booking, el alojamiento declara 4 plazas, la casa bloquea un P por cama para todas las noches y son catorce noches de 4: nadie añade una quinta plaza en una noche, aunque otra tenga sitio; cada noche caduca a la salida del día siguiente. La capacidad de una **posición** (la plaza 1.k) sigue siendo solo informativa: el eje mira la del registro.
+**La capacidad de un registro sí la hace cumplir el eje** (VG, 7-11 noche; R2 del estudio de neutralidad; `eje.reglasDelTope`, detalle en `docs/FUNDAMENTOS.md`, «E atada al recurso, con tope compartido»). La misma forma (un entero positivo en la posición 2), en el **payload raíz de un registro**, es el tope del E vivo de las series atadas a él y a sus descendientes (`registro` en la serie: `E:casa/1100000000@<noche>@<habitación>`), **por franja**: lo que va tras la última `@` de la denominación (la noche), sumando todas las denominaciones y todos los emisores de esa franja. La franja es texto opaco (el eje no interpreta fechas) y su granularidad la elige quien respalda el recurso; sin `@`, una sola franja. Cada serie emite en proporción al P bloqueado con su clave (o la de su familia, la franja `*`) como salida, y ese P no se libera mientras viva. Por eso `capacidadDe` vive ahora en `src/tokens.js` y el motor la reexporta. En Booking, el alojamiento (la raíz del dominio) declara 4 plazas y su P:Alojamiento (4) respalda una cama cada uno para todas las noches: la casa la de matrimonio y recepción, con el P que le delegó la casa, la individual y la litera (coemisora de sus series); son catorce noches de 4: nadie añade una quinta plaza en una noche, aunque otra tenga sitio; cada noche caduca a la salida del día siguiente. La capacidad de una **posición** (la plaza 1.k) sigue siendo solo informativa: el eje mira la del registro.
 
 **[X] decidir VG** (auditoría de ajuste 2, A2-07): la corrección de VG sobre titulares (mapa §12 [D], 7-11 tarde) dice que «una persona emite los tokens de plaza de una habitación y se los da a la habitación; la habitación los conserva y los maneja». El ejemplo sigue la decisión de mediodía (mapa §12 [D] «Capacidad y tokens casan»: «mover esos tokens de la casa al huésped»): la serie se queda en la cartera de la casa, `libres` lee el saldo de la casa y la entrega la consolida y ejecuta la casa. Para pasar a la habitación hace falta decidir cómo se liga el registro de la habitación con la identidad (una cosa) que es titular de sus plazas, y quién consolida y ejecuta la entrega en su nombre; con eso, la casa emitiría y movería la serie a la habitación en el mismo evento (docs/FUNDAMENTOS.md: «para darla se mueve después, en el mismo evento si quiere»).
 
@@ -539,7 +547,7 @@ ocupacion(eje, id)                      // → [{ sobre, dir, camino, capacidad,
 - **Cuántos a la vez**: los otros registros de la posición con consolidación ejecutada que se solapan con el tramo, y el máximo que coincide en un mismo instante (barrido por los inicios). Con capacidad 2, dos estancias encadenadas y una tercera que las cruza caben; una cuarta que coincide con dos, no.
 - `ejecutar` **no** consulta `ocupacion`.
 
-Lo que no hace el motor: mover tokens de dos partes en un solo acto. El motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens ajenos, así que Booking confirma con **dos consolidaciones** sobre la reserva, autorizadas por recepción (bloquea su P sobre las Reservas de la casa, la raíz del dominio y el registro del recurso, §4; el P del Alojamiento respalda las plazas, R2): la casa entrega los tokens de plaza y después la persona huésped paga (`ejemplos/ikisai/reserva-booking.mjs`, `[X] decidir VG`; la atomicidad es de AARPIA).
+Lo que no hace el motor: mover tokens de dos partes en un solo acto. El motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens ajenos, así que Booking confirma con **dos consolidaciones** sobre la reserva, autorizadas por recepción con el P:Alojamiento que ya respalda la individual y la litera (3 de 4, más de la mitad: el Alojamiento es la raíz del dominio y el registro del recurso, §4; VG, 8-11: ese P respalda y decide, y ejecutar no lo suelta): la casa entrega los tokens de plaza y después la persona huésped paga (`ejemplos/ikisai/reserva-booking.mjs`, `[X] decidir VG`; la atomicidad es de AARPIA).
 
 ## 6. Estado y lista de consolidaciones
 
@@ -1180,9 +1188,9 @@ const guiso = d[0].candidatos.find((c) => c.origen === 'referencia');
 const cons = await consolidar(eje, { autor: 'huesped', foco: pedido.id, t: t('13:40'), titulo: 'Pedido del guiso', elecciones: { 1: { candidato: guiso }, 2: 'sin lactosa', 4: 'pagar 14 EUR' } });
 console.log('consolidación', corto(cons.payload), '· en la fábrica', cons.en === FABRICA, '·', estadoDe(eje, cons.id));
 console.log('encaje guardado', corto(cons.contexto.encaje));
-// 7. Autorizar es bloquear P sobre el registro del recurso: la raíz del dominio, el alta de la casa, sin P propio, así que
-//    cuenta el P del eje. La casa tiene 3 de 5 (más de la mitad); el P de cocina, estrechado al menú, no es ese.
-console.log('recurso = alta', recursoDe(eje, cons.id) === alta.id, '· puede autorizar', ['casa', 'cocina', 'huesped'].map((i) => i + '=' + puedeAutorizar(eje, i, cons.id)).join(' '));
+// 7. Autorizar es bloquear P sobre el registro del recurso: nadie en el hilo del pedido ha emitido P propio, así que
+//    manda el génesis y cuenta el P del eje. La casa tiene 3 de 5 (más de la mitad); el P de cocina, estrechado al menú, no es ese.
+console.log('recurso = génesis', recursoDe(eje, cons.id) === eje.genesisId, '· puede autorizar', ['casa', 'cocina', 'huesped'].map((i) => i + '=' + puedeAutorizar(eje, i, cons.id)).join(' '));
 await autorizar(eje, { autorizante: 'cocina', consolidacion: cons.id, t: t('13:41') }).catch((e) => console.log('rechazo:', corto(e.message)));
 const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: cons.id, t: t('13:45'), nota: 'sale en 10 minutos' });
 console.log('autorización', JSON.stringify(aut.payload), corto(aut.contexto.autoridad.bloquea), '·', estadoDe(eje, cons.id));
@@ -1213,10 +1221,10 @@ posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
 consolidación ["Pedido del guiso",{"ref":"8a12d201","dir":"1100000000"},"sin lactosa",{"ref":"a98f67bc","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · PENDIENTE DE AUTORIZACIÓN
 encaje guardado [{"posicion":1,"evento":"8a12d201","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
-recurso = alta true · puede autorizar casa=true cocina=false huesped=false
-rechazo: "cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso 79281ccb, que no tiene P propio emitido: el P sobre todo el eje («genesis»)"
+recurso = génesis true · puede autorizar casa=true cocina=false huesped=false
+rechazo: "cocina no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso a2bbba5d, que no tiene P propio emitido: el P sobre todo el eje («genesis»)"
 autorización "==sale en 10 minutos" [{"clave":"P:genesis","cantidad":3}] · AUTORIZADO
-ejecución ["Pagado y servido",{"ref":"681a35db"},{"ref":"a4c63da7"}] · evidencia ["681a35db","a4c63da7"] · EJECUTADO
+ejecución ["Pagado y servido",{"ref":"681a35db"},{"ref":"7f633adb"}] · evidencia ["681a35db","7f633adb"] · EJECUTADO
 EUR cocina 14 huesped 36 · hilo de la ejecución: huesped → huesped → huesped → cocina → casa → casa
 consolidaciones del pedido [{"id":"681a35db","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","estado":"EJECUTADO","fuentes":["8a12d201"]}]
 casa P:genesis 3 · bloqueado 0
@@ -1230,7 +1238,7 @@ Lectura de la salida:
 - `pedido`: las posiciones 0 y 2 no se rellenaron y están por debajo de la 3, así que se heredan del menú por referencia; seis posiciones, seis minutos.
 - `posición 1`: colisionan `[1]` y `[1, 0]` (la referencia al guiso, que cae dentro de la lista del menú: por eso sale `PENDIENTE`, una dirección no nombra ocupantes de una lista) con lo que esa referencia alcanza. El guiso vive en la profundidad 1.1 del menú y se coloca en la 1 del pedido: vector `[0, 1, …]` (candidato − buscado: `1.1` menos `1`), signo `reducir` (le sobra una profundidad). `posición 4 nada`: el pedido tiene posiciones 0–3 y nadie ha escrito en su 4.
 - `consolidación`: la elección de la 1 es la referencia al guiso (`menú:1100000000`); la 3 se hereda del pedido; el encaje guardado es el del candidato elegido.
-- `puede autorizar`: autorizar es bloquear P sobre el registro del recurso, la raíz del dominio (el alta de la casa), que no tiene P propio: cuenta el P del eje. La casa tiene los 3 que le quedan sobre `genesis` (de 5: más de la mitad) y los bloquea; los 2 P de cocina, estrechados al menú, no son ese P; la persona huésped no tiene ninguno (si lo tuviera, contaría aunque sea la autora).
+- `puede autorizar`: autorizar es bloquear P sobre el registro del recurso; nadie en el hilo del pedido (menú, alta de la casa) ha emitido P propio, así que es el génesis y cuenta el P del eje. La casa tiene los 3 que le quedan sobre `genesis` (de 5: más de la mitad) y los bloquea; los 2 P de cocina, estrechados al menú, no son ese P; la persona huésped no tiene ninguno (si lo tuviera, contaría aunque sea la autora).
 - `EUR cocina 14 huesped 36`: los euros se mueven en la ejecución, no antes. El hilo de la ejecución recorre autores: huésped (ejecución) → huésped (consolidación) → huésped (pedido) → cocina (menú) → casa (alta) → casa (génesis).
 - `futuro 0`: la única consolidación ya está ejecutada y el pedido no tiene posición 7. `8 entre hermanos`: los hermanos del pedido son lo escrito sobre el menú (el pedido y la delegación de poder); nadie ha escrito la base del 8 del menú, así que `situar` usa el respaldo al vuelo y lo dice («sin base escrita»). Sin puesto: el pedido cae en la caja 5 de terminales (seis), con la delegación debajo.
 - `casa P:genesis 3 · bloqueado 0`: tras la ejecución, la casa libera el P que bloqueó (solo ella puede).
@@ -1252,7 +1260,7 @@ export const OPERADORES = { Q: 'descubrir', B: 'proponer', C: 'consolidar' };
 export function descubrir(eje, foco, { camino = [], posiciones = [1, 2, 3, 4], epoca, maximo = Infinity } = {}): { posicion, dir, candidatos: Candidato[], total, limitada }[];
 export function proponer(eje, foco, { camino = [], posiciones = [1, 2, 3, 4] } = {}): { foco, elecciones, origenes: { posicion, desde, texto }[], pendientes: { posicion, motivo }[] };
 export async function consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino = [] }, privada?): Promise<Evento>;
-export function recursoDe(eje, consolidacion): string;  // X: la raíz del dominio donde se consolida ([X] confirmar VG)
+export function recursoDe(eje, consolidacion): string;  // X: el registro más cercano del hilo del foco con P propio emitido, o el génesis (VG, 8-11)
 export function pesoAutorizacion(eje, consolidacion): { recurso, ambito, claves, delEje, emitido, bloqueado, umbral, necesario, alcanza };
 export function poderParaBloquear(eje, identidad, consolidacion): { clave, ambito, cantidad }[];  // su P disponible que contaría
 export function puedeAutorizar(eje, identidad, consolidacion): boolean;  // tiene P que cuente; el autor incluido

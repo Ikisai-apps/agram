@@ -22,6 +22,7 @@ import { epocaActual, nombrePV, nombresPV, leerDireccion, instalarEpocas, trasPi
 import { crearEjemplo, restaurarEjemplo, instalarEjemplos, trasPintarEjemplos } from './ui/ejemplos.js';
 import { htmlSaldos } from './ui/saldos.js';
 import { htmlCifras, htmlAvisos } from './ui/comun.js';
+import { htmlLeido, instalarLeido } from './ui/leido.js';
 
 const estado = {
   eje: null, foco: null, camino: [], modo: 'pointed', identidad: 'huesped', en: '4',
@@ -169,6 +170,7 @@ function pintarPointed() {
   // Un terminal no tiene posición 0 (MAPA §12): se muestra aparte, encima de las diez posiciones vacías.
   const terminal = d.terminal === undefined ? '' : `<div class="posfila"><div class="pos activa"><span class="idx">·</span><span class="pv">terminal</span><span class="val">${slot(d.terminal, estado.foco, estado.camino)}</span></div></div>`;
   $('#vista').innerHTML = cabecera(ev) + `<div class="cifras-fila">${htmlCifras('Pointed', d.alcance)}</div>${htmlAvisos(d.avisos)}<div class="decupla">${terminal}${filas.join('')}</div>${htmlAvisos(d.avisos)}
+    ${htmlLeido(estado.eje, estado.foco, { epoca: epocaActual() })}
     <form id="escribir" data-modo="pointed" class="escribir">
       <div class="titulo">Escribir sobre el foco · Pointed propone ${e[1]} posición (como mucho ${maximo('pointed')}) · lo escrito va en el PV donde se escribe</div>
       ${selectores()}
@@ -278,7 +280,8 @@ function celdaMapa(m, i, eje67, o8) {
  */
 function pistaAutorizar(id, sinP) {
   const p = motor.pesoAutorizacion(estado.eje, id);
-  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado; umbral: ' + p.umbral.texto;
+  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado'
+    + (p.respaldo > 0 ? ' (' + p.respaldo + ' respaldando E del recurso)' : '') + '; umbral: ' + p.umbral.texto;
   return escapar((sinP ? sinP + ' no tiene P sobre el registro del recurso · ' : '') + peso);
 }
 
@@ -591,6 +594,7 @@ async function reiniciar() {
 instalarEjemplos({ reiniciar });
 instalarEpocas({ pintar });
 instalarEncaje({ pintar });
+instalarLeido({ pintar }); // conmutador «leído»: el registro (Pointed) o la posición en foco (Clasificar) como texto
 instalarFabrica({ estado, pintar });
 instalarClasificar({ estado, pintar, guardar, fallo, privadaDe, epoca: epocaActual });
 estado.claves = await cargarClaves();

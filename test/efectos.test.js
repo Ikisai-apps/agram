@@ -330,7 +330,7 @@ test('la fase se juzga como la juzga el motor, con el eje de ahora: no sale solo
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
   const falsa = await escribe(eje, 'cocina', c.id, FABRICA, '==autorizo', { motor: 'fabrica', fase: 'autorizado' });
   assert.equal(sinTokens(efectosDe(eje, falsa))[0].tipo, 'ruido');
-  // La casa autoriza bloqueando su P del eje (la raíz del dominio, sus altas, aún no tiene P propio): cuenta.
+  // La casa autoriza bloqueando su P del eje (nadie en el hilo tiene P propio emitido: manda el génesis, VG 8-11): cuenta.
   const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
   assert.deepEqual(sinTokens(efectosDe(eje, a)).map((x) => [x.tipo, x.nombre]), [['fase', 'autorizar']]);
