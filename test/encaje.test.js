@@ -70,7 +70,7 @@ test('árbol lógico: todas las posiciones desarrolladas y las que solo tienen e
 
 test('por hojas: una lista en una posición da un ocupante por elemento; una décupla, uno', async () => {
   // VG, 7-11 noche: por hojas. La 1 es una lista de tres hojas; la 2, una décupla (cada posición entre corchetes).
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 60 }], foco: ['X', ['a', 'b', 'c'], [['d'], ['e']]], t: '2026-11-07T10:00:00Z' });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: ['X', ['a', 'b', 'c'], [['d'], ['e']]], t: '2026-11-07T10:00:00Z' });
   const id = eje.genesisId;
   const oc = ocupantes(eje, id, [1], { orden: 'llegada' });
   assert.deepEqual(oc.map((o) => [o.tipo, o.enLista, o.indice, o.contenido]), [['propio', true, 0, 'a'], ['propio', true, 1, 'b'], ['propio', true, 2, 'c']]);

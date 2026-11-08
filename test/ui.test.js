@@ -14,7 +14,8 @@ import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEnc
 import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../ui/fabrica.js';
 import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../ui/saldos.js';
 import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../ui/ejemplos.js';
-import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras } from '../ui/comun.js';
+import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras, htmlRecomendacionT } from '../ui/comun.js';
+import { recomendacionDeEscala } from '../src/tiempo.js';
 
 const { motor, encaje, PV, EPOCA_0 } = nucleo;
 
@@ -188,8 +189,12 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   const casa = familiasDe(eje, 'casa');
   assert.deepEqual(casa.E, ['440 €']);
   assert.deepEqual(casa.P, ['10 sobre eje']);
-  assert.equal(casa.T.length, 2);
-  assert.match(casa.T[0], / h$/); // de la escala mayor a la menor
+  // La casa no tiene T explícito (VG, 8-11: no hay T acumulable; vive de su asignación del día); la cocina, una cosa,
+  // conserva el que le dio la casa.
+  assert.deepEqual(casa.T, []);
+  const cocinaT = familiasDe(eje, 'cocina').T;
+  assert.equal(cocinaT.length, 2);
+  assert.match(cocinaT[0], / h$/); // de la escala mayor a la menor
   assert.deepEqual(familiasDe(eje, 'cocina').E, ['12 € de casa']);
   assert.deepEqual(familiasDe(eje, 'huesped').R, []);
   const minutos = eje.identidades().reduce((s, id) => s + eje.saldo(id, 'T:minuto'), 0); // el T explícito (sin las asignaciones del día)
@@ -200,7 +205,7 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.match(html, /<details class="series-emitidas" data-plegado="series" open>/);
   assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
-  // Lo emitido de T:minuto es el del génesis: lo que gastan las personas sale de su asignación diaria (VG, 8-11).
+  // Nadie emite T, ni el génesis (VG, 8-11): lo que gastan las personas sale de su asignación diaria.
   assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });
@@ -309,4 +314,16 @@ test('las tres cifras del modo, discretas junto a su nombre (VG, 7-11 noche)', (
   const bajo = htmlCifras('Sequenced', nucleo.alcanceDe(7, 'sequenced'));
   assert.match(bajo, /^<span class="cifras bajo" title="[^"]*no llega al mínimo[^"]*">Sequenced · 7 · mín 10 · máx 100<\/span>$/);
   assert.match(htmlCifras('Pointed', nucleo.alcanceDe(10, 'pointed')), /^<span class="cifras" title="[^"]*">Pointed · 10 · mín 1 · máx 10<\/span>$/);
+});
+
+test('escritura: si lo emitido es grande para la escala de T gastada, se recomienda la de orden superior, sin rechazar (VG, 8-11)', () => {
+  const gasta = (escala, cantidad) => [{ token: 'T', escala, cantidad, de: 'a', a: null }];
+  const matriz = Array(10).fill(Array(10).fill(Array(10).fill('z'))); // mil posiciones: el orden de la hora
+  const grande = { autor: 'a', sobre: 'x', movimientos: gasta('minuto', 1000), payload: matriz };
+  assert.deepEqual(recomendacionDeEscala(grande), { escala: 'minuto', recomendada: 'hora', texto: 'este registro es grande para un minuto: se recomienda una hora' });
+  assert.equal(htmlRecomendacionT(grande), '<div class="pista recomendacion-t">Este registro es grande para un minuto: se recomienda una hora.</div>');
+  // Si casa, o si es más pequeño que su escala, nada: solo se recomienda subir.
+  assert.equal(htmlRecomendacionT({ ...grande, movimientos: gasta('hora', 1) }), '');
+  assert.equal(htmlRecomendacionT({ ...grande, movimientos: gasta('dia', 1), payload: 'nota' }), '');
+  assert.equal(recomendacionDeEscala({ ...grande, movimientos: gasta('segundo', 1) }).recomendada, 'hora');
 });

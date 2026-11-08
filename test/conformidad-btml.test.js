@@ -34,7 +34,7 @@ import { serializar, restaurar } from '../src/persistencia.js';
 import { generarClaves, firmar, verificar } from '../src/autoridad.js';
 
 const T0 = '2026-11-07T10:00:00Z';
-const EMISION = [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }];
+const EMISION = [{ token: 'P', cantidad: 5, ambito: 'genesis' }];
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 /**
  * Dar minutos de T a una cosa. T no cruza de persona (VG, 7-11 noche), pero una persona sí da su T a una cosa

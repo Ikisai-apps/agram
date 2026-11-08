@@ -28,6 +28,8 @@ import { elegibles } from '../src/elegibles.js';
 import { ocupantes } from '../src/encaje.js';
 import { incongruenciaDe } from '../src/tiempo.js';
 import { validez } from '../src/validez.js';
+import { esPresente } from '../src/evento.js';
+import { leerEvento } from '../src/lectura.js';
 import { colateral } from '../src/lente.js';
 import { ASIGNACION_T, PARTES_T, ESCALAS_REALES, asignacionT, diaCivil, textoT, validarMovimiento } from '../src/tokens.js';
 
@@ -54,7 +56,7 @@ const cedeE = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'mi
 async function mundo() {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
@@ -116,6 +118,24 @@ test('T no cruza de persona: a otra persona se rechaza; a una cosa, sí; dar tie
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'cinco minutos para ana', movimientos: [gasta('g'), cedeE('g', 'ana', 5)] });
   assert.equal(eje.saldo('ana', 'E:g/minuto'), 15);
   assert.equal(eje.saldo('ana', 'T:minuto'), 0); // ningún T explícito: solo su asignación del día
+});
+
+test('T de cosa a cosa (VG, 8-11): solo entre cosas del mismo dueño, o si el autor escribió el alta de la destino o tiene P sobre ella', async () => {
+  const { eje, alta } = await mundo();
+  // Otra cosa de g (el mismo dueño que el robot) y una cosa de ana.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el horno', contexto: { tipos: { horno: 'cosa' } }, movimientos: [gasta('g'), daT('g', 'horno', 2)] });
+  const deAna = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi tostadora', contexto: { tipos: { tostadora: 'cosa' } }, movimientos: [gasta('ana'), daT('ana', 'tostadora', 2)] });
+  assert.deepEqual(eje.alta('tostadora'), { id: deAna.id, t: T0 });
+  // Del mismo dueño: sí.
+  await eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'al horno', movimientos: [gasta('robot'), daT('robot', 'horno', 3)] });
+  assert.equal(eje.saldoT('horno', 'minuto'), 5);
+  // De otro dueño, sin escribir su alta ni tener P sobre ella: no.
+  const aLaTostadora = { autor: 'robot', sobre: alta.id, t: T0, payload: 'a la tostadora', movimientos: [gasta('robot'), daT('robot', 'tostadora', 3)] };
+  await assert.rejects(eje.escribir(aLaTostadora), /T de cosa a cosa solo entre cosas del mismo dueño, o si robot escribió el alta de tostadora o tiene P sobre ella \(VG, 8-11\)/);
+  // Con P sobre el alta de la tostadora (aquí, P sobre todo el eje que le delega g): sí.
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'poder para el robot', movimientos: [gasta('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'robot' }] });
+  await eje.escribir({ ...aLaTostadora, payload: 'a la tostadora, con poder' });
+  assert.equal(eje.saldoT('tostadora', 'minuto'), 5);
 });
 
 // ---------- por cuenta de otro: nada (VG, 8-11) ----------
@@ -211,14 +231,19 @@ test('persona → cosa: el T que da sale de su asignación del día', async () =
   assert.equal(eje.saldoT('mio', 'minuto', MANANA), 400);
 });
 
-test('el T explícito del génesis se acumula: se gasta después de la asignación del día, y no caduca', async () => {
+test('ningún T se acumula (VG, 8-11: no hay T acumulable): el génesis no emite T y su autor vive de su asignación del día', async () => {
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'g', t: AYER, foco: 'x', emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }] }),
+    /T no se emite: ni el génesis; cada persona tiene su asignación del día/);
   const { eje, alta } = await mundo();
-  assert.equal(eje.saldo('g', 'T:minuto'), 1e6);
+  assert.equal(eje.saldo('g', 'T:minuto'), 0);
   // En el alta (AYER) g gastó 1 minuto y dio 30 al robot: de su asignación de ayer.
-  assert.equal(eje.saldoT('g', 'minuto', AYER), 1e6 + 1440 - 31);
-  // Hoy: primero los 1440 del día, luego lo explícito.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] });
-  assert.deepEqual([eje.saldo('g', 'T:minuto'), eje.saldoT('g', 'minuto', T0), eje.saldoT('g', 'minuto', MANANA)], [1e6 - 560, 1e6 - 560, 1e6 - 560 + 1440]);
+  assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 31);
+  // Hoy, los 1440 del día y nada más: lo que no gastó ayer no pasa a hoy.
+  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] }), /T del día agotado \(minuto\): quedan 1440/);
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el día entero', movimientos: [gasta('g', 1440)] });
+  assert.deepEqual([eje.saldo('g', 'T:minuto'), eje.saldoT('g', 'minuto', T0), eje.saldoT('g', 'minuto', MANANA)], [0, 0, 1440]);
+  // Una cosa no tiene asignación: conserva lo que le dio su persona hasta gastarlo.
+  assert.equal(eje.saldoT('robot', 'minuto', MANANA), 30);
 });
 
 test('pasado, futuro e inventado: ilimitados, se registran con sus dos fechas y se enseñan aparte (VG, 8-11)', async () => {
@@ -240,16 +265,33 @@ test('pasado, futuro e inventado: ilimitados, se registran con sus dos fechas y 
   assert.deepEqual(eje.tiempoSobre(alta.id), { minuto: 12 });
   const informativas = eje.series().filter((x) => x.informativa).map((x) => [x.clave, x.consumido]);
   assert.deepEqual(informativas, [['T:pasado', 10], ['T:futuro', 3], ['T:inventado', 1]]);
-  // Pasado y futuro exigen la fecha a la que se refieren; solo se consumen; y no pagan la escritura.
+  // Pasado y futuro exigen la fecha a la que se refieren; solo se consumen.
   const sinFecha = { token: 'T', escala: 'pasado', cantidad: 1, de: 'ana', a: null };
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), sinFecha] }), /T pasado exige refiere/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...sinFecha, escala: 'futuro' }] }), /T futuro exige refiere/);
   assert.ok(validarMovimiento({ ...pasado(), a: 'bea' }).some((e) => /solo se consume/.test(e)));
   assert.ok(validarMovimiento({ ...gasta('ana'), nota: 'x' }).some((e) => /nota solo en T pasado, futuro o inventado/.test(e)));
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'gratis', movimientos: [pasado()] }), /escribir consume T del autor/);
+  // Y pagan la escritura (VG, 8-11): el registro es válido, gratis en T real, y queda como no presente («el pago es la
+  // ausencia de un registro presente, que puede ser un criterio en PV2 cuando el tiempo importe (p. ej. caducidad
+  // alimentaria)»). Con T real, presente.
+  const antes = eje.saldoT('ana', 'minuto', T0);
+  const deMemoria = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [pasado()] });
+  assert.deepEqual([eje.presente(deMemoria.id), esPresente(deMemoria), eje.saldoT('ana', 'minuto', T0)], [false, false, antes]);
+  assert.deepEqual([eje.presente(alta.id), eje.presente(eje.genesisId), eje.presente('nada')], [true, true, undefined]);
+  // Se ve en validez y en la lectura, y un criterio del dueño puede exigirlo en BQL: FILTRAR(…, PRESENTE()).
+  assert.deepEqual([(await validez(eje, deMemoria.id)).presente, (await validez(eje, alta.id)).presente], [false, true]);
+  assert.ok(leerEvento(eje, deMemoria.id).split('\n')[0].endsWith(' · no presente (pagado con T informativo; VG, 8-11)'));
+  assert.doesNotMatch(leerEvento(eje, alta.id), /no presente/);
+  const X = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, movimientos: [gasta('ana')],
+    payload: ['caducidad', 'lote', '=CONTAR(FILTRAR(BUSCAR("1000000000"), PRESENTE()))', '=CONTAR(BUSCAR("1000000000"))'] });
+  await eje.escribir({ autor: 'ana', sobre: X.id, en: '1000000000', t: T0, movimientos: [gasta('ana')], payload: 'abierto hoy' });
+  await eje.escribir({ autor: 'ana', sobre: X.id, en: '1000000000', t: T0, movimientos: [pasado()], payload: 'abierto, de memoria' });
+  assert.deepEqual([evaluar(eje, X.id, [2]).texto, evaluar(eje, X.id, [3]).texto], ['2', '3']);
+  assert.equal(evaluar(eje, X.id, [2]).estado, 'RESUELTO');
   // Restaurar rehace lo registrado.
   const otro = await Eje.desde(eje.orden.map((id) => eje.obtener(id)));
-  assert.deepEqual(otro.tiempoInformativo(alta.id), registrado);
+  assert.deepEqual(otro.tiempoInformativo(alta.id), eje.tiempoInformativo(alta.id));
+  assert.equal(otro.presente(deMemoria.id), false);
 });
 
 // ---------- 2 · T se ve y no concede nada a terceros ----------

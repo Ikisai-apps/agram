@@ -29,7 +29,7 @@ const minuto = (de, cantidad = 1, a = null) => (a === null ? { token: 'T', escal
 async function demo(ids, tipos = {}) {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: 'raíz',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e5 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
@@ -168,7 +168,7 @@ test('R8 el índice por autor del eje (sobreDe) da lo mismo que filtrar sobre() 
 // ---------- R9 · sin clave no se actúa ----------
 
 test('R9 el génesis sin clave se rechaza fuera de la demostración; con clave y firma, entra; la marca es explícita', async () => {
-  const base = { identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }] };
+  const base = { identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] };
   await assert.rejects(Eje.genesis(base), /sin clave no se actúa: el génesis declara la clave de su autor/);
   const k = await generarClaves();
   const eje = await Eje.genesis({ ...base, clave: k.publica, privada: k.privada });
@@ -183,7 +183,7 @@ test('R9 el génesis sin clave se rechaza fuera de la demostración; con clave y
 
 test('R9 el alta trae la prueba de posesión de cada clave nueva: sin ella, con otra clave o sin clave declarada, no entra', async () => {
   const [kg, ka, kb] = [await generarClaves(), await generarClaves(), await generarClaves()];
-  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }] });
+  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] });
   const alta = (payload) => ({ autor: 'g', sobre: eje.genesisId, t: T0, payload, movimientos: [minuto('g'), minuto('g', 5, 'ana')], contexto: { tipos: { ana: 'persona' }, claves: { ana: ka.publica } } });
   await assert.rejects(eje.escribir(alta('sin prueba'), kg.privada), /la clave de ana llega sin prueba de posesión/);
   await assert.rejects(eje.escribir(alta('prueba ajena'), kg.privada, { ana: kb.privada }), /prueba de posesión inválida para ana/);
@@ -204,7 +204,7 @@ test('R9 el alta trae la prueba de posesión de cada clave nueva: sin ella, con 
 
 test('R9 sin clave no se mueve ni se autoriza; en demostración, sí (como antes), y la posesión queda «sin probar»', async () => {
   const [kg, ka] = [await generarClaves(), await generarClaves()];
-  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: ALTA, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 4 }] });
+  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: ALTA, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 4 }] });
   // ana (una persona) entra con clave; muda, sin clave pero con minutos de g y con P sobre todo el eje.
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas', movimientos: [minuto('g'), minuto('g', 9, 'ana'), minuto('g', 9, 'muda'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'muda' }], contexto: { tipos: { ana: 'persona' }, claves: { ana: ka.publica } } }, kg.privada, { ana: ka.privada });
   await assert.rejects(eje.escribir({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /sin clave no se actúa: muda/);

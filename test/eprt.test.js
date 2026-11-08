@@ -12,8 +12,6 @@ async function mundo() {
     identidad: 'casa',
     tipo: 'persona', // da T a sus cosas, la cocina y la sala (Core, 8-11: T no cruza de persona, pero una persona sí lo da a una cosa)
     emision: [
-      { token: 'T', escala: 'hora', cantidad: 100 },
-      { token: 'T', escala: 'minuto', cantidad: 100 }, // escribir cuesta minutos: otro token
       { token: 'P', cantidad: 5, ambito: 'genesis' },
       { token: 'R', cantidad: 20, emisor: 'casa' }, // la casa nace con reputación propia que puede repartir
     ],
@@ -112,12 +110,12 @@ test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega,
 
 test('P y R encajan en la constante: familia, clave de serie, quién la emite', async () => {
   const { eje } = await mundo();
-  // P se emite por ámbito (el génesis, sobre todo el eje); R por emisor (la casa, la suya).
+  // P se emite por ámbito (el génesis, sobre todo el eje); R por emisor (la casa, la suya). T no se emite (VG, 8-11:
+  // no hay T acumulable): su serie aparece al gastarse, con emitido 0.
   assert.deepEqual(eje.series().map((s) => [s.token, s.serie, s.emisor, s.emitido]), [
-    ['T', 'hora', 'casa', 100],
-    ['T', 'minuto', 'casa', 100],
     ['P', 'genesis', 'casa', 5],
     ['R', 'casa', 'casa', 20],
+    ['T', 'minuto', 'casa', 0],
   ]);
   assert.deepEqual(eje.poderes('casa'), [{ ambito: 'genesis', cantidad: 5 }]);
   assert.deepEqual(eje.reputaciones('casa'), [{ emisor: 'casa', cantidad: 20 }]);

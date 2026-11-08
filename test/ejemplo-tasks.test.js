@@ -47,7 +47,7 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   const T = (id) => [eje.saldo(id, 'T:minuto'), eje.saldo(id, 'T:hora')];
   const consumido = (id) => ['minuto', 'hora'].map((escala) => eje.orden.map((x) => eje.obtener(x)).filter((e) => e.autor === id && e.contexto?.genesis !== true)
     .reduce((s, e) => s + e.movimientos.filter((m) => m.token === 'T' && m.escala === escala && m.de === id && m.a === null).reduce((x, m) => x + m.cantidad, 0), 0));
-  assert.deepEqual([T('casa'), consumido('casa')], [[600, 200], [15, 0]]); // del génesis, entero: gasta su asignación (la liberación de su P, un minuto más)
+  assert.deepEqual([T('casa'), consumido('casa')], [[0, 0], [15, 0]]); // sin T explícito (VG, 8-11: no hay T acumulable): gasta su asignación (la liberación de su P, un minuto más)
   assert.deepEqual(eje.recursos('proveedor').filter((r) => r.denominacion === 'hora'), [{ emisor: 'casa', denominacion: 'hora', cantidad: 20 }]);
   // Integración 7-11: con #42 ejecutar cuesta un minuto por posición escrita (3: título, consolidación y autorización), no uno fijo.
   assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [46, 0]]);

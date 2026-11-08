@@ -19,6 +19,7 @@
 //   =ACTUAL(pv, cantidad?)  fuera de FILTRAR: la colección activa de la posición pv, limitada a cantidad (1 por defecto);
 //                           dentro: la posición pv del candidato. cantidad nunca es profundidad
 //   =ORIGEN()               dentro de FILTRAR/ORDENAR: procedencia del candidato («propio», «referencia», «escrito»)
+//   =PRESENTE()             dentro de FILTRAR/ORDENAR: si el registro del candidato es presente (pagó con T real; VG, 8-11)
 //   =ACUERDO() =DESPLAZAMIENTO() =SIGNO() =FALTAS() =EXCEDENTES()   el encaje del candidato: profundidades de acuerdo, suma de distancias, signo (exacto/completar/reducir/mixto), faltas y excedentes
 //   =CONTAR(col) =SUMAR(col)
 //   =BASES(alcance?, medida?, k | campo?)   lee las bases del 8 (src/bases.js, valorDeBases): n, la caja del anfitrión o un dato de la base
@@ -67,7 +68,7 @@ export const SUBTIPOS_PENDIENTE = Object.freeze(['PENDIENTE DE AUTORIZACIÓN', '
 /** Límites de cálculo de una evaluación (valores V0; las opciones pueden cambiarlos). */
 export const LIMITES = Object.freeze({ presupuesto: 2000, profundidad: 100, candidatos: 1000 });
 const PEREZOSAS = Object.freeze({ FILTRAR: [1], ORDENAR: [1] }); // argumentos que se evalúan por candidato
-const SOLO_DENTRO = Object.freeze(['ORIGEN', 'SIGNO', 'FALTAS', 'EXCEDENTES', 'ACUERDO', 'DESPLAZAMIENTO']);
+const SOLO_DENTRO = Object.freeze(['ORIGEN', 'PRESENTE', 'SIGNO', 'FALTAS', 'EXCEDENTES', 'ACUERDO', 'DESPLAZAMIENTO']);
 
 /** PENDIENTE o uno de sus subtipos. */
 export function esPendiente(estado) {
@@ -618,6 +619,8 @@ function funcion(ctx, nodo, evId, base) {
       return col(c.items.slice(0, cantidadDe(args[1], 'ELEGIR')));
     }
     case 'ORIGEN': return texto(ctx.actual.origen);
+    // VG, 8-11: un registro pagado solo con T informativo no es presente (evento.esPresente); el dueño puede exigirlo.
+    case 'PRESENTE': return bool(ctx.eje.presente(ctx.actual.evento) !== false);
     case 'SIGNO': return texto(ctx.actual.signo ?? 'exacto');
     case 'FALTAS': return num(ctx.actual.faltas ?? 0);
     case 'EXCEDENTES': return num(ctx.actual.excedentes ?? 0);
@@ -724,6 +727,8 @@ function medidaDe(arg) {
 function exigirSerie(eje, clave) {
   if (clavesDeMedidas().includes(clave) || clave.startsWith(TIEMPO)) return; // el T consumido sobre el registro siempre se puede leer (vale 0)
   const [token, serie] = [clave[0], clave.slice(2)];
+  // T no se emite (VG, 8-11: no hay T acumulable): cada escala de T existe siempre, por la asignación del día.
+  if (token === 'T' && ESCALAS_T.includes(serie)) return;
   if (token === 'P' ? serie === AMBITO_GENESIS || eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
   const hay = eje.series().map((s) => s.clave);
   const lista = hay.slice(0, 10).join(', ') + (hay.length > 10 ? '…' : '');

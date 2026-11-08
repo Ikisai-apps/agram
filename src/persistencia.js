@@ -29,6 +29,12 @@
 // Lo que no es: una firma. Quien escribe el archivo puede escribir también la
 // marca, igual que podría presentar sus eventos como versión 2, que también
 // se admite; no gana nada que la versión 2 no diera ya. [X] confirmar VG.
+//
+// El génesis no emite T (VG, 8-11: «no hay un tipo de T que se acumule»). En
+// el prefijo de la versión 2 su T sigue valiendo (eran sus reglas) y se gasta
+// después de la asignación del día hasta agotarse. Un eje de la versión 3
+// guardado antes del 8-11 con T en el génesis no se restaura: no hay
+// migración, porque ese T era justo el que se acumulaba (la app lo aparta).
 
 import { Eje } from './eje.js';
 

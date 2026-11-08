@@ -25,9 +25,8 @@ export async function ejemploCompra({ claves = {} } = {}) {
     demostracion: true,
     identidad: 'casa',
     tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
+    // T no (VG, 8-11: no hay T acumulable): la casa vive de su asignación del día, como cualquier persona.
     emision: [
-      { token: 'T', escala: 'hora', cantidad: 1000 },
-      { token: 'T', escala: 'minuto', cantidad: 1000 }, // otro token: mil minutos no son horas
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR: el génesis completa emisor = casa
       { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
     ],
@@ -49,7 +48,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
       // La cocina es una cosa (su máquina): la casa le da T para que escriba (VG, 7-11 noche; Core, 8-11: una
       // persona da su T a una cosa, y sale de su asignación del día). T no cruza de persona: la persona huésped
       // recibe euros y escribe con su asignación de T del día (VG, 8-11).
-      { token: 'T', escala: 'hora', cantidad: 40, de: 'casa', a: 'cocina' },
+      { token: 'T', escala: 'hora', cantidad: 20, de: 'casa', a: 'cocina' },
       { token: 'T', escala: 'minuto', cantidad: 240, de: 'casa', a: 'cocina' },
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
     ],

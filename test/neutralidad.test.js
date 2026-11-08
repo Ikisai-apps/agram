@@ -70,7 +70,7 @@ async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = '
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const altas = [tercero, ...personas];
   await eje.escribir({
@@ -537,7 +537,7 @@ async function mundoConClaves() {
   const [kg, k2] = [await generarClaves(), await generarClaves()];
   const eje = await Eje.genesis({
     identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'], clave: kg.publica, privada: kg.privada,
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const X = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: T0, movimientos: [minuto('g'), minuto('g', 5000, 'S2'), minuto('g', 5000, 'S3')], payload: 'altas',

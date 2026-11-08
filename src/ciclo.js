@@ -26,6 +26,12 @@ import { esConsumoT } from './evento.js';
 import { rPropiaEnJuego } from './lente.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
+/** VG, 8-11: «no hay un tipo de T que se acumule». Nadie emite T, ni el génesis. */
+export const T_NO_SE_EMITE = 'T no se emite: ni el génesis; cada persona tiene su asignación del día';
+
+/** VG, 8-11: no hay T acumulable, así que T no se bloquea ni se libera; bloquear es de E, P y R. */
+export const T_NO_SE_BLOQUEA = 'T no se bloquea ni se libera (VG, 8-11: no hay T acumulable): bloquear es de E, P y R';
+
 export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
 
 /** [X] confirmar VG: cuánto puede ir un evento por delante del mayor t del eje (un anio, en milisegundos). */
@@ -180,8 +186,8 @@ export function reglasDelCiclo(ev, ctx) {
       continue;
     }
     if (m.token === 'T') {
-      // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, su asignación.
-      falla(i, 5, 'T no se emite: cada persona recibe cada día su asignación de T (VG, 8-11: asignación diaria)');
+      // VG, 8-11: no hay T acumulable. Nadie emite T, ni el génesis: cada persona tiene, cada día, su asignación.
+      falla(i, 5, T_NO_SE_EMITE + ' (VG, 8-11: no hay T acumulable)');
       continue;
     }
     if (m.token === 'P') {
@@ -229,11 +235,15 @@ export function reglasDelCiclo(ev, ctx) {
 
   // T como asignación diaria (VG, 8-11: «te lo gastas como quieras, no te
   // puedes gastar más»): lo que una persona dada de alta gasta de su T
-  // (consumirlo o dárselo a una cosa) sale primero de la asignación del día de ev.t
-  // (tokens.asignacionT) y, si no alcanza, del T explícito que tenga (el del
-  // génesis, el único que se acumula). Si tampoco alcanza: T del día agotado.
-  // Bloquear y liberar T mueven solo el T explícito. Lo que no es una persona
-  // gasta el T que tiene (el que le dio su persona): eso lo mira el saldo.
+  // (consumirlo o dárselo a una cosa) sale de la asignación del día de ev.t
+  // (tokens.asignacionT). Ningún T se acumula (VG, 8-11: no hay T acumulable):
+  // el génesis no emite T y T no cruza a una persona, así que una persona no
+  // tiene T explícito; solo lo arrastra quien viene del prefijo de la versión 2
+  // (src/persistencia.js), que lo gasta después de la asignación hasta
+  // agotarlo. Si no alcanza: T del día agotado. T no se bloquea ni se libera.
+  // Lo que no es una persona (una cosa) no tiene asignación: gasta el T que le
+  // dio su persona, y ese sí lo conserva hasta gastarlo (lo mira el saldo).
+  for (const { m, i } of validos) if (m.token === 'T' && m.estado !== undefined) falla(i, 5, T_NO_SE_BLOQUEA);
   const altaAutor = EMITEN.includes(tipoAutor) ? ctx.alta(autor) : null;
   if (altaAutor && ctx.gastadoT) {
     const asignada = new Map(); // escala → lo que queda de la asignación, durante el evento
@@ -246,8 +256,7 @@ export function reglasDelCiclo(ev, ctx) {
     for (const { m, i } of validos) {
       if (m.token !== 'T' || m.de !== autor || ESCALAS_INFORMATIVAS.includes(m.escala)) continue;
       const e = m.escala;
-      if (m.estado === 'liberacion') { explicito.set(e, verX(e) + m.cantidad); continue; }
-      if (m.estado === 'bloqueo' || m.a === autor) { if (m.estado === 'bloqueo') explicito.set(e, Math.max(0, verX(e) - m.cantidad)); continue; }
+      if (m.estado !== undefined || m.a === autor) continue; // bloquear T ya falla arriba; darse T a uno mismo no gasta
       const usa = Math.min(verA(e), m.cantidad);
       const falta = m.cantidad - usa;
       if (falta > verX(e)) { falla(i, 4, 'T del día agotado (' + e + '): quedan ' + (verA(e) + verX(e))); continue; }
@@ -256,6 +265,13 @@ export function reglasDelCiclo(ev, ctx) {
     }
   }
 
+  // El dueño de una identidad: quien escribió su alta (si se da de alta en este mismo evento, el autor).
+  const duenoDe = (id) => { const alta = ctx.alta(id); return alta ? ctx.registro(alta.id)?.autor : autor; };
+  const cosaACosa = (de, a) => {
+    const alta = ctx.alta(a);
+    if (!alta) return true; // la da de alta este mismo evento: su dueño es el autor
+    return duenoDe(a) === de || duenoDe(a) === duenoDe(de) || poderAntes(alta.id) > 0;
+  };
   // T no cruza de persona (VG, 7-11 noche: «recibir T solo es un registro de
   // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
   // recurso de otra persona»): de una persona a otra identidad, T se rechaza, y
@@ -268,7 +284,13 @@ export function reglasDelCiclo(ev, ctx) {
   for (const { m, i } of validos) {
     if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
     const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;
-    if ((tipoAutor === 'persona' || tipoAutor === 'cosa') && tipoA === 'cosa') continue; // una cosa pasa a otra cosa el T de su persona
+    if (tipoAutor === 'persona' && tipoA === 'cosa') continue; // una persona da su T a una cosa
+    // De cosa a cosa (VG, 8-11; regla de Core aceptada): solo entre cosas del mismo dueño (quien escribió sus altas) o
+    // si el autor escribió el alta de la cosa destino o tiene P sobre ella. Si no, una cosa repartiría T ajeno.
+    if (tipoAutor === 'cosa' && tipoA === 'cosa') {
+      if (!cosaACosa(autor, m.a)) falla(i, 5, 'T de cosa a cosa solo entre cosas del mismo dueño, o si ' + autor + ' escribió el alta de ' + m.a + ' o tiene P sobre ella (VG, 8-11)');
+      continue;
+    }
     falla(i, 5, 'T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + autor + '/' + m.escala + '); solo se da T a una cosa');
   }
 

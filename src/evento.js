@@ -155,19 +155,23 @@ export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
   if (tLaxo ? typeof ev.t !== 'string' || Number.isNaN(Date.parse(ev.t)) : !esInstante(ev.t)) {
     errores.push('t debe ser instante ISO-8601 con zona explícita (AAAA-MM-DDThh:mm[:ss[.fff]] y Z o ±hh:mm)');
   }
-  if (!Array.isArray(ev.movimientos) || ev.movimientos.length === 0) {
+  if (!Array.isArray(ev.movimientos) || (ev.movimientos.length === 0 && !(ev.contexto?.genesis === true && !v2))) {
+    // El génesis puede no emitir nada (VG, 8-11: no emite T; E, P y R, si quiere).
     errores.push('todo evento mueve tokens');
   } else {
     ev.movimientos.forEach((m, i) => validarMovimiento(m).forEach((e) => errores.push('movimiento ' + i + ': ' + e)));
-    // El evento mínimo mueve T. En el génesis el autor lo recibe; después lo
-    // CONSUME (VG, 7-11 noche): de = autor, a = null, sin estado. Ni dárselo a
-    // uno mismo ni bloquearlo o liberarlo cuenta como escribir: no cuesta nada.
-    // El consumo queda anotado en el registro que soporta, `sobre` (eje.tiempoSobre).
+    // El evento mínimo mueve T: lo CONSUME (VG, 7-11 noche): de = autor, a =
+    // null, sin estado. Ni dárselo a uno mismo cuenta como escribir: no cuesta
+    // nada. El consumo queda anotado en el registro que soporta, `sobre`
+    // (eje.tiempoSobre). El génesis no emite T (VG, 8-11: no hay T
+    // acumulable): su autor vive de su asignación del día; solo en la versión
+    // 2 el génesis tenía que emitir T a su autor.
     const esGenesis = ev.contexto?.genesis === true;
-    // El T informativo (pasado, futuro, inventado) es ilimitado: no cuenta como el T que consume escribir (VG, 8-11; [X] Core).
-    const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
+    // El T informativo (pasado, futuro, inventado) también paga la escritura (VG, 8-11): el evento sale gratis en T
+    // real y queda como no presente (esPresente), que un criterio del dueño puede exigir.
+    const cuenta = (m) => (esGenesis ? m.a === ev.autor : v2 ? m.de === ev.autor : esConsumoT(m, ev.autor));
     const mueveT = ev.movimientos.some((m) => m && m.token === 'T' && cuenta(m));
-    if (!mueveT) {
+    if (!mueveT && !(esGenesis && !v2)) {
       errores.push(esGenesis ? 'el génesis debe emitir T al autor'
         : v2 ? 'el autor debe mover T' : 'escribir consume T del autor: un movimiento de T con de = ' + ev.autor + ' y a = null (VG, 7-11 noche)');
     }
@@ -194,6 +198,19 @@ export function validarForma(ev, { tLaxo = false, v2 = tLaxo } = {}) {
  */
 export function esConsumoT(m, autor) {
   return Boolean(m) && m.token === 'T' && m.de === autor && m.a === null && m.estado === undefined;
+}
+
+/**
+ * ¿Es `ev` un registro presente? Sí si su autor consume T real (una escala no
+ * informativa) o si es el génesis. Un evento pagado solo con T informativo
+ * (pasado, futuro, inventado) es válido y sale gratis en T real, pero no es
+ * presente (VG, 8-11: «el pago es la ausencia de un registro presente, que
+ * puede ser un criterio en PV2 cuando el tiempo importe (p. ej. caducidad
+ * alimentaria)»). Se deriva del evento, no se guarda: no cambia su id.
+ */
+export function esPresente(ev) {
+  if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return true;
+  return (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) => esConsumoT(m, ev.autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
 }
 
 /** Comprueba que el id corresponde al cuerpo. */

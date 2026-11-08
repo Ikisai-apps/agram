@@ -65,7 +65,7 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
     + ej.guisos.id.slice(0, 8) + ', firmada por casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.');
   // Sin identidad propia y sin nadie con clave y P sobre él, nadie puede escribirla.
-  const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'T', escala: 'minuto', cantidad: 10 }], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
+  const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
   const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Lista' });
   const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
   assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
@@ -134,13 +134,15 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
     assert.match(err('CAJA("' + m + '")', ej), desconocida, m + ' sin base: se valida antes de leer');
   }
   // Bien formada pero sin emitir en el eje: PENDIENTE (la emisión puede llegar), con las que hay.
-  const emitidas = ' (series emitidas: T:hora, T:minuto, E:casa/EUR, P:genesis)';
-  for (const [m, motivo] of [['E:csa/EUR', 'la serie E:csa/EUR no se ha emitido en el eje'], ['T:dia', 'la serie T:dia no se ha emitido en el eje'], ['R:casa', 'la serie R:casa no se ha emitido en el eje'], ['P:abc', 'el ámbito de P:abc no es un registro del eje']]) {
+  const emitidas = ' (series emitidas: E:casa/EUR, P:genesis, T:minuto, T:hora)';
+  for (const [m, motivo] of [['E:csa/EUR', 'la serie E:csa/EUR no se ha emitido en el eje'], ['R:casa', 'la serie R:casa no se ha emitido en el eje'], ['P:abc', 'el ámbito de P:abc no es un registro del eje']]) {
     const r = q(conBase, 'CAJA("' + m + '")');
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', 'CAJA: ' + motivo + emitidas], m);
   }
   // El ámbito de P puede ser un registro del eje.
   assert.equal(q(conBase, 'CAJA("P:' + conBase.menu.id + '")').texto, '0');
+  // T no se emite (VG, 8-11: no hay T acumulable): cada escala de T existe siempre, por la asignación del día.
+  assert.equal(q(conBase, 'CAJA("T:dia")').estado, 'RESUELTO');
 });
 
 test('FRESCURA(alcance?): llegadas desde la base, las que cuenta su frescura; 0 no es «al día»', async () => {

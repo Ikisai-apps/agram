@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { serializar, restaurar, guardarLocal, cargarLocal, borrarLocal, apartarLocal, migrar, VERSION } from '../src/persistencia.js';
 import { Eje } from '../src/eje.js';
+import { crearEvento } from '../src/evento.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
 
@@ -83,12 +84,19 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   // escribe quien tiene T, la casa (el ejemplo de la compra ya no cabe: cocina escribe con su propio T).
   const t = '2026-11-07T09:00:00Z';
   const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', t, foco: 'Casa de ejemplo',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 100 }, { token: 'E', denominacion: 'EUR', cantidad: 50 }] });
+    emision: [{ token: 'E', denominacion: 'EUR', cantidad: 50 }] });
   const gasta = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
   const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']], contexto: { tipos: { huesped: 'persona' } },
     movimientos: [gasta, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 10, de: 'casa', a: 'huesped' }] });
   await eje.escribir({ autor: 'casa', sobre: alta.id, t, payload: ['Menú del día', ['ensalada', 'guiso']], movimientos: [{ ...gasta, cantidad: 3 }] });
-  const v2 = JSON.parse(JSON.stringify({ ...serializar(eje), version: 2 }));
+  // El génesis de la versión 2 emitía T a su autor (hoy no: VG, 8-11, no hay T acumulable): se escribe a mano, con
+  // los mismos eventos de después.
+  const emitir = (m) => ({ ...m, de: null, a: 'casa' });
+  const g2 = await crearEvento({ autor: 'casa', sobre: null, t, payload: 'Casa de ejemplo', contexto: { genesis: true, demostracion: true, tipos: { casa: 'persona' } },
+    movimientos: [emitir({ token: 'T', escala: 'minuto', cantidad: 100 }), emitir({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50 })] });
+  const alta2 = await crearEvento({ ...eje.obtener(alta.id), sobre: g2.id });
+  const menu2 = await crearEvento({ ...eje.obtener(eje.orden[2]), sobre: alta2.id });
+  const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g2, alta2, menu2] }));
   assert.equal(migrar(v2).version, VERSION);
   assert.deepEqual(migrar(v2).eventos, v2.eventos);
   // La migración no es trivial: todos sus eventos se marcan como de la versión 2 y se validan con aquellas reglas;
@@ -98,7 +106,7 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   assert.deepEqual(migrar(v2).v2, marca);
   assert.equal(migrar({ ...v2, eventosV2: 1, v2: { eventos: 1, ultimo: 'x' } }).v2.eventos, v2.eventos.length); // lo que traiga, se descarta
   const otro = await restaurar(v2);
-  assert.deepEqual(otro.orden, eje.orden);
+  assert.deepEqual(otro.orden, [g2.id, alta2.id, menu2.id]);
   assert.equal(otro.eventosV2, v2.eventos.length);
   assert.deepEqual(serializar(otro).v2, marca); // al volver a guardar se conserva
   assert.equal(serializar(eje).v2, undefined); // un eje de la 3 no la lleva

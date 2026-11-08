@@ -7,7 +7,7 @@ const T0 = '2026-11-07T10:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'segundo', cantidad: 1, de, a: null });
 
 test('sobre() usa el índice y conserva el orden de entrada; la restauración lo reconstruye', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'T', escala: 'segundo', cantidad: 600 }], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0 });
   const g = eje.genesisId;
   const ids = [];
   for (let i = 0; i < 300; i++) {

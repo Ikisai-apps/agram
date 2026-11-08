@@ -13,7 +13,7 @@
 import { SEGUNDOS, ESCALAS_REALES } from './tokens.js';
 import { direccion, resolver } from './btml.js';
 import { consolidaciones } from './motor.js';
-import { MODOS, orden, ordenDeEscala, contarPosiciones } from './modos.js';
+import { MODOS, orden, ordenDeEscala, contarPosiciones, ORDENES_DE_ESCALA } from './modos.js';
 import { esConsumoT } from './evento.js';
 
 export { HITOS, ALCANCES, MEDIDAS, etiquetaClave, proyectoDe, comparables, confluir, SIN_BASE_ESCRITA } from './bases.js';
@@ -84,4 +84,22 @@ export function incongruenciaDe(ev) {
   const ordenEsperado = ordenDeEscala(escala);
   const ordenEmitido = orden(posiciones);
   return ordenEmitido === ordenEsperado ? null : { escala, ordenEsperado, ordenEmitido, posiciones };
+}
+
+/** Cada escala real con su artículo, para leer la recomendación. */
+const CON_ARTICULO = Object.freeze({ segundo: 'un segundo', minuto: 'un minuto', hora: 'una hora', dia: 'un día', semana: 'una semana', ciclo: 'un ciclo', anio: 'un año' });
+
+/**
+ * Lo que se recomienda cuando lo emitido es más grande que el orden de la
+ * escala gastada (VG, 8-11: «se recomienda la escala de orden superior»; sin
+ * rechazar): { escala, recomendada, texto } con la escala cuyo orden es el
+ * de lo emitido (la mayor si se pasa de todas), o null si casa, si es más
+ * pequeño o si no hay incongruencia (incongruenciaDe).
+ * «este registro es grande para un minuto: se recomienda una hora».
+ */
+export function recomendacionDeEscala(ev) {
+  const inc = incongruenciaDe(ev);
+  if (!inc || inc.ordenEmitido <= inc.ordenEsperado) return null;
+  const recomendada = ESCALAS_REALES.find((e) => ORDENES_DE_ESCALA[e] >= inc.ordenEmitido) ?? ESCALAS_REALES[ESCALAS_REALES.length - 1];
+  return { escala: inc.escala, recomendada, texto: 'este registro es grande para ' + CON_ARTICULO[inc.escala] + ': se recomienda ' + CON_ARTICULO[recomendada] };
 }

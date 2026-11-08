@@ -45,7 +45,7 @@ async function mundo({ t = ALTA } = {}) {
     demostracion: true,
     identidad: 'raiz',
     tipo: 'persona',
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
+    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
     foco: 'Mundo de ejemplo',
     t,
   });
@@ -89,10 +89,10 @@ test('solo emiten personas: una cosa o quien no declaró tipo no emiten', async 
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 5), colateral('ana', 0.5)] });
   assert.deepEqual(eje.serie('R:ana'), { emisor: 'ana', emitido: 5 });
   await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('sala'), emiteR('sala', 1)] }), /solo las personas emiten: sala es cosa/);
-  // El génesis lo emite una persona (o quien no declara tipo, como antes): ni una cosa, y el tipo grupo ya no existe (VG, 8-11).
-  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'x', tipo: 'cosa', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser cosa/);
-  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'x', tipo: 'grupo', emision: [{ token: 'T', escala: 'hora', cantidad: 1 }], foco: 'g', t: T0 }), /no hay identidades de grupo/);
-  const sinTipo = await Eje.genesis({ demostracion: true, identidad: 'x', emision: [{ token: 'T', escala: 'minuto', cantidad: 5 }], foco: 'g', t: T0 });
+  // El génesis lo emite una persona (por omisión; o quien no declara tipo, `tipo: null`): ni una cosa, y el tipo grupo ya no existe (VG, 8-11).
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'x', tipo: 'cosa', emision: [], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser cosa/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'x', tipo: 'grupo', emision: [], foco: 'g', t: T0 }), /no hay identidades de grupo/);
+  const sinTipo = await Eje.genesis({ demostracion: true, identidad: 'x', tipo: null, emision: [], foco: 'g', t: T0 });
   await assert.rejects(sinTipo.escribir({ autor: 'x', sobre: sinTipo.genesisId, t: T0, payload: 'x', movimientos: [gasta('x'), emiteR('x', 1)] }), /solo las personas emiten: x no declaró tipo en su alta/);
 });
 
@@ -136,7 +136,7 @@ test('T: nadie lo emite fuera del génesis; cada persona escribe con su asignaci
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi minuto', movimientos: [gasta('ana')] });
   assert.equal(eje.saldoT('ana', 'minuto', T0), 1439);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'ana' }, gasta('ana')] }),
-    /T no se emite: cada persona recibe cada día su asignación de T \(VG, 8-11: asignación diaria\)/);
+    /T no se emite: ni el génesis; cada persona tiene su asignación del día \(VG, 8-11: no hay T acumulable\)/);
   // T no cruza de persona (VG, 7-11 noche): ana no da su hora a bea; darla es emitir E de su serie, en horas.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'una hora para bea', movimientos: [gasta('ana'), { token: 'T', escala: 'hora', cantidad: 1, de: 'ana', a: 'bea' }] }),
     /T no cruza de persona: bea no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo \(E:ana\/hora\)/);
@@ -146,15 +146,33 @@ test('T: nadie lo emite fuera del génesis; cada persona escribe con su asignaci
   assert.equal(eje.saldoT('sala', 'minuto', T0), 0);
 });
 
-test('el génesis sigue emitiendo T explícito, que se acumula, y es el alta de su autor', async () => {
+test('el génesis no emite T (VG, 8-11: no hay T acumulable): es el alta de su autor, que vive de su asignación del día', async () => {
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 }),
+    /génesis rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día/);
+  // Puede no emitir nada: su autor es una persona y tiene ya su día.
+  const vacio = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'g', t: T0 });
+  assert.deepEqual([vacio.tipo('raiz'), vacio.alta('raiz'), vacio.saldoT('raiz', 'minuto', T0)], ['persona', { id: vacio.genesisId, t: T0 }, 1440]);
   const { eje, g } = await mundo({ t: T0 });
-  assert.equal(eje.serie('T:minuto').emitido, 600);
+  assert.equal(eje.serie('T:minuto').emitido, 0);
   assert.deepEqual(eje.alta('raiz'), { id: g, t: T0 });
-  // El alta gastó un minuto de la asignación del día: los 600 del génesis siguen enteros.
-  assert.equal(eje.saldo('raiz', 'T:minuto'), 600);
-  assert.equal(eje.saldoT('raiz', 'minuto', T0), 600 + 1439);
+  // El alta gastó un minuto de la asignación del día; no hay T explícito que sumar.
+  assert.equal(eje.saldo('raiz', 'T:minuto'), 0);
+  assert.equal(eje.saldoT('raiz', 'minuto', T0), 1439);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'mi minuto', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }, gasta('raiz')] }), /T no se emite/);
   assert.equal(eje.serie('T:minuto').emisor, 'raiz'); // en T, quien la emitió primero
+});
+
+test('T no se bloquea ni se libera (VG, 8-11: no hay T acumulable): bloquear sigue para E, P y R', async () => {
+  const { eje, alta } = await mundo({ t: T0 });
+  const bloqueaT = (de) => ({ ...gasta(de), a: de, estado: 'bloqueo', salida: 's' });
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueaT('ana')] }), /T no se bloquea ni se libera/);
+  // Tampoco una cosa, que sí conserva el T que le dio su persona.
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'T para la sala', movimientos: [gasta('raiz'), daT('raiz', 'sala', 5)] });
+  await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('sala'), bloqueaT('sala')] }), /T no se bloquea ni se libera/);
+  assert.equal(eje.saldoT('sala', 'minuto', T0), 5);
+  // R sí se bloquea (el colateral de R6).
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1)] });
+  assert.equal(eje.bloqueado('ana', 'R:ana', 'R:ana'), 1);
 });
 
 // ---------- 3 · emisión escalonada ----------
@@ -773,7 +791,7 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   const laxo = { ...laxoCuerpo, id: await hash(canonico(cuerpo(laxoCuerpo))) };
   const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g, viejo, laxo] }));
   // Con las reglas nuevas no entraría.
-  await assert.rejects(restaurar({ ...v2, version: 3 }), /génesis rechazado: tipo inválido para club: no hay identidades de grupo/);
+  await assert.rejects(restaurar({ ...v2, version: 3 }), /génesis rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día; tipo inválido para club: no hay identidades de grupo/);
   const eje = await restaurar(v2);
   assert.equal(eje.eventosV2, 3);
   assert.equal(eje.esDeV2(laxo.id), true);

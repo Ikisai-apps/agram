@@ -28,7 +28,7 @@ async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, // sin claves: un eje de demostración (R9)
     identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 5000 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 5000 }],
+    emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 5000 }],
   });
   const ids = ['d', 'a', 'b', 't'];
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.

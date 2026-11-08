@@ -38,7 +38,7 @@ const serieE = (emisor, denominacion, registro) => claveToken({ token: 'E', emis
 async function mundo({ pA = 4, respalda = 3, enHabitacion = false, personas = ['casa', 'bea', 't', 'p1', 'p2', 'p3', 'p4', 'p5'] } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
-    emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
+    emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
   });
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
   await eje.escribir({

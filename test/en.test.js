@@ -8,7 +8,7 @@ const T0 = '2026-11-06T20:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
 async function ejeBase() {
-  return Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: ['casa', ['menú']], t: T0 });
+  return Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: ['casa', ['menú']], t: T0 });
 }
 
 test('lo escrito va en el PV donde se escribe: en = posición del foco', async () => {
