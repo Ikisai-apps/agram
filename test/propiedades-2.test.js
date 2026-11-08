@@ -86,8 +86,8 @@ class Modelo {
   }
   /**
    * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
-   * src/ciclo.js: solo personas; E y R a su nombre o al de un grupo sobre cuya
-   * alta tiene P; T para sí mismas con el tope del reloj (todo va en T0, así
+   * src/ciclo.js: solo personas; E y R a su nombre (VG, 8-11: no hay grupos);
+   * T para sí mismas con el tope del reloj (todo va en T0, así
    * que el tope es 1 por escala); P solo sobre un registro que escribió;
    * escalonado T → R → P → E. true si el evento las cumple.
    */
@@ -102,9 +102,7 @@ class Modelo {
       if (m.de !== null) continue;
       emitidas.add(m.token);
       if (this.tipos.get(autor) !== 'persona') return false;
-      if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
-        if (this.tipos.get(m.emisor) !== 'grupo' || !this.alta.has(m.emisor) || !tienePoder(this.alta.get(m.emisor))) return false;
-      }
+      if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) return false; // VG, 8-11: nadie emite a nombre de otro
       if (m.token === 'T') {
         if (m.a !== autor) return false;
         const lleva = (this.emitidoT.get(autor + m.escala) ?? 0) + (tEvento.get(m.escala) ?? 0) + m.cantidad;
@@ -166,7 +164,7 @@ class Modelo {
   probar(ev) {
     if (!this.padre.has(ev.sobre) || !this.existe.has(ev.autor)) return null;
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      if (!['persona', 'grupo', 'cosa'].includes(tipo) || this.tipos.has(id) || this.existe.has(id) || !ev.movimientos.some((m) => m.a === id)) return null;
+      if (!['persona', 'cosa'].includes(tipo) || this.tipos.has(id) || this.existe.has(id) || !ev.movimientos.some((m) => m.a === id)) return null;
     }
     const vista = new Map(this.saldos);
     const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
@@ -269,7 +267,7 @@ const fotoEje = (e) => JSON.stringify({ o: e.orden, s: [...e.saldos].map(([k, v]
 /**
  * El eje acepta exactamente lo que acepta el modelo y deja los mismos saldos;
  * conservación por serie (P por familia); claves de serie reversibles
- * (partirClave ∘ claveToken); solo personas y grupos emiten; el poder sobre
+ * (partirClave ∘ claveToken); solo personas emiten; el poder sobre
  * un registro nunca es menor que sobre su padre; y la VERSION 2 restaura
  * series, tipos y poderes tal cual. El fuzz largo (40 000 casos) no encontró
  * diferencias.
@@ -285,7 +283,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     const mod = new Modelo(eje.genesisId, 'r', tipoG, emision, AYER);
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'grupo', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'cosa', hab: 'cosa' } } };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
     consumido.set('T:minuto', 1);
@@ -339,8 +337,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       for (const se of eje.series()) {
         assert.equal(claveToken(partirClave(se.clave)), se.clave);
         if (se.token === 'E' || se.token === 'R') assert.equal(se.emisor, partirClave(se.clave).emisor);
-        // Fuera del génesis solo emiten personas (a su nombre o al de un grupo); el génesis puede no declarar tipo.
-        assert.ok(se.emisor === 'r' || ['persona', 'grupo'].includes(eje.tipo(se.emisor)), se.clave + ' la emite ' + se.emisor);
+        // Fuera del génesis solo emiten personas, a su nombre (VG, 8-11); el génesis puede no declarar tipo.
+        assert.ok(se.emisor === 'r' || eje.tipo(se.emisor) === 'persona', se.clave + ' la emite ' + se.emisor);
       }
       for (const id of conocidos) {
         const x = ev.id;

@@ -705,11 +705,11 @@ R6 del estudio de neutralidad (VG, 7-11 noche; `src/lente.js`, `docs/FUNDAMENTOS
 - `ERROR` si el argumento no es un texto no vacío.
 
 ```
---- la casa (lector) da peso 1 a vecinos-norte y 0,5 a vecinos-sur
---- la huésped tiene 10 de los 100 R:vecinos-norte y 20 de los 100 R:vecinos-sur, y medio millón de R:recien
+--- la casa (lector) da peso 1 a secretaria-norte y 0,5 a secretaria-sur (las personas que llevan cada asociación)
+--- la huésped tiene 10 de los 100 R:secretaria-norte y 20 de los 100 R:secretaria-sur, y medio millón de R:recien
 consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'casa' })        → 0.2
 consultar(eje, reserva, [], '=VALOR_R("recien")', { lector: 'casa' })         → 0
-consultar(eje, reserva, [], '=LENTE("vecinos-sur")', { lector: 'casa' })      → 0.5
+consultar(eje, reserva, [], '=LENTE("secretaria-sur")', { lector: 'casa' })   → 0.5
 consultar(eje, reserva, [], '=LENTE("recien")', { lector: 'casa' })           → 0
 consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'recepcion' })   → PENDIENTE: VALOR_R: recepcion no ha declarado su lente de R (…)
 consultar(eje, reserva, [], '=VALOR_R("huesped")')                            → PENDIENTE: VALOR_R: sin lector no hay lente, y sin lente R no vale nada (opciones.lector)

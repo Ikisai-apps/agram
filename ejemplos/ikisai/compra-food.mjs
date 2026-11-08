@@ -8,7 +8,7 @@
 // serie E:casa/EUR, ligada a ella como R) y las dos escalas de T que usa:
 // horas y minutos, tokens distintos sin conversión (escribir cuesta minutos;
 // comprar, horas). Las altas reparten ambas y declaran qué es cada identidad
-// (cocina, un grupo; huesped, una persona). Las plazas de alojamiento son otra
+// (cocina, una cosa; huesped, una persona). Las plazas de alojamiento son otra
 // serie, la de Booking.
 
 import { Eje } from '../../src/eje.js';

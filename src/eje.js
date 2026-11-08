@@ -1,7 +1,7 @@
 // Eje: la secuencia de registros con anclaje. Hoy vive en memoria; mañana en
 // una base de datos o anclado a una cadena, sin cambiar el modelo.
 // Una identidad existe cuando ha recibido tokens; quien la da de alta declara
-// su clave y su tipo (persona, grupo o cosa) en el mismo evento. El génesis
+// su clave y su tipo (persona o cosa) en el mismo evento. El génesis
 // emite por convención; después solo emiten las personas (VG, 7-11 noche), con
 // las reglas de src/ciclo.js: T para sí mismas con el tope del reloj, y R, P y
 // E escalonados. Un movimiento puede bloquear o liberar tokens sin cambiar de
@@ -16,15 +16,16 @@
 // DEMOSTRACIÓN en su génesis (`contexto.demostracion: true`) conserva lo de
 // antes: sin clave no se firma, y la prueba de posesión es opcional (si va,
 // se comprueba). Los ejemplos de Ikisai y la interfaz son de demostración.
-// El tipo (persona, grupo, cosa) solo dice quién firma emisiones (R10): fuera
-// de esta validación y de src/ciclo.js nada lo lee para conceder algo.
+// El tipo (persona, cosa) solo dice quién firma emisiones (R10): fuera
+// de esta validación y de src/ciclo.js nada lo lee para conceder algo. No hay
+// identidades de grupo (VG, 8-11): un grupo es un registro con P delegado.
 //
 // La E va atada al registro del recurso, con un tope compartido igual a su
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, al final de este archivo.
 
-import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos } from './ciclo.js';
+import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, AMBITO_GENESIS, EMITEN } from './tokens.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { reglasDeR, devolucionesDe } from './lente.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
@@ -65,7 +66,7 @@ export class Eje {
     this.#hijosEn = new Map(); // id → Map(en → los mismos eventos, solo los anclados en esa dirección, en orden de entrada)
     this.#prefijos = new Map(); // primeros PREFIJO caracteres del id → ids, en orden de entrada (índice de conPrefijo)
     this.#series = new Map(); // clave de serie → { emisor, emitido, caduca (E) }: lo emitido de cada serie, génesis incluido
-    this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona, grupo o cosa)
+    this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona o cosa; grupo, solo en el prefijo v2)
     this.#altas = new Map(); // identidad → { id, t } del evento en que recibió tokens por primera vez
     this.#emitidoT = new Map(); // JSON [persona, escala] → T emitido fuera del génesis (para el tope del reloj)
     this.exigirFirmas = exigirFirmas;
@@ -110,15 +111,14 @@ export class Eje {
     return this.claves.get(identidad);
   }
 
-  /** Tipo declarado en el alta: 'persona', 'grupo', 'cosa' o null si no se declaró. Solo decide quién emite. */
+  /** Tipo declarado en el alta: 'persona', 'cosa' o null si no se declaró ('grupo', solo en el prefijo v2). Solo decide quién emite. */
   tipo(identidad) {
     return this.#tipos.get(identidad) ?? null;
   }
 
   /**
    * Alta de una identidad: { id, t } del evento en que recibió tokens por
-   * primera vez (el génesis es el alta de su autor), o null. El alta de un
-   * grupo es su registro: quien tiene P sobre él emite a su nombre.
+   * primera vez (el génesis es el alta de su autor), o null.
    */
   alta(identidad) {
     return this.#altas.get(identidad) ?? null;
@@ -486,7 +486,8 @@ export class Eje {
     }
     // Igual con los tipos: se declaran en el alta y no cambian.
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      if (!TIPOS.includes(tipo)) errores.push('tipo inválido para ' + id + ': ' + tipo);
+      const mal = motivoTipo(id, tipo, this.orden.length < this.eventosV2 ? 2 : 3);
+      if (mal) errores.push(mal);
       else if (this.#tipos.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar el tipo de ' + id);
       else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
     }
@@ -525,8 +526,8 @@ export class Eje {
         poner(m.a, k, ver(m.a, k) + c);
         continue;
       }
-      // Lo de un grupo lo mueve una persona con P exacto sobre su alta, por su cuenta (porCuentaDeGrupo, [X] confirmar VG).
-      if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, this.#contextoCiclo(ev))) { errores.push(motivoAjenos(ev, m.de, this.#contextoCiclo(ev))); continue; }
+      // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación).
+      if (m.de !== ev.autor) { errores.push(motivoAjenos(m.de)); continue; }
       if (m.estado === 'bloqueo') {
         // Bloquear: del disponible al bloqueado del mismo titular, con su salida; de la clave exacta, también en P.
         if (ver(m.de, k) < c) { errores.push('saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de); continue; }
@@ -594,8 +595,6 @@ export class Eje {
       ampliada: (id) => this.#ampliadas.has(id),
       // R6: la R propia en juego es R:<autor> bloqueada como colateral (src/lente.js, rPropiaEnJuego).
       bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
-      // Lo bloqueado de una serie, por salida (porCuentaDeGrupo: cuenta el P bloqueado hacia el grupo, no el de otra salida).
-      bloqueosPor: (id, k) => [...(this.bloqueados.get(id)?.get(k) ?? new Map())],
     };
   }
 
@@ -1115,7 +1114,7 @@ export function reglasDelTope(ev, ctx) {
  * es sobre todo el eje («genesis»: aún no existe ningún otro registro) y solo
  * declara el tipo y la clave de su autor. Lo emite una persona; con las
  * reglas de la versión 2 (`reglas` = 2: un eje guardado con ella), también
- * un grupo.
+ * un grupo (el tipo que había entonces).
  */
 function erroresGenesis(g, reglas = 3) {
   const errores = [];
@@ -1147,7 +1146,7 @@ function erroresGenesis(g, reglas = 3) {
   }
   for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
-    else if (!TIPOS.includes(tipo)) errores.push('tipo inválido para ' + id + ': ' + tipo);
+    else if (motivoTipo(id, tipo, reglas)) errores.push(motivoTipo(id, tipo, reglas));
     else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
   }
   for (const id of Object.keys(g.contexto?.claves ?? {})) {

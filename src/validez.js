@@ -27,8 +27,8 @@
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
-import { claveToken, validarMovimiento, familiaDe, AMBITO_GENESIS, TIPOS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, aNombreDeGrupo, consolidacionQueAmplia, EMITEN_V2, porCuentaDeGrupo, motivoAjenos } from './ciclo.js';
+import { claveToken, validarMovimiento, familiaDe, AMBITO_GENESIS, EMITEN } from './tokens.js';
+import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos } from './ciclo.js';
 import { acunaAlGastar } from './eje.js';
 import { incongruenciaDe } from './tiempo.js';
 import { msDeGuardado } from './instante.js';
@@ -165,7 +165,6 @@ function contextoCiclo(eje, libro, ev) {
     autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
     ampliada: (id) => libro.ampliadas.has(id),
     bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
-    bloqueosPor: (id, k) => [...libro.bloqueados].flatMap(([kb, v]) => { const [i, c, salida] = JSON.parse(kb); return i === id && c === k ? [[salida, v]] : []; }),
   };
 }
 
@@ -530,12 +529,12 @@ function capaAcreditacion(eje, ev, libro) {
     fila.clave = k;
     if (m.de === null) {
       // Emisión (VG, 7-11 noche). La respalda la persona que la emite: T, con
-      // el tope del reloj; P, sobre un registro que existe; E y R, a su nombre o
-      // al de un grupo (si la persona tiene P sobre él lo dice la capa 5).
+      // el tope del reloj; P, sobre un registro que existe; E y R, a su nombre
+      // (no hay grupos que emitan: VG, 8-11).
       if (!esGenesis && delCiclo.has(i)) return mal('falla', delCiclo.get(i));
       const s = serie(k);
       const emisor = esEoR(m) ? m.emisor : ev.autor;
-      if (emisor !== ev.autor && !(esEoR(m) && !esGenesis && aNombreDeGrupo(contextoCiclo(eje, libro, ev), emisor))) {
+      if (emisor !== ev.autor) {
         return mal('falla', 'la serie ' + k + ' es de ' + emisor + ' y la emite ' + ev.autor + ': nadie la respalda en nombre de otro');
       }
       const total = (s?.emitido ?? 0) + m.cantidad;
@@ -593,20 +592,20 @@ function permisoDelLibro(eje, ev, libro) {
     if (validarMovimiento(m).length) return; // capa 1
     if (m.de === null) {
       if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
-    } else if (m.de !== ev.autor && !porCuentaDeGrupo(ev, m.de, contextoCiclo(eje, libro, ev))) {
-      // Lo de un grupo lo mueve una persona con P exacto sobre su alta, por su cuenta (src/ciclo.js, [X] confirmar VG).
-      r.falla('movimiento ' + i + ': ' + motivoAjenos(ev, m.de, contextoCiclo(eje, libro, ev)));
+    } else if (m.de !== ev.autor) {
+      // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación).
+      r.falla('movimiento ' + i + ': ' + motivoAjenos(m.de));
     }
   });
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
-  // a nombre de un grupo con P sobre él, escalonado T → R → P → E (src/ciclo.js).
+  // cada una a su nombre, escalonado T → R → P → E (src/ciclo.js).
   // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
   for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
     if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
   }
   // El tipo se declara en el alta, como la clave, y solo sirve para saber quién emite.
   for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-    if (!TIPOS.includes(tipo)) r.falla('tipo inválido para ' + id + ': ' + tipo);
+    if (motivoTipo(id, tipo, libro.reglas)) r.falla(motivoTipo(id, tipo, libro.reglas));
     else if (esGenesis) {
       if (id !== ev.autor) r.falla('el génesis solo declara el tipo de su autor');
       else if (!(libro.reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) r.falla('el génesis lo emite una persona: su autor no puede ser ' + tipo);

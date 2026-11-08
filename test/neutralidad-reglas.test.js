@@ -240,7 +240,7 @@ test('R9 firmarPosesion no cambia el id y la forma de posesion se comprueba', as
 const PERMITIDOS = Object.freeze({
   'src/tokens.js': 'define TIPOS y EMITEN',
   'src/eje.js': 'valida el alta (el tipo se declara una vez) y da el contexto de src/ciclo.js',
-  'src/ciclo.js': 'quién firma emisiones: EMITEN y la emisión a nombre de un grupo (aNombreDeGrupo)',
+  'src/ciclo.js': 'quién firma emisiones: EMITEN, y qué tipos admite un alta (motivoTipo, TIPOS_V2)',
   'src/validez.js': 'las mismas reglas que eje.validar, leídas por capas (su libro guarda los tipos)',
   // Solo para mostrar: la etiqueta de la cartera y la forma del agua. No ordenan, no filtran ni conceden.
   'ui/saldos.js': 'muestra el tipo junto a la identidad',
@@ -263,7 +263,7 @@ test('R10 prueba estática: fuera de los sitios permitidos ningún módulo lee e
     /\.tipo\(/, // eje.tipo(id), ctx.tipo(id)
     /(?<!CATALOGO)\.tipos\b/, // contexto.tipos, libro.tipos
     /#tipos\b/,
-    /import\s*\{[^}]*\b(TIPOS|EMITEN|EMITEN_V2|aNombreDeGrupo)\b[^}]*\}\s*from\s*['"][./]*(src\/)?(tokens|ciclo)\.js['"]/,
+    /import\s*\{[^}]*\b(TIPOS|TIPOS_V2|EMITEN|EMITEN_V2|motivoTipo)\b[^}]*\}\s*from\s*['"][./]*(src\/)?(tokens|ciclo)\.js['"]/,
   ];
   const archivos = [...fuentes('src'), ...fuentes('ui'), ...fuentes('mundos'), 'app.js'];
   assert.ok(archivos.length > 20);
