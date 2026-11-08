@@ -74,7 +74,7 @@ test('P exige ámbito; R exige emisor y no es fungible', () => {
 });
 
 test('tipos de identidad: solo las personas emiten (VG, 7-11 noche; antes, personas y grupos)', () => {
-  assert.deepEqual(TIPOS, ['persona', 'grupo', 'cosa']);
+  assert.deepEqual(TIPOS, ['persona', 'cosa']); // sin grupo (VG, 8-11): un grupo es un registro con P delegado
   assert.deepEqual(EMITEN, ['persona']);
 });
 

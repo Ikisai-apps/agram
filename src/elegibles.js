@@ -30,9 +30,9 @@
 //   lista, y lo que ancla en su 3, a quien aparece en su 3. Corregir es
 //   añadir un ocupante: se añade, no se quita a nadie. Lo que anclan otros
 //   ahí no cuenta.
-// - un grupo nombrado cuenta como UN ocupante: entran sus escritos, no los de
-//   sus miembros (tener P sobre el registro del grupo no hace elegible a
-//   nadie).
+// - un registro nombrado cuenta como UN ocupante: entran sus escritos, no los
+//   de quienes tienen P sobre él (tener P sobre un registro no hace elegible a
+//   nadie). Un grupo es un registro (VG, 8-11: no hay identidades de grupo).
 // - lo propio del registro (su payload) y lo que alcanzan sus referencias lo
 //   puso el autor: siempre es elegible.
 

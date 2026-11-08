@@ -159,14 +159,12 @@ test('R6·3 emitir R exige R propia bloqueada con la salida = la serie, la déci
   assert.equal(colateralDe(eje, 'ana'), 2);
 });
 
-test('R6·3 a nombre de un grupo: el colateral es R de quien firma, con la salida = la serie del grupo', async () => {
-  const { eje, alta } = await demo(['club', 'ana'], { club: 'grupo' });
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'ana lleva el club', movimientos: [minuto('g'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'g', a: 'ana' }] });
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1), R('club', 30, null, 'club')] }),
-    /emitir R:club exige colateral: R:ana bloqueada con la salida «R:club», al menos 3/);
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'R del club', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1), colateral('ana', 3, 'club'), R('club', 30, null, 'club')] });
-  assert.equal(colateralDe(eje, 'ana', 'club'), 3);
-  assert.equal(eje.saldo('club', 'R:club'), 30);
+test('R6·3 sin R a nombre de un grupo (VG, 8-11): cada persona pone su R, con su colateral; nadie emite la de otro', async () => {
+  const { eje, alta } = await demo(['bea', 'ana']);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1), colateral('ana', 3, 'bea'), R('bea', 30, null, 'bea')] }),
+    /nadie emite en nombre de otro: bea no es el autor/);
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1)] });
+  assert.equal(colateralDe(eje, 'ana', 'ana'), 1);
 });
 
 test('R6·3 devolver R es pedir atención: con devoluciones sin atender el colateral no se libera; atender es citarlas', async () => {
@@ -295,17 +293,19 @@ test('propiedad R6: ampliar R:X nunca baja el valor de quien ya la tenía', asyn
 
 // ---------- 6 · el ejemplo de Booking ----------
 
-test('R6 en Booking: la casa da 1 a una asociación y 0,5 a otra; quien se autoemite mucha R no vale nada para ella', async () => {
-  const { eje, reserva, lente } = await ejemploLente();
-  assert.deepEqual(LENTE_DE_LA_CASA, { 'vecinos-norte': 1, 'vecinos-sur': 0.5 });
+test('R6 en Booking: la casa da 1 a la secretaria de una asociación y 0,5 a la de otra; quien se autoemite mucha R no vale nada para ella', async () => {
+  const { eje, reserva, lente, asociaciones } = await ejemploLente();
+  assert.deepEqual(LENTE_DE_LA_CASA, { 'secretaria-norte': 1, 'secretaria-sur': 0.5 });
   assert.equal(lente.sobre, eje.genesisId); // el alta de la casa es el génesis
-  assert.deepEqual(valoresParaLaCasa(eje), { huesped: 0.2, [RECIEN]: 0, casa: 0, 'vecinos-norte': 0 });
+  assert.deepEqual(valoresParaLaCasa(eje), { huesped: 0.2, [RECIEN]: 0, casa: 0, 'secretaria-norte': 0 });
   assert.equal(eje.saldo('huesped', 'R:' + RECIEN), 5e5); // la tiene, y no vale nada para la casa
   assert.equal(eje.saldo('casa', 'R:' + RECIEN), 1000); // ni recibirla la mete en su lente
   assert.equal(peso(eje, 'casa', RECIEN), 0);
   assert.ok(cerca(detalleValor(eje, 'casa', 'huesped').porEmisor.reduce((s, x) => s + x.aporte, 0), 0.2));
-  // La R del grupo la respalda R bloqueada de su secretaria (R6).
-  assert.equal(colateralDe(eje, 'secretaria-norte', 'vecinos-norte'), 10);
+  // Las asociaciones son registros (VG, 8-11): su R es la de su secretaria, con su colateral (R6), y la asociación es su P.
+  assert.equal(colateralDe(eje, 'secretaria-norte'), 10);
+  assert.equal(eje.tipo('vecinos-norte'), null);
+  assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id), 1);
   const bql = valorEnBql(eje, reserva);
   assert.deepEqual([bql.estado, bql.texto], ['RESUELTO', '0.2']);
   assert.equal(valorEnBql(eje, reserva, 'recepcion').estado, 'PENDIENTE'); // recepción no ha firmado lente
