@@ -125,10 +125,11 @@ test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procede
   // alcanza el menú y la plantilla de cerrado, que el dueño nombra en su PV2 (encargo 3b, mapa §15 [D] N5), es propia);
   // 3 y 4 propias.
   const c = posicionesDe(eje, compra.id);
-  assert.equal(c.desarrolladas, 5);
+  assert.equal(c.desarrolladas, 6); // (encargo 3c-1: su 5 nombra su plantilla, «purchase»)
   assert.deepEqual(c.posiciones[1], { indice: 1, propia: true, referencia: true, escrita: true, tiene: true });
   assert.deepEqual(c.posiciones[2], { indice: 2, propia: true, referencia: true, escrita: false, tiene: true });
-  assert.deepEqual(c.posiciones[5], { indice: 5, propia: false, referencia: false, escrita: false, tiene: false });
+  assert.deepEqual(c.posiciones[5], { indice: 5, propia: true, referencia: false, escrita: false, tiene: true }); // su plantilla (encargo 3c-1)
+  assert.deepEqual(c.posiciones[6], { indice: 6, propia: false, referencia: false, escrita: false, tiene: false });
   assert.equal(c.raiz.escrita, false); // la cuenta está en 1, no en la raíz
   // Una posición que es directamente una referencia está alcanzada, no es propia: las referencias no copian.
   const mediodia = posicionesDe(eje, vecinas[2].id);
@@ -158,8 +159,8 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   const { eje, compra, cuenta, vecinas } = await ampliada();
   const m = medir(eje, compra.id);
   assert.deepEqual(Object.keys(m).slice(0, 8), MEDIDAS.map((x) => x.clave)); // una sola medida (bases.medir): la de tiempo.js se retira
-  assert.equal(m.terminales, 10); // con la plantilla de cerrado en su 2 (encargo 3b)
-  assert.equal(m.posiciones, 5); // 0–4 desarrolladas: la misma definición que las bases por posición
+  assert.equal(m.terminales, 11); // con la plantilla de cerrado en su 2 (encargo 3b) y su plantilla en su 5 (encargo 3c-1)
+  assert.equal(m.posiciones, 6); // 0–5 desarrolladas: la misma definición que las bases por posición
   assert.equal(m.escritos, 1);
   // Por serie, sin totales de familia; y el T que gastaron quienes escribieron encima (R7: una cantidad).
   assert.deepEqual(m.tokens, { 'T:hora': 1, 'E:casa/EUR': 12, 'tiempo:minuto': 3 });
@@ -275,11 +276,11 @@ test('confluir: las bases del foco entre sus hermanos, sin nivel ni grado', asyn
   // La compra original es la más desarrollada en terminales (sola en su caja, nadie encima); en posiciones
   // comparte la caja 4 (de 4 a 5) con otras dos.
   const d = confluir(eje, compra.id);
-  assert.equal(d.medidas.terminales.foco, 10); // con la plantilla de cerrado en su 2 (encargo 3b)
-  assert.equal(d.medidas.terminales.maximo, 10);
+  assert.equal(d.medidas.terminales.foco, 11); // con la plantilla de cerrado en su 2 (encargo 3b) y su plantilla en su 5 (encargo 3c-1)
+  assert.equal(d.medidas.terminales.maximo, 11);
   assert.equal('caja' in d.medidas.terminales, false); // un recuento: se informa, no se sitúa (R7)
-  assert.equal(d.medidas.posiciones.foco, 5);
-  assert.equal(d.medidas.posiciones.maximo, 5);
+  assert.equal(d.medidas.posiciones.foco, 6);
+  assert.equal(d.medidas.posiciones.maximo, 6);
   assert.equal(d.medidas.formulasResueltas.foco, 0);
   assert.equal(d.medidas.formulasPendientes.maximo, 1);
 });

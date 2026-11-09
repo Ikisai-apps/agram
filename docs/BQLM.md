@@ -153,6 +153,8 @@ Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del 
 
 **Corregir una regla** no la modifica en sitio: se añade un ocupante a su registro, en la posición que corrige, con un archivo de `datos/epocas/correcciones/` `{ "sobre": <id de la regla>, "en": <la posición, un dígito>, "ocupante": <lo nuevo>, "de": <de dónde viene> }`. El registro de la regla y su id no cambian; el cargador pone el ocupante detrás de lo suyo y `evaluarRegla` lee el último ocupante del 2 (la condición) y del 9 (el mensaje). Así una regla corregida sigue siendo la misma regla, con su historia en sus ocupantes.
 
+Las entradas de datos del contrato núcleo↔pantalla (encargo 3c-1: las plantillas, con `template` en su 4; el espacio de bloque, los niveles y los órdenes de `epoch.8`; las plantillas de dominio, las preferencias, los mensajes por idioma y las representaciones de `epoch.9`; y la lectura «maturity», en `X.8.1`) están en `docs/CONTRATO.md`.
+
 ## 6. La primera regla, leída
 
 `first epoch.2`, «writing burns today's T», es una décupla del molde (mapa §16 [D]) con las diez posiciones llenas:
@@ -309,7 +311,7 @@ Encargo 2 del plan del mapa (§16): las reglas de economía que eran condiciones
 
 Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3). El 3b solo añadió una palabra, `put` (con `at`), que el mapa ya tenía en el léxico.
 
-**Cómo están en la época.** El 2 de la época es la lista de referencias a sus registros (§5): 30 condiciones, 3 reglas que escriben y 6 lecturas, cada una con las diez posiciones llenas. El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior; `EPOCA_0_BTML.condiciones` da las condiciones en ese orden, `EPOCA_0_BTML.escrituras` las que escriben y `EPOCA_0_BTML.lecturas` las lecturas. Se nombran por su 0, no por su lugar (la numeración «2.g.k» del encargo 2, de cuando iban en páginas de diez, ya no existe). La carpeta `datos/epocas/reglas-3b/`, con las traducciones del código de antes del 3b que esperaban fuera, se retiró: lo que el mapa §15 cambia ya está en la época.
+**Cómo están en la época.** El 2 de la época es la lista de referencias a sus registros (§5): 30 condiciones, 3 reglas que escriben y 7 lecturas, cada una con las diez posiciones llenas. El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior; `EPOCA_0_BTML.condiciones` da las condiciones en ese orden, `EPOCA_0_BTML.escrituras` las que escriben y `EPOCA_0_BTML.lecturas` las lecturas. Se nombran por su 0, no por su lugar (la numeración «2.g.k» del encargo 2, de cuando iban en páginas de diez, ya no existe). La carpeta `datos/epocas/reglas-3b/`, con las traducciones del código de antes del 3b que esperaban fuera, se retiró: lo que el mapa §15 cambia ya está en la época.
 
 **Qué pasa al validar.** Las reglas no se evalúan en el génesis (la época 0: el suelo, `src/condiciones/identidad.js`, comprueba que no mueve nada; lleva en su contexto la referencia a la época), en el prefijo de la versión 2 (suelo de persistencia), en un evento mal formado (la forma es suelo) ni en uno con una referencia a un evento ausente (C1: lo rechaza el suelo). Si alguna regla falla con un veredicto, rechaza con su 9, relleno con lo que vale en la candidata; si ninguna falla y alguna queda PENDIENTE, la primera en el orden del 8 rechaza con su estado y su motivo (lo que no se sabe no se acepta). Por eso «every record hangs on a record of the ledger» va la segunda: un foco que no está deja PENDIENTE a las que suben por él, y es ella la que lo dice. Después, si la transacción pasa, el eje evalúa las reglas que escriben y asienta lo que colocan (§5).
 
@@ -352,7 +354,7 @@ for (const r of escrituras) {
 ```
 
 ```text
-30 condiciones, 3 reglas que escriben y 6 lecturas
+30 condiciones, 3 reglas que escriben y 7 lecturas
 no pasa: E is minted by and to its issuer: huesped mints E of casa, or to someone else
 no pasa: P is repositioned one step at a time: huesped mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child, keeping its origin
 no pasa: minting E needs own R issued: huesped mints E and has never issued R of its own
@@ -413,7 +415,7 @@ Las tres reglas que escriben van detrás, en el mismo orden del 8 (§5):
 | getting E gives ten P on its record | Para quien recibe E **directamente de su emisor** (`it.3.0 = it.0.0.1`), con alta, de una serie atada a un registro (su 5), el **nivel** de P sobre ese registro, de origen quien la recibe: diez por unidad neta de E atada a él recibida de su emisor, lo de antes (`sum (((first it.3.1).8.6 where E in it2.0.0.0 and it2.0.5 = it.5) each 1)`: las entradas de `A.8.6` cuyas series están atadas al mismo registro) más lo que llega en esta transacción de su emisor a la misma mano con el mismo registro (`sum ((ev.1 where E in it2.0.0.0 and transfer in it2.4 and it2.3.0 = it2.0.0.1 and it2.3.1 = it.3.1 and it2.5 = it.5) each 1)`). Encargo 3b-bis: por cantidad, no por cabeza; lo que pasa de tenedor a tenedor no da P. VG, tras 3b-bis: tope acumulado (§5): dos plazas en dos transacciones dan lo mismo que en una; varias series atadas al mismo registro suman; el polvo solo da el P del polvo |
 | receiving R gives ten P on the root of its issuer | Para quien recibe R **directamente de su emisor** (con alta el emisor), el **nivel** de P sobre el alta del emisor, la raíz de su dominio (N2: «quien te cede atención te da voz en lo suyo»): diez por unidad neta de esa R recibida de él, lo de antes (`sum (first it.3.1).8.6.(it.0).1`) más lo que llega en esta transacción (`sum ((ev.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0 = it.0 and it2.3.0 = it.3.0 and it2.3.1 = it.3.1) each 1)`). La R que pasa de tenedor a tenedor y la que vuelve a su emisor no dan P; devolverla baja el nivel sin quemar nada, y recibirla otra vez no acuña hasta pasar el nivel ya alcanzado (VG, tras 3b-bis: tope acumulado, §5) |
 
-Las seis lecturas (present, informative, attended, obligation, share, weight) están en §5.
+Las siete lecturas (present, informative, attended, obligation, share, weight, maturity) están en §5; la última, la madurez del encargo 3c-1, en `docs/CONTRATO.md` §5.
 
 ### 10.2 Condición JS ↔ regla
 

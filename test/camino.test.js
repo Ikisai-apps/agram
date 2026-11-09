@@ -45,8 +45,8 @@ test('pasos: del foco hacia la acción, en orden, leídos del motor', async () =
   const n = eje.orden.length;
   const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
   assert.equal(eje.orden.length, n, 'no escribe');
-  // Posiciones sin ocupantes: la compra desarrolla de 0 a 4 (en 4 está además la fábrica).
-  assert.deepEqual(d.pasos.filter((p) => p.tipo === 'desarrollar').map((p) => p.posicion), [5, 6, 7, 8, 9]);
+  // Posiciones sin ocupantes: la compra desarrolla de 0 a 5 (en 4 está además la fábrica; en 5, su plantilla, encargo 3c-1).
+  assert.deepEqual(d.pasos.filter((p) => p.tipo === 'desarrollar').map((p) => p.posicion), [6, 7, 8, 9]);
   assert.deepEqual(d.pasos.map((p) => p.n), d.pasos.map((_, i) => i + 1));
   const tipos = d.pasos.map((p) => p.tipo);
   assert.deepEqual(tipos, [...tipos].sort((a, b) => TIPOS.indexOf(a) - TIPOS.indexOf(b)), 'en el orden de TIPOS');
@@ -259,7 +259,7 @@ test('vista: los dos renders tienen la misma lista; el animado añade la senda y
   assert.equal((sobrio.match(/<li class="paso-c/g) ?? []).length, d.pasos.length + d.dados.length);
   assert.match(sobrio, /<select name="identidad"><option>casa<\/option><option selected>huesped<\/option><option>cocina<\/option>/);
   assert.match(sobrio, /data-consolidar-propuesta>consolidar como huesped/);
-  assert.match(sobrio, /data-posicion="5" data-escribir-en>escribir aquí/);
+  assert.match(sobrio, /data-posicion="6" data-escribir-en>escribir aquí/);
   const previa = await previsualizar(eje, d, 'propuesta', { t: T });
   const conPrevia = htmlCamino(d, { previa });
   assert.match(conPrevia, /<li class="paso-c tipo-propuesta" data-clave="propuesta">.*<div class="previa" role="status">.*no se ha escrito nada/s);

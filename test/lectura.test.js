@@ -116,6 +116,7 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
     '3 · comunicación: huesped · cocina · 2 ocupantes',
     '  ↳ ocupante 3 · cocina · avisar al servir',
     '4 · fábrica: pagar · servir · 2 ocupantes',
+    '5 · estructura: purchase', // encargo 3c-1: su plantilla
     '↳ ocupante 1 · huesped · Gracias',
   ].join('\n'));
   // Con camino, solo esa posición (lo que enseña Clasificar).

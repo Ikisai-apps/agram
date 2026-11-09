@@ -56,7 +56,7 @@ test('render sobrio: cabecera y una línea por décupla', async () => {
   const lineas = texto.split('\n');
   assert.equal(lineas.length, 5);
   assert.match(lineas[0], /^hilo de [0-9a-f]{8} · 4 de 4$/);
-  assert.match(lineas[1], /^0 [0-9a-f]{8} huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[2\] · 3 \[2\] · 4 \[2\]$/); // 2: los criterios del menú y la plantilla de cerrado (encargo 3b)
+  assert.match(lineas[1], /^0 [0-9a-f]{8} huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[2\] · 3 \[2\] · 4 \[2\] · 5 \[1\]$/); // 2: los criterios del menú y la plantilla de cerrado (encargo 3b); 5: su plantilla (encargo 3c-1)
   assert.match(lineas[4], /^3 [0-9a-f]{8} casa · Casa de ejemplo$/); // un terminal, sin posición 0
   assert.throws(() => render(secuencia(eje, compra.id), 'animado'), /no disponible/);
 });
@@ -81,7 +81,7 @@ test('secuencia: alcance con los tres números de Sequenced; mínimo no consegui
   // El ejemplo: compra 10 (encargo 3b: su 2 nombra también la plantilla de cerrado), menú 6, altas 3 y el génesis, un
   // terminal, 1.
   const { eje: ej, compra } = await ejemploCompra();
-  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 20);
+  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 21); // (encargo 3c-1: su 5 nombra su plantilla, «purchase»)
 });
 
 // VG, 7-11 noche (10.2): todos cortan duro, también Sequenced, con el aviso de Scened.

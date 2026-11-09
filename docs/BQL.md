@@ -108,8 +108,8 @@ Verificado (`ejemploCompra` de `ejemplos/ikisai/compra-food.mjs`; compra 1 = `[[
 
 | Llamada | `estado` | `texto` |
 |---|---|---|
-| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ ff05e68f` (la lista de uno, con su referencia) |
-| `evaluar(eje, compra.id, [1, 0, 0])` | RESUELTO | `→ ff05e68f` |
+| `evaluar(eje, compra.id, [1, 0])` | RESUELTO | `→ b2c259f3` (la lista de uno, con su referencia) |
+| `evaluar(eje, compra.id, [1, 0, 0])` | RESUELTO | `→ b2c259f3` |
 | `evaluar(eje, compra.id, [3])` | RESUELTO | `huesped · cocina` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 0)')` | RESUELTO | `ensalada · guiso · fruta` |
 | `consultar(eje, compra.id, [9], 'LOCAL(1, 0, 0, 1)')` | PENDIENTE | `PENDIENTE: posición sin desarrollar` |

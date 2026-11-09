@@ -95,6 +95,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
       [{ ref: menu.id, dir: '2000000000' }, 'all announced movements happened'], // 2 criterios: los del menú y la plantilla de cerrado (encargo 3b)
       ['huesped', 'cocina'], // 3 comunicación: quién habla con quién, dos ocupantes
       ['pagar', 'servir'], // 4 fábrica: las acciones que se registran, dos ocupantes
+      ['purchase'], // 5 estructura: dónde encaja, su tipo: la plantilla «purchase» de la época (epoch.9.2; encargo 3c-1)
     ],
   }, priv('huesped'));
 

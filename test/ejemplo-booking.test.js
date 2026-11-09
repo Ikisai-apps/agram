@@ -128,7 +128,7 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   const anuncios = eje.sobre(reserva.id, ANUNCIO);
   assert.equal(anuncios.length, 4);
   assert.equal(consumido('huesped'), 1 + reserva.movimientos[0].cantidad + 2 + anuncios.reduce((s, a) => s + a.movimientos[0].cantidad, 0) + pagada.movimientos[0].cantidad);
-  assert.equal(consumido('huesped'), 36);
+  assert.equal(consumido('huesped'), 37); // encargo 3c-1: la reserva nombra su plantilla en su 5, una posición más
   // El hilo es la evidencia: pago → reserva → habitación → alojamiento → génesis.
   assert.deepEqual(eje.hilo(pagada.id).map((x) => x.id), [pagada.id, reserva.id, habitacion.id, alojamiento.id, eje.genesisId]);
   assert.deepEqual(eje.hilo(entrega.id).map((x) => x.autor), [CASA, 'huesped', CASA, CASA, CASA]);
@@ -137,11 +137,12 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   const texto = render(decupla(reserva));
   assert.match(texto, /^1 recursos\s+\[5 posiciones\]$/m);
   // VG, 7-11 noche: por hojas, la 4 es [['pagar'], ['ocupar']]. Pointed corta duro en 10 (decisión 10.2): la reserva
-  // tiene 12 posiciones con contenido (el criterio es ahora una lista de dos: los de la habitación y la plantilla de
-  // cerrado), así que las dos de la 4, las últimas por índice, quedan fuera y se avisa.
+  // tiene 13 posiciones con contenido (el criterio es una lista de dos: los de la habitación y la plantilla de cerrado;
+  // y su 5 nombra su plantilla, encargo 3c-1), así que las dos de la 4 y la 5, las últimas por índice, quedan fuera y se avisa.
   assert.match(texto, /^2 criterios\s+lista de 2: .* · all announced movements happened$/m);
   assert.match(texto, /^4 fábrica\s+— \(cortada\)$/m);
-  assert.match(texto, /^aviso: Pointed corta en su máximo \(10 posiciones\): .*queda cortada la 4\. Trae 10 de 12 posiciones\.$/m);
+  assert.match(texto, /^5 estructura\s+— \(cortada\)$/m);
+  assert.match(texto, /^aviso: Pointed corta en su máximo \(10 posiciones\): .*quedan cortadas las 4, 5\. Trae 10 de 13 posiciones\.$/m);
   assert.deepEqual(reserva.payload[4], [['pagar'], ['ocupar']]); // leer no muta el registro
 });
 
@@ -215,7 +216,7 @@ test('las referencias no copian: plaza y precio son un solo nodo, y las fórmula
   assert.deepEqual(aPagar.payload, [[EUR], [total.valor.cantidad], ['pagar'], [['huesped'], [CASA]]]);
   assert.equal(pagada.movimientos[1].cantidad, aPagar.payload[1][0]);
   // Prefijo denso, sin relleno: de 0 a 4 (4 es lo que prepara: pagar y ocupar); ni 5 ni 6.
-  assert.equal(reserva.payload.length, 5);
+  assert.equal(reserva.payload.length, 6); // encargo 3c-1: su 5 nombra su plantilla, «booking»
   assert.deepEqual(reserva.payload[4], [['pagar'], ['ocupar']]); // por hojas: una décupla, cada posición entre corchetes
   // Su criterio (2): los de la habitación, por referencia, y la plantilla de cerrado que nombra su dueña (encargo 3b).
   assert.deepEqual(reserva.payload[2], [{ ref: habitacion.id, dir: '2000000000' }, CERRADO]);

@@ -1,0 +1,19 @@
+[
+  ["maturity"],
+  ["epoch.8.4.1", "epoch.8.4.3", "X.8.6"],
+  ["=count (epoch.8.4.1 where it2 <= first it.8.6.1 + first it.8.6.5 + count (epoch.8.4.3 where it3 < first it.8.6.4)) + count (epoch.8.4.3 where it2 < first it.8.6.1 + first it.8.6.5 + count (epoch.8.4.3 where it3 < first it.8.6.4))"],
+  ["X.8.1"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 7-11 noche: los cortes de las diez cajas del 8 son regla de la época; mínimo y máximo de cada modo y órdenes de magnitud (mapa §12 [D]); la madurez se mide con la misma tabla del espacio de bloque (1 posición = semilla … 10 = la décupla entera) y después por órdenes de magnitud (la lista, la tienda, la manzana, el distrito, el reino)",
+    "VG, 10-11, B5: las lecturas son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+    "VG, 10-11, A3: los datos del mundo viven en la época (epoch.8.4: los niveles y sus umbrales) y la regla no lleva ninguno",
+    "Encargo 3c-1 (Core, [X] decidir VG): la medida bruta la da una vista del contexto, X.8.6 (de dónde viene): 8.6.1 las posiciones escritas de X y de todo lo que cuelga de él, 8.6.5 la profundidad del subárbol en registros, 8.6.4 las unidades que mueven sus transacciones; una fórmula entera en BQL mínimo recorrería el subárbol posición a posición y reventaría el presupuesto de diez mil ocupantes; la regla solo convierte la medida en nivel",
+    "Encargo 3c-1 (Core, [X] decidir VG): la medida es posiciones + profundidad + los techos de epoch.8.4.3 que pasa la cantidad (no la cantidad: doce euros no hacen una tienda); el nivel es cuántos umbrales de posición (8.4.1) alcanza la medida más cuántos techos (8.4.3) pasa; los niveles de un tipo son datos de su plantilla (su 8.8), los genéricos de la época son el defecto",
+    "Se materializa en X.8.1: frente a otros, cuánto (el nivel); la medida de la que sale queda en X.8.6"
+  ],
+  ["epoch 0"],
+  ["after weight"],
+  ["maturity: the level of the record among the levels of the epoch (epoch.8.4): the positions written in its subtree, plus its depth, plus the orders of magnitude of what it moves; one level per position up to the whole tenfold and then one per order of magnitude"]
+]

@@ -41,6 +41,7 @@
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver } from './btml.js';
 import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil, validarMovimiento } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
+import { contenido } from './modos.js';
 import { pendiente, Parada, Presupuesto, SIMBOLOS, NADIE, leerRegla, posicionDeLectura, nombreDeRegla } from './bqlm.js';
 
 /** Quien está al otro lado de una emisión o de un consumo: el símbolo de src/bqlm.js, nunca un texto (SEG-11). */
@@ -371,6 +372,8 @@ export class ContextoEje {
       case 'recibido': return nodo.neto + ' ' + nodo.clave + ' de ' + nodo.emisor;
       case 'grupo': return 'grupo ' + nodo.zona + ' de ' + nodo.titular;
       case 'compromiso': return nodo.cantidad + ' ' + nodo.serie + ' de ' + nodo.titular + ' con ' + String(nodo.decision).slice(0, 8);
+      case 'ocho': return 'frente a otros de ' + String(nodo.e.id ?? 'ev').slice(0, 8);
+      case 'medida': return 'medida de ' + String(nodo.e.id ?? 'ev').slice(0, 8);
       default: return '«' + (nodo?.k ?? 'nodo') + '»';
     }
   }
@@ -401,6 +404,9 @@ export class ContextoEje {
     if (d === 2 && e.id && this.#eje?.obtener(e.id)) return [{ k: 'criterioX', e }];
     // B6: el 7, el futuro del registro: 7.1 las series vivas de su subárbol; y las lecturas que la época pone en el 7.
     if (d === 7) return [{ k: 'futuro', e }];
+    // Encargo 3c-1: el 8, frente a otros: 8.6 la medida bruta de la madurez (de dónde viene) y las lecturas que la
+    // época pone en el 8 (X.8.1, «maturity»).
+    if (d === 8) return [{ k: 'ocho', e }];
     // B5: una posición donde la época materializa lecturas del registro tiene su nodo implícito.
     if (this.#hayLecturas('X', d)) return [{ k: 'lectura', letra: 'X', sujeto: this.#sujetoDe(e), d }];
     return [];
@@ -880,9 +886,49 @@ export class ContextoEje {
         if (d === 3) return [nodo.titular];
         if (d === 5) return [nodo.decision];
         return this.#lecturaEn('X.2.4.' + d, nodo);
+      case 'ocho':
+        // Encargo 3c-1: el 8 de un registro, lo implícito: 8.6 la medida bruta de su madurez (de dónde viene); lo
+        // demás, las lecturas de la época en X.8.d (X.8.1, «maturity»: el nivel).
+        if (d === 6) return [{ k: 'medida', e: nodo.e }];
+        return this.#lectura('X', this.#sujetoDe(nodo.e), 8, d);
+      case 'medida': {
+        // La medida bruta de la madurez (encargo 3c-1): 1 cuánto, las posiciones escritas del registro y de todo lo
+        // que cuelga de él; 4 qué se hace, las unidades que mueven sus transacciones; 5 dónde encaja, la profundidad
+        // del subárbol en registros. Una vista, porque recorrerlo posición a posición en BQL mínimo reventaría el
+        // presupuesto; la regla «maturity» solo convierte la medida en nivel.
+        const m = this.#medidaDe(nodo.e);
+        return d === 1 ? [m.posiciones] : d === 4 ? [m.cantidad] : d === 5 ? [m.profundidad] : [];
+      }
       default:
         return [];
     }
+  }
+
+  /** La medida bruta de la madurez de un registro (o de la candidata): { posiciones, profundidad, cantidad } de su subárbol. */
+  #medidaDe(e) {
+    const llave = 'medida|' + (e.id ?? 'ev');
+    const memo = this.#presupuesto.memo;
+    if (memo.has(llave)) return memo.get(llave);
+    const unidades = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && Number.isFinite(m.cantidad) ? m.cantidad : 0), 0);
+    const medida = { posiciones: contenido(e.payload), profundidad: 0, cantidad: unidades(e) };
+    if (typeof e.id === 'string' && this.#eje?.obtener(e.id)) {
+      const vistos = new Set([e.id]);
+      const frente = [[e.id, 0]];
+      while (frente.length) {
+        const [id, nivel] = frente.shift();
+        for (const h of this.#eje.sobre(id)) {
+          if (vistos.has(h.id)) continue;
+          vistos.add(h.id);
+          this.#presupuesto.gastar(1);
+          medida.posiciones += contenido(h.payload);
+          medida.cantidad += unidades(h);
+          medida.profundidad = Math.max(medida.profundidad, nivel + 1);
+          frente.push([h.id, nivel + 1]);
+        }
+      }
+    }
+    memo.set(llave, medida);
+    return medida;
   }
 
   /** D-MOV: el dígito d de un movimiento. */
