@@ -20,7 +20,8 @@ import * as contrato from '../src/contrato.js';
 import * as acciones from '../src/acciones.js';
 import * as pasosDe from '../src/pasos.js';
 import * as modelos from '../src/modelos.js';
-import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, direccion } from '../src/btml.js';
+import { esReferencia, esLista, esDecupla, indicesDe, direccion } from '../src/btml.js';
+import { t } from './textos.js';
 
 /** El tipo de una pieza del modelo de visualización que la carta pide (vocabulario de la cabecera epoch.9.7.0.4). */
 const PIEZA = Object.freeze({ elemento: 'elemento', munequito: 'munequito', icono: 'icono' });
@@ -106,25 +107,17 @@ function representacionQueCabe(eje, X, tamano, { animado, opciones }) {
   return caben.reduce((a, b) => (b.tamano >= a.tamano ? b : a));
 }
 
-/** Un ocupante en texto corto, como lo pinta la carta de texto: una hoja, ella; una referencia, la representación de lo que alcanza; una décupla, sus hojas. */
-function textoDe(eje, o, opciones) {
-  if (o === null || o === undefined) return '';
-  if (esReferencia(o)) {
-    const rep = contrato.representaciones(eje, o.ref, opciones)[0];
-    const d = dirCorta(o.dir);
-    return (rep?.texto ?? corto(o.ref)) + (d ? ' · ' + d : '');
-  }
-  if (Array.isArray(o)) return o.map((x) => textoDe(eje, x, opciones)).filter(Boolean).join(' · ');
-  return String(o);
-}
+/** Un valor en texto legible, como lo dice el núcleo en el idioma de quien mira (contrato.legible); `tipo`, el de la posición o el parámetro. */
+const legibleDe = (eje, o, tipo, opciones) => contrato.legible(eje, o, tipo, opciones);
 
-/** Un ocupante como nodo: { tipo: 'hoja' | 'referencia' | 'decupla', texto, ref, dir, X, representacion }. */
-function nodoOcupante(eje, o, tamano, ctx) {
+/** Un ocupante como nodo: { tipo: 'hoja' | 'referencia' | 'decupla' | 'lista', texto, ref, dir, X, representacion }; el texto es el legible del núcleo. */
+function nodoOcupante(eje, o, tamano, ctx, tipoDato) {
+  const l = legibleDe(eje, o, tipoDato, ctx.opciones);
   if (esReferencia(o)) {
     const X = eje?.obtener(o.ref) ? o.ref : null;
     return {
       tipo: 'referencia',
-      texto: textoDe(eje, o, ctx.opciones),
+      texto: l.texto,
       ref: o.ref,
       dir: dirCorta(o.dir),
       X,
@@ -132,9 +125,9 @@ function nodoOcupante(eje, o, tamano, ctx) {
       autor: X ? eje.obtener(X).autor : null,
     };
   }
-  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: textoDe(eje, o, ctx.opciones), hojas: o.map((h) => textoDe(eje, h, ctx.opciones)) };
-  if (esLista(o)) return { tipo: 'lista', texto: textoDe(eje, o, ctx.opciones) };
-  return { tipo: 'hoja', texto: textoDe(eje, o, ctx.opciones), valor: o };
+  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: l.texto, hojas: (l.partes.posiciones ?? []).map((p) => p?.texto ?? '') };
+  if (esLista(o)) return { tipo: 'lista', texto: l.texto };
+  return { tipo: 'hoja', texto: l.texto, valor: o };
 }
 
 /** Los pasos de X por punto de vista: { [pv]: { nombre, k, de } }, con el paso de todo elemento (pv «*») como respaldo en `comun`. */
@@ -183,9 +176,10 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
   // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración.
   const cuantos = nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
   const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   nodo.ocupantes = {
     total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
-    lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx)),
+    lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx, tipoDato)),
     cargarMas: o.total > o.desde + o.ocupantes.length,
   };
   if (nivel >= NIVEL.bloque) {
@@ -197,22 +191,24 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
   // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
   if (g.grupo === 'cruz' && g.lado === 1) {
     const d = contrato.diario(eje, X, 0, cuantos, ctx.opciones);
-    nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + m.cantidad + ' ' + m.serie), ancla: e.ancla })) };
+    // Cada asiento, legible: la primitiva del libro y la cantidad con su serie como la dice el núcleo.
+    nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + legibleDe(eje, m, null, ctx.opciones).texto), ancla: e.ancla })) };
   }
   return nodo;
 }
 
-/** Los campos del anverso: cada PV lateral con su etiqueta y su primer ocupante en texto (lo que rellena el 0 desde los demás). */
+/** Los campos del anverso: cada PV lateral con su etiqueta y su primer ocupante en texto legible (lo que rellena el 0 desde los demás). */
 function camposDe(eje, X, ctx) {
   return LATERALES.map((pv) => {
     const o = contrato.ocupantes(eje, X, pv, 0, 1, ctx.opciones);
+    const tipo = contrato.tipo(eje, X, pv, ctx.opciones);
     return {
       pv,
       etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
       ayuda: contrato.ayuda(eje, X, pv, ctx.opciones),
       marcador: contrato.marcador(eje, X, pv, ctx.opciones),
-      tipo: contrato.tipo(eje, X, pv, ctx.opciones),
-      valor: o.ocupantes.length ? textoDe(eje, o.ocupantes[0], ctx.opciones) : '',
+      tipo,
+      valor: o.ocupantes.length ? legibleDe(eje, o.ocupantes[0], tipo, ctx.opciones).texto : '',
       total: o.total,
     };
   });
@@ -232,38 +228,53 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
     autor: ev?.autor ?? null,
     t: ev?.t ?? null,
     madurez: contrato.madurez(eje, X, ctx.opciones),
-    plantilla: contrato.nombreDePlantilla(contrato.plantilla(eje, X, ctx.opciones)) ?? null,
+    // El nombre de la plantilla de X, en el idioma (contrato.texto: «template <nombre>»); su clave canónica aparte.
+    plantilla: nombreDePlantillaDe(eje, X, ctx),
     pasos: ctx.pasos,
     leido: Boolean(ctx.estado.leido),
   };
   if (g.cara === 'anverso') return { ...base, campos: camposDe(eje, X, ctx) };
   if (g.cara === 'reverso') {
     const o = contrato.ocupantes(eje, X, pv, 0, ctx.paso, ctx.opciones);
+    const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
     return {
       ...base,
-      ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx)) },
-      ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? textoDe(eje, { ref: ev.sobre }, ctx.opciones) : null } : null,
+      ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx, tipoDato)) },
+      ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? legibleDe(eje, { ref: ev.sobre }, null, ctx.opciones).texto : null } : null,
       validacion: contrato.validar(eje, X, ctx.opciones),
     };
   }
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
   const cuantos = ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
   const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
   return {
     ...base,
-    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx)), cargarMas: o.total > o.desde + o.ocupantes.length },
+    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato)), cargarMas: o.total > o.desde + o.ocupantes.length },
     disposicion: d.disposicion,
   };
 }
 
-/** El aro sobre X: ocho huecos, uno por PV lateral, con la acción por defecto y las demás (acciones.acciones). */
+/** El nombre de la plantilla de datos de X en el idioma, o null si no tiene. */
+function nombreDePlantillaDe(eje, X, ctx) {
+  const clave = contrato.nombreDePlantilla(contrato.plantilla(eje, X, ctx.opciones));
+  return clave === undefined ? null : contrato.texto(eje, contrato.claves.plantilla(clave), ctx.opciones.idioma, { original: clave, epoca: ctx.opciones.epoca });
+}
+
+/** El nombre de una acción del aro en el idioma, y su id (lo que la carta lanza: el id nombra la plantilla en transaccion). */
+function accionDe(nombreCanonico, opciones) {
+  const p = acciones.plantillasDeTransaccion(opciones).find((x) => x.nombre === nombreCanonico);
+  return { id: p?.id ?? nombreCanonico, nombre: contrato.texto(null, contrato.claves.plantilla(nombreCanonico), opciones.idioma, { original: nombreCanonico, epoca: opciones.epoca }) };
+}
+
+/** El aro sobre X: ocho huecos, uno por PV lateral, con la acción por defecto y las demás (acciones.acciones). Cada acción, por su id y su nombre en el idioma. */
 function nodoAro(eje, X, yo, ctx) {
   const abierto = ctx.estado.aro?.pv ?? null;
   const huecos = LATERALES.map((pv) => {
     const lista = acciones.acciones(eje, X, pv, yo, ctx.opciones);
     const porDefecto = lista.find((a) => a.porDefecto) ?? lista[0] ?? null;
-    const resumen = (a) => ({ nombre: a.nombre, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.nombre) });
+    const resumen = (a) => ({ id: a.id, nombre: a.etiqueta, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.etiqueta) });
     return {
       pv,
       lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null,
@@ -277,22 +288,36 @@ function nodoAro(eje, X, yo, ctx) {
   return { X, texto: representacionQueCabe(eje, X, tamanoDeNivel(1, ctx.opciones), ctx)?.texto ?? corto(X), huecos };
 }
 
+/** El idioma de quien mira: el que se pide o el de su configuración (la preferencia «language»). */
+const idiomaDe = (eje, yo, opciones) => opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language;
+
 /**
- * Los campos del formulario de una acción del aro sobre X para `yo`: cada parámetro con su etiqueta (su nombre en la
- * plantilla), tipo, si es requerido, su ayuda, su validación y su valor (el dado, o el defecto que resuelve el núcleo).
- * → { X, accion, pv, campos: [{ nombre, etiqueta, tipo, requerido, ayuda, validacion, posicion, valor, falta }], lectura, camino } o null.
+ * Los campos del formulario de una acción del aro (por su id o su nombre canónico) sobre X para `yo`: cada parámetro
+ * con su nombre canónico, su etiqueta y su ayuda en el idioma de yo, tipo, si es requerido, su validación, su valor
+ * (el dado, o el defecto que resuelve el núcleo), ese valor legible (contrato.legible) y si su tipo es simple (se
+ * edita en texto, contrato.desdeLegible) o se edita en BTML.
+ * → { X, accion (el id), nombre, pv, campos: [{ nombre, etiqueta, tipo, requerido, ayuda, validacion, posicion, valor, legible, simple, falta }], lectura, camino } o null.
  */
 export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
   const plantilla = acciones.plantillaDeTransaccion(accion, opciones);
   if (!plantilla) return null;
+  const o = { ...opciones, idioma: idiomaDe(eje, yo, opciones) };
   const pv = Number(hojas(plantilla[8])[0]);
-  const ofrecida = acciones.acciones(eje, X, pv, yo, opciones).find((a) => a.nombre === acciones.nombreDeAccion(plantilla));
+  const canonico = acciones.nombreDeAccion(plantilla);
+  const ofrecida = acciones.acciones(eje, X, pv, yo, o).find((a) => a.nombre === canonico);
   const defectos = new Map((ofrecida?.parametros ?? []).map((p) => [p.nombre, p.valor]));
-  const campos = acciones.parametros(plantilla).map((p) => {
+  const campos = acciones.parametros(plantilla, o).map((p) => {
     const valor = valores[p.nombre] !== undefined ? valores[p.nombre] : defectos.get(p.nombre);
-    return { nombre: p.nombre, etiqueta: p.nombre, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, validacion: p.validacion, posicion: p.posicion, valor: valor === undefined ? null : valor, falta: p.requerido && valor === undefined };
+    return {
+      nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, validacion: p.validacion, posicion: p.posicion,
+      valor: valor === undefined ? null : valor,
+      legible: valor === undefined ? '' : legibleDe(eje, valor, p.tipo, o).texto,
+      simple: contrato.esTipoSimple(p.tipo, o),
+      falta: p.requerido && valor === undefined,
+    };
   });
-  return { X, accion: acciones.nombreDeAccion(plantilla), pv, campos, lectura: acciones.esLectura(plantilla), camino: acciones.esCamino(plantilla), ofrecida: Boolean(ofrecida) };
+  const { id, nombre } = accionDe(canonico, o);
+  return { X, accion: id, nombre, pv, campos, lectura: acciones.esLectura(plantilla), camino: acciones.esCamino(plantilla), ofrecida: Boolean(ofrecida) };
 }
 
 /**
@@ -315,8 +340,10 @@ export async function enviar(eje, X, accion, valores, yo, firmar, opciones = {})
  * La candidata del registro de preferencias de `yo` con los valores dados sobre los actuales: la plantilla
  * «preferences» de la época (la posición la dice la cabecera de los modelos, epoch.9.7.0.5: la preferencia `model`
  * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
- * es una preferencia es su tipo (B4). Devuelve { payload, campos: [{ pv, etiqueta, ayuda, marcador, numero, valor }],
- * sobre, en, de } para que la carta la escriba como un registro más, anclado en el 9 del alta; null si yo no tiene alta.
+ * es una preferencia es su tipo (B4). Devuelve { payload, nombre, campos: [{ pv, clave, etiqueta, ayuda, marcador,
+ * numero, valor }], sobre, en, de } para que la carta la escriba como un registro más, anclado en el 9 del alta
+ * (`clave` es la etiqueta canónica, la clave de la configuración; `etiqueta` y `ayuda`, en el idioma de yo); null si
+ * yo no tiene alta.
  */
 export function preferencias(eje, yo, valores = {}, opciones = {}) {
   const alta = eje?.alta(yo);
@@ -326,22 +353,24 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   const donde = direccion(indicesDe(sitio).slice(0, -1));
   const p = contrato.plantillas(eje, opciones).find((x) => x.donde === donde);
   if (!p) return null;
+  const o = { ...opciones, idioma: idiomaDe(eje, yo, opciones) };
+  const T = (que, etiqueta, original) => contrato.texto(eje, contrato.claves.parametro(p.nombre, etiqueta, que), o.idioma, { original, epoca: o.epoca });
   const actual = contrato.configuracion(eje, yo, opciones);
   const defectos = contrato.configuracion(eje, null, opciones);
   const payload = [[p.nombre]];
   const campos = [];
   p.registro.forEach((desc, d) => {
     if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
-    const etiqueta = hojas(desc[0])[0];
-    if (defectos[etiqueta] === undefined) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
-    const numero = typeof hojas(defectos[etiqueta])[0] === 'number';
-    const dado = valores[etiqueta] !== undefined ? hojas(valores[etiqueta]) : hojas(actual[etiqueta]);
+    const clave = hojas(desc[0])[0];
+    if (defectos[clave] === undefined) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
+    const numero = typeof hojas(defectos[clave])[0] === 'number';
+    const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
     const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
-    payload[d] = limpio.length ? limpio : hojas(defectos[etiqueta]);
-    campos.push({ pv: d, etiqueta, ayuda: hojas(desc[9]).slice(-1)[0] ?? '', marcador: hojas(defectos[etiqueta]), numero, valor: payload[d].length === 1 ? payload[d][0] : payload[d] });
+    payload[d] = limpio.length ? limpio : hojas(defectos[clave]);
+    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: payload[d].length === 1 ? payload[d][0] : payload[d] });
   });
   for (let d = 0; d < payload.length; d++) if (payload[d] === undefined) payload[d] = [];
-  return { payload, campos, sobre: alta.id, en: direccion([9]), de: actual.de };
+  return { payload, nombre: contrato.texto(eje, contrato.claves.plantilla(p.nombre), o.idioma, { original: p.nombre, epoca: o.epoca }), campos, sobre: alta.id, en: direccion([9]), de: actual.de };
 }
 
 /** Los rosetones: ocho mosaicos muy comprimidos de mi propio foco (mi alta), uno por PV lateral. */
@@ -360,18 +389,19 @@ function rosetonesDe(eje, yoDatos, ctx, medidas) {
     };
     if (nivel >= NIVEL.tarjeta) {
       const o = contrato.ocupantes(eje, alta, pv, 0, tamanoDeNivel(2, ctx.opciones)?.datos ?? ctx.paso, ctx.opciones);
-      nodo.ocupantes = { total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(1, ctx.opciones), ctx)) };
+      const tipoDato = contrato.tipo(eje, alta, pv, ctx.opciones);
+      nodo.ocupantes = { total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(1, ctx.opciones), ctx, tipoDato)) };
     }
     return nodo;
   });
 }
 
-/** El camino de X para yo, como lo da el núcleo, con cada paso marcado como mío, de espera o hecho. */
+/** El camino de X para yo, como lo da el núcleo, con cada paso marcado como mío, de espera o hecho; lo que se lanza, por su id y su nombre en el idioma. */
 async function caminoDe(eje, X, yo, ctx) {
   if (!yo) return { pasos: [], niveles: null };
   const c = await acciones.camino(eje, X, yo, ctx.opciones);
   return {
-    pasos: c.pasos.map((p) => ({ fuente: p.fuente, falta: p.falta, hecho: Boolean(p.hecho), espera: p.espera ?? null, regla: p.regla ?? null, mio: Boolean(p.hacer) && !p.espera && !p.hecho, hacer: p.hacer ? { plantilla: p.hacer.plantilla, X: p.hacer.X, parametros: p.hacer.parametros, lectura: Boolean(p.hacer.lectura) } : null, pasa: p.pasa, motivos: p.motivos })),
+    pasos: c.pasos.map((p) => ({ fuente: p.fuente, falta: p.falta, hecho: Boolean(p.hecho), espera: p.espera ?? null, regla: p.regla ?? null, mio: Boolean(p.hacer) && !p.espera && !p.hecho, hacer: p.hacer ? { ...accionDe(p.hacer.plantilla, ctx.opciones), X: p.hacer.X, parametros: p.hacer.parametros, lectura: Boolean(p.hacer.lectura) } : null, pasa: p.pasa, motivos: p.motivos })),
     niveles: c.niveles ?? null,
   };
 }
@@ -399,14 +429,16 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const m = { ...MEDIDAS, ...medidas };
   const X = typeof estado.foco === 'string' ? estado.foco : estado.foco?.X;
   const ev = eventoDe(eje, X);
-  if (!ev) return { tipo: 'carta', X: X ?? null, vacio: true, avisos: ['no hay registro en foco'] };
+  if (!ev) return { tipo: 'carta', X: X ?? null, vacio: true, avisos: [t('noHayFoco')] };
   const yoDatos = yo ? contrato.yo(eje, yo, { t: opciones.t, epoca: opciones.epoca }) : null;
   const configuracion = contrato.configuracion(eje, yo, opciones);
   const defectos = contrato.configuracion(eje, null, opciones);
   const animado = configuracion.render !== undefined && configuracion.render !== defectos.render;
   const cabecera = modelos.cabecera(opciones);
+  // El idioma de quien mira (su preferencia «language»): todo texto de la época pasa por el núcleo con él.
+  const idioma = idiomaDe(eje, yo, opciones);
   const ctx = {
-    estado, opciones, animado,
+    estado, opciones: { ...opciones, idioma }, animado,
     variantes: cabecera.variantes,
     cadena: animado ? modelos.modelo(eje, yo, opciones) : [],
     // El paso de «cargar más»: el de la época (epoch.8.3.3) o, si quien mira lo ha escrito en sus preferencias, el suyo.
@@ -428,11 +460,12 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const huecoCentro = apilada ? { ancho: m.ancho, alto: m.alto / 3 } : { ancho: m.ancho / 3, alto: m.alto / 3 };
   const laterales = pvsLaterales.map((pv) => nodoLateral(eje, X, pv, estado.niveles?.[pv] ?? NIVEL.comprimido, ctx, m, huecoDe(pv)));
   const aro = estado.aro?.X && eje.obtener(estado.aro.X) ? nodoAro(eje, estado.aro.X, yo, ctx) : null;
-  const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, opciones) : null;
+  const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, ctx.opciones) : null;
   return {
     tipo: 'carta',
     X,
     yo: yo ?? null,
+    idioma,
     disposicion: d.disposicion,
     apilada,
     pvs: d.pvs,

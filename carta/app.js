@@ -8,6 +8,7 @@ import { autoridad, persistencia, local, salida, contrato, acciones, direccion, 
 import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS } from './carta.js';
 import { html, trasPintar } from './dom.js';
 import { instalar } from './gestos.js';
+import { t } from './textos.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -32,6 +33,18 @@ let pintando = null;
 const privadaDe = (id) => estado.claves[id]?.privada;
 const firmarCon = (id) => (privadaDe(id) ? (ev) => autoridad.firmar(ev, privadaDe(id)) : undefined);
 const medidas = () => ({ ancho: Math.max(240, window.innerWidth), alto: Math.max(320, window.innerHeight) });
+/** El idioma de quien mira: su preferencia «language». */
+const idioma = () => contrato.configuracion(estado.eje, estado.identidad).language;
+/** El nombre canónico de una acción del aro (por su id o su nombre): lo que anota el libro local. */
+function canonicoDe(accion) {
+  const p = acciones.plantillaDeTransaccion(accion);
+  return p ? acciones.nombreDeAccion(p) : String(accion);
+}
+/** El nombre de una acción del aro (por su id o su nombre canónico) en el idioma de quien mira. */
+function nombreDeAccion(accion) {
+  const canonico = canonicoDe(accion);
+  return contrato.texto(estado.eje, contrato.claves.plantilla(canonico), idioma(), { original: canonico });
+}
 
 /** Las claves de las identidades de ejemplo guardadas en este navegador; se generan las que falten (como la web antigua). */
 async function cargarClaves() {
@@ -57,7 +70,7 @@ async function cargarClaves() {
 
 function guardar() {
   const ok = persistencia.guardarLocal(estado.eje, CLAVE_EJE);
-  estado.guardado = ok ? 'guardado en este navegador · ' + estado.eje.orden.length + ' registros' : 'sin almacenamiento: nada se guarda al recargar';
+  estado.guardado = ok ? t('guardadoEnNavegador', { cuantos: estado.eje.orden.length }) : t('sinAlmacenamiento');
   guardarLibroLocal();
 }
 
@@ -103,7 +116,7 @@ async function pintar() {
     try {
       a = await arbol(estado, estado.eje, estado.identidad, medidas());
     } catch (e) {
-      a = { vacio: true, avisos: ['la carta no se ha podido pintar: ' + (e.message ?? e)] };
+      a = { vacio: true, avisos: [t('noSePinta', { motivo: e.message ?? e })] };
       console.error(e);
     }
     const extra = {
@@ -130,7 +143,7 @@ function leerTexto(X) {
   try {
     return leerEvento(estado.eje, X);
   } catch (e) {
-    return 'no se puede leer: ' + (e.message ?? e);
+    return t('noSeLee', { motivo: e.message ?? e });
   }
 }
 
@@ -145,7 +158,7 @@ function cargarLottie() {
   s.crossOrigin = 'anonymous';
   s.referrerPolicy = 'no-referrer';
   s.onload = () => pintar();
-  s.onerror = () => { estado.aviso = 'lottie-web no se ha podido cargar: las piezas animadas quedan como su forma sobria'; pintar(); };
+  s.onerror = () => { estado.aviso = t('sinLottie'); pintar(); };
   document.head.appendChild(s);
 }
 
@@ -208,7 +221,7 @@ const manejadores = {
     estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso };
     estado.aro = null;
     limpiarMensajes();
-    tocar(sobre, 'lanzar ' + accion);
+    tocar(sobre, 'lanzar ' + canonicoDe(accion));
     pintar();
   },
   cerrar() {
@@ -221,27 +234,37 @@ const manejadores = {
   async enviar(form) {
     const f = estado.formulario;
     if (!f) return;
+    // Lo escrito en cada input: si no se tocó el valor legible, el crudo que trae (data-crudo); un tipo simple se lee
+    // con el núcleo (contrato.desdeLegible, en el idioma de quien mira); lo demás, BTML en JSON o el texto tal cual.
     const valores = {};
+    const motivos = [];
     for (const input of form.querySelectorAll('input[name]')) {
       const v = input.value.trim();
       if (v === '') continue;
-      const tipo = input.dataset.tipo;
-      if (tipo === 'number') valores[input.name] = Number(v);
-      else if (/^[[{]/.test(v)) { try { valores[input.name] = JSON.parse(v); } catch { valores[input.name] = v; } } else valores[input.name] = v;
+      const { tipo, crudo, legible, simple, etiqueta } = input.dataset;
+      if (crudo && v === legible) {
+        try { valores[input.name] = JSON.parse(crudo); continue; } catch { /* se lee como lo escrito */ }
+      }
+      if (simple === '1') {
+        const r = contrato.desdeLegible(v, tipo, { eje: estado.eje, idioma: idioma() });
+        if (r.motivo) motivos.push({ regla: input.name, mensaje: (etiqueta || input.name) + ': ' + r.motivo, parametro: input.name });
+        else if (r.valor !== undefined) valores[input.name] = r.valor;
+      } else if (/^[[{]/.test(v)) { try { valores[input.name] = JSON.parse(v); } catch { valores[input.name] = v; } } else valores[input.name] = v;
     }
     f.valores = valores;
+    if (motivos.length) { f.motivos = motivos; f.resultado = null; pintar(); return; }
     const r = await enviar(estado.eje, f.X, f.accion, valores, estado.identidad, firmarCon(estado.identidad));
     if (r.ok && r.asentado) {
       guardar();
       estado.formulario = null;
-      estado.exito = f.accion + ': registrado ' + r.asentado.id.slice(0, 8) + (r.asentado.firma ? ' · firmado' : '');
-      tocar(f.X, 'hecho ' + f.accion);
+      estado.exito = t('registrado', { accion: nombreDeAccion(f.accion), id: r.asentado.id.slice(0, 8) }) + (r.asentado.firma ? ' ' + t('firmado') : '');
+      tocar(f.X, 'hecho ' + canonicoDe(f.accion));
       marcarNuevos();
     } else if (r.ok && r.lectura) {
       f.resultado = r.lectura.mensaje;
       f.motivos = [];
     } else if (r.ok && !r.evento) {
-      f.resultado = r.pasos ? r.pasos.length + ' pasos míos' : r.paso ? 'el paso: ' + (r.paso.hacer?.plantilla ?? r.paso.falta) : 'nada que hacer';
+      f.resultado = r.pasos ? t('pasosMios', { cuantos: r.pasos.length }) : r.paso ? t('elPaso', { que: r.paso.hacer ? nombreDeAccion(r.paso.hacer.plantilla) : r.paso.falta }) : t('nadaQueHacer');
       f.motivos = [];
     } else {
       f.motivos = r.motivos;
@@ -254,13 +277,13 @@ const manejadores = {
     const valores = {};
     for (const input of form.querySelectorAll('input[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
     const p = preferencias(estado.eje, estado.identidad, valores);
-    if (!p) { estado.motivosPreferencias = [{ mensaje: 'sin alta: nadie a quien configurar' }]; pintar(); return; }
+    if (!p) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
       await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: p.sobre, en: p.en, payload: p.payload }, privadaDe(estado.identidad));
       guardar();
       estado.config = false;
       estado.motivosPreferencias = [];
-      estado.exito = 'configuración guardada como un registro de mi alta';
+      estado.exito = t('configuracionGuardada');
     } catch (e) {
       estado.motivosPreferencias = [{ mensaje: String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '') }];
     }
@@ -270,7 +293,7 @@ const manejadores = {
     try {
       const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion([pv]), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
       guardar();
-      estado.exito = 'escrito ' + ev.id.slice(0, 8) + ' en ' + pv + ' sobre ' + X.slice(0, 8) + (ev.firma ? ' · firmado' : '');
+      estado.exito = t('escrito', { id: ev.id.slice(0, 8), pv, X: X.slice(0, 8) }) + (ev.firma ? ' ' + t('firmado') : '');
       estado.aviso = '';
       tocar(X, 'escribir ' + pv);
       marcarNuevos();
@@ -300,9 +323,9 @@ const manejadores = {
   async englobar() {
     if (!estado.local) return;
     try {
-      const ev = await estado.local.englobar(firmarCon(estado.identidad), { nota: 'un rato en la carta' });
+      const ev = await estado.local.englobar(firmarCon(estado.identidad), { nota: t('unRatoEnLaCarta') });
       guardar();
-      estado.exito = ev ? 'este rato queda en el eje como un minuto: ' + ev.id.slice(0, 8) : 'nada que englobar';
+      estado.exito = ev ? t('esteRatoEnElEje', { id: ev.id.slice(0, 8) }) : t('nadaQueEnglobar');
       estado.aviso = '';
       marcarNuevos();
     } catch (e) {
@@ -333,8 +356,8 @@ const manejadores = {
     try {
       const r = await acciones.autoejecutar(estado.eje, X, estado.identidad, firmarCon(estado.identidad));
       guardar();
-      const hechos = r.hechos.map((h) => h.paso.hacer.plantilla).join(', ');
-      estado.exito = (r.hechos.length ? 'hechos: ' + hechos : 'ningún paso dado') + (r.parado ? ' · parado en «' + (r.parado.paso.hacer?.plantilla ?? r.parado.paso.falta) + '»: ' + r.parado.motivos.map((m) => m.mensaje).join('; ') : '');
+      const hechos = r.hechos.map((h) => nombreDeAccion(h.paso.hacer.plantilla)).join(', ');
+      estado.exito = (r.hechos.length ? t('hechos', { cuales: hechos }) : t('ningunPasoDado')) + (r.parado ? ' ' + t('paradoEn', { que: r.parado.paso.hacer ? nombreDeAccion(r.parado.paso.hacer.plantilla) : r.parado.paso.falta, motivos: r.parado.motivos.map((m) => m.mensaje).join('; ') }) : '');
       estado.aviso = '';
       tocar(X, 'seguir');
       marcarNuevos();
@@ -395,14 +418,14 @@ async function arrancar() {
   if (cargado) {
     estado.eje = cargado;
     foco = restaurarEjemplo(cargado, estado) ?? cargado.genesisId;
-    estado.guardado = 'cargado del navegador · ' + cargado.orden.length + ' registros';
+    estado.guardado = t('cargadoDelNavegador', { cuantos: cargado.orden.length });
   } else {
     const apartado = persistencia.apartarLocal(CLAVE_EJE);
     const nuevo = await crearEjemplo(estado);
     estado.eje = nuevo.eje;
     foco = nuevo.foco;
     guardar();
-    if (apartado) estado.aviso = 'El eje guardado en este navegador no se ha podido abrir (formato anterior o claves de otra sesión). Queda apartado en «' + CLAVE_EJE + '.anterior» y se empieza con el ejemplo.';
+    if (apartado) estado.aviso = t('ejeApartado', { clave: CLAVE_EJE + '.anterior' });
   }
   if (!estado.eje.identidades().includes(estado.identidad)) estado.identidad = estado.eje.identidades()[0];
   abrirLibroLocal();
@@ -419,6 +442,6 @@ async function arrancar() {
 }
 
 arrancar().catch((e) => {
-  raiz.innerHTML = `<p class="aviso">La carta no ha podido arrancar: ${String(e.message ?? e).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>`;
+  raiz.innerHTML = `<p class="aviso">${t('noArranca', { motivo: e.message ?? e }).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]))}</p>`;
   console.error(e);
 });

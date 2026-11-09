@@ -177,6 +177,9 @@ small{color:var(--muted)}
 .formulario .campo.falta input{border-color:var(--warn)}
 .formulario .ayuda{font-size:12px;overflow-wrap:anywhere}
 .formulario .ayuda code{font-size:11px}
+.formulario details.btml{font-size:12px;color:var(--muted,inherit)}
+.formulario details.btml summary{cursor:pointer}
+.formulario details.btml code{font-size:11px;overflow-wrap:anywhere}
 .formulario footer button{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);width:100%;min-height:44px}
 
 @media (max-width:480px){body{font-size:15px} .representacion{font-size:1.2rem} .barra select{max-width:36vw}}
