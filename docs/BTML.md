@@ -1577,7 +1577,7 @@ Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la 
 |---|---|
 | 0 nombre | `['época 0', 'epoch 0']` |
 | 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». R: seis grupos, los seis precios de la atención (su R, E, P, mi R devuelta, vetado, desconocidos), «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
-| 2 criterios | las reglas largas, como condiciones: de momento solo la primera, «writing burns today's T» (`docs/BQLM.md` §6) |
+| 2 criterios | las reglas largas, como condiciones: las 27 reglas de economía de la época 0 (`docs/BQLM.md` §10), en páginas de diez por su orden (el 8 de cada una): 2.g.k es la regla 10·g + k, porque una décupla no lleva más de diez ocupantes que no son hojas ([X] VG: cómo se agrupan). La primera, 2.0.0, es «writing burns today's T» (`docs/BQLM.md` §6) |
 | 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterios y P posicionado, 3 grupos de atención y R, 7 tiempo…); 3.1 el autor del primer registro, «el autor del génesis» |
 | 4 qué se hace | 4.0 las cinco primitivas (`mint`, `transfer`, `lock`, `release`, `burn`) y 4.1 los cinco despliegues (D-META, D-MOV, D-SERIE, D-FECHA, D-VALOR), con su nombre y una línea |
 | 5 dónde encaja | las cien reglas cortas: 5.p.d = `[[nombre], [significado], [ejemplo]]` de la regla del dígito d en la profundidad p |
@@ -1589,11 +1589,11 @@ Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la 
 Una regla es una décupla del molde (mapa §16 [D]): 0 nombre, 1 constantes que usa, 2 condición (una fórmula «=…» del BQL mínimo, lo único con álgebra), 3 a quién aplica, 4 qué primitiva vigila, 5 dónde cuelga (`*` toda transacción, un dígito una corta, una ruta una larga), 6 de dónde viene, 7 desde qué época rige, 8 orden frente a otras reglas, 9 mensaje.
 
 ```js
-cargarEpocaBtml(payload)   // → la época: lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga, ordinal, cortes, cortesConOrigen) y además payload y registro (la décupla congelada) y condiciones (las reglas del 2); rechaza una época con [] o huecos, sin las diez, con una regla incompleta o sin «=…» en su 2
+cargarEpocaBtml(payload)   // → la época: lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga, ordinal, cortes, cortesConOrigen) y además payload y registro (la décupla congelada) y condiciones (las reglas del 2, de sus páginas de diez, en orden); rechaza una época con [] o huecos, sin las diez, con una regla incompleta o sin «=…» en su 2
 EPOCA_0_BTML               // la época 0 como décupla; no está en EPOCAS (es la misma época en otro formato); leerDireccion(dir, EPOCA_0_BTML) lee igual que con EPOCA_0
 ```
 
-Leída con el BQL mínimo (`docs/BQLM.md`): `epoch.1.3.1.2.1` es la asignación diaria de horas (24), `epoch.5.1.1.0` el nombre de la regla corta 1.1 («cuánto») y `epoch.2.0.0` el nombre de la primera regla.
+Leída con el BQL mínimo (`docs/BQLM.md`): `epoch.1.3.1.2.1` es la asignación diaria de horas (24), `epoch.5.1.1.0` el nombre de la regla corta 1.1 («cuánto») y `epoch.2.0.0.0` el nombre de la primera regla (las reglas del 2 van en páginas de diez por su orden: `epoch.2.g.k` es la regla 10·g + k; `docs/BQLM.md` §10).
 
 ```sh
 node --input-type=module -e "
@@ -1601,7 +1601,7 @@ import { evaluar } from './src/bqlm.js';
 import { ContextoEje } from './src/contexto-eje.js';
 import { EPOCA_0_BTML } from './src/epocas.js';
 const ctx = new ContextoEje(null, { epoch: EPOCA_0_BTML });
-for (const e of ['epoch.0', 'first epoch.1.3.0', 'epoch.1.3.1.2.1', 'epoch.1.3.1.4.2', 'epoch.5.1.1.0', 'epoch.2.0.0', 'epoch.8.0', 'epoch.9.1']) console.log(e, '→', evaluar(e, ctx).texto);
+for (const e of ['epoch.0', 'first epoch.1.3.0', 'epoch.1.3.1.2.1', 'epoch.1.3.1.4.2', 'epoch.5.1.1.0', 'epoch.2.0.0.0', 'epoch.8.0', 'epoch.9.1']) console.log(e, '→', evaluar(e, ctx).texto);
 "
 ```
 
@@ -1611,7 +1611,7 @@ first epoch.1.3.0 → T
 epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
-epoch.2.0.0 → writing burns today's T
+epoch.2.0.0.0 → writing burns today's T
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

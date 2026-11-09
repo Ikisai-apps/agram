@@ -211,38 +211,954 @@ export const EPOCA_0_BTML_DATOS = [
   [
     [
       [
-        "writing burns today's T"
+        [
+          "writing burns today's T"
+        ],
+        [
+          1,
+          7,
+          "epoch.1.3.1"
+        ],
+        [
+          "=(count (ev.1 where T in it.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0 and it.0.1 < 7 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0 and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "burn",
+          "transfer"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
+          "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "first"
+        ],
+        [
+          "writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"
+        ]
       ],
       [
-        1,
-        7,
-        "epoch.1.3.1"
+        [
+          "every event moves tokens"
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          "=count before.5 = 0 or count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §10.1 [D]: «todo evento ES una transición de tokens»",
+          "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after writing burns today's T"
+        ],
+        [
+          "every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"
+        ]
       ],
       [
-        "=count (ev.1 where it.0.0 = T and it.4 = burn and it.3.0 = first ev.3) >= 1 and count (ev.1 where it.0.0 = T and it.0.1 < 7 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where it2.0.0 = T and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0"
+        [
+          "T is whole"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where T in it.0.0 and it.1 != floor it.1) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11: las series se estandarizan; cada escala de T es un token, sin medias horas (mapa §12 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after every event moves tokens"
+        ],
+        [
+          "T is whole: {first ev.3} moves {first ((ev.1 where T in it.0.0 and it.1 != floor it.1) each 1)} of a T scale; each scale is a token"
+        ]
       ],
       [
-        "ev.3"
+        [
+          "informative T is only burned"
+        ],
+        [
+          7,
+          9
+        ],
+        [
+          "=count (ev.1 where T in it.0.0 and it.0.1 >= 7 and (it.4 != burn or count it.2 > 0 or (it.0.1 < 9 and (count it.7 = 0 or it.7 in it.2)))) = 0 and count (ev.1 where ((T in it.0.0 and it.0.1 < 7) or E in it.0.0 or P in it.0.0 or R in it.0.0) and (count it.9 > 0 or (count it.7 > 0 and not it.7 in it.2))) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 8-11: tres escalas informativas (pasado, futuro, inventado), ilimitadas, que solo se consumen y llevan la fecha a la que se refieren (mapa §12 [D] asignación diaria; dudas A4)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after T is whole"
+        ],
+        [
+          "informative T is only burned: {first ev.3} gives or locks past, future or invented T, leaves past or future T without the date it refers to, or puts such a date or a note on anything else"
+        ]
       ],
       [
-        "burn",
-        "transfer"
+        [
+          "locks keep their holder and name an exit"
+        ],
+        [
+          2,
+          "bloqueo",
+          "liberacion"
+        ],
+        [
+          "=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7) < 2)) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "lock",
+          "release"
+        ],
+        [
+          "*"
+        ],
+        [
+          "Mapa §12 [D] ciclo de vida: «saldo = disponible + bloqueado»; corpus V10: «LOCK exige salida verificable explícita» (inventario BL-1)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after informative T is only burned"
+        ],
+        [
+          "locks keep their holder and name an exit: {first ev.3} locks or releases with someone else on one side, or without an exit"
+        ]
       ],
       [
-        "*"
+        [
+          "E is minted by and to its issuer"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §12 [D] ciclo de vida: «emite siempre una persona», a su nombre",
+          "VG, 8-11: «en P y en R es la persona la que pone su R y su P, no maneja el del grupo; en E igual»"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after locks keep their holder and name an exit"
+        ],
+        [
+          "E is minted by and to its issuer: {first ev.3} mints E of {(ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) each 0.1}, or to someone else"
+        ]
       ],
       [
-        "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
-        "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])"
+        [
+          "R is minted to its issuer"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 9-11: R se emite con doble entrada: crédito al tenedor, obligación al emisor (mapa §15 [D] «R según el corpus»); la obligación es la R del emisor en manos ajenas (RR-2)",
+          "src/tokens.js (forma, EV-1): una serie nace en la cartera de su emisor y de ahí se mueve [X confirmar VG: si la acuñación puede ir directa al tenedor]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after E is minted by and to its issuer"
+        ],
+        [
+          "R is minted to its issuer: R minted to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 3.1}, not to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 0.1}"
+        ]
       ],
       [
-        "epoch 0"
+        [
+          "the genesis only mints to its author"
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          "=count before.5 = 1 or count (ev.1 where transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4 or (mint in it.4 and it.3.1 != first ev.3)) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §10.1 [D]: el génesis",
+          "VG, 9-11 (mapa §16): el génesis es la época; su autor, implícito en el 3"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after R is minted to its issuer"
+        ],
+        [
+          "the genesis only mints to its author: {first ev.3} moves something else in it"
+        ]
       ],
       [
-        "first"
+        [
+          "the genesis P is over the whole ledger"
+        ],
+        [
+          1,
+          "genesis"
+        ],
+        [
+          "=count before.5 = 1 or count (ev.1 where P in it.0.0 and it.0.1 != \"genesis\") = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §10.1 [D]: P del génesis sobre todo el eje (tokens.AMBITO_GENESIS)",
+          "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after the genesis only mints to its author"
+        ],
+        [
+          "the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0 and it.0.1 != \"genesis\") each 0.1}"
+        ]
       ],
       [
-        "writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"
+        [
+          "the genesis E names no record"
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          "=count before.5 = 1 or count (ev.1 where E in it.0.0 and count it.5 > 0) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §10.1 [D]: el génesis",
+          "VG, 9-11 D2 (mapa §15): toda E dice a qué registro está atada, sin excepción para el génesis: el suyo"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after the genesis P is over the whole ledger"
+        ],
+        [
+          "the genesis E names no record: its E is tied to the genesis itself"
+        ]
+      ]
+    ],
+    [
+      [
+        [
+          "every record hangs on a record of the ledger"
+        ],
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          "=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 = 2 and first (first (first ev.6).5).5 = first (first ev.6).5)"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §14 [D]: «autor y fecha son puntos de vista»; D-META pone sobre y en en el 6.5",
+          "mapa §10.1 [D]: el génesis es el único registro sin foco"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after the genesis E names no record"
+        ],
+        [
+          "every record hangs on a record of the ledger: {first (first ev.6).5} is not one (only the genesis hangs on nothing)"
+        ]
+      ],
+      [
+        [
+          "the author has an account"
+        ],
+        [
+          0
+        ],
+        [
+          "=count before.5 = 0 or first ev.3 in before.3"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §12 [D] «Identidades: quien da de alta declara»: una identidad nace al recibir tokens por primera vez",
+          "VG, 9-11 (mapa §16): altas = primera transacción a una clave"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after every record hangs on a record of the ledger"
+        ],
+        [
+          "the author has an account: {first ev.3} has none (no transaction has given them anything yet)"
+        ]
+      ],
+      [
+        [
+          "not before its focus"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (first ev.6.5).6.0 = 0 or (first ev.6.0).0 >= (first (first ev.6.5).6.0).0 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-1)",
+          "VG, 8-11: T como asignación diaria; un alta retrofechada daría días de asignación sin fin (mapa §12 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after the author has an account"
+        ],
+        [
+          "not before its focus: the transaction is dated {first ev.6.0}, before its focus {first ev.6.5} ({first (first ev.6.5).6.0})"
+        ]
+      ],
+      [
+        [
+          "not before the writer joined"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-2)",
+          "VG, 8-11: T como asignación diaria (mapa §12 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after not before its focus"
+        ],
+        [
+          "not before the writer joined: {first ev.3} writes at {first ev.6.0}, before joining ({first (first (first ev.3).6).6.0})"
+        ]
+      ],
+      [
+        [
+          "at most a year ahead"
+        ],
+        [
+          31536000,
+          0
+        ],
+        [
+          "=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + 31536000 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint",
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after not before the writer joined"
+        ],
+        [
+          "at most a year ahead: {first ev.6.0} is more than a year after the latest time in the ledger ({before.6.0})"
+        ]
+      ],
+      [
+        [
+          "R is minted by its issuer"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 9-11: R es crédito de atención específico de su emisor, se emite con doble entrada (crédito al tenedor, obligación al emisor) y SIN colateral: se retira el colateral de la #75 (mapa §15 [D] «R según el corpus»)",
+          "VG, 8-11: «en P y en R es la persona la que pone su R y su P, no maneja el del grupo»: nadie emite en nombre de otro (src/ciclo.js, ID-9)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after at most a year ahead"
+        ],
+        [
+          "R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) each 0.1}"
+        ]
+      ],
+      [
+        [
+          "nobody mints T"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where T in it.0.0 and mint in it.4) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 8-11: no hay T acumulable; nadie emite T, ni el génesis: cada persona tiene su asignación del día (mapa §12 [D] dudas de T, A1)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after R is minted by its issuer"
+        ],
+        [
+          "nobody mints T: {first ev.3} mints {sum ((ev.1 where T in it.0.0 and mint in it.4) each 1)} T; everyone has today's allowance"
+        ]
+      ],
+      [
+        [
+          "P is minted to its minter"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "FUNDAMENTOS y mapa §12 [D] ciclo de vida de P: acuña P quien escribió el registro, para sí (inventario PP-2) · §15 [D] lo cambia: escribir un registro propio da diez unidades de P (N1) [X revisar con el P nuevo]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after nobody mints T"
+        ],
+        [
+          "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
+        ]
+      ],
+      [
+        [
+          "P is minted on one's own record"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) = 0 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "Mapa §12 [D] ciclo de vida de P: «el autor de X acuña P:X»; sobre todo el eje, solo el génesis (inventario PP-2) · §15 [D] lo retira: «desaparece: el autor de X acuña P:X; P del génesis sobre todo el eje» [X revisar con el P nuevo]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after P is minted to its minter"
+        ],
+        [
+          "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
+        ]
+      ],
+      [
+        [
+          "T is not locked"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where T in it.0.0 and (lock in it.4 or release in it.4)) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "lock",
+          "release"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 8-11: no hay T acumulable; bloquear es de E, P y R (mapa §12 [D] dudas de T, A1)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after P is minted on one's own record"
+        ],
+        [
+          "T is not locked: {first ev.3} locks or releases T; locking is for E, P and R"
+        ]
+      ]
+    ],
+    [
+      [
+        [
+          "minting needs real T"
+        ],
+        [
+          1,
+          7
+        ],
+        [
+          "=count (ev.1 where mint in it.4 and not T in it.0.0) = 0 or count (ev.1 where T in it.0.0 and it.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: la emisión es escalonada, «normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»; mover T es consumirlo (mapa §12 [D] ciclo de vida)"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after T is not locked"
+        ],
+        [
+          "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0) each 0.0)} without burning real T (scales 0 to 6) in the same transaction"
+        ]
+      ],
+      [
+        [
+          "minting P or E needs own R at stake"
+        ],
+        [
+          10,
+          1e-9,
+          0
+        ],
+        [
+          "=count (ev.1 where mint in it.4 and (P in it.0.0 or E in it.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1) or count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1)) or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: emisión escalonada, «si T + R + (opc) P; si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida)",
+          "R6, VG 7-11 noche: R propia en juego = R propia bloqueada como colateral de su serie, al menos la décima parte de lo emitido (inventario RR-6, RR-3 [X el 1/10])",
+          "§15 [D] N3: dos secuencias, emitir P exige R [X revisar]; §15 [D] R según el corpus retira el colateral de la #75 [X]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after minting needs real T"
+        ],
+        [
+          "minting P or E needs own R at stake: {first ev.3} has no R:{first ev.3} locked as collateral (exit R:{first ev.3}) covering a tenth of what was minted of it, before or in this transaction"
+        ]
+      ],
+      [
+        [
+          "minting E needs P on the record"
+        ],
+        [
+          0,
+          "genesis"
+        ],
+        [
+          "=count (ev.1 where mint in it.4 and E in it.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and it.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: emisión escalonada, «si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida; inventario ES-3)",
+          "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after minting P or E needs own R at stake"
+        ],
+        [
+          "minting E needs P on the record: {first ev.3} has no P on {first ev.6.5} (a balance or P moved in this transaction)"
+        ]
+      ],
+      [
+        [
+          "E is tied to a record that exists"
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          "=count (ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) = 0"
+        ],
+        [
+          "(ev.1 where E in it.0.0 and it.4 = mint) each 3.1"
+        ],
+        [
+          "mint"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: la E se ata al recurso, R2 (mapa §12 [D] «E atada al recurso»)",
+          "VG, 9-11: D2, toda E dice a qué registro está atada, sin excepción para el génesis (mapa §15 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after minting E needs P on the record"
+        ],
+        [
+          "E is tied to a record that exists: {(ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"
+        ]
+      ],
+      [
+        [
+          "locked P backing live E is not released"
+        ],
+        [
+          0,
+          1e-9,
+          "E",
+          "*"
+        ],
+        [
+          "=count (((ev.1 where P in it.0.0 and it.4 = release) each 2) where it.0 = \"E\" and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0) each 1) + sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7 = 0 or ev.6.0.0 < (first it2.7).0)) each 1) - sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"
+        ],
+        [
+          "(ev.1 where P in it.0.0 and it.4 = release) each 3.0"
+        ],
+        [
+          "release"
+        ],
+        [
+          "*"
+        ],
+        [
+          "VG, 7-11 noche: el P bloqueado que respalda una E no se libera mientras viva el E (mapa §12 [D] «E atada al recurso»)",
+          "VG, 9-11: D1, el bloqueo sigue respaldando la E (mapa §15 [D])"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after E is tied to a record that exists"
+        ],
+        [
+          "locked P backing live E is not released: {(((ev.1 where P in it.0.0 and it.4 = release) each 2) where it.0 = \"E\" and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0) each 1) + sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7 = 0 or ev.6.0.0 < (first it2.7).0)) each 1) - sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"
+        ]
+      ],
+      [
+        [
+          "nobody moves tokens of others"
+        ],
+        [
+          0
+        ],
+        [
+          "=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "transfer",
+          "lock",
+          "release",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "mapa §11 [A] paso 4: solo el titular mueve lo suyo",
+          "VG, 8-11: «solo existe la delegación»; nadie mueve por cuenta de un grupo",
+          "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after locked P backing live E is not released"
+        ],
+        [
+          "nobody moves tokens of others: {first ev.3} moves from {(ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) each 3.0}"
+        ]
+      ],
+      [
+        [
+          "P moves within a known scope"
+        ],
+        [
+          0,
+          "genesis"
+        ],
+        [
+          "=count (ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) = 0"
+        ],
+        [
+          "ev.3"
+        ],
+        [
+          "transfer",
+          "burn"
+        ],
+        [
+          "*"
+        ],
+        [
+          "Mapa §12 [D] ciclo de vida de P: «delegar estrechando», el débito sube por el hilo (inventario PP-4) · §15 [D]: reposicionar = quemar y acuñar con factor, subir deja una décima [X revisar con el P nuevo]"
+        ],
+        [
+          "epoch 0"
+        ],
+        [
+          "after nobody moves tokens of others"
+        ],
+        [
+          "P moves within a known scope: {first ((ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) each 0)} names no record in the ledger"
+        ]
       ]
     ]
   ],

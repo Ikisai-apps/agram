@@ -274,12 +274,16 @@ export function cargarEpocaBtml(payload) {
   }
 
   // 2: las reglas largas (condiciones), con las diez posiciones llenas y la condición «=…» en el 2.
-  const condiciones = Array.isArray(registro[2]) ? registro[2] : [];
-  condiciones.forEach((r, k) => {
-    if (!Array.isArray(r) || r.length !== ARIDAD) throw new TypeError(nombre + ': la regla 2.' + k + ' lleva las diez posiciones llenas');
+  // Una décupla no lleva más de diez (BTML): las reglas van en páginas de diez por su orden (el 8),
+  // 2.g.k es la regla 10·g + k ([X] VG: cómo se agrupan; encargo 2). Una regla suelta en 2.k también vale.
+  const esRegla = (r) => Array.isArray(r) && r.length === ARIDAD && Array.isArray(r[0]) && !r[0].some(Array.isArray);
+  const entradas = Array.isArray(registro[2]) ? registro[2] : [];
+  const condiciones = Object.freeze(entradas.flatMap((x, g) => (esRegla(x) ? [[x, String(g)]] : (Array.isArray(x) ? x : [x]).map((r, k) => [r, g + '.' + k]))).map(([r, donde]) => {
+    if (!Array.isArray(r) || r.length !== ARIDAD) throw new TypeError(nombre + ': la regla 2.' + donde + ' lleva las diez posiciones llenas');
     const c = hojaDe(r[2]);
-    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': la regla 2.' + k + ' lleva su condición «=…» en el 2');
-  });
+    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': la regla 2.' + donde + ' lleva su condición «=…» en el 2');
+    return r;
+  }));
 
   // 8.0: los cortes de las diez cajas del 8.
   const cortesDatos = Array.isArray(registro[8]) ? registro[8][0] : undefined;

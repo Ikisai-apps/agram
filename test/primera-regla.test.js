@@ -1,5 +1,5 @@
 // La primera regla de la época escrita en BQL mínimo, «writing burns today's T»
-// (epoch.2.0): da el mismo veredicto que la validación actual del eje sobre los
+// (epoch.2.0.0): da el mismo veredicto que la validación actual del eje sobre los
 // ejemplos de Ikisai (compra, reserva) y sobre eventos inválidos hechos a mano.
 // No está conectada al eje: se evalúa aparte, con el eje de justo antes.
 

@@ -92,19 +92,31 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
   assert.equal(uno('epoch.1.3.1.(("T:hora").1).1'), 24, 'la escala de una serie de T indexa su asignación');
 });
 
-test('2: la primera regla, «writing burns today\'s T», con las diez posiciones llenas', () => {
-  assert.equal(EPOCA_0_BTML.condiciones.length, 1);
-  assert.equal(uno('epoch.2.0.0'), "writing burns today's T");
-  assert.deepEqual(val('epoch.2.0.1'), [1, 7, 'epoch.1.3.1']);
-  assert.match(uno('epoch.2.0.2'), /^=count \(ev\.1 where/);
-  assert.deepEqual(val('epoch.2.0.3'), ['ev.3']);
-  assert.deepEqual(val('epoch.2.0.4'), ['burn', 'transfer']);
-  assert.ok(val('epoch.2.0.4').every((p) => PRIMITIVAS.includes(p)));
-  assert.deepEqual(val('epoch.2.0.5'), ['*']);
-  assert.ok(val('epoch.2.0.6').every((l) => /^VG, \d+-11/.test(l)));
-  assert.deepEqual(val('epoch.2.0.7'), ['epoch 0']);
-  assert.deepEqual(val('epoch.2.0.8'), ['first']);
-  assert.match(uno('epoch.2.0.9'), /\{first ev\.3\}/);
+test('2: las reglas de la época en páginas de diez (2.g.k), en el orden de su 8; la primera, «writing burns today\'s T»', () => {
+  // Una décupla no lleva más de diez (BTML), así que las reglas van en páginas de diez por su orden ([X] VG: cómo se agrupan).
+  const reglas = EPOCA_0_BTML.condiciones;
+  assert.equal(reglas.length, 27);
+  assert.equal(JSON_EN_DISCO[2].length, Math.ceil(reglas.length / 10));
+  assert.deepEqual(reglas, JSON_EN_DISCO[2].flat(1));
+  // El 8 encadena las reglas: la primera es «first» y cada una va «after» la anterior.
+  reglas.forEach((r, k) => assert.equal(r[8][0], k === 0 ? 'first' : 'after ' + reglas[k - 1][0][0], r[0][0]));
+  assert.equal(new Set(reglas.map((r) => r[0][0])).size, reglas.length, 'sin nombres repetidos');
+  for (const r of reglas) {
+    assert.match(r[2][0], /^=/);
+    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p)), r[0][0] + ': su 4 son primitivas');
+    assert.deepEqual(r[7], ['epoch 0']);
+  }
+  assert.equal(uno('epoch.2.0.0.0'), "writing burns today's T");
+  assert.deepEqual(val('epoch.2.0.0.1'), [1, 7, 'epoch.1.3.1']);
+  assert.match(uno('epoch.2.0.0.2'), /^=\(count \(ev\.1 where T in it\.0\.0/);
+  assert.deepEqual(val('epoch.2.0.0.3'), ['ev.3']);
+  assert.deepEqual(val('epoch.2.0.0.4'), ['burn', 'transfer']);
+  assert.deepEqual(val('epoch.2.0.0.5'), ['*']);
+  assert.ok(val('epoch.2.0.0.6').every((l) => /^VG, \d+-11/.test(l)));
+  assert.deepEqual(val('epoch.2.0.0.7'), ['epoch 0']);
+  assert.deepEqual(val('epoch.2.0.0.8'), ['first']);
+  assert.match(uno('epoch.2.0.0.9'), /\{first ev\.3\}/);
+  assert.equal(uno('epoch.2.2.6.0'), 'P moves within a known scope', 'la regla 26 es la 2.2.6');
 });
 
 test('3 a 9: plantilla de identidad, primitivas y despliegues, procedencia, calendario, cortes y modos, plantillas y tutorial', () => {
@@ -139,8 +151,8 @@ test('cargarEpocaBtml rechaza una época con posiciones vacías, sin las diez o 
   const con = (f) => { const e = copia(); f(e); return e; };
   assert.throws(() => cargarEpocaBtml(con((e) => { e[7][1] = []; })), /array vacío/);
   assert.throws(() => cargarEpocaBtml(copia().slice(0, 9)), /las diez posiciones llenas/);
-  assert.throws(() => cargarEpocaBtml(con((e) => { e[2][0] = e[2][0].slice(0, 9); })), /regla 2\.0 lleva las diez/);
-  assert.throws(() => cargarEpocaBtml(con((e) => { e[2][0][2] = ['count ev.1 >= 1']; })), /condición «=…»/);
+  assert.throws(() => cargarEpocaBtml(con((e) => { e[2][0][0] = e[2][0][0].slice(0, 9); })), /regla 2\.0\.0 lleva las diez/);
+  assert.throws(() => cargarEpocaBtml(con((e) => { e[2][1][3][2] = ['count ev.1 >= 1']; })), /regla 2\.1\.3 lleva su condición «=…»/);
   assert.throws(() => cargarEpocaBtml(con((e) => { e[5][4] = e[5][4].slice(0, 9); })), /profundidad 4 lleva diez/);
   assert.throws(() => cargarEpocaBtml(con((e) => { e[5][0][0] = [['representación'], ['solo dos']]; })), /regla corta 0\.0/);
   assert.throws(() => cargarEpocaBtml(con((e) => { e[8][0] = [3, 2, 1]; })), /nueve umbrales/);
