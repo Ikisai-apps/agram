@@ -95,8 +95,9 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
 
 test('2: la lista de referencias a los registros de las reglas, en el orden de su 8; la primera, «writing burns today\'s T»', () => {
   // VG, 10-11, A1: cada regla es su propio registro y el 2 de la época es la lista de referencias, una hoja por regla.
-  const reglas = EPOCA_0_BTML.condiciones;
-  assert.equal(reglas.length, 26);
+  // B5: las lecturas («read» en su 4) van en el 2 detrás de las condiciones, en la misma cadena del 8.
+  const reglas = [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.lecturas];
+  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.lecturas.length], [26, 4]);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -105,11 +106,11 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.equal(new Set(reglas.map((r) => r[0][0])).size, reglas.length, 'sin nombres repetidos');
   for (const r of reglas) {
     assert.match(r[2][0], /^=/);
-    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p)), r[0][0] + ': su 4 son primitivas');
+    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p)) || (r[4].length === 1 && r[4][0] === 'read'), r[0][0] + ': su 4 son primitivas, o read si es una lectura');
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 26);
+  assert.equal(uno('count epoch.2'), 30);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
@@ -122,7 +123,8 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);
-  assert.equal(uno('(last epoch.2).0'), 'P moves within a known scope');
+  assert.equal(uno('(last epoch.2).0'), 'obligation', 'las lecturas van al final');
+  assert.equal(uno('(nth 25 epoch.2).0'), 'P moves within a known scope', 'la última condición');
   assert.deepEqual(val('epoch.2.0'), reglas.map((r) => r[0][0]), 'el 0 de cada una');
 });
 
@@ -131,7 +133,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 26);
+  assert.equal(enDisco.length, 30, '26 condiciones y 4 lecturas');
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');
@@ -207,7 +209,7 @@ function numerosDeRegla(regla) {
   for (const posicion of regla) {
     for (const x of posicion) {
       if (typeof x === 'number') fuera.push(x);
-      else if (typeof x === 'string' && x.startsWith('=')) numerosDe(analizar(x), fuera);
+      else if (typeof x === 'string' && x.startsWith('=')) numerosDe(analizar(x, { sujeto: regla[4].includes('read') }), fuera);
       else if (typeof x === 'string') for (const [, e] of x.matchAll(/\{([^{}]+)\}/g)) numerosDe(analizar(e), fuera);
     }
   }
@@ -223,7 +225,7 @@ test('A3: ninguna regla lleva un número que la época tenga (los datos del mund
   const neutros = new Set([0, 1]);
   assert.ok(deLaEpoca.has(31536000) && deLaEpoca.has(7) && deLaEpoca.has(24), 'la época lleva el año en segundos, la semana y las horas del día');
   const fuera = [];
-  for (const r of EPOCA_0_BTML.condiciones) {
+  for (const r of [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.lecturas]) {
     for (const n of numerosDeRegla(r)) if (deLaEpoca.has(n) && !neutros.has(n)) fuera.push(r[0][0] + ': ' + n);
   }
   assert.deepEqual(fuera, []);

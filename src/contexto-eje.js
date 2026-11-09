@@ -37,7 +37,7 @@
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver } from './btml.js';
 import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil, validarMovimiento } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
-import { pendiente, Presupuesto, SIMBOLOS, NADIE } from './bqlm.js';
+import { pendiente, Parada, Presupuesto, SIMBOLOS, NADIE, leerRegla, posicionDeLectura, nombreDeRegla } from './bqlm.js';
 
 /** Quien está al otro lado de una emisión o de un consumo: el símbolo de src/bqlm.js, nunca un texto (SEG-11). */
 export { NADIE };
@@ -128,12 +128,58 @@ export class ContextoEje {
   #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
   #registrosDeEpoca; // id → registro (las reglas del 2 de la época, src/epocas.js): lo que alcanza una referencia del 2
+  #lecturas = new Map(); // «X.6.1» → las lecturas de la época (B5) que se materializan ahí
+  #leyendo = new Set(); // las lecturas en curso (regla y sujeto): una que vuelve sobre sí misma es PENDIENTE
 
   constructor(eje = null, { ev, epoch } = {}) {
     this.#eje = eje ?? null;
     this.#ev = ev ?? null;
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
     this.#registrosDeEpoca = epoch?.registros instanceof Map ? epoch.registros : new Map();
+    for (const regla of Array.isArray(epoch?.lecturas) ? epoch.lecturas : []) {
+      const donde = posicionDeLectura(regla);
+      if (typeof donde !== 'string') continue;
+      if (!this.#lecturas.has(donde)) this.#lecturas.set(donde, []);
+      this.#lecturas.get(donde).push(regla);
+    }
+  }
+
+  /** ¿Hay lecturas que se materializan bajo «letra.d»? */
+  #hayLecturas(letra, d) {
+    for (const donde of this.#lecturas.keys()) if (donde.startsWith(letra + '.' + d + '.')) return true;
+    return false;
+  }
+
+  /**
+   * B5 (VG, 10-11): lo que dan las lecturas de la época que se materializan en «letra.d1.d2» (X un registro o la
+   * candidata, A una identidad), leídas del sujeto en este mismo contexto. Una lectura que no se resuelve deja la
+   * posición como ella (PENDIENTE o ERROR).
+   */
+  #lectura(letra, sujeto, d1, d2) {
+    const reglas = this.#lecturas.get(letra + '.' + d1 + '.' + d2);
+    if (!reglas) return [];
+    const fuera = [];
+    for (const regla of reglas) {
+      const clave = nombreDeRegla(regla) + '|' + (typeof sujeto === 'string' ? sujeto : sujeto.k === 'ev' ? 'ev' : sujeto.id);
+      if (this.#leyendo.has(clave)) throw pendiente('la lectura ' + nombreDeRegla(regla) + ' vuelve sobre sí misma');
+      this.#leyendo.add(clave);
+      let r;
+      const presupuesto = this.#presupuesto;
+      try {
+        r = leerRegla(regla, sujeto, this);
+      } finally {
+        this.#leyendo.delete(clave);
+        this.#presupuesto = presupuesto;
+      }
+      if (r.estado !== 'RESUELTO') throw new Parada(r.estado, r.motivo, r.subtipo);
+      fuera.push(...r.valor);
+    }
+    return fuera;
+  }
+
+  /** El sujeto de una lectura de registro: la candidata o el registro del eje. */
+  #sujetoDe(e) {
+    return e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id };
   }
 
   /** El nodo de 'ev', 'epoch' o 'before', o undefined si este contexto no lo tiene. */
@@ -296,6 +342,8 @@ export class ContextoEje {
     // El id va siempre primero («nadie» si la candidata aún no lo tiene): las claves son el resto.
     if (d === 5) return [e.id ?? NADIE, ...llavesDe(e)];
     if (d === 6) return [{ k: 'meta6', e }];
+    // B5: una posición donde la época materializa lecturas del registro (X.7.4, «atendido») tiene su nodo implícito.
+    if (this.#hayLecturas('X', d)) return [{ k: 'lectura', letra: 'X', sujeto: this.#sujetoDe(e), d }];
     return [];
   }
 
@@ -471,6 +519,8 @@ export class ContextoEje {
       return alta && this.#eje.obtener(alta.id) ? [{ k: 'reg', id: alta.id, titular: a }] : [];
     }
     if (d === 7) return [{ k: 'tiempo', id: a }];
+    // B5: una posición donde la época materializa lecturas de la identidad (A.3.1, «obligation»).
+    if (this.#hayLecturas('A', d)) return [{ k: 'lectura', letra: 'A', sujeto: a, d }];
     return [];
   }
 
@@ -500,6 +550,8 @@ export class ContextoEje {
   #posicion(nodo, d) {
     switch (nodo.k) {
       case 'before':
+        // 1, lo que hay: los registros del libro, por llegada (B5: «atendido» busca ahí quién cita una devolución).
+        if (d === 1) return this.#eje.orden.map((id) => ({ k: 'reg', id }));
         if (d === 3) return this.#eje.identidades();
         if (d === 5) return this.#eje.genesisId ? [this.#eje.genesisId] : [];
         if (d === 6) return [{ k: 'reloj' }];
@@ -520,7 +572,15 @@ export class ContextoEje {
       case 'meta6':
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
         if (d === 5) return [...(nodo.e.sobre ? [nodo.e.sobre] : []), nodo.e.en ?? '0000000000'];
-        return [];
+        // 6.4, «de dónde viene: qué se hace»: lo que el registro atiende (contexto.atiende, los ids que cita; RR-5).
+        if (d === 4) {
+          const atiende = nodo.e.contexto?.atiende;
+          return (Array.isArray(atiende) ? atiende : atiende === undefined ? [] : [atiende]).filter((x) => typeof x === 'string');
+        }
+        // B5: las lecturas del registro que la época pone aquí (X.6.1 «present», X.6.7 «informative»).
+        return this.#lectura('X', this.#sujetoDe(nodo.e), 6, d);
+      case 'lectura':
+        return this.#lectura(nodo.letra, nodo.sujeto, nodo.d, d);
       case 'mov':
         return this.#movimiento(nodo.m, d);
       case 'par':

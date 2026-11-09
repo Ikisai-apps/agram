@@ -1,0 +1,16 @@
+[
+  ["obligation"],
+  ["before.3"],
+  ["=sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 1) + sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 2.1)"],
+  ["A.3.1"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+    "V10, doble entrada: la obligación de un emisor es su R en manos ajenas, disponible o bloqueada; mientras está en su cartera no obliga a nada (eje.obligaciones)",
+    "Se materializa en A.3.1: grupos de atención y R, cuánto"
+  ],
+  ["epoch 0"],
+  ["after attended"],
+  ["obligation: how much R of this identity others hold, available or locked"]
+]

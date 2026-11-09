@@ -23,6 +23,7 @@
 // docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
+import { esLectura } from './bqlm.js';
 import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
@@ -312,7 +313,10 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } =
     if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': ' + donde + ' lleva su condición «=…» en el 2');
     return Object.freeze({ id: ref, regla: congelarCopia(efectiva) });
   });
-  const condiciones = Object.freeze(reglasDel2.map((x) => x.regla));
+  // Las lecturas (B5: «read» en su 4) están en el 2 como las demás, pero no son condiciones: el contexto las
+  // pone en la posición que dice su 3 (src/contexto-eje.js) y las otras reglas las leen ahí.
+  const condiciones = Object.freeze(reglasDel2.filter((x) => !esLectura(x.regla)).map((x) => x.regla));
+  const lecturas = Object.freeze(reglasDel2.filter((x) => esLectura(x.regla)).map((x) => x.regla));
   const registrosDeEpoca = new Map(reglasDel2.map((x) => [x.id, x.regla]));
 
   // 8.0: los cortes de las diez cajas del 8.
@@ -333,6 +337,7 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } =
     registro,
     reglas: Object.freeze(reglas),
     condiciones,
+    lecturas,
     reglasConId: Object.freeze(reglasDel2),
     registros: registrosDeEpoca,
     largas: Object.freeze([]),

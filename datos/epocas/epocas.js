@@ -286,6 +286,18 @@ export const EPOCA_0_BTML_DATOS = [
     },
     {
       "ref": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c"
+    },
+    {
+      "ref": "71cdb05114fc7113fe31132f88193af0e1c2c890cf18367d5e061c6572a5ed94"
+    },
+    {
+      "ref": "c8e5f2bd9c9608cdcff0b5215039c590382f1c67b952c9d2ebbb38a44dd499eb"
+    },
+    {
+      "ref": "2d1cb07c275557a79317d365301bc0f4b6ee177bc4aee16eb86b24964e7334c7"
+    },
+    {
+      "ref": "89fa999bbc7771ca20ed0cfbf656962070829bb85600a188aa5fbe7775ab6574"
     }
   ],
   [
@@ -2699,6 +2711,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "attended.json",
+    "id": "2d1cb07c275557a79317d365301bc0f4b6ee177bc4aee16eb86b24964e7334c7",
+    "registro": [
+      [
+        "attended"
+      ],
+      [
+        "before.1"
+      ],
+      [
+        "=count (before.1 where it in it2.6.4 and first it2.3 in ((it.1 where R in it3.0.0.0 and transfer in it3.4 and it3.3.1 = it3.0.0.1 and it3.3.0 != it3.0.0.1) each 3.1)) > 0"
+      ],
+      [
+        "X.7.4"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+        "R6: atender es escribir un registro del emisor que cita la devolución (contexto.atiende, en el 6.4 del registro que atiende); devolver R a su emisor es pedir atención (lente.devoluciones)",
+        "Se materializa en X.7.4: futuro, qué se hace (la atención que llegó después)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after informative"
+      ],
+      [
+        "attended: the record returns R to its issuer and a record of that issuer cites it in its 6.4"
+      ]
+    ]
+  },
+  {
     "archivo": "e-is-minted-by-and-to-its-issuer.json",
     "id": "94ea53770c748e88010b07580c9e972969de47ddc3bfe26a5d7ad7dfaf6a1e9b",
     "registro": [
@@ -2895,6 +2945,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "informative T is only burned: {first ev.3} gives or locks past, future or invented T, leaves past or future T without the date it refers to, or puts such a date or a note on anything else"
+      ]
+    ]
+  },
+  {
+    "archivo": "informative.json",
+    "id": "c8e5f2bd9c9608cdcff0b5215039c590382f1c67b952c9d2ebbb38a44dd499eb",
+    "registro": [
+      [
+        "informative"
+      ],
+      [
+        "epoch.7.0"
+      ],
+      [
+        "=count (it.1 where T in it2.0.0.0 and count epoch.7.0.(it2.0.0.1) = 0 and burn in it2.4 and count it2.2 = 0) > 0"
+      ],
+      [
+        "X.6.7"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+        "VG, 8-11: el T informativo (pasado, futuro, inventado) es ilimitado, «si lo gastas te vuelve a salir uno», y queda registrado como tal (ciclo.esInformativoT)",
+        "Se materializa en X.6.7: de dónde viene, para cuándo (se refiere a otra fecha)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after present"
+      ],
+      [
+        "informative: the record burns T of a scale the calendar does not measure (past, future, invented)"
       ]
     ]
   },
@@ -3137,6 +3225,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "obligation.json",
+    "id": "89fa999bbc7771ca20ed0cfbf656962070829bb85600a188aa5fbe7775ab6574",
+    "registro": [
+      [
+        "obligation"
+      ],
+      [
+        "before.3"
+      ],
+      [
+        "=sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 1) + sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 2.1)"
+      ],
+      [
+        "A.3.1"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+        "V10, doble entrada: la obligación de un emisor es su R en manos ajenas, disponible o bloqueada; mientras está en su cartera no obliga a nada (eje.obligaciones)",
+        "Se materializa en A.3.1: grupos de atención y R, cuánto"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after attended"
+      ],
+      [
+        "obligation: how much R of this identity others hold, available or locked"
+      ]
+    ]
+  },
+  {
     "archivo": "only-persons-mint.json",
     "id": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5",
     "registro": [
@@ -3208,6 +3334,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) each 0)} names no record in the ledger"
+      ]
+    ]
+  },
+  {
+    "archivo": "present.json",
+    "id": "71cdb05114fc7113fe31132f88193af0e1c2c890cf18367d5e061c6572a5ed94",
+    "registro": [
+      [
+        "present"
+      ],
+      [
+        "epoch.7.0"
+      ],
+      [
+        "=count up it = 0 or count (it.1 where T in it2.0.0.0 and count epoch.7.0.(it2.0.0.1) = 1 and burn in it2.4 and count it2.2 = 0 and it2.3.0 = first it.3) > 0"
+      ],
+      [
+        "X.6.1"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+        "VG, 8-11: un registro pagado solo con T informativo es válido y sale gratis en T real, pero no es presente; el pago es la ausencia de un registro presente, que puede ser un criterio en PV2 (inventario EV-3, evento.esPresente)",
+        "Se materializa en X.6.1: de dónde viene, cuánto (si lo pagó con T real)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after P moves within a known scope"
+      ],
+      [
+        "present: the record burns real T of its author (a scale the calendar measures), or it is the genesis"
       ]
     ]
   },
