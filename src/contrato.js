@@ -17,6 +17,10 @@
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
 //   mensaje(eje, regla, idioma, { ev })    el 9 de una regla en un idioma (epoch.9.4), con los huecos resueltos
+//   texto(eje, clave, idioma, { original }) un texto de la época por su clave («template <nombre>», «level <nombre>»…)
+//                                          en un idioma (epoch.9.4), o el canónico (en) o el original si falta
+//   legible(eje, valor, tipo, { idioma })  un valor de una posición o un parámetro en texto legible, con sus partes
+//   desdeLegible(texto, tipo, { eje })     la inversa mínima para editar los tipos simples: { valor } o { motivo }
 //
 // Solo lee: nada de aquí escribe en el eje. Las entradas de acción son del encargo 3c-2: las plantillas de
 // transacción, transaccion() y el camino (3c-2a); el libro local (src/local.js), los pasos (src/pasos.js) y los
@@ -27,9 +31,27 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, direccion, ARIDAD } from './btml.js';
 import { ocupantes as ocupantesDe } from './encaje.js';
+import { ESCALAS_T, partirClave } from './tokens.js';
+import { esInstante, msUTC } from './instante.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
+const RE_SERIE = /^[EPRT]:.+/;
+const RE_DIA = /^\d{4}-\d{2}-\d{2}$/;
 const RAIZ = '0000000000';
+/** El separador de las partes de un texto legible (puntuación, no idioma). */
+const SEPARADOR = ' · ';
+/** Los tipos de dato de las plantillas que este módulo sabe leer y escribir (los de epoch.9.2.0.1 y los parámetros del aro); lo demás es texto. */
+const TIPO = Object.freeze({ numero: 'number', referencia: 'ref', identidad: 'identity', instante: 'instant', nivel: 'level' });
+/** Las claves de traducción (epoch.9.4): «template <nombre>», «template <nombre> param <etiqueta> label | help | placeholder», «template <nombre> message», «level <nombre>», «order <nombre>», «size <nombre>», «legible <qué>». */
+const CLAVE = Object.freeze({
+  plantilla: (nombre) => 'template ' + nombre,
+  parametro: (nombre, etiqueta, que) => 'template ' + nombre + ' param ' + etiqueta + ' ' + que,
+  mensaje: (nombre) => 'template ' + nombre + ' message',
+  nivel: (nombre) => 'level ' + nombre,
+  orden: (nombre) => 'order ' + nombre,
+  tamano: (nombre) => 'size ' + nombre,
+  legible: (que) => 'legible ' + que,
+});
 
 // ---------- la época y sus sitios ----------
 
@@ -189,29 +211,45 @@ function corta(raiz, camino) {
   return en(raiz, [...SITIO.cortas, p, camino[p]]);
 }
 
-/** La etiqueta legible de la posición d de X: la de su plantilla (d.0) o la regla corta de la época (su nombre). */
+/**
+ * La etiqueta legible de la posición d de X: la de su plantilla (d.0) o la regla corta de la época (su nombre). Con
+ * `idioma`, la de la plantilla se traduce por su clave («template <nombre> param <etiqueta> label», epoch.9.4).
+ */
 export function etiqueta(eje, X, d, opciones = {}) {
   const camino = caminoDe(d);
   const raiz = raizDe(epocaDe(opciones));
-  const desc = descripcion(plantilla(eje, X, opciones), camino);
-  return texto(hoja(desc?.[0])) ?? texto(hoja(corta(raiz, camino)?.[0])) ?? null;
+  const p = plantilla(eje, X, opciones);
+  const desc = descripcion(p, camino);
+  const propia = texto(hoja(desc?.[0]));
+  if (propia !== undefined) return texto_(eje, CLAVE.parametro(nombreDePlantilla(p), propia, 'label'), opciones.idioma, { original: propia, epoca: opciones.epoca });
+  return texto(hoja(corta(raiz, camino)?.[0])) ?? null;
 }
 
-/** La ayuda de la posición d de X: la última hoja del d.9 de su plantilla, o el significado de la regla corta. */
+/** La ayuda de la posición d de X: la última hoja del d.9 de su plantilla (traducida, con `idioma`), o el significado de la regla corta. */
 export function ayuda(eje, X, d, opciones = {}) {
   const camino = caminoDe(d);
   const raiz = raizDe(epocaDe(opciones));
-  const desc = descripcion(plantilla(eje, X, opciones), camino);
-  return texto(ultima(desc?.[9])) ?? texto(hoja(corta(raiz, camino)?.[1])) ?? null;
+  const p = plantilla(eje, X, opciones);
+  const desc = descripcion(p, camino);
+  const propia = texto(ultima(desc?.[9]));
+  if (propia !== undefined) return texto_(eje, CLAVE.parametro(nombreDePlantilla(p), texto(hoja(desc[0])), 'help'), opciones.idioma, { original: propia, epoca: opciones.epoca });
+  return texto(hoja(corta(raiz, camino)?.[1])) ?? null;
 }
 
-/** El marcador (placeholder, lo que se espera) de la posición d de X: las hojas del d.9 de la plantilla menos la ayuda; si calla, el ejemplo de la regla corta. */
+/**
+ * El marcador (placeholder, lo que se espera) de la posición d de X: las hojas del d.9 de la plantilla menos la ayuda
+ * (con `idioma`, la traducción «… placeholder» si la hay, como una sola hoja); si calla, el ejemplo de la regla corta.
+ */
 export function marcador(eje, X, d, opciones = {}) {
   const camino = caminoDe(d);
   const raiz = raizDe(epocaDe(opciones));
-  const desc = descripcion(plantilla(eje, X, opciones), camino);
+  const p = plantilla(eje, X, opciones);
+  const desc = descripcion(p, camino);
   const nueve = hojas(desc?.[9]);
-  if (nueve.length > 1) return nueve.slice(0, -1);
+  if (nueve.length > 1) {
+    const traducido = opciones.idioma ? texto_(eje, CLAVE.parametro(nombreDePlantilla(p), texto(hoja(desc[0])), 'placeholder'), opciones.idioma, { epoca: opciones.epoca }) : null;
+    return traducido === null ? nueve.slice(0, -1) : [traducido];
+  }
   const ejemplo = texto(hoja(corta(raiz, camino)?.[2]));
   return ejemplo === undefined ? [] : [ejemplo];
 }
@@ -229,7 +267,8 @@ export function tipo(eje, X, d, opciones = {}) {
 /**
  * Valida X con su plantilla: cada posición d cuya descripción lleva una fórmula «=…» en su d.2 se evalúa con `it` = X;
  * lo que no da verdadero sale como { posicion, motivo }, con el motivo que da la plantilla (la etiqueta y la ayuda de
- * la posición, en inglés) o, si la fórmula no se resuelve, su estado. Vacía si todo pasa o X no tiene plantilla.
+ * la posición, en inglés o, con `idioma`, traducidas) o, si la fórmula no se resuelve, su estado. Vacía si todo pasa o
+ * X no tiene plantilla.
  */
 export function validar(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -238,15 +277,22 @@ export function validar(eje, X, opciones = {}) {
   const epoca = epocaDe(opciones);
   const ctx = contextoDe(eje, epoca, ev);
   const sujeto = sujetoDe(ctx, eje, ev);
+  const nombrePlantilla = nombreDePlantilla(p);
+  const t = (clave, original) => texto_(eje, clave, opciones.idioma, { original, epoca: opciones.epoca });
   const fuera = [];
   for (let d = 0; d < ARIDAD; d++) {
     const desc = descripcion(p, [d]);
     const formula = texto(ultima(desc?.[2]));
     if (!formula || !formula.startsWith('=') || formula.startsWith('==')) continue;
     const r = evaluar(formula, ctx, { sujeto });
-    const nombre = texto(hoja(desc[0])) ?? String(d);
+    const propio = texto(hoja(desc[0]));
+    const nombre = propio === undefined ? String(d) : t(CLAVE.parametro(nombrePlantilla, propio, 'label'), propio);
     if (r.estado !== 'RESUELTO') fuera.push({ posicion: d, motivo: nombre + ': ' + r.estado + ': ' + r.motivo });
-    else if (!(r.valor.length === 1 && r.valor[0] === true)) fuera.push({ posicion: d, motivo: nombre + ': ' + (texto(ultima(desc[9])) ?? 'does not satisfy ' + formula) });
+    else if (!(r.valor.length === 1 && r.valor[0] === true)) {
+      const ayudaPropia = texto(ultima(desc[9]));
+      const porque = ayudaPropia === undefined ? plano_(t(CLAVE.legible('does not satisfy'), null), { formula }) : t(CLAVE.parametro(nombrePlantilla, propio, 'help'), ayudaPropia);
+      fuera.push({ posicion: d, motivo: nombre + ': ' + porque });
+    }
   }
   return fuera;
 }
@@ -416,16 +462,18 @@ export function division(eje, ruta, { datos = 1, forma, modo, ...opciones } = {}
 
 // ---------- 5. la madurez ----------
 
-/** Los niveles genéricos de la época (epoch.8.4): los de posición y los de orden de magnitud, en orden. */
+/** Los niveles genéricos de la época (epoch.8.4): los de posición y los de orden de magnitud, en orden (con `idioma`, traducidos: «level <nombre>»). */
 export function niveles(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
-  return [...hojas(en(raiz, [...SITIO.madurez, 2])), ...hojas(en(raiz, [...SITIO.madurez, 4]))];
+  const lista = [...hojas(en(raiz, [...SITIO.madurez, 2])), ...hojas(en(raiz, [...SITIO.madurez, 4]))];
+  return opciones.idioma ? lista.map((n) => texto_(null, CLAVE.nivel(n), opciones.idioma, { original: n, epoca: opciones.epoca })) : lista;
 }
 
 /**
  * La madurez de X: la lectura «maturity» de la época (X.8.1), su medida (X.8.6: posiciones escritas del subárbol,
  * profundidad y cantidad que mueve) y el nombre del nivel: entre los de su plantilla (su 8.8), repartidos
- * proporcionalmente sobre los genéricos, o entre los genéricos de epoch.8.4. → { nivel, de, nombre, medida }.
+ * proporcionalmente sobre los genéricos, o entre los genéricos de epoch.8.4. → { nivel, de, nombre, clave, medida };
+ * con `idioma`, `nombre` es la traducción («level <nombre>») y `clave` el nombre canónico.
  */
 export function madurez(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -435,13 +483,15 @@ export function madurez(eje, X, opciones = {}) {
   const s = expresion(sujetoDe(ctx, eje, ev));
   const nivelGenerico = uno('first ' + s + '.8.1', ctx);
   const medida = { posiciones: uno(s + '.8.6.1', ctx), profundidad: uno(s + '.8.6.5', ctx), cantidad: uno(s + '.8.6.4', ctx) };
-  if (typeof nivelGenerico !== 'number') return { nivel: null, de: null, nombre: null, medida };
-  const genericos = niveles(opciones);
+  if (typeof nivelGenerico !== 'number') return { nivel: null, de: null, nombre: null, clave: null, medida };
+  const genericos = niveles({ epoca: opciones.epoca });
   const propios = hojas(descripcion(plantilla(eje, ev, opciones), [8])?.[8]).filter((x) => typeof x === 'string');
   const escala = propios.length ? propios : genericos;
   const nivel = propios.length ? Math.max(1, Math.ceil(nivelGenerico * propios.length / genericos.length)) : nivelGenerico;
   const de = escala.length;
-  return { nivel: Math.min(nivel, de), de, nombre: escala[Math.min(nivel, de) - 1] ?? null, medida };
+  const clave = escala[Math.min(nivel, de) - 1] ?? null;
+  const nombre = clave !== null && opciones.idioma ? texto_(eje, CLAVE.nivel(clave), opciones.idioma, { original: clave, epoca: opciones.epoca }) : clave;
+  return { nivel: Math.min(nivel, de), de, nombre, clave, medida };
 }
 
 // ---------- 6. el diario ----------
@@ -555,11 +605,11 @@ export function configuracion(eje, quien, opciones = {}) {
 
 // ---------- 8. mensajes y traducción ----------
 
-/** Los idiomas con mensajes en la época (epoch.9.4): sus códigos, con el canónico (en) delante. */
+/** Los idiomas con mensajes en la época (epoch.9.4): sus códigos, con el canónico (en) delante y sin repetir. */
 export function idiomas(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
   const registros = hojas(en(raiz, SITIO.mensajes)).slice(1).filter(Array.isArray);
-  return ['en', ...registros.map((r) => texto(hoja(r[0]))).filter(Boolean)];
+  return [...new Set(['en', ...registros.map((r) => texto(hoja(r[0]))).filter(Boolean)])];
 }
 
 /**
@@ -586,4 +636,222 @@ export function mensaje(eje, regla, idioma = 'en', { ev, ...opciones } = {}) {
   }
   if (!eje && !ev) return plantillaTexto;
   return rellenar(plantillaTexto, contextoDe(eje, epoca, ev));
+}
+
+// ---------- 9. textos de la época por clave, y valores legibles ----------
+
+/** Los textos de cada idioma de la época por clave: idioma → Map(clave → texto); se lee una vez por época (la raíz está congelada). */
+const TEXTOS = new WeakMap();
+function textosDe(raiz) {
+  if (!TEXTOS.has(raiz)) {
+    const porIdioma = new Map();
+    for (const r of hojas(en(raiz, SITIO.mensajes)).slice(1).filter(Array.isArray)) {
+      const mapa = new Map();
+      for (const h of hojas(r[1])) {
+        const i = typeof h === 'string' ? h.indexOf(': ') : -1;
+        if (i > 0 && !mapa.has(h.slice(0, i))) mapa.set(h.slice(0, i), h.slice(i + 2));
+      }
+      for (const codigo of hojas(r[0])) if (typeof codigo === 'string' && !porIdioma.has(codigo)) porIdioma.set(codigo, mapa);
+    }
+    TEXTOS.set(raiz, porIdioma);
+  }
+  return TEXTOS.get(raiz);
+}
+
+/**
+ * Un texto de la época por su clave en un idioma (el registro del idioma en epoch.9.4, una hoja «<clave>: <texto>»):
+ * la traducción; si falta, la del registro canónico (en); si falta, `original` (el texto en inglés que ya tiene quien
+ * pregunta: el nombre de la plantilla, la etiqueta, la ayuda); si no hay nada, null. Las claves: «template <nombre>»
+ * (el nombre de una plantilla de transacción o de datos), «template <nombre> param <etiqueta> label | help |
+ * placeholder» (lo que dice de un parámetro o de una posición), «template <nombre> message» (su 9, con los mismos
+ * huecos), «level <nombre>», «order <nombre>», «size <nombre>» y «legible <qué>» (los formatos de legible()).
+ */
+function texto_(eje, clave, idioma = 'en', { original, ...opciones } = {}) {
+  const porIdioma = textosDe(raizDe(epocaDe(opciones)));
+  const propio = idioma ? porIdioma.get(idioma)?.get(clave) : undefined;
+  if (propio !== undefined) return propio;
+  const canonico = porIdioma.get('en')?.get(clave);
+  if (canonico !== undefined) return canonico;
+  return original === undefined || original === null ? null : String(original);
+}
+export { texto_ as texto };
+/** Las claves de traducción que usa este módulo (epoch.9.4), para quien compone una clave fuera: plantilla(nombre), parametro(nombre, etiqueta, que), mensaje(nombre), nivel, orden, tamano, legible. */
+export const claves = CLAVE;
+
+/** Un formato con huecos planos «{parte}» relleno con sus partes; sin formato, las partes seguidas. */
+function plano_(formato, partes) {
+  if (typeof formato !== 'string') return Object.values(partes).filter((v) => v !== undefined && v !== null && v !== '').join(' ');
+  return formato.replace(/\{([^{}]+)\}/g, (_, k) => (partes[k] === undefined || partes[k] === null ? '' : String(partes[k])));
+}
+
+/** Los nombres de las plantillas de transacción de la época (epoch.9.6), con su id. */
+const accionesDe = (epoca) => (Array.isArray(epoca?.transacciones) ? epoca.transacciones : []).map((x) => ({ id: x.id, nombre: texto(hoja(x.plantilla?.[0])) })).filter((x) => x.nombre);
+
+/** El texto del 0 de un registro del eje (su primera representación de texto), o null. */
+function ceroDe(eje, id, opciones) {
+  if (!eje?.obtener?.(id)) return null;
+  return representaciones(eje, id, opciones).find((r) => typeof r.texto === 'string')?.texto ?? null;
+}
+
+/** El id del alta de una identidad, o null. */
+const altaDe = (eje, identidad) => eje?.alta?.(identidad)?.id ?? null;
+
+/** Una fecha legible en el idioma: un instante (con su hora, en UTC) o un día «AAAA-MM-DD»; null si no lo es. */
+function fechaLegible(v, idioma) {
+  const dia = RE_DIA.test(v);
+  const ms = dia ? Date.UTC(Number(v.slice(0, 4)), Number(v.slice(5, 7)) - 1, Number(v.slice(8, 10))) : msUTC(v);
+  if (!Number.isFinite(ms)) return null;
+  try {
+    return new Intl.DateTimeFormat(idioma || 'en', dia ? { dateStyle: 'medium', timeZone: 'UTC' } : { dateStyle: 'medium', timeStyle: 'short', timeZone: 'UTC' }).format(new Date(ms));
+  } catch {
+    return v.replace('T', ' ').replace(/Z$/, '');
+  }
+}
+
+/**
+ * Un valor de una posición o de un parámetro, legible: { texto, partes }. `tipo` es el de la plantilla (las hojas de su
+ * d.1: number, ref, identity, instant, level, o la décupla; lo demás, texto) y orienta la lectura; lo que el valor es se
+ * reconoce también por su forma (una referencia, un id, una clave de serie, un instante, una décupla). Lo que decide
+ * cómo se dice viene de la época: los formatos «legible <qué>» de epoch.9.4 en el idioma, las escalas de T de
+ * epoch.1.3, los nombres de las plantillas («template <nombre>») y de los niveles («level <nombre>»); lo que alcanza
+ * una referencia o una identidad, de su 0 en el eje. Una lista se lee ocupante a ocupante; una décupla, por su 0 y,
+ * sin él, «registro de N posiciones»; un precio [[en qué], [cuánto]], «cuánto en qué por unidad».
+ */
+export function legible(eje, valor, tipo, { idioma = 'en', ...opciones } = {}) {
+  const epoca = epocaDe(opciones);
+  const raiz = raizDe(epoca);
+  const t = hojas(tipo).find((x) => typeof x === 'string');
+  const o = { epoca, idioma };
+  const F = (que, partes) => plano_(texto_(eje, CLAVE.legible(que), idioma, { epoca }), partes);
+  const otro = (v, tipoDe) => legible(eje, v, tipoDe, o);
+  const junta = (lista, tipoDe) => {
+    const partes = lista.map((v) => otro(v, tipoDe));
+    return { texto: partes.map((p) => p.texto).filter((x) => x !== '').join(SEPARADOR), partes: { lista: partes } };
+  };
+  if (valor === undefined || valor === null) return { texto: '', partes: { vacio: true } };
+  if (typeof valor === 'number' || typeof valor === 'boolean') return { texto: String(valor), partes: { valor } };
+  // Un movimiento o un asiento: { serie, cantidad }.
+  if (valor && typeof valor === 'object' && !Array.isArray(valor) && !esReferencia(valor) && typeof valor.cantidad === 'number' && typeof valor.serie === 'string') {
+    const serie = otro(valor.serie);
+    return { texto: F('amount', { amount: valor.cantidad, series: serie.texto }), partes: { cantidad: valor.cantidad, serie: serie.partes } };
+  }
+  if (esReferencia(valor)) {
+    const X = eje?.obtener?.(valor.ref) ? valor.ref : null;
+    const cero = X ? ceroDe(eje, X, { epoca }) : null;
+    const dir = valor.dir && valor.dir !== RAIZ ? valor.dir : null;
+    const posicion = dir ? etiqueta(eje, X ?? valor.ref, dir, o) ?? indicesDe(dir).join('.') : null;
+    // El 0 de un registro va tal cual (es su representación), salvo que sea una fecha: esa se lee legible.
+    const base = cero === null ? String(valor.ref).slice(0, 8) : (esInstante(cero) || RE_DIA.test(cero) ? fechaLegible(cero, idioma) : null) ?? cero;
+    return { texto: posicion ? base + SEPARADOR + posicion : base, partes: { ref: valor.ref, dir: dir ?? null, X, representacion: cero, posicion } };
+  }
+  if (Array.isArray(valor)) {
+    const esPrecio = (v) => Array.isArray(v) && v.length === 2 && typeof hoja(v[0]) === 'string' && typeof hoja(v[1]) === 'number' && hojas(v[0]).length === 1 && hojas(v[1]).length === 1;
+    if (esPrecio(valor)) {
+      const serie = otro(hoja(valor[0]));
+      const cuanto = hoja(valor[1]);
+      return { texto: F('price', { amount: cuanto, series: serie.texto }), partes: { precio: { enQue: hoja(valor[0]), cuanto, serie: serie.partes } } };
+    }
+    if (valor.length > 0 && valor.every(esPrecio)) {
+      const lista = valor.map((v) => otro(v));
+      return { texto: lista.map((p) => p.texto).join(SEPARADOR), partes: { precios: lista.map((p) => p.partes.precio) } };
+    }
+    if (esDecupla(valor)) {
+      const posiciones = valor.map((v) => (v === undefined || v === null ? null : otro(v)));
+      const cero = posiciones[0];
+      const n = posiciones.filter(Boolean).length;
+      return { texto: cero && cero.texto !== '' ? cero.texto : F('record', { n }), partes: { decupla: true, n, posiciones } };
+    }
+    return junta(valor, t);
+  }
+  if (typeof valor !== 'string') return { texto: String(valor), partes: { valor } };
+  const s = valor;
+  // Un instante o un día.
+  if (t === TIPO.instante || esInstante(s) || RE_DIA.test(s)) {
+    const f = fechaLegible(s, idioma);
+    if (f !== null) return { texto: f, partes: { instante: s } };
+  }
+  // El id de un registro del eje (o un parámetro ref con el id).
+  if (RE_ID.test(s) && eje?.obtener?.(s)) return otro({ ref: s });
+  // Una clave de serie: E por su denominación (con su registro), P por su registro (y su mirada), R por su emisor, T por su escala.
+  if (RE_SERIE.test(s)) {
+    const p = partirClave(s);
+    if (p.token === 'E' && p.emisor && p.denominacion) {
+      const registro = p.registro ?? eje?.registroDe?.(s) ?? null;
+      const partes = { familia: p.token, emisor: p.emisor, denominacion: p.denominacion, registro, registroTexto: registro ? ceroDe(eje, registro, { epoca }) : null };
+      return { texto: F('series E', { denomination: p.denominacion, issuer: p.emisor, record: partes.registroTexto ?? '' }), partes };
+    }
+    if (p.token === 'P' && p.raiz) {
+      const registro = ceroDe(eje, p.raiz, { epoca }) ?? p.raiz.slice(0, 8);
+      const partes = { familia: p.token, registro: p.raiz, registroTexto: registro, ...(p.mirada === undefined ? {} : { mirada: p.mirada }), ...(p.origen ? { origen: p.origen } : {}) };
+      return { texto: F(p.mirada === undefined ? 'series P' : 'series P view', { record: registro, view: p.mirada, origin: p.origen ?? '' }), partes };
+    }
+    if (p.token === 'R' && p.emisor) return { texto: F('series R', { issuer: p.emisor }), partes: { familia: p.token, emisor: p.emisor } };
+    if (p.token === 'T' && p.escala) {
+      const k = ESCALAS_T.indexOf(p.escala);
+      const nombre = texto(hoja(hojas(en(raiz, [...SITIO.familias, 3, 1]))[k]?.[0])) ?? p.escala;
+      return { texto: F('series T', { scale: nombre }), partes: { familia: p.token, escala: p.escala, nombre } };
+    }
+  }
+  // Una identidad con alta: su nombre es el 0 de su alta.
+  if (t === TIPO.identidad || eje?.identidades?.().includes(s)) {
+    const alta = altaDe(eje, s);
+    return { texto: (alta ? ceroDe(eje, alta, { epoca }) : null) ?? s, partes: { identidad: s, alta } };
+  }
+  // Un nivel de madurez, el nombre de una acción del aro o el de una plantilla de datos (el 5 de un registro): su traducción.
+  if (t === TIPO.nivel) return { texto: texto_(eje, CLAVE.nivel(s), idioma, { original: s, epoca }), partes: { nivel: s } };
+  const accion = accionesDe(epoca).find((a) => a.nombre === s);
+  if (accion) return { texto: texto_(eje, CLAVE.plantilla(s), idioma, { original: s, epoca }), partes: { accion: s, id: accion.id } };
+  if (plantillas(eje, { epoca }).some((p) => p.nombre === s)) return { texto: texto_(eje, CLAVE.plantilla(s), idioma, { original: s, epoca }), partes: { plantilla: s } };
+  return { texto: s, partes: { valor: s } };
+}
+
+/** ¿Es un tipo que desdeLegible sabe leer de un texto? Los tipos genéricos de la época (epoch.9.2.0.1: texto, número, identidad, referencia, instante, nivel); lo demás (una décupla) se edita en BTML. */
+export function esTipoSimple(tipo, opciones = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const t = hojas(tipo).find((x) => typeof x === 'string');
+  return t === undefined || hojas(en(raiz, [...SITIO.plantillas, 0, 1])).includes(t);
+}
+
+/**
+ * La inversa mínima de legible para editar: de un texto escrito por una persona al valor de un tipo simple. Un número
+ * (con coma o punto decimal); un instante (ISO estricto, un día «AAAA-MM-DD», o «AAAA-MM-DDTHH:MM» como lo da un
+ * input, completados en UTC); una identidad por su id o por el 0 de su alta, entre las del eje; una referencia por su
+ * id o por el 0 de un registro del eje; un nivel o el nombre de una acción por su traducción; lo demás, el texto tal
+ * cual. Vacío, { valor: undefined }. → { valor } o { motivo } (en el idioma: los formatos «legible …» de epoch.9.4).
+ */
+export function desdeLegible(textoDado, tipo, { eje, idioma = 'en', ...opciones } = {}) {
+  const epoca = epocaDe(opciones);
+  const t = hojas(tipo).find((x) => typeof x === 'string');
+  const s = String(textoDado ?? '').trim();
+  const motivo = (que) => ({ motivo: plano_(texto_(eje, CLAVE.legible(que), idioma, { epoca }), { text: s }) });
+  if (s === '') return { valor: undefined };
+  if (t === TIPO.numero) {
+    if (!/^[+-]?\d+(?:[.,]\d+)?$/.test(s)) return motivo('not a number');
+    return { valor: Number(s.replace(',', '.')) };
+  }
+  if (t === TIPO.instante) {
+    if (esInstante(s)) return { valor: s };
+    if (RE_DIA.test(s) && esInstante(s + 'T00:00:00Z')) return { valor: s + 'T00:00:00Z' };
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(s) && esInstante(s + ':00Z')) return { valor: s + ':00Z' };
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(s) && esInstante(s + 'Z')) return { valor: s + 'Z' };
+    return motivo('not an instant');
+  }
+  if (t === TIPO.identidad) {
+    const conocidas = eje?.identidades?.() ?? [];
+    if (conocidas.includes(s)) return { valor: s };
+    const porNombre = conocidas.find((id) => altaDe(eje, id) && ceroDe(eje, altaDe(eje, id), { epoca }) === s);
+    return porNombre ? { valor: porNombre } : motivo('unknown identity');
+  }
+  if (t === TIPO.referencia) {
+    if (RE_ID.test(s) && eje?.obtener?.(s)) return { valor: s };
+    const porNombre = (eje?.orden ?? []).find((id) => ceroDe(eje, id, { epoca }) === s);
+    return porNombre ? { valor: porNombre } : motivo('unknown record');
+  }
+  if (t === TIPO.nivel) {
+    const canonico = niveles({ epoca }).find((n) => texto_(eje, CLAVE.nivel(n), idioma, { original: n, epoca }) === s);
+    return { valor: canonico ?? s };
+  }
+  const nombres = [...accionesDe(epoca).map((a) => a.nombre), ...plantillas(eje, { epoca }).map((p) => p.nombre)];
+  const canonico = nombres.find((n) => texto_(eje, CLAVE.plantilla(n), idioma, { original: n, epoca }) === s);
+  return { valor: canonico ?? s };
 }
