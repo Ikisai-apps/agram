@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { EPOCA_0 } from '../src/epocas.js';
 import {
   confluir, comparables, proyectoDe, medir, posicionesDe, clavesDe, etiquetaClave, fundir, unitaria, estadisticaVacia, cortesDe,
@@ -78,9 +79,12 @@ test('comparables: hermanos ⊂ proyecto ⊂ general, en orden de llegada y con 
   assert.equal(eje.hilo(rapida.id).length, 4);
   // Un foco que es él mismo un proyecto: su cohorte es lo que cuelga de él; sus hermanos, los otros proyectos.
   assert.deepEqual(comparables(eje, alta2.id, 'proyecto').map((e) => e.id), [alta2.id]);
-  // Sus hermanos son lo que cuelga del génesis: las altas de la casa y las que escriben las huéspedes (B1).
+  // Sus hermanos son lo que cuelga del génesis: la emisión inicial y las altas de la casa y sus invitaciones a las
+  // huéspedes (encargo 3b: el alta de cada huésped cuelga de la invitación que acepta, mapa §16 [D]).
   assert.deepEqual(comparables(eje, alta.id, 'hermanos').map((e) => e.id), eje.sobre(eje.genesisId).map((e) => e.id));
-  assert.ok([alta.id, alta2.id, eje.alta('huesped').id, eje.alta('huesped2').id].every((id) => comparables(eje, alta.id, 'hermanos').some((e) => e.id === id)));
+  const invitaciones = ['huesped', 'huesped2'].map((id) => eje.obtener(eje.alta(id).id).sobre);
+  assert.ok([alta.id, alta2.id, ...invitaciones].every((id) => comparables(eje, alta.id, 'hermanos').some((e) => e.id === id)));
+  assert.ok(['huesped', 'huesped2'].every((id) => !comparables(eje, alta.id, 'hermanos').some((e) => e.id === eje.alta(id).id)));
   const general = comparables(eje, rapida.id, 'general');
   assert.deepEqual(general.map((e) => e.id), eje.orden); // orden de llegada
   assert.deepEqual(comparables(eje, eje.genesisId, 'proyecto').map((e) => e.id), eje.orden); // el proyecto del génesis es todo el eje
@@ -117,12 +121,13 @@ test('el proyecto se recorre por el índice de hijos: solo su subárbol, en orde
 test('posicionesDe: las diez posiciones leídas de sus ocupantes, con su procedencia', async () => {
   const { eje, menu, compra, vecinas } = await ampliada();
   // La compra: 0 propia; 1 propia (décupla) + alcanzada (1.0 es una lista con una referencia) + escrita (la cuenta, en 1);
-  // 2 solo alcanzada (VG, 7-11 noche: por hojas: la 2 es una lista de una referencia y cada elemento es un
-  // ocupante; la lista no es un ocupante propio); 3 y 4 propias.
+  // 2 alcanzada y propia (VG, 7-11 noche: por hojas: la 2 es una lista y cada elemento es un ocupante: la referencia
+  // alcanza el menú y la plantilla de cerrado, que el dueño nombra en su PV2 (encargo 3b, mapa §15 [D] N5), es propia);
+  // 3 y 4 propias.
   const c = posicionesDe(eje, compra.id);
   assert.equal(c.desarrolladas, 5);
   assert.deepEqual(c.posiciones[1], { indice: 1, propia: true, referencia: true, escrita: true, tiene: true });
-  assert.deepEqual(c.posiciones[2], { indice: 2, propia: false, referencia: true, escrita: false, tiene: true });
+  assert.deepEqual(c.posiciones[2], { indice: 2, propia: true, referencia: true, escrita: false, tiene: true });
   assert.deepEqual(c.posiciones[5], { indice: 5, propia: false, referencia: false, escrita: false, tiene: false });
   assert.equal(c.raiz.escrita, false); // la cuenta está en 1, no en la raíz
   // Una posición que es directamente una referencia está alcanzada, no es propia: las referencias no copian.
@@ -153,7 +158,7 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   const { eje, compra, cuenta, vecinas } = await ampliada();
   const m = medir(eje, compra.id);
   assert.deepEqual(Object.keys(m).slice(0, 8), MEDIDAS.map((x) => x.clave)); // una sola medida (bases.medir): la de tiempo.js se retira
-  assert.equal(m.terminales, 9);
+  assert.equal(m.terminales, 10); // con la plantilla de cerrado en su 2 (encargo 3b)
   assert.equal(m.posiciones, 5); // 0–4 desarrolladas: la misma definición que las bases por posición
   assert.equal(m.escritos, 1);
   // Por serie, sin totales de familia; y el T que gastaron quienes escribieron encima (R7: una cantidad).
@@ -172,53 +177,48 @@ test('medir, la única medida: posiciones frente a terminales, tokens por clave,
   const nota = medir(eje, vecinas[6].id);
   assert.equal(nota.terminales, 1);
   assert.equal(nota.posiciones, 0); // un terminal no tiene posición 0
+  // Encargo 3b: el génesis es la época 0 y no mueve nada (lo que emite la casa va en su transacción siguiente): ni
+  // identidades ni tokens propios; solo el T consumido sobre él, aparte.
   const g = medir(eje, eje.genesisId);
-  assert.equal(g.identidades, 1);
+  assert.equal(g.identidades, 0);
   assert.equal(g.profundidadHilo, 0);
-  // Una hora no son sesenta minutos; y el T consumido sobre el génesis, aparte.
-  assert.deepEqual(g.tokens, { 'E:casa/EUR': 500, 'P:genesis': 10, 'tiempo:minuto': eje.tiempoSobre(eje.genesisId).minuto });
+  assert.deepEqual(g.tokens, { 'tiempo:minuto': eje.tiempoSobre(eje.genesisId).minuto });
   assert.deepEqual(clavesDe(eje.obtener(eje.genesisId)), Object.fromEntries(Object.entries(g.tokens).filter(([k]) => !k.startsWith('tiempo:'))));
   assert.throws(() => medir(eje, 'nadie'), /registro desconocido/);
 });
 
 test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total', async () => {
   const t = '2026-11-07T09:00:00Z';
-  const eje = await Eje.genesis({
-    demostracion: true,
-    identidad: 'casa',
-    // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
-    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
-    foco: 'raíz',
-    t,
-  });
-  // B1 (VG, 10-11): Ana escribe su propia alta; la casa le da P y R después.
-  await eje.entrar({ identidad: 'ana', t });
+  // Encargo 3b: el génesis no mueve nada y nadie acuña P a mano (mapa §15 [D] «P como peso de criterio»): la casa emite
+  // su R al empezar, invita a Ana (que acepta: su alta) y le da R; el P que obtiene al escribir el alta lo reposiciona un
+  // paso arriba, al génesis (quema 10 y acuña 1). Dos ámbitos de P, cada uno su clave.
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 3, emisor: 'casa' }], foco: 'raíz', t });
+  await entrarPorInvitacion(eje, { por: 'casa', quien: 'ana', t });
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t,
-    movimientos: [gasta('casa'), { token: 'P', cantidad: 2, ambito: 'genesis', de: 'casa', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'casa', de: 'casa', a: 'ana' }],
+    movimientos: [gasta('casa'), { token: 'R', cantidad: 1, emisor: 'casa', de: 'casa', a: 'ana' }],
     payload: ['Alta de Ana', ['ana']],
   });
-  const estrecha = await eje.escribir({
+  const sube = await eje.escribir({
     autor: 'casa',
     sobre: alta.id,
     t,
-    movimientos: [gasta('casa'), { token: 'P', cantidad: 3, ambito: alta.id, de: 'casa', a: 'ana' }],
-    payload: 'poder solo sobre el alta',
+    movimientos: [gasta('casa'), { token: 'P', cantidad: 10, ambito: alta.id, de: 'casa', a: null }, { token: 'P', cantidad: 1, ambito: eje.genesisId, de: null, a: 'casa' }],
+    payload: 'del alta al génesis',
   });
-  const c = confluir(eje, estrecha.id, { alcance: 'general' });
-  assert.deepEqual(Object.keys(c.tokens), ['P:' + alta.id, 'P:genesis', 'R:casa', 'T:minuto', 'tiempo:minuto']);
+  const c = confluir(eje, sube.id, { alcance: 'general' });
+  assert.deepEqual(Object.keys(c.tokens).sort(), ['P:' + alta.id, 'P:' + eje.genesisId, 'R:casa', 'T:minuto', 'tiempo:minuto'].sort());
   for (const familia of ['T', 'E', 'P', 'R']) assert.ok(!(familia in c.tokens));
-  assert.equal(c.tokens['P:genesis'].foco, 0);
-  assert.equal(c.tokens['P:genesis'].maximo, 5);
-  assert.equal(c.tokens['P:genesis'].suma, 5 + 2); // el génesis emite 5 y el alta delega 2: misma serie
-  assert.equal(c.tokens['P:' + alta.id].foco, 3);
-  assert.equal(c.tokens['P:' + alta.id].caja, 3); // tres de poder: la caja 3 de la escala de la época 0
-  assert.deepEqual([c.tokens['P:' + alta.id].cajas[3], c.tokens['P:' + alta.id].encima], [1, 0]); // nadie más movió poder sobre el alta
-  assert.equal(c.tokens['R:casa'].maximo, 3);
-  assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 1, 'P:genesis': 2, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
-  assert.equal(c.tokens['P:genesis'].etiqueta, 'P movido sobre el eje');
+  assert.deepEqual([c.tokens['P:' + alta.id].foco, c.tokens['P:' + alta.id].suma], [10, 10]); // quema 10 sobre el alta
+  assert.deepEqual([c.tokens['P:' + eje.genesisId].foco, c.tokens['P:' + eje.genesisId].suma], [1, 1]); // acuña 1 en el génesis: otra serie
+  assert.equal(c.tokens['P:' + eje.genesisId].caja, 1); // uno de poder: la caja 1 de la escala de la época 0
+  assert.equal(c.tokens['P:' + alta.id].encima, 0); // nadie más movió poder sobre el alta
+  // R:casa: la emisión (3), lo que guarda la invitación para Ana (1), lo que ella recoge (1) y lo que la casa le da (1).
+  assert.deepEqual([c.tokens['R:casa'].maximo, c.tokens['R:casa'].suma], [3, 6]);
+  assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 1, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
+  assert.equal(etiquetaClave('P:genesis'), 'P movido sobre el eje'); // la etiqueta de la clave reservada del prefijo de la versión 2
   assert.equal(etiquetaClave('P:' + alta.id), 'P movido sobre ' + alta.id.slice(0, 8));
   assert.equal(etiquetaClave('R:casa'), 'R movida de casa');
   assert.equal(etiquetaClave('E:casa/EUR'), 'E movido (EUR de casa)');
@@ -272,8 +272,8 @@ test('confluir: las bases del foco entre sus hermanos, sin nivel ni grado', asyn
   // La compra original es la más desarrollada en terminales (sola en su caja, nadie encima); en posiciones
   // comparte la caja 4 (de 4 a 5) con otras dos.
   const d = confluir(eje, compra.id);
-  assert.equal(d.medidas.terminales.foco, 9);
-  assert.equal(d.medidas.terminales.maximo, 9);
+  assert.equal(d.medidas.terminales.foco, 10); // con la plantilla de cerrado en su 2 (encargo 3b)
+  assert.equal(d.medidas.terminales.maximo, 10);
   assert.equal('caja' in d.medidas.terminales, false); // un recuento: se informa, no se sitúa (R7)
   assert.equal(d.medidas.posiciones.foco, 5);
   assert.equal(d.medidas.posiciones.maximo, 5);
@@ -288,9 +288,10 @@ test('bases por posición: «el 70 % de los comparables tiene criterios y tú no
   const criterios = c.posiciones[2];
   assert.equal(criterios.significado, 'criterios');
   assert.equal(criterios.comparables, 7);
-  // VG, 7-11 noche: por hojas: el array de criterios de la compra y de cuatro vecinas es una lista de una
-  // referencia; su elemento es el ocupante, así que esas cinco ya no cuentan como propias, solo alcanzadas.
-  assert.equal(criterios.propias, 0);
+  // VG, 7-11 noche: por hojas: el array de criterios de cuatro vecinas es una lista de una referencia; su elemento
+  // es el ocupante, así que esas cuatro no cuentan como propias, solo alcanzadas. La compra nombra además en su 2 la
+  // plantilla de cerrado (encargo 3b), una hoja propia: una.
+  assert.equal(criterios.propias, 1);
   assert.equal(criterios.referencias, 6); // esas cinco alcanzan el menú por referencia; la de mediodía solo por referencia
   assert.equal(criterios.escritas, 1); // cocina escribió el criterio encima de una compra sin criterios
   assert.equal(criterios.proporcion, 0.7);
@@ -298,7 +299,7 @@ test('bases por posición: «el 70 % de los comparables tiene criterios y tú no
   assert.deepEqual(criterios.delFoco, { propia: false, referencia: false, escrita: false });
   const d = confluir(eje, compra.id);
   assert.equal(d.posiciones[2].foco, true);
-  assert.deepEqual(d.posiciones[2].delFoco, { propia: false, referencia: true, escrita: false }); // VG, 7-11 noche: por hojas: lista de una referencia
+  assert.deepEqual(d.posiciones[2].delFoco, { propia: true, referencia: true, escrita: false }); // por hojas: la referencia y la plantilla de cerrado (encargo 3b)
   assert.deepEqual(d.posiciones[1].delFoco, { propia: true, referencia: true, escrita: true }); // la cuenta está escrita en 1
   const mediodia = confluir(eje, vecinas[2].id);
   assert.deepEqual(mediodia.posiciones[2].delFoco, { propia: false, referencia: true, escrita: false });
@@ -363,13 +364,17 @@ test('las cohortes proyecto y general cambian las bases; el génesis solo se com
   assert.equal(general.medidas.profundidadHilo.minimo, 0); // el génesis
   assert.equal(general.medidas.profundidadHilo.maximo, 4); // la cuenta y el criterio de cocina
   assert.equal(general.medidas.formulasResueltas.maximo, 2); // la cuenta
-  assert.deepEqual(Object.keys(general.tokens), ['E:casa/EUR', 'P:genesis', 'T:hora', 'T:minuto', 'tiempo:hora', 'tiempo:minuto']); // el génesis emite poder sobre el eje
+  // Encargo 3b: ya no hay P del génesis sobre el eje (mapa §15 [D]); la casa emite su R al empezar y la guarda para las
+  // huéspedes en sus invitaciones (mapa §16 [D]).
+  assert.deepEqual(Object.keys(general.tokens), ['E:casa/EUR', 'R:casa', 'T:hora', 'T:minuto', 'tiempo:hora', 'tiempo:minuto']);
   assert.equal(confluir(eje, eje.genesisId, { alcance: 'proyecto' }).n, eje.orden.length); // el proyecto del génesis es todo el eje
   const g = confluir(eje, eje.genesisId);
   assert.equal(g.n, 1);
-  assert.deepEqual([g.medidas.posiciones.foco, g.medidas.posiciones.n], [1, 1]); // solo, con una posición (la 0, por lo escrito en su raíz): no hay con quién compararse
-  assert.equal(g.tokens['P:genesis'].foco, 10);
-  assert.equal(g.tokens['P:genesis'].n, 1);
+  // Solo, con dos posiciones (la 0, por lo escrito en su raíz, y la 3, por las invitaciones ancladas en ella): no hay
+  // con quién compararse. Encargo 3b: el génesis no mueve nada; solo el T consumido sobre él.
+  assert.deepEqual([g.medidas.posiciones.foco, g.medidas.posiciones.n], [2, 1]);
+  assert.deepEqual(Object.keys(g.tokens), ['tiempo:minuto']);
+  assert.equal(g.tokens['tiempo:minuto'].n, 1);
   // El génesis de ejemplo es un terminal: no tiene posición 0 propia. Pero las altas están ancladas
   // en su raíz (en = 0000000000), que colisiona con la posición 0 (§12: colisiones, no apaños);
   // la raíz se devuelve aparte para que el 8 pueda distinguirla.

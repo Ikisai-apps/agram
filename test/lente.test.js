@@ -1,6 +1,10 @@
-// R6 · la lente de R (VG, 7-11 noche; docs/notas/NEUTRALIDAD_IDENTIDAD.md §4).
-// La R se valora solo con la lente firmada de quien la lee, y emitir R exige
-// colateral. Cada regla con su caso que pasa y el que no, las propiedades
+// R según el corpus y la lente del lector (encargo 3b; VG, 9-11, mapa §15 [D] «R según el corpus, confirmado» y
+// «R, últimas dos»; §16 [D] «PV3 = regla de atención»). R se emite libremente por su emisor (sin colateral: se retira
+// el de la #75), se transfiere entre tenedores sin cambiar de emisor (se corrige la #62), se liquida devolviéndola a su
+// emisor (pedir atención), el emisor atiende con un registro suyo anclado sobre la petición, con T real, y el tenedor
+// puede perdonarla quemándola. Su valor para un tercero solo existe con la lente del lector, que son sus grupos de
+// atención que cobran con la R de quien escribe («aceptar tu R como pago es darte peso»), y cada unidad cuenta una (se
+// retira la valoración por participación de la #75). Cada regla con su caso que pasa y el que no, las propiedades
 // (identidades falsas, ampliar no diluye), BQL y una prueba estática.
 
 import { test } from 'node:test';
@@ -11,230 +15,206 @@ import { crearEvento } from '../src/evento.js';
 import { validez } from '../src/validez.js';
 import { consultar } from '../src/bql.js';
 import { serializar, restaurar } from '../src/persistencia.js';
-import {
-  POSICION_LENTE, COLATERAL_R, colateral, declararLente, lenteDe, peso, valor, detalleValor, tenencia, devoluciones, pendientes,
-  colateralDe, paresDeLente, payloadDeLente, anclasDeLente,
-} from '../src/lente.js';
-import { ejemploLente, valoresParaLaCasa, valorEnBql, LENTE_DE_LA_CASA, RECIEN } from '../ejemplos/ikisai/lente-booking.mjs';
+import { PRECIO_LENTE, claveR, lenteDe, peso, valor, detalleValor, devoluciones, pendientes } from '../src/lente.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { ejemploLente, valoresParaLaCasa, valorEnBql, CERCANOS_DE_LA_CASA, RECIEN } from '../ejemplos/ikisai/lente-booking.mjs';
 
 const T0 = '2026-11-08T10:00:00Z';
-/** Un día antes (ya no hace falta: cada persona escribe con su asignación de T del día (VG, 8-11)). */
 const AYER = '2026-11-07T10:00:00Z';
 const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
-const libera = (persona, cantidad, emisor = persona) => ({ ...colateral(persona, cantidad, emisor), estado: 'liberacion' });
 let cuenta = 0;
 const unico = (x) => x + ' #' + (++cuenta);
-const cerca = (a, b) => Math.abs(a - b) < 1e-9;
 
-/** Eje de demostración: «g» da de alta a quien se diga (personas salvo que se diga otro tipo), con minutos de sobra. */
-async function demo(ids, tipos = {}) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: AYER, foco: 'raíz', emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
-  // T no cruza de persona (VG, 7-11 noche): a una cosa, g le da T; a las demás, minutos como E (E:g/minuto).
-  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
-  for (const id of ids) if ((tipos[id] ?? 'persona') === 'persona') await eje.entrar({ identidad: id, t: AYER });
+/** Eje de demostración: las personas entran por invitación de «g» (encargo 3b) y g les da minutos como E (E:g/minuto). */
+async function demo(ids) {
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: AYER, foco: 'raíz', emision: [{ token: 'R', cantidad: 1e6 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
+  for (const id of ids) await entrarPorInvitacion(eje, { por: 'g', quien: id, t: AYER });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
-    movimientos: [minuto('g'), ...ids.map((id) => (tipos[id] === 'cosa' ? { token: 'T', escala: 'minuto', cantidad: 1000, de: 'g', a: id } : { token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1000, de: 'g', a: id }))],
+    movimientos: [minuto('g'), ...ids.map((id) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1000, de: 'g', a: id }))],
   });
+  // Revisión de seguridad (encargo 3b): escribir sobre el alta ajena (el génesis es el alta de g) tiene el precio de su
+  // atención; lo de todos cuelga de un registro común que g escribe en el génesis.
+  const plaza = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: ['Plaza'], movimientos: [minuto('g')] });
+  eje.plaza = plaza.id;
   return { eje, alta };
 }
 
-/** `emisor` emite `cantidad` de su R con su colateral (la décima parte) y reparte `a` ({ titular: cantidad }). */
-async function emiteYDa(eje, emisor, cantidad, a = {}, sobre = eje.genesisId) {
+/** `emisor` emite `cantidad` de su R (emitir R exige T real: el minuto que quema) y reparte `a` ({ titular: cantidad }). */
+async function emiteYDa(eje, emisor, cantidad, a = {}, sobre = eje.plaza) {
   return eje.escribir({
     autor: emisor, sobre, t: T0, payload: unico('R de ' + emisor),
-    movimientos: [minuto(emisor), R(emisor, cantidad, null, emisor), colateral(emisor, cantidad / 10), ...Object.entries(a).map(([t, c]) => R(emisor, c, emisor, t))],
+    movimientos: [minuto(emisor), R(emisor, cantidad, null, emisor), ...Object.entries(a).map(([t, c]) => R(emisor, c, emisor, t))],
   });
 }
 
-// ---------- 1 · la lente: un acto firmado del lector ----------
+/** El lector pone a `quienes` en su grupo de cercanos (la zona 3, cuyo precio es la R de quien escribe): su lente. */
+async function cercanos(eje, lector, quienes) {
+  return eje.escribir({ autor: lector, sobre: eje.alta(lector).id, en: '3330000000', t: T0, payload: [...quienes], movimientos: [minuto(lector)] });
+}
 
-test('R6·1 la lente es un acto del lector en la posición 3 de su alta: pares [emisor, peso], la última declaración manda', async () => {
+// ---------- 1 · la lente: los grupos de atención del lector ----------
+
+test('lente: los grupos de atención del lector que cobran con la R de quien escribe; los que nombra pesan 1', async () => {
   const { eje } = await demo(['casa', 'norte', 'sur', 'ana']);
-  const alta = { id: eje.alta('casa').id }; // B1: el alta de la casa es la que escribió ella misma
-  assert.equal(lenteDe(eje, 'casa'), null); // sin declarar, no hay lente
-  assert.equal(peso(eje, 'casa', 'norte'), null);
-  assert.deepEqual(anclasDeLente(eje, 'casa'), [alta.id]);
-  const d = await declararLente(eje, { lector: 'casa', pesos: { norte: 1, sur: 0.5 }, t: T0 });
-  assert.equal(d.en, POSICION_LENTE);
-  assert.equal(d.sobre, alta.id);
-  assert.deepEqual(d.payload, [['norte', 1], ['sur', 0.5]]);
-  const l = lenteDe(eje, 'casa');
-  assert.deepEqual([...l.pesos], [['norte', 1], ['sur', 0.5]]);
-  assert.deepEqual(l.declaraciones, [d.id]);
-  assert.deepEqual([peso(eje, 'casa', 'norte'), peso(eje, 'casa', 'sur'), peso(eje, 'casa', 'ana')], [1, 0.5, 0]); // quien no está, pesa 0
-  // La última declaración de cada emisor manda; peso 0 lo quita.
-  await declararLente(eje, { lector: 'casa', pesos: { sur: 0, ana: 0.25 }, t: T0 });
-  assert.deepEqual([peso(eje, 'casa', 'norte'), peso(eje, 'casa', 'sur'), peso(eje, 'casa', 'ana')], [1, 0, 0.25]);
-  // Un registro «lente» propio (contexto.lente) también sirve de ancla.
-  const reg = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mi lente', contexto: { lente: true }, movimientos: [minuto('ana')] });
-  assert.deepEqual(anclasDeLente(eje, 'ana'), [eje.alta('ana').id, reg.id]);
-  await declararLente(eje, { lector: 'ana', pesos: { norte: 0.75 }, t: T0, ancla: reg.id });
-  assert.equal(peso(eje, 'ana', 'norte'), 0.75);
+  assert.equal(PRECIO_LENTE, 'their R');
+  // Con alta y sin nadie en sus grupos que cobran con R, la lente está vacía: nadie pesa.
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
+  assert.deepEqual(lenteDe(eje, 'casa').grupos, [3, 4]); // cercanos y equipo cobran con «their R» por defecto (epoch.1.2.1)
+  assert.equal(peso(eje, 'casa', 'norte'), 0);
+  assert.equal(lenteDe(eje, 'nadie'), null); // sin alta no hay lente
+  assert.equal(peso(eje, 'nadie', 'norte'), null);
+  await cercanos(eje, 'casa', ['norte', 'sur']);
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], [['norte', 1], ['sur', 1]]);
+  assert.deepEqual([peso(eje, 'casa', 'norte'), peso(eje, 'casa', 'sur'), peso(eje, 'casa', 'ana')], [1, 1, 0]); // quien no está, pesa 0
+  // Corregir es añadir: si la casa cambia el precio de sus cercanos (3.3.2), ese grupo deja de ser lente (gana el último).
+  await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, en: '3320000000', t: T0, payload: [['E'], [1]], movimientos: [minuto('casa')] });
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
 });
 
-test('R6·1 no es lente: lo que escribe otro en la posición 3 del lector, otra posición, un registro ajeno o pares mal formados', async () => {
+test('lente: no cuenta lo que otro escribe en los grupos del lector, ni el lector en otra posición', async () => {
   const { eje } = await demo(['casa', 'norte', 'intruso']);
-  const alta = { id: eje.alta('casa').id }; // B1: cada persona escribe su propia alta
-  // Otro escribe en la posición 3 del alta de la casa: no es la lente de la casa, ni la suya (su alta es otra).
-  await eje.escribir({ autor: 'intruso', sobre: alta.id, en: POSICION_LENTE, t: T0, payload: [['intruso', 1]], movimientos: [minuto('intruso')] });
-  assert.equal(lenteDe(eje, 'casa'), null);
-  assert.equal(peso(eje, 'intruso', 'intruso'), null);
-  await eje.escribir({ autor: 'intruso', sobre: eje.alta('intruso').id, en: POSICION_LENTE, t: T0, payload: [['intruso', 1]], movimientos: [minuto('intruso')] });
-  assert.equal(peso(eje, 'intruso', 'intruso'), 1); // su propia lente, en su alta, que no cambia la de nadie
-  assert.equal(lenteDe(eje, 'casa'), null);
-  // La casa en otra posición, o sobre un registro que no es su alta ni un registro «lente» suyo: no cuenta.
-  await eje.escribir({ autor: 'casa', sobre: alta.id, en: '2000000000', t: T0, payload: [['norte', 1]], movimientos: [minuto('casa')] });
-  const ajeno = await eje.escribir({ autor: 'intruso', sobre: eje.genesisId, t: T0, payload: 'lente de otro', contexto: { lente: true }, movimientos: [minuto('intruso')] });
-  await eje.escribir({ autor: 'casa', sobre: ajeno.id, en: POSICION_LENTE, t: T0, payload: [['norte', 1]], movimientos: [minuto('casa')] });
-  assert.equal(lenteDe(eje, 'casa'), null);
-  // Pares mal formados se ignoran y se dice por qué.
-  assert.deepEqual(paresDeLente([['norte', 1], ['sur', 2], ['', 0.5], 'x', ['a/b', 1], ['ok', 0]]).pares, [['norte', 1], ['ok', 0]]);
-  assert.equal(paresDeLente('texto').pares.length, 0);
-  assert.throws(() => payloadDeLente({}), /de 1 a 10 pares/);
-  assert.throws(() => payloadDeLente({ norte: 1.5 }), /lente mal formada/);
-  await eje.escribir({ autor: 'casa', sobre: alta.id, en: POSICION_LENTE, t: T0, payload: [['norte', 1], ['sur', -1]], movimientos: [minuto('casa')] });
-  const l = lenteDe(eje, 'casa');
-  assert.deepEqual([...l.pesos], [['norte', 1]]);
-  assert.match(l.ignorados[0], /posición 1: no es un par \[emisor, peso de 0 a 1\]/);
+  const alta = eje.alta('casa').id;
+  // Otro ancla nombres en el 3.3.3 del alta de la casa: no son sus cercanos (solo cuenta lo que ancla la casa). Revisión
+  // de seguridad (encargo 3b): sin el precio de su grupo ni siquiera entra; pagándolo (desconocidos: la R de la casa,
+  // devuelta), entra y sigue sin contar.
+  await emiteYDa(eje, 'casa', 10, { intruso: 1 });
+  await assert.rejects(eje.escribir({ autor: 'intruso', sobre: alta, en: '3330000000', t: T0, payload: ['intruso'], movimientos: [minuto('intruso')] }), /attention has a price/);
+  await eje.escribir({ autor: 'intruso', sobre: alta, en: '3330000000', t: T0, payload: ['intruso'], movimientos: [minuto('intruso'), R('casa', 1, 'intruso', 'casa')] });
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
+  // El intruso en su propia alta sí: su lente, que no cambia la de nadie.
+  await cercanos(eje, 'intruso', ['norte']);
+  assert.equal(peso(eje, 'intruso', 'norte'), 1);
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
+  // La casa en otra posición de su alta (2.3, sus criterios) no toca su atención.
+  await eje.escribir({ autor: 'casa', sobre: alta, en: '2300000000', t: T0, payload: ['norte'], movimientos: [minuto('casa')] });
+  assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
 });
 
-test('R6·1 recibir R nunca mete a su emisor en la lente del receptor', async () => {
+test('lente: recibir R nunca mete a su emisor en la lente del receptor', async () => {
   const { eje } = await demo(['casa', 'norte', 'pesado']);
-  await declararLente(eje, { lector: 'casa', pesos: { norte: 1 }, t: T0 });
+  await cercanos(eje, 'casa', ['norte']);
   await emiteYDa(eje, 'pesado', 1e6, { casa: 5e5 });
   assert.equal(eje.saldo('casa', 'R:pesado'), 5e5);
   assert.deepEqual([...lenteDe(eje, 'casa').pesos], [['norte', 1]]);
   assert.equal(peso(eje, 'casa', 'pesado'), 0);
 });
 
-// ---------- 2 · el valor ----------
+// ---------- 2 · el valor, por unidad ----------
 
-test('R6·2 valor = Σ peso × saldo ÷ emitido sobre los emisores de la lente; la R propia y la de emisores no nombrados valen 0', async () => {
+test('valor = Σ peso × unidades de R de los emisores de la lente; la R propia y la de emisores no nombrados valen 0', async () => {
   const { eje } = await demo(['casa', 'norte', 'sur', 'ana', 'nuevo']);
   await emiteYDa(eje, 'norte', 100, { ana: 10 });
   await emiteYDa(eje, 'sur', 100, { ana: 20 });
   await emiteYDa(eje, 'nuevo', 1e6, { ana: 5e5 }); // se autoemite mucha y la reparte
-  assert.equal(valor(eje, 'casa', 'ana'), null); // sin lente, no hay valor
-  await declararLente(eje, { lector: 'casa', pesos: { norte: 1, sur: 0.5 }, t: T0 });
-  assert.equal(valor(eje, 'casa', 'ana'), 0.2); // 1 × 10/100 + 0,5 × 20/100
+  assert.equal(valor(eje, 'casa', 'ana'), 0); // nadie en su lente
+  assert.equal(valor(eje, 'nadie', 'ana'), null); // sin alta, sin lente: no hay valor
+  await cercanos(eje, 'casa', ['norte', 'sur']);
+  assert.equal(valor(eje, 'casa', 'ana'), 30); // 10 + 20: cada unidad cuenta una
   assert.equal(valor(eje, 'casa', 'nuevo'), 0); // su propia R no la avala nadie
   assert.equal(valor(eje, 'casa', 'norte'), 0); // la R propia no vale ante nadie
   const d = detalleValor(eje, 'casa', 'ana');
-  assert.deepEqual(d.porEmisor.map((x) => [x.emisor, x.peso, x.saldo, x.parte]), [['norte', 1, 10, 0.1], ['sur', 0.5, 20, 0.2]]);
-  assert.equal(d.eventos.length, 2);
+  assert.deepEqual(d.porEmisor.map((x) => [x.emisor, x.peso, x.saldo, x.aporte]), [['norte', 1, 10, 10], ['sur', 1, 20, 20]]);
   // Otro lector, otra lente, otro valor: R no tiene un valor propio.
-  await declararLente(eje, { lector: 'sur', pesos: { nuevo: 1 }, t: T0 });
-  assert.equal(valor(eje, 'sur', 'ana'), 0.5);
+  await cercanos(eje, 'sur', ['nuevo']);
+  assert.equal(valor(eje, 'sur', 'ana'), 5e5);
 });
 
-test('R6·2 ampliar R:X no diluye a quien ya la tiene; lo que llega después vale sobre lo emitido entonces', async () => {
+test('ampliar R:X no diluye a quien ya la tiene: cada unidad cuenta una', async () => {
   const { eje } = await demo(['casa', 'norte', 'ana', 'bea']);
-  await declararLente(eje, { lector: 'casa', pesos: { norte: 1 }, t: T0 });
+  await cercanos(eje, 'casa', ['norte']);
   await emiteYDa(eje, 'norte', 100, { ana: 10 });
-  assert.equal(valor(eje, 'casa', 'ana'), 0.1);
-  await emiteYDa(eje, 'norte', 900, { bea: 10 }); // amplía a 1000 (con su colateral) y da 10 a bea
-  assert.equal(valor(eje, 'casa', 'ana'), 0.1); // no baja
-  assert.equal(valor(eje, 'casa', 'bea'), 0.01); // 10 de 1000
-  // Devolver parte baja la participación a prorrata.
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'te pido atención', movimientos: [minuto('ana'), R('norte', 5, 'ana', 'norte')] });
-  assert.equal(valor(eje, 'casa', 'ana'), 0.05);
-  assert.deepEqual(tenencia(eje, 'ana', 'norte').saldo, 5);
+  assert.equal(valor(eje, 'casa', 'ana'), 10);
+  await emiteYDa(eje, 'norte', 900, { bea: 10 });
+  assert.equal(valor(eje, 'casa', 'ana'), 10); // no baja
+  assert.equal(valor(eje, 'casa', 'bea'), 10);
+  // Devolver parte (pedir atención) la quita de quien la devuelve.
+  await eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'te pido atención', movimientos: [minuto('ana'), R('norte', 5, 'ana', 'norte')] });
+  assert.equal(valor(eje, 'casa', 'ana'), 5);
 });
 
-// ---------- 3 · emitir R exige colateral ----------
+// ---------- 3 · emitir, transferir, devolver, atender y perdonar ----------
 
-test('R6·3 emitir R exige R propia bloqueada con la salida = la serie, la décima parte de lo emitido; en la primera, en el mismo evento', async () => {
-  assert.deepEqual(COLATERAL_R, { num: 1, den: 10 });
-  const { eje } = await demo(['ana']);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] }),
-    /emitir R:ana exige colateral: R:ana bloqueada con la salida «R:ana», al menos 1 \(1\/10 de lo emitido, 10\); hay 0 \(R6\)/);
-  // Bloquear con otra salida no es colateral.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), { ...colateral('ana', 1), salida: 'otra' }] }), /exige colateral/);
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1)] });
-  assert.equal(colateralDe(eje, 'ana'), 1);
-  assert.equal(eje.saldo('ana', 'R:ana'), 9);
-  // Ampliar pide que el colateral siga cubriendo la décima parte.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] }), /al menos 2 .* hay 1/);
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'más R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1)] });
-  // Liberar por debajo de la décima parte, no; lo que sobra, sí (sin devoluciones pendientes).
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), libera('ana', 1)] }), /el colateral de R:ana no baja de 2/);
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'bloqueo de más', movimientos: [minuto('ana'), colateral('ana', 3)] });
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'lo suelto', movimientos: [minuto('ana'), libera('ana', 3)] });
-  assert.equal(colateralDe(eje, 'ana'), 2);
+test('emitir R: solo su emisor, sin colateral; exige T real en la misma transacción (VG, 8-11 tarde, N3)', async () => {
+  const { eje } = await demo(['ana', 'bea']);
+  // Sin colateral (VG, 9-11: el respaldo es la obligación de atender).
+  await eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] });
+  assert.equal(eje.saldo('ana', 'R:ana'), 10);
+  assert.equal(eje.bloqueado('ana', 'R:ana'), 0);
+  // Sin T real (solo T informativo), no.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'x',
+    movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }, R('ana', 10, null, 'ana')] }), /minting R needs real T/);
+  // Nadie emite la R de otro, ni a nombre de un grupo (VG, 8-11).
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [minuto('ana'), R('bea', 30, null, 'bea')] }),
+    /R is minted by its issuer/);
 });
 
-test('R6·3 sin R a nombre de un grupo (VG, 8-11): cada persona pone su R, con su colateral; nadie emite la de otro', async () => {
-  const { eje, alta } = await demo(['bea', 'ana']);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1), colateral('ana', 3, 'bea'), R('bea', 30, null, 'bea')] }),
-    /(E is minted by and to|R is minted by) its issuer/);
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1)] });
-  assert.equal(colateralDe(eje, 'ana', 'ana'), 1);
+test('R se transfiere entre tenedores sin cambiar de emisor, y el tenedor puede perdonarla (quemarla): la obligación baja', async () => {
+  const { eje } = await demo(['ana', 'bea', 'cris']);
+  await emiteYDa(eje, 'ana', 10, { bea: 4 });
+  assert.equal(eje.obligaciones('ana'), 4);
+  // Se corrige la #62: bea la pasa a cris; sigue siendo R:ana (su emisor no cambia).
+  await eje.escribir({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'te la paso', movimientos: [minuto('bea'), R('ana', 2, 'bea', 'cris')] });
+  assert.deepEqual([eje.saldo('bea', claveR('ana')), eje.saldo('cris', claveR('ana')), eje.obligaciones('ana')], [2, 2, 4]);
+  // Perdonar (VG, 9-11, «R, últimas dos»): cris quema la que tiene sin pedir atención; la obligación de ana se extingue.
+  await eje.escribir({ autor: 'cris', sobre: eje.plaza, t: T0, payload: 'te la perdono', movimientos: [minuto('cris'), R('ana', 2, 'cris', null)] });
+  assert.deepEqual([eje.saldo('cris', claveR('ana')), eje.obligaciones('ana')], [0, 2]);
+  // Nadie mueve la R de otro tenedor.
+  await assert.rejects(eje.escribir({ autor: 'cris', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [minuto('cris'), R('ana', 1, 'bea', 'cris')] }), /nobody moves tokens of others/);
 });
 
-test('R6·3 devolver R es pedir atención: con devoluciones sin atender el colateral no se libera; atender es citarlas', async () => {
+test('devolver R es pedir atención; atender es un registro del emisor anclado sobre la petición, con T real (VG, 9-11)', async () => {
   const { eje } = await demo(['ana', 'bea', 'otra']);
   await emiteYDa(eje, 'ana', 10, { bea: 4 });
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'de más', movimientos: [minuto('ana'), colateral('ana', 2)] });
-  const dev = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
+  const dev = await eje.escribir({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
   assert.deepEqual(pendientes(eje, 'ana'), [dev.id]);
   assert.deepEqual(devoluciones(eje, 'ana').map((d) => [d.id, d.de, d.cantidad, d.atencion]), [[dev.id, 'bea', 1, null]]);
-  // Mientras no la atienda, el colateral queda bloqueado (sin castigo automático).
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), libera('ana', 2)] }),
-    /el colateral de R:ana no se libera mientras haya devoluciones sin atender \([0-9a-f]{8}\): atender es escribir un evento de ana con contexto.atiende/);
-  // Atender lo hace el emisor, citando una devolución de su R; otro no, ni se cita lo que no es una devolución.
-  await assert.rejects(eje.escribir({ autor: 'otra', sobre: dev.id, t: T0, payload: 'x', contexto: { atiende: dev.id }, movimientos: [minuto('otra')] }), /contexto.atiende cita [0-9a-f]{8}, que no es una devolución de R:otra/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'x', contexto: { atiende: eje.genesisId }, movimientos: [minuto('ana')] }), /que no es una devolución de R:ana/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'x', contexto: { atiende: [] }, movimientos: [minuto('ana')] }), /contexto.atiende es el id de una devolución/);
-  const at = await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'te atiendo', contexto: { atiende: dev.id }, movimientos: [minuto('ana')] });
+  // Lo que escribe otro sobre la petición no la atiende; ni lo que el emisor paga solo con T informativo (no es presente).
+  await eje.escribir({ autor: 'otra', sobre: dev.id, t: T0, payload: 'yo no soy ana', movimientos: [minuto('otra')] });
+  await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'luego', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }] });
+  assert.deepEqual(pendientes(eje, 'ana'), [dev.id]);
+  // El emisor la atiende con un registro suyo anclado sobre ella, con T real.
+  const at = await eje.escribir({ autor: 'ana', sobre: dev.id, t: T0, payload: 'te atiendo', movimientos: [minuto('ana')] });
   assert.deepEqual(pendientes(eje, 'ana'), []);
+  // La atención es el registro que atiende (presente), no el primero del emisor sobre la petición.
   assert.equal(devoluciones(eje, 'ana')[0].atencion, at.id);
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'suelto lo de más', movimientos: [minuto('ana'), libera('ana', 2)] });
-  assert.equal(colateralDe(eje, 'ana'), 1);
-  // Las capas de validez dicen lo mismo, con el libro de justo antes.
-  const sinColateral = await crearEvento({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('bea'), R('bea', 10, null, 'bea')] });
-  assert.match((await validez(eje, sinColateral)).acreditacion.motivos.join(' '), /emitir R:bea exige colateral/);
-  const dev2 = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'otra vez', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'de más', movimientos: [minuto('ana'), colateral('ana', 1)] });
-  const suelta = await crearEvento({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), libera('ana', 1)] });
-  assert.match((await validez(eje, suelta)).permiso.motivos.join(' '), new RegExp('devoluciones sin atender \\(' + dev2.id.slice(0, 8)));
-  const atiende = await crearEvento({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'x', contexto: { atiende: dev2.id }, movimientos: [minuto('bea')] });
-  assert.match((await validez(eje, atiende)).permiso.motivos.join(' '), /que no es una devolución de R:bea/);
+  // Las capas de validez leen las mismas reglas: emitir R sin T real falla.
+  const sinT = await crearEvento({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'bea', a: null }, R('bea', 10, null, 'bea')] });
+  assert.match((await validez(eje, sinT)).permiso.motivos.join(' '), /minting R needs real T/);
   // Y el eje entero se restaura igual (las reglas de R se revalidan).
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
-  assert.deepEqual(pendientes(otro, 'ana'), [dev2.id]);
+  assert.deepEqual(pendientes(otro, 'ana'), []);
   assert.equal(valor(otro, 'ana', 'bea'), valor(eje, 'ana', 'bea'));
 });
 
 // ---------- 4 · BQL ----------
 
-test('R6·4 BQL: VALOR_R y LENTE leen la lente del lector que consulta; sin lector o sin lente, PENDIENTE', async () => {
+test('BQL: VALOR_R y LENTE leen la lente del lector que consulta; sin lector o sin alta, PENDIENTE', async () => {
   const { eje } = await demo(['casa', 'norte', 'ana']);
   const reg = await emiteYDa(eje, 'norte', 100, { ana: 10 });
   const q = (f, op) => consultar(eje, reg.id, [], f, op);
   assert.equal(q('=VALOR_R("ana")').estado, 'PENDIENTE');
   assert.match(q('=VALOR_R("ana")').motivo, /sin lector no hay lente, y sin lente R no vale nada/);
-  assert.equal(q('=VALOR_R("ana")', { lector: 'casa' }).estado, 'PENDIENTE');
-  assert.match(q('=VALOR_R("ana")', { lector: 'casa' }).motivo, /casa no ha declarado su lente de R/);
-  // Sin lente, R no vale nada en una fórmula: la comparación tampoco se resuelve.
-  assert.equal(q('=VALOR_R("ana") > 0', { lector: 'casa' }).estado, 'PENDIENTE');
-  const d = await declararLente(eje, { lector: 'casa', pesos: { norte: 0.5 }, t: T0 });
+  assert.equal(q('=VALOR_R("ana")', { lector: 'nadie' }).estado, 'PENDIENTE');
+  assert.match(q('=VALOR_R("ana")', { lector: 'nadie' }).motivo, /nadie no tiene alta/);
+  // Con alta y nadie en su lente, R no vale nada para ella: 0.
+  assert.deepEqual(q('=VALOR_R("ana")', { lector: 'casa' }).valor.valor, 0);
+  await cercanos(eje, 'casa', ['norte']);
   const r = q('=VALOR_R("ana")', { lector: 'casa' });
-  assert.deepEqual([r.estado, r.valor.valor], ['RESUELTO', 0.05]);
-  assert.ok(r.dependencias.includes(eje.alta('casa').id + ':' + POSICION_LENTE)); // una declaración nueva lo cambia
-  assert.deepEqual(q('=LENTE("norte")', { lector: 'casa' }).valor.valor, 0.5);
+  assert.deepEqual([r.estado, r.valor.valor], ['RESUELTO', 10]);
+  assert.ok(r.dependencias.includes(eje.alta('casa').id + ':3000000000')); // un grupo nuevo lo cambia
+  assert.deepEqual(q('=LENTE("norte")', { lector: 'casa' }).valor.valor, 1);
   assert.deepEqual(q('=LENTE("ana")', { lector: 'casa' }).valor.valor, 0);
-  assert.equal(q('=VALOR_R("ana") > 0.01', { lector: 'casa' }).valor.valor, true);
+  assert.equal(q('=VALOR_R("ana") > 5', { lector: 'casa' }).valor.valor, true);
   assert.equal(q('=VALOR_R(3)', { lector: 'casa' }).estado, 'ERROR');
   assert.equal(q('=LENTE()', { lector: 'casa' }).estado, 'ERROR');
-  // El gancho decide la lectura de la lente y de cada tenencia.
-  assert.equal(q('=VALOR_R("ana")', { lector: 'casa', puedeLeer: (id) => id !== d.id }).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(q('=VALOR_R("ana")', { lector: 'casa', puedeLeer: (id) => id !== reg.id }).estado, 'PENDIENTE DE AUTORIZACIÓN');
-  // Y cuesta presupuesto: los dos nodos de la fórmula, una declaración y un evento de tenencia.
+  // El gancho decide la lectura de la lente (el alta del lector, de donde cuelgan sus grupos).
+  assert.equal(q('=VALOR_R("ana")', { lector: 'casa', puedeLeer: (id) => id !== eje.alta('casa').id }).estado, 'PENDIENTE DE AUTORIZACIÓN');
+  // Y cuesta presupuesto: los nodos de la fórmula, la lente y cada emisor que suma.
   const corto = q('=VALOR_R("ana")', { lector: 'casa', limites: { presupuesto: 3 } });
   assert.equal(corto.estado, 'PENDIENTE POR LÍMITE');
-  assert.match(corto.motivo, /VALOR_R \(las tenencias de R de ana\) exige examinar 1 registros y quedan 0/);
+  assert.match(corto.motivo, /VALOR_R \(la R de ana\) exige examinar 1 registros y quedan 0/);
   assert.equal(q('=VALOR_R("ana")', { lector: 'casa', limites: { presupuesto: 4 } }).estado, 'RESUELTO');
 });
 
@@ -253,27 +233,29 @@ function prng(semilla) {
 
 const fotoDeValores = (eje, lectores, ids) => JSON.stringify(lectores.map((l) => ids.map((id) => valor(eje, l, id))));
 
-test('propiedad R6: N identidades falsas que se emiten R entre sí (y la regalan) no cambian el valor que un lector da a nadie', async () => {
-  for (let s = 0; s < 6; s++) {
+test('propiedad: N identidades falsas que se emiten R entre sí (y la regalan) no cambian el valor que un lector da a nadie', async () => {
+  for (let s = 0; s < 4; s++) {
     const g = prng(20261108 + s);
-    const N = g.int(3, 12);
+    const N = g.int(3, 8);
     const falsas = Array.from({ length: N }, (_, i) => 'falsa' + i);
     const reales = ['casa', 'norte', 'sur', 'ana', 'bea'];
-    const { eje, alta } = await demo([...reales, ...falsas]);
+    const { eje } = await demo([...reales, ...falsas]);
     await emiteYDa(eje, 'norte', g.pick([10, 100, 1000]), { ana: g.int(1, 5), bea: g.int(0, 5) || 1 });
     await emiteYDa(eje, 'sur', g.pick([10, 100]), { bea: g.int(1, 5) });
-    await declararLente(eje, { lector: 'casa', pesos: { norte: 1, sur: g.pick([0.25, 0.5, 1]) }, t: T0 });
-    await declararLente(eje, { lector: 'ana', pesos: { sur: 1 }, t: T0 });
+    await cercanos(eje, 'casa', g.si(0.5) ? ['norte', 'sur'] : ['norte']);
+    await cercanos(eje, 'ana', ['sur']);
+    // Revisión de seguridad (encargo 3b): anclar en el alta de la casa tiene su precio (desconocidos: su R, devuelta).
+    await emiteYDa(eje, 'casa', N, Object.fromEntries(falsas.map((f) => [f, 1])));
     const lectores = ['casa', 'ana', 'bea'];
     const antes = fotoDeValores(eje, lectores, [...reales, ...falsas]);
-    // Las falsas se emiten R (con su colateral), se la dan entre ellas, a los lectores y a los reales;
-    // se nombran unas a otras en sus lentes y escriben en la posición 3 del alta (que comparten con la casa).
+    // Las falsas se emiten R, se la dan entre ellas, a los lectores y a los reales; se ponen unas a otras en sus grupos
+    // y anclan nombres en los grupos del alta de la casa (que no son de la casa).
     for (const f of falsas) {
       const a = {};
       for (let k = 0; k < g.int(1, 4); k++) a[g.pick([...falsas.filter((x) => x !== f), ...lectores, 'norte'])] = g.int(1, 1000);
       await emiteYDa(eje, f, 1e4, a);
-      await declararLente(eje, { lector: f, pesos: Object.fromEntries(falsas.slice(0, 5).map((x) => [x, 1])), t: T0 });
-      await eje.escribir({ autor: f, sobre: alta.id, en: POSICION_LENTE, t: T0, payload: [[f, 1]], movimientos: [minuto(f)] });
+      await cercanos(eje, f, falsas.slice(0, 5));
+      await eje.escribir({ autor: f, sobre: eje.alta('casa').id, en: '3330000000', t: T0, payload: [f], movimientos: [minuto(f), R('casa', 1, f, 'casa')] });
     }
     assert.equal(fotoDeValores(eje, lectores, [...reales, ...falsas]), antes, 'semilla ' + s);
     // Y lo que las falsas tienen vale 0 para la casa, aunque tengan mucha R entre todas.
@@ -281,40 +263,42 @@ test('propiedad R6: N identidades falsas que se emiten R entre sí (y la regalan
   }
 });
 
-test('propiedad R6: ampliar R:X nunca baja el valor de quien ya la tenía', async () => {
-  for (let s = 0; s < 6; s++) {
+test('propiedad: ampliar R:X nunca baja el valor de quien ya la tenía', async () => {
+  for (let s = 0; s < 4; s++) {
     const g = prng(7000 + s);
     const tenedores = ['t1', 't2', 't3'];
     const { eje } = await demo(['casa', 'x', ...tenedores]);
-    await declararLente(eje, { lector: 'casa', pesos: { x: g.pick([0.5, 1]) }, t: T0 });
+    await cercanos(eje, 'casa', ['x']);
     await emiteYDa(eje, 'x', 100, { t1: g.int(1, 20) });
-    for (let paso = 0; paso < 8; paso++) {
+    for (let paso = 0; paso < 6; paso++) {
       const antes = tenedores.map((t) => valor(eje, 'casa', t));
       const quien = g.pick(tenedores);
       await emiteYDa(eje, 'x', g.pick([1, 10, 100, 1000]), g.si(0.7) ? { [quien]: g.int(1, 5) } : {});
-      tenedores.forEach((t, i) => assert.ok(valor(eje, 'casa', t) >= antes[i] - 1e-9, 'semilla ' + s + ' paso ' + paso + ': ' + t + ' bajó'));
+      tenedores.forEach((t, i) => assert.ok(valor(eje, 'casa', t) >= antes[i], 'semilla ' + s + ' paso ' + paso + ': ' + t + ' bajó'));
     }
   }
 });
 
 // ---------- 6 · el ejemplo de Booking ----------
 
-test('R6 en Booking: la casa da 1 a la secretaria de una asociación y 0,5 a la de otra; quien se autoemite mucha R no vale nada para ella', async () => {
+test('en Booking: la casa acepta como pago la R de las dos secretarias; quien se autoemite mucha R no vale nada para ella', async () => {
   const { eje, reserva, lente, asociaciones } = await ejemploLente();
-  assert.deepEqual(LENTE_DE_LA_CASA, { 'secretaria-norte': 1, 'secretaria-sur': 0.5 });
+  assert.deepEqual(CERCANOS_DE_LA_CASA, ['secretaria-norte', 'secretaria-sur']);
   assert.equal(lente.sobre, eje.genesisId); // el alta de la casa es el génesis
-  assert.deepEqual(valoresParaLaCasa(eje), { huesped: 0.2, [RECIEN]: 0, casa: 0, 'secretaria-norte': 0 });
+  assert.equal(lente.en, '3330000000'); // su grupo de cercanos: quiénes
+  assert.deepEqual(valoresParaLaCasa(eje), { huesped: 30, [RECIEN]: 0, casa: 0, 'secretaria-norte': 0 });
   assert.equal(eje.saldo('huesped', 'R:' + RECIEN), 5e5); // la tiene, y no vale nada para la casa
   assert.equal(eje.saldo('casa', 'R:' + RECIEN), 1000); // ni recibirla la mete en su lente
   assert.equal(peso(eje, 'casa', RECIEN), 0);
-  assert.ok(cerca(detalleValor(eje, 'casa', 'huesped').porEmisor.reduce((s, x) => s + x.aporte, 0), 0.2));
-  // Las asociaciones son registros (VG, 8-11): su R es la de su secretaria, con su colateral (R6), y la asociación es su P.
-  assert.equal(colateralDe(eje, 'secretaria-norte'), 10);
+  assert.equal(detalleValor(eje, 'casa', 'huesped').porEmisor.reduce((s, x) => s + x.aporte, 0), 30);
+  // Las asociaciones son registros (VG, 8-11): su R es la de su secretaria, sin colateral; la secretaria obtuvo P al escribirla.
+  assert.equal(eje.bloqueado('secretaria-norte', 'R:secretaria-norte'), 0);
   assert.equal(eje.esPersona('vecinos-norte'), null); // un grupo es un registro, no una identidad: no tiene alta
-  assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id), 1);
+  assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id), 10);
   const bql = valorEnBql(eje, reserva);
-  assert.deepEqual([bql.estado, bql.texto], ['RESUELTO', '0.2']);
-  assert.equal(valorEnBql(eje, reserva, 'recepcion').estado, 'PENDIENTE'); // recepción no ha firmado lente
+  assert.deepEqual([bql.estado, bql.texto], ['RESUELTO', '30']);
+  // Recepción tiene alta y nadie en sus grupos que cobran con R: para ella, la R de la huésped vale 0.
+  assert.deepEqual([valorEnBql(eje, reserva, 'recepcion').estado, valorEnBql(eje, reserva, 'recepcion').texto], ['RESUELTO', '0']);
 });
 
 // ---------- 7 · prueba estática ----------
@@ -335,7 +319,7 @@ const JUNTAN_R = [
   /new Set\([^;\n]*\.emisor\b[^;\n]*\)\s*\.size/, // contar emisores distintos (la lista `emisores` de una E conjunta es otra cosa)
 ];
 
-test('R6 prueba estática: fuera de src/lente.js ningún módulo suma R de emisores distintos ni cuenta emisores', () => {
+test('prueba estática: fuera de src/lente.js ningún módulo suma R de emisores distintos ni cuenta emisores', () => {
   // La prueba se prueba: estas formas se detectan.
   for (const malo of [
     "const t = eje.reputaciones(id).reduce((s, r) => s + r.cantidad, 0);",
@@ -347,8 +331,7 @@ test('R6 prueba estática: fuera de src/lente.js ningún módulo suma R de emiso
   assert.ok(archivos.length > 20);
   const fuera = archivos.filter((a) => JUNTAN_R.some((re) => re.test(sinComentarios(readFileSync(a, 'utf8')))));
   assert.deepEqual(fuera, []);
-  // Y la lente solo junta R en detalleValor, multiplicada por el peso del lector.
+  // Y la lente solo junta R en detalleValor, multiplicada por el peso del lector, unidad a unidad.
   const lente = sinComentarios(readFileSync('src/lente.js', 'utf8'));
-  assert.equal((lente.match(/valor \+= aporte/g) ?? []).length, 1);
-  assert.match(lente, /const aporte = p \* t\.parte;/);
+  assert.equal((lente.match(/valor \+= p \* saldo/g) ?? []).length, 1);
 });

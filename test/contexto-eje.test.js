@@ -175,15 +175,22 @@ test('path: el hilo tiene un tope de diez niveles; más, PENDIENTE', async () =>
 test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida); A.7.e lo gastado hoy de T', async () => {
   const { eje, compra } = await ejemploCompra();
   const ctx = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-07T18:00:00Z', movimientos: [], payload: ['después'] } });
-  assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['E:casa/EUR']);
+  // Encargo 3b: la cartera trae la R que le guardó la invitación de la casa y el P que obtuvo (mapa §15 [D] N1, N2):
+  // sobre su alta, sobre el génesis (la raíz de la casa: por la R recibida y por los EUR, que están atados a él) y
+  // sobre la compra.
+  const altaH = eje.alta('huesped').id;
+  assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['R:casa', 'P:' + altaH, 'P:' + eje.genesisId, 'E:casa/EUR', 'P:' + compra.id]);
   assert.equal(uno('("huesped").1.("E:casa/EUR").1', ctx), 48);
-  assert.equal(uno('("huesped").1.0.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, un registro: su 0.0 es la familia');
-  assert.equal(uno('("huesped").1.0.1.0', ctx), 500, 'y su 1.0, lo emitido');
-  assert.deepEqual(val('("huesped").1.0.3', ctx), ['casa'], 'y su 3, quien la emite');
+  assert.equal(uno('("huesped").1.("E:casa/EUR").0.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, un registro: su 0.0 es la familia');
+  assert.equal(uno('("huesped").1.("E:casa/EUR").0.1.0', ctx), 500, 'y su 1.0, lo emitido');
+  assert.deepEqual(val('("huesped").1.("E:casa/EUR").0.3', ctx), ['casa'], 'y su 3, quien la emite');
+  // El 2 de una identidad es su criterio: 2.1 su P posicionado, una entrada por registro (0 el registro, 1 cuánto).
+  assert.deepEqual(val('("huesped").2.1 each 0', ctx), [altaH, eje.genesisId, compra.id]);
+  assert.deepEqual(val('("huesped").2.1 each 1', ctx), [10, 20, 10]);
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
-  assert.equal(uno('("casa").7.1', ctx), 241, 'la casa gastó 1 minuto escribiendo y dio 240 a la cocina');
+  assert.equal(uno('("casa").7.1', ctx), 243, 'la casa gastó 3 minutos escribiendo (su emisión inicial, la invitación y las altas) y dio 240 a la cocina');
   assert.deepEqual(val('("huesped").7.8', ctx), [], 'las informativas no se gastan de ninguna asignación');
   // Al día siguiente, la asignación empieza entera: lo gastado vuelve a 0.
   const mañana = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-08T09:00:00Z', movimientos: [], payload: ['mañana'] } });

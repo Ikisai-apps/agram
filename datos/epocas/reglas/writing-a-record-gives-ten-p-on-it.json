@@ -1,0 +1,17 @@
+[
+  ["writing a record gives ten P on it"],
+  ["epoch.1.1.4.1"],
+  ["=put first epoch.1.1.4.1 at (first ev.3).2.1.(first ev.5)"],
+  ["ev.3"],
+  ["put", "mint"],
+  ["*"],
+  [
+    "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+    "VG, 8-11 tarde (mapa §15 [D] N1): escribir un registro propio da las mismas diez unidades de P que conseguir E («crear una cosa es conseguirla; el dueño es 100 % de su dominio hasta que entra alguien»)",
+    "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+    "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)"
+  ],
+  ["epoch 0"],
+  ["after a person joins by an invitation"],
+  ["writing a record gives ten P on it: {first ev.3} gets {first epoch.1.1.4.1} P on the record it writes"]
+]

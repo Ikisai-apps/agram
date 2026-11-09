@@ -1,0 +1,17 @@
+[
+  ["a person joins by an invitation"],
+  ["\"invitation\"", "ev.6.5", "ev.5"],
+  ["=count (first ev.3).6 > 0 or (\"invitation\" in (first (first ev.6).5).0 and first ev.3 in (first (first ev.6).5).3.1 and count (first (first (first ev.6).5).3).6 > 0 and (count before.6.0 = 0 or (first ev.6).0.0 >= first before.6.0.0) and (count ((first (first ev.6).5).7 where count it.0 > 0) = 0 or (first ev.6).0.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0) or (count before.6.3 > 0 and first before.6.3.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0))) and (count (first (first ev.6).5).3.5 = 0 or count (ev.5 where count it.2 > 0 and it.3 = first ev.3 and it.2 in (first (first ev.6).5).3.5) > 0))"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «4 aceptar = tu primera transacción firmada = tu alta»; «el génesis de cada persona = su aceptación anclada sobre la invitación»",
+    "Diseño Core aceptado: la invitación es una décupla: 0 «invitación», 1 lo que te doy, 2 la época, 3 yo, tú (tu clave) y el grupo común, 4 aceptar, 5 el dominio, 6 mi hilo, 7 hasta cuándo vale, 8 el grupo de mi atención que te asigno, 9 el tema y el tutorial; mínima = 2 y 3",
+    "Quien aún no tiene alta y escribe (una persona: escribe la suya) lo hace sobre una invitación de una identidad con alta que la nombra en su 3.1, dentro de su 7 y, si nombra una clave en su 3.5, con esa clave. El alta sin invitación es solo la de la primera identidad del eje: el génesis (src/eje.js, Eje.genesis)",
+    "Revisión de seguridad (encargo 3b): el 7 se compara con el mismo reloj que la caducidad de E, min(t de la aceptación, el reloj de los demás: before.6.3), y la aceptación no se fecha antes del último t del libro (before.6.0); así no se acepta una invitación caducada fechando atrás"
+  ],
+  ["epoch 0"],
+  ["after attention has a price"],
+  ["a person joins by an invitation: {first ev.3} has no alta and does not accept an invitation that names it (in time, with its key)"]
+]

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, estadoDe, FABRICA, FASES } from '../src/motor.js';
+import { descubrir, consolidar, registrar, siguiente, cerrado, FABRICA, ANUNCIO } from '../src/motor.js';
 import { ocupantes } from '../src/encaje.js';
 import { Eje } from '../src/eje.js';
 import { esDireccion, direccion } from '../src/btml.js';
@@ -24,6 +24,16 @@ function escribe(eje, autor, sobre, en, payload, contexto = {}) {
   return eje.escribir({ autor, sobre, en, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }], payload, contexto });
 }
 
+// Encargo 3b (VG, 8-11; mapa §15 [D] «Una sola operación: registrar»; N6: «los mundos animan registros anclados y
+// movimientos; las fases las nombra el proceso»): el motor ya no escribe autorizaciones ni ejecuciones. Lo único que
+// registra en la fábrica es la propuesta (consolidar); lo demás son registros con sus movimientos: el anuncio en el
+// 4.1 de la propuesta (motor.ANUNCIO) y el pago que lo cumple (motor.siguiente). Que esté cerrada es una lectura
+// (motor.cerrado), no una fase escrita.
+
+/** Lo único que el motor registra en la fábrica (src/efectos.js, FASES_MOTOR). */
+const FASES = ['consolidado'];
+
+/** La compra con su cuenta, una propuesta de la huésped, su anuncio (pagar 14 EUR a la cocina) y el pago. */
 async function cicloCompleto() {
   const { eje, menu, compra } = await ejemploCompra();
   await ejemploCuenta(eje, compra);
@@ -32,11 +42,11 @@ async function cicloCompleto() {
     autor: 'huesped', foco: compra.id, t: T, titulo: 'Pago del menú',
     elecciones: { 1: { candidato: d[0].candidatos[3] }, 2: 'sin lactosa', 4: 'pagar 14 EUR' },
   });
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  const e = await ejecutar(eje, {
-    autor: 'huesped', consolidacion: c.id, t: T,
-    movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }],
+  const a = await registrar(eje, {
+    autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, payload: [['E:casa/EUR'], [14], ['pagar'], [['huesped'], ['cocina']]],
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
   });
+  const e = await registrar(eje, { ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: T });
   return { eje, menu, compra, c, a, e };
 }
 
@@ -58,10 +68,13 @@ test('el catálogo: diez mundos, las clases de VG, una familia por token, y cada
   for (const [k, m] of Object.entries(MARCAS_EFECTO)) assert.ok(m.startsWith(X), 'marca ' + k);
   assert.equal(SIN_NOMBRE, MARCAS_EFECTO.sinNombre);
   assert.deepEqual(Object.keys(CATALOGO.tipos).sort(), [...TIPOS_EFECTO].sort());
-  // Las fases con efecto son las del motor.
-  assert.deepEqual(Object.keys(CATALOGO.tipos.fase.generico), [...FASES]);
+  // Las fases con efecto son las del motor. Encargo 3b: el motor solo registra «consolidado»; el catálogo
+  // (datos/efectos.json) aún nombra «autorizado» y «ejecutado», que ya no se producen (el jardín usa el nombre de
+  // «ejecutado» para el fruto de una propuesta cerrada). Se comprueba que no hay más que esas, y queda informado.
+  const RETIRADAS = ['autorizado', 'ejecutado'];
+  assert.deepEqual(Object.keys(CATALOGO.tipos.fase.generico), [...FASES, ...RETIRADAS]);
   const valida = (k) => k === '*' || DE_CELDA.includes(k) || /^modificar\.[2-9]$/.test(k)
-    || /^token\.(emitir|mover|consumir)$/.test(k) || (k.startsWith('fase.') && FASES.includes(k.slice(5)));
+    || /^token\.(emitir|mover|consumir)$/.test(k) || (k.startsWith('fase.') && [...FASES, ...RETIRADAS].includes(k.slice(5)));
   for (const m of CATALOGO.mundos) {
     for (const [k, e] of Object.entries(m.efectos)) {
       assert.ok(valida(k), m.nombre + ': clave desconocida ' + k);
@@ -117,6 +130,9 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
     'lente · mostrar · 0000000000',
     'ciudad · abrir tienda · 1100000000',
     'ciudad · abrir tienda · 1200000000',
+    // Encargo 3b: la 2 de la compra lleva, además de la referencia al menú, la plantilla de cerrado que nombra
+    // (mapa §15 [D] N5): una lista con un terminal propio, una celda.
+    'jardín · brotar · 2000000000',
     'parque · hablar · 3000000000',
     'fábrica · paso · 4000000000', // VG, 7-11 noche: por hojas. La 3 y la 4 son listas: una celda cada una, sin 3.1 ni 4.1
     'fábrica · línea que se mueve · T:hora',
@@ -131,14 +147,16 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
   // VG, 7-11 noche: por hojas: la 1 del menú es una lista; sus platos son ocupantes de la 1, y la 1.1 no existe.
   assert.deepEqual(ocupantes(eje, menu.id, [1]).map((o) => [o.origen, o.contenido]), [['propio', 'ensalada'], ['propio', 'guiso'], ['propio', 'fruta']]);
   assert.deepEqual(ocupantes(eje, menu.id, [1, 1]), []);
-  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '3.0.0 escrito', '4.0.0 escrito']);
+  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '2.0.0 escrito', '3.0.0 escrito', '4.0.0 escrito']);
   for (const e of sinTokens(efectos).slice(1)) assert.ok(e.decisiones.includes(MARCAS_EFECTO.matriz));
   // En la raíz no hay duda de marco; [1][0][0] y [2][0] son referencias al menú: herencia, no efecto.
   // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (cada posición entre corchetes).
   assert.ok(!registro.decisiones.includes(MARCAS_EFECTO.marco));
   assert.deepEqual(compra.payload[1][0], [{ ref: menu.id, dir: '1000000000' }]);
   assert.deepEqual(compra.payload[2][0], { ref: menu.id, dir: '2000000000' });
-  assert.ok(!efectos.some((e) => e.etiqueta === '1.0.0' || e.etiqueta === '2.0.0'));
+  assert.ok(!efectos.some((e) => e.etiqueta === '1.0.0'));
+  // La 2 sí tiene efecto, pero por su terminal (la plantilla de cerrado), no por la referencia al menú.
+  assert.deepEqual(compra.payload[2][1], 'all announced movements happened');
   // Los movimientos van entre carteras, en el mundo de su familia, con su marca.
   const pago = efectos.find((e) => e.token === 'E');
   assert.deepEqual(
@@ -255,111 +273,102 @@ test('referencias al foco: herencia, salvo que el registro diga que las ve', asy
   assert.deepEqual(sinTokens(efectosDe(eje, soloVer)).map((e) => [e.tipo, e.mundo, e.nombre]), [['ver', 3, 'escuchar']]);
 });
 
-test('el ciclo del motor: una fase por registro, sin leer su payload como celdas, y cada mundo la ve a su manera', async () => {
+test('el ciclo del motor: la propuesta es la única fase, sin leer su payload como celdas; lo demás son registros y movimientos', async () => {
   const { eje, compra, c, a, e } = await cicloCompleto();
   const deMotor = (ev) => sinTokens(efectosDe(eje, ev));
-  // Ni «jardín · brotar» por la evidencia, ni «fábrica · paso» por '==autorizo': solo la transición.
-  for (const ev of [c, a, e]) assert.equal(deMotor(ev).length, 1, ev.contexto.fase);
+  // La propuesta: una sola fase, sin «jardín · brotar» ni «fábrica · paso» por su payload.
+  assert.equal(deMotor(c).length, 1);
   const fase = (ev) => deMotor(ev)[0];
-  assert.deepEqual([c, a, e].map((ev) => [fase(ev).tipo, fase(ev).fase, fase(ev).mundo, fase(ev).celda, fase(ev).clase, fase(ev).nombre]), [
-    ['fase', 'consolidado', 4, FABRICA, 0, 'consolidar'],
-    ['fase', 'autorizado', 4, FABRICA, 0, 'autorizar'],
-    ['fase', 'ejecutado', 4, FABRICA, 0, 'ejecutar'],
-  ]);
-  for (const ev of [c, a, e]) assert.ok(fase(ev).decisiones.includes(MARCAS_EFECTO.claseFase));
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  assert.deepEqual([fase(c).tipo, fase(c).fase, fase(c).mundo, fase(c).celda, fase(c).clase, fase(c).nombre], ['fase', 'consolidado', 4, FABRICA, 0, 'consolidar']);
+  assert.ok(fase(c).decisiones.includes(MARCAS_EFECTO.claseFase));
+  // Antes, la autorización y la ejecución eran fases del motor. Encargo 3b (N6): el anuncio es un registro anclado en
+  // el 4.1 de la propuesta, que se lee celda a celda, y el pago, un registro en su raíz con sus movimientos. Ninguno
+  // es una fase; que la propuesta esté cerrada es una lectura (motor.cerrado).
+  assert.ok(![a, e].some((ev) => efectosDe(eje, ev).some((x) => x.tipo === 'fase' || x.tipo === 'ruido')));
+  assert.deepEqual([fase(a).tipo, fase(a).celda, fase(a).nombre], ['anclado', ANUNCIO, 'anclar']);
+  assert.deepEqual(deMotor(e).map((x) => [x.tipo, x.celda, x.nombre]), [['sustituir', '0000000000', 'mostrar']]);
+  assert.equal(cerrado(eje, c.id).cerrado, true);
   // La consolidación dice qué fijó en cada posición del foco, sin animarlo aparte.
   assert.deepEqual(fase(c).elecciones.map((x) => [x.posicion, x.celda, x.desde]), [
     [1, '1000000000', 'elegida'], [2, '2000000000', 'nueva'], [3, '3000000000', 'heredada'], [4, '4000000000', 'nueva'],
   ]);
   assert.equal(fase(c).elecciones[2].ref, compra.id);
-  assert.deepEqual(fase(e).evidencia, [c.id, a.id]);
   // La misma operación vista desde otros mundos.
   const vista = (ef, m) => verEn(ef, m)?.nombre ?? null;
   assert.deepEqual([7, 9, 2, 6].map((m) => vista(fase(c), m)), ['arco al futuro', 'previsualizar', 'fructificar', null]);
-  assert.deepEqual([6, 7, 9].map((m) => vista(fase(e), m)), ['ancla', 'ancla', 'ejecutar']);
-  assert.equal(vista(fase(a), 9), null);
-  assert.equal(vista(fase(a), 0), 'mostrar'); // la lente lo muestra todo
-  assert.equal(vista(fase(a), 5), 'inspeccionar');
+  assert.equal(vista(fase(c), 0), 'mostrar'); // la lente lo muestra todo
+  assert.equal(vista(fase(c), 5), 'inspeccionar');
   assert.ok(verEn(fase(c), 7).decisiones[0].startsWith(X));
-  // La ejecución mueve los EUR reales: mercancía que fluye.
+  // El pago mueve los EUR reales: mercancía que fluye.
   assert.ok(efectosDe(eje, e).some((x) => x.tipo === 'token' && x.serie === 'E:casa/EUR' && x.cantidad === 14 && x.nombre === 'mercancía que fluye'));
 });
 
-test('lo que el motor no reconoce no es una transición: ruido, con su motivo', async () => {
+// Antes: autorizaciones y ejecuciones que el motor no reconocía (sin P bloqueado, forjadas, con la evidencia rota, una
+// segunda vez) eran ruido. Encargo 3b (mapa §15 [D]; N6: «las fases las nombra el proceso»): no hay esas fases. Lo que
+// se comprueba ahora: una fase escrita a mano no cuenta; el catálogo lee el registro por lo que es.
+test('una fase escrita a mano no es una transición: se lee por lo que es; fuera de la fábrica, ruido con su motivo', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
   const motor = (autor, sobre, en, fase, payload, contexto = {}) => escribe(eje, autor, sobre, en, payload, { motor: 'fabrica', fase, ...contexto });
-  const ruido = (ev) => {
+  const solo = (ev) => {
     const r = sinTokens(efectosDe(eje, ev));
     assert.equal(r.length, 1);
-    assert.equal(r[0].tipo, 'ruido');
     return r[0];
   };
-  // Autorizar es bloquear P sobre el registro del recurso (VG, 7-11 noche): una «autorización» que no lo bloquea no
-  // cambia el estado, y el efecto tampoco lo finge. Da igual quién la escriba, el autor incluido.
-  const sinPoder = await motor('cocina', c.id, FABRICA, 'autorizado', '==autorizo');
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  const r = ruido(sinPoder);
-  assert.deepEqual([r.fase, r.motivo, r.mundo, r.celda, r.nombre], ['autorizado', 'no bloquea P sobre el registro del recurso', 4, FABRICA, 'ruido']);
-  assert.ok(r.decisiones.includes(SIN_NOMBRE));
-  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'autorizado', '==me autorizo')).motivo, 'no bloquea P sobre el registro del recurso');
-  assert.equal(ruido(await motor('casa', compra.id, FABRICA, 'autorizado', '==autorizo')).motivo, 'no es sobre una consolidación');
-  // Una ejecución forjada por quien no es el autor: ni «ejecutar» ni «ancla» en los hilos.
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  const forjada = await motor('cocina', c.id, FABRICA, 'ejecutado', ['Ejecutado', { ref: c.id }, { ref: a.id }], { evidencia: [c.id, a.id] });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  const f = ruido(forjada);
-  assert.equal(f.motivo, 'ejecuta quien no es el autor de la consolidación');
-  assert.deepEqual([6, 7].map((m) => verEn(f, m)), [null, null]);
-  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'hecho', { evidencia: ['f'.repeat(64)] })).motivo, 'evidencia rota');
-  // Otra «autorización» que no bloquea P, o una segunda ejecución, no son otra transición.
-  assert.equal(ruido(await motor('casa', c.id, FABRICA, 'autorizado', '==también')).motivo, 'no bloquea P sobre el registro del recurso');
-  const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
-  assert.equal(sinTokens(efectosDe(eje, e))[0].tipo, 'fase');
-  assert.equal(ruido(await motor('huesped', c.id, FABRICA, 'ejecutado', 'otra vez', { evidencia: [c.id, a.id] })).motivo, 'ya estaba ejecutada');
-  // Una «consolidación» fuera de la posición 4 no la lista el motor.
+  // Un registro del motor en la fábrica de la propuesta es otra propuesta sobre ella, diga la fase que diga, sea
+  // quien sea quien lo escriba: «consolidado», no «autorizado» ni «ejecutado».
+  for (const [autor, fase] of [['cocina', 'autorizado'], ['huesped', 'autorizado'], ['cocina', 'ejecutado'], ['huesped', 'ejecutado']]) {
+    const r = solo(await motor(autor, c.id, FABRICA, fase, '==' + fase));
+    assert.deepEqual([r.tipo, r.fase, r.mundo, r.celda, r.nombre], ['fase', 'consolidado', 4, FABRICA, 'consolidar'], autor + ' ' + fase);
+  }
+  // Sin contexto del motor, la fase escrita no es nada: un registro más, celda a celda.
+  const aMano = solo(await escribe(eje, 'cocina', c.id, FABRICA, '==autorizo', { fase: 'autorizado' }));
+  assert.deepEqual([aMano.tipo, aMano.celda], ['sustituir', FABRICA]);
+  // Nada de eso cierra ni abre la propuesta: sin nada anunciado, está cerrada (N5).
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  // Una «consolidación» fuera de la posición 4 no la lista el motor: ruido, con su motivo.
   const fuera = await motor('huesped', compra.id, '7000000000', 'consolidado', ['Fuera', 'algo']);
-  assert.deepEqual([ruido(fuera).motivo, ruido(fuera).mundo], ['fuera de la fábrica: el motor consolida en la posición 4 de su camino', 7]);
+  const r = solo(fuera);
+  assert.deepEqual([r.tipo, r.fase, r.motivo, r.mundo, r.celda, r.nombre], ['ruido', 'consolidado', 'fuera de la fábrica: el motor consolida en la posición 4 de su camino', 7, '7000000000', 'ruido']);
+  assert.ok(r.decisiones.includes(SIN_NOMBRE));
+  assert.deepEqual([6, 7].map((m) => verEn(r, m)), [null, null]);
   // Los tokens del ruido sí se movieron: salen como siempre.
-  assert.equal(efectosDe(eje, sinPoder).filter((x) => x.tipo === 'token').length, 1);
+  assert.equal(efectosDe(eje, fuera).filter((x) => x.tipo === 'token').length, 1);
 });
 
-test('la fase se juzga como la juzga el motor, con el eje de ahora: no sale solo del evento', async () => {
-  const { eje, compra, alta } = await ejemploCompra();
+// Antes: una autorización contaba o no según el P de ahora, y su efecto lo seguía. Encargo 3b (mapa §15 [D]; N6): el
+// estado es una lectura del eje de ahora (motor.cerrado) y el efecto de la propuesta no cambia con él.
+test('el estado se lee con el eje de ahora; el efecto de la propuesta no cambia al cerrarse', async () => {
+  const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'algo' } });
-  const falsa = await escribe(eje, 'cocina', c.id, FABRICA, '==autorizo', { motor: 'fabrica', fase: 'autorizado' });
-  assert.equal(sinTokens(efectosDe(eje, falsa))[0].tipo, 'ruido');
-  // La casa autoriza bloqueando su P del eje (nadie en el hilo tiene P propio emitido: manda el génesis, VG 8-11): cuenta.
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  assert.deepEqual(sinTokens(efectosDe(eje, a)).map((x) => [x.tipo, x.nombre]), [['fase', 'autorizar']]);
-  // Después la casa emite P propio sobre sus altas: desde entonces cuenta ese y no el del eje, así que la misma
-  // autorización deja de contar, y el efecto lo sigue.
-  await eje.escribir({
-    autor: 'casa', sobre: alta.id, t: T, payload: 'poder sobre las altas',
-    movimientos: [
-      { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null },
-      { token: 'R', emisor: 'casa', cantidad: 2, de: null, a: 'casa' },
-      { token: 'R', emisor: 'casa', cantidad: 0.5, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }, // R6: el colateral
-      { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'cocina' },
-      { token: 'P', ambito: alta.id, cantidad: 4, de: null, a: 'casa' },
-    ],
+  const antes = efectosDe(eje, c.id);
+  assert.equal(cerrado(eje, c.id).cerrado, true, 'sin nada anunciado');
+  await registrar(eje, {
+    autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, payload: [['E:casa/EUR'], [5], ['pagar'], [['huesped'], ['cocina']]],
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
   });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  assert.deepEqual(sinTokens(efectosDe(eje, a)).map((x) => [x.tipo, x.motivo]), [['ruido', 'no bloquea P sobre el registro del recurso']]);
+  assert.equal(cerrado(eje, c.id).cerrado, false, 'con un pago anunciado y sin hacer');
+  assert.deepEqual(efectosDe(eje, c.id), antes);
+  const pago = await registrar(eje, { ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: T });
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  assert.deepEqual(efectosDe(eje, c.id), antes);
+  assert.ok(!efectosDe(eje, pago).some((x) => x.tipo === 'fase'), 'el pago no es una fase: es un registro con su movimiento');
 });
 
-test('el génesis: escribe la raíz y emite sus series', async () => {
+test('el génesis: escribe la raíz; su emisión inicial emite sus series', async () => {
   const { eje } = await ejemploCompra();
-  const efectos = efectosDe(eje, eje.genesisId);
+  // Encargo 3b: el génesis es la época 0, sin movimientos (ni P del génesis: P se obtiene, mapa §15 [D]).
+  assert.deepEqual(efectosDe(eje, eje.genesisId).map((x) => [x.tipo, x.celda, nombreMundo(x.mundo), x.nombre]), [['escrito', '0000000000', 'lente', 'mostrar']]);
+  // Lo que emite va en la segunda transacción, «Emisión inicial de casa»: gasta su minuto y emite R (antes de E) y E.
+  const emision = eje.sobre(eje.genesisId).find((x) => Array.isArray(x.payload) && x.payload[0] === 'Emisión inicial de casa');
+  const efectos = efectosDe(eje, emision.id);
   assert.deepEqual(efectos.map((x) => [x.tipo, x.movimiento ?? null, x.serie ?? x.celda, nombreMundo(x.mundo), x.nombre]), [
-    ['escrito', null, '0000000000', 'lente', 'mostrar'],
+    ['sustituir', null, '0000000000', 'lente', 'mostrar'],
+    ['token', 'consumir', 'T:minuto', 'fábrica', 'línea que se mueve'],
+    ['token', 'emitir', 'R:casa', 'parque', 'emitir R'],
     ['token', 'emitir', 'E:casa/EUR', 'ciudad', 'abrir vía'],
-    ['token', 'emitir', 'P:genesis', 'jardín', 'calor'],
   ]);
-  // El génesis no emite T (VG, 8-11: no hay T acumulable): solo sus series de E, P y R.
-  assert.deepEqual([efectos[1].de, efectos[1].a], [null, 'casa']);
+  assert.deepEqual([efectos[3].de, efectos[3].a], [null, 'casa']);
 });
 
 test('lo mismo desde un eje reconstruido, sin tocar nada', async () => {
@@ -435,9 +444,10 @@ test('marco de quien mira: las fases del motor no cambian', async () => {
   const { eje } = await cicloCompleto();
   let fases = 0;
   for (const id of eje.orden) {
-    if (!eje.obtener(id).contexto?.fase) continue;
+    // Encargo 3b: los registros del motor son las propuestas (contexto.motor = fabrica); ya no hay fases escritas.
+    if (eje.obtener(id).contexto?.motor !== 'fabrica') continue;
     fases++;
     assert.deepEqual(efectosDe(eje, id, { marco: [4] }), efectosDe(eje, id));
   }
-  assert.ok(fases >= 3);
+  assert.equal(fases, 1);
 });

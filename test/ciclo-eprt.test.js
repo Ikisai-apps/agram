@@ -4,7 +4,9 @@
 // «Todos son emitidos por una persona individualmente. Siempre es X persona
 // respalda Y recurso concreto, poder de decisión sobre algo, reputación
 // cedida a otros para requerir atención, o tiempo usado por alguien en algo.»
-// «Normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E.»
+// Encargo 3b (VG, 8-11 tarde, mapa §15 [D] N3): «dos secuencias, no dos
+// escalones»: emitir E exige P, emitir P exige R, emitir R exige T; y P no se
+// acuña a mano: se obtiene al escribir, al conseguir E y al recibir R.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -12,13 +14,12 @@ import { Eje, caducada } from '../src/eje.js';
 import { crearEvento, hash, canonico, cuerpo } from '../src/evento.js';
 import { msUTC, esInstante } from '../src/instante.js';
 import { ADELANTO_MAXIMO_MS } from '../src/ciclo.js';
-import { reglasDelCiclo } from '../src/ciclo.js';
 import { validarMovimiento } from '../src/tokens.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { validez } from '../src/validez.js';
 import { generarClaves } from '../src/autoridad.js';
-import { consolidar, autorizar, ejecutar, liberar, estadoDe, puedeAutorizar, recursoDe, FABRICA } from '../src/motor.js';
-import { colateral } from '../src/lente.js';
+import { recuento } from '../src/motor.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 
 const T0 = '2026-11-07T10:00:00Z';
 /**
@@ -35,58 +36,51 @@ const mueveR = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de,
 const emiteP = (persona, ambito, cantidad = 1) => ({ token: 'P', ambito, cantidad, de: null, a: persona });
 const emiteE = (emisor, denominacion, cantidad, extra = {}) => ({ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor, ...extra });
 const mueveE = (emisor, denominacion, cantidad, de, a) => ({ token: 'E', emisor, denominacion, cantidad, de, a });
+/** Un T que no es real (pasado): paga la escritura, pero no cuenta para el escalonado (VG, 8-11). */
+const deMemoria = (de) => ({ token: 'T', escala: 'pasado', cantidad: 1, de, a: null, refiere: '2026-01-01T00:00:00Z' });
 
 /**
- * Ana y bea escriben su propia alta (personas, VG 10-11 B1); la raíz (una
- * persona, con P sobre todo el eje y R propia) les cede minutos y da de alta a
- * la sala (una cosa). No hay identidades de grupo (VG, 8-11).
+ * La raíz (una persona, la primera identidad: escribe el génesis) emite su R y sus minutos; invita a ana y a bea, que
+ * aceptan (su alta, encargo 3b; personas, VG 10-11 B1); la raíz les cede minutos y da de alta a la sala (una cosa). No
+ * hay identidades de grupo (VG, 8-11).
  */
+/** El registro de las altas de cada mundo: lo escribe raiz sobre su génesis y las personas cuelgan de él lo suyo. */
+const ALTAS = new WeakMap();
+
 async function mundo({ t = ALTA } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
-    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
+    emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
     foco: 'Mundo de ejemplo',
     t,
   });
   const g = eje.genesisId;
-  for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, t });
+  for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t });
   const alta = await eje.escribir({ autor: 'raiz', sobre: g, t, payload: 'altas',
     movimientos: [gasta('raiz'), ...['ana', 'bea', 'sala'].map((a) => cedeT('raiz', a, 60))] });
+  ALTAS.set(eje, alta.id);
   return { eje, g, alta };
 }
 
 /**
- * Un registro de una persona sobre el que emite su P con su R en juego (T + R + P): emite 10 de su R, bloquea uno
- * como colateral (R6: la décima parte) y da otro a bea (o a quien se diga).
+ * Un registro de una persona (diez P sobre él por escribirlo: mapa §15 [D] N1) y, sobre él, su R: emite 10 (con T
+ * real, sin colateral: VG, 9-11) y da una a bea (o a quien se diga).
  */
-async function taller(eje, persona, { sobre = eje.genesisId, t = T0, ante = 'bea', payload = 'taller de ' + persona } = {}) {
+// Revisión de seguridad (encargo 3b): escribir sobre el alta de otra identidad (el génesis es el alta de raiz) tiene el
+// precio de su atención; por omisión el taller cuelga del registro de las altas, que no es el alta de nadie que escriba.
+async function taller(eje, persona, { sobre = ALTAS.get(eje) ?? eje.genesisId, t = T0, ante = 'bea', payload = 'taller de ' + persona } = {}) {
   const reg = await eje.escribir({ autor: persona, sobre, t, payload, movimientos: [gasta(persona)] });
-  await eje.escribir({ autor: persona, sobre: reg.id, t, payload: 'poder sobre ' + payload,
-    movimientos: [gasta(persona), emiteR(persona, 10), colateral(persona, 1), mueveR(persona, 1, persona, ante), emiteP(persona, reg.id)] });
+  await eje.escribir({ autor: persona, sobre: reg.id, t, payload: 'reputación en ' + payload,
+    movimientos: [gasta(persona), emiteR(persona, 10), mueveR(persona, 1, persona, ante)] });
   return reg;
 }
-
-/** El contexto que leen las reglas del ciclo, desde el eje público. */
-const contexto = (eje) => ({
-  persona: (id) => eje.esPersona(id),
-  tipo: (id) => eje.tipoV2(id),
-  alta: (id) => eje.alta(id),
-  gastadoT: (id, escala, periodo) => eje.gastadoT(id, escala, periodo),
-  serie: (k) => eje.serie(k),
-  registro: (id) => eje.obtener(id),
-  ambitosQueCubren: (a) => eje.ambitosQueCubren(a),
-  saldo: (id, k) => eje.saldo(id, k),
-  genesisId: eje.genesisId,
-  autorizada: (id) => estadoDe(eje, id) === 'AUTORIZADO',
-  bloqueado: (id, k, salida) => eje.bloqueado(id, k, salida),
-});
 
 // ---------- 1 · solo emiten personas ----------
 
 test('solo emiten personas: una cosa (su alta la escribió otro, B1) no emite', async () => {
   const { eje, alta } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 5), colateral('ana', 0.5)] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 5)] });
   assert.deepEqual(eje.serie('R:ana'), { emisor: 'ana', emitido: 5 });
   await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('sala'), emiteR('sala', 1)] }), /only persons mint: sala is a thing \(its alta was written by raiz\)/);
   // El autor del génesis escribe su propia alta: es una persona. No hay tipo que declarar (B1), tampoco grupo.
@@ -105,14 +99,14 @@ test('no hay identidades de grupo (VG, 8-11): el alta de tipo grupo se rechaza; 
   const v = await validez(eje, { ...altaClub, en: '0000000000', id: 'c' });
   assert.equal(v.permiso.estado, 'falla');
   assert.match(v.permiso.motivos.join(' '), sinGrupos);
-  // El club es un registro de ana: ella emite P sobre él y lo delega a bea (pertenecer es tener ese P).
+  // El club es un registro de ana: tiene P sobre él por escribirlo y lo delega a bea (pertenecer es tener ese P).
   const club = await taller(eje, 'ana', { payload: 'Club' });
   await eje.escribir({ autor: 'ana', sobre: club.id, t: T0, payload: 'bea entra en el club', movimientos: [gasta('ana'), { token: 'P', ambito: club.id, cantidad: 1, de: 'ana', a: 'bea' }] });
   assert.equal(eje.poderSobre('bea', club.id), 1);
   // Con ese P bea pone su R y su P, no los de ana ni los del club: nadie emite a nombre de otro.
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: club.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('ana', 1)] }),
     /(E is minted by and to|R is minted by) its issuer/);
-  await eje.escribir({ autor: 'bea', sobre: club.id, t: T0, payload: 'mi reputación en el club', movimientos: [gasta('bea'), emiteR('bea', 10), colateral('bea', 1)] });
+  await eje.escribir({ autor: 'bea', sobre: club.id, t: T0, payload: 'mi reputación en el club', movimientos: [gasta('bea'), emiteR('bea', 10)] });
   assert.deepEqual(eje.serie('R:bea'), { emisor: 'bea', emitido: 10 });
   // Ni mueve lo de otro, diga lo que diga el contexto (contexto.porCuenta ya no existe).
   const ajeno = { autor: 'bea', sobre: club.id, t: T0, payload: 'x', contexto: { porCuenta: 'ana' }, movimientos: [gasta('bea'), cedeT('ana', 'bea', 1)] };
@@ -145,20 +139,22 @@ test('T: nadie lo emite fuera del génesis; cada persona escribe con su asignaci
   assert.equal(eje.saldoT('sala', 'minuto', T0), 0);
 });
 
-test('el génesis no emite T (VG, 8-11: no hay T acumulable): es el alta de su autor, que vive de su asignación del día', async () => {
+test('el génesis no emite T (VG, 8-11: no hay T acumulable): es la época 0 y el alta de su autor, que vive de su asignación del día', async () => {
+  // Encargo 3b: el génesis no mueve nada; lo que su autor emite va después, por las reglas.
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 600 }], foco: 'g', t: T0 }),
-    /génesis rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día/);
+    /nobody mints T/);
   // Puede no emitir nada: su autor es una persona y tiene ya su día.
   const vacio = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'g', t: T0 });
   assert.deepEqual([vacio.esPersona('raiz'), vacio.alta('raiz'), vacio.saldoT('raiz', 'minuto', T0)], [true, { id: vacio.genesisId, t: T0 }, 1440]);
+  assert.deepEqual(vacio.obtener(vacio.genesisId).movimientos, []);
   const { eje, g } = await mundo({ t: T0 });
   assert.equal(eje.serie('T:minuto').emitido, 0);
   assert.deepEqual(eje.alta('raiz'), { id: g, t: T0 });
-  // El alta gastó un minuto de la asignación del día; no hay T explícito que sumar.
+  // Su emisión, sus dos invitaciones y las altas gastaron cuatro minutos de la asignación del día; no hay T explícito.
   assert.equal(eje.saldo('raiz', 'T:minuto'), 0);
-  assert.equal(eje.saldoT('raiz', 'minuto', T0), 1439);
+  assert.equal(eje.saldoT('raiz', 'minuto', T0), 1436);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'mi minuto', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: 'raiz' }, gasta('raiz')] }), /nobody mints T/);
-  assert.equal(eje.serie('T:minuto').emisor, 'ana'); // en T, quien la consumió primero: ana, al escribir su alta (B1)
+  assert.equal(eje.serie('T:minuto').emisor, 'raiz'); // en T, quien la consumió primero: la raíz, en su emisión
 });
 
 test('T no se bloquea ni se libera (VG, 8-11: no hay T acumulable): bloquear sigue para E, P y R', async () => {
@@ -169,118 +165,70 @@ test('T no se bloquea ni se libera (VG, 8-11: no hay T acumulable): bloquear sig
   await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'T para la sala', movimientos: [gasta('raiz'), daT('raiz', 'sala', 5)] });
   await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('sala'), bloqueaT('sala')] }), /T is not locked/);
   assert.equal(eje.saldoT('sala', 'minuto', T0), 5);
-  // R sí se bloquea (el colateral de R6).
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1)] });
-  assert.equal(eje.bloqueado('ana', 'R:ana', 'R:ana'), 1);
+  // R sí se bloquea (con una salida cualquiera; el colateral de R6 se retiró: VG, 9-11).
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [gasta('ana'), emiteR('ana', 10), { ...mueveR('ana', 1, 'ana', 'ana'), estado: 'bloqueo', salida: 'mañana' }] });
+  assert.equal(eje.bloqueado('ana', 'R:ana', 'mañana'), 1);
 });
 
-// ---------- 3 · emisión escalonada ----------
+// ---------- 3 · emisión escalonada (VG, 8-11 tarde, mapa §15 [D] N3: R exige T, E exige P y R) ----------
 
-test('escalonado: emitir R exige mover T del autor en el mismo evento', async () => {
+test('escalonado: emitir R exige T real del autor en la misma transacción («minting R needs real T»)', async () => {
   const { eje, alta } = await mundo();
-  // Todo evento mueve T (validarForma), así que la regla se comprueba sobre el contexto, con un evento que no lo haría.
-  const sinT = { autor: 'ana', sobre: alta.id, t: T0, movimientos: [emiteR('ana', 1)] };
-  assert.deepEqual(reglasDelCiclo(sinT, contexto(eje)).map((e) => e.texto), ['emitir R exige consumir T del autor en el mismo evento (de = ana, a = null; VG, 7-11 noche)']);
-  const conT = { ...sinT, movimientos: [gasta('ana'), emiteR('ana', 1)] };
-  assert.deepEqual(reglasDelCiclo(conT, contexto(eje)), []);
-  // VG, 7-11 noche: solo el CONSUMO cuenta; darlo a otra identidad ya no (y T no cruza de persona: lo rechaza la forma).
-  assert.match(reglasDelCiclo({ ...sinT, movimientos: [daT('ana', 'bea', 1), emiteR('ana', 1)] }, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
-  // T que recibe no es T que mueve.
-  const recibeT = { ...sinT, movimientos: [daT('raiz', 'ana', 1), emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(recibeT, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
-  // Ni T que no cuesta nada: dárselo a sí misma, o bloquearlo y liberarlo en el mismo evento (revisión, m1).
-  const aSiMisma = { ...sinT, movimientos: [daT('ana', 'ana', 1), emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(aSiMisma, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
+  // Pagar la escritura con T informativo vale, pero no cuenta para emitir R.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [deMemoria('ana'), emiteR('ana', 1)] }), /minting R needs real T: ana mints R without burning real T/);
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'de memoria', movimientos: [deMemoria('ana')] });
+  // Con un minuto real, sí; y sin colateral (VG, 9-11: se retira el colateral de la #75).
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [gasta('ana'), emiteR('ana', 1)] });
+  assert.deepEqual(eje.serie('R:ana'), { emisor: 'ana', emitido: 1 });
+  // T que no cuesta nada (dárselo a sí misma, bloquearlo y liberarlo) no paga la escritura: lo rechaza la forma.
   const salida = 'cuando quiera';
-  const bloqueaYLibera = { ...sinT, movimientos: [
-    { ...daT('ana', 'ana', 1), estado: 'bloqueo', salida }, { ...daT('ana', 'ana', 1), estado: 'liberacion', salida }, emiteR('ana', 1)] };
-  assert.match(reglasDelCiclo(bloqueaYLibera, contexto(eje)).map((e) => e.texto).join(' '), /emitir R exige consumir T del autor/);
-  // En el eje lo rechaza ya la forma: el evento no consume T de su autor.
-  await assert.rejects(eje.escribir({ ...bloqueaYLibera, payload: 'x' }), /escribir consume T del autor/);
-  // El génesis no pasa por el escalonado.
-  assert.deepEqual(reglasDelCiclo(eje.obtener(eje.genesisId), contexto(eje)), []);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [daT('ana', 'ana', 1), emiteR('ana', 1)] }), /escribir consume T del autor/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [
+    { ...daT('ana', 'ana', 1), estado: 'bloqueo', salida }, { ...daT('ana', 'ana', 1), estado: 'liberacion', salida }, emiteR('ana', 1)] }), /escribir consume T del autor/);
+  // La validez lo dice igual.
+  const v = await validez(eje, await crearEvento({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [deMemoria('bea'), emiteR('bea', 1)] }));
+  assert.match(v.permiso.motivos.join(' '), /minting R needs real T/);
 });
 
-test('escalonado: emitir P exige R propia en juego: R:<autor> bloqueada como colateral de su serie (R6)', async () => {
+// VG, 8-11 (mapa §15 [D] «P como peso de criterio»): se retira «el autor de X acuña P:X» y el P del génesis; nadie emite P
+// a mano: se obtiene (N1, N2) y se reposiciona por el árbol. Lo de R6 («emitir P exige R propia en juego») cae con él.
+test('P no se acuña a mano: escribir un registro da diez P sobre él; quien solo tiene P lo transfiere', async () => {
   const { eje } = await mundo();
-  // Emitir R exige colateral: sin él, no; con la décima parte bloqueada en el mismo evento (la primera emisión), sí.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteR('ana', 10)] }),
-    /emitir R:ana exige colateral: R:ana bloqueada con la salida «R:ana», al menos 1 \(1\/10 de lo emitido, 10\); hay 0 \(R6\)/);
-  const reg = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'taller', movimientos: [gasta('ana')] });
-  const intento = (movimientos) => eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'poder', movimientos: [gasta('ana'), ...movimientos, emiteP('ana', reg.id)] });
-  // Sin R propia, no hay nada en juego.
-  await assert.rejects(intento([]), /emitir P exige R propia en juego: R:ana bloqueada como colateral \(salida «R:ana»\), al menos la décima parte de lo emitido de R:ana/);
-  // Darla a otra identidad o al registro ya no la pone en juego: R6 pide colateral.
-  await assert.rejects(intento([emiteR('ana', 10), mueveR('ana', 1, 'ana', 'bea')]), /emitir P exige R propia en juego/);
-  await assert.rejects(intento([emiteR('ana', 10), mueveR('ana', 1, 'ana', reg.id)]), /emitir P exige R propia en juego/);
-  // Bloquearla con otra salida tampoco.
-  await assert.rejects(intento([emiteR('ana', 10), { ...mueveR('ana', 1, 'ana', 'ana'), estado: 'bloqueo', salida: 'nunca' }]), /emitir P exige R propia en juego/);
-  // R ajena no es propia: la raíz le da R:raiz, y ana no la puede bloquear (solo devolverla).
-  await eje.escribir({ autor: 'raiz', sobre: reg.id, t: T0, payload: 'confío en ana', movimientos: [gasta('raiz'), colateral('raiz', 1), mueveR('raiz', 1, 'raiz', 'ana')] });
-  await assert.rejects(intento([{ ...mueveR('raiz', 1, 'ana', 'ana'), estado: 'bloqueo', salida: 'R:raiz' }]), /R no es fungible/);
-  // Con la décima parte bloqueada como colateral, en el mismo evento, sí.
-  await intento([emiteR('ana', 10), colateral('ana', 1)]);
-  assert.equal(eje.poderSobre('ana', reg.id), 1);
-  assert.equal(eje.bloqueado('ana', 'R:ana', 'R:ana'), 1);
-  // Y el colateral sigue en juego después: otro registro suyo, sin mover R en el evento.
-  const otro = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'otro taller', movimientos: [gasta('ana')] });
-  await eje.escribir({ autor: 'ana', sobre: otro.id, t: T0, payload: 'poder', movimientos: [gasta('ana'), emiteP('ana', otro.id)] });
-  assert.equal(eje.poderSobre('ana', otro.id), 1);
-  // Si amplía su R, el colateral ha de seguir cubriendo la décima parte: 20 emitidos piden 2 bloqueados.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: otro.id, t: T0, payload: 'más R', movimientos: [gasta('ana'), emiteR('ana', 10)] }), /al menos 2 .* hay 1 \(R6\)/);
-  // Liberarlo por debajo de la décima parte no vale, ni para emitir P en el mismo evento.
-  const tercero = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'tercer taller', movimientos: [gasta('ana')] });
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: tercero.id, t: T0, payload: 'x',
-    movimientos: [gasta('ana'), { ...colateral('ana', 1), estado: 'liberacion' }, emiteP('ana', tercero.id)] }), /emitir P exige R propia en juego.*el colateral de R:ana no baja de 1/);
-});
-
-test('P fuera del génesis: lo acuña solo quien escribió el registro; quien solo tiene P lo transfiere', async () => {
-  const { eje, alta } = await mundo();
   const reg = await taller(eje, 'ana');
-  assert.equal(eje.poderSobre('ana', reg.id), 1);
-  assert.equal(eje.serie('P:' + reg.id).emisor, 'ana');
-  // Sobre un registro ajeno, no.
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('bea', 2), colateral('bea', 1), mueveR('bea', 1, 'bea', 'ana'), emiteP('bea', reg.id)] }),
-    /P sobre [0-9a-f]{8} lo acuña solo quien escribió el registro \(ana\): bea puede transferir el P que tenga, no acuñarlo/);
-  // Ni sobre todo el eje ni sobre un ámbito que no existe.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', 'genesis')] }), /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', 'f'.repeat(64))] }), /P fuera del génesis va sobre un registro existente: ámbito desconocido ffffffff/);
-  // La emisión de P va a quien la emite; para darla, se mueve después.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), { ...emiteP('ana', reg.id), a: 'bea' }] }), /la emisión de P va a quien la emite: ana/);
-  // Ana delega P en bea; bea no acuña más con él (revisión, M1: con 1 P delegado acuñaba sin límite), pero puede
-  // transferir el que tiene, conservando la cantidad.
+  assert.equal(eje.poderSobre('ana', reg.id), 10);
+  const aMano = /P is repositioned one step at a time/;
+  // Ni sobre un registro propio, ni sobre uno ajeno, ni sobre todo el eje.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteP('ana', reg.id)] }), aMano);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteP('bea', reg.id)] }), aMano);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteP('ana', 'genesis')] }), /P moves within a known scope/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteP('ana', 'f'.repeat(64))] }), /P moves within a known scope/);
+  // Ana delega P en bea; bea transfiere el que tiene, conservando la cantidad, y no más.
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea ayuda', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('bea', 2), colateral('bea', 1), mueveR('bea', 1, 'bea', 'ana'), emiteP('bea', reg.id)] }),
-    /P sobre [0-9a-f]{8} lo acuña solo quien escribió el registro \(ana\): bea puede transferir el P que tenga, no acuñarlo/);
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 2, de: 'bea', a: 'raiz' }] }), /saldo insuficiente de P/);
   await eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'bea delega', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'bea', a: 'raiz' }] });
-  assert.equal(eje.poderSobre('raiz', reg.id), 6); // 5 del génesis + 1 que le pasó bea
-  assert.equal(eje.poderSobre('bea', reg.id), 0);
-  assert.equal(eje.serie('P:' + reg.id).emitido, 1); // lo emitido no crece al transferir
-  void alta;
+  assert.deepEqual([eje.poderSobre('raiz', reg.id), eje.poderSobre('bea', reg.id), eje.poderSobre('ana', reg.id)], [1, 0, 9]);
 });
 
-test('escalonado: emitir E exige T, R propia en juego y P del autor sobre el registro del evento', async () => {
-  const { eje } = await mundo();
+test('escalonado: emitir E exige P de quien acuña sobre el registro de la serie y R propia emitida (D2), sin colateral', async () => {
+  const { eje, alta } = await mundo();
   const reg = await taller(eje, 'ana');
-  const mesa = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mesa', movimientos: [gasta('ana')] });
-  // Con todo: sobre el taller, donde tiene P, y con su colateral de R bloqueado (R6).
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'clases', movimientos: [gasta('ana'), emiteE('ana', 'clase', 3)] });
-  assert.equal(eje.saldo('ana', 'E:ana/clase'), 3);
-  // Sin R propia en juego, no: bea tiene P delegado sobre el taller, pero no ha emitido R ni bloqueado colateral.
+  // Con todo: sobre el taller, donde tiene P, y con su R emitida.
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'clases', movimientos: [gasta('ana'), emiteE('ana', 'clase', 3, { registro: reg.id })] });
+  assert.equal(eje.saldo('ana', 'E:ana/clase@' + reg.id), 3);
+  // Sin R propia emitida, no: bea tiene P delegado sobre el taller, pero no ha emitido R.
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea ayuda', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteE('bea', 'clase', 1)] }), /emitir E exige R propia en juego/);
-  // Sobre la mesa no tiene P: no.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: mesa.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteE('ana', 'clase', 1)] }),
-    /emitir E exige P del autor sobre el registro [0-9a-f]{8} \(saldo o movimiento de P en el mismo evento\)/);
-  // Con P en juego en el mismo evento (lo emite sobre la mesa, que es suya), sí.
-  await eje.escribir({ autor: 'ana', sobre: mesa.id, t: T0, payload: 'clases en la mesa', movimientos: [gasta('ana'), emiteP('ana', mesa.id), emiteE('ana', 'clase', 1)] });
-  assert.equal(eje.serie('E:ana/clase').emitido, 4);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteE('bea', 'clase', 1, { registro: reg.id })] }), /minting E needs own R issued: bea mints E and has never issued R of its own/);
+  // Atada a las altas de la raíz, donde ana no tiene P: no.
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteE('ana', 'clase', 1, { registro: alta.id })] }),
+    /minting E needs P on its record: ana mints E on a record where it has no P/);
+  // Sin registro nombrado, la serie va atada a su alta, donde tiene P por escribirla.
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bonos', movimientos: [gasta('ana'), emiteE('ana', 'bono', 1)] });
+  assert.equal(eje.registroDe('E:ana/bono'), eje.alta('ana').id);
   // El escalonado se cuenta en validez igual que en el eje.
-  const borrador = await crearEvento({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteE('bea', 'clase', 1)] });
+  const borrador = await crearEvento({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteE('bea', 'clase', 1, { registro: reg.id })] });
   const v = await validez(eje, borrador);
   assert.equal(v.permiso.estado, 'falla');
-  assert.match(v.permiso.motivos.join(' '), /emitir E exige R propia en juego/);
+  assert.match(v.permiso.motivos.join(' '), /minting E needs own R issued/);
 });
 
 // ---------- 4 · bloquear y liberar ----------
@@ -334,29 +282,33 @@ test('bloquear y liberar: del disponible al bloqueado con su salida, y vuelta; s
   assert.deepEqual(otro.bloqueos('ana'), eje.bloqueos('ana'));
 });
 
-// ---------- 5 · R: obligación del emisor y devolución ----------
+// ---------- 5 · R: obligación del emisor, transferible y quemable (VG, 9-11, mapa §15 [D] «R según el corpus») ----------
 
-test('R: la obligación del emisor es su R en manos ajenas; quien la tiene solo puede devolvérsela', async () => {
+test('R: la obligación del emisor es su R en manos ajenas; se pasa entre tenedores, se devuelve (pedir atención) y se perdona (quemar)', async () => {
   const { eje, alta } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 5), colateral('ana', 0.5)] });
-  assert.equal(eje.obligaciones('ana'), 0); // en su cartera (y su colateral) no obliga a nada
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 5)] });
+  assert.equal(eje.obligaciones('ana'), 0); // en su cartera no obliga a nada
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'confío en bea', movimientos: [gasta('ana'), mueveR('ana', 2, 'ana', 'bea')] });
   assert.equal(eje.obligaciones('ana'), 2);
-  // Bea no la pasa a otro ni la consume.
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('bea'), mueveR('ana', 1, 'bea', 'sala')] }), /R no es fungible: solo la mueve su emisor ana; quien la tiene solo puede devolvérsela/);
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('bea'), mueveR('ana', 1, 'bea', null)] }), /R no es fungible/);
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('bea'), { ...mueveR('ana', 1, 'bea', 'bea'), estado: 'bloqueo', salida: 's' }] }), /R no es fungible/);
+  // Bea la pasa a la sala (se corrige la #62: sin sustituir al emisor); la obligación de ana no cambia.
+  await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'una para la sala', movimientos: [gasta('bea'), mueveR('ana', 1, 'bea', 'sala')] });
+  assert.deepEqual([eje.saldo('bea', 'R:ana'), eje.saldo('sala', 'R:ana'), eje.obligaciones('ana')], [1, 1, 2]);
   // Un mensaje no emite R: escribir solo mueve T.
   await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'ana, ¿me atiendes?', movimientos: [gasta('bea')] });
   assert.equal(eje.serie('R:ana').emitido, 5);
-  // Pedir atención: bea le devuelve un R a ana. La obligación baja.
+  // Pedir atención: bea le devuelve su R a ana. La obligación baja.
   await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'te pido atención', movimientos: [gasta('bea'), mueveR('ana', 1, 'bea', 'ana')] });
   assert.equal(eje.obligaciones('ana'), 1);
-  assert.deepEqual([eje.saldo('ana', 'R:ana'), eje.saldo('bea', 'R:ana')], [3.5, 1]); // medio R queda bloqueado como colateral (R6)
-  // El emisor sí puede consumir la suya.
+  // Perdonar (VG, 9-11, «R, últimas dos»): la sala (una cosa: escribe con el T que le da la raíz) quema la suya sin
+  // devolverla; la obligación se extingue.
+  await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: 'T para la sala', movimientos: [gasta('raiz'), daT('raiz', 'sala', 5)] });
+  await eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, payload: 'te la perdono', movimientos: [gasta('sala'), mueveR('ana', 1, 'sala', null)] });
+  assert.equal(eje.obligaciones('ana'), 0);
+  assert.deepEqual([eje.saldo('ana', 'R:ana'), eje.saldo('bea', 'R:ana')], [4, 0]);
+  // El emisor también puede consumir la suya.
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'retiro una', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', null)] });
-  assert.equal(eje.saldo('ana', 'R:ana'), 2.5);
-  assert.deepEqual(validarMovimiento(mueveR('ana', 1, 'bea', 'ana')), []);
+  assert.equal(eje.saldo('ana', 'R:ana'), 3);
+  assert.deepEqual(validarMovimiento(mueveR('ana', 1, 'bea', 'sala')), []);
 });
 
 // ---------- 6 · caducidad de E ----------
@@ -400,19 +352,19 @@ test('caducidad: un campo del contrato de la serie de E, que fija su primera emi
 
 // ---------- 7 · el ciclo completo ----------
 
-test('ciclo completo: T → R → P → E (ejecución) y E → P → R → T (liquidación)', async () => {
+test('ciclo completo: T → R → P → E y E → P → R → T (liquidación)', async () => {
   const { eje, alta } = await mundo();
   const mediodia = '2026-11-07T12:00:00Z';
   // T: ana y bea tienen su asignación del día (VG, 8-11): no emiten nada.
-  // T + R: ana respalda su reputación.
-  const rep = await eje.escribir({ autor: 'ana', sobre: alta.id, t: mediodia, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 10), colateral('ana', 1)] });
-  // T + R + P: escribe su taller y emite poder sobre él, cediendo un R a bea para que pueda requerir su atención.
+  // T + R: ana respalda su reputación (sin colateral: VG, 9-11).
+  const rep = await eje.escribir({ autor: 'ana', sobre: alta.id, t: mediodia, payload: 'mi reputación', movimientos: [gasta('ana'), emiteR('ana', 10)] });
+  // T + R + P: escribe su taller (diez P sobre él: mapa §15 [D] N1) y cede un R a bea para que pueda requerir su atención.
   const tallerAna = await eje.escribir({ autor: 'ana', sobre: rep.id, t: mediodia, payload: 'Taller de cerámica', movimientos: [gasta('ana')] });
-  await eje.escribir({ autor: 'ana', sobre: tallerAna.id, t: mediodia, payload: 'decido sobre mi taller', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', tallerAna.id, 2)] });
+  await eje.escribir({ autor: 'ana', sobre: tallerAna.id, t: mediodia, payload: 'decido sobre mi taller', movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea')] });
   // T + R + P + E: respalda tres plazas de clase, que caducan a fin de mes.
   await eje.escribir({ autor: 'ana', sobre: tallerAna.id, t: mediodia, payload: 'tres plazas de clase',
     movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteE('ana', 'clase', 3, { caduca: '2026-11-30T00:00:00Z' })] });
-  assert.deepEqual([eje.saldo('ana', 'E:ana/clase'), eje.poderSobre('ana', tallerAna.id), eje.obligaciones('ana')], [3, 2, 2]);
+  assert.deepEqual([eje.saldo('ana', 'E:ana/clase'), eje.poderSobre('ana', tallerAna.id), eje.obligaciones('ana')], [3, 10, 2]);
 
   // Vuelta. E: bea toma una plaza y paga con tiempo. T no cruza de persona (VG, 7-11 noche: «recibir T solo es un
   // registro de una cantidad de tiempo; podemos hacer que se transforme en E»): paga con E en minutos, los que la
@@ -443,29 +395,30 @@ test('ciclo completo: T → R → P → E (ejecución) y E → P → R → T (li
 
 // ---------- 8 · bloquear P ----------
 
-test('bloquear P: de la clave exacta, solo lo disponible y propio; lo bloqueado no da poder hasta liberarlo', async () => {
+test('bloquear P: de la clave exacta, solo lo disponible y propio; bloqueado con la salida = una decisión, es comprometerse (mapa §15 [D] (5))', async () => {
   const { eje } = await mundo();
   const reg = await taller(eje, 'ana');
   const salida = 'hasta que bea entregue el inventario';
   const bloqueoP = (de, cantidad, s = salida) => ({ token: 'P', ambito: reg.id, cantidad, de, a: de, estado: 'bloqueo', salida: s });
-  // La raíz cubre el taller con su P sobre todo el eje, pero bloquear va por la clave exacta, sin plan de débito por ámbitos.
-  assert.ok(eje.poderSobre('raiz', reg.id) > 0);
+  // La raíz no tiene P sobre el taller de ana (ya no hay P del génesis que lo cubra).
+  assert.equal(eje.poderSobre('raiz', reg.id), 0);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('raiz'), bloqueoP('raiz', 1)] }),
     /saldo disponible insuficiente para bloquear P:[0-9a-f]{64} en raiz/);
   // Ni más de lo que tiene, ni lo de otra.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueoP('ana', 2)] }), /saldo disponible insuficiente para bloquear/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueoP('ana', 11)] }), /saldo disponible insuficiente para bloquear/);
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), bloqueoP('ana', 1)] }), /nobody moves tokens of others/);
-  // Bloqueado, el P no se delega ni autoriza.
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'reservo mi poder', movimientos: [gasta('ana'), bloqueoP('ana', 1)] });
-  assert.deepEqual([eje.poderSobre('ana', reg.id), eje.bloqueado('ana', 'P:' + reg.id, salida)], [0, 1]);
+  // Bloqueado, el P sigue posicionado allí, pero no se da hasta liberarlo.
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'reservo mi poder', movimientos: [gasta('ana'), bloqueoP('ana', 10)] });
+  assert.deepEqual([eje.saldo('ana', 'P:' + reg.id), eje.bloqueado('ana', 'P:' + reg.id, salida), eje.poderSobre('ana', reg.id)], [0, 10, 10]);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] }), /saldo insuficiente de P/);
-  const c = await consolidar(eje, { autor: 'bea', foco: reg.id, t: T0, elecciones: { 1: 'otra mesa' } });
-  assert.equal(puedeAutorizar(eje, 'ana', c.id), false);
-  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /ana no tiene P que cuente para autorizar/);
   // Liberar exige la misma salida (declarada, no verificable todavía: [X] decidir VG).
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1, 'otra'), estado: 'liberacion' }] }), /no hay 1 de P:[0-9a-f]{64} bloqueado en ana con la salida «otra»/);
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'inventario entregado', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1), estado: 'liberacion' }] });
-  assert.equal(puedeAutorizar(eje, 'ana', c.id), true);
+  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'inventario entregado', movimientos: [gasta('ana'), { ...bloqueoP('ana', 10), estado: 'liberacion' }] });
+  // Comprometerse con una decisión (sobre su taller, con su criterio por defecto: solo cuenta la dueña) es bloquear con su id.
+  const decision = await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: '¿abro los sábados?', movimientos: [gasta('ana')] });
+  assert.equal(recuento(eje, decision.id).pasa, false);
+  await eje.escribir({ autor: 'ana', sobre: decision.id, t: T0, payload: 'sí', movimientos: [gasta('ana'), bloqueoP('ana', 5, decision.id)] });
+  assert.equal(recuento(eje, decision.id).pasa, true);
 });
 
 // ---------- 9 · el reloj: ningún evento antes que su foco ni que el alta de su autor ----------
@@ -478,8 +431,8 @@ test('el t de un evento no es anterior al de su foco ni al alta de su autor ([X]
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: nota.id, t: '2026-11-07T10:30:00Z', payload: 'x', movimientos: [gasta('bea')] }),
     /not before its focus/);
   // El alta toma el t del evento que la hace: cris entra a las 11:00 y no escribe antes, ni sobre un foco más antiguo.
-  // B1 (VG, 10-11): la persona escribe su propia alta.
-  for (const id of ['cris']) await eje.entrar({ identidad: id, sobre: alta.id, t: tarde });
+  // Encargo 3b: la persona escribe su propia alta aceptando la invitación de la raíz.
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'cris', t: tarde });
   await eje.escribir({ autor: 'raiz', sobre: alta.id, t: tarde, payload: 'alta de cris', movimientos: [gasta('raiz'), cedeT('raiz', 'cris', 10)] });
   assert.equal(eje.alta('cris').t, tarde);
   await assert.rejects(eje.escribir({ autor: 'cris', sobre: alta.id, t: '2026-11-07T10:30:00Z', payload: 'x', movimientos: [gasta('cris')] }),
@@ -534,8 +487,8 @@ test('t es un instante ISO-8601 estricto con zona explícita, y se compara en UT
 
 /** Ana da de alta a un títere: una persona que controla ella. */
 async function conTitere(eje, alta, { minutos = 10, t = T0 } = {}) {
-  // B1 (VG, 10-11): el títere escribe su propia alta (es una persona; la invitación que la encauza es del 3b) y ana le cede minutos.
-  await eje.entrar({ identidad: 'titere', sobre: alta.id, t });
+  // Encargo 3b: ana invita al títere y él acepta (su alta: es una persona); después ana le cede minutos.
+  await entrarPorInvitacion(eje, { por: 'ana', quien: 'titere', t });
   await eje.escribir({ autor: 'ana', sobre: alta.id, t, payload: 'minutos para un títere', movimientos: [gasta('ana'), cedeT('ana', 'titere', minutos, 'raiz')] });
 }
 
@@ -567,150 +520,62 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
   await assert.rejects(eje.escribir({ autor: 'titere', sobre: eje.genesisId, t: viejo, payload: 'x', movimientos: [gasta('titere')] }), /not before the writer joined: titere/);
 });
 
-// VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye la regla de Core de esta revisión («solo
-// cuenta el P sobre un registro del hilo que el autor no escribió»): el P del autor cuenta como cualquier otro, y lo
-// que decide es el P sobre el registro del recurso, no quién lo bloquea. VG, 8-11: el registro del recurso es el más
-// cercano del hilo del foco con P propio emitido (la raíz del dominio solo donde nadie ha emitido P por debajo, y el
-// génesis solo donde nadie ha emitido P); con la salvedad del autor (Core, [X]): por debajo de la raíz solo cuenta un
-// registro de la cadena de autoridad del dueño (escrito por el autor de la raíz o por quien tiene P delegado de ella).
-test('NEU-03 (revisión de la #62) el títere que autoriza: no da nada; el subregistro propio con P no es el registro del recurso', async () => {
+// VG, 8-11 (mapa §15 [D] «P como peso de criterio»): se retira autorizar con umbral (autorizacion.js), el registro del
+// recurso y la salvedad del autor. Lo que se conserva es la neutralidad: «solo cuenta el P de quien el dueño nombra,
+// ponderado por él». El títere no cuenta en lo ajeno, y lo que ana hace en lo suyo es suyo.
+test('NEU-03 (revisión de la #62) el títere que decide: en el recuento de la raíz solo cuenta quien ella nombra', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30, t: ALTA }); // un mes antes: el reloj del títere le da para escribir
-  // En el dominio de la raíz (sus altas), ana escribe un registro suyo, acuña P sobre él y se lo delega al títere.
+  // En el dominio de la raíz (sus altas), ana escribe un registro suyo (diez P) y le pasa P al títere.
   const suyo = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo mío', movimientos: [gasta('ana')] });
-  await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'poder sobre lo mío',
-    movimientos: [gasta('ana'), emiteR('ana', 1), colateral('ana', 0.1), emiteP('ana', suyo.id), { token: 'P', ambito: suyo.id, cantidad: 1, de: 'ana', a: 'titere' }] });
-  assert.equal(eje.poderSobre('titere', suyo.id), 1);
-  const c = await consolidar(eje, { autor: 'ana', foco: suyo.id, t: T0, elecciones: { 1: 'me lo apruebo' } });
-  // Su registro tiene P propio, pero ana no es la dueña de las altas ni tiene P delegado de ellas: se salta. Las altas no
-  // tienen P propio, así que manda el génesis, con el P del eje. Ni ana ni el títere lo tienen.
-  assert.equal(recursoDe(eje, c.id), eje.genesisId);
-  assert.equal(puedeAutorizar(eje, 'titere', c.id), false);
-  await assert.rejects(autorizar(eje, { autorizante: 'titere', consolidacion: c.id, t: T0 }),
-    /titere no tiene P que cuente para autorizar: cuenta el P sobre el registro del recurso [0-9a-f]{8}, que no tiene P propio emitido/);
-  // Escrita a mano, sin bloquear P, la autorización existe pero no cuenta, y no se ejecuta.
-  await eje.escribir({ autor: 'titere', sobre: c.id, en: FABRICA, t: T0, payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' }, movimientos: [gasta('titere')] });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  // Un subregistro del títere debajo, con su P propio, tampoco cuenta.
-  const delTitere = await eje.escribir({ autor: 'titere', sobre: suyo.id, t: T0, payload: 'lo del títere', movimientos: [gasta('titere')] });
-  await eje.escribir({ autor: 'titere', sobre: delTitere.id, t: T0, payload: 'poder del títere',
-    movimientos: [gasta('titere'), emiteR('titere', 1), colateral('titere', 0.1), emiteP('titere', delTitere.id)] });
-  const debajo = await consolidar(eje, { autor: 'ana', foco: delTitere.id, t: T0, elecciones: { 1: 'otra cosa mía' } });
-  assert.equal(recursoDe(eje, debajo.id), eje.genesisId);
-  assert.equal(puedeAutorizar(eje, 'titere', debajo.id), false);
-  // Lo positivo: la raíz bloquea su P del eje (5 de 5) y ana ejecuta; lo bloqueado por la raíz queda liberable.
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  assert.deepEqual(a.contexto.autoridad.bloquea, [{ clave: 'P:genesis', cantidad: 5 }]);
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  assert.equal(eje.bloqueado('raiz', 'P:genesis', c.id), 5);
-  await liberar(eje, { titular: 'raiz', consolidacion: c.id, t: T0 });
-  assert.equal(eje.saldo('raiz', 'P:genesis'), 5);
-  // En su propio dominio (un registro suyo sobre el génesis) ana se autoriza con su P: el del autor cuenta.
-  const propio = await taller(eje, 'ana', { ante: 'titere' });
-  const enLoPropio = await consolidar(eje, { autor: 'ana', foco: propio.id, t: T0, elecciones: { 1: 'lo decido yo' } });
-  assert.equal(recursoDe(eje, enLoPropio.id), propio.id);
-  await autorizar(eje, { autorizante: 'ana', consolidacion: enLoPropio.id, t: T0 });
-  assert.equal(estadoDe(eje, enLoPropio.id), 'AUTORIZADO');
+  await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'para el títere', movimientos: [gasta('ana'), { token: 'P', ambito: suyo.id, cantidad: 5, de: 'ana', a: 'titere' }] });
+  assert.equal(eje.poderSobre('titere', suyo.id), 5);
+  // Una decisión de la raíz sobre sus altas, con su criterio: cuenta ella sola (por defecto) o a quien nombre.
+  const decision = await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: ['¿Ampliamos?', ['x'], [['decidir'], ['x'], ['threshold'], ['raiz']]], movimientos: [gasta('raiz')] });
+  for (const quien of ['ana', 'titere']) {
+    await eje.escribir({ autor: quien, sobre: decision.id, t: T0, payload: 'sí', movimientos: [gasta(quien), { token: 'P', ambito: suyo.id, cantidad: 5, de: quien, a: quien, estado: 'bloqueo', salida: decision.id }] });
+  }
+  assert.deepEqual([recuento(eje, decision.id).valor, recuento(eje, decision.id).pasa], [0, false]);
+  // Lo positivo: la raíz compromete su P sobre la decisión (diez, por escribirla).
+  await eje.escribir({ autor: 'raiz', sobre: decision.id, t: T0, payload: 'sí', movimientos: [gasta('raiz'), { token: 'P', ambito: decision.id, cantidad: 10, de: 'raiz', a: 'raiz', estado: 'bloqueo', salida: decision.id }] });
+  assert.equal(recuento(eje, decision.id).pasa, true);
+  // En lo suyo, ana decide con su criterio: su propia decisión, sin lista, la cuenta a ella.
+  const propia = await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'lo decido yo', movimientos: [gasta('ana')] });
+  await eje.escribir({ autor: 'ana', sobre: propia.id, t: T0, payload: 'sí', movimientos: [gasta('ana'), { token: 'P', ambito: propia.id, cantidad: 10, de: 'ana', a: 'ana', estado: 'bloqueo', salida: propia.id }] });
+  assert.equal(recuento(eje, propia.id).pasa, true);
 });
 
-test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo transfiere, no lo acuña ni lo estrecha hacia una serie cerrada', async () => {
+test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo transfiere; no lo acuña ni hay P del eje que estrechar', async () => {
   const { eje } = await mundo();
   const reg = await taller(eje, 'ana');
   const g = eje.genesisId;
-  // La raíz delega en bea P sobre todo el eje.
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'bea ayuda', movimientos: [gasta('raiz'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'raiz', a: 'bea' }] });
-  const intento = (ambito) => eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('bea', 2), mueveR('bea', 1, 'bea', 'ana'), emiteP('bea', ambito)] });
-  // El ataque: con P:genesis delegado, acuñar P:<id del génesis>, que es todo el eje. Y tampoco sobre lo que cubre.
-  await assert.rejects(intento(g), /P sobre [0-9a-f]{8} lo acuña solo quien escribió el registro \(raiz\): bea puede transferir el P que tenga, no acuñarlo/);
-  await assert.rejects(intento('genesis'), /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
-  await assert.rejects(intento(reg.id), /lo acuña solo quien escribió el registro \(ana\)/);
-  // R3 (VG, 7-11 noche): P:<taller> es una serie cerrada (ana ya la emitió). Estrechar hacia ella el P del eje la
-  // ampliaría sin pasar por ana: no vale. Antes (#62) se aceptaba.
-  const estrecha = (ambito) => eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'paso mi poder', movimientos: [gasta('bea'), { token: 'P', ambito, cantidad: 1, de: 'bea', a: 'sala' }] });
-  await assert.rejects(estrecha(reg.id), /P:[0-9a-f]{8} es una serie cerrada: se delega el P:[0-9a-f]{8} que se tiene \(0\); estrecharlo desde un ámbito más amplio la ampliaría \(R3\)/);
-  // Hacia la raíz de un dominio sin P propio, solo estrecha su autor; hacia un registro que no es raíz, cualquiera.
-  const raizSinP = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'otro dominio de ana', movimientos: [gasta('ana')] });
-  await assert.rejects(estrecha(raizSinP.id), /estrechar P hacia [0-9a-f]{8}, la raíz de un dominio, es solo de quien la escribió \(ana\): bea delega el P que tiene con su ámbito \(R3\)/);
-  const hoja = await eje.escribir({ autor: 'ana', sobre: raizSinP.id, t: T0, payload: 'una mesa', movimientos: [gasta('ana')] });
-  await estrecha(hoja.id);
-  assert.deepEqual([eje.poderSobre('bea', reg.id), eje.poderSobre('sala', hoja.id)], [0, 1]);
-  assert.deepEqual([eje.serie('P:genesis').emitido, eje.serie('P:' + reg.id).emitido], [5, 1]);
+  // La raíz delega en bea P sobre su génesis (el suyo, por escribirlo): es P sobre ese registro, no sobre todo el eje.
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'bea ayuda', movimientos: [gasta('raiz'), { token: 'P', ambito: g, cantidad: 1, de: 'raiz', a: 'bea' }] });
+  assert.equal(eje.poderSobre('bea', reg.id), 0);
+  const aMano = /P is repositioned one step at a time/;
+  // Acuñar con él, en ningún sitio.
+  for (const ambito of [g, reg.id]) {
+    await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteR('bea', 2), emiteP('bea', ambito)] }), aMano);
+  }
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteP('bea', 'genesis')] }), /P moves within a known scope/);
+  // «Estrechar» ya no existe (mapa §15 [D] N7: solo subir y bajar): el P del génesis no se transfiere como P del taller.
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'paso mi poder', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'bea', a: 'sala' }] }), /saldo insuficiente de P sobre/);
+  // Reposicionar sí: bajar un paso, del génesis a las altas, deja una décima más.
+  // (Bea ya tenía P sobre el génesis: el de la R y los minutos de la raíz que recibió, mapa §15 [D] N2.)
+  const altas = eje.sobre(g).find((x) => x.payload === 'altas');
+  const antes = eje.poderSobre('bea', g);
+  // Sobre el registro de las altas: sobre el génesis (el alta de raiz) tendría el precio de su atención (revisión de
+  // seguridad, encargo 3b).
+  await eje.escribir({ autor: 'bea', sobre: altas.id, t: T0, payload: 'bajo', movimientos: [gasta('bea'), { token: 'P', ambito: g, cantidad: 1, de: 'bea', a: null }, emiteP('bea', altas.id, 1.1)] });
+  assert.deepEqual([antes - eje.poderSobre('bea', g), eje.poderSobre('bea', altas.id)], [1, 1.1]);
 });
 
-test('R3: P:X la emite una sola vez su autor; ampliarla es ejecutar una consolidación sobre X que esté AUTORIZADA', async () => {
-  const { eje } = await mundo();
-  const reg = await taller(eje, 'ana'); // ana emite P:taller (1) con su R en juego ante bea
-  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
-  // Una segunda emisión suelta no vale: la serie está cerrada.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'más poder', movimientos: amplia() }),
-    /P:[0-9a-f]{8} es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre [0-9a-f]{8} que esté AUTORIZADA \(R3\)/);
-  // Ana delega su P en bea: ahora la ampliación la decide bea (1 de 1), no ana.
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
-  assert.equal(recursoDe(eje, c.id), reg.id);
-  // Pendiente, ni ejecutándola vale la emisión.
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) }), /PENDIENTE DE AUTORIZACIÓN/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'a mano', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id] }, movimientos: amplia(2) }),
-    /P:[0-9a-f]{8} es una serie cerrada/);
-  await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
-  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
-  assert.equal(eje.saldo('ana', 'P:' + reg.id), 2);
-  // Ejecutada, ya no amplía otra vez: la misma autorización no sirve dos veces.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra vez', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id] }, movimientos: amplia(2) }),
-    /P:[0-9a-f]{8} es una serie cerrada/);
-  // La capa 5 lo reconoce: la ejecución contó con la consolidación AUTORIZADA justo antes.
-  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
-  // Sobre el génesis, P:genesis y P:<id> son la misma serie: la raíz no la amplía sin una consolidación autorizada.
-  const g = eje.genesisId;
-  const ampliaG = [gasta('raiz'), colateral('raiz', 1), emiteP('raiz', g)]; // su R en juego: el colateral (R6)
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, payload: 'más poder', movimientos: ampliaG }), /es una serie cerrada/);
-  const cg = await consolidar(eje, { autor: 'raiz', foco: g, t: T0, titulo: 'Ampliar el P del eje', elecciones: { 1: 'uno más' } });
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: cg.id, t: T0 });
-  await ejecutar(eje, { autor: 'raiz', consolidacion: cg.id, t: T0, movimientos: ampliaG.slice(1) });
-  assert.deepEqual([eje.serie('P:genesis').emitido, eje.serie('P:' + g).emitido], [5, 1]);
-  // La ejecución libera lo que bloqueó su autor para autorizar; queda su colateral de R (R6), que es otra cosa.
-  assert.deepEqual(eje.bloqueos('raiz').map((b) => [b.clave, b.salida, b.cantidad]), [['R:raiz', 'R:raiz', 1]]);
-});
+// Se retiran «R3: P:X la emite una sola vez su autor; ampliarla es ejecutar una consolidación AUTORIZADA», SEG-01 y SEG-04
+// (la ampliación de P por consolidación): VG, 8-11, mapa §15 [D] «Desaparece: el autor de X acuña P:X; P del génesis
+// sobre todo el eje; el motor con autorizar/ejecutar como pasos». No hay serie P:X cerrada que ampliar: el P se obtiene
+// al escribir, al conseguir E y al recibir R, y se reposiciona (src/ciclo.js ya no lleva PP-2, PP-3, PP-5 ni R3).
 
-// ---------- SEG-01..03 (revisión de main 7-11 noche) ----------
-
-test('SEG-01 (revisión de main 7-11 noche) ampliar P:X exige una ejecución real (con evidencia que resuelve) y una consolidación respalda una sola ampliación', async () => {
-  const { eje } = await mundo();
-  const reg = await taller(eje, 'ana');
-  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
-  const a = await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  // Una «ejecución» que solo lo dice: en la fábrica, del autor, fase ejecutado, sin evidencia. Antes ampliaba.
-  const falsa = (contexto, payload) => eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload, contexto: { motor: 'fabrica', fase: 'ejecutado', ...contexto }, movimientos: amplia(2) });
-  await assert.rejects(falsa({}, 'sin evidencia'), /es una serie cerrada.*\(R3\): una ejecución lleva su evidencia \(contexto\.evidencia\), y esta no la lleva/);
-  await assert.rejects(falsa({ evidencia: [] }, 'evidencia vacía'), /y esta no la lleva/);
-  // Con una referencia que no resuelve (así no contaba como ejecución y se repetía sin fin), tampoco.
-  await assert.rejects(falsa({ evidencia: [c.id, 'f'.repeat(64)] }, 'evidencia rota'), /la evidencia cita ffffffff, que no está en el eje/);
-  // Ni con evidencia que no cita la consolidación.
-  await assert.rejects(falsa({ evidencia: [a.id] }, 'otra evidencia'), /la evidencia no cita la consolidación [0-9a-f]{8}/);
-  assert.equal(eje.serie('P:' + reg.id).emitido, 1);
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  // La ampliación legítima sigue pasando.
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
-  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
-  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
-  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
-  // Una segunda sobre la misma consolidación, con evidencia que resuelve: rechazada, ya respaldó una.
-  await assert.rejects(falsa({ evidencia: [c.id, a.id] }, 'otra vez'), /la consolidación [0-9a-f]{8} ya respaldó una ampliación: respalda una sola/);
-  // Las reglas del ciclo lo dicen igual aunque el contexto la diera por AUTORIZADA: manda el índice.
-  const otra = await crearEvento({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra más', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id, a.id] }, movimientos: amplia(2) });
-  const ctx = { ...contexto(eje), tMaximo: () => eje.tMaximo(), autorizada: () => true };
-  assert.match(reglasDelCiclo(otra, { ...ctx, ampliada: (id) => id === c.id }).map((x) => x.texto).join('; '), /ya respaldó una ampliación/);
-  assert.doesNotMatch(reglasDelCiclo(otra, { ...ctx, ampliada: () => false }).map((x) => x.texto).join('; '), /serie cerrada/);
-  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
-});
+// ---------- SEG-02 (revisión de main 7-11 noche) ----------
 
 test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no es de demostración: la exención de clave vale solo en su prefijo', async () => {
   const g = await crearEvento({ autor: 'raiz', sobre: null, t: T0, payload: 'Viejo',
@@ -738,42 +603,6 @@ test('SEG-02 (revisión de main 7-11 noche) un eje migrado de la versión 2 no e
   await demo.escribir({ autor: 'raiz', sobre: gDemo.id, t: T0, payload: 'nuevo', movimientos: [gasta('raiz')] });
 });
 
-// ---------- SEG-04 (revisión de seguridad de la #73) ----------
-
-test('SEG-04 (revisión de la #73) la consolidación solo se consume al ampliar de verdad: emitir P por primera vez en su fábrica no la gasta', async () => {
-  const { eje } = await mundo();
-  const reg = await taller(eje, 'ana');
-  const amplia = (cantidad = 1) => [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', reg.id, cantidad)];
-  await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea decide', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  const c = await consolidar(eje, { autor: 'ana', foco: reg.id, t: T0, titulo: 'Ampliar el P del taller', elecciones: { 1: 'dos P más' } });
-  const a = await autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 });
-  const ejecutado = { motor: 'fabrica', fase: 'ejecutado' };
-  // Otra identidad escribe en la fábrica de c un «ejecutado» que emite por primera vez P sobre un registro suyo:
-  // es legítimo (P:<suyo> no estaba emitida) y antes bastaba para dar c por usada.
-  const deBea = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'rincón de bea', movimientos: [gasta('bea')] });
-  await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, payload: 'me cuelo', contexto: { ...ejecutado, evidencia: [c.id, a.id] },
-    movimientos: [gasta('bea'), emiteR('bea', 10), colateral('bea', 1), mueveR('bea', 1, 'bea', 'ana'), emiteP('bea', deBea.id)] });
-  // Y la autora de c, en su fábrica, emite por primera vez P:Y sobre otro registro suyo (con una evidencia que no
-  // resuelve, así que no cuenta como ejecución de c): tampoco amplía nada.
-  const Y = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'otro registro de ana', movimientos: [gasta('ana')] });
-  await eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'primer P de Y', contexto: { ...ejecutado, evidencia: [c.id, 'f'.repeat(64)] },
-    movimientos: [gasta('ana'), mueveR('ana', 1, 'ana', 'bea'), emiteP('ana', Y.id)] });
-  assert.deepEqual([eje.serie('P:' + deBea.id).emitido, eje.serie('P:' + Y.id).emitido, eje.serie('P:' + reg.id).emitido], [1, 1, 1]);
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  // Ninguno de los dos consumió c: la ampliación legítima sigue siendo posible, y la capa 5 lo reconoce.
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: amplia(2).slice(1) });
-  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
-  assert.equal((await validez(eje, e.id)).capas[4].estado, 'ok');
-  // Una sola vez: esa sí la consumió.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: c.id, en: FABRICA, t: T0, payload: 'otra vez', contexto: { ...ejecutado, evidencia: [c.id, a.id] }, movimientos: amplia(2) }),
-    /la consolidación [0-9a-f]{8} ya respaldó una ampliación: respalda una sola/);
-  assert.equal(eje.serie('P:' + reg.id).emitido, 3);
-  // El eje reconstruido desde sus eventos dice lo mismo.
-  const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
-  assert.deepEqual(otro.orden, eje.orden);
-  assert.equal(otro.serie('P:' + reg.id).emitido, 3);
-});
-
 // ---------- 11 · un eje de la versión 2 se restaura con sus reglas ----------
 
 test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, con las de ahora', async () => {
@@ -794,7 +623,7 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   const laxo = { ...laxoCuerpo, id: await hash(canonico(cuerpo(laxoCuerpo))) };
   const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g, viejo, laxo] }));
   // Con las reglas nuevas no entraría.
-  await assert.rejects(restaurar({ ...v2, version: 3 }), /génesis rechazado: T no se emite/);
+  await assert.rejects(restaurar({ ...v2, version: 3 }), /génesis rechazado: el génesis no mueve nada/); // encargo 3b: es la época 0
   const eje = await restaurar(v2);
   assert.equal(eje.eventosV2, 3);
   assert.equal(eje.esDeV2(laxo.id), true);

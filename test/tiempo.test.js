@@ -4,7 +4,7 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import * as tiempo from '../src/tiempo.js';
 import { banda, ejeTemporal, HITOS } from '../src/tiempo.js';
 import * as bases from '../src/bases.js';
-import { consolidar } from '../src/motor.js';
+import { consolidar, ANUNCIO } from '../src/motor.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 
@@ -23,6 +23,9 @@ test('eje temporal: pasado hacia atrás, futuro con proyecciones, consolidacione
   const ahora = '2026-11-07T15:00:00Z';
   const viernes = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-13T13:30:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:30:00Z', elecciones: { 1: 'dos menús' } });
+  // Encargo 3b: una propuesta es futuro mientras su plantilla de cerrado no la dé por cerrada (mapa §15 [D] N5): la
+  // huésped anuncia en su 4.1 un pago que aún no ha hecho, así que sigue abierta.
+  await eje.escribir({ autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T14:30:00Z', movimientos: [gastaT('huesped')], payload: [['E:casa/EUR'], [12], ['pagar'], [['huesped'], ['cocina']]] });
   const e = ejeTemporal(eje, compra.id, { ahora });
   assert.deepEqual(e.pasado.map((x) => x.id).slice(0, 3), [c.id, cuenta.id, menu.id]); // lo más cercano primero
   assert.equal(e.pasado[0].banda, 'hora');
@@ -31,7 +34,7 @@ test('eje temporal: pasado hacia atrás, futuro con proyecciones, consolidacione
   assert.equal(e.futuro[1].id, viernes.id);
   assert.equal(e.futuro[1].banda, 'semana'); // seis días
   assert.equal(e.futuro[0].id, c.id);
-  assert.equal(e.futuro[0].estado, 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(e.futuro[0].cerrado, false);
   // La propia consolidación es también un escrito pasado (14:30 < 15:00): no se duplica por id+tipo.
   assert.ok(e.pasado.some((x) => x.id === c.id && x.tipo === 'registro'));
 });

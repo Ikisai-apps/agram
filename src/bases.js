@@ -273,36 +273,23 @@ export function identidadDe(eje, id) {
 /**
  * Poder (P) de una identidad sobre un registro con lo llegado ANTES de un
  * evento, no con el de hoy: la validez de una base no cambia porque después
- * se delegue o se gaste el poder. Repite el débito del eje (src/eje.js: del
- * ámbito exacto a los que lo cubren) sobre los movimientos de P anteriores, y
- * suma, como eje.poderSobre, los ámbitos que cubren el registro (el eje entero
- * o un registro de su hilo).
- * [X] decidir VG: el poder se mira al escribir la base (aquí) y no hoy (como
- * mira el motor para autorizar).
+ * se reposicione o se gaste el poder. Es el P posicionado en ese registro
+ * (encargo 3b, mapa §15: ya no hay P del génesis ni P que cubra lo de
+ * debajo), disponible y bloqueado, sumado del diario del libro hasta el
+ * evento: lo que se acuña (también la obtención) o se recibe, menos lo que se
+ * da o se quema.
+ * [X] decidir VG: el poder se mira al escribir la base (aquí) y no hoy.
  */
 function poderAntes(eje, identidad, registro, evId) {
-  const saldo = new Map();
-  for (const id of eje.orden) {
-    if (id === evId) break;
-    for (const m of eje.obtener(id).movimientos) {
-      if (m.token !== 'P') continue;
-      if (m.de === identidad) {
-        let resta = m.cantidad;
-        for (const a of eje.ambitosQueCubren(m.ambito)) {
-          const hay = saldo.get(a) ?? 0;
-          if (hay <= 0) continue;
-          const usa = Math.min(hay, resta);
-          saldo.set(a, hay - usa);
-          resta -= usa;
-          if (resta <= 0) break;
-        }
-      }
-      if (m.a === identidad) saldo.set(m.ambito, (saldo.get(m.ambito) ?? 0) + cantidadBase(m));
-    }
-  }
-  const hilo = new Set(eje.hilo(registro).map((e) => e.id));
+  const hasta = eje.orden.indexOf(evId);
   let total = 0;
-  for (const [a, c] of saldo) if (c > 0 && (a === AMBITO_GENESIS || hilo.has(a))) total += c;
+  for (const a of eje.libro.asientos({ serie: 'P:' + registro, ...(hasta >= 0 ? { hasta } : {}) })) {
+    if (a.primitiva === 'acunar' && a.a === identidad) total += a.cantidad;
+    else if (a.primitiva === 'transferir') {
+      if (a.a === identidad) total += a.cantidad;
+      if (a.de === identidad) total -= a.cantidad;
+    } else if (a.primitiva === 'quemar' && a.de === identidad) total -= a.cantidad;
+  }
   return total;
 }
 

@@ -1,0 +1,19 @@
+[
+  ["getting E gives ten P on its record"],
+  ["epoch.1.1.4.1"],
+  ["=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and it.3.1 != it.0.0.1 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"],
+  ["ev.1 each 3.1"],
+  ["put", "mint"],
+  ["*"],
+  [
+    "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+    "§15 [D] (1): «conseguir E sobre un recurso da P sobre él»; diez unidades (N1: las mismas que escribir un registro propio)",
+    "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+    "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
+    "Cada transferencia de E que llega a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
+    "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y registro, sea cual sea la serie o la denominación (las series las crea cualquiera: contarlas por serie no tendría límite), venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo); ni a uno mismo, ni al emisor de la serie, ni a quien aún no tiene alta. El libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js): la misma E pasando de mano en mano da P una vez a cada mano"
+  ],
+  ["epoch 0"],
+  ["after writing a record gives ten P on it"],
+  ["getting E gives ten P on its record: who receives E gets {first epoch.1.1.4.1} P on the record of its series"]
+]

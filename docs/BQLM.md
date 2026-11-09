@@ -2,10 +2,10 @@
 
 El BQL mínimo es el álgebra con la que se escriben las condiciones de las reglas de la época: traer posiciones, aplicar una posición a cada elemento, filtrar, contar, sumar y comparar. Viene de dos decisiones de VG (mapa §15 y §16, 9-11): «todo son reglas», escritas en BQL y leídas desde la época, no desde código; y «BQL es un lenguaje para manejar la matriz de BTML», con un léxico de palabras cortas en inglés. Lo que sea «escoger algo concreto» (el día de una fecha, la familia de una serie, la cartera de alguien) no es una función: es una **posición** que el contexto despliega.
 
-Este documento describe lo que existe en `src/bqlm.js` (el analizador y el evaluador) y `src/contexto-eje.js` (el contexto sobre el eje). `src/bql.js` (BQL V0, `docs/BQL.md`) sigue igual. Las reglas de la época 0 (§6 y §10) son registros de la época (§5) y, desde el encargo 3a (VG, 10-11), están conectadas al eje: cada una es una condición de la transacción (`src/condiciones/reglas.js`), y las condiciones de JavaScript que sustituyen se retiraron (`docs/notas/CAPA_CERO.md` §3). Pruebas: `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`, `test/reglas-bqlm.test.js` (cada regla de la época frente a su condición JS) y, de la revisión de seguridad, `test/seguridad-bqlm.test.js` (SEG-09 a SEG-12: el payload no fabrica movimientos ni «nadie»; el presupuesto de ocupantes; las salidas y series con nombres reservados, `__proto__`, `constructor`, `prototype`, que la validación de movimientos rechaza y el libro guarda como claves propias).
+Este documento describe lo que existe en `src/bqlm.js` (el analizador y el evaluador) y `src/contexto-eje.js` (el contexto sobre el eje). `src/bql.js` (BQL V0, `docs/BQL.md`) sigue igual. Las reglas de la época 0 (§6 y §10) son registros de la época (§5) y, desde el encargo 3a (VG, 10-11), están conectadas al eje: cada una es una condición de la transacción (`src/condiciones/reglas.js`), y las condiciones de JavaScript que sustituyen se retiraron (`docs/notas/CAPA_CERO.md` §3). El encargo 3b (VG, 8-11 y 9-11, mapa §15 y §16) añade las reglas que escriben (`put`, §1 y §5: la obtención de P), las del P como peso de criterio, la atención con precio y la invitación (§10), y las vistas que leen (§4: el criterio `A.2`, los grupos de atención `A.3`, los compromisos `X.2.4`). Pruebas: `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`, `test/reglas-bqlm.test.js` (cada regla de la época frente a su condición JS), `test/reglas-3b.test.js` (cada regla del 3b en positivo y en negativo, y sus propiedades) y, de la revisión de seguridad, `test/seguridad-bqlm.test.js` (SEG-09 a SEG-12: el payload no fabrica movimientos ni «nadie»; el presupuesto de ocupantes; las salidas y series con nombres reservados, `__proto__`, `constructor`, `prototype`, que la validación de movimientos rechaza y el libro guarda como claves propias).
 
 ```js
-import { analizar, evaluar, evaluarRegla, leerRegla, esLectura, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, POR_LIMITE, SIMBOLOS, NADIE, esSimbolo, Presupuesto, Parada, pendiente, porLimite } from './src/bqlm.js';
+import { analizar, evaluar, evaluarRegla, evaluarEscritura, leerRegla, esLectura, esEscritura, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, POR_LIMITE, SIMBOLOS, NADIE, esSimbolo, Presupuesto, Parada, pendiente, porLimite } from './src/bqlm.js';
 import { ContextoEje, NADIE, primitivaDe, desplegarFecha, desplegarSerie, desplegarValor } from './src/contexto-eje.js';
 import { cargarEpocaBtml, EPOCA_0_BTML } from './src/epocas.js';
 ```
@@ -29,8 +29,9 @@ Exacto y nada más. Cualquier otro nombre da ERROR «no es BQL mínimo: «X»»;
 | literales | `12`, `2.5`, `"texto"` | |
 | símbolos | `mint transfer lock release burn`, `E P R T` | símbolos del libro: se leen por su nombre, pero no son texto (`burn = "burn"` es falso; §3) |
 | nombres | `ev`, `epoch`, `before` | la transacción candidata, el registro de la época, el libro de antes |
+| colocar | `put v at X.d.(k)` | solo en una regla que escribe (`put` en su 4): anota «v en la posición d.(k) de cada X» y vale verdadero (§5) |
 
-`put v at X.d` (colocar, solo para reglas que escriben) está en el léxico del mapa pero no en este encargo: hoy da «no es BQL mínimo».
+`put` y `at` entraron en el encargo 3b (mapa §16 [D]: «put v at X.d, colocar, solo reglas que escriben»). El destino no se lee: es dónde se escribe, y termina siempre en un índice por valor, la clave de lo que se coloca (`put 10 at (first ev.3).2.1.(first ev.5)`: diez en la entrada del registro `ev.5` del P posicionado de quien escribe). Fuera de una regla que escribe, `put` es ERROR («put: solo en una regla que escribe»).
 
 ## 2. Gramática
 
@@ -44,6 +45,7 @@ suma        := producto (('+' | '-') producto)*
 producto    := prefija (('*' | '/') prefija)*
 prefija     := ('first' | 'last' | 'count' | 'sum' | 'max' | 'min' | 'floor' | 'up' | 'down' | 'path' | '-') prefija
              | 'nth' prefija prefija
+             | 'put' suma 'at' posfija                  el destino acaba en '.' '(' expresión ')'
              | posfija
 posfija     := primaria ('.' dígitos | '.' '(' expresión ')' | 'each' dígitos)*
 dígitos     := dígito ('.' dígito)*                    cada dígito, uno solo: ev.12 es un error («escribe 1.2»)
@@ -89,7 +91,7 @@ El evaluador no sabe nada del eje: pregunta a un **contexto** con esta interfaz.
 | Código | Qué despliega | Posiciones |
 |---|---|---|
 | D-META | un evento (la candidata o un registro del eje) | 3 autor y firmante (el segundo ocupante, siempre: `NADIE` si no va firmado; lo del payload va detrás), 5 su id («nadie» si aún no lo tiene) y las claves públicas que declara, cada una con su huella en el 0, su titular en el 3 y su prueba de posesión en el 4 (el 5 de un evento es solo suyo: ni el payload ni lo anclado lo ocupan), 6.0 t, 6.5 sobre y en, 1 los movimientos, que colisionan con lo que el payload tenga en su 1 |
-| D-MOV | un movimiento | 0 su serie (un registro: D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya; la salida vale su texto y, si nombra una serie que existe, es la referencia a su registro), 3.0 de, 3.1 a (null es el símbolo «nadie», `NADIE`), 4 la primitiva, un símbolo (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E), 7.0 la caducidad y 7.1 la fecha a la que se refiere (B3: ya no comparten posición), 9 nota |
+| D-MOV | un movimiento | 0 su serie (un registro: D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya; la salida vale su texto y, si nombra una serie que existe, es la referencia a su registro), 3.0 de, 3.1 a (null es el símbolo «nadie», `NADIE`), 4 la primitiva, un símbolo (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E; sin registro nombrado, el alta de su emisor: D2), 7.0 la caducidad y 7.1 la fecha a la que se refiere (B3: ya no comparten posición), 9 nota |
 | D-SERIE | una serie de tokens, que es un registro (VG, 10-11, B3) | 0 su clave legible, que vale la clave de texto del libro (su clave interna) y se lee por partes: 0.0 familia (un símbolo del libro), 0.1 la escala de T como dígito (segundo 0 … año 6, pasado 7, futuro 8, inventado 9), el emisor (E, R) o el ámbito (P), 0.2 denominación; 1.0 lo emitido y 1.1 lo consumido, hasta antes de la candidata; 2 el contrato de E: 2.0 «divisible» si lo es, 2.7 su caducidad; 3 sus emisores (E, R); 5 el registro al que está atada (E); 7 su franja (E). La materializa el libro como vista (`eje.serie`, `eje.registroDe`, las sumas de lo quemado); la de una serie que nace en la candidata sale de su primera emisión |
 | D-FECHA | un instante ISO con zona | k = el número de periodo de la escala k desde 1970-01-01T00:00Z, en UTC: 0 segundo, 1 minuto, 2 hora, 3 día civil (`tokens.diaCivil`), 4 semana, 5 ciclo de 28 días, 6 año |
 | D-VALOR | un terminal «12 EUR» o «EUR 12» (con espacio) | 1 cuánto, 2 unidad; solo lectura |
@@ -103,9 +105,13 @@ Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro 
 | Posición | Qué es | De dónde sale |
 |---|---|---|
 | `A.1` | la cartera de la identidad A: un ocupante por serie con algo disponible o bloqueado; cada uno, 0 la serie, 1 lo disponible, 2 lo bloqueado, un ocupante por salida (0 la salida, 1 cuánto) | `eje.libro.vista` (la capa cero, `docs/notas/CAPA_CERO.md`) |
+| `A.2` | el **criterio** de A (encargo 3b, mapa §15 [D] «P como peso de criterio»): `A.2.1` su P posicionado, una entrada por registro sobre el que tiene P (0 el registro, 1 cuánto, disponible y bloqueado, 2 lo bloqueado por salida, 3 su titular, 4 lo disponible, 8 su cuota en el dominio, la lectura «share», §5); `A.2.3` las personas cuyos criterios adopta (la lente de criterios: los nombres que A escribe en el 2.3 de su alta, en el payload o anclados ahí por ella). `A.2.1.(r)` es la entrada del registro r | `eje.libro.vista`, `eje.alta`, `eje.sobre` |
+| `A.3` | los **grupos de atención** de A (mapa §16 [D] «PV3 = regla de atención»), uno por zona, en su orden: las seis de la época (`epoch.1.2.1`: desconocidos 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5) y las que A abra con un precio propio. Cada grupo: 0 su nombre, 1 su zona, 2 su precio (`[[en qué], [cuánto]]`: el de la época y, detrás, lo que A ancla en el `3.k.2` de su alta; manda el último), 3 quiénes (lo que A ancla en el `3.k.3` de su alta). Solo cuenta lo que ancla A | `epoch.1.2.1`, `eje.sobreDe` |
 | `A.6` | el alta de la identidad A: el registro que abrió su cuenta (`epoch.3.6`, «pasado: de dónde viene»); `A.6.6.0` es su t y `A.6.3` su autor. Sin alta en el eje, nada | `eje.alta`, `eje.obtener` |
+| `A.8.1` | su obligación: la R de A en manos de otros (la lectura «obligation», §5; antes `A.3.1`) | §5 |
 | `A.7.e` | el T de la escala e (0-6) gastado de la asignación del día civil de `ev.6.0.3`: consumido o dado a una cosa; en las escalas informativas (7-9), nada | `eje.gastadoT` |
 | `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad. Lo vivo caduca con el **reloj de la caducidad**: el menor entre `ev.6.0` y el reloj de los demás (`before.6.3`); sin los demás, nada caduca (SEG-03, SEG-05, RL-4; como `src/condiciones/tope.js`) | `eje.series`, `eje.vivo`, `eje.tMaximo` |
+| `X.2.4` | los **compromisos** con el registro X (mapa §15 [D] (5): «comprometer = bloquear con salida la decisión»): lo bloqueado por cualquiera con la salida = el id de X; cada uno, 0 la serie, 1 cuánto, 3 su titular, 5 la decisión (X), 8 su peso (la lectura «weight», §5). El resto del 2 de X es su payload | `eje.bloqueosCon` |
 | `X.7.1` | las series de E vivas de **todo el subárbol** de X (X y lo que cuelga de él), con el mismo reloj; cada una como en `X.1` (B6). El resto del 7 implícito son las lecturas que la época pone ahí (`X.7.4`, §5) | `eje.series`, `eje.hilo`, `eje.vivo` |
 | `S.1.0`, `S.1.1` | de una serie S (la de un movimiento, `ev.1.0`, la de una entrada de la cartera, `A.1.0`, o la que nombra una salida): lo emitido y lo consumido hasta antes de la candidata (el `S.8` del encargo 2) | `eje.serie`, `libro.sumas` |
 | `before.1` | los registros del libro, por llegada | `eje.orden` |
@@ -113,6 +119,7 @@ Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro 
 | `before.3` | las identidades del libro | `eje.identidades` |
 | `before.5` | el génesis | `eje.genesisId` |
 | `before.6.0` | el mayor t del libro | `eje.tMaximo` |
+| `epoch` por su id | la raíz de la época (`EPOCA_0_BTML.id`), referenciada desde un registro (el 2 de una invitación, `{ ref }`), se alcanza como `epoch` | `cargarEpocaBtml(…, { id })` |
 | `before.9` | cómo es este libro: «demostración» si su génesis lo marca (sin clave se escribe; R9) | `eje.demostracion` |
 | `before.6.3` | el **reloj de los demás** (B6): el mayor t del libro entre las identidades que no son el autor de la candidata ni emiten la E que ella acuña; nada si no hay ninguna | `eje.tMaximo(excluidos)` |
 
@@ -126,16 +133,22 @@ No hay tipo de identidad (VG, 10-11, B1): persona o cosa se lee del 3 de su alta
 
 **Las reglas son registros** (VG, 10-11, A1: «Correcto»). Cada regla es su propio registro: una décupla del molde con las diez posiciones llenas, en `datos/epocas/reglas/<su 0 en kebab>.json`, con un id estable, el hash de su cuerpo canónico (como el de un evento: `hash(canonico(regla))`). El 2 de la época es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla, sin páginas ni tope de diez, en el orden que dice el 8 de cada una; la época es el registro raíz más los registros de sus reglas, referenciados. `npm run epocas` reescribe ese 2 desde `datos/epocas/reglas/` y genera `datos/epocas/epocas.js`; el cargador resuelve cada referencia (`cargarEpocaBtml(raíz, { registros, correcciones })`) y rechaza la que no resuelve. `EPOCA_0_BTML.condiciones` da las reglas en ese orden, `reglasConId` cada una con su id. Leídas con el BQL mínimo, `epoch.2` da los registros de las reglas (el contexto sigue la referencia, §4), que valen su id: `(first epoch.2).0` es el nombre de la primera, `(nth k epoch.2).2` la condición de la k-ésima (desde 0) y `epoch.2.0` los nombres de todas.
 
-**Las lecturas son reglas** (VG, 10-11, B5). «present», «informative», «attended» y «obligation» son registros de la época como las demás reglas, en el mismo 2 y en la misma cadena del 8, con `read` en su 4. No son condiciones: no se cuelgan de las transacciones (`EPOCA_0_BTML.condiciones` no las lleva; `EPOCA_0_BTML.lecturas` sí, y `evaluarRegla` las rechaza). Su 2 es una fórmula «=…» en la que `it` es lo que se lee (un registro, la candidata o una identidad), así que su primer `where` da `it2`; su 3 dice **dónde se materializa**: el contexto pone lo que da la lectura en esa posición del sujeto, y las demás reglas la leen ahí, por su posición, sin repetir la fórmula (`leerRegla(regla, sujeto, contexto)` la evalúa a mano). No hace falta ninguna palabra nueva en el léxico.
+**Las lecturas son reglas** (VG, 10-11, B5). «present», «informative», «attended», «obligation» y, desde el encargo 3b, «share» y «weight» son registros de la época como las demás reglas, en el mismo 2 y en la misma cadena del 8, con `read` en su 4. No son condiciones: no se cuelgan de las transacciones (`EPOCA_0_BTML.condiciones` no las lleva; `EPOCA_0_BTML.lecturas` sí, y `evaluarRegla` las rechaza). Su 2 es una fórmula «=…» en la que `it` es lo que se lee (un registro, la candidata o una identidad), así que su primer `where` da `it2`; su 3 dice **dónde se materializa**: el contexto pone lo que da la lectura en esa posición del sujeto, y las demás reglas la leen ahí, por su posición, sin repetir la fórmula (`leerRegla(regla, sujeto, contexto)` la evalúa a mano). No hace falta ninguna palabra nueva en el léxico.
 
 | Lectura | Dónde | Qué da | Lo mismo que |
 |---|---|---|---|
 | present | `X.6.1` (de dónde viene, cuánto) | si el registro quema T real de su autor (una escala que el calendario mide), o es el génesis | `evento.esPresente` |
 | informative | `X.6.7` (de dónde viene, para cuándo) | si quema T de una escala que el calendario no mide (pasado, futuro, inventado) | `ciclo.esInformativoT` en alguno de sus movimientos |
-| attended | `X.7.4` (futuro, qué se hace) | si devuelve R a su emisor y un registro de ese emisor la cita en su 6.4 | `lente.devoluciones(…).atencion` |
-| obligation | `A.3.1` (grupos de atención y R, cuánto) | la R de la identidad en manos de otros, disponible o bloqueada | `eje.obligaciones` |
+| attended | `X.7.4` (futuro, qué se hace) | si devuelve R a su emisor y ese emisor ancló sobre él un registro suyo con T real (presente): pedir atención y atenderla (mapa §15 [D] «R según el corpus»; el criterio de cada uno por su PV2 sigue [X] VG) | `lente.devoluciones(…).atencion` |
+| obligation | `A.8.1` (frente a otros, cuánto) | la R de la identidad en manos de otros, disponible o bloqueada | `eje.obligaciones` |
+| share | `A.2.1.8` (en cada entrada del P posicionado) | la parte de su P en el dominio del registro que tiene en él: P de A en r ÷ P de A en el dominio de r, el árbol que cuelga del registro más alto del hilo de r escrito por su dueño (mapa §15 [D] (3): «cada persona se lee como su 100 %, por dominio») | `motor.peso` |
+| weight | `X.2.4.8` (en cada compromiso con X) | presión ÷ 9 × lo comprometido ÷ el P de su titular en el dominio de X; 0 si no es P o si su P no está en ese dominio. La presión la fija el dueño de X en el 2.3 de X: un nombre cuenta 9 (`epoch.9.0.0.4`), «nombre 5» su presión, «cualquiera» abre a todos; sin lista, solo cuenta el dueño (N4) | `motor.recuento` |
 
-Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del libro por llegada, y `X.6.4`, lo que un registro atiende (los ids de su `contexto.atiende`). Por ejemplo, los registros no presentes del libro son `before.1 where not first it.6.1`. `test/lecturas-bqlm.test.js` comprueba cada lectura contra su función JS en los registros de los ejemplos.
+Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del libro por llegada, y `X.6.4`, lo que un registro atiende (los ids de su `contexto.atiende`; «attended» ya no lo usa desde el 3b: atender es anclarse sobre la petición). Por ejemplo, los registros no presentes del libro son `before.1 where not first it.6.1`. `test/lecturas-bqlm.test.js` comprueba cada lectura contra su función JS en los registros de los ejemplos.
+
+**Las reglas que escriben** (encargo 3b; mapa §15 [D] N1, N2 y N3: «la obtención»). «writing a record gives ten P on it», «getting E gives ten P on its record» y «receiving R gives ten P on the root of its issuer» llevan `put` en su 4: no son condiciones (`EPOCA_0_BTML.condiciones` no las lleva; `EPOCA_0_BTML.escrituras` sí, y `evaluarRegla` las rechaza) ni lecturas. `evaluarEscritura(regla, contexto)` evalúa su 2 sobre la candidata y devuelve `{ estado, escrituras, motivo }`, con las colocaciones `[{ sujeto, camino, clave, valor }]` que anotan sus `put`; lo que vale la fórmula no cuenta. El eje (`src/eje.js`, la obtención) traduce cada colocación en `A.2.1.(r)`, el P posicionado, en una acuñación de `P:r` a A en la misma transacción, después de sus movimientos, con la clase «obtencion» y por etiqueta el nombre de la regla; otras colocaciones no se asientan. **Una obtención no se repite** (revisión de seguridad del 3b): el libro no acuña dos veces la misma regla para el mismo titular y el mismo registro, ni en la misma transacción ni después, así que un ir y venir de R entre dos identidades no acuña P sin fin ([X] confirmar VG: VG dijo que «la cantidad de P es irrelevante»; la no repetición quita el ruido). Así nadie acuña P a mano: el P se obtiene o se reposiciona («P is repositioned one step at a time», §10.1).
+
+**Las plantillas del motor** (encargo 3b, paso 2: el ciclo como una sola operación) también son BQL mínimo en la época, en su 9, evaluadas con `it` = el registro X: el recuento (`epoch.9.0.0`: «weighted sum», «weighted mean» y «threshold»; el umbral por defecto, 0, en su 2, y la presión máxima, 9, en su 4), «cerrado» (`epoch.9.0.1`: «all announced movements happened», que el dueño de X nombra en el 2 de X), la zona de quien no está en ningún grupo (`epoch.9.0.2`) y «siguiente» (`epoch.9.0.3`: «what is missing» y las plantillas de transacción «move what was announced» y «commit P»); el orden del tutorial es `epoch.9.1`. Las lee `src/motor.js` (`docs/MOTOR.md`).
 
 **Corregir una regla** no la modifica en sitio: se añade un ocupante a su registro, en la posición que corrige, con un archivo de `datos/epocas/correcciones/` `{ "sobre": <id de la regla>, "en": <la posición, un dígito>, "ocupante": <lo nuevo>, "de": <de dónde viene> }`. El registro de la regla y su id no cambian; el cargador pone el ocupante detrás de lo suyo y `evaluarRegla` lee el último ocupante del 2 (la condición) y del 9 (el mensaje). Así una regla corregida sigue siendo la misma regla, con su historia en sus ocupantes.
 
@@ -146,12 +159,12 @@ Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del 
 | | Lleva |
 |---|---|
 | 0 nombre | `writing burns today's T` |
-| 1 constantes | `1` (al menos una quema), `7` (la primera escala sin asignación), `epoch.1.3.1` (dónde están las asignaciones) |
+| 1 constantes | `1` (al menos una quema), `epoch.7.0` (qué escalas mide el calendario: las que tienen asignación; A3), `epoch.1.3.1` (dónde están las asignaciones) |
 | 2 condición | la fórmula de abajo |
 | 3 a quién | `ev.3`: quien escribe |
 | 4 qué primitiva vigila | `burn`, `transfer` (dar T a una cosa también gasta la asignación) |
 | 5 dónde cuelga | `*`: toda transacción |
-| 6 de dónde viene | VG, 7-11 noche (escribir consume T del autor) y VG, 8-11 (T como asignación diaria) |
+| 6 de dónde viene | VG, 7-11 noche (escribir consume T del autor), VG, 8-11 (T como asignación diaria), A3 (el calendario de la época), B1 (la asignación es de las personas) y A2 (sin excepción para el génesis) |
 | 7 desde qué época | `epoch 0` |
 | 8 orden | `first` |
 | 9 mensaje | `writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})` |
@@ -159,16 +172,20 @@ Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del 
 La condición:
 
 ```text
-=(count (ev.1 where T in it.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1
-  and count (ev.1 where T in it.0.0 and it.0.1 < 7 and it.3.0 = first ev.3 and it.3.1 != first ev.3
-      and sum ((ev.1 where T in it2.0.0 and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1)
-        > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0)
- or count up ev = 0
+=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1
+  and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)
+       and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3
+           and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1)
+             > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0
+    or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)
+       and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3
+           and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1)
+             > sum (first ev.3).1.(it.0).1) = 0))
 ```
 
-Leída: entre los movimientos de la transacción hay al menos uno que es T, se quema y sale de quien escribe; y ninguno de los movimientos de T de una escala con asignación (0 a 6) que salen de quien escribe hacia otro (una quema o un regalo a una cosa) hace que lo que sale en esa escala pase de la asignación del día de la época, menos lo ya gastado hoy, más el T explícito que tenga en su cartera. El génesis (el único registro sin foco: `up ev` no da nada) no lo necesita. Es lo que hoy comprueban dos condiciones envueltas de la capa cero: `FORMA` (`src/condiciones/evento.js`, fila EV-2: «escribir consume T del autor») y la sección TT-4 del ciclo (`src/condiciones/ciclo.js`: «T del día agotado»); el encargo 3 las sustituye por esta regla. Una cosa no tiene asignación: lo que gasta de más lo para el saldo del eje (la aritmética de saldos, el suelo), no esta regla (§8).
+Leída: entre los movimientos de la transacción hay al menos uno que es T, se quema y sale de quien escribe; y ninguno de los movimientos de T de una escala con asignación (las que el calendario mide, `epoch.7.0`) que salen de quien escribe hacia otro (una quema o un regalo a una cosa) hace que lo que sale en esa escala pase, si quien escribe es una persona (escribió su propia alta, o aún no tiene: la escribe ahora), de la asignación del día de la época, menos lo ya gastado hoy, más el T explícito que tenga en su cartera; si es una cosa, del T de su cartera. El génesis no pasa por las reglas: es la época 0, fuera del sistema (encargo 3b, paso 5). Es lo que hoy comprueban dos condiciones envueltas de la capa cero: `FORMA` (`src/condiciones/evento.js`, fila EV-2: «escribir consume T del autor») y la sección TT-4 del ciclo (`src/condiciones/ciclo.js`: «T del día agotado»); el encargo 3 las sustituye por esta regla. Una cosa no tiene asignación: lo que gasta de más lo para el saldo del eje (la aritmética de saldos, el suelo), no esta regla (§8).
 
-Dos cambios del encargo 2 (verificados por la familia T, §10): los filtros dicen `T in it.0.0` y `burn in it.4` en vez de `it.0.0 = T` y `it.4 = burn`, porque `ev.1` trae también lo que el payload tenga en su 1 (D-META colisiona) y comparar con `=` una lista de ese payload daba ERROR, así que la regla rechazaba eventos válidos (con el payload `["x", [[["a", "b"]], ["c"]]]`); `in` no da error y el payload no fabrica símbolos (SEG-09). Y la salida `or count up ev = 0` deja pasar el génesis, como la condición JS (la forma no le pide quemar T y TT-4 no lo evalúa): sin ella, la regla rechazaba todos los génesis.
+Dos cambios del encargo 2 (verificados por la familia T, §10): los filtros dicen `T in it.0.0` y `burn in it.4` en vez de `it.0.0 = T` y `it.4 = burn`, porque `ev.1` trae también lo que el payload tenga en su 1 (D-META colisiona) y comparar con `=` una lista de ese payload daba ERROR, así que la regla rechazaba eventos válidos (con el payload `["x", [[["a", "b"]], ["c"]]]`); `in` no da error y el payload no fabrica símbolos (SEG-09). Y la salida `or count up ev = 0` dejaba pasar el génesis, como la condición JS: el encargo 3b la retiró con las demás formas provisionales del génesis, porque el génesis es ahora la época 0 sin movimientos y no pasa por las reglas.
 
 `evaluarRegla(regla, contexto)` lee el último ocupante del 2 (una corrección se añade detrás, §5), lo evalúa y devuelve `{ pasa, estado, motivo }`: pasa solo si da verdadero; si da falso, `motivo` es el último mensaje del 9 con cada `{expresión}` rellena (`rellenar`); si queda PENDIENTE o da ERROR, no pasa y el motivo lo dice. Una lectura (`read` en su 4) no es una condición: `evaluarRegla` la rechaza y se lee con `leerRegla` (§5). No mira el 3, el 4 ni el 5: todas las reglas de la época cuelgan de toda transacción (su 5 es `*`). Desde el encargo 3a la regla está conectada al eje (`src/condiciones/reglas.js`, §10); `test/primera-regla.test.js` (y, con las demás, `test/reglas-bqlm.test.js`) comprueba que da el mismo veredicto que la condición JS que sustituye en cada evento de los ejemplos de la compra y de la reserva, y en eventos inválidos hechos a mano.
 
@@ -198,7 +215,7 @@ Lo que el contexto lee hoy aparte y el libro de la capa cero tendría que dar co
 - **«nadie» no tiene literal**: es un símbolo que solo da el contexto; una regla lo compara con lo que lee de otro movimiento, no lo escribe.
 - **Las referencias** se siguen leyendo solo el payload del otro registro (como `encaje.seguir`); una referencia sin dirección da el registro entero.
 - **El año de D-FECHA** (§4).
-- **La época como registro**: las familias en 1.0-1.3 (en el orden de `FAMILIAS`), cada una `[[nombre], [estructura], [estado]]`; las décuplas de dentro no se rellenan hasta diez (sin `[]` ni huecos; la raíz y cada regla sí llevan las diez); los principios y las dudas del JSON de siempre no pasan a la décupla. Los cinco criterios de P y los seis grupos de R siguen «[X] confirmar VG».
+- **La época como registro**: las familias en 1.0-1.3 (en el orden de `FAMILIAS`), cada una `[[nombre], [estructura], [estado]]`; las décuplas de dentro no se rellenan hasta diez (sin `[]` ni huecos; la raíz y cada regla sí llevan las diez); los principios y las dudas del JSON de siempre no pasan a la décupla. Los cinco criterios de P siguen «[X] confirmar VG»; las seis zonas de R (`epoch.1.2.1`), con el precio del equipo y los «cuánto», también.
 
 ## 9. Ejemplos
 
@@ -287,58 +304,68 @@ for (const n of [23, 24]) {
 
 ## 10. Las reglas de la época 0
 
-Encargo 2 del plan del mapa (§16): las reglas de economía que eran condiciones en JavaScript escritas en BQL mínimo como décuplas del molde. Las tradujeron cinco familias en paralelo (T, ciclo, identidad, E y R) y cada una se verificó por equivalencia: evaluada con `evaluarRegla` sobre el eje de justo antes, frente a la condición JS que traduce, sobre el mismo eje, en los eventos de `node --test`, de los ejemplos de Ikisai, de `docs/comprobar.mjs` y de un fuzz por familia. **Encargo 3a (VG, 10-11): están conectadas al eje.** Cada regla del 2 de la época es una condición de la transacción (`src/condiciones/reglas.js`): se evalúa sobre el eje de antes y rechaza con el mensaje de su 9. Las condiciones JS que sustituyen se retiraron de `src/` y viven solo en `test/condiciones-retiradas.mjs`, donde la red de equivalencia las sigue comparando; la tabla de qué sustituye cada regla y qué queda en código está en `docs/notas/CAPA_CERO.md` §3.
+Encargo 2 del plan del mapa (§16): las reglas de economía que eran condiciones en JavaScript escritas en BQL mínimo como décuplas del molde. Las tradujeron cinco familias en paralelo (T, ciclo, identidad, E y R) y cada una se verificó por equivalencia: evaluada con `evaluarRegla` sobre el eje de justo antes, frente a la condición JS que traduce, sobre el mismo eje, en los eventos de `node --test`, de los ejemplos de Ikisai, de `docs/comprobar.mjs` y de un fuzz por familia. **Encargo 3a (VG, 10-11): están conectadas al eje.** Cada regla del 2 de la época es una condición de la transacción (`src/condiciones/reglas.js`): se evalúa sobre el eje de antes y rechaza con el mensaje de su 9. Las condiciones JS que sustituyen se retiraron de `src/` y viven solo en `test/condiciones-retiradas.mjs`, donde la red de equivalencia las sigue comparando; la tabla de qué sustituye cada regla y qué queda en código está en `docs/notas/CAPA_CERO.md` §3. **Encargo 3b (VG, 8-11 y 9-11, mapa §15 y §16): las reglas del P como peso de criterio, de R según el corpus, de la atención con precio y de la invitación** entran en la época y se conectan igual; las que no traducen una condición JS (las cambia el mapa o son nuevas) se prueban en positivo y en negativo (`test/reglas-3b.test.js`), no por equivalencia.
 
-Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3).
+Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3). El 3b solo añadió una palabra, `put` (con `at`), que el mapa ya tenía en el léxico.
 
-**Cómo están en la época.** El 2 de la época es la lista de referencias a sus registros (§5): 26 condiciones y 4 lecturas, cada una con las diez posiciones llenas. El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior; `EPOCA_0_BTML.condiciones` da las condiciones en ese orden y `EPOCA_0_BTML.lecturas` las lecturas. Se nombran por su 0, no por su lugar (la numeración «2.g.k» del encargo 2, de cuando iban en páginas de diez, ya no existe). Las seis que el mapa §15 cambia (el P acuñado, el P del génesis, el escalonado) están fuera de la época, en `datos/epocas/reglas-3b/`, sin conectar: el eje sigue con su código JS hasta el 3b.
+**Cómo están en la época.** El 2 de la época es la lista de referencias a sus registros (§5): 30 condiciones, 3 reglas que escriben y 6 lecturas, cada una con las diez posiciones llenas. El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior; `EPOCA_0_BTML.condiciones` da las condiciones en ese orden, `EPOCA_0_BTML.escrituras` las que escriben y `EPOCA_0_BTML.lecturas` las lecturas. Se nombran por su 0, no por su lugar (la numeración «2.g.k» del encargo 2, de cuando iban en páginas de diez, ya no existe). La carpeta `datos/epocas/reglas-3b/`, con las traducciones del código de antes del 3b que esperaban fuera, se retiró: lo que el mapa §15 cambia ya está en la época.
 
-**Qué pasa al validar.** Las reglas no se evalúan en el prefijo de la versión 2 (suelo de persistencia), en un evento mal formado (la forma es suelo) ni en uno con una referencia a un evento ausente (C1: lo rechaza el suelo). Si alguna regla falla con un veredicto, rechaza con su 9, relleno con lo que vale en la candidata; si ninguna falla y alguna queda PENDIENTE, la primera en el orden del 8 rechaza con su estado y su motivo (lo que no se sabe no se acepta). Por eso «every record hangs on a record of the ledger» va la segunda: un foco que no está deja PENDIENTE a las que suben por él, y es ella la que lo dice. El génesis también pasa por las reglas.
+**Qué pasa al validar.** Las reglas no se evalúan en el génesis (la época 0: el suelo, `src/condiciones/identidad.js`, comprueba que no mueve nada; lleva en su contexto la referencia a la época), en el prefijo de la versión 2 (suelo de persistencia), en un evento mal formado (la forma es suelo) ni en uno con una referencia a un evento ausente (C1: lo rechaza el suelo). Si alguna regla falla con un veredicto, rechaza con su 9, relleno con lo que vale en la candidata; si ninguna falla y alguna queda PENDIENTE, la primera en el orden del 8 rechaza con su estado y su motivo (lo que no se sabe no se acepta). Por eso «every record hangs on a record of the ledger» va la segunda: un foco que no está deja PENDIENTE a las que suben por él, y es ella la que lo dice. Después, si la transacción pasa, el eje evalúa las reglas que escriben y asienta lo que colocan (§5).
 
 Todas leen los movimientos con `X in it.d` (por ejemplo, `T in it.0.0.0`, `mint in it.4`) y no con `=`: `ev.1` trae también lo que el payload tenga en su 1 (D-META colisiona), y `=` con una lista de ese payload da ERROR; `in` no da error y el payload no fabrica símbolos (SEG-09), así que solo cuentan los movimientos.
 
-Prueba: `test/reglas-bqlm.test.js`. Cada regla da el mismo veredicto que la condición JS que sustituye en todos los eventos de los ejemplos de Ikisai, también en el génesis. En un fuzz corto con semilla fija (360 eventos sobre un mundo con recursos, E atada, P y R con colateral, y 90 génesis) da el mismo veredicto, salvo que sea más estricta en un evento que el eje ya rechaza por otro lado, o más laxa donde la forma (suelo) lo rechaza; y cada condición rechaza y deja pasar algún evento. Las reglas de la clave y la firma se ejercitan en un eje con claves (B4). Las divergencias conocidas están como `test.skip` con su id y su motivo (§10.4); con `AGRAM_DIVERGENCIAS=1` se ejecutan y comprueban que siguen ahí.
+Prueba: `test/reglas-bqlm.test.js`. Cada regla que traduce una condición JS da el mismo veredicto que ella en todos los eventos de los ejemplos de Ikisai. En un fuzz corto con semilla fija da el mismo veredicto, salvo que sea más estricta en un evento que el eje ya rechaza por otro lado, o más laxa donde la forma (suelo) lo rechaza; y cada condición rechaza y deja pasar algún evento. Las reglas de la clave y la firma se ejercitan en un eje con claves y altas por invitación (B4). Las divergencias conocidas están como `test.skip` con su id y su motivo (§10.4); con `AGRAM_DIVERGENCIAS=1` se ejecutan y comprueban que siguen ahí. Las del 3b, en `test/reglas-3b.test.js`.
 
 ```js
-import { evaluarRegla } from './src/bqlm.js';
+import { evaluarRegla, evaluarEscritura } from './src/bqlm.js';
 import { ContextoEje } from './src/contexto-eje.js';
 import { EPOCA_0_BTML } from './src/epocas.js';
-import { REGLAS_3B_DATOS } from './datos/epocas/epocas.js';
+import { Eje } from './src/eje.js';
 import { crearEvento } from './src/evento.js';
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 
 const { eje, menu, compra } = await ejemploCompra();
+const nombres = [[menu.id, '<menú>'], [compra.id, '<compra>'], [eje.alta('casa').id, '<alta de casa>']];
+const sinIds = (s) => s.replace(/[0-9a-f]{64}|\b[0-9a-f]{8}\b/g, (x) => nombres.find(([id]) => id.startsWith(x))?.[1] ?? '<id>');
+const { condiciones, escrituras, lecturas } = EPOCA_0_BTML;
+console.log(condiciones.length, 'condiciones,', escrituras.length, 'reglas que escriben y', lecturas.length, 'lecturas');
+
+// La huésped quema un minuto, emite un vale a nombre de la casa y acuña P a mano sobre el menú.
 const malo = await crearEvento({ autor: 'huesped', sobre: menu.id, t: compra.t, payload: 'vale', movimientos: [
   { token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null },
   { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa' },
   { token: 'P', ambito: menu.id, cantidad: 1, de: null, a: 'huesped' }] });
 const ctx = new ContextoEje(eje, { ev: malo, epoch: EPOCA_0_BTML });
-console.log(EPOCA_0_BTML.condiciones.length, 'reglas en la época y', REGLAS_3B_DATOS.length, 'fuera, para el 3b');
-for (const r of EPOCA_0_BTML.condiciones) {
+for (const r of condiciones) {
   const v = evaluarRegla(r, ctx);
-  if (!v.pasa) console.log('época:', v.motivo);
+  if (!v.pasa) console.log('no pasa:', sinIds(v.motivo));
 }
-for (const { registro } of REGLAS_3B_DATOS) {
-  const v = evaluarRegla(registro, ctx);
-  if (!v.pasa) console.log('3b:', v.motivo);
+console.log((await eje.validar(malo)).map(sinIds));
+
+// Lo que colocan las reglas que escriben al aceptar la compra (sobre el eje de justo antes).
+const antes = await Eje.desde(eje.orden.slice(0, -1).map((id) => eje.obtener(id)));
+for (const r of escrituras) {
+  const { escrituras: w } = evaluarEscritura(r, new ContextoEje(antes, { ev: compra, epoch: EPOCA_0_BTML }));
+  console.log(r[0][0].padEnd(50), w.map((x) => x.sujeto + ': ' + x.valor + ' P en ' + sinIds(x.clave)).join(' · ') || '—');
 }
-console.log(await eje.validar(malo));
 ```
 
 ```text
-26 reglas en la época y 6 fuera, para el 3b
-época: E is minted by and to its issuer: huesped mints E of casa, or to someone else
-3b: minting P or E needs own R at stake: huesped has no R:huesped locked as collateral (exit R:huesped) covering a tenth of what was minted of it, before or in this transaction
-3b: P is minted on one's own record: huesped mints P:61aa68f7143444ac0c86a6251982c4449c94464dfcfadeeee9d5ccb45da69705 on a record they did not write, or on the whole ledger
+30 condiciones, 3 reglas que escriben y 6 lecturas
+no pasa: E is minted by and to its issuer: huesped mints E of casa, or to someone else
+no pasa: P is repositioned one step at a time: huesped mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child
+no pasa: minting E needs own R issued: huesped mints E and has never issued R of its own
 [
   'E is minted by and to its issuer: huesped mints E of casa, or to someone else',
-  'P sobre 61aa68f7 lo acuña solo quien escribió el registro (cocina): huesped puede transferir el P que tenga, no acuñarlo',
-  'emitir P exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)',
-  'emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)'
+  'P is repositioned one step at a time: huesped mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child',
+  'minting E needs own R issued: huesped mints E and has never issued R of its own'
 ]
+writing a record gives ten P on it                 huesped: 10 P en <compra>
+getting E gives ten P on its record                cocina: 10 P en <alta de casa>
+receiving R gives ten P on the root of its issuer  —
 ```
 
-Leído: la huésped quema un minuto, emite un vale a nombre de la casa y acuña P sobre el menú, que escribió la cocina. Una regla de la época no pasa: nadie emite E de otro, y el eje rechaza con su 9. Dos de las traducciones que esperan al 3b tampoco: acuñar P sobre un registro ajeno y emitir P y E sin su R en juego; el eje las rechaza con el código JS que sigue hasta el 3b (el de la R en juego, una vez por la P y otra por la E). «minting E needs P on the record» pasa, porque en la misma transacción se acuña P sobre el foco.
+Leído: la huésped quema un minuto, emite un vale a nombre de la casa y acuña P a mano sobre el menú. Tres reglas no pasan, y el eje rechaza con sus tres mensajes: nadie emite E de otro; nadie acuña P a mano (el P se obtiene o se reposiciona, y esto no es un paso de su P hacia arriba ni hacia abajo); y para emitir E hay que haber emitido R propia. «minting E needs P on its record» pasa: el vale no nombra registro, así que queda atado al alta de su emisor (la de la casa, el génesis), y la huésped tiene P ahí desde que recibió la R de la casa con la invitación. Al aceptar la compra, las reglas que escriben colocan diez P para la huésped sobre la compra (la escribió ella) y diez para la cocina, que recibe los euros de la casa, sobre el registro al que están atados (el alta de la casa); la compra no mueve R.
 
 ### 10.1 Las reglas, leídas
 
@@ -346,16 +373,14 @@ En el orden del 8 (el de `EPOCA_0_BTML.condiciones`).
 
 | Regla | Leída |
 |---|---|
-| writing burns today's T | Quien escribe quema T suyo, y en ninguna escala con asignación gasta más de lo que le queda hoy: si es una persona (escribió su propia alta, o la escribe ahora), la asignación de la época menos lo gastado hoy (`A.7.e`) más el T de su cartera; si es una cosa, solo el T de su cartera. Lectura completa en §6. Lleva la forma provisional del génesis |
-| every record hangs on a record of the ledger | El foco de la transacción (su 6.5 implícito, leído con `first ev.6`) es un registro del libro de antes: desplegado, su 5 es su propio id. Sin foco, solo el génesis (forma provisional; que el génesis sea el único sin foco lo asegura el suelo) |
-| every event moves tokens | Toda transacción lleva al menos un movimiento, salvo el génesis (forma provisional) |
+| writing burns today's T | Quien escribe quema T suyo, y en ninguna escala con asignación gasta más de lo que le queda hoy: si es una persona (escribió su propia alta, o la escribe ahora), la asignación de la época menos lo gastado hoy (`A.7.e`) más el T de su cartera; si es una cosa, solo el T de su cartera. Lectura completa en §6 |
+| every record hangs on a record of the ledger | El foco de la transacción (su 6.5 implícito, leído con `first ev.6`) es un registro del libro de antes: desplegado, su 5 es su propio id. Sin excepción: el génesis es la época 0 y no pasa por las reglas (A2; se retira la forma provisional «no tiene foco») |
+| every event moves tokens | Toda transacción lleva al menos un movimiento |
 | T is whole | Ningún movimiento de T lleva decimales: media hora son treinta minutos. Que la cantidad sea un número positivo y un entero seguro es forma (suelo) |
 | informative T is only burned | El T de las escalas que el calendario no mide (pasado, futuro, inventado: `epoch.7.0`) solo se quema, sin estado ni salida; las que se refieren a otra fecha (`epoch.7.2`) la llevan en su 7.1. Nada más lleva esa fecha ni una nota |
 | locks keep their holder and name an exit | Un movimiento con estado (bloqueo o liberación) no acuña ni quema, tiene el mismo titular a los dos lados y lleva su salida |
-| E is minted by and to its issuer | Toda E que se acuña tiene por emisor (el 1 de su serie) a quien escribe y va a su emisor. Vale igual en el génesis |
+| E is minted by and to its issuer | Toda E que se acuña tiene por emisor (el 1 de su serie) a quien escribe y va a su emisor |
 | R is minted to its issuer | Toda R que se acuña nace en la cartera de su emisor; de ahí sale a los tenedores con una transferencia, y entonces hay doble entrada (el crédito del tenedor, la obligación del emisor) |
-| the genesis only mints to its author | En el génesis, todos los movimientos son acuñaciones a su autor. Fuera del génesis no dice nada (forma provisional) |
-| the genesis E names no record | En el génesis, ninguna E nombra un registro: queda atada al propio génesis (forma provisional) |
 | who has a key signs | Si quien escribe tiene clave (en su alta, `A.6.5`, o la que declara ahora para sí en su propia alta, `ev.5`), firma: el segundo ocupante de `ev.3` es él (B4). Verificar la firma es suelo |
 | without a key nobody acts | Quien escribe tiene clave, o el libro es de demostración (`before.9`) |
 | a key is declared at its alta | Una clave declarada (en `ev.5`, detrás del id) es de quien aún no tiene cuenta y, o es quien escribe (su propia alta), o recibe algo en esta transacción (una cosa) |
@@ -364,20 +389,34 @@ En el orden del 8 (el de `EPOCA_0_BTML.condiciones`).
 | not before the writer joined | Ni anterior al alta de quien escribe (`A.6`; su t es `A.6.6.0`) |
 | at most a year ahead | Ni más de un año por delante del mayor t del libro (`before.6.0`). El año lo lee del calendario de la época, `epoch.7.0.6.1` (sus segundos: 364 + 1 días; VG, 10-11, A3). Con el libro vacío no hay tope |
 | only persons mint | Solo acuñan las personas: quien escribió su propia alta (`first A.6.3 = A`, B1) o quien la escribe ahora |
-| R is minted by its issuer | Nadie acuña R de otro: R:Y solo la acuña Y. Emitir R ya no exige colateral (VG, 9-11) |
-| nobody mints T | Ninguna transacción acuña T, ni el génesis: el T de cada día sale de la asignación de la época |
+| R is minted by its issuer | Nadie acuña R de otro: R:Y solo la acuña Y. Emitir R no exige colateral (VG, 9-11: el respaldo es la obligación de atender) |
+| nobody mints T | Ninguna transacción acuña T: el T de cada día sale de la asignación de la época |
 | T is not locked | Ningún movimiento de T bloquea ni libera: bloquear es de E, P y R |
-| T only goes to things | T no cruza de persona: una persona da su T solo a una cosa, y una cosa a otra solo si las dos son del mismo dueño, si quien escribe escribió el alta de la destino o si tiene P sobre ella. Dar tiempo a otro es acuñar E en él |
+| T only goes to things | T no cruza de persona: una persona da su T solo a una cosa, y una cosa a otra solo si las dos son del mismo dueño, si quien escribe escribió el alta de la destino o si tiene P posicionado en esa alta (el 3b retira el P del génesis y el que cubría el hilo). Dar tiempo a otro es acuñar E en él |
 | E is tied to a record that exists | La E que se acuña nombrando un registro (el 5 de su serie) nombra uno del libro |
 | locked P backing live E is not released | No se libera P bloqueado cuya salida es una serie de E (una franja, no la familia) que sigue viva tras la transacción: lo vivo antes (`X.1` del registro de la serie, con el reloj de la caducidad), más lo que se acuña ahora si no ha caducado, menos lo que se quema ahora |
-| nobody moves tokens of others | Todo movimiento con origen (transferir, bloquear, liberar, quemar) sale de quien escribe. En JS era una condición de paso; como regla rechaza la transacción entera, con el mismo veredicto |
-| P moves within a known scope | El P que quien escribe delega o consume va sobre «genesis» o sobre un registro del libro |
+| nobody moves tokens of others | Todo movimiento con origen (transferir, bloquear, liberar, quemar) sale de quien escribe, con una sola excepción: **aceptar su propia invitación**. Quien aún no tiene alta, anclado sobre una invitación que lo nombra como invitado en su 3.1, recoge para sí, con una transferencia desde quien la escribió cuya salida es él mismo, lo que esa persona guardó bloqueado con esa salida (revisión de seguridad del 3b: no vale para un tercero, ni desde otra identidad, ni ya con alta; el suelo de la capa 4, `src/validez.js`, lo repite para toda transferencia con salida desde otro titular) |
+| P moves within a known scope | Todo P que se mueve va sobre un registro del libro (el ámbito de su serie lo es). Ya no hay P sobre «genesis» (mapa §15 retira «P del génesis sobre todo el eje») |
+| P is repositioned one step at a time | Nadie acuña P a mano (mapa §15 retira «el autor de X acuña P:X»). Si la transacción acuña P, es un paso: quien escribe quema P suyo de un solo registro y lo acuña para sí en uno solo, su padre o un hijo; subir da una décima de lo quemado (`first epoch.1.1.4.2`, 0,1) y bajar, una décima más (`last epoch.1.1.4.2`, 1,1), con un margen de una milmillonésima (P es divisible). Ir más lejos son varios pasos (N7: solo subir y bajar). El P que se obtiene no lo acuña la transacción, sino el libro (§5) |
+| minting R needs real T | Quien acuña R quema en la misma transacción T suyo de una escala que el calendario mide (`epoch.7.0`; el informativo no cuenta). La exigencia encadena E → P → R → T (N3) |
+| minting E needs P on its record | Quien acuña E tiene, antes de la transacción, P posicionado (`(first ev.3).2.1`) en el registro al que la E está atada: su 5 o, sin registro nombrado, el alta de su emisor (N3, D2) |
+| minting E needs own R issued | Quien acuña E ha emitido R propia: la tiene en su cartera, la tienen otros (su obligación, `A.8.1`) o la acuña en esta transacción. «R en juego» sin colateral (D1, D2) |
+| attention has a price | Escribir sobre el alta de otra identidad, en cualquier dirección (su 3 entero, `3100000000`, `3.2`… y fuera del 3; el génesis es el alta de la primera identidad), cuesta el precio del grupo en que el receptor pone a quien escribe (mapa §16 [D] «PV3 = regla de atención»): el último de sus grupos (`A.3`) que lo nombra en su 3; si ninguno, el que le asignó la invitación que aceptó (su 8); si no, desconocidos (zona 0). El precio es el último 2 del grupo, `[[en qué], [cuánto]]`: «their R» la R de quien escribe, «my R» la R del receptor devuelta, «E», «P»; se paga con transferencias de quien escribe al receptor en la misma transacción. «nothing» es el veto: rechaza aunque pague. La única exención es la autoría: el dueño escribe en su propia alta sin pagarse (revisión de seguridad del encargo 3b) |
+| a person joins by an invitation | Quien escribe sin alta (es su primera transacción: su alta) la ancla sobre una invitación (su 0 dice «invitation») de una identidad con alta que la nombra en su 3.1, dentro de su 7 (hasta cuándo vale, leído con el reloj de la caducidad de E: el menor entre el t de la aceptación y el reloj de los demás, `before.6.3`), sin fecharse antes del último t del libro (`before.6.0`; revisión de seguridad) y, si nombra una clave en su 3.5, con esa clave declarada. La única alta sin invitación es la del génesis, la primera identidad, que no pasa por las reglas |
 
-Las cuatro lecturas (present, informative, attended, obligation) están en §5. Las seis del 3b, fuera de la época: «the genesis P is over the whole ledger», «P is minted to its minter», «P is minted on one's own record», «minting needs real T», «minting P or E needs own R at stake» y «minting E needs P on the record» (traducen el código de hoy; el mapa §15 las cambia).
+Las tres reglas que escriben van detrás, en el mismo orden del 8 (§5):
+
+| Regla | Coloca |
+|---|---|
+| writing a record gives ten P on it | `first epoch.1.1.4.1` (diez) P para quien escribe en el registro que escribe: `put … at (first ev.3).2.1.(first ev.5)` (N1). También en el génesis: la primera identidad tiene diez P sobre él |
+| getting E gives ten P on its record | Diez P para quien recibe E de otro (una transferencia, también de un revendedor: «compro un recurso y eso me da P sobre él») en el registro al que está atada la serie (su 5), una vez por receptor y registro, sea cual sea la serie (las series las crea cualquiera); ni a uno mismo, ni al emisor de la serie, ni a quien aún no tiene alta (revisión de seguridad) |
+| receiving R gives ten P on the root of its issuer | Diez P para quien recibe R **directamente de su emisor** en el alta del emisor, la raíz de su dominio (N2: «quien te cede atención te da voz en lo suyo»). La R que pasa de tenedor a tenedor y la que vuelve a su emisor no dan P (revisión de seguridad del 3b) |
+
+Las seis lecturas (present, informative, attended, obligation, share, weight) están en §5.
 
 ### 10.2 Condición JS ↔ regla
 
-La tabla está en `docs/notas/CAPA_CERO.md` §3: cada condición que queda en `CONDICIONES`, con por qué sigue en código, y cada regla de la época con la condición JS que sustituye (retirada o a la vez) y su capa de validez. Lo que sigue en código es suelo (la forma, el id, un génesis, las referencias, la firma y las claves como criptografía, la atomicidad de los saldos), el prefijo de la versión 2 (suelo de persistencia), lo del 3b y lo que aún no cabe (§10.3).
+La tabla está en `docs/notas/CAPA_CERO.md` §3: cada condición que queda en `CONDICIONES`, con por qué sigue en código, y cada regla de la época con la condición JS que sustituye (retirada o a la vez) y su capa de validez. Lo que sigue en código es suelo (la forma, el id, el génesis, las referencias, la firma y las claves como criptografía, la atomicidad de los saldos y quién saca lo bloqueado con salida), el prefijo de la versión 2 (suelo de persistencia) y lo que aún no cabe (§10.3).
 
 ### 10.3 Lo que no cabe, con su motivo
 
@@ -386,58 +425,51 @@ Queda en JavaScript. Entre paréntesis, lo que falta: una posición (vista o des
 | Condición | Motivo |
 |---|---|
 | VA-3 (ciclo y tope) y las variantes de la versión 2 dentro de la forma, el génesis y la firma | Es otro juego de reglas para un tramo del eje (el prefijo migrado de la versión 2), no una condición de la época 0: es suelo de persistencia (VG, 10-11, A4). Las reglas no se evalúan en él |
-| EE-1, el contrato; EE-9 (divisible, emisores, enteros si no es divisible; la caducidad la fija la primera emisión); GN-1, emisión conjunta y divisible en el génesis | El registro de la serie (B3) aún no despliega «divisible» ni «emisores» de una serie que ya no está viva (vista). Con esas posiciones se escriben con el léxico de hoy: «una ampliación no cambia divisible ni emisores», «sin divisible, `floor it.1 = it.1`» |
+| EE-1, el contrato; EE-9 (divisible, emisores, enteros si no es divisible; la caducidad la fija la primera emisión) | El registro de la serie (B3) aún no despliega «divisible» ni «emisores» de una serie que ya no está viva (vista). Con esas posiciones se escriben con el léxico de hoy: «una ampliación no cambia divisible ni emisores», «sin divisible, `floor it.1 = it.1`» |
 | EE-10 (la emisión conjunta: cada coemisor tiene su P bloqueado) | Faltan los coemisores del movimiento y la clave de familia de la serie (despliegue). Lo bloqueado de cada coemisor sí está en su cartera |
 | EE-8 con la salida de una familia (franja «*»); EE-4 | La serie da la denominación con la franja dentro y la franja aparte, pero no la clave de familia ni la denominación sin franja, y sin operaciones de texto no se casa «cama@n1» con «cama@*» (despliegue). «locked P backing live E is not released» deja fuera esa salida |
 | EE-2 (la capacidad de un registro) | La capacidad es un entero en el 2 del payload, pero el 2 puede llevar otras cosas y el léxico no tiene prueba de tipo (decisión VG: B2 la pone en la cruceta del 2 del recurso, 2.1) |
 | EE-5 con EE-11 (el tope por franja) | Las vistas ya están (B6): lo vivo de todo el subárbol es `X.7.1` y caduca con el reloj de los demás (`before.6.3`). Falta cómo se declara la capacidad (EE-2) y la franja sin denominación (EE-4) para escribirla. EE-11 es el caso vacío |
-| EE-7 (la cuota por P bloqueado) | Necesita lo emitido de P:A, que no es una posición, la familia (EE-4), divisible (EE-9) y la capacidad (EE-2); además el mapa ya la cambia (D1: frente al total comprometido; F1: el subárbol en numerador y denominador). Se escribe con el P nuevo (3b) |
+| EE-7 (la cuota por P comprometido) | Sigue en JS con el P nuevo (`src/condiciones/tope.js`): frente al P comprometido de todos (D1) y con el subárbol en el numerador y en el denominador (F1). Los compromisos ya son una vista (`X.2.4`), pero falta la familia (EE-4), divisible (EE-9) y la capacidad (EE-2) |
 | EE-3, EE-6, EE-12 | EE-3 es el 7 de la serie (su franja), que ya existe; EE-6 es la vista `X.1`; EE-12 es una propiedad del libro (nada se mueve solo al caducar: suelo) |
-| PP-5 (no se estrecha P hacia una serie cerrada; hacia la raíz de otro, solo su autor) | JS lleva el P de quien escribe movimiento a movimiento dentro de la transacción; el orden del movimiento ya es `nth` en `ev.1` (B6), pero §15 cambia delegar por reposicionar con factor (3b) |
-| PP-3 (R3: ampliar P:X solo ejecutando una consolidación autorizada, una vez) | Lee el estado de una consolidación, que vive en el contexto y en el eje. §15 retira el guion consolidar → autorizar → ejecutar (3b) |
-| RR-3 y RR-4 (el colateral de R) | RETIRADAS por VG (9-11, mapa §15, «R según el corpus»): R se emite sin colateral; el respaldo es la obligación de atender. «R is minted by its issuer» es lo que queda de la emisión. El eje aún exige el colateral: es del 3b |
-| RR-1 (R no es fungible: quien la tiene solo puede devolverla) | RETIRADA por VG (9-11): R se transfiere libremente entre tenedores sin sustituir al emisor, y el tenedor puede perdonar la deuda (quemarla). Lo que queda, «sin sustituir al emisor», es la clave de la serie (suelo). La rama R de `validarMovimiento` se quita en el 3b |
-| RR-5 (solo el emisor atiende las devoluciones de su R) | VG decide que atender lo define el criterio de PV2 de cada identidad. Lo que atiende un registro ya es una posición (`X.6.4`) y «attended» es una lectura (§5); faltan el criterio de atención por defecto de la época (`epoch.9`) y colgar reglas de una ruta (el 5 de la regla) |
-| RR-6 sin colateral («R en juego» para emitir P o E) | «minting P or E needs own R at stake» (3b) traduce la regla de hoy, con el colateral. Sin colateral, «R en juego» es tener R propia emitida (D2) |
-| RR-7, RR-8 (la lente, el valor de R para un lector); RR-9, retirada | Son lecturas. RR-2 ya es «obligation» (`A.3.1`); RR-8 cabe de la misma forma, y la lente espera al formato de los grupos de PV3 (decisión VG) |
-| Pedir atención (PV3, mapa §16) y «recibir R da P en la raíz del emisor» (N2) | No existen en JS. La primera necesita la posición del alta o de la raíz del dominio de una identidad y el formato de los grupos de PV3 (vista y decisión VG); la segunda es una acuñación (`put`, aún fuera del intérprete) con la mecánica de la obtención abierta |
+| RR-5 (atender) | «attended» es una lectura (§5) con el criterio por defecto (un registro del emisor anclado sobre la petición, con T real). Cómo declara cada uno su criterio de atención en su PV2 sigue [X] VG, y colgar reglas de una ruta (el 5 de la regla) también |
+| RR-7, RR-8 (la lente, el valor de R para un lector) | Son lecturas de la interfaz y de BQL V0 (`src/lente.js`, `VALOR_R`): la lente es el 3 del lector, los grupos de atención cuyo precio es «their R» (§16: la lente de R y las condiciones de aceptación son la misma cosa); cada unidad vale una |
 | BL-2, GN-1 «series finitas», TT-10 | Aritmética de saldos del libro (suelo) |
-| BL-4 (un bloqueo de autorización caduca) | Es del motor, que §15 retira (decisión VG). BL-3 ya es una vista: `before.2` (B6) |
+| Sacar lo bloqueado con salida de otro titular | Suelo (capa 4, `src/validez.js`): solo quien acepta su propia invitación, lo mismo que la excepción de «nobody moves tokens of others» |
 | TT-11 (el T sobre un registro, en el 8, sin lo que cuestan sus bases) | Es una lectura del 8; la suma cabe (`sum ((((down X) each 1) where T in it.0.0.0 and it.0.0.1 = k and burn in it.4) each 1)`), pero ninguna posición dice qué hijo es una base (decisión VG) |
 | TT-13, TT-14, TT-15, TT-17 (la escala incongruente, la recomendada, el coste de escribir, la banda de una distancia) | No rechazan nada o hoy no se aplican; necesitan contar las posiciones del contenido de un registro (despliegue) o un «ahora» que no es una posición (vista). A3 decide que escribir se cobra por posición escrita |
 
 Resuelto en el encargo 3a y fuera de esta tabla: «solo las personas emiten», T entre personas y cosas y los tipos (B1: persona o cosa por autoría del alta); la firma, las claves y la demostración (B4: posiciones; verificar es suelo); EV-3 y RR-2 (B5: lecturas); RL-4 (B6: el reloj de los demás); TT-12 y TT-16 (A3: el calendario de la época).
 
+Retirado o resuelto en el encargo 3b (mapa §15 y §16) y fuera de esta tabla: el P acuñado por el autor y el P del génesis (PP-2), la consolidación que amplía P y su guion de autorizar (PP-3, R3, BL-4: el motor ya no tiene paso de autorizar), el estrechamiento de P (PP-5: es reposicionar, «P is repositioned one step at a time»), el escalonado en JS (ES-1: «minting R needs real T», «minting E needs P on its record», «minting E needs own R issued»), el colateral de R (RR-3, RR-4 y la «R en juego» con colateral, RR-6), la R no fungible (RR-1: R se transfiere entre tenedores y se perdona quemándola; la rama R de `validarMovimiento` ya no está), la valoración de R por participación (RR-9), pedir atención (PV3: «attention has a price») y recibir R da P en la raíz del emisor (N2: una regla que escribe).
+
 ### 10.4 Divergencias conocidas
 
-Lo que la verificación dejó sin el mismo veredicto, con la prueba que lo documenta (`test/reglas-bqlm.test.js`, `test.skip` con su id). Ninguna cambia el veredicto del eje: donde la regla es más laxa, lo para el suelo o el código que sigue hasta el 3b.
+Lo que la verificación dejó sin el mismo veredicto, con la prueba que lo documenta (`test/reglas-bqlm.test.js`, `test.skip` con su id). Ninguna cambia el veredicto del eje: donde la regla es más laxa, lo para el suelo o el código que sigue.
 
 | Id | Regla | Caso | Por qué |
 |---|---|---|---|
-| GENESIS-GUARDA | las que apartan el génesis | un evento sin foco que no es el génesis pasa por la forma provisional `count up ev = 0`; lo para el suelo (solo el génesis carece de foco) | la forma provisional del génesis (A2) |
-| PATH-10 | minting E needs P on the record (3b) | P en un antepasado a más de diez niveles del foco: el eje acepta y la regla queda PENDIENTE | `path` tiene tope de diez (VG, 10-11, C2); el escalonado es del 3b y sigue en JS |
 | EE-4 | locked P backing live E is not released | liberar un bloqueo de familia con E viva: JS lo rechaza y la regla no lo mira | falta la clave de familia; `EE-8` sigue en JS a la vez |
-| VA-3 | minting P or E needs own R at stake (3b) | un evento del prefijo v2 que las reglas de la versión 2 aceptan | las reglas no se evalúan en el prefijo (suelo de persistencia) |
-| RR-3 retirada, RR-1 retirada | R is minted by its issuer y las de R | emitir R sin colateral, transferir R entre tenedores: el eje de hoy lo rechaza y las reglas no | decisión de VG (9-11); el colateral es del 3b |
+| VA-3 | minting E needs own R issued | un evento del prefijo v2 que las reglas de la versión 2 aceptan; leída a mano, la regla lo rechaza | ninguna posición dice si un evento es del prefijo; las reglas no se evalúan en él (suelo de persistencia) |
 
-Resueltas en el encargo 3a, ahora pruebas que pasan: D-META-1 y D-META-3 (C1), D-MOV-7 (B3), R10-T (B1), RELOJ-MS (C2) y RL-4 (B6).
+Resueltas en el encargo 3a, ahora pruebas que pasan: D-META-1 y D-META-3 (C1), D-MOV-7 (B3), R10-T (B1), RELOJ-MS (C2) y RL-4 (B6). En el 3b dejan de serlo: GENESIS-GUARDA (el génesis ya no pasa por las reglas), PATH-10 (el escalonado lee el P posicionado en el registro, sin subir por el hilo) y RR-3 y RR-1 (el eje ya no exige colateral ni R no fungible).
 
 En eventos que el eje rechaza por otro lado hay más diferencias, inofensivas: movimientos mal formados que JS aparta (`validosDe`) y la regla cuenta (las reglas no se evalúan si la forma falla); un movimiento null, con el que D-MOV lanza y la regla da ERROR; un autor sin alta (`A.7` vacío: PENDIENTE); y la salida que no es texto (el léxico no distingue un texto de un número; lo para la forma).
 
 ### 10.5 Para decidir VG
 
-Lo marcado [X] en las cinco familias, en la integración y en el encargo 3a. Se suma a §8.
+Lo marcado [X] en las cinco familias, en la integración y en los encargos 3a y 3b. Se suma a §8.
 
 - **Las reglas de forma**: seis reglas («every event moves tokens», «T is whole», «informative T is only burned», «locks keep their holder and name an exit», «R is minted to its issuer» y la parte de forma de «E is minted by and to its issuer») repiten parte de `validarForma`, que sigue (suelo de forma: `crearEvento` lo usa). ¿Se retiran de `validarForma` y la forma queda solo como BTML, o se quedan las dos?
-- **El génesis como transacción**: la forma provisional «no tiene foco» (A2) y las reglas que solo miran el génesis sobran cuando el génesis sea la época (mapa §16).
+- **El génesis como la época 0** (encargo 3b, paso 5): el génesis es el alta de la primera identidad, sin movimientos, con la referencia a la época en su contexto; no pasa por las reglas de la época, sí por las que escriben (diez P sobre él). Su emisión inicial va en una segunda transacción [H].
 - **Lo PENDIENTE al validar**: si ninguna regla falla con un veredicto, rechaza la primera que queda PENDIENTE, con su motivo, no con su 9 [H].
 - **El prefijo de la versión 2**: queda como suelo de persistencia (A4); sus identidades conservan el tipo declarado, que el contexto lee como autoría (una persona escribió su propia alta) [H].
-- **Las posiciones nuevas** son una propuesta [H] hecha con las reglas cortas de la época: las lecturas (`X.6.1`, `X.6.7`, `X.7.4`, `A.3.1`), lo que atiende un registro (`X.6.4`), los registros del libro (`before.1`), lo bloqueado por salida (`before.2`), el reloj de los demás (`before.6.3`) y las series vivas del subárbol (`X.7.1`).
+- **Las posiciones nuevas** son una propuesta [H] hecha con las reglas cortas de la época: las lecturas (`X.6.1`, `X.6.7`, `X.7.4`, `A.8.1`, `A.2.1.8`, `X.2.4.8`), lo que atiende un registro (`X.6.4`), los registros del libro (`before.1`), lo bloqueado por salida (`before.2`), el reloj de los demás (`before.6.3`), las series vivas del subárbol (`X.7.1`) y, del 3b, el criterio (`A.2.1`, `A.2.3`), los grupos de atención (`A.3`: precio en `3.k.2` y quiénes en `3.k.3` del alta) y los compromisos (`X.2.4`).
 - **El 5 de un evento es solo suyo** (su id y sus claves): lo que el payload tenga en su 5 ya no se lee en `X.5` (B4) [H].
 - **D-MOV**: en qué posición van «divisible» y «emisores» (EE-9, EE-10).
 - **La serie**: una posición con la clave de familia o con la denominación sin franja (EE-4); el contrato de una serie que ya no está viva.
 - **El año de D-FECHA**: el calendario de la época cuenta 364 + 1 días (A3); queda si el año de D-FECHA ha de seguir al civil (§4).
 - **Cómo se declara la capacidad** de un registro (EE-2; B2 la pone en 2.1).
-- **R**: si la acuñación puede ir directa al tenedor («R is minted to its issuer» dice que no); el criterio de atención por defecto de la época y colgar reglas de una ruta (RR-5).
-- **Lo que el mapa §15 cambia (3b)**: el P acuñado (§15 retira «el autor de X acuña P:X» y «P del génesis sobre todo el eje»; escribir un registro propio da diez unidades, N1); el escalonado como dos secuencias (E exige P, P exige R, R exige T; N3); el colateral de R (qué es «R en juego» sin colateral, RR-6); RR-1, RR-3 y RR-4, retiradas (el eje aún las aplica); R3 y el guion de autorizar (PP-3, BL-4); reposicionar P con factor (PP-5, PP-4); la cuota frente al total comprometido y con el subárbol (EE-7: D1, F1); recibir R da P en la raíz del emisor (N2); y D2 (toda E dice a qué registro está atada, el génesis el suyo), frente a «the genesis E names no record».
+- **R**: si la acuñación puede ir directa al tenedor («R is minted to its issuer» dice que no); cómo declara cada uno su criterio de atención (RR-5) y colgar reglas de una ruta.
+- **Lo que el 3b dejó abierto** [H]: un paso de reposición por transacción; el P de un registro es exacto (sin subárbol) para «minting E needs P on its record» y para «T only goes to things»; la obtención también para las cosas, por recibo y no por unidad, y sin exigir R (N3 dice «P exige R»); la obtención no se repite por regla, titular y registro (sea cual sea la serie), y la R solo da P si llega de su emisor ([X] confirmar VG); las presiones como «nombre k» (una magnitud, D-VALOR) en el 2.3 de X; el umbral del recuento por defecto, 0, y «above x» en el criterio; el precio del equipo y los «cuánto» de las zonas; el literal «invitation» en inglés; la excepción de «nobody moves tokens of others» acotada a aceptar la propia invitación.
 - **Datos de la época** que faltan: los órdenes de magnitud (TT-12) y el coste de escribir por posición (TT-15), que A3 decide.

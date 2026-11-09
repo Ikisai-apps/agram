@@ -14,8 +14,8 @@
 // - el presente en el centro, con el foco encima: es la costura;
 // - a la izquierda (mundo 6), los registros del pasado como nodos
 //   encadenados por referencia (`sobre`) hasta el génesis;
-// - a la derecha (mundo 7), las proyecciones, las consolidaciones sin
-//   ejecutar y lo declarado en la posición 7, como arcos que salen del foco;
+// - a la derecha (mundo 7), las proyecciones, las propuestas de la fábrica
+//   sin cerrar y lo declarado en la posición 7, como arcos que salen del foco;
 // - las bandas de tiempo (segundo … año y «más»), comprimidas hacia lo lejano;
 // - debajo (vista completa), las carteras: los tokens de cada evento nuevo
 //   que se ve van como puntos de `de` a `a`, con el nombre de su mundo (1–4).
@@ -26,22 +26,21 @@
 // (data-nombre-de) y la marca del catálogo (SIN_NOMBRE). Con el catálogo de
 // la PR #45:
 // - un registro nuevo entra por la izquierda (6) y su hilo se traza;
-// - una proyección o una consolidación traza su arco al futuro (7);
-// - una autorización no se anima: ni el 6 ni el 7 nombran autorizar, y el
-//   nudo aparece quieto;
-// - una ejecución ancla: en el 7 se suelta el arco real de la consolidación
-//   (el mismo, en el mismo sitio) y en el 6 cae el ancla;
+// - una proyección o una propuesta traza su arco al futuro (7);
+// - el registro que cierra una propuesta ancla (encargo 3b: no hay paso de
+//   ejecutar; cada parte registra su movimiento y la plantilla de cerrado del
+//   dueño lo lee): en el 7 se suelta el arco real de la propuesta (el mismo,
+//   en el mismo sitio) y en el 6 cae el ancla;
 // - los tokens de un evento nuevo que se ve van de `de` a `a`.
 // Cada elemento lleva data-evento, data-efecto, data-mundo y data-decision.
-// Qué registro es la autorización o la ejecución de una consolidación lo
-// dice el catálogo (la fase que el motor reconoce), no una regla copiada
-// aquí: AARPIA cambiará el motor y los hilos le siguen.
+// Qué propuesta está cerrada lo dice el motor (motor.cerrado, la plantilla
+// del dueño), no una regla copiada aquí.
 //
 // [X] decidir VG (abierto en este mundo):
-// 1. una consolidación sin ejecutar no tiene fecha futura (es futuro
+// 1. una propuesta sin cerrar no tiene fecha futura (es futuro
 //    subjetivo): va a la derecha, a la distancia que le da
 //    tiempo.ejeTemporal, que es lo que lleva pendiente;
-// 2. una consolidación sin ejecutar sale también en el pasado, porque
+// 2. una propuesta sin cerrar sale también en el pasado, porque
 //    tiempo.ejeTemporal la lista como registro escrito (el sobrio igual):
 //    aquí se dibuja quieta en el 6 (el catálogo no nombra consolidar en los
 //    hilos del pasado) y solo se anima su arco en el 7 (corpus V4, PV7: no
@@ -72,7 +71,7 @@
 
 import { ejeTemporal, banda } from '../src/tiempo.js';
 import { SEGUNDOS, ESCALAS_REALES as ESCALAS_T, partirClave } from '../src/tokens.js';
-import { consolidaciones, FABRICA } from '../src/motor.js';
+import { propuestas, cierre } from '../src/motor.js';
 import { esReferencia } from '../src/btml.js';
 import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
 
@@ -186,25 +185,13 @@ export function titulo(ev) {
 }
 
 /**
- * La fase que cuenta escrita sobre una consolidación (autorizado o
- * ejecutado), según el catálogo: el registro cuya fase reconoce el motor.
- */
-function faseSobre(eje, consolidacion, fase, de) {
-  for (const h of eje.sobre(consolidacion, FABRICA)) {
-    const efecto = de(h.id).find((e) => e.tipo === 'fase' && e.fase === fase);
-    if (efecto) return { registro: h, efecto };
-  }
-  return null;
-}
-
-/**
  * Lo que dibujan los hilos de un foco, sacado del eje: el eje temporal de
  * tiempo.ejeTemporal (el mismo que pinta el sobrio) y, por cada evento, sus
  * efectos del catálogo (efectosDe): el principal (`efecto`), sus tokens y la
  * lista entera en `efectos`, para el render sobrio. Además, a qué apunta cada
- * registro (`sobre`), quién autorizó, qué ejecución ancló cada consolidación
- * y cómo estaba esa consolidación en el futuro justo antes (`antes`), y el
- * orden de entrada en el eje. No escribe nada.
+ * registro (`sobre`), qué registro cerró cada propuesta (el ancla) y cómo
+ * estaba esa propuesta en el futuro justo antes (`antes`), y el orden de
+ * entrada en el eje. No escribe nada.
  */
 export function datosHilos(eje, foco, { ahora = new Date().toISOString(), camino = [], maximo } = {}) {
   const ev = eje.obtener(foco);
@@ -216,7 +203,6 @@ export function datosHilos(eje, foco, { ahora = new Date().toISOString(), camino
   const efectos = {};
   const de = (id) => (efectos[id] ??= efectosDe(eje, id));
   const tokens = (id) => de(id).filter((x) => x.tipo === 'token');
-  const autorizacionDe = (a) => (a ? { id: a.registro.id, autor: a.registro.autor, efecto: a.efecto, tokens: tokens(a.registro.id) } : null);
 
   const pasado = e.pasado.map((x) => {
     const r = eje.obtener(x.id);
@@ -232,31 +218,25 @@ export function datosHilos(eje, foco, { ahora = new Date().toISOString(), camino
     const base = { id: x.id, tipo: x.tipo, autor: x.autor, t: x.t, delta: x.delta, banda: x.banda };
     if (x.tipo === 'declarado') return { ...base, titulo: textoCorto(x.contenido), efecto: efectoDeclarado(de(foco), camino), tokens: [] };
     const f = { ...base, titulo: titulo(eje.obtener(x.id)), efecto: efectoDelRegistro(de(x.id)), tokens: tokens(x.id) };
-    if (x.tipo === 'consolidacion') {
-      f.estado = x.estado;
-      const a = autorizacionDe(faseSobre(eje, x.id, 'autorizado', de));
-      if (a) f.autorizacion = a;
-    }
+    if (x.tipo === 'consolidacion') f.cerrado = x.cerrado;
     return f;
   });
 
   const anclas = [];
-  for (const c of consolidaciones(eje, foco, camino)) {
-    if (c.estado !== 'EJECUTADO') continue;
-    const x = faseSobre(eje, c.id, 'ejecutado', de);
+  for (const c of propuestas(eje, foco, camino)) {
+    if (c.cerrado !== true) continue;
+    // El registro que la cerró: el último escrito sobre ella que mueve lo anunciado (motor.cierre).
+    const x = cierre(eje, c.id);
     if (!x) continue;
-    // La autorización es la que la ejecución lleva en su evidencia, se lea en el orden que se lea.
-    const aut = faseSobre(eje, c.id, 'autorizado', de);
-    const autorizacion = aut && (x.efecto.evidencia ?? []).includes(aut.registro.id) ? autorizacionDe(aut) : null;
     anclas.push({
-      id: x.registro.id, consolidacion: c.id, autorizacion: autorizacion?.id ?? null,
-      titulo: textoCorto(c.titulo), autor: x.registro.autor, t: x.registro.t, ...situar(x.registro.t),
-      efecto: x.efecto, tokens: tokens(x.registro.id),
-      // La consolidación tal como estaba a la derecha antes de ejecutarse: lo que se suelta es ese arco.
+      id: x.id, consolidacion: c.id, autorizacion: null,
+      titulo: textoCorto(c.titulo), autor: x.autor, t: x.t, ...situar(x.t),
+      efecto: efectoDelRegistro(de(x.id)), tokens: tokens(x.id),
+      // La propuesta tal como estaba a la derecha antes de cerrarse: lo que se suelta es ese arco.
       antes: {
-        id: c.id, tipo: 'consolidacion', estado: autorizacion ? 'AUTORIZADO' : 'PENDIENTE DE AUTORIZACIÓN',
+        id: c.id, tipo: 'consolidacion', cerrado: false,
         autor: c.autor, t: c.t, ...situar(c.t), titulo: titulo(eje.obtener(c.id)),
-        efecto: efectoDelRegistro(de(c.id)), tokens: tokens(c.id), ...(autorizacion ? { autorizacion } : {}),
+        efecto: efectoDelRegistro(de(c.id)), tokens: tokens(c.id),
       },
     });
   }
@@ -460,20 +440,13 @@ export function svgHilos(datos, { ventana = 'todo', compacto = false, nuevos = n
 
   const dibujarFuturo = (f, quieto) => {
     const y = g.eje + f.carril;
-    const estado = f.estado ? ' ' + (f.estado === 'AUTORIZADO' ? 'autorizado' : 'pendiente') : '';
+    const estado = f.tipo === 'consolidacion' ? ' abierta' : '';
     const a = !quieto && anima(f.id, f.efecto, FUTURO);
-    const desc = f.tipo === 'consolidacion' ? `consolidación ${corto(f.id)} · ${f.autor} · ${f.titulo} · ${f.estado.toLowerCase()}`
+    const desc = f.tipo === 'consolidacion' ? `propuesta ${corto(f.id)} · ${f.autor} · ${f.titulo} · abierta`
       : f.tipo === 'declarado' ? `declarado en la posición 7 del foco · ${f.titulo}`
         : `proyección ${corto(f.id)} · ${f.autor} · ${f.titulo} · ${haceCuanto(f.delta, f.banda)}`;
     const rotulo = !rotular('f' + f.carril, f.x) ? '' : `<text class="rotulo" x="${n1(f.x + bw / 2)}" y="${n1(y + (f.carril < 0 ? -bh / 2 - 4 : bh / 2 + 10))}">${escapar(recorte(f.titulo, 12))}</text>`;
-    let nudo = '';
-    if (f.autorizacion) {
-      const au = f.autorizacion;
-      const na = !quieto && anima(au.id, au.efecto, FUTURO);
-      if (!quieto) dibujados.add(au.id);
-      nudo = `<g transform="translate(${n1(f.x)} ${n1(y)})"><g class="nudo${na ? ' nuevo anuda' : ''}" ${atributos(au.id, au.efecto, FUTURO, na ? ` style="${retardo(au.id)}"` : '')}>`
-        + describir(`autorizado por ${au.autor} · ${corto(au.id)}`, au.efecto) + `<circle r="${compacto ? 5 : 3.5}"/></g></g>`;
-    }
+    const nudo = '';
     return `<g class="futuro ${f.tipo}${estado}${a ? ' nuevo proyecta' : ''}" ${atributos(f.id, f.efecto, FUTURO, ` style="${origen}${a ? ';' + retardo(f.id, 0.2) : ''}"`)}>`
       + describir(desc, f.efecto) + `<path class="arco" pathLength="1" d="${arco(f.x, y)}"/>`
       + `<rect class="bloque" x="${n1(f.x)}" y="${n1(y - bh / 2)}" width="${bw}" height="${bh}" rx="2"/>${rotulo}</g>${nudo}`;
@@ -485,22 +458,22 @@ export function svgHilos(datos, { ventana = 'todo', compacto = false, nuevos = n
         capas.futuro.push(dibujarFuturo(f, false));
         continue;
       }
-      // La ejecución suelta el arco de su consolidación: el mismo, donde estaba, y cae al presente.
+      // El registro que la cierra suelta el arco de su propuesta: el mismo, donde estaba, y cae al presente.
       const s = f.suelta;
       dibujados.add(s.id);
       capas.futuro.push(`<g class="suelta nuevo" ${atributos(s.id, s.efecto, FUTURO, ` data-consolidacion="${escapar(f.id)}" style="${origen};${retardo(s.id)}"`)}>`
-        + describir(`ejecutado ${corto(s.id)}: se suelta el arco de ${corto(f.id)}`, s.efecto) + dibujarFuturo(f, true) + '</g>');
+        + describir(`cerrada por ${corto(s.id)}: se suelta el arco de ${corto(f.id)}`, s.efecto) + dibujarFuturo(f, true) + '</g>');
     }
     for (const [b, lista] of sobranF) capas.futuro.push(contador(b, lista, 1, 'en el futuro'));
   }
 
-  // Anclas: la ejecución ancla en el hilo del pasado lo que era proyecto.
+  // Anclas: el registro que cierra una propuesta ancla en el hilo del pasado lo que era proyecto.
   if (verPasado) {
     for (const a of datos.anclas) {
       dibujados.add(a.id);
       const an = anima(a.id, a.efecto, PASADO);
       const ax = xPasado(a.delta);
-      const desc = `ejecutado ${corto(a.id)} · ${a.autor} · ${a.titulo} · ${haceCuanto(a.delta, a.banda)}`;
+      const desc = `cerrada por ${corto(a.id)} · ${a.autor} · ${a.titulo} · ${haceCuanto(a.delta, a.banda)}`;
       capas.anclas.push(`<g class="ancla${an ? ' nuevo ancla-cae' : ''}" ${atributos(a.id, a.efecto, PASADO, ` data-consolidacion="${escapar(a.consolidacion)}" style="${origen}${an ? ';' + retardo(a.id, 0.5) : ''}"`)}>`
         + describir(desc, a.efecto)
         + `<path class="arco-anclado" pathLength="1" d="M${CX} ${g.eje} Q${n1((CX + ax) / 2)} ${n1(g.eje + (compacto ? 22 : 30))} ${n1(ax)} ${g.eje}"/>`
@@ -516,7 +489,6 @@ export function svgHilos(datos, { ventana = 'todo', compacto = false, nuevos = n
     for (const p of datos.pasado) anotar(p.id, p.tokens, 0.6);
     for (const f of datos.futuro) {
       anotar(f.id, f.tokens, 0.6);
-      if (f.autorizacion) anotar(f.autorizacion.id, f.autorizacion.tokens, 0.4);
     }
     for (const a of datos.anclas) anotar(a.id, a.tokens, 1.3);
     const movimientos = [];
@@ -586,9 +558,8 @@ export function htmlHilos(datos, { nuevos = new Set(), maximoPuntos } = {}) {
   const leyenda = [
     ['nodo', 'registro: ' + nombre({ tipo: 'escrito' }, PASADO)],
     ['hilo', 'hilo: aquello sobre lo que se escribió'],
-    ['arco', 'proyección o consolidación sin ejecutar: ' + nombre({ tipo: 'fase', fase: 'consolidado' }, FUTURO)],
-    ['nudo', 'autorizado' + (nombre({ tipo: 'fase', fase: 'autorizado' }, FUTURO) ? ': ' + nombre({ tipo: 'fase', fase: 'autorizado' }, FUTURO) : ' (los hilos no nombran autorizar)')],
-    ['ancla', 'ejecutado: ' + nombre({ tipo: 'fase', fase: 'ejecutado' }, PASADO)],
+    ['arco', 'proyección o propuesta sin cerrar: ' + nombre({ tipo: 'fase', fase: 'consolidado' }, FUTURO)],
+    ['ancla', 'cerrada: el registro que la cierra, ' + nombre({ tipo: 'escrito' }, PASADO)],
     ['punto', 'tokens de → a, con el nombre de su mundo'],
   ];
   const lista = efectosNuevos(datos, nuevos);

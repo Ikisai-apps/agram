@@ -41,7 +41,7 @@ Una estadística guarda, para un conjunto de registros: `n`; por cada medida (`M
 `escribirBase(eje, { registro, autor, privada, t, epoca })` escribe un evento en el 8 del registro (`sobre`: el registro, `en`: `CIELO = '8000000000'`), firmado por `autor` y gastando un minuto de su T (`COSTE_BASE`). El contexto es `{ bases: true, n, nSubarbol, hasta, epoca, sinBase }`.
 
 - Por defecto, `autor` es la **identidad propia** del registro (`identidadDe`): la única cosa (tipo `cosa`, con clave) a la que el propio registro da de alta en su contexto; la del génesis, su autor. **[X] decidir VG: cómo se identifica un registro con una identidad** (es de AARPIA; esto es lo mínimo que el eje ya permite).
-- Si no, `autor` ha de tener **P sobre el registro** (`eje.poderSobre`: P con ámbito el eje entero o un registro de su hilo). En el ejemplo, la casa (con P sobre todo el eje) puede escribir la base de cualquier registro, también de una compra, que no tiene cosa propia.
+- Si no, `autor` ha de tener **P sobre el registro** (`eje.poderSobre`: el P posicionado en ese mismo registro; encargo 3b, mapa §15 [D]: se retiran el P del génesis sobre todo el eje y el P que cubría el hilo). Quien escribe un registro obtiene diez P sobre él: con clave, puede escribir su base, también la de una compra, que no tiene cosa propia. En el ejemplo, la casa ya no puede escribir la base de cualquier registro.
 - Siempre con clave: una base va firmada. `puedeEscribirBase(eje, autor, registro)` dice si alguien puede hoy (`por: 'identidad' | 'poder'`) y, si no, por qué (`nadie sin P sobre <id8> escribe su base: …`).
 
 ### 2.3 Cortes: regla de la época
@@ -75,7 +75,7 @@ Solo es base (`esBase`, `basesEn`) lo que, en el 8 del registro:
 4. mide **todos** los hijos llegados hasta `hasta`, en su orden;
 5. funde bases válidas del 8 de esos hijos (como mucho una por hijo), y su `nSubarbol` es 1 más lo que aporta cada hijo.
 
-Lo demás escrito en el 8 (una compra que se declara base, una base bien formada firmada por alguien sin P, un contexto raro, unas referencias que no son los hijos) es **un hijo más**: cuenta en `escritos` y en el respaldo, y deja la base vieja con novedades. Nadie se esconde declarándose base, y nadie sin P falsea la estadística de una cosa que no es suya. **[X] decidir VG: si el poder se mira al escribir la base (hoy) o al leerla (como mira el motor para autorizar).**
+Lo demás escrito en el 8 (una compra que se declara base, una base bien formada firmada por alguien sin P, un contexto raro, unas referencias que no son los hijos) es **un hijo más**: cuenta en `escritos` y en el respaldo, y deja la base vieja con novedades. Nadie se esconde declarándose base, y nadie sin P falsea la estadística de una cosa que no es suya. **[X] decidir VG: si el poder se mira al escribir la base (hoy) o al leerla.**
 
 ### 2.6 Las bases no son hermanas, escritos ni comparables
 
@@ -116,7 +116,7 @@ Las tres leen solo la base escrita y comparten la lectura del 8: heredan el **pr
 
 ### 2.11 Ejemplo ejecutado
 
-Árbol de `ejemplos/ikisai/compras-hermanas.mjs`: dos proyectos bajo el génesis (el comedor, con el menú del día y el de la cena; el mercado, con un puesto) y ocho compras. Cada registro que resume a otros da de alta, en su propio evento, a su cosa (`comedor`, `menu-dia`, `menu-cena`, `mercado`, `puesto`) con clave y unos minutos de T. La casa tiene P sobre todo el eje. `escribirBasesDelEjemplo` escribe las seis bases de abajo arriba, cada una firmada por su cosa; la del génesis, por la casa.
+Árbol de `ejemplos/ikisai/compras-hermanas.mjs`: dos proyectos bajo el génesis (el comedor, con el menú del día y el de la cena; el mercado, con un puesto) y ocho compras. Cada registro que resume a otros da de alta, en su propio evento, a su cosa (`comedor`, `menu-dia`, `menu-cena`, `mercado`, `puesto`) con clave y unos minutos de T. La huésped y la vecina entran aceptando una invitación de la casa (su aceptación es su alta). Desde el encargo 3b nadie tiene P sobre todo el eje (se retira el P del génesis, mapa §15 [D]): cada autor obtiene diez P sobre lo que escribe. `escribirBasesDelEjemplo` escribe las seis bases de abajo arriba, cada una firmada por su cosa; la del génesis, por la casa.
 
 ```sh
 node --input-type=module -e "
@@ -159,20 +159,20 @@ console.log('nota sobre el café: sin novedades', leerBase(eje, ej.menu.id).fres
 
 ```text
 guisos {"posiciones":5,"terminales":9,"escritos":0,"identidades":2,"profundidadHilo":3,"formulasResueltas":1,"formulasPendientes":1,"tokens":{"T:hora":1,"E:casa/EUR":12}}
-sin bases: PENDIENTE · sin base escrita · respaldo general: n 16 · sin base escrita
-quién escribe la base del menú: menu-dia identidad · casa poder · cocina no
+sin bases: PENDIENTE · sin base escrita · respaldo general: n 19 · sin base escrita
+quién escribe la base del menú: menu-dia identidad · casa no · cocina poder
 menú     firma menu-dia  (identidad) · hijos 4 · subárbol  5 · fundidas 0 · T:hora 0 4 1 0 0 0 0 0 0 0 · sin novedades true
 cena     firma menu-cena (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
 puesto   firma puesto    (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
 comedor  firma comedor   (identidad) · hijos 2 · subárbol  9 · fundidas 2 · T:hora 0 7 1 0 0 0 0 1 0 0 · sin novedades true
 mercado  firma mercado   (identidad) · hijos 1 · subárbol  4 · fundidas 1 · T:hora 1 3 0 0 0 0 0 0 0 0 · sin novedades true
-génesis  firma casa      (identidad) · hijos 4 · subárbol 16 · fundidas 2 · T:hora 4 10 1 0 0 0 0 1 0 0 · sin novedades true
-0 idea: 4 | 1 aprendizaje: 10 | 2 avanzado: 1 | 3 aprendizaje profesional: 0 | 4 resolución profesional: 0 | 5 aprendizaje superior: 0 | 6 solución profesional avanzada: 0 | 7 investigación: 1 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
+génesis  firma casa      (identidad) · hijos 5 · subárbol 17 · fundidas 2 · T:hora 5 10 1 0 0 0 0 1 0 0 · sin novedades true
+0 idea: 5 | 1 aprendizaje: 10 | 2 avanzado: 1 | 3 aprendizaje profesional: 0 | 4 resolución profesional: 0 | 5 aprendizaje superior: 0 | 6 solución profesional avanzada: 0 | 7 investigación: 1 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
 hermanos RESUELTO escrita · n  4 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.375 · terminales (recuento) 9 · la 4 en 2/4
 proyecto RESUELTO escrita · n  9 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.081 · terminales (recuento) 9 · la 4 en 2/9
-general  RESUELTO escrita · n 16 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.018 · terminales (recuento) 9 · la 4 en 2/16
-lo escrito = lo calculado al vuelo antes: true
-BQL: BASES("hermanos") = 4 · BASES("general") = 16 · BASES("proyecto", "T:hora") = 1 · BASES("proyecto", "E:casa/EUR", "cuota") = 0.081 · BASES("general", "E:casa/EUR", "suma") = 685
+general  RESUELTO escrita · n 17 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.018 · terminales (recuento) 9 · la 4 en 4/17
+lo escrito = lo calculado al vuelo antes: false
+BQL: BASES("hermanos") = 4 · BASES("general") = 17 · BASES("proyecto", "T:hora") = 1 · BASES("proyecto", "E:casa/EUR", "cuota") = 0.081 · BASES("general", "E:casa/EUR", "suma") = 685
 menú tras un té: {"t":"2026-11-07T18:00:00Z","hijosNuevos":1,"basesNuevas":0,"debajo":0,"sinNovedades":false} · génesis: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":0,"debajo":1,"sinNovedades":false}
 menú corregido: hijos 5 · anteriores 1 · comedor: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":1,"debajo":0,"sinNovedades":false}
 nota sobre el café: sin novedades true · comprobar false [["escritos","posiciones","tiempo:hora","posiciones por PV"]]
@@ -180,9 +180,9 @@ nota sobre el café: sin novedades true · comprobar false [["escritos","posicio
 
 Los ids no se imprimen: las claves de la casa y de las cosas son nuevas en cada ejecución y entran en los eventos, así que cambian.
 
-Lectura: sin bases, `situar` no inventa nada: dice «sin base escrita», y el respaldo calcula al vuelo los catorce registros y lo declara. La base del menú la puede escribir su cosa (identidad) o la casa (poder); cocina, sin P sobre el menú, no. Escritas las seis bases, la compra de dos guisos (12 euros) cae en la caja 6 de `E:casa/EUR` (de 10 a 15) en las tres cohortes, y la cohorte cambia su **cuota**: el 37,5 % de lo que movieron sus hermanos, el 8,1 % del proyecto y el 1,8 % del ámbito. Sus nueve terminales son un recuento: se informan y no se sitúan (R7). Lo leído del 8 del génesis es exactamente lo que el respaldo calculaba al vuelo antes de escribir nada. La etiqueta «solución profesional avanzada» es la de la caja 6, no un grado de la compra. En `T:hora` caen arriba el génesis (las mil horas que emite) y el comedor (las cuarenta que la casa da en él a la cocina, una cosa suya: T no cruza de persona, pero sí va a una cosa). Un té sobre el menú deja su base con novedades, y el génesis lo ve debajo (a través de la base del comedor); al corregir la base del menú, la del comedor ve una base nueva en sus hijos. Una nota sobre el café no es una llegada al menú: la frescura no la ve y `comprobar` sí (también en `tiempo:hora`: la hora que consumió se anota en el café).
+Lectura: sin bases, `situar` no inventa nada: dice «sin base escrita», y el respaldo calcula al vuelo los diecinueve registros y lo declara. La base del menú la puede escribir su cosa (identidad); la casa, sin P sobre el menú, no; la cocina tiene P sobre él (lo escribió: diez P al escribirlo), pero no tiene clave, y una base va firmada. Escritas las seis bases, la compra de dos guisos (12 euros) cae en la caja 6 de `E:casa/EUR` (de 10 a 15) en las tres cohortes, y la cohorte cambia su **cuota**: el 37,5 % de lo que movieron sus hermanos, el 8,1 % del proyecto y el 1,8 % del ámbito. Sus nueve terminales son un recuento: se informan y no se sitúan (R7). Lo leído del 8 del génesis ya no es lo que el respaldo calculaba al vuelo antes de escribir nada (lo era antes del encargo 3b): las altas de la huésped y de la vecina cuelgan de sus invitaciones, que no tienen base, y lo que cuelga de un hijo sin base no cuenta y se dice (§2.4; aquí `sinBase` 2), mientras que el respaldo las cuenta: 17 frente a 19. La etiqueta «solución profesional avanzada» es la de la caja 6, no un grado de la compra. En `T:hora` caen arriba el comedor (las veinte horas que la casa da en él a la cocina, una cosa suya: T no cruza de persona, pero sí va a una cosa) y el menú del día (dos horas); el génesis ya no mueve nada (encargo 3b: la época 0 en el eje, sin movimientos). Un té sobre el menú deja su base con novedades, y el génesis lo ve debajo (a través de la base del comedor); al corregir la base del menú, la del comedor ve una base nueva en sus hijos. Una nota sobre el café no es una llegada al menú: la frescura no la ve y `comprobar` sí (también en `tiempo:hora`: la hora que consumió se anota en el café).
 
-`E:casa/EUR` suma 685 en el ámbito general: son los euros movidos por los catorce registros (los 500 que emite el génesis, los que reparten el comedor y el mercado y los de las compras). Cada serie va por su clave y no se suma con otras.
+`E:casa/EUR` suma 685 en el ámbito general: son los euros movidos por los registros del eje (los 500 que la casa emite en su primera transacción después del génesis, los que reparten el comedor y el mercado y los de las compras). Cada serie va por su clave y no se suma con otras.
 
 ## 3. Abiertos ([X] decidir VG)
 
@@ -198,7 +198,7 @@ Lo decidido en `MAPA` §12 y §14.2 está construido: la verdad del 8 es la escr
 8. **Qué es la frescura** (§2.7): hoy, lo llegado; aparte, `comprobar`.
 9. **Lo que cuelga de un hijo sin base** no cuenta y se dice (`sinBase`, §2.4).
 10. **La firma de `BASES()`** (§2.9). Hay dos formas que no caben juntas; las compara `docs/BQL.md` §7.14.
-11. **El poder para escribir una base, ¿al escribirla o hoy?** Hoy se mira al escribirla (§2.5): una base de quien tenía P sigue valiendo aunque después lo delegue. El motor, para autorizar, mira el poder de hoy.
+11. **El poder para escribir una base, ¿al escribirla o hoy?** Hoy se mira al escribirla (§2.5): una base de quien tenía P sigue valiendo aunque después lo delegue. Desde el encargo 3b el motor no autoriza (cada uno mueve lo suyo, mapa §15 [D]), así que no hay otro «poder de hoy» con que compararlo.
 
 ## 4. Límites observados
 

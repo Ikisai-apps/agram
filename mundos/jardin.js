@@ -17,29 +17,31 @@
 // - BROTE: un ocupante nuevo crece desde el suelo (lo escrito en la posición
 //   2, o el foco mismo con lo que alcanza por referencia);
 // - la flor se abre cuando la consolidación que lo elige es nueva;
-// - el fruto cuaja cuando la ejecución es nueva.
+// - el fruto cuaja cuando la propuesta se cierra: con el registro nuevo que la
+//   cierra (encargo 3b: no hay paso de ejecutar; cada parte registra su
+//   movimiento y la plantilla de cerrado del dueño lo lee).
 //
 // [X] decidir VG (abierto en este mundo):
 // - hierba = exacto y arbusto = acuerdo parcial: el corpus da «hierbas:
 //   criterios abundantes y superficiales; arbustos: familias» sin decir
 //   cómo se reconoce cada uno;
 // - el catálogo (PR #45) llama «fructificar» a consolidar visto desde el
-//   jardín y no nombra ejecutar en él. Aquí, como pide el encargo, la
-//   elección se dibuja como flor y la ejecución como fruto; cada una lleva
-//   el nombre que el catálogo da a SU operación (la flor, «fructificar»; el
-//   fruto, el genérico de ejecutar) y su marca;
+//   jardín y no nombra el cierre en él. Aquí la elección se dibuja como flor
+//   y el cierre como fruto; cada una lleva el nombre que el catálogo da a SU
+//   operación (la flor, «fructificar»; el fruto, el genérico de la fase
+//   «ejecutado» del catálogo, que es lo que el cierre sustituye) y su marca;
 // - un ocupante propio que es una referencia y lo que alcanza son dos
 //   plantas (colisión), y la flor va a las dos si la consolidación eligió
 //   ese lugar.
 
 import { ARIDAD } from '../src/btml.js';
 import { ocupantes } from '../src/encaje.js';
-import { consolidaciones, FABRICA } from '../src/motor.js';
+import { propuestas, cierre } from '../src/motor.js';
 import { escapar, n1, corto, recorte, nombreEn, ritmo, atributos, ordenPlano, textoCorto } from './comun.js';
 
 const X_FORMA = '[X] decidir VG: hierba = encaje exacto, arbusto = acuerdo parcial (el corpus no dice cómo se reconoce cada uno)';
 const X_FLOR = '[X] decidir VG: el catálogo (PR #45) llama «fructificar» a consolidar visto desde el jardín; aquí esa consolidación se dibuja como flor sobre lo elegido';
-const X_FRUTO = '[X] decidir VG: el catálogo (PR #45) no nombra ejecutar en el jardín; aquí la ejecución se dibuja como fruto';
+const X_FRUTO = '[X] decidir VG: el catálogo (PR #45) no nombra el cierre en el jardín; aquí la propuesta cerrada se dibuja como fruto';
 const conMarca = (efecto, marca) => ({ ...efecto, decision: [marca, efecto.decision].filter(Boolean).join(' · ') });
 
 /** Forma de una planta por su encaje: hierba si es exacto, arbusto si el acuerdo es parcial. */
@@ -55,18 +57,17 @@ function traido(o, foco) {
 /**
  * Lo que dibuja el jardín de un foco (bajo `camino`): una planta por
  * ocupante de la posición 2, con su forma, su encaje y las flores y frutos
- * que le dieron las consolidaciones del foco. No escribe nada.
+ * que le dieron las propuestas del foco (la flor, la elección; el fruto, el cierre). No escribe nada.
  */
 export function datosJardin(eje, foco, { camino = [], maximo = 8 } = {}) {
   const ev = eje.obtener(foco);
   if (!ev) throw new Error('foco desconocido: ' + foco);
   const indices = [...camino, 2];
-  const elegidas = consolidaciones(eje, foco, camino).map((c) => {
+  const elegidas = propuestas(eje, foco, camino).map((c) => {
     const reg = eje.obtener(c.id);
-    const ejec = c.estado === 'EJECUTADO'
-      ? eje.sobre(c.id, FABRICA).find((x) => x.contexto?.fase === 'ejecutado' && x.autor === c.autor) ?? null
-      : null;
-    return { ...c, titulo: textoCorto(c.titulo), encaje: (reg.contexto?.encaje ?? []).filter((e) => e.posicion === 2), ejecucion: ejec?.id ?? null };
+    // Cerrada, el fruto es el registro que mueve lo anunciado (motor.cierre), o ella misma si no anunciaba nada.
+    const fruto = c.cerrado === true ? (cierre(eje, c.id)?.id ?? c.id) : null;
+    return { ...c, titulo: textoCorto(c.titulo), encaje: (reg.contexto?.encaje ?? []).filter((e) => e.posicion === 2), ejecucion: fruto };
   });
   const todas = ocupantes(eje, foco, indices).map((o) => {
     const origen = o.origenDir ?? o.dir;
@@ -152,7 +153,7 @@ export function svgJardin(datos, { compacto = false, nuevos = new Set() } = {}) 
       const fx = (k === 0 ? -8 : 10) * s;
       const fy = -(alto - 14) * s;
       cuerpo += `<g transform="translate(${n1(fx)} ${n1(fy)})"><g class="x-fruto${cuaja ? ' x-nuevo x-cuaja' : ''}" ${atributos(f.ejecucion, datos.efectos.fruto, 2, cuaja ? ` style="${r.estilo(f.ejecucion, 0.3)}"` : '')}>`
-        + `<title>${escapar(`fruto: la consolidación ${corto(f.consolidacion)} se ejecutó · ${corto(f.ejecucion)}`)}</title><circle r="${n1(3.6 * s)}"/></g></g>`;
+        + `<title>${escapar(`fruto: la propuesta ${corto(f.consolidacion)} está cerrada · ${corto(f.ejecucion)}`)}</title><circle r="${n1(3.6 * s)}"/></g></g>`;
     });
     const encaje = p.acuerdo === 10 ? 'encaje exacto' : `${p.acuerdo} de 10 profundidades de acuerdo`;
     const titulo = `${p.forma}: ${p.texto} · ${p.tipo}${p.camino.length ? ' ' + p.camino.join('.') : ''} · ${encaje} · ${corto(p.evento)}`;

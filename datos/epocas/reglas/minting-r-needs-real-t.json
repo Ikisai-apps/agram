@@ -1,0 +1,15 @@
+[
+  ["minting R needs real T"],
+  ["epoch.7.0"],
+  ["=count (ev.1 where mint in it.4 and R in it.0.0.0) = 0 or count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "VG, 8-11 tarde (mapa §15 [D] N3): «DOS SECUENCIAS, no dos escalones»; la exigencia: emitir E exige P, emitir P exige R, emitir R exige T",
+    "Real: una escala que el calendario mide (0 a 6; las informativas, 7 a 9, no cuentan)"
+  ],
+  ["epoch 0"],
+  ["after P is repositioned one step at a time"],
+  ["minting R needs real T: {first ev.3} mints R without burning real T (a scale the calendar measures, epoch.7.0) in the same transaction"]
+]

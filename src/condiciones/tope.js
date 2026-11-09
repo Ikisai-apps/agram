@@ -5,7 +5,7 @@
 // por secciones con las filas del inventario (docs/notas/INVENTARIO_REGLAS.md
 // §2, «Recursos (E)»). Mismo texto, mismo orden, mismo comportamiento.
 
-import { claveToken, partirClave, validarMovimiento, franjaDe, familiaDe, TODAS_LAS_FRANJAS, AMBITO_GENESIS } from '../tokens.js';
+import { claveToken, partirClave, validarMovimiento, franjaDe, familiaDe, TODAS_LAS_FRANJAS } from '../tokens.js';
 import { esInstante, msUTC, segundosUTC, segundosDe } from '../instante.js';
 
 /** Lo que dice series() de una serie de E cuyo registro no declara capacidad ni la hereda. */
@@ -65,14 +65,16 @@ const validosDe = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : [])
  *    más cercano: así un subregistro que declare más capacidad no esquiva el
  *    tope de su ancestro. Sin ninguno no hay tope: deuda del emisor
  *    (SIN_CAPACIDAD).
- * 3. La cuota por P bloqueado, por serie (EE-7). Con tope, para cada
- *    registro A que lo declara, el E vivo de la serie no pasa de ⌊P
- *    bloqueado ÷ P emitido × capacidad⌋, donde el P es P:A si A tiene P
- *    propio emitido y, si no, P:genesis («el génesis solo manda donde nadie
- *    ha emitido P», VG), y el bloqueado es el de los emisores de la serie con
- *    la salida = la clave de la serie o la de su FAMILIA (tokens.familiaDe:
- *    la franja cambiada por «*»): [X] un mismo bloqueo respalda así la misma
- *    cama todas las noches, porque la capacidad se repite en cada franja.
+ * 3. La cuota por P comprometido, por serie (EE-7; VG, 9-11, D1 y F1). Con
+ *    tope, para cada registro A que lo declara, el E vivo de la serie no pasa
+ *    de ⌊P comprometido por sus emisores ÷ P comprometido por todos ×
+ *    capacidad⌋: comprometido es bloqueado con la salida = la clave de una
+ *    serie de E atada a A o a lo que cuelga de A, o la de su FAMILIA
+ *    (tokens.familiaDe: la franja cambiada por «*»: un mismo bloqueo respalda
+ *    la misma cama todas las noches, porque la capacidad se repite en cada
+ *    franja), y cuenta el P posicionado en A o en lo que cuelga de A (F1: el
+ *    subárbol en el numerador y en el denominador; encargo 3b: ya no hay P
+ *    emitido sobre A ni P del génesis, mapa §15).
  * 4. Ese bloqueo no se libera (EE-8): un P bloqueado con la salida = la clave
  *    de una serie de E no se libera mientras quede E vivo de esa serie, ni
  *    con la de una familia mientras quede E vivo en alguna de sus franjas.
@@ -102,6 +104,7 @@ const validosDe = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos : [])
  *   dentro(registro, ancestro) si `ancestro` está en el hilo de `registro`
  *   bloqueado(id, clave, salida)
  *   bloqueadoP(id, salida)     P de cualquier ámbito que `id` tiene bloqueado con esa salida
+ *   bloqueosP()                todo el P bloqueado del eje: [{ titular, clave, salida, cantidad }]
  */
 export function reglasDelTope(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -226,7 +229,17 @@ function analizar(ev, ctx) {
     todas = [...vistas2].map(([k, s]) => [k, s, franjaDe(partirClave(k).denominacion)]);
     return todas;
   };
-  return { errores, estado, verP, verB, bloqueos, emitidas, conjuntas, liberaciones, vivoDe, series };
+  // Todo el P comprometido tras el evento: lo de antes con lo que el evento bloquea o libera.
+  let comprometidos = null;
+  const compromisosP = () => {
+    if (comprometidos) return comprometidos;
+    const suma = new Map();
+    for (const b of ctx.bloqueosP?.() ?? []) suma.set(JSON.stringify([b.titular, b.clave, b.salida]), b.cantidad);
+    for (const [llave, d] of bloqueos) if (JSON.parse(llave)[1].startsWith('P:')) suma.set(llave, (suma.get(llave) ?? 0) + d);
+    comprometidos = [...suma].map(([llave, cantidad]) => { const [titular, clave, salida] = JSON.parse(llave); return { titular, clave, salida, cantidad }; }).filter((b) => b.cantidad > 0);
+    return comprometidos;
+  };
+  return { errores, estado, verP, verB, bloqueos, emitidas, conjuntas, liberaciones, vivoDe, series, compromisosP };
 }
 
 /** EE-1, EE-9 (divisible y emisores): el registro de la serie y su contrato. */
@@ -270,7 +283,7 @@ function conjunta(ev, ctx, a) {
 
 /** EE-5, EE-6, EE-7, EE-11, RL-4: el tope compartido, por franja, y la cuota, por serie, para cada serie que el evento emite. */
 function topeYCuota(ev, ctx, a) {
-  const { emitidas, estado, series, vivoDe, verP, verB } = a;
+  const { emitidas, estado, series, vivoDe, compromisosP } = a;
   const errores = [];
   for (const [k, i] of emitidas) {
     const s = estado(k);
@@ -284,16 +297,28 @@ function topeYCuota(ev, ctx, a) {
       if (vivo > capacidad + MARGEN) {
         errores.push({ i, capa: 4, texto: 'tope de E del registro ' + corto(A) + ' en la franja «' + franja + '»: su E vivo (con sus descendientes, todas las denominaciones y todos los emisores de esa franja) llegaría a ' + vivo + ' y su capacidad es ' + capacidad });
       }
-      const kp = verP('P:' + A) > 0 ? 'P:' + A : 'P:' + AMBITO_GENESIS;
-      const emitidoP = verP(kp);
+      // D1 y F1 (VG, 9-11): lo comprometido con las series de E del subárbol de A, con P posicionado en él.
       const emisores = s.emisores ?? [s.emisor];
       const familia = familiaDe(k);
-      const bloqueado = emisores.reduce((suma, e) => suma + verB(e, kp, k) + verB(e, kp, familia), 0);
-      const exacta = emitidoP > 0 ? (bloqueado * capacidad) / emitidoP : 0;
+      const enSubarbol = (clave) => clave.startsWith('P:') && ctx.dentro(clave.slice(2), A);
+      const atadaAlSubarbol = (salida) => {
+        if (typeof salida !== 'string' || !salida.startsWith('E:')) return false;
+        const p = partirClave(salida);
+        const registro = p.registro ?? ctx.serie(salida)?.registro ?? ctx.alta(p.emisor)?.id;
+        return ctx.dentro(registro, A);
+      };
+      let bloqueado = 0;
+      let total = 0;
+      for (const b of compromisosP()) {
+        if (!enSubarbol(b.clave) || !atadaAlSubarbol(b.salida)) continue;
+        total += b.cantidad;
+        if (emisores.includes(b.titular) && (b.salida === k || b.salida === familia)) bloqueado += b.cantidad;
+      }
+      const exacta = total > 0 ? (bloqueado * capacidad) / total : 0;
       const cuota = s.divisible ? exacta : Math.floor(exacta + MARGEN);
       if (vivoSerie > cuota + MARGEN) {
-        errores.push({ i, capa: 4, texto: 'cuota de ' + k + ' en el registro ' + corto(A) + ': ' + emisores.join(' + ') + ' bloquea' + (emisores.length > 1 ? 'n ' : ' ') + bloqueado + ' de ' + kp + ' con la salida de la serie, de ' + emitidoP +
-          ' emitido; da ' + cuota + ' de ' + capacidad + (s.divisible ? '' : ' (hacia abajo)') + ' y el E vivo de la serie llegaría a ' + vivoSerie });
+        errores.push({ i, capa: 4, texto: 'cuota de ' + k + ' en el registro ' + corto(A) + ': ' + emisores.join(' + ') + ' compromete' + (emisores.length > 1 ? 'n ' : ' ') + bloqueado + ' de P con la salida de la serie, de ' + total +
+          ' comprometido con las series de su subárbol; da ' + cuota + ' de ' + capacidad + (s.divisible ? '' : ' (hacia abajo)') + ' y el E vivo de la serie llegaría a ' + vivoSerie });
       }
     }
   }

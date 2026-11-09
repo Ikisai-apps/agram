@@ -74,7 +74,8 @@ test('vista Scened: una fila por foco, en el orden del marco común, y cada aris
 
 test('vista Scened: si la capacidad corta la escena, el aviso sale arriba y abajo de la lista', async () => {
   const { eje, compra, c2, c3 } = await escenario();
-  // VG, 7-11 noche (10.1): lo que hay. La compra trae 23 (ella 9, el menú 6, las altas 3, el génesis 1 y la cuenta escrita encima 4); c2 añade 3; c3 pasaría de 28.
+  // VG, 7-11 noche (10.1): lo que hay. La compra trae 24 (ella 10, con la plantilla de cerrado en su 2, encargo 3b; el
+  // menú 6, las altas 3, el génesis 1 y la cuenta escrita encima 4); c2 añade 3; c3 pasaría de 28.
   const e = escenaDe(eje, compra.id, { alcance: 'hermanos', ahora: AHORA, capacidad: 28 });
   assert.deepEqual(e.focos.map((f) => f.id), [compra.id, c2.id]);
   assert.deepEqual(e.corte.fuera, [c3.id]);
@@ -82,10 +83,10 @@ test('vista Scened: si la capacidad corta la escena, el aviso sale arriba y abaj
   const avisos = [...html.matchAll(/<div class="aviso">([^<]*)<\/div>/g)].map((m) => m[1]);
   assert.equal(avisos.length, 2);
   assert.equal(avisos[0], avisos[1]);
-  assert.match(avisos[0], /^capacidad de la escena: 28 posiciones\. El foco [0-9a-f]{8} \(3º de 3\) la llevaría a 29; la escena se corta ahí y quedan fuera 1 foco: /);
+  assert.match(avisos[0], /^capacidad de la escena: 28 posiciones\. El foco [0-9a-f]{8} \(3º de 3\) la llevaría a 30; la escena se corta ahí y quedan fuera 1 foco: /);
   const lista = html.indexOf('<ol class="piezas">');
   assert.ok(html.indexOf('class="aviso"') < lista && html.lastIndexOf('class="aviso"') > html.indexOf('</ol>'));
-  assert.match(html, /26 de 28 posiciones en escena · capacidad bajada \(máximo 10000\) · 1 foco fuera/);
+  assert.match(html, /27 de 28 posiciones en escena · capacidad bajada \(máximo 10000\) · 1 foco fuera/);
   assert.match(html, /class="barra llena"/);
   // Si no cabe ni el foco, la vista lo dice en vez de quedar vacía.
   const vacia = htmlEscena(escenaDe(eje, compra.id, { ahora: AHORA, capacidad: 10 }));

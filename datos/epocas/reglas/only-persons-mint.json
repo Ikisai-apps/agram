@@ -1,13 +1,14 @@
 [
   ["only persons mint"],
   [0],
-  ["=count (ev.1 where mint in it.4) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"],
+  ["=count (ev.1 where mint in it.4 and not (P in it.0.0.0)) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"],
   ["ev.3"],
   ["mint"],
   ["*"],
   [
     "VG, 7-11 noche: «todos son emitidos por una persona individualmente» (mapa §12 [D] ciclo de vida)",
-    "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])"
+    "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])",
+    "Encargo 3b: reponer P no es emitir (mapa §15 [D] N7: subir y bajar P por el árbol); una cosa reposiciona su P como cualquiera: lo limita «P is repositioned one step at a time»"
   ],
   ["epoch 0"],
   ["after at most a year ahead"],

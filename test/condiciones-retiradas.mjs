@@ -3,14 +3,16 @@
 // comparando cada regla conectada al eje con el código que la precedía. No las usa el eje ni la validez.
 //
 //   RL-1 (reloj)                  not before its focus, not before the writer joined, at most a year ahead
-//   ID-9 (emision, entera)        only persons mint, E is minted by and to its issuer, R is minted by its issuer,
-//                                 nobody mints T; y las del 3b (P), que siguen en src/ciclo.js
+//   ID-9 (emision, sin el P)      only persons mint, E is minted by and to its issuer, R is minted by its issuer,
+//                                 nobody mints T (el P acuñado por el autor y R3 se retiraron en el encargo 3b: el
+//                                 mapa §15 los cambia por la obtención y el reposicionamiento, reglas de la época)
 //   TT-6 (tNoSeBloquea)           T is not locked
 //   TT-4 (asignacionDelDia)       writing burns today's T
 //   TT-8 (tNoCruza)               T only goes to things
 //   ancla (ANCLA)                 every record hangs on a record of the ledger
-//   ID-8 (AJENOS)                 nobody moves tokens of others
-//   PP-4 (AMBITO_P)               P moves within a known scope
+//   ID-8 (AJENOS)                 nobody moves tokens of others (hasta el 3b: la regla de hoy deja recoger lo que
+//                                 una invitación guarda para quien la acepta)
+//   PP-4 (AMBITO_P)               P moves within a known scope (hasta el 3b: hoy sin el ámbito «genesis»)
 //   EE-1, registro desconocido    E is tied to a record that exists
 //   ID-5, ID-6 (FIRMA, CLAVES)    who has a key signs, without a key nobody acts, a key is declared at its alta,
 //                                 a declared key comes with its proof (lo criptográfico sigue en src/: suelo)
@@ -18,8 +20,7 @@
 import { AMBITO_GENESIS, ESCALAS_INFORMATIVAS, asignacionT, claveToken } from '../src/tokens.js';
 import { segundosUTC, segundosDeGuardado, segundosDe } from '../src/instante.js';
 import {
-  ADELANTO_MAXIMO_S, T_NO_SE_EMITE, T_NO_SE_BLOQUEA, escribePersona, esCosa, poderAntesDe, emitidoAntesDe, mismaCaducidad,
-  porQueNoAmplia, motivoAjenos, validosDe,
+  ADELANTO_MAXIMO_S, T_NO_SE_EMITE, T_NO_SE_BLOQUEA, escribePersona, esCosa, mismaCaducidad, motivoAjenos, validosDe,
 } from '../src/ciclo.js';
 import { verificar, verificarPosesion, clavePublicaValida } from '../src/autoridad.js';
 
@@ -57,22 +58,23 @@ function reloj(ev, ctx) {
 }
 
 /**
- * ID-9, ID-10, TT-1, PP-2, PP-3, EE-9 (caducidad). Quién emite: solo
- * personas, en su propio nombre; T no se emite; P lo acuña quien escribió el
- * registro, una vez (R3); la caducidad de una serie de E la fija su primera
- * emisión. Un solo motivo por movimiento: el primero que falla.
+ * ID-9, ID-10, TT-1, EE-9 (caducidad). Quién emite: solo personas, en su
+ * propio nombre; T no se emite; la caducidad de una serie de E la fija su
+ * primera emisión. Un solo motivo por movimiento: el primero que falla. El P
+ * acuñado (PP-2, PP-3, R3) se retiró en el encargo 3b: nadie acuña P a mano.
  */
 function emision(ev, ctx, validos) {
   const errores = [];
   const falla = (i, capa, texto) => errores.push({ i, capa, texto });
   const autor = ev.autor;
-  const emitidoAntes = emitidoAntesDe(ctx);
   const persona = escribePersona(autor, ctx);
   const caducas = new Map(); // clave → caducidad fijada en este evento
 
   for (const { m, i } of validos) {
     if (m.de !== null) continue;
     if (!persona) {
+      // Encargo 3b: reponer P no es emitir (mapa §15 [D] N7); una cosa reposiciona su P como cualquiera.
+      if (m.token === 'P' && !ctx.tipo?.(autor)) continue;
       // B1 (VG, 10-11): persona = quien escribió su propia alta; una cosa es lo que dio de alta otra identidad, su dueño.
       // Quien entró en el prefijo de la versión 2 es lo que declaró su alta entonces (suelo de persistencia).
       const tipoV2 = ctx.tipo?.(autor);
@@ -89,38 +91,6 @@ function emision(ev, ctx, validos) {
       // VG, 8-11: no hay T acumulable. Nadie emite T, ni el génesis: cada persona tiene, cada día, su asignación.
       falla(i, 5, T_NO_SE_EMITE + ' (VG, 8-11: no hay T acumulable)');
       continue;
-    }
-    if (m.token === 'P') {
-      // Acuñar P es solo de quien escribió el registro (sobre el eje entero,
-      // del génesis). Quien solo TIENE P lo transfiere (delegar estrecha el
-      // ámbito y conserva la cantidad), pero no lo acuña: si no, con 1 P
-      // delegado se acuñaría P sin límite, y con P sobre el génesis, sobre
-      // todo el eje.
-      if (m.a !== autor) { falla(i, 5, 'la emisión de P va a quien la emite: ' + autor); continue; }
-      const registro = m.ambito === AMBITO_GENESIS ? undefined : ctx.registro(m.ambito);
-      if (!registro) {
-        falla(i, 4, m.ambito === AMBITO_GENESIS
-          ? 'P sobre todo el eje («' + AMBITO_GENESIS + '») solo lo emite el génesis'
-          : 'P fuera del génesis va sobre un registro existente: ámbito desconocido ' + corto(m.ambito));
-        continue;
-      }
-      // [X] confirmar VG: con el id del génesis como ámbito, su autor puede
-      // ampliar después el P sobre todo el eje, como cualquier autora sobre su
-      // registro; nadie más.
-      if (registro.autor !== autor) {
-        falla(i, 5, 'P sobre ' + corto(m.ambito) + ' lo acuña solo quien escribió el registro (' + registro.autor + '): ' + autor + ' puede transferir el P que tenga, no acuñarlo');
-        continue;
-      }
-      // R3 (VG, 7-11 noche): P:X es una serie cerrada. Su autor la emite UNA
-      // vez (en su primera emisión; varios movimientos del mismo evento son la
-      // misma); ampliarla después es ejecutar una consolidación sobre X que
-      // esté AUTORIZADA (src/autorizacion.js), y solo entonces vale. Sobre el
-      // génesis, P:genesis (el del génesis) y P:<id del génesis> son la misma
-      // serie: lo que emitió el génesis ya la abrió.
-      const noAmplia = emitidoAntes(m.ambito) > 0 ? porQueNoAmplia(ev, m.ambito, ctx) : null;
-      if (noAmplia) {
-        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3): ' + noAmplia);
-      }
     }
     if (m.token === 'E') {
       // La caducidad es del contrato de la serie: la fija la primera emisión y las ampliaciones coinciden (como instante).

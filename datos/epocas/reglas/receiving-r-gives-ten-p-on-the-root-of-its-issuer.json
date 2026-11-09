@@ -1,0 +1,19 @@
+[
+  ["receiving R gives ten P on the root of its issuer"],
+  ["epoch.1.1.4.1"],
+  ["=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"],
+  ["ev.1 each 3.1"],
+  ["put", "mint"],
+  ["*"],
+  [
+    "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+    "VG, 8-11 tarde (mapa §15 [D] N2): el P que viene de R se posiciona en la raíz del dominio de quien da la R («quien te cede atención te da voz en lo suyo»), diez por R recibida",
+    "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+    "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
+    "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
+    "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular y registro, que aquí es el alta del emisor: una vez por titular y emisor (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
+  ],
+  ["epoch 0"],
+  ["after getting E gives ten P on its record"],
+  ["receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P on the alta of its issuer"]
+]

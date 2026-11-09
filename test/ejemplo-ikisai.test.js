@@ -14,11 +14,14 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.equal(eje.saldo('huesped', 'T:hora'), 0);
   assert.equal(eje.saldoT('huesped', 'hora'), 23);
   assert.equal(eje.tiempoSobre(menu.id).hora, 1);
-  // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y su P; T no (VG, 8-11: no hay T
-  // acumulable): las series de T aparecen al gastarse. Persona o cosa lo dice quién escribe el alta (B1): la casa da
-  // T de su asignación a la cocina, que es una cosa suya (Core, 8-11).
+  // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite al empezar su R y sus EUR; T no (VG, 8-11: no
+  // hay T acumulable): las series de T aparecen al gastarse. P no se emite (mapa §15 [D]): cada registro abre la serie
+  // del P que su autor obtiene al escribirlo (diez), y quien recibe R o E obtiene P en la raíz de quien se la da.
+  // Persona o cosa lo dice quién escribe el alta (B1): la casa da T de su asignación a la cocina, una cosa suya.
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
-  assert.deepEqual(eje.series().map((s) => s.clave), ['E:casa/EUR', 'P:genesis', 'T:minuto', 'T:hora']);
+  assert.deepEqual(eje.series().map((s) => s.clave).filter((k) => !k.startsWith('P:')), ['T:minuto', 'R:casa', 'E:casa/EUR', 'T:hora']);
+  assert.deepEqual(eje.series().filter((s) => s.token === 'P').map((s) => s.ambito), eje.orden.filter((id) => eje.series().some((s) => s.clave === 'P:' + id)), 'una serie de P por registro que da P');
+  assert.equal(eje.poderSobre('casa', eje.genesisId), 10, 'la casa escribió el génesis: diez P sobre él');
   // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,
   // sin capacidad declarada en su hilo, no tienen tope: son deuda del emisor.
   const eur = eje.series().find((s) => s.clave === 'E:casa/EUR');

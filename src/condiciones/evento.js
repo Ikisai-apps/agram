@@ -11,6 +11,7 @@
 
 import { validarForma, verificarId } from '../evento.js';
 import { esReferencia } from '../btml.js';
+import { EPOCA_0_BTML } from '../epocas.js';
 
 /** EV-1, EV-2, EV-3, TT-5, TT-7, PP-1, BL-1, RR-1 y la forma BTML (suelo): validarForma, sin mirar el eje. */
 export const FORMA = Object.freeze({
@@ -42,7 +43,7 @@ export const NUEVO = Object.freeze({
 /**
  * Suelo: solo hay un génesis, el primer registro, y es el único sin foco. Que el foco de los demás sea un registro
  * del eje lo dice la regla de la época «every record hangs on a record of the ledger» (encargo 3a, paso 9: la
- * condición «ancla» se retiró); su forma provisional del génesis, «no tiene foco», se apoya en esto.
+ * condición «ancla» se retiró), sin excepción: el génesis no pasa por las reglas (es la época 0 en el eje, encargo 3b).
  */
 export const UN_GENESIS = Object.freeze({
   nombre: 'suelo:un-genesis',
@@ -79,7 +80,9 @@ export const REFERENCIAS = Object.freeze({
 /** Las referencias del payload de la candidata de `ctx` a eventos que el eje no tiene (en el génesis, todas). */
 export function referenciasAusentes(ctx) {
   if (ctx.reglas === 2 || !ctx.evento || typeof ctx.evento !== 'object') return [];
-  const tiene = typeof ctx.registro === 'function' ? (id) => Boolean(ctx.registro(id)) : () => false;
+  // La época y los registros de sus reglas se resuelven siempre (encargo 3b: una invitación referencia la época 0).
+  const deLaEpoca = (id) => id === EPOCA_0_BTML.id || EPOCA_0_BTML.registros.has(id);
+  const tiene = typeof ctx.registro === 'function' ? (id) => deLaEpoca(id) || Boolean(ctx.registro(id)) : deLaEpoca;
   return [...new Set(referenciasDe(ctx.evento.payload))].filter((id) => !tiene(id));
 }
 

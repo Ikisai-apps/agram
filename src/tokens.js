@@ -344,13 +344,9 @@ export function validarMovimiento(m) {
   }
   if (m.token !== 'E' && m.denominacion !== undefined) errores.push('denominación solo en E');
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
-  if (m.token === 'R') {
-    if (!texto(m.emisor)) errores.push('R exige emisor');
-    // Regla nueva, [X] confirmar VG: quien tiene R de otro solo puede devolvérsela a su emisor (pedirle
-    // atención). Antes no podía moverla en absoluto; la devolución sale de la «reputación cedida a otros
-    // para requerir atención» de VG, 7-11 noche, pero VG no la ha decidido así.
-    else if (m.de !== null && m.de !== m.emisor && m.a !== m.emisor) errores.push('R no es fungible: solo la mueve su emisor ' + m.emisor + '; quien la tiene solo puede devolvérsela');
-  }
+  // R se transfiere libremente entre tenedores sin cambiar de emisor (VG, 9-11, mapa §15 [D] «R según el corpus»: se
+  // corrige la #62, que solo dejaba devolverla) y el tenedor puede perdonarla quemándola («R, últimas dos»).
+  if (m.token === 'R' && !texto(m.emisor)) errores.push('R exige emisor');
   // Una serie nace en la cartera de su emisor (E y R); de ahí se mueve.
   if ((m.token === 'E' || m.token === 'R') && texto(m.emisor) && m.de === null && m.a !== m.emisor) {
     errores.push('la emisión de ' + m.token + ' va a su propio emisor');
@@ -377,7 +373,14 @@ export function validarMovimiento(m) {
       if (m.de === null || m.a !== m.de) errores.push(m.estado + ': de y a son el mismo titular (no cambia de manos)');
       if (!texto(m.salida)) errores.push(m.estado + ' exige salida: la condición de liberación, declarada (no verificable todavía)');
     }
-  } else if (m.salida !== undefined) errores.push('salida solo con estado (bloqueo o liberacion)');
+  } else if (m.salida !== undefined) {
+    // Transferir con salida (mapa §15, delegar: «transferencia con salida»; §16, la invitación: «lo que te doy»):
+    // las unidades salen de lo bloqueado de `de` con esa salida y llegan a `a` bloqueadas con ella, o libres si la
+    // salida nombra a quien las recibe. Solo en una transferencia: acuñar y quemar no llevan salida.
+    if (m.de === null || m.a === null) errores.push('salida solo con estado (bloqueo o liberacion) o en una transferencia (de y a)');
+    else if (m.de === m.a) errores.push('una transferencia con salida cambia de manos: de y a son distintos');
+    else if (!texto(m.salida)) errores.push('la salida es texto');
+  }
   if (m.caduca !== undefined) {
     if (m.token !== 'E' || m.de !== null) errores.push('caduca solo en la emisión de E');
     else if (!esInstante(m.caduca)) errores.push('caduca debe ser instante ISO-8601 con zona explícita');

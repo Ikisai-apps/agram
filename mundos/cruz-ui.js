@@ -160,15 +160,30 @@ async function consolidarPropuesta() {
     const c = await motor.consolidar(estado.eje, { autor: estado.identidad, foco: estado.foco, camino: estado.camino, elecciones, titulo }, app.privadaDe(estado.identidad));
     app.guardar();
     estado.aviso = '';
-    estado.exito = 'Consolidado ' + c.id.slice(0, 8) + ' desde la propuesta del camino · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien bloquea P sobre el registro del recurso, hasta el umbral del dueño.';
+    estado.exito = 'Consolidado ' + c.id.slice(0, 8) + ' desde la propuesta del camino · ' + (motor.cerrado(estado.eje, c.id).cerrado ? 'cerrada' : 'abierta') + '. Cada parte registra su propio movimiento: nadie autoriza lo ajeno.';
+    app.pintar();
+  } catch (e) { app.fallo(e); }
+}
+
+/** Registra el paso del camino que me toca (motor.siguiente): su transacción, como quien mira. */
+async function registrarPaso(clave) {
+  const { estado } = app;
+  try {
+    const datos = camino.datosCamino(estado.eje, estado.foco, { camino: estado.camino, identidad: estado.identidad });
+    const paso = datos.pasos.find((p) => p.clave === clave);
+    if (!paso?.transaccion) throw new Error('ese paso no te toca: cada uno mueve lo suyo');
+    const e = await motor.registrar(estado.eje, { ...paso.transaccion, t: new Date().toISOString() }, app.privadaDe(estado.identidad));
+    app.guardar();
+    estado.aviso = '';
+    estado.exito = 'Registrado ' + e.id.slice(0, 8) + ': ' + paso.titulo + '.';
     app.pintar();
   } catch (e) { app.fallo(e); }
 }
 
 /**
  * Una vez, al cargar: «ver la cruz», el cambio de cohorte, previsualizar,
- * consolidar la propuesta y las piedras de la senda que llevan a su
- * registro. Los demás botones (autorizar, ejecutar, escribir aquí, los
+ * consolidar la propuesta, registrar el paso que me toca y las piedras de la
+ * senda que llevan a su registro. Los demás botones (escribir aquí, los
  * enlaces) los atiende app.js.
  *   deps: { estado, pintar, irA, privadaDe, guardar, fallo, chip, mensajes } de app.js.
  */
@@ -176,12 +191,13 @@ export function instalarCruz(deps) {
   app = deps;
   if (typeof document === 'undefined') return;
   document.addEventListener('click', (e) => {
-    const b = e.target.closest?.('button[data-cruz-vista], button[data-cohorte], [data-previsualizar], button[data-consolidar-propuesta], svg.camino [data-ir]');
+    const b = e.target.closest?.('button[data-cruz-vista], button[data-cohorte], [data-previsualizar], button[data-consolidar-propuesta], button[data-registrar], svg.camino [data-ir]');
     if (!b) return;
     if (b.dataset.cruzVista !== undefined) { ui.vista = !ui.vista; app.pintar(); }
     else if (b.dataset.cohorte) cambiarCohorte(b.dataset.cohorte);
     else if (b.dataset.previsualizar) previsualizarPaso(b.dataset.previsualizar);
     else if (b.dataset.consolidarPropuesta !== undefined) consolidarPropuesta();
+    else if (b.dataset.registrar) registrarPaso(b.dataset.registrar);
     else if (b.dataset.ir) app.irA(b.dataset.ir);
   });
 }

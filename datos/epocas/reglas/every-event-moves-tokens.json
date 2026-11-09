@@ -1,16 +1,16 @@
 [
   ["every event moves tokens"],
   [1, 0],
-  ["=count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1 or count up ev = 0"],
+  ["=count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
   [
     "mapa §10.1 [D]: «todo evento ES una transición de tokens»",
     "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)",
-    "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+    "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
   ],
   ["epoch 0"],
   ["after every record hangs on a record of the ledger"],
-  ["every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"]
+  ["every event moves tokens: the transaction moves no token"]
 ]

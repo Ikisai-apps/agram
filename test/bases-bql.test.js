@@ -47,9 +47,11 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   const ej = await nuevo();
   const { eje } = ej;
   const menu8 = ej.menu.id.slice(0, 8);
-  // La escribe la propia cosa o quien tiene P sobre el registro (VG, 7-11 noche): aquí, la cosa del menú o la casa.
+  // La escribe la propia cosa o quien tiene P sobre el registro (VG, 7-11 noche): aquí, la cosa del menú. Encargo 3b
+  // (mapa §15 [D] «P como peso de criterio»): ya no hay P sobre todo el eje; el P del menú es de quien lo escribió, la
+  // cocina, que no tiene clave en el ejemplo, así que no se nombra.
   const hermanos = 'sin base escrita en el 8 de ' + menu8 + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
-    + menu8 + ', firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.';
+    + menu8 + ', firmada por menu-dia (su identidad propia); mide sus hijos y gasta 1 minuto de su T.';
   for (const f of ['CAJA("T:hora")', 'FRESCURA()', 'CAJA("E:casa/EUR", "hermanos")', 'FRESCURA("hermanos")', 'BASES("hermanos")', 'BASES("hermanos", "T:hora")']) {
     const r = q(ej, f);
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', hermanos], f);
@@ -60,19 +62,23 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   assert.ok(proyecto.startsWith('sin base escrita en el 8 de ' + ej.comedor.id.slice(0, 8) + ' (alcance proyecto). '), proyecto);
   assert.match(proyecto, /firmada por comedor \(su identidad propia\) o casa \(con P sobre él\); mide sus hijos y funde la base vigente del 8 de cada uno \(se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo\)/);
   assert.match(q(ej, 'CAJA("T:hora", "general")').motivo, /firmada por casa \(su identidad propia\);/);
-  // Un registro sin identidad propia (una compra): solo quien tiene P sobre él puede escribir su base, y se dice.
+  // Un registro sin identidad propia (una compra): solo quien tiene P sobre él puede escribir su base, y se dice. Los
+  // guisos los escribió la vecina (su P), que no tiene clave en el ejemplo: nadie puede escribir su base.
   const nota = await eje.escribir({ autor: 'huesped', sobre: ej.guisos.id, t: '2026-11-07T17:30:00Z', movimientos: [hora('huesped')], payload: 'Sin picante' });
-  assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
-    + ej.guisos.id.slice(0, 8) + ', firmada por casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.');
+  assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). ' + ej.guisos.id.slice(0, 8)
+    + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
   // Sin identidad propia y sin nadie con clave y P sobre él, nadie puede escribirla.
   const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
   const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Lista' });
   const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
   assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
     + ' no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.');
-  // Con un gancho que no deja leer el registro, la cosa (que sale de su contexto) no se nombra; quien tiene P (los saldos), sí.
+  // Con un gancho que no deja leer el registro, la cosa (que sale de su contexto) no se nombra; quien tiene P (los saldos),
+  // sí: en el comedor, la casa.
   const callado = q(ej, 'FRESCURA()', ej.guisos.id, { puedeLeer: (id) => id !== ej.menu.id });
-  assert.match(callado.motivo, /firmada por su identidad propia o casa \(con P sobre él\); mide sus hijos/);
+  assert.match(callado.motivo, /firmada por su identidad propia; mide sus hijos/);
+  const calladoProyecto = q(ej, 'FRESCURA("proyecto")', ej.guisos.id, { puedeLeer: (id) => id !== ej.comedor.id });
+  assert.match(calladoProyecto.motivo, /firmada por su identidad propia o casa \(con P sobre él\); mide sus hijos/);
   // Lo escrito en el 8 que no es una base válida (no la firma la cosa del menú) no cuenta.
   await eje.escribir({ autor: 'huesped', sobre: ej.menu.id, en: CIELO, t: '2026-11-07T17:40:00Z', movimientos: [hora('huesped')], payload: ['Bases del 8', 4], contexto: { bases: true } });
   assert.equal(q(ej, 'FRESCURA()').estado, 'PENDIENTE');
@@ -103,8 +109,9 @@ test('CAJA(medida, alcance?): la caja del anfitrión, la misma que BASES(alcance
   assert.equal(q(ej, 'CAJA("T:hora") + CAJA("E:casa/EUR")').texto, String(1 + situar(eje, ej.guisos.id).tokens['E:casa/EUR'].caja));
   // Otro anfitrión, otro 8: las manzanas se sitúan entre los hijos del puesto.
   assert.equal(valor(ej, 'CAJA("T:hora")', ej.manzanas.id), situar(eje, ej.manzanas.id).tokens['T:hora'].caja);
-  // Una serie emitida que nadie de la cohorte mueve vale cero: caja 0, con todos.
-  assert.equal(q(ej, 'CAJA("P:genesis")').texto, '0');
+  // Una serie emitida que nadie de la cohorte mueve vale cero: caja 0, con todos. Encargo 3b: ya no hay P del génesis;
+  // R:casa la emite la casa al empezar y nadie entre los hermanos la mueve.
+  assert.equal(q(ej, 'CAJA("R:casa")').texto, '0');
   // Sin efectos: nada escrito, nada movido.
   const antes = [eje.orden.length, eje.saldoT('menu-dia', 'minuto'), eje.saldoT('casa', 'minuto')];
   for (const f of ['CAJA("T:hora", "general")', 'FRESCURA("proyecto")', 'CAJA("E:casa/EUR")']) q(ej, f);
@@ -134,8 +141,11 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
     assert.match(err('CAJA("' + m + '")', ej), desconocida, m + ' sin base: se valida antes de leer');
   }
   // Bien formada pero sin emitir en el eje: PENDIENTE (la emisión puede llegar), con las que hay.
-  const emitidas = ' (series emitidas: E:casa/EUR, P:genesis, T:minuto, T:hora)';
-  for (const [m, motivo] of [['E:csa/EUR', 'la serie E:csa/EUR no se ha emitido en el eje'], ['R:casa', 'la serie R:casa no se ha emitido en el eje'], ['P:abc', 'el ámbito de P:abc no es un registro del eje']]) {
+  // Las series que hay, las diez primeras y «…» (encargo 3b: con el P que obtiene quien escribe cada registro).
+  const hay = conBase.eje.series().map((s) => s.clave);
+  assert.ok(hay.length > 10 && hay.includes('R:casa') && hay.includes('E:casa/EUR'));
+  const emitidas = ' (series emitidas: ' + hay.slice(0, 10).join(', ') + '…)';
+  for (const [m, motivo] of [['E:csa/EUR', 'la serie E:csa/EUR no se ha emitido en el eje'], ['R:nadie', 'la serie R:nadie no se ha emitido en el eje'], ['P:abc', 'el ámbito de P:abc no es un registro del eje']]) {
     const r = q(conBase, 'CAJA("' + m + '")');
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', 'CAJA: ' + motivo + emitidas], m);
   }
@@ -202,7 +212,9 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   };
   const costeHermanos = 1 + coste(ej.menu.id);
   const costeGeneral = 1 + coste(eje.genesisId);
-  assert.deepEqual([costeHermanos, costeGeneral], [6, 22]); // el menú: la base y cinco escritos; el génesis: todo el árbol de bases (con las altas de huesped y vecina, B1)
+  // El menú: la base y cinco escritos; el génesis: todo el árbol de bases (encargo 3b: con la emisión inicial de la casa y
+  // sus invitaciones a huesped y vecina, que cuelgan del génesis, y las altas que cuelgan de ellas, B1).
+  assert.deepEqual([costeHermanos, costeGeneral], [6, 25]);
   // FRESCURA() gasta un paso; con un argumento, dos. Lo demás es la lectura.
   const corto = conPresupuesto('FRESCURA()', costeHermanos);
   assert.equal(corto.estado, 'PENDIENTE POR LÍMITE');
@@ -213,8 +225,11 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   assert.equal(conPresupuesto('FRESCURA("general")', costeGeneral + 2).estado, 'RESUELTO');
   assert.equal(conPresupuesto('FRESCURA("general")', costeGeneral + 1).estado, 'PENDIENTE POR LÍMITE');
   // Se deja de contar en cuanto no cabe: «al menos», y `de` es una cota inferior.
+  // Encargo 3b: los primeros hijos del génesis son la emisión inicial de la casa (nada escrito encima) y sus dos
+  // invitaciones (cada una con el alta que la acepta): se cuentan en orden hasta pasarse.
+  const [h0, h1, h2] = leerBase(eje, eje.genesisId).refsHijos;
   const pronto = conPresupuesto('FRESCURA("general")', 2 + 1 + sobre(eje.genesisId) + 1);
-  assert.equal(pronto.motivo, 'el alcance general (8 de ' + eje.genesisId.slice(0, 8) + ') exige examinar al menos ' + (1 + sobre(eje.genesisId) + sobre(ej.comedor.id)) + ' registros y quedan ' + (1 + sobre(eje.genesisId) + 1) + ' pasos de presupuesto');
+  assert.equal(pronto.motivo, 'el alcance general (8 de ' + eje.genesisId.slice(0, 8) + ') exige examinar al menos ' + (1 + sobre(eje.genesisId) + sobre(h0) + sobre(h1) + sobre(h2)) + ' registros y quedan ' + (1 + sobre(eje.genesisId) + 1) + ' pasos de presupuesto');
   // CAJA cobra la misma lectura (medir el anfitrión aparte: §7.14).
   assert.equal(conPresupuesto('CAJA("T:hora")', 2 + costeHermanos).estado, 'RESUELTO');
   assert.equal(conPresupuesto('CAJA("T:hora")', 1 + costeHermanos).estado, 'PENDIENTE POR LÍMITE');

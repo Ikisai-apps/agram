@@ -188,7 +188,10 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   const { eje } = await compra();
   const casa = familiasDe(eje, 'casa');
   assert.deepEqual(casa.E, ['440 €']);
-  assert.deepEqual(casa.P, ['10 sobre eje']);
+  // Encargo 3b (mapa §15 [D] «P como peso de criterio»): ya no hay P sobre todo el eje; la casa tiene diez unidades
+  // posicionadas en cada registro que escribió (el génesis, su emisión inicial, su invitación y las altas), en corto.
+  assert.deepEqual(casa.P, [eje.genesisId, ...eje.sobre(eje.genesisId).filter((e) => e.autor === 'casa').map((e) => e.id)].map((id) => '10 sobre ' + id.slice(0, 8)));
+  assert.deepEqual(casa.R, ['9 de casa']); // emitió diez y guarda una para la huésped, que la recogió al aceptar
   // La casa no tiene T explícito (VG, 8-11: no hay T acumulable; vive de su asignación del día); la cocina, una cosa,
   // conserva el que le dio la casa.
   assert.deepEqual(casa.T, []);
@@ -196,19 +199,21 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.equal(cocinaT.length, 2);
   assert.match(cocinaT[0], / h$/); // de la escala mayor a la menor
   assert.deepEqual(familiasDe(eje, 'cocina').E, ['12 € de casa']);
-  assert.deepEqual(familiasDe(eje, 'huesped').R, []);
+  assert.deepEqual(familiasDe(eje, 'huesped').R, ['1 de casa']); // lo que le dio la casa en su invitación (mapa §16 [D])
   const minutos = eje.identidades().reduce((s, id) => s + eje.saldo(id, 'T:minuto'), 0); // el T explícito (sin las asignaciones del día)
   assert.equal(enCarteras(eje, 'T:minuto'), minutos);
   assert.ok(eje.series().find((x) => x.clave === 'T:minuto').consumido > 0); // escribir consume minutos
   assert.equal(nombreSerie(eje.series().find((s) => s.token === 'E')), 'casa/€');
   const html = htmlSaldos(eje);
-  assert.match(html, /<details class="series-emitidas" data-plegado="series" open>/);
-  assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
+  // Encargo 3b: una serie de P por registro con P posicionado (mapa §15 [D]), así que ya son más de las que caben
+  // abiertas: la tabla empieza plegada.
+  assert.match(html, /<details class="series-emitidas" data-plegado="series" >/);
+  assert.match(html, /Series emitidas · 12 \(T 2 · E 1 · P 8 · R 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
   // Nadie emite T, ni el génesis (VG, 8-11): lo que gastan las personas sale de su asignación diaria.
-  // La serie de T es de quien la consumió primero: la huésped, al escribir su propia alta (B1).
-  assert.equal(eje.serie('T:minuto').emisor, 'huesped');
-  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>huesped</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
+  // La serie de T es de quien la consumió primero: la casa, en su emisión inicial (encargo 3b: el génesis no mueve nada).
+  assert.equal(eje.serie('T:minuto').emisor, 'casa');
+  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });
 

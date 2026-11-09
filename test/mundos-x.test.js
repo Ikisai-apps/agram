@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
-import { consolidar, autorizar, ejecutar, liberar, descubrir } from '../src/motor.js';
+import { consolidar, registrar, siguiente, descubrir, ANUNCIO } from '../src/motor.js';
 import { memoria, partir, nombreEn, ritmo, PASO, ORDEN_X, descendientes } from '../mundos/comun.js';
 import { datosFabrica, svgFabrica, lineasFabrica, hayPuesto, ESTACIONES } from '../mundos/fabrica.js';
 import { claseRelativa } from '../src/efectos.js';
@@ -37,21 +37,32 @@ function soloTransicionesReales(svg, eje, nuevos) {
   }
 }
 
-/** La compra con su cuenta y el ciclo del motor: una ejecutada, una autorizada, una pendiente. */
+/** Un movimiento anunciado en el 4.1 de una propuesta por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+
+// Encargo 3b (VG, 8-11; mapa §15 [D] «Una sola operación: registrar»; N6: «los mundos animan registros anclados y
+// movimientos; las fases las nombra el proceso»): no hay autorizar ni ejecutar. Una propuesta está abierta mientras le
+// falta algo de lo que su dueño anunció en su 4.1 y cerrada cuando ha pasado (motor.cerrado, N5); cada parte registra
+// su propio movimiento. La fábrica tiene dos estaciones (abierta y cerrada) y lo que cierra una propuesta es un
+// registro con su movimiento, no una fase «ejecutado».
+
+/**
+ * La compra con su cuenta y tres propuestas de la huésped: una cerrada (anunció el pago y lo hizo: `ejec`), otra
+ * abierta que espera a la casa y otra abierta con su propio pago anunciado.
+ */
 async function ciclo() {
   const { eje, compra, menu, alta } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
   const d = descubrir(eje, compra.id);
   const criterio = d.find((p) => p.posicion === 2).candidatos.find((c) => c.tipo === 'referencia');
   const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús', 2: { candidato: criterio } }, titulo: 'Pedir dos' });
-  const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:25:00Z' });
-  const ejec = await ejecutar(eje, { autor: 'huesped', consolidacion: hecha.id, t: '2026-11-07T14:40:00Z', movimientos: [eur(12, 'huesped', 'cocina')] });
-  // Autorizar es bloquear P (VG, 7-11 noche): ejecutada, la casa libera el suyo y bloquea 6 de 10 para la siguiente.
-  await liberar(eje, { titular: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:45:00Z' });
-  const autorizada = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, cantidad: 6, t: '2026-11-07T14:55:00Z' });
+  const anunciado = await registrar(eje, { autor: 'huesped', sobre: hecha.id, en: ANUNCIO, t: '2026-11-07T14:25:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
+  const ejec = await registrar(eje, { ...siguiente(eje, hecha.id, 'huesped').faltaDeMi[0].transaccion, t: '2026-11-07T14:40:00Z' });
+  const espera = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+  const anuncioEspera = await registrar(eje, { autor: 'huesped', sobre: espera.id, en: ANUNCIO, t: '2026-11-07T14:55:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 1, 'devolver', 'casa', 'huesped') });
   const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & <café>' });
-  return { eje, compra, menu, alta, cuenta, criterio, hecha, aut, ejec, autorizada, aut2, pendiente };
+  await registrar(eje, { autor: 'huesped', sobre: pendiente.id, en: ANUNCIO, t: '2026-11-07T14:59:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 3, 'pagar', 'huesped', 'cocina') });
+  return { eje, compra, menu, alta, cuenta, criterio, hecha, anunciado, ejec, espera, anuncioEspera, pendiente };
 }
 
 // ---------- común ----------
@@ -116,34 +127,39 @@ test('fábrica: los puestos por colisión de ceros', () => {
 });
 
 test('fábrica: diez líneas con la matriz de 100 del foco; las piezas son las celdas que modifican lo escrito sobre él', async () => {
-  const { eje, compra, cuenta, hecha, autorizada, pendiente, aut, ejec, aut2 } = await ciclo();
+  const { eje, compra, cuenta, hecha, anunciado, ejec, espera, anuncioEspera, pendiente } = await ciclo();
   const d = datosFabrica(eje, compra.id);
   assert.equal(d.lineas.length, 10);
-  assert.deepEqual(d.lineas.map((l) => l.puestos), [[0], [0, 1, 2], [0], [0, 1], [0, 1], [], [], [], [], []]);
+  // Encargo 3b: la 2 de la compra lleva además la plantilla de cerrado (mapa §15 [D] N5): [→ menú:2, 'all announced
+  // movements happened'], así que 2.1 es un puesto.
+  assert.deepEqual(d.lineas.map((l) => l.puestos), [[0], [0, 1, 2], [0, 1], [0, 1], [0, 1], [], [], [], [], []]);
   // La cuenta, anclada en 1, modifica 1.0 … 1.3: cuatro piezas en la línea 1, de clase 0.
   const deCuenta = d.lineas[1].piezas.filter((p) => p.evento === cuenta.id);
   assert.deepEqual(deCuenta.map((p) => `${p.i}.${p.j}.${p.k}`), ['1.0.0', '1.1.0', '1.2.0', '1.3.0']);
   assert.ok(deCuenta.every((p) => p.clase === 0 && p.forma === 'circulo' && p.nombre));
   // Los registros del motor no son piezas (el catálogo no los lee celda a celda): son las cajas de las estaciones.
-  const delMotor = new Set(eje.orden.filter((id) => eje.obtener(id).contexto?.fase));
-  assert.ok(delMotor.size >= 5);
+  // Encargo 3b: los registros del motor son las propuestas (contexto.motor = fabrica); ya no hay fases escritas.
+  const delMotor = new Set(eje.orden.filter((id) => eje.obtener(id).contexto?.motor === 'fabrica'));
+  assert.equal(delMotor.size, 3);
   assert.ok(d.lineas.every((l) => l.piezas.every((p) => !delMotor.has(p.evento))));
   assert.ok(d.cajas.some((c) => c.consolidacion === hecha.id));
-  // Cada caja en la estación de su estado, con su autorización y su ejecución.
+  // Cada caja en la estación de su lectura de cerrado (antes: consolidar, autorizar, ejecutar; encargo 3b, mapa §15
+  // [D]: abierta y cerrada), con sus partes: lo registrado sobre la propuesta (el anuncio y el pago que lo cumple).
   const caja = (id) => d.cajas.find((c) => c.consolidacion === id);
-  assert.equal(caja(hecha.id).estacion, 2);
-  assert.equal(caja(hecha.id).autorizacion.id, aut.id);
-  assert.equal(caja(hecha.id).ejecucion.id, ejec.id);
-  assert.deepEqual(caja(hecha.id).ejecucion.movimientos.map((m) => m.token + m.cantidad), ['E12']);
-  assert.equal(caja(autorizada.id).estacion, 1);
-  assert.equal(caja(autorizada.id).autorizacion.id, aut2.id);
-  assert.equal(caja(pendiente.id).estacion, 0);
-  assert.equal(caja(pendiente.id).autorizacion, null);
-  assert.deepEqual(ESTACIONES.map((e) => e.nombre), ['consolidar', 'autorizar', 'ejecutar']);
-  assert.equal(d.efectosEstacion.autorizar.nombre, 'autorizar');
+  assert.deepEqual([caja(hecha.id).estacion, caja(hecha.id).estado, caja(hecha.id).cerrado], [1, 'cerrada', true]);
+  assert.deepEqual(caja(hecha.id).partes.map((p) => p.id), [anunciado.id, ejec.id]);
+  assert.equal(caja(hecha.id).ultima.id, ejec.id);
+  assert.deepEqual(caja(hecha.id).ultima.movimientos.map((m) => m.token + m.cantidad), ['E12'], 'sin el T de escribir');
+  assert.deepEqual([caja(espera.id).estacion, caja(espera.id).estado, caja(espera.id).cerrado], [0, 'abierta', false]);
+  assert.deepEqual(caja(espera.id).partes.map((p) => p.id), [anuncioEspera.id]);
+  assert.deepEqual([caja(pendiente.id).estacion, caja(pendiente.id).estado], [0, 'abierta']);
+  assert.deepEqual(ESTACIONES.map((e) => e.nombre), ['abierta', 'cerrada']);
+  // Las dos estaciones son lecturas de la misma fase (N6: las fases las nombra el proceso): el catálogo las nombra igual.
+  assert.equal(d.efectosEstacion.cerrada.nombre, nombreEn({ tipo: 'fase', fase: 'consolidado' }, 4).nombre);
   const sobrio = lineasFabrica(d).join('\n');
   assert.match(sobrio, /línea 1 ciudad: 3 puestos del foco · piezas: /);
-  assert.match(sobrio, /consolidar: Postre & <café> \(huesped\)/);
+  assert.match(sobrio, /abierta: Agua \(huesped\), Postre & <café> \(huesped\)/);
+  assert.match(sobrio, /cerrada: Pedir dos \(huesped\)/);
 });
 
 test('fábrica: la matriz es relativa al camino', async () => {
@@ -166,21 +182,22 @@ test('fábrica: la matriz es relativa al camino', async () => {
 });
 
 test('fábrica: solo se anima lo nuevo; la caja recorre las estaciones con sus eventos reales', async () => {
-  const { eje, compra, hecha, aut, ejec, pendiente } = await ciclo();
+  const { eje, compra, hecha, ejec, pendiente } = await ciclo();
   const d = datosFabrica(eje, compra.id);
   assert.equal(animados(svgFabrica(d)).length, 0);
-  // Una consolidación nueva: entra en «consolidar».
+  // Una propuesta nueva: entra en «abierta».
   let nuevos = new Set([pendiente.id]);
   let svg = svgFabrica(d, { nuevos });
   soloTransicionesReales(svg, eje, nuevos);
   const entra = deEvento(svg, pendiente.id).find((e) => e.includes('x-entra'));
   assert.equal(attr(entra, 'data-efecto'), 'consolidar');
-  // Reproducir: la caja ejecutada entra, pasa por autorizar (su autorización) y sale por ejecutar (su ejecución).
+  // Reproducir: la caja cerrada entra en «abierta» y pasa a «cerrada» con el registro que la cierra (antes pasaba por
+  // autorizar y salía por ejecutar; encargo 3b, mapa §15 [D] «Una sola operación: registrar»).
   nuevos = new Set(eje.orden);
   svg = svgFabrica(d, { nuevos });
   soloTransicionesReales(svg, eje, nuevos);
-  assert.equal(attr(deEvento(svg, aut.id).find((e) => e.includes('x-pasa')), 'data-efecto'), 'autorizar');
-  assert.equal(attr(deEvento(svg, ejec.id).find((e) => e.includes('x-pasa')), 'data-efecto'), 'ejecutar');
+  assert.equal(attr(deEvento(svg, ejec.id).find((e) => e.includes('x-pasa')), 'data-efecto'), d.efectosEstacion.cerrada.nombre);
+  assert.ok(!/autorizar|ejecutar/.test(svg.replace(/<title>[^<]*<\/title>/g, '')), 'sin estaciones de autorizar ni de ejecutar');
   assert.ok(deEvento(svg, hecha.id).some((e) => e.includes('x-entra')));
   // Las piezas nuevas avanzan desde el principio de su línea.
   const avanza = animados(svg).filter((e) => e.includes('x-avanza'));
@@ -261,7 +278,8 @@ test('ciudad: en Booking, las plazas entregadas cierran su vía: una venta, no u
   const d = datosCiudad(r.eje, r.reserva.id);
   const plazas = d.vias.filter((v) => v.denominacion.includes('@'));
   assert.equal(plazas.length, 3); // tres noches de la cama individual
-  assert.ok(plazas.every((v) => !v.abierta && v.saldoEmisor === 0 && v.cierre === r.entrega.ejecucion.id));
+  // Encargo 3b (mapa §15 [D]): la entrega es el registro de la casa con su movimiento, no la ejecución de una consolidación.
+  assert.ok(plazas.every((v) => !v.abierta && v.saldoEmisor === 0 && v.cierre === r.entrega.id));
   assert.ok(plazas.every((v) => v.titulares.length === 1 && v.titulares[0].id === 'huesped'));
   // El rótulo dice lo que pasó: la casa ya dio la plaza; nada de «saldo insuficiente».
   const reserva = svgCiudad(d) + lineasCiudad(d).join(' · ');
@@ -287,20 +305,23 @@ test('jardín: una planta por ocupante de la posición 2; hierba si encaja exact
   assert.equal(formaDe(1), 'arbusto');
   const { eje, compra } = await ejemploCompra();
   const d = datosJardin(eje, compra.id);
-  // VG, 7-11 noche: por hojas: la 2 es la lista de uno [ref menú:2], sin 2.0: su elemento y lo que alcanza.
-  assert.equal(d.plantas.length, 2);
+  // VG, 7-11 noche: por hojas: la 2 es [ref menú:2, …], sin 2.0: su elemento y lo que alcanza. Encargo 3b: además la
+  // plantilla de cerrado que nombra la compra (mapa §15 [D] N5), un terminal propio: tres plantas.
+  assert.equal(d.plantas.length, 3);
   assert.ok(d.plantas.every((p) => p.forma === 'hierba'));
   assert.ok(d.plantas.some((p) => p.tipo === 'referencia' && p.texto === 'sin gluten'));
-  // Booking: el criterio alcanzado por referencia lleva flor (elegido) y fruto (ejecutado). VG, 7-11 noche: por
-  // hojas: la reserva apunta a la 2 entera de la habitación (una dirección no entra en su lista de criterios),
-  // en la misma dirección: encaja exacto, hierba.
+  assert.ok(d.plantas.some((p) => p.tipo === 'propio' && p.texto === 'all announced movements happened'));
+  // Booking: VG, 7-11 noche: por hojas: la reserva apunta a la 2 entera de la habitación (una dirección no entra en su
+  // lista de criterios), en la misma dirección: encaja exacto, hierba. Antes llevaba flor y fruto de «Reserva en
+  // firme»; encargo 3b (mapa §15 [D] «Una sola operación: registrar»): la reserva se confirma con los registros de cada
+  // parte sobre ella, sin consolidación que elija el criterio, así que no hay flor ni fruto (los cubre la prueba
+  // siguiente, con una propuesta real que lo elige y se cierra).
   const r = await ejemploReserva();
   const j = datosJardin(r.eje, r.reserva.id);
   const criterio = j.plantas.find((p) => p.tipo === 'referencia');
   assert.deepEqual([criterio.forma, criterio.texto, criterio.acuerdo], ['hierba', 'sin humo', 10]);
-  assert.equal(criterio.flores.length, 1);
-  assert.equal(criterio.frutos.length, 1);
-  assert.match(lineasJardin(j).join('\n'), /hierba · sin humo · referencia · exacto · flor \(Reserva en firme\) · fruto/);
+  assert.deepEqual([criterio.flores.length, criterio.frutos.length], [0, 0]);
+  assert.match(lineasJardin(j).join('\n'), /hierba · sin humo · referencia · exacto$/m);
   // El criterio alcanzado en otra dirección (la 2.1 de una décupla, cada posición entre corchetes) es un arbusto: acuerdo 1.
   const fuente = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [gastaT('casa')], payload: ['Criterios', 'x', [['sin humo'], ['con desayuno']]] });
   const pide = await eje.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-07T15:01:00Z', movimientos: [gastaT('casa')], payload: ['Pide', 'y', [{ ref: fuente.id, dir: '2100000000' }]] });
@@ -310,7 +331,7 @@ test('jardín: una planta por ocupante de la posición 2; hierba si encaja exact
   assert.match(lineasJardin(p).join('\n'), /arbusto · con desayuno · referencia · acuerdo 1\/10/);
 });
 
-test('jardín: brota lo nuevo, florece lo elegido al consolidar y da fruto al ejecutar', async () => {
+test('jardín: brota lo nuevo, florece lo elegido al consolidar y da fruto al cerrarse', async () => {
   const { eje, compra, hecha, ejec, criterio } = await ciclo();
   const brote = await eje.escribir({ autor: 'cocina', sobre: compra.id, en: '2000000000', t: '2026-11-07T15:10:00Z', movimientos: [gastaT('cocina', 2)], payload: ['Criterio de cocina', 'sin picante'] });
   const d = datosJardin(eje, compra.id);
@@ -328,8 +349,10 @@ test('jardín: brota lo nuevo, florece lo elegido al consolidar y da fruto al ej
   assert.equal(attr(flor, 'data-efecto'), 'fructificar'); // fase.consolidado en el jardín
   assert.match(attr(flor, 'data-decision'), /se dibuja como flor/);
   const fruto = deEvento(svg, ejec.id).find((e) => e.includes('x-cuaja'));
-  assert.equal(attr(fruto, 'data-efecto'), 'ejecutar'); // el jardín no nombra ejecutar: el genérico
-  assert.match(attr(fruto, 'data-decision'), /no nombra ejecutar en el jardín/);
+  // El fruto es el registro que cierra la propuesta (encargo 3b); su nombre sigue siendo el genérico de la fase
+  // «ejecutado» del catálogo (mundos/jardin.js), que el jardín no nombra.
+  assert.equal(attr(fruto, 'data-efecto'), 'ejecutar');
+  assert.match(attr(fruto, 'data-decision'), /no nombra el cierre en el jardín/);
 });
 
 // ---------- parque ----------
@@ -339,7 +362,10 @@ test('parque: piscinas de grupo, bañeras de persona y quién habla con quién s
   assert.equal(aguaDe('persona'), 'banera');
   assert.equal(aguaDe('cosa'), 'muelle');
   assert.equal(aguaDe(null), 'sin-tipo');
-  const { eje, compra, cuenta } = await ciclo();
+  const { eje, compra, cuenta, espera } = await ciclo();
+  // Antes, la casa hablaba a la huésped con sus autorizaciones. Encargo 3b (mapa §15 [D]: cada uno mueve lo suyo):
+  // la casa le habla registrando lo que la propuesta «Agua» espera de ella (devolverle un euro).
+  const devuelve = await registrar(eje, { ...siguiente(eje, espera.id, 'casa').faltaDeMi[0].transaccion, t: '2026-11-07T14:57:00Z' });
   const d = datosParque(eje, compra.id);
   assert.deepEqual(d.declarados, ['huesped', 'cocina']);
   const agua = (id) => d.aguas.find((a) => a.id === id);
@@ -350,7 +376,7 @@ test('parque: piscinas de grupo, bañeras de persona y quién habla con quién s
   assert.equal(m('huesped', 'cocina')[0].que, 'hablar'); // la cocina es una cosa (Core, 8-11); la compra, escrita sobre el menú de cocina
   assert.equal(m('cocina', 'huesped')[0].evento, cuenta.id); // la cuenta, escrita sobre la compra de huesped
   assert.equal(m('cocina', 'huesped')[0].que, 'hablar a una persona');
-  assert.ok(m('casa', 'huesped').length >= 2); // las autorizaciones de la casa sobre las consolidaciones de huesped
+  assert.deepEqual(m('casa', 'huesped').map((x) => [x.evento, x.que]), [[devuelve.id, 'hablar a una persona']]);
   assert.equal(m('huesped', 'huesped').length, 0); // escribir sobre lo propio no es hablar con nadie
   assert.match(lineasParque(d).join('\n'), /huesped → cocina: hablar · 1/);
 });

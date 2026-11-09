@@ -1,16 +1,17 @@
 [
   ["every record hangs on a record of the ledger"],
-  [0, 1],
-  ["=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or (count (first ev.6).5 = 1 and count up ev = 0)"],
+  [0],
+  ["=count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
   [
     "mapa §14 [D]: «autor y fecha son puntos de vista»; D-META pone sobre y en en el 6.5",
-    "mapa §10.1 [D]: el génesis es el único registro sin foco",
-    "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+    "mapa §16 [D] «El árbol mínimo es la invitación»: el génesis es la época 0, fuera del sistema; todo registro cuelga de otro del libro",
+    "mapa §16 [D] «El árbol mínimo es la invitación»: el génesis es la época 0, fuera del sistema; todo registro cuelga de otro del libro",
+    "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
   ],
   ["epoch 0"],
   ["after writing burns today's T"],
-  ["every record hangs on a record of the ledger: {first (first ev.6).5} is not one (only the genesis hangs on nothing)"]
+  ["every record hangs on a record of the ledger: {first (first ev.6).5} is not one"]
 ]

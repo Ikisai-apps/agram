@@ -71,7 +71,7 @@ export function proponerAhora(eje, foco, camino = []) {
   const { valores, fuera } = valoresPropuestos(desc, prop);
   propuesta = {
     clave: claveDe(foco, camino), foco, camino: [...camino], prop, valores, fuera,
-    eje, registros: eje.orden.length, antes: motor.consolidaciones(eje, foco, camino).length, recalculada: false,
+    eje, registros: eje.orden.length, antes: motor.propuestas(eje, foco, camino).length, recalculada: false,
   };
   return propuesta;
 }
@@ -87,7 +87,7 @@ export function proponerAhora(eje, foco, camino = []) {
  */
 export function propuestaVigente(eje, foco, camino = []) {
   if (!propuesta || propuesta.clave !== claveDe(foco, camino)) return null;
-  if (propuesta.eje !== eje || motor.consolidaciones(eje, foco, camino).length !== propuesta.antes) { propuesta = null; return null; }
+  if (propuesta.eje !== eje || motor.propuestas(eje, foco, camino).length !== propuesta.antes) { propuesta = null; return null; }
   if (eje.orden.length !== propuesta.registros) {
     try {
       proponerAhora(eje, foco, camino);

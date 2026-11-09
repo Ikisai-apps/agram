@@ -61,8 +61,9 @@ test('render sobrio: tres filas, eje y medidas', async () => {
   const texto = render(mapa(eje, compra.id));
   const lineas = texto.split('\n');
   assert.equal(lineas.length, 5);
-  // VG, 7-11 noche: por hojas. Compra 1 es una décupla de tres; compra 2, [ref], una lista de uno.
-  assert.match(lineas[0], /^1 recursos\s+\[3\]\s+\| 8 comparabilidad\s+—\s+\| 2 criterios\s+\{1 en lista\}/);
+  // VG, 7-11 noche: por hojas. Compra 1 es una décupla de tres; compra 2, [ref, plantilla de cerrado], una lista de dos
+  // (encargo 3b: el dueño nombra en su PV2 la plantilla de cerrado, mapa §15 [D] N5).
+  assert.match(lineas[0], /^1 recursos\s+\[3\]\s+\| 8 comparabilidad\s+—\s+\| 2 criterios\s+\{2 en lista\}/);
   assert.match(lineas[1], /^6 pasado\s+—\s+\| 5 estructura\s+[0-9a-f]{8}\s+\| 7 futuro/);
   assert.match(lineas[3], /^eje: [0-9a-f]{8} ← [0-9a-f]{8} ← [0-9a-f]{8} ← \[[0-9a-f]{8}\] → $/);
   assert.equal(lineas[4], 'medidas del 8: bajo demanda (la celda 8, o mapa con { medidas: true })');
@@ -76,7 +77,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el contenido real de
   const m = mapa(eje, compra.id);
   const traidos = [eje.obtener(m.foco), ...m.hilo, ...m.hijos];
   assert.deepEqual(m.alcance, { conseguido: traidos.reduce((n, e) => n + contenido(e.payload), 0), minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
-  assert.equal(m.alcance.conseguido, 19); // compra 9, menú 6, altas 3 y el génesis, un terminal, 1
+  assert.equal(m.alcance.conseguido, 20); // compra 10 (con la plantilla de cerrado en su 2), menú 6, altas 3 y el génesis, un terminal, 1
   assert.equal(m.corte, null);
   assert.deepEqual(m.avisos, []);
   // Una cadena larga: el foco y diez de su hilo, de diez posiciones cada uno: 110, por encima del mínimo.
@@ -146,7 +147,9 @@ test('celda 8: ocho() lee la base escrita del 8 por cantidades; sin ella, el res
   assert.deepEqual(despues.cantidades, antes.cantidades); // la misma verdad: la escrita al día coincide con el cálculo al vuelo
   assert.deepEqual(despues.recuentos, antes.recuentos);
   assert.ok(textoOcho(despues).startsWith('8 · hermanos · base ' + base.id.slice(0, 8) + ' (sin novedades) · n 4'));
-  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 16); // con las altas de huesped y vecina, que escriben ellas (B1)
+  // Con las altas de huesped y vecina, que escriben ellas (B1); encargo 3b: entran aceptando la invitación de la casa, y
+  // la emisión inicial de la casa es una transacción suya sobre el génesis.
+  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 17);
   // El génesis no tiene hermanos.
   const g = ocho(eje, eje.genesisId);
   assert.deepEqual([g.estado, g.cantidades, g.recuentos], ['PENDIENTE', [], []]);

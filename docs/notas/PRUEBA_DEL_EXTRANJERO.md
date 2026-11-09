@@ -33,16 +33,16 @@ Ningún intento tuvo un error de código. Los cuatro escribieron registros váli
 - **Posiciones 5 y 6 rellenadas para poder usar la 7.** Válido (un array no admite huecos), pero no según la regla: el mapa (§12, «Posiciones sin contenido», 7-11) decide prefijo denso y sin «no aplicable», con las celdas sin cambio como **referencia al foco** (`{ ref: foco, dir }`, lo que ya hacen `desdeMapped` y `consolidar`) y lo lejano por anclaje. El extranjero puso otra cosa (la disponibilidad entera y el alta). Con las noches en el 7 (decisión de VG) esto pasará en toda reserva; el ejemplo de abajo sigue la regla.
 - Cobró 16 minutos de T (uno por posición) escribiendo con `eje.escribir`; no hacía falta (el eje solo exige mover algo de T). Ahora lo dice `docs/BTML.md` §2.3.
 
-La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir; puesto al día el 7-11 noche: el génesis lo emite una persona (PR #62), sin clave solo como demostración (`demostracion: true`), y cada plaza es una décupla con el 0 envuelto, VG «por hojas»):
+La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node --input-type=module < archivo.mjs`; la fórmula del total en la 4 es elección del calificador, [X]; 5 y 6 son referencias al foco con el camino del anclaje, como en `consolidar`; con las series de la PR #35: E con emisor y minutos para escribir; puesto al día el 7-11 noche: el génesis lo emite una persona (PR #62), sin clave solo como demostración (`demostracion: true`), y cada plaza es una décupla con el 0 envuelto, VG «por hojas»; puesto al día con el encargo 3b: el génesis no acuña P, el P se obtiene al escribir, y ana y bea entran aceptando una invitación de la casa):
 
 ```js
 import { Eje, encaje, bql } from './src/index.js';
 const t = '2026-11-07T10:00:00Z';
 const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
-// Ana y bea escriben su propia alta (VG, 10-11, B1: son personas); T no cruza de persona (VG, 7-11 noche): reciben
-// euros y escriben con su asignación de T del día (VG, 8-11).
-for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, t });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 5 }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
+// Ana y bea aceptan una invitación de la casa: su aceptación es su alta (VG, 9-11 y 10-11, B1: son personas); T no
+// cruza de persona (VG, 7-11 noche): reciben euros y escriben con su asignación de T del día (VG, 8-11).
+for (const id of ['ana', 'bea']) await eje.aceptar(await eje.invitar({ autor: 'casa', invitado: id, t }), {}, { t });
 const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'ana' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']] });
 const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
 const reserva = (quien, noches) => eje.escribir({

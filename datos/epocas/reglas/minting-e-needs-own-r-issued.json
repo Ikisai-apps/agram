@@ -1,0 +1,16 @@
+[
+  ["minting E needs own R issued"],
+  [0],
+  ["=count (ev.1 where mint in it.4 and E in it.0.0.0) = 0 or count ((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) > 0 or sum (first ev.3).8.1 > 0 or count (ev.1 where mint in it.4 and R in it.0.0.0 and first ev.3 in it.0.0.1) > 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "VG, 8-11 tarde (mapa §15 [D] N3): la exigencia encadena E → P → R → T",
+    "VG, 9-11, D1/D2 (mapa §15 [D]): «R en juego» es tener R propia emitida, sin colateral (se retira el colateral de la #75)",
+    "Emitida: la tiene en su cartera, la tienen otros (su obligación, A.8.1) o la acuña en esta transacción"
+  ],
+  ["epoch 0"],
+  ["after minting E needs P on its record"],
+  ["minting E needs own R issued: {first ev.3} mints E and has never issued R of its own"]
+]

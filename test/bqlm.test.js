@@ -56,7 +56,8 @@ const espera = (src, re, c = ctx) => {
 
 test('léxico: tres estados, las palabras cortas y las cinco primitivas', () => {
   assert.deepEqual(ESTADOS, ['RESUELTO', 'PENDIENTE', 'ERROR']);
-  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in']);
+  // Encargo 3b: put … at … (colocar, mapa §16 [D]: «put v at X.d, solo reglas que escriben») entra en el léxico.
+  assert.deepEqual(PALABRAS, ['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
   assert.deepEqual(PRIMITIVAS, ['mint', 'transfer', 'lock', 'release', 'burn']);
   assert.equal(LIMITES.hilo, 10);
 });
@@ -183,7 +184,9 @@ test('vacío: = y != comparan nada; la aritmética y el orden con nada quedan PE
 test('ERROR claro: lo que no es BQL mínimo, funciones con nombre y sintaxis', () => {
   falla('FILTRAR(epoch.1, 1)', /no es BQL mínimo: «FILTRAR» \(no hay funciones con nombre\)/);
   falla('LOCAL(1)', /no es BQL mínimo/);
-  falla('put 1 at epoch.1', /no es BQL mínimo: «put»/);
+  // put solo coloca en una posición con su índice por valor, y solo en una regla que escribe (encargo 3b).
+  falla('put 1 at epoch.1', /put coloca en una posición con su índice por valor/);
+  falla('put 1 at epoch.1.(2)', /put: solo en una regla que escribe/);
   falla('día', /no es BQL mínimo: «día»/);
   falla('it1', /no es BQL mínimo/);
   falla('1 +', /sintaxis: falta una expresión/);

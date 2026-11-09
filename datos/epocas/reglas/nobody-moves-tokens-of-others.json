@@ -1,14 +1,16 @@
 [
   ["nobody moves tokens of others"],
-  [0],
-  ["=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) = 0"],
+  [0, "\"invitation\""],
+  ["=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3 and not (transfer in it.4 and count (first ev.3).6 = 0 and it.3.1 = first ev.3 and first ev.3 in it.2 and \"invitation\" in (first (first ev.6).5).0 and first (first (first ev.6).5).3 = it.3.0 and first ev.3 in (first (first ev.6).5).3.1)) = 0"],
   ["ev.3"],
   ["transfer", "lock", "release", "burn"],
   ["*"],
   [
     "mapa §11 [A] paso 4: solo el titular mueve lo suyo",
     "VG, 8-11: «solo existe la delegación»; nadie mueve por cuenta de un grupo",
-    "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar"
+    "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar",
+    "VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «1 lo que te doy para empezar (mínimo mi propia R, que te permite escribirme)»: quien invita lo bloquea con la salida = quien invita, y la aceptación lo recoge con una transferencia con esa salida (encargo 3b); no es mover lo ajeno: la salida nombra a quien lo recibe",
+    "Revisión de seguridad (encargo 3b): la excepción es exactamente «aceptar mi invitación»: quien escribe aún no tiene alta, ancla sobre la invitación, que lo nombra como invitado en su 3.1, y transfiere desde quien la escribió hacia sí mismo con la salida = él (el libro solo deja sacar lo bloqueado con esa salida: lo que la invitación le guarda); src/validez.js lo repite en el suelo"
   ],
   ["epoch 0"],
   ["after locked P backing live E is not released"],

@@ -23,8 +23,8 @@
 // docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
-import { esLectura } from './bqlm.js';
-import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { esLectura, esEscritura } from './bqlm.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -257,7 +257,7 @@ const textoNoVacio = (x) => typeof x === 'string' && x.length > 0;
  * referencia del 2). Las reglas largas por ruta de cargarEpoca no existen
  * aquí: las del 2 son condiciones, no nombres de rutas.
  */
-export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } = {}) {
+export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id = null } = {}) {
   const v = validarPayload(payload);
   if (!v.ok) throw new TypeError('época BTML: ' + v.errores.join('; '));
   if (!Array.isArray(payload) || payload.length !== ARIDAD) throw new TypeError('época BTML: la raíz lleva las diez posiciones llenas');
@@ -315,8 +315,11 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } =
   });
   // Las lecturas (B5: «read» en su 4) están en el 2 como las demás, pero no son condiciones: el contexto las
   // pone en la posición que dice su 3 (src/contexto-eje.js) y las otras reglas las leen ahí.
-  const condiciones = Object.freeze(reglasDel2.filter((x) => !esLectura(x.regla)).map((x) => x.regla));
+  const condiciones = Object.freeze(reglasDel2.filter((x) => !esLectura(x.regla) && !esEscritura(x.regla)).map((x) => x.regla));
   const lecturas = Object.freeze(reglasDel2.filter((x) => esLectura(x.regla)).map((x) => x.regla));
+  // Las reglas que escriben (encargo 3b: «put» en su 4, la obtención de P) tampoco son condiciones: lo que colocan
+  // lo asienta el libro en la misma transacción (src/eje.js).
+  const escrituras = Object.freeze(reglasDel2.filter((x) => esEscritura(x.regla)).map((x) => x.regla));
   const registrosDeEpoca = new Map(reglasDel2.map((x) => [x.id, x.regla]));
 
   // 8.0: los cortes de las diez cajas del 8.
@@ -332,12 +335,15 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } =
 
   return Object.freeze({
     nombre,
+    // El id de la raíz (el hash de su cuerpo canónico, datos/epocas/generar.mjs): lo que nombran el génesis y una invitación.
+    id,
     nombres: Object.freeze([...nombres]),
     payload: registro,
     registro,
     reglas: Object.freeze(reglas),
     condiciones,
     lecturas,
+    escrituras,
     reglasConId: Object.freeze(reglasDel2),
     registros: registrosDeEpoca,
     largas: Object.freeze([]),
@@ -357,7 +363,10 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } =
  * (datos/epocas/correcciones/): las mismas cien reglas cortas que EPOCA_0. No
  * está en EPOCAS: es la misma época en otro formato.
  */
-export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: REGLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS });
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: REGLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
+
+/** El id de la época 0: el registro con id conocido que el génesis lleva en su contexto (contexto.epoca) y que una invitación referencia en su 2. */
+export { EPOCA_0_BTML_ID };
 
 /** Una época por objeto o por nombre ('época 0'). */
 export function epocaDe(epoca = EPOCA_0) {

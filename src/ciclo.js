@@ -6,11 +6,13 @@
 // Y la emisión es escalonada: «normalmente será T + (opc) R; si T + R + (opc)
 // P; si T+R+P + (opc) E».
 //
-// Lo que queda aquí de las reglas de emisión de un evento que no es el génesis
-// (encargo 3a, paso 9): el P acuñado (PP-2, PP-3) y el escalonado (ES-1), que son
-// del 3b, el estrechamiento de P (PP-5) y la caducidad de una serie de E (EE-9).
-// El reloj, quién emite, T no se emite, no se bloquea ni cruza de persona y el T
-// del día son reglas de la época (src/condiciones/reglas.js).
+// Lo que queda aquí de las reglas de emisión de un evento que no es el génesis:
+// la caducidad de una serie de E (EE-9), que no cabe en una regla (docs/BQLM.md
+// §10.3), y las reglas de la versión 2 (suelo de persistencia). El encargo 3b
+// (mapa §15, «P como peso de criterio») retiró el P acuñado por el autor
+// (PP-2, PP-3, R3), el estrechamiento de P (PP-5) y el escalonado en JS (ES-1):
+// son reglas de la época (src/condiciones/reglas.js), como el reloj, quién
+// emite, que T no se emita, no se bloquee ni cruce de persona y el T del día.
 // Las usan el eje (src/eje.js, al validar) y las capas de validez
 // (src/validez.js, con el libro de justo antes del registro), así que las dos
 // dicen lo mismo. No simulan saldos: eso lo hace cada uno con su vista. Solo
@@ -22,11 +24,8 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, ESCALAS_INFORMATIVAS, SEGUNDOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
+import { ESCALAS_INFORMATIVAS, SEGUNDOS, claveToken, validarMovimiento } from './tokens.js';
 import { msDeGuardado, segundosUTC } from './instante.js';
-import { esConsolidacion, FABRICA } from './autorizacion.js';
-import { esConsumoT } from './evento.js';
-import { rPropiaEnJuego } from './lente.js';
 
 /** Quién emitía en la versión 2 (antes del 7-11 noche): personas y grupos. Solo para eventos guardados con ella. */
 /** VG, 8-11: «no hay un tipo de T que se acumule». Nadie emite T, ni el génesis. */
@@ -134,20 +133,9 @@ export function repartirGastoT(queda, cantidad) {
  * erroresGenesis).
  *
  * ctx, todo de antes del evento:
- *   tipo(id)                 'persona' | 'cosa' | null ('grupo' solo en el prefijo de la versión 2)
- *   alta(id)                 { id, t } del evento que la dio de alta, o null (acotada si es del prefijo v2)
- *   tMaximo()                el mayor t aceptado en el eje, en milisegundos UTC
- *   gastadoT(id, e, periodo) T de la asignación de esa persona gastado en esa escala ese día (tokens.asignacionT)
+ *   tipo(id)                 el tipo que declaró el alta en el prefijo de la versión 2, o null
  *   serie(clave)             { emisor, emitido, caduca } o null
- *   registro(id)             el evento con ese id, o undefined
- *   ambitosQueCubren(ambito) los ámbitos de P que cubren un registro
- *   saldo(id, clave)         saldo disponible
  *   reglas                   2 si el evento se guardó con la versión 2; si no, las de ahora
- *   genesisId                el id del génesis
- *   autorizada(id)           true si la consolidación id está AUTORIZADA (y sin ejecutar) justo antes del evento
- *                            (src/autorizacion.js: estadoPorPeso con el lector de ese momento)
- *   ampliada(id)             true si la consolidación id ya respaldó una ampliación de P (consolidacionQueAmplia, que lee este mismo contexto)
- *   bloqueado(id, k, salida) lo bloqueado de esa serie por esa identidad con esa salida (la R propia en juego, R6)
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
@@ -169,26 +157,16 @@ export function reglasDelCicloV2(ev, ctx) {
   return reglasV2(ev.autor, validosDe(ev), ctx);
 }
 
-// Lo que comparten varias secciones: el P del autor sobre un registro y lo emitido de una serie P.
-
-/** P del autor sobre un registro antes del evento: saldo disponible en un ámbito que lo cubre. */
-export const poderAntesDe = (ev, ctx) => (registro) => ctx.ambitosQueCubren(registro).reduce((s, a) => s + Math.max(0, ctx.saldo(ev.autor, 'P:' + a)), 0);
-
-/** Lo emitido de la serie P de un registro antes del evento (sobre el génesis, P:genesis y P:<id> juntas). */
-export const emitidoAntesDe = (ctx) => (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
-
 /**
- * PP-2, PP-3, EE-9 (caducidad): lo que queda en JS de quién emite (encargo 3a, paso 9). Que solo las personas
- * emitan, en su propio nombre, y que T no se emita son reglas de la época («only persons mint», «E is minted by and
- * to its issuer», «R is minted by its issuer», «nobody mints T»), conectadas al eje (src/condiciones/reglas.js).
- * Queda el P acuñado, que es del 3b (el mapa §15 lo cambia: lo acuña quien escribió el registro, una vez; R3), y la
- * caducidad de una serie de E, que la fija su primera emisión. Un solo motivo por movimiento: el primero que falla.
+ * EE-9 (la caducidad de una serie de E la fija su primera emisión) y, en el prefijo de la versión 2, que solo las
+ * personas declaradas emiten: lo que queda en JS de quién emite. Que solo las personas emitan, en su propio nombre, y
+ * que T no se emita son reglas de la época; el P ya no se acuña a mano (encargo 3b, mapa §15: lo obtiene quien
+ * escribe, consigue E o recibe R, y se reposiciona por el árbol: reglas de la época). Un solo motivo por movimiento.
  */
 function emision(ev, ctx, validos) {
   const errores = [];
   const falla = (i, capa, texto) => errores.push({ i, capa, texto });
   const autor = ev.autor;
-  const emitidoAntes = emitidoAntesDe(ctx);
   const caducas = new Map(); // clave → caducidad fijada en este evento
   // Suelo de persistencia (VG, 10-11, A4 y B1): quien entró en el prefijo de la versión 2 es lo que declaró su alta
   // entonces, y solo las personas emiten. Fuera de él, persona o cosa por autoría: la regla «only persons mint».
@@ -197,27 +175,6 @@ function emision(ev, ctx, validos) {
   for (const { m, i } of validos) {
     if (m.de !== null) continue;
     if (tipoV2 && tipoV2 !== 'persona') { falla(i, 5, 'solo las personas emiten: ' + autor + ' es ' + tipoV2 + ' (lo declaró su alta, de la versión 2)'); continue; }
-    if (m.token === 'P') {
-      // 3b. Acuñar P es solo de quien escribió el registro (sobre el eje entero, del génesis). Quien solo TIENE P lo
-      // transfiere (delegar estrecha el ámbito y conserva la cantidad), pero no lo acuña.
-      if (m.a !== autor) { falla(i, 5, 'la emisión de P va a quien la emite: ' + autor); continue; }
-      const registro = m.ambito === AMBITO_GENESIS ? undefined : ctx.registro(m.ambito);
-      if (!registro) {
-        falla(i, 4, m.ambito === AMBITO_GENESIS
-          ? 'P sobre todo el eje («' + AMBITO_GENESIS + '») solo lo emite el génesis'
-          : 'P fuera del génesis va sobre un registro existente: ámbito desconocido ' + corto(m.ambito));
-        continue;
-      }
-      if (registro.autor !== autor) {
-        falla(i, 5, 'P sobre ' + corto(m.ambito) + ' lo acuña solo quien escribió el registro (' + registro.autor + '): ' + autor + ' puede transferir el P que tenga, no acuñarlo');
-        continue;
-      }
-      // R3 (VG, 7-11 noche): P:X es una serie cerrada; ampliarla es ejecutar una consolidación AUTORIZADA sobre X.
-      const noAmplia = emitidoAntes(m.ambito) > 0 ? porQueNoAmplia(ev, m.ambito, ctx) : null;
-      if (noAmplia) {
-        falla(i, 5, 'P:' + corto(m.ambito) + ' es una serie cerrada: ya la emitió su autor, y ampliarla es ejecutar una consolidación sobre ' + corto(m.ambito) + ' que esté AUTORIZADA (R3): ' + noAmplia);
-      }
-    }
     if (m.token === 'E') {
       // La caducidad es del contrato de la serie: la fija la primera emisión y las ampliaciones coinciden (como instante).
       const k = claveToken(m);
@@ -226,86 +183,6 @@ function emision(ev, ctx, validos) {
       const esta = m.caduca ?? null;
       if (fijada === undefined) caducas.set(k, esta);
       else if (!mismaCaducidad(fijada, esta)) falla(i, 4, 'la serie ' + k + (fijada ? ' caduca el ' + fijada : ' no caduca') + ': una ampliación no cambia su caducidad');
-    }
-  }
-  return errores;
-}
-
-/**
- * PP-5. R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el
- * eje debita del ámbito exacto y, si no alcanza, de los que lo cubren) o lo
- * bloquea. Delegar con el ámbito de un registro X tomando de un ámbito más
- * amplio (estrechar) crea P:X que no viene de la emisión de X, así que: hacia
- * una serie cerrada (P:X ya emitida) no se estrecha; y hacia la raíz de un
- * dominio (un registro sobre el génesis, el que decide al autorizar:
- * src/autorizacion.js) solo estrecha su autor ([X] confirmar VG). Si no,
- * quien tiene P del eje lo convertiría en P de la raíz antes de que su autor
- * emita, y el P del génesis contaría donde la raíz tiene P propio. Estrechar
- * hacia un registro que no es raíz sigue libre: ese P no autoriza nada.
- */
-function estrechar(ev, ctx, validos) {
-  const errores = [];
-  const autor = ev.autor;
-  const emitidoAntes = emitidoAntesDe(ctx);
-  const exacto = new Map(); // ámbito → P:ámbito exacto disponible del autor, durante el evento
-  const verExacto = (a) => (exacto.has(a) ? exacto.get(a) : Math.max(0, ctx.saldo(autor, 'P:' + a)));
-  const emitidaAqui = new Set(); // ámbitos de P emitidos en este evento
-  for (const { m, i } of validos) {
-    if (m.token !== 'P') continue;
-    const a = m.ambito;
-    if (m.de === null) {
-      emitidaAqui.add(a);
-      if (m.a === autor) exacto.set(a, verExacto(a) + m.cantidad);
-      continue;
-    }
-    if (m.de !== autor) continue;
-    if (m.estado === 'liberacion') { exacto.set(a, verExacto(a) + m.cantidad); continue; }
-    const hay = verExacto(a);
-    exacto.set(a, Math.max(0, hay - m.cantidad));
-    if (m.estado === undefined && m.a === autor) exacto.set(a, exacto.get(a) + m.cantidad);
-    if (m.estado !== undefined || hay >= m.cantidad || a === AMBITO_GENESIS || a === ctx.genesisId) continue;
-    const registro = ctx.registro(a);
-    if (!registro) continue; // el ámbito desconocido lo rechaza el eje
-    if (emitidoAntes(a) > 0 || emitidaAqui.has(a)) {
-      errores.push({ i, capa: 5, texto: 'P:' + corto(a) + ' es una serie cerrada: se delega el P:' + corto(a) + ' que se tiene (' + hay + '); estrecharlo desde un ámbito más amplio la ampliaría (R3)' });
-    } else if (registro.sobre === ctx.genesisId && registro.autor !== autor) {
-      errores.push({ i, capa: 5, texto: 'estrechar P hacia ' + corto(a) + ', la raíz de un dominio, es solo de quien la escribió (' + registro.autor + '): ' + autor + ' delega el P que tiene con su ámbito (R3)' });
-    }
-  }
-  return errores;
-}
-
-/**
- * ES-1, ES-2, ES-3. Escalonado: R exige T; P exige T y R propia en juego; E
- * exige T, R propia en juego y P sobre el registro.
- */
-function escalonado(ev, ctx, validos) {
-  const errores = [];
-  const falla = (texto) => errores.push({ i: null, capa: 5, texto });
-  const autor = ev.autor;
-  const emitidas = new Set(validos.filter(({ m }) => m.de === null).map(({ m }) => m.token));
-  if (!emitidas.size) return errores;
-  const poderAntes = poderAntesDe(ev, ctx);
-  // P del autor sobre un registro: saldo disponible en un ámbito que lo cubre, o P que mueve o recibe en este evento con ese ámbito.
-  const pEnEvento = (registro) => {
-    const cubren = new Set(ctx.ambitosQueCubren(registro));
-    return validos.some(({ m }) => m.token === 'P' && (m.de === autor || m.a === autor) && cubren.has(m.ambito));
-  };
-  const tienePoder = (registro) => poderAntes(registro) > 0 || pEnEvento(registro);
-  // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
-  // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
-  // cruza de persona, así que solo cuenta el consumo.
-  const mueveT = validos.some(({ m }) => esConsumoT(m, autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
-  // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
-  const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
-  for (const token of ['R', 'P', 'E']) {
-    if (!emitidas.has(token)) continue;
-    if (!mueveT) falla('emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
-    if (token !== 'R' && !rEnJuego) {
-      falla('emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
-    }
-    if (token === 'E' && ctx.registro(ev.sobre) && !tienePoder(ev.sobre)) {
-      falla('emitir E exige P del autor sobre el registro ' + corto(ev.sobre) + ' (saldo o movimiento de P en el mismo evento)');
     }
   }
   return errores;
@@ -321,73 +198,10 @@ function escalonado(ev, ctx, validos) {
 export const SECCIONES_DEL_CICLO = Object.freeze([
   // Encargo 3a, paso 9: RL-1 (el reloj), ID-9, ID-10 y TT-1 (quién emite), TT-6 (T no se bloquea), TT-4 (el T del
   // día) y TT-8 (T no cruza de persona) son reglas de la época conectadas al eje (src/condiciones/reglas.js); su
-  // código JS, retirado, vive solo en test/condiciones-retiradas.mjs como red de equivalencia.
-  Object.freeze({ nombre: 'PP-2', filas: Object.freeze(['PP-2', 'PP-3', 'EE-9']), evaluar: emision }),
-  Object.freeze({ nombre: 'PP-5', filas: Object.freeze(['PP-5']), evaluar: estrechar }),
-  Object.freeze({ nombre: 'ES-1', filas: Object.freeze(['ES-1', 'ES-2', 'ES-3']), evaluar: escalonado }),
+  // código JS, retirado, vive solo en test/condiciones-retiradas.mjs como red de equivalencia. Encargo 3b: PP-2 y
+  // PP-3 (el P acuñado, R3), PP-5 (estrechar P) y ES-1 (el escalonado) también son reglas de la época (mapa §15).
+  Object.freeze({ nombre: 'EE-9', filas: Object.freeze(['EE-9']), evaluar: emision }),
 ]);
-
-/** Las claves de la serie P de un ámbito: sobre el génesis, P:genesis y P:<id del génesis>, que son la misma. */
-function clavesDeSerieP(ambito, genesisId) {
-  return ambito === AMBITO_GENESIS || ambito === genesisId ? ['P:' + AMBITO_GENESIS, ...(genesisId ? ['P:' + genesisId] : [])] : ['P:' + ambito];
-}
-
-/**
- * La consolidación que `ev` usó para ampliar una serie P ya emitida, o null.
- * El eje y las capas de validez la marcan como usada al aplicar el evento: una
- * consolidación respalda UNA ampliación de P. Solo la usa el evento que amplía
- * de verdad (SEG-04, revisión de la #73): su foco es una consolidación de su
- * mismo autor y emite P sobre el registro que ella amplía (sobre el génesis,
- * P:genesis o P:<id del génesis>), en una serie que ya estaba emitida antes del
- * evento, por el camino en que `porQueNoAmplia` no puso pega. Una ejecución
- * que emite P por primera vez sobre otro registro (o un evento de otra
- * identidad en la fábrica) no la consume: si no, bastaría con él para negar
- * la ampliación legítima.
- *
- * `contexto` es el de las reglas del ciclo (reglasDelCiclo) de justo antes de
- * `ev`, o una función que lo da: solo se pide si `ev` está en la fábrica y
- * dice `fase: 'ejecutado'`.
- */
-export function consolidacionQueAmplia(ev, contexto) {
-  if (!ev || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado' || typeof ev.sobre !== 'string') return null;
-  const ctx = typeof contexto === 'function' ? contexto() : contexto;
-  if (!ctx || ctx.reglas === 2) return null;
-  const c = ctx.registro(ev.sobre);
-  if (!esConsolidacion(c) || c.autor !== ev.autor) return null;
-  const emitidoAntes = (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
-  const amplia = (Array.isArray(ev.movimientos) ? ev.movimientos : []).some((m) =>
-    m && typeof m === 'object' && !validarMovimiento(m).length && m.token === 'P' && m.de === null && m.a === ev.autor &&
-    m.ambito !== AMBITO_GENESIS && ctx.registro(m.ambito)?.autor === ev.autor &&
-    emitidoAntes(m.ambito) > 0 && porQueNoAmplia(ev, m.ambito, ctx) === null);
-  return amplia ? c.id : null;
-}
-
-/**
- * Por qué `ev` no amplía la serie P:`ambito`, o null si la amplía: ha de ser la
- * ejecución REAL de una consolidación sobre el registro `ambito` que está
- * AUTORIZADA justo antes (y aún sin ejecutar), y que no haya respaldado ya otra
- * ampliación. Es lo único que amplía una serie P:X ya emitida (R3). La ejecuta
- * su autor (ejecutar en el motor; aquí, el autor de la consolidación, que ha
- * de ser quien emite: el autor de X). Real (SEG-01, revisión de main 7-11
- * noche): no basta con decir `fase: 'ejecutado'`; lleva la evidencia que deja
- * motor.ejecutar, no vacía, con el id de la consolidación, y todas sus
- * referencias son eventos del eje.
- */
-export function porQueNoAmplia(ev, ambito, ctx) {
-  const c = ctx.registro(ev.sobre);
-  if (!esConsolidacion(c) || ev.en !== FABRICA || ev.contexto?.fase !== 'ejecutado') return 'no es la ejecución de una consolidación';
-  if (c.autor !== ev.autor) return 'la ejecuta el autor de la consolidación (' + c.autor + ')';
-  const sobreElGenesis = ambito === AMBITO_GENESIS || ambito === ctx.genesisId;
-  if (sobreElGenesis ? c.sobre !== ctx.genesisId : c.sobre !== ambito) return 'la consolidación ' + corto(c.id) + ' no es sobre ' + corto(ambito);
-  const evidencia = ev.contexto?.evidencia;
-  if (!Array.isArray(evidencia) || !evidencia.length) return 'una ejecución lleva su evidencia (contexto.evidencia), y esta no la lleva';
-  if (!evidencia.includes(c.id)) return 'la evidencia no cita la consolidación ' + corto(c.id);
-  const rota = evidencia.find((id) => typeof id !== 'string' || !ctx.registro(id));
-  if (rota !== undefined) return 'la evidencia cita ' + corto(rota) + ', que no está en el eje';
-  if (ctx.ampliada?.(c.id) === true) return 'la consolidación ' + corto(c.id) + ' ya respaldó una ampliación: respalda una sola';
-  if (ctx.autorizada?.(c.id) !== true) return 'la consolidación ' + corto(c.id) + ' no está AUTORIZADA (o ya se ejecutó)';
-  return null;
-}
 
 /** Las reglas de emisión de la versión 2, para los eventos guardados con ella. */
 function reglasV2(autor, validos, ctx) {

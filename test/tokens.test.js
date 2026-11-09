@@ -59,13 +59,16 @@ test('E: denominación y emisor siempre; la emisión va a su propio emisor', () 
   assert.ok(validarMovimiento({ token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: 'bea', denominacion: 'EUR' }).some((e) => /denominación solo en E/.test(e)));
 });
 
-test('P exige ámbito; R exige emisor y no es fungible', () => {
+test('P exige ámbito; R exige emisor y se transfiere entre tenedores (VG, 9-11, mapa §15 [D] «R según el corpus»)', () => {
   assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b' }).some((e) => /ámbito/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b', ambito: 'genesis' }), []);
   assert.equal(claveToken({ token: 'P', ambito: 'abc' }), 'P:abc');
   assert.ok(validarMovimiento({ token: 'R', cantidad: 1, de: 'a', a: 'b' }).some((e) => /emisor/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'R', cantidad: 1, de: 'a', a: 'b', emisor: 'a' }), []);
-  assert.ok(validarMovimiento({ token: 'R', cantidad: 1, de: 'b', a: 'c', emisor: 'a' }).some((e) => /no es fungible/.test(e)));
+  // Se corrige la #62: R se transfiere libremente entre tenedores sin cambiar de emisor, y el tenedor puede
+  // perdonarla quemándola («R, últimas dos»).
+  assert.deepEqual(validarMovimiento({ token: 'R', cantidad: 1, de: 'b', a: 'c', emisor: 'a' }), []);
+  assert.deepEqual(validarMovimiento({ token: 'R', cantidad: 1, de: 'b', a: null, emisor: 'a' }), []);
   assert.ok(validarMovimiento({ token: 'R', cantidad: 1, de: null, a: 'b', emisor: 'a' }).some((e) => /emisión de R va a su propio emisor/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'R', cantidad: 1, de: null, a: 'a', emisor: 'a' }), []);
   assert.equal(claveToken({ token: 'R', emisor: 'a' }), 'R:a');

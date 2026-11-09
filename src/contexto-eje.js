@@ -127,6 +127,7 @@ export class ContextoEje {
   #epoch;
   #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
+  #idEpoca = null; // el id de la raíz de la época (encargo 3b): lo que referencia una invitación
   #registrosDeEpoca; // id → registro (las reglas del 2 de la época, src/epocas.js): lo que alcanza una referencia del 2
   #lecturas = new Map(); // «X.6.1» → las lecturas de la época (B5) que se materializan ahí
   #leyendo = new Set(); // las lecturas en curso (regla y sujeto): una que vuelve sobre sí misma es PENDIENTE
@@ -136,6 +137,7 @@ export class ContextoEje {
     this.#ev = ev ?? null;
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
     this.#registrosDeEpoca = epoch?.registros instanceof Map ? epoch.registros : new Map();
+    this.#idEpoca = typeof epoch?.id === 'string' ? epoch.id : null;
     for (const regla of Array.isArray(epoch?.lecturas) ? epoch.lecturas : []) {
       const donde = posicionDeLectura(regla);
       if (typeof donde !== 'string') continue;
@@ -150,17 +152,29 @@ export class ContextoEje {
     return false;
   }
 
+  /** Cómo se nombra un sujeto de lectura (para no volver sobre sí misma): una identidad, la candidata o un nodo. */
+  #llaveDeSujeto(sujeto) {
+    if (typeof sujeto === 'string') return sujeto;
+    if (sujeto.k === 'ev') return 'ev';
+    return [sujeto.k, sujeto.id ?? '', sujeto.titular ?? '', sujeto.registro ?? sujeto.serie ?? '', sujeto.decision ?? ''].join('|');
+  }
+
   /**
    * B5 (VG, 10-11): lo que dan las lecturas de la época que se materializan en «letra.d1.d2» (X un registro o la
    * candidata, A una identidad), leídas del sujeto en este mismo contexto. Una lectura que no se resuelve deja la
    * posición como ella (PENDIENTE o ERROR).
    */
   #lectura(letra, sujeto, d1, d2) {
-    const reglas = this.#lecturas.get(letra + '.' + d1 + '.' + d2);
+    return this.#lecturaEn(letra + '.' + d1 + '.' + d2, sujeto);
+  }
+
+  /** Lo que dan las lecturas de la época que se materializan en la posición `donde` («X.2.4.8», «A.2.1.8»…) de `sujeto`. */
+  #lecturaEn(donde, sujeto) {
+    const reglas = this.#lecturas.get(donde);
     if (!reglas) return [];
     const fuera = [];
     for (const regla of reglas) {
-      const clave = nombreDeRegla(regla) + '|' + (typeof sujeto === 'string' ? sujeto : sujeto.k === 'ev' ? 'ev' : sujeto.id);
+      const clave = nombreDeRegla(regla) + '|' + this.#llaveDeSujeto(sujeto);
       if (this.#leyendo.has(clave)) throw pendiente('la lectura ' + nombreDeRegla(regla) + ' vuelve sobre sí misma');
       this.#leyendo.add(clave);
       let r;
@@ -341,6 +355,9 @@ export class ContextoEje {
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
+      case 'posicionado': return 'P de ' + nodo.titular + ' en ' + String(nodo.registro).slice(0, 8);
+      case 'grupo': return 'grupo ' + nodo.zona + ' de ' + nodo.titular;
+      case 'compromiso': return nodo.cantidad + ' ' + nodo.serie + ' de ' + nodo.titular + ' con ' + String(nodo.decision).slice(0, 8);
       default: return '«' + (nodo?.k ?? 'nodo') + '»';
     }
   }
@@ -366,6 +383,9 @@ export class ContextoEje {
     // El id va siempre primero («nadie» si la candidata aún no lo tiene): las claves son el resto.
     if (d === 5) return [e.id ?? NADIE, ...llavesDe(e)];
     if (d === 6) return [{ k: 'meta6', e }];
+    // Encargo 3b (mapa §15, «P como peso de criterio»): en el 2 de un registro, 2.4 los compromisos con él (el P
+    // bloqueado con la salida = su id, de cualquiera) y las lecturas que la época pone en el 2.
+    if (d === 2 && e.id && this.#eje?.obtener(e.id)) return [{ k: 'criterioX', e }];
     // B6: el 7, el futuro del registro: 7.1 las series vivas de su subárbol; y las lecturas que la época pone en el 7.
     if (d === 7) return [{ k: 'futuro', e }];
     // B5: una posición donde la época materializa lecturas del registro tiene su nodo implícito.
@@ -475,6 +495,11 @@ export class ContextoEje {
   /** Seguir una referencia, sin la memoria. */
   #seguirSin(ref, saltos) {
     if (saltos >= MAX_SALTOS) throw pendiente('más de ' + MAX_SALTOS + ' referencias encadenadas');
+    // La época misma (su raíz, por su id: el 2 de una invitación, encargo 3b): se alcanza como epoch.
+    if (this.#idEpoca && ref.ref === this.#idEpoca) {
+      if (!ref.dir || !indicesDe(ref.dir).length) return [EPOCA];
+      return this.#expandir(resolver(this.#epoch, ref.dir), null, indicesDe(ref.dir), saltos + 1);
+    }
     // Un registro de la época (una regla del 2, VG 10-11, A1): se alcanza por su id, como un registro del eje.
     if (this.#registrosDeEpoca.has(ref.ref)) {
       const regla = this.#registrosDeEpoca.get(ref.ref);
@@ -567,6 +592,12 @@ export class ContextoEje {
   /** Vistas del libro como posiciones de una identidad: 1 la cartera, 6 su alta (el registro que la abrió), 7 el tiempo gastado hoy. */
   #deIdentidad(a, d) {
     if (d === 1) return this.#cartera(a);
+    // Encargo 3b (mapa §15): el 2 de una identidad es su criterio: 2.1 su P posicionado (una entrada por registro),
+    // 2.3 las personas cuyos criterios adopta (la lente de criterios).
+    if (d === 2) return [{ k: 'criterio', id: a }];
+    // Encargo 3b (mapa §16 [D] «PV3 = regla de atención»): el 3 de una identidad son sus grupos de atención, uno por
+    // zona: los de la época (epoch.1.2.1) y los que ella declara, con sus correcciones.
+    if (d === 3) return this.#grupos(a);
     if (d === 6) {
       // «pasado: de dónde viene (quién la dio de alta)», epoch.3.6 (familia ciclo, encargo 2): A.6.6.0 es el t del alta, A.6.3 su autor.
       const alta = this.#eje.alta(a);
@@ -598,6 +629,67 @@ export class ContextoEje {
     }));
   }
 
+  /**
+   * El P posicionado de una identidad (encargo 3b, mapa §15): una entrada por registro sobre el que tiene P, en el
+   * orden de su cartera; cada una con lo disponible y lo bloqueado por salida.
+   */
+  #posicionado(a) {
+    return this.#cartera(a)
+      .filter((x) => x.clave.startsWith('P:'))
+      .map((x) => ({ k: 'posicionado', titular: a, registro: x.clave.slice(2), disponible: x.disponible, bloqueado: x.bloqueado }));
+  }
+
+  /**
+   * Las personas cuyos criterios adopta una identidad (mapa §15: «tomar prestados criterios de quien tengo localizado»;
+   * encargo 3b, la lente de criterios): los nombres que ella misma escribe en el 2.3 de su alta (en el payload o
+   * anclados ahí por ella), por llegada.
+   */
+  #adoptados(a) {
+    const alta = this.#eje.alta(a);
+    const ev = alta && this.#eje.obtener(alta.id);
+    if (!ev) return [];
+    const nombres = [];
+    const de = (x) => { for (const n of Array.isArray(x) ? x : [x]) if (typeof n === 'string' && n && !n.startsWith('=')) nombres.push(n); };
+    if (Array.isArray(ev.payload) && Array.isArray(ev.payload[2]) && !esLista(ev.payload[2])) de(ev.payload[2][3]);
+    for (const h of this.#eje.sobre(ev.id, direccion([2, 3]))) if (h.autor === a) de(h.payload);
+    return nombres;
+  }
+
+  /**
+   * Los grupos de atención de una identidad (mapa §16 [D]: «cada persona clasifica al mundo respecto a sí misma por
+   * el precio de su atención»; encargo 3b): uno por zona, en su orden; las seis de la época (epoch.1.2.1: desconocidos
+   * 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5) y las que la identidad abra con un precio propio
+   * (anclando en el 3.k.2 de su alta).
+   */
+  #grupos(a) {
+    const defecto = this.#epoch?.[1]?.[2]?.[1];
+    const zonas = new Map();
+    if (Array.isArray(defecto)) defecto.forEach((z, k) => { if (Array.isArray(z)) zonas.set(k, z); });
+    const alta = this.#eje?.alta(a);
+    if (alta) {
+      for (let k = 0; k < ARIDAD; k++) {
+        if (!zonas.has(k) && this.#eje.sobreDe(alta.id, direccion([3, k, 2]), new Set([a])).length) zonas.set(k, null);
+      }
+    }
+    return [...zonas.keys()].sort((x, y) => x - y).map((k) => ({ k: 'grupo', titular: a, zona: k, defecto: zonas.get(k), alta: alta?.id ?? null }));
+  }
+
+  /** Lo que la identidad de un grupo ancla en el 3.k.d de su alta (d = 2, el precio; 3, quiénes), por llegada: su payload. */
+  #corregido(grupo, d) {
+    if (!grupo.alta) return [];
+    const fuera = [];
+    for (const h of this.#eje.sobreDe(grupo.alta, direccion([3, grupo.zona, d]), new Set([grupo.titular]))) {
+      if (Array.isArray(h.payload) && !esLista(h.payload)) fuera.push({ k: 'dec', id: h.id, camino: [], v: h.payload });
+      else fuera.push(...this.#expandir(h.payload, null, [], 0));
+    }
+    return fuera;
+  }
+
+  /** Los compromisos con un registro (mapa §15: «comprometer = bloquear con salida la decisión»): lo bloqueado con salida = su id. */
+  #compromisos(id) {
+    return this.#eje.bloqueosCon(id).map((b) => ({ k: 'compromiso', decision: id, titular: b.identidad, serie: b.clave, cantidad: b.cantidad }));
+  }
+
   // ---------- nodos de las vistas y de los despliegues ----------
 
   /** Los ocupantes del dígito d de un nodo que no es un registro ni una décupla del payload. */
@@ -620,7 +712,7 @@ export class ContextoEje {
         return [];
       case 'llave':
         // Una clave pública declarada (B4): 0 su huella, 3 su titular, 4 su prueba de posesión (si la lleva).
-        return d === 0 ? [huella(nodo.jwk)] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
+        return d === 0 ? [huella(nodo.jwk)] : d === 2 && typeof nodo.jwk?.x === 'string' ? [nodo.jwk.x] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
       case 'reloj': {
         // 0 el mayor t del libro; 3, «con quién»: el reloj de los demás (B6), sin el autor de la candidata ni quien
         // emite la E que acuña; nada si no hay ninguno.
@@ -673,6 +765,40 @@ export class ContextoEje {
       }
       case 'viva':
         return d === 0 ? [{ k: 'serie', clave: nodo.clave }] : d === 1 ? [nodo.vivo] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
+      case 'criterio':
+        // El criterio de una identidad (A.2): 1 su P posicionado, 3 los criterios que adopta.
+        if (d === 1) return this.#posicionado(nodo.id);
+        if (d === 3) return this.#adoptados(nodo.id);
+        return this.#lecturaEn('A.2.' + d, nodo.id);
+      case 'posicionado':
+        // Una entrada del P posicionado (A.2.1): 0 el registro, 1 cuánto (disponible y bloqueado), 2 lo bloqueado por
+        // salida, 3 su titular, 4 lo disponible; 8, la lectura que la época pone ahí (la cuota: «share»).
+        if (d === 0) return [nodo.registro];
+        if (d === 1) return [nodo.disponible + Object.values(nodo.bloqueado).reduce((x, y) => x + y, 0)];
+        if (d === 2) return Object.entries(nodo.bloqueado).filter(([, c]) => c > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
+        if (d === 3) return [nodo.titular];
+        if (d === 4) return [nodo.disponible];
+        return this.#lecturaEn('A.2.1.' + d, nodo);
+      case 'criterioX':
+        // El 2 de un registro, lo implícito: 2.4 los compromisos con él; lo demás, las lecturas de la época en X.2.d.
+        if (d === 4) return this.#compromisos(nodo.e.id);
+        return this.#lecturaEn('X.2.' + d, this.#sujetoDe(nodo.e));
+      case 'grupo':
+        // Un grupo de atención (A.3): 0 su nombre, 1 su zona, 2 su precio (el de la época y, detrás, lo que la identidad
+        // ancla en el 3.k.2 de su alta: gana el último), 3 quiénes (lo que ancla en el 3.k.3).
+        if (d === 0) return nodo.defecto ? this.#propio(nodo.defecto, 0, null, []) : [];
+        if (d === 1) return [nodo.zona];
+        if (d === 2) return [...(nodo.defecto ? this.#propio(nodo.defecto, 2, null, []) : []), ...this.#corregido(nodo, 2)];
+        if (d === 3) return this.#corregido(nodo, 3);
+        return [];
+      case 'compromiso':
+        // Un compromiso con una decisión (X.2.4): 0 la serie, 1 cuánto, 3 su titular, 5 la decisión; 8, la lectura que
+        // la época pone ahí (el peso: «weight»).
+        if (d === 0) return [{ k: 'serie', clave: nodo.serie }];
+        if (d === 1) return [nodo.cantidad];
+        if (d === 3) return [nodo.titular];
+        if (d === 5) return [nodo.decision];
+        return this.#lecturaEn('X.2.4.' + d, nodo);
       default:
         return [];
     }
@@ -688,7 +814,7 @@ export class ContextoEje {
       case 4: return [SIMBOLOS[primitivaDe(m)]];
       case 5: {
         if (m.token !== 'E') return [];
-        const registro = m.registro ?? this.#eje?.registroDe(claveToken(m));
+        const registro = m.registro ?? this.#eje?.registroDe(claveToken(m)) ?? this.#eje?.alta(m.emisor)?.id;
         return registro ? [registro] : [];
       }
       // B3 (VG, 10-11): 7.0 la caducidad, 7.1 la fecha a la que se refiere; ya no comparten posición.

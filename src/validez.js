@@ -9,7 +9,7 @@
 //   2 interpretación              fórmulas (BQL), referencias (encaje) y posiciones: lo que se puede leer
 //   3 criptografía y procedencia  id, firma, foco, autor y claves declaradas
 //   4 acreditación material       respaldo en el libro: series emitidas por quien las respalda, ningún saldo negativo
-//   5 permiso y ejecución         quién mueve y quién emite; en la fábrica, el estado del motor y quién pudo autorizar
+//   5 permiso y ejecución         quién mueve y quién emite; y el ciclo leído: si lo que el registro anuncia ya pasó (cerrado)
 //
 // Las referencias van en la capa 2, escritas como { ref } o como =REF: el
 // corpus pone en ella «contexto, referencias y posiciones» (V4 06 l.36) y la
@@ -30,12 +30,11 @@ import { verificar, verificarPosesion } from './autoridad.js';
 import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS } from './tokens.js';
 import { EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE, SIN_TIPO } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
-import { EPOCA_0, leerDireccion } from './epocas.js';
+import { EPOCA_0, EPOCA_0_BTML, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
-import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
-import { pesoDe, lectorDelEje, esActoDeRespaldo } from './autorizacion.js';
-import { motivosDe, CONDICIONES_DEL_CICLO, CONDICIONES_DE_R } from './condiciones/index.js';
+import { cerrado } from './motor.js';
+import { motivosDe, CONDICIONES_DEL_CICLO } from './condiciones/index.js';
 import { motivosDeReglas } from './condiciones/reglas.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
@@ -50,12 +49,11 @@ export const CAPAS = Object.freeze([
   Object.freeze({ capa: 5, clave: 'permiso', nombre: 'permiso y ejecución' }),
 ]);
 
-/** Estado del motor → estado de la capa 5. Autorizado aún no es ejecutado: consolidar no es ejecutar. */
-export const ESTADO_MOTOR = Object.freeze({
-  'PENDIENTE DE AUTORIZACIÓN': 'pendiente',
-  AUTORIZADO: 'pendiente',
-  EJECUTADO: 'ok',
-});
+/**
+ * La regla del ciclo que lee la capa 5 (encargo 3b; VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): cada uno
+ * mueve lo suyo, nadie autoriza lo ajeno, y si un proceso está cerrado lo dice la plantilla de cerrado de su dueño.
+ */
+export const REGLA_DEL_CICLO = 'cada uno mueve lo suyo y nadie autoriza lo ajeno; si un proceso está cerrado lo dice la plantilla de cerrado que su dueño nombra en su 2 (por defecto, «all announced movements happened»)';
 
 /**
  * Estado BQL → estado de la capa 2. RESUELTO es ok; todo lo que empieza por
@@ -145,9 +143,12 @@ const enLibro = (libro, id) => libro.eje.eventos.has(id);
 function condicionesDe(libro, ev) {
   if (!libro.motivos) {
     const ctx = libro.eje.contexto(ev);
+    // El génesis no pasa por las reglas de la época (encargo 3b: es la época 0 en el eje), como en Eje.genesis y al
+    // restaurar; solo por el suelo.
+    const genesis = ev.contexto?.genesis === true && libro.reglas !== 2;
     libro.motivos = [
-      ...motivosDeReglas(ctx),
-      ...motivosDe([...CONDICIONES_DEL_CICLO, ...CONDICIONES_DE_R], libro.eje.transaccion(ev), libro.eje.libro, ctx),
+      ...(genesis ? [] : motivosDeReglas(ctx)),
+      ...motivosDe(CONDICIONES_DEL_CICLO, libro.eje.transaccion(ev), libro.eje.libro, ctx),
     ];
   }
   return libro.motivos;
@@ -160,20 +161,13 @@ function deLasReglas(r, libro, ev, capa, salvo = []) {
   }
 }
 
-/** Plan de débito de P como el del eje: del ámbito más concreto al más amplio; null si no alcanza. */
+/**
+ * Plan de débito de P como el del eje: del P posicionado en su registro, sin más (encargo 3b: ya no hay P que cubra
+ * lo de debajo ni P del génesis; mapa §15). null si no alcanza.
+ */
 function planP(eje, ver, identidad, ambito, cantidad) {
-  const plan = [];
-  let resta = cantidad;
-  for (const a of eje.ambitosQueCubren(ambito)) {
-    const k = 'P:' + a;
-    const hay = ver(identidad, k);
-    if (hay <= 0) continue;
-    const usa = Math.min(hay, resta);
-    plan.push([k, -usa]);
-    resta -= usa;
-    if (resta <= 0) return plan;
-  }
-  return null;
+  const k = 'P:' + ambito;
+  return ver(identidad, k) >= cantidad ? [[k, -cantidad]] : null;
 }
 
 /** El eje visto con este evento dentro: lo que leen BQL y el encaje. Sin tocar el eje. */
@@ -220,6 +214,9 @@ function capaForma(ev, epoca, { tLaxo = false } = {}) {
  * PENDIENTE»). Cadena sin fin → falla.
  */
 function leerReferencia(vista, nodo) {
+  // La época 0 y los registros de sus reglas se resuelven siempre (encargo 3b: una invitación referencia la época en
+  // su 2), como en el eje (src/condiciones/evento.js, referenciasAusentes).
+  if (nodo.ref === EPOCA_0_BTML.id || EPOCA_0_BTML.registros.has(nodo.ref)) return { s: { evento: nodo.ref, procedencia: 'época 0' }, estado: 'ok', texto: null };
   const s = seguir(vista, nodo);
   if (s.rota && !vista.obtener(s.evento)) return { s, estado: 'pendiente', texto: 'referencia a un evento ausente del eje: ' + corto(s.evento) };
   if (s.rota) return { s, estado: 'falla', texto: 'cadena de referencias sin fin desde ' + corto(nodo.ref) };
@@ -380,6 +377,14 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
 
 // ---------- 4 · acreditación material (el respaldo en el libro) ----------
 
+/** Si `m` (una transferencia con salida desde otro titular) es `ev.autor` aceptando una invitación de `m.de` que lo nombra. */
+function aceptaSuInvitacion(eje, ev, m, conAlta) {
+  if (conAlta || m.a !== ev.autor || m.salida !== ev.autor || typeof ev.sobre !== 'string') return false;
+  const inv = eje.obtener(ev.sobre);
+  const p = inv?.payload;
+  return Boolean(inv) && inv.autor === m.de && Array.isArray(p) && [p[0]].flat().includes('invitation') && [p[3]?.[1]].flat().includes(ev.autor);
+}
+
 function capaAcreditacion(eje, ev, libro) {
   const r = motivos();
   const esGenesis = ev.contexto?.genesis === true;
@@ -411,7 +416,8 @@ function capaAcreditacion(eje, ev, libro) {
   const movimientos = [];
   const movs = lista(ev.movimientos);
   // Un evento no cambia: lo que no se puede comprobar ahora no se podrá nunca, así que falla (no pendiente).
-  if (!movs.length) r.falla('sin movimientos: no hay respaldo que comprobar (todo evento mueve T; capa 1)');
+  // El génesis no mueve nada (encargo 3b: es la época 0 en el eje); cualquier otro evento mueve T.
+  if (!movs.length && !(esGenesis && libro.reglas !== 2)) r.falla('sin movimientos: no hay respaldo que comprobar (todo evento mueve T; capa 1)');
   movs.forEach((m, i) => {
     const fila = { i, clave: null, de: m?.de ?? null, a: m?.a ?? null, cantidad: m?.cantidad, estado: 'ok' };
     movimientos.push(fila);
@@ -445,11 +451,23 @@ function capaAcreditacion(eje, ev, libro) {
       ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - m.cantidad);
       poner(m.de, k, ver(m.de, k) + m.cantidad);
       return undefined;
+    } else if (m.salida !== undefined) {
+      // Transferir con salida (encargo 3b: delegar, recoger lo que guarda una invitación): sale de lo bloqueado con
+      // esa salida y llega bloqueado con ella, o libre si la salida nombra a quien lo recibe. Desde otro titular, solo
+      // aceptando la propia invitación (el suelo de «nobody moves tokens of others»): quien escribe no tiene alta,
+      // ancla sobre una invitación de `de` que lo nombra en su 3.1 y lo recoge para sí, con la salida = él.
+      if (m.de !== ev.autor && !aceptaSuInvitacion(libro.eje, ev, m, conAlta)) return mal('falla', 'nadie mueve lo ajeno: ' + ev.autor + ' saca lo bloqueado de ' + m.de + ' sin aceptar una invitación suya que lo nombre');
+      if (verB(m.de, k, m.salida) < m.cantidad) return mal('falla', 'bloqueado de ' + k + ' en ' + m.de + ' con la salida «' + m.salida + '»: hay ' + verB(m.de, k, m.salida) + ', transfiere ' + m.cantidad);
+      ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - m.cantidad);
+      if (m.a !== m.salida) {
+        ponerB(m.a, k, m.salida, verB(m.a, k, m.salida) + m.cantidad);
+        return undefined;
+      }
     } else if (m.token === 'P') {
-      // P no se emite fuera del génesis: lo respalda el poder de los ámbitos que cubren el suyo.
-      if (m.ambito !== AMBITO_GENESIS && !enLibro(libro, m.ambito)) return mal('falla', 'P sobre un ámbito que no existe: ' + corto(m.ambito));
+      // P posicionado (mapa §15): lo respalda el P de quien lo mueve en ese mismo registro.
+      if (!enLibro(libro, m.ambito)) return mal('falla', 'P sobre un registro que no existe: ' + corto(m.ambito));
       const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
-      if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
+      if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + corto(m.ambito) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
     } else if (libro.reglas !== 2 && esInformativoT(m)) {
       // T informativo (VG, 8-11): ilimitado, «si lo gastas te vuelve a salir uno»; queda registrado como tal.
@@ -487,8 +505,8 @@ function permisoDelLibro(eje, ev, libro) {
   lista(ev.movimientos).forEach((m, i) => {
     if (validarMovimiento(m).length) return; // capa 1
     if (m.de === null) {
-      if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
-      else if (esGenesis && m.token === 'T' && libro.reglas !== 2) r.falla('movimiento ' + i + ': ' + T_NO_SE_EMITE);
+      if (esGenesis && libro.reglas !== 2) r.falla('movimiento ' + i + ': el génesis no mueve nada: es la época 0 (encargo 3b)');
+      else if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
     } else if (m.de !== ev.autor && libro.reglas === 2) {
       // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación): fuera del prefijo de
       // la versión 2 lo dice la regla de la época «nobody moves tokens of others».
@@ -516,122 +534,29 @@ function permisoDelLibro(eje, ev, libro) {
 }
 
 /**
- * Quién puede autorizar hoy una consolidación: quien tiene P disponible que
- * cuente (el del registro del recurso), el autor incluido. Para una que aún
- * no está en el eje, se lee como borrador.
- */
-function quienesPuedenAutorizar(eje, ev, id, enEje) {
-  return eje.identidades().filter((x) => puedeAutorizar(eje, x, enEje ? id : ev));
-}
-
-/** Texto del peso de una autorización: cuánto P hay bloqueado de cuánto emitido, y el umbral. */
-function textoPeso(peso) {
-  const serie = peso.delEje ? 'P del eje' : 'P:' + String(peso.recurso).slice(0, 8);
-  const respaldo = peso.respaldo > 0 ? ' (' + peso.respaldo + ' de él respaldando E del recurso)' : '';
-  return peso.bloqueado + ' de ' + peso.emitido + ' ' + serie + ' bloqueado' + respaldo + '; umbral: ' + peso.umbral.texto;
-}
-
-/** Por qué una autorización no cuenta; vacío si cuenta. */
-function faltasDeAutorizacion(eje, ev) {
-  const c = eje.obtener(ev.sobre);
-  if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no autoriza nada']];
-  if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
-  const peso = pesoAutorizacion(eje, c.id);
-  const claves = new Set(peso.claves);
-  const bloquea = lista(ev.movimientos).some((m) => m?.token === 'P' && m.estado === 'bloqueo' && m.salida === c.id && m.de === ev.autor && claves.has(claveToken(m)));
-  // O el acto de voluntad con el P que ya respalda E del recurso (VG, 8-11): cuenta si su autor aún lo tiene en pie y respalda.
-  const respalda = esActoDeRespaldo(ev, c.id) && peso.respaldan.some((r) => r.identidad === ev.autor);
-  if (!bloquea && !respalda) {
-    return [['falla', ev.autor + ' no bloquea P que cuente para autorizar (autorizar es bloquear P sobre el registro del recurso ' + String(peso.recurso).slice(0, 8)
-      + (peso.delEje ? ', que no tiene P propio: el P del eje' : '') + ', con la consolidación como salida, o decir que autoriza con el P que ya respalda E del recurso): el escrito existe, pero no cuenta']];
-  }
-  return [];
-}
-
-/**
- * Por qué una ejecución no cuenta; vacío si cuenta. Exige que la
- * consolidación estuviera AUTORIZADA justo antes de ejecutarla: el P
- * bloqueado por ella en ese momento alcanzaba el umbral (docs/MOTOR.md §13.2).
- * Después se libera, así que se mira el libro de justo antes.
- */
-function faltasDeEjecucion(eje, ev) {
-  const c = eje.obtener(ev.sobre);
-  if (!esConsolidacion(c)) return [['falla', 'no es sobre una consolidación: no ejecuta nada']];
-  if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
-  if (ev.autor !== c.autor) return [['falla', 'ejecuta el autor de la consolidación (' + c.autor + '), no ' + ev.autor]];
-  const k = eje.orden.indexOf(ev.id);
-  const peso = pesoDe(lectorDelEje(libroAntes(eje, k >= 0 ? k : eje.orden.length).eje), c);
-  // Si un id de la evidencia no está en el eje, lo dice la capa 2 (referencias del contexto).
-  if (!peso.alcanza) return [['falla', 'al ejecutar no estaba AUTORIZADA (' + textoPeso(peso) + '): ejecutar exige autorización']];
-  return [];
-}
-
-/**
- * La fábrica vista desde este registro. Con `enEje` (el registro del eje con
- * ese id, no una copia manipulada), el estado del motor es el del eje; si no,
- * se lee como un borrador: lo que diría el motor si entrara.
+ * El ciclo visto desde este registro (encargo 3b): si lo que anuncia ya pasó, según la plantilla de cerrado que su
+ * dueño nombra (motor.cerrado). Un registro que no está en el eje no tiene lectura del ciclo.
  */
 function permisoDelMotor(eje, ev, id, enEje) {
-  const fase = ev.contexto?.fase;
   const r = motivos();
-  if (fase === 'consolidado') {
-    const estadoMotor = enEje ? estadoDe(eje, id) : 'PENDIENTE DE AUTORIZACIÓN';
-    const puedenAutorizar = quienesPuedenAutorizar(eje, ev, id, enEje);
-    const enFabrica = enEje ? eje.sobre(id, FABRICA) : [];
-    const validas = enEje ? autorizacionesValidas(eje, id) : [];
-    const noCuentan = enFabrica.filter((e) => e.contexto?.fase === 'autorizado' && !validas.includes(e));
-    const ejecuciones = enFabrica.filter((e) => e.contexto?.fase === 'ejecutado');
-    const queCuentan = ejecuciones.filter((e) => faltasDeEjecucion(eje, e).length === 0);
-    const quienes = puedenAutorizar.length ? 'pueden autorizar: ' + puedenAutorizar.join(', ') : 'nadie puede autorizar hoy';
-    const peso = enEje ? pesoAutorizacion(eje, id) : null;
-    const porQuien = 'por ' + [...new Set(validas.map((a) => a.autor))].join(', ') + (peso ? ' (' + textoPeso(peso) + ')' : '');
-    let texto = estadoMotor;
-    if (!ESTADO_MOTOR[estadoMotor]) r.pendiente('estado del motor sin traducir a esta capa: ' + estadoMotor);
-    else if (estadoMotor === 'PENDIENTE DE AUTORIZACIÓN') {
-      const comoBorrador = enEje ? '' : ' (no está en el eje: se lee como borrador)';
-      texto += comoBorrador + ' · ' + quienes + (peso ? ' · ' + textoPeso(peso) : '');
-      r.pendiente(estadoMotor + comoBorrador + ' · ' + quienes + (peso ? ' · ' + textoPeso(peso) : ''));
-      // Lo escrito por quien no puede explica por qué sigue pendiente; no cambia el estado.
-      for (const e of noCuentan) r.pendiente('«autorizado» de ' + e.autor + ' que no cuenta: ' + faltasDeAutorizacion(eje, e).map(([, t]) => t).join('; '));
-    } else if (estadoMotor === 'AUTORIZADO') {
-      texto += ' ' + porQuien + ' · falta ejecutar';
-      r.pendiente('AUTORIZADO ' + porQuien + ' · falta ejecutar: consolidar no es ejecutar');
-    } else if (estadoMotor === 'EJECUTADO' && !queCuentan.length) {
-      r.falla('el motor da EJECUTADO, pero ninguna ejecución se hizo con la consolidación AUTORIZADA: P bloqueado por ella que alcanzara el umbral justo antes (docs/MOTOR.md §13.2)');
-    }
-    return {
-      r,
-      motor: {
-        fase, estadoMotor, puedenAutorizar,
-        autorizaciones: validas.map((a) => ({ id: a.id, autor: a.autor })),
-        noCuentan: noCuentan.map((a) => ({ id: a.id, autor: a.autor })),
-        ejecuciones: ejecuciones.map((e) => ({ id: e.id, autor: e.autor, cuenta: queCuentan.includes(e) })),
-      },
-      texto,
-    };
-  }
-  if (fase === 'autorizado' || fase === 'ejecutado') {
-    const faltas = fase === 'autorizado' ? faltasDeAutorizacion(eje, ev) : faltasDeEjecucion(eje, ev);
-    for (const [estado, texto] of faltas) r[estado](texto);
-    const c = eje.obtener(ev.sobre);
-    const estadoConsolidacion = esConsolidacion(c) ? estadoDe(eje, c.id) : null;
-    const texto = (faltas.length ? fase + ' que no cuenta' : fase === 'autorizado' ? 'autorización que cuenta: bloquea P sobre el registro del recurso' : 'ejecución de una consolidación autorizada')
-      + (estadoConsolidacion ? ' · consolidación ' + estadoConsolidacion : '');
-    return { r, motor: { fase, consolidacion: c?.id ?? null, estadoConsolidacion, cuenta: faltas.length === 0 }, texto };
-  }
-  return { r, motor: null, texto: 'no es consolidación, autorización ni ejecución' };
+  if (!enEje) return { r, motor: null, texto: 'no está en el eje: sin lectura del ciclo' };
+  const c = cerrado(eje, id);
+  if (c.cerrado === false) r.pendiente('abierto: le falta lo que anuncia (' + c.plantilla + '; motor.siguiente dice qué y de quién)');
+  else if (c.cerrado === null) r.pendiente('cerrado sin resolver (' + c.plantilla + '): ' + c.motivo);
+  const texto = c.cerrado === true ? 'cerrado (' + c.plantilla + ')' : c.cerrado === false ? 'abierto (' + c.plantilla + ')' : 'cerrado sin resolver';
+  return { r, motor: { cerrado: c.cerrado, plantilla: c.plantilla }, texto };
 }
 
 function capaPermiso(eje, ev, libro, id, enEje) {
   const delLibro = permisoDelLibro(eje, ev, libro);
   const { r: delMotor, motor, texto } = permisoDelMotor(eje, ev, id, enEje);
   const estado = peor([delLibro.estado, delMotor.estado]);
-  const textoLibro = delLibro.estado === 'ok' ? (ev.contexto?.genesis === true ? 'génesis: emite por convención' : 'mueve lo suyo') : delLibro.textos[0];
-  const resumen = textoLibro + ' · ' + texto + (motor?.estadoMotor === 'EJECUTADO' || (motor?.fase === 'ejecutado' && motor.cuenta) ? ' · externa: sin confirmar' : '');
+  const textoLibro = delLibro.estado === 'ok' ? (ev.contexto?.genesis === true ? 'génesis: la época 0, no mueve nada' : 'mueve lo suyo') : delLibro.textos[0];
+  const resumen = textoLibro + ' · ' + texto + (motor?.cerrado === true ? ' · externa: sin confirmar' : '');
   return parte(5, estado, [...delLibro.textos, ...delMotor.textos], resumen, {
     libro: { estado: delLibro.estado, motivos: delLibro.textos },
     motor,
-    regla: REGLA_AUTORIZAR,
+    regla: REGLA_DEL_CICLO,
     externa: SIN_CONFIRMAR,
   });
 }

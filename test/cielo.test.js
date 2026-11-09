@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
-import { calcularBase, situar, confluir, medir, clavesDeMedidas, ETIQUETAS, SIN_BASE_ESCRITA } from '../src/bases.js';
+import { calcularBase, situar, confluir, medir, clavesDeMedidas, ETIQUETAS, SIN_BASE_ESCRITA, escribirBase } from '../src/bases.js';
 import { verEn } from '../src/efectos.js';
 import {
   COHORTES, DECUPLA, EFECTOS, registroDeCohorte, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
@@ -59,6 +59,10 @@ test('escrita o al vuelo, el cielo dice lo mismo: con las bases del ejemplo escr
     assert.equal(d.base.id, null);
     assert.equal(d.incluido, true);
   }
+  // Encargo 3b: las altas de huesped y vecina cuelgan de las invitaciones de la casa (mapa §16 [D]); para que la base
+  // del génesis vea todo el eje, la casa escribe antes la base de cada invitación (por poder: las escribió ella). Sin
+  // ellas, lo que cuelga de las invitaciones no cuenta en la base escrita (sinBase) y no sería lo calculado al vuelo.
+  for (const id of ['huesped', 'vecina']) await escribirBase(ej.eje, { registro: ej.eje.obtener(ej.eje.alta(id).id).sobre, autor: 'casa', privada: ej.claves.casa.privada, t: '2026-11-07T18:00:00Z' });
   await escribirBasesDelEjemplo(ej);
   for (const f of focos) {
     for (const c of COHORTES) {

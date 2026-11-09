@@ -1,7 +1,10 @@
 // La capa cero (VG, 9-11): el eje como envoltura del libro de transacciones, sin cambiar de comportamiento. Para los
 // ejemplos de Ikisai, lo que el eje lee del libro (saldos, bloqueos, lo emitido y consumido de cada serie, el T gastado
 // del día, el T sobre cada registro, las altas) es lo mismo que daba la aritmética de antes, que aquí se rehace a mano
-// desde la lista de eventos, sin el libro (la copia de la que tenía src/validez.js antes de este cambio).
+// desde la lista de eventos, sin el libro (la copia de la que tenía src/validez.js antes de este cambio). Encargo 3b: el
+// P se debita de su registro (sin ámbitos que lo cubran), una transferencia con salida sale de lo bloqueado, y el P
+// que obtienen las reglas que escriben (la obtención, mapa §15 [D] N1, N2) se suma desde los pasos de la transacción
+// que no son movimientos del evento.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -28,22 +31,10 @@ function referencia(eje) {
   const tiempoSobre = new Map(); // id → Map(escala → T)
   const ver = (id, k) => saldos.get(id)?.get(k) ?? 0;
   const ajustar = (id, k, d) => { if (!saldos.has(id)) saldos.set(id, new Map()); saldos.get(id).set(k, ver(id, k) + d); };
-  const plan = (id, ambito, cantidad) => {
-    const r = [];
-    let resta = cantidad;
-    for (const a of eje.ambitosQueCubren(ambito)) {
-      const k = 'P:' + a;
-      const hay = ver(id, k);
-      if (hay <= 0) continue;
-      const usa = Math.min(hay, resta);
-      r.push([k, -usa]);
-      resta -= usa;
-      if (resta <= 0) return r;
-    }
-    return null;
-  };
-  for (const id of eje.orden) {
+  eje.orden.forEach((id, n) => {
     const ev = eje.obtener(id);
+    // La obtención de P: los pasos de la transacción que no son movimientos del evento (acuñar P, clase «obtencion»).
+    const obtenido = eje.antes(n).transaccion(ev).movimientos.slice(ev.movimientos.length).flat();
     // B1 (VG, 10-11): persona = quien escribió su propia alta; quien aún no tiene alta y escribe, escribe la suya.
     const personaAutor = altas.has(ev.autor) ? eje.obtener(altas.get(ev.autor)).autor === ev.autor : true;
     const conAsignacion = !eje.esDeV2(ev.id) && personaAutor;
@@ -60,10 +51,19 @@ function referencia(eje) {
         bloq.set(kb, (bloq.get(kb) ?? 0) + d);
         continue;
       }
+      if (m.salida !== undefined) {
+        // Transferir con salida: de lo bloqueado con ella, a lo bloqueado con ella (libre si la salida nombra a quien recibe).
+        const kb = JSON.stringify([m.de, k, m.salida]);
+        bloq.set(kb, (bloq.get(kb) ?? 0) - m.cantidad);
+        if (m.a === m.salida) ajustar(m.a, k, m.cantidad);
+        else { const ka = JSON.stringify([m.a, k, m.salida]); bloq.set(ka, (bloq.get(ka) ?? 0) + m.cantidad); }
+        if (!saldos.has(m.a)) saldos.set(m.a, new Map());
+        continue;
+      }
       const s = series.get(k) ?? { emitido: 0, consumido: 0 };
       series.set(k, s);
       if (m.de === null) s.emitido += m.cantidad;
-      else if (m.token === 'P') for (const [kp, d] of plan(m.de, m.ambito, m.cantidad)) ajustar(m.de, kp, d);
+      else if (m.token === 'P') ajustar(m.de, k, -m.cantidad);
       else if (esInformativoT(m)) { s.consumido += m.cantidad; continue; }
       else if (conAsignacion && gastaAsignacion(m, ev.autor, true)) {
         const a = asignacionT(ev.t, m.escala);
@@ -79,7 +79,14 @@ function referencia(eje) {
       }
       if (m.a !== null) ajustar(m.a, k, m.cantidad);
     }
-  }
+    for (const x of obtenido) {
+      if (!altas.has(x.a)) altas.set(x.a, ev.id);
+      ajustar(x.a, x.serie, x.cantidad);
+      const s = series.get(x.serie) ?? { emitido: 0, consumido: 0 };
+      s.emitido += x.cantidad;
+      series.set(x.serie, s);
+    }
+  });
   return { saldos, bloq, series, altas, gastadoT, tiempoSobre };
 }
 
@@ -129,13 +136,22 @@ test('capa cero: para los ejemplos de Ikisai, el libro da los mismos saldos, blo
 
 test('capa cero: cada evento es una transacción (acuñar, transferir, bloquear, liberar, quemar; anclaje y memo)', async () => {
   const vistas = new Set();
-  for (const eje of Object.values(await ejemplos())) for (const id of eje.orden) {
+  // Desde el encargo 3b ningún ejemplo libera (no hay autorización que soltar): un eje pequeño que bloquea y libera su P.
+  const { Eje } = await import('../src/eje.js');
+  const libera = await Eje.genesis({ demostracion: true, identidad: 'g', t: '2026-11-07T09:00:00Z', foco: 'raíz' });
+  const g = libera.genesisId;
+  const min = { token: 'T', escala: 'minuto', cantidad: 1, de: 'g', a: null };
+  await libera.escribir({ autor: 'g', sobre: g, t: '2026-11-07T09:00:00Z', payload: 'me comprometo', movimientos: [min, { token: 'P', ambito: g, cantidad: 4, de: 'g', a: 'g', estado: 'bloqueo', salida: 'decisión' }] });
+  await libera.escribir({ autor: 'g', sobre: g, t: '2026-11-07T09:00:00Z', payload: 'lo suelto', movimientos: [min, { token: 'P', ambito: g, cantidad: 4, de: 'g', a: 'g', estado: 'liberacion', salida: 'decisión' }] });
+  for (const eje of [...Object.values(await ejemplos()), libera]) for (const id of eje.orden) {
     const ev = eje.obtener(id);
     const tx = eje.antes(eje.orden.indexOf(id)).transaccion(ev);
     assert.deepEqual(tx.ancla, { sobre: ev.sobre, en: ev.en });
     assert.equal(tx.memo, ev.payload);
     assert.deepEqual([tx.id, tx.autor, tx.t], [ev.id, ev.autor, ev.t]);
-    assert.equal(tx.movimientos.length, ev.movimientos.length);
+    // Los pasos de los movimientos y, detrás, la obtención de P (encargo 3b): acuñar P, clase «obtencion».
+    assert.ok(tx.movimientos.length >= ev.movimientos.length);
+    assert.ok(tx.movimientos.slice(ev.movimientos.length).flat().every((x) => x.primitiva === 'acunar' && x.clase === 'obtencion' && x.serie.startsWith('P:')));
     ev.movimientos.forEach((m, i) => {
       const paso = tx.movimientos[i];
       const principal = paso[paso.length - 1];
@@ -167,8 +183,9 @@ test('capa cero: cada condición cita filas que están en el inventario, y van e
     'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'suelo:referencias', 'ID-1', 'suelo:firma', 'suelo:claves', 'ID-3',
     // Encargo 3a, paso 9: las reglas de la época, conectadas, en el orden de su 8.
     ...EPOCA_0_BTML.condiciones.map((r) => r[0][0]),
-    'VA-3', 'PP-2', 'PP-5', 'ES-1',
+    // Encargo 3b: el P acuñado (PP-2), el estrechamiento (PP-5), el escalonado (ES-1) y el colateral de R (RR-3, RR-4,
+    // RR-5) ya no están en JS: son reglas de la época o se retiraron (mapa §15).
+    'VA-3', 'EE-9',
     'VA-3', 'EE-1', 'EE-8', 'EE-10', 'EE-5',
-    'RR-3', 'RR-4', 'RR-5',
   ]);
 });

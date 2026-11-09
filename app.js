@@ -260,8 +260,8 @@ function celdaMapa(m, i, eje67) {
   if (i === 9) {
     // Con el payload: en una décupla, la regla corta; un índice de una lista (solo hojas) es un ocupante por llegada, sin PV (VG, 7-11 noche: por hojas).
     const pasos = m.camino.length ? leerCamino(m.camino, epocaActual(), { payload: estado.eje.obtener(m.foco).payload }).map((x) => `<span class="paso">${x.digito} ${escapar(x.significado)}</span>`).join(' › ') : '<span class="nada">en la raíz del foco</span>';
-    const pendientes = motor.consolidaciones(estado.eje, m.foco, m.camino).filter((x) => x.estado !== 'EJECUTADO');
-    const guia = pendientes.length ? `<div class="pista">${pendientes.length} consolidaci${pendientes.length > 1 ? 'ones' : 'ón'} por ${pendientes.some((x) => x.estado === 'AUTORIZADO') ? 'ejecutar' : 'autorizar'} en la fábrica</div>` : '';
+    const abiertas = motor.propuestas(estado.eje, m.foco, m.camino).filter((x) => x.cerrado !== true);
+    const guia = abiertas.length ? `<div class="pista">${abiertas.length} propuesta${abiertas.length > 1 ? 's' : ''} abierta${abiertas.length > 1 ? 's' : ''} en la fábrica: les falta lo que anuncian</div>` : '';
     return `<div class="celda c9"><div class="pvn">9 ${c.significado}</div><div class="pasos">${pasos}</div>${guia}${propio}${marca}</div>`;
   }
   const ct = c.contenido;
@@ -272,28 +272,17 @@ function celdaMapa(m, i, eje67) {
     <div class="val">${slot(ct, m.foco, [...m.camino, i], false)}</div>${marca}</button>`;
 }
 
-/**
- * Lo que falta para autorizar (VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso, hasta el
- * umbral del dueño): cuánto P hay bloqueado de cuánto emitido, y si quien mira no tiene P que cuente.
- */
-function pistaAutorizar(id, sinP) {
-  const p = motor.pesoAutorizacion(estado.eje, id);
-  const peso = p.bloqueado + ' de ' + p.emitido + (p.delEje ? ' P del eje' : ' P del recurso') + ' bloqueado'
-    + (p.respaldo > 0 ? ' (' + p.respaldo + ' respaldando E del recurso)' : '') + '; umbral: ' + p.umbral.texto;
-  return escapar((sinP ? sinP + ' no tiene P sobre el registro del recurso · ' : '') + peso);
-}
-
 function panelFabrica(m) {
-  const lista = motor.consolidaciones(estado.eje, m.foco, m.camino);
+  const lista = motor.propuestas(estado.eje, m.foco, m.camino);
   const yo = estado.identidad;
+  // Encargo 3b (VG, 8-11, mapa §15 [D]): el ciclo es una sola operación, registrar; cada uno mueve lo suyo. De cada
+  // propuesta, su lectura (cerrada o abierta) y lo que le falta de mí (motor.siguiente), que registro yo.
   const filas = lista.map((c) => {
-    const puedeAut = c.estado === 'PENDIENTE DE AUTORIZACIÓN' && motor.puedeAutorizar(estado.eje, yo, c.id);
-    const puedeEje = c.estado === 'AUTORIZADO' && c.autor === yo;
-    return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.estado.toLowerCase()}</i></button>
-      ${puedeAut ? `<button class="accion" data-autorizar="${c.id}">autorizar como ${escapar(yo)}</button>` : ''}
-      ${puedeEje ? `<button class="accion" data-ejecutar="${c.id}">ejecutar como ${escapar(yo)}</button>` : ''}
-      ${c.estado === 'PENDIENTE DE AUTORIZACIÓN' ? `<span class="pista">${pistaAutorizar(c.id, puedeAut ? '' : yo)}</span>` : ''}
-      ${c.estado === 'AUTORIZADO' && !puedeEje ? `<span class="pista">ejecuta ${escapar(c.autor)}</span>` : ''}
+    const sig = motor.siguiente(estado.eje, c.id, yo);
+    const mios = sig.faltaDeMi.map((x, k) => `<button class="accion" data-registrar-siguiente="${c.id}" data-k="${k}">${escapar(x.que)} · como ${escapar(yo)}</button>`).join('');
+    const espera = sig.espera.length ? `<span class="pista">espera a ${escapar([...new Set(sig.espera.map((x) => x.de))].join(', '))}</span>` : '';
+    return `<div class="cons"><button class="chip" data-ir="${c.id}"><b>${corto(c.id)}</b> ${escapar(String(c.titulo))} · ${escapar(c.autor)} · <i>${c.cerrado === true ? 'cerrada' : 'abierta'}</i></button>
+      ${mios}${espera}
       ${contextoConsolidacion(estado.eje, c.id)}
     </div>`;
   }).join('');
@@ -306,7 +295,7 @@ function panelFabrica(m) {
   }).join('');
   return `
     <section class="fabrica">
-      <div class="titulo">Fábrica (4) · consolidar no es ejecutar · ${lista.length} consolidaci${lista.length === 1 ? 'ón' : 'ones'}</div>
+      <div class="titulo">Fábrica (4) · registrar es la única operación · ${lista.length} propuesta${lista.length === 1 ? '' : 's'}</div>
       ${filas || '<div class="nada">nada consolidado sobre este foco</div>'}
       <form id="consolidar" class="escribir">
         <div class="titulo">Consolidar una acción como ${escapar(yo)}: elige por posición un candidato o escribe un terminal nuevo</div>
@@ -484,29 +473,22 @@ async function consolidarDesdeFormulario(form) {
     const c = await motor.consolidar(estado.eje, { autor: estado.identidad, foco: estado.foco, camino: estado.camino, elecciones, titulo: String(datos.get('titulo') || 'Consolidación') }, privadaDe(estado.identidad));
     guardar();
     estado.aviso = '';
-    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + motor.estadoDe(estado.eje, c.id).toLowerCase() + '. Autoriza quien bloquea P sobre el registro del recurso, hasta el umbral del dueño.';
+    estado.exito = 'Consolidado ' + corto(c.id) + ' en la fábrica del foco · ' + (motor.cerrado(estado.eje, c.id).cerrado ? 'cerrada' : 'abierta') + '. Cada parte registra su propio movimiento: nadie autoriza lo ajeno.';
     pintar();
   } catch (e) {
     fallo(e, form);
   }
 }
 
-async function autorizarDesdeBoton(id) {
+/** Registra lo que a una propuesta le falta de mí (motor.siguiente): la transacción que lo cumple, como yo. */
+async function registrarSiguiente(id, k) {
   try {
-    await motor.autorizar(estado.eje, { autorizante: estado.identidad, consolidacion: id }, privadaDe(estado.identidad));
+    const x = motor.siguiente(estado.eje, id, estado.identidad).faltaDeMi[k];
+    if (!x) throw new Error('no te falta nada en ' + corto(id));
+    const e = await motor.registrar(estado.eje, { ...x.transaccion, t: new Date().toISOString() }, privadaDe(estado.identidad));
     guardar();
     estado.aviso = '';
-    estado.exito = 'Autorizado ' + corto(id) + ' por ' + estado.identidad + '. Ahora ejecuta su autor.';
-    pintar();
-  } catch (e) { fallo(e); }
-}
-
-async function ejecutarDesdeBoton(id) {
-  try {
-    const e = await motor.ejecutar(estado.eje, { autor: estado.identidad, consolidacion: id }, privadaDe(estado.identidad));
-    guardar();
-    estado.aviso = '';
-    estado.exito = 'Ejecutado ' + corto(e.id) + ' con evidencia: consolidación y autorización en su hilo.';
+    estado.exito = 'Registrado ' + corto(e.id) + ': ' + x.que + ' · la propuesta está ' + (motor.cerrado(estado.eje, id).cerrado ? 'cerrada' : 'abierta') + '.';
     pintar();
   } catch (e) { fallo(e); }
 }
@@ -524,8 +506,7 @@ document.addEventListener('click', (e) => {
   if (b.dataset.modo) { estado.modo = b.dataset.modo; estado.exito = ''; estado.aviso = ''; pintar(); }
   else if (b.dataset.ref) insertarRef(b.dataset.ref);
   else if (b.dataset.ocupantes !== undefined) { const i = Number(b.dataset.ocupantes); estado.verOcupantes = estado.verOcupantes === i ? null : i; pintar(); }
-  else if (b.dataset.autorizar) autorizarDesdeBoton(b.dataset.autorizar);
-  else if (b.dataset.ejecutar) ejecutarDesdeBoton(b.dataset.ejecutar);
+  else if (b.dataset.registrarSiguiente) registrarSiguiente(b.dataset.registrarSiguiente, Number(b.dataset.k));
   else if (b.dataset.posicion !== undefined) {
     estado.en = b.dataset.posicion; estado.exito = '';
     if (estado.modo === 'mapped') estado.modo = 'pointed'; // la mano escribe en Pointed

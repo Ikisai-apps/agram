@@ -55,6 +55,24 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         "[X] confirmar VG: cinco criterios = miradas 1-5 (¿0 o 5?, mapa §16)"
+      ],
+      [
+        "quien escribe un registro, quien consigue E sobre un recurso y quien recibe R (mapa §15 [D] N1, N2)"
+      ],
+      [
+        [
+          "obtain and reposition"
+        ],
+        [
+          10
+        ],
+        [
+          0.1,
+          1.1
+        ],
+        [
+          "10 por décupla (una por posición); subir deja una décima, bajar añade una décima (10 → 1 → 1,1): mapa §15 [D] (1), (2) y N7"
+        ]
       ]
     ],
     [
@@ -64,26 +82,104 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         [
-          "su R"
+          [
+            "desconocidos"
+          ],
+          [
+            0
+          ],
+          [
+            [
+              "my R"
+            ],
+            [
+              1
+            ]
+          ]
         ],
         [
-          "E"
+          [
+            "comercial"
+          ],
+          [
+            1
+          ],
+          [
+            [
+              "E"
+            ],
+            [
+              1
+            ]
+          ]
         ],
         [
-          "P"
+          [
+            "expertos"
+          ],
+          [
+            2
+          ],
+          [
+            [
+              "P"
+            ],
+            [
+              1
+            ]
+          ]
         ],
         [
-          "mi R devuelta"
+          [
+            "cercanos"
+          ],
+          [
+            3
+          ],
+          [
+            [
+              "their R"
+            ],
+            [
+              1
+            ]
+          ]
         ],
         [
-          "vetado"
+          [
+            "equipo"
+          ],
+          [
+            4
+          ],
+          [
+            [
+              "their R"
+            ],
+            [
+              1
+            ]
+          ]
         ],
         [
-          "desconocidos"
+          [
+            "vetados"
+          ],
+          [
+            5
+          ],
+          [
+            [
+              "nothing"
+            ],
+            [
+              0
+            ]
+          ]
         ]
       ],
       [
-        "[X] confirmar VG: seis grupos = los seis precios de la atención (mapa §16)"
+        "VG, 9-11 (mapa §16 [D] «PV3 = regla de atención»): cercanos pagan con su propia R, comerciales con E, otros con P, algunos devolviendo mi propia R, vetados nada; grupo por defecto «desconocidos» con precio mi propia R (nada hasta que yo le dé algo). Zonas del encargo 3b: general/desconocidos 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5. [X] VG: el precio del equipo (aquí, su R) y los «cuánto» (aquí, 1)"
       ]
     ],
     [
@@ -210,13 +306,13 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326"
+      "ref": "36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506"
     },
     {
-      "ref": "577b543ced1618762c45e47c91325843c0ec5c89a16302d0e15d906fffc3741f"
+      "ref": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"
     },
     {
-      "ref": "0baa65a629689ab4c8f73d5e53f186d9795729cfdea2499885171c35354a4a9d"
+      "ref": "9f8937d09b05d60e79794298a3ddd96e0880f07559e0391ba5f1d427985724b2"
     },
     {
       "ref": "140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"
@@ -234,13 +330,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "9830243a50f947baed45764e0f4627d361c20add067fec47499766eaf03ad1f6"
     },
     {
-      "ref": "6f482575f81d0fbe975ce499b5df8e4696f4a68820f1e3d40717eafd732d3611"
-    },
-    {
-      "ref": "1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45"
-    },
-    {
-      "ref": "4c01c35a815df74d7aa5d26a8830b4cf6bd99d7ae4917e38ea34b3de92945334"
+      "ref": "8d182143bb983cfa5b278368988eb9117e5048455405da48734a6306fb8c6111"
     },
     {
       "ref": "7d522ab9cffcb214fc95866396009b2d057c6a2aca95bef1fe4ac897e6e422f9"
@@ -261,7 +351,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163"
     },
     {
-      "ref": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5"
+      "ref": "598784e62418c0e7bfe6a0453ba76c53c52df481996e795a6feed4e79b05b528"
     },
     {
       "ref": "f611573512c553a1c54a28482f60f467f7f78449cdb2bda8e41720fb21a36b29"
@@ -273,7 +363,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "594208d063ca58163752ccfdc6c4d0cc0f1004d02fc74ab53bc3d757b4d97aec"
     },
     {
-      "ref": "95e362844bdd5b5efce24f38960d816262db3aac507de2ce7a0a50f63856a487"
+      "ref": "319864b5541a6520e549d3f613ae5afffd0f839c23149a5d17b6df3085864b4e"
     },
     {
       "ref": "8bb48a4e2fdba4b920a6999ae324a736e70e13bc04e6e520fb7d36371b85792f"
@@ -282,22 +372,55 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "74b23f3705ffa44dd59fa213c14638ac912c07fdf59ae040f1715f56f8ccecf9"
     },
     {
-      "ref": "3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f"
+      "ref": "b46fb0ae16e8d317471a5fe93c911e3152c38739c7a9e3a27c99f2fe5bb343f5"
     },
     {
-      "ref": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c"
+      "ref": "48d6ec72345c79d4b5d6ffd89df8ebd8966480798c862c7152d845f2306540b0"
     },
     {
-      "ref": "71cdb05114fc7113fe31132f88193af0e1c2c890cf18367d5e061c6572a5ed94"
+      "ref": "15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437"
+    },
+    {
+      "ref": "8388397ef0ed5ceee8db3cb435aa983ef6d04dac309e7123e4c04d5fc0630daf"
+    },
+    {
+      "ref": "cad791702b876186bd8f814f313b924a244c4e905088e97939ae04a611d0567f"
+    },
+    {
+      "ref": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"
+    },
+    {
+      "ref": "2141d171a19a49ef58f9abfb160a88a1858ae18fe1d273c4183e13e57ab3689f"
+    },
+    {
+      "ref": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"
+    },
+    {
+      "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
+    },
+    {
+      "ref": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a"
+    },
+    {
+      "ref": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40"
+    },
+    {
+      "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
     },
     {
       "ref": "c8e5f2bd9c9608cdcff0b5215039c590382f1c67b952c9d2ebbb38a44dd499eb"
     },
     {
-      "ref": "2d1cb07c275557a79317d365301bc0f4b6ee177bc4aee16eb86b24964e7334c7"
+      "ref": "711877f9f305e448922d6a14a0b53a3a3373c24aa68bbb4fa899f3cd0ab7bffe"
     },
     {
-      "ref": "89fa999bbc7771ca20ed0cfbf656962070829bb85600a188aa5fbe7775ab6574"
+      "ref": "837e2a7456c4f8d49c5f595d9ac9d387060366b512ab872721de488914802eed"
+    },
+    {
+      "ref": "5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91"
+    },
+    {
+      "ref": "ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32"
     }
   ],
   [
@@ -309,10 +432,10 @@ export const EPOCA_0_BTML_DATOS = [
         "cartera: lo que tiene, por serie (vista del libro: disponible y bloqueado por salida)"
       ],
       [
-        "criterios y P posicionado"
+        "criterio: A.2.1 su P posicionado (una entrada por registro) y A.2.3 los criterios que adopta"
       ],
       [
-        "grupos de atención y R"
+        "grupos de atención: A.3.k es la zona k (por defecto las seis de epoch.1.2.1; su precio en 3.k.2 y quiénes en 3.k.3, que corrige la identidad anclando en su alta)"
       ],
       [
         "fábrica: lo que hace"
@@ -327,7 +450,7 @@ export const EPOCA_0_BTML_DATOS = [
         "tiempo: lo gastado hoy de cada escala de T (vista del libro)"
       ],
       [
-        "frente a otros: sus bases del 8"
+        "frente a otros: A.8.1 su obligación (su R en manos ajenas); sus bases del 8"
       ],
       [
         "cómo: su guía"
@@ -1804,9 +1927,39 @@ export const EPOCA_0_BTML_DATOS = [
           "recuento"
         ],
         [
-          "weighted sum",
-          "weighted mean",
-          "threshold"
+          [
+            [
+              "weighted sum"
+            ],
+            [
+              "=sum (it.2.4 each 8)"
+            ]
+          ],
+          [
+            [
+              "weighted mean"
+            ],
+            [
+              "=sum (it.2.4 each 8) / ((sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4))"
+            ]
+          ],
+          [
+            [
+              "threshold"
+            ],
+            [
+              "=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.3 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.3 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.3 in it4 or first it2.3 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.3 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"
+            ]
+          ]
+        ],
+        [
+          0
+        ],
+        [
+          "solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)"
+        ],
+        [
+          9
         ]
       ],
       [
@@ -1814,7 +1967,20 @@ export const EPOCA_0_BTML_DATOS = [
           "cerrado"
         ],
         [
+          [
+            [
+              "all announced movements happened"
+            ],
+            [
+              "=count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)) = 0"
+            ]
+          ]
+        ],
+        [
           "all announced movements happened"
+        ],
+        [
+          "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)"
         ]
       ],
       [
@@ -1822,10 +1988,50 @@ export const EPOCA_0_BTML_DATOS = [
           "atención"
         ],
         [
-          "desconocidos"
+          0
         ],
         [
-          "my own R"
+          "my R"
+        ],
+        [
+          "la zona de quien no está en ningún grupo ni fue invitado a uno: desconocidos (mapa §16 [D])"
+        ]
+      ],
+      [
+        [
+          "siguiente"
+        ],
+        [
+          [
+            [
+              "what is missing"
+            ],
+            [
+              "=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"
+            ]
+          ],
+          [
+            [
+              "move what was announced"
+            ],
+            [
+              "una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T"
+            ]
+          ],
+          [
+            [
+              "commit P"
+            ],
+            [
+              "bloquear P con la salida = X (mapa §15 [D] (5): comprometerse a una decisión)"
+            ]
+          ]
+        ],
+        [
+          "what is missing"
+        ],
+        [
+          "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)"
         ]
       ]
     ],
@@ -2669,6 +2875,51 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "a-person-joins-by-an-invitation.json",
+    "id": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32",
+    "registro": [
+      [
+        "a person joins by an invitation"
+      ],
+      [
+        "\"invitation\"",
+        "ev.6.5",
+        "ev.5"
+      ],
+      [
+        "=count (first ev.3).6 > 0 or (\"invitation\" in (first (first ev.6).5).0 and first ev.3 in (first (first ev.6).5).3.1 and count (first (first (first ev.6).5).3).6 > 0 and (count before.6.0 = 0 or (first ev.6).0.0 >= first before.6.0.0) and (count ((first (first ev.6).5).7 where count it.0 > 0) = 0 or (first ev.6).0.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0) or (count before.6.3 > 0 and first before.6.3.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0))) and (count (first (first ev.6).5).3.5 = 0 or count (ev.5 where count it.2 > 0 and it.3 = first ev.3 and it.2 in (first (first ev.6).5).3.5) > 0))"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «4 aceptar = tu primera transacción firmada = tu alta»; «el génesis de cada persona = su aceptación anclada sobre la invitación»",
+        "Diseño Core aceptado: la invitación es una décupla: 0 «invitación», 1 lo que te doy, 2 la época, 3 yo, tú (tu clave) y el grupo común, 4 aceptar, 5 el dominio, 6 mi hilo, 7 hasta cuándo vale, 8 el grupo de mi atención que te asigno, 9 el tema y el tutorial; mínima = 2 y 3",
+        "Quien aún no tiene alta y escribe (una persona: escribe la suya) lo hace sobre una invitación de una identidad con alta que la nombra en su 3.1, dentro de su 7 y, si nombra una clave en su 3.5, con esa clave. El alta sin invitación es solo la de la primera identidad del eje: el génesis (src/eje.js, Eje.genesis)",
+        "Revisión de seguridad (encargo 3b): el 7 se compara con el mismo reloj que la caducidad de E, min(t de la aceptación, el reloj de los demás: before.6.3), y la aceptación no se fecha antes del último t del libro (before.6.0); así no se acepta una invitación caducada fechando atrás"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after attention has a price"
+      ],
+      [
+        "a person joins by an invitation: {first ev.3} has no alta and does not accept an invitation that names it (in time, with its key)"
+      ]
+    ]
+  },
+  {
     "archivo": "at-most-a-year-ahead.json",
     "id": "0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163",
     "registro": [
@@ -2713,16 +2964,16 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attended.json",
-    "id": "2d1cb07c275557a79317d365301bc0f4b6ee177bc4aee16eb86b24964e7334c7",
+    "id": "711877f9f305e448922d6a14a0b53a3a3373c24aa68bbb4fa899f3cd0ab7bffe",
     "registro": [
       [
         "attended"
       ],
       [
-        "before.1"
+        "X.6.1"
       ],
       [
-        "=count (before.1 where it in it2.6.4 and first it2.3 in ((it.1 where R in it3.0.0.0 and transfer in it3.4 and it3.3.1 = it3.0.0.1 and it3.3.0 != it3.0.0.1) each 3.1)) > 0"
+        "=count ((down it) where first it2.3 in ((it.1 where R in it3.0.0.0 and transfer in it3.4 and it3.3.1 = it3.0.0.1 and it3.3.0 != it3.0.0.1) each 3.1) and first it2.6.1) > 0"
       ],
       [
         "X.7.4"
@@ -2735,7 +2986,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
-        "R6: atender es escribir un registro del emisor que cita la devolución (contexto.atiende, en el 6.4 del registro que atiende); devolver R a su emisor es pedir atención (lente.devoluciones)",
+        "VG, 9-11 (mapa §15 [D] «R según el corpus, confirmado»): R se liquida devolviéndola al emisor como petición de atención, y el emisor atiende gastando su T («R ahorra T»)",
+        "VG, 9-11 (mapa §15 [D] «R, últimas dos»): «atender» lo definen las reglas de PV2 de cada uno; el motor no fija forma. Por defecto, un registro del emisor anclado sobre la petición, con T real (presente, X.6.1); [X] VG: cómo declara cada uno su criterio de atención",
+        "Se retira contexto.atiende (RR-5): atender ya no es citar la devolución, es anclarse sobre ella",
         "Se materializa en X.7.4: futuro, qué se hace (la atención que llegó después)"
       ],
       [
@@ -2745,7 +2998,51 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after informative"
       ],
       [
-        "attended: the record returns R to its issuer and a record of that issuer cites it in its 6.4"
+        "attended: the record returns R to its issuer and that issuer anchored on it a record of its own with real T"
+      ]
+    ]
+  },
+  {
+    "archivo": "attention-has-a-price.json",
+    "id": "2141d171a19a49ef58f9abfb160a88a1858ae18fe1d273c4183e13e57ab3689f",
+    "registro": [
+      [
+        "attention has a price"
+      ],
+      [
+        "A.3",
+        "\"nothing\"",
+        "\"their R\"",
+        "\"my R\"",
+        "\"E\"",
+        "\"P\""
+      ],
+      [
+        "=not (first ev.3 != first (first (first ev.6).5).3 and count (first (first (first ev.6).5).3).6 > 0 and first (first (first (first ev.6).5).3).6 = first (first ev.6).5) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) > 0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and not (count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0) and last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.1)"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "transfer"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 9-11 (mapa §16 [D] «PV3 = regla de atención»): «cada persona clasifica al mundo respecto a sí misma por el precio de su atención»; los mensajes son registros anclados en mi 3 con el pago en su 1; «una regla larga del 3 del dominio receptor lo exige (si no hay pago no entra; el veto rechaza)»",
+        "La lente de R y las condiciones de aceptación son la misma cosa: aceptar tu R como pago es darte peso (src/lente.js)",
+        "El grupo de quien escribe: el último que lo nombra en su 3 (A.3.k.3); si no lo nombra ninguno, el que le asignó la invitación que aceptó (su 8); si no, desconocidos (zona 0, epoch.9.0.2). El precio: el último del 2 del grupo (A.3.k.2: [[en qué], [cuánto]]): «their R» su R, «my R» mi R devuelta, «E», «P», «nothing» el veto",
+        "Revisión de seguridad (encargo 3b): se aplica a todo registro anclado sobre el alta de otra identidad, en cualquier dirección (su 3 entero, 3100000000, 3.2… y fuera del 3); la única exención es la autoría: el dueño escribe en su propia alta sin pagarse"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after minting E needs own R issued"
+      ],
+      [
+        "attention has a price: {first ev.3} writes to {first (first (first ev.6).5).3} without the price of its group in the same transaction, or is vetoed"
       ]
     ]
   },
@@ -2826,7 +3123,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-event-moves-tokens.json",
-    "id": "0baa65a629689ab4c8f73d5e53f186d9795729cfdea2499885171c35354a4a9d",
+    "id": "9f8937d09b05d60e79794298a3ddd96e0880f07559e0391ba5f1d427985724b2",
     "registro": [
       [
         "every event moves tokens"
@@ -2836,7 +3133,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1 or count up ev = 0"
+        "=count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1"
       ],
       [
         "ev.3"
@@ -2854,7 +3151,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "mapa §10.1 [D]: «todo evento ES una transición de tokens»",
         "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)",
-        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+        "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
       ],
       [
         "epoch 0"
@@ -2863,23 +3160,22 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after every record hangs on a record of the ledger"
       ],
       [
-        "every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"
+        "every event moves tokens: the transaction moves no token"
       ]
     ]
   },
   {
     "archivo": "every-record-hangs-on-a-record-of-the-ledger.json",
-    "id": "577b543ced1618762c45e47c91325843c0ec5c89a16302d0e15d906fffc3741f",
+    "id": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d",
     "registro": [
       [
         "every record hangs on a record of the ledger"
       ],
       [
-        0,
-        1
+        0
       ],
       [
-        "=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or (count (first ev.6).5 = 1 and count up ev = 0)"
+        "=count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5"
       ],
       [
         "ev.3"
@@ -2896,8 +3192,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §14 [D]: «autor y fecha son puntos de vista»; D-META pone sobre y en en el 6.5",
-        "mapa §10.1 [D]: el génesis es el único registro sin foco",
-        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+        "mapa §16 [D] «El árbol mínimo es la invitación»: el génesis es la época 0, fuera del sistema; todo registro cuelga de otro del libro",
+        "mapa §16 [D] «El árbol mínimo es la invitación»: el génesis es la época 0, fuera del sistema; todo registro cuelga de otro del libro",
+        "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
       ],
       [
         "epoch 0"
@@ -2906,7 +3203,49 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after writing burns today's T"
       ],
       [
-        "every record hangs on a record of the ledger: {first (first ev.6).5} is not one (only the genesis hangs on nothing)"
+        "every record hangs on a record of the ledger: {first (first ev.6).5} is not one"
+      ]
+    ]
+  },
+  {
+    "archivo": "getting-e-gives-ten-p-on-its-record.json",
+    "id": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a",
+    "registro": [
+      [
+        "getting E gives ten P on its record"
+      ],
+      [
+        "epoch.1.1.4.1"
+      ],
+      [
+        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and it.3.1 != it.0.0.1 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
+      ],
+      [
+        "ev.1 each 3.1"
+      ],
+      [
+        "put",
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "§15 [D] (1): «conseguir E sobre un recurso da P sobre él»; diez unidades (N1: las mismas que escribir un registro propio)",
+        "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+        "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
+        "Cada transferencia de E que llega a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y registro, sea cual sea la serie o la denominación (las series las crea cualquiera: contarlas por serie no tendría límite), venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo); ni a uno mismo, ni al emisor de la serie, ni a quien aún no tiene alta. El libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js): la misma E pasando de mano en mano da P una vez a cada mano"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after writing a record gives ten P on it"
+      ],
+      [
+        "getting E gives ten P on its record: who receives E gets {first epoch.1.1.4.1} P on the record of its series"
       ]
     ]
   },
@@ -3070,6 +3409,119 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "minting-e-needs-own-r-issued.json",
+    "id": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae",
+    "registro": [
+      [
+        "minting E needs own R issued"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and E in it.0.0.0) = 0 or count ((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) > 0 or sum (first ev.3).8.1 > 0 or count (ev.1 where mint in it.4 and R in it.0.0.0 and first ev.3 in it.0.0.1) > 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 tarde (mapa §15 [D] N3): la exigencia encadena E → P → R → T",
+        "VG, 9-11, D1/D2 (mapa §15 [D]): «R en juego» es tener R propia emitida, sin colateral (se retira el colateral de la #75)",
+        "Emitida: la tiene en su cartera, la tienen otros (su obligación, A.8.1) o la acuña en esta transacción"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after minting E needs P on its record"
+      ],
+      [
+        "minting E needs own R issued: {first ev.3} mints E and has never issued R of its own"
+      ]
+    ]
+  },
+  {
+    "archivo": "minting-e-needs-p-on-its-record.json",
+    "id": "cad791702b876186bd8f814f313b924a244c4e905088e97939ae04a611d0567f",
+    "registro": [
+      [
+        "minting E needs P on its record"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and E in it.0.0.0 and not (count it.5 > 0 and count ((first ev.3).2.1 where it2.0 = first it.5 and it2.1 > 0) > 0)) = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 tarde (mapa §15 [D] N3): emitir E exige P",
+        "§15 [D]: lo que se conserva del escalonado, «E exige R y P sobre el registro»",
+        "VG, 9-11, D2 (mapa §15 [D]): toda E dice a qué registro está atada (su 5; sin registro nombrado, el alta de su emisor); el P es el que quien acuña tiene posicionado en ese registro (A.2.1), antes de la transacción"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after minting R needs real T"
+      ],
+      [
+        "minting E needs P on its record: {first ev.3} mints E on a record where it has no P"
+      ]
+    ]
+  },
+  {
+    "archivo": "minting-r-needs-real-t.json",
+    "id": "8388397ef0ed5ceee8db3cb435aa983ef6d04dac309e7123e4c04d5fc0630daf",
+    "registro": [
+      [
+        "minting R needs real T"
+      ],
+      [
+        "epoch.7.0"
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and R in it.0.0.0) = 0 or count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 tarde (mapa §15 [D] N3): «DOS SECUENCIAS, no dos escalones»; la exigencia: emitir E exige P, emitir P exige R, emitir R exige T",
+        "Real: una escala que el calendario mide (0 a 6; las informativas, 7 a 9, no cuentan)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after P is repositioned one step at a time"
+      ],
+      [
+        "minting R needs real T: {first ev.3} mints R without burning real T (a scale the calendar measures, epoch.7.0) in the same transaction"
+      ]
+    ]
+  },
+  {
     "archivo": "nobody-mints-t.json",
     "id": "392d8fcdd240b149633b88285e7b17e6f085be431f52078999ab36331f1b98f2",
     "registro": [
@@ -3107,16 +3559,17 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "nobody-moves-tokens-of-others.json",
-    "id": "3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f",
+    "id": "b46fb0ae16e8d317471a5fe93c911e3152c38739c7a9e3a27c99f2fe5bb343f5",
     "registro": [
       [
         "nobody moves tokens of others"
       ],
       [
-        0
+        0,
+        "\"invitation\""
       ],
       [
-        "=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) = 0"
+        "=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3 and not (transfer in it.4 and count (first ev.3).6 = 0 and it.3.1 = first ev.3 and first ev.3 in it.2 and \"invitation\" in (first (first ev.6).5).0 and first (first (first ev.6).5).3 = it.3.0 and first ev.3 in (first (first ev.6).5).3.1)) = 0"
       ],
       [
         "ev.3"
@@ -3133,7 +3586,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "mapa §11 [A] paso 4: solo el titular mueve lo suyo",
         "VG, 8-11: «solo existe la delegación»; nadie mueve por cuenta de un grupo",
-        "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar"
+        "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar",
+        "VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «1 lo que te doy para empezar (mínimo mi propia R, que te permite escribirme)»: quien invita lo bloquea con la salida = quien invita, y la aceptación lo recoge con una transferencia con esa salida (encargo 3b); no es mover lo ajeno: la salida nombra a quien lo recibe",
+        "Revisión de seguridad (encargo 3b): la excepción es exactamente «aceptar mi invitación»: quien escribe aún no tiene alta, ancla sobre la invitación, que lo nombra como invitado en su 3.1, y transfiere desde quien la escribió hacia sí mismo con la salida = él (el libro solo deja sacar lo bloqueado con esa salida: lo que la invitación le guarda); src/validez.js lo repite en el suelo"
       ],
       [
         "epoch 0"
@@ -3232,7 +3687,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "obligation.json",
-    "id": "89fa999bbc7771ca20ed0cfbf656962070829bb85600a188aa5fbe7775ab6574",
+    "id": "837e2a7456c4f8d49c5f595d9ac9d387060366b512ab872721de488914802eed",
     "registro": [
       [
         "obligation"
@@ -3244,7 +3699,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "=sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 1) + sum ((((before.3 where it2 != it) each 1) where R in it2.0.0.0 and it2.0.0.1 = it) each 2.1)"
       ],
       [
-        "A.3.1"
+        "A.8.1"
       ],
       [
         "read"
@@ -3255,7 +3710,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
         "V10, doble entrada: la obligación de un emisor es su R en manos ajenas, disponible o bloqueada; mientras está en su cartera no obliga a nada (eje.obligaciones)",
-        "Se materializa en A.3.1: grupos de atención y R, cuánto"
+        "Se materializa en A.8.1: frente a otros, cuánto (encargo 3b: A.3 son los grupos de atención de la identidad, mapa §16 [D] «PV3 = regla de atención»)"
       ],
       [
         "epoch 0"
@@ -3270,7 +3725,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "only-persons-mint.json",
-    "id": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5",
+    "id": "598784e62418c0e7bfe6a0453ba76c53c52df481996e795a6feed4e79b05b528",
     "registro": [
       [
         "only persons mint"
@@ -3279,7 +3734,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where mint in it.4) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"
+        "=count (ev.1 where mint in it.4 and not (P in it.0.0.0)) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"
       ],
       [
         "ev.3"
@@ -3292,7 +3747,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "VG, 7-11 noche: «todos son emitidos por una persona individualmente» (mapa §12 [D] ciclo de vida)",
-        "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])"
+        "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])",
+        "Encargo 3b: reponer P no es emitir (mapa §15 [D] N7: subir y bajar P por el árbol); una cosa reposiciona su P como cualquiera: lo limita «P is repositioned one step at a time»"
       ],
       [
         "epoch 0"
@@ -3306,31 +3762,76 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
-    "archivo": "p-moves-within-a-known-scope.json",
-    "id": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c",
+    "archivo": "p-is-repositioned-one-step-at-a-time.json",
+    "id": "15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437",
     "registro": [
       [
-        "P moves within a known scope"
+        "P is repositioned one step at a time"
       ],
       [
-        0,
-        "genesis"
+        "epoch.1.1.4.2",
+        1e-9
       ],
       [
-        "=count (ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) = 0"
+        "=count (ev.1 where P in it.0.0.0 and mint in it.4) = 0 or (count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.3.1 != first ev.3) = 0 and count (ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) > 0 and count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and mint in it2.4) each 0.0.1)) = 0 and count ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and burn in it2.4 and it2.3.0 = first ev.3) each 0.0.1)) = 0 and ((first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001) or (first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001)))"
       ],
       [
         "ev.3"
       ],
       [
-        "transfer",
+        "mint",
         "burn"
       ],
       [
         "*"
       ],
       [
-        "Mapa §12 [D] ciclo de vida de P: «delegar estrechando», el débito sube por el hilo (inventario PP-4) · §15 [D]: reposicionar = quemar y acuñar con factor, subir deja una décima [X revisar con el P nuevo]"
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "VG, 8-11 (mapa §15 [D] (2)): reposicionar por el árbol; subir un nivel deja una décima (pierde el 90 %), bajar añade una décima (10 → 1 → 1,1); unidades decimales",
+        "VG, 8-11 tarde (mapa §15 [D] N7): solo subir y bajar; ir a un registro ajeno es subir al ancestro común y bajar; el coste es la distancia en el árbol",
+        "Nadie acuña P a mano: el P se obtiene (las reglas que escriben) o se reposiciona. Un paso por transacción: quema P de quien escribe en un registro y acuña para sí en su padre (la décima: epoch.1.1.4.2, el primero) o en un hijo (una décima más: el segundo); ir más lejos son varios pasos, y cada uno quema su T",
+        "Retira el P acuñado por el autor sobre su registro y el P del génesis sobre todo el eje (PP-2, PP-3, R3), y el estrechamiento de P (PP-5): mapa §15 [D], «Desaparece»"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after P moves within a known scope"
+      ],
+      [
+        "P is repositioned one step at a time: {first ev.3} mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child"
+      ]
+    ]
+  },
+  {
+    "archivo": "p-moves-within-a-known-scope.json",
+    "id": "48d6ec72345c79d4b5d6ffd89df8ebd8966480798c862c7152d845f2306540b0",
+    "registro": [
+      [
+        "P moves within a known scope"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where P in it.0.0.0 and not (it.0.0.1 in it.0.0.1.5)) = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Mapa §12 [D] ciclo de vida de P: P va sobre un registro (inventario PP-4)",
+        "VG, 8-11 (mapa §15 [D]): P son unidades posicionadas en registros; se retira «P del génesis sobre todo el eje» y el débito que sube por el hilo: el P de un registro es criterio sobre él, y llevarlo a otro es reposicionarlo"
       ],
       [
         "epoch 0"
@@ -3339,13 +3840,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after nobody moves tokens of others"
       ],
       [
-        "P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) each 0)} names no record in the ledger"
+        "P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and not (it.0.0.1 in it.0.0.1.5)) each 0)} names no record of the ledger"
       ]
     ]
   },
   {
     "archivo": "present.json",
-    "id": "71cdb05114fc7113fe31132f88193af0e1c2c890cf18367d5e061c6572a5ed94",
+    "id": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228",
     "registro": [
       [
         "present"
@@ -3374,7 +3875,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after P moves within a known scope"
+        "after receiving R gives ten P on the root of its issuer"
       ],
       [
         "present: the record burns real T of its author (a scale the calendar measures), or it is the genesis"
@@ -3452,6 +3953,87 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "R is minted to its issuer: R minted to {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 3.1}, not to {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 0.0.1}"
+      ]
+    ]
+  },
+  {
+    "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
+    "id": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40",
+    "registro": [
+      [
+        "receiving R gives ten P on the root of its issuer"
+      ],
+      [
+        "epoch.1.1.4.1"
+      ],
+      [
+        "=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"
+      ],
+      [
+        "ev.1 each 3.1"
+      ],
+      [
+        "put",
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "VG, 8-11 tarde (mapa §15 [D] N2): el P que viene de R se posiciona en la raíz del dominio de quien da la R («quien te cede atención te da voz en lo suyo»), diez por R recibida",
+        "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+        "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
+        "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular y registro, que aquí es el alta del emisor: una vez por titular y emisor (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after getting E gives ten P on its record"
+      ],
+      [
+        "receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P on the alta of its issuer"
+      ]
+    ]
+  },
+  {
+    "archivo": "share.json",
+    "id": "5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91",
+    "registro": [
+      [
+        "share"
+      ],
+      [
+        "A.2.1"
+      ],
+      [
+        "=it.1 / sum ((((first it.3).2.1) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"
+      ],
+      [
+        "A.2.1.8"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "VG, 8-11 (mapa §15 [D] (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)»; sin historial ni falseo: comparar entre dominios exigiría una prueba de fuera",
+        "El dominio de un registro r: lo que cuelga del registro más alto de su hilo escrito por su dueño (el autor de r); en una identidad cuyos registros cuelgan de su alta, su alta",
+        "Se materializa en A.2.1.8: en cada entrada del P posicionado, frente a otros (la cuota)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after obligation"
+      ],
+      [
+        "share: the part of its P in the domain of the record that the identity has on that record"
       ]
     ]
   },
@@ -3534,7 +4116,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "t-only-goes-to-things.json",
-    "id": "95e362844bdd5b5efce24f38960d816262db3aac507de2ce7a0a50f63856a487",
+    "id": "319864b5541a6520e549d3f613ae5afffd0f839c23149a5d17b6df3085864b4e",
     "registro": [
       [
         "T only goes to things"
@@ -3544,7 +4126,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "genesis"
       ],
       [
-        "=count (ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3 and not ((count (first it.3.1).6 = 0 or first (first it.3.1).6.3 != first it.3.1) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) or (count (first it.3.1).6 = 0 or first (first it.3.1).6.3 = first ev.3 or first (first it.3.1).6.3 = first (first ev.3).6.3 or count ((first ev.3).1 where P in it2.0.0.0 and it2.1 > 0 and (it2.0.0.1 = \"genesis\" or it2.0.0.1 in path (first (first it.3.1).6))) > 0)))) = 0"
+        "=count (ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3 and not ((count (first it.3.1).6 = 0 or first (first it.3.1).6.3 != first it.3.1) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) or (count (first it.3.1).6 = 0 or first (first it.3.1).6.3 = first ev.3 or first (first it.3.1).6.3 = first (first ev.3).6.3 or count ((first ev.3).1 where P in it2.0.0.0 and it2.1 > 0 and it2.0.0.1 = first (first it.3.1).6) > 0)))) = 0"
       ],
       [
         "(ev.1 where T in it.0.0.0 and transfer in it.4) each 3.1"
@@ -3558,7 +4140,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG, 7-11 noche: T no cruza de persona; «recibir T solo es un registro de una cantidad de tiempo; podemos hacer que se transforme en E» (mapa §12 [D])",
         "VG, 8-11: una persona da su T a una cosa («T de segundo para automatismos y maquinaria»); de cosa a cosa, solo del mismo dueño (regla de Core aceptada; inventario TT-8, TT-9)",
-        "VG, 10-11, B1: persona o cosa se lee del 3 del alta: cosa es lo que da de alta otra identidad, su dueño (mapa §16 [D])"
+        "VG, 10-11, B1: persona o cosa se lee del 3 del alta: cosa es lo que da de alta otra identidad, su dueño (mapa §16 [D])",
+        "Encargo 3b (mapa §15 [D] «P como peso de criterio»): «tiene P sobre ella» es el P posicionado en el alta de la cosa (su registro), sin el P del génesis ni el que cubría el hilo, que se retiran"
       ],
       [
         "epoch 0"
@@ -3572,90 +4155,51 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
-    "archivo": "the-genesis-e-names-no-record.json",
-    "id": "1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45",
+    "archivo": "weight.json",
+    "id": "ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32",
     "registro": [
       [
-        "the genesis E names no record"
+        "weight"
       ],
       [
-        1,
-        0
+        "epoch.9.0.0.4",
+        "X.2.3",
+        "\"cualquiera\""
       ],
       [
-        "=not (count up ev = 0) or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"
+        "=((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and first it.3 in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it.3 in it2.2) each 1) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where first it.3 in it3 or first it.3 in it3.2) = 0) * ((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and \"cualquiera\" in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and \"cualquiera\" in it2.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count ((first it.5).2.3 where count it3.5 = 0) = 0 and first it.3 = first (first it.5).3)) / (first epoch.9.0.0.4) * it.1 / (sum ((((first it.3).2.1) where last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it2.0)) each 1) + count (epoch where not (last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1)))) * count (epoch where P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))"
       ],
       [
-        "ev.3"
+        "X.2.4.8"
       ],
       [
-        "mint"
+        "read"
       ],
       [
         "*"
       ],
       [
-        "mapa §10.1 [D]: el génesis",
-        "VG, 9-11 D2 (mapa §15): toda E dice a qué registro está atada, sin excepción para el génesis: el suyo",
-        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "VG, 8-11 (mapa §15 [D] (4)): cómo se cuenta lo fija el dueño en su PV2: a quién cuenta y con qué presión (lente de P)",
+        "VG, 8-11 tarde (mapa §15 [D] N4): presiones 0-9; por defecto solo cuenta el dueño; todo lo predefinido se traduce a BQL",
+        "VG, 9-11, B2: 2.3 elegibles y presiones (reutiliza la elegibilidad): un nombre cuenta 9; «nombre 5» (una magnitud, D-VALOR), su presión; «cualquiera» abre a todos. Cada entrada es una hoja: una lista BTML no lleva décuplas",
+        "El peso de un compromiso con X: su presión ÷ 9 × lo comprometido ÷ el P de su titular en el dominio de X; 0 si no es P o si su P no está en ese dominio",
+        "Se materializa en X.2.4.8: en cada compromiso con X, frente a otros"
       ],
       [
         "epoch 0"
       ],
       [
-        "after the genesis only mints to its author"
+        "after share"
       ],
       [
-        "the genesis E names no record: its E is tied to the genesis itself"
-      ]
-    ]
-  },
-  {
-    "archivo": "the-genesis-only-mints-to-its-author.json",
-    "id": "6f482575f81d0fbe975ce499b5df8e4696f4a68820f1e3d40717eafd732d3611",
-    "registro": [
-      [
-        "the genesis only mints to its author"
-      ],
-      [
-        1,
-        0
-      ],
-      [
-        "=not (count up ev = 0) or count (ev.1 where transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4 or (mint in it.4 and it.3.1 != first ev.3)) = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint",
-        "transfer",
-        "lock",
-        "release",
-        "burn"
-      ],
-      [
-        "*"
-      ],
-      [
-        "mapa §10.1 [D]: el génesis",
-        "VG, 9-11 (mapa §16): el génesis es la época; su autor, implícito en el 3",
-        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after R is minted to its issuer"
-      ],
-      [
-        "the genesis only mints to its author: {first ev.3} moves something else in it"
+        "weight: pressure ÷ 9 × the committed P ÷ the P of its holder in the domain of the decision"
       ]
     ]
   },
   {
     "archivo": "who-has-a-key-signs.json",
-    "id": "4c01c35a815df74d7aa5d26a8830b4cf6bd99d7ae4917e38ea34b3de92945334",
+    "id": "8d182143bb983cfa5b278368988eb9117e5048455405da48734a6306fb8c6111",
     "registro": [
       [
         "who has a key signs"
@@ -3687,7 +4231,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after the genesis E names no record"
+        "after R is minted to its issuer"
       ],
       [
         "who has a key signs: {first ev.3} has a key and this transaction is not signed by them (signer: {nth 1 ev.3})"
@@ -3738,8 +4282,48 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "writing-a-record-gives-ten-p-on-it.json",
+    "id": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d",
+    "registro": [
+      [
+        "writing a record gives ten P on it"
+      ],
+      [
+        "epoch.1.1.4.1"
+      ],
+      [
+        "=put first epoch.1.1.4.1 at (first ev.3).2.1.(first ev.5)"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "put",
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+        "VG, 8-11 tarde (mapa §15 [D] N1): escribir un registro propio da las mismas diez unidades de P que conseguir E («crear una cosa es conseguirla; el dueño es 100 % de su dominio hasta que entra alguien»)",
+        "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
+        "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after a person joins by an invitation"
+      ],
+      [
+        "writing a record gives ten P on it: {first ev.3} gets {first epoch.1.1.4.1} P on the record it writes"
+      ]
+    ]
+  },
+  {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326",
+    "id": "36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506",
     "registro": [
       [
         "writing burns today's T"
@@ -3750,7 +4334,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.3.1"
       ],
       [
-        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0)) or count up ev = 0"
+        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0))"
       ],
       [
         "ev.3"
@@ -3767,7 +4351,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
         "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
         "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
-        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+        "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)"
       ],
       [
         "epoch 0"
@@ -3782,240 +4366,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
   }
 ];
 
-// reglas-3b/*.json: traducciones del encargo 2 que el mapa §15 cambia (P acuñado, escalonado, colateral de R): fuera de la época, sin conectar; se reescriben en el 3b
-export const REGLAS_3B_DATOS = [
-  {
-    "archivo": "minting-e-needs-p-on-the-record.json",
-    "id": "60a54a1d30eb164c229d8aa729d24aed4d36a4990ab90fa502cdf5cbf8ff8953",
-    "registro": [
-      [
-        "minting E needs P on the record"
-      ],
-      [
-        0,
-        "genesis"
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and E in it.0.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and it.0.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: emisión escalonada, «si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida; inventario ES-3)",
-        "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after minting P or E needs own R at stake"
-      ],
-      [
-        "minting E needs P on the record: {first ev.3} has no P on {first ev.6.5} (a balance or P moved in this transaction)"
-      ]
-    ]
-  },
-  {
-    "archivo": "minting-needs-real-t.json",
-    "id": "d4d33942db4a2f0925355d768a6a4d5b841e5844595f328d1a5ef5b8db376079",
-    "registro": [
-      [
-        "minting needs real T"
-      ],
-      [
-        1,
-        7
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and not T in it.0.0.0) = 0 or count (ev.1 where T in it.0.0.0 and it.0.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: la emisión es escalonada, «normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»; mover T es consumirlo (mapa §12 [D] ciclo de vida)",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after T is not locked"
-      ],
-      [
-        "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0.0) each 0.0.0)} without burning real T (scales 0 to 6) in the same transaction"
-      ]
-    ]
-  },
-  {
-    "archivo": "minting-p-or-e-needs-own-r-at-stake.json",
-    "id": "7d21b8ce16998baa4f0a8eb7f9238dba3ea8f55c43c654e94b52b9873794e015",
-    "registro": [
-      [
-        "minting P or E needs own R at stake"
-      ],
-      [
-        10,
-        1e-9,
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and (P in it.0.0.0 or E in it.0.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 0.1.0) + sum ((ev.1 where R in it.0.0.0 and mint in it.4 and first ev.3 in it.0.0.1) each 1) or count (ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 0.1.0) + sum ((ev.1 where R in it.0.0.0 and mint in it.4 and first ev.3 in it.0.0.1) each 1)) or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: emisión escalonada, «si T + R + (opc) P; si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida)",
-        "R6, VG 7-11 noche: R propia en juego = R propia bloqueada como colateral de su serie, al menos la décima parte de lo emitido (inventario RR-6, RR-3 [X el 1/10])",
-        "§15 [D] N3: dos secuencias, emitir P exige R [X revisar]; §15 [D] R según el corpus retira el colateral de la #75 [X]",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after minting needs real T"
-      ],
-      [
-        "minting P or E needs own R at stake: {first ev.3} has no R:{first ev.3} locked as collateral (exit R:{first ev.3}) covering a tenth of what was minted of it, before or in this transaction"
-      ]
-    ]
-  },
-  {
-    "archivo": "p-is-minted-on-one-s-own-record.json",
-    "id": "c71f5d6b90d548549d2d3acf67903215f28a289ca291476513c2d529cafb5c48",
-    "registro": [
-      [
-        "P is minted on one's own record"
-      ],
-      [
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and P in it.0.0.0 and not (first it.0.0.1.3 = first ev.3)) = 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "Mapa §12 [D] ciclo de vida de P: «el autor de X acuña P:X»; sobre todo el eje, solo el génesis (inventario PP-2) · §15 [D] lo retira: «desaparece: el autor de X acuña P:X; P del génesis sobre todo el eje» [X revisar con el P nuevo]",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after P is minted to its minter"
-      ],
-      [
-        "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0.0 and not (first it.0.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
-      ]
-    ]
-  },
-  {
-    "archivo": "p-is-minted-to-its-minter.json",
-    "id": "04a62f2e78f8d8aba4e38adf6028fd30c8808a9b6cb7b9f5c3720888f97b5e28",
-    "registro": [
-      [
-        "P is minted to its minter"
-      ],
-      [
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "FUNDAMENTOS y mapa §12 [D] ciclo de vida de P: acuña P quien escribió el registro, para sí (inventario PP-2) · §15 [D] lo cambia: escribir un registro propio da diez unidades de P (N1) [X revisar con el P nuevo]",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after nobody mints T"
-      ],
-      [
-        "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
-      ]
-    ]
-  },
-  {
-    "archivo": "the-genesis-p-is-over-the-whole-ledger.json",
-    "id": "7541f4036627f255d642ab2a717d4aeea24231487e370b1455b6568d9f13107b",
-    "registro": [
-      [
-        "the genesis P is over the whole ledger"
-      ],
-      [
-        1,
-        "genesis"
-      ],
-      [
-        "=count before.5 = 1 or count (ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "mapa §10.1 [D]: P del génesis sobre todo el eje (tokens.AMBITO_GENESIS)",
-        "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)",
-        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after the genesis only mints to its author"
-      ],
-      [
-        "the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") each 0.0.1}"
-      ]
-    ]
-  }
-];
+// el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
+export const EPOCA_0_BTML_ID = "38839d8c2de5bda7455f942b80e1126125e4e1136942ec795c7d8a4d2ea42cd1";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

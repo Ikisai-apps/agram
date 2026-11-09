@@ -12,6 +12,7 @@ import { crearEvento, canonico, cuerpo, hash, RAIZ } from '../src/evento.js';
 import { validarMovimiento } from '../src/tokens.js';
 import { Libro, acunar, bloquear, transaccion } from '../src/libro.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 
 const REGLA = EPOCA_0_BTML.condiciones[0];
 const uno = (src, ctx) => {
@@ -64,7 +65,8 @@ test('SEG-10 la expansión de ocupantes tiene un presupuesto por evaluación; la
 
 test('SEG-11 «nadie» es un símbolo: una identidad que se llama así no se confunde con el otro lado de una quema', async () => {
   const { eje } = await ejemploCompra();
-  await eje.entrar({ identidad: 'nadie', t: '2026-11-07T15:00:00Z' }); // B1: escribe su propia alta
+  // B1: escribe su propia alta, aceptando la invitación de la casa (encargo 3b).
+  await entrarPorInvitacion(eje, { por: 'casa', quien: 'nadie', t: '2026-11-07T15:00:00Z' });
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,

@@ -1,6 +1,6 @@
 // Pruebas de propiedades, ronda 2: lo que llegó a main con #51/#55/#58.
-// Series de tokens contra un modelo independiente (emisión por emisor,
-// delegación de P, R no fungible, separadores), persistencia VERSION 2, BQL
+// Series de tokens contra un modelo independiente (emisión por emisor, P
+// obtenido y reposicionado, R entre tenedores, separadores; encargo 3b), persistencia VERSION 2, BQL
 // con estados y BUSCAR por dirección o por índice, el gancho de
 // autorización, épocas desde datos, encaje con epoca.ordinal y los casos
 // Booking y Tasks, y BASES/CAJA/FRESCURA (main 1215dd8). Mismo PRNG con semilla fija que test/propiedades.test.js,
@@ -17,7 +17,8 @@ import { direccion, indicesDe, esReferencia, ARIDAD } from '../src/btml.js';
 import * as B from '../src/bql.js';
 import * as E from '../src/encaje.js';
 import { cargarEpoca, leerDireccion, EPOCA_0, PV } from '../src/epocas.js';
-import { consolidaciones } from '../src/motor.js';
+import { cerrado } from '../src/motor.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { escribirDesde } from '../src/escritura.js';
 import * as BK from '../ejemplos/ikisai/reserva-booking.mjs';
 import * as TK from '../ejemplos/ikisai/tarea-tasks.mjs';
@@ -55,97 +56,50 @@ const IDS = ['r', 'b', 'c', 'hab', 'x:y', 'p/q', 'u|v', 'ñandú', 'z'];
 const texto = (x) => typeof x === 'string' && x.length > 0;
 
 /**
- * Modelo independiente de Eje.validar/aplicar, escrito desde las reglas
- * (src/tokens.js y mapa §12 [D] «series de tokens»; desde el ciclo E/P/R/T,
- * VG 7-11 noche: solo personas emiten, escalonado, T con tope, P sobre lo
- * propio; ver cicloOk); nadie mueve tokens ajenos; R solo la mueve su emisor
- * (quien la tiene solo se la devuelve); P exige ámbito (el eje o un registro) y
- * delegar estrecha: se debita del ámbito exacto y, si no alcanza, de los que
- * lo cubren (su hilo y el eje), salvo hacia una serie P cerrada o hacia la raíz de un
- * dominio ajeno, y P:X se emite una sola vez (R3, VG 7-11 noche); | : / reservados.
- * Y R6 (VG, 7-11 noche): emitir R:X exige R del autor bloqueada con la salida
- * «R:X», al menos la décima parte de lo emitido de R:X, y «R propia en juego»
- * es ese colateral de su propia serie (el generador solo bloquea, no libera).
- * B1 (VG, 10-11): no hay tipo; persona es quien escribió su propia alta (quien
- * aún no tiene alta y escribe, escribe la suya), y cosa quien recibió tokens en
- * un alta escrita por otro, su dueño.
+ * Modelo independiente de Eje.validar/aplicar, escrito desde las reglas de la época (datos/epocas/reglas/, leídas como
+ * texto) y no desde su código, para lo que el generador ejercita. Encargo 3b: solo emiten personas (quien escribió su
+ * propia alta; quien no tiene alta solo entra aceptando una invitación, que el generador no escribe); E y R a su
+ * nombre; T no se emite; emitir R exige T real; emitir E exige P sobre su registro (sin registro nombrado, el alta de
+ * su emisor) y R propia emitida (VG, 9-11, D2: sin colateral); nadie acuña P a mano salvo un paso de reposición (quemar
+ * en un registro y acuñar en su padre la décima o en un hijo una décima más, N7; lo da también una cosa); P solo sobre un registro, que se
+ * debita exacto (ya no hay P del génesis ni P que cubra lo de debajo); R se transfiere entre tenedores (se corrige la
+ * #62); nadie mueve tokens ajenos; E en enteros (no hay series divisibles en el generador); | : / reservados. Y la
+ * obtención (mapa §15 N1, N2): quien escribe obtiene diez P sobre su registro; quien recibe E, diez sobre el registro
+ * de la serie; quien recibe R de su emisor, diez sobre el alta del emisor (de otro tenedor, nada); y cada regla da su
+ * P una sola vez por titular y registro (revisión de seguridad del encargo 3b). B1 (VG, 10-11): no hay tipo; persona es quien
+ * escribió su propia alta, y cosa quien recibió tokens en un alta escrita por otro.
  */
+/** Las reglas de obtención de la época (sus nombres son la etiqueta de lo que acuñan). */
+const OBTENCIONES = ['writing a record gives ten P on it', 'getting E gives ten P on its record', 'receiving R gives ten P on the root of its issuer'];
+
 class Modelo {
-  constructor(genesisId, autor, emision, tGenesis = T0) {
+  /** El estado de partida se copia del eje (el génesis, la emisión, la invitación, la aceptación y el alta de las cosas). */
+  constructor(eje) {
     this.gastado = new Map(); // persona + escala → T de su asignación gastado en T0 (VG, 8-11: todo va en T0, un solo día)
-    this.g = genesisId;
-    this.padre = new Map([[genesisId, null]]);
-    this.autorDe = new Map([[genesisId, autor]]);
-    this.alta = new Map([[autor, genesisId]]);
+    this.padre = new Map(eje.orden.map((id) => [id, eje.obtener(id).sobre]));
+    this.autorDe = new Map(eje.orden.map((id) => [id, eje.obtener(id).autor]));
+    this.alta = new Map(eje.identidades().map((id) => [id, eje.alta(id).id]));
+    this.existe = new Set(eje.identidades());
     this.saldos = new Map();
-    this.existe = new Set([autor]);
-    for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
-    // R3 (VG, 7-11 noche): lo emitido de cada serie P, para saber si está cerrada.
-    this.emitidoP = new Map(emision.filter(([k]) => k.startsWith('P:')).map(([k, v]) => [k.slice(2), v]));
-    // R6: lo emitido de cada serie R y lo bloqueado como colateral (titular + salida → cantidad).
-    this.emitidoR = new Map(emision.filter(([k]) => k.startsWith('R:')));
-    this.colateral = new Map();
+    this.bloqueados = new Map(); // titular + serie + salida → cantidad
+    for (const [id, m] of eje.saldos) for (const [k, v] of m) this.saldos.set(id + '\u0000' + k, v);
+    for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
+    this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
+    for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
+    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de
+    // partida, no lo que se comprueba).
+    this.obtenido = new Set();
+    for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2)]));
   }
-  /**
-   * Las reglas de emisión del ciclo E/P/R/T (VG, 7-11 noche), escritas aparte de
-   * src/ciclo.js: solo personas; E y R a su nombre (VG, 8-11: no hay grupos);
-   * T no se emite (VG, 8-11: cada persona tiene su asignación diaria); P solo
-   * sobre un registro que escribió;
-   * escalonado T → R → P → E. true si el evento las cumple.
-   */
-  /** B1: ¿es persona? Quien escribió su propia alta, o quien aún no tiene alta (escribe la suya). */
+  /** B1: ¿es persona? Quien escribió su propia alta. */
   persona(id) {
-    return !this.existe.has(id) || this.autorDe.get(this.alta.get(id)) === id;
-  }
-  cicloOk(ev) {
-    const autor = ev.autor;
-    const pAntes = (reg) => this.cubren(reg).reduce((s, a) => s + Math.max(0, this.saldos.get(autor + '\u0000P:' + a) ?? 0), 0);
-    const pEnEvento = (reg) => ev.movimientos.some((m) => m.token === 'P' && (m.de === autor || m.a === autor) && this.cubren(reg).includes(m.ambito));
-    const tienePoder = (reg) => pAntes(reg) > 0 || pEnEvento(reg);
-    const emitidas = new Set();
-    for (const m of ev.movimientos) {
-      if (m.de !== null) continue;
-      emitidas.add(m.token);
-      if (!this.persona(autor)) return false;
-      if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) return false; // VG, 8-11: nadie emite a nombre de otro
-      if (m.token === 'T') return false; // VG, 8-11: T no se emite, es la asignación diaria
-      if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
-      // R3: P:X la emite una vez su autor; aquí no hay consolidaciones autorizadas que la amplíen.
-      if (m.token === 'P' && this.emitidoDeP(m.ambito) > 0) return false;
-    }
-    if (!emitidas.size) return true;
-    // VG, 7-11 noche: mover T es CONSUMIRLO (de = autor, a = null).
-    const mueveT = ev.movimientos.some((m) => m.token === 'T' && m.de === autor && m.a === null && m.estado === undefined);
-    // R6: el colateral tras el evento (R:<autor> bloqueada con la salida = la serie) cubre la décima parte de lo emitido.
-    const colTras = (salida) => (this.colateral.get(autor + '\u0000' + salida) ?? 0)
-      + ev.movimientos.filter((m) => m.token === 'R' && m.emisor === autor && m.de === autor && m.estado === 'bloqueo' && m.salida === salida).reduce((x, m) => x + m.cantidad, 0);
-    const emiTras = (k) => (this.emitidoR.get(k) ?? 0) + ev.movimientos.filter((m) => m.token === 'R' && m.de === null && 'R:' + m.emisor === k).reduce((x, m) => x + m.cantidad, 0);
-    const cubre = (salida) => colTras(salida) * 10 + 1e-9 >= emiTras(salida);
-    for (const m of ev.movimientos) if (m.token === 'R' && m.de === null && !cubre('R:' + m.emisor)) return false;
-    const rEnJuego = colTras('R:' + autor) > 0 && cubre('R:' + autor);
-    for (const t of ['R', 'P', 'E']) {
-      if (!emitidas.has(t)) continue;
-      if (!mueveT || (t !== 'R' && !rEnJuego) || (t === 'E' && !tienePoder(ev.sobre))) return false;
-    }
-    return true;
-  }
-  /** Lo emitido de la serie P de un ámbito (sobre el génesis, «genesis» y su id son la misma serie). */
-  emitidoDeP(ambito) {
-    const familia = ambito === 'genesis' || ambito === this.g ? ['genesis', this.g] : [ambito];
-    return familia.reduce((s, a) => s + (this.emitidoP.get(a) ?? 0), 0);
-  }
-  cubren(ambito) {
-    if (ambito === 'genesis') return ['genesis', this.g];
-    const out = [];
-    for (let x = ambito; x !== null && x !== undefined; x = this.padre.get(x)) out.push(x);
-    return [...out, 'genesis'];
+    return this.existe.has(id) && this.autorDe.get(this.alta.get(id)) === id;
   }
   formaMov(m) {
     if (!['E', 'P', 'R', 'T'].includes(m.token) || !(Number.isFinite(m.cantidad) && m.cantidad > 0)) return false;
     if (m.token === 'T' && (!ESCALAS.includes(m.escala) || !Number.isSafeInteger(m.cantidad))) return false;
     if (m.token === 'E' && (!texto(m.denominacion) || !texto(m.emisor))) return false;
     if ((m.token === 'P' && !texto(m.ambito)) || (m.token === 'R' && !texto(m.emisor))) return false;
-    if (m.token === 'R' && m.de !== null && m.de !== m.emisor && m.a !== m.emisor) return false; // quien la tiene solo la devuelve
     if ((m.token === 'E' || m.token === 'R') && m.de === null && m.a !== m.emisor) return false;
     if (m.estado !== undefined && (m.estado !== 'bloqueo' || m.de === null || m.a !== m.de || !texto(m.salida))) return false;
     for (const c of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) if (typeof m[c] === 'string' && /[|:/]/.test(m[c])) return false;
@@ -155,60 +109,103 @@ class Modelo {
   clave(m) {
     return m.token === 'T' ? 'T:' + m.escala : m.token === 'E' ? 'E:' + m.emisor + '/' + m.denominacion : m.token === 'P' ? 'P:' + m.ambito : 'R:' + m.emisor;
   }
+  /** El registro de una serie de E sin registro nombrado: el alta de su emisor. */
+  registroE(m) {
+    return this.alta.get(m.emisor);
+  }
+  /** Lo que tiene de una serie (disponible y bloqueado), antes del evento. */
+  tiene(id, k) {
+    let n = this.saldos.get(id + '\u0000' + k) ?? 0;
+    for (const [llave, v] of this.bloqueados) if (llave.startsWith(id + '\u0000' + k + '\u0000')) n += v;
+    return n;
+  }
+  /** ¿Emitió R propia? La tiene alguien (ella u otros), disponible o bloqueada, o la acuña en el evento. */
+  rEmitida(autor, ev) {
+    const k = 'R:' + autor;
+    if (ev.movimientos.some((m) => m.token === 'R' && m.de === null && m.emisor === autor)) return true;
+    return [...this.existe].some((id) => this.tiene(id, k) > 0);
+  }
+  /** Las reglas de la época sobre la candidata (con el estado de antes): true si las cumple. */
+  reglasOk(ev) {
+    const autor = ev.autor;
+    // a person joins by an invitation: quien no tiene alta no escribe aquí (el generador no escribe invitaciones).
+    if (!this.existe.has(autor)) return false;
+    const P = ev.movimientos.filter((m) => m.token === 'P');
+    // P moves within a known scope: todo P va sobre un registro del libro (no «genesis»).
+    if (P.some((m) => !this.padre.has(m.ambito))) return false;
+    for (const m of ev.movimientos) {
+      if (m.de !== null && m.de !== autor) return false; // nobody moves tokens of others
+      if (m.de !== null) continue;
+      // only persons mint; salvo P: reposicionarlo es un paso del P que se tiene, también de una cosa (encargo 3b).
+      if (m.token !== 'P' && !this.persona(autor)) return false;
+      if (m.token === 'T') return false; // nobody mints T
+      if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) return false; // E/R is minted by its issuer
+      if (m.token === 'E') {
+        // minting E needs P on its record; minting E needs own R issued.
+        const reg = this.registroE(m);
+        if (!reg || !(this.tiene(autor, 'P:' + reg) > 0)) return false;
+        if (!this.rEmitida(autor, ev)) return false;
+      }
+    }
+    // E en enteros (no hay series divisibles aquí).
+    if (ev.movimientos.some((m) => m.token === 'E' && !Number.isInteger(m.cantidad))) return false;
+    // P is repositioned one step at a time.
+    const M = P.filter((m) => m.de === null);
+    if (M.length) {
+      const B = P.filter((m) => m.de === autor && m.a === null && m.estado === undefined);
+      if (M.some((m) => m.a !== autor) || !B.length) return false;
+      if (M.some((m) => m.ambito !== M[0].ambito) || B.some((m) => m.ambito !== B[0].ambito)) return false;
+      const sM = M.reduce((s, m) => s + m.cantidad, 0);
+      const sB = B.reduce((s, m) => s + m.cantidad, 0);
+      const cerca = (a, b) => a - b < 1e-9 && b - a < 1e-9;
+      const sube = this.padre.get(B[0].ambito) === M[0].ambito && cerca(sM, sB * 0.1);
+      const baja = this.padre.get(M[0].ambito) === B[0].ambito && cerca(sM, sB * 1.1);
+      if (!sube && !baja) return false;
+    }
+    return true;
+  }
   /** null si se rechaza; si no, la función que lo aplica. */
   probar(ev) {
-    // B1: quien no tiene alta y escribe, escribe la suya; y un alta no declara tipo.
     if (!this.padre.has(ev.sobre) || ev.contexto?.tipos !== undefined) return null;
-    const vista = new Map(this.saldos);
-    const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
-    const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
     // VG, 7-11 noche: escribir consume T del autor, y T no cruza de persona.
     if (!ev.movimientos.some((m) => m.token === 'T' && m.de === ev.autor && m.a === null)) return null;
-    // Salvo de una persona a una cosa (Core, 8-11): la máquina gasta el T de su dueño; de una cosa, a otra cosa del
-    // mismo dueño, o si el autor escribió su alta o tiene P sobre ella (B1: cosa = alta escrita por otro).
+    // Salvo de una persona a una cosa (Core, 8-11): de una cosa, a otra cosa del mismo dueño, o si el autor escribió su
+    // alta o tiene P sobre ella (B1: cosa = alta escrita por otro).
     const duenoDe = (id) => (this.existe.has(id) ? this.autorDe.get(this.alta.get(id)) : ev.autor);
     const esCosa = (id) => (this.existe.has(id) ? !this.persona(id) : id !== ev.autor);
-    const pSobre = (reg) => this.cubren(reg).reduce((s, a) => s + Math.max(0, this.saldos.get(ev.autor + '\u0000P:' + a) ?? 0), 0);
+    const pSobre = (reg) => this.tiene(ev.autor, 'P:' + reg);
     const aCosa = (m) => esCosa(m.a) && (this.persona(ev.autor) || !this.existe.has(m.a) || duenoDe(m.a) === ev.autor || duenoDe(m.a) === duenoDe(ev.autor) || pSobre(this.alta.get(m.a)) > 0);
     if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
-    if (!this.cicloOk(ev)) return null;
-    const emitidasAqui = new Set();
+    if (!this.reglasOk(ev)) return null;
+    const vista = new Map(this.saldos);
+    const vistaB = new Map(this.bloqueados);
+    const emitido = new Map(this.emitido);
+    const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
+    const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     // La asignación diaria (VG, 8-11): lo que una persona gasta de su T sale primero de lo que le queda del día.
     const gastadoAqui = new Map();
     const queda = (e) => ASIGNACION[e] - (this.gastado.get(ev.autor + e) ?? 0) - (gastadoAqui.get(e) ?? 0);
+    const nuevos = new Set();
     for (const m of ev.movimientos) {
       const k = this.clave(m);
       if (m.de === null) {
-        if (m.token === 'P') emitidasAqui.add(m.ambito);
+        if (m.token !== 'P') {
+          emitido.set(k, (emitido.get(k) ?? 0) + m.cantidad);
+          if (!Number.isFinite(emitido.get(k))) return null; // la serie no admite tanto
+        }
         poner(m.a, k, ver(m.a, k) + m.cantidad);
+        nuevos.add(m.a);
         continue;
       }
-      if (m.de !== ev.autor) return null;
       if (m.estado === 'bloqueo') {
-        // Bloquear: del disponible de la clave exacta a lo bloqueado del mismo titular.
         if (ver(m.de, k) < m.cantidad) return null;
         poner(m.de, k, ver(m.de, k) - m.cantidad);
+        const llave = m.de + '\u0000' + k + '\u0000' + m.salida;
+        vistaB.set(llave, (vistaB.get(llave) ?? 0) + m.cantidad);
         continue;
       }
-      if (m.token === 'P') {
-        if (m.ambito !== 'genesis' && !this.padre.has(m.ambito)) return null;
-        // R3: estrechar (tomar de un ámbito que cubre) no vale hacia una serie cerrada, y hacia la raíz de un
-        // dominio (un registro sobre el génesis) solo lo hace su autor.
-        if (m.ambito !== 'genesis' && m.ambito !== this.g && ver(m.de, k) < m.cantidad) {
-          if (this.emitidoDeP(m.ambito) > 0 || emitidasAqui.has(m.ambito)) return null;
-          if (this.padre.get(m.ambito) === this.g && this.autorDe.get(m.ambito) !== ev.autor) return null;
-        }
-        let resta = m.cantidad;
-        for (const a of this.cubren(m.ambito)) {
-          const hay = ver(m.de, 'P:' + a);
-          if (hay <= 0 || resta <= 0) continue;
-          const usa = Math.min(hay, resta);
-          poner(m.de, 'P:' + a, hay - usa);
-          resta -= usa;
-        }
-        if (resta > 0) return null;
-      } else if (m.token === 'T' && m.a !== ev.autor && this.persona(ev.autor)) {
+      if (m.token === 'T' && m.a !== ev.autor && this.persona(ev.autor)) {
         // Gastar T propio (consumirlo o darlo a una cosa): primero la asignación del día, luego el T explícito.
         const usa = Math.min(Math.max(0, queda(m.escala)), m.cantidad);
         if (ver(m.de, k) < m.cantidad - usa) return null;
@@ -218,21 +215,32 @@ class Modelo {
         if (ver(m.de, k) < m.cantidad) return null;
         poner(m.de, k, ver(m.de, k) - m.cantidad);
       }
-      if (m.a !== null) poner(m.a, k, ver(m.a, k) + m.cantidad);
+      if (m.a !== null) { poner(m.a, k, ver(m.a, k) + m.cantidad); nuevos.add(m.a); }
+    }
+    // La obtención (mapa §15 N1, N2; las reglas que escriben de la época): después de los movimientos.
+    const obtenidoAqui = new Set();
+    const obtiene = (regla, id, reg) => {
+      const vez = JSON.stringify([regla, id, reg]);
+      if (!id || !reg || this.obtenido.has(vez) || obtenidoAqui.has(vez)) return;
+      obtenidoAqui.add(vez);
+      poner(id, 'P:' + reg, ver(id, 'P:' + reg) + 10);
+      nuevos.add(id);
+    };
+    obtiene(OBTENCIONES[0], ev.autor, ev.id);
+    for (const m of ev.movimientos) {
+      if (m.de === null || m.a === null || m.estado !== undefined) continue;
+      // Revisión de seguridad (encargo 3b): una vez por regla, receptor y registro (sea cual sea la serie); E, solo a quien ya tiene alta y no la emite.
+      if (m.token === 'E' && m.a !== m.de && m.a !== m.emisor && this.existe.has(m.a)) obtiene(OBTENCIONES[1], m.a, this.registroE(m));
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor));
     }
     return () => {
       this.saldos = vista;
+      this.bloqueados = vistaB;
+      this.emitido = emitido;
+      for (const vez of obtenidoAqui) this.obtenido.add(vez);
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
-      // B1: su propia alta abre la cuenta de quien escribe sin tenerla.
-      if (!this.existe.has(ev.autor)) { this.existe.add(ev.autor); this.alta.set(ev.autor, ev.id); }
-      for (const m of ev.movimientos) {
-        if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
-        if (m.a !== null) this.existe.add(m.a);
-        if (m.de === null && m.token === 'P') this.emitidoP.set(m.ambito, (this.emitidoP.get(m.ambito) ?? 0) + m.cantidad);
-        if (m.de === null && m.token === 'R') this.emitidoR.set('R:' + m.emisor, (this.emitidoR.get('R:' + m.emisor) ?? 0) + m.cantidad);
-        if (m.estado === 'bloqueo' && m.token === 'R') this.colateral.set(m.de + '\u0000' + m.salida, (this.colateral.get(m.de + '\u0000' + m.salida) ?? 0) + m.cantidad);
-      }
+      for (const id of nuevos) if (!this.existe.has(id)) { this.existe.add(id); this.alta.set(id, ev.id); }
       for (const [e, n] of gastadoAqui) this.gastado.set(ev.autor + e, (this.gastado.get(ev.autor + e) ?? 0) + n);
     };
   }
@@ -253,46 +261,60 @@ function movAleatorio(g, autor, ids, conocidos) {
   return { token: 'R', emisor, cantidad, de: de === null ? null : g.si(0.6) ? emisor : de, a: de === null && g.si(0.8) ? emisor : a };
 }
 
+/** Un paso de reposición al azar: quemar P propio en un registro y acuñarlo en su padre o en un hijo, a veces mal. */
+function reposicionAleatoria(g, eje, autor) {
+  const conP = eje.poderes(autor).filter((p) => p.cantidad > 0 && eje.obtener(p.ambito));
+  if (!conP.length) return [];
+  const { ambito, cantidad } = g.pick(conP);
+  const q = Math.min(cantidad, g.pick([1, 2, 10]));
+  const padre = eje.obtener(ambito).sobre;
+  const hijos = eje.sobre(ambito);
+  const arriba = padre && g.si(0.5);
+  const destino = arriba ? padre : hijos.length ? g.pick(hijos).id : padre;
+  if (!destino) return [];
+  const factor = destino === padre ? 0.1 : 1.1;
+  return [{ token: 'P', ambito, cantidad: q, de: autor, a: null }, { token: 'P', ambito: destino, cantidad: g.si(0.85) ? q * factor : q, de: null, a: autor }];
+}
+
 const fam = (k) => (k.startsWith('P:') ? 'P' : k);
 const fotoEje = (e) => JSON.stringify({ o: e.orden, s: [...e.saldos].map(([k, v]) => [k, [...v]]), se: e.series(), t: e.identidades().map((i) => [i, e.esPersona(i)]), p: e.identidades().map((i) => e.poderes(i)) });
 
 /**
- * El eje acepta exactamente lo que acepta el modelo y deja los mismos saldos;
- * conservación por serie (P por familia); claves de serie reversibles
- * (partirClave ∘ claveToken); solo personas emiten; el poder sobre
- * un registro nunca es menor que sobre su padre; y la VERSION 2 restaura
- * series, tipos y poderes tal cual. El fuzz largo (40 000 casos) no encontró
- * diferencias.
+ * El eje acepta exactamente lo que acepta el modelo y deja los mismos saldos; conservación por serie (P por familia),
+ * con lo acuñado del libro (la emisión, la asignación de T y la obtención de P); claves de serie reversibles
+ * (partirClave ∘ claveToken); solo personas emiten (P no se emite: se obtiene); quien escribe un registro tiene diez P
+ * sobre él (N1); y la VERSION restaura series, personas y poderes tal cual.
  */
-test('propiedad: series de tokens contra un modelo — emisión por emisor, delegación de P, R no fungible, separadores, VERSION 2', async () => {
-  const vistos = { delegaEstrechando: 0, emiteOtro: 0, rechazoSeparador: 0, rNoEmisor: 0 };
+test('propiedad: series de tokens contra un modelo — emisión por emisor, P obtenido y reposicionado, R entre tenedores, separadores, VERSION', async () => {
+  const vistos = { mueveP: 0, reposiciona: 0, emiteOtro: 0, rechazoSeparador: 0, rEntreTenedores: 0 };
   for (let s = 0; s < 14; s++) {
     const g = prng(SEMILLA + s);
-    // VG, 7-11 noche: el génesis lo emite una persona: su autor escribe su propia alta (B1). Y no emite T (VG, 8-11:
-    // no hay T acumulable): su autor vive de su asignación del día.
-    const emision = [['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: AYER });
-    const mod = new Modelo(eje.genesisId, 'r', emision, AYER);
-    // B1: b, una persona, escribe su propia alta; c y hab son cosas: las da de alta r.
-    const deB = { autor: 'b', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('b')], payload: 'alta de b' };
-    const evB = await eje.escribir(deB);
-    mod.probar({ ...deB, id: evB.id })();
-    const ids = [eje.genesisId];
-    const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta' };
+    // VG, 7-11 noche: emite una persona: el autor del génesis, la primera identidad del eje (B1). El génesis no mueve
+    // nada (encargo 3b): lo que emite r va en una transacción suya. Y no emite T (VG, 8-11).
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'R', emisor: 'r', cantidad: 6 }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }], foco: 'g', t: AYER });
+    // B1: b, una persona, entra aceptando la invitación de r (encargo 3b); c y hab son cosas: las da de alta r.
+    await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: AYER });
+    const ids = [...eje.orden];
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: eje.genesisId, cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta' };
     const ev0 = await eje.escribir(alta);
-    mod.probar({ ...alta, id: ev0.id })();
-    consumido.set('T:minuto', 2); // el alta de b y la de r
-    ids.push(evB.id, ev0.id);
+    ids.push(ev0.id);
+    // Revisión de seguridad (encargo 3b): escribir sobre el alta de otra persona tiene el precio de su atención; los
+    // registros al azar cuelgan de los demás (el modelo no cobra atención).
+    const altasDePersonas = new Set([eje.genesisId, eje.alta('b').id]);
+    const sobres = ids.filter((id) => !altasDePersonas.has(id));
+    const mod = new Modelo(eje);
     for (let paso = 0; paso < 30; paso++) {
       const conocidos = [...mod.existe];
       const autor = g.si(0.9) ? g.pick(conocidos) : g.pick(IDS);
       const movimientos = [gastaT(autor)];
       for (let i = 0; i < g.int(0, 3); i++) movimientos.push(movAleatorio(g, autor, ids, conocidos));
-      // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia),
-      // con su colateral (R6: la décima parte, bloqueada con la salida = la serie). Las emisiones de R al azar
-      // (movAleatorio) van sin colateral: el modelo y el eje las rechazan igual.
-      if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 0.5, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor });
+      // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia).
+      if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor });
+      // Y a veces, un paso de reposición de P (bien o mal hecho).
+      if (g.si(0.2)) movimientos.push(...reposicionAleatoria(g, eje, autor));
+      // Y a veces, pasar R ajena que tiene a otro tenedor (VG, 9-11, mapa §15 [D] «R según el corpus»).
+      const ajenas = [...(eje.saldos.get(autor) ?? [])].filter(([k, v]) => k.startsWith('R:') && k !== 'R:' + autor && v > 0);
+      if (ajenas.length && g.si(0.3)) movimientos.push({ token: 'R', emisor: g.pick(ajenas)[0].slice(2), cantidad: 1, de: autor, a: g.pick(conocidos) });
       // B1: no hay tipo; a veces un alta lo declara igual (y se rechaza), y a veces se da de alta a una cosa nueva.
       const contexto = g.si(0.05) ? { tipos: { [g.pick(IDS)]: g.pick(['persona', 'grupo', 'cosa', 'robot']) } } : {};
       if (g.si(0.3)) {
@@ -300,7 +322,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
         // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
         if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
-      const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
+      const datos = { autor, sobre: g.si(0.95) ? g.pick(sobres) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
       const antes = fotoEje(eje);
       let ev = null;
       try { ev = await eje.escribir(datos); } catch (e) {
@@ -308,39 +330,40 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
         assert.match(e.message, /evento (rechazado|mal formado)/);
         assert.equal(fotoEje(eje), antes, 'un rechazo no cambia nada');
         if (/no puede llevar \| : ni \//.test(e.message)) vistos.rechazoSeparador++;
-        if (/R no es fungible/.test(e.message)) vistos.rNoEmisor++;
       }
-      const aplicar = mod.probar({ ...datos, id: ev?.id });
+      const aplicar = mod.probar({ ...datos, id: ev?.id ?? 'candidata' });
       assert.equal(Boolean(ev), Boolean(aplicar), 'el eje y el modelo discrepan en ' + JSON.stringify(datos));
       if (!ev) continue;
       aplicar();
       ids.push(ev.id);
+      sobres.push(ev.id);
       for (const m of ev.movimientos) {
-        if (m.token === 'P' && m.de !== null && m.ambito !== 'genesis') vistos.delegaEstrechando++;
+        if (m.token === 'P' && m.de !== null && m.a !== null) vistos.mueveP++;
+        if (m.token === 'P' && m.de === null) vistos.reposiciona++;
         if (m.de === null && ev.autor !== 'r') vistos.emiteOtro++;
-        if (m.a === null) consumido.set(fam(claveToken(m)), (consumido.get(fam(claveToken(m))) ?? 0) + m.cantidad);
+        if (m.token === 'R' && m.de !== null && m.de !== m.emisor && m.a !== null && m.a !== m.emisor && m.estado === undefined) vistos.rEntreTenedores++;
       }
       for (const [idk, v] of mod.saldos) {
         const [id, k] = idk.split('\u0000');
-        assert.equal(eje.saldo(id, k), v, id + ' ' + k);
+        assert.ok(Math.abs(eje.saldo(id, k) - v) < 1e-9, id + ' ' + k + ': eje ' + eje.saldo(id, k) + ', modelo ' + v + ' tras ' + JSON.stringify(datos));
       }
+      // Conservación, con lo acuñado y lo quemado del libro, de todas las clases.
       const total = new Map();
       for (const [, m] of eje.saldos) for (const [k, v] of m) total.set(fam(k), (total.get(fam(k)) ?? 0) + v);
       for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) total.set(fam(b.clave), (total.get(fam(b.clave)) ?? 0) + b.cantidad);
-      const emitido = new Map();
-      // T (VG, 8-11): lo que sale de las asignaciones diarias entra sin emitirse (deAsignacion).
-      for (const se of eje.series()) emitido.set(fam(se.clave), (emitido.get(fam(se.clave)) ?? 0) + se.emitido + (se.deAsignacion ?? 0));
-      for (const [k, e] of emitido) assert.equal((total.get(k) ?? 0) + (consumido.get(k) ?? 0), e, 'conservación de ' + k);
+      const acunado = new Map();
+      for (const [k, v] of Object.entries(eje.libro.sumas({ primitiva: 'acunar' }))) acunado.set(fam(k), (acunado.get(fam(k)) ?? 0) + v);
+      const quemado = new Map();
+      for (const [k, v] of Object.entries(eje.libro.sumas({ primitiva: 'quemar' }))) quemado.set(fam(k), (quemado.get(fam(k)) ?? 0) + v);
+      for (const [k, e] of acunado) assert.ok(Math.abs((total.get(k) ?? 0) + (quemado.get(k) ?? 0) - e) < 1e-6, 'conservación de ' + k);
       for (const se of eje.series()) {
         assert.equal(claveToken(partirClave(se.clave)), se.clave);
         if (se.token === 'E' || se.token === 'R') assert.equal(se.emisor, partirClave(se.clave).emisor);
-        // Solo emiten personas, a su nombre (VG, 8-11): quien escribió su propia alta (B1).
-        assert.ok(se.emisor === 'r' || eje.esPersona(se.emisor) === true, se.clave + ' la emite ' + se.emisor);
+        // Solo emiten personas, a su nombre (VG, 8-11): quien escribió su propia alta (B1). P no se emite: se obtiene.
+        if (se.token !== 'P') assert.ok(eje.esPersona(se.emisor) === true, se.clave + ' la emite ' + se.emisor);
       }
-      for (const id of conocidos) {
-        const x = ev.id;
-        assert.ok(eje.poderSobre(id, x) >= eje.poderSobre(id, ev.sobre), 'el poder sobre un hijo no baja del poder sobre su padre');
-      }
+      // N1: escribir un registro propio da diez P sobre él.
+      assert.ok(eje.poderSobre(ev.autor, ev.id) >= 10, 'quien escribe obtiene P sobre su registro');
     }
     const datos = ida(eje);
     const copia = JSON.stringify(datos);
@@ -350,6 +373,19 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
     assert.equal(fotoEje(otro), fotoEje(eje));
   }
   assert.ok(Object.values(vistos).every((n) => n > 0), JSON.stringify(vistos));
+});
+
+test('regresión (encargo 3b): pasarse a uno mismo R ajena no da P sobre el alta de su emisor', async () => {
+  // La regla «receiving R gives ten P…» pedía solo que quien recibe no fuera el emisor: un tenedor que se pasaba a sí
+  // mismo R ajena obtenía diez P sobre el alta del emisor en cada registro, sin que nadie le cediera atención. Ahora
+  // solo da P la R que llega de su emisor, y una vez por titular y registro (revisión de seguridad).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'R', emisor: 'r', cantidad: 2 }], foco: 'g', t: AYER });
+  await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: AYER });
+  const raiz = 'P:' + eje.alta('r').id;
+  const antes = eje.saldo('b', raiz);
+  // Bajo el alta propia de b (escribir sobre el alta de r tendría el precio de su atención: revisión de seguridad).
+  await eje.escribir({ autor: 'b', sobre: eje.alta('b').id, t: T0, movimientos: [gastaT('b'), { token: 'R', emisor: 'r', cantidad: 1, de: 'b', a: 'b' }], payload: 'yo a mí' });
+  assert.equal(eje.saldo('b', raiz), antes);
 });
 
 test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuál, y nada a medias se restaura', async () => {
@@ -808,8 +844,11 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
 const dia = (n) => new Date(Date.parse('2026-11-12') + n * 86400000).toISOString().slice(0, 10);
 // Los minutos que se pasaban ya no se dan: T no cruza de persona (VG, 7-11 noche); se ignoran.
 async function altaHuesped(eje, id, eur) {
-  await eje.entrar({ identidad: id, t: '2026-11-08T08:00:00Z' }); // B1: la persona escribe su propia alta
-  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]] });
+  // B1: la persona escribe su propia alta, aceptando la invitación de la casa (encargo 3b).
+  // Revisión de seguridad (encargo 3b): la aceptación no se fecha antes del último t del libro.
+  const t = new Date(Math.max(Date.parse('2026-11-08T08:00:00Z'), eje.tMaximo())).toISOString();
+  await entrarPorInvitacion(eje, { por: BK.CASA, quien: id, t });
+  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t, movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]] });
 }
 
 /**
@@ -817,9 +856,12 @@ async function altaHuesped(eje, id, eur) {
  * noches dentro y fuera de la temporada, solapes) y confirmaciones en orden
  * aleatorio. Con minutos de sobra: cada serie «<plaza>@<noche>» se conserva y
  * nunca pasa de la capacidad; una reserva solo queda entregada si queda
- * pagada (y al revés), por el total de su 1.3; lo que la comprobación previa
- * rechaza no escribe nada.
+ * pagada (y al revés), por el total de su 1.3, y entonces está cerrada (la
+ * plantilla de la reserva: lo anunciado pasó); lo que la comprobación previa
+ * rechaza no escribe nada. Encargo 3b: cada parte escribe su movimiento sobre
+ * la reserva (la entrega, de la casa; el pago, de quien reserva).
  */
+const parte = (eje, r, autor, titulo) => eje.sobre(r.id).some((e) => e.autor === autor && e.payload === titulo);
 test('propiedad: Booking — series de plaza conservadas y acotadas por la capacidad; entregada ⇔ pagada; la comprobación previa no escribe', async () => {
   const vistos = { confirmada: 0, solape: 0, sinDinero: 0 };
   for (let s = 0; s < 6; s++) {
@@ -852,10 +894,10 @@ test('propiedad: Booking — series de plaza conservadas y acotadas por la capac
         assert.ok(se.emitido <= 2, 'capacidad');
       }
       for (const r of reservas) {
-        const cs = consolidaciones(eje, r.id);
-        const entregada = cs.some((c) => c.autor === BK.CASA && c.estado === 'EJECUTADO');
-        const pagada = cs.some((c) => c.autor === r.autor && c.estado === 'EJECUTADO');
+        const entregada = parte(eje, r, BK.CASA, 'Plaza entregada');
+        const pagada = parte(eje, r, r.autor, 'Pagada');
         assert.equal(entregada, pagada, 'entregada ⇔ pagada en ' + r.id.slice(0, 8));
+        assert.equal(cerrado(eje, r.id).cerrado, pagada, 'cerrada ⇔ entregada y pagada en ' + r.id.slice(0, 8));
         if (pagada && pagado.has(r.id)) assert.equal(pagado.get(r.id), B.evaluar(eje, r.id, [1, 3]).valor.cantidad);
       }
     }
@@ -871,8 +913,7 @@ test('regresión Booking: sin minutos para pagar, la plaza no se entrega sin cob
   await altaHuesped(eje, 'h0', 30, 18);
   const r = await BK.reservar(eje, { autor: 'h0', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
   await BK.confirmarReserva(eje, r).catch(() => {});
-  const estados = consolidaciones(eje, r.id).map((c) => [c.autor, c.estado]);
-  assert.ok(!estados.some(([autor, estado]) => autor === BK.CASA && estado === 'EJECUTADO') || estados.some(([autor, estado]) => autor === 'h0' && estado === 'EJECUTADO'), JSON.stringify(estados));
+  assert.ok(!parte(eje, r, BK.CASA, 'Plaza entregada') || parte(eje, r, 'h0', 'Pagada'));
 });
 
 test('regresión Booking: reservar sin minutos para las noches no deja una reserva sin su 7', async () => {
@@ -881,7 +922,7 @@ test('regresión Booking: reservar sin minutos para las noches no deja una reser
   const n0 = eje.orden.length;
   // Sin T que se agote, la reserva y sus noches entran las dos: nunca una reserva sin su 7.
   const r = await BK.reservar(eje, { autor: 'h1', habitacion, plaza: BK.PLAZAS.litera, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T18:30:00Z' });
-  assert.equal(eje.orden.length, n0 + 2);
+  assert.equal(eje.orden.length, n0 + 2 + 2); // la reserva, sus noches y lo que anuncia (una noche y el pago: encargo 3b)
   assert.ok(eje.sobre(r.id, '7000000000').length > 0, 'la reserva tiene su tramo en el 7');
 });
 
@@ -924,11 +965,13 @@ test('propiedad: Tasks — la fórmula del 9 elige el primer presupuesto que cab
   assert.ok(Object.values(vistos).every((n) => n > 0), JSON.stringify(vistos));
 });
 
+// TK-01 ya no se salta: R8, elegibilidad antes que límites (src/elegibles.js; mapa §14 [D] «Quién ocupa una posición
+// ajena»): el BUSCAR del 9 de la tarea ya no ve el presupuesto de la casa, que no está en su 3.
 test('regresión Tasks: por defecto solo cuentan los ocupantes del autor y de quien aparece en el 3',
-  { skip: 'TK-01: mapa §14 [D] «Quién ocupa una posición ajena» (VG, 7-11 noche): «Ser ELEGIBLE lo decide el criterio del dueño (fórmulas de su posición 2; por defecto, si el registro no dice nada, cuentan solo los ocupantes del propio autor y los de quien aparece en su posición 3)». Sin implementar: ejemplos/ikisai/tarea-tasks.mjs l.52-58 lo sigue marcando [X] y la fórmula del 9 elige el presupuesto de la casa, que no está en el 3, y uno suyo en otra unidad deja el 9 INCOMPATIBLE (fuzz 2, semillas 17000 y 17014). Falta decidir dónde vive la regla por defecto (encaje, BQL o motor)' },
   async () => {
     const { eje, tarea } = await TK.ejemploTarea({ hasta: 'tarea' });
     const ajeno = await escribirDesde(eje, { modo: 'sequenced', autor: 'casa', sobre: tarea.id, en: tarea.payload[5], t: '2026-11-07T12:00:00Z', payload: ['Presupuesto de la casa', '300 EUR', '5 h', 'casa'] });
     const r = B.evaluar(eje, tarea.id, [9]);
-    assert.ok(!r.valor?.items?.some((x) => x.evento === ajeno.id), 'la casa no está en el 3 de la tarea');
+    assert.equal(r.estado, 'RESUELTO', r.texto);
+    assert.ok(!r.valor.items.some((x) => x.evento === ajeno.id), 'la casa no está en el 3 de la tarea');
   });

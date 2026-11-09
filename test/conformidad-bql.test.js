@@ -20,18 +20,22 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { consultar, evaluar, ESTADOS, SUBTIPOS_PENDIENTE, LIMITES, esPendiente } from '../src/bql.js';
-import { consolidar, estadoDe, consolidaciones } from '../src/motor.js';
+// Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): consolidaciones() y estadoDe() se retiraron; la lista de
+// propuestas de un foco es motor.propuestas y su estado, la lectura motor.cerrado.
+import { consolidar, cerrado, propuestas } from '../src/motor.js';
 
 const T0 = '2026-11-07T10:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 
-/** Un eje mínimo: la raíz tiene tiempo y poder; su foco es el payload dado. */
+/**
+ * Un eje mínimo: la raíz tiene tiempo; su foco es el payload dado. Encargo 3b (mapa §15 [D] «P como peso de
+ * criterio»): el génesis ya no emite P a mano; la raíz obtiene su P al escribir.
+ */
 async function ejeCon(payload) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
-    emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }],
     foco: payload,
     t: T0,
   });
@@ -643,7 +647,7 @@ test('O-27 las consultas son puras: BUSCAR, FILTRAR, REF, ELEGIR y evaluar una f
   c('ELEGIR(ORDENAR(' + ESCRITOS + ', ACTUAL(1), "desc"), 2)');
   assert.equal(evaluar(eje, condicionada.id, [7]).estado, 'RESUELTO');
   assert.equal(huella(eje), antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('O-28 ORDENAR ordena por un criterio evaluado en cada candidato, puede discrepar del encaje y es estable', async () => {
@@ -683,7 +687,7 @@ test('O-30 ELEGIR deja una propuesta como valor: no publica ni consolida', async
   assert.deepEqual(uno.valor.items.map(nombre), ['A']);
   assert.deepEqual(c('ELEGIR(ORDENAR(' + ESCRITOS + ', ACTUAL(1)), 2)').valor.items.map(nombre), ['A', 'B']);
   assert.equal(huella(eje), antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('O-32 colecciones: los candidatos conservan identidad, orden y referencias; su valor se lee bajo demanda', async () => {
@@ -794,13 +798,18 @@ test('E-07 relación circular navegable; dependencia circular de valores (tambi�
   assert.equal(consultar(eje, plan2.id, [1], 'CONTAR(FILTRAR(FILTRAR(BUSCAR(1), ORIGEN() = "escrito"), ACTUAL(1) = "b"))').texto, '1');
 });
 
-test('E-08 PENDIENTE DE AUTORIZACIÓN es un estado operativo de la consolidación, no un estado de cálculo', async () => {
+// Antes: «PENDIENTE DE AUTORIZACIÓN es un estado operativo de la consolidación, no un estado de cálculo». Encargo 3b
+// (mapa §15 [D]; N5: «cerrado se establece por proceso»): no hay autorización; lo operativo es la lectura de cerrado de
+// la propuesta (motor.cerrado), que tampoco es un estado de cálculo.
+test('E-08 abierta o cerrada es una lectura del proceso sobre la propuesta, no un estado de cálculo', async () => {
   const { eje, id } = await ejeCon(['Casa']);
   const plan = await escribe(eje, id, ['Plan', 'a', '=1 + 1']);
-  assert.ok(!ESTADOS.includes('PENDIENTE DE AUTORIZACIÓN'));
-  assert.equal(evaluar(eje, plan.id, [2]).estado, 'RESUELTO'); // la fórmula no sabe de autorizaciones
+  for (const x of ['PENDIENTE DE AUTORIZACIÓN', 'ABIERTA', 'CERRADA', 'CERRADO']) assert.ok(!ESTADOS.includes(x), x);
+  assert.equal(evaluar(eje, plan.id, [2]).estado, 'RESUELTO'); // la fórmula no sabe de procesos
   const cons = await consolidar(eje, { autor: 'raiz', foco: plan.id, t: T0, elecciones: { 1: 'propuesta' } });
-  assert.equal(estadoDe(eje, cons.id), 'PENDIENTE DE AUTORIZACIÓN');
+  const lectura = cerrado(eje, cons.id);
+  assert.deepEqual([lectura.cerrado, lectura.plantilla], [true, 'all announced movements happened']); // nada anunciado
+  assert.ok(!ESTADOS.includes(lectura.plantilla));
   assert.equal(evaluar(eje, plan.id, [2]).estado, 'RESUELTO'); // y sigue sin saberlo
 });
 
@@ -910,7 +919,7 @@ test('E-16 ELEGIR selecciona y deja la propuesta como valor; convertirla en regi
   assert.equal(r.valor.tipo, 'coleccion');
   assert.equal(r.valor.items[0].evento, A.id);
   assert.equal(eje.orden.length, antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('E-17 evaluar una cadena «=» no ejecuta nada, tampoco en la posición 7', async () => {
@@ -920,7 +929,7 @@ test('E-17 evaluar una cadena «=» no ejecuta nada, tampoco en la posición 7',
   const r = evaluar(eje, futuro.id, [7]);
   assert.equal(r.estado, 'RESUELTO');
   assert.equal(huella(eje), antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
   assert.equal(c('CONTAR(BUSCAR(7))').texto, '0');
 });
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
-import { consolidar, autorizar, ejecutar, liberar, proponer, FABRICA } from '../src/motor.js';
+import { consolidar, registrar, siguiente, proponer, ANUNCIO } from '../src/motor.js';
 import { efectosDe, verEn, MARCAS_EFECTO } from '../src/efectos.js';
 import { serializar } from '../src/persistencia.js';
 import {
@@ -9,28 +9,39 @@ import {
 } from '../mundos/camino.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+/** Un movimiento anunciado en el 4.1 de una propuesta por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
 const T = '2026-11-07T16:00:00Z';
 
-/** La compra con su cuenta, una consolidación ejecutada, otra autorizada y otra pendiente. */
+// Encargo 3b (VG, 8-11; mapa §15 [D] «Una sola operación: registrar»): no hay autorizar ni ejecutar ni estados del
+// motor; una propuesta está abierta mientras le falta algo de lo que su dueño anunció y cerrada cuando ha pasado (N5),
+// y cada uno mueve lo suyo. El camino ya no tiene pasos «autorizar» y «ejecutar»: tiene «siguiente» (motor.siguiente:
+// lo que me falta mover, con su transacción, y lo que espera de otros), y lo cerrado va junto a la acción (N6: «las
+// fases las nombra el proceso»). Las pruebas de antes se reescriben sobre esa lectura.
+
+/**
+ * La compra con su cuenta y tres propuestas de la huésped: una cerrada (anunció un pago y lo hizo), otra que espera a
+ * la casa (anunció que la casa le devuelve un euro) y otra que le toca a ella (anunció un pago que aún no ha hecho).
+ */
 async function ciclo() {
   const { eje, compra, menu, alta } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
-  const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
-  const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:25:00Z' });
-  const ejec = await ejecutar(eje, { autor: 'huesped', consolidacion: hecha.id, t: '2026-11-07T14:40:00Z' });
-  // Autorizar es bloquear P (VG, 7-11 noche): ejecutada, la casa libera el suyo, y para la siguiente bloquea 6 de sus
-  // 10 (más de la mitad), así que le quedan 4 con los que aún puede autorizar.
-  await liberar(eje, { titular: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:45:00Z' });
-  const autorizada = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, cantidad: 6, t: '2026-11-07T14:55:00Z' });
-  const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & café' });
-  return { eje, compra, menu, alta, cuenta, hecha, aut, ejec, autorizada, aut2, pendiente };
+  const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & café' });
+  await registrar(eje, { autor: 'huesped', sobre: hecha.id, en: ANUNCIO, t: '2026-11-07T14:25:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
+  const ejec = await registrar(eje, { ...siguiente(eje, hecha.id, 'huesped').faltaDeMi[0].transaccion, t: '2026-11-07T14:40:00Z' });
+  const espera = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+  const anuncioEspera = await registrar(eje, { autor: 'huesped', sobre: espera.id, en: ANUNCIO, t: '2026-11-07T14:55:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 1, 'devolver', 'casa', 'huesped') });
+  const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
+  await registrar(eje, { autor: 'huesped', sobre: pendiente.id, en: ANUNCIO, t: '2026-11-07T14:59:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 3, 'pagar', 'huesped', 'cocina') });
+  return { eje, compra, menu, alta, cuenta, hecha, ejec, espera, anuncioEspera, pendiente };
 }
 
 const paso = (d, tipo) => d.pasos.find((p) => p.tipo === tipo);
+/** El paso «siguiente» de la propuesta `evento` (lo que falta en ella). */
+const falta = (d, evento) => d.pasos.find((p) => p.tipo === 'siguiente' && p.evento === evento);
 
 test('pasos: del foco hacia la acción, en orden, leídos del motor', async () => {
-  const { eje, compra, hecha, ejec, autorizada, aut2, pendiente } = await ciclo();
+  const { eje, compra, hecha, ejec, espera, pendiente } = await ciclo();
   const n = eje.orden.length;
   const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
   assert.equal(eje.orden.length, n, 'no escribe');
@@ -43,49 +54,55 @@ test('pasos: del foco hacia la acción, en orden, leídos del motor', async () =
   const prop = paso(d, 'propuesta');
   assert.equal(prop.elecciones, Object.keys(proponer(eje, compra.id).elecciones).length);
   assert.equal(prop.titulo, tituloPropuesta(eje, compra.id));
-  // Consolidaciones: la pendiente pide autorizar; la autorizada, ejecutar; la ejecutada está junto a la acción.
-  assert.equal(paso(d, 'autorizar').evento, pendiente.id);
-  assert.equal(paso(d, 'ejecutar').evento, autorizada.id);
-  assert.equal(paso(d, 'ejecutar').autorizacion.id, aut2.id);
+  // Lo que falta, de motor.siguiente: a la pendiente le falta el pago de la huésped (con la transacción que lo
+  // cumple); a la otra, lo que espera de la casa. La cerrada está junto a la acción, con el registro que la cerró.
+  assert.deepEqual(d.pasos.filter((p) => p.tipo === 'siguiente').map((p) => [p.evento, p.de]), [[espera.id, 'casa'], [pendiente.id, 'huesped']]);
+  assert.deepEqual(falta(d, pendiente.id).transaccion, siguiente(eje, pendiente.id, 'huesped').faltaDeMi[0].transaccion);
+  assert.equal(falta(d, pendiente.id).titulo, 'mover 3 E:casa/EUR de huesped a cocina');
+  assert.equal(falta(d, espera.id).transaccion, null, 'lo de otro no se lanza');
   assert.deepEqual(d.dados.map((x) => [x.evento, x.ejecucion]), [[hecha.id, ejec.id]]);
   assert.equal(d.totalDados, 1);
   assert.ok(!d.pasos.some((p) => p.evento === hecha.id));
 });
 
-test('quién puede: ejecuta el autor de una consolidación autorizada; autoriza quien tiene P y no es el autor', async () => {
-  const { eje, compra } = await ciclo();
+// Antes: «ejecuta el autor de una consolidación autorizada; autoriza quien tiene P y no es el autor». Encargo 3b (mapa
+// §15 [D]: «el consentimiento no necesita paso de autorizar, porque cada uno solo mueve lo suyo»): registra quien tiene
+// que mover; lo que espera de otro, no.
+test('quién puede: registra quien tiene que mover lo suyo; lo que espera de otro no se lanza', async () => {
+  const { eje, compra, espera, pendiente } = await ciclo();
   const huesped = datosCamino(eje, compra.id, { identidad: 'huesped' });
-  assert.equal(paso(huesped, 'ejecutar').puede.ejecutar, true);
-  assert.equal(paso(huesped, 'autorizar').puede.autorizar, false, 'el autor no se autoriza');
-  assert.equal(paso(huesped, 'autorizar').puede.ejecutar, false);
-  assert.match(paso(huesped, 'autorizar').puede.motivo, /falta autorizar/);
+  assert.equal(falta(huesped, pendiente.id).puede.registrar, true);
+  assert.equal(falta(huesped, espera.id).puede.registrar, false, 'la huésped no mueve lo de la casa');
+  assert.match(falta(huesped, espera.id).puede.motivo, /espera a casa: cada uno mueve lo suyo/);
   const casa = datosCamino(eje, compra.id, { identidad: 'casa' });
-  assert.equal(paso(casa, 'ejecutar').puede.ejecutar, false);
-  assert.match(paso(casa, 'ejecutar').puede.motivo, /ejecuta su autor: huesped/);
-  assert.equal(paso(casa, 'autorizar').puede.autorizar, true);
-  assert.equal(datosCamino(eje, compra.id, { identidad: 'cocina' }).pasos.find((p) => p.tipo === 'autorizar').puede.autorizar, false, 'cocina no tiene P');
+  assert.equal(falta(casa, pendiente.id).puede.registrar, false);
+  assert.match(falta(casa, pendiente.id).puede.motivo, /espera a huesped/);
+  assert.equal(falta(casa, espera.id).puede.registrar, true);
+  const cocina = datosCamino(eje, compra.id, { identidad: 'cocina' });
+  assert.ok(cocina.pasos.filter((p) => p.tipo === 'siguiente').every((p) => p.puede.registrar === false), 'a la cocina no le toca mover nada');
   // Los botones dicen lo mismo.
   const html = htmlCamino(huesped);
-  assert.match(html, new RegExp(`data-ejecutar="${paso(huesped, 'ejecutar').evento}">ejecutar como huesped`));
-  assert.ok(!html.includes(`data-ejecutar="${paso(huesped, 'autorizar').evento}"`), 'una pendiente no se ejecuta');
-  assert.match(html, /<button class="accion" disabled title="falta autorizar/);
+  assert.match(html, new RegExp(`data-registrar="${falta(huesped, pendiente.id).clave}">registrar como huesped`));
+  assert.ok(!html.includes(`data-registrar="${falta(huesped, espera.id).clave}"`), 'lo que espera de la casa no se lanza');
+  assert.match(html, /<button class="accion" disabled title="espera a casa/);
   const htmlCasa = htmlCamino(casa);
-  assert.ok(!/data-ejecutar=/.test(htmlCasa), 'casa no es el autor');
-  assert.match(htmlCasa, new RegExp(`data-autorizar="${paso(casa, 'autorizar').evento}">autorizar como casa`));
+  assert.ok(!htmlCasa.includes(`data-registrar="${falta(casa, pendiente.id).clave}"`), 'la casa no paga por la huésped');
+  assert.match(htmlCasa, new RegExp(`data-registrar="${falta(casa, espera.id).clave}">registrar como casa`));
+  assert.ok(!/data-(autorizar|ejecutar)=/.test(html + htmlCasa), 'sin botones de autorizar ni de ejecutar');
 });
 
 test('efectos: cada paso con el nombre del catálogo, en su mundo y visto desde el camino', async () => {
-  const { eje, compra, ejec } = await ciclo();
+  const { eje, compra, ejec, pendiente } = await ciclo();
   const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
   const prop = paso(d, 'propuesta').efecto;
   assert.deepEqual([prop.tipo, prop.fase, prop.mundo, prop.nombre, prop.enCamino], ['fase', 'consolidado', 4, 'consolidar', 'previsualizar']);
   assert.equal(prop.enCamino, verEn({ tipo: 'fase', fase: 'consolidado' }, 9).nombre);
-  const aut = paso(d, 'autorizar').efecto;
-  assert.deepEqual([aut.fase, aut.mundo, aut.nombre, aut.enCamino], ['autorizado', 4, 'autorizar', null], 'el camino no nombra autorizar');
-  const ej = paso(d, 'ejecutar').efecto;
-  assert.deepEqual([ej.fase, ej.nombre, ej.enCamino], ['ejecutado', 'ejecutar', 'ejecutar']);
-  // Lo ejecutado lleva el efecto de su evento real.
-  assert.equal(d.dados[0].efecto.nombre, efectosDe(eje, ejec.id).find((e) => e.tipo === 'fase').nombre);
+  // Lo que falta se registra sobre la propuesta (en su raíz): el catálogo lo nombra como un registro que sustituye, y
+  // el camino lo ve como un paso adelante (antes eran las fases «autorizado» y «ejecutado», que ya no existen).
+  const sig = falta(d, pendiente.id).efecto;
+  assert.deepEqual([sig.tipo, sig.mundo, sig.nombre, sig.enCamino], ['sustituir', 0, 'mostrar', 'paso adelante']);
+  // Lo cerrado lleva el efecto del registro real que lo cerró.
+  assert.equal(d.dados[0].efecto.nombre, efectosDe(eje, ejec.id).find((e) => e.tipo === 'sustituir').nombre);
   // Una posición sin desarrollar se ancla en su mundo: los hilos del pasado la ven entrar por la izquierda.
   const seis = d.pasos.find((p) => p.clave === 'desarrollar:6').efecto;
   assert.deepEqual([seis.tipo, seis.mundo, seis.nombre], ['anclado', 6, 'entra por la izquierda']);
@@ -118,30 +135,38 @@ test('fórmulas pendientes: un paso por fórmula que no resuelve; las resueltas 
 });
 
 test('previsualizar no escribe: corre la operación real en una copia y enseña lo mismo que se escribiría', async () => {
-  const { eje, compra, autorizada, pendiente } = await ciclo();
+  const { eje, compra, espera } = await ciclo();
   const antes = JSON.stringify(serializar(eje));
   const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
+  const mio = d.pasos.find((p) => p.tipo === 'siguiente' && p.puede.registrar);
 
-  const pe = await previsualizar(eje, d, paso(d, 'ejecutar').clave, { t: T });
+  const pe = await previsualizar(eje, d, mio.clave, { t: T });
   assert.equal(pe.escribe, false);
   assert.equal(pe.como, 'huesped');
-  assert.equal(pe.operacion, 'ejecutar');
-  assert.ok(pe.efectos.some((e) => e.tipo === 'fase' && e.fase === 'ejecutado'));
-  assert.ok(pe.lineas.includes('fábrica · ejecutar · ' + FABRICA));
+  assert.equal(pe.operacion, 'registrar');
+  assert.ok(pe.efectos.some((e) => e.tipo === 'token'), 'mueve lo anunciado');
+  assert.ok(pe.lineas.includes('ciudad · mercancía que fluye · E:casa/EUR · 3 huesped→cocina'));
 
   const pp = await previsualizar(eje, d, 'propuesta', { t: T });
-  const pa = await previsualizar(eje, d, paso(d, 'autorizar').clave, { t: T });
-  assert.equal(pa.como, 'casa', 'autoriza quien puede, aunque mire huesped');
+  // Lo que espera de la casa lo daría la casa, aunque mire la huésped; pero nadie lo lanza por ella.
+  const pa = await previsualizar(eje, d, falta(d, espera.id).clave, { t: T });
+  assert.equal(pa.como, 'casa');
+  assert.match(pa.error, /lo que espera de casa no lo lanza quien mira: cada uno mueve lo suyo/);
+  assert.equal(pa.evento, undefined);
+  // Mirando la casa, el mismo paso es suyo y se previsualiza.
+  const dc = datosCamino(eje, compra.id, { identidad: 'casa' });
+  const pc = await previsualizar(eje, dc, falta(dc, espera.id).clave, { t: T });
+  assert.equal(pc.como, 'casa');
   assert.equal(JSON.stringify(serializar(eje)), antes, 'el eje no ha cambiado');
 
   // Lo que se previsualizó es exactamente lo que el motor escribe con la misma hora.
-  const x = await ejecutar(eje, { autor: 'huesped', consolidacion: autorizada.id, t: T });
+  const x = await registrar(eje, { ...mio.transaccion, t: T });
   assert.deepEqual(pe.evento, { id: x.id, autor: x.autor, sobre: x.sobre, en: x.en, t: x.t, movimientos: x.movimientos, payload: x.payload, contexto: x.contexto });
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, elecciones: proponer(eje, compra.id).elecciones, titulo: tituloPropuesta(eje, compra.id), t: T });
   assert.equal(pp.evento.id, c.id);
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: pendiente.id, t: T });
-  assert.equal(pa.evento.id, a.id);
-  assert.deepEqual(pa.efectos, efectosDe(eje, a));
+  const a = await registrar(eje, { ...falta(dc, espera.id).transaccion, t: T });
+  assert.equal(pc.evento.id, a.id);
+  assert.deepEqual(pc.efectos, efectosDe(eje, a));
 });
 
 test('previsualizar: si el motor lo rechazaría, dice por qué; una posición sin desarrollar enseña dónde y con qué efecto', async () => {
@@ -165,17 +190,19 @@ test('previsualizar: si el motor lo rechazaría, dice por qué; una posición si
   assert.equal(copia.orden.length, eje.orden.length + 1);
 });
 
-test('quién da cada paso: ejecuta el autor; autoriza quien mira si puede, si no la primera identidad con poder', async () => {
-  const { eje, compra } = await ciclo();
+// Antes: «ejecuta el autor; autoriza quien mira si puede, si no la primera identidad con poder». Encargo 3b (mapa §15
+// [D]): lo que falta de alguien lo da él (cada uno mueve lo suyo); lo demás, quien mira.
+test('quién da cada paso: lo que falta de alguien lo da él; la propuesta, quien mira', async () => {
+  const { eje, compra, espera, pendiente } = await ciclo();
   const d = datosCamino(eje, compra.id, { identidad: 'cocina' });
-  assert.equal(actorDe(eje, paso(d, 'ejecutar'), 'cocina'), 'huesped');
-  assert.equal(actorDe(eje, paso(d, 'autorizar'), 'cocina'), 'casa');
-  assert.equal(actorDe(eje, paso(d, 'autorizar'), 'casa'), 'casa');
+  assert.equal(actorDe(eje, falta(d, pendiente.id), 'cocina'), 'huesped');
+  assert.equal(actorDe(eje, falta(d, espera.id), 'cocina'), 'casa');
+  assert.equal(actorDe(eje, falta(d, espera.id), 'casa'), 'casa');
   assert.equal(actorDe(eje, paso(d, 'propuesta'), 'cocina'), 'cocina');
 });
 
 test('svg: función pura; la senda va del foco a la acción y lo nuevo se anima', async () => {
-  const { eje, compra, ejec, autorizada, aut2, pendiente } = await ciclo();
+  const { eje, compra, ejec, espera, anuncioEspera, pendiente } = await ciclo();
   const d = datosCamino(eje, compra.id, { identidad: 'huesped' });
   const svg = svgCamino(d);
   assert.equal(svgCamino(d), svg, 'determinista');
@@ -186,15 +213,17 @@ test('svg: función pura; la senda va del foco a la acción y lo nuevo se anima'
   assert.equal(orden.at(-1), 'meta');
   assert.deepEqual(orden.slice(1, -1), [...d.pasos.map((p) => p.tipo), 'dado']);
   for (const p of d.pasos) assert.ok(svg.includes(`data-previsualizar="${p.clave}"`), p.clave);
-  assert.ok(svg.includes(`data-ir="${ejec.id}"`), 'lo ejecutado lleva a su registro');
+  assert.ok(svg.includes(`data-ir="${ejec.id}"`), 'lo cerrado lleva al registro que lo cerró');
   assert.ok(!svg.includes(' nuevo'), 'sin nuevos, nada se anima');
-  assert.ok(svg.includes('Postre &amp; café') && !svg.includes('<y>'));
-  // Una ejecución nueva consolida su paso; una consolidación nueva aparece; una autorización nueva anuda.
-  const animado = svgCamino(d, { nuevos: new Set([ejec.id, pendiente.id, aut2.id]), previsto: 'propuesta' });
+  assert.ok(svg.includes('Postre &amp; café') && !svg.includes('<y>'), 'el título de lo cerrado, escapado');
+  // El registro nuevo que cierra una propuesta consolida su paso; una propuesta nueva aparece. Encargo 3b: ya no hay
+  // autorización que «anude» un paso (mapa §15 [D]); un anuncio nuevo no anima nada por sí solo.
+  const animado = svgCamino(d, { nuevos: new Set([ejec.id, pendiente.id, anuncioEspera.id]), previsto: 'propuesta' });
   assert.match(animado, new RegExp(`class="paso tipo-dado nuevo consolida" [^>]*data-evento="[0-9a-f]+"[^>]*data-ir="${ejec.id}"`));
   assert.match(animado, /<circle class="onda"/);
-  assert.match(animado, new RegExp(`class="paso tipo-autorizar nuevo aparece" [^>]*data-evento="${pendiente.id}"`));
-  assert.match(animado, new RegExp(`class="paso tipo-ejecutar anuda" [^>]*data-evento="${autorizada.id}"`));
+  assert.match(animado, new RegExp(`class="paso tipo-siguiente nuevo aparece" [^>]*data-evento="${pendiente.id}"`));
+  assert.match(animado, new RegExp(`class="paso tipo-siguiente" [^>]*data-evento="${espera.id}"`));
+  assert.ok(!animado.includes('anuda'));
   assert.match(animado, /class="paso tipo-propuesta previsto"/);
 });
 
@@ -204,8 +233,13 @@ test('celda 9 de Mapped: la senda sin rótulos; lo que no cabe va a un contador'
   const svg = svgCamino(d, { compacto: true });
   assert.ok(svg.startsWith('<svg class="camino compacto" viewBox="0 0 200 124"'));
   assert.ok(!svg.includes('class="rotulo"'));
-  // Muchas consolidaciones pendientes: no caben doce piedras.
-  for (let k = 0; k < 6; k++) await consolidar(eje, { autor: 'cocina', foco: compra.id, t: '2026-11-07T15:0' + k + ':00Z', elecciones: { 1: 'otra ' + k }, titulo: 'Otra ' + k });
+  // Muchas propuestas abiertas: no caben doce piedras. Encargo 3b: sin nada anunciado una propuesta queda cerrada al
+  // escribirse (mapa §15 [D] N5), así que la cocina anuncia en cada una lo que va a pagar.
+  for (let k = 0; k < 6; k++) {
+    const t = '2026-11-07T15:0' + k + ':00Z';
+    const otra = await consolidar(eje, { autor: 'cocina', foco: compra.id, t, elecciones: { 1: 'otra ' + k }, titulo: 'Otra ' + k });
+    await registrar(eje, { autor: 'cocina', sobre: otra.id, en: ANUNCIO, t, movimientos: [gastaT('cocina')], payload: anuncio('E:casa/EUR', 1, 'pagar', 'cocina', 'casa') });
+  }
   const largo = datosCamino(eje, compra.id);
   const c = svgCamino(largo, { compacto: true });
   assert.equal((c.match(/class="paso /g) ?? []).length, 12, 'foco, nueve pasos, el contador y la acción');
@@ -238,18 +272,23 @@ test('la propuesta ya consolidada no vuelve a salir: la senda llega a la acción
   // Lo que se compara es exactamente lo que escribe el motor (sin el título).
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, elecciones: prop.elecciones, titulo: tituloPropuesta(eje, compra.id), t: T });
   assert.deepEqual(eje.obtener(c.id).payload.slice(1), contenidoPropuesto(compra.id, [], prop.elecciones));
+  // Encargo 3b (mapa §15 [D] N5): sin nada anunciado, la propuesta está cerrada en cuanto se escribe.
   let d = datosCamino(eje, compra.id, { identidad: 'huesped' });
   assert.ok(!d.pasos.some((p) => p.tipo === 'propuesta'), 'consolidada: sin paso de propuesta');
-  assert.deepEqual([d.propuestaConsolidada.evento, d.propuestaConsolidada.estado], [c.id, 'PENDIENTE DE AUTORIZACIÓN']);
-  assert.match(htmlCamino(d), /la propuesta del foco ya está consolidada: <button class="enlace" data-ir="[0-9a-f]{64}">[0-9a-f]{8}<\/button> Propuesta sobre .* · pendiente de autorización; consolidarla otra vez, desde la fábrica/);
-  assert.ok(!htmlCamino(d).includes('data-consolidar-propuesta'));
-  // Autorizada y ejecutada, la senda llega a la acción: no queda propuesta, ni autorizar, ni ejecutar.
-  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: '2026-11-07T16:05:00Z' });
-  const x = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: '2026-11-07T16:10:00Z' });
+  assert.deepEqual([d.propuestaConsolidada.evento, d.propuestaConsolidada.estado], [c.id, 'cerrada']);
+  // La huésped anuncia un pago: abierta (antes, «pendiente de autorización») hasta que pague.
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T16:05:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
   d = datosCamino(eje, compra.id, { identidad: 'huesped' });
-  assert.ok(!d.pasos.some((p) => ['propuesta', 'autorizar', 'ejecutar'].includes(p.tipo)));
+  assert.equal(d.propuestaConsolidada.estado, 'abierta');
+  assert.match(htmlCamino(d), /la propuesta del foco ya está consolidada: <button class="enlace" data-ir="[0-9a-f]{64}">[0-9a-f]{8}<\/button> Propuesta sobre .* · abierta; consolidarla otra vez, desde la fábrica/);
+  assert.ok(!htmlCamino(d).includes('data-consolidar-propuesta'));
+  assert.equal(falta(d, c.id).puede.registrar, true);
+  // Pagado lo anunciado, la senda llega a la acción: no queda propuesta ni nada que falte.
+  const x = await registrar(eje, { ...falta(d, c.id).transaccion, t: '2026-11-07T16:10:00Z' });
+  d = datosCamino(eje, compra.id, { identidad: 'huesped' });
+  assert.ok(!d.pasos.some((p) => ['propuesta', 'siguiente'].includes(p.tipo)));
   assert.deepEqual(d.dados.map((p) => p.ejecucion), [x.id]);
-  assert.equal(d.propuestaConsolidada.estado, 'EJECUTADO');
+  assert.equal(d.propuestaConsolidada.estado, 'cerrada');
   // Otra consolidación con otro contenido no tapa la propuesta.
   const { eje: otro, compra: compra2 } = await ejemploCompra();
   await consolidar(otro, { autor: 'huesped', foco: compra2.id, elecciones: { 1: 'agua' }, titulo: 'Agua', t: T });
