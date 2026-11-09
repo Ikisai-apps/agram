@@ -90,7 +90,7 @@ test('inválido a mano: quemar más T del que da la asignación del día; el eje
     payload: ['Un día de 25 horas'],
   });
   const errores = await eje.validar(ev);
-  assert.ok(errores.some((e) => /T del día agotado \(hora\)/.test(e)), errores.join('; '));
+  assert.ok(errores.some((e) => /^writing burns today's T: huesped burns no T, or more T than is left today/.test(e)), errores.join('; '));
   assert.equal(juzgar(eje, ev).pasa, false);
 });
 
@@ -102,7 +102,7 @@ test('lo gastado hoy (A.7.e) cuenta: 23 horas más caben tras la compra; la hora
   assert.equal(juzgar(eje, veintitres).pasa, true, '1 de la compra + 23 = 24: cabe');
   await eje.anadir(veintitres);
   const una = await horas(1, '2026-11-07T21:00:00Z');
-  assert.ok((await eje.validar(una)).some((e) => /T del día agotado/.test(e)));
+  assert.ok((await eje.validar(una)).some((e) => /^writing burns today's T/.test(e)));
   assert.equal(juzgar(eje, una).pasa, false);
   // Al día siguiente la asignación empieza entera (VG, 8-11): la misma hora vuelve a caber.
   const mañana = await horas(1, '2026-11-08T09:00:00Z');

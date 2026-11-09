@@ -271,7 +271,7 @@ las elecciones van en posiciones 1–9
 hueco en 5: elige algo o quita las posiciones siguientes
 fuente desconocida en 1
 Mapped emite como mucho 1000 posiciones; este registro tiene 1001
-evento rechazado: foco desconocido: nadie
+evento rechazado: every record hangs on a record of the ledger: nadie is not one (only the genesis hangs on nothing)
 ok ["Consolidación",["dos","menús"],{"ref":"94800edf","dir":"2000000000"},{"ref":"61aa68f7","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
@@ -510,7 +510,7 @@ console.log(corto(consolidaciones(eje, compra.id)));
 ```text
 PENDIENTE DE AUTORIZACIÓN
 ejecuta el autor de la consolidación: huesped
-evento rechazado: nadie mueve tokens ajenos: cocina no es el autor
+evento rechazado: nobody moves tokens of others: huesped moves from cocina; saldo insuficiente de E:casa/EUR en cocina
 true 4000000000 ["Pagado",{"ref":"65d01b8d"},{"ref":"0c070b82"}]
 {"motor":"fabrica","fase":"ejecutado","evidencia":["65d01b8d","0c070b82"]} [{"token":"T","escala":"minuto","cantidad":3,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}]
 cocina EUR 12 → 26 · huesped EUR 48 → 34 · minutos consumidos en el eje 11 → 14

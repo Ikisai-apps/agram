@@ -168,7 +168,7 @@ test('R6·3 emitir R exige R propia bloqueada con la salida = la serie, la déci
 test('R6·3 sin R a nombre de un grupo (VG, 8-11): cada persona pone su R, con su colateral; nadie emite la de otro', async () => {
   const { eje, alta } = await demo(['bea', 'ana']);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1), colateral('ana', 3, 'bea'), R('bea', 30, null, 'bea')] }),
-    /nadie emite en nombre de otro: bea no es el autor/);
+    /(E is minted by and to|R is minted by) its issuer/);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), colateral('ana', 1)] });
   assert.equal(colateralDe(eje, 'ana', 'ana'), 1);
 });

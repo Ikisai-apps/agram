@@ -281,7 +281,7 @@ for (const n of [23, 24]) {
 
 ```text
 23 horas: pasa | eje: válido
-24 horas: writing burns today's T: huesped burns no T, or more T than is left today (day 20764) | eje: T del día agotado (hora): quedan 23
+24 horas: writing burns today's T: huesped burns no T, or more T than is left today (day 20764) | eje: writing burns today's T: huesped burns no T, or more T than is left today (day 20764)
 ```
 
 ## 10. Las reglas de la época 0
@@ -328,7 +328,7 @@ console.log(await eje.validar(malo));
 3b: minting P or E needs own R at stake: huesped has no R:huesped locked as collateral (exit R:huesped) covering a tenth of what was minted of it, before or in this transaction
 3b: P is minted on one's own record: huesped mints P:61aa68f7143444ac0c86a6251982c4449c94464dfcfadeeee9d5ccb45da69705 on a record they did not write, or on the whole ledger
 [
-  'nadie emite en nombre de otro: casa no es el autor',
+  'E is minted by and to its issuer: huesped mints E of casa, or to someone else',
   'P sobre 61aa68f7 lo acuña solo quien escribió el registro (cocina): huesped puede transferir el P que tenga, no acuñarlo',
   'emitir P exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)',
   'emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)'

@@ -162,7 +162,7 @@ test('la disponibilidad: sus plazas son posiciones 1.k con nombre, precio y capa
   assert.deepEqual(eje.topes(habitacion.id, T, '2026-11-30').map((x) => [x.franja, x.vivo, x.libre]), [['2026-11-30', 0, 4]]);
   // Nadie emite la serie de otro: la persona huésped no puede fabricarse plazas de la casa.
   const falsa = { ...tokenPlaza(habitacion.id, PLAZAS.individual, '2026-11-20', 1, null, CASA) };
-  await assert.rejects(eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: T, movimientos: [minutos('huesped'), falsa], payload: 'plazas' }), /nadie emite en nombre de otro/);
+  await assert.rejects(eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: T, movimientos: [minutos('huesped'), falsa], payload: 'plazas' }), /(E is minted by and to|R is minted by) its issuer/);
 });
 
 test('las referencias no copian: plaza y precio son un solo nodo, y las fórmulas BQL calculan el total y lo componen con el tiempo', async () => {
@@ -296,7 +296,7 @@ test('estado del ciclo: la casa entrega la plaza y la persona huésped paga, cad
   await assert.rejects(ejecutar(eje, { autor: 'recepcion', consolidacion: c.id, t: T }), /ejecuta el autor/);
   // Los tokens de plaza son de la casa: la persona huésped no se los lleva en su propia ejecución.
   const robo = { token: 'E', emisor: CASA, denominacion: denominacionPlaza(PLAZAS.individual, '2026-11-20'), registro: habitacion.id, cantidad: 1, de: CASA, a: 'huesped' };
-  await assert.rejects(ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [pago(165, 'huesped'), robo] }), /nadie mueve tokens ajenos/);
+  await assert.rejects(ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [pago(165, 'huesped'), robo] }), /nobody moves tokens of others/);
   const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [pago(165, 'huesped')] });
   assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
   assert.deepEqual(e.contexto.evidencia, [c.id, deLaCasa.id, a.id]);

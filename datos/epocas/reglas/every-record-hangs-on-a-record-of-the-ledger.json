@@ -1,7 +1,7 @@
 [
   ["every record hangs on a record of the ledger"],
   [0, 1],
-  ["=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or count up ev = 0"],
+  ["=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or (count (first ev.6).5 = 1 and count up ev = 0)"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
@@ -11,6 +11,6 @@
     "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
   ],
   ["epoch 0"],
-  ["after the genesis E names no record"],
+  ["after writing burns today's T"],
   ["every record hangs on a record of the ledger: {first (first ev.6).5} is not one (only the genesis hangs on nothing)"]
 ]

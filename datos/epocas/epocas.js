@@ -213,7 +213,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326"
     },
     {
-      "ref": "1c85e7b86b70f583123314be2096f4941296c1d343901ada6908b8c63d171fca"
+      "ref": "577b543ced1618762c45e47c91325843c0ec5c89a16302d0e15d906fffc3741f"
+    },
+    {
+      "ref": "0baa65a629689ab4c8f73d5e53f186d9795729cfdea2499885171c35354a4a9d"
     },
     {
       "ref": "140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"
@@ -237,10 +240,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45"
     },
     {
-      "ref": "070b521aa5f7e008e54d6fc2580433459fad2d738d654378a4bd8adadbbb7dd2"
-    },
-    {
-      "ref": "7c413947c156969948e7da24fb480ab15af42176f400e07f03455fd326a174f2"
+      "ref": "4c01c35a815df74d7aa5d26a8830b4cf6bd99d7ae4917e38ea34b3de92945334"
     },
     {
       "ref": "7d522ab9cffcb214fc95866396009b2d057c6a2aca95bef1fe4ac897e6e422f9"
@@ -2826,7 +2826,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-event-moves-tokens.json",
-    "id": "1c85e7b86b70f583123314be2096f4941296c1d343901ada6908b8c63d171fca",
+    "id": "0baa65a629689ab4c8f73d5e53f186d9795729cfdea2499885171c35354a4a9d",
     "registro": [
       [
         "every event moves tokens"
@@ -2860,7 +2860,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after writing burns today's T"
+        "after every record hangs on a record of the ledger"
       ],
       [
         "every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"
@@ -2869,7 +2869,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-record-hangs-on-a-record-of-the-ledger.json",
-    "id": "070b521aa5f7e008e54d6fc2580433459fad2d738d654378a4bd8adadbbb7dd2",
+    "id": "577b543ced1618762c45e47c91325843c0ec5c89a16302d0e15d906fffc3741f",
     "registro": [
       [
         "every record hangs on a record of the ledger"
@@ -2879,7 +2879,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         1
       ],
       [
-        "=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or count up ev = 0"
+        "=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or (count (first ev.6).5 = 1 and count up ev = 0)"
       ],
       [
         "ev.3"
@@ -2903,7 +2903,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after the genesis E names no record"
+        "after writing burns today's T"
       ],
       [
         "every record hangs on a record of the ledger: {first (first ev.6).5} is not one (only the genesis hangs on nothing)"
@@ -3655,7 +3655,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "who-has-a-key-signs.json",
-    "id": "7c413947c156969948e7da24fb480ab15af42176f400e07f03455fd326a174f2",
+    "id": "4c01c35a815df74d7aa5d26a8830b4cf6bd99d7ae4917e38ea34b3de92945334",
     "registro": [
       [
         "who has a key signs"
@@ -3687,7 +3687,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after every record hangs on a record of the ledger"
+        "after the genesis E names no record"
       ],
       [
         "who has a key signs: {first ev.3} has a key and this transaction is not signed by them (signer: {nth 1 ev.3})"

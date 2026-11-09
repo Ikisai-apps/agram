@@ -80,7 +80,7 @@ function emision(autor, { A, registro = A, sobre = registro, denominacion, canti
 test('R2·1: la serie lleva el registro del recurso, que ha de existir; sin él queda atada al registro del emisor', async () => {
   const { eje, A } = await mundo();
   const otro = 'f'.repeat(64);
-  await assert.rejects(eje.escribir(emision('casa', { A, registro: otro, sobre: A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 })), /registro desconocido de la serie E:casa\/cama@n1@ffffffff/);
+  await assert.rejects(eje.escribir(emision('casa', { A, registro: otro, sobre: A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 })), /E is tied to a record that exists: E:casa\/cama@n1@ffffffff[0-9a-f]* names a record that is not in the ledger/);
   const ev = await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 }));
   const k = serieE('casa', 'cama@n1', A);
   assert.equal(k, 'E:casa/cama@n1@' + A);

@@ -266,6 +266,13 @@ export class ContextoEje {
         // B4: el alta de una identidad, leída desde ella (A.6), tiene en su 5 solo su id y la clave de esa identidad:
         // ni lo que el payload ni lo que otros anclen ahí se confunde con su clave.
         if (nodo.titular !== undefined && d === 5) return [nodo.id, ...llavesDe(e).filter((l) => l.titular === nodo.titular)];
+        // Suelo de persistencia (VG, 10-11, A4 y B1): un alta del prefijo de la versión 2 declaraba el tipo; leída desde
+        // su identidad, su 3 es esa declaración en la convención de ahora: una persona escribió su propia alta; lo
+        // demás, otro (su autor, o «nadie» si fue ella misma).
+        if (nodo.titular !== undefined && d === 3 && this.#eje.esDeV2?.(nodo.id)) {
+          const persona = this.#eje.esPersona(nodo.titular) === true;
+          return [persona ? nodo.titular : e.autor !== nodo.titular ? e.autor : NADIE, NADIE];
+        }
         if (d === 5) return this.#meta(e, d);
         return [...this.#meta(e, d), ...this.#vistasDeRegistro(nodo.id, d), ...this.#propio(e.payload, d, nodo.id, []), ...this.#escritos(nodo.id, [d])];
       }
@@ -353,7 +360,7 @@ export class ContextoEje {
     if (d === 1) return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i }));
     // B4 (VG, 10-11): el firmante es el segundo ocupante del 3, siempre: «nadie» si no va firmado (así nada del
     // payload ocupa su sitio).
-    if (d === 3) return [e.autor, e.firmante ?? NADIE];
+    if (d === 3) return [e.autor, e.firma && e.firmante ? e.firmante : NADIE];
     // B4: en el 5, el id y las claves públicas que el registro declara (en un alta: la de quien la escribe para sí,
     // o la de la cosa que da de alta), cada una con su titular (3) y su prueba de posesión (4).
     // El id va siempre primero («nadie» si la candidata aún no lo tiene): las claves son el resto.

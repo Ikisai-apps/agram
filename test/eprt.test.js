@@ -51,7 +51,7 @@ test('delegar poder estrecha el ámbito: se debita del ámbito que lo cubre; sin
   assert.deepEqual(eje.poderes('sala'), [{ ambito: plato.id, cantidad: 1 }]);
   await assert.rejects(eje.escribir({ autor: 'cocina', sobre: alta.id, t: T0, movimientos: [gastaT('cocina'), { token: 'P', cantidad: 1, ambito: alta.id, de: 'cocina', a: 'sala' }], payload: 'x' }), /saldo insuficiente de P sobre/);
   // Un ámbito que no es un registro se rechaza.
-  await assert.rejects(eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: 'nadie', de: 'casa', a: 'cocina' }], payload: 'x' }), /ámbito desconocido/);
+  await assert.rejects(eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: 'nadie', de: 'casa', a: 'cocina' }], payload: 'x' }), /P moves within a known scope/);
 });
 
 test('R: por emisor y no fungible; quien la recibe no puede pasarla', async () => {

@@ -36,6 +36,7 @@ import { seguir } from './encaje.js';
 import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
 import { pesoDe, lectorDelEje, esActoDeRespaldo } from './autorizacion.js';
 import { motivosDe, CONDICIONES_DEL_CICLO, CONDICIONES_DE_R } from './condiciones/index.js';
+import { motivosDeReglas } from './condiciones/reglas.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -134,17 +135,29 @@ const conCuenta = (libro, id) => libro.eje.libro.tiene(id);
 const enLibro = (libro, id) => libro.eje.eventos.has(id);
 
 /**
- * Los motivos de las condiciones del ciclo y de R (src/condiciones/) para
- * `ev`, sobre el libro de justo antes del registro: las mismas condiciones
- * que evalúa el eje al validar, con su contexto (eje.contexto). Una sola
- * verdad. Cada motivo lleva `i` (el movimiento, o null), `capa` y `texto`.
+ * Los motivos de las reglas de la época (src/condiciones/reglas.js) y de las
+ * condiciones del ciclo y de R que quedan en JS (src/condiciones/) para `ev`,
+ * sobre el libro de justo antes del registro: lo mismo que evalúa el eje al
+ * validar, con su contexto (eje.contexto). Una sola verdad. Cada motivo lleva
+ * `i` (el movimiento, o null), `capa`, `texto` y, si es de una regla que no
+ * se resolvió, `pendiente`.
  */
 function condicionesDe(libro, ev) {
   if (!libro.motivos) {
     const ctx = libro.eje.contexto(ev);
-    libro.motivos = motivosDe([...CONDICIONES_DEL_CICLO, ...CONDICIONES_DE_R], libro.eje.transaccion(ev), libro.eje.libro, ctx);
+    libro.motivos = [
+      ...motivosDeReglas(ctx),
+      ...motivosDe([...CONDICIONES_DEL_CICLO, ...CONDICIONES_DE_R], libro.eje.transaccion(ev), libro.eje.libro, ctx),
+    ];
   }
   return libro.motivos;
+}
+
+/** Pone en la capa `r` los motivos de las reglas de la época de la capa `capa` (salvo las de `salvo`). */
+function deLasReglas(r, libro, ev, capa, salvo = []) {
+  for (const e of condicionesDe(libro, ev)) {
+    if (e.capa === capa && e.i === null && e.pendiente !== undefined && !salvo.includes(e.condicion)) r[e.pendiente ? 'pendiente' : 'falla'](e.texto);
+  }
 }
 
 /** Plan de débito de P como el del eje: del ámbito más concreto al más amplio; null si no alcanza. */
@@ -292,21 +305,22 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   // La demostración la da solo la bandera del génesis (SEG-02); el prefijo v2 lo exime libro.reglas.
   const demostracion = esGenesis ? ev.contexto?.demostracion === true : eje.demostracion !== false;
   const exigeClave = !demostracion && libro.reglas !== 2;
+  // Quién firma y que sin clave no se actúa son reglas de la época (B4: «who has a key signs», «without a key nobody
+  // acts»; encargo 3a, paso 9): sus motivos llegan con los de las demás reglas de esta capa (deLasReglas). Aquí, lo
+  // criptográfico (la firma verifica) y, en el prefijo de la versión 2, las reglas de entonces.
+  const v2 = libro.reglas === 2;
   let firma;
   if (clave) {
-    if (!ev.firma) { firma = 'ausente'; r.falla('firma ausente de ' + ev.autor + ': tiene clave'); }
-    else if (ev.firmante !== ev.autor) { firma = 'de otro'; r.falla('firmado por ' + ev.firmante + ', no por el autor ' + ev.autor); }
+    if (!ev.firma) { firma = 'ausente'; if (v2) r.falla('firma ausente de ' + ev.autor + ': tiene clave'); }
+    else if (ev.firmante !== ev.autor) { firma = 'de otro'; if (v2) r.falla('firmado por ' + ev.firmante + ', no por el autor ' + ev.autor); }
     else if (!(await verificar(ev, clave))) { firma = 'inválida'; r.falla('firma inválida de ' + ev.autor); }
     else firma = 'verificada';
   } else if (eje.exigirFirmas) {
     firma = ev.firma ? 'sin verificar' : 'ausente';
     r.falla('el eje exige firmas y ' + ev.autor + ' no tiene clave');
   } else if (exigeClave) {
-    // R9: sin clave no se actúa (fuera de un eje de demostración).
+    // R9: sin clave no se actúa (fuera de un eje de demostración): lo dice la regla.
     firma = ev.firma ? 'sin verificar' : 'ausente';
-    r.falla(esGenesis
-      ? 'sin clave no se actúa: el génesis declara la clave de su autor y va firmado con ella (o es de demostración)'
-      : 'sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)');
   } else {
     // G1 ([X] docs/VALIDEZ.md §8): sin clave no se exige firma. Una firma que
     // nunca podrá verificarse (el autor ya tiene alta y su clave no se puede
@@ -336,17 +350,22 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
       const conPrueba = Boolean(ev.posesion) && typeof ev.posesion === 'object' && Object.hasOwn(ev.posesion, nueva);
       const posesion = suya && !conPrueba ? (firma === 'verificada' ? 'probada' : 'sin probar') : !conPrueba ? 'sin probar' : (await verificarPosesion(ev, nueva, jwk)) ? 'probada' : 'falla';
       clavesDeclaradas.push({ identidad: nueva, por: ev.autor, posesion });
-      if (libro.eje.claves.has(nueva) || conCuenta(libro, nueva)) r.falla('no se puede cambiar la clave de ' + nueva);
-      else if (!suya && !lista(ev.movimientos).some((m) => m?.a === nueva)) r.falla('clave declarada para ' + nueva + ' sin darle tokens');
+      // Dónde se declara una clave y que llegue con su prueba son reglas de la época (B4); aquí, lo criptográfico.
+      if (v2 && (libro.eje.claves.has(nueva) || conCuenta(libro, nueva))) r.falla('no se puede cambiar la clave de ' + nueva);
+      else if (v2 && !suya && !lista(ev.movimientos).some((m) => m?.a === nueva)) r.falla('clave declarada para ' + nueva + ' sin darle tokens');
       else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) r.falla('clave inválida para ' + nueva);
       else if (posesion === 'falla') r.falla('prueba de posesión inválida para ' + nueva + ': no la firma la clave que se declara');
-      else if (posesion === 'sin probar' && exigeClave && !suya) r.falla('la clave de ' + nueva + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
     }
     for (const otra of Object.keys(ev.posesion && typeof ev.posesion === 'object' ? ev.posesion : {})) {
       if (!Object.hasOwn(declaradas, otra)) r.falla('prueba de posesión de ' + otra + ' sin clave declarada para él en este evento');
     }
   }
 
+  // Las reglas de esta capa (la clave, el firmante, el foco): las mismas que aplica el eje. Un foco que no está en el
+  // eje ya lo dice arriba, pendiente (puede llegar; el eje local lo rechaza: «every record hangs on a record of the
+  // ledger»).
+  const focoAusente = !esGenesis && ev.sobre !== null && ev.sobre !== undefined && !enLibro(libro, ev.sobre);
+  deLasReglas(r, libro, ev, 3, focoAusente ? ['every record hangs on a record of the ledger'] : []);
   const textoFirma = firma === 'verificada' ? 'firma verificada de ' + ev.autor
     : firma === 'sin firma' ? 'sin firma (' + ev.autor + ' no tiene clave)'
       : firma === 'sin verificar' ? 'firma sin verificar (' + ev.autor + ' no tiene clave)'
@@ -386,7 +405,7 @@ function capaAcreditacion(eje, ev, libro) {
   };
   for (const e of condicionesDe(libro, ev)) {
     if (e.capa !== 4) continue;
-    if (e.i === null) r.falla(e.texto);
+    if (e.i === null) r[e.pendiente ? 'pendiente' : 'falla'](e.texto);
     else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
   }
   const movimientos = [];
@@ -470,8 +489,9 @@ function permisoDelLibro(eje, ev, libro) {
     if (m.de === null) {
       if (esGenesis && m.a !== ev.autor) r.falla('movimiento ' + i + ': el génesis solo emite a su autor');
       else if (esGenesis && m.token === 'T' && libro.reglas !== 2) r.falla('movimiento ' + i + ': ' + T_NO_SE_EMITE);
-    } else if (m.de !== ev.autor) {
-      // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación).
+    } else if (m.de !== ev.autor && libro.reglas === 2) {
+      // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación): fuera del prefijo de
+      // la versión 2 lo dice la regla de la época «nobody moves tokens of others».
       r.falla('movimiento ' + i + ': ' + motivoAjenos(m.de));
     }
   });
@@ -479,7 +499,7 @@ function permisoDelLibro(eje, ev, libro) {
   // cada una a su nombre, escalonado T → R → P → E (src/ciclo.js).
   // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
   for (const e of condicionesDe(libro, ev)) {
-    if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
+    if (e.capa === 5) r[e.pendiente ? 'pendiente' : 'falla']((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
   }
   // No hay tipo (VG, 10-11, B1): persona o cosa se lee de quién escribe el alta. Solo en el prefijo de la versión 2
   // (suelo de persistencia) el alta declaraba el tipo, y se lee con las reglas de entonces.

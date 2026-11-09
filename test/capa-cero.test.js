@@ -16,6 +16,7 @@ import { esConsumoT } from '../src/evento.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { CONDICIONES, catalogo } from '../src/condiciones/index.js';
 import { Libro } from '../src/libro.js';
+import { EPOCA_0_BTML } from '../src/epocas.js';
 
 /** La aritmética de antes, evento a evento y sin libro: saldos, bloqueos, series, altas, T gastado y T sobre cada registro. */
 function referencia(eje) {
@@ -163,10 +164,11 @@ test('capa cero: cada condición cita filas que están en el inventario, y van e
   assert.ok(filas.size >= 130);
   for (const c of catalogo()) for (const f of c.filas) assert.ok(filas.has(f), c.nombre + ' cita ' + f);
   assert.deepEqual(CONDICIONES.map((c) => c.nombre), [
-    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'ancla', 'suelo:referencias', 'ID-1', 'ID-5', 'ID-6', 'ID-3',
-    'VA-3', 'RL-1', 'ID-9', 'TT-6', 'TT-4', 'TT-8', 'PP-5', 'ES-1',
+    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'suelo:referencias', 'ID-1', 'suelo:firma', 'suelo:claves', 'ID-3',
+    // Encargo 3a, paso 9: las reglas de la época, conectadas, en el orden de su 8.
+    ...EPOCA_0_BTML.condiciones.map((r) => r[0][0]),
+    'VA-3', 'PP-2', 'PP-5', 'ES-1',
     'VA-3', 'EE-1', 'EE-8', 'EE-10', 'EE-5',
     'RR-3', 'RR-4', 'RR-5',
-    'ID-8', 'PP-4',
   ]);
 });

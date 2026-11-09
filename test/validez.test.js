@@ -102,14 +102,14 @@ test('firma quitada tras restaurar: falla la capa 3 y solo ella', async () => {
   // El eje no admite el guardado sin la firma; las capas dicen cuál de ellas cae.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
   delete roto.eventos[4].firma; // la compra (antes van el génesis, el alta de la huésped, las de la casa y el menú)
-  await assert.rejects(restaurar(roto), /firma ausente de huesped/);
+  await assert.rejects(restaurar(roto), /who has a key signs: huesped has a key/);
   const { firma, firmante, ...sinFirma } = otro.obtener(compra.id);
   void firma; void firmante;
   const v = await validez(otro, sinFirma);
   assert.equal(v.enEje, true); // el mismo id: se lee en su lugar del eje
   assert.equal(v.criptografia.estado, 'falla');
   assert.equal(v.criptografia.firma, 'ausente');
-  assert.match(v.criptografia.motivos[0], /firma ausente de huesped/);
+  assert.match(v.criptografia.motivos[0], /who has a key signs: huesped has a key/);
   assert.deepEqual(salvo(v, 3), salvo(firmada, 3));
   // Una firma no es veracidad: con ella, la capa 4 no dice que la compra ocurriera.
   assert.equal(firmada.acreditacion.externa, SIN_ACREDITAR);
@@ -146,25 +146,25 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   const ajena = await validez(eje, ajenaEv);
   assert.deepEqual(estados(ajena), ['ok', 'ok', 'ok', 'falla', 'falla']);
   assert.match(ajena.acreditacion.motivos[0], /es de casa y la emite huesped/);
-  assert.match(ajena.permiso.motivos[0], /nadie emite en nombre de otro: casa no es el autor/);
-  assert.match((await eje.validar(ajenaEv)).join(' '), /nadie emite en nombre de otro/); // lo mismo que rechaza el eje
+  assert.match(ajena.permiso.motivos[0], /(E is minted by and to|R is minted by) its issuer/);
+  assert.match((await eje.validar(ajenaEv)).join(' '), /(E is minted by and to|R is minted by) its issuer/); // lo mismo que rechaza el eje
   // Huesped mueve euros de la casa: hay respaldo (la casa los tiene), no hay permiso (capa 5).
   const robo = await validez(eje, await borrador('huesped', [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'huesped' }]));
   assert.deepEqual(estados(robo), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(robo.permiso.motivos[0], /nadie mueve tokens ajenos: casa no es el autor/);
+  assert.match(robo.permiso.motivos[0], /nobody moves tokens of others/);
   // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, todo su T.
   // Cocina (una cosa de la casa, Core 8-11) emite T: solo las personas emiten (capa 5).
   const t = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'minuto', cantidad: 5, de: null, a: 'cocina' }]));
   assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es una cosa/);
+  assert.match(t.permiso.motivos[0], /only persons mint/);
   // Huesped (persona) tampoco emite T: no se emite (capa 5).
   const emite = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(emite), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(emite.permiso.motivos.join(' '), /T no se emite: ni el génesis; cada persona tiene su asignación del día/);
+  assert.match(emite.permiso.motivos.join(' '), /nobody mints T/);
   // Gasta más horas de las que le quedan del día: no hay respaldo (capa 4); el permiso sí (capa 5).
   const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 25, de: 'huesped', a: null }]));
   assert.deepEqual(estados(horas), ['ok', 'ok', 'ok', 'falla', 'ok']);
-  assert.match(horas.acreditacion.motivos[0], /T del día agotado \(hora\): quedan \d+/);
+  assert.match(horas.acreditacion.motivos[0], /writing burns today's T/);
   assert.doesNotMatch(horas.acreditacion.resumen, /respaldados/);
   // Lo que le queda del día, sí: una hora y la parte del año de hoy (una escala que el génesis nunca emitió).
   assert.equal(eje.serie('T:anio').emitido, 0);

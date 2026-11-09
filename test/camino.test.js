@@ -152,7 +152,7 @@ test('previsualizar: si el motor lo rechazaría, dice por qué; una posición si
   const p = await previsualizar(eje, d, 'propuesta', { t: T });
   assert.match(p.error, /saldo insuficiente de T:minuto en maquina/);
   assert.equal(p.evento, undefined);
-  assert.match(htmlPrevia(p), /el motor lo rechazaría: saldo insuficiente/);
+  assert.match(htmlPrevia(p), /el motor lo rechazaría: writing burns today&#39;s T: maquina/);
   const siete = await previsualizar(eje, d, 'desarrollar:7');
   assert.equal(siete.escribe, false);
   assert.deepEqual(siete.efectos.map((e) => [e.tipo, e.mundo, e.celda]), [['anclado', 7, '7000000000']]);

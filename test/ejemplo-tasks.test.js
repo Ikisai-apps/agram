@@ -282,7 +282,7 @@ test('entrega: el proveedor consume las horas de su presupuesto; las previstas n
       ],
       payload: 'la carpa la montó el proveedor',
     }),
-    /nadie mueve tokens ajenos/,
+    /nobody moves tokens of others/,
   );
 });
 

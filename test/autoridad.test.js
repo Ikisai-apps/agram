@@ -23,7 +23,7 @@ test('génesis con clave: el autor debe firmar; sin firma se rechaza', async () 
   const { publica, privada } = await generarClaves();
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'E', denominacion: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: publica, privada });
   assert.deepEqual(eje.clave('raiz'), publica);
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'sin firma' }), /firma ausente de raiz/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'sin firma' }), /who has a key signs: raiz has a key/);
   const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'firmado' }, privada);
   assert.equal(ev.firmante, 'raiz');
   const ajena = await generarClaves();
@@ -35,7 +35,7 @@ test('nadie mueve tokens ajenos', async () => {
   await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 1, de: 'raiz', a: 'bea' }], payload: 'alta' });
   await assert.rejects(
     eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 1, de: 'raiz', a: 'bea' }], payload: 'robo' }),
-    /nadie mueve tokens ajenos/,
+    /nobody moves tokens of others/,
   );
 });
 
@@ -47,13 +47,13 @@ test('una persona nace con clave si la declara en su propia alta (B1), firmada c
   await eje.entrar({ identidad: 'bea', t: T0, clave: bea.publica, privada: bea.privada });
   await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'minutos para bea' }, raiz.privada);
   assert.deepEqual(eje.clave('bea'), bea.publica);
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }), /firma/);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }), /who has a key signs: bea has a key/);
   const ok = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }, bea.privada);
   assert.equal(ok.autor, 'bea');
   // No se puede cambiar una clave ya registrada, ni declarar una clave sin dar tokens.
   const otra = await generarClaves();
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'cambio', contexto: { claves: { bea: otra.publica } } }, raiz.privada), /no se puede cambiar la clave/);
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'sin tokens', contexto: { claves: { cris: otra.publica } } }, raiz.privada), /sin darle tokens/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'cambio', contexto: { claves: { bea: otra.publica } } }, raiz.privada), /a key is declared at its alta: bea already has an account/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: 'sin tokens', contexto: { claves: { cris: otra.publica } } }, raiz.privada), /a key is declared at its alta/);
 });
 
 test('exigirFirmas: todo autor necesita clave; el génesis debe ir firmado', async () => {

@@ -52,6 +52,7 @@ import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } f
 import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
+import { ContextoEje } from './contexto-eje.js';
 
 export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
 
@@ -149,7 +150,7 @@ export class Eje {
     });
     if (privada) ev = await firmar(ev, privada);
     // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella (GN-1, GN-2).
-    const motivos = await eje.#libro.evaluar(eje.transaccion(ev), CONDICIONES_GENESIS, { evento: ev, reglas: 3 });
+    const motivos = await eje.#libro.evaluar(eje.transaccion(ev), CONDICIONES_GENESIS, { evento: ev, reglas: 3, contextoBqlm: (epoch) => new ContextoEje(eje, { ev, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(ev);
@@ -306,7 +307,7 @@ export class Eje {
     if (!Number.isSafeInteger(eventosV2) || eventosV2 < 0 || eventosV2 > eventos.length) throw new Error('eventosV2 debe ser un entero entre 0 y el número de eventos');
     const g = copiaGuardable(crudo);
     const eje = new Eje({ exigirFirmas, eventosV2 });
-    const motivos = await eje.#libro.evaluar(eje.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: eventosV2 > 0, reglas: eventosV2 > 0 ? 2 : 3 });
+    const motivos = await eje.#libro.evaluar(eje.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: eventosV2 > 0, reglas: eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(eje, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !g.contexto.claves?.[g.autor]) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(g);
@@ -668,6 +669,8 @@ export class Eje {
       tipoV2Declarado: (id) => this.#tiposV2.has(id),
       // Los movimientos bien formados del evento, con su índice: los leen varias condiciones.
       get validos() { return (validos ??= validosDe(ev)); },
+      // Las reglas de la época (src/condiciones/reglas.js) leen el eje de antes con el BQL mínimo.
+      contextoBqlm: (epoch) => new ContextoEje(eje, { ev, epoch }),
       get ciclo() { return (ciclo ??= eje.#contextoCiclo(ev)); },
       get tope() { return (tope ??= eje.#contextoTope()); },
       get r() { return (r ??= eje.#contextoR()); },

@@ -161,7 +161,8 @@ function analizar(ev, ctx) {
     const k = claveToken(m);
     if (m.token === 'E') {
       if (m.de === null) {
-        if (m.registro !== undefined && !ctx.registro(m.registro)) { falla(i, 4, 'registro desconocido de la serie ' + k + ': ' + corto(m.registro) + ' (la E se ata a un registro del eje)'); continue; }
+        // Que el registro exista lo dice la regla de la época «E is tied to a record that exists» (encargo 3a, paso 9).
+        if (m.registro !== undefined && !ctx.registro(m.registro)) continue;
         let s = estado(k);
         if (!s) {
           s = { emisor: m.emisor, emitido: 0, ...contratoE(m, ctx.alta(m.emisor)?.id) };

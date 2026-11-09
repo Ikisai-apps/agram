@@ -186,7 +186,7 @@ test('R9 el alta trae la prueba de posesión de cada clave nueva: sin ella, con 
   const eje = await Eje.genesis({ identidad: 'g', t: T0, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] });
   // ana es una cosa de g (B1: su alta la escribe g, que declara su clave): la clave llega con su prueba de posesión.
   const alta = (payload) => ({ autor: 'g', sobre: eje.genesisId, t: T0, payload, movimientos: [minuto('g'), minuto('g', 5, 'ana')], contexto: { claves: { ana: ka.publica } } });
-  await assert.rejects(eje.escribir(alta('sin prueba'), kg.privada), /la clave de ana llega sin prueba de posesión/);
+  await assert.rejects(eje.escribir(alta('sin prueba'), kg.privada), /a declared key comes with its proof: the key of ana/);
   await assert.rejects(eje.escribir(alta('prueba ajena'), kg.privada, { ana: kb.privada }), /prueba de posesión inválida para ana/);
   await assert.rejects(eje.escribir(alta('prueba de más'), kg.privada, { ana: ka.privada, bea: kb.privada }), /prueba de posesión de bea sin clave declarada/);
   const ok = await eje.escribir(alta('con prueba'), kg.privada, { ana: ka.privada });
@@ -210,13 +210,13 @@ test('R9 sin clave no se mueve ni se autoriza; en demostración, sí (como antes
   // B1 (VG, 10-11): la persona escribe su propia alta.
   await eje.entrar({ identidad: 'ana', t: ALTA, clave: ka.publica, privada: ka.privada }); // su clave, en su alta: la firma es la prueba
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas', movimientos: [minuto('g'), minuto('g', 9, 'ana'), minuto('g', 9, 'muda'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'muda' }] }, kg.privada);
-  await assert.rejects(eje.escribir({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /sin clave no se actúa: muda/);
+  await assert.rejects(eje.escribir({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /without a key nobody acts: muda has no key/);
   const c = await motor.consolidar(eje, { autor: 'ana', foco: eje.genesisId, t: T0, elecciones: { 1: 'algo' } }, ka.privada);
   assert.equal(motor.puedeAutorizar(eje, 'muda', c.id), false); // tiene P, no tiene clave
   assert.equal(motor.puedeAutorizar(eje, 'g', c.id), true);
   // La capa 3 de un registro escrito a mano por la muda: falla.
   const aMano = await crearEvento({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] });
-  assert.match((await validez(eje, aMano)).capas[2].motivos.map((m) => m.texto ?? m).join(' '), /sin clave no se actúa: muda/);
+  assert.match((await validez(eje, aMano)).capas[2].motivos.map((m) => m.texto ?? m).join(' '), /without a key nobody acts: muda has no key/);
   // Demostración: lo mismo entra; la clave sin prueba queda «sin probar», y una prueba mala falla igual.
   const d = await demo(['muda']);
   await escribe(d, 'muda', d.genesisId, 'x');
@@ -260,5 +260,5 @@ test('R10 ser persona o cosa (por quién escribe el alta, B1) no cambia lo que s
   assert.deepEqual(persona, { candidatos: [['propio', null], ['escrito', 'b']], autoriza: true, elegible: true });
   // Lo único que decide: quién emite (la regla «only persons mint»). Una cosa no emite.
   const eje = await demo(['b'], { b: 'cosa' });
-  await assert.rejects(eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('b'), { token: 'R', emisor: 'b', cantidad: 1, de: null, a: 'b' }] }), /solo las personas emiten: b es una cosa \(su alta la escribió g\)/);
+  await assert.rejects(eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('b'), { token: 'R', emisor: 'b', cantidad: 1, de: null, a: 'b' }] }), /only persons mint: b is a thing \(its alta was written by g\)/);
 });

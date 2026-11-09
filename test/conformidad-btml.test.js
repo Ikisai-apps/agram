@@ -215,18 +215,18 @@ test('BTML-06 firma quien tiene clave y el eje verifica; el firmante es el autor
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'Casa', t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   // La clave de ana la declara raiz en el mismo evento que le da tokens.
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'clave sin tokens', contexto: { claves: { ana: ana.publica } } }, raiz.privada), /sin darle tokens/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'clave sin tokens', contexto: { claves: { ana: ana.publica } } }, raiz.privada), /a key is declared at its alta/);
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30)], payload: 'alta de ana', contexto: { claves: { ana: ana.publica } } }, raiz.privada);
   assert.deepEqual(eje.clave('ana'), ana.publica);
   // Quien tiene clave firma; el firmante es el autor; el eje verifica.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'sin firma' }), /firma ausente de ana/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'sin firma' }), /who has a key signs: ana has a key/);
   const ev = await crearEvento({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'mensaje de ana' });
-  await assert.rejects(eje.anadir(await firmar(ev, raiz.privada, 'raiz')), /el firmante debe ser el autor/);
+  await assert.rejects(eje.anadir(await firmar(ev, raiz.privada, 'raiz')), /who has a key signs/);
   await assert.rejects(eje.anadir(await firmar(ev, raiz.privada)), /firma inválida de ana/);
   const bueno = await eje.anadir(await firmar(ev, ana.privada));
   assert.equal(bueno.firmante, bueno.autor);
   // Nadie mueve tokens ajenos, ni firmando.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'robo' }, ana.privada), /nadie mueve tokens ajenos/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'robo' }, ana.privada), /nobody moves tokens of others/);
 });
 
 test('BTML-07 forma, interpretación, firma y autorización son comprobaciones distintas: firmar no hace verdadero ni validar autoriza', async () => {
@@ -238,7 +238,7 @@ test('BTML-07 forma, interpretación, firma y autorización son comprobaciones d
   // Forma válida no es admisión: un evento bien formado sobre un foco que no existe no entra.
   const huerfano = await firmar(await crearEvento({ autor: 'raiz', sobre: ID_INEXISTENTE, t: T0, movimientos: [gastaT('raiz')], payload: 'x' }), raiz.privada);
   assert.deepEqual(validarForma(huerfano), []);
-  await assert.rejects(eje.anadir(huerfano), /foco desconocido/);
+  await assert.rejects(eje.anadir(huerfano), /every record hangs on a record of the ledger/);
   // Firma no es veracidad: lo firmado entra tal cual; interpretarlo es otra comprobación.
   const dicho = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['Afirmo', '2 + 2 = 5', '=2 + 2', '=LOCAL(9)'] }, raiz.privada);
   assert.equal(await verificar(dicho, raiz.publica), true);

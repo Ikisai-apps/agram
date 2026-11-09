@@ -1185,12 +1185,12 @@ test('TOK-01 todo evento es una transición de tokens: no existe evento sin movi
 
 test('TOK-02 el evento mínimo mueve T del autor (el génesis no: no emite T; VG, 8-11: no hay T acumulable)', async () => {
   assert.equal((await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 })).serie('T:minuto').emitido, 0);
-  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1 }], foco: 'x', t: T0 }), /T no se emite: ni el génesis/);
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1 }], foco: 'x', t: T0 }), /nobody mints T/);
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /escribir consume T del autor/);
   // VG, 7-11 noche: el mínimo es un CONSUMO (de = autor, a = null); dárselo a uno mismo no cuenta, y T no cruza de persona.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: 'ana' }], payload: 'x' }), /escribir consume T del autor/);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: 'bea' }], payload: 'x' }), /T no cruza de persona/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: 'bea' }], payload: 'x' }), /T only goes to things/);
   const minimo = await escribe(eje, g, 'nota', undefined, 'ana');
   assert.deepEqual(minimo.movimientos.map((m) => [m.token, m.de]), [['T', 'ana']]);
 });
@@ -1251,7 +1251,7 @@ test('TOK-06 las escalas de T no se convierten entre sí: gastar en una no consu
   // Gastar días o minutos sale de la asignación del día en su escala (VG, 8-11): trescientos días no caben en
   // un día; un minuto sí. Las horas y el año no se tocan.
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'dia', cantidad: 300, de: 'raiz', a: null }], payload: 'x' }),
-    /T del día agotado \(dia\): quedan 1/);
+    /writing burns today's T/);
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'y' });
   assert.deepEqual([eje.saldoT('raiz', 'hora', T0), eje.saldoT('raiz', 'anio', T0), eje.saldoT('raiz', 'dia', T0)], [24, 1, 1]);
   assert.deepEqual(eje.tiempoSobre(g), { minuto: 1 });
@@ -1347,7 +1347,7 @@ test('TOK-19 los hilos son cadenas de registros encadenados por referencia (sobr
   assert.deepEqual(eje.hilo(c.id).map((e) => e.id), [c.id, b.id, a.id, g]);
   assert.equal(eje.hilo(c.id).some((e) => e.id === suelto.id), false);
   // Escribir sobre a con un t anterior al suyo se rechaza.
-  await assert.rejects(escribe(eje, a.id, 'antes', undefined, 'ana', '2026-11-07T10:30:00Z'), /el t del evento \(2026-11-07T10:30:00Z\) es anterior al de su foco/);
+  await assert.rejects(escribe(eje, a.id, 'antes', undefined, 'ana', '2026-11-07T10:30:00Z'), /not before its focus/);
 });
 
 test('TOK-19b el eje temporal ordena el pasado por la posición en el hilo, no por la fecha',
@@ -1483,7 +1483,7 @@ test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y s
   // Con R6, su colateral (la décima parte de lo emitido) queda bloqueado: 7 emitidos, 1 bloqueado, 1 en la raíz.
   assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa'), eje.bloqueado('casa', 'R:casa', 'R:casa')], [2, 5, 1]);
   // Solo la casa amplía su serie: otro no puede emitir a nombre de la casa.
-  await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /nadie emite en nombre de otro|la emisión de E va a su propio emisor/);
+  await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /E is minted by and to its issuer|la emisión de E va a su propio emisor/);
   assert.equal(eje.serie('E:casa/plaza').emitido, 2);
 });
 
@@ -1501,7 +1501,7 @@ test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía l
   for (const id of ['casa']) await eje.entrar({ identidad: id, sobre: g, t: T0 });
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daP('raiz', 'casa')], payload: 'alta' });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /nadie emite en nombre de otro/);
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /(E is minted by and to|R is minted by) its issuer/);
   // Lo que la raíz llame «plaza» es su propia serie (E:raiz/plaza): la de la casa no cambia.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'raiz', cantidad: 1, de: null, a: 'raiz' }], payload: 'plaza de la raíz' });
   assert.deepEqual([eje.serie('E:casa/plaza').emitido, eje.serie('E:raiz/plaza').emitido], [1, 1]);
@@ -1557,9 +1557,9 @@ test('TOK-34 P no es un permiso automático: tener P no basta por sí solo para 
 
 test('TOK-35 nadie mueve tokens ajenos: todo movimiento con origen sale del autor', async () => {
   const { eje, g } = await mundo();
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: g, t: T0, movimientos: [gastaT('bea'), daE('ana', 'bea', 1)], payload: 'x' }), /nadie mueve tokens ajenos/);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: g, t: T0, movimientos: [gastaT('bea'), daE('ana', 'bea', 1)], payload: 'x' }), /nobody moves tokens of others/);
   const { c } = await autorizada(eje, g);
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nadie mueve tokens ajenos/);
+  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nobody moves tokens of others/);
 });
 
 test('TOK-37 PV8 no emite P por subir de posición ni por reunir registros', async () => {

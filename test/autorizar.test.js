@@ -286,7 +286,7 @@ test('bloqueo liberado al ejecutar: el del autor en la propia ejecución; el de 
   const ab = await autorizar(eje, { autorizante: 'b', consolidacion: c.id, t: T0 });
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
   // Nadie libera lo de otro, ni el autor al ejecutar.
-  await assert.rejects(eje.escribir({ autor: 'a', sobre: c.id, en: FABRICA, t: T0, payload: 'x', movimientos: [gasta('a'), { token: 'P', ambito: X, cantidad: 40, de: 'b', a: 'b', estado: 'liberacion', salida: c.id }] }), /nadie mueve tokens ajenos/);
+  await assert.rejects(eje.escribir({ autor: 'a', sobre: c.id, en: FABRICA, t: T0, payload: 'x', movimientos: [gasta('a'), { token: 'P', ambito: X, cantidad: 40, de: 'b', a: 'b', estado: 'liberacion', salida: c.id }] }), /nobody moves tokens of others/);
   const e = await ejecutar(eje, { autor: 'a', consolidacion: c.id, t: T0 });
   assert.deepEqual(e.movimientos.slice(1), [{ token: 'P', ambito: X, cantidad: 20, de: 'a', a: 'a', estado: 'liberacion', salida: c.id }]);
   assert.deepEqual(e.contexto.evidencia, [c.id, autorizacionesValidas(eje, c.id)[0].id, ab.id]);

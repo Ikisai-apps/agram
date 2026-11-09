@@ -42,9 +42,9 @@ test('con claves, las firmas se verifican también al restaurar', async () => {
   // Quitar una firma rompe la restauración.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
   delete roto.eventos[2].firma;
-  await assert.rejects(restaurar(roto), /firma ausente/);
+  await assert.rejects(restaurar(roto), /who has a key signs/);
   // Y sin la clave privada, cocina ya no puede escribir.
-  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'x' }), /firma ausente/);
+  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'x' }), /who has a key signs/);
 });
 
 test('guardar y cargar en un localStorage simulado', async () => {

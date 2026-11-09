@@ -2,7 +2,10 @@
 // encargo 2), verificadas contra las condiciones de JavaScript que traducen
 // (src/condiciones/*.js, src/ciclo.js, la forma de src/evento.js y src/tokens.js).
 // Cada regla se evalúa con evaluarRegla sobre el eje de justo antes; la condición
-// JS, sobre el mismo eje. No están conectadas al eje (eso es el encargo 3).
+// JS, sobre el mismo eje. Desde el encargo 3a (paso 9) las reglas están conectadas
+// al eje (src/condiciones/reglas.js) y las condiciones JS que sustituyen se
+// retiraron de src/: su código vive en test/condiciones-retiradas.mjs y esta red
+// las sigue comparando.
 //
 // Qué se exige:
 // - en los ejemplos de Ikisai, el mismo veredicto en cada evento, también el génesis;
@@ -24,10 +27,9 @@ import { Eje } from '../src/eje.js';
 import { validarForma, canonico, cuerpo, hash, RAIZ, crearEvento } from '../src/evento.js';
 import { generarClaves, firmar, firmarPosesion } from '../src/autoridad.js';
 import { SECCIONES_DEL_CICLO, T_NO_SE_EMITE } from '../src/ciclo.js';
-import { erroresGenesis, erroresFirmaGenesis, AJENOS, FIRMA, CLAVES } from '../src/condiciones/identidad.js';
-import { ANCLA } from '../src/condiciones/evento.js';
-import { AMBITO_P } from '../src/condiciones/ciclo.js';
+import { erroresGenesis, erroresFirmaGenesis } from '../src/condiciones/identidad.js';
 import { SECCIONES_DEL_TOPE, analisisDelTope } from '../src/condiciones/tope.js';
+import { SECCIONES_RETIRADAS, ANCLA, AJENOS, AMBITO_P, FIRMA, CLAVES, registroDesconocido } from './condiciones-retiradas.mjs';
 import { SECCIONES_DE_R, analizarR, colateral } from '../src/lente.js';
 import { claveToken } from '../src/tokens.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
@@ -47,7 +49,7 @@ const REGLAS_DE_CLAVE = ['who has a key signs', 'without a key nobody acts', 'a 
 
 // ---------- la condición JS que traduce cada regla ----------
 
-const SECCION = Object.fromEntries(SECCIONES_DEL_CICLO.map((s) => [s.nombre, s]));
+const SECCION = { ...Object.fromEntries(SECCIONES_DEL_CICLO.map((s) => [s.nombre, s])), ...SECCIONES_RETIRADAS };
 const RR3 = SECCIONES_DE_R.find((s) => s.nombre === 'RR-3');
 const aTexto = (r) => (r === null || r === undefined ? [] : Array.isArray(r) ? r : [r]).map((x) => (typeof x === 'string' ? x : x.texto));
 const esObjeto = (m) => m !== null && typeof m === 'object';
@@ -118,7 +120,7 @@ async function motivosJS(eje, ev) {
     'minting needs real T': deSec('ES-1', /exige consumir T del autor/),
     'minting P or E needs own R at stake': deSec('ES-1', /exige R propia en juego/),
     'minting E needs P on the record': deSec('ES-1', /emitir E exige P del autor/),
-    'E is tied to a record that exists': tope(0).filter((x) => /^registro desconocido/.test(x)),
+    'E is tied to a record that exists': delCiclo ? registroDesconocido(ev, ctx.tope) : [],
     'locked P backing live E is not released': tope(1),
     'nobody moves tokens of others': genesis
       ? movs.filter((m) => esObjeto(m) && m.de !== null && m.de !== ev.autor).map(() => 'GN-1: el génesis solo emite a su autor')

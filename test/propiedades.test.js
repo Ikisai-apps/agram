@@ -316,9 +316,9 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
         assert.equal(e.constructor, Error, e.message);
         assert.match(e.message, /evento (rechazado|mal formado)/);
         assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
-        if (op === 7 && /^evento rechazado/.test(e.message) && !/autor desconocido|foco desconocido/.test(e.message)) assert.match(e.message, /T no se emite|solo las personas emiten/);
+        if (op === 7 && /^evento rechazado/.test(e.message) && !/autor desconocido|foco desconocido/.test(e.message)) assert.match(e.message, /nobody mints T|only persons mint/);
         if (autor === 'hab' && op === 3) {
-          assert.match(e.message, /solo las personas emiten: hab es una cosa/);
+          assert.match(e.message, /only persons mint/);
           vistos.cosaNoEmite++;
         }
         continue;
@@ -381,7 +381,7 @@ test('propiedad: escribir desde un modo cuesta T:minuto por posición y no toca 
       assert.equal(foto(eje), antes, 'un rechazo no cambia nada');
       if (!cabe) vistos.noCabe++;
       else {
-        assert.match(e.message, /T del día agotado \(minuto\)/);
+        assert.match(e.message, /writing burns today's T/);
         vistos.sinMinutos++;
       }
       continue;

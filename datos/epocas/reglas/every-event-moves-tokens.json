@@ -11,6 +11,6 @@
     "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
   ],
   ["epoch 0"],
-  ["after writing burns today's T"],
+  ["after every record hangs on a record of the ledger"],
   ["every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"]
 ]

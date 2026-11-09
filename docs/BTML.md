@@ -328,10 +328,10 @@ console.log(eje.series().map((x) => x.clave + ' ' + x.emitido).join(' · '));
 ```text
 {"emisor":"casa","emitido":2} [{"emisor":"casa","denominacion":"cama@2026-11-13","cantidad":2}] false
 {"emisor":"bea","emitido":1} {"emisor":"casa","emitido":2}
-evento rechazado: nadie emite en nombre de otro: casa no es el autor
-evento rechazado: solo las personas emiten: hab-2 es una cosa (su alta la escribió casa); emitir E exige R propia en juego: R:hab-2 bloqueada como colateral (salida «R:hab-2»), al menos la décima parte de lo emitido de R:hab-2, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 954a2a97 (saldo o movimiento de P en el mismo evento)
+evento rechazado: E is minted by and to its issuer: bea mints E of casa, or to someone else
+evento rechazado: only persons mint: hab-2 is a thing (its alta was written by casa), and only persons mint; emitir E exige R propia en juego: R:hab-2 bloqueada como colateral (salida «R:hab-2»), al menos la décima parte de lo emitido de R:hab-2, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 954a2a97 (saldo o movimiento de P en el mismo evento)
 evento rechazado: saldo insuficiente de E:casa/cama@2026-11-13 en hab-2
-evento rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día (VG, 8-11: no hay T acumulable)
+evento rechazado: nobody mints T: casa mints 1 T; everyone has today's allowance
 1 [{"emisor":"casa","cantidad":3},{"emisor":"bea","cantidad":0.5}]
 E:casa/EUR 500 · P:genesis 5 · T:minuto 0 · R:casa 12 · E:casa/cama@2026-11-13 2 · R:bea 2 · E:bea/cama@2026-11-13 1
 ```
@@ -1144,11 +1144,11 @@ await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movi
 ```text
 true casa true false false
 casa ["casa"] EC P-256
-evento rechazado: firma ausente de casa
+evento rechazado: who has a key signs: casa has a key and this transaction is not signed by them (signer: nadie)
 casa true
 evento rechazado: firma inválida de bea
 bea true
-evento rechazado: no se puede cambiar la clave de bea
+evento rechazado: a key is declared at its alta: bea already has an account, or is neither the author nor receives anything here
 ```
 
 Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma varían en cada ejecución; el id cambia respecto al génesis sin clave porque `contexto.claves` está en el cuerpo):
@@ -1240,13 +1240,13 @@ for (const d of intentos) await eje.escribir(d).catch((e) => console.log(e.messa
 ```
 
 ```text
-evento rechazado: foco desconocido: nadie
+evento rechazado: every record hangs on a record of the ledger: nadie is not one (only the genesis hangs on nothing)
 evento mal formado: escribir consume T del autor: un movimiento de T con de = raiz y a = null (VG, 7-11 noche)
-evento rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día (VG, 8-11: no hay T acumulable)
-evento rechazado: nadie emite en nombre de otro: bea no es el autor; emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
+evento rechazado: nobody mints T: raiz mints 1 T; everyone has today's allowance
+evento rechazado: E is minted by and to its issuer: raiz mints E of bea, or to someone else; emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
 evento rechazado: emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
-evento rechazado: T del día agotado (minuto): quedan 1440
-evento rechazado: T del día agotado (hora): quedan 24
+evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
+evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
 evento mal formado: en debe ser una dirección de diez dígitos
 evento mal formado: payload 1: hueco
 evento rechazado: ya hay génesis
