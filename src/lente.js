@@ -392,14 +392,17 @@ export function valor(eje, lector, titular) {
  */
 export function reglasDeR(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true || ctx.reglas === 2) return [];
+  const a = analizarR(ev, ctx);
+  return SECCIONES_DE_R.flatMap((s) => s.evaluar(ev, ctx, a));
+}
+
+/** Lo que el evento hace con R: lo que emite por serie, lo que el autor bloquea o libera de su R por salida, y qué liberaciones tocan un colateral. */
+export function analizarR(ev, ctx) {
   const autor = ev.autor;
   const propia = claveR(autor);
-  const errores = [];
-  const falla = (i, capa, texto) => errores.push({ i, capa, texto });
   const validos = (Array.isArray(ev.movimientos) ? ev.movimientos : [])
     .map((m, i) => ({ m, i }))
     .filter(({ m }) => m && typeof m === 'object' && m.token === 'R' && !validarMovimiento(m).length);
-
   const delta = new Map(); // salida → lo que el autor bloquea (+) o libera (−) de R:<autor> en el evento
   const emitidas = new Map(); // clave R → { i, cantidad } emitido en el evento
   const liberaciones = [];
@@ -416,42 +419,68 @@ export function reglasDeR(ev, ctx) {
   }
   const colateralTras = (salida) => ctx.bloqueado(autor, propia, salida) + (delta.get(salida) ?? 0);
   const emitidoTras = (k) => (ctx.serie(k)?.emitido ?? 0) + (emitidas.get(k)?.cantidad ?? 0);
-  const texto = (n) => String(redondear(n));
+  return { propia, emitidas, liberaciones, colateralTras, emitidoTras };
+}
 
-  // Emitir R exige colateral: R:<autor> bloqueada con la salida = la serie, al menos la décima parte de lo emitido.
-  for (const [k, { i }] of emitidas) {
-    const tiene = colateralTras(k);
-    const emitido = emitidoTras(k);
+const textoR = (n) => String(redondear(n));
+
+/** RR-3: emitir R exige colateral: R:<autor> bloqueada con la salida = la serie, al menos la décima parte de lo emitido. */
+function colateralAlEmitir(ev, ctx, a) {
+  const errores = [];
+  for (const [k, { i }] of a.emitidas) {
+    const tiene = a.colateralTras(k);
+    const emitido = a.emitidoTras(k);
     if (!cubre(tiene, emitido)) {
-      falla(i, 4, 'emitir ' + k + ' exige colateral: ' + propia + ' bloqueada con la salida «' + k + '», al menos ' + texto(colateralMinimo(emitido))
-        + ' (' + COLATERAL_R.num + '/' + COLATERAL_R.den + ' de lo emitido, ' + texto(emitido) + '); hay ' + texto(tiene) + ' (R6)');
-    }
-  }
-  // Liberar el colateral: nunca con devoluciones sin atender, ni por debajo del mínimo.
-  for (const { i, salida } of liberaciones) {
-    const emisor = salida.slice(2);
-    const sin = ctx.pendientes(emisor);
-    if (sin.length) {
-      falla(i, 5, 'el colateral de ' + salida + ' no se libera mientras haya devoluciones sin atender (' + sin.map(corto).join(', ')
-        + '): atender es escribir un evento de ' + emisor + ' con contexto.atiende = el id de la devolución (R6)');
-    }
-    const emitido = emitidoTras(salida);
-    const queda = colateralTras(salida);
-    if (emitido > 0 && !cubre(queda, emitido)) {
-      falla(i, 4, 'el colateral de ' + salida + ' no baja de ' + texto(colateralMinimo(emitido)) + ' (' + COLATERAL_R.num + '/' + COLATERAL_R.den
-        + ' de lo emitido, ' + texto(emitido) + '); quedarían ' + texto(queda) + ' (R6)');
-    }
-  }
-  // Atender: el emisor cita devoluciones de su R.
-  const atiende = ev.contexto?.atiende;
-  if (atiende !== undefined) {
-    const ids = Array.isArray(atiende) ? atiende : [atiende];
-    if (!ids.length || ids.some((x) => typeof x !== 'string')) falla(null, 5, 'contexto.atiende es el id de una devolución, o una lista de ids');
-    else {
-      for (const id of ids) {
-        if (!ctx.devolucion(id, autor)) falla(null, 5, 'contexto.atiende cita ' + corto(id) + ', que no es una devolución de ' + propia + ': solo el emisor atiende las devoluciones de su R (R6)');
-      }
+      errores.push({ i, capa: 4, texto: 'emitir ' + k + ' exige colateral: ' + a.propia + ' bloqueada con la salida «' + k + '», al menos ' + textoR(colateralMinimo(emitido))
+        + ' (' + COLATERAL_R.num + '/' + COLATERAL_R.den + ' de lo emitido, ' + textoR(emitido) + '); hay ' + textoR(tiene) + ' (R6)' });
     }
   }
   return errores;
 }
+
+/** RR-4: el colateral no se libera con devoluciones sin atender, ni por debajo del mínimo. */
+function colateralAlLiberar(ev, ctx, a) {
+  const errores = [];
+  for (const { i, salida } of a.liberaciones) {
+    const emisor = salida.slice(2);
+    const sin = ctx.pendientes(emisor);
+    if (sin.length) {
+      errores.push({ i, capa: 5, texto: 'el colateral de ' + salida + ' no se libera mientras haya devoluciones sin atender (' + sin.map(corto).join(', ')
+        + '): atender es escribir un evento de ' + emisor + ' con contexto.atiende = el id de la devolución (R6)' });
+    }
+    const emitido = a.emitidoTras(salida);
+    const queda = a.colateralTras(salida);
+    if (emitido > 0 && !cubre(queda, emitido)) {
+      errores.push({ i, capa: 4, texto: 'el colateral de ' + salida + ' no baja de ' + textoR(colateralMinimo(emitido)) + ' (' + COLATERAL_R.num + '/' + COLATERAL_R.den
+        + ' de lo emitido, ' + textoR(emitido) + '); quedarían ' + textoR(queda) + ' (R6)' });
+    }
+  }
+  return errores;
+}
+
+/** RR-5: atender es que el emisor cite devoluciones de su R. */
+function atender(ev, ctx, a) {
+  const errores = [];
+  const atiende = ev.contexto?.atiende;
+  if (atiende === undefined) return errores;
+  const ids = Array.isArray(atiende) ? atiende : [atiende];
+  if (!ids.length || ids.some((x) => typeof x !== 'string')) errores.push({ i: null, capa: 5, texto: 'contexto.atiende es el id de una devolución, o una lista de ids' });
+  else {
+    for (const id of ids) {
+      if (!ctx.devolucion(id, ev.autor)) errores.push({ i: null, capa: 5, texto: 'contexto.atiende cita ' + corto(id) + ', que no es una devolución de ' + a.propia + ': solo el emisor atiende las devoluciones de su R (R6)' });
+    }
+  }
+  return errores;
+}
+
+/**
+ * Las secciones de reglasDeR, en su orden, con las filas del inventario
+ * (docs/notas/INVENTARIO_REGLAS.md §2, «Reputación (R)») que cubren. Cada
+ * una es (ev, ctx, análisis) → [{ i, capa, texto }]; src/condiciones/r.js
+ * las envuelve como condiciones de una transacción (VG, 9-11).
+ */
+export const SECCIONES_DE_R = Object.freeze([
+  Object.freeze({ nombre: 'RR-3', filas: Object.freeze(['RR-3']), evaluar: colateralAlEmitir }),
+  Object.freeze({ nombre: 'RR-4', filas: Object.freeze(['RR-4']), evaluar: colateralAlLiberar }),
+  Object.freeze({ nombre: 'RR-5', filas: Object.freeze(['RR-5']), evaluar: atender }),
+]);

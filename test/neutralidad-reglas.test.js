@@ -240,6 +240,8 @@ const PERMITIDOS = Object.freeze({
   'src/tokens.js': 'define TIPOS y EMITEN',
   'src/eje.js': 'valida el alta (el tipo se declara una vez) y da el contexto de src/ciclo.js',
   'src/ciclo.js': 'quién firma emisiones: EMITEN, y qué tipos admite un alta (motivoTipo, TIPOS_V2)',
+  // La capa cero (VG, 9-11): las comprobaciones del alta y del génesis que estaban en src/eje.js son ahora condiciones.
+  'src/condiciones/identidad.js': 'las condiciones del alta (ID-3) y del génesis (GN-1), que antes estaban en src/eje.js',
   'src/validez.js': 'las mismas reglas que eje.validar, leídas por capas (su libro guarda los tipos)',
   // Solo para mostrar: la etiqueta de la cartera y la forma del agua. No ordenan, no filtran ni conceden.
   'ui/saldos.js': 'muestra el tipo junto a la identidad',

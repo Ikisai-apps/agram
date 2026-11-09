@@ -1,0 +1,189 @@
+// Condiciones de identidad y autoridad (inventario §2, «Identidades, claves y
+// tipos» y «Génesis»): quien tiene clave firma (ID-5), sin clave no se actúa
+// (ID-4, R9), las claves y los tipos se declaran en el alta (ID-2, ID-3,
+// ID-6), nadie mueve tokens ajenos (ID-8) y el génesis (GN-1, GN-2). Mismo
+// texto y mismo orden que tenían en src/eje.js; ahora son condiciones de
+// validez de la transacción (VG, 9-11: la capa cero).
+
+import { claveToken, cantidadBase, AMBITO_GENESIS, EMITEN } from '../tokens.js';
+import { motivoTipo, motivoAjenos, EMITEN_V2, T_NO_SE_EMITE, validosDe } from '../ciclo.js';
+import { verificar, verificarPosesion, clavePublicaValida } from '../autoridad.js';
+
+const enEnteros = (k) => 'la serie ' + k + ' va en enteros: no se declaró divisible (divisible: true en su primera emisión)';
+const objetos = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : []);
+
+/**
+ * ID-4, ID-5 (y la bandera exigirFirmas del eje). Quien tiene clave firma, y
+ * el firmante es el autor; sin clave no se actúa (R9), salvo en un eje de
+ * demostración o en el prefijo de la versión 2.
+ */
+export const FIRMA = Object.freeze({
+  nombre: 'ID-5',
+  filas: Object.freeze(['ID-4', 'ID-5']),
+  familia: 'identidad',
+  evaluar: async (tx, libro, ctx) => {
+    const ev = ctx.evento;
+    const clave = ctx.clave(ev.autor);
+    if (clave) {
+      if (!ev.firma) return 'firma ausente de ' + ev.autor;
+      if (ev.firmante !== ev.autor) return 'el firmante debe ser el autor';
+      if (!(await verificar(ev, clave))) return 'firma inválida de ' + ev.autor;
+      return null;
+    }
+    if (ctx.exigirFirmas) return 'autor sin clave: ' + ev.autor;
+    // R9: sin clave no se actúa (mover tokens, autorizar, escribir bases: todo evento mueve T de su autor).
+    if (ctx.exigeClave) return 'sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)';
+    return null;
+  },
+});
+
+/**
+ * ID-2, ID-6. Las claves que declara el evento solo pueden ser de
+ * identidades nuevas (que reciben tokens en él), y llegan con su prueba de
+ * posesión (R9): la clave nueva firma el id del alta.
+ */
+export const CLAVES = Object.freeze({
+  nombre: 'ID-6',
+  filas: Object.freeze(['ID-2', 'ID-6']),
+  familia: 'identidad',
+  evaluar: async (tx, libro, ctx) => {
+    const ev = ctx.evento;
+    const movimientos = objetos(ev);
+    const errores = [];
+    const declaradas = ev.contexto?.claves ?? {};
+    for (const [id, jwk] of Object.entries(declaradas)) {
+      if (ctx.tieneClave(id) || libro.tiene(id)) errores.push('no se puede cambiar la clave de ' + id);
+      else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
+      else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
+      else if (!Object.hasOwn(ev.posesion ?? {}, id)) {
+        if (ctx.exigeClave) errores.push('la clave de ' + id + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
+      } else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
+    }
+    for (const id of Object.keys(ev.posesion ?? {})) {
+      if (!Object.hasOwn(declaradas, id)) errores.push('prueba de posesión de ' + id + ' sin clave declarada para él en este evento');
+    }
+    return errores;
+  },
+});
+
+/** ID-2, ID-3. Los tipos (persona o cosa) se declaran en el alta, como la clave, y no cambian. */
+export const TIPOS = Object.freeze({
+  nombre: 'ID-3',
+  filas: Object.freeze(['ID-2', 'ID-3']),
+  familia: 'identidad',
+  evaluar: (tx, libro, ctx) => {
+    const ev = ctx.evento;
+    const movimientos = objetos(ev);
+    const errores = [];
+    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
+      const mal = motivoTipo(id, tipo, ctx.reglas);
+      if (mal) errores.push(mal);
+      else if (ctx.tipoDeclarado(id) || libro.tiene(id)) errores.push('no se puede cambiar el tipo de ' + id);
+      else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
+    }
+    return errores;
+  },
+});
+
+/**
+ * ID-8. Nadie mueve tokens ajenos, ni por cuenta de un grupo (VG, 8-11: solo
+ * existe la delegación): todo movimiento con origen lo escribe su titular.
+ * Es una condición de PASO: el movimiento que la incumple no se simula (sus
+ * motivos van en su sitio entre los de la aritmética, como antes).
+ */
+export const AJENOS = Object.freeze({
+  nombre: 'ID-8',
+  filas: Object.freeze(['ID-8']),
+  familia: 'identidad',
+  evaluar: (tx, libro, ctx) => {
+    const ev = ctx.evento;
+    return (ctx.validos ?? validosDe(ev)).filter(({ m }) => m.de !== null && m.de !== ev.autor).map(({ m, i }) => ({ paso: i, i, texto: motivoAjenos(m.de) }));
+  },
+});
+
+// ---------- el génesis ----------
+
+/**
+ * GN-1, GN-2 (sin la firma). El génesis emite a su autor, sus series de E y
+ * R quedan a su nombre, su P es sobre todo el eje («genesis»: aún no existe
+ * ningún otro registro) y solo declara el tipo y la clave de su autor. Lo
+ * emite una persona; con las reglas de la versión 2 (`reglas` = 2: un eje
+ * guardado con ella), también un grupo (el tipo que había entonces).
+ */
+export function erroresGenesis(g, reglas = 3) {
+  const errores = [];
+  const totales = new Map();
+  const divisibles = new Map(); // clave de E → divisible, fijado por su primera emisión
+  const movimientos = objetos(g);
+  for (const m of movimientos) {
+    if (m.de !== null || m.a !== g.autor) errores.push('el génesis solo emite a su autor');
+    else if (m.token === 'T' && reglas !== 2) errores.push(T_NO_SE_EMITE); // VG, 8-11: no hay T acumulable
+    else if ((m.token === 'E' || m.token === 'R') && m.emisor !== g.autor) errores.push('en el génesis emite su autor: ' + m.emisor);
+    else if (m.token === 'P' && m.ambito !== AMBITO_GENESIS) errores.push('el P del génesis es sobre todo el eje: ámbito «' + AMBITO_GENESIS + '»');
+    else if (m.token === 'E' && reglas === 2 && (m.registro !== undefined || m.divisible !== undefined || m.emisores !== undefined)) {
+      errores.push('registro, divisible y emisores no existían en la versión 2');
+    } else if (m.token === 'E' && m.registro !== undefined) {
+      errores.push('en el génesis no hay registro que nombrar: su E queda atada al génesis');
+    } else if (m.token === 'E' && m.emisores !== undefined) {
+      errores.push('en el génesis emite solo su autor: sin emisión conjunta');
+    } else {
+      const k = claveToken(m);
+      totales.set(k, (totales.get(k) ?? 0) + cantidadBase(m));
+      if (!Number.isFinite(totales.get(k))) errores.push('la serie ' + k + ' no admite tanto');
+      if (m.token === 'E' && reglas !== 2) {
+        // Fracciones solo en las series declaradas divisibles (R2, VG 7-11 noche).
+        const divisible = m.divisible === true;
+        if (!divisibles.has(k)) divisibles.set(k, divisible);
+        else if (divisibles.get(k) !== divisible) errores.push('la serie ' + k + (divisibles.get(k) ? ' es' : ' no es') + ' divisible: una ampliación no cambia su contrato');
+        if (!divisibles.get(k) && Number.isFinite(m.cantidad) && !Number.isInteger(m.cantidad)) errores.push(enEnteros(k));
+      }
+    }
+  }
+  for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
+    if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
+    else if (motivoTipo(id, tipo, reglas)) errores.push(motivoTipo(id, tipo, reglas));
+    else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
+  }
+  for (const id of Object.keys(g.contexto?.claves ?? {})) {
+    if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');
+  }
+  // R9: sin clave no se actúa. Fuera de la demostración, el génesis declara la clave de su autor (y va firmado
+  // con ella: erroresFirmaGenesis, que es su prueba de posesión). Un eje guardado con la versión 2 no la conocía.
+  const demo = g.contexto?.demostracion;
+  if (demo !== undefined && demo !== true) errores.push('demostracion va como true o no va');
+  if (reglas !== 2 && demo !== true && !g.contexto?.claves?.[g.autor]) {
+    errores.push('sin clave no se actúa: el génesis declara la clave de su autor y va firmado con ella (o se crea como demostración, { demostracion: true })');
+  }
+  return errores;
+}
+
+/**
+ * GN-2 (la firma). Si el génesis declara la clave de su autor, la clave es
+ * pública e importable y el génesis va firmado con ella por su autor. Es la
+ * misma regla al crear el eje y al restaurarlo.
+ */
+export async function erroresFirmaGenesis(g) {
+  const clave = g.contexto?.claves?.[g.autor];
+  if (!clave) return [];
+  if (!(await clavePublicaValida(clave))) return ['clave inválida para ' + g.autor];
+  if (!g.firma) return ['el génesis con clave debe ir firmado con ella'];
+  if (g.firmante !== g.autor) return ['el firmante del génesis debe ser su autor'];
+  if (!(await verificar(g, clave))) return ['firma del génesis inválida: debe ir firmado con la clave de su autor'];
+  return [];
+}
+
+/** GN-1, GN-2: lo que emite y declara el génesis (ctx.reglas: 2 en un eje guardado con la versión 2). */
+export const GENESIS = Object.freeze({
+  nombre: 'GN-1',
+  filas: Object.freeze(['GN-1', 'GN-2', 'TT-1']),
+  familia: 'genesis',
+  evaluar: (tx, libro, ctx) => erroresGenesis(ctx.evento, ctx.reglas),
+});
+
+/** GN-2: el génesis con clave va firmado con ella por su autor. */
+export const FIRMA_GENESIS = Object.freeze({
+  nombre: 'GN-2',
+  filas: Object.freeze(['GN-2', 'ID-5', 'ID-7']),
+  familia: 'genesis',
+  evaluar: (tx, libro, ctx) => erroresFirmaGenesis(ctx.evento),
+});
