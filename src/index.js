@@ -22,4 +22,6 @@ export * as ciclo from './ciclo.js';
 export * as elegibles from './elegibles.js';
 export * as lente from './lente.js';
 export * as instante from './instante.js';
+export * as libro from './libro.js';
+export * as condiciones from './condiciones/index.js';
 export * from './lectura.js';

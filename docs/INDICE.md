@@ -41,12 +41,14 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | `DOS_ESCALAS_BTML.md` | Qué pueden ser `matrix_data` y `block_data`, y las fronteras de las diez profundidades | abierta |
 | `AUDITORIA_AJUSTE.md` | Dónde se separa el código de lo decidido: fichas votadas, el §12 línea a línea y preguntas para VG | base `95e5396`; buena parte ya resuelta en `main` (ver su estado) |
 | `PRUEBA_DEL_EXTRANJERO.md` | La prueba del extranjero: un agente con solo BTML, BQL y MOTOR escribe registros y fórmulas, y un conocedor lo califica | hecha; el anexo es histórico y dice qué cambia hoy |
+| `CAPA_CERO.md` | La capa cero: el libro de transacciones, la correspondencia evento ↔ transacción y las condiciones envueltas con su fila del inventario | paso 1 del mapa §16 (VG, 9-11); en `src/libro.js` y `src/condiciones/` |
 
 ## Dónde está cada cosa en el código
 
 | Busco | Documento | Código | Pruebas |
 |---|---|---|---|
 | eventos, eje, tokens, génesis | `docs/BTML.md` §1, §2, §8 | `src/evento.js`, `src/eje.js`, `src/tokens.js` | `test/eje.test.js`, `test/eprt.test.js`, `test/evento.test.js`, `test/tokens.test.js` |
+| la capa cero: el libro de transacciones y las reglas como condiciones de validez | `docs/FUNDAMENTOS.md` («La capa de transacciones»), `docs/notas/CAPA_CERO.md` | `src/libro.js`, `src/condiciones/`, `src/eje.js` | `test/libro.test.js`, `test/capa-cero.test.js` |
 | direcciones, payload, colisiones, encaje | `docs/BTML.md` §3–§6 | `src/btml.js`, `src/encaje.js` | `test/encaje.test.js`, `test/vector.test.js`, `test/conformidad-btml.test.js` |
 | firmas y claves | `docs/BTML.md` §7 | `src/autoridad.js` | `test/autoridad.test.js` |
 | épocas y reglas cortas | `docs/REGLAS_CORTAS.md` | `src/epocas.js`, `datos/epocas/` | `test/epocas.test.js` |

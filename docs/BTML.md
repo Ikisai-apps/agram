@@ -18,14 +18,16 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `SEPARADOR_REGISTRO`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `CRITERIO_CAPACIDAD`, `validarMovimiento`, `claveToken`, `partirClave`, `esIdRegistro`, `capacidadDe`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
 | `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC | `esInstante`, `msUTC`, `msDeGuardado` (solo para eventos de la versión 2) |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.tipo`, `eje.identidades`, `eje.clave`, `reglasDelTope`, `SIN_CAPACIDAD` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje. Por dentro, una envoltura del libro de transacciones (`docs/notas/CAPA_CERO.md`) | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.tipo`, `eje.identidades`, `eje.clave`, `eje.libro`, `eje.transaccion`, `eje.contexto`, `eje.antes`, `reglasDelTope`, `SIN_CAPACIDAD` |
+| `src/libro.js` | La capa cero (VG, 9-11): el libro de transacciones, cinco primitivas, anclaje y memo, atomicidad, condiciones enchufables | `Libro`, `acunar`, `transferir`, `bloquear`, `liberar`, `quemar`, `transaccion`, `PRIMITIVAS` |
+| `src/condiciones/` | Las reglas como condiciones de validez de la transacción, por familias y con su fila del inventario | `CONDICIONES`, `CONDICIONES_GENESIS`, `motivosDe`, `catalogo` |
 | `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
 | `src/lectura.js` | Lectura humana de un payload y de un registro: un esquema de texto, una línea por posición (§3.5) | `leer`, `leerEvento` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
-`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js`, `modos.js` y `lectura.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos` y `validez`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
+`src/index.js` reexporta `btml.js`, `tokens.js`, `evento.js`, `eje.js`, `epocas.js`, `modos.js` y `lectura.js` en plano, y como espacios de nombres `pointed`, `sequenced`, `mapped`, `scened`, `salida` (= `src/escritura.js`), `bql`, `encaje`, `motor`, `autoridad`, `tiempo`, `persistencia`, `bases`, `efectos`, `validez`, `libro` y `condiciones`: `import { Eje, crearEvento, encaje, bql, motor } from './src/index.js'`. Cuidado también con `validez`: es el espacio de nombres de `src/validez.js`, y la función es `validez.validez`. Cuidado: `escritura` en plano **no** es el módulo `src/escritura.js` sino la función de `modos.js` que da la proporción de escritura de un modo; el módulo es `salida`. No hay espacios de nombres `btml`, `tokens`, `evento`, `eje`, `epocas` ni `modos`: lo suyo se importa en plano (`import { direccion, indicesDe, Eje } from './src/index.js'`; `import { btml } from …` falla con `does not provide an export named 'btml'`).
 
 ## 1. El evento
 
@@ -259,7 +261,7 @@ Todos los errores de `validarMovimiento` (en un evento salen como `evento mal fo
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor, sin excepciones: el «por cuenta de un grupo» se retiró, VG 8-11, «los grupos son solo delegación»), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después solo emiten las personas, con las reglas de `src/ciclo.js` (§2.4): T no se emite (cada persona tiene su asignación diaria), P sobre un registro suyo o sobre el que ya tienen P, E y R a su nombre, y todo escalonado. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento.
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor, sin excepciones: el «por cuenta de un grupo» se retiró, VG 8-11, «los grupos son solo delegación»), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después solo emiten las personas, con las reglas de `src/ciclo.js` (§2.4): T no se emite (cada persona tiene su asignación diaria), P sobre un registro suyo o sobre el que ya tienen P, E y R a su nombre, y todo escalonado. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento. Esa simulación es la del libro de transacciones (`src/libro.js`; VG, 9-11, la capa cero): cada evento es una transacción con un paso por movimiento (acuñar, transferir, bloquear, liberar, quemar) y se aplica entera o nada (`docs/notas/CAPA_CERO.md`).
 
 ### 2.4 Emisión de series
 
@@ -1174,6 +1176,8 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 
 `eje.anadir` y `eje.escribir` lanzan `Error('evento rechazado: ' + errores.join('; '))`. Antes, `crearEvento` ya ha lanzado `evento mal formado` si falla la forma (§1.3).
 
+Cada fila de esta tabla sale de una condición de validez de la transacción del evento (`src/condiciones/`, con su fila del inventario: `docs/notas/CAPA_CERO.md` §3) o de la aritmética del libro. Los errores salen en el orden de las condiciones y, al final, los de cada movimiento en su orden («nadie mueve tokens ajenos», «ámbito desconocido» y los saldos).
+
 | Error | Causa |
 |---|---|
 | `id no corresponde al cuerpo` | el id no es el hash del cuerpo (evento manipulado) |
@@ -1415,7 +1419,13 @@ export class Eje {
   constructor({ exigirFirmas = false } = {});
   static async genesis({ identidad, emision, foco, t, contexto, clave, privada, tipo, exigirFirmas, demostracion = false }): Promise<Eje>;  // sin clave lanza, salvo demostracion (R9)
   static async desde(eventos, { exigirFirmas = false } = {}): Promise<Eje>;
-  eventos: Map<id, Evento>; orden: id[]; saldos: Map<identidad, Map<clave, number>>; bloqueados: Map<identidad, Map<clave, Map<salida, number>>>; claves: Map<identidad, JWK>; exigirFirmas: boolean; demostracion: boolean;   // series, tipos y altas son privados: se leen con serie(), series(), tipo(), alta()
+  eventos: Map<id, Evento>; orden: id[]; claves: Map<identidad, JWK>; exigirFirmas: boolean; demostracion: boolean;   // series, tipos y altas son privados: se leen con serie(), series(), tipo(), alta()
+  get libro(): Libro;                                      // la capa cero (src/libro.js): saldos, bloqueos, vistas por identidad, sumas, el diario
+  get saldos(): Map<identidad, Map<clave, number>>;        // copia leída del libro (compatibilidad)
+  get bloqueados(): Map<identidad, Map<clave, Map<salida, number>>>;  // ídem
+  transaccion(ev): Transaccion;                            // el evento como transacción del libro, con el eje de ahora (docs/notas/CAPA_CERO.md §2)
+  contexto(ev): object;                                    // lo que leen las condiciones de su transacción: el eje de antes del evento
+  antes(k): Eje;                                           // el eje con los k primeros eventos (lo que leen las capas de validez)
   get genesisId(): string;
   obtener(id): Evento | undefined;
   identidades(): string[];
@@ -1448,8 +1458,29 @@ export class Eje {
 }
 export function caducada(eje, clave, t): boolean;          // solo lee la caducidad de una serie de E; nada se ejecuta solo
 
+// src/libro.js (la capa cero, VG 9-11: «registrar es hacer una transacción»)
+export function acunar(serie, a, cantidad, opciones?): Primitiva;          // opciones: clase, etiqueta, tope
+export function transferir(serie, de, a, cantidad, opciones?): Primitiva;  // opciones: fuentes (series de donde sale, en orden)
+export function bloquear(serie, de, cantidad, salida): Primitiva;
+export function liberar(serie, de, cantidad, salida): Primitiva;
+export function quemar(serie, de, cantidad, opciones?): Primitiva;
+export function transaccion({ movimientos, ancla: { sobre, en }, memo, autor, t, firma, abre, … }): Transaccion;  // movimientos: pasos (una primitiva o un grupo atómico)
+export class Libro {
+  async aplicar(tx, condiciones?, contexto?): Promise<{ ok, motivos }>;   // entera o nada; condiciones (tx, libroAntes, contexto) → null | motivo
+  async probar(tx, condiciones?, contexto?): Promise<{ motivos, simulacion }>;  // sin tocar el libro
+  async evaluar(tx, condiciones?, contexto?): Promise<motivo[]>;          // solo las condiciones
+  asentar(tx, simulacion?): asiento[];                                    // sin condiciones; lanza si la aritmética falla
+  saldo(id, serie): number; bloqueado(id, serie, salida?): number; bloqueadoPorSalida(salida, serie?): number | object;
+  bloqueos(id): { serie, salida, cantidad }[]; bloqueosCon(salida): { titular, serie, cantidad }[];
+  vista(id): { [serie]: { disponible, bloqueado: { [salida]: number } } };  // la cartera por series
+  alta(id): Transaccion | null; titulares(): string[]; tiene(id): boolean;
+  sumas({ primitiva, serie, registro, titular, clase, etiqueta, desde, hasta }): number | { [serie]: number };
+  asientos(filtro): asiento[];                                            // el diario
+}
+
 // src/ciclo.js
 export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // quién emite y el escalonado T → R → P → E; lo usan eje.validar y validez
+export const SECCIONES_DEL_CICLO: { nombre, filas, evaluar(ev, ctx, validos) }[];  // sus secciones en orden (RL-1, ID-9, TT-6, TT-4, TT-8, PP-5, ES-1): las condiciones de src/condiciones/ciclo.js
 export function motivoTipo(id, tipo, reglas): string | null;  // por qué no vale ese tipo en un alta (null si vale); 'grupo' se rechaza salvo en la versión 2 (TIPOS_V2)
 export function motivoAjenos(de): string;                  // «nadie mueve tokens ajenos: <de> no es el autor»
 
