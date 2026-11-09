@@ -1,0 +1,681 @@
+[
+  ["época 0", "epoch 0"],
+  [
+    [
+      ["E", "recursos"],
+      [
+        ["financiero y material"],
+        ["conocimiento e información"],
+        ["social y relacional"],
+        ["productivo y capacidad"]
+      ],
+      ["corpus: las cuatro orientaciones, la matriz 4⁴ (mapa §16 [D])"]
+    ],
+    [
+      ["P", "poder"],
+      [["económico"], ["administrativo"], ["social"], ["técnico"], ["de encaje"]],
+      ["[X] confirmar VG: cinco criterios = miradas 1-5 (¿0 o 5?, mapa §16)"]
+    ],
+    [
+      ["R", "reputación"],
+      [["su R"], ["E"], ["P"], ["mi R devuelta"], ["vetado"], ["desconocidos"]],
+      ["[X] confirmar VG: seis grupos = los seis precios de la atención (mapa §16)"]
+    ],
+    [
+      ["T", "tiempo"],
+      [
+        [["segundo"], [86400], [1]],
+        [["minuto"], [1440], [1]],
+        [["hora"], [24], [1]],
+        [["día"], [1], [1]],
+        [["semana"], [1], [7]],
+        [["ciclo"], [1], [28]],
+        [["año"], [1], [364]],
+        [["pasado"], ["sin límite"], [1]],
+        [["futuro"], ["sin límite"], [1]],
+        [["inventado"], ["sin límite"], [1]]
+      ],
+      ["VG, 8-11: asignación diaria, todo el día a las doce, sin acumular (mapa §12 [D])"]
+    ]
+  ],
+  [
+    [
+      ["writing burns today's T"],
+      [1, 7, "epoch.1.3.1"],
+      ["=count (ev.1 where it.0.0 = T and it.4 = burn and it.3.0 = first ev.3) >= 1 and count (ev.1 where it.0.0 = T and it.0.1 < 7 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where it2.0.0 = T and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0"],
+      ["ev.3"],
+      ["burn", "transfer"],
+      ["*"],
+      [
+        "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
+        "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])"
+      ],
+      ["epoch 0"],
+      ["first"],
+      ["writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"]
+    ]
+  ],
+  [
+    [
+      ["representación: su nombre o su cara"],
+      ["cartera: lo que tiene, por serie (vista del libro: disponible y bloqueado por salida)"],
+      ["criterios y P posicionado"],
+      ["grupos de atención y R"],
+      ["fábrica: lo que hace"],
+      ["estructura: su id y dónde encaja"],
+      ["pasado: de dónde viene (quién la dio de alta)"],
+      ["tiempo: lo gastado hoy de cada escala de T (vista del libro)"],
+      ["frente a otros: sus bases del 8"],
+      ["cómo: su guía"]
+    ],
+    ["el autor del génesis"]
+  ],
+  [
+    [
+      [
+        ["mint"],
+        ["acuñar: crea unidades de una serie en la cartera de alguien (de nadie a alguien)"]
+      ],
+      [["transfer"], ["transferir: mueve unidades de una cartera a otra"]],
+      [["lock"], ["bloquear: aparta unidades propias con una salida, sin cambiar de titular"]],
+      [["release"], ["liberar: devuelve al disponible lo bloqueado con esa salida"]],
+      [["burn"], ["quemar: consume unidades propias (de alguien a nadie)"]]
+    ],
+    [
+      [
+        ["D-META"],
+        ["el evento como registro: 3 autor y firmante, 5 id, 6.0 t, 6.5 sobre y en, 1 los movimientos"]
+      ],
+      [
+        ["D-MOV"],
+        ["un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad, 3.0 de, 3.1 a, 4 primitiva, 5 registro, 7 caducidad o fecha a la que se refiere, 9 nota"]
+      ],
+      [
+        ["D-SERIE"],
+        ["una clave de serie como décupla: 0 familia, 1 escala (T, un dígito), emisor (E, R) o ámbito (P), 2 denominación, 5 registro, 7 franja"]
+      ],
+      [
+        ["D-FECHA"],
+        ["un instante como décupla: k = el periodo de la escala k desde 1970-01-01T00:00Z (0 segundo … 3 día civil, 4 semana, 5 ciclo, 6 año de 364 + 1)"]
+      ],
+      [["D-VALOR"], ["un terminal «12 EUR»: 1 cuánto, 2 unidad (solo lectura)"]]
+    ]
+  ],
+  [
+    [
+      [
+        ["representación"],
+        ["PV0: la lente libre sobre el registro en foco (nombre, cifra, imagen, HTML). Puede engañar; no garantiza verdad."],
+        ["compra 0 = 'Compra del menú del día'; =LOCAL(0) lo devuelve."]
+      ],
+      [
+        ["recursos"],
+        ["PV1, reino o ciudad: cantidades, entradas y salidas, costes, disponibilidad."],
+        ["compra 1 = [[ref menú:1], [1], ['EUR 12']]: qué, cuánto, a qué precio (una décupla: cada posición va entre corchetes)."]
+      ],
+      [
+        ["criterios"],
+        ["PV2, jardín: lo que distingue cosas aparentemente iguales; decisiones y preferencias; BUSCAR, FILTRAR, ORDENAR, ELEGIR."],
+        ["menú 2 = ['sin gluten', 'vegetariano']; compra 2 = [ref menú:2]."]
+      ],
+      [
+        ["comunicación"],
+        ["PV3, parque acuático: hablar y escuchar, persona y grupo; no crea ni infiere relaciones ni motivos."],
+        ["compra 3 = ['huesped', 'cocina']: quién habla con quién."]
+      ],
+      [
+        ["fábrica"],
+        ["PV4: preparar la actuación con recursos, criterios y comunicaciones y consolidar la elección; en 4 se ejecuta."],
+        ["compra 4 = ['pagar', 'servir'] (una lista: dos acciones, dos ocupantes); consolidar() escribe en '4000000000' (FABRICA)."]
+      ],
+      [
+        ["estructura"],
+        ["PV5: el registro en foco, el centro de la cruceta (mapa §9 [D]); su estructura, referencias y firmas."],
+        ["Los campos de encaje de un candidato (ORIGEN(), ACUERDO(), SIGNO()) son su 5."]
+      ],
+      [
+        ["pasado"],
+        ["PV6: hilos del pasado, registros encadenados por referencia; procedencia; más detalle cerca del presente."],
+        ["El hilo de la compra: compra → menú → altas → génesis (por «sobre»)."]
+      ],
+      [
+        ["futuro"],
+        ["PV7: hilos del futuro: previsiones, compromisos, expiración, ejecución condicional autorizada."],
+        ["Una consolidación pendiente de autorización aparece como futuro del foco (ejeTemporal)."]
+      ],
+      [
+        ["comparabilidad"],
+        ["PV8, cielo: la confluencia de los hilos; posición frente a comparables, medidas, los diez hitos nivel.grado; las estrellas no son verdad."],
+        ["situar(eje, compra) sitúa la compra en su caja entre sus hermanos, leyendo la base escrita en el 8 del menú."]
+      ],
+      [
+        ["camino"],
+        ["PV9: la guía que baja de las bases: secuencias, tutoriales, siguiente paso; sugerir no es ejecutar."],
+        ["Décupla del corpus V4: 9 = 'Confirmar la elección antes de registrar'."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): qué es la parte; su nombre o cara, lo que se ve si no se desarrolla."],
+        ["compra 1.0 = [ref menú:1]: qué es lo comprado; =LOCAL(1, 0, 0) lee su ocupante (la referencia, seguida); x.0 ocupa la misma dirección que x (colisión por ceros)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): cuánto; su magnitud (número con unidad, veces, duración), donde SUMAR y el producto tienen sentido."],
+        ["compra 1.1 = 1 (un menú): =LOCAL(1, 1) * 12 EUR da 12 EUR."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): con qué condición; el criterio que la distingue o la condiciona: precio, requisito, límite."],
+        ["compra 1.2 = 'EUR 12': =REF(compra, \"1200000000\") da 12 EUR; una corrección escrita en '1200000000' es otro ocupante."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): con quién; su contraparte, quién la provee, la recibe o responde por ella."],
+        ["Un escrito en la 1.3 de una reserva de Booking = 'recepción': quién atiende los recursos de la reserva."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): qué se hace; lo que se hace o se hará con ella. El 4 del 4 es la acción de la acción."],
+        ["Escritos en la 1.4 de la compra = 'pagar' (lo que se hace con el recurso) y en la 3.4 = 'avisar'."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): dónde encaja; la dirección o referencia donde encaja en el árbol, lo que BUSCAR(LOCAL(5)) recibiría."],
+        ["Un escrito en la 1.5 de una reserva de Booking = { ref: calendario, dir: '7000000000' }: dónde encajan sus recursos."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): de dónde viene; su origen y procedencia, desde cuándo y qué había antes."],
+        ["La cuenta 1 sale de la compra 1.2; un escrito en la 1.6 de una reserva = 'entrada 14-11'."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): para cuándo; su plazo o compromiso, hasta cuándo vale o cuándo se cumple."],
+        ["Un escrito en la 1.7 de una reserva de Booking = 'salida 16-11 12:00'; en la 1.7 de un menú = 'hasta las 16:00'."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): frente a otros; dónde queda frente a sus comparables: diferencia, nivel, hito requerido."],
+        ["Un escrito en la 4.8 de una tarea = '3.1' (aprendizaje profesional, el hito del índice 3)."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (la mirada de la profundidad 0, el PV del registro en foco): cómo; cómo se consigue, se usa o se aplica, y el siguiente paso."],
+        ["Un escrito en la 1.9 de una reserva de Booking = 'check-in a partir de las 15:00'; en la 4.9 de una tarea = 'poner manteles'."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): qué es; el valor tal como se muestra. Colisiona con el detalle (x.y.0 ocupa la dirección de x.y). Si el detalle es un terminal no tiene posiciones: la lectura es de BQL sobre el valor."],
+        ["Un precio escrito en la 1.2 de la compra = 'EUR 12' es terminal: BQL lo muestra como '12 EUR'; un terminal no tiene posición 0 en BTML."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): cuánto; la cantidad, el número puro. Sobre un terminal, lectura de BQL."],
+        ["La cantidad del precio escrito en la 1.2 es 12, el número puro."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): con qué condición; la unidad o la condición que hace válido el valor; separa magnitudes del mismo número. Sobre un terminal, lectura de BQL."],
+        ["La unidad del precio escrito en la 1.2 es EUR; unidades distintas no se suman, se componen (14 EUR + 15 min no se funden)."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): con quién; quién fija el valor, lo cobra o responde por él."],
+        ["El precio escrito en la 1.2 lo fija cocina y lo paga el huésped."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): qué se hace; la operación que lo produjo: suma, producto, elección, consolidación."],
+        ["Los 14 EUR de la cuenta nacen de una suma: =REF(compra, \"1200000000\") + 2 EUR."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): dónde encaja; dónde vive y quién lo firma: registro, dirección, camino de índices, firma."],
+        ["La cuenta 1 depende de 'compra:1200000000' (dependencias de evaluar())."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): de dónde viene; el desglose, los operandos y la procedencia del valor."],
+        ["14 EUR (12 EUR + 2 EUR): el desglose del valor; procedencia de sus operandos."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): para cuándo; hasta cuándo vale o cuándo se liquida."],
+        ["Un precio 'de hoy'; una tarifa 'hasta el 30-11'; un precio vencido sigue siendo ocupante, con su fecha."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): frente a otros; lo ocurrido frente a lo previsto o frente a sus comparables; señala la diferencia, no puntúa."],
+        ["La cuenta cobra 14 EUR frente a los 12 EUR del menú: señala la diferencia, no puntúa."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (la parte, el nodo de la profundidad 1): cómo; el camino de cálculo, la fórmula o la instrucción que lo obtiene."],
+        ["La fórmula '=REF(…) + 2 EUR'; con '==' se guarda como texto sin evaluarse."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["Salida tardía, hasta las 14:00 (1.7.2: la condición de la salida de la reserva de Booking)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Dos horas de gracia."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Solo si la habitación siguiente está libre."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["La concede recepción."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Se pide y se aplica en recepción."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Cuelga de la salida de la reserva (1.7)."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Sale de la política del alojamiento."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Se pide antes de las 10:00 del día de salida."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a la salida normal de las 12:00."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el detalle, el nodo de la profundidad 2): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se pide en recepción o por el chat de Booking."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["EUR 15 (1.7.2.1: el suplemento de la salida tardía)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["15, la cantidad pura."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Por hora de retraso, con tope de dos horas."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["Lo cobra el alojamiento y lo paga el huésped."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Se suma a la cuenta de la reserva."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Se apunta en la cuenta de la reserva."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Sale de la tarifa del alojamiento."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Se cobra al salir, el 16-11."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a la tarifa normal de EUR 90 por noche."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 3): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se paga con tarjeta en recepción."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["Recepción (1.7.2.1.3: quién cobra el suplemento)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Un solo puesto atiende."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Solo de 7:00 a 22:00."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["Responde ante la dirección del alojamiento."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Cobrar y dar el recibo."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Es un puesto del equipo del alojamiento."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Sale del cuadrante de turnos."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Cada día de salida."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a gestionarlo por la aplicación de Booking."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 4): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se localiza con el aviso de salida."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["Cobrar y dar el recibo (1.7.2.1.3.4: lo que hace recepción)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Una vez por reserva."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Solo con la cuenta cerrada."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["Lo hace quien esté en el turno."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Primero se cobra; después se da el recibo."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Es un paso de la salida."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Viene del protocolo de salida."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Antes de entregar la llave."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a cobrar por adelantado."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 5): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se hace siguiendo el protocolo de salida."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["Al salir, el 16-11 (1.7.2.1.3.4.7: el plazo de cobrar)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Media hora de margen."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Se cumple cuando el huésped llega a recepción."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["Lo vigila recepción."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Se avisa al huésped el día antes."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Cae en el último día de la estancia."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Viene de la hora de salida de la reserva (1.7)."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Hasta que el huésped salga."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a las salidas de las otras reservas del día."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 6): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se recuerda con un aviso por la mañana."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["La política de salida del alojamiento (1.7.2.1.3.4.7.6: de dónde viene el plazo)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Una sola política para todo el alojamiento."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Vale salvo acuerdo escrito con la dirección."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["La fija la dirección."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Se aplica a cada reserva."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Cuelga de las normas de la casa."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Viene de las condiciones del alojamiento publicadas en Booking."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Vigente hasta fin de temporada."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a la política de otros alojamientos."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 7): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se lee en las condiciones publicadas."]
+      ]
+    ],
+    [
+      [
+        ["qué es"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): qué es; su nombre, su valor o su representación tal como se muestra."],
+        ["Una sola política, la publicada (1.7.2.1.3.4.7.6.1: cuántas políticas rigen)."]
+      ],
+      [
+        ["cuánto"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): cuánto; su cantidad, su medida o los recursos que mueve."],
+        ["Un solo documento."]
+      ],
+      [
+        ["con qué condición"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): con qué condición; la condición o el criterio que lo distingue, lo limita o lo decide."],
+        ["Sin excepciones salvo acuerdo escrito."]
+      ],
+      [
+        ["con quién"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): con quién; con quién se relaciona: quién lo da, lo recibe o responde por él."],
+        ["La publica el alojamiento ante sus huéspedes."]
+      ],
+      [
+        ["qué se hace"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): qué se hace; lo que se hace con él: la acción o la fórmula que lo trabaja."],
+        ["Se aplica a todas las reservas."]
+      ],
+      [
+        ["dónde encaja"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): dónde encaja; su lugar en el árbol, su referencia o su firma."],
+        ["Cuelga de las condiciones del alojamiento."]
+      ],
+      [
+        ["de dónde viene"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): de dónde viene; su origen, su procedencia y lo que había antes."],
+        ["Viene de la última revisión de las condiciones."]
+      ],
+      [
+        ["para cuándo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): para cuándo; su plazo, su vigencia o su compromiso."],
+        ["Vigente toda la temporada."]
+      ],
+      [
+        ["frente a otros"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): frente a otros; cómo queda frente a otros comparables: diferencia, nivel o base."],
+        ["Frente a la política del año anterior."]
+      ],
+      [
+        ["cómo"],
+        ["Aplicado al nodo de arriba (el nodo de la profundidad 8): cómo; la guía, la interpretación o el siguiente paso."],
+        ["Se lee en la ficha del alojamiento."]
+      ]
+    ]
+  ],
+  [
+    "VG, 6-11: E, P, R y T son tokens de base de datos (mapa §2.6 [D])",
+    "VG, 6-11 noche: cada dígito es un punto de vista en toda profundidad (mapa §10.4 [D])",
+    "VG, 7-11 noche: la época 0 son las cien reglas cortas; la profundidad 0 es la cruceta (mapa §14.1 [D])",
+    "VG, 7-11 noche: escribir consume T del autor y se anota en el registro que soporta (mapa §12 [D])",
+    "VG, 7-11 noche: los cortes de las diez cajas del 8 son regla de la época (mapa §14.1 [D])",
+    "VG, 7-11 noche: mínimo y máximo de cada modo; órdenes de magnitud (mapa §12 [D])",
+    "VG, 8-11: T como asignación diaria; tres escalas más: pasado, futuro, inventado (mapa §12 [D])",
+    "VG, 8-11: forma canónica: en una décupla de hojas, cada posición entre corchetes (mapa §12 [D])",
+    "VG, 8-11 tarde: plantillas de recuento (suma ponderada, media ponderada, umbral); «cerrado» por proceso (mapa §15 [D], N4 y N5)",
+    "VG, 8-11 y 9-11: todo son reglas, BQL mínimo y el árbol de registro mínimo (mapa §15 [D])",
+    "VG, 9-11: PV3 es la regla de atención; grupo por defecto «desconocidos», con precio «mi propia R» (mapa §16 [D])",
+    "VG, 9-11: la capa de transacciones: cinco primitivas, anclaje y memo (mapa §16 [D])",
+    "VG, 9-11: molde de regla y léxico mínimo de BQL, palabras cortas en inglés (mapa §16 [D])",
+    "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])"
+  ],
+  [
+    [
+      [["día"], [1]],
+      [["semana"], [7]],
+      [["ciclo"], [28]],
+      [["año"], [365], ["364 + 1: trece ciclos de 28 días y un día"]]
+    ],
+    ["el tiempo lo marcan los demás"]
+  ],
+  [
+    [1, 2, 3, 4, 6, 10, 16, 26, 42],
+    [
+      [[0], [0]],
+      [[1], [10]],
+      [[10], [100]],
+      [[100], [1000]],
+      [[1000], [10000]],
+      [[10000], [100000]],
+      [[100000], [1000000]],
+      [[1000000], [10000000]],
+      [[10000000], [100000000]],
+      [[100000000], [1000000000]]
+    ],
+    [
+      [["Pointed"], [1], [10]],
+      [["Sequenced"], [10], [100]],
+      [["Mapped"], [100], [1000]],
+      [["Scened"], [1000], [10000]],
+      [["Be"], ["sin mínimo"], ["todos"]]
+    ]
+  ],
+  [
+    [
+      [["recuento"], ["weighted sum", "weighted mean", "threshold"]],
+      [["cerrado"], ["all announced movements happened"]],
+      [["atención"], ["desconocidos"], ["my own R"]]
+    ],
+    [5, 4, 1, 7, 2, 8, 9, 3, "segunda alta"]
+  ]
+]

@@ -17,9 +17,13 @@
 // importarlas sin fetch.
 // Los cortes de las diez cajas del 8 también son regla de la época (VG, 7-11
 // noche, decisión 2): `cortes` en el JSON, leídos con epoca.cortes(medida).
+// La época como registro (VG, 9-11, mapa §16 [D]): la misma época 0 escrita
+// como décupla BTML leída con la cruceta (datos/epocas/epoca-0.btml.json),
+// que carga cargarEpocaBtml y lee el BQL mínimo como `epoch` (docs/BQLM.md,
+// docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
-import { ARIDAD, indicesDe, esLista } from './btml.js';
-import { EPOCA_0_DATOS } from '../datos/epocas/epocas.js';
+import { ARIDAD, indicesDe, esLista, validarPayload } from './btml.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -207,6 +211,107 @@ if (!PV.every((n, d) => EPOCA_0.reglaCorta(0, d) === n)) throw new Error('época
 
 /** Épocas por nombre. Hoy solo hay la época 0; las futuras se añaden aquí al cargarlas. */
 export const EPOCAS = Object.freeze({ [EPOCA_0.nombre]: EPOCA_0 });
+
+// ---------- la época como registro (VG, 9-11, mapa §16 [D]) ----------
+
+/** Copia congelada en profundidad de un valor JSON. */
+function congelarCopia(x) {
+  const copia = JSON.parse(JSON.stringify(x));
+  const congelar = (v) => {
+    if (v !== null && typeof v === 'object') {
+      Object.values(v).forEach(congelar);
+      Object.freeze(v);
+    }
+    return v;
+  };
+  return congelar(copia);
+}
+
+/** Lo que hay en una posición en forma canónica: la lista de uno se lee como su ocupante. */
+const hojaDe = (x) => (Array.isArray(x) && x.length === 1 ? x[0] : x);
+const textoNoVacio = (x) => typeof x === 'string' && x.length > 0;
+
+/**
+ * Carga una época escrita como décupla BTML (datos/epocas/epoca-0.btml.json),
+ * leída con la cruceta (VG, 9-11, mapa §16 [D] «La época es un registro leído
+ * con la cruceta»): 0 nombre; 1 las cuatro familias (E 1.0, P 1.1, R 1.2,
+ * T 1.3, cada una [[nombre], [estructura], [estado]]); 2 las reglas largas
+ * (condiciones), cada una una décupla del molde con las diez posiciones llenas;
+ * 3 la plantilla de identidad y el autor del primer registro; 4 primitivas y
+ * despliegues; 5 las cien reglas cortas (5.p.d = [[nombre], [significado],
+ * [ejemplo]]); 6 procedencia; 7 calendario y reloj; 8 cortes de las cajas,
+ * órdenes de magnitud y modos; 9 plantillas y el orden del tutorial.
+ * Sin posiciones vacías (VG: nunca se escribe []): la raíz y cada regla llevan
+ * las diez; ningún array va vacío ni con huecos (validarPayload).
+ * Devuelve lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga,
+ * ordinal, cortes, cortesConOrigen), y además `payload` y `registro` (la
+ * décupla congelada: el registro `epoch` que lee el BQL mínimo,
+ * src/contexto-eje.js) y `condiciones` (las reglas del 2). Las reglas largas
+ * por ruta de cargarEpoca no existen aquí: las del 2 son condiciones, no
+ * nombres de rutas.
+ */
+export function cargarEpocaBtml(payload) {
+  const v = validarPayload(payload);
+  if (!v.ok) throw new TypeError('época BTML: ' + v.errores.join('; '));
+  if (!Array.isArray(payload) || payload.length !== ARIDAD) throw new TypeError('época BTML: la raíz lleva las diez posiciones llenas');
+  const registro = congelarCopia(payload);
+  const nombres = Array.isArray(registro[0]) ? registro[0] : [registro[0]];
+  const nombre = nombres[0];
+  if (!textoNoVacio(nombre)) throw new TypeError('época BTML: falta el nombre en el 0');
+
+  // 5: las cien reglas cortas.
+  const cortas = registro[5];
+  if (!Array.isArray(cortas) || cortas.length !== ARIDAD) throw new TypeError(nombre + ': el 5 son las diez profundidades de reglas cortas');
+  const reglas = [];
+  for (let p = 0; p < ARIDAD; p++) {
+    if (!Array.isArray(cortas[p]) || cortas[p].length !== ARIDAD) throw new TypeError(nombre + ': la profundidad ' + p + ' lleva diez reglas cortas');
+    for (let d = 0; d < ARIDAD; d++) {
+      const r = cortas[p][d];
+      const [n, s, e] = Array.isArray(r) ? r.map(hojaDe) : [];
+      if (![n, s, e].every(textoNoVacio)) throw new TypeError(nombre + ': la regla corta ' + p + '.' + d + ' es [[nombre], [significado], [ejemplo]]');
+      reglas.push(Object.freeze({ profundidad: p, digito: d, nombre: n, significado: s, ejemplo: e }));
+    }
+  }
+
+  // 2: las reglas largas (condiciones), con las diez posiciones llenas y la condición «=…» en el 2.
+  const condiciones = Array.isArray(registro[2]) ? registro[2] : [];
+  condiciones.forEach((r, k) => {
+    if (!Array.isArray(r) || r.length !== ARIDAD) throw new TypeError(nombre + ': la regla 2.' + k + ' lleva las diez posiciones llenas');
+    const c = hojaDe(r[2]);
+    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': la regla 2.' + k + ' lleva su condición «=…» en el 2');
+  });
+
+  // 8.0: los cortes de las diez cajas del 8.
+  const cortesDatos = Array.isArray(registro[8]) ? registro[8][0] : undefined;
+  const escala = escalaDeCortes(Array.isArray(cortesDatos) ? [...cortesDatos] : undefined, nombre);
+  const cortesFijos = Object.freeze([...(escala?.cortes ?? CORTES_PROVISIONALES)]);
+  const origenCortes = escala ? 'epoca' : 'provisional';
+
+  function regla(profundidad, digito) {
+    if (!esIndice(digito) || !esIndice(profundidad)) return undefined;
+    return reglas[profundidad * ARIDAD + digito];
+  }
+
+  return Object.freeze({
+    nombre,
+    nombres: Object.freeze([...nombres]),
+    payload: registro,
+    registro,
+    reglas: Object.freeze(reglas),
+    condiciones,
+    largas: Object.freeze([]),
+    regla,
+    larga: () => undefined,
+    reglaCorta: (profundidad, digito) => regla(profundidad, digito)?.nombre,
+    reglaLarga: () => undefined,
+    ordinal: () => false,
+    cortes: () => [...cortesFijos],
+    cortesConOrigen: () => ({ cortes: [...cortesFijos], origen: origenCortes }),
+  });
+}
+
+/** La época 0 como décupla BTML (datos/epocas/epoca-0.btml.json): las mismas cien reglas cortas que EPOCA_0. No está en EPOCAS: es la misma época en otro formato. */
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS);
 
 /** Una época por objeto o por nombre ('época 0'). */
 export function epocaDe(epoca = EPOCA_0) {
