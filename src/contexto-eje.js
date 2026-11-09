@@ -288,6 +288,9 @@ export class ContextoEje {
     if (esReferencia(nodo)) return this.#seguir(nodo, saltos);
     if (!Array.isArray(nodo)) return [nodo];
     if (esLista(nodo)) {
+      // Lo que devuelve cada referencia se cobra en #seguir, también cuando
+      // está memoizada (SEG-13): una lista de referencias al mismo registro
+      // grande no sale gratis.
       this.#presupuesto.gastar(nodo.length);
       return nodo.flatMap((x) => this.#expandir(x, null, [], saltos));
     }
@@ -305,6 +308,7 @@ export class ContextoEje {
     if (memo.has(llave)) {
       const hecho = memo.get(llave);
       if (hecho === EN_CURSO) throw pendiente('referencias en ciclo: ' + ref.ref.slice(0, 8));
+      this.#presupuesto.gastar(hecho.length); // el resultado cuenta aunque no se recalcule (SEG-13)
       return hecho;
     }
     this.#presupuesto.gastar(1);

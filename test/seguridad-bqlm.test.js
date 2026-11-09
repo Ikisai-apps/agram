@@ -55,10 +55,11 @@ test('SEG-10 la expansión de ocupantes tiene un presupuesto por evaluación; la
   assert.deepEqual([r.estado, r.subtipo], ['PENDIENTE', POR_LIMITE]);
   assert.match(r.motivo, new RegExp('más de ' + LIMITES.ocupantes + ' ocupantes'));
   assert.equal(evaluar('count ev.1', ctx, { limites: { ocupantes: 50000 } }).valor[0], 20001, 'el tope se puede subir');
-  // Dos mil referencias al mismo 1 del menú (tres platos): con la memoria por (ref, dir) se sigue una vez y cabe.
+  // Mil referencias al mismo 1 del menú (tres platos): con la memoria por (ref, dir) se sigue una vez, y lo que
+  // devuelve cada una se cobra igual (SEG-13): tres mil ocupantes, que caben en el presupuesto.
   const ref = { ref: menu.id, dir: '1000000000' };
-  const repetidas = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [minuto], payload: ['Referencias', Array.from({ length: 2000 }, () => ref)] });
-  assert.equal(uno('count ev.1', new ContextoEje(eje, { ev: repetidas })), 6001);
+  const repetidas = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [minuto], payload: ['Referencias', Array.from({ length: 1000 }, () => ref)] });
+  assert.equal(uno('count ev.1', new ContextoEje(eje, { ev: repetidas })), 3001);
 });
 
 test('SEG-11 «nadie» es un símbolo: una identidad que se llama así no se confunde con el otro lado de una quema', async () => {
@@ -107,4 +108,15 @@ test('SEG-12 una salida o una serie llamada «__proto__» o «constructor»: el 
   assert.equal(Object.getOwnPropertyDescriptor(libro.sumas({ primitiva: 'acunar' }), '__proto__').value, 1);
   assert.deepEqual(Object.entries(libro.bloqueadoPorSalida('constructor')), [['P:x', 2]], 'la salida «constructor» suma lo suyo, sin leer el prototipo');
   assert.equal({}.constructor, Object, 'Object.prototype intacto');
+});
+
+test('SEG-13 el presupuesto cobra lo que devuelve cada referencia aunque esté memoizada: muchas referencias a un registro grande no salen gratis', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const minuto = { token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null };
+  const grande = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [minuto], payload: ['Doscientos', Array.from({ length: 200 }, (_, k) => 'x' + k)] });
+  const ref = { ref: grande.id, dir: '1000000000' };
+  const cien = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:01:00Z', movimientos: [minuto], payload: ['Cien referencias', Array.from({ length: 100 }, () => ref)] });
+  const r = evaluar('count ev.1', new ContextoEje(eje, { ev: cien }));
+  assert.deepEqual([r.estado, r.subtipo], ['PENDIENTE', POR_LIMITE], 'cien referencias a doscientos ocupantes son veinte mil, más que el presupuesto');
+  assert.equal(evaluar('count ev.1', new ContextoEje(eje, { ev: cien }), { limites: { ocupantes: 50000 } }).valor[0], 20001, 'con más presupuesto se cuenta entero');
 });
