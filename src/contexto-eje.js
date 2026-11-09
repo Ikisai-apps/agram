@@ -35,10 +35,10 @@
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver } from './btml.js';
 import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
-import { pendiente } from './bqlm.js';
+import { pendiente, Presupuesto, SIMBOLOS, NADIE } from './bqlm.js';
 
-/** Quien está al otro lado de una emisión o de un consumo (de = null o a = null en un movimiento). */
-export const NADIE = 'nadie';
+/** Quien está al otro lado de una emisión o de un consumo: el símbolo de src/bqlm.js, nunca un texto (SEG-11). */
+export { NADIE };
 
 /** Cuántas referencias encadenadas se siguen (como src/encaje.js). */
 const MAX_SALTOS = 20;
@@ -49,6 +49,7 @@ const RE_SERIE = /^([EPRT]):(.+)$/;
 const RE_MAGNITUD = /^(?:(-?\d+(?:\.\d+)?)\s+([\p{L}€$%][\p{L}\p{N}_€$%]*)|([\p{L}€$%][\p{L}\p{N}_€$%]*)\s+(-?\d+(?:\.\d+)?))$/u;
 
 const CANDIDATA = Object.freeze({ k: 'ev' });
+const EN_CURSO = Symbol('en curso');
 const EPOCA = Object.freeze({ k: 'epoch' });
 const ANTES = Object.freeze({ k: 'before' });
 
@@ -76,22 +77,23 @@ export function desplegarValor(s) {
 }
 
 /** D-SERIE: { posición: [ocupantes] } de una clave de serie, o null si no lo es. `registroDe(clave)` da el registro de una E que no lo nombra. */
-export function desplegarSerie(s, registroDe = () => null) {
+export function desplegarSerie(s, registroDe = () => null, { delLibro = false } = {}) {
+  const fam = (f) => (delLibro ? SIMBOLOS[f] : f);
   const m = typeof s === 'string' ? RE_SERIE.exec(s) : null;
   if (!m) return null;
   const familia = m[1];
   if (familia === 'T') {
     const k = ESCALAS_T.indexOf(m[2]);
-    return k < 0 ? null : { 0: ['T'], 1: [k] };
+    return k < 0 ? null : { 0: [fam('T')], 1: [k] };
   }
-  if (familia === 'P') return { 0: ['P'], 1: [m[2]] };
-  if (familia === 'R') return { 0: ['R'], 1: [m[2]] };
+  if (familia === 'P') return { 0: [fam('P')], 1: [m[2]] };
+  if (familia === 'R') return { 0: [fam('R')], 1: [m[2]] };
   if (!m[2].includes('/')) return null;
   const p = partirClave(s);
   if (!p.emisor || !p.denominacion) return null;
   const registro = p.registro ?? registroDe(s);
   const franja = franjaDe(p.denominacion);
-  return { 0: ['E'], 1: [p.emisor], 2: [p.denominacion], ...(registro ? { 5: [registro] } : {}), ...(franja ? { 7: [franja] } : {}) };
+  return { 0: [fam('E')], 1: [p.emisor], 2: [p.denominacion], ...(registro ? { 5: [registro] } : {}), ...(franja ? { 7: [franja] } : {}) };
 }
 
 /** El payload de la época: la décupla misma, o lo que expone su cargador (src/epocas.js, cargarEpocaBtml). */
@@ -110,6 +112,7 @@ export class ContextoEje {
   #eje;
   #ev;
   #epoch;
+  #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
   constructor(eje = null, { ev, epoch } = {}) {
     this.#eje = eje ?? null;
@@ -132,11 +135,22 @@ export class ContextoEje {
    * escrito anclado exactamente en el camino entero, aunque el payload no
    * tenga una décupla por el medio (como encaje.ocupantes con `exacto`).
    */
-  ocupantes(nodo, camino) {
+  ocupantes(nodo, camino, presupuesto) {
+    if (presupuesto && presupuesto !== this.#presupuesto) {
+      const antes = this.#presupuesto;
+      this.#presupuesto = presupuesto;
+      try {
+        return this.ocupantes(nodo, camino, presupuesto);
+      } finally {
+        this.#presupuesto = antes;
+      }
+    }
+    if (!this.#presupuesto) return this.ocupantes(nodo, camino, new Presupuesto());
     if (!camino.length) return [nodo];
     if (camino.length > ARIDAD) throw pendiente('más de diez profundidades: ' + camino.join('.'));
     const [d, ...resto] = camino;
     const cabeza = this.#un(nodo, d);
+    this.#presupuesto.gastar(cabeza.length);
     if (!resto.length) return cabeza;
     const fuera = cabeza.flatMap((o) => this.ocupantes(o, resto));
     const raiz = this.#raizDe(nodo);
@@ -152,6 +166,8 @@ export class ContextoEje {
     if (typeof nodo === 'string') return this.#deTexto(nodo, d);
     if (nodo === null || typeof nodo !== 'object') return [];
     switch (nodo.k) {
+      case 'serie':
+        return desplegarSerie(nodo.clave, (k) => this.#eje?.registroDe(k) ?? null, { delLibro: true })?.[d] ?? [];
       case 'ev':
         return [...this.#meta(this.#ev, d), ...this.#propio(this.#ev.payload, d, null, [])];
       case 'reg': {
@@ -195,6 +211,7 @@ export class ContextoEje {
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
   valor(nodo) {
     if (nodo?.k === 'reg') return nodo.id;
+    if (nodo?.k === 'serie') return nodo.clave;
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
   }
@@ -207,7 +224,8 @@ export class ContextoEje {
       case 'epoch': return 'epoch';
       case 'before': return 'before';
       case 'dec': return JSON.stringify(nodo.v);
-      case 'mov': return primitivaDe(nodo.m) + ' ' + nodo.m.cantidad + ' ' + claveToken(nodo.m) + ' (' + (nodo.m.de ?? NADIE) + ' → ' + (nodo.m.a ?? NADIE) + ')';
+      case 'mov': return primitivaDe(nodo.m) + ' ' + nodo.m.cantidad + ' ' + claveToken(nodo.m) + ' (' + (nodo.m.de ?? 'nadie') + ' → ' + (nodo.m.a ?? 'nadie') + ')';
+      case 'serie': return nodo.clave;
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
@@ -269,7 +287,10 @@ export class ContextoEje {
     if (nodo === undefined) return [];
     if (esReferencia(nodo)) return this.#seguir(nodo, saltos);
     if (!Array.isArray(nodo)) return [nodo];
-    if (esLista(nodo)) return nodo.flatMap((x) => this.#expandir(x, null, [], saltos));
+    if (esLista(nodo)) {
+      this.#presupuesto.gastar(nodo.length);
+      return nodo.flatMap((x) => this.#expandir(x, null, [], saltos));
+    }
     return [{ k: 'dec', id, camino, v: nodo }];
   }
 
@@ -279,6 +300,27 @@ export class ContextoEje {
    * lista, y no trae lo escrito anclado allí).
    */
   #seguir(ref, saltos) {
+    const llave = ref.ref + '|' + (ref.dir ?? '');
+    const memo = this.#presupuesto.memo;
+    if (memo.has(llave)) {
+      const hecho = memo.get(llave);
+      if (hecho === EN_CURSO) throw pendiente('referencias en ciclo: ' + ref.ref.slice(0, 8));
+      return hecho;
+    }
+    this.#presupuesto.gastar(1);
+    memo.set(llave, EN_CURSO);
+    try {
+      const fuera = this.#seguirSin(ref, saltos);
+      memo.set(llave, fuera);
+      return fuera;
+    } catch (e) {
+      memo.delete(llave);
+      throw e;
+    }
+  }
+
+  /** Seguir una referencia, sin la memoria. */
+  #seguirSin(ref, saltos) {
     if (saltos >= MAX_SALTOS) throw pendiente('más de ' + MAX_SALTOS + ' referencias encadenadas');
     const destino = this.#eje?.obtener(ref.ref);
     if (!destino) throw pendiente('referencia a un evento ausente del eje: ' + ref.ref.slice(0, 8));
@@ -347,7 +389,7 @@ export class ContextoEje {
       case 'par':
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];
       case 'entrada':
-        if (d === 0) return [nodo.clave];
+        if (d === 0) return [{ k: 'serie', clave: nodo.clave }];
         if (d === 1) return [nodo.disponible];
         if (d === 2) return Object.entries(nodo.bloqueado).filter(([, cantidad]) => cantidad > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         return [];
@@ -360,7 +402,7 @@ export class ContextoEje {
         return [this.#eje.gastadoT(nodo.id, ESCALAS_T[d], dia)];
       }
       case 'viva':
-        return d === 0 ? [nodo.clave] : d === 1 ? [nodo.vivo] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
+        return d === 0 ? [{ k: 'serie', clave: nodo.clave }] : d === 1 ? [nodo.vivo] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
       default:
         return [];
     }
@@ -369,11 +411,11 @@ export class ContextoEje {
   /** D-MOV: el dígito d de un movimiento. */
   #movimiento(m, d) {
     switch (d) {
-      case 0: return [claveToken(m)];
+      case 0: return [{ k: 'serie', clave: claveToken(m) }];
       case 1: return [m.cantidad];
       case 2: return [m.estado, m.salida, m.caduca].filter((x) => x !== undefined);
       case 3: return [{ k: 'par', de: m.de, a: m.a }];
-      case 4: return [primitivaDe(m)];
+      case 4: return [SIMBOLOS[primitivaDe(m)]];
       case 5: {
         if (m.token !== 'E') return [];
         const registro = m.registro ?? this.#eje?.registroDe(claveToken(m));

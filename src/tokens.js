@@ -291,6 +291,9 @@ export function cantidadBase(m) {
 
 const texto = (x) => typeof x === 'string' && x.length > 0;
 
+/** Nombres que no valen como salida ni como parte de una serie (SEG-12): los del prototipo de JavaScript. */
+export const RESERVADOS = Object.freeze(['__proto__', 'constructor', 'prototype']);
+
 /**
  * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor, registro, caduca, divisible y emisores (E), ambito (P), emisor (R), estado y salida }.
  * de = null es emisión: nace en la cartera de quien la emite (en E y R, su
@@ -364,6 +367,11 @@ export function validarMovimiento(m) {
   // Los separadores de las claves de serie están reservados: ni identidades ni denominaciones los llevan.
   for (const campo of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) {
     if (typeof m[campo] === 'string' && /[|:/]/.test(m[campo])) errores.push(campo + ' no puede llevar | : ni /');
+  }
+  // SEG-12: la salida y las partes de una serie son textos de fuera que indexan diccionarios; los nombres del
+  // prototipo de JavaScript no valen como ninguno de ellos.
+  for (const campo of ['salida', 'emisor', 'denominacion', 'ambito']) {
+    if (RESERVADOS.includes(m[campo])) errores.push(campo + ' no puede llamarse «' + m[campo] + '»: es un nombre reservado (' + RESERVADOS.join(', ') + ')');
   }
   if (m.de === undefined || m.a === undefined) errores.push('de y a son obligatorios (null permitido)');
   // Una identidad es una cadena no vacía, como el autor: '' no podría escribir nunca.

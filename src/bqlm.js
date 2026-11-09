@@ -28,8 +28,10 @@
 //
 //   contexto.nombre(n)              el nodo de 'ev' (la transacción candidata), 'epoch' (el registro de la
 //                                   época) o 'before' (el libro de antes); undefined si no lo hay
-//   contexto.ocupantes(nodo, camino) los ocupantes de la posición `camino` (dígitos 0-9) del nodo, por
-//                                   llegada; puede lanzar una Parada PENDIENTE
+//   contexto.ocupantes(nodo, camino, presupuesto)
+//                                   los ocupantes de la posición `camino` (dígitos 0-9) del nodo, por
+//                                   llegada; gasta del Presupuesto de la evaluación cada ocupante que
+//                                   expande; puede lanzar una Parada PENDIENTE (o POR LÍMITE)
 //   contexto.padre(nodo)            el registro padre (por el ancla 6.5), null en la raíz, undefined si el
 //                                   nodo no es un registro
 //   contexto.hijos(nodo)            los registros anclados sobre él, por llegada; undefined si no es un registro
@@ -54,20 +56,70 @@ export const NOMBRES = Object.freeze(['ev', 'epoch', 'before']);
 /** Las palabras del léxico (sin los nombres, los símbolos ni it, it2…). */
 export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in']);
 
-/** Límites de cálculo: pasos de una evaluación, anidamiento de la expresión y niveles de un hilo (`path`). */
-export const LIMITES = Object.freeze({ pasos: 100000, anidamiento: 100, hilo: 10 });
+/**
+ * Límites de cálculo: pasos de una evaluación, ocupantes que el contexto puede
+ * expandir en una evaluación (el máximo de Scened, 10000), anidamiento de la
+ * expresión y niveles de un hilo (`path`). Pasarse es PENDIENTE POR LÍMITE.
+ */
+export const LIMITES = Object.freeze({ pasos: 100000, ocupantes: 10000, anidamiento: 100, hilo: 10 });
 
-/** Una parada de la evaluación: PENDIENTE o ERROR, con su motivo. */
+/** El subtipo de PENDIENTE cuando se agota un límite de cálculo (como en BQL V0). */
+export const POR_LIMITE = 'PENDIENTE POR LÍMITE';
+
+/** Una parada de la evaluación: PENDIENTE (con su subtipo, si lo hay) o ERROR, con su motivo. */
 export class Parada extends Error {
-  constructor(estado, motivo) {
+  constructor(estado, motivo, subtipo) {
     super(motivo);
     this.estado = estado;
+    if (subtipo) this.subtipo = subtipo;
   }
 }
 
 /** Parada PENDIENTE (para los contextos: falta algo que puede llegar). */
 export const pendiente = (motivo) => new Parada('PENDIENTE', motivo);
+/** Parada PENDIENTE POR LÍMITE: se agotó un límite de cálculo. */
+export const porLimite = (motivo) => new Parada('PENDIENTE', 'límite de cálculo: ' + motivo, POR_LIMITE);
 const fallo = (motivo) => new Parada('ERROR', motivo);
+
+/**
+ * Los símbolos: las cinco primitivas, las cuatro familias y «nadie» (el otro
+ * lado de una emisión o de un consumo). Son objetos propios, congelados, que
+ * solo produce el contexto desde el libro (la primitiva y la familia de un
+ * movimiento real) y el analizador desde un literal: un texto del payload
+ * «burn» no es igual al símbolo `burn`, así que el payload no puede fabricar
+ * un movimiento (revisión de seguridad, SEG-09) ni hacerse pasar por «nadie»
+ * (SEG-11). Se leen por su nombre.
+ */
+const MARCA = new WeakSet();
+function simbolo(nombre) {
+  const s = Object.freeze({ simbolo: nombre });
+  MARCA.add(s);
+  return s;
+}
+export const SIMBOLOS = Object.freeze(Object.fromEntries([...PRIMITIVAS, ...SIMBOLOS_FAMILIA, 'nadie'].map((n) => [n, simbolo(n)])));
+/** Quien está al otro lado de una emisión (de = null) o de un consumo (a = null): un símbolo, nunca un texto. */
+export const NADIE = SIMBOLOS.nadie;
+/** ¿Es `o` uno de los símbolos de BQLM? */
+export const esSimbolo = (o) => MARCA.has(o);
+
+/**
+ * El presupuesto compartido de una evaluación: cuántos ocupantes puede
+ * expandir el contexto (cada uno cuenta, también cada salto de referencia) y
+ * la memoria de las referencias ya seguidas, por (ref, dir). El evaluador lo
+ * pasa al contexto en cada llamada a ocupantes.
+ */
+export class Presupuesto {
+  constructor(tope = LIMITES.ocupantes) {
+    this.tope = tope;
+    this.usados = 0;
+    this.memo = new Map();
+  }
+
+  gastar(n = 1) {
+    this.usados += n;
+    if (this.usados > this.tope) throw porLimite('más de ' + this.tope + ' ocupantes expandidos');
+  }
+}
 
 const PREFIJAS = new Set(['first', 'last', 'count', 'sum', 'max', 'min', 'floor', 'up', 'down', 'path']);
 const COMPARACIONES = new Set(['=', '!=', '<', '<=', '>', '>=']);
@@ -136,7 +188,7 @@ export function analizar(src) {
   const es = (t, v) => tokens[i]?.t === t && (v === undefined || tokens[i].v === v);
   const donde = () => (tokens[i] ? 'en ' + tokens[i].pos + ' («' + tokens[i].v + '»)' : 'al final');
   const entrar = () => {
-    if (++anidamiento > LIMITES.anidamiento) throw pendiente('límite de cálculo: expresión anidada más de ' + LIMITES.anidamiento + ' niveles');
+    if (++anidamiento > LIMITES.anidamiento) throw porLimite('expresión anidada más de ' + LIMITES.anidamiento + ' niveles');
   };
   const salir = () => { anidamiento--; };
   const esperar = (t, v) => {
@@ -269,7 +321,7 @@ export function analizar(src) {
     if (tk.t === 'id') {
       i++;
       if (NOMBRES.includes(tk.v)) return { n: 'nombre', v: tk.v, posicionable: true };
-      if (PRIMITIVAS.includes(tk.v) || SIMBOLOS_FAMILIA.includes(tk.v)) return { n: 'lit', v: tk.v };
+      if (PRIMITIVAS.includes(tk.v) || SIMBOLOS_FAMILIA.includes(tk.v)) return { n: 'lit', v: SIMBOLOS[tk.v] };
       const it = NIVEL_IT.exec(tk.v);
       if (it) {
         const nivel = it[1] ? Number(it[1]) : 1;
@@ -299,33 +351,35 @@ const esNodo = (o) => o !== null && typeof o === 'object';
  * Evalúa una expresión (texto, con o sin «=», o el árbol de analizar) en un
  * contexto. Devuelve { estado: 'RESUELTO', valor, texto } (valor: la lista de
  * ocupantes; texto: cómo se lee) o { estado: 'PENDIENTE' | 'ERROR', motivo }.
- * No lanza. opciones.limites cambia LIMITES.pasos.
+ * No lanza. opciones.limites cambia LIMITES.pasos y LIMITES.ocupantes; un
+ * límite agotado da PENDIENTE con subtipo «PENDIENTE POR LÍMITE».
  */
 export function evaluar(src, contexto, opciones = {}) {
   try {
     const arbol = typeof src === 'string' ? analizar(src) : src;
-    const st = { ctx: contexto, its: [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos };
+    const st = { ctx: contexto, its: [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes) };
     const valor = calcular(arbol, st);
     return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto) };
   } catch (e) {
-    if (e instanceof Parada) return { estado: e.estado, motivo: e.message };
+    if (e instanceof Parada) return { estado: e.estado, ...(e.subtipo ? { subtipo: e.subtipo } : {}), motivo: e.message };
     return { estado: 'ERROR', motivo: 'fallo al evaluar: ' + e.message };
   }
 }
 
 function paso(st, n = 1) {
   st.pasos += n;
-  if (st.pasos > st.tope) throw pendiente('límite de cálculo: más de ' + st.tope + ' pasos');
+  if (st.pasos > st.tope) throw porLimite('más de ' + st.tope + ' pasos');
 }
 
 function valorDe(o, ctx) {
-  if (typeof o === 'number' || typeof o === 'string' || typeof o === 'boolean') return o;
+  if (typeof o === 'number' || typeof o === 'string' || typeof o === 'boolean' || esSimbolo(o)) return o;
   return esNodo(o) ? ctx.valor?.(o) : undefined;
 }
 
 function leer(o, ctx) {
   if (typeof o === 'string') return o;
   if (typeof o === 'number' || typeof o === 'boolean') return String(o);
+  if (esSimbolo(o)) return o.simbolo;
   return ctx?.texto?.(o) ?? (valorDe(o, ctx) !== undefined ? String(valorDe(o, ctx)) : '«décupla»');
 }
 
@@ -357,7 +411,7 @@ function nombresDe(o, st) {
   const v = valorDe(o, st.ctx);
   if (v !== undefined) return [v];
   paso(st);
-  return st.ctx.ocupantes(o, [0]).map((x) => valorDe(x, st.ctx)).filter((x) => x !== undefined);
+  return st.ctx.ocupantes(o, [0], st.presupuesto).map((x) => valorDe(x, st.ctx)).filter((x) => x !== undefined);
 }
 
 function igual(A, B, ctx) {
@@ -385,7 +439,7 @@ function calcular(nodo, st) {
     case 'paso': {
       const base = calcular(nodo.base, st);
       paso(st, base.length || 1);
-      return base.flatMap((o) => ctx.ocupantes(o, nodo.digitos));
+      return base.flatMap((o) => ctx.ocupantes(o, nodo.digitos, st.presupuesto));
     }
     case 'clave': {
       const base = calcular(nodo.base, st);
@@ -393,7 +447,7 @@ function calcular(nodo, st) {
       if (typeof v === 'number') {
         if (!Number.isInteger(v) || v < 0 || v > 9) throw fallo('una posición es un dígito 0-9, no ' + v);
         paso(st, base.length || 1);
-        return base.flatMap((o) => ctx.ocupantes(o, [v]));
+        return base.flatMap((o) => ctx.ocupantes(o, [v], st.presupuesto));
       }
       if (typeof v !== 'string') throw fallo('una posición por valor es un dígito o un texto, no «' + v + '»');
       return base.filter((o) => nombresDe(o, st).includes(v));

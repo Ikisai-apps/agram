@@ -2,10 +2,10 @@
 
 El BQL mínimo es el álgebra con la que se escriben las condiciones de las reglas de la época: traer posiciones, aplicar una posición a cada elemento, filtrar, contar, sumar y comparar. Viene de dos decisiones de VG (mapa §15 y §16, 9-11): «todo son reglas», escritas en BQL y leídas desde la época, no desde código; y «BQL es un lenguaje para manejar la matriz de BTML», con un léxico de palabras cortas en inglés. Lo que sea «escoger algo concreto» (el día de una fecha, la familia de una serie, la cartera de alguien) no es una función: es una **posición** que el contexto despliega.
 
-Este documento describe lo que existe en `src/bqlm.js` (el analizador y el evaluador) y `src/contexto-eje.js` (el contexto sobre el eje). Todavía no sustituye a nada: `src/bql.js` (BQL V0, `docs/BQL.md`) sigue igual, y la primera regla no está conectada al eje (§6). Pruebas: `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`.
+Este documento describe lo que existe en `src/bqlm.js` (el analizador y el evaluador) y `src/contexto-eje.js` (el contexto sobre el eje). Todavía no sustituye a nada: `src/bql.js` (BQL V0, `docs/BQL.md`) sigue igual, y la primera regla no está conectada al eje (§6). Pruebas: `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js` y, de la revisión de seguridad, `test/seguridad-bqlm.test.js` (SEG-09 a SEG-12: el payload no fabrica movimientos ni «nadie»; el presupuesto de ocupantes; las salidas y series con nombres reservados, `__proto__`, `constructor`, `prototype`, que la validación de movimientos rechaza y el libro guarda como claves propias).
 
 ```js
-import { analizar, evaluar, evaluarRegla, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, Parada, pendiente } from './src/bqlm.js';
+import { analizar, evaluar, evaluarRegla, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, POR_LIMITE, SIMBOLOS, NADIE, esSimbolo, Presupuesto, Parada, pendiente, porLimite } from './src/bqlm.js';
 import { ContextoEje, NADIE, primitivaDe, desplegarFecha, desplegarSerie, desplegarValor } from './src/contexto-eje.js';
 import { cargarEpocaBtml, EPOCA_0_BTML } from './src/epocas.js';
 ```
@@ -27,7 +27,7 @@ Exacto y nada más. Cualquier otro nombre da ERROR «no es BQL mínimo: «X»»;
 | comparación | `= != < <= > >=` | el orden, solo entre números |
 | lógica | `and`, `or`, `not`, `x in M` | `and` y `or` son perezosos |
 | literales | `12`, `2.5`, `"texto"` | |
-| símbolos | `mint transfer lock release burn`, `E P R T` | valen su nombre como texto: `burn = "burn"` |
+| símbolos | `mint transfer lock release burn`, `E P R T` | símbolos del libro: se leen por su nombre, pero no son texto (`burn = "burn"` es falso; §3) |
 | nombres | `ev`, `epoch`, `before` | la transacción candidata, el registro de la época, el libro de antes |
 
 `put v at X.d` (colocar, solo para reglas que escriben) está en el léxico del mapa pero no en este encargo: hoy da «no es BQL mínimo».
@@ -57,12 +57,13 @@ Una posición solo se lee de un nombre, de `it` o de una expresión entre parén
 - **Toda expresión vale una lista de ocupantes**, en orden de llegada. Un literal es la lista de uno.
 - **Una lista de uno se usa como su elemento** en la aritmética y en las comparaciones (decisión G3). Comparar una lista de más de uno es ERROR, con el aviso de usar `first`, `last`, `nth`, `count` o `sum`.
 - **Lo vacío.** `=` y `!=` comparan nada con nada (`epoch.9 = epoch.8` es verdadero; `epoch.9 = 1`, falso) e `in` con nada es falso. La aritmética y el orden con una posición vacía quedan PENDIENTE: falta un valor. `count` de nada es 0, `sum` de nada es 0, `max` y `min` de nada son nada.
-- **Valores.** Un ocupante vale su número o su texto; un registro vale su id; una décupla no tiene valor y compararla es ERROR («lee una de sus posiciones»). Números y textos distintos no son iguales (`1 = "1"` es falso). Los resultados lógicos son `true` y `false`.
+- **Las primitivas y las familias son símbolos del libro; el payload no puede fabricarlas** (revisión de seguridad, SEG-09). `mint`, `transfer`, `lock`, `release`, `burn`, `E`, `P`, `R`, `T` y «nadie» (`NADIE`) son objetos propios (`SIMBOLOS`, `esSimbolo`), no textos: solo los producen el analizador, desde un literal, y el contexto, desde un movimiento real (su 4, la familia de su serie, el «nadie» de su 3). Un texto «burn» escrito en el payload no es igual a `burn`, así que una décupla del payload que imita un movimiento no pasa `it.4 = burn`; y una identidad que se llame «nadie» no se confunde con el otro lado de una quema (SEG-11). Se leen por su nombre (`texto`).
+- **Valores.** Un ocupante vale su número, su texto o su símbolo; un registro vale su id; una décupla no tiene valor y compararla es ERROR («lee una de sus posiciones»). Números y textos distintos no son iguales (`1 = "1"` es falso). Los resultados lógicos son `true` y `false`.
 - **Índice por valor.** `X.(3)` es `X.3`. `X.("E:casa/EUR")` deja los ocupantes de X que se llaman así: un ocupante se llama como su valor o, si es una décupla, como los valores de su 0. Así `A.1.("E:casa/EUR")` es la entrada de esa serie en la cartera, y `ev.1.("T:hora")` los movimientos de esa serie.
 - **`where`** evalúa la condición con `it` = cada elemento y deja los que dan verdadero; la condición tiene que dar verdadero o falso. Si la condición de un elemento queda PENDIENTE, todo el where queda PENDIENTE, como el `FILTRAR` de BQL V0 ([X] decidir VG: `docs/REGLAS_CORTAS.md`, duda 6).
 - **`up`, `down`, `path`** solo valen sobre registros (la candidata `ev`, un registro del eje o el texto de su id); sobre otra cosa son ERROR. `path` da el registro y sus antepasados; si el hilo pasa de diez, PENDIENTE.
 - **Estados**, como el BQL actual: RESUELTO, PENDIENTE (falta algo que resolver: una posición vacía donde hace falta un valor, una referencia a un evento que no está, el contexto sin `ev` o sin `epoch`, un límite de cálculo) y ERROR (sintaxis, un nombre que no es del léxico, tipos que no operan, división por cero). `evaluar` no lanza: devuelve `{ estado: 'RESUELTO', valor, texto }` o `{ estado, motivo }`.
-- **Límites** (`LIMITES`): 100 000 pasos por evaluación (`opciones.limites.pasos`), 100 niveles de anidamiento y 10 niveles de hilo; pasarse es PENDIENTE.
+- **Límites** (`LIMITES`): 100 000 pasos por evaluación (`opciones.limites.pasos`), 10 000 ocupantes expandidos por el contexto (`opciones.limites.ocupantes`, el máximo de Scened; SEG-10), 100 niveles de anidamiento y 10 niveles de hilo. Pasarse es PENDIENTE con subtipo «PENDIENTE POR LÍMITE» (`POR_LIMITE`). El presupuesto de ocupantes (`Presupuesto`) es uno por evaluación, lo comparten todas las llamadas al contexto y cuenta cada ocupante expandido y cada salto de referencia; las referencias ya seguidas se recuerdan por (ref, dir), y una que vuelve sobre sí misma es PENDIENTE.
 
 ## 4. El contexto: posiciones de verdad
 
@@ -71,7 +72,7 @@ El evaluador no sabe nada del eje: pregunta a un **contexto** con esta interfaz.
 | Método | Devuelve |
 |---|---|
 | `nombre(n)` | el nodo de `'ev'`, `'epoch'` o `'before'`, o `undefined` si no lo hay (y la expresión queda PENDIENTE) |
-| `ocupantes(nodo, camino)` | los ocupantes de la posición `camino` (dígitos 0-9) del nodo, por llegada; puede lanzar PENDIENTE (`pendiente(motivo)`) |
+| `ocupantes(nodo, camino, presupuesto)` | los ocupantes de la posición `camino` (dígitos 0-9) del nodo, por llegada, gastando del `Presupuesto` de la evaluación; puede lanzar PENDIENTE (`pendiente(motivo)`, `porLimite(motivo)`) |
 | `padre(nodo)` | el registro padre, `null` en la raíz, `undefined` si el nodo no es un registro |
 | `hijos(nodo)` | los registros anclados sobre él, `undefined` si no es un registro |
 | `valor(nodo)` | el escalar de un nodo que no es número ni texto (el id de un registro) o `undefined` |
@@ -88,8 +89,8 @@ El evaluador no sabe nada del eje: pregunta a un **contexto** con esta interfaz.
 | Código | Qué despliega | Posiciones |
 |---|---|---|
 | D-META | un evento (la candidata o un registro del eje) | 3 autor y firmante (el firmante solo si va firmado), 5 id, 6.0 t, 6.5 sobre y en, 1 los movimientos, que colisionan con lo que el payload tenga en su 1 |
-| D-MOV | un movimiento | 0 su serie (la clave, que se despliega con D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya), 3.0 de, 3.1 a (null es «nadie», `NADIE`), 4 la primitiva (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E), 7 caducidad o fecha a la que se refiere, 9 nota |
-| D-SERIE | una clave de serie | 0 familia, 1 la escala de T como dígito (segundo 0 … año 6, pasado 7, futuro 8, inventado 9), el emisor (E, R) o el ámbito (P), 2 denominación, 5 registro, 7 franja |
+| D-MOV | un movimiento | 0 su serie (la clave, que se despliega con D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya), 3.0 de, 3.1 a (null es el símbolo «nadie», `NADIE`), 4 la primitiva, un símbolo (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E), 7 caducidad o fecha a la que se refiere, 9 nota |
+| D-SERIE | una clave de serie | 0 familia (un símbolo si la serie viene del libro: la de un movimiento, una entrada de la cartera o una serie atada; un texto si es una clave escrita en el payload), 1 la escala de T como dígito (segundo 0 … año 6, pasado 7, futuro 8, inventado 9), el emisor (E, R) o el ámbito (P), 2 denominación, 5 registro, 7 franja |
 | D-FECHA | un instante ISO con zona | k = el número de periodo de la escala k desde 1970-01-01T00:00Z, en UTC: 0 segundo, 1 minuto, 2 hora, 3 día civil (`tokens.diaCivil`), 4 semana, 5 ciclo de 28 días, 6 año |
 | D-VALOR | un terminal «12 EUR» o «EUR 12» (con espacio) | 1 cuánto, 2 unidad; solo lectura |
 
@@ -163,10 +164,10 @@ Lo que el contexto lee hoy aparte y el libro de la capa cero tendría que dar co
 - **Lo vacío**: `=` con nada es falso; la aritmética y el orden con nada, PENDIENTE; un elemento PENDIENTE en un where deja PENDIENTE todo el where (`docs/REGLAS_CORTAS.md`, duda 6).
 - **`nth` desde 0**; **`path` con tope de diez**, y PENDIENTE si el hilo es más largo.
 - **`before`**: 3 las identidades, 5 el génesis, 6.0 el mayor t [H].
-- **«nadie»** es un texto: una identidad que se llamase así se confundiría con él.
 - **El índice por valor** con un texto deja los ocupantes que se llaman así (su valor o los valores de su 0); con un dígito, es esa posición.
 - **`each d` es lo mismo que `.d`** tras una expresión.
 - **Los despliegues van por la forma del texto**, en cualquier sitio: un texto con forma de instante, de clave de serie, de id de registro, de identidad o de magnitud se despliega.
+- **«nadie» no tiene literal**: es un símbolo que solo da el contexto; una regla lo compara con lo que lee de otro movimiento, no lo escribe.
 - **Las referencias** se siguen leyendo solo el payload del otro registro (como `encaje.seguir`); una referencia sin dirección da el registro entero.
 - **El año de D-FECHA** (§4).
 - **La época como registro**: las familias en 1.0-1.3 (en el orden de `FAMILIAS`), cada una `[[nombre], [estructura], [estado]]`; las décuplas de dentro no se rellenan hasta diez (sin `[]` ni huecos; la raíz y cada regla sí llevan las diez); los principios y las dudas del JSON de siempre no pasan a la décupla. Los cinco criterios de P y los seis grupos de R siguen «[X] confirmar VG».

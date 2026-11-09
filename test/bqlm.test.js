@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { analizar, evaluar, evaluarRegla, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES } from '../src/bqlm.js';
+import { analizar, evaluar, evaluarRegla, rellenar, textoDe, ESTADOS, PALABRAS, PRIMITIVAS, LIMITES, SIMBOLOS, NADIE, esSimbolo } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 
 /** Un payload de prueba, leído como `epoch` (datos inventados). */
@@ -61,12 +61,19 @@ test('léxico: tres estados, las palabras cortas y las cinco primitivas', () => 
   assert.equal(LIMITES.hilo, 10);
 });
 
-test('literales: números, textos y símbolos, que valen su nombre', () => {
+test('literales: números, textos y símbolos, que se leen por su nombre pero no son texto', () => {
   assert.equal(uno('42'), 42);
   assert.equal(uno('2.5'), 2.5);
   assert.equal(uno('"hola \\"tú\\""'), 'hola "tú"');
-  for (const s of ['mint', 'transfer', 'lock', 'release', 'burn', 'E', 'P', 'R', 'T']) assert.equal(uno(s), s);
-  assert.equal(uno('T = "T"'), true);
+  for (const s of ['mint', 'transfer', 'lock', 'release', 'burn', 'E', 'P', 'R', 'T']) {
+    assert.equal(uno(s), SIMBOLOS[s]);
+    assert.ok(esSimbolo(uno(s)) && Object.isFrozen(uno(s)));
+    assert.equal(evaluar(s, ctx).texto, s, 'se lee por su nombre');
+  }
+  assert.equal(uno('burn = burn'), true);
+  assert.equal(uno('T = "T"'), false, 'un texto no es el símbolo (SEG-09)');
+  assert.equal(esSimbolo(NADIE), true);
+  assert.equal(esSimbolo({ simbolo: 'burn' }), false, 'un objeto que lo imita no es el símbolo');
   assert.equal(uno('=1 + 1'), 2, 'el «=» de fórmula se admite');
 });
 
@@ -152,7 +159,7 @@ test('where: it es el elemento; en un where anidado, it2; where se lleva lo que 
   assert.deepEqual(val('epoch.1 where it != "leche"'), ['pan', 'huevos']);
   assert.equal(uno('count (ev.1 where it.4 = burn)'), 1);
   assert.equal(uno('count (ev.1 where it.0.0 = E and it.4 = transfer)'), 1);
-  assert.deepEqual(val('(epoch.6 where it.0 = E) each 2'), ['EUR']);
+  assert.deepEqual(val('(epoch.6 where it.0 = "E") each 2'), ['EUR']);
   // Anidado: para cada movimiento, cuántos movimientos tienen su misma serie.
   assert.deepEqual(val('(ev.1 where count (ev.1 where it2.0 = it.0) = 2) each 1'), [10, 4]);
   // Encadenado: el segundo where filtra lo que dejó el primero.

@@ -54,7 +54,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | firmas y claves | `docs/BTML.md` §7 | `src/autoridad.js` | `test/autoridad.test.js` |
 | épocas y reglas cortas | `docs/REGLAS_CORTAS.md` | `src/epocas.js`, `datos/epocas/` | `test/epocas.test.js` |
 | fórmulas | `docs/BQL.md` | `src/bql.js` | `test/bql.test.js`, `test/bql-colecciones.test.js`, `test/conformidad-bql.test.js` |
-| el BQL mínimo, sus despliegues y vistas, la época como registro y la primera regla | `docs/BQLM.md`, `docs/BTML.md` §12 | `src/bqlm.js`, `src/contexto-eje.js`, `src/epocas.js` (`cargarEpocaBtml`), `datos/epocas/epoca-0.btml.json` | `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js` |
+| el BQL mínimo, sus despliegues y vistas, la época como registro y la primera regla | `docs/BQLM.md`, `docs/BTML.md` §12 | `src/bqlm.js`, `src/contexto-eje.js`, `src/epocas.js` (`cargarEpocaBtml`), `datos/epocas/epoca-0.btml.json` | `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`, `test/seguridad-bqlm.test.js` |
 | la fábrica | `docs/MOTOR.md` §1–§6 | `src/motor.js` | `test/motor.test.js`, `test/proponer.test.js`, `test/conformidad-motor.test.js` |
 | la matriz 10×10×10 y los topes de emisión | `docs/MOTOR.md` §7, `docs/notas/FABRICA_10X10.md` | `src/escritura.js`, `src/modos.js` | `test/fabrica-1000.test.js` |
 | escribir desde un modo | `docs/MOTOR.md` §7 | `src/escritura.js`, `src/modos.js` | `test/escritura.test.js`, `test/modos.test.js` |

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluar } from '../src/bqlm.js';
+import { evaluar, SIMBOLOS } from '../src/bqlm.js';
 import { ContextoEje, NADIE, primitivaDe, desplegarFecha, desplegarSerie, desplegarValor } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
 import { ESCALAS_T, SEGUNDOS, diaCivil } from '../src/tokens.js';
@@ -86,9 +86,9 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
   });
   assert.deepEqual(ev.movimientos.map(primitivaDe), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn']);
   const ctx = new ContextoEje(null, { ev });
-  assert.deepEqual(val('ev.1.4', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn']);
+  assert.deepEqual(val('ev.1.4', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn'].map((p) => SIMBOLOS[p]));
   assert.deepEqual(val('ev.1.1', ctx), [2, 4, 1, 3, 1, 1]);
-  assert.deepEqual(val('ev.1.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T']);
+  assert.deepEqual(val('ev.1.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
   assert.deepEqual(val('ev.1.3.0', ctx), ['ana', NADIE, 'ana', 'ana', 'ana', 'ana']);
   assert.deepEqual(val('ev.1.3.1', ctx), [NADIE, 'ana', 'bea', 'ana', 'ana', NADIE]);
   assert.deepEqual(val('(ev.1 where it.4 = lock) each 2', ctx), ['bloqueo', 'la cama']);
@@ -110,9 +110,10 @@ test('D-META: el evento como registro: 3 autor (y firmante), 5 id, 6.0 t, 6.5 so
   assert.equal(uno('ev.6.0.3', ctx), diaCivil('2026-11-07T13:30:00Z'));
   assert.deepEqual(val('ev.6.5', ctx), [menu.id, '0000000000']);
   assert.equal(uno('count ev.1', ctx), 3, 'dos movimientos y la décupla del payload');
-  assert.deepEqual(val('ev.1.4', ctx), ['burn', 'transfer']);
+  assert.deepEqual(val('ev.1.4', ctx), [SIMBOLOS.burn, SIMBOLOS.transfer]);
   // La décupla del payload: 1.0 sigue la referencia al 1 del menú (sus tres platos), 1.2 es una magnitud.
-  assert.deepEqual(val('ev.1.0', ctx), ['T:hora', 'E:casa/EUR', 'ensalada', 'guiso', 'fruta']);
+  assert.equal(evaluar('ev.1.0', ctx).texto, 'T:hora, E:casa/EUR, ensalada, guiso, fruta');
+  assert.equal(uno('first ev.1.0 = "T:hora"', ctx), true, 'la serie vale su clave');
   assert.deepEqual(val('ev.1.2.1', ctx), [12]);
   // Un registro del eje se lee igual, y su texto (el id) también es el registro.
   assert.equal(uno('("' + compra.id + '").5', ctx), compra.id);
@@ -163,7 +164,7 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   const ctx = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-07T18:00:00Z', movimientos: [], payload: ['después'] } });
   assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['E:casa/EUR']);
   assert.equal(uno('("huesped").1.("E:casa/EUR").1', ctx), 48);
-  assert.equal(uno('("huesped").1.0.0', ctx), 'E', 'el 0 de cada entrada es la serie, que se despliega');
+  assert.equal(uno('("huesped").1.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, que se despliega');
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 0);

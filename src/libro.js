@@ -329,9 +329,10 @@ export class Libro {
   bloqueadoPorSalida(salida, serie) {
     const porSerie = this.#porSalida.get(salida);
     if (serie === undefined) {
-      const r = {};
-      for (const [s, porTitular] of porSerie ?? []) for (const v of porTitular.values()) r[s] = (r[s] ?? 0) + v;
-      return r;
+      // Por un Map y Object.fromEntries: una serie o una salida llamada «__proto__» o «constructor» es una clave más (SEG-12).
+      const r = new Map();
+      for (const [s, porTitular] of porSerie ?? []) for (const v of porTitular.values()) r.set(s, (r.get(s) ?? 0) + v);
+      return Object.fromEntries(r);
     }
     let total = 0;
     for (const v of porSerie?.get(serie)?.values() ?? []) total += v;
@@ -386,16 +387,18 @@ export class Libro {
    * las series con algo.
    */
   vista(titular) {
-    const r = {};
-    for (const [serie, v] of this.#disponible.get(titular) ?? []) if (v !== 0) r[serie] = { disponible: v, bloqueado: {} };
+    // Se monta en Maps y se devuelve con Object.fromEntries: las series y las salidas son textos de fuera, y una
+    // llamada «__proto__» o «constructor» ha de ser una clave propia, no tocar el prototipo (SEG-12).
+    const r = new Map();
+    for (const [serie, v] of this.#disponible.get(titular) ?? []) if (v !== 0) r.set(serie, { disponible: v, bloqueado: new Map() });
     for (const [serie, porSalida] of this.#bloqueado.get(titular) ?? []) {
       for (const [salida, v] of porSalida) {
         if (v === 0) continue;
-        r[serie] ??= { disponible: this.saldo(titular, serie), bloqueado: {} };
-        r[serie].bloqueado[salida] = v;
+        if (!r.has(serie)) r.set(serie, { disponible: this.saldo(titular, serie), bloqueado: new Map() });
+        r.get(serie).bloqueado.set(salida, v);
       }
     }
-    return r;
+    return Object.fromEntries([...r].map(([serie, { disponible, bloqueado }]) => [serie, { disponible, bloqueado: Object.fromEntries(bloqueado) }]));
   }
 
   /** La transacción con la que nació la cuenta de `titular` (su alta), o null. */
@@ -430,9 +433,9 @@ export class Libro {
       && (desde === undefined || a.n >= desde) && (hasta === undefined || a.n < hasta);
     const fuente = registro === undefined ? this.#diario : (this.#porSobre.get(registro) ?? []).map((i) => this.#diario[i]);
     if (serie !== undefined) return fuente.filter(filtro).reduce((s, a) => s + a.cantidad, 0);
-    const r = {};
-    for (const a of fuente) if (filtro(a)) r[a.serie] = (r[a.serie] ?? 0) + a.cantidad;
-    return r;
+    const r = new Map(); // SEG-12: como en vista
+    for (const a of fuente) if (filtro(a)) r.set(a.serie, (r.get(a.serie) ?? 0) + a.cantidad);
+    return Object.fromEntries(r);
   }
 
   /** Asientos del diario (copias), con los mismos filtros que sumas: [{ n, primitiva, serie, de, a, titular, cantidad, salida, clase, etiqueta, origen, tx }]. */
