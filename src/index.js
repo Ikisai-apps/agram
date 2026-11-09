@@ -24,4 +24,5 @@ export * as lente from './lente.js';
 export * as instante from './instante.js';
 export * as libro from './libro.js';
 export * as condiciones from './condiciones/index.js';
+export * as contrato from './contrato.js';
 export * from './lectura.js';
