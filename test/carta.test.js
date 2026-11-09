@@ -137,15 +137,18 @@ test('el aro: el de la huésped sobre el menú trae «apply a resource» y «wri
   // Sobre el menú, la casa no emite (no tiene P sobre él).
   const c = await arbol({ foco: { X: menu.id, pv: 0 }, aro: { X: menu.id, pv: null } }, eje, 'casa', MOVIL);
   assert.ok(!c.aro.huecos.some((h) => [h.accion, ...h.otras].some((x) => x?.nombre === 'issue E tied to X')));
-  assert.match(html(a), /data-lanzar="apply a resource"/);
+  // La carta lanza por el id de la plantilla (el nombre canónico no va en el marcado: en otro idioma se enseña traducido).
+  assert.match(html(a), new RegExp('data-lanzar="' + A.plantillasDeTransaccion().find((p) => p.nombre === 'apply a resource').id + '"'));
+  assert.doesNotMatch(html(a), /data-lanzar="apply a resource"/);
 });
 
 test('el formulario de «apply a resource» trae la etiqueta, la ayuda, el tipo y la validación de cada parámetro de la plantilla, con los defectos rellenos', async () => {
   const { eje, menu } = await compra();
   const f = formulario(eje, menu.id, 'apply a resource', 'huesped');
-  assert.equal(f.accion, 'apply a resource');
-  assert.equal(f.pv, 1);
   const plantilla = A.plantillaDeTransaccion('apply a resource');
+  assert.equal(f.accion, A.plantillasDeTransaccion().find((p) => p.plantilla === plantilla).id, 'la acción, por el id de su plantilla');
+  assert.equal(f.nombre, 'apply a resource', 'y su nombre en el idioma de quien mira (en: el canónico)');
+  assert.equal(f.pv, 1);
   assert.deepEqual(f.campos.map((c) => c.nombre), A.parametros(plantilla).map((p) => p.nombre));
   const cantidad = f.campos.find((c) => c.nombre === 'quantity');
   assert.deepEqual([cantidad.etiqueta, cantidad.tipo, cantidad.requerido, cantidad.ayuda, cantidad.validacion, cantidad.valor], ['quantity', 'number', true, 'how many units', '=it > 0', 1]);

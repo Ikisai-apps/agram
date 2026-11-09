@@ -170,11 +170,11 @@ test('division: la tabla del espacio de bloque de epoch.8.3 (datos que caben →
 // ---------- 5. la madurez ----------
 
 test('madurez: la lectura «maturity» (X.8.1) con su medida (X.8.6), y el nombre entre los niveles de la época o los de la plantilla del tipo', async () => {
-  assert.deepEqual(C.madurez(eje, compra), { nivel: 11, de: 15, nombre: 'list', medida: { posiciones: 15, profundidad: 1, cantidad: 16 } });
-  assert.deepEqual(C.madurez(eje, cuenta), { nivel: 4, de: 15, nombre: 'stem', medida: { posiciones: 4, profundidad: 0, cantidad: 3 } });
+  assert.deepEqual(C.madurez(eje, compra), { nivel: 11, de: 15, nombre: 'list', clave: 'list', medida: { posiciones: 15, profundidad: 1, cantidad: 16 } });
+  assert.deepEqual(C.madurez(eje, cuenta), { nivel: 4, de: 15, nombre: 'stem', clave: 'stem', medida: { posiciones: 4, profundidad: 0, cantidad: 3 } });
   const T = '2026-11-07T18:00:00Z';
   const semilla = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: T, movimientos: [minuto('huesped')], payload: ['x'] });
-  assert.deepEqual(C.madurez(eje, semilla), { nivel: 1, de: 15, nombre: 'seed', medida: { posiciones: 1, profundidad: 0, cantidad: 1 } });
+  assert.deepEqual(C.madurez(eje, semilla), { nivel: 1, de: 15, nombre: 'seed', clave: 'seed', medida: { posiciones: 1, profundidad: 0, cantidad: 1 } });
   const diez = await eje.escribir({ autor: 'huesped', sobre: menu.id, t: T, movimientos: [minuto('huesped')], payload: ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'] });
   assert.deepEqual([C.madurez(eje, diez).nivel, C.madurez(eje, diez).nombre], [10, 'tenfold']);
   // Lo que mueve cuenta por órdenes de magnitud (doce euros no hacen una tienda): un registro de una posición que mueve 500 es una lista, no un distrito.
@@ -183,7 +183,7 @@ test('madurez: la lectura «maturity» (X.8.1) con su medida (X.8.6), y el nombr
   assert.deepEqual(C.niveles(), ['seed', 'sprout', 'shoot', 'stem', 'branch', 'leaf', 'bud', 'flower', 'fruit', 'tenfold', 'list', 'shop', 'block', 'district', 'kingdom']);
   // La reserva tiene su propia escala en el 8.8 de «booking»: cinco niveles, repartidos sobre los genéricos.
   const { eje: b, reserva, habitacion } = await ejemploReserva();
-  assert.deepEqual(C.madurez(b, reserva), { nivel: 4, de: 5, nombre: 'settled', medida: { posiciones: 37, profundidad: 1, cantidad: 205 } });
+  assert.deepEqual(C.madurez(b, reserva), { nivel: 4, de: 5, nombre: 'settled', clave: 'settled', medida: { posiciones: 37, profundidad: 1, cantidad: 205 } });
   assert.equal(C.madurez(b, habitacion).nombre, 'list');
   // La lectura es una regla de la época como las demás: en el 2, con read en su 4, después de «weight», y se lee en X.8.1.
   const regla = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'maturity');

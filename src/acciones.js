@@ -28,7 +28,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, madurez, niveles as nivelesGenericos, configuracion, mensaje } from './contrato.js';
+import { plantilla as plantillaDeDatos, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -118,23 +118,34 @@ export function plantillaDeTransaccion(cual, opciones = {}) {
 }
 
 /**
- * Los parámetros que pide una plantilla, leídos de su 1: [{ nombre, tipo, validacion, posicion, requerido, defectos,
- * ayuda, orden }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él); `defectos` son las
- * hojas del 9 menos la ayuda (una fórmula «=…» se evalúa sobre it = X, me y la candidata).
+ * Los parámetros que pide una plantilla, leídos de su 1: [{ nombre, etiqueta, tipo, validacion, posicion, requerido,
+ * defectos, ayuda, orden }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él); `defectos`
+ * son las hojas del 9 menos la ayuda (una fórmula «=…» se evalúa sobre it = X, me y la candidata). `nombre` es el
+ * canónico (inglés); `etiqueta` y `ayuda`, con `opciones.idioma`, su traducción (epoch.9.4: «template <nombre> param
+ * <etiqueta> label | help»).
  */
-export function parametros(plantilla) {
+export function parametros(plantilla, opciones = {}) {
+  const nombre = nombreDeAccion(plantilla);
+  const t = (clave, original) => textoDe(null, clave, opciones.idioma, { original, epoca: opciones.epoca });
   const lista = Array.isArray(plantilla?.[1]) ? plantilla[1].filter((p) => Array.isArray(p) && esDecupla(p)) : [];
-  return lista.map((p) => ({
-    nombre: texto(hoja(p[0])),
-    tipo: texto(hoja(p[1])) ?? 'text',
-    validacion: esFormula(texto(ultima(p[2]))) ? texto(ultima(p[2])) : null,
-    posicion: texto(hoja(p[5])) ?? '-',
-    requerido: hoja(p[7]) === 'required',
-    defectos: hojas(p[9]).slice(0, -1),
-    ayuda: texto(ultima(p[9])) ?? '',
-    orden: Number(hoja(p[8])) || 0,
-  })).sort((a, b) => a.orden - b.orden);
+  return lista.map((p) => {
+    const k = texto(hoja(p[0]));
+    return {
+      nombre: k,
+      etiqueta: t(claves.parametro(nombre, k, 'label'), k),
+      tipo: texto(hoja(p[1])) ?? 'text',
+      validacion: esFormula(texto(ultima(p[2]))) ? texto(ultima(p[2])) : null,
+      posicion: texto(hoja(p[5])) ?? '-',
+      requerido: hoja(p[7]) === 'required',
+      defectos: hojas(p[9]).slice(0, -1),
+      ayuda: t(claves.parametro(nombre, k, 'help'), texto(ultima(p[9])) ?? ''),
+      orden: Number(hoja(p[8])) || 0,
+    };
+  }).sort((a, b) => a.orden - b.orden);
 }
+
+/** El idioma de quien mira: el que se pide, o el de su configuración (la preferencia «language»); sin él, el canónico. */
+const idiomaDe = (eje, yo, opciones) => opciones?.idioma ?? configuracion(eje, yo, opciones).language ?? 'en';
 
 // ---------- la candidata: el registro que la plantilla describe ----------
 
@@ -178,11 +189,12 @@ const conHuecos = (ruta, valores) => String(ruta).replace(/\{([^{}]+)\}/g, (_, n
 /**
  * Prepara la candidata de una plantilla sobre X para `yo`: el ancla (su 5), el payload con los parámetros dados y
  * los defectos de los que faltan (en su orden), y los parámetros resueltos. Devuelve { sobre, en, payload, valores,
- * parametros, motivos } con los motivos de los parámetros que fallan (cada uno { regla, mensaje }).
+ * parametros, motivos } con los motivos de los parámetros que fallan (cada uno { regla, mensaje }, con la etiqueta y
+ * la ayuda del parámetro en el idioma).
  */
-function preparar(eje, plantilla, X, yo, params, { t, epoca }) {
+function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
   const nombre = nombreDeAccion(plantilla);
-  const lista = parametros(plantilla);
+  const lista = parametros(plantilla, { idioma, epoca });
   const valores = {};
   const motivos = [];
   for (const p of lista) if (params[p.nombre] !== undefined) valores[p.nombre] = comoTipo(params[p.nombre], p.tipo);
@@ -224,10 +236,10 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca }) {
   for (const p of lista) {
     const v = valores[p.nombre];
     if (v === undefined) {
-      if (p.requerido) motivos.push({ regla: p.nombre, mensaje: p.nombre + ': ' + p.ayuda, parametro: p.nombre });
+      if (p.requerido) motivos.push({ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre });
       continue;
     }
-    if (p.validacion && !cumple(p.validacion, ctx, sujetoDeValor(v))) motivos.push({ regla: p.nombre, mensaje: p.nombre + ': ' + p.ayuda, parametro: p.nombre });
+    if (p.validacion && !cumple(p.validacion, ctx, sujetoDeValor(v))) motivos.push({ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre });
   }
   for (const h of huecos(payload)) motivos.push({ regla: nombre, mensaje: nombre + ': position ' + h + ' of the record has no value' });
   return { sobre, en: candidata.en, payload, valores, parametros: lista, motivos, candidata };
@@ -244,25 +256,30 @@ const valores0 = (...args) => valoresDe(...args)[0];
 
 /**
  * Las acciones del aro: las plantillas de transacción del punto de vista k cuya condición (su 2, con it = X y me = yo)
- * pasa, en el orden de su 8: [{ nombre, plantilla, parametros, porDefecto, lectura, camino }]. Cada parámetro lleva su
- * valor por defecto ya resuelto (`valor`) y si falta (`falta`). Nada se decide aquí: si una acción no debe aparecer,
- * lo dice su 2.
+ * pasa, en el orden de su 8: [{ nombre, id, etiqueta, plantilla, parametros, porDefecto, lectura, camino }]. `nombre`
+ * es el canónico (inglés) e `id` el del registro de la plantilla (los dos la nombran en transaccion); `etiqueta`, el
+ * nombre en el idioma de yo (o el de `opciones.idioma`), como la etiqueta y la ayuda de cada parámetro. Cada parámetro
+ * lleva su valor por defecto ya resuelto (`valor`) y si falta (`falta`). Nada se decide aquí: si una acción no debe
+ * aparecer, lo dice su 2.
  */
 export function acciones(eje, X, k, yo, opciones = {}) {
   const ev = eventoDe(eje, X);
   if (!ev || typeof ev.id !== 'string' || !eje?.obtener(ev.id)) return [];
   const epoca = epocaDe(opciones);
+  const idioma = idiomaDe(eje, yo, opciones);
   const ctx = contextoDe(eje, epoca, { me: yo });
   const fuera = [];
-  for (const { nombre, plantilla, pv } of plantillasDeTransaccion(opciones)) {
+  for (const { nombre, plantilla, pv, id } of plantillasDeTransaccion(opciones)) {
     if (pv !== Number(k)) continue;
     const condicion = texto(ultima(plantilla[2]));
     if (!esFormula(condicion) || !cumple(condicion, ctx, sujetoDe(ev))) continue;
-    const { valores, parametros: lista } = preparar(eje, plantilla, ev, yo, {}, { t: relojDe(eje, opciones), epoca });
+    const { valores, parametros: lista } = preparar(eje, plantilla, ev, yo, {}, { t: relojDe(eje, opciones), epoca, idioma });
     fuera.push({
       nombre,
+      id,
+      etiqueta: textoDe(eje, claves.plantilla(nombre), idioma, { original: nombre, epoca }),
       plantilla,
-      parametros: lista.map((p) => ({ nombre: p.nombre, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, posicion: p.posicion, valor: valores[p.nombre], falta: p.requerido && valores[p.nombre] === undefined })),
+      parametros: lista.map((p) => ({ nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, posicion: p.posicion, valor: valores[p.nombre], falta: p.requerido && valores[p.nombre] === undefined })),
       porDefecto: fuera.length === 0,
       lectura: esLectura(plantilla),
       camino: esCamino(plantilla),
@@ -344,10 +361,16 @@ function movimientosDe(eje, epoca, plantilla, candidata, yo, X) {
   return { movimientos, motivos };
 }
 
-/** El mensaje de una plantilla (su 9) relleno sobre la candidata, X y yo. */
-function mensajeDe(eje, epoca, plantilla, candidata, yo, X) {
-  const m = texto(ultima(plantilla[9]));
-  if (!m) return nombreDeAccion(plantilla);
+/**
+ * El mensaje de una plantilla (su 9) relleno sobre la candidata, X y yo. Con `idioma`, el traducido de epoch.9.4
+ * («template <nombre> message», con los mismos huecos); sin él, el canónico, que es lo que se escribe en el 0 del
+ * registro (los datos van en inglés, como el 9 de las reglas).
+ */
+function mensajeDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
+  const nombre = nombreDeAccion(plantilla);
+  const canonico = texto(ultima(plantilla[9]));
+  const m = idioma ? textoDe(eje, claves.mensaje(nombre), idioma, { original: canonico, epoca }) : canonico;
+  if (!m) return nombre;
   return rellenar(m, contextoDe(eje, epoca, { ev: candidata, me: yo }), { sujeto: sujetoDe(X) });
 }
 
@@ -381,11 +404,11 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   const X = eventoDe(eje, cualX);
   if (!X || !eje?.obtener(X.id)) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': X is not a record of the ledger' }] };
   if (typeof yo !== 'string' || !yo) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': who launches it (yo) is an identity' }] };
-  const idioma = opciones.idioma ?? configuracion(eje, yo, opciones).language ?? 'en';
+  const idioma = idiomaDe(eje, yo, opciones);
   const t = relojDe(eje, opciones);
   if (esLectura(plantilla)) {
-    const { motivos, candidata } = preparar(eje, plantilla, X, yo, dados, { t, epoca });
-    return { ok: motivos.length === 0, evento: null, motivos, lectura: { nombre, mensaje: mensajeDe(eje, epoca, plantilla, candidata, yo, X) } };
+    const { motivos, candidata } = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
+    return { ok: motivos.length === 0, evento: null, motivos, lectura: { nombre, mensaje: mensajeDe(eje, epoca, plantilla, candidata, yo, X, idioma) } };
   }
   if (esCamino(plantilla)) {
     const todo = hojas(plantilla[4]).includes('all');
@@ -397,7 +420,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
     const r = await transaccion(eje, primero.hacer.plantilla, { X: primero.hacer.X ?? X.id, ...primero.hacer.parametros }, yo, opciones);
     return { ...r, paso: primero };
   }
-  const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca });
+  const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
   if (prep.motivos.length) return { ok: false, evento: null, motivos: prep.motivos };
   const { movimientos, motivos } = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X);
   if (motivos.length) return { ok: false, evento: null, motivos };
@@ -484,7 +507,7 @@ export async function camino(eje, X, yo, opciones = {}) {
   if (!ev || !eje?.obtener(ev.id)) return { pasos: [] };
   const epoca = epocaDe(opciones);
   const raiz = raizDe(epoca);
-  const idioma = opciones.idioma ?? configuracion(eje, yo, opciones).language ?? 'en';
+  const idioma = idiomaDe(eje, yo, opciones);
   const ctx = contextoDe(eje, epoca, { me: yo });
   const t = relojDe(eje, opciones);
   const plantillas = plantillasDeTransaccion(opciones);
@@ -492,13 +515,13 @@ export async function camino(eje, X, yo, opciones = {}) {
   const reglas = (epoca.reglasConId ?? []).map((x) => x.regla);
   const pasos = [];
 
-  /** Un paso mío con una plantilla: sus parámetros por defecto y si ya está hecho (un registro mío en su ancla). */
+  /** Un paso mío con una plantilla: sus parámetros por defecto y si ya está hecho (un registro mío en su ancla); `falta` se lee con su 9 en el idioma. */
   const mio = (nombre, extra = {}, sobre = ev) => {
     const plantilla = porNombre.get(nombre);
     if (!plantilla) return null;
-    const prep = preparar(eje, plantilla, sobre, yo, extra, { t, epoca });
+    const prep = preparar(eje, plantilla, sobre, yo, extra, { t, epoca, idioma });
     const hecho = eje.sobreDe(prep.sobre, prep.en, new Set([yo])).length > 0;
-    return { hacer: { plantilla: nombre, X: sobre.id, parametros: { ...Object.fromEntries(Object.entries(prep.valores)), ...extra }, lectura: esLectura(plantilla) }, hecho, falta: mensajeDe(eje, epoca, plantilla, prep.candidata, yo, sobre) };
+    return { hacer: { plantilla: nombre, X: sobre.id, parametros: { ...Object.fromEntries(Object.entries(prep.valores)), ...extra }, lectura: esLectura(plantilla) }, hecho, falta: mensajeDe(eje, epoca, plantilla, prep.candidata, yo, sobre, idioma) };
   };
 
   // (1) El tutorial: el 9 de la plantilla de X (la de datos, o la de identidad si X es un alta) y el 9 del propio X.
@@ -589,7 +612,7 @@ export async function camino(eje, X, yo, opciones = {}) {
   const m = madurez(eje, ev, opciones);
   if (!m || !m.nivel) {
     const propios = hojas(plantillaDeDatos(eje, ev, opciones)?.[8]?.[8]).filter((x) => typeof x === 'string');
-    fuera.niveles = propios.length ? propios : nivelesGenericos(opciones);
+    fuera.niveles = (propios.length ? propios : nivelesGenericos(opciones)).map((n) => textoDe(eje, claves.nivel(n), idioma, { original: n, epoca }));
   }
   return fuera;
 }

@@ -4,7 +4,7 @@ Encargo 3c-1 (VG, 9-11). Principio: la pantalla, **la carta**, pinta un registro
 
 ```js
 import { contrato } from './src/index.js';
-const { plantilla, etiqueta, ayuda, marcador, tipo, validar, representaciones, ocupantes, division, madurez, diario, yo, configuracion, mensaje } = contrato;
+const { plantilla, etiqueta, ayuda, marcador, tipo, validar, representaciones, ocupantes, division, madurez, diario, yo, configuracion, mensaje, texto, legible, desdeLegible } = contrato;
 ```
 
 Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `cargarEpocaBtml`; por defecto `EPOCA_0_BTML`): cambiar la época cambia lo que devuelve, porque **todo se lee de ella**. El módulo solo sabe dónde mira la época cada cosa:
@@ -18,7 +18,7 @@ Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `
 | los modos y su máximo | `epoch.8.2` |
 | las plantillas de dominio | `epoch.9.2` (0 la cabecera, con el tipo genérico de cada dígito en 9.2.0.1; 9.2.1 «purchase», 9.2.2 «booking») |
 | la plantilla «preferences» | `epoch.9.3` (9.3.6 la preferencia `model`, encargo 3c-2b) |
-| los mensajes por idioma | `epoch.9.4` (0 la cabecera; 9.4.1 «es») |
+| los mensajes por idioma y los textos por clave (§8) | `epoch.9.4` (0 la cabecera; 9.4.1 «es»: las reglas, las plantillas, los niveles, los órdenes, los tamaños y los formatos de `legible`; 9.4.2 «en»: solo los formatos canónicos de `legible`) |
 | las representaciones: formatos y tamaños | `epoch.9.5` |
 | los modelos de visualización (§11) | `epoch.9.7` (0 la cabecera; 1… las referencias a los modelos, `datos/epocas/modelos/`) |
 | la tabla de pasos (§11.4) | `epoch.9.8` |
@@ -170,11 +170,63 @@ mensaje(eje, regla, idioma = 'en', { ev })   // → el texto; regla es la décup
 idiomas()                                    // → ['en', 'es']
 ```
 
+### 8.1 Los textos de la época por clave: `texto(eje, clave, idioma, { original })`
+
+La carta se lee en español (etapa 1 del roadmap, parte mecánica) **por datos**: el mismo registro «messages» del idioma lleva, además de las reglas, una hoja «`<clave>: <texto>`» por cada texto de la época que la carta enseña. La convención de claves, sistemática:
+
+| Clave | Qué traduce | Ejemplo en `es` |
+|---|---|---|
+| `template <nombre>` | el nombre de una plantilla de transacción (las 33 del aro) o de datos («purchase», «booking», «preferences») | `template apply a resource: aplicar un recurso` |
+| `template <nombre> param <etiqueta> label` | la etiqueta de un parámetro de una plantilla de transacción, o de una posición de una plantilla de datos (su d.0) | `template apply a resource param quantity label: cantidad` |
+| `template <nombre> param <etiqueta> help` | su ayuda (la última hoja del 9) | `… param quantity help: cuántas unidades` |
+| `template <nombre> param <etiqueta> placeholder` | el marcador de una posición de una plantilla de datos, en una sola hoja (opcional: sin él, las hojas del d.9) | `template purchase param order placeholder: menú · 1 · EUR 12` |
+| `template <nombre> message` | el 9 de una plantilla de transacción, con los mismos huecos `{…}` y el nombre canónico delante (como las reglas) | `template pay message: pay: {me} paga lo anunciado en {first it.0}` |
+| `level <nombre>` | un nivel de madurez (los quince genéricos y los de cada tipo, como los cinco de «booking») | `level seed: semilla` |
+| `order <nombre>`, `size <nombre>` | un orden de `epoch.8.5`, un tamaño de `epoch.9.5.2` | `order newest: lo último primero` |
+| `legible <qué>` | los formatos con que `legible` compone un texto, con huecos planos | `legible price: {amount} {series} por unidad` |
+
+`texto(eje, clave, idioma, { original })` devuelve la traducción del registro del idioma; si falta, la del registro canónico **«en»** (`epoch.9.4.2`, que solo lleva los formatos de `legible`: las reglas y las plantillas tienen su inglés en su propio 9 y en sus etiquetas); si falta, `original` (el inglés que ya tiene quien pregunta); si no hay nada, `null`. `contrato.claves` compone las claves (`claves.plantilla(nombre)`, `claves.parametro(nombre, etiqueta, 'label' | 'help' | 'placeholder')`, `claves.mensaje(nombre)`, `claves.nivel`, `claves.orden`, `claves.tamano`, `claves.legible`), para que nadie fuera del contrato escriba la convención. **Todas las entradas que dan texto de la época aceptan `idioma` en sus opciones**: `etiqueta`, `ayuda`, `marcador` (solo lo que viene de una plantilla; las reglas cortas de la época van tal cual), `validar` (los motivos), `madurez` (`nombre` traducido, `clave` el canónico) y `niveles`; en el aro, `acciones.parametros(plantilla, { idioma })` (`etiqueta`, `ayuda`), `acciones.acciones` (cada acción con `id`, `nombre` canónico y `etiqueta` en el idioma de quien mira), `transaccion` (los motivos de los parámetros y el mensaje de una lectura) y `camino` (`falta` y `niveles`). Los datos que se escriben en el eje siguen en inglés: el 0 del registro que escribe una acción es su mensaje canónico, como el 9 de las reglas. La carta lee el idioma de `configuracion(yo).language` y lanza las acciones **por el id de su plantilla**, no por su nombre, para que el nombre que se ve sea solo el traducido.
+
+```js
+texto(eje, clave, idioma = 'en', { original })   // → el texto, o null
+claves                                           // → { plantilla, parametro, mensaje, nivel, orden, tamano, legible }
+```
+
+### 8.2 Valores legibles: `legible(eje, valor, tipo, { idioma })` y `desdeLegible(texto, tipo, { eje, idioma })`
+
+Un valor de una posición o de un parámetro ya no se enseña como JSON en crudo. `legible` devuelve `{ texto, partes }`; `tipo` es el de la plantilla (las hojas de su d.1) y orienta la lectura, y lo que el valor **es** se reconoce también por su forma. Lo que decide cómo se dice viene de la época (los formatos `legible …` de `epoch.9.4`, las escalas de T de `epoch.1.3`, los nombres de las plantillas y de los niveles) o del eje (el 0 de un registro o de un alta):
+
+| Valor | Texto | En `partes` |
+|---|---|---|
+| un precio `[["E"], [1]]` (o `[["E:casa/EUR"], [12]]`) | «1 E por unidad» («12 EUR por unidad») | `precio: { enQue, cuanto, serie }` |
+| una lista de precios | cada uno, separados por « · » | `precios` |
+| una serie `E:casa/EUR` | «EUR» | `familia, emisor, denominacion, registro` (el id al que está atada) `, registroTexto` (su 0) |
+| `T:hora`, `P:<r>/ana`, `P:<r>.1/ana`, `R:casa` | «hora» (el nombre de la escala en `epoch.1.3.1`), «P sobre <0 de r>», «P sobre <0 de r>, mirada 1», «R de casa» | `escala`, `registro`, `mirada`, `origen`, `emisor` |
+| un instante `2026-11-07T13:30:00Z`; un día `2026-11-20` | la fecha y la hora en el idioma (`Intl`, en UTC: «7 nov 2026, 13:30»); solo la fecha | `instante` (el original) |
+| una identidad | el 0 de su alta («Alta de huesped», «Casa de ejemplo») | `identidad, alta` |
+| una referencia `{ ref, dir }` o un id | el 0 del registro; con dirección, « · » y la etiqueta de esa posición («Menú del día · recursos») | `ref, dir, X, representacion, posicion` |
+| una décupla | su 0 legible; sin él, «registro de N posiciones» | `decupla, n, posiciones` (cada una legible) |
+| una lista | sus ocupantes legibles, separados por « · » | `lista` |
+| una cantidad de token `{ serie, cantidad }` (un asiento del diario) | «12 EUR», «1 hora» | `cantidad, serie` |
+| el nombre de una acción del aro, de una plantilla de datos, un nivel | su traducción («aplicar un recurso», «compra», «semilla») | `accion, id` / `plantilla` / `nivel` |
+| un número, un texto | tal cual (los dígitos no se localizan: el input los devuelve igual) | `valor` |
+
+`desdeLegible(texto, tipo, { eje, idioma })` es la inversa mínima para editar los **tipos simples** (`esTipoSimple(tipo)`: los tipos genéricos de `epoch.9.2.0.1`; una décupla se edita en BTML): un número (con coma o punto decimal), un instante (ISO estricto; un día «AAAA-MM-DD» o «AAAA-MM-DDTHH:MM», como lo da un input, completados en UTC), una identidad por su id o por el 0 de su alta, una referencia por su id o por el 0 de un registro, un nivel o el nombre de una acción o de una plantilla por su traducción, y el texto tal cual; vacío, `{ valor: undefined }`. Devuelve `{ valor }` o `{ motivo }` (el motivo, con los formatos «legible not a number», «… not an instant», «… unknown identity», «… unknown record» de `epoch.9.4`). La carta enseña en el input de cada parámetro el valor legible (y el crudo en un desplegable «ver en BTML»); al enviar, si el texto no se tocó manda el crudo, si el tipo es simple lo lee con `desdeLegible`, y lo demás como antes (JSON si empieza por `[` o `{`).
+
+```js
+legible(eje, valor, tipo, { idioma = 'en' })       // → { texto, partes }
+desdeLegible(texto, tipo, { eje, idioma = 'en' })  // → { valor } | { motivo }
+esTipoSimple(tipo)                                 // → true salvo la décupla
+```
+
+**Core, pendiente de revisar VG**: los nombres en español de las 33 acciones y de sus parámetros (`datos/epocas/epoca-0.btml.json`, 9.4.1); que la hora se enseñe en UTC (la del libro); que una referencia con dirección se lea como «<0> · <etiqueta de la posición>»; que un valor que nombra una plantilla («purchase» en el 5) se enseñe traducido («compra») aunque el dato siga en inglés; que la identidad se lea por el 0 de su alta («Alta de huesped»). Los textos propios de la carta (botones, «soy», «configuración», «guardar este rato», «leído») no son de la época: viven en `carta/textos.js`, en un solo objeto por idioma (hoy, `es`), para traducirlos luego por la misma preferencia.
+
 ## 9. Qué cambia en el eje y en los ejemplos
 
 - `src/contexto-eje.js`: el 8 de un registro (y de la candidata) tiene su nodo implícito: 8.6 la medida (la vista) y las lecturas de la época en `X.8.d` (`X.8.1`, «maturity»). Añadido al final del bloque de vistas. Para una identidad, `A.8.1` sigue siendo «obligation».
 - `datos/epocas/epoca-0.btml.json`: 8.3, 8.4, 8.5, 9.2, 9.3, 9.4, 9.5 y una línea de procedencia en el 6; `datos/epocas/reglas/maturity.json`. Eran 40 reglas: 30 condiciones, 3 que escriben, 7 lecturas (con el 3c-2a, 43: diez lecturas, §12).
 - `ejemplos/ikisai/compra-food.mjs` y `reserva-booking.mjs`: la compra y la reserva nombran su plantilla en su 5. Cambian los ids de los ejemplos (el génesis referencia la época) y las salidas de los documentos se regeneraron.
+- La carta en español (etapa 1, §8.1-8.2): `epoch.9.4.1` («es») pasa de 43 hojas (las reglas) a 469 (las 33 plantillas de transacción con sus parámetros y mensajes, «purchase», «booking» y «preferences» con sus posiciones, los veinte niveles, los tres órdenes, los tres tamaños y los formatos de `legible`), y `epoch.9.4.2` («en») nace con los trece formatos canónicos. Cambia el id de la época y, con él, los de los ejemplos; las salidas de `docs/MODOS.md` y `docs/MOTOR.md` se regeneraron. Pruebas: `test/legible.test.js`.
 
 ## 10. El libro local: `LibroLocal(eje, yo)`, `ver`, `tocar`, `recorrido`, `englobar`
 
@@ -362,7 +414,7 @@ Del encargo 3c-2a:
 - **El aro**: el molde de las plantillas (parámetros como posiciones de una plantilla de datos; `[punto de vista, orden]` en el 8; el ancla con huecos `{parámetro}`; el registro que escribe nombra la acción en su 4 y su tipo en su 5; las posiciones intermedias se rellenan con «sobre qué», «criterio» y «quién»); que «apply a resource» escriba una «purchase»; que «commit P» y «reposition P» anclen en X.2.1 y «declare capacity» en X.2.2 (anclados en el 2 entero, el 3 del registro se leería como parte del 2.3 de X); que «deliver» mueva todo lo anunciado que no es E (P, R y T) y «pay» la E; que «aggregate T» englobe los hijos de X en su fábrica; que las acciones que solo leen («view thread», «compare…», «view the whole tutorial», «ask for a recommendation») sean plantillas con `read` en su 4.
 - **El equipo** paga «open record» con cuánto 0: abierto es «con movimientos anunciados y pendientes» (la lectura «stage»), no «sin cerrar» en general.
 - **La clave en el tutorial** es una regla, no una acción: no hay plantilla que la declare después del alta.
-- **Los textos de las plantillas** (ayudas, mensajes) en inglés como los de las reglas; sin traducción al español todavía.
+- **Los textos de las plantillas** (ayudas, mensajes) en inglés como los de las reglas, canónicos; su español, por datos en `epoch.9.4` con la convención de claves de §8.1 (`template <nombre>`, `… param <etiqueta> label | help | placeholder`, `… message`, `level`, `order`, `size`, `legible`).
 
 - **La forma de las plantillas**: la diagonal (0.0 nombre, 4.4 `template`, 8.8 niveles, 9.9 modelo de división) y que una plantilla solo describa la profundidad 0 (las subposiciones, como el 1.2 de la compra, llevan la regla corta de su profundidad). ¿Plantillas anidadas (el 1 de una compra con su propia plantilla «resource»)?
 - **El 5 como tipo**: la referencia a la plantilla por nombre o por `{ ref }`; en BQL mínimo `X.5` sigue siendo solo el id y las claves (B4), así que el tipo se lee del payload, no del contexto.
