@@ -3003,6 +3003,71 @@ export const EPOCA_0_BTML_DATOS = [
           3,
           "the size steps the card works with: 1 the slot, 2 the card, 3 the screen (epoch.9.5.2)"
         ]
+      ],
+      [
+        [
+          "type"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "5"
+        ],
+        [
+          "encargo 3c-2b (tras 3c-1): la posición 5 es el tipo (B4), no una preferencia; está descrita para que el 6 pueda existir"
+        ],
+        [
+          "required"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "its type: this template, preferences, named in the 5 of the record (B4: the 5 is the type)"
+        ]
+      ],
+      [
+        [
+          "model"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "6"
+        ],
+        [
+          "encargo 3c-2b (tras 3c-1): el modelo de visualización que la carta consulta primero; detrás, la cadena de respaldo de epoch.9.7.0.2"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "sobrio",
+          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (the generic animated one, then the sober one, which always answers)"
+        ]
       ]
     ],
     [
@@ -3110,6 +3175,184 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         "the occupants of the 0 of a record are its representations and the card picks the one that fits: a leaf is a text representation without minimum size (the first format of the list, text); a tenfold is a rich one: its 0 the alternative text, its 1 [minimum size, format], its 5 where the resource is (a relative URL of the repository or a reference); a template says in its 0.1 which formats the 0 of its type admits, and what it does not admit is left out. The sizes: 1 the minimum slot, 2 the card, 3 the whole screen, each with the data that fit in it. Core, pendiente de revisar VG (encargo 3c-1)"
+      ]
+    ],
+    [
+      [
+        "transaction templates",
+        "reserved for encargo 3c-2a (the transaction templates of the ring): this header only holds the place so that 9.7 and 9.8 can exist; no position is ever written empty"
+      ]
+    ],
+    [
+      [
+        [
+          "model",
+          "a visualization model is a record: 0 its name, its level of detail and a note; 1-4 and 6-9 the pieces of each world, as references to piece records (in the ledger, also pieces anchored there); 5 the frames and the icons of the ring. A piece is a record: 0 its type; 1 [minimum size, format] or, with no resource, [minimum size, sober form: texto, rectangulo, punto]; 2 its key (the step 1-10, the action, the primitive or effect, or the world whose icon it is; * for any); 3 its orientation; 4 [loop or once, frames]; 5 the worlds it serves (digits, or * for every world); 6 its resource (a relative path of the repository or a URL) and where it comes from"
+        ],
+        [
+          "sello",
+          "intermedio",
+          "ilustrado"
+        ],
+        [
+          "animado-generico",
+          "sobrio"
+        ],
+        [
+          "centro",
+          "izquierda",
+          "derecha"
+        ],
+        [
+          [
+            [
+              "elemento"
+            ],
+            [
+              "paso"
+            ]
+          ],
+          [
+            [
+              "munequito"
+            ],
+            [
+              "accion"
+            ]
+          ],
+          [
+            [
+              "movimiento"
+            ],
+            [
+              "primitiva"
+            ]
+          ],
+          [
+            [
+              "fondo"
+            ],
+            [
+              "paso"
+            ]
+          ],
+          [
+            [
+              "marco"
+            ],
+            [
+              "paso"
+            ]
+          ],
+          [
+            [
+              "icono"
+            ],
+            [
+              "mundo"
+            ]
+          ]
+        ],
+        [
+          "9360000000"
+        ],
+        [
+          "lottie",
+          "video"
+        ],
+        [
+          "loop",
+          "once"
+        ],
+        [
+          10
+        ],
+        [
+          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG"
+        ]
+      ],
+      {
+        "ref": "f1efc230b063a990fe65b111b3c631676b4bf553b7a27b49039b46ef81e24d88"
+      },
+      {
+        "ref": "80e9512d116de0185a27155c4e32e06826757f97367b48e9ce5f0a05c5c35882"
+      },
+      {
+        "ref": "66085c4ad5071b2a29d2cbd589afa9971db6ff93b2c32e5fb7962d355cb99436"
+      }
+    ],
+    [
+      [
+        "steps",
+        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most). Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
+      ],
+      [
+        [
+          4
+        ],
+        [
+          "ciclo"
+        ],
+        [
+          "=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) - count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0))"
+        ],
+        [
+          "=count ((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3)"
+        ],
+        [
+          "the stage of the cycle: the announced movements (the records the owner anchored in the 4.1 of X) that already happened, out of all announced: the same condition as the closing template of epoch.9.0.1 and «what is missing» of epoch.9.0.3; with nothing announced, 0 of 0"
+        ]
+      ],
+      [
+        [
+          8
+        ],
+        [
+          "cuota"
+        ],
+        [
+          "share box"
+        ],
+        [
+          10
+        ],
+        [
+          "the box (0-9) of the share of X against its parent: what X moves ÷ what its siblings move, in the series where it weighs most (bases.cajaDeCuota: a tenth each); ten boxes; null at the root"
+        ]
+      ],
+      [
+        [
+          7
+        ],
+        [
+          "escala"
+        ],
+        [
+          "=(first (it.1 where T in it2.0.0.0 and burn in it2.4)).0.0.1"
+        ],
+        [
+          10
+        ],
+        [
+          "the T scale of the record: the digit of the series of the first T it burns, 0-9 as the ten scales of epoch.1.3.1 (0 second … 6 year, 7 past, 8 future, 9 invented); null if it burns no T"
+        ]
+      ],
+      [
+        [
+          "*"
+        ],
+        [
+          "madurez"
+        ],
+        [
+          "maturity"
+        ],
+        [
+          "maturity"
+        ],
+        [
+          "for every element: its maturity level, X.8.1 (contrato.madurez), among the levels of its template (8.8) or the generic ones of epoch.8.4"
+        ]
       ]
     ]
   ]
@@ -5491,7 +5734,561 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "7aaf9b0eb23437f990fce31ff0b75c5b17ae42a88a46a0e423f6611e7f9ae1cc";
+export const EPOCA_0_BTML_ID = "89b03bded088d541246e40446249cd26f0de245cf37c922643877290c585320d";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
+
+// modelos/*.json y modelos/<nombre>/*.json: los modelos de visualización de la época (encargo 3c-2b) y sus piezas, { archivo, nombre, id, registro, piezas: [{ archivo, id, registro }] }; cada id, el hash de su cuerpo canónico; el 9.7 de la raíz los referencia
+export const MODELOS_DE_EPOCA_DATOS = [
+  {
+    "archivo": "animado-generico.json",
+    "nombre": "animado-generico",
+    "id": "f1efc230b063a990fe65b111b3c631676b4bf553b7a27b49039b46ef81e24d88",
+    "registro": [
+      [
+        "animado-generico",
+        "intermedio",
+        "el animado genérico de la época (encargo 3c-2b, tras 3c-1): incompleto a propósito; solo la ciudad (PV1) con la tienda de la prueba 03 y el vendedor esperando; sin iconos del aro"
+      ],
+      [
+        {
+          "ref": "86974623a89054b7d55acb876c4ec09f93138a7115b3930ae2e337cbec283f06"
+        },
+        {
+          "ref": "0cfc032f15654e823abdf3cfa9b9f312a86692ae4bb1bbc3d091088fae6c0f30"
+        },
+        {
+          "ref": "d01dc29b356daa464516394489071203566664c1862253bed4b318ecd3acb54d"
+        },
+        {
+          "ref": "69185a21a75bb0b18af620cbb98d8998db90d46c565acd0a367ec904317e6d5e"
+        },
+        {
+          "ref": "98329f58d0ea78183ef082187c3d7248fc74af8d5510226cad9f8d80b80c0c93"
+        },
+        {
+          "ref": "e9db86ffc9e7c6af72dfd440e2cd1419dc7131b73b501417761d99d25b93ba3a"
+        },
+        {
+          "ref": "ab100ee9d3f5172450a047dc79d80cc49e6114d4ebf4594b41dd9f090f95a27f"
+        }
+      ]
+    ],
+    "piezas": [
+      {
+        "archivo": "elemento-1-centro.json",
+        "id": "86974623a89054b7d55acb876c4ec09f93138a7115b3930ae2e337cbec283f06",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            1
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-centro-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "elemento-1-derecha.json",
+        "id": "0cfc032f15654e823abdf3cfa9b9f312a86692ae4bb1bbc3d091088fae6c0f30",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            1
+          ],
+          [
+            "derecha"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-derecha-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "elemento-1-izquierda.json",
+        "id": "d01dc29b356daa464516394489071203566664c1862253bed4b318ecd3acb54d",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            1
+          ],
+          [
+            "izquierda"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-izquierda-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "elemento-5-centro.json",
+        "id": "69185a21a75bb0b18af620cbb98d8998db90d46c565acd0a367ec904317e6d5e",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            5
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-centro-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "elemento-5-derecha.json",
+        "id": "98329f58d0ea78183ef082187c3d7248fc74af8d5510226cad9f8d80b80c0c93",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            5
+          ],
+          [
+            "derecha"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-derecha-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "elemento-5-izquierda.json",
+        "id": "e9db86ffc9e7c6af72dfd440e2cd1419dc7131b73b501417761d99d25b93ba3a",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "svg"
+          ],
+          [
+            5
+          ],
+          [
+            "izquierda"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/elemento/tienda-izquierda-intermedio.svg",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      },
+      {
+        "archivo": "munequito-esperar-centro.json",
+        "id": "ab100ee9d3f5172450a047dc79d80cc49e6114d4ebf4594b41dd9f090f95a27f",
+        "registro": [
+          [
+            "munequito"
+          ],
+          [
+            1,
+            "lottie"
+          ],
+          [
+            "esperar"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "loop",
+            48
+          ],
+          [
+            1
+          ],
+          [
+            "arte/pruebas/03/ciudad/munequito/vendedor-esperar-intermedio.json",
+            "arte/pruebas/03 (LEEME.md): prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; licencia pendiente de decidir VG"
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "archivo": "ikisai.json",
+    "nombre": "ikisai",
+    "id": "80e9512d116de0185a27155c4e32e06826757f97367b48e9ce5f0a05c5c35882",
+    "registro": [
+      [
+        "ikisai",
+        "ilustrado",
+        "modelo de dominio de Ikisai (encargo 3c-2b): vacío salvo el nombre, para que se vea el encadenamiento (ikisai → animado-generico → sobrio)"
+      ]
+    ],
+    "piezas": []
+  },
+  {
+    "archivo": "sobrio.json",
+    "nombre": "sobrio",
+    "id": "66085c4ad5071b2a29d2cbd589afa9971db6ff93b2c32e5fb7962d355cb99436",
+    "registro": [
+      [
+        "sobrio",
+        "sello",
+        "modelo 0 (encargo 3c-2b, tras 3c-1): sin recursos, solo formas (texto, rectangulo, punto); completo por forma: el último respaldo de la cadena, siempre responde"
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a15760e5a5ca89a33de73b793d87d3ac6840341b0a1fabe3431d1c1ddc1a86e6"
+        },
+        {
+          "ref": "be1b186ac4a1a09c5005d05830e6f59b466a31220c8e8915242f26fb02a5f3e1"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ],
+      [
+        {
+          "ref": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517"
+        },
+        {
+          "ref": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9"
+        },
+        {
+          "ref": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6"
+        },
+        {
+          "ref": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae"
+        }
+      ]
+    ],
+    "piezas": [
+      {
+        "archivo": "elemento.json",
+        "id": "a4eede1dfa0e2d77103512e883b1f7b8573644a1b28cddb493dd5b36247ab517",
+        "registro": [
+          [
+            "elemento"
+          ],
+          [
+            1,
+            "rectangulo"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            "*"
+          ]
+        ]
+      },
+      {
+        "archivo": "fondo.json",
+        "id": "1c272eea5481f89be96b36945391b20ed6cb768caff18cc3d9f10e4772e2efc9",
+        "registro": [
+          [
+            "fondo"
+          ],
+          [
+            1,
+            "rectangulo"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            "*"
+          ]
+        ]
+      },
+      {
+        "archivo": "icono.json",
+        "id": "a15760e5a5ca89a33de73b793d87d3ac6840341b0a1fabe3431d1c1ddc1a86e6",
+        "registro": [
+          [
+            "icono"
+          ],
+          [
+            1,
+            "texto"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            5
+          ]
+        ]
+      },
+      {
+        "archivo": "marco.json",
+        "id": "be1b186ac4a1a09c5005d05830e6f59b466a31220c8e8915242f26fb02a5f3e1",
+        "registro": [
+          [
+            "marco"
+          ],
+          [
+            1,
+            "rectangulo"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            5
+          ]
+        ]
+      },
+      {
+        "archivo": "movimiento.json",
+        "id": "b6e754468f32bc34b257d898f8aefd0e16990c8fd3e32a5294bcbec3621de7a6",
+        "registro": [
+          [
+            "movimiento"
+          ],
+          [
+            1,
+            "punto"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            "*"
+          ]
+        ]
+      },
+      {
+        "archivo": "munequito.json",
+        "id": "e48f13a5ba315636330e8988cefa1a5561ad709b80b2f40164ecb89f4272aeae",
+        "registro": [
+          [
+            "munequito"
+          ],
+          [
+            1,
+            "punto"
+          ],
+          [
+            "*"
+          ],
+          [
+            "centro"
+          ],
+          [
+            "once",
+            1
+          ],
+          [
+            "*"
+          ]
+        ]
+      }
+    ]
+  }
+];

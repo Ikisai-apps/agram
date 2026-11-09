@@ -1,0 +1,12 @@
+{
+  "nombre": "prueba-03",
+  "nivel": "intermedio",
+  "nota": "prueba 03 de la IA de imagen de VG, nivel intermedio, guía de arte v3b; piezas de prueba del reproductor (pruebas/carta/), no arte definitivo",
+  "licencia": "pendiente de decidir VG",
+  "piezas": [
+    { "ruta": "ciudad/elemento/tienda-centro-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
+    { "ruta": "ciudad/elemento/tienda-izquierda-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
+    { "ruta": "ciudad/elemento/tienda-derecha-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
+    { "ruta": "ciudad/munequito/vendedor-esperar-intermedio.json", "mundo": "ciudad", "familia": "munequito", "nombre": "esperar", "bucle": true, "fotogramas": 48 }
+  ]
+}

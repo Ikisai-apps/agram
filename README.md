@@ -29,4 +29,4 @@ JavaScript puro, sin dependencias, ejecutable en Node y en el navegador. El fron
 
 Render animado (`mundos/`): la cruz entera sobre el mismo eje que el sobrio, con el 5 en el centro: hilos del 6 y 7, cielo del 8 (las bases como constelaciones) y camino del 9 (los pasos hacia la acción, con previsualizar sin escribir). Entran con Mapped (`mundos/hilos-ui.js` y `mundos/cruz-ui.js`): en animado, las celdas 8 y 9 dibujan el cielo y la senda, y «ver la cruz» la abre entera debajo de la matriz. Después, la X (`mundos/x.js` y `mundos/x-ui.js`): fábrica 4, ciudad 1, jardín 2, parque 3 y lente 0 en las celdas 1–4 y en el centro, y «ver la X». Ver `docs/MUNDOS.md`.
 
-Prueba del reproductor de piezas: [pruebas/carta/](pruebas/carta/)
+Prueba del reproductor de piezas: [pruebas/carta/](pruebas/carta/). Los modelos de visualización que la carta consulta son registros de la época (`datos/epocas/modelos/`, `docs/CONTRATO.md` §11); un paquete de arte se convierte en modelo con `node arte/importar.mjs <carpeta>` (`arte/MANIFIESTO.md`).

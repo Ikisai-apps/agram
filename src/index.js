@@ -25,4 +25,7 @@ export * as instante from './instante.js';
 export * as libro from './libro.js';
 export * as condiciones from './condiciones/index.js';
 export * as contrato from './contrato.js';
+export * as local from './local.js';
+export * as pasos from './pasos.js';
+export * as modelos from './modelos.js';
 export * from './lectura.js';

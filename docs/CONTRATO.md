@@ -1,6 +1,6 @@
 # El contrato entre el núcleo y la pantalla: la mitad de datos
 
-Encargo 3c-1 (VG, 9-11). Principio: la pantalla, **la carta**, pinta un registro X con un tamaño, en un punto de vista k, **sin lógica propia**. Todo lo que decide algo (qué se enseña, cómo se llama, en qué orden, qué nivel tiene, qué cabe) viene del núcleo como **posición**, **vista** o **regla**. Nada hardcodeado en la pantalla; nada de negocio en JavaScript que pueda ser una regla o un dato de la época. Este documento describe las **entradas de datos** del contrato, `src/contrato.js` (exportado desde `src/index.js` como el espacio de nombres `contrato`); las entradas de acción (las plantillas de transacción del aro, `transaccion()`, el camino, el libro local, los modelos de visualización) son del encargo 3c-2. Pruebas: `test/contrato.test.js`, con una carta de texto (`test/carta-texto.mjs`) que pinta cada ejemplo de `ejemplos/` en los tres tamaños importando solo el contrato, y sus salidas esperadas (`test/carta-esperada.json`). Lo que aquí decide Core y VG no ha visto va marcado **«Core, pendiente de revisar VG»**; lo que de verdad queda abierto, en «Para decidir VG».
+Encargo 3c-1 (VG, 9-11). Principio: la pantalla, **la carta**, pinta un registro X con un tamaño, en un punto de vista k, **sin lógica propia**. Todo lo que decide algo (qué se enseña, cómo se llama, en qué orden, qué nivel tiene, qué cabe) viene del núcleo como **posición**, **vista** o **regla**. Nada hardcodeado en la pantalla; nada de negocio en JavaScript que pueda ser una regla o un dato de la época. Este documento describe las **entradas de datos** del contrato, `src/contrato.js` (exportado desde `src/index.js` como el espacio de nombres `contrato`), y, del encargo 3c-2b (tras 3c-1), **el libro local** (`src/local.js`, §10), **los pasos** (`src/pasos.js`, §11.4) y **los modelos de visualización** (`src/modelos.js`, §11); las plantillas de transacción del aro, `transaccion()` y el camino son del encargo 3c-2a. Pruebas: `test/contrato.test.js`, `test/local.test.js`, `test/pasos.test.js`, `test/modelos.test.js`, con una carta de texto (`test/carta-texto.mjs`) que pinta cada ejemplo de `ejemplos/` en los tres tamaños importando solo el contrato, y sus salidas esperadas (`test/carta-esperada.json`). Lo que aquí decide Core y VG no ha visto va marcado **«Core, pendiente de revisar VG»**; lo que de verdad queda abierto, en «Para decidir VG».
 
 ```js
 import { contrato } from './src/index.js';
@@ -17,9 +17,12 @@ Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `
 | los órdenes de los ocupantes | `epoch.8.5` |
 | los modos y su máximo | `epoch.8.2` |
 | las plantillas de dominio | `epoch.9.2` (0 la cabecera, con el tipo genérico de cada dígito en 9.2.0.1; 9.2.1 «purchase», 9.2.2 «booking») |
-| la plantilla «preferences» | `epoch.9.3` |
+| la plantilla «preferences» | `epoch.9.3` (9.3.6 la preferencia `model`, encargo 3c-2b) |
 | los mensajes por idioma | `epoch.9.4` (0 la cabecera; 9.4.1 «es») |
 | las representaciones: formatos y tamaños | `epoch.9.5` |
+| los modelos de visualización (§11) | `epoch.9.7` (0 la cabecera; 1… las referencias a los modelos, `datos/epocas/modelos/`) |
+| la tabla de pasos (§11.4) | `epoch.9.8` |
+| la asignación diaria de T que gasta el libro local (§10) | `epoch.1.3.1` (la escala 0, el segundo) |
 
 ## 1. Plantillas: `plantilla(eje, X)` y lo que se lee de ellas
 
@@ -146,11 +149,11 @@ diario(eje, X, desde = 0, cuantos = paso())   // → { total, desde, entradas: [
 
 `yo` es mi alta y sus posiciones, las vistas del encargo 3a leídas con el BQL mínimo: `A.1` la cartera, `A.2` el criterio (2.1 el P posicionado, 2.3 los criterios que adopto), `A.3` los grupos de atención (nombre, zona, precio, quiénes), `A.7` el tiempo gastado hoy por escala (a la fecha `t`; por defecto el reloj del libro).
 
-La **configuración** vive como un registro anclado en **`yo.9`** (el 9 del alta, «cómo: su guía») escrito por mí, cuyo tipo es la plantilla **«preferences»** de la época (`epoch.9.3`): 1 `step` (cuántos por carga; 10), 2 `render` (`sober` o `animated`), 3 `language` (`en`), 4 `sizes` (los pasos de tamaño, 1 2 3), 5 `preferences`. Las etiquetas de la plantilla son las claves de lo que devuelve; sus defectos, las hojas del d.9 menos la ayuda. Sin registro, los defectos; con varios míos, el último; lo que otro ancle ahí no cuenta. Como el 5 exige el 0-4, un registro de preferencias dice todo (y `validar` lo valida con la plantilla).
+La **configuración** vive como un registro anclado en **`yo.9`** (el 9 del alta, «cómo: su guía») escrito por mí, cuyo tipo es la plantilla **«preferences»** de la época (`epoch.9.3`): 1 `step` (cuántos por carga; 10), 2 `render` (`sober` o `animated`), 3 `language` (`en`), 4 `sizes` (los pasos de tamaño, 1 2 3), 5 `preferences` (su tipo: B4, el 5 nombra la plantilla, y no es una preferencia: `configuracion` no lo lee) y, del encargo 3c-2b, 6 `model` (el modelo de visualización que la carta consulta primero, §11.2; por defecto `sobrio`). Las etiquetas de la plantilla son las claves de lo que devuelve; sus defectos, las hojas del d.9 menos la ayuda. Sin registro, los defectos; con varios míos, el último; lo que otro ancle ahí no cuenta. Como el 5 exige el 0-4, un registro de preferencias dice todo (y `validar` lo valida con la plantilla); el 6 es opcional.
 
 ```js
 yo(eje, identidad, { t })   // → { identidad, alta, cartera, criterio: { posicionado, adopta }, atencion, tiempo } o null
-configuracion(eje, yo)      // → { step, render, language, sizes, de }  (de: el id del registro, o null si son los defectos)
+configuracion(eje, yo)      // → { step, render, language, sizes, model, de }  (de: el id del registro, o null si son los defectos)
 ```
 
 ## 8. Mensajes y traducción: `mensaje(eje, regla, idioma, { ev })`
@@ -168,7 +171,98 @@ idiomas()                                    // → ['en', 'es']
 - `datos/epocas/epoca-0.btml.json`: 8.3, 8.4, 8.5, 9.2, 9.3, 9.4, 9.5 y una línea de procedencia en el 6; `datos/epocas/reglas/maturity.json`. Son 40 reglas: 30 condiciones, 3 que escriben, 7 lecturas.
 - `ejemplos/ikisai/compra-food.mjs` y `reserva-booking.mjs`: la compra y la reserva nombran su plantilla en su 5. Cambian los ids de los ejemplos (el génesis referencia la época) y las salidas de los documentos se regeneraron.
 
-## 10. Para decidir VG
+## 10. El libro local: `LibroLocal(eje, yo)`, `ver`, `tocar`, `recorrido`, `englobar`
+
+Encargo 3c-2b (tras 3c-1). Decisión de VG: cada interacción (ver, tocar) quema **un T de segundo** en un **libro local** de la persona, nunca en el eje compartido; al registrar, lo normal es **englobar** todas esas interacciones en **un minuto y un solo registro**, anclado a lo anterior, y al eje solo llega el minuto (o más). **Las escalas de T son niveles de agregación**: el segundo es una interacción; el minuto, un registro que engloba interacciones; la hora, el día, la semana, el ciclo y el año, registros que engloban registros (cada registro de una escala ancla en su 6 los de la escala inferior). `src/local.js` (espacio de nombres `local`) hace solo lo local, **segundos → minuto**; englobar hacia arriba sobre registros del eje (minutos en una hora, horas en un día…) es la plantilla de transacción «aggregate T» del encargo 3c-2a: esa es la frontera.
+
+El libro local es un `Libro` propio de la capa cero (`src/libro.js`: las mismas primitivas, la misma atomicidad) con la cartera de `T:segundo` de `yo`: **la asignación diaria de la época** (`epoch.1.3.1.0.1`: 86 400 por día civil, UTC), que se renueva a medianoche como en el eje y no se acumula. Cada interacción es una transacción del libro local con un solo paso: acuñar un segundo de la asignación del día (con tope, la acuñación programada: `clase: asignacion`, etiqueta = el día civil) y quemarlo, anclada sobre el registro X que se ve o se toca (`libro.sumas({ registro: X })` dice cuántos segundos lleva cada registro). Nada queda en la cartera. La escala de interacción y la del registro que engloba son la primera y la segunda de la época (`ESCALA_INTERACCION`, `ESCALA_REGISTRO`), no palabras del módulo.
+
+- `ver(X, { t })` y `tocar(X, accion, { t })` queman un segundo y anotan `{ t, X, accion }`; devuelven `{ ok: true, anotacion, queda }` o, **si no queda T de segundo del día, `{ ok: false, motivo }` sin lanzar**: el motivo es el mensaje de la regla de la época que cobra el T del día («writing burns today's T», `contrato.mensaje` con la interacción como candidata, en el idioma de la configuración de `yo`). X es el id de un registro del eje; `t` por defecto, ahora.
+- `recorrido(desde)` lista lo anotado y aún no englobado, por llegada (`desde`: cuántas se saltan, o un instante). `quedaHoy(t)`, `gastadoHoy(t)` y `tiempo(X)` leen el libro local.
+- `englobar(firmar, { nota, t })` construye **una** transacción para el eje: quema **1 T de minuto** de `yo` (la regla «writing burns today's T» la cobra como a cualquier registro: sale de su asignación del día en el eje) y escribe un registro de escala minuto **anclado a lo anterior** (el último minuto englobado o, la primera vez, el alta de `yo`): 0 la nota, 1 cuántas interacciones, 2 el hash del tramo local (SHA-256 del JSON canónico de las anotaciones: lo que lo acredita), 3 quién, 4 las acciones por llegada, 5 lo anterior (`{ ref }`), **6 el recorrido**: `[[los ids visitados, por llegada], [cuántas interacciones], [el primer t, el último t], [el hash]]`, **7 la escala** (`minuto`). Marca lo local como englobado (`anotacion.en` = el id del minuto) y devuelve el evento asentado; sin nada pendiente, `null`. `firmar` es la clave privada de `yo` (`eje.escribir` firma) o una función `async (evento) → evento firmado`; en un eje de demostración, nada. **Nada de los segundos se publica**: en el eje no entra ninguna serie `T:segundo` por aquí (lo comprueba `test/local.test.js`).
+- `serializar()` → `{ version, yo, anterior, anotaciones }` y `LibroLocal.restaurar(eje, datos)`: la carta guarda el libro local en el navegador como guarda el eje; restaurar vuelve a quemar cada segundo en un libro nuevo (como el eje revalida sus eventos) y conserva lo englobado y lo anterior.
+
+<!-- comprobar: fragmento -->
+```js
+import { local } from './src/index.js';
+const mio = new local.LibroLocal(eje, 'huesped');
+mio.ver(menu.id);                      // → { ok: true, anotacion: { t, X, accion: 'ver', en: null }, queda: 86399 }
+mio.tocar(compra.id, 'abrir');
+const minuto = await mio.englobar(privada, { nota: 'una tarde en el menú' });   // → el registro de escala minuto, asentado en el eje
+```
+
+**Core, pendiente de revisar VG**: el reparto del recorrido por la cruceta del registro (1 cuántas, 2 el hash, 4 las acciones, 5 lo anterior; el 6 lleva el recorrido entero como pidió VG, así que cuántas y el hash salen dos veces); que la primera vez se ancle al alta; que el `t` del minuto sea el de la última interacción; que el hash sea del JSON canónico de `{ t, X, accion }`.
+
+## 11. Modelos de visualización: `modelo(eje, yo)` y `pieza(modelos, tipo, pv, clave, variante, { tamano })`
+
+Encargo 3c-2b (tras 3c-1). Principio de VG: nada hardcodeado en la pantalla; **los modelos de visualización son registros**; **cualquier modelo puede estar incompleto y se rellena por partes**; los «estados» del motor ya no existen: lo que la animación necesita como estado son **pasos** (§11.4). `src/modelos.js` (espacio de nombres `modelos`) solo sabe dónde mira la época cada cosa: los nombres de los tipos, de las orientaciones, de los niveles, de las palabras de repetición y la cadena de respaldo son datos de la cabecera `epoch.9.7.0`. El manifiesto para quien hace arte: `arte/MANIFIESTO.md`; el importador, `arte/importar.mjs`.
+
+### 11.1 La forma: el modelo y la pieza
+
+Un **modelo** es una décupla registro: **0** su nombre, su nivel de detalle (`sello`, `intermedio`, `ilustrado`: `epoch.9.7.0.1`) y una nota; **1-4 y 6-9** las piezas del mundo de cada punto de vista (1 ciudad, 2 jardín, 3 parque, 4 fábrica, 6 pasado, 7 futuro, 8 cielo, 9 camino), como **lista de referencias `{ ref }` a registros de pieza** y, en un modelo del eje, también las piezas **ancladas** en esa posición; **5** los marcos y los iconos del aro. En la época, `epoch.9.7` es la cabecera (9.7.0) y las referencias a los modelos (9.7.1…), que viven en `datos/epocas/modelos/<nombre>.json` con sus piezas en `datos/epocas/modelos/<nombre>/*.json`; `npm run epocas` reescribe las posiciones de cada modelo desde sus piezas (según el 5 de cada pieza: en qué mundos sirve) y el 9.7 de la raíz, y el BQL mínimo los alcanza por su id como alcanza las reglas (`epoch.9.7.1.0` es el 0 del primer modelo; `epoch.9.7.3.1` las piezas de la ciudad del tercero). En un eje, un modelo es un registro anclado al dominio de un proyecto (su 0 con un nombre y un nivel de la cabecera), y sus piezas se anclan en la posición de su mundo: se rellena por partes. Un mundo sin piezas delante de otro con ellas lleva la hoja `sin piezas` (nunca se escribe `[]`).
+
+**Por qué las piezas son registros referenciados y no ocupantes inline** (Core, pendiente de revisar VG): una posición de una décupla no pasa de diez ocupantes, y una ciudad tiene más de diez piezas (diez pasos por tres orientaciones solo en los elementos); una lista de referencias no tiene tope (como el 2 de la época), una pieza anclada en el mundo de un modelo del eje es «rellenar por partes» tal cual, y anclar dentro de una subdécupla chocaría con los ceros finales de las direcciones.
+
+Una **pieza** es una décupla registro:
+
+| Posición | Qué | Valores |
+|---|---|---|
+| 0 qué es | el tipo | `elemento` (por paso de madurez 1-10), `munequito` (por acción), `movimiento` (por primitiva de la capa cero o por efecto `crear-pasado/futuro/abajo/arriba`), `fondo` (por paso), `marco` (por paso), `icono` (del aro, por mundo); `epoch.9.7.0.4` los lista con el nombre de su clave |
+| 1 cuánto | `[tamaño mínimo, formato]`; sin recurso, `[tamaño mínimo, forma]` | los tamaños de `epoch.9.5.2` (1 hueco, 2 tarjeta, 3 pantalla), como las representaciones del 0; los formatos de `epoch.9.5.1`; las formas sobrias `texto`, `rectangulo`, `punto` |
+| 2 con qué condición | la clave | el paso, la acción (`esperar`, `actuar`, `celebrar`), la primitiva (`mint transfer lock release burn`) o el efecto, o el mundo del que es icono; `*` sirve para cualquiera |
+| 3 con quién | la orientación | `centro`, `izquierda` (el lado del PV1), `derecha` (el del PV2): `epoch.9.7.0.3`, la primera es la de respaldo; son piezas distintas, nunca un espejo |
+| 4 qué hace | `[repetición, fotogramas]` | `loop` o `once` (`epoch.9.7.0.7`) y un entero; **obligatorio en lo animado** (`lottie`, `video`: `epoch.9.7.0.6`); los fotogramas de lo nuevo, múltiplos de diez (`epoch.9.7.0.8`) |
+| 5 dónde encaja | los mundos en que sirve | dígitos, o `*` = todos los mundos (1-4 y 6-9); marcos e iconos, el 5 |
+| 6 de dónde viene | el recurso y su procedencia | una ruta relativa del repositorio (`arte/...`) o una URL; detrás, el paquete, el nivel, la licencia |
+
+Leída (`leerPieza`, lo que devuelve `pieza`): `{ modelo, nivel, tipo, pv, clave, paso | accion | primitiva | mundo, variante, tamano, formato | forma, recurso, bucle, fotogramas, procedencia }`. Tres modelos en la época: **`sobrio`** (el modelo 0: sin recursos, solo formas, una pieza comodín por tipo que sirve en todos los mundos y en el 5: completo por forma, siempre responde), **`animado-generico`** (incompleto a propósito: solo la ciudad, con la tienda de la prueba 03 como elemento del paso 5 y, con el mismo recurso, del paso 1 como respaldo de 1-10, en las tres orientaciones, y el vendedor esperando como muñequito; sin iconos del aro) e **`ikisai`** (de dominio, vacío salvo el nombre: para que se vea el encadenamiento).
+
+### 11.2 El respaldo en cadena
+
+`modelo(eje, yo)` devuelve la lista de modelos a consultar, en orden: el que nombra la configuración de `yo` (la preferencia `model` de «preferences», `epoch.9.3.6`; la cabecera dice dónde está, `epoch.9.7.0.5`: un nombre de la época, o el id o el nombre de un registro del eje que sea un modelo), luego los de la cadena de la época (`epoch.9.7.0.2`: `animado-generico`, `sobrio`), sin repetir. Por defecto `model` es `sobrio` (coherente con `render: sober`), así que la cadena de quien no ha elegido es `sobrio` y detrás `animado-generico`; quien nombra `ikisai` tiene `ikisai → animado-generico → sobrio`. Un nombre que no existe no rompe la cadena.
+
+`pieza(modelos, tipo, pv, clave, variante, { tamano })` busca en orden y devuelve la primera pieza que exista: en cada modelo, la orientación pedida y, si no la hay, las de la cabecera (la primera es la de respaldo); con una clave numérica, la pieza del paso pedido o **la del paso inferior más cercano del mismo modelo antes de caer al siguiente modelo** (la comodín `*` es la más baja); con una palabra, la exacta o la comodín; entre varias, **la de mayor tamaño mínimo que quepa** en `tamano` (sin tamaño, todas caben). Nunca null mientras el sobrio esté en la cadena: lo comprueba `test/modelos.test.js` para todos los tipos, mundos, claves y orientaciones. `validarModelo(m)` → `{ motivos, avisos }`: lo animado sin su 4, una repetición que la cabecera no conoce, fotogramas que no son un entero positivo o un tamaño que la época no tiene son motivos; fotogramas que no son múltiplo de diez, un aviso (el arte de prueba 03 trae 48).
+
+<!-- comprobar: fragmento -->
+```js
+import { modelos } from './src/index.js';
+const cadena = modelos.modelo(eje, 'huesped');                                   // → [{ nombre, nivel, nota, donde, registro, piezas, cabecera }, …]
+modelos.pieza(cadena, 'elemento', 1, 7, 'derecha');                              // → la tienda del paso 5, derecha (el paso inferior más cercano)
+modelos.pieza(cadena, 'munequito', 1, 'esperar');                                // → el vendedor (lottie, loop, 48 fotogramas)
+modelos.pieza(cadena, 'icono', 5, 3, 'centro', { tamano: 1 });                   // → la del sobrio: { tipo: 'icono', forma: 'texto', … }
+```
+
+### 11.3 El manifiesto de arte y el importador
+
+`arte/MANIFIESTO.md` dice qué trae un paquete de arte para convertirse en modelo: los archivos (uno por orientación), un índice `indice.json` con una entrada por pieza (`ruta`, `mundo`/`pv`, `familia`, `nombre`, `paso`/`accion`/`primitiva`, `nivel`, `orientacion`, `bucle`, `fotogramas`; tolera campos que falten), fotogramas en múltiplos de diez, Lottie sin expresiones ni recursos externos, SVG sin scripts, y la licencia. `node arte/importar.mjs <carpeta>` lee el índice y genera el JSON del modelo (el registro y sus piezas, con las referencias por mundo) **sin copiar archivos**; lo que falta lo infiere de las carpetas de la ruta, de los segmentos del nombre del archivo, de la extensión y del propio Lottie, y lo dice en sus avisos; con `--escribir` lo deja en `datos/epocas/modelos/` para que `npm run epocas` lo referencie. `arte/pruebas/03/indice.json` es el índice de ejemplo.
+
+### 11.4 Los pasos: `pasos(eje, X)`
+
+Los pasos son lecturas que dan un **valor discreto** y la animación los usa como **índice de fotograma** (paso k → fotograma k; es lo que prueba `pruebas/carta/`: «el cambio de paso es un cambio de fotograma»). Qué pasos hay y de dónde sale cada uno es la tabla de **`epoch.9.8`**, una fila por punto de vista, `[[pv], [nombre], [k], [de], [nota]]`; `k` y `de` son fórmulas «=…» del BQL mínimo con `it` = el registro (su primer `where` da `it2`), un número, o la palabra de una lectura que el núcleo ya da (los mecanismos de `src/pasos.js`, como `epoch.8.5` nombra «llegada» o «encaje»: qué paso hay es un dato, cómo se lee es código). No se recalcula nada que el núcleo dé.
+
+| PV | Paso | k | de |
+|---|---|---|---|
+| 4 | `ciclo` | la etapa del ciclo: los movimientos anunciados (los registros que el dueño ancló en el 4.1 de X) que ya pasaron: fórmula, la misma condición que la plantilla de cerrado de `epoch.9.0.1` y «what is missing» de `epoch.9.0.3` | cuántos se anunciaron (fórmula); sin anuncios, 0 de 0 |
+| 8 | `cuota` | la caja (0-9) de la cuota de X frente a su padre, en la serie en que más pesa (`share box`: `mapped.cuota` y `bases.cajaDeCuota`); null en la raíz | 10 |
+| 7 | `escala` | la escala de T del registro: el dígito de la serie del primer T que quema, 0-9 como `epoch.1.3.1` (fórmula sobre `it.1`, D-SERIE); null si no quema T | 10 |
+| `*` | `madurez` | para todo elemento: su nivel (`maturity`: `contrato.madurez`, la lectura «maturity» en `X.8.1`, entre los niveles de su plantilla o los genéricos) | cuántos niveles |
+
+`pasos(eje, X)` → `{ ciclo: { pv, k, de }, cuota: { pv, k, de }, escala: { pv, k, de }, madurez: { pv, k, de } }`, con los nombres de la tabla como claves (cambiarla en una copia de la época cambia las claves, los puntos de vista, los `de` y las fórmulas: `test/pasos.test.js`); `k` es null donde la lectura no da valor. La compra del ejemplo: ciclo 0 de 0 (no anuncia nada), cuota 9 (es lo único que mueve algo bajo el menú), escala 2 (quema una hora), madurez 11 de 15; la reserva confirmada: ciclo 4 de 4 (tres noches y el pago), madurez 4 de 5 (los niveles de «booking»); recién escrita, ciclo 0 de 4. **No hizo falta ninguna lectura `read` nueva**: la escala y el ciclo son fórmulas sobre vistas que ya existen (los movimientos de `X.1` con D-SERIE; `down` y los anuncios del 4.1, como las plantillas del motor), y la madurez y la cuota las da el núcleo.
+
+```js
+import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
+import { pasos } from './src/index.js';
+const { eje, compra } = await ejemploCompra();
+console.log(JSON.stringify(pasos.pasos(eje, compra.id)));
+console.log(pasos.tabla().map((f) => f.pv + ' ' + f.nombre).join(' · '));
+```
+
+```text
+{"ciclo":{"pv":4,"k":0,"de":0},"cuota":{"pv":8,"k":9,"de":10},"escala":{"pv":7,"k":2,"de":10},"madurez":{"pv":"*","k":11,"de":15}}
+4 ciclo · 8 cuota · 7 escala · * madurez
+```
+
+## 12. Para decidir VG
 
 - **La forma de las plantillas**: la diagonal (0.0 nombre, 4.4 `template`, 8.8 niveles, 9.9 modelo de división) y que una plantilla solo describa la profundidad 0 (las subposiciones, como el 1.2 de la compra, llevan la regla corta de su profundidad). ¿Plantillas anidadas (el 1 de una compra con su propia plantilla «resource»)?
 - **El 5 como tipo**: la referencia a la plantilla por nombre o por `{ ref }`; en BQL mínimo `X.5` sigue siendo solo el id y las claves (B4), así que el tipo se lee del payload, no del contexto.
@@ -178,3 +272,6 @@ idiomas()                                    // → ['en', 'es']
 - **La madurez**: `X.8.1` para el nivel y `X.8.6` para la medida; la suma posiciones + profundidad + órdenes de la cantidad; los diez nombres de los niveles por posición; los cinco niveles de «booking» y el reparto proporcional de los niveles de un tipo sobre los genéricos.
 - **Las preferencias**: en el 9 del alta; sus cuatro campos y sus defectos (`sober`, 10, `en`, 1 2 3).
 - **Los mensajes**: una hoja «regla: texto» por regla en el registro del idioma; `en` como canónico.
+- **El libro local** (§10): el reparto del minuto por la cruceta (1 cuántas, 2 el hash, 4 las acciones, 5 lo anterior, 6 el recorrido entero, 7 la escala), la primera ancla en el alta, el `t` del minuto, y que las interacciones solo sean sobre registros que el eje tiene.
+- **Los modelos** (§11): las piezas como registros referenciados o anclados (no ocupantes inline, por el tope de diez); la forma de la pieza (0 tipo, 1 tamaño y formato o forma, 2 clave, 3 orientación, 4 repetición y fotogramas, 5 mundos, 6 recurso); la cabecera de `epoch.9.7.0` (niveles, cadena, orientaciones, tipos y sus claves, la preferencia, los formatos animados, loop/once, el múltiplo diez); que `model` valga `sobrio` por defecto y la cadena no repita; que la orientación de respaldo se busque en el mismo modelo antes que en el siguiente; que el 5 de «preferences» (el tipo) esté descrito en la plantilla para que exista el 6, y que `configuracion` no lo lea; el hueco `epoch.9.6` reservado al encargo 3c-2a.
+- **Los pasos** (§11.4): las cuatro filas de `epoch.9.8` y sus nombres en español; que la cuota del 8 sea la de la serie en que más pesa; que el ciclo cuente anuncios cumplidos sobre anunciados (y 0 de 0 sin anuncios); que el `de` de la cuota y de la escala sea el número 10 escrito en la tabla (una décupla cuenta como un ocupante en el BQL mínimo, así que no se pueden contar sus posiciones).

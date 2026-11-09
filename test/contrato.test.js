@@ -242,17 +242,17 @@ test('yo: mi alta y sus posiciones (cartera, criterio, atención, tiempo), leíd
 });
 
 test('configuracion: los defectos de la plantilla «preferences» si no hay registro, y el registro anclado en el 9 de mi alta si lo hay (validado por su plantilla)', async () => {
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'en', sizes: [1, 2, 3], de: null });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'en', sizes: [1, 2, 3], model: 'sobrio', de: null });
   assert.deepEqual(C.configuracion(eje, C.yo(eje, 'huesped')), C.configuracion(eje, 'huesped'));
   const T = '2026-11-07T18:00:00Z';
   const mias = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences'] });
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], de: mias.id });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], model: 'sobrio', de: mias.id }, 'el 5 (el tipo) no es una preferencia; «model» (encargo 3c-2b) tiene su defecto');
   assert.deepEqual(C.validar(eje, mias), []);
   // Un registro de preferencias anclado en otro sitio no es mi configuración; lo último mío en mi 9 manda.
   await eje.escribir({ autor: 'huesped', sobre: menu.id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 99, 'sober', 'en', [2], 'preferences'] });
   assert.equal(C.configuracion(eje, 'huesped').step, 20);
   const otras = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 5, 'sober', 'en', [2], 'preferences'] });
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 5, render: 'sober', language: 'en', sizes: 2, de: otras.id }, 'el último mío');
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 5, render: 'sober', language: 'en', sizes: 2, model: 'sobrio', de: otras.id }, 'el último mío');
   // Sin su 5 no es un registro de preferencias (y como el 5 exige el 0-4, un registro de preferencias siempre dice todo).
   await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 7, 'animated'] });
   assert.equal(C.configuracion(eje, 'huesped').de, otras.id);
