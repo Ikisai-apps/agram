@@ -22,7 +22,7 @@ import { evaluar, consultar } from './bql.js';
 import { evaluar as evaluarBqlm, leerRegla } from './bqlm.js';
 import { ocupantesElegibles } from './elegibles.js';
 import { escribirDesde } from './escritura.js';
-import { partirClave } from './tokens.js';
+import { partirClave, raizDeAmbito } from './tokens.js';
 import { ContextoEje } from './contexto-eje.js';
 import { EPOCA_0_BTML } from './epocas.js';
 
@@ -340,7 +340,7 @@ export function siguiente(eje, X, yo) {
       const mio = Object.entries(eje.libro.vista(yo))
         .filter(([k]) => k.startsWith('P:'))
         .map(([k, v]) => ({ ...partirClave(k), disponible: v.disponible }))
-        .filter((p) => p.disponible > 0 && enDominio(p.ambito) && cuenta(p.origen))
+        .filter((p) => p.disponible > 0 && enDominio(raizDeAmbito(p.ambito)) && cuenta(p.origen))
         .sort((a, b) => b.disponible - a.disponible)[0];
       if (mio) {
         faltaDeMi.push({ que, plantilla: 'commit P', transaccion: { autor: yo, sobre: id, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: yo, a: null }, { token: 'P', ambito: mio.ambito, ...(mio.origen === yo ? {} : { origen: mio.origen }), cantidad: mio.disponible, de: yo, a: yo, estado: 'bloqueo', salida: id }], payload: ['comprometo P con ' + id.slice(0, 8)] } });
@@ -409,9 +409,12 @@ export function recuento(eje, X) {
  * origen»): el P que obtuvo A sobre X entre el P que obtuvo A en el dominio de X, esté en la mano que esté, con la
  * lectura «share» de la época (A.2.6.8). 0 si A no obtuvo P sobre X. Delegar o pasar P a otra identidad no lo cambia.
  */
-export function peso(eje, A, X) {
+export function peso(eje, A, X, mirada) {
   const ctx = contexto(eje);
-  const r = evaluarBqlm('(("' + A.replace(/"/g, '\\"') + '").2.6 where it.0 = "' + X + '") each 8', ctx);
+  // P por mirada (VG, tras 3b-bis): sin mirada, todo el P que obtuvo A posicionado en X (el registro entero y cada una
+  // de sus miradas); con la mirada d, lo que pesa en una decisión sobre esa mirada: el de X entero y el de X.d.
+  const deMirada = mirada === undefined ? '' : ' and (count it.5 = 0 or first it.5 = ' + Number(mirada) + ')';
+  const r = evaluarBqlm('(("' + A.replace(/"/g, '\\"') + '").2.6 where it.0 = "' + X + '"' + deMirada + ') each 8', ctx);
   return r.estado === 'RESUELTO' && r.valor.length ? r.valor.reduce((s, x) => s + x, 0) : 0;
 }
 

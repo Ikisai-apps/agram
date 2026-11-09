@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validarMovimiento, claveToken, cantidadBase, partirClave, esIdRegistro, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS,
-  SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS,
+  SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS, ambitoDe, raizDeAmbito, miradaDeAmbito,
 } from '../src/tokens.js';
 
 test('T: un token por escala, sin conversión entre escalas', () => {
@@ -42,9 +42,14 @@ test('la constante: cada familia es una serie; E es del emisor como R', () => {
   assert.deepEqual(partirClave('E:casa/cama-2@2026-11-13'), { token: 'E', serie: 'casa/cama-2@2026-11-13', emisor: 'casa', denominacion: 'cama-2@2026-11-13' });
   assert.deepEqual(partirClave('E:casa/a/b:c'), { token: 'E', serie: 'casa/a/b:c', emisor: 'casa', denominacion: 'a/b:c' }); // la denominación puede llevar '/' y ':'
   assert.deepEqual(partirClave('T:hora'), { token: 'T', serie: 'hora', escala: 'hora' });
-  assert.deepEqual(partirClave('P:genesis/ana'), { token: 'P', serie: 'genesis/ana', ambito: 'genesis', origen: 'ana' });
+  assert.deepEqual(partirClave('P:genesis/ana'), { token: 'P', serie: 'genesis/ana', ambito: 'genesis', origen: 'ana', raiz: 'genesis' });
   // Una clave de P sin origen (de antes del encargo 3b-bis) se parte igual, sin él.
-  assert.deepEqual(partirClave('P:genesis'), { token: 'P', serie: 'genesis', ambito: 'genesis' });
+  assert.deepEqual(partirClave('P:genesis'), { token: 'P', serie: 'genesis', ambito: 'genesis', raiz: 'genesis' });
+  // P por mirada (VG, tras 3b-bis): el ámbito «r.d» es la mirada d del registro r; `raiz` es r y `mirada`, d.
+  const r = 'a'.repeat(64);
+  assert.deepEqual(partirClave('P:' + r + '.1/ana'), { token: 'P', serie: r + '.1/ana', ambito: r + '.1', origen: 'ana', raiz: r, mirada: 1 });
+  assert.equal(claveToken({ token: 'P', ambito: ambitoDe(r, 3), de: 'ana', a: 'bea' }), 'P:' + r + '.3/ana');
+  assert.deepEqual([raizDeAmbito(r + '.3'), miradaDeAmbito(r + '.3'), raizDeAmbito(r), miradaDeAmbito(r), ambitoDe(r)], [r, 3, r, undefined, r]);
   assert.deepEqual(partirClave('R:casa'), { token: 'R', serie: 'casa', emisor: 'casa' });
 });
 

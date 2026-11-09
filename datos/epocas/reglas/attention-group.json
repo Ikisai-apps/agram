@@ -1,0 +1,16 @@
+[
+  ["attention group"],
+  ["A.3", "A.6", "epoch.9.0.2.1"],
+  ["=sum ((last ((first (first it.6.5).3).3 where first it.3 in it2.3)) each 1) + count (epoch where count ((first (first it.6.5).3).3 where first it.3 in it3.3) = 0 and count (first it.3).6 > 0 and count up first (first it.3).6 > 0 and first (first up first (first it.3).6).3 = first (first it.6.5).3 and \"invitation\" in (first up first (first it.3).6).0) * sum (last (first up first (first it.3).6).8) + count (epoch where count ((first (first it.6.5).3).3 where first it.3 in it3.3) = 0 and not (count (first it.3).6 > 0 and count up first (first it.3).6 > 0 and first (first up first (first it.3).6).3 = first (first it.6.5).3 and \"invitation\" in (first up first (first it.3).6).0)) * first epoch.9.0.2.1"],
+  ["X.6.3"],
+  ["read"],
+  ["*"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a): los seis grupos de R son seis precios y la regla de atención los lee de los datos (epoch.1.2.1 y lo que cada identidad ancla en el 3.k.2 de su alta), no los lleva escritos",
+    "La zona en que el dueño del registro sobre el que se escribe X (su alta, cuando la regla de atención rige) pone a quien escribe X: el último de sus grupos (A.3) que lo nombra en su 3; si ninguno, el grupo que le asignó la invitación que aceptó (su 8); si no, la zona de quien no está en ningún grupo (epoch.9.0.2.1: desconocidos)",
+    "Se materializa en X.6.3: de dónde viene, con quién (el grupo que decide el precio); la regla «attention has a price» y la lectura «attention price» la leen ahí"
+  ],
+  ["epoch 0"],
+  ["after maturity"],
+  ["attention group: the zone in which the owner of the alta written on puts the writer: the last of its groups naming it, the one its accepted invitation assigned, or strangers"]
+]

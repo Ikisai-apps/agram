@@ -109,13 +109,13 @@ test('(f) varias colocaciones de la misma regla para el mismo titular y registro
   const ev = await crearEvento({ autor: 'g', sobre: g, t: T0, payload: 'dos de una', movimientos: [minuto('g'), vale(1, 'g', 'ana'), vale(1, 'g', 'ana')] });
   // La regla coloca una vez por movimiento, y cada vez el mismo nivel (lo que llega en toda la transacción: dos).
   const w = evaluarEscritura(regla(E_REGLA), new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML }));
-  assert.deepEqual(w.escrituras.map(({ desde, ...x }) => x), [{ sujeto: 'ana', camino: [2, 1], clave: g, valor: 20 }, { sujeto: 'ana', camino: [2, 1], clave: g, valor: 20 }]);
+  assert.deepEqual(w.escrituras.map(({ desde, ...x }) => x), [{ sujeto: 'ana', camino: [2, 1], clave: g, valor: 20, posicion: [1] }, { sujeto: 'ana', camino: [2, 1], clave: g, valor: 20, posicion: [1] }]);
   // Cada colocación dice desde qué movimiento se hizo (la serie de la que viene: el tope por serie).
   assert.deepEqual(w.escrituras.map((x) => [x.desde.k, x.desde.i, x.desde.m.denominacion]), [['mov', 1, 'vale'], ['mov', 2, 'vale']]);
   // El eje las funde en un solo paso: acuñar el nivel con tope (no cuarenta).
   const pasos = eje.transaccion(ev).movimientos.slice(ev.movimientos.length).flat();
   const deAna = pasos.filter((p) => p.a === 'ana');
-  assert.deepEqual(deAna.map((p) => [p.serie, p.cantidad, p.tope, p.clase, p.etiqueta]), [['P:' + g + '/ana', 20, 20, 'obtencion', E_REGLA]]);
+  assert.deepEqual(deAna.map((p) => [p.serie, p.cantidad, p.tope, p.clase, p.etiqueta]), [['P:' + g + '.1/ana', 20, 20, 'obtencion', E_REGLA]]);
   const hecho = await eje.anadir(ev);
   assert.equal(obtenido(eje, hecho, 'ana', E_REGLA), 20);
   // Un nivel ya alcanzado no deja paso (ni vacío): ana devuelve un vale y lo recibe otra vez junto a uno para bea; la

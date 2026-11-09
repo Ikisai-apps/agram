@@ -281,9 +281,9 @@ class Modelo {
           const [id, k] = llave.split('\u0000');
           if (id === m.a && k.slice(0, 2) === 'E:' && this.alta.get(k.slice(2).split('/')[0]) === reg) unidades += v;
         }
-        nivel(OBTENCIONES[1], m.a, reg, 10 * unidades, this.clave(m));
+        nivel(OBTENCIONES[1], m.a, reg + '.1', 10 * unidades, this.clave(m)); // P por mirada: sobre la mirada 1 del registro
       }
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) nivel(OBTENCIONES[2], m.a, this.alta.get(m.emisor), 10 * (neto.get(m.a + '\u0000R:' + m.emisor) ?? 0), 'R:' + m.emisor);
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) nivel(OBTENCIONES[2], m.a, this.alta.get(m.emisor) + '.3', 10 * (neto.get(m.a + '\u0000R:' + m.emisor) ?? 0), 'R:' + m.emisor);
     }
     // El tope por serie: lo que falta para el nivel se cubre, en el orden de sus series, con el cupo de cada una (diez
     // por unidad acuñada, con lo que acuña la transacción, menos lo que la regla ya acuñó por ella, de todos los orígenes).

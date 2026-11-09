@@ -24,7 +24,7 @@
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
 import { esLectura, esEscritura } from './bqlm.js';
-import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -257,7 +257,7 @@ const textoNoVacio = (x) => typeof x === 'string' && x.length > 0;
  * referencia del 2). Las reglas largas por ruta de cargarEpoca no existen
  * aquí: las del 2 son condiciones, no nombres de rutas.
  */
-export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id = null } = {}) {
+export function cargarEpocaBtml(payload, { registros = [], plantillas = [], correcciones = [], id = null } = {}) {
   const v = validarPayload(payload);
   if (!v.ok) throw new TypeError('época BTML: ' + v.errores.join('; '));
   if (!Array.isArray(payload) || payload.length !== ARIDAD) throw new TypeError('época BTML: la raíz lleva las diez posiciones llenas');
@@ -325,6 +325,33 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id
   const registrosDeEpoca = new Map([...porId].map(([id, r]) => [id, congelarCopia(r)]));
   for (const x of reglasDel2) registrosDeEpoca.set(x.id, x.regla);
 
+  // 9.6: las plantillas de transacción (encargo 3c-2a, las acciones del aro): la lista de referencias a sus registros,
+  // uno por acción (`plantillas`, [{ id, registro }]: hoy, los de datos/epocas/plantillas/), en el orden de su 8
+  // ([punto de vista, orden]). Son registros de la época como las reglas: una referencia del 9.6 leída con el BQL
+  // mínimo alcanza su registro. Sin 9.6 (una época sin acciones) o sin `plantillas` (quien carga la época sin ellas),
+  // ninguna: las referencias del 9.6 quedan sin resolver.
+  const porIdPlantilla = new Map();
+  for (const p of plantillas) {
+    if (!p || typeof p.id !== 'string' || !Array.isArray(p.registro)) throw new TypeError(nombre + ': una plantilla de transacción de la época es { id, registro }');
+    porIdPlantilla.set(p.id, p.registro);
+  }
+  // 9.6.0 es la cabecera; 9.6.1 la lista de referencias (una posición con una décupla dentro no pasa de diez ocupantes).
+  const entradas96 = plantillas.length && Array.isArray(registro[9]) && Array.isArray(registro[9][6]) && Array.isArray(registro[9][6][1]) ? registro[9][6][1] : [];
+  if (entradas96.length && (!esLista(entradas96) || !entradas96.every((x) => esReferencia(x) && x.dir === undefined))) {
+    throw new TypeError(nombre + ': el 9.6.1 es la lista de referencias { ref } a los registros de sus plantillas de transacción');
+  }
+  const transacciones = Object.freeze(entradas96.map(({ ref }, k) => {
+    const donde = 'la plantilla ' + (k + 1) + ' del 9.6 (' + ref.slice(0, 8) + ')';
+    if (!porIdPlantilla.has(ref)) throw new TypeError(nombre + ': ' + donde + ' no está entre las plantillas de la época');
+    const p = porIdPlantilla.get(ref);
+    if (p.length !== ARIDAD || !p.every((x) => Array.isArray(x) && x.length > 0)) throw new TypeError(nombre + ': ' + donde + ' lleva las diez posiciones llenas');
+    const c = p[2][p[2].length - 1];
+    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': ' + donde + ' lleva en su 2 cuándo se ofrece, una fórmula «=…»');
+    const r = congelarCopia(p);
+    registrosDeEpoca.set(ref, r);
+    return Object.freeze({ id: ref, plantilla: r });
+  }));
+
   // 8.0: los cortes de las diez cajas del 8.
   const cortesDatos = Array.isArray(registro[8]) ? registro[8][0] : undefined;
   const escala = escalaDeCortes(Array.isArray(cortesDatos) ? [...cortesDatos] : undefined, nombre);
@@ -348,6 +375,8 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id
     lecturas,
     escrituras,
     reglasConId: Object.freeze(reglasDel2),
+    // Las plantillas de transacción (encargo 3c-2a): [{ id, plantilla }], en el orden del 9.6.
+    transacciones,
     registros: registrosDeEpoca,
     largas: Object.freeze([]),
     regla,
@@ -374,7 +403,7 @@ export const REGISTROS_DE_MODELOS = Object.freeze(MODELOS_DE_EPOCA_DATOS.flatMap
  * (datos/epocas/modelos/): las mismas cien reglas cortas que EPOCA_0. No
  * está en EPOCAS: es la misma época en otro formato.
  */
-export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS], correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS], plantillas: PLANTILLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
 
 /** El id de la época 0: el registro con id conocido que el génesis lleva en su contexto (contexto.epoca) y que una invitación referencia en su 2. */
 export { EPOCA_0_BTML_ID };

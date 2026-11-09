@@ -51,8 +51,12 @@ export const PRIMITIVAS = Object.freeze(['mint', 'transfer', 'lock', 'release', 
 /** Las cuatro familias de tokens, como símbolos. */
 export const SIMBOLOS_FAMILIA = Object.freeze(['E', 'P', 'R', 'T']);
 
-/** Los nombres fijos que el contexto resuelve. */
-export const NOMBRES = Object.freeze(['ev', 'epoch', 'before']);
+/**
+ * Los nombres fijos que el contexto resuelve: la transacción candidata, el registro de la época, el libro de antes y,
+ * desde el encargo 3c-2a (las acciones del aro), `me`: la identidad que mira (sus vistas: me.1 la cartera, me.2 el
+ * criterio, me.3 los grupos de atención…), lo que una plantilla de transacción lee en su 2 para decidir si se ofrece.
+ */
+export const NOMBRES = Object.freeze(['ev', 'epoch', 'before', 'me']);
 
 /**
  * Las palabras del léxico (sin los nombres, los símbolos ni it, it2…). `put v at X.d.(k)` es colocar (mapa §16 [D]:
@@ -290,8 +294,11 @@ export function analizar(src, { sujeto = false } = {}) {
       i++;
       const t = posfija();
       salir();
-      if (t.n !== 'clave' || t.base?.n !== 'paso' || t.base.each) throw fallo('sintaxis: put coloca en una posición con su índice por valor: put v at X.d.(k)');
-      return { n: 'put', v, t };
+      // Tras el índice por valor puede seguir un camino de dígitos (encargo 3c-2a, P por mirada): put v at X.d.(k).e
+      // coloca en la posición e de la entrada k (el P sobre la mirada e del registro k).
+      const clave = t.n === 'paso' && !t.each && t.base?.n === 'clave' ? t.base : t;
+      if (clave.n !== 'clave' || clave.base?.n !== 'paso' || clave.base.each) throw fallo('sintaxis: put coloca en una posición con su índice por valor: put v at X.d.(k) o put v at X.d.(k).e');
+      return { n: 'put', v, t: clave, ...(clave !== t ? { sub: t.digitos } : {}) };
     }
     return posfija();
   }
@@ -544,7 +551,7 @@ function calcular(nodo, st) {
       for (const s of sujetos) {
         const sujeto = valorDe(s, ctx);
         if (sujeto === undefined || esSimbolo(sujeto)) continue; // nadie no recibe
-        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor, ...(desde !== undefined ? { desde } : {}) });
+        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor, ...(nodo.sub ? { posicion: [...nodo.sub] } : {}), ...(desde !== undefined ? { desde } : {}) });
       }
       return [true];
     }

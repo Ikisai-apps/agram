@@ -1593,7 +1593,7 @@ test('TOK-32 P es poder con ámbito: no existe un P total', async () => {
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 2, ambito: sub.id, de: 'raiz', a: 'ana' }], payload: 'delegación' });
   assert.equal(eje.poderSobre('ana', sub.id), 2);
   assert.equal(eje.poderSobre('ana', g), enG); // P sobre un subárbol no es P sobre el todo
-  assert.ok(eje.poderes('ana').every((p) => Boolean(eje.obtener(p.ambito)))); // cada P, con su registro de ámbito
+  assert.ok(eje.poderes('ana').every((p) => Boolean(eje.obtener(tokens.raizDeAmbito(p.ambito))))); // cada P, con su registro de ámbito (o una mirada suya)
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }], payload: 'x' }), /P moves within a known scope/);
 });
 

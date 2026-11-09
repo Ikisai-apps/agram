@@ -1,0 +1,17 @@
+[
+  ["stage"],
+  ["X.4.1", "epoch.4.2", "before.4"],
+  ["=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"],
+  ["X.4.8"],
+  ["read"],
+  ["*"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token: E pagar, P decidir, R atender, T trabajar (las estaciones de la fábrica, epoch.4.2); es la base de las estaciones y del PV4 del aro, y no cambia el motor",
+    "Lo que el dueño de X anunció en su 4.1 (un registro por movimiento: [[serie], [cuánto], [qué], [[de], [a]]]) y aún no ha pasado: la misma lectura que la plantilla de cerrado «all announced movements happened» (epoch.9.0.1) y que «what is missing» (epoch.9.0.3), como lectura de la época. Lo hecho es lo anunciado (X.4.1) que no está aquí",
+    "La familia de un anuncio se lee buscando su serie por su valor en las series del libro, before.4.(first it.0): un texto no fabrica una serie (SEG-09); así X.4.8 where E in (before.4.(first it.0)).0.0 es la estación de pagar",
+    "Se materializa en X.4.8: fábrica, frente a otros: lo ocurrido frente a lo previsto (la regla corta del 8 en la profundidad 1), que es exactamente la estación de un proceso"
+  ],
+  ["epoch 0"],
+  ["after attention price"],
+  ["stage: what the record announced in its 4.1 and has not happened yet, by station: E to pay, P to decide, R to attend, T to work"]
+]

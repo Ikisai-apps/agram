@@ -1,7 +1,7 @@
 [
   ["getting E gives ten P on its record"],
   ["epoch.1.1.4.1", "A.8.6"],
-  ["=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 * (sum (((first it.3.1).8.6 where E in it2.0.0.0 and it2.0.5 = it.5) each 1) + sum ((ev.1 where E in it2.0.0.0 and transfer in it2.4 and it2.3.0 = it2.0.0.1 and it2.3.1 = it.3.1 and it2.5 = it.5) each 1)) at (first it.3.1).2.1.(first it.5)) >= 0"],
+  ["=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 * (sum (((first it.3.1).8.6 where E in it2.0.0.0 and it2.0.5 = it.5) each 1) + sum ((ev.1 where E in it2.0.0.0 and transfer in it2.4 and it2.3.0 = it2.0.0.1 and it2.3.1 = it.3.1 and it2.5 = it.5) each 1)) at (first it.3.1).2.1.(first it.5).1) >= 0"],
   ["ev.1 each 3.1"],
   ["put", "mint"],
   ["*"],
@@ -14,9 +14,10 @@
     "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
     "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «venga de quien venga». Ni a uno mismo ni a quien aún no tiene alta",
     "VG, tras 3b-bis: tope acumulado en vez de una sola obtención; una emisión de polvo solo da el P del polvo. Lo que coloca es un NIVEL: el P obtenido por A sobre r por esta regla llega a diez por unidad neta de E atada a r que A ha recibido directamente de su emisor (lo recibido antes, A.8.6, menos lo devuelto al emisor, más lo que llega en esta transacción); el libro acuña solo la diferencia y nunca quema por bajar el nivel. Dos plazas en dos transacciones dan lo mismo que en una",
-    "Revisión de la PR del tope acumulado: tope por serie. Lo que esta regla acuña por lo que llega de una serie de E, de todos los orígenes, no pasa de diez por unidad acuñada de esa serie (la colocación lleva en «desde» el movimiento en que se hizo; src/eje.js): la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez"
+    "Revisión de la PR del tope acumulado: tope por serie. Lo que esta regla acuña por lo que llega de una serie de E, de todos los orígenes, no pasa de diez por unidad acuñada de esa serie (la colocación lleva en «desde» el movimiento en que se hizo; src/eje.js): la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez",
+    "VG, tras 3b-bis (encargo 3c-2a): P por mirada. Conseguir E coloca el P sobre la mirada 1 del registro de la serie (r.1: su E), no sobre r entero: put … at A.2.1.(r).1"
   ],
   ["epoch 0"],
   ["after writing a record gives ten P on it"],
-  ["getting E gives ten P on its record: who receives E from its issuer holds {first epoch.1.1.4.1} P per net unit received on the record of its series"]
+  ["getting E gives ten P on its record: who receives E from its issuer holds {first epoch.1.1.4.1} P per net unit received on the 1 of the record of its series"]
 ]

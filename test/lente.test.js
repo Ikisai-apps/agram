@@ -61,7 +61,7 @@ test('lente: los grupos de atención del lector que cobran con la R de quien esc
   assert.equal(PRECIO_LENTE, 'their R');
   // Con alta y sin nadie en sus grupos que cobran con R, la lente está vacía: nadie pesa.
   assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
-  assert.deepEqual(lenteDe(eje, 'casa').grupos, [3, 4]); // cercanos y equipo cobran con «their R» por defecto (epoch.1.2.1)
+  assert.deepEqual(lenteDe(eje, 'casa').grupos, [3]); // solo cercanos cobra con «their R» por defecto (epoch.1.2.1; el equipo, desde el 3c-2a, con «open record»)
   assert.equal(peso(eje, 'casa', 'norte'), 0);
   assert.equal(lenteDe(eje, 'nadie'), null); // sin alta no hay lente
   assert.equal(peso(eje, 'nadie', 'norte'), null);

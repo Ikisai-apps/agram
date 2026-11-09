@@ -8,7 +8,7 @@ import { readFileSync } from 'node:fs';
 import * as C from '../src/contrato.js';
 import { pintar } from './carta-texto.mjs';
 import { EPOCA_0_BTML, cargarEpocaBtml } from '../src/epocas.js';
-import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { crearEvento } from '../src/evento.js';
@@ -26,7 +26,7 @@ const corto = (x) => JSON.stringify(x).replace(/[0-9a-f]{64}/g, (m) => m.slice(0
 function epocaCon(cambiar) {
   const e = JSON.parse(JSON.stringify(EPOCA_0_BTML_DATOS));
   cambiar(e);
-  return cargarEpocaBtml(e, { registros: REGLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML.id });
+  return cargarEpocaBtml(e, { registros: REGLAS_DE_EPOCA_DATOS, plantillas: PLANTILLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML.id });
 }
 
 const { eje, menu, compra, alta } = await ejemploCompra();
@@ -234,7 +234,7 @@ test('yo: mi alta y sus posiciones (cartera, criterio, atención, tiempo), leíd
   assert.ok(y.cartera.some((x) => x.serie === 'R:casa' && x.disponible === 1), 'la R de la invitación');
   assert.ok(y.criterio.posicionado.some((p) => p.registro === compra.id && p.cuanto === 10 && p.origenes.includes('huesped')), 'diez P sobre la compra');
   assert.deepEqual(y.criterio.adopta, []);
-  assert.deepEqual(y.atencion.map((g) => [g.nombre, g.zona, g.precio.enQue, g.precio.cuanto]), [['desconocidos', 0, 'my R', 1], ['comercial', 1, 'E', 1], ['expertos', 2, 'P', 1], ['cercanos', 3, 'their R', 1], ['equipo', 4, 'their R', 1], ['vetados', 5, 'nothing', 0]]);
+  assert.deepEqual(y.atencion.map((g) => [g.nombre, g.zona, g.precio.enQue, g.precio.cuanto]), [['desconocidos', 0, 'my R', 1], ['comercial', 1, 'E', 1], ['expertos', 2, 'P', 1], ['cercanos', 3, 'their R', 1], ['equipo', 4, 'open record', 0], ['vetados', 5, 'nothing', 0]]);
   assert.deepEqual(Object.keys(y.tiempo), ['segundo', 'minuto', 'hora', 'día', 'semana', 'ciclo', 'año'], 'las escalas reales, por su nombre en la época');
   assert.equal(y.tiempo.hora, 1, 'la hora de la compra, gastada el día del reloj del libro');
   assert.ok(y.tiempo.minuto >= 1 && y.tiempo.segundo === 0);

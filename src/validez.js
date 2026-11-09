@@ -27,7 +27,7 @@
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId, esPresente } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
-import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS } from './tokens.js';
+import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS, raizDeAmbito } from './tokens.js';
 import { EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE, SIN_TIPO } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
 import { EPOCA_0, EPOCA_0_BTML, leerDireccion } from './epocas.js';
@@ -467,7 +467,7 @@ function capaAcreditacion(eje, ev, libro) {
       }
     } else if (m.token === 'P') {
       // P posicionado (mapa §15): lo respalda el P de quien lo mueve en ese mismo registro.
-      if (!enLibro(libro, m.ambito)) return mal('falla', 'P sobre un registro que no existe: ' + corto(m.ambito));
+      if (!enLibro(libro, raizDeAmbito(m.ambito))) return mal('falla', 'P sobre un registro que no existe: ' + corto(m.ambito));
       const plan = planP(eje, ver, m.de, m);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + corto(m.ambito) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);

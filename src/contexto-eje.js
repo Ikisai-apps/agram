@@ -94,9 +94,10 @@ export function desplegarSerie(s, registroDe = () => null, { delLibro = false } 
     return k < 0 ? null : { 0: [fam('T')], 1: [k] };
   }
   if (familia === 'P') {
-    // El P guarda su origen (encargo 3b-bis): 1 el registro donde está, 2 quien lo obtuvo.
+    // El P guarda su origen (encargo 3b-bis): 1 el registro donde está, 2 quien lo obtuvo; y su mirada (VG, tras
+    // 3b-bis: P por mirada, «P:<r>.<d>/<origen>»): 5, dónde encaja en el registro, el dígito d; sin él, el registro entero.
     const p = partirClave(s);
-    return { 0: [fam('P')], 1: [p.ambito], ...(p.origen ? { 2: [p.origen] } : {}) };
+    return { 0: [fam('P')], 1: [p.raiz], ...(p.origen ? { 2: [p.origen] } : {}), ...(p.mirada === undefined ? {} : { 5: [p.mirada] }) };
   }
   if (familia === 'R') return { 0: [fam('R')], 1: [m[2]] };
   if (!m[2].includes('/')) return null;
@@ -134,6 +135,7 @@ export class ContextoEje {
   #eje;
   #ev;
   #epoch;
+  #me = null; // la identidad que mira (encargo 3c-2a: el nombre `me` de las plantillas de transacción)
   #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
   #idEpoca = null; // el id de la raíz de la época (encargo 3b): lo que referencia una invitación
@@ -141,9 +143,10 @@ export class ContextoEje {
   #lecturas = new Map(); // «X.6.1» → las lecturas de la época (B5) que se materializan ahí
   #leyendo = new Set(); // las lecturas en curso (regla y sujeto): una que vuelve sobre sí misma es PENDIENTE
 
-  constructor(eje = null, { ev, epoch } = {}) {
+  constructor(eje = null, { ev, epoch, me } = {}) {
     this.#eje = eje ?? null;
     this.#ev = ev ?? null;
+    this.#me = typeof me === 'string' && me ? me : null;
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
     this.#registrosDeEpoca = epoch?.registros instanceof Map ? epoch.registros : new Map();
     this.#idEpoca = typeof epoch?.id === 'string' ? epoch.id : null;
@@ -165,7 +168,7 @@ export class ContextoEje {
   #llaveDeSujeto(sujeto) {
     if (typeof sujeto === 'string') return sujeto;
     if (sujeto.k === 'ev') return 'ev';
-    return [sujeto.k, sujeto.id ?? '', sujeto.titular ?? sujeto.origen ?? '', sujeto.registro ?? sujeto.serie ?? '', sujeto.decision ?? ''].join('|');
+    return [sujeto.k, sujeto.id ?? '', sujeto.titular ?? sujeto.origen ?? '', sujeto.ambito ?? sujeto.registro ?? sujeto.serie ?? '', sujeto.decision ?? ''].join('|');
   }
 
   /**
@@ -225,6 +228,8 @@ export class ContextoEje {
     if (n === 'ev') return this.#ev ? CANDIDATA : undefined;
     if (n === 'epoch') return this.#epoch ? EPOCA : undefined;
     if (n === 'before') return this.#eje ? ANTES : undefined;
+    // Encargo 3c-2a: `me` es la identidad que mira, un texto que se despliega como toda identidad con alta (sus vistas).
+    if (n === 'me') return this.#me ?? undefined;
     return undefined;
   }
 
@@ -275,7 +280,11 @@ export class ContextoEje {
         // El 1 de una serie: 0 lo emitido y 1 lo consumido, hasta antes de ev.
         return d === 0 ? [nodo.emitido] : d === 1 ? [nodo.consumido] : [];
       case 'contrato':
-        // El 2 de una serie de E: 0 «divisible» si lo es, 7 su caducidad si la tiene.
+        // El 2 de una serie de E: 0 «divisible» si lo es, 7 su caducidad si la tiene; 2, con qué condición se consigue
+        // una unidad: sus precios (VG, tras 3b-bis: la orientación de una E es el token que la paga), cada uno
+        // [[serie o familia con que se paga], [cuánto por unidad]], el principal primero; sin declarar, el de la época
+        // (epoch.1.0.1.0.2: la orientación financiera, una unidad de E).
+        if (d === 2) return this.#precios(nodo);
         return d === 0 && nodo.divisible ? ['divisible'] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
       case 'fechas':
         // El 7 de un movimiento: 0 la caducidad (de una emisión de E), 1 la fecha a la que se refiere (T informativo).
@@ -365,9 +374,10 @@ export class ContextoEje {
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
-      case 'posicionado': return 'P de ' + nodo.titular + ' en ' + String(nodo.registro).slice(0, 8);
+      case 'posicionado': return 'P de ' + nodo.titular + ' en ' + String(nodo.registro).slice(0, 8) + (nodo.mirada === undefined ? '' : '.' + nodo.mirada);
       case 'origenP': return nodo.origen;
-      case 'obtenido': return 'P de origen ' + nodo.origen + ' en ' + String(nodo.registro).slice(0, 8);
+      case 'obtenido': return 'P de origen ' + nodo.origen + ' en ' + String(nodo.registro).slice(0, 8) + (nodo.mirada === undefined ? '' : '.' + nodo.mirada);
+      case 'contrato': return 'contrato de ' + nodo.clave;
       case 'frente': return nodo.id + ' frente a otros';
       case 'recibido': return nodo.neto + ' ' + nodo.clave + ' de ' + nodo.emisor;
       case 'grupo': return 'grupo ' + nodo.zona + ' de ' + nodo.titular;
@@ -583,8 +593,10 @@ export class ContextoEje {
     }
     if (familia !== 'E') return [];
     if (d === 2) {
-      const contrato = libro ? { divisible: libro.divisible === true, caduca: libro.caduca ?? null } : m ? { divisible: m.divisible === true, caduca: m.caduca ?? null } : null;
-      return contrato && (contrato.divisible || contrato.caduca) ? [{ k: 'contrato', ...contrato }] : [];
+      const contrato = libro ? { divisible: libro.divisible === true, caduca: libro.caduca ?? null, precio: libro.precio ?? null, precios: libro.precios ?? null }
+        : m ? { divisible: m.divisible === true, caduca: m.caduca ?? null, precio: m.precio ?? null, precios: m.precios ?? null } : null;
+      // Toda serie de E tiene contrato: al menos su precio (el de la época si no declara ninguno).
+      return contrato ? [{ k: 'contrato', clave, ...contrato }] : [];
     }
     if (d === 5) {
       const registro = partirClave(clave).registro ?? (libro ? this.#eje.registroDe(clave) : null);
@@ -592,6 +604,27 @@ export class ContextoEje {
     }
     if (d === 7) return p[7] ?? [];
     return [];
+  }
+
+  /**
+   * Los precios de una serie de E (su 2.2; VG, tras 3b-bis: la orientación de una E es el token que la paga): el
+   * principal (`precio`, [serie o familia, cuánto por unidad]) y detrás los aceptados (`precios`), como décuplas
+   * [[en qué], [cuánto]] (la forma de los precios de los grupos de atención, epoch.1.2.1); sin ninguno declarado, el
+   * de la época: epoch.1.0.1.0.2, la orientación financiera (una unidad de E).
+   */
+  #precios(contrato) {
+    const pares = [...(contrato.precio ? [contrato.precio] : []), ...(Array.isArray(contrato.precios) ? contrato.precios : [])];
+    const vistos = new Set();
+    const fuera = [];
+    for (const [en, cuanto] of pares) {
+      const llave = en + '\u0000' + cuanto;
+      if (vistos.has(llave)) continue;
+      vistos.add(llave);
+      fuera.push({ k: 'dec', id: null, camino: [], v: [[en], [cuanto]] });
+    }
+    if (fuera.length) return fuera;
+    const defecto = this.#epoch?.[1]?.[0]?.[1]?.[0]?.[2];
+    return Array.isArray(defecto) ? [{ k: 'dec', id: null, camino: [], v: defecto }] : [];
   }
 
   /**
@@ -669,17 +702,19 @@ export class ContextoEje {
    * orígenes aparte (encargo 3b-bis: el P guarda quién lo obtuvo; lo delegado sigue siendo de quien lo obtuvo).
    */
   #posicionado(a) {
-    const porRegistro = new Map();
+    // Una entrada por ámbito (VG, tras 3b-bis: P por mirada): el registro entero y cada mirada suya son entradas
+    // distintas; las dos valen el registro (su 0), y la de una mirada lleva el dígito en su 5.
+    const porAmbito = new Map();
     for (const x of this.#cartera(a)) {
       if (!x.clave.startsWith('P:')) continue;
-      const { ambito: registro, origen } = partirClave(x.clave);
-      if (!porRegistro.has(registro)) porRegistro.set(registro, { k: 'posicionado', titular: a, registro, disponible: 0, bloqueado: {}, origenes: [] });
-      const e = porRegistro.get(registro);
+      const { ambito, raiz: registro, mirada, origen } = partirClave(x.clave);
+      if (!porAmbito.has(ambito)) porAmbito.set(ambito, { k: 'posicionado', titular: a, registro, ambito, mirada, disponible: 0, bloqueado: {}, origenes: [] });
+      const e = porAmbito.get(ambito);
       e.disponible += x.disponible;
       for (const [salida, c] of Object.entries(x.bloqueado)) e.bloqueado[salida] = (Object.hasOwn(e.bloqueado, salida) ? e.bloqueado[salida] : 0) + c;
-      e.origenes.push({ k: 'origenP', titular: a, registro, origen: origen ?? a, clave: x.clave, disponible: x.disponible, bloqueado: x.bloqueado });
+      e.origenes.push({ k: 'origenP', titular: a, registro, ambito, mirada, origen: origen ?? a, clave: x.clave, disponible: x.disponible, bloqueado: x.bloqueado });
     }
-    return [...porRegistro.values()];
+    return [...porAmbito.values()];
   }
 
   /**
@@ -688,7 +723,7 @@ export class ContextoEje {
    */
   #obtenidos(a) {
     if (typeof this.#eje?.obtenidoPor !== 'function') return [];
-    return this.#eje.obtenidoPor(a).map((x) => ({ k: 'obtenido', origen: a, registro: x.registro, cantidad: x.cantidad, titulares: x.titulares }));
+    return this.#eje.obtenidoPor(a).map((x) => ({ k: 'obtenido', origen: a, registro: x.registro, ambito: x.ambito, mirada: x.mirada, cantidad: x.cantidad, titulares: x.titulares }));
   }
 
   /**
@@ -753,6 +788,9 @@ export class ContextoEje {
         // 2, con qué condición: lo bloqueado por salida y serie, sumado sobre todos los titulares (B6); vale su salida.
         if (d === 2) return this.#bloqueadosPorSalida();
         if (d === 3) return this.#eje.identidades();
+        // 4, qué se hace: las series del libro, por aparición (encargo 3c-2a): un texto que nombra una serie se busca
+        // aquí por su valor, before.4.("E:casa/EUR"), sin que el texto la fabrique (SEG-09).
+        if (d === 4) return this.#eje.series().map((s) => ({ k: 'serie', clave: s.clave }));
         if (d === 5) return this.#eje.genesisId ? [this.#eje.genesisId] : [];
         if (d === 6) return [{ k: 'reloj' }];
         // 9, cómo es este libro: «demostración» si su génesis lo marca (sin clave se actúa; R9). Para el propio
@@ -847,6 +885,8 @@ export class ContextoEje {
         if (d === 2) return Object.entries(nodo.bloqueado).filter(([, c]) => c > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         if (d === 3) return [nodo.titular];
         if (d === 4) return [nodo.disponible];
+        // 5, dónde encaja: la mirada del registro en que está (VG, tras 3b-bis: P por mirada); nada si es el registro entero.
+        if (d === 5) return nodo.mirada === undefined ? [] : [nodo.mirada];
         if (d === 6) return nodo.origenes;
         return this.#lecturaEn('A.2.1.' + d, nodo);
       case 'origenP':
@@ -857,13 +897,16 @@ export class ContextoEje {
         if (d === 2) return Object.entries(nodo.bloqueado).filter(([, c]) => c > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         if (d === 3) return [nodo.origen];
         if (d === 4) return [nodo.disponible];
+        if (d === 5) return nodo.mirada === undefined ? [] : [nodo.mirada];
         return [];
       case 'obtenido':
         // Una entrada del P de un origen (A.2.6): 0 el registro, 1 cuánto (en todas las manos, disponible y
-        // bloqueado), 3 en qué manos está, 6 su origen; 8, la lectura que la época pone ahí (el reparto: «share»).
+        // bloqueado), 3 en qué manos está, 5 la mirada (si es P sobre una mirada del registro), 6 su origen; 8, la
+        // lectura que la época pone ahí (el reparto: «share»).
         if (d === 0) return [nodo.registro];
         if (d === 1) return [nodo.cantidad];
         if (d === 3) return [...nodo.titulares];
+        if (d === 5) return nodo.mirada === undefined ? [] : [nodo.mirada];
         if (d === 6) return [nodo.origen];
         return this.#lecturaEn('A.2.6.' + d, nodo);
       case 'criterioX':

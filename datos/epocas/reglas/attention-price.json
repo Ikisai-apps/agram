@@ -1,0 +1,16 @@
+[
+  ["attention price"],
+  ["A.3", "X.6.3"],
+  ["=last ((first (first it.6.5).3).3 where it2.1 = first it.6.3).2"],
+  ["X.6.2"],
+  ["read"],
+  ["*"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a): los seis grupos de R son seis precios y la regla de atención los lee de los datos (epoch.1.2.1 y lo que cada identidad ancla en el 3.k.2 de su alta), no los lleva escritos",
+    "El precio de la zona en que el destinatario pone a quien escribe (X.6.3): el último 2 de ese grupo, [[en qué], [cuánto]]: el de la época (epoch.1.2.1) o el que su dueño ancló en el 3.k.2 de su alta (manda el último). «their R» la R de quien escribe, «my R» la del destinatario devuelta, «E», «P» (sobre el dominio del destinatario), «open record» (sin pago mientras haya un registro abierto entre ambos), «nothing» el veto",
+    "Se materializa en X.6.2: de dónde viene, con qué condición (lo que cuesta llegar). La regla «attention has a price» la lee ahí, y la plantilla de transacción «write to X» construye el pago con ella"
+  ],
+  ["epoch 0"],
+  ["after attention group"],
+  ["attention price: the price of that zone, [[in what], [how much]]: the last one its owner declared for it"]
+]

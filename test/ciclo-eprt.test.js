@@ -569,7 +569,9 @@ test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo
   const antes = eje.poderSobre('bea', g);
   // Sobre el registro de las altas: sobre el génesis (el alta de raiz) tendría el precio de su atención (revisión de
   // seguridad, encargo 3b).
-  await eje.escribir({ autor: 'bea', sobre: altas.id, t: T0, payload: 'bajo', movimientos: [gasta('bea'), { token: 'P', ambito: g, cantidad: 1, de: 'bea', a: null }, emiteP('bea', altas.id, 1.1)] });
+  // P por mirada (encargo 3c-2a): el P propio de bea por la R y los minutos está en las miradas 3 y 1 del génesis; el que
+  // baja un paso al registro de las altas es el que le delegó la raíz (de origen raiz, que se conserva).
+  await eje.escribir({ autor: 'bea', sobre: altas.id, t: T0, payload: 'bajo', movimientos: [gasta('bea'), { token: 'P', ambito: g, origen: 'raiz', cantidad: 1, de: 'bea', a: null }, { ...emiteP('bea', altas.id, 1.1), origen: 'raiz' }] });
   assert.deepEqual([antes - eje.poderSobre('bea', g), eje.poderSobre('bea', altas.id)], [1, 1.1]);
 });
 

@@ -22,7 +22,7 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.deepEqual(eje.series().map((s) => s.clave).filter((k) => !k.startsWith('P:')), ['T:minuto', 'R:casa', 'E:casa/EUR', 'T:hora']);
   // Una serie de P por registro y origen (encargo 3b-bis): el génesis tiene la de la casa y la de quien recibe de ella.
   const deP = eje.series().filter((s) => s.token === 'P');
-  assert.deepEqual([...new Set(deP.map((s) => s.ambito))].sort(), eje.orden.filter((id) => deP.some((s) => s.ambito === id)).sort(), 'las series de P son las de los registros que dan P');
+  assert.deepEqual([...new Set(deP.map((s) => s.raiz))].sort(), eje.orden.filter((id) => deP.some((s) => s.raiz === id)).sort(), 'las series de P son las de los registros que dan P (o de una mirada suya: P por mirada)');
   assert.ok(deP.every((s) => s.clave === 'P:' + s.ambito + '/' + s.origen && s.emisor === s.origen), 'cada una con su origen, que es quien la obtuvo');
   assert.equal(eje.poderSobre('casa', eje.genesisId), 10, 'la casa escribió el génesis: diez P sobre él');
   // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,

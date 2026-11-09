@@ -497,7 +497,9 @@ export function yo(eje, identidad, { t, ...opciones } = {}) {
   const posicionado = [];
   for (let k = 0; k < cuenta(A + '.2.1'); k++) {
     const e = '(nth ' + k + ' ' + A + '.2.1)';
-    posicionado.push({ registro: uno(e + '.0', ctx), cuanto: uno(e + '.1', ctx), disponible: uno(e + '.4', ctx), origenes: planos(e + '.6', ctx) });
+    // P por mirada (VG, tras 3b-bis): la entrada de una mirada lleva su dígito en el 5; la del registro entero, nada.
+    const mirada = uno(e + '.5', ctx);
+    posicionado.push({ registro: uno(e + '.0', ctx), ...(mirada === undefined ? {} : { mirada }), cuanto: uno(e + '.1', ctx), disponible: uno(e + '.4', ctx), origenes: planos(e + '.6', ctx) });
   }
   const atencion = [];
   for (let k = 0; k < cuenta(A + '.3'); k++) {

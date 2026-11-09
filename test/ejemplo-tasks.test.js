@@ -59,9 +59,10 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   // obtención es por cantidad, no por cabeza ni por serie).
   const seriesE = (id) => new Set(eje.orden.flatMap((x) => eje.obtener(x).movimientos).filter((m) => m.token === 'E' && m.a === id && m.de !== null && m.de !== id && m.estado === undefined).map((m) => m.emisor + '/' + m.denominacion)).size;
   assert.deepEqual(['organizadora', 'proveedor'].map(seriesE), [3, 3]);
-  const deLaCasa = (id) => eje.orden.flatMap((x) => eje.obtener(x).movimientos).filter((m) => (m.token === 'E' || m.token === 'R') && m.emisor === 'casa' && m.de === 'casa' && m.a === id && m.estado === undefined).reduce((s, m) => s + m.cantidad, 0);
+  // P por mirada (VG, tras 3b-bis): la E recibida de su emisor da P sobre la mirada 1 del registro de la serie (el génesis), y la R sobre el 3 del alta del emisor (el génesis también).
+  const deLaCasa = (id, token) => eje.orden.flatMap((x) => eje.obtener(x).movimientos).filter((m) => m.token === token && m.emisor === 'casa' && m.de === 'casa' && m.a === id && m.estado === undefined).reduce((s, m) => s + m.cantidad, 0);
   for (const id of ['organizadora', 'proveedor']) {
-    assert.deepEqual(poder(id), { ...Object.fromEntries(escritos(id).map((x) => [x, 10])), [eje.genesisId]: 10 * deLaCasa(id) });
+    assert.deepEqual(poder(id), { ...Object.fromEntries(escritos(id).map((x) => [x, 10])), [eje.genesisId + '.3']: 10 * deLaCasa(id, 'R'), [eje.genesisId + '.1']: 10 * deLaCasa(id, 'E') });
   }
   for (const id of eje.identidades()) assert.deepEqual(eje.bloqueos(id), []);
   // T por escala: minutos para escribir, horas para trabajar. T no cruza de persona (VG, 7-11 noche): la casa no

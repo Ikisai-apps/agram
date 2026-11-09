@@ -30,6 +30,10 @@ export function contratoE(m, registroEmisor) {
     registro: m.registro ?? registroEmisor ?? null,
     divisible: m.divisible === true,
     emisores: m.emisores ? [...m.emisores].sort() : null,
+    // El precio de la serie (VG, tras 3b-bis: la orientación de una E es el token que la paga): el principal, [serie o
+    // familia con que se paga, cuánto por unidad], y los aceptados; los lee la serie como registro (su 2.2).
+    precio: Array.isArray(m.precio) ? [...m.precio] : null,
+    precios: Array.isArray(m.precios) ? m.precios.map((p) => [...p]) : null,
     consumido: 0,
   };
 }
@@ -300,7 +304,7 @@ function topeYCuota(ev, ctx, a) {
       // D1 y F1 (VG, 9-11): lo comprometido con las series de E del subárbol de A, con P posicionado en él.
       const emisores = s.emisores ?? [s.emisor];
       const familia = familiaDe(k);
-      const enSubarbol = (clave) => clave.startsWith('P:') && ctx.dentro(partirClave(clave).ambito, A);
+      const enSubarbol = (clave) => clave.startsWith('P:') && ctx.dentro(partirClave(clave).raiz, A);
       const atadaAlSubarbol = (salida) => {
         if (typeof salida !== 'string' || !salida.startsWith('E:')) return false;
         const p = partirClave(salida);
