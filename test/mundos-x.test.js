@@ -3,17 +3,17 @@ import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { consolidar, registrar, siguiente, descubrir, ANUNCIO } from '../src/motor.js';
-import { memoria, partir, nombreEn, ritmo, PASO, ORDEN_X, descendientes } from '../mundos/comun.js';
-import { datosFabrica, svgFabrica, lineasFabrica, hayPuesto, ESTACIONES } from '../mundos/fabrica.js';
+import { memoria, partir, nombreEn, ritmo, PASO, ORDEN_X, descendientes } from '../antigua/mundos/comun.js';
+import { datosFabrica, svgFabrica, lineasFabrica, hayPuesto, ESTACIONES } from '../antigua/mundos/fabrica.js';
 import { claseRelativa } from '../src/efectos.js';
 import { claseDe } from '../src/escritura.js';
-import { datosCiudad, svgCiudad, lineasCiudad, etiquetaSerie } from '../mundos/ciudad.js';
-import { datosJardin, svgJardin, lineasJardin, formaDe } from '../mundos/jardin.js';
-import { datosParque, svgParque, lineasParque, aguaDe, actoDe } from '../mundos/parque.js';
-import { datosLente, svgLente, lineasLente, esHTML, textoPlano, marcoHTML } from '../mundos/lente.js';
-import { MUNDOS, datosX, svgMundo, htmlX, sobrioX } from '../mundos/x.js';
-import { crearUi as crearUiX, piezasX } from '../mundos/x-ui.js';
-import { renderActual } from '../mundos/hilos-ui.js';
+import { datosCiudad, svgCiudad, lineasCiudad, etiquetaSerie } from '../antigua/mundos/ciudad.js';
+import { datosJardin, svgJardin, lineasJardin, formaDe } from '../antigua/mundos/jardin.js';
+import { datosParque, svgParque, lineasParque, aguaDe, actoDe } from '../antigua/mundos/parque.js';
+import { datosLente, svgLente, lineasLente, esHTML, textoPlano, marcoHTML } from '../antigua/mundos/lente.js';
+import { MUNDOS, datosX, svgMundo, htmlX, sobrioX } from '../antigua/mundos/x.js';
+import { crearUi as crearUiX, piezasX } from '../antigua/mundos/x-ui.js';
+import { renderActual } from '../antigua/mundos/hilos-ui.js';
 import { readFileSync } from 'node:fs';
 
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
@@ -542,7 +542,7 @@ test('X en la app: solo en animado y en Mapped; celdas 1â€“4 y 0, la vista con Â
 });
 
 test('X: con menos movimiento, lo que solo viaja no se queda quieto en la salida', () => {
-  const css = readFileSync(new URL('../mundos/x.css', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../antigua/mundos/x.css', import.meta.url), 'utf8');
   for (const clase of ['x-mercancia', 'x-viaje']) {
     assert.match(css, new RegExp(`\\.mundo \\.${clase}\\{opacity:0;animation:`), clase + ' parte invisible');
   }

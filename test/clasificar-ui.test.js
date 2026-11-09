@@ -13,7 +13,7 @@ import { EPOCA_0, PV, mapped } from '../src/index.js';
 import {
   modeloClasificar, htmlClasificar, vistaClasificar, posicionDe, posicionesDe, escribirColocacion, elementoDe,
   colocarEnLente, quitarDeLente, lenteDe, elegirModoClasificar, modoClasificar, huecoDe, colocacionDe, claveDe, MODOS_CLASIFICAR,
-} from '../ui/clasificar.js';
+} from '../antigua/ui/clasificar.js';
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -165,11 +165,11 @@ test('clasificar: posición en foco, posiciones con su número de ocupantes, mod
 
 test('clasificar: el botón en index.html, el gancho en app.js y los estilos en ui/ui.css', () => {
   const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
-  assert.match(leer('../index.html'), /<button data-modo="clasificar"/);
-  const app = leer('../app.js');
+  assert.match(leer('../antigua/index.html'), /<button data-modo="clasificar"/);
+  const app = leer('../antigua/app.js');
   assert.ok(app.includes("from './ui/clasificar.js'"));
   assert.ok(app.includes('instalarClasificar('));
   assert.ok(app.includes("estado.modo === 'clasificar'"));
-  const css = leer('../ui/ui.css');
+  const css = leer('../antigua/ui/ui.css');
   for (const sel of ['.clasificar', '.cl-pieza', '.cl-cruceta', '.cl-hueco', '.cl-destino']) assert.ok(css.includes(sel), 'falta ' + sel);
 });

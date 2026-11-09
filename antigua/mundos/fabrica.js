@@ -36,9 +36,9 @@
 // - las clases 5 a 9 no tienen nombre (catálogo, «clases»): se dibujan como
 //   hexágonos sin rótulo.
 
-import { ARIDAD } from '../src/btml.js';
-import { efectosDe } from '../src/efectos.js';
-import { propuestas, cierre } from '../src/motor.js';
+import { ARIDAD } from '../../src/btml.js';
+import { efectosDe } from '../../src/efectos.js';
+import { propuestas, cierre } from '../../src/motor.js';
 import {
   escapar, n1, corto, recorte, baseDe, nombreEn, nombreMundo, ritmo, atributos, ordenPlano, cabeLaMatriz, textoCorto,
 } from './comun.js';

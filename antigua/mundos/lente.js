@@ -22,9 +22,9 @@
 // - las portadas de otros van detrás de la del foco, nunca delante: la
 //   lente es del autor del foco y quien mira puede elegir otra (pendiente).
 
-import { esReferencia } from '../src/btml.js';
-import { ocupantes, seguir } from '../src/encaje.js';
-import { esFormula, evaluar, desescapar } from '../src/bql.js';
+import { esReferencia } from '../../src/btml.js';
+import { ocupantes, seguir } from '../../src/encaje.js';
+import { esFormula, evaluar, desescapar } from '../../src/bql.js';
 import { escapar, n1, corto, partir, baseDe, nombreEn, ritmo, atributos, ordenPlano, textoCorto } from './comun.js';
 
 /** Si un texto es HTML: empieza por una etiqueta y acaba en otra. */

@@ -44,14 +44,14 @@
 // - la previsualización no enseña el id del registro que se escribiría: el
 //   id sale de la hora en que se escriba, que todavía no existe.
 
-import { direccion, esReferencia, indicesDe } from '../src/btml.js';
-import { RAIZ } from '../src/evento.js';
-import { PV } from '../src/epocas.js';
-import { ocupantes } from '../src/encaje.js';
-import { evaluar, esFormula, desescapar } from '../src/bql.js';
-import * as motor from '../src/motor.js';
-import { efectosDe, verEn, nombreMundo, sobrio as lineasDeEfectos, CATALOGO, MARCAS_EFECTO, SIN_NOMBRE } from '../src/efectos.js';
-import { Eje } from '../src/eje.js';
+import { direccion, esReferencia, indicesDe } from '../../src/btml.js';
+import { RAIZ } from '../../src/evento.js';
+import { PV } from '../../src/epocas.js';
+import { ocupantes } from '../../src/encaje.js';
+import { evaluar, esFormula, desescapar } from '../../src/bql.js';
+import * as motor from '../../src/motor.js';
+import { efectosDe, verEn, nombreMundo, sobrio as lineasDeEfectos, CATALOGO, MARCAS_EFECTO, SIN_NOMBRE } from '../../src/efectos.js';
+import { Eje } from '../../src/eje.js';
 
 /** Clases de paso, en el orden de la senda: del foco hacia la acción. */
 export const TIPOS = Object.freeze(['desarrollar', 'formula', 'propuesta', 'siguiente']);

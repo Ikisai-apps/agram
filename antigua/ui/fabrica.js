@@ -10,7 +10,7 @@
 //    fuente, con su vector y su signo) y, si existe, contexto.nuevos (los
 //    terminales nuevos, que no vienen de ninguna fuente).
 
-import { motor, direccion, indicesDe, esReferencia, encaje, RAIZ } from '../src/index.js';
+import { motor, direccion, indicesDe, esReferencia, encaje, RAIZ } from '../../src/index.js';
 import { escapar, corto, dirCorta, vectorCorto } from './comun.js';
 import { nombrePV } from './epocas.js';
 

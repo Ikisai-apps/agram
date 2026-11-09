@@ -12,9 +12,9 @@ import { readFileSync } from 'node:fs';
 import { mapa, ocho, cuota, textoOcho, textoCuota, medicionesPedidas, medidasDe, recuentosDeCelda, COHORTES, RECUENTOS } from '../src/mapped.js';
 import { escena, escenaDe, medidasDeEscena, render } from '../src/scened.js';
 import { medir, hijos, MEDIDAS, SIN_BASE_ESCRITA } from '../src/bases.js';
-import { datosCielo } from '../mundos/cielo.js';
-import { htmlOcho, COHORTES_VISTA, cohorteOcho, elegirCohorteOcho, lecturaOcho } from '../ui/ocho.js';
-import { htmlEscena, vistaEscena } from '../ui/escena.js';
+import { datosCielo } from '../antigua/mundos/cielo.js';
+import { htmlOcho, COHORTES_VISTA, cohorteOcho, elegirCohorteOcho, lecturaOcho } from '../antigua/ui/ocho.js';
+import { htmlEscena, vistaEscena } from '../antigua/ui/escena.js';
 import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 
@@ -196,14 +196,14 @@ test('una sola verdad: el cielo animado y la celda sobria leen lo mismo, con la 
   await escribirBasesDelEjemplo(ej);
   comprobar(); // con bases: los dos, la base escrita
   // En el código: el cielo lee con mapped.ocho y ya no llama a situar por su cuenta.
-  const fuente = leer('../mundos/cielo.js');
-  assert.match(fuente, /import \{ ocho \} from '\.\.\/src\/mapped\.js';/);
+  const fuente = leer('../antigua/mundos/cielo.js');
+  assert.match(fuente, /import \{ ocho \} from '\.\.\/\.\.\/src\/mapped\.js';/);
   assert.match(fuente, /const o = ocho\(eje, foco, \{ alcance: cohorte, epoca \}\);/);
   assert.doesNotMatch(fuente, /\bsituar\(/);
 });
 
 test('celda 8 a 400 px: todo envuelve, sin scroll horizontal; la app la pinta con ui/ocho.js y no mide en mapa()', async () => {
-  const html = leer('../index.html');
+  const html = leer('../antigua/index.html');
   assert.match(html, /\.matriz\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.match(html, /\.celda\{min-width:0;[^}]*overflow:hidden/);
   assert.match(html, /\.ocho-cohortes\{display:flex;flex-wrap:wrap;[^}]*min-width:0\}/);
@@ -218,7 +218,7 @@ test('celda 8 a 400 px: todo envuelve, sin scroll horizontal; la app la pinta co
   assert.match(celda, /<span class="cuota">cuota 37,5 %<\/span> · <span class="cuota">[\d,]+ % en todo el eje<\/span>/);
   assert.doesNotMatch(celda.replace(/<[^>]+>/g, ' '), /[0-9a-f]{9,}/);
   // app.js: la celda 8 la pinta htmlOcho al pintarse; mapa() se pide sin medidas.
-  const app = leer('../app.js');
+  const app = leer('../antigua/app.js');
   assert.match(app, /htmlOcho\(estado\.eje, m\.foco, \{ epoca: epocaActual\(\) \}\)/);
   assert.match(app, /instalarOcho\(\{ pintar \}\)/);
   assert.match(app, /mapped\.mapa\(estado\.eje, estado\.foco, \{ camino: estado\.camino, epoca: epocaActual\(\) \}\)/);

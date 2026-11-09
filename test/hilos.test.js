@@ -9,8 +9,8 @@ import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
 import {
   BANDAS, RAZON, TOPE_MAS, PASADO, FUTURO, anchosDeBanda, distanciaAlPresente, geometria,
   datosHilos, svgHilos, htmlHilos, memoria, rotuloToken, efectosNuevos,
-} from '../mundos/hilos.js';
-import { crearUi, piezasHilos } from '../mundos/hilos-ui.js';
+} from '../antigua/mundos/hilos.js';
+import { crearUi, piezasHilos } from '../antigua/mundos/hilos-ui.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
@@ -392,8 +392,8 @@ test('app: los hilos entran con Mapped, no como modo; el dibujo se pone junto a 
   assert.ok(tercera.vista.includes('<figure class="hilos-vista">') && tercera.celda6.includes('aria-expanded="true"'));
   assert.ok(!animaAlgo(tercera.vista) && !animaAlgo(tercera.celda6), 'ya visto');
   // app.js e index.html: un botón «animado» y el gancho; ningún modo «hilos».
-  const index = leer('../index.html');
-  const app = leer('../app.js');
+  const index = leer('../antigua/index.html');
+  const app = leer('../antigua/app.js');
   assert.match(index, /<button data-render aria-pressed="false"[^>]*>animado<\/button>/);
   assert.ok(!index.includes('data-modo="hilos"') && !app.includes("'hilos'"), 'los hilos no son un modo');
   assert.ok(index.includes('<link rel="stylesheet" href="./mundos/hilos.css">'));

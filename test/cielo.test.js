@@ -6,7 +6,7 @@ import { verEn } from '../src/efectos.js';
 import {
   COHORTES, DECUPLA, EFECTOS, registroDeCohorte, rangoDeCaja, datosCielo, svgCielo, htmlCielo,
   htmlCieloSobrio, selectorCohorte, brillo, estadoBase, efectosEnCielo, posicionesDelFoco,
-} from '../mundos/cielo.js';
+} from '../antigua/mundos/cielo.js';
 
 /** Las constelaciones del SVG, en orden. */
 const constelaciones = (svg) => [...svg.matchAll(/<g class="constelacion[^"]*" data-medida="([^"]+)"/g)].map((m) => m[1]);

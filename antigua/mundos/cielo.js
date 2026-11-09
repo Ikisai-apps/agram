@@ -60,10 +60,10 @@
 
 import {
   ALCANCES, MEDIDAS as MEDIDAS_DEL_8, SIN_BASE_ESCRITA, TIEMPO, leerBase, clavesDeMedidas, proyectoDe, etiquetaClave,
-} from '../src/bases.js';
-import { ocho } from '../src/mapped.js';
-import { verEn, efectosDe } from '../src/efectos.js';
-import { PV, EPOCA_0 } from '../src/epocas.js';
+} from '../../src/bases.js';
+import { ocho } from '../../src/mapped.js';
+import { verEn, efectosDe } from '../../src/efectos.js';
+import { PV, EPOCA_0 } from '../../src/epocas.js';
 
 /** Las tres cohortes (VG, 7-11): hermanos, proyecto, general. Siempre en este orden. */
 export const COHORTES = ALCANCES;

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { consolidar, proponer, registrar, ANUNCIO } from '../src/motor.js';
-import { crearUi, piezasCruz, previaVigente, marcaDe, datosCaminoDe } from '../mundos/cruz-ui.js';
-import { lenteDe } from '../mundos/cruz.js';
-import { datosCielo } from '../mundos/cielo.js';
-import { previsualizar, tituloPropuesta } from '../mundos/camino.js';
+import { crearUi, piezasCruz, previaVigente, marcaDe, datosCaminoDe } from '../antigua/mundos/cruz-ui.js';
+import { lenteDe } from '../antigua/mundos/cruz.js';
+import { datosCielo } from '../antigua/mundos/cielo.js';
+import { previsualizar, tituloPropuesta } from '../antigua/mundos/camino.js';
 
 const AHORA = '2026-11-07T15:00:00Z';
 const leer = (ruta) => readFileSync(new URL(ruta, import.meta.url), 'utf8');
@@ -121,13 +121,13 @@ test('el 5: la lente es la posición 0 en el camino, como la celda 5 de Mapped',
 });
 
 test('app: los ganchos de la cruz van después de los hilos; ningún modo «cruz»', () => {
-  const index = leer('../index.html');
-  const app = leer('../app.js');
+  const index = leer('../antigua/index.html');
+  const app = leer('../antigua/app.js');
   for (const css of ['cielo', 'camino', 'cruz']) assert.ok(index.includes(`<link rel="stylesheet" href="./mundos/${css}.css">`), css);
   assert.ok(!index.includes('data-modo="cruz"') && !app.includes("'cruz'"), 'la cruz no es un modo');
   assert.match(app, /import \{ instalarCruz, trasPintarCruz \} from '\.\/mundos\/cruz-ui\.js';/);
   assert.match(app, /instalarCruz\(\{ estado, pintar, irA, privadaDe, guardar, fallo, chip: chipTemporal, mensajes \}\)/);
   assert.match(app, /trasPintarHilos\(estado\);[^\n]*\n\s+trasPintarCruz\(estado\);/);
   // Las animaciones de la cruz son transiciones: ninguna en bucle.
-  for (const css of ['cielo', 'camino', 'cruz']) assert.ok(!/infinite/.test(leer(`../mundos/${css}.css`)), css);
+  for (const css of ['cielo', 'camino', 'cruz']) assert.ok(!/infinite/.test(leer(`../antigua/mundos/${css}.css`)), css);
 });

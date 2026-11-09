@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { ALCANCES_VISTA, htmlEscena, vistaEscena, representacion } from '../ui/escena.js';
+import { ALCANCES_VISTA, htmlEscena, vistaEscena, representacion } from '../antigua/ui/escena.js';
 import { escenaDe, CAPACIDAD, ALCANCES } from '../src/scened.js';
 
 const AHORA = '2026-11-07T15:00:00Z';

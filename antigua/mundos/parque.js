@@ -35,7 +35,7 @@
 // - dibujar como paquete un movimiento de tokens: el catálogo reserva
 //   «paquete» para un impulso (una celda de clase 1), no para un movimiento.
 
-import { esReferencia } from '../src/btml.js';
+import { esReferencia } from '../../src/btml.js';
 import { escapar, n1, recorte, baseDe, descendientes, nombreEn, ritmo, atributos, ordenPlano } from './comun.js';
 
 const X_TIPO = '[X] decidir VG: persona o cosa sale de quién escribió el alta de quien recibe (B1); grupo, solo en el prefijo de la versión 2';

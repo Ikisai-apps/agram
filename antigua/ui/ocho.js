@@ -16,7 +16,7 @@
 // El texto envuelve sus líneas: sin scroll horizontal a 400 px. Sin DOM salvo
 // instalarOcho; lo demás devuelve texto y se prueba en Node.
 
-import { ocho, recuentosDeCelda, COHORTES, textoCuota, cuotaDe } from '../src/mapped.js';
+import { ocho, recuentosDeCelda, COHORTES, textoCuota, cuotaDe } from '../../src/mapped.js';
 import { escapar, leerLocal, guardarLocal } from './comun.js';
 
 /** Dónde se recuerda la cohorte de la celda 8 en este navegador. */

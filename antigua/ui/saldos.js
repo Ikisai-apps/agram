@@ -5,7 +5,7 @@
 // las series emitidas (eje.series()): quién emite cada una, cuánto ha
 // emitido y cuánto queda en carteras (lo demás se ha consumido).
 
-import { autoridad, ESCALAS_T, PARTES_T, AMBITO_GENESIS } from '../src/index.js';
+import { autoridad, ESCALAS_T, PARTES_T, AMBITO_GENESIS } from '../../src/index.js';
 import { escapar, corto } from './comun.js';
 
 const ESCALA = Object.freeze({ segundo: 's', minuto: 'min', hora: 'h', dia: 'd', semana: 'sem', ciclo: 'cic', anio: 'a' });

@@ -2,10 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { verEn, nombreMundo } from '../src/efectos.js';
-import { INSPECCIONAR, htmlEstructura, htmlCentro, htmlCruz } from '../mundos/cruz.js';
-import { datosHilos, svgHilos } from '../mundos/hilos.js';
-import { datosCielo, svgCielo } from '../mundos/cielo.js';
-import { datosCamino, svgCamino } from '../mundos/camino.js';
+import { INSPECCIONAR, htmlEstructura, htmlCentro, htmlCruz } from '../antigua/mundos/cruz.js';
+import { datosHilos, svgHilos } from '../antigua/mundos/hilos.js';
+import { datosCielo, svgCielo } from '../antigua/mundos/cielo.js';
+import { datosCamino, svgCamino } from '../antigua/mundos/camino.js';
 
 test('el 5: el registro como JSON plegable, con sus campos en orden y las referencias navegables', async () => {
   const { eje, compra, menu } = await ejemploCompra();

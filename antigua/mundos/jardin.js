@@ -34,9 +34,9 @@
 //   plantas (colisión), y la flor va a las dos si la consolidación eligió
 //   ese lugar.
 
-import { ARIDAD } from '../src/btml.js';
-import { ocupantes } from '../src/encaje.js';
-import { propuestas, cierre } from '../src/motor.js';
+import { ARIDAD } from '../../src/btml.js';
+import { ocupantes } from '../../src/encaje.js';
+import { propuestas, cierre } from '../../src/motor.js';
 import { escapar, n1, corto, recorte, nombreEn, ritmo, atributos, ordenPlano, textoCorto } from './comun.js';
 
 const X_FORMA = '[X] decidir VG: hierba = encaje exacto, arbusto = acuerdo parcial (el corpus no dice cómo se reconoce cada uno)';
