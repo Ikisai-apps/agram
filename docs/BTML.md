@@ -17,7 +17,7 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/btml.js` | Payload, terminales, referencias, direcciones | `esTerminal`, `esReferencia`, `esDireccion`, `validarPayload`, `direccion`, `indicesDe`, `resolver`, `ARIDAD` |
 | `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `SEPARADOR_REGISTRO`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `CRITERIO_CAPACIDAD`, `validarMovimiento`, `claveToken`, `partirClave`, `esIdRegistro`, `capacidadDe`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
-| `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC | `esInstante`, `msUTC`, `msDeGuardado` (solo para eventos de la versión 2) |
+| `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC; se comparan en segundos enteros (VG, 10-11, C2) | `esInstante`, `msUTC`, `segundosUTC`, `msDeGuardado` y `segundosDeGuardado` (solo para eventos de la versión 2) |
 | `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje. Por dentro, una envoltura del libro de transacciones (`docs/notas/CAPA_CERO.md`) | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.tipo`, `eje.identidades`, `eje.clave`, `eje.libro`, `eje.transaccion`, `eje.contexto`, `eje.antes`, `reglasDelTope`, `SIN_CAPACIDAD` |
 | `src/libro.js` | La capa cero (VG, 9-11): el libro de transacciones, cinco primitivas, anclaje y memo, atomicidad, condiciones enchufables | `Libro`, `acunar`, `transferir`, `bloquear`, `liberar`, `quemar`, `transaccion`, `PRIMITIVAS` |
 | `src/condiciones/` | Las reglas como condiciones de validez de la transacción, por familias y con su fila del inventario | `CONDICIONES`, `CONDICIONES_GENESIS`, `motivosDe`, `catalogo` |
@@ -1188,6 +1188,7 @@ Cada fila de esta tabla sale de una condición de validez de la transacción del
 | `ya hay génesis` | `contexto.genesis` en un evento que no es el primero |
 | `solo el génesis carece de foco` | `sobre === null` |
 | `foco desconocido: <id>` | `sobre` no está en el eje |
+| `referencia a un evento que no está en el eje: <id8> (mientras el eje es local; con red, se resuelve antes de aceptar)` | suelo (VG, 10-11, C1): una referencia `{ ref }` del payload a un evento que el eje no tiene. Una fórmula `=REF("…")` es texto y sí entra (queda PENDIENTE al leerla) |
 | `autor desconocido: <id>` | el autor no ha recibido tokens nunca |
 | `firma ausente de <autor>` / `el firmante debe ser el autor` / `firma inválida de <autor>` | el autor tiene clave y no firma, firma otro, o la firma no verifica |
 | `autor sin clave: <autor>` | `exigirFirmas` y el autor no tiene clave |

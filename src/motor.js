@@ -13,7 +13,7 @@ import { ocupantesElegibles } from './elegibles.js';
 import { escribirDesde, costeT } from './escritura.js';
 import { contarPosiciones } from './modos.js';
 import { AMBITO_GENESIS, SEGUNDOS, claveToken } from './tokens.js';
-import { msUTC } from './instante.js';
+import { msUTC, segundosUTC } from './instante.js';
 import { FABRICA, esConsolidacion, lectorDelEje, recursoDe as recursoDel, clavesDeP, pesoDe, estadoPorPeso, respaldoDe, esActoDeRespaldo, conActoDeRespaldo, alcanzaUmbral } from './autorizacion.js';
 
 // Ningún registro del motor guarda clase: la de una dirección se lee con
@@ -366,9 +366,9 @@ export function autorizacionCaducada(eje, autorizacion, t) {
   const a = typeof autorizacion === 'string' ? eje.obtener(autorizacion) : autorizacion;
   const caduca = a?.contexto?.autoridad?.caduca;
   if (!caduca) return false;
-  const ahora = msUTC(t);
+  const ahora = segundosUTC(t);
   if (Number.isNaN(ahora)) throw new Error('autorizacionCaducada: t debe ser instante ISO-8601 con zona explícita');
-  return ahora >= msUTC(caduca);
+  return ahora >= segundosUTC(caduca); // en segundos (VG, 10-11, C2)
 }
 
 /** Bloqueos de P de una identidad con salida = la consolidación: [{ clave, ambito, cantidad }]. */

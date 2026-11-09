@@ -20,7 +20,7 @@
 // eventos nuevos.
 
 import { AMBITO_GENESIS, ESCALAS_INFORMATIVAS, SEGUNDOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
-import { msUTC, msDeGuardado } from './instante.js';
+import { msDeGuardado, segundosUTC, segundosDeGuardado, segundosDe } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
 import { rPropiaEnJuego } from './lente.js';
@@ -36,6 +36,8 @@ export const EMITEN_V2 = Object.freeze(['persona', 'grupo']);
 
 /** [X] confirmar VG: cuánto puede ir un evento por delante del mayor t del eje (un anio, en milisegundos). */
 export const ADELANTO_MAXIMO_MS = SEGUNDOS.anio * 1000;
+/** Lo mismo en segundos: el reloj compara en segundos (VG, 10-11, C2). */
+export const ADELANTO_MAXIMO_S = SEGUNDOS.anio;
 
 const corto = (x) => String(x).slice(0, 8);
 
@@ -63,7 +65,7 @@ export function motivoAjenos(de) {
 /** Dos caducidades son la misma si faltan las dos o nombran el mismo instante en UTC (no el mismo texto). */
 function mismaCaducidad(a, b) {
   if (a === null || b === null) return a === b;
-  return msUTC(a) === msUTC(b);
+  return segundosUTC(a) === segundosUTC(b); // en segundos (VG, 10-11, C2)
 }
 
 /**
@@ -187,14 +189,15 @@ function reloj(ev, ctx) {
   const errores = [];
   const falla = (i, capa, texto) => errores.push({ i, capa, texto });
   const autor = ev.autor;
-  const t = msUTC(ev.t);
+  // En segundos enteros (VG, 10-11, C2), como D-FECHA en las reglas: dentro del mismo segundo no hay antes.
+  const t = segundosUTC(ev.t);
   if (!Number.isNaN(t)) {
     const foco = ctx.registro(ev.sobre);
-    if (foco && t < msDeGuardado(foco.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al de su foco ' + corto(ev.sobre) + ' (' + foco.t + ')');
+    if (foco && t < segundosDeGuardado(foco.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al de su foco ' + corto(ev.sobre) + ' (' + foco.t + ')');
     const altaAutor = ctx.alta(autor);
-    if (altaAutor && t < msDeGuardado(altaAutor.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al alta de ' + autor + ' (' + altaAutor.t + ')');
+    if (altaAutor && t < segundosDeGuardado(altaAutor.t)) falla(null, 4, 'el t del evento (' + ev.t + ') es anterior al alta de ' + autor + ' (' + altaAutor.t + ')');
     const maximo = ctx.tMaximo?.() ?? -Infinity;
-    if (Number.isFinite(maximo) && t > maximo + ADELANTO_MAXIMO_MS) {
+    if (Number.isFinite(maximo) && t > segundosDe(maximo) + ADELANTO_MAXIMO_S) {
       falla(null, 4, 'el t del evento (' + ev.t + ') va más de un año (anio) por delante del mayor t del eje (' + new Date(maximo).toISOString() + ')');
     }
   }

@@ -597,7 +597,10 @@ test('la matriz es relativa al camino: celda, dirección y clase coinciden en to
   assert.equal(claseDe(p.en, [1]), 0);
   // La cadena entera, sobre la compra y sobre la ficha (que desarrolla el precio), con mucho T.
   const eje = await ejeGrande();
-  const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: base.compra.payload });
+  // La compra del ejemplo, con sus referencias al menú del otro eje llevadas al génesis de este (C1: una referencia
+  // a un evento ausente no entra).
+  const payloadCompra = JSON.parse(JSON.stringify(base.compra.payload).replaceAll(base.menu.id, eje.genesisId));
+  const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: payloadCompra });
   const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] }); // VG, 7-11 noche: por hojas (como escribirFicha)
   const celdas = [[0, 0, 0], [0, 1, 0], [1, 0, 1], [2, 0, 4], [3, 0, 0], [3, 2, 1], [7, 3, 4], [9, 9, 9]];
   const vistos = { dentro: 0, anclado: 0 };

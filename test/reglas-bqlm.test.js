@@ -532,10 +532,15 @@ const enLaCompra = (datos, aceptaElEje) => async () => {
   return { eje, ev: await aMano({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['x'], ...(typeof datos === 'function' ? datos({ eje, menu }) : datos) }), aceptaElEje };
 };
 
-divergencia('D-META-1', "writing burns today's T", '[X] VG: ev.1 trae los movimientos y el 1 del payload; una referencia a un evento ausente deja PENDIENTE toda regla que lee ev.1 (falta una posición con solo los movimientos)',
-  enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', { ref: AUSENTE }] }, true));
-divergencia('D-META-3', 'only persons mint', '[X] VG: lo mismo en ev.3 (el 3 del payload colisiona con el autor y el firmante)',
-  enLaCompra({ movimientos: [minuto('huesped'), { token: 'R', emisor: 'huesped', cantidad: 1, de: null, a: 'huesped' }], payload: ['x', '-', '-', { ref: AUSENTE }] }, false));
+test('D-META-1 y D-META-3, resueltas (C1: una referencia a un evento ausente se rechaza al entrar): ninguna regla llega a quedarse PENDIENTE por ella', async () => {
+  for (const caso of [
+    enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', { ref: AUSENTE }] }),
+    enLaCompra({ movimientos: [minuto('huesped'), { token: 'R', emisor: 'huesped', cantidad: 1, de: null, a: 'huesped' }], payload: ['x', '-', '-', { ref: AUSENTE }] }),
+  ]) {
+    const { eje, ev } = await caso();
+    assert.ok((await eje.validar(ev)).some((e) => /referencia a un evento que no está en el eje: abababab \(mientras el eje es local; con red, se resuelve antes de aceptar\)/.test(e)));
+  }
+});
 test('D-MOV-7, resuelta (B3: en el movimiento, 7.0 caduca y 7.1 refiere): una E con caducidad y fecha a la que se refiere, la regla la ve como JS', async () => {
   const { eje, menu } = await ejemploCompra();
   const ev = await aMano({ autor: 'casa', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['vale'], movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa', caduca: '2026-12-01T00:00:00Z', refiere: '2025-01-01T00:00:00Z' }] });
@@ -551,12 +556,17 @@ test('R10-T, resuelta (B1: persona o cosa por autoría): una cosa no tiene asign
   const cabe = await aMano({ autor: 'cocina', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['x'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 18, de: 'cocina', a: null }] });
   assert.equal(veredictos(eje, cabe)["writing burns today's T"].pasa, true, 'lo que tiene en su cartera, sí');
 });
-divergencia('RELOJ-MS', 'not before its focus', 'falta una posición: D-FECHA da segundos enteros; dentro del mismo segundo, unos milisegundos antes del foco pasan ([X] VG: un despliegue con el milisegundo o un reloj en segundos)',
-  async () => {
-    const w = await mundo();
-    const foco = await w.eje.escribir({ autor: 'casa', sobre: w.A, t: '2026-11-08T11:00:00.500Z', movimientos: [minuto('casa')], payload: ['foco'] });
-    return { eje: w.eje, ev: await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T11:00:00.200Z', payload: ['antes'], movimientos: [minuto('bea')] }), aceptaElEje: false };
-  });
+test('RELOJ-MS, resuelta (C2: segundos en todo): dentro del mismo segundo no hay antes, ni para JS ni para la regla', async () => {
+  const w = await mundo();
+  const foco = await w.eje.escribir({ autor: 'casa', sobre: w.A, t: '2026-11-08T11:00:00.500Z', movimientos: [minuto('casa')], payload: ['foco'] });
+  const mismoSegundo = await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T11:00:00.200Z', payload: ['antes'], movimientos: [minuto('bea')] });
+  const a = await comparar(w.eje, mismoSegundo, true);
+  assert.deepEqual([a.js['not before its focus'], a.bq['not before its focus'].pasa], [[], true]);
+  const segundoAntes = await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T10:59:59.900Z', payload: ['antes'], movimientos: [minuto('bea')] });
+  const b = await comparar(w.eje, segundoAntes, false);
+  assert.ok(b.js['not before its focus'].length > 0);
+  assert.equal(b.bq['not before its focus'].pasa, false);
+});
 divergencia('GENESIS-GUARDA', "P is minted on one's own record", '[X] VG: cómo se aparta el génesis de las reglas de «*»; «or count up ev = 0» deja pasar un evento sin foco que no es el génesis (lo para el ancla)',
   async () => {
     const w = await mundo();

@@ -1,13 +1,14 @@
 [
   ["not before the writer joined"],
   [0],
-  ["=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0 or count up ev = 0"],
+  ["=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
   [
     "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-2)",
-    "VG, 8-11: T como asignación diaria (mapa §12 [D])"
+    "VG, 8-11: T como asignación diaria (mapa §12 [D])",
+    "VG, 10-11, A2: sin excepción del génesis: el génesis la cumple sin ella"
   ],
   ["epoch 0"],
   ["after not before its focus"],

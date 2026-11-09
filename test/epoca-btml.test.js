@@ -119,7 +119,7 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).3'), ['ev.3']);
   assert.deepEqual(val('(first epoch.2).4'), ['burn', 'transfer']);
   assert.deepEqual(val('(first epoch.2).5'), ['*']);
-  assert.ok(val('(first epoch.2).6').every((l) => /^VG, \d+-11/.test(l)));
+  assert.ok(val('(first epoch.2).6').every((l) => /^(\[provisional\] )?VG, \d+-11/.test(l)), 'cada procedencia cita a VG y su fecha (marcada [provisional] si lo es)');
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);

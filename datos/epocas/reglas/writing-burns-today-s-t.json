@@ -9,7 +9,8 @@
     "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
     "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
     "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
-    "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño"
+    "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
+    "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
   ],
   ["epoch 0"],
   ["first"],

@@ -971,9 +971,11 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
   // 1 · forma
   assert.ok(validarForma({ autor: 'raiz', sobre: g, en: '4', t: T0, movimientos: [gastaT('raiz')], payload: 'x' }).length > 0);
   // 2 · interpretación
-  const p = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['P', '=LOCAL(9)', { ref: ID_INEXISTENTE }] }, raiz.privada);
+  const p = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['P', '=LOCAL(9)', '=REF("' + ID_INEXISTENTE + '")'] }, raiz.privada);
   assert.equal(evaluar(eje, p.id, [1]).estado, 'PENDIENTE');
-  assert.equal(ocupantes(eje, p.id, [2]).find((o) => o.origen === 'referencia').rota, true);
+  assert.equal(evaluar(eje, p.id, [2]).estado, 'PENDIENTE');
+  // C1 (VG, 10-11): una referencia { ref } a un evento ausente no entra en un eje local.
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['P', { ref: ID_INEXISTENTE }] }, raiz.privada), /referencia a un evento que no está en el eje/);
   // 3 · criptografía y procedencia
   assert.equal(await verificarId(p), true);
   assert.equal(await verificarId({ ...p, payload: 'cambiado' }), false);

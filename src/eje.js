@@ -47,7 +47,7 @@ import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, 
 import { acotarAltaV2, consolidacionQueAmplia, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { devolucionesDe } from './lente.js';
-import { msUTC, msDeGuardado } from './instante.js';
+import { msUTC, msDeGuardado, segundosUTC } from './instante.js';
 import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
@@ -962,9 +962,9 @@ function textoDeFallo(ev, fallo) {
 export function caducada(eje, clave, t) {
   const caduca = eje.serie(clave).caduca;
   if (!caduca) return false;
-  const ahora = msUTC(t);
+  const ahora = segundosUTC(t);
   if (Number.isNaN(ahora)) throw new Error('caducada: t debe ser instante ISO-8601 con zona explícita');
-  return ahora >= msUTC(caduca);
+  return ahora >= segundosUTC(caduca); // en segundos (VG, 10-11, C2)
 }
 
 /** La copia que guarda el eje (normalizarEvento); lo que no cabe en JSON se rechaza. */

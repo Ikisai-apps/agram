@@ -49,6 +49,17 @@ async function ejeCon(foco) {
   return { eje, id: eje.genesisId };
 }
 
+/**
+ * C1 (VG, 10-11): una referencia a un evento que no está ya no entra en un eje local («mientras el eje es local; con
+ * red, se resuelve antes de aceptar»). Para leer una referencia ausente, una réplica a la que aún no ha llegado el
+ * referido: el mismo eje, visto sin ese evento. Devuelve { vista, ausente } (el id que la vista no tiene).
+ */
+async function conAusente(eje, sobre) {
+  const a = await eje.escribir({ autor: 'raiz', sobre, t: T0, movimientos: [gastaT('raiz')], payload: 'el referido, que la réplica aún no tiene' });
+  const vista = new Proxy(eje, { get: (t, p) => (p === 'obtener' ? (id) => (id === a.id ? undefined : t.obtener(id)) : typeof t[p] === 'function' ? t[p].bind(t) : t[p]) });
+  return { vista, ausente: a.id };
+}
+
 /** Escribe un registro sobre otro, opcionalmente anclado en una dirección. */
 const escribe = (eje, sobre, payload, en, autor = 'raiz', t = T0) =>
   eje.escribir({ autor, sobre, en, t, movimientos: [gastaT(autor)], payload });
@@ -387,12 +398,13 @@ test('BTML-18 las referencias no copian: lo referido se lee al resolver, nunca a
   const { eje, id } = await ejeCon(['Casa']);
   // Se prepara A sin añadirlo: su id ya existe porque es el hash de su cuerpo.
   const a = await crearEvento({ autor: 'raiz', sobre: id, t: T0, movimientos: [gastaT('raiz')], payload: ['A', 'contenido de A'] });
+  // C1 (VG, 10-11): mientras A no está, B no entra (con red, se resolvería antes de aceptar).
+  await assert.rejects(escribe(eje, id, ['B', { ref: a.id, dir: '1000000000' }, '=LOCAL(1)']), /referencia a un evento que no está en el eje/);
+  await eje.anadir(a);
   const b = await escribe(eje, id, ['B', { ref: a.id, dir: '1000000000' }, '=LOCAL(1)']);
   assert.deepEqual(b.payload[1], { ref: a.id, dir: '1000000000' }); // se guarda la referencia, no el contenido
   assert.equal(JSON.stringify(b).includes('contenido de A'), false);
-  assert.notEqual(evaluar(eje, b.id, [2]).estado, 'RESUELTO'); // aún no hay nada que leer
-  await eje.anadir(a);
-  assert.equal(evaluar(eje, b.id, [2]).texto, 'contenido de A'); // al resolver, ahora sí
+  assert.equal(evaluar(eje, b.id, [2]).texto, 'contenido de A'); // al resolver
   assert.equal(ocupantes(eje, b.id, [1]).find((o) => o.origen === 'referencia').contenido, 'contenido de A');
 });
 
@@ -427,8 +439,12 @@ test('BTML-20 contexto ausente → PENDIENTE; tipo imposible → INCOMPATIBLE; c
 
 test('BTML-20b en el encaje, una referencia a un evento ausente es PENDIENTE (con su motivo), no ERROR', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const b = await escribe(eje, id, ['B', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
-  const rota = ocupantes(eje, b.id, [1]).find((o) => o.origen === 'referencia');
+  // C1 (VG, 10-11): en un eje local, la referencia ausente se rechaza al entrar.
+  await assert.rejects(escribe(eje, id, ['B', { ref: ID_INEXISTENTE }, '=LOCAL(1)']), /referencia a un evento que no está en el eje: ffffffff \(mientras el eje es local; con red, se resuelve antes de aceptar\)/);
+  // Leída en una réplica a la que el referido aún no ha llegado: PENDIENTE, con su motivo.
+  const { vista, ausente } = await conAusente(eje, id);
+  const b = await escribe(eje, id, ['B', { ref: ausente }, '=LOCAL(1)']);
+  const rota = ocupantes(vista, b.id, [1]).find((o) => o.origen === 'referencia');
   assert.equal(rota.estado, 'PENDIENTE');
   assert.match(rota.motivo, /ausente/);
   assert.equal(seguir(eje, { ref: ID_INEXISTENTE }).estado, 'PENDIENTE');
@@ -439,9 +455,13 @@ test('BTML-20b en el encaje, una referencia a un evento ausente es PENDIENTE (co
 
 test('BTML-20c en BQL, una referencia a un evento ausente es PENDIENTE, no ERROR', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const b = await escribe(eje, id, ['B', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
   assert.equal(consultar(eje, id, [0], 'REF("' + ID_INEXISTENTE + '")').estado, 'PENDIENTE');
-  assert.equal(evaluar(eje, b.id, [2]).estado, 'PENDIENTE');
+  // Como fórmula (un texto) la referencia ausente sí entra (C1 mira las referencias del payload), y queda PENDIENTE.
+  const c = await escribe(eje, id, ['C', '=REF("' + ID_INEXISTENTE + '")']);
+  assert.equal(evaluar(eje, c.id, [1]).estado, 'PENDIENTE');
+  const { vista, ausente } = await conAusente(eje, id);
+  const b = await escribe(eje, id, ['B', { ref: ausente }, '=LOCAL(1)']);
+  assert.equal(evaluar(vista, b.id, [2]).estado, 'PENDIENTE');
 });
 
 test('BTML-23 la yuxtaposición de referencias no significa por sí sola suma, concatenación ni traducción', async () => {
@@ -1022,9 +1042,10 @@ test('BTML-69 las potencias 4^4, 5^5, 6^6, 7^7… no son magnitudes equivalentes
 
 test('B:MOT-01 un fallo no borra alternativas: la referencia rota sigue siendo ocupante, sin dato inventado', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const x = await escribe(eje, id, ['X', { ref: ID_INEXISTENTE }]);
+  const { vista, ausente } = await conAusente(eje, id); // C1: la referencia rota, en una réplica sin el referido
+  const x = await escribe(eje, id, ['X', { ref: ausente }]);
   await escribe(eje, x.id, 'escrito', '1000000000');
-  const oc = ocupantes(eje, x.id, [1]);
+  const oc = ocupantes(vista, x.id, [1]);
   assert.deepEqual(oc.map((o) => o.origen).sort(), ['escrito', 'propio', 'referencia']);
   const rota = oc.find((o) => o.origen === 'referencia');
   assert.equal(rota.rota, true);
@@ -1033,8 +1054,9 @@ test('B:MOT-01 un fallo no borra alternativas: la referencia rota sigue siendo o
 
 test('B:MOT-01b al descubrir, la referencia ausente es un candidato pendiente explicado, no un error', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const x = await escribe(eje, id, ['X', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
-  const [p1] = descubrir(eje, x.id, { posiciones: [1] });
+  const { vista, ausente } = await conAusente(eje, id); // C1: la referencia rota, en una réplica sin el referido
+  const x = await escribe(eje, id, ['X', { ref: ausente }, '=LOCAL(1)']);
+  const [p1] = descubrir(vista, x.id, { posiciones: [1] });
   const rota = p1.candidatos.find((o) => o.origen === 'referencia');
   assert.equal(rota.estado, 'PENDIENTE');
   assert.match(rota.texto, /^PENDIENTE: evento ausente del eje/);
@@ -1044,8 +1066,9 @@ test('B:MOT-01b al descubrir, la referencia ausente es un candidato pendiente ex
 
 test('B:MOT-01c en BQL, la referencia ausente es un pendiente explicado', async () => {
   const { eje, id } = await ejeCon(['Casa']);
-  const x = await escribe(eje, id, ['X', { ref: ID_INEXISTENTE }, '=LOCAL(1)']);
-  const r = evaluar(eje, x.id, [2]);
+  const { vista, ausente } = await conAusente(eje, id); // C1: la referencia rota, en una réplica sin el referido
+  const x = await escribe(eje, id, ['X', { ref: ausente }, '=LOCAL(1)']);
+  const r = evaluar(vista, x.id, [2]);
   assert.equal(r.estado, 'PENDIENTE');
   assert.ok(r.motivo);
 });

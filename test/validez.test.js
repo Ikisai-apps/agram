@@ -70,11 +70,14 @@ test('sin efectos: ni el eje ni el evento cambian', async () => {
 
 test('referencia a un id ausente: la interpretación queda pendiente y las otras cuatro capas no se enteran', async () => {
   const { eje, compra, menu } = await ejemploCompra();
-  const nota = await eje.escribir({
+  // C1 (VG, 10-11): el eje local no la acepta; la validez de la candidata dice por qué capa: la 2, pendiente (con red,
+  // se resolvería antes de aceptar).
+  const nota = await crearEvento({
     autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina')],
     payload: ['Nota', { ref: 'f'.repeat(64) }, { ref: menu.id, dir: '7000000000' }],
   });
-  const v = await validez(eje, nota.id);
+  await assert.rejects(eje.anadir(nota), /referencia a un evento que no está en el eje: ffffffff/);
+  const v = await validez(eje, nota);
   // Corpus: la capa 2 es «interpretación de contexto, referencias y posiciones» (V4 06 l.36); ausente → PENDIENTE, puede llegar.
   assert.equal(v.interpretacion.estado, 'pendiente');
   assert.deepEqual(v.interpretacion.referencias.map((r) => r.estado), ['pendiente', 'pendiente']);
@@ -206,9 +209,10 @@ test('fórmula pendiente: la interpretación queda pendiente y las otras capas n
 
 test('una referencia ausente da lo mismo escrita como { ref } o como =REF: pendiente, en la capa 2', async () => {
   const { eje, compra } = await ejemploCompra();
-  const escribir = (payload) => eje.escribir({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload });
-  const comoFormula = await validez(eje, (await escribir(['Cuenta', '=REF("ffffffff", "1200000000") + 2 EUR'])).id);
-  const comoRef = await validez(eje, (await escribir(['Cuenta', { ref: 'f'.repeat(64), dir: '1200000000' }])).id);
+  // C1 (VG, 10-11): las dos, como candidatas (la de { ref } el eje local no la acepta).
+  const escribir = (payload) => crearEvento({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload });
+  const comoFormula = await validez(eje, await escribir(['Cuenta', '=REF("ffffffff", "1200000000") + 2 EUR']));
+  const comoRef = await validez(eje, await escribir(['Cuenta', { ref: 'f'.repeat(64), dir: '1200000000' }]));
   const [f] = comoFormula.interpretacion.formulas;
   assert.equal(f.estado, 'PENDIENTE'); // BQL: «referencia ausente del eje» (lo ausente no es falso)
   assert.equal(f.capa, 'pendiente');

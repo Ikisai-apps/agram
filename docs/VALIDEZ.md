@@ -112,6 +112,7 @@ La excepción es quién puede autorizar y si una consolidación está autorizada
 | `id no corresponde al cuerpo` | 3 |
 | `ya hay génesis`, `solo el génesis carece de foco` | 3 |
 | `foco desconocido` | 3 (pendiente) |
+| `referencia a un evento que no está en el eje` (suelo, VG, 10-11, C1) | 2 (pendiente: con red se resolvería antes de aceptar) |
 | `autor desconocido` | 3 (pendiente) |
 | `firma ausente`, `el firmante debe ser el autor`, `firma inválida`, `autor sin clave` | 3 |
 | `no se puede cambiar la clave`, `clave declarada … sin darle tokens`, `clave inválida` | 3 |

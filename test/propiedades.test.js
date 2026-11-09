@@ -403,7 +403,8 @@ function payloadEje(g, ids, prof = 0, formula) {
     if (k < 0.3) return g.pick([0, 1, 12, -3]);
     if (k < 0.5) return g.pick(['menú', '12 EUR', '5 min', '==texto', 'plaza']);
     if (k < 0.7 && ids.length) return g.si(0.3) ? { ref: g.pick(ids) } : { ref: g.pick(ids), dir: direccion([g.int(0, 3), g.int(0, 3)].slice(0, g.int(0, 2))) };
-    if (k < 0.78) return g.si() ? { ref: hex(g) } : { ref: hex(g), dir: '1000000000' }; // referencia rota
+    // C1 (VG, 10-11): una referencia rota no entra en el eje; su lectura la prueban los ejes falsos de más abajo.
+    if (k < 0.78) { g.si(); hex(g); return ids.length ? { ref: ids[ids.length - 1] } : 'x'; } // el mismo azar de antes
     if (formula && k < 0.95) return '=' + formula(g, ids);
     return 'x';
   }

@@ -210,10 +210,10 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "849efa27a9ac2cc18c78f47162f31e7748529c139f2badad7b1ebe737a089664"
+      "ref": "586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326"
     },
     {
-      "ref": "4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89"
+      "ref": "1c85e7b86b70f583123314be2096f4941296c1d343901ada6908b8c63d171fca"
     },
     {
       "ref": "140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"
@@ -231,13 +231,13 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "9830243a50f947baed45764e0f4627d361c20add067fec47499766eaf03ad1f6"
     },
     {
-      "ref": "40994540fd9ff135e5ec2bc359268fa4ba4de6568d86451d0fd112cb13dc9c65"
+      "ref": "6f482575f81d0fbe975ce499b5df8e4696f4a68820f1e3d40717eafd732d3611"
     },
     {
-      "ref": "78b17a3977eaa6f24e64aa3c10937359598b3ccffbed22ad65b77b6c64b383df"
+      "ref": "1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45"
     },
     {
-      "ref": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"
+      "ref": "070b521aa5f7e008e54d6fc2580433459fad2d738d654378a4bd8adadbbb7dd2"
     },
     {
       "ref": "7c413947c156969948e7da24fb480ab15af42176f400e07f03455fd326a174f2"
@@ -252,13 +252,13 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "f773dd6c5ce49da448821019cba9aa125a90116cd0c63ae787014fd7dc4cc45c"
     },
     {
-      "ref": "4b40c379d3ce08d5bb25607cd39282b33a0480b54347770a09612ea8acf1e9b1"
+      "ref": "bbeb475a8d7cabdef089352e3f346e5f20f006497047ac4897fa2b889b961c92"
     },
     {
-      "ref": "0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e"
+      "ref": "24cf844184f61c9b29163d526dd7514ea391b9f0ef20cb858bec459e3d2e3252"
     },
     {
-      "ref": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277"
+      "ref": "0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163"
     },
     {
       "ref": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5"
@@ -2670,7 +2670,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "at-most-a-year-ahead.json",
-    "id": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277",
+    "id": "0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163",
     "registro": [
       [
         "at most a year ahead"
@@ -2680,7 +2680,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.7.0.6.1"
       ],
       [
-        "=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + epoch.7.0.6.1 or count up ev = 0"
+        "=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + epoch.7.0.6.1"
       ],
       [
         "ev.3"
@@ -2697,7 +2697,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)",
-        "VG, 10-11, A3: el año es el del calendario de la época (epoch.7.0.6.1, sus segundos: 364 + 1 días), no 365 escrito en la regla"
+        "VG, 10-11, A3: el año es el del calendario de la época (epoch.7.0.6.1, sus segundos: 364 + 1 días), no 365 escrito en la regla",
+        "VG, 10-11, A2: sin excepción del génesis: el génesis la cumple sin ella"
       ],
       [
         "epoch 0"
@@ -2825,7 +2826,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-event-moves-tokens.json",
-    "id": "4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89",
+    "id": "1c85e7b86b70f583123314be2096f4941296c1d343901ada6908b8c63d171fca",
     "registro": [
       [
         "every event moves tokens"
@@ -2835,7 +2836,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count before.5 = 0 or count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1"
+        "=count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -2852,7 +2853,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §10.1 [D]: «todo evento ES una transición de tokens»",
-        "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)"
+        "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)",
+        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
       ],
       [
         "epoch 0"
@@ -2867,7 +2869,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-record-hangs-on-a-record-of-the-ledger.json",
-    "id": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63",
+    "id": "070b521aa5f7e008e54d6fc2580433459fad2d738d654378a4bd8adadbbb7dd2",
     "registro": [
       [
         "every record hangs on a record of the ledger"
@@ -2877,7 +2879,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         1
       ],
       [
-        "=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5)"
+        "=(count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5) or count up ev = 0"
       ],
       [
         "ev.3"
@@ -2894,7 +2896,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §14 [D]: «autor y fecha son puntos de vista»; D-META pone sobre y en en el 6.5",
-        "mapa §10.1 [D]: el génesis es el único registro sin foco"
+        "mapa §10.1 [D]: el génesis es el único registro sin foco",
+        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
       ],
       [
         "epoch 0"
@@ -3145,7 +3148,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "not-before-its-focus.json",
-    "id": "4b40c379d3ce08d5bb25607cd39282b33a0480b54347770a09612ea8acf1e9b1",
+    "id": "bbeb475a8d7cabdef089352e3f346e5f20f006497047ac4897fa2b889b961c92",
     "registro": [
       [
         "not before its focus"
@@ -3154,7 +3157,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (first ev.6.5).6.0 = 0 or (first ev.6.0).0 >= (first (first ev.6.5).6.0).0 or count up ev = 0"
+        "=count (first ev.6.5).6.0 = 0 or (first ev.6.0).0 >= (first (first ev.6.5).6.0).0"
       ],
       [
         "ev.3"
@@ -3171,7 +3174,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-1)",
-        "VG, 8-11: T como asignación diaria; un alta retrofechada daría días de asignación sin fin (mapa §12 [D])"
+        "VG, 8-11: T como asignación diaria; un alta retrofechada daría días de asignación sin fin (mapa §12 [D])",
+        "VG, 10-11, A2: sin excepción del génesis: el génesis la cumple sin ella"
       ],
       [
         "epoch 0"
@@ -3186,7 +3190,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "not-before-the-writer-joined.json",
-    "id": "0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e",
+    "id": "24cf844184f61c9b29163d526dd7514ea391b9f0ef20cb858bec459e3d2e3252",
     "registro": [
       [
         "not before the writer joined"
@@ -3195,7 +3199,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0 or count up ev = 0"
+        "=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0"
       ],
       [
         "ev.3"
@@ -3212,7 +3216,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-2)",
-        "VG, 8-11: T como asignación diaria (mapa §12 [D])"
+        "VG, 8-11: T como asignación diaria (mapa §12 [D])",
+        "VG, 10-11, A2: sin excepción del génesis: el génesis la cumple sin ella"
       ],
       [
         "epoch 0"
@@ -3568,7 +3573,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-genesis-e-names-no-record.json",
-    "id": "78b17a3977eaa6f24e64aa3c10937359598b3ccffbed22ad65b77b6c64b383df",
+    "id": "1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45",
     "registro": [
       [
         "the genesis E names no record"
@@ -3578,7 +3583,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count before.5 = 1 or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"
+        "=not (count up ev = 0) or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"
       ],
       [
         "ev.3"
@@ -3591,7 +3596,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §10.1 [D]: el génesis",
-        "VG, 9-11 D2 (mapa §15): toda E dice a qué registro está atada, sin excepción para el génesis: el suyo"
+        "VG, 9-11 D2 (mapa §15): toda E dice a qué registro está atada, sin excepción para el génesis: el suyo",
+        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
       ],
       [
         "epoch 0"
@@ -3606,7 +3612,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-genesis-only-mints-to-its-author.json",
-    "id": "40994540fd9ff135e5ec2bc359268fa4ba4de6568d86451d0fd112cb13dc9c65",
+    "id": "6f482575f81d0fbe975ce499b5df8e4696f4a68820f1e3d40717eafd732d3611",
     "registro": [
       [
         "the genesis only mints to its author"
@@ -3616,7 +3622,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count before.5 = 1 or count (ev.1 where transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4 or (mint in it.4 and it.3.1 != first ev.3)) = 0"
+        "=not (count up ev = 0) or count (ev.1 where transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4 or (mint in it.4 and it.3.1 != first ev.3)) = 0"
       ],
       [
         "ev.3"
@@ -3633,7 +3639,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §10.1 [D]: el génesis",
-        "VG, 9-11 (mapa §16): el génesis es la época; su autor, implícito en el 3"
+        "VG, 9-11 (mapa §16): el génesis es la época; su autor, implícito en el 3",
+        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
       ],
       [
         "epoch 0"
@@ -3732,7 +3739,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "849efa27a9ac2cc18c78f47162f31e7748529c139f2badad7b1ebe737a089664",
+    "id": "586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326",
     "registro": [
       [
         "writing burns today's T"
@@ -3759,7 +3766,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
         "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
         "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
-        "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño"
+        "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
+        "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
       ],
       [
         "epoch 0"

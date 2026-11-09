@@ -163,7 +163,7 @@ test('capa cero: cada condición cita filas que están en el inventario, y van e
   assert.ok(filas.size >= 130);
   for (const c of catalogo()) for (const f of c.filas) assert.ok(filas.has(f), c.nombre + ' cita ' + f);
   assert.deepEqual(CONDICIONES.map((c) => c.nombre), [
-    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'ancla', 'ID-1', 'ID-5', 'ID-6', 'ID-3',
+    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'ancla', 'suelo:referencias', 'ID-1', 'ID-5', 'ID-6', 'ID-3',
     'VA-3', 'RL-1', 'ID-9', 'TT-6', 'TT-4', 'TT-8', 'PP-5', 'ES-1',
     'VA-3', 'EE-1', 'EE-8', 'EE-10', 'EE-5',
     'RR-3', 'RR-4', 'RR-5',

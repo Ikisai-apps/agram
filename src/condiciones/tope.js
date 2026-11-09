@@ -6,7 +6,7 @@
 // §2, «Recursos (E)»). Mismo texto, mismo orden, mismo comportamiento.
 
 import { claveToken, partirClave, validarMovimiento, franjaDe, familiaDe, TODAS_LAS_FRANJAS, AMBITO_GENESIS } from '../tokens.js';
-import { esInstante, msUTC } from '../instante.js';
+import { esInstante, msUTC, segundosUTC, segundosDe } from '../instante.js';
 
 /** Lo que dice series() de una serie de E cuyo registro no declara capacidad ni la hereda. */
 export const SIN_CAPACIDAD = 'sin capacidad declarada: deuda del emisor';
@@ -212,7 +212,8 @@ function analizar(ev, ctx) {
     tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
     return tReloj;
   };
-  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && reloj() >= msUTC(s.caduca);
+  // En segundos (VG, 10-11, C2), como D-FECHA en las reglas.
+  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && segundosDe(reloj()) >= segundosUTC(s.caduca);
   const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
 
   // Todas las series de E tras el evento, con su franja; calculado una vez.

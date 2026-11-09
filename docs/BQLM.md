@@ -440,12 +440,10 @@ Lo que la verificación dejó sin el mismo veredicto, con la prueba que lo docum
 
 | Id | Regla | Caso | Por qué |
 |---|---|---|---|
-| D-META-1, D-META-3 | toda regla que lee `ev.1`, `ev.3` o `ev.6` | un payload con una referencia a un evento que no está (`{"ref": "abab…"}`) en su 1, su 3 o su 6, o con más de 10 000 hojas: el eje lo acepta y la regla queda PENDIENTE | D-META mezcla lo implícito (movimientos, autor y firmante, sobre y en) con lo propio del payload, y no hay posición con solo lo implícito. Aparece en 43 eventos válidos de los tests |
 | D-MOV-7 | 2.0.3 | una E acuñada con caducidad y con fecha a la que se refiere: JS la rechaza y la regla no la ve | D-MOV pone en el 7 «caducidad o fecha a la que se refiere» |
 | R10-T | 2.0.0 | una cosa (o una identidad sin tipo) quema más horas que su saldo: la regla le cuenta la asignación de la época; lo para el saldo | no lee el tipo (R10) |
-| RELOJ-MS | 2.1.2, 2.1.3, 2.1.4 | una transacción unos milisegundos anterior a su foco, dentro del mismo segundo: JS la rechaza y la regla no | D-FECHA da segundos enteros. Lo mismo con una caducidad a media fracción de segundo en 2.2.4 |
-| GENESIS-GUARDA | 2.0.0, 2.2.0 y las del ciclo | un evento sin foco que no es el génesis pasa por `or count up ev = 0`; lo para el ancla | la guarda del génesis |
-| PATH-10 | 2.2.2 | P en un antepasado a más de diez niveles del foco: el eje acepta y la regla queda PENDIENTE | `path` tiene tope de diez |
+| GENESIS-GUARDA | las que apartan el génesis y las del ciclo | un evento sin foco que no es el génesis pasa por la forma provisional `count up ev = 0`; lo para el suelo (solo el génesis carece de foco) | la forma provisional del génesis (A2) |
+| PATH-10 | minting E needs P on the record (3b) | P en un antepasado a más de diez niveles del foco: el eje acepta y la regla queda PENDIENTE | `path` tiene tope de diez (VG, 10-11, C2); el escalonado es del 3b y sigue en JS sin tocar |
 | EE-4 | 2.2.4 | liberar un bloqueo de familia con E viva: JS lo rechaza y la regla no lo mira | falta la clave de familia |
 | VA-3 | las del ciclo | un evento del prefijo v2 que las reglas de la versión 2 aceptan | ninguna posición dice si el evento es del prefijo |
 | RR-3 retirada, RR-1 retirada | 2.1.5 y las de R | emitir R sin colateral, transferir R entre tenedores: el eje de hoy lo rechaza y las reglas no | decisión de VG (9-11) |
@@ -456,15 +454,15 @@ En eventos que el eje rechaza por otro lado hay más diferencias, inofensivas: m
 
 Lo marcado [X] en las cinco familias y en la integración. Se suma a §8.
 
-- **Una posición con solo lo implícito de D-META** (los movimientos en el 1; autor y firmante en el 3; sobre y en en el 6), o que el suelo rechace referencias a eventos ausentes, o que una referencia ausente no deje PENDIENTE (D-META-1, D-META-3).
-- **Cómo se aparta el génesis de las reglas de «*».** Hoy hay dos formas: `or count up ev = 0` (sin foco: familias T y ciclo) y `count before.5 = 0` (el libro de antes no tiene génesis: familia identidad), que dan lo mismo en los eventos válidos; conviene una sola. Si el génesis deja de ser una transacción (el mapa §16 dice que el génesis es la época), las dos sobran.
+- **Las referencias ausentes**: resuelto (VG, 10-11, C1): el suelo rechaza al entrar una referencia del payload a un evento que el eje no tiene, «mientras el eje es local; con red, se resuelve antes de aceptar» (`suelo:referencias`, `src/condiciones/evento.js`); D-META-1 y D-META-3 ya no se dan. El límite de 10 000 ocupantes sigue dando PENDIENTE POR LÍMITE.
+- **Cómo se aparta el génesis de las reglas de «*»**: resuelto (VG, 10-11, A2): sin excepción del génesis, salvo una sola forma, «no tiene foco» (`count up ev = 0`, o `not (count up ev = 0)` en las que solo miran el génesis), marcada [provisional] en el 6 de cada regla que la lleva; sobra cuando el génesis sea la época. «not before its focus», «not before the writer joined» y «at most a year ahead» ya no la llevan: el génesis las cumple sin ella.
 - **El prefijo de la versión 2**: ¿es una época propia con su 2 (el 7 de cada regla) o queda como suelo de la persistencia?
 - **El tipo de una identidad**: la asignación de una cosa (§8), «solo las personas emiten» (ID-9), el paso de T entre personas y cosas (TT-8, TT-9) y la regla de tipos (ID-3), frente a H2 («no se mira el tipo»): ¿se retira ya o espera a que «cosa = registro con clave propia» tenga posición?
 - **D-MOV**: separar la caducidad y la fecha a la que se refiere en el 7; en qué posición van «divisible» y «emisores» (EE-9, EE-10); el orden del movimiento en su transacción (PP-5).
 - **D-SERIE**: una posición con la clave de familia o con la denominación sin franja (EE-4).
 - **Vistas que faltan**: el contrato de una serie que ya no está viva. Las series vivas del subárbol (`X.7.1`), el reloj de los demás (`before.6.3`) y lo bloqueado con una salida por todos los titulares (`before.2`) ya están (VG, 10-11, B6); sus posiciones son una propuesta [H].
-- **El reloj en milisegundos o en segundos** (D-FECHA da segundos; JS compara milisegundos), también para las caducidades con fracción de segundo.
-- **El tope de diez de `path`** (PATH-10).
+- **El reloj en milisegundos o en segundos**: resuelto (VG, 10-11, C2): segundos en todo. JS compara el tiempo en segundos enteros (`instante.segundosUTC`: el reloj RL-1 a RL-3, la caducidad de una serie y de una autorización, la misma caducidad de EE-9), como D-FECHA en las reglas; dentro del mismo segundo no hay antes (RELOJ-MS ya no se da).
+- **El tope de diez de `path`**: resuelto (VG, 10-11, C2): diez, y PENDIENTE si el hilo es más largo (PATH-10 queda en la regla del escalonado, que es del 3b).
 - **El año**: resuelto (VG, 10-11, A3): el calendario de la época (`epoch.7.0`) lleva los segundos de cada escala y el año es de 364 + 1 días; «at most a year ahead» lo lee de ahí y `tokens.SEGUNDOS` también. Queda abierto si el año de D-FECHA ha de seguir al civil (§4).
 - **Cómo se declara la capacidad** de un registro (EE-2).
 - **Dónde viven las lecturas**: resuelto (VG, 10-11, B5): son reglas de la época con `read` en su 4 y se leen en la posición que dice su 3 (§5). Quedan por escribir así TT-11 y RR-8; las posiciones de las cuatro primeras (`X.6.1`, `X.6.7`, `X.7.4`, `A.3.1`) son una propuesta [H] con las reglas cortas de la época.

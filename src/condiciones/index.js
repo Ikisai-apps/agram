@@ -10,13 +10,13 @@
 // movimiento concreto: el libro no lo simula y su motivo va en su sitio
 // entre los fallos de la aritmética (src/libro.js, probar).
 
-import { FORMA, ID, NUEVO, UN_GENESIS, ANCLA, AUTOR_CON_ALTA } from './evento.js';
+import { FORMA, ID, NUEVO, UN_GENESIS, ANCLA, REFERENCIAS, AUTOR_CON_ALTA } from './evento.js';
 import { FIRMA, CLAVES, TIPOS, AJENOS, GENESIS, FIRMA_GENESIS } from './identidad.js';
 import { CONDICIONES_DEL_CICLO, AMBITO_P } from './ciclo.js';
 import { CONDICIONES_DEL_TOPE } from './tope.js';
 import { CONDICIONES_DE_R } from './r.js';
 
-export { FORMA, ID, NUEVO, UN_GENESIS, ANCLA, AUTOR_CON_ALTA } from './evento.js';
+export { FORMA, ID, NUEVO, UN_GENESIS, ANCLA, REFERENCIAS, AUTOR_CON_ALTA } from './evento.js';
 export { FIRMA, CLAVES, TIPOS, AJENOS, GENESIS, FIRMA_GENESIS, erroresGenesis, erroresFirmaGenesis } from './identidad.js';
 export { CONDICIONES_DEL_CICLO, AMBITO_P } from './ciclo.js';
 export { CONDICIONES_DEL_TOPE, reglasDelTope, SIN_CAPACIDAD, contratoE } from './tope.js';
@@ -24,7 +24,7 @@ export { CONDICIONES_DE_R } from './r.js';
 
 /** Las condiciones de un evento que no es el génesis, en el orden de eje.validar. */
 export const CONDICIONES = Object.freeze([
-  FORMA, ID, NUEVO, UN_GENESIS, ANCLA, AUTOR_CON_ALTA,
+  FORMA, ID, NUEVO, UN_GENESIS, ANCLA, REFERENCIAS, AUTOR_CON_ALTA,
   FIRMA, CLAVES, TIPOS,
   ...CONDICIONES_DEL_CICLO,
   ...CONDICIONES_DEL_TOPE,

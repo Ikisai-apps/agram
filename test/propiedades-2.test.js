@@ -413,7 +413,9 @@ function payloadAl(g, ids, prof = 0) {
     if (k < 0.25) return g.pick([0, 1, 2, 3, 12]);
     if (k < 0.4) return g.pick(['5 EUR', '3 EUR', '2 min', 'x', '==t', '1000000000', '2000000000']);
     if (k < 0.6 && ids.length) return g.si(0.3) ? { ref: g.pick(ids) } : { ref: g.pick(ids), dir: dirAl(g) };
-    if (k < 0.65) return { ref: hex(g) };
+    // C1 (VG, 10-11): una referencia a un evento ausente no entra en el eje; la lectura de una rota la prueban los
+    // ejes falsos (propiedades.test.js, «referencias cíclicas y cadenas largas»).
+    if (k < 0.65) { hex(g); return ids.length ? { ref: ids[ids.length - 1] } : 'y'; } // el mismo azar de antes
     if (k < 0.9 && ids.length) return '=' + formula(g, ids);
     return 'y';
   }
