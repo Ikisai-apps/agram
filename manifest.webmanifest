@@ -1,0 +1,16 @@
+{
+  "name": "AGRAM · la carta",
+  "short_name": "AGRAM",
+  "description": "La carta de AGRAM: un registro con un tamaño, en un punto de vista, sobre el contrato del núcleo. Datos de ejemplo, nada real.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#faf7f1",
+  "theme_color": "#7a4b1f",
+  "icons": [
+    { "src": "./carta/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./carta/icono.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -8,7 +8,7 @@ Qué leer para qué. Todo lo que hay aquí describe `main` (03dbf34, con la inte
 |---|---|
 | alguien que llega y quiere saber qué es AGRAM | `README.md` → `docs/FUNDAMENTOS.md` |
 | un programa o un agente que va a escribir registros y fórmulas | `docs/BTML.md` → `docs/BQL.md` → `docs/MOTOR.md` (es lo que leyó «el extranjero», `docs/notas/PRUEBA_DEL_EXTRANJERO.md`) |
-| quien toca la pantalla | `docs/MODOS.md` → `docs/EFECTOS.md` (cada animación sale de un efecto) → `docs/MOTOR.md` §7 → `app.js`, `ui/` y `mundos/` |
+| quien toca la pantalla | `docs/MODOS.md` → `docs/EFECTOS.md` (cada animación sale de un efecto) → `docs/MOTOR.md` §7 → `carta/` (la carta) y, la web antigua, `antigua/app.js`, `antigua/ui/` y `antigua/mundos/` |
 | quien va a decidir (VG) | `docs/FUNDAMENTOS.md` («Las decisiones del mapa §12, una a una») → las notas de `docs/notas/` → las «Dudas para VG» de `docs/REGLAS_CORTAS.md` |
 
 ## Para qué sirve cada documento
@@ -70,8 +70,8 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | neutralidad: elegibles antes que límites (R8), sin clave no se actúa (R9), el tipo no da renta (R10) | `docs/FUNDAMENTOS.md` («Neutralidad»), `docs/notas/NEUTRALIDAD_IDENTIDAD.md`, `docs/BQL.md` §7.4 | `src/elegibles.js`, `src/eje.js`, `src/autoridad.js`, `src/ciclo.js` | `test/neutralidad.test.js`, `test/neutralidad-reglas.test.js` |
 | la lente de R (R6): la R vale solo con la lente firmada de quien la lee; emitir R exige colateral; atender devoluciones | `docs/FUNDAMENTOS.md` («La lente de R»), `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §4, `docs/BQL.md` §7.15 | `src/lente.js`, `src/ciclo.js`, `src/eje.js`, `src/validez.js`, `src/bql.js`, `ejemplos/ikisai/lente-booking.mjs` | `test/lente.test.js` |
 | Pointed, Sequenced, Mapped, Scened | `docs/MODOS.md` | `src/pointed.js`, `src/sequenced.js`, `src/mapped.js`, `src/scened.js` | `test/pointed.test.js`, `test/sequenced.test.js`, `test/mapped.test.js`, `test/scened.test.js` |
-| la pantalla | `docs/MODOS.md` §0.5 (la celda 8 de Mapped) y §10 (Scened) | `index.html`, `app.js`, `ui/comun.js`, `ui/encaje.js`, `ui/fabrica.js`, `ui/epocas.js`, `ui/ejemplos.js`, `ui/saldos.js`, `ui/escena.js`, `ui/ocho.js` | `test/ui.test.js`, `test/escena-ui.test.js`, `test/celda-8.test.js` |
-| los mundos animados: la cruz y la X | `docs/MUNDOS.md`, `docs/EFECTOS.md` («Los mundos») | `mundos/` (`hilos-ui.js`, `cruz-ui.js` y `x-ui.js` los enganchan a `app.js`) | `test/hilos.test.js`, `test/cielo.test.js`, `test/camino.test.js`, `test/cruz.test.js`, `test/cruz-ui.test.js`, `test/mundos-x.test.js`, `test/ganchos-app.test.js` |
+| la pantalla | `docs/MODOS.md` §0.5 (la celda 8 de Mapped) y §10 (Scened) | la carta: `index.html`, `carta/carta.js`, `carta/dom.js`, `carta/gestos.js`, `carta/app.js` (`docs/CONTRATO.md`); la web antigua: `antigua/index.html`, `antigua/app.js`, `antigua/ui/*.js` | `test/carta.test.js`, `test/ui.test.js`, `test/escena-ui.test.js`, `test/celda-8.test.js` |
+| los mundos animados: la cruz y la X | `docs/MUNDOS.md`, `docs/EFECTOS.md` («Los mundos») | `antigua/mundos/` (`hilos-ui.js`, `cruz-ui.js` y `x-ui.js` los enganchan a `antigua/app.js`) | `test/hilos.test.js`, `test/cielo.test.js`, `test/camino.test.js`, `test/cruz.test.js`, `test/cruz-ui.test.js`, `test/mundos-x.test.js`, `test/ganchos-app.test.js` |
 | guardar y restaurar | `docs/MOTOR.md` §9, `docs/BTML.md` §8.1 | `src/persistencia.js` | `test/persistencia.test.js` |
 | ejemplos de Ikisai (datos inventados) | `docs/BTML.md` §9 | `ejemplos/ikisai/` | `test/ejemplo-ikisai.test.js`, `test/ejemplo-booking.test.js`, `test/ejemplo-tasks.test.js` |
 
