@@ -80,7 +80,7 @@ test('A2-06: cargarEpoca lee y valida los cortes; confluir acepta la época por 
 test('A2-01: «0034» y «120» escritos como texto se leen como texto, sin perder ceros', async () => {
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'raiz', tipo: 'persona', t: T,
+    identidad: 'raiz', t: T,
     emision: [],
     foco: ['Registro', 'x', '0034', '120', 'Mesa 4', '12 EUR', 120],
   });

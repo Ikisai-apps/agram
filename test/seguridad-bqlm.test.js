@@ -64,13 +64,13 @@ test('SEG-10 la expansión de ocupantes tiene un presupuesto por evaluación; la
 
 test('SEG-11 «nadie» es un símbolo: una identidad que se llama así no se confunde con el otro lado de una quema', async () => {
   const { eje } = await ejemploCompra();
+  await eje.entrar({ identidad: 'nadie', t: '2026-11-07T15:00:00Z' }); // B1: escribe su propia alta
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t: '2026-11-07T15:00:00Z',
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 5, de: 'casa', a: 'nadie' }],
     payload: ['Alta de alguien que se llama nadie', ['nadie']],
-    contexto: { tipos: { nadie: 'persona' } },
   });
   const ev = await crearEvento({ autor: 'nadie', sobre: alta.id, t: '2026-11-07T16:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'nadie', a: null }], payload: ['Escribe nadie'] });
   const ctx = new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML });

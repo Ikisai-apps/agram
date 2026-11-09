@@ -65,7 +65,7 @@ test('sin base escrita: PENDIENTE, el motivo dice cómo escribirla y qué vigila
   assert.equal(q(ej, 'FRESCURA()', nota.id).motivo, 'sin base escrita en el 8 de ' + ej.guisos.id.slice(0, 8) + ' (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = '
     + ej.guisos.id.slice(0, 8) + ', firmada por casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.');
   // Sin identidad propia y sin nadie con clave y P sobre él, nadie puede escribirla.
-  const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
+  const solo = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [], foco: 'Sin poder', t: '2026-11-07T09:00:00Z' });
   const lista = await solo.escribir({ autor: 'raiz', sobre: solo.genesisId, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Lista' });
   const punto = await solo.escribir({ autor: 'raiz', sobre: lista.id, t: '2026-11-07T09:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }], payload: 'Punto' });
   assert.equal(consultar(solo, punto.id, [], 'FRESCURA()').motivo, 'sin base escrita en el 8 de ' + lista.id.slice(0, 8) + ' (alcance hermanos). ' + lista.id.slice(0, 8)
@@ -202,7 +202,7 @@ test('PENDIENTE POR LÍMITE: se cobra lo que la lectura examina, contado mientra
   };
   const costeHermanos = 1 + coste(ej.menu.id);
   const costeGeneral = 1 + coste(eje.genesisId);
-  assert.deepEqual([costeHermanos, costeGeneral], [6, 20]); // el menú: la base y cinco escritos; el génesis: todo el árbol de bases
+  assert.deepEqual([costeHermanos, costeGeneral], [6, 22]); // el menú: la base y cinco escritos; el génesis: todo el árbol de bases (con las altas de huesped y vecina, B1)
   // FRESCURA() gasta un paso; con un argumento, dos. Lo demás es la lectura.
   const corto = conPresupuesto('FRESCURA()', costeHermanos);
   assert.equal(corto.estado, 'PENDIENTE POR LÍMITE');

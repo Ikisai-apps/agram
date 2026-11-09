@@ -125,7 +125,7 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
   ].join('\n'));
   assert.match(leerEvento(eje, compra.id, { camino: [8] }), /posición 8\n\(posición vacía\)$/);
   // El génesis: sin «sobre», y su payload terminal en una línea.
-  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n↳ ocupante 1 · casa · Altas del fin de semana$/);
+  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n↳ ocupante 1 · huesped · alta de huesped\n↳ ocupante 2 · casa · Altas del fin de semana$/);
   assert.throws(() => leerEvento(eje, 'f'.repeat(64)), /registro desconocido/);
 });
 

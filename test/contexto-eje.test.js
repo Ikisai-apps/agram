@@ -88,22 +88,35 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
   const ctx = new ContextoEje(null, { ev });
   assert.deepEqual(val('ev.1.4', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn'].map((p) => SIMBOLOS[p]));
   assert.deepEqual(val('ev.1.1', ctx), [2, 4, 1, 3, 1, 1]);
-  assert.deepEqual(val('ev.1.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
+  // B3: el 0 de un movimiento es su serie, un registro: su 0 es la clave legible (0.0 familia, 0.1 escala o emisor o ámbito).
+  assert.deepEqual(val('ev.1.0.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
+  assert.deepEqual(evaluar('ev.1.0.0', ctx).texto, 'T:minuto, E:ana/cama@2026-11-13@' + id + ', E:ana/cama@2026-11-13@' + id + ', P:' + id + ', P:' + id + ', T:pasado', 'la clave legible vale la clave');
   assert.deepEqual(val('ev.1.3.0', ctx), ['ana', NADIE, 'ana', 'ana', 'ana', 'ana']);
   assert.deepEqual(val('ev.1.3.1', ctx), [NADIE, 'ana', 'bea', 'ana', 'ana', NADIE]);
-  assert.deepEqual(val('(ev.1 where it.4 = lock) each 2', ctx), ['bloqueo', 'la cama']);
+  assert.deepEqual(evaluar('(ev.1 where it.4 = lock) each 2', ctx).texto, 'bloqueo, la cama');
   assert.deepEqual(val('(ev.1 where it.4 = mint) each 2', ctx), ['2026-11-14T12:00:00Z'], 'la caducidad es condición');
-  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7', ctx), ['2026-11-14T12:00:00Z'], 'y es para cuándo');
+  // B3: el 7 se parte: 7.0 la caducidad, 7.1 la fecha a la que se refiere.
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7.0', ctx), ['2026-11-14T12:00:00Z'], 'y es para cuándo: 7.0');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7.1', ctx), []);
   assert.deepEqual(val('ev.1.5', ctx), [id, id], 'el registro de la serie de E');
-  assert.deepEqual(val('(ev.1 where it.0.1 = 7) each 7', ctx), ['2025-11-09T10:00:00Z'], 'el T pasado lleva la fecha a la que se refiere');
+  assert.deepEqual(val('(ev.1 where it.0.0.1 = 7) each 7.1', ctx), ['2025-11-09T10:00:00Z'], 'el T pasado lleva la fecha a la que se refiere: 7.1');
+  assert.deepEqual(val('(ev.1 where it.0.0.1 = 7) each 7.0', ctx), []);
   assert.deepEqual(val('ev.1.9', ctx), ['lo hice el año pasado']);
   assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.7', ctx), ['2026-11-13'], 'la franja de la serie');
+  // La serie como registro: 1.0 emitido y 1.1 consumido (antes de ev), 2 su contrato, 3 sus emisores, 5 su registro.
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.1.0', ctx), [0], 'nace en la candidata: nada emitido antes');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.2.7', ctx), ['2026-11-14T12:00:00Z'], 'su caducidad es del contrato');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.2.0', ctx), [], 'no es divisible');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.3', ctx), ['ana'], 'la emite ana');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.5', ctx), [id]);
+  // Una clave escrita como texto ya no se despliega: la serie es un registro al que se llega desde el libro.
+  assert.deepEqual(val('("E:ana/vale").0', new ContextoEje(null, { epoch: [['x']] })), []);
 });
 
 test('D-META: el evento como registro: 3 autor (y firmante), 5 id, 6.0 t, 6.5 sobre y en, 1 movimientos que colisionan con el payload', async () => {
   const { eje, menu, compra } = await ejemploCompra();
   const ctx = new ContextoEje(eje, { ev: compra });
-  assert.deepEqual(val('ev.3', ctx), ['huesped', 'huesped', 'cocina'], 'el autor primero; luego lo que el payload tiene en su 3');
+  assert.deepEqual(val('ev.3', ctx), ['huesped', NADIE, 'huesped', 'cocina'], 'el autor, el firmante («nadie»: no va firmado) y luego lo que el payload tiene en su 3');
   assert.equal(uno('first ev.3', ctx), 'huesped');
   assert.equal(uno('ev.5', ctx), compra.id);
   assert.equal(uno('ev.6.0', ctx), '2026-11-07T13:30:00Z');
@@ -164,10 +177,12 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   const ctx = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-07T18:00:00Z', movimientos: [], payload: ['después'] } });
   assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['E:casa/EUR']);
   assert.equal(uno('("huesped").1.("E:casa/EUR").1', ctx), 48);
-  assert.equal(uno('("huesped").1.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, que se despliega');
+  assert.equal(uno('("huesped").1.0.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, un registro: su 0.0 es la familia');
+  assert.equal(uno('("huesped").1.0.1.0', ctx), 500, 'y su 1.0, lo emitido');
+  assert.deepEqual(val('("huesped").1.0.3', ctx), ['casa'], 'y su 3, quien la emite');
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
-  assert.equal(uno('("huesped").7.1', ctx), 0);
+  assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
   assert.equal(uno('("casa").7.1', ctx), 241, 'la casa gastó 1 minuto escribiendo y dio 240 a la cocina');
   assert.deepEqual(val('("huesped").7.8', ctx), [], 'las informativas no se gastan de ninguna asignación');
   // Al día siguiente, la asignación empieza entera: lo gastado vuelve a 0.
@@ -193,15 +208,43 @@ test('vistas: lo bloqueado por salida en A.1.(serie).2, y las series atadas viva
   const k = seriePlaza(habitacion.id, 0, '2026-11-16');
   assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").1', ctx), eje.vivo(k, '2026-11-08T10:00:00Z'));
   assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").0.5', ctx), habitacion.id, 'la serie está atada a la habitación');
-  // Pasada la caducidad de esa noche, ya no está viva.
-  const tarde = new ContextoEje(eje, { ev: { autor: 'casa', sobre: habitacion.id, t: '2026-11-18T10:00:00Z', movimientos: [], payload: ['tarde'] } });
-  assert.deepEqual(val('("' + habitacion.id + '").1.("' + k + '")', tarde), []);
+  // Lo vivo caduca con el reloj de los demás (B6; SEG-03, SEG-05): la casa, fechando a futuro, no la hace caducar.
+  const tarde = () => new ContextoEje(eje, { ev: { autor: 'casa', sobre: habitacion.id, t: '2026-11-18T10:00:00Z', movimientos: [], payload: ['tarde'] } });
+  assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").1', tarde()), eje.vivo(k));
+  // Cuando otro escribe pasada esa noche, ya no está viva.
+  await eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: '2026-11-18T09:00:00Z', payload: ['de vuelta'], movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }] });
+  assert.deepEqual(val('("' + habitacion.id + '").1.("' + k + '")', tarde()), []);
+  assert.equal(uno('before.6.3', tarde()), '2026-11-18T09:00:00.000Z', 'el reloj de los demás');
+});
+
+test('B6: el reloj de los demás (before.6.3), las series vivas del subárbol (X.7.1), lo bloqueado por salida de todos (before.2) y el orden del movimiento (nth en ev.1)', async () => {
+  const { eje, alojamiento, habitacion } = await ejemploReserva({ confirmar: false });
+  const ev = { autor: 'casa', sobre: habitacion.id, t: '2026-11-09T10:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: null }], payload: ['mirar'] };
+  const ctx = new ContextoEje(eje, { ev });
+  // El reloj de los demás: el mayor t de las identidades que no son el autor de la candidata.
+  assert.equal(uno('before.6.3', ctx), new Date(eje.tMaximo(['casa'])).toISOString());
+  assert.equal(uno('before.6.0', ctx), new Date(eje.tMaximo()).toISOString());
+  // X.7.1: las series de E vivas de todo el subárbol; el alojamiento ve las de su habitación, que cuelga de él.
+  const vivasDe = (id) => eje.series().filter((s) => s.token === 'E' && s.registro && eje.hilo(s.registro).some((x) => x.id === id) && eje.vivo(s.clave) > 0).map((s) => s.clave);
+  assert.ok(vivasDe(habitacion.id).length > 0);
+  assert.deepEqual(val('("' + habitacion.id + '").7.1 each 0', ctx).map((n) => ctx.valor(n)), vivasDe(habitacion.id));
+  assert.deepEqual(val('("' + alojamiento.id + '").7.1 each 0', ctx).map((n) => ctx.valor(n)), vivasDe(alojamiento.id));
+  assert.deepEqual(val('("' + alojamiento.id + '").1', ctx).filter((n) => n?.k === 'viva'), [], 'en su 1, solo lo atado al propio registro');
+  assert.equal(uno('sum (("' + alojamiento.id + '").7.1 each 1)', ctx), vivasDe(alojamiento.id).reduce((n, k) => n + eje.vivo(k), 0));
+  // before.2: por salida y serie, lo bloqueado sumado sobre todos los titulares (BL-3); vale su salida.
+  const { salida, clave } = eje.bloqueos('casa').find((b) => b.token === 'P');
+  const total = eje.bloqueosCon(salida).filter((b) => b.clave === clave).reduce((n, b) => n + b.cantidad, 0);
+  assert.equal(uno('sum ((before.2.("' + salida + '") where it.0 = "' + clave + '") each 1)', ctx), total);
+  assert.deepEqual(val('first (before.2.("' + salida + '") where it.0 = "' + clave + '") .3', ctx), eje.bloqueosCon(salida).filter((b) => b.clave === clave).map((b) => b.identidad));
+  // El orden de un movimiento es su lugar en ev.1: los movimientos van primero, por orden (nth, desde 0).
+  assert.equal(uno('(nth 1 ev.1).0.0.1', ctx), 2, 'el segundo movimiento es el de la hora (escala 2)');
+  assert.equal(uno('(nth 0 ev.1).0.0.1', ctx), 1);
 });
 
 test('before: el libro de antes: 3 las identidades, 5 el génesis, 6.0 el mayor t', async () => {
   const { eje } = await ejemploCompra();
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
-  assert.deepEqual(val('before.3', ctx), ['casa', 'cocina', 'huesped']);
+  assert.deepEqual(val('before.3', ctx), ['casa', 'huesped', 'cocina']);
   assert.equal(uno('before.5', ctx), eje.genesisId);
   assert.equal(uno('before.6.0', ctx), '2026-11-07T13:30:00.000Z');
   assert.equal(uno('before.3.("cocina").1.("T:hora").1', ctx), 18);

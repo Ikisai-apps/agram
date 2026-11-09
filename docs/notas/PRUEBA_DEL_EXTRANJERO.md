@@ -39,9 +39,11 @@ La reserva con el anclaje decidido por VG (ejecutable desde la raíz con `node -
 import { Eje, encaje, bql } from './src/index.js';
 const t = '2026-11-07T10:00:00Z';
 const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
-// T no cruza de persona (VG, 7-11 noche): ana y bea reciben euros y escriben con su asignación de T del día (VG, 8-11).
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'ana' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']], contexto: { tipos: { ana: 'persona', bea: 'persona' } } });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 5 }, { token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1000 }], foco: 'Casa', t });
+// Ana y bea escriben su propia alta (VG, 10-11, B1: son personas); T no cruza de persona (VG, 7-11 noche): reciben
+// euros y escriben con su asignación de T del día (VG, 8-11).
+for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, t });
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'ana' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 300, de: 'casa', a: 'bea' }], payload: ['Altas', ['ana', 'bea']] });
 const disp = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa')], payload: ['Disponibilidad 14-16 nov', ['Habitaciones', [['doble'], '80 EUR'], [['individual'], '50 EUR']]] });
 const reserva = (quien, noches) => eje.escribir({
   autor: quien, sobre: disp.id, en: '1100000000', t, movimientos: [gasta(quien)],

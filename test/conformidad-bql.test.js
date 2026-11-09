@@ -363,11 +363,13 @@ test('O-09 tipo imposible es INCOMPATIBLE; ciclo irresoluble es ERROR', async ()
 });
 
 test('O-09b una referencia a un evento que no está en el eje queda PENDIENTE, no ERROR', async () => {
-  const { eje, id } = await ejeCon(['Casa', { ref: ID_INEXISTENTE, dir: '1000000000' }, '=LOCAL(1)']);
+  // C1 (VG, 10-11): una referencia BTML { ref } a un evento que no está no entra en un eje local, tampoco en el génesis.
+  await assert.rejects(ejeCon(['Casa', { ref: ID_INEXISTENTE, dir: '1000000000' }]), /referencia a un evento que no está en el eje: ffffffff/);
+  const { eje, id } = await ejeCon(['Casa', '=REF("' + ID_INEXISTENTE + '", "1000000000")', '=LOCAL(1)']);
   const r = consultar(eje, id, [0], 'REF("' + ID_INEXISTENTE + '")');
   assert.equal(r.estado, 'PENDIENTE');
   assert.equal(r.valor, undefined);
-  assert.equal(evaluar(eje, id, [2]).estado, 'PENDIENTE'); // también una referencia BTML a un evento que no ha llegado
+  assert.equal(evaluar(eje, id, [2]).estado, 'PENDIENTE'); // también lo que la lee: el evento no ha llegado
   assert.equal(consultar(eje, id, [0], 'REF("' + ID_INEXISTENTE.slice(0, 8) + '")').estado, 'PENDIENTE'); // prefijo sin evento
   assert.equal(consultar(eje, id, [0], 'REF("#T")').estado, 'ERROR'); // no es un id: mal formada
 });

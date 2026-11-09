@@ -1,0 +1,16 @@
+[
+  ["the genesis E names no record"],
+  [1, 0],
+  ["=not (count up ev = 0) or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "mapa §10.1 [D]: el génesis",
+    "VG, 9-11 D2 (mapa §15): toda E dice a qué registro está atada, sin excepción para el génesis: el suyo",
+    "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+  ],
+  ["epoch 0"],
+  ["after the genesis only mints to its author"],
+  ["the genesis E names no record: its E is tied to the genesis itself"]
+]

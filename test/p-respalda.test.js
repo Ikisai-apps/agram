@@ -37,14 +37,15 @@ const serieE = (emisor, denominacion, registro) => claveToken({ token: 'E', emis
  */
 async function mundo({ pA = 4, respalda = 3, enHabitacion = false, personas = ['casa', 'bea', 't', 'p1', 'p2', 'p3', 'p4', 'p5'] } = {}) {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
+    demostracion: true, identidad: 'g', t: AYER, foco: ['raíz'],
     emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
   });
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const p of personas) await eje.entrar({ identidad: p, t: AYER });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [minuto('g'), ...personas.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a }))],
-    contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
     // Su R, con su colateral (R6): es la «R propia en juego» que exigen P y E.

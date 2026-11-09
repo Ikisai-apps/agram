@@ -1,0 +1,16 @@
+[
+  ["a key is declared at its alta"],
+  [0],
+  ["=count (ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) = 0"],
+  ["ev.5 each 3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "VG, 7-11 noche: las claves se declaran en el alta y no cambian (inventario ID-2, ID-6)",
+    "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+    "VG, 10-11, B1: una persona declara la suya en su propia alta; la de una cosa la declara quien la da de alta, al darle tokens"
+  ],
+  ["epoch 0"],
+  ["after without a key nobody acts"],
+  ["a key is declared at its alta: {(ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) each 3} already has an account, or is neither the author nor receives anything here"]
+]

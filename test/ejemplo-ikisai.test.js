@@ -6,7 +6,7 @@ import { resolver } from '../src/btml.js';
 
 test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   const { eje, menu, compra } = await ejemploCompra();
-  assert.deepEqual(eje.identidades(), ['casa', 'cocina', 'huesped']);
+  assert.deepEqual(eje.identidades(), ['casa', 'huesped', 'cocina']); // la huésped escribe su propia alta antes de las de la casa (B1)
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), 12);
   assert.equal(eje.saldo('huesped', 'E:casa/EUR'), 48);
   // T no cruza de persona (VG, 7-11 noche): la persona huésped no recibió T; la hora que gasta al comprar sale
@@ -15,8 +15,8 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.equal(eje.saldoT('huesped', 'hora'), 23);
   assert.equal(eje.tiempoSobre(menu.id).hora, 1);
   // Series: la casa (una persona, VG, 7-11 noche; antes un grupo) emite sus EUR y su P; T no (VG, 8-11: no hay T
-  // acumulable): las series de T aparecen al gastarse. Las altas declaran tipo, y la casa da T de su asignación a la
-  // cocina, que es una cosa suya (Core, 8-11).
+  // acumulable): las series de T aparecen al gastarse. Persona o cosa lo dice quién escribe el alta (B1): la casa da
+  // T de su asignación a la cocina, que es una cosa suya (Core, 8-11).
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
   assert.deepEqual(eje.series().map((s) => s.clave), ['E:casa/EUR', 'P:genesis', 'T:minuto', 'T:hora']);
   // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,
@@ -25,7 +25,7 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   assert.deepEqual([eur.registro, eur.tope, eur.nota, eur.divisible], [eje.genesisId, null, 'sin capacidad declarada: deuda del emisor', false]);
   assert.deepEqual(eje.tiempos('huesped'), []);
   assert.deepEqual(eje.recursos('huesped'), [{ emisor: 'casa', denominacion: 'EUR', cantidad: 48 }]);
-  assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.tipo(id)), ['persona', 'cosa', 'persona']);
+  assert.deepEqual(['casa', 'cocina', 'huesped'].map((id) => eje.esPersona(id)), [true, false, true]);
   assert.equal(eje.hilo(compra.id).length, 4);
   // La referencia no copia: se resuelve sobre el menú. VG, 7-11 noche: por hojas; compra 1 es
   // [[menú], [1], ['EUR 12']] y la referencia va en su 1.0, una lista de uno.

@@ -1,0 +1,15 @@
+[
+  ["only persons mint"],
+  [0],
+  ["=count (ev.1 where mint in it.4) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "VG, 7-11 noche: «todos son emitidos por una persona individualmente» (mapa §12 [D] ciclo de vida)",
+    "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])"
+  ],
+  ["epoch 0"],
+  ["after at most a year ahead"],
+  ["only persons mint: {first ev.3} is a thing (its alta was written by {first (first ev.3).6.3}), and only persons mint"]
+]

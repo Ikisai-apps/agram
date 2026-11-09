@@ -7,9 +7,9 @@
 // 7-11 noche) emite en el génesis sus EUR (la
 // serie E:casa/EUR, ligada a ella como R) y las dos escalas de T que usa:
 // horas y minutos, tokens distintos sin conversión (escribir cuesta minutos;
-// comprar, horas). Las altas reparten ambas y declaran qué es cada identidad
-// (cocina, una cosa; huesped, una persona). Las plazas de alojamiento son otra
-// serie, la de Booking.
+// comprar, horas). Qué es cada identidad lo dice quién escribe su alta (VG,
+// 10-11, B1): la persona huésped escribe la suya; la cocina, una cosa, la da
+// de alta la casa. Las plazas de alojamiento son otra serie, la de Booking.
 
 import { Eje } from '../../src/eje.js';
 
@@ -23,8 +23,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'casa',
-    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
+    identidad: 'casa', // escribe el génesis, su propia alta: es una persona (VG, 10-11, B1); solo las personas emiten
     // T no (VG, 8-11: no hay T acumulable): la casa vive de su asignación del día, como cualquier persona.
     emision: [
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR: el génesis completa emisor = casa
@@ -36,9 +35,13 @@ export async function ejemploCompra({ claves = {} } = {}) {
     privada: priv('casa'),
   });
 
-  // La casa da de alta a cocina y a una persona huésped: existen al recibir tokens, y el alta declara su tipo.
+  // La persona huésped escribe su propia alta (VG, 10-11, B1: persona es quien escribe la suya; la invitación de la
+  // casa que la encauza es del encargo 3b). Con clave, la declara y firma con ella.
+  await eje.entrar({ identidad: 'huesped', t, clave: claves.huesped?.publica, privada: priv('huesped') });
+
+  // La casa da de alta a cocina, una cosa (su alta la escribe la casa, su dueña), y da euros a la huésped.
   const declaradas = {};
-  for (const id of ['cocina', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
+  if (claves.cocina?.publica) declaradas.cocina = claves.cocina.publica;
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
@@ -53,7 +56,7 @@ export async function ejemploCompra({ claves = {} } = {}) {
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 60, de: 'casa', a: 'huesped' },
     ],
     payload: ['Altas del fin de semana', ['cocina', 'huesped']],
-    contexto: { tipos: { cocina: 'cosa', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
+    contexto: Object.keys(declaradas).length ? { claves: declaradas } : {},
   }, priv('casa'));
 
   // Cocina publica el menú del día sobre las altas.
@@ -126,6 +129,8 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const priv = (id) => privadas[id];
   const gasta = (de, minutos = 1) => ({ token: 'T', escala: 'minuto', cantidad: minutos, de, a: null });
   const paga = (de, eur) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
+  // La otra persona huésped escribe su propia alta (B1) y después la casa le da euros.
+  await eje.entrar({ identidad: 'huesped2', t: '2026-11-07T12:00:00Z' });
   const alta2 = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
@@ -134,8 +139,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
       gasta('casa'),
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
     ],
-    payload: ['Alta de otra persona huésped', ['huesped2']],
-    contexto: { tipos: { huesped2: 'persona' } },
+    payload: ['Euros para otra persona huésped', ['huesped2']],
   }, priv('casa'));
   const criterios = [{ ref: menu.id, dir: '2000000000' }];
   const recursos = [[{ ref: menu.id, dir: '1000000000' }], [1], ['EUR 12']]; // una décupla: cada posición entre corchetes (forma canónica)

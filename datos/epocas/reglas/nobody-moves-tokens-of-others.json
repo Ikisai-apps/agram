@@ -1,0 +1,16 @@
+[
+  ["nobody moves tokens of others"],
+  [0],
+  ["=count (ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) = 0"],
+  ["ev.3"],
+  ["transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "mapa §11 [A] paso 4: solo el titular mueve lo suyo",
+    "VG, 8-11: «solo existe la delegación»; nadie mueve por cuenta de un grupo",
+    "VG, 8-11 (mapa §15): cada uno solo mueve lo suyo, sin paso de autorizar"
+  ],
+  ["epoch 0"],
+  ["after locked P backing live E is not released"],
+  ["nobody moves tokens of others: {first ev.3} moves from {(ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) each 3.0}"]
+]

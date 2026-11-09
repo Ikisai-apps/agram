@@ -1,0 +1,16 @@
+[
+  ["present"],
+  ["epoch.7.0"],
+  ["=count up it = 0 or count (it.1 where T in it2.0.0.0 and count epoch.7.0.(it2.0.0.1) = 1 and burn in it2.4 and count it2.2 = 0 and it2.3.0 = first it.3) > 0"],
+  ["X.6.1"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+    "VG, 8-11: un registro pagado solo con T informativo es válido y sale gratis en T real, pero no es presente; el pago es la ausencia de un registro presente, que puede ser un criterio en PV2 (inventario EV-3, evento.esPresente)",
+    "Se materializa en X.6.1: de dónde viene, cuánto (si lo pagó con T real)"
+  ],
+  ["epoch 0"],
+  ["after P moves within a known scope"],
+  ["present: the record burns real T of its author (a scale the calendar measures), or it is the genesis"]
+]

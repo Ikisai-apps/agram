@@ -24,6 +24,14 @@
 // distintos (como un euro no es un bitcoin, y los EUR de la casa no son los de otro).
 
 import { esInstante, msDeGuardado } from './instante.js';
+import { EPOCA_0_BTML_DATOS } from '../datos/epocas/epocas.js';
+
+// Los datos del mundo viven en la época (VG, 10-11, A3): los segundos de cada
+// escala (epoch.7.0, el calendario), la asignación diaria y las partes en que
+// se dan las escalas grandes (epoch.1.3.1). SEGUNDOS, ASIGNACION_T y PARTES_T
+// se leen de ahí, por el dígito de cada escala: una sola verdad.
+const T_DE_LA_EPOCA = EPOCA_0_BTML_DATOS[1][3][1]; // k → [[nombre], [asignación diaria], [en partes de]]
+const CALENDARIO = EPOCA_0_BTML_DATOS[7][0]; // k → [[nombre], [segundos], …], solo las escalas que se miden
 
 /** Ámbito reservado de P: el génesis del eje, es decir, todo el eje. */
 export const AMBITO_GENESIS = 'genesis';
@@ -150,19 +158,11 @@ export const ESCALAS_T = Object.freeze([...ESCALAS_REALES, ...ESCALAS_INFORMATIV
 export const MAXIMO_ESCALAS_T = 10;
 if (ESCALAS_T.length > MAXIMO_ESCALAS_T) throw new Error('T admite como mucho ' + MAXIMO_ESCALAS_T + ' escalas');
 
-/**
- * Tipos de identidad que se declaran en el alta. Solo sirven para saber quién
- * emite. Sin grupo (VG, 8-11; [X] confirmar VG): un grupo es un registro con
- * P delegado, no una identidad (src/ciclo.js, motivoTipo).
- */
-export const TIPOS = Object.freeze(['persona', 'cosa']);
-
-/**
- * Quien puede emitir (iniciar o ampliar una serie): solo las personas (VG,
- * 7-11 noche: «todos son emitidos por una persona individualmente»), en su
- * propio nombre.
- */
-export const EMITEN = Object.freeze(['persona']);
+// No hay tipos de identidad (VG, 10-11, B1): una persona es la identidad que
+// escribe su propia alta; una cosa, la que da de alta otra identidad, su
+// dueño (src/eje.js, esPersona). Solo emiten las personas (VG, 7-11 noche:
+// «todos son emitidos por una persona individualmente»), en su propio nombre;
+// lo dice una regla de la época que lee quién escribió el alta.
 
 /**
  * Estados de un movimiento que no cambia de titular (VG, 7-11 noche): bloquear
@@ -178,21 +178,14 @@ export const ESTADOS = Object.freeze(['bloqueo', 'liberacion']);
 /**
  * Duración de cada escala en segundos, para MEDIR distancias de tiempo (las
  * bandas del eje temporal), solo de las escalas reales. No convierte tokens: los saldos de T no se
- * suman entre escalas. Año = 13 ciclos de 28 días + 1.
+ * suman entre escalas. Año = 13 ciclos de 28 días + 1. De la época: el 1 de
+ * cada escala del calendario (epoch.7.0.k.1).
  */
-export const SEGUNDOS = Object.freeze({
-  segundo: 1,
-  minuto: 60,
-  hora: 3600,
-  dia: 86400,
-  semana: 7 * 86400,
-  ciclo: 28 * 86400,
-  anio: (13 * 28 + 1) * 86400,
-  // Las informativas no miden tiempo: nada las convierte a segundos.
-  pasado: null,
-  futuro: null,
-  inventado: null,
-});
+export const SEGUNDOS = Object.freeze(Object.fromEntries(ESCALAS_T.map((e, k) => [
+  e,
+  // Las informativas no miden tiempo (el calendario no las lleva): nada las convierte a segundos.
+  ESCALAS_REALES.includes(e) ? CALENDARIO[k][1][0] : null,
+])));
 
 // T como asignación diaria (VG, 8-11): «como en los videojuegos: llega a las
 // 12 de la noche y te da todo el T del día siguiente, todos los segundos,
@@ -208,19 +201,19 @@ export const SEGUNDOS = Object.freeze({
  * ciclo y 1/364 de año. Por eso la `cantidad` de T en estas tres escalas va
  * en esas partes, enteras: 1 es un día de semana (1/7), y una semana entera
  * son 7. Así T sigue en enteros y nada acumula error; se lee como fracción
- * (textoT: «3/7 semana», «1 semana»).
+ * (textoT: «3/7 semana», «1 semana»). De la época: el 2 de cada escala de T
+ * (epoch.1.3.1.k.2), cuando es más de una.
  */
-export const PARTES_T = Object.freeze({ semana: 7, ciclo: 28, anio: 364 });
+export const PARTES_T = Object.freeze(Object.fromEntries(ESCALAS_REALES.map((e, k) => [e, T_DE_LA_EPOCA[k][2][0]]).filter(([, n]) => n > 1)));
 
 /**
  * Asignación diaria de T de una persona, por escala (en las grandes, en sus
  * partes: un día de semana, de ciclo, de año). Las tres informativas no
  * tienen asignación: son ilimitadas (siempre queda 1). Se renueva cada día civil de su propio reloj (el
  * t de sus eventos, en UTC); lo no gastado NO se acumula ([X] confirmar VG).
+ * De la época: el 1 de cada escala de T (epoch.1.3.1.k.1).
  */
-export const ASIGNACION_T = Object.freeze({
-  segundo: 86400, minuto: 1440, hora: 24, dia: 1, semana: 1, ciclo: 1, anio: 1,
-});
+export const ASIGNACION_T = Object.freeze(Object.fromEntries(ESCALAS_REALES.map((e, k) => [e, T_DE_LA_EPOCA[k][1][0]])));
 
 const MS_DIA = 86400 * 1000;
 const msDe = (x) => (typeof x === 'number' ? x : msDeGuardado(x));

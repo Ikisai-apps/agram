@@ -6,7 +6,7 @@
 // §2, «Recursos (E)»). Mismo texto, mismo orden, mismo comportamiento.
 
 import { claveToken, partirClave, validarMovimiento, franjaDe, familiaDe, TODAS_LAS_FRANJAS, AMBITO_GENESIS } from '../tokens.js';
-import { esInstante, msUTC } from '../instante.js';
+import { esInstante, msUTC, segundosUTC, segundosDe } from '../instante.js';
 
 /** Lo que dice series() de una serie de E cuyo registro no declara capacidad ni la hereda. */
 export const SIN_CAPACIDAD = 'sin capacidad declarada: deuda del emisor';
@@ -161,7 +161,8 @@ function analizar(ev, ctx) {
     const k = claveToken(m);
     if (m.token === 'E') {
       if (m.de === null) {
-        if (m.registro !== undefined && !ctx.registro(m.registro)) { falla(i, 4, 'registro desconocido de la serie ' + k + ': ' + corto(m.registro) + ' (la E se ata a un registro del eje)'); continue; }
+        // Que el registro exista lo dice la regla de la época «E is tied to a record that exists» (encargo 3a, paso 9).
+        if (m.registro !== undefined && !ctx.registro(m.registro)) continue;
         let s = estado(k);
         if (!s) {
           s = { emisor: m.emisor, emitido: 0, ...contratoE(m, ctx.alta(m.emisor)?.id) };
@@ -212,7 +213,8 @@ function analizar(ev, ctx) {
     tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
     return tReloj;
   };
-  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && reloj() >= msUTC(s.caduca);
+  // En segundos (VG, 10-11, C2), como D-FECHA en las reglas.
+  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && segundosDe(reloj()) >= segundosUTC(s.caduca);
   const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
 
   // Todas las series de E tras el evento, con su franja; calculado una vez.

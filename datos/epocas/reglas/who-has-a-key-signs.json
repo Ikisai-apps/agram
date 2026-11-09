@@ -1,0 +1,15 @@
+[
+  ["who has a key signs"],
+  [1],
+  ["=nth 1 ev.3 = first ev.3 or (count (first ev.3).6.5 <= 1 and count (ev.5 where it != first ev.5 and first it.3 = first ev.3) = 0)"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "R9, VG 7-11 noche (regla madre aceptada): sin clave no se actúa; quien tiene clave firma lo que escribe (inventario ID-4, ID-5)",
+    "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])"
+  ],
+  ["epoch 0"],
+  ["after the genesis E names no record"],
+  ["who has a key signs: {first ev.3} has a key and this transaction is not signed by them (signer: {nth 1 ev.3})"]
+]

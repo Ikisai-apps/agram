@@ -1,0 +1,16 @@
+[
+  ["attended"],
+  ["before.1"],
+  ["=count (before.1 where it in it2.6.4 and first it2.3 in ((it.1 where R in it3.0.0.0 and transfer in it3.4 and it3.3.1 = it3.0.0.1 and it3.3.0 != it3.0.0.1) each 3.1)) > 0"],
+  ["X.7.4"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+    "R6: atender es escribir un registro del emisor que cita la devolución (contexto.atiende, en el 6.4 del registro que atiende); devolver R a su emisor es pedir atención (lente.devoluciones)",
+    "Se materializa en X.7.4: futuro, qué se hace (la atención que llegó después)"
+  ],
+  ["epoch 0"],
+  ["after informative"],
+  ["attended: the record returns R to its issuer and a record of that issuer cites it in its 6.4"]
+]

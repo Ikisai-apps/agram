@@ -1,0 +1,16 @@
+[
+  ["a declared key comes with its proof"],
+  [0],
+  ["=count before.9 > 0 or count (ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) = 0"],
+  ["ev.5 each 3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "R9, VG 7-11 noche: la clave nueva llega con su prueba de posesión, su firma sobre el id del alta (inventario ID-6)",
+    "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+    "VG, 10-11, B1: la clave de quien escribe su propia alta se prueba con su firma (who has a key signs)"
+  ],
+  ["epoch 0"],
+  ["after a key is declared at its alta"],
+  ["a declared key comes with its proof: the key of {(ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) each 3} comes without the signature of that key on the id of this alta (posesion)"]
+]

@@ -1,0 +1,15 @@
+[
+  ["informative T is only burned"],
+  ["epoch.7.0", "epoch.7.2"],
+  ["=count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 0 and (it.4 != burn or count it.2 > 0 or (it.0.0.1 in epoch.7.2 and count it.7.1 = 0))) = 0 and count (ev.1 where ((T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1) or E in it.0.0.0 or P in it.0.0.0 or R in it.0.0.0) and (count it.9 > 0 or count it.7.1 > 0)) = 0"],
+  ["ev.3"],
+  ["transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "VG, 8-11: tres escalas informativas (pasado, futuro, inventado), ilimitadas, que solo se consumen y llevan la fecha a la que se refieren (mapa §12 [D] asignación diaria; dudas A4)",
+    "VG, 10-11, A3: las escalas informativas son las que el calendario no mide (epoch.7.0) y las que se refieren a otra fecha las dice epoch.7.2"
+  ],
+  ["epoch 0"],
+  ["after T is whole"],
+  ["informative T is only burned: {first ev.3} gives or locks past, future or invented T, leaves past or future T without the date it refers to, or puts such a date or a note on anything else"]
+]

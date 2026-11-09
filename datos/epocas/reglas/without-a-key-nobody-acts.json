@@ -1,0 +1,16 @@
+[
+  ["without a key nobody acts"],
+  [0, 1],
+  ["=count before.9 > 0 or count (first ev.3).6.5 > 1 or count (ev.5 where it != first ev.5 and first it.3 = first ev.3) > 0"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "R9, VG 7-11 noche (regla madre aceptada): sin clave no se actúa; quien tiene clave firma lo que escribe (inventario ID-4, ID-5)",
+    "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+    "VG, 7-11 noche: un libro de demostración (lo marca su génesis, before.9) conserva lo de antes: sin clave se escribe"
+  ],
+  ["epoch 0"],
+  ["after who has a key signs"],
+  ["without a key nobody acts: {first ev.3} has no key (it goes in their alta; only a demonstration ledger allows writing without one)"]
+]

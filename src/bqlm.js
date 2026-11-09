@@ -7,7 +7,8 @@
 // Léxico, exacto y nada más:
 //   posiciones      X.d.d…  (X = ev, epoch, before, it, it2…, o una expresión entre paréntesis)
 //   índice por valor X.(expr)  (un dígito 0-9 es esa posición; un texto, los ocupantes que se llaman así)
-//   listas          first M · last M · nth k M (desde 0) · M each d.d… · M where cond (it, it2… es el elemento)
+//   listas          first M · last M · nth k M (desde 0) · M each d.d… · M where cond (it, it2… es el elemento;
+//                   en una lectura, regla con «read» en su 4, it es lo que se lee y el primer where da it2)
 //   árbol           up X · down X · path X (padre por el ancla 6.5, hijos anclados, hilo hasta la raíz; tope 10)
 //   recuento        count · sum · max · min
 //   aritmética      + - * / floor
@@ -177,12 +178,13 @@ const NIVEL_IT = /^it([2-9]|[1-9]\d+)?$/;
  * devuelve su árbol. Lanza una Parada ERROR con el motivo (sintaxis o «no es
  * BQL mínimo»).
  */
-export function analizar(src) {
+export function analizar(src, { sujeto = false } = {}) {
   if (typeof src !== 'string') throw fallo('sintaxis: una expresión es un texto');
   const cuerpo = src.startsWith('=') && !src.startsWith('==') ? src.slice(1) : src;
   const tokens = tokenizar(cuerpo);
   let i = 0;
-  let nivelWhere = 0;
+  // Con sujeto (una lectura, B5), it ya es lo que se lee: el primer where da it2.
+  let nivelWhere = sujeto ? 1 : 0;
   let anidamiento = 0;
   const ver = () => tokens[i];
   const es = (t, v) => tokens[i]?.t === t && (v === undefined || tokens[i].v === v);
@@ -356,8 +358,9 @@ const esNodo = (o) => o !== null && typeof o === 'object';
  */
 export function evaluar(src, contexto, opciones = {}) {
   try {
-    const arbol = typeof src === 'string' ? analizar(src) : src;
-    const st = { ctx: contexto, its: [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes) };
+    const conSujeto = Object.hasOwn(opciones, 'sujeto');
+    const arbol = typeof src === 'string' ? analizar(src, { sujeto: conSujeto }) : src;
+    const st = { ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes) };
     const valor = calcular(arbol, st);
     return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto) };
   } catch (e) {
@@ -570,39 +573,109 @@ function numeroDe(o, donde, ctx) {
 
 // ---------- reglas ----------
 
-/** Lo que hay en una posición de una regla en forma canónica: la lista de uno se lee como su ocupante. */
-const hoja = (x) => (Array.isArray(x) && x.length === 1 ? x[0] : x);
+/**
+ * Lo que vale en una posición de una regla en forma canónica: su último
+ * ocupante. Una regla no se cambia en sitio: corregirla es añadir un ocupante
+ * a su registro (VG, 10-11, A1), y manda el último (src/epocas.js).
+ */
+const ultimo = (x) => (Array.isArray(x) ? x[x.length - 1] : x);
+
+/** El nombre de una regla: el primer ocupante de su 0. */
+export const nombreDeRegla = (regla) => (Array.isArray(regla) ? (Array.isArray(regla[0]) ? regla[0][0] : regla[0]) : undefined);
+
+// Las condiciones ya analizadas, por su texto (y si llevan sujeto): una regla se analiza una vez.
+const ANALIZADAS = new Map();
+function analizada(src, sujeto = false) {
+  const clave = (sujeto ? 'L' : 'C') + src;
+  if (!ANALIZADAS.has(clave)) {
+    let arbol;
+    try {
+      arbol = analizar(src, { sujeto });
+    } catch (e) {
+      arbol = e;
+    }
+    ANALIZADAS.set(clave, arbol);
+  }
+  const a = ANALIZADAS.get(clave);
+  if (a instanceof Error) throw a;
+  return a;
+}
+
+/**
+ * ¿Es una lectura? (VG, 10-11, B5): una regla de la época con «read» en su 4.
+ * No es una condición: no se cuelga de las transacciones; da un valor de lo que
+ * lee (`it`) y el contexto lo pone en la posición que dice su 3 (docs/BQLM.md §5).
+ */
+export const esLectura = (regla) => Array.isArray(regla) && Array.isArray(regla[4]) && regla[4].includes('read');
+
+/** Dónde se materializa una lectura: el último ocupante de su 3, como «X.6.1» (de un registro) o «A.3.1» (de una identidad). */
+export const posicionDeLectura = (regla) => (esLectura(regla) ? ultimo(regla[3]) : undefined);
+
+/**
+ * Lee una lectura (B5) de un sujeto: evalúa el último ocupante de su 2 con
+ * `it` = el sujeto (un registro, la candidata o una identidad) en el contexto.
+ * Devuelve lo que `evaluar`: { estado: 'RESUELTO', valor, texto } o { estado, motivo }.
+ */
+export function leerRegla(regla, sujeto, contexto, opciones = {}) {
+  const nombre = nombreDeRegla(regla);
+  if (!esLectura(regla)) return { estado: 'ERROR', motivo: (nombre ?? 'regla') + ': no es una lectura (su 4 no dice read)' };
+  const formula = ultimo(regla[2]);
+  if (typeof formula !== 'string' || !formula.startsWith('=') || formula.startsWith('==')) {
+    return { estado: 'ERROR', motivo: (nombre ?? 'regla') + ': su 2 no es una fórmula «=…»' };
+  }
+  let arbol;
+  try {
+    arbol = analizada(formula, true);
+  } catch (e) {
+    return { estado: e.estado ?? 'ERROR', motivo: nombre + ': ' + e.message };
+  }
+  const r = evaluar(arbol, contexto, { ...opciones, sujeto });
+  return r.estado === 'RESUELTO' ? r : { ...r, motivo: nombre + ': ' + r.motivo };
+}
 
 /**
  * Evalúa una regla de la época (una décupla del molde, mapa §16 [D]: 0 nombre,
  * 1 constantes, 2 condición, 3 a quién, 4 primitiva, 5 dónde cuelga, 6 de dónde
  * viene, 7 desde qué época, 8 orden, 9 mensaje). Lee la condición del 2 (una
- * fórmula «=…») y la evalúa en el contexto. Devuelve { pasa, estado, motivo }:
+ * fórmula «=…», el último ocupante: una corrección se añade detrás) y la
+ * evalúa en el contexto. Devuelve { pasa, estado, motivo }:
  * pasa solo si la condición da verdadero; si da falso, motivo es el mensaje del
  * 9 con cada {expresión} rellena con lo que vale; si queda PENDIENTE o da
  * ERROR, no pasa y motivo lo dice. No mira el 3, el 4 ni el 5: quién cuelga las
  * reglas de cada transacción es trabajo de después.
  */
 export function evaluarRegla(regla, contexto, opciones = {}) {
-  const nombre = Array.isArray(regla) ? hoja(regla[0]) : undefined;
-  const condicion = Array.isArray(regla) ? hoja(regla[2]) : undefined;
+  const nombre = nombreDeRegla(regla);
+  if (esLectura(regla)) return { pasa: false, estado: 'ERROR', motivo: nombre + ': es una lectura (read en su 4), no una condición: se lee con leerRegla' };
+  const condicion = Array.isArray(regla) ? ultimo(regla[2]) : undefined;
   if (typeof condicion !== 'string' || !condicion.startsWith('=') || condicion.startsWith('==')) {
     return { pasa: false, estado: 'ERROR', motivo: (nombre ?? 'regla') + ': su 2 no es una condición «=…»' };
   }
-  const r = evaluar(condicion, contexto, opciones);
+  let arbol;
+  try {
+    arbol = analizada(condicion);
+  } catch (e) {
+    return { pasa: false, estado: e.estado ?? 'ERROR', motivo: nombre + ': ' + (e.estado ?? 'ERROR') + ': ' + e.message };
+  }
+  const r = evaluar(arbol, contexto, opciones);
   if (r.estado !== 'RESUELTO') return { pasa: false, estado: r.estado, motivo: nombre + ': ' + r.estado + ': ' + r.motivo };
   if (r.valor.length !== 1 || typeof r.valor[0] !== 'boolean') {
     return { pasa: false, estado: 'ERROR', motivo: nombre + ': la condición no da verdadero o falso, da «' + r.texto + '»' };
   }
   if (r.valor[0]) return { pasa: true, estado: 'RESUELTO', motivo: null };
-  const mensaje = hoja(regla[9]);
+  const mensaje = ultimo(regla[9]);
   return { pasa: false, estado: 'RESUELTO', motivo: typeof mensaje === 'string' ? rellenar(mensaje, contexto, opciones) : nombre + ': no se cumple' };
 }
 
 /** Rellena cada {expresión} de un mensaje con lo que vale en el contexto (o con su estado, si no se resuelve). */
 export function rellenar(mensaje, contexto, opciones = {}) {
   return mensaje.replace(/\{([^{}]+)\}/g, (_, expr) => {
-    const r = evaluar(expr, contexto, opciones);
+    let r;
+    try {
+      r = evaluar(analizada(expr), contexto, opciones);
+    } catch (e) {
+      r = { estado: e.estado ?? 'ERROR' };
+    }
     return r.estado === 'RESUELTO' ? r.texto : '{' + expr + ': ' + r.estado + '}';
   });
 }

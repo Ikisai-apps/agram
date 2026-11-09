@@ -146,7 +146,7 @@ test('celda 8: ocho() lee la base escrita del 8 por cantidades; sin ella, el res
   assert.deepEqual(despues.cantidades, antes.cantidades); // la misma verdad: la escrita al día coincide con el cálculo al vuelo
   assert.deepEqual(despues.recuentos, antes.recuentos);
   assert.ok(textoOcho(despues).startsWith('8 · hermanos · base ' + base.id.slice(0, 8) + ' (sin novedades) · n 4'));
-  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 14);
+  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 16); // con las altas de huesped y vecina, que escriben ellas (B1)
   // El génesis no tiene hermanos.
   const g = ocho(eje, eje.genesisId);
   assert.deepEqual([g.estado, g.cantidades, g.recuentos], ['PENDIENTE', [], []]);

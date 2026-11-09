@@ -13,18 +13,18 @@ test('serializar y restaurar reconstruye el eje validando todo', async () => {
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
   assert.equal(datos.version, 3); // VG, 7-11 noche: la versión 3 trae el ciclo de vida de los tokens (bloqueos, caducidad)
   assert.equal(datos.version, VERSION);
-  assert.equal(datos.eventos.length, 5);
+  assert.equal(datos.eventos.length, 6); // con el alta que escribe la huésped (B1)
   const otro = await restaurar(datos);
   assert.deepEqual(otro.orden, eje.orden);
   assert.equal(otro.saldo('cocina', 'E:casa/EUR'), 12);
   assert.deepEqual(otro.identidades(), eje.identidades());
-  assert.equal(evaluar(otro, otro.orden[4], [1]).texto, '14 EUR (12 EUR + 2 EUR)');
+  assert.equal(evaluar(otro, otro.orden[5], [1]).texto, '14 EUR (12 EUR + 2 EUR)');
 });
 
 test('un evento manipulado en el guardado se rechaza al restaurar', async () => {
   const { eje } = await ejemploCompra();
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
-  datos.eventos[3].movimientos[1].cantidad = 1; // la compra pagaba 12
+  datos.eventos[4].movimientos[1].cantidad = 1; // la compra pagaba 12
   await assert.rejects(restaurar(datos), /id no corresponde/);
   const datos2 = JSON.parse(JSON.stringify(serializar(eje)));
   datos2.eventos[0].payload = 'otro génesis';
@@ -42,9 +42,9 @@ test('con claves, las firmas se verifican también al restaurar', async () => {
   // Quitar una firma rompe la restauración.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
   delete roto.eventos[2].firma;
-  await assert.rejects(restaurar(roto), /firma ausente/);
+  await assert.rejects(restaurar(roto), /who has a key signs/);
   // Y sin la clave privada, cocina ya no puede escribir.
-  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'x' }), /firma ausente/);
+  await assert.rejects(otro.escribir({ autor: 'cocina', sobre: compra.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'x' }), /who has a key signs/);
 });
 
 test('guardar y cargar en un localStorage simulado', async () => {
@@ -83,10 +83,10 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   // Un eje que la versión 2 podía guardar: en ella no había T acuñado al gastarse (VG, 7-11 noche), así que solo
   // escribe quien tiene T, la casa (el ejemplo de la compra ya no cabe: cocina escribe con su propio T).
   const t = '2026-11-07T09:00:00Z';
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', t, foco: 'Casa de ejemplo',
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', t, foco: 'Casa de ejemplo',
     emision: [{ token: 'E', denominacion: 'EUR', cantidad: 50 }] });
   const gasta = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
-  const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']], contexto: { tipos: { huesped: 'persona' } },
+  const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']],
     movimientos: [gasta, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 10, de: 'casa', a: 'huesped' }] });
   await eje.escribir({ autor: 'casa', sobre: alta.id, t, payload: ['Menú del día', ['ensalada', 'guiso']], movimientos: [{ ...gasta, cantidad: 3 }] });
   // El génesis de la versión 2 emitía T a su autor (hoy no: VG, 8-11, no hay T acumulable): se escribe a mano, con

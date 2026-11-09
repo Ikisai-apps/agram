@@ -111,22 +111,21 @@ La excepción es quién puede autorizar y si una consolidación está autorizada
 | `evento mal formado: …` (`validarForma`) | 1 (y 4 si es un movimiento: su respaldo no se puede comprobar) |
 | `id no corresponde al cuerpo` | 3 |
 | `ya hay génesis`, `solo el génesis carece de foco` | 3 |
-| `foco desconocido` | 3 (pendiente) |
-| `autor desconocido` | 3 (pendiente) |
-| `firma ausente`, `el firmante debe ser el autor`, `firma inválida`, `autor sin clave` | 3 |
-| `no se puede cambiar la clave`, `clave declarada … sin darle tokens`, `clave inválida` | 3 |
-| `sin clave no se actúa: … no tiene clave registrada`, `la clave de … llega sin prueba de posesión`, `prueba de posesión inválida para …`, `prueba de posesión de … sin clave declarada` (R9) | 3 |
-| `no se puede cambiar el tipo`, `tipo declarado … sin darle tokens`, `tipo inválido` | 5 |
-| `tope de T:…`, `P sobre todo el eje («genesis») solo lo emite el génesis`, `P fuera del génesis va sobre un registro existente`, `la serie … caduca …` / `… no caduca`, `el t del evento (…) es anterior al de su foco …` / `… al alta de …` (el reloj no va hacia atrás, **[X] confirmar VG**) | 4 |
-| `nadie emite en nombre de otro` | 5 (y 4: la serie no la respalda quien la emite) |
-| `solo las personas emiten`, `nadie emite en nombre de otro`, `tipo inválido para … no hay identidades de grupo`, `T lo emite cada persona para sí misma`, `la emisión de P va a quien la emite`, `P sobre … lo acuña solo quien escribió el registro …` | 5 |
-| `emitir … exige mover T del autor`, `… exige R propia en juego`, `emitir E exige P del autor sobre el registro` | 5 |
+| `every record hangs on a record of the ledger` (el foco no está) | 3 (pendiente: puede llegar) |
+| `referencia a un evento que no está en el eje` (suelo, VG, 10-11, C1) | 2 (pendiente: con red se resolvería antes de aceptar) |
+| `firma inválida`, `autor sin clave`, `clave inválida`, `prueba de posesión inválida para …`, `prueba de posesión de … sin clave declarada` (suelo: criptografía) | 3 |
+| `who has a key signs`, `without a key nobody acts`, `a key is declared at its alta`, `a declared key comes with its proof` (reglas de la época, B4) | 3 |
+| `no hay tipo en el alta` (B1); en el prefijo de la versión 2, `no se puede cambiar el tipo`, `tipo declarado … sin darle tokens`, `tipo inválido` | 5 |
+| `writing burns today's T`, `not before its focus`, `not before the writer joined`, `at most a year ahead`, `E is tied to a record that exists`, `locked P backing live E is not released`, `P moves within a known scope` (reglas de la época) | 4 |
+| `P sobre todo el eje («genesis») solo lo emite el génesis`, `P fuera del génesis va sobre un registro existente`, `la serie … caduca …` / `… no caduca` | 4 |
+| `only persons mint`, `E is minted by and to its issuer`, `R is minted by its issuer`, `nobody mints T`, `T is not locked`, `T only goes to things`, `nobody moves tokens of others` (reglas de la época) | 5 |
+| `la emisión de P va a quien la emite`, `P sobre … lo acuña solo quien escribió el registro …`, `emitir … exige consumir T del autor`, `… exige R propia en juego`, `emitir E exige P del autor sobre el registro` (siguen en JS hasta el 3b) | 5 |
 | `saldo disponible insuficiente para bloquear`, `no hay … bloqueado … con la salida` | 4 |
-| `nadie mueve tokens ajenos` | 5 |
 | `la serie … no admite tanto` | 4 |
-| `ámbito desconocido`, `saldo insuficiente de P` | 4 |
-| `saldo insuficiente de …` | 4 |
+| `saldo insuficiente de P`, `saldo insuficiente de …` | 4 |
 | `evento ya registrado` | ninguna: si es el registro del eje, se lee en su lugar |
+
+Las reglas de la época llegan a las capas con los mismos motivos que da el eje (`src/condiciones/reglas.js`, `CAPA_DE_REGLA`): la validez y el eje leen las mismas reglas. En el prefijo de la versión 2, la capa 3 y la 5 dicen lo de entonces, con sus textos (`firma ausente`, `nadie mueve tokens ajenos`…).
 
 Las capas también señalan cosas que el eje admite:
 

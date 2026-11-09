@@ -10,12 +10,13 @@ import { ejemploComprasHermanas, escribirBasesDelEjemplo } from '../ejemplos/iki
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
-import { claveToken, asignacionT, EMITEN, ESCALAS_REALES, ESCALAS_INFORMATIVAS } from '../src/tokens.js';
+import { claveToken, asignacionT, ESCALAS_REALES, ESCALAS_INFORMATIVAS } from '../src/tokens.js';
 import { gastaAsignacion, esInformativoT, repartirGastoT } from '../src/ciclo.js';
 import { esConsumoT } from '../src/evento.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { CONDICIONES, catalogo } from '../src/condiciones/index.js';
 import { Libro } from '../src/libro.js';
+import { EPOCA_0_BTML } from '../src/epocas.js';
 
 /** La aritmética de antes, evento a evento y sin libro: saldos, bloqueos, series, altas, T gastado y T sobre cada registro. */
 function referencia(eje) {
@@ -23,7 +24,6 @@ function referencia(eje) {
   const bloq = new Map(); // JSON [id, clave, salida] → cantidad
   const series = new Map(); // clave → { emitido, consumido }
   const altas = new Map();
-  const tipos = new Map();
   const gastadoT = new Map();
   const tiempoSobre = new Map(); // id → Map(escala → T)
   const ver = (id, k) => saldos.get(id)?.get(k) ?? 0;
@@ -44,10 +44,12 @@ function referencia(eje) {
   };
   for (const id of eje.orden) {
     const ev = eje.obtener(id);
-    const tipoAutor = tipos.get(ev.autor) ?? null;
-    const conAsignacion = !eje.esDeV2(ev.id) && EMITEN.includes(tipoAutor) && altas.has(ev.autor);
-    for (const [x, t] of Object.entries(ev.contexto?.tipos ?? {})) tipos.set(x, t);
+    // B1 (VG, 10-11): persona = quien escribió su propia alta; quien aún no tiene alta y escribe, escribe la suya.
+    const personaAutor = altas.has(ev.autor) ? eje.obtener(altas.get(ev.autor)).autor === ev.autor : true;
+    const conAsignacion = !eje.esDeV2(ev.id) && personaAutor;
     if (ev.contexto?.genesis === true) { altas.set(ev.autor, ev.id); if (!saldos.has(ev.autor)) saldos.set(ev.autor, new Map()); }
+    // Su propia alta: la cuenta nace con lo que acuña de su asignación del día al gastarla.
+    if (conAsignacion && !altas.has(ev.autor) && ev.movimientos.some((m) => gastaAsignacion(m, ev.autor, true))) { altas.set(ev.autor, ev.id); if (!saldos.has(ev.autor)) saldos.set(ev.autor, new Map()); }
     for (const m of ev.movimientos) {
       const k = claveToken(m);
       if (m.a !== null && !altas.has(m.a)) altas.set(m.a, ev.id);
@@ -63,7 +65,7 @@ function referencia(eje) {
       if (m.de === null) s.emitido += m.cantidad;
       else if (m.token === 'P') for (const [kp, d] of plan(m.de, m.ambito, m.cantidad)) ajustar(m.de, kp, d);
       else if (esInformativoT(m)) { s.consumido += m.cantidad; continue; }
-      else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+      else if (conAsignacion && gastaAsignacion(m, ev.autor, true)) {
         const a = asignacionT(ev.t, m.escala);
         const kg = JSON.stringify([ev.autor, m.escala, a.periodo]);
         const { asignacion, explicito } = repartirGastoT(a.cantidad - (gastadoT.get(kg) ?? 0), m.cantidad);
@@ -162,10 +164,11 @@ test('capa cero: cada condición cita filas que están en el inventario, y van e
   assert.ok(filas.size >= 130);
   for (const c of catalogo()) for (const f of c.filas) assert.ok(filas.has(f), c.nombre + ' cita ' + f);
   assert.deepEqual(CONDICIONES.map((c) => c.nombre), [
-    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'ancla', 'ID-1', 'ID-5', 'ID-6', 'ID-3',
-    'VA-3', 'RL-1', 'ID-9', 'TT-6', 'TT-4', 'TT-8', 'PP-5', 'ES-1',
+    'EV-1', 'suelo:id', 'suelo:nuevo', 'suelo:un-genesis', 'suelo:referencias', 'ID-1', 'suelo:firma', 'suelo:claves', 'ID-3',
+    // Encargo 3a, paso 9: las reglas de la época, conectadas, en el orden de su 8.
+    ...EPOCA_0_BTML.condiciones.map((r) => r[0][0]),
+    'VA-3', 'PP-2', 'PP-5', 'ES-1',
     'VA-3', 'EE-1', 'EE-8', 'EE-10', 'EE-5',
     'RR-3', 'RR-4', 'RR-5',
-    'ID-8', 'PP-4',
   ]);
 });

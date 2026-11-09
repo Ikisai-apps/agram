@@ -1,0 +1,16 @@
+[
+  ["the genesis only mints to its author"],
+  [1, 0],
+  ["=not (count up ev = 0) or count (ev.1 where transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4 or (mint in it.4 and it.3.1 != first ev.3)) = 0"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "mapa §10.1 [D]: el génesis",
+    "VG, 9-11 (mapa §16): el génesis es la época; su autor, implícito en el 3",
+    "[provisional] VG, 10-11, A2: las reglas de «*» no apartan el génesis, salvo con una sola forma, «no tiene foco» (count up ev = 0), mientras el génesis sea una transacción; sobra cuando el génesis sea la época (mapa §16). Que solo el génesis carezca de foco lo asegura el suelo (suelo:un-genesis)"
+  ],
+  ["epoch 0"],
+  ["after R is minted to its issuer"],
+  ["the genesis only mints to its author: {first ev.3} moves something else in it"]
+]

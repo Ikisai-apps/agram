@@ -28,6 +28,17 @@ export function msUTC(s) {
   return real - desfase;
 }
 
+/**
+ * Segundos UTC enteros de un instante ISO estricto (NaN si no lo es): la unidad con que se COMPARA el tiempo (VG,
+ * 10-11, C2: «segundos en todo»), la misma que D-FECHA da a las reglas. Dos instantes del mismo segundo son el mismo.
+ */
+export function segundosUTC(s) {
+  return Math.floor(msUTC(s) / 1000);
+}
+
+/** Segundos enteros de unos milisegundos (±Infinity y NaN tal cual). */
+export const segundosDe = (ms) => (Number.isFinite(ms) ? Math.floor(ms / 1000) : ms);
+
 /** ¿Es un instante ISO-8601 estricto con zona explícita? */
 export function esInstante(s) {
   return !Number.isNaN(msUTC(s));
@@ -41,4 +52,9 @@ export function esInstante(s) {
 export function msDeGuardado(s) {
   const ms = msUTC(s);
   return Number.isNaN(ms) ? Date.parse(s) : ms;
+}
+
+/** Segundos enteros de un `t` ya guardado (como msDeGuardado). */
+export function segundosDeGuardado(s) {
+  return segundosDe(msDeGuardado(s));
 }

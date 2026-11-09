@@ -674,7 +674,7 @@ FRESCURA("general")              → 1
 FRESCURA()                       → 0
 comprobar(la base del menú).alDia → false
 --- límites y autorización
-FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 19 registros y quedan 18 pasos de presupuesto
+FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 21 registros y quedan 18 pasos de presupuesto
 CAJA("formulasPendientes")       → ERROR: CAJA: formulasPendientes es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 ```
 
@@ -897,13 +897,13 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → 066b13b0
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → ac3d6d2b
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
 dependencias de compra [3]: [
-  '066b13b0…:3000000000',
-  '066b13b0…:2000000000',
-  '066b13b0…:1200000000'
+  'ac3d6d2b…:3000000000',
+  'ac3d6d2b…:2000000000',
+  'ac3d6d2b…:1200000000'
 ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
@@ -915,20 +915,20 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio 066b13b0 · propio 066b13b0 · escrito d2d1a6fa · escrito a5fc3c96 · escrito ee6cea81
-BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio 066b13b0 · propio 066b13b0 · escrito d2d1a6fa · escrito a5fc3c96 · escrito ee6cea81
+BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio ac3d6d2b · propio ac3d6d2b · escrito 8fde702a · escrito d8b499ee · escrito 9597bdb2
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio ac3d6d2b · propio ac3d6d2b · escrito 8fde702a · escrito d8b499ee · escrito 9597bdb2
 CONTAR(BUSCAR(4))                                          → RESUELTO     5
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: texto y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito d2d1a6fa · escrito a5fc3c96
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito a5fc3c96
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 8fde702a · escrito d8b499ee
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito d8b499ee
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     pagar
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio 066b13b0 · propio 066b13b0
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio ac3d6d2b · propio ac3d6d2b
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

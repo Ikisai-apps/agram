@@ -6,7 +6,6 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
 import { Eje } from '../src/eje.js';
 import * as motor from '../src/motor.js';
 import { evaluar, consultar } from '../src/bql.js';
@@ -28,15 +27,16 @@ const minuto = (de, cantidad = 1, a = null) => (a === null ? { token: 'T', escal
 /** Eje de demostración: g da de alta a quien se le pida (con tipo persona salvo que se diga otro). */
 async function demo(ids, tipos = {}) {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: 'raíz',
+    demostracion: true, identidad: 'g', t: ALTA, foco: 'raíz',
     emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const id of ids) if ((tipos[id] ?? 'persona') === 'persona') await eje.entrar({ identidad: id, t: ALTA });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
     // A una cosa, g le da T (Core, 8-11: una persona da su T a sus cosas); a las demás, minutos como E (T no cruza
     // de persona). Un grupo no recibe T ni lo acuña: lo que escribe un grupo lo escribe una persona con P sobre él.
     movimientos: [minuto('g'), ...ids.map((id) => (tipos[id] === 'cosa' ? { token: 'T', escala: 'minuto', cantidad: 500, de: 'g', a: id } : minuto('g', 500, id)))],
-    contexto: { tipos: Object.fromEntries(ids.map((id) => [id, tipos[id] ?? 'persona'])) },
   });
   return eje;
 }
@@ -168,7 +168,7 @@ test('R8 el índice por autor del eje (sobreDe) da lo mismo que filtrar sobre() 
 // ---------- R9 · sin clave no se actúa ----------
 
 test('R9 el génesis sin clave se rechaza fuera de la demostración; con clave y firma, entra; la marca es explícita', async () => {
-  const base = { identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] };
+  const base = { identidad: 'g', t: T0, foco: 'raíz', emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] };
   await assert.rejects(Eje.genesis(base), /sin clave no se actúa: el génesis declara la clave de su autor/);
   const k = await generarClaves();
   const eje = await Eje.genesis({ ...base, clave: k.publica, privada: k.privada });
@@ -183,9 +183,10 @@ test('R9 el génesis sin clave se rechaza fuera de la demostración; con clave y
 
 test('R9 el alta trae la prueba de posesión de cada clave nueva: sin ella, con otra clave o sin clave declarada, no entra', async () => {
   const [kg, ka, kb] = [await generarClaves(), await generarClaves(), await generarClaves()];
-  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: T0, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] });
-  const alta = (payload) => ({ autor: 'g', sobre: eje.genesisId, t: T0, payload, movimientos: [minuto('g'), minuto('g', 5, 'ana')], contexto: { tipos: { ana: 'persona' }, claves: { ana: ka.publica } } });
-  await assert.rejects(eje.escribir(alta('sin prueba'), kg.privada), /la clave de ana llega sin prueba de posesión/);
+  const eje = await Eje.genesis({ identidad: 'g', t: T0, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }] });
+  // ana es una cosa de g (B1: su alta la escribe g, que declara su clave): la clave llega con su prueba de posesión.
+  const alta = (payload) => ({ autor: 'g', sobre: eje.genesisId, t: T0, payload, movimientos: [minuto('g'), minuto('g', 5, 'ana')], contexto: { claves: { ana: ka.publica } } });
+  await assert.rejects(eje.escribir(alta('sin prueba'), kg.privada), /a declared key comes with its proof: the key of ana/);
   await assert.rejects(eje.escribir(alta('prueba ajena'), kg.privada, { ana: kb.privada }), /prueba de posesión inválida para ana/);
   await assert.rejects(eje.escribir(alta('prueba de más'), kg.privada, { ana: ka.privada, bea: kb.privada }), /prueba de posesión de bea sin clave declarada/);
   const ok = await eje.escribir(alta('con prueba'), kg.privada, { ana: ka.privada });
@@ -204,16 +205,18 @@ test('R9 el alta trae la prueba de posesión de cada clave nueva: sin ella, con 
 
 test('R9 sin clave no se mueve ni se autoriza; en demostración, sí (como antes), y la posesión queda «sin probar»', async () => {
   const [kg, ka] = [await generarClaves(), await generarClaves()];
-  const eje = await Eje.genesis({ identidad: 'g', tipo: 'persona', t: ALTA, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 4 }] });
+  const eje = await Eje.genesis({ identidad: 'g', t: ALTA, foco: 'raíz', clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 4 }] });
   // ana (una persona) entra con clave; muda, sin clave pero con minutos de g y con P sobre todo el eje.
-  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas', movimientos: [minuto('g'), minuto('g', 9, 'ana'), minuto('g', 9, 'muda'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'muda' }], contexto: { tipos: { ana: 'persona' }, claves: { ana: ka.publica } } }, kg.privada, { ana: ka.privada });
-  await assert.rejects(eje.escribir({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /sin clave no se actúa: muda/);
+  // B1 (VG, 10-11): la persona escribe su propia alta.
+  await eje.entrar({ identidad: 'ana', t: ALTA, clave: ka.publica, privada: ka.privada }); // su clave, en su alta: la firma es la prueba
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas', movimientos: [minuto('g'), minuto('g', 9, 'ana'), minuto('g', 9, 'muda'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'muda' }] }, kg.privada);
+  await assert.rejects(eje.escribir({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /without a key nobody acts: muda has no key/);
   const c = await motor.consolidar(eje, { autor: 'ana', foco: eje.genesisId, t: T0, elecciones: { 1: 'algo' } }, ka.privada);
   assert.equal(motor.puedeAutorizar(eje, 'muda', c.id), false); // tiene P, no tiene clave
   assert.equal(motor.puedeAutorizar(eje, 'g', c.id), true);
   // La capa 3 de un registro escrito a mano por la muda: falla.
   const aMano = await crearEvento({ autor: 'muda', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('muda')] });
-  assert.match((await validez(eje, aMano)).capas[2].motivos.map((m) => m.texto ?? m).join(' '), /sin clave no se actúa: muda/);
+  assert.match((await validez(eje, aMano)).capas[2].motivos.map((m) => m.texto ?? m).join(' '), /without a key nobody acts: muda has no key/);
   // Demostración: lo mismo entra; la clave sin prueba queda «sin probar», y una prueba mala falla igual.
   const d = await demo(['muda']);
   await escribe(d, 'muda', d.genesisId, 'x');
@@ -233,53 +236,15 @@ test('R9 firmarPosesion no cambia el id y la forma de posesion se comprueba', as
   await assert.rejects(eje.anadir(mal), /posesion debe ser un objeto/);
 });
 
-// ---------- R10 · el tipo no da renta ----------
+// ---------- R10 · ser persona o cosa no da renta ----------
 
-/** Lugares donde se puede leer el tipo, y por qué. Fuera de ellos, la prueba falla. */
-const PERMITIDOS = Object.freeze({
-  'src/tokens.js': 'define TIPOS y EMITEN',
-  'src/eje.js': 'valida el alta (el tipo se declara una vez) y da el contexto de src/ciclo.js',
-  'src/ciclo.js': 'quién firma emisiones: EMITEN, y qué tipos admite un alta (motivoTipo, TIPOS_V2)',
-  // La capa cero (VG, 9-11): las comprobaciones del alta y del génesis que estaban en src/eje.js son ahora condiciones.
-  'src/condiciones/identidad.js': 'las condiciones del alta (ID-3) y del génesis (GN-1), que antes estaban en src/eje.js',
-  'src/validez.js': 'las mismas reglas que eje.validar, leídas por capas (su libro guarda los tipos)',
-  // Solo para mostrar: la etiqueta de la cartera y la forma del agua. No ordenan, no filtran ni conceden.
-  'ui/saldos.js': 'muestra el tipo junto a la identidad',
-  'mundos/parque.js': 'dibuja el agua de una persona o de un grupo',
-  // [X] decidir VG: identidadDe designa con el tipo «cosa» cuál de las identidades que un registro da de alta es
-  // la propia cosa (la que escribe sus bases). No concede por cabeza (otra cosa no escribe más bases ni las de
-  // otro), pero lee el tipo. Queda anotado hasta que se decida cómo se identifica un registro (AARPIA; PR #66).
-  'src/bases.js': 'identidadDe: la propia cosa del registro ([X] pendiente)',
-});
+// VG, 10-11, B1: desaparece el tipo. Persona es la identidad que escribe su propia alta; cosa, la que da de alta
+// otra identidad, su dueño. La prueba estática de R10 (ningún módulo lee el tipo fuera de unos sitios) se retira: ya
+// no hay tipo que leer, y lo que distingue a una persona de una cosa lo dice una regla de la época que lee el 3 del
+// alta («only persons mint»). Queda la prueba de comportamiento: ser persona o cosa no cambia lo que se obtiene de
+// otros; solo decide quién emite.
 
-function fuentes(dir) {
-  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? fuentes(dir + '/' + e.name) : /\.m?js$/.test(e.name) ? [dir + '/' + e.name] : []));
-}
-
-/** El código sin comentarios (aproximado: basta para buscar nombres). */
-const sinComentarios = (s) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`\\])\/\/.*$/gm, '$1');
-
-test('R10 prueba estática: fuera de los sitios permitidos ningún módulo lee el tipo de una identidad', () => {
-  const lecturas = [
-    /\.tipo\(/, // eje.tipo(id), ctx.tipo(id)
-    /(?<!CATALOGO)\.tipos\b/, // contexto.tipos, libro.tipos
-    /#tipos\b/,
-    /import\s*\{[^}]*\b(TIPOS|TIPOS_V2|EMITEN|EMITEN_V2|motivoTipo)\b[^}]*\}\s*from\s*['"][./]*(src\/)?(tokens|ciclo)\.js['"]/,
-  ];
-  const archivos = [...fuentes('src'), ...fuentes('ui'), ...fuentes('mundos'), 'app.js'];
-  assert.ok(archivos.length > 20);
-  const fuera = [];
-  for (const a of archivos) {
-    const codigo = sinComentarios(readFileSync(a, 'utf8'));
-    const hallado = lecturas.filter((re) => re.test(codigo));
-    if (hallado.length && !PERMITIDOS[a]) fuera.push(a + ': ' + hallado.map(String).join(' '));
-  }
-  assert.deepEqual(fuera, []);
-  // Y los permitidos de solo mostrar no importan EMITEN ni TIPOS ni deciden con ellos.
-  for (const a of ['ui/saldos.js', 'mundos/parque.js']) assert.equal(lecturas[3].test(readFileSync(a, 'utf8')), false, a);
-});
-
-test('R10 declararse persona, grupo o cosa no cambia lo que se obtiene de otros (elegir, autorizar)', async () => {
+test('R10 ser persona o cosa (por quién escribe el alta, B1) no cambia lo que se obtiene de otros (elegir, autorizar)', async () => {
   const mundo = async (tipo) => {
     const eje = await demo(['dueña', 'b'], { b: tipo });
     await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, payload: 'poder', movimientos: [minuto('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'b' }] });
@@ -293,7 +258,7 @@ test('R10 declararse persona, grupo o cosa no cambia lo que se obtiene de otros 
   // Un grupo no escribe (Core, 8-11: lo suyo lo escribe una persona con P sobre él), así que se compara la cosa.
   assert.deepEqual(await mundo('cosa'), persona);
   assert.deepEqual(persona, { candidatos: [['propio', null], ['escrito', 'b']], autoriza: true, elegible: true });
-  // Lo único que decide el tipo: quién firma emisiones (EMITEN). Una cosa no emite.
+  // Lo único que decide: quién emite (la regla «only persons mint»). Una cosa no emite.
   const eje = await demo(['b'], { b: 'cosa' });
-  await assert.rejects(eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('b'), { token: 'R', emisor: 'b', cantidad: 1, de: null, a: 'b' }] }), /solo las personas emiten: b es cosa/);
+  await assert.rejects(eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('b'), { token: 'R', emisor: 'b', cantidad: 1, de: null, a: 'b' }] }), /only persons mint: b is a thing \(its alta was written by g\)/);
 });

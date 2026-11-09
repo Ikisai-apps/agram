@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   validarMovimiento, claveToken, cantidadBase, partirClave, esIdRegistro, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS,
-  SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS, TIPOS, EMITEN,
+  SERIE, SEPARADOR_REGISTRO, CRITERIO_CAPACIDAD, ESCALAS_T, MAXIMO_ESCALAS_T, FAMILIAS,
 } from '../src/tokens.js';
 
 test('T: un token por escala, sin conversión entre escalas', () => {
@@ -73,9 +73,10 @@ test('P exige ámbito; R exige emisor y no es fungible', () => {
   assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b', ambito: 'genesis', emisor: 'a' }).some((e) => /emisor solo en E y en R/.test(e)));
 });
 
-test('tipos de identidad: solo las personas emiten (VG, 7-11 noche; antes, personas y grupos)', () => {
-  assert.deepEqual(TIPOS, ['persona', 'cosa']); // sin grupo (VG, 8-11): un grupo es un registro con P delegado
-  assert.deepEqual(EMITEN, ['persona']);
+test('no hay tipos de identidad (VG, 10-11, B1): persona o cosa se lee de quién escribe el alta', async () => {
+  const tokens = await import('../src/tokens.js');
+  assert.equal(tokens.TIPOS, undefined);
+  assert.equal(tokens.EMITEN, undefined);
 });
 
 test('movimientos inválidos', () => {

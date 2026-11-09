@@ -70,11 +70,14 @@ test('sin efectos: ni el eje ni el evento cambian', async () => {
 
 test('referencia a un id ausente: la interpretación queda pendiente y las otras cuatro capas no se enteran', async () => {
   const { eje, compra, menu } = await ejemploCompra();
-  const nota = await eje.escribir({
+  // C1 (VG, 10-11): el eje local no la acepta; la validez de la candidata dice por qué capa: la 2, pendiente (con red,
+  // se resolvería antes de aceptar).
+  const nota = await crearEvento({
     autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina')],
     payload: ['Nota', { ref: 'f'.repeat(64) }, { ref: menu.id, dir: '7000000000' }],
   });
-  const v = await validez(eje, nota.id);
+  await assert.rejects(eje.anadir(nota), /referencia a un evento que no está en el eje: ffffffff/);
+  const v = await validez(eje, nota);
   // Corpus: la capa 2 es «interpretación de contexto, referencias y posiciones» (V4 06 l.36); ausente → PENDIENTE, puede llegar.
   assert.equal(v.interpretacion.estado, 'pendiente');
   assert.deepEqual(v.interpretacion.referencias.map((r) => r.estado), ['pendiente', 'pendiente']);
@@ -98,15 +101,15 @@ test('firma quitada tras restaurar: falla la capa 3 y solo ella', async () => {
   assert.equal(firmada.criptografia.firma, 'verificada');
   // El eje no admite el guardado sin la firma; las capas dicen cuál de ellas cae.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
-  delete roto.eventos[3].firma;
-  await assert.rejects(restaurar(roto), /firma ausente de huesped/);
+  delete roto.eventos[4].firma; // la compra (antes van el génesis, el alta de la huésped, las de la casa y el menú)
+  await assert.rejects(restaurar(roto), /who has a key signs: huesped has a key/);
   const { firma, firmante, ...sinFirma } = otro.obtener(compra.id);
   void firma; void firmante;
   const v = await validez(otro, sinFirma);
   assert.equal(v.enEje, true); // el mismo id: se lee en su lugar del eje
   assert.equal(v.criptografia.estado, 'falla');
   assert.equal(v.criptografia.firma, 'ausente');
-  assert.match(v.criptografia.motivos[0], /firma ausente de huesped/);
+  assert.match(v.criptografia.motivos[0], /who has a key signs: huesped has a key/);
   assert.deepEqual(salvo(v, 3), salvo(firmada, 3));
   // Una firma no es veracidad: con ella, la capa 4 no dice que la compra ocurriera.
   assert.equal(firmada.acreditacion.externa, SIN_ACREDITAR);
@@ -143,25 +146,25 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   const ajena = await validez(eje, ajenaEv);
   assert.deepEqual(estados(ajena), ['ok', 'ok', 'ok', 'falla', 'falla']);
   assert.match(ajena.acreditacion.motivos[0], /es de casa y la emite huesped/);
-  assert.match(ajena.permiso.motivos[0], /nadie emite en nombre de otro: casa no es el autor/);
-  assert.match((await eje.validar(ajenaEv)).join(' '), /nadie emite en nombre de otro/); // lo mismo que rechaza el eje
+  assert.match(ajena.permiso.motivos[0], /(E is minted by and to|R is minted by) its issuer/);
+  assert.match((await eje.validar(ajenaEv)).join(' '), /(E is minted by and to|R is minted by) its issuer/); // lo mismo que rechaza el eje
   // Huesped mueve euros de la casa: hay respaldo (la casa los tiene), no hay permiso (capa 5).
   const robo = await validez(eje, await borrador('huesped', [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'huesped' }]));
   assert.deepEqual(estados(robo), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(robo.permiso.motivos[0], /nadie mueve tokens ajenos: casa no es el autor/);
+  assert.match(robo.permiso.motivos[0], /nobody moves tokens of others/);
   // VG, 8-11: asignación diaria. Nadie emite T fuera del génesis: cada persona tiene, cada día, todo su T.
   // Cocina (una cosa de la casa, Core 8-11) emite T: solo las personas emiten (capa 5).
   const t = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'minuto', cantidad: 5, de: null, a: 'cocina' }]));
   assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es cosa/);
+  assert.match(t.permiso.motivos[0], /only persons mint/);
   // Huesped (persona) tampoco emite T: no se emite (capa 5).
   const emite = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(emite), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(emite.permiso.motivos.join(' '), /T no se emite: ni el génesis; cada persona tiene su asignación del día/);
+  assert.match(emite.permiso.motivos.join(' '), /nobody mints T/);
   // Gasta más horas de las que le quedan del día: no hay respaldo (capa 4); el permiso sí (capa 5).
   const horas = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 25, de: 'huesped', a: null }]));
   assert.deepEqual(estados(horas), ['ok', 'ok', 'ok', 'falla', 'ok']);
-  assert.match(horas.acreditacion.motivos[0], /T del día agotado \(hora\): quedan \d+/);
+  assert.match(horas.acreditacion.motivos[0], /writing burns today's T/);
   assert.doesNotMatch(horas.acreditacion.resumen, /respaldados/);
   // Lo que le queda del día, sí: una hora y la parte del año de hoy (una escala que el génesis nunca emitió).
   assert.equal(eje.serie('T:anio').emitido, 0);
@@ -206,9 +209,10 @@ test('fórmula pendiente: la interpretación queda pendiente y las otras capas n
 
 test('una referencia ausente da lo mismo escrita como { ref } o como =REF: pendiente, en la capa 2', async () => {
   const { eje, compra } = await ejemploCompra();
-  const escribir = (payload) => eje.escribir({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload });
-  const comoFormula = await validez(eje, (await escribir(['Cuenta', '=REF("ffffffff", "1200000000") + 2 EUR'])).id);
-  const comoRef = await validez(eje, (await escribir(['Cuenta', { ref: 'f'.repeat(64), dir: '1200000000' }])).id);
+  // C1 (VG, 10-11): las dos, como candidatas (la de { ref } el eje local no la acepta).
+  const escribir = (payload) => crearEvento({ autor: 'cocina', sobre: compra.id, en: '1000000000', t: T, movimientos: [gastaT('cocina')], payload });
+  const comoFormula = await validez(eje, await escribir(['Cuenta', '=REF("ffffffff", "1200000000") + 2 EUR']));
+  const comoRef = await validez(eje, await escribir(['Cuenta', { ref: 'f'.repeat(64), dir: '1200000000' }]));
   const [f] = comoFormula.interpretacion.formulas;
   assert.equal(f.estado, 'PENDIENTE'); // BQL: «referencia ausente del eje» (lo ausente no es falso)
   assert.equal(f.capa, 'pendiente');
@@ -343,7 +347,7 @@ test('más de diez profundidades: no es fallo de forma; la capa 2 da lo mismo qu
   assert.match(bql.interpretacion.formulas[0].texto, /más de diez profundidades/);
 });
 
-test('firma que no se puede verificar: pendiente solo si la clave aún puede llegar', async () => {
+test('firma que no se puede verificar: cuenta como sin firma; la clave de quien escribe su alta va en ella (B1)', async () => {
   const { eje, compra } = await ejemploCompra(); // sin claves
   const otra = await generarClaves();
   // Cocina ya tiene alta y no tiene clave: el eje no deja añadírsela («no se puede cambiar la clave»). Cuenta como sin firma (G1).
@@ -352,11 +356,16 @@ test('firma que no se puede verificar: pendiente solo si la clave aún puede lle
   assert.equal(v.criptografia.firma, 'sin verificar');
   assert.equal(v.criptografia.estado, 'ok');
   assert.deepEqual(await eje.validar(deCocina), []); // el eje la admite
-  // Un autor sin alta: su clave puede llegar con el alta y entonces se verificaría.
+  // Un autor sin alta escribe su propia alta (B1): su clave, si la tiene, va en ella. Sin declararla, su firma no se
+  // puede verificar nunca: cuenta como sin firma (G1), igual que la de cocina.
   const deNadie = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x' }), otra.privada);
   const n = await validez(eje, deNadie);
-  assert.equal(n.criptografia.estado, 'pendiente');
-  assert.match(n.criptografia.motivos.join(' '), /aún no tiene alta: su clave puede llegar con ella/);
+  assert.deepEqual([n.criptografia.estado, n.criptografia.firma], ['ok', 'sin verificar']);
+  // Con la clave declarada en su alta y firmada con ella, se verifica: su firma es su prueba de posesión.
+  const conClave = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x', contexto: { claves: { nadie: otra.publica } } }), otra.privada);
+  const k = await validez(eje, conClave);
+  assert.deepEqual([k.criptografia.estado, k.criptografia.firma, k.criptografia.clavesDeclaradas], ['ok', 'verificada', [{ identidad: 'nadie', por: 'nadie', posesion: 'probada' }]]);
+  assert.deepEqual(await eje.validar(conClave), []);
 });
 
 test('un registro desconocido o malformado no tumba nada: lo que no se puede comprobar, falla', async () => {

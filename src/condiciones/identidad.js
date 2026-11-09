@@ -5,34 +5,38 @@
 // texto y mismo orden que tenían en src/eje.js; ahora son condiciones de
 // validez de la transacción (VG, 9-11: la capa cero).
 
-import { claveToken, cantidadBase, AMBITO_GENESIS, EMITEN } from '../tokens.js';
-import { motivoTipo, motivoAjenos, EMITEN_V2, T_NO_SE_EMITE, validosDe } from '../ciclo.js';
+import { claveToken, cantidadBase, AMBITO_GENESIS } from '../tokens.js';
+import { motivoTipo, EMITEN_V2, T_NO_SE_EMITE, SIN_TIPO } from '../ciclo.js';
 import { verificar, verificarPosesion, clavePublicaValida } from '../autoridad.js';
 
 const enEnteros = (k) => 'la serie ' + k + ' va en enteros: no se declaró divisible (divisible: true en su primera emisión)';
 const objetos = (ev) => (Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : []);
 
 /**
- * ID-4, ID-5 (y la bandera exigirFirmas del eje). Quien tiene clave firma, y
- * el firmante es el autor; sin clave no se actúa (R9), salvo en un eje de
- * demostración o en el prefijo de la versión 2.
+ * Suelo: la firma verifica (criptografía, src/autoridad.js), y la bandera exigirFirmas del eje. Quién firma (el
+ * firmante es el autor si tiene clave: ID-5) y que sin clave no se actúa (ID-4, R9) son reglas de la época, «who has
+ * a key signs» y «without a key nobody acts», que leen la clave y el firmante como posiciones (B4; encargo 3a, paso
+ * 9: retiradas de aquí). En el prefijo de la versión 2, las de entonces.
  */
 export const FIRMA = Object.freeze({
-  nombre: 'ID-5',
-  filas: Object.freeze(['ID-4', 'ID-5']),
+  nombre: 'suelo:firma',
+  filas: Object.freeze([]),
   familia: 'identidad',
   evaluar: async (tx, libro, ctx) => {
     const ev = ctx.evento;
-    const clave = ctx.clave(ev.autor);
+    // B1: quien aún no tiene cuenta escribe su propia alta, y la clave que declara en ella para sí es la suya: la
+    // firma de este registro con esa clave es su prueba de posesión.
+    const clave = ctx.clave(ev.autor) ?? (libro.tiene(ev.autor) ? undefined : ev.contexto?.claves?.[ev.autor]);
     if (clave) {
-      if (!ev.firma) return 'firma ausente de ' + ev.autor;
-      if (ev.firmante !== ev.autor) return 'el firmante debe ser el autor';
+      // Sin firma, o firmada por otro: lo dice la regla (o, en la versión 2, esto).
+      if (!ev.firma || ev.firmante !== ev.autor) {
+        if (ctx.reglas !== 2) return null;
+        return !ev.firma ? 'firma ausente de ' + ev.autor : 'el firmante debe ser el autor';
+      }
       if (!(await verificar(ev, clave))) return 'firma inválida de ' + ev.autor;
       return null;
     }
     if (ctx.exigirFirmas) return 'autor sin clave: ' + ev.autor;
-    // R9: sin clave no se actúa (mover tokens, autorizar, escribir bases: todo evento mueve T de su autor).
-    if (ctx.exigeClave) return 'sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)';
     return null;
   },
 });
@@ -43,21 +47,28 @@ export const FIRMA = Object.freeze({
  * posesión (R9): la clave nueva firma el id del alta.
  */
 export const CLAVES = Object.freeze({
-  nombre: 'ID-6',
-  filas: Object.freeze(['ID-2', 'ID-6']),
+  nombre: 'suelo:claves',
+  filas: Object.freeze([]),
   familia: 'identidad',
+  // Suelo: la clave es una clave pública válida y su prueba de posesión verifica (criptografía). Que se declare en
+  // el alta, de quien no tiene cuenta (ID-2, ID-6), y que llegue con su prueba son reglas de la época, «a key is
+  // declared at its alta» y «a declared key comes with its proof» (B4; encargo 3a, paso 9: retiradas de aquí). En
+  // el prefijo de la versión 2, las de entonces.
   evaluar: async (tx, libro, ctx) => {
     const ev = ctx.evento;
     const movimientos = objetos(ev);
     const errores = [];
     const declaradas = ev.contexto?.claves ?? {};
+    const v2 = ctx.reglas === 2;
     for (const [id, jwk] of Object.entries(declaradas)) {
-      if (ctx.tieneClave(id) || libro.tiene(id)) errores.push('no se puede cambiar la clave de ' + id);
-      else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
+      // B1: quien escribe su propia alta declara su clave (su firma es la prueba de posesión); para otra identidad,
+      // la que recibe tokens en este alta (una cosa), con su prueba de posesión.
+      const propia = id === ev.autor;
+      if (v2 && (ctx.tieneClave(id) || libro.tiene(id))) errores.push('no se puede cambiar la clave de ' + id);
+      else if (v2 && !propia && !movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
       else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
-      else if (!Object.hasOwn(ev.posesion ?? {}, id)) {
-        if (ctx.exigeClave) errores.push('la clave de ' + id + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
-      } else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
+      else if (!Object.hasOwn(ev.posesion ?? {}, id)) continue;
+      else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
     }
     for (const id of Object.keys(ev.posesion ?? {})) {
       if (!Object.hasOwn(declaradas, id)) errores.push('prueba de posesión de ' + id + ' sin clave declarada para él en este evento');
@@ -66,49 +77,44 @@ export const CLAVES = Object.freeze({
   },
 });
 
-/** ID-2, ID-3. Los tipos (persona o cosa) se declaran en el alta, como la clave, y no cambian. */
+/**
+ * ID-2, ID-3. No hay tipo (VG, 10-11, B1): fuera del prefijo de la versión 2,
+ * un alta no declara persona ni cosa (se lee de quién la escribe). En el
+ * prefijo de la versión 2 (suelo de persistencia), las reglas de entonces: los
+ * tipos se declaraban en el alta, como la clave, y no cambiaban.
+ */
 export const TIPOS = Object.freeze({
   nombre: 'ID-3',
   filas: Object.freeze(['ID-2', 'ID-3']),
   familia: 'identidad',
   evaluar: (tx, libro, ctx) => {
     const ev = ctx.evento;
+    const tipos = ev.contexto?.tipos;
+    if (ctx.reglas !== 2) return tipos !== undefined ? SIN_TIPO : null;
     const movimientos = objetos(ev);
     const errores = [];
-    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      const mal = motivoTipo(id, tipo, ctx.reglas);
+    for (const [id, tipo] of Object.entries(tipos ?? {})) {
+      const mal = motivoTipo(id, tipo);
       if (mal) errores.push(mal);
-      else if (ctx.tipoDeclarado(id) || libro.tiene(id)) errores.push('no se puede cambiar el tipo de ' + id);
+      else if (ctx.tipoV2Declarado(id) || libro.tiene(id)) errores.push('no se puede cambiar el tipo de ' + id);
       else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
     }
     return errores;
   },
 });
 
-/**
- * ID-8. Nadie mueve tokens ajenos, ni por cuenta de un grupo (VG, 8-11: solo
- * existe la delegación): todo movimiento con origen lo escribe su titular.
- * Es una condición de PASO: el movimiento que la incumple no se simula (sus
- * motivos van en su sitio entre los de la aritmética, como antes).
- */
-export const AJENOS = Object.freeze({
-  nombre: 'ID-8',
-  filas: Object.freeze(['ID-8']),
-  familia: 'identidad',
-  evaluar: (tx, libro, ctx) => {
-    const ev = ctx.evento;
-    return (ctx.validos ?? validosDe(ev)).filter(({ m }) => m.de !== null && m.de !== ev.autor).map(({ m, i }) => ({ paso: i, i, texto: motivoAjenos(m.de) }));
-  },
-});
+// ID-8 (nadie mueve tokens ajenos) es la regla de la época «nobody moves tokens of others» (encargo 3a, paso 9: la
+// condición de paso AJENOS se retiró; su código vive en test/condiciones-retiradas.mjs como red de equivalencia).
 
 // ---------- el génesis ----------
 
 /**
  * GN-1, GN-2 (sin la firma). El génesis emite a su autor, sus series de E y
  * R quedan a su nombre, su P es sobre todo el eje («genesis»: aún no existe
- * ningún otro registro) y solo declara el tipo y la clave de su autor. Lo
- * emite una persona; con las reglas de la versión 2 (`reglas` = 2: un eje
- * guardado con ella), también un grupo (el tipo que había entonces).
+ * ningún otro registro) y solo declara la clave de su autor. Su autor escribe
+ * su propia alta: es una persona (VG, 10-11, B1: no hay tipo). Con las reglas
+ * de la versión 2 (`reglas` = 2: un eje guardado con ella), declara el tipo de
+ * su autor, persona o grupo (lo que había entonces).
  */
 export function erroresGenesis(g, reglas = 3) {
   const errores = [];
@@ -139,10 +145,13 @@ export function erroresGenesis(g, reglas = 3) {
       }
     }
   }
-  for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
+  // B1: no hay tipo; el autor del génesis escribe su propia alta: es una persona. Solo un génesis guardado con la
+  // versión 2 declara el tipo de su autor (suelo de persistencia: las reglas de entonces).
+  if (reglas !== 2 && g.contexto?.tipos !== undefined) errores.push(SIN_TIPO);
+  for (const [id, tipo] of Object.entries(reglas === 2 ? g.contexto?.tipos ?? {} : {})) {
     if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
-    else if (motivoTipo(id, tipo, reglas)) errores.push(motivoTipo(id, tipo, reglas));
-    else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
+    else if (motivoTipo(id, tipo)) errores.push(motivoTipo(id, tipo));
+    else if (!EMITEN_V2.includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
   }
   for (const id of Object.keys(g.contexto?.claves ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');

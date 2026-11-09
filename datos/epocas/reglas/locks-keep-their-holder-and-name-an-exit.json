@@ -1,0 +1,12 @@
+[
+  ["locks keep their holder and name an exit"],
+  [1, "bloqueo", "liberacion"],
+  ["=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7.0) <= 1)) = 0"],
+  ["ev.3"],
+  ["lock", "release"],
+  ["*"],
+  ["Mapa §12 [D] ciclo de vida: «saldo = disponible + bloqueado»; corpus V10: «LOCK exige salida verificable explícita» (inventario BL-1)"],
+  ["epoch 0"],
+  ["after informative T is only burned"],
+  ["locks keep their holder and name an exit: {first ev.3} locks or releases with someone else on one side, or without an exit"]
+]

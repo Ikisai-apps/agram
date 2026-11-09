@@ -1,0 +1,12 @@
+[
+  ["nobody mints T"],
+  [0],
+  ["=count (ev.1 where T in it.0.0.0 and mint in it.4) = 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  ["VG, 8-11: no hay T acumulable; nadie emite T, ni el génesis: cada persona tiene su asignación del día (mapa §12 [D] dudas de T, A1)"],
+  ["epoch 0"],
+  ["after R is minted by its issuer"],
+  ["nobody mints T: {first ev.3} mints {sum ((ev.1 where T in it.0.0.0 and mint in it.4) each 1)} T; everyone has today's allowance"]
+]

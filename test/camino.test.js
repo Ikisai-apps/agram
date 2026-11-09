@@ -146,11 +146,13 @@ test('previsualizar no escribe: corre la operación real en una copia y enseña 
 
 test('previsualizar: si el motor lo rechazaría, dice por qué; una posición sin desarrollar enseña dónde y con qué efecto', async () => {
   const { eje, compra } = await ciclo();
-  const d = datosCamino(eje, compra.id, { identidad: 'nadie' });
+  // Una cosa sin T (B1: su alta la escribe la casa, que le da un euro y ningún minuto): el motor la rechazaría.
+  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'maquina' }], payload: 'una máquina sin T' });
+  const d = datosCamino(eje, compra.id, { identidad: 'maquina' });
   const p = await previsualizar(eje, d, 'propuesta', { t: T });
-  assert.match(p.error, /autor desconocido: nadie/);
+  assert.match(p.error, /saldo insuficiente de T:minuto en maquina/);
   assert.equal(p.evento, undefined);
-  assert.match(htmlPrevia(p), /el motor lo rechazaría: autor desconocido/);
+  assert.match(htmlPrevia(p), /el motor lo rechazaría: writing burns today&#39;s T: maquina/);
   const siete = await previsualizar(eje, d, 'desarrollar:7');
   assert.equal(siete.escribe, false);
   assert.deepEqual(siete.efectos.map((e) => [e.tipo, e.mundo, e.celda]), [['anclado', 7, '7000000000']]);
@@ -221,7 +223,7 @@ test('vista: los dos renders tienen la misma lista; el animado añade la senda y
   const lista = (h) => h.slice(h.indexOf('<ol'));
   assert.equal(lista(sobrio), lista(animado));
   assert.equal((sobrio.match(/<li class="paso-c/g) ?? []).length, d.pasos.length + d.dados.length);
-  assert.match(sobrio, /<select name="identidad"><option>casa<\/option><option>cocina<\/option><option selected>huesped<\/option>/);
+  assert.match(sobrio, /<select name="identidad"><option>casa<\/option><option selected>huesped<\/option><option>cocina<\/option>/);
   assert.match(sobrio, /data-consolidar-propuesta>consolidar como huesped/);
   assert.match(sobrio, /data-posicion="5" data-escribir-en>escribir aquí/);
   const previa = await previsualizar(eje, d, 'propuesta', { t: T });

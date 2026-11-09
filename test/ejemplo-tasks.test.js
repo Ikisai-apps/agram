@@ -50,8 +50,9 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   assert.deepEqual([T('casa'), consumido('casa')], [[0, 0], [15, 0]]); // sin T explícito (VG, 8-11: no hay T acumulable): gasta su asignación (la liberación de su P, un minuto más)
   assert.deepEqual(eje.recursos('proveedor').filter((r) => r.denominacion === 'hora'), [{ emisor: 'casa', denominacion: 'hora', cantidad: 20 }]);
   // Integración 7-11: con #42 ejecutar cuesta un minuto por posición escrita (3: título, consolidación y autorización), no uno fijo.
-  assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [46, 0]]);
-  assert.deepEqual([T('proveedor'), consumido('proveedor')], [[0, 0], [10, 6]]);
+  // Y cada una, un minuto más por escribir su propia alta (B1, VG 10-11).
+  assert.deepEqual([T('organizadora'), consumido('organizadora')], [[0, 0], [47, 0]]);
+  assert.deepEqual([T('proveedor'), consumido('proveedor')], [[0, 0], [11, 6]]);
   // Todo registro tras el génesis cuesta minutos a su autor; solo la entrega consume horas, y son del proveedor.
   for (const id of eje.orden.slice(1)) {
     const ev = eje.obtener(id);
@@ -69,7 +70,7 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: 80, de: 'proveedor', a: null }],
     payload: 'ochenta minutos',
   });
-  assert.deepEqual(consumido('proveedor'), [90, 6]);
+  assert.deepEqual(consumido('proveedor'), [91, 6]);
   assert.deepEqual(eje.tiempoSobre(tarea.id), { ...antes, minuto: (antes.minuto ?? 0) + 80 });
 });
 
@@ -281,7 +282,7 @@ test('entrega: el proveedor consume las horas de su presupuesto; las previstas n
       ],
       payload: 'la carpa la montó el proveedor',
     }),
-    /nadie mueve tokens ajenos/,
+    /nobody moves tokens of others/,
   );
 });
 

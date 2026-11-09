@@ -2,7 +2,10 @@
 // encargo 2), verificadas contra las condiciones de JavaScript que traducen
 // (src/condiciones/*.js, src/ciclo.js, la forma de src/evento.js y src/tokens.js).
 // Cada regla se evalúa con evaluarRegla sobre el eje de justo antes; la condición
-// JS, sobre el mismo eje. No están conectadas al eje (eso es el encargo 3).
+// JS, sobre el mismo eje. Desde el encargo 3a (paso 9) las reglas están conectadas
+// al eje (src/condiciones/reglas.js) y las condiciones JS que sustituyen se
+// retiraron de src/: su código vive en test/condiciones-retiradas.mjs y esta red
+// las sigue comparando.
 //
 // Qué se exige:
 // - en los ejemplos de Ikisai, el mismo veredicto en cada evento, también el génesis;
@@ -19,13 +22,14 @@ import assert from 'node:assert/strict';
 import { evaluarRegla } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
+import { REGLAS_3B_DATOS } from '../datos/epocas/epocas.js';
 import { Eje } from '../src/eje.js';
-import { validarForma, canonico, cuerpo, hash, RAIZ } from '../src/evento.js';
+import { validarForma, canonico, cuerpo, hash, RAIZ, crearEvento } from '../src/evento.js';
+import { generarClaves, firmar, firmarPosesion } from '../src/autoridad.js';
 import { SECCIONES_DEL_CICLO, T_NO_SE_EMITE } from '../src/ciclo.js';
-import { erroresGenesis, AJENOS } from '../src/condiciones/identidad.js';
-import { ANCLA, AUTOR_CON_ALTA } from '../src/condiciones/evento.js';
-import { AMBITO_P } from '../src/condiciones/ciclo.js';
+import { erroresGenesis, erroresFirmaGenesis } from '../src/condiciones/identidad.js';
 import { SECCIONES_DEL_TOPE, analisisDelTope } from '../src/condiciones/tope.js';
+import { SECCIONES_RETIRADAS, ANCLA, AJENOS, AMBITO_P, FIRMA, CLAVES, registroDesconocido } from './condiciones-retiradas.mjs';
 import { SECCIONES_DE_R, analizarR, colateral } from '../src/lente.js';
 import { claveToken } from '../src/tokens.js';
 import { ejemploCompra, ejemploCuenta, ejemploComprasVecinas } from '../ejemplos/ikisai/compra-food.mjs';
@@ -34,13 +38,18 @@ import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 
-const REGLAS = EPOCA_0_BTML.condiciones;
+// Las de la época y las seis que el mapa §15 cambia (datos/epocas/reglas-3b/: fuera de la época, sin conectar), que
+// se siguen comparando con el código que las aplica hoy.
+const REGLAS_3B = REGLAS_3B_DATOS.map((x) => x.registro);
+const REGLAS = [...EPOCA_0_BTML.condiciones, ...REGLAS_3B];
 const nombreDe = (r) => r[0][0];
 const DIVERGENCIAS = process.env.AGRAM_DIVERGENCIAS === '1';
+/** Las reglas de la clave y la firma (B4): se ejercitan en un eje con claves, no en el fuzz de demostración. */
+const REGLAS_DE_CLAVE = ['who has a key signs', 'without a key nobody acts', 'a key is declared at its alta', 'a declared key comes with its proof'];
 
 // ---------- la condición JS que traduce cada regla ----------
 
-const SECCION = Object.fromEntries(SECCIONES_DEL_CICLO.map((s) => [s.nombre, s]));
+const SECCION = { ...Object.fromEntries(SECCIONES_DEL_CICLO.map((s) => [s.nombre, s])), ...SECCIONES_RETIRADAS };
 const RR3 = SECCIONES_DE_R.find((s) => s.nombre === 'RR-3');
 const aTexto = (r) => (r === null || r === undefined ? [] : Array.isArray(r) ? r : [r]).map((x) => (typeof x === 'string' ? x : x.texto));
 const esObjeto = (m) => m !== null && typeof m === 'object';
@@ -55,7 +64,7 @@ const genesisPorMovimiento = (ev) => (Array.isArray(ev.movimientos) ? ev.movimie
  * sobre el eje de antes (un eje vacío para el génesis). Lo que la regla no
  * cubre de la misma condición (otras filas) no cuenta.
  */
-function motivosJS(eje, ev) {
+async function motivosJS(eje, ev) {
   const genesis = ev.contexto?.genesis === true && eje.orden.length === 0;
   const v2 = eje.orden.length < eje.eventosV2;
   const forma = validarForma(ev, { tLaxo: v2 });
@@ -63,7 +72,7 @@ function motivosJS(eje, ev) {
   const ctx = genesis ? null : eje.contexto(ev);
   const delCiclo = ctx && !v2 && ev.contexto?.genesis !== true;
   const sec = {};
-  if (delCiclo) for (const n of ['RL-1', 'ID-9', 'TT-6', 'TT-4', 'ES-1']) sec[n] = SECCION[n].evaluar(ev, ctx.ciclo, ctx.validos);
+  if (delCiclo) for (const n of ['RL-1', 'ID-9', 'TT-6', 'TT-4', 'TT-8', 'ES-1']) sec[n] = SECCION[n].evaluar(ev, ctx.ciclo, ctx.validos);
   const deForma = (re) => forma.filter((x) => re.test(x));
   const deSec = (n, re = /./, en = () => true) => (sec[n] ?? []).filter((x) => re.test(x.texto) && en(movs[x.i])).map((x) => x.texto);
   const eg = genesis ? erroresGenesis(ev) : [];
@@ -71,8 +80,16 @@ function motivosJS(eje, ev) {
   const acunaDe = (token) => (m) => esObjeto(m) && m.token === token && m.de === null;
   const enGenesis = (token, re) => pm.flatMap((errs, i) => (acunaDe(token)(movs[i]) ? errs.filter((x) => re.test(x)) : []));
   const tope = delCiclo ? (n) => SECCIONES_DEL_TOPE[n].evaluar(ev, ctx.tope, analisisDelTope(ev, ctx.tope)).map((x) => x.texto) : () => [];
+  // B4: la firma y las claves (ID-5, ID-6); en el génesis, GN-1 y GN-2. Lo criptográfico (la firma verifica) es suelo.
+  const firma = ctx && !v2 ? aTexto(await FIRMA.evaluar(null, eje.libro, ctx)) : [];
+  const claves = ctx && !v2 ? aTexto(await CLAVES.evaluar(null, eje.libro, ctx)) : [];
+  const firmaG = genesis ? await erroresFirmaGenesis(ev) : [];
 
   return {
+    'who has a key signs': genesis ? firmaG.filter((x) => /debe ir firmado|firmante del génesis/.test(x)) : firma.filter((x) => /firma ausente|el firmante debe ser el autor/.test(x)),
+    'without a key nobody acts': genesis ? eg.filter((x) => /^sin clave no se actúa/.test(x)) : firma.filter((x) => /sin clave no se actúa/.test(x)),
+    'a key is declared at its alta': genesis ? eg.filter((x) => /solo declara la clave de su autor/.test(x)) : claves.filter((x) => /no se puede cambiar la clave|sin darle tokens/.test(x)),
+    'a declared key comes with its proof': genesis ? [] : claves.filter((x) => /sin prueba de posesión/.test(x)),
     "writing burns today's T": [...deForma(/escribir consume T del autor/), ...deSec('TT-4')],
     'every event moves tokens': forma.filter((x) => x === 'todo evento mueve tokens'),
     'T is whole': deForma(/T va en enteros/),
@@ -87,10 +104,12 @@ function motivosJS(eje, ev) {
     'the genesis P is over the whole ledger': eg.filter((x) => /^el P del génesis es sobre todo el eje/.test(x)),
     'the genesis E names no record': eg.filter((x) => /^en el génesis no hay registro que nombrar/.test(x)),
     'every record hangs on a record of the ledger': ctx ? aTexto(ANCLA.evaluar(null, eje.libro, ctx)) : [],
-    'the author has an account': ctx ? aTexto(AUTOR_CON_ALTA.evaluar(null, eje.libro, ctx)) : [],
     'not before its focus': deSec('RL-1', /anterior al de su foco/),
     'not before the writer joined': deSec('RL-1', /anterior al alta de/),
     'at most a year ahead': deSec('RL-1', /por delante del mayor t/),
+    // B1: persona = quien escribió su alta; el génesis y quien escribe la suya ahora, también.
+    'only persons mint': genesis ? [] : deSec('ID-9', /^solo las personas emiten/),
+    'T only goes to things': deSec('TT-8'),
     'R is minted by its issuer': genesis ? enGenesis('R', /^en el génesis emite su autor/) : deSec('ID-9', /nadie emite en nombre de otro/, acunaDe('R')),
     'nobody mints T': genesis
       ? [...eg.filter((x) => x === T_NO_SE_EMITE), ...(movs.some((m) => acunaDe('T')(m) && m.a !== ev.autor) && eg.includes('el génesis solo emite a su autor') ? ['el génesis solo emite a su autor (T)'] : [])]
@@ -101,7 +120,7 @@ function motivosJS(eje, ev) {
     'minting needs real T': deSec('ES-1', /exige consumir T del autor/),
     'minting P or E needs own R at stake': deSec('ES-1', /exige R propia en juego/),
     'minting E needs P on the record': deSec('ES-1', /emitir E exige P del autor/),
-    'E is tied to a record that exists': tope(0).filter((x) => /^registro desconocido/.test(x)),
+    'E is tied to a record that exists': delCiclo ? registroDesconocido(ev, ctx.tope) : [],
     'locked P backing live E is not released': tope(1),
     'nobody moves tokens of others': genesis
       ? movs.filter((m) => esObjeto(m) && m.de !== null && m.de !== ev.autor).map(() => 'GN-1: el génesis solo emite a su autor')
@@ -124,8 +143,8 @@ function veredictos(eje, ev) {
 }
 
 /** Compara regla y condición en un evento: las diferencias, cada una con su clase. */
-function comparar(eje, ev, ejeAcepta) {
-  const js = motivosJS(eje, ev);
+async function comparar(eje, ev, ejeAcepta) {
+  const js = await motivosJS(eje, ev);
   const bq = veredictos(eje, ev);
   const forma = validarForma(ev, { tLaxo: eje.orden.length < eje.eventosV2 });
   const fuera = [];
@@ -152,14 +171,14 @@ async function aMano(datos) {
 /** Rehace un eje evento a evento y compara cada uno (el génesis, con el libro vacío). */
 async function repasar(eje, cuenta) {
   const eventos = eje.orden.map((id) => eje.obtener(id));
-  const g = comparar(new Eje(), eventos[0], true);
+  const g = await comparar(new Eje(), eventos[0], true);
   assert.deepEqual(g.fuera, [], 'génesis');
   cuenta.eventos++;
   const nuevo = await Eje.desde([eventos[0]]);
   for (const ev of eventos.slice(1)) {
     const errores = await nuevo.validar(ev);
     assert.deepEqual(errores, [], 'el ejemplo es válido');
-    const { fuera, js } = comparar(nuevo, ev, true);
+    const { fuera, js } = await comparar(nuevo, ev, true);
     assert.deepEqual(fuera, [], ev.autor + ' ' + ev.id.slice(0, 8));
     for (const [n, m] of Object.entries(js)) if (m.length) cuenta.rechazos[n] = (cuenta.rechazos[n] ?? 0) + 1;
     cuenta.eventos++;
@@ -169,9 +188,11 @@ async function repasar(eje, cuenta) {
 
 // ---------- la época ----------
 
-test('las 27 reglas de economía están en epoch.2 en el orden de su 8, cada una con su condición JS', () => {
-  assert.equal(REGLAS.length, 27);
-  const js = motivosJS(new Eje(), { autor: 'g', sobre: null, t: '2026-11-07T09:00:00Z', movimientos: [], payload: ['x'], contexto: { genesis: true } });
+test('las reglas de economía: 26 en epoch.2 en el orden de su 8 y 6 en reglas-3b, cada una con su condición JS', async () => {
+  assert.equal(EPOCA_0_BTML.condiciones.length, 26);
+  assert.deepEqual(REGLAS_3B.map(nombreDe).sort(), ['P is minted on one\'s own record', 'P is minted to its minter', 'minting E needs P on the record', 'minting P or E needs own R at stake', 'minting needs real T', 'the genesis P is over the whole ledger']);
+  assert.equal(REGLAS.length, 32);
+  const js = await motivosJS(new Eje(), { autor: 'g', sobre: null, t: '2026-11-07T09:00:00Z', movimientos: [], payload: ['x'], contexto: { genesis: true } });
   assert.deepEqual(REGLAS.map(nombreDe).sort(), Object.keys(js).sort(), 'una condición JS por regla, y ninguna de más');
   for (const r of REGLAS) {
     assert.equal(r.length, 10, nombreDe(r));
@@ -191,8 +212,8 @@ test('las vistas nuevas del contexto: A.6 el alta de una identidad, S.8 lo emiti
   const alta = antes.alta('huesped');
   assert.deepEqual(leer('(first (first ev.3).6).5'), [alta.id]);
   assert.deepEqual(leer('(first (first ev.3).6).6.0'), [alta.t]);
-  assert.deepEqual(leer('((ev.1 where E in it.0.0) each 0).8'), [antes.serie('E:casa/EUR').emitido]);
-  assert.deepEqual(leer('(("E:casa/EUR")).8'), [], 'una clave escrita en el payload no es una serie del libro: sin 8');
+  assert.deepEqual(leer('((ev.1 where E in it.0.0.0) each 0).1.0'), [antes.serie('E:casa/EUR').emitido]);
+  assert.deepEqual(leer('(("E:casa/EUR")).1.0'), [], 'una clave escrita como texto no es la serie: la serie es un registro (B3)');
   assert.deepEqual(leer('("nadie-con-alta").6'), []);
 });
 
@@ -227,14 +248,15 @@ const AUSENTE = 'ab'.repeat(32);
 /** Un mundo con recursos, E atada, P sobre un registro y R con colateral (el de la verificación de la familia E). */
 async function mundo() {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    demostracion: true, identidad: 'g', t: ALTA, foco: ['raíz'],
     emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }, { token: 'E', denominacion: 'vale', cantidad: 50 }],
   });
   const personas = ['casa', 'socia', 'bea'];
+  // B1: las personas escriben su propia alta; la cocina, una cosa, la da de alta g.
+  for (const x of personas) await eje.entrar({ identidad: x, t: ALTA });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: ['altas'],
     movimientos: [minuto('g'), colateral('g', 10), ...personas.map((x) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: x })), { token: 'T', escala: 'hora', cantidad: 3, de: 'g', a: 'cocina' }],
-    contexto: { tipos: { ...Object.fromEntries(personas.map((x) => [x, 'persona'])), cocina: 'cosa' } },
   });
   for (const x of personas) await eje.escribir({ autor: x, sobre: eje.genesisId, t: iso(T0), payload: ['R de ' + x], movimientos: [minuto(x), { token: 'R', emisor: x, cantidad: 100, de: null, a: x }, colateral(x, 10)] });
   const A = (await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: iso(T0), movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], 6] })).id;
@@ -372,7 +394,7 @@ function genesisAlAzar(azar, i) {
   if (p(0.15)) movimientos.push(minuto(autor));
   if (p(0.1)) movimientos.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor });
   if (p(0.1)) movimientos.push({ token: 'E', emisor: 'zeta', denominacion: 'EUR', cantidad: 1, de: 'zeta', a: autor });
-  return { autor, sobre: null, t: '2026-11-07T09:00:00Z', movimientos, payload: p(0.8) ? ['raíz'] : ['x', [[['a', 'b']], ['c']]], contexto: { genesis: true, demostracion: true, tipos: { [autor]: 'persona' } } };
+  return { autor, sobre: null, t: '2026-11-07T09:00:00Z', movimientos, payload: p(0.8) ? ['raíz'] : ['x', [[['a', 'b']], ['c']]], contexto: { genesis: true, demostracion: true } };
 }
 
 test('fuzz corto con semilla fija: el mismo veredicto que la condición JS, o más estricta solo donde el eje ya rechaza', async () => {
@@ -389,7 +411,7 @@ test('fuzz corto con semilla fija: el mismo veredicto que la condición JS, o m�
   for (let i = 0; i < 360; i++) {
     const ev = await aMano(evento(w, reloj, azar));
     const errores = await w.eje.validar(ev);
-    const { fuera, js } = comparar(w.eje, ev, errores.length === 0);
+    const { fuera, js } = await comparar(w.eje, ev, errores.length === 0);
     anota(js);
     for (const f of fuera) (f.clase === 'divergencia' ? divergencias : []).push({ ...f, eje: errores.slice(0, 3) });
     inofensivas += fuera.filter((f) => f.clase === 'inofensiva').length;
@@ -402,21 +424,73 @@ test('fuzz corto con semilla fija: el mismo veredicto que la condición JS, o m�
     const g = await aMano(genesisAlAzar(azar, i));
     let acepta = true;
     try { await Eje.desde([g]); } catch { acepta = false; }
-    const { fuera, js } = comparar(new Eje(), g, acepta);
+    const { fuera, js } = await comparar(new Eje(), g, acepta);
     anota(js);
     for (const f of fuera) (f.clase === 'divergencia' ? divergencias : []).push({ ...f, eje: acepta ? 'acepta' : 'rechaza' });
   }
   assert.deepEqual(divergencias, []);
   assert.ok(validos >= 60, 'eventos válidos: ' + validos);
-  // Cada regla se ejercita por los dos lados: alguna vez su condición JS rechaza y alguna vez pasa.
+  // Cada regla se ejercita por los dos lados: alguna vez su condición JS rechaza y alguna vez pasa. Las de las claves
+  // no: el mundo del fuzz es de demostración, sin claves; las ejercita la prueba de abajo, en un eje con claves.
   const faltan = [];
   for (const r of REGLAS) {
     const n = nombreDe(r);
+    if (REGLAS_DE_CLAVE.includes(n)) continue;
     if (!((rechazosJS[n] ?? 0) > 0)) faltan.push(n + ': su condición JS no rechaza ningún evento del fuzz');
     if (!((pasaJS[n] ?? 0) > 0)) faltan.push(n + ': su condición JS no deja pasar ningún evento del fuzz');
   }
   assert.deepEqual(faltan, []);
   assert.ok(inofensivas > 0, 'el fuzz también llega a eventos que el eje ya rechaza por otro lado');
+});
+
+// ---------- B4: la clave en el 5 del alta y el firmante en el 3 del evento ----------
+
+test('B4: las reglas de la clave y la firma dan el veredicto de ID-5 e ID-6 en un eje con claves (los dos lados)', async () => {
+  const [kg, ka, kb, kc] = [await generarClaves(), await generarClaves(), await generarClaves(), await generarClaves()];
+  const eje = await Eje.genesis({ identidad: 'g', t: ALTA, foco: ['raíz'], clave: kg.publica, privada: kg.privada, emision: [{ token: 'E', denominacion: 'vale', cantidad: 50 }] });
+  const g = eje.genesisId;
+  const firmado = async (datos, privada, posesion = {}) => {
+    let ev = await crearEvento(datos);
+    for (const [id, p] of Object.entries(posesion)) ev = await firmarPosesion(ev, id, p);
+    return privada ? firmar(ev, privada) : ev;
+  };
+  const casos = [
+    // Una persona escribe su propia alta con su clave, firmada con ella: pasa.
+    ['alta propia firmada', await firmado({ autor: 'ana', sobre: g, t: ALTA, movimientos: [minuto('ana')], payload: ['alta de ana'], contexto: { claves: { ana: ka.publica } } }, ka.privada)],
+    // Sin firmar: quien tiene clave firma.
+    ['alta propia sin firmar', await firmado({ autor: 'ana', sobre: g, t: ALTA, movimientos: [minuto('ana')], payload: ['alta de ana'], contexto: { claves: { ana: ka.publica } } })],
+    // Sin clave: sin clave no se actúa (no es una demostración).
+    ['alta propia sin clave', await firmado({ autor: 'bea', sobre: g, t: ALTA, movimientos: [minuto('bea')], payload: ['alta de bea'] })],
+    // g da de alta a una cosa con su clave: con prueba, sin prueba; y una clave para quien no recibe nada.
+    ['cosa con prueba', await firmado({ autor: 'g', sobre: g, t: ALTA, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'robot' }], payload: ['robot'], contexto: { claves: { robot: kb.publica } } }, kg.privada, { robot: kb.privada })],
+    ['cosa sin prueba', await firmado({ autor: 'g', sobre: g, t: ALTA, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'robot' }], payload: ['robot'], contexto: { claves: { robot: kb.publica } } }, kg.privada)],
+    ['clave sin tokens', await firmado({ autor: 'g', sobre: g, t: ALTA, movimientos: [minuto('g')], payload: ['x'], contexto: { claves: { nadie2: kc.publica } } }, kg.privada, { nadie2: kc.privada })],
+    // g, que tiene clave, sin firmar.
+    ['g sin firma', await firmado({ autor: 'g', sobre: g, t: ALTA, movimientos: [minuto('g')], payload: ['x'] })],
+  ];
+  await eje.anadir(casos[0][1]); // ana ya tiene su alta y su clave
+  casos.push(
+    ['ana firma', await firmado({ autor: 'ana', sobre: g, t: ALTA, movimientos: [minuto('ana')], payload: ['ana escribe'] }, ka.privada)],
+    ['ana sin firma', await firmado({ autor: 'ana', sobre: g, t: ALTA, movimientos: [minuto('ana')], payload: ['ana escribe'] })],
+    ['otra clave para ana', await firmado({ autor: 'g', sobre: g, t: ALTA, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'ana' }], payload: ['x'], contexto: { claves: { ana: kc.publica } } }, kg.privada, { ana: kc.privada })],
+  );
+  const lados = Object.fromEntries(REGLAS_DE_CLAVE.map((n) => [n, { pasa: 0, rechaza: 0 }]));
+  for (const [nombre, ev] of casos.slice(1)) {
+    const { js, bq } = await comparar(eje, ev, undefined);
+    for (const n of REGLAS_DE_CLAVE) {
+      assert.equal(bq[n].pasa, js[n].length === 0, nombre + ' · ' + n + ': regla ' + (bq[n].pasa ? 'pasa' : bq[n].motivo) + ' / JS ' + js[n].join('; '));
+      lados[n][bq[n].pasa ? 'pasa' : 'rechaza']++;
+    }
+  }
+  for (const n of REGLAS_DE_CLAVE) assert.ok(lados[n].pasa > 0 && lados[n].rechaza > 0, n + ': ' + JSON.stringify(lados[n]));
+  // La clave en el 5 del alta (A.6.5: su id y su clave) y el firmante en el 3 (ev.3: autor y firmante, «nadie» sin firma).
+  const ctx = new ContextoEje(eje, { ev: casos[8][1], epoch: EPOCA_0_BTML });
+  const { evaluar } = await import('../src/bqlm.js');
+  assert.equal(evaluar('count ("ana").6.5', ctx).valor[0], 2);
+  assert.equal(evaluar('nth 1 ("ana").6.5', ctx).texto, 'clave ' + ka.publica.x.slice(0, 8) + ' de ana');
+  assert.equal(evaluar('nth 1 ev.3', ctx).texto, 'nadie');
+  assert.equal(evaluar('nth 1 ev.3', new ContextoEje(eje, { ev: casos[7][1], epoch: EPOCA_0_BTML })).texto, 'ana');
+  assert.equal(evaluar('count ("g").6.5', ctx).valor[0], 2, 'la del génesis, también');
 });
 
 // ---------- lo que es suelo: la regla no lo mira y el eje lo rechaza igual ----------
@@ -429,7 +503,7 @@ test('suelo: una cantidad de T que no es un entero seguro, una salida que no es 
   ];
   for (const [n, m] of casos) {
     const ev = await aMano({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T16:00:00Z', movimientos: [minuto('huesped'), m], payload: ['suelo'] });
-    const { bq, js } = comparar(eje, ev, false);
+    const { bq, js } = await comparar(eje, ev, false);
     assert.equal(bq[n].pasa, true, n + ': la regla no lo ve');
     assert.ok(js[n].length > 0, n + ': la forma sí');
     assert.ok((await eje.validar(ev)).length > 0, 'el eje lo rechaza');
@@ -449,7 +523,7 @@ test('suelo: una cantidad de T que no es un entero seguro, una salida que no es 
 function divergencia(id, regla, motivo, caso) {
   (DIVERGENCIAS ? test : test.skip)(id + ' · ' + regla + ': ' + motivo, async () => {
     const { eje, ev, aceptaElEje } = await caso();
-    const { bq, js } = comparar(eje, ev, aceptaElEje);
+    const { bq, js } = await comparar(eje, ev, aceptaElEje);
     assert.notEqual(bq[regla].pasa, js[regla].length === 0, 'la divergencia sigue: regla ' + (bq[regla].pasa ? 'pasa' : bq[regla].motivo) + ' / JS ' + js[regla].join('; '));
     if (aceptaElEje !== undefined) assert.equal((await eje.validar(ev)).length === 0, aceptaElEje, 'el eje ' + (aceptaElEje ? 'acepta' : 'rechaza'));
   });
@@ -460,23 +534,41 @@ const enLaCompra = (datos, aceptaElEje) => async () => {
   return { eje, ev: await aMano({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['x'], ...(typeof datos === 'function' ? datos({ eje, menu }) : datos) }), aceptaElEje };
 };
 
-divergencia('D-META-1', "writing burns today's T", '[X] VG: ev.1 trae los movimientos y el 1 del payload; una referencia a un evento ausente deja PENDIENTE toda regla que lee ev.1 (falta una posición con solo los movimientos)',
-  enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', { ref: AUSENTE }] }, true));
-divergencia('D-META-3', 'the author has an account', '[X] VG: lo mismo en ev.3 (el 3 del payload colisiona con el autor y el firmante)',
-  enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', '-', '-', { ref: AUSENTE }] }, true));
-divergencia('D-MOV-7', 'informative T is only burned', 'falta una posición: D-MOV pone «caduca ?? refiere» en el 7; con las dos, la fecha a la que se refiere no se ve ([X] VG: separarlas en D-MOV)',
-  async () => {
-    const { eje, menu } = await ejemploCompra();
-    return { eje, ev: await aMano({ autor: 'casa', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['vale'], movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa', caduca: '2026-12-01T00:00:00Z', refiere: '2025-01-01T00:00:00Z' }] }), aceptaElEje: false };
-  });
-divergencia('R10-T', "writing burns today's T", '[X] VG, la asignación de una cosa (BQLM §8): la regla no lee el tipo y le cuenta a una cosa la asignación de la época; lo para el saldo',
-  enLaCompra({ autor: 'cocina', movimientos: [{ token: 'T', escala: 'hora', cantidad: 43, de: 'cocina', a: null }] }, false));
-divergencia('RELOJ-MS', 'not before its focus', 'falta una posición: D-FECHA da segundos enteros; dentro del mismo segundo, unos milisegundos antes del foco pasan ([X] VG: un despliegue con el milisegundo o un reloj en segundos)',
-  async () => {
-    const w = await mundo();
-    const foco = await w.eje.escribir({ autor: 'casa', sobre: w.A, t: '2026-11-08T11:00:00.500Z', movimientos: [minuto('casa')], payload: ['foco'] });
-    return { eje: w.eje, ev: await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T11:00:00.200Z', payload: ['antes'], movimientos: [minuto('bea')] }), aceptaElEje: false };
-  });
+test('D-META-1 y D-META-3, resueltas (C1: una referencia a un evento ausente se rechaza al entrar): ninguna regla llega a quedarse PENDIENTE por ella', async () => {
+  for (const caso of [
+    enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', { ref: AUSENTE }] }),
+    enLaCompra({ movimientos: [minuto('huesped'), { token: 'R', emisor: 'huesped', cantidad: 1, de: null, a: 'huesped' }], payload: ['x', '-', '-', { ref: AUSENTE }] }),
+  ]) {
+    const { eje, ev } = await caso();
+    assert.ok((await eje.validar(ev)).some((e) => /referencia a un evento que no está en el eje: abababab \(mientras el eje es local; con red, se resuelve antes de aceptar\)/.test(e)));
+  }
+});
+test('D-MOV-7, resuelta (B3: en el movimiento, 7.0 caduca y 7.1 refiere): una E con caducidad y fecha a la que se refiere, la regla la ve como JS', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const ev = await aMano({ autor: 'casa', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['vale'], movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa', caduca: '2026-12-01T00:00:00Z', refiere: '2025-01-01T00:00:00Z' }] });
+  const { bq, js } = await comparar(eje, ev, false);
+  assert.ok(js['informative T is only burned'].length > 0, 'JS la rechaza');
+  assert.equal(bq['informative T is only burned'].pasa, false, 'y la regla también');
+});
+test('R10-T, resuelta (B1: persona o cosa por autoría): una cosa no tiene asignación; la regla le cuenta solo el T de su cartera, como el saldo', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const ev = await aMano({ autor: 'cocina', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['x'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 43, de: 'cocina', a: null }] });
+  assert.equal(veredictos(eje, ev)["writing burns today's T"].pasa, false, 'la cocina es una cosa (su alta la escribió la casa): sin asignación');
+  assert.ok((await eje.validar(ev)).some((e) => /saldo insuficiente de T:hora en cocina/.test(e)), 'el eje la rechaza por el saldo');
+  const cabe = await aMano({ autor: 'cocina', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['x'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 18, de: 'cocina', a: null }] });
+  assert.equal(veredictos(eje, cabe)["writing burns today's T"].pasa, true, 'lo que tiene en su cartera, sí');
+});
+test('RELOJ-MS, resuelta (C2: segundos en todo): dentro del mismo segundo no hay antes, ni para JS ni para la regla', async () => {
+  const w = await mundo();
+  const foco = await w.eje.escribir({ autor: 'casa', sobre: w.A, t: '2026-11-08T11:00:00.500Z', movimientos: [minuto('casa')], payload: ['foco'] });
+  const mismoSegundo = await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T11:00:00.200Z', payload: ['antes'], movimientos: [minuto('bea')] });
+  const a = await comparar(w.eje, mismoSegundo, true);
+  assert.deepEqual([a.js['not before its focus'], a.bq['not before its focus'].pasa], [[], true]);
+  const segundoAntes = await aMano({ autor: 'bea', sobre: foco.id, t: '2026-11-08T10:59:59.900Z', payload: ['antes'], movimientos: [minuto('bea')] });
+  const b = await comparar(w.eje, segundoAntes, false);
+  assert.ok(b.js['not before its focus'].length > 0);
+  assert.equal(b.bq['not before its focus'].pasa, false);
+});
 divergencia('GENESIS-GUARDA', "P is minted on one's own record", '[X] VG: cómo se aparta el génesis de las reglas de «*»; «or count up ev = 0» deja pasar un evento sin foco que no es el génesis (lo para el ancla)',
   async () => {
     const w = await mundo();
@@ -496,13 +588,22 @@ divergencia('EE-4', 'locked P backing live E is not released', 'falta un desplie
     await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['bloquea la familia'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: fam }, { token: 'E', emisor: 'casa', denominacion: 'cama@n1', registro: w.A, cantidad: 1, de: null, a: 'casa' }] });
     return { eje: w.eje, ev: await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 7200e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: fam }] }), aceptaElEje: false };
   });
-divergencia('RL-4', 'locked P backing live E is not released', 'falta una vista: X.1 caduca con ev.6.0 y la condición JS con el reloj de los demás (tMaximo sin el autor), que no tiene posición',
-  async () => {
-    const w = await mundo();
-    const k = 'E:casa/noche@n9@' + w.A;
-    await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['noche'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: k }, { token: 'E', emisor: 'casa', denominacion: 'noche@n9', registro: w.A, caduca: iso(T0 + 2 * 3600e3), cantidad: 1, de: null, a: 'casa' }] });
-    return { eje: w.eje, ev: await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] }), aceptaElEje: false };
-  });
+test('RL-4, resuelta (B6: el reloj de los demás, before.6.3): lo vivo de X.1 caduca con ese reloj, como la condición JS', async () => {
+  const w = await mundo();
+  const k = 'E:casa/noche@n9@' + w.A;
+  await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['noche'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: k }, { token: 'E', emisor: 'casa', denominacion: 'noche@n9', registro: w.A, caduca: iso(T0 + 2 * 3600e3), cantidad: 1, de: null, a: 'casa' }] });
+  // Caducada según la fecha de la transacción, viva según el reloj de los demás (nadie más ha escrito después).
+  const ev = await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] });
+  const { bq, js } = await comparar(w.eje, ev, false);
+  assert.ok(js['locked P backing live E is not released'].length > 0, 'JS la rechaza');
+  assert.equal(bq['locked P backing live E is not released'].pasa, false, 'y la regla también');
+  // Cuando los demás pasan de la caducidad, la E ya no respalda nada: las dos la dejan pasar.
+  await w.eje.escribir({ autor: 'bea', sobre: w.A, t: iso(T0 + 3 * 3600e3), payload: ['más tarde'], movimientos: [minuto('bea')] });
+  const despues = await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] });
+  const otra = await comparar(w.eje, despues, true);
+  assert.deepEqual(otra.js['locked P backing live E is not released'], []);
+  assert.equal(otra.bq['locked P backing live E is not released'].pasa, true);
+});
 (DIVERGENCIAS ? test : test.skip)('VA-3 · minting P or E needs own R at stake: [X] VG: ninguna posición dice si un evento es del prefijo de la versión 2; la condición JS no lo evalúa y la regla sí (¿época propia o suelo de la persistencia?)', async () => {
   const g = await aMano({ autor: 'club', sobre: null, t: '2026-11-06T09:00:00Z', payload: ['v2'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 10, de: null, a: 'club' }], contexto: { genesis: true, tipos: { club: 'grupo' } } });
   const ev = await aMano({ autor: 'club', sobre: g.id, t: '2026-11-06T10:00:00Z', payload: ['vale'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'club', a: null }, { token: 'E', emisor: 'club', denominacion: 'vale', cantidad: 1, de: null, a: 'club' }] });

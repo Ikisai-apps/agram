@@ -27,14 +27,15 @@ const unico = (texto) => texto + ' #' + (++n);
 async function mundo({ criterio = 'sin humo', pX = 100 } = {}) {
   const eje = await Eje.genesis({
     demostracion: true, // sin claves: un eje de demostración (R9)
-    identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    identidad: 'g', t: ALTA, foco: ['raíz'],
     emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 5000 }],
   });
   const ids = ['d', 'a', 'b', 't'];
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E (E:g/minuto); cada una escribe con su T.
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const id of ids) await eje.entrar({ identidad: id, t: ALTA });
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
-    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 300, de: 'g', a }))],
-    contexto: { tipos: Object.fromEntries(ids.map((id) => [id, 'persona'])) } });
+    movimientos: [gasta('g'), ...ids.map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 300, de: 'g', a }))] });
   const X = await eje.escribir({ autor: 'd', sobre: eje.genesisId, t: T0, payload: ['recurso de d', 'una sala', criterio], movimientos: [gasta('d', 3)] });
   if (pX) {
     await eje.escribir({ autor: 'd', sobre: X.id, t: T0, payload: 'poder sobre la sala', movimientos: [gasta('d'),
@@ -285,7 +286,7 @@ test('bloqueo liberado al ejecutar: el del autor en la propia ejecución; el de 
   const ab = await autorizar(eje, { autorizante: 'b', consolidacion: c.id, t: T0 });
   assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
   // Nadie libera lo de otro, ni el autor al ejecutar.
-  await assert.rejects(eje.escribir({ autor: 'a', sobre: c.id, en: FABRICA, t: T0, payload: 'x', movimientos: [gasta('a'), { token: 'P', ambito: X, cantidad: 40, de: 'b', a: 'b', estado: 'liberacion', salida: c.id }] }), /nadie mueve tokens ajenos/);
+  await assert.rejects(eje.escribir({ autor: 'a', sobre: c.id, en: FABRICA, t: T0, payload: 'x', movimientos: [gasta('a'), { token: 'P', ambito: X, cantidad: 40, de: 'b', a: 'b', estado: 'liberacion', salida: c.id }] }), /nobody moves tokens of others/);
   const e = await ejecutar(eje, { autor: 'a', consolidacion: c.id, t: T0 });
   assert.deepEqual(e.movimientos.slice(1), [{ token: 'P', ambito: X, cantidad: 20, de: 'a', a: 'a', estado: 'liberacion', salida: c.id }]);
   assert.deepEqual(e.contexto.evidencia, [c.id, autorizacionesValidas(eje, c.id)[0].id, ab.id]);

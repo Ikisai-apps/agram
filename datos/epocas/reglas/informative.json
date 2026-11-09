@@ -1,0 +1,16 @@
+[
+  ["informative"],
+  ["epoch.7.0"],
+  ["=count (it.1 where T in it2.0.0.0 and count epoch.7.0.(it2.0.0.1) = 0 and burn in it2.4 and count it2.2 = 0) > 0"],
+  ["X.6.7"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 10-11, B5: las lecturas (presente, atendido, obligación, informativo) son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+    "VG, 8-11: el T informativo (pasado, futuro, inventado) es ilimitado, «si lo gastas te vuelve a salir uno», y queda registrado como tal (ciclo.esInformativoT)",
+    "Se materializa en X.6.7: de dónde viene, para cuándo (se refiere a otra fecha)"
+  ],
+  ["epoch 0"],
+  ["after present"],
+  ["informative: the record burns T of a scale the calendar does not measure (past, future, invented)"]
+]

@@ -1,0 +1,16 @@
+[
+  ["not before its focus"],
+  [0],
+  ["=count (first ev.6.5).6.0 = 0 or (first ev.6.0).0 >= (first (first ev.6.5).6.0).0"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-1)",
+    "VG, 8-11: T como asignación diaria; un alta retrofechada daría días de asignación sin fin (mapa §12 [D])",
+    "VG, 10-11, A2: sin excepción del génesis: el génesis la cumple sin ella"
+  ],
+  ["epoch 0"],
+  ["after a declared key comes with its proof"],
+  ["not before its focus: the transaction is dated {first ev.6.0}, before its focus {first ev.6.5} ({first (first ev.6.5).6.0})"]
+]

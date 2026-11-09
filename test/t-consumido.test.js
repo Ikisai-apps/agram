@@ -52,15 +52,18 @@ const gasta = (de, cantidad = 1, escala = 'minuto') => ({ token: 'T', escala, ca
 const daT = (de, a, cantidad, escala = 'minuto') => ({ token: 'T', escala, cantidad, de, a });
 const cedeE = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad, de, a });
 
-/** g (persona) da de alta a personas y una cosa el día antes de T0 (no hay identidades de grupo: VG, 8-11). */
+/**
+ * El día antes de T0, ana y bea escriben su propia alta (B1, VG 10-11: son personas) y g les da minutos como E; g da
+ * de alta a una cosa, el robot, dándole T (no hay identidades de grupo: VG, 8-11).
+ */
 async function mundo() {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: ['raíz'],
+    demostracion: true, identidad: 'g', t: AYER, foco: ['raíz'],
     emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
+  for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, t: AYER });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
-    contexto: { tipos: { ana: 'persona', bea: 'persona', robot: 'cosa' } },
     movimientos: [gasta('g'), cedeE('g', 'ana', 10), cedeE('g', 'bea', 10), daT('g', 'robot', 30)],
   });
   return { eje, g: eje.genesisId, alta };
@@ -74,16 +77,16 @@ test('escribir consume T del autor y el consumo se anota en el registro que sopo
   await eje.escribir({ autor: 'bea', sobre: a.id, t: T0, payload: 'b', movimientos: [gasta('bea', 2), gasta('bea', 1, 'hora')] });
   await eje.escribir({ autor: 'robot', sobre: a.id, t: T0, payload: 'c', movimientos: [gasta('robot', 4)] });
   // Lo de cada registro: lo consumido por quienes escriben encima.
-  assert.deepEqual(eje.tiempoSobre(g), { minuto: 1 });
+  assert.deepEqual(eje.tiempoSobre(g), { minuto: 3 }); // el alta de g y las de ana y bea, que escriben la suya (B1)
   assert.deepEqual(eje.tiempoSobre(alta.id), { minuto: 3 });
   assert.deepEqual(eje.tiempoSobre(a.id), { minuto: 6, hora: 1 });
   assert.deepEqual(eje.tiempoSobre('nadie'), {});
   // Y lo que cuelga de él.
   assert.deepEqual(eje.tiempoBajo(alta.id), { minuto: 9, hora: 1 });
-  assert.deepEqual(eje.tiempoBajo(g), { minuto: 10, hora: 1 });
+  assert.deepEqual(eje.tiempoBajo(g), { minuto: 12, hora: 1 });
   // En las series de T: lo consumido y lo que salió de la asignación diaria (g, ana y bea; el robot gastó el suyo).
   const serie = (k) => eje.series().find((s) => s.clave === k);
-  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [10, 6 + 30]); // y los 30 que g dio al robot
+  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [12, 8 + 30]); // y los 30 que g dio al robot
   assert.deepEqual([serie('T:hora').emitido, serie('T:hora').consumido, serie('T:hora').deAsignacion], [0, 1, 1]);
   assert.equal(eje.saldoT('robot', 'minuto'), 26);
   // Los ocupantes lo enseñan (solo se ve: nada lo lee para conceder).
@@ -107,12 +110,12 @@ test('dárselo a uno mismo, bloquearlo o liberarlo no es consumir: no paga la es
 test('T no cruza de persona: a otra persona se rechaza; a una cosa, sí; dar tiempo a otra persona es E', async () => {
   const { eje, alta } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('g'), daT('g', 'ana', 5)] }),
-    /T no cruza de persona: ana no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo \(E:g\/minuto\)/);
+    /T only goes to things/);
   // Una cosa tampoco se lo pasa a una persona.
-  await assert.rejects(eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('robot'), daT('robot', 'ana', 1)] }), /T no cruza de persona: ana/);
+  await assert.rejects(eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('robot'), daT('robot', 'ana', 1)] }), /T only goes to things/);
   // A una cosa, sí: la máquina gasta el T de su dueño; y una cosa a otra cosa nueva, también.
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'más T para el robot', movimientos: [gasta('g'), daT('g', 'robot', 5)] });
-  await eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'un brazo', contexto: { tipos: { brazo: 'cosa' } }, movimientos: [gasta('robot'), daT('robot', 'brazo', 3)] });
+  await eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'un brazo', movimientos: [gasta('robot'), daT('robot', 'brazo', 3)] });
   assert.deepEqual([eje.saldoT('robot', 'minuto'), eje.saldoT('brazo', 'minuto')], [31, 3]);
   // Lo que vale entre personas: E de la serie del que da, en su tiempo.
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'cinco minutos para ana', movimientos: [gasta('g'), cedeE('g', 'ana', 5)] });
@@ -123,15 +126,15 @@ test('T no cruza de persona: a otra persona se rechaza; a una cosa, sí; dar tie
 test('T de cosa a cosa (VG, 8-11): solo entre cosas del mismo dueño, o si el autor escribió el alta de la destino o tiene P sobre ella', async () => {
   const { eje, alta } = await mundo();
   // Otra cosa de g (el mismo dueño que el robot) y una cosa de ana.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el horno', contexto: { tipos: { horno: 'cosa' } }, movimientos: [gasta('g'), daT('g', 'horno', 2)] });
-  const deAna = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi tostadora', contexto: { tipos: { tostadora: 'cosa' } }, movimientos: [gasta('ana'), daT('ana', 'tostadora', 2)] });
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el horno', movimientos: [gasta('g'), daT('g', 'horno', 2)] });
+  const deAna = await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi tostadora', movimientos: [gasta('ana'), daT('ana', 'tostadora', 2)] });
   assert.deepEqual(eje.alta('tostadora'), { id: deAna.id, t: T0 });
   // Del mismo dueño: sí.
   await eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'al horno', movimientos: [gasta('robot'), daT('robot', 'horno', 3)] });
   assert.equal(eje.saldoT('horno', 'minuto'), 5);
   // De otro dueño, sin escribir su alta ni tener P sobre ella: no.
   const aLaTostadora = { autor: 'robot', sobre: alta.id, t: T0, payload: 'a la tostadora', movimientos: [gasta('robot'), daT('robot', 'tostadora', 3)] };
-  await assert.rejects(eje.escribir(aLaTostadora), /T de cosa a cosa solo entre cosas del mismo dueño, o si robot escribió el alta de tostadora o tiene P sobre ella \(VG, 8-11\)/);
+  await assert.rejects(eje.escribir(aLaTostadora), /T only goes to things/);
   // Con P sobre el alta de la tostadora (aquí, P sobre todo el eje que le delega g): sí.
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'poder para el robot', movimientos: [gasta('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'robot' }] });
   await eje.escribir({ ...aLaTostadora, payload: 'a la tostadora, con poder' });
@@ -145,16 +148,16 @@ test('por cuenta de otro no se mueve nada (VG, 8-11: los grupos son solo delegac
   const { eje, alta } = await mundo();
   await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'P a ana', movimientos: [gasta('g'), { token: 'P', ambito: alta.id, cantidad: 1, de: 'g', a: 'ana' }] });
   const deBea = { autor: 'ana', sobre: alta.id, t: T0, payload: 'x', contexto: { porCuenta: 'bea' }, movimientos: [gasta('ana'), cedeE('bea', 'ana', 1)] };
-  await assert.rejects(eje.escribir(deBea), /nadie mueve tokens ajenos: bea no es el autor/);
+  await assert.rejects(eje.escribir(deBea), /nobody moves tokens of others/);
   const v = await validez(eje, { ...deBea, en: '0000000000', id: 'x' });
   assert.equal(v.permiso.estado, 'falla');
-  assert.match(v.permiso.motivos.join(' '), /nadie mueve tokens ajenos: bea no es el autor/);
+  assert.match(v.permiso.motivos.join(' '), /nobody moves tokens of others/);
   // Delegar es dar (VG, 8-11: «yo te delego T, P, R, E para que tú lo uses»): bea da a ana minutos de su E, y ana los usa con su firma.
   await eje.escribir({ autor: 'bea', sobre: alta.id, t: T0, payload: 'te delego', movimientos: [gasta('bea'), cedeE('bea', 'ana', 3)] });
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo uso', movimientos: [gasta('ana'), cedeE('ana', 'g', 3)] });
   assert.deepEqual([eje.saldo('bea', 'E:g/minuto'), eje.saldo('ana', 'E:g/minuto')], [7, 10]);
-  // Y un alta de tipo grupo se rechaza.
-  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el coro', contexto: { tipos: { coro: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'coro', 5)] }), /no hay identidades de grupo/);
+  // Y un alta no declara tipo, tampoco grupo (B1): persona o cosa se lee de quién escribe el alta.
+  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el coro', contexto: { tipos: { coro: 'grupo' } }, movimientos: [gasta('g'), cedeE('g', 'coro', 5)] }), /no hay tipo en el alta/);
 });
 
 // ---------- T como asignación diaria (VG, 8-11) ----------
@@ -175,17 +178,17 @@ test('asignación diaria: cada persona tiene a las doce todo el T del día, sin 
 test('gastar no puede superar la asignación: agotar los minutos del día y ser rechazado; validez dice lo mismo', async () => {
   const { eje, alta } = await mundo();
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('ana', 1400)] });
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'demasiado', movimientos: [gasta('ana', 41)] }), /T del día agotado \(minuto\): quedan 40/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'demasiado', movimientos: [gasta('ana', 41)] }), /writing burns today's T/);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'lo justo', movimientos: [gasta('ana', 40)] });
   assert.equal(eje.saldoT('ana', 'minuto', T0), 0);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'uno más', movimientos: [gasta('ana')] }), /T del día agotado \(minuto\): quedan 0/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'uno más', movimientos: [gasta('ana')] }), /writing burns today's T/);
   // Las horas son otro token: siguen enteras, y con ellas ana sigue escribiendo hoy.
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'con una hora', movimientos: [gasta('ana', 1, 'hora')] });
   const v = await validez(eje, { autor: 'ana', sobre: alta.id, t: T0, payload: 'y', movimientos: [gasta('ana', 1)], contexto: {}, en: '0000000000', id: 'x' });
   assert.equal(v.acreditacion.estado, 'falla');
-  assert.match(v.acreditacion.motivos.join(' '), /T del día agotado \(minuto\): quedan 0/);
+  assert.match(v.acreditacion.motivos.join(' '), /writing burns today's T/);
   // Nadie emite T fuera del génesis: la asignación no se amplía.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 41, de: null, a: 'ana' }, gasta('ana', 1, 'hora')] }), /T no se emite/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 41, de: null, a: 'ana' }, gasta('ana', 1, 'hora')] }), /nobody mints T/);
   // Una cosa gasta el T que le dieron: saldo insuficiente, como siempre.
   await assert.rejects(eje.escribir({ autor: 'robot', sobre: alta.id, t: T0, payload: 'x', movimientos: [gasta('robot', 31)] }), /saldo insuficiente de T:minuto en robot/);
 });
@@ -194,10 +197,10 @@ test('el cambio de día renueva la asignación entera y no acumula lo que no se 
   const { eje, alta } = await mundo();
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'hoy', movimientos: [gasta('ana', 1000)] });
   assert.equal(eje.saldoT('ana', 'minuto', T0), 440);
-  // Mañana: 1440, no 1440 + 440. Y ayer (antes de gastar nada) también tenía su día entero, que ya pasó.
-  assert.deepEqual([eje.saldoT('ana', 'minuto', MANANA), eje.saldoT('ana', 'minuto', AYER)], [1440, 1440]);
+  // Mañana: 1440, no 1440 + 440. Y ayer tenía su día entero, que ya pasó: gastó un minuto en escribir su alta (B1).
+  assert.deepEqual([eje.saldoT('ana', 'minuto', MANANA), eje.saldoT('ana', 'minuto', AYER)], [1440, 1439]);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: MANANA, payload: 'mañana', movimientos: [gasta('ana', 1440)] });
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: MANANA, payload: 'x', movimientos: [gasta('ana')] }), /T del día agotado \(minuto\): quedan 0/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: MANANA, payload: 'x', movimientos: [gasta('ana')] }), /writing burns today's T/);
   // Sin t, su propio reloj: el día de su último evento.
   assert.equal(eje.saldoT('ana', 'minuto'), 0);
   // Restaurar rehace lo gastado de cada día desde los eventos.
@@ -212,9 +215,9 @@ test('semana, ciclo y año, en partes diarias: «uno partido de 7, 28 o 364 para
   assert.deepEqual(['semana', 'ciclo', 'anio'].map((e) => textoT(e, eje.saldoT('ana', e, T0))), ['1/7 semana', '1/28 ciclo', '1/364 anio']);
   assert.deepEqual([textoT('semana', 3), textoT('semana', 7), textoT('anio', 728), textoT('minuto', 5)], ['3/7 semana', '1 semana', '2 anio', '5 minuto']);
   // Una semana entera (7 partes) no cabe en un día; su parte del día, sí.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'una semana', movimientos: [gasta('ana', 7, 'semana')] }), /T del día agotado \(semana\): quedan 1/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'una semana', movimientos: [gasta('ana', 7, 'semana')] }), /writing burns today's T/);
   await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi parte de la semana', movimientos: [gasta('ana', 1, 'semana')] });
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'otra', movimientos: [gasta('ana', 1, 'semana')] }), /T del día agotado \(semana\): quedan 0/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'otra', movimientos: [gasta('ana', 1, 'semana')] }), /writing burns today's T/);
   // Lo no puesto no se acumula: a la semana siguiente, otra vez una parte.
   assert.equal(eje.saldoT('ana', 'semana', '2026-11-15T10:00:00Z'), 1);
   // Y siguen en enteros: no hay medias partes.
@@ -223,9 +226,9 @@ test('semana, ciclo y año, en partes diarias: «uno partido de 7, 28 o 364 para
 
 test('persona → cosa: el T que da sale de su asignación del día', async () => {
   const { eje, alta } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi robot', contexto: { tipos: { mio: 'cosa' } }, movimientos: [gasta('ana'), daT('ana', 'mio', 1000)] });
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'mi robot', movimientos: [gasta('ana'), daT('ana', 'mio', 1000)] });
   assert.deepEqual([eje.saldoT('ana', 'minuto', T0), eje.saldoT('mio', 'minuto', T0)], [439, 1000]);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'más', movimientos: [gasta('ana'), daT('ana', 'mio', 439)] }), /T del día agotado \(minuto\): quedan 438/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'más', movimientos: [gasta('ana'), daT('ana', 'mio', 439)] }), /writing burns today's T/);
   // Lo que tiene la cosa es suyo y no caduca con el día: lo gasta mañana.
   await eje.escribir({ autor: 'mio', sobre: alta.id, t: MANANA, payload: 'trabajo', movimientos: [gasta('mio', 600)] });
   assert.equal(eje.saldoT('mio', 'minuto', MANANA), 400);
@@ -239,7 +242,7 @@ test('ningún T se acumula (VG, 8-11: no hay T acumulable): el génesis no emite
   // En el alta (AYER) g gastó 1 minuto y dio 30 al robot: de su asignación de ayer.
   assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 31);
   // Hoy, los 1440 del día y nada más: lo que no gastó ayer no pasa a hoy.
-  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] }), /T del día agotado \(minuto\): quedan 1440/);
+  await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] }), /writing burns today's T/);
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el día entero', movimientos: [gasta('g', 1440)] });
   assert.deepEqual([eje.saldo('g', 'T:minuto'), eje.saldoT('g', 'minuto', T0), eje.saldoT('g', 'minuto', MANANA)], [0, 0, 1440]);
   // Una cosa no tiene asignación: conserva lo que le dio su persona hasta gastarlo.
@@ -306,7 +309,9 @@ async function mercado(gastos) {
   const { eje, alta } = await mundo();
   let k = 0;
   const g = () => gastos[k++ % gastos.length];
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', contexto: { tipos: { casa: 'persona' } }, movimientos: [gasta('g'), cedeE('g', 'casa', 10), { token: 'R', emisor: 'g', cantidad: 0.5, de: null, a: 'g' }, colateral('g', 0.05)] }); // R6: R propia en juego
+  // B1 (VG, 10-11): la persona escribe su propia alta.
+  for (const id of ['casa']) await eje.entrar({ identidad: id, sobre: alta.id, t: AYER });
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', movimientos: [gasta('g'), cedeE('g', 'casa', 10), { token: 'R', emisor: 'g', cantidad: 0.5, de: null, a: 'g' }, colateral('g', 0.05)] }); // R6: R propia en juego
   const X = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, payload: ['mercado', 'ofertas', '=BUSCAR(1)', 'ana'], movimientos: [gasta('casa', g())] });
   for (const [autor, texto] of [['bea', 'ruido'], ['ana', 'oferta de ana'], ['robot', 'oferta del robot'], ['casa', 'oferta de casa']]) {
     await eje.escribir({ autor, sobre: X.id, en: direccion([1]), t: T0, payload: texto, movimientos: [gasta(autor, g())] });

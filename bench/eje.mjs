@@ -165,7 +165,6 @@ async function construir(n, semilla) {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: GENESIS,
-    tipo: 'persona',
     emision: [
       { token: 'E', denominacion: 'EUR', cantidad: 1e12 },
       { token: 'P', ambito: 'genesis', cantidad: 1e6 },
@@ -212,29 +211,25 @@ async function construir(n, semilla) {
       // unos minutos de la suya (Core, 8-11), que conserva hasta gastarlos, y no escribe nada más.
       movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }, { token: 'T', escala: 'minuto', cantidad: 5, de: GENESIS, a: id }, ...dotacion(id)], // escribir consume T
       payload: ['Proyecto ' + k, ['recursos', az.ent(100), (1 + az.ent(90)) + ' EUR'], ['criterios', az.de(PALABRAS)], 'comunicación', '=CONTAR(BUSCAR(4))'],
-      contexto: { tipos: { [id]: 'cosa' }, claves: { [id]: par.publica } },
+      contexto: { claves: { [id]: par.publica } }, // una cosa: su alta la escribe la raíz (VG, 10-11, B1)
     });
     proyectos.push({ id: ev.id, identidad: id });
   }
   for (let k = 0; k < nIdentidades; k += 5) {
-    const tipos = {};
-    const claves = {};
     const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: GENESIS, a: null }]; // escribir consume T
     const nombres = [];
     for (let j = k; j < Math.min(k + 5, nIdentidades); j++) {
       const id = 'p' + j;
-      tipos[id] = 'persona';
-      if (az.prob(0.85)) {
-        const par = await generarClaves();
-        privadas.set(id, par.privada);
-        claves[id] = par.publica;
-      }
+      // Cada persona escribe su propia alta (VG, 10-11, B1), con su clave si la tiene (firmada con ella).
+      const par = az.prob(0.85) ? await generarClaves() : null;
+      if (par) privadas.set(id, par.privada);
+      await escribir('alta propia', { autor: id, sobre: g, t: new Date(T0).toISOString(), movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: id, a: null }], payload: 'alta de ' + id, contexto: par ? { claves: { [id]: par.publica } } : {} });
       movimientos.push(...dotacion(id));
       if (az.prob(0.2)) { movimientos.push({ token: 'P', ambito: 'genesis', cantidad: 10, de: GENESIS, a: id }); autorizadores.push(id); }
       nombres.push(id);
       escritores.push(id);
     }
-    await escribir('alta', { autor: GENESIS, sobre: g, t: instante(g), movimientos, payload: ['Altas', nombres], contexto: { tipos, ...(Object.keys(claves).length ? { claves } : {}) } });
+    await escribir('alta', { autor: GENESIS, sobre: g, t: instante(g), movimientos, payload: ['Altas', nombres] });
   }
 
   // Focos calientes: el primer proyecto es la «plaza» donde todo colisiona.

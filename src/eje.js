@@ -1,7 +1,11 @@
 // Eje: la secuencia de registros con anclaje. Hoy vive en memoria; mañana en
 // una base de datos o anclado a una cadena, sin cambiar el modelo.
-// Una identidad existe cuando ha recibido tokens; quien la da de alta declara
-// su clave y su tipo (persona o cosa) en el mismo evento. El génesis
+// Una identidad existe cuando tiene cuenta en el libro: la abre su ALTA, la
+// primera transacción que la toca. Persona y cosa no se declaran (VG, 10-11,
+// B1: desaparece el tipo): una PERSONA es la identidad cuya alta escribió ella
+// misma (quien no tiene cuenta y escribe, escribe su propia alta, con su clave
+// si la tiene); una COSA, la que recibió tokens en un alta escrita por otra
+// identidad, su dueño (esPersona). El génesis
 // emite por convención E, P y R, nunca T (VG, 8-11: no hay T acumulable);
 // después solo emiten las personas (VG, 7-11 noche), con las reglas de
 // src/ciclo.js: T no se emite, es la asignación diaria de cada persona
@@ -31,23 +35,24 @@
 // DEMOSTRACIÓN en su génesis (`contexto.demostracion: true`) conserva lo de
 // antes: sin clave no se firma, y la prueba de posesión es opcional (si va,
 // se comprueba). Los ejemplos de Ikisai y la interfaz son de demostración.
-// El tipo (persona, cosa) solo dice quién firma emisiones (R10): fuera
-// de esta validación y de src/ciclo.js nada lo lee para conceder algo. No hay
-// identidades de grupo (VG, 8-11): un grupo es un registro con P delegado.
+// No hay identidades de grupo (VG, 8-11): un grupo es un registro con P
+// delegado. Solo el prefijo de la versión 2 (suelo de persistencia) conserva
+// los tipos que declaraban sus altas.
 //
 // La E va atada al registro del recurso, con un tope compartido igual a su
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, en src/condiciones/tope.js.
 
-import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
+import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS } from './tokens.js';
 import { acotarAltaV2, consolidacionQueAmplia, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
 import { devolucionesDe } from './lente.js';
-import { msUTC, msDeGuardado } from './instante.js';
+import { msUTC, msDeGuardado, segundosUTC } from './instante.js';
 import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { firmar, firmarPosesion } from './autoridad.js';
 import { Libro, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
+import { ContextoEje } from './contexto-eje.js';
 
 export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
 
@@ -61,7 +66,7 @@ const INFORMATIVO = 'informativo';
 export class Eje {
   #libro = new Libro(); // la capa cero: saldos, bloqueos y sumas (src/libro.js)
   #series = new Map(); // clave de serie → { emisor, contrato (E) }: qué series existen, en orden de aparición; las cantidades, del libro
-  #tipos;
+  #tiposV2; // identidad → tipo que declaró su alta en el prefijo de la versión 2 (suelo de persistencia)
   #hijosEn;
   #prefijos;
   #porAutor = new Map(); // id → Map(en → Map(autor → los eventos anclados ahí por ese autor, en orden de entrada))
@@ -83,7 +88,7 @@ export class Eje {
     this.hijos = new Map(); // id → eventos escritos sobre él, en orden de entrada (índice)
     this.#hijosEn = new Map(); // id → Map(en → los mismos eventos, solo los anclados en esa dirección, en orden de entrada)
     this.#prefijos = new Map(); // primeros PREFIJO caracteres del id → ids, en orden de entrada (índice de conPrefijo)
-    this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona o cosa; grupo, solo en el prefijo v2)
+    this.#tiposV2 = new Map();
     this.exigirFirmas = exigirFirmas;
     this.eventosV2 = eventosV2;
     // Lo marca el génesis (contexto.demostracion) al aplicarse; un eje que no lo dice no es de demostración.
@@ -119,17 +124,17 @@ export class Eje {
 
   /**
    * Génesis: escrito por convención, fuera del sistema. Emite tokens iniciales
-   * a la primera identidad y fija el foco raíz (payload). `tipo` declara qué es
-   * esa identidad: una persona por omisión (VG, 7-11 noche: solo las personas
-   * emiten; VG, 8-11: el génesis no emite T y su autor vive de su asignación
-   * del día, como cualquier persona), o nada (`tipo: null`), y entonces no
-   * escribe después del génesis: sin asignación, no tiene T. `emision` lleva
-   * E, P y R iniciales, si quiere; puede ir vacía.
+   * a la primera identidad y fija el foco raíz (payload). Su autor escribe su
+   * propia alta, así que es una persona (VG, 10-11, B1: no hay tipo; VG, 8-11:
+   * el génesis no emite T y su autor vive de su asignación del día, como
+   * cualquier persona). `emision` lleva E, P y R iniciales, si quiere; puede
+   * ir vacía.
    * Sin clave no se actúa (R9): el génesis lleva `clave` y `privada` de su
    * autor, salvo que se cree como `demostracion: true` (queda en su
    * contexto y se ve en la interfaz), que conserva lo de antes: sin claves.
    */
-  static async genesis({ identidad, emision = [], foco, t = new Date().toISOString(), contexto = {}, clave, privada, tipo = 'persona', exigirFirmas = false, demostracion = false }) {
+  static async genesis({ identidad, emision = [], foco, t = new Date().toISOString(), contexto = {}, clave, privada, exigirFirmas = false, demostracion = false, ...resto }) {
+    if (Object.hasOwn(resto, 'tipo')) throw new Error('génesis: no hay tipo (VG, 10-11, B1): persona o cosa se lee de quién escribe el alta; el autor del génesis escribe la suya, es una persona');
     const eje = new Eje({ exigirFirmas });
     // El génesis emite a su identidad E, P y R iniciales, si quiere; sus series de E y de R quedan a su nombre.
     // T no (VG, 8-11: no hay T acumulable): su autor vive de su asignación diaria, como cualquier persona.
@@ -141,11 +146,11 @@ export class Eje {
       t,
       movimientos,
       payload: foco,
-      contexto: { ...contexto, genesis: true, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}), ...(tipo ? { tipos: { [identidad]: tipo } } : {}) },
+      contexto: { ...contexto, genesis: true, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}) },
     });
     if (privada) ev = await firmar(ev, privada);
     // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella (GN-1, GN-2).
-    const motivos = await eje.#libro.evaluar(eje.transaccion(ev), CONDICIONES_GENESIS, { evento: ev, reglas: 3 });
+    const motivos = await eje.#libro.evaluar(eje.transaccion(ev), CONDICIONES_GENESIS, { evento: ev, reglas: 3, contextoBqlm: (epoch) => new ContextoEje(eje, { ev, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(ev);
@@ -157,9 +162,33 @@ export class Eje {
     return this.claves.get(identidad);
   }
 
-  /** Tipo declarado en el alta: 'persona', 'cosa' o null si no se declaró ('grupo', solo en el prefijo v2). Solo decide quién emite. */
-  tipo(identidad) {
-    return this.#tipos.get(identidad) ?? null;
+  /**
+   * ¿Es una persona? (VG, 10-11, B1: desaparece el tipo.) true si su alta (la
+   * transacción que abrió su cuenta) la escribió ella misma; false si la
+   * escribió otra identidad, su dueño: es una cosa; null si no tiene alta. En
+   * el prefijo de la versión 2 (suelo de persistencia), lo que declaró su alta
+   * entonces: persona, o no (grupo, cosa).
+   */
+  esPersona(identidad) {
+    const tx = this.#libro.alta(identidad);
+    if (!tx) return null;
+    if (this.#prefijoV2.has(tx.id)) return this.#tiposV2.get(identidad) === 'persona';
+    return tx.autor === identidad;
+  }
+
+  /**
+   * ¿Escribe `ev` como persona? Sí si su autor lo es o si aún no tiene cuenta:
+   * entonces este registro es su propia alta (B1). Rige fuera del prefijo de la
+   * versión 2.
+   */
+  #escribePersona(ev) {
+    const p = this.esPersona(ev.autor);
+    return p === null ? typeof ev.autor === 'string' && ev.autor.length > 0 : p;
+  }
+
+  /** El tipo que declaró en el prefijo de la versión 2 el alta de una identidad, o null (suelo de persistencia: las reglas de entonces). */
+  tipoV2(identidad) {
+    return this.#tiposV2.get(identidad) ?? null;
   }
 
   /**
@@ -278,7 +307,7 @@ export class Eje {
     if (!Number.isSafeInteger(eventosV2) || eventosV2 < 0 || eventosV2 > eventos.length) throw new Error('eventosV2 debe ser un entero entre 0 y el número de eventos');
     const g = copiaGuardable(crudo);
     const eje = new Eje({ exigirFirmas, eventosV2 });
-    const motivos = await eje.#libro.evaluar(eje.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: eventosV2 > 0, reglas: eventosV2 > 0 ? 2 : 3 });
+    const motivos = await eje.#libro.evaluar(eje.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: eventosV2 > 0, reglas: eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(eje, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !g.contexto.claves?.[g.autor]) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(g);
@@ -387,7 +416,7 @@ export class Eje {
   /** Lo que queda de la asignación diaria de T de `identidad` en `escala` el día de `t` (0 si no es una persona con alta). */
   #quedaAsignacion(identidad, escala, t) {
     const alta = this.alta(identidad);
-    if (!alta || !EMITEN.includes(this.tipo(identidad))) return 0;
+    if (!alta || this.esPersona(identidad) !== true) return 0;
     const a = asignacionT(t ?? this.#tPorAutor.get(identidad) ?? alta.t, escala);
     return Math.max(0, a.cantidad - this.gastadoT(identidad, escala, a.periodo));
   }
@@ -579,8 +608,8 @@ export class Eje {
    */
   transaccion(ev) {
     const reglas3 = this.orden.length >= this.eventosV2;
-    const tipoAutor = this.tipo(ev.autor);
-    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
+    // La asignación del día es de las personas (B1): de quien escribió su alta, o de quien la escribe ahora.
+    const conAsignacion = reglas3 && this.#escribePersona(ev);
     const paso = (m) => {
       if (!m || typeof m !== 'object' || validarMovimiento(m).length) return [];
       const k = claveToken(m);
@@ -593,7 +622,7 @@ export class Eje {
       if (reglas3 && esInformativoT(m)) {
         return [acunar(k, m.de, c, { clase: INFORMATIVO }), quemar(k, m.de, c, { clase: INFORMATIVO, escala: m.escala, refiere: m.refiere, nota: m.nota })];
       }
-      if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+      if (conAsignacion && gastaAsignacion(m, ev.autor, true)) {
         const a = asignacionT(ev.t, m.escala);
         return [acunar(k, m.de, c, { clase: ASIGNACION, etiqueta: a.periodo, tope: a.cantidad }), sale()];
       }
@@ -634,10 +663,14 @@ export class Eje {
       registro: (id) => this.eventos.get(id),
       clave: (id) => this.claves.get(id),
       tieneClave: (id) => this.claves.has(id),
-      tipo: (id) => this.tipo(id),
-      tipoDeclarado: (id) => this.#tipos.has(id),
+      // B1: persona o cosa por autoría del alta (esPersona); en el prefijo de la versión 2, el tipo que se declaraba.
+      persona: (id) => this.esPersona(id),
+      tipoV2: (id) => this.tipoV2(id),
+      tipoV2Declarado: (id) => this.#tiposV2.has(id),
       // Los movimientos bien formados del evento, con su índice: los leen varias condiciones.
       get validos() { return (validos ??= validosDe(ev)); },
+      // Las reglas de la época (src/condiciones/reglas.js) leen el eje de antes con el BQL mínimo.
+      contextoBqlm: (epoch) => new ContextoEje(eje, { ev, epoch }),
       get ciclo() { return (ciclo ??= eje.#contextoCiclo(ev)); },
       get tope() { return (tope ??= eje.#contextoTope()); },
       get r() { return (r ??= eje.#contextoR()); },
@@ -670,7 +703,10 @@ export class Eje {
   #contextoCiclo(ev) {
     const primeroV3 = () => (this.orden.length > this.eventosV2 ? this.obtener(this.orden[this.eventosV2]).t : ev.t);
     return {
-      tipo: (id) => this.tipo(id),
+      // B1: true, false (una cosa) o null (sin alta: si escribe, escribe su propia alta).
+      persona: (id) => this.esPersona(id),
+      // Las reglas de la versión 2 (suelo de persistencia) leen el tipo que se declaraba entonces.
+      tipo: (id) => this.tipoV2(id),
       alta: (id) => {
         const a = this.alta(id);
         return a && this.#prefijoV2.has(a.id) ? acotarAltaV2(a, primeroV3()) : a;
@@ -763,6 +799,26 @@ export class Eje {
     return this.anadir(ev);
   }
 
+  /**
+   * Escribe la propia alta de `identidad` (VG, 10-11, B1): el primer registro
+   * de una persona es suyo, y por eso es una persona. Lo ancla sobre `sobre`
+   * (el génesis, por omisión) y quema un minuto de su día, como todo registro.
+   * Con `clave` declara su clave pública y, con `privada`, va firmado con ella:
+   * esa firma es su prueba de posesión (sin clave no se actúa, R9, salvo en un
+   * eje de demostración). La invitación que la encauza es del encargo 3b.
+   */
+  async entrar({ identidad, sobre = this.genesisId, en, t, payload = ['alta de ' + identidad], clave, privada } = {}) {
+    return this.escribir({
+      autor: identidad,
+      sobre,
+      ...(en !== undefined ? { en } : {}),
+      t,
+      payload,
+      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: identidad, a: null }],
+      contexto: clave ? { claves: { [identidad]: clave } } : {},
+    }, privada);
+  }
+
   /** Hilo: desde el evento hasta el génesis siguiendo la referencia sobre. */
   hilo(id) {
     const cadena = [];
@@ -810,10 +866,10 @@ export class Eje {
     // de la versión 2 no es de demostración por serlo: la exención de clave vale solo dentro de su prefijo
     // (#exigeClave), no para lo que se le añade después.
     if (ev.contexto?.genesis === true) this.demostracion = ev.contexto.demostracion === true;
-    // La asignación diaria de T (VG, 8-11) rige fuera del prefijo de la versión 2, para una persona con alta.
+    // La asignación diaria de T (VG, 8-11) rige fuera del prefijo de la versión 2, para una persona (B1): quien
+    // escribió su alta, o quien la escribe ahora. Se mira antes de asentar: después ya tiene cuenta.
     const reglas3 = this.orden.length >= this.eventosV2;
-    const tipoAutor = this.tipo(ev.autor);
-    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
+    const conAsignacion = reglas3 && this.#escribePersona(ev);
     const amplia = consolidacionQueAmplia(ev, () => this.#contextoCiclo(ev)); // la consolidación que usó para ampliar P (SEG-04)
     if (amplia) this.#ampliadas.add(amplia);
     const asientos = this.#libro.asentar(tx, simulacion);
@@ -843,7 +899,8 @@ export class Eje {
       deAutor.get(ev.autor).push(ev);
     }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
-    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tipos.set(id, tipo);
+    // Los tipos solo se leen en el prefijo de la versión 2 (suelo de persistencia); fuera no hay tipo (B1).
+    if (!reglas3) for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tiposV2.set(id, tipo);
     // Qué series existen, en orden de aparición, con su emisor y su contrato (las cantidades son del libro). Una
     // serie aparece con su primera emisión; una de T, también con su primer consumo o con la primera asignación que
     // sale de las manos de su persona.
@@ -862,7 +919,7 @@ export class Eje {
       }
       if (m.token !== 'T') return undefined;
       if (reglas3 && esInformativoT(m)) return registrar(k, ev.autor);
-      if ((conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) || esConsumoT(m, ev.autor)) {
+      if ((conAsignacion && gastaAsignacion(m, ev.autor, true)) || esConsumoT(m, ev.autor)) {
         if (m.a === null || deAsignacion(i)) registrar(k, ev.autor);
       }
       return undefined;
@@ -908,9 +965,9 @@ function textoDeFallo(ev, fallo) {
 export function caducada(eje, clave, t) {
   const caduca = eje.serie(clave).caduca;
   if (!caduca) return false;
-  const ahora = msUTC(t);
+  const ahora = segundosUTC(t);
   if (Number.isNaN(ahora)) throw new Error('caducada: t debe ser instante ISO-8601 con zona explícita');
-  return ahora >= msUTC(caduca);
+  return ahora >= segundosUTC(caduca); // en segundos (VG, 10-11, C2)
 }
 
 /** La copia que guarda el eje (normalizarEvento); lo que no cabe en JSON se rechaza. */

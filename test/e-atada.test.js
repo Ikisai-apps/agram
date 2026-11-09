@@ -33,15 +33,16 @@ const unico = (texto) => texto + ' #' + (++cuenta);
  */
 async function mundo({ capacidad = 4, pA = 4, personas = ['casa', 'socia', 'bea'] } = {}) {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    demostracion: true, identidad: 'g', t: ALTA, foco: ['raíz'],
     emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'R', cantidad: 100 }, { token: 'E', denominacion: 'minuto', cantidad: 1e9 }],
   });
   // T no cruza de persona (VG, 7-11 noche): las altas reciben minutos de g como E de su serie de tiempo (E:g/minuto),
   // y cada persona escribe con su propio T, que se acuña al gastarse.
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const p of personas) await eje.entrar({ identidad: p, t: ALTA });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
     movimientos: [minuto('g'), colateral('g', 10), ...personas.map((p) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a: p }))],
-    contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
   });
   for (const p of personas) {
     await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }, colateral(p, 10)] });
@@ -79,7 +80,7 @@ function emision(autor, { A, registro = A, sobre = registro, denominacion, canti
 test('R2·1: la serie lleva el registro del recurso, que ha de existir; sin él queda atada al registro del emisor', async () => {
   const { eje, A } = await mundo();
   const otro = 'f'.repeat(64);
-  await assert.rejects(eje.escribir(emision('casa', { A, registro: otro, sobre: A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 })), /registro desconocido de la serie E:casa\/cama@n1@ffffffff/);
+  await assert.rejects(eje.escribir(emision('casa', { A, registro: otro, sobre: A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 })), /E is tied to a record that exists: E:casa\/cama@n1@ffffffff[0-9a-f]* names a record that is not in the ledger/);
   const ev = await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 }));
   const k = serieE('casa', 'cama@n1', A);
   assert.equal(k, 'E:casa/cama@n1@' + A);
@@ -328,7 +329,7 @@ test('R2·4: fracciones solo en series divisibles; la cuota de una divisible no 
 });
 
 test('R2·4: el génesis fija también si su E es divisible; no nombra registro ni emite en conjunto', async () => {
-  const base = { demostracion: true, identidad: 'g', tipo: 'persona', t: T0, foco: 'g' };
+  const base = { demostracion: true, identidad: 'g', t: T0, foco: 'g' };
   await assert.rejects(Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 10.5 }] }), /E:g\/EUR va en enteros/);
   const eje = await Eje.genesis({ ...base, emision: [{ token: 'E', denominacion: 'EUR', cantidad: 10.5, divisible: true }] });
   assert.deepEqual(eje.serie('E:g/EUR'), { emisor: 'g', emitido: 10.5, divisible: true });

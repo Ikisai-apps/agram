@@ -15,7 +15,7 @@ const P = [
   [[['pan'], [2]], [['leche'], [1]], [['huevos'], [12]]], // 3 tres décuplas: 3.k.0 qué, 3.k.1 cuánto
   ['12 EUR'], // 4 una magnitud (D-VALOR)
   ['2026-11-09T10:30:00Z'], // 5 un instante (D-FECHA)
-  ['T:minuto', 'E:casa/EUR', 'P:genesis', 'R:casa'], // 6 cuatro claves de serie (D-SERIE)
+  ['T:minuto', 'E:casa/EUR', 'P:genesis', 'R:casa'], // 6 cuatro claves de serie escritas como texto (B3: ya no se despliegan)
 ];
 
 /** Una transacción candidata de prueba, fuera de cualquier eje. */
@@ -125,13 +125,15 @@ test('posiciones: una posición da sus ocupantes por llegada; una lista de uno v
   // Una expresión entre paréntesis también se lee por posición, y each es lo mismo que el punto.
   assert.deepEqual(val('(epoch.3).1.1'), [1]);
   assert.deepEqual(val('epoch.6 each 0'), val('epoch.6.0'));
-  assert.deepEqual(val('epoch.6 each 0'), ['T', 'E', 'P', 'R']);
+  assert.deepEqual(val('epoch.6 each 0'), [], 'una clave escrita como texto no se despliega (B3): la serie es un registro');
+  assert.deepEqual(val('ev.1.0.0.0'), [SIMBOLOS.T, SIMBOLOS.E, SIMBOLOS.E], 'la serie de un movimiento sí: su 0.0 es la familia');
 });
 
 test('índice por valor: un dígito es esa posición; un texto, los ocupantes que se llaman así', () => {
   assert.deepEqual(val('epoch.3.(1).0'), ['leche']);
   assert.deepEqual(val('epoch.3.(2 - 1).1'), [1]);
-  assert.deepEqual(val('epoch.6.("T:minuto").1'), [1], 'el ocupante que vale «T:minuto», y su 1 (la escala minuto)');
+  assert.deepEqual(val('epoch.6.("T:minuto")'), ['T:minuto'], 'el ocupante que vale «T:minuto»');
+  assert.deepEqual(val('ev.1.("T:minuto").0.0.1'), [1], 'y la serie del movimiento que se llama así: su escala, minuto');
   assert.deepEqual(val('epoch.1.("leche")'), ['leche']);
   assert.deepEqual(val('ev.1.("E:ana/EUR").1'), [10, 4], 'un movimiento se llama como su serie (su 0)');
   falla('epoch.3.(10)', /dígito 0-9/);
@@ -158,8 +160,8 @@ test('listas: first, last, nth (desde 0), count, sum, max, min', () => {
 test('where: it es el elemento; en un where anidado, it2; where se lleva lo que queda a su derecha', () => {
   assert.deepEqual(val('epoch.1 where it != "leche"'), ['pan', 'huevos']);
   assert.equal(uno('count (ev.1 where it.4 = burn)'), 1);
-  assert.equal(uno('count (ev.1 where it.0.0 = E and it.4 = transfer)'), 1);
-  assert.deepEqual(val('(epoch.6 where it.0 = "E") each 2'), ['EUR']);
+  assert.equal(uno('count (ev.1 where it.0.0.0 = E and it.4 = transfer)'), 1);
+  assert.deepEqual(val('(ev.1 where it.0.0.0 = E) each 0.0.2'), ['EUR', 'EUR']);
   // Anidado: para cada movimiento, cuántos movimientos tienen su misma serie.
   assert.deepEqual(val('(ev.1 where count (ev.1 where it2.0 = it.0) = 2) each 1'), [10, 4]);
   // Encadenado: el segundo where filtra lo que dejó el primero.

@@ -1,0 +1,12 @@
+[
+  ["T is not locked"],
+  [0],
+  ["=count (ev.1 where T in it.0.0.0 and (lock in it.4 or release in it.4)) = 0"],
+  ["ev.3"],
+  ["lock", "release"],
+  ["*"],
+  ["VG, 8-11: no hay T acumulable; bloquear es de E, P y R (mapa §12 [D] dudas de T, A1)"],
+  ["epoch 0"],
+  ["after nobody mints T"],
+  ["T is not locked: {first ev.3} locks or releases T; locking is for E, P and R"]
+]

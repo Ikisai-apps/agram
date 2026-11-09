@@ -42,7 +42,7 @@ const ejeGrande = async (minutos = 0) => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'Casa de ejemplo', t: t0 });
   for (let d = 0; d < dias; d++) {
     await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: new Date(Date.parse(t0) + d * DIA).toISOString(), payload: 'T para la fábrica, día ' + d,
-      movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 1439, de: 'casa', a: 'fabrica' }], ...(d === 0 ? { contexto: { tipos: { fabrica: 'cosa' } } } : {}) });
+      movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 1439, de: 'casa', a: 'fabrica' }] }); // la fábrica, una cosa: su alta la escribe la casa (B1)
   }
   return eje;
 };
@@ -410,8 +410,10 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.deepEqual(salida.anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'repetir el sábado', faltan: ['5', '6'] }]);
   // Escribir solo el payload perdería lo anclado: se avisa.
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
-  // Si escribirSalida falla al escribir (aquí, un autor sin T), el aviso sigue: el payload solo aún no se puede escribir.
-  await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'nadie', sobre: compra.id, salida, t: T }), /evento rechazado/);
+  // Si escribirSalida falla al escribir (aquí, una cosa sin T: B1, su alta la escribió la casa), el aviso sigue: el
+  // payload solo aún no se puede escribir.
+  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'maquina' }], payload: 'una máquina sin T' });
+  await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'maquina', sobre: compra.id, salida, t: T }), /evento rechazado/);
   assert.equal(eje.sobre(compra.id).length, 0);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
   // Lo gastado se ve en el registro que lo soporta (VG, 7-11 noche: el consumo de T se anota en `sobre`).
@@ -595,7 +597,10 @@ test('la matriz es relativa al camino: celda, dirección y clase coinciden en to
   assert.equal(claseDe(p.en, [1]), 0);
   // La cadena entera, sobre la compra y sobre la ficha (que desarrolla el precio), con mucho T.
   const eje = await ejeGrande();
-  const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: base.compra.payload });
+  // La compra del ejemplo, con sus referencias al menú del otro eje llevadas al génesis de este (C1: una referencia
+  // a un evento ausente no entra).
+  const payloadCompra = JSON.parse(JSON.stringify(base.compra.payload).replaceAll(base.menu.id, eje.genesisId));
+  const compra = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: payloadCompra });
   const ficha = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [gastaT('casa')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] }); // VG, 7-11 noche: por hojas (como escribirFicha)
   const celdas = [[0, 0, 0], [0, 1, 0], [1, 0, 1], [2, 0, 4], [3, 0, 0], [3, 2, 1], [7, 3, 4], [9, 9, 9]];
   const vistos = { dentro: 0, anclado: 0 };
