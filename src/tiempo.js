@@ -12,7 +12,7 @@
 
 import { SEGUNDOS, ESCALAS_REALES } from './tokens.js';
 import { direccion, resolver } from './btml.js';
-import { consolidaciones } from './motor.js';
+import { propuestas } from './motor.js';
 import { MODOS, orden, ordenDeEscala, contarPosiciones, ORDENES_DE_ESCALA } from './modos.js';
 import { esConsumoT } from './evento.js';
 
@@ -30,7 +30,7 @@ const seg = (iso) => Date.parse(iso) / 1000;
 /**
  * Eje temporal del foco: pasado (hilo hacia atrás y escritos ya ocurridos,
  * el más cercano primero) y futuro (escritos con fecha posterior al ahora,
- * consolidaciones pendientes como futuro subjetivo, y lo declarado en la
+ * propuestas de la fábrica sin cerrar como futuro subjetivo, y lo declarado en la
  * posición 7). Cada entrada lleva su distancia y su banda.
  */
 export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maximo = MODOS.sequenced.decuplas, camino = [] } = {}) {
@@ -45,8 +45,9 @@ export function ejeTemporal(eje, foco, { ahora = new Date().toISOString(), maxim
     if (seg(h.t) > t0) futuro.push(entrada(h, 'proyeccion'));
     else pasado.push(entrada(h, 'registro'));
   }
-  for (const c of consolidaciones(eje, foco, camino)) {
-    if (c.estado !== 'EJECUTADO') futuro.push({ id: c.id, autor: c.autor, t: c.t, tipo: 'consolidacion', estado: c.estado, delta: seg(c.t) - t0, banda: banda(seg(c.t) - t0) });
+  for (const c of propuestas(eje, foco, camino)) {
+    // Una propuesta de la fábrica que su plantilla de cerrado no da por cerrada (encargo 3b: los estados son lecturas).
+    if (c.cerrado !== true) futuro.push({ id: c.id, autor: c.autor, t: c.t, tipo: 'consolidacion', cerrado: c.cerrado, delta: seg(c.t) - t0, banda: banda(seg(c.t) - t0) });
   }
   const declarado = resolver(ev.payload, direccion([...camino, 7]));
   if (declarado !== undefined) futuro.push({ id: foco, autor: ev.autor, t: ev.t, tipo: 'declarado', contenido: declarado, delta: 0, banda: 'segundo' });

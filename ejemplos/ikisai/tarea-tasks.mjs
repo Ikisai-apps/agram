@@ -1,9 +1,10 @@
 // Ejemplo transversal con datos inventados: una tarea (Tasks) en una casa
 // de eventos. Tiempo, pasos y dinero sobre el mismo núcleo que la compra de
 // comida. Construye su propio eje:
-//   - génesis de la casa (una persona): emite una serie de E por partida del
-//     sábado, minutos, horas y poder sobre todo el eje;
-//   - altas de una persona organizadora y de un proveedor externo;
+//   - génesis de la casa (una persona, la primera identidad del eje): emite al
+//     empezar su R y una serie de E por partida del sábado;
+//   - la casa invita a una persona organizadora y a un proveedor externo, que
+//     aceptan (su alta; encargo 3b);
 //   - la casa escribe las partidas del sábado;
 //   - la organizadora escribe la tarea «montar la carpa del sábado», una
 //     décupla con sus fórmulas BQL;
@@ -11,9 +12,12 @@
 //     en sus recursos (1), donde colisionan con lo propio;
 //   - el motor: descubrir → proponer (la fórmula del 9 deja los presupuestos
 //     que caben en coste y en plazo y se queda con el primero que llegó) →
-//     consolidar → la casa autoriza (P) → el proveedor entrega y consume sus
-//     horas (T) → la organizadora ejecuta el pago (E) en las series de las
-//     partidas.
+//     consolidar (la fábrica registra la elección) → la organizadora anuncia
+//     en la tarea el pago (su 4.1) → el proveedor entrega y consume sus horas
+//     (T) → la organizadora paga (E) en las series de las partidas. El ciclo
+//     es una sola operación (VG, 8-11, mapa §15): cada parte escribe su propio
+//     movimiento y nadie autoriza lo ajeno. La tarea nombra en su criterio (su
+//     2) la plantilla de cerrado de la época: se cierra cuando el pago pasa.
 // Nada de esto es real.
 //
 // Las series de tokens (VG, 7-11; src/tokens.js):
@@ -27,19 +31,21 @@
 //      E:casa/<concepto> (ver PARTIDAS). La organizadora recibe las series de
 //      las partidas de su tarea y ningún otro E, así que el núcleo no la deja
 //      pagar más que el coste total de la tarea.
-//   P: por ámbito (aquí «genesis»: la casa autoriza bloqueando su P sobre todo
-//      su eje, y lo libera tras la ejecución).
-//   R: por emisor (no aparece en esta tarea).
+//   P: posicionado en registros (mapa §15): nadie lo acuña a mano; quien
+//      escribe un registro obtiene diez unidades sobre él. Aquí no decide nada.
+//   R: por emisor: la de la casa (emitir E exige R propia emitida; con su R
+//      invita a la organizadora y al proveedor).
 // Emitir es solo de personas (VG, 7-11 noche): la casa es la persona que la
-// lleva y emite en el génesis; las altas declaran a la organizadora y al
-// proveedor como personas, que aquí no emiten.
+// lleva y emite al empezar; la organizadora y el proveedor son personas
+// (escriben su propia alta, aceptando la invitación), que aquí no emiten.
 
 import { Eje } from '../../src/eje.js';
 import { evaluar } from '../../src/bql.js';
 import { indicesDe } from '../../src/btml.js';
 import { claveToken } from '../../src/tokens.js';
 import { costeT, escribirDesde } from '../../src/escritura.js';
-import { descubrir, proponer, consolidar, autorizar, ejecutar, liberar, FABRICA } from '../../src/motor.js';
+import { descubrir, proponer, consolidar, siguiente, FABRICA, ANUNCIO } from '../../src/motor.js';
+import { entrarPorInvitacion } from './altas.mjs';
 
 /** Calendario inventado: hoy es sábado 7; la fiesta, el sábado 14. */
 export const T0 = '2026-11-07T09:00:00Z';
@@ -91,10 +97,13 @@ export const ESCALA_DE_UNIDAD = Object.freeze({ min: 'minuto', h: 'hora' });
 
 /**
  * Etapas del ejemplo, en orden. `hasta` detiene el ejemplo al terminar una:
- * la tarea escrita, los presupuestos recibidos, la consolidación, la
- * autorización, la entrega del proveedor o la ejecución (por defecto, todo).
+ * la tarea escrita, los presupuestos recibidos, la consolidación, el pago
+ * anunciado, la entrega del proveedor o el pago (por defecto, todo).
  */
-export const ETAPAS = Object.freeze(['tarea', 'presupuestos', 'consolidada', 'autorizada', 'entregada', 'ejecutada']);
+export const ETAPAS = Object.freeze(['tarea', 'presupuestos', 'consolidada', 'anunciada', 'entregada', 'pagada']);
+
+/** La plantilla de cerrado que la tarea nombra en su criterio (la de la época por defecto, dicha en voz alta). */
+export const CERRADO = 'all announced movements happened';
 
 /** Dónde vive el coste total en toda tarea: 1.1, la cantidad de los recursos. */
 export const DIR_COSTE = '1100000000';
@@ -196,7 +205,7 @@ export function decuplaTarea({ titulo, partidas, materiales, plazo, calidad, qui
       coste, // 1.1 coste total = suma de las partidas
       ['Materiales', ...materiales], // 1.2 hilera de materiales
     ], // 1 recursos
-    ['Criterios', plazo, calidad], // 2 criterios: 2.1 plazo de ejecución (horas), 2.2 calidad
+    ['Criterios', plazo, calidad, CERRADO], // 2 criterios: 2.1 plazo de ejecución (horas), 2.2 calidad, 2.3 la plantilla de cerrado
     ['Quién habla con quién', ...quien], // 3 comunicación
     [
       ['Pasos', ...pasos], // 4.0 hilera de pasos
@@ -224,7 +233,7 @@ function presupuestoElegido(eje, consolidacionId) {
 
 /**
  * El pago, leído con BQL y no tecleado: el precio del presupuesto elegido
- * (su 1) pasa de quien ejecuta al autor del presupuesto, en las series de las
+ * (su 1) pasa de quien consolidó al autor del presupuesto, en las series de las
  * partidas de la tarea, por su orden (1.0.1, 1.0.2…) y hasta el importe de
  * cada una. La serie de cada partida es la de quien la escribe y la respalda:
  * E:<autor del registro de partidas>/<concepto>, con el concepto en 1.k.0,
@@ -287,26 +296,26 @@ export function horasDeEntrega(eje, consolidacionId) {
 
 /**
  * claves (opcional): { casa: {publica, privada}, organizadora: {...}, proveedor: {...} }.
- * Con claves, la casa firma el génesis y declara las claves de las altas, y
- * cada identidad firma lo suyo. Sin claves, el eje funciona sin firmas.
+ * Con claves, la casa firma el génesis y sus invitaciones, y cada identidad
+ * acepta la suya con su clave y firma lo suyo. Sin claves, el eje funciona sin firmas.
  * hasta (opcional): la última etapa que se recorre (ETAPAS).
  */
-export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
+export async function ejemploTarea({ claves = {}, hasta = 'pagada' } = {}) {
   const tope = ETAPAS.indexOf(hasta);
   if (tope < 0) throw new Error('etapa desconocida: ' + hasta);
   const priv = (id) => claves[id]?.privada;
   const r = {};
 
-  // Génesis: la casa, una persona, emite y respalda sus series: una de E por
-  // partida (su capacidad, E:casa/<concepto>) y poder sobre todo su eje. T no
-  // (VG, 8-11: no hay T acumulable): escribe y trabaja con su asignación del día.
+  // Génesis: la casa, una persona, emite al empezar su R y sus series: una de E por partida (su capacidad,
+  // E:casa/<concepto>) y las horas que cede (E:casa/hora). T no (VG, 8-11: no hay T acumulable): escribe y trabaja
+  // con su asignación del día. P tampoco (mapa §15): lo obtiene al escribir.
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'casa', // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
+    identidad: 'casa', // escribe el génesis, su alta: la primera identidad del eje es una persona (VG, 10-11, B1)
     emision: [
-      ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
+      { token: 'R', cantidad: 10 }, // su R (R:casa): emitir E exige R propia emitida (VG, 9-11, D2)
+      ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // emisor = casa
       { token: 'E', denominacion: 'hora', cantidad: 200 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
-      { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
     foco: 'Casa de eventos de ejemplo',
     t: T0,
@@ -315,12 +324,10 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   });
   r.eje = eje;
 
-  // Altas: la organizadora recibe las series de las partidas de la carpa
-  // (y ningún otro E); el proveedor externo, horas de la casa (E:casa/hora).
-  // Antes, cada una escribe su propia alta (VG, 10-11, B1: persona es quien escribe la suya), con su clave si la
-  // tiene; la invitación de la casa es del 3b. Escribir cuesta un minuto por posición, de su propio T. La tarima
-  // se queda en la casa.
-  for (const id of ['organizadora', 'proveedor']) await eje.entrar({ identidad: id, t: T0, clave: claves[id]?.publica, privada: priv(id) });
+  // Altas: la casa invita a la organizadora y al proveedor, que aceptan (su alta; encargo 3b). Después la
+  // organizadora recibe las series de las partidas de la carpa (y ningún otro E); el proveedor externo, horas de la
+  // casa (E:casa/hora). Escribir cuesta un minuto por posición, de su propio T. La tarima se queda en la casa.
+  for (const id of ['organizadora', 'proveedor']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: T0, clave: claves[id], privadaDe: priv });
   const altas = ['Altas para la fiesta del sábado', ['organizadora', 'proveedor']];
   r.alta = await eje.escribir({
     autor: 'casa',
@@ -399,9 +406,10 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   }
   if (tope < 2) return r;
 
-  // Motor: Q descubre, B propone desde las fórmulas del foco, C consolida.
-  // El 8 (composición) entra como terminal; el 9 (elección), como el
-  // presupuesto elegido; 1–4 por referencia a la tarea; 5–7 se heredan.
+  // Motor: Q descubre, B propone desde las fórmulas del foco, C consolida (la
+  // fábrica registra la elección: un registro más, sin fases). El 8
+  // (composición) entra como terminal; el 9 (elección), como el presupuesto
+  // elegido; 1–4 por referencia a la tarea; 5–7 se heredan.
   r.descubierto = descubrir(eje, r.tarea.id);
   r.propuesta = proponer(eje, r.tarea.id, { posiciones: [1, 2, 3, 4, 8, 9] });
   r.consolidacion = await consolidar(eje, {
@@ -413,17 +421,22 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   }, priv('organizadora'));
   if (tope < 3) return r;
 
-  // La casa autoriza bloqueando su P (VG, 7-11 noche: autorizar = bloquear P
-  // con el umbral del dueño). Nadie en el hilo de la tarea ha emitido P
-  // propio, así que el registro del recurso es el génesis (VG, 8-11): cuenta
-  // el P sobre todo el eje, y la casa tiene los 10 que emitió (más de la mitad).
-  r.autorizacion = await autorizar(eje, { autorizante: 'casa', consolidacion: r.consolidacion.id, t: '2026-11-08T11:00:00Z' }, priv('casa'));
+  // La organizadora anuncia en la tarea lo que va a pagar (su 4.1, un registro
+  // por movimiento): el precio elegido, en las series de las partidas. Es lo
+  // que la tarea espera para cerrarse (su plantilla de cerrado).
+  r.anuncios = [];
+  for (const m of movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id)) {
+    const a = [[claveToken(m)], [m.cantidad], ['pagar'], [[m.de], [m.a]]];
+    r.anuncios.push(await eje.escribir({
+      autor: 'organizadora', sobre: r.tarea.id, en: ANUNCIO, t: '2026-11-08T10:30:00Z',
+      movimientos: [{ token: 'T', escala: 'minuto', cantidad: costeT(a), de: 'organizadora', a: null }], payload: a,
+    }, priv('organizadora')));
+  }
   if (tope < 4) return r;
 
   // Entrega: el proveedor monta la carpa y lo registra en la fábrica de la
   // consolidación. Consume las horas de su presupuesto (su 1 en la entrega
-  // es una referencia a ellas, no una copia). Es un recibo de tercero: el
-  // motor no lo enlaza como evidencia (docs/MOTOR.md §12).
+  // es una referencia a ellas, no una copia): su propio movimiento.
   const presupuesto = presupuestoElegido(eje, r.consolidacion.id);
   const entrega = ['Carpa montada', { ref: presupuesto.id, dir: '2000000000' }];
   r.entrega = await eje.escribir({
@@ -439,16 +452,15 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   }, priv('proveedor'));
   if (tope < 5) return r;
 
-  // Ejecutar, con la carpa montada el viernes: la organizadora paga al
-  // proveedor el precio elegido en las series de las partidas.
-  r.ejecucion = await ejecutar(eje, {
+  // El pago, con la carpa montada el viernes: lo que a la tarea le falta de la
+  // organizadora (motor.siguiente), en un registro suyo sobre la tarea.
+  const { faltaDeMi } = siguiente(eje, r.tarea.id, 'organizadora');
+  r.pago = await eje.escribir({
     autor: 'organizadora',
-    consolidacion: r.consolidacion.id,
+    sobre: r.tarea.id,
     t: '2026-11-13T18:00:00Z',
-    titulo: 'Carpa montada y pagada',
-    movimientos: movimientosDeEjecucion(eje, r.consolidacion.id, r.tarea.id),
+    movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'organizadora', a: null }, ...faltaDeMi.map((x) => x.transaccion.movimientos[1])],
+    payload: 'Carpa montada y pagada',
   }, priv('organizadora'));
-  // Ejecutada, el P que bloqueó la casa queda liberable, y solo ella lo libera.
-  r.liberacion = await liberar(eje, { titular: 'casa', consolidacion: r.consolidacion.id, t: '2026-11-13T18:30:00Z' }, priv('casa'));
   return r;
 }

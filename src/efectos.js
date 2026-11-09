@@ -5,8 +5,8 @@
 // Un efecto sale del evento y de lo que el núcleo ya sabe de él; no guarda
 // estado aparte. Fuera del evento se mira lo justo (docs/EFECTOS.md, «De
 // dónde sale»): el foco y lo escrito antes en la misma dirección, para saber
-// si el registro colisiona (src/encaje.js), y, en los registros del motor, si
-// el motor reconoce su fase (src/motor.js). Cuatro fuentes, en este orden:
+// si el registro colisiona (src/encaje.js), y, en las propuestas de la
+// fábrica, si el motor las lista (src/motor.js). Cuatro fuentes, en este orden:
 // - el registro entero: ocupa la dirección `en` del foco como un ocupante más
 //   (encaje.ocupantes). Si ya tenía ocupantes antes que él, colisiona:
 //   sustituir; si es el primero donde el foco no llega, anclado. Su posición,
@@ -17,9 +17,13 @@
 //   registro cualquiera como la matriz 10×10×10 está decidido solo para el
 //   registro de salida de la fábrica: [X];
 // - cada movimiento de tokens, que no ocurre en una celda sino entre carteras;
-// - la fase de un registro del motor (contexto.fase), si el motor la
-//   reconoce; si no, ruido. Un registro del motor no se lee celda a celda: su
-//   payload tiene el formato del motor.
+// - la propuesta de la fábrica (lo que registra consolidar, contexto.motor
+//   = «fabrica»): su efecto es «consolidado», el nombre de la operación C del
+//   motor, si el motor la lista en la fábrica de su camino; si no, ruido. No
+//   es una fase del ciclo: desde el encargo 3b el ciclo es una sola operación,
+//   registrar, y los estados son lecturas (VG, 8-11, mapa §15 [D]; N6: los
+//   mundos animan registros anclados y movimientos). Una propuesta no se lee
+//   celda a celda: su payload tiene el formato del motor.
 // Cada efecto: { evento, tipo, mundo, celda, clase, … } con su nombre,
 // metáfora y fuente del catálogo, y en `decisiones` las marcas «[X] decidir
 // VG» que le tocan. Los nombres viven en datos/efectos.json (por mundo y por
@@ -29,7 +33,10 @@ import { ARIDAD, esReferencia, esLista, esDireccion, indicesDe, direccion } from
 import { claveToken } from './tokens.js';
 import { RAIZ } from './evento.js';
 import { ocupantes } from './encaje.js';
-import { FABRICA, FASES as FASES_MOTOR, autorizacionesValidas, consolidaciones, esConsolidacion } from './motor.js';
+import { propuestas } from './motor.js';
+
+/** Lo que el motor registra en la fábrica: la propuesta (consolidar). Autorizar y ejecutar se retiraron (encargo 3b). */
+const FASES_MOTOR = Object.freeze(['consolidado']);
 import { CATALOGO_EFECTOS } from '../datos/efectos.js';
 
 function congelar(x) {
@@ -43,7 +50,7 @@ function congelar(x) {
 /** El catálogo entero (datos/efectos.json), congelado. */
 export const CATALOGO = congelar(CATALOGO_EFECTOS);
 
-/** Tipos de efecto: los seis primeros, del registro o de una celda suya; token, de un movimiento; fase y ruido, de un registro del motor. */
+/** Tipos de efecto: los seis primeros, del registro o de una celda suya; token, de un movimiento; fase y ruido, de una propuesta de la fábrica. */
 export const TIPOS_EFECTO = Object.freeze(['ver', 'sustituir', 'anclado', 'escrito', 'impulso', 'modificar', 'token', 'fase', 'ruido']);
 
 /** Marcas «[X] decidir VG» que un efecto puede llevar (datos/efectos.json, `marcas`). */
@@ -191,33 +198,14 @@ function tipoDeCelda(ev, c, clase, vistas, heredadas) {
 
 // ---------- el motor ----------
 
-/** Lo que el motor reconoce de un registro con fase: { cuenta, motivo }. Sigue a src/motor.js. */
+/** Lo que el motor reconoce de una propuesta de la fábrica: { cuenta, motivo }. Sigue a src/motor.js (propuestas). */
 function faseReconocida(eje, ev) {
-  const fase = ev.contexto.fase;
   if (!eje.obtener(ev.id)) return { cuenta: false, motivo: 'no está en el eje' };
   const en = ev.en ?? RAIZ;
-  if (fase === 'consolidado') {
-    // consolidaciones() lista las ancladas en la posición 4 de su camino.
-    const camino = indicesDe(en).slice(0, -1);
-    const listada = consolidaciones(eje, ev.sobre, camino).some((c) => c.id === ev.id);
-    return listada ? { cuenta: true } : { cuenta: false, motivo: 'fuera de la fábrica: el motor consolida en la posición 4 de su camino' };
-  }
-  const c = eje.obtener(ev.sobre);
-  if (!esConsolidacion(c)) return { cuenta: false, motivo: 'no es sobre una consolidación' };
-  if (en !== FABRICA) return { cuenta: false, motivo: 'fuera de la fábrica de la consolidación' };
-  if (fase === 'autorizado') {
-    const validas = autorizacionesValidas(eje, c.id);
-    // Autorizar es bloquear P sobre el registro del recurso (VG, 7-11 noche): cuenta cada una que lo bloquea,
-    // también la del autor; si la consolidación queda AUTORIZADA lo decide la suma contra el umbral.
-    if (!validas.some((a) => a.id === ev.id)) return { cuenta: false, motivo: 'no bloquea P sobre el registro del recurso' };
-    return { cuenta: true };
-  }
-  // ejecutado: la misma condición con la que estadoDe() da EJECUTADO.
-  if (ev.autor !== c.autor) return { cuenta: false, motivo: 'ejecuta quien no es el autor de la consolidación' };
-  const valida = (e) => e.contexto?.fase === 'ejecutado' && e.autor === c.autor && (e.contexto.evidencia ?? []).every((id) => eje.obtener(id));
-  if (!valida(ev)) return { cuenta: false, motivo: 'evidencia rota' };
-  const primera = eje.sobre(c.id, FABRICA).find(valida);
-  return primera.id === ev.id ? { cuenta: true } : { cuenta: false, motivo: 'ya estaba ejecutada' };
+  // propuestas() lista las ancladas en la posición 4 de su camino.
+  const camino = indicesDe(en).slice(0, -1);
+  const listada = propuestas(eje, ev.sobre, camino).some((c) => c.id === ev.id);
+  return listada ? { cuenta: true } : { cuenta: false, motivo: 'fuera de la fábrica: el motor consolida en la posición 4 de su camino' };
 }
 
 /** Lo que consolidó cada posición: elegida (una referencia), nueva (un terminal) o heredada del foco (un hueco). */
@@ -319,7 +307,7 @@ export function efectosDe(eje, evento, { marco } = {}) {
   const anadir = (ef, marcas = []) => efectos.push({ evento: ev.id, ...ef, ...nombrar(ef, marcas) });
   // Fuera de la raíz, el registro no dice desde qué camino se escribió.
   const sinCamino = en === RAIZ ? [] : [MARCAS_EFECTO.marco];
-  const fase = FASES_MOTOR.includes(ev.contexto?.fase) && foco ? ev.contexto.fase : null;
+  const fase = ev.contexto?.motor === 'fabrica' && foco ? FASES_MOTOR[0] : null;
   const lectura = marcoDeLectura(en, marco);
   // Leído desde el camino de quien mira: tampoco es seguro que se escribiera desde él.
   const sinCaminoLeido = lectura.length ? [MARCAS_EFECTO.marcoLectura] : sinCamino;
@@ -348,7 +336,7 @@ export function efectosDe(eje, evento, { marco } = {}) {
       // El motor ancla sus registros en la fábrica de su camino: `en` es ese camino seguido de 4.
       const camino = indicesDe(en);
       const sitio = situar(camino, camino.slice(0, -1));
-      const detalle = fase === 'consolidado' ? { elecciones: eleccionesDe(ev, sitio.marco) } : fase === 'ejecutado' ? { evidencia: [...(ev.contexto.evidencia ?? [])] } : {};
+      const detalle = { elecciones: eleccionesDe(ev, sitio.marco) };
       anadir({ tipo: 'fase', fase, ...sitio, ruta: [], ...detalle }, [MARCAS_EFECTO.claseFase]);
     } else {
       const sitio = situar(indicesDe(en), []);

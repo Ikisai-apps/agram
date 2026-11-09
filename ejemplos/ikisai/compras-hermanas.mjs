@@ -36,6 +36,7 @@
 import { Eje } from '../../src/eje.js';
 import { generarClaves } from '../../src/autoridad.js';
 import { escribirBase, identidadDe } from '../../src/bases.js';
+import { entrarPorInvitacion } from './altas.mjs';
 
 const T = '2026-11-07T09:00:00Z';
 const hora = (de) => ({ token: 'T', escala: 'hora', cantidad: 1, de, a: null });
@@ -64,8 +65,8 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
     demostracion: true,
     identidad: 'casa', // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
     emision: [
+      { token: 'R', cantidad: 10 },
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
-      { token: 'P', cantidad: 10, ambito: 'genesis' },
     ],
     foco: 'Casa de ejemplo',
     t: T,
@@ -74,8 +75,8 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   });
   const escribir = (datos) => eje.escribir(datos, priv(datos.autor));
 
-  // Las personas escriben su propia alta (VG, 10-11, B1), con su clave si la tienen; la invitación es del 3b.
-  for (const id of ['huesped', 'vecina']) await eje.entrar({ identidad: id, t: T, clave: claves[id]?.publica, privada: claves[id]?.privada });
+  // Las personas entran aceptando la invitación de la casa (encargo 3b): su aceptación es su alta (VG, 10-11, B1).
+  for (const id of ['huesped', 'vecina']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: T, clave: claves[id], privadaDe: priv });
 
   // Proyecto A: el comedor da de alta a cocina y a su cosa, y da euros a huesped y vecina.
   // La cocina es una cosa de la casa (su máquina: escribe con el T que le da), sin clave en el eje de demostración:

@@ -1,86 +1,72 @@
 // Segundo ejemplo transversal con datos inventados: una reserva de alojamiento
 // (Booking) en una casa rural. Existe para forzar que el núcleo sea genérico y
 // no esté moldeado por la compra de comida: otro dominio, otra décupla, otro
-// ciclo. Construye su propio eje: génesis de la casa (una persona); altas de
-// recepción y de una persona huésped; la casa escribe su «Alojamiento», la
-// raíz del dominio, que declara la capacidad; emite su P sobre él (una vez) y
-// delega en recepción la mayor parte; publica la disponibilidad (el elemento
-// habitación, con sus plazas en 1.k); recepción respalda con su P dos de las
-// plazas y la casa la otra, y la casa abre la temporada emitiendo la serie de
-// plazas; la persona huésped escribe la reserva anclada en una plaza, con las
-// noches en su propio 7; recepción confirma por el ciclo del motor:
-// consolidar → autorizar (con el P que ya respalda las plazas) → ejecutar.
+// ciclo. Construye su propio eje: génesis de la casa (una persona, la primera
+// identidad del eje), que emite al empezar su R y sus EUR; la casa invita a
+// recepción y a una persona huésped, que aceptan (su alta; encargo 3b); la
+// casa escribe su «Alojamiento», que declara la capacidad; recepción escribe
+// sobre él que atiende las reservas; la casa publica la disponibilidad (el
+// elemento habitación, con sus plazas en 1.k); recepción respalda con su P dos
+// de las plazas y la casa la otra, y la casa abre la temporada emitiendo la
+// serie de plazas; la persona huésped escribe la reserva anclada en una plaza,
+// con las noches en su propio 7 y lo que se va a mover anunciado en su 4.1.
 //
-// Autorizar es bloquear P sobre el registro del recurso, con el umbral del
-// dueño (VG, 7-11 noche). El recurso de las dos partes de la confirmación es
-// la raíz del dominio, el Alojamiento de la casa (src/autorizacion.js), no la
-// reserva de quien reserva: quien reserva no acuña P sobre su reserva para
-// dárselo a recepción (el apaño de la #62, deshecho). Y el P que respalda las
-// plazas cuenta también para autorizar (VG, 8-11 madrugada: «inmovilizar
-// poder en un recurso es ya el compromiso, y vale para las dos cosas»): un
-// solo registro de alojamiento respalda y decide, y se deshace la partición
-// «Reservas» (decide) / «Alojamiento» (respalda) de la #70. El Alojamiento no
-// declara umbral, así que rige más de la mitad: recepción, con 3 de los 4
-// P:Alojamiento respaldando la cama individual y la litera, autoriza sola
-// diciendo que autoriza con ese P (motor.autorizar lo dice por defecto), sin
-// bloquear nada más; la casa, con 1, no. Ejecutar no suelta ese P: sigue
-// respaldando las plazas mientras vivan sus noches.
+// El ciclo es una sola operación (VG, 8-11, mapa §15 [D] «Una sola operación:
+// registrar»): cada parte escribe su propio movimiento, anclado sobre la
+// reserva: la casa entrega sus plazas (los tokens de cada noche) y la huésped
+// paga sus euros. Nadie autoriza lo ajeno, porque cada uno solo mueve lo suyo
+// («la casa entrega cuando escribe ella el movimiento de su cama; la huésped
+// paga cuando escribe ella el suyo»). Qué cuenta como cerrado lo dice la
+// reserva en su criterio (su 2): la plantilla de la época «all announced
+// movements happened»; motor.siguiente dice a cada parte lo que le falta.
+//
+// El P (mapa §15 [D] «P como peso de criterio»): nadie lo acuña a mano. Quien
+// escribe un registro obtiene diez unidades sobre él; quien consigue E, sobre
+// su registro; quien recibe R, sobre la raíz de quien se la da. La casa tiene
+// P sobre el Alojamiento y la habitación porque los escribió; recepción, sobre
+// su propio registro, que cuelga del Alojamiento.
 //
 // La plaza (VG, 7-11, «las dos cosas a la vez»): una POSICIÓN de la
 // habitación donde las reservas colisionan (se escriben y se ven todas), y una
 // SERIE LIMITADA de tokens E emitida por la casa: «<plaza>@<noche>», un token
-// por plaza y noche, tantos como capacidad. Ejecutar la reserva mueve esos
-// tokens de la casa a la persona huésped; la segunda reserva solapada se
-// escribe y colisiona, pero no se ejecuta: la casa ya no tiene el token de
-// esa noche (saldo insuficiente). El contador del motor (motor.ocupacion)
-// solo informa.
+// por plaza y noche, tantos como capacidad. La entrega mueve esos tokens de
+// la casa a la persona huésped; la segunda reserva solapada se escribe y
+// colisiona, pero la casa ya no puede entregarla: no tiene el token de esa
+// noche (saldo insuficiente). El contador del motor (motor.ocupacion) solo
+// informa.
 //
-// La E atada al recurso (VG, 7-11 noche, R2 del estudio de neutralidad): la
-// casa declara la capacidad en su registro de alojamiento (posición 2 de su
-// payload: 4 plazas), acuña su P sobre él y lo bloquea plaza a plaza; cada
-// serie de plaza va atada a la habitación (`registro`, en la clave tras la
-// última «@») y hereda el tope del alojamiento, que se cuenta POR FRANJA (la
-// noche, tras la «@» de la denominación): el E vivo de cada noche, sumando
-// todas las plazas y emisores de esa noche, no pasa de 4, y ninguna otra
-// identidad añade plazas por encima. Cada noche caduca a la hora de salida
-// del día siguiente, y entonces su E deja de estar vivo.
+// La E atada al recurso (VG, 7-11 noche, R2; VG, 9-11, D1 y F1): la casa
+// declara la capacidad en su registro de alojamiento (posición 2 de su
+// payload: 4 plazas); cada serie de plaza va atada a la habitación
+// (`registro`) y hereda el tope del alojamiento, que se cuenta POR FRANJA (la
+// noche): el E vivo de cada noche, sumando todas las plazas y emisores, no
+// pasa de 4. Y la cuota de cada serie es el P comprometido por sus emisores
+// (bloqueado con la salida = la familia de la plaza) frente a todo el P
+// comprometido con las series del Alojamiento, por la capacidad: recepción
+// compromete 1 con la cama individual y 2 con la litera; la casa, 1 con la de
+// matrimonio. Cada noche caduca a la hora de salida del día siguiente.
 //
-// [X] decidir VG: titular de los tokens de plaza. La corrección de VG sobre
-// titulares (mapa §12, 7-11 tarde) dice que una persona emite los tokens de
-// plaza «y se los da a la habitación; la habitación los conserva y los
-// maneja». Este ejemplo sigue la decisión anterior (mapa §12, mediodía:
-// «mover esos tokens de la casa al huésped»): la serie se queda en la
-// cartera de la casa y la entrega la ejecuta la casa. Pasarla a la habitación
-// exige decidir cómo se liga el registro de la habitación con la identidad
-// (una cosa) titular de sus plazas y quién consolida y ejecuta la entrega en
-// su nombre (docs/MOTOR.md §5.1).
-//
-// [X] decidir VG: la ejecución de dos partes mientras AARPIA no exista. El
-// motor V0 ejecuta solo el autor de la consolidación y nadie mueve tokens
-// ajenos, así que confirmar son dos consolidaciones sobre la reserva, las dos
-// autorizadas por recepción: primero la casa entrega los tokens de plaza
-// («ocupar»), después la persona huésped paga («pagar»). Sin atomicidad: si
-// el pago fallara después de la entrega, la plaza quedaría entregada sin
-// cobrar; por eso, antes de escribir nada, se comprueba que hay saldo para
-// pagar. La atomicidad es de AARPIA.
+// [X] decidir VG: titular de los tokens de plaza. Este ejemplo sigue la
+// decisión del mapa §12, mediodía («mover esos tokens de la casa al
+// huésped»): la serie se queda en la cartera de la casa y la entrega la
+// escribe la casa.
 
 import { Eje } from '../../src/eje.js';
 import { direccion, indicesDe, esReferencia } from '../../src/btml.js';
 import { evaluar } from '../../src/bql.js';
 import { costeT } from '../../src/escritura.js';
 import { familiaDe } from '../../src/tokens.js';
-import { colateral, colateralDe, colateralMinimo, cubre } from '../../src/lente.js';
-import { descubrir, consolidar, autorizar, ejecutar, liberar, bloqueosDeP, consolidaciones, autorizacionesValidas, capacidadDe, tramoDe, FABRICA } from '../../src/motor.js';
+import { capacidadDe, tramoDe, siguiente, cerrado, ANUNCIO } from '../../src/motor.js';
+import { entrarPorInvitacion } from './altas.mjs';
 
 /** La casa: la persona que respalda las plazas y emite su serie (VG, 7-11 noche: solo emiten personas). */
 export const CASA = 'casa';
 
-/** P:Alojamiento que emite la casa (tanto como su capacidad), y lo que delega en recepción (más de la mitad: autoriza sola). */
-export const P_ALOJAMIENTO = 4;
-export const P_RECEPCION = 3;
-
-/** Las plazas que respalda recepción con su P: la cama individual (1) y la litera (2), sus 3. La de matrimonio, la casa. */
+/** Las plazas que respalda recepción con su P: la cama individual (1) y la litera (2), un P por cama. La de matrimonio, la casa. */
 export const RESPALDA_RECEPCION = Object.freeze({ 1: 1, 2: 2 });
+
+/** La plantilla de cerrado que la reserva nombra en su criterio (la de la época por defecto, dicha en voz alta). */
+export const CERRADO = 'all announced movements happened';
 
 /** Las plazas de la habitación: cada una en la posición 1.k de sus recursos. */
 export const PLAZAS = Object.freeze({ matrimonio: 0, individual: 1, litera: 2 });
@@ -198,9 +184,9 @@ const eur = (cantidad, de, a) => ({ token: 'E', emisor: CASA, denominacion: 'EUR
 
 /**
  * claves (opcional): { casa: {publica, privada}, recepcion: {...}, huesped: {...} }.
- * Con claves, la casa firma el génesis y declara las claves de las altas, y
- * cada identidad firma lo suyo. Sin claves, el eje funciona sin firmas.
- * confirmar: con false se detiene en la reserva escrita (sin ciclo del motor).
+ * Con claves, la casa firma el génesis y sus invitaciones, y cada identidad
+ * acepta la suya con su clave y firma lo suyo. Sin claves, el eje funciona sin firmas.
+ * confirmar: con false se detiene en la reserva escrita (sin entrega ni pago).
  * temporada: las noches [primera, fin) que abre la casa (TEMPORADA por defecto).
  */
 export async function ejemploReserva({ claves = {}, confirmar = true, temporada: noches = TEMPORADA } = {}) {
@@ -208,12 +194,11 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: CASA, // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
+    identidad: CASA, // escribe el génesis, su alta: la primera identidad del eje es una persona (VG, 10-11, B1)
     emision: [
+      { token: 'R', cantidad: 10 }, // su R (R:casa): emitir E exige R propia emitida (VG, 9-11, D2)
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'E', denominacion: 'hora', cantidad: 1000 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
-      { token: 'P', cantidad: 10, ambito: 'genesis' }, // poder de la casa sobre todo su eje
-      { token: 'R', cantidad: 10 }, // reputación de la casa (R:casa): la pone en juego al emitir plazas
     ],
     foco: 'Casa rural de ejemplo',
     t,
@@ -221,9 +206,9 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     privada: priv('casa'),
   });
 
-  // Recepción y la persona huésped escriben su propia alta (VG, 10-11, B1: persona es quien escribe la suya), con
-  // su clave si la tienen; la invitación de la casa que las encauza es del 3b. Después la casa les da lo suyo.
-  for (const id of ['recepcion', 'huesped']) await eje.entrar({ identidad: id, t, clave: claves[id]?.publica, privada: priv(id) });
+  // La casa invita a recepción y a la persona huésped; cada una acepta (su alta, firmada con su clave si la tiene).
+  // Después la casa les da lo suyo.
+  for (const id of ['recepcion', 'huesped']) await entrarPorInvitacion(eje, { por: CASA, quien: id, t, clave: claves[id], privadaDe: priv });
   const alta = await eje.escribir({
     autor: CASA,
     sobre: eje.genesisId,
@@ -238,9 +223,8 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     payload: ['Altas de la temporada', ['recepcion', 'huesped']],
   }, priv('casa'));
 
-  // El dominio (VG, 7-11): el «Alojamiento» de la casa, raíz de todo lo de
-  // Booking. Declara su capacidad (R2), 4 plazas por noche; su P respalda las
-  // plazas y decide lo que cuelga de él (VG, 8-11: las dos cosas a la vez).
+  // El dominio (VG, 7-11): el «Alojamiento» de la casa, raíz de todo lo de Booking. Declara su capacidad (R2), 4
+  // plazas por noche. Escribirlo le da a la casa diez P sobre él (mapa §15 [D] N1).
   const alojamiento = await eje.escribir({
     autor: CASA,
     sobre: eje.genesisId,
@@ -249,25 +233,15 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     payload: structuredClone(ALOJAMIENTO),
   }, priv('casa'));
 
-  // La casa emite su P sobre el alojamiento (P:Alojamiento, una serie cerrada:
-  // la emite una vez; ampliarla sería una consolidación autorizada, R3), tanto
-  // como su capacidad, y delega en recepción 3 de 4: más de la mitad. Emitir P
-  // es el tercer escalón (T + R + P): la casa gasta T y pone en juego su R:
-  // bloquea un R:casa como colateral de su serie (R6, src/lente.js: la décima
-  // parte de los 10 que emitió). Va en un evento propio: P exige un ámbito que
-  // ya exista.
-  const delegacion = await eje.escribir({
-    autor: CASA,
+  // Recepción escribe sobre el Alojamiento que atiende las reservas: su P (diez, sobre su propio registro) cuelga
+  // del dominio, y con él respalda plazas. Ya no hay P delegado por la casa: nadie emite P a mano (mapa §15).
+  const atiende = await eje.escribir({
+    autor: 'recepcion',
     sobre: alojamiento.id,
     t,
-    movimientos: [
-      minutos(CASA),
-      colateral(CASA, 1),
-      { token: 'P', cantidad: P_ALOJAMIENTO, ambito: alojamiento.id, de: null, a: CASA },
-      { token: 'P', cantidad: P_RECEPCION, ambito: alojamiento.id, de: CASA, a: 'recepcion' },
-    ],
+    movimientos: [minutos('recepcion')],
     payload: 'Recepción atiende las reservas',
-  }, priv('casa'));
+  }, priv('recepcion'));
 
   // La casa publica la disponibilidad (la habitación con sus plazas) sobre el dominio.
   const habitacion = await eje.escribir({
@@ -289,10 +263,9 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     payload: 'cualquiera',
   }, priv('casa'));
 
-  // Recepción respalda con su P la cama individual y la litera, todas las
-  // noches (R2): será coemisora de sus series. Ese P queda inmovilizado
-  // mientras vivan sus noches, y con él autoriza (VG, 8-11).
-  const respaldo = await respaldarPlazas(eje, habitacion, { identidad: 'recepcion', plazas: RESPALDA_RECEPCION, t, privada: priv('recepcion') });
+  // Recepción respalda con su P la cama individual y la litera, todas las noches (R2): será coemisora de sus
+  // series. Ese P queda comprometido mientras vivan sus noches.
+  const respaldo = await respaldarPlazas(eje, habitacion, { identidad: 'recepcion', plazas: RESPALDA_RECEPCION, ambito: atiende.id, t, privada: priv('recepcion') });
 
   const temporada = await abrirTemporada(eje, habitacion, { noches, t, privada: priv('casa') });
 
@@ -305,26 +278,22 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     privada: priv('huesped'),
   });
 
-  const resultado = { eje, alta, alojamiento, delegacion, habitacion, abierta, respaldo, temporada, reserva };
+  const resultado = { eje, alta, alojamiento, atiende, habitacion, abierta, respaldo, temporada, reserva };
   if (!confirmar) return resultado;
   return { ...resultado, ...(await confirmarReserva(eje, reserva, { claves })) };
 }
 
 /**
- * Quien tiene P:Alojamiento (aquí, recepción, con el que le delegó la casa)
- * respalda plazas de la habitación: bloquea su P con la salida = la familia
- * de cada plaza (todas sus noches), `plazas` = { k: cantidad }. Va en un
- * registro suyo, firmado por él: es su firma de coemisor de esas series (R2,
- * emisión conjunta). Ese P no se libera mientras viva alguna noche de la
- * plaza, y cuenta para autorizar sobre el alojamiento cuando su titular lo
- * dice (VG, 8-11).
+ * Quien tiene P en el dominio (aquí, recepción, sobre su propio registro, que cuelga del Alojamiento) respalda
+ * plazas de la habitación: bloquea ese P con la salida = la familia de cada plaza (todas sus noches), `plazas` = { k:
+ * cantidad }. Va en un registro suyo, firmado por él: es su firma de coemisor de esas series (R2, emisión conjunta).
+ * Ese P no se libera mientras viva alguna noche de la plaza, y es su compromiso con ella (mapa §15 [D] (5)).
  */
-export async function respaldarPlazas(eje, habitacion, { identidad, plazas, t, privada }) {
-  const ambito = habitacion.sobre;
+export async function respaldarPlazas(eje, habitacion, { identidad, plazas, ambito, t, privada }) {
   const bloqueos = Object.entries(plazas).map(([k, cantidad]) => ({ token: 'P', ambito, cantidad, de: identidad, a: identidad, estado: 'bloqueo', salida: familiaPlaza(habitacion.id, Number(k)) }));
   return eje.escribir({
     autor: identidad,
-    sobre: ambito,
+    sobre: habitacion.sobre,
     t,
     movimientos: [minutos(identidad), ...bloqueos],
     payload: 'Respaldo plazas de la ' + String(habitacion.payload[0]).toLowerCase(),
@@ -332,38 +301,27 @@ export async function respaldarPlazas(eje, habitacion, { identidad, plazas, t, p
 }
 
 /**
- * La casa abre la temporada: emite, por cada plaza de la habitación y cada
- * noche de [primera, fin), tantos tokens «<plaza>@<noche>» como capacidad,
- * atados a la habitación (R2) y con caducidad a la salida del día siguiente.
- * Es la serie limitada que respalda las plazas; solo la casa la amplía.
- * Emitir E es el último escalón (VG, 7-11 noche: «si T+R+P + (opc) E»): la
- * casa gasta su T, tiene su R en juego (el colateral de R:casa, R6; si aún no, lo bloquea) y
- * tiene P sobre la habitación (el del génesis la cubre).
- * Y emitir E cuesta P bloqueado (R2): si aún no lo hay, la casa acuña su P
- * sobre el alojamiento, tanto como su capacidad (4). Cada plaza necesita, con
- * la salida = su familia (todas sus noches), tanto P bloqueado como camas ×
- * P emitido ÷ capacidad: su cuota, cada noche, es P bloqueado ÷ P emitido ×
- * capacidad. Lo que ya bloquearon otros (respaldarPlazas) cuenta, y quien lo
- * bloqueó es coemisor de la serie (`emisores`); lo que falta lo bloquea la
- * casa. Ese P no se libera mientras viva alguna noche de la plaza.
+ * La casa abre la temporada: emite, por cada plaza de la habitación y cada noche de [primera, fin), tantos tokens
+ * «<plaza>@<noche>» como capacidad, atados a la habitación (R2) y con caducidad a la salida del día siguiente. Es la
+ * serie limitada que respalda las plazas; solo la casa la amplía. Emitir E exige P sobre su registro (la casa
+ * escribió la habitación: tiene diez) y R propia emitida (VG, 8-11 tarde, N3; 9-11, D2).
+ * La cuota de cada serie (VG, 9-11, D1): el P que sus emisores comprometen con la familia de la plaza (todas sus
+ * noches) frente a todo el P comprometido con las plazas del Alojamiento, por su capacidad. Cada cama pide una unidad
+ * comprometida: lo que ya comprometieron otros (respaldarPlazas) cuenta, y quien lo comprometió es coemisor de la
+ * serie (`emisores`); lo que falta lo compromete la casa con su P sobre el Alojamiento. Ese P no se libera mientras
+ * viva alguna noche de la plaza.
  */
 export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, privada } = {}) {
   const alojamiento = eje.obtener(habitacion.sobre);
-  const capacidad = capacidadDe(alojamiento?.payload);
   const ambito = alojamiento.id;
-  const kp = 'P:' + ambito;
   const movimientos = [minutos(CASA)];
-  const falta = colateralMinimo(eje.serie('R:' + CASA).emitido) - colateralDe(eje, CASA);
-  if (!cubre(colateralDe(eje, CASA), eje.serie('R:' + CASA).emitido) || colateralDe(eje, CASA) <= 0) movimientos.push(colateral(CASA, Math.max(falta, 1)));
-  const emitidoP = eje.serie(kp).emitido || capacidad;
-  if (capacidad && !eje.serie(kp).emitido) movimientos.push({ token: 'P', ambito, cantidad: capacidad, de: null, a: CASA });
   habitacion.payload[1].forEach((laPlaza, k) => {
     const plazas = capacidadDe(laPlaza);
     if (!plazas) return;
     const familia = familiaPlaza(habitacion.id, k);
-    const ya = eje.bloqueosCon(familia).filter((b) => b.clave === kp);
+    const ya = eje.bloqueosCon(familia).filter((b) => b.clave.startsWith('P:'));
     const otros = [...new Set(ya.map((b) => b.identidad).filter((id) => id !== CASA))].sort();
-    const falta = capacidad ? Math.ceil((plazas * emitidoP) / capacidad) - ya.reduce((s, b) => s + b.cantidad, 0) : 0;
+    const falta = plazas - ya.reduce((s, b) => s + b.cantidad, 0);
     if (falta > 0) movimientos.push({ token: 'P', ambito, cantidad: falta, de: CASA, a: CASA, estado: 'bloqueo', salida: familia });
     const conjunta = otros.length ? { emisores: [CASA, ...otros] } : {};
     for (const noche of nochesEntre(...noches)) {
@@ -380,23 +338,19 @@ export async function abrirTemporada(eje, habitacion, { noches = TEMPORADA, t, p
 }
 
 /**
- * Una reserva: la escribe quien reserva sobre la habitación, ANCLADA EN LA
- * PLAZA (en = 1.k). Prefijo denso, de 0 a 4, sin relleno: la plaza y su
- * precio van por referencia (no copias) y las fórmulas viven en la misma
- * décupla anidada (1), porque LOCAL lee a su profundidad; 4 es lo que
- * prepara, las dos partes de la ejecución. Lo lejano, por anclaje: las
- * noches (la décupla [[entrada], [salida]]) se anclan en el 7 de la propia reserva (la
- * salida no se ocupa), sin rellenar 5 y 6. Escribirla no reserva nada: las
- * reservas de una plaza colisionan en ella y la validez llega al ejecutar.
- *
- * Quien reserva no acuña P sobre su reserva: lo que se consolida sobre ella
- * (la entrega de la casa y el pago) lo autoriza el P sobre el registro del
- * recurso, la raíz del dominio, el Alojamiento de la casa (VG, 7-11 noche:
- * «autorizar = bloquear P con el umbral del dueño»; deshace el apaño de la #62).
+ * Una reserva: la escribe quien reserva sobre la habitación, ANCLADA EN LA PLAZA (en = 1.k). Prefijo denso, de 0 a
+ * 4, sin relleno: la plaza y su precio van por referencia (no copias) y las fórmulas viven en la misma décupla
+ * anidada (1), porque LOCAL lee a su profundidad; su criterio (2) son los de la habitación y la plantilla de cerrado
+ * (encargo 3b: el dueño la nombra en su PV2); 4 es lo que prepara. Lo lejano, por anclaje: las noches (la décupla
+ * [[entrada], [salida]]) se anclan en el 7 de la propia reserva (la salida no se ocupa), y lo que se va a mover se
+ * anuncia en su 4.1, un registro por movimiento (motor.ANUNCIO): la casa entrega un token de la plaza por noche y
+ * quien reserva paga el total. Escribirla no reserva nada: las reservas de una plaza colisionan en ella y la validez
+ * llega cuando cada parte escribe su movimiento.
  */
 export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, nombre, privada }) {
   const [entrada, salida] = noches;
-  const n = nochesEntre(entrada, salida).length;
+  const lista = nochesEntre(entrada, salida);
+  const n = lista.length;
   const plazaElegida = habitacion.payload[1][k];
   const payload = [
     nombre ?? 'Reserva de la ' + plazaElegida[0][0] + ', ' + n + ' noches', // 0 representación
@@ -407,9 +361,9 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
       ['=LOCAL(2) * LOCAL(1)'], // 1.3 total: precio por noche × noches
       ['=LOCAL(3) + LOCAL(1) * 1 dia'], // 1.4 el total compuesto con el tiempo que ocupa
     ], // 1 recursos
-    [{ ref: habitacion.id, dir: '2000000000' }], // 2 criterios: los de la habitación (una dirección no entra en su lista)
+    [{ ref: habitacion.id, dir: '2000000000' }, CERRADO], // 2 criterios: los de la habitación y la plantilla de cerrado
     [autor, 'recepcion'], // 3 comunicación: quién habla con quién
-    [['pagar'], ['ocupar']], // 4 fábrica: lo que prepara, una décupla (cada posición entre corchetes) para que la entrega elija 4.1 «ocupar» por dirección
+    [['pagar'], ['ocupar']], // 4 fábrica: lo que prepara, una décupla (4.0 pagar, 4.1 ocupar)
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
   const tramo = [[entrada], [salida]]; // una décupla (cada posición entre corchetes): [entrada, salida] sería una lista de dos ocupantes
@@ -421,15 +375,23 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
     movimientos: [minutos(autor, costeT(tramo))],
     payload: tramo,
   }, privada);
+  // Lo que se va a mover (encargo 3b): la casa entrega un token de la plaza por noche; quien reserva paga el total.
+  const total = evaluar(eje, reserva.id, [1, 3]);
+  const anuncios = [...lista.map((noche) => anuncio(seriePlaza(habitacion.id, k, noche), 1, 'ocupar', CASA, autor)), ...(total.valor?.tipo === 'magnitud' ? [anuncio(EUR, total.valor.cantidad, 'pagar', autor, CASA)] : [])];
+  for (const a of anuncios) {
+    await eje.escribir({ autor, sobre: reserva.id, en: ANUNCIO, t, movimientos: [minutos(autor, costeT(a))], payload: a }, privada);
+  }
   return reserva;
 }
 
+/** Un movimiento anunciado: [[la serie], [cuánto], [para qué], [[de quién], [a quién]]] (motor.siguiente lo lee). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+
 /**
- * Las noches que ocupa una reserva, comprobadas antes de mover nada: está
- * anclada EXACTAMENTE en la plaza que referencia (1.0), esa plaza declara
- * capacidad, su 7 da un tramo acotado por fechas (motor.tramoDe) y 1.1
- * coincide con el número de noches del tramo (BQL no resta fechas: la
- * comprobación vive aquí). Devuelve la habitación, la plaza k y las noches.
+ * Las noches que ocupa una reserva, comprobadas antes de mover nada: está anclada EXACTAMENTE en la plaza que
+ * referencia (1.0), esa plaza declara capacidad, su 7 da un tramo acotado por fechas (motor.tramoDe) y 1.1 coincide
+ * con el número de noches del tramo (BQL no resta fechas: la comprobación vive aquí). Devuelve la habitación, la
+ * plaza k y las noches.
  */
 export function nochesDe(eje, reserva) {
   const r = eje.obtener(reserva.id ?? reserva);
@@ -452,97 +414,39 @@ export function nochesDe(eje, reserva) {
   return { habitacion, k, noches, tramo };
 }
 
-/** La ejecución válida de una consolidación, si la tiene. */
-function ejecucionDe(eje, consolidacion) {
-  return eje.sobre(consolidacion.id, FABRICA).find((e) => e.contexto?.fase === 'ejecutado' && e.autor === consolidacion.autor);
+/**
+ * La parte de `quien`: lo que a la reserva le falta de ella (motor.siguiente), en un registro suyo anclado sobre la
+ * reserva, con su T y sus movimientos. Si no le falta nada, no escribe y devuelve null.
+ */
+async function cumplir(eje, reserva, quien, { t, titulo, privada }) {
+  const { faltaDeMi } = siguiente(eje, reserva.id, quien);
+  const movimientos = faltaDeMi.filter((x) => x.plantilla === 'move what was announced').map((x) => x.transaccion.movimientos[1]);
+  if (!movimientos.length) return null;
+  return eje.escribir({ autor: quien, sobre: reserva.id, t, movimientos: [minutos(quien), ...movimientos], payload: titulo }, privada);
 }
 
 /**
- * Una parte de la confirmación, sin repetir lo hecho: si su autor ya
- * consolidó sobre la reserva, sigue desde ahí (autorizar, ejecutar); si ya
- * está ejecutada, no escribe nada.
+ * Confirmar es que cada parte escriba su movimiento (encargo 3b, mapa §15 [D]): primero la casa entrega las plazas
+ * (los tokens «<plaza>@<noche>» que la reserva anunció) y después la persona huésped paga el total. Si otra reserva
+ * ya se llevó el token de alguna noche, el eje rechaza la entrega (saldo insuficiente): la reserva queda escrita y
+ * abierta (cerrado da false), y no se cobra. Antes de escribir nada comprueba las noches (nochesDe) y que haya saldo
+ * para pagar. Lo hecho no se repite: cada parte escribe solo lo que le falta (motor.siguiente); si la reserva ya
+ * está cerrada, devuelve las dos partes con yaConfirmada.
  */
-async function cumplir(eje, { autor, reserva, titulo, elecciones, recepcion, t, ejecucion, movimientos, priv }) {
-  const previa = consolidaciones(eje, reserva.id).find((c) => c.autor === autor);
-  const consolidacion = previa ? eje.obtener(previa.id) : await consolidar(eje, { autor, foco: reserva.id, t, titulo, elecciones: elecciones() }, priv(autor));
-  const autorizacion = autorizacionesValidas(eje, consolidacion.id)[0]
-    ?? await autorizar(eje, { autorizante: recepcion, consolidacion: consolidacion.id, t, nota: 'confirmada' }, priv(recepcion));
-  const hecha = ejecucionDe(eje, consolidacion)
-    ?? await ejecutar(eje, { autor, consolidacion: consolidacion.id, t, titulo: ejecucion, movimientos: movimientos(consolidacion) }, priv(autor));
-  // Ejecutada, el P que recepción bloqueó por ella (si bloqueó alguno) queda
-  // liberable, y solo ella lo libera (nadie mueve tokens ajenos). El que
-  // respalda las plazas no se libera: sigue respaldándolas (VG, 8-11).
-  if (bloqueosDeP(eje, recepcion, consolidacion.id).length) await liberar(eje, { titular: recepcion, consolidacion: consolidacion.id, t }, priv(recepcion));
-  return { consolidacion, autorizacion, ejecucion: hecha };
-}
-
-/**
- * Confirmación por el ciclo del motor, en dos partes autorizadas por
- * recepción con el P:Alojamiento que ya respalda las plazas (3 de 4: más de
- * la mitad; VG, 8-11): su registro de autorización lo dice y no bloquea nada
- * más. Si una ejecución falla, la consolidación queda AUTORIZADA hasta que
- * recepción retire su autorización con motor.liberar:
- * 1. ocupar: la casa consolida sobre la reserva la plaza y la acción
- *    «ocupar» (por referencia), y al ejecutar entrega a la persona huésped
- *    un token «<plaza>@<noche>» por noche. Si otra reserva ya se llevó el
- *    de alguna noche, el eje lo rechaza (saldo insuficiente): la reserva
- *    queda escrita, consolidada y autorizada, pero no válida, y no se cobra.
- * 2. pagar: quien reservó consolida lo que elige (la plaza y el criterio por
- *    referencia; lo que va a pagar como fórmula que lee el total) y ejecuta
- *    con el pago E a la casa. Consolidar no es pagar.
- * Antes de escribir nada comprueba las noches (nochesDe) y que haya saldo
- * para pagar. Idempotente: lo ya hecho no se repite y, si las dos partes
- * están ejecutadas, devuelve la confirmación con yaConfirmada.
- */
-export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11-09T09:00:00Z', recepcion = 'recepcion' } = {}) {
+export async function confirmarReserva(eje, reserva, { claves = {}, t = '2026-11-09T09:00:00Z' } = {}) {
   const priv = (id) => claves[id]?.privada;
   const quien = reserva.autor;
-  const ejecutada = (autor) => consolidaciones(eje, reserva.id).some((c) => c.autor === autor && c.estado === 'EJECUTADO');
-  const yaConfirmada = ejecutada(CASA) && ejecutada(quien);
-  let noches = [];
-  let habitacion;
-  let k;
-  if (!ejecutada(CASA)) {
-    ({ habitacion, k, noches } = nochesDe(eje, reserva));
-    const total = evaluar(eje, reserva.id, [1, 3]);
-    const alcanza = total.estado === 'RESUELTO' && total.valor.tipo === 'magnitud' && total.valor.unidad === 'EUR' && eje.saldo(quien, EUR) >= total.valor.cantidad;
-    if (!ejecutada(quien) && !alcanza) throw new Error('sin saldo para pagar ' + total.texto + ': no se entrega la plaza');
-  }
-  const d = () => descubrir(eje, reserva.id);
-  const alcanzado = (posicion) => d().find((p) => p.posicion === posicion).candidatos.find((c) => c.origen === 'referencia');
-  const entrega = await cumplir(eje, {
-    autor: CASA,
-    reserva,
-    recepcion,
-    t,
-    priv,
-    titulo: 'Plaza en firme',
-    elecciones: () => ({
-      1: { candidato: alcanzado(1) }, // la plaza alcanzada por la referencia
-      4: { ref: reserva.id, dir: direccion([4, 1]) }, // la acción: «ocupar», de lo que prepara la reserva
-    }),
-    ejecucion: 'Plaza entregada',
-    movimientos: () => noches.map((noche) => tokenPlaza(habitacion.id, k, noche, 1, CASA, quien)),
-  });
-  const pago = await cumplir(eje, {
-    autor: quien,
-    reserva,
-    recepcion,
-    t,
-    priv,
-    titulo: 'Reserva en firme',
-    elecciones: () => ({
-      1: { candidato: alcanzado(1) }, // la plaza alcanzada por la referencia
-      2: { candidato: alcanzado(2) }, // el criterio alcanzado por la referencia
-      4: '=REF("' + reserva.id + '", "1300000000")', // lo que se va a pagar: el total de la reserva (id completo)
-    }),
-    ejecucion: 'Pagada',
-    movimientos: (consolidacion) => {
-      // La consulta no tiene efectos: el efecto es la ejecución, que mueve el E.
-      const total = evaluar(eje, consolidacion.id, [4]);
-      if (total.estado !== 'RESUELTO' || total.valor.tipo !== 'magnitud' || total.valor.unidad !== 'EUR') throw new Error('total no resuelto: ' + total.texto);
-      return [eur(total.valor.cantidad, quien, CASA)];
-    },
-  });
-  return { entrega, pago, ...(yaConfirmada ? { yaConfirmada } : {}) };
+  const hecho = (autor, titulo) => eje.sobre(reserva.id).find((e) => e.autor === autor && e.payload === titulo) ?? null;
+  // Las noches y el anclaje, siempre (también si la reserva ya está cerrada): una reserva sin anuncios en su 4.1 cumple
+  // de vacío la plantilla de cerrado, y eso no la confirma.
+  nochesDe(eje, reserva);
+  const ya = { entrega: hecho(CASA, 'Plaza entregada'), pago: hecho(quien, 'Pagada') };
+  if (cerrado(eje, reserva.id).cerrado && ya.entrega && ya.pago) return { ...ya, yaConfirmada: true };
+  const total = evaluar(eje, reserva.id, [1, 3]);
+  const alcanza = total.estado === 'RESUELTO' && total.valor.tipo === 'magnitud' && total.valor.unidad === 'EUR' && eje.saldo(quien, EUR) >= total.valor.cantidad;
+  if (!hecho(quien, 'Pagada') && !alcanza) throw new Error('sin saldo para pagar ' + total.texto + ': no se entrega la plaza');
+  const entrega = (await cumplir(eje, reserva, CASA, { t, titulo: 'Plaza entregada', privada: priv(CASA) })) ?? hecho(CASA, 'Plaza entregada');
+  const pago = (await cumplir(eje, reserva, quien, { t, titulo: 'Pagada', privada: priv(quien) })) ?? hecho(quien, 'Pagada');
+  if (!entrega || !pago) throw new Error('la reserva no anuncia en su 4.1 la entrega y el pago: no hay nada que confirmar');
+  return { entrega, pago };
 }

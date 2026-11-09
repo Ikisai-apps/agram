@@ -18,7 +18,7 @@ export { ORDEN_X, memoria } from './comun.js';
 export const MUNDOS = Object.freeze({
   4: Object.freeze({ datos: datosFabrica, svg: svgFabrica, lineas: lineasFabrica, leyenda: ['puesto: la matriz de 100 del foco', 'pieza: celda modificada i.j.k (forma = clase)', 'caja: consolidación en su estación'] }),
   1: Object.freeze({ datos: datosCiudad, svg: svgCiudad, lineas: lineasCiudad, leyenda: ['tienda: subposición de 1', 'vía: serie de E (cerrada: su emisor ya lo dio todo)', 'mercancía: E de → a'] }),
-  2: Object.freeze({ datos: datosJardin, svg: svgJardin, lineas: lineasJardin, leyenda: ['hierba: encaje exacto', 'arbusto: acuerdo parcial', 'flor: elegido al consolidar', 'fruto: ejecutado'] }),
+  2: Object.freeze({ datos: datosJardin, svg: svgJardin, lineas: lineasJardin, leyenda: ['hierba: encaje exacto', 'arbusto: acuerdo parcial', 'flor: elegido al consolidar', 'fruto: cerrado'] }),
   3: Object.freeze({ datos: datosParque, svg: svgParque, lineas: lineasParque, leyenda: ['piscina: grupo', 'bañera: persona', 'gota: hablar · onda: escuchar', 'paquete: lleva tokens'] }),
   0: Object.freeze({ datos: datosLente, svg: svgLente, lineas: lineasLente, leyenda: ['portada: la posición 0 del foco', 'detrás: portadas de otros', 'PV0 no promete verdad'] }),
 });

@@ -4,9 +4,12 @@
 // sobrio es la lista de pasos con sus botones; el animado, la misma lista
 // con la senda dibujada encima (svgCamino). Los dos leen datosCamino(), que
 // solo pregunta al núcleo: posiciones sin desarrollar (encaje.ocupantes),
-// fórmulas pendientes (bql.evaluar), la propuesta (motor.proponer) y las
-// consolidaciones con su estado (motor.consolidaciones / estadoDe). Nada
-// simulado (mapa §10.2 [D]).
+// fórmulas pendientes (bql.evaluar), la propuesta (motor.proponer) y lo que
+// le falta al foco y a sus propuestas abiertas (motor.siguiente: lo mío, con
+// la transacción que lo cumpliría, y lo que espera de otros), con las
+// propuestas cerradas junto a la acción (motor.propuestas). Nada simulado
+// (mapa §10.2 [D]). Encargo 3b: no hay pasos de autorizar ni de ejecutar; el
+// ciclo es una sola operación, registrar (VG, 8-11, mapa §15 [D]).
 //
 // Cada paso lleva su efecto nombrado por el catálogo (src/efectos.js): el
 // efecto principal de la operación que daría el paso, en el mundo donde
@@ -17,13 +20,11 @@
 //   COPIA del eje (reconstruida y validada evento a evento, como al cargar)
 //   y enseña el evento que se escribiría, sus efectos y, si el motor la
 //   rechaza, por qué. El eje no cambia.
-// - «ejecutar» solo en una consolidación autorizada y para su autor (la
-//   regla V0 del motor: ejecuta el autor). Al ejecutar, el paso se consolida
-//   con animación al rehacer la vista, y el registro aparece en los hilos.
-// - además, los que ya ofrece la fábrica: autorizar (bloquear P sobre el
-//   registro del recurso, hasta el umbral del dueño; VG, 7-11 noche) y
-//   consolidar la propuesta; y «escribir aquí» para una
-//   posición sin desarrollar (lleva a Pointed con esa posición elegida).
+// - «registrar» en un paso que me toca: escribe la transacción que lo
+//   cumple (la de motor.siguiente), como yo; lo que espera de otros no se
+//   lanza (cada uno mueve lo suyo).
+// - además, consolidar la propuesta y «escribir aquí» para una posición sin
+//   desarrollar (lleva a Pointed con esa posición elegida).
 //
 // [X] decidir VG (abierto en este mundo):
 // - el catálogo nombra «previsualizar» a la consolidación vista desde el
@@ -31,9 +32,9 @@
 //   «previsualizar» NO consolida: es una lectura que no escribe;
 // - qué paso resuelve una fórmula pendiente: hoy, añadir un ocupante en su
 //   celda (corregir es añadir), con el efecto «sustituir» de su mundo;
-// - el orden de la senda (desarrollar, fórmulas, propuesta, autorizar,
-//   ejecutar; lo ejecutado al final, junto a la acción) y que se muestren
-//   solo las tres últimas ejecuciones;
+// - el orden de la senda (desarrollar, fórmulas, propuesta, lo que falta;
+//   lo cerrado al final, junto a la acción) y que se muestren solo las tres
+//   últimas propuestas cerradas;
 // - la previsualización de una posición sin desarrollar no lleva contenido
 //   (lo pone quien escribe): dice dónde se anclaría y con qué efecto;
 // - una propuesta que ya está consolidada (otra consolidación del mismo
@@ -53,9 +54,9 @@ import { efectosDe, verEn, nombreMundo, sobrio as lineasDeEfectos, CATALOGO, MAR
 import { Eje } from '../src/eje.js';
 
 /** Clases de paso, en el orden de la senda: del foco hacia la acción. */
-export const TIPOS = Object.freeze(['desarrollar', 'formula', 'propuesta', 'autorizar', 'ejecutar']);
+export const TIPOS = Object.freeze(['desarrollar', 'formula', 'propuesta', 'siguiente']);
 
-/** Cuántas ejecuciones se ven junto a la acción. */
+/** Cuántas propuestas cerradas se ven junto a la acción. */
 export const DADOS = 3;
 
 const ID_PREVISTO = '(previsto)';
@@ -148,8 +149,8 @@ export function contenidoPropuesto(foco, camino, elecciones) {
 /** La consolidación (del foco y su camino) que ya tiene el contenido de la propuesta, o null. */
 export function propuestaConsolidada(eje, foco, camino, elecciones) {
   const propuesto = canonico(contenidoPropuesto(foco, camino, elecciones));
-  const c = motor.consolidaciones(eje, foco, camino).find((x) => canonico(eje.obtener(x.id).payload.slice(1)) === propuesto);
-  return c ? { evento: c.id, estado: c.estado, titulo: textoDe(c.titulo) } : null;
+  const c = motor.propuestas(eje, foco, camino).find((x) => canonico(eje.obtener(x.id).payload.slice(1)) === propuesto);
+  return c ? { evento: c.id, estado: c.cerrado === true ? 'cerrada' : 'abierta', titulo: textoDe(c.titulo) } : null;
 }
 
 /** Título de la consolidación que propone el camino: el mismo al previsualizar y al consolidar. */
@@ -166,11 +167,12 @@ export function tituloPropuesta(eje, foco, camino = []) {
  * - pasos, en el orden de TIPOS y numerados (n) desde 1:
  *   desarrollar (posición sin ocupantes: indices, celda), formula (fórmula
  *   del foco que no resuelve: formula, estado, motivo), propuesta (lo que
- *   propone motor.proponer: elecciones, origenes), autorizar y ejecutar
- *   (consolidaciones pendientes o autorizadas: evento, autor, estado,
- *   autorizacion); cada uno con `efecto` (describirEfecto) y `puede`
- *   ({ ejecutar, autorizar, consolidar, motivo }) para `identidad`;
- * - dados: las últimas DADOS consolidaciones ejecutadas (evento, ejecucion);
+ *   propone motor.proponer: elecciones, origenes) y siguiente (lo que le
+ *   falta al foco o a una propuesta abierta: evento, que, de, transaccion);
+ *   cada uno con `efecto` (describirEfecto) y `puede` ({ registrar,
+ *   consolidar, motivo }) para `identidad`;
+ * - dados: las últimas DADOS propuestas cerradas (evento, ejecucion: el
+ *   registro que la cerró);
  * - propuestaConsolidada: si lo que propone motor.proponer ya está
  *   consolidado ({ evento, estado, titulo }), y entonces no hay paso
  *   «propuesta»; si no, null.
@@ -232,30 +234,31 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
     });
   }
 
-  // Consolidaciones de la fábrica del foco: pendientes, autorizadas y ejecutadas.
+  // Lo que le falta al foco y a sus propuestas abiertas (motor.siguiente); las cerradas, junto a la acción.
   const dados = [];
-  for (const c of motor.consolidaciones(eje, foco, camino)) {
-    const titulo = textoDe(c.titulo);
-    if (c.estado === 'EJECUTADO') {
-      const x = eje.sobre(c.id, motor.FABRICA).find((h) => h.contexto?.fase === 'ejecutado' && h.autor === c.autor);
-      dados.push({ clave: 'dado:' + c.id, tipo: 'dado', evento: c.id, ejecucion: x?.id ?? null, autor: c.autor, t: x?.t ?? c.t, titulo, efecto: x ? efectoDe(eje, x, 'fase') : null });
+  const abiertas = [];
+  for (const c of motor.propuestas(eje, foco, camino)) {
+    if (c.cerrado === true) {
+      const x = motor.cierre(eje, c.id);
+      dados.push({ clave: 'dado:' + c.id, tipo: 'dado', evento: c.id, ejecucion: x?.id ?? null, autor: c.autor, t: x?.t ?? c.t, titulo: textoDe(c.titulo), efecto: efectoDe(eje, x ?? eje.obtener(c.id), x ? 'celda' : 'fase') });
+    } else abiertas.push(c.id);
+  }
+  for (const X of [foco, ...abiertas]) {
+    let sig;
+    try {
+      sig = motor.siguiente(eje, X, identidad);
+    } catch {
       continue;
     }
-    const pendiente = c.estado === 'PENDIENTE DE AUTORIZACIÓN';
-    const aut = pendiente ? null : motor.autorizacionesValidas(eje, c.id)[0];
-    const tipo = pendiente ? 'autorizar' : 'ejecutar';
-    const efecto = pendiente
-      ? efectoFase('autorizado', motor.FABRICA)
-      : efectoFase('ejecutado', motor.FABRICA);
-    const ejecutar = !pendiente && identidad === c.autor;
-    const autorizar = pendiente && Boolean(identidad) && motor.puedeAutorizar(eje, identidad, c.id);
-    const motivo = pendiente
-      ? 'falta autorizar: bloquear P sobre el registro del recurso hasta ' + umbralTexto(eje, c.id) + ' (el autor cuenta como cualquiera)'
-      : ejecutar ? '' : 'ejecuta su autor: ' + c.autor;
-    pasos.push({
-      clave: tipo + ':' + c.id, tipo, evento: c.id, autor: c.autor, t: c.t, estado: c.estado, titulo,
-      autorizacion: aut ? { id: aut.id, autor: aut.autor } : null, efecto, puede: { ejecutar, autorizar, motivo },
-    });
+    const en = (k) => 'siguiente:' + X + ':' + k;
+    sig.faltaDeMi.forEach((x, k) => pasos.push({
+      clave: en('m' + k), tipo: 'siguiente', evento: X, autor: identidad, de: identidad, titulo: x.que, plantilla: x.plantilla, transaccion: x.transaccion,
+      efecto: efectoDe(eje, molde(X, RAIZ, x.que), 'celda'), puede: { registrar: Boolean(identidad), motivo: '' },
+    }));
+    sig.espera.forEach((x, k) => pasos.push({
+      clave: en('e' + k), tipo: 'siguiente', evento: X, autor: x.de, de: x.de, titulo: x.que, plantilla: null, transaccion: null,
+      efecto: efectoDe(eje, molde(X, RAIZ, x.que), 'celda'), puede: { registrar: false, motivo: 'espera a ' + x.de + ': cada uno mueve lo suyo' },
+    }));
   }
 
   const orden = (p) => TIPOS.indexOf(p.tipo);
@@ -268,35 +271,22 @@ export function datosCamino(eje, foco, { camino = [], identidad = null, maximoDa
 
 // ---------- previsualizar: la operación real sobre una copia ----------
 
-/** El umbral de una consolidación en palabras, con lo que lleva bloqueado: «más de la mitad (0 de 10)». Lo calcula el motor. */
-function umbralTexto(eje, consolidacion) {
-  const p = motor.pesoAutorizacion(eje, consolidacion);
-  return p.umbral.texto + ' (' + p.bloqueado + ' de ' + p.emitido + ')';
-}
-
 /** Copia del eje, reconstruida y validada evento a evento (como al cargar). Lo que se escriba en ella no toca el original. */
 export async function copiar(eje) {
   return Eje.desde(eje.orden.map((id) => eje.obtener(id)), { exigirFirmas: eje.exigirFirmas });
 }
 
-/**
- * Quién daría el paso: ejecuta el autor de la consolidación; autoriza quien
- * mira si puede y, si no, la primera identidad que puede; lo demás, quien mira.
- */
+/** Quién daría el paso: lo que falta de alguien lo da él (cada uno mueve lo suyo); lo demás, quien mira. */
 export function actorDe(eje, paso, identidad) {
-  if (paso.tipo === 'ejecutar') return paso.autor;
-  if (paso.tipo === 'autorizar') {
-    if (identidad && motor.puedeAutorizar(eje, identidad, paso.evento)) return identidad;
-    return eje.identidades().find((i) => motor.puedeAutorizar(eje, i, paso.evento)) ?? identidad;
-  }
+  if (paso.tipo === 'siguiente') return paso.de ?? identidad;
   return identidad;
 }
 
-const OPERACION = Object.freeze({ desarrollar: 'escribir', formula: 'escribir', propuesta: 'consolidar', autorizar: 'autorizar', ejecutar: 'ejecutar' });
+const OPERACION = Object.freeze({ desarrollar: 'escribir', formula: 'escribir', propuesta: 'consolidar', siguiente: 'registrar' });
 
 /**
- * Previsualiza el paso `clave` de datosCamino() sin escribir en el eje. Para propuesta, autorizar y
- * ejecutar corre la operación del motor sobre una copia (copiar) con la
+ * Previsualiza el paso `clave` de datosCamino() sin escribir en el eje. Para una propuesta o lo que falta
+ * corre la operación del motor sobre una copia (copiar) con la
  * clave de quien lo daría (actorDe; `privadaDe(identidad)` da su clave
  * privada, si la hay) y devuelve el evento que se escribiría y sus efectos;
  * si el motor la rechaza, el error. Para una posición sin desarrollar o una
@@ -319,17 +309,16 @@ export async function previsualizar(eje, datos, clave, { identidad = datos.ident
       : 'La fórmula ' + paso.formula + ' está ' + String(paso.estado).toLowerCase() + ': ' + paso.motivo + '. Corregir es añadir: un ocupante nuevo en ' + paso.celda + '.';
     return { ...comun, efectos, lineas: lineasDeEfectos(efectos, { detalle: true }), nota };
   }
-  if (!['propuesta', 'autorizar', 'ejecutar'].includes(paso.tipo)) throw new Error('paso sin previsualización: ' + paso.tipo);
+  if (!['propuesta', 'siguiente'].includes(paso.tipo)) throw new Error('paso sin previsualización: ' + paso.tipo);
   const copia = await copiar(eje);
   let ev;
   try {
     if (paso.tipo === 'propuesta') {
       const prop = motor.proponer(copia, foco, { camino });
       ev = await motor.consolidar(copia, { autor: como, foco, camino, elecciones: prop.elecciones, titulo: tituloPropuesta(copia, foco, camino), t }, privadaDe(como));
-    } else if (paso.tipo === 'autorizar') {
-      ev = await motor.autorizar(copia, { autorizante: como, consolidacion: paso.evento, t }, privadaDe(como));
     } else {
-      ev = await motor.ejecutar(copia, { autor: como, consolidacion: paso.evento, t }, privadaDe(como));
+      if (!paso.transaccion) throw new Error('lo que espera de ' + paso.de + ' no lo lanza quien mira: cada uno mueve lo suyo');
+      ev = await motor.registrar(copia, { ...paso.transaccion, t }, privadaDe(como));
     }
   } catch (e) {
     return { ...comun, efectos: [], lineas: '', error: String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '') };
@@ -392,8 +381,7 @@ function piedra(tipo, s) {
     case 'desarrollar': return `<circle class="piedra" r="${s}"/>`;
     case 'formula': return `<path class="piedra" d="M0 ${-s - 1}L${s + 1} 0L0 ${s + 1}L${-s - 1} 0Z"/>`;
     case 'propuesta': return cuadro(s / 2);
-    case 'autorizar': return cuadro(2);
-    case 'ejecutar': return cuadro(2) + `<circle class="nudo" cx="${s}" cy="${-s}" r="${Math.max(2.5, s / 3)}"/>`;
+    case 'siguiente': return cuadro(2);
     case 'dado': return cuadro(2) + `<path class="simbolo-ancla" transform="scale(${n1(s / 9)})" d="M0 -5.5V5M-4.2 1.4Q0 7.5 4.2 1.4M-2.4 -3.2H2.4"/>`;
     case 'meta': return `<path class="mastil" d="M${-s / 2} ${s}V${-s - 2}"/><path class="bandera" d="M${-s / 2} ${-s - 2}L${s + 2} ${-s / 2}L${-s / 2} 1Z"/>`;
     default: return '';
@@ -401,8 +389,7 @@ function piedra(tipo, s) {
 }
 
 const NOMBRE_TIPO = Object.freeze({
-  desarrollar: 'sin desarrollar', formula: 'fórmula pendiente', propuesta: 'propuesta', autorizar: 'consolidado: falta autorizar',
-  ejecutar: 'autorizado: falta ejecutar', dado: 'ejecutado',
+  desarrollar: 'sin desarrollar', formula: 'fórmula pendiente', propuesta: 'propuesta', siguiente: 'falta', dado: 'cerrada',
 });
 
 function nombreEfecto(paso) {
@@ -414,8 +401,7 @@ function nombreEfecto(paso) {
  *   datos: lo que devuelve datosCamino().
  *   compacto: para la celda 9 de Mapped (sin rótulos; lo que no cabe, en un contador).
  *   nuevos: Set de ids de evento nuevos para quien mira (hilos.memoria().nuevos):
- *     una consolidación nueva aparece, una autorización nueva anuda y una
- *     ejecución nueva consolida su paso.
+ *     una propuesta nueva aparece y el registro nuevo que la cierra consolida su paso.
  *   previsto: clave del paso que se está previsualizando: se marca quieto
  *     (un anillo discontinuo), porque previsualizar no escribe nada.
  */
@@ -451,14 +437,13 @@ export function svgCamino(datos, { compacto = false, nuevos = new Set(), previst
         clases.push('nuevo', 'aparece');
         estilo = conRetardo();
       }
-      if (p.tipo === 'ejecutar' && p.autorizacion && nuevos.has(p.autorizacion.id)) clases.push('anuda');
       if (previsto && p.clave === previsto) {
         clases.push('previsto');
         extra += `<circle class="marca-previa" r="${g.s + 5}"/>`;
       }
     }
     const titulo = p.tipo === 'foco' ? `foco ${corto(datos.foco)} · ${datos.titulo}`
-      : p.tipo === 'meta' ? `la acción · ${datos.totalDados} ejecutada${datos.totalDados === 1 ? '' : 's'} sobre este foco`
+      : p.tipo === 'meta' ? `la acción · ${datos.totalDados} cerrada${datos.totalDados === 1 ? '' : 's'} sobre este foco`
         : p.tipo === 'mas' ? `${p.n} pasos más: en la cruz`
           : `${p.n ? p.n + '. ' : ''}${p.titulo} · ${NOMBRE_TIPO[p.tipo]}${p.efecto ? ' · efecto: ' + p.efecto.nombre + ' (' + p.efecto.mundoNombre + ')' + (p.efecto.enCamino ? ' · en el camino: ' + p.efecto.enCamino : '') : ''}`;
     let rotulo = '';
@@ -474,7 +459,7 @@ export function svgCamino(datos, { compacto = false, nuevos = new Set(), previst
     return `<g transform="translate(${n1(p.x)} ${n1(p.y)})"><g class="${clases.join(' ')}" ${attrs.join(' ')}${estilo ? ` style="${estilo}"` : ''}><title>${escapar(titulo)}</title>${toque}${extra}${piedra(p.tipo, g.s)}${mas}${rotulo}</g></g>`;
   });
   const total = datos.pasos.length;
-  const etiqueta = `Camino de ${corto(datos.foco)}: ${total} paso${total === 1 ? '' : 's'} hacia la acción, ${datos.totalDados} ejecutado${datos.totalDados === 1 ? '' : 's'}`;
+  const etiqueta = `Camino de ${corto(datos.foco)}: ${total} paso${total === 1 ? '' : 's'} hacia la acción, ${datos.totalDados} cerrada${datos.totalDados === 1 ? '' : 's'}`;
   return `<svg class="camino${compacto ? ' compacto' : ''}" viewBox="0 0 ${g.W} ${H}" role="img" aria-label="${escapar(etiqueta)}" xmlns="http://www.w3.org/2000/svg">`
     + `<path class="suelo" d="${d}"/><path class="linea" d="${d}"/>${grupos.join('')}</svg>`;
 }
@@ -490,11 +475,10 @@ function botonesDe(p, identidad) {
       ? `<button class="accion" data-consolidar-propuesta>consolidar como ${escapar(identidad)}</button>`
       : '<button class="accion" disabled title="elige quién consolida">consolidar</button>');
   }
-  if (p.tipo === 'autorizar' && p.puede?.autorizar) b.push(`<button class="accion" data-autorizar="${escapar(p.evento)}">autorizar como ${escapar(identidad)}</button>`);
-  if (p.tipo === 'autorizar' || p.tipo === 'ejecutar') {
-    b.push(p.puede?.ejecutar
-      ? `<button class="accion" data-ejecutar="${escapar(p.evento)}">ejecutar como ${escapar(identidad)}</button>`
-      : `<button class="accion" disabled title="${escapar(p.puede?.motivo ?? '')}">ejecutar</button>`);
+  if (p.tipo === 'siguiente') {
+    b.push(p.puede?.registrar
+      ? `<button class="accion" data-registrar="${escapar(p.clave)}">registrar como ${escapar(identidad)}</button>`
+      : `<button class="accion" disabled title="${escapar(p.puede?.motivo ?? '')}">registrar</button>`);
   }
   return b.join('');
 }
@@ -524,8 +508,8 @@ function tarjeta(p, { identidad, previa, nuevos }) {
   if (p.tipo === 'dado' && p.ejecucion && nuevos.has(p.ejecucion)) clases.push('nuevo');
   const detalle = p.tipo === 'formula' ? `<div class="paso-detalle"><code>${escapar(p.formula)}</code> · ${escapar(p.motivo)}</div>`
     : p.tipo === 'propuesta' ? `<div class="paso-detalle">${p.origenes.map((o) => `${o.posicion} ${escapar(PV[o.posicion])}: ${escapar(recorte(String(o.texto), 40))}`).join(' · ')}</div>`
-      : p.tipo === 'autorizar' || p.tipo === 'ejecutar' ? `<div class="paso-detalle"><button class="enlace" data-ir="${escapar(p.evento)}">${corto(p.evento)}</button> de ${escapar(p.autor)}${p.autorizacion ? ' · autorizado por ' + escapar(p.autorizacion.autor) : ''}</div>`
-        : p.tipo === 'dado' ? `<div class="paso-detalle">${p.ejecucion ? `<button class="enlace" data-ir="${escapar(p.ejecucion)}">${corto(p.ejecucion)}</button> ` : ''}ejecutado por ${escapar(p.autor)}</div>`
+      : p.tipo === 'siguiente' ? `<div class="paso-detalle"><button class="enlace" data-ir="${escapar(p.evento)}">${corto(p.evento)}</button> · lo da ${escapar(p.de ?? '')}</div>`
+        : p.tipo === 'dado' ? `<div class="paso-detalle">${p.ejecucion ? `<button class="enlace" data-ir="${escapar(p.ejecucion)}">${corto(p.ejecucion)}</button> ` : ''}cerrada · ${escapar(p.autor)}</div>`
           : `<div class="paso-detalle">celda ${escapar(p.celda)}</div>`;
   const abierta = previa && previa.clave === p.clave ? htmlPrevia(previa) : '';
   return `<li class="${clases.join(' ')}" data-clave="${escapar(p.clave)}"><div class="paso-cab"><span class="paso-n">${p.n ?? '✓'}</span><b>${escapar(p.titulo)}</b><span class="paso-tipo">${NOMBRE_TIPO[p.tipo]}</span></div>`
@@ -548,10 +532,10 @@ export function htmlCamino(datos, { animado = true, nuevos = new Set(), previa =
     ? `<ol class="pasos-camino">${datos.pasos.map((p) => tarjeta(p, { identidad: datos.identidad, previa, nuevos })).join('')}</ol>`
     : '<div class="nada">ningún paso pendiente desde este foco</div>';
   const hechos = datos.dados.length
-    ? `<div class="titulo-hechos">junto a la acción · ${datos.totalDados} ejecutada${datos.totalDados === 1 ? '' : 's'}${datos.totalDados > datos.dados.length ? ', las ' + datos.dados.length + ' últimas' : ''}</div><ol class="pasos-camino hechos">${datos.dados.map((p) => tarjeta(p, { identidad: datos.identidad, previa, nuevos })).join('')}</ol>`
+    ? `<div class="titulo-hechos">junto a la acción · ${datos.totalDados} cerrada${datos.totalDados === 1 ? '' : 's'}${datos.totalDados > datos.dados.length ? ', las ' + datos.dados.length + ' últimas' : ''}</div><ol class="pasos-camino hechos">${datos.dados.map((p) => tarjeta(p, { identidad: datos.identidad, previa, nuevos })).join('')}</ol>`
     : '';
   return `<section class="camino-vista"><div class="camino-cab"><span class="titulo">desde el foco hacia la acción · ${datos.pasos.length} paso${datos.pasos.length === 1 ? '' : 's'}</span>${como}</div>`
     + (animado ? svgCamino(datos, { nuevos, previsto: previa?.clave ?? null }) : '')
     + hecha + lista + hechos
-    + '<div class="pista">«previsualizar» no escribe: corre la operación real sobre una copia del eje. «ejecutar» solo si está autorizado y lo pide su autor.</div></section>';
+    + '<div class="pista">«previsualizar» no escribe: corre la operación real sobre una copia del eje. «registrar» solo lo que te toca: cada uno mueve lo suyo.</div></section>';
 }

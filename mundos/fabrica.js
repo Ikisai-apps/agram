@@ -8,23 +8,24 @@
 // PIEZAS en la línea: una por celda modificada (i.j.k), con la forma de su
 // clase de modificación k, el tercer dígito desde el camino (mapa §13 [D]:
 // la matriz es relativa al camino; la clase es el dígito en la profundidad
-// n+2). Debajo, las tres ESTACIONES del motor (consolidar, autorizar,
-// ejecutar) con las consolidaciones del foco como cajas en la estación de su
-// estado.
+// n+2). Debajo, dos ESTACIONES (encargo 3b: el ciclo es una sola
+// operación, registrar, y los estados son lecturas; VG, 8-11, mapa §15 [D]):
+// «abierta», las propuestas de la fábrica a las que aún les falta lo que
+// anuncian, y «cerrada», las que su plantilla de cerrado da por cerradas.
 //
 // Qué se anima, solo si el evento es nuevo para quien mira:
 // - una pieza avanza por su línea desde el principio hasta su puesto: el
 //   registro que modifica esa celda (los registros del motor no son piezas:
 //   el catálogo no los lee celda a celda; son las cajas);
-// - una caja entra en «consolidar» (la consolidación), pasa a «autorizar»
-//   (la autorización válida) y sale por «ejecutar» (la ejecución).
+// - una caja entra en «abierta» (la propuesta) y pasa a «cerrada» con el
+//   último registro que cada parte escribe sobre ella (su movimiento).
 // Cada elemento animado lleva data-evento y data-efecto (el nombre del
 // catálogo de la PR #45 visto desde la fábrica).
 //
 // De dónde sale cada cosa: las celdas, con su posición, subposición y clase,
 // de src/efectos.js (efectosDe con el camino del foco como marco: la clase
 // es claseRelativa(celda, camino), el dígito n+2); las estaciones, de
-// src/motor.js (consolidaciones, autorizacionesValidas). Aquí no se calcula
+// src/motor.js (propuestas, con su lectura de cerrado). Aquí no se calcula
 // ninguna celda ni se escribe nada.
 //
 // [X] decidir VG (abierto en este mundo):
@@ -37,16 +38,15 @@
 
 import { ARIDAD } from '../src/btml.js';
 import { efectosDe } from '../src/efectos.js';
-import { consolidaciones, autorizacionesValidas, FABRICA } from '../src/motor.js';
+import { propuestas, cierre } from '../src/motor.js';
 import {
   escapar, n1, corto, recorte, baseDe, nombreEn, nombreMundo, ritmo, atributos, ordenPlano, cabeLaMatriz, textoCorto,
 } from './comun.js';
 
-/** Las tres estaciones, en orden, con la fase del motor y el estado que deja cada una. */
+/** Las dos estaciones, en orden: la lectura de cerrado de cada propuesta (motor.cerrado). */
 export const ESTACIONES = Object.freeze([
-  Object.freeze({ nombre: 'consolidar', fase: 'consolidado', estado: 'PENDIENTE DE AUTORIZACIÓN' }),
-  Object.freeze({ nombre: 'autorizar', fase: 'autorizado', estado: 'AUTORIZADO' }),
-  Object.freeze({ nombre: 'ejecutar', fase: 'ejecutado', estado: 'EJECUTADO' }),
+  Object.freeze({ nombre: 'abierta', fase: 'consolidado', estado: 'abierta' }),
+  Object.freeze({ nombre: 'cerrada', fase: 'consolidado', estado: 'cerrada' }),
 ]);
 
 /** Forma de cada clase de modificación (0–9): la de la pieza en la línea. */
@@ -102,16 +102,13 @@ export function datosFabrica(eje, foco, { camino = [] } = {}) {
     }
   }
 
-  const cajas = consolidaciones(eje, foco, camino).map((c) => {
-    const autorizacion = autorizacionesValidas(eje, c.id)[0] ?? null;
-    const ejecucion = c.estado === 'EJECUTADO'
-      ? eje.sobre(c.id, FABRICA).find((x) => x.contexto?.fase === 'ejecutado' && x.autor === c.autor) ?? null
-      : null;
+  const cajas = propuestas(eje, foco, camino).map((c) => {
+    // Lo que cada parte escribió sobre la propuesta: sus movimientos (cada uno mueve lo suyo).
+    const partes = eje.sobre(c.id).map((x) => ({ id: x.id, autor: x.autor, movimientos: x.movimientos.filter((m) => m.token !== 'T').map((m) => ({ ...m })) }));
+    const estacion = c.cerrado === true ? 1 : 0;
     return {
-      consolidacion: c.id, autor: c.autor, titulo: textoCorto(c.titulo), estado: c.estado,
-      estacion: ESTACIONES.findIndex((e) => e.estado === c.estado),
-      autorizacion: autorizacion ? { id: autorizacion.id, autor: autorizacion.autor } : null,
-      ejecucion: ejecucion ? { id: ejecucion.id, autor: ejecucion.autor, movimientos: ejecucion.movimientos.filter((m) => m.token !== 'T').map((m) => ({ ...m })) } : null,
+      consolidacion: c.id, autor: c.autor, titulo: textoCorto(c.titulo), estado: ESTACIONES[estacion].estado, cerrado: c.cerrado,
+      estacion, partes, ultima: partes.find((p) => p.id === cierre(eje, c.id)?.id) ?? partes[partes.length - 1] ?? null,
     };
   });
 
@@ -197,7 +194,7 @@ export function svgFabrica(datos, { compacto = false, nuevos = new Set() } = {})
     }
   }
 
-  // Estaciones: consolidar → autorizar → ejecutar, enlazadas a la línea 4 (la propia de la fábrica).
+  // Estaciones: abierta → cerrada, enlazadas a la línea 4 (la propia de la fábrica).
   const [cw, ch] = g.caja;
   const yE = g.cajasY;
   if (!compacto) {
@@ -208,7 +205,7 @@ export function svgFabrica(datos, { compacto = false, nuevos = new Set() } = {})
     const cuantas = datos.cajas.filter((c) => c.estacion === s).length;
     const ef = datos.efectosEstacion[e.nombre];
     capas.estaciones.push(`<g class="x-estacion${cuantas ? ' x-ocupada' : ''}" data-estacion="${e.nombre}" data-efecto="${escapar(ef.nombre)}"${ef.decision ? ` data-decision="${escapar(ef.decision)}"` : ''}>`
-      + `<title>${escapar(`${e.nombre}: ${cuantas} ${cuantas === 1 ? 'consolidación' : 'consolidaciones'} en estado ${e.estado.toLowerCase()}`)}</title>`
+      + `<title>${escapar(`${e.nombre}: ${cuantas} ${cuantas === 1 ? 'propuesta' : 'propuestas'}`)}</title>`
       + `<rect class="x-nave" x="${x}" y="${yE}" width="${cw}" height="${ch}" rx="${compacto ? 2 : 4}"/>`
       + `<circle class="x-luz" cx="${x + cw - (compacto ? 4 : 8)}" cy="${yE + (compacto ? 4 : 8)}" r="${compacto ? 2 : 3.5}"/>`
       + (g.etiquetas ? `<text class="x-rotulo x-estacion-nombre" x="${x + 6}" y="${yE + 12}">${e.nombre} · ${cuantas}</text>` : '')
@@ -220,8 +217,8 @@ export function svgFabrica(datos, { compacto = false, nuevos = new Set() } = {})
     }
   });
 
-  // Cajas: cada consolidación en la estación de su estado; si es nueva, recorre las anteriores.
-  const enEstacion = [0, 0, 0];
+  // Cajas: cada propuesta en la estación de su lectura; si es nueva, entra; si su última parte es nueva, pasa.
+  const enEstacion = ESTACIONES.map(() => 0);
   const caben = compacto ? 4 : 7;
   const distancia = g.cajasX[1] - g.cajasX[0];
   for (const c of datos.cajas) {
@@ -232,25 +229,21 @@ export function svgFabrica(datos, { compacto = false, nuevos = new Set() } = {})
     const y = yE + ch - g.cubo - (compacto ? 3 : 8);
     const titulo = `${c.titulo} · ${c.autor} · ${c.estado.toLowerCase()} · ${corto(c.consolidacion)}`;
     let caja = `<rect class="x-caja x-e${s}" width="${g.cubo}" height="${g.cubo}" rx="${compacto ? 1 : 2}"/>`;
-    // De dentro afuera: lo último que pasó es lo más interior. Cada tramo sale de su evento real.
-    if (c.ejecucion && r.es(c.ejecucion.id)) {
-      caja = `<g class="x-nuevo x-pasa" style="--dx:${-distancia}px;${r.estilo(c.ejecucion.id)}" ${atributos(c.ejecucion.id, datos.efectosEstacion.ejecutar, 4)}>${caja}</g>`;
-    }
-    if (c.autorizacion && s >= 1 && r.es(c.autorizacion.id)) {
-      caja = `<g class="x-nuevo x-pasa" style="--dx:${-distancia}px;${r.estilo(c.autorizacion.id)}" ${atributos(c.autorizacion.id, datos.efectosEstacion.autorizar, 4)}>${caja}</g>`;
+    // La última parte que cierra la propuesta, si es nueva, la hace pasar de «abierta» a «cerrada».
+    if (c.ultima && s === 1 && r.es(c.ultima.id)) {
+      caja = `<g class="x-nuevo x-pasa" style="--dx:${-distancia}px;${r.estilo(c.ultima.id)}" ${atributos(c.ultima.id, datos.efectosEstacion.cerrada, 4)}>${caja}</g>`;
     }
     const nueva = r.es(c.consolidacion);
-    capas.cajas.push(`<g transform="translate(${n1(x)} ${n1(y)})"><g class="x-cajon${nueva ? ' x-nuevo x-entra' : ''}" data-ir="${escapar(c.consolidacion)}" ${atributos(c.consolidacion, datos.efectosEstacion.consolidar, 4, nueva ? ` style="${r.estilo(c.consolidacion)}"` : '')}>`
+    capas.cajas.push(`<g transform="translate(${n1(x)} ${n1(y)})"><g class="x-cajon${nueva ? ' x-nuevo x-entra' : ''}" data-ir="${escapar(c.consolidacion)}" ${atributos(c.consolidacion, datos.efectosEstacion.abierta, 4, nueva ? ` style="${r.estilo(c.consolidacion)}"` : '')}>`
       + `<title>${escapar(titulo)}</title><rect class="x-toque" x="-3" y="-3" width="${g.cubo + 6}" height="${g.cubo + 6}"/>${caja}</g></g>`);
   }
   enEstacion.forEach((n, s) => {
     if (n > caben) capas.cajas.push(`<text class="x-rotulo x-mas" x="${g.cajasX[s] + cw - 4}" y="${yE + ch - 4}" text-anchor="end">+${n - caben}</text>`);
   });
 
-  const pendientes = datos.cajas.filter((c) => c.estacion === 0).length;
-  const autorizadas = datos.cajas.filter((c) => c.estacion === 1).length;
-  const ejecutadas = datos.cajas.filter((c) => c.estacion === 2).length;
-  const etiqueta = `Fábrica: ${datos.totalPiezas} piezas en las diez líneas; ${datos.cajas.length} consolidaciones (${pendientes} por autorizar, ${autorizadas} por ejecutar, ${ejecutadas} ejecutadas)`;
+  const abiertas = datos.cajas.filter((c) => c.estacion === 0).length;
+  const cerradas = datos.cajas.filter((c) => c.estacion === 1).length;
+  const etiqueta = `Fábrica: ${datos.totalPiezas} piezas en las diez líneas; ${datos.cajas.length} propuestas (${abiertas} abiertas, ${cerradas} cerradas)`;
   return `<svg class="mundo mundo-fabrica${compacto ? ' compacto' : ''}" viewBox="0 0 ${g.W} ${g.H}" role="img" aria-label="${escapar(etiqueta)}" data-mundo="4" xmlns="http://www.w3.org/2000/svg">`
     + `<g class="x-capa-lineas">${capas.lineas.join('')}</g><g class="x-capa-puestos">${capas.puestos.join('')}</g>`
     + `<g class="x-capa-estaciones">${capas.estaciones.join('')}</g><g class="x-capa-piezas">${capas.piezas.join('')}</g>`
