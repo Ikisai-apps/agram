@@ -20,6 +20,7 @@ import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { raizDeAmbito } from '../src/tokens.js';
+import { generarClaves, firmar as firmarEvento } from '../src/autoridad.js';
 
 const T0 = '2026-11-08T10:00:00Z';
 const T1 = '2026-11-08T12:00:00Z';
@@ -305,6 +306,23 @@ test('stage (X.4.8): lo anunciado y pendiente, por estación (E pagar, P decidir
   assert.equal(eje.saldo('cocina', 'P:' + compra.id + '/huesped'), 1);
   assert.deepEqual(A.estacionesDeLaEpoca().map((e) => e.familia + ' ' + e.estacion), ['E pay', 'P decide', 'R attend', 'T work']);
   void g;
+});
+
+test('transaccion y autoejecutar: con claves, la candidata se firma antes de validarse (opciones.firmar) y pasa; sin firmar, quien tiene clave ve «who has a key signs»', async () => {
+  const claves = { casa: await generarClaves(), cocina: await generarClaves(), huesped: await generarClaves() };
+  const { eje, menu } = await ejemploCompra({ claves });
+  const firmar = (ev) => firmarEvento(ev, claves.huesped.privada);
+  const sin = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 1, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1 });
+  assert.deepEqual([sin.ok, sin.motivos.map((m) => m.regla)], [false, ['who has a key signs']]);
+  const con = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 1, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1, firmar });
+  assert.equal(con.ok, true, JSON.stringify(con.motivos));
+  assert.ok(con.evento.firma, 'el evento vuelve firmado');
+  await eje.anadir(con.evento);
+  // Autoejecutar con claves: la huésped paga la reserva firmando cada paso.
+  const { eje: b, reserva } = await ejemploReserva({ claves: { ...claves, recepcion: await generarClaves() }, confirmar: false });
+  const a = await A.autoejecutar(b, reserva.id, 'huesped', firmar, { t: '2026-11-09T09:00:00Z' });
+  assert.deepEqual([a.hechos.length, a.parado], [1, null]);
+  assert.ok(a.hechos[0].evento.firma);
 });
 
 // ---------- 7. el camino ----------

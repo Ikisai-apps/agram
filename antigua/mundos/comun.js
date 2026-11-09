@@ -8,8 +8,8 @@
 // produce), data-efecto (su nombre en el catálogo de la PR #45) y, si el
 // catálogo no lo nombra, data-decision con «[X] decidir VG».
 
-import { ARIDAD, esReferencia } from '../src/btml.js';
-import { CATALOGO, SIN_NOMBRE, verEn } from '../src/efectos.js';
+import { ARIDAD, esReferencia } from '../../src/btml.js';
+import { CATALOGO, SIN_NOMBRE, verEn } from '../../src/efectos.js';
 
 /** Orden de la X (mapa §12 [D]): la fábrica (confluencia de 7 y 9), la ciudad, el jardín, el parque y la lente. */
 export const ORDEN_X = Object.freeze([4, 1, 2, 3, 0]);

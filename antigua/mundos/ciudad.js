@@ -32,10 +32,10 @@
 //   (en cualquier profundidad) y sus ocupantes de la posición 1;
 // - consumir E no tiene nombre en la ciudad (sale por la puerta).
 
-import { claveToken } from '../src/tokens.js';
-import { esReferencia, esLista } from '../src/btml.js';
-import { ocupantes } from '../src/encaje.js';
-import { esFormula, evaluar, desescapar } from '../src/bql.js';
+import { claveToken } from '../../src/tokens.js';
+import { esReferencia, esLista } from '../../src/btml.js';
+import { ocupantes } from '../../src/encaje.js';
+import { esFormula, evaluar, desescapar } from '../../src/bql.js';
 import {
   escapar, n1, corto, recorte, baseDe, descendientes, nombreEn, sinOperacion, ritmo, atributos, ordenPlano, textoCorto,
 } from './comun.js';

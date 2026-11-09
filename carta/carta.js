@@ -1,0 +1,455 @@
+// La carta, versión 1: el núcleo puro. Pinta un registro X con un tamaño, en un punto de vista k, SIN LÓGICA PROPIA:
+// todo lo que decide algo (qué puntos de vista caben, cómo se llama cada posición, en qué orden van los ocupantes,
+// qué nivel tiene el registro, qué representación cabe, qué acciones hay, qué falta en el camino, qué pieza se pinta)
+// lo pide al núcleo: contrato, acciones, local, pasos y modelos. Aquí solo se mide el espacio, se pide y se ordena en
+// un árbol de nodos planos (sin DOM) que carta/dom.js convierte en HTML y test/carta.test.js comprueba en Node.
+//
+//   arbol(estado, eje, yo, medidas, opciones)        → el árbol de la carta para quien mira (async: el camino lo es)
+//   formulario(eje, X, accion, yo, valores, opciones) → los campos del formulario de una acción del aro
+//   enviar(eje, X, accion, valores, yo, firmar, …)    → transaccion y, si pasa, firma y asienta
+//   preferencias(eje, yo, valores, opciones)          → la candidata del registro «preferences» para editar la configuración
+//
+// Lo único que este módulo sabe por sí mismo es la GEOMETRÍA de la pantalla, que es diseño de VG cerrado en el encargo
+// de la carta y no un dato del dominio: el 0 en el centro y el 5 detrás; la X en las esquinas (1 arriba a la izquierda,
+// 2 arriba a la derecha, 3 abajo a la izquierda, 4 abajo a la derecha); la cruz en los lados (6 izquierda, 7 derecha, 8
+// arriba, 9 abajo); y qué lado mira cada uno (1, 3 y 6 el lado del PV1; 2, 4 y 7 el del PV2; el resto, el centro). Las
+// palabras de las orientaciones, los tamaños, las etiquetas, los niveles, los órdenes y las disposiciones son de la
+// época: no hay ninguna escrita aquí.
+
+import * as contrato from '../src/contrato.js';
+import * as acciones from '../src/acciones.js';
+import * as pasosDe from '../src/pasos.js';
+import * as modelos from '../src/modelos.js';
+import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, direccion } from '../src/btml.js';
+
+/** El tipo de una pieza del modelo de visualización que la carta pide (vocabulario de la cabecera epoch.9.7.0.4). */
+const PIEZA = Object.freeze({ elemento: 'elemento', munequito: 'munequito', icono: 'icono' });
+/** La acción del muñequito en reposo. */
+const ESPERAR = 'esperar';
+
+/**
+ * La geometría (diseño de VG). `grupo`: dónde va; `lado`: el índice de la orientación en epoch.9.7.0.3 (0 el centro,
+ * 1 el lado del PV1, 2 el del PV2); `fila`: arriba o abajo. Los centros no son laterales: el 0 es el anverso y el 5
+ * el reverso.
+ */
+export const GEOMETRIA = Object.freeze({
+  0: { grupo: 'nucleo', lado: 0, cara: 'anverso' },
+  5: { grupo: 'nucleo', lado: 0, cara: 'reverso' },
+  1: { grupo: 'x', lado: 1, fila: 'arriba' },
+  2: { grupo: 'x', lado: 2, fila: 'arriba' },
+  3: { grupo: 'x', lado: 1, fila: 'abajo' },
+  4: { grupo: 'x', lado: 2, fila: 'abajo' },
+  6: { grupo: 'cruz', lado: 1, fila: 'medio' },
+  7: { grupo: 'cruz', lado: 2, fila: 'medio' },
+  8: { grupo: 'cruz', lado: 0, fila: 'arriba' },
+  9: { grupo: 'cruz', lado: 0, fila: 'abajo' },
+});
+export const CENTROS = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter((pv) => GEOMETRIA[pv].grupo === 'nucleo'));
+export const LATERALES = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter((pv) => GEOMETRIA[pv].grupo !== 'nucleo'));
+
+/**
+ * Las medidas por defecto (VG): el hueco comprimido, 48 px (un dato: un número o un icono); la tarjeta, 160 px (con
+ * imagen); el bloque, lo que le toque de pantalla. Son píxeles de la pantalla, no datos del dominio: quien llama los
+ * puede cambiar.
+ */
+export const MEDIDAS = Object.freeze({ ancho: 400, alto: 700, hueco: 48, tarjeta: 160 });
+
+/** Los pasos de tamaño de un PV lateral: 0 oculto, 1 comprimido, 2 tarjeta, 3 bloque; el siguiente gesto entra en el PV. */
+export const NIVEL = Object.freeze({ oculto: 0, comprimido: 1, tarjeta: 2, bloque: 3 });
+
+const corto = (id) => String(id ?? '').slice(0, 8);
+const hojas = (x) => (x === undefined || x === null ? [] : Array.isArray(x) ? x : [x]);
+
+/** El evento de X en el eje, o null. */
+const eventoDe = (eje, X) => (typeof X === 'string' ? eje?.obtener(X) ?? null : X && typeof X === 'object' && 'payload' in X ? X : null);
+
+/** La dirección de una referencia en corto: «1.2», o '' si es la raíz. */
+const dirCorta = (dir) => {
+  try {
+    return dir ? indicesDe(dir).join('.') : '';
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * El tamaño de la época (epoch.9.5.2) que cabe en un hueco de `px` píxeles: el mayor cuyo mínimo en píxeles no lo
+ * pasa. El mínimo en píxeles de cada tamaño lo pone la carta por su orden: el primero el hueco, el segundo la tarjeta,
+ * los siguientes, múltiplos de la tarjeta (el bloque es al menos dos tarjetas).
+ */
+function tamanoQueCabe(px, medidas, opciones) {
+  const lista = contrato.tamanos(opciones);
+  let elegido = lista[0] ?? null;
+  lista.forEach((t, k) => {
+    const minimo = k === 0 ? medidas.hueco : medidas.tarjeta * k;
+    if (px >= minimo) elegido = t;
+  });
+  return elegido;
+}
+
+/** El tamaño de la época que corresponde a un paso de nivel (1 comprimido → el primero, 2 tarjeta → el segundo, 3 bloque → el tercero). */
+function tamanoDeNivel(nivel, opciones) {
+  const lista = contrato.tamanos(opciones);
+  return lista[Math.min(Math.max(nivel, 1), lista.length) - 1] ?? null;
+}
+
+/**
+ * La representación de X que cabe en un tamaño: la mayor cuyo mínimo no pasa del tamaño y cuyo formato se puede
+ * pintar: en sobrio, solo el formato de una hoja (el primero de la época, texto); en animado, también las que traen un
+ * recurso. → { texto, tamano, formato, recurso } o null.
+ */
+function representacionQueCabe(eje, X, tamano, { animado, opciones }) {
+  const todas = contrato.representaciones(eje, X, opciones);
+  const deHoja = todas.find((r) => r.tamano === 0 && !r.recurso)?.formato ?? null;
+  const caben = todas.filter((r) => r.tamano <= (tamano?.tamano ?? 0) && (animado || (!r.recurso && r.formato === deHoja)));
+  if (!caben.length) return null;
+  return caben.reduce((a, b) => (b.tamano >= a.tamano ? b : a));
+}
+
+/** Un ocupante en texto corto, como lo pinta la carta de texto: una hoja, ella; una referencia, la representación de lo que alcanza; una décupla, sus hojas. */
+function textoDe(eje, o, opciones) {
+  if (o === null || o === undefined) return '';
+  if (esReferencia(o)) {
+    const rep = contrato.representaciones(eje, o.ref, opciones)[0];
+    const d = dirCorta(o.dir);
+    return (rep?.texto ?? corto(o.ref)) + (d ? ' · ' + d : '');
+  }
+  if (Array.isArray(o)) return o.map((x) => textoDe(eje, x, opciones)).filter(Boolean).join(' · ');
+  return String(o);
+}
+
+/** Un ocupante como nodo: { tipo: 'hoja' | 'referencia' | 'decupla', texto, ref, dir, X, representacion }. */
+function nodoOcupante(eje, o, tamano, ctx) {
+  if (esReferencia(o)) {
+    const X = eje?.obtener(o.ref) ? o.ref : null;
+    return {
+      tipo: 'referencia',
+      texto: textoDe(eje, o, ctx.opciones),
+      ref: o.ref,
+      dir: dirCorta(o.dir),
+      X,
+      representacion: X ? representacionQueCabe(eje, X, tamano, ctx) : null,
+      autor: X ? eje.obtener(X).autor : null,
+    };
+  }
+  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: textoDe(eje, o, ctx.opciones), hojas: o.map((h) => textoDe(eje, h, ctx.opciones)) };
+  if (esLista(o)) return { tipo: 'lista', texto: textoDe(eje, o, ctx.opciones) };
+  return { tipo: 'hoja', texto: textoDe(eje, o, ctx.opciones), valor: o };
+}
+
+/** Los pasos de X por punto de vista: { [pv]: { nombre, k, de } }, con el paso de todo elemento (pv «*») como respaldo en `comun`. */
+function pasosPorPv(eje, X, opciones) {
+  const todos = pasosDe.pasos(eje, X, opciones);
+  const porPv = {};
+  let comun = null;
+  for (const [nombre, p] of Object.entries(todos)) {
+    if (typeof p.pv === 'number') porPv[p.pv] = { nombre, k: p.k, de: p.de };
+    else comun = { nombre, k: p.k, de: p.de };
+  }
+  return { porPv, comun };
+}
+
+/** La pieza del modelo para un PV: el elemento por paso de madurez (o el paso propio del PV), con su orientación y tamaño; null en sobrio. */
+function piezaDe(ctx, tipo, pv, clave, lado, tamano) {
+  if (!ctx.animado || !ctx.cadena.length) return null;
+  const variante = ctx.variantes[lado] ?? ctx.variantes[0];
+  const p = modelos.pieza(ctx.cadena, tipo, pv, clave, variante, { tamano: tamano?.tamano });
+  if (!p) return null;
+  const { crudo: _c, ...plana } = p;
+  return plana;
+}
+
+/** El nodo de un punto de vista lateral de X en su nivel. */
+function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
+  const g = GEOMETRIA[pv];
+  const lado = ctx.variantes[g.lado] ?? ctx.variantes[0] ?? null;
+  const nodo = {
+    tipo: 'pv', pv, X, grupo: g.grupo, lado, fila: g.fila ?? null, nivel,
+    etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
+    ayuda: contrato.ayuda(eje, X, pv, ctx.opciones),
+    tamano: nivel >= NIVEL.comprimido ? tamanoDeNivel(nivel, ctx.opciones) : null,
+    paso: ctx.pasos.porPv[pv] ?? ctx.pasos.comun ?? null,
+  };
+  if (nivel === NIVEL.oculto) return nodo;
+  const paso = ctx.paso;
+  const todo = contrato.ocupantes(eje, X, pv, 0, 0, ctx.opciones); // solo el total
+  // Comprimido: un dato. El paso del PV si lo hay (su valor discreto), si no cuántos ocupantes tiene.
+  const propio = ctx.pasos.porPv[pv];
+  nodo.comprimido = propio && typeof propio.k === 'number'
+    ? { dato: propio.k, de: propio.de, que: propio.nombre }
+    : { dato: todo.total, de: null, que: nodo.etiqueta };
+  nodo.pieza = piezaDe(ctx, PIEZA.elemento, pv, ctx.pasos.comun?.k ?? null, g.lado, nodo.tamano);
+  if (nivel < NIVEL.tarjeta) return nodo;
+  // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración.
+  const cuantos = nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
+  const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  nodo.ocupantes = {
+    total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
+    lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx)),
+    cargarMas: o.total > o.desde + o.ocupantes.length,
+  };
+  if (nivel >= NIVEL.bloque) {
+    // Dentro del bloque, lista o matriz según la forma del hueco: lo decide la época (epoch.8.3.2).
+    const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
+    nodo.disposicion = d.disposicion;
+    nodo.munequito = piezaDe(ctx, PIEZA.munequito, pv, ESPERAR, g.lado, nodo.tamano);
+  }
+  // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
+  if (g.grupo === 'cruz' && g.lado === 1) {
+    const d = contrato.diario(eje, X, 0, cuantos, ctx.opciones);
+    nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + m.cantidad + ' ' + m.serie), ancla: e.ancla })) };
+  }
+  return nodo;
+}
+
+/** Los campos del anverso: cada PV lateral con su etiqueta y su primer ocupante en texto (lo que rellena el 0 desde los demás). */
+function camposDe(eje, X, ctx) {
+  return LATERALES.map((pv) => {
+    const o = contrato.ocupantes(eje, X, pv, 0, 1, ctx.opciones);
+    return {
+      pv,
+      etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
+      ayuda: contrato.ayuda(eje, X, pv, ctx.opciones),
+      marcador: contrato.marcador(eje, X, pv, ctx.opciones),
+      tipo: contrato.tipo(eje, X, pv, ctx.opciones),
+      valor: o.ocupantes.length ? textoDe(eje, o.ocupantes[0], ctx.opciones) : '',
+      total: o.total,
+    };
+  });
+}
+
+/** El nodo del centro: el anverso (PV0, la representación que cabe y sus campos), el reverso (PV5, cómo encaja) o un PV abierto como foco. */
+function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
+  const ev = eventoDe(eje, X);
+  const g = GEOMETRIA[pv] ?? { grupo: 'nucleo', lado: 0 };
+  const px = Math.min(hueco.ancho, hueco.alto);
+  const tamano = tamanoQueCabe(px, medidas, ctx.opciones);
+  const base = {
+    tipo: 'nucleo', pv, X, cara: g.cara ?? 'pv', tamano,
+    etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
+    ayuda: contrato.ayuda(eje, X, pv, ctx.opciones),
+    representacion: representacionQueCabe(eje, X, tamano, ctx),
+    autor: ev?.autor ?? null,
+    t: ev?.t ?? null,
+    madurez: contrato.madurez(eje, X, ctx.opciones),
+    plantilla: contrato.nombreDePlantilla(contrato.plantilla(eje, X, ctx.opciones)) ?? null,
+    pasos: ctx.pasos,
+    leido: Boolean(ctx.estado.leido),
+  };
+  if (g.cara === 'anverso') return { ...base, campos: camposDe(eje, X, ctx) };
+  if (g.cara === 'reverso') {
+    const o = contrato.ocupantes(eje, X, pv, 0, ctx.paso, ctx.opciones);
+    return {
+      ...base,
+      ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx)) },
+      ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? textoDe(eje, { ref: ev.sobre }, ctx.opciones) : null } : null,
+      validacion: contrato.validar(eje, X, ctx.opciones),
+    };
+  }
+  // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
+  const cuantos = ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
+  const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
+  return {
+    ...base,
+    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx)), cargarMas: o.total > o.desde + o.ocupantes.length },
+    disposicion: d.disposicion,
+  };
+}
+
+/** El aro sobre X: ocho huecos, uno por PV lateral, con la acción por defecto y las demás (acciones.acciones). */
+function nodoAro(eje, X, yo, ctx) {
+  const abierto = ctx.estado.aro?.pv ?? null;
+  const huecos = LATERALES.map((pv) => {
+    const lista = acciones.acciones(eje, X, pv, yo, ctx.opciones);
+    const porDefecto = lista.find((a) => a.porDefecto) ?? lista[0] ?? null;
+    const resumen = (a) => ({ nombre: a.nombre, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.nombre) });
+    return {
+      pv,
+      lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null,
+      etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
+      accion: porDefecto ? resumen(porDefecto) : null,
+      otras: lista.filter((a) => a !== porDefecto).map(resumen),
+      abierto: abierto === pv,
+      icono: piezaDe(ctx, PIEZA.icono, CENTROS[1] ?? 5, pv, GEOMETRIA[pv].lado, tamanoDeNivel(1, ctx.opciones)),
+    };
+  });
+  return { X, texto: representacionQueCabe(eje, X, tamanoDeNivel(1, ctx.opciones), ctx)?.texto ?? corto(X), huecos };
+}
+
+/**
+ * Los campos del formulario de una acción del aro sobre X para `yo`: cada parámetro con su etiqueta (su nombre en la
+ * plantilla), tipo, si es requerido, su ayuda, su validación y su valor (el dado, o el defecto que resuelve el núcleo).
+ * → { X, accion, pv, campos: [{ nombre, etiqueta, tipo, requerido, ayuda, validacion, posicion, valor, falta }], lectura, camino } o null.
+ */
+export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
+  const plantilla = acciones.plantillaDeTransaccion(accion, opciones);
+  if (!plantilla) return null;
+  const pv = Number(hojas(plantilla[8])[0]);
+  const ofrecida = acciones.acciones(eje, X, pv, yo, opciones).find((a) => a.nombre === acciones.nombreDeAccion(plantilla));
+  const defectos = new Map((ofrecida?.parametros ?? []).map((p) => [p.nombre, p.valor]));
+  const campos = acciones.parametros(plantilla).map((p) => {
+    const valor = valores[p.nombre] !== undefined ? valores[p.nombre] : defectos.get(p.nombre);
+    return { nombre: p.nombre, etiqueta: p.nombre, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, validacion: p.validacion, posicion: p.posicion, valor: valor === undefined ? null : valor, falta: p.requerido && valor === undefined };
+  });
+  return { X, accion: acciones.nombreDeAccion(plantilla), pv, campos, lectura: acciones.esLectura(plantilla), camino: acciones.esCamino(plantilla), ofrecida: Boolean(ofrecida) };
+}
+
+/**
+ * Lanza una acción: construye, firma con `firmar` (una función async (evento) → evento firmado, o nada: el núcleo
+ * valida la candidata ya firmada) y valida con acciones.transaccion; si pasa y hay evento, lo asienta con eje.anadir. Devuelve lo que da transaccion
+ * más `asentado` (el evento guardado) o, si el eje lo rechaza al asentar, el motivo tal cual.
+ */
+export async function enviar(eje, X, accion, valores, yo, firmar, opciones = {}) {
+  const r = await acciones.transaccion(eje, accion, { X, ...valores }, yo, { ...opciones, ...(typeof firmar === 'function' ? { firmar } : {}) });
+  if (!r.ok || !r.evento) return { ...r, asentado: null };
+  try {
+    const asentado = await eje.anadir(r.evento); // transaccion ya lo firmó con `firmar`
+    return { ...r, asentado };
+  } catch (e) {
+    return { ...r, ok: false, asentado: null, motivos: [{ regla: null, mensaje: String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '') }] };
+  }
+}
+
+/**
+ * La candidata del registro de preferencias de `yo` con los valores dados sobre los actuales: la plantilla
+ * «preferences» de la época (la posición la dice la cabecera de los modelos, epoch.9.7.0.5: la preferencia `model`
+ * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
+ * es una preferencia es su tipo (B4). Devuelve { payload, campos: [{ pv, etiqueta, ayuda, marcador, numero, valor }],
+ * sobre, en, de } para que la carta la escriba como un registro más, anclado en el 9 del alta; null si yo no tiene alta.
+ */
+export function preferencias(eje, yo, valores = {}, opciones = {}) {
+  const alta = eje?.alta(yo);
+  if (!alta) return null;
+  const sitio = modelos.cabecera(opciones).preferencia;
+  if (!sitio) return null;
+  const donde = direccion(indicesDe(sitio).slice(0, -1));
+  const p = contrato.plantillas(eje, opciones).find((x) => x.donde === donde);
+  if (!p) return null;
+  const actual = contrato.configuracion(eje, yo, opciones);
+  const defectos = contrato.configuracion(eje, null, opciones);
+  const payload = [[p.nombre]];
+  const campos = [];
+  p.registro.forEach((desc, d) => {
+    if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
+    const etiqueta = hojas(desc[0])[0];
+    if (defectos[etiqueta] === undefined) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
+    const numero = typeof hojas(defectos[etiqueta])[0] === 'number';
+    const dado = valores[etiqueta] !== undefined ? hojas(valores[etiqueta]) : hojas(actual[etiqueta]);
+    const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
+    payload[d] = limpio.length ? limpio : hojas(defectos[etiqueta]);
+    campos.push({ pv: d, etiqueta, ayuda: hojas(desc[9]).slice(-1)[0] ?? '', marcador: hojas(defectos[etiqueta]), numero, valor: payload[d].length === 1 ? payload[d][0] : payload[d] });
+  });
+  for (let d = 0; d < payload.length; d++) if (payload[d] === undefined) payload[d] = [];
+  return { payload, campos, sobre: alta.id, en: direccion([9]), de: actual.de };
+}
+
+/** Los rosetones: ocho mosaicos muy comprimidos de mi propio foco (mi alta), uno por PV lateral. */
+function rosetonesDe(eje, yoDatos, ctx, medidas) {
+  if (!yoDatos) return [];
+  const alta = yoDatos.alta;
+  const pasos = pasosPorPv(eje, alta, ctx.opciones);
+  return LATERALES.map((pv) => {
+    const nivel = ctx.estado.rosetones?.[pv] ?? NIVEL.comprimido;
+    const propio = pasos.porPv[pv];
+    const total = contrato.ocupantes(eje, alta, pv, 0, 0, ctx.opciones).total;
+    const nodo = {
+      pv, X: alta, grupo: GEOMETRIA[pv].grupo, lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null, fila: GEOMETRIA[pv].fila ?? null, nivel,
+      etiqueta: contrato.etiqueta(eje, alta, pv, ctx.opciones),
+      comprimido: propio && typeof propio.k === 'number' ? { dato: propio.k, de: propio.de, que: propio.nombre } : { dato: total, de: null, que: null },
+    };
+    if (nivel >= NIVEL.tarjeta) {
+      const o = contrato.ocupantes(eje, alta, pv, 0, tamanoDeNivel(2, ctx.opciones)?.datos ?? ctx.paso, ctx.opciones);
+      nodo.ocupantes = { total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(1, ctx.opciones), ctx)) };
+    }
+    return nodo;
+  });
+}
+
+/** El camino de X para yo, como lo da el núcleo, con cada paso marcado como mío, de espera o hecho. */
+async function caminoDe(eje, X, yo, ctx) {
+  if (!yo) return { pasos: [], niveles: null };
+  const c = await acciones.camino(eje, X, yo, ctx.opciones);
+  return {
+    pasos: c.pasos.map((p) => ({ fuente: p.fuente, falta: p.falta, hecho: Boolean(p.hecho), espera: p.espera ?? null, regla: p.regla ?? null, mio: Boolean(p.hacer) && !p.espera && !p.hecho, hacer: p.hacer ? { plantilla: p.hacer.plantilla, X: p.hacer.X, parametros: p.hacer.parametros, lectura: Boolean(p.hacer.lectura) } : null, pasa: p.pasa, motivos: p.motivos })),
+    niveles: c.niveles ?? null,
+  };
+}
+
+/** Lo que el libro local sabe: lo gastado hoy, lo que queda, cuántas interacciones esperan a englobarse. */
+function localDe(libro, t) {
+  if (!libro) return null;
+  const ahora = t ?? new Date().toISOString();
+  return { gastadoHoy: libro.gastadoHoy(ahora), quedaHoy: libro.quedaHoy(ahora), pendientes: libro.recorrido().length, anterior: libro.anterior, serie: libro.serie };
+}
+
+/**
+ * El árbol de la carta para `yo` mirando el foco de `estado` en una pantalla de `medidas`. `estado`:
+ *   foco: { X, pv }          el registro y el PV del centro (el 0 anverso, el 5 reverso, otro: ese PV abierto como foco)
+ *   niveles: { [pv]: 0-3 }   el paso de tamaño de cada PV lateral (por defecto, comprimido)
+ *   paginas: { [pv]: n }     cuántas páginas de ocupantes se han cargado en cada PV
+ *   aro: { X, pv } | null    el aro abierto sobre un registro (pv: el hueco desplegado)
+ *   formulario: { X, accion, valores, motivos, resultado } | null
+ *   rosetones: { [pv]: 1-2 } el paso de cada rosetón de identidad
+ *   local: LibroLocal | null el libro local de yo (solo se lee)
+ *   leido: boolean           si la lente «leído» del 0 está abierta
+ * `medidas`: { ancho, alto, hueco, tarjeta } en píxeles. `opciones.epoca`, la época que se lee; `opciones.t`, el reloj.
+ */
+export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
+  const m = { ...MEDIDAS, ...medidas };
+  const X = typeof estado.foco === 'string' ? estado.foco : estado.foco?.X;
+  const ev = eventoDe(eje, X);
+  if (!ev) return { tipo: 'carta', X: X ?? null, vacio: true, avisos: ['no hay registro en foco'] };
+  const yoDatos = yo ? contrato.yo(eje, yo, { t: opciones.t, epoca: opciones.epoca }) : null;
+  const configuracion = contrato.configuracion(eje, yo, opciones);
+  const defectos = contrato.configuracion(eje, null, opciones);
+  const animado = configuracion.render !== undefined && configuracion.render !== defectos.render;
+  const cabecera = modelos.cabecera(opciones);
+  const ctx = {
+    estado, opciones, animado,
+    variantes: cabecera.variantes,
+    cadena: animado ? modelos.modelo(eje, yo, opciones) : [],
+    // El paso de «cargar más»: el de la época (epoch.8.3.3) o, si quien mira lo ha escrito en sus preferencias, el suyo.
+    paso: configuracion.de && typeof configuracion.step === 'number' && configuracion.step > 0 ? configuracion.step : contrato.paso(opciones),
+    pasos: pasosPorPv(eje, X, opciones),
+  };
+  // Cuántos datos caben en la pantalla, en huecos comprimidos; la época dice qué puntos de vista y cómo se disponen.
+  const capacidad = Math.max(1, Math.floor(m.ancho / m.hueco) * Math.floor(m.alto / m.hueco));
+  const d = contrato.division(eje, X, { datos: capacidad, forma: { ancho: m.ancho, alto: m.alto }, ...opciones });
+  const disposiciones = contrato.division(eje, X, { datos: 1, forma: { ancho: 1, alto: 1 }, ...opciones }).disposicion; // la de un hueco cuadrado
+  const apilada = d.disposicion !== disposiciones; // más alto que ancho: las franjas apiladas (Sequenced); si no, la matriz (Mapped)
+  const pvsCentro = d.pvs.filter((pv) => CENTROS.includes(pv));
+  const pvsLaterales = d.pvs.filter((pv) => LATERALES.includes(pv));
+  const pvCentro = typeof estado.foco === 'object' && estado.foco && typeof estado.foco.pv === 'number' ? estado.foco.pv : CENTROS[0];
+  // Los huecos: en la matriz las esquinas son un cuarto y la cruz un noveno; apilado, cada franja es media pantalla.
+  const huecoDe = (pv) => (apilada
+    ? { ancho: m.ancho, alto: m.alto / 2 }
+    : GEOMETRIA[pv]?.grupo === 'x' ? { ancho: m.ancho / 2, alto: m.alto / 2 } : { ancho: m.ancho / 3, alto: m.alto / 3 });
+  const huecoCentro = apilada ? { ancho: m.ancho, alto: m.alto / 3 } : { ancho: m.ancho / 3, alto: m.alto / 3 };
+  const laterales = pvsLaterales.map((pv) => nodoLateral(eje, X, pv, estado.niveles?.[pv] ?? NIVEL.comprimido, ctx, m, huecoDe(pv)));
+  const aro = estado.aro?.X && eje.obtener(estado.aro.X) ? nodoAro(eje, estado.aro.X, yo, ctx) : null;
+  const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, opciones) : null;
+  return {
+    tipo: 'carta',
+    X,
+    yo: yo ?? null,
+    disposicion: d.disposicion,
+    apilada,
+    pvs: d.pvs,
+    cargarMas: d.cargarMas,
+    medidas: m,
+    animado,
+    configuracion,
+    centro: nodoCentro(eje, X, pvsCentro.includes(pvCentro) || !CENTROS.includes(pvCentro) ? pvCentro : pvsCentro[0] ?? CENTROS[0], ctx, m, huecoCentro),
+    centros: pvsCentro,
+    laterales,
+    rosetones: rosetonesDe(eje, yoDatos, ctx, m),
+    aro,
+    formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null } : null,
+    camino: await caminoDe(eje, X, yo, ctx),
+    local: localDe(estado.local, opciones.t),
+    tiempo: yoDatos?.tiempo ?? null,
+    identidades: eje.identidades().map((id) => ({ id, persona: eje.esPersona(id), alta: eje.alta(id)?.id ?? null })),
+    avisos: [],
+  };
+}

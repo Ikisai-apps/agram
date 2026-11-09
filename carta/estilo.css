@@ -1,0 +1,183 @@
+/* La carta, versión 1: sobrio, móvil primero. Apilada (las franjas: la cruz arriba, el centro, la X abajo) cuando la
+   pantalla es más alta que ancha; matriz 3×3 (la X en las esquinas, la cruz en los lados, el 0 en el centro) cuando
+   no. Los tamaños de VG: hueco comprimido 48 px, tarjeta 160 px, bloque lo que le toca de pantalla. Hover solo donde
+   hay puntero. Sin imágenes en sobrio: formas y texto. */
+:root{
+  --bg:#faf7f1; --fg:#1f1b16; --muted:#6b6257; --rule:#e2d9cc; --panel:#f1ebe0; --panel2:#e8e0d2;
+  --accent:#7a4b1f; --accent-fg:#ffffff; --ok:#1b5e3a; --warn:#8a3f00; --warnbg:#f8e1cc;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:ui-monospace,Menlo,Consolas,monospace;
+  --hueco:48px; --tarjeta:160px; --radio:10px;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.4;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:env(safe-area-inset-bottom,0px);overflow-x:hidden}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;min-height:32px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);padding:4px 10px;max-width:100%;overflow-wrap:anywhere}
+button:disabled{opacity:.5;cursor:default}
+button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+@media (hover:hover){button:hover:not(:disabled){border-color:var(--accent)} .pv.nivel-1:hover .comprimido{border-color:var(--accent)} .ocupante-ref:hover{border-color:var(--accent)}}
+input{padding:6px 8px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);min-width:0;width:100%}
+small{color:var(--muted)}
+.enlace{border:0;background:var(--panel2);color:var(--accent);font-family:var(--mono);font-size:13px;padding:1px 6px;min-height:0}
+.nada{color:var(--muted)}
+.aviso{background:var(--warnbg);color:var(--warn);padding:8px 10px;border-radius:8px;font-size:14px;margin:8px 0}
+.exito{background:var(--panel2);color:var(--ok);padding:8px 10px;border-radius:8px;font-size:14px;margin:8px 0}
+.motivos{margin:6px 0;padding-left:18px;color:var(--warn);font-size:14px}
+.numero{font-family:var(--mono);color:var(--muted);font-size:12px}
+.quien{font-family:var(--mono);font-size:12px;color:var(--muted)}
+
+/* la barra */
+.barra{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;color:var(--muted)}
+.barra .ajuste{display:inline-flex;gap:4px;align-items:center}
+.barra select{padding:4px 6px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);max-width:40vw}
+.barra .tiempo{font-variant-numeric:tabular-nums}
+.barra .guardado{flex-basis:100%;font-size:11px}
+
+/* la escena */
+.escena{position:relative;margin:10px 0;min-width:0}
+.carta-apilada .escena{display:flex;flex-direction:column;gap:10px}
+.franja{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:4px 0;min-width:0;scrollbar-width:thin}
+.franja>.pv{scroll-snap-align:start;flex:0 0 auto}
+.franja>.pv.nivel-3{flex:1 0 100%}
+.carta-matriz .matriz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(var(--tarjeta),auto));gap:8px;position:relative;min-height:calc(100vh - 80px)}
+.carta-matriz .matriz>.pv,.carta-matriz .matriz>.nucleo{min-width:0}
+.carta-matriz .pv.nivel-3.grupo-x{position:absolute;width:50%;height:50%;z-index:3;overflow:auto;background:var(--bg);box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.carta-matriz .pv.nivel-3.grupo-x.lado-izquierda.fila-arriba{left:0;top:0}
+.carta-matriz .pv.nivel-3.grupo-x.lado-derecha.fila-arriba{right:0;top:0}
+.carta-matriz .pv.nivel-3.grupo-x.lado-izquierda.fila-abajo{left:0;bottom:0}
+.carta-matriz .pv.nivel-3.grupo-x.lado-derecha.fila-abajo{right:0;bottom:0}
+.carta-matriz .pv.nivel-3.grupo-cruz{z-index:2;overflow:auto}
+.hueco-vacio{visibility:hidden}
+
+/* un PV lateral */
+.pv{display:flex;flex-direction:column;gap:6px;border:1px solid var(--rule);border-radius:var(--radio);background:var(--panel);padding:6px;min-width:0;text-align:left;transition:flex-basis .15s ease,width .15s ease}
+.pv.nivel-1{padding:0;border:0;background:transparent;align-items:center;justify-content:center}
+.comprimido{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;width:var(--hueco);height:var(--hueco);border:1px solid var(--rule);border-radius:var(--radio);background:var(--panel);cursor:pointer;position:relative;overflow:hidden}
+.comprimido .numero{position:absolute;top:2px;left:5px;font-size:10px}
+.comprimido .dato{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1}
+.comprimido .dato small{font-size:10px;font-weight:400}
+.comprimido .pieza{width:70%;height:70%}
+.pv.nivel-2{width:var(--tarjeta);min-height:var(--tarjeta);cursor:pointer}
+.carta-matriz .pv.nivel-2{width:auto}
+.pv.nivel-3{width:100%;cursor:default}
+.pv-cabeza{display:flex;gap:6px;align-items:baseline;font-size:13px;min-width:0}
+.pv-cabeza .etiqueta{font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv-cabeza .dato{font-variant-numeric:tabular-nums;color:var(--muted)}
+.pv-pie{display:flex;gap:8px;align-items:center;font-size:12px;min-width:0;margin-top:auto}
+.pv-pie .ayuda{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pv.nivel-2 .pv-pie .ayuda{display:none}
+.pv .pieza-imagen,.pv .pieza-lottie{width:min(100%,var(--tarjeta));aspect-ratio:1/1;display:block;align-self:center}
+.pv.nivel-2 .pieza-imagen,.pv.nivel-2 .pieza-lottie{width:72px}
+.forma{display:inline-block;width:12px;height:12px;border:1px solid var(--muted);border-radius:2px;vertical-align:middle}
+.forma-punto{width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.forma-rectangulo{width:18px;height:12px;background:var(--panel2)}
+.forma-texto{width:auto;height:auto;border:0;border-bottom:2px solid var(--muted);min-width:14px}
+.pieza-lottie.sin-lottie{background:var(--panel2);border-radius:8px}
+
+/* ocupantes */
+.ocupantes{list-style:none;margin:0;padding:0;display:grid;gap:4px;min-width:0}
+.ocupantes.disposicion-matrix{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ocupantes li{min-width:0}
+.ocupante{display:block;font-size:14px;overflow-wrap:anywhere;min-width:0}
+.ocupante-ref{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;align-items:center;text-align:left;width:100%;padding:6px 8px;border:1px solid var(--rule);background:var(--panel2);border-radius:8px;color:var(--accent)}
+.ocupante-ref .texto{grid-column:2;font-weight:500}
+.ocupante-ref .quien{grid-column:2}
+.ocupante-ref .rep-mini{grid-row:span 2;width:32px;height:32px;object-fit:contain}
+.ocupante-ref:not(:has(.rep-mini)) .texto,.ocupante-ref:not(:has(.rep-mini)) .quien{grid-column:1 / -1}
+.ocupante-decupla{display:flex;flex-wrap:wrap;gap:4px}
+.ocupante-decupla .hoja{background:var(--panel2);border-radius:6px;padding:1px 6px;font-size:13px}
+.cargar-mas button{width:100%;font-size:13px}
+.pv.nivel-2 .ocupantes{font-size:13px;max-height:calc(var(--tarjeta) - 56px);overflow:hidden}
+
+/* el diario y el camino */
+.diario h4,.camino h4{margin:6px 0 2px;font-size:12px;color:var(--muted);font-weight:500}
+.diario ol,.camino ol{margin:0;padding-left:16px;font-size:12px;display:grid;gap:3px}
+.diario time{font-family:var(--mono);color:var(--muted)}
+.diario small{display:block;overflow-wrap:anywhere}
+.camino .paso{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;padding:3px 0}
+.camino .paso.hecho{color:var(--muted);text-decoration:line-through}
+.camino .paso.espera .marca{color:var(--warn);font-style:italic}
+.camino .fuente{font-family:var(--mono);color:var(--muted);font-size:11px}
+.camino .niveles{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px}
+.camino .seguir{margin-top:6px;background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+
+/* el centro */
+.nucleo{position:relative;border:1px solid var(--accent);border-radius:var(--radio);background:var(--panel);padding:10px;display:grid;gap:8px;min-width:0}
+.carta-apilada .nucleo{order:0}
+.carta-apilada .franja-cruz{order:-1}
+.carta-apilada .franja-x{order:1}
+.nucleo-cabeza{display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);min-width:0}
+.nucleo-cabeza .etiqueta{font-weight:600;color:var(--fg)}
+.nucleo-cabeza .madurez{background:var(--panel2);border-radius:999px;padding:1px 8px}
+.nucleo-cabeza .quien{flex:1;text-align:right}
+.voltear,.volver{min-height:32px;min-width:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1}
+.representacion{margin:0;font-size:1.4rem;font-weight:600;overflow-wrap:anywhere;line-height:1.25}
+.representacion .rep-imagen{max-width:100%;max-height:50vh;display:block;border-radius:8px}
+.nucleo.tamano-1 .representacion{font-size:1.1rem}
+.campos{margin:0;display:grid;gap:6px}
+.campo{display:grid;gap:2px;min-width:0}
+.campo dt label,.campo .etiqueta-0{font-size:12px;color:var(--muted)}
+.campo dd{margin:0}
+.campo-input{font-size:14px}
+.campo-0 .campo-input,.campo-5 .campo-input{font-size:13px}
+.leido{display:grid;gap:4px}
+.leido-boton{justify-self:start;font-size:12px;font-family:var(--mono);background:transparent;color:var(--muted)}
+.leido-boton[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.leido-texto{margin:0;padding:8px 10px;background:var(--bg);border:1px solid var(--rule);border-radius:8px;font-family:var(--mono);font-size:12px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;max-height:40vh;overflow:auto}
+.reverso .tipo,.reverso .ancla,.abierto .ayuda{margin:0;font-size:13px;color:var(--muted)}
+.pasos{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
+.pasos b{color:var(--fg);font-weight:500}
+
+/* los rosetones */
+.rosetones{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0;padding-top:8px;border-top:1px solid var(--rule)}
+.roseton{width:var(--hueco);height:var(--hueco);padding:2px;border-radius:50%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;position:relative;line-height:1;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+.roseton .numero{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px}
+.roseton.nivel-2{width:var(--tarjeta);height:auto;min-height:var(--hueco);border-radius:var(--radio);font-weight:400;align-items:stretch;text-align:left;padding:6px 8px;gap:4px}
+.roseton.nivel-2 .numero{position:static;transform:none}
+.roseton.nivel-2 .dato{font-weight:600}
+.roseton ul{margin:0;padding-left:14px;font-size:12px}
+.carta-matriz .rosetones{position:fixed;inset:auto 16px 8px 16px;margin:0;border:0;justify-content:space-between;pointer-events:none}
+.carta-matriz .roseton{pointer-events:auto;background:var(--panel)}
+
+/* el aro */
+.aro-fondo,.formulario-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.aro{position:relative;width:min(92vw,520px);aspect-ratio:1/1;max-height:92vh;border-radius:50%;background:var(--bg);border:1px solid var(--rule);box-shadow:0 10px 40px rgba(0,0,0,.3);display:grid;place-items:center}
+.aro ul{list-style:none;margin:0;padding:0;position:absolute;inset:0}
+.aro-centro{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:38%;text-align:center;font-size:13px;display:grid;gap:4px;place-items:center;overflow-wrap:anywhere;margin:0}
+.hueco{position:absolute;width:30%;display:grid;gap:2px;justify-items:center;text-align:center;font-size:11px;color:var(--muted)}
+.hueco .etiqueta{font-size:11px}
+.hueco .accion{font-size:12px;padding:4px 8px;min-height:36px;display:grid;gap:2px;justify-items:center;max-width:100%;overflow:hidden}
+.hueco .accion span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.hueco .accion.por-defecto{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.hueco .accion small{color:inherit;opacity:.8;font-size:10px}
+.hueco .accion.vacia{opacity:.5}
+.hueco .mas{font-size:11px;min-height:24px;padding:0 8px}
+.hueco .otras{position:static;list-style:none;margin:2px 0 0;padding:0;display:grid;gap:2px;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:4px;z-index:2;width:120%}
+.hueco .otras button{font-size:12px;width:100%}
+.hueco .pieza{width:24px;height:24px}
+.hueco-1{left:7%;top:7%} .hueco-2{right:7%;top:7%} .hueco-3{left:7%;bottom:7%} .hueco-4{right:7%;bottom:7%}
+.hueco-6{left:0;top:50%;transform:translateY(-50%)} .hueco-7{right:0;top:50%;transform:translateY(-50%)}
+.hueco-8{left:50%;top:0;transform:translateX(-50%)} .hueco-9{left:50%;bottom:0;transform:translateX(-50%)}
+.cerrar{min-width:32px;border-radius:50%;padding:0}
+
+/* los formularios */
+.formulario{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:14px;width:min(92vw,480px);max-height:92vh;overflow:auto;display:grid;gap:10px}
+.formulario header{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.formulario h2{margin:0;font-size:1.1rem}
+.formulario .campo label{font-size:14px}
+.formulario .campo .tipo{font-family:var(--mono)}
+.formulario .campo.falta input{border-color:var(--warn)}
+.formulario .ayuda{font-size:12px;overflow-wrap:anywhere}
+.formulario .ayuda code{font-size:11px}
+.formulario footer button{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);width:100%;min-height:44px}
+
+@media (max-width:480px){body{font-size:15px} .representacion{font-size:1.2rem} .barra select{max-width:36vw}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}

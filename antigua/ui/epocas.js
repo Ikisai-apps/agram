@@ -23,7 +23,7 @@
 // [X] decidir VG: si lo que se escribe se nombra siempre desde la
 // profundidad 0 del registro nuevo (como se leerá después) o desde la del foco.
 
-import * as nucleo from '../src/index.js';
+import * as nucleo from '../../src/index.js';
 import { escapar, leerLocal, guardarLocal, franjaAjustes } from './comun.js';
 
 const CLAVE = 'agram.epoca';

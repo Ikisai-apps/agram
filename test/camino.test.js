@@ -6,7 +6,7 @@ import { efectosDe, verEn, MARCAS_EFECTO } from '../src/efectos.js';
 import { serializar } from '../src/persistencia.js';
 import {
   TIPOS, datosCamino, previsualizar, svgCamino, htmlCamino, htmlPrevia, actorDe, tituloPropuesta, copiar, contenidoPropuesto,
-} from '../mundos/camino.js';
+} from '../antigua/mundos/camino.js';
 
 const gastaT = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 /** Un movimiento anunciado en el 4.1 de una propuesta por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */

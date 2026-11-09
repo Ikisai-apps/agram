@@ -26,8 +26,8 @@
 // entra con Mapped, desde las celdas 8 y 9, y se abre bajo la matriz.
 // Pointed y Sequenced no la dibujan todavía.
 
-import * as motor from '../src/motor.js';
-import { ejeTemporal } from '../src/tiempo.js';
+import * as motor from '../../src/motor.js';
+import { ejeTemporal } from '../../src/tiempo.js';
 import { datosHilos, svgHilos, memoria } from './hilos.js';
 import * as cielo from './cielo.js';
 import * as camino from './camino.js';

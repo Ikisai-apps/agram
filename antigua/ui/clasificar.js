@@ -19,7 +19,7 @@
 // En el móvil, «arrastrar y soltar» es tocar la pieza y luego el hueco; en
 // el escritorio vale también arrastrar. Sin librerías.
 
-import { encaje, salida, bql, mapped, direccion, indicesDe, esReferencia, esTerminal, ARIDAD, EPOCA_0, epocaDe, leerCamino } from '../src/index.js';
+import { encaje, salida, bql, mapped, direccion, indicesDe, esReferencia, esTerminal, ARIDAD, EPOCA_0, epocaDe, leerCamino } from '../../src/index.js';
 import { escapar, corto, leerLocal, guardarLocal } from './comun.js';
 import { htmlLeido } from './leido.js';
 

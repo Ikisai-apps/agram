@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<link rel="stylesheet" href="./mundos/hilos.css">
+<link rel="stylesheet" href="./mundos/x.css">
+<title>AGRAM</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="icon" href="data:,">
+<style>
+:root{
+  --bg:#faf7f1; --fg:#1f1b16; --muted:#6b6257; --rule:#e2d9cc; --panel:#f1ebe0; --panel2:#e8e0d2;
+  --accent:#7a4b1f; --accent-fg:#ffffff; --ok:#1b5e3a; --warn:#8a3f00; --warnbg:#f8e1cc;
+  --sans:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; --mono:ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
+  --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.45;
+  padding-block:0 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:640px;margin:0 auto;min-width:0}
+header{padding-block:20px 10px;border-bottom:1px solid var(--rule);display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+header h1{font-size:1.25rem;margin:0;font-weight:600}
+header .kicker{color:var(--muted);font-size:13px}
+#pv{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.6}
+.modos{display:flex;gap:8px;margin:14px 0 10px;flex-wrap:wrap}
+.modos button{font:inherit;font-size:14px;padding:7px 14px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.modos button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.modos button:disabled{opacity:.5;cursor:not-allowed}
+.cab{padding:10px 0 6px;font-size:14px;color:var(--muted)}
+.cab b{color:var(--fg);font-family:var(--mono);font-weight:600}
+.cab .sub{margin-top:2px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center}
+.enlace,.miga{font:inherit;font-size:13px;font-family:var(--mono);border:0;background:var(--panel2);color:var(--fg);padding:2px 8px;border-radius:6px;cursor:pointer}
+.ruta{font-family:var(--mono);font-size:13px}
+.decupla{display:grid;gap:4px;margin:6px 0 16px}
+.pos{display:grid;grid-template-columns:1.6em 9.5em 1fr;gap:8px;align-items:center;text-align:left;font:inherit;
+  padding:9px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);min-width:0}
+.pos .idx{font-family:var(--mono);color:var(--muted)}
+.pos .pv{color:var(--muted);font-size:14px}
+.pos .val{overflow-wrap:anywhere;min-width:0}
+.pos.vacia .val{color:var(--muted)}
+.pos .corte{color:var(--warn);font-size:13px}
+.pos.activa{cursor:pointer;border-color:var(--accent)}
+.pos.activa .val{color:var(--accent);font-weight:500}
+.pos{cursor:pointer}
+.pos.elegida{background:var(--panel2);box-shadow:inset 3px 0 0 var(--accent)}
+.pos .hijos{grid-column:3;justify-self:start;font-size:12px;color:var(--ok);font-family:var(--mono)}
+.escribir .dos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.exito{background:var(--panel2);color:var(--ok);padding:8px 10px;border-radius:8px;font-size:14px}
+.matriz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:8px 0 16px}
+.celda{min-width:0;min-height:96px;border:1px solid var(--rule);border-radius:10px;background:var(--panel);padding:8px;font:inherit;color:var(--fg);text-align:left;display:flex;flex-direction:column;gap:5px;overflow:hidden}
+.celda .pvn{font-size:11px;color:var(--muted);letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.celda .val{font-size:14px;overflow-wrap:anywhere;line-height:1.3}
+.celda.esquina{cursor:pointer}
+.celda.esquina:not(.vacia){border-color:var(--accent)}
+.celda.esquina .val{color:var(--accent);font-weight:500}
+.celda.vacia .val{color:var(--muted)}
+.celda .hijos{font-size:12px;color:var(--ok);font-family:var(--mono)}
+.celda.c5{background:var(--panel2);border-color:var(--accent)}
+.celda.c5 .lente{font-size:15px;font-weight:600;overflow-wrap:anywhere}
+.celda details{font-size:12px;color:var(--muted)} .celda summary{cursor:pointer}
+.celda pre{margin:4px 0 0;font-size:11px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:180px;overflow:auto;color:var(--fg)}
+.chips{display:flex;flex-direction:column;gap:4px}
+.chip{font:inherit;font-size:12px;text-align:left;border:0;border-radius:6px;background:var(--panel2);color:var(--fg);padding:4px 6px;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.chip b{font-family:var(--mono);font-weight:500;color:var(--muted)} .chip i{font-style:normal;color:var(--ok)}
+.medidas{display:flex;flex-wrap:wrap;gap:3px 8px;font-size:12px;color:var(--muted)} .medidas b{color:var(--fg)}
+/* Celda 8 sobria (ui/ocho.js): cohorte con un toque, cantidades y cuota primero, recuentos como información. Envuelve: sin scroll horizontal a 400 px. */
+.ocho-cohortes{display:flex;flex-wrap:wrap;gap:3px;min-width:0}
+.ocho-cohortes button{font:inherit;font-size:11px;line-height:1.2;min-height:28px;padding:3px 8px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer;max-width:100%;overflow-wrap:anywhere}
+.ocho-cohortes button[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.ocho-donde{font-size:11px;color:var(--muted);overflow-wrap:anywhere;min-width:0} .ocho-donde b{color:var(--fg);font-weight:500}
+.ocho-cantidades{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-size:12px;overflow-wrap:anywhere;min-width:0} .ocho-cantidades .serie{font-family:var(--mono);color:var(--muted)} .ocho-cantidades .cuota{white-space:nowrap}
+.ocho-recuentos{font-size:11px;color:var(--muted);opacity:.85;overflow-wrap:anywhere;min-width:0} .ocho-recuentos .marca{font-style:italic}
+.pasos{font-size:12px;color:var(--muted)} .paso{color:var(--fg)}
+.celda .nada{font-size:12px;color:var(--muted);padding:0}
+.escena{display:grid;gap:10px;margin:6px 0 16px;min-width:0}
+.alcances{display:flex;flex-wrap:wrap;gap:6px}
+.alcances button{font:inherit;font-size:13px;padding:4px 12px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+.alcances button[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.lectura{display:grid;gap:4px} .lectura .titulo{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.barra{height:6px;border-radius:999px;background:var(--panel2);overflow:hidden} .barra span{display:block;height:100%;background:var(--ok)} .barra.llena span{background:var(--warn)}
+.piezas{list-style:none;margin:0;padding:0;display:grid;gap:4px;min-width:0}
+.pieza{display:grid;gap:3px;padding:6px 8px;margin-left:calc(var(--nivel,0) * 10px);border:1px solid var(--rule);border-radius:8px;background:var(--panel);min-width:0}
+.pieza.centro{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.pieza:target{background:var(--panel2)}
+.pieza-fila{display:grid;grid-template-columns:1fr auto;gap:6px;min-width:0}
+.pieza .abrir{display:grid;grid-template-columns:1.6em 1fr;gap:2px 8px;text-align:left;font:inherit;padding:0;border:0;background:none;color:var(--fg);cursor:pointer;min-width:0}
+.pieza .n{font-family:var(--mono);color:var(--muted);grid-row:span 2}
+.pieza .quien{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.pieza .rep{overflow-wrap:anywhere;min-width:0}
+.pieza .ref{font:inherit;font-size:12px;border:1px solid var(--rule);background:var(--panel2);color:var(--accent);border-radius:8px;padding:2px 8px;cursor:pointer;align-self:start}
+.pieza .meta,.pieza .aristas{padding-left:calc(1.6em + 8px);font-size:12px;color:var(--muted);min-width:0}
+.pieza .aristas{display:flex;flex-wrap:wrap;gap:4px}
+.arista{font-family:var(--mono);text-decoration:none;color:var(--fg);background:var(--panel2);border-radius:6px;padding:1px 6px;overflow-wrap:anywhere}
+.arista.a-hilo{color:var(--ok)} .arista.a-formula{color:var(--accent)}
+.recuentos{font-size:12px;color:var(--muted);display:grid;gap:2px}
+.medidas-escena{overflow-wrap:anywhere;min-width:0} .medidas-escena button{font:inherit;font-size:12px;min-height:28px;padding:3px 10px;border-radius:999px;border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer}
+@media (max-width:480px){.celda{min-height:84px;padding:6px} .celda .val{font-size:13px} .chip{font-size:11px}}
+.escribir{display:grid;gap:10px;background:var(--panel);border:1px solid var(--rule);border-radius:10px;padding:12px}
+.escribir .titulo,.hilera .titulo{font-size:13px;color:var(--muted);letter-spacing:.02em}
+.escribir label{display:grid;gap:4px;font-size:14px}
+.escribir input,.escribir select{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);min-width:0;width:100%}
+.escribir button{font:inherit;padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.aviso{background:var(--warnbg);color:var(--warn);padding:8px 10px;border-radius:8px;font-size:14px}
+.hilera{margin:12px 0 18px;display:grid;gap:4px}
+.fila{display:grid;grid-template-columns:1fr auto;gap:4px;min-width:0}
+.fila .abrir{display:grid;grid-template-columns:1.4em 1fr;gap:4px 8px;text-align:left;font:inherit;padding:8px 10px;border-radius:8px;
+  border:1px solid var(--rule);background:var(--panel);color:var(--fg);cursor:pointer;min-width:0}
+.fila .ref{font:inherit;font-family:var(--mono);border:1px solid var(--rule);background:var(--panel2);color:var(--accent);border-radius:8px;padding:0 10px;cursor:pointer}
+.fila .n{font-family:var(--mono);color:var(--muted);grid-row:span 2}
+.fila .quien{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.fila .celdas{display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0}
+.celda-s{font-size:14px;overflow-wrap:anywhere}
+.celda-s i{font-style:normal;font-family:var(--mono);color:var(--muted);margin-right:4px}
+.escribir label small{color:var(--muted);font-weight:400}
+.hilera-inputs{display:grid;gap:6px}
+.hilera-inputs input,.decupla-form textarea{font:inherit;font-size:14px;padding:7px 9px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--fg);min-width:0;width:100%}
+.decupla-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.celda-form{display:grid;gap:3px;font-size:12px;color:var(--muted);min-width:0}
+.celda-form textarea{resize:vertical;line-height:1.3}
+.pista{font-size:12px;color:var(--muted)}
+.posfila{display:grid;grid-template-columns:1fr auto;gap:4px;min-width:0}
+.posfila .pos{width:100%}
+.oc{font:inherit;font-size:12px;font-family:var(--mono);border:1px solid var(--rule);background:var(--panel2);color:var(--ok);border-radius:8px;padding:0 8px;cursor:pointer}
+.oc.abierto{background:var(--accent);color:var(--accent-fg)}
+.ocupantes{grid-column:1 / -1;display:grid;gap:4px;padding:2px 0 6px 12px}
+.chip i{font-style:normal;color:var(--muted);margin-right:2px}
+.chip small{color:var(--muted);margin-left:4px}
+.firma{font-size:11px;color:var(--ok);margin-left:6px} .firma.sin{color:var(--muted)}
+.fabrica{margin:4px 0 16px;display:grid;gap:8px}
+.cons{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.accion{font:inherit;font-size:13px;padding:5px 10px;border-radius:8px;border:0;background:var(--accent);color:var(--accent-fg);cursor:pointer}
+.guardado{font-size:12px;color:var(--muted);margin-top:6px}
+.guardado.demostracion{margin:0 0 6px;font-style:italic}
+.formula{font-family:var(--mono);font-size:.86em;color:var(--muted);overflow-wrap:anywhere}
+.res{font-weight:600} .res.resuelto{color:var(--ok)} .res.pendiente{color:var(--muted)} .res.incompatible,.res.error{color:var(--warn)}
+.nada{color:var(--muted);font-size:14px;padding:6px 2px}
+#saldos{display:grid;gap:4px;margin-top:18px;padding-top:12px;border-top:1px solid var(--rule)}
+footer{margin-top:22px;font-size:12px;color:var(--muted)}
+.leido{display:grid;gap:4px;margin:8px 0;min-width:0}
+.leido-boton{justify-self:start;font:inherit;font-size:12px;font-family:var(--mono);border:1px solid var(--rule);background:transparent;color:var(--muted);border-radius:8px;padding:2px 10px;min-height:32px;cursor:pointer}
+.leido-boton[aria-pressed="true"]{background:var(--panel2);border-color:var(--accent);color:var(--accent)}
+.leido-texto{margin:0;padding:8px 10px;background:var(--panel);border:1px solid var(--rule);border-radius:8px;font-family:var(--mono);font-size:12px;line-height:1.5;color:var(--fg);white-space:pre-wrap;overflow-wrap:anywhere;max-width:100%;overflow-x:hidden}
+</style>
+<link rel="stylesheet" href="./ui/ui.css">
+<link rel="stylesheet" href="./mundos/cielo.css">
+<link rel="stylesheet" href="./mundos/camino.css">
+<link rel="stylesheet" href="./mundos/cruz.css">
+</head>
+<body>
+<main>
+  <header>
+    <h1>AGRAM</h1>
+    <span class="kicker">cartón piedra · eje de ejemplo con datos inventados</span>
+  </header>
+  <p id="pv"></p>
+  <div class="modos" role="group" aria-label="modo">
+    <button data-modo="pointed" aria-pressed="true">Pointed</button>
+    <button data-modo="sequenced" aria-pressed="false">Sequenced</button>
+    <button data-modo="mapped" aria-pressed="false">Mapped</button>
+    <button data-modo="scened" aria-pressed="false">Scened</button>
+    <button data-modo="clasificar" aria-pressed="false" title="la lista de la posición (fuera del árbol) y la cruceta: verla con una lente o colocar cada pieza en su subposición">Clasificar</button>
+    <button data-genesis>génesis</button>
+    <button data-render aria-pressed="false" title="alterna sobrio y animado: en Mapped, las celdas 6 y 7 se dibujan como hilos, la 8 como cielo, la 9 como camino y las 1–4 y 0, como la X; «ver la cruz» y «ver la X» los abren enteros">animado</button>
+    <button data-reiniciar title="borra lo guardado en este navegador y vuelve al ejemplo">reiniciar</button>
+  </div>
+  <div id="vista"></div>
+  <div id="saldos"></div>
+  <footer>Mismo núcleo en Node y navegador. Se escribe desde los tres modos sobre el foco, en la posición elegida: Pointed un terminal, Sequenced una hilera, Mapped una décupla. Cada identidad firma con su clave; cada posición escrita mueve un minuto de T. El eje y las claves de ejemplo se guardan solo en este navegador.</footer>
+</main>
+<script type="module" src="./app.js"></script>
+</body>
+</html>

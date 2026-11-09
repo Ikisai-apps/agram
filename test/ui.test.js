@@ -9,12 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 import * as nucleo from '../src/index.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { epocasDisponibles, epocaActual, elegirEpoca, nombrePV, nombresPV, leerDireccion } from '../ui/epocas.js';
-import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEncaje } from '../ui/encaje.js';
-import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../ui/fabrica.js';
-import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../ui/saldos.js';
-import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../ui/ejemplos.js';
-import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras, htmlRecomendacionT } from '../ui/comun.js';
+import { epocasDisponibles, epocaActual, elegirEpoca, nombrePV, nombresPV, leerDireccion } from '../antigua/ui/epocas.js';
+import { listaOcupantes, elegirOrden, ordenOcupantes, procedenciaCorta, lineaEncaje } from '../antigua/ui/encaje.js';
+import { valoresPropuestos, proponerAhora, cajaPropuesta, contextoConsolidacion, quitarPropuesta, propuestaEnCurso, propuestaVigente } from '../antigua/ui/fabrica.js';
+import { familiasDe, htmlSaldos, enCarteras, nombreSerie } from '../antigua/ui/saldos.js';
+import { EJEMPLOS, crearEjemplo, elegirEjemplo, ejemploElegido, cargarModulo, motivoAusente, restaurarEjemplo, etiquetaOpcion } from '../antigua/ui/ejemplos.js';
+import { dirCorta, vectorCorto, escapar, textoCifras, htmlCifras, htmlRecomendacionT } from '../antigua/ui/comun.js';
 import { recomendacionDeEscala } from '../src/tiempo.js';
 
 const { motor, encaje, PV, EPOCA_0 } = nucleo;
@@ -241,7 +241,7 @@ test('saldos: muchas series no alargan la pantalla: ids en corto, el resto plega
 
 // ---------- ejemplos ----------
 
-const RAIZ_UI = new URL('../ui/ejemplos.js', import.meta.url);
+const RAIZ_UI = new URL('../antigua/ui/ejemplos.js', import.meta.url);
 const importarDesdeUI = (ruta) => import(new URL(ruta, RAIZ_UI).href);
 
 test('ejemplos: comida, reserva y tarea, cada uno con sus identidades', () => {

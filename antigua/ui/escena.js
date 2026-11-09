@@ -18,9 +18,9 @@
 // tiempo.comparables. El foco va primero y es el centro; los demás, por
 // llegada. [X] decidir VG: la prioridad cuando hay corte.
 
-import { escenaDe, textoMedidas, CAPACIDAD, ALCANCES } from '../src/scened.js';
-import { esReferencia } from '../src/btml.js';
-import { esFormula, desescapar } from '../src/bql.js';
+import { escenaDe, textoMedidas, CAPACIDAD, ALCANCES } from '../../src/scened.js';
+import { esReferencia } from '../../src/btml.js';
+import { esFormula, desescapar } from '../../src/bql.js';
 import { escapar, corto, leerLocal, guardarLocal } from './comun.js';
 
 /** Alcances de la vista, en el orden de los botones (el de scened.ALCANCES). */

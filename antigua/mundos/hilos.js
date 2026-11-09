@@ -69,11 +69,11 @@
 // Sin DOM: datosHilos(), svgHilos() y htmlHilos() son funciones puras que
 // devuelven datos o texto, para el navegador y para las pruebas de Node.
 
-import { ejeTemporal, banda } from '../src/tiempo.js';
-import { SEGUNDOS, ESCALAS_REALES as ESCALAS_T, partirClave } from '../src/tokens.js';
-import { propuestas, cierre } from '../src/motor.js';
-import { esReferencia } from '../src/btml.js';
-import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
+import { ejeTemporal, banda } from '../../src/tiempo.js';
+import { SEGUNDOS, ESCALAS_REALES as ESCALAS_T, partirClave } from '../../src/tokens.js';
+import { propuestas, cierre } from '../../src/motor.js';
+import { esReferencia } from '../../src/btml.js';
+import { efectosDe, verEn, render, SIN_NOMBRE } from '../../src/efectos.js';
 
 /** Mundo de los hilos del pasado y del futuro. */
 export const PASADO = 6;

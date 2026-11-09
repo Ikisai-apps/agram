@@ -5,7 +5,7 @@
 // (sin scroll horizontal a 400 px). Abierto o cerrado se recuerda solo en
 // este navegador, como comodidad. Sin librerías.
 
-import { leerEvento } from '../src/lectura.js';
+import { leerEvento } from '../../src/lectura.js';
 import { escapar, leerLocal, guardarLocal } from './comun.js';
 
 const CLAVE_LEIDO = 'agram.leido';

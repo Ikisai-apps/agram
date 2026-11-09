@@ -10,8 +10,8 @@ import * as agram from '../src/index.js';
 import { cargarEpoca, EPOCA_0 } from '../src/epocas.js';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { leidos } from '../ejemplos/ikisai/leer.mjs';
-import { htmlLeido, alternarLeido, leidoAbierto } from '../ui/leido.js';
-import { vistaClasificar } from '../ui/clasificar.js';
+import { htmlLeido, alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
+import { vistaClasificar } from '../antigua/ui/clasificar.js';
 
 test('las dos líneas de VG, leídas: el menú (una lista) y la compra (una décupla), salida exacta', async () => {
   const { eje, menu } = await ejemploCompra();
@@ -165,9 +165,9 @@ test('la UI pinta el conmutador «leído» y, abierto, el registro en un <pre> q
   assert.equal(alternarLeido(antes), antes);
   // El CSS del <pre> envuelve las líneas: sin scroll horizontal a 400 px.
   const { readFileSync } = await import('node:fs');
-  const css = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const css = readFileSync(new URL('../antigua/index.html', import.meta.url), 'utf8');
   assert.match(css, /\.leido-texto\{[^}]*white-space:pre-wrap[^}]*overflow-wrap:anywhere/);
-  const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+  const app = readFileSync(new URL('../antigua/app.js', import.meta.url), 'utf8');
   assert.match(app, /htmlLeido\(estado\.eje, estado\.foco/);
   assert.match(app, /instalarLeido\(\{ pintar \}\)/);
 });

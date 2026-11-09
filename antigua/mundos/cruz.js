@@ -9,9 +9,9 @@
 // cada lista es un <details>; las referencias y los ids del eje llevan a su
 // registro. Sin DOM: texto HTML para el navegador y para las pruebas.
 
-import { esReferencia } from '../src/btml.js';
-import { desescapar } from '../src/bql.js';
-import { verEn, nombreMundo } from '../src/efectos.js';
+import { esReferencia } from '../../src/btml.js';
+import { desescapar } from '../../src/bql.js';
+import { verEn, nombreMundo } from '../../src/efectos.js';
 
 /** Cómo se ve el registro desde el 5, según el catálogo. */
 export const INSPECCIONAR = verEn({ tipo: 'escrito' }, 5)?.nombre ?? 'inspeccionar';

@@ -8,7 +8,7 @@
 // llegada). Un conmutador lo pasa al orden de llegada. Nada se borra: los
 // dos órdenes enseñan los mismos ocupantes.
 
-import { encaje, bql, motor, RAIZ, ARIDAD } from '../src/index.js';
+import { encaje, bql, motor, RAIZ, ARIDAD } from '../../src/index.js';
 import { escapar, corto, dirCorta, caminoCorto, vectorCorto } from './comun.js';
 
 export const ORDENES = Object.freeze(['encaje', 'llegada']);

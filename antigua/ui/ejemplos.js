@@ -7,7 +7,7 @@
 // ejemplo dice qué identidades firman; las claves que falten se generan y se
 // guardan junto a las demás en este navegador.
 
-import { autoridad } from '../src/index.js';
+import { autoridad } from '../../src/index.js';
 import { escapar, leerLocal, guardarLocal, franjaAjustes } from './comun.js';
 
 const CLAVE_EJEMPLO = 'agram.ejemplo';
@@ -19,7 +19,7 @@ export const EJEMPLOS = Object.freeze([
   {
     id: 'compra',
     etiqueta: 'comida',
-    modulo: '../ejemplos/ikisai/compra-food.mjs',
+    modulo: '../../ejemplos/ikisai/compra-food.mjs',
     identidades: ['casa', 'cocina', 'huesped'],
     identidad: 'huesped',
     async crear(m, claves) {
@@ -31,7 +31,7 @@ export const EJEMPLOS = Object.freeze([
   {
     id: 'reserva',
     etiqueta: 'reserva',
-    modulo: '../ejemplos/ikisai/reserva-booking.mjs',
+    modulo: '../../ejemplos/ikisai/reserva-booking.mjs',
     identidades: ['casa', 'recepcion', 'huesped'],
     identidad: 'huesped',
     async crear(m, claves) {
@@ -42,7 +42,7 @@ export const EJEMPLOS = Object.freeze([
   {
     id: 'tarea',
     etiqueta: 'tarea',
-    modulo: '../ejemplos/ikisai/tarea-tasks.mjs',
+    modulo: '../../ejemplos/ikisai/tarea-tasks.mjs',
     identidades: ['casa', 'organizadora', 'proveedor'],
     identidad: 'organizadora',
     async crear(m, claves) {

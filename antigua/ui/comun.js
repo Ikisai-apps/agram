@@ -3,8 +3,8 @@
 // franja de ajustes (ejemplo, época) bajo los botones de modo. Nada de esto
 // toca el núcleo: solo lo enseña.
 
-import { indicesDe } from '../src/btml.js';
-import { recomendacionDeEscala } from '../src/tiempo.js';
+import { indicesDe } from '../../src/btml.js';
+import { recomendacionDeEscala } from '../../src/tiempo.js';
 
 export function escapar(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

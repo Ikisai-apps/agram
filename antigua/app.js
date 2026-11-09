@@ -14,7 +14,7 @@ import { instalarX, trasPintarX } from './mundos/x-ui.js';
 import {
   pointed, sequenced, mapped, salida, bql, encaje, motor, tiempo, autoridad, persistencia,
   indicesDe, direccion, esReferencia, escritura, maximo, PV, RAIZ, leerCamino,
-} from './src/index.js';
+} from '../src/index.js';
 // Frontend sobrio (ui/): encaje, fábrica, época, ejemplo y saldos viven en sus módulos; aquí solo se enganchan.
 import { listaOcupantes as listaEncaje, instalarEncaje } from './ui/encaje.js';
 import { botonProponer, cajaPropuesta, contextoConsolidacion, instalarFabrica, trasPintarFabrica } from './ui/fabrica.js';

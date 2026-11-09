@@ -327,7 +327,7 @@ test('prueba estática: fuera de src/lente.js ningún módulo suma R de emisores
     "const n = movs.filter((m) => m.token === 'R').length;",
     "const cuantos = new Set(lista.map((x) => x.emisor)).size;",
   ]) assert.ok(JUNTAN_R.some((re) => re.test(malo)), malo);
-  const archivos = [...fuentes('src'), ...fuentes('ui'), ...fuentes('mundos'), ...fuentes('ejemplos'), 'app.js'].filter((a) => a !== 'src/lente.js');
+  const archivos = [...fuentes('src'), ...fuentes('antigua/ui'), ...fuentes('antigua/mundos'), ...fuentes('ejemplos'), 'antigua/app.js'].filter((a) => a !== 'src/lente.js');
   assert.ok(archivos.length > 20);
   const fuera = archivos.filter((a) => JUNTAN_R.some((re) => re.test(sinComentarios(readFileSync(a, 'utf8')))));
   assert.deepEqual(fuera, []);
