@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { validez, CAPAS, ESTADOS_CAPA, estadoDeBql, SIN_ACREDITAR } from '../src/validez.js';
-import { consolidar, autorizar, ejecutar, estadoDe, FABRICA } from '../src/motor.js';
+import { consolidar, cerrado, siguiente, FABRICA, ANUNCIO } from '../src/motor.js';
 import { serializar, restaurar } from '../src/persistencia.js';
 import { generarClaves, firmar } from '../src/autoridad.js';
 import { crearEvento } from '../src/evento.js';
@@ -13,6 +13,9 @@ const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, 
 const estados = (v) => v.capas.map((c) => c.estado);
 const salvo = (v, n) => v.capas.filter((c) => c.capa !== n).map((c) => c.estado);
 const TODO_OK = ['ok', 'ok', 'ok', 'ok', 'ok'];
+/** Un movimiento anunciado en el 4.1 de un registro por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+const CERRADO = 'all announced movements happened';
 
 test('la compra del ejemplo: cinco capas independientes, cada una con estado y motivos, sin veredicto global', async () => {
   const { eje, compra } = await ejemploCompra();
@@ -44,20 +47,33 @@ test('la compra del ejemplo: cinco capas independientes, cada una con estado y m
   assert.equal(v.criptografia.firma, 'sin firma'); // sin claves: huesped no tiene clave
   assert.deepEqual(v.acreditacion.movimientos.map((m) => m.clave), ['T:hora', 'E:casa/EUR']);
   assert.equal(v.acreditacion.externa, SIN_ACREDITAR);
-  assert.equal(v.permiso.motor, null);
-  assert.match(v.permiso.resumen, /no es consolidación, autorización ni ejecución/);
+  // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): la capa 5 ya no lee estados del motor; lee el ciclo, si
+  // lo que el registro anuncia ya pasó (N5), con la plantilla de cerrado de su dueño (por defecto, la de la época).
+  assert.deepEqual(v.permiso.motor, { cerrado: true, plantilla: CERRADO });
+  assert.match(v.permiso.resumen, /^mueve lo suyo · cerrado \(all announced movements happened\) · externa: sin confirmar$/);
 });
 
-test('todos los registros del ejemplo, génesis y cuenta incluidos, en ok; las fórmulas de la cuenta, resueltas', async () => {
+test('todos los registros del ejemplo, cuenta incluida, en ok; las fórmulas de la cuenta, resueltas', async () => {
   const { eje, compra } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
   for (const id of eje.orden) assert.deepEqual(estados(await validez(eje, id)), TODO_OK, id.slice(0, 8));
   const v = await validez(eje, cuenta.id);
   assert.deepEqual(v.interpretacion.formulas.map((f) => [f.dir, f.estado]), [['1000000000', 'RESUELTO'], ['2000000000', 'RESUELTO']]);
   assert.equal(v.interpretacion.formulas[0].texto, '14 EUR (12 EUR + 2 EUR)');
+});
+
+test('el génesis del ejemplo, en ok: la época 0, no mueve nada', async () => {
+  const { eje } = await ejemploCompra();
   const g = await validez(eje, eje.genesisId);
-  assert.match(g.permiso.resumen, /génesis: emite por convención/);
+  assert.deepEqual(estados(g), TODO_OK);
+  assert.match(g.permiso.resumen, /génesis: la época 0, no mueve nada/);
   assert.match(g.criptografia.resumen, /génesis/);
+});
+
+test('la invitación del ejemplo, en ok: su referencia a la época 0 se resuelve', async () => {
+  const { eje } = await ejemploCompra();
+  const inv = eje.orden.find((id) => [eje.obtener(id).payload?.[0]].flat().includes('invitation'));
+  assert.deepEqual(estados(await validez(eje, inv)), TODO_OK);
 });
 
 test('sin efectos: ni el eje ni el evento cambian', async () => {
@@ -101,7 +117,7 @@ test('firma quitada tras restaurar: falla la capa 3 y solo ella', async () => {
   assert.equal(firmada.criptografia.firma, 'verificada');
   // El eje no admite el guardado sin la firma; las capas dicen cuál de ellas cae.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
-  delete roto.eventos[4].firma; // la compra (antes van el génesis, el alta de la huésped, las de la casa y el menú)
+  delete roto.eventos.find((e) => e.id === compra.id).firma; // la compra
   await assert.rejects(restaurar(roto), /who has a key signs: huesped has a key/);
   const { firma, firmante, ...sinFirma } = otro.obtener(compra.id);
   void firma; void firmante;
@@ -170,31 +186,39 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   assert.equal(eje.serie('T:anio').emitido, 0);
   const anio = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: 'huesped', a: null }, { token: 'T', escala: 'anio', cantidad: 1, de: 'huesped', a: null }]));
   assert.deepEqual(estados(anio), TODO_OK);
-  // P sobre todo el eje fuera del génesis: sin respaldo (capa 4) y sin R propia en juego (capa 5).
+  // Encargo 3b (mapa §15 [D] «P como peso de criterio»): no hay P sobre todo el eje, y nadie acuña P a mano. «genesis»
+  // no es un registro (capa 4: no hay respaldo donde ponerlo) y acuñarlo no es un paso de reposición (capa 5).
   const p = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: 'genesis', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(p), ['ok', 'ok', 'ok', 'falla', 'falla']);
-  assert.match(p.acreditacion.motivos[0], /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
-  assert.match(p.permiso.motivos[0], /emitir P exige R propia en juego: R:huesped bloqueada como colateral/);
+  assert.match(p.acreditacion.motivos[0], /P moves within a known scope: P:genesis names no record of the ledger/);
+  assert.match(p.permiso.motivos[0], /P is repositioned one step at a time: huesped mints P/);
+  // P sobre la compra, acuñado a mano por quien la escribió (y tiene diez por ello, N1): respaldo hay; permiso, no.
+  const aMano = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: compra.id, cantidad: 1, de: null, a: 'huesped' }]));
+  assert.deepEqual(estados(aMano), ['ok', 'ok', 'ok', 'ok', 'falla']);
+  assert.match(aMano.permiso.motivos[0], /P is repositioned one step at a time/);
 });
 
-test('P delegado: el libro se rehace en el lugar del registro y el poder alcanza para autorizar', async () => {
+// Encargo 3b: se retira autorizar (mapa §15 [D]); el P de la compra es de quien la escribió (diez, N1), que lo delega.
+test('P delegado: el libro se rehace en el lugar del registro; quien recibe P lo compromete, y no más del que tiene', async () => {
   const { eje, compra } = await ejemploCompra();
-  const delega = await eje.escribir({ autor: 'casa', sobre: compra.id, t: T, movimientos: [gastaT('casa'), { token: 'P', ambito: compra.id, cantidad: 1, de: 'casa', a: 'cocina' }], payload: 'cocina autoriza lo de esta compra' });
+  assert.deepEqual([eje.poderSobre('huesped', compra.id), eje.poderSobre('casa', compra.id)], [10, 0]);
+  const delega = await eje.escribir({ autor: 'huesped', sobre: compra.id, t: T, movimientos: [gastaT('huesped'), { token: 'P', ambito: compra.id, cantidad: 1, de: 'huesped', a: 'cocina' }], payload: 'cocina decide lo de esta compra' });
   assert.deepEqual(estados(await validez(eje, delega.id)), TODO_OK);
   // Cocina no puede delegar más P del que tiene.
   const demasiado = await crearEvento({ autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina'), { token: 'P', ambito: compra.id, cantidad: 5, de: 'cocina', a: 'huesped' }], payload: 'x' });
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
-  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso (VG, 8-11: nadie en el hilo tiene P propio
-  // emitido, así que es el génesis y cuenta el P del eje). El P de cocina sobre la compra no es ese, y el autor cuenta como cualquiera:
-  // a las dos consolidaciones las puede autorizar la casa, también a la suya.
+  // Comprometerse con una propuesta es bloquear el P que se tiene con su id de salida (mapa §15 [D] (5)): cocina, el uno
+  // que le dieron; la casa, que no tiene P sobre la compra, no.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  assert.deepEqual((await validez(eje, c.id)).permiso.motor.puedenAutorizar, ['casa']);
-  const deLaCasa = await consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 1: 'otro menú' } });
-  assert.deepEqual((await validez(eje, deLaCasa.id)).permiso.motor.puedenAutorizar, ['casa']);
+  const comprometo = (autor) => ({ autor, sobre: c.id, t: T, payload: 'sí', movimientos: [gastaT(autor), { token: 'P', ambito: compra.id, cantidad: 1, de: autor, a: autor, estado: 'bloqueo', salida: c.id }] });
+  const deCocina = await eje.escribir(comprometo('cocina'));
+  assert.deepEqual(estados(await validez(eje, deCocina.id)), TODO_OK);
+  const deLaCasa = await validez(eje, await crearEvento(comprometo('casa')));
+  assert.equal(deLaCasa.acreditacion.estado, 'falla');
   // Los registros anteriores siguen en ok: cada uno se lee con el libro de su momento.
-  for (const id of eje.orden) assert.equal((await validez(eje, id)).acreditacion.estado, 'ok');
+  for (const id of eje.orden.filter((x) => x !== eje.genesisId)) assert.equal((await validez(eje, id)).acreditacion.estado, 'ok');
 });
 
 test('fórmula pendiente: la interpretación queda pendiente y las otras capas no se enteran', async () => {
@@ -238,57 +262,47 @@ test('fórmula imposible: la interpretación falla y las otras capas no se enter
   assert.deepEqual(estadoDeBql('ERROR'), 'falla');
 });
 
-test('consolidación sin autorizar: permiso pendiente, quién puede autorizar y lo escrito que no cuenta', async () => {
+// Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar» y N5): se retiran autorizar, ejecutar y los
+// estados del motor. Una propuesta está abierta mientras le falta algo de lo que su dueño anunció en su 4.1 y cerrada
+// cuando ha pasado; cada uno mueve lo suyo. La capa 5 lo dice: abierta, pendiente; cerrada, ok.
+test('una propuesta con un pago anunciado: abierta (permiso pendiente) hasta que se paga; lo escrito por otros no la cierra', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, titulo: 'Pago del menú', elecciones: { 1: 'dos menús', 4: 'pagar 14 EUR' } });
+  // Sin nada anunciado, cerrada.
+  assert.deepEqual(estados(await validez(eje, c.id)), TODO_OK);
+  // La huésped anuncia el pago: abierta.
+  const an = await eje.escribir({ autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 14, 'pagar', 'huesped', 'cocina') });
+  assert.deepEqual(estados(await validez(eje, an.id)), TODO_OK); // el anuncio en sí no anuncia nada
   let v = await validez(eje, c.id);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'ok', 'pendiente']);
-  assert.equal(v.permiso.motor.estadoMotor, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.deepEqual(v.permiso.motor.puedenAutorizar, ['casa']);
-  assert.match(v.permiso.motivos[0], /pueden autorizar: casa · 0 de 10 P del eje bloqueado; umbral: más de la mitad/);
-
-  // Cocina escribe a mano «autorizado» sin bloquear P: el escrito existe, entra en el eje y no cuenta.
+  assert.deepEqual(v.permiso.motor, { cerrado: false, plantilla: CERRADO });
+  assert.match(v.permiso.motivos[0], /abierto: le falta lo que anuncia \(all announced movements happened; motor.siguiente dice qué y de quién\)/);
+  // Cocina escribe a mano «autorizo» en la fábrica, y anuncia algo suyo: entra, no cuenta (el dueño es la huésped).
   const falso = await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [gastaT('cocina')], payload: '==autorizo', contexto: { fase: 'autorizado' } });
-  const f = await validez(eje, falso.id);
-  assert.deepEqual(estados(f), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(f.permiso.motivos[0], /cocina no bloquea P que cuente para autorizar/);
-  assert.equal(f.permiso.motor.cuenta, false);
-  v = await validez(eje, c.id);
-  assert.equal(v.permiso.estado, 'pendiente');
-  assert.deepEqual(v.permiso.motor.noCuentan.map((a) => a.autor), ['cocina']);
-
-  // Autoriza la casa: autorizado aún no es ejecutado.
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  assert.deepEqual(estados(await validez(eje, a.id)), TODO_OK);
-  v = await validez(eje, c.id);
-  assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'ok', 'pendiente']);
-  assert.equal(v.permiso.motor.estadoMotor, 'AUTORIZADO');
-  assert.match(v.permiso.motivos[0], /AUTORIZADO por casa \(10 de 10 P del eje bloqueado; umbral: más de la mitad\) · falta ejecutar/);
-
-  // Ejecuta el autor, con evidencia: la capa 5 en ok, y los efectos externos siguen sin confirmar.
-  const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T, movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }] });
+  assert.deepEqual(estados(await validez(eje, falso.id)), TODO_OK);
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: ANUNCIO, t: T, movimientos: [gastaT('cocina')], payload: anuncio('E:casa/EUR', 1, 'devolver', 'cocina', 'huesped') });
+  assert.equal((await validez(eje, c.id)).permiso.estado, 'pendiente');
+  // La huésped paga con la transacción que le da motor.siguiente: cerrada, y los efectos externos siguen sin confirmar.
+  const pago = await eje.escribir({ ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: T });
   v = await validez(eje, c.id);
   assert.deepEqual(estados(v), TODO_OK);
-  assert.equal(v.permiso.motor.estadoMotor, 'EJECUTADO');
-  assert.match(v.permiso.resumen, /externa: sin confirmar/);
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  assert.match(v.permiso.resumen, /cerrado \(all announced movements happened\) · externa: sin confirmar/);
   assert.match(v.acreditacion.resumen, /externa: sin acreditar/);
-  const ve = await validez(eje, e.id);
-  assert.deepEqual(estados(ve), TODO_OK);
-  assert.equal(ve.permiso.motor.cuenta, true);
-  assert.deepEqual(ve.interpretacion.referencias.filter((r) => r.desde === 'contexto.evidencia').map((r) => r.ref), [c.id, a.id]);
+  assert.deepEqual(estados(await validez(eje, pago.id)), TODO_OK);
 });
 
-test('un «ejecutado» a mano sin autorización: el motor dice EJECUTADO y la capa 5 falla (MOTOR.md §13.2)', async () => {
+test('lo anunciado lo mueve cada uno: un pago anunciado de otro no lo puede hacer el dueño (nadie mueve lo ajeno)', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'tres menús' } });
-  const aMano = await eje.escribir({ autor: 'huesped', sobre: c.id, en: FABRICA, t: T, movimientos: [gastaT('huesped')], payload: 'a mano', contexto: { fase: 'ejecutado' } });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  const v = await validez(eje, c.id);
-  assert.equal(v.permiso.estado, 'falla');
-  assert.match(v.permiso.motivos[0], /ninguna ejecución se hizo con la consolidación AUTORIZADA/);
-  const r = await validez(eje, aMano.id);
-  assert.deepEqual(estados(r), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(r.permiso.motivos[0], /al ejecutar no estaba AUTORIZADA \(0 de 10 P del eje bloqueado; umbral: más de la mitad\): ejecutar exige autorización/);
+  await eje.escribir({ autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 1, 'devolver', 'cocina', 'huesped') });
+  const s = siguiente(eje, c.id, 'huesped');
+  assert.deepEqual([s.faltaDeMi.length, s.espera.map((e) => e.de)], [0, ['cocina']]);
+  // La huésped lo escribe a mano por cocina: capa 5 falla.
+  const aMano = await validez(eje, await crearEvento({ autor: 'huesped', sobre: c.id, t: T, payload: 'a mano', movimientos: [gastaT('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'cocina', a: 'huesped' }] }));
+  assert.deepEqual(estados(aMano), ['ok', 'ok', 'ok', 'ok', 'falla']);
+  assert.match(aMano.permiso.motivos[0], /nobody moves tokens of others/);
+  assert.equal(cerrado(eje, c.id).cerrado, false);
 });
 
 test('id que no corresponde al cuerpo: falla la capa 3, y la copia no se lee como el registro del eje', async () => {
@@ -299,19 +313,20 @@ test('id que no corresponde al cuerpo: falla la capa 3, y la copia no se lee com
   assert.equal(v.criptografia.estado, 'falla');
   assert.match(v.criptografia.motivos[0], /el id no corresponde al cuerpo/);
   assert.deepEqual(estados(v), ['ok', 'ok', 'falla', 'ok', 'ok']);
-  // La compra manipulada para pasar por consolidación: la capa 5 la lee como borrador, no dice lo del registro real.
+  // La compra manipulada con otra fase: la capa 5 no la lee como el registro real (no tiene lectura del ciclo).
   const comoConsolidacion = await validez(eje, { ...compra, contexto: { ...compra.contexto, fase: 'consolidado' } });
   assert.equal(comoConsolidacion.enEje, false);
-  assert.match(comoConsolidacion.permiso.motivos[0], /PENDIENTE DE AUTORIZACIÓN \(no está en el eje: se lee como borrador\)/);
-  // Una consolidación autorizada, manipulada: el motor del eje dice AUTORIZADO de la real, no de la copia.
+  assert.equal(comoConsolidacion.permiso.motor, null);
+  assert.match(comoConsolidacion.permiso.resumen, /no está en el eje: sin lectura del ciclo/);
+  // Una propuesta abierta, manipulada: la lectura del ciclo es de la real, no de la copia (encargo 3b: ya no hay
+  // estados del motor; lo que se lee es si está cerrada).
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  assert.equal((await validez(eje, c.id)).permiso.motor.estadoMotor, 'AUTORIZADO');
+  await eje.escribir({ autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 14, 'pagar', 'huesped', 'cocina') });
+  assert.deepEqual((await validez(eje, c.id)).permiso.motor, { cerrado: false, plantilla: CERRADO });
   const copia = await validez(eje, { ...eje.obtener(c.id), payload: ['Pago de diez menús'] });
   assert.equal(copia.enEje, false);
-  assert.equal(copia.permiso.motor.estadoMotor, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.deepEqual(copia.permiso.motor.autorizaciones, []);
-  assert.match(copia.permiso.resumen, /no está en el eje: se lee como borrador/);
+  assert.equal(copia.permiso.motor, null);
+  assert.match(copia.permiso.resumen, /no está en el eje: sin lectura del ciclo/);
   assert.equal(copia.criptografia.estado, 'falla');
 });
 
@@ -356,8 +371,8 @@ test('firma que no se puede verificar: cuenta como sin firma; la clave de quien 
   assert.equal(v.criptografia.firma, 'sin verificar');
   assert.equal(v.criptografia.estado, 'ok');
   assert.deepEqual(await eje.validar(deCocina), []); // el eje la admite
-  // Un autor sin alta escribe su propia alta (B1): su clave, si la tiene, va en ella. Sin declararla, su firma no se
-  // puede verificar nunca: cuenta como sin firma (G1), igual que la de cocina.
+  // Un autor sin alta: su firma, sin clave declarada, no se puede verificar nunca: cuenta como sin firma (G1), igual
+  // que la de cocina. (Encargo 3b, mapa §16 [D]: su alta es aceptar una invitación; escribir sin ella falla la capa 5.)
   const deNadie = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x' }), otra.privada);
   const n = await validez(eje, deNadie);
   assert.deepEqual([n.criptografia.estado, n.criptografia.firma], ['ok', 'sin verificar']);
@@ -365,7 +380,9 @@ test('firma que no se puede verificar: cuenta como sin firma; la clave de quien 
   const conClave = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x', contexto: { claves: { nadie: otra.publica } } }), otra.privada);
   const k = await validez(eje, conClave);
   assert.deepEqual([k.criptografia.estado, k.criptografia.firma, k.criptografia.clavesDeclaradas], ['ok', 'verificada', [{ identidad: 'nadie', por: 'nadie', posesion: 'probada' }]]);
-  assert.deepEqual(await eje.validar(conClave), []);
+  // …pero no es un alta: no acepta ninguna invitación. La capa 5 lo dice, y el eje no la admite.
+  assert.match(k.permiso.motivos.join(' '), /a person joins by an invitation: nadie has no alta/);
+  assert.match((await eje.validar(conClave)).join(' '), /a person joins by an invitation/);
 });
 
 test('un registro desconocido o malformado no tumba nada: lo que no se puede comprobar, falla', async () => {

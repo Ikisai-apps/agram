@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
-import { consolidar, proponer } from '../src/motor.js';
+import { consolidar, proponer, registrar, ANUNCIO } from '../src/motor.js';
 import { crearUi, piezasCruz, previaVigente, marcaDe, datosCaminoDe } from '../mundos/cruz-ui.js';
 import { lenteDe } from '../mundos/cruz.js';
 import { datosCielo } from '../mundos/cielo.js';
@@ -45,11 +45,14 @@ test('animado: el cielo y la senda en las celdas 8 y 9; la primera mirada no ani
   assert.ok(primera.celda8.startsWith('<div class="nota-celda">hermanos · sin base escrita</div>'));
   assert.ok(primera.celda9.includes('<svg class="camino compacto"') && primera.celda9.includes('data-cruz-vista'));
   assert.ok(!animaAlgo(primera.celda8) && !animaAlgo(primera.celda9), 'la primera mirada no anima');
+  // Encargo 3b (mapa §15 [D] «Una sola operación: registrar»): no hay paso de autorizar. La huésped consolida y anuncia
+  // en su 4.1 un pago que aún no ha hecho: la propuesta queda abierta y lo que falta es un paso «siguiente», que aparece.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T15:10:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T15:10:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: [['E:casa/EUR'], [2], ['pagar'], [['huesped'], ['cocina']]] });
   ui.vista = true;
   const segunda = piezasCruz(estado, ui, { animado: true, ahora: AHORA });
-  assert.match(segunda.celda9, new RegExp(`class="paso tipo-autorizar nuevo aparece" [^>]*data-evento="${c.id}"`));
-  assert.match(segunda.vista, new RegExp(`class="paso tipo-autorizar nuevo aparece" [^>]*data-evento="${c.id}"`), 'los brazos leen la misma mirada');
+  assert.match(segunda.celda9, new RegExp(`class="paso tipo-siguiente nuevo aparece" [^>]*data-evento="${c.id}"`));
+  assert.match(segunda.vista, new RegExp(`class="paso tipo-siguiente nuevo aparece" [^>]*data-evento="${c.id}"`), 'los brazos leen la misma mirada');
   assert.ok(segunda.vista.includes('<svg class="hilos compacto"') && segunda.vista.includes('<figure class="cielo-vista">'));
   const tercera = piezasCruz(estado, ui, { animado: true, ahora: AHORA });
   assert.ok(!animaAlgo(tercera.celda9) && !animaAlgo(tercera.vista), 'ya visto: no se repite');
@@ -101,7 +104,9 @@ test('la propuesta consolidada desde la cruz no vuelve a salir como paso', async
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, elecciones: proponer(eje, compra.id).elecciones, titulo: tituloPropuesta(eje, compra.id), t: AHORA });
   const d = datosCaminoDe(estado);
   assert.ok(!d.pasos.some((p) => p.tipo === 'propuesta'));
-  assert.deepEqual(d.propuestaConsolidada, { evento: c.id, estado: 'PENDIENTE DE AUTORIZACIÓN', titulo: tituloPropuesta(eje, compra.id) });
+  // Encargo 3b (mapa §15 [D] N5): sin nada anunciado, la propuesta está cerrada en cuanto se escribe (antes,
+  // «PENDIENTE DE AUTORIZACIÓN»).
+  assert.deepEqual(d.propuestaConsolidada, { evento: c.id, estado: 'cerrada', titulo: tituloPropuesta(eje, compra.id) });
 });
 
 test('el 5: la lente es la posición 0 en el camino, como la celda 5 de Mapped', async () => {

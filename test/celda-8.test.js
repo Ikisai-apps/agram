@@ -36,7 +36,9 @@ test('celda 8: hermanos por defecto y un toque para proyecto y todo el eje; cada
   const porDefecto = htmlOcho(eje, guisos.id);
   assert.deepEqual(botones(porDefecto), [['hermanos', true, 'hermanos'], ['proyecto', false, 'proyecto'], ['general', false, 'todo el eje']]);
   assert.match(porDefecto, /<div class="ocho-cohortes" role="group" aria-label="cohorte de la celda 8">/);
-  const n = { hermanos: 4, proyecto: 9, general: 16 }; // general: con las altas de huesped y vecina (B1)
+  // General: todo el eje, con las altas de huesped y vecina (B1); encargo 3b: también la emisión inicial de la casa y sus
+  // dos invitaciones, de las que cuelgan esas altas (mapa §16 [D]).
+  const n = { hermanos: 4, proyecto: 9, general: 19 };
   for (const c of COHORTES) {
     const o = ocho(eje, guisos.id, { alcance: c });
     assert.equal(o.n, n[c], c);
@@ -207,10 +209,11 @@ test('celda 8 a 400 px: todo envuelve, sin scroll horizontal; la app la pinta co
   assert.match(html, /\.ocho-cohortes\{display:flex;flex-wrap:wrap;[^}]*min-width:0\}/);
   assert.match(html, /\.ocho-cohortes button\{[^}]*max-width:100%;overflow-wrap:anywhere\}/);
   for (const clase of ['ocho-donde', 'ocho-cantidades', 'ocho-recuentos', 'medidas-escena']) assert.match(html, new RegExp('\\.' + clase + '\\{[^}]*overflow-wrap:anywhere'), clase);
-  // Nada largo sin cortar: un P sobre un registro se enseña con ocho caracteres de su id.
+  // Nada largo sin cortar: ningún id entero en el texto. Encargo 3b: ya no hay P del génesis (mapa §15 [D]); la serie
+  // de la casa que se ve es su R, que emite al empezar y guarda en sus invitaciones.
   const ej = await ejemploComprasHermanas();
   const celda = htmlOcho(ej.eje, ej.guisos.id, { alcance: 'general' });
-  assert.match(celda, />P:genesis<\/span>/);
+  assert.match(celda, />R:casa<\/span>/);
   assert.match(celda, />tiempo:minuto<\/span>/); // el T consumido sobre el registro, tal cual
   assert.match(celda, /<span class="cuota">cuota 37,5 %<\/span> · <span class="cuota">[\d,]+ % en todo el eje<\/span>/);
   assert.doesNotMatch(celda.replace(/<[^>]+>/g, ' '), /[0-9a-f]{9,}/);

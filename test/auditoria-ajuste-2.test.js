@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, esConsolidacion } from '../src/motor.js';
+import { descubrir, consolidar, propuestas, cerrado } from '../src/motor.js';
 import { Eje } from '../src/eje.js';
 import { evaluar, consultar } from '../src/bql.js';
 import { item, desdePointed, desdeSequenced } from '../src/escritura.js';
@@ -12,8 +12,10 @@ import { cortesDe } from '../src/bases.js';
 
 const T = '2026-11-07T16:00:00Z';
 
-// A2-02 · una consolidación se reconoce por su anclaje en la fábrica, no solo por contexto.fase.
-test('A2-02: un registro con fase «consolidado» escrito fuera de la fábrica no entra en el ciclo', async () => {
+// A2-02 · una propuesta de la fábrica se reconoce por su anclaje en la fábrica, no por lo que diga su contexto.
+// Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): ya no hay estados del motor ni autorizar ni
+// ejecutar; lo que queda es la lista de propuestas de la fábrica (motor.propuestas), con su lectura de cerrado.
+test('A2-02: un registro que se dice «de la fábrica» escrito fuera de ella no es una propuesta', async () => {
   const { eje, compra } = await ejemploCompra();
   const falsa = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '7000000000', t: T,
@@ -21,24 +23,19 @@ test('A2-02: un registro con fase «consolidado» escrito fuera de la fábrica n
     payload: 'mañana',
     contexto: { motor: 'fabrica', fase: 'consolidado' },
   });
-  assert.equal(esConsolidacion(falsa), false);
-  assert.equal(estadoDe(eje, falsa.id), undefined);
-  await assert.rejects(autorizar(eje, { autorizante: 'casa', consolidacion: falsa.id, t: T }), /no es una consolidación/);
-  await assert.rejects(ejecutar(eje, { autor: 'huesped', consolidacion: falsa.id, t: T }), /no es una consolidación/);
-  assert.equal(consolidaciones(eje, compra.id).length, 0);
-  // La fase declarada a mano en la posición 4, pero sin motor 'fabrica', tampoco cuenta.
+  assert.equal(propuestas(eje, compra.id).length, 0);
+  // Anclado en la posición 4, pero sin motor 'fabrica', tampoco cuenta.
   const sinMotor = await eje.escribir({
     autor: 'huesped', sobre: compra.id, en: '4000000000', t: T,
     movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }],
     payload: 'x', contexto: { fase: 'consolidado' },
   });
-  assert.equal(estadoDe(eje, sinMotor.id), undefined);
-  assert.equal(consolidaciones(eje, compra.id).length, 0);
-  // La consolidación que escribe consolidar sí cuenta.
+  assert.equal(propuestas(eje, compra.id).length, 0);
+  void sinMotor;
+  // La propuesta que escribe consolidar sí cuenta; sin nada anunciado, su lectura es «cerrada».
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, titulo: 'Pago', elecciones: { 1: 'un menú', 4: 'pagar' } });
-  assert.equal(esConsolidacion(c), true);
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  assert.deepEqual(consolidaciones(eje, compra.id).map((x) => x.id), [c.id]);
+  assert.deepEqual(propuestas(eje, compra.id).map((x) => [x.id, x.cerrado]), [[c.id, true]]);
+  assert.equal(cerrado(eje, c.id).plantilla, 'all announced movements happened');
 });
 
 // A2-03 · descubrir da a cada candidato el estado de su camino exacto; la posición 0 es solo su etiqueta.

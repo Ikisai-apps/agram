@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
-import { consolidar, autorizar, ejecutar, liberar, FABRICA } from '../src/motor.js';
+import { consolidar, registrar, siguiente, FABRICA, ANUNCIO } from '../src/motor.js';
 import { ejeTemporal } from '../src/tiempo.js';
 import { efectosDe, verEn, render, SIN_NOMBRE } from '../src/efectos.js';
 import {
@@ -31,20 +31,30 @@ function efectoEnEje(eje, id) {
   return l.find((e) => e.tipo === 'fase' || e.tipo === 'ruido') ?? l.find((e) => e.tipo !== 'token' && e.ruta.length === 0);
 }
 
-/** El ciclo sobre la compra: cuenta, una proyección, una consolidación ejecutada, otra autorizada y otra pendiente. */
+/** Un movimiento anunciado en el 4.1 de una propuesta por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+
+// Encargo 3b (VG, 8-11; mapa §15 [D] «Una sola operación: registrar»; N6: «los mundos animan registros anclados y
+// movimientos; las fases las nombra el proceso»): no hay autorizar ni ejecutar. Una propuesta está en el futuro
+// mientras le falta algo de lo que su dueño anunció (motor.cerrado, N5); el registro que lo mueve la cierra y es el
+// ancla. Ya no hay autorización ni nudo: las pruebas que los miraban se reescriben sobre el anuncio y el cierre.
+
+/**
+ * El ciclo sobre la compra: cuenta, una proyección y tres propuestas de la huésped: una cerrada (anunció un pago y lo
+ * hizo: ese pago es el ancla), otra que espera a la casa y otra con un pago suyo anunciado y aún sin hacer.
+ */
 async function ciclo() {
   const { eje, compra, menu, alta } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
   const viernes = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-13T13:30:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
   const hecha = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
-  const aut = await autorizar(eje, { autorizante: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:25:00Z' });
-  const ejec = await ejecutar(eje, { autor: 'huesped', consolidacion: hecha.id, t: '2026-11-07T14:40:00Z', movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }] });
-  // Autorizar es bloquear P (VG, 7-11 noche): ejecutada, la casa libera el suyo y bloquea 6 de 10 para la siguiente.
-  await liberar(eje, { titular: 'casa', consolidacion: hecha.id, t: '2026-11-07T14:45:00Z' });
-  const autorizada = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
-  const aut2 = await autorizar(eje, { autorizante: 'casa', consolidacion: autorizada.id, cantidad: 6, t: '2026-11-07T14:55:00Z' });
+  const anunciado = await registrar(eje, { autor: 'huesped', sobre: hecha.id, en: ANUNCIO, t: '2026-11-07T14:25:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
+  const ejec = await registrar(eje, { ...siguiente(eje, hecha.id, 'huesped').faltaDeMi[0].transaccion, t: '2026-11-07T14:40:00Z' });
+  const espera = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:50:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+  const anuncioEspera = await registrar(eje, { autor: 'huesped', sobre: espera.id, en: ANUNCIO, t: '2026-11-07T14:55:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 1, 'devolver', 'casa', 'huesped') });
   const pendiente = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:58:00Z', elecciones: { 1: 'postre <y> "café"' }, titulo: 'Postre & café' });
-  return { eje, compra, menu, alta, cuenta, viernes, hecha, aut, ejec, autorizada, aut2, pendiente };
+  await registrar(eje, { autor: 'huesped', sobre: pendiente.id, en: ANUNCIO, t: '2026-11-07T14:59:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 3, 'pagar', 'huesped', 'cocina') });
+  return { eje, compra, menu, alta, cuenta, viernes, hecha, anunciado, ejec, espera, anuncioEspera, pendiente };
 }
 
 test('bandas: cada una 2/3 de la interior, suman la mitad, la distancia crece con el tiempo y «más» acaba en diez años', () => {
@@ -69,9 +79,9 @@ test('bandas: cada una 2/3 de la interior, suman la mitad, la distancia crece co
 });
 
 test('datos: el mismo eje temporal que el sobrio, con los efectos del catálogo y sin la regla del motor copiada', async () => {
-  const { eje, compra, menu, alta, cuenta, viernes, hecha, aut, ejec, autorizada, aut2, pendiente } = await ciclo();
-  // Una ejecución falsa (no la escribe el autor de la consolidación): es ruido, no ancla.
-  const falsa = await eje.escribir({ autor: 'casa', sobre: autorizada.id, en: FABRICA, t: '2026-11-07T14:56:00Z', movimientos: [gastaT('casa')], payload: ['Ejecutado', { ref: autorizada.id }, { ref: aut2.id }], contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [autorizada.id, aut2.id] } });
+  const { eje, compra, menu, alta, cuenta, viernes, hecha, anunciado, ejec, espera, anuncioEspera, pendiente } = await ciclo();
+  // Un «ejecutado» escrito a mano (la casa, sin mover lo que se le anunció): es ruido, ni cierra ni ancla (mapa §15 [D]).
+  const falsa = await eje.escribir({ autor: 'casa', sobre: espera.id, en: FABRICA, t: '2026-11-07T14:56:00Z', movimientos: [gastaT('casa')], payload: ['Ejecutado', { ref: espera.id }, { ref: anuncioEspera.id }], contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [espera.id, anuncioEspera.id] } });
   const d = datosHilos(eje, compra.id, { ahora: AHORA });
   const sobrio = ejeTemporal(eje, compra.id, { ahora: AHORA });
   assert.deepEqual(d.pasado.map((p) => p.id), sobrio.pasado.map((p) => p.id), 'el pasado del sobrio');
@@ -86,45 +96,53 @@ test('datos: el mismo eje temporal que el sobrio, con los efectos del catálogo 
   assert.equal(porId[pendiente.id].efecto.tipo, 'fase');
   assert.equal(porId[pendiente.id].fase, 'consolidado');
   assert.deepEqual(porId[cuenta.id].tokens.map((t) => t.serie), ['T:minuto']);
-  // Futuro: la pendiente, la autorizada (con su autorización) y la proyección; la ejecutada ya no.
+  // Futuro: las dos abiertas (motor.cerrado da false: les falta lo anunciado) y la proyección; la cerrada ya no.
   const cons = Object.fromEntries(d.futuro.filter((f) => f.tipo === 'consolidacion').map((f) => [f.id, f]));
-  assert.equal(cons[pendiente.id].estado, 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(cons[pendiente.id].autorizacion, undefined);
-  assert.equal(cons[autorizada.id].estado, 'AUTORIZADO', 'la ejecución falsa no la ejecuta');
-  assert.equal(cons[autorizada.id].autorizacion.id, aut2.id);
-  assert.equal(cons[autorizada.id].autorizacion.efecto.fase, 'autorizado');
+  assert.deepEqual(Object.keys(cons).sort(), [espera.id, pendiente.id].sort());
+  assert.equal(cons[pendiente.id].cerrado, false);
+  assert.equal(cons[espera.id].cerrado, false, 'el «ejecutado» a mano no la cierra');
+  assert.ok(!('estado' in cons[pendiente.id]) && !('autorizacion' in cons[pendiente.id]), 'sin estados del motor');
   assert.equal(d.futuro.find((f) => f.tipo === 'proyeccion').id, viernes.id);
   assert.ok(!(hecha.id in cons));
-  // La ejecución ancla, con la autorización que lleva en su evidencia; la falsa no ancla nada.
+  // El registro que cierra ancla (el pago que la huésped anunció); no hay autorización. El falso no ancla nada.
   assert.equal(d.anclas.length, 1);
   assert.equal(d.anclas[0].id, ejec.id);
   assert.equal(d.anclas[0].consolidacion, hecha.id);
-  assert.equal(d.anclas[0].autorizacion, aut.id);
-  assert.equal(d.anclas[0].efecto.fase, 'ejecutado');
+  assert.equal(d.anclas[0].autorizacion, null);
+  assert.deepEqual(d.anclas[0].efecto, efectoEnEje(eje, ejec.id), 'el efecto del registro que la cierra, del catálogo');
   assert.ok(!d.anclas.some((a) => a.id === falsa.id));
-  assert.equal(efectosDe(eje, falsa.id).at(-1).tipo, 'ruido');
-  // Antes de ejecutarse, la consolidación estaba autorizada a la derecha: eso es lo que se suelta.
+  // La fase que dice no cuenta (N6: las fases las nombra el proceso): el catálogo la lee como lo que es, un registro
+  // del motor en la fábrica de la propuesta, es decir, otra propuesta sobre ella (consolidado), no una ejecución.
+  assert.deepEqual(['tipo', 'fase'].map((k) => efectosDe(eje, falsa.id).at(-1)[k]), ['fase', 'consolidado']);
+  // Antes de cerrarse, la propuesta estaba abierta a la derecha: eso es lo que se suelta.
   assert.equal(d.anclas[0].antes.id, hecha.id);
-  assert.equal(d.anclas[0].antes.estado, 'AUTORIZADO');
-  assert.equal(d.anclas[0].antes.autorizacion.id, aut.id);
+  assert.equal(d.anclas[0].antes.cerrado, false);
   assert.deepEqual(d.anclas[0].tokens.map((t) => [t.serie, t.de, t.a]), [['T:minuto', 'huesped', null], ['E:casa/EUR', 'huesped', 'cocina']]);
-  assert.ok(d.orden[ejec.id] > d.orden[aut.id] && d.orden[aut.id] > d.orden[hecha.id]);
+  assert.ok(d.orden[ejec.id] > d.orden[hecha.id]);
+  // El anuncio no es del foco ni lo cierra: no se dibuja, así que no lleva orden (sí está en el eje, entre los dos).
+  assert.equal(d.orden[anunciado.id], undefined);
+  assert.ok(eje.orden.indexOf(ejec.id) > eje.orden.indexOf(anunciado.id) && eje.orden.indexOf(anunciado.id) > eje.orden.indexOf(hecha.id));
 });
 
-test('datos: la autorización de un ancla sale de la evidencia, se lea en el orden que se lea', async () => {
+// Antes: «la autorización de un ancla sale de la evidencia, se lea en el orden que se lea». Encargo 3b: no hay
+// autorización ni evidencia (mapa §15 [D] «Una sola operación: registrar»); lo que se comprueba ahora es qué ancla.
+test('datos: ancla el registro que cierra la propuesta; ni el anuncio ni un «ejecutado» a mano anclan', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: '2026-11-07T14:25:00Z' });
-  // Una ejecución válida para el motor con la evidencia al revés: [autorización, consolidación].
-  const x = await eje.escribir({ autor: 'huesped', sobre: c.id, en: FABRICA, t: '2026-11-07T14:40:00Z', movimientos: [gastaT('huesped')], payload: ['Ejecutado', { ref: a.id }, { ref: c.id }], contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [a.id, c.id] } });
-  const d = datosHilos(eje, compra.id, { ahora: AHORA });
-  assert.equal(d.anclas.length, 1);
-  assert.equal(d.anclas[0].id, x.id);
-  assert.equal(d.anclas[0].autorizacion, a.id);
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T14:25:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
+  // Una «ejecución» con la forma de antes, escrita por la propia autora, sin mover lo anunciado: no cierra.
+  await eje.escribir({ autor: 'huesped', sobre: c.id, en: FABRICA, t: '2026-11-07T14:30:00Z', movimientos: [gastaT('huesped')], payload: ['Ejecutado', { ref: c.id }], contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [c.id] } });
+  let d = datosHilos(eje, compra.id, { ahora: AHORA });
+  assert.equal(d.anclas.length, 0);
+  assert.deepEqual(d.futuro.filter((f) => f.tipo === 'consolidacion').map((f) => [f.id, f.cerrado]), [[c.id, false]]);
+  const x = await registrar(eje, { ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: '2026-11-07T14:40:00Z' });
+  d = datosHilos(eje, compra.id, { ahora: AHORA });
+  assert.deepEqual(d.anclas.map((a) => [a.id, a.consolidacion, a.autorizacion]), [[x.id, c.id, null]]);
+  assert.ok(!d.futuro.some((f) => f.id === c.id));
 });
 
 test('nombres: cada elemento lleva el nombre que le da el catálogo en el mundo donde se dibuja', async () => {
-  const { eje, compra, cuenta, viernes, hecha, aut, ejec, aut2, pendiente } = await ciclo();
+  const { eje, compra, cuenta, viernes, hecha, ejec, pendiente } = await ciclo();
   const d = datosHilos(eje, compra.id, { ahora: AHORA });
   const svg = svgHilos(d, { nuevos: new Set(eje.orden) });
   assert.ok(!/NaN|undefined|Infinity/.test(svg), 'sin números rotos');
@@ -160,9 +178,11 @@ test('nombres: cada elemento lleva el nombre que le da el catálogo en el mundo 
   assert.equal(atributo(de(pendiente.id, 'futuro'), 'data-efecto'), 'arco al futuro');
   assert.equal(atributo(de(pendiente.id, 'nodo'), 'data-efecto'), 'consolidar');
   assert.equal(atributo(de(pendiente.id, 'nodo'), 'data-nombre-de'), '4');
-  assert.equal(atributo(de(aut2.id, 'nudo'), 'data-efecto'), 'autorizar');
-  assert.equal(atributo(de(aut2.id, 'nudo'), 'data-nombre-de'), '4');
-  assert.equal(atributo(de(ejec.id, 'ancla'), 'data-efecto'), 'ancla');
+  // Encargo 3b: no hay nudo de autorización (mapa §15 [D]). El ancla es el registro que cierra (un pago, no una fase
+  // «ejecutado»): lleva el nombre que el pasado da a su efecto en el catálogo (N6: los mundos animan registros anclados).
+  assert.ok(!svg.includes('class="nudo'));
+  assert.equal(atributo(de(ejec.id, 'ancla'), 'data-efecto'), verEn(efectoEnEje(eje, ejec.id), PASADO).nombre);
+  assert.equal(atributo(de(ejec.id, 'ancla'), 'data-efecto'), 'entra por la izquierda');
   assert.equal(atributo(de(ejec.id, 'ancla'), 'data-mundo'), '6', 'el ancla cae en el pasado');
   assert.equal(atributo(de(ejec.id, 'suelta'), 'data-mundo'), '7', 'el arco se suelta en el futuro');
   const puntos = elementosDe(svg, ejec.id).filter((e) => e.includes('class="punto'));
@@ -173,14 +193,14 @@ test('nombres: cada elemento lleva el nombre que le da el catálogo en el mundo 
   assert.ok(svg.includes('12 E:casa/EUR'), 'el rótulo lleva la serie entera: emisor y denominación');
   // El texto de cada elemento es el render sobrio del mismo efecto.
   assert.ok(svg.includes(render([efectoEnEje(eje, hecha.id)], 'sobrio')));
-  assert.ok(svg.includes(render([efectoEnEje(eje, aut.id)], 'sobrio')));
+  assert.ok(svg.includes(render([efectoEnEje(eje, ejec.id)], 'sobrio')));
   assert.ok(svg.includes('Postre &amp; café') && !svg.includes('<y>'), 'los textos del dato se escapan');
 });
 
 test('animación: solo lo nuevo, y solo donde el catálogo lo nombra; una consolidación no se anima dos veces', async () => {
-  const { eje, compra, cuenta, viernes, pendiente, ejec, aut2, autorizada } = await ciclo();
+  const { eje, compra, cuenta, viernes, pendiente, ejec, anuncioEspera, espera } = await ciclo();
   const d = datosHilos(eje, compra.id, { ahora: AHORA });
-  const nuevos = new Set([cuenta.id, pendiente.id, ejec.id, aut2.id]);
+  const nuevos = new Set([cuenta.id, pendiente.id, ejec.id, anuncioEspera.id]);
   const svg = svgHilos(d, { nuevos });
   const animados = (id) => elementosDe(svg, id).filter((e) => / nuevo|class="nuevo/.test(atributo(e, 'class')) || atributo(e, 'class').startsWith('suelta nuevo'));
   // Un registro nuevo entra por la izquierda y traza su hilo.
@@ -189,23 +209,25 @@ test('animación: solo lo nuevo, y solo donde el catálogo lo nombra; una consol
   // Una consolidación nueva: un solo elemento animado, su arco al futuro; en el pasado está quieta.
   const cons = animados(pendiente.id).filter((e) => !e.includes('class="punto'));
   assert.equal(cons.length, 1, 'una consolidación, una animación');
-  assert.ok(cons[0].includes('futuro consolidacion pendiente nuevo proyecta'));
+  assert.ok(cons[0].includes('futuro consolidacion abierta nuevo proyecta'));
   assert.ok(elementosDe(svg, pendiente.id).some((e) => e.includes('class="nodo escrito fase-consolidado"')), 'quieta en el 6');
-  // Una autorización nueva: los hilos no la nombran; el nudo aparece quieto.
-  assert.ok(elementosDe(svg, aut2.id).some((e) => e.includes('class="nudo"')));
-  assert.ok(!svg.includes('anuda'));
-  assert.ok(elementosDe(svg, autorizada.id).some((e) => e.includes('futuro consolidacion autorizado') && !e.includes('nuevo')));
-  // Una ejecución nueva: se suelta el arco en el 7 y cae el ancla en el 6.
+  // Antes, una autorización nueva aparecía quieta como nudo. Encargo 3b (mapa §15 [D]; N6: las fases las nombra el
+  // proceso): no hay autorización. Un anuncio nuevo sobre una propuesta abierta no es un registro del foco: no se
+  // dibuja aquí ni mueve su propuesta, que sigue quieta.
+  assert.equal(elementosDe(svg, anuncioEspera.id).length, 0);
+  assert.ok(!svg.includes('anuda') && !svg.includes('class="nudo'));
+  assert.ok(elementosDe(svg, espera.id).some((e) => e.includes('futuro consolidacion abierta') && !e.includes('nuevo')));
+  // El registro nuevo que la cierra: se suelta el arco en el 7 y cae el ancla en el 6.
   assert.ok(elementosDe(svg, ejec.id).some((e) => e.includes('class="suelta nuevo"')));
   assert.ok(elementosDe(svg, ejec.id).some((e) => e.includes('ancla nuevo ancla-cae')));
   // Lo que no es nuevo no se mueve.
   assert.ok(!elementosDe(svg, viernes.id).some(animaAlgo));
   // Tokens: los de los eventos nuevos que se ven, y nada más.
   const puntos = conEfecto(svg).filter((e) => e.includes('class="punto'));
-  assert.deepEqual([...new Set(puntos.map((e) => atributo(e, 'data-evento')))].sort(), [cuenta.id, pendiente.id, ejec.id, aut2.id].sort());
+  assert.deepEqual([...new Set(puntos.map((e) => atributo(e, 'data-evento')))].sort(), [cuenta.id, pendiente.id, ejec.id].sort());
   // Los retardos siguen el orden de entrada en el eje.
   const retardo = (id) => Number(/--retardo:([\d.]+)s/.exec(elementosDe(svg, id).find((e) => e.includes('--retardo')))[1]);
-  assert.ok(retardo(cuenta.id) < retardo(ejec.id) && retardo(ejec.id) < retardo(aut2.id) && retardo(aut2.id) < retardo(pendiente.id));
+  assert.ok(retardo(cuenta.id) < retardo(ejec.id) && retardo(ejec.id) < retardo(pendiente.id));
   // En las celdas compactas no hay carteras ni puntos; el ancla cae en la del pasado y el arco se suelta en la del futuro.
   const c6 = svgHilos(d, { ventana: 'pasado', compacto: true, nuevos });
   const c7 = svgHilos(d, { ventana: 'futuro', compacto: true, nuevos });
@@ -217,35 +239,38 @@ test('animación: solo lo nuevo, y solo donde el catálogo lo nombra; una consol
   for (const s of [svg, c6, c7]) assert.ok(s.includes('role="img"') && !s.includes('data-ir') && !s.includes('tabindex'));
 });
 
-test('ejecutar: el arco que se suelta es el de la consolidación, en su carril y en su sitio', async () => {
-  // Dos ejes iguales hasta la autorización; en el segundo, además, se ejecuta.
+// Antes «ejecutar»: encargo 3b (mapa §15 [D] «Una sola operación: registrar»), lo que suelta el arco es el registro
+// que mueve lo anunciado y cierra la propuesta.
+test('cerrar: el arco que se suelta es el de la propuesta, en su carril y en su sitio', async () => {
+  // Dos ejes iguales hasta el anuncio; en el segundo, además, la huésped paga lo anunciado.
   const preparar = async () => {
     const { eje, compra } = await ejemploCompra();
-    // Una consolidación más antigua, que se queda pendiente, ocupa el primer carril del futuro.
-    await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:00:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+    // Una propuesta más antigua, que se queda abierta (anuncia un pago que no se hace), ocupa el primer carril del futuro.
+    const agua = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:00:00Z', elecciones: { 1: 'agua' }, titulo: 'Agua' });
+    await registrar(eje, { autor: 'huesped', sobre: agua.id, en: ANUNCIO, t: '2026-11-07T14:05:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 2, 'pagar', 'huesped', 'cocina') });
     const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: '2026-11-07T14:20:00Z', elecciones: { 1: 'dos menús' }, titulo: 'Pedir dos' });
-    await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: '2026-11-07T14:25:00Z' });
+    await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: '2026-11-07T14:25:00Z', movimientos: [gastaT('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
     await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-13T13:30:00Z', movimientos: [gastaT('huesped')], payload: 'repetir el viernes' });
     return { eje, compra, c };
   };
   const antes = await preparar();
   const despues = await preparar();
-  const x = await ejecutar(despues.eje, { autor: 'huesped', consolidacion: despues.c.id, t: '2026-11-07T14:40:00Z' });
-  /** El arco y el bloque de la consolidación c: [d, x, y]. */
+  const x = await registrar(despues.eje, { ...siguiente(despues.eje, despues.c.id, 'huesped').faltaDeMi[0].transaccion, t: '2026-11-07T14:40:00Z' });
+  /** El arco y el bloque de la propuesta c: [d, x, y]. */
   const dibujoDe = (svg, c) => {
-    const m = new RegExp(`<g class="futuro consolidacion autorizado" data-evento="${c}"[^>]*><title>[^<]*</title><path class="arco" pathLength="1" d="([^"]*)"/><rect class="bloque" x="([^"]*)" y="([^"]*)"`).exec(svg);
+    const m = new RegExp(`<g class="futuro consolidacion abierta" data-evento="${c}"[^>]*><title>[^<]*</title><path class="arco" pathLength="1" d="([^"]*)"/><rect class="bloque" x="([^"]*)" y="([^"]*)"`).exec(svg);
     return m && m.slice(1);
   };
   for (const v of [{ ventana: 'futuro', compacto: true }, { ventana: 'todo' }]) {
     const g = geometria(Boolean(v.compacto));
     const arco = dibujoDe(svgHilos(datosHilos(antes.eje, antes.compra.id, { ahora: AHORA }), v), antes.c.id);
-    assert.ok(arco, 'antes de ejecutar, el arco está');
+    assert.ok(arco, 'antes de cerrarla, el arco está');
     assert.notEqual(Number(arco[2]) + g.bloque[1] / 2 - g.eje, g.carrilesFuturo[0], 'la prueba exige que no esté en el primer carril');
     const svg = svgHilos(datosHilos(despues.eje, despues.compra.id, { ahora: AHORA }), { ...v, nuevos: new Set([x.id]) });
     const suelta = new RegExp(`<g class="suelta nuevo" data-evento="${x.id}"[^>]*data-consolidacion="${despues.c.id}"[^>]*>`).exec(svg);
-    assert.ok(suelta, 'se suelta el arco de la consolidación ejecutada');
+    assert.ok(suelta, 'se suelta el arco de la propuesta cerrada');
     assert.deepEqual(dibujoDe(svg.slice(suelta.index), despues.c.id), arco, 'el mismo arco y el mismo bloque, en el mismo carril');
-    // Sin la ejecución entre los nuevos, no se suelta nada: ya estaba anclado.
+    // Sin el registro que la cierra entre los nuevos, no se suelta nada: ya estaba anclado.
     assert.ok(!svgHilos(datosHilos(despues.eje, despues.compra.id, { ahora: AHORA }), v).includes('class="suelta'));
   }
 });

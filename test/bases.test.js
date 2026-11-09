@@ -246,13 +246,18 @@ test('las seis bases: cada 8 funde las bases de sus hijos; la frescura baja por 
   const general = leerBase(eje, eje.genesisId);
   assert.equal(general.id, bases.general.id);
   assert.equal(general.autor, 'casa');
-  assert.deepEqual([general.hijos.n, general.subarbol.n], [4, 16]);
+  // Encargo 3b: del génesis cuelgan la emisión inicial de la casa, sus dos invitaciones y los dos proyectos (cinco
+  // hijos). Las altas de las dos personas (B1) cuelgan de sus invitaciones (mapa §16 [D]), que no tienen base: lo que
+  // cuelga de un hijo sin base no cuenta en el subárbol y se dice (sinBase).
+  assert.deepEqual([general.hijos.n, general.subarbol.n, general.sinBase], [5, 17, 2]);
   assert.deepEqual(general.refsBases, [bases.proyectos.comedor.id, bases.proyectos.mercado.id]);
   assert.deepEqual([leerBase(eje, ej.comedor.id).subarbol.n, leerBase(eje, ej.mercado.id).subarbol.n], [9, 4]);
-  // Lo mismo que medir uno a uno los dieciséis registros (las dos personas escriben su alta, B1), sin releer ninguno al fundir.
+  // Lo mismo que medir uno a uno los diecisiete registros que ve (los diecinueve del eje menos las dos altas que cuelgan
+  // de las invitaciones), sin releer ninguno al fundir.
   const todos = eje.orden.filter((id) => !esBase(eje, eje.obtener(id)));
-  assert.equal(todos.length, 16);
-  iguales(general.subarbol, medidaA(eje, todos));
+  assert.equal(todos.length, 19);
+  const altas = new Set(['huesped', 'vecina'].map((id) => eje.alta(id).id));
+  iguales(general.subarbol, medidaA(eje, todos.filter((id) => !altas.has(id))));
   assert.deepEqual([general.subarbol.medidas.formulasPendientes.suma, general.subarbol.medidas.formulasResueltas.suma], [1, 2]);
   assert.ok(general.frescura.sinNovedades);
   assert.ok(comprobar(eje, general).alDia);
@@ -278,10 +283,14 @@ test('situar lee el 8 (la verdad escrita); sin base escrita lo dice y, con respa
   const respaldo = situar(eje, ej.guisos.id, { respaldo: true });
   assert.deepEqual([respaldo.estado, respaldo.escrita, respaldo.respaldo, respaldo.frescura, respaldo.n], ['RESUELTO', false, true, SIN_BASE_ESCRITA, 4]);
   assert.deepEqual(respaldo, confluir(eje, ej.guisos.id));
+  // Encargo 3b: las altas de las personas cuelgan de las invitaciones de la casa (mapa §16 [D]). Para que la base del
+  // génesis vea todo el eje, la casa escribe antes la base de cada invitación (por poder: las escribió ella, tiene diez P
+  // sobre cada una); si no, lo que cuelga de ellas no cuenta (sinBase) y lo escrito no sería lo calculado al vuelo.
+  for (const id of ['huesped', 'vecina']) await escribirBase(eje, { registro: eje.obtener(eje.alta(id).id).sobre, autor: 'casa', privada: claves.casa.privada, t: T_BASES });
   await escribirBasesDelEjemplo(ej);
   const esperado = {
-    guisos: { hermanos: [ej.menu.id, 'hijos', 4], proyecto: [ej.comedor.id, 'subarbol', 9], general: [eje.genesisId, 'subarbol', 16] },
-    menu: { hermanos: [ej.comedor.id, 'hijos', 2], proyecto: [ej.comedor.id, 'subarbol', 9], general: [eje.genesisId, 'subarbol', 16] },
+    guisos: { hermanos: [ej.menu.id, 'hijos', 4], proyecto: [ej.comedor.id, 'subarbol', 9], general: [eje.genesisId, 'subarbol', 19] },
+    menu: { hermanos: [ej.comedor.id, 'hijos', 2], proyecto: [ej.comedor.id, 'subarbol', 9], general: [eje.genesisId, 'subarbol', 19] },
   };
   const delBloque = (x) => [x.n, x.suma, x.minimo, x.maximo, x.cortes, x.cajas, x.foco, x.caja];
   for (const [nombre, foco] of [['guisos', ej.guisos.id], ['menu', ej.menu.id]]) {
@@ -323,7 +332,7 @@ test('situar lee el 8 (la verdad escrita); sin base escrita lo dice y, con respa
   // Un proyecto y el génesis se sitúan en su propio subárbol; el génesis no tiene hermanos.
   assert.deepEqual([proyectoDe(eje, ej.guisos.id).id, proyectoDe(eje, ej.comedor.id).id], [ej.comedor.id, ej.comedor.id]);
   assert.equal(situar(eje, ej.comedor.id, { alcance: 'proyecto' }).incluido, true);
-  assert.equal(situar(eje, eje.genesisId, { alcance: 'general' }).n, 16);
+  assert.equal(situar(eje, eje.genesisId, { alcance: 'general' }).n, 19);
   assert.match(situar(eje, eje.genesisId).motivo, /sin cohorte/);
   assert.match(situar(eje, eje.genesisId, { respaldo: true }).motivo, /sin cohorte/);
   assert.throws(() => situar(eje, ej.guisos.id, { alcance: 'linaje' }), /alcance desconocido/);
@@ -339,7 +348,9 @@ test('la base del padre leída del 8 coincide con el fundido recalculado al vuel
   const ej = await nuevo();
   const { eje } = ej;
   await escribirBasesDelEjemplo(ej);
-  const subarbol = (id) => [id, ...hijos(eje, id).flatMap((h) => subarbol(h.id))];
+  // El subárbol que funde una base: lo que cuelga de un hijo sin base no cuenta (calcularBase); encargo 3b: así quedan
+  // fuera las altas que cuelgan de las invitaciones de la casa.
+  const subarbol = (id) => [id, ...hijos(eje, id).flatMap((h) => (leerBase(eje, h.id) ? subarbol(h.id) : [h.id]))];
   const conBase = eje.orden.filter((id) => leerBase(eje, id));
   assert.equal(conBase.length, 6);
   for (const id of conBase) {
@@ -350,9 +361,9 @@ test('la base del padre leída del 8 coincide con el fundido recalculado al vuel
   // Algo que la base no ve: una nota sobre una compra (sin base propia). Lo escrito no cambia; al vuelo, sí.
   await eje.escribir({ autor: 'casa', sobre: ej.compra.id, t: '2026-11-07T18:40:00Z', movimientos: [minuto('casa')], payload: 'Nota' }, claves.casa.privada);
   const general = leerBase(eje, eje.genesisId);
-  assert.equal(general.subarbol.n, 16);
-  assert.equal(confluir(eje, ej.guisos.id, { alcance: 'general' }).n, 17);
-  assert.equal(situar(eje, ej.guisos.id, { alcance: 'general' }).n, 16); // la verdad es la escrita
+  assert.equal(general.subarbol.n, 17);
+  assert.equal(confluir(eje, ej.guisos.id, { alcance: 'general' }).n, 20); // al vuelo: los diecinueve del eje y la nota
+  assert.equal(situar(eje, ej.guisos.id, { alcance: 'general' }).n, 17); // la verdad es la escrita
   assert.equal(comprobar(eje, leerBase(eje, ej.menu.id)).alDia, false); // y comprobar dice que hay que reescribirla
 });
 
@@ -360,7 +371,7 @@ test('fundir es asociativo y conmutativo sobre medidas, con la estadística vac�
   const ej = await nuevo();
   const { eje } = ej;
   const u = eje.orden.map((id) => unitaria(medir(eje, id)));
-  assert.equal(u.length, 16);
+  assert.equal(u.length, 19); // encargo 3b: con la emisión inicial, las dos invitaciones y las dos aceptaciones
   for (let i = 0; i < u.length; i++) {
     assert.equal(canonico(fundir(estadisticaVacia(), u[i])), canonico(u[i]));
     for (let j = 0; j < u.length; j++) {
@@ -386,12 +397,17 @@ test('fundir es asociativo y conmutativo sobre medidas, con la estadística vac�
 test('la escribe la propia cosa o quien tiene P sobre el registro; nadie sin P escribe la base de otro', async () => {
   const ej = await nuevo();
   const { eje } = ej;
-  // La casa tiene P sobre todo el eje: escribe la base del menú (que tiene su cosa) y la de unos guisos (que no la tienen).
-  assert.deepEqual(puedeEscribirBase(eje, 'casa', ej.menu.id), { puede: true, por: 'poder', motivo: '' });
+  // Encargo 3b (mapa §15 [D] «P como peso de criterio»): ya no hay P sobre todo el eje; cuenta el P posicionado en el
+  // registro. La casa escribió el comedor (tiene diez P sobre él): escribe su base, aunque el comedor tenga su cosa.
+  assert.deepEqual(puedeEscribirBase(eje, 'casa', ej.comedor.id), { puede: true, por: 'poder', motivo: '' });
+  assert.equal(puedeEscribirBase(eje, 'comedor', ej.comedor.id).por, 'identidad');
+  assert.match(puedeEscribirBase(eje, 'casa', ej.menu.id).motivo, /nadie sin P sobre/); // el menú lo escribió la cocina
   assert.equal(puedeEscribirBase(eje, 'menu-dia', ej.menu.id).por, 'identidad');
-  const deLaCasa = await escribirBase(eje, { registro: ej.menu.id, autor: 'casa', privada: claves.casa.privada, t: T_BASES });
-  assert.deepEqual([leerBase(eje, ej.menu.id).id, leerBase(eje, ej.menu.id).por, leerBase(eje, ej.menu.id).autor], [deLaCasa.id, 'poder', 'casa']);
-  await eje.escribir({ autor: 'casa', sobre: ej.guisos.id, t: T_BASES, movimientos: [minuto('casa')], payload: 'Nota' }, claves.casa.privada);
+  const deLaCasa = await escribirBase(eje, { registro: ej.comedor.id, autor: 'casa', privada: claves.casa.privada, t: T_BASES });
+  assert.deepEqual([leerBase(eje, ej.comedor.id).id, leerBase(eje, ej.comedor.id).por, leerBase(eje, ej.comedor.id).autor], [deLaCasa.id, 'poder', 'casa']);
+  // Los guisos no tienen cosa: los escribe la vecina (diez P sobre ellos), que da uno a la casa; con él, la casa escribe su base.
+  await assert.rejects(escribirBase(eje, { registro: ej.guisos.id, autor: 'casa', privada: claves.casa.privada, t: T_BASES }), /nadie sin P sobre/);
+  await eje.escribir({ autor: 'vecina', sobre: ej.guisos.id, t: T_BASES, movimientos: [minuto('vecina'), { token: 'P', cantidad: 1, ambito: ej.guisos.id, de: 'vecina', a: 'casa' }], payload: 'Poder sobre los guisos' });
   await assert.rejects(escribirBase(eje, { registro: ej.guisos.id, privada: claves.casa.privada, t: T_BASES }), /propia cosa o quien tiene P/);
   await escribirBase(eje, { registro: ej.guisos.id, autor: 'casa', privada: claves.casa.privada, t: T_BASES });
   assert.equal(leerBase(eje, ej.guisos.id).por, 'poder');
@@ -402,15 +418,17 @@ test('la escribe la propia cosa o quien tiene P sobre el registro; nadie sin P e
   const contexto = { bases: true, n: 4, nSubarbol: 5, hasta: ej.cafe.id, epoca: 'época 0', sinBase: 0 };
   const aMano = await eje.escribir({ autor: 'mercado', sobre: ej.menu.id, en: CIELO, t: T_BASES, movimientos: [minuto('mercado')], payload: payloadDeBase(calcularBase(eje, ej.menu.id)), contexto }, claves.mercado.privada);
   assert.equal(esBase(eje, aMano), false);
-  // El poder cuenta al escribir: el mercado recibe P sobre el menú, escribe su base y devuelve el poder; la base sigue valiendo.
-  await eje.escribir({ autor: 'casa', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('casa'), { token: 'P', cantidad: 1, ambito: ej.menu.id, de: 'casa', a: 'mercado' }], payload: 'Poder sobre el menú' }, claves.casa.privada);
+  // El poder cuenta al escribir: el mercado recibe P sobre el menú de la cocina (que lo escribió), escribe su base y
+  // devuelve el poder; la base sigue valiendo.
+  await eje.escribir({ autor: 'cocina', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('cocina'), { token: 'P', cantidad: 1, ambito: ej.menu.id, de: 'cocina', a: 'mercado' }], payload: 'Poder sobre el menú' });
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.menu.id).por, 'poder');
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.puesto.id).puede, false); // el ámbito es el menú, no el puesto
   const deCocina = await escribirBase(eje, { registro: ej.menu.id, autor: 'mercado', privada: claves.mercado.privada, t: T_BASES });
-  await eje.escribir({ autor: 'mercado', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('mercado'), { token: 'P', cantidad: 1, ambito: ej.menu.id, de: 'mercado', a: 'casa' }], payload: 'Devuelvo el poder' }, claves.mercado.privada);
+  await eje.escribir({ autor: 'mercado', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('mercado'), { token: 'P', cantidad: 1, ambito: ej.menu.id, de: 'mercado', a: 'cocina' }], payload: 'Devuelvo el poder' }, claves.mercado.privada);
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.menu.id).puede, false);
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje)))); // releído desde cero, ya sin el poder del mercado
-  assert.deepEqual(basesEn(otro, ej.menu.id).map((b) => [b.id, b.por]), [[deLaCasa.id, 'poder'], [deCocina.id, 'poder']]);
+  assert.deepEqual(basesEn(otro, ej.menu.id).map((b) => [b.id, b.por]), [[deCocina.id, 'poder']]);
+  assert.deepEqual(basesEn(otro, ej.comedor.id).map((b) => [b.id, b.por]), [[deLaCasa.id, 'poder']]);
   assert.equal(esBase(otro, aMano), false); // la de antes de tener poder sigue sin contar
 });
 
@@ -463,7 +481,7 @@ test('BASES() en BQL: n, la caja del anfitrión y los datos de la base, con su d
   assert.equal(q(ej.menu.id, 'BASES()').estado, 'PENDIENTE');
   const bases = await escribirBasesDelEjemplo(ej);
   assert.equal(q(ej.menu.id, 'BASES()').texto, '4');
-  assert.deepEqual(ALCANCES.map((a) => q(ej.guisos.id, 'BASES("' + a + '")').texto), ['4', '9', '16']);
+  assert.deepEqual(ALCANCES.map((a) => q(ej.guisos.id, 'BASES("' + a + '")').texto), ['4', '9', '17']);
   const s = situar(eje, ej.guisos.id, { alcance: 'proyecto' });
   const r = q(ej.guisos.id, 'BASES("proyecto", "T:hora")');
   assert.equal(r.valor.valor, s.tokens["T:hora"].caja);

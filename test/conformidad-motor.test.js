@@ -30,9 +30,9 @@ import { ocupantes, seguir, caminosDe, vector, signo, ordenarPorEncaje, arbol } 
 import { evaluar, consultar, analizar } from '../src/bql.js';
 import * as motor from '../src/motor.js';
 import {
-  descubrir, proponer, consolidar, autorizar, ejecutar, estadoDe, consolidaciones, puedeAutorizar,
-  autorizacionesValidas, FABRICA, OPERADORES,
+  descubrir, proponer, consolidar, registrar, cerrado, siguiente, recuento, propuestas, FABRICA, ANUNCIO, OPERADORES,
 } from '../src/motor.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { escribirDesde, desdePointed, desdeSequenced, desdeMapped, costeT, proporcionDeRegistro } from '../src/escritura.js';
 import { contarPosiciones, escritura, lectura, cabeEscritura, proporcionDe, MODOS } from '../src/modos.js';
 import { EPOCA_0, PV, leerDireccion } from '../src/epocas.js';
@@ -54,21 +54,21 @@ const ALTA = '2026-10-08T10:00:00Z';
 // El génesis emite también su tiempo como E (E:<génesis>/minuto): T no cruza de persona (VG, 7-11 noche), y el
 // tiempo que se cede a otro es E de la serie del que lo da, denominada en su tiempo. Cada uno escribe con su
 // propio T, que se acuña al gastarse.
-const EMISION = [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }];
+// Encargo 3b (VG, 8-11, mapa §15 [D]): P no se acuña en el génesis (se obtiene al escribir), y quien emite E necesita
+// R propia emitida: la emisión lleva su R.
+const EMISION = [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }];
 const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
 /** Ceder minutos a otra identidad: E de la serie de tiempo de `emisor` (por defecto, la de quien los da). */
 const daT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
 const daE = (de, a, cantidad, denominacion = 'EUR', emisor = 'raiz') => ({ token: 'E', emisor, denominacion, cantidad, de, a });
 const ID_INEXISTENTE = 'f'.repeat(64);
-/** P delegado (por defecto, sobre todo el eje): quien emite E necesita P sobre el registro. */
-const daP = (de, a, cantidad = 1, ambito = 'genesis') => ({ token: 'P', ambito, cantidad, de, a });
+/** P dado dentro de su ámbito, que es un registro (mapa §15 [D]: «P moves within a known scope»). */
+const daP = (de, a, cantidad, ambito) => ({ token: 'P', ambito, cantidad, de, a });
 /**
- * VG, 7-11 noche: emitir P o E exige R propia en juego. Con R6 (src/lente.js)
- * es el colateral: la persona emite dos R suyos, bloquea medio con la salida =
- * su serie y pone uno en manos de otra (por defecto, la raíz).
+ * Emitir E exige R propia emitida (VG, 8-11, mapa §15 [D]: sin colateral; «minting E needs own R issued»). La persona
+ * se emite R suya; la R es transferible, así que puede dar una (por defecto, a la raíz).
  */
-const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantidad: 2, de: null, a: persona },
-  { token: 'R', emisor: persona, cantidad: 0.5, de: persona, a: persona, estado: 'bloqueo', salida: 'R:' + persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
+const rEnJuego = (persona, a = 'raiz') => [{ token: 'R', emisor: persona, cantidad: 2, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
 
 /**
  * El mundo del motor: la raíz (génesis, con poder sobre todo el eje, euros y
@@ -82,13 +82,13 @@ async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina',
     demostracion: true,
     identidad: 'raiz',
     // da T a sus cosas (Core, 8-11); a las personas, nunca: T no cruza de persona
-    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
+    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }],
     foco,
     t: ALTA,
   });
   const g = eje.genesisId;
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, sobre: g, t: ALTA });
+  // Las personas entran por invitación de la raíz (encargo 3b, VG, 9-11, mapa §15 [D]).
+  for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: ALTA });
   await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 300), daT('raiz', 'bea', 120), daE('raiz', 'ana', 50)], payload: 'altas de ana y bea' });
   return { eje, g };
 }
@@ -97,12 +97,22 @@ async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina',
 const escribe = (eje, sobre, payload, en, autor = 'raiz', t = T0) =>
   eje.escribir({ autor, sobre, en, t, movimientos: [gastaT(autor)], payload });
 
-/** Una consolidación de ana sobre el foco, ya autorizada por la raíz. */
-async function autorizada(eje, foco, elecciones = { 1: 'dos yogures' }) {
+/** El anuncio de un movimiento en el 4.1 de X: [[serie], [cantidad], [qué], [[de], [a]]] (un registro por movimiento). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
+
+/**
+ * Una propuesta de ana sobre el foco con un pago anunciado (por defecto, 5 EUR de ana a la raíz). Sustituye a la
+ * consolidación autorizada: se retira el guion consolidar → autorizar → ejecutar y nadie autoriza lo ajeno, porque
+ * cada uno solo mueve lo suyo (encargo 3b; VG, 8-11, mapa §15 [D] «Una sola operación: registrar»).
+ */
+async function anunciada(eje, foco, elecciones = { 1: 'dos yogures' }, cantidad = 5) {
   const c = await consolidar(eje, { autor: 'ana', foco, t: T0, elecciones });
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  const a = await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', cantidad, 'pagar', 'ana', 'raiz') });
   return { c, a };
 }
+
+/** Hacer lo que a X le falta de `yo`: la primera transacción que propone siguiente(), con su t (y su anclaje, si se da). */
+const cumplir = (eje, X, yo, extra = {}) => registrar(eje, { ...siguiente(eje, X, yo).faltaDeMi[0].transaccion, t: T0, ...extra });
 
 /** Huella del eje (registros y saldos) para comprobar que algo no tiene efectos. */
 const huella = (eje) => JSON.stringify([eje.orden, [...eje.saldos].map(([k, v]) => [k, [...v]])]);
@@ -137,7 +147,7 @@ function importsDeSrc() {
 /** Nombres que exporta el núcleo, también dentro de sus módulos con espacio de nombres. */
 const nombresExportados = () => Object.entries(agram).flatMap(([k, v]) => (Object.prototype.toString.call(v) === '[object Module]' ? [k, ...Object.keys(v)] : [k]));
 
-/** La casa como génesis: una plaza (un token por plaza y noche), una habitación con una cama, recepción con poder y dos huéspedes. */
+/** La casa como génesis: una plaza (un token por plaza y noche), una habitación con una cama y dos huéspedes, que entran por invitación. */
 async function casaConUnaPlaza() {
   const eje = await Eje.genesis({
     demostracion: true,
@@ -147,50 +157,41 @@ async function casaConUnaPlaza() {
     t: ALTA,
   });
   const hab = eje.genesisId;
-  // Altas un mes antes: recepción y los huéspedes son personas y escriben con su propio T (se acuña al gastarlo
-  // dentro del tope de su reloj; T no cruza de persona, VG 7-11 noche).
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  for (const id of ['recepcion', 'h1', 'h2']) await eje.entrar({ identidad: id, sobre: hab, t: ALTA });
-  await eje.escribir({ autor: 'casa', sobre: hab, t: ALTA, movimientos: [gastaT('casa'), daT('casa', 'recepcion', 60), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'recepcion' }, daT('casa', 'h1', 60), daT('casa', 'h2', 60)], payload: 'altas' });
+  // Altas un mes antes: los huéspedes son personas, entran por invitación de la casa y escriben con su propio T.
+  for (const id of ['h1', 'h2']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: ALTA });
   return { eje, hab };
 }
 
 /**
  * La reserva de un huésped en la plaza 1 de la habitación: el huésped la pide en la plaza (los pedidos colisionan
- * ahí) y deja a recepción confirmar por él (acuña P sobre su pedido, con su R en juego, y se lo delega); la casa
- * consolida sobre el pedido y recepción la autoriza bloqueando ese P. Aquí la habitación es el génesis, así que
- * el pedido cuelga directamente de él: es la raíz de su propio dominio y el registro del recurso de lo que se
- * consolide sobre él (VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso; la raíz del dominio,
- * [X] confirmar VG, src/autorizacion.js). Con su P:pedido (1 de 1), recepción pasa de la mitad.
+ * ahí), la casa consolida sobre el pedido y anuncia que moverá la plaza al huésped. Se retira la autorización con el
+ * P de recepción (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): la plaza es de la casa y solo la casa la mueve.
  */
 async function reservaDeLaCasa(eje, hab, huesped) {
   const pedido = await eje.escribir({ autor: huesped, sobre: hab, en: direccion([1, 4]), t: T0, movimientos: [gastaT(huesped)], payload: 'reserva de ' + huesped + ', noche del 7-11' });
-  await eje.escribir({ autor: huesped, sobre: pedido.id, t: T0, payload: 'recepción confirma por mí',
-    movimientos: [gastaT(huesped), ...rEnJuego(huesped, 'recepcion'), { token: 'P', ambito: pedido.id, cantidad: 1, de: null, a: huesped }, daP(huesped, 'recepcion', 1, pedido.id)] });
   const c = await consolidar(eje, { autor: 'casa', foco: pedido.id, camino: [1], t: T0, elecciones: { 1: 'plaza para ' + huesped + ', noche del 7-11' } });
-  await autorizar(eje, { autorizante: 'recepcion', consolidacion: c.id, t: T0 });
+  await registrar(eje, { autor: 'casa', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('casa')], payload: anuncio('E:casa/plaza-7-11', 1, 'dar la plaza', 'casa', huesped) });
   return { c, pedido };
 }
 
 /**
- * El huésped reserva y la casa (que no es el génesis) respalda la plaza con su
- * propia serie (E:casa/plaza). VG, 7-11 noche: la casa que emite es una
- * persona (antes, un grupo), con P delegado y su R en juego.
+ * El huésped reserva y la casa (que no es el génesis) respalda la plaza con su propia serie (E:casa/plaza). El
+ * huésped anuncia en su propuesta que la plaza pasa de la casa a él, y la casa, a quien siguiente() le dice lo que le
+ * falta, la mueve (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»: nadie autoriza lo ajeno; cada parte escribe su propio movimiento). Devuelve también
+ * `antes`: la lectura de cerrado antes de que la casa la mueva.
  */
 async function reservaDelHuesped() {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'Mundo', t: T0 });
   const g = eje.genesisId;
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  for (const id of ['casa', 'huesped']) await eje.entrar({ identidad: id, sobre: g, t: T0 });
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 120), daT('raiz', 'huesped', 120), daP('raiz', 'casa')], payload: 'altas' });
-  // La casa emite su serie limitada: un token por plaza y noche.
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
+  for (const id of ['casa', 'huesped']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
+  // La casa emite su serie limitada: un token por plaza y noche (con R suya emitida, sobre su alta, donde tiene P).
+  await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
   const hab = await escribe(eje, g, ['Habitación 1', 'cama A'], undefined, 'casa');
   const c = await consolidar(eje, { autor: 'huesped', foco: hab.id, camino: [1], t: T0, elecciones: { 1: 'reserva noche del 7-11' } });
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  // Ejecutar la reserva en la fábrica mueve la plaza de la casa al huésped.
-  await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T0, movimientos: [daE('casa', 'huesped', 1, 'plaza', 'casa')] });
-  return { eje, c };
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('huesped')], payload: anuncio('E:casa/plaza', 1, 'dar la plaza', 'casa', 'huesped') });
+  const antes = cerrado(eje, c.id).cerrado;
+  await cumplir(eje, c.id, 'casa');
+  return { eje, c, antes };
 }
 
 // =====================================================================
@@ -311,7 +312,7 @@ test('MOT-07b CALCULAR opera estructuras y matrices tipadas, con versiones de im
   { skip: 'MOT-07: no hay matrices tipadas ni versiones de implementación en BQL. Terreno de src/bql.js (otro agente): no se toca aquí' },
   sinForma('MOT-07'));
 
-test('MOT-08 COMPONER construye una propuesta sin escribir, mantiene referencias y solo mueve recursos al ejecutar lo autorizado', async () => {
+test('MOT-08 COMPONER construye una propuesta sin escribir, mantiene referencias y solo mueve recursos el registro que los mueve', async () => {
   const { eje, g } = await mundo();
   const antes = huella(eje);
   const p = proponer(eje, g);
@@ -320,19 +321,23 @@ test('MOT-08 COMPONER construye una propuesta sin escribir, mantiene referencias
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: p.elecciones });
   assert.deepEqual(c.payload[1], { ref: g, dir: '1000000000' });
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): ni autorizar ni ejecutar. Anunciar no mueve; el pago es el registro de ana que lo mueve.
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 5, 'pagar', 'ana', 'raiz') });
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 5)] });
+  await cumplir(eje, c.id, 'ana');
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 45);
 });
 
-test('MOT-08b COMPONER solo emite el cambio que se consolidó y autorizó',
-  { skip: 'MOT-08: ejecutar() acepta cualquier movimiento del autor aunque la consolidación no lo nombre, y consolidar() escribe su registro sin autorización. [X] decidir VG si «emitir un cambio» incluye el propio registro de la consolidación. Terreno de la capacidad al ejecutar (ejecutar en src/motor.js, otro agente): no se toca aquí' },
-  async () => {
-    const { eje, g } = await mundo();
-    const { c } = await autorizada(eje, g, { 1: 'pagar 5 EUR a raiz' });
-    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'bea', 5)] }));
-  });
+test('MOT-08b COMPONER solo da por hecho el cambio que se anunció: otro movimiento no lo cierra', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retira ejecutar, así que nada impide a ana mover lo suyo como quiera; pero la lectura de
+  // cerrado (por defecto, «all announced movements happened») solo da por hecho lo anunciado.
+  const { eje, g } = await mundo();
+  const { c } = await anunciada(eje, g, { 1: 'pagar 5 EUR a raiz' });
+  await registrar(eje, { autor: 'ana', sobre: c.id, t: T0, movimientos: [gastaT('ana'), daE('ana', 'bea', 5)], payload: 'pago a otra' });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  await cumplir(eje, c.id, 'ana');
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+});
 
 // =====================================================================
 // Motor · entradas y salidas
@@ -417,32 +422,34 @@ test('MOT-13c en PV4 se muestran las diferencias y qué se reemplaza antes de co
 // Motor · ciclo
 // =====================================================================
 
-test('MOT-14 el ciclo: descubrir → elegir o crear → consolidar en PV4 → ejecutar con autorización → registrar evidencia', async () => {
+test('MOT-14 el ciclo: descubrir → elegir o crear → consolidar en PV4 → anunciar → registrar lo anunciado → cerrado', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): el ciclo es la cadena de registros anclados hasta que se cierra; se retiran autorizar y
+  // ejecutar, y la evidencia es la propia cadena.
   const { eje, g } = await mundo();
   const d = descubrir(eje, g);
   assert.deepEqual(d.map((x) => x.posicion), [1, 2, 3, 4]);
   const elecciones = { 1: { candidato: d[0].candidatos[0] }, 2: 'sin azúcar' }; // elegir y crear
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones, titulo: 'Compra del yogur' });
   assert.equal(c.en, FABRICA);
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 3)] });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
+  assert.equal(cerrado(eje, c.id).cerrado, true); // nada anunciado: nada falta
+  const a = await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 3, 'pagar', 'ana', 'raiz') });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  const e = await cumplir(eje, c.id, 'ana');
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  assert.equal(a.sobre, c.id);
+  assert.deepEqual(eje.hilo(e.id).slice(0, 2).map((x) => x.id), [e.id, c.id]);
 });
 
-test('MOT-15 las etapas van en orden: solo se autoriza una consolidación, solo se ejecuta lo autorizado y no dos veces', async () => {
+test('MOT-15 el orden lo da la cadena: lo anunciado se mueve una vez y, hecho, ya no falta nada', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retiran los estados del núcleo (solo se autoriza una consolidación, solo se ejecuta lo
+  // autorizado y no dos veces); lo que queda es la lectura de lo que falta, siguiente().
   const { eje, g } = await mundo();
   const nota = await escribe(eje, g, 'una nota cualquiera');
-  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
-  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 }), /ya está autorizado/);
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /ya ejecutado/);
+  assert.deepEqual(siguiente(eje, nota.id, 'raiz').faltaDeMi, []); // un registro sin anuncios no pide nada
+  const { c } = await anunciada(eje, g, { 1: 'x' });
+  assert.equal(siguiente(eje, c.id, 'ana').faltaDeMi.length, 1);
+  await cumplir(eje, c.id, 'ana');
+  assert.deepEqual(siguiente(eje, c.id, 'ana'), { cerrado: true, faltaDeMi: [], espera: [] });
 });
 
 test('MOT-16 descubrir conserva las alternativas que ocupan la misma posición con distinto id', async () => {
@@ -492,11 +499,14 @@ test('MOT-18b consolidar registra también la época, las reglas y los criterios
 
 test('MOT-19 consolidar no es ejecutar: elegir un yogur no lo compra; no mueve recursos', async () => {
   const { eje, g } = await mundo();
-  const antes = [eje.saldo('ana', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/EUR'), eje.poderes('ana'), eje.reputaciones('ana')];
+  const antes = [eje.saldo('ana', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/EUR'), eje.reputaciones('ana')];
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'comprar el yogur', 4: 'pagar 2 EUR' } });
-  assert.deepEqual([eje.saldo('ana', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/EUR'), eje.poderes('ana'), eje.reputaciones('ana')], antes);
+  assert.deepEqual([eje.saldo('ana', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/EUR'), eje.reputaciones('ana')], antes);
   assert.deepEqual(c.movimientos.map((m) => m.token), ['T']);
-  assert.notEqual(estadoDe(eje, c.id), 'EJECUTADO');
+  // El P sí cambia: escribir un registro da a su autor 10 P sobre él (VG, 8-11, mapa §15 [D]: P se obtiene al
+  // escribir, nadie lo acuña a mano). Es peso posicionado en el registro, no un recurso que se mueva.
+  assert.equal(eje.poderSobre('ana', c.id), 10);
+  assert.deepEqual(siguiente(eje, c.id, 'ana').faltaDeMi, []); // y no hay nada que mover
 });
 
 test('MOT-20 consultar, elegir, preparar, consolidar, firmar y ejecutar son actos distintos', async () => {
@@ -506,14 +516,15 @@ test('MOT-20 consultar, elegir, preparar, consolidar, firmar y ejecutar son acto
   const p = proponer(eje, g); // preparar: sin registro
   assert.equal(huella(eje), antes);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: p.elecciones });
-  assert.equal(c.contexto.fase, 'consolidado');
+  assert.equal(c.contexto.motor, 'fabrica'); // sin fase: se retiran los estados del núcleo (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
   assert.equal(c.firma, undefined); // consolidar no firma
   const { publica, privada } = await generarClaves();
   const f = await firmar(await crearEvento({ autor: 'x', sobre: g, t: T0, movimientos: [gastaT('x')], payload: 'y' }), privada);
   assert.equal(await verificar(f, publica), true); // firmar es otro acto
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  assert.equal(e.contexto.fase, 'ejecutado');
+  // Anunciar es otro acto, y mover lo anunciado (lo que era ejecutar), otro registro.
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 1, 'pagar', 'ana', 'raiz') });
+  const e = await cumplir(eje, c.id, 'ana');
+  assert.equal(cerrado(eje, c.id).cerrado, true);
   assert.notEqual(e.id, c.id);
 });
 
@@ -521,13 +532,14 @@ test('MOT-20b acreditar el resultado material es un acto propio',
   { skip: 'MOT-20: no existe el acto de acreditar el resultado material. La capa 4 de src/validez.js (desde la #49) solo mira el respaldo en el libro y dice «externa: sin acreditar»; acreditar lo ocurrido en el mundo es de AARPIA, fuera de AGRAM' },
   sinForma('MOT-20'));
 
-test('MOT-21 una compra autorizada no es una compra hecha: AUTORIZADO ≠ EJECUTADO y los recursos solo se mueven al ejecutar', async () => {
+test('MOT-21 una compra anunciada no es una compra hecha: los recursos solo se mueven con el registro que los mueve', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retiran AUTORIZADO y EJECUTADO; la diferencia la lee cerrado().
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g, { 1: 'comprar', 4: 'pagar 7 EUR' });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  const { c } = await anunciada(eje, g, { 1: 'comprar', 4: 'pagar 7 EUR' }, 7);
+  assert.equal(cerrado(eje, c.id).cerrado, false);
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 7)] });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  await cumplir(eje, c.id, 'ana');
+  assert.equal(cerrado(eje, c.id).cerrado, true);
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 43);
 });
 
@@ -535,22 +547,22 @@ test('MOT-21 una compra autorizada no es una compra hecha: AUTORIZADO ≠ EJECUT
 // Motor · ejecutar
 // =====================================================================
 
-test('MOT-22 ejecutar exige el acto del autor de la consolidación y una autorización válida', async () => {
+test('MOT-22 cada uno mueve lo suyo: lo anunciado de ana solo lo mueve ana, y a los demás se les lee como espera', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): «nadie autoriza lo ajeno, porque cada uno solo mueve lo suyo»; se retira «ejecuta el autor de
+  // la consolidación, con una autorización válida».
   const { eje, g } = await mundo();
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/);
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  await assert.rejects(ejecutar(eje, { autor: 'bea', consolidacion: c.id, t: T0 }), /ejecuta el autor de la consolidación/);
-  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: c.id, t: T0 }), /ejecuta el autor de la consolidación/);
+  const { c } = await anunciada(eje, g, { 1: 'x' });
+  for (const otro of ['bea', 'raiz']) {
+    assert.deepEqual(siguiente(eje, c.id, otro).faltaDeMi, []);
+    assert.deepEqual(siguiente(eje, c.id, otro).espera.map((x) => x.de), ['ana']);
+    await assert.rejects(registrar(eje, { autor: otro, sobre: c.id, t: T0, movimientos: [gastaT(otro), daE('ana', 'raiz', 5)], payload: 'lo muevo yo' }), /nobody moves tokens of others/);
+  }
+  assert.equal(cerrado(eje, c.id).cerrado, false);
 });
 
-test('MOT-22b ejecutar respeta reglas, condiciones y límites de gasto, tiempo y alcance',
-  { skip: 'MOT-22: no hay reglas, condiciones ni límites: ejecutar() mueve todo el saldo E del autor aunque la consolidación no lo mencione. Terreno de la capacidad al ejecutar (ejecutar en src/motor.js, otro agente): no se toca aquí' },
-  async () => {
-    const { eje, g } = await mundo();
-    const { c } = await autorizada(eje, g, { 1: 'un yogur', 4: 'pagar 2 EUR' });
-    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 50)] }));
-  });
+test('MOT-22b un registro respeta reglas, condiciones y límites de gasto, tiempo y alcance',
+  { skip: 'MOT-22: se retira ejecutar (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»); cada uno mueve lo suyo y nada acota cuánto mueve en una propuesta: lo más cercano es la lectura de cerrado, que solo da por hecho lo anunciado (MOT-08b). [X] decidir VG si los límites son plantillas del PV2 del dueño' },
+  sinForma('MOT-22'));
 
 test('MOT-23 evaluar una fórmula «=» nunca ejecuta nada: leer no tiene efectos', async () => {
   const { eje, g } = await mundo();
@@ -562,7 +574,7 @@ test('MOT-23 evaluar una fórmula «=» nunca ejecuta nada: leer no tiene efecto
   descubrir(eje, plan.id);
   proponer(eje, plan.id);
   assert.equal(huella(eje), antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('MOT-24 PV7 guarda el horizonte: un plan declarado en 7 no se convierte en hecho', async () => {
@@ -572,7 +584,7 @@ test('MOT-24 PV7 guarda el horizonte: un plan declarado en 7 no se convierte en 
   const e = ejeTemporal(eje, plan.id, { ahora: AHORA });
   assert.ok(e.futuro.some((x) => x.tipo === 'declarado' && x.contenido === 'pagar el viernes si llega el pedido'));
   assert.deepEqual([eje.saldo('ana', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/EUR')], antes);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('MOT-24b PV7 aloja la ejecución condicional y autorizada',
@@ -580,27 +592,22 @@ test('MOT-24b PV7 aloja la ejecución condicional y autorizada',
   sinForma('MOT-24'));
 
 test('MOT-25 registrar el resultado distingue éxito, rechazo, no ocurrido, parcial y sin confirmación',
-  { skip: 'MOT-25: solo existe EJECUTADO; una ejecución rechazada lanza un error, no deja registro y el estado sigue en AUTORIZADO (nombre de fase supuesto: cualquier fase de resultado distinta de «autorizado»). [!] Choca con M:TOK-04 y TOK-31, que piden que tras una ejecución rechazada la consolidación siga en AUTORIZADO; y es ejecutar. Terreno de la capacidad al ejecutar (ejecutar en src/motor.js, otro agente): no se toca aquí' },
-  async () => {
-    const { eje, g } = await mundo();
-    const { c } = await autorizada(eje, g);
-    await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nadie mueve tokens ajenos/);
-    const resultado = eje.sobre(c.id, FABRICA).find((e) => e.contexto?.fase && e.contexto.fase !== 'autorizado');
-    assert.ok(resultado);
-    assert.notEqual(estadoDe(eje, c.id), 'AUTORIZADO');
-  });
+  { skip: 'MOT-25: se retiran los estados del núcleo (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»); cerrado() solo dice cerrado o no según la plantilla del dueño, y un movimiento rechazado no deja registro. Éxito, rechazo, no ocurrido, parcial y sin confirmación serían plantillas de lectura que la época aún no trae. [X] decidir VG' },
+  sinForma('MOT-25'));
 
-test('MOT-26 la ejecución deja evidencia: un registro nuevo que referencia la consolidación y su autorización, encadenado en el hilo', async () => {
+test('MOT-26 lo hecho deja evidencia: el registro que mueve lo anunciado cuelga de la propuesta, encadenado en el hilo', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): sin autorización, la evidencia es la cadena anclada: propuesta, anuncio y movimiento.
   const { eje, g } = await mundo();
-  const { c, a } = await autorizada(eje, g);
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  assert.deepEqual(e.payload.slice(1), [{ ref: c.id }, { ref: a.id }]);
-  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
+  const { c, a } = await anunciada(eje, g);
+  const e = await cumplir(eje, c.id, 'ana');
+  assert.equal(a.sobre, c.id);
+  assert.equal(e.sobre, c.id);
+  assert.deepEqual(e.payload, ['mover 5 E:raiz/EUR de ana a raiz']);
   assert.deepEqual(eje.hilo(e.id).slice(0, 3).map((x) => x.id), [e.id, c.id, g]);
 });
 
 test('MOT-26b la evidencia acredita el resultado material, no solo el proceso',
-  { skip: 'MOT-26: la evidencia es del proceso (consolidación y autorización); la acreditación del resultado material (capa 4) no existe' },
+  { skip: 'MOT-26: la evidencia es del proceso (propuesta, anuncio y movimiento); la acreditación del resultado material (capa 4) no existe' },
   sinForma('MOT-26'));
 
 // =====================================================================
@@ -610,27 +617,31 @@ test('MOT-26b la evidencia acredita el resultado material, no solo el proceso',
 test('MOT-27 PV4 no es el único almacén: lo escrito en 3, 6, 7 y 9 queda en su PV', async () => {
   const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i']);
   for (const pv of [3, 6, 7, 9]) {
-    const ev = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, en: direccion([pv]), payload: 'en el PV ' + pv, t: T0 });
+    // En el 3 de la raíz escribe la raíz: escribir en el 3 de otro es pedirle atención, y la atención tiene precio
+    // (VG, 9-11, mapa §16 [D] «PV3 = regla de atención»).
+    const autor = pv === 3 ? 'raiz' : 'ana';
+    const ev = await escribirDesde(eje, { modo: 'pointed', autor, sobre: g, en: direccion([pv]), payload: 'en el PV ' + pv, t: T0 });
     assert.equal(ev.en, direccion([pv]));
     assert.ok(ocupantes(eje, g, [pv]).some((o) => o.evento === ev.id));
   }
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  assert.deepEqual(consolidaciones(eje, g).map((x) => x.id), [c.id]); // solo lo de 4 es consolidación
+  assert.deepEqual(propuestas(eje, g).map((x) => x.id), [c.id]); // solo lo de 4 es propuesta de la fábrica
 });
 
 test('MOT-27b registro, autorización y verificación material son fronteras independientes',
-  { skip: 'MOT-27: la verificación material no existe (consolidación, autorización y ejecución viven todas en la posición 4)' },
+  { skip: 'MOT-27: la verificación material no existe (la propuesta, sus anuncios y lo que se mueve cuelgan todos de la posición 4; ya no hay autorización: VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)' },
   sinForma('MOT-27'));
 
 test('MOT-28 un flujo puede empezar desde cualquier PV, pero la posición no da autoridad', async () => {
   const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', ['siete', 'x']]);
   const desde7 = await consolidar(eje, { autor: 'ana', foco: g, camino: [7], t: T0, elecciones: { 1: 'desde el 7' } });
   assert.equal(desde7.en, '7400000000');
-  // Escribir en la fábrica con fase «autorizado» o «ejecutado» no da autoridad a quien no la tiene.
+  await registrar(eje, { autor: 'ana', sobre: desde7.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 2, 'pagar', 'ana', 'raiz') });
+  // Escribir en la fábrica con un contexto de «autorizado» o «ejecutado» no da autoridad ni cierra nada: ya no hay
+  // estados del núcleo, y lo hecho es lo movido (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»).
   await eje.escribir({ autor: 'bea', sobre: desde7.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' } });
-  assert.equal(estadoDe(eje, desde7.id), 'PENDIENTE DE AUTORIZACIÓN');
   await eje.escribir({ autor: 'bea', sobre: desde7.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: 'hecho', contexto: { motor: 'fabrica', fase: 'ejecutado', evidencia: [desde7.id] } });
-  assert.equal(estadoDe(eje, desde7.id), 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(cerrado(eje, desde7.id).cerrado, false);
 });
 
 // =====================================================================
@@ -666,24 +677,28 @@ test('MOT-30b las diez posiciones del registro se pueden elegir: diez interpreta
     assert.equal(contarPosiciones(c.payload), 100);
   });
 
-test('MOT-31 la fábrica, en 4, emite un evento nuevo con el array consolidado y referencias a sus fuentes; ejecutar es otro acto', async () => {
+test('MOT-31 la fábrica, en 4, emite un evento nuevo con el array consolidado y referencias a sus fuentes; mover es otro acto', async () => {
   const { eje, g } = await mundo();
   const fuente = await escribe(eje, g, 'yogur griego', '1000000000');
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: { ref: fuente.id } } });
   assert.equal(c.en, FABRICA);
   assert.deepEqual(c.payload, ['Consolidación', { ref: fuente.id }]);
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 }), /PENDIENTE DE AUTORIZACIÓN/); // otra autoridad
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.deepEqual(c.movimientos.map((m) => m.token), ['T']); // consolidar no mueve recursos
+  // Mover es otro registro (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se anuncia y lo mueve quien lo tiene.
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 1, 'pagar', 'ana', 'raiz') });
+  const e = await cumplir(eje, c.id, 'ana');
   assert.notEqual(e.id, c.id);
+  assert.equal(cerrado(eje, c.id).cerrado, true);
 });
 
-test('MOT-32 consolidar no borra nada: varias consolidaciones del mismo foco conviven, cada una con su estado', async () => {
+test('MOT-32 consolidar no borra nada: varias propuestas del mismo foco conviven, cada una con su lectura de cerrado', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): sin estados del núcleo; cada propuesta se lee con la plantilla de cerrado de su dueño (por
+  // defecto, «all announced movements happened»: sin nada anunciado, nada falta).
   const { eje, g } = await mundo();
   const c1 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'primera' } });
-  const { c: c2 } = await autorizada(eje, g, { 1: 'segunda' });
+  const { c: c2 } = await anunciada(eje, g, { 1: 'segunda' });
   const c3 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'corrección de la primera' } });
-  assert.deepEqual(consolidaciones(eje, g).map((x) => [x.id, x.estado]), [[c1.id, 'PENDIENTE DE AUTORIZACIÓN'], [c2.id, 'AUTORIZADO'], [c3.id, 'PENDIENTE DE AUTORIZACIÓN']]);
+  assert.deepEqual(propuestas(eje, g).map((x) => [x.id, x.cerrado]), [[c1.id, true], [c2.id, false], [c3.id, true]]);
   assert.ok(eje.obtener(c1.id));
 });
 
@@ -711,50 +726,56 @@ test('MOT-34 la consolidación se ancla en la posición 4 del foco; los huecos s
 
 test('MOT-35 la consolidación dura: otros escriben sus propios registros sobre ella sin apropiarse de ella', async () => {
   const { eje, g } = await mundo();
-  const { c, a } = await autorizada(eje, g);
-  assert.equal(a.autor, 'raiz');
-  assert.equal(a.sobre, c.id);
+  const { c } = await anunciada(eje, g);
+  const nota = await registrar(eje, { autor: 'bea', sobre: c.id, t: T0, movimientos: [gastaT('bea')], payload: 'me apunto' });
+  assert.equal(nota.sobre, c.id);
   assert.equal(eje.obtener(c.id).autor, 'ana'); // la operación sigue siendo de ana
   assert.deepEqual(eje.obtener(c.id), c);
+  assert.equal(cerrado(eje, c.id).cerrado, false); // y lo que escribe bea no cierra lo de ana
 });
 
 test('MOT-35b la consolidación referencia los recibos de terceros (aceptación, despacho, recepción)',
-  { skip: 'MOT-35: otros solo pueden escribir una autorización que cuente; no hay recibos de aceptación, despacho o recepción ni estados de la frontera externa (nombre de campo supuesto: recibos). No está acordado qué cuenta como recibo (¿cualquier registro de un tercero sobre la consolidación?) ni sus estados (ver MOT-68c). [X] decidir VG' },
-  async () => {
-    const { eje, g } = await mundo();
-    const { c } = await autorizada(eje, g);
-    const recibo = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: 'despachado', contexto: { fase: 'despachado' } });
-    assert.ok(consolidaciones(eje, g)[0].recibos.includes(recibo.id));
-  });
+  { skip: 'MOT-35: otros escriben sus registros sobre la propuesta (MOT-35), pero no hay recibos de aceptación, despacho o recepción ni estados de la frontera externa: propuestas() solo da su lectura de cerrado (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»). No está acordado qué cuenta como recibo ni sus estados (ver MOT-68c). [X] decidir VG' },
+  sinForma('MOT-35'));
 
 test('MOT-36 cerrar una tarea permite empezar otra sin fingir que la anterior ya no está pendiente', async () => {
   const { eje, g } = await mundo();
   const otra = await escribe(eje, g, ['Otra tarea', 'a']);
-  const c1 = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'primera' } });
+  const { c: c1 } = await anunciada(eje, g, { 1: 'primera' });
   await consolidar(eje, { autor: 'ana', foco: otra.id, t: T0, elecciones: { 1: 'segunda' } });
-  assert.equal(consolidaciones(eje, g)[0].estado, 'PENDIENTE DE AUTORIZACIÓN');
+  // Pendiente es una lectura (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): lo anunciado en la primera aún no se ha movido.
+  assert.equal(propuestas(eje, g)[0].cerrado, false);
   assert.ok(ejeTemporal(eje, g, { ahora: AHORA }).futuro.some((x) => x.id === c1.id && x.tipo === 'consolidacion'));
 });
 
-test('MOT-37 las consolidaciones no ejecutadas son futuro subjetivo', async () => {
+test('MOT-37 las consolidaciones no cerradas son futuro subjetivo', async () => {
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g);
+  const { c } = await anunciada(eje, g);
   const enFuturo = () => ejeTemporal(eje, g, { ahora: AHORA }).futuro.find((x) => x.id === c.id && x.tipo === 'consolidacion');
-  assert.equal(enFuturo().estado, 'AUTORIZADO');
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  assert.ok(enFuturo());
+  await cumplir(eje, c.id, 'ana'); // movido lo anunciado, se cierra (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
   assert.equal(enFuturo(), undefined);
 });
 
-test('MOT-38 se ejecuta en 4 y la ejecución es un registro nuevo que entra en el eje (X → cruz)', async () => {
+test('MOT-38 se ejecuta en 4: lo anunciado se mueve con un registro nuevo que entra en la fábrica de la propuesta (X → cruz)', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): ejecutar es registrar el movimiento anunciado; aquí ana lo ancla en el 4 de su propuesta.
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g);
+  const { c } = await anunciada(eje, g);
   const antes = eje.orden.length;
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  const e = await cumplir(eje, c.id, 'ana', { en: FABRICA });
   assert.equal(e.en, FABRICA);
   assert.equal(e.sobre, c.id);
   assert.equal(eje.orden.length, antes + 1);
   assert.ok(ocupantes(eje, c.id, [4]).some((o) => o.evento === e.id));
 });
+
+test('MOT-38b lo anunciado y movido en el 4 de la propuesta la cierra',
+  async () => {
+    const { eje, g } = await mundo();
+    const { c } = await anunciada(eje, g);
+    await cumplir(eje, c.id, 'ana', { en: FABRICA });
+    assert.equal(cerrado(eje, c.id).cerrado, true);
+  });
 
 test('MOT-39 papeles: BTML es la estructura, BQL la vista sin efectos y el motor la ejecución real', async () => {
   const { eje, g } = await mundo(['Compra', 'yogur', '=LOCAL(1)']);
@@ -762,35 +783,38 @@ test('MOT-39 papeles: BTML es la estructura, BQL la vista sin efectos y el motor
   evaluar(eje, g, [2]);
   consultar(eje, g, [0], 'BUSCAR(1)');
   assert.equal(huella(eje), antes); // BQL no mueve nada
-  const { c } = await autorizada(eje, g);
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 4)] });
+  const { c } = await anunciada(eje, g, undefined, 4);
+  await cumplir(eje, c.id, 'ana'); // registrar lo anunciado (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
   assert.equal(eje.saldo('raiz', 'E:raiz/EUR'), 54); // el motor sí
 });
 
 test('MOT-41 AARPIA es el motor real de autorización y ejecución',
-  { skip: 'MOT-41: no hay AARPIA; autorizar y ejecutar viven en src/motor.js (por decisión de VG del 6-11 AARPIA queda fuera salvo instancias y transiciones, TOK-74)' },
+  { skip: 'MOT-41: no hay AARPIA; lo que queda del ciclo (registrar y sus lecturas: VG, 8-11, mapa §15 [D] «Una sola operación: registrar») vive en src/motor.js (por decisión de VG del 6-11 AARPIA queda fuera salvo instancias y transiciones, TOK-74)' },
   sinForma('MOT-41'));
 
-test('MOT-43 lo que escribe quien no puede autorizar o ejecutar no cambia el estado', async () => {
+test('MOT-43 lo que escribe quien no es el dueño no cambia la lectura: ni anuncia por él ni cierra lo suyo', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retira «quien no puede autorizar o ejecutar»; cuenta lo que anuncia el dueño de X y lo
+  // que mueve quien lo tiene.
   const { eje, g } = await mundo();
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { fase: 'autorizado' } });
-  assert.equal(autorizacionesValidas(eje, c.id).length, 0);
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  const { c } = await anunciada(eje, g, { 1: 'x' });
+  await eje.escribir({ autor: 'bea', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('bea')], payload: anuncio('E:raiz/EUR', 50, 'pagar', 'ana', 'bea') });
   await eje.escribir({ autor: 'raiz', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('raiz')], payload: 'hecho', contexto: { fase: 'ejecutado', evidencia: [c.id] } });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO'); // ejecutar es del autor
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  assert.deepEqual(siguiente(eje, c.id, 'ana').faltaDeMi.map((x) => x.que), ['mover 5 E:raiz/EUR de ana a raiz']);
 });
 
-test('MOT-44 tres estados: PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO; el pendiente es un estado, no un fallo', async () => {
+test('MOT-44 el pendiente es una lectura, no un estado ni un fallo: cerrado() lo dice con la plantilla del dueño', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retiran los tres estados del núcleo (PENDIENTE DE AUTORIZACIÓN → AUTORIZADO → EJECUTADO);
+  // «cerrado» se establece por proceso con la plantilla que el dueño nombra en su PV2 (por defecto, la de la época).
   const { eje, g } = await mundo();
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } }); // no lanza
-  const estados = [estadoDe(eje, c.id)];
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  estados.push(estadoDe(eje, c.id));
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
-  estados.push(estadoDe(eje, c.id));
-  assert.deepEqual(estados, ['PENDIENTE DE AUTORIZACIÓN', 'AUTORIZADO', 'EJECUTADO']);
+  const lecturas = [cerrado(eje, c.id)];
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 1, 'pagar', 'ana', 'raiz') });
+  lecturas.push(cerrado(eje, c.id));
+  await cumplir(eje, c.id, 'ana');
+  lecturas.push(cerrado(eje, c.id));
+  const P = 'all announced movements happened';
+  assert.deepEqual(lecturas.map((x) => [x.cerrado, x.plantilla]), [[true, P], [false, P], [true, P]]);
 });
 
 // =====================================================================
@@ -816,21 +840,23 @@ test('MOT-47 B construye una propuesta de cambio sin certificarla', async () => 
   const p = proponer(eje, g);
   assert.equal(huella(eje), antes);
   assert.deepEqual(Object.keys(p).sort(), ['elecciones', 'foco', 'origenes', 'pendientes']);
-  assert.deepEqual(consolidaciones(eje, g), []);
+  assert.deepEqual(propuestas(eje, g), []);
 });
 
-test('MOT-48 C consolida y la autoridad decide después: una consolidación de quien no tiene poder no certifica nada', async () => {
+test('MOT-48 C consolida y cada parte decide después: la propuesta de bea no mueve nada de nadie', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retira autorizar con P. Bea puede anunciar en su propuesta un pago de ana; solo ana lo
+  // mueve, si quiere, y hasta entonces no está hecho.
   const { eje, g } = await mundo();
   assert.equal(OPERADORES.C, 'consolidar');
   const c = await consolidar(eje, { autor: 'bea', foco: g, t: T0, elecciones: { 1: 'x' } });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  // VG, 7-11 noche: autorizar = bloquear P sobre el registro del recurso; sin él no se autoriza, sea o no el autor.
-  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /bea no tiene P que cuente para autorizar/);
-  await assert.rejects(autorizar(eje, { autorizante: 'ana', consolidacion: c.id, t: T0 }), /ana no tiene P que cuente para autorizar/);
+  await registrar(eje, { autor: 'bea', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('bea')], payload: anuncio('E:raiz/EUR', 5, 'pagar', 'ana', 'raiz') });
+  assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
+  assert.deepEqual(siguiente(eje, c.id, 'ana').faltaDeMi.map((x) => x.que), ['mover 5 E:raiz/EUR de ana a raiz']); // se le pide…
+  assert.equal(cerrado(eje, c.id).cerrado, false); // …y hasta que lo mueva, no está hecho
 });
 
 test('MOT-48b C solo consolida lo que permite un contrato válido (con autoridad)',
-  { skip: 'MOT-48: consolidar() no comprueba autoridad ni contrato: quien no tiene P consolida; la autoridad llega al autorizar. [!] Choca con V4 (consolidar = registrar la intención; la autorización es para ejecutar). [X] decidir VG' },
+  { skip: 'MOT-48: consolidar() no comprueba autoridad ni contrato: cualquiera consolida, y desde el encargo 3b ya no hay autorizar (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): cada parte mueve lo suyo. [X] decidir VG si un contrato limita quién propone' },
   async () => {
     const { eje, g } = await mundo();
     await assert.rejects(consolidar(eje, { autor: 'bea', foco: g, t: T0, elecciones: { 1: 'x' } }));
@@ -912,9 +938,10 @@ test('MOT-57 desde Pointed se propone una posición de cada diez leídas; el má
   const dos = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', 'b'], t: T0 });
   assert.equal(proporcionDeRegistro(dos).estado, 'por encima'); // se escribe y se avisa
   await assert.rejects(escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: ['a', ['b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k']], t: T0 }), /Pointed emite como mucho 10 posiciones; este registro tiene 11/);
-  const { a } = await autorizada(eje, g);
-  assert.equal(a.contexto.modo, 'pointed');
-  assert.equal(contarPosiciones(a.payload), 1);
+  // Un registro Pointed de una posición (antes, la autorización, que se retira: VG, 8-11, mapa §15 [D] «Una sola operación: registrar»).
+  const uno = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, payload: 'a', t: T0 });
+  assert.equal(uno.contexto.modo, 'pointed');
+  assert.equal(contarPosiciones(uno.payload), 1);
 });
 
 test('MOT-58 desde Sequenced se propone como mucho una quinta parte de lo leído (20 de 100); el máximo (100) manda', async () => {
@@ -980,12 +1007,11 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
   assert.equal(await verificarId(p), true);
   assert.equal(await verificarId({ ...p, payload: 'cambiado' }), false);
   assert.equal(await verificar(p, raiz.publica), true);
-  // 5 · permiso y ejecución
-  // B1 (VG, 10-11): la persona escribe su propia alta.
-  for (const id of ['ana']) await eje.entrar({ identidad: id, sobre: g, t: ALTA });
+  // 5 · permiso: cada uno mueve lo suyo (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»). Ana entra por invitación de la raíz, que la firma.
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: ALTA, privadaDe: (id) => (id === 'raiz' ? raiz.privada : undefined) });
   await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta' }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  await assert.rejects(registrar(eje, { autor: 'ana', sobre: c.id, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'me lo doy' }), /nobody moves tokens of others/);
 });
 
 test('MOT-61b la acreditación material (capa 4) y un informe por capas',
@@ -1009,15 +1035,17 @@ test('MOT-62 las capas no se confunden: estructura válida y firmada no es autor
   const bea = await generarClaves();
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Foco', 'a'], t: ALTA, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  await eje.entrar({ identidad: 'ana', sobre: g, t: ALTA });
-  await eje.entrar({ identidad: 'bea', sobre: g, t: ALTA, clave: bea.publica, privada: bea.privada }); // su clave, en su alta
+  // Las personas entran por invitación de la raíz (que firma); bea, con su clave en su alta.
+  const privadaDe = (id) => (id === 'raiz' ? raiz.privada : undefined);
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: ALTA, privadaDe });
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'bea', t: ALTA, clave: bea, privadaDe });
   await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas' }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  const firmada = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { motor: 'fabrica', fase: 'autorizado' } }, bea.privada);
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/minuto', 5, 'devolver', 'ana', 'raiz') });
+  const firmada = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: 'hecho', contexto: { motor: 'fabrica', fase: 'ejecutado' } }, bea.privada);
   assert.deepEqual(validarForma(firmada), []);
   assert.equal(await verificar(firmada, bea.publica), true);
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
+  assert.equal(cerrado(eje, c.id).cerrado, false); // firmado y bien formado, y no por eso hecho (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
 });
 
 test('MOT-63 en el registro en foco se pueden inspeccionar señales de validez, que no la garantizan', async () => {
@@ -1090,46 +1118,46 @@ test('MOT-67 el motor es genérico: sin funciones por sector, y una composición
   for (const nombre of Object.keys(motor)) assert.equal(/ikisai|reserva|booking|compra|yogur|menu|hotel/i.test(nombre), false, nombre);
 });
 
-test('MOT-68 no se impone una máquina de estados a todo: el ciclo de autorización es solo de las consolidaciones', async () => {
+test('MOT-68 no se impone una máquina de estados a todo: no hay estados del núcleo, solo lecturas', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retira el ciclo de autorización; «cerrado» se establece por proceso, y hay procesos que se
+  // cierran y otros no.
   const { eje, g } = await mundo();
   const nota = await escribe(eje, g, 'una nota');
-  await assert.rejects(autorizar(eje, { autorizante: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
-  await assert.rejects(ejecutar(eje, { autor: 'raiz', consolidacion: nota.id, t: T0 }), /no es una consolidación/);
   assert.equal(nota.contexto.fase, undefined);
-  assert.deepEqual(consolidaciones(eje, g), []);
+  assert.deepEqual(propuestas(eje, g), []);
+  assert.deepEqual(siguiente(eje, nota.id, 'raiz'), { cerrado: true, faltaDeMi: [], espera: [] });
+  for (const retirado of ['autorizar', 'ejecutar', 'estadoDe', 'consolidaciones']) assert.equal(retirado in motor, false, retirado);
 });
 
-test('MOT-68b ningún registro recibe un estado que no le corresponde', async () => {
+test('MOT-68b ningún registro recibe un estado: ni el foco, ni la propuesta, ni su anuncio llevan fase', async () => {
   const { eje, g } = await mundo();
-  assert.equal(estadoDe(eje, g), undefined);
-  const nota = await escribe(eje, g, 'una nota');
-  assert.equal(estadoDe(eje, nota.id), undefined);
-  const { c, a } = await autorizada(eje, g);
-  assert.equal(estadoDe(eje, a.id), undefined); // la autorización no es otra consolidación
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
+  const { c, a } = await anunciada(eje, g);
+  for (const ev of [eje.obtener(g), c, a]) assert.equal(ev.contexto?.fase, undefined);
+  assert.equal(cerrado(eje, c.id).cerrado, false); // lo que hay es una lectura (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
 });
 
 test('MOT-68c los contextos tienen sus propios estados, sin una máquina de estados universal',
-  { skip: 'MOT-68: toda consolidación tiene el mismo ciclo de tres estados, sin estados propios del contexto (aceptado, despachado, recibido…). [X] decidir VG si el ciclo de autorización cuenta como máquina de estados universal' },
+  { skip: 'MOT-68: ya no hay ciclo de tres estados (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»); los estados propios del contexto (aceptado, despachado, recibido…) serían plantillas de cerrado que el dueño nombra en su PV2, y la época solo trae «all announced movements happened». [X] decidir VG' },
   sinForma('MOT-68'));
 
 // =====================================================================
 // Motor · tokens (M:TOK)
 // =====================================================================
 
-test('M:TOK-01 cada posición escrita mueve un minuto de T del autor (consolidar y autorizar)', async () => {
+test('M:TOK-01 cada posición escrita mueve un minuto de T del autor (consolidar y anunciar)', async () => {
   const { eje, g } = await mundo();
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'uno', 2: ['dos', 'tres'] } });
   assert.equal(minutosDe(c), contarPosiciones(c.payload));
   assert.equal(minutosDe(c), 4);
-  const a = await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
+  // Antes, la autorización (se retira: VG, 8-11, mapa §15 [D] «Una sola operación: registrar»); ahora, el anuncio escrito desde Mapped.
+  const a = await escribirDesde(eje, { modo: 'mapped', autor: 'ana', sobre: c.id, en: ANUNCIO, payload: anuncio('E:raiz/EUR', 1, 'pagar', 'ana', 'raiz'), t: T0 });
   assert.equal(minutosDe(a), contarPosiciones(a.payload));
 });
 
-test('M:TOK-01b ejecutar también paga un minuto por posición escrita', async () => {
+test('M:TOK-01b mover lo anunciado también paga un minuto por posición escrita', async () => {
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g);
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  const { c } = await anunciada(eje, g);
+  const e = await cumplir(eje, c.id, 'ana'); // lo que era ejecutar (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
   assert.equal(minutosDe(e), contarPosiciones(e.payload));
 });
 
@@ -1143,35 +1171,36 @@ test('M:TOK-02 el coste en minutos se paga con T de minuto, no con horas convert
   assert.deepEqual(eje.tiempoSobre(eje.genesisId), { minuto: ev.movimientos[0].cantidad });
 });
 
-test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo cambian de manos al ejecutar', async () => {
+test('M:TOK-03 cada acto del ciclo mueve al menos T de su autor; E, P y R solo cambian de manos con el registro que los mueve', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): los actos son consolidar, anunciar y mover lo anunciado; se retira autorizar (bloquear P).
   const { eje, g } = await mundo();
-  const { c, a } = await autorizada(eje, g);
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 2)] });
-  for (const ev of [c, a, e]) assert.ok(minutosDe(ev) >= 1, ev.contexto.fase);
+  const { c, a } = await anunciada(eje, g, undefined, 2);
+  const e = await cumplir(eje, c.id, 'ana');
+  for (const ev of [c, a, e]) assert.ok(minutosDe(ev) >= 1, ev.id);
   assert.deepEqual(c.movimientos.map((m) => m.token), ['T']);
-  // VG, 7-11 noche: autorizar es bloquear P; el P no cambia de titular, pasa a bloqueado con la consolidación de salida.
-  assert.deepEqual(a.movimientos.map((m) => [m.token, m.estado ?? null, m.de === m.a]), [['T', null, false], ['P', 'bloqueo', true]]);
+  assert.deepEqual(a.movimientos.map((m) => m.token), ['T']);
   assert.deepEqual(e.movimientos.map((m) => m.token), ['T', 'E']);
 });
 
-test('M:TOK-04 la reserva: la plaza es una serie limitada; la segunda reserva solapada se escribe y colisiona, pero no se ejecuta por saldo', async () => {
-  // Así funciona hoy solo si la casa es el génesis, consolida y ejecuta (ver M:TOK-04b).
+test('M:TOK-04 la reserva: la plaza es una serie limitada; la segunda reserva solapada se escribe y colisiona, pero no se mueve por saldo', async () => {
   const { eje, hab } = await casaConUnaPlaza();
   const { c: r1, pedido: p1 } = await reservaDeLaCasa(eje, hab, 'h1');
   const { c: r2, pedido: p2 } = await reservaDeLaCasa(eje, hab, 'h2');
   assert.deepEqual(ocupantes(eje, hab, [1, 4]).filter((o) => o.origen === 'escrito').map((o) => o.evento), [p1.id, p2.id]); // colisionan
-  await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11', 'casa')] });
+  await cumplir(eje, r1.id, 'casa');
   assert.equal(eje.saldo('h1', 'E:casa/plaza-7-11'), 1);
-  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11', 'casa')] }), /saldo insuficiente/);
-  assert.deepEqual([estadoDe(eje, r1.id), estadoDe(eje, r2.id)], ['EJECUTADO', 'AUTORIZADO']);
+  await assert.rejects(cumplir(eje, r2.id, 'casa'), /saldo insuficiente/);
+  assert.deepEqual([cerrado(eje, r1.id).cerrado, cerrado(eje, r2.id).cerrado], [true, false]);
 });
 
-test('M:TOK-04b la reserva del huésped mueve la plaza de la casa al huésped, y la casa emite su propia serie',
-  { skip: 'M:TOK-04: la casa ya emite su serie (E:casa/plaza), pero ejecuta el autor de la consolidación y nadie mueve tokens ajenos: el huésped no puede mover la plaza de la casa. [X] decidir VG cómo casa con TOK-35. Terreno de la capacidad al ejecutar (ejecutar en src/motor.js, otro agente): no se toca aquí' },
-  async () => {
-    const { eje } = await reservaDelHuesped();
-    assert.equal(eje.saldo('huesped', 'E:casa/plaza'), 1);
-  });
+test('M:TOK-04b la reserva del huésped mueve la plaza de la casa al huésped, y la casa emite su propia serie', async () => {
+  // Ya no se salta (encargo 3b; VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): el huésped anuncia en su propuesta que la plaza pasa de la casa a él, y la
+  // casa la mueve, porque es suya; siguiente() le dice lo que le falta. Encaja con TOK-35.
+  const { eje, c, antes } = await reservaDelHuesped();
+  assert.equal(antes, false);
+  assert.equal(eje.saldo('huesped', 'E:casa/plaza'), 1);
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+});
 
 // =====================================================================
 // Tokens · base y series
@@ -1180,11 +1209,13 @@ test('M:TOK-04b la reserva del huésped mueve la plaza de la casa al huésped, y
 test('TOK-01 todo evento es una transición de tokens: no existe evento sin movimiento', async () => {
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [], payload: 'quieto' }), /todo evento mueve tokens/);
-  assert.ok([...eje.eventos.values()].every((ev) => ev.movimientos.length > 0));
+  // Salvo el génesis, que no mueve nada (encargo 3b, mapa §15 [D]: la emisión va en la transacción siguiente).
+  assert.deepEqual(eje.obtener(g).movimientos, []);
+  assert.ok([...eje.eventos.values()].every((ev) => ev.id === g || ev.movimientos.length > 0));
 });
 
 test('TOK-02 el evento mínimo mueve T del autor (el génesis no: no emite T; VG, 8-11: no hay T acumulable)', async () => {
-  assert.equal((await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'P', cantidad: 1, ambito: 'genesis' }], foco: 'x', t: T0 })).serie('T:minuto').emitido, 0);
+  assert.equal((await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'R', cantidad: 1 }], foco: 'x', t: T0 })).serie('T:minuto').emitido, 0);
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'T', escala: 'minuto', cantidad: 1 }], foco: 'x', t: T0 }), /nobody mints T/);
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'bea', a: null }], payload: 'x' }), /escribir consume T del autor/);
@@ -1211,14 +1242,17 @@ test('TOK-04 las series siguen la misma mecánica: E por denominación, P por á
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'raiz',
-    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'E', denominacion: 'kg', cantidad: 5 }, { token: 'R', cantidad: 10, emisor: 'raiz' }],
+    emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }, { token: 'E', denominacion: 'kg', cantidad: 5 }],
     foco: 'x',
     t: T0,
   });
   const g = eje.genesisId;
   assert.deepEqual([eje.saldo('raiz', 'E:raiz/EUR'), eje.saldo('raiz', 'E:raiz/kg')], [100, 5]);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'kg', cantidad: 6, de: 'raiz', a: null }], payload: 'x' }), /saldo insuficiente/);
-  assert.deepEqual(eje.poderes('raiz'), [{ ambito: 'genesis', cantidad: 5 }]);
+  // P por ámbito: un registro del eje, nunca «genesis» (VG, 8-11, mapa §15 [D]: «P moves within a known scope»; se
+  // obtiene al escribir: 10 sobre cada registro propio).
+  assert.equal(eje.poderSobre('raiz', g), 10);
+  assert.ok(eje.poderes('raiz').every((p) => Boolean(eje.obtener(p.ambito))));
   assert.deepEqual(eje.reputaciones('raiz'), [{ emisor: 'raiz', cantidad: 10 }]);
 });
 
@@ -1408,7 +1442,7 @@ test('TOK-23 PV7 guarda previsiones: lo declarado en 7 es futuro y no se convier
   const declarado = e.futuro.find((x) => x.tipo === 'declarado');
   assert.equal(declarado.contenido, 'cenar el sábado');
   assert.equal(e.pasado.some((x) => x.tipo === 'declarado'), false);
-  assert.deepEqual(consolidaciones(eje, plan.id), []);
+  assert.deepEqual(propuestas(eje, plan.id), []);
 });
 
 test('TOK-23b lo declarado en 7 no inventa distancia ni banda, y tiene expiración y ejecución condicional',
@@ -1460,10 +1494,9 @@ test('TOK-26b no hay E sin denominación', async () => {
 test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos casas son series distintas', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
-  // VG, 7-11 noche: las casas que emiten son personas (antes, grupos), con P delegado y su R en juego.
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  for (const id of ['casaA', 'casaB']) await eje.entrar({ identidad: id, sobre: g, t: T0 });
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casaA', 60), daT('raiz', 'casaB', 60), daP('raiz', 'casaA'), daP('raiz', 'casaB')], payload: 'altas' });
+  // Las casas que emiten son personas; entran por invitación (y la R que les guarda la raíz les da P sobre su alta,
+  // el génesis), y emiten con R suya emitida (encargo 3b, VG, 8-11 y 9-11, mapa §15 [D]).
+  for (const id of ['casaA', 'casaB']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
   for (const [casa, n] of [['casaA', 2], ['casaB', 3]]) {
     await eje.escribir({ autor: casa, sobre: g, t: T0, movimientos: [gastaT(casa), ...rEnJuego(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
   }
@@ -1474,14 +1507,12 @@ test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos
 test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y solo él amplía su serie', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: ALTA });
   const g = eje.genesisId;
-  // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
-  // B1 (VG, 10-11): las personas escriben su propia alta.
-  for (const id of ['casa', 'otro']) await eje.entrar({ identidad: id, sobre: g, t: ALTA });
-  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daT('raiz', 'otro', 60), daP('raiz', 'casa')], payload: 'altas' });
+  // La casa que emite es una persona: entra por invitación y emite con R suya emitida (encargo 3b, mapa §15 [D]).
+  for (const id of ['casa', 'otro']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: ALTA });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 0.5, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }], payload: 'reputación de la casa' });
-  // Con R6, su colateral (la décima parte de lo emitido) queda bloqueado: 7 emitidos, 1 bloqueado, 1 en la raíz.
-  assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa'), eje.bloqueado('casa', 'R:casa', 'R:casa')], [2, 5, 1]);
+  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
+  // Sin colateral (VG, 9-11, mapa §15 [D] «R según el corpus»: se retira el de la #75): 7 emitidos, 1 en la raíz.
+  assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa'), eje.bloqueado('casa', 'R:casa')], [2, 6, 0]);
   // Solo la casa amplía su serie: otro no puede emitir a nombre de la casa.
   await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /E is minted by and to its issuer|la emisión de E va a su propio emisor/);
   assert.equal(eje.serie('E:casa/plaza').emitido, 2);
@@ -1496,10 +1527,8 @@ test('TOK-29 nadie emite una serie ajena: la R se emite a su propio emisor', asy
 test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía la serie de otro', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'x', t: T0 });
   const g = eje.genesisId;
-  // VG, 7-11 noche: la casa que emite es una persona (antes, un grupo), con P delegado y su R en juego.
-  // B1 (VG, 10-11): la persona escribe su propia alta.
-  for (const id of ['casa']) await eje.entrar({ identidad: id, sobre: g, t: T0 });
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'casa', 60), daP('raiz', 'casa')], payload: 'alta' });
+  // La casa que emite es una persona: entra por invitación y emite con R suya emitida (encargo 3b, mapa §15 [D]).
+  for (const id of ['casa']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
   await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /(E is minted by and to|R is minted by) its issuer/);
   // Lo que la raíz llame «plaza» es su propia serie (E:raiz/plaza): la de la casa no cambia.
@@ -1507,25 +1536,24 @@ test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía l
   assert.deepEqual([eje.serie('E:casa/plaza').emitido, eje.serie('E:raiz/plaza').emitido], [1, 1]);
 });
 
-test('TOK-30 la capacidad es una serie limitada de quien respalda el recurso; ejecutar la reserva la mueve de la casa al huésped',
-  { skip: 'TOK-30: la casa ya emite su serie de plazas, pero ejecutar() del huésped con un movimiento casa→huésped se rechaza («nadie mueve tokens ajenos»). [X] decidir VG cómo encaja con TOK-35. Terreno de la capacidad al ejecutar (ejecutar en src/motor.js, otro agente): no se toca aquí' },
-  async () => {
-    const { eje, c } = await reservaDelHuesped();
-    assert.equal(eje.saldo('casa', 'E:casa/plaza'), 0);
-    assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
-  });
+test('TOK-30 la capacidad es una serie limitada de quien respalda el recurso; la reserva la mueve de la casa al huésped', async () => {
+  // Ya no se salta (encargo 3b; VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): no la mueve el huésped; la mueve la casa, porque es suya (TOK-35).
+  const { eje, c } = await reservaDelHuesped();
+  assert.equal(eje.saldo('casa', 'E:casa/plaza'), 0);
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+});
 
-test('TOK-31 la plaza es una posición donde las reservas colisionan; la segunda solapada se escribe pero no se ejecuta por saldo', async () => {
-  // Con la casa como génesis y autora de las reservas; el huésped que reserva es TOK-30 (skip).
+test('TOK-31 la plaza es una posición donde las reservas colisionan; la segunda solapada se escribe pero no se mueve por saldo', async () => {
+  // Con la casa como génesis y autora de las propuestas; el huésped que reserva es TOK-30.
   const { eje, hab } = await casaConUnaPlaza();
   const { c: r1, pedido: p1 } = await reservaDeLaCasa(eje, hab, 'h1');
   const { c: r2, pedido: p2 } = await reservaDeLaCasa(eje, hab, 'h2');
   const enLaPlaza = ocupantes(eje, hab, [1, 4]).map((o) => o.evento);
   assert.ok(enLaPlaza.includes(p1.id) && enLaPlaza.includes(p2.id)); // se ven todas
-  await ejecutar(eje, { autor: 'casa', consolidacion: r1.id, t: T0, movimientos: [daE('casa', 'h1', 1, 'plaza-7-11', 'casa')] });
-  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: r2.id, t: T0, movimientos: [daE('casa', 'h2', 1, 'plaza-7-11', 'casa')] }), /saldo insuficiente/);
+  await cumplir(eje, r1.id, 'casa');
+  await assert.rejects(cumplir(eje, r2.id, 'casa'), /saldo insuficiente/);
   assert.ok(eje.obtener(r2.id)); // escrita sigue
-  assert.equal(estadoDe(eje, r2.id), 'AUTORIZADO');
+  assert.equal(cerrado(eje, r2.id).cerrado, false);
 });
 
 // =====================================================================
@@ -1537,63 +1565,79 @@ test('TOK-32 P es poder con ámbito: no existe un P total', async () => {
   assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'raiz', a: 'ana' }).some((e) => /P exige ámbito/.test(e)));
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, de: 'raiz', a: 'ana' }], payload: 'x' }), /ámbito/);
   const sub = await escribe(eje, g, 'subárbol');
+  const enG = eje.poderSobre('ana', g);
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 2, ambito: sub.id, de: 'raiz', a: 'ana' }], payload: 'delegación' });
-  assert.deepEqual(eje.poderes('ana'), [{ ambito: sub.id, cantidad: 2 }]);
-  assert.equal(eje.poderSobre('ana', g), 0);
+  assert.equal(eje.poderSobre('ana', sub.id), 2);
+  assert.equal(eje.poderSobre('ana', g), enG); // P sobre un subárbol no es P sobre el todo
+  assert.ok(eje.poderes('ana').every((p) => Boolean(eje.obtener(p.ambito)))); // cada P, con su registro de ámbito
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }], payload: 'x' }), /P moves within a known scope/);
 });
 
-// Ya no se salta (VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño): tener P no autoriza nada; lo que
-// autoriza es el P bloqueado por la consolidación, y solo si alcanza el umbral.
-test('TOK-34 P no es un permiso automático: tener P no basta por sí solo para autorizar', async () => {
+// Encargo 3b (VG, 8-11, mapa §15 [D] (4) y (5)): se retira autorizar con umbral; lo que queda es el recuento del
+// dueño, que cuenta el P que cada persona compromete con X (bloqueado con la salida = X), no el que tiene.
+test('TOK-34 P no es un permiso automático: tener P no cuenta en el recuento hasta que se compromete', async () => {
   const { eje, g } = await mundo();
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  assert.equal(puedeAutorizar(eje, 'raiz', c.id), true); // puede bloquear P que cuenta…
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN'); // …pero tenerlo no autoriza
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, cantidad: 2, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN'); // 2 de 5: no pasa de la mitad
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, cantidad: 1, t: T0 });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO'); // 3 de 5
+  const decision = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['¿Compramos?', ['x'], [['decidir'], ['x'], ['threshold'], ['raiz']]] });
+  assert.ok(eje.poderSobre('raiz', g) > 0); // tiene P…
+  assert.equal(recuento(eje, decision.id).pasa, false); // …pero tenerlo no cuenta
+  await eje.escribir({ autor: 'raiz', sobre: decision.id, t: T0, payload: 'sí', movimientos: [gastaT('raiz'), { token: 'P', ambito: g, cantidad: 10, de: 'raiz', a: 'raiz', estado: 'bloqueo', salida: decision.id }] });
+  assert.equal(recuento(eje, decision.id).pasa, true);
 });
 
 test('TOK-35 nadie mueve tokens ajenos: todo movimiento con origen sale del autor', async () => {
   const { eje, g } = await mundo();
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: g, t: T0, movimientos: [gastaT('bea'), daE('ana', 'bea', 1)], payload: 'x' }), /nobody moves tokens of others/);
-  const { c } = await autorizada(eje, g);
-  await assert.rejects(ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('raiz', 'ana', 1)] }), /nobody moves tokens of others/);
+  // Tampoco dentro de una propuesta: lo anunciado de otro lo mueve ese otro (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»).
+  const { c } = await anunciada(eje, g);
+  await assert.rejects(registrar(eje, { autor: 'ana', sobre: c.id, t: T0, movimientos: [gastaT('ana'), daE('raiz', 'ana', 1)], payload: 'x' }), /nobody moves tokens of others/);
 });
 
 test('TOK-37 PV8 no emite P por subir de posición ni por reunir registros', async () => {
   const { eje, g } = await mundo();
   const a = await escribe(eje, g, ['A', 'mucho', 'contenido'], undefined, 'ana');
+  // Ana tiene el P que obtuvo al escribir (10 sobre cada registro suyo: VG, 8-11, mapa §15 [D]); reunir apoyos no le da más.
+  const poderes = JSON.stringify(eje.poderes('ana'));
   for (let k = 0; k < 3; k++) await escribe(eje, a.id, 'apoyo ' + k, undefined, 'bea');
+  assert.equal(JSON.stringify(eje.poderes('ana')), poderes);
   const antes = huella(eje);
   // VG, 7-11 noche: se retira comparar(); leer el 8 (aquí, el respaldo al vuelo: no hay base escrita) no escribe ni emite.
   assert.equal(situar(eje, a.id, { respaldo: true }).medidas.escritos.foco, 3);
   assert.equal(huella(eje), antes);
-  assert.deepEqual(eje.poderes('ana'), []);
+  assert.equal(JSON.stringify(eje.poderes('ana')), poderes);
 });
 
-test('TOK-38 R se cuenta por emisor y no es fungible ni popularidad', async () => {
+test('TOK-38 R se cuenta por emisor y no es popularidad: se transfiere sin cambiar de emisor', async () => {
+  // Encargo 3b (VG, 9-11, mapa §15 [D] «R según el corpus» y «R, últimas dos»): se corrige «R no es fungible» (#62):
+  // R se transfiere libremente entre tenedores sin cambiar de emisor; lo que vale para un tercero es de su lente.
   const { eje, g } = await mundo();
+  const deRaiz = (id) => eje.reputaciones(id).find((r) => r.emisor === 'raiz')?.cantidad ?? 0;
+  const [ana0, bea0] = [deRaiz('ana'), deRaiz('bea')]; // la unidad que les guardó la invitación
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 3, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'buen trato' });
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 3 }]);
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'ana', a: 'bea' }], payload: 'x' }), /no es fungible/);
+  assert.equal(deRaiz('ana'), ana0 + 3);
+  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'ana', a: 'bea' }], payload: 'te paso una' });
+  assert.deepEqual([deRaiz('ana'), deRaiz('bea')], [ana0 + 2, bea0 + 1]); // sigue siendo R de la raíz
+  assert.equal(eje.reputaciones('bea').some((r) => r.emisor === 'ana'), false);
+  const antes = deRaiz('ana');
   for (let k = 0; k < 3; k++) await escribe(eje, g, 'me gusta ana ' + k, undefined, 'bea'); // la popularidad no es R
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 3 }]);
+  assert.equal(deRaiz('ana'), antes);
 });
 
 test('TOK-41 PV3 no es R: comunicar no emite reputación', async () => {
   const { eje, g } = await mundo();
   const antes = eje.reputaciones('ana');
-  const msg = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: g, en: '3000000000', payload: 'hola a todos', t: T0 });
+  // En el 3 de un registro suyo: en el de otro, la atención tiene precio (VG, 9-11, mapa §16 [D] «PV3 = regla de atención»).
+  const tablon = await escribe(eje, g, 'mi tablón', undefined, 'ana');
+  const msg = await escribirDesde(eje, { modo: 'pointed', autor: 'ana', sobre: tablon.id, en: '3000000000', payload: 'hola a todos', t: T0 });
   assert.deepEqual(msg.movimientos.map((m) => m.token), ['T']);
   assert.deepEqual(eje.reputaciones('ana'), antes);
 });
 
 test('TOK-42 la R viaja en un evento con su contexto: se sabe quién la dio, cuándo y por qué', async () => {
   const { eje, g } = await mundo();
+  // Sin contar el alta de ana, que recoge la R que le guardó su invitación (encargo 3b, mapa §16 [D]).
+  const previos = new Set([...eje.eventos.values()].filter((e) => e.movimientos.some((m) => m.token === 'R' && m.a === 'ana')).map((e) => e.id));
   const ev = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 2, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: ['Reconocimiento', 'entregó a tiempo'] });
-  const conR = [...eje.eventos.values()].filter((e) => e.movimientos.some((m) => m.token === 'R' && m.a === 'ana'));
+  const conR = [...eje.eventos.values()].filter((e) => !previos.has(e.id) && e.movimientos.some((m) => m.token === 'R' && m.a === 'ana'));
   assert.deepEqual(conR.map((e) => [e.autor, e.payload[1]]), [['raiz', 'entregó a tiempo']]);
   assert.equal(conR[0].id, ev.id);
 });
@@ -1604,20 +1648,27 @@ test('TOK-42b la R enlaza con historial, compromisos, juicios y evidencias',
 
 test('TOK-43 los tokens recorren los diez PV: cualquier evento, en cualquier posición, puede mover cualquier familia', async () => {
   const { eje, g } = await mundo(['Foco', 'a', 'b', 'c', 'd', 'e', 'f', 'g']);
+  // P con su ámbito, un registro (mapa §15 [D]); P y R, relativos a lo que ana ya tiene (el P que obtiene y la R de su invitación).
+  const [p0, r0] = [eje.poderSobre('ana', g), eje.saldo('ana', 'R:raiz')];
   await eje.escribir({ autor: 'raiz', sobre: g, en: '3000000000', t: T0, movimientos: [gastaT('raiz'), daE('raiz', 'ana', 1)], payload: 'E en el 3' });
-  await eje.escribir({ autor: 'raiz', sobre: g, en: '1000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }], payload: 'P en el 1' });
+  await eje.escribir({ autor: 'raiz', sobre: g, en: '1000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: g, de: 'raiz', a: 'ana' }], payload: 'P en el 1' });
   await eje.escribir({ autor: 'raiz', sobre: g, en: '7000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'R en el 7' });
   await eje.escribir({ autor: 'raiz', sobre: g, en: '2000000000', t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 5)], payload: 'T en el 2' });
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 51);
-  assert.equal(eje.poderSobre('ana', g), 1);
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 1 }]);
+  assert.equal(eje.poderSobre('ana', g), p0 + 1);
+  assert.equal(eje.saldo('ana', 'R:raiz'), r0 + 1);
 });
 
 test('TOK-47 se ven los tokens: P por ámbito y R por emisor, separados de los recursos', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
-  assert.deepEqual(eje.poderes('ana'), [{ ambito: 'genesis', cantidad: 1 }]);
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'raiz', cantidad: 1 }]);
+  // P con su ámbito, un registro (mapa §15 [D]); relativos a lo que ana ya tiene.
+  const p = () => eje.poderes('ana').find((x) => x.ambito === g)?.cantidad ?? 0;
+  const r = () => eje.reputaciones('ana').find((x) => x.emisor === 'raiz')?.cantidad ?? 0;
+  const [p0, r0] = [p(), r()];
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: g, de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
+  assert.deepEqual([p(), r()], [p0 + 1, r0 + 1]);
+  assert.ok(eje.poderes('ana').every((x) => Object.keys(x).sort().join() === 'ambito,cantidad'));
+  assert.ok(eje.reputaciones('ana').every((x) => Object.keys(x).sort().join() === 'cantidad,emisor'));
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
 });
 
@@ -1631,7 +1682,7 @@ test('TOK-47b se ven todas las denominaciones de E y todas las escalas de T', as
   assert.deepEqual(eje.recursos('ana'), [{ emisor: 'raiz', denominacion: 'minuto', cantidad: 300 }, { emisor: 'raiz', denominacion: 'EUR', cantidad: 50 }]); // cada serie de E con su emisor
 });
 
-test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura, P autoriza, R no es fungible, E se mueve al ejecutar', async () => {
+test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura, P cuenta en el recuento, R va por emisor, E se mueve al registrar lo anunciado', async () => {
   const { eje, g } = await mundo();
   // T (VG, 7-11 noche; Core, 8-11): pobre es una cosa, y la raíz (una persona) le da un minuto de su T. Cada
   // escritura lo consume y queda anotada en el registro que la soporta; una cosa no tiene asignación: sin T no escribe.
@@ -1640,10 +1691,18 @@ test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura,
   await escribe(eje, g, 'una', undefined, 'pobre');
   await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente de T:minuto en pobre/); // T
   assert.equal(eje.tiempoSobre(g).minuto, antes + 1);
+  // P (encargo 3b, VG, 8-11, mapa §15 [D] «Una sola operación: registrar»; mapa §15 [D] (5)): se retira autorizar; el P comprometido cuenta en el recuento del dueño.
+  const decision = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['¿Compramos?', ['x'], [['decidir'], ['x'], ['threshold'], ['raiz']]] });
+  assert.equal(recuento(eje, decision.id).pasa, false);
+  await eje.escribir({ autor: 'raiz', sobre: decision.id, t: T0, payload: 'sí', movimientos: [gastaT('raiz'), { token: 'P', ambito: g, cantidad: 10, de: 'raiz', a: 'raiz', estado: 'bloqueo', salida: decision.id }] });
+  assert.equal(recuento(eje, decision.id).pasa, true); // P
+  // R: pasa de mano y sigue siendo de su emisor (VG, 9-11, mapa §15 [D] «R según el corpus»).
+  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'ana', a: 'bea' }], payload: 'te paso mi R de la raíz' });
+  assert.equal(eje.saldo('bea', 'R:raiz'), 2); // la de su invitación y esta
+  // E: se mueve con el registro que mueve lo anunciado.
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  await assert.rejects(autorizar(eje, { autorizante: 'bea', consolidacion: c.id, t: T0 }), /bea no tiene P que cuente para autorizar/); // P
-  await autorizar(eje, { autorizante: 'raiz', consolidacion: c.id, t: T0 });
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'bea', 10)] });
+  await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/EUR', 10, 'pagar', 'ana', 'bea') });
+  await cumplir(eje, c.id, 'ana');
   assert.equal(eje.saldo('bea', 'E:raiz/EUR'), 10); // E
 });
 
@@ -1654,7 +1713,7 @@ test('TOK-48b los cuatro tokens tienen presencia visible, no solo cifras',
 test('TOK-49 P, R y T no se reducen a dinero ni a puntuación', async () => {
   const { eje, g } = await mundo();
   const antes = eje.saldo('ana', 'E:raiz/EUR');
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 10), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 10), { token: 'P', cantidad: 1, ambito: g, de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), antes); // nada se convierte en E
   assert.ok([...eje.saldos.get('ana').keys()].every((k) => /^(T|E:|P:|R:)/.test(k))); // ni hay una cifra total
   assert.equal(typeof eje.total, 'undefined');
@@ -1675,9 +1734,9 @@ test('TOK-50 más transferencias no son más riqueza: mover tokens no es progres
 
 test('TOK-54 ninguna organización es imprescindible para participar: los tokens pasan de unas identidades a otras', async () => {
   const { eje, g } = await mundo();
-  // B1 (VG, 10-11): la persona escribe su propia alta.
-  for (const id of ['cris']) await eje.entrar({ identidad: id, sobre: g, t: T0 });
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5, 'raiz'), daE('ana', 'cris', 5)], payload: 'ana da de alta a cris' });
+  // Cris entra por invitación de ana, no de la raíz (encargo 3b, VG, 9-11, mapa §16 [D] «El árbol mínimo es la invitación»).
+  await entrarPorInvitacion(eje, { por: 'ana', quien: 'cris', t: T0 });
+  await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5, 'raiz'), daE('ana', 'cris', 5)], payload: 'ana da a cris' });
   const ev = await escribe(eje, g, 'cris participa', undefined, 'cris');
   assert.equal(ev.autor, 'cris');
   assert.equal(eje.saldo('cris', 'E:raiz/EUR'), 5);
@@ -1685,26 +1744,27 @@ test('TOK-54 ninguna organización es imprescindible para participar: los tokens
 
 test('TOK-54b una identidad que no es el génesis puede emitir sus propias series', async () => {
   const { eje, g } = await mundo();
-  // VG, 7-11 noche: E es el último escalón. Ana pone en juego su R (R6: bloquea su colateral; y da un R a bea) y escribe sobre un registro suyo, sobre el que emite P.
+  // E es el último escalón: ana emite R suya (sin colateral) y da una a bea, y emite E sobre un registro suyo, donde
+  // tiene el P que obtuvo al escribirlo (encargo 3b, VG, 8-11 y 9-11, mapa §15 [D]: nadie acuña P a mano).
   const suyo = await escribe(eje, g, 'mis clases', undefined, 'ana');
   await eje.escribir({ autor: 'ana', sobre: suyo.id, t: T0, payload: 'mi reputación y mis horas de clase', movimientos: [gastaT('ana'),
-    { token: 'R', cantidad: 6, emisor: 'ana', de: null, a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'ana', estado: 'bloqueo', salida: 'R:ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'bea' },
-    { token: 'P', ambito: suyo.id, cantidad: 1, de: null, a: 'ana' },
+    { token: 'R', cantidad: 6, emisor: 'ana', de: null, a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'ana', de: 'ana', a: 'bea' },
     { token: 'E', denominacion: 'horas de clase', emisor: 'ana', cantidad: 3, de: null, a: 'ana' }] });
-  assert.deepEqual(eje.reputaciones('ana'), [{ emisor: 'ana', cantidad: 4 }]); // 6 − 1 de colateral − 1 a bea
+  assert.equal(eje.saldo('ana', 'R:ana'), 5); // 6 − 1 a bea
   assert.equal(eje.saldo('ana', 'E:ana/horas de clase'), 3);
 });
 
 test('TOK-54c ninguna organización permanente es imprescindible: T y P no dependen solo de la primera identidad', async () => {
-  // VG, 8-11: cada persona tiene su T, la asignación diaria, y emite su P sobre registros suyos; antes solo el génesis.
+  // VG, 8-11: cada persona tiene su T, la asignación diaria, y obtiene su P al escribir sus registros (mapa §15 [D]:
+  // 10 sobre cada registro propio; se retira el P del génesis).
   const { eje, g } = await mundo();
   const unaHoraDespues = '2026-11-07T11:00:00Z';
   await eje.escribir({ autor: 'ana', sobre: g, t: unaHoraDespues, payload: 'mi tiempo', movimientos: [gastaT('ana')] });
   assert.equal(eje.saldoT('ana', 'minuto', unaHoraDespues) <= 1439, true); // su asignación del día, menos lo gastado
   const suyo = await escribe(eje, g, 'mi taller', undefined, 'ana', unaHoraDespues);
-  await eje.escribir({ autor: 'ana', sobre: suyo.id, t: unaHoraDespues, payload: 'mi poder', movimientos: [gastaT('ana'), ...rEnJuego('ana', 'bea'), { token: 'P', ambito: suyo.id, cantidad: 2, de: null, a: 'ana' }] });
-  assert.equal(eje.poderSobre('ana', suyo.id), 2);
-  assert.equal(eje.serie('P:' + suyo.id).emisor, 'ana');
+  assert.equal(eje.poderSobre('ana', suyo.id), 10);
+  assert.equal(eje.poderSobre('raiz', suyo.id), 0);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: suyo.id, t: unaHoraDespues, payload: 'más poder', movimientos: [gastaT('ana'), { token: 'P', ambito: suyo.id, cantidad: 2, de: null, a: 'ana' }] }), /P is repositioned one step at a time/);
 });
 
 test('TOK-55 las alternativas descentralizadas se ofrecen por defecto («multinacional de autónomos»)',
@@ -1732,8 +1792,10 @@ test('TOK-56b un génesis reconstruido solo vale si todo son emisiones a su auto
 test('TOK-57 una identidad existe cuando tiene alta: una persona escribe la suya (B1); a una cosa la da de alta su dueño, con su clave en el mismo evento', async () => {
   const { eje, g } = await mundo();
   assert.equal(eje.identidades().includes('dani'), false);
-  // B1 (VG, 10-11): quien aún no tiene cuenta y escribe, escribe su propia alta: es una persona.
-  await escribe(eje, g, 'x', undefined, 'dani');
+  // Una persona entra aceptando una invitación (encargo 3b, VG, 9-11, mapa §16 [D] «El árbol mínimo es la invitación»):
+  // se retira B1 (escribir sin cuenta era escribir el alta).
+  await assert.rejects(escribe(eje, g, 'x', undefined, 'dani'), /a person joins by an invitation/);
+  await entrarPorInvitacion(eje, { por: 'ana', quien: 'dani', t: T0 });
   assert.ok(eje.identidades().includes('dani'));
   assert.equal(eje.esPersona('dani'), true);
   // Una cosa la da de alta otra identidad, que declara su clave en el mismo evento.
@@ -1762,12 +1824,12 @@ test('TOK-59 cada posición escrita cuesta al autor un minuto de T', async () =>
   }
 });
 
-test('TOK-59b también ejecutar paga un minuto por posición', async () => {
+test('TOK-59b también mover lo anunciado paga un minuto por posición', async () => {
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g);
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, titulo: ['Ejecutado', 'con detalle'] });
+  const { c } = await anunciada(eje, g);
+  const e = await cumplir(eje, c.id, 'ana'); // lo que era ejecutar (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»)
   assert.equal(minutosDe(e), contarPosiciones(e.payload));
-  assert.equal(minutosDe(e), 4);
+  assert.equal(minutosDe(e), 1);
 });
 
 // =====================================================================
@@ -1879,13 +1941,14 @@ test('TOK-69c la época cambia qué ocupantes aparecen y los vectores',
 
 test('TOK-70 elegir una época no prueba legitimidad, verdad ni autoridad de ejecución', async () => {
   const { eje, g } = await mundo();
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  const antes = [huella(eje), estadoDe(eje, c.id), puedeAutorizar(eje, 'bea', c.id)];
+  const { c } = await anunciada(eje, g, { 1: 'x' });
+  const lee = () => [huella(eje), cerrado(eje, c.id).cerrado, JSON.stringify(siguiente(eje, c.id, 'bea'))];
+  const antes = lee();
   const generosa = { nombre: 'generosa', ordinal: () => true, reglaCorta: () => 'todo autorizado' };
   leerDireccion(c.en, generosa);
   decupla(c, generosa);
   ocupantes(eje, g, [4], { epoca: generosa });
-  assert.deepEqual([huella(eje), estadoDe(eje, c.id), puedeAutorizar(eje, 'bea', c.id)], antes);
+  assert.deepEqual(lee(), antes);
 });
 
 test('TOK-71 el cambio de época compone aportaciones de varias ramas en vez de elegir una ganadora',
@@ -1898,8 +1961,8 @@ test('TOK-71 el cambio de época compone aportaciones de varias ramas en vez de 
 
 test('TOK-72 AGRAM no firma por nadie: la firma la pone el autor con su clave', async () => {
   const { eje, g } = await mundo();
-  const { c, a } = await autorizada(eje, g);
-  const e = await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0 });
+  const { c, a } = await anunciada(eje, g);
+  const e = await cumplir(eje, c.id, 'ana');
   for (const ev of [c, a, e]) assert.equal(ev.firma, undefined); // sin clave del autor, nada firmado
   const ana = await generarClaves();
   const eje2 = await Eje.genesis({ demostracion: true, identidad: 'ana', emision: EMISION, foco: ['F', 'a'], t: T0, clave: ana.publica, privada: ana.privada });
@@ -1909,29 +1972,33 @@ test('TOK-72 AGRAM no firma por nadie: la firma la pone el autor con su clave', 
 });
 
 test('TOK-72b AGRAM no genera por sí mismo pagos ni ejecuciones: invoca servicios autorizados',
-  { skip: 'TOK-72: motor.ejecutar mueve tokens dentro del eje. Lo decide el mapa §12 (7-11): AARPIA es el motor real de autorización y ejecución, y lo del motor es un hueco provisional; AARPIA queda fuera por decisión de VG (MOT-41, TOK-74)' },
+  { skip: 'TOK-72: registrar mueve tokens dentro del eje (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»). Lo decide el mapa §12 (7-11): AARPIA es el motor real de autorización y ejecución, y lo del motor es un hueco provisional; AARPIA queda fuera por decisión de VG (MOT-41, TOK-74)' },
   sinForma('TOK-72'));
 
-test('TOK-73 la regla de autorización del motor es un hueco provisional en un solo punto: puedeAutorizar', async () => {
+test('TOK-73 el motor no tiene regla de autorización: una sola operación, registrar, y lecturas', async () => {
+  // Encargo 3b (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»): se retira el hueco provisional (puedeAutorizar); nadie autoriza lo ajeno, porque cada uno solo
+  // mueve lo suyo, y lo que queda en el motor son lecturas de la cadena.
+  for (const n of ['autorizar', 'ejecutar', 'puedeAutorizar', 'autorizacionesValidas', 'estadoDe', 'consolidaciones']) assert.equal(n in motor, false, n);
   const { eje, g } = await mundo();
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
-  for (const quien of ['ana', 'bea', 'raiz']) {
-    const puede = puedeAutorizar(eje, quien, c.id);
-    if (puede) await autorizar(eje, { autorizante: quien, consolidacion: c.id, t: T0 });
-    else await assert.rejects(autorizar(eje, { autorizante: quien, consolidacion: c.id, t: T0 }));
-  }
-  assert.deepEqual(autorizacionesValidas(eje, c.id).map((x) => x.autor), ['raiz']);
+  const nota = await registrar(eje, { autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'registrar es escribir' });
+  assert.equal(eje.obtener(nota.id).autor, 'ana');
+  const antes = huella(eje);
+  for (const lectura of [cerrado, recuento]) lectura(eje, nota.id);
+  siguiente(eje, nota.id, 'bea');
+  assert.equal(huella(eje), antes);
 });
 
 test('TOK-73b una frontera con AARPIA, el motor real de autorización y ejecución',
-  { skip: 'TOK-73: la regla provisional está en motor.js sin frontera con AARPIA' },
+  { skip: 'TOK-73: ya no hay regla provisional en el motor (TOK-73); la frontera con AARPIA no existe' },
   sinForma('TOK-73'));
 
 test('TOK-74 fuera quedan AARPIA, Nostr y Bitcoin, salvo instancias y transiciones', async () => {
   const { eje, g } = await mundo();
   for (const [f, especificador] of importsDeSrc()) assert.equal(/nostr|bitcoin|stateark|aarpia/i.test(especificador), false, f);
-  const ev = eje.obtener(g); // una instancia…
-  assert.ok(Array.isArray(ev.movimientos) && ev.movimientos.length > 0); // …con sus transiciones
+  // Una instancia con sus transiciones: el génesis no mueve nada (encargo 3b), y su emisión es la transacción siguiente.
+  const ev = eje.obtener(eje.orden[1]);
+  assert.equal(ev.autor, 'raiz');
+  assert.ok(Array.isArray(ev.movimientos) && ev.movimientos.length > 0);
 });
 
 test('TOK-75 firmar no hace verdadero el contenido, y publicar no hace a un evento descubrible por todos', async () => {
@@ -1953,8 +2020,8 @@ test('TOK-76 no hay anclaje (raíz Merkle, StateArk, Bitcoin) ni se afirma ningu
 
 test('TOK-77 ningún token sale del eje: todo movimiento va a una identidad del eje o se consume', async () => {
   const { eje, g } = await mundo();
-  const { c } = await autorizada(eje, g);
-  await ejecutar(eje, { autor: 'ana', consolidacion: c.id, t: T0, movimientos: [daE('ana', 'raiz', 1)] });
+  const { c } = await anunciada(eje, g, undefined, 1);
+  await cumplir(eje, c.id, 'ana');
   const identidades = new Set(eje.identidades());
   for (const ev of eje.eventos.values()) for (const m of ev.movimientos) assert.ok(m.a === null || identidades.has(m.a), m.a);
 });
@@ -1988,10 +2055,9 @@ test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona
 // Serie del motor
 //   MOT-40 [abierto]   el motor no genera derechos, firmas, pruebas, pagos ni ejecuciones: puede invocar servicios
 //                      autorizados. [!] Choca con MOT-39 (el motor es la ejecución real) y MOT-41 (AARPIA ejecuta).
-//   MOT-42 [decidido VG, 7-11 noche] autorizar es bloquear P sobre el registro del recurso, con la consolidación como
-//                      salida; AUTORIZADO cuando lo bloqueado (de cualquiera, el autor incluido) alcanza el umbral del
-//                      dueño (por defecto, más de la mitad del P emitido); ejecuta el autor (src/autorizacion.js).
-//                      Sustituye la regla V0 «P > 0 y no ser el autor». Abierto: si X es la raíz del dominio.
+//   MOT-42 [decidido VG, 8-11] se retira autorizar (mapa §15 [D] «Una sola operación: registrar»): nadie autoriza lo
+//                      ajeno; cada uno mueve lo suyo, y comprometer P con X (bloquearlo con la salida = X) solo cuenta en
+//                      el recuento del dueño (TOK-34). Sustituye la del 7-11 noche (bloquear P con umbral).
 //   MOT-45 [abierto]   qué ejecuciones necesitan la autorización de otra identidad («cuando corresponda»).
 //   MOT-52 [abierto]   si C exige que antes haya habido Q y B (hoy consolidar no lo exige).
 //   MOT-53 [propuesta] que el orden cambie el resultado depende del contexto; no es un axioma «siempre diferentes».
@@ -2009,7 +2075,7 @@ test('TOK-79b la acreditación material y un modelo de capas que PV5 inspecciona
 //   TOK-22 [propuesta] cada banda más lejana ocupa unos dos tercios del espacio de la anterior.
 //   TOK-33 [abierto]   qué es un ámbito de P: un área (P_Derecho) o el subárbol de un registro (hoy, el subárbol).
 //   TOK-36 [abierto]   la delegación de P (hoy hacia un ámbito igual o más estrecho).
-//   TOK-39 [propuesta] transferir R sin sustituir a su emisor (hoy la mueve su emisor; quien la tiene solo puede devolvérsela: VG, 7-11 noche).
+//   TOK-39 [decidido VG, 9-11] R se transfiere libremente entre tenedores sin cambiar de emisor (mapa §15 [D]; TOK-38).
 //   TOK-40 [propuesta] emisión de R en doble entrada, con conservación al liquidar, bloqueo y aceptación (7-11 noche: hay obligaciones del emisor y bloqueo con salida; la aceptación no).
 //   TOK-44 [propuesta] en PV2, luz/E, calor/P, agua/R y vida/T como metáfora visual flexible.
 //   TOK-45 [propuesta] en PV3 los tokens condicionan paquetes, atención y pagos por comunicación.

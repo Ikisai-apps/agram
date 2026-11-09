@@ -31,8 +31,13 @@ test('hilo del ejemplo: cuatro décuplas, la más cercana primero', async () => 
 test('hijos del génesis del ejemplo', async () => {
   const { eje, alta } = await ejemploCompra();
   const seq = secuencia(eje, eje.genesisId, { sentido: 'hijos' });
-  assert.equal(seq.total, 2); // el alta de la huésped, que escribe ella (B1), y las altas de la casa
-  assert.deepEqual(seq.decuplas.map((d) => d.id).sort(), [alta.id, eje.alta('huesped').id].sort());
+  // Encargo 3b: la emisión inicial de la casa, su invitación a la huésped (anclada en el 3 de su alta, el génesis) y las
+  // altas de la casa. El alta de la huésped cuelga de la invitación que acepta (mapa §16 [D], «El árbol mínimo es la
+  // invitación»), no del génesis.
+  assert.equal(seq.total, 3);
+  const invitacion = eje.obtener(eje.alta('huesped').id).sobre;
+  assert.equal(eje.obtener(invitacion).sobre, eje.genesisId);
+  assert.deepEqual(seq.decuplas.map((d) => d.id).sort(), [alta.id, invitacion, eje.sobre(eje.genesisId)[0].id].sort());
 });
 
 test('la hilera se corta en diez aunque el hilo sea más largo', async () => {
@@ -51,7 +56,7 @@ test('render sobrio: cabecera y una línea por décupla', async () => {
   const lineas = texto.split('\n');
   assert.equal(lineas.length, 5);
   assert.match(lineas[0], /^hilo de [0-9a-f]{8} · 4 de 4$/);
-  assert.match(lineas[1], /^0 [0-9a-f]{8} huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[1\] · 3 \[2\] · 4 \[2\]$/);
+  assert.match(lineas[1], /^0 [0-9a-f]{8} huesped · 0 Compra del menú del día · 1 \[3\] · 2 \[2\] · 3 \[2\] · 4 \[2\]$/); // 2: los criterios del menú y la plantilla de cerrado (encargo 3b)
   assert.match(lineas[4], /^3 [0-9a-f]{8} casa · Casa de ejemplo$/); // un terminal, sin posición 0
   assert.throws(() => render(secuencia(eje, compra.id), 'animado'), /no disponible/);
 });
@@ -73,9 +78,10 @@ test('secuencia: alcance con los tres números de Sequenced; mínimo no consegui
   // Nada escrito sobre el último: no llega al mínimo, y no es error.
   assert.deepEqual(secuencia(eje, ultimo, { sentido: 'hijos' }).alcance, { conseguido: 0, minimo: 10, maximo: 100, alMinimo: false });
   assert.equal(secuencia(eje, ultimo, { maximo: 3 }).alcance.conseguido, 3);
-  // El ejemplo: compra 9, menú 6, altas 3 y el génesis, un terminal, 1.
+  // El ejemplo: compra 10 (encargo 3b: su 2 nombra también la plantilla de cerrado), menú 6, altas 3 y el génesis, un
+  // terminal, 1.
   const { eje: ej, compra } = await ejemploCompra();
-  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 19);
+  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 20);
 });
 
 // VG, 7-11 noche (10.2): todos cortan duro, también Sequenced, con el aviso de Scened.

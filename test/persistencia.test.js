@@ -13,18 +13,20 @@ test('serializar y restaurar reconstruye el eje validando todo', async () => {
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
   assert.equal(datos.version, 3); // VG, 7-11 noche: la versión 3 trae el ciclo de vida de los tokens (bloqueos, caducidad)
   assert.equal(datos.version, VERSION);
-  assert.equal(datos.eventos.length, 6); // con el alta que escribe la huésped (B1)
+  // Génesis (la época 0, sin movimientos), la emisión de la casa, la invitación y la aceptación de la huésped (su alta,
+  // encargo 3b), las altas de la casa, el menú, la compra y la cuenta.
+  assert.equal(datos.eventos.length, 8);
   const otro = await restaurar(datos);
   assert.deepEqual(otro.orden, eje.orden);
   assert.equal(otro.saldo('cocina', 'E:casa/EUR'), 12);
   assert.deepEqual(otro.identidades(), eje.identidades());
-  assert.equal(evaluar(otro, otro.orden[5], [1]).texto, '14 EUR (12 EUR + 2 EUR)');
+  assert.equal(evaluar(otro, otro.orden[7], [1]).texto, '14 EUR (12 EUR + 2 EUR)');
 });
 
 test('un evento manipulado en el guardado se rechaza al restaurar', async () => {
   const { eje } = await ejemploCompra();
   const datos = JSON.parse(JSON.stringify(serializar(eje)));
-  datos.eventos[4].movimientos[1].cantidad = 1; // la compra pagaba 12
+  datos.eventos[6].movimientos[1].cantidad = 1; // la compra pagaba 12
   await assert.rejects(restaurar(datos), /id no corresponde/);
   const datos2 = JSON.parse(JSON.stringify(serializar(eje)));
   datos2.eventos[0].payload = 'otro génesis';
@@ -63,6 +65,15 @@ test('guardar y cargar en un localStorage simulado', async () => {
   }
 });
 
+test('un eje de la versión 3 guardado antes del encargo 3b no se restaura: su génesis emite, y el génesis es la época 0, sin movimientos', async () => {
+  // Encargo 3b (VG, 10-11, A2; mapa §16 [D]): el génesis es «registro con id conocido, sin movimientos». Lo guardado con
+  // un génesis que emite (las reglas de antes) no se migra.
+  const t = '2026-11-07T09:00:00Z';
+  const g = await crearEvento({ autor: 'casa', sobre: null, t, payload: 'Casa de ejemplo', contexto: { genesis: true, demostracion: true },
+    movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50, de: null, a: 'casa' }] });
+  await assert.rejects(restaurar({ version: VERSION, exigirFirmas: false, eventos: [JSON.parse(JSON.stringify(g))] }), /el génesis no mueve nada/);
+});
+
 test('un eje de la versión 1 no se restaura, y lo guardado se aparta en vez de perderse', async () => {
   const almacen = new Map();
   globalThis.localStorage = { getItem: (k) => almacen.get(k) ?? null, setItem: (k, v) => almacen.set(k, v), removeItem: (k) => almacen.delete(k) };
@@ -84,7 +95,7 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   // escribe quien tiene T, la casa (el ejemplo de la compra ya no cabe: cocina escribe con su propio T).
   const t = '2026-11-07T09:00:00Z';
   const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', t, foco: 'Casa de ejemplo',
-    emision: [{ token: 'E', denominacion: 'EUR', cantidad: 50 }] });
+    emision: [{ token: 'R', cantidad: 1 }, { token: 'E', denominacion: 'EUR', cantidad: 50 }] });
   const gasta = { token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null };
   const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, payload: ['Altas', ['huesped']],
     movimientos: [gasta, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 10, de: 'casa', a: 'huesped' }] });
@@ -95,7 +106,7 @@ test('un eje de la versión 2 se migra a la 3 sin tocar sus eventos: se revalida
   const g2 = await crearEvento({ autor: 'casa', sobre: null, t, payload: 'Casa de ejemplo', contexto: { genesis: true, demostracion: true, tipos: { casa: 'persona' } },
     movimientos: [emitir({ token: 'T', escala: 'minuto', cantidad: 100 }), emitir({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 50 })] });
   const alta2 = await crearEvento({ ...eje.obtener(alta.id), sobre: g2.id });
-  const menu2 = await crearEvento({ ...eje.obtener(eje.orden[2]), sobre: alta2.id });
+  const menu2 = await crearEvento({ ...eje.obtener(eje.orden[3]), sobre: alta2.id });
   const v2 = JSON.parse(JSON.stringify({ version: 2, exigirFirmas: false, eventos: [g2, alta2, menu2] }));
   assert.equal(migrar(v2).version, VERSION);
   assert.deepEqual(migrar(v2).eventos, v2.eventos);

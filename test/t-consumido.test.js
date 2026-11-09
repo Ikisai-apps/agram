@@ -3,8 +3,9 @@
 //   1. escribir CONSUME T del autor (de = autor, a = null) y el consumo se
 //      anota en el registro `sobre` (eje.tiempoSobre, eje.tiempoBajo; el 8 lo
 //      funde por escala);
-//   2. T se ve desde fuera y no afecta mecánicamente a terceros: ni autorizar,
-//      ni topes de E, ni elegibilidad, ni orden de candidatos;
+//   2. T se ve desde fuera y no afecta mecánicamente a terceros: ni recuentos
+//      (desde el encargo 3b ya no hay autorizar), ni topes de E, ni
+//      elegibilidad, ni orden de candidatos;
 //   3. T no cruza de persona: de una persona a otra se rechaza y se transforma
 //      en E; una persona sí da su T a una cosa (la máquina gasta el de su
 //      dueño); no hay grupos que reciban T (VG, 8-11: solo delegación);
@@ -30,7 +31,7 @@ import { incongruenciaDe } from '../src/tiempo.js';
 import { validez } from '../src/validez.js';
 import { esPresente } from '../src/evento.js';
 import { leerEvento } from '../src/lectura.js';
-import { colateral } from '../src/lente.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { ASIGNACION_T, PARTES_T, ESCALAS_REALES, asignacionT, diaCivil, textoT, validarMovimiento } from '../src/tokens.js';
 
 const AYER = '2026-11-07T10:00:00Z';
@@ -53,15 +54,16 @@ const daT = (de, a, cantidad, escala = 'minuto') => ({ token: 'T', escala, canti
 const cedeE = (de, a, cantidad) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad, de, a });
 
 /**
- * El día antes de T0, ana y bea escriben su propia alta (B1, VG 10-11: son personas) y g les da minutos como E; g da
- * de alta a una cosa, el robot, dándole T (no hay identidades de grupo: VG, 8-11).
+ * El día antes de T0, g invita a ana y a bea y ellas aceptan (su alta: encargo 3b; B1, VG 10-11: son personas) y g les
+ * da minutos como E; g da de alta a una cosa, el robot, dándole T (no hay identidades de grupo: VG, 8-11). El génesis no
+ * mueve nada: g emite su R y su E después (encargo 3b).
  */
 async function mundo() {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', t: AYER, foco: ['raíz'],
-    emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e6 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
+    emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }],
   });
-  for (const id of ['ana', 'bea']) await eje.entrar({ identidad: id, t: AYER });
+  for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'g', quien: id, t: AYER });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [gasta('g'), cedeE('g', 'ana', 10), cedeE('g', 'bea', 10), daT('g', 'robot', 30)],
@@ -77,16 +79,17 @@ test('escribir consume T del autor y el consumo se anota en el registro que sopo
   await eje.escribir({ autor: 'bea', sobre: a.id, t: T0, payload: 'b', movimientos: [gasta('bea', 2), gasta('bea', 1, 'hora')] });
   await eje.escribir({ autor: 'robot', sobre: a.id, t: T0, payload: 'c', movimientos: [gasta('robot', 4)] });
   // Lo de cada registro: lo consumido por quienes escriben encima.
-  assert.deepEqual(eje.tiempoSobre(g), { minuto: 3 }); // el alta de g y las de ana y bea, que escriben la suya (B1)
+  // Sobre el génesis: la emisión de g, sus dos invitaciones y las altas que da (las aceptaciones cuelgan de cada invitación).
+  assert.deepEqual(eje.tiempoSobre(g), { minuto: 4 });
   assert.deepEqual(eje.tiempoSobre(alta.id), { minuto: 3 });
   assert.deepEqual(eje.tiempoSobre(a.id), { minuto: 6, hora: 1 });
   assert.deepEqual(eje.tiempoSobre('nadie'), {});
   // Y lo que cuelga de él.
   assert.deepEqual(eje.tiempoBajo(alta.id), { minuto: 9, hora: 1 });
-  assert.deepEqual(eje.tiempoBajo(g), { minuto: 12, hora: 1 });
+  assert.deepEqual(eje.tiempoBajo(g), { minuto: 15, hora: 1 }); // y las dos aceptaciones
   // En las series de T: lo consumido y lo que salió de la asignación diaria (g, ana y bea; el robot gastó el suyo).
   const serie = (k) => eje.series().find((s) => s.clave === k);
-  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [12, 8 + 30]); // y los 30 que g dio al robot
+  assert.deepEqual([serie('T:minuto').consumido, serie('T:minuto').deAsignacion], [15, 11 + 30]); // y los 30 que g dio al robot
   assert.deepEqual([serie('T:hora').emitido, serie('T:hora').consumido, serie('T:hora').deAsignacion], [0, 1, 1]);
   assert.equal(eje.saldoT('robot', 'minuto'), 26);
   // Los ocupantes lo enseñan (solo se ve: nada lo lee para conceder).
@@ -135,8 +138,9 @@ test('T de cosa a cosa (VG, 8-11): solo entre cosas del mismo dueño, o si el au
   // De otro dueño, sin escribir su alta ni tener P sobre ella: no.
   const aLaTostadora = { autor: 'robot', sobre: alta.id, t: T0, payload: 'a la tostadora', movimientos: [gasta('robot'), daT('robot', 'tostadora', 3)] };
   await assert.rejects(eje.escribir(aLaTostadora), /T only goes to things/);
-  // Con P sobre el alta de la tostadora (aquí, P sobre todo el eje que le delega g): sí.
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'poder para el robot', movimientos: [gasta('g'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'g', a: 'robot' }] });
+  // Con P sobre el alta de la tostadora (aquí, el que ana le da del registro que la dio de alta: mapa §15, ya no hay P
+  // del génesis sobre todo el eje): sí.
+  await eje.escribir({ autor: 'ana', sobre: alta.id, t: T0, payload: 'poder para el robot', movimientos: [gasta('ana'), { token: 'P', ambito: deAna.id, cantidad: 1, de: 'ana', a: 'robot' }] });
   await eje.escribir({ ...aLaTostadora, payload: 'a la tostadora, con poder' });
   assert.equal(eje.saldoT('tostadora', 'minuto'), 5);
 });
@@ -236,11 +240,11 @@ test('persona → cosa: el T que da sale de su asignación del día', async () =
 
 test('ningún T se acumula (VG, 8-11: no hay T acumulable): el génesis no emite T y su autor vive de su asignación del día', async () => {
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'g', t: AYER, foco: 'x', emision: [{ token: 'T', escala: 'minuto', cantidad: 1e6 }] }),
-    /T no se emite: ni el génesis; cada persona tiene su asignación del día/);
+    /nobody mints T/); // encargo 3b: el génesis no mueve nada; lo que su autor emite pasa por las reglas
   const { eje, alta } = await mundo();
   assert.equal(eje.saldo('g', 'T:minuto'), 0);
-  // En el alta (AYER) g gastó 1 minuto y dio 30 al robot: de su asignación de ayer.
-  assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 31);
+  // AYER g gastó 4 minutos (su emisión, dos invitaciones y las altas) y dio 30 al robot: de su asignación de ayer.
+  assert.equal(eje.saldoT('g', 'minuto', AYER), 1440 - 34);
   // Hoy, los 1440 del día y nada más: lo que no gastó ayer no pasa a hoy.
   await assert.rejects(eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'mucho', movimientos: [gasta('g', 2000)] }), /writing burns today's T/);
   await eje.escribir({ autor: 'g', sobre: alta.id, t: T0, payload: 'el día entero', movimientos: [gasta('g', 1440)] });
@@ -301,35 +305,35 @@ test('pasado, futuro e inventado: ilimitados, se registran con sus dos fechas y 
 
 /**
  * Un mercado de casa (una persona) con criterio BUSCAR y a ana en su 3 (elegible), ofertas de ana, bea y el robot
- * con el T que diga `gastos` (uno por escrito), un alojamiento con capacidad 4 y E atada a él, y una consolidación
- * sobre el mercado que casa autoriza bloqueando su P. Devuelve lo que se concede o se enseña a terceros, con los
- * ids por su orden de llegada (los gastos cambian los ids).
+ * con el T que diga `gastos` (uno por escrito), un alojamiento con capacidad 4 y E atada a él, y una propuesta de ana
+ * sobre el mercado con la que ana compromete su P (encargo 3b: ya no hay autorizar; el recuento lo fija el dueño de
+ * la propuesta, mapa §15 [D] (4)). Devuelve lo que se concede o se enseña a terceros, con los ids por su orden de
+ * llegada (los gastos cambian los ids).
  */
 async function mercado(gastos) {
   const { eje, alta } = await mundo();
   let k = 0;
   const g = () => gastos[k++ % gastos.length];
-  // B1 (VG, 10-11): la persona escribe su propia alta.
-  for (const id of ['casa']) await eje.entrar({ identidad: id, sobre: alta.id, t: AYER });
-  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', movimientos: [gasta('g'), cedeE('g', 'casa', 10), { token: 'R', emisor: 'g', cantidad: 0.5, de: null, a: 'g' }, colateral('g', 0.05)] }); // R6: R propia en juego
+  await entrarPorInvitacion(eje, { por: 'g', quien: 'casa', t: AYER });
+  await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', movimientos: [gasta('g'), cedeE('g', 'casa', 10)] });
   const X = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, payload: ['mercado', 'ofertas', '=BUSCAR(1)', 'ana'], movimientos: [gasta('casa', g())] });
   for (const [autor, texto] of [['bea', 'ruido'], ['ana', 'oferta de ana'], ['robot', 'oferta del robot'], ['casa', 'oferta de casa']]) {
     await eje.escribir({ autor, sobre: X.id, en: direccion([1]), t: T0, payload: texto, movimientos: [gasta(autor, g())] });
   }
-  // P sobre el mercado (R en juego) y E atada a un alojamiento con capacidad 4, bloqueando P.
-  await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: 'poder', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 10, de: null, a: 'casa' }, colateral('casa', 1), { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' }, { token: 'P', ambito: X.id, cantidad: 4, de: null, a: 'casa' }] });
+  // Su R (sin colateral: VG, 9-11) y E atada a un alojamiento con capacidad 4, comprometiendo su P sobre él (D1).
+  await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: 'reputación', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 10, de: null, a: 'casa' }, { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' }] });
   const H = await eje.escribir({ autor: 'casa', sobre: X.id, t: T0, payload: ['alojamiento', ['plazas'], 4], movimientos: [gasta('casa', g())] });
   const clave = 'E:casa/cama@n1@' + H.id;
   await eje.escribir({ autor: 'casa', sobre: H.id, t: T0, payload: 'camas', movimientos: [gasta('casa', g()), { token: 'R', emisor: 'casa', cantidad: 1, de: 'casa', a: 'g' },
-    { token: 'P', ambito: H.id, cantidad: 4, de: null, a: 'casa' }, { token: 'P', ambito: H.id, cantidad: 2, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'E:casa/cama@*@' + H.id },
+    { token: 'P', ambito: H.id, cantidad: 2, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'E:casa/cama@*@' + H.id },
     { token: 'E', emisor: 'casa', denominacion: 'cama@n1', registro: H.id, cantidad: 2, de: null, a: 'casa' }] });
   const c = await motor.consolidar(eje, { autor: 'ana', foco: X.id, t: T0, elecciones: { 1: 'algo' } });
-  await motor.autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T0 });
+  await eje.escribir({ autor: 'ana', sobre: c.id, t: T0, payload: 'me comprometo', movimientos: [gasta('ana', g()), { token: 'P', ambito: c.id, cantidad: 5, de: 'ana', a: 'ana', estado: 'bloqueo', salida: c.id }] });
   const indice = (id) => eje.orden.indexOf(id);
   const r = evaluar(eje, X.id, [2], { limites: { candidatos: 3 } });
+  const rc = motor.recuento(eje, c.id);
   return {
-    estado: motor.estadoDe(eje, c.id),
-    autorizan: ['ana', 'bea', 'robot', 'casa', 'g'].map((id) => motor.puedeAutorizar(eje, id, c.id)),
+    recuento: [rc.plantilla, rc.valor, rc.pasa],
     topes: eje.topes(H.id, T0).map((x) => [indice(x.registro), x.capacidad, x.franja, x.vivo, x.libre]),
     vivo: eje.vivo(clave, T0),
     elegibles: [...elegibles(eje, X.id).autores].sort(),
@@ -339,10 +343,12 @@ async function mercado(gastos) {
   };
 }
 
-test('propiedad: cambiar el T gastado no cambia autorizaciones, topes de E, elegibles ni el orden de los candidatos', async () => {
+test('propiedad: cambiar el T gastado no cambia recuentos, topes de E, elegibles ni el orden de los candidatos', async () => {
   const p = prng(SEMILLA);
   const base = await mercado([1]);
-  assert.equal(base.estado, 'AUTORIZADO');
+  // Por defecto solo cuenta la dueña de la propuesta (ana): compromete 5 de los 20 P de su dominio (la propuesta y su
+  // compromiso), un peso de 0,25 (mapa §15 [D] (3): cada persona se lee como su 100 % por dominio).
+  assert.deepEqual(base.recuento, ['weighted sum', 0.25, true]);
   assert.deepEqual(base.elegibles, ['ana', 'casa']);
   assert.equal(base.vivo, 2);
   for (let caso = 0; caso < 12; caso++) {

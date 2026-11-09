@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { consultar } from '../src/bql.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import {
   confluir, situar, medir, esRecuento, esCantidad, cuotaDe, cajaDeCuota, porMasa, masaDe, ochoPorCantidades, MEDIDAS, INFORMATIVOS,
 } from '../src/bases.js';
@@ -37,11 +38,13 @@ const unico = (x) => x + ' #' + (++cuenta);
 async function mercado() {
   const eje = await Eje.genesis({
     demostracion: true, identidad: 'g', t: AYER, foco: 'raíz',
-    emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1e6, divisible: true }],
+    // Emitir E exige R propia emitida (VG, 9-11, D2; encargo 3b): g emite su R al empezar.
+    emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'EUR', cantidad: 1e6, divisible: true }],
   });
   const ids = ['ana', 'bea', 'cris', 'dani'];
-  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
-  for (const x of ids) await eje.entrar({ identidad: x, t: AYER });
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe. Encargo 3b: la
+  // escriben aceptando la invitación de g (mapa §16 [D]).
+  for (const x of ids) await entrarPorInvitacion(eje, { por: 'g', quien: x, t: AYER });
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [gasta('g'), ...ids.map((x) => eur('g', x, 1000))] });
   const M = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, payload: 'mercado', movimientos: [gasta('g')] });
@@ -112,7 +115,9 @@ test('el T consumido sobre un registro es una cantidad del 8 (tiempo:<escala>), 
   await hermano(eje, M, 'ana', { pago: 10, minutos: 7 });
   await hermano(eje, M, 'bea', { pago: 10, minutos: 3 });
   assert.equal(medir(eje, M).tokens['tiempo:minuto'], 10);
-  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 6); // las altas (las cuatro de las personas, que escriben la suya, B1, y la de g) y el mercado
+  // Lo escrito sobre el génesis: la emisión inicial de g, sus cuatro invitaciones (encargo 3b: las personas escriben su
+  // alta aceptándolas, B1, y cuelga de ellas), las altas de g y el mercado.
+  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 7);
   // El subárbol del génesis funde el T gastado en todo el eje, sin recorrerlo: lo que da eje.tiempoBajo.
   const general = confluir(eje, M, { alcance: 'general' });
   assert.equal(general.tokens['tiempo:minuto'].suma, eje.tiempoBajo(eje.genesisId).minuto);

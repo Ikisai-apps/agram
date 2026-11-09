@@ -289,8 +289,8 @@ Verificado: `1 = "1"`, `12 EUR = "12 EUR"`, `12 EUR = 12 m`, `12 EUR < 12 m`, `1
 | `BASES(alcance?, medida?, k \| campo?)` | ninguno; o texto `hermanos` / `proyecto` / `general`, texto de una cantidad (una serie de token o `tiempo:<escala>`; R7: los recuentos no), y una caja 0–9 o un campo | numero: n de una base del 8, la caja del anfitrión o un dato de la base (§7.13) | siempre |
 | `CAJA(medida, alcance?)` | texto de una cantidad (una serie de token o `tiempo:<escala>`); alcance (`"hermanos"` por defecto) | numero 0–9: la caja del anfitrión, la de `BASES(alcance, medida)` (§7.14) | siempre |
 | `FRESCURA(alcance?)` | alcance (`"hermanos"` por defecto) | numero: llegadas desde la base que lee ese alcance (hijos nuevos, bases renovadas y lo mismo debajo). `0` = ninguna llegada, no «al día»: no ve cambios en lo ya medido (§7.14) | siempre |
-| `VALOR_R("titular")` | texto: una identidad | numero: el valor de la R que tiene el titular con la lente firmada del **lector** (opción `lector`); sin lector o sin lente, PENDIENTE (§7.15) | siempre |
-| `LENTE("emisor")` | texto: un emisor de R | numero 0–1: el peso que el lector da a ese emisor en su lente; 0 si no lo nombra; sin lector o sin lente, PENDIENTE (§7.15) | siempre |
+| `VALOR_R("titular")` | texto: una identidad | numero: el valor de la R que tiene el titular con la lente del **lector** (opción `lector`): una unidad cada una de los emisores que nombra; sin lector o sin alta del lector, PENDIENTE (§7.15) | siempre |
+| `LENTE("emisor")` | texto: un emisor de R | numero 1 o 0: 1 si un grupo de atención del lector que cobra con la R de quien escribe nombra a ese emisor; 0 si no; sin lector o sin alta del lector, PENDIENTE (§7.15) | siempre |
 
 «Dentro» = mientras se evalúa el segundo argumento de `FILTRAR` o de `ORDENAR`. Fuera, las seis funciones de encaje dan `ERROR: <NOMBRE> solo dentro de FILTRAR u ORDENAR`.
 
@@ -381,22 +381,22 @@ La colisión por ceros solo aparece buscando por **dirección**, y nunca entra e
 
 El valor de un candidato (lo que leen `ACTUAL()`, `SUMAR`, `ORDENAR`) es `leerSlot(evento, indices)`: sigue fórmulas y referencias; un escrito terminal da su terminal; un propio décupla da un `array`; un elemento de lista, ese elemento.
 
-Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pagar', 'servir']`, una lista, y tres propinas escritas en `4000000000`):
+Verificado (escenario de `test/bql-colecciones.test.js`: compra con `[4] = ['pagar', 'servir']`, una lista, y tres propinas escritas en `4000000000`; los ids van por su nombre: `compra`, las propinas `p1` a `p3`, `cuenta` y `menú`):
 
 | Fórmula (slot `[4]` de la compra) | `estado` | `texto` |
 |---|---|---|
-| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio 3147f38b · propio 3147f38b · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (los dos elementos de la lista y las propinas ancladas en ella) |
-| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio 3147f38b` (el ocupante 0 por llegada: `'pagar'`) |
-| `BUSCAR(4, 2)` | RESUELTO | `1 candidato: escrito c35e43b1` (el ocupante 2: la primera propina) |
+| `BUSCAR(4)` | RESUELTO | `5 candidatos: propio compra · propio compra · escrito p1 · escrito p2 · escrito p3` (los dos elementos de la lista y las propinas ancladas en ella) |
+| `BUSCAR(4, 0)` | RESUELTO | `1 candidato: propio compra` (el ocupante 0 por llegada: `'pagar'`) |
+| `BUSCAR(4, 2)` | RESUELTO | `1 candidato: escrito p1` (el ocupante 2: la primera propina) |
 | `BUSCAR(4, 9)` | RESUELTO | `0 candidatos` |
-| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio 3147f38b · propio 3147f38b · escrito c35e43b1 · escrito e00bf6b2 · escrito f0ca7c10` (la colisión entera; no entra en la lista: sus elementos ya son los ocupantes) |
+| `BUSCAR("4000000000")` | RESUELTO | `5 candidatos: propio compra · propio compra · escrito p1 · escrito p2 · escrito p3` (la colisión entera; no entra en la lista: sus elementos ya son los ocupantes) |
 | `ACTUAL(4)` | RESUELTO | `pagar` |
 | `BUSCAR(7)` | RESUELTO | `0 candidatos` |
 | `BUSCAR()` | ERROR | `ERROR: BUSCAR espera una posición` |
 | `BUSCAR("4")` | ERROR | `ERROR: BUSCAR espera índices 0–9 o una dirección de diez dígitos` |
-| `BUSCAR(1)` (compra: la 1 es una décupla; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio 3147f38b · escrito bcc60646` |
-| `BUSCAR(1, 1)` | RESUELTO | `1 candidato: escrito bcc60646` (el ocupante 1 por llegada: la cuenta) |
-| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio 3147f38b · propio 3147f38b · referencia ff05e68f · escrito bcc60646` |
+| `BUSCAR(1)` (compra: la 1 es una décupla; la cuenta está escrita en `1000000000`) | RESUELTO | `2 candidatos: propio compra · escrito cuenta` |
+| `BUSCAR(1, 1)` | RESUELTO | `1 candidato: escrito cuenta` (el ocupante 1 por llegada: la cuenta) |
+| `BUSCAR("1000000000")` | RESUELTO | `4 candidatos: propio compra · propio compra · referencia menú · escrito cuenta` |
 
 Los ocho caracteres son los primeros del id (hash SHA-256 del evento); con los mismos datos y el mismo `t` salen siempre los mismos.
 
@@ -409,7 +409,7 @@ La misma firma en los dos modos, `ACTUAL(pv, cantidad?)`: el segundo parámetro 
 | Caso | Resultado |
 |---|---|
 | `ACTUAL(pv)` o `ACTUAL(pv, 1)` | el **valor** del primer candidato (no una colección): `ACTUAL(4)` → `pagar` (la 4 es la lista `['pagar', 'servir']`: su primer elemento; por hojas, VG 7-11 noche) |
-| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio 3147f38b · propio 3147f38b` (los dos elementos de la lista); `CONTAR(ACTUAL(4, 99))` → `5` |
+| `ACTUAL(pv, n)` con `n ≥ 2` | coleccion con los `n` primeros (o menos si no hay tantos): `ACTUAL(4, 2)` → `2 candidatos: propio compra · propio compra` (los dos elementos de la lista); `CONTAR(ACTUAL(4, 99))` → `5` |
 | sin candidatos | PENDIENTE `sin candidatos en la posición <pv>` |
 | `ACTUAL()` (sin ámbito activo) | PENDIENTE `ACTUAL sin ámbito activo: no hay candidato ni posición de la que leer` (corpus: «sin ámbito activo, no inventa un origen y queda pendiente») |
 | `ACTUAL(1, 0)`, `ACTUAL(1, 1.5)` | ERROR `ACTUAL espera una cantidad entera ≥ 1` |
@@ -580,7 +580,7 @@ No ve que cambie un registro ya medido (un escrito sobre una compra sin base, un
 | Estado | Motivo | Cuándo |
 |---|---|---|
 | RESUELTO | — | Hay base válida en el 8 del alcance. |
-| PENDIENTE | `sin base escrita en el 8 de <id8> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <id8>, firmada por <cosa> (su identidad propia) o <x> (con P sobre él); mide sus hijos y gasta 1 minuto de su T.` | No hay base escrita. Nombra a la propia cosa y a quienes tienen clave y P sobre el registro. En `proyecto` y `general` dice además `funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)`. Si el gancho no deja leer el registro, la cosa no se nombra (`firmada por su identidad propia o <x> (con P sobre él)`): sale del contexto del registro; quienes tienen P salen de los saldos y se nombran siempre. |
+| PENDIENTE | `sin base escrita en el 8 de <id8> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <id8>, firmada por <cosa> (su identidad propia) o <x> (con P sobre él); mide sus hijos y gasta 1 minuto de su T.` | No hay base escrita. Nombra a la propia cosa y a quienes tienen clave y P sobre el registro (el P posicionado en él: encargo 3b, mapa §15; ya no hay un P sobre todo el eje). En `proyecto` y `general` dice además `funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo)`. Si el gancho no deja leer el registro, la cosa no se nombra (`firmada por su identidad propia o <x> (con P sobre él)`): sale del contexto del registro; quienes tienen P salen de los saldos y se nombran siempre. |
 | PENDIENTE | `sin base escrita en el 8 de <id8> (alcance <a>). <id8> no tiene identidad propia con clave (identidadDe) y nadie con clave tiene poder (P) sobre él: nadie puede escribir su base.` | El registro no da de alta a una cosa con clave y nadie con clave tiene P sobre él ([X] decidir VG cómo se identifica un registro con una identidad, nota de las bases §3.1). |
 | PENDIENTE | `sin cohorte: el génesis no tiene padre` | `"hermanos"` desde el génesis. |
 | PENDIENTE | `evento ausente del eje: <id8>` | El anfitrión no está en el eje (puede llegar). |
@@ -614,7 +614,9 @@ import { consultar } from './src/bql.js';
 const ej = await ejemploComprasHermanas(); // las claves son nuevas en cada ejecución: los ids cambian
 const { eje } = ej;
 const nombres = [[ej.menu.id, '<menú>'], [ej.comedor.id, '<comedor>'], [eje.genesisId, '<génesis>'], [ej.guisos.id, '<guisos>']];
-const sinIds = (s) => s.replace(/\b[0-9a-f]{8}\b/g, (x) => nombres.find(([id]) => id.startsWith(x))?.[1] ?? '<id8>');
+const sinIds = (s) => s
+  .replace(/\b[0-9a-f]{64}\b/g, (x) => nombres.find(([id]) => id === x)?.[1] ?? '<id>') // las series de P llevan el id entero de su registro
+  .replace(/\b[0-9a-f]{8}\b/g, (x) => nombres.find(([id]) => id.startsWith(x))?.[1] ?? '<id8>');
 const q = (f, opciones) => console.log(f.padEnd(32), '→', sinIds(consultar(eje, ej.guisos.id, [], f, opciones).texto)); // el anfitrión: los guisos
 const hora = { token: 'T', escala: 'hora', cantidad: 1, de: 'vecina', a: null };
 const alcances = ['hermanos', 'proyecto', 'general'];
@@ -649,7 +651,7 @@ q('CAJA("formulasPendientes")', { puedeLeer: () => true });
 
 ```text
 --- sin bases
-CAJA("T:hora")                   → PENDIENTE: sin base escrita en el 8 de <menú> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <menú>, firmada por menu-dia (su identidad propia) o casa (con P sobre él); mide sus hijos y gasta 1 minuto de su T.
+CAJA("T:hora")                   → PENDIENTE: sin base escrita en el 8 de <menú> (alcance hermanos). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <menú>, firmada por menu-dia (su identidad propia); mide sus hijos y gasta 1 minuto de su T.
 FRESCURA("proyecto")             → PENDIENTE: sin base escrita en el 8 de <comedor> (alcance proyecto). Para escribirla: escribirBase(eje, { registro, autor, privada }) con registro = <comedor>, firmada por comedor (su identidad propia) o casa (con P sobre él); mide sus hijos y funde la base vigente del 8 de cada uno (se escriben antes, de abajo arriba; un hijo sin base cuenta solo por sí mismo) y gasta 1 minuto de su T.
 --- las seis bases del ejemplo, cada una firmada por su cosa
 CAJA("T:hora", "hermanos")       → 1
@@ -660,7 +662,7 @@ BASES("general", "E:casa/EUR")   → 6
 BASES("hermanos", "E:casa/EUR", "cuota") → 0.375
 CAJA("terminales")               → ERROR: CAJA: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 FRESCURA()                       → 0
-CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: E:casa/EUR, P:genesis, T:minuto, T:hora)
+CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: P:<génesis>, T:minuto, R:casa, E:casa/EUR, P:<id>, P:<id>, P:<id>, P:<id>, P:<id>, T:hora…)
 CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
 --- llega un té al menú
 FRESCURA("hermanos")             → 1
@@ -674,11 +676,11 @@ FRESCURA("general")              → 1
 FRESCURA()                       → 0
 comprobar(la base del menú).alDia → false
 --- límites y autorización
-FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 21 registros y quedan 18 pasos de presupuesto
+FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 24 registros y quedan 18 pasos de presupuesto
 CAJA("formulasPendientes")       → ERROR: CAJA: formulasPendientes es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 ```
 
-Lectura: sin bases, el motivo dice quién puede escribir cada una: la propia cosa o la casa, que tiene P sobre todo el eje. Los guisos (una hora gastada) caen en la caja 1 de `T:hora` (con los cortes de la época 0) en los tres alcances, y sus 12 euros son el 37,5 % de lo que movieron sus hermanos (`cuota`). Los terminales son un recuento: el 8 no los sitúa (R7). `CAJA("E:casa/EUR", "general")` es la caja de sus 12 euros entre los catorce registros del ámbito, la misma que da `BASES("general", "E:casa/EUR")`. Una serie mal escrita no da caja 0, y un nombre de la primera versión de esta pieza es ERROR. El té es una llegada para las tres bases: la del menú lo tiene como hijo nuevo; la del comedor y la del génesis lo ven debajo. Al corregir la base del menú, la de los hermanos vuelve a `0`; las de arriba ven una base renovada hasta que se reescriban. La nota sobre el café cambia una compra ya medida: `FRESCURA()` da `0` y `comprobar()` dice que la base no está al día. Con `presupuesto: 20`, la llamada y su argumento gastan dos pasos y la lectura general pide al menos 19 (el árbol de bases ha crecido): no cabe.
+Lectura: sin bases, el motivo dice quién puede escribir cada una: la propia cosa y, si alguien con clave tiene P posicionado en el registro, también él. La casa escribió el comedor (diez P sobre él al escribirlo, encargo 3b) y se nombra; el menú lo escribió su cosa, y nadie más tiene P sobre él. Los guisos (una hora gastada) caen en la caja 1 de `T:hora` (con los cortes de la época 0) en los tres alcances, y sus 12 euros son el 37,5 % de lo que movieron sus hermanos (`cuota`). Los terminales son un recuento: el 8 no los sitúa (R7). `CAJA("E:casa/EUR", "general")` es la caja de sus 12 euros entre los catorce registros del ámbito, la misma que da `BASES("general", "E:casa/EUR")`. Una serie mal escrita no da caja 0, y un nombre de la primera versión de esta pieza es ERROR. El té es una llegada para las tres bases: la del menú lo tiene como hijo nuevo; la del comedor y la del génesis lo ven debajo. Al corregir la base del menú, la de los hermanos vuelve a `0`; las de arriba ven una base renovada hasta que se reescriban. La nota sobre el café cambia una compra ya medida: `FRESCURA()` da `0` y `comprobar()` dice que la base no está al día. Con `presupuesto: 20`, la llamada y su argumento gastan dos pasos y la lectura general pide al menos 24 (el árbol de bases ha crecido): no cabe.
 
 #### Las dos formas de `BASES`: [X] decidir VG qué firma queda
 
@@ -695,24 +697,25 @@ Hoy queda la A: es la de la #44, que ya lleva la integración. `CAJA` y `FRESCUR
 
 ### 7.15 `VALOR_R("titular")` y `LENTE("emisor")`: la lente de R
 
-R6 del estudio de neutralidad (VG, 7-11 noche; `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). La R no tiene un valor propio en el eje: vale ante quien la lee, y solo con la **lente** que ese lector ha firmado. Por eso estas dos funciones leen la lente del lector que consulta, la opción `lector` de `evaluar` y `consultar`, y nada más.
+R6 del estudio de neutralidad (VG, 7-11 noche), rehecha en el encargo 3b (VG, 9-11, mapa §15 [D] «R según el corpus» y §16 [D] «PV3 = regla de atención»; `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). La R no tiene un valor propio en el eje: vale ante quien la lee, y solo con la **lente** de ese lector. La lente de R y las condiciones de aceptación son la misma cosa («aceptar tu R como pago es darte peso»): la lente de un lector son sus grupos de atención (A.3) cuyo precio es la R de quien escribe (`their R`), y los emisores que nombra ahí pesan 1; los demás, 0. Estas dos funciones leen la lente del lector que consulta, la opción `lector` de `evaluar` y `consultar`, y nada más.
 
-- `VALOR_R("titular")` = Σ, sobre los emisores X que la lente nombra (con peso > 0 y distintos del titular), de peso(X) × la participación del titular en `R:X`. La participación es saldo ÷ emitido, con el emitido de **cuando llegó** cada tenencia: ampliar `R:X` después no la diluye. Devuelve un numero (redondeado a millonésimas).
-- `LENTE("emisor")` = el peso que la lente da a ese emisor: un numero de 0 a 1, y 0 si no lo nombra (recibir R de alguien no lo mete en la lente).
-- **Sin lector, o si el lector no ha declarado lente, PENDIENTE**: sin lente, R no vale nada en una fórmula, y la fórmula que la usa (`=VALOR_R("ana") > 0`) tampoco se resuelve. El motivo dice cómo se declara: un evento del lector en la posición 3 de su alta, con pares `[emisor, peso]`.
-- **Gancho**: cada declaración de la lente y cada evento que movió esa R al titular (o desde él) se autoriza con `puedeLeer` (camino raíz). Uno que no se autoriza da PENDIENTE DE AUTORIZACIÓN, sin nombrar el evento.
-- **Presupuesto**: un paso por declaración y otro por evento de tenencia, contados antes de leer; si no caben, PENDIENTE POR LÍMITE (con `parcial: { examinados: 0, de }`).
-- **Dependencias**: la posición 3 de cada ancla de la lente (`<alta>:3000000000`, y la de cada registro «lente» del lector): una declaración nueva cambia el resultado. Y los eventos leídos.
+- `VALOR_R("titular")` = Σ, sobre los emisores X que la lente nombra (con peso > 0 y distintos del titular), de peso(X) × las unidades de `R:X` que tiene el titular (disponibles y bloqueadas). Cada unidad cuenta una: se retira la valoración por participación (saldo ÷ emitido). Devuelve un numero.
+- `LENTE("emisor")` = el peso que la lente da a ese emisor: 1 si algún grupo de atención del lector que cobra con la R de quien escribe lo nombra, y 0 si no (recibir R de alguien no lo mete en la lente).
+- **Sin lector, o si el lector no tiene alta, PENDIENTE**: sin grupos de atención no hay lente, y la fórmula que usa R (`=VALOR_R("ana") > 0`) no se resuelve. Un lector con alta cuyos grupos no cobran con la R de nadie tiene una lente vacía: `VALOR_R` da 0. Quién entra en un grupo lo escribe su dueño en el `3.k.3` de su alta (por ejemplo, `3330000000` para los cercanos, la zona 3).
+- **Gancho**: el alta del lector, de donde cuelgan sus grupos, se autoriza con `puedeLeer` (camino raíz). Si no se autoriza, PENDIENTE DE AUTORIZACIÓN.
+- **Presupuesto**: un paso por la lente y otro por cada emisor que suma, contados antes de leer; si no caben, PENDIENTE POR LÍMITE (con `parcial: { examinados: 0, de }`).
+- **Dependencias**: la posición 3 del alta del lector (`<alta>:3000000000`): un grupo nuevo o un precio corregido cambian el resultado.
 - `ERROR` si el argumento no es un texto no vacío.
 
 ```
---- la casa (lector) da peso 1 a secretaria-norte y 0,5 a secretaria-sur (las personas que llevan cada asociación)
---- la huésped tiene 10 de los 100 R:secretaria-norte y 20 de los 100 R:secretaria-sur, y medio millón de R:recien
-consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'casa' })        → 0.2
+--- la casa (lector) pone a secretaria-norte y a secretaria-sur en su grupo de cercanos (zona 3: cobran con su R)
+--- la huésped tiene 10 R:secretaria-norte y 20 R:secretaria-sur, y medio millón de R:recien
+consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'casa' })        → 30
 consultar(eje, reserva, [], '=VALOR_R("recien")', { lector: 'casa' })         → 0
-consultar(eje, reserva, [], '=LENTE("secretaria-sur")', { lector: 'casa' })   → 0.5
+consultar(eje, reserva, [], '=LENTE("secretaria-sur")', { lector: 'casa' })   → 1
 consultar(eje, reserva, [], '=LENTE("recien")', { lector: 'casa' })           → 0
-consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'recepcion' })   → PENDIENTE: VALOR_R: recepcion no ha declarado su lente de R (…)
+consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'recepcion' })   → 0
+consultar(eje, reserva, [], '=VALOR_R("huesped")', { lector: 'nadie' })       → PENDIENTE: VALOR_R: nadie no tiene alta: sin grupos de atención no hay lente, y sin lente R no vale nada
 consultar(eje, reserva, [], '=VALOR_R("huesped")')                            → PENDIENTE: VALOR_R: sin lector no hay lente, y sin lente R no vale nada (opciones.lector)
 ```
 
@@ -800,7 +803,7 @@ Si alguno devuelve `false`, la consulta entera para en `PENDIENTE DE AUTORIZACI�
 
 **¿Autorizar una posición autoriza su subárbol?** BQL no lo supone: pregunta por el camino exacto de cada lectura, así que autorizar `[4]` no autoriza `LOCAL(4, 0)` (se pregunta por `[4, 0]`) ni los escritos anclados en subdirecciones, ni lo que alcanzan las referencias de dentro (se preguntan aparte, por ocupante y por salto). Pero el **valor** de una lectura autorizada es el contenido entero de esa posición: si es un subarray, el valor `array` lleva el subárbol propio crudo (literales, fórmulas como texto y referencias `{ ref, dir }` sin seguir). En la práctica, autorizar una posición expone su subárbol propio del payload, y nada más. [X] decidir VG: si el valor `array` debe exigir también el permiso de cada subposición (o recortarse) antes de exponerse.
 
-Sin gancho, todo se lee: el estado nunca aparece y la fórmula «no sabe» de autorizaciones (prueba E-08). Pruebas: O-12b (lecturas, raíz frente a `[0]`) y O-12c (ocupantes, saltos, colisión, subárbol) en `test/conformidad-bql.test.js`. No es el mismo PENDIENTE DE AUTORIZACIÓN que el estado de una consolidación en el motor (`src/motor.js`), aunque se llamen igual: aquí es una lectura que espera permiso; allí, un acto que espera quien lo autorice.
+Sin gancho, todo se lee: el estado nunca aparece y la fórmula «no sabe» de autorizaciones (prueba E-08). Pruebas: O-12b (lecturas, raíz frente a `[0]`) y O-12c (ocupantes, saltos, colisión, subárbol) en `test/conformidad-bql.test.js`. No hay otro PENDIENTE DE AUTORIZACIÓN en el eje: el motor ya no tiene un paso de autorizar (encargo 3b: cada uno mueve lo suyo y «cerrado» es una lectura, `src/motor.js`); aquí es una lectura que espera permiso.
 
 ---
 
@@ -844,7 +847,9 @@ const cuenta = await eje.escribir({
   payload: ['Cuenta', { ref: compra.id, dir: '2000000000' }, '=REF("' + compra.id.slice(0, 8) + '", "1200000000") * 2', '==no es fórmula'],
 });
 
-const muestra = (etiqueta, r) => console.log(etiqueta.padEnd(58), '→', r.estado.padEnd(12), r.texto);
+// Los ids cambian con cualquier cambio de un cuerpo (también con el id de la época, que lleva el génesis): se imprimen por su nombre.
+const sinIds = (x) => [[compra, 'compra'], [p1, 'p1'], [p2, 'p2'], [p3, 'p3']].reduce((t, [e, n]) => t.replaceAll(e.id.slice(0, 8), n), String(x));
+const muestra = (etiqueta, r) => console.log(etiqueta.padEnd(58), '→', r.estado.padEnd(12), sinIds(r.texto));
 
 console.log('--- evaluar(eje, evId, dir): el slot tal como está');
 muestra('compra [1,2]  literal con unidad', evaluar(eje, compra.id, [1, 2]));
@@ -854,7 +859,7 @@ muestra('compra [7]    sin desarrollar', evaluar(eje, compra.id, [7]));
 muestra('cuenta [1]    referencia (no se sigue)', evaluar(eje, cuenta.id, [1]));
 muestra('cuenta [2]    REF por prefijo', evaluar(eje, cuenta.id, [2]));
 muestra('cuenta [3]    texto escapado', evaluar(eje, cuenta.id, [3]));
-console.log('dependencias de compra [3]:', evaluar(eje, compra.id, [3]).dependencias.map((d) => d.slice(0, 8) + '…' + d.slice(64)));
+console.log('dependencias de compra [3]:', evaluar(eje, compra.id, [3]).dependencias.map((d) => sinIds(d.slice(0, 8)) + d.slice(64)));
 
 console.log('--- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot');
 const c = (f, dir = [4]) => muestra(f, consultar(eje, compra.id, dir, f));
@@ -897,14 +902,10 @@ compra [1,2]  literal con unidad                           → RESUELTO     12 E
 compra [2]    fórmula                                      → RESUELTO     14 EUR (12 EUR + 2 EUR)
 compra [3]    fórmula sobre fórmula                        → RESUELTO     14 EUR (12 EUR + 2 EUR) + 15 min
 compra [7]    sin desarrollar                              → PENDIENTE    PENDIENTE: posición sin desarrollar
-cuenta [1]    referencia (no se sigue)                     → RESUELTO     → ac3d6d2b
+cuenta [1]    referencia (no se sigue)                     → RESUELTO     → compra
 cuenta [2]    REF por prefijo                              → RESUELTO     24 EUR
 cuenta [3]    texto escapado                               → RESUELTO     =no es fórmula
-dependencias de compra [3]: [
-  'ac3d6d2b…:3000000000',
-  'ac3d6d2b…:2000000000',
-  'ac3d6d2b…:1200000000'
-]
+dependencias de compra [3]: [ 'compra:3000000000', 'compra:2000000000', 'compra:1200000000' ]
 --- consultar(eje, evId, dir, formula): una fórmula suelta en el contexto de un slot
 LOCAL(1, 0)                                                → RESUELTO     menú
 LOCAL(0)                                                   → RESUELTO     menú
@@ -915,20 +916,20 @@ LOCAL(0)                                                   → RESUELTO     men�
 2 * 12 EUR / 4                                             → RESUELTO     6 EUR
 12 EUR < 12 m                                              → INCOMPATIBLE INCOMPATIBLE: magnitud en EUR y magnitud en m no se comparan
 Y(1 < 2, NO(2 > 3))                                        → RESUELTO     verdadero
-BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio ac3d6d2b · propio ac3d6d2b · escrito 8fde702a · escrito d8b499ee · escrito 9597bdb2
-BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio ac3d6d2b · propio ac3d6d2b · escrito 8fde702a · escrito d8b499ee · escrito 9597bdb2
+BUSCAR(4)                                                  → RESUELTO     5 candidatos: propio compra · propio compra · escrito p1 · escrito p2 · escrito p3
+BUSCAR("4000000000")                                       → RESUELTO     5 candidatos: propio compra · propio compra · escrito p1 · escrito p2 · escrito p3
 CONTAR(BUSCAR(4))                                          → RESUELTO     5
 CONTAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))           → RESUELTO     3
 SUMAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"))            → RESUELTO     8 EUR (2 EUR + 5 EUR + 1 EUR)
 FILTRAR(BUSCAR(4), ACTUAL() > 1 EUR)                       → INCOMPATIBLE INCOMPATIBLE: texto y magnitud en EUR no se comparan
-FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito 8fde702a · escrito d8b499ee
-ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito d8b499ee
+FILTRAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL() > 1 EUR) → RESUELTO     2 candidatos: escrito p1 · escrito p2
+ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL(), "desc")) → RESUELTO     1 candidato: escrito p2
 SUMAR(ELEGIR(ORDENAR(FILTRAR(BUSCAR(4), ORIGEN() = "escrito"), ACTUAL()), 2)) → RESUELTO     3 EUR (1 EUR + 2 EUR)
 CONTAR(FILTRAR(BUSCAR(4), ACTUAL(0) = "pagar"))            → PENDIENTE    PENDIENTE: posición sin desarrollar
 CONTAR(FILTRAR(BUSCAR(4), SIGNO() = "completar"))          → RESUELTO     0
 CONTAR(FILTRAR(BUSCAR(4), Y(ACUERDO() = 10, DESPLAZAMIENTO() = 0))) → RESUELTO     5
 ACTUAL(4)                                                  → RESUELTO     pagar
-ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio ac3d6d2b · propio ac3d6d2b
+ACTUAL(4, 2)                                               → RESUELTO     2 candidatos: propio compra · propio compra
 ACTUAL(7)                                                  → PENDIENTE    PENDIENTE: sin candidatos en la posición 7
 ORIGEN()                                                   → ERROR        ERROR: ORIGEN solo dentro de FILTRAR u ORDENAR
 LOCAL(1) + 1                                               → INCOMPATIBLE INCOMPATIBLE: array y numero no se suman

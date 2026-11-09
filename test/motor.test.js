@@ -1,9 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
-import { descubrir, consolidar, autorizar, ejecutar, liberar, estadoDe, consolidaciones, FABRICA, capacidadDe, tramoDe, ocupacion, registrosEn, CRITERIO_CAPACIDAD } from '../src/motor.js';
+import { descubrir, consolidar, registrar, cerrado, siguiente, propuestas, FABRICA, ANUNCIO, capacidadDe, tramoDe, ocupacion, registrosEn, CRITERIO_CAPACIDAD } from '../src/motor.js';
 import { evaluar } from '../src/bql.js';
 import { Eje } from '../src/eje.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+
+const minuto = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
+/** Un movimiento anunciado en el 4.1 de X por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
+const anuncio = (serie, cantidad, que, de, a) => [[serie], [cantidad], [que], [[de], [a]]];
 
 const T = '2026-11-07T16:00:00Z';
 
@@ -19,8 +24,11 @@ test('descubrir: candidatos por posición de interacción, con fórmulas resuelt
   assert.equal(d[3].candidatos.length, 2); // [4] y [4.0] colisionan
 });
 
-test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar → ejecutar con evidencia', async () => {
-  const { eje, compra, menu } = await ejemploCompra();
+// VG, 8-11 (mapa §15 [D] «Una sola operación: registrar»): «tú vas planteando cosas y registras y ejecutas». Se retira
+// el guion consolidar → autorizar → ejecutar: consolidar es registrar una propuesta en la fábrica, cada parte registra su
+// propio movimiento y «cerrado» es una lectura (la plantilla de cerrado del dueño, por defecto la de la época).
+test('ciclo: consolidar registra la propuesta; cada parte registra su movimiento; cerrado y siguiente son lecturas', async () => {
+  const { eje, compra } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
   const d = descubrir(eje, compra.id);
   const c = await consolidar(eje, {
@@ -28,57 +36,62 @@ test('ciclo completo: consolidar → PENDIENTE DE AUTORIZACIÓN → autorizar �
     elecciones: { 1: { candidato: d[0].candidatos[3] }, 2: 'sin lactosa', 4: 'pagar 14 EUR' },
   });
   assert.equal(c.en, FABRICA);
-  assert.equal(c.contexto.fase, 'consolidado');
+  assert.equal(c.contexto.fase, undefined); // la fábrica no tiene fases fijas
+  assert.equal(c.contexto.motor, 'fabrica');
   assert.deepEqual(c.contexto.fuentes, [cuenta.id]);
   assert.equal(c.payload[0], 'Pago del menú');
   assert.deepEqual(c.payload[1], { ref: cuenta.id, dir: '0000000000' });
   assert.equal(c.payload[2], 'sin lactosa');
   assert.deepEqual(c.payload[3], { ref: compra.id, dir: '3000000000' }); // hueco heredado del foco
   assert.equal(c.payload[4], 'pagar 14 EUR');
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  assert.equal(consolidaciones(eje, compra.id)[0].estado, 'PENDIENTE DE AUTORIZACIÓN');
+  // Sin nada anunciado, no le falta nada: cerrada.
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  assert.deepEqual(propuestas(eje, compra.id).map((x) => [x.id, x.cerrado]), [[c.id, true]]);
 
-  // Ejecutar sin autorización se rechaza.
-  await assert.rejects(ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }), /PENDIENTE DE AUTORIZACIÓN/);
-
-  const a = await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  assert.equal(a.payload, '==autorizo');
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await assert.rejects(autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T }), /ya está autorizado/);
+  // La huésped anuncia en el 4.1 de su propuesta lo que va a mover: abierta hasta que pase.
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [minuto('huesped')], payload: anuncio('E:casa/EUR', 14, 'pagar', 'huesped', 'cocina') });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  assert.equal(cerrado(eje, c.id).plantilla, 'all announced movements happened');
+  const deCocina = siguiente(eje, c.id, 'cocina');
+  assert.deepEqual([deCocina.faltaDeMi.length, deCocina.espera.map((x) => x.de)], [0, ['huesped']]);
+  const deHuesped = siguiente(eje, c.id, 'huesped');
+  assert.equal(deHuesped.faltaDeMi.length, 1);
+  const tx = deHuesped.faltaDeMi[0].transaccion;
+  assert.deepEqual(tx.movimientos[1], { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' });
 
   const antesCocina = eje.saldo('cocina', 'E:casa/EUR');
-  const e = await ejecutar(eje, {
-    autor: 'huesped', consolidacion: c.id, t: T,
-    movimientos: [{ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 14, de: 'huesped', a: 'cocina' }],
-  });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  const pago = await registrar(eje, { ...tx, t: T });
   assert.equal(eje.saldo('cocina', 'E:casa/EUR'), antesCocina + 14);
-  assert.deepEqual(e.contexto.evidencia, [c.id, a.id]);
-  assert.deepEqual(e.payload[1], { ref: c.id });
-  // La evidencia es el hilo: ejecución → consolidación → compra → menú → …
-  assert.deepEqual(eje.hilo(e.id).slice(0, 3).map((x) => x.id), [e.id, c.id, compra.id]);
-  await assert.rejects(ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T }), /ya ejecutado/);
-  void menu;
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  assert.deepEqual(siguiente(eje, c.id, 'huesped'), { cerrado: true, faltaDeMi: [], espera: [] });
+  // La cadena es el hilo: pago → propuesta → compra → menú → …
+  assert.deepEqual(eje.hilo(pago.id).slice(0, 3).map((x) => x.id), [pago.id, c.id, compra.id]);
 });
 
-// VG, 7-11 noche: autorizar = bloquear P con el umbral del dueño. Sustituye «autoriza quien tiene poder y no es el
-// autor»: lo que cuenta es el P bloqueado sobre el registro del recurso, no quién lo bloquea.
-test('autoriza el P bloqueado sobre el registro del recurso; ejecuta el autor; lo demás no cuenta', async () => {
+// VG, 8-11 (mapa §15 [D]): «el consentimiento no necesita paso de autorizar, porque cada uno solo mueve lo suyo». Lo que
+// no cuenta: lo ajeno (la regla «nobody moves tokens of others»), lo que anuncia quien no es el dueño y las «fases»
+// escritas a mano.
+test('nadie autoriza lo ajeno: cada uno mueve lo suyo; ni las fases a mano ni lo que anuncia otro cambian la lectura', async () => {
   const { eje, compra } = await ejemploCompra();
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  await assert.rejects(autorizar(eje, { autorizante: 'huesped', consolidacion: c.id, t: T }), /huesped no tiene P que cuente para autorizar/);
-  await assert.rejects(autorizar(eje, { autorizante: 'cocina', consolidacion: c.id, t: T }), /cocina no tiene P que cuente para autorizar/);
-  // Un «autorizado» escrito a mano por quien no puede no cambia el estado.
-  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: '==autorizo', contexto: { fase: 'autorizado' } });
-  assert.equal(estadoDe(eje, c.id), 'PENDIENTE DE AUTORIZACIÓN');
-  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await assert.rejects(ejecutar(eje, { autor: 'casa', consolidacion: c.id, t: T }), /ejecuta el autor/);
-  // Un «ejecutado» escrito por otro no cuenta.
-  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'cocina', a: null }], payload: 'falso', contexto: { fase: 'ejecutado' } });
-  assert.equal(estadoDe(eje, c.id), 'AUTORIZADO');
-  await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
-  assert.equal(estadoDe(eje, c.id), 'EJECUTADO');
+  await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [minuto('huesped')], payload: anuncio('E:casa/EUR', 12, 'pagar', 'huesped', 'cocina') });
+  // La cocina no puede pagar por la huésped.
+  await assert.rejects(
+    registrar(eje, { autor: 'cocina', sobre: c.id, t: T, movimientos: [minuto('cocina'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }], payload: 'cobro' }),
+    /nobody moves tokens of others/,
+  );
+  // Un «autorizado» o un «ejecutado» escrito a mano no son nada: la lectura sigue abierta.
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [minuto('cocina')], payload: '==autorizo', contexto: { fase: 'autorizado' } });
+  await eje.escribir({ autor: 'cocina', sobre: c.id, en: FABRICA, t: T, movimientos: [minuto('cocina')], payload: 'falso', contexto: { fase: 'ejecutado' } });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  // Lo que anuncia quien no es el dueño de la propuesta no cuenta.
+  await registrar(eje, { autor: 'cocina', sobre: c.id, en: ANUNCIO, t: T, movimientos: [minuto('cocina')], payload: anuncio('E:casa/EUR', 99, 'pagar', 'cocina', 'huesped') });
+  assert.equal(siguiente(eje, c.id, 'cocina').faltaDeMi.length, 0);
+  // Pagar un movimiento de otra serie o de menos no cierra.
+  await registrar(eje, { autor: 'huesped', sobre: c.id, t: T, movimientos: [minuto('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 11, de: 'huesped', a: 'cocina' }], payload: 'de menos' });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  await registrar(eje, { ...siguiente(eje, c.id, 'huesped').faltaDeMi[0].transaccion, t: T });
+  assert.equal(cerrado(eje, c.id).cerrado, true);
 });
 
 test('consolidar rechaza huecos no heredables y no consolida nada vacío', async () => {
@@ -108,28 +121,31 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   // Un elemento neutro: su posición 1 declara capacidad 1; su posición 2 no declara nada.
   const t = '2026-12-01T09:00:00Z';
   const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  // VG, 7-11 noche: lo emite una persona; encargo 3b: el génesis no mueve nada, su autor emite después (R antes que E).
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', emision: [{ token: 'R', cantidad: 5 }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t });
   // T no cruza de persona (VG, 7-11 noche): el alta les cede minutos de g como E (E:g/minuto); cada una escribe con su propio T.
   const dar = ['ana', 'beto', 'carla'].map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 100, de: 'g', a }));
-  for (const id of ['ana', 'beto', 'carla']) await eje.entrar({ identidad: id, t }); // B1: cada persona escribe su alta
+  for (const id of ['ana', 'beto', 'carla']) await entrarPorInvitacion(eje, { por: 'g', quien: id, t }); // encargo 3b: su alta acepta la invitación de g
   await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), ...dar], payload: 'altas' });
   const elemento = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g')], payload: ['elemento', [['sitio'], ['precio'], [1]], [['otro sitio'], ['precio']]] }); // por hojas: 1 y 2 son décuplas
   let minuto = 10;
-  /** Un ocupante: el registro y, si se da, su tramo anclado en su 7 por quien lo escribe («lo lejano = anclaje»). */
+  /**
+   * Un ocupante: el registro, si se da su tramo anclado en su 7 por quien lo escribe («lo lejano = anclaje») y lo que
+   * anuncia en su 4.1 (pagar un minuto de g): abierto hasta que lo pague (encargo 3b: válido es cerrado).
+   */
   const ocupar = async (autor, { en = '1000000000', tramo, payload = 'ocupo', sobre = elemento.id } = {}) => {
     const tt = '2026-12-01T10:' + minuto++ + ':00Z';
     const r = await eje.escribir({ autor, sobre, en, t: tt, movimientos: [gasta(autor)], payload });
     if (tramo) await eje.escribir({ autor, sobre: r.id, en: '7000000000', t: tt, movimientos: [gasta(autor, 2)], payload: tramo });
+    await eje.escribir({ autor, sobre: r.id, en: ANUNCIO, t: tt, movimientos: [gasta(autor)], payload: anuncio('E:g/minuto', 1, 'pagar', autor, 'g') });
     return r;
   };
   // Después de los ocupantes (10:10, 10:11…): el t de un evento no es anterior al de su foco ([X] confirmar VG, src/ciclo.js).
   const tarde = '2026-12-01T12:00:00Z';
+  // Validar es que quien ocupa registre lo que anunció (VG, 8-11, mapa §15 [D]: una sola operación, registrar).
   const validar = async (r) => {
-    const c = await consolidar(eje, { autor: r.autor, foco: r.id, t: tarde, elecciones: { 1: 'lo ocupo' } });
-    await autorizar(eje, { autorizante: 'g', consolidacion: c.id, t: tarde });
-    await ejecutar(eje, { autor: r.autor, consolidacion: c.id, t: tarde });
-    await liberar(eje, { titular: 'g', consolidacion: c.id, t: tarde }); // g recupera su P para la siguiente
-    return estadoDe(eje, c.id);
+    await registrar(eje, { ...siguiente(eje, r.id, r.autor).faltaDeMi[0].transaccion, t: tarde });
+    return cerrado(eje, r.id).cerrado;
   };
 
   // El tramo: el 7 como colisión, [inicio, fin) en ISO. Vale lo propio o lo que el autor ancle en su 7; lo de otro, no.
@@ -149,18 +165,18 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   assert.throws(() => tramoDe(eje, sinFechas.id), /tramo ilegible/);
 
   // Dos ocupantes solapados en la posición con capacidad 1: el contador dice que no cabría, pero la fábrica
-  // no lo consulta (el límite es una serie de tokens que la ejecución mueve, como en Booking) y ejecuta los dos.
+  // no lo consulta (el límite es una serie de tokens que cada parte mueve, como en Booking) y los dos se cierran.
   const primero = await ocupar('ana', { tramo: [['2026-12-01'], ['2026-12-03']] });
-  assert.equal(await validar(primero), 'EJECUTADO');
+  assert.equal(await validar(primero), true);
   const segundo = await ocupar('beto', { tramo: [['2026-12-02'], ['2026-12-04']] });
   assert.deepEqual(ocupacion(eje, segundo.id).map((o) => [o.camino, o.capacidad, o.aLaVez, o.cabe]), [[[1], 1, 1, false]]);
-  assert.equal(await validar(segundo), 'EJECUTADO');
+  assert.equal(await validar(segundo), true);
   // Con capacidad, el tramo es obligatorio para contar.
   const sinTramo = await ocupar('carla');
   assert.throws(() => ocupacion(eje, sinTramo.id), /sin tramo en el 7/);
   // Cuenta también lo que referencia la posición desde otro anclaje (aquí, sobre el génesis).
   const fuera = await ocupar('carla', { sobre: eje.genesisId, en: '0000000000', payload: ['fuera', { ref: elemento.id, dir: '1000000000' }], tramo: [['2026-12-10'], ['2026-12-12']] });
-  assert.equal(await validar(fuera), 'EJECUTADO');
+  assert.equal(await validar(fuera), true);
   assert.ok(registrosEn(eje, elemento.id, '1000000000').some((r) => r.id === fuera.id));
   const tercero = await ocupar('beto', { tramo: [['2026-12-11'], ['2026-12-13']] });
   assert.deepEqual(ocupacion(eje, tercero.id)[0].validos.map((v) => [v.id, v.anclado]), [[fuera.id, false]]);

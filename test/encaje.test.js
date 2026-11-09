@@ -56,10 +56,11 @@ test('árbol lógico: todas las posiciones desarrolladas y las que solo tienen e
   assert.equal(m.get('7000000000')[0].origen, 'escrito');
   const c = colisiones(m);
   // 1: [1] + el elemento de la lista [1.0] + lo alcanzado por la referencia + la cuenta escrita.
-  // 2 (VG, 7-11 noche: por hojas): la lista de uno [ref menú:2] no tiene 2.0: su elemento + lo alcanzado.
+  // 2 (VG, 7-11 noche: por hojas): la lista [ref menú:2, la plantilla de cerrado] (encargo 3b: el dueño la nombra en
+  // su PV2) no tiene 2.0: sus dos elementos + lo alcanzado por la referencia.
   assert.equal(c.find((x) => x.dir === '1000000000').ocupantes.length, 4);
-  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 2);
-  assert.deepEqual(m.get('2000000000').map((o) => [o.origen, o.indice]), [['propio', 0], ['referencia', undefined]]);
+  assert.equal(c.find((x) => x.dir === '2000000000').ocupantes.length, 3);
+  assert.deepEqual(m.get('2000000000').map((o) => [o.origen, o.indice]), [['propio', 0], ['referencia', undefined], ['propio', 1]]);
   // 3: la lista ['huesped', 'cocina'], dos ocupantes; el árbol no baja por ella (no hay 3.1).
   assert.deepEqual(m.get('3000000000').map((o) => o.contenido), ['huesped', 'cocina']);
   assert.ok(!m.has('3100000000'));

@@ -111,7 +111,8 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
     '  1 · cuánto: 1',
     '  2 · con qué condición: EUR 12',
     '  ↳ ocupante 2 · cocina · Cuenta del menú',
-    '2 · criterios: → menú:2 (sin gluten · vegetariano)',
+    // Encargo 3b: la compra nombra en su criterio la plantilla de cerrado de la época (mapa §15 [D] N5).
+    '2 · criterios: → menú:2 (sin gluten · vegetariano) · all announced movements happened · 2 ocupantes',
     '3 · comunicación: huesped · cocina · 2 ocupantes',
     '  ↳ ocupante 3 · cocina · avisar al servir',
     '4 · fábrica: pagar · servir · 2 ocupantes',
@@ -124,8 +125,9 @@ test('leerEvento: cabecera, payload y los ocupantes anclados bajo su posición, 
     '  ↳ ocupante 3 · cocina · avisar al servir',
   ].join('\n'));
   assert.match(leerEvento(eje, compra.id, { camino: [8] }), /posición 8\n\(posición vacía\)$/);
-  // El génesis: sin «sobre», y su payload terminal en una línea.
-  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n↳ ocupante 1 · huesped · alta de huesped\n↳ ocupante 2 · casa · Altas del fin de semana$/);
+  // El génesis: sin «sobre», y su payload terminal en una línea. Encargo 3b: la casa invita a la huésped en el 3 de su
+  // alta (el génesis) y su emisión inicial es una transacción suya sobre él.
+  assert.match(leerEvento(eje, eje.genesisId), /^[0-9a-f]{8} · casa · 2026-11-07T09:00:00Z · génesis\nCasa de ejemplo\n3 · comunicación:\n {2}↳ ocupante 1 · casa · invitation\n↳ ocupante 1 · casa · Emisión inicial de casa\n↳ ocupante 2 · casa · Altas del fin de semana$/);
   assert.throws(() => leerEvento(eje, 'f'.repeat(64)), /registro desconocido/);
 });
 

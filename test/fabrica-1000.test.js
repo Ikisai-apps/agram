@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { desdeMapped, escribirDesde, escribirSalida, alcanceDeRegistro, proporcionDeRegistro, ubicar, claseDe, CLASES } from '../src/escritura.js';
 import { MODOS, tope, cabeTope, cabeEscritura, proporcion, proporcionDe, contarPosiciones, lectura } from '../src/modos.js';
-import { consolidar, autorizar, ejecutar, FABRICA } from '../src/motor.js';
+import { consolidar, registrar, FABRICA } from '../src/motor.js';
 import { resolver, direccion } from '../src/btml.js';
 import { ocupantes } from '../src/encaje.js';
 import { Eje } from '../src/eje.js';
@@ -346,6 +346,7 @@ test('topes duros por modo: Pointed 10, Sequenced 100, Mapped 1000, Scened 10000
 });
 
 // VG, 7-11 noche: la proporción propone, el máximo manda (decisión 10.3; antes, la proporción la rechazaba en Mapped).
+// La regla de atención lee el ancla del contexto, (first ev.6).5, sin chocar con el 6 del payload (D-META).
 test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avisa', async () => {
   // Escribir mil posiciones cuesta mil minutos: caben en la asignación del día de la casa (VG, 8-11), una vez al día.
   const eje = await ejeGrande();
@@ -575,11 +576,12 @@ test('el motor no guarda clase; el encaje dice de dónde vino cada elección y l
     assert.deepEqual(k.contexto.nuevos, [{ posicion: 1, destino: direccion([...camino, 1]) }]);
     assert.equal(claseDe(k.contexto.nuevos[0].destino, camino), 0);
   }
-  await autorizar(eje, { autorizante: 'casa', consolidacion: c.id, t: T });
-  const e = await ejecutar(eje, { autor: 'huesped', consolidacion: c.id, t: T });
+  // Encargo 3b (VG, 8-11, mapa §15 [D]): no hay paso de ejecutar; lo que sigue a la propuesta es un registro más, anclado
+  // donde quiera quien lo escribe (aquí, en su fábrica).
+  const e = await registrar(eje, { autor: 'huesped', sobre: c.id, en: FABRICA, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: 'hecho' });
   assert.equal(e.contexto.clase, undefined);
   assert.equal(e.en, FABRICA);
-  assert.equal(claseDe(e.en, []), 0); // [X] decidir VG: la ejecución es acción, pero FABRICA, sin camino, es la celda 4.0.0
+  assert.equal(claseDe(e.en, []), 0); // [X] decidir VG: lo que se registra en FABRICA, sin camino, es la celda 4.0.0
 });
 
 /** Lo que hay en la celda [i, j, k] de un registro: un terminal compactado ocupa también sus ceros finales (colisión). */

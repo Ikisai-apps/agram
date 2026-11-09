@@ -5,10 +5,10 @@ BTML es la estructura de datos de AGRAM. Este documento describe BTML **tal como
 Convenciones de este documento:
 
 - Todos los ejemplos se ejecutan **desde la raíz del repositorio** con `node --input-type=module -e "..."` (Node ≥ 20). La salida que sigue a cada ejemplo es la salida real.
-- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), así que se citan completos. Los primeros ocho caracteres bastan para reconocerlos: génesis `2d970a48`, alta `82aafc7b`, menú `ff05e68f`, compra `3147f38b`, cuenta `bcc60646`.
+- Los ids del eje de ejemplo (`ejemplos/ikisai/compra-food.mjs`) son deterministas (hash de un cuerpo fijo), pero cambian con cualquier cambio de un cuerpo, también con el de la época: desde el encargo 3b el génesis lleva en su contexto el id de la época 0 (`contexto.epoca`), que cambia en cuanto cambia una regla. Por eso aquí se nombran por su papel (`<génesis>`, `<menú>`, `<compra>`…); las salidas de los ejemplos que los imprimen son las del commit que las escribió.
 - Un «registro» y un «evento» son lo mismo. El «foco» es el registro sobre el que se escribe.
 
-Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, con la PR #28, que cambió el vector guardado en las consolidaciones, y con la PR #35, que puso el génesis en series: minutos, `E:casa/EUR`, tipo `grupo`). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
+Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualquier cosa del cuerpo del ejemplo (pasó con la PR #18, que puso ámbito al P del génesis, con la PR #28, que cambió el vector guardado en las consolidaciones, con la PR #35, que puso el génesis en series, y con el encargo 3b, que dejó el génesis sin movimientos y con el id de la época). En un programa no se copian: se usan `compra.id`, `menu.id`… tal como los devuelve `ejemploCompra()`. Desde fuera de la raíz del repositorio se importa por URL absoluta: `import { Eje, encaje, bql, motor } from 'file:///<ruta del repositorio>/src/index.js'` (el paquete es `"type": "module"`; los imports internos son relativos). En PowerShell las comillas anidadas de `node -e "..."` fallan a menudo: es más fiable guardar el ejemplo en un `.mjs` y ejecutarlo con `node --input-type=module < ejemplo.mjs` desde la raíz.
 
 ## 0. Mapa de módulos
 
@@ -18,13 +18,13 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/tokens.js` | Familias de tokens, series y movimientos | `FAMILIAS`, `SERIE`, `SEPARADOR_REGISTRO`, `ESCALAS_T`, `MAXIMO_ESCALAS_T`, `SEGUNDOS`, `AMBITO_GENESIS`, `TIPOS`, `EMITEN`, `CRITERIO_CAPACIDAD`, `validarMovimiento`, `claveToken`, `partirClave`, `esIdRegistro`, `capacidadDe`, `cantidadBase` |
 | `src/evento.js` | El evento, su cuerpo canónico y su id | `crearEvento`, `validarForma`, `cuerpo`, `canonico`, `hash`, `verificarId`, `RAIZ` |
 | `src/instante.js` | Instantes ISO-8601 estrictos con zona explícita, en milisegundos UTC; se comparan en segundos enteros (VG, 10-11, C2) | `esInstante`, `msUTC`, `segundosUTC`, `msDeGuardado` y `segundosDeGuardado` (solo para eventos de la versión 2) |
-| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje. Por dentro, una envoltura del libro de transacciones (`docs/notas/CAPA_CERO.md`) | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.tipo`, `eje.identidades`, `eje.clave`, `eje.libro`, `eje.transaccion`, `eje.contexto`, `eje.antes`, `reglasDelTope`, `SIN_CAPACIDAD` |
+| `src/eje.js` | La secuencia de eventos: génesis, saldos, identidades, anclaje. Por dentro, una envoltura del libro de transacciones (`docs/notas/CAPA_CERO.md`) | `Eje.genesis`, `Eje.desde`, `eje.escribir`, `eje.anadir`, `eje.validar`, `eje.obtener`, `eje.hilo`, `eje.sobre`, `eje.saldo`, `eje.saldoT`, `eje.tiempos`, `eje.recursos`, `eje.poderes`, `eje.poderSobre`, `eje.reputaciones`, `eje.serie`, `eje.series`, `eje.vivo`, `eje.registroDe`, `eje.topes`, `eje.esPersona`, `eje.alta`, `eje.invitar`, `eje.aceptar`, `eje.identidades`, `eje.clave`, `eje.libro`, `eje.transaccion`, `eje.contexto`, `eje.antes`, `reglasDelTope`, `SIN_CAPACIDAD` |
 | `src/libro.js` | La capa cero (VG, 9-11): el libro de transacciones, cinco primitivas, anclaje y memo, atomicidad, condiciones enchufables | `Libro`, `acunar`, `transferir`, `bloquear`, `liberar`, `quemar`, `transaccion`, `PRIMITIVAS` |
 | `src/condiciones/` | Las condiciones de validez de la transacción: el suelo, las reglas de la época conectadas (`reglas.js`, encargo 3a) y lo que queda en JS (`docs/notas/CAPA_CERO.md` §3) | `CONDICIONES`, `CONDICIONES_GENESIS`, `CONDICIONES_DE_LA_EPOCA`, `motivosDe`, `catalogo` |
 | `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
 | `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/`; y la época como registro (§12) | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo`, `cargarEpocaBtml`, `EPOCA_0_BTML` |
-| `src/bqlm.js`, `src/contexto-eje.js` | El BQL mínimo y su contexto sobre el eje: posiciones, despliegues, vistas del libro y lecturas (`docs/BQLM.md`) | `analizar`, `evaluar`, `evaluarRegla`, `leerRegla`, `ContextoEje` |
+| `src/bqlm.js`, `src/contexto-eje.js` | El BQL mínimo y su contexto sobre el eje: posiciones, despliegues, vistas del libro y lecturas (`docs/BQLM.md`) | `analizar`, `evaluar`, `evaluarRegla`, `evaluarEscritura`, `leerRegla`, `ContextoEje` |
 | `src/lectura.js` | Lectura humana de un payload y de un registro: un esquema de texto, una línea por posición (§3.5) | `leer`, `leerEvento` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
@@ -39,10 +39,10 @@ La unidad de información es el evento: **una transición de tokens con un paylo
 | Campo | Tipo | Obligatorio | Significado |
 |---|---|---|---|
 | `autor` | cadena no vacía | sí | Identidad que escribe. Todo movimiento sale de ella. |
-| `sobre` | id de evento o `null` | sí | Registro en foco sobre el que se anida este evento (hijo → padre). `null` solo en el génesis. |
+| `sobre` | id de evento o `null` | sí | Registro en foco sobre el que se anida este evento (hijo → padre). `null` solo en el génesis. El alta de una persona se anida sobre la invitación que acepta (§7.1). |
 | `en` | dirección de diez dígitos | no (por defecto `'0000000000'`) | Posición del foco donde se anida lo escrito. El génesis solo admite la raíz. |
 | `t` | cadena que `Date.parse` acepta | sí | Instante declarado por el autor. No se comprueba contra ningún reloj. |
-| `movimientos` | array no vacío de movimientos | sí | Ver §2. El autor debe **consumir** T (`de` = autor, `a` = null; en el génesis, recibirlo). |
+| `movimientos` | array de movimientos | sí | Ver §2. No vacío y el autor debe **consumir** T (`de` = autor, `a` = null), salvo en el génesis, que no mueve nada (encargo 3b: es la época 0, §8). |
 | `payload` | BTML | sí | Terminal o array posicional. Ver §3. |
 | `contexto` | objeto | no (por defecto `{}`) | Metadatos libres. Forma parte del id. Claves en uso hoy: ver §1.4. |
 | `id` | 64 hex | lo calcula `crearEvento` | SHA-256 del cuerpo canónico. |
@@ -93,7 +93,7 @@ true true 0000000000 {}
 | `todo evento mueve tokens` | `movimientos` vacío o no array |
 | `movimiento i: …` | un movimiento inválido (ver §2.3) |
 | `escribir consume T del autor: un movimiento de T con de = <autor> y a = null (VG, 7-11 noche)` | ningún consumo de T del autor (evento normal; darlo a sí mismo o bloquearlo no cuenta). En un evento de la versión 2, `el autor debe mover T` |
-| `el génesis debe emitir T al autor` | solo en un génesis de la versión 2: ningún movimiento T con `a === autor`. Desde el 8-11 el génesis no emite T (VG, 8-11: «no hay un tipo de T que se acumule»), puede no mover nada y `eje.genesis` rechaza su T con `T no se emite: ni el génesis; cada persona tiene su asignación del día` |
+| `el génesis debe emitir T al autor` | solo en un génesis de la versión 2: ningún movimiento T con `a === autor`. Desde el 8-11 el génesis no emite T (VG, 8-11: «no hay un tipo de T que se acumule») y desde el encargo 3b no mueve nada: lo que su autor emite al empezar (`emision`, E y R) va en una transacción suya después (§8) |
 | `payload ruta: …` | payload inválido (ver §3.4) |
 | `contexto debe ser un objeto` | `contexto` es un número, un texto o un array (`null` vale como `{}`) |
 | `evento no es objeto` | lo validado no es un objeto |
@@ -104,13 +104,13 @@ true true 0000000000 {}
 
 | Clave | Quién la escribe | Significado |
 |---|---|---|
-| `genesis: true` | `Eje.genesis` | Marca el génesis. Solo puede haber uno por eje. |
-| `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor) y quien da de alta | Clave pública de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
+| `genesis: true`, `epoca` | `Eje.genesis` | Marca el génesis. Solo puede haber uno por eje. `epoca` es el id de la época 0 (`EPOCA_0_BTML.id`): el génesis es la época 0 en este eje (encargo 3b). |
+| `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor), `eje.aceptar` (la de quien acepta una invitación) y quien da de alta una cosa | Clave pública de quien escribe su propia alta o de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
 | `tipos` | nadie (solo un eje de la versión 2) | **Ya no existe** (VG, 10-11, B1: desaparece el tipo). Persona o cosa se lee de quién escribe el alta: una persona escribe la suya; una cosa la da de alta otra identidad, su dueño (§7.1). Fuera del prefijo de la versión 2 un alta que lo declara se rechaza. |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
 | `clasifica: { posicion, evento, camino, indice? }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito) y, si es un elemento de una lista, `indice` (su lugar en ella). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
-| `motor`, `fase`, `fuentes`, `encaje`, `nuevos`, `evidencia` | `motor.js` | Fábrica: consolidación, autorización, ejecución (`docs/MOTOR.md` §3). `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación se lee de una dirección con el camino desde el que se escribe (la matriz es relativa al camino: bajo un camino de profundidad n, el dígito n + 2; sin camino, el tercero; `docs/MOTOR.md` §7.2). |
+| `motor`, `fuentes`, `encaje`, `nuevos` | `motor.js` | Fábrica: la consolidación (`motor: 'fabrica'`; `docs/MOTOR.md` §3). Desde el encargo 3b no hay fases ni autorización: el ciclo es una sola operación, registrar, y «cerrado» es una lectura. `encaje` dice de dónde vino cada elección con fuente; `nuevos`, dónde va cada terminal nuevo. Ningún registro guarda una clave `clase`: la clase de modificación se lee de una dirección con el camino desde el que se escribe (la matriz es relativa al camino: bajo un camino de profundidad n, el dígito n + 2; sin camino, el tercero; `docs/MOTOR.md` §7.2). |
 
 ### 1.5 Un evento real: la compra
 
@@ -119,7 +119,7 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
 ```json
 {
   "autor": "huesped",
-  "sobre": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf",
+  "sobre": "<id del menú>",
   "en": "0000000000",
   "t": "2026-11-07T13:30:00Z",
   "movimientos": [
@@ -128,13 +128,13 @@ Cuarto evento del eje de ejemplo. Su `sobre` es el menú; su `payload` referenci
   ],
   "payload": [
     "Compra del menú del día",
-    [ [ { "ref": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf", "dir": "1000000000" } ], [ 1 ], [ "EUR 12" ] ],
-    [ { "ref": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf", "dir": "2000000000" } ],
+    [ [ { "ref": "<id del menú>", "dir": "1000000000" } ], [ 1 ], [ "EUR 12" ] ],
+    [ { "ref": "<id del menú>", "dir": "2000000000" }, "all announced movements happened" ],
     [ "huesped", "cocina" ],
     [ "pagar", "servir" ]
   ],
   "contexto": {},
-  "id": "3147f38b6bc7745265e82c9344b38ba9c68de5dda79c091781ed94a524841b5a"
+  "id": "<id de la compra>"
 }
 ```
 
@@ -154,12 +154,12 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
   0 · qué es: → menú:1 (ensalada · guiso · fruta)
   1 · cuánto: 1
   2 · con qué condición: EUR 12
-2 · criterios: → menú:2 (sin gluten · vegetariano)
+2 · criterios: → menú:2 (sin gluten · vegetariano) · all announced movements happened · 2 ocupantes
 3 · comunicación: huesped · cocina · 2 ocupantes
 4 · fábrica: pagar · servir · 2 ocupantes
 ```
 
-Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1), 1.1 cuánto (la lista de uno `[1]`), 1.2 con qué condición (la lista de uno `["EUR 12"]`); cada posición va entre corchetes (forma canónica, VG 8-11, §3.2). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
+Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1), 1.1 cuánto (la lista de uno `[1]`), 1.2 con qué condición (la lista de uno `["EUR 12"]`); cada posición va entre corchetes (forma canónica, VG 8-11, §3.2). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú y la plantilla de cerrado que la huésped nombra, «all announced movements happened», encargo 3b: `docs/MOTOR.md`; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
 
 ## 2. Movimientos de tokens (E/P/R/T)
 
@@ -171,25 +171,26 @@ Toda familia de tokens es una **serie** (VG, 7-11-2026: «las series de tokens s
 |---|---|---|---|---|
 | `T` | tiempo | `escala` | `'T:<escala>'` | nadie, ni el génesis: cada persona recibe cada día su asignación (VG, 8-11, §2.4; no hay T acumulable) |
 | `E` | recursos | `emisor`, `denominacion`, `registro` (opcional) | `'E:<emisor>/<denominacion>'` o `'E:<emisor>/<denominacion>@<registro>'` | una persona, a su nombre; la denominación va ligada al emisor como en R, y la serie al registro del recurso, con tope compartido (§2.4) |
-| `P` | poder / criterio | `ambito` | `'P:<ambito>'` | el génesis (`'P:genesis'`, todo el eje); una persona, solo sobre un registro que escribió ella; a los demás les llega por delegación (§2.5), y quien solo lo tiene lo transfiere pero no lo acuña |
+| `P` | poder / criterio | `ambito` (el id de un registro) | `'P:<id del registro>'` | nadie a mano (encargo 3b, mapa §15): se **obtiene** (diez al escribir un registro, al conseguir E y al recibir R de su emisor) y se **reposiciona** por el árbol; se transfiere y se delega (§2.5) |
 | `R` | reputación | `emisor` | `'R:<emisor>'` | una persona, a su nombre: la declara y solo ella la amplía (§2.4) |
 
 `ESCALAS_T = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio', 'pasado', 'futuro', 'inventado']`: diez tokens distintos, el tope `MAXIMO_ESCALAS_T = 10` (`tokens.js` no carga si se pasa). Las siete primeras son las reales (`ESCALAS_REALES`); las tres últimas (`ESCALAS_INFORMATIVAS`, VG, 8-11) registran tiempo pasado, futuro o inventado, son ilimitadas, no miden (`SEGUNDOS` las da `null`) ni tienen orden, y se enseñan aparte (§2.4). **Sin conversión entre escalas**: una hora no son sesenta minutos; `T:hora` y `T:minuto` son saldos distintos, como `E:casa/EUR` y `E:casa/BTC`. T va en **enteros**: cada escala es un token, y media hora serían minutos. `SEGUNDOS` (segundo 1, minuto 60, hora 3600, dia 86400, semana 7·86400, ciclo 28·86400, anio (13·28+1)·86400 = 365 días) es la duración de cada escala real para medir distancias de tiempo (las bandas de `src/tiempo.js`); no convierte saldos. Semana, ciclo y año van en **partes diarias** (`PARTES_T`: 7, 28 y 364): `cantidad: 1` en `semana` es 1/7 de semana, y una semana entera son 7; `textoT('semana', 3)` lo lee «3/7 semana».
 
-[D] (VG, 7-11, mapa §12): E con la denominación ligada al emisor como en R; R declarada por su emisor, ampliable solo por él y con rastro visible; P por delegación desde un registro de dominio; las cosas son titulares que no emiten. [D] (VG, 7-11 noche): solo emiten las personas (un grupo es un registro con P delegado), T es la asignación diaria de cada persona (VG, 8-11), la emisión es escalonada T → R → P → E, hay bloqueo y liberación con salida, obligación del emisor de R y caducidad de E. Todo implementado (§2.4, §2.5, §7.1); el ciclo de vida completo está en `docs/FUNDAMENTOS.md` («Ciclo de vida de cada token»).
+[D] (VG, 7-11, mapa §12): E con la denominación ligada al emisor como en R; R declarada por su emisor, ampliable solo por él y con rastro visible; las cosas son titulares que no emiten. [D] (VG, 7-11 noche): solo emiten las personas (un grupo es un registro), T es la asignación diaria de cada persona (VG, 8-11), hay bloqueo y liberación con salida, obligación del emisor de R y caducidad de E. [D] (VG, 8-11 y 9-11, mapa §15, encargo 3b): P es peso de criterio, obtenido y posicionado en registros; la exigencia encadena E → P → R → T; R se emite sin colateral y se transfiere entre tenedores. Todo implementado (§2.4, §2.5, §7.1); el ciclo de vida completo está en `docs/FUNDAMENTOS.md` («Ciclo de vida de cada token»).
 
-Quién tiene T y quién emite P fuera del génesis está decidido (VG, 8-11: T como asignación diaria; 7-11 noche: escalonado T→R→P→E) e implementado (§2.4). [X] decidir VG: si P y R admiten fracciones (hoy sí, en coma flotante, que acumula error; T ya va en enteros, y E también salvo en las series declaradas `divisible`, R2).
+Quién tiene T y cómo se obtiene P está decidido (VG, 8-11: T como asignación diaria; mapa §15: P obtenido y reposicionado, «unidades decimales») e implementado (§2.4, §2.5). [X] decidir VG: si R admite fracciones (hoy sí, en coma flotante, que acumula error; P es decimal por decisión de VG; T va en enteros, y E también salvo en las series declaradas `divisible`, R2).
 
 ### 2.2 Forma de un movimiento
 
 ```js
 { token: 'T', escala: 'minuto', cantidad: 2, de: 'cocina', a: null }                          // T: consumo de 2 minutos (T:minuto)
 { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'huesped', a: 'cocina' }  // E: pago con EUR de la casa (E:casa/EUR)
-{ token: 'P', cantidad: 2, ambito: '<id>', de: 'casa', a: 'cocina' }                          // P: delegar poder sobre un subárbol
+{ token: 'P', cantidad: 2, ambito: '<id>', de: 'casa', a: 'cocina' }                          // P: pasar criterio sobre un registro
 { token: 'R', cantidad: 3, emisor: 'casa', de: 'casa', a: 'cocina' }                          // R: la casa da reputación suya
 { token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', cantidad: 2, de: null, a: 'casa' } // emisión de una serie de E (§2.4)
 { token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', registro: '<id>', cantidad: 2, de: null, a: 'casa' } // E atada al registro del recurso (E:casa/cama@2026-11-13@<id>)
 { token: 'R', cantidad: 10, emisor: 'casa', de: null, a: 'casa' }                             // emisión de R: la casa amplía la suya (§2.4)
+{ token: 'P', cantidad: 4, ambito: '<id>', de: 'casa', a: 'ana', salida: '<decisión>' }      // delegar: transferir lo bloqueado con esa salida (§2.5)
 ```
 
 | Campo | Regla |
@@ -199,10 +200,10 @@ Quién tiene T y quién emite P fuera del génesis está decidido (VG, 8-11: T c
 | `refiere`, `nota` | solo en T `pasado`, `futuro` o `inventado`, que solo se consumen (`a = null`): `refiere` es la fecha a la que se refiere (instante ISO-8601 con zona; obligatoria en pasado y futuro, opcional en inventado), `nota` un texto opcional (VG, 8-11) |
 | `escala` | obligatoria y válida si `token === 'T'`; prohibida en E/P/R |
 | `denominacion` | obligatoria en E; prohibida en T/P/R |
-| `ambito` | obligatorio en P (no hay P total): `'genesis'` o el id de un registro del eje (si no existe, el eje rechaza `ámbito desconocido`, §7.4); prohibido en el resto |
-| `emisor` | obligatorio en E (la serie es suya) y en R; prohibido en T/P. En R, además, `de` solo puede ser el emisor o `null`, salvo para devolvérsela al emisor (`a` = el emisor; regla nueva, **[X] confirmar VG**, §2.4) |
+| `ambito` | obligatorio en P (no hay P total): el id de un registro del eje (si no lo es, «P moves within a known scope», §7.4; ya no hay `'genesis'`); prohibido en el resto |
+| `emisor` | obligatorio en E (la serie es suya) y en R; prohibido en T/P. R se transfiere entre tenedores sin cambiar de emisor (VG, 9-11, mapa §15: se retira la R no fungible) |
 | `de` | identidad (cadena) o `null`. `null` = **emisión** (§2.3, §2.4); en E y R, `a` debe ser el propio emisor. |
-| `estado`, `salida` | opcionales: `estado: 'bloqueo' \| 'liberacion'` con `de` = `a` (no cambia de titular) y `salida` (texto no vacío, la condición de liberación: declarada, no verificable todavía; el propio titular libera cuando quiere; **[X] decidir VG** qué la hace verificable, p. ej. que la liberación cite un evento de otra identidad); `salida` solo con `estado` |
+| `estado`, `salida` | opcionales: `estado: 'bloqueo' \| 'liberacion'` con `de` = `a` (no cambia de titular) y `salida` (texto no vacío, la condición de liberación: declarada, no verificable todavía; el propio titular libera cuando quiere; **[X] decidir VG** qué la hace verificable). Una **transferencia con salida** (`de` y `a` distintos, sin `estado`; encargo 3b) sale de lo bloqueado de `de` con esa salida y llega a `a` bloqueada con ella, o libre si la salida nombra a quien la recibe: es delegar (§2.5) y recoger lo que guarda una invitación (§7.1) |
 | `caduca` | opcional, solo en la emisión de E: instante ISO-8601 estricto con zona explícita, campo del contrato de la serie; se compara en UTC |
 | texto de los campos | `de`, `a`, `emisor`, `denominacion`, `ambito` y `escala` no llevan `\|`, `:` ni `/`, los separadores de las claves de serie (PR #41): ni las identidades ni las denominaciones. Una denominación con hora (`cama@2026-11-13T00:00`) se rechaza; con fecha sola, no. |
 | `a` | identidad o `null`. `null` = **consumo**. |
@@ -214,7 +215,7 @@ TIPOS, EMITEN         // ['persona', 'cosa'], ['persona']: quién puede emitir (
 ESTADOS               // ['bloqueo', 'liberacion']: movimientos que no cambian de titular
 asignacionT(t, escala), ASIGNACION_T, PARTES_T, diaCivil(t), textoT(escala, n)  // la asignación diaria de T (VG, 8-11, §2.4)
 validarMovimiento(m)  // → string[]  errores; [] si es válido
-claveToken(m)         // → 'T:hora' | 'E:casa/EUR' | 'P:genesis' | 'R:casa' | …   familia + ':' + los campos de SERIE unidos por '/'
+claveToken(m)         // → 'T:hora' | 'E:casa/EUR' | 'P:<id>' | 'R:casa' | …   familia + ':' + los campos de SERIE unidos por '/'
 partirClave(clave)    // → { token, serie, ...campos }   'E:casa/cama@2026-11-13' → { token: 'E', serie: 'casa/cama@2026-11-13', emisor: 'casa', denominacion: 'cama@2026-11-13' }
 cantidadBase(m)       // → m.cantidad: sin conversión, cada serie se cuenta en su propia unidad
 ```
@@ -223,7 +224,7 @@ cantidadBase(m)       // → m.cantidad: sin conversión, cada serie se cuenta e
 node --input-type=module -e "
 import { claveToken, cantidadBase, partirClave, validarMovimiento, SERIE, ESCALAS_T, MAXIMO_ESCALAS_T, SEGUNDOS } from './src/tokens.js';
 console.log(claveToken({ token: 'T', escala: 'hora', cantidad: 1 }), cantidadBase({ token: 'T', escala: 'hora', cantidad: 1 }), claveToken({ token: 'T', escala: 'minuto', cantidad: 60 }));
-console.log(claveToken({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12 }), claveToken({ token: 'P', ambito: 'genesis' }), claveToken({ token: 'R', emisor: 'casa' }));
+console.log(claveToken({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12 }), claveToken({ token: 'P', ambito: 'menu' }), claveToken({ token: 'R', emisor: 'casa' }));
 console.log(JSON.stringify(SERIE), ESCALAS_T.length, MAXIMO_ESCALAS_T, SEGUNDOS.anio / 86400);
 console.log(JSON.stringify(partirClave('E:casa/cama@2026-11-13')));
 console.log(JSON.stringify(validarMovimiento({ token: 'T', cantidad: 0, escala: 'mes', de: 'a' })));
@@ -235,7 +236,7 @@ console.log(JSON.stringify(validarMovimiento({ token: 'T', escala: 'hora', canti
 
 ```text
 T:hora 1 T:minuto
-E:casa/EUR P:genesis R:casa
+E:casa/EUR P:menu R:casa
 {"T":["escala"],"E":["emisor","denominacion","registro"],"P":["ambito"],"R":["emisor"]} 10 10 365
 {"token":"E","serie":"casa/cama@2026-11-13","emisor":"casa","denominacion":"cama@2026-11-13"}
 ["cantidad debe ser > 0","escala T inválida: mes","de y a son obligatorios (null permitido)","a debe ser identidad o null"]
@@ -253,8 +254,8 @@ Todos los errores de `validarMovimiento` (en un evento salen como `evento mal fo
 | `T <pasado o futuro> exige refiere: …` / `refiere debe ser instante ISO-8601 con zona explícita` / `T <escala> solo se consume (a = null): …` / `nota solo en T pasado, futuro o inventado` / `refiere solo en T pasado, futuro o inventado` / `la nota es texto` | el T informativo (VG, 8-11) |
 | `E exige denominación` / `E exige emisor: la serie es de quien la emite` / `el emisor de E no lleva «/»` / `denominación solo en E` | la serie de E |
 | `P exige ámbito: no hay poder total` / `ámbito solo en P` | el ámbito de P |
-| `R exige emisor` / `R no es fungible: solo la mueve su emisor <emisor>; quien la tiene solo puede devolvérsela` | la serie de R; el segundo, si `de` no es el emisor ni `null` y `a` no es el emisor: quien tiene R de otro solo puede devolvérsela (regla nueva, **[X] confirmar VG**: antes no podía moverla); tampoco la consume ni la bloquea |
-| `estado inválido: <x> (bloqueo o liberacion)` / `<estado>: de y a son el mismo titular (no cambia de manos)` / `<estado> exige salida: la condición de liberación, declarada (no verificable todavía)` / `salida solo con estado (bloqueo o liberacion)` | bloquear y liberar (VG, 7-11 noche) |
+| `R exige emisor` | la serie de R (encargo 3b: se retira «R no es fungible»; quien la tiene la pasa, la devuelve o la quema) |
+| `estado inválido: <x> (bloqueo o liberacion)` / `<estado>: de y a son el mismo titular (no cambia de manos)` / `<estado> exige salida: la condición de liberación, declarada (no verificable todavía)` / `salida solo con estado (bloqueo o liberacion) o en una transferencia (de y a)` / `una transferencia con salida cambia de manos: de y a son distintos` / `la salida es texto` | bloquear, liberar y transferir con salida (VG, 7-11 noche; encargo 3b) |
 | `caduca solo en la emisión de E` / `caduca debe ser instante ISO-8601 con zona explícita` | la caducidad, campo del contrato de una serie de E |
 | `la emisión de <E o R> va a su propio emisor` / `emisor solo en E y en R` | emisión a otro; `emisor` en T o P |
 | `<campo> no puede llevar \| : ni /` | separadores reservados en `de`, `a`, `emisor`, `denominacion`, `ambito` o `escala` |
@@ -262,22 +263,22 @@ Todos los errores de `validarMovimiento` (en un evento salen como `evento mal fo
 
 ### 2.3 Reglas del eje sobre los movimientos
 
-Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor, sin excepciones: el «por cuenta de un grupo» se retiró, VG 8-11, «los grupos son solo delegación»), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis emite cualquier familia a su autor; después solo emiten las personas, con las reglas de `src/ciclo.js` (§2.4): T no se emite (cada persona tiene su asignación diaria), P sobre un registro suyo o sobre el que ya tienen P, E y R a su nombre, y todo escalonado. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento. Esa simulación es la del libro de transacciones (`src/libro.js`; VG, 9-11, la capa cero): cada evento es una transacción con un paso por movimiento (acuñar, transferir, bloquear, liberar, quemar) y se aplica entera o nada (`docs/notas/CAPA_CERO.md`).
+Las aplica `eje.validar` (§7.4): nadie mueve tokens ajenos (`de` debe ser el autor; el «por cuenta de un grupo» se retiró, VG 8-11, «los grupos son solo delegación»; la única excepción es aceptar la propia invitación, que recoge lo que quien invita guardó con la salida = quien acepta, §7.1), y el saldo del autor debe cubrir la suma de lo que mueve **por clave de saldo** (minutos con minutos, horas con horas). El evento mínimo mueve T del autor, en cualquier escala: el coste de escribir es tiempo. `eje.escribir` solo exige que el autor mueva algo de T (cualquier cantidad y escala); el minuto por posición es de `escribirDesde` (`docs/MOTOR.md` §7.2) y del motor, así que escribir con ellos exige `T:minuto`. Emitir (`de === null`): el génesis no emite nada (es la época 0, §8); solo emiten las personas, con las reglas de la época (§2.4): T no se emite (cada persona tiene su asignación diaria), P no se acuña a mano (se obtiene y se reposiciona, §2.5), E y R a su nombre, con la exigencia E → P → R → T. Bloquear y liberar (`estado`) mueven entre el disponible y lo bloqueado del autor, por salida; el saldo es lo disponible. La simulación aplica los movimientos **en orden** sobre una vista de los saldos (débitos y abonos), así que lo emitido en un evento puede darse en ese mismo evento. Esa simulación es la del libro de transacciones (`src/libro.js`; VG, 9-11, la capa cero): cada evento es una transacción con un paso por movimiento (acuñar, transferir, bloquear, liberar, quemar) y se aplica entera o nada (`docs/notas/CAPA_CERO.md`).
 
 ### 2.4 Emisión de series
 
-Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas** (VG, 7-11 noche: «todos son emitidos por una persona individualmente»): persona es quien escribió su propia alta (VG, 10-11, B1: no hay tipo, §7.1). No hay identidades de grupo (VG, 8-11, [X] confirmar VG: «lo único que tenemos de grupo es la delegación: yo te delego T, P, R, E para que tú lo uses; es la persona la que hace el registro»): un grupo es un **registro**; su autor emite P sobre él y lo delega, y cada persona emite a su nombre. Una **cosa** (una habitación, una plaza), cuya alta escribió su dueño, es titular: reciben, conservan y mueven tokens y firman con su clave, pero no emiten.
+Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas** (VG, 7-11 noche: «todos son emitidos por una persona individualmente»): persona es quien escribió su propia alta (VG, 10-11, B1: no hay tipo, §7.1). No hay identidades de grupo (VG, 8-11, [X] confirmar VG: «lo único que tenemos de grupo es la delegación: yo te delego T, P, R, E para que tú lo uses; es la persona la que hace el registro»): un grupo es un **registro**; su autor obtiene P sobre él al escribirlo y lo delega, y cada persona emite a su nombre. Una **cosa** (una habitación, una plaza), cuya alta escribió su dueño, es titular: reciben, conservan y mueven tokens y firman con su clave, pero no emiten.
 
-La emisión es escalonada («normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»): emitir R exige consumir T del autor en el mismo evento (bloquearlo, liberarlo o dárselo a sí mismo no cuenta, y T no se da a otra persona: VG, 7-11 noche) y su colateral (R6: R del autor bloqueada con la salida = la serie, la décima parte de lo emitido); P, además, R propia en juego (ese colateral de su propia serie, `R:<autor>`, bloqueado antes o en el mismo evento); E, además, P del autor sobre el registro `sobre` del evento (saldo, o P que mueve o recibe en el propio evento). Y el reloj no va hacia atrás (**[X] confirmar VG**): el `t` de cualquier evento que no sea el génesis no es anterior al de su `sobre` ni al del alta de su autor (el alta toma el `t` del evento que la hace), así que un alta no se retrofecha para ganar días de asignación. La tabla completa, con el ciclo de vida de cada familia, está en `docs/FUNDAMENTOS.md`.
+La exigencia encadena E → P → R → T (VG, 8-11 tarde, mapa §15 N3: «dos secuencias, no dos escalones»; reglas de la época, `docs/BQLM.md` §10.1): emitir R exige quemar T real del autor en la misma transacción (una escala que el calendario mide; el informativo no cuenta: «minting R needs real T»), sin colateral (VG, 9-11: el respaldo es la obligación de atender); emitir E exige P del autor posicionado en el registro al que la E está atada («minting E needs P on its record»: su `registro` o, sin él, el alta del emisor) y R propia emitida («minting E needs own R issued»: en su cartera, en manos de otros o en la misma transacción). P no se emite: se obtiene y se reposiciona (§2.5). Y el reloj no va hacia atrás (**[X] confirmar VG**): el `t` de cualquier evento no es anterior al de su `sobre` ni al del alta de su autor, así que un alta no se retrofecha para ganar días de asignación. La tabla completa, con el ciclo de vida de cada familia, está en `docs/FUNDAMENTOS.md`.
 
 - **T** (VG, 8-11: «como en los videojuegos: llega a las 12 de la noche y te da todo el T del día siguiente, todos los segundos, todos los minutos, las horas, el día, el proporcional de la semana, de los 28 días y del año. Te lo gastas como quieras, no te puedes gastar más. Es suficiente para que no sea limitante»): nadie emite T, ni el génesis (`T no se emite: ni el génesis; cada persona tiene su asignación del día`; VG, 8-11: «no hay un tipo de T que se acumule»). Cada **persona** dada de alta tiene, por cada día civil de su propio reloj (el `t` de sus eventos, en UTC), su asignación entera (`ASIGNACION_T`): 86400 segundos, 1440 minutos, 24 horas, 1 día y una parte de semana, de ciclo y de año («tú diariamente tienes la posibilidad de poner uno partido de 7, 28 o 364 para que ese día decidas»). Lo no gastado **no se acumula** ([X] confirmar VG): al cambiar de día, la asignación es la nueva. Gastar (consumirlo o darlo a una cosa) sale de lo que queda del día; ningún T se acumula; si no alcanza, `writing burns today's T: <autor> burns no T, or more T than is left today (day <n>)` (la regla de la época). Una cosa no tiene asignación: gasta el T que le dio su persona (o otra cosa del mismo dueño, o de quien escribió su alta o tiene P sobre ella: VG, 8-11) y lo conserva hasta gastarlo; un grupo no tiene T. T no se bloquea ni se libera (`T is not locked: …`). Las tres informativas (`pasado`, `futuro`, `inventado`) son ilimitadas («pondría uno, pero si lo gastas te vuelve a salir uno»): no se rechazan por saldo, solo quedan registradas, con su `refiere` y su `nota`, y **pagan la escritura** (VG, 8-11): el evento sale gratis en T real y no es presente (`evento.esPresente`, `eje.presente(id)`; `PRESENTE()` en BQL). La serie es `T:<escala>`, sin emisor en la clave. `eje.saldoT(persona, escala, t)` dice lo que queda.
-- **P**: el génesis emite `P:genesis`; fuera de él, una persona acuña `P:<ámbito>` a sí misma solo si el ámbito es un registro existente que escribió ella. Quien solo tiene P (delegado) lo transfiere, estrechando el ámbito y conservando la cantidad, pero no lo acuña. `genesis` como ámbito solo lo emite el génesis; con el id del génesis lo amplía después su autor (**[X] confirmar VG**).
-- **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene. Y va **atada al registro del recurso** (VG, 7-11 noche; R2): el campo `registro` (el id de un evento del eje) entra en la clave tras la última `@` (`E:casa/cama@2026-11-13@<id>`; una denominación no puede acabar en `@<id>`), y sin él la serie queda atada al registro del emisor. El E vivo de un registro y sus descendientes, por franja (lo que va tras la última `@` de la denominación: la noche en `cama@2026-11-13`; texto opaco cuya granularidad elige el dueño; sin `@`, una sola franja), no pasa de la capacidad que declara cualquier registro de su hilo (un entero en la posición 2 del payload raíz); cada serie emite en proporción al P bloqueado con su clave, o la de su familia (franja `*`), como salida (P del registro que declara la capacidad, o `P:genesis` si nadie emitió ese P), y ese P no se libera mientras la serie viva. Fracciones solo con `divisible: true`; emisión conjunta con `emisores: [...]`. Detalle en `docs/FUNDAMENTOS.md` («E atada al recurso, con tope compartido»).
-- **R**: su emisor la declara y solo él la amplía (`R:<emisor>`); cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Sigue sin ser fungible (§2.2): quien la recibe (persona o cosa) la conserva y no puede pasarla a un tercero, consumirla ni bloquearla; **solo puede devolvérsela a su emisor** (`de`: quien la tiene, `a`: el emisor), que es el acto de «pedir atención» (regla nueva, **[X] confirmar VG**: sale de la «reputación cedida a otros para requerir atención» de VG, 7-11 noche, pero antes quien la tenía no podía moverla). El emisor no la retira por su cuenta: el movimiento saldría de otra cartera y se rechaza ya en la forma (`R no es fungible: …`, la tabla de §2.2). Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. Emitirla exige colateral, el emisor **atiende** una devolución citándola (`contexto.atiende`) y, mientras no lo haga, su colateral no se libera; y la R no tiene un valor propio: vale ante quien la lee, con su lente firmada (R6, `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
+- **P** (mapa §15 [D] «P como peso de criterio»): nadie lo acuña a mano. Lo acuña el libro, como **obtención** (las reglas que escriben de la época, `docs/BQLM.md` §5): diez al escribir un registro (sobre él), diez al conseguir E de otro (sobre el registro de la serie) y diez al recibir R directamente de su emisor (sobre su alta), una vez por regla, titular y registro. Después se **reposiciona** por el árbol: un paso por transacción, quemando P de un registro y acuñándolo en su padre (una décima) o en un hijo (una décima más). `P:<id>` es el P posicionado en ese registro; ya no hay `P:genesis` ni P que cubra lo de debajo.
+- **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene. Y va **atada al registro del recurso** (VG, 7-11 noche; R2): el campo `registro` (el id de un evento del eje) entra en la clave tras la última `@` (`E:casa/cama@2026-11-13@<id>`; una denominación no puede acabar en `@<id>`), y sin él la serie queda atada al registro del emisor. El E vivo de un registro y sus descendientes, por franja (lo que va tras la última `@` de la denominación: la noche en `cama@2026-11-13`; texto opaco cuya granularidad elige el dueño; sin `@`, una sola franja), no pasa de la capacidad que declara cualquier registro de su hilo (un entero en la posición 2 del payload raíz); cada serie emite en proporción al P comprometido con su clave, o la de su familia (franja `*`), como salida: el P posicionado en el registro que declara la capacidad o en lo que cuelga de él, frente al de todos (VG, 9-11, D1 y F1), y ese P no se libera mientras la serie viva. Fracciones solo con `divisible: true`; emisión conjunta con `emisores: [...]`. Detalle en `docs/FUNDAMENTOS.md` («E atada al recurso, con tope compartido»).
+- **R** (VG, 9-11, mapa §15 [D] «R según el corpus»): su emisor la declara y solo él la amplía (`R:<emisor>`), sin colateral; cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Se **transfiere** libremente entre tenedores sin cambiar de emisor; **devolverla** al emisor es pedirle atención, y el emisor la **atiende** con un registro suyo anclado sobre la petición, con T real (la lectura «attended»; el criterio de cada uno por su PV2 sigue [X] VG); y el tenedor puede **perdonar** la deuda quemándola. Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. La R no tiene un valor propio: vale ante quien la lee, una unidad cada una de los emisores que su lente nombra (los grupos de atención del lector que cobran con la R de quien escribe: `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). Escribir en el 3 del alta de otro cuesta el precio que pone a tu grupo: su R devuelta, tu R, E o P («attention has a price», §7.1). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
 
 Cómo se nombra la plaza dentro de la denominación no está decidido: el ejemplo de abajo usa `cama@<noche>` con tantos tokens como camas (una serie por habitación y noche); con varias plazas hay que distinguirlas en el nombre (`hab1-cama1@<noche>`, o la dirección de la plaza, como hace Booking: `1100000000@<noche>`, con la habitación como registro de la serie), siempre sin `|`, `:` ni `/`. [X] decidir VG.
 
-La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
+La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a la cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R de la emisión inicial quedan a nombre del autor del génesis (`Eje.genesis` completa `emisor` y las escribe en una transacción suya, la segunda del eje). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
 
 ```js
 eje.esPersona(identidad)     // → true si escribió su propia alta (persona), false si se la escribió otra identidad (cosa), null sin alta (VG, 10-11, B1)
@@ -297,8 +298,7 @@ eje.obligaciones(emisor)     // → su R en manos ajenas
 caducada(eje, clave, t)      // → true si la serie de E tiene caducidad y t ya la alcanza
 ```
 
-```sh
-node --input-type=module -e "
+```js
 import { Eje } from './src/eje.js';
 const t = '2026-11-07T09:00:00Z';
 const luego = '2026-11-07T10:00:00Z'; // bea escribe con su asignación de T del día (VG, 8-11)
@@ -306,50 +306,58 @@ const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null 
 const da = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa', a }); // T solo a una cosa: no cruza de persona
 const emite = (emisor, denominacion, cantidad) => ({ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor });
 const cama = (cantidad, de, a) => ({ token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', cantidad, de, a });
-const enJuego = (persona, a) => [{ token: 'R', emisor: persona, cantidad: 2, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 0.5, de: persona, a: persona, estado: 'bloqueo', salida: 'R:' + persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
-await eje.entrar({ identidad: 'bea', t }); // bea escribe su propia alta: es una persona (VG, 10-11, B1)
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), da('hab-2', 5), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'bea' }], payload: 'altas' }); // la habitación, una cosa: su alta la escribe la casa
-const plazas = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa'), ...enJuego('casa', 'bea'), emite('casa', 'cama@2026-11-13', 2), cama(2, 'casa', 'hab-2')], payload: 'dos camas el 13-11, para la habitación 2' });
+const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'EUR', cantidad: 500 }], foco: 'Casa', t });
+await eje.aceptar(await eje.invitar({ autor: 'casa', invitado: 'bea', t }), {}, { t }); // bea acepta la invitación: su alta, una persona (B1)
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), da('hab-2', 5)], payload: 'altas' }); // la habitación, una cosa: su alta la escribe la casa
+const plazas = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa'), emite('casa', 'cama@2026-11-13', 2), cama(2, 'casa', 'hab-2')], payload: 'dos camas el 13-11, para la habitación 2' });
 console.log(JSON.stringify(eje.serie('E:casa/cama@2026-11-13')), JSON.stringify(eje.recursos('hab-2')), eje.esPersona('hab-2'));
-await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), ...enJuego('bea', 'casa'), emite('bea', 'cama@2026-11-13', 1)], payload: 'la mía' });
-console.log(JSON.stringify(eje.serie('E:bea/cama@2026-11-13')), JSON.stringify(eje.serie('E:casa/cama@2026-11-13')));
-await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), emite('casa', 'cama@2026-11-14', 1)], payload: 'x' }).catch((e) => console.log(e.message));
-await eje.escribir({ autor: 'hab-2', sobre: plazas.id, t, movimientos: [gasta('hab-2'), emite('hab-2', 'cama@2026-11-13', 1)], payload: 'x' }).catch((e) => console.log(e.message));
-await eje.escribir({ autor: 'hab-2', sobre: plazas.id, t, movimientos: [gasta('hab-2'), cama(3, 'hab-2', 'bea')], payload: 'x' }).catch((e) => console.log(e.message));
+await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), R('bea', 2, null, 'bea'), emite('bea', 'cama@2026-11-13', 1)], payload: 'la mía' });
+console.log(JSON.stringify(eje.serie('E:bea/cama@2026-11-13')), JSON.stringify(eje.serie('R:bea')));
+const no = (d) => eje.escribir({ sobre: plazas.id, payload: 'x', ...d }).catch((e) => console.log(e.message));
+await no({ autor: 'bea', t: luego, movimientos: [gasta('bea'), emite('casa', 'cama@2026-11-14', 1)] });
+await no({ autor: 'hab-2', t, movimientos: [gasta('hab-2'), emite('hab-2', 'cama@2026-11-13', 1)] });
+await no({ autor: 'hab-2', t, movimientos: [gasta('hab-2'), cama(3, 'hab-2', 'bea')] });
+await no({ autor: 'casa', t, movimientos: [gasta('casa'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'casa' }] });
+await no({ autor: 'casa', t, movimientos: [gasta('casa'), { token: 'P', ambito: plazas.id, cantidad: 5, de: null, a: 'casa' }] });
 await eje.escribir({ autor: 'hab-2', sobre: plazas.id, t, movimientos: [gasta('hab-2'), cama(1, 'hab-2', 'bea')], payload: 'reserva de bea' });
-await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('casa'), { token: 'R', cantidad: 10, emisor: 'casa', de: null, a: 'casa' }, { token: 'R', cantidad: 1, emisor: 'casa', de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'R:casa' }, { token: 'R', cantidad: 2, emisor: 'casa', de: 'casa', a: 'bea' }], payload: 'reputación de la casa' });
-await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('casa'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'casa' }], payload: 'mi hora' }).catch((e) => console.log(e.message));
-console.log(eje.saldo('bea', 'E:casa/cama@2026-11-13'), JSON.stringify(eje.reputaciones('bea')));
-console.log(eje.series().map((x) => x.clave + ' ' + x.emitido).join(' · '));
-"
+await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('casa'), R('casa', 2, 'casa', 'bea')], payload: 'reputación de la casa' }); // sin colateral (VG, 9-11)
+await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), R('casa', 1, 'bea', 'hab-2')], payload: 'te paso R de la casa' }); // R pasa de tenedor a tenedor (VG, 9-11)
+console.log(eje.saldo('bea', 'E:casa/cama@2026-11-13'), JSON.stringify(eje.reputaciones('bea')), JSON.stringify(eje.reputaciones('hab-2')), eje.obligaciones('casa'));
+const series = eje.series();
+console.log(series.filter((x) => x.token !== 'P').map((x) => x.clave + ' ' + x.emitido).join(' · '), '· y', series.filter((x) => x.token === 'P').length, 'series de P, una por registro que dio P');
 ```
 
 ```text
 {"emisor":"casa","emitido":2} [{"emisor":"casa","denominacion":"cama@2026-11-13","cantidad":2}] false
-{"emisor":"bea","emitido":1} {"emisor":"casa","emitido":2}
+{"emisor":"bea","emitido":1} {"emisor":"bea","emitido":2}
 evento rechazado: E is minted by and to its issuer: bea mints E of casa, or to someone else
-evento rechazado: only persons mint: hab-2 is a thing (its alta was written by casa), and only persons mint; emitir E exige R propia en juego: R:hab-2 bloqueada como colateral (salida «R:hab-2»), al menos la décima parte de lo emitido de R:hab-2, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 954a2a97 (saldo o movimiento de P en el mismo evento)
+evento rechazado: only persons mint: hab-2 is a thing (its alta was written by casa), and only persons mint; minting E needs P on its record: hab-2 mints E on a record where it has no P; minting E needs own R issued: hab-2 mints E and has never issued R of its own
 evento rechazado: saldo insuficiente de E:casa/cama@2026-11-13 en hab-2
 evento rechazado: nobody mints T: casa mints 1 T; everyone has today's allowance
-1 [{"emisor":"casa","cantidad":3},{"emisor":"bea","cantidad":0.5}]
-E:casa/EUR 500 · P:genesis 5 · T:minuto 0 · R:casa 12 · E:casa/cama@2026-11-13 2 · R:bea 2 · E:bea/cama@2026-11-13 1
+evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child
+1 [{"emisor":"casa","cantidad":2},{"emisor":"bea","cantidad":2}] [{"emisor":"casa","cantidad":1}] 3
+T:minuto 0 · R:casa 10 · E:casa/EUR 500 · E:casa/cama@2026-11-13 2 · R:bea 2 · E:bea/cama@2026-11-13 1 · y 10 series de P, una por registro que dio P
 ```
 
-### 2.5 P por delegación
+Leído: la casa emite al empezar su R y sus euros (la emisión inicial, después del génesis), invita a bea, que acepta (su alta: una persona), y da de alta a la habitación, una cosa. Las camas de la casa van atadas a su alta (sin `registro`), donde tiene los diez P de haberla escrito. Bea emite su R y su cama en la misma transacción, quemando un minuto real. No pasan: bea emitiendo E de la casa; la habitación emitiendo (es una cosa, y además no tiene P ni R propia); la habitación moviendo más camas de las que tiene; la casa acuñando T; y la casa acuñando P a mano. La casa da R sin colateral y bea la pasa a la habitación sin devolverla a su emisor.
 
-VG (7-11): la casa escribe un registro de dominio («Alojamiento») y delega P con ese ámbito; recepción autoriza lo que otros proponen en lo que cuelga de ahí y puede delegar hacia abajo. Así funciona ya: P sobre todo el eje solo lo emite el génesis (`P:genesis`); fuera de él, una persona acuña P solo sobre un registro que escribió ella, escalonado (§2.4, VG 7-11 noche), y **una sola vez**: `P:X` es una serie cerrada, y ampliarla es ejecutar una consolidación sobre X que esté autorizada (R3, VG 7-11 noche); quien solo tiene P lo transfiere, no lo acuña; y delegar es mover P con un ámbito más estrecho (un registro), que se debita del ámbito exacto y, si no alcanza, de los que lo cubren (los registros de su hilo y `genesis`), salvo hacia una serie cerrada o hacia la raíz de un dominio ajeno (R3). `eje.poderSobre(identidad, registro)` suma el P cuyo ámbito es `genesis` o un registro del hilo de ese registro. Para autorizar no basta tenerlo: autorizar es **bloquear** P sobre el registro del recurso (el más cercano del hilo del foco con P propio emitido, o el génesis si nadie lo ha emitido: VG, 8-11) y la consolidación queda autorizada cuando lo bloqueado alcanza el umbral del dueño (`docs/MOTOR.md` §4); el P que ya respalda E del recurso cuenta también si su titular lo dice (VG, 8-11). En Booking, la casa emite su P sobre el Alojamiento (la raíz de su dominio), delega en recepción más de la mitad y ese P respalda las plazas (R2): recepción autoriza sola las dos partes de la confirmación con el P que respalda. Prueba: `test/eprt.test.js` («P por delegación desde un registro de dominio»), `test/autorizar.test.js`.
+### 2.5 P: obtener, reposicionar, delegar y comprometer
 
-- El ámbito lo fija el movimiento (`ambito`), no el `sobre` del evento que delega: la delegación puede escribirse en cualquier sitio.
-- El ámbito cubre lo que **cuelga** del registro por `sobre` (su subárbol de hilos), no lo que solo lo referencia: una nota escrita en otra rama que cita el dominio con `{ ref: dominio }` queda fuera.
-- Quien recibe P con ámbito puede delegar hacia abajo (un registro que cuelgue del suyo); hacia arriba o de lado se rechaza por saldo: `saldo insuficiente de P sobre el eje en <autor>` (ámbito `genesis`) o `saldo insuficiente de P sobre <id8> en <autor>` (un registro que su P no cubre). Un ámbito que no es un registro del eje: `ámbito desconocido: <id8>` (§7.4).
-- El id del génesis también vale como ámbito y autoriza en todo el eje, igual que `'genesis'` (`poderSobre` lo encuentra en el hilo de cualquier registro), pero con otra clave de saldo (`P:<id del génesis>`), y los dos nombres no son intercambiables al delegar. Con P sobre `genesis` se delega con ámbito el id del génesis (`ambitosQueCubren(<id del génesis>)` da `[<id del génesis>, 'genesis']`); con P sobre el id del génesis se delega a cualquier registro o al propio id, pero no con ámbito `'genesis'`, porque `ambitosQueCubren('genesis')` solo da `['genesis']`: `saldo insuficiente de P sobre el eje en <autor>`. [X] decidir VG si el id del génesis como ámbito se rechaza o se trata como `genesis`.
+Encargo 3b (VG, 8-11, mapa §15 [D] «P como peso de criterio»: «a P le estás dando mucho peso»). P son unidades **posicionadas en registros**: `P:X` es el criterio de su titular sobre el registro X, y nada más (no cubre lo que cuelga de X ni hay P sobre todo el eje). Se retiran «el autor de X acuña P:X», el P del génesis, la consolidación que amplía P (R3), el estrechamiento y el débito que subía por el hilo, y el paso de autorizar (`docs/MOTOR.md`).
+
+- **Obtener** (N1, N2): el libro acuña diez P en la misma transacción, con la clase «obtencion», a quien escribe un registro (sobre él), a quien consigue E de otro (sobre el registro de la serie) y a quien recibe R directamente de su emisor (sobre el alta del emisor). Lo dicen las reglas que escriben de la época, no el código; y una obtención no se repite (regla, titular, registro). `eje.libro.asientos({ clase: 'obtencion' })` las lista.
+- **Reposicionar** (N7): un paso por transacción. Quien escribe quema P suyo de un registro y lo acuña para sí en su padre (subir deja una décima: 10 → 1) o en un hijo (bajar añade una décima: 1 → 1,1), con decimales. Ir a un registro ajeno es subir al antepasado común y bajar, varios pasos («P is repositioned one step at a time»).
+- **Pasar y delegar**: P se transfiere a otro sobre el mismo registro. Delegar es una **transferencia con salida** (mapa §15 [D] (6)): quien delega bloquea su P con la salida = la decisión y lo transfiere con esa salida; llega a quien recibe bloqueado con ella, comprometido con esa decisión.
+- **Comprometer** (mapa §15 [D] (5)): bloquear P con la salida = el id de la decisión. Los compromisos con X son la vista `X.2.4`, y el recuento los pesa según el criterio del dueño de X (`docs/MOTOR.md`).
+- **El peso por dominio** (mapa §15 [D] (3)): el peso de A sobre X es su P en X ÷ su P en el dominio de X, el árbol que cuelga del registro más alto del hilo de X escrito por su dueño (la lectura «share», `A.2.1.8`; `motor.peso`). Dividir o fundir identidades no lo cambia.
 
 ```js
 eje.poderes(identidad)              // → [{ ambito, cantidad }]   no hay P total
-eje.poderSobre(identidad, registro) // → número: P con ámbito 'genesis' o un registro del hilo de `registro`
-eje.ambitosQueCubren(ambito)        // → [ambito, …registros de su hilo, 'genesis']; para 'genesis', ['genesis', id del génesis] (los dos nombran todo el eje)
+eje.poderSobre(identidad, registro) // → número: su P posicionado en ese registro, disponible y bloqueado
 ```
+
+En Booking (`ejemplos/ikisai/reserva-booking.mjs`), la casa escribe el registro de dominio («Alojamiento»), donde obtiene sus diez P, y respalda las plazas comprometiendo ese P con la familia de cada plaza (su salida); cada parte de la confirmación mueve lo suyo. Pruebas: `test/reglas-3b.test.js`, `test/eprt.test.js`.
 
 ## 3. El payload
 
@@ -570,7 +578,7 @@ import { leerEvento } from './src/lectura.js';
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 const { eje, menu, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
-const nombres = { [menu.id]: 'menú', [compra.id]: 'compra' };
+const nombres = { [menu.id]: 'menú', [compra.id]: 'compra', [eje.genesisId]: 'génesis' };
 console.log(leerEvento(eje, compra.id, { nombres }));
 console.log(leerEvento(eje, compra.id, { nombres, camino: [1] }));
 console.log(leerEvento(eje, eje.genesisId, { nombres }));
@@ -584,7 +592,7 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
   1 · cuánto: 1
   2 · con qué condición: EUR 12
   ↳ ocupante 2 · cocina · Cuenta del menú
-2 · criterios: → menú:2 (sin gluten · vegetariano)
+2 · criterios: → menú:2 (sin gluten · vegetariano) · all announced movements happened · 2 ocupantes
 3 · comunicación: huesped · cocina · 2 ocupantes
 4 · fábrica: pagar · servir · 2 ocupantes
 compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000 · posición 1
@@ -593,13 +601,15 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000 · posici
   1 · cuánto: 1
   2 · con qué condición: EUR 12
   ↳ ocupante 2 · cocina · Cuenta del menú
-e670f7ae · casa · 2026-11-07T09:00:00Z · génesis
+génesis · casa · 2026-11-07T09:00:00Z · génesis
 Casa de ejemplo
-↳ ocupante 1 · huesped · alta de huesped
+3 · comunicación:
+  ↳ ocupante 1 · casa · invitation
+↳ ocupante 1 · casa · Emisión inicial de casa
 ↳ ocupante 2 · casa · Altas del fin de semana
 ```
 
-La cuenta es el ocupante 2 de la posición 1: el 1 es la propia décupla de la compra. En la app, el conmutador «leído» de Pointed enseña `leerEvento` del foco, y el de Clasificar, el de la posición en foco. `node ejemplos/ikisai/leer.mjs` imprime la compra, el menú y la reserva leídos.
+La cuenta es el ocupante 2 de la posición 1: el 1 es la propia décupla de la compra. El génesis (un terminal, sin movimientos) lleva anclada en su 3 la invitación de la casa a la huésped (encargo 3b, §7.1) y, en la raíz, la emisión inicial y las altas. En la app, el conmutador «leído» de Pointed enseña `leerEvento` del foco, y el de Clasificar, el de la posición en foco. `node ejemplos/ikisai/leer.mjs` imprime la compra, el menú y la reserva leídos.
 
 ## 4. Direcciones
 
@@ -710,7 +720,7 @@ for (const p of decupla(compra).posiciones) console.log(p.indice, p.significado,
 0:1=recursos 1:2=con qué condición
 0 representación Compra del menú del día
 1 recursos [3]
-2 criterios [1]
+2 criterios [2]
 3 comunicación [2]
 4 fábrica [2]
 5 estructura -
@@ -736,7 +746,7 @@ import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { resolver } from './src/btml.js';
 const { eje, compra, menu } = await ejemploCompra();
 console.log(JSON.stringify(resolver(compra.payload, '1200000000')));
-console.log(JSON.stringify(resolver(compra.payload, '1000000000')));
+console.log(JSON.stringify(resolver(compra.payload, '1000000000')).replace(menu.id, '<menú>'));
 console.log(resolver(compra.payload, '1020000000'), resolver(compra.payload, '7000000000'));
 const r = resolver(compra.payload, '1000000000')[0][0];
 console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payload, r.dir)), resolver(menu.payload, '1100000000'));
@@ -745,7 +755,7 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 
 ```text
 ["EUR 12"]
-[[{"ref":"61aa68f7143444ac0c86a6251982c4449c94464dfcfadeeee9d5ccb45da69705","dir":"1000000000"}],[1],["EUR 12"]]
+[[{"ref":"<menú>","dir":"1000000000"}],[1],["EUR 12"]]
 undefined undefined
 true ["ensalada","guiso","fruta"] undefined
 ```
@@ -778,9 +788,10 @@ node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 const { eje, compra } = await ejemploCompra();
 const cuenta = await ejemploCuenta(eje, compra);
+const nombre = (e) => (e.id === cuenta.id ? 'cuenta' : 'nota');
 const nota = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: 'repetir el sabado' });
 console.log(eje.hilo(nota.id).map((e) => e.autor + '@' + e.en).join(' > '));
-console.log(eje.sobre(compra.id).map((e) => e.id.slice(0, 8) + '@' + e.en).join(' '));
+console.log(eje.sobre(compra.id).map((e) => nombre(e) + '@' + e.en).join(' '));
 console.log(eje.sobre(compra.id, '1000000000').length, eje.sobre(compra.id, '0000000000').length);
 console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 "
@@ -788,7 +799,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-2fe9802d@1000000000 9c523922@7000000000
+cuenta@1000000000 nota@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -845,10 +856,11 @@ En la compra, la dirección `1000000000` tiene cuatro ocupantes una vez escrita 
 node --input-type=module -e "
 import { ejemploCompra, ejemploCuenta } from './ejemplos/ikisai/compra-food.mjs';
 import { ocupantes, caminosDe } from './src/encaje.js';
-const { eje, compra } = await ejemploCompra();
-await ejemploCuenta(eje, compra);
+const { eje, compra, menu } = await ejemploCompra();
+const cuenta = await ejemploCuenta(eje, compra);
+const nom = (x) => x.replace(compra.id, 'compra').replace(menu.id, 'menú').replace(cuenta.id, 'cuenta');
 console.log(JSON.stringify(caminosDe(compra.payload, '1000000000').map((c) => c.indices)));
-for (const o of ocupantes(eje, compra.id, [1])) console.log(o.origen, JSON.stringify(o.camino), o.evento.slice(0, 8), o.origenDir, JSON.stringify(o.vector), o.signo, o.acuerdo, JSON.stringify(o.procedencia.map((p) => p.slice(0, 8) + p.slice(64))));
+for (const o of ocupantes(eje, compra.id, [1])) console.log(o.origen, JSON.stringify(o.camino), nom(o.evento), o.origenDir, JSON.stringify(o.vector), o.signo, o.acuerdo, JSON.stringify(o.procedencia.map(nom)));
 console.log(ocupantes(eje, compra.id, [1, 0]).length, ocupantes(eje, compra.id, [1, 1]).length, ocupantes(eje, compra.id, [7]).length);
 console.log(JSON.stringify(ocupantes(eje, compra.id, [1])[2].contenido), JSON.stringify(ocupantes(eje, compra.id, [1])[3].contenido[0]));
 console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.contenido).join(' '));
@@ -857,10 +869,10 @@ console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.conteni
 
 ```text
 [[1],[1,0]]
-propio [1] 94800edf 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1"]
-propio [1,0] 94800edf 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1.0[0]"]
-referencia [1] 61aa68f7 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1.0[0]","61aa68f7:1000000000"]
-escrito [] 2fe9802d 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["2fe9802d:0000000000"]
+propio [1] compra 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["compra:1000000000#1"]
+propio [1,0] compra 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["compra:1000000000#1.0[0]"]
+referencia [1] menú 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["compra:1000000000#1.0[0]","menú:1000000000"]
+escrito [] cuenta 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["cuenta:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 0:huesped 1:cocina
@@ -874,13 +886,13 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 {
   "tipo": "referencia",
   "origen": "referencia",
-  "evento": "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf",
+  "evento": "<id del menú>",
   "dir": "1000000000",
   "camino": [1],
   "contenido": ["ensalada", "guiso", "fruta"],
   "procedencia": [
-    "3147f38b6bc7745265e82c9344b38ba9c68de5dda79c091781ed94a524841b5a:1000000000#1.0",
-    "ff05e68f53e1739cec9f3f3bcf8389778da923dc7ce5843a128bce8344c1ecdf:1000000000"
+    "<id de la compra>:1000000000#1.0[0]",
+    "<id del menú>:1000000000"
   ],
   "origenDir": "1000000000",
   "destino": "1000000000",
@@ -901,16 +913,17 @@ Un ocupante completo, tal como lo devuelve `ocupantes` (el tercero, la referenci
 node --input-type=module -e "
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 import { seguir } from './src/encaje.js';
-const { eje, compra } = await ejemploCompra();
+const { eje, compra, menu } = await ejemploCompra();
 const r = seguir(eje, compra.payload[1][0][0]);
-console.log(r.evento.slice(0, 8), r.dir, JSON.stringify(r.camino), JSON.stringify(r.contenido), r.rota, JSON.stringify(r.procedencia.map((p) => p.slice(0, 8))));
+const nom = (x) => x.replace(menu.id, 'menú');
+console.log(nom(r.evento), r.dir, JSON.stringify(r.camino), JSON.stringify(r.contenido), r.rota, JSON.stringify(r.procedencia.map(nom)));
 const rota = seguir(eje, { ref: 'ffff' });
 console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
 "
 ```
 
 ```text
-61aa68f7 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["61aa68f7"]
+menú 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["menú:1000000000"]
 true undefined []
 ```
 
@@ -1013,14 +1026,14 @@ console.log(arbol(eje, compra.id, { profundidad: 1 }).has('1200000000'));
 1000000000 propio#1 propio#1.0 referencia#1 escrito#
 1100000000 propio#1.1
 1200000000 propio#1.2
-2000000000 propio#2 referencia#2
+2000000000 propio#2 referencia#2 propio#2
 3000000000 propio#3 propio#3
 4000000000 propio#4 propio#4
-0000000000:2 1000000000:4 2000000000:2 3000000000:2 4000000000:2
+0000000000:2 1000000000:4 2000000000:3 3000000000:2 4000000000:2
 false
 ```
 
-Lectura: cada décupla con posición 0 colisiona con ella (`0000000000`, `1000000000`); una lista no (por hojas, VG 7-11 noche): en `2000000000` la lista de uno da su referencia y lo que alcanza, y en `3000000000` y `4000000000` cada elemento es un ocupante, sin 3.1 ni 4.1, porque el árbol no baja por una lista; `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
+Lectura: cada décupla con posición 0 colisiona con ella (`0000000000`, `1000000000`); una lista no (por hojas, VG 7-11 noche): en `2000000000` la lista de dos da su referencia, lo que alcanza y la plantilla de cerrado que la compra nombra, y en `3000000000` y `4000000000` cada elemento es un ocupante, sin 3.1 ni 4.1, porque el árbol no baja por una lista; `1000000000` suma además lo alcanzado por la referencia y la cuenta escrita; `1100000000` (el terminal `1`) tiene un solo ocupante. `arbol` no entra en los escritos: la cuenta aparece como un único ocupante (`escrito#`, camino `[]`) en su anclaje; sus subposiciones no son direcciones del foco (para verlas, `arbol(eje, cuenta.id)`).
 
 ### 6.7 La lista de una posición: colisiones fuera del árbol
 
@@ -1045,7 +1058,7 @@ import { lista } from './src/encaje.js';
 import { leerDireccion, leerCamino } from './src/epocas.js';
 const { eje, compra, menu } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
-for (const o of lista(eje, compra.id, [1])) console.log(o.llegada, o.tipo, o.camino.join('.') || 'raíz', JSON.stringify(o.contenido).slice(0, 40));
+for (const o of lista(eje, compra.id, [1])) console.log(o.llegada, o.tipo, o.camino.join('.') || 'raíz', JSON.stringify(o.contenido).replace(menu.id, '<menú>').replace(compra.id.slice(0, 8), '<compra>').slice(0, 40));
 for (const o of lista(eje, menu.id, [1])) console.log(o.llegada, o.tipo, o.indice, o.contenido);
 console.log(leerDireccion('1200000000').map((x) => x.significado).join(' › '));
 console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) => x.significado).join(' › '));
@@ -1053,8 +1066,8 @@ console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) 
 ```
 
 ```text
-0 propio 1 [[{"ref":"61aa68f7143444ac0c86a6251982c4
-1 escrito raíz ["Cuenta del menú","=REF(\"94800edf\", \
+0 propio 1 [[{"ref":"<menú>","dir":"1000000000"}],[
+1 escrito raíz ["Cuenta del menú","=REF(\"<compra>\", \
 0 propio 0 ensalada
 0 propio 1 guiso
 0 propio 2 fruta
@@ -1072,11 +1085,15 @@ Lectura: la posición 1 de la compra tiene dos ocupantes por llegada: la décupl
 
 Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando tiene alta**: el registro que abrió su cuenta en el libro. No hay registro de identidades aparte del libro.
 
-**Persona o cosa, por autoría** (VG, 10-11, B1). No hay tipo. Una **persona** escribe su propia alta: el génesis (su autor) o un registro suyo (`eje.entrar({ identidad, t, clave, privada })`: quema un minuto de su asignación y, si la tiene, declara su clave y firma con ella). Quien escribe sin tener cuenta escribe su propia alta. Una **cosa** es lo que da de alta otra identidad, su dueño, al darle tokens (`a: 'cocina'`). Las reglas lo leen del 3 de su alta (`first A.6.3 = A`). Ser persona decide quién emite (solo las personas; nadie a nombre de otro, §2.4) y quién tiene asignación de T; las cosas son titulares (reciben, conservan y mueven tokens, firman con su clave) pero no emiten. Un alta que declara `contexto.tipos` se rechaza («no hay tipo en el alta»); solo el prefijo de la versión 2 conserva el tipo que se declaraba entonces (suelo de persistencia).
+**Persona o cosa, por autoría** (VG, 10-11, B1). No hay tipo. Una **persona** escribe su propia alta: el génesis (su autor, la primera identidad del eje) o, desde el encargo 3b, la **aceptación de una invitación** (mapa §16 [D] «El árbol mínimo es la invitación»). Una **cosa** es lo que da de alta otra identidad, su dueño, al darle tokens (`a: 'cocina'`). Las reglas lo leen del 3 de su alta (`first A.6.3 = A`). Ser persona decide quién emite (solo las personas; nadie a nombre de otro, §2.4) y quién tiene asignación de T; las cosas son titulares (reciben, conservan y mueven tokens, firman con su clave) pero no emiten. Un alta que declara `contexto.tipos` se rechaza («no hay tipo en el alta»); solo el prefijo de la versión 2 conserva el tipo que se declaraba entonces (suelo de persistencia).
+
+**La invitación** (encargo 3b; «a person joins by an invitation»). Quien tiene alta invita con `eje.invitar({ autor, invitado, clave?, da?, grupo?, dominio?, comun?, hasta?, tema?, t })`: un registro suyo anclado en el 3 de su alta (`3000000000`), una décupla con 0 `invitation`, 1 lo que da (por defecto, una unidad de su R; lo guarda bloqueado con la salida = el invitado), 2 la referencia a la época, 3 quien invita, quien es invitado y, si la nombra, su clave, 4 cómo se acepta, 5 el dominio, 6 el alta de quien invita, 7 hasta cuándo vale, 8 el grupo de atención que le asigna (por defecto 0, desconocidos) y 9 el tema. El invitado acepta con `eje.aceptar(invitacion, clave?, { t })`: su primera transacción, anclada sobre la invitación y firmada con su clave, que quema un minuto de su día y recoge lo que la invitación le guarda (una transferencia desde quien invita con la salida = él). **Esa aceptación es su alta**: la escribe él, así que es una persona. Sin invitación (o con la de otro, caducada o con otra clave) nadie entra. `eje.entrar`, el alta abierta, se retira. Lo que el alta de una persona tiene que hacer después lo da el tutorial: `motor.siguiente(eje, alta, yo).tutorial` (`docs/MOTOR.md`).
+
+**Escribir a otro** (mapa §16 [D] «PV3 = regla de atención»). Lo que se ancla en el 3 del alta de otra identidad es un mensaje, y paga el precio del grupo en que ella pone a quien escribe (sus grupos de atención, `A.3`: desconocidos 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5; quién está en cada uno lo ancla ella en el `3.k.3` de su alta, y el precio, en el `3.k.2`). Sin pago no entra; el veto rechaza aunque pague («attention has a price», `docs/BQLM.md` §10.1).
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
-eje.saldo(identidad, clave)    // → número disponible; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:genesis', 'R:casa', …); 0 si no existe ('P', 'T' o 'E:EUR' a secas siempre dan 0)
+eje.saldo(identidad, clave)    // → número disponible; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:<id>', 'R:casa', …); 0 si no existe ('P', 'T' o 'E:EUR' a secas siempre dan 0)
 eje.bloqueado(identidad, clave, salida?) // → lo bloqueado (de una salida, o de todas)
 eje.bloqueos(identidad)        // → [{ clave, ...campos, salida, cantidad }]
 eje.alta(identidad)            // → { id, t } de su alta, o null
@@ -1087,7 +1104,9 @@ eje.tiempos(identidad)         // → [{ escala, cantidad }] del T explícito (e
 eje.recursos(identidad)        // → [{ emisor, denominacion, cantidad }]
 eje.esPersona(identidad)       // → true (escribió su propia alta) | false (cosa: se la escribió otro) | null (sin alta)
 eje.poderes(identidad)         // → [{ ambito, cantidad }] sus P con saldo > 0 (no hay P total)
-eje.poderSobre(identidad, id)  // → suma de sus P cuyo ámbito es 'genesis' o un registro del hilo de `id`
+eje.poderSobre(identidad, id)  // → su P posicionado en el registro `id`, disponible y bloqueado (encargo 3b)
+eje.invitar({ autor, invitado, … }) // → Promise<la invitación>: anclada en el 3 del alta de quien invita
+eje.aceptar(invitacion, clave?, { t }?) // → Promise<el alta de quien acepta>: una persona
 eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
 eje.clave(identidad)           // → JWK pública o undefined
 ```
@@ -1096,8 +1115,8 @@ eje.clave(identidad)           // → JWK pública o undefined
 
 - Una clave pública es un JWK EC P-256: `{ kty: 'EC', crv: 'P-256', x, y }`. Al declararla, el eje comprueba que Web Crypto la importa para verificar y que no lleva parte privada (`d`): si no, `clave inválida para <id>` (`autoridad.clavePublicaValida`).
 - El génesis solo declara la clave de su autor; si la declara, el génesis va firmado con ella por su autor, igual al crearlo (`Eje.genesis`) que al restaurarlo (`Eje.desde`).
-- Se declara en `contexto.claves[identidad]` **del mismo evento en que esa identidad recibe tokens por primera vez** (el génesis para el autor inicial, con `clave`; el alta para las demás). Una clave declarada para una identidad que ya existe, o para una que no recibe tokens en ese evento, se rechaza. **No se puede cambiar una clave registrada.**
-- **Sin clave no se actúa** (R9, regla madre de la neutralidad aceptada por VG el 7-11 noche; `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §4). Una identidad sin clave registrada puede recibir tokens, pero no escribe: no mueve tokens, no autoriza ni escribe bases (`sin clave no se actúa: <id> no tiene clave registrada`). El génesis declara la clave de su autor y va firmado con ella; sin `clave`, `Eje.genesis` lanza.
+- Se declara en `contexto.claves[identidad]` **del alta de esa identidad**: el génesis para el autor inicial, con `clave`; la aceptación de su invitación para una persona (`eje.aceptar(invitacion, { publica, privada })`); el evento en que recibe tokens por primera vez para una cosa. Una clave declarada para una identidad que ya existe, o para una que no recibe tokens en ese evento, se rechaza. **No se puede cambiar una clave registrada.**
+- **Sin clave no se actúa** (R9, regla madre de la neutralidad aceptada por VG el 7-11 noche; `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §4). Una identidad sin clave registrada puede recibir tokens, pero no escribe: no mueve tokens ni escribe bases (`sin clave no se actúa: <id> no tiene clave registrada`). El génesis declara la clave de su autor y va firmado con ella; sin `clave`, `Eje.genesis` lanza.
 - **Prueba de posesión.** Cada clave que declara un alta llega firmando el id del propio alta: `posesion: { <identidad>: <firma> }`, fuera del cuerpo como la firma del autor (no cambia el id; `autoridad.firmarPosesion`, o el tercer argumento de `eje.escribir`). Sin ella, `la clave de <id> llega sin prueba de posesión`; firmada con otra clave, `prueba de posesión inválida para <id>`; para una identidad que no declara clave en ese evento, `prueba de posesión de <id> sin clave declarada`.
 - **Demostración.** Un eje creado con `Eje.genesis({ …, demostracion: true })` lleva `contexto.demostracion: true` en su génesis (`eje.demostracion`, visible en la interfaz) y conserva lo de antes: sin clave se escribe sin firma, y la prueba de posesión es opcional (si va, se comprueba). Los ejemplos de Ikisai, la app y casi todas las pruebas son de demostración. La demostración sale solo de esa bandera del génesis (SEG-02): un eje que viene de la versión 2 no exige claves en su prefijo, pero sí en lo que se le añade después.
 
@@ -1151,7 +1170,7 @@ bea true
 evento rechazado: a key is declared at its alta: bea already has an account, or is neither the author nor receives anything here
 ```
 
-Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma varían en cada ejecución; el id cambia respecto al génesis sin clave porque `contexto.claves` está en el cuerpo):
+Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma varían en cada ejecución; el id cambia respecto al génesis sin clave porque `contexto.claves` está en el cuerpo). La emisión inicial de la casa, sus euros y su R, va después, en una transacción suya (§8):
 
 ```json
 {
@@ -1159,17 +1178,14 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
   "sobre": null,
   "en": "0000000000",
   "t": "2026-11-07T09:00:00Z",
-  "movimientos": [
-    { "token": "E", "denominacion": "EUR", "cantidad": 500, "emisor": "casa", "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
-  ],
+  "movimientos": [],
   "payload": "Casa de ejemplo",
   "contexto": {
     "genesis": true,
-    "claves": { "casa": { "kty": "EC", "crv": "P-256", "x": "5-vP4RyU9PK1UGD3Zy6AkAg3Q-w3QunjJgiETVU0y84", "y": "Wt3mst49Jno-ckzR5uKCLRbmiwogElGJ1AYu6i6fjaw" } },
-    "tipos": { "casa": "persona" }
+    "epoca": "<id de la época 0>",
+    "claves": { "casa": { "kty": "EC", "crv": "P-256", "x": "5-vP4RyU9PK1UGD3Zy6AkAg3Q-w3QunjJgiETVU0y84", "y": "Wt3mst49Jno-ckzR5uKCLRbmiwogElGJ1AYu6i6fjaw" } }
   },
-  "id": "a6f55e2a8efc77c1c0af196c633d4c27fa67d34c45bd6593ca245c706feb2472",
+  "id": "<id del génesis>",
   "firmante": "casa",
   "firma": "duuWmzDqaavT6EfzTKcgXai4f9wSw8L0ElwXGJKwkScOaXEpWhtLqxpzBWW9gbSo9aV1XpeQAzsYTP8X4CoRYw"
 }
@@ -1179,13 +1195,13 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
 
 `eje.anadir` y `eje.escribir` lanzan `Error('evento rechazado: ' + errores.join('; '))`. Antes, `crearEvento` ya ha lanzado `evento mal formado` si falla la forma (§1.3).
 
-Cada fila de esta tabla sale de una condición de validez de la transacción del evento: el suelo (`src/condiciones/`), una regla de la época (encargo 3a: `src/condiciones/reglas.js`, que rechaza con su 9) o lo que queda en JS hasta el 3b; la tabla de cuál es cuál está en `docs/notas/CAPA_CERO.md` §3. Después va la aritmética del libro. Los errores salen en el orden de las condiciones (las reglas, en el de su 8) y, al final, los saldos de cada movimiento en su orden.
+Cada fila de esta tabla sale de una condición de validez de la transacción del evento: el suelo (`src/condiciones/`), una regla de la época (encargo 3a: `src/condiciones/reglas.js`, que rechaza con su 9) o lo que queda en JS; la tabla de cuál es cuál está en `docs/notas/CAPA_CERO.md` §3. Después va la aritmética del libro. Los errores salen en el orden de las condiciones (las reglas, en el de su 8) y, al final, los saldos de cada movimiento en su orden.
 
 | Error | Causa |
 |---|---|
 | `id no corresponde al cuerpo` | suelo: el id no es el hash del cuerpo (evento manipulado) |
 | `evento ya registrado` | suelo: mismo id ya en el eje |
-| `ya hay génesis` / `solo el génesis carece de foco` | suelo: `contexto.genesis` en un evento que no es el primero, o `sobre === null` |
+| `ya hay génesis` / `solo el génesis carece de foco` / `el génesis no mueve nada: es la época 0 (encargo 3b); …` | suelo: `contexto.genesis` en un evento que no es el primero, `sobre === null`, o un génesis con movimientos (también uno guardado antes del 3b) |
 | `referencia a un evento que no está en el eje: <id8> (mientras el eje es local; con red, se resuelve antes de aceptar)` | suelo (VG, 10-11, C1): una referencia `{ ref }` del payload a un evento que el eje no tiene. Una fórmula `=REF("…")` es texto y sí entra (queda PENDIENTE al leerla) |
 | `firma inválida de <autor>` / `autor sin clave: <autor>` | suelo: la firma no verifica; `exigirFirmas` y el autor no tiene clave |
 | `clave inválida para <id>` / `prueba de posesión inválida para <id>: …` / `prueba de posesión de <id> sin clave declarada para él en este evento` | suelo: la clave declarada no es una clave pública válida, su prueba de posesión no la firma esa clave, o sobra |
@@ -1205,16 +1221,17 @@ Cada fila de esta tabla sale de una condición de validez de la transacción del
 | `not before its focus: …` / `not before the writer joined: …` / `at most a year ahead: …` | el reloj no va hacia atrás, ni más de un año hacia delante, en segundos (C2) |
 | `E is tied to a record that exists: <serie> names a record that is not in the ledger` | la E nombra un registro que no está |
 | `locked P backing live E is not released: …` | se libera P que respalda una serie de E viva |
-| `nobody moves tokens of others: <autor> moves from <de>` | un movimiento con `de !== autor`, sin excepciones (el «por cuenta de un grupo» se retiró: VG, 8-11) |
-| `P moves within a known scope: <id8> names no record in the ledger` | un movimiento de P cuyo `ambito` no es `'genesis'` ni un registro del eje |
-| `la emisión de P va a quien la emite: <autor>` / `P sobre todo el eje («genesis») solo lo emite el génesis` / `P fuera del génesis va sobre un registro existente: ámbito desconocido <id8>` / `P sobre <id8> lo acuña solo quien escribió el registro (<autor>): <x> puede transferir el P que tenga, no acuñarlo` | emisión de P fuera del génesis (sigue en JS hasta el 3b) |
-| `emitir <R, P o E> exige consumir T del autor en el mismo evento (…)` / `emitir <P o E> exige R propia en juego: R:<autor> bloqueada como colateral …` / `emitir E exige P del autor sobre el registro <id8> (…)` | el escalonado T → R → P → E (sigue en JS hasta el 3b) |
-| `emitir R:<y> exige colateral: …` / `el colateral de R:<y> no baja de <n> …` / `el colateral de R:<y> no se libera mientras haya devoluciones sin atender (…)` / `contexto.atiende cita <id8>, que no es una devolución de R:<autor> …` | R6: el colateral de R y las devoluciones (`src/lente.js`; el colateral, retirado por VG, sigue hasta el 3b) |
+| `nobody moves tokens of others: <autor> moves from <de>` | un movimiento con `de !== autor` (el «por cuenta de un grupo» se retiró: VG, 8-11), salvo aceptar la propia invitación: quien aún no tiene alta, anclado sobre una invitación que lo nombra, recoge para sí lo que quien invita guardó con la salida = él (§7.1) |
+| `nadie mueve lo ajeno: <autor> saca lo bloqueado de <de> sin aceptar una invitación suya que lo nombre` | suelo (capa 4): una transferencia con salida desde otro titular que no es esa aceptación |
+| `P moves within a known scope: <id> names no record of the ledger` | un movimiento de P cuyo `ambito` no es un registro del eje (ya no hay `'genesis'`) |
+| `P is repositioned one step at a time: <autor> mints P that is not one step of its own P up (a tenth) or down (a tenth more), …` | acuñar P a mano, para otro, con otro factor o más de un nivel (§2.5) |
+| `minting R needs real T: …` / `minting E needs P on its record: …` / `minting E needs own R issued: …` | la exigencia E → P → R → T (§2.4) |
+| `attention has a price: <autor> writes to <receptor> without the price of its group in the same transaction, or is vetoed` | un mensaje en el 3 del alta de otro sin su precio, o de alguien vetado (§7.1) |
+| `a person joins by an invitation: <autor> has no alta and does not accept an invitation that names it (in time, with its key)` | quien no tiene alta escribe sin aceptar una invitación que lo nombre (§7.1) |
 | `la serie <clave> caduca el <t>: una ampliación no cambia su caducidad` / `la serie <clave> no caduca: …` | una ampliación de E con otra caducidad |
-| `saldo disponible insuficiente para bloquear <clave> en <autor>` / `no hay <n> de <clave> bloqueado en <autor> con la salida «<salida>»` | suelo: bloquear más de lo disponible, o liberar lo que no está bloqueado con esa salida |
+| `saldo disponible insuficiente para bloquear <clave> en <autor>` / `no hay <n> de <clave> bloqueado en <autor> con la salida «<salida>»` | suelo: bloquear más de lo disponible, o liberar o transferir con salida lo que no está bloqueado con ella |
 | `la serie <clave> no admite tanto` | suelo: lo emitido de la serie dejaría de ser un número finito |
 | `saldo insuficiente de <clave> en <autor>` | suelo: la suma de lo movido por clave supera el saldo (sin conversión: `T:minuto` no se paga con `T:hora`) |
-| `saldo insuficiente de P sobre el eje en <autor>` / `saldo insuficiente de P sobre <id8> en <autor>` | suelo: delegar P con un ámbito que el P del autor no cubre (más ancho, o de otra rama): §2.5 |
 
 En el prefijo de la versión 2 siguen las reglas de entonces, con sus textos (`autor desconocido`, `firma ausente`, `no se puede cambiar la clave`, `tipo declarado … sin darle tokens`…).
 
@@ -1242,11 +1259,12 @@ for (const d of intentos) await eje.escribir(d).catch((e) => console.log(e.messa
 ```
 
 ```text
-evento rechazado: every record hangs on a record of the ledger: nadie is not one (only the genesis hangs on nothing)
+evento rechazado: every record hangs on a record of the ledger: nadie is not one
+evento rechazado: a person joins by an invitation: bea has no alta and does not accept an invitation that names it (in time, with its key)
 evento mal formado: escribir consume T del autor: un movimiento de T con de = raiz y a = null (VG, 7-11 noche)
 evento rechazado: nobody mints T: raiz mints 1 T; everyone has today's allowance
-evento rechazado: E is minted by and to its issuer: raiz mints E of bea, or to someone else; emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
-evento rechazado: emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
+evento rechazado: E is minted by and to its issuer: raiz mints E of bea, or to someone else; minting E needs P on its record: raiz mints E on a record where it has no P; minting E needs own R issued: raiz mints E and has never issued R of its own
+evento rechazado: minting E needs own R issued: raiz mints E and has never issued R of its own
 evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
 evento rechazado: writing burns today's T: raiz burns no T, or more T than is left today (day 20763)
 evento mal formado: en debe ser una dirección de diez dígitos
@@ -1256,14 +1274,13 @@ evento rechazado: ya hay génesis
 
 ## 8. Génesis
 
-El génesis es el primer evento del eje. Se escribe **por convención, fuera del sistema**: emite (`de: null`) a su autor, si quiere, series de E, P y R, nunca T (VG, 8-11: «no hay un tipo de T que se acumule»: su autor vive de su asignación del día) (después solo emiten las personas, escalonado, §2.4), es el único sin foco (`sobre: null`) y lleva `contexto.genesis: true`. Fija el foco raíz (su `payload`) y la primera identidad, y puede declarar su tipo. A partir de él, todo se genera dentro.
+El génesis es el primer evento del eje y **es la época 0 en este eje** (VG, 10-11, A2; mapa §16 [D] «El árbol mínimo es la invitación»; encargo 3b): un registro **sin movimientos**, fuera del sistema, que lleva en su contexto el id de la época (`contexto.epoca`) y `contexto.genesis: true`. Es el único sin foco (`sobre: null`) y no pasa por las reglas de la época, solo por el suelo (lo que declara, su firma). Fija el foco raíz (su `payload`) y es el **alta de la primera identidad**: la única alta sin invitación; las demás personas entran aceptando una (§7.1). Su autor obtiene diez P sobre él al escribirlo, como sobre todo registro propio. Lo que quiera emitir al empezar (`emision`: E y R; nunca T ni P) va en una transacción suya sobre el génesis, la segunda del eje, que sí pasa por las reglas: quema un minuto de su día, emite R antes que E (emitir E exige R propia emitida) y ata sus E al génesis, donde tiene sus diez P.
 
 ```js
 Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, exigirFirmas = false, demostracion = false })  // → Promise<Eje>
-//   identidad: primera identidad; emision: [{ token, cantidad, escala | denominacion | ambito | emisor }] (se completa con de: null, a: identidad; en E y R, emisor: identidad)
-//   su autor escribe su propia alta: es una persona (VG, 10-11, B1: no hay tipo; pasar `tipo` lanza)
-//   emision: E, P y R iniciales, si quiere (puede ir vacía); T no: «T no se emite: ni el génesis; cada persona tiene su asignación del día» (VG, 8-11)
-//   lanza si una serie de E o R del génesis lleva otro emisor o si declara tipos
+//   identidad: primera identidad; su autor escribe su propia alta: es una persona (VG, 10-11, B1: no hay tipo; pasar `tipo` lanza)
+//   emision: [{ token, cantidad, denominacion | emisor }], E y R, si quiere (puede ir vacía): se escribe en una segunda
+//   transacción, con de: null, a: identidad y, en E y R, emisor: identidad. T no («nobody mints T») ni P (lanza: «nadie acuña P a mano»)
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
 //   sin clave no se actúa (R9): sin clave/privada lanza, salvo con demostracion: true (contexto.demostracion,
 //   eje.demostracion), que conserva lo de antes: sin claves y sin prueba de posesión obligatoria
@@ -1274,43 +1291,31 @@ eje.genesisId                                      // id del génesis
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
-console.log(JSON.stringify(eje.obtener(eje.genesisId)));
+const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'R', cantidad: 3 }, { token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
+const g = eje.obtener(eje.genesisId);
+console.log(JSON.stringify(g.movimientos), JSON.stringify(g.payload), g.contexto.genesis, g.contexto.epoca === (await import('./src/epocas.js')).EPOCA_0_BTML.id);
+const emision = eje.obtener(eje.orden[1]);
+console.log(emision.autor, emision.sobre === eje.genesisId, emision.movimientos.map((m) => (m.de === null ? 'acuña ' : 'quema ') + m.cantidad + ' ' + m.token).join(', '));
 const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, en: '1000000000', t: '2026-11-06T20:01:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'hora', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea' }); // bea, una cosa: su alta la escribe raiz (B1); T, solo a una cosa; raiz gasta su asignación del día: ningún T se acumula (VG, 8-11)
-console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:raiz/EUR'), JSON.stringify(eje.serie('E:raiz/EUR')));
+console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:raiz/EUR'), JSON.stringify(eje.serie('E:raiz/EUR')), eje.poderSobre('raiz', eje.genesisId));
 console.log(alta.sobre === eje.genesisId, alta.en, eje.sobre(eje.genesisId, '1000000000').length);
+await Eje.genesis({ demostracion: true, identidad: 'x', emision: [{ token: 'P', ambito: 'genesis', cantidad: 1 }], foco: 'x', t: '2026-11-06T20:00:00Z' }).catch((e) => console.log(e.message.slice(0, 60) + '…'));
 "
 ```
 
 ```text
-{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true,"demostracion":true},"id":"46eff3677068219205af1d5a9aba3d7915098fd3f85f493815dc69adea70eee6"}
-["raiz","bea"] 1439 22 2 5 {"emisor":"raiz","emitido":5}
+[] ["casa",["menu"]] true true
+raiz true quema 1 T, acuña 3 R, acuña 5 E
+["raiz","bea"] 1438 22 2 5 {"emisor":"raiz","emitido":5} 10
 true 1000000000 1
-```
-
-El génesis del eje de ejemplo:
-
-```json
-{
-  "autor": "casa",
-  "sobre": null,
-  "en": "0000000000",
-  "t": "2026-11-07T09:00:00Z",
-  "movimientos": [
-    { "token": "E", "denominacion": "EUR", "cantidad": 500, "emisor": "casa", "de": null, "a": "casa" },
-    { "token": "P", "cantidad": 10, "ambito": "genesis", "de": null, "a": "casa" }
-  ],
-  "payload": "Casa de ejemplo",
-  "contexto": { "genesis": true, "tipos": { "casa": "persona" } },
-  "id": "6cb2ff68ceb8109efbaa9dedc07e2a5a557b136d42bec7347d03cce6206045d7"
-}
+génesis: nadie acuña P a mano (mapa §15, «P como peso de cri…
 ```
 
 ### 8.1 Guardar y reconstruir
 
 El eje se guarda como **la lista de sus eventos en orden**; nada más. Al restaurar se vuelve a validar todo (ids, firmas, saldos). El árbol lógico, los saldos, las claves, los tipos y las series se reconstruyen.
 
-La versión 2 (7-11) llega con las series de tokens (T por escala, E ligada a su emisor, tipos en el alta): un eje guardado con la versión 1 no se restaura. La versión 3 (7-11 noche) trae el ciclo de vida de los tokens (solo emiten personas, emisión escalonada, bloqueo, caducidad): lo guardado sigue siendo la lista de eventos, pero las reglas nuevas rechazarían un eje de la versión 2 (un génesis de un grupo, E o R emitidos fuera del génesis sin el escalonado, eventos fechados antes que su foco). Por eso `migrar` marca todos sus eventos (`v2: { eventos, ultimo }`, con el id del último, que `restaurar` comprueba) y `restaurar` los revalida con las reglas de la 2; las nuevas rigen lo que se añada después, y `serializar` conserva la marca. Un `eventosV2` suelto en un guardado se rechaza (`docs/MOTOR.md` §9). Lo que ni las reglas de la 2 admiten no se restaura, y la app lo aparta igual. Un eje de la versión 3 guardado antes del 8-11 cuyo génesis emitía T tampoco se restaura (VG, 8-11: «no hay un tipo de T que se acumule»; el génesis ya no emite T): no hay migración, porque ese T era justo lo que se acumulaba. La app, en vez de pisarlo en silencio, lo aparta en `agram.eje.anterior` y avisa antes de empezar con el ejemplo.
+La versión 2 (7-11) llega con las series de tokens (T por escala, E ligada a su emisor, tipos en el alta): un eje guardado con la versión 1 no se restaura. La versión 3 (7-11 noche) trae el ciclo de vida de los tokens (solo emiten personas, emisión escalonada, bloqueo, caducidad): lo guardado sigue siendo la lista de eventos, pero las reglas nuevas rechazarían un eje de la versión 2 (un génesis de un grupo, E o R emitidos fuera del génesis sin el escalonado, eventos fechados antes que su foco). Por eso `migrar` marca todos sus eventos (`v2: { eventos, ultimo }`, con el id del último, que `restaurar` comprueba) y `restaurar` los revalida con las reglas de la 2; las nuevas rigen lo que se añada después, y `serializar` conserva la marca. Un `eventosV2` suelto en un guardado se rechaza (`docs/MOTOR.md` §9). Lo que ni las reglas de la 2 admiten no se restaura, y la app lo aparta igual. Un eje de la versión 3 guardado antes del 8-11 cuyo génesis emitía T tampoco se restaura (VG, 8-11: «no hay un tipo de T que se acumule»; el génesis ya no emite T): no hay migración, porque ese T era justo lo que se acumulaba. Tampoco uno guardado antes del encargo 3b: su génesis movía tokens (`el génesis no mueve nada: es la época 0`), sus personas entraban sin invitación y su P era el de antes; [X] decidir VG si hace falta migrarlo. La app, en vez de pisarlo en silencio, lo aparta en `agram.eje.anterior` y avisa antes de empezar con el ejemplo.
 
 ```js
 serializar(eje)    // → { version: 3, exigirFirmas, v2?: { eventos, ultimo }, eventos: evento[] }  v2 solo si el eje viene de una migración
@@ -1326,17 +1331,17 @@ import { serializar, restaurar } from './src/persistencia.js';
 const { eje, compra } = await ejemploCompra();
 await ejemploCuenta(eje, compra);
 const datos = JSON.parse(JSON.stringify(serializar(eje)));
-console.log(datos.version, datos.exigirFirmas, datos.eventos.length, datos.eventos.map((e) => e.id.slice(0, 8)).join(' '));
+console.log(datos.version, datos.exigirFirmas, datos.eventos.length, datos.eventos.map((e) => e.autor).join(' '));
 const otro = await restaurar(datos);
 console.log(otro.saldo('cocina', 'E:casa/EUR'), JSON.stringify(otro.identidades()), otro.orden.length);
-datos.eventos[4].movimientos[1].cantidad = 1; // la compra
+datos.eventos[6].movimientos[1].cantidad = 1; // la compra
 await restaurar(datos).catch((e) => console.log(e.message));
 "
 ```
 
 ```text
-3 false 6 e670f7ae 463fe28b ccd89ab3 61aa68f7 94800edf 2fe9802d
-12 ["casa","huesped","cocina"] 6
+3 false 8 casa casa casa huesped casa cocina huesped cocina
+12 ["casa","huesped","cocina"] 8
 evento rechazado: id no corresponde al cuerpo
 ```
 
@@ -1344,18 +1349,20 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 
 ## 9. El eje de ejemplo
 
-`ejemplos/ikisai/compra-food.mjs` construye seis eventos con datos inventados. `ejemploCompra({ claves })` devuelve `{ eje, alta, menu, compra }`; `ejemploCuenta(eje, compra, privadaCocina)` añade la cuenta. Con claves, los ids cambian (las claves van en el cuerpo) y cada identidad firma.
+`ejemplos/ikisai/compra-food.mjs` construye ocho eventos con datos inventados. `ejemploCompra({ claves })` devuelve `{ eje, alta, menu, compra }`; `ejemploCuenta(eje, compra, privadaCocina)` añade la cuenta. Con claves, los ids cambian (las claves van en el cuerpo) y cada identidad firma.
 
-| Evento | id | autor | sobre | en | payload |
-|---|---|---|---|---|---|
-| génesis | `e670f7ae…` | casa | — | `0000000000` | `"Casa de ejemplo"` |
-| alta de la huésped | `463fe28b…` | huesped | génesis | `0000000000` | `["alta de huesped"]` |
-| alta | `ccd89ab3…` | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
-| menú | `61aa68f7…` | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
-| compra | `94800edf…` | huesped | menú | `0000000000` | `["Compra del menú del día", [[{ref: menú, dir: "1000000000"}], [1], ["EUR 12"]], [{ref: menú, dir: "2000000000"}], ["huesped", "cocina"], ["pagar", "servir"]]` |
-| cuenta | `2fe9802d…` | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"94800edf\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
+| Evento | autor | sobre | en | payload |
+|---|---|---|---|---|
+| génesis | casa | — | `0000000000` | `"Casa de ejemplo"` (sin movimientos: la época 0, §8) |
+| emisión inicial | casa | génesis | `0000000000` | `["Emisión inicial de casa"]`: 10 `R:casa` y 500 `E:casa/EUR` |
+| invitación | casa | génesis | `3000000000` | `[["invitation"], ["1 R:casa"], [{ref: época}], [["casa"], ["huesped"]], …]` (§7.1) |
+| alta de la huésped | huesped | invitación | `0000000000` | `["Alta de huesped"]`: acepta la invitación y recoge su R:casa |
+| alta | casa | génesis | `0000000000` | `["Altas del fin de semana", ["cocina", "huesped"]]` |
+| menú | cocina | alta | `0000000000` | `["Menú del día", ["ensalada", "guiso", "fruta"], ["sin gluten", "vegetariano"]]` |
+| compra | huesped | menú | `0000000000` | `["Compra del menú del día", [[{ref: menú, dir: "1000000000"}], [1], ["EUR 12"]], [{ref: menú, dir: "2000000000"}, "all announced movements happened"], ["huesped", "cocina"], ["pagar", "servir"]]` |
+| cuenta | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"<compra>\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
-Series: la casa (una persona: escribe el génesis, que es su alta; B1) emite 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor) y 10 `P:genesis`; ningún T se emite. La huésped escribe su propia alta (es una persona); la casa da de alta a la cocina (una cosa) con horas y minutos de su T, que son tokens distintos, y da euros a la huésped. Las personas gastan de su asignación del día; la cocina, del T que le dio la casa. Saldos tras los seis eventos: casa 440 EUR y 10 P; cocina 18 h y 237 min de T, 12 EUR; huesped 48 EUR.
+Series: la casa (una persona: escribe el génesis, que es su alta; B1) emite al empezar 10 `R:casa` y 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor); ningún T se emite, y P no se emite: cada registro da diez P a quien lo escribe, y quien recibe R de su emisor o E de otro obtiene diez P en su registro (§2.5). La huésped entra por la invitación de la casa (es una persona) y recoge la unidad de R que le guardaba; la casa da de alta a la cocina (una cosa) con horas y minutos de su T, que son tokens distintos, y da euros a la huésped. Las personas gastan de su asignación del día; la cocina, del T que le dio la casa. Saldos tras los ocho eventos: casa 440 EUR y 9 `R:casa`; cocina 18 h y 237 min de T, 12 EUR; huesped 48 EUR y 1 `R:casa`; y cada uno, diez P por registro propio, más los obtenidos sobre el génesis (la huésped, veinte: por la R y por los euros; la cocina, diez: por los euros).
 
 Qué ocupa cada dirección de la compra (con la cuenta escrita) está en §6.6. En particular, la posición 4 solo tiene sus dos propios (`[4]` y `[4, 0]`): nadie ha escrito en ella. Los escenarios con propinas escritas en `4000000000` que usa `docs/BQL.md` son de las pruebas (`test/bql-colecciones.test.js`), no de este eje.
 
@@ -1390,14 +1397,14 @@ export function leer(payload, { epoca, profundidad = 0, eje, nombres } = {}): st
 export function leerEvento(eje, id, { epoca, nombres, camino } = {}): string;          // cabecera + leer(payload) + «↳ ocupante k · autor · texto» bajo cada posición
 
 // src/tokens.js
-export const AMBITO_GENESIS = 'genesis';
+export const AMBITO_GENESIS = 'genesis';                 // el P del génesis de la versión 2 (suelo de persistencia); desde el encargo 3b no hay P sobre todo el eje
 export const FAMILIAS = ['E', 'P', 'R', 'T'];
 export const SERIE = { T: ['escala'], E: ['emisor', 'denominacion'], P: ['ambito'], R: ['emisor'] };
 export const ESCALAS_REALES = ['segundo', 'minuto', 'hora', 'dia', 'semana', 'ciclo', 'anio'];
 export const ESCALAS_INFORMATIVAS = ['pasado', 'futuro', 'inventado'];   // VG, 8-11: ilimitadas, con refiere y nota
 export const ESCALAS_T = [...ESCALAS_REALES, ...ESCALAS_INFORMATIVAS]; // diez
 export const MAXIMO_ESCALAS_T = 10;                       // tokens.js lanza al cargar si ESCALAS_T lo supera
-export const TIPOS = ['persona', 'cosa'];  // sin grupo (VG, 8-11): un grupo es un registro con P delegado
+export const TIPOS = ['persona', 'cosa'];  // sin grupo (VG, 8-11): un grupo es un registro
 export const EMITEN = ['persona'];                         // VG, 7-11 noche
 export const ESTADOS = ['bloqueo', 'liberacion'];
 export const ASIGNACION_T = { segundo: 86400, minuto: 1440, hora: 24, dia: 1, semana: 1, ciclo: 1, anio: 1 };  // VG, 8-11: cada día
@@ -1407,7 +1414,7 @@ export function diaCivil(t): number;
 export function textoT(escala, cantidad): string;          // «3/7 semana», «1 semana», «5 minuto»
 export const SEGUNDOS = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 604800, ciclo: 2419200, anio: 31536000, pasado: null, futuro: null, inventado: null };  // solo para medir distancias
 export function validarMovimiento(m): string[];
-export function claveToken(m): string;                    // 'T:hora' | 'E:casa/EUR' | 'P:genesis' | 'R:casa' | …
+export function claveToken(m): string;                    // 'T:hora' | 'E:casa/EUR' | 'P:<id>' | 'R:casa' | …
 export function partirClave(clave): { token, serie, ...campos };  // campos de SERIE: escala | emisor y denominacion | ambito | emisor
 export function cantidadBase(m): number;                  // m.cantidad, sin conversión
 
@@ -1423,7 +1430,7 @@ export async function verificarId(ev): Promise<boolean>;
 // src/eje.js
 export class Eje {
   constructor({ exigirFirmas = false } = {});
-  static async genesis({ identidad, emision, foco, t, contexto, clave, privada, exigirFirmas, demostracion = false }): Promise<Eje>;  // sin clave lanza, salvo demostracion (R9); con tipo lanza (B1)
+  static async genesis({ identidad, emision, foco, t, contexto, clave, privada, exigirFirmas, demostracion = false }): Promise<Eje>;  // sin movimientos; la emisión, en una segunda transacción; sin clave lanza, salvo demostracion (R9); con tipo o con P lanza
   static async desde(eventos, { exigirFirmas = false } = {}): Promise<Eje>;
   eventos: Map<id, Evento>; orden: id[]; claves: Map<identidad, JWK>; exigirFirmas: boolean; demostracion: boolean;   // series y altas son privados: se leen con serie(), series(), alta(), esPersona()
   get libro(): Libro;                                      // la capa cero (src/libro.js): saldos, bloqueos, vistas por identidad, sumas, el diario
@@ -1440,12 +1447,12 @@ export class Eje {
   recursos(identidad): { emisor, denominacion, cantidad }[];
   poderes(identidad): { ambito, cantidad }[];
   reputaciones(identidad): { emisor, cantidad }[];
-  poderSobre(identidad, registro): number;                 // P con ámbito genesis o en el hilo de registro
-  ambitosQueCubren(ambito): string[];                      // el ámbito, su hilo y 'genesis'
-  serie(clave): { emisor, emitido, caduca? };            // por clave de saldo: 'E:casa/EUR', 'R:casa', 'T:hora', 'P:genesis'
+  poderSobre(identidad, registro): number;                 // su P posicionado en ese registro (disponible y bloqueado)
+  serie(clave): { emisor, emitido, caduca? };            // por clave de saldo: 'E:casa/EUR', 'R:casa', 'T:hora', 'P:<id>'
   series(): { clave, token, serie, ...campos, emisor, emitido, bloqueado, caduca? }[];  // caduca solo en E (ISO o null)
   bloqueado(identidad, clave, salida?): number;
   bloqueos(identidad): { clave, token, serie, ...campos, salida, cantidad }[];
+  bloqueosCon(salida): { identidad, clave, cantidad }[];  // lo bloqueado por cualquiera con esa salida (los compromisos con una decisión)
   obligaciones(emisor): number;                            // su R en manos ajenas
   alta(identidad): { id, t } | null;
   saldoT(identidad, escala, t?): number;                  // asignación del día (persona) o lo recibido (cosa); ningún T se acumula (VG, 8-11)
@@ -1455,7 +1462,8 @@ export class Eje {
   clave(identidad): JWK | undefined;
   esPersona(identidad): boolean | null;                    // B1: escribió su propia alta (en el prefijo v2, el tipo declarado); null sin alta
   tipoV2(identidad): string | null;                        // el tipo que declaró un alta del prefijo de la versión 2
-  async entrar({ identidad, sobre?, en?, t, payload?, clave?, privada? }): Promise<Evento>;  // su propia alta: una persona (B1)
+  async invitar({ autor, invitado, clave?, da?, grupo?, dominio?, comun?, hasta?, tema?, t, privada? }): Promise<Evento>;  // la invitación, en el 3 del alta de autor (§7.1)
+  async aceptar(invitacion, clave?, { t, payload }?): Promise<Evento>;  // el alta de quien acepta: una persona (B1); sustituye a entrar
   async validar(ev): Promise<string[]>;
   async anadir(ev): Promise<Evento>;                       // lanza 'evento rechazado: …'
   async escribir(datos, privada?, posesion?): Promise<Evento>;  // crearEvento + (firmarPosesion por cada { identidad: privada }) + (firmar) + anadir
@@ -1468,7 +1476,7 @@ export function caducada(eje, clave, t): boolean;          // solo lee la caduci
 
 // src/libro.js (la capa cero, VG 9-11: «registrar es hacer una transacción»)
 export function acunar(serie, a, cantidad, opciones?): Primitiva;          // opciones: clase, etiqueta, tope
-export function transferir(serie, de, a, cantidad, opciones?): Primitiva;  // opciones: fuentes (series de donde sale, en orden)
+export function transferir(serie, de, a, cantidad, opciones?): Primitiva;  // opciones: fuentes, clase, etiqueta y salida (de lo bloqueado de de con ella; a a su disponible si salida === a)
 export function bloquear(serie, de, cantidad, salida): Primitiva;
 export function liberar(serie, de, cantidad, salida): Primitiva;
 export function quemar(serie, de, cantidad, opciones?): Primitiva;
@@ -1487,9 +1495,9 @@ export class Libro {
 }
 
 // src/ciclo.js
-export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // lo que queda en JS: el P acuñado, el estrechamiento de P y el escalonado (3b); lo usan eje.validar y validez
-export const SECCIONES_DEL_CICLO: { nombre, filas, evaluar(ev, ctx, validos) }[];  // PP-2, PP-5, ES-1; lo demás son reglas de la época (src/condiciones/reglas.js)
-export function motivoTipo(id, tipo, reglas): string | null;  // por qué no vale ese tipo en un alta (null si vale); 'grupo' se rechaza salvo en la versión 2 (TIPOS_V2)
+export function reglasDelCiclo(ev, ctx): { i, capa: 4 | 5, texto }[];  // lo que queda en JS: la caducidad de una serie de E (EE-9) y las reglas de la versión 2; lo usan eje.validar y validez
+export const SECCIONES_DEL_CICLO: { nombre, filas, evaluar(ev, ctx, validos) }[];  // EE-9; lo demás son reglas de la época (src/condiciones/reglas.js)
+export function motivoTipo(id, tipo): string | null;  // por qué no vale ese tipo en un alta (null si vale)
 export function motivoAjenos(de): string;                  // «nadie mueve tokens ajenos: <de> no es el autor»
 
 // src/elegibles.js (R8: elegibilidad antes que límites)
@@ -1531,6 +1539,8 @@ export function huella(publica): string;
 export const PV: string[10];
 export const TODAS = 'todas';
 export function cargarEpoca(datos, { respaldo }?): Epoca;
+export function cargarEpocaBtml(payload, { registros, correcciones, id }?): EpocaBtml;  // §12; condiciones, escrituras y lecturas
+export const EPOCA_0_BTML: EpocaBtml; export const EPOCA_0_BTML_ID: string;  // la época 0 como registro y su id (el que lleva el génesis)
 // Epoca: { nombre, estado, principios, dudas, reglas[100], largas, regla(p, d), reglaCorta(p, d), larga(ruta), reglaLarga(ruta), ordinal(p) }
 export const EPOCA_0: Epoca;  // decidida: las cien reglas cortas (profundidad 0 = los diez PV; n ≥ 1 = el PV aplicado al nodo de arriba)
 export const EPOCAS: { [nombre]: Epoca };
@@ -1564,10 +1574,10 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Contenido de las reglas largas (el cargador ya las admite); cómo cambia el vector con la época; qué profundidad es ordinal, si alguna (el gancho `epoca.ordinal` existe; la época 0 no declara ninguna; el signo ya está decidido: opción B, mapa §12 [D]) | §4.3, §6.5, `docs/REGLAS_CORTAS.md` |
 | Criterio general para elegir `en` (solo está decidido el anclaje de la reserva en la plaza) | §5 |
 | Prueba de posesión de la clave al dar de alta | §7.2 |
-| La regla de T por persona y reloj (PROVISIONAL, neutralidad ante agrupación y división) y las reglas del ciclo marcadas «[X] confirmar VG» (§2.4); qué hace verificable la salida de un bloqueo; escalas de T octava a décima; fracciones en E, P y R ([X] decidir VG) | §2.1, §2.4 |
-| Retirar o rechazar reputación dada; nombre de la plaza en la denominación; el id del génesis como segundo nombre del ámbito `genesis` ([X] decidir VG) | §2.4, §2.5 |
+| La regla de T por persona y reloj (PROVISIONAL, neutralidad ante agrupación y división) y las reglas del ciclo marcadas «[X] confirmar VG» (§2.4); qué hace verificable la salida de un bloqueo; escalas de T octava a décima; fracciones en E y R ([X] decidir VG) | §2.1, §2.4 |
+| Rechazar reputación recibida; nombre de la plaza en la denominación ([X] decidir VG) | §2.4 |
+| Migrar un eje guardado antes del encargo 3b ([X] decidir VG) | §8.1 |
 | Dónde van las noches de la reserva (dentro, y entonces qué llevan 5 y 6, o ancladas en el 7); dónde se ancla lo lejano, en el foco o en la décupla ([X] decidir VG) | §5 |
-| Un atajo de la lente por registro: `[registro, peso]` = «peso para quien tenga P sobre ese registro» (`docs/FUNDAMENTOS.md`, «Para decidir VG») | §2.4 |
 | Anidar hileras o décuplas en una posición concreta por decisión | §5 |
 | Persistencia en base de datos y anclaje a una cadena | §8.1 |
 | Comprobación de `t` contra un reloj o contra el orden del eje | §1.1: solo `Date.parse` |
@@ -1578,27 +1588,27 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 
 ## 12. La época como registro
 
-Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la cruceta, y el génesis es la época**. `datos/epocas/epoca-0.btml.json` es la época 0 escrita así, como una décupla BTML en forma canónica y **sin posiciones vacías** (VG: «no hay posiciones vacías; nunca se escribe [] directamente»): ningún array vacío ni hueco, y la raíz y cada regla con las diez posiciones llenas. Convive con `datos/epocas/epoca-0.json`, el formato de siempre, que sigue cargando `EPOCA_0` y todo lo que lo usa; las cien reglas cortas son las mismas en los dos (`test/epoca-btml.test.js`). Todavía no es el payload de ningún génesis: el árbol mínimo es el encargo siguiente.
+Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la cruceta, y el génesis es la época**. `datos/epocas/epoca-0.btml.json` es la época 0 escrita así, como una décupla BTML en forma canónica y **sin posiciones vacías** (VG: «no hay posiciones vacías; nunca se escribe [] directamente»): ningún array vacío ni hueco, y la raíz y cada regla con las diez posiciones llenas. Convive con `datos/epocas/epoca-0.json`, el formato de siempre, que sigue cargando `EPOCA_0` y todo lo que lo usa; las cien reglas cortas son las mismas en los dos (`test/epoca-btml.test.js`). El génesis de cada eje la referencia: lleva su id en `contexto.epoca` (encargo 3b, §8), y una invitación, en su 2.
 
 | Posición | Lleva |
 |---|---|
 | 0 nombre | `['época 0', 'epoch 0']` |
-| 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». R: seis grupos, los seis precios de la atención (su R, E, P, mi R devuelta, vetado, desconocidos), «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
-| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. Son 30: 26 condiciones, conectadas al eje (encargo 3a: cada una es una condición de la transacción y rechaza con su 9), y 4 lecturas, con `read` en su 4 (B5: «present», «informative», «attended», «obligation»; el contexto las pone en la posición que dice su 3). Las seis traducciones que el mapa §15 cambia (P acuñado, escalonado, colateral de R) están fuera, en `datos/epocas/reglas-3b/`, sin conectar. La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
-| 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterios y P posicionado, 3 grupos de atención y R, 7 tiempo…); 3.1 el autor del primer registro, «el autor del génesis» |
+| 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». P lleva además 1.1.3, quién lo obtiene, y 1.1.4, `[["obtain and reposition"], [10], [0.1, 1.1], [nota]]`: diez por registro, subir deja una décima y bajar añade una (mapa §15). R: las seis zonas de la atención (1.2.1), cada una `[[nombre], [zona], [[precio], [cuánto]]]`: desconocidos 0 «my R», comercial 1 «E», expertos 2 «P», cercanos 3 «their R», equipo 4 «their R», vetados 5 «nothing»; el precio del equipo y los «cuánto» siguen «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
+| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. Son 39: 30 condiciones, conectadas al eje (encargo 3a: cada una es una condición de la transacción y rechaza con su 9), 3 reglas que escriben, con `put` en su 4 (encargo 3b: la obtención de P, que el libro acuña en la misma transacción), y 6 lecturas, con `read` en su 4 (B5: «present», «informative», «attended», «obligation»; 3b: «share», «weight»; el contexto las pone en la posición que dice su 3). La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
+| 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterio, `A.2.1` su P posicionado y `A.2.3` los criterios que adopta, 3 grupos de atención, `A.3.k` la zona k con su precio en `3.k.2` y quiénes en `3.k.3`, 7 tiempo, 8 `A.8.1` su obligación…); 3.1 el autor del primer registro, «el autor del génesis» |
 | 4 qué se hace | 4.0 las cinco primitivas (`mint`, `transfer`, `lock`, `release`, `burn`) y 4.1 los cinco despliegues (D-META, D-MOV, D-SERIE, D-FECHA, D-VALOR), con su nombre y una línea |
 | 5 dónde encaja | las cien reglas cortas: 5.p.d = `[[nombre], [significado], [ejemplo]]` de la regla del dígito d en la profundidad p |
 | 6 de dónde viene | la procedencia: una línea por decisión de VG citada, con su fecha |
 | 7 para cuándo | 7.0 el calendario: las siete escalas que se miden, por su dígito, cada una `[[nombre], [segundos], [días]]` (segundo 1, minuto 60, hora 3600, día 86 400; semana de 7 días, ciclo de 28, año de 364 + 1 = 31 536 000 segundos); las informativas no se miden y no están. 7.1 el reloj: «el tiempo lo marcan los demás». 7.2 las escalas que se refieren a otra fecha: 7 (pasado) y 8 (futuro). Son los datos del mundo (VG, 10-11, A3): `src/tokens.js` lee de aquí `SEGUNDOS`, y del 1.3 `ASIGNACION_T` y `PARTES_T`, y ninguna regla escribe un número que la época tenga |
 | 8 frente a otros | 8.0 los cortes de las cajas (1 2 3 4 6 10 16 26 42), 8.1 los órdenes de magnitud (8.1.n = `[[10^(n−1)], [10^n]]`) y 8.2 el mínimo y el máximo de cada modo |
-| 9 cómo | 9.0 las plantillas (recuento: «weighted sum», «weighted mean», «threshold»; cerrado: «all announced movements happened»; atención: el grupo «desconocidos» con precio «my own R») y 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta |
+| 9 cómo | 9.0 las plantillas, fórmulas del BQL mínimo con `it` = el registro (encargo 3b, `docs/MOTOR.md`): 9.0.0 el recuento («weighted sum», «weighted mean», «threshold»; umbral por defecto 0 y presión máxima 9), 9.0.1 cerrado («all announced movements happened»), 9.0.2 la zona de quien no está en ningún grupo (desconocidos, «my R») y 9.0.3 siguiente («what is missing», con las plantillas de transacción «move what was announced» y «commit P»); 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta |
 
-Una regla es una décupla del molde (mapa §16 [D]): 0 nombre, 1 constantes que usa, 2 condición (una fórmula «=…» del BQL mínimo, lo único con álgebra), 3 a quién aplica, 4 qué primitiva vigila, 5 dónde cuelga (`*` toda transacción, un dígito una corta, una ruta una larga), 6 de dónde viene, 7 desde qué época rige, 8 orden frente a otras reglas, 9 mensaje. Una lectura (B5) lleva `read` en su 4: su 2 es la fórmula que se lee (`it` es lo leído), su 3 la posición donde se materializa (`X.6.1` de un registro, `A.3.1` de una identidad) y su 9 lo que dice. La que es provisional lo marca en su 6 («[provisional]», A2).
+Una regla es una décupla del molde (mapa §16 [D]): 0 nombre, 1 constantes que usa, 2 condición (una fórmula «=…» del BQL mínimo, lo único con álgebra), 3 a quién aplica, 4 qué primitiva vigila, 5 dónde cuelga (`*` toda transacción, un dígito una corta, una ruta una larga), 6 de dónde viene, 7 desde qué época rige, 8 orden frente a otras reglas, 9 mensaje. Una lectura (B5) lleva `read` en su 4: su 2 es la fórmula que se lee (`it` es lo leído), su 3 la posición donde se materializa (`X.6.1` de un registro, `A.8.1` de una identidad) y su 9 lo que dice. Una regla que escribe (encargo 3b) lleva `put` en su 4: su 2 coloca con `put v at X.d.(k)` y el libro asienta lo que coloca en el P posicionado (`docs/BQLM.md` §5). La que es provisional lo marca en su 6 («[provisional]», A2).
 
 **La época = el registro raíz + los registros de sus reglas, referenciados** (como la invitación: se referencia, no se manda). `npm run epocas` (`datos/epocas/generar.mjs`) lee `datos/epocas/reglas/`, calcula el id de cada regla, reescribe el 2 de la raíz con sus referencias en el orden de su 8 y genera `datos/epocas/epocas.js` con la raíz, los registros (`REGLAS_DE_EPOCA_DATOS`) y las correcciones. **Corregir una regla no la modifica en sitio**: se añade un ocupante a su registro, un archivo en `datos/epocas/correcciones/` `{ "sobre": <id de la regla>, "en": <la posición, un dígito>, "ocupante": <lo nuevo>, "de": <procedencia> }`; el registro y su id no cambian, el cargador pone el ocupante detrás de lo suyo y quien la lee toma el último (la condición del 2, el mensaje del 9).
 
 ```js
-cargarEpocaBtml(payload, { registros, correcciones })  // → la época: lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga, ordinal, cortes, cortesConOrigen) y además payload y registro (la décupla congelada), condiciones (las reglas del 2 que no son lecturas, resueltas, en su orden), lecturas (las de `read` en su 4), reglasConId ([{ id, regla }]) y registros (Map id → regla); rechaza una época con [] o huecos, sin las diez, con un 2 que no son referencias o que no resuelven, con una regla incompleta o sin «=…» en su 2
+cargarEpocaBtml(payload, { registros, correcciones })  // → la época: lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga, ordinal, cortes, cortesConOrigen) y además payload y registro (la décupla congelada), condiciones (las reglas del 2 que no son lecturas ni escriben, resueltas, en su orden), escrituras (las de `put` en su 4), lecturas (las de `read` en su 4), id (el de la raíz, si se pasa), reglasConId ([{ id, regla }]) y registros (Map id → regla); rechaza una época con [] o huecos, sin las diez, con un 2 que no son referencias o que no resuelven, con una regla incompleta o sin «=…» en su 2
 EPOCA_0_BTML               // la época 0 como décupla, con sus registros de reglas; no está en EPOCAS (es la misma época en otro formato); leerDireccion(dir, EPOCA_0_BTML) lee igual que con EPOCA_0
 ```
 
@@ -1621,7 +1631,7 @@ epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
 (first epoch.2).0 → writing burns today's T
-count epoch.2 → 30
+count epoch.2 → 39
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

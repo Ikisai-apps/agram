@@ -78,8 +78,13 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
   assert.deepEqual([0, 1, 2, 3].map((k) => uno('epoch.1.0.1.' + k)), ['financiero y material', 'conocimiento e información', 'social y relacional', 'productivo y capacidad']);
   assert.deepEqual([0, 1, 2, 3, 4].map((k) => uno('epoch.1.1.1.' + k)), ['económico', 'administrativo', 'social', 'técnico', 'de encaje']);
   assert.match(uno('epoch.1.1.2'), /\[X\] confirmar VG/);
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k)), ['su R', 'E', 'P', 'mi R devuelta', 'vetado', 'desconocidos']);
-  assert.match(uno('epoch.1.2.2'), /\[X\] confirmar VG/);
+  // P (encargo 3b, mapa §15 [D]): lo que se obtiene (diez por registro, por E y por R) y los factores de subir y bajar.
+  assert.deepEqual([uno('epoch.1.1.4.1'), ...val('epoch.1.1.4.2')], [10, 0.1, 1.1]);
+  // R (encargo 3b, mapa §16 [D] «PV3 = regla de atención»): las seis zonas, cada una con su precio por defecto.
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.0')), ['desconocidos', 'comercial', 'expertos', 'cercanos', 'equipo', 'vetados']);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.1')), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual([0, 1, 2, 3, 4, 5].map((k) => uno('epoch.1.2.1.' + k + '.2.0')), ['my R', 'E', 'P', 'their R', 'their R', 'nothing']);
+  assert.match(uno('epoch.1.2.2'), /\[X\] VG/);
   // T: el dígito de cada escala es el de D-SERIE (tokens.ESCALAS_T), y su 1, la asignación diaria del eje.
   ESCALAS_T.forEach((e, k) => {
     const asignacion = uno('epoch.1.3.1.' + k + '.1');
@@ -95,9 +100,10 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
 
 test('2: la lista de referencias a los registros de las reglas, en el orden de su 8; la primera, «writing burns today\'s T»', () => {
   // VG, 10-11, A1: cada regla es su propio registro y el 2 de la época es la lista de referencias, una hoja por regla.
-  // B5: las lecturas («read» en su 4) van en el 2 detrás de las condiciones, en la misma cadena del 8.
-  const reglas = [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.lecturas];
-  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.lecturas.length], [26, 4]);
+  // B5: las lecturas («read» en su 4) van en el 2 detrás de las condiciones, en la misma cadena del 8; encargo 3b: las
+  // reglas que escriben («put» en su 4, la obtención de P) van entre unas y otras.
+  const reglas = EPOCA_0_BTML.reglasConId.map((x) => x.regla);
+  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.escrituras.length, EPOCA_0_BTML.lecturas.length], [30, 3, 6]);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -106,11 +112,11 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.equal(new Set(reglas.map((r) => r[0][0])).size, reglas.length, 'sin nombres repetidos');
   for (const r of reglas) {
     assert.match(r[2][0], /^=/);
-    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p)) || (r[4].length === 1 && r[4][0] === 'read'), r[0][0] + ': su 4 son primitivas, o read si es una lectura');
+    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p) || p === 'put') || (r[4].length === 1 && r[4][0] === 'read'), r[0][0] + ': su 4 son primitivas (y put si escribe), o read si es una lectura');
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 30);
+  assert.equal(uno('count epoch.2'), 39);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
@@ -123,8 +129,9 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);
-  assert.equal(uno('(last epoch.2).0'), 'obligation', 'las lecturas van al final');
-  assert.equal(uno('(nth 25 epoch.2).0'), 'P moves within a known scope', 'la última condición');
+  assert.equal(uno('(last epoch.2).0'), 'weight', 'las lecturas van al final');
+  assert.equal(uno('(nth 29 epoch.2).0'), 'a person joins by an invitation', 'la última condición');
+  assert.equal(uno('(nth 30 epoch.2).0'), 'writing a record gives ten P on it', 'y detrás, las que escriben');
   assert.deepEqual(val('epoch.2.0'), reglas.map((r) => r[0][0]), 'el 0 de cada una');
 });
 
@@ -133,7 +140,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 30, '26 condiciones y 4 lecturas');
+  assert.equal(enDisco.length, 39, '30 condiciones, 3 que escriben y 6 lecturas');
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');
@@ -165,7 +172,7 @@ test('3 a 9: plantilla de identidad, primitivas y despliegues, procedencia, cale
   assert.equal(uno('epoch.3.1'), 'el autor del génesis');
   assert.match(uno('epoch.3.0.1'), /^cartera/);
   assert.match(uno('epoch.3.0.2'), /P posicionado/);
-  assert.match(uno('epoch.3.0.3'), /grupos de atención y R/);
+  assert.match(uno('epoch.3.0.3'), /grupos de atención/);
   assert.match(uno('epoch.3.0.7'), /^tiempo/);
   assert.deepEqual(DIEZ.map((d) => val('epoch.3.0.' + d).length), DIEZ.map(() => 1), 'la plantilla dice qué va en cada una de las diez');
   assert.deepEqual([0, 1, 2, 3, 4].map((k) => uno('epoch.4.0.' + k + '.0')), [...PRIMITIVAS]);
@@ -187,9 +194,14 @@ test('3 a 9: plantilla de identidad, primitivas y despliegues, procedencia, cale
   for (const [k, m] of ['pointed', 'sequenced', 'mapped', 'scened'].entries()) {
     assert.deepEqual([uno('epoch.8.2.' + k + '.0'), uno('epoch.8.2.' + k + '.1'), uno('epoch.8.2.' + k + '.2')], [MODOS[m].nombre, MODOS[m].minimo, MODOS[m].maximo]);
   }
-  assert.deepEqual(val('epoch.9.0.0.1'), ['weighted sum', 'weighted mean', 'threshold']);
-  assert.deepEqual(val('epoch.9.0.1.1'), ['all announced movements happened']);
-  assert.deepEqual([uno('epoch.9.0.2.1'), uno('epoch.9.0.2.2')], ['desconocidos', 'my own R']);
+  // Encargo 3b: las plantillas son décuplas [[nombre], [fórmula]] (mapa §15 [D] N4: «todo lo predefinido se traduce
+  // por detrás a BQL»).
+  assert.deepEqual([0, 1, 2].map((k) => uno('epoch.9.0.0.1.' + k + '.0')), ['weighted sum', 'weighted mean', 'threshold']);
+  assert.ok([0, 1, 2].every((k) => /^=/.test(uno('epoch.9.0.0.1.' + k + '.1'))), 'cada plantilla de recuento, una fórmula');
+  assert.deepEqual([uno('epoch.9.0.0.2'), uno('epoch.9.0.0.4')], [0, 9], 'el umbral por defecto y la presión máxima');
+  assert.deepEqual(val('epoch.9.0.1.1.0.0'), ['all announced movements happened']);
+  assert.deepEqual([uno('epoch.9.0.2.1'), uno('epoch.9.0.2.2')], [0, 'my R'], 'la atención por defecto: desconocidos, con mi R');
+  assert.deepEqual([0, 1, 2].map((k) => uno('epoch.9.0.3.1.' + k + '.0')), ['what is missing', 'move what was announced', 'commit P']);
   assert.deepEqual(val('epoch.9.1'), [5, 4, 1, 7, 2, 8, 9, 3, 'segunda alta']);
   assert.equal(EPOCA_0_BTML.nombre, 'época 0');
   assert.deepEqual(val('epoch.0'), ['época 0', 'epoch 0']);
@@ -225,7 +237,7 @@ test('A3: ninguna regla lleva un número que la época tenga (los datos del mund
   const neutros = new Set([0, 1]);
   assert.ok(deLaEpoca.has(31536000) && deLaEpoca.has(7) && deLaEpoca.has(24), 'la época lleva el año en segundos, la semana y las horas del día');
   const fuera = [];
-  for (const r of [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.lecturas]) {
+  for (const r of [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.escrituras, ...EPOCA_0_BTML.lecturas]) {
     for (const n of numerosDeRegla(r)) if (deLaEpoca.has(n) && !neutros.has(n)) fuera.push(r[0][0] + ': ' + n);
   }
   assert.deepEqual(fuera, []);
