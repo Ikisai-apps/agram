@@ -18,8 +18,9 @@
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
 //   mensaje(eje, regla, idioma, { ev })    el 9 de una regla en un idioma (epoch.9.4), con los huecos resueltos
 //
-// Solo lee: nada de aquí escribe en el eje. Las entradas de acción (plantillas
-// de transacción, transaccion(), camino, libro local) son del encargo 3c-2.
+// Solo lee: nada de aquí escribe en el eje. Las entradas de acción son del encargo 3c-2: las plantillas de
+// transacción, transaccion() y el camino (3c-2a); el libro local (src/local.js), los pasos (src/pasos.js) y los
+// modelos de visualización (src/modelos.js) (3c-2b).
 
 import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
@@ -523,7 +524,10 @@ export function configuracion(eje, quien, opciones = {}) {
   const p = en(raiz, SITIO.preferencias);
   if (!esPlantilla(p)) return { de: null };
   const valores = {};
+  // El 5 es el tipo (B4: ahí el registro nombra su plantilla), no una preferencia: la plantilla lo describe para que
+  // las posiciones de detrás existan (encargo 3c-2b: «model» en el 6), y aquí no se lee.
   for (let d = 1; d < ARIDAD; d++) {
+    if (d === 5) continue;
     const desc = descripcion(p, [d]);
     if (!desc) continue;
     const nombre = texto(hoja(desc[0]));
@@ -537,6 +541,7 @@ export function configuracion(eje, quien, opciones = {}) {
   }
   if (registro && Array.isArray(registro.payload)) {
     for (let d = 1; d < ARIDAD; d++) {
+      if (d === 5) continue;
       const desc = descripcion(p, [d]);
       const nombre = texto(hoja(desc?.[0]));
       const v = hojas(registro.payload[d]).filter((x) => esTerminal(x));

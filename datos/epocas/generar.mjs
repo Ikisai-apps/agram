@@ -108,11 +108,88 @@ export function ordenarPorOcho(reglas) {
   return fuera;
 }
 
-/** La raíz de la época con su 2 = las referencias a las reglas de reglas/, en el orden de su 8. */
+// ---------- los modelos de visualización (encargo 3c-2b, tras 3c-1; docs/CONTRATO.md «Modelos de visualización») ----------
+//
+// Un modelo es un registro de la época como las reglas: modelos/<nombre>.json es su décupla (0 nombre, nivel y
+// nota; 1-4 y 6-9 las piezas de cada mundo; 5 los marcos y los iconos del aro), y cada PIEZA es su propio registro,
+// modelos/<nombre>/<pieza>.json, referenciada desde la posición del mundo en que sirve (lo que dice su 5: un
+// dígito, varios, o «*» = todos los mundos). Así un modelo se rellena por partes (en el eje, anclando piezas en la
+// posición de su mundo) y ninguna posición pasa de diez: una lista de referencias no tiene tope. `npm run epocas`
+// reescribe las posiciones 1-9 de cada modelo desde su carpeta de piezas, y el 9.7 de la raíz (detrás de su
+// cabecera) con las referencias a los modelos, por nombre de archivo. Una posición sin piezas delante de otra con
+// ellas lleva la hoja SIN_PIEZAS (nunca se escribe []).
+
+/** La carpeta de los modelos de la época. */
+export const MODELOS = 'modelos';
+
+/** Lo que lleva una posición de un modelo que no tiene piezas, cuando una posterior sí las tiene (nunca []). */
+export const SIN_PIEZAS = 'sin piezas';
+
+/** Los mundos (los dígitos de la cruceta que son piezas de un mundo): 1-4 y 6-9; el 5 es el aro y los marcos. */
+export const MUNDOS = Object.freeze([1, 2, 3, 4, 6, 7, 8, 9]);
+
+/** Los registros de las piezas de una carpeta: [{ archivo, id, registro }], por nombre de archivo. */
+export function piezasDe(carpeta) {
+  return jsonDe(carpeta).map((archivo) => {
+    const registro = leerJSON(join(carpeta, archivo));
+    return { archivo, id: idDe(registro), registro };
+  });
+}
+
+/** Los mundos en que sirve una pieza, según su 5: dígitos, o «*» = todos los mundos (nunca el 5). */
+export function mundosDePieza(registro) {
+  const cinco = Array.isArray(registro?.[5]) ? registro[5] : registro?.[5] === undefined ? [] : [registro[5]];
+  const fuera = new Set();
+  for (const h of cinco) {
+    if (h === '*') MUNDOS.forEach((d) => fuera.add(d));
+    else if (Number.isInteger(h) && h >= 0 && h < 10) fuera.add(h);
+  }
+  return [...fuera].sort((a, b) => a - b);
+}
+
+/**
+ * La décupla de un modelo desde su cabecera (el 0 del archivo del modelo) y sus piezas: en cada posición 1-9 la
+ * lista de referencias { ref } a las piezas que sirven en ese mundo, en el orden de las piezas; una posición sin
+ * piezas delante de otra con ellas lleva SIN_PIEZAS; las de detrás no se escriben.
+ */
+export function modeloConPiezas(cabecera, piezas) {
+  const posiciones = [];
+  for (let d = 1; d < 10; d++) posiciones[d] = piezas.filter((p) => mundosDePieza(p.registro).includes(d)).map(({ id }) => ({ ref: id }));
+  let ultimo = 0;
+  for (let d = 1; d < 10; d++) if (posiciones[d].length) ultimo = d;
+  const fuera = [cabecera];
+  for (let d = 1; d <= ultimo; d++) fuera.push(posiciones[d].length ? posiciones[d] : SIN_PIEZAS);
+  return fuera;
+}
+
+/**
+ * Los modelos de la época: [{ archivo, nombre, id, registro, piezas: [{ archivo, id, registro }] }], por nombre de
+ * archivo; `registro` es la décupla con sus posiciones reescritas desde sus piezas (modeloConPiezas) y `id` su hash.
+ */
+export function modelosDe(carpeta = join(CARPETA, MODELOS)) {
+  return jsonDe(carpeta).map((archivo) => {
+    const nombre = archivo.replace(/\.json$/, '');
+    const enDisco = leerJSON(join(carpeta, archivo));
+    if (!Array.isArray(enDisco) || !Array.isArray(enDisco[0]) || enDisco[0][0] !== nombre) throw new Error(MODELOS + '/' + archivo + ': el archivo se llama como el 0.0 del modelo (' + String(enDisco?.[0]?.[0]) + ')');
+    const piezas = piezasDe(join(carpeta, nombre));
+    const registro = modeloConPiezas(enDisco[0], piezas);
+    return { archivo, nombre, id: idDe(registro), registro, piezas };
+  });
+}
+
+/**
+ * La raíz de la época con su 2 = las referencias a las reglas de reglas/, en el orden de su 8, y su 9.7 = su cabecera
+ * (la que hay en disco) seguida de las referencias a los modelos de modelos/, por nombre de archivo.
+ */
 export function raizConReglas(carpeta = CARPETA) {
   const raiz = leerJSON(join(carpeta, RAIZ));
   const reglas = ordenarPorOcho(reglasDe(join(carpeta, 'reglas')));
-  return [...raiz.slice(0, 2), reglas.map(({ id }) => ({ ref: id })), ...raiz.slice(3)];
+  const nueve = Array.isArray(raiz[9]) ? [...raiz[9]] : raiz[9];
+  if (Array.isArray(nueve) && Array.isArray(nueve[7])) {
+    const cabecera = Array.isArray(nueve[7][0]) ? nueve[7][0] : nueve[7];
+    nueve[7] = [cabecera, ...modelosDe(join(carpeta, MODELOS)).map(({ id }) => ({ ref: id }))];
+  }
+  return [...raiz.slice(0, 2), reglas.map(({ id }) => ({ ref: id })), ...raiz.slice(3, 9), nueve];
 }
 
 /** Texto de epocas.js para los JSON de la carpeta, en orden de nombre de archivo, y los registros de la época. */
@@ -138,15 +215,27 @@ export function generar(carpeta = CARPETA) {
   partes.push('// correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }');
   partes.push(`export const CORRECCIONES_DE_EPOCA_DATOS = ${JSON.stringify(correccionesDe(join(carpeta, 'correcciones')), null, 2)};`);
   partes.push('');
+  partes.push('// modelos/*.json y modelos/<nombre>/*.json: los modelos de visualización de la época (encargo 3c-2b) y sus piezas, { archivo, nombre, id, registro, piezas: [{ archivo, id, registro }] }; cada id, el hash de su cuerpo canónico; el 9.7 de la raíz los referencia');
+  partes.push(`export const MODELOS_DE_EPOCA_DATOS = ${JSON.stringify(modelosDe(join(carpeta, MODELOS)), null, 2)};`);
+  partes.push('');
   return partes.join('\n');
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  // Los modelos primero: sus posiciones (las referencias a sus piezas) cambian su id, y la raíz los referencia.
+  for (const { archivo, registro } of modelosDe()) {
+    const ruta = join(CARPETA, MODELOS, archivo);
+    const texto = formatear(registro) + '\n';
+    if (readFileSync(ruta, 'utf8').replace(/\r\n/g, '\n') !== texto) {
+      writeFileSync(ruta, texto);
+      console.log('reescritas las posiciones de ' + ruta + ' (las referencias a sus piezas, por mundo)');
+    }
+  }
   const raiz = join(CARPETA, RAIZ);
   const nueva = formatear(raizConReglas()) + '\n';
   if (readFileSync(raiz, 'utf8').replace(/\r\n/g, '\n') !== nueva) {
     writeFileSync(raiz, nueva);
-    console.log('reescrito el 2 de ' + raiz + ' (las referencias a reglas/, en el orden de su 8)');
+    console.log('reescritos el 2 (las referencias a reglas/, en el orden de su 8) y el 9.7 (las referencias a modelos/) de ' + raiz);
   }
   writeFileSync(SALIDA, generar());
   console.log('escrito ' + SALIDA);

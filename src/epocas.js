@@ -24,7 +24,7 @@
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
 import { esLectura, esEscritura } from './bqlm.js';
-import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -320,7 +320,10 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id
   // Las reglas que escriben (encargo 3b: «put» en su 4, la obtención de P) tampoco son condiciones: lo que colocan
   // lo asienta el libro en la misma transacción (src/eje.js).
   const escrituras = Object.freeze(reglasDel2.filter((x) => esEscritura(x.regla)).map((x) => x.regla));
-  const registrosDeEpoca = new Map(reglasDel2.map((x) => [x.id, x.regla]));
+  // Lo que alcanza una referencia a un registro de la época: todos los que se pasan (las reglas, y desde el encargo
+  // 3c-2b los modelos de visualización y sus piezas, que referencia el 9.7), con las reglas del 2 corregidas encima.
+  const registrosDeEpoca = new Map([...porId].map(([id, r]) => [id, congelarCopia(r)]));
+  for (const x of reglasDel2) registrosDeEpoca.set(x.id, x.regla);
 
   // 8.0: los cortes de las diez cajas del 8.
   const cortesDatos = Array.isArray(registro[8]) ? registro[8][0] : undefined;
@@ -358,12 +361,20 @@ export function cargarEpocaBtml(payload, { registros = [], correcciones = [], id
 }
 
 /**
+ * Los registros de los modelos de visualización de la época y de sus piezas (datos/epocas/modelos/, encargo 3c-2b),
+ * como { id, registro }: el 9.7 de la raíz referencia los modelos y cada modelo sus piezas, y el BQL mínimo los
+ * alcanza como alcanza las reglas del 2 (src/contexto-eje.js). Lo que se pasa a cargarEpocaBtml junto a las reglas.
+ */
+export const REGISTROS_DE_MODELOS = Object.freeze(MODELOS_DE_EPOCA_DATOS.flatMap((m) => [{ id: m.id, registro: m.registro }, ...m.piezas.map((p) => ({ id: p.id, registro: p.registro }))]));
+
+/**
  * La época 0 como décupla BTML (datos/epocas/epoca-0.btml.json), con los
- * registros de sus reglas (datos/epocas/reglas/) y sus correcciones
- * (datos/epocas/correcciones/): las mismas cien reglas cortas que EPOCA_0. No
+ * registros de sus reglas (datos/epocas/reglas/), sus correcciones
+ * (datos/epocas/correcciones/) y sus modelos de visualización con sus piezas
+ * (datos/epocas/modelos/): las mismas cien reglas cortas que EPOCA_0. No
  * está en EPOCAS: es la misma época en otro formato.
  */
-export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: REGLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS], correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
 
 /** El id de la época 0: el registro con id conocido que el génesis lleva en su contexto (contexto.epoca) y que una invitación referencia en su 2. */
 export { EPOCA_0_BTML_ID };
