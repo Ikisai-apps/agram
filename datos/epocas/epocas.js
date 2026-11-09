@@ -3513,7 +3513,10 @@ export const EPOCA_0_BTML_DATOS = [
           10
         ],
         [
-          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG"
+          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
+          [
+            "https://agram.ikisai.com"
+          ]
         ]
       ],
       {
@@ -12766,7 +12769,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "4c4737fe8fb41da59a2e5731b244df30f5f1be8a70227c039096e28afafad9e2";
+export const EPOCA_0_BTML_ID = "152a52a005b02d2cca6b1a39dce8aa64ebd7df4cb07d516906bd4144cbff2b3a";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

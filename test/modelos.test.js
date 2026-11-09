@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { modelo, pieza, modelosDeLaEpoca, cabecera, leerPieza, piezasDeModelo, validarModelo, CUALQUIERA } from '../src/modelos.js';
+import { modelo, pieza, modelosDeLaEpoca, cabecera, leerPieza, piezasDeModelo, validarModelo, recursoAdmitido, CUALQUIERA } from '../src/modelos.js';
 import { importar, mundoDe } from '../arte/importar.mjs';
 import { configuracion, validar } from '../src/contrato.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
@@ -28,8 +28,8 @@ function epocaCon(cambiar) {
 }
 
 /** La configuración de `quien` con el modelo `nombre`: un registro de preferencias en el 9 de su alta. */
-async function conModelo(eje, quien, nombre) {
-  return eje.escribir({ autor: quien, sobre: eje.alta(quien).id, en: '9000000000', t: T, movimientos: [minuto(quien)], payload: ['preferences', 10, 'animated', 'en', [1, 2, 3], 'preferences', nombre] });
+async function conModelo(eje, quien, nombre, t = T) {
+  return eje.escribir({ autor: quien, sobre: eje.alta(quien).id, en: '9000000000', t, movimientos: [minuto(quien)], payload: ['preferences', 10, 'animated', 'en', [1, 2, 3], 'preferences', nombre] });
 }
 
 test('la época lleva los modelos como registros: epoch.9.7 es la cabecera y las referencias a sobrio, animado-generico e ikisai, cada uno con sus piezas referenciadas por mundo; npm run epocas los tiene al día', () => {
@@ -86,7 +86,7 @@ test('la cadena de respaldo: lo que nombra la configuración (model), luego el a
   const cadena = modelo(eje, 'huesped');
   assert.deepEqual(cadena.map((m) => [m.nombre, m.donde === propio.id, m.piezas.length]), [['casa-rural', true, 1], ['animado-generico', false, 7], ['sobrio', false, 34]]);
   await conModelo(eje, 'huesped', 'casa-rural');
-  assert.equal(modelo(eje, 'huesped')[0].donde, propio.id, 'también por su nombre');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio'], 'un modelo del eje no se resuelve por nombre (SEG-14): solo por id');
   assert.deepEqual(pieza(cadena, 'fondo', 1, 5, 'centro', { tamano: 2 }).recurso, 'arte/casa/fondo-3.png', 'la pieza anclada en la ciudad del modelo del eje');
   assert.equal(pieza(cadena, 'fondo', 1, 5, 'centro', { tamano: 1 }).modelo, 'sobrio', 'en el hueco no cabe (tamaño mínimo 2): el siguiente que responda');
   // La cadena misma es un dato de la época.
@@ -204,4 +204,70 @@ test('el importador: un índice con campos que faltan da un modelo con sus pieza
   assert.deepEqual(piezasDeModelo(salto, {}).length, 0, 'sin registros que alcanzar, sin piezas');
   assert.deepEqual(MUNDOS, [1, 2, 3, 4, 6, 7, 8, 9]);
   assert.ok(existsSync(new URL('../arte/MANIFIESTO.md', import.meta.url)), 'el manifiesto de arte existe');
+});
+
+test('SEG-14: un modelo del eje se nombra por id ({ ref } o texto) y no por nombre; solo cuentan las piezas ancladas por su autor; recursos y formatos acotados en lo que viene del eje', async () => {
+  const { eje } = await ejemploCompra();
+  const propio = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [minuto('casa')], payload: [['casa-rural', 'ilustrado', 'el modelo de la casa']] });
+  const pieza1 = (recurso, formato = 'image', clave = 3) => [['fondo'], [2, formato], [clave], ['centro'], ['once', 1], [1], ...(recurso ? [recurso] : [])];
+  const ancla = (autor, payload, sobre = propio.id) => eje.escribir({ autor, sobre, en: '1000000000', t: T, movimientos: [minuto(autor)], payload });
+  const fondo = (cadena, paso, tamano = 2) => pieza(cadena, 'fondo', 1, paso, 'centro', { tamano });
+
+  // La pieza anclada por un tercero no entra; la del autor, sí.
+  await ancla('cocina', pieza1(['arte/otro/fondo-1.png'], 'image', 1));
+  await ancla('casa', pieza1(['arte/casa/fondo-3.png']));
+  await conModelo(eje, 'huesped', propio.id);
+  let cadena = modelo(eje, 'huesped');
+  assert.deepEqual(cadena.map((m) => [m.nombre, m.piezas.length]), [['casa-rural', 1], ['animado-generico', 7], ['sobrio', 34]]);
+  assert.equal(cadena[0].piezas[0].recurso, 'arte/casa/fondo-3.png');
+  assert.equal(fondo(cadena, 1).modelo, 'sobrio', 'la pieza del tercero (paso 1) no cuenta: responde el respaldo');
+  assert.equal(fondo(cadena, 3).modelo, 'casa-rural', 'la del autor, sí');
+  assert.deepEqual(piezasDeModelo(propio.payload, { eje, id: propio.id }).map((p) => p.recurso), ['arte/casa/fondo-3.png'], 'también leyendo el modelo directamente');
+
+  // La preferencia con el id (texto o { ref }) resuelve el modelo del eje.
+  await conModelo(eje, 'huesped', { ref: propio.id });
+  assert.equal(modelo(eje, 'huesped')[0].donde, propio.id, 'la preferencia como { ref }');
+  await conModelo(eje, 'huesped', 'f'.repeat(64));
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio'], 'un id que el eje no tiene se salta');
+
+  // Un registro del eje que parece el modelo «ikisai» no suplanta al de la época.
+  const falso = await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '1000000000', t: T, movimientos: [minuto('cocina')], payload: [['ikisai', 'ilustrado', 'yo soy ikisai']] });
+  await ancla('cocina', pieza1(['arte/cocina/fondo.png'], 'image', 1), falso.id);
+  await conModelo(eje, 'huesped', 'ikisai');
+  cadena = modelo(eje, 'huesped');
+  assert.deepEqual(cadena.map((m) => [m.nombre, m.donde === falso.id, m.piezas.length]), [['ikisai', false, 0], ['animado-generico', false, 7], ['sobrio', false, 34]], 'el de la época (sin piezas), no el del eje');
+  await conModelo(eje, 'huesped', falso.id);
+  assert.equal(modelo(eje, 'huesped')[0].donde, falso.id, 'por id sí se puede adoptar (quien mira lo elige)');
+
+  // Recursos y formatos en lo que viene del eje.
+  const malos = [
+    'http://malo/x.png', 'https://agram.ikisai.com.malo.org/x.png', 'https://malo.org/x.png', 'arte/../secreto.png', '../x.png', '/etc/x.png', '//malo/x.png',
+    'arte//x.png', 'arte\\x.png', 'arte/%2e%2e/x.png', 'javascript:alert(1)', 'data:image/png;base64,AAAA', 'otra/x.png', 'arte/',
+  ];
+  for (const [i, r] of malos.entries()) assert.equal(recursoAdmitido(r, cabecera()), false, r);
+  const buenos = ['arte/casa/ok.png', 'https://agram.ikisai.com/arte/ok.png'];
+  for (const r of buenos) assert.equal(recursoAdmitido(r, cabecera()), true, r);
+  for (const [i, r] of [...malos, ...buenos].entries()) await ancla('casa', pieza1([r], 'image', 1 + (i % 9)));
+  await ancla('casa', [['fondo'], [2, 'html'], [7], ['centro'], ['once', 1], [1], ['arte/casa/pagina.html']]);
+  await ancla('casa', [['fondo'], [2, 'html'], [8], ['centro'], ['once', 1], [1]]);
+  await conModelo(eje, 'huesped', propio.id, '2026-11-07T18:05:00Z');
+  cadena = modelo(eje, 'huesped');
+  const recursos = cadena[0].piezas.map((p) => p.recurso);
+  assert.deepEqual(recursos.filter((r) => r !== null).sort(), ['arte/casa/fondo-3.png', 'arte/casa/ok.png', 'https://agram.ikisai.com/arte/ok.png'].sort(), 'solo lo acotado entra');
+  assert.ok(cadena[0].piezas.every((p) => p.formato !== 'html' && p.forma !== 'html'), 'el formato html no entra');
+  assert.ok(!cadena[0].piezas.some((p) => String(p.recurso).endsWith('.html')), 'la pieza html se descarta');
+  assert.equal(fondo(cadena, 8).recurso, 'https://agram.ikisai.com/arte/ok.png', 'la pieza html sin recurso del paso 8 tampoco entra: responde la inferior');
+  // Lo mismo con una pieza referenciada desde el registro del modelo del eje.
+  const referida = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [minuto('casa')], payload: pieza1(['http://malo/x.png'], 'image', 5) });
+  const conRef = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [minuto('casa')], payload: [['con-ref', 'ilustrado'], [{ ref: referida.id }]] });
+  await conModelo(eje, 'huesped', conRef.id);
+  cadena = modelo(eje, 'huesped');
+  assert.equal(cadena[0].piezas.length, 0, 'la pieza referenciada del eje con URL ajena se descarta');
+  assert.equal(fondo(cadena, 5).modelo, 'sobrio');
+  // La lista blanca es un dato de la cabecera de la época; lo de la época no pasa por este filtro.
+  assert.deepEqual(cabecera().origenes, ['https://agram.ikisai.com']);
+  const sinLista = epocaCon((e) => { e[9][7][0][9] = [e[9][7][0][9][0]]; });
+  assert.deepEqual(cabecera({ epoca: sinLista }).origenes, []);
+  assert.equal(recursoAdmitido('https://agram.ikisai.com/x.svg', cabecera({ epoca: sinLista })), false, 'sin orígenes, ninguna URL');
+  assert.equal(modelosDeLaEpoca().find((m) => m.nombre === 'animado-generico').piezas.length, 7);
 });
