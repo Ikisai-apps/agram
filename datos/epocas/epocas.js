@@ -421,6 +421,9 @@ export const EPOCA_0_BTML_DATOS = [
     },
     {
       "ref": "3b8c683db1789886af9e86fcad20c3a8d741525c09798496724a1fd071cdab97"
+    },
+    {
+      "ref": "c05a09e6f3aa53caff2a05de738a0b5dcac3e0f4428d803b63b03e61ca91e335"
     }
   ],
   [
@@ -1684,7 +1687,8 @@ export const EPOCA_0_BTML_DATOS = [
     "VG, 9-11: molde de regla y léxico mínimo de BQL, palabras cortas en inglés (mapa §16 [D])",
     "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])",
     "VG, 10-11: cada regla es su propio registro y el 2 de la época es la lista de sus referencias (mapa §16 [D], A1)",
-    "VG, 10-11: los datos del mundo viven en la época y ninguna regla lleva una constante que la época tenga (mapa §16 [D], A3)"
+    "VG, 10-11: los datos del mundo viven en la época y ninguna regla lleva una constante que la época tenga (mapa §16 [D], A3)",
+    "VG, 9-11 (encargo 3c-1, la carta): la pantalla pinta un registro con un tamaño y en un punto de vista sin lógica propia; todo lo que decide algo viene del núcleo como posición, vista o regla (mapa §16 [D])"
   ],
   [
     [
@@ -1918,6 +1922,284 @@ export const EPOCA_0_BTML_DATOS = [
           "todos"
         ]
       ]
+    ],
+    [
+      [
+        "block space"
+      ],
+      [
+        [
+          [
+            1
+          ],
+          [
+            0
+          ],
+          [
+            "=count it.0 > 0"
+          ],
+          [
+            5
+          ]
+        ],
+        [
+          [
+            2
+          ],
+          [
+            0,
+            5
+          ]
+        ],
+        [
+          [
+            3
+          ],
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        [
+          [
+            4
+          ],
+          [
+            1,
+            2,
+            3,
+            4
+          ]
+        ],
+        [
+          [
+            5
+          ],
+          [
+            0,
+            1,
+            2,
+            3,
+            4
+          ]
+        ],
+        [
+          [
+            6
+          ],
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        ],
+        [
+          [
+            7
+          ],
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            8
+          ],
+          [
+            "[X] decidir VG: propuesta de Core"
+          ]
+        ],
+        [
+          [
+            8
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            6,
+            7,
+            8,
+            9
+          ],
+          [
+            "[X] decidir VG: propuesta de Core"
+          ]
+        ],
+        [
+          [
+            9
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            0,
+            6,
+            7,
+            8,
+            9
+          ],
+          [
+            "the 3×3 matrix: the eight sides and the 0 in the centre"
+          ]
+        ],
+        [
+          [
+            10
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            0,
+            5,
+            6,
+            7,
+            8,
+            9
+          ],
+          [
+            "the whole matrix (3×3 with both centres, 0 and 5) or the list of ten"
+          ]
+        ]
+      ],
+      [
+        [
+          [
+            "list"
+          ],
+          [
+            "taller than wide: height over width above"
+          ],
+          [
+            1.25
+          ]
+        ],
+        [
+          [
+            "matrix"
+          ],
+          [
+            "square: height over width up to"
+          ],
+          [
+            1.25
+          ]
+        ]
+      ],
+      [
+        [
+          "load more"
+        ],
+        [
+          10
+        ],
+        [
+          "beyond ten data: ten, and «load more» ten at a time"
+        ]
+      ],
+      [
+        "VG (espacio de bloque): datos que caben → puntos de vista; con un dato, el 0 si tiene representación y si no el 5 (Core, pendiente de revisar VG (encargo 3c-1)); 7 y 8 son propuesta de Core; lista si el hueco es más alto que ancho, matriz si es cuadrado (el umbral, Core, pendiente de revisar VG (encargo 3c-1))"
+      ]
+    ],
+    [
+      [
+        "maturity"
+      ],
+      [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10
+      ],
+      [
+        "seed",
+        "sprout",
+        "shoot",
+        "stem",
+        "branch",
+        "leaf",
+        "bud",
+        "flower",
+        "fruit",
+        "tenfold"
+      ],
+      [
+        10,
+        100,
+        1000,
+        10000,
+        100000
+      ],
+      [
+        "list",
+        "shop",
+        "block",
+        "district",
+        "kingdom"
+      ],
+      [
+        "la medida (X.8.6): las posiciones escritas del subárbol (8.6.1) más su profundidad en registros (8.6.5) más cuántos techos de 8.4.3 pasa la cantidad que mueve (8.6.4); hasta diez, un nivel por posición (8.4.1 y 8.4.2: 1 = semilla … 10 = la décupla entera); después, un nivel por techo que pasa (8.4.3 y 8.4.4, los órdenes de magnitud de epoch.8.1: la lista, la tienda, la manzana, el distrito, el reino). Los nombres de los diez primeros, la suma de las tres medidas y el orden de magnitud de la cantidad: Core, pendiente de revisar VG (encargo 3c-1)"
+      ]
+    ],
+    [
+      [
+        "orders"
+      ],
+      [
+        [
+          [
+            "arrival"
+          ],
+          [
+            "llegada"
+          ],
+          [
+            "by arrival: the order of the ledger (the default, the first)"
+          ]
+        ],
+        [
+          [
+            "newest"
+          ],
+          [
+            "llegada",
+            "reverse"
+          ],
+          [
+            "by arrival, the latest first"
+          ]
+        ],
+        [
+          [
+            "fit"
+          ],
+          [
+            "encaje"
+          ],
+          [
+            "by fit: the vector of differences with the position (encaje.ordenarPorEncaje)"
+          ]
+        ]
+      ],
+      [
+        "la carta nunca ordena: el orden lo nombra la plantilla del tipo (su d.8) o el dueño en el 2.3 de su registro; si no, el primero de esta lista (Core, pendiente de revisar VG (encargo 3c-1))"
+      ]
     ]
   ],
   [
@@ -2056,6 +2338,779 @@ export const EPOCA_0_BTML_DATOS = [
       9,
       3,
       "segunda alta"
+    ],
+    [
+      [
+        [
+          "domain templates"
+        ],
+        [
+          "text",
+          "number",
+          "text",
+          "identity",
+          "text",
+          "ref",
+          "text",
+          "instant",
+          "level",
+          "text"
+        ],
+        [
+          "a record names its template in its 5 (by name, or a reference); a template is a record with the tenfold of the data it describes: in each position d, d.0 the label, d.1 the type (in the 0, the formats it admits), d.2 the validation («=…» over it = the record), d.3 who writes it, d.4 what is done with it (4.4 says template), d.5 its address, d.6 where it comes from, d.7 required or optional, d.8 the order of its occupants (8.8 the levels of the type), d.9 placeholder and help (9.9 the division model of the type); what it does not say, the hundred short rules (epoch.5) say; the second list is the default type of each digit. Core, pendiente de revisar VG (encargo 3c-1)"
+        ]
+      ],
+      [
+        [
+          [
+            "purchase"
+          ],
+          [
+            "text",
+            "icon",
+            "image"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "0"
+          ],
+          [
+            "ejemplos/ikisai/compra-food.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "Compra del menú del día",
+            "what was bought, as a title or a picture"
+          ]
+        ],
+        [
+          [
+            "order"
+          ],
+          [
+            "tenfold"
+          ],
+          [
+            "=first ((it.1 where not (mint in it2.4 or transfer in it2.4 or lock in it2.4 or release in it2.4 or burn in it2.4)) each 1) > 0"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "1"
+          ],
+          [
+            "ejemplos/ikisai/compra-food.mjs: 1.0 qué, 1.1 cuánto, 1.2 a qué precio"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "[[menu], [1], [\"EUR 12\"]]",
+            "what is bought, how many and at what price: 1.0 the dish or menu (a reference), 1.1 the quantity, 1.2 the unit price"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=\"all announced movements happened\" in it.2"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "2"
+          ],
+          [
+            "ejemplos/ikisai/compra-food.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "all announced movements happened",
+            "the criteria of the menu and the closing template (epoch.9.0.1)"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "3"
+          ],
+          [
+            "ejemplos/ikisai/compra-food.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "huesped, cocina",
+            "who buys and who serves"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "template",
+            "write"
+          ],
+          [
+            "4"
+          ],
+          [
+            "ejemplos/ikisai/compra-food.mjs"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "pagar, servir",
+            "what is done with the purchase"
+          ]
+        ]
+      ],
+      [
+        [
+          [
+            "booking"
+          ],
+          [
+            "text",
+            "icon",
+            "image"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "0"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "Reserva de la cama individual, 3 noches",
+            "the stay, as a title or a picture"
+          ]
+        ],
+        [
+          [
+            "stay"
+          ],
+          [
+            "tenfold"
+          ],
+          [
+            "=first ((it.1 where not (mint in it2.4 or transfer in it2.4 or lock in it2.4 or release in it2.4 or burn in it2.4)) each 1) >= 1"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "1"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs: 1.0 la plaza, 1.1 noches, 1.2 precio por noche, 1.3 total, 1.4 total con el tiempo"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "[[plaza], [3], [precio], [total], [total y tiempo]]",
+            "the place (a reference), the nights, the price per night, the total and the total with the time it takes"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=\"all announced movements happened\" in it.2"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "2"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "all announced movements happened",
+            "the criteria of the room and the closing template (epoch.9.0.1)"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "3"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "huesped, recepcion",
+            "who books and who attends"
+          ]
+        ],
+        [
+          [
+            "prepares"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "template",
+            "write"
+          ],
+          [
+            "4"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "[[pagar], [ocupar]]",
+            "what the booking prepares: 4.0 to pay, 4.1 to occupy; its announcements hang in 4.1"
+          ]
+        ],
+        [
+          [
+            "type"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "5"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "booking",
+            "the template of the record"
+          ]
+        ],
+        [
+          [
+            "origin"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "read"
+          ],
+          [
+            "6"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "where it comes from: the room it hangs on"
+          ]
+        ],
+        [
+          [
+            "dates"
+          ],
+          [
+            "instant"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "7"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs: las noches, ancladas en el 7 ([[entrada], [salida]])"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "[[\"2026-11-20\"], [\"2026-11-23\"]]",
+            "the nights: entry and exit, anchored in the 7"
+          ]
+        ],
+        [
+          [
+            "maturity"
+          ],
+          [
+            "level"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "read"
+          ],
+          [
+            "8"
+          ],
+          [
+            "ejemplos/ikisai/reserva-booking.mjs"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "requested",
+            "announced",
+            "confirmed",
+            "settled",
+            "closed"
+          ],
+          [
+            "how far the booking has come, in five levels (8.8): Core, pendiente de revisar VG (encargo 3c-1)"
+          ]
+        ]
+      ]
+    ],
+    [
+      [
+        [
+          "preferences"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "0"
+        ],
+        [
+          "encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"
+        ],
+        [
+          "required"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "preferences",
+          "my configuration: how the card shows things to me"
+        ]
+      ],
+      [
+        [
+          "step"
+        ],
+        [
+          "number"
+        ],
+        [
+          "=first (it.1 where not (mint in it2.4 or transfer in it2.4 or lock in it2.4 or release in it2.4 or burn in it2.4)) > 0"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "1"
+        ],
+        [
+          "encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          10,
+          "how many occupants, entries or data per load"
+        ]
+      ],
+      [
+        [
+          "render"
+        ],
+        [
+          "text"
+        ],
+        [
+          "=\"sober\" in it.2 or \"animated\" in it.2"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "2"
+        ],
+        [
+          "encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "sober",
+          "sober or animated: two renders of the same operation (FUNDAMENTOS, «Sobrio y animado»)"
+        ]
+      ],
+      [
+        [
+          "language"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "3"
+        ],
+        [
+          "encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "en",
+          "the language of the messages (epoch.9.4); en is the canonical one"
+        ]
+      ],
+      [
+        [
+          "sizes"
+        ],
+        [
+          "number"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "template",
+          "write"
+        ],
+        [
+          "4"
+        ],
+        [
+          "encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          1,
+          2,
+          3,
+          "the size steps the card works with: 1 the slot, 2 the card, 3 the screen (epoch.9.5.2)"
+        ]
+      ]
+    ],
+    [
+      [
+        "messages",
+        "one record per language; each occupant «<rule>: <text>», with the same {…} holes as the canonical English message in the 9 of the rule; the rule is named in English, its canonical name"
+      ],
+      [
+        [
+          "es",
+          "español"
+        ],
+        [
+          "a declared key comes with its proof: la clave de {(ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) each 3} llega sin la firma de esa clave sobre el id de este alta (posesion)",
+          "a key is declared at its alta: {(ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) each 3} ya tiene cuenta, o ni escribe ni recibe nada aquí",
+          "a person joins by an invitation: {first ev.3} no tiene alta y no acepta una invitación que lo nombre (a tiempo, con su clave)",
+          "at most a year ahead: {first ev.6.0} está más de un año por delante del mayor tiempo del libro ({before.6.0})",
+          "attended: el registro devuelve R a su emisor y ese emisor ancló sobre él un registro suyo con T real",
+          "attention has a price: {first ev.3} escribe a {first (first (first ev.6).5).3} sin el precio de su grupo en la misma transacción, o está vetado",
+          "E is minted by and to its issuer: {first ev.3} acuña E de {(ev.1 where E in it.0.0.0 and mint in it.4 and (it.0.0.1 != first ev.3 or it.3.1 != it.0.0.1)) each 0.0.1}, o para otro",
+          "E is tied to a record that exists: {(ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} nombra un registro que no está en el libro",
+          "every event moves tokens: la transacción no mueve ningún token",
+          "every record hangs on a record of the ledger: {first (first ev.6).5} no es uno",
+          "getting E gives ten P on its record: quien recibe E de su emisor obtiene {first epoch.1.1.4.1} P por unidad sobre el registro de su serie",
+          "informative T is only burned: {first ev.3} da o bloquea T pasado, futuro o inventado, deja T pasado o futuro sin la fecha a la que se refiere, o pone esa fecha o una nota en otra cosa",
+          "informative: el registro quema T de una escala que el calendario no mide (pasado, futuro, inventado)",
+          "locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or count before.6.3 = 0 or ev.6.0.0 < (first it2.7.0).0 or before.6.3.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} sigue respaldando E viva",
+          "locks keep their holder and name an exit: {first ev.3} bloquea o libera con otro a un lado, o sin salida",
+          "maturity: el nivel del registro entre los de la época (epoch.8.4): las posiciones escritas de su subárbol, más su profundidad, más el orden de magnitud de lo que mueve; un nivel por posición hasta la décupla entera y después uno por orden de magnitud",
+          "minting E needs own R issued: {first ev.3} acuña E y nunca ha emitido R propia",
+          "minting E needs P on its record: {first ev.3} acuña E sobre un registro donde no tiene P",
+          "minting R needs real T: {first ev.3} acuña R sin quemar T real (una escala que el calendario mide, epoch.7.0) en la misma transacción",
+          "nobody mints T: {first ev.3} acuña {sum ((ev.1 where T in it.0.0.0 and mint in it.4) each 1)} T; cada uno tiene la asignación de hoy",
+          "nobody moves tokens of others: {first ev.3} mueve desde {(ev.1 where (transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) and it.3.0 != first ev.3) each 3.0}",
+          "not before its focus: la transacción está fechada en {first ev.6.0}, antes que su foco {first ev.6.5} ({first (first ev.6.5).6.0})",
+          "not before the writer joined: {first ev.3} escribe en {first ev.6.0}, antes de entrar ({first (first (first ev.3).6).6.0})",
+          "obligation: cuánta R de esta identidad tienen otros, disponible o bloqueada",
+          "only persons mint: {first ev.3} es una cosa (su alta la escribió {first (first ev.3).6.3}), y solo acuñan las personas",
+          "P is repositioned one step at a time: {first ev.3} acuña P que no es un paso de su propio P hacia arriba (una décima) o hacia abajo (una décima más), de un registro a su padre o a un hijo, conservando su origen",
+          "P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and not (it.0.0.1 in it.0.0.1.5)) each 0)} no nombra ningún registro del libro",
+          "present: el registro quema T real de su autor (una escala que el calendario mide), o es el génesis",
+          "R is minted by its issuer: {first ev.3} acuña R de {(ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) each 0.0.1}",
+          "R is minted to its issuer: R acuñada para {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 3.1}, no para {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 0.0.1}",
+          "receiving R gives ten P on the root of its issuer: quien recibe R de su emisor obtiene {first epoch.1.1.4.1} P por unidad sobre el alta de su emisor",
+          "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
+          "T is not locked: {first ev.3} bloquea o libera T; bloquear es de E, P y R",
+          "T is whole: {first ev.3} mueve {first ((ev.1 where T in it.0.0.0 and it.1 != floor it.1) each 1)} de una escala de T; cada escala es un token",
+          "T only goes to things: {first ev.3} da T a {(ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3) each 3.1}: T no cruza a una persona, y una cosa solo lo da a una cosa del mismo dueño; dar tiempo a otro es acuñar E del tiempo propio",
+          "weight: presión de su origen ÷ 9 × el P comprometido, ÷ el P de su origen en el dominio de la decisión, salvo que cuente cualquiera",
+          "who has a key signs: {first ev.3} tiene clave y esta transacción no va firmada por él (firmante: {nth 1 ev.3})",
+          "without a key nobody acts: {first ev.3} no tiene clave (va en su alta; solo un libro de demostración deja escribir sin ella)",
+          "writing a record gives ten P on it: {first ev.3} obtiene {first epoch.1.1.4.1} P sobre el registro que escribe",
+          "writing burns today's T: {first ev.3} no quema T, o quema más T del que le queda hoy (día {ev.6.0.3})"
+        ]
+      ]
+    ],
+    [
+      [
+        "representation"
+      ],
+      [
+        "text",
+        "icon",
+        "image",
+        "video",
+        "lottie",
+        "svg",
+        "html",
+        "ref"
+      ],
+      [
+        [
+          [
+            1
+          ],
+          [
+            "slot"
+          ],
+          [
+            1
+          ]
+        ],
+        [
+          [
+            2
+          ],
+          [
+            "card"
+          ],
+          [
+            4
+          ]
+        ],
+        [
+          [
+            3
+          ],
+          [
+            "screen"
+          ],
+          [
+            10
+          ]
+        ]
+      ],
+      [
+        "the occupants of the 0 of a record are its representations and the card picks the one that fits: a leaf is a text representation without minimum size (the first format of the list, text); a tenfold is a rich one: its 0 the alternative text, its 1 [minimum size, format], its 5 where the resource is (a relative URL of the repository or a reference); a template says in its 0.1 which formats the 0 of its type admits, and what it does not admit is left out. The sizes: 1 the minimum slot, 2 the card, 3 the whole screen, each with the data that fit in it. Core, pendiente de revisar VG (encargo 3c-1)"
+      ]
     ]
   ]
 ];
@@ -3424,6 +4479,49 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "maturity.json",
+    "id": "c05a09e6f3aa53caff2a05de738a0b5dcac3e0f4428d803b63b03e61ca91e335",
+    "registro": [
+      [
+        "maturity"
+      ],
+      [
+        "epoch.8.4.1",
+        "epoch.8.4.3",
+        "X.8.6"
+      ],
+      [
+        "=count (epoch.8.4.1 where it2 <= first it.8.6.1 + first it.8.6.5 + count (epoch.8.4.3 where it3 < first it.8.6.4)) + count (epoch.8.4.3 where it2 < first it.8.6.1 + first it.8.6.5 + count (epoch.8.4.3 where it3 < first it.8.6.4))"
+      ],
+      [
+        "X.8.1"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: los cortes de las diez cajas del 8 son regla de la época; mínimo y máximo de cada modo y órdenes de magnitud (mapa §12 [D]); la madurez se mide con la misma tabla del espacio de bloque (1 posición = semilla … 10 = la décupla entera) y después por órdenes de magnitud (la lista, la tienda, la manzana, el distrito, el reino)",
+        "VG, 10-11, B5: las lecturas son reglas de la época con read en su 4, referenciables por nombre y nunca repetidas; se leen en la posición que dice su 3 (mapa §16 [D])",
+        "VG, 10-11, A3: los datos del mundo viven en la época (epoch.8.4: los niveles y sus umbrales) y la regla no lleva ninguno",
+        "Encargo 3c-1 (Core, [X] decidir VG): la medida bruta la da una vista del contexto, X.8.6 (de dónde viene): 8.6.1 las posiciones escritas de X y de todo lo que cuelga de él, 8.6.5 la profundidad del subárbol en registros, 8.6.4 las unidades que mueven sus transacciones; una fórmula entera en BQL mínimo recorrería el subárbol posición a posición y reventaría el presupuesto de diez mil ocupantes; la regla solo convierte la medida en nivel",
+        "Encargo 3c-1 (Core, [X] decidir VG): la medida es posiciones + profundidad + los techos de epoch.8.4.3 que pasa la cantidad (no la cantidad: doce euros no hacen una tienda); el nivel es cuántos umbrales de posición (8.4.1) alcanza la medida más cuántos techos (8.4.3) pasa; los niveles de un tipo son datos de su plantilla (su 8.8), los genéricos de la época son el defecto",
+        "Se materializa en X.8.1: frente a otros, cuánto (el nivel); la medida de la que sale queda en X.8.6"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after weight"
+      ],
+      [
+        "maturity: the level of the record among the levels of the epoch (epoch.8.4): the positions written in its subtree, plus its depth, plus the orders of magnitude of what it moves; one level per position up to the whole tenfold and then one per order of magnitude"
+      ]
+    ]
+  },
+  {
     "archivo": "minting-e-needs-own-r-issued.json",
     "id": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae",
     "registro": [
@@ -4393,7 +5491,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "26941a1084479b1a4cd37a794507d560778bcce143cf1b241b1681cdd7d6dc1b";
+export const EPOCA_0_BTML_ID = "7aaf9b0eb23437f990fce31ff0b75c5b17ae42a88a46a0e423f6611e7f9ae1cc";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
