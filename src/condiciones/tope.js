@@ -300,7 +300,7 @@ function topeYCuota(ev, ctx, a) {
       // D1 y F1 (VG, 9-11): lo comprometido con las series de E del subárbol de A, con P posicionado en él.
       const emisores = s.emisores ?? [s.emisor];
       const familia = familiaDe(k);
-      const enSubarbol = (clave) => clave.startsWith('P:') && ctx.dentro(clave.slice(2), A);
+      const enSubarbol = (clave) => clave.startsWith('P:') && ctx.dentro(partirClave(clave).ambito, A);
       const atadaAlSubarbol = (salida) => {
         if (typeof salida !== 'string' || !salida.startsWith('E:')) return false;
         const p = partirClave(salida);
@@ -312,6 +312,8 @@ function topeYCuota(ev, ctx, a) {
       for (const b of compromisosP()) {
         if (!enSubarbol(b.clave) || !atadaAlSubarbol(b.salida)) continue;
         total += b.cantidad;
+        // El P que respalda es el que tiene el emisor, de cualquier origen (encargo 3b-bis: el delegado de un grupo
+        // emite con lo que le delegan; [X] VG).
         if (emisores.includes(b.titular) && (b.salida === k || b.salida === familia)) bloqueado += b.cantidad;
       }
       const exacta = total > 0 ? (bloqueado * capacidad) / total : 0;

@@ -150,7 +150,7 @@ import { crearEvento } from './src/evento.js';
 import { CONDICIONES } from './src/condiciones/index.js';
 const { eje, menu, compra } = await ejemploCompra();
 const nombre = { [eje.genesisId]: 'génesis', [eje.alta('huesped').id]: 'alta de huesped', [compra.id]: 'compra', [menu.id]: 'menú' };
-const corto = (k) => (k.startsWith('P:') ? 'P:' + (nombre[k.slice(2)] ?? k.slice(2, 10)) : k);
+const corto = (k) => (k.startsWith('P:') ? 'P:' + (nombre[k.slice(2, 66)] ?? k.slice(2, 10)) + k.slice(66) : k);
 const texto = (p) => p.primitiva + '(' + [corto(p.serie), p.de, p.a].filter(Boolean).join(', ') + ', ' + p.cantidad + ')' + (p.clase ? ' [' + p.clase + (p.tope !== undefined ? ', tope ' + p.tope : '') + ']' : '');
 const tx = eje.antes(eje.orden.indexOf(compra.id)).transaccion(compra);
 console.log('ancla:', nombre[tx.ancla.sobre], tx.ancla.en, '· autor:', tx.autor, '· memo: el payload de la compra');
@@ -170,9 +170,8 @@ console.log(await eje.validar(malo));
 ancla: menú 0000000000 · autor: huesped · memo: el payload de la compra
 paso 0: acunar(T:hora, huesped, 1) [asignacion, tope 24] + quemar(T:hora, huesped, 1)
 paso 1: transferir(E:casa/EUR, huesped, cocina, 12)
-paso 2: acunar(P:compra, huesped, 10) [obtencion]
-paso 3: acunar(P:génesis, cocina, 10) [obtencion]
-cartera de huesped: R:casa 1 · P:alta de huesped 10 · P:génesis 20 · E:casa/EUR 48 · P:compra 10
+paso 2: acunar(P:compra/huesped, huesped, 10) [obtencion]
+cartera de huesped: R:casa 1 · P:alta de huesped/huesped 10 · P:génesis/huesped 610 · E:casa/EUR 48 · P:compra/huesped 10
 T sobre el menú: {"hora":1}
 minting E needs own R issued: minting E needs own R issued: huesped mints E and has never issued R of its own
 aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100 pedido
@@ -182,7 +181,7 @@ aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100
 ]
 ```
 
-La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe y la cocina, diez sobre el génesis, el registro al que están atados los euros que recibe. En la cartera de la huésped están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa R y euros (diez por cada regla, una vez). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
+La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe. La cocina no obtiene nada por los euros que recibe: le llegan de la huésped, no de su emisor, la casa (encargo 3b-bis: solo da P lo que llega de su emisor, diez por unidad). Cada serie de P lleva su origen (`P:<registro>/<origen>`): todo lo de la cartera de la huésped es de origen huésped. En su cartera están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa una R y sesenta euros (diez por unidad: 610 sobre el génesis). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
 
 ## 5. Lo que queda para los pasos siguientes
 

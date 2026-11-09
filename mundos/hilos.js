@@ -137,7 +137,7 @@ function efectoDeclarado(efectos, camino) {
 /** Rótulo de un movimiento: cantidad y serie (T por escala, E emisor/denominación, P por ámbito, R por emisor; mapa §12 [D]). */
 export function rotuloToken(efecto) {
   const p = partirClave(efecto.serie);
-  return efecto.cantidad + ' ' + p.token + ':' + (p.token === 'P' ? corto(p.ambito) : p.serie);
+  return efecto.cantidad + ' ' + p.token + ':' + (p.token === 'P' ? corto(p.ambito) + (p.origen ? '/' + p.origen : '') : p.serie);
 }
 
 // ---------- geometría: bandas comprimidas ----------

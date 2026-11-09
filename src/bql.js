@@ -59,7 +59,7 @@ import {
   CIELO, COSTE_BASE, SIN_BASE_ESCRITA, ALCANCES, basesEn, clavesDeMedidas, identidadDe, leerBase, proyectoDe, valorDeBases, erroresDeBases,
   esRecuento, TIEMPO,
 } from './bases.js';
-import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
+import { ESCALAS_T, AMBITO_GENESIS, partirClave } from './tokens.js';
 import { lenteDe, detalleValor } from './lente.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
@@ -691,7 +691,7 @@ const MEDIDAS_FORMULAS = Object.freeze(['formulasResueltas', 'formulasPendientes
 function sinGanchoEnFormulas(foco) {
   return new Parada('PENDIENTE DE AUTORIZACIÓN', 'contar las fórmulas de ' + foco.slice(0, 8) + ' las evalúa sin el gancho de autorización: con gancho no se cuentan');
 }
-const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro)';
+const FORMAS_SERIE = 'T:<escala>, E:<emisor>/<denominación>, P:<ámbito>/<origen>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro)';
 
 function alcanceDe(arg, nombre) {
   if (arg === undefined) return 'hermanos';
@@ -699,7 +699,7 @@ function alcanceDe(arg, nombre) {
   return arg.valor;
 }
 
-/** Clave de serie bien formada: T con una escala que existe; E con emisor y denominación; P y R con un solo campo. */
+/** Clave de serie bien formada: T con una escala que existe; E con emisor y denominación; P con su ámbito y, si lo dice, su origen (encargo 3b-bis); R con un solo campo. */
 function esSerie(clave) {
   if (clave.startsWith(TIEMPO)) return ESCALAS_T.includes(clave.slice(TIEMPO.length));
   const r = /^([TEPR]):(.+)$/.exec(clave);
@@ -708,6 +708,7 @@ function esSerie(clave) {
   if (token === 'T') return ESCALAS_T.includes(serie);
   const barra = serie.indexOf('/');
   if (token === 'E') return barra > 0 && barra < serie.length - 1;
+  if (token === 'P') return barra < 0 || (barra > 0 && barra < serie.length - 1 && serie.indexOf('/', barra + 1) < 0);
   return barra < 0;
 }
 
@@ -727,7 +728,7 @@ function medidaDe(arg) {
  */
 function exigirSerie(eje, clave) {
   if (clavesDeMedidas().includes(clave) || clave.startsWith(TIEMPO)) return; // el T consumido sobre el registro siempre se puede leer (vale 0)
-  const [token, serie] = [clave[0], clave.slice(2)];
+  const [token, serie] = [clave[0], clave[0] === 'P' ? partirClave(clave).ambito : clave.slice(2)];
   // T no se emite (VG, 8-11: no hay T acumulable): cada escala de T existe siempre, por la asignación del día.
   if (token === 'T' && ESCALAS_T.includes(serie)) return;
   if (token === 'P' ? eje.obtener(serie) : eje.serie(clave).emitido > 0) return;

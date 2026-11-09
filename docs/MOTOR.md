@@ -101,20 +101,20 @@ console.log('registros antes y después:', eje.orden.length);
 
 ```text
 1 1000000000 4 candidatos
-  propio     b0d35693 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → 7d2cecd4 · exacto
-  propio     b0d35693 camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
-  referencia 7d2cecd4 camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
-  escrito    b7d73503 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
+  propio     6d7d29e8 camino [1] visible [1,0] · RESUELTO · [3 posiciones] · etiqueta → 9bc6dd15 · exacto
+  propio     6d7d29e8 camino [1,0] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · guiso · fruta · exacto
+  referencia 9bc6dd15 camino [1] visible [1,0] · RESUELTO · ensalada · guiso · fruta · etiqueta ensalada · exacto
+  escrito    9f31d0b8 camino [] visible [0] · RESUELTO · [4 posiciones] · etiqueta Cuenta del menú · exacto
 2 2000000000 3 candidatos
-  propio     b0d35693 camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
-  referencia 7d2cecd4 camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
-  propio     b0d35693 camino [2] visible [2] · RESUELTO · all announced movements happened · etiqueta all announced movements happened · exacto
+  propio     6d7d29e8 camino [2] visible [2] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · vegetariano · exacto
+  referencia 9bc6dd15 camino [2] visible [2,0] · RESUELTO · sin gluten · vegetariano · etiqueta sin gluten · exacto
+  propio     6d7d29e8 camino [2] visible [2] · RESUELTO · all announced movements happened · etiqueta all announced movements happened · exacto
 3 3000000000 2 candidatos
-  propio     b0d35693 camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
-  propio     b0d35693 camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
+  propio     6d7d29e8 camino [3] visible [3] · RESUELTO · huesped · etiqueta huesped · exacto
+  propio     6d7d29e8 camino [3] visible [3] · RESUELTO · cocina · etiqueta cocina · exacto
 4 4000000000 2 candidatos
-  propio     b0d35693 camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
-  propio     b0d35693 camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
+  propio     6d7d29e8 camino [4] visible [4] · RESUELTO · pagar · etiqueta pagar · exacto
+  propio     6d7d29e8 camino [4] visible [4] · RESUELTO · servir · etiqueta servir · exacto
 [["1100000000",["propio:1"]],["1200000000",["propio:12 EUR"]]]
 registros antes y después: 8
 ```
@@ -163,9 +163,9 @@ console.log(importe.cantidad, importe.unidad, '· EUR cocina', eje.saldo('cocina
 
 ```text
 {"Q":"descubrir","B":"proponer","C":"consolidar"}
-{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"b7d73503","dir":"3000000000"}}
+{"1":"14 EUR (12 EUR + 2 EUR)","2":"14 EUR (12 EUR + 2 EUR) + 15 min","3":{"ref":"9f31d0b8","dir":"3000000000"}}
 ["1:formula","2:formula","3:foco"] []
-["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"b7d73503","dir":"3000000000"}] · texto
+["Pago de la cuenta","14 EUR (12 EUR + 2 EUR)","14 EUR (12 EUR + 2 EUR) + 15 min",{"ref":"9f31d0b8","dir":"3000000000"}] · texto
 14 EUR · EUR cocina 26 huesped 34 · [["Pago de la cuenta",true]] all announced movements happened
 ```
 
@@ -229,8 +229,8 @@ console.log(JSON.stringify(cerrado(eje, c.id)));
 
 ```text
 true true huesped
-["Pago del menú",{"ref":"b7d73503","dir":"0000000000"},"sin lactosa",{"ref":"b0d35693","dir":"3000000000"},"pagar 14 EUR"]
-{"motor":"fabrica","fuentes":["b7d73503"],"encaje":[{"posicion":1,"evento":"b7d73503","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
+["Pago del menú",{"ref":"9f31d0b8","dir":"0000000000"},"sin lactosa",{"ref":"6d7d29e8","dir":"3000000000"},"pagar 14 EUR"]
+{"motor":"fabrica","fuentes":["9f31d0b8"],"encaje":[{"posicion":1,"evento":"9f31d0b8","tipo":"escrito","origen":"1000000000","destino":"1000000000","vector":[0,0,0,0,0,0,0,0,0,0],"signo":"exacto"}],"nuevos":[{"posicion":2,"destino":"2000000000"},{"posicion":4,"destino":"4000000000"}],"modo":"mapped"}
 [{"token":"T","escala":"minuto","cantidad":5,"de":"huesped","a":null}] minutos gastados 5 EUR movidos 0
 {"cerrado":true,"plantilla":"all announced movements happened","estado":"RESUELTO","motivo":null}
 ```
@@ -276,7 +276,7 @@ hueco en 5: elige algo o quita las posiciones siguientes
 fuente desconocida en 1
 Mapped emite como mucho 1000 posiciones; este registro tiene 1001
 evento rechazado: every record hangs on a record of the ledger: nadie is not one
-ok ["Consolidación",["dos","menús"],{"ref":"b0d35693","dir":"2000000000"},{"ref":"7d2cecd4","dir":"2000000000"}] en 4000000000
+ok ["Consolidación",["dos","menús"],{"ref":"6d7d29e8","dir":"2000000000"},{"ref":"9bc6dd15","dir":"2000000000"}] en 4000000000
 ok ["Consolidación","uno"] en 1400000000
 ```
 
@@ -357,8 +357,8 @@ console.log(corto(pago.payload), corto(pago.movimientos), '·', cerrado(eje, tra
 
 ```text
 {"cerrado":false,"plantilla":"all announced movements happened","estado":"RESUELTO","motivo":null}
-huesped {"cerrado":false,"faltaDeMi":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"71bc80af","plantilla":"move what was announced","transaccion":{"autor":"huesped","sobre":"f0fbaa5f","movimientos":[{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}],"payload":["mover 24 E:casa/EUR de huesped a cocina"]}}],"espera":[]}
-cocina {"cerrado":false,"faltaDeMi":[],"espera":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"71bc80af","de":"huesped"}]}
+huesped {"cerrado":false,"faltaDeMi":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"9030a391","plantilla":"move what was announced","transaccion":{"autor":"huesped","sobre":"8d44f785","movimientos":[{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}],"payload":["mover 24 E:casa/EUR de huesped a cocina"]}}],"espera":[]}
+cocina {"cerrado":false,"faltaDeMi":[],"espera":[{"que":"mover 24 E:casa/EUR de huesped a cocina","anuncio":"9030a391","de":"huesped"}]}
 evento rechazado: nobody moves tokens of others: cocina moves from huesped
 ["mover 24 E:casa/EUR de huesped a cocina"] [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":24,"de":"huesped","a":"cocina"}] · true · EUR cocina 36
 ```
@@ -369,17 +369,17 @@ Lectura: el anuncio es un registro más de la huésped, anclado en el 4.1 del tr
 
 Decisión de VG (8-11, mapa §15 [D] «P como peso de criterio», con N1–N7): «a P le estás dando mucho peso». P son unidades acuñadas y posicionadas en registros; la cantidad es «irrelevante» y no siempre se bloquea. Lo que cuenta es el peso **por dominio**. Todo son reglas de la época (`datos/epocas/reglas/`); el motor solo lee.
 
-- **Obtención** (N1, N2, N3; las reglas que escriben, con `put` en su 4). Quien **escribe un registro** obtiene diez P sobre él («writing a record gives ten P on it»); quien **consigue E** obtiene diez sobre el registro al que está atada la serie («getting E gives ten P on its record»); quien **recibe R de su emisor** obtiene diez en la raíz del emisor, su alta («receiving R gives ten P on the root of its issuer»). El libro los acuña en la misma transacción, con la clase `obtencion` (`src/eje.js`). Tras la revisión de seguridad (encargo 3b; **[X] confirmar VG**), la obtención **no se repite**: una sola vez por regla, titular y registro (sea cual sea la serie); y la R da P solo si llega **directamente de su emisor** (la que pasa de tenedor a tenedor, o vuelve a su emisor, no da nada). Así un ir y venir de R entre dos identidades no acuña P sin fin. Se retiran «el autor de X acuña P:X» y el P del génesis sobre todo el eje: nadie acuña P a mano.
-- **Reposicionar** (N7, «solo subir y bajar»; «P is repositioned one step at a time»). Se quema P de un registro y se acuña en su padre o en un hijo, un paso por transacción: **subir deja una décima** (10 → 1), **bajar añade una décima** (1 → 1,1); epoch.1.1.4 tiene esos factores.
-- **Peso por dominio** (mapa §15 [D] (3); la lectura «share», A.2.1.8). El dominio de X es la raíz más alta del hilo de X escrita por el dueño de X. El peso de A sobre X es su P en X entre su P en todo ese dominio: `peso(eje, A, X)`. No cambia al dividir ni al fundir identidades (`test/reglas-3b.test.js`).
-- **Delegar es transferir con salida** (mapa §15 [D] (6)): el P se bloquea con la salida = la decisión y se transfiere con esa salida; llega bloqueado con ella a quien lo recibe. **Comprometer** P con una decisión es bloquearlo con la salida = la decisión (§4.3).
+- **Obtención** (N1, N2, N3; las reglas que escriben, con `put` en su 4). Quien **escribe un registro** obtiene diez P sobre él («writing a record gives ten P on it»); quien **consigue E** obtiene diez sobre el registro al que está atada la serie («getting E gives ten P on its record»); quien **recibe R de su emisor** obtiene diez en la raíz del emisor, su alta («receiving R gives ten P on the root of its issuer»). El libro los acuña en la misma transacción, con la clase `obtencion` (`src/eje.js`), en la serie `P:<registro>/<origen>` de quien lo obtiene: **el P guarda su origen** (encargo 3b-bis, VG 10-11), como la R su emisor, y pasarlo o delegarlo no lo cambia. La E y la R dan P **por unidad** (diez cada una) y solo si llegan **directamente de su emisor** (la que pasa de tenedor a tenedor, o vuelve a su emisor, no da nada): repartir lo recibido entre varias identidades no da más P (el 3b daba una obtención por regla, titular y registro, y eso sí lo daba). Se retiran «el autor de X acuña P:X» y el P del génesis sobre todo el eje: nadie acuña P a mano.
+- **Reposicionar** (N7, «solo subir y bajar»; «P is repositioned one step at a time»). Se quema P de un registro y se acuña en su padre o en un hijo, un paso por transacción, del mismo origen: **subir deja una décima** (10 → 1), **bajar añade una décima** (1 → 1,1); epoch.1.1.4 tiene esos factores.
+- **Peso por dominio** (mapa §15 [D] (3); la lectura «share», A.2.6.8). El dominio de X es la raíz más alta del hilo de X escrita por el dueño de X. El peso de A sobre X es el P que obtuvo A en X entre el que obtuvo en todo ese dominio, esté en la mano que esté (encargo 3b-bis: el reparto por origen): `peso(eje, A, X)`. No cambia al dividir ni al fundir identidades (`test/reglas-3b.test.js`, `test/neutralidad.test.js`).
+- **Delegar es transferir con salida** (mapa §15 [D] (6)): el P se bloquea con la salida = la decisión y se transfiere con esa salida; llega bloqueado con ella a quien lo recibe, y sigue contando como de quien lo obtuvo. **Comprometer** P con una decisión es bloquearlo con la salida = la decisión (§4.3).
 - **La lente de criterios** (A.2.3): las personas cuyos criterios adopta una identidad son las que ella nombra en el 2.3 de su alta.
 
 ### 4.3 El recuento
 
 ```js
 recuento(eje, X)   // → { plantilla, valor, umbral, pasa, estado, motivo }
-peso(eje, A, X)    // → el P de A en X entre su P en el dominio de X (0 si no tiene)
+peso(eje, A, X)    // → el P que obtuvo A en X entre el que obtuvo en el dominio de X, esté donde esté (0 si no obtuvo)
 ```
 
 El dueño de X declara en su criterio (mapa §15 [D] (4) y N4: «por defecto solo cuenta el dueño»):
@@ -388,7 +388,7 @@ El dueño de X declara en su criterio (mapa §15 [D] (4) y N4: «por defecto sol
 - el **umbral**, en el mismo sitio, como `above x` (`above 0.4`); por defecto el de la época, 0: pasa cualquier compromiso que cuente. Pasa si el valor **supera** el umbral;
 - **quién cuenta y con qué presión**, en su 2.3: un nombre cuenta con la presión máxima (la de la época, epoch.9.0.0.4: 9), `nombre k` con la presión k (`bea 5`), y `cualquiera` abre a todos. Sin lista, solo cuenta el dueño.
 
-Lo comprometido con X es el P bloqueado con la salida = X (la vista X.2.4), y cada compromiso pesa con la lectura «weight» (X.2.4.8): la parte de su P del dominio que compromete, por su presión. `weighted sum` suma esos pesos; `weighted mean` los divide entre las presiones de la lista; `threshold` mide la fracción del P del dominio comprometido por quienes cuentan.
+Lo comprometido con X es el P bloqueado con la salida = X (la vista X.2.4), y cada compromiso pesa con la lectura «weight» (X.2.4.8) **por su origen** (encargo 3b-bis: quien obtuvo el P, lo comprometa quien lo comprometa; la presión es la suya). Con nombres, la parte del P de su origen en el dominio que compromete, por su presión; con `cualquiera`, la **cantidad** comprometida por su presión, nunca por reparto ni por cabeza. `weighted sum` suma esos pesos; `weighted mean` los divide entre las presiones de la lista (con `cualquiera`, entre todo el P del dominio); `threshold` mide la fracción del P del dominio comprometido por los orígenes que cuentan. «one per person» no es una plantilla: contar cabezas exige identidad de fuera, y `recuento` lo dice (estado ERROR, con el motivo de epoch.9.0.0.5).
 
 Ejemplo: la casa ya tiene P por lo que ha escrito (el génesis, las altas, sus invitaciones), la huésped por la R y los euros que recibió de la casa. La casa escribe una decisión con su criterio, la media ponderada por encima de 0,1. Hasta que compromete P no pasa; reposicionar exige un paso de cada vez.
 
@@ -418,17 +418,17 @@ console.log(corto(recuento(eje, D.id)));
 ```
 
 ```text
-P de la casa sobre el génesis 10 · sobre las altas 10 · de cocina sobre el menú 10 · de la huésped sobre el génesis 20
+P de la casa sobre el génesis 10 · sobre las altas 10 · de cocina sobre el menú 10 · de la huésped sobre el génesis 610
 peso de la casa: génesis 0.2 · decisión 0.2 · {"plantilla":"weighted mean","valor":0,"umbral":0.1,"pasa":false,"estado":"RESUELTO","motivo":null}
 huesped {"cerrado":true,"faltaDeMi":[],"espera":[{"que":"el recuento de casa (weighted mean) da 0 y pide 0.1","de":"casa"}]}
-evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child
-evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child
+evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child, keeping its origin
+evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child, keeping its origin
 tras subir: altas 11 · decisión 0
-commit P {"token":"P","ambito":"81199696","cantidad":11,"de":"casa","a":"casa","estado":"bloqueo","salida":"09480f38"}
+commit P {"token":"P","ambito":"6fcccdcd","cantidad":11,"de":"casa","a":"casa","estado":"bloqueo","salida":"0fdf188b"}
 {"plantilla":"weighted mean","valor":0.180327869,"umbral":0.1,"pasa":true,"estado":"RESUELTO","motivo":null}
 ```
 
-Lectura: la huésped tiene veinte P sobre el génesis, diez por recibir R de la casa (directamente de su emisora, en su alta) y diez por conseguir sus euros, atados al génesis; son dos reglas distintas y cada una da una sola vez. El peso de la casa en cada registro es una quinta parte de su P en el dominio, el del génesis: tiene diez en cada uno de los cinco registros que ha escrito (el génesis, su emisión, la invitación a la huésped, las altas y la decisión). La huésped no está en la lista de la decisión (no hay lista: solo cuenta la casa), así que `siguiente` le dice que espera a la casa. Subir dos niveles de una vez y acuñar a mano los rechaza la misma regla; subir un nivel deja una décima. «commit P» bloquea con la salida = la decisión el P disponible mayor de la casa en el dominio (las 11 de las altas): 11 de los 61 que ya tiene en él (cada registro que escribe le da diez más), 0,18, por encima del umbral.
+Lectura: la huésped tiene 610 P sobre el génesis: diez por la R que recibió de la casa (directamente de su emisora, en su alta) y diez por cada uno de los sesenta euros que le dio, atados al génesis (encargo 3b-bis: por cantidad). El peso de la casa en cada registro es una quinta parte de su P en el dominio, el del génesis: tiene diez en cada uno de los cinco registros que ha escrito (el génesis, su emisión, la invitación a la huésped, las altas y la decisión). La huésped no está en la lista de la decisión (no hay lista: solo cuenta la casa), así que `siguiente` le dice que espera a la casa. Subir dos niveles de una vez y acuñar a mano los rechaza la misma regla; subir un nivel deja una décima. «commit P» bloquea con la salida = la decisión el P disponible mayor de la casa en el dominio (las 11 de las altas): 11 de los 61 que ya tiene en él (cada registro que escribe le da diez más), 0,18, por encima del umbral.
 
 ### 4.4 La invitación, la atención y R
 
@@ -469,8 +469,8 @@ console.log('entra en', ok.en, '· la casa tiene R:ana', eje.saldo('casa', 'R:an
 ```
 
 ```text
-génesis [] "38839d8c"
-[["invitation"],["1 R:casa"],[{"ref":"38839d8c"}],[["casa"],["ana"]],["tu primera transacción firmada, anclada sobre esta invitación: tu alta"],[{"ref":"607d3035"}],[{"ref":"607d3035"}],["sin plazo"],[3],["la cena del sábado"]] · guardado para ana 1
+génesis [] "1a57fdf6"
+[["invitation"],["1 R:casa"],[{"ref":"1a57fdf6"}],[["casa"],["ana"]],["tu primera transacción firmada, anclada sobre esta invitación: tu alta"],[{"ref":"72226210"}],[{"ref":"72226210"}],["sin plazo"],[3],["la cena del sábado"]] · guardado para ana 1
 evento rechazado: nobody moves tokens of others: huesped moves from casa
 alta de ana sobre la invitación true · persona true · R:casa 1 · P sobre el génesis 10
 5 → 4 → 1 → 7 → 2 → 8 → 9 → 3 → después
@@ -725,25 +725,25 @@ try { desdeMapped(eje, [], compra.id); } catch (e) { console.log(e.message); }
 ```
 
 ```text
-["hola",12.5,-3,"12 EUR",{"ref":"7d2cecd4"},{"ref":"7d2cecd4","dir":"1000000000"},"=LOCAL(1)"]
+["hola",12.5,-3,"12 EUR",{"ref":"9bc6dd15"},{"ref":"9bc6dd15","dir":"1000000000"},"=LOCAL(1)"]
 ítem vacío
 referencia desconocida: ffff
 "@zzzz"
 "@ab"
-"@7d2cecd4:12"
-{"ref":"7d2cecd4"}
+"@9bc6dd15:12"
+{"ref":"9bc6dd15"}
 referencia demasiado corta: @ab
 referencia desconocida: ffff
-"servido" {"ref":"7d2cecd4"}
-["llegar",{"ref":"7d2cecd4"},3]
+"servido" {"ref":"9bc6dd15"}
+["llegar",{"ref":"9bc6dd15"},3]
 hueco en la posición 1: rellénala o quita las siguientes
 la hilera está vacía
 la hilera tiene más de 10 posiciones
-[{"ref":"b0d35693","dir":"0000000000"},{"ref":"b0d35693","dir":"1000000000"},"sin lactosa",{"ref":"b0d35693","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
+[{"ref":"6d7d29e8","dir":"0000000000"},{"ref":"6d7d29e8","dir":"1000000000"},"sin lactosa",{"ref":"6d7d29e8","dir":"3000000000"},[["pagado"],["servido a las 14:05"]]] heredadas [0,1,3] coste 6 minutos
 la 3 heredada alcanza ["huesped","cocina"] sin copiar
-con camino [1]: {"payload":[{"ref":"b0d35693","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
+con camino [1]: {"payload":[{"ref":"6d7d29e8","dir":"1000000000"},"dos"],"heredadas":[0],"vistas":[],"anclados":[],"camino":[1]}
 lo lejano se ancla: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"más tarde","faltan":["5","6"]}],"camino":[]}
-una línea «d.d» es texto: [{"ref":"b0d35693","dir":"0000000000"},"1.5 kg de harina"]
+una línea «d.d» es texto: [{"ref":"6d7d29e8","dir":"0000000000"},"1.5 kg de harina"]
 la décupla está vacía: ver ya es una modificación (clase 0); escribe o ve al menos una celda
 ```
 
@@ -789,7 +789,7 @@ await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, c
 
 ```text
 0 ver/sustituir · 1 impulso de recursos · 2 criterio · 3 comunicación · 4 acción · 5 null · 6 null · 7 null · 8 null · 9 null
-ver 1.2: [{"ref":"b0d35693","dir":"0000000000"},[[{"ref":"b0d35693","dir":"1000000000"}],[{"ref":"b0d35693","dir":"1100000000"}],[{"ref":"b0d35693","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
+ver 1.2: [{"ref":"6d7d29e8","dir":"0000000000"},[[{"ref":"6d7d29e8","dir":"1000000000"}],[{"ref":"6d7d29e8","dir":"1100000000"}],[{"ref":"6d7d29e8","dir":"1200000000"}]]] · heredadas [0,"1.0","1.1"] · vistas ["1.2"]
 no hay nada que ver en 2.3: el foco no tiene esa celda
 no hay nada que ver en 0.5: el foco no tiene esa celda
 pagar 1.2.4: {"payload":null,"heredadas":[],"vistas":[],"anclados":[{"celda":[1,2,4],"en":"1240000000","payload":"pagar 12 EUR","faltan":["1.2.0","1.2.1","1.2.2","1.2.3"]}],"camino":[]}
@@ -800,12 +800,12 @@ ubicar 7.0.0 {"ubicacion":"anclado","en":"7000000000","dir":"7000000000","faltan
 ubicar 1.5.0 {"ubicacion":"anclado","en":"1500000000","dir":"1500000000","faltan":["1.3","1.4"]}
 ubicar 2.0.0 en mapped {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
 ubicar 2.0.0 en pointed {"ubicacion":"dentro","en":"0000000000","dir":"2000000000","faltan":[]}
-salida {"payload":[{"ref":"b0d35693","dir":"0000000000"},{"ref":"b0d35693","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
+salida {"payload":[{"ref":"6d7d29e8","dir":"0000000000"},{"ref":"6d7d29e8","dir":"1000000000"},"sin lactosa"],"heredadas":[0,1],"vistas":[],"anclados":[{"celda":[7,0,0],"en":"7000000000","payload":"repetir el sábado","faltan":["5","6"]}],"camino":[]}
 1 celda sin base en el foco se ancla aparte (7.0.0 en 7000000000): escribe la salida entera con escribirSalida
-registro en 0000000000 [{"ref":"b0d35693","dir":"0000000000"},{"ref":"b0d35693","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
+registro en 0000000000 [{"ref":"6d7d29e8","dir":"0000000000"},{"ref":"6d7d29e8","dir":"1000000000"},"sin lactosa"] {"modo":"mapped","heredadas":[0,1]} · anclado en 7000000000 "repetir el sábado" · 4 minutos · {"posiciones":4,"rango":[250,333],"estado":"por debajo","aviso":"Mapped propone escribir de 250 a 333 posiciones (la proporción sobre lo leído); esto tiene 4, por debajo. No es error: la proporción propone, el máximo (1000) manda."}
 celda 9.0.0 → 9000000000 "volver"
-celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"b0d35693","dir":"1000000000"},{"ref":"b0d35693","dir":"1100000000"},{"ref":"b0d35693","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
-celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"b0d35693","dir":"1000000000"},{"ref":"b0d35693","dir":"1100000000"},{"ref":"b0d35693","dir":"1200000000"},"flan"] · 4 minutos
+celda 3.0.0 bajo [1] en Mapped → 1000000000 [{"ref":"6d7d29e8","dir":"1000000000"},{"ref":"6d7d29e8","dir":"1100000000"},{"ref":"6d7d29e8","dir":"1200000000"},"postre"] {"modo":"mapped","heredadas":[0,1,2]} · 4 minutos
+celda 3.0.0 bajo [1] en Pointed → 1000000000 [{"ref":"6d7d29e8","dir":"1000000000"},{"ref":"6d7d29e8","dir":"1100000000"},{"ref":"6d7d29e8","dir":"1200000000"},"flan"] · 4 minutos
 la celda 3.0.0 cae en 1300000000: el registro va en 1000000000, no en 4000000000
 ```
 
@@ -849,8 +849,8 @@ celda 2.4.0 bajo [1] → anclado en 1240000000 · cae en 1240000000 · clase 0 (
 celda 0.1.0 bajo [1] → anclado en 1010000000 · cae en 1010000000 · clase 0 (desde la raíz 1)
 celda 7.3.4 bajo [1] → anclado en 1734000000 · cae en 1734000000 · clase 4 (desde la raíz 3)
 celda 1.0.4 bajo [1,2] → anclado en 1210400000 · cae en 1210400000 · clase 4 (desde la raíz 1)
-salida bajo [1]: registro en 1000000000 [{"ref":"b0d35693","dir":"1000000000"},{"ref":"b0d35693","dir":"1100000000"},{"ref":"b0d35693","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
-génesis (terminal): [{"ref":"607d3035","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
+salida bajo [1]: registro en 1000000000 [{"ref":"6d7d29e8","dir":"1000000000"},{"ref":"6d7d29e8","dir":"1100000000"},{"ref":"6d7d29e8","dir":"1200000000"},"postre"] · anclado en 1204000000 clase 4
+génesis (terminal): [{"ref":"72226210","dir":"0000000000"},"algo"] · heredadas [0] · la 0 alcanza "Casa de ejemplo"
 ```
 
 Lectura: pagar el precio desde la raíz es la celda `1.2.4` (clase 4); la misma dirección `1240000000`, leída bajo `[1]`, es la celda `2.4.0`, de clase 0. Bajo `[1]`, `@:0.4 pagar 12 EUR` en la posición 2 es la celda `2.0.4`: cae en `1204000000` y su clase, leída desde `[1]`, es 4 (desde la raíz sería 0). El génesis y el precio son terminales: escribir en su posición 1 hereda la 0, cuya dirección alcanza el terminal (como en `main`; **[X] decidir VG**, §7.2).
@@ -966,13 +966,13 @@ console.log(d.futuro.map((x) => x.tipo + ':' + x.contenido + ':' + x.delta + ':'
 ```text
 0:segundo 59:minuto 60:hora 3599:hora 3600:dia 86400:semana 604800:ciclo 2419200:anio 31536000:mas · banda(-90) hora
 ahora 2026-11-07T15:00:00Z · pasado 5 de 5 · futuro 2 de 2
-  pasado registro      3564d23c huesped  2026-11-07T14:30:00Z   -1800 hora
-  pasado registro      b7d73503 cocina   2026-11-07T14:10:00Z   -3000 hora
-  pasado registro      7d2cecd4 cocina   2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      81199696 casa     2026-11-07T09:00:00Z  -21600 dia
-  pasado registro      607d3035 casa     2026-11-07T09:00:00Z  -21600 dia
-  futuro consolidacion 3564d23c huesped  2026-11-07T14:30:00Z   -1800 hora false
-  futuro proyeccion    9b0be510 huesped  2026-11-13T13:30:00Z  513000 semana
+  pasado registro      9b5d5cb1 huesped  2026-11-07T14:30:00Z   -1800 hora
+  pasado registro      9f31d0b8 cocina   2026-11-07T14:10:00Z   -3000 hora
+  pasado registro      9bc6dd15 cocina   2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      6fcccdcd casa     2026-11-07T09:00:00Z  -21600 dia
+  pasado registro      72226210 casa     2026-11-07T09:00:00Z  -21600 dia
+  futuro consolidacion 9b5d5cb1 huesped  2026-11-07T14:30:00Z   -1800 hora false
+  futuro proyeccion    ed7d07e5 huesped  2026-11-13T13:30:00Z  513000 semana
 declarado:cena el sábado:0:segundo · pasado 2 de 4
 ```
 
@@ -1155,16 +1155,16 @@ console.log('restaurado', otro.orden.length, 'eventos · cerrado', cerrado(otro,
 
 ```text
 génesis sin movimientos true · P de la casa sobre él 10
-pedido [{"ref":"740641c5","dir":"0000000000"},[[{"ref":"740641c5","dir":"1100000000"}],[1]],{"ref":"740641c5","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
+pedido [{"ref":"4fcdeb24","dir":"0000000000"},[[{"ref":"4fcdeb24","dir":"1100000000"}],[1]],{"ref":"4fcdeb24","dir":"2000000000"},[["huesped"],["cocina"]]] · heredadas [0,2] · coste 6 min
 posición 1 propio [2 posiciones] (exacto) · propio PENDIENTE: posición sin desarrollar: 1100000000 cae dentro de la lista de la 1; una dirección no nombra ocupantes de una lista (se leen por índice: BUSCAR o LOCAL) (exacto) · referencia guiso (reducir)
-posición 2 propio → 740641c5 (exacto) · referencia sin gluten · vegetariano (exacto)
+posición 2 propio → 4fcdeb24 (exacto) · referencia sin gluten · vegetariano (exacto)
 posición 3 propio [2 posiciones] (exacto) · propio huesped (exacto)
 posición 4 nada
-consolidación ["Pedido del guiso",{"ref":"740641c5","dir":"1100000000"},"sin lactosa",{"ref":"41406834","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · encaje [{"posicion":1,"evento":"740641c5","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
+consolidación ["Pedido del guiso",{"ref":"4fcdeb24","dir":"1100000000"},"sin lactosa",{"ref":"a1aa4168","dir":"3000000000"},"pagar 14 EUR"] · en la fábrica true · encaje [{"posicion":1,"evento":"4fcdeb24","tipo":"referencia","origen":"1100000000","destino":"1000000000","vector":[0,1,0,0,0,0,0,0,0,0],"signo":"reducir"}]
 cerrado false · cocina espera ["mover 14 E:casa/EUR de huesped a cocina"]
 pago [{"token":"T","escala":"minuto","cantidad":1,"de":"huesped","a":null},{"token":"E","emisor":"casa","denominacion":"EUR","cantidad":14,"de":"huesped","a":"cocina"}] · cerrado true
 EUR cocina 14 huesped 36 · hilo del pago: huesped → huesped → huesped → cocina → casa → casa
-propuestas del pedido [{"id":"d4f49e67","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","cerrado":true,"fuentes":["740641c5"]}]
+propuestas del pedido [{"id":"e237f9e8","autor":"huesped","t":"2026-11-07T13:40:00Z","titulo":"Pedido del guiso","cerrado":true,"fuentes":["4fcdeb24"]}]
 pasado registro:huesped:hora registro:cocina:dia registro:casa:dia registro:casa:dia · futuro 0
 8 entre hermanos: sin base escrita · n 1 · T:minuto: foco 6 caja 5 · cuota 1 · terminales (recuento): 6
 restaurado 10 eventos · cerrado true · posición 2 de la consolidación: sin lactosa
@@ -1195,7 +1195,7 @@ export async function registrar(eje, datos, privada?): Promise<Evento>;  // la �
 export function cerrado(eje, X): { cerrado: boolean | null, plantilla, estado, motivo };  // la plantilla de cerrado del dueño (X.2.7; por defecto epoch.9.0.1)
 export function siguiente(eje, X, yo): { cerrado, faltaDeMi: { que, anuncio?, plantilla, transaccion }[], espera: { que, anuncio?, de }[], tutorial?: { posicion, que }[] };
 export function recuento(eje, X): { plantilla, valor, umbral, pasa, estado, motivo };  // X.2.2 la plantilla y «above x», X.2.3 quién y con qué presión (epoch.9.0.0)
-export function peso(eje, A, X): number;  // P de A en X ÷ P de A en el dominio de X (la lectura «share», A.2.1.8)
+export function peso(eje, A, X): number;  // P de origen A en X ÷ P de origen A en el dominio de X, en todas las manos (la lectura «share», A.2.6.8)
 export function propuestas(eje, foco, camino = []): { id, autor, t, titulo, cerrado, fuentes }[];
 export { CRITERIO_CAPACIDAD, capacidadDe } from './tokens.js';  // CRITERIO_CAPACIDAD = 2; capacidadDe(nodo): number | undefined
 export function tramoDe(eje, id): { inicio, fin, extremos, texto, desde };

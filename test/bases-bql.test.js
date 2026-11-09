@@ -134,7 +134,7 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
   assert.equal(err('CAJA("T:hora", 1)'), 'CAJA: el alcance es hermanos, proyecto, general');
   assert.equal(err('FRESCURA("vecinos")'), 'FRESCURA: el alcance es hermanos, proyecto, general');
   assert.equal(err('FRESCURA("hermanos", 2)'), 'FRESCURA espera, si acaso, un alcance');
-  const desconocida = /^CAJA: medida desconocida: .+ \(una cantidad: T:<escala>, E:<emisor>\/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> \(el T consumido sobre el registro\)\)$/;
+  const desconocida = /^CAJA: medida desconocida: .+ \(una cantidad: T:<escala>, E:<emisor>\/<denominación>, P:<ámbito>\/<origen>, R:<emisor> o tiempo:<escala> \(el T consumido sobre el registro\)\)$/;
   // Nombres de la versión anterior de esta PR, series mal formadas y escalas que no existen.
   for (const m of ['inventada', 'posiciones.3', 'movimientos.typo', 'movimientos.E:casa/EUR', 'E:typo', 'E:/EUR', 'E:casa/', 'T:siglo', 'R:a/b', 'X:hora', 'tiempo:siglo']) {
     assert.match(err('CAJA("' + m + '")'), desconocida, m);
@@ -149,8 +149,9 @@ test('CAJA: argumentos y series; una serie mal escrita no se lee como caja 0', a
     const r = q(conBase, 'CAJA("' + m + '")');
     assert.deepEqual([r.estado, r.motivo], ['PENDIENTE', 'CAJA: ' + motivo + emitidas], m);
   }
-  // El ámbito de P puede ser un registro del eje.
+  // El ámbito de P puede ser un registro del eje; la serie lleva su origen (encargo 3b-bis), y sin él también se lee.
   assert.equal(q(conBase, 'CAJA("P:' + conBase.menu.id + '")').texto, '0');
+  assert.equal(q(conBase, 'CAJA("P:' + conBase.menu.id + '/cocina")').estado, 'RESUELTO');
   // T no se emite (VG, 8-11: no hay T acumulable): cada escala de T existe siempre, por la asignación del día.
   assert.equal(q(conBase, 'CAJA("T:dia")').estado, 'RESUELTO');
 });

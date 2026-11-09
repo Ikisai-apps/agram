@@ -64,13 +64,13 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * en un registro y acuñar en su padre la décima o en un hijo una décima más, N7; lo da también una cosa); P solo sobre un registro, que se
  * debita exacto (ya no hay P del génesis ni P que cubra lo de debajo); R se transfiere entre tenedores (se corrige la
  * #62); nadie mueve tokens ajenos; E en enteros (no hay series divisibles en el generador); | : / reservados. Y la
- * obtención (mapa §15 N1, N2): quien escribe obtiene diez P sobre su registro; quien recibe E, diez sobre el registro
- * de la serie; quien recibe R de su emisor, diez sobre el alta del emisor (de otro tenedor, nada); y cada regla da su
- * P una sola vez por titular y registro (revisión de seguridad del encargo 3b). B1 (VG, 10-11): no hay tipo; persona es quien
+ * obtención (mapa §15 N1, N2): quien escribe obtiene diez P sobre su registro; quien recibe E de su emisor, diez por
+ * unidad sobre el registro de la serie; quien recibe R de su emisor, diez por unidad sobre el alta del emisor (de otro
+ * tenedor, nada). Encargo 3b-bis: el P guarda su origen (la serie es P:<registro>/<origen>; quien lo obtiene es su
+ * origen; moverlo sin decir el origen es mover el propio; reposicionar lo conserva) y la obtención es por cantidad,
+ * sin el «una vez por titular y registro». B1 (VG, 10-11): no hay tipo; persona es quien
  * escribió su propia alta, y cosa quien recibió tokens en un alta escrita por otro.
  */
-/** Las reglas de obtención de la época (sus nombres son la etiqueta de lo que acuñan). */
-const OBTENCIONES = ['writing a record gives ten P on it', 'getting E gives ten P on its record', 'receiving R gives ten P on the root of its issuer'];
 
 class Modelo {
   /** El estado de partida se copia del eje (el génesis, la emisión, la invitación, la aceptación y el alta de las cosas). */
@@ -86,10 +86,6 @@ class Modelo {
     for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
     this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
     for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
-    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de
-    // partida, no lo que se comprueba).
-    this.obtenido = new Set();
-    for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2)]));
   }
   /** B1: ¿es persona? Quien escribió su propia alta. */
   persona(id) {
@@ -102,12 +98,23 @@ class Modelo {
     if ((m.token === 'P' && !texto(m.ambito)) || (m.token === 'R' && !texto(m.emisor))) return false;
     if ((m.token === 'E' || m.token === 'R') && m.de === null && m.a !== m.emisor) return false;
     if (m.estado !== undefined && (m.estado !== 'bloqueo' || m.de === null || m.a !== m.de || !texto(m.salida))) return false;
-    for (const c of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) if (typeof m[c] === 'string' && /[|:/]/.test(m[c])) return false;
+    for (const c of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'origen', 'escala']) if (typeof m[c] === 'string' && /[|:/]/.test(m[c])) return false;
     if ((m.de !== null && !texto(m.de)) || (m.a !== null && !texto(m.a)) || (m.de === null && m.a === null)) return false;
     return true;
   }
   clave(m) {
-    return m.token === 'T' ? 'T:' + m.escala : m.token === 'E' ? 'E:' + m.emisor + '/' + m.denominacion : m.token === 'P' ? 'P:' + m.ambito : 'R:' + m.emisor;
+    return m.token === 'T' ? 'T:' + m.escala : m.token === 'E' ? 'E:' + m.emisor + '/' + m.denominacion : m.token === 'P' ? 'P:' + m.ambito + '/' + this.origen(m) : 'R:' + m.emisor;
+  }
+  /** El origen de un movimiento de P: el que dice o, si no, quien lo mueve o, al acuñarlo, quien lo recibe. */
+  origen(m) {
+    return m.origen ?? m.de ?? m.a;
+  }
+  /** El P que tiene sobre un registro, de todos sus orígenes (disponible y bloqueado), antes del evento. */
+  tieneP(id, reg) {
+    let n = 0;
+    for (const [llave, v] of this.saldos) if (llave.startsWith(id + '\u0000P:' + reg + '/')) n += v;
+    for (const [llave, v] of this.bloqueados) if (llave.startsWith(id + '\u0000P:' + reg + '/')) n += v;
+    return n;
   }
   /** El registro de una serie de E sin registro nombrado: el alta de su emisor. */
   registroE(m) {
@@ -143,7 +150,7 @@ class Modelo {
       if (m.token === 'E') {
         // minting E needs P on its record; minting E needs own R issued.
         const reg = this.registroE(m);
-        if (!reg || !(this.tiene(autor, 'P:' + reg) > 0)) return false;
+        if (!reg || !(this.tieneP(autor, reg) > 0)) return false;
         if (!this.rEmitida(autor, ev)) return false;
       }
     }
@@ -155,6 +162,8 @@ class Modelo {
       const B = P.filter((m) => m.de === autor && m.a === null && m.estado === undefined);
       if (M.some((m) => m.a !== autor) || !B.length) return false;
       if (M.some((m) => m.ambito !== M[0].ambito) || B.some((m) => m.ambito !== B[0].ambito)) return false;
+      // Encargo 3b-bis: reposicionar conserva el origen.
+      if ([...M, ...B].some((m) => this.origen(m) !== this.origen(B[0]))) return false;
       const sM = M.reduce((s, m) => s + m.cantidad, 0);
       const sB = B.reduce((s, m) => s + m.cantidad, 0);
       const cerca = (a, b) => a - b < 1e-9 && b - a < 1e-9;
@@ -174,7 +183,7 @@ class Modelo {
     // alta o tiene P sobre ella (B1: cosa = alta escrita por otro).
     const duenoDe = (id) => (this.existe.has(id) ? this.autorDe.get(this.alta.get(id)) : ev.autor);
     const esCosa = (id) => (this.existe.has(id) ? !this.persona(id) : id !== ev.autor);
-    const pSobre = (reg) => this.tiene(ev.autor, 'P:' + reg);
+    const pSobre = (reg) => this.tieneP(ev.autor, reg);
     const aCosa = (m) => esCosa(m.a) && (this.persona(ev.autor) || !this.existe.has(m.a) || duenoDe(m.a) === ev.autor || duenoDe(m.a) === duenoDe(ev.autor) || pSobre(this.alta.get(m.a)) > 0);
     if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
     if (!this.reglasOk(ev)) return null;
@@ -217,27 +226,25 @@ class Modelo {
       }
       if (m.a !== null) { poner(m.a, k, ver(m.a, k) + m.cantidad); nuevos.add(m.a); }
     }
-    // La obtención (mapa §15 N1, N2; las reglas que escriben de la época): después de los movimientos.
-    const obtenidoAqui = new Set();
-    const obtiene = (regla, id, reg) => {
-      const vez = JSON.stringify([regla, id, reg]);
-      if (!id || !reg || this.obtenido.has(vez) || obtenidoAqui.has(vez)) return;
-      obtenidoAqui.add(vez);
-      poner(id, 'P:' + reg, ver(id, 'P:' + reg) + 10);
+    // La obtención (mapa §15 N1, N2; las reglas que escriben de la época): después de los movimientos, de origen quien
+    // la obtiene y por cantidad (encargo 3b-bis).
+    const obtiene = (id, reg, cantidad) => {
+      if (!id || !reg) return;
+      const k = 'P:' + reg + '/' + id;
+      poner(id, k, ver(id, k) + cantidad);
       nuevos.add(id);
     };
-    obtiene(OBTENCIONES[0], ev.autor, ev.id);
+    obtiene(ev.autor, ev.id, 10);
     for (const m of ev.movimientos) {
       if (m.de === null || m.a === null || m.estado !== undefined) continue;
-      // Revisión de seguridad (encargo 3b): una vez por regla, receptor y registro (sea cual sea la serie); E, solo a quien ya tiene alta y no la emite.
-      if (m.token === 'E' && m.a !== m.de && m.a !== m.emisor && this.existe.has(m.a)) obtiene(OBTENCIONES[1], m.a, this.registroE(m));
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor));
+      // E y R: lo que llega de su emisor a otro con alta, diez por unidad.
+      if (m.token === 'E' && m.de === m.emisor && m.a !== m.de && this.existe.has(m.a)) obtiene(m.a, this.registroE(m), 10 * m.cantidad);
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(m.a, this.alta.get(m.emisor), 10 * m.cantidad);
     }
     return () => {
       this.saldos = vista;
       this.bloqueados = vistaB;
       this.emitido = emitido;
-      for (const vez of obtenidoAqui) this.obtenido.add(vez);
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const id of nuevos) if (!this.existe.has(id)) { this.existe.add(id); this.alta.set(id, ev.id); }
@@ -265,7 +272,7 @@ function movAleatorio(g, autor, ids, conocidos) {
 function reposicionAleatoria(g, eje, autor) {
   const conP = eje.poderes(autor).filter((p) => p.cantidad > 0 && eje.obtener(p.ambito));
   if (!conP.length) return [];
-  const { ambito, cantidad } = g.pick(conP);
+  const { ambito, origen, cantidad } = g.pick(conP);
   const q = Math.min(cantidad, g.pick([1, 2, 10]));
   const padre = eje.obtener(ambito).sobre;
   const hijos = eje.sobre(ambito);
@@ -273,7 +280,8 @@ function reposicionAleatoria(g, eje, autor) {
   const destino = arriba ? padre : hijos.length ? g.pick(hijos).id : padre;
   if (!destino) return [];
   const factor = destino === padre ? 0.1 : 1.1;
-  return [{ token: 'P', ambito, cantidad: q, de: autor, a: null }, { token: 'P', ambito: destino, cantidad: g.si(0.85) ? q * factor : q, de: null, a: autor }];
+  // Conserva el origen (encargo 3b-bis); a veces lo cambia, y entonces no es un paso.
+  return [{ token: 'P', ambito, origen, cantidad: q, de: autor, a: null }, { token: 'P', ambito: destino, origen: g.si(0.9) ? origen : autor, cantidad: g.si(0.85) ? q * factor : q, de: null, a: autor }];
 }
 
 const fam = (k) => (k.startsWith('P:') ? 'P' : k);
@@ -378,10 +386,10 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
 test('regresión (encargo 3b): pasarse a uno mismo R ajena no da P sobre el alta de su emisor', async () => {
   // La regla «receiving R gives ten P…» pedía solo que quien recibe no fuera el emisor: un tenedor que se pasaba a sí
   // mismo R ajena obtenía diez P sobre el alta del emisor en cada registro, sin que nadie le cediera atención. Ahora
-  // solo da P la R que llega de su emisor, y una vez por titular y registro (revisión de seguridad).
+  // solo da P la R que llega de su emisor (revisión de seguridad; por unidad desde el encargo 3b-bis).
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'R', emisor: 'r', cantidad: 2 }], foco: 'g', t: AYER });
   await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: AYER });
-  const raiz = 'P:' + eje.alta('r').id;
+  const raiz = 'P:' + eje.alta('r').id + '/b';
   const antes = eje.saldo('b', raiz);
   // Bajo el alta propia de b (escribir sobre el alta de r tendría el precio de su atención: revisión de seguridad).
   await eje.escribir({ autor: 'b', sobre: eje.alta('b').id, t: T0, movimientos: [gastaT('b'), { token: 'R', emisor: 'r', cantidad: 1, de: 'b', a: 'b' }], payload: 'yo a mí' });

@@ -1,17 +1,19 @@
 [
   ["share"],
-  ["A.2.1"],
-  ["=it.1 / sum ((((first it.3).2.1) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"],
-  ["A.2.1.8"],
+  ["A.2.6"],
+  ["=it.1 / sum ((((first it.6).2.6) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"],
+  ["A.2.6.8"],
   ["read"],
   ["*"],
   [
     "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
     "VG, 8-11 (mapa §15 [D] (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)»; sin historial ni falseo: comparar entre dominios exigiría una prueba de fuera",
     "El dominio de un registro r: lo que cuelga del registro más alto de su hilo escrito por su dueño (el autor de r); en una identidad cuyos registros cuelgan de su alta, su alta",
-    "Se materializa en A.2.1.8: en cada entrada del P posicionado, frente a otros (la cuota)"
+    "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+    "Encargo 3b-bis: el 100 % de una persona por dominio es el P de SU origen en ese dominio, esté en la mano que esté (A.2.6, una entrada por registro con lo que obtuvo, en todas las manos): pasar P a otra identidad no crea otro 100 % ni cambia su reparto",
+    "Se materializa en A.2.6.8: en cada entrada del P de su origen, frente a otros (el reparto)"
   ],
   ["epoch 0"],
   ["after obligation"],
-  ["share: the part of its P in the domain of the record that the identity has on that record"]
+  ["share: the part of the P an identity obtained, in any hand, in the domain of the record that is on that record"]
 ]

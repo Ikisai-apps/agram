@@ -190,7 +190,7 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   // no es un registro (capa 4: no hay respaldo donde ponerlo) y acuñarlo no es un paso de reposición (capa 5).
   const p = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: 'genesis', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(p), ['ok', 'ok', 'ok', 'falla', 'falla']);
-  assert.match(p.acreditacion.motivos[0], /P moves within a known scope: P:genesis names no record of the ledger/);
+  assert.match(p.acreditacion.motivos[0], /P moves within a known scope: P:genesis\/huesped names no record of the ledger/);
   assert.match(p.permiso.motivos[0], /P is repositioned one step at a time: huesped mints P/);
   // P sobre la compra, acuñado a mano por quien la escribió (y tiene diez por ello, N1): respaldo hay; permiso, no.
   const aMano = await validez(eje, await borrador('huesped', [{ token: 'P', ambito: compra.id, cantidad: 1, de: null, a: 'huesped' }]));
@@ -205,14 +205,15 @@ test('P delegado: el libro se rehace en el lugar del registro; quien recibe P lo
   const delega = await eje.escribir({ autor: 'huesped', sobre: compra.id, t: T, movimientos: [gastaT('huesped'), { token: 'P', ambito: compra.id, cantidad: 1, de: 'huesped', a: 'cocina' }], payload: 'cocina decide lo de esta compra' });
   assert.deepEqual(estados(await validez(eje, delega.id)), TODO_OK);
   // Cocina no puede delegar más P del que tiene.
-  const demasiado = await crearEvento({ autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina'), { token: 'P', ambito: compra.id, cantidad: 5, de: 'cocina', a: 'huesped' }], payload: 'x' });
+  // El P delegado conserva su origen (encargo 3b-bis): la cocina lo mueve diciendo que es de la huésped.
+  const demasiado = await crearEvento({ autor: 'cocina', sobre: compra.id, t: T, movimientos: [gastaT('cocina'), { token: 'P', ambito: compra.id, origen: 'huesped', cantidad: 5, de: 'cocina', a: 'huesped' }], payload: 'x' });
   const v = await validez(eje, demasiado);
   assert.deepEqual(estados(v), ['ok', 'ok', 'ok', 'falla', 'ok']);
   assert.match(v.acreditacion.motivos[0], /P insuficiente en cocina/);
   // Comprometerse con una propuesta es bloquear el P que se tiene con su id de salida (mapa §15 [D] (5)): cocina, el uno
   // que le dieron; la casa, que no tiene P sobre la compra, no.
   const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
-  const comprometo = (autor) => ({ autor, sobre: c.id, t: T, payload: 'sí', movimientos: [gastaT(autor), { token: 'P', ambito: compra.id, cantidad: 1, de: autor, a: autor, estado: 'bloqueo', salida: c.id }] });
+  const comprometo = (autor) => ({ autor, sobre: c.id, t: T, payload: 'sí', movimientos: [gastaT(autor), { token: 'P', ambito: compra.id, origen: 'huesped', cantidad: 1, de: autor, a: autor, estado: 'bloqueo', salida: c.id }] });
   const deCocina = await eje.escribir(comprometo('cocina'));
   assert.deepEqual(estados(await validez(eje, deCocina.id)), TODO_OK);
   const deLaCasa = await validez(eje, await crearEvento(comprometo('casa')));

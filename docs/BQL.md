@@ -565,7 +565,7 @@ Leen el 8 como `BASES` (§7.13), sin efectos, con el mismo anfitrión (el regist
 
 **Alcance**: `"hermanos"` (por defecto: el 8 del padre, su estadística de los hijos), `"proyecto"` (el 8 de `bases.proyectoDe`, su subárbol) o `"general"` (el 8 del génesis, su subárbol). Exacto y en minúsculas, como en `BASES`.
 
-***Medida** (`CAJA`): una cantidad (R7): una clave de serie bien formada, `T:<escala>` con una escala de `tokens.ESCALAS_T`, `E:<emisor>/<denominación>`, `P:<ámbito>` o `R:<emisor>`, o `tiempo:<escala>` (el T consumido sobre el registro). Una medida de `bases.MEDIDAS` es un recuento y da ERROR (`CAJA: <m> es un recuento informativo: …`). Otro nombre es ERROR, aunque no haya base (se valida antes de leer); también los de la primera versión de esta pieza (`"posiciones.3"`, `"movimientos.E:casa/EUR"`). Una serie bien formada que el eje no tiene (sin emitir; en `P`, un ámbito que no es un registro) da PENDIENTE con la lista de las emitidas, en vez de leerse como «caja 0»: así se ve la errata (`"E:csa/EUR"`). Una serie emitida que nadie de la cohorte mueve sí vale cero: caja 0. (`BASES` no hace esta comprobación: `BASES("hermanos", "T:siglo", 0)` da `4`, §7.13.)
+***Medida** (`CAJA`): una cantidad (R7): una clave de serie bien formada, `T:<escala>` con una escala de `tokens.ESCALAS_T`, `E:<emisor>/<denominación>`, `P:<ámbito>/<origen>` (encargo 3b-bis: el P guarda quién lo obtuvo) o `R:<emisor>`, o `tiempo:<escala>` (el T consumido sobre el registro). Una medida de `bases.MEDIDAS` es un recuento y da ERROR (`CAJA: <m> es un recuento informativo: …`). Otro nombre es ERROR, aunque no haya base (se valida antes de leer); también los de la primera versión de esta pieza (`"posiciones.3"`, `"movimientos.E:casa/EUR"`). Una serie bien formada que el eje no tiene (sin emitir; en `P`, un ámbito que no es un registro) da PENDIENTE con la lista de las emitidas, en vez de leerse como «caja 0»: así se ve la errata (`"E:csa/EUR"`). Una serie emitida que nadie de la cohorte mueve sí vale cero: caja 0. (`BASES` no hace esta comprobación: `BASES("hermanos", "T:siglo", 0)` da `4`, §7.13.)
 
 **`FRESCURA` cuenta llegadas, no cambios.** Es la frescura de la base entera (de sus dos estadísticas), sumada:
 
@@ -662,8 +662,8 @@ BASES("general", "E:casa/EUR")   → 6
 BASES("hermanos", "E:casa/EUR", "cuota") → 0.375
 CAJA("terminales")               → ERROR: CAJA: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 FRESCURA()                       → 0
-CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: P:<génesis>, T:minuto, R:casa, E:casa/EUR, P:<id>, P:<id>, P:<id>, P:<id>, P:<id>, T:hora…)
-CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
+CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: P:<génesis>/casa, T:minuto, R:casa, E:casa/EUR, P:<id>/casa, P:<id>/casa, P:<id>/huesped, P:<génesis>/huesped, P:<id>/casa, P:<id>/vecina…)
+CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>/<origen>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
 --- llega un té al menú
 FRESCURA("hermanos")             → 1
 FRESCURA("proyecto")             → 1

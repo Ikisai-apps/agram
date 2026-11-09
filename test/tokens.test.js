@@ -28,20 +28,22 @@ test('T va en enteros: cada escala es un token (media hora serían minutos)', ()
 
 test('la constante: cada familia es una serie; E es del emisor como R', () => {
   assert.deepEqual(Object.keys(SERIE).sort(), [...FAMILIAS].sort());
-  assert.deepEqual(SERIE, { T: ['escala'], E: ['emisor', 'denominacion', 'registro'], P: ['ambito'], R: ['emisor'] });
+  assert.deepEqual(SERIE, { T: ['escala'], E: ['emisor', 'denominacion', 'registro'], P: ['ambito', 'origen'], R: ['emisor'] });
   const claves = [
     claveToken({ token: 'T', escala: 'dia' }),
     claveToken({ token: 'E', emisor: 'casa', denominacion: 'cama-2@2026-11-13' }),
-    claveToken({ token: 'P', ambito: 'genesis' }),
+    claveToken({ token: 'P', ambito: 'genesis', origen: 'ana' }),
     claveToken({ token: 'R', emisor: 'casa' }),
   ];
-  assert.deepEqual(claves, ['T:dia', 'E:casa/cama-2@2026-11-13', 'P:genesis', 'R:casa']);
+  assert.deepEqual(claves, ['T:dia', 'E:casa/cama-2@2026-11-13', 'P:genesis/ana', 'R:casa']);
   // La misma denominación de dos emisores son dos series.
   assert.notEqual(claveToken({ token: 'E', emisor: 'casaA', denominacion: 'EUR' }), claveToken({ token: 'E', emisor: 'casaB', denominacion: 'EUR' }));
   // partirClave es la inversa: devuelve los campos de la serie.
   assert.deepEqual(partirClave('E:casa/cama-2@2026-11-13'), { token: 'E', serie: 'casa/cama-2@2026-11-13', emisor: 'casa', denominacion: 'cama-2@2026-11-13' });
   assert.deepEqual(partirClave('E:casa/a/b:c'), { token: 'E', serie: 'casa/a/b:c', emisor: 'casa', denominacion: 'a/b:c' }); // la denominación puede llevar '/' y ':'
   assert.deepEqual(partirClave('T:hora'), { token: 'T', serie: 'hora', escala: 'hora' });
+  assert.deepEqual(partirClave('P:genesis/ana'), { token: 'P', serie: 'genesis/ana', ambito: 'genesis', origen: 'ana' });
+  // Una clave de P sin origen (de antes del encargo 3b-bis) se parte igual, sin él.
   assert.deepEqual(partirClave('P:genesis'), { token: 'P', serie: 'genesis', ambito: 'genesis' });
   assert.deepEqual(partirClave('R:casa'), { token: 'R', serie: 'casa', emisor: 'casa' });
 });
@@ -62,7 +64,16 @@ test('E: denominación y emisor siempre; la emisión va a su propio emisor', () 
 test('P exige ámbito; R exige emisor y se transfiere entre tenedores (VG, 9-11, mapa §15 [D] «R según el corpus»)', () => {
   assert.ok(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b' }).some((e) => /ámbito/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'P', cantidad: 1, de: 'a', a: 'b', ambito: 'genesis' }), []);
-  assert.equal(claveToken({ token: 'P', ambito: 'abc' }), 'P:abc');
+  // El P guarda su origen (encargo 3b-bis): el que dice el movimiento o, sin él, el de quien lo mueve o, al acuñarlo,
+  // el de quien lo recibe.
+  assert.equal(claveToken({ token: 'P', ambito: 'abc', origen: 'ana' }), 'P:abc/ana');
+  assert.equal(claveToken({ token: 'P', ambito: 'abc', de: 'bea', a: 'carla' }), 'P:abc/bea');
+  assert.equal(claveToken({ token: 'P', ambito: 'abc', de: null, a: 'carla' }), 'P:abc/carla');
+  assert.equal(claveToken({ token: 'P', ambito: 'abc', origen: 'ana', de: 'bea', a: 'carla' }), 'P:abc/ana');
+  assert.deepEqual(validarMovimiento({ token: 'P', ambito: 'abc', origen: 'ana', cantidad: 1, de: 'bea', a: 'carla' }), []);
+  assert.ok(validarMovimiento({ token: 'P', ambito: 'abc', origen: 'a/b', cantidad: 1, de: 'bea', a: 'carla' }).some((e) => /origen no puede llevar/.test(e)));
+  assert.ok(validarMovimiento({ token: 'P', ambito: 'abc', origen: '', cantidad: 1, de: 'bea', a: 'carla' }).some((e) => /origen de P/.test(e)));
+  assert.ok(validarMovimiento({ token: 'R', emisor: 'a', origen: 'ana', cantidad: 1, de: 'a', a: 'b' }).some((e) => /origen solo en P/.test(e)));
   assert.ok(validarMovimiento({ token: 'R', cantidad: 1, de: 'a', a: 'b' }).some((e) => /emisor/.test(e)));
   assert.deepEqual(validarMovimiento({ token: 'R', cantidad: 1, de: 'a', a: 'b', emisor: 'a' }), []);
   // Se corrige la #62: R se transfiere libremente entre tenedores sin cambiar de emisor, y el tenedor puede

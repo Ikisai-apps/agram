@@ -378,7 +378,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "48d6ec72345c79d4b5d6ffd89df8ebd8966480798c862c7152d845f2306540b0"
     },
     {
-      "ref": "15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437"
+      "ref": "844462e4078dc38e059e37c67be01163835313b4c7d5daf2cccf2d073f097146"
     },
     {
       "ref": "8388397ef0ed5ceee8db3cb435aa983ef6d04dac309e7123e4c04d5fc0630daf"
@@ -399,10 +399,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
     },
     {
-      "ref": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a"
+      "ref": "f1e309d281151ca67c971f6eca6dbbd5d30a256efb608d1dc58c588a0a1677fa"
     },
     {
-      "ref": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40"
+      "ref": "3e3f8300eb73a02c317f1a42b80736d3209c2c331e81a5f66631c04bb0ea5b55"
     },
     {
       "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
@@ -417,10 +417,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "837e2a7456c4f8d49c5f595d9ac9d387060366b512ab872721de488914802eed"
     },
     {
-      "ref": "5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91"
+      "ref": "5ca7bfab617100a3ecd4f1d94031dbd9ce96b2e8507e88d8a6cbdf1e9091620c"
     },
     {
-      "ref": "ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32"
+      "ref": "3b8c683db1789886af9e86fcad20c3a8d741525c09798496724a1fd071cdab97"
     }
   ],
   [
@@ -1940,7 +1940,7 @@ export const EPOCA_0_BTML_DATOS = [
               "weighted mean"
             ],
             [
-              "=sum (it.2.4 each 8) / ((sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4))"
+              "=sum (it.2.4 each 8) / (count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1))"
             ]
           ],
           [
@@ -1948,7 +1948,7 @@ export const EPOCA_0_BTML_DATOS = [
               "threshold"
             ],
             [
-              "=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.3 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.3 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.3 in it4 or first it2.3 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.3 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"
+              "=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.0.0.2 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.0.0.2 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.0.0.2 in it4 or first it2.0.0.2 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.0.0.2 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.6 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.6 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.6 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.6 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.6 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.6 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"
             ]
           ]
         ],
@@ -1956,10 +1956,21 @@ export const EPOCA_0_BTML_DATOS = [
           0
         ],
         [
-          "solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)"
+          "solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)",
+          "Encargo 3b-bis (VG, 10-11, mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): cuenta el P por su ORIGEN (quien lo obtuvo), lo comprometa quien lo comprometa. Con nombres en el 2.3, por reparto (el 100 % de cada origen por dominio) × presión; con «cualquiera», por cantidad de P obtenido, nunca por reparto ni por cabeza («emitir desde dos fuentes vale lo mismo que desde una»). «Uno por persona» no es una plantilla: exige identidad de fuera"
         ],
         [
           9
+        ],
+        [
+          [
+            [
+              "one per person"
+            ],
+            [
+              "one per person is not a tally of this epoch: counting heads needs an outside identity (proof that each name is a different person); open tallies weigh by the quantity of P obtained"
+            ]
+          ]
         ]
       ],
       [
@@ -3209,7 +3220,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
-    "id": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a",
+    "id": "f1e309d281151ca67c971f6eca6dbbd5d30a256efb608d1dc58c588a0a1677fa",
     "registro": [
       [
         "getting E gives ten P on its record"
@@ -3218,7 +3229,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.1.4.1"
       ],
       [
-        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and it.3.1 != it.0.0.1 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
+        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 * it.1 at (first it.3.1).2.1.(first it.5)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3235,8 +3246,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "§15 [D] (1): «conseguir E sobre un recurso da P sobre él»; diez unidades (N1: las mismas que escribir un registro propio)",
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
-        "Cada transferencia de E que llega a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y registro, sea cual sea la serie o la denominación (las series las crea cualquiera: contarlas por serie no tendría límite), venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo); ni a uno mismo, ni al emisor de la serie, ni a quien aún no tiene alta. El libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js): la misma E pasando de mano en mano da P una vez a cada mano"
+        "Cada transferencia de E que llega de su emisor a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
+        "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «una sola vez por receptor y registro, venga de quien venga» (revisión de seguridad del 3b), que daba más P al repartir lo comprado entre varias identidades. Ni a uno mismo ni a quien aún no tiene alta"
       ],
       [
         "epoch 0"
@@ -3245,7 +3257,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after writing a record gives ten P on it"
       ],
       [
-        "getting E gives ten P on its record: who receives E gets {first epoch.1.1.4.1} P on the record of its series"
+        "getting E gives ten P on its record: who receives E from its issuer gets {first epoch.1.1.4.1} P per unit on the record of its series"
       ]
     ]
   },
@@ -3763,7 +3775,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "p-is-repositioned-one-step-at-a-time.json",
-    "id": "15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437",
+    "id": "844462e4078dc38e059e37c67be01163835313b4c7d5daf2cccf2d073f097146",
     "registro": [
       [
         "P is repositioned one step at a time"
@@ -3773,7 +3785,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         1e-9
       ],
       [
-        "=count (ev.1 where P in it.0.0.0 and mint in it.4) = 0 or (count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.3.1 != first ev.3) = 0 and count (ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) > 0 and count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and mint in it2.4) each 0.0.1)) = 0 and count ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and burn in it2.4 and it2.3.0 = first ev.3) each 0.0.1)) = 0 and ((first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001) or (first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001)))"
+        "=count (ev.1 where P in it.0.0.0 and mint in it.4) = 0 or (count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.3.1 != first ev.3) = 0 and count (ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) > 0 and count ((ev.1 where P in it.0.0.0 and (mint in it.4 or burn in it.4 and it.3.0 = first ev.3)) where it.0.0.2 != first ((ev.1 where P in it2.0.0.0 and burn in it2.4 and it2.3.0 = first ev.3) each 0.0.2)) = 0 and count ((ev.1 where P in it.0.0.0 and mint in it.4) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and mint in it2.4) each 0.0.1)) = 0 and count ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) where it.0.0.1 != first ((ev.1 where P in it2.0.0.0 and burn in it2.4 and it2.3.0 = first ev.3) each 0.0.1)) = 0 and ((first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * first epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001) or (first ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 0.0.1) in up first ((ev.1 where P in it.0.0.0 and mint in it.4) each 0.0.1) and sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) - sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 < 0.000000001 and sum ((ev.1 where P in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) each 1) * last epoch.1.1.4.2 - sum ((ev.1 where P in it.0.0.0 and mint in it.4) each 1) < 0.000000001)))"
       ],
       [
         "ev.3"
@@ -3790,7 +3802,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 (mapa §15 [D] (2)): reposicionar por el árbol; subir un nivel deja una décima (pierde el 90 %), bajar añade una décima (10 → 1 → 1,1); unidades decimales",
         "VG, 8-11 tarde (mapa §15 [D] N7): solo subir y bajar; ir a un registro ajeno es subir al ancestro común y bajar; el coste es la distancia en el árbol",
         "Nadie acuña P a mano: el P se obtiene (las reglas que escriben) o se reposiciona. Un paso por transacción: quema P de quien escribe en un registro y acuña para sí en su padre (la décima: epoch.1.1.4.2, el primero) o en un hijo (una décima más: el segundo); ir más lejos son varios pasos, y cada uno quema su T",
-        "Retira el P acuñado por el autor sobre su registro y el P del génesis sobre todo el eje (PP-2, PP-3, R3), y el estrechamiento de P (PP-5): mapa §15 [D], «Desaparece»"
+        "Retira el P acuñado por el autor sobre su registro y el P del génesis sobre todo el eje (PP-2, PP-3, R3), y el estrechamiento de P (PP-5): mapa §15 [D], «Desaparece»",
+        "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis). Reposicionar no cambia el origen: lo que se quema y lo que se acuña son del mismo origen (el P delegado se reposiciona y sigue siendo de quien lo obtuvo)"
       ],
       [
         "epoch 0"
@@ -3799,7 +3812,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after P moves within a known scope"
       ],
       [
-        "P is repositioned one step at a time: {first ev.3} mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child"
+        "P is repositioned one step at a time: {first ev.3} mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child, keeping its origin"
       ]
     ]
   },
@@ -3958,7 +3971,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
-    "id": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40",
+    "id": "3e3f8300eb73a02c317f1a42b80736d3209c2c331e81a5f66631c04bb0ea5b55",
     "registro": [
       [
         "receiving R gives ten P on the root of its issuer"
@@ -3967,7 +3980,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.1.4.1"
       ],
       [
-        "=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"
+        "=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 * it.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3985,7 +3998,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular y registro, que aquí es el alta del emisor: una vez por titular y emisor (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
+        "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Sustituye a «una sola vez por receptor y emisor» (revisión de seguridad del 3b): repartir lo recibido entre varias identidades ya no da más P que tenerlo en una"
       ],
       [
         "epoch 0"
@@ -3994,25 +4008,25 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after getting E gives ten P on its record"
       ],
       [
-        "receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P on the alta of its issuer"
+        "receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P per unit on the alta of its issuer"
       ]
     ]
   },
   {
     "archivo": "share.json",
-    "id": "5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91",
+    "id": "5ca7bfab617100a3ecd4f1d94031dbd9ce96b2e8507e88d8a6cbdf1e9091620c",
     "registro": [
       [
         "share"
       ],
       [
-        "A.2.1"
+        "A.2.6"
       ],
       [
-        "=it.1 / sum ((((first it.3).2.1) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"
+        "=it.1 / sum ((((first it.6).2.6) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"
       ],
       [
-        "A.2.1.8"
+        "A.2.6.8"
       ],
       [
         "read"
@@ -4024,7 +4038,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
         "VG, 8-11 (mapa §15 [D] (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)»; sin historial ni falseo: comparar entre dominios exigiría una prueba de fuera",
         "El dominio de un registro r: lo que cuelga del registro más alto de su hilo escrito por su dueño (el autor de r); en una identidad cuyos registros cuelgan de su alta, su alta",
-        "Se materializa en A.2.1.8: en cada entrada del P posicionado, frente a otros (la cuota)"
+        "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+        "Encargo 3b-bis: el 100 % de una persona por dominio es el P de SU origen en ese dominio, esté en la mano que esté (A.2.6, una entrada por registro con lo que obtuvo, en todas las manos): pasar P a otra identidad no crea otro 100 % ni cambia su reparto",
+        "Se materializa en A.2.6.8: en cada entrada del P de su origen, frente a otros (el reparto)"
       ],
       [
         "epoch 0"
@@ -4033,7 +4049,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after obligation"
       ],
       [
-        "share: the part of its P in the domain of the record that the identity has on that record"
+        "share: the part of the P an identity obtained, in any hand, in the domain of the record that is on that record"
       ]
     ]
   },
@@ -4156,7 +4172,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "weight.json",
-    "id": "ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32",
+    "id": "3b8c683db1789886af9e86fcad20c3a8d741525c09798496724a1fd071cdab97",
     "registro": [
       [
         "weight"
@@ -4167,7 +4183,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "\"cualquiera\""
       ],
       [
-        "=((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and first it.3 in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it.3 in it2.2) each 1) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where first it.3 in it3 or first it.3 in it3.2) = 0) * ((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and \"cualquiera\" in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and \"cualquiera\" in it2.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count ((first it.5).2.3 where count it3.5 = 0) = 0 and first it.3 = first (first it.5).3)) / (first epoch.9.0.0.4) * it.1 / (sum ((((first it.3).2.1) where last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it2.0)) each 1) + count (epoch where not (last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1)))) * count (epoch where P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))"
+        "=((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and first it.0.0.2 in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it.0.0.2 in it2.2) each 1) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where first it.0.0.2 in it3 or first it.0.0.2 in it3.2) = 0) * ((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and \"cualquiera\" in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and \"cualquiera\" in it2.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count ((first it.5).2.3 where count it3.5 = 0) = 0 and first it.0.0.2 = first (first it.5).3)) / (first epoch.9.0.0.4) * it.1 / (count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((first it.0.0.2).2.6) where last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it2.0)) each 1) + count (epoch where not (P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))))) * count (epoch where P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))"
       ],
       [
         "X.2.4.8"
@@ -4183,7 +4199,11 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 (mapa §15 [D] (4)): cómo se cuenta lo fija el dueño en su PV2: a quién cuenta y con qué presión (lente de P)",
         "VG, 8-11 tarde (mapa §15 [D] N4): presiones 0-9; por defecto solo cuenta el dueño; todo lo predefinido se traduce a BQL",
         "VG, 9-11, B2: 2.3 elegibles y presiones (reutiliza la elegibilidad): un nombre cuenta 9; «nombre 5» (una magnitud, D-VALOR), su presión; «cualquiera» abre a todos. Cada entrada es una hoja: una lista BTML no lleva décuplas",
-        "El peso de un compromiso con X: su presión ÷ 9 × lo comprometido ÷ el P de su titular en el dominio de X; 0 si no es P o si su P no está en ese dominio",
+        "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+        "Encargo 3b-bis: la presión es la del ORIGEN del P comprometido (quien lo obtuvo), lo comprometa quien lo comprometa: el P delegado cuenta como de quien lo obtuvo, y una identidad sin obtención propia no pesa por sí misma",
+        "Recuento con nombres (sin «cualquiera» en el 2.3): presión ÷ 9 × lo comprometido ÷ el P de su origen en el dominio de X (su reparto, por origen: A.2.6)",
+        "Recuento abierto («cualquiera» en el 2.3): presión ÷ 9 × lo comprometido, por cantidad, nunca por reparto ni por cabeza: dos compradores con una plaza cada uno pesan lo mismo que uno con dos. «Uno por persona» no existe como plantilla: exige identidad de fuera (AARPIA)",
+        "0 si no es P o si su P no está en el dominio de X",
         "Se materializa en X.2.4.8: en cada compromiso con X, frente a otros"
       ],
       [
@@ -4193,7 +4213,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after share"
       ],
       [
-        "weight: pressure ÷ 9 × the committed P ÷ the P of its holder in the domain of the decision"
+        "weight: pressure of its origin ÷ 9 × the committed P, ÷ the P of its origin in the domain of the decision unless anyone counts"
       ]
     ]
   },
@@ -4367,7 +4387,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "38839d8c2de5bda7455f942b80e1126125e4e1136942ec795c7d8a4d2ea42cd1";
+export const EPOCA_0_BTML_ID = "1a57fdf6a1ad6be9451dbd49b765c41ad2e65adbac0eed11969b0a51f409941c";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

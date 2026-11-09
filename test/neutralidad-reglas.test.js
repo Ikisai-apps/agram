@@ -224,12 +224,12 @@ test('R9 sin clave no se mueve ni se compromete P; en demostración, sí (como a
   await assert.rejects(eje.escribir({ autor: 'muda', sobre: plaza.id, t: T0, payload: 'x', movimientos: [minuto('muda')] }), /without a key nobody acts: muda has no key/);
   const c = await motor.consolidar(eje, { autor: 'ana', foco: plaza.id, t: T0, elecciones: { 1: 'algo' } }, ka.privada);
   // Tiene P y no tiene clave: no se compromete con la propuesta de ana.
-  const comprometo = { autor: 'muda', sobre: c.id, t: T0, payload: 'sí', movimientos: [minuto('muda'), { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'muda', a: 'muda', estado: 'bloqueo', salida: c.id }] };
+  const comprometo = { autor: 'muda', sobre: c.id, t: T0, payload: 'sí', movimientos: [minuto('muda'), { token: 'P', ambito: eje.genesisId, origen: 'g', cantidad: 1, de: 'muda', a: 'muda', estado: 'bloqueo', salida: c.id }] };
   await assert.rejects(eje.escribir(comprometo), /without a key nobody acts: muda has no key/);
-  assert.equal(eje.bloqueado('muda', 'P:' + eje.genesisId, c.id), 0);
+  assert.equal(eje.bloqueado('muda', 'P:' + eje.genesisId + '/g', c.id), 0);
   // g, con clave, sí.
   await eje.escribir({ ...comprometo, autor: 'g', movimientos: [minuto('g'), { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'g', a: 'g', estado: 'bloqueo', salida: c.id }] }, kg.privada);
-  assert.equal(eje.bloqueado('g', 'P:' + eje.genesisId, c.id), 1);
+  assert.equal(eje.bloqueado('g', 'P:' + eje.genesisId + '/g', c.id), 1);
   // La capa 3 de un registro escrito a mano por la muda: falla.
   const aMano = await crearEvento({ autor: 'muda', sobre: plaza.id, t: T0, payload: 'x', movimientos: [minuto('muda')] });
   assert.match((await validez(eje, aMano)).capas[2].motivos.map((m) => m.texto ?? m).join(' '), /without a key nobody acts: muda has no key/);

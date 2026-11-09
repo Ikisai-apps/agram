@@ -294,7 +294,7 @@ test('en Booking: la casa acepta como pago la R de las dos secretarias; quien se
   // Las asociaciones son registros (VG, 8-11): su R es la de su secretaria, sin colateral; la secretaria obtuvo P al escribirla.
   assert.equal(eje.bloqueado('secretaria-norte', 'R:secretaria-norte'), 0);
   assert.equal(eje.esPersona('vecinos-norte'), null); // un grupo es un registro, no una identidad: no tiene alta
-  assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id), 10);
+  assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id + '/secretaria-norte'), 10);
   const bql = valorEnBql(eje, reserva);
   assert.deepEqual([bql.estado, bql.texto], ['RESUELTO', '30']);
   // Recepción tiene alta y nadie en sus grupos que cobran con R: para ella, la R de la huésped vale 0.

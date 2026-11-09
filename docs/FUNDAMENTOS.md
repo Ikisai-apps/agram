@@ -57,7 +57,7 @@ Cada ocupante lleva su origen (la dirección del candidato), su destino (la dire
 
 ### Tokens según el corpus
 
-**P** (poder/criterio) va siempre posicionado en un registro (`P:<registro>`); no existe un P total, ni P sobre `genesis`, ni un P que cubra el subárbol (encargo 3b: se obtiene, se reposiciona por el árbol y pesa por dominio; abajo, «Encargo 3b»). **R** (reputación) exige emisor y no es fungible entre emisores; desde el encargo 3b pasa libremente de tenedor a tenedor sin cambiar de emisor, y devolverla a su emisor es «pedir atención». **E** por emisor y denominación. **T** por escala (ver «Series de tokens», 7-11; antes era un solo token en segundos). La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
+**P** (poder/criterio) va siempre posicionado en un registro y guarda su origen, quien lo obtuvo (`P:<registro>/<origen>`; encargo 3b-bis); no existe un P total, ni P sobre `genesis`, ni un P que cubra el subárbol (encargo 3b: se obtiene, se reposiciona por el árbol y pesa por dominio; abajo, «Encargo 3b»). **R** (reputación) exige emisor y no es fungible entre emisores; desde el encargo 3b pasa libremente de tenedor a tenedor sin cambiar de emisor, y devolverla a su emisor es «pedir atención». **E** por emisor y denominación. **T** por escala (ver «Series de tokens», 7-11; antes era un solo token en segundos). La validación de un evento simula sus movimientos sobre una vista de los saldos: si algo falla, nada cambia.
 
 ### Comparabilidad (PV8): el 8 compara ocupantes
 
@@ -121,7 +121,7 @@ Comprobación de que este documento recoge cada [D] del §12 del mapa (noche del
 |---|---|---|
 | **T** tiempo | `T:<escala>` (segundo, minuto, hora, dia, semana, ciclo, anio; pasado, futuro, inventado), sin emisor en la clave | nadie, ni el génesis: cada persona recibe cada día su asignación (VG, 8-11: ver «T como asignación diaria»; no hay T acumulable). No cruza de persona: ver «T se consume, se anota y no cruza de persona» |
 | **E** recursos | `E:<emisor>/<denominación>[@<registro>]` (`E:casa/EUR`, `E:casa/1100000000@2026-11-20@<id de la habitación>`…) | una persona, a su nombre; la denominación va ligada al emisor, como en R, y la serie al **registro del recurso** (sin él, al del emisor), con un tope compartido igual a su capacidad (R2, abajo) |
-| **P** poder/criterio | `P:<registro>` (el registro donde está posicionado) | nadie a mano (encargo 3b): se **obtiene**, diez unidades al escribir un registro propio, al conseguir E (sobre su registro) y al recibir R de su emisor (sobre su alta), y se **reposiciona** por el árbol; también se transfiere |
+| **P** poder/criterio | `P:<registro>/<origen>` (el registro donde está posicionado y quien lo obtuvo; encargo 3b-bis) | nadie a mano (encargo 3b): se **obtiene**, diez unidades al escribir un registro propio y diez por unidad al recibir E (sobre su registro) o R (sobre su alta) de su emisor, y se **reposiciona** por el árbol; también se transfiere, sin cambiar de origen |
 | **R** reputación | `R:<emisor>` | una persona, a su nombre: la declara y solo ella la amplía, con rastro visible; sin colateral (encargo 3b) |
 
 **Quién emite.** Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas**, y cada una emite **a su nombre**: nadie emite en nombre de otro (las reglas «only persons mint», «E is minted by and to its issuer» y «R is minted by its issuer»). Las **cosas** (una habitación, una plaza) son titulares: tienen clave, firman, reciben, conservan y mueven tokens, pero no emiten. Persona o cosa no se declara: se lee de quién escribió el alta (B1, arriba). El génesis lo escribe una persona, su autor, que escribe su propia alta. La emisión nace en la cartera de quien la emite (`de: null`, `a` = el emisor); para darla se mueve después, en el mismo evento si quiere. Una serie solo crece cuando su emisor emite, y lo emitido no puede llegar a infinito.
@@ -181,11 +181,11 @@ Cada movimiento es `{ token, cantidad, de, a, …campos de la serie }`. Emitir e
 
 | P poder | Quién | Cómo |
 |---|---|---|
-| obtener | quien escribe un registro (diez sobre él), quien consigue E (diez sobre el registro de la serie) y quien recibe R directamente de su emisor (diez sobre el alta del emisor) | lo acuña el libro en la misma transacción (clase `obtencion`), lo que colocan las tres reglas que escriben de la época; una sola vez por regla, titular y registro (sea cual sea la serie) (revisión de seguridad, **[X] confirmar VG**) |
+| obtener | quien escribe un registro (diez sobre él), quien recibe E de su emisor (diez por unidad sobre el registro de la serie) y quien recibe R de su emisor (diez por unidad sobre el alta del emisor) | lo acuña el libro en la misma transacción (clase `obtencion`), lo que colocan las tres reglas que escriben de la época, en la serie `P:<registro>/<origen>`: quien lo obtiene es su **origen** (encargo 3b-bis). Por cantidad, no por cabeza ni una vez por titular: repartir lo recibido entre varias identidades no da más P |
 | reposicionar | quien lo tiene | un paso por transacción: quemar P en un registro y acuñarlo en su padre (×0,1) o en un hijo (×1,1); ir a un registro ajeno es subir al ancestro común y bajar (N7) |
-| transferir (delegar) | quien lo tiene | en el registro exacto; delegar es transferir con salida: el P llega bloqueado con la decisión (mapa §15 [D] (6)) |
+| transferir (delegar) | quien lo tiene | en el registro exacto; delegar es transferir con salida: el P llega bloqueado con la decisión (mapa §15 [D] (6)). **No cambia el origen** (encargo 3b-bis): lo delegado sigue siendo de quien lo obtuvo; quien lo mueve sin ser su origen lo dice (`origen` en el movimiento) |
 | comprometer | quien lo tiene | bloquearlo con la salida = la decisión (mapa §15 [D] (5)); el recuento del dueño lo cuenta |
-| bloquear / liberar | quien lo tiene | de la clave exacta `P:<registro>`, con salida |
+| bloquear / liberar | quien lo tiene | de la clave exacta `P:<registro>/<origen>`, con salida |
 | consumir | quien lo tiene | |
 
 | E recursos | Quién | Cómo |
@@ -259,7 +259,7 @@ Lo que el 8 sitúa y compara son **cantidades**: las sumas por serie (E, P, R y 
 
 ## Neutralidad ante agrupación y división (VG, 7-11 noche)
 
-«Emitir desde dos fuentes es igual de válido que emitir el doble desde una única fuente. No da más.» Nadie gana nada por agruparse, por dividirse ni por crear identidades falsas: un padre que lleva el dinero de sus hijos no tiene más por eso (mapa §12 [D]). T queda fuera, porque es el medidor anti-spam de cada uno y por sí mismo no vale nada (VG, 7-11 noche); la neutralidad se mide en E, P y R y en todo lo que se concede a terceros (elegibilidad, ranking, cohortes, autorizaciones). El estudio, con el mapa de lo que hoy se concede por identidad, los cuatro diseños atacados, la recomendación y las preguntas para VG, está en [`docs/notas/NEUTRALIDAD_IDENTIDAD.md`](notas/NEUTRALIDAD_IDENTIDAD.md); la propiedad ejecutable, en `test/neutralidad.test.js`, con lo que hoy la viola en `skip` (NEU-01 a NEU-08). Lo que proponga la nota solo entra cuando VG lo decida.
+«Emitir desde dos fuentes es igual de válido que emitir el doble desde una única fuente. No da más.» Nadie gana nada por agruparse, por dividirse ni por crear identidades falsas: un padre que lleva el dinero de sus hijos no tiene más por eso (mapa §12 [D]). T queda fuera, porque es el medidor anti-spam de cada uno y por sí mismo no vale nada (VG, 7-11 noche); la neutralidad se mide en E, P y R y en todo lo que se concede a terceros (elegibilidad, ranking, cohortes, autorizaciones). El estudio, con el mapa de lo que hoy se concede por identidad, los cuatro diseños atacados, la recomendación y las preguntas para VG, está en [`docs/notas/NEUTRALIDAD_IDENTIDAD.md`](notas/NEUTRALIDAD_IDENTIDAD.md); la propiedad ejecutable, en `test/neutralidad.test.js`, que llevaba en `skip` lo que la violaba (NEU-01 a NEU-10); con el encargo 3b-bis (abajo: el P guarda su origen y los recuentos abiertos van por cantidad) ya no queda ninguna en `skip`. Lo que proponga la nota solo entra cuando VG lo decida.
 
 **La regla madre (VG, 7-11 noche: «Sí»).** Lo que el sistema concede o enseña a un tercero depende solo de cantidades de E, P y R, nunca de cuántas identidades, emisores, registros o escritos las llevan. De las diez reglas de la nota están en el código R2 (arriba, «E atada al recurso»), R6 (abajo, «La lente de R», con la forma del encargo 3b) y R8, R9 y R10. R3 y R5 (el P acuñado una vez y autorizar con P bloqueado) se retiraron con el encargo 3b: los sustituyen el peso por dominio y el recuento del dueño, que tampoco cuentan cabezas (abajo, «Encargo 3b», y `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §8).
 
@@ -293,11 +293,11 @@ Lo que decidió VG en el mapa (§15 y §16) y que el encargo 3b lleva al núcleo
 
 «A P le estás dando mucho peso» (VG, 8-11): P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea.
 
-- **Se obtiene** (N1, N2, N3). Tres reglas que escriben («put» en su 4; no son condiciones): «writing a record gives ten P on it» (escribir un registro propio da diez P sobre él: «crear una cosa es conseguirla; el dueño es 100 % de su dominio hasta que entra alguien»), «getting E gives ten P on its record» (conseguir E da diez sobre el registro de la serie) y «receiving R gives ten P on the root of its issuer» (recibir R directamente de su emisor da diez sobre su alta: «quien te cede atención te da voz en lo suyo»). El libro acuña lo que colocan en la misma transacción, con la clase `obtencion`, y no repite una obtención de la misma regla para el mismo titular y registro (revisión de seguridad: un ir y venir de R no acuña P sin fin; **[X] confirmar VG**). Diez es la constante de la época (`epoch.1.1.4.1`).
+- **Se obtiene** (N1, N2, N3). Tres reglas que escriben («put» en su 4; no son condiciones): «writing a record gives ten P on it» (escribir un registro propio da diez P sobre él: «crear una cosa es conseguirla; el dueño es 100 % de su dominio hasta que entra alguien»), «getting E gives ten P on its record» (conseguir E de su emisor da diez por unidad sobre el registro de la serie) y «receiving R gives ten P on the root of its issuer» (recibir R directamente de su emisor da diez por unidad sobre su alta: «quien te cede atención te da voz en lo suyo»). El libro acuña lo que colocan en la misma transacción, con la clase `obtencion`, en la serie de su origen. Diez es la constante de la época (`epoch.1.1.4.1`). El 3b daba una obtención por regla, titular y registro; el 3b-bis la hace por cantidad (abajo).
 - **Se reposiciona** (VG, 8-11, (2) y N7): por el árbol, un paso por transacción; subir a su padre deja una décima (pierde el 90 %) y bajar a un hijo añade una décima (10 → 1 → 1,1). Ir a un registro ajeno es subir al ancestro común y bajar; el coste es la distancia. Nadie acuña P a mano («P is repositioned one step at a time»).
-- **Pesa por dominio** (VG, 8-11, (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)». El dominio de un registro es lo que cuelga del registro más alto de su hilo escrito por su dueño; peso = P de A en X ÷ P de A en el dominio de X (la lectura «share», en `A.2.1.8`). No cambia al dividir o fundir identidades (`docs/notas/NEUTRALIDAD_IDENTIDAD.md` §8).
-- **Se cuenta según el PV2 del dueño** (VG, 8-11, (4) y N4): a quién cuenta y con qué presión lo dice su criterio (el 2.3 de la decisión: un nombre cuenta 9; «nombre 5», su presión; «cualquiera» abre a todos). Por defecto solo cuenta el dueño. El peso de un compromiso es su presión ÷ 9 × el P comprometido ÷ el P de su titular en el dominio (la lectura «weight», en `X.2.4.8`). Las plantillas de recuento son de la época (`epoch.9.0.0`): suma ponderada, media ponderada y umbral (la fracción del P del dominio comprometido); la decisión pasa si el valor supera el umbral que dice su criterio («above x»; si no dice nada, 0). `motor.recuento` y `motor.peso` lo leen.
-- **Comprometer y delegar** (VG, 8-11, (5) y (6)): comprometer P con una decisión es bloquearlo con la salida = la decisión; delegar es una transferencia con salida: el P llega bloqueado con esa decisión.
+- **Pesa por dominio** (VG, 8-11, (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)». El dominio de un registro es lo que cuelga del registro más alto de su hilo escrito por su dueño. Desde el 3b-bis, el 100 % es el P de SU origen, esté en la mano que esté: peso = P que obtuvo A en X ÷ P que obtuvo A en el dominio de X (la lectura «share», en `A.2.6.8`). No cambia al dividir o fundir identidades (`docs/notas/NEUTRALIDAD_IDENTIDAD.md` §8).
+- **Se cuenta según el PV2 del dueño** (VG, 8-11, (4) y N4): a quién cuenta y con qué presión lo dice su criterio (el 2.3 de la decisión: un nombre cuenta 9; «nombre 5», su presión; «cualquiera» abre a todos). Por defecto solo cuenta el dueño. Cuenta el P por su origen (3b-bis): la presión es la de quien lo obtuvo y, con nombres, el peso de un compromiso es su presión ÷ 9 × el P comprometido ÷ el P de su origen en el dominio; con «cualquiera», presión ÷ 9 × el P comprometido (la lectura «weight», en `X.2.4.8`). Las plantillas de recuento son de la época (`epoch.9.0.0`): suma ponderada, media ponderada y umbral (la fracción del P del dominio comprometido); la decisión pasa si el valor supera el umbral que dice su criterio («above x»; si no dice nada, 0). `motor.recuento` y `motor.peso` lo leen.
+- **Comprometer y delegar** (VG, 8-11, (5) y (6)): comprometer P con una decisión es bloquearlo con la salida = la decisión; delegar es una transferencia con salida: el P llega bloqueado con esa decisión y sigue siendo de quien lo obtuvo (3b-bis).
 - **Tomar prestados criterios** (la lente de criterios): las personas que A nombra en el 2.3 de su alta (A.2.3); lo que anclan otros ahí no cuenta.
 - **Desaparece** (mapa §15 [D]): «el autor de X acuña P:X» (R3), el P del génesis sobre todo el eje, la consolidación que amplía P, el estrechamiento y `src/autorizacion.js` entero, con el poder para autorizar.
 
@@ -340,5 +340,40 @@ VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «4 aceptar = 
 - El umbral por defecto del recuento (0) y la forma «above x»; las presiones como «nombre k»; dónde guarda una decisión sus compromisos (X.2.4).
 - La obligación en A.8.1; los grupos de atención en 3.k.2 y 3.k.3 del alta; el precio del equipo y los «cuánto» de cada zona (hoy, 1).
 - Que la invitación guarde su regalo con un bloqueo y la aceptación lo recoja; el literal «invitation» en inglés.
-- La obtención: también para cosas, una vez por regla, titular y registro (sea cual sea la serie) (no por unidad), sin exigir R (la exigencia N3 «P exige R» se lee como la secuencia de obtención); qué completa el tutorial.
+- La obtención: también para cosas, sin exigir R (la exigencia N3 «P exige R» se lee como la secuencia de obtención); qué completa el tutorial. Por cantidad desde el 3b-bis (abajo).
 - El criterio de atención de cada uno (hoy, el de la época: «attended»).
+
+## Encargo 3b-bis: el P guarda su origen; los recuentos abiertos pesan por cantidad (VG, 10-11)
+
+VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»: «me parece bien tu planteamiento»). Cierra NEU-09 y NEU-10 (`docs/notas/NEUTRALIDAD_IDENTIDAD.md` §8): **«emitir desde dos fuentes vale lo mismo que desde una»**. Pruebas: `test/neutralidad.test.js` (NEU-09, NEU-10, el títere y la propiedad) y `test/reglas-3b.test.js`.
+
+### El origen
+
+- **El P lleva siempre quién lo obtuvo, como la R lleva su emisor.** La serie de P es `P:<registro>/<origen>` (`SERIE.P = ['ambito', 'origen']`, `src/tokens.js`): al escribir un registro, conseguir E o recibir R, quien lo obtiene es su origen.
+- **Delegar no cambia el origen.** Transferir P (con o sin salida) deja usarlo en una decisión, pero sigue contando como de quien lo obtuvo: el delegado tiene en su cartera P de origen A. Reposicionarlo (×0,1 arriba, ×1,1 abajo) tampoco lo cambia: lo que se quema y lo que se acuña son del mismo origen («P is repositioned one step at a time»).
+- **Mover P de otro origen se dice.** El movimiento lleva `origen`; sin él, el P es el de quien lo mueve (o, al acuñarlo, el de quien lo recibe), que es como se leen los movimientos escritos antes. Lo guardado no se migra: las claves se derivan al revalidar (`src/persistencia.js`).
+- **El títere solo tiene P propio si lo obtuvo él** (E comprada a su emisor, registro escrito, R recibida de su emisor). Mover P a un títere no crea otro 100 %.
+
+### Las vistas
+
+- `A.2.1`, el P posicionado de A, va por registro (lo que tiene, de todos los orígenes) y enseña los orígenes en su 6 (`A.2.1.(r).6`: uno por origen, que vale su nombre; 0 la serie, 1 cuánto, 2 lo bloqueado, 3 el origen, 4 lo disponible).
+- `A.2.6` es **el P de su origen**: lo que obtuvo A, esté en la mano que esté, una entrada por registro (0 el registro, 1 cuánto en todas las manos, 3 en qué manos, 6 el origen). Su 8 es **el reparto** («share»): el 100 % de A por dominio, sobre el P de su origen. `motor.peso(eje, A, X)` lo lee.
+
+### Los recuentos
+
+- **Por origen.** Cada compromiso con una decisión cuenta como de quien obtuvo el P, lo comprometa quien lo comprometa: su presión es la del origen.
+- **Con nombres** (el 2.3 nombra personas, con o sin presión): por reparto (el 100 % de cada origen por dominio) × presión, como en el 3b. El P delegado cuenta para quien lo obtuvo; nombrar a un delegado sin P propio no le da peso.
+- **Abiertos** (con «cualquiera» en el 2.3): por **cantidad** de P obtenido sobre X (las sumas de P de cada origen), nunca por reparto ni por cabeza; comprometido o no según la plantilla: la suma ponderada y la media ponderada miden lo comprometido (la media, frente a todo el P del dominio), el umbral la fracción del P del dominio comprometida. Dos compradores con una plaza cada uno pesan lo mismo que uno con dos.
+- **«Uno por persona» no existe como plantilla**: contar cabezas exige identidad de fuera (AARPIA, Bitcoin). Si un criterio lo pide, `motor.recuento` no cuenta y da el motivo que dice la época (`epoch.9.0.0.5`).
+
+### La obtención, por cantidad
+
+Para que dividir no dé más, la obtención va por cantidad: diez P por unidad de E o de R que llega **de su emisor** (lo que pasa de tenedor a tenedor no da P, como ya pasaba con la R), sin el «una vez por regla, titular y registro» del 3b, que daba más P al repartir lo comprado entre varias identidades. Escribir un registro sigue dando diez sobre él.
+
+### Para decidir VG
+
+- **La presión es la del origen** (el delegado no necesita estar nombrado; nombrar a un delegado sin P propio no le da peso). La alternativa, la del titular, haría que la delegación del vecino solo contara si el dueño nombra al delegado.
+- **La obtención por E solo del emisor** (la reventa ya no da P) y **por unidad**, sin la no repetición del 3b: un ir y venir con el emisor da P cada vez que la unidad sale de él, como emitir unidades nuevas, que el emisor también puede.
+- **Emitir y respaldar E con P delegado** sigue valiendo (el grupo es un registro cuyo autor delega su P: «lo único que tenemos de grupo es la delegación»). Con la obtención por unidad, quien tiene P delegado sobre un registro puede emitir E atada a él y dar P propio a quien la reciba; ¿se exige P de origen propio para emitir?
+- **Con nombres y «cualquiera» a la vez**, el recuento es abierto (por cantidad) y los nombres solo cambian su presión.
+- **La media ponderada abierta** se mide frente a todo el P del dominio (no por cabeza).

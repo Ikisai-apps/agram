@@ -6,7 +6,7 @@
 //   familia: clave de serie              : quién la emite
 //   T  tiempo:      T:<escala>           : nadie lo emite: cada persona recibe su asignación diaria (VG, 8-11); el génesis, explícito; no cruza de persona (a una cosa, sí)
 //   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre; atada al registro del recurso
-//   P  poder:       P:<ambito>           : el génesis, y una persona sobre un registro que escribió ella (quien solo tiene P lo transfiere, no lo acuña)
+//   P  poder:       P:<ambito>/<origen>  : nadie lo emite: lo obtiene una identidad (su origen) al escribir un registro, conseguir E o recibir R; delegarlo no cambia el origen
 //   R  reputación:  R:<emisor>           : una persona, a su nombre
 //
 // VG, 7-11 noche: «todos son emitidos por una persona individualmente.
@@ -53,7 +53,10 @@ export const FAMILIAS = Object.freeze(['E', 'P', 'R', 'T']);
 export const SERIE = Object.freeze({
   T: Object.freeze(['escala']),
   E: Object.freeze(['emisor', 'denominacion', 'registro']),
-  P: Object.freeze(['ambito']),
+  // El P guarda su origen como la R guarda su emisor (VG, 10-11, encargo 3b-bis): quien lo obtuvo. Transferirlo
+  // (delegar) o reposicionarlo no lo cambia, así que el 100 % de cada persona por dominio se cuenta sobre el P de su
+  // origen, esté en la mano que esté.
+  P: Object.freeze(['ambito', 'origen']),
   R: Object.freeze(['emisor']),
 });
 
@@ -247,11 +250,21 @@ export function textoT(escala, cantidad) {
 }
 
 /**
+ * El origen de un movimiento de P (encargo 3b-bis): el que lleva o, si no lo dice, quien lo mueve (`de`) o, al
+ * acuñarlo, quien lo recibe (`a`): el P propio. Mover P de otro origen (el delegado que lo pasa o lo compromete)
+ * exige decirlo. Así los movimientos de P escritos antes del origen se leen igual (src/persistencia.js).
+ */
+export function origenDe(m) {
+  return m.origen ?? m.de ?? m.a;
+}
+
+/**
  * Clave de saldo: familia + ':' + su serie (T:hora, E:casa/EUR,
- * E:casa/cama@2026-11-13@<registro>, P:<ámbito>, R:<emisor>).
+ * E:casa/cama@2026-11-13@<registro>, P:<ámbito>/<origen>, R:<emisor>).
  */
 export function claveToken(m) {
   if (m.token === 'E') return 'E:' + m.emisor + '/' + m.denominacion + (m.registro === undefined ? '' : SEPARADOR_REGISTRO + m.registro);
+  if (m.token === 'P') return 'P:' + m.ambito + (origenDe(m) == null ? '' : '/' + origenDe(m));
   return m.token + ':' + (SERIE[m.token] ?? []).map((campo) => m[campo]).join('/');
 }
 
@@ -259,8 +272,9 @@ export function claveToken(m) {
  * Parte una clave de saldo en la familia, la serie y sus campos:
  * 'T:hora' → { token: 'T', serie: 'hora', escala: 'hora' };
  * 'E:casa/EUR' → { token: 'E', serie: 'casa/EUR', emisor: 'casa', denominacion: 'EUR' };
- * 'E:casa/cama@2026-11-13@<id>' → { …, denominacion: 'cama@2026-11-13', registro: '<id>' }.
- * El emisor de E no lleva '/', así que la primera '/' separa sin ambigüedad;
+ * 'E:casa/cama@2026-11-13@<id>' → { …, denominacion: 'cama@2026-11-13', registro: '<id>' };
+ * 'P:<id>/ana' → { token: 'P', serie: '<id>/ana', ambito: '<id>', origen: 'ana' }.
+ * El emisor de E y el ámbito de P no llevan '/', así que la primera '/' separa sin ambigüedad;
  * el registro es la cola '@<id>' (SEPARADOR_REGISTRO), que ninguna
  * denominación puede llevar. Sin registro, la clave no lleva el campo.
  */
@@ -269,8 +283,8 @@ export function partirClave(clave) {
   const token = clave.slice(0, i);
   const serie = clave.slice(i + 1);
   const campos = SERIE[token] ?? [];
-  if (campos.length === 1) return { token, serie, [campos[0]]: serie };
   const j = serie.indexOf('/');
+  if (campos.length === 1 || j < 0) return { token, serie, [campos[0]]: serie };
   const resto = serie.slice(j + 1);
   const cola = token === 'E' ? COLA_REGISTRO.exec(resto) : null;
   if (!cola) return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: resto };
@@ -288,7 +302,8 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
 export const RESERVADOS = Object.freeze(['__proto__', 'constructor', 'prototype']);
 
 /**
- * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor, registro, caduca, divisible y emisores (E), ambito (P), emisor (R), estado y salida }.
+ * Movimiento: { token, cantidad, de, a, escala (T), denominacion, emisor, registro, caduca, divisible y emisores (E), ambito y origen (P), emisor (R), estado y salida }.
+ * El origen de P es opcional: sin él, el de quien lo mueve o, al acuñarlo, el de quien lo recibe (origenDe).
  * de = null es emisión: nace en la cartera de quien la emite (en E y R, su
  * emisor; quién puede emitir lo dice el eje). a = null es consumo.
  * estado ('bloqueo' | 'liberacion') no cambia de titular (de = a) y exige salida.
@@ -344,6 +359,8 @@ export function validarMovimiento(m) {
   }
   if (m.token !== 'E' && m.denominacion !== undefined) errores.push('denominación solo en E');
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');
+  if (m.token === 'P' && m.origen !== undefined && !texto(m.origen)) errores.push('el origen de P es la identidad que lo obtuvo (texto)');
+  if (m.token !== 'P' && m.origen !== undefined) errores.push('origen solo en P');
   // R se transfiere libremente entre tenedores sin cambiar de emisor (VG, 9-11, mapa §15 [D] «R según el corpus»: se
   // corrige la #62, que solo dejaba devolverla) y el tenedor puede perdonarla quemándola («R, últimas dos»).
   if (m.token === 'R' && !texto(m.emisor)) errores.push('R exige emisor');
@@ -354,12 +371,12 @@ export function validarMovimiento(m) {
   if (m.token !== 'P' && m.ambito !== undefined) errores.push('ámbito solo en P');
   if (m.token !== 'R' && m.token !== 'E' && m.emisor !== undefined) errores.push('emisor solo en E y en R');
   // Los separadores de las claves de serie están reservados: ni identidades ni denominaciones los llevan.
-  for (const campo of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'escala']) {
+  for (const campo of ['de', 'a', 'emisor', 'denominacion', 'ambito', 'origen', 'escala']) {
     if (typeof m[campo] === 'string' && /[|:/]/.test(m[campo])) errores.push(campo + ' no puede llevar | : ni /');
   }
   // SEG-12: la salida y las partes de una serie son textos de fuera que indexan diccionarios; los nombres del
   // prototipo de JavaScript no valen como ninguno de ellos.
-  for (const campo of ['salida', 'emisor', 'denominacion', 'ambito']) {
+  for (const campo of ['salida', 'emisor', 'denominacion', 'ambito', 'origen']) {
     if (RESERVADOS.includes(m[campo])) errores.push(campo + ' no puede llamarse «' + m[campo] + '»: es un nombre reservado (' + RESERVADOS.join(', ') + ')');
   }
   if (m.de === undefined || m.a === undefined) errores.push('de y a son obligatorios (null permitido)');

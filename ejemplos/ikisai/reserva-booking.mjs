@@ -21,10 +21,13 @@
 // movements happened»; motor.siguiente dice a cada parte lo que le falta.
 //
 // El P (mapa §15 [D] «P como peso de criterio»): nadie lo acuña a mano. Quien
-// escribe un registro obtiene diez unidades sobre él; quien consigue E, sobre
-// su registro; quien recibe R, sobre la raíz de quien se la da. La casa tiene
-// P sobre el Alojamiento y la habitación porque los escribió; recepción, sobre
-// su propio registro, que cuelga del Alojamiento.
+// escribe un registro obtiene diez unidades sobre él; quien consigue E de su
+// emisor, diez por unidad sobre su registro; quien recibe R de su emisor, diez
+// por unidad sobre la raíz de quien se la da (encargo 3b-bis: por cantidad). La
+// casa tiene P sobre el Alojamiento y la habitación porque los escribió;
+// recepción, sobre su propio registro, que cuelga del Alojamiento; la huésped,
+// diez por noche sobre la habitación al recibir sus plazas. Cada P guarda su
+// origen (P:<registro>/<origen>): quien lo obtuvo, aunque pase a otras manos.
 //
 // La plaza (VG, 7-11, «las dos cosas a la vez»): una POSICIÓN de la
 // habitación donde las reservas colisionan (se escriben y se ven todas), y una

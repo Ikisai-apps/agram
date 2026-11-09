@@ -142,7 +142,7 @@ export function clavesDeMedidas() {
   return MEDIDAS.map((m) => m.clave);
 }
 
-/** Clave de una serie de token (claveToken): T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor>. */
+/** Clave de una serie de token (claveToken): T:<escala>, E:<emisor>/<denominación>, P:<ámbito>/<origen>, R:<emisor>. */
 const esClaveToken = (clave) => typeof clave === 'string' && (/^[TEPR]:./.test(clave) || (clave.startsWith(TIEMPO) && ESCALAS_T.includes(clave.slice(TIEMPO.length))));
 
 /** ¿Es la clave una CANTIDAD (R7): una serie de token o el T consumido sobre el registro en una escala? Lo único que el 8 sitúa y compara. */
@@ -156,7 +156,7 @@ function esMedida(clave) {
 
 /**
  * Etiqueta de una serie de token para mostrar su base. Cada serie es la suya:
- * T:<escala>, E:<emisor>/<denominación>, P:<ámbito>, R:<emisor>. Nada se
+ * T:<escala>, E:<emisor>/<denominación>, P:<ámbito>/<origen>, R:<emisor>. Nada se
  * convierte ni se suma entre series.
  */
 export function etiquetaClave(clave) {
@@ -164,7 +164,7 @@ export function etiquetaClave(clave) {
   const s = partirClave(clave);
   if (s.token === 'T') return 'T movido en ' + s.escala;
   if (s.token === 'E') return 'E movido (' + s.denominacion + ' de ' + s.emisor + ')';
-  if (s.token === 'P') return 'P movido sobre ' + (s.ambito === AMBITO_GENESIS ? 'el eje' : s.ambito.slice(0, 8));
+  if (s.token === 'P') return 'P movido sobre ' + (s.ambito === AMBITO_GENESIS ? 'el eje' : s.ambito.slice(0, 8)) + (s.origen ? ' (de ' + s.origen + ')' : '');
   if (s.token === 'R') return 'R movida de ' + s.emisor;
   return clave;
 }
@@ -277,13 +277,16 @@ export function identidadDe(eje, id) {
  * (encargo 3b, mapa §15: ya no hay P del génesis ni P que cubra lo de
  * debajo), disponible y bloqueado, sumado del diario del libro hasta el
  * evento: lo que se acuña (también la obtención) o se recibe, menos lo que se
- * da o se quema.
+ * da o se quema, de todos sus orígenes (encargo 3b-bis: el P guarda quién lo
+ * obtuvo; aquí cuenta el que tiene, sea suyo o delegado).
  * [X] decidir VG: el poder se mira al escribir la base (aquí) y no hoy.
  */
 function poderAntes(eje, identidad, registro, evId) {
   const hasta = eje.orden.indexOf(evId);
   let total = 0;
-  for (const a of eje.libro.asientos({ serie: 'P:' + registro, ...(hasta >= 0 ? { hasta } : {}) })) {
+  const prefijo = 'P:' + registro + '/';
+  for (const a of eje.libro.asientos(hasta >= 0 ? { hasta } : {})) {
+    if (typeof a.serie !== 'string' || !a.serie.startsWith(prefijo)) continue;
     if (a.primitiva === 'acunar' && a.a === identidad) total += a.cantidad;
     else if (a.primitiva === 'transferir') {
       if (a.a === identidad) total += a.cantidad;

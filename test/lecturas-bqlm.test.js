@@ -44,7 +44,7 @@ async function conR() {
 
 test('B5: las seis lecturas están en el 2 de la época, con read en su 4 y su posición en el 3; no son condiciones', () => {
   assert.deepEqual(LECTURAS.map((r) => r[0][0]), ['present', 'informative', 'attended', 'obligation', 'share', 'weight']);
-  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.1.8', 'X.2.4.8']);
+  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.6.8', 'X.2.4.8']);
   for (const r of LECTURAS) {
     assert.ok(esLectura(r));
     assert.equal(r.length, 10, 'una lectura lleva las diez posiciones, como toda regla');

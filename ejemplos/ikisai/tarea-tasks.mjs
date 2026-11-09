@@ -32,7 +32,9 @@
 //      las partidas de su tarea y ningún otro E, así que el núcleo no la deja
 //      pagar más que el coste total de la tarea.
 //   P: posicionado en registros (mapa §15): nadie lo acuña a mano; quien
-//      escribe un registro obtiene diez unidades sobre él. Aquí no decide nada.
+//      escribe un registro obtiene diez unidades sobre él, y quien recibe E o R
+//      de la casa, diez por unidad sobre su alta (el génesis); cada serie de P
+//      guarda su origen, quien lo obtuvo (encargo 3b-bis). Aquí no decide nada.
 //   R: por emisor: la de la casa (emitir E exige R propia emitida; con su R
 //      invita a la organizadora y al proveedor).
 // Emitir es solo de personas (VG, 7-11 noche): la casa es la persona que la

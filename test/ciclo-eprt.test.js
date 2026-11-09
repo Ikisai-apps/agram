@@ -202,11 +202,13 @@ test('P no se acuña a mano: escribir un registro da diez P sobre él; quien sol
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), emiteP('bea', reg.id)] }), aMano);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteP('ana', 'genesis')] }), /P moves within a known scope/);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), emiteP('ana', 'f'.repeat(64))] }), /P moves within a known scope/);
-  // Ana delega P en bea; bea transfiere el que tiene, conservando la cantidad, y no más.
+  // Ana delega P en bea; bea transfiere el que tiene, conservando la cantidad y su origen (ana), y no más.
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'bea ayuda', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] });
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 2, de: 'bea', a: 'raiz' }] }), /saldo insuficiente de P/);
-  await eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'bea delega', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'bea', a: 'raiz' }] });
-  assert.deepEqual([eje.poderSobre('raiz', reg.id), eje.poderSobre('bea', reg.id), eje.poderSobre('ana', reg.id)], [1, 0, 9]);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, origen: 'ana', cantidad: 2, de: 'bea', a: 'raiz' }] }), /saldo insuficiente de P/);
+  // Sin decir el origen, bea movería P suyo, que no tiene (encargo 3b-bis).
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'bea', a: 'raiz' }] }), /saldo insuficiente de P/);
+  await eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'bea delega', movimientos: [gasta('bea'), { token: 'P', ambito: reg.id, origen: 'ana', cantidad: 1, de: 'bea', a: 'raiz' }] });
+  assert.deepEqual([eje.poderSobre('raiz', reg.id), eje.poderSobre('bea', reg.id), eje.poderSobre('ana', reg.id), eje.poderSobre('raiz', reg.id, 'ana')], [1, 0, 9, 1]);
 });
 
 test('escalonado: emitir E exige P de quien acuña sobre el registro de la serie y R propia emitida (D2), sin colateral', async () => {
@@ -403,16 +405,16 @@ test('bloquear P: de la clave exacta, solo lo disponible y propio; bloqueado con
   // La raíz no tiene P sobre el taller de ana (ya no hay P del génesis que lo cubra).
   assert.equal(eje.poderSobre('raiz', reg.id), 0);
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('raiz'), bloqueoP('raiz', 1)] }),
-    /saldo disponible insuficiente para bloquear P:[0-9a-f]{64} en raiz/);
+    /saldo disponible insuficiente para bloquear P:[0-9a-f]{64}\/raiz en raiz/);
   // Ni más de lo que tiene, ni lo de otra.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), bloqueoP('ana', 11)] }), /saldo disponible insuficiente para bloquear/);
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('bea'), bloqueoP('ana', 1)] }), /nobody moves tokens of others/);
   // Bloqueado, el P sigue posicionado allí, pero no se da hasta liberarlo.
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'reservo mi poder', movimientos: [gasta('ana'), bloqueoP('ana', 10)] });
-  assert.deepEqual([eje.saldo('ana', 'P:' + reg.id), eje.bloqueado('ana', 'P:' + reg.id, salida), eje.poderSobre('ana', reg.id)], [0, 10, 10]);
+  assert.deepEqual([eje.saldo('ana', 'P:' + reg.id + '/ana'), eje.bloqueado('ana', 'P:' + reg.id + '/ana', salida), eje.poderSobre('ana', reg.id)], [0, 10, 10]);
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { token: 'P', ambito: reg.id, cantidad: 1, de: 'ana', a: 'bea' }] }), /saldo insuficiente de P/);
   // Liberar exige la misma salida (declarada, no verificable todavía: [X] decidir VG).
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1, 'otra'), estado: 'liberacion' }] }), /no hay 1 de P:[0-9a-f]{64} bloqueado en ana con la salida «otra»/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'x', movimientos: [gasta('ana'), { ...bloqueoP('ana', 1, 'otra'), estado: 'liberacion' }] }), /no hay 1 de P:[0-9a-f]{64}\/ana bloqueado en ana con la salida «otra»/);
   await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: 'inventario entregado', movimientos: [gasta('ana'), { ...bloqueoP('ana', 10), estado: 'liberacion' }] });
   // Comprometerse con una decisión (sobre su taller, con su criterio por defecto: solo cuenta la dueña) es bloquear con su id.
   const decision = await eje.escribir({ autor: 'ana', sobre: reg.id, t: T0, payload: '¿abro los sábados?', movimientos: [gasta('ana')] });
@@ -522,7 +524,8 @@ test('NEU-02 (revisión de la #62) alta retrofechada: cerrada, ningún evento es
 
 // VG, 8-11 (mapa §15 [D] «P como peso de criterio»): se retira autorizar con umbral (autorizacion.js), el registro del
 // recurso y la salvedad del autor. Lo que se conserva es la neutralidad: «solo cuenta el P de quien el dueño nombra,
-// ponderado por él». El títere no cuenta en lo ajeno, y lo que ana hace en lo suyo es suyo.
+// ponderado por él». El títere no cuenta en lo ajeno, y lo que ana hace en lo suyo es suyo. Encargo 3b-bis: lo que ana le
+// pasa al títere sigue siendo de origen ana: el títere lo compromete diciendo su origen, y cuenta como de ana.
 test('NEU-03 (revisión de la #62) el títere que decide: en el recuento de la raíz solo cuenta quien ella nombra', async () => {
   const { eje, alta } = await mundo();
   await conTitere(eje, alta, { minutos: 30, t: ALTA }); // un mes antes: el reloj del títere le da para escribir
@@ -533,7 +536,7 @@ test('NEU-03 (revisión de la #62) el títere que decide: en el recuento de la r
   // Una decisión de la raíz sobre sus altas, con su criterio: cuenta ella sola (por defecto) o a quien nombre.
   const decision = await eje.escribir({ autor: 'raiz', sobre: alta.id, t: T0, payload: ['¿Ampliamos?', ['x'], [['decidir'], ['x'], ['threshold'], ['raiz']]], movimientos: [gasta('raiz')] });
   for (const quien of ['ana', 'titere']) {
-    await eje.escribir({ autor: quien, sobre: decision.id, t: T0, payload: 'sí', movimientos: [gasta(quien), { token: 'P', ambito: suyo.id, cantidad: 5, de: quien, a: quien, estado: 'bloqueo', salida: decision.id }] });
+    await eje.escribir({ autor: quien, sobre: decision.id, t: T0, payload: 'sí', movimientos: [gasta(quien), { token: 'P', ambito: suyo.id, origen: 'ana', cantidad: 5, de: quien, a: quien, estado: 'bloqueo', salida: decision.id }] });
   }
   assert.deepEqual([recuento(eje, decision.id).valor, recuento(eje, decision.id).pasa], [0, false]);
   // Lo positivo: la raíz compromete su P sobre la decisión (diez, por escribirla).

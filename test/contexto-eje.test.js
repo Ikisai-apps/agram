@@ -90,7 +90,7 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
   assert.deepEqual(val('ev.1.1', ctx), [2, 4, 1, 3, 1, 1]);
   // B3: el 0 de un movimiento es su serie, un registro: su 0 es la clave legible (0.0 familia, 0.1 escala o emisor o ámbito).
   assert.deepEqual(val('ev.1.0.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
-  assert.deepEqual(evaluar('ev.1.0.0', ctx).texto, 'T:minuto, E:ana/cama@2026-11-13@' + id + ', E:ana/cama@2026-11-13@' + id + ', P:' + id + ', P:' + id + ', T:pasado', 'la clave legible vale la clave');
+  assert.deepEqual(evaluar('ev.1.0.0', ctx).texto, 'T:minuto, E:ana/cama@2026-11-13@' + id + ', E:ana/cama@2026-11-13@' + id + ', P:' + id + '/ana, P:' + id + '/ana, T:pasado', 'la clave legible vale la clave (P: registro y origen)');
   assert.deepEqual(val('ev.1.3.0', ctx), ['ana', NADIE, 'ana', 'ana', 'ana', 'ana']);
   assert.deepEqual(val('ev.1.3.1', ctx), [NADIE, 'ana', 'bea', 'ana', 'ana', NADIE]);
   assert.deepEqual(evaluar('(ev.1 where it.4 = lock) each 2', ctx).texto, 'bloqueo, la cama');
@@ -179,14 +179,18 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   // sobre su alta, sobre el génesis (la raíz de la casa: por la R recibida y por los EUR, que están atados a él) y
   // sobre la compra.
   const altaH = eje.alta('huesped').id;
-  assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['R:casa', 'P:' + altaH, 'P:' + eje.genesisId, 'E:casa/EUR', 'P:' + compra.id]);
+  assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['R:casa', 'P:' + altaH + '/huesped', 'P:' + eje.genesisId + '/huesped', 'E:casa/EUR', 'P:' + compra.id + '/huesped']);
   assert.equal(uno('("huesped").1.("E:casa/EUR").1', ctx), 48);
   assert.equal(uno('("huesped").1.("E:casa/EUR").0.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, un registro: su 0.0 es la familia');
   assert.equal(uno('("huesped").1.("E:casa/EUR").0.1.0', ctx), 500, 'y su 1.0, lo emitido');
   assert.deepEqual(val('("huesped").1.("E:casa/EUR").0.3', ctx), ['casa'], 'y su 3, quien la emite');
   // El 2 de una identidad es su criterio: 2.1 su P posicionado, una entrada por registro (0 el registro, 1 cuánto).
   assert.deepEqual(val('("huesped").2.1 each 0', ctx), [altaH, eje.genesisId, compra.id]);
-  assert.deepEqual(val('("huesped").2.1 each 1', ctx), [10, 20, 10]);
+  // Sobre el génesis, diez por la R de la invitación y diez por cada uno de los 60 EUR que le dio la casa (encargo 3b-bis: la obtención es por cantidad).
+  assert.deepEqual(val('("huesped").2.1 each 1', ctx), [10, 610, 10]);
+  // Su 6, los orígenes de lo que tiene (encargo 3b-bis): todo es suyo; y A.2.6, lo que obtuvo, esté donde esté.
+  assert.deepEqual(val('("huesped").2.1 each 6.3', ctx), ['huesped', 'huesped', 'huesped']);
+  assert.deepEqual(val('("huesped").2.6 each 0', ctx), [altaH, eje.genesisId, compra.id]);
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
