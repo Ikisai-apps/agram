@@ -50,7 +50,7 @@ import { EPOCA_0_BTML } from './epocas.js';
 import { msUTC, msDeGuardado, segundosUTC } from './instante.js';
 import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { firmar, firmarPosesion } from './autoridad.js';
-import { Libro, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
+import { Libro, EMISION, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
 import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
 import { ContextoEje } from './contexto-eje.js';
 
@@ -70,9 +70,16 @@ const INFORMATIVO = 'informativo';
 export const OBTENCION = 'obtencion';
 export const REPOSICION_P = 'reposicion';
 
+/** Diez por unidad: la constante de la obtención de la época (`epoch.1.1.4.1`), para el tope por serie. */
+const DIEZ_POR_UNIDAD = Number((EPOCA_0_BTML.registro ?? EPOCA_0_BTML.payload)?.[1]?.[1]?.[4]?.[1]?.[0]) || 10;
+
+/** Una llave de dos partes, sin JSON (como las del libro). */
+const L2 = (a, b) => String(a) + '\u0000' + String(b);
+
 export class Eje {
   #libro = new Libro(); // la capa cero: saldos, bloqueos y sumas (src/libro.js)
   #series = new Map(); // clave de serie → { emisor, contrato (E) }: qué series existen, en orden de aparición; las cantidades, del libro
+  #obtenidoDeSerie = new Map(); // regla + serie de E o R → el P que esa regla ha acuñado, de todos los orígenes, por lo recibido de esa serie (el tope por serie)
   #tiposV2; // identidad → tipo que declaró su alta en el prefijo de la versión 2 (suelo de persistencia)
   #hijosEn;
   #prefijos;
@@ -439,6 +446,40 @@ export class Eje {
     return Math.max(0, a.cantidad - this.gastadoT(identidad, escala, a.periodo));
   }
 
+  /**
+   * Lo que una identidad ha recibido de su emisor, por serie de E y de R (la vista `A.8.6`; VG, tras 3b-bis: la
+   * obtención de P es un tope acumulado, diez por unidad neta recibida del emisor): [{ serie, emisor, recibido,
+   * devuelto, neto }] por cada serie que le ha llegado alguna vez directamente de su emisor (también la que ya no tiene),
+   * en el orden en que tocó cada serie. `recibido` es lo transferido del emisor a ella; `devuelto`, lo que ella ha
+   * transferido al emisor; `neto` = recibido − devuelto (puede ser negativo si devuelve lo que compró a un tenedor).
+   * Lo que pasa entre tenedores no cuenta. Un emisor no se recibe a sí mismo.
+   */
+  recibidoDelEmisor(identidad) {
+    const claves = this.#libro.disponibles(identidad).map(([k]) => k);
+    for (const b of this.#libro.bloqueos(identidad)) if (!claves.includes(b.serie)) claves.push(b.serie);
+    const fuera = [];
+    for (const k of claves) {
+      const familia = k.slice(0, 2);
+      if (familia !== 'E:' && familia !== 'R:') continue;
+      const { emisor } = partirClave(k);
+      if (!emisor || emisor === identidad) continue;
+      const recibido = this.#libro.sumas({ primitiva: 'transferir', serie: k, de: emisor, a: identidad });
+      if (!(recibido > 0)) continue;
+      const devuelto = this.#libro.sumas({ primitiva: 'transferir', serie: k, de: identidad, a: emisor });
+      fuera.push({ serie: k, emisor, recibido, devuelto, neto: recibido - devuelto });
+    }
+    return fuera;
+  }
+
+  /**
+   * El P que la regla `regla` (su nombre) ha acuñado, de todos los orígenes, por lo recibido de la serie de E o R
+   * `serie` (el tope por serie, VG tras 3b-bis: nunca pasa de diez por unidad acuñada de esa serie; la misma unidad no
+   * da P dos veces aunque vuelva a su emisor por un tercero y salga otra vez).
+   */
+  obtenidoDeSerie(serie, regla) {
+    return this.#obtenidoDeSerie.get(L2(regla, serie)) ?? 0;
+  }
+
   /** Saldos de una familia por serie: [{ token, serie, ...campos de la serie, cantidad }] con saldo > 0. */
   #porSerie(identidad, token) {
     return this.#libro.disponibles(identidad)
@@ -699,13 +740,23 @@ export class Eje {
   /**
    * La obtención de P (encargo 3b; mapa §15, N1, N2 y N3): lo que colocan las reglas que escriben de la época
    * («put» en su 4) sobre la candidata, como acuñaciones de P de la misma transacción, después de sus movimientos.
-   * Cada colocación `put v at A.2.1.(r)` es P posicionado en el registro r para la identidad A, de origen A (encargo
-   * 3b-bis: el P guarda quién lo obtuvo): se acuña P:r/A a A, con la clase «obtencion». Lo que coloca una regla que no
-   * se resuelve no se acuña (la transacción mal formada ya la rechaza el suelo). No es código de negocio: cuánto, a
-   * quién y dónde lo dicen las reglas. La obtención no se repite (revisión de seguridad del 3b, que se mantiene): una
-   * sola por regla, titular (su origen) y registro; lo que una misma regla coloca varias veces en una transacción para
-   * el mismo titular y registro se suma en esa única obtención (por cantidad: diez por unidad, encargo 3b-bis), y si ya
-   * la hubo antes, no se acuña.
+   * Cada colocación `put v at A.2.1.(r)` es un NIVEL (un estado BTML, no un incremento): «el P obtenido por A sobre r
+   * por esta regla llega al menos a v». Es P posicionado en el registro r para la identidad A, de origen A (encargo
+   * 3b-bis: el P guarda quién lo obtuvo): se acuña P:r/A a A con la clase «obtencion», la etiqueta = el nombre de la
+   * regla y `tope: v` (la acuñación programada del libro): solo lo que falte para que lo acuñado por esa regla a A
+   * sobre r llegue a v. Si ya llegó, no se acuña nada (y no se quema nada por bajar el nivel). Varias colocaciones
+   * de la misma regla para el mismo A y r en una transacción: se queda el máximo nivel, no la suma. Es el tope
+   * acumulado que decidió VG tras el 3b-bis (en vez de una sola obtención por regla, titular y registro): dos plazas
+   * en dos transacciones dan lo mismo que en una, y una emisión de polvo solo da el P del polvo. Lo que coloca una
+   * regla que no se resuelve no se acuña (la transacción mal formada ya la rechaza el suelo). No es código de negocio:
+   * cuánto, a quién y dónde lo dicen las reglas.
+   *
+   * Un segundo tope, POR SERIE (revisión de la PR del tope acumulado): lo que una regla acuña por lo que llega de una
+   * serie de E o R (la colocación lleva en `desde` el movimiento en que se hizo, src/bqlm.js) nunca pasa, sumando
+   * todos los orígenes, de diez por unidad acuñada de esa serie (lo emitido antes más lo que la transacción acuña).
+   * Así la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez: lo que falte para
+   * el nivel se acuña solo hasta donde llegue el cupo de sus series, y el paso apunta cuánto viene de cada una
+   * (`series`), que el eje suma al asentar (obtenidoDeSerie).
    */
   #obtencion(ev) {
     const reglas = EPOCA_0_BTML.escrituras;
@@ -716,10 +767,8 @@ export class Eje {
     } catch {
       return [];
     }
-    const pasos = [];
-    // La obtención no se repite: una vez por regla, titular y registro (revisión de seguridad del 3b; un ir y venir de E
-    // o de R no acuña P sin fin). En una transacción, las colocaciones de la misma regla, titular y registro se suman.
-    const aqui = new Map();
+    // El nivel por regla, titular y registro: el máximo de lo que la regla coloca en la transacción.
+    const niveles = new Map();
     for (const regla of reglas) {
       let r;
       try {
@@ -733,14 +782,47 @@ export class Eje {
         if (typeof w.sujeto !== 'string' || !w.sujeto || typeof w.clave !== 'string' || !w.clave || !(w.valor > 0) || !Number.isFinite(w.valor)) continue;
         if (/[|:/]/.test(w.sujeto) || /[|:/]/.test(w.clave)) continue; // separadores de la clave de serie
         const etiqueta = nombreDeRegla(regla);
-        const serie = claveToken({ token: 'P', ambito: w.clave, origen: w.sujeto });
         const vez = JSON.stringify([etiqueta, w.sujeto, w.clave]);
-        if (aqui.has(vez)) { aqui.get(vez).cantidad += w.valor; continue; }
-        if (this.libro.sumas({ primitiva: 'acunar', serie, titular: w.sujeto, clase: OBTENCION, etiqueta }) > 0) continue;
-        const paso = acunar(serie, w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: etiqueta });
-        aqui.set(vez, paso);
-        pasos.push([paso]);
+        if (!niveles.has(vez)) niveles.set(vez, { etiqueta, sujeto: w.sujeto, registro: w.clave, valor: w.valor, desde: [] });
+        const nivel = niveles.get(vez);
+        if (w.valor > nivel.valor) nivel.valor = w.valor;
+        // La serie de la que viene la colocación (el movimiento del where en que se hizo), para el tope por serie.
+        const m = w.desde?.k === 'mov' ? w.desde.m : null;
+        const fuente = m && typeof m === 'object' && !validarMovimiento(m).length && m.token !== 'P' && m.token !== 'T' ? claveToken(m) : null;
+        if (fuente && !nivel.desde.includes(fuente)) nivel.desde.push(fuente);
       }
+    }
+    // El cupo de cada serie en esta transacción: diez por unidad acuñada (antes, y lo que acuña la candidata) menos lo
+    // que la regla ya acuñó por ella, de todos los orígenes; lo que se reparte aquí también se descuenta.
+    const acunadaAqui = (fuente) => (Array.isArray(ev.movimientos) ? ev.movimientos : []).reduce((s, m) => s + (m && typeof m === 'object' && m.de === null && !validarMovimiento(m).length && claveToken(m) === fuente ? cantidadBase(m) : 0), 0);
+    const usado = new Map();
+    const cupo = (etiqueta, fuente) => DIEZ_POR_UNIDAD * (this.#libro.sumas({ primitiva: 'acunar', serie: fuente, clase: EMISION }) + acunadaAqui(fuente)) - this.obtenidoDeSerie(fuente, etiqueta) - (usado.get(L2(etiqueta, fuente)) ?? 0);
+    const pasos = [];
+    for (const { etiqueta, sujeto, registro, valor, desde } of niveles.values()) {
+      const serie = claveToken({ token: 'P', ambito: registro, origen: sujeto });
+      // Lo ya acuñado por esa regla a ese titular sobre ese registro: si llega al nivel, no hay paso (ni vacío).
+      const ya = this.libro.sumas({ primitiva: 'acunar', serie, titular: sujeto, clase: OBTENCION, etiqueta });
+      if (!(valor > ya)) continue;
+      let falta = valor - ya;
+      const opciones = { clase: OBTENCION, etiqueta, regla: etiqueta };
+      if (desde.length) {
+        // El tope por serie: lo que falta se cubre con el cupo de las series de donde viene, en su orden.
+        const series = [];
+        for (const fuente of desde) {
+          const parte = Math.min(falta, Math.max(0, cupo(etiqueta, fuente)));
+          if (!(parte > 0)) continue;
+          series.push([fuente, parte]);
+          usado.set(L2(etiqueta, fuente), (usado.get(L2(etiqueta, fuente)) ?? 0) + parte);
+          falta -= parte;
+          if (!(falta > 0)) break;
+        }
+        const cubierto = series.reduce((s, [, c]) => s + c, 0);
+        if (!(cubierto > 0)) continue;
+        opciones.series = series;
+        falta = cubierto;
+      }
+      const tope = ya + falta;
+      pasos.push([acunar(serie, sujeto, tope, { ...opciones, tope })]);
     }
     return pasos;
   }
@@ -1061,8 +1143,16 @@ export class Eje {
       }
       return undefined;
     });
-    // El P obtenido (encargo 3b: lo que acuñan las reglas que escriben) también abre su serie, a nombre de su origen.
-    for (const a of asientos) if (a.clase === OBTENCION && a.primitiva === 'acunar') registrar(a.serie, a.a);
+    // El P obtenido (encargo 3b: lo que acuñan las reglas que escriben) también abre su serie, a nombre de su origen; y
+    // lo que viene de cada serie de E o R se apunta para el tope por serie (VG, tras 3b-bis).
+    for (const a of asientos) {
+      if (a.clase !== OBTENCION || a.primitiva !== 'acunar') continue;
+      registrar(a.serie, a.a);
+      for (const [serie, cantidad] of a.origen?.series ?? []) {
+        const k = L2(a.etiqueta, serie);
+        this.#obtenidoDeSerie.set(k, (this.#obtenidoDeSerie.get(k) ?? 0) + cantidad);
+      }
+    }
   }
 
 }

@@ -68,9 +68,12 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * unidad sobre el registro de la serie; quien recibe R de su emisor, diez por unidad sobre el alta del emisor (de otro
  * tenedor, nada). Encargo 3b-bis: el P guarda su origen (la serie es P:<registro>/<origen>; quien lo obtiene es su
  * origen; moverlo sin decir el origen es mover el propio; reposicionar lo conserva) y la obtención es por cantidad
- * (diez por unidad, sumando lo de la transacción) y una sola vez por regla, titular y registro (revisión de seguridad
- * del 3b). B1 (VG, 10-11): no hay tipo; persona es quien
- * escribió su propia alta, y cosa quien recibió tokens en un alta escrita por otro.
+ * (diez por unidad). VG, tras 3b-bis: la obtención es un TOPE ACUMULADO por regla, titular y registro: el P llega a
+ * diez por unidad neta de E (de las series atadas al registro) o de R recibida directamente de su emisor, lo de antes
+ * más lo de la transacción; se acuña solo la diferencia y nunca se quema por bajar el nivel. Y un tope POR SERIE: lo que
+ * una regla acuña por lo recibido de una serie, de todos los orígenes, no pasa de diez por unidad acuñada de ella (la
+ * misma unidad no da P dos veces aunque vuelva al emisor por un tercero). B1 (VG, 10-11): no hay
+ * tipo; persona es quien escribió su propia alta, y cosa quien recibió tokens en un alta escrita por otro.
  */
 
 /** Las reglas de obtención de la época (sus nombres son la etiqueta de lo que acuñan). */
@@ -90,9 +93,29 @@ class Modelo {
     for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
     this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
     for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
-    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de partida).
-    this.obtenido = new Set();
-    for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2, a.serie.lastIndexOf('/'))]));
+    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de partida): el nivel alcanzado.
+    this.obtenido = new Map();
+    for (const a of eje.libro.asientos({ clase: 'obtencion' })) {
+      const vez = JSON.stringify([a.etiqueta, a.a, a.serie.slice(2, a.serie.lastIndexOf('/'))]);
+      this.obtenido.set(vez, (this.obtenido.get(vez) ?? 0) + a.cantidad);
+    }
+    // Lo recibido de su emisor, neto, por titular y serie de E o R (VG, tras 3b-bis: la base del tope de la obtención).
+    this.neto = new Map();
+    for (const a of eje.libro.asientos({ primitiva: 'transferir' })) this.recibe(this.neto, a.serie, a.de, a.a, a.cantidad);
+    // El tope por serie: lo que cada regla ha acuñado, de todos los orígenes, por lo recibido de cada serie de E o R.
+    this.obtenidoDeSerie = new Map();
+    for (const a of eje.libro.asientos({ clase: 'obtencion' })) {
+      for (const [s, c] of a.origen?.series ?? []) this.obtenidoDeSerie.set(a.etiqueta + '\u0000' + s, (this.obtenidoDeSerie.get(a.etiqueta + '\u0000' + s) ?? 0) + c);
+    }
+  }
+  /** Anota en `neto` lo que pasa de `de` a `a` en una serie de E o R: del emisor a otro suma; de otro al emisor resta. */
+  recibe(neto, k, de, a, c) {
+    const familia = k.slice(0, 2);
+    if (familia !== 'E:' && familia !== 'R:') return;
+    const emisor = k.slice(2).split('/')[0];
+    const llave = (id) => id + '\u0000' + k;
+    if (de === emisor && a !== emisor) neto.set(llave(a), (neto.get(llave(a)) ?? 0) + c);
+    else if (a === emisor && de !== emisor) neto.set(llave(de), (neto.get(llave(de)) ?? 0) - c);
   }
   /** B1: ¿es persona? Quien escribió su propia alta. */
   persona(id) {
@@ -234,31 +257,69 @@ class Modelo {
       if (m.a !== null) { poner(m.a, k, ver(m.a, k) + m.cantidad); nuevos.add(m.a); }
     }
     // La obtención (mapa §15 N1, N2; las reglas que escriben de la época): después de los movimientos, de origen quien
-    // la obtiene y por cantidad (encargo 3b-bis).
-    // Una sola obtención por regla, titular y registro (revisión de seguridad del 3b): lo de la transacción se suma en
-    // ella; si ya la hubo antes, nada.
-    const obtenidoAqui = new Set();
-    const obtiene = (regla, id, reg, cantidad) => {
+    // la obtiene y por cantidad (encargo 3b-bis). Es un NIVEL (VG, tras 3b-bis: tope acumulado por regla, titular y
+    // registro): diez por unidad neta de E (de las series atadas al registro) o de R recibida directamente de su emisor,
+    // lo de antes más lo de esta transacción; se acuña solo lo que falte para llegar a él, y nada si ya se llegó.
+    const neto = new Map(this.neto);
+    for (const m of ev.movimientos) if (m.de !== null && m.a !== null && m.estado === undefined) this.recibe(neto, this.clave(m), m.de, m.a, m.cantidad);
+    const niveles = new Map(); // vez → { v: el nivel que coloca la regla (el máximo si coloca varias veces), desde: las series de donde viene }
+    const nivel = (regla, id, reg, v, fuente) => {
       if (!id || !reg) return;
       const vez = JSON.stringify([regla, id, reg]);
-      if (this.obtenido.has(vez)) return;
-      obtenidoAqui.add(vez);
-      const k = 'P:' + reg + '/' + id;
-      poner(id, k, ver(id, k) + cantidad);
-      nuevos.add(id);
+      if (!niveles.has(vez)) niveles.set(vez, { v: 0, desde: [] });
+      const x = niveles.get(vez);
+      x.v = Math.max(v, x.v);
+      if (fuente && !x.desde.includes(fuente)) x.desde.push(fuente);
     };
-    obtiene(OBTENCIONES[0], ev.autor, ev.id, 10);
+    nivel(OBTENCIONES[0], ev.autor, ev.id, 10);
     for (const m of ev.movimientos) {
       if (m.de === null || m.a === null || m.estado !== undefined) continue;
-      // E y R: lo que llega de su emisor a otro con alta, diez por unidad.
-      if (m.token === 'E' && m.de === m.emisor && m.a !== m.de && this.existe.has(m.a)) obtiene(OBTENCIONES[1], m.a, this.registroE(m), 10 * m.cantidad);
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor), 10 * m.cantidad);
+      if (m.token === 'E' && m.de === m.emisor && m.a !== m.de && this.existe.has(m.a)) {
+        const reg = this.registroE(m);
+        let unidades = 0;
+        for (const [llave, v] of neto) {
+          const [id, k] = llave.split('\u0000');
+          if (id === m.a && k.slice(0, 2) === 'E:' && this.alta.get(k.slice(2).split('/')[0]) === reg) unidades += v;
+        }
+        nivel(OBTENCIONES[1], m.a, reg, 10 * unidades, this.clave(m));
+      }
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) nivel(OBTENCIONES[2], m.a, this.alta.get(m.emisor), 10 * (neto.get(m.a + '\u0000R:' + m.emisor) ?? 0), 'R:' + m.emisor);
+    }
+    // El tope por serie: lo que falta para el nivel se cubre, en el orden de sus series, con el cupo de cada una (diez
+    // por unidad acuñada, con lo que acuña la transacción, menos lo que la regla ya acuñó por ella, de todos los orígenes).
+    const obtenidoAqui = new Map(); // vez → el nivel alcanzado
+    const deSerieAqui = new Map(); // regla + serie → lo acuñado aquí por ella
+    for (const [vez, { v, desde }] of niveles) {
+      const ya = this.obtenido.get(vez) ?? 0;
+      if (!(v > ya)) continue;
+      const [regla, id, reg] = JSON.parse(vez);
+      let falta = v - ya;
+      if (desde.length) {
+        let cubierto = 0;
+        for (const s of desde) {
+          const ks = regla + '\u0000' + s;
+          const cupo = 10 * (emitido.get(s) ?? 0) - (this.obtenidoDeSerie.get(ks) ?? 0) - (deSerieAqui.get(ks) ?? 0);
+          const parte = Math.min(falta - cubierto, Math.max(0, cupo));
+          if (!(parte > 0)) continue;
+          deSerieAqui.set(ks, (deSerieAqui.get(ks) ?? 0) + parte);
+          cubierto += parte;
+          if (cubierto >= falta) break;
+        }
+        falta = cubierto;
+      }
+      if (!(falta > 0)) continue;
+      const k = 'P:' + reg + '/' + id;
+      poner(id, k, ver(id, k) + falta);
+      nuevos.add(id);
+      obtenidoAqui.set(vez, ya + falta);
     }
     return () => {
       this.saldos = vista;
       this.bloqueados = vistaB;
       this.emitido = emitido;
-      for (const vez of obtenidoAqui) this.obtenido.add(vez);
+      this.neto = neto;
+      for (const [vez, v] of obtenidoAqui) this.obtenido.set(vez, v);
+      for (const [ks, c] of deSerieAqui) this.obtenidoDeSerie.set(ks, (this.obtenidoDeSerie.get(ks) ?? 0) + c);
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const id of nuevos) if (!this.existe.has(id)) { this.existe.add(id); this.alta.set(id, ev.id); }

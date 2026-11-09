@@ -29,6 +29,7 @@ function referencia(eje) {
   const altas = new Map();
   const gastadoT = new Map();
   const tiempoSobre = new Map(); // id → Map(escala → T)
+  const acunado = new Map(); // JSON [serie, titular, clase, etiqueta] → lo acuñado (para el tope de la obtención)
   const ver = (id, k) => saldos.get(id)?.get(k) ?? 0;
   const ajustar = (id, k, d) => { if (!saldos.has(id)) saldos.set(id, new Map()); saldos.get(id).set(k, ver(id, k) + d); };
   eje.orden.forEach((id, n) => {
@@ -80,10 +81,16 @@ function referencia(eje) {
       if (m.a !== null) ajustar(m.a, k, m.cantidad);
     }
     for (const x of obtenido) {
+      // La obtención es un nivel (VG, tras 3b-bis: tope acumulado): la acuñación programada del libro acuña solo lo que
+      // falte para que lo acuñado a ese titular con esa clase y etiqueta llegue al tope; si ya llegó, nada.
+      const ko = JSON.stringify([x.serie, x.a, x.clase ?? 'emision', x.etiqueta ?? null]);
+      const c = x.tope === undefined ? x.cantidad : Math.min(Math.max(0, x.tope - (acunado.get(ko) ?? 0)), x.cantidad);
+      if (!(c > 0)) continue;
+      acunado.set(ko, (acunado.get(ko) ?? 0) + c);
       if (!altas.has(x.a)) altas.set(x.a, ev.id);
-      ajustar(x.a, x.serie, x.cantidad);
+      ajustar(x.a, x.serie, c);
       const s = series.get(x.serie) ?? { emitido: 0, consumido: 0 };
-      s.emitido += x.cantidad;
+      s.emitido += c;
       series.set(x.serie, s);
     }
   });

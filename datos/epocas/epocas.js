@@ -399,10 +399,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
     },
     {
-      "ref": "e839c7ce7ede304d51be75ebfc47c7022c3736c99c6d4cfe64632a9525026729"
+      "ref": "2f32367d51e92340b3d6f0376c4a161ed0e1baaa6584e27f5e333e8a58003e70"
     },
     {
-      "ref": "6088d4440acd808447ed6580cc93bbfae8cbdbf49de71c98ae6a7995eb6b64ae"
+      "ref": "7f7a6dad924d583085a3f57d6c8fbfed8ee49407a145b6e693aca5964f543917"
     },
     {
       "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
@@ -3220,16 +3220,17 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
-    "id": "e839c7ce7ede304d51be75ebfc47c7022c3736c99c6d4cfe64632a9525026729",
+    "id": "2f32367d51e92340b3d6f0376c4a161ed0e1baaa6584e27f5e333e8a58003e70",
     "registro": [
       [
         "getting E gives ten P on its record"
       ],
       [
-        "epoch.1.1.4.1"
+        "epoch.1.1.4.1",
+        "A.8.6"
       ],
       [
-        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 * it.1 at (first it.3.1).2.1.(first it.5)) >= 0"
+        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 * (sum (((first it.3.1).8.6 where E in it2.0.0.0 and it2.0.5 = it.5) each 1) + sum ((ev.1 where E in it2.0.0.0 and transfer in it2.4 and it2.3.0 = it2.0.0.1 and it2.3.1 = it.3.1 and it2.5 = it.5) each 1)) at (first it.3.1).2.1.(first it.5)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3248,7 +3249,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "Cada transferencia de E que llega de su emisor a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
         "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «venga de quien venga»; se mantiene una sola obtención por receptor y registro (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js). Ni a uno mismo ni a quien aún no tiene alta"
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «venga de quien venga». Ni a uno mismo ni a quien aún no tiene alta",
+        "VG, tras 3b-bis: tope acumulado en vez de una sola obtención; una emisión de polvo solo da el P del polvo. Lo que coloca es un NIVEL: el P obtenido por A sobre r por esta regla llega a diez por unidad neta de E atada a r que A ha recibido directamente de su emisor (lo recibido antes, A.8.6, menos lo devuelto al emisor, más lo que llega en esta transacción); el libro acuña solo la diferencia y nunca quema por bajar el nivel. Dos plazas en dos transacciones dan lo mismo que en una",
+        "Revisión de la PR del tope acumulado: tope por serie. Lo que esta regla acuña por lo que llega de una serie de E, de todos los orígenes, no pasa de diez por unidad acuñada de esa serie (la colocación lleva en «desde» el movimiento en que se hizo; src/eje.js): la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez"
       ],
       [
         "epoch 0"
@@ -3257,7 +3260,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after writing a record gives ten P on it"
       ],
       [
-        "getting E gives ten P on its record: who receives E from its issuer gets {first epoch.1.1.4.1} P per unit on the record of its series"
+        "getting E gives ten P on its record: who receives E from its issuer holds {first epoch.1.1.4.1} P per net unit received on the record of its series"
       ]
     ]
   },
@@ -3971,16 +3974,17 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
-    "id": "6088d4440acd808447ed6580cc93bbfae8cbdbf49de71c98ae6a7995eb6b64ae",
+    "id": "7f7a6dad924d583085a3f57d6c8fbfed8ee49407a145b6e693aca5964f543917",
     "registro": [
       [
         "receiving R gives ten P on the root of its issuer"
       ],
       [
-        "epoch.1.1.4.1"
+        "epoch.1.1.4.1",
+        "A.8.6"
       ],
       [
-        "=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 * it.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"
+        "=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 * (sum (first it.3.1).8.6.(it.0).1 + sum ((ev.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0 = it.0 and it2.3.0 = it.3.0 and it2.3.1 = it.3.1) each 1)) at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3999,7 +4003,9 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
         "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Se mantiene una sola obtención por receptor y emisor (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js)"
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P",
+        "VG, tras 3b-bis: tope acumulado en vez de una sola obtención; una emisión de polvo solo da el P del polvo. Lo que coloca es un NIVEL: el P obtenido por A sobre el alta del emisor por esta regla llega a diez por unidad neta de su R que A ha recibido directamente de él (lo recibido antes, A.8.6, menos lo devuelto al emisor, más lo que llega en esta transacción); el libro acuña solo la diferencia y nunca quema por bajar el nivel. Devolver R al emisor baja el nivel (no quema P); recibirla otra vez no acuña hasta pasar el nivel ya alcanzado",
+        "Revisión de la PR del tope acumulado: tope por serie. Lo que esta regla acuña por la R de un emisor, de todos los orígenes, no pasa de diez por unidad de esa R acuñada (la colocación lleva en «desde» el movimiento en que se hizo; src/eje.js): la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez"
       ],
       [
         "epoch 0"
@@ -4008,7 +4014,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after getting E gives ten P on its record"
       ],
       [
-        "receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P per unit on the alta of its issuer"
+        "receiving R gives ten P on the root of its issuer: who receives R from its issuer holds {first epoch.1.1.4.1} P per net unit received on the alta of its issuer"
       ]
     ]
   },
@@ -4387,7 +4393,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "d8db1c6eafafab4c4764eb58e537fe39ca75f586e98f15c950100cf31f08da4b";
+export const EPOCA_0_BTML_ID = "26941a1084479b1a4cd37a794507d560778bcce143cf1b241b1681cdd7d6dc1b";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

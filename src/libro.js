@@ -110,8 +110,9 @@ const comoGrupo = (paso) => (Array.isArray(paso) ? paso : paso ? [paso] : []);
 
 /** Las llaves del índice de sumas que toca un asiento. */
 function llavesDeSuma(asiento) {
-  const { primitiva: p, serie: s, clase = null, etiqueta = null, titular = null, sobre = null } = asiento;
-  return [L('p', p, s), L('c', p, s, clase), L('e', p, s, titular, clase, etiqueta), L('r', p, s, sobre)];
+  const { primitiva: p, serie: s, clase = null, etiqueta = null, titular = null, sobre = null, de = null, a = null } = asiento;
+  // 'da': lo que ha pasado de `de` a `a` en una serie (lo que una identidad ha recibido de otra: la vista A.8.6).
+  return [L('p', p, s), L('c', p, s, clase), L('e', p, s, titular, clase, etiqueta), L('r', p, s, sobre), L('da', p, s, de, a)];
 }
 
 /** Por qué una primitiva no tiene forma (o null). Lo que no tiene forma no se simula. */
@@ -437,36 +438,41 @@ export class Libro {
    * Sumas del libro (lo que leen las bases): la cantidad de los asientos de
    * `primitiva` (por defecto, todas) en `serie`, filtrados por `registro` (el
    * ancla de su transacción), `titular` (quien recibe al acuñar; quien da en
-   * lo demás), `clase` y `etiqueta`, y por tramo de transacciones [desde,
+   * lo demás), `de` y `a` (de quién sale y a quién llega: una transferencia de
+   * `de` a `a`), `clase` y `etiqueta`, y por tramo de transacciones [desde,
    * hasta) en orden de llegada. Sin `serie`, { serie: total } de todas.
    * Sin tramo y con una combinación indexada, no recorre el diario.
    */
-  sumas({ primitiva, serie, registro, titular, clase, etiqueta, desde, hasta } = {}) {
+  sumas({ primitiva, serie, registro, titular, de, a, clase, etiqueta, desde, hasta } = {}) {
     const tramo = desde !== undefined || hasta !== undefined;
+    const sinDeA = de === undefined && a === undefined;
     if (serie !== undefined && primitiva !== undefined && !tramo) {
-      if (registro === undefined && titular === undefined && clase === undefined && etiqueta === undefined) return this.suma(L('p', primitiva, serie));
-      if (registro === undefined && titular === undefined && etiqueta === undefined) return this.suma(L('c', primitiva, serie, clase));
-      if (registro === undefined && titular !== undefined && clase !== undefined) return this.suma(L('e', primitiva, serie, titular, clase, etiqueta ?? null));
-      if (registro !== undefined && titular === undefined && clase === undefined && etiqueta === undefined) return this.suma(L('r', primitiva, serie, registro));
+      if (sinDeA && registro === undefined && titular === undefined && clase === undefined && etiqueta === undefined) return this.suma(L('p', primitiva, serie));
+      if (sinDeA && registro === undefined && titular === undefined && etiqueta === undefined) return this.suma(L('c', primitiva, serie, clase));
+      if (sinDeA && registro === undefined && titular !== undefined && clase !== undefined) return this.suma(L('e', primitiva, serie, titular, clase, etiqueta ?? null));
+      if (sinDeA && registro !== undefined && titular === undefined && clase === undefined && etiqueta === undefined) return this.suma(L('r', primitiva, serie, registro));
+      if (de !== undefined && a !== undefined && registro === undefined && titular === undefined && clase === undefined && etiqueta === undefined) return this.suma(L('da', primitiva, serie, de, a));
     }
-    const filtro = (a) => (primitiva === undefined || a.primitiva === primitiva) && (serie === undefined || a.serie === serie)
-      && (titular === undefined || a.titular === titular) && (clase === undefined || a.clase === clase)
-      && (etiqueta === undefined || a.etiqueta === etiqueta)
-      && (desde === undefined || a.n >= desde) && (hasta === undefined || a.n < hasta);
+    const filtro = (x) => (primitiva === undefined || x.primitiva === primitiva) && (serie === undefined || x.serie === serie)
+      && (titular === undefined || x.titular === titular) && (clase === undefined || x.clase === clase)
+      && (de === undefined || x.de === de) && (a === undefined || x.a === a)
+      && (etiqueta === undefined || x.etiqueta === etiqueta)
+      && (desde === undefined || x.n >= desde) && (hasta === undefined || x.n < hasta);
     const fuente = registro === undefined ? this.#diario : (this.#porSobre.get(registro) ?? []).map((i) => this.#diario[i]);
-    if (serie !== undefined) return fuente.filter(filtro).reduce((s, a) => s + a.cantidad, 0);
+    if (serie !== undefined) return fuente.filter(filtro).reduce((s, x) => s + x.cantidad, 0);
     const r = new Map(); // SEG-12: como en vista
-    for (const a of fuente) if (filtro(a)) r.set(a.serie, (r.get(a.serie) ?? 0) + a.cantidad);
+    for (const x of fuente) if (filtro(x)) r.set(x.serie, (r.get(x.serie) ?? 0) + x.cantidad);
     return Object.fromEntries(r);
   }
 
   /** Asientos del diario (copias), con los mismos filtros que sumas: [{ n, primitiva, serie, de, a, titular, cantidad, salida, clase, etiqueta, origen, tx }]. */
-  asientos({ primitiva, serie, registro, titular, clase, etiqueta, desde, hasta } = {}) {
+  asientos({ primitiva, serie, registro, titular, de, a, clase, etiqueta, desde, hasta } = {}) {
     const fuente = registro === undefined ? this.#diario : (this.#porSobre.get(registro) ?? []).map((i) => this.#diario[i]);
-    return fuente.filter((a) => (primitiva === undefined || a.primitiva === primitiva) && (serie === undefined || a.serie === serie)
-      && (titular === undefined || a.titular === titular) && (clase === undefined || a.clase === clase)
-      && (etiqueta === undefined || a.etiqueta === etiqueta)
-      && (desde === undefined || a.n >= desde) && (hasta === undefined || a.n < hasta)).map((a) => ({ ...a }));
+    return fuente.filter((x) => (primitiva === undefined || x.primitiva === primitiva) && (serie === undefined || x.serie === serie)
+      && (titular === undefined || x.titular === titular) && (clase === undefined || x.clase === clase)
+      && (de === undefined || x.de === de) && (a === undefined || x.a === a)
+      && (etiqueta === undefined || x.etiqueta === etiqueta)
+      && (desde === undefined || x.n >= desde) && (hasta === undefined || x.n < hasta)).map((x) => ({ ...x }));
   }
 
   /** Cuántas transacciones se han asentado. */

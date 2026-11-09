@@ -119,6 +119,25 @@ test('libro: sumas por serie, registro, titular y tramo, y el diario', async () 
   assert.equal(libro.longitud, 4);
 });
 
+test('libro: sumas de quién a quién (lo que una identidad ha recibido de otra en una serie: la vista A.8.6), del índice y del diario', async () => {
+  const libro = new Libro();
+  await libro.aplicar(tx([acunar('E:a/EUR', 'a', 10), acunar('R:a', 'a', 3)]));
+  await libro.aplicar(tx([transferir('E:a/EUR', 'a', 'b', 5), transferir('R:a', 'a', 'b', 2)]));
+  await libro.aplicar(tx([transferir('E:a/EUR', 'b', 'a', 1), transferir('E:a/EUR', 'b', 'c', 2)]));
+  await libro.aplicar(tx([transferir('E:a/EUR', 'a', 'b', 1)]));
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', de: 'a', a: 'b' }), 6, 'del índice');
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', de: 'b', a: 'a' }), 1);
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', de: 'b', a: 'c' }), 2);
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', de: 'c', a: 'a' }), 0);
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'R:a', de: 'a', a: 'b' }), 2);
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', de: 'a', a: 'b', desde: 2 }), 1, 'con tramo, del diario');
+  assert.equal(libro.sumas({ primitiva: 'transferir', serie: 'E:a/EUR', a: 'b' }), 6, 'solo a quién, del diario');
+  assert.deepEqual(libro.sumas({ primitiva: 'transferir', de: 'a', a: 'b' }), { 'E:a/EUR': 6, 'R:a': 2 });
+  assert.deepEqual(libro.asientos({ primitiva: 'transferir', de: 'b' }).map((x) => [x.serie, x.a, x.cantidad]), [['E:a/EUR', 'a', 1], ['E:a/EUR', 'c', 2]]);
+  // Acuñar no tiene «de»: ni cuenta como recibido de nadie.
+  assert.equal(libro.sumas({ primitiva: 'acunar', serie: 'E:a/EUR', de: 'a', a: 'a' }), 0);
+});
+
 test('libro: las cuentas nacen con la primera transacción que da algo (o con abre), y esa es su alta', async () => {
   const libro = new Libro();
   const g = tx([], { abre: ['g'], id: 'g0' });

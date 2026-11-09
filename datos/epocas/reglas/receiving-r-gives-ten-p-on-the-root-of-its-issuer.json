@@ -1,7 +1,7 @@
 [
   ["receiving R gives ten P on the root of its issuer"],
-  ["epoch.1.1.4.1"],
-  ["=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 * it.1 at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"],
+  ["epoch.1.1.4.1", "A.8.6"],
+  ["=count (ev.1 where R in it.0.0.0 and transfer in it.4 and it.3.0 = it.0.0.1 and it.3.1 != it.0.0.1 and count (first it.0.0.1).6 > 0 and put first epoch.1.1.4.1 * (sum (first it.3.1).8.6.(it.0).1 + sum ((ev.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0 = it.0 and it2.3.0 = it.3.0 and it2.3.1 = it.3.1) each 1)) at (first it.3.1).2.1.(first (first it.0.0.1).6)) >= 0"],
   ["ev.1 each 3.1"],
   ["put", "mint"],
   ["*"],
@@ -12,9 +12,11 @@
     "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
     "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
     "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-    "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Se mantiene una sola obtención por receptor y emisor (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js)"
+    "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P",
+    "VG, tras 3b-bis: tope acumulado en vez de una sola obtención; una emisión de polvo solo da el P del polvo. Lo que coloca es un NIVEL: el P obtenido por A sobre el alta del emisor por esta regla llega a diez por unidad neta de su R que A ha recibido directamente de él (lo recibido antes, A.8.6, menos lo devuelto al emisor, más lo que llega en esta transacción); el libro acuña solo la diferencia y nunca quema por bajar el nivel. Devolver R al emisor baja el nivel (no quema P); recibirla otra vez no acuña hasta pasar el nivel ya alcanzado",
+    "Revisión de la PR del tope acumulado: tope por serie. Lo que esta regla acuña por la R de un emisor, de todos los orígenes, no pasa de diez por unidad de esa R acuñada (la colocación lleva en «desde» el movimiento en que se hizo; src/eje.js): la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez"
   ],
   ["epoch 0"],
   ["after getting E gives ten P on its record"],
-  ["receiving R gives ten P on the root of its issuer: who receives R from its issuer gets {first epoch.1.1.4.1} P per unit on the alta of its issuer"]
+  ["receiving R gives ten P on the root of its issuer: who receives R from its issuer holds {first epoch.1.1.4.1} P per net unit received on the alta of its issuer"]
 ]

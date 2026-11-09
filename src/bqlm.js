@@ -538,10 +538,13 @@ function calcular(nodo, st) {
       const clave = valorDe(uno(calcular(nodo.t.expr, st), 'put: la clave', ctx), ctx);
       if (clave === undefined || esSimbolo(clave)) throw fallo('put: la clave del destino es un valor (un id o un texto)');
       paso(st, sujetos.length || 1);
+      // `desde`: el elemento del where en que se coloca (el movimiento, en las reglas que recorren ev.1), si lo hay: con
+      // él, quien asienta sabe de qué serie viene la colocación (el tope por serie de la obtención, src/eje.js).
+      const desde = st.its.filter((x) => x !== undefined).at(-1); // un where anidado ya cerrado deja su hueco en its
       for (const s of sujetos) {
         const sujeto = valorDe(s, ctx);
         if (sujeto === undefined || esSimbolo(sujeto)) continue; // nadie no recibe
-        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor });
+        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor, ...(desde !== undefined ? { desde } : {}) });
       }
       return [true];
     }
