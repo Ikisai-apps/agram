@@ -366,8 +366,10 @@ function motivosDelEje(eje, textos, ev, idioma, opciones) {
  * Construye la transacción de una plantilla sobre X (params.X: el registro) con los parámetros, para `yo`, y la
  * valida en seco: primero los parámetros con su 2 (motivos por parámetro), después la transacción entera contra las
  * reglas del eje (eje.validar: las condiciones sobre el libro de antes, sin asentar). Devuelve { ok, evento, motivos:
- * [{ regla, mensaje }] } con los mensajes en el idioma de la configuración de yo (o el que se pida). Si ok, la carta
- * lo firma y lo asienta con lo que ya existe (eje.anadir); aquí no se asienta nada. Una plantilla que solo lee
+ * [{ regla, mensaje }] } con los mensajes en el idioma de la configuración de yo (o el que se pida). Con
+ * `opciones.firmar` (async (evento) → evento firmado) la candidata se firma antes de validarse y el evento vuelve
+ * firmado (quien tiene clave firma: sin esto, una identidad con clave no pasaría la validación en seco). Si ok, la
+ * carta lo asienta con lo que ya existe (eje.anadir); aquí no se asienta nada. Una plantilla que solo lee
  * (read) devuelve ok con `lectura`; una que lanza el camino (path), el paso que lanzaría (o todos, con path all).
  */
 export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
@@ -406,6 +408,9 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   let evento;
   try {
     evento = await crearEvento({ autor: yo, sobre: prep.sobre, en: prep.en, t, movimientos, payload });
+    // Quien tiene clave firma (R9): la candidata se valida ya firmada, con lo que la carta sepa firmar (opciones.firmar,
+    // async (evento) → evento firmado); si no, una identidad con clave vería siempre «who has a key signs».
+    if (typeof opciones.firmar === 'function') evento = (await opciones.firmar(evento)) ?? evento;
   } catch (e) {
     return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
   }
@@ -590,8 +595,8 @@ export async function camino(eje, X, yo, opciones = {}) {
 }
 
 /**
- * Construye y lanza los pasos míos del camino, en orden, mientras pasen: cada uno se construye con `transaccion`, se
- * firma con `firmar(evento)` (lo que la carta sepa firmar; sin ella, el evento tal cual) y se asienta con eje.anadir.
+ * Construye y lanza los pasos míos del camino, en orden, mientras pasen: cada uno se construye y se firma con
+ * `transaccion` y `firmar(evento)` (lo que la carta sepa firmar; sin ella, el evento tal cual) y se asienta con eje.anadir.
  * Se detiene en el primero que no pasa. Devuelve { hechos: [{ paso, evento }], parado: { paso, motivos } | null }.
  */
 export async function autoejecutar(eje, X, yo, firmar, opciones = {}) {
@@ -599,11 +604,10 @@ export async function autoejecutar(eje, X, yo, firmar, opciones = {}) {
   const hechos = [];
   for (const paso of pasos) {
     if (!paso.hacer || paso.espera || paso.hecho || paso.hacer.lectura) continue;
-    const r = await transaccion(eje, paso.hacer.plantilla, { X: paso.hacer.X ?? X, ...paso.hacer.parametros }, yo, opciones);
+    const r = await transaccion(eje, paso.hacer.plantilla, { X: paso.hacer.X ?? X, ...paso.hacer.parametros }, yo, { ...opciones, firmar });
     if (!r.ok || !r.evento) return { hechos, parado: { paso, motivos: r.motivos } };
-    let evento = r.evento;
+    let evento = r.evento; // ya firmado por transaccion con `firmar`: se valida y se asienta lo mismo
     try {
-      if (typeof firmar === 'function') evento = (await firmar(evento)) ?? evento;
       evento = await eje.anadir(evento);
     } catch (e) {
       return { hechos, parado: { paso, motivos: [{ regla: null, mensaje: e.message }] } };
