@@ -26,8 +26,9 @@
 // (D-SERIE), el id de un registro del eje (el registro), una identidad con
 // alta (sus vistas) o una magnitud (D-VALOR).
 //
-// Solo usa la API pública del eje (obtener, alta, saldos, saldo, bloqueos,
-// gastadoT, series, vivo, registroDe, sobre, identidades, tMaximo, genesisId).
+// Solo usa la API pública del eje (obtener, alta, libro.vista, gastadoT,
+// series, vivo, registroDe, sobre, identidades, tMaximo, genesisId; sin libro,
+// saldos, saldo y bloqueos).
 // Lo que el libro tendría que dar y hoy se lee aparte: docs/BQLM.md §7,
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
 
@@ -303,12 +304,24 @@ export class ContextoEje {
     return [];
   }
 
-  /** La cartera de una identidad: un ocupante por serie con algo disponible o bloqueado, en el orden en que la recibió. */
+  /**
+   * La cartera de una identidad: un ocupante por serie con algo disponible o
+   * bloqueado, en el orden en que la recibió. La da el libro (libro.vista,
+   * «lo que será la posición 1 de su alta»); un eje sin libro, sus saldos.
+   */
   #cartera(a) {
+    if (typeof this.#eje.libro?.vista === 'function') {
+      return Object.entries(this.#eje.libro.vista(a)).map(([clave, { disponible, bloqueado }]) => ({ k: 'entrada', clave, disponible, bloqueado }));
+    }
     const claves = [];
     for (const [clave, n] of this.#eje.saldos?.get(a) ?? []) if (n !== 0) claves.push(clave);
     for (const b of this.#eje.bloqueos(a)) if (!claves.includes(b.clave)) claves.push(b.clave);
-    return claves.map((clave) => ({ k: 'entrada', id: a, clave }));
+    return claves.map((clave) => ({
+      k: 'entrada',
+      clave,
+      disponible: this.#eje.saldo(a, clave),
+      bloqueado: Object.fromEntries(this.#eje.bloqueos(a).filter((b) => b.clave === clave).map((b) => [b.salida, b.cantidad])),
+    }));
   }
 
   // ---------- nodos de las vistas y de los despliegues ----------
@@ -335,8 +348,8 @@ export class ContextoEje {
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];
       case 'entrada':
         if (d === 0) return [nodo.clave];
-        if (d === 1) return [this.#eje.saldo(nodo.id, nodo.clave)];
-        if (d === 2) return this.#eje.bloqueos(nodo.id).filter((b) => b.clave === nodo.clave).map((b) => ({ k: 'bloqueo', salida: b.salida, cantidad: b.cantidad }));
+        if (d === 1) return [nodo.disponible];
+        if (d === 2) return Object.entries(nodo.bloqueado).filter(([, cantidad]) => cantidad > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         return [];
       case 'bloqueo':
         return d === 0 ? [nodo.salida] : d === 1 ? [nodo.cantidad] : [];

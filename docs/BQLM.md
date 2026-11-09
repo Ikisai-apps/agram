@@ -101,7 +101,7 @@ Un texto se despliega por su forma: un instante (D-FECHA), una clave de serie (D
 
 | Posición | Qué es | De dónde sale |
 |---|---|---|
-| `A.1` | la cartera de la identidad A: un ocupante por serie con algo disponible o bloqueado; cada uno, 0 la serie, 1 lo disponible, 2 lo bloqueado, un ocupante por salida (0 la salida, 1 cuánto) | `eje.saldos`, `eje.saldo`, `eje.bloqueos` |
+| `A.1` | la cartera de la identidad A: un ocupante por serie con algo disponible o bloqueado; cada uno, 0 la serie, 1 lo disponible, 2 lo bloqueado, un ocupante por salida (0 la salida, 1 cuánto) | `eje.libro.vista` (la capa cero, `docs/notas/CAPA_CERO.md`) |
 | `A.7.e` | el T de la escala e (0-6) gastado de la asignación del día civil de `ev.6.0.3`: consumido o dado a una cosa; en las escalas informativas (7-9), nada | `eje.gastadoT` |
 | `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad | `eje.series`, `eje.vivo` |
 | `before.3` | las identidades del libro | `eje.identidades` |
@@ -140,7 +140,7 @@ La condición:
        > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0
 ```
 
-Leída: entre los movimientos de la transacción hay al menos uno que es T, se quema y sale de quien escribe; y ninguno de los movimientos de T de una escala con asignación (0 a 6) que salen de quien escribe hacia otro (una quema o un regalo a una cosa) hace que lo que sale en esa escala pase de la asignación del día de la época, menos lo ya gastado hoy, más el T explícito que tenga en su cartera. Es lo que hoy comprueban `validarForma` («escribir consume T del autor») y `reglasDelCiclo` («T del día agotado»). Una cosa no tiene asignación: lo que gasta de más lo para el saldo del eje (la aritmética de saldos, el suelo), no esta regla (§8).
+Leída: entre los movimientos de la transacción hay al menos uno que es T, se quema y sale de quien escribe; y ninguno de los movimientos de T de una escala con asignación (0 a 6) que salen de quien escribe hacia otro (una quema o un regalo a una cosa) hace que lo que sale en esa escala pase de la asignación del día de la época, menos lo ya gastado hoy, más el T explícito que tenga en su cartera. Es lo que hoy comprueban dos condiciones envueltas de la capa cero: `FORMA` (`src/condiciones/evento.js`, fila EV-2: «escribir consume T del autor») y la sección TT-4 del ciclo (`src/condiciones/ciclo.js`: «T del día agotado»); el encargo siguiente las sustituye por esta regla. Una cosa no tiene asignación: lo que gasta de más lo para el saldo del eje (la aritmética de saldos, el suelo), no esta regla (§8).
 
 `evaluarRegla(regla, contexto)` lee el 2, lo evalúa y devuelve `{ pasa, estado, motivo }`: pasa solo si da verdadero; si da falso, `motivo` es el mensaje del 9 con cada `{expresión}` rellena (`rellenar`); si queda PENDIENTE o da ERROR, no pasa y el motivo lo dice. No mira el 3, el 4 ni el 5: colgar las reglas de cada transacción es trabajo de después. La regla no está conectada al eje; `test/primera-regla.test.js` comprueba que da el mismo veredicto que `eje.validar` en cada evento de los ejemplos de la compra y de la reserva, y en eventos inválidos hechos a mano.
 
@@ -148,7 +148,7 @@ Leída: entre los movimientos de la transacción hay al menos uno que es T, se q
 
 Lo que el contexto lee hoy aparte y el libro de la capa cero tendría que dar como vista:
 
-- **La cartera de una identidad, por serie**: hoy se recorre el mapa público `eje.saldos` y se completa con `eje.bloqueos`; no hay un método que liste las series de una identidad con lo disponible y lo bloqueado.
+- **La cartera de una identidad** ya la da el libro (`libro.vista`); lo demás sale todavía de la envoltura del eje (`gastadoT`, `series`, `vivo`, `registroDe`, `sobre`).
 - **Las series atadas a un registro**: hoy `eje.series()` entero, filtrado por `registro`, y `eje.vivo` serie a serie; el libro podría indexarlas por registro.
 - **El T informativo gastado por identidad y día**: el eje lo lleva por registro (`tiempoInformativo`), no por persona y día; `A.7.e` de 7 a 9 queda vacío.
 - **La asignación de cada identidad**: el eje decide por el tipo quién tiene asignación diaria, y el contexto no lee el tipo (R10); si el libro acuña la asignación del día como una transacción, la regla leería la cartera y no necesitaría distinguir.
