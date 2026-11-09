@@ -36,7 +36,11 @@ const SITIO = Object.freeze({
   representacion: [9, 5], // 1 los formatos
 });
 /** Las posiciones de la cabecera (epoch.9.7.0). */
-const CABECERA = Object.freeze({ niveles: 1, cadena: 2, variantes: 3, tipos: 4, preferencia: 5, animados: 6, repeticion: 7, multiplo: 8 });
+const CABECERA = Object.freeze({ niveles: 1, cadena: 2, variantes: 3, tipos: 4, preferencia: 5, animados: 6, repeticion: 7, multiplo: 8, nota: 9 });
+/** Los formatos que una pieza del eje no puede traer (SEG-14): ejecutan código de quien la escribió. Las de la época y las del repositorio, sí. */
+const FORMATOS_VEDADOS_EN_EL_EJE = Object.freeze(['html']);
+/** Dónde puede estar el recurso de una pieza del eje si es una ruta relativa del repositorio (SEG-14). */
+const CARPETA_DE_ARTE = 'arte/';
 /** Las posiciones de una pieza. */
 const PIEZA = Object.freeze({ tipo: 0, medida: 1, clave: 2, variante: 3, tiempo: 4, mundos: 5, recurso: 6 });
 
@@ -46,6 +50,52 @@ const en = (raiz, camino) => camino.reduce((n, d) => (Array.isArray(n) ? n[d] : 
 const hoja = (x) => (Array.isArray(x) ? x[0] : x);
 const hojas = (x) => (x === undefined || x === null ? [] : Array.isArray(x) ? x : [x]);
 const texto = (x) => (typeof x === 'string' ? x : typeof x === 'number' ? String(x) : undefined);
+
+/**
+ * La lista blanca de orígenes de donde una pieza del eje puede traer su recurso (SEG-14): en el 9 de la cabecera, detrás
+ * de la nota, una lista de orígenes («https://host», sin ruta). Se normalizan con URL; lo que no es un origen http(s) se ignora.
+ */
+function origenesDe(posicion) {
+  const fuera = [];
+  for (const lista of hojas(posicion).filter(Array.isArray)) {
+    for (const o of lista) {
+      if (typeof o !== 'string') continue;
+      try {
+        const u = new URL(o);
+        if ((u.protocol === 'https:' || u.protocol === 'http:') && u.origin === o.replace(/\/+$/, '')) fuera.push(u.origin);
+      } catch { /* no es un origen */ }
+    }
+  }
+  return fuera;
+}
+
+/**
+ * ¿Es `recurso` aceptable en una pieza que viene del eje? Una ruta relativa dentro de `arte/` (sin «..», sin esquema, sin
+ * «//», sin barras invertidas, sin porcentajes ni caracteres de control) o una URL de uno de los orígenes de la lista
+ * blanca de la cabecera. Lo demás (otro origen, `data:`, `javascript:`, una ruta fuera de `arte/`) no.
+ */
+export function recursoAdmitido(recurso, c) {
+  if (typeof recurso !== 'string' || !recurso.length) return false;
+  if (/[\u0000-\u001f\u007f\\\s]/.test(recurso)) return false;
+  if (/^[a-z][a-z0-9+.-]*:/i.test(recurso)) {
+    try {
+      const u = new URL(recurso);
+      return (u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password && (c?.origenes ?? []).includes(u.origin);
+    } catch {
+      return false;
+    }
+  }
+  if (recurso.startsWith('/') || recurso.includes('//') || recurso.includes('%')) return false;
+  if (!recurso.startsWith(CARPETA_DE_ARTE) || recurso.length === CARPETA_DE_ARTE.length) return false;
+  return !recurso.split(/[/?#]/).some((seg) => seg === '..' || seg === '.');
+}
+
+/** ¿Admite una pieza que viene del eje? Sin formato vedado y, si trae recurso, uno acotado (recursoAdmitido). */
+function piezaDelEjeAdmitida(p, c) {
+  const formato = String(p.formato ?? p.forma ?? '').toLowerCase();
+  if (FORMATOS_VEDADOS_EN_EL_EJE.includes(formato)) return false;
+  return p.recurso === null || recursoAdmitido(p.recurso, c);
+}
 
 /**
  * Lo que la época dice de los modelos (epoch.9.7.0): los niveles de detalle, la cadena de respaldo (los nombres que
@@ -68,6 +118,7 @@ export function cabecera(opciones = {}) {
     bucle: repeticion[0] ?? null,
     fijo: repeticion[1] ?? null,
     multiplo: typeof hoja(c?.[CABECERA.multiplo]) === 'number' ? hoja(c[CABECERA.multiplo]) : null,
+    origenes: origenesDe(c?.[CABECERA.nota]),
     formatos: hojas(en(raiz, [...SITIO.representacion, 1])).filter((x) => typeof x === 'string'),
   };
 }
@@ -116,26 +167,41 @@ export function leerPieza(registro, { pv = null, cabecera: cab, ...opciones } = 
 }
 
 /**
+ * Quiénes pueden anclar piezas en un modelo del eje: su autor y a quien este delegue. PENDIENTE: el eje no tiene hoy
+ * ningún mecanismo de delegación de escritura sobre un registro (el P delegado es de tokens, no de anclar en un
+ * registro ajeno), así que solo cuenta el autor. Cuando exista, es aquí donde se suman los delegados.
+ */
+function autoresDelModelo(_eje, autor) {
+  return typeof autor === 'string' && autor ? new Set([autor]) : new Set();
+}
+
+/**
  * Las piezas de un modelo, planas y con su mundo: lo que referencian sus posiciones 1-9 (registros de la época, o del
  * eje si se da) y, si el modelo es un registro del eje (`id`), lo anclado en cada una de esas posiciones que sea una
- * pieza. Una posición que no es una lista de referencias (una hoja: «sin piezas») no tiene piezas.
+ * pieza Y lo haya escrito el autor del modelo (`autor`, por defecto el del registro `id`) o alguien en quien delegue
+ * (pendiente: el eje no tiene delegación de escritura sobre un registro, ver autoresDelModelo); las piezas ancladas por
+ * otros se ignoran sin error (quien mira adopta un modelo, no lo que le anclen). Las piezas que vienen del eje (por
+ * referencia o ancladas) pasan además por piezaDelEjeAdmitida (SEG-14: recurso acotado, sin html); las de la época, no.
+ * Una posición que no es una lista de referencias (una hoja: «sin piezas») no tiene piezas.
  */
-export function piezasDeModelo(registro, { eje = null, id = null, cabecera: cab, ...opciones } = {}) {
+export function piezasDeModelo(registro, { eje = null, id = null, autor, cabecera: cab, ...opciones } = {}) {
   const epoca = epocaDe(opciones);
   const c = cab ?? cabecera(opciones);
   const fuera = [];
+  const deLaEpoca = (ref) => epoca.registros?.has(ref);
   const alcanza = (ref) => epoca.registros?.get(ref) ?? eje?.obtener(ref)?.payload ?? null;
+  const autores = id && eje ? autoresDelModelo(eje, autor ?? eje.obtener(id)?.autor) : new Set();
   for (let pv = 1; pv < 10; pv++) {
     const posicion = registro?.[pv];
     const refs = Array.isArray(posicion) ? posicion.filter(esReferencia) : esReferencia(posicion) ? [posicion] : [];
     for (const r of refs) {
       const p = leerPieza(alcanza(r.ref), { pv, cabecera: c });
-      if (p) fuera.push({ ...p, donde: r.ref });
+      if (p && (deLaEpoca(r.ref) || piezaDelEjeAdmitida(p, c))) fuera.push({ ...p, donde: r.ref });
     }
-    if (id && eje) {
-      for (const h of eje.sobre(id, direccion([pv]))) {
+    if (autores.size) {
+      for (const h of eje.sobreDe(id, direccion([pv]), autores)) {
         const p = leerPieza(h.payload, { pv, cabecera: c });
-        if (p) fuera.push({ ...p, donde: h.id });
+        if (p && piezaDelEjeAdmitida(p, c)) fuera.push({ ...p, donde: h.id });
       }
     }
   }
@@ -179,8 +245,8 @@ function esModelo(payload, c) {
 
 /**
  * La cadena de modelos que la carta consulta, en orden (respaldo en cadena, VG): el que nombra la configuración de
- * `yo` (la preferencia cuya posición dice la cabecera: un nombre de la época, o el id o el nombre de un registro del
- * eje que sea un modelo), luego los de la cadena de la época (epoch.9.7.0.2: el animado genérico y el sobrio), sin
+ * `yo` (la preferencia cuya posición dice la cabecera: un nombre de la época o el id —{ ref } o el texto— de un registro
+ * del eje que sea un modelo: por nombre solo se resuelven los de la época), luego los de la cadena de la época (epoch.9.7.0.2: el animado genérico y el sobrio), sin
  * repetir. `yo` es la identidad o lo que devuelve contrato.yo(). Cada uno, { nombre, nivel, nota, donde, registro,
  * piezas, cabecera }.
  */
@@ -193,20 +259,15 @@ export function modelo(eje, yo, opciones = {}) {
   const descripcion = c.preferencia ? resolver(raiz, c.preferencia) : undefined;
   const etiqueta = texto(hoja(descripcion?.[0]));
   const nombrado = etiqueta ? conf[etiqueta] : undefined;
-  const nombres = [nombrado, ...c.cadena].filter((x) => typeof x === 'string' && x.length > 0);
+  const nombres = [nombrado, ...c.cadena].map((x) => (esReferencia(x) ? x.ref : x)).filter((x) => typeof x === 'string' && x.length > 0);
+  // Por nombre solo se resuelven los modelos de la época; uno del eje, por su id (SEG-14: un registro del eje que se
+  // llame «ikisai» no suplanta al de la época). Lo que no es ni lo uno ni lo otro se salta.
   const resolverNombre = (n) => {
-    const propio = deLaEpoca.find((m) => m.nombre === n);
+    const propio = deLaEpoca.find((m) => m.nombre === n || m.donde === n);
     if (propio) return propio;
-    if (!eje) return null;
-    if (RE_ID.test(n)) {
-      const ev = eje.obtener(n);
-      return ev && esModelo(ev.payload, c) ? modeloDe(ev.payload, ev.id, c, { eje, id: ev.id, ...opciones }) : null;
-    }
-    for (const id of eje.orden) {
-      const ev = eje.obtener(id);
-      if (esModelo(ev.payload, c) && hoja(ev.payload[0]) === n) return modeloDe(ev.payload, ev.id, c, { eje, id: ev.id, ...opciones });
-    }
-    return null;
+    if (!eje || !RE_ID.test(n)) return null;
+    const ev = eje.obtener(n);
+    return ev && esModelo(ev.payload, c) ? modeloDe(ev.payload, ev.id, c, { eje, id: ev.id, autor: ev.autor, ...opciones }) : null;
   };
   const vistos = new Set();
   const fuera = [];

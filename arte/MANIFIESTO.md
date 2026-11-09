@@ -46,3 +46,10 @@ npm run epocas                                     # la época lo referencia des
 ```
 
 El importador **no copia ningún archivo**: las piezas referencian las rutas del paquete tal como están en el repositorio. Desde código: `importar(indice, { carpeta })` → `{ nombre, nivel, modelo, piezas: [{ archivo, id, registro }], avisos }`; los avisos son los de `modelos.validarModelo` (lo animado sin bucle o sin fotogramas es un motivo; los fotogramas que no son múltiplo de diez, un aviso) y lo que se infirió o se omitió. Para que la carta lo use, quien mira lo nombra en su configuración (la preferencia `model`, `epoch.9.3.6`) o la época lo pone en su cadena (`epoch.9.7.0.2`).
+
+## 5. Lo que admite una pieza que viene del eje (SEG-14)
+
+Cualquiera puede publicar un modelo o piezas en un eje, pero **quien mira adopta**: su preferencia `model` nombra el modelo por **id** (`{ ref }` o el id como texto; por nombre solo se resuelven los modelos de la época, así que nadie suplanta a `ikisai`), y de un modelo del eje solo cuentan las piezas **ancladas por su autor** (la delegación está pendiente). Además, en una pieza del eje, y no en las de la época ni en las del repositorio:
+
+- el **recurso** es una ruta relativa dentro de `arte/` (sin `..`, sin esquema, sin `//`, `\` ni `%`) o una URL de un origen de la **lista blanca**, un dato de la cabecera de la época (`epoch.9.7.0.9`, detrás de la nota; hoy `https://agram.ikisai.com`). Cualquier otro recurso descarta la pieza y responde el respaldo;
+- el formato **`html`** no se admite (una pieza del eje que lo declare se descarta).

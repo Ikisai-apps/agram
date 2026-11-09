@@ -1294,7 +1294,10 @@
         ["lottie", "video"],
         ["loop", "once"],
         [10],
-        ["encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG"]
+        [
+          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
+          ["https://agram.ikisai.com"]
+        ]
       ],
       {"ref":"f1efc230b063a990fe65b111b3c631676b4bf553b7a27b49039b46ef81e24d88"},
       {"ref":"80e9512d116de0185a27155c4e32e06826757f97367b48e9ce5f0a05c5c35882"},
