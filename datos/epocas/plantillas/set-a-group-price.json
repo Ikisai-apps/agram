@@ -1,0 +1,63 @@
+[
+  ["set a group price"],
+  [
+    [
+      ["token"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["0"],
+      ["encargo 3c-2a: parámetro de «set a group price»"],
+      ["required"],
+      [1],
+      ["my R", "in what the group pays: their R, my R, E, P, open record, nothing"]
+    ],
+    [
+      ["amount"],
+      ["number"],
+      ["=it >= 0"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["encargo 3c-2a: parámetro de «set a group price»"],
+      ["required"],
+      [2],
+      [1, "how much"]
+    ],
+    [
+      ["zone"],
+      ["number"],
+      ["=it >= 0 and it <= 9"],
+      ["me"],
+      ["payload"],
+      ["-"],
+      ["encargo 3c-2a: parámetro de «set a group price»"],
+      ["required"],
+      [3],
+      [
+        0,
+        "the zone whose price is set (0 strangers … 5 vetoed): where the record anchors, 3.<zone>.2 of my alta"
+      ]
+    ]
+  ],
+  ["=first it.5 = first me.6"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ]
+  ],
+  ["3.{zone}.2", "=first me.6"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Solo sobre mi propia alta (X es mi alta): el registro [[en qué], [cuánto]] anclado en el 3.k.2 corrige el precio del grupo k (A.3.k.2: manda el último); el parámetro zone no va en el registro («-»), va en el ancla"
+  ],
+  ["epoch 0"],
+  [3, 6],
+  ["set a group price: {me} sets the price of a group of its attention"]
+]

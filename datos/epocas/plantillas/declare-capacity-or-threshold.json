@@ -1,0 +1,96 @@
+[
+  ["declare capacity or threshold"],
+  [
+    [
+      ["tally"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1.0"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [1],
+      ["=first epoch.9.0.0.1.0.0", "the tally template (weighted sum, weighted mean, threshold)"]
+    ],
+    [
+      ["threshold"],
+      ["number"],
+      ["=it >= 0"],
+      ["me"],
+      ["payload"],
+      ["1.1"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [2],
+      ["=first epoch.9.0.0.2", "the threshold the tally has to pass"]
+    ],
+    [
+      ["capacity"],
+      ["number"],
+      ["=it > 0"],
+      ["me"],
+      ["payload"],
+      ["1.2"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [3],
+      [1, "how many fit at once"]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [4],
+      ["declare capacity or threshold", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [5],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «declare capacity or threshold»"],
+      ["required"],
+      [6],
+      ["=me", "who writes"]
+    ]
+  ],
+  ["=first it.3 = me"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ]
+  ],
+  ["2.2"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Solo el dueño de X"
+  ],
+  ["epoch 0"],
+  [2, 3],
+  ["declare capacity or threshold: {me} declares {first ev.1.0} above {first ev.1.1} and capacity {first ev.1.2} on {first it.0}"]
+]

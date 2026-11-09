@@ -1,0 +1,117 @@
+[
+  ["apply a resource"],
+  [
+    [
+      ["what"],
+      ["ref"],
+      ["=count it.5 > 0"],
+      ["me"],
+      ["payload"],
+      ["1.0"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [1],
+      ["=first it.5", "what is bought, reserved or tipped: the record (a reference to it)"]
+    ],
+    [
+      ["quantity"],
+      ["number"],
+      ["=it > 0"],
+      ["me"],
+      ["payload"],
+      ["1.1"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [2],
+      [1, "how many units"]
+    ],
+    [
+      ["price"],
+      ["tenfold"],
+      ["=first it.1 >= 0"],
+      ["me"],
+      ["payload"],
+      ["1.2"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [3],
+      [
+        "=first ((it.1 where count it2.0.2.2 > 0) each 0.2.2)",
+        "[[series or family paid with], [how much per unit]]: the price of the series of the resource (its 2.2), if it has one; otherwise it has to be given"
+      ]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [4],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [5],
+      ["=me", "=first it.3", "who gives and who receives"]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [6],
+      ["apply a resource", "the action that writes the record"]
+    ],
+    [
+      ["type"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["5"],
+      ["encargo 3c-2a: parámetro de «apply a resource»"],
+      ["required"],
+      [7],
+      ["purchase", "its template: purchase"]
+    ]
+  ],
+  ["=count (me.1 where E in it2.0.0.0 and it2.1 > 0) > 0 and first it.3 != me"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ],
+    [
+      ["=first (first ev.1.2).0"],
+      ["=first ev.1.1 * first (first ev.1.2).1"],
+      ["transfer"],
+      [["=me"], ["=first it.3"]]
+    ]
+  ],
+  ["0"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Dar E a X (propina, pagar, reservar una plaza): el precio lo lee de la serie del recurso (el 2.2 de la primera serie viva de X; VG: la orientación de una E es el token que la paga) y, sin serie, lo da quien lanza; escribe un registro de tipo «purchase» (epoch.9.2.1) anclado en X"
+  ],
+  ["epoch 0"],
+  [1, 1],
+  ["apply a resource: {me} gives {first ev.1.1 * first (first ev.1.2).1} {first (first ev.1.2).0} to {first it.3} for {first it.0}"]
+]

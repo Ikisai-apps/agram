@@ -1,0 +1,102 @@
+[
+  ["reposition P toward X"],
+  [
+    [
+      ["from"],
+      ["text"],
+      ["=count before.4.(it) > 0"],
+      ["me"],
+      ["payload"],
+      ["1.0"],
+      ["encargo 3c-2a: parámetro de «reposition P toward X»"],
+      ["required"],
+      [1],
+      [
+        "=first ((me.1 where P in it2.0.0.0 and it2.1 > 0 and count it2.0.5 = 0 and (first it2.0.0.1 in up it or first it2.0.0.1 in down it)) each 0)",
+        "the P series moved: P of mine on the parent or a child of X"
+      ]
+    ],
+    [
+      ["amount"],
+      ["number"],
+      ["=it > 0"],
+      ["me"],
+      ["payload"],
+      ["1.1"],
+      ["encargo 3c-2a: parámetro de «reposition P toward X»"],
+      ["required"],
+      [2],
+      [
+        "=first ((me.1 where P in it2.0.0.0 and it2.1 > 0 and count it2.0.5 = 0 and (first it2.0.0.1 in up it or first it2.0.0.1 in down it)) each 1)",
+        "how much P is burned there"
+      ]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["encargo 3c-2a: parámetro de «reposition P toward X»"],
+      ["required"],
+      [3],
+      ["reposition P toward X", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «reposition P toward X»"],
+      ["required"],
+      [4],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «reposition P toward X»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
+    ]
+  ],
+  ["=count (me.1 where P in it2.0.0.0 and it2.1 > 0 and count it2.0.5 = 0 and (first it2.0.0.1 in up it or first it2.0.0.1 in down it)) > 0"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ],
+    [
+      ["=first ev.1.0"],
+      ["=first ev.1.1"],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ],
+    [
+      ["P", "=first it.5", "=first (before.4.(first ev.1.0)).0.2"],
+      ["=first ev.1.1 * (count (epoch where first it.5 in up (first (before.4.(first ev.1.0)).0.1)) * first epoch.1.1.4.2 + count (epoch where first it.5 in down (first (before.4.(first ev.1.0)).0.1)) * last epoch.1.1.4.2)"],
+      ["mint"],
+      [["nobody"], ["=me"]]
+    ]
+  ],
+  ["2.1"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Un paso (N7): subir deja una décima, bajar añade una (epoch.1.1.4.2); la regla «P is repositioned one step at a time» lo comprueba"
+  ],
+  ["epoch 0"],
+  [2, 2],
+  ["reposition P toward X: {me} moves {first ev.1.1} P one step toward {first it.0}"]
+]

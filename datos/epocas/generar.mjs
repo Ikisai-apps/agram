@@ -83,6 +83,38 @@ export function reglasDe(carpeta = join(CARPETA, 'reglas')) {
   });
 }
 
+/**
+ * Las plantillas de transacción de la época (encargo 3c-2a: las acciones del aro): un registro por acción en
+ * plantillas/<su 0 en kebab>.json, con el molde de regla adaptado (0 nombre, 1 parámetros, 2 cuándo se ofrece, 3 quién
+ * la lanza, 4 lo que mueve, 5 dónde ancla, 6 procedencia, 7 época, 8 [punto de vista, orden], 9 mensaje). Su id es el
+ * hash de su cuerpo canónico, como el de una regla. El 9.6 de la época es la lista de referencias a ellas, en el
+ * orden de su 8 (por punto de vista y, dentro de cada uno, por orden; la primera de cada uno es la acción por defecto).
+ */
+export function plantillasDe(carpeta = join(CARPETA, 'plantillas')) {
+  return jsonDe(carpeta).map((archivo) => {
+    const registro = leerJSON(join(carpeta, archivo));
+    const nombre = Array.isArray(registro) && Array.isArray(registro[0]) ? registro[0][0] : undefined;
+    if (archivo !== kebab(nombre) + '.json') throw new Error('plantillas/' + archivo + ': el archivo se llama como el 0 de su plantilla en kebab (' + kebab(nombre) + '.json)');
+    return { archivo, id: idDe(registro), registro };
+  });
+}
+
+/** Las plantillas de transacción en el orden de su 8: [punto de vista, orden]. */
+export function ordenarPorAro(plantillas) {
+  const ocho = (p) => (Array.isArray(p.registro[8]) ? p.registro[8] : []).map(Number);
+  for (const p of plantillas) {
+    const [pv, n] = ocho(p);
+    if (!Number.isInteger(pv) || pv < 0 || pv > 9 || !Number.isInteger(n) || n < 1) throw new Error('plantillas: el 8 de «' + p.registro[0][0] + '» es [punto de vista, orden]');
+  }
+  const llave = (p) => ocho(p)[0] * 100 + ocho(p)[1];
+  const vistas = new Set();
+  for (const p of plantillas) {
+    if (vistas.has(llave(p))) throw new Error('plantillas: dos plantillas con el mismo 8 ' + JSON.stringify(ocho(p)));
+    vistas.add(llave(p));
+  }
+  return [...plantillas].sort((a, b) => llave(a) - llave(b));
+}
+
 /** Las correcciones de los registros de la época: [{ archivo, sobre, en, ocupante, de }], por nombre de archivo. */
 export function correccionesDe(carpeta = join(CARPETA, 'correcciones')) {
   return jsonDe(carpeta).map((archivo) => ({ archivo, ...leerJSON(join(carpeta, archivo)) }));
@@ -178,8 +210,10 @@ export function modelosDe(carpeta = join(CARPETA, MODELOS)) {
 }
 
 /**
- * La raíz de la época con su 2 = las referencias a las reglas de reglas/, en el orden de su 8, y su 9.7 = su cabecera
- * (la que hay en disco) seguida de las referencias a los modelos de modelos/, por nombre de archivo.
+ * La raíz de la época con su 2 = las referencias a las reglas de reglas/, en el orden de su 8; su 9.6 = su cabecera
+ * (la que hay en disco) y, en su 9.6.1, las referencias a las plantillas de transacción de plantillas/, en el orden de
+ * su 8 (encargo 3c-2a); y su 9.7 = su cabecera seguida de las referencias a los modelos de modelos/, por nombre de
+ * archivo (encargo 3c-2b).
  */
 export function raizConReglas(carpeta = CARPETA) {
   const raiz = leerJSON(join(carpeta, RAIZ));
@@ -188,6 +222,13 @@ export function raizConReglas(carpeta = CARPETA) {
   if (Array.isArray(nueve) && Array.isArray(nueve[7])) {
     const cabecera = Array.isArray(nueve[7][0]) ? nueve[7][0] : nueve[7];
     nueve[7] = [cabecera, ...modelosDe(join(carpeta, MODELOS)).map(({ id }) => ({ ref: id }))];
+  }
+  const plantillas = ordenarPorAro(plantillasDe(join(carpeta, 'plantillas')));
+  if (plantillas.length && Array.isArray(nueve) && Array.isArray(nueve[6])) {
+    // 9.6.0 la cabecera (la que hay en disco), 9.6.1 la lista de referencias: una posición no pasa de diez ocupantes
+    // si lleva una décupla dentro, y una lista de referencias no tiene tope.
+    const cabecera = Array.isArray(nueve[6][0]) ? nueve[6][0] : nueve[6];
+    nueve[6] = [cabecera, plantillas.map(({ id }) => ({ ref: id }))];
   }
   return [...raiz.slice(0, 2), reglas.map(({ id }) => ({ ref: id })), ...raiz.slice(3, 9), nueve];
 }
@@ -208,6 +249,9 @@ export function generar(carpeta = CARPETA) {
   }
   partes.push('// reglas/*.json: los registros de las reglas de la época, { archivo, id, registro }; el id, el hash de su cuerpo canónico');
   partes.push(`export const REGLAS_DE_EPOCA_DATOS = ${JSON.stringify(reglasDe(join(carpeta, 'reglas')), null, 2)};`);
+  partes.push('');
+  partes.push('// plantillas/*.json: las plantillas de transacción (las acciones del aro, encargo 3c-2a), { archivo, id, registro }, en el orden de su 8 (el del 9.6 de la época)');
+  partes.push(`export const PLANTILLAS_DE_EPOCA_DATOS = ${JSON.stringify(ordenarPorAro(plantillasDe(join(carpeta, 'plantillas'))), null, 2)};`);
   partes.push('');
   partes.push('// el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)');
   partes.push(`export const EPOCA_0_BTML_ID = ${JSON.stringify(idDe(raizConReglas(carpeta)))};`);
@@ -235,7 +279,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const nueva = formatear(raizConReglas()) + '\n';
   if (readFileSync(raiz, 'utf8').replace(/\r\n/g, '\n') !== nueva) {
     writeFileSync(raiz, nueva);
-    console.log('reescritos el 2 (las referencias a reglas/, en el orden de su 8) y el 9.7 (las referencias a modelos/) de ' + raiz);
+    console.log('reescritos el 2 (las referencias a reglas/, en el orden de su 8), el 9.6 (las plantillas de plantillas/, en el orden de su 8) y el 9.7 (las referencias a modelos/) de ' + raiz);
   }
   writeFileSync(SALIDA, generar());
   console.log('escrito ' + SALIDA);

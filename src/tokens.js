@@ -6,7 +6,9 @@
 //   familia: clave de serie              : quién la emite
 //   T  tiempo:      T:<escala>           : nadie lo emite: cada persona recibe su asignación diaria (VG, 8-11); el génesis, explícito; no cruza de persona (a una cosa, sí)
 //   E  recursos:    E:<emisor>/<denom.>[@<registro>] : una persona, a su nombre; atada al registro del recurso
-//   P  poder:       P:<ambito>/<origen>  : nadie lo emite: lo obtiene una identidad (su origen) al escribir un registro, conseguir E o recibir R; delegarlo no cambia el origen
+//   P  poder:       P:<ambito>/<origen>  : nadie lo emite: lo obtiene una identidad (su origen) al escribir un registro, conseguir E o recibir R; delegarlo no cambia el origen.
+//                                          El ámbito es un registro r, o una MIRADA de él, r.d (VG, tras 3b-bis: P por mirada): el P sobre r.d pesa solo en lo que
+//                                          se decide sobre la mirada d (1 su E, 2 su P, 3 su R, 4 su T, 5 su encaje); el P sobre r entero pesa en todo lo de r
 //   R  reputación:  R:<emisor>           : una persona, a su nombre
 //
 // VG, 7-11 noche: «todos son emitidos por una persona individualmente.
@@ -71,6 +73,28 @@ export const SEPARADOR_REGISTRO = '@';
 /** Forma del id de un evento: el hash SHA-256 de su cuerpo, en hexadecimal (src/evento.js). */
 const ID_EVENTO = /^[0-9a-f]{64}$/;
 const COLA_REGISTRO = /@([0-9a-f]{64})$/;
+/** El ámbito de P con mirada: «<id del registro>.<dígito>» (VG, tras 3b-bis: P por mirada). */
+const AMBITO_CON_MIRADA = /^([0-9a-f]{64})\.([0-9])$/;
+
+/**
+ * El registro de un ámbito de P: el mismo ámbito si es un registro entero, o el registro de una mirada «r.d». Lo que
+ * pesa en todo lo de r es el P sobre r; el P sobre r.d, solo en lo que se decide sobre la mirada d.
+ */
+export function raizDeAmbito(ambito) {
+  const m = typeof ambito === 'string' ? AMBITO_CON_MIRADA.exec(ambito) : null;
+  return m ? m[1] : ambito;
+}
+
+/** La mirada de un ámbito de P («r.d» → d, un dígito), o undefined si es un registro entero. */
+export function miradaDeAmbito(ambito) {
+  const m = typeof ambito === 'string' ? AMBITO_CON_MIRADA.exec(ambito) : null;
+  return m ? Number(m[2]) : undefined;
+}
+
+/** El ámbito de P de una mirada de un registro: «r.d»; sin mirada, el registro entero. */
+export function ambitoDe(registro, mirada) {
+  return mirada === undefined || mirada === null ? registro : registro + '.' + mirada;
+}
 
 /**
  * La FRANJA de una denominación de E (VG, 7-11 noche: «capacidad = serie
@@ -284,9 +308,21 @@ export function partirClave(clave) {
   const serie = clave.slice(i + 1);
   const campos = SERIE[token] ?? [];
   const j = serie.indexOf('/');
-  if (campos.length === 1 || j < 0) return { token, serie, [campos[0]]: serie };
+  if (campos.length === 1 || j < 0) {
+    if (token === 'P') {
+      const mirada = miradaDeAmbito(serie);
+      return { token, serie, ambito: serie, raiz: raizDeAmbito(serie), ...(mirada === undefined ? {} : { mirada }) };
+    }
+    return { token, serie, [campos[0]]: serie };
+  }
   const resto = serie.slice(j + 1);
   const cola = token === 'E' ? COLA_REGISTRO.exec(resto) : null;
+  // P por mirada (VG, tras 3b-bis): el ámbito «r.d» se parte en su registro (`raiz`) y su mirada; un ámbito entero no lleva mirada.
+  if (token === 'P') {
+    const ambito = serie.slice(0, j);
+    const mirada = miradaDeAmbito(ambito);
+    return { token, serie, ambito, origen: resto, raiz: raizDeAmbito(ambito), ...(mirada === undefined ? {} : { mirada }) };
+  }
   if (!cola) return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: resto };
   return { token, serie, [campos[0]]: serie.slice(0, j), [campos[1]]: resto.slice(0, cola.index), registro: cola[1] };
 }
@@ -353,9 +389,15 @@ export function validarMovimiento(m) {
       else if (m.emisores.some((x) => /[|:/]/.test(x))) errores.push('emisores no puede llevar | : ni /');
       else if (!m.emisores.includes(m.emisor)) errores.push('emisores incluye al emisor de la serie: ' + m.emisor);
     }
-    if (m.de !== null && (m.divisible !== undefined || m.emisores !== undefined)) errores.push('divisible y emisores solo en la emisión de E: son del contrato de la serie');
+    if (m.de !== null && (m.divisible !== undefined || m.emisores !== undefined || m.precio !== undefined || m.precios !== undefined)) errores.push('divisible, emisores y precio solo en la emisión de E: son del contrato de la serie');
+    // El precio de la serie (VG, tras 3b-bis: la orientación de una E es el token que la paga): el principal, `precio`
+    // = [<serie o familia con que se paga>, <cantidad por unidad>], y los aceptados, `precios`, una lista de pares.
+    const pares = [...(m.precio === undefined ? [] : [['precio', m.precio]]), ...(m.precios === undefined ? [] : Array.isArray(m.precios) ? m.precios.map((p) => ['precios', p]) : [['precios', null]])];
+    for (const [campo, par] of pares) {
+      if (!Array.isArray(par) || par.length !== 2 || !texto(par[0]) || !(Number.isFinite(par[1]) && par[1] >= 0)) errores.push(campo + ' de E es [<serie o familia con que se paga>, <cantidad por unidad>] (en precios, una lista de pares)');
+    }
   } else {
-    for (const campo of ['registro', 'divisible', 'emisores']) if (m[campo] !== undefined) errores.push(campo + ' solo en E');
+    for (const campo of ['registro', 'divisible', 'emisores', 'precio', 'precios']) if (m[campo] !== undefined) errores.push(campo + ' solo en E');
   }
   if (m.token !== 'E' && m.denominacion !== undefined) errores.push('denominación solo en E');
   if (m.token === 'P' && !texto(m.ambito)) errores.push('P exige ámbito: no hay poder total');

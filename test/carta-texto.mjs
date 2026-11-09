@@ -1,9 +1,12 @@
 // Una carta de texto (encargo 3c-1): pinta un registro X con un tamaño, SIN LÓGICA PROPIA. Solo importa el contrato
 // (src/contrato.js); todo lo que decide algo (qué puntos de vista caben, cómo se llama cada posición, en qué orden van
 // los ocupantes, qué nivel tiene el registro, qué representación cabe) lo pide al núcleo. Es la prueba de que la
-// mitad de datos del contrato basta para pintar: test/contrato.test.js comprueba sus imports y sus salidas.
+// mitad de datos del contrato basta para pintar: test/contrato.test.js comprueba sus imports y sus salidas. Con una
+// identidad que mira (encargo 3c-2a, las acciones del aro), pinta además el aro de cada punto de vista (las acciones que
+// el núcleo le da: acciones) y el camino (lo que le falta y lo que espera: camino), sin decidir nada ella.
 
 import { tamanos, representaciones, division, etiqueta, ocupantes, madurez, diario, paso } from '../src/contrato.js';
+import { acciones, camino } from '../src/acciones.js';
 
 const corto = (id) => String(id).slice(0, 8);
 
@@ -42,7 +45,30 @@ export function pintar(eje, X, tamano, opciones = {}) {
   if (tamano >= 3) {
     const d = diario(eje, X, 0, paso(opciones), opciones);
     lineas.push('  diario · ' + d.total + ' transacciones');
-    for (const e of d.entradas) lineas.push('    ' + e.t + ' · ' + e.autor + ' · ' + corto(e.id) + ' · ' + e.movimientos.map((m) => m.primitiva + ' ' + m.cantidad + ' ' + (m.serie.startsWith('P:') ? 'P:' + corto(m.serie.slice(2)) + m.serie.slice(m.serie.indexOf('/')) : m.serie)).join(', '));
+    // Una serie de P en corto: su registro (o su mirada, «r.d») y su origen.
+    for (const e of d.entradas) lineas.push('    ' + e.t + ' · ' + e.autor + ' · ' + corto(e.id) + ' · ' + e.movimientos.map((m) => m.primitiva + ' ' + m.cantidad + ' ' + (m.serie.startsWith('P:') ? 'P:' + m.serie.slice(2).replace(/^[0-9a-f]{64}/, (id) => corto(id)) : m.serie)).join(', '));
+  }
+  return lineas.join('\n');
+}
+
+/**
+ * Pinta X para quien mira (encargo 3c-2a): lo mismo que pintar y, desde la tarjeta, el aro de cada punto de vista que
+ * cabe (las acciones que el núcleo ofrece a `yo`, la primera por defecto marcada con *, y los parámetros que faltan
+ * entre corchetes) y, en la pantalla, el camino: cada paso con su fuente, si es mío o de espera, y lo que falta.
+ */
+export async function pintarPara(eje, X, tamano, yo, opciones = {}) {
+  const lineas = [pintar(eje, X, tamano, opciones)];
+  const medida = tamanos(opciones).find((t) => t.tamano === tamano);
+  if (medida.datos === 1) return lineas.join('\n');
+  const { pvs } = division(eje, X, { datos: medida.datos, forma: HUECO[tamano], ...opciones });
+  for (const pv of pvs) {
+    const lista = acciones(eje, X, pv, yo, opciones);
+    if (lista.length) lineas.push('  aro ' + pv + ' · ' + lista.map((a) => a.nombre + (a.porDefecto ? '*' : '') + (a.parametros.some((p) => p.falta) ? ' [' + a.parametros.filter((p) => p.falta).map((p) => p.nombre).join(', ') + ']' : '')).join(' · '));
+  }
+  if (tamano >= 3) {
+    const c = await camino(eje, X, yo, opciones);
+    lineas.push('  camino · ' + c.pasos.length + ' pasos' + (c.niveles ? ' · niveles: ' + c.niveles.join(', ') : ''));
+    for (const p of c.pasos) lineas.push('    ' + p.fuente + (p.espera ? ' · espera a ' + p.espera : p.hacer ? ' · ' + p.hacer.plantilla + (p.hecho ? ' (hecho)' : '') : '') + ' · ' + p.falta);
   }
   return lineas.join('\n');
 }

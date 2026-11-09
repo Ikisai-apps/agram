@@ -43,7 +43,7 @@
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
 // estudio de neutralidad): reglasDelTope, en src/condiciones/tope.js.
 
-import { claveToken, origenDe, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS } from './tokens.js';
+import { claveToken, origenDe, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, ambitoDe } from './tokens.js';
 import { acotarAltaV2, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { evaluarEscritura, nombreDeRegla } from './bqlm.js';
 import { EPOCA_0_BTML } from './epocas.js';
@@ -532,6 +532,9 @@ export class Eje {
       ...(s?.caduca ? { caduca: s.caduca } : {}),
       ...(s?.divisible ? { divisible: true } : {}),
       ...(s?.emisores ? { emisores: [...s.emisores] } : {}),
+      // El precio de la serie (VG, tras 3b-bis: la orientación de una E es el token que la paga), si lo declaró su emisión.
+      ...(s?.precio ? { precio: [...s.precio] } : {}),
+      ...(s?.precios ? { precios: s.precios.map((p) => [...p]) } : {}),
     };
   }
 
@@ -647,12 +650,16 @@ export class Eje {
    * registros»), disponible y bloqueado. Ya no hay P sobre todo el eje ni P que cubra lo de debajo: el P de un
    * registro es criterio sobre él, y llevarlo a otro es reposicionarlo (subir deja una décima, bajar añade una).
    * Suma todos los orígenes (encargo 3b-bis): el que obtuvo ella y el que le delegaron; con `origen`, solo el de ese.
+   * P por mirada (VG, tras 3b-bis): sin `mirada`, todo el P posicionado en el registro, el del registro entero y el de
+   * cada una de sus miradas («r.d»); con `mirada` = d, lo que pesa en una decisión sobre la mirada d: el P sobre r
+   * entero y el P sobre r.d (el de otras miradas no).
    */
-  poderSobre(identidad, registro, origen) {
+  poderSobre(identidad, registro, origen, mirada) {
     let total = 0;
     for (const [k, v] of Object.entries(this.#libro.vista(identidad))) {
       const p = k.startsWith('P:') ? partirClave(k) : null;
-      if (!p || p.ambito !== registro || (origen !== undefined && p.origen !== origen)) continue;
+      if (!p || p.raiz !== registro || (origen !== undefined && p.origen !== origen)) continue;
+      if (mirada !== undefined && p.mirada !== undefined && p.mirada !== mirada) continue;
       total += v.disponible + Object.values(v.bloqueado).reduce((s, x) => s + x, 0);
     }
     return total;
@@ -660,10 +667,11 @@ export class Eje {
 
   /**
    * El P de un origen (encargo 3b-bis: «el P guarda su origen»): lo que obtuvo `origen`, esté en la mano que esté,
-   * por registro, disponible y bloqueado: [{ registro, cantidad, titulares }] en el orden en que aparece cada registro.
+   * por ámbito (el registro entero, o una mirada suya «r.d»: VG, tras 3b-bis), disponible y bloqueado:
+   * [{ registro, mirada, ambito, cantidad, titulares }] en el orden en que aparece cada ámbito.
    */
   obtenidoPor(origen) {
-    const porRegistro = new Map();
+    const porAmbito = new Map();
     for (const id of this.#libro.titulares()) {
       for (const [k, v] of Object.entries(this.#libro.vista(id))) {
         if (!k.startsWith('P:')) continue;
@@ -671,13 +679,13 @@ export class Eje {
         if (p.origen !== origen) continue;
         const c = v.disponible + Object.values(v.bloqueado).reduce((s, x) => s + x, 0);
         if (!(c > 0)) continue;
-        if (!porRegistro.has(p.ambito)) porRegistro.set(p.ambito, { registro: p.ambito, cantidad: 0, titulares: [] });
-        const x = porRegistro.get(p.ambito);
+        if (!porAmbito.has(p.ambito)) porAmbito.set(p.ambito, { registro: p.raiz, ...(p.mirada === undefined ? {} : { mirada: p.mirada }), ambito: p.ambito, cantidad: 0, titulares: [] });
+        const x = porAmbito.get(p.ambito);
         x.cantidad += c;
         if (!x.titulares.includes(id)) x.titulares.push(id);
       }
     }
-    return [...porRegistro.values()];
+    return [...porAmbito.values()];
   }
 
   /** Reputación de una identidad: [{ emisor, cantidad }], no fungible. */
@@ -781,9 +789,12 @@ export class Eje {
         if (w.camino.length !== 2 || w.camino[0] !== 2 || w.camino[1] !== 1) continue; // solo A.2.1: el P posicionado
         if (typeof w.sujeto !== 'string' || !w.sujeto || typeof w.clave !== 'string' || !w.clave || !(w.valor > 0) || !Number.isFinite(w.valor)) continue;
         if (/[|:/]/.test(w.sujeto) || /[|:/]/.test(w.clave)) continue; // separadores de la clave de serie
+        // P por mirada (VG, tras 3b-bis): `put v at A.2.1.(r).d` coloca sobre la mirada d de r («r.d»); sin dígito, sobre r entero.
+        if (w.posicion !== undefined && (w.posicion.length !== 1 || !Number.isInteger(w.posicion[0]) || w.posicion[0] < 0 || w.posicion[0] > 9)) continue;
+        const ambito = ambitoDe(w.clave, w.posicion?.[0]);
         const etiqueta = nombreDeRegla(regla);
-        const vez = JSON.stringify([etiqueta, w.sujeto, w.clave]);
-        if (!niveles.has(vez)) niveles.set(vez, { etiqueta, sujeto: w.sujeto, registro: w.clave, valor: w.valor, desde: [] });
+        const vez = JSON.stringify([etiqueta, w.sujeto, ambito]);
+        if (!niveles.has(vez)) niveles.set(vez, { etiqueta, sujeto: w.sujeto, registro: ambito, valor: w.valor, desde: [] });
         const nivel = niveles.get(vez);
         if (w.valor > nivel.valor) nivel.valor = w.valor;
         // La serie de la que viene la colocación (el movimiento del where en que se hizo), para el tope por serie.

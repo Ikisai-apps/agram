@@ -36,6 +36,7 @@ import { evaluar } from '../src/bql.js';
 import { direccion } from '../src/btml.js';
 import { generarClaves } from '../src/autoridad.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+import { raizDeAmbito } from '../src/tokens.js';
 
 const SEMILLA = 20261107;
 const T0 = '2026-11-07T22:00:00Z';
@@ -266,7 +267,9 @@ test('neutral: el orden de los candidatos en la posición de un tercero no depen
 
 /** Una decisión de C sobre X con la lista dada en su 2.3 (sin lista: solo cuenta C) y la plantilla (por defecto, la suma). */
 async function decisionDeC(m, lista, plantilla = 'weighted sum') {
-  const criterio = lista ? [['decidir'], ['x'], [plantilla], lista] : [['decidir'], ['x'], [plantilla]];
+  // P por mirada (VG, tras 3b-bis): lo comprado (E) da P sobre la mirada 1 de su registro, y pesa solo en una decisión
+  // que diga esa mirada en su criterio («view 1», junto a la plantilla de recuento, en el 2.2).
+  const criterio = lista ? [['decidir'], ['x'], [plantilla, 'view 1'], lista] : [['decidir'], ['x'], [plantilla, 'view 1']];
   return m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: [unico('¿abrimos?'), ['x'], criterio] });
 }
 
@@ -283,7 +286,7 @@ async function vende(m, reparto, { que = 'EUR' } = {}) {
 }
 
 /** El P que tiene una identidad en el dominio de C (de cualquier origen), por serie: [{ ambito, origen, cantidad }] disponible. */
-const suP = (m, id) => m.eje.poderes(id).filter((p) => p.cantidad > 0 && m.eje.hilo(p.ambito).some((e) => e.id === m.eje.alta('C').id));
+const suP = (m, id) => m.eje.poderes(id).filter((p) => p.cantidad > 0 && m.eje.hilo(raizDeAmbito(p.ambito)).some((e) => e.id === m.eje.alta('C').id));
 
 /** Cada identidad compromete con D todo el P que tiene en el dominio de C, diciendo su origen; escribe en su propia alta (fuera del dominio). */
 async function comprometenTodo(m, D, ids) {
@@ -425,9 +428,10 @@ test('neutral (reparto por origen): obtener en proporción entre k, pasarlo a ot
     const altaC = div.eje.alta('C').id;
     for (const id of ids.slice(1)) {
       const pX = g.int(0, 10 * x);
-      if (pX) await pasaP(div, id, ids[0], div.X, id, pX);
+      // Lo comprado está en la mirada 1 de su registro (P por mirada): se pasa desde ahí.
+      if (pX) await pasaP(div, id, ids[0], div.X + '.1', id, pX);
       const pY = g.int(0, 10 * y);
-      if (pY) await pasaP(div, id, ids[0], altaC, id, pY);
+      if (pY) await pasaP(div, id, ids[0], altaC + '.1', id, pY);
     }
     for (const id of ids) assert.ok(Math.abs(motor.peso(div.eje, id, div.X) - esperado) < 1e-9, msg + ': ' + id + ' tras fundir en ' + ids[0]);
   }
@@ -462,7 +466,7 @@ test('un títere sin obtención propia pesa cero en los recuentos abiertos y no 
     const m = await mundo(['A', 'T']);
     const D = await decisionDeC(m, lista);
     await vende(m, { A: 2 }, { que: 'plaza' });
-    await pasaP(m, 'A', 'T', m.X, 'A', 10);
+    await pasaP(m, 'A', 'T', m.X + '.1', 'A', 10);
     return { m, D };
   };
   // Abierto: lo que comprometen A y el títere suma lo que A obtuvo (veinte), lo mismo que si A lo comprometiera todo.

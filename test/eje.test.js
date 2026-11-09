@@ -210,7 +210,7 @@ test('E: una persona emite una serie limitada que respalda, a sí misma, y solo 
   assert.deepEqual(eje.serie('E:nadie/x'), { emisor: null, emitido: 0 });
   // Las series de P (las del P obtenido, una por registro: mapa §15 [D] N1) se miran aparte.
   assert.deepEqual(eje.series().filter((s) => s.token !== 'P').map((s) => s.clave), ['T:minuto', 'R:raiz', 'E:raiz/EUR', 'E:raiz/hora', 'T:hora', 'R:casa', 'E:casa/cama@2026-11-13']);
-  assert.ok(eje.series().filter((s) => s.token === 'P').every((s) => eje.obtener(s.ambito) && s.origen), 'cada serie de P es la de un registro del libro y un origen');
+  assert.ok(eje.series().filter((s) => s.token === 'P').every((s) => eje.obtener(s.raiz) && s.origen), 'cada serie de P es la de un registro del libro (o una mirada suya) y un origen');
   // El P lo obtuvo la casa al escribir: diez sobre su dominio.
   assert.equal(eje.poderSobre('casa', dominio.id), 10);
   // Al restaurar, las series y quién es persona o cosa se reconstruyen desde los eventos.
