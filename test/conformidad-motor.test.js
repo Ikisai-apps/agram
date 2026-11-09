@@ -1681,7 +1681,7 @@ test('TOK-43 los tokens recorren los diez PV: cualquier evento, en cualquier pos
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 51);
   // El P que le da la raíz es de origen raíz (encargo 3b-bis); lo que obtiene ana al recibir E, T y R, suyo.
   assert.equal(eje.poderSobre('ana', g, 'raiz'), 1);
-  assert.ok(eje.poderSobre('ana', g) > p0 + 1);
+  assert.ok(eje.poderSobre('ana', g) >= p0 + 1);
   assert.equal(eje.saldo('ana', 'R:raiz'), r0 + 1);
 });
 

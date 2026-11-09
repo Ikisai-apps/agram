@@ -67,10 +67,14 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * obtención (mapa §15 N1, N2): quien escribe obtiene diez P sobre su registro; quien recibe E de su emisor, diez por
  * unidad sobre el registro de la serie; quien recibe R de su emisor, diez por unidad sobre el alta del emisor (de otro
  * tenedor, nada). Encargo 3b-bis: el P guarda su origen (la serie es P:<registro>/<origen>; quien lo obtiene es su
- * origen; moverlo sin decir el origen es mover el propio; reposicionar lo conserva) y la obtención es por cantidad,
- * sin el «una vez por titular y registro». B1 (VG, 10-11): no hay tipo; persona es quien
+ * origen; moverlo sin decir el origen es mover el propio; reposicionar lo conserva) y la obtención es por cantidad
+ * (diez por unidad, sumando lo de la transacción) y una sola vez por regla, titular y registro (revisión de seguridad
+ * del 3b). B1 (VG, 10-11): no hay tipo; persona es quien
  * escribió su propia alta, y cosa quien recibió tokens en un alta escrita por otro.
  */
+
+/** Las reglas de obtención de la época (sus nombres son la etiqueta de lo que acuñan). */
+const OBTENCIONES = ['writing a record gives ten P on it', 'getting E gives ten P on its record', 'receiving R gives ten P on the root of its issuer'];
 
 class Modelo {
   /** El estado de partida se copia del eje (el génesis, la emisión, la invitación, la aceptación y el alta de las cosas). */
@@ -86,6 +90,9 @@ class Modelo {
     for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
     this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
     for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
+    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de partida).
+    this.obtenido = new Set();
+    for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2, a.serie.lastIndexOf('/'))]));
   }
   /** B1: ¿es persona? Quien escribió su propia alta. */
   persona(id) {
@@ -228,23 +235,30 @@ class Modelo {
     }
     // La obtención (mapa §15 N1, N2; las reglas que escriben de la época): después de los movimientos, de origen quien
     // la obtiene y por cantidad (encargo 3b-bis).
-    const obtiene = (id, reg, cantidad) => {
+    // Una sola obtención por regla, titular y registro (revisión de seguridad del 3b): lo de la transacción se suma en
+    // ella; si ya la hubo antes, nada.
+    const obtenidoAqui = new Set();
+    const obtiene = (regla, id, reg, cantidad) => {
       if (!id || !reg) return;
+      const vez = JSON.stringify([regla, id, reg]);
+      if (this.obtenido.has(vez)) return;
+      obtenidoAqui.add(vez);
       const k = 'P:' + reg + '/' + id;
       poner(id, k, ver(id, k) + cantidad);
       nuevos.add(id);
     };
-    obtiene(ev.autor, ev.id, 10);
+    obtiene(OBTENCIONES[0], ev.autor, ev.id, 10);
     for (const m of ev.movimientos) {
       if (m.de === null || m.a === null || m.estado !== undefined) continue;
       // E y R: lo que llega de su emisor a otro con alta, diez por unidad.
-      if (m.token === 'E' && m.de === m.emisor && m.a !== m.de && this.existe.has(m.a)) obtiene(m.a, this.registroE(m), 10 * m.cantidad);
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(m.a, this.alta.get(m.emisor), 10 * m.cantidad);
+      if (m.token === 'E' && m.de === m.emisor && m.a !== m.de && this.existe.has(m.a)) obtiene(OBTENCIONES[1], m.a, this.registroE(m), 10 * m.cantidad);
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor), 10 * m.cantidad);
     }
     return () => {
       this.saldos = vista;
       this.bloqueados = vistaB;
       this.emitido = emitido;
+      for (const vez of obtenidoAqui) this.obtenido.add(vez);
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
       for (const id of nuevos) if (!this.existe.has(id)) { this.existe.add(id); this.alta.set(id, ev.id); }

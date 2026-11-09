@@ -12,7 +12,7 @@
     "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
     "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
     "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-    "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Sustituye a «una sola vez por receptor y emisor» (revisión de seguridad del 3b): repartir lo recibido entre varias identidades ya no da más P que tenerlo en una"
+    "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Se mantiene una sola obtención por receptor y emisor (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js)"
   ],
   ["epoch 0"],
   ["after getting E gives ten P on its record"],

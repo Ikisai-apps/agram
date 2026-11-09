@@ -702,9 +702,10 @@ export class Eje {
    * Cada colocación `put v at A.2.1.(r)` es P posicionado en el registro r para la identidad A, de origen A (encargo
    * 3b-bis: el P guarda quién lo obtuvo): se acuña P:r/A a A, con la clase «obtencion». Lo que coloca una regla que no
    * se resuelve no se acuña (la transacción mal formada ya la rechaza el suelo). No es código de negocio: cuánto, a
-   * quién y dónde lo dicen las reglas. Cada colocación cuenta (encargo 3b-bis: la obtención es por cantidad, no por
-   * cabeza; ya no se recorta a una vez por regla, titular y registro, que hacía que repartir lo recibido entre varias
-   * identidades diera más P que tenerlo en una).
+   * quién y dónde lo dicen las reglas. La obtención no se repite (revisión de seguridad del 3b, que se mantiene): una
+   * sola por regla, titular (su origen) y registro; lo que una misma regla coloca varias veces en una transacción para
+   * el mismo titular y registro se suma en esa única obtención (por cantidad: diez por unidad, encargo 3b-bis), y si ya
+   * la hubo antes, no se acuña.
    */
   #obtencion(ev) {
     const reglas = EPOCA_0_BTML.escrituras;
@@ -716,6 +717,9 @@ export class Eje {
       return [];
     }
     const pasos = [];
+    // La obtención no se repite: una vez por regla, titular y registro (revisión de seguridad del 3b; un ir y venir de E
+    // o de R no acuña P sin fin). En una transacción, las colocaciones de la misma regla, titular y registro se suman.
+    const aqui = new Map();
     for (const regla of reglas) {
       let r;
       try {
@@ -729,7 +733,13 @@ export class Eje {
         if (typeof w.sujeto !== 'string' || !w.sujeto || typeof w.clave !== 'string' || !w.clave || !(w.valor > 0) || !Number.isFinite(w.valor)) continue;
         if (/[|:/]/.test(w.sujeto) || /[|:/]/.test(w.clave)) continue; // separadores de la clave de serie
         const etiqueta = nombreDeRegla(regla);
-        pasos.push([acunar(claveToken({ token: 'P', ambito: w.clave, origen: w.sujeto }), w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: etiqueta })]);
+        const serie = claveToken({ token: 'P', ambito: w.clave, origen: w.sujeto });
+        const vez = JSON.stringify([etiqueta, w.sujeto, w.clave]);
+        if (aqui.has(vez)) { aqui.get(vez).cantidad += w.valor; continue; }
+        if (this.libro.sumas({ primitiva: 'acunar', serie, titular: w.sujeto, clase: OBTENCION, etiqueta }) > 0) continue;
+        const paso = acunar(serie, w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: etiqueta });
+        aqui.set(vez, paso);
+        pasos.push([paso]);
       }
     }
     return pasos;

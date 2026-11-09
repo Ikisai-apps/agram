@@ -399,10 +399,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
     },
     {
-      "ref": "f1e309d281151ca67c971f6eca6dbbd5d30a256efb608d1dc58c588a0a1677fa"
+      "ref": "e839c7ce7ede304d51be75ebfc47c7022c3736c99c6d4cfe64632a9525026729"
     },
     {
-      "ref": "3e3f8300eb73a02c317f1a42b80736d3209c2c331e81a5f66631c04bb0ea5b55"
+      "ref": "6088d4440acd808447ed6580cc93bbfae8cbdbf49de71c98ae6a7995eb6b64ae"
     },
     {
       "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
@@ -3220,7 +3220,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
-    "id": "f1e309d281151ca67c971f6eca6dbbd5d30a256efb608d1dc58c588a0a1677fa",
+    "id": "e839c7ce7ede304d51be75ebfc47c7022c3736c99c6d4cfe64632a9525026729",
     "registro": [
       [
         "getting E gives ten P on its record"
@@ -3248,7 +3248,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "Cada transferencia de E que llega de su emisor a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
         "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «una sola vez por receptor y registro, venga de quien venga» (revisión de seguridad del 3b), que daba más P al repartir lo comprado entre varias identidades. Ni a uno mismo ni a quien aún no tiene alta"
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de E que llega de su emisor (dos compradores con una plaza cada uno obtienen lo mismo que uno con dos). Lo que pasa de tenedor a tenedor no da P, como la R: revender a otra identidad no crea P propio. Sustituye a «venga de quien venga»; se mantiene una sola obtención por receptor y registro (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js). Ni a uno mismo ni a quien aún no tiene alta"
       ],
       [
         "epoch 0"
@@ -3971,7 +3971,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
-    "id": "3e3f8300eb73a02c317f1a42b80736d3209c2c331e81a5f66631c04bb0ea5b55",
+    "id": "6088d4440acd808447ed6580cc93bbfae8cbdbf49de71c98ae6a7995eb6b64ae",
     "registro": [
       [
         "receiving R gives ten P on the root of its issuer"
@@ -3999,7 +3999,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
         "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
-        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Sustituye a «una sola vez por receptor y emisor» (revisión de seguridad del 3b): repartir lo recibido entre varias identidades ya no da más P que tenerlo en una"
+        "Encargo 3b-bis: por cantidad, no por cabeza: diez por unidad de R que llega directamente de su emisor (N2 decía «diez por R recibida»). La R que pasa de tenedor a tenedor no da P. Se mantiene una sola obtención por receptor y emisor (revisión de seguridad del 3b): el libro suma lo de la transacción en esa obtención y no la repite (src/eje.js)"
       ],
       [
         "epoch 0"
@@ -4387,7 +4387,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "1a57fdf6a1ad6be9451dbd49b765c41ad2e65adbac0eed11969b0a51f409941c";
+export const EPOCA_0_BTML_ID = "d8db1c6eafafab4c4764eb58e537fe39ca75f586e98f15c950100cf31f08da4b";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
