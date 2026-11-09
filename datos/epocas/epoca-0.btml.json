@@ -101,21 +101,21 @@
     {"ref":"74b23f3705ffa44dd59fa213c14638ac912c07fdf59ae040f1715f56f8ccecf9"},
     {"ref":"b46fb0ae16e8d317471a5fe93c911e3152c38739c7a9e3a27c99f2fe5bb343f5"},
     {"ref":"48d6ec72345c79d4b5d6ffd89df8ebd8966480798c862c7152d845f2306540b0"},
-    {"ref":"15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437"},
+    {"ref":"844462e4078dc38e059e37c67be01163835313b4c7d5daf2cccf2d073f097146"},
     {"ref":"8388397ef0ed5ceee8db3cb435aa983ef6d04dac309e7123e4c04d5fc0630daf"},
     {"ref":"cad791702b876186bd8f814f313b924a244c4e905088e97939ae04a611d0567f"},
     {"ref":"2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"},
     {"ref":"2141d171a19a49ef58f9abfb160a88a1858ae18fe1d273c4183e13e57ab3689f"},
     {"ref":"ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"},
     {"ref":"b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"},
-    {"ref":"a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a"},
-    {"ref":"87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40"},
+    {"ref":"e839c7ce7ede304d51be75ebfc47c7022c3736c99c6d4cfe64632a9525026729"},
+    {"ref":"6088d4440acd808447ed6580cc93bbfae8cbdbf49de71c98ae6a7995eb6b64ae"},
     {"ref":"eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"},
     {"ref":"c8e5f2bd9c9608cdcff0b5215039c590382f1c67b952c9d2ebbb38a44dd499eb"},
     {"ref":"711877f9f305e448922d6a14a0b53a3a3373c24aa68bbb4fa899f3cd0ab7bffe"},
     {"ref":"837e2a7456c4f8d49c5f595d9ac9d387060366b512ab872721de488914802eed"},
-    {"ref":"5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91"},
-    {"ref":"ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32"}
+    {"ref":"5ca7bfab617100a3ecd4f1d94031dbd9ce96b2e8507e88d8a6cbdf1e9091620c"},
+    {"ref":"3b8c683db1789886af9e86fcad20c3a8d741525c09798496724a1fd071cdab97"}
   ],
   [
     [
@@ -743,16 +743,25 @@
           [["weighted sum"], ["=sum (it.2.4 each 8)"]],
           [
             ["weighted mean"],
-            ["=sum (it.2.4 each 8) / ((sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4))"]
+            ["=sum (it.2.4 each 8) / (count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1))"]
           ],
           [
             ["threshold"],
-            ["=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.3 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.3 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.3 in it4 or first it2.3 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.3 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"]
+            ["=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.0.0.2 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.0.0.2 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.0.0.2 in it4 or first it2.0.0.2 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.0.0.2 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.6 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.6 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.6 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.6 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.6 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.6 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"]
           ]
         ],
         [0],
-        ["solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)"],
-        [9]
+        [
+          "solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)",
+          "Encargo 3b-bis (VG, 10-11, mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): cuenta el P por su ORIGEN (quien lo obtuvo), lo comprometa quien lo comprometa. Con nombres en el 2.3, por reparto (el 100 % de cada origen por dominio) × presión; con «cualquiera», por cantidad de P obtenido, nunca por reparto ni por cabeza («emitir desde dos fuentes vale lo mismo que desde una»). «Uno por persona» no es una plantilla: exige identidad de fuera"
+        ],
+        [9],
+        [
+          [
+            ["one per person"],
+            ["one per person is not a tally of this epoch: counting heads needs an outside identity (proof that each name is a different person); open tallies weigh by the quantity of P obtained"]
+          ]
+        ]
       ],
       [
         ["cerrado"],

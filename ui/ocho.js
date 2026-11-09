@@ -47,8 +47,8 @@ export function elegirCohorteOcho(c) {
 // Una serie en corto para la celda: el ámbito de un P (un id) en ocho caracteres; lo demás
 // (T, E, R y el T consumido sobre el registro, «tiempo:<escala>»), tal cual.
 function serieCorta(clave) {
-  const p = /^P:([0-9a-f]{64})$/.exec(clave);
-  return p ? 'P:' + p[1].slice(0, 8) : clave;
+  const p = /^P:([0-9a-f]{64})(\/.*)?$/.exec(clave);
+  return p ? 'P:' + p[1].slice(0, 8) + (p[2] ?? '') : clave;
 }
 
 /** De dónde lee la celda: la base escrita (con su frescura) o el respaldo al vuelo, dicho. */

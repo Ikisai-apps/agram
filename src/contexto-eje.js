@@ -9,12 +9,14 @@
 //            3 de quién a quién (3.0 de, 3.1 a; null es «nadie»), 4 primitiva, 5 registro de la serie,
 //            7 caducidad o fecha a la que se refiere, 9 nota
 //   D-SERIE  una clave de serie como décupla: 0 familia, 1 escala de T (un dígito) o emisor (E, R) o
-//            ámbito (P), 2 denominación, 5 registro, 7 franja
+//            ámbito (P), 2 denominación (E) u origen (P: quien lo obtuvo), 5 registro, 7 franja
 //   D-FECHA  un instante como décupla: k = el número de periodo de la escala k desde 1970-01-01T00:00Z
 //            (0 segundo, 1 minuto, 2 hora, 3 día civil, 4 semana, 5 ciclo de 28 días, 6 año de 364 + 1)
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
-//            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.6 su alta (el registro que abrió su
+//            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.2.1 su P posicionado (por registro,
+//            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
+//            su reparto en A.2.6.8), A.6 su alta (el registro que abrió su
 //            cuenta: A.6.6.0 su t, A.6.3 su autor), A.7.e el T de la escala e gastado de la
 //            asignación del día civil de ev.6.0.3; de un registro X: X.1 sus series de E atadas y vivas
 //            (0 serie, 1 lo vivo, 7 caducidad); de una serie del libro S (la de un movimiento o de una
@@ -88,7 +90,11 @@ export function desplegarSerie(s, registroDe = () => null, { delLibro = false } 
     const k = ESCALAS_T.indexOf(m[2]);
     return k < 0 ? null : { 0: [fam('T')], 1: [k] };
   }
-  if (familia === 'P') return { 0: [fam('P')], 1: [m[2]] };
+  if (familia === 'P') {
+    // El P guarda su origen (encargo 3b-bis): 1 el registro donde está, 2 quien lo obtuvo.
+    const p = partirClave(s);
+    return { 0: [fam('P')], 1: [p.ambito], ...(p.origen ? { 2: [p.origen] } : {}) };
+  }
   if (familia === 'R') return { 0: [fam('R')], 1: [m[2]] };
   if (!m[2].includes('/')) return null;
   const p = partirClave(s);
@@ -156,7 +162,7 @@ export class ContextoEje {
   #llaveDeSujeto(sujeto) {
     if (typeof sujeto === 'string') return sujeto;
     if (sujeto.k === 'ev') return 'ev';
-    return [sujeto.k, sujeto.id ?? '', sujeto.titular ?? '', sujeto.registro ?? sujeto.serie ?? '', sujeto.decision ?? ''].join('|');
+    return [sujeto.k, sujeto.id ?? '', sujeto.titular ?? sujeto.origen ?? '', sujeto.registro ?? sujeto.serie ?? '', sujeto.decision ?? ''].join('|');
   }
 
   /**
@@ -168,7 +174,7 @@ export class ContextoEje {
     return this.#lecturaEn(letra + '.' + d1 + '.' + d2, sujeto);
   }
 
-  /** Lo que dan las lecturas de la época que se materializan en la posición `donde` («X.2.4.8», «A.2.1.8»…) de `sujeto`. */
+  /** Lo que dan las lecturas de la época que se materializan en la posición `donde` («X.2.4.8», «A.2.6.8»…) de `sujeto`. */
   #lecturaEn(donde, sujeto) {
     const reglas = this.#lecturas.get(donde);
     if (!reglas) return [];
@@ -333,6 +339,7 @@ export class ContextoEje {
     if (nodo?.k === 'serie' || nodo?.k === 'clave' || nodo?.k === 'salida') return nodo.clave;
     if (nodo?.k === 'llave') return huella(nodo.jwk);
     if (nodo?.k === 'bloqueados') return nodo.salida;
+    if (nodo?.k === 'origenP') return nodo.origen;
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
   }
@@ -356,6 +363,8 @@ export class ContextoEje {
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
       case 'posicionado': return 'P de ' + nodo.titular + ' en ' + String(nodo.registro).slice(0, 8);
+      case 'origenP': return nodo.origen;
+      case 'obtenido': return 'P de origen ' + nodo.origen + ' en ' + String(nodo.registro).slice(0, 8);
       case 'grupo': return 'grupo ' + nodo.zona + ' de ' + nodo.titular;
       case 'compromiso': return nodo.cantidad + ' ' + nodo.serie + ' de ' + nodo.titular + ' con ' + String(nodo.decision).slice(0, 8);
       default: return '«' + (nodo?.k ?? 'nodo') + '»';
@@ -539,8 +548,8 @@ export class ContextoEje {
   /**
    * El dígito d de una serie como registro (B3): 0 su clave legible (vale la
    * clave; 0.0 familia, 0.1 escala de T como dígito, emisor o ámbito, 0.2
-   * denominación), 1 lo emitido (1.0) y lo consumido (1.1) hasta antes de ev, 2
-   * su contrato de E (2.0 «divisible», 2.7 caducidad), 3 sus emisores, 5 el
+   * denominación u origen), 1 lo emitido (1.0) y lo consumido (1.1) hasta antes de ev, 2
+   * su contrato de E (2.0 «divisible», 2.7 caducidad), 3 sus emisores (en P, su origen: quien lo obtuvo), 5 el
    * registro al que está atada (E), 7 su franja (E). Lo materializa el libro
    * como vista; una serie que nace en la candidata, su primera emisión.
    */
@@ -556,6 +565,7 @@ export class ContextoEje {
       const consumido = libro ? this.#eje.libro.sumas({ primitiva: 'quemar', serie: clave }) : 0;
       return [{ k: 'cuanto', emitido: libro ? libro.emitido : 0, consumido }];
     }
+    if (familia === 'P') return d === 3 ? p[2] ?? [] : [];
     if (familia !== 'E' && familia !== 'R') return [];
     if (d === 3) {
       if (familia === 'R') return [...p[1]];
@@ -631,12 +641,30 @@ export class ContextoEje {
 
   /**
    * El P posicionado de una identidad (encargo 3b, mapa §15): una entrada por registro sobre el que tiene P, en el
-   * orden de su cartera; cada una con lo disponible y lo bloqueado por salida.
+   * orden de su cartera; cada una con lo disponible y lo bloqueado por salida, sumando todos sus orígenes, y los
+   * orígenes aparte (encargo 3b-bis: el P guarda quién lo obtuvo; lo delegado sigue siendo de quien lo obtuvo).
    */
   #posicionado(a) {
-    return this.#cartera(a)
-      .filter((x) => x.clave.startsWith('P:'))
-      .map((x) => ({ k: 'posicionado', titular: a, registro: x.clave.slice(2), disponible: x.disponible, bloqueado: x.bloqueado }));
+    const porRegistro = new Map();
+    for (const x of this.#cartera(a)) {
+      if (!x.clave.startsWith('P:')) continue;
+      const { ambito: registro, origen } = partirClave(x.clave);
+      if (!porRegistro.has(registro)) porRegistro.set(registro, { k: 'posicionado', titular: a, registro, disponible: 0, bloqueado: {}, origenes: [] });
+      const e = porRegistro.get(registro);
+      e.disponible += x.disponible;
+      for (const [salida, c] of Object.entries(x.bloqueado)) e.bloqueado[salida] = (Object.hasOwn(e.bloqueado, salida) ? e.bloqueado[salida] : 0) + c;
+      e.origenes.push({ k: 'origenP', titular: a, registro, origen: origen ?? a, clave: x.clave, disponible: x.disponible, bloqueado: x.bloqueado });
+    }
+    return [...porRegistro.values()];
+  }
+
+  /**
+   * El P de origen `a` (encargo 3b-bis, VG 10-11: «el P guarda su origen»): lo que obtuvo `a`, esté en la mano que
+   * esté, una entrada por registro (A.2.6). Sobre él se lee su reparto por dominio (la lectura «share», A.2.6.8).
+   */
+  #obtenidos(a) {
+    if (typeof this.#eje?.obtenidoPor !== 'function') return [];
+    return this.#eje.obtenidoPor(a).map((x) => ({ k: 'obtenido', origen: a, registro: x.registro, cantidad: x.cantidad, titulares: x.titulares }));
   }
 
   /**
@@ -766,19 +794,40 @@ export class ContextoEje {
       case 'viva':
         return d === 0 ? [{ k: 'serie', clave: nodo.clave }] : d === 1 ? [nodo.vivo] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
       case 'criterio':
-        // El criterio de una identidad (A.2): 1 su P posicionado, 3 los criterios que adopta.
+        // El criterio de una identidad (A.2): 1 su P posicionado, 3 los criterios que adopta, 6 el P de su origen (de
+        // dónde viene: lo que obtuvo, esté en la mano que esté; encargo 3b-bis).
         if (d === 1) return this.#posicionado(nodo.id);
         if (d === 3) return this.#adoptados(nodo.id);
+        if (d === 6) return this.#obtenidos(nodo.id);
         return this.#lecturaEn('A.2.' + d, nodo.id);
       case 'posicionado':
         // Una entrada del P posicionado (A.2.1): 0 el registro, 1 cuánto (disponible y bloqueado), 2 lo bloqueado por
-        // salida, 3 su titular, 4 lo disponible; 8, la lectura que la época pone ahí (la cuota: «share»).
+        // salida, 3 su titular, 4 lo disponible, 6 sus orígenes (encargo 3b-bis: uno por quien lo obtuvo, que vale su
+        // nombre); lo demás, las lecturas que la época ponga ahí.
         if (d === 0) return [nodo.registro];
         if (d === 1) return [nodo.disponible + Object.values(nodo.bloqueado).reduce((x, y) => x + y, 0)];
         if (d === 2) return Object.entries(nodo.bloqueado).filter(([, c]) => c > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         if (d === 3) return [nodo.titular];
         if (d === 4) return [nodo.disponible];
+        if (d === 6) return nodo.origenes;
         return this.#lecturaEn('A.2.1.' + d, nodo);
+      case 'origenP':
+        // Un origen del P posicionado (A.2.1.r.6): vale quien lo obtuvo; 0 la serie, 1 cuánto, 2 lo bloqueado por
+        // salida, 3 su origen, 4 lo disponible.
+        if (d === 0) return [{ k: 'serie', clave: nodo.clave }];
+        if (d === 1) return [nodo.disponible + Object.values(nodo.bloqueado).reduce((x, y) => x + y, 0)];
+        if (d === 2) return Object.entries(nodo.bloqueado).filter(([, c]) => c > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
+        if (d === 3) return [nodo.origen];
+        if (d === 4) return [nodo.disponible];
+        return [];
+      case 'obtenido':
+        // Una entrada del P de un origen (A.2.6): 0 el registro, 1 cuánto (en todas las manos, disponible y
+        // bloqueado), 3 en qué manos está, 6 su origen; 8, la lectura que la época pone ahí (el reparto: «share»).
+        if (d === 0) return [nodo.registro];
+        if (d === 1) return [nodo.cantidad];
+        if (d === 3) return [...nodo.titulares];
+        if (d === 6) return [nodo.origen];
+        return this.#lecturaEn('A.2.6.' + d, nodo);
       case 'criterioX':
         // El 2 de un registro, lo implícito: 2.4 los compromisos con él; lo demás, las lecturas de la época en X.2.d.
         if (d === 4) return this.#compromisos(nodo.e.id);

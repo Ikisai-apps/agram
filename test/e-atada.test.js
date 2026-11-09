@@ -54,7 +54,7 @@ async function mundo({ capacidad = 4, personas = ['casa', 'socia', 'bea'] } = {}
   return { eje, A: A.id, plaza: plaza.id };
 }
 
-/** La casa da parte de su P sobre A (una transferencia: no copia ni acuña). */
+/** La casa da parte de su P sobre A (una transferencia: no copia ni acuña; el P sigue siendo de origen casa: encargo 3b-bis). */
 async function delega(eje, A, a, cantidad, de = 'casa') {
   return eje.escribir({ autor: de, sobre: A, t: T0, payload: unico('delega'), movimientos: [minuto(de), { token: 'P', ambito: A, cantidad, de, a }] });
 }
@@ -63,13 +63,14 @@ const serieE = (emisor, denominacion, registro) => claveToken({ token: 'E', emis
 
 /**
  * Un evento que emite E atada a `registro`: T y, si `bloquea`,
- * un bloqueo de P (`ambito`, A por defecto) con la salida = la clave de la serie.
+ * un bloqueo de P (`ambito`, A por defecto) con la salida = la clave de la serie. El P es de quien escribe salvo que
+ * se diga `origen` (encargo 3b-bis: el P delegado conserva su origen; la socia bloquea el que le dio la casa).
  */
-function emision(autor, { A, registro = A, sobre = registro, denominacion, cantidad, bloquea = 0, ambito = A, extra = {}, t = T0, otros = [] }) {
+function emision(autor, { A, registro = A, sobre = registro, denominacion, cantidad, bloquea = 0, ambito = A, origen = autor, extra = {}, t = T0, otros = [] }) {
   const clave = serieE(extra.emisor ?? autor, denominacion, registro);
   const movimientos = [minuto(autor)];
   movimientos.push(...otros);
-  if (bloquea) movimientos.push({ token: 'P', ambito, cantidad: bloquea, de: autor, a: autor, estado: 'bloqueo', salida: clave });
+  if (bloquea) movimientos.push({ token: 'P', ambito, origen, cantidad: bloquea, de: autor, a: autor, estado: 'bloqueo', salida: clave });
   movimientos.push({ token: 'E', emisor: autor, denominacion, registro, cantidad, de: null, a: autor, ...extra });
   return { autor, sobre, t, payload: unico('emite ' + denominacion), movimientos };
 }
@@ -102,7 +103,7 @@ test('R2·2: el E vivo de un registro no pasa de su capacidad, sumando denominac
   const { eje, A } = await mundo({ capacidad: 4 });
   await delega(eje, A, 'socia', 2);
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 2, bloquea: 2 }));
-  await eje.escribir(emision('socia', { A, denominacion: 'litera@n1', cantidad: 2, bloquea: 2 }));
+  await eje.escribir(emision('socia', { A, denominacion: 'litera@n1', cantidad: 2, bloquea: 2, origen: 'casa' }));
   assert.deepEqual(eje.topes(A, T0), [{ registro: A, capacidad: 4, franja: 'n1', vivo: 4, libre: 0 }]);
   // Otra denominación, otro emisor: el tope es del registro en esa franja, no de la serie.
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 1, bloquea: 0 })), /tope de E del registro .* en la franja «n1».*llegaría a 5 y su capacidad es 4/);
@@ -178,7 +179,7 @@ test('SEG-03 (revisión de main 7-11 noche) fechar a futuro no vacía la franja 
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: caduca, payload: unico('suelta'), movimientos: [minuto('casa'), suelta] }), /respalda 2 de E vivo: no se libera mientras viva/);
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: caduca, otros: [suelta] })),
     /respalda 2 de E vivo.*tope de E del registro [0-9a-f]{8} en la franja «n1».*llegaría a 4 y su capacidad es 2/);
-  assert.equal(eje.bloqueado('casa', 'P:' + A, n1), 2);
+  assert.equal(eje.bloqueado('casa', 'P:' + A + '/casa', n1), 2);
   // Un registro de otra identidad con t anterior a la caducidad no basta; con t ≥ caduca, el eje llega ahí y sí.
   await eje.escribir({ autor: 'bea', sobre: A, t: '2026-11-09T11:59:00Z', payload: unico('casi'), movimientos: [minuto('bea')] });
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: caduca, payload: unico('suelta'), movimientos: [minuto('casa'), suelta] }), /respalda 2 de E vivo/);
@@ -204,7 +205,7 @@ test('SEG-05 (revisión de la #73) el reloj lo marcan los demás: los eventos de
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: A, t: caduca, payload: unico('suelta'), movimientos: [minuto('casa'), suelta] }), /respalda 2 de E vivo: no se libera mientras viva/);
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: caduca, otros: [suelta] })),
     /respalda 2 de E vivo.*tope de E del registro [0-9a-f]{8} en la franja «n1».*llegaría a 4 y su capacidad es 2/);
-  assert.equal(eje.bloqueado('casa', 'P:' + A, n1), 2);
+  assert.equal(eje.bloqueado('casa', 'P:' + A + '/casa', n1), 2);
   // Un evento de otra identidad con t ≥ caduca, sí: el eje llega ahí.
   await eje.escribir({ autor: 'bea', sobre: A, t: caduca, payload: unico('ya es mañana'), movimientos: [minuto('bea')] });
   await eje.escribir(emision('casa', { A, denominacion: 'sofa@n1', cantidad: 2, bloquea: 2, t: caduca, otros: [suelta] }));
@@ -273,13 +274,13 @@ test('R2·3: cada emisor emite en proporción al P que compromete frente a todo 
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 0 })), /cuota de E:casa\/cama@n1@.*compromete 0 de P .*de 0 comprometido.*da 0 de 4/);
   // La socia compromete 3 de su P:A (se lo da la casa) con su serie de literas; la casa, 1 con la de camas: 1 de 4.
   await delega(eje, A, 'socia', 3);
-  await eje.escribir({ autor: 'socia', sobre: A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: A, cantidad: 3, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'litera@n1', A) }] });
+  await eje.escribir({ autor: 'socia', sobre: A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: A, origen: 'casa', cantidad: 3, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'litera@n1', A) }] });
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 2, bloquea: 1 })), /da 1 de 4 \(hacia abajo\) y el E vivo de la serie llegaría a 2/);
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 1 }));
   // Con 2 de 3 comprometidos, ⌊8/3⌋ = 2.
   const otro = await mundo({ capacidad: 4 });
   await delega(otro.eje, otro.A, 'socia', 1);
-  await otro.eje.escribir({ autor: 'socia', sobre: otro.A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: otro.A, cantidad: 1, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'litera@n1', otro.A) }] });
+  await otro.eje.escribir({ autor: 'socia', sobre: otro.A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: otro.A, origen: 'casa', cantidad: 1, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'litera@n1', otro.A) }] });
   await assert.rejects(otro.eje.escribir(emision('casa', { A: otro.A, denominacion: 'cama@n1', cantidad: 3, bloquea: 2 })), /da 2 de 4/);
   await otro.eje.escribir(emision('casa', { A: otro.A, denominacion: 'cama@n1', cantidad: 2, bloquea: 2 }));
 });
@@ -291,7 +292,7 @@ test('R2·3: solo cuenta el P posicionado en el subárbol del registro (F1); el 
   const fuera = eje.alta('casa').id;
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 5, ambito: fuera })), /compromete 0 de P .*de 0 comprometido.*da 0 de 4/);
   await eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 5 }));
-  assert.equal(eje.bloqueado('casa', 'P:' + A, serieE('casa', 'cama@n1', A)), 5);
+  assert.equal(eje.bloqueado('casa', 'P:' + A + '/casa', serieE('casa', 'cama@n1', A)), 5);
 });
 
 test('R2·3: el P bloqueado no se libera mientras viva la E que respalda', async () => {
@@ -307,7 +308,7 @@ test('R2·3: el P bloqueado no se libera mientras viva la E que respalda', async
   await eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'sin usar', movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'cama@n1', registro: A, cantidad: 1, de: 'casa', a: null }] });
   assert.equal(eje.vivo(k, T0), 0);
   await eje.escribir(libera('ya'));
-  assert.equal(eje.saldo('casa', 'P:' + A), 10); // los diez que obtuvo al escribir A
+  assert.equal(eje.saldo('casa', 'P:' + A + '/casa'), 10); // los diez que obtuvo al escribir A
   // Un bloqueo cuya salida no es una serie de E no cambia: se libera cuando su titular quiere.
   await eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'otro', movimientos: [minuto('casa'), { token: 'P', ambito: A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: 'cualquier cosa' }] });
   await eje.escribir({ autor: 'casa', sobre: A, t: T0, payload: 'otro fuera', movimientos: [minuto('casa'), { token: 'P', ambito: A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: 'cualquier cosa' }] });
@@ -320,7 +321,7 @@ test('R2·4: fracciones solo en series divisibles; la cuota de una divisible no 
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'leña', cantidad: 1.5, bloquea: 2 })), /la serie E:casa\/leña@.* va en enteros: no se declaró divisible/);
   // La socia compromete 2 con otra serie del alojamiento: divisible, 1 de 3 comprometidos da 4/3 exactos.
   await delega(eje, A, 'socia', 2);
-  await eje.escribir({ autor: 'socia', sobre: A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: A, cantidad: 2, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'carbón', A) }] });
+  await eje.escribir({ autor: 'socia', sobre: A, t: T0, payload: unico('compromete'), movimientos: [minuto('socia'), { token: 'P', ambito: A, origen: 'casa', cantidad: 2, de: 'socia', a: 'socia', estado: 'bloqueo', salida: serieE('socia', 'carbón', A) }] });
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'leña', cantidad: 1.4, bloquea: 1, extra: { divisible: true } })), /cuota de E:casa\/leña/);
   await eje.escribir(emision('casa', { A, denominacion: 'leña', cantidad: 4 / 3, bloquea: 1, extra: { divisible: true } }));
   assert.equal(eje.serie(serieE('casa', 'leña', A)).divisible, true);
@@ -351,7 +352,7 @@ test('R2·4: emisión conjunta: varios suman su P bloqueado para alcanzar una un
   const k = serieE('casa', 'cama@n1', A);
   // Juntos (la casa emite con emisores = los tres, cada uno con su P comprometido con la serie), la serie suma lo
   // comprometido por los tres: todo lo comprometido, ⌊3·4/3⌋ = 4.
-  const firma = (quien) => eje.escribir({ autor: quien, sobre: A, t: T0, payload: unico('firma ' + quien), movimientos: [minuto(quien), { token: 'P', ambito: A, cantidad: 1, de: quien, a: quien, estado: 'bloqueo', salida: k }] });
+  const firma = (quien) => eje.escribir({ autor: quien, sobre: A, t: T0, payload: unico('firma ' + quien), movimientos: [minuto(quien), { token: 'P', ambito: A, origen: 'casa', cantidad: 1, de: quien, a: quien, estado: 'bloqueo', salida: k }] });
   const conjunta = (cantidad, emisores) => emision('casa', { A, denominacion: 'cama@n1', cantidad, bloquea: 1, extra: { emisores } });
   await firma('socia');
   // bea aparece sin haber bloqueado nada: su firma falta.
@@ -363,7 +364,7 @@ test('R2·4: emisión conjunta: varios suman su P bloqueado para alcanzar una un
   // Los emisores son del contrato: una ampliación no los cambia.
   await assert.rejects(eje.escribir(emision('casa', { A, denominacion: 'cama@n1', cantidad: 1, bloquea: 0 })), /una ampliación no cambia sus emisores/);
   // El P de bea queda atado a la serie mientras viva.
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: A, t: T0, payload: 'me voy', movimientos: [minuto('bea'), { token: 'P', ambito: A, cantidad: 1, de: 'bea', a: 'bea', estado: 'liberacion', salida: k }] }), /no se libera mientras viva/);
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: A, t: T0, payload: 'me voy', movimientos: [minuto('bea'), { token: 'P', ambito: A, origen: 'casa', cantidad: 1, de: 'bea', a: 'bea', estado: 'liberacion', salida: k }] }), /no se libera mientras viva/);
 });
 
 // ---------- persistencia y versión 2 ----------

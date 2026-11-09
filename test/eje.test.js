@@ -48,7 +48,9 @@ test('génesis: la época 0, sin movimientos; su autor emite después, en una tr
   assert.equal(emision.movimientos[2].emisor, 'raiz');
   assert.deepEqual(eje.series().filter((s) => s.token !== 'P').map((s) => s.clave + ' ' + s.emisor + ' ' + s.emitido), ['T:minuto raiz 0', 'R:raiz raiz 10', 'E:raiz/EUR raiz 50', 'E:raiz/hora raiz 100']);
   // P no se emite: se obtiene (mapa §15 [D] N1). Escribir el génesis y la emisión le dio diez sobre cada uno.
-  assert.deepEqual(eje.series().filter((s) => s.token === 'P').map((s) => s.clave).sort(), ['P:' + eje.genesisId, 'P:' + emision.id].sort());
+  assert.deepEqual(eje.series().filter((s) => s.token === 'P').map((s) => s.clave).sort(), ['P:' + eje.genesisId + '/raiz', 'P:' + emision.id + '/raiz'].sort());
+  // Y el P guarda su origen (encargo 3b-bis): quien lo obtuvo, que es quien emite su serie.
+  assert.ok(eje.series().filter((s) => s.token === 'P').every((s) => s.origen === 'raiz' && s.emisor === 'raiz'));
 });
 
 test('escribir sobre el foco mueve tokens y crea identidades al recibir', async () => {
@@ -208,7 +210,7 @@ test('E: una persona emite una serie limitada que respalda, a sí misma, y solo 
   assert.deepEqual(eje.serie('E:nadie/x'), { emisor: null, emitido: 0 });
   // Las series de P (las del P obtenido, una por registro: mapa §15 [D] N1) se miran aparte.
   assert.deepEqual(eje.series().filter((s) => s.token !== 'P').map((s) => s.clave), ['T:minuto', 'R:raiz', 'E:raiz/EUR', 'E:raiz/hora', 'T:hora', 'R:casa', 'E:casa/cama@2026-11-13']);
-  assert.ok(eje.series().filter((s) => s.token === 'P').every((s) => eje.obtener(s.clave.slice(2))), 'cada serie de P es la de un registro del libro');
+  assert.ok(eje.series().filter((s) => s.token === 'P').every((s) => eje.obtener(s.ambito) && s.origen), 'cada serie de P es la de un registro del libro y un origen');
   // El P lo obtuvo la casa al escribir: diez sobre su dominio.
   assert.equal(eje.poderSobre('casa', dominio.id), 10);
   // Al restaurar, las series y quién es persona o cosa se reconstruyen desde los eventos.

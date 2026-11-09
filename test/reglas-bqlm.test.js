@@ -358,7 +358,7 @@ function sensato(w, reloj, uno, p) {
   else if (accion === 'emite' && autor === 'casa') {
     const den = uno(['cama@n', 'sofa@n']) + (eje.orden.length % 30);
     const registro = uno([A, B]);
-    if ((vista['P:' + A]?.disponible ?? 0) > 0) movimientos.push({ token: 'P', ambito: A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: claveToken({ token: 'E', emisor: 'casa', denominacion: den, registro }) });
+    if ((vista['P:' + A + '/casa']?.disponible ?? 0) > 0) movimientos.push({ token: 'P', ambito: A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: claveToken({ token: 'E', emisor: 'casa', denominacion: den, registro }) });
     movimientos.push({ token: 'E', emisor: 'casa', denominacion: den, registro, cantidad: 1, de: null, a: 'casa' });
   } else if (accion === 'libera' && bloqueos.length) {
     const b = uno(bloqueos);
@@ -368,8 +368,12 @@ function sensato(w, reloj, uno, p) {
       const [denominacion, registro] = partes[1].split(/@(?=[0-9a-f]{64}$)/);
       movimientos.push({ token: 'E', emisor: partes[0], denominacion, ...(registro ? { registro } : {}), cantidad: mio, de: autor, a: null });
     }
-    movimientos.push({ token: 'P', ambito: b.clave.slice(2), cantidad: b.cantidad, de: autor, a: autor, estado: 'liberacion', salida: b.salida });
-  } else if (accion === 'delega' && (vista['P:' + A]?.disponible ?? 0) > 0) movimientos.push({ token: 'P', ambito: A, cantidad: 1, de: autor, a: otro });
+    movimientos.push({ token: 'P', ambito: b.ambito, origen: b.origen, cantidad: b.cantidad, de: autor, a: autor, estado: 'liberacion', salida: b.salida });
+  } else if (accion === 'delega' && Object.entries(vista).some(([k, v]) => k.startsWith('P:' + A + '/') && v.disponible > 0)) {
+    // El P de A que tenga, de cualquier origen, y lo mueve diciendo el suyo (encargo 3b-bis).
+    const [k] = Object.entries(vista).find(([x, v]) => x.startsWith('P:' + A + '/') && v.disponible > 0);
+    movimientos.push({ token: 'P', ambito: A, origen: k.slice(k.indexOf('/') + 1), cantidad: 1, de: autor, a: otro });
+  }
   else if (accion === 'pasado') movimientos.push({ token: 'T', escala: uno(['pasado', 'futuro']), cantidad: 2, de: autor, a: null, refiere: '2025-06-01T00:00:00Z' });
   else if (accion === 'P') {
     const propios = eje.orden.filter((id) => eje.obtener(id).autor === autor).slice(-3);

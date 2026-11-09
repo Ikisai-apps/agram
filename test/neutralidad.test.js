@@ -17,6 +17,12 @@
 // génesis y estrechar P. La regla madre se queda; lo que pesa en un recuento es el peso por dominio (el P de A en X ÷
 // el P de A en el dominio de X) y solo de quien el dueño nombra; las personas entran por invitación; el P se obtiene
 // (diez por registro escrito, por E recibida y por R recibida de su emisor) y no se acuña a mano.
+//
+// Encargo 3b-bis (VG, 10-11: «me parece bien tu planteamiento»; mapa §15 [D] «P guarda su origen; recuentos abiertos
+// por cantidad»): el P guarda su ORIGEN (quien lo obtuvo), como la R su emisor; delegarlo no lo cambia, así que pasar P
+// a un títere no crea otro 100 %. La obtención es por cantidad (diez por unidad de E o R que llega de su emisor). Con
+// «cualquiera» se cuenta por cantidad de P obtenido; con nombres, por reparto (el 100 % de cada origen por dominio) ×
+// presión. Cierra NEU-09 y NEU-10: «emitir desde dos fuentes vale lo mismo que desde una».
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -200,10 +206,12 @@ test('neutral: delegar P reparte y no copia; dividir el P recibido no cambia lo 
     const k = g.int(2, 6);
     const p = g.int(1, 9);
     const aC = g.int(0, p);
-    // Mapa §15 [D] N1: C tiene diez P sobre X por haberlo escrito, y nadie acuña más a mano; lo reparte.
+    // Mapa §15 [D] N1: C tiene diez P sobre X por haberlo escrito, y nadie acuña más a mano; lo reparte. Lo repartido
+    // sigue siendo de origen C (encargo 3b-bis): quien lo devuelve lo dice.
+    const deC = (m) => 'P:' + m.X + '/C';
     const uno = await mundo(['A']);
     await uno.eje.escribir({ autor: 'C', sobre: uno.X, t: T0, movimientos: [minuto('C'), { token: 'P', ambito: uno.X, cantidad: p, de: 'C', a: 'A' }], payload: unico('delega') });
-    if (aC) await uno.eje.escribir({ autor: 'A', sobre: uno.X, t: T0, movimientos: [minuto('A'), { token: 'P', ambito: uno.X, cantidad: aC, de: 'A', a: 'C' }], payload: unico('delega') });
+    if (aC) await uno.eje.escribir({ autor: 'A', sobre: uno.X, t: T0, movimientos: [minuto('A'), { token: 'P', ambito: uno.X, origen: 'C', cantidad: aC, de: 'A', a: 'C' }], payload: unico('delega') });
 
     const ids = nombres('A', k);
     const div = await mundo(ids);
@@ -211,16 +219,18 @@ test('neutral: delegar P reparte y no copia; dividir el P recibido no cambia lo 
     await div.eje.escribir({ autor: 'C', sobre: div.X, t: T0, movimientos: [minuto('C'), ...reparto.map((c, i) => [c, ids[i]]).filter(([c]) => c > 0).map(([c, a]) => ({ token: 'P', ambito: div.X, cantidad: c, de: 'C', a }))], payload: unico('delega') });
     let resta = aC;
     for (const id of ids) {
-      const c = Math.min(resta, div.eje.saldo(id, 'P:' + div.X));
-      if (c > 0) await div.eje.escribir({ autor: id, sobre: div.X, t: T0, movimientos: [minuto(id), { token: 'P', ambito: div.X, cantidad: c, de: id, a: 'C' }], payload: unico('delega') });
+      const c = Math.min(resta, div.eje.saldo(id, deC(div)));
+      if (c > 0) await div.eje.escribir({ autor: id, sobre: div.X, t: T0, movimientos: [minuto(id), { token: 'P', ambito: div.X, origen: 'C', cantidad: c, de: id, a: 'C' }], payload: unico('delega') });
       resta -= c;
     }
     const msg = 'caso ' + caso;
     assert.equal(div.eje.poderSobre('C', div.X), uno.eje.poderSobre('C', uno.X), msg + ': el P que llega al tercero');
     assert.equal(ids.reduce((s, id) => s + div.eje.poderSobre(id, div.X), 0), uno.eje.poderSobre('A', uno.X), msg + ': el P de la coalición');
-    assert.equal(div.eje.saldo('C', 'P:' + div.X), uno.eje.saldo('C', 'P:' + uno.X), msg + ': el P que conserva el dueño');
-    const acunadoX = (m) => m.eje.libro.sumas({ primitiva: 'acunar', serie: 'P:' + m.X });
+    assert.equal(div.eje.saldo('C', deC(div)), uno.eje.saldo('C', deC(uno)), msg + ': el P que conserva el dueño');
+    const acunadoX = (m) => m.eje.libro.sumas({ primitiva: 'acunar', serie: deC(m) });
     assert.deepEqual([acunadoX(div), acunadoX(uno)], [10, 10], msg + ': lo acuñado sobre X no crece al repartir');
+    // Y nadie de la coalición obtuvo P sobre X: todo lo que tiene ahí es de C.
+    assert.ok(ids.every((id) => div.eje.poderSobre(id, div.X, id) === 0), msg + ': delegar no crea P propio');
   }
 });
 
@@ -243,137 +253,284 @@ test('neutral: el orden de los candidatos en la posición de un tercero no depen
   }
 });
 
-// ---------- lo que hoy viola la propiedad (skip con id y concesión) ----------
+// ---------- recuentos y reparto (encargo 3b y 3b-bis) ----------
 
 // Encargo 3b (VG, 8-11, mapa §15 [D] «P como peso de criterio» y «Una sola operación: registrar»): se retiran autorizar
 // con umbral y los estados del motor. Una decisión de C sobre X se cuenta con el criterio que C escribe en su 2 (la
 // plantilla en 2.2, a quién cuenta y con qué presión en 2.3; por defecto, solo C), y cada compromiso (P bloqueado con
-// la salida = la decisión) pesa por dominio: el P comprometido ÷ el P de su titular en el dominio de X. NEU-01 y NEU-02
-// se reescriben sobre ese recuento.
+// la salida = la decisión) pesa por su ORIGEN (encargo 3b-bis): con nombres, el P comprometido ÷ el P de su origen en
+// el dominio de X, esté en la mano que esté; con «cualquiera», por cantidad.
+//
+// El P propio en el dominio de C se obtiene comprando: C paga EUR de su serie (atada a su alta, la raíz de su dominio)
+// y quien los recibe obtiene diez P por unidad sobre ella; o plazas, una serie de C atada a la casa X.
 
-/** Una decisión de C sobre X con la lista dada en su 2.3 (sin lista: solo cuenta C). */
-async function decisionDeC(m, lista) {
-  const criterio = lista ? [['decidir'], ['x'], ['weighted sum'], lista] : [['decidir'], ['x'], ['weighted sum']];
+/** Una decisión de C sobre X con la lista dada en su 2.3 (sin lista: solo cuenta C) y la plantilla (por defecto, la suma). */
+async function decisionDeC(m, lista, plantilla = 'weighted sum') {
+  const criterio = lista ? [['decidir'], ['x'], [plantilla], lista] : [['decidir'], ['x'], [plantilla]];
   return m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: [unico('¿abrimos?'), ['x'], criterio] });
 }
-/** C reparte las partes de su P sobre X entre las identidades y cada una lo compromete con D; todo escrito fuera del dominio de C. */
-async function comprometen(m, D, ids, partes) {
-  const dar = partes.map((c, i) => [c, ids[i]]).filter(([c]) => c > 0);
-  if (dar.length) await m.eje.escribir({ autor: 'C', sobre: m.eje.alta('C').id, t: T0, payload: unico('reparte'), movimientos: [minuto('C'), ...dar.map(([c, a]) => ({ token: 'P', ambito: m.X, cantidad: c, de: 'C', a }))] });
-  for (const [c, a] of dar) {
-    await m.eje.escribir({ autor: a, sobre: m.eje.alta(a).id, t: T0, payload: unico('comprometo'), movimientos: [minuto(a), { token: 'P', ambito: m.X, cantidad: c, de: a, a, estado: 'bloqueo', salida: D.id }] });
+
+/**
+ * C vende a cada identidad lo suyo en una sola transacción (así C escribe lo mismo, venda a una o a varias): EUR (atados
+ * a su alta, divisibles) o plazas (una serie atada a la casa X, en enteros). Quien recibe obtiene diez P por unidad.
+ */
+async function vende(m, reparto, { que = 'EUR' } = {}) {
+  const dar = Object.entries(reparto).filter(([, c]) => c > 0);
+  const total = dar.reduce((s, [, c]) => s + c, 0);
+  const serie = (c, de, a) => (que === 'EUR' ? eur('C', c, de, a) : { token: 'E', emisor: 'C', denominacion: 'plaza', registro: m.X, cantidad: c, de, a });
+  const movimientos = [minuto('C'), ...(que === 'EUR' || !total ? [] : [serie(total, null, 'C')]), ...dar.map(([a, c]) => serie(c, 'C', a))];
+  return m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos, payload: unico('vende ' + que) });
+}
+
+/** El P que tiene una identidad en el dominio de C (de cualquier origen), por serie: [{ ambito, origen, cantidad }] disponible. */
+const suP = (m, id) => m.eje.poderes(id).filter((p) => p.cantidad > 0 && m.eje.hilo(p.ambito).some((e) => e.id === m.eje.alta('C').id));
+
+/** Cada identidad compromete con D todo el P que tiene en el dominio de C, diciendo su origen; escribe en su propia alta (fuera del dominio). */
+async function comprometenTodo(m, D, ids) {
+  for (const id of ids) {
+    const movs = suP(m, id).map((p) => ({ token: 'P', ambito: p.ambito, origen: p.origen, cantidad: p.cantidad, de: id, a: id, estado: 'bloqueo', salida: D.id }));
+    if (movs.length) await m.eje.escribir({ autor: id, sobre: m.eje.alta(id).id, t: T0, payload: unico('comprometo'), movimientos: [minuto(id), ...movs] });
   }
   const r = motor.recuento(m.eje, D.id);
   return [r.valor, r.pasa];
 }
 
-test('NEU-01: con una segunda identidad, A no gana peso en la decisión de C; por defecto solo cuenta el dueño', async () => {
+/** `de` pasa a `a` `cantidad` de su P en el dominio de C de origen `origen` sobre `ambito`, escribiendo en su propia alta. */
+async function pasaP(m, de, a, ambito, origen, cantidad) {
+  return m.eje.escribir({ autor: de, sobre: m.eje.alta(de).id, t: T0, payload: unico('paso P'), movimientos: [minuto(de), { token: 'P', ambito, origen, cantidad, de, a }] });
+}
+
+test('NEU-01: con una segunda identidad, A no gana peso en la decisión de C; por defecto solo cuenta el dueño, y lo que el dueño delega cuenta como suyo', async () => {
   const uno = await mundo(['A']);
   const D1 = await decisionDeC(uno);
-  assert.deepEqual(await comprometen(uno, D1, ['A'], [4]), [0, false]);
+  await vende(uno, { A: 4 });
+  assert.deepEqual(await comprometenTodo(uno, D1, ['A']), [0, false]);
   const dos = await mundo(['A', 'A2']);
   const D2 = await decisionDeC(dos);
-  assert.deepEqual(await comprometen(dos, D2, ['A', 'A2'], [2, 2]), [0, false], 'dividirse no cambia el recuento');
+  await vende(dos, { A: 2, A2: 2 });
+  assert.deepEqual(await comprometenTodo(dos, D2, ['A', 'A2']), [0, false], 'dividirse no cambia el recuento');
   // Lo positivo: C compromete su P sobre la decisión (diez, por escribirla) y pasa.
   await dos.eje.escribir({ autor: 'C', sobre: D2.id, t: T0, payload: 'sí', movimientos: [minuto('C'), { token: 'P', ambito: D2.id, cantidad: 10, de: 'C', a: 'C', estado: 'bloqueo', salida: D2.id }] });
   assert.equal(motor.recuento(dos.eje, D2.id).pasa, true);
+  // Encargo 3b-bis: el P que C delega en A sigue siendo de C; si A lo compromete, cuenta como de C (el dueño), no de A.
+  const tres = await mundo(['A']);
+  const D3 = await decisionDeC(tres);
+  await tres.eje.escribir({ autor: 'C', sobre: tres.eje.alta('C').id, t: T0, payload: unico('delego'), movimientos: [minuto('C'), { token: 'P', ambito: tres.X, cantidad: 5, de: 'C', a: 'A' }] });
+  const [v3, pasa3] = await comprometenTodo(tres, D3, ['A']);
+  assert.ok(v3 > 0 && pasa3, 'cuenta como de C: ' + v3);
 });
 
 test('NEU-02: repartir el mismo P entre más identidades que el dueño no nombra no da más peso', async () => {
-  // C nombra a B en su 2.3: solo B cuenta. Repartir lo de B entre B y k títeres no nombrados no cambia el recuento.
+  // C nombra a B en su 2.3: solo B cuenta, con su 100 %. Repartir lo que B compra entre B y k títeres no nombrados no
+  // cambia el recuento: B sigue comprometiendo todo lo suyo.
   const recuento = async (k) => {
     const ids = ['B', ...nombres('T', k)];
     const m = await mundo(ids);
     const D = await decisionDeC(m, ['B']);
-    return comprometen(m, D, ids, ids.map((id, i) => (i === 0 ? 6 / (k + 1) : 6 / (k + 1))));
+    await vende(m, Object.fromEntries(ids.map((id) => [id, 6 / (k + 1)])));
+    return comprometenTodo(m, D, ids);
   };
-  const solo = await (async () => { const m = await mundo(['B']); const D = await decisionDeC(m, ['B']); return comprometen(m, D, ['B'], [6]); })();
+  const solo = await (async () => { const m = await mundo(['B']); const D = await decisionDeC(m, ['B']); await vende(m, { B: 6 }); return comprometenTodo(m, D, ['B']); })();
   assert.deepEqual(solo, [1, true]);
   for (const k of [1, 3, 5]) assert.deepEqual(await recuento(k), solo, 'k=' + k);
 });
 
-test('propiedad (NEU-02): con una lista de nombres, repartir el P de una nombrada entre k identidades no nombradas no cambia el recuento', async () => {
+test('propiedad (NEU-02): con una lista de nombres, repartir lo de una nombrada entre k identidades no nombradas no cambia el recuento', async () => {
   const g = prng(SEMILLA + 3);
   for (let caso = 0; caso < CASOS / 6; caso++) {
-    const n = g.int(1, 9); // el P de X que C da a la coalición
+    const n = g.int(1, 9); // lo que la coalición compra a C
     const k = g.int(2, 5);
     const nombradas = g.int(0, 1) ? ['A'] : ['A', 'Z'];
     const reparto = repartir(g, n, k);
     const uno = await mundo(['A', 'Z']);
     const D1 = await decisionDeC(uno, nombradas);
-    const r1 = await comprometen(uno, D1, ['A'], [n]);
-    // Dividido: A conserva su parte y el resto va a títeres que nadie nombra.
+    await vende(uno, { A: n });
+    const r1 = await comprometenTodo(uno, D1, ['A']);
+    // Dividido: A compra su parte y el resto lo compran títeres que nadie nombra.
     const ids = ['A', ...nombres('T', k - 1)];
     const div = await mundo([...ids, 'Z']);
     const D2 = await decisionDeC(div, nombradas);
-    const r2 = await comprometen(div, D2, ids, reparto);
+    await vende(div, Object.fromEntries(ids.map((id, i) => [id, reparto[i]])));
+    const r2 = await comprometenTodo(div, D2, ids);
     const msg = 'caso ' + caso + ' (n=' + n + ', k=' + k + ', ' + JSON.stringify(reparto) + ')';
-    // Los títeres no cuentan; A cuenta su 100 % por dominio si compromete algo (su P en el dominio de C es el que compromete).
+    // Los títeres no cuentan; A cuenta su 100 % por dominio si compró algo (y lo compromete todo).
     assert.equal(r2[0], reparto[0] > 0 ? r1[0] : 0, msg);
     assert.ok(r2[0] <= r1[0], msg + ': dividirse nunca da más');
   }
 });
 
-// NEU-10: con «cualquiera» en el 2.3 todas cuentan, y cada una pesa su 100 % por dominio: k identidades que comprometen
-// todo su P en el dominio suman k. Se salta hasta que VG decida.
-test('NEU-10: con «cualquiera» en el 2.3, repartir el mismo P entre k identidades no multiplica el recuento', {
-  skip: 'NEU-10: [X] decidir VG. Con «cualquiera» la plantilla «weighted sum» suma el peso por dominio de cada identidad (presión ÷ 9 × comprometido ÷ su P en el dominio): una sola con 6 de P da 1; tres con 2 cada una dan 3. La regla madre pide que dependa de cantidades, no de cabezas: o «cualquiera» pesa por cantidad comprometida sobre el total, o el peso por dominio no se suma entre identidades (mapa §15 [D] (3) y (4))',
-}, async () => {
+// NEU-10 (cerrada por el encargo 3b-bis): con «cualquiera» en el 2.3 se cuenta por cantidad de P obtenido, nunca por
+// cabeza ni por reparto: k identidades que comprometen lo que compraron suman lo mismo que una que compró todo.
+test('NEU-10: con «cualquiera», dos compradores con una plaza cada uno pesan lo mismo que uno con dos', async () => {
+  const abierto = async (compras, plantilla) => {
+    const m = await mundo(Object.keys(compras));
+    const D = await decisionDeC(m, ['cualquiera'], plantilla);
+    await vende(m, compras, { que: 'plaza' });
+    return (await comprometenTodo(m, D, Object.keys(compras)))[0];
+  };
+  for (const plantilla of ['weighted sum', 'weighted mean', 'threshold']) {
+    const dos = await abierto({ B1: 1, B2: 1 }, plantilla);
+    assert.equal(dos, await abierto({ B: 2 }, plantilla), plantilla);
+    assert.ok(dos > 0, plantilla);
+  }
+  // La suma ponderada, por cantidad: diez P por plaza, con la presión de «cualquiera» (9 de 9).
+  assert.equal(await abierto({ B: 2 }, 'weighted sum'), 20);
+  // Y repartir entre k el mismo P comprado no multiplica el recuento (la prueba que estaba en skip).
   const valor = async (k) => {
     const ids = nombres('A', k);
     const m = await mundo(ids);
     const D = await decisionDeC(m, ['cualquiera']);
-    return (await comprometen(m, D, ids, ids.map(() => 6 / k)))[0];
+    await vende(m, Object.fromEntries(ids.map((id) => [id, 6 / k])));
+    return (await comprometenTodo(m, D, ids))[0];
   };
   assert.equal(await valor(3), await valor(1));
 });
 
-// Peso por dominio (VG, 8-11, mapa §15 [D] (3): «cada persona se lee como su 100 %»): el P de A sobre X ÷ el P de A en
-// el dominio de X (lectura «share» de la época; src/motor.js, peso). Lo que se cumple: es una razón de cantidades, así
-// que repartir el P de A entre k identidades en la misma proporción deja a cada una el peso de A, y fundirlas lo
-// conserva. Lo que no (NEU-09, abajo): pasar a un títere el P de A fuera de X sube el peso de A sobre X.
+test('«uno por persona» no es una plantilla: pedirlo da su motivo (exige identidad de fuera)', async () => {
+  const m = await mundo(['A']);
+  const D = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, movimientos: [minuto('C')], payload: [unico('¿votamos?'), ['x'], [['decidir'], ['x'], ['one per person'], ['cualquiera']]] });
+  const r = motor.recuento(m.eje, D.id);
+  assert.deepEqual([r.plantilla, r.valor, r.pasa, r.estado], ['one per person', null, null, 'ERROR']);
+  assert.match(r.motivo, /outside identity/);
+});
 
-/** C da a cada una de las identidades x de P sobre X e y sobre Y (otro registro de su dominio); devuelve el mundo e Y. */
-async function pesoEnDominio(ids, x, y) {
-  const m = await mundo(ids);
-  const Y = await m.eje.escribir({ autor: 'C', sobre: m.X, t: T0, payload: 'Y', movimientos: [minuto('C')] });
-  await m.eje.escribir({ autor: 'C', sobre: m.eje.alta('C').id, t: T0, payload: unico('reparte'), movimientos: [minuto('C'),
-    ...ids.flatMap((a) => [{ token: 'P', ambito: m.X, cantidad: x, de: 'C', a }, { token: 'P', ambito: Y.id, cantidad: y, de: 'C', a }]).filter((p) => p.cantidad > 0)] });
-  return { ...m, Y: Y.id };
+// Reparto por origen (VG, 8-11, mapa §15 [D] (3): «cada persona se lee como su 100 %»; encargo 3b-bis: el de SU origen,
+// esté en la mano que esté): el P que obtuvo A sobre X ÷ el que obtuvo A en el dominio de X (lectura «share» de la
+// época en A.2.6.8; src/motor.js, peso). Repartir lo obtenido entre k identidades en la misma proporción deja a cada
+// una el reparto de A; pasar P a otras manos no lo cambia.
+
+/** Cada identidad compra x plazas (P sobre X) e y EUR (P sobre el alta de C), en el dominio de C. */
+async function pesoEnDominio(compras) {
+  const m = await mundo(Object.keys(compras));
+  await vende(m, Object.fromEntries(Object.entries(compras).map(([id, [x]]) => [id, x])), { que: 'plaza' });
+  await vende(m, Object.fromEntries(Object.entries(compras).map(([id, [, y]]) => [id, y])));
+  return m;
 }
 
-test('neutral (peso por dominio): repartir el P de una identidad en proporción entre k, o fundirlo, no cambia el peso de cada una', async () => {
+test('neutral (reparto por origen): obtener en proporción entre k, pasarlo a otras manos o fundirlo no cambia el reparto de nadie', async () => {
   const g = prng(SEMILLA + 8);
   for (let caso = 0; caso < 8; caso++) {
     const k = g.int(2, 4);
-    const [x, y] = [g.int(1, 2), g.int(0, 2)]; // C tiene diez P sobre X y diez sobre Y: k·x y k·y no pasan de 8
-    // Uno: A con k·x sobre X y k·y sobre Y. Dividido: k identidades con x y y cada una. Fundido: las k pasan todo a A1,
-    // escribiendo fuera del dominio de C (escribir dentro le daría a quien escribe diez P más en él).
-    const uno = await pesoEnDominio(['A'], k * x, k * y);
-    const ids = nombres('A', k);
-    const div = await pesoEnDominio(ids, x, y);
-    const fun = await pesoEnDominio(ids, x, y);
-    for (const id of ids.slice(1)) {
-      await fun.eje.escribir({ autor: id, sobre: fun.eje.alta(id).id, t: T0, payload: unico('al padre'), movimientos: [minuto(id),
-        { token: 'P', ambito: fun.X, cantidad: x, de: id, a: ids[0] }, ...(y ? [{ token: 'P', ambito: fun.Y, cantidad: y, de: id, a: ids[0] }] : [])] });
-    }
+    const [x, y] = [g.int(1, 2), g.int(0, 2)];
     const esperado = x / (x + y);
     const msg = 'caso ' + caso + ' (k=' + k + ', x=' + x + ', y=' + y + ')';
+    // Uno: A compra k·x plazas y k·y EUR. Dividido: k identidades, x e y cada una.
+    const uno = await pesoEnDominio({ A: [k * x, k * y] });
+    const ids = nombres('A', k);
+    const div = await pesoEnDominio(Object.fromEntries(ids.map((id) => [id, [x, y]])));
     assert.ok(Math.abs(motor.peso(uno.eje, 'A', uno.X) - esperado) < 1e-9, msg);
     for (const id of ids) assert.ok(Math.abs(motor.peso(div.eje, id, div.X) - esperado) < 1e-9, msg + ': ' + id);
-    assert.ok(Math.abs(motor.peso(fun.eje, ids[0], fun.X) - esperado) < 1e-9, msg + ': fundido');
+    // Pasar a otras manos: A reparte al azar su P entre las demás identidades del mundo dividido (que hacen de títeres),
+    // y lo funde de vuelta en A1. El reparto de cada origen no cambia, y quien solo tiene P ajeno no reparte nada suyo.
+    const altaC = div.eje.alta('C').id;
+    for (const id of ids.slice(1)) {
+      const pX = g.int(0, 10 * x);
+      if (pX) await pasaP(div, id, ids[0], div.X, id, pX);
+      const pY = g.int(0, 10 * y);
+      if (pY) await pasaP(div, id, ids[0], altaC, id, pY);
+    }
+    for (const id of ids) assert.ok(Math.abs(motor.peso(div.eje, id, div.X) - esperado) < 1e-9, msg + ': ' + id + ' tras fundir en ' + ids[0]);
   }
 });
 
-test('NEU-09: el peso por dominio es invariante ante dividir o fundir identidades (pasar a un títere el P de fuera de X no sube el peso sobre X)', {
-  skip: 'NEU-09: [X] decidir VG. El peso por dominio es una razón por identidad (mapa §15 [D] (3)): A con 5 de P sobre X y 5 sobre Y (mismo dominio) pesa 0,5 sobre X; si pasa los 5 de Y a un títere A2 (escribiendo fuera del dominio), A pesa 1 sobre X y A2 pesa 1 sobre Y. Sin coste, y la suma de pesos se dobla. Opciones: medir el 100 % sobre lo obtenido y no sobre lo que se tiene, o que el P transferido no cuente en el denominador de quien lo da',
-}, async () => {
-  const m = await pesoEnDominio(['A', 'A2'], 0, 0);
-  await m.eje.escribir({ autor: 'C', sobre: m.eje.alta('C').id, t: T0, payload: unico('reparte'), movimientos: [minuto('C'), { token: 'P', ambito: m.X, cantidad: 5, de: 'C', a: 'A' }, { token: 'P', ambito: m.Y, cantidad: 5, de: 'C', a: 'A' }] });
-  const antes = motor.peso(m.eje, 'A', m.X);
-  assert.equal(antes, 0.5);
-  await m.eje.escribir({ autor: 'A', sobre: m.eje.alta('A').id, t: T0, payload: 'a A2', movimientos: [minuto('A'), { token: 'P', ambito: m.Y, cantidad: 5, de: 'A', a: 'A2' }] });
-  assert.equal(motor.peso(m.eje, 'A', m.X), antes);
+// NEU-09 (cerrada por el encargo 3b-bis): antes, el peso era una razón sobre lo que se TIENE, y pasar a un títere el P de
+// otro registro del dominio subía el peso de A sobre X (sin coste, y la suma de pesos se doblaba). Ahora el 100 % es el
+// P de SU origen, esté donde esté.
+test('NEU-09: pasar a un títere el P de otro registro del dominio no cambia el peso de A ni el recuento (el P sigue siendo de origen A)', async () => {
+  const m = await mundo(['A', 'T']);
+  // A obtiene diez P sobre dos notas suyas en la casa de C (el dominio de C).
+  const N1 = await m.eje.escribir({ autor: 'A', sobre: m.X, t: T0, payload: unico('nota 1'), movimientos: [minuto('A')] });
+  const N2 = await m.eje.escribir({ autor: 'A', sobre: m.X, t: T0, payload: unico('nota 2'), movimientos: [minuto('A')] });
+  const D = await decisionDeC(m, ['A']);
+  await m.eje.escribir({ autor: 'A', sobre: m.eje.alta('A').id, t: T0, payload: unico('comprometo'), movimientos: [minuto('A'), { token: 'P', ambito: N1.id, cantidad: 10, de: 'A', a: 'A', estado: 'bloqueo', salida: D.id }] });
+  // El peso de A sobre N1 se lee en el dominio de N1 (lo escribió A: es suyo, su 100 %); el recuento, en el de la
+  // decisión (el de C), donde A obtuvo veinte y compromete diez.
+  const antes = [motor.peso(m.eje, 'A', N1.id), motor.recuento(m.eje, D.id).valor];
+  assert.deepEqual(antes, [1, 0.5]);
+  // A pasa al títere los diez de N2, escribiendo fuera del dominio (su propia alta).
+  await pasaP(m, 'A', 'T', N2.id, 'A', 10);
+  assert.deepEqual([motor.peso(m.eje, 'A', N1.id), motor.recuento(m.eje, D.id).valor], antes, 'ni el peso de A ni el recuento cambian');
+  assert.deepEqual([motor.peso(m.eje, 'A', N2.id), motor.peso(m.eje, 'T', N2.id)], [1, 0], 'el P de N2 sigue siendo de A; el títere no obtuvo nada');
+  // Si el títere lo compromete (diciendo su origen), cuenta como de A: A llega a su 100 %, no más.
+  await m.eje.escribir({ autor: 'T', sobre: m.eje.alta('T').id, t: T0, payload: unico('comprometo'), movimientos: [minuto('T'), { token: 'P', ambito: N2.id, origen: 'A', cantidad: 10, de: 'T', a: 'T', estado: 'bloqueo', salida: D.id }] });
+  assert.equal(motor.recuento(m.eje, D.id).valor, 1);
+});
+
+test('un títere sin obtención propia pesa cero en los recuentos abiertos y no cuenta en los nombrados si no está nombrado', async () => {
+  // A compra dos plazas (veinte P suyos sobre X) y pasa la mitad a su títere T. Cada decisión, en su mundo.
+  const mundoDe = async (lista) => {
+    const m = await mundo(['A', 'T']);
+    const D = await decisionDeC(m, lista);
+    await vende(m, { A: 2 }, { que: 'plaza' });
+    await pasaP(m, 'A', 'T', m.X, 'A', 10);
+    return { m, D };
+  };
+  // Abierto: lo que comprometen A y el títere suma lo que A obtuvo (veinte), lo mismo que si A lo comprometiera todo.
+  const abierto = await mundoDe(['cualquiera']);
+  assert.deepEqual(await comprometenTodo(abierto.m, abierto.D, ['A', 'T']), [20, true]);
+  assert.equal(motor.peso(abierto.m.eje, 'T', abierto.m.X), 0, 'el títere no reparte nada suyo');
+  assert.deepEqual(abierto.m.eje.obtenidoPor('T').filter((x) => x.registro === abierto.m.X), [], 'ni obtuvo nada en X');
+  const soloA = await mundo(['A']);
+  const DA = await decisionDeC(soloA, ['cualquiera']);
+  await vende(soloA, { A: 2 }, { que: 'plaza' });
+  assert.deepEqual(await comprometenTodo(soloA, DA, ['A']), [20, true], 'sin títere, lo mismo');
+  // Nombrado: si el dueño nombra al títere (y no a A), lo que el títere compromete es de A: no cuenta.
+  const aT = await mundoDe(['T']);
+  assert.deepEqual(await comprometenTodo(aT.m, aT.D, ['T']), [0, false]);
+  // Si no nombra a ninguno de los dos, tampoco.
+  const aZ = await mundoDe(['Z']);
+  assert.deepEqual(await comprometenTodo(aZ.m, aZ.D, ['A', 'T']), [0, false]);
+  // Si nombra a A, cuenta lo suyo esté en la mano que esté: su 100 %.
+  const aA = await mundoDe(['A']);
+  assert.deepEqual(await comprometenTodo(aA.m, aA.D, ['A', 'T']), [1, true]);
+});
+
+test('propiedad: dividir o fundir identidades no cambia ningún recuento, abierto o nombrado, salvo lo que el dueño nombre', async () => {
+  const g = prng(SEMILLA + 9);
+  const plantillas = ['weighted sum', 'weighted mean', 'threshold'];
+  const cerca = (a, b) => (a === null || b === null ? a === b : Math.abs(a - b) < 1e-6);
+  const si = (p) => g.r() < p;
+  for (let caso = 0; caso < 6; caso++) {
+    const n = g.int(1, 6);
+    const k = g.int(2, 4);
+    const plantilla = g.pick(plantillas);
+    const ids = nombres('A', k);
+    const reparto = repartir(g, n, k);
+    const msg = 'caso ' + caso + ' (n=' + n + ', k=' + k + ', ' + plantilla + ', ' + JSON.stringify(reparto) + ')';
+    // Abierto: comprar n plazas una identidad o k (repartidas como sea) y comprometerlo todo da lo mismo.
+    const abierto = async (compras) => {
+      const m = await mundo(Object.keys(compras));
+      const D = await decisionDeC(m, ['cualquiera'], plantilla);
+      await vende(m, compras, { que: 'plaza' });
+      return (await comprometenTodo(m, D, Object.keys(compras)))[0];
+    };
+    const r1 = await abierto({ A: n });
+    const rk = await abierto(Object.fromEntries(ids.map((id, i) => [id, reparto[i]])));
+    assert.ok(cerca(rk, r1), msg + ': abierto ' + rk + ' frente a ' + r1);
+    // Nombrado y abierto: con lo obtenido fijo, mover el P entre identidades (dividirlo o fundirlo, con su origen) antes
+    // de comprometerlo no cambia el recuento, para la lista que sea (salvo lo que el dueño nombre, que es lo que cuenta).
+    const listas = [['cualquiera'], [g.pick(ids)], ids.filter(() => si(0.5)).map((id) => (si(0.5) ? id + ' ' + g.int(1, 9) : id))];
+    for (const lista of listas) {
+      const base = async (mover) => {
+        const m = await mundo(ids);
+        const D = await decisionDeC(m, lista.length ? lista : ['nadie'], plantilla);
+        await vende(m, Object.fromEntries(ids.map((id, i) => [id, reparto[i]])), { que: 'plaza' });
+        if (mover) {
+          for (let i = 0; i < 4; i++) {
+            const de = g.pick(ids);
+            const p = suP(m, de);
+            if (!p.length) continue;
+            const x = g.pick(p);
+            await pasaP(m, de, g.pick(ids.filter((id) => id !== de)), x.ambito, x.origen, si(0.5) ? x.cantidad : x.cantidad / 2);
+          }
+        }
+        return (await comprometenTodo(m, D, ids))[0];
+      };
+      const quieto = await base(false);
+      const movido = await base(true);
+      assert.ok(cerca(movido, quieto), msg + ': lista ' + JSON.stringify(lista) + ': ' + movido + ' frente a ' + quieto);
+    }
+  }
 });
 
 // NEU-03 ya no se salta: el ciclo E/P/R/T (PR #62, VG 7-11 noche: «emite siempre una persona») lo implementa
@@ -406,14 +563,17 @@ async function casaDe(m, { capacidad = 4, fuentes, partes, resto = 0 }) {
   return H.id;
 }
 
-/** Evento de `f` que bloquea `bloquea` de P:`ambito` con la salida = la serie y emite `cantidad` de E atada a `registro`. */
-function emiteAtada(f, { registro, sobre = registro, ambito = registro, denominacion = 'plaza-noche', cantidad, bloquea = 0, emisores, otros = [] }) {
+/**
+ * Evento de `f` que bloquea `bloquea` de P:`ambito` con la salida = la serie y emite `cantidad` de E atada a `registro`.
+ * El P que bloquea es el que le dio C (encargo 3b-bis: conserva su origen, C), salvo que se diga otro `origen`.
+ */
+function emiteAtada(f, { registro, sobre = registro, ambito = registro, origen = 'C', denominacion = 'plaza-noche', cantidad, bloquea = 0, emisores, otros = [] }) {
   const clave = 'E:' + f + '/' + denominacion + '@' + registro;
   return {
     autor: f, sobre, t: T0, payload: unico('respaldo ' + cantidad),
     movimientos: [
       minuto(f), ...otros,
-      ...(bloquea ? [{ token: 'P', ambito, cantidad: bloquea, de: f, a: f, estado: 'bloqueo', salida: clave }] : []),
+      ...(bloquea ? [{ token: 'P', ambito, origen, cantidad: bloquea, de: f, a: f, estado: 'bloqueo', salida: clave }] : []),
       { token: 'E', emisor: f, denominacion, registro, cantidad, de: null, a: f, ...(emisores ? { emisores } : {}) },
     ],
   };
@@ -466,7 +626,7 @@ test('neutral (R2): repartir la capacidad de un registro entre k emisores con el
       const S = 'E:' + fuentes[0] + '/plaza-noche@' + H;
       // Los coemisores firman con su bloqueo; el primero bloquea el suyo y emite por todos.
       for (let i = 1; i < fuentes.length; i++) {
-        await m.eje.escribir({ autor: fuentes[i], sobre: H, t: T0, payload: unico('firma'), movimientos: [minuto(fuentes[i]), { token: 'P', ambito: H, cantidad: cuotas[i], de: fuentes[i], a: fuentes[i], estado: 'bloqueo', salida: S }] });
+        await m.eje.escribir({ autor: fuentes[i], sobre: H, t: T0, payload: unico('firma'), movimientos: [minuto(fuentes[i]), { token: 'P', ambito: H, origen: 'C', cantidad: cuotas[i], de: fuentes[i], a: fuentes[i], estado: 'bloqueo', salida: S }] });
       }
       const conjunta = fuentes.length > 1 ? fuentes : undefined;
       return maximoAceptado(m.eje, (c) => emiteAtada(fuentes[0], { registro: H, cantidad: c, bloquea: cuotas[0], emisores: conjunta }), capacidad + 1);
@@ -504,7 +664,7 @@ test('neutral (R2): partir el recurso en subregistros no esquiva el tope del anc
       const { f, id } = g.pick(subs);
       const registro = g.pick([id, H]);
       const otros = registro === H ? [] : [{ token: 'P', ambito: id, cantidad: 1, de: f, a: f, estado: 'bloqueo', salida: 'E:' + f + '/d' + intento + '@' + registro }];
-      const disponible = m.eje.saldo(f, 'P:' + H);
+      const disponible = m.eje.saldo(f, 'P:' + H + '/C');
       const ev = emiteAtada(f, { registro, ambito: H, denominacion: 'd' + intento, cantidad: g.int(1, 2 * capacidad), bloquea: disponible > 0 ? g.int(1, disponible) : 0, otros });
       await m.eje.escribir(ev).then(() => aceptadas++, () => {}); // rechazada: no cuenta
       const [deH] = m.eje.topes(H, T0).filter((x) => x.registro === H);

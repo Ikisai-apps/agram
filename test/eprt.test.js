@@ -43,8 +43,8 @@ test('P posicionado: quien escribe un registro obtiene diez P sobre él; no cubr
 test('dar P es transferir el que se tiene en ese registro; sin P no se da; el ámbito es un registro del libro', async () => {
   const { eje, menu, alta } = await mundo();
   await eje.escribir({ autor: 'casa', sobre: alta.id, t: T0, movimientos: [gastaT('casa'), { token: 'P', cantidad: 2, ambito: alta.id, de: 'casa', a: 'cocina' }], payload: 'delegación' });
-  assert.equal(eje.saldo('casa', 'P:' + alta.id), 8); // 10 − 2, del mismo registro
-  assert.equal(eje.saldo('cocina', 'P:' + alta.id), 2);
+  assert.equal(eje.saldo('casa', 'P:' + alta.id + '/casa'), 8); // 10 − 2, del mismo registro
+  assert.equal(eje.saldo('cocina', 'P:' + alta.id + '/casa'), 2); // de origen casa: delegar no cambia el origen (encargo 3b-bis)
   // Sala no tiene P sobre el menú: no lo da.
   await assert.rejects(eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, movimientos: [gastaT('sala'), { token: 'P', cantidad: 1, ambito: menu.id, de: 'sala', a: 'cocina' }], payload: 'x' }), /saldo insuficiente de P sobre/);
   // Un ámbito que no es un registro se rechaza, y «genesis» ya no es un ámbito (mapa §15: se retira el P del génesis).
@@ -105,15 +105,23 @@ test('recuento: cuenta el P que comprometen las personas que nombra el dueño, c
 });
 
 // Mapa §15 [D] (6): delegar mi P para una decisión concreta (el vecino que delega el voto) es una transferencia con
-// salida: llega bloqueado con esa salida a quien lo recibe. Y P no se emite a mano.
-test('delegar: el P comprometido con una decisión se pasa con su salida y cuenta como de quien lo recibe', async () => {
+// salida: llega bloqueado con esa salida a quien lo recibe. Encargo 3b-bis (VG, 10-11): el P guarda su origen, así que
+// lo delegado cuenta como de quien lo obtuvo, con su presión. Y P no se emite a mano.
+test('delegar: el P comprometido con una decisión se pasa con su salida, conserva su origen y cuenta como de quien lo obtuvo', async () => {
   const { eje, g, alta } = await mundo();
   const dominio = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 10, de: 'casa', a: 'recepcion' }], payload: 'Alojamiento' });
-  const decision = await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, movimientos: [gastaT('casa')], payload: ['¿Abrimos?', ['x'], [['decidir'], ['x'], ['threshold'], ['recepcion']]] });
-  await eje.escribir({ autor: 'casa', sobre: decision.id, t: T0, payload: 'delego',
+  const decide = (quien) => eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, movimientos: [gastaT('casa')], payload: ['¿Abrimos? (' + quien + ')', ['x'], [['decidir'], ['x'], ['threshold'], [quien]]] });
+  const delega = (decision) => eje.escribir({ autor: 'casa', sobre: decision.id, t: T0, payload: 'delego',
     movimientos: [gastaT('casa'), { token: 'P', ambito: dominio.id, cantidad: 2, de: 'casa', a: 'casa', estado: 'bloqueo', salida: decision.id }, { token: 'P', ambito: dominio.id, cantidad: 2, de: 'casa', a: 'recepcion', salida: decision.id }] });
-  assert.deepEqual([eje.bloqueado('recepcion', 'P:' + dominio.id, decision.id), eje.bloqueado('casa', 'P:' + dominio.id, decision.id)], [2, 0]);
-  assert.equal(recuento(eje, decision.id).pasa, true);
+  const decision = await decide('casa');
+  await delega(decision);
+  const deCasa = 'P:' + dominio.id + '/casa';
+  assert.deepEqual([eje.bloqueado('recepcion', deCasa, decision.id), eje.bloqueado('casa', deCasa, decision.id)], [2, 0]);
+  assert.equal(recuento(eje, decision.id).pasa, true, 'lo comprometido en manos de recepción cuenta como de la casa, que está nombrada');
+  // Si el dueño nombra solo a recepción, lo que le delegó la casa no cuenta: recepción no obtuvo ese P.
+  const otra = await decide('recepcion');
+  await delega(otra);
+  assert.deepEqual([recuento(eje, otra.id).valor, recuento(eje, otra.id).pasa], [0, false]);
   // P no se acuña a mano (antes: «solo una persona, sobre un registro suyo y con su R en juego»).
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'x',
     movimientos: [gastaT('casa'), { token: 'P', cantidad: 1, ambito: dominio.id, de: null, a: 'casa' }] }), /P is repositioned one step at a time/);
@@ -123,16 +131,16 @@ test('delegar: el P comprometido con una decisión se pasa con su salida y cuent
 test('P y R encajan en la constante: familia, clave de serie, quién la emite', async () => {
   const { eje, alta } = await mundo();
   // R por emisor (la casa, la suya). T no se emite (VG, 8-11: no hay T acumulable): su serie aparece al gastarse, con
-  // emitido 0. P no se acuña a mano: se obtiene (mapa §15), una vez por regla, titular y registro, y su serie es la
-  // de un registro del eje, con 10 por obtención.
+  // emitido 0. P no se acuña a mano: se obtiene (mapa §15), y su serie es la de un registro del eje y un origen
+  // (encargo 3b-bis), con 10 por obtención.
   const series = eje.series().map((s) => [s.token, s.serie, s.emisor, s.emitido]);
   assert.deepEqual(series.filter((x) => x[0] !== 'P'), [
     ['T', 'minuto', 'casa', 0],
     ['R', 'casa', 'casa', 20],
   ]);
   const deP = series.filter((x) => x[0] === 'P');
-  assert.ok(deP.length > 0 && deP.every(([, serie, , emitido]) => Boolean(eje.obtener(serie)) && emitido % 10 === 0));
-  assert.ok(deP.some(([, serie]) => serie === alta.id));
+  assert.ok(deP.length > 0 && deP.every(([, serie, emisor, emitido]) => Boolean(eje.obtener(serie.split('/')[0])) && serie.endsWith('/' + emisor) && emitido % 10 === 0));
+  assert.ok(deP.some(([, serie]) => serie === alta.id + '/casa'));
   assert.ok(eje.poderes('casa').some((p) => p.ambito === alta.id && p.cantidad === 10));
   assert.ok(eje.poderes('casa').every((p) => p.ambito !== 'genesis'));
   assert.deepEqual(eje.reputaciones('casa'), [{ emisor: 'casa', cantidad: 20 }]);

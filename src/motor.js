@@ -292,8 +292,8 @@ function movimientoAnunciado(registro) {
   const a = hoja(p?.[3]?.[1]);
   const serie = typeof clave === 'string' ? partirClave(clave) : null;
   if (!serie || typeof cantidad !== 'number' || typeof de !== 'string' || typeof a !== 'string') return null;
-  const { token, emisor, denominacion, registro: r, ambito, escala } = serie;
-  return { token, ...(emisor ? { emisor } : {}), ...(denominacion ? { denominacion } : {}), ...(r ? { registro: r } : {}), ...(ambito ? { ambito } : {}), ...(escala ? { escala } : {}), cantidad, de, a };
+  const { token, emisor, denominacion, registro: r, ambito, origen, escala } = serie;
+  return { token, ...(emisor ? { emisor } : {}), ...(denominacion ? { denominacion } : {}), ...(r ? { registro: r } : {}), ...(ambito ? { ambito } : {}), ...(origen ? { origen } : {}), ...(escala ? { escala } : {}), cantidad, de, a };
 }
 
 /**
@@ -328,13 +328,22 @@ export function siguiente(eje, X, yo) {
     const c = recuento(eje, id);
     if (c.pasa === false) {
       const que = 'el recuento de ' + reg.autor + ' (' + c.plantilla + ') da ' + c.valor + ' y pide ' + c.umbral;
-      const cuenta = presionDe(eje, id, yo) > 0;
-      // Comprometer P con X (mapa §15 [D] (5)): bloquear con la salida = X el P que tengo disponible en su dominio.
+      // Comprometer P con X (mapa §15 [D] (5)): bloquear con la salida = X el P que tengo disponible en su dominio y
+      // cuyo origen cuenta (encargo 3b-bis: cuenta el P por quien lo obtuvo; el delegado compromete el de su origen).
       const raiz = [...eje.hilo(id)].reverse().find((e) => e.autor === reg.autor)?.id;
       const enDominio = (r) => Boolean(raiz) && Boolean(eje.obtener(r)) && eje.hilo(r).some((e) => e.id === raiz);
-      const mio = Object.entries(eje.libro.vista(yo)).filter(([k, v]) => k.startsWith('P:') && v.disponible > 0 && enDominio(k.slice(2))).sort((a, b) => b[1].disponible - a[1].disponible)[0];
-      if (cuenta && mio) {
-        faltaDeMi.push({ que, plantilla: 'commit P', transaccion: { autor: yo, sobre: id, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: yo, a: null }, { token: 'P', ambito: mio[0].slice(2), cantidad: mio[1].disponible, de: yo, a: yo, estado: 'bloqueo', salida: id }], payload: ['comprometo P con ' + id.slice(0, 8)] } });
+      const presiones = new Map();
+      const cuenta = (origen) => {
+        if (!presiones.has(origen)) presiones.set(origen, presionDe(eje, id, origen) > 0);
+        return presiones.get(origen);
+      };
+      const mio = Object.entries(eje.libro.vista(yo))
+        .filter(([k]) => k.startsWith('P:'))
+        .map(([k, v]) => ({ ...partirClave(k), disponible: v.disponible }))
+        .filter((p) => p.disponible > 0 && enDominio(p.ambito) && cuenta(p.origen))
+        .sort((a, b) => b.disponible - a.disponible)[0];
+      if (mio) {
+        faltaDeMi.push({ que, plantilla: 'commit P', transaccion: { autor: yo, sobre: id, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: yo, a: null }, { token: 'P', ambito: mio.ambito, ...(mio.origen === yo ? {} : { origen: mio.origen }), cantidad: mio.disponible, de: yo, a: yo, estado: 'bloqueo', salida: id }], payload: ['comprometo P con ' + id.slice(0, 8)] } });
       } else espera.push({ que, de: reg.autor });
     }
   }
@@ -352,7 +361,7 @@ export function siguiente(eje, X, yo) {
   return fuera;
 }
 
-/** La presión de `quien` en la lista del dueño de X (X.2.3): la misma lectura que «weight», sin compromiso. */
+/** La presión de `quien` (el origen de un P) en la lista del dueño de X (X.2.3): la misma lectura que «weight», sin compromiso. */
 function presionDe(eje, X, quien) {
   // La misma forma que la lectura «weight» y las plantillas de recuento (2.3: «nombre» cuenta 9, «nombre 5» cuenta 5,
   // «cualquiera» abre a todos; sin lista, solo el dueño).
@@ -372,15 +381,20 @@ function presionDe(eje, X, quien) {
  * o su 2 si es una lista: «weighted sum», «weighted mean» o «threshold»; por defecto la primera de la época), con las
  * personas y presiones de X.2.3 (por defecto solo el dueño) y el umbral que dice ahí mismo («above 0.5»; por defecto
  * el de la época, epoch.9.0.0.2). Lo comprometido es el P bloqueado con la salida = X (X.2.4), y cada compromiso pesa
- * con la lectura «weight». Pasa si el valor supera el umbral. Devuelve { plantilla, valor, umbral, pasa, estado,
- * motivo }.
+ * con la lectura «weight»: por su origen (encargo 3b-bis: quien obtuvo el P, lo comprometa quien lo comprometa); con
+ * nombres, por reparto (el 100 % de su origen por dominio) × presión; con «cualquiera», por cantidad. Pasa si el valor
+ * supera el umbral. Devuelve { plantilla, valor, umbral, pasa, estado, motivo }.
  */
 export function recuento(eje, X) {
   const id = typeof X === 'string' ? X : X?.id;
   if (!eje.obtener(id)) throw new Error('registro desconocido: ' + String(id).slice(0, 8));
   const { porNombre, decupla } = plantillas(0);
   const dice = delCriterio(eje, id, 2);
-  const plantilla = dice.filter((x) => porNombre.has(x)).pop() ?? decupla[1][0][0][0];
+  // Lo que no es una plantilla de la época y lo dice (su 5, encargo 3b-bis): «one per person» exige identidad de fuera.
+  const noEncaja = new Map((Array.isArray(decupla?.[5]) ? decupla[5] : []).map((x) => [x[0][0], x[1][x[1].length - 1]]));
+  const pedida = dice.filter((x) => porNombre.has(x) || noEncaja.has(x)).pop();
+  if (noEncaja.has(pedida)) return { plantilla: pedida, valor: null, umbral: decupla[2][0], pasa: null, estado: 'ERROR', motivo: noEncaja.get(pedida) };
+  const plantilla = pedida ?? decupla[1][0][0][0];
   // El umbral: una magnitud «above 0.5» (D-VALOR) en el mismo criterio; sin ella, el de la época (epoch.9.0.0.2).
   const sobre = dice.map((x) => /^above\s+(\d+(?:\.\d+)?)$/.exec(String(x))).filter(Boolean).pop();
   const umbral = sobre ? Number(sobre[1]) : decupla[2][0];
@@ -391,12 +405,13 @@ export function recuento(eje, X) {
 }
 
 /**
- * El peso de `A` sobre X, como su 100 % por dominio (mapa §15 [D] (3)): su P posicionado en X entre su P en el
- * dominio de X, con la lectura «share» de la época (A.2.1.8). 0 si no tiene P en X.
+ * El peso de `A` sobre X, como su 100 % por dominio (mapa §15 [D] (3)) y por origen (encargo 3b-bis: «el P guarda su
+ * origen»): el P que obtuvo A sobre X entre el P que obtuvo A en el dominio de X, esté en la mano que esté, con la
+ * lectura «share» de la época (A.2.6.8). 0 si A no obtuvo P sobre X. Delegar o pasar P a otra identidad no lo cambia.
  */
 export function peso(eje, A, X) {
   const ctx = contexto(eje);
-  const r = evaluarBqlm('(("' + A.replace(/"/g, '\\"') + '").2.1 where it.0 = "' + X + '") each 8', ctx);
+  const r = evaluarBqlm('(("' + A.replace(/"/g, '\\"') + '").2.6 where it.0 = "' + X + '") each 8', ctx);
   return r.estado === 'RESUELTO' && r.valor.length ? r.valor.reduce((s, x) => s + x, 0) : 0;
 }
 

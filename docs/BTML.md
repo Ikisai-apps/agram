@@ -215,7 +215,7 @@ TIPOS, EMITEN         // ['persona', 'cosa'], ['persona']: quién puede emitir (
 ESTADOS               // ['bloqueo', 'liberacion']: movimientos que no cambian de titular
 asignacionT(t, escala), ASIGNACION_T, PARTES_T, diaCivil(t), textoT(escala, n)  // la asignación diaria de T (VG, 8-11, §2.4)
 validarMovimiento(m)  // → string[]  errores; [] si es válido
-claveToken(m)         // → 'T:hora' | 'E:casa/EUR' | 'P:<id>' | 'R:casa' | …   familia + ':' + los campos de SERIE unidos por '/'
+claveToken(m)         // → 'T:hora' | 'E:casa/EUR' | 'P:<id>/<origen>' | 'R:casa' | …   familia + ':' + los campos de SERIE unidos por '/'
 partirClave(clave)    // → { token, serie, ...campos }   'E:casa/cama@2026-11-13' → { token: 'E', serie: 'casa/cama@2026-11-13', emisor: 'casa', denominacion: 'cama@2026-11-13' }
 cantidadBase(m)       // → m.cantidad: sin conversión, cada serie se cuenta en su propia unidad
 ```
@@ -237,7 +237,7 @@ console.log(JSON.stringify(validarMovimiento({ token: 'T', escala: 'hora', canti
 ```text
 T:hora 1 T:minuto
 E:casa/EUR P:menu R:casa
-{"T":["escala"],"E":["emisor","denominacion","registro"],"P":["ambito"],"R":["emisor"]} 10 10 365
+{"T":["escala"],"E":["emisor","denominacion","registro"],"P":["ambito","origen"],"R":["emisor"]} 10 10 365
 {"token":"E","serie":"casa/cama@2026-11-13","emisor":"casa","denominacion":"cama@2026-11-13"}
 ["cantidad debe ser > 0","escala T inválida: mes","de y a son obligatorios (null permitido)","a debe ser identidad o null"]
 ["escala solo en T","E exige denominación","E exige emisor: la serie es de quien la emite","movimiento sin origen ni destino"]
@@ -272,7 +272,7 @@ Emitir (iniciar una serie o ampliarla) es lo único reservado a las **personas**
 La exigencia encadena E → P → R → T (VG, 8-11 tarde, mapa §15 N3: «dos secuencias, no dos escalones»; reglas de la época, `docs/BQLM.md` §10.1): emitir R exige quemar T real del autor en la misma transacción (una escala que el calendario mide; el informativo no cuenta: «minting R needs real T»), sin colateral (VG, 9-11: el respaldo es la obligación de atender); emitir E exige P del autor posicionado en el registro al que la E está atada («minting E needs P on its record»: su `registro` o, sin él, el alta del emisor) y R propia emitida («minting E needs own R issued»: en su cartera, en manos de otros o en la misma transacción). P no se emite: se obtiene y se reposiciona (§2.5). Y el reloj no va hacia atrás (**[X] confirmar VG**): el `t` de cualquier evento no es anterior al de su `sobre` ni al del alta de su autor, así que un alta no se retrofecha para ganar días de asignación. La tabla completa, con el ciclo de vida de cada familia, está en `docs/FUNDAMENTOS.md`.
 
 - **T** (VG, 8-11: «como en los videojuegos: llega a las 12 de la noche y te da todo el T del día siguiente, todos los segundos, todos los minutos, las horas, el día, el proporcional de la semana, de los 28 días y del año. Te lo gastas como quieras, no te puedes gastar más. Es suficiente para que no sea limitante»): nadie emite T, ni el génesis (`T no se emite: ni el génesis; cada persona tiene su asignación del día`; VG, 8-11: «no hay un tipo de T que se acumule»). Cada **persona** dada de alta tiene, por cada día civil de su propio reloj (el `t` de sus eventos, en UTC), su asignación entera (`ASIGNACION_T`): 86400 segundos, 1440 minutos, 24 horas, 1 día y una parte de semana, de ciclo y de año («tú diariamente tienes la posibilidad de poner uno partido de 7, 28 o 364 para que ese día decidas»). Lo no gastado **no se acumula** ([X] confirmar VG): al cambiar de día, la asignación es la nueva. Gastar (consumirlo o darlo a una cosa) sale de lo que queda del día; ningún T se acumula; si no alcanza, `writing burns today's T: <autor> burns no T, or more T than is left today (day <n>)` (la regla de la época). Una cosa no tiene asignación: gasta el T que le dio su persona (o otra cosa del mismo dueño, o de quien escribió su alta o tiene P sobre ella: VG, 8-11) y lo conserva hasta gastarlo; un grupo no tiene T. T no se bloquea ni se libera (`T is not locked: …`). Las tres informativas (`pasado`, `futuro`, `inventado`) son ilimitadas («pondría uno, pero si lo gastas te vuelve a salir uno»): no se rechazan por saldo, solo quedan registradas, con su `refiere` y su `nota`, y **pagan la escritura** (VG, 8-11): el evento sale gratis en T real y no es presente (`evento.esPresente`, `eje.presente(id)`; `PRESENTE()` en BQL). La serie es `T:<escala>`, sin emisor en la clave. `eje.saldoT(persona, escala, t)` dice lo que queda.
-- **P** (mapa §15 [D] «P como peso de criterio»): nadie lo acuña a mano. Lo acuña el libro, como **obtención** (las reglas que escriben de la época, `docs/BQLM.md` §5): diez al escribir un registro (sobre él), diez al conseguir E de otro (sobre el registro de la serie) y diez al recibir R directamente de su emisor (sobre su alta), una vez por regla, titular y registro (sea cual sea la serie). Después se **reposiciona** por el árbol: un paso por transacción, quemando P de un registro y acuñándolo en su padre (una décima) o en un hijo (una décima más). `P:<id>` es el P posicionado en ese registro; ya no hay `P:genesis` ni P que cubra lo de debajo.
+- **P** (mapa §15 [D] «P como peso de criterio»): nadie lo acuña a mano. Lo acuña el libro, como **obtención** (las reglas que escriben de la época, `docs/BQLM.md` §5): diez al escribir un registro (sobre él), y diez por unidad al recibir E (sobre el registro de la serie) o R (sobre su alta) directamente de su emisor (encargo 3b-bis: por cantidad, no por cabeza). Después se **reposiciona** por el árbol: un paso por transacción, quemando P de un registro y acuñándolo en su padre (una décima) o en un hijo (una décima más). `P:<id>/<origen>` es el P posicionado en ese registro que obtuvo `<origen>` (encargo 3b-bis: el P guarda su origen, como la R su emisor; pasarlo o reposicionarlo no lo cambia, y quien mueve P de otro origen lo dice con `origen` en el movimiento); ya no hay `P:genesis` ni P que cubra lo de debajo.
 - **E**: una persona emite una **serie limitada** de una denominación que respalda (la casa emite un token por plaza y noche). La serie es **suya**, como en R: la clave lleva al emisor (`E:casa/cama@2026-11-13`). Por eso nadie se queda un nombre ni emite la denominación de otro: la misma denominación emitida por otro es otra serie (`E:bea/cama@2026-11-13`), y los EUR de la casa no son los de nadie más. Dentro de su serie, E es fungible: la mueve quien la tiene. Y va **atada al registro del recurso** (VG, 7-11 noche; R2): el campo `registro` (el id de un evento del eje) entra en la clave tras la última `@` (`E:casa/cama@2026-11-13@<id>`; una denominación no puede acabar en `@<id>`), y sin él la serie queda atada al registro del emisor. El E vivo de un registro y sus descendientes, por franja (lo que va tras la última `@` de la denominación: la noche en `cama@2026-11-13`; texto opaco cuya granularidad elige el dueño; sin `@`, una sola franja), no pasa de la capacidad que declara cualquier registro de su hilo (un entero en la posición 2 del payload raíz); cada serie emite en proporción al P comprometido con su clave, o la de su familia (franja `*`), como salida: el P posicionado en el registro que declara la capacidad o en lo que cuelga de él, frente al de todos (VG, 9-11, D1 y F1), y ese P no se libera mientras la serie viva. Fracciones solo con `divisible: true`; emisión conjunta con `emisores: [...]`. Detalle en `docs/FUNDAMENTOS.md` («E atada al recurso, con tope compartido»).
 - **R** (VG, 9-11, mapa §15 [D] «R según el corpus»): su emisor la declara y solo él la amplía (`R:<emisor>`), sin colateral; cada ampliación es un evento suyo en el eje, y ese es el rastro visible. Se **transfiere** libremente entre tenedores sin cambiar de emisor; **devolverla** al emisor es pedirle atención, y el emisor la **atiende** con un registro suyo anclado sobre la petición, con T real (la lectura «attended»; el criterio de cada uno por su PV2 sigue [X] VG); y el tenedor puede **perdonar** la deuda quemándola. Mientras está en su cartera no obliga a nada; en manos ajenas es la **obligación** del emisor: `eje.obligaciones(emisor)` (derivada de los saldos, no es un token; doble entrada, V10). Un mensaje no emite R. La R no tiene un valor propio: vale ante quien la lee, una unidad cada una de los emisores que su lente nombra (los grupos de atención del lector que cobran con la R de quien escribe: `src/lente.js`, `docs/FUNDAMENTOS.md` «La lente de R»). Escribir en el 3 del alta de otro cuesta el precio que pone a tu grupo: su R devuelta, tu R, E o P («attention has a price», §7.1). No hay función que liste el rastro: son los eventos del emisor con un movimiento R `de: null` (`eje.series()` da solo el total emitido). [X] decidir VG: si quien la recibe puede rechazarla.
 
@@ -325,7 +325,7 @@ await eje.escribir({ autor: 'casa', sobre: plazas.id, t, movimientos: [gasta('ca
 await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), R('casa', 1, 'bea', 'hab-2')], payload: 'te paso R de la casa' }); // R pasa de tenedor a tenedor (VG, 9-11)
 console.log(eje.saldo('bea', 'E:casa/cama@2026-11-13'), JSON.stringify(eje.reputaciones('bea')), JSON.stringify(eje.reputaciones('hab-2')), eje.obligaciones('casa'));
 const series = eje.series();
-console.log(series.filter((x) => x.token !== 'P').map((x) => x.clave + ' ' + x.emitido).join(' · '), '· y', series.filter((x) => x.token === 'P').length, 'series de P, una por registro que dio P');
+console.log(series.filter((x) => x.token !== 'P').map((x) => x.clave + ' ' + x.emitido).join(' · '), '· y', series.filter((x) => x.token === 'P').length, 'series de P, una por registro que dio P y por quien lo obtuvo');
 ```
 
 ```text
@@ -335,9 +335,9 @@ evento rechazado: E is minted by and to its issuer: bea mints E of casa, or to s
 evento rechazado: only persons mint: hab-2 is a thing (its alta was written by casa), and only persons mint; minting E needs P on its record: hab-2 mints E on a record where it has no P; minting E needs own R issued: hab-2 mints E and has never issued R of its own
 evento rechazado: saldo insuficiente de E:casa/cama@2026-11-13 en hab-2
 evento rechazado: nobody mints T: casa mints 1 T; everyone has today's allowance
-evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child
+evento rechazado: P is repositioned one step at a time: casa mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent or a child, keeping its origin
 1 [{"emisor":"casa","cantidad":2},{"emisor":"bea","cantidad":2}] [{"emisor":"casa","cantidad":1}] 3
-T:minuto 0 · R:casa 10 · E:casa/EUR 500 · E:casa/cama@2026-11-13 2 · R:bea 2 · E:bea/cama@2026-11-13 1 · y 10 series de P, una por registro que dio P
+T:minuto 0 · R:casa 10 · E:casa/EUR 500 · E:casa/cama@2026-11-13 2 · R:bea 2 · E:bea/cama@2026-11-13 1 · y 12 series de P, una por registro que dio P y por quien lo obtuvo
 ```
 
 Leído: la casa emite al empezar su R y sus euros (la emisión inicial, después del génesis), invita a bea, que acepta (su alta: una persona), y da de alta a la habitación, una cosa. Las camas de la casa van atadas a su alta (sin `registro`), donde tiene los diez P de haberla escrito. Bea emite su R y su cama en la misma transacción, quemando un minuto real. No pasan: bea emitiendo E de la casa; la habitación emitiendo (es una cosa, y además no tiene P ni R propia); la habitación moviendo más camas de las que tiene; la casa acuñando T; y la casa acuñando P a mano. La casa da R sin colateral y bea la pasa a la habitación sin devolverla a su emisor.
@@ -348,13 +348,14 @@ Encargo 3b (VG, 8-11, mapa §15 [D] «P como peso de criterio»: «a P le estás
 
 - **Obtener** (N1, N2): el libro acuña diez P en la misma transacción, con la clase «obtencion», a quien escribe un registro (sobre él), a quien consigue E de otro (sobre el registro de la serie) y a quien recibe R directamente de su emisor (sobre el alta del emisor). Lo dicen las reglas que escriben de la época, no el código; y una obtención no se repite (regla, titular, registro). `eje.libro.asientos({ clase: 'obtencion' })` las lista.
 - **Reposicionar** (N7): un paso por transacción. Quien escribe quema P suyo de un registro y lo acuña para sí en su padre (subir deja una décima: 10 → 1) o en un hijo (bajar añade una décima: 1 → 1,1), con decimales. Ir a un registro ajeno es subir al antepasado común y bajar, varios pasos («P is repositioned one step at a time»).
-- **Pasar y delegar**: P se transfiere a otro sobre el mismo registro. Delegar es una **transferencia con salida** (mapa §15 [D] (6)): quien delega bloquea su P con la salida = la decisión y lo transfiere con esa salida; llega a quien recibe bloqueado con ella, comprometido con esa decisión.
+- **Pasar y delegar**: P se transfiere a otro sobre el mismo registro, sin cambiar de origen. Delegar es una **transferencia con salida** (mapa §15 [D] (6)): quien delega bloquea su P con la salida = la decisión y lo transfiere con esa salida; llega a quien recibe bloqueado con ella, comprometido con esa decisión, y cuenta como de quien lo obtuvo.
 - **Comprometer** (mapa §15 [D] (5)): bloquear P con la salida = el id de la decisión. Los compromisos con X son la vista `X.2.4`, y el recuento los pesa según el criterio del dueño de X (`docs/MOTOR.md`).
-- **El peso por dominio** (mapa §15 [D] (3)): el peso de A sobre X es su P en X ÷ su P en el dominio de X, el árbol que cuelga del registro más alto del hilo de X escrito por su dueño (la lectura «share», `A.2.1.8`; `motor.peso`). Dividir o fundir identidades no lo cambia.
+- **El peso por dominio** (mapa §15 [D] (3)): el peso de A sobre X es el P que obtuvo A en X ÷ el que obtuvo A en el dominio de X, esté en la mano que esté (encargo 3b-bis: el reparto por origen), con el dominio el árbol que cuelga del registro más alto del hilo de X escrito por su dueño (la lectura «share», `A.2.6.8`; `motor.peso`). Dividir o fundir identidades no lo cambia.
 
 ```js
-eje.poderes(identidad)              // → [{ ambito, cantidad }]   no hay P total
-eje.poderSobre(identidad, registro) // → número: su P posicionado en ese registro, disponible y bloqueado
+eje.poderes(identidad)              // → [{ ambito, origen, cantidad }]   una por serie; no hay P total
+eje.poderSobre(identidad, registro, origen?) // → número: su P posicionado en ese registro, disponible y bloqueado (de todos los orígenes, o del que se diga)
+eje.obtenidoPor(origen)             // → [{ registro, cantidad, titulares }]: el P que obtuvo, esté en la mano que esté
 ```
 
 En Booking (`ejemplos/ikisai/reserva-booking.mjs`), la casa escribe el registro de dominio («Alojamiento»), donde obtiene sus diez P, y respalda las plazas comprometiendo ese P con la familia de cada plaza (su salida); cada parte de la confirmación mueve lo suyo. Pruebas: `test/reglas-3b.test.js`, `test/eprt.test.js`.
@@ -1093,7 +1094,7 @@ Una identidad es una cadena (`'casa'`, `'cocina'`, `'huesped'`). **Existe cuando
 
 ```js
 eje.identidades()              // → string[] en orden de primera recepción
-eje.saldo(identidad, clave)    // → número disponible; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:<id>', 'R:casa', …); 0 si no existe ('P', 'T' o 'E:EUR' a secas siempre dan 0)
+eje.saldo(identidad, clave)    // → número disponible; clave de saldo ('T:minuto', 'E:casa/EUR', 'P:<id>/<origen>', 'R:casa', …); 0 si no existe ('P', 'T' o 'E:EUR' a secas siempre dan 0)
 eje.bloqueado(identidad, clave, salida?) // → lo bloqueado (de una salida, o de todas)
 eje.bloqueos(identidad)        // → [{ clave, ...campos, salida, cantidad }]
 eje.alta(identidad)            // → { id, t } de su alta, o null
@@ -1362,7 +1363,7 @@ Pendiente: persistencia en base de datos y anclaje a una cadena. La forma de los
 | compra | huesped | menú | `0000000000` | `["Compra del menú del día", [[{ref: menú, dir: "1000000000"}], [1], ["EUR 12"]], [{ref: menú, dir: "2000000000"}, "all announced movements happened"], ["huesped", "cocina"], ["pagar", "servir"]]` |
 | cuenta | cocina | compra | `1000000000` | `["Cuenta del menú", "=REF(\"<compra>\", \"1200000000\") + 2 EUR", "=LOCAL(1) + 15 min", "==no es fórmula"]` |
 
-Series: la casa (una persona: escribe el génesis, que es su alta; B1) emite al empezar 10 `R:casa` y 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor); ningún T se emite, y P no se emite: cada registro da diez P a quien lo escribe, y quien recibe R de su emisor o E de otro obtiene diez P en su registro (§2.5). La huésped entra por la invitación de la casa (es una persona) y recoge la unidad de R que le guardaba; la casa da de alta a la cocina (una cosa) con horas y minutos de su T, que son tokens distintos, y da euros a la huésped. Las personas gastan de su asignación del día; la cocina, del T que le dio la casa. Saldos tras los ocho eventos: casa 440 EUR y 9 `R:casa`; cocina 18 h y 237 min de T, 12 EUR; huesped 48 EUR y 1 `R:casa`; y cada uno, diez P por registro propio, más los obtenidos sobre el génesis (la huésped, veinte: por la R y por los euros; la cocina, diez: por los euros).
+Series: la casa (una persona: escribe el génesis, que es su alta; B1) emite al empezar 10 `R:casa` y 500 `E:casa/EUR` (la serie es suya: la clave lleva al emisor); ningún T se emite, y P no se emite: cada registro da diez P a quien lo escribe, y quien recibe R o E de su emisor obtiene diez P por unidad en su registro, de origen él (§2.5; encargo 3b-bis). La huésped entra por la invitación de la casa (es una persona) y recoge la unidad de R que le guardaba; la casa da de alta a la cocina (una cosa) con horas y minutos de su T, que son tokens distintos, y da euros a la huésped. Las personas gastan de su asignación del día; la cocina, del T que le dio la casa. Saldos tras los ocho eventos: casa 440 EUR y 9 `R:casa`; cocina 18 h y 237 min de T, 12 EUR; huesped 48 EUR y 1 `R:casa`; y cada uno, diez P por registro propio, más los obtenidos sobre el génesis (la huésped, veinte: por la R y por los euros; la cocina, diez: por los euros).
 
 Qué ocupa cada dirección de la compra (con la cuenta escrita) está en §6.6. En particular, la posición 4 solo tiene sus dos propios (`[4]` y `[4, 0]`): nadie ha escrito en ella. Los escenarios con propinas escritas en `4000000000` que usa `docs/BQL.md` son de las pruebas (`test/bql-colecciones.test.js`), no de este eje.
 
@@ -1414,7 +1415,7 @@ export function diaCivil(t): number;
 export function textoT(escala, cantidad): string;          // «3/7 semana», «1 semana», «5 minuto»
 export const SEGUNDOS = { segundo: 1, minuto: 60, hora: 3600, dia: 86400, semana: 604800, ciclo: 2419200, anio: 31536000, pasado: null, futuro: null, inventado: null };  // solo para medir distancias
 export function validarMovimiento(m): string[];
-export function claveToken(m): string;                    // 'T:hora' | 'E:casa/EUR' | 'P:<id>' | 'R:casa' | …
+export function claveToken(m): string;                    // 'T:hora' | 'E:casa/EUR' | 'P:<id>/<origen>' | 'R:casa' | …
 export function partirClave(clave): { token, serie, ...campos };  // campos de SERIE: escala | emisor y denominacion | ambito | emisor
 export function cantidadBase(m): number;                  // m.cantidad, sin conversión
 
@@ -1448,7 +1449,7 @@ export class Eje {
   poderes(identidad): { ambito, cantidad }[];
   reputaciones(identidad): { emisor, cantidad }[];
   poderSobre(identidad, registro): number;                 // su P posicionado en ese registro (disponible y bloqueado)
-  serie(clave): { emisor, emitido, caduca? };            // por clave de saldo: 'E:casa/EUR', 'R:casa', 'T:hora', 'P:<id>'
+  serie(clave): { emisor, emitido, caduca? };            // por clave de saldo: 'E:casa/EUR', 'R:casa', 'T:hora', 'P:<id>/<origen>'
   series(): { clave, token, serie, ...campos, emisor, emitido, bloqueado, caduca? }[];  // caduca solo en E (ISO o null)
   bloqueado(identidad, clave, salida?): number;
   bloqueos(identidad): { clave, token, serie, ...campos, salida, cantidad }[];

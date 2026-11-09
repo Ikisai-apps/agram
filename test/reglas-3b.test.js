@@ -6,6 +6,8 @@
 //   P como peso de criterio (8-11): P se obtiene (N1: escribir un registro propio da diez; conseguir E da P sobre su
 //     registro; N2: recibir R da diez en la raíz de quien la da), se reposiciona por el árbol (subir deja una décima,
 //     bajar añade una décima; N7: solo subir y bajar), y el peso es por dominio; se cuenta según el PV2 del dueño (N4).
+//   P guarda su origen (10-11, encargo 3b-bis): la serie es P:<registro>/<origen>; delegar no cambia el origen; la
+//     obtención es por cantidad (diez por unidad de E o R que llega de su emisor), y el reparto, por origen.
 //   Una sola operación, registrar (8-11): cada uno mueve lo suyo; «cerrado» lo establece el proceso (N5).
 //   R según el corpus (9-11): sin colateral, transferible, se devuelve para pedir atención y se perdona quemándola.
 //   PV3 = regla de atención (9-11): escribirme tiene el precio de tu grupo; el veto rechaza.
@@ -72,10 +74,10 @@ test('el génesis es la época 0 en el eje: sin movimientos, con la referencia a
 
 test('«writing a record gives ten P on it» (N1): quien escribe obtiene diez P sobre su registro; sobre el de otro, no', async () => {
   const { eje, g, X } = await mundo();
-  assert.deepEqual(obtenido(eje, X), [['g', 'P:' + X.id, 10]]);
+  assert.deepEqual(obtenido(eje, X), [['g', 'P:' + X.id + '/g', 10]]);
   assert.equal(eje.poderSobre('g', g), 10, 'también el génesis: lo escribió g');
   const nota = await eje.escribir({ autor: 'ana', sobre: X.id, t: T0, payload: 'una nota', movimientos: [minuto('ana')] });
-  assert.deepEqual(obtenido(eje, nota), [['ana', 'P:' + nota.id, 10]], 'ana obtiene P sobre su nota, no sobre el huerto de g');
+  assert.deepEqual(obtenido(eje, nota), [['ana', 'P:' + nota.id + '/ana', 10]], 'ana obtiene P sobre su nota, no sobre el huerto de g; el origen es ella');
   assert.equal(eje.poderSobre('ana', X.id), 0);
   // La regla que escribe, leída a mano: coloca diez en (first ev.3).2.1.(first ev.5).
   const ev = await crearEvento({ autor: 'ana', sobre: X.id, t: T0, payload: 'otra', movimientos: [minuto('ana')] });
@@ -84,13 +86,13 @@ test('«writing a record gives ten P on it» (N1): quien escribe obtiene diez P 
   assert.match(evaluarRegla(regla('writing a record gives ten P on it'), new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML })).motivo, /regla que escribe/);
 });
 
-test('«getting E gives ten P on its record»: quien recibe E obtiene P sobre el registro de la serie; bloquear E no da nada', async () => {
+test('«getting E gives ten P on its record»: quien recibe E de su emisor obtiene diez P por unidad sobre el registro de la serie; bloquear E no da nada', async () => {
   const { eje, g } = await mundo();
   const da = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: 'ana' }] });
-  assert.ok(obtenido(eje, da).some(([a, s, c]) => a === 'ana' && s === 'P:' + g && c === 10), 'el vale está atado al alta de g (el génesis)');
+  assert.ok(obtenido(eje, da).some(([a, s, c]) => a === 'ana' && s === 'P:' + g + '/ana' && c === 50), 'el vale está atado al alta de g (el génesis): diez por cada uno de los cinco');
   const bloquea = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'aparto', movimientos: [minuto('ana'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'ana', a: 'ana', estado: 'bloqueo', salida: 'algo' }] });
   assert.deepEqual(obtenido(eje, bloquea).filter(([a]) => a === 'ana' && false), []);
-  assert.ok(!obtenido(eje, bloquea).some(([, s]) => s === 'P:' + g), 'bloquear E no es conseguirla');
+  assert.ok(!obtenido(eje, bloquea).some(([, s]) => s.startsWith('P:' + g + '/')), 'bloquear E no es conseguirla');
 });
 
 test('«receiving R gives ten P on the root of its issuer» (N2): recibir R da P en el alta de su emisor; devolverla, no', async () => {
@@ -98,7 +100,7 @@ test('«receiving R gives ten P on the root of its issuer» (N2): recibir R da P
   // ana recogió en su alta la R de g que le guardaba la invitación: diez P sobre el alta de g.
   assert.ok(eje.poderSobre('ana', g) >= 10);
   const devuelve = await eje.escribir({ autor: 'ana', sobre: g, en: '3000000000', t: T0, payload: 'g, te escribo', movimientos: [minuto('ana'), R('ana', 1, null, 'ana'), R('ana', 1, 'ana', 'g')] });
-  assert.ok(obtenido(eje, devuelve).some(([a, s]) => a === 'g' && s === 'P:' + eje.alta('ana').id), 'g recibe R de ana: P sobre el alta de ana');
+  assert.ok(obtenido(eje, devuelve).some(([a, s, c]) => a === 'g' && s === 'P:' + eje.alta('ana').id + '/g' && c === 10), 'g recibe una R de ana: diez P sobre el alta de ana, de origen g');
   const vuelve = await eje.escribir({ autor: 'bea', sobre: g, en: '3000000000', t: T0, payload: 'te pido atención', movimientos: [minuto('bea'), R('g', 1, 'bea', 'g')] });
   assert.ok(!obtenido(eje, vuelve).some(([a]) => a === 'g'), 'su propia R devuelta no le da P');
 });
@@ -149,12 +151,17 @@ test('«minting E needs P on its record» y «minting E needs own R issued» (N3
 
 // ---------- delegar y comprometer P ----------
 
-test('delegar es transferir con salida (mapa §15 [D] (6)): el P llega bloqueado con la decisión; sin bloquearlo antes, no hay qué pasar', async () => {
+test('delegar es transferir con salida (mapa §15 [D] (6)): el P llega bloqueado con la decisión y conserva su origen; sin bloquearlo antes, no hay qué pasar', async () => {
   const { eje, g, X } = await mundo();
   const D = await eje.escribir({ autor: 'g', sobre: X.id, t: T0, payload: ['¿Plantamos?'], movimientos: [minuto('g')] });
   await eje.escribir({ autor: 'g', sobre: D.id, t: T0, payload: 'delego en ana', movimientos: [minuto('g'), P(X.id, 4, 'g', 'g', { estado: 'bloqueo', salida: D.id }), P(X.id, 4, 'g', 'ana', { salida: D.id })] });
-  assert.deepEqual([eje.bloqueado('ana', 'P:' + X.id, D.id), eje.saldo('ana', 'P:' + X.id), eje.bloqueado('g', 'P:' + X.id, D.id)], [4, 0, 0]);
+  // Encargo 3b-bis: lo que tiene ana es P de origen g (P:X/g), no suyo.
+  const deG = 'P:' + X.id + '/g';
+  assert.deepEqual([eje.bloqueado('ana', deG, D.id), eje.saldo('ana', deG), eje.bloqueado('g', deG, D.id), eje.poderSobre('ana', X.id, 'ana')], [4, 0, 0, 0]);
   assert.ok((await motivos(eje, { autor: 'g', sobre: D.id, payload: 'más', movimientos: [minuto('g'), P(X.id, 4, 'g', 'bea', { salida: D.id })] })).some((m) => /no hay 4 de P:/.test(m)), 'lo bloqueado con esa salida no alcanza');
+  // ana lo mueve diciendo su origen: sin decirlo, sería P suyo, que no tiene.
+  assert.ok((await motivos(eje, { autor: 'ana', sobre: plaza, payload: 'libero', movimientos: [minuto('ana'), P(X.id, 4, 'ana', 'ana', { estado: 'liberacion', salida: D.id })] })).some((m) => /no hay 4 de P:.*\/ana/.test(m)));
+  assert.deepEqual(await motivos(eje, { autor: 'ana', sobre: plaza, payload: 'libero', movimientos: [minuto('ana'), P(X.id, 4, 'ana', 'ana', { estado: 'liberacion', salida: D.id, origen: 'g' })] }), []);
 });
 
 test('tomar prestados criterios (la lente de criterios): A.2.3 son las personas que A nombra en el 2.3 de su alta', async () => {
@@ -170,7 +177,7 @@ test('tomar prestados criterios (la lente de criterios): A.2.3 son las personas 
 
 // ---------- el peso por dominio y el recuento ----------
 
-test('el peso por dominio («share», A.2.1.8): P de A en X ÷ P de A en el dominio de X, y no cambia al dividir o fundir identidades', async () => {
+test('el reparto por origen («share», A.2.6.8): el P que obtuvo A en X ÷ el que obtuvo en el dominio de X, esté en la mano que esté; no cambia al dividir o fundir identidades', async () => {
   const { eje, g } = await mundo();
   const Ra = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: ['Taller de ana'], movimientos: [minuto('ana')] });
   const Xa = await eje.escribir({ autor: 'ana', sobre: Ra.id, t: T0, payload: ['Mesa'], movimientos: [minuto('ana')] });
@@ -178,14 +185,19 @@ test('el peso por dominio («share», A.2.1.8): P de A en X ÷ P de A en el domi
   assert.deepEqual(antes, [0.5, 0.5], 'diez sobre la mesa y diez sobre el taller: el dominio es el taller');
   // Dividir: ana pasa la mitad de cada P del dominio a bea (otra identidad suya, digamos). Lo escribe fuera del
   // dominio (sobre el génesis), para que el P que obtiene al escribir no caiga en él.
-  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'divido', movimientos: [minuto('ana'), P(Ra.id, 5, 'ana', 'bea'), P(Xa.id, 5, 'ana', 'bea')] });
-  assert.deepEqual([peso(eje, 'ana', Xa.id), peso(eje, 'bea', Xa.id)], [antes[0], antes[0]], 'cada parte pesa lo mismo que el todo');
-  // Fundir: bea se lo devuelve.
-  await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'fundo', movimientos: [minuto('bea'), P(Ra.id, 5, 'bea', 'ana'), P(Xa.id, 5, 'bea', 'ana')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'divido', movimientos: [minuto('ana'), P(Ra.id, 5, 'ana', 'bea'), P(Xa.id, 10, 'ana', 'bea')] });
+  // Encargo 3b-bis: lo que pasa a bea sigue siendo de ana; el reparto de ana no cambia y bea no obtuvo nada ahí.
+  assert.deepEqual([peso(eje, 'ana', Xa.id), peso(eje, 'ana', Ra.id), peso(eje, 'bea', Xa.id)], [antes[0], antes[1], 0], 'pasar P no crea otro 100 %');
+  // Fundir: bea se lo devuelve (diciendo su origen).
+  await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'fundo', movimientos: [minuto('bea'), P(Ra.id, 5, 'bea', 'ana', { origen: 'ana' }), P(Xa.id, 10, 'bea', 'ana', { origen: 'ana' })] });
   assert.equal(peso(eje, 'ana', Xa.id), antes[0]);
-  // La lectura, en su posición: A.2.1.8 de cada entrada.
+  // Las lecturas, en su posición: A.2.6.8 (el reparto) de cada entrada del P de su origen; A.2.1.r.6, los orígenes de lo que tiene.
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
-  assert.deepEqual(evaluar('("ana").2.1.("' + Xa.id + '").8', ctx).valor, [antes[0]]);
+  assert.deepEqual(evaluar('("ana").2.6.("' + Xa.id + '").8', ctx).valor, [antes[0]]);
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'presto', movimientos: [minuto('ana'), P(Xa.id, 3, 'ana', 'bea')] });
+  const ctx2 = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
+  assert.deepEqual([evaluar('("bea").2.1.("' + Xa.id + '").6.3', ctx2).valor, evaluar('("bea").2.1.("' + Xa.id + '").6.("ana").1', ctx2).valor], [['ana'], [3]]);
+  assert.deepEqual([evaluar('("ana").2.6.("' + Xa.id + '").1', ctx2).valor, evaluar('("ana").2.6.("' + Xa.id + '").3', ctx2).valor], [[10], ['ana', 'bea']], 'A.2.6: lo que obtuvo, en todas las manos');
 });
 
 test('el recuento según el PV2 del dueño (N4): por defecto solo el dueño; con lista, presiones; suma, media y umbral', async () => {
@@ -400,49 +412,58 @@ test('aceptar una invitación solo recoge lo que esa invitación guarda para qui
   assert.match(JSON.stringify(capa4), /nadie mueve lo ajeno: bea saca lo bloqueado de g/);
 });
 
-test('la obtención no se repite: un ir y venir de R no acuña P dos veces, y la R que llega de un tenedor no da P', async () => {
+test('la obtención es por cantidad y no se repite: diez por unidad de R que llega de su emisor, una sola obtención por regla, titular y registro; la que llega de un tenedor no da P', async () => {
   const { eje, g } = await mundo();
   const altaAna = eje.alta('ana').id;
-  const R1 = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 1, 'ana', 'bea')] });
-  assert.ok(obtenido(eje, R1).some(([a, s]) => a === 'bea' && s === 'P:' + altaAna), 'la primera vez, de su emisor: diez');
+  const suma = (ev, quien) => obtenido(eje, ev).filter(([a]) => a === quien).reduce((s, [, , c]) => s + c, 0);
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] });
+  // Dos transferencias de una en la misma transacción dan lo mismo que una de dos: una sola obtención, por cantidad.
+  const dos = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'dos', movimientos: [minuto('ana'), R('ana', 1, 'ana', 'bea'), R('ana', 1, 'ana', 'bea')] });
+  const una = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'una de dos', movimientos: [minuto('ana'), R('ana', 2, 'ana', 'g')] });
+  assert.deepEqual([suma(dos, 'bea'), suma(una, 'g')], [20, 20]);
+  assert.deepEqual(obtenido(eje, dos).filter(([a]) => a === 'bea'), [['bea', 'P:' + altaAna + '/bea', 20]], 'una sola acuñación, de origen bea');
+  // La obtención no se repite (revisión de seguridad del 3b): la misma R devuelta y recibida otra vez no acuña de nuevo.
   const antes = eje.poderSobre('bea', altaAna);
   for (let i = 0; i < 3; i++) {
     await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'vuelve ' + i, movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
-    const va = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'va ' + i, movimientos: [minuto('ana'), R('ana', 1, 'ana', 'bea'), R('ana', 1, 'ana', 'bea')] });
-    assert.deepEqual(obtenido(eje, va).filter(([a, s]) => a === 'bea' && s === 'P:' + altaAna), [], 'ni en el ir y venir ni dos veces en una transacción');
+    const va = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'va ' + i, movimientos: [minuto('ana'), R('ana', 1, 'ana', 'bea')] });
+    assert.equal(suma(va, 'bea'), 0, 'ni en el ir y venir');
   }
   assert.equal(eje.poderSobre('bea', altaAna), antes);
   // bea pasa R de ana a g: g la recibe de un tenedor, no de su emisor.
   const pasa = await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'g')] });
   assert.deepEqual(obtenido(eje, pasa).filter(([a]) => a === 'g'), []);
-  // E: una vez por receptor y registro.
-  const da = (n) => eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'ana' }] });
-  assert.equal(obtenido(eje, await da(1)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 1);
-  assert.equal(obtenido(eje, await da(2)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 0);
+  // Devolverla a su emisor no le da P a él.
+  const vuelve = await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'vuelve', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
+  assert.deepEqual(obtenido(eje, vuelve).filter(([a]) => a === 'ana'), []);
 });
 
-test('conseguir E da P una vez por receptor y registro, venga de quien venga: la misma E por tres manos da P una vez a cada una', async () => {
+test('conseguir E da P al recibirla de su emisor, no de un revendedor: la misma E por tres manos da P solo a la primera (encargo 3b-bis)', async () => {
   const { eje, g } = await mundo();
   await entrarPorInvitacion(eje, { por: 'g', quien: 'carla', t: T0 });
   const vale = (de, a) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de, a });
-  const pasa = async (de, a, n) => obtenido(eje, await eje.escribir({ autor: de, sobre: de === 'g' ? g : plaza, t: T0, payload: 'pasa ' + n, movimientos: [minuto(de), vale(de, a)] })).filter(([x, k]) => x === a && k === 'P:' + g).length;
-  // g → ana → bea → carla: cada mano obtiene P sobre el registro de la serie (el génesis) al conseguirla, también de un
-  // revendedor («compro un recurso y eso me da P sobre él»).
-  assert.deepEqual([await pasa('g', 'ana', 1), await pasa('ana', 'bea', 2), await pasa('bea', 'carla', 3)], [1, 1, 1]);
-  // La segunda vez a la misma mano, no: ni de su emisor ni de otro.
-  assert.deepEqual([await pasa('carla', 'ana', 4), await pasa('g', 'bea', 5)], [0, 0]);
+  const pasa = async (de, a, n) => obtenido(eje, await eje.escribir({ autor: de, sobre: de === 'g' ? g : plaza, t: T0, payload: 'pasa ' + n, movimientos: [minuto(de), vale(de, a)] })).filter(([x, k]) => x === a && k === 'P:' + g + '/' + a).reduce((s, [, , c]) => s + c, 0);
+  // g → ana → bea → carla: la primera mano obtiene diez P sobre el registro de la serie (el génesis); revenderla a otra
+  // identidad no crea P propio (si lo diera, repartir lo comprado entre varias identidades daría más P que tenerlo en una).
+  assert.deepEqual([await pasa('g', 'ana', 1), await pasa('ana', 'bea', 2), await pasa('bea', 'carla', 3)], [10, 0, 0]);
+  // De su emisor a otra mano, sí; la misma E vuelta a recibir, no: la obtención no se repite (una por regla, titular y registro).
+  assert.deepEqual([await pasa('g', 'bea', 4), await pasa('g', 'bea', 5), await pasa('carla', 'g', 6), await pasa('g', 'ana', 7)], [10, 0, 0, 0]);
   // Ni a uno mismo ni a quien aún no tiene alta.
   const aMi = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'a mí', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: 'nadie-aun' }] });
   assert.deepEqual(obtenido(eje, aMi).filter(([x]) => x === 'nadie-aun'), []);
 });
 
-test('conseguir E da P sobre su registro una sola vez, sea cual sea la serie: tres series de la misma casa compradas por la misma persona acuñan una vez', async () => {
+test('conseguir E da P sobre su registro por cantidad y una sola vez, sea cual sea la serie (encargo 3b-bis y revisión de seguridad del 3b)', async () => {
   const { eje, g } = await mundo();
-  const compra = async (denominacion, n) => {
-    const ev = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vende ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion, cantidad: 1, de: null, a: 'g' }, { token: 'E', emisor: 'g', denominacion, cantidad: 1, de: 'g', a: 'ana' }] });
-    return obtenido(eje, ev).filter(([x, k]) => x === 'ana' && k === 'P:' + g).length;
+  const compra = async (denominacion, n, cantidad = 1) => {
+    const ev = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vende ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion, cantidad, de: null, a: 'g' }, { token: 'E', emisor: 'g', denominacion, cantidad, de: 'g', a: 'ana' }] });
+    return obtenido(eje, ev).filter(([x, k]) => x === 'ana' && k === 'P:' + g + '/ana').reduce((s, [, , c]) => s + c, 0);
   };
-  assert.deepEqual([await compra('pan', 1), await compra('miel', 2), await compra('queso', 3)], [1, 0, 0]);
+  // La primera compra da diez por unidad; las siguientes sobre el mismo registro, nada: una obtención por regla, titular y registro.
+  assert.deepEqual([await compra('pan', 1, 3), await compra('miel', 2), await compra('queso', 3)], [30, 0, 0]);
+  // Tres unidades en una sola compra, a otra mano: treinta, en una sola acuñación.
+  const tres = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'tres', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'pan', cantidad: 3, de: null, a: 'g' }, { token: 'E', emisor: 'g', denominacion: 'pan', cantidad: 1, de: 'g', a: 'bea' }, { token: 'E', emisor: 'g', denominacion: 'pan', cantidad: 2, de: 'g', a: 'bea' }] });
+  assert.deepEqual(obtenido(eje, tres).filter(([x]) => x === 'bea'), [['bea', 'P:' + g + '/bea', 30]]);
   assert.equal(eje.poderSobre('ana', g) >= 10, true);
   // Su propio emisor no obtiene P al recibir de vuelta su E.
   const vuelve = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'te devuelvo el pan', movimientos: [minuto('ana'), { token: 'E', emisor: 'g', denominacion: 'pan', cantidad: 1, de: 'ana', a: 'g' }] });

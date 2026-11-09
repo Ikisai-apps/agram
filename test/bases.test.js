@@ -424,7 +424,7 @@ test('la escribe la propia cosa o quien tiene P sobre el registro; nadie sin P e
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.menu.id).por, 'poder');
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.puesto.id).puede, false); // el ámbito es el menú, no el puesto
   const deCocina = await escribirBase(eje, { registro: ej.menu.id, autor: 'mercado', privada: claves.mercado.privada, t: T_BASES });
-  await eje.escribir({ autor: 'mercado', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('mercado'), { token: 'P', cantidad: 1, ambito: ej.menu.id, de: 'mercado', a: 'cocina' }], payload: 'Devuelvo el poder' }, claves.mercado.privada);
+  await eje.escribir({ autor: 'mercado', sobre: ej.menu.id, t: T_BASES, movimientos: [minuto('mercado'), { token: 'P', cantidad: 1, ambito: ej.menu.id, origen: 'cocina', de: 'mercado', a: 'cocina' }], payload: 'Devuelvo el poder' }, claves.mercado.privada);
   assert.equal(puedeEscribirBase(eje, 'mercado', ej.menu.id).puede, false);
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje)))); // releído desde cero, ya sin el poder del mercado
   assert.deepEqual(basesEn(otro, ej.menu.id).map((b) => [b.id, b.por]), [[deCocina.id, 'poder']]);

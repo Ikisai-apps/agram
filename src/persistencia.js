@@ -35,6 +35,17 @@
 // después de la asignación del día hasta agotarse. Un eje de la versión 3
 // guardado antes del 8-11 con T en el génesis no se restaura: no hay
 // migración, porque ese T era justo el que se acumulaba (la app lo aparta).
+//
+// El P guarda su origen (encargo 3b-bis, VG 10-11): la clave de saldo de P pasa
+// de P:<ámbito> a P:<ámbito>/<origen>. No hace falta migrar los datos ni una
+// versión nueva: lo guardado son los eventos, y las claves se derivan al
+// revalidarlos. Un movimiento de P escrito sin origen se lee como P de quien lo
+// mueve (o, al acuñarlo, de quien lo recibe), que es lo que era siempre salvo en
+// un caso: quien movía P que le habían delegado. Ese evento, de un eje guardado
+// entre el encargo 3b y este, ya no se revalida (saldo insuficiente de su P
+// propio) y el eje no se restaura (la app lo aparta). Tampoco el que usara P
+// obtenido al recibir E de un revendedor: la obtención es ahora por cantidad y
+// solo de lo que llega de su emisor (diez por unidad).
 
 import { Eje } from './eje.js';
 

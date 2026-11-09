@@ -123,7 +123,7 @@ export function nombreMedida(medida, { corto = false } = {}) {
   if (/^[TEPR]:./.test(medida)) {
     if (!corto) return etiquetaClave(medida);
     const [familia, serie] = [medida[0], medida.slice(2)];
-    const s = familia === 'P' && /^[0-9a-f]{64}$/.test(serie) ? serie.slice(0, 8) : serie;
+    const s = familia === 'P' && /^[0-9a-f]{64}(\/|$)/.test(serie) ? serie.slice(0, 8) + serie.slice(64) : serie;
     return familia + ':' + (s.length > 12 ? s.slice(0, 11) + '…' : s);
   }
   return medida;

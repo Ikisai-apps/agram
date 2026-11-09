@@ -209,17 +209,20 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
     payload: 'del alta al génesis',
   });
   const c = confluir(eje, sube.id, { alcance: 'general' });
-  assert.deepEqual(Object.keys(c.tokens).sort(), ['P:' + alta.id, 'P:' + eje.genesisId, 'R:casa', 'T:minuto', 'tiempo:minuto'].sort());
+  // Las series de P llevan su origen (encargo 3b-bis): las dos son de la casa.
+  const [pAlta, pGen] = ['P:' + alta.id + '/casa', 'P:' + eje.genesisId + '/casa'];
+  assert.deepEqual(Object.keys(c.tokens).sort(), [pAlta, pGen, 'R:casa', 'T:minuto', 'tiempo:minuto'].sort());
   for (const familia of ['T', 'E', 'P', 'R']) assert.ok(!(familia in c.tokens));
-  assert.deepEqual([c.tokens['P:' + alta.id].foco, c.tokens['P:' + alta.id].suma], [10, 10]); // quema 10 sobre el alta
-  assert.deepEqual([c.tokens['P:' + eje.genesisId].foco, c.tokens['P:' + eje.genesisId].suma], [1, 1]); // acuña 1 en el génesis: otra serie
-  assert.equal(c.tokens['P:' + eje.genesisId].caja, 1); // uno de poder: la caja 1 de la escala de la época 0
-  assert.equal(c.tokens['P:' + alta.id].encima, 0); // nadie más movió poder sobre el alta
+  assert.deepEqual([c.tokens[pAlta].foco, c.tokens[pAlta].suma], [10, 10]); // quema 10 sobre el alta
+  assert.deepEqual([c.tokens[pGen].foco, c.tokens[pGen].suma], [1, 1]); // acuña 1 en el génesis: otra serie
+  assert.equal(c.tokens[pGen].caja, 1); // uno de poder: la caja 1 de la escala de la época 0
+  assert.equal(c.tokens[pAlta].encima, 0); // nadie más movió poder sobre el alta
   // R:casa: la emisión (3), lo que guarda la invitación para Ana (1), lo que ella recoge (1) y lo que la casa le da (1).
   assert.deepEqual([c.tokens['R:casa'].maximo, c.tokens['R:casa'].suma], [3, 6]);
   assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 1, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
   assert.equal(etiquetaClave('P:genesis'), 'P movido sobre el eje'); // la etiqueta de la clave reservada del prefijo de la versión 2
   assert.equal(etiquetaClave('P:' + alta.id), 'P movido sobre ' + alta.id.slice(0, 8));
+  assert.equal(etiquetaClave(pAlta), 'P movido sobre ' + alta.id.slice(0, 8) + ' (de casa)');
   assert.equal(etiquetaClave('R:casa'), 'R movida de casa');
   assert.equal(etiquetaClave('E:casa/EUR'), 'E movido (EUR de casa)');
   assert.equal(etiquetaClave('T:minuto'), 'T movido en minuto');

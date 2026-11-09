@@ -208,7 +208,8 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   // Encargo 3b: una serie de P por registro con P posicionado (mapa §15 [D]), así que ya son más de las que caben
   // abiertas: la tabla empieza plegada.
   assert.match(html, /<details class="series-emitidas" data-plegado="series" >/);
-  assert.match(html, /Series emitidas · 12 \(T 2 · E 1 · P 8 · R 1\)/);
+  // P, una serie por registro y origen (encargo 3b-bis); la cocina ya no obtiene P al cobrar de la huésped, que no emite los EUR.
+  assert.match(html, /Series emitidas · 13 \(T 2 · E 1 · P 9 · R 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
   // Nadie emite T, ni el génesis (VG, 8-11): lo que gastan las personas sale de su asignación diaria.
   // La serie de T es de quien la consumió primero: la casa, en su emisión inicial (encargo 3b: el génesis no mueve nada).

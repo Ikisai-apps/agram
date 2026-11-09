@@ -1679,19 +1679,22 @@ test('TOK-43 los tokens recorren los diez PV: cualquier evento, en cualquier pos
   await eje.escribir({ autor: 'raiz', sobre: g, en: '7000000000', t: T0, movimientos: [gastaT('raiz'), { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'R en el 7' });
   await eje.escribir({ autor: 'raiz', sobre: g, en: '2000000000', t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 5)], payload: 'T en el 2' });
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 51);
-  assert.equal(eje.poderSobre('ana', g), p0 + 1);
+  // El P que le da la raíz es de origen raíz (encargo 3b-bis); lo que obtiene ana al recibir E, T y R, suyo.
+  assert.equal(eje.poderSobre('ana', g, 'raiz'), 1);
+  assert.ok(eje.poderSobre('ana', g) >= p0 + 1);
   assert.equal(eje.saldo('ana', 'R:raiz'), r0 + 1);
 });
 
 test('TOK-47 se ven los tokens: P por ámbito y R por emisor, separados de los recursos', async () => {
   const { eje, g } = await mundo();
   // P con su ámbito, un registro (mapa §15 [D]); relativos a lo que ana ya tiene.
-  const p = () => eje.poderes('ana').find((x) => x.ambito === g)?.cantidad ?? 0;
+  // El P que da la raíz conserva su origen (encargo 3b-bis): una serie aparte de la que ana obtiene sobre el génesis.
+  const p = () => eje.poderes('ana').find((x) => x.ambito === g && x.origen === 'raiz')?.cantidad ?? 0;
   const r = () => eje.reputaciones('ana').find((x) => x.emisor === 'raiz')?.cantidad ?? 0;
   const [p0, r0] = [p(), r()];
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'P', cantidad: 1, ambito: g, de: 'raiz', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'raiz', de: 'raiz', a: 'ana' }], payload: 'x' });
   assert.deepEqual([p(), r()], [p0 + 1, r0 + 1]);
-  assert.ok(eje.poderes('ana').every((x) => Object.keys(x).sort().join() === 'ambito,cantidad'));
+  assert.ok(eje.poderes('ana').every((x) => Object.keys(x).sort().join() === 'ambito,cantidad,origen'));
   assert.ok(eje.reputaciones('ana').every((x) => Object.keys(x).sort().join() === 'cantidad,emisor'));
   assert.equal(eje.saldo('ana', 'E:raiz/EUR'), 50);
 });

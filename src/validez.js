@@ -162,11 +162,13 @@ function deLasReglas(r, libro, ev, capa, salvo = []) {
 }
 
 /**
- * Plan de débito de P como el del eje: del P posicionado en su registro, sin más (encargo 3b: ya no hay P que cubra
- * lo de debajo ni P del génesis; mapa §15). null si no alcanza.
+ * Plan de débito de P como el del eje: del P posicionado en su registro y de su origen, sin más (encargo 3b: ya no
+ * hay P que cubra lo de debajo ni P del génesis; mapa §15; encargo 3b-bis: la serie es la del registro y el origen).
+ * null si no alcanza.
  */
-function planP(eje, ver, identidad, ambito, cantidad) {
-  const k = 'P:' + ambito;
+function planP(eje, ver, identidad, m) {
+  const k = claveToken(m);
+  const cantidad = m.cantidad;
   return ver(identidad, k) >= cantidad ? [[k, -cantidad]] : null;
 }
 
@@ -466,7 +468,7 @@ function capaAcreditacion(eje, ev, libro) {
     } else if (m.token === 'P') {
       // P posicionado (mapa §15): lo respalda el P de quien lo mueve en ese mismo registro.
       if (!enLibro(libro, m.ambito)) return mal('falla', 'P sobre un registro que no existe: ' + corto(m.ambito));
-      const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
+      const plan = planP(eje, ver, m.de, m);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + corto(m.ambito) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
     } else if (libro.reglas !== 2 && esInformativoT(m)) {

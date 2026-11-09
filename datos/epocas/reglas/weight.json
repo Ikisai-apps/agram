@@ -1,7 +1,7 @@
 [
   ["weight"],
   ["epoch.9.0.0.4", "X.2.3", "\"cualquiera\""],
-  ["=((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and first it.3 in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it.3 in it2.2) each 1) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where first it.3 in it3 or first it.3 in it3.2) = 0) * ((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and \"cualquiera\" in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and \"cualquiera\" in it2.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count ((first it.5).2.3 where count it3.5 = 0) = 0 and first it.3 = first (first it.5).3)) / (first epoch.9.0.0.4) * it.1 / (sum ((((first it.3).2.1) where last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it2.0)) each 1) + count (epoch where not (last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1)))) * count (epoch where P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))"],
+  ["=((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and first it.0.0.2 in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it.0.0.2 in it2.2) each 1) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where first it.0.0.2 in it3 or first it.0.0.2 in it3.2) = 0) * ((first epoch.9.0.0.4) * count (((first it.5).2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0) and \"cualquiera\" in it2) + sum ((((first it.5).2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and \"cualquiera\" in it2.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count ((first it.5).2.3 where count it3.5 = 0) = 0 and first it.0.0.2 = first (first it.5).3)) / (first epoch.9.0.0.4) * it.1 / (count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) + count (epoch where count (((first it.5).2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((first it.0.0.2).2.6) where last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it2.0)) each 1) + count (epoch where not (P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))))) * count (epoch where P in it.0.0.0 and last (path (first it.5) where first it3.3 = first (first it.5).3) in path (first it.0.0.1))"],
   ["X.2.4.8"],
   ["read"],
   ["*"],
@@ -10,10 +10,14 @@
     "VG, 8-11 (mapa §15 [D] (4)): cómo se cuenta lo fija el dueño en su PV2: a quién cuenta y con qué presión (lente de P)",
     "VG, 8-11 tarde (mapa §15 [D] N4): presiones 0-9; por defecto solo cuenta el dueño; todo lo predefinido se traduce a BQL",
     "VG, 9-11, B2: 2.3 elegibles y presiones (reutiliza la elegibilidad): un nombre cuenta 9; «nombre 5» (una magnitud, D-VALOR), su presión; «cualquiera» abre a todos. Cada entrada es una hoja: una lista BTML no lleva décuplas",
-    "El peso de un compromiso con X: su presión ÷ 9 × lo comprometido ÷ el P de su titular en el dominio de X; 0 si no es P o si su P no está en ese dominio",
+    "VG, 10-11 (mapa §15 [D] «P guarda su origen; recuentos abiertos por cantidad»): el P lleva siempre quién lo obtuvo, como la R lleva su emisor; delegarlo deja usarlo en una decisión, pero sigue contando como del que lo obtuvo; «emitir desde dos fuentes vale lo mismo que desde una» (encargo 3b-bis)",
+    "Encargo 3b-bis: la presión es la del ORIGEN del P comprometido (quien lo obtuvo), lo comprometa quien lo comprometa: el P delegado cuenta como de quien lo obtuvo, y una identidad sin obtención propia no pesa por sí misma",
+    "Recuento con nombres (sin «cualquiera» en el 2.3): presión ÷ 9 × lo comprometido ÷ el P de su origen en el dominio de X (su reparto, por origen: A.2.6)",
+    "Recuento abierto («cualquiera» en el 2.3): presión ÷ 9 × lo comprometido, por cantidad, nunca por reparto ni por cabeza: dos compradores con una plaza cada uno pesan lo mismo que uno con dos. «Uno por persona» no existe como plantilla: exige identidad de fuera (AARPIA)",
+    "0 si no es P o si su P no está en el dominio de X",
     "Se materializa en X.2.4.8: en cada compromiso con X, frente a otros"
   ],
   ["epoch 0"],
   ["after share"],
-  ["weight: pressure ÷ 9 × the committed P ÷ the P of its holder in the domain of the decision"]
+  ["weight: pressure of its origin ÷ 9 × the committed P, ÷ the P of its origin in the domain of the decision unless anyone counts"]
 ]

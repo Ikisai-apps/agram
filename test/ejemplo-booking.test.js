@@ -81,22 +81,22 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([atiende.autor, atiende.sobre], ['recepcion', alojamiento.id]);
   assert.deepEqual([eje.poderSobre(CASA, alojamiento.id), eje.poderSobre('recepcion', atiende.id)], [10, 10]);
   // Libre, diez menos lo comprometido con las plazas (1 la casa, 3 recepción).
-  const libre = (id, ambito) => eje.poderes(id).find((p) => p.ambito === ambito)?.cantidad;
+  const libre = (id, ambito) => eje.poderes(id).find((p) => p.ambito === ambito && p.origen === id)?.cantidad;
   assert.deepEqual([libre(CASA, alojamiento.id), libre('recepcion', atiende.id)], [9, 7]);
   assert.equal(eje.poderSobre('recepcion', alojamiento.id), 0); // ya no hay P delegado por la casa
-  // N2: quien consigue E obtiene P sobre el registro de su serie. La huésped recibió en la entrega sus noches de plaza,
-  // atadas a la habitación: diez P sobre ella, una sola vez aunque sus noches sean tres series (revisión de seguridad
-  // del encargo 3b: una obtención por receptor y registro, sea cual sea la serie). No escribió la habitación ni nadie le dio P (antes de la entrega no tenía
-  // ninguno; lo comprueba el test del ciclo).
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 10);
+  // N2: quien consigue E de su emisor obtiene P sobre el registro de su serie. La huésped recibió en la entrega sus
+  // tres noches de plaza, atadas a la habitación: diez P por noche (encargo 3b-bis: la obtención es por cantidad, no por
+  // cabeza). No escribió la habitación ni nadie le dio P (antes de la entrega no tenía ninguno; lo comprueba el test del ciclo).
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 30);
+  assert.equal(eje.poderSobre('huesped', habitacion.id, 'huesped'), 30);
   assert.deepEqual(eje.bloqueos('huesped'), []);
   // El alojamiento declara su capacidad (R2): 4 plazas, que el eje cuenta por noche (la franja).
   assert.deepEqual(alojamiento.payload, ['Alojamiento', ['plazas por noche'], 4]);
   assert.deepEqual(ALOJAMIENTO, alojamiento.payload);
   // El P comprometido con cada plaza (todas las noches): la casa la de matrimonio (1, sobre su Alojamiento) y
   // recepción la individual (1) y la litera (2), sobre su registro.
-  const kCasa = 'P:' + alojamiento.id;
-  const kRecepcion = 'P:' + atiende.id;
+  const kCasa = 'P:' + alojamiento.id + '/' + CASA;
+  const kRecepcion = 'P:' + atiende.id + '/recepcion';
   const porPlaza = (id, k) => [PLAZAS.matrimonio, PLAZAS.individual, PLAZAS.litera].map((p) => eje.bloqueado(id, k, familiaPlaza(habitacion.id, p)));
   assert.deepEqual([porPlaza(CASA, kCasa), porPlaza('recepcion', kRecepcion)], [[1, 0, 0], [0, 1, 2]]);
   assert.equal(familiaPlaza(habitacion.id, PLAZAS.litera), 'E:casa/1200000000@*@' + habitacion.id);
@@ -346,7 +346,7 @@ test('P obtenido (mapa §15 [D] N2): la huésped no tiene P sobre la habitación
   // N1: por escribir la reserva, diez sobre ella.
   assert.equal(eje.poderSobre('huesped', reserva.id), 10);
   await confirmarReserva(eje, reserva);
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 10); // diez, una vez, aunque sus noches sean tres series (revisión de seguridad)
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 30); // diez por noche (encargo 3b-bis: por cantidad, no por cabeza)
 });
 
 test('confirmar es idempotente: una reserva ya confirmada devuelve su confirmación, no cobra dos veces ni entrega otra plaza', async () => {
@@ -582,7 +582,7 @@ test('con claves, cada identidad firma lo suyo y el eje se reconstruye verifican
   assert.equal(otro.saldo(CASA, EUR), 365);
   assert.equal(libres(otro, habitacion.id, PLAZAS.individual, '2026-11-21'), 0);
   // El P de recepción sobre su registro «atiende», comprometido aún con las plazas (1 + 2).
-  assert.equal(otro.bloqueado('recepcion', 'P:' + atiende.id), 3);
+  assert.equal(otro.bloqueado('recepcion', 'P:' + atiende.id + '/recepcion'), 3);
   assert.equal(cerrado(otro, reserva.id).cerrado, true);
   assert.equal(evaluar(otro, reserva.id, [1, 3]).texto, '165 EUR');
   assert.deepEqual(ocupacion(otro, reserva.id).map((o) => o.cabe), [true]);

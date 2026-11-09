@@ -255,7 +255,8 @@ test('regresión (encargo 3b): P va sobre un registro; «genesis» ya no es un �
   await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: T0 });
   const x = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'P', ambito: eje.genesisId, cantidad: 4, de: 'r', a: 'b' }], payload: 'x' });
   await assert.rejects(eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, movimientos: [gastaT('b'), { token: 'P', ambito: 'genesis', cantidad: 1, de: 'b', a: 'r' }], payload: 'y' }), /P moves within a known scope/);
-  assert.equal(eje.saldo('b', 'P:' + eje.genesisId), 14); // 4 que le da r y 10 por recibir R:r en su invitación (N2: en la raíz de r)
+  // 4 que le da r (de origen r: encargo 3b-bis) y 10 suyos por recibir R:r en su invitación (N2: en la raíz de r).
+  assert.deepEqual([eje.saldo('b', 'P:' + eje.genesisId + '/r'), eje.saldo('b', 'P:' + eje.genesisId + '/b'), eje.poderSobre('b', eje.genesisId)], [4, 10, 14]);
   assert.equal(eje.poderSobre('b', x.id), 0); // el P sobre el génesis no cubre lo que cuelga de él
 });
 

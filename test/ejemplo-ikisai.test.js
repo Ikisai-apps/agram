@@ -20,7 +20,10 @@ test('ejemplo Ikisai: compra de comida recorre el eje entero', async () => {
   // Persona o cosa lo dice quién escribe el alta (B1): la casa da T de su asignación a la cocina, una cosa suya.
   assert.deepEqual(eje.serie('E:casa/EUR'), { emisor: 'casa', emitido: 500 });
   assert.deepEqual(eje.series().map((s) => s.clave).filter((k) => !k.startsWith('P:')), ['T:minuto', 'R:casa', 'E:casa/EUR', 'T:hora']);
-  assert.deepEqual(eje.series().filter((s) => s.token === 'P').map((s) => s.ambito), eje.orden.filter((id) => eje.series().some((s) => s.clave === 'P:' + id)), 'una serie de P por registro que da P');
+  // Una serie de P por registro y origen (encargo 3b-bis): el génesis tiene la de la casa y la de quien recibe de ella.
+  const deP = eje.series().filter((s) => s.token === 'P');
+  assert.deepEqual([...new Set(deP.map((s) => s.ambito))].sort(), eje.orden.filter((id) => deP.some((s) => s.ambito === id)).sort(), 'las series de P son las de los registros que dan P');
+  assert.ok(deP.every((s) => s.clave === 'P:' + s.ambito + '/' + s.origen && s.emisor === s.origen), 'cada una con su origen, que es quien la obtuvo');
   assert.equal(eje.poderSobre('casa', eje.genesisId), 10, 'la casa escribió el génesis: diez P sobre él');
   // R2 (VG, 7-11 noche): los EUR de la casa van atados al registro de su emisor (el génesis, que escribió ella) y,
   // sin capacidad declarada en su hilo, no tienen tope: son deuda del emisor.

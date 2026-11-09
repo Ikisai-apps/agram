@@ -6,6 +6,28 @@ import { Eje } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
 import { generarClaves } from '../src/autoridad.js';
 import { evaluar } from '../src/bql.js';
+import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
+
+// Encargo 3b-bis (VG, 10-11): el P guarda su origen. Lo guardado son los eventos y las claves se derivan al revalidarlos:
+// un movimiento de P sin origen se lee como P de quien lo mueve (o, al acuñarlo, de quien lo recibe). Sin versión nueva.
+test('P con origen: un eje guardado con movimientos de P sin origen se restaura con las claves P:<ámbito>/<origen>', async () => {
+  const t = '2026-11-10T10:00:00Z';
+  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t, foco: 'raíz', emision: [{ token: 'R', cantidad: 5 }] });
+  await entrarPorInvitacion(eje, { por: 'g', quien: 'ana', t });
+  const X = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, payload: ['Huerto'], movimientos: [minuto('g')] });
+  // Escrito como antes del origen: «de g a ana», sin decir de quién es el P.
+  await eje.escribir({ autor: 'g', sobre: X.id, t, payload: 'delego', movimientos: [minuto('g'), { token: 'P', ambito: X.id, cantidad: 4, de: 'g', a: 'ana' }] });
+  const datos = JSON.parse(JSON.stringify(serializar(eje)));
+  assert.equal(datos.version, VERSION);
+  assert.ok(datos.eventos.every((e) => (e.movimientos ?? []).every((m) => m.origen === undefined)), 'lo guardado no lleva origen');
+  const otro = await restaurar(datos);
+  assert.deepEqual([otro.saldo('ana', 'P:' + X.id + '/g'), otro.saldo('g', 'P:' + X.id + '/g'), otro.saldo('ana', 'P:' + X.id + '/ana')], [4, 6, 0]);
+  assert.deepEqual(otro.poderes('ana').find((p) => p.ambito === X.id), { ambito: X.id, origen: 'g', cantidad: 4 });
+  // Lo que ya no se revalida: la delegada que movía, sin decir su origen, el P que le dieron (se lee como P suyo, que no tiene).
+  const mueve = await crearEvento({ autor: 'ana', sobre: X.id, t, payload: 'lo paso', movimientos: [minuto('ana'), { token: 'P', ambito: X.id, cantidad: 1, de: 'ana', a: 'g' }] });
+  await assert.rejects(restaurar({ ...datos, eventos: [...datos.eventos, mueve] }), /saldo insuficiente de P/);
+});
 
 test('serializar y restaurar reconstruye el eje validando todo', async () => {
   const { eje, compra } = await ejemploCompra();

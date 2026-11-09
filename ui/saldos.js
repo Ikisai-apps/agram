@@ -27,14 +27,14 @@ export function familiasDe(eje, id) {
     // De la escala mayor a la menor: es lo primero que se lee.
     T: eje.tiempos(id).slice().reverse().map((x) => cantidadT(x) + ' ' + (ESCALA[x.escala] ?? x.escala)),
     E: eje.recursos(id).map((x) => x.cantidad + ' ' + denominacion(x.denominacion) + (x.emisor === id ? '' : ' de ' + x.emisor)),
-    P: eje.poderes(id).map((x) => x.cantidad + ' sobre ' + ambito(x.ambito)),
+    P: eje.poderes(id).map((x) => x.cantidad + ' sobre ' + ambito(x.ambito) + (x.origen && x.origen !== id ? ' de ' + x.origen : '')),
     R: eje.reputaciones(id).map((x) => x.cantidad + ' de ' + x.emisor),
   };
 }
 
 /** Texto corto de una serie emitida: 'hora', 'casa/EUR', 'eje', 'casa'. */
 export function nombreSerie(s) {
-  if (s.token === 'P') return ambito(s.ambito ?? s.serie);
+  if (s.token === 'P') return ambito(s.ambito ?? s.serie) + (s.origen ? ' (' + s.origen + ')' : '');
   if (s.token === 'E') return s.emisor + '/' + denominacion(s.denominacion);
   return s.serie;
 }
