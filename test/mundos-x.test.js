@@ -132,7 +132,7 @@ test('fábrica: diez líneas con la matriz de 100 del foco; las piezas son las c
   assert.equal(d.lineas.length, 10);
   // Encargo 3b: la 2 de la compra lleva además la plantilla de cerrado (mapa §15 [D] N5): [→ menú:2, 'all announced
   // movements happened'], así que 2.1 es un puesto.
-  assert.deepEqual(d.lineas.map((l) => l.puestos), [[0], [0, 1, 2], [0, 1], [0, 1], [0, 1], [], [], [], [], []]);
+  assert.deepEqual(d.lineas.map((l) => l.puestos), [[0], [0, 1, 2], [0, 1], [0, 1], [0, 1], [0], [], [], [], []]); // 5: su plantilla (encargo 3c-1)
   // La cuenta, anclada en 1, modifica 1.0 … 1.3: cuatro piezas en la línea 1, de clase 0.
   const deCuenta = d.lineas[1].piezas.filter((p) => p.evento === cuenta.id);
   assert.deepEqual(deCuenta.map((p) => `${p.i}.${p.j}.${p.k}`), ['1.0.0', '1.1.0', '1.2.0', '1.3.0']);

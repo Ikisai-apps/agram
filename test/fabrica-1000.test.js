@@ -131,7 +131,7 @@ test('toda referencia heredada alcanza algo en el foco: lo que no tiene base se 
       assert.notEqual(resolver(compra.payload, r.dir), undefined, 'heredada colgante ' + h + ' al escribir ' + [i, j, k].join('.'));
     }
   }
-  assert.equal(dentro, 9); // VG, 7-11 noche: por hojas. Las posiciones 2, 3 y 4 de la compra son listas: sin subposiciones que heredar
+  assert.equal(dentro, 10); // VG, 7-11 noche: por hojas (y el 5, su plantilla: encargo 3c-1). Las posiciones 2, 3 y 4 de la compra son listas: sin subposiciones que heredar
   // Lo mismo bajo un camino y sobre un foco terminal (el génesis, que hereda su posición 0 como en main): nada cuelga.
   for (const foco of [compra, eje.obtener(eje.genesisId)]) {
     for (const camino of [[], [1], [1, 2]]) {
@@ -398,8 +398,8 @@ test('la matriz de 1000: el máximo de Mapped la admite; la proporción solo avi
 
 test('lo lejano sin base en el foco se ancla en su posición en vez de rechazarse', async () => {
   const { eje, compra } = await ejemploCompra();
-  // La compra desarrolla las posiciones 0–4: la 7 queda lejos (sin 5 ni 6 que heredar).
-  assert.deepEqual(ubicar(eje, compra.id, [7, 0, 0]), { ubicacion: 'anclado', en: '7000000000', dir: '7000000000', faltan: ['5', '6'] });
+  // La compra desarrolla las posiciones 0–5: la 7 queda lejos (sin 6 que heredar).
+  assert.deepEqual(ubicar(eje, compra.id, [7, 0, 0]), { ubicacion: 'anclado', en: '7000000000', dir: '7000000000', faltan: ['6'] });
   assert.deepEqual(ubicar(eje, compra.id, [2, 0, 0]), { ubicacion: 'dentro', en: '0000000000', dir: '2000000000', faltan: [] });
   // Una subposición lejana dentro de una posición que existe también se ancla.
   assert.deepEqual(ubicar(eje, compra.id, [1, 5, 0]).faltan, ['1.3', '1.4']);
@@ -411,7 +411,7 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   lineas[7] = ['repetir el sábado'];
   const salida = desdeMapped(eje, lineas, compra.id);
   assert.deepEqual(salida.payload, [ref(compra.id, '0000000000'), ref(compra.id, '1000000000'), 'sin lactosa']);
-  assert.deepEqual(salida.anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'repetir el sábado', faltan: ['5', '6'] }]);
+  assert.deepEqual(salida.anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'repetir el sábado', faltan: ['6'] }]); // el 5 es su plantilla (encargo 3c-1)
   // Escribir solo el payload perdería lo anclado: se avisa.
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
   // Si escribirSalida falla al escribir (aquí, una cosa sin T: B1, su alta la escribió la casa), el aviso sigue: el

@@ -31,7 +31,7 @@ test('mapa de la compra: celdas, eje y, si se piden, las medidas del 8', async (
   assert.equal(m.medidas.profundidadHilo, 3);
   assert.equal(m.medidas.movimientos, 2);
   assert.equal(m.medidas.identidades, 2);
-  assert.equal(m.medidas.posiciones, 5);
+  assert.equal(m.medidas.posiciones, 6); // (encargo 3c-1: su 5 nombra su plantilla, «purchase»)
   assert.equal(mapa(eje, compra.id).medidas, null); // sin la opción, no se mide
 });
 
@@ -67,7 +67,7 @@ test('render sobrio: tres filas, eje y medidas', async () => {
   assert.match(lineas[1], /^6 pasado\s+—\s+\| 5 estructura\s+[0-9a-f]{8}\s+\| 7 futuro/);
   assert.match(lineas[3], /^eje: [0-9a-f]{8} ← [0-9a-f]{8} ← [0-9a-f]{8} ← \[[0-9a-f]{8}\] → $/);
   assert.equal(lineas[4], 'medidas del 8: bajo demanda (la celda 8, o mapa con { medidas: true })');
-  assert.match(render(mapa(eje, compra.id, { medidas: true })).split('\n')[4], /^medidas del 8: hilo 3 · escritos 0 · movimientos 2 · identidades 2 · posiciones 5$/);
+  assert.match(render(mapa(eje, compra.id, { medidas: true })).split('\n')[4], /^medidas del 8: hilo 3 · escritos 0 · movimientos 2 · identidades 2 · posiciones 6$/);
   assert.throws(() => render(mapa(eje, compra.id), 'animado'), /no disponible/);
 });
 
@@ -77,7 +77,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el contenido real de
   const m = mapa(eje, compra.id);
   const traidos = [eje.obtener(m.foco), ...m.hilo, ...m.hijos];
   assert.deepEqual(m.alcance, { conseguido: traidos.reduce((n, e) => n + contenido(e.payload), 0), minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
-  assert.equal(m.alcance.conseguido, 20); // compra 10 (con la plantilla de cerrado en su 2), menú 6, altas 3 y el génesis, un terminal, 1
+  assert.equal(m.alcance.conseguido, 21); // compra 11 (con la plantilla de cerrado en su 2 y su plantilla en su 5), menú 6, altas 3 y el génesis, un terminal, 1
   assert.equal(m.corte, null);
   assert.deepEqual(m.avisos, []);
   // Una cadena larga: el foco y diez de su hilo, de diez posiciones cada uno: 110, por encima del mínimo.

@@ -97,7 +97,7 @@ test('nadie autoriza lo ajeno: cada uno mueve lo suyo; ni las fases a mano ni lo
 test('consolidar rechaza huecos no heredables y no consolida nada vacío', async () => {
   const { eje, compra } = await ejemploCompra();
   await assert.rejects(consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: {} }), /nada que consolidar/);
-  await assert.rejects(consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 7: 'más tarde' } }), /hueco en 5/);
+  await assert.rejects(consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 7: 'más tarde' } }), /hueco en 6/);
   await assert.rejects(consolidar(eje, { autor: 'casa', foco: compra.id, t: T, elecciones: { 0: 'x' } }), /1–9/);
 });
 

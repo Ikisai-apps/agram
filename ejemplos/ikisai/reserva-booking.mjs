@@ -367,6 +367,7 @@ export async function reservar(eje, { autor, habitacion, plaza: k, noches, t, no
     [{ ref: habitacion.id, dir: '2000000000' }, CERRADO], // 2 criterios: los de la habitación y la plantilla de cerrado
     [autor, 'recepcion'], // 3 comunicación: quién habla con quién
     [['pagar'], ['ocupar']], // 4 fábrica: lo que prepara, una décupla (4.0 pagar, 4.1 ocupar)
+    ['booking'], // 5 estructura: dónde encaja, su tipo: la plantilla «booking» de la época (epoch.9.2; encargo 3c-1)
   ];
   const reserva = await eje.escribir({ autor, sobre: habitacion.id, en: plaza(k), t, movimientos: [minutos(autor, costeT(payload))], payload }, privada);
   const tramo = [[entrada], [salida]]; // una décupla (cada posición entre corchetes): [entrada, salida] sería una lista de dos ocupantes

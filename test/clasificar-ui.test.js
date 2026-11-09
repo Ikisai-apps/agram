@@ -150,7 +150,7 @@ test('clasificar: posición en foco, posiciones con su número de ocupantes, mod
   const pos = posicionesDe(eje, c.id, [], '3');
   // La raíz (solo escritos), 0 el título, 1 la décupla y la cuenta, 2, 3 y 4 listas de dos (encargo 3b: el 2 nombra
   // también la plantilla de cerrado, mapa §15 [D] N5).
-  assert.deepEqual(pos.map((x) => x.n), [0, 1, 2, 2, 2, 2, 0, 0, 0, 0, 0]);
+  assert.deepEqual(pos.map((x) => x.n), [0, 1, 2, 2, 2, 2, 1, 0, 0, 0, 0]); // 5: su plantilla (encargo 3c-1)
   assert.deepEqual(pos.filter((x) => x.actual).map((x) => x.valor), ['3']);
   assert.deepEqual([...MODOS_CLASIFICAR], ['lente', 'crear']);
   assert.equal(elegirModoClasificar('crear'), 'crear');

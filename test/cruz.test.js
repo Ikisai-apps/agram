@@ -19,7 +19,7 @@ test('el 5: el registro como JSON plegable, con sus campos en orden y las refere
   assert.deepEqual(claves.slice(0, 7), ['registro', 'id', 'autor', 'sobre', 'en', 't', 'movimientos']);
   assert.deepEqual(claves.filter((c) => ['id', 'autor', 'sobre', 'en', 't', 'movimientos', 'contexto', 'payload'].includes(c)).slice(0, 8), ['id', 'autor', 'sobre', 'en', 't', 'movimientos', 'contexto', 'payload']);
   // El payload empieza abierto; lo demás, plegado.
-  assert.match(html, /<details class="js-nodo" open><summary><span class="js-clave">payload<\/span><span class="js-resumen">\[5\]<\/span>/);
+  assert.match(html, /<details class="js-nodo" open><summary><span class="js-clave">payload<\/span><span class="js-resumen">\[6\]<\/span>/);
   assert.match(html, /<details class="js-nodo"><summary><span class="js-clave">movimientos<\/span>/);
   // Referencias del payload y el id de `sobre` llevan a su registro.
   assert.ok(html.includes(`data-ir="${menu.id}" data-dir="1000000000"`));

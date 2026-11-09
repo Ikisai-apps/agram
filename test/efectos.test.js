@@ -135,6 +135,7 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
     'jardín · brotar · 2000000000',
     'parque · hablar · 3000000000',
     'fábrica · paso · 4000000000', // VG, 7-11 noche: por hojas. La 3 y la 4 son listas: una celda cada una, sin 3.1 ni 4.1
+    'estructura · inspeccionar · 5000000000', // encargo 3c-1: su 5 nombra su plantilla, «purchase»
     'fábrica · línea que se mueve · T:hora',
     'ciudad · mercancía que fluye · E:casa/EUR',
   ]);
@@ -147,7 +148,7 @@ test('la compra: el registro colisiona en la raíz del menú; lo de dentro va ce
   // VG, 7-11 noche: por hojas: la 1 del menú es una lista; sus platos son ocupantes de la 1, y la 1.1 no existe.
   assert.deepEqual(ocupantes(eje, menu.id, [1]).map((o) => [o.origen, o.contenido]), [['propio', 'ensalada'], ['propio', 'guiso'], ['propio', 'fruta']]);
   assert.deepEqual(ocupantes(eje, menu.id, [1, 1]), []);
-  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '2.0.0 escrito', '3.0.0 escrito', '4.0.0 escrito']);
+  assert.deepEqual(lineas(efectos), ['0.0.0 sustituir', '1.1.0 escrito', '1.2.0 escrito', '2.0.0 escrito', '3.0.0 escrito', '4.0.0 escrito', '5.0.0 escrito']); // 5: su plantilla (encargo 3c-1)
   for (const e of sinTokens(efectos).slice(1)) assert.ok(e.decisiones.includes(MARCAS_EFECTO.matriz));
   // En la raíz no hay duda de marco; [1][0][0] y [2][0] son referencias al menú: herencia, no efecto.
   // VG, 7-11 noche: por hojas: la 1.0 de la compra es la lista de uno [ref menú:1] (cada posición entre corchetes).

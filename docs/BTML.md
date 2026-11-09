@@ -157,6 +157,7 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
 2 · criterios: → menú:2 (sin gluten · vegetariano) · all announced movements happened · 2 ocupantes
 3 · comunicación: huesped · cocina · 2 ocupantes
 4 · fábrica: pagar · servir · 2 ocupantes
+5 · estructura: purchase
 ```
 
 Leído bajo la época 0 (§4.3): posición 0 representación, 1 recursos, 2 criterios, 3 comunicación, 4 fábrica. Por hojas (VG, 7-11 noche; §3.2): la posición 1 tiene un array dentro, así que es una **décupla** y en ella el dígito es el PV aplicado al nodo de arriba: 1.0 qué es (la lista de uno con la referencia al menú:1), 1.1 cuánto (la lista de uno `[1]`), 1.2 con qué condición (la lista de uno `["EUR 12"]`); cada posición va entre corchetes (forma canónica, VG 8-11, §3.2). Las posiciones 2, 3 y 4 son solo hojas: son **listas**, sus ocupantes por llegada (la referencia a los criterios del menú y la plantilla de cerrado que la huésped nombra, «all announced movements happened», encargo 3b: `docs/MOTOR.md`; quién habla con quién; las dos acciones). Quien copie la décupla como plantilla (1.3 «total», 1.4 «tiempo»…) obtiene direcciones que la época 0 lee como «con quién» y «qué se hace» (ver `docs/notas/PRUEBA_DEL_EXTRANJERO.md`).
@@ -466,7 +467,7 @@ Una décupla (y la raíz) tiene **entre 1 y 10 posiciones** (`ARIDAD = 10`), ín
 
 - **No copian.** Lo que hay en el destino se lee al resolver (`encaje.seguir`, `encaje.ocupantes`, BQL `leerSlot`), nunca al escribir.
 - `esReferencia` solo comprueba la forma: **exactamente** las claves propias `ref` (cadena no vacía) y, si está, `dir` (dirección válida). Una clave de más (`{ ref, extra }`), un `ref` heredado por prototipo o un `dir` presente pero `undefined` no son referencia: nada más viaja dentro de una referencia. **No se comprueba al escribir que `ref` exista en el eje**: una referencia a un id desconocido se guarda y, al seguirla, sale con `rota: true`, `estado: 'PENDIENTE'` y su `motivo` (el evento puede llegar; no es un error, corpus V4). Tampoco que `dir` exista en ese evento: una referencia a una posición que no desarrolla se guarda y, al seguirla, alcanza `contenido: undefined` **sin** `rota` (BQL la lee PENDIENTE `posición sin desarrollar`).
-- `ref` debe ser el **id completo**. Los prefijos (`'3147f38b'`) solo los resuelven BQL (`REF("3147f38b")`) y la entrada de texto de `escritura.item` (`'@3147f38b:1200000000'`), que los convierten en id completo antes de guardar.
+- `ref` debe ser el **id completo**. Los prefijos (`'f000be01'`) solo los resuelven BQL (`REF("f000be01")`) y la entrada de texto de `escritura.item` (`'@f000be01:1200000000'`), que los convierten en id completo antes de guardar.
 - Sin `dir`, la referencia apunta al payload entero (`'0000000000'`).
 - `btml.resolver` **no** sigue referencias; `encaje.seguir` sigue cadenas de referencias hasta 20 saltos.
 
@@ -570,7 +571,7 @@ leerEvento(eje, id, { epoca = EPOCA_0, nombres, camino } = {})         // → st
 - **Contenido**: una hoja, su texto (una fórmula, tal cual, sin evaluar); una referencia, `→ <id corto>` y, si apunta a una posición, `:<dirección en corto>` (`→ menú:1`); con `eje`, además, entre paréntesis lo que alcanza en su posición 0 (§3.3); una lista, sus ocupantes separados por ` · ` y, si son más de uno, `· n ocupantes`; una décupla, nada en su línea: sus posiciones van debajo, una sangría más adentro.
 - Las posiciones vacías no se imprimen. Un payload terminal (sin posiciones, como el del génesis) se lee como su texto, en una línea.
 - `profundidad`: la del nodo que se lee. En la 0 el payload es la cruceta aunque sean solo hojas; en una n ≥ 1 un array solo de hojas es una lista y se lee en una línea.
-- `nombres`: un `Map`, un objeto o una función id → nombre corto, para leer `menú` en vez de `ff05e68f` (sin él, los ocho primeros caracteres del id).
+- `nombres`: un `Map`, un objeto o una función id → nombre corto, para leer `menú` en vez de `b2c259f3` (sin él, los ocho primeros caracteres del id).
 
 `leerEvento` pone delante una cabecera `<id corto> · <autor> · <t> · sobre <id corto> en <dirección>` (el génesis dice `génesis`) y, bajo cada posición, los **escritos anclados** en ella (`encaje.ocupantes`, camino exacto, por llegada), uno por línea: `↳ ocupante k · <autor> · <texto>`, con `k` su lugar en la lista de la posición (§6.7: los propios primero) y el texto de su posición 0. Los anclados en la raíz van al final, sin sangría. Con `camino`, solo la posición de ese camino (lo que enseña Clasificar). La compra con la cuenta de cocina escrita en `1000000000`:
 
@@ -596,6 +597,7 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000
 2 · criterios: → menú:2 (sin gluten · vegetariano) · all announced movements happened · 2 ocupantes
 3 · comunicación: huesped · cocina · 2 ocupantes
 4 · fábrica: pagar · servir · 2 ocupantes
+5 · estructura: purchase
 compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000 · posición 1
 1 · recursos:
   0 · qué es: → menú:1 (ensalada · guiso · fruta)
@@ -1030,6 +1032,7 @@ console.log(arbol(eje, compra.id, { profundidad: 1 }).has('1200000000'));
 2000000000 propio#2 referencia#2 propio#2
 3000000000 propio#3 propio#3
 4000000000 propio#4 propio#4
+5000000000 propio#5
 0000000000:2 1000000000:4 2000000000:3 3000000000:2 4000000000:2
 false
 ```
@@ -1595,14 +1598,14 @@ Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la 
 |---|---|
 | 0 nombre | `['época 0', 'epoch 0']` |
 | 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». P lleva además 1.1.3, quién lo obtiene, y 1.1.4, `[["obtain and reposition"], [10], [0.1, 1.1], [nota]]`: diez por registro, subir deja una décima y bajar añade una (mapa §15). R: las seis zonas de la atención (1.2.1), cada una `[[nombre], [zona], [[precio], [cuánto]]]`: desconocidos 0 «my R», comercial 1 «E», expertos 2 «P», cercanos 3 «their R», equipo 4 «their R», vetados 5 «nothing»; el precio del equipo y los «cuánto» siguen «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
-| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. Son 39: 30 condiciones, conectadas al eje (encargo 3a: cada una es una condición de la transacción y rechaza con su 9), 3 reglas que escriben, con `put` en su 4 (encargo 3b: la obtención de P, que el libro acuña en la misma transacción), y 6 lecturas, con `read` en su 4 (B5: «present», «informative», «attended», «obligation»; 3b: «share», «weight»; el contexto las pone en la posición que dice su 3). La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
+| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. Son 40: 30 condiciones, conectadas al eje (encargo 3a: cada una es una condición de la transacción y rechaza con su 9), 3 reglas que escriben, con `put` en su 4 (encargo 3b: la obtención de P, que el libro acuña en la misma transacción), y 7 lecturas, con `read` en su 4 (B5: «present», «informative», «attended», «obligation»; 3b: «share», «weight»; 3c-1: «maturity»; el contexto las pone en la posición que dice su 3). La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
 | 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterio, `A.2.1` su P posicionado y `A.2.3` los criterios que adopta, 3 grupos de atención, `A.3.k` la zona k con su precio en `3.k.2` y quiénes en `3.k.3`, 7 tiempo, 8 `A.8.1` su obligación…); 3.1 el autor del primer registro, «el autor del génesis» |
 | 4 qué se hace | 4.0 las cinco primitivas (`mint`, `transfer`, `lock`, `release`, `burn`) y 4.1 los cinco despliegues (D-META, D-MOV, D-SERIE, D-FECHA, D-VALOR), con su nombre y una línea |
 | 5 dónde encaja | las cien reglas cortas: 5.p.d = `[[nombre], [significado], [ejemplo]]` de la regla del dígito d en la profundidad p |
 | 6 de dónde viene | la procedencia: una línea por decisión de VG citada, con su fecha |
 | 7 para cuándo | 7.0 el calendario: las siete escalas que se miden, por su dígito, cada una `[[nombre], [segundos], [días]]` (segundo 1, minuto 60, hora 3600, día 86 400; semana de 7 días, ciclo de 28, año de 364 + 1 = 31 536 000 segundos); las informativas no se miden y no están. 7.1 el reloj: «el tiempo lo marcan los demás». 7.2 las escalas que se refieren a otra fecha: 7 (pasado) y 8 (futuro). Son los datos del mundo (VG, 10-11, A3): `src/tokens.js` lee de aquí `SEGUNDOS`, y del 1.3 `ASIGNACION_T` y `PARTES_T`, y ninguna regla escribe un número que la época tenga |
-| 8 frente a otros | 8.0 los cortes de las cajas (1 2 3 4 6 10 16 26 42), 8.1 los órdenes de magnitud (8.1.n = `[[10^(n−1)], [10^n]]`) y 8.2 el mínimo y el máximo de cada modo |
-| 9 cómo | 9.0 las plantillas, fórmulas del BQL mínimo con `it` = el registro (encargo 3b, `docs/MOTOR.md`): 9.0.0 el recuento («weighted sum», «weighted mean», «threshold»; umbral por defecto 0 y presión máxima 9), 9.0.1 cerrado («all announced movements happened»), 9.0.2 la zona de quien no está en ningún grupo (desconocidos, «my R») y 9.0.3 siguiente («what is missing», con las plantillas de transacción «move what was announced» y «commit P»); 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta |
+| 8 frente a otros | 8.0 los cortes de las cajas (1 2 3 4 6 10 16 26 42), 8.1 los órdenes de magnitud (8.1.n = `[[10^(n−1)], [10^n]]`), 8.2 el mínimo y el máximo de cada modo y, del encargo 3c-1 (`docs/CONTRATO.md`), 8.3 el espacio de bloque (datos que caben → puntos de vista, la disposición y el paso), 8.4 los niveles de madurez y 8.5 los órdenes de los ocupantes |
+| 9 cómo | 9.0 las plantillas, fórmulas del BQL mínimo con `it` = el registro (encargo 3b, `docs/MOTOR.md`): 9.0.0 el recuento («weighted sum», «weighted mean», «threshold»; umbral por defecto 0 y presión máxima 9), 9.0.1 cerrado («all announced movements happened»), 9.0.2 la zona de quien no está en ningún grupo (desconocidos, «my R») y 9.0.3 siguiente («what is missing», con las plantillas de transacción «move what was announced» y «commit P»); 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta; del encargo 3c-1 (`docs/CONTRATO.md`), 9.2 las plantillas de dominio («purchase», «booking»), 9.3 la plantilla «preferences», 9.4 los mensajes por idioma (es) y 9.5 las representaciones (formatos y tamaños) |
 
 Una regla es una décupla del molde (mapa §16 [D]): 0 nombre, 1 constantes que usa, 2 condición (una fórmula «=…» del BQL mínimo, lo único con álgebra), 3 a quién aplica, 4 qué primitiva vigila, 5 dónde cuelga (`*` toda transacción, un dígito una corta, una ruta una larga), 6 de dónde viene, 7 desde qué época rige, 8 orden frente a otras reglas, 9 mensaje. Una lectura (B5) lleva `read` en su 4: su 2 es la fórmula que se lee (`it` es lo leído), su 3 la posición donde se materializa (`X.6.1` de un registro, `A.8.1` de una identidad) y su 9 lo que dice. Una regla que escribe (encargo 3b) lleva `put` en su 4: su 2 coloca con `put v at X.d.(k)` y el libro asienta lo que coloca en el P posicionado (`docs/BQLM.md` §5). La que es provisional lo marca en su 6 («[provisional]», A2).
 
@@ -1632,7 +1635,7 @@ epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
 (first epoch.2).0 → writing burns today's T
-count epoch.2 → 39
+count epoch.2 → 40
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

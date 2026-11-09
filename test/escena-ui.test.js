@@ -83,10 +83,10 @@ test('vista Scened: si la capacidad corta la escena, el aviso sale arriba y abaj
   const avisos = [...html.matchAll(/<div class="aviso">([^<]*)<\/div>/g)].map((m) => m[1]);
   assert.equal(avisos.length, 2);
   assert.equal(avisos[0], avisos[1]);
-  assert.match(avisos[0], /^capacidad de la escena: 28 posiciones\. El foco [0-9a-f]{8} \(3º de 3\) la llevaría a 30; la escena se corta ahí y quedan fuera 1 foco: /);
+  assert.match(avisos[0], /^capacidad de la escena: 28 posiciones\. El foco [0-9a-f]{8} \(3º de 3\) la llevaría a 31; la escena se corta ahí y quedan fuera 1 foco: /);
   const lista = html.indexOf('<ol class="piezas">');
   assert.ok(html.indexOf('class="aviso"') < lista && html.lastIndexOf('class="aviso"') > html.indexOf('</ol>'));
-  assert.match(html, /27 de 28 posiciones en escena · capacidad bajada \(máximo 10000\) · 1 foco fuera/);
+  assert.match(html, /28 de 28 posiciones en escena · capacidad bajada \(máximo 10000\) · 1 foco fuera/); // la compra trae una posición más (su 5, encargo 3c-1)
   assert.match(html, /class="barra llena"/);
   // Si no cabe ni el foco, la vista lo dice en vez de quedar vacía.
   const vacia = htmlEscena(escenaDe(eje, compra.id, { ahora: AHORA, capacidad: 10 }));

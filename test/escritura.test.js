@@ -62,8 +62,8 @@ test('Mapped ancla en su posición lo que el foco no puede heredar, en vez de re
   const celdas = [];
   celdas[7] = ['más tarde'];
   const { payload, anclados } = desdeMapped(eje, celdas, compra.id);
-  assert.equal(payload, null); // nada cabe dentro: el foco no tiene 5 ni 6
-  assert.deepEqual(anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'más tarde', faltan: ['5', '6'] }]);
+  assert.equal(payload, null); // nada cabe dentro: el foco no tiene 6 (su 5 es su plantilla, encargo 3c-1)
+  assert.deepEqual(anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'más tarde', faltan: ['6'] }]);
   assert.throws(() => desdeMapped(eje, [], compra.id), /vacía/);
 });
 
