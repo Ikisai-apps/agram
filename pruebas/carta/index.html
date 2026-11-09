@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="es" data-theme="claro">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prueba del reproductor de piezas</title>
+<style>
+:root{
+  --fondo:#f4f6f8; --tarjeta:#ffffff; --texto:#182130; --suave:#5b6675; --linea:#d5dbe2;
+  --acento:#155166; --acento-texto:#ffffff; --ok:#1d7a46; --mal:#b3261e; --hueco:#e9edf1;
+  color-scheme:light;
+}
+:root[data-theme="oscuro"]{
+  --fondo:#0e131b; --tarjeta:#171f2b; --texto:#e8ecf1; --suave:#9aa6b6; --linea:#2b3646;
+  --acento:#5fc0dc; --acento-texto:#0e131b; --ok:#5fd28c; --mal:#ff8a80; --hueco:#1f2937;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--fondo);color:var(--texto);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header.barra{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;gap:.4rem .9rem;align-items:center;justify-content:space-between;padding:.5rem 1rem;background:var(--tarjeta);border-bottom:1px solid var(--linea);font-size:.85rem}
+header.barra .medidas{color:var(--suave);font-variant-numeric:tabular-nums}
+header.barra b{color:var(--texto)}
+main{max-width:760px;margin:0 auto;padding:0 1rem 1rem}
+h1{font-size:1.4rem;margin:1.2rem 0 .3rem}
+h2{font-size:1.1rem;margin:2rem 0 .4rem;padding-top:1rem;border-top:1px solid var(--linea)}
+p{margin:.4rem 0}
+.nota{color:var(--suave);font-size:.9rem}
+button{font:inherit;min-height:44px;padding:.45rem .9rem;border-radius:10px;border:1px solid var(--linea);background:var(--tarjeta);color:var(--texto);cursor:pointer}
+button:hover{border-color:var(--acento)}
+button:disabled{opacity:.5;cursor:default}
+button[aria-pressed="true"],button.activo{background:var(--acento);color:var(--acento-texto);border-color:var(--acento)}
+button:focus-visible,input:focus-visible{outline:3px solid var(--acento);outline-offset:2px}
+.fila{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin:.5rem 0}
+.tarjeta{background:var(--tarjeta);border:1px solid var(--linea);border-radius:12px;padding:.8rem}
+.tamanos{display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-end}
+.pieza{display:flex;flex-direction:column;gap:.3rem;align-items:flex-start}
+.pieza .caja{background:var(--hueco);border:1px dashed var(--linea);border-radius:8px;overflow:hidden}
+.pieza small,.etiqueta{color:var(--suave);font-size:.8rem;font-variant-numeric:tabular-nums}
+.pantalla{width:100%;background:var(--hueco);border-block:1px solid var(--linea);margin:.5rem 0 2rem}
+.pantalla #lt-grande{width:100%;aspect-ratio:1/1}
+input[type=range]{width:min(100%,360px);min-height:44px;accent-color:var(--acento)}
+output{font-variant-numeric:tabular-nums;font-weight:600}
+#rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(56px,1fr));gap:4px;margin-top:.6rem}
+#rejilla .celda{aspect-ratio:1/1;background:var(--hueco);border-radius:6px;overflow:hidden}
+table{margin-top:1rem;border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+th,td{border-bottom:1px solid var(--linea);padding:.35rem .4rem;text-align:left}
+.hilera{display:flex;gap:.6rem;flex-wrap:wrap;align-items:flex-end}
+.hilera figure{margin:0;flex:1 1 90px;max-width:200px;text-align:center}
+.hilera img,.hilera canvas{display:block;width:100%;height:auto;background:var(--hueco);border-radius:8px}
+.hilera figcaption{font-size:.8rem;color:var(--suave);margin-top:.2rem}
+.espejo{transform:scaleX(-1)}
+.matriz{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;width:min(100%,420px);margin:.6rem 0}
+.matriz>div{aspect-ratio:1/1;background:var(--hueco);border:1px dashed var(--linea);border-radius:6px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.matriz img,.matriz .lt{width:100%;height:100%;display:block}
+#carga-caja{width:160px;height:160px;background:var(--hueco);border:1px dashed var(--linea);border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+#carga-caja img{max-width:100%;max-height:100%}
+#carga-msg{min-height:1.4em}
+.ok{color:var(--ok)}.mal{color:var(--mal)}
+</style>
+</head>
+<body>
+<header class="barra">
+  <span class="medidas">página <b id="m-fps">–</b> fps · peor fotograma <b id="m-peor">–</b> ms · memoria <b id="m-mem">n/d</b></span>
+  <button id="tema" type="button" aria-pressed="false">Fondo oscuro</button>
+</header>
+
+<main>
+<h1>Prueba del reproductor de piezas</h1>
+<p class="nota">Lo que necesita la futura «carta»: piezas animadas (Lottie) y estáticas (SVG) del arte de prueba 03, nivel «intermedio». Página autónoma, sin build; lottie-web 5.12.2 desde cdnjs.</p>
+<p id="aviso" class="mal" hidden></p>
+
+<h2>a. La pieza en bucle, en tres tamaños</h2>
+<p class="nota">Hueco 48 px y tarjeta 160 px con renderer <code>svg</code>; pantalla completa (al final de la página) con <code>canvas</code>. Los fps de cada una son los fotogramas pintados por segundo.</p>
+<div class="tamanos tarjeta">
+  <div class="pieza"><div class="caja" id="lt-hueco" style="width:48px;height:48px"></div><small>hueco 48 · svg<br><span data-fps="hueco">–</span> fps</small></div>
+  <div class="pieza"><div class="caja" id="lt-tarjeta" style="width:160px;height:160px"></div><small>tarjeta 160 · svg<br><span data-fps="tarjeta">–</span> fps</small></div>
+  <div class="pieza"><small>pantalla completa · canvas<br><span data-fps="grande">–</span> fps</small></div>
+</div>
+
+<h2>b. Control por fotograma</h2>
+<p class="nota">El paso k fija el fotograma k × (total/10) con <code>goToAndStop</code>. Es la base de «el cambio de paso es un cambio de fotograma».</p>
+<div class="tarjeta">
+  <label for="paso">Paso: <output id="paso-k">–</output></label><br>
+  <input id="paso" type="range" min="0" max="9" step="1" value="0" disabled>
+  <div class="fila"><button id="bucle" type="button">Volver al bucle</button><span class="etiqueta" id="estado-paso">en bucle</span></div>
+</div>
+
+<h2>c. Velocidad</h2>
+<div class="fila" id="velocidades" role="group" aria-label="Velocidad">
+  <button type="button" data-v="0.5">×0.5</button>
+  <button type="button" data-v="1" class="activo">×1</button>
+  <button type="button" data-v="2">×2</button>
+</div>
+
+<h2>d. Rendimiento</h2>
+<p class="nota">Cuadrícula de instancias pequeñas (renderer <code>svg</code>, 56 px). Las que salen de pantalla se pausan con IntersectionObserver.</p>
+<div class="fila">
+  <button id="b100" type="button">100 vendedores</button>
+  <button id="bquietas" type="button" aria-pressed="false" disabled>Pausar las quietas (1 de cada 10 animada)</button>
+  <button id="bio" type="button" aria-pressed="true" disabled>Pausa fuera de pantalla: sí</button>
+  <button id="bmedir" type="button">Medir 1 / 10 / 100</button>
+</div>
+<p class="etiqueta" id="rend-estado">Sin instancias.</p>
+<div id="rejilla"></div>
+<table id="tabla-medidas" aria-label="Medidas de rendimiento">
+  <thead><tr><th>Caso</th><th>fps</th><th>peor fotograma</th><th>memoria JS</th></tr></thead>
+  <tbody><tr><td colspan="4" class="nota">Pulsa «Medir» (3 s por caso; la pestaña debe estar a la vista; las cuatro piezas de arriba se pausan mientras mide).</td></tr></tbody>
+</table>
+<p class="nota" id="anotacion">Medidas del autor (Chromium sin cabeza, equipo de desarrollo): ver más abajo si se han anotado, o la descripción de la PR.</p>
+<p class="nota" id="anotacion-valores"></p>
+
+<h2>e. SVG en tres orientaciones</h2>
+<p class="nota">Izquierda, centro y derecha.</p>
+<div class="hilera">
+  <figure><img id="s-izq" alt="Tienda izquierda" src="../../arte/pruebas/03/ciudad/elemento/tienda-izquierda-intermedio.svg"><figcaption>izquierda</figcaption></figure>
+  <figure><img id="s-cen" alt="Tienda centro" src="../../arte/pruebas/03/ciudad/elemento/tienda-centro-intermedio.svg"><figcaption>centro</figcaption></figure>
+  <figure><img id="s-der" alt="Tienda derecha" src="../../arte/pruebas/03/ciudad/elemento/tienda-derecha-intermedio.svg"><figcaption>derecha</figcaption></figure>
+</div>
+<p class="nota"><b>Solo para comparar: en AGRAM son archivos separados.</b> La izquierda (lado del PV1) y la derecha (lado del PV2) son siempre piezas distintas y cambian por separado; el espejo es solo un atajo de producción del generador de imágenes. Aquí, la izquierda con <code>scaleX(-1)</code> junto a la derecha real y su diferencia, para ver si el atajo es fiel.</p>
+<div class="hilera">
+  <figure><img class="espejo" id="s-esp" alt="Tienda izquierda en espejo" src="../../arte/pruebas/03/ciudad/elemento/tienda-izquierda-intermedio.svg"><figcaption>izquierda en espejo</figcaption></figure>
+  <figure><img alt="Tienda derecha real" src="../../arte/pruebas/03/ciudad/elemento/tienda-derecha-intermedio.svg"><figcaption>derecha real</figcaption></figure>
+  <figure><canvas id="s-dif" width="128" height="128" aria-label="Diferencia entre el espejo y la derecha"></canvas><figcaption>diferencia (negro = igual)</figcaption></figure>
+</div>
+<p class="etiqueta" id="dif-texto">Calculando diferencia…</p>
+<p class="nota">Matriz 3×3 como la pantalla de Mapped: el vendedor al centro, los laterales mirando hacia el centro, la tienda centro arriba. Usa los tres archivos reales, nunca un espejo.</p>
+<div class="matriz" id="matriz">
+  <div></div><div><img alt="Tienda centro" src="../../arte/pruebas/03/ciudad/elemento/tienda-centro-intermedio.svg"></div><div></div>
+  <div><img alt="Tienda izquierda" src="../../arte/pruebas/03/ciudad/elemento/tienda-izquierda-intermedio.svg"></div><div><div class="lt" id="lt-matriz"></div></div><div><img alt="Tienda derecha" src="../../arte/pruebas/03/ciudad/elemento/tienda-derecha-intermedio.svg"></div>
+  <div></div><div></div><div></div>
+</div>
+
+<h2>f. Probar un archivo suelto</h2>
+<p class="nota">Un <code>.json</code> Lottie o un <code>.svg</code>. Todo se queda en tu navegador. El JSON se valida (sin expresiones, sin imágenes externas); el SVG se muestra como <code>&lt;img&gt;</code>, nunca inline.</p>
+<div class="fila"><input id="archivo" type="file" accept=".json,.svg,application/json,image/svg+xml"></div>
+<div id="carga-caja"><span class="nota">vacío</span></div>
+<p id="carga-msg" class="etiqueta" role="status"></p>
+</main>
+
+<main style="padding-bottom:0"><h2>Pantalla completa (canvas)</h2></main>
+<div class="pantalla"><div id="lt-grande"></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js" integrity="sha512-jEnuDt6jfecCjthQAJ+ed0MTVA++5ZKmlUcmDGBv2vUI/REn6FuIdixLNnQT+vKusE2hhTk2is3cFvv5wA+Sgg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+"use strict";
+const RUTA_JSON = "../../arte/pruebas/03/ciudad/munequito/vendedor-esperar-intermedio.json";
+const $ = (s, r = document) => r.querySelector(s);
+const clonar = (o) => JSON.parse(JSON.stringify(o));
+
+/* ---------- tema ---------- */
+(function tema() {
+  const raiz = document.documentElement, b = $("#tema");
+  let guardado = null;
+  try { guardado = localStorage.getItem("carta-tema"); } catch (e) {}
+  const oscuroSistema = window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
+  const poner = (t) => {
+    raiz.dataset.theme = t;
+    b.setAttribute("aria-pressed", String(t === "oscuro"));
+    b.textContent = t === "oscuro" ? "Fondo claro" : "Fondo oscuro";
+    try { localStorage.setItem("carta-tema", t); } catch (e) {}
+  };
+  poner(guardado || (oscuroSistema ? "oscuro" : "claro"));
+  b.addEventListener("click", () => poner(raiz.dataset.theme === "oscuro" ? "claro" : "oscuro"));
+})();
+
+/* ---------- validación de Lottie (sin expresiones, sin imágenes externas) ---------- */
+function validarLottie(d) {
+  const problemas = [];
+  if (!d || typeof d !== "object" || Array.isArray(d)) return ["no es un objeto Lottie"];
+  if (!Array.isArray(d.layers)) problemas.push("no tiene «layers»");
+  for (const k of ["fr", "ip", "op", "w", "h"]) if (typeof d[k] !== "number") problemas.push("falta «" + k + "» numérico");
+  if (Array.isArray(d.assets)) for (const a of d.assets) {
+    for (const k of ["p", "u"]) {
+      if (typeof a[k] === "string" && a[k] !== "" && !/^data:image\/(png|jpeg|webp|gif);base64,/.test(a[k]))
+        problemas.push("asset con «" + k + "» externo: " + a[k].slice(0, 40));
+    }
+  }
+  let expr = 0, n = 0;
+  (function ir(o) {
+    if (++n > 2e6) return;
+    if (Array.isArray(o)) { for (const v of o) ir(v); }
+    else if (o && typeof o === "object") {
+      if (typeof o.x === "string") expr++;
+      for (const k in o) ir(o[k]);
+    }
+  })(d);
+  if (expr) problemas.push(expr + " expresión(es) («x» con cadena de código)");
+  return problemas;
+}
+
+/* ---------- medidor de página ---------- */
+const medidor = { frames: 0, t0: performance.now(), ultimo: performance.now(), peor: 0 };
+function memoria() {
+  return performance.memory ? performance.memory.usedJSHeapSize / 1048576 : null;
+}
+(function bucle(t) {
+  medidor.frames++;
+  medidor.peor = Math.max(medidor.peor, t - medidor.ultimo);
+  medidor.ultimo = t;
+  if (t - medidor.t0 >= 1000) {
+    $("#m-fps").textContent = (medidor.frames * 1000 / (t - medidor.t0)).toFixed(0);
+    $("#m-peor").textContent = medidor.peor.toFixed(0);
+    const mem = memoria();
+    $("#m-mem").textContent = mem === null ? "n/d" : mem.toFixed(0) + " MB";
+    medidor.frames = 0; medidor.peor = 0; medidor.t0 = t;
+  }
+  requestAnimationFrame(bucle);
+})(performance.now());
+
+/* ---------- reproductor ---------- */
+let DATOS = null;
+const vivas = {};          // hueco, tarjeta, grande, matriz
+let velocidad = 1;
+let grupo = [];            // instancias de la rejilla
+
+function crear(cont, renderer, extra) {
+  return lottie.loadAnimation(Object.assign({
+    container: cont, renderer, loop: true, autoplay: true, animationData: clonar(DATOS),
+    rendererSettings: renderer === "canvas" ? { clearCanvas: true, preserveAspectRatio: "xMidYMid meet" }
+                                            : { preserveAspectRatio: "xMidYMid meet" }
+  }, extra || {}));
+}
+function contarFps(anim, etiqueta) {
+  let n = 0, t0 = performance.now();
+  anim.addEventListener("enterFrame", () => {
+    n++;
+    const t = performance.now();
+    if (t - t0 >= 1000) {
+      for (const e of document.querySelectorAll('[data-fps="' + etiqueta + '"]')) e.textContent = (n * 1000 / (t - t0)).toFixed(0);
+      n = 0; t0 = t;
+    }
+  });
+}
+
+function iniciar() {
+  vivas.hueco = crear($("#lt-hueco"), "svg");
+  vivas.tarjeta = crear($("#lt-tarjeta"), "svg");
+  vivas.grande = crear($("#lt-grande"), "canvas");
+  vivas.matriz = crear($("#lt-matriz"), "svg");
+  for (const k of ["hueco", "tarjeta", "grande"]) contarFps(vivas[k], k);
+  const total = vivas.tarjeta.totalFrames;
+
+  const paso = $("#paso"), sal = $("#paso-k"), est = $("#estado-paso");
+  paso.disabled = false;
+  const fotogramaDe = (k) => k * (total / 10);
+  paso.addEventListener("input", () => {
+    const k = +paso.value, f = fotogramaDe(k);
+    for (const k2 of Object.keys(vivas)) vivas[k2].goToAndStop(f, true);
+    sal.textContent = k + " → fotograma " + f.toFixed(1) + " de " + total;
+    est.textContent = "fijado en el paso " + k;
+  });
+  sal.textContent = "(en bucle)";
+  $("#bucle").addEventListener("click", () => {
+    for (const k2 of Object.keys(vivas)) { vivas[k2].setSpeed(velocidad); vivas[k2].play(); }
+    sal.textContent = "(en bucle)"; est.textContent = "en bucle";
+  });
+
+  $("#velocidades").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-v]"); if (!b) return;
+    velocidad = +b.dataset.v;
+    for (const x of $("#velocidades").querySelectorAll("button")) x.classList.toggle("activo", x === b);
+    for (const k2 of Object.keys(vivas)) vivas[k2].setSpeed(velocidad);
+    for (const a of grupo) a.setSpeed(velocidad);
+  });
+
+  window.addEventListener("resize", () => vivas.grande.resize());
+  rendimiento();
+}
+
+/* ---------- d. rendimiento ---------- */
+let obs = null, usarIO = true, soloUnaDeDiez = false;
+
+function vaciar() {
+  if (obs) { obs.disconnect(); obs = null; }
+  for (const a of grupo) a.destroy();
+  grupo = [];
+  $("#rejilla").textContent = "";
+}
+function aplicarEstado() {
+  let animadas = 0;
+  grupo.forEach((a, i) => {
+    const viva = a.__visible !== false || !usarIO;
+    const permitida = !soloUnaDeDiez || i % 10 === 0;
+    if (viva && permitida) { if (a.isPaused) a.play(); animadas++; }
+    else if (!a.isPaused) a.pause();
+  });
+  $("#rend-estado").textContent = grupo.length
+    ? grupo.length + " instancias, " + animadas + " animadas ahora" + (usarIO ? " (con pausa fuera de pantalla)" : " (sin pausa fuera de pantalla)") + (soloUnaDeDiez ? ", solo una de cada diez" : "")
+    : "Sin instancias.";
+  return animadas;
+}
+function poblar(n, conIO) {
+  vaciar();
+  usarIO = conIO;
+  const rej = $("#rejilla"), frag = document.createDocumentFragment(), celdas = [];
+  for (let i = 0; i < n; i++) { const c = document.createElement("div"); c.className = "celda"; frag.appendChild(c); celdas.push(c); }
+  rej.appendChild(frag);
+  for (const c of celdas) {
+    const a = crear(c, "svg", { autoplay: false });
+    a.setSpeed(velocidad);
+    a.__visible = true;
+    c.__anim = a;
+    grupo.push(a);
+  }
+  if ("IntersectionObserver" in window) {
+    obs = new IntersectionObserver((es) => {
+      for (const e of es) e.target.__anim.__visible = e.isIntersecting;
+      aplicarEstado();
+    }, { rootMargin: "50px" });
+    for (const c of celdas) obs.observe(c);
+  }
+  aplicarEstado();
+}
+function botonesRend() {
+  const q = $("#bquietas"), io = $("#bio");
+  q.disabled = io.disabled = false;
+  q.setAttribute("aria-pressed", String(soloUnaDeDiez));
+  io.setAttribute("aria-pressed", String(usarIO));
+  io.textContent = "Pausa fuera de pantalla: " + (usarIO ? "sí" : "no");
+}
+function rendimiento() {
+  $("#b100").addEventListener("click", () => { soloUnaDeDiez = false; poblar(100, true); botonesRend(); });
+  $("#bquietas").addEventListener("click", () => { soloUnaDeDiez = !soloUnaDeDiez; botonesRend(); aplicarEstado(); });
+  $("#bio").addEventListener("click", () => { usarIO = !usarIO; botonesRend(); aplicarEstado(); });
+  $("#bmedir").addEventListener("click", medirTodo);
+}
+const espera = (ms) => new Promise((r) => setTimeout(r, ms));
+async function muestrear(ms) {
+  const t0 = performance.now();
+  let peor = 0, ultimo = t0, n = 0;
+  await new Promise((fin) => {
+    (function paso(t) {
+      n++; peor = Math.max(peor, t - ultimo); ultimo = t;
+      if (t - t0 >= ms) fin(); else requestAnimationFrame(paso);
+    })(t0);
+  });
+  return { fps: n * 1000 / (performance.now() - t0), peor };
+}
+async function medirTodo() {
+  const b = $("#bmedir"), cuerpo = $("#tabla-medidas tbody");
+  b.disabled = true; cuerpo.textContent = "";
+  const principales = Object.values(vivas).filter((a) => !a.isPaused);
+  for (const a of principales) a.pause();   // para medir solo el grupo
+  const casos = [
+    ["0 instancias (referencia)", 0, true, false],
+    ["1 instancia", 1, false, false],
+    ["10 instancias (todas animadas)", 10, false, false],
+    ["100 instancias (todas animadas)", 100, false, false],
+    ["100 con pausa fuera de pantalla", 100, true, false],
+    ["100, solo una de cada diez animada", 100, false, true],
+  ];
+  for (const [nombre, n, io, q] of casos) {
+    soloUnaDeDiez = q; poblar(n, io); botonesRend();
+    await espera(1500);
+    const r = await muestrear(3000);
+    const m = memoria();
+    const fila = cuerpo.insertRow();
+    for (const t of [nombre, r.fps.toFixed(1), r.peor.toFixed(0) + " ms", m === null ? "n/d" : m.toFixed(0) + " MB"]) fila.insertCell().textContent = t;
+  }
+  for (const a of principales) a.play();
+  b.disabled = false;
+}
+
+/* ---------- e. espejo: diferencia de píxeles ---------- */
+function espejo() {
+  const izq = $("#s-izq"), der = $("#s-der"), N = 128;
+  const cargada = (i) => (i.complete && i.naturalWidth) ? Promise.resolve() : new Promise((r) => { i.onload = r; i.onerror = r; });
+  Promise.all([cargada(izq), cargada(der)]).then(() => {
+    try {
+      const px = (dibujar) => { const c = document.createElement("canvas"); c.width = c.height = N; const x = c.getContext("2d"); dibujar(x); return x.getImageData(0, 0, N, N).data; };
+      const a = px((x) => { x.translate(N, 0); x.scale(-1, 1); x.drawImage(izq, 0, 0, N, N); });
+      const b = px((x) => { x.drawImage(der, 0, 0, N, N); });
+      const out = $("#s-dif"), ox = out.getContext("2d"), im = ox.createImageData(N, N);
+      let dist = 0, suma = 0, ocupados = 0;
+      for (let i = 0; i < a.length; i += 4) {
+        const d = (Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]) + Math.abs(a[i + 3] - b[i + 3])) / 4;
+        suma += d;
+        if (d > 24) dist++;
+        if (a[i + 3] > 8 || b[i + 3] > 8) ocupados++;
+        im.data[i] = im.data[i + 1] = im.data[i + 2] = Math.min(255, d * 2); im.data[i + 3] = 255;
+      }
+      ox.putImageData(im, 0, 0);
+      $("#dif-texto").textContent = "Píxeles distintos entre el espejo de la izquierda y la derecha real: " +
+        (100 * dist / ocupados).toFixed(1) + " % de los píxeles ocupados (diferencia media " + (suma / (a.length / 4)).toFixed(1) + " / 255, a " + N + " px).";
+    } catch (e) {
+      $("#dif-texto").textContent = "No se pudo calcular la diferencia (" + e.name + "); compárese a ojo.";
+    }
+  });
+}
+
+/* ---------- f. archivo suelto ---------- */
+(function carga() {
+  const inp = $("#archivo"), caja = $("#carga-caja"), msg = $("#carga-msg");
+  let anim = null, url = null;
+  const limpiar = () => { if (anim) { anim.destroy(); anim = null; } if (url) { URL.revokeObjectURL(url); url = null; } caja.textContent = ""; };
+  const decir = (t, ok) => { msg.textContent = t; msg.className = "etiqueta " + (ok ? "ok" : "mal"); };
+  inp.addEventListener("change", async () => {
+    limpiar(); msg.textContent = "";
+    const f = inp.files && inp.files[0]; if (!f) return;
+    if (f.size > 5 * 1048576) return decir("«" + f.name + "» pesa más de 5 MB; no se carga.", false);
+    const nombre = f.name.toLowerCase();
+    try {
+      if (nombre.endsWith(".svg") || f.type === "image/svg+xml") {
+        const blob = new Blob([await f.arrayBuffer()], { type: "image/svg+xml" });
+        url = URL.createObjectURL(blob);
+        const img = document.createElement("img");
+        img.alt = f.name;
+        img.onerror = () => decir("«" + f.name + "» no es un SVG que el navegador pueda pintar.", false);
+        img.onload = () => decir("SVG «" + f.name + "» (" + (f.size / 1024).toFixed(1) + " KB) como <img> con blob URL; no ejecuta nada.", true);
+        img.src = url;
+        caja.appendChild(img);
+      } else if (nombre.endsWith(".json") || f.type === "application/json") {
+        let d;
+        try { d = JSON.parse(await f.text()); } catch (e) { return decir("«" + f.name + "» no es JSON válido.", false); }
+        const p = validarLottie(d);
+        if (p.length) return decir("Rechazado: " + p.join("; ") + ".", false);
+        if (typeof lottie === "undefined") return decir("lottie-web no está cargado.", false);
+        anim = lottie.loadAnimation({ container: caja, renderer: "svg", loop: true, autoplay: true, animationData: d,
+          rendererSettings: { preserveAspectRatio: "xMidYMid meet" } });
+        decir("Lottie «" + f.name + "» (" + (f.size / 1024).toFixed(1) + " KB): " + d.w + "×" + d.h + ", " + d.fr + " fps, " + (d.op - d.ip) + " fotogramas. Sin expresiones ni imágenes externas.", true);
+      } else {
+        decir("Solo se admiten .json (Lottie) y .svg.", false);
+      }
+    } catch (e) { limpiar(); decir("No se pudo cargar: " + e.message, false); }
+  });
+})();
+
+/* ---------- arranque ---------- */
+espejo();
+if (typeof lottie === "undefined") {
+  const a = $("#aviso"); a.hidden = false; a.textContent = "No se pudo cargar lottie-web desde cdnjs; las piezas animadas no se verán (los SVG sí).";
+} else {
+  fetch(RUTA_JSON).then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); }).then((d) => {
+    const p = validarLottie(d);
+    if (p.length) throw new Error("Lottie rechazado: " + p.join("; "));
+    DATOS = d; iniciar();
+  }).catch((e) => { const a = $("#aviso"); a.hidden = false; a.textContent = "No se pudo cargar el Lottie: " + e.message; });
+}
+</script>
+</body>
+</html>
