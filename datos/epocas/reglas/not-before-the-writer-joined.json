@@ -1,0 +1,15 @@
+[
+  ["not before the writer joined"],
+  [0],
+  ["=count (first ev.3).6 = 0 or (first ev.6.0).0 >= (first (first (first ev.3).6).6.0).0 or count up ev = 0"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "FUNDAMENTOS, «el reloj no va hacia atrás» [X confirmar VG] (inventario RL-2)",
+    "VG, 8-11: T como asignación diaria (mapa §12 [D])"
+  ],
+  ["epoch 0"],
+  ["after not before its focus"],
+  ["not before the writer joined: {first ev.3} writes at {first ev.6.0}, before joining ({first (first (first ev.3).6).6.0})"]
+]

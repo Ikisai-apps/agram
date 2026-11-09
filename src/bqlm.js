@@ -570,39 +570,75 @@ function numeroDe(o, donde, ctx) {
 
 // ---------- reglas ----------
 
-/** Lo que hay en una posición de una regla en forma canónica: la lista de uno se lee como su ocupante. */
-const hoja = (x) => (Array.isArray(x) && x.length === 1 ? x[0] : x);
+/**
+ * Lo que vale en una posición de una regla en forma canónica: su último
+ * ocupante. Una regla no se cambia en sitio: corregirla es añadir un ocupante
+ * a su registro (VG, 10-11, A1), y manda el último (src/epocas.js).
+ */
+const ultimo = (x) => (Array.isArray(x) ? x[x.length - 1] : x);
+
+/** El nombre de una regla: el primer ocupante de su 0. */
+export const nombreDeRegla = (regla) => (Array.isArray(regla) ? (Array.isArray(regla[0]) ? regla[0][0] : regla[0]) : undefined);
+
+// Las condiciones ya analizadas, por su texto: una regla se analiza una vez.
+const ANALIZADAS = new Map();
+function analizada(src) {
+  if (!ANALIZADAS.has(src)) {
+    let arbol;
+    try {
+      arbol = analizar(src);
+    } catch (e) {
+      arbol = e;
+    }
+    ANALIZADAS.set(src, arbol);
+  }
+  const a = ANALIZADAS.get(src);
+  if (a instanceof Error) throw a;
+  return a;
+}
 
 /**
  * Evalúa una regla de la época (una décupla del molde, mapa §16 [D]: 0 nombre,
  * 1 constantes, 2 condición, 3 a quién, 4 primitiva, 5 dónde cuelga, 6 de dónde
  * viene, 7 desde qué época, 8 orden, 9 mensaje). Lee la condición del 2 (una
- * fórmula «=…») y la evalúa en el contexto. Devuelve { pasa, estado, motivo }:
+ * fórmula «=…», el último ocupante: una corrección se añade detrás) y la
+ * evalúa en el contexto. Devuelve { pasa, estado, motivo }:
  * pasa solo si la condición da verdadero; si da falso, motivo es el mensaje del
  * 9 con cada {expresión} rellena con lo que vale; si queda PENDIENTE o da
  * ERROR, no pasa y motivo lo dice. No mira el 3, el 4 ni el 5: quién cuelga las
  * reglas de cada transacción es trabajo de después.
  */
 export function evaluarRegla(regla, contexto, opciones = {}) {
-  const nombre = Array.isArray(regla) ? hoja(regla[0]) : undefined;
-  const condicion = Array.isArray(regla) ? hoja(regla[2]) : undefined;
+  const nombre = nombreDeRegla(regla);
+  const condicion = Array.isArray(regla) ? ultimo(regla[2]) : undefined;
   if (typeof condicion !== 'string' || !condicion.startsWith('=') || condicion.startsWith('==')) {
     return { pasa: false, estado: 'ERROR', motivo: (nombre ?? 'regla') + ': su 2 no es una condición «=…»' };
   }
-  const r = evaluar(condicion, contexto, opciones);
+  let arbol;
+  try {
+    arbol = analizada(condicion);
+  } catch (e) {
+    return { pasa: false, estado: e.estado ?? 'ERROR', motivo: nombre + ': ' + (e.estado ?? 'ERROR') + ': ' + e.message };
+  }
+  const r = evaluar(arbol, contexto, opciones);
   if (r.estado !== 'RESUELTO') return { pasa: false, estado: r.estado, motivo: nombre + ': ' + r.estado + ': ' + r.motivo };
   if (r.valor.length !== 1 || typeof r.valor[0] !== 'boolean') {
     return { pasa: false, estado: 'ERROR', motivo: nombre + ': la condición no da verdadero o falso, da «' + r.texto + '»' };
   }
   if (r.valor[0]) return { pasa: true, estado: 'RESUELTO', motivo: null };
-  const mensaje = hoja(regla[9]);
+  const mensaje = ultimo(regla[9]);
   return { pasa: false, estado: 'RESUELTO', motivo: typeof mensaje === 'string' ? rellenar(mensaje, contexto, opciones) : nombre + ': no se cumple' };
 }
 
 /** Rellena cada {expresión} de un mensaje con lo que vale en el contexto (o con su estado, si no se resuelve). */
 export function rellenar(mensaje, contexto, opciones = {}) {
   return mensaje.replace(/\{([^{}]+)\}/g, (_, expr) => {
-    const r = evaluar(expr, contexto, opciones);
+    let r;
+    try {
+      r = evaluar(analizada(expr), contexto, opciones);
+    } catch (e) {
+      r = { estado: e.estado ?? 'ERROR' };
+    }
     return r.estado === 'RESUELTO' ? r.texto : '{' + expr + ': ' + r.estado + '}';
   });
 }

@@ -1,0 +1,15 @@
+[
+  ["E is minted by and to its issuer"],
+  [0],
+  ["=count (ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) = 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "mapa §12 [D] ciclo de vida: «emite siempre una persona», a su nombre",
+    "VG, 8-11: «en P y en R es la persona la que pone su R y su P, no maneja el del grupo; en E igual»"
+  ],
+  ["epoch 0"],
+  ["after locks keep their holder and name an exit"],
+  ["E is minted by and to its issuer: {first ev.3} mints E of {(ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) each 0.1}, or to someone else"]
+]

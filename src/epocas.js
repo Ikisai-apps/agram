@@ -22,8 +22,8 @@
 // que carga cargarEpocaBtml y lee el BQL mínimo como `epoch` (docs/BQLM.md,
 // docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
-import { ARIDAD, indicesDe, esLista, validarPayload } from './btml.js';
-import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS } from '../datos/epocas/epocas.js';
+import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -236,7 +236,11 @@ const textoNoVacio = (x) => typeof x === 'string' && x.length > 0;
  * leída con la cruceta (VG, 9-11, mapa §16 [D] «La época es un registro leído
  * con la cruceta»): 0 nombre; 1 las cuatro familias (E 1.0, P 1.1, R 1.2,
  * T 1.3, cada una [[nombre], [estructura], [estado]]); 2 las reglas largas
- * (condiciones), cada una una décupla del molde con las diez posiciones llenas;
+ * (condiciones): la lista de referencias { ref } a sus registros, uno por
+ * regla (VG, 10-11, A1), que el cargador resuelve con `registros`
+ * ([{ id, registro }]) y `correcciones` ([{ sobre, en, ocupante }]: un
+ * ocupante añadido a la posición `en` del registro de una regla; vale el
+ * último); cada regla, una décupla del molde con las diez posiciones llenas;
  * 3 la plantilla de identidad y el autor del primer registro; 4 primitivas y
  * despliegues; 5 las cien reglas cortas (5.p.d = [[nombre], [significado],
  * [ejemplo]]); 6 procedencia; 7 calendario y reloj; 8 cortes de las cajas,
@@ -246,11 +250,13 @@ const textoNoVacio = (x) => typeof x === 'string' && x.length > 0;
  * Devuelve lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga,
  * ordinal, cortes, cortesConOrigen), y además `payload` y `registro` (la
  * décupla congelada: el registro `epoch` que lee el BQL mínimo,
- * src/contexto-eje.js) y `condiciones` (las reglas del 2). Las reglas largas
- * por ruta de cargarEpoca no existen aquí: las del 2 son condiciones, no
- * nombres de rutas.
+ * src/contexto-eje.js), `condiciones` (las reglas del 2, en su orden, con
+ * sus correcciones), `reglasConId` ([{ id, regla }], las mismas con su id) y
+ * `registros` (Map id → regla: lo que el BQL mínimo alcanza al seguir una
+ * referencia del 2). Las reglas largas por ruta de cargarEpoca no existen
+ * aquí: las del 2 son condiciones, no nombres de rutas.
  */
-export function cargarEpocaBtml(payload) {
+export function cargarEpocaBtml(payload, { registros = [], correcciones = [] } = {}) {
   const v = validarPayload(payload);
   if (!v.ok) throw new TypeError('época BTML: ' + v.errores.join('; '));
   if (!Array.isArray(payload) || payload.length !== ARIDAD) throw new TypeError('época BTML: la raíz lleva las diez posiciones llenas');
@@ -273,17 +279,41 @@ export function cargarEpocaBtml(payload) {
     }
   }
 
-  // 2: las reglas largas (condiciones), con las diez posiciones llenas y la condición «=…» en el 2.
-  // Una décupla no lleva más de diez (BTML): las reglas van en páginas de diez por su orden (el 8),
-  // 2.g.k es la regla 10·g + k ([X] VG: cómo se agrupan; encargo 2). Una regla suelta en 2.k también vale.
-  const esRegla = (r) => Array.isArray(r) && r.length === ARIDAD && Array.isArray(r[0]) && !r[0].some(Array.isArray);
+  // 2: las reglas largas (condiciones). Cada regla es su propio registro (VG, 10-11, A1): el 2 de la época es
+  // la LISTA de referencias { ref } a esos registros, una hoja por regla, sin tope de diez; el cargador las
+  // resuelve con `registros` ([{ id, registro }]: hoy, los de datos/epocas/reglas/). Cada regla lleva las diez
+  // posiciones llenas y la condición «=…» en el 2. Las correcciones son ocupantes añadidos a una posición del
+  // registro de la regla (no la cambian en sitio, ni su id): se leen después de lo suyo, y vale el último.
+  const porId = new Map();
+  for (const r of registros) {
+    if (!r || typeof r.id !== 'string' || !Array.isArray(r.registro)) throw new TypeError(nombre + ': un registro de la época es { id, registro }');
+    porId.set(r.id, r.registro);
+  }
+  const corregidas = new Map(); // id → [{ en, ocupante }]
+  for (const c of correcciones) {
+    if (!c || !porId.has(c.sobre)) throw new TypeError(nombre + ': la corrección ' + (c?.archivo ?? '') + ' no es sobre una regla de la época: ' + String(c?.sobre).slice(0, 8));
+    if (!esIndice(Number(c.en)) || String(c.en).length !== 1) throw new TypeError(nombre + ': una corrección va en una posición de la regla, un dígito (en: «' + c.en + '»)');
+    if (!esTerminal(c.ocupante)) throw new TypeError(nombre + ': lo que añade una corrección es una hoja');
+    if (!corregidas.has(c.sobre)) corregidas.set(c.sobre, []);
+    corregidas.get(c.sobre).push({ en: Number(c.en), ocupante: c.ocupante });
+  }
   const entradas = Array.isArray(registro[2]) ? registro[2] : [];
-  const condiciones = Object.freeze(entradas.flatMap((x, g) => (esRegla(x) ? [[x, String(g)]] : (Array.isArray(x) ? x : [x]).map((r, k) => [r, g + '.' + k]))).map(([r, donde]) => {
-    if (!Array.isArray(r) || r.length !== ARIDAD) throw new TypeError(nombre + ': la regla 2.' + donde + ' lleva las diez posiciones llenas');
-    const c = hojaDe(r[2]);
-    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': la regla 2.' + donde + ' lleva su condición «=…» en el 2');
-    return r;
-  }));
+  if (!esLista(entradas) || !entradas.every((x) => esReferencia(x) && x.dir === undefined)) {
+    throw new TypeError(nombre + ': el 2 es la lista de referencias { ref } a los registros de sus reglas (VG, 10-11, A1)');
+  }
+  const reglasDel2 = entradas.map(({ ref }, k) => {
+    const donde = 'la regla ' + (k + 1) + ' del 2 (' + ref.slice(0, 8) + ')';
+    if (!porId.has(ref)) throw new TypeError(nombre + ': ' + donde + ' no está entre los registros de la época');
+    const r = porId.get(ref);
+    if (!Array.isArray(r) || r.length !== ARIDAD || !r.every((x) => Array.isArray(x) && x.length > 0)) throw new TypeError(nombre + ': ' + donde + ' lleva las diez posiciones llenas');
+    const efectiva = r.map((x) => [...x]);
+    for (const { en, ocupante } of corregidas.get(ref) ?? []) efectiva[en].push(ocupante);
+    const c = efectiva[2][efectiva[2].length - 1];
+    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': ' + donde + ' lleva su condición «=…» en el 2');
+    return Object.freeze({ id: ref, regla: congelarCopia(efectiva) });
+  });
+  const condiciones = Object.freeze(reglasDel2.map((x) => x.regla));
+  const registrosDeEpoca = new Map(reglasDel2.map((x) => [x.id, x.regla]));
 
   // 8.0: los cortes de las diez cajas del 8.
   const cortesDatos = Array.isArray(registro[8]) ? registro[8][0] : undefined;
@@ -303,6 +333,8 @@ export function cargarEpocaBtml(payload) {
     registro,
     reglas: Object.freeze(reglas),
     condiciones,
+    reglasConId: Object.freeze(reglasDel2),
+    registros: registrosDeEpoca,
     largas: Object.freeze([]),
     regla,
     larga: () => undefined,
@@ -314,8 +346,13 @@ export function cargarEpocaBtml(payload) {
   });
 }
 
-/** La época 0 como décupla BTML (datos/epocas/epoca-0.btml.json): las mismas cien reglas cortas que EPOCA_0. No está en EPOCAS: es la misma época en otro formato. */
-export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS);
+/**
+ * La época 0 como décupla BTML (datos/epocas/epoca-0.btml.json), con los
+ * registros de sus reglas (datos/epocas/reglas/) y sus correcciones
+ * (datos/epocas/correcciones/): las mismas cien reglas cortas que EPOCA_0. No
+ * está en EPOCAS: es la misma época en otro formato.
+ */
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: REGLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS });
 
 /** Una época por objeto o por nombre ('época 0'). */
 export function epocaDe(epoca = EPOCA_0) {

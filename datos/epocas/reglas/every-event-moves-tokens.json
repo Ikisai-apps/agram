@@ -1,0 +1,15 @@
+[
+  ["every event moves tokens"],
+  [1, 0],
+  ["=count before.5 = 0 or count (ev.1 where mint in it.4 or transfer in it.4 or lock in it.4 or release in it.4 or burn in it.4) >= 1"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "mapa §10.1 [D]: «todo evento ES una transición de tokens»",
+    "VG, 8-11: el génesis puede no emitir nada (no emite T; E, P y R, si quiere)"
+  ],
+  ["epoch 0"],
+  ["after writing burns today's T"],
+  ["every event moves tokens: {ev.5} moves none (only the genesis may move nothing)"]
+]

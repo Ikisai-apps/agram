@@ -1,0 +1,15 @@
+[
+  ["R is minted to its issuer"],
+  [0],
+  ["=count (ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) = 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "VG, 9-11: R se emite con doble entrada: crédito al tenedor, obligación al emisor (mapa §15 [D] «R según el corpus»); la obligación es la R del emisor en manos ajenas (RR-2)",
+    "src/tokens.js (forma, EV-1): una serie nace en la cartera de su emisor y de ahí se mueve [X confirmar VG: si la acuñación puede ir directa al tenedor]"
+  ],
+  ["epoch 0"],
+  ["after E is minted by and to its issuer"],
+  ["R is minted to its issuer: R minted to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 3.1}, not to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 0.1}"]
+]

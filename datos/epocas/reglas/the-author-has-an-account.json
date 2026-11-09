@@ -1,0 +1,15 @@
+[
+  ["the author has an account"],
+  [0],
+  ["=count before.5 = 0 or first ev.3 in before.3"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "mapa §12 [D] «Identidades: quien da de alta declara»: una identidad nace al recibir tokens por primera vez",
+    "VG, 9-11 (mapa §16): altas = primera transacción a una clave"
+  ],
+  ["epoch 0"],
+  ["after every record hangs on a record of the ledger"],
+  ["the author has an account: {first ev.3} has none (no transaction has given them anything yet)"]
+]

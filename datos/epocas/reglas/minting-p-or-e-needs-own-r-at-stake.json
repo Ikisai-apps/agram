@@ -1,0 +1,16 @@
+[
+  ["minting P or E needs own R at stake"],
+  [10, 1e-9, 0],
+  ["=count (ev.1 where mint in it.4 and (P in it.0.0 or E in it.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1) or count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1)) or count up ev = 0"],
+  ["ev.3"],
+  ["mint"],
+  ["*"],
+  [
+    "VG, 7-11 noche: emisión escalonada, «si T + R + (opc) P; si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida)",
+    "R6, VG 7-11 noche: R propia en juego = R propia bloqueada como colateral de su serie, al menos la décima parte de lo emitido (inventario RR-6, RR-3 [X el 1/10])",
+    "§15 [D] N3: dos secuencias, emitir P exige R [X revisar]; §15 [D] R según el corpus retira el colateral de la #75 [X]"
+  ],
+  ["epoch 0"],
+  ["after minting needs real T"],
+  ["minting P or E needs own R at stake: {first ev.3} has no R:{first ev.3} locked as collateral (exit R:{first ev.3}) covering a tenth of what was minted of it, before or in this transaction"]
+]

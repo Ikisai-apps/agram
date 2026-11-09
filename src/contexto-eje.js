@@ -116,10 +116,13 @@ export class ContextoEje {
   #epoch;
   #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
+  #registrosDeEpoca; // id → registro (las reglas del 2 de la época, src/epocas.js): lo que alcanza una referencia del 2
+
   constructor(eje = null, { ev, epoch } = {}) {
     this.#eje = eje ?? null;
     this.#ev = ev ?? null;
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
+    this.#registrosDeEpoca = epoch?.registros instanceof Map ? epoch.registros : new Map();
   }
 
   /** El nodo de 'ev', 'epoch' o 'before', o undefined si este contexto no lo tiene. */
@@ -180,6 +183,9 @@ export class ContextoEje {
       }
       case 'epoch':
         return this.#propio(this.#epoch, d, null, []);
+      case 'regla':
+        // Un registro de la época: lo suyo, con sus correcciones detrás (el cargador las pone en su posición).
+        return this.#propio(nodo.v, d, null, []);
       case 'dec':
         return [...this.#propio(nodo.v, d, nodo.id, nodo.camino), ...(nodo.id ? this.#escritos(nodo.id, [...nodo.camino, d]) : [])];
       default:
@@ -214,7 +220,7 @@ export class ContextoEje {
 
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
   valor(nodo) {
-    if (nodo?.k === 'reg') return nodo.id;
+    if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
     if (nodo?.k === 'serie') return nodo.clave;
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
@@ -224,6 +230,7 @@ export class ContextoEje {
   texto(nodo) {
     switch (nodo?.k) {
       case 'reg': return nodo.id;
+      case 'regla': return nodo.id;
       case 'ev': return this.#ev.id ?? 'ev';
       case 'epoch': return 'epoch';
       case 'before': return 'before';
@@ -330,6 +337,12 @@ export class ContextoEje {
   /** Seguir una referencia, sin la memoria. */
   #seguirSin(ref, saltos) {
     if (saltos >= MAX_SALTOS) throw pendiente('más de ' + MAX_SALTOS + ' referencias encadenadas');
+    // Un registro de la época (una regla del 2, VG 10-11, A1): se alcanza por su id, como un registro del eje.
+    if (this.#registrosDeEpoca.has(ref.ref)) {
+      const regla = this.#registrosDeEpoca.get(ref.ref);
+      if (!ref.dir || !indicesDe(ref.dir).length) return [{ k: 'regla', id: ref.ref, v: regla }];
+      return this.#expandir(resolver(regla, ref.dir), null, indicesDe(ref.dir), saltos + 1);
+    }
     const destino = this.#eje?.obtener(ref.ref);
     if (!destino) throw pendiente('referencia a un evento ausente del eje: ' + ref.ref.slice(0, 8));
     if (!ref.dir || !indicesDe(ref.dir).length) return [{ k: 'reg', id: ref.ref }];

@@ -115,11 +115,15 @@ El contexto no lee el tipo de ninguna identidad (R10, `test/neutralidad-reglas.t
 
 ## 5. La época como registro
 
-`datos/epocas/epoca-0.btml.json` es la época 0 como décupla BTML, leída con la cruceta; `cargarEpocaBtml` la carga y `EPOCA_0_BTML` la expone como `epoch`. Su forma está en `docs/BTML.md` §12. Con el BQL mínimo: `epoch.1.3.1.e.1` es la asignación diaria de la escala e (lo que el mapa escribe `epoch.T.e.1`), `epoch.5.p.d.0` el nombre de la regla corta del dígito d en la profundidad p y `epoch.2.0.0` la primera regla. Las reglas del 2 van en páginas de diez por su orden (una décupla no lleva más de diez ocupantes que no son hojas): `epoch.2.g.k` es la regla 10·g + k, y `EPOCA_0_BTML.condiciones` las da en una lista (§10).
+`datos/epocas/epoca-0.btml.json` es la época 0 como décupla BTML, leída con la cruceta; `cargarEpocaBtml` la carga y `EPOCA_0_BTML` la expone como `epoch`. Su forma está en `docs/BTML.md` §12. Con el BQL mínimo: `epoch.1.3.1.e.1` es la asignación diaria de la escala e (lo que el mapa escribe `epoch.T.e.1`), `epoch.5.p.d.0` el nombre de la regla corta del dígito d en la profundidad p y `first epoch.2` la primera regla.
+
+**Las reglas son registros** (VG, 10-11, A1: «Correcto»). Cada regla es su propio registro: una décupla del molde con las diez posiciones llenas, en `datos/epocas/reglas/<su 0 en kebab>.json`, con un id estable, el hash de su cuerpo canónico (como el de un evento: `hash(canonico(regla))`). El 2 de la época es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla, sin páginas ni tope de diez, en el orden que dice el 8 de cada una; la época es el registro raíz más los registros de sus reglas, referenciados. `npm run epocas` reescribe ese 2 desde `datos/epocas/reglas/` y genera `datos/epocas/epocas.js`; el cargador resuelve cada referencia (`cargarEpocaBtml(raíz, { registros, correcciones })`) y rechaza la que no resuelve. `EPOCA_0_BTML.condiciones` da las reglas en ese orden, `reglasConId` cada una con su id. Leídas con el BQL mínimo, `epoch.2` da los registros de las reglas (el contexto sigue la referencia, §4), que valen su id: `(first epoch.2).0` es el nombre de la primera, `(nth k epoch.2).2` la condición de la k-ésima (desde 0) y `epoch.2.0` los nombres de todas.
+
+**Corregir una regla** no la modifica en sitio: se añade un ocupante a su registro, en la posición que corrige, con un archivo de `datos/epocas/correcciones/` `{ "sobre": <id de la regla>, "en": <la posición, un dígito>, "ocupante": <lo nuevo>, "de": <de dónde viene> }`. El registro de la regla y su id no cambian; el cargador pone el ocupante detrás de lo suyo y `evaluarRegla` lee el último ocupante del 2 (la condición) y del 9 (el mensaje). Así una regla corregida sigue siendo la misma regla, con su historia en sus ocupantes.
 
 ## 6. La primera regla, leída
 
-`epoch.2.0.0`, «writing burns today's T», es una décupla del molde (mapa §16 [D]) con las diez posiciones llenas:
+`first epoch.2`, «writing burns today's T», es una décupla del molde (mapa §16 [D]) con las diez posiciones llenas:
 
 | | Lleva |
 |---|---|
@@ -269,7 +273,7 @@ Encargo 2 del plan del mapa (§16): las reglas de economía que hoy son condicio
 
 Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3). Para escribir dos reglas hicieron falta dos vistas nuevas del contexto (§4): `A.6`, el alta de una identidad (el registro que abrió su cuenta), y `S.8`, lo emitido de una serie del libro hasta antes de la candidata.
 
-**Cómo están en la época.** Son 27 décuplas con las diez posiciones llenas. Una décupla no lleva más de diez ocupantes que no son hojas (BTML), así que van en páginas de diez por su orden: `epoch.2.g.k` es la regla 10·g + k ([X] VG: cómo se agrupan, §10.5). El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior. `EPOCA_0_BTML.condiciones` las da en una lista, en ese orden. El orden sigue el de `eje.validar`: primero la forma, luego el génesis, el ancla, el alta, el reloj, quién emite, el escalonado, la E atada y las condiciones de paso.
+**Cómo están en la época.** Son 27 registros, uno por regla, con las diez posiciones llenas (§5): el 2 de la época es la lista de sus referencias. En las tablas de esta sección, «2.g.k» es la regla 10·g + k de esa lista (la numeración de la #90, cuando iban en páginas de diez). El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior. `EPOCA_0_BTML.condiciones` las da en una lista, en ese orden. El orden sigue el de `eje.validar`: primero la forma, luego el génesis, el ancla, el alta, el reloj, quién emite, el escalonado, la E atada y las condiciones de paso.
 
 Todas leen los movimientos con `X in it.d` (por ejemplo, `T in it.0.0`, `mint in it.4`) y no con `=`: `ev.1` trae también lo que el payload tenga en su 1 (D-META colisiona), y `=` con una lista de ese payload da ERROR; `in` no da error y el payload no fabrica símbolos (SEG-09), así que solo cuentan los movimientos.
 
@@ -429,7 +433,6 @@ En eventos que el eje rechaza por otro lado hay más diferencias, inofensivas: m
 
 Lo marcado [X] en las cinco familias y en la integración. Se suma a §8.
 
-- **Cómo se agrupan más de diez reglas en el 2.** Hoy, en páginas de diez por su orden (2.g.k). Otras opciones: por familia, como el 1 (E, P, R, T), o por la primitiva que vigilan.
 - **Una posición con solo lo implícito de D-META** (los movimientos en el 1; autor y firmante en el 3; sobre y en en el 6), o que el suelo rechace referencias a eventos ausentes, o que una referencia ausente no deje PENDIENTE (D-META-1, D-META-3).
 - **Cómo se aparta el génesis de las reglas de «*».** Hoy hay dos formas: `or count up ev = 0` (sin foco: familias T y ciclo) y `count before.5 = 0` (el libro de antes no tiene génesis: familia identidad), que dan lo mismo en los eventos válidos; conviene una sola. Si el génesis deja de ser una transacción (el mapa §16 dice que el génesis es la época), las dos sobran.
 - **El prefijo de la versión 2**: ¿es una época propia con su 2 (el 7 de cada regla) o queda como suelo de la persistencia?
