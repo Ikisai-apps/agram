@@ -59,8 +59,9 @@ Retirada de la «época 1 (propuesta)»: el 7-11 noche VG decidió que sus pregu
 | Archivo | Qué es |
 |---|---|
 | `datos/epocas/epoca-0.json` | La época 0: nombre, estado, decisión, principios, `ordinales: []`, las cien reglas cortas y las dudas. |
+| `datos/epocas/epoca-0.btml.json` | La misma época 0 como registro BTML leído con la cruceta (VG, 9-11): las cien reglas cortas en su 5 (5.p.d), con las familias, la primera regla larga como condición, el calendario, los cortes y las plantillas (`docs/BTML.md` §12). `cargarEpocaBtml` la carga como `EPOCA_0_BTML`; una prueba comprueba que las cien reglas coinciden con las de arriba. |
 | `datos/epocas/epocas.js` | Copia generada de los JSON (`export const`), para importarlos sin fetch en Node y en el navegador. Se regenera con `npm run epocas`; una prueba avisa si está desfasada. |
-| `src/epocas.js` | `PV`, `EPOCA_0`, `EPOCAS` (nombre → época), `cargarEpoca(datos, { respaldo })`, `epocaDe`, `leerDireccion(dir, época o nombre)`. |
+| `src/epocas.js` | `PV`, `EPOCA_0`, `EPOCAS` (nombre → época), `cargarEpoca(datos, { respaldo })`, `epocaDe`, `leerDireccion(dir, época o nombre)`; y `cargarEpocaBtml(payload)` y `EPOCA_0_BTML`, la época como registro (no está en `EPOCAS`: es la misma época). |
 
 ```js
 import { EPOCA_0, EPOCAS, cargarEpoca, leerDireccion } from './src/epocas.js';

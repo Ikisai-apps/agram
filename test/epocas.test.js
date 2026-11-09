@@ -24,7 +24,8 @@ test('carga: datos/epocas/epocas.js está al día con los JSON y la época 1 pro
   assert.equal(enDisco, generar(), 'epocas.js desfasado: ejecuta `npm run epocas`');
   assert.deepEqual(EPOCA_0_DATOS, leerJSON('epoca-0.json'));
   assert.equal(nombreDeConstante('epoca-0.json'), 'EPOCA_0_DATOS');
-  assert.deepEqual(readdirSync(new URL('../datos/epocas/', import.meta.url)).filter((f) => /^epoca-.*\.json$/.test(f)), ['epoca-0.json']);
+  // La época 0 en sus dos formatos (el de las cien reglas y la décupla BTML, test/epoca-btml.test.js); ninguna otra.
+  assert.deepEqual(readdirSync(new URL('../datos/epocas/', import.meta.url)).filter((f) => /^epoca-.*\.json$/.test(f)).sort(), ['epoca-0.btml.json', 'epoca-0.json']);
   assert.equal(nucleo.EPOCA_1_PROPUESTA, undefined);
 });
 

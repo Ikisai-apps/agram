@@ -23,7 +23,8 @@ Antes de copiar un id de este documento: los ids cambian en cuanto cambia cualqu
 | `src/condiciones/` | Las reglas como condiciones de validez de la transacción, por familias y con su fila del inventario | `CONDICIONES`, `CONDICIONES_GENESIS`, `motivosDe`, `catalogo` |
 | `src/encaje.js` | Ocupantes de una dirección (cada elemento de una lista, aparte), la lista de una posición (fuera del árbol), colisiones, vector, árbol lógico | `ocupantes`, `lista`, `caminosDe`, `seguir`, `arbol`, `colisiones`, `vector`, `distancia`, `acuerdo`, `signo`, `faltas`, `excedentes`, `norma`, `ordenarPorEncaje` |
 | `src/autoridad.js` | Claves y firmas por identidad | `generarClaves`, `firmar`, `verificar`, `exportarPrivada`, `importarPrivada`, `huella` |
-| `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/` | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo` |
+| `src/epocas.js` | Significado de cada dígito: la época 0 (las cien reglas cortas) y, cuando las haya, las épocas con reglas largas, cargadas desde `datos/epocas/`; y la época como registro (§12) | `PV`, `EPOCA_0`, `EPOCAS`, `epocaDe`, `cargarEpoca`, `leerDireccion`, `leerCamino`, `nombreEnNodo`, `cargarEpocaBtml`, `EPOCA_0_BTML` |
+| `src/bqlm.js`, `src/contexto-eje.js` | El BQL mínimo y su contexto sobre el eje: posiciones, despliegues y vistas del libro (`docs/BQLM.md`) | `analizar`, `evaluar`, `evaluarRegla`, `ContextoEje` |
 | `src/lectura.js` | Lectura humana de un payload y de un registro: un esquema de texto, una línea por posición (§3.5) | `leer`, `leerEvento` |
 | `src/persistencia.js` | Guardar y reconstruir el eje | `serializar`, `restaurar`, `guardarLocal`, `cargarLocal`, `borrarLocal` |
 
@@ -1567,3 +1568,50 @@ Las anotaciones de tipo son documentación; el código es JavaScript puro sin de
 | Decidido (VG, 7-11 noche): mover T de uno a sí mismo no paga la escritura; escribir consume T | §2, `test/propiedades.test.js`, `test/t-consumido.test.js` |
 | [X] decidir VG: `exigirFirmas` se guarda fuera de lo firmado (un archivo manipulado restaura con la política rebajada) | §8.1, `test/propiedades.test.js` |
 | [X] decidir VG: la firma de un autor sin clave registrada se guarda sin verificar | §7.3, `test/propiedades.test.js` |
+
+## 12. La época como registro
+
+Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la cruceta, y el génesis es la época**. `datos/epocas/epoca-0.btml.json` es la época 0 escrita así, como una décupla BTML en forma canónica y **sin posiciones vacías** (VG: «no hay posiciones vacías; nunca se escribe [] directamente»): ningún array vacío ni hueco, y la raíz y cada regla con las diez posiciones llenas. Convive con `datos/epocas/epoca-0.json`, el formato de siempre, que sigue cargando `EPOCA_0` y todo lo que lo usa; las cien reglas cortas son las mismas en los dos (`test/epoca-btml.test.js`). Todavía no es el payload de ningún génesis: el árbol mínimo es el encargo siguiente.
+
+| Posición | Lleva |
+|---|---|
+| 0 nombre | `['época 0', 'epoch 0']` |
+| 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». R: seis grupos, los seis precios de la atención (su R, E, P, mi R devuelta, vetado, desconocidos), «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
+| 2 criterios | las reglas largas, como condiciones: de momento solo la primera, «writing burns today's T» (`docs/BQLM.md` §6) |
+| 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterios y P posicionado, 3 grupos de atención y R, 7 tiempo…); 3.1 el autor del primer registro, «el autor del génesis» |
+| 4 qué se hace | 4.0 las cinco primitivas (`mint`, `transfer`, `lock`, `release`, `burn`) y 4.1 los cinco despliegues (D-META, D-MOV, D-SERIE, D-FECHA, D-VALOR), con su nombre y una línea |
+| 5 dónde encaja | las cien reglas cortas: 5.p.d = `[[nombre], [significado], [ejemplo]]` de la regla del dígito d en la profundidad p |
+| 6 de dónde viene | la procedencia: una línea por decisión de VG citada, con su fecha |
+| 7 para cuándo | 7.0 el calendario (día, semana de 7, ciclo de 28, año de 364 + 1) y 7.1 el reloj: «el tiempo lo marcan los demás» |
+| 8 frente a otros | 8.0 los cortes de las cajas (1 2 3 4 6 10 16 26 42), 8.1 los órdenes de magnitud (8.1.n = `[[10^(n−1)], [10^n]]`) y 8.2 el mínimo y el máximo de cada modo |
+| 9 cómo | 9.0 las plantillas (recuento: «weighted sum», «weighted mean», «threshold»; cerrado: «all announced movements happened»; atención: el grupo «desconocidos» con precio «my own R») y 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta |
+
+Una regla es una décupla del molde (mapa §16 [D]): 0 nombre, 1 constantes que usa, 2 condición (una fórmula «=…» del BQL mínimo, lo único con álgebra), 3 a quién aplica, 4 qué primitiva vigila, 5 dónde cuelga (`*` toda transacción, un dígito una corta, una ruta una larga), 6 de dónde viene, 7 desde qué época rige, 8 orden frente a otras reglas, 9 mensaje.
+
+```js
+cargarEpocaBtml(payload)   // → la época: lo mismo que cargarEpoca (regla, reglaCorta, larga, reglaLarga, ordinal, cortes, cortesConOrigen) y además payload y registro (la décupla congelada) y condiciones (las reglas del 2); rechaza una época con [] o huecos, sin las diez, con una regla incompleta o sin «=…» en su 2
+EPOCA_0_BTML               // la época 0 como décupla; no está en EPOCAS (es la misma época en otro formato); leerDireccion(dir, EPOCA_0_BTML) lee igual que con EPOCA_0
+```
+
+Leída con el BQL mínimo (`docs/BQLM.md`): `epoch.1.3.1.2.1` es la asignación diaria de horas (24), `epoch.5.1.1.0` el nombre de la regla corta 1.1 («cuánto») y `epoch.2.0.0` el nombre de la primera regla.
+
+```sh
+node --input-type=module -e "
+import { evaluar } from './src/bqlm.js';
+import { ContextoEje } from './src/contexto-eje.js';
+import { EPOCA_0_BTML } from './src/epocas.js';
+const ctx = new ContextoEje(null, { epoch: EPOCA_0_BTML });
+for (const e of ['epoch.0', 'first epoch.1.3.0', 'epoch.1.3.1.2.1', 'epoch.1.3.1.4.2', 'epoch.5.1.1.0', 'epoch.2.0.0', 'epoch.8.0', 'epoch.9.1']) console.log(e, '→', evaluar(e, ctx).texto);
+"
+```
+
+```text
+epoch.0 → época 0, epoch 0
+first epoch.1.3.0 → T
+epoch.1.3.1.2.1 → 24
+epoch.1.3.1.4.2 → 7
+epoch.5.1.1.0 → cuánto
+epoch.2.0.0 → writing burns today's T
+epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
+epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
+```
