@@ -36,6 +36,12 @@
 //                     cantidad. Lo que sale de una fuente que no es la serie
 //                     queda en el diario como reposición: quemar en la fuente
 //                     y acuñar en la serie, con factor 1.
+//   salida            (transferir) sale de lo bloqueado de `de` con esa salida
+//                     y llega a `a` bloqueado con la misma salida; si la salida
+//                     es `a` (nombra a quien recibe), llega a su disponible. Es
+//                     la transferencia con salida del mapa §15 (delegar P para
+//                     una decisión) y lo que la invitación guarda para quien
+//                     invita (§16: «lo que te doy»).
 //
 // El diario guarda cada asiento con su transacción; sumas() lee de un índice
 // (sin recorrer el diario) salvo que se pida un tramo (desde, hasta).
@@ -55,7 +61,10 @@ export function acunar(serie, a, cantidad, opciones = {}) {
   return { ...opciones, primitiva: 'acunar', serie, a, cantidad };
 }
 
-/** Transferir `cantidad` de `serie` del disponible de `de` al de `a`. Opciones: fuentes, clase, etiqueta. */
+/**
+ * Transferir `cantidad` de `serie` del disponible de `de` al de `a`. Opciones: fuentes, clase, etiqueta; y salida:
+ * de lo bloqueado de `de` con esa salida a lo bloqueado de `a` con ella (a su disponible si la salida es `a`).
+ */
 export function transferir(serie, de, a, cantidad, opciones = {}) {
   return { ...opciones, primitiva: 'transferir', serie, de, a, cantidad };
 }
@@ -119,6 +128,8 @@ function formaDe(x) {
   if (x.primitiva === 'transferir' && !texto(x.a)) return 'transferir: falta a quién';
   if ((x.primitiva === 'bloquear' || x.primitiva === 'liberar') && !texto(x.salida)) return x.primitiva + ': falta la salida';
   if (x.fuentes !== undefined && (!Array.isArray(x.fuentes) || !x.fuentes.every(texto))) return x.primitiva + ': las fuentes son series';
+  if (x.salida !== undefined && x.primitiva === 'transferir' && (!texto(x.salida) || x.fuentes !== undefined)) return 'transferir: la salida es texto, y sin fuentes';
+  if (x.salida !== undefined && x.primitiva === 'quemar') return 'quemar: no lleva salida';
   return null;
 }
 
@@ -246,6 +257,17 @@ export class Simulacion {
       return null;
     }
     // transferir y quemar: del disponible de `de`, de la serie o de sus fuentes, en orden.
+    if (primitiva === 'transferir' && x.salida !== undefined) {
+      // La transferencia con salida: sale de lo bloqueado con esa salida y llega bloqueada con ella (libre si la
+      // salida nombra a quien recibe).
+      if (this.bloqueadoCon(de, serie, x.salida) < c) return { primitiva, serie, titular: de, salida: x.salida, cantidad: c, falta: 'bloqueado' };
+      this.#ponerB(de, serie, x.salida, this.bloqueadoCon(de, serie, x.salida) - c);
+      this.abrir(x.a);
+      if (x.a === x.salida) this.#poner(x.a, serie, this.saldo(x.a, serie) + c);
+      else this.#ponerB(x.a, serie, x.salida, this.bloqueadoCon(x.a, serie, x.salida) + c);
+      this.#asentar({ ...base, de, a: x.a, titular: de, salida: x.salida, cantidad: c });
+      return null;
+    }
     const fuentes = x.fuentes ?? [serie];
     const plan = [];
     let resta = c;

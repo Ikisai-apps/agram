@@ -14,12 +14,50 @@
     [
       ["P", "poder"],
       [["económico"], ["administrativo"], ["social"], ["técnico"], ["de encaje"]],
-      ["[X] confirmar VG: cinco criterios = miradas 1-5 (¿0 o 5?, mapa §16)"]
+      ["[X] confirmar VG: cinco criterios = miradas 1-5 (¿0 o 5?, mapa §16)"],
+      ["quien escribe un registro, quien consigue E sobre un recurso y quien recibe R (mapa §15 [D] N1, N2)"],
+      [
+        ["obtain and reposition"],
+        [10],
+        [0.1, 1.1],
+        ["10 por décupla (una por posición); subir deja una décima, bajar añade una décima (10 → 1 → 1,1): mapa §15 [D] (1), (2) y N7"]
+      ]
     ],
     [
       ["R", "reputación"],
-      [["su R"], ["E"], ["P"], ["mi R devuelta"], ["vetado"], ["desconocidos"]],
-      ["[X] confirmar VG: seis grupos = los seis precios de la atención (mapa §16)"]
+      [
+        [
+          ["desconocidos"],
+          [0],
+          [["my R"], [1]]
+        ],
+        [
+          ["comercial"],
+          [1],
+          [["E"], [1]]
+        ],
+        [
+          ["expertos"],
+          [2],
+          [["P"], [1]]
+        ],
+        [
+          ["cercanos"],
+          [3],
+          [["their R"], [1]]
+        ],
+        [
+          ["equipo"],
+          [4],
+          [["their R"], [1]]
+        ],
+        [
+          ["vetados"],
+          [5],
+          [["nothing"], [0]]
+        ]
+      ],
+      ["VG, 9-11 (mapa §16 [D] «PV3 = regla de atención»): cercanos pagan con su propia R, comerciales con E, otros con P, algunos devolviendo mi propia R, vetados nada; grupo por defecto «desconocidos» con precio mi propia R (nada hasta que yo le dé algo). Zonas del encargo 3b: general/desconocidos 0, comercial 1, expertos 2, cercanos 3, equipo 4, vetados 5. [X] VG: el precio del equipo (aquí, su R) y los «cuánto» (aquí, 1)"]
     ],
     [
       ["T", "tiempo"],
@@ -39,48 +77,57 @@
     ]
   ],
   [
-    {"ref":"586ca3696ab956fba06dd5651ea300cbe5c0ee9caf329d85740c8a1589b74326"},
-    {"ref":"577b543ced1618762c45e47c91325843c0ec5c89a16302d0e15d906fffc3741f"},
-    {"ref":"0baa65a629689ab4c8f73d5e53f186d9795729cfdea2499885171c35354a4a9d"},
+    {"ref":"36feb4ccdebe65362b08f80d7091e6338bc5c2462255a85a471b3adb198c1506"},
+    {"ref":"342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"},
+    {"ref":"9f8937d09b05d60e79794298a3ddd96e0880f07559e0391ba5f1d427985724b2"},
     {"ref":"140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"},
     {"ref":"acfda499fa8769d8cf8b8f6fa292e3e01fb9c6800069ed22716a186c723cc633"},
     {"ref":"1c5d38823ec26917f476a6461f32bf77ec4553e05d13f1603cdc7e7394f54a04"},
     {"ref":"94ea53770c748e88010b07580c9e972969de47ddc3bfe26a5d7ad7dfaf6a1e9b"},
     {"ref":"9830243a50f947baed45764e0f4627d361c20add067fec47499766eaf03ad1f6"},
-    {"ref":"6f482575f81d0fbe975ce499b5df8e4696f4a68820f1e3d40717eafd732d3611"},
-    {"ref":"1783453f6aa80989212f1dfa74ac3e19f9479888749028feac44c44a7dd21c45"},
-    {"ref":"4c01c35a815df74d7aa5d26a8830b4cf6bd99d7ae4917e38ea34b3de92945334"},
+    {"ref":"8d182143bb983cfa5b278368988eb9117e5048455405da48734a6306fb8c6111"},
     {"ref":"7d522ab9cffcb214fc95866396009b2d057c6a2aca95bef1fe4ac897e6e422f9"},
     {"ref":"d0bba9017ab3a926d1f4281b04a8fb7dda8fcead234544c61b9ce6d20536547e"},
     {"ref":"f773dd6c5ce49da448821019cba9aa125a90116cd0c63ae787014fd7dc4cc45c"},
     {"ref":"bbeb475a8d7cabdef089352e3f346e5f20f006497047ac4897fa2b889b961c92"},
     {"ref":"24cf844184f61c9b29163d526dd7514ea391b9f0ef20cb858bec459e3d2e3252"},
     {"ref":"0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163"},
-    {"ref":"fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5"},
+    {"ref":"598784e62418c0e7bfe6a0453ba76c53c52df481996e795a6feed4e79b05b528"},
     {"ref":"f611573512c553a1c54a28482f60f467f7f78449cdb2bda8e41720fb21a36b29"},
     {"ref":"392d8fcdd240b149633b88285e7b17e6f085be431f52078999ab36331f1b98f2"},
     {"ref":"594208d063ca58163752ccfdc6c4d0cc0f1004d02fc74ab53bc3d757b4d97aec"},
-    {"ref":"95e362844bdd5b5efce24f38960d816262db3aac507de2ce7a0a50f63856a487"},
+    {"ref":"319864b5541a6520e549d3f613ae5afffd0f839c23149a5d17b6df3085864b4e"},
     {"ref":"8bb48a4e2fdba4b920a6999ae324a736e70e13bc04e6e520fb7d36371b85792f"},
     {"ref":"74b23f3705ffa44dd59fa213c14638ac912c07fdf59ae040f1715f56f8ccecf9"},
-    {"ref":"3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f"},
-    {"ref":"fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c"},
-    {"ref":"71cdb05114fc7113fe31132f88193af0e1c2c890cf18367d5e061c6572a5ed94"},
+    {"ref":"b46fb0ae16e8d317471a5fe93c911e3152c38739c7a9e3a27c99f2fe5bb343f5"},
+    {"ref":"48d6ec72345c79d4b5d6ffd89df8ebd8966480798c862c7152d845f2306540b0"},
+    {"ref":"15853886636e95ecdfb0cfd2fa4ae5b8983e9f894569727dd675325807b0a437"},
+    {"ref":"8388397ef0ed5ceee8db3cb435aa983ef6d04dac309e7123e4c04d5fc0630daf"},
+    {"ref":"cad791702b876186bd8f814f313b924a244c4e905088e97939ae04a611d0567f"},
+    {"ref":"2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"},
+    {"ref":"35e030e23703e56ef4494426c53200aea884f54ea4cde44ba7f457744b4dc84c"},
+    {"ref":"78479f5f138ca0511452e4927c5af25df712c1373c5c40b60f62ed34d56c6cfe"},
+    {"ref":"b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"},
+    {"ref":"80bc82326ab897fe535829ee2156a8f4ab5a1f3ee94002865571257275dd12a6"},
+    {"ref":"47d42f5c583eb5a395faaeffb4fc83202803b9b0047bddfd11339cbb33d2aafd"},
+    {"ref":"eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"},
     {"ref":"c8e5f2bd9c9608cdcff0b5215039c590382f1c67b952c9d2ebbb38a44dd499eb"},
-    {"ref":"2d1cb07c275557a79317d365301bc0f4b6ee177bc4aee16eb86b24964e7334c7"},
-    {"ref":"89fa999bbc7771ca20ed0cfbf656962070829bb85600a188aa5fbe7775ab6574"}
+    {"ref":"711877f9f305e448922d6a14a0b53a3a3373c24aa68bbb4fa899f3cd0ab7bffe"},
+    {"ref":"837e2a7456c4f8d49c5f595d9ac9d387060366b512ab872721de488914802eed"},
+    {"ref":"5e073b26c65c5ab483bdf1037a4d667c13d11e467a8605b10aaf3741944a4d91"},
+    {"ref":"ff70815733244760198c974986a7000af5683663b6feac2b2c34fc7a86998e32"}
   ],
   [
     [
       ["representación: su nombre o su cara"],
       ["cartera: lo que tiene, por serie (vista del libro: disponible y bloqueado por salida)"],
-      ["criterios y P posicionado"],
-      ["grupos de atención y R"],
+      ["criterio: A.2.1 su P posicionado (una entrada por registro) y A.2.3 los criterios que adopta"],
+      ["grupos de atención: A.3.k es la zona k (por defecto las seis de epoch.1.2.1; su precio en 3.k.2 y quiénes en 3.k.3, que corrige la identidad anclando en su alta)"],
       ["fábrica: lo que hace"],
       ["estructura: su id y dónde encaja"],
       ["pasado: de dónde viene (quién la dio de alta)"],
       ["tiempo: lo gastado hoy de cada escala de T (vista del libro)"],
-      ["frente a otros: sus bases del 8"],
+      ["frente a otros: A.8.1 su obligación (su R en manos ajenas); sus bases del 8"],
       ["cómo: su guía"]
     ],
     ["el autor del génesis"]
@@ -690,9 +737,56 @@
   ],
   [
     [
-      [["recuento"], ["weighted sum", "weighted mean", "threshold"]],
-      [["cerrado"], ["all announced movements happened"]],
-      [["atención"], ["desconocidos"], ["my own R"]]
+      [
+        ["recuento"],
+        [
+          [["weighted sum"], ["=sum (it.2.4 each 8)"]],
+          [
+            ["weighted mean"],
+            ["=sum (it.2.4 each 8) / ((sum (((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0) each 1) + (first epoch.9.0.0.4) * count ((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it3.5 = 0) = 0)) / (first epoch.9.0.0.4))"]
+          ],
+          [
+            ["threshold"],
+            ["=sum ((it.2.4 where P in it2.0.0.0 and ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and first it2.3 in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it2.3 in it3.2) each 1) + count (epoch where count ((it.2.3 where count it4.5 = 0) where first it2.3 in it4 or first it2.3 in it4.2) = 0) * ((first epoch.9.0.0.4) * count ((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0) and \"cualquiera\" in it3) + sum (((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and \"cualquiera\" in it3.2) each 1)) + (first epoch.9.0.0.4) * count (epoch where count (it.2.3 where count it4.5 = 0) = 0 and first it2.3 = first it.3)) > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) each 1) / ((count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) = 0) * (sum ((((it.2.3 where count it2.5 = 0) where not (count it2.2 > 0 and count it2.6 = 0)) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((((it.2.3 where count it2.5 = 0) where count it2.2 > 0 and count it2.6 = 0 and first it2.1 > 0) each 2) each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where count ((it.2.3 where count it3.5 = 0) where \"cualquiera\" in it3 or \"cualquiera\" in it3.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it3.5 = 0) = 0 and last (path it where first it3.3 = first it.3) in path (first it2.0)) each 1)) + count (epoch where (count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) = 0) * (sum ((((it.2.3 where count it3.5 = 0) where not (count it3.2 > 0 and count it3.6 = 0)) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((((it.2.3 where count it3.5 = 0) where count it3.2 > 0 and count it3.6 = 0 and first it3.1 > 0) each 2) each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) + count (epoch where count ((it.2.3 where count it4.5 = 0) where \"cualquiera\" in it4 or \"cualquiera\" in it4.2) > 0) * sum ((before.3 each 2.1 where last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1) + sum (((first it.3).2.1 where count (it.2.3 where count it4.5 = 0) = 0 and last (path it where first it4.3 = first it.3) in path (first it3.0)) each 1)) = 0))"]
+          ]
+        ],
+        [0],
+        ["solo el dueño, con la presión máxima (mapa §15 [D] N4: «por defecto solo cuenta el dueño»; presiones 0-9: el 4 es la máxima, la de un nombre sin presión); pasa si el valor supera el umbral (el 2; por defecto, 0: cualquier compromiso que cuente)"],
+        [9]
+      ],
+      [
+        ["cerrado"],
+        [
+          [
+            ["all announced movements happened"],
+            ["=count (((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)) = 0"]
+          ]
+        ],
+        ["all announced movements happened"],
+        ["el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)"]
+      ],
+      [
+        ["atención"],
+        [0],
+        ["my R"],
+        ["la zona de quien no está en ningún grupo ni fue invitado a uno: desconocidos (mapa §16 [D])"]
+      ],
+      [
+        ["siguiente"],
+        [
+          [
+            ["what is missing"],
+            ["=((down it) where last (first it2.6).5 = \"4100000000\" and first it2.3 = first it.3) where not (count (it.1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) + count ((down it) each 1 where transfer in it3.4 and it3.0 = first it2.0 and it3.3.0 = last it2.3.0 and it3.3.1 = last it2.3.1 and it3.1 >= last it2.1) > 0)"]
+          ],
+          [
+            ["move what was announced"],
+            ["una transferencia de quien la debe: la serie, cuánto, de quién y a quién del anuncio, y un minuto de su T"]
+          ],
+          [["commit P"], ["bloquear P con la salida = X (mapa §15 [D] (5): comprometerse a una decisión)"]]
+        ],
+        ["what is missing"],
+        ["siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)"]
+      ]
     ],
     [5, 4, 1, 7, 2, 8, 9, 3, "segunda alta"]
   ]

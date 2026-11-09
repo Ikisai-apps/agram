@@ -54,8 +54,12 @@ export const SIMBOLOS_FAMILIA = Object.freeze(['E', 'P', 'R', 'T']);
 /** Los nombres fijos que el contexto resuelve. */
 export const NOMBRES = Object.freeze(['ev', 'epoch', 'before']);
 
-/** Las palabras del léxico (sin los nombres, los símbolos ni it, it2…). */
-export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in']);
+/**
+ * Las palabras del léxico (sin los nombres, los símbolos ni it, it2…). `put v at X.d.(k)` es colocar (mapa §16 [D]:
+ * «put v at X.d, colocar, solo reglas que escriben»; encargo 3b): vale verdadero y anota una escritura, que solo
+ * evalúa una regla con «put» en su 4 (evaluarEscritura).
+ */
+export const PALABRAS = Object.freeze(['first', 'last', 'nth', 'each', 'where', 'up', 'down', 'path', 'count', 'sum', 'max', 'min', 'floor', 'and', 'or', 'not', 'in', 'put', 'at']);
 
 /**
  * Límites de cálculo: pasos de una evaluación, ocupantes que el contexto puede
@@ -277,6 +281,18 @@ export function analizar(src, { sujeto = false } = {}) {
       salir();
       return { n: 'pref', op: 'neg', arg };
     }
+    if (es('id', 'put')) {
+      // put v at B.d….(k): el valor es una suma; el destino, una posición de B con el índice por valor al final.
+      i++;
+      entrar();
+      const v = suma();
+      if (!es('id', 'at')) throw fallo('sintaxis: put v at X.d.(k): falta «at» ' + donde());
+      i++;
+      const t = posfija();
+      salir();
+      if (t.n !== 'clave' || t.base?.n !== 'paso' || t.base.each) throw fallo('sintaxis: put coloca en una posición con su índice por valor: put v at X.d.(k)');
+      return { n: 'put', v, t };
+    }
     return posfija();
   }
   function digitos() {
@@ -360,9 +376,9 @@ export function evaluar(src, contexto, opciones = {}) {
   try {
     const conSujeto = Object.hasOwn(opciones, 'sujeto');
     const arbol = typeof src === 'string' ? analizar(src, { sujeto: conSujeto }) : src;
-    const st = { ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes) };
+    const st = { ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes), escrituras: opciones.escribir ? [] : null };
     const valor = calcular(arbol, st);
-    return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto) };
+    return { estado: 'RESUELTO', valor, texto: textoDe(valor, contexto), ...(st.escrituras ? { escrituras: st.escrituras } : {}) };
   } catch (e) {
     if (e instanceof Parada) return { estado: e.estado, ...(e.subtipo ? { subtipo: e.subtipo } : {}), motivo: e.message };
     return { estado: 'ERROR', motivo: 'fallo al evaluar: ' + e.message };
@@ -513,6 +529,22 @@ function calcular(nodo, st) {
       return [booleano(calcular(nodo.b, st), 'or', ctx)];
     case 'not':
       return [!booleano(calcular(nodo.a, st), 'not', ctx)];
+    case 'put': {
+      // Colocar (mapa §16 [D]): anota { sujeto, camino, clave, valor } por cada sujeto de la base del destino y vale
+      // verdadero. El destino no se lee: es dónde se escribe. Solo en una regla que escribe (evaluarEscritura).
+      if (!st.escrituras) throw fallo('put: solo en una regla que escribe (put en su 4)');
+      const valor = numero(calcular(nodo.v, st), 'put', ctx);
+      const sujetos = calcular(nodo.t.base.base, st);
+      const clave = valorDe(uno(calcular(nodo.t.expr, st), 'put: la clave', ctx), ctx);
+      if (clave === undefined || esSimbolo(clave)) throw fallo('put: la clave del destino es un valor (un id o un texto)');
+      paso(st, sujetos.length || 1);
+      for (const s of sujetos) {
+        const sujeto = valorDe(s, ctx);
+        if (sujeto === undefined || esSimbolo(sujeto)) continue; // nadie no recibe
+        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor });
+      }
+      return [true];
+    }
     default:
       throw fallo('nodo desconocido: ' + nodo.n);
   }
@@ -608,7 +640,14 @@ function analizada(src, sujeto = false) {
  */
 export const esLectura = (regla) => Array.isArray(regla) && Array.isArray(regla[4]) && regla[4].includes('read');
 
-/** Dónde se materializa una lectura: el último ocupante de su 3, como «X.6.1» (de un registro) o «A.3.1» (de una identidad). */
+/**
+ * ¿Es una regla que escribe? (encargo 3b: la obtención de P, mapa §15 N1, N2, N3): una regla de la época con «put»
+ * en su 4. No es una condición: se evalúa sobre la transacción que ya pasó las condiciones y lo que coloca
+ * (`put v at A.2.1.(r)`: P posicionado en r) lo asienta el libro en la misma transacción (src/eje.js).
+ */
+export const esEscritura = (regla) => Array.isArray(regla) && Array.isArray(regla[4]) && regla[4].includes('put');
+
+/** Dónde se materializa una lectura: el último ocupante de su 3, como «X.6.1» (de un registro) o «A.8.1» (de una identidad). */
 export const posicionDeLectura = (regla) => (esLectura(regla) ? ultimo(regla[3]) : undefined);
 
 /**
@@ -647,6 +686,7 @@ export function leerRegla(regla, sujeto, contexto, opciones = {}) {
 export function evaluarRegla(regla, contexto, opciones = {}) {
   const nombre = nombreDeRegla(regla);
   if (esLectura(regla)) return { pasa: false, estado: 'ERROR', motivo: nombre + ': es una lectura (read en su 4), no una condición: se lee con leerRegla' };
+  if (esEscritura(regla)) return { pasa: false, estado: 'ERROR', motivo: nombre + ': es una regla que escribe (put en su 4), no una condición: se evalúa con evaluarEscritura' };
   const condicion = Array.isArray(regla) ? ultimo(regla[2]) : undefined;
   if (typeof condicion !== 'string' || !condicion.startsWith('=') || condicion.startsWith('==')) {
     return { pasa: false, estado: 'ERROR', motivo: (nombre ?? 'regla') + ': su 2 no es una condición «=…»' };
@@ -665,6 +705,27 @@ export function evaluarRegla(regla, contexto, opciones = {}) {
   if (r.valor[0]) return { pasa: true, estado: 'RESUELTO', motivo: null };
   const mensaje = ultimo(regla[9]);
   return { pasa: false, estado: 'RESUELTO', motivo: typeof mensaje === 'string' ? rellenar(mensaje, contexto, opciones) : nombre + ': no se cumple' };
+}
+
+/**
+ * Evalúa una regla que escribe (esEscritura: «put» en su 4) sobre la candidata del contexto y devuelve
+ * { estado, escrituras, motivo }: las colocaciones que anota su 2, [{ sujeto, camino, clave, valor }], si la fórmula
+ * se resuelve; si no, ninguna y el motivo. Lo que vale la fórmula no cuenta: cuenta lo que coloca.
+ */
+export function evaluarEscritura(regla, contexto, opciones = {}) {
+  const nombre = nombreDeRegla(regla);
+  if (!esEscritura(regla)) return { estado: 'ERROR', escrituras: [], motivo: (nombre ?? 'regla') + ': no escribe (su 4 no dice put)' };
+  const formula = ultimo(regla[2]);
+  if (typeof formula !== 'string' || !formula.startsWith('=') || formula.startsWith('==')) return { estado: 'ERROR', escrituras: [], motivo: nombre + ': su 2 no es una fórmula «=…»' };
+  let arbol;
+  try {
+    arbol = analizada(formula);
+  } catch (e) {
+    return { estado: e.estado ?? 'ERROR', escrituras: [], motivo: nombre + ': ' + e.message };
+  }
+  const r = evaluar(arbol, contexto, { ...opciones, escribir: true });
+  if (r.estado !== 'RESUELTO') return { estado: r.estado, escrituras: [], motivo: nombre + ': ' + r.estado + ': ' + r.motivo };
+  return { estado: 'RESUELTO', escrituras: r.escrituras, motivo: null };
 }
 
 /** Rellena cada {expresión} de un mensaje con lo que vale en el contexto (o con su estado, si no se resuelve). */

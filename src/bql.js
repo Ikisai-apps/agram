@@ -25,8 +25,8 @@
 //   =BASES(alcance?, medida?, k | campo?)   lee las bases del 8 (src/bases.js, valorDeBases): n, la caja del anfitrión o un dato de la base
 //   =CAJA(medida, alcance?)  la caja (0–9) del anfitrión en esa medida (= BASES(alcance, medida)); alcance "hermanos" por defecto
 //   =FRESCURA(alcance?)      llegadas desde la base que lee ese alcance (0 = ninguna llegada; no ve cambios en lo ya medido)
-//   =VALOR_R("titular")     el valor de la R que tiene titular, con la lente firmada del lector que consulta (src/lente.js, R6)
-//   =LENTE("emisor")        el peso (0–1) que el lector que consulta da a ese emisor en su lente; 0 si no lo nombra
+//   =VALOR_R("titular")     el valor de la R que tiene titular con la lente del lector que consulta: una unidad cada una de los emisores que su lente nombra (src/lente.js)
+//   =LENTE("emisor")        el peso (1 o 0) que el lector que consulta da a ese emisor: 1 si sus grupos de atención cobran con su R
 //   comparaciones  = <> < > <= >=   solo entre el mismo tipo escalar (y la misma unidad)   y   Y(a, b)  O(a, b)  NO(a)
 //
 // Estados: RESUELTO; PENDIENTE (falta un dato, un evento que no ha llegado o
@@ -43,10 +43,11 @@
 // que queda, PENDIENTE POR LÍMITE (docs/BQL.md §7.14).
 //
 // VALOR_R y LENTE leen la lente de R del LECTOR que consulta (opciones.lector):
-// sin lector, o si el lector no ha declarado lente, PENDIENTE (sin lente, R no
-// vale nada). Leer la lente y las tenencias pasa por el gancho y cuesta
-// presupuesto: un paso por cada declaración de la lente y por cada evento que
-// movió esa R al titular o desde él (docs/BQL.md §7.15).
+// sus grupos de atención (encargo 3b: la lente de R y las condiciones de
+// aceptación son la misma cosa, mapa §16 [D]). Sin lector, o si el lector no
+// tiene alta, PENDIENTE. Leer la lente pasa por el gancho (el alta del lector)
+// y cuesta presupuesto: un paso por la lente y uno por cada emisor que suma
+// (docs/BQL.md §7.15).
 //
 // Opciones de evaluar/consultar: { puedeLeer(evId, dir, indices) → boolean, limites: { presupuesto, profundidad, candidatos }, lector }.
 
@@ -59,7 +60,7 @@ import {
   esRecuento, TIEMPO,
 } from './bases.js';
 import { ESCALAS_T, AMBITO_GENESIS } from './tokens.js';
-import { lenteDe, detalleValor, anclasDeLente, POSICION_LENTE } from './lente.js';
+import { lenteDe, detalleValor } from './lente.js';
 
 /** Los cuatro estados de cálculo (corpus V4). */
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'INCOMPATIBLE', 'ERROR']);
@@ -729,7 +730,7 @@ function exigirSerie(eje, clave) {
   const [token, serie] = [clave[0], clave.slice(2)];
   // T no se emite (VG, 8-11: no hay T acumulable): cada escala de T existe siempre, por la asignación del día.
   if (token === 'T' && ESCALAS_T.includes(serie)) return;
-  if (token === 'P' ? serie === AMBITO_GENESIS || eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
+  if (token === 'P' ? eje.obtener(serie) : eje.serie(clave).emitido > 0) return;
   const hay = eje.series().map((s) => s.clave);
   const lista = hay.slice(0, 10).join(', ') + (hay.length > 10 ? '…' : '');
   const que = token === 'P' ? 'el ámbito de ' + clave + ' no es un registro del eje' : 'la serie ' + clave + ' no se ha emitido en el eje';
@@ -829,10 +830,10 @@ function cajaDelFoco(ctx, foco, medida, alcance) {
   return r.valor;
 }
 
-// ---------- VALOR_R y LENTE: la lente de R (R6) ----------
-// R vale solo ante quien la lee, con la lente que ese lector firmó
-// (src/lente.js). Aquí no se suma nada: la suma ponderada es de
-// lente.detalleValor.
+// ---------- VALOR_R y LENTE: la lente de R ----------
+// R vale solo ante quien la lee, con la lente de ese lector: sus grupos de
+// atención que cobran con la R de quien escribe (src/lente.js). Aquí no se
+// suma nada: la suma es de lente.detalleValor, una unidad cada una.
 
 /** Cobra `coste` pasos del presupuesto; si no caben, PENDIENTE POR LÍMITE sin haber leído nada. */
 function cobrar(ctx, coste, que) {
@@ -842,34 +843,25 @@ function cobrar(ctx, coste, que) {
 }
 
 /**
- * La lente del lector que consulta, leída con el gancho y cobrada (un paso
- * por declaración). Sin lector o sin lente, PENDIENTE: puede llegar una
- * declaración (por eso el resultado depende de la posición 3 de cada ancla).
+ * La lente del lector que consulta, leída con el gancho (su alta, de donde cuelgan sus grupos) y cobrada (un paso).
+ * Sin lector o sin alta, PENDIENTE.
  */
 function lenteDelLector(ctx, nombre) {
   if (!ctx.lector) throw new Parada('PENDIENTE', nombre + ': sin lector no hay lente, y sin lente R no vale nada (opciones.lector)');
-  for (const a of anclasDeLente(ctx.eje, ctx.lector)) ctx.dependencias.add(a + ':' + POSICION_LENTE);
+  const alta = ctx.eje.alta(ctx.lector)?.id;
+  if (alta) ctx.dependencias.add(alta + ':' + direccion([3]));
   const lente = lenteDe(ctx.eje, ctx.lector);
-  if (!lente) {
-    throw new Parada('PENDIENTE', nombre + ': ' + ctx.lector + ' no ha declarado su lente de R (un evento suyo en la posición 3 de su alta, con pares [emisor, peso]); sin lente, R no vale nada');
-  }
-  cobrar(ctx, lente.declaraciones.length, nombre + ' (la lente de ' + ctx.lector + ')');
-  for (const id of lente.declaraciones) {
-    autorizar(ctx, id, [], 'leer la lente de ' + ctx.lector);
-    ctx.dependencias.add(id + ':' + direccion([]));
-  }
+  if (!lente || !alta) throw new Parada('PENDIENTE', nombre + ': ' + ctx.lector + ' no tiene alta: sin grupos de atención no hay lente, y sin lente R no vale nada');
+  cobrar(ctx, 1, nombre + ' (la lente de ' + ctx.lector + ')');
+  autorizar(ctx, alta, [], 'leer la lente de ' + ctx.lector);
   return lente;
 }
 
-/** VALOR_R(titular): Σ peso × participación sobre los emisores de la lente (lente.detalleValor), con el gancho y el presupuesto. */
+/** VALOR_R(titular): Σ peso × unidades sobre los emisores de la lente (lente.detalleValor), con el gancho y el presupuesto. */
 function valorConLente(ctx, titular) {
   lenteDelLector(ctx, 'VALOR_R');
   const d = detalleValor(ctx.eje, ctx.lector, titular);
-  cobrar(ctx, d.eventos.length, 'VALOR_R (las tenencias de R de ' + titular + ')');
-  for (const id of d.eventos) {
-    autorizar(ctx, id, [], 'leer una tenencia de R de ' + titular);
-    ctx.dependencias.add(id + ':' + direccion([]));
-  }
+  cobrar(ctx, d.porEmisor.length, 'VALOR_R (la R de ' + titular + ')');
   return d.valor;
 }
 

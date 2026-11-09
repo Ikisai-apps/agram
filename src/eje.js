@@ -44,9 +44,9 @@
 // estudio de neutralidad): reglasDelTope, en src/condiciones/tope.js.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS } from './tokens.js';
-import { acotarAltaV2, consolidacionQueAmplia, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
-import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
-import { devolucionesDe } from './lente.js';
+import { acotarAltaV2, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
+import { evaluarEscritura, nombreDeRegla } from './bqlm.js';
+import { EPOCA_0_BTML } from './epocas.js';
 import { msUTC, msDeGuardado, segundosUTC } from './instante.js';
 import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
 import { firmar, firmarPosesion } from './autoridad.js';
@@ -62,6 +62,13 @@ const PREFIJO = 4;
 /** Clases de acuñación del libro que usa el eje (src/libro.js): la asignación diaria de T y el T informativo. */
 const ASIGNACION = 'asignacion';
 const INFORMATIVO = 'informativo';
+/**
+ * Clases del P nuevo (encargo 3b, mapa §15): la OBTENCIÓN, lo que acuñan las reglas que escriben de la época al
+ * conseguir E, escribir un registro propio o recibir R (diez unidades posicionadas: N1, N2, N3), y la REPOSICIÓN,
+ * lo que se acuña al mover P por el árbol (subir deja una décima, bajar añade una décima: N7).
+ */
+export const OBTENCION = 'obtencion';
+export const REPOSICION_P = 'reposicion';
 
 export class Eje {
   #libro = new Libro(); // la capa cero: saldos, bloqueos y sumas (src/libro.js)
@@ -74,7 +81,6 @@ export class Eje {
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
-  #ampliadas = new Set(); // ids de las consolidaciones que ya respaldaron una ampliación de P (R3: una sola)
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -123,30 +129,30 @@ export class Eje {
   }
 
   /**
-   * Génesis: escrito por convención, fuera del sistema. Emite tokens iniciales
-   * a la primera identidad y fija el foco raíz (payload). Su autor escribe su
-   * propia alta, así que es una persona (VG, 10-11, B1: no hay tipo; VG, 8-11:
-   * el génesis no emite T y su autor vive de su asignación del día, como
-   * cualquier persona). `emision` lleva E, P y R iniciales, si quiere; puede
-   * ir vacía.
-   * Sin clave no se actúa (R9): el génesis lleva `clave` y `privada` de su
-   * autor, salvo que se cree como `demostracion: true` (queda en su
-   * contexto y se ve en la interfaz), que conserva lo de antes: sin claves.
+   * Génesis (encargo 3b; VG, 10-11, A2; mapa §16 [D] «El árbol mínimo es la invitación»): el registro de la época 0
+   * en este eje, «sin movimientos», fuera del sistema: lleva la referencia a la época (contexto.epoca, su id) y no
+   * pasa por las reglas de la época (no es una transacción), solo por el suelo (lo que declara, su firma). Es también
+   * el alta de quien lo escribe: la única alta sin invitación, la de la primera identidad del eje (las demás entran
+   * aceptando una invitación: invitar, aceptar). Su autor es una persona (VG, 10-11, B1) y obtiene P sobre él al
+   * escribirlo, como sobre todo registro propio (la regla que escribe «writing a record gives ten P on it»).
+   *
+   * `emision` (opcional): lo que su autor emite al empezar (E y R; T no, y P tampoco: VG, 8-11, y mapa §15). Va en
+   * una transacción suya sobre el génesis, la segunda del eje, que pasa por las reglas como cualquiera (quema un
+   * minuto de su T; emitir E exige P sobre su registro, que es el génesis, y R propia emitida).
+   * Sin clave no se actúa (R9): el génesis lleva `clave` y `privada` de su autor, salvo que se cree como
+   * `demostracion: true` (queda en su contexto y se ve en la interfaz).
    */
   static async genesis({ identidad, emision = [], foco, t = new Date().toISOString(), contexto = {}, clave, privada, exigirFirmas = false, demostracion = false, ...resto }) {
     if (Object.hasOwn(resto, 'tipo')) throw new Error('génesis: no hay tipo (VG, 10-11, B1): persona o cosa se lee de quién escribe el alta; el autor del génesis escribe la suya, es una persona');
+    if (emision.some((m) => m?.token === 'P')) throw new Error('génesis: nadie acuña P a mano (mapa §15, «P como peso de criterio»: se retira «P del génesis sobre todo el eje»); el P se obtiene al escribir, al conseguir E y al recibir R');
     const eje = new Eje({ exigirFirmas });
-    // El génesis emite a su identidad E, P y R iniciales, si quiere; sus series de E y de R quedan a su nombre.
-    // T no (VG, 8-11: no hay T acumulable): su autor vive de su asignación diaria, como cualquier persona.
-    const deEmisor = (m) => m.token === 'E' || m.token === 'R';
-    const movimientos = emision.map((m) => ({ ...m, ...(deEmisor(m) ? { emisor: m.emisor ?? identidad } : {}), de: null, a: identidad }));
     let ev = await crearEvento({
       autor: identidad,
       sobre: null,
       t,
-      movimientos,
+      movimientos: [],
       payload: foco,
-      contexto: { ...contexto, genesis: true, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}) },
+      contexto: { ...contexto, genesis: true, epoca: EPOCA_0_BTML.id, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}) },
     });
     if (privada) ev = await firmar(ev, privada);
     // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella (GN-1, GN-2).
@@ -154,6 +160,19 @@ export class Eje {
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(ev);
+    if (emision.length) {
+      // Sus series de E y de R quedan a su nombre. R primero: emitir E exige R propia emitida (VG, 9-11, D2).
+      const deEmisor = (m) => m.token === 'E' || m.token === 'R';
+      const orden = [...emision.filter((m) => m.token === 'R'), ...emision.filter((m) => m.token !== 'R')];
+      const movimientos = orden.map((m) => ({ ...m, ...(deEmisor(m) ? { emisor: m.emisor ?? identidad } : {}), de: null, a: identidad }));
+      await eje.escribir({
+        autor: identidad,
+        sobre: eje.genesisId,
+        t,
+        movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: identidad, a: null }, ...movimientos],
+        payload: ['Emisión inicial de ' + identidad],
+      }, privada);
+    }
     return eje;
   }
 
@@ -365,9 +384,8 @@ export class Eje {
   }
 
   /**
-   * Lo bloqueado de una serie con una salida, sumando todos los titulares.
-   * Autorizar es bloquear P con la consolidación como salida
-   * (src/autorizacion.js): el peso de una autorización es esta suma.
+   * Lo bloqueado de una serie con una salida, sumando todos los titulares:
+   * comprometer P con una decisión es bloquearlo con ella como salida (mapa §15).
    */
   bloqueadoCon(clave, salida) {
     return this.#libro.bloqueadoPorSalida(salida, clave);
@@ -455,6 +473,8 @@ export class Eje {
     if (token === 'T') {
       return { emisor: s.emisor, emitido, consumido: this.#libro.sumas({ primitiva: 'quemar', serie: clave }), deAsignacion: this.#libro.sumas({ primitiva: 'acunar', serie: clave, clase: ASIGNACION }) };
     }
+    // P (encargo 3b): lo acuñado es la obtención y la reposición, no una emisión.
+    if (token === 'P') return { emisor: s.emisor, emitido: this.#libro.sumas({ primitiva: 'acunar', serie: clave }) };
     return { emisor: s.emisor, emitido };
   }
 
@@ -581,10 +601,14 @@ export class Eje {
     return this.#porSerie(identidad, 'P').map(({ ambito, cantidad }) => ({ ambito, cantidad }));
   }
 
-  /** Poder de una identidad sobre un registro: la suma de P cuyo ámbito es el eje entero o un registro del hilo del foco. */
-  poderSobre(identidad, foco) {
-    const hilo = new Set(this.hilo(foco).map((e) => e.id));
-    return this.poderes(identidad).filter((p) => p.ambito === AMBITO_GENESIS || hilo.has(p.ambito)).reduce((s, p) => s + p.cantidad, 0);
+  /**
+   * El P de una identidad posicionado en un registro (mapa §15: «P son unidades acuñadas y posicionadas en
+   * registros»), disponible y bloqueado. Ya no hay P sobre todo el eje ni P que cubra lo de debajo: el P de un
+   * registro es criterio sobre él, y llevarlo a otro es reposicionarlo (subir deja una décima, bajar añade una).
+   */
+  poderSobre(identidad, registro) {
+    const k = 'P:' + registro;
+    return this.saldo(identidad, k) + this.bloqueado(identidad, k);
   }
 
   /** Reputación de una identidad: [{ emisor, cantidad }], no fungible. */
@@ -597,12 +621,13 @@ export class Eje {
    * (VG, 9-11; src/libro.js): un paso por movimiento, en su orden.
    *   de = null                       acuñar (clase «emision»)
    *   estado 'bloqueo' / 'liberacion' bloquear / liberar, con su salida
-   *   P (de ≠ null)                   transferir (o quemar, si a = null) con `fuentes`: los ámbitos que cubren el suyo, del
-   *                                   más concreto al génesis (PP-4); lo que sale de otro ámbito es una reposición
+   *   salida en una transferencia     transferir de lo bloqueado con esa salida (delegar; recoger lo que guarda una invitación)
+   *   P (de ≠ null)                   transferir (o quemar, si a = null) el P de ese mismo registro (mapa §15: sin ámbitos que lo cubran)
    *   T informativo                   acuñar (clase «informativo»: si lo gastas te vuelve a salir uno) y quemar
    *   T de la asignación del día      acuñar (clase «asignacion», etiqueta = el día civil, tope = la asignación del día)
    *                                   y transferir o quemar: lo que falte sale del T explícito
    *   lo demás                        transferir, o quemar si a = null
+   * Detrás, la obtención de P: lo que colocan las reglas que escriben de la época (acuñar P, clase «obtencion»).
    * Un movimiento mal formado es un paso vacío (lo cuenta la forma). `sobre` y
    * `en` son el anclaje; el payload, el memo.
    */
@@ -614,11 +639,13 @@ export class Eje {
       if (!m || typeof m !== 'object' || validarMovimiento(m).length) return [];
       const k = claveToken(m);
       const c = cantidadBase(m);
-      if (m.de === null) return [acunar(k, m.a, c)];
+      // El P que se acuña a mano es una reposición (la regla «P is repositioned one step at a time» lo exige).
+      if (m.de === null) return [acunar(k, m.a, c, m.token === 'P' ? { clase: REPOSICION_P } : {})];
       if (m.estado === 'bloqueo') return [bloquear(k, m.de, c, m.salida)];
       if (m.estado === 'liberacion') return [liberar(k, m.de, c, m.salida)];
+      // La transferencia con salida (mapa §15, delegar; §16, la invitación): de lo bloqueado con esa salida.
+      if (m.salida !== undefined) return [transferir(k, m.de, m.a, c, { salida: m.salida })];
       const sale = (opciones = {}) => (m.a === null ? quemar(k, m.de, c, opciones) : transferir(k, m.de, m.a, c, opciones));
-      if (m.token === 'P') return [sale({ fuentes: this.ambitosQueCubren(m.ambito).map((a) => 'P:' + a) })];
       if (reglas3 && esInformativoT(m)) {
         return [acunar(k, m.de, c, { clase: INFORMATIVO }), quemar(k, m.de, c, { clase: INFORMATIVO, escala: m.escala, refiere: m.refiere, nota: m.nota })];
       }
@@ -637,8 +664,47 @@ export class Eje {
       firma: ev.firma ?? null,
       firmante: ev.firmante ?? null,
       abre: ev.contexto?.genesis === true && typeof ev.autor === 'string' ? [ev.autor] : [],
-      movimientos: (Array.isArray(ev.movimientos) ? ev.movimientos : []).map(paso),
+      movimientos: [...(Array.isArray(ev.movimientos) ? ev.movimientos : []).map(paso), ...(reglas3 ? this.#obtencion(ev) : [])],
     });
+  }
+
+  /**
+   * La obtención de P (encargo 3b; mapa §15, N1, N2 y N3): lo que colocan las reglas que escriben de la época
+   * («put» en su 4) sobre la candidata, como acuñaciones de P de la misma transacción, después de sus movimientos.
+   * Cada colocación `put v at A.2.1.(r)` es P posicionado en el registro r para la identidad A: se acuña P:r a A,
+   * con la clase «obtencion». Lo que coloca una regla que no se resuelve no se acuña (la transacción mal formada ya
+   * la rechaza el suelo). No es código de negocio: cuánto, a quién y dónde lo dicen las reglas.
+   */
+  #obtencion(ev) {
+    const reglas = EPOCA_0_BTML.escrituras;
+    if (!reglas.length || !ev || typeof ev !== 'object' || typeof ev.id !== 'string') return [];
+    let ctx;
+    try {
+      ctx = new ContextoEje(this, { ev, epoch: EPOCA_0_BTML });
+    } catch {
+      return [];
+    }
+    const pasos = [];
+    const ya = new Set(); // la obtención no se repite: una vez por regla, titular y registro (revisión de seguridad)
+    for (const regla of reglas) {
+      let r;
+      try {
+        r = evaluarEscritura(regla, ctx);
+      } catch {
+        continue;
+      }
+      if (r.estado !== 'RESUELTO') continue;
+      for (const w of r.escrituras) {
+        if (w.camino.length !== 2 || w.camino[0] !== 2 || w.camino[1] !== 1) continue; // solo A.2.1: el P posicionado
+        if (typeof w.sujeto !== 'string' || !w.sujeto || typeof w.clave !== 'string' || !w.clave || !(w.valor > 0) || !Number.isFinite(w.valor)) continue;
+        const etiqueta = nombreDeRegla(regla);
+        const vez = JSON.stringify([etiqueta, w.sujeto, w.clave]);
+        if (ya.has(vez) || this.libro.sumas({ primitiva: 'acunar', serie: 'P:' + w.clave, titular: w.sujeto, clase: OBTENCION, etiqueta }) > 0) continue;
+        ya.add(vez);
+        pasos.push([acunar('P:' + w.clave, w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: etiqueta })]);
+      }
+    }
+    return pasos;
   }
 
   /**
@@ -651,7 +717,6 @@ export class Eje {
     const reglas = this.orden.length < this.eventosV2 ? 2 : 3;
     let ciclo;
     let tope;
-    let r;
     let validos;
     return {
       evento: ev,
@@ -673,7 +738,6 @@ export class Eje {
       contextoBqlm: (epoch) => new ContextoEje(eje, { ev, epoch }),
       get ciclo() { return (ciclo ??= eje.#contextoCiclo(ev)); },
       get tope() { return (tope ??= eje.#contextoTope()); },
-      get r() { return (r ??= eje.#contextoR()); },
     };
   }
 
@@ -715,28 +779,9 @@ export class Eje {
       gastadoT: (id, escala, periodo) => this.gastadoT(id, escala, periodo),
       serie: (k) => this.#serieCruda(k),
       registro: (id) => this.eventos.get(id),
-      ambitosQueCubren: (ambito) => this.ambitosQueCubren(ambito),
       saldo: (id, k) => this.saldo(id, k),
       reglas: this.orden.length < this.eventosV2 ? 2 : 3,
       genesisId: this.genesisId,
-      // R3: ampliar P:X exige una consolidación AUTORIZADA (autorizar = bloquear P; src/autorizacion.js).
-      autorizada: (id) => estadoPorPeso(lectorDelEje(this), id) === 'AUTORIZADO',
-      // Y la consolidación respalda una sola ampliación (SEG-01).
-      ampliada: (id) => this.#ampliadas.has(id),
-      // R6: la R propia en juego es R:<autor> bloqueada como colateral (src/lente.js, rPropiaEnJuego).
-      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
-    };
-  }
-
-  /** Lo que leen las reglas de R (src/lente.js, reglasDeR): el eje de antes del evento. */
-  #contextoR() {
-    const dev = devolucionesDe(this);
-    return {
-      reglas: this.orden.length < this.eventosV2 ? 2 : 3,
-      serie: (k) => this.#serieCruda(k),
-      bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
-      pendientes: dev.pendientes,
-      devolucion: dev.devolucion,
     };
   }
 
@@ -758,6 +803,7 @@ export class Eje {
       dentro: (registro, ancestro) => Boolean(registro) && this.eventos.has(registro) && hiloDe(registro).has(ancestro),
       bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
       bloqueadoP: (id, salida) => this.bloqueos(id).filter((b) => b.token === 'P' && b.salida === salida).reduce((s, b) => s + b.cantidad, 0),
+      bloqueosP: () => this.identidades().flatMap((id) => this.bloqueos(id).filter((b) => b.token === 'P').map((b) => ({ titular: id, clave: b.clave, salida: b.salida, cantidad: b.cantidad }))),
     };
   }
 
@@ -800,23 +846,78 @@ export class Eje {
   }
 
   /**
-   * Escribe la propia alta de `identidad` (VG, 10-11, B1): el primer registro
-   * de una persona es suyo, y por eso es una persona. Lo ancla sobre `sobre`
-   * (el génesis, por omisión) y quema un minuto de su día, como todo registro.
-   * Con `clave` declara su clave pública y, con `privada`, va firmado con ella:
-   * esa firma es su prueba de posesión (sin clave no se actúa, R9, salvo en un
-   * eje de demostración). La invitación que la encauza es del encargo 3b.
+   * Invitar (VG, 9-11, mapa §16 [D] «El árbol mínimo es la invitación»; encargo 3b): `autor` escribe la invitación
+   * de `invitado`, una transacción suya anclada en el 3 de su alta, cuyo payload es la décupla de la invitación:
+   *   0 «invitation»; 1 lo que te doy (mínimo mi R: te permite escribirme); 2 las reglas, la referencia a la época 0;
+   *   3 yo (3.0), tú (3.1), el grupo común si lo hay (3.2) y tu clave (3.5); 4 aceptar: tu primera transacción
+   *   firmada, tu alta; 5 el dominio al que te invito; 6 mi hilo (mi alta); 7 hasta cuándo vale; 8 el grupo de mi
+   *   atención que te asigno (su zona); 9 el tema y el tutorial.
+   * Lo que da (`da`: movimientos sin de ni a, por omisión una unidad de su R) lo bloquea con la salida = `invitado`:
+   * quien acepta lo recoge en su alta (la salida nombra a quien lo recibe). Su R, si no la tiene, la acuña antes en la
+   * misma transacción (emitir R exige T real: quema un minuto). `clave` es la clave pública del invitado (JWK): si
+   * va, solo vale una aceptación declarada y firmada con ella. Devuelve la invitación.
    */
-  async entrar({ identidad, sobre = this.genesisId, en, t, payload = ['alta de ' + identidad], clave, privada } = {}) {
+  async invitar({ autor, invitado, clave, da = [{ token: 'R', cantidad: 1 }], grupo = 0, dominio, comun, hasta, tema, t, privada } = {}) {
+    const alta = this.alta(autor);
+    if (!alta) throw new Error('invitar: ' + autor + ' no tiene alta');
+    if (typeof invitado !== 'string' || !invitado || this.alta(invitado)) throw new Error('invitar: el invitado es una identidad nueva, sin alta: ' + invitado);
+    const movimientos = [{ token: 'T', escala: 'minuto', cantidad: 1, de: autor, a: null }];
+    const acunada = new Map();
+    for (const d of da) {
+      const m = { ...d, ...(d.token === 'E' || d.token === 'R' ? { emisor: d.emisor ?? autor } : {}) };
+      if (m.token === 'R' && m.emisor === autor) {
+        const falta = m.cantidad - Math.max(0, this.saldo(autor, 'R:' + autor) - (acunada.get('usada') ?? 0));
+        if (falta > 0) movimientos.push({ token: 'R', emisor: autor, cantidad: falta, de: null, a: autor });
+        acunada.set('usada', (acunada.get('usada') ?? 0) + m.cantidad);
+      }
+      movimientos.push({ ...m, de: autor, a: autor, estado: 'bloqueo', salida: invitado });
+    }
+    const x = typeof clave?.x === 'string' ? clave.x : null;
+    const tres = [[autor], [invitado], ...(comun || x ? [comun ? [{ ref: comun }] : ['sin grupo común']] : []), ...(x ? [['yo y tú'], ['te invito'], [x]] : [])];
+    const payload = [
+      ['invitation'],
+      da.length ? da.map((d) => d.cantidad + ' ' + (d.token === 'R' || d.token === 'E' ? d.token + ':' + (d.emisor ?? autor) + (d.denominacion ? '/' + d.denominacion : '') : d.token + ':' + d.ambito)) : ['nada'],
+      [{ ref: EPOCA_0_BTML.id }],
+      tres,
+      ['tu primera transacción firmada, anclada sobre esta invitación: tu alta'],
+      [{ ref: dominio ?? alta.id }],
+      [{ ref: alta.id }],
+      [hasta ?? 'sin plazo'],
+      [grupo],
+      [tema ?? 'invitación de ' + autor],
+    ];
+    return this.escribir({ autor, sobre: alta.id, en: '3000000000', t, movimientos, payload }, privada);
+  }
+
+  /**
+   * Aceptar una invitación (mapa §16 [D]: «4 aceptar = tu primera transacción firmada = tu alta»; encargo 3b): la
+   * primera transacción de la persona nueva, anclada sobre la invitación y firmada con su clave (`clave`: { publica,
+   * privada }, o nada en un eje de demostración). Recoge lo que la invitación le guarda (lo que quien invita bloqueó
+   * con la salida = ella) y quema un minuto de su día. Es su alta: la escribe ella, así que es una persona (B1).
+   * Sustituye a `entrar` (el alta propia abierta): sin invitación solo entra la primera identidad, la del génesis.
+   */
+  async aceptar(invitacion, clave = {}, { t, payload } = {}) {
+    const inv = this.obtener(typeof invitacion === 'string' ? invitacion : invitacion?.id);
+    if (!inv) throw new Error('aceptar: la invitación no está en el eje');
+    const hoja = (x) => (Array.isArray(x) ? x[0] : x);
+    const quien = hoja(inv.payload?.[3]?.[1]);
+    if (typeof quien !== 'string') throw new Error('aceptar: la invitación no nombra a quién invita (su 3.1)');
+    const regalos = this.bloqueos(inv.autor).filter((b) => b.salida === quien);
+    const movimientos = [
+      { token: 'T', escala: 'minuto', cantidad: 1, de: quien, a: null },
+      ...regalos.map((b) => {
+        const { token, emisor, denominacion, registro, ambito } = b;
+        return { token, ...(emisor ? { emisor } : {}), ...(denominacion ? { denominacion } : {}), ...(registro ? { registro } : {}), ...(ambito ? { ambito } : {}), cantidad: b.cantidad, de: inv.autor, a: quien, salida: quien };
+      }),
+    ];
     return this.escribir({
-      autor: identidad,
-      sobre,
-      ...(en !== undefined ? { en } : {}),
-      t,
-      payload,
-      movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: identidad, a: null }],
-      contexto: clave ? { claves: { [identidad]: clave } } : {},
-    }, privada);
+      autor: quien,
+      sobre: inv.id,
+      t: t ?? inv.t,
+      movimientos,
+      payload: payload ?? ['Alta de ' + quien],
+      contexto: clave?.publica ? { claves: { [quien]: clave.publica } } : {},
+    }, clave?.privada);
   }
 
   /** Hilo: desde el evento hasta el génesis siguiendo la referencia sobre. */
@@ -870,8 +971,6 @@ export class Eje {
     // escribió su alta, o quien la escribe ahora. Se mira antes de asentar: después ya tiene cuenta.
     const reglas3 = this.orden.length >= this.eventosV2;
     const conAsignacion = reglas3 && this.#escribePersona(ev);
-    const amplia = consolidacionQueAmplia(ev, () => this.#contextoCiclo(ev)); // la consolidación que usó para ampliar P (SEG-04)
-    if (amplia) this.#ampliadas.add(amplia);
     const asientos = this.#libro.asentar(tx, simulacion);
     this.#llegada.set(ev.id, this.orden.length);
     this.eventos.set(ev.id, ev);
@@ -924,15 +1023,10 @@ export class Eje {
       }
       return undefined;
     });
+    // El P obtenido (encargo 3b: lo que acuñan las reglas que escriben) también abre su serie, a nombre de quien escribe.
+    for (const a of asientos) if (a.clase === OBTENCION && a.primitiva === 'acunar') registrar(a.serie, ev.autor);
   }
 
-  /** Ámbitos de P que cubren un ámbito dado: él mismo, los registros de su hilo y el génesis. */
-  ambitosQueCubren(ambito) {
-    // El génesis nombrado por su id cubre lo mismo que «genesis»: todo el eje.
-    if (ambito === AMBITO_GENESIS) return this.genesisId ? [AMBITO_GENESIS, this.genesisId] : [AMBITO_GENESIS];
-    const hilo = this.eventos.has(ambito) ? this.hilo(ambito).map((e) => e.id) : [ambito];
-    return [...hilo, AMBITO_GENESIS];
-  }
 }
 
 /**
@@ -950,7 +1044,7 @@ function textoDeFallo(ev, fallo) {
   const k = claveToken(m);
   if (fallo.falta === 'finito') return 'la serie ' + k + ' no admite tanto';
   if (m.estado === 'bloqueo') return 'saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de;
-  if (m.estado === 'liberacion') return 'no hay ' + m.cantidad + ' de ' + k + ' bloqueado en ' + m.de + ' con la salida «' + m.salida + '»';
+  if (m.estado === 'liberacion' || (m.salida !== undefined && m.estado === undefined)) return 'no hay ' + m.cantidad + ' de ' + k + ' bloqueado en ' + m.de + ' con la salida «' + m.salida + '»';
   if (m.token === 'P') return 'saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de;
   if (fallo.grupo.some((x) => x.primitiva === 'acunar' && x.clase === ASIGNACION)) return null; // lo dice TT-4
   return 'saldo insuficiente de ' + k + ' en ' + m.de;

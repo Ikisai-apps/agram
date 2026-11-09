@@ -118,6 +118,9 @@ export const TIPOS = Object.freeze({
  */
 export function erroresGenesis(g, reglas = 3) {
   const errores = [];
+  // Encargo 3b (VG, 10-11, A2; mapa §16 [D]): el génesis es la época 0, «registro con id conocido, sin movimientos»;
+  // lleva la referencia a la época (contexto.epoca). Solo en el prefijo de la versión 2 emitía.
+  if (reglas !== 2 && Array.isArray(g.movimientos) && g.movimientos.length) errores.push('el génesis no mueve nada: es la época 0 (encargo 3b); lo que su autor emita va en una transacción suya después');
   const totales = new Map();
   const divisibles = new Map(); // clave de E → divisible, fijado por su primera emisión
   const movimientos = objetos(g);
@@ -125,6 +128,7 @@ export function erroresGenesis(g, reglas = 3) {
     if (m.de !== null || m.a !== g.autor) errores.push('el génesis solo emite a su autor');
     else if (m.token === 'T' && reglas !== 2) errores.push(T_NO_SE_EMITE); // VG, 8-11: no hay T acumulable
     else if ((m.token === 'E' || m.token === 'R') && m.emisor !== g.autor) errores.push('en el génesis emite su autor: ' + m.emisor);
+    else if (m.token === 'P' && reglas !== 2) errores.push('el génesis no acuña P: nadie acuña P a mano (mapa §15 [D], «P como peso de criterio»: se retira «P del génesis sobre todo el eje»)');
     else if (m.token === 'P' && m.ambito !== AMBITO_GENESIS) errores.push('el P del génesis es sobre todo el eje: ámbito «' + AMBITO_GENESIS + '»');
     else if (m.token === 'E' && reglas === 2 && (m.registro !== undefined || m.divisible !== undefined || m.emisores !== undefined)) {
       errores.push('registro, divisible y emisores no existían en la versión 2');

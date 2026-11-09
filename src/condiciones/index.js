@@ -15,20 +15,21 @@ import { FIRMA, CLAVES, TIPOS, GENESIS, FIRMA_GENESIS } from './identidad.js';
 import { CONDICIONES_DEL_CICLO } from './ciclo.js';
 import { CONDICIONES_DE_LA_EPOCA } from './reglas.js';
 import { CONDICIONES_DEL_TOPE } from './tope.js';
-import { CONDICIONES_DE_R } from './r.js';
 
 export { FORMA, ID, NUEVO, UN_GENESIS, REFERENCIAS, AUTOR_CON_ALTA } from './evento.js';
 export { FIRMA, CLAVES, TIPOS, GENESIS, FIRMA_GENESIS, erroresGenesis, erroresFirmaGenesis } from './identidad.js';
 export { CONDICIONES_DEL_CICLO } from './ciclo.js';
 export { CONDICIONES_DE_LA_EPOCA, veredictosDe, motivoDeRegla, condicionDeRegla, filasDeRegla } from './reglas.js';
 export { CONDICIONES_DEL_TOPE, reglasDelTope, SIN_CAPACIDAD, contratoE } from './tope.js';
-export { CONDICIONES_DE_R } from './r.js';
+/** Las condiciones de R en JS: ninguna (encargo 3b: el colateral, RR-3 y RR-4, retirado por VG, 9-11; atender, RR-5, es una lectura de la época). */
+export const CONDICIONES_DE_R = Object.freeze([]);
 
 /**
  * Las condiciones de un evento que no es el génesis, en el orden de eje.validar: el suelo (forma, id, que sea
  * nuevo, un génesis, las referencias, la firma y las claves como criptografía), las reglas de la época conectadas
- * (encargo 3a, paso 9: src/condiciones/reglas.js) y lo que queda en JS: el prefijo de la versión 2 (VA-3), lo del
- * 3b (el P acuñado, el escalonado, el colateral de R) y lo que aún no cabe en una regla (docs/notas/CAPA_CERO.md).
+ * (encargo 3a, paso 9: src/condiciones/reglas.js) y lo que queda en JS: el prefijo de la versión 2 (VA-3) y lo que
+ * aún no cabe en una regla (docs/notas/CAPA_CERO.md). Desde el encargo 3b no queda nada del 3b en JS: el P, el
+ * escalonado, R, la atención y la invitación son reglas de la época.
  */
 export const CONDICIONES = Object.freeze([
   FORMA, ID, NUEVO, UN_GENESIS, REFERENCIAS, AUTOR_CON_ALTA,
@@ -36,11 +37,14 @@ export const CONDICIONES = Object.freeze([
   ...CONDICIONES_DE_LA_EPOCA,
   ...CONDICIONES_DEL_CICLO,
   ...CONDICIONES_DEL_TOPE,
-  ...CONDICIONES_DE_R,
 ]);
 
-/** Al crear un eje (Eje.genesis): lo que emite y declara el génesis, su firma y las reglas de la época. */
-export const CONDICIONES_GENESIS = Object.freeze([GENESIS, FIRMA_GENESIS, REFERENCIAS, ...CONDICIONES_DE_LA_EPOCA]);
+/**
+ * Al crear un eje (Eje.genesis): el génesis es la época 0 en este eje (VG, 10-11, A2; encargo 3b), fuera del
+ * sistema: no pasa por las reglas de la época (no es una transacción: no mueve nada). Solo el suelo: lo que declara,
+ * su firma y sus referencias.
+ */
+export const CONDICIONES_GENESIS = Object.freeze([GENESIS, FIRMA_GENESIS, REFERENCIAS]);
 
 /** Al restaurar un eje (Eje.desde): la forma, lo del génesis, su id y, si todo eso pasa, su firma. */
 export const CONDICIONES_GENESIS_GUARDADO = Object.freeze([
@@ -49,7 +53,6 @@ export const CONDICIONES_GENESIS_GUARDADO = Object.freeze([
   Object.freeze({ ...ID, evaluar: async (tx, libro, ctx) => ((await ID.evaluar(tx, libro, ctx)) ? 'id del génesis no corresponde' : null) }),
   Object.freeze({ ...FIRMA_GENESIS, soloSiValida: true }),
   REFERENCIAS,
-  ...CONDICIONES_DE_LA_EPOCA,
 ]);
 
 /**

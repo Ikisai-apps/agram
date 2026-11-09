@@ -1,0 +1,17 @@
+[
+  ["share"],
+  ["A.2.1"],
+  ["=it.1 / sum ((((first it.3).2.1) where last (path (first it.0) where first it3.3 = first (first it.0).3) in path (first it2.0)) each 1)"],
+  ["A.2.1.8"],
+  ["read"],
+  ["*"],
+  [
+    "VG, 8-11 (mapa §15 [D] «P como peso de criterio»): «a P le estás dando mucho peso»; P son unidades acuñadas y posicionadas en registros; de base, diez por décupla; la cantidad es «irrelevante» y no siempre se bloquea",
+    "VG, 8-11 (mapa §15 [D] (3)): «cada persona se lee como su 100 %: su peso sobre un registro es la parte de su P que tiene allí; el 100 % se calcula POR DOMINIO (el árbol que cuelga del registro raíz del dueño)»; sin historial ni falseo: comparar entre dominios exigiría una prueba de fuera",
+    "El dominio de un registro r: lo que cuelga del registro más alto de su hilo escrito por su dueño (el autor de r); en una identidad cuyos registros cuelgan de su alta, su alta",
+    "Se materializa en A.2.1.8: en cada entrada del P posicionado, frente a otros (la cuota)"
+  ],
+  ["epoch 0"],
+  ["after obligation"],
+  ["share: the part of its P in the domain of the record that the identity has on that record"]
+]
