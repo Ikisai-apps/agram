@@ -55,12 +55,12 @@ test('ejemplo Tasks: saldos por serie; escribir cuesta minutos y solo quien trab
   const escritos = (id) => eje.orden.filter((x) => eje.obtener(x).autor === id);
   const poder = (id) => Object.fromEntries(eje.poderes(id).map((p) => [p.ambito, p.cantidad]));
   assert.deepEqual(poder('casa'), Object.fromEntries(escritos('casa').map((x) => [x, 10])));
-  // Sobre el génesis: diez por la R de la casa y diez por cada serie de E que recibieron (una obtención por receptor y
-  // serie: revisión de seguridad del encargo 3b).
+  // Sobre el génesis: diez por la R de la casa y diez por conseguir E atada a él, una sola vez sean cuantas sean las
+  // series (una obtención por regla, receptor y registro: revisión de seguridad del encargo 3b).
   const seriesE = (id) => new Set(eje.orden.flatMap((x) => eje.obtener(x).movimientos).filter((m) => m.token === 'E' && m.a === id && m.de !== null && m.de !== id && m.estado === undefined).map((m) => m.emisor + '/' + m.denominacion)).size;
   assert.deepEqual(['organizadora', 'proveedor'].map(seriesE), [3, 3]);
   for (const id of ['organizadora', 'proveedor']) {
-    assert.deepEqual(poder(id), { ...Object.fromEntries(escritos(id).map((x) => [x, 10])), [eje.genesisId]: 10 + 10 * seriesE(id) });
+    assert.deepEqual(poder(id), { ...Object.fromEntries(escritos(id).map((x) => [x, 10])), [eje.genesisId]: 20 });
   }
   for (const id of eje.identidades()) assert.deepEqual(eje.bloqueos(id), []);
   // T por escala: minutos para escribir, horas para trabajar. T no cruza de persona (VG, 7-11 noche): la casa no

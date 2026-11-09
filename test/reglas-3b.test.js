@@ -415,13 +415,13 @@ test('la obtención no se repite: un ir y venir de R no acuña P dos veces, y la
   // bea pasa R de ana a g: g la recibe de un tenedor, no de su emisor.
   const pasa = await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'g')] });
   assert.deepEqual(obtenido(eje, pasa).filter(([a]) => a === 'g'), []);
-  // E: una vez por receptor y serie.
+  // E: una vez por receptor y registro.
   const da = (n) => eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'ana' }] });
   assert.equal(obtenido(eje, await da(1)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 1);
   assert.equal(obtenido(eje, await da(2)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 0);
 });
 
-test('conseguir E da P una vez por receptor y serie, venga de quien venga: la misma E por tres manos da P una vez a cada una', async () => {
+test('conseguir E da P una vez por receptor y registro, venga de quien venga: la misma E por tres manos da P una vez a cada una', async () => {
   const { eje, g } = await mundo();
   await entrarPorInvitacion(eje, { por: 'g', quien: 'carla', t: T0 });
   const vale = (de, a) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de, a });
@@ -434,6 +434,19 @@ test('conseguir E da P una vez por receptor y serie, venga de quien venga: la mi
   // Ni a uno mismo ni a quien aún no tiene alta.
   const aMi = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'a mí', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: 'nadie-aun' }] });
   assert.deepEqual(obtenido(eje, aMi).filter(([x]) => x === 'nadie-aun'), []);
+});
+
+test('conseguir E da P sobre su registro una sola vez, sea cual sea la serie: tres series de la misma casa compradas por la misma persona acuñan una vez', async () => {
+  const { eje, g } = await mundo();
+  const compra = async (denominacion, n) => {
+    const ev = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vende ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion, cantidad: 1, de: null, a: 'g' }, { token: 'E', emisor: 'g', denominacion, cantidad: 1, de: 'g', a: 'ana' }] });
+    return obtenido(eje, ev).filter(([x, k]) => x === 'ana' && k === 'P:' + g).length;
+  };
+  assert.deepEqual([await compra('pan', 1), await compra('miel', 2), await compra('queso', 3)], [1, 0, 0]);
+  assert.equal(eje.poderSobre('ana', g) >= 10, true);
+  // Su propio emisor no obtiene P al recibir de vuelta su E.
+  const vuelve = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'te devuelvo el pan', movimientos: [minuto('ana'), { token: 'E', emisor: 'g', denominacion: 'pan', cantidad: 1, de: 'ana', a: 'g' }] });
+  assert.deepEqual(obtenido(eje, vuelve).filter(([x]) => x === 'g'), []);
 });
 
 test('«attention has a price» en todo el alta ajena: anclar en 3100000000, en 3200000000 o sin dirección también paga; su dueño no', async () => {

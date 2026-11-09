@@ -86,7 +86,7 @@ class Modelo {
     for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
     this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
     for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
-    // Lo ya obtenido, por regla (y serie de origen, en su etiqueta), titular y registro (del libro: es el estado de
+    // Lo ya obtenido, por regla (su etiqueta), titular y registro (del libro: es el estado de
     // partida, no lo que se comprueba).
     this.obtenido = new Set();
     for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2)]));
@@ -229,9 +229,9 @@ class Modelo {
     obtiene(OBTENCIONES[0], ev.autor, ev.id);
     for (const m of ev.movimientos) {
       if (m.de === null || m.a === null || m.estado !== undefined) continue;
-      // Revisión de seguridad (encargo 3b): una vez por receptor y serie de origen; E, solo a quien ya tiene alta.
-      if (m.token === 'E' && m.a !== m.de && this.existe.has(m.a)) obtiene(OBTENCIONES[1] + ' · ' + claveToken(m), m.a, this.registroE(m));
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2] + ' · ' + claveToken(m), m.a, this.alta.get(m.emisor));
+      // Revisión de seguridad (encargo 3b): una vez por regla, receptor y registro (sea cual sea la serie); E, solo a quien ya tiene alta y no la emite.
+      if (m.token === 'E' && m.a !== m.de && m.a !== m.emisor && this.existe.has(m.a)) obtiene(OBTENCIONES[1], m.a, this.registroE(m));
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor));
     }
     return () => {
       this.saldos = vista;

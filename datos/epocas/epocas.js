@@ -399,10 +399,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
     },
     {
-      "ref": "5f68c6e73918b489b97b4b9cb371162e6ce6d1e8b8a34be5da7e717d2747ea54"
+      "ref": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a"
     },
     {
-      "ref": "90bc1479eee1ab3a0c2d455bab70d7cbeaa2a2c2d4d2fea520d7628937f55bc2"
+      "ref": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40"
     },
     {
       "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
@@ -3209,7 +3209,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
-    "id": "5f68c6e73918b489b97b4b9cb371162e6ce6d1e8b8a34be5da7e717d2747ea54",
+    "id": "a3be9151b1c71b23dcbd389a9efdb64a8cdc180071b65696d735fd9dac96432a",
     "registro": [
       [
         "getting E gives ten P on its record"
@@ -3218,7 +3218,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.1.4.1"
       ],
       [
-        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
+        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and it.3.1 != it.0.0.1 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3236,7 +3236,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "Cada transferencia de E que llega a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y serie, venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo), ni a uno mismo ni a quien aún no tiene alta: el libro no repite una obtención de la misma regla para el mismo titular, registro y serie de origen (src/eje.js); así la misma E pasando de mano en mano da P una vez a cada mano"
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y registro, sea cual sea la serie o la denominación (las series las crea cualquiera: contarlas por serie no tendría límite), venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo); ni a uno mismo, ni al emisor de la serie, ni a quien aún no tiene alta. El libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js): la misma E pasando de mano en mano da P una vez a cada mano"
       ],
       [
         "epoch 0"
@@ -3958,7 +3958,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
-    "id": "90bc1479eee1ab3a0c2d455bab70d7cbeaa2a2c2d4d2fea520d7628937f55bc2",
+    "id": "87574c5da0147b48c233e2b86a8166465a0775cbac81357a54f4a28e03a1db40",
     "registro": [
       [
         "receiving R gives ten P on the root of its issuer"
@@ -3985,7 +3985,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular, registro y serie de origen (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular y registro, que aquí es el alta del emisor: una vez por titular y emisor (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
       ],
       [
         "epoch 0"
@@ -4367,7 +4367,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "a2e5ba46a1071745e8e1490a8d333b31baa4c2801ec9444d935a86eab88ae3ce";
+export const EPOCA_0_BTML_ID = "38839d8c2de5bda7455f942b80e1126125e4e1136942ec795c7d8a4d2ea42cd1";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

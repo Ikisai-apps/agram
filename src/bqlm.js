@@ -541,8 +541,7 @@ function calcular(nodo, st) {
       for (const s of sujetos) {
         const sujeto = valorDe(s, ctx);
         if (sujeto === undefined || esSimbolo(sujeto)) continue; // nadie no recibe
-        // El origen: el ocupante que recorre el where más interno (un movimiento, por ejemplo), para quien acuña.
-        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor, ...(st.its.length ? { origen: st.its[st.its.length - 1] } : {}) });
+        st.escrituras.push({ sujeto, camino: [...nodo.t.base.digitos], clave, valor });
       }
       return [true];
     }

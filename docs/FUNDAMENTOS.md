@@ -181,7 +181,7 @@ Cada movimiento es `{ token, cantidad, de, a, …campos de la serie }`. Emitir e
 
 | P poder | Quién | Cómo |
 |---|---|---|
-| obtener | quien escribe un registro (diez sobre él), quien consigue E (diez sobre el registro de la serie) y quien recibe R directamente de su emisor (diez sobre el alta del emisor) | lo acuña el libro en la misma transacción (clase `obtencion`), lo que colocan las tres reglas que escriben de la época; una sola vez por regla, titular, registro y serie de origen (revisión de seguridad, **[X] confirmar VG**) |
+| obtener | quien escribe un registro (diez sobre él), quien consigue E (diez sobre el registro de la serie) y quien recibe R directamente de su emisor (diez sobre el alta del emisor) | lo acuña el libro en la misma transacción (clase `obtencion`), lo que colocan las tres reglas que escriben de la época; una sola vez por regla, titular y registro (sea cual sea la serie) (revisión de seguridad, **[X] confirmar VG**) |
 | reposicionar | quien lo tiene | un paso por transacción: quemar P en un registro y acuñarlo en su padre (×0,1) o en un hijo (×1,1); ir a un registro ajeno es subir al ancestro común y bajar (N7) |
 | transferir (delegar) | quien lo tiene | en el registro exacto; delegar es transferir con salida: el P llega bloqueado con la decisión (mapa §15 [D] (6)) |
 | comprometer | quien lo tiene | bloquearlo con la salida = la decisión (mapa §15 [D] (5)); el recuento del dueño lo cuenta |
@@ -340,5 +340,5 @@ VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «4 aceptar = 
 - El umbral por defecto del recuento (0) y la forma «above x»; las presiones como «nombre k»; dónde guarda una decisión sus compromisos (X.2.4).
 - La obligación en A.8.1; los grupos de atención en 3.k.2 y 3.k.3 del alta; el precio del equipo y los «cuánto» de cada zona (hoy, 1).
 - Que la invitación guarde su regalo con un bloqueo y la aceptación lo recoja; el literal «invitation» en inglés.
-- La obtención: también para cosas, una vez por regla, titular, registro y serie de origen (no por unidad), sin exigir R (la exigencia N3 «P exige R» se lee como la secuencia de obtención); qué completa el tutorial.
+- La obtención: también para cosas, una vez por regla, titular y registro (sea cual sea la serie) (no por unidad), sin exigir R (la exigencia N3 «P exige R» se lee como la secuencia de obtención); qué completa el tutorial.
 - El criterio de atención de cada uno (hoy, el de la época: «attended»).

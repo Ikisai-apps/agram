@@ -85,10 +85,10 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([libre(CASA, alojamiento.id), libre('recepcion', atiende.id)], [9, 7]);
   assert.equal(eje.poderSobre('recepcion', alojamiento.id), 0); // ya no hay P delegado por la casa
   // N2: quien consigue E obtiene P sobre el registro de su serie. La huésped recibió en la entrega sus noches de plaza,
-  // atadas a la habitación: diez P sobre ella por cada serie (una por noche: tres; revisión de seguridad del encargo 3b,
-  // una obtención por receptor y serie). No escribió la habitación ni nadie le dio P (antes de la entrega no tenía
+  // atadas a la habitación: diez P sobre ella, una sola vez aunque sus noches sean tres series (revisión de seguridad
+  // del encargo 3b: una obtención por receptor y registro, sea cual sea la serie). No escribió la habitación ni nadie le dio P (antes de la entrega no tenía
   // ninguno; lo comprueba el test del ciclo).
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 30);
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 10);
   assert.deepEqual(eje.bloqueos('huesped'), []);
   // El alojamiento declara su capacidad (R2): 4 plazas, que el eje cuenta por noche (la franja).
   assert.deepEqual(alojamiento.payload, ['Alojamiento', ['plazas por noche'], 4]);
@@ -346,7 +346,7 @@ test('P obtenido (mapa §15 [D] N2): la huésped no tiene P sobre la habitación
   // N1: por escribir la reserva, diez sobre ella.
   assert.equal(eje.poderSobre('huesped', reserva.id), 10);
   await confirmarReserva(eje, reserva);
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 30); // diez por cada una de sus tres noches (series)
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 10); // diez, una vez, aunque sus noches sean tres series (revisión de seguridad)
 });
 
 test('confirmar es idempotente: una reserva ya confirmada devuelve su confirmación, no cobra dos veces ni entrega otra plaza', async () => {
