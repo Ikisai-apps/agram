@@ -27,16 +27,15 @@
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId, esPresente } from './evento.js';
 import { verificar, verificarPosesion } from './autoridad.js';
-import { claveToken, validarMovimiento, familiaDe, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE } from './ciclo.js';
+import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
+import { EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
-import { msDeGuardado } from './instante.js';
 import { EPOCA_0, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
 import { estadoDe, puedeAutorizar, autorizacionesValidas, pesoAutorizacion, FABRICA, REGLA_AUTORIZAR, esConsolidacion } from './motor.js';
-import { pesoDe, estadoPorPeso, esSalidaE, esFamilia, registroDeFamilia, esActoDeRespaldo } from './autorizacion.js';
-import { reglasDeR, devolucionesEn } from './lente.js';
+import { pesoDe, lectorDelEje, esActoDeRespaldo } from './autorizacion.js';
+import { motivosDe, CONDICIONES_DEL_CICLO, CONDICIONES_DE_R } from './condiciones/index.js';
 
 /** Los tres estados de una capa. Nada más: ni «válido», ni una nota. */
 export const ESTADOS_CAPA = Object.freeze(['ok', 'pendiente', 'falla']);
@@ -118,119 +117,34 @@ function recorrer(payload, visitar, c = []) {
 
 const llave = (id, k) => JSON.stringify([id, k]);
 
-/** Rehace el libro con los eventos del eje anteriores al índice `hasta`. Lee el eje; no lo toca. */
+/**
+ * El eje de justo antes del registro número `hasta` (eje.antes): su libro de
+ * transacciones (src/libro.js), sus series, claves, tipos y altas, tal como
+ * los leyó el eje al validarlo (VG, 9-11: la capa cero). Lee el eje; no lo
+ * toca. `reglas` es 2 si el registro se guardó con la versión 2
+ * (src/persistencia.js) y se lee con las reglas de entonces.
+ */
 function libroAntes(eje, hasta) {
-  const libro = {
-    saldos: new Map(), bloqueados: new Map(), series: new Map(), claves: new Map(), tipos: new Map(),
-    altas: new Map(), gastadoT: new Map(), identidades: new Set(), ids: new Set(),
-    ampliadas: new Set(), // consolidaciones que ya respaldaron una ampliación de P (como en el eje)
-    // Un registro guardado con la versión 2 se lee con las reglas de entonces (src/persistencia.js).
-    reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3,
-    tMax: -Infinity, // el mayor t hasta aquí, en milisegundos UTC
-  };
-  for (let k = 0; k < hasta; k++) {
-    const ev = eje.obtener(eje.orden[k]);
-    aplicar(eje, libro, ev);
-    libro.tMax = Math.max(libro.tMax, msDeGuardado(ev.t));
+  return { eje: eje.antes(hasta), reglas: hasta < (eje.eventosV2 ?? 0) ? 2 : 3 };
+}
+
+const saldoEn = (libro, id, k) => libro.eje.saldo(id, k);
+const bloqueadoEn = (libro, id, k, salida) => libro.eje.bloqueado(id, k, salida);
+const conCuenta = (libro, id) => libro.eje.libro.tiene(id);
+const enLibro = (libro, id) => libro.eje.eventos.has(id);
+
+/**
+ * Los motivos de las condiciones del ciclo y de R (src/condiciones/) para
+ * `ev`, sobre el libro de justo antes del registro: las mismas condiciones
+ * que evalúa el eje al validar, con su contexto (eje.contexto). Una sola
+ * verdad. Cada motivo lleva `i` (el movimiento, o null), `capa` y `texto`.
+ */
+function condicionesDe(libro, ev) {
+  if (!libro.motivos) {
+    const ctx = libro.eje.contexto(ev);
+    libro.motivos = motivosDe([...CONDICIONES_DEL_CICLO, ...CONDICIONES_DE_R], libro.eje.transaccion(ev), libro.eje.libro, ctx);
   }
-  return libro;
-}
-
-const saldoEn = (libro, id, k) => libro.saldos.get(llave(id, k)) ?? 0;
-const bloqueadoEn = (libro, id, k, salida) => libro.bloqueados.get(JSON.stringify([id, k, salida])) ?? 0;
-
-/**
- * Lo que leen las reglas del ciclo (src/ciclo.js), desde el libro de justo
- * antes del registro `ev`; el alta del prefijo de la versión 2, acotada como
- * en el eje (acotarAltaV2).
- */
-function contextoCiclo(eje, libro, ev) {
-  const v2 = eje.eventosV2 ?? 0;
-  const primeroV3 = () => (eje.orden.length > v2 ? eje.obtener(eje.orden[v2]).t : ev.t);
-  return {
-    tipo: (id) => libro.tipos.get(id) ?? null,
-    alta: (id) => {
-      const a = libro.altas.get(id) ?? null;
-      return a && eje.esDeV2?.(a.id) ? acotarAltaV2(a, primeroV3()) : a;
-    },
-    tMaximo: () => libro.tMax,
-    gastadoT: (id, escala, periodo) => libro.gastadoT.get(JSON.stringify([id, escala, periodo])) ?? 0,
-    serie: (k) => libro.series.get(k) ?? null,
-    registro: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
-    ambitosQueCubren: (ambito) => eje.ambitosQueCubren(ambito),
-    saldo: (id, k) => saldoEn(libro, id, k),
-    reglas: libro.reglas,
-    genesisId: eje.genesisId,
-    autorizada: (id) => estadoPorPeso(lectorDelLibro(eje, libro), id) === 'AUTORIZADO',
-    ampliada: (id) => libro.ampliadas.has(id),
-    bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
-  };
-}
-
-/**
- * Lo que leen las reglas de R (src/lente.js, reglasDeR: el colateral y las
- * devoluciones sin atender), desde el libro de justo antes del registro. Las
- * devoluciones se leen de los eventos del libro solo si hacen falta.
- */
-function contextoR(eje, libro) {
-  let dev = null;
-  const devoluciones = () => (dev ??= devolucionesEn(eje.orden.filter((id) => libro.ids.has(id)).map((id) => eje.obtener(id))));
-  return {
-    reglas: libro.reglas,
-    serie: (k) => libro.series.get(k) ?? null,
-    bloqueado: (id, k, salida) => bloqueadoEn(libro, id, k, salida),
-    pendientes: (emisor) => devoluciones().pendientes(emisor),
-    devolucion: (id, emisor) => devoluciones().devolucion(id, emisor),
-  };
-}
-
-/**
- * El lector de src/autorizacion.js sobre el libro de justo antes de un
- * registro: lo que había escrito, emitido y bloqueado en ese momento.
- */
-function lectorDelLibro(eje, libro) {
-  return {
-    obtener: (id) => (libro.ids.has(id) ? eje.obtener(id) : undefined),
-    genesisId: eje.genesisId,
-    emitido: (k) => libro.series.get(k)?.emitido ?? 0,
-    bloqueadoCon: (k, salida) => {
-      let total = 0;
-      for (const [kb, v] of libro.bloqueados) {
-        const [, clave, s] = JSON.parse(kb);
-        if (clave === k && s === salida) total += v;
-      }
-      return total;
-    },
-    sobre: (id, en) => eje.sobre(id, en).filter((e) => libro.ids.has(e.id)),
-    bloqueosDe: (identidad) => {
-      const lista = [];
-      for (const [kb, v] of libro.bloqueados) {
-        const [id, clave, salida] = JSON.parse(kb);
-        if (id === identidad && v > 0) lista.push({ clave, salida, cantidad: v });
-      }
-      return lista;
-    },
-    poder: (identidad, clave) => {
-      let total = saldoEn(libro, identidad, clave);
-      for (const [kb, v] of libro.bloqueados) {
-        const [id, k] = JSON.parse(kb);
-        if (id === identidad && k === clave) total += v;
-      }
-      return total;
-    },
-    // El E vivo, como en el eje sin reloj: emitido − consumido (la familia, sumando sus franjas).
-    respaldoE: (salida) => {
-      if (!esSalidaE(salida)) return null;
-      const vivoDe = (s) => (s ? s.emitido - (s.consumido ?? 0) : 0);
-      if (esFamilia(salida)) {
-        let vivo = 0;
-        for (const [k, s] of libro.series) if (k !== salida && k.startsWith('E:') && familiaDe(k) === salida) vivo += vivoDe(s);
-        return vivo > 0 ? { registro: registroDeFamilia(salida, (e) => libro.altas.get(e)?.id), vivo } : null;
-      }
-      const s = libro.series.get(salida);
-      return s && s.emitido > 0 ? { registro: s.registro ?? null, vivo: vivoDe(s) } : null;
-    },
-  };
+  return libro.motivos;
 }
 
 /** Plan de débito de P como el del eje: del ámbito más concreto al más amplio; null si no alcanza. */
@@ -247,52 +161,6 @@ function planP(eje, ver, identidad, ambito, cantidad) {
     if (resta <= 0) return plan;
   }
   return null;
-}
-
-function aplicar(eje, libro, ev) {
-  const amplia = consolidacionQueAmplia(ev, () => contextoCiclo(eje, libro, ev)); // la que usó para ampliar P, con el libro de antes (SEG-04)
-  if (amplia) libro.ampliadas.add(amplia);
-  libro.ids.add(ev.id);
-  for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) libro.claves.set(id, jwk);
-  for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) libro.tipos.set(id, tipo);
-  if (ev.contexto?.genesis === true && !libro.altas.has(ev.autor)) { libro.altas.set(ev.autor, { id: ev.id, t: ev.t }); libro.identidades.add(ev.autor); } // como en el eje
-  const ver = (id, k) => saldoEn(libro, id, k);
-  const ajustar = (id, k, d) => { libro.identidades.add(id); libro.saldos.set(llave(id, k), ver(id, k) + d); };
-  // La asignación diaria de T (VG, 8-11): fuera del prefijo de la versión 2, para una persona con alta.
-  const reglas3 = !eje.esDeV2?.(ev.id);
-  const tipoAutor = libro.tipos.get(ev.autor) ?? null;
-  const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && libro.altas.has(ev.autor);
-  for (const m of ev.movimientos) {
-    const k = claveToken(m);
-    if (m.a !== null && !libro.altas.has(m.a)) libro.altas.set(m.a, { id: ev.id, t: ev.t });
-    if (m.estado === 'bloqueo' || m.estado === 'liberacion') {
-      const d = m.estado === 'bloqueo' ? m.cantidad : -m.cantidad;
-      ajustar(m.de, k, -d);
-      const kb = JSON.stringify([m.de, k, m.salida]);
-      libro.bloqueados.set(kb, (libro.bloqueados.get(kb) ?? 0) + d);
-      continue;
-    }
-    if (m.de === null) {
-      // De una serie de E, también su registro (el que nombra o el alta de su emisor) y lo consumido: el E vivo (R2).
-      const s = libro.series.get(k) ?? { emisor: esEoR(m) ? m.emisor : ev.autor, emitido: 0, ...(m.token === 'E' ? { caduca: m.caduca ?? null, registro: m.registro ?? libro.altas.get(m.emisor)?.id ?? null, consumido: 0 } : {}) };
-      libro.series.set(k, { ...s, emitido: s.emitido + m.cantidad });
-    } else if (m.token === 'P') {
-      for (const [kp, d] of planP(eje, ver, m.de, m.ambito, m.cantidad) ?? [[k, -m.cantidad]]) ajustar(m.de, kp, d);
-    } else if (reglas3 && esInformativoT(m)) {
-      continue; // T informativo (VG, 8-11): ilimitado, no toca saldos
-    } else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
-      // T como asignación diaria (como en el eje): primero lo que queda del día de ev.t, luego el T explícito.
-      const a = asignacionT(ev.t, m.escala);
-      const kg = JSON.stringify([ev.autor, m.escala, a.periodo]);
-      const { asignacion, explicito } = repartirGastoT(a.cantidad - (libro.gastadoT.get(kg) ?? 0), m.cantidad);
-      if (asignacion) libro.gastadoT.set(kg, (libro.gastadoT.get(kg) ?? 0) + asignacion);
-      ajustar(m.de, k, -explicito);
-    } else {
-      ajustar(m.de, k, -m.cantidad);
-      if (m.token === 'E' && m.a === null && libro.series.has(k)) libro.series.set(k, { ...libro.series.get(k), consumido: (libro.series.get(k).consumido ?? 0) + m.cantidad });
-    }
-    if (m.a !== null) ajustar(m.a, k, m.cantidad);
-  }
 }
 
 /** El eje visto con este evento dentro: lo que leen BQL y el encaje. Sin tocar el eje. */
@@ -417,8 +285,8 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   else if (!idCorrecto) r.falla('el id no corresponde al cuerpo: el registro no es el que dice ser');
 
   // Firma: verificada si el autor tiene clave; sin clave, sin firma (salvo que el eje exija firmas).
-  const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.claves.get(ev.autor);
-  const conAlta = esGenesis || libro.identidades.has(ev.autor);
+  const clave = esGenesis ? ev.contexto?.claves?.[ev.autor] : libro.eje.clave(ev.autor);
+  const conAlta = esGenesis || conCuenta(libro, ev.autor);
   // R9: fuera de un eje de demostración (lo marca su génesis) y del prefijo de la versión 2, sin clave no se actúa.
   // La demostración la da solo la bandera del génesis (SEG-02); el prefijo v2 lo exime libro.reglas.
   const demostracion = esGenesis ? ev.contexto?.demostracion === true : eje.demostracion !== false;
@@ -455,11 +323,11 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
     if (eje.genesisId && eje.genesisId !== id) r.falla('ya hay génesis: solo el primero carece de foco');
   } else if (ev.sobre === null || ev.sobre === undefined) {
     r.falla('solo el génesis carece de foco');
-  } else if (!libro.ids.has(ev.sobre)) {
+  } else if (!enLibro(libro, ev.sobre)) {
     // Referencia o contexto ausente → PENDIENTE (corpus V4 02): puede llegar.
     r.pendiente('foco ausente del eje: ' + corto(ev.sobre));
   }
-  if (!esGenesis && !libro.identidades.has(ev.autor)) r.pendiente('autor sin alta en el eje (no ha recibido tokens): ' + ev.autor);
+  if (!esGenesis && !conCuenta(libro, ev.autor)) r.pendiente('autor sin alta en el eje (no ha recibido tokens): ' + ev.autor);
 
   // Claves declaradas en un alta: solo de identidades nuevas que reciben tokens en ese evento.
   const clavesDeclaradas = [];
@@ -470,7 +338,7 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
       const conPrueba = Boolean(ev.posesion) && typeof ev.posesion === 'object' && Object.hasOwn(ev.posesion, nueva);
       const posesion = !conPrueba ? 'sin probar' : (await verificarPosesion(ev, nueva, jwk)) ? 'probada' : 'falla';
       clavesDeclaradas.push({ identidad: nueva, por: ev.autor, posesion });
-      if (libro.claves.has(nueva) || libro.identidades.has(nueva)) r.falla('no se puede cambiar la clave de ' + nueva);
+      if (libro.eje.claves.has(nueva) || conCuenta(libro, nueva)) r.falla('no se puede cambiar la clave de ' + nueva);
       else if (!lista(ev.movimientos).some((m) => m?.a === nueva)) r.falla('clave declarada para ' + nueva + ' sin darle tokens');
       else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) r.falla('clave inválida para ' + nueva);
       else if (posesion === 'falla') r.falla('prueba de posesión inválida para ' + nueva + ': no la firma la clave que se declara');
@@ -488,7 +356,7 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   const resumen = [
     idCorrecto ? 'id correcto' : 'id incorrecto',
     textoFirma,
-    esGenesis ? 'génesis' : 'foco ' + (libro.ids.has(ev.sobre) ? 'en el eje' : 'ausente'),
+    esGenesis ? 'génesis' : 'foco ' + (enLibro(libro, ev.sobre) ? 'en el eje' : 'ausente'),
   ].join(' · ');
   return parte(3, r.estado, r.textos, resumen, { idCorrecto, firma, firmante: ev.firmante ?? null, clavesDeclaradas, enEje, demostracion });
 }
@@ -502,21 +370,21 @@ function capaAcreditacion(eje, ev, libro) {
   const ver = (id, k) => (vista.has(llave(id, k)) ? vista.get(llave(id, k)) : saldoEn(libro, id, k));
   const poner = (id, k, v) => vista.set(llave(id, k), v);
   const emitido = new Map();
-  const serie = (k) => emitido.get(k) ?? libro.series.get(k);
+  const serie = (k) => emitido.get(k) ?? (libro.eje.serie(k).emisor !== null ? libro.eje.serie(k) : undefined);
   const vistaB = new Map();
   const verB = (id, k, salida) => (vistaB.has(JSON.stringify([id, k, salida])) ? vistaB.get(JSON.stringify([id, k, salida])) : bloqueadoEn(libro, id, k, salida));
   const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
   // El respaldo según el ciclo (src/ciclo.js): el T del día, un registro existente en P, la caducidad de la serie en E.
   // Lo que es del evento entero (el t, anterior al de su foco o al alta de su autor) falla aquí mismo.
   const delCiclo = new Map();
-  const tipoAutor = libro.tipos.get(ev.autor) ?? null;
-  const conAsignacion = libro.reglas !== 2 && !esGenesis && EMITEN.includes(tipoAutor) && libro.altas.has(ev.autor);
+  const tipoAutor = libro.eje.tipo(ev.autor);
+  const conAsignacion = libro.reglas !== 2 && !esGenesis && EMITEN.includes(tipoAutor) && libro.eje.alta(ev.autor) !== null;
   const quedaA = new Map(); // escala → lo que queda de la asignación del autor, durante el evento
   const verA = (e) => {
-    if (!quedaA.has(e)) { const a = asignacionT(ev.t, e); quedaA.set(e, Math.max(0, a.cantidad - (libro.gastadoT.get(JSON.stringify([ev.autor, e, a.periodo])) ?? 0))); }
+    if (!quedaA.has(e)) { const a = asignacionT(ev.t, e); quedaA.set(e, Math.max(0, a.cantidad - libro.eje.gastadoT(ev.autor, e, a.periodo))); }
     return quedaA.get(e);
   };
-  for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
+  for (const e of condicionesDe(libro, ev)) {
     if (e.capa !== 4) continue;
     if (e.i === null) r.falla(e.texto);
     else if (!delCiclo.has(e.i)) delCiclo.set(e.i, e.texto);
@@ -560,7 +428,7 @@ function capaAcreditacion(eje, ev, libro) {
       return undefined;
     } else if (m.token === 'P') {
       // P no se emite fuera del génesis: lo respalda el poder de los ámbitos que cubren el suyo.
-      if (m.ambito !== AMBITO_GENESIS && !libro.ids.has(m.ambito)) return mal('falla', 'P sobre un ámbito que no existe: ' + corto(m.ambito));
+      if (m.ambito !== AMBITO_GENESIS && !enLibro(libro, m.ambito)) return mal('falla', 'P sobre un ámbito que no existe: ' + corto(m.ambito));
       const plan = planP(eje, ver, m.de, m.ambito, m.cantidad);
       if (!plan) return mal('falla', 'P insuficiente en ' + m.de + ' sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : corto(m.ambito)) + ' para mover ' + m.cantidad);
       for (const [kp, d] of plan) poner(m.de, kp, ver(m.de, kp) + d);
@@ -610,7 +478,7 @@ function permisoDelLibro(eje, ev, libro) {
   // Quién emite y en qué orden (VG, 7-11 noche): solo personas, T para sí mismas,
   // cada una a su nombre, escalonado T → R → P → E (src/ciclo.js).
   // MAPA §12 [D]: «Nadie emite denominación ajena; solo el emisor amplía su serie».
-  for (const e of [...reglasDelCiclo(ev, contextoCiclo(eje, libro, ev)), ...reglasDeR(ev, contextoR(eje, libro))]) {
+  for (const e of condicionesDe(libro, ev)) {
     if (e.capa === 5) r.falla((e.i === null ? '' : 'movimiento ' + e.i + ': ') + e.texto);
   }
   // El tipo se declara en el alta, como la clave, y solo sirve para saber quién emite.
@@ -619,7 +487,7 @@ function permisoDelLibro(eje, ev, libro) {
     else if (esGenesis) {
       if (id !== ev.autor) r.falla('el génesis solo declara el tipo de su autor');
       else if (!(libro.reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) r.falla('el génesis lo emite una persona: su autor no puede ser ' + tipo);
-    } else if (libro.tipos.has(id) || libro.identidades.has(id)) r.falla('no se puede cambiar el tipo de ' + id);
+    } else if (libro.eje.tipo(id) !== null || conCuenta(libro, id)) r.falla('no se puede cambiar el tipo de ' + id);
     else if (!lista(ev.movimientos).some((m) => m?.a === id)) r.falla('tipo declarado para ' + id + ' sin darle tokens');
   }
   return r;
@@ -670,7 +538,7 @@ function faltasDeEjecucion(eje, ev) {
   if (ev.en !== FABRICA) return [['falla', 'no está anclada en la fábrica (' + FABRICA + '): no cuenta']];
   if (ev.autor !== c.autor) return [['falla', 'ejecuta el autor de la consolidación (' + c.autor + '), no ' + ev.autor]];
   const k = eje.orden.indexOf(ev.id);
-  const peso = pesoDe(lectorDelLibro(eje, libroAntes(eje, k >= 0 ? k : eje.orden.length)), c);
+  const peso = pesoDe(lectorDelEje(libroAntes(eje, k >= 0 ? k : eje.orden.length).eje), c);
   // Si un id de la evidencia no está en el eje, lo dice la capa 2 (referencias del contexto).
   if (!peso.alcanza) return [['falla', 'al ejecutar no estaba AUTORIZADA (' + textoPeso(peso) + '): ejecutar exige autorización']];
   return [];

@@ -130,22 +130,47 @@ export function repartirGastoT(queda, cantidad) {
  */
 export function reglasDelCiclo(ev, ctx) {
   if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
-  const autor = ev.autor;
-  const validos = (Array.isArray(ev.movimientos) ? ev.movimientos : [])
+  const validos = validosDe(ev);
+  if (ctx.reglas === 2) return reglasV2(ev.autor, validos, ctx);
+  return SECCIONES_DEL_CICLO.flatMap((s) => s.evaluar(ev, ctx, validos));
+}
+
+/** Los movimientos bien formados de `ev`, con su índice: [{ m, i }]. Lo mal formado ya lo cuenta validarForma. */
+export function validosDe(ev) {
+  return (Array.isArray(ev.movimientos) ? ev.movimientos : [])
     .map((m, i) => ({ m, i }))
     .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length);
-  if (ctx.reglas === 2) return reglasV2(autor, validos, ctx);
+}
+
+/** Las reglas de emisión de la versión 2 (VA-3), para los eventos guardados con ella. Lista de errores como reglasDelCiclo. */
+export function reglasDelCicloV2(ev, ctx) {
+  if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true || ctx.reglas !== 2) return [];
+  return reglasV2(ev.autor, validosDe(ev), ctx);
+}
+
+// Lo que comparten varias secciones: el P del autor sobre un registro y lo emitido de una serie P.
+
+/** P del autor sobre un registro antes del evento: saldo disponible en un ámbito que lo cubre. */
+const poderAntesDe = (ev, ctx) => (registro) => ctx.ambitosQueCubren(registro).reduce((s, a) => s + Math.max(0, ctx.saldo(ev.autor, 'P:' + a)), 0);
+
+/** Lo emitido de la serie P de un registro antes del evento (sobre el génesis, P:genesis y P:<id> juntas). */
+const emitidoAntesDe = (ctx) => (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
+
+/**
+ * RL-1, RL-2, RL-3. El reloj, [X] confirmar VG: el t de un evento no es
+ * anterior al de su foco (`sobre`) ni al del alta de su autor; el alta toma
+ * el t del evento que la hace. Sin esto, un alta retrofechada (un evento
+ * fechado en 1900) daría decenas de miles de días de asignación de T (VG,
+ * 8-11: asignación diaria). Y por arriba, [X] confirmar VG: sin reloj externo
+ * (T no vale nada para terceros), lo que hay en el eje: un evento no va más
+ * de un año (anio) por delante del mayor t ya aceptado. Sin esto, fechar a
+ * futuro abriría días de asignación sin fin. Todo se compara en milisegundos
+ * UTC (src/instante.js).
+ */
+function reloj(ev, ctx) {
   const errores = [];
   const falla = (i, capa, texto) => errores.push({ i, capa, texto });
-
-  // El reloj, [X] confirmar VG: el t de un evento no es anterior al de su foco
-  // (`sobre`) ni al del alta de su autor; el alta toma el t del evento que la
-  // hace. Sin esto, un alta retrofechada (un evento fechado en 1900) daría
-  // decenas de miles de días de asignación de T (VG, 8-11: asignación diaria).
-  // Y por arriba, [X] confirmar VG: sin reloj externo (T no vale nada para
-  // terceros), lo que hay en el eje: un evento no va más de un año (anio) por
-  // delante del mayor t ya aceptado. Sin esto, fechar a futuro abriría días de asignación sin fin.
-  // Todo se compara en milisegundos UTC (src/instante.js).
+  const autor = ev.autor;
   const t = msUTC(ev.t);
   if (!Number.isNaN(t)) {
     const foco = ctx.registro(ev.sobre);
@@ -157,24 +182,25 @@ export function reglasDelCiclo(ev, ctx) {
       falla(null, 4, 'el t del evento (' + ev.t + ') va más de un año (anio) por delante del mayor t del eje (' + new Date(maximo).toISOString() + ')');
     }
   }
+  return errores;
+}
 
-  // P del autor sobre un registro: saldo disponible en un ámbito que lo cubre, o P que mueve o recibe en este evento con ese ámbito.
-  const poderAntes = (registro) => ctx.ambitosQueCubren(registro).reduce((s, a) => s + Math.max(0, ctx.saldo(autor, 'P:' + a)), 0);
-  const pEnEvento = (registro) => {
-    const cubren = new Set(ctx.ambitosQueCubren(registro));
-    return validos.some(({ m }) => m.token === 'P' && (m.de === autor || m.a === autor) && cubren.has(m.ambito));
-  };
-  const tienePoder = (registro) => poderAntes(registro) > 0 || pEnEvento(registro);
-  // Lo emitido de la serie P de un registro antes del evento (sobre el génesis, P:genesis y P:<id> juntas).
-  const emitidoAntes = (ambito) => clavesDeSerieP(ambito, ctx.genesisId).reduce((s, k) => s + (ctx.serie(k)?.emitido ?? 0), 0);
-
+/**
+ * ID-9, ID-10, TT-1, PP-2, PP-3, EE-9 (caducidad). Quién emite: solo
+ * personas, en su propio nombre; T no se emite; P lo acuña quien escribió el
+ * registro, una vez (R3); la caducidad de una serie de E la fija su primera
+ * emisión. Un solo motivo por movimiento: el primero que falla.
+ */
+function emision(ev, ctx, validos) {
+  const errores = [];
+  const falla = (i, capa, texto) => errores.push({ i, capa, texto });
+  const autor = ev.autor;
+  const emitidoAntes = emitidoAntesDe(ctx);
   const tipoAutor = ctx.tipo(autor);
-  const emitidas = new Set();
   const caducas = new Map(); // clave → caducidad fijada en este evento
 
   for (const { m, i } of validos) {
     if (m.de !== null) continue;
-    emitidas.add(m.token);
     if (!EMITEN.includes(tipoAutor)) {
       falla(i, 5, 'solo las personas emiten: ' + autor + (tipoAutor ? ' es ' + tipoAutor : ' no declaró tipo en su alta'));
       continue;
@@ -232,39 +258,69 @@ export function reglasDelCiclo(ev, ctx) {
       else if (!mismaCaducidad(fijada, esta)) falla(i, 4, 'la serie ' + k + (fijada ? ' caduca el ' + fijada : ' no caduca') + ': una ampliación no cambia su caducidad');
     }
   }
+  return errores;
+}
 
-  // T como asignación diaria (VG, 8-11: «te lo gastas como quieras, no te
-  // puedes gastar más»): lo que una persona dada de alta gasta de su T
-  // (consumirlo o dárselo a una cosa) sale de la asignación del día de ev.t
-  // (tokens.asignacionT). Ningún T se acumula (VG, 8-11: no hay T acumulable):
-  // el génesis no emite T y T no cruza a una persona, así que una persona no
-  // tiene T explícito; solo lo arrastra quien viene del prefijo de la versión 2
-  // (src/persistencia.js), que lo gasta después de la asignación hasta
-  // agotarlo. Si no alcanza: T del día agotado. T no se bloquea ni se libera.
-  // Lo que no es una persona (una cosa) no tiene asignación: gasta el T que le
-  // dio su persona, y ese sí lo conserva hasta gastarlo (lo mira el saldo).
-  for (const { m, i } of validos) if (m.token === 'T' && m.estado !== undefined) falla(i, 5, T_NO_SE_BLOQUEA);
+/** TT-6. T no se bloquea ni se libera (VG, 8-11: no hay T acumulable). */
+function tNoSeBloquea(ev, ctx, validos) {
+  return validos.filter(({ m }) => m.token === 'T' && m.estado !== undefined).map(({ i }) => ({ i, capa: 5, texto: T_NO_SE_BLOQUEA }));
+}
+
+/**
+ * TT-2, TT-3, TT-4. T como asignación diaria (VG, 8-11: «te lo gastas como
+ * quieras, no te puedes gastar más»): lo que una persona dada de alta gasta
+ * de su T (consumirlo o dárselo a una cosa) sale de la asignación del día de
+ * ev.t (tokens.asignacionT). Ningún T se acumula (VG, 8-11: no hay T
+ * acumulable): el génesis no emite T y T no cruza a una persona, así que una
+ * persona no tiene T explícito; solo lo arrastra quien viene del prefijo de
+ * la versión 2 (src/persistencia.js), que lo gasta después de la asignación
+ * hasta agotarlo. Si no alcanza: T del día agotado. Lo que no es una persona
+ * (una cosa) no tiene asignación: gasta el T que le dio su persona, y ese sí
+ * lo conserva hasta gastarlo (lo mira el saldo).
+ */
+function asignacionDelDia(ev, ctx, validos) {
+  const errores = [];
+  const autor = ev.autor;
+  const tipoAutor = ctx.tipo(autor);
   const altaAutor = EMITEN.includes(tipoAutor) ? ctx.alta(autor) : null;
-  if (altaAutor && ctx.gastadoT) {
-    const asignada = new Map(); // escala → lo que queda de la asignación, durante el evento
-    const explicito = new Map(); // escala → T explícito disponible, durante el evento
-    const verA = (e) => {
-      if (!asignada.has(e)) { const a = asignacionT(ev.t, e); asignada.set(e, Math.max(0, a.cantidad - ctx.gastadoT(autor, e, a.periodo))); }
-      return asignada.get(e);
-    };
-    const verX = (e) => (explicito.has(e) ? explicito.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
-    for (const { m, i } of validos) {
-      if (m.token !== 'T' || m.de !== autor || ESCALAS_INFORMATIVAS.includes(m.escala)) continue;
-      const e = m.escala;
-      if (m.estado !== undefined || m.a === autor) continue; // bloquear T ya falla arriba; darse T a uno mismo no gasta
-      const usa = Math.min(verA(e), m.cantidad);
-      const falta = m.cantidad - usa;
-      if (falta > verX(e)) { falla(i, 4, 'T del día agotado (' + e + '): quedan ' + (verA(e) + verX(e))); continue; }
-      asignada.set(e, verA(e) - usa);
-      explicito.set(e, verX(e) - falta);
-    }
+  if (!altaAutor || !ctx.gastadoT) return errores;
+  const asignada = new Map(); // escala → lo que queda de la asignación, durante el evento
+  const explicito = new Map(); // escala → T explícito disponible, durante el evento
+  const verA = (e) => {
+    if (!asignada.has(e)) { const a = asignacionT(ev.t, e); asignada.set(e, Math.max(0, a.cantidad - ctx.gastadoT(autor, e, a.periodo))); }
+    return asignada.get(e);
+  };
+  const verX = (e) => (explicito.has(e) ? explicito.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
+  for (const { m, i } of validos) {
+    if (m.token !== 'T' || m.de !== autor || ESCALAS_INFORMATIVAS.includes(m.escala)) continue;
+    const e = m.escala;
+    if (m.estado !== undefined || m.a === autor) continue; // bloquear T ya falla (TT-6); darse T a uno mismo no gasta
+    const usa = Math.min(verA(e), m.cantidad);
+    const falta = m.cantidad - usa;
+    if (falta > verX(e)) { errores.push({ i, capa: 4, texto: 'T del día agotado (' + e + '): quedan ' + (verA(e) + verX(e)) }); continue; }
+    asignada.set(e, verA(e) - usa);
+    explicito.set(e, verX(e) - falta);
   }
+  return errores;
+}
 
+/**
+ * TT-8, TT-9. T no cruza de persona (VG, 7-11 noche: «recibir T solo es un
+ * registro de una cantidad de tiempo; podemos hacer que se transforme en E,
+ * al ser un recurso de otra persona»): de una persona a otra identidad, T se
+ * rechaza, y dar tiempo a otro es emitir E de la serie del que lo da, en su
+ * tiempo (E:<persona>/hora). Lo único que vale (Core, 8-11) es que una
+ * PERSONA dé su T a una COSA («T de segundo para automatismos y
+ * maquinaria»): la máquina gasta el T de su dueño, y el tope sigue siendo el
+ * de la persona (y una cosa lo pasa a otra cosa: no cruza de persona).
+ * Delegar T (VG, 8-11: «yo te delego T, P, R, E para que tú lo uses») es
+ * esto: dar E en tiempo propio.
+ */
+function tNoCruza(ev, ctx, validos) {
+  const errores = [];
+  const autor = ev.autor;
+  const tipoAutor = ctx.tipo(autor);
+  const poderAntes = poderAntesDe(ev, ctx);
   // El dueño de una identidad: quien escribió su alta (si se da de alta en este mismo evento, el autor).
   const duenoDe = (id) => { const alta = ctx.alta(id); return alta ? ctx.registro(alta.id)?.autor : autor; };
   const cosaACosa = (de, a) => {
@@ -272,15 +328,6 @@ export function reglasDelCiclo(ev, ctx) {
     if (!alta) return true; // la da de alta este mismo evento: su dueño es el autor
     return duenoDe(a) === de || duenoDe(a) === duenoDe(de) || poderAntes(alta.id) > 0;
   };
-  // T no cruza de persona (VG, 7-11 noche: «recibir T solo es un registro de
-  // una cantidad de tiempo; podemos hacer que se transforme en E, al ser un
-  // recurso de otra persona»): de una persona a otra identidad, T se rechaza, y
-  // dar tiempo a otro es emitir E de la serie del que lo da, en su tiempo
-  // (E:<persona>/hora). Lo único que vale (Core, 8-11) es que una PERSONA dé su
-  // T a una COSA («T de segundo para automatismos y maquinaria»): la máquina
-  // gasta el T de su dueño, y el tope sigue siendo el de la persona (y una cosa
-  // lo pasa a otra cosa: no cruza de persona). Delegar T (VG, 8-11: «yo te
-  // delego T, P, R, E para que tú lo uses») es esto: dar E en tiempo propio.
   for (const { m, i } of validos) {
     if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
     const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;
@@ -288,22 +335,30 @@ export function reglasDelCiclo(ev, ctx) {
     // De cosa a cosa (VG, 8-11; regla de Core aceptada): solo entre cosas del mismo dueño (quien escribió sus altas) o
     // si el autor escribió el alta de la cosa destino o tiene P sobre ella. Si no, una cosa repartiría T ajeno.
     if (tipoAutor === 'cosa' && tipoA === 'cosa') {
-      if (!cosaACosa(autor, m.a)) falla(i, 5, 'T de cosa a cosa solo entre cosas del mismo dueño, o si ' + autor + ' escribió el alta de ' + m.a + ' o tiene P sobre ella (VG, 8-11)');
+      if (!cosaACosa(autor, m.a)) errores.push({ i, capa: 5, texto: 'T de cosa a cosa solo entre cosas del mismo dueño, o si ' + autor + ' escribió el alta de ' + m.a + ' o tiene P sobre ella (VG, 8-11)' });
       continue;
     }
-    falla(i, 5, 'T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + autor + '/' + m.escala + '); solo se da T a una cosa');
+    errores.push({ i, capa: 5, texto: 'T no cruza de persona: ' + m.a + ' no es el autor; dar tiempo a otro es emitir E de la serie del que lo da, denominada en su tiempo (E:' + autor + '/' + m.escala + '); solo se da T a una cosa' });
   }
+  return errores;
+}
 
-  // R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el eje
-  // debita del ámbito exacto y, si no alcanza, de los que lo cubren) o lo
-  // bloquea. Delegar con el ámbito de un registro X tomando de un ámbito más
-  // amplio (estrechar) crea P:X que no viene de la emisión de X, así que:
-  // hacia una serie cerrada (P:X ya emitida) no se estrecha; y hacia la raíz
-  // de un dominio (un registro sobre el génesis, el que decide al autorizar:
-  // src/autorizacion.js) solo estrecha su autor ([X] confirmar VG). Si no,
-  // quien tiene P del eje lo convertiría en P de la raíz antes de que su autor
-  // emita, y el P del génesis contaría donde la raíz tiene P propio. Estrechar
-  // hacia un registro que no es raíz sigue libre: ese P no autoriza nada.
+/**
+ * PP-5. R3 (VG, 7-11 noche): quien recibe P solo lo delega (repartiendo: el
+ * eje debita del ámbito exacto y, si no alcanza, de los que lo cubren) o lo
+ * bloquea. Delegar con el ámbito de un registro X tomando de un ámbito más
+ * amplio (estrechar) crea P:X que no viene de la emisión de X, así que: hacia
+ * una serie cerrada (P:X ya emitida) no se estrecha; y hacia la raíz de un
+ * dominio (un registro sobre el génesis, el que decide al autorizar:
+ * src/autorizacion.js) solo estrecha su autor ([X] confirmar VG). Si no,
+ * quien tiene P del eje lo convertiría en P de la raíz antes de que su autor
+ * emita, y el P del génesis contaría donde la raíz tiene P propio. Estrechar
+ * hacia un registro que no es raíz sigue libre: ese P no autoriza nada.
+ */
+function estrechar(ev, ctx, validos) {
+  const errores = [];
+  const autor = ev.autor;
+  const emitidoAntes = emitidoAntesDe(ctx);
   const exacto = new Map(); // ámbito → P:ámbito exacto disponible del autor, durante el evento
   const verExacto = (a) => (exacto.has(a) ? exacto.get(a) : Math.max(0, ctx.saldo(autor, 'P:' + a)));
   const emitidaAqui = new Set(); // ámbitos de P emitidos en este evento
@@ -324,33 +379,66 @@ export function reglasDelCiclo(ev, ctx) {
     const registro = ctx.registro(a);
     if (!registro) continue; // el ámbito desconocido lo rechaza el eje
     if (emitidoAntes(a) > 0 || emitidaAqui.has(a)) {
-      falla(i, 5, 'P:' + corto(a) + ' es una serie cerrada: se delega el P:' + corto(a) + ' que se tiene (' + hay + '); estrecharlo desde un ámbito más amplio la ampliaría (R3)');
+      errores.push({ i, capa: 5, texto: 'P:' + corto(a) + ' es una serie cerrada: se delega el P:' + corto(a) + ' que se tiene (' + hay + '); estrecharlo desde un ámbito más amplio la ampliaría (R3)' });
     } else if (registro.sobre === ctx.genesisId && registro.autor !== autor) {
-      falla(i, 5, 'estrechar P hacia ' + corto(a) + ', la raíz de un dominio, es solo de quien la escribió (' + registro.autor + '): ' + autor + ' delega el P que tiene con su ámbito (R3)');
-    }
-  }
-
-  // Escalonado: R exige T; P exige T y R propia en juego; E exige T, R propia en juego y P sobre el registro.
-  if (emitidas.size) {
-    // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
-    // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
-    // cruza de persona, así que solo cuenta el consumo.
-    const mueveT = validos.some(({ m }) => esConsumoT(m, autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
-    // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
-    const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
-    for (const token of ['R', 'P', 'E']) {
-      if (!emitidas.has(token)) continue;
-      if (!mueveT) falla(null, 5, 'emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
-      if (token !== 'R' && !rEnJuego) {
-        falla(null, 5, 'emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
-      }
-      if (token === 'E' && ctx.registro(ev.sobre) && !tienePoder(ev.sobre)) {
-        falla(null, 5, 'emitir E exige P del autor sobre el registro ' + corto(ev.sobre) + ' (saldo o movimiento de P en el mismo evento)');
-      }
+      errores.push({ i, capa: 5, texto: 'estrechar P hacia ' + corto(a) + ', la raíz de un dominio, es solo de quien la escribió (' + registro.autor + '): ' + autor + ' delega el P que tiene con su ámbito (R3)' });
     }
   }
   return errores;
 }
+
+/**
+ * ES-1, ES-2, ES-3. Escalonado: R exige T; P exige T y R propia en juego; E
+ * exige T, R propia en juego y P sobre el registro.
+ */
+function escalonado(ev, ctx, validos) {
+  const errores = [];
+  const falla = (texto) => errores.push({ i: null, capa: 5, texto });
+  const autor = ev.autor;
+  const emitidas = new Set(validos.filter(({ m }) => m.de === null).map(({ m }) => m.token));
+  if (!emitidas.size) return errores;
+  const poderAntes = poderAntesDe(ev, ctx);
+  // P del autor sobre un registro: saldo disponible en un ámbito que lo cubre, o P que mueve o recibe en este evento con ese ámbito.
+  const pEnEvento = (registro) => {
+    const cubren = new Set(ctx.ambitosQueCubren(registro));
+    return validos.some(({ m }) => m.token === 'P' && (m.de === autor || m.a === autor) && cubren.has(m.ambito));
+  };
+  const tienePoder = (registro) => poderAntes(registro) > 0 || pEnEvento(registro);
+  // «Mover T» es CONSUMIR T del autor (VG, 7-11 noche): de = autor, a =
+  // null. Bloquearlo, liberarlo o dárselo a uno mismo no cuesta nada, y T no
+  // cruza de persona, así que solo cuenta el consumo.
+  const mueveT = validos.some(({ m }) => esConsumoT(m, autor) && !ESCALAS_INFORMATIVAS.includes(m.escala));
+  // «R propia en juego» (R6, VG 7-11 noche): R:<autor> bloqueada como colateral de su serie (src/lente.js).
+  const rEnJuego = rPropiaEnJuego(autor, validos.map(({ m }) => m), ctx);
+  for (const token of ['R', 'P', 'E']) {
+    if (!emitidas.has(token)) continue;
+    if (!mueveT) falla('emitir ' + token + ' exige consumir T del autor en el mismo evento (de = ' + autor + ', a = null; VG, 7-11 noche)');
+    if (token !== 'R' && !rEnJuego) {
+      falla('emitir ' + token + ' exige R propia en juego: R:' + autor + ' bloqueada como colateral (salida «R:' + autor + '»), al menos la décima parte de lo emitido de R:' + autor + ', antes o en el mismo evento (R6)');
+    }
+    if (token === 'E' && ctx.registro(ev.sobre) && !tienePoder(ev.sobre)) {
+      falla('emitir E exige P del autor sobre el registro ' + corto(ev.sobre) + ' (saldo o movimiento de P en el mismo evento)');
+    }
+  }
+  return errores;
+}
+
+/**
+ * Las secciones de las reglas del ciclo, en el orden en que se evalúan, con
+ * las filas del inventario (docs/notas/INVENTARIO_REGLAS.md §2) que cubren.
+ * Cada una es (ev, ctx, validos) → [{ i, capa, texto }]. reglasDelCiclo las
+ * concatena; src/condiciones/ciclo.js las envuelve como condiciones de una
+ * transacción (VG, 9-11: la capa cero).
+ */
+export const SECCIONES_DEL_CICLO = Object.freeze([
+  Object.freeze({ nombre: 'RL-1', filas: Object.freeze(['RL-1', 'RL-2', 'RL-3']), evaluar: reloj }),
+  Object.freeze({ nombre: 'ID-9', filas: Object.freeze(['ID-9', 'ID-10', 'TT-1', 'PP-2', 'PP-3', 'EE-9']), evaluar: emision }),
+  Object.freeze({ nombre: 'TT-6', filas: Object.freeze(['TT-6']), evaluar: tNoSeBloquea }),
+  Object.freeze({ nombre: 'TT-4', filas: Object.freeze(['TT-2', 'TT-3', 'TT-4']), evaluar: asignacionDelDia }),
+  Object.freeze({ nombre: 'TT-8', filas: Object.freeze(['TT-8', 'TT-9']), evaluar: tNoCruza }),
+  Object.freeze({ nombre: 'PP-5', filas: Object.freeze(['PP-5']), evaluar: estrechar }),
+  Object.freeze({ nombre: 'ES-1', filas: Object.freeze(['ES-1', 'ES-2', 'ES-3']), evaluar: escalonado }),
+]);
 
 /** Las claves de la serie P de un ámbito: sobre el génesis, P:genesis y P:<id del génesis>, que son la misma. */
 function clavesDeSerieP(ambito, genesisId) {

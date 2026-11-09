@@ -9,6 +9,19 @@
 // E, P o R (T no) sin cambiar de titular: el saldo es lo disponible y lo
 // bloqueado se lleva aparte.
 //
+// La capa cero (VG, 9-11: «la capa de abajo es la de transacciones»;
+// «registrar es hacer una transacción»): por dentro, el eje es una envoltura
+// del LIBRO (src/libro.js). Cada evento se traduce a una transacción
+// (eje.transaccion): sus movimientos son primitivas (de = null es acuñar;
+// a = null, quemar; estado 'bloqueo' o 'liberacion', bloquear o liberar; lo
+// demás, transferir), `sobre` y `en` son el anclaje y el payload es el memo.
+// Las reglas son CONDICIONES DE VALIDEZ de esa transacción
+// (src/condiciones/), las de siempre envueltas tal cual y en el mismo orden;
+// el libro las evalúa sobre la vista de antes del evento y aplica la
+// transacción entera o nada. Saldos, bloqueos, lo emitido y lo consumido de
+// cada serie, el T gastado del día y el T consumido sobre cada registro se
+// leen del libro. Correspondencia completa: docs/notas/CAPA_CERO.md.
+//
 // Sin clave no se actúa (R9, docs/notas/NEUTRALIDAD_IDENTIDAD.md §4; regla
 // madre aceptada por VG, 7-11 noche): una identidad sin clave registrada no
 // escribe, así que no mueve tokens, no autoriza ni escribe bases (todo evento
@@ -24,32 +37,36 @@
 //
 // La E va atada al registro del recurso, con un tope compartido igual a su
 // capacidad y emitida en proporción al P bloqueado (VG, 7-11 noche, R2 del
-// estudio de neutralidad): reglasDelTope, al final de este archivo.
+// estudio de neutralidad): reglasDelTope, en src/condiciones/tope.js.
 
 import { claveToken, cantidadBase, partirClave, validarMovimiento, capacidadDe, franjaDe, familiaDe, TODAS_LAS_FRANJAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, asignacionT, AMBITO_GENESIS, EMITEN } from './tokens.js';
-import { reglasDelCiclo, acotarAltaV2, consolidacionQueAmplia, EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE } from './ciclo.js';
+import { acotarAltaV2, consolidacionQueAmplia, gastaAsignacion, esInformativoT, validosDe } from './ciclo.js';
 import { estadoPorPeso, lectorDelEje } from './autorizacion.js';
-import { reglasDeR, devolucionesDe } from './lente.js';
-import { esInstante, msUTC, msDeGuardado } from './instante.js';
-import { crearEvento, validarForma, verificarId, normalizarEvento, esConsumoT, esPresente } from './evento.js';
-import { verificar, firmar, firmarPosesion, verificarPosesion, clavePublicaValida } from './autoridad.js';
+import { devolucionesDe } from './lente.js';
+import { msUTC, msDeGuardado } from './instante.js';
+import { crearEvento, validarForma, normalizarEvento, esConsumoT, esPresente } from './evento.js';
+import { firmar, firmarPosesion } from './autoridad.js';
+import { Libro, acunar, transferir, bloquear, liberar, quemar, transaccion } from './libro.js';
+import { CONDICIONES, CONDICIONES_GENESIS, CONDICIONES_GENESIS_GUARDADO, SIN_CAPACIDAD, contratoE } from './condiciones/index.js';
+
+export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
 
 /** Caracteres del id por los que conPrefijo agrupa los ids (16⁴ grupos: con 20.000 registros, casi uno por grupo). */
 const PREFIJO = 4;
 
+/** Clases de acuñación del libro que usa el eje (src/libro.js): la asignación diaria de T y el T informativo. */
+const ASIGNACION = 'asignacion';
+const INFORMATIVO = 'informativo';
+
 export class Eje {
-  #series;
+  #libro = new Libro(); // la capa cero: saldos, bloqueos y sumas (src/libro.js)
+  #series = new Map(); // clave de serie → { emisor, contrato (E) }: qué series existen, en orden de aparición; las cantidades, del libro
   #tipos;
-  #altas;
-  #gastadoT = new Map(); // JSON [persona, escala, día civil] → T de su asignación gastado ese día (VG, 8-11)
-  #tiempoSobre = new Map(); // id → Map(escala → T consumido por los eventos escritos sobre él)
-  #informativo = new Map(); // id → T informativo consumido sobre él: [{ escala, cantidad, autor, t, refiere, nota, id }]
   #hijosEn;
   #prefijos;
   #porAutor = new Map(); // id → Map(en → Map(autor → los eventos anclados ahí por ese autor, en orden de entrada))
   #llegada = new Map(); // id → su número de entrada en el eje (0 el génesis)
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
-  #porSalida = new Map(); // salida → Map(clave → Map(identidad → cantidad bloqueada)): el índice de bloqueadoCon y bloqueosCon
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
   #ampliadas = new Set(); // ids de las consolidaciones que ya respaldaron una ampliación de P (R3: una sola)
@@ -62,19 +79,42 @@ export class Eje {
   constructor({ exigirFirmas = false, eventosV2 = 0 } = {}) {
     this.eventos = new Map(); // id → evento
     this.orden = []; // ids en orden de entrada
-    this.saldos = new Map(); // identidad → Map(clave → cantidad disponible)
-    this.bloqueados = new Map(); // identidad → Map(clave → Map(salida → cantidad bloqueada))
     this.claves = new Map(); // identidad → clave pública (JWK)
     this.hijos = new Map(); // id → eventos escritos sobre él, en orden de entrada (índice)
     this.#hijosEn = new Map(); // id → Map(en → los mismos eventos, solo los anclados en esa dirección, en orden de entrada)
     this.#prefijos = new Map(); // primeros PREFIJO caracteres del id → ids, en orden de entrada (índice de conPrefijo)
-    this.#series = new Map(); // clave de serie → { emisor, emitido, caduca (E) }: lo emitido de cada serie, génesis incluido
     this.#tipos = new Map(); // identidad → tipo declarado en su alta (persona o cosa; grupo, solo en el prefijo v2)
-    this.#altas = new Map(); // identidad → { id, t } del evento en que recibió tokens por primera vez
     this.exigirFirmas = exigirFirmas;
     this.eventosV2 = eventosV2;
     // Lo marca el génesis (contexto.demostracion) al aplicarse; un eje que no lo dice no es de demostración.
     this.demostracion = false;
+  }
+
+  /**
+   * El libro de transacciones del eje (src/libro.js): para leer (saldos,
+   * bloqueos, vistas por identidad, sumas, el diario). Se escribe con
+   * eje.escribir o eje.anadir, que traducen el evento y pasan sus condiciones.
+   */
+  get libro() {
+    return this.#libro;
+  }
+
+  /** Saldos disponibles, identidad → Map(clave → cantidad): una copia leída del libro (compatibilidad). */
+  get saldos() {
+    return new Map(this.#libro.titulares().map((id) => [id, new Map(this.#libro.disponibles(id))]));
+  }
+
+  /** Bloqueos, identidad → Map(clave → Map(salida → cantidad)): una copia leída del libro (compatibilidad). */
+  get bloqueados() {
+    const r = new Map();
+    for (const id of this.#libro.titulares()) {
+      for (const { serie, salida, cantidad } of this.#libro.bloqueos(id)) {
+        if (!r.has(id)) r.set(id, new Map());
+        if (!r.get(id).has(serie)) r.get(id).set(serie, new Map());
+        r.get(id).get(serie).set(salida, cantidad);
+      }
+    }
+    return r;
   }
 
   /**
@@ -104,9 +144,9 @@ export class Eje {
       contexto: { ...contexto, genesis: true, ...(demostracion ? { demostracion: true } : {}), ...(clave ? { claves: { [identidad]: clave } } : {}), ...(tipo ? { tipos: { [identidad]: tipo } } : {}) },
     });
     if (privada) ev = await firmar(ev, privada);
-    // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella.
-    const errores = [...erroresGenesis(ev), ...(await erroresFirmaGenesis(ev))];
-    if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
+    // La misma regla que al restaurar: si el génesis declara clave, va firmado con ella (GN-1, GN-2).
+    const motivos = await eje.#libro.evaluar(eje.transaccion(ev), CONDICIONES_GENESIS, { evento: ev, reglas: 3 });
+    if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !clave) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(ev);
     return eje;
@@ -124,10 +164,12 @@ export class Eje {
 
   /**
    * Alta de una identidad: { id, t } del evento en que recibió tokens por
-   * primera vez (el génesis es el alta de su autor), o null.
+   * primera vez (el génesis es el alta de su autor), o null. Es la primera
+   * transacción que abrió su cuenta en el libro.
    */
   alta(identidad) {
-    return this.#altas.get(identidad) ?? null;
+    const tx = this.#libro.alta(identidad);
+    return tx ? { id: tx.id, t: tx.t } : null;
   }
 
   /** ¿Es el evento uno de los guardados con la versión 2 (el prefijo que se valida con sus reglas)? */
@@ -148,9 +190,13 @@ export class Eje {
     return max;
   }
 
-  /** T de la asignación de una persona gastado en una escala un día (`periodo`, el día civil: tokens.asignacionT). */
+  /**
+   * T de la asignación de una persona gastado en una escala un día (`periodo`,
+   * el día civil: tokens.asignacionT): en el libro, lo acuñado a esa persona
+   * con la clase «asignación» y la etiqueta de ese día.
+   */
   gastadoT(identidad, escala, periodo) {
-    return this.#gastadoT.get(JSON.stringify([identidad, escala, periodo])) ?? 0;
+    return this.#libro.sumas({ primitiva: 'acunar', serie: 'T:' + escala, titular: identidad, clase: ASIGNACION, etiqueta: periodo ?? null });
   }
 
   /**
@@ -161,13 +207,20 @@ export class Eje {
    * registro acumula y enseña: { segundo: n, minuto: m, … }, solo las escalas
    * con algo, en el orden de las escalas. Se ve desde fuera, pero ninguna
    * regla lo usa para conceder nada a terceros (ni autorizar, ni topes de E,
-   * ni elegibilidad, ni orden de candidatos). O(1): se lleva al añadir.
+   * ni elegibilidad, ni orden de candidatos). En el libro: lo quemado de cada
+   * serie de T en las transacciones ancladas sobre `id` (sin recorrer).
    */
   tiempoSobre(id) {
-    const porEscala = this.#tiempoSobre.get(id);
     const r = {};
-    for (const e of ESCALAS_REALES) if (porEscala?.get(e)) r[e] = porEscala.get(e);
+    for (const e of ESCALAS_REALES) {
+      const n = this.#quemadoSobre(id, e);
+      if (n) r[e] = n;
+    }
     return r;
+  }
+
+  #quemadoSobre(id, escala) {
+    return this.#libro.sumas({ primitiva: 'quemar', serie: 'T:' + escala, registro: id });
   }
 
   /**
@@ -187,10 +240,12 @@ export class Eje {
    * registro, aparte de las siete escalas reales: lo que quedó registrado como
    * tal, con sus dos fechas, el t real del evento y la fecha a la que se
    * refiere: [{ escala, cantidad, autor, t, refiere, nota, id }], en orden de
-   * entrada. Nada lo convierte a segundos ni lo suma a tiempoSobre.
+   * entrada. Nada lo convierte a segundos ni lo suma a tiempoSobre. En el
+   * libro: los asientos de quema de clase «informativo» anclados sobre `id`.
    */
   tiempoInformativo(id) {
-    return (this.#informativo.get(id) ?? []).map((x) => ({ ...x }));
+    return this.#libro.asientos({ registro: id, primitiva: 'quemar', clase: INFORMATIVO })
+      .map((a) => ({ escala: a.origen.escala, cantidad: a.cantidad, autor: a.tx.autor, t: a.tx.t, refiere: a.origen.refiere ?? null, nota: a.origen.nota ?? null, id: a.tx.id }));
   }
 
   /**
@@ -204,7 +259,10 @@ export class Eje {
     const pendientes = [id];
     while (pendientes.length) {
       const x = pendientes.pop();
-      for (const [e, n] of this.#tiempoSobre.get(x) ?? []) r[e] = (r[e] ?? 0) + n;
+      for (const e of ESCALAS_REALES) {
+        const n = this.#quemadoSobre(x, e);
+        if (n) r[e] = (r[e] ?? 0) + n;
+      }
       for (const h of this.hijos.get(x) ?? []) pendientes.push(h.id);
     }
     return Object.fromEntries(ESCALAS_REALES.filter((e) => r[e]).map((e) => [e, r[e]]));
@@ -219,14 +277,26 @@ export class Eje {
     if (!crudo || crudo.contexto?.genesis !== true || crudo.sobre !== null) throw new Error('el primer evento debe ser el génesis');
     if (!Number.isSafeInteger(eventosV2) || eventosV2 < 0 || eventosV2 > eventos.length) throw new Error('eventosV2 debe ser un entero entre 0 y el número de eventos');
     const g = copiaGuardable(crudo);
-    const errores = [...validarForma(g, { tLaxo: eventosV2 > 0 }), ...erroresGenesis(g, eventosV2 > 0 ? 2 : 3)];
-    if (!(await verificarId(g))) errores.push('id del génesis no corresponde');
-    if (!errores.length) errores.push(...(await erroresFirmaGenesis(g)));
-    if (errores.length) throw new Error('génesis rechazado: ' + errores.join('; '));
     const eje = new Eje({ exigirFirmas, eventosV2 });
+    const motivos = await eje.#libro.evaluar(eje.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: eventosV2 > 0, reglas: eventosV2 > 0 ? 2 : 3 });
+    if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
     if (exigirFirmas && !g.contexto.claves?.[g.autor]) throw new Error('el génesis debe ir firmado');
     eje.#aplicar(g);
     for (const ev of resto) await eje.anadir(ev);
+    return eje;
+  }
+
+  /**
+   * El eje de justo antes del registro número `hasta` (en orden de entrada):
+   * un eje nuevo con los `hasta` primeros eventos, reaplicados sin volver a
+   * validarlos (ya lo están). Lo que leen las capas de validez de un registro
+   * (src/validez.js): el libro, las series, las claves y los tipos de ese
+   * momento, con las mismas condiciones que el eje.
+   */
+  antes(hasta) {
+    const eje = new Eje({ exigirFirmas: this.exigirFirmas, eventosV2: this.eventosV2 });
+    const n = Math.max(0, Math.min(hasta, this.orden.length));
+    for (let k = 0; k < n; k++) eje.#aplicar(this.eventos.get(this.orden[k]));
     return eje;
   }
 
@@ -250,23 +320,19 @@ export class Eje {
     return this.eventos.get(id);
   }
 
+  /** Identidades con cuenta en el libro, en el orden en que nacieron. */
   identidades() {
-    return [...this.saldos.keys()];
+    return this.#libro.titulares();
   }
 
   /** Saldo disponible: lo que se puede consumir o transferir. Lo bloqueado no cuenta. */
   saldo(identidad, clave) {
-    return this.saldos.get(identidad)?.get(clave) ?? 0;
+    return this.#libro.saldo(identidad, clave);
   }
 
   /** Cantidad bloqueada de una serie en una identidad, sumando todas sus salidas (o solo la de `salida`, si se da). */
   bloqueado(identidad, clave, salida) {
-    const porSalida = this.bloqueados.get(identidad)?.get(clave);
-    if (!porSalida) return 0;
-    if (salida !== undefined) return porSalida.get(salida) ?? 0;
-    let total = 0;
-    for (const v of porSalida.values()) total += v;
-    return total;
+    return this.#libro.bloqueado(identidad, clave, salida);
   }
 
   /**
@@ -275,27 +341,17 @@ export class Eje {
    * (src/autorizacion.js): el peso de una autorización es esta suma.
    */
   bloqueadoCon(clave, salida) {
-    let total = 0;
-    for (const v of this.#porSalida.get(salida)?.get(clave)?.values() ?? []) total += v;
-    return total;
+    return this.#libro.bloqueadoPorSalida(salida, clave);
   }
 
   /** Bloqueos con una salida, de cualquier titular y serie: [{ identidad, clave, cantidad }] con cantidad > 0. */
   bloqueosCon(salida) {
-    const lista = [];
-    for (const [clave, porTitular] of this.#porSalida.get(salida) ?? new Map()) {
-      for (const [identidad, cantidad] of porTitular) if (cantidad > 0) lista.push({ identidad, clave, cantidad });
-    }
-    return lista;
+    return this.#libro.bloqueosCon(salida).map(({ titular, serie, cantidad }) => ({ identidad: titular, clave: serie, cantidad }));
   }
 
   /** Bloqueos de una identidad: [{ clave, token, serie, ...campos, salida, cantidad }] con cantidad > 0. */
   bloqueos(identidad) {
-    const lista = [];
-    for (const [clave, porSalida] of this.bloqueados.get(identidad) ?? new Map()) {
-      for (const [salida, cantidad] of porSalida) if (cantidad > 0) lista.push({ clave, ...partirClave(clave), salida, cantidad });
-    }
-    return lista;
+    return this.#libro.bloqueos(identidad).map(({ serie: clave, salida, cantidad }) => ({ clave, ...partirClave(clave), salida, cantidad }));
   }
 
   /**
@@ -306,7 +362,7 @@ export class Eje {
   obligaciones(emisor) {
     const clave = 'R:' + emisor;
     let total = 0;
-    for (const id of this.saldos.keys()) if (id !== emisor) total += this.saldo(id, clave) + this.bloqueado(id, clave);
+    for (const id of this.#libro.titulares()) if (id !== emisor) total += this.saldo(id, clave) + this.bloqueado(id, clave);
     return total;
   }
 
@@ -338,7 +394,7 @@ export class Eje {
 
   /** Saldos de una familia por serie: [{ token, serie, ...campos de la serie, cantidad }] con saldo > 0. */
   #porSerie(identidad, token) {
-    return [...(this.saldos.get(identidad) ?? new Map()).entries()]
+    return this.#libro.disponibles(identidad)
       .filter(([k, v]) => k.startsWith(token + ':') && v > 0)
       .map(([k, v]) => ({ ...partirClave(k), cantidad: v }));
   }
@@ -356,12 +412,30 @@ export class Eje {
   }
 
   /**
+   * Una serie tal como la leen las reglas, o null si no existe: su emisor y
+   * su contrato (E: caduca, registro, divisible, emisores), con lo emitido
+   * (lo acuñado como emisión), lo consumido (lo quemado, en E y T) y, en T,
+   * lo que salió de asignaciones: todo del libro.
+   */
+  #serieCruda(clave) {
+    const s = this.#series.get(clave);
+    if (!s) return null;
+    const emitido = this.#libro.sumas({ primitiva: 'acunar', serie: clave, clase: 'emision' });
+    const token = clave.slice(0, clave.indexOf(':'));
+    if (token === 'E') return { emisor: s.emisor, emitido, ...s.contrato, consumido: this.#libro.sumas({ primitiva: 'quemar', serie: clave }) };
+    if (token === 'T') {
+      return { emisor: s.emisor, emitido, consumido: this.#libro.sumas({ primitiva: 'quemar', serie: clave }), deAsignacion: this.#libro.sumas({ primitiva: 'acunar', serie: clave, clase: ASIGNACION }) };
+    }
+    return { emisor: s.emisor, emitido };
+  }
+
+  /**
    * Una serie por su clave de saldo ('E:casa/EUR', 'R:casa', 'T:hora', 'P:genesis'): quién la emite y cuánto ha emitido,
    * y `caduca` si es una serie de E que la lleva. En T, `emisor` es quien la emitió o la consumió primero; lo de cada persona, saldoT.
    * Del contrato de una serie de E, también `divisible` (si admite fracciones) y `emisores` (si la emisión es conjunta).
    */
   serie(clave) {
-    const s = this.#series.get(clave);
+    const s = this.#serieCruda(clave);
     return {
       emisor: s?.emisor ?? null,
       emitido: s?.emitido ?? 0,
@@ -384,7 +458,7 @@ export class Eje {
       for (const k of this.#series.keys()) if (k.startsWith('E:') && k !== clave && familiaDe(k) === clave) total += this.vivo(k, t);
       return total;
     }
-    const s = this.#series.get(clave);
+    const s = this.#serieCruda(clave);
     if (!s) return 0;
     if (t !== undefined && caducada(this, clave, t)) return 0;
     return s.emitido - s.consumido;
@@ -396,7 +470,7 @@ export class Eje {
    * escribió). null si la serie no existe.
    */
   registroDe(clave) {
-    return this.#series.get(clave)?.registro ?? null;
+    return this.#series.get(clave)?.contrato?.registro ?? null;
   }
 
   /**
@@ -417,7 +491,8 @@ export class Eje {
     return declarados.flatMap(({ id, capacidad }) => {
       const porFranja = new Map();
       for (const [clave, s] of this.#series) {
-        if (!clave.startsWith('E:') || !s.registro || !this.hilo(s.registro).some((e) => e.id === id)) continue;
+        const reg = s.contrato?.registro;
+        if (!clave.startsWith('E:') || !reg || !this.hilo(reg).some((e) => e.id === id)) continue;
         const f = franjaDe(partirClave(clave).denominacion);
         porFranja.set(f, (porFranja.get(f) ?? 0) + this.vivo(clave, t));
       }
@@ -446,11 +521,9 @@ export class Eje {
    * deuda del emisor»).
    */
   series() {
-    const bloqueado = new Map();
-    for (const porClave of this.bloqueados.values()) {
-      for (const [clave, porSalida] of porClave) for (const v of porSalida.values()) bloqueado.set(clave, (bloqueado.get(clave) ?? 0) + v);
-    }
-    return [...this.#series.entries()].map(([clave, s]) => {
+    const bloqueado = this.#libro.bloqueadoPorSerie();
+    return [...this.#series.keys()].map((clave) => {
+      const s = this.#serieCruda(clave);
       const partes = partirClave(clave);
       const base = { clave, ...partes, emisor: s.emisor, emitido: s.emitido, bloqueado: bloqueado.get(clave) ?? 0 };
       // T (VG, 8-11): lo consumido al escribir y lo que salió de la asignación diaria; lo de cada registro, tiempoSobre.
@@ -491,8 +564,91 @@ export class Eje {
   }
 
   /**
+   * La transacción de la capa cero que asienta `ev` con el eje de ahora
+   * (VG, 9-11; src/libro.js): un paso por movimiento, en su orden.
+   *   de = null                       acuñar (clase «emision»)
+   *   estado 'bloqueo' / 'liberacion' bloquear / liberar, con su salida
+   *   P (de ≠ null)                   transferir (o quemar, si a = null) con `fuentes`: los ámbitos que cubren el suyo, del
+   *                                   más concreto al génesis (PP-4); lo que sale de otro ámbito es una reposición
+   *   T informativo                   acuñar (clase «informativo»: si lo gastas te vuelve a salir uno) y quemar
+   *   T de la asignación del día      acuñar (clase «asignacion», etiqueta = el día civil, tope = la asignación del día)
+   *                                   y transferir o quemar: lo que falte sale del T explícito
+   *   lo demás                        transferir, o quemar si a = null
+   * Un movimiento mal formado es un paso vacío (lo cuenta la forma). `sobre` y
+   * `en` son el anclaje; el payload, el memo.
+   */
+  transaccion(ev) {
+    const reglas3 = this.orden.length >= this.eventosV2;
+    const tipoAutor = this.tipo(ev.autor);
+    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
+    const paso = (m) => {
+      if (!m || typeof m !== 'object' || validarMovimiento(m).length) return [];
+      const k = claveToken(m);
+      const c = cantidadBase(m);
+      if (m.de === null) return [acunar(k, m.a, c)];
+      if (m.estado === 'bloqueo') return [bloquear(k, m.de, c, m.salida)];
+      if (m.estado === 'liberacion') return [liberar(k, m.de, c, m.salida)];
+      const sale = (opciones = {}) => (m.a === null ? quemar(k, m.de, c, opciones) : transferir(k, m.de, m.a, c, opciones));
+      if (m.token === 'P') return [sale({ fuentes: this.ambitosQueCubren(m.ambito).map((a) => 'P:' + a) })];
+      if (reglas3 && esInformativoT(m)) {
+        return [acunar(k, m.de, c, { clase: INFORMATIVO }), quemar(k, m.de, c, { clase: INFORMATIVO, escala: m.escala, refiere: m.refiere, nota: m.nota })];
+      }
+      if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
+        const a = asignacionT(ev.t, m.escala);
+        return [acunar(k, m.de, c, { clase: ASIGNACION, etiqueta: a.periodo, tope: a.cantidad }), sale()];
+      }
+      return [sale()];
+    };
+    return transaccion({
+      id: ev.id,
+      autor: ev.autor,
+      t: ev.t,
+      ancla: { sobre: ev.sobre ?? null, en: ev.en ?? null },
+      memo: ev.payload,
+      firma: ev.firma ?? null,
+      firmante: ev.firmante ?? null,
+      abre: ev.contexto?.genesis === true && typeof ev.autor === 'string' ? [ev.autor] : [],
+      movimientos: (Array.isArray(ev.movimientos) ? ev.movimientos : []).map(paso),
+    });
+  }
+
+  /**
+   * Lo que leen las condiciones (src/condiciones/) de la transacción de `ev`:
+   * el eje de antes del evento. `evento` es el registro; `ciclo`, `tope` y `r`,
+   * los contextos de las reglas del ciclo, de la E atada y de R.
+   */
+  contexto(ev) {
+    const eje = this;
+    const reglas = this.orden.length < this.eventosV2 ? 2 : 3;
+    let ciclo;
+    let tope;
+    let r;
+    let validos;
+    return {
+      evento: ev,
+      reglas,
+      tLaxo: reglas === 2,
+      exigirFirmas: this.exigirFirmas,
+      exigeClave: this.#exigeClave(),
+      registrado: (id) => this.eventos.has(id),
+      registro: (id) => this.eventos.get(id),
+      clave: (id) => this.claves.get(id),
+      tieneClave: (id) => this.claves.has(id),
+      tipo: (id) => this.tipo(id),
+      tipoDeclarado: (id) => this.#tipos.has(id),
+      // Los movimientos bien formados del evento, con su índice: los leen varias condiciones.
+      get validos() { return (validos ??= validosDe(ev)); },
+      get ciclo() { return (ciclo ??= eje.#contextoCiclo(ev)); },
+      get tope() { return (tope ??= eje.#contextoTope()); },
+      get r() { return (r ??= eje.#contextoR()); },
+    };
+  }
+
+  /**
    * Errores que impedirían añadir el evento; vacío si es admisible. Se valida
    * la copia que se guardaría (normalizarEvento), nunca lanza por la forma.
+   * El evento se traduce a su transacción y el libro la prueba con las
+   * condiciones (src/condiciones/index.js, CONDICIONES) y su aritmética.
    */
   async validar(crudo) {
     let ev;
@@ -501,130 +657,9 @@ export class Eje {
     } catch (e) {
       return ['no cabe en JSON: ' + e.message];
     }
-    const errores = validarForma(ev, { tLaxo: this.orden.length < this.eventosV2 });
-    if (!ev || typeof ev !== 'object') return errores;
-    // Los movimientos que no son objeto ya los cuenta validarForma; aquí no se miran.
-    const movimientos = Array.isArray(ev.movimientos) ? ev.movimientos.filter((m) => m && typeof m === 'object') : [];
-    if (typeof ev.id !== 'string' || !(await verificarId(ev))) errores.push('id no corresponde al cuerpo');
-    if (this.eventos.has(ev.id)) errores.push('evento ya registrado');
-    if (ev.contexto?.genesis) errores.push('ya hay génesis');
-    if (ev.sobre === null) errores.push('solo el génesis carece de foco');
-    else if (!this.eventos.has(ev.sobre)) errores.push('foco desconocido: ' + ev.sobre);
-    if (!this.saldos.has(ev.autor)) errores.push('autor desconocido: ' + ev.autor);
-    // Autoridad: nadie mueve tokens ajenos, y quien tiene clave firma.
-    const clave = this.claves.get(ev.autor);
-    if (clave) {
-      if (!ev.firma) errores.push('firma ausente de ' + ev.autor);
-      else if (ev.firmante !== ev.autor) errores.push('el firmante debe ser el autor');
-      else if (!(await verificar(ev, clave))) errores.push('firma inválida de ' + ev.autor);
-    } else if (this.exigirFirmas) {
-      errores.push('autor sin clave: ' + ev.autor);
-    } else if (this.#exigeClave()) {
-      // R9: sin clave no se actúa (mover tokens, autorizar, escribir bases: todo evento mueve T de su autor).
-      errores.push('sin clave no se actúa: ' + ev.autor + ' no tiene clave registrada (solo un eje de demostración lo admite)');
-    }
-    // Las claves que declara el evento solo pueden ser de identidades nuevas (que reciben tokens en él),
-    // y llegan con su prueba de posesión (R9): la clave nueva firma el id del alta.
-    const declaradas = ev.contexto?.claves ?? {};
-    for (const [id, jwk] of Object.entries(declaradas)) {
-      if (this.claves.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar la clave de ' + id);
-      else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
-      else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
-      else if (!Object.hasOwn(ev.posesion ?? {}, id)) {
-        if (this.#exigeClave()) errores.push('la clave de ' + id + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
-      } else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
-    }
-    for (const id of Object.keys(ev.posesion ?? {})) {
-      if (!Object.hasOwn(declaradas, id)) errores.push('prueba de posesión de ' + id + ' sin clave declarada para él en este evento');
-    }
-    // Igual con los tipos: se declaran en el alta y no cambian.
-    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      const mal = motivoTipo(id, tipo, this.orden.length < this.eventosV2 ? 2 : 3);
-      if (mal) errores.push(mal);
-      else if (this.#tipos.has(id) || this.saldos.has(id)) errores.push('no se puede cambiar el tipo de ' + id);
-      else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
-    }
-    // Las reglas de emisión (VG, 7-11 noche: solo personas, T con el tope del
-    // reloj, escalonado T → R → P → E) y la del t del evento están en
-    // src/ciclo.js y leen el eje de antes del evento. Un evento guardado con la
-    // versión 2 se valida con las reglas de entonces.
-    for (const { texto } of reglasDelCiclo(ev, this.#contextoCiclo(ev))) errores.push(texto);
-    // La E atada al recurso (R2): el contrato de la serie (registro, divisible,
-    // emisores), el tope compartido igual a la capacidad, la cuota por P
-    // bloqueado y que ese P no se libere mientras viva la E que respalda.
-    for (const { texto } of reglasDelTope(ev, this.#contextoTope())) errores.push(texto);
-    // R6 (VG, 7-11 noche): emitir R exige colateral (R propia bloqueada con la salida = la serie), que no se
-    // libera mientras haya devoluciones sin atender; atender es citar la devolución (src/lente.js).
-    for (const { texto } of reglasDeR(ev, this.#contextoR())) errores.push(texto);
-    // Simulación de los movimientos, en orden, sobre una vista de los saldos y
-    // de lo emitido: si algo falla, nada cambia. Lo emitido entra en la vista,
-    // así que el emisor puede emitir y dar en el mismo evento. Lo bloqueado
-    // tiene su propia vista, por salida.
-    const vista = new Map();
-    const ver = (id, k) => vista.get(JSON.stringify([id, k])) ?? this.saldo(id, k);
-    const poner = (id, k, v) => vista.set(JSON.stringify([id, k]), v);
-    const vistaB = new Map();
-    const verB = (id, k, salida) => vistaB.get(JSON.stringify([id, k, salida])) ?? this.bloqueado(id, k, salida);
-    const ponerB = (id, k, salida, v) => vistaB.set(JSON.stringify([id, k, salida]), v);
-    const emitido = new Map();
-    // La asignación diaria de T del autor (VG, 8-11), si es una persona con alta: lo que queda, por escala, durante el evento.
-    const reglas3 = this.orden.length >= this.eventosV2;
-    const tipoAutor = this.tipo(ev.autor);
-    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
-    const quedaA = new Map();
-    const verA = (e) => (quedaA.has(e) ? quedaA.get(e) : this.#quedaAsignacion(ev.autor, e, ev.t));
-    for (const m of movimientos) {
-      if (validarMovimiento(m).length) continue; // ya lo cuenta validarForma
-      const k = claveToken(m);
-      const c = cantidadBase(m);
-      if (m.de === null) {
-        // Emisión: quién puede y cuánto lo dicen las reglas del ciclo; aquí, que la serie siga siendo finita.
-        const total = (emitido.get(k) ?? this.serie(k).emitido) + c;
-        if (!Number.isFinite(total)) { errores.push('la serie ' + k + ' no admite tanto'); continue; }
-        emitido.set(k, total);
-        poner(m.a, k, ver(m.a, k) + c);
-        continue;
-      }
-      // Nadie mueve lo de otro, ni por cuenta de un grupo (VG, 8-11: solo existe la delegación).
-      if (m.de !== ev.autor) { errores.push(motivoAjenos(m.de)); continue; }
-      if (m.estado === 'bloqueo') {
-        // Bloquear: del disponible al bloqueado del mismo titular, con su salida; de la clave exacta, también en P.
-        if (ver(m.de, k) < c) { errores.push('saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de); continue; }
-        poner(m.de, k, ver(m.de, k) - c);
-        ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) + c);
-        continue;
-      }
-      if (m.estado === 'liberacion') {
-        // Liberar: del bloqueado con esa misma salida al disponible. La salida es declarada, no verificable
-        // todavía: el titular libera cuando quiere citándola y nadie comprueba que se cumplió ([X] decidir VG
-        // qué la hace verificable, p. ej. que la liberación cite un evento de otra identidad).
-        if (verB(m.de, k, m.salida) < c) { errores.push('no hay ' + c + ' de ' + k + ' bloqueado en ' + m.de + ' con la salida «' + m.salida + '»'); continue; }
-        ponerB(m.de, k, m.salida, verB(m.de, k, m.salida) - c);
-        poner(m.de, k, ver(m.de, k) + c);
-        continue;
-      }
-      if (m.token === 'P') {
-        if (m.ambito !== AMBITO_GENESIS && !this.eventos.has(m.ambito)) { errores.push('ámbito desconocido: ' + String(m.ambito).slice(0, 8)); continue; }
-        const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, ver);
-        if (!plan) { errores.push('saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de); continue; }
-        for (const [kp, delta] of plan) poner(m.de, kp, ver(m.de, kp) + delta);
-      } else if (reglas3 && esInformativoT(m)) {
-        // T informativo (VG, 8-11): ilimitado, «si lo gastas te vuelve a salir uno»; solo queda registrado.
-        continue;
-      } else if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
-        // T como asignación diaria (VG, 8-11): primero lo que queda del día, luego el T explícito.
-        // Si no alcanza, «T del día agotado» lo dicen las reglas del ciclo (src/ciclo.js).
-        const { asignacion, explicito } = repartirGastoT(verA(m.escala), c);
-        if (ver(m.de, k) < explicito) continue;
-        quedaA.set(m.escala, verA(m.escala) - asignacion);
-        poner(m.de, k, ver(m.de, k) - explicito);
-      } else {
-        if (ver(m.de, k) < c) { errores.push('saldo insuficiente de ' + k + ' en ' + m.de); continue; }
-        poner(m.de, k, ver(m.de, k) - c);
-      }
-      if (m.a !== null) poner(m.a, k, ver(m.a, k) + c);
-    }
-    return errores;
+    if (!ev || typeof ev !== 'object') return validarForma(ev, { tLaxo: this.orden.length < this.eventosV2 });
+    const { motivos } = await this.#libro.probar(this.transaccion(ev), CONDICIONES, this.contexto(ev));
+    return textos(ev, motivos);
   }
 
   /**
@@ -642,7 +677,7 @@ export class Eje {
       },
       tMaximo: () => this.#tMax,
       gastadoT: (id, escala, periodo) => this.gastadoT(id, escala, periodo),
-      serie: (k) => this.#series.get(k) ?? null,
+      serie: (k) => this.#serieCruda(k),
       registro: (id) => this.eventos.get(id),
       ambitosQueCubren: (ambito) => this.ambitosQueCubren(ambito),
       saldo: (id, k) => this.saldo(id, k),
@@ -662,7 +697,7 @@ export class Eje {
     const dev = devolucionesDe(this);
     return {
       reglas: this.orden.length < this.eventosV2 ? 2 : 3,
-      serie: (k) => this.#series.get(k) ?? null,
+      serie: (k) => this.#serieCruda(k),
       bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
       pendientes: dev.pendientes,
       devolucion: dev.devolucion,
@@ -681,8 +716,8 @@ export class Eje {
       tMaximo: (excluidos) => this.tMaximo(excluidos ?? []),
       registro: (id) => this.eventos.get(id),
       alta: (id) => this.alta(id),
-      serie: (k) => this.#series.get(k) ?? null,
-      seriesE: () => [...this.#series].filter(([k]) => k.startsWith('E:')),
+      serie: (k) => this.#serieCruda(k),
+      seriesE: () => [...this.#series.keys()].filter((k) => k.startsWith('E:')).map((k) => [k, this.#serieCruda(k)]),
       topes: (registro) => this.#topesDe(registro),
       dentro: (registro, ancestro) => Boolean(registro) && this.eventos.has(registro) && hiloDe(registro).has(ancestro),
       bloqueado: (id, k, salida) => this.bloqueado(id, k, salida),
@@ -693,12 +728,17 @@ export class Eje {
   /**
    * Añade un evento válido y aplica sus movimientos. Lanza si no es admisible.
    * Guarda y devuelve su copia normalizada y congelada, no el objeto recibido.
+   * Es una transacción del libro con las condiciones de siempre: entera o nada.
    */
   async anadir(crudo) {
     const ev = copiaGuardable(crudo);
-    const errores = await this.validar(ev);
-    if (errores.length) throw new Error('evento rechazado: ' + errores.join('; '));
-    this.#aplicar(ev); // la copia de copiaGuardable ya está congelada entera: lo guardado no se modifica en sitio
+    const tx = this.transaccion(ev);
+    const { motivos, simulacion } = await this.#libro.probar(tx, CONDICIONES, this.contexto(ev));
+    if (motivos.length) {
+      const errores = textos(ev, motivos);
+      throw new Error('evento rechazado: ' + (errores.length ? errores : motivos.map((m) => m.texto)).join('; '));
+    }
+    this.#aplicar(ev, tx, simulacion); // la copia de copiaGuardable ya está congelada entera: lo guardado no se modifica en sitio
     return ev;
   }
 
@@ -759,7 +799,13 @@ export class Eje {
     return this.#hijosEn.get(id)?.get(en)?.length ?? 0;
   }
 
-  #aplicar(ev) {
+  /**
+   * Aplica un evento ya validado: asienta su transacción en el libro (la de
+   * probar, `simulacion`, si es la de este momento) y lleva los índices del
+   * eje (lo escrito sobre cada registro, por autor, por prefijo; el reloj; las
+   * claves y los tipos; qué series existen y su contrato).
+   */
+  #aplicar(ev, tx = this.transaccion(ev), simulacion = undefined) {
     // Demostración: solo la bandera firmada del génesis (SEG-02, revisión de main 7-11 noche). Un eje que viene
     // de la versión 2 no es de demostración por serlo: la exención de clave vale solo dentro de su prefijo
     // (#exigeClave), no para lo que se le añade después.
@@ -767,9 +813,10 @@ export class Eje {
     // La asignación diaria de T (VG, 8-11) rige fuera del prefijo de la versión 2, para una persona con alta.
     const reglas3 = this.orden.length >= this.eventosV2;
     const tipoAutor = this.tipo(ev.autor);
-    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.#altas.has(ev.autor);
+    const conAsignacion = reglas3 && EMITEN.includes(tipoAutor) && this.alta(ev.autor) !== null;
     const amplia = consolidacionQueAmplia(ev, () => this.#contextoCiclo(ev)); // la consolidación que usó para ampliar P (SEG-04)
     if (amplia) this.#ampliadas.add(amplia);
+    const asientos = this.#libro.asentar(tx, simulacion);
     this.#llegada.set(ev.id, this.orden.length);
     this.eventos.set(ev.id, ev);
     this.orden.push(ev.id);
@@ -797,81 +844,29 @@ export class Eje {
     }
     for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
     for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tipos.set(id, tipo);
-    // El génesis es el alta de su autor aunque no emita nada (VG, 8-11: no emite T; vive de su asignación del día).
-    if (ev.contexto?.genesis === true && !this.#altas.has(ev.autor)) {
-      this.#altas.set(ev.autor, { id: ev.id, t: ev.t });
-      if (!this.saldos.has(ev.autor)) this.saldos.set(ev.autor, new Map());
-    }
-    for (const m of ev.movimientos) {
-      const clave = claveToken(m);
-      const c = cantidadBase(m);
-      // El alta: el primer evento en que una identidad recibe tokens (el génesis, para su autor).
-      if (m.a !== null && !this.#altas.has(m.a)) this.#altas.set(m.a, { id: ev.id, t: ev.t });
-      if (m.estado === 'bloqueo' || m.estado === 'liberacion') {
-        // No cambia de titular: pasa del disponible al bloqueado (o al revés), por salida.
-        const signo = m.estado === 'bloqueo' ? 1 : -1;
-        this.#ajustar(m.de, clave, -signo * c);
-        this.#ajustarBloqueo(m.de, clave, m.salida, signo * c);
-        continue;
-      }
+    // Qué series existen, en orden de aparición, con su emisor y su contrato (las cantidades son del libro). Una
+    // serie aparece con su primera emisión; una de T, también con su primer consumo o con la primera asignación que
+    // sale de las manos de su persona.
+    const deAsignacion = (i) => asientos.some((a) => a.paso === i && a.primitiva === 'acunar' && a.clase === ASIGNACION && a.cantidad > 0);
+    const registrar = (k, emisor, contrato) => {
+      if (!this.#series.has(k)) this.#series.set(k, { emisor, ...(contrato ? { contrato } : {}) });
+    };
+    ev.movimientos.forEach((m, i) => {
+      if (m.estado === 'bloqueo' || m.estado === 'liberacion') return;
+      const k = claveToken(m);
       if (m.de === null) {
-        // Emisión: la serie queda a nombre de quien la emite (en E y R, su emisor, que va en la clave; en T y P, quien primero la emitió).
         const emisor = m.token === 'E' || m.token === 'R' ? m.emisor : ev.autor;
-        const s = this.#series.get(clave) ?? { emisor, emitido: 0, ...(m.token === 'E' ? contratoE(m, this.#altas.get(m.emisor)?.id) : {}) };
-        this.#series.set(clave, { ...s, emitido: s.emitido + c });
-      } else {
-        if (m.token === 'P') {
-          // Delegar poder estrecha el ámbito: se debita del ámbito exacto y, si no alcanza, de los que lo cubren.
-          const plan = this.#planDebitoP(m.de, m.ambito, m.cantidad, (id, k) => this.saldo(id, k));
-          for (const [k, delta] of plan ?? [[clave, -c]]) this.#ajustar(m.de, k, delta);
-        } else if (m.token === 'T' && reglas3 && esInformativoT(m)) {
-          // T informativo (VG, 8-11): ilimitado, no toca saldos; queda registrado con sus dos fechas.
-          const s = this.#series.get(clave) ?? { emisor: ev.autor, emitido: 0 };
-          this.#series.set(clave, { ...s, consumido: (s.consumido ?? 0) + c });
-          if (ev.sobre !== null) {
-            if (!this.#informativo.has(ev.sobre)) this.#informativo.set(ev.sobre, []);
-            this.#informativo.get(ev.sobre).push({ escala: m.escala, cantidad: c, autor: ev.autor, t: ev.t, refiere: m.refiere ?? null, nota: m.nota ?? null, id: ev.id });
-          }
-          continue;
-        } else if (m.token === 'T' && ((conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) || esConsumoT(m, ev.autor))) {
-          // T como asignación diaria (VG, 8-11): lo que una persona gasta sale primero de lo que queda de su
-          // asignación del día de ev.t y luego de su T explícito (validar ya lo admitió). Quien no tiene
-          // asignación gasta su T explícito.
-          let asignacion = 0;
-          if (conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) {
-            const a = asignacionT(ev.t, m.escala);
-            const kg = JSON.stringify([ev.autor, m.escala, a.periodo]);
-            ({ asignacion } = repartirGastoT(a.cantidad - (this.#gastadoT.get(kg) ?? 0), c));
-            if (asignacion) this.#gastadoT.set(kg, (this.#gastadoT.get(kg) ?? 0) + asignacion);
-          }
-          this.#ajustar(m.de, clave, -(c - asignacion));
-          // deAsignacion: todo lo que salió de asignaciones (consumido o dado a una cosa); así se conserva:
-          // saldos + consumido = emitido + deAsignacion.
-          if (m.a === null || asignacion) {
-            const s = this.#series.get(clave) ?? { emisor: ev.autor, emitido: 0 };
-            this.#series.set(clave, { ...s, deAsignacion: (s.deAsignacion ?? 0) + asignacion });
-          }
-          if (m.a === null) {
-            const s = this.#series.get(clave);
-            this.#series.set(clave, { ...s, consumido: (s.consumido ?? 0) + c });
-            // El consumo se anota en el registro que soporta (VG, 7-11 noche): tiempoSobre.
-            if (ev.sobre !== null) {
-              if (!this.#tiempoSobre.has(ev.sobre)) this.#tiempoSobre.set(ev.sobre, new Map());
-              const porEscala = this.#tiempoSobre.get(ev.sobre);
-              porEscala.set(m.escala, (porEscala.get(m.escala) ?? 0) + c);
-            }
-          }
-        } else {
-          this.#ajustar(m.de, clave, -c);
-        }
-        // Consumir E baja su E vivo (R2): se lleva por serie.
-        if (m.token === 'E' && m.a === null && this.#series.has(clave)) {
-          const s = this.#series.get(clave);
-          this.#series.set(clave, { ...s, consumido: s.consumido + c });
-        }
+        if (m.token !== 'E') return registrar(k, emisor);
+        const { consumido: _consumido, ...contrato } = contratoE(m, this.alta(m.emisor)?.id);
+        return registrar(k, emisor, contrato);
       }
-      if (m.a !== null) this.#ajustar(m.a, clave, c);
-    }
+      if (m.token !== 'T') return undefined;
+      if (reglas3 && esInformativoT(m)) return registrar(k, ev.autor);
+      if ((conAsignacion && gastaAsignacion(m, ev.autor, tipoAutor)) || esConsumoT(m, ev.autor)) {
+        if (m.a === null || deAsignacion(i)) registrar(k, ev.autor);
+      }
+      return undefined;
+    });
   }
 
   /** Ámbitos de P que cubren un ámbito dado: él mismo, los registros de su hilo y el génesis. */
@@ -881,41 +876,27 @@ export class Eje {
     const hilo = this.eventos.has(ambito) ? this.hilo(ambito).map((e) => e.id) : [ambito];
     return [...hilo, AMBITO_GENESIS];
   }
+}
 
-  /** Plan de débito de P: pares [clave, delta] del ámbito más concreto al más amplio; null si no alcanza. */
-  #planDebitoP(identidad, ambito, cantidad, ver) {
-    const plan = [];
-    let resta = cantidad;
-    for (const a of this.ambitosQueCubren(ambito)) {
-      const k = 'P:' + a;
-      const hay = ver(identidad, k);
-      if (hay <= 0) continue;
-      const usa = Math.min(hay, resta);
-      plan.push([k, -usa]);
-      resta -= usa;
-      if (resta <= 0) return plan;
-    }
-    return null;
-  }
+/**
+ * Los textos de los motivos de una transacción del eje, en orden: los de las
+ * condiciones tal cual y los fallos de la aritmética del libro con el texto
+ * de siempre (el del movimiento que falla). El gasto de la asignación del día
+ * que no alcanza no tiene texto aquí: lo dice TT-4 («T del día agotado»).
+ */
+function textos(ev, motivos) {
+  return motivos.map((motivo) => (motivo.fallo ? textoDeFallo(ev, motivo.fallo) : motivo.texto)).filter((x) => x !== null);
+}
 
-  #ajustar(identidad, clave, delta) {
-    if (!this.saldos.has(identidad)) this.saldos.set(identidad, new Map());
-    const s = this.saldos.get(identidad);
-    s.set(clave, (s.get(clave) ?? 0) + delta);
-  }
-
-  #ajustarBloqueo(identidad, clave, salida, delta) {
-    if (!this.bloqueados.has(identidad)) this.bloqueados.set(identidad, new Map());
-    const porClave = this.bloqueados.get(identidad);
-    if (!porClave.has(clave)) porClave.set(clave, new Map());
-    const porSalida = porClave.get(clave);
-    porSalida.set(salida, (porSalida.get(salida) ?? 0) + delta);
-    if (!this.#porSalida.has(salida)) this.#porSalida.set(salida, new Map());
-    const porClaveS = this.#porSalida.get(salida);
-    if (!porClaveS.has(clave)) porClaveS.set(clave, new Map());
-    const porTitular = porClaveS.get(clave);
-    porTitular.set(identidad, (porTitular.get(identidad) ?? 0) + delta);
-  }
+function textoDeFallo(ev, fallo) {
+  const m = ev.movimientos[fallo.paso];
+  const k = claveToken(m);
+  if (fallo.falta === 'finito') return 'la serie ' + k + ' no admite tanto';
+  if (m.estado === 'bloqueo') return 'saldo disponible insuficiente para bloquear ' + k + ' en ' + m.de;
+  if (m.estado === 'liberacion') return 'no hay ' + m.cantidad + ' de ' + k + ' bloqueado en ' + m.de + ' con la salida «' + m.salida + '»';
+  if (m.token === 'P') return 'saldo insuficiente de P sobre ' + (m.ambito === AMBITO_GENESIS ? 'el eje' : m.ambito.slice(0, 8)) + ' en ' + m.de;
+  if (fallo.grupo.some((x) => x.primitiva === 'acunar' && x.clase === ASIGNACION)) return null; // lo dice TT-4
+  return 'saldo insuficiente de ' + k + ' en ' + m.de;
 }
 
 /**
@@ -930,320 +911,6 @@ export function caducada(eje, clave, t) {
   const ahora = msUTC(t);
   if (Number.isNaN(ahora)) throw new Error('caducada: t debe ser instante ISO-8601 con zona explícita');
   return ahora >= msUTC(caduca);
-}
-
-// ---------- la E atada al recurso (R2 del estudio de neutralidad; VG, 7-11 noche) ----------
-
-/** Lo que dice series() de una serie de E cuyo registro no declara capacidad ni la hereda. */
-export const SIN_CAPACIDAD = 'sin capacidad declarada: deuda del emisor';
-
-/** Margen para comparar cantidades de E y cuotas (las series divisibles van en coma flotante). */
-const MARGEN = 1e-9;
-
-const corto = (x) => String(x).slice(0, 8);
-const enEnteros = (k) => 'la serie ' + k + ' va en enteros: no se declaró divisible (divisible: true en su primera emisión)';
-const mismoConjunto = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
-
-/**
- * El contrato de una serie de E que fija su primera emisión: caducidad,
- * registro (el que nombra o, si no nombra ninguno, `registroEmisor`: el alta
- * de su emisor), si es divisible y quiénes la emiten juntos (null si la
- * emite solo su emisor). Y lo consumido, que empieza en 0.
- */
-function contratoE(m, registroEmisor) {
-  return {
-    caduca: m.caduca ?? null,
-    registro: m.registro ?? registroEmisor ?? null,
-    divisible: m.divisible === true,
-    emisores: m.emisores ? [...m.emisores].sort() : null,
-    consumido: 0,
-  };
-}
-
-/**
- * Reglas de la E atada al recurso (VG, 7-11 noche: «Me parece bien todo»;
- * R2 de docs/notas/NEUTRALIDAD_IDENTIDAD.md). Errores [{ i, capa, texto }]
- * como los de reglasDelCiclo: `i` es el movimiento (null si es del evento),
- * capa 4 si falta respaldo y 5 si falta permiso. No miran saldos (eso lo
- * hace la simulación del eje); leen el eje de antes del evento (`ctx`) y
- * simulan solo lo que el propio evento emite, consume, bloquea y libera.
- *
- * 1. El registro. La serie de E lleva el id del evento donde vive el recurso
- *    (`registro`, en la clave tras la última '@'); ha de existir en el eje.
- *    Sin él, la serie queda atada al registro de su emisor (su alta).
- * 2. El tope compartido, POR FRANJA. La franja es lo que va tras la última
- *    '@' de la denominación (tokens.franjaDe: `cama-2@2026-11-13` →
- *    `2026-11-13`); texto opaco que el eje no interpreta y cuya granularidad
- *    elige quien respalda el recurso; sin '@', una sola franja, ''. Para cada
- *    registro del hilo del de la serie (él incluido) que declara capacidad
- *    (tokens.capacidadDe sobre su payload raíz), el E vivo en el t del evento
- *    (emitido − consumido, y nada si la serie caducó; la caducidad, con el
- *    reloj del eje: el menor entre el t del evento y el mayor t aceptado
- *    antes de él, SEG-03 [X] confirmar VG) de ese registro y de
- *    todos sus descendientes, sumando todas las denominaciones y todos los
- *    emisores DE LA MISMA FRANJA, no pasa de esa capacidad: una casa de 4
- *    plazas tiene 4 por noche (VG, 7-11 noche). Se miran TODOS los que la
- *    declaran, no solo el más cercano: así un subregistro que declare más
- *    capacidad no esquiva el tope de su ancestro. Sin ninguno no hay tope:
- *    deuda del emisor (SIN_CAPACIDAD).
- * 3. La cuota por P bloqueado, por serie. Con tope, para cada registro A que
- *    lo declara, el E vivo de la serie no pasa de ⌊P bloqueado ÷ P emitido ×
- *    capacidad⌋, donde el P es P:A si A tiene P propio emitido y, si no,
- *    P:genesis («el génesis solo manda donde nadie ha emitido P», VG), y el
- *    bloqueado es el de los emisores de la serie con la salida = la clave de
- *    la serie o la de su FAMILIA (tokens.familiaDe: la franja cambiada por
- *    «*»): [X] un mismo bloqueo respalda así la misma cama todas las noches,
- *    porque la capacidad se repite en cada franja.
- * 4. Ese bloqueo no se libera: un P bloqueado con la salida = la clave de una
- *    serie de E no se libera mientras quede E vivo de esa serie, ni con la de
- *    una familia mientras quede E vivo en alguna de sus franjas.
- * 5. El redondeo. Fracciones solo en las series declaradas divisibles
- *    (`divisible: true` en la primera emisión; las ampliaciones coinciden,
- *    como `caduca`); en ellas la cuota no se redondea. Cuando la unidad no se
- *    parte (una cama), la emisión conjunta: `emisores: [...]`, el emisor entre
- *    ellos, suman el P que cada uno tiene bloqueado para la serie. El eje
- *    lleva una sola firma por evento, así que [X] la firma de cada coemisor
- *    es su propio bloqueo, escrito y firmado por él antes: quien aparece en
- *    `emisores` sin P bloqueado para la serie no la respalda y se rechaza.
- *    Los emisores son del contrato de la serie: las ampliaciones coinciden.
- *
- * Un evento guardado con la versión 2 no conoce registro, divisible ni
- * emisores. El génesis no pasa por aquí (erroresGenesis).
- *
- * ctx, todo de antes del evento:
- *   reglas                     2 si el evento se guardó con la versión 2
- *   tMaximo(excluidos)         el mayor t aceptado antes del evento entre los eventos de identidades que no están en
- *                              `excluidos`, en milisegundos UTC (el reloj de la caducidad); -Infinity si no hay ninguno
- *   registro(id)               el evento con ese id, o undefined
- *   alta(id)                   { id, t } del alta, o null
- *   serie(clave)               { emisor, emitido, consumido, caduca, registro, divisible, emisores } (E) o { emisor, emitido } (P), o null
- *   seriesE()                  [[clave, serie]] de todas las series de E
- *   topes(registro)            [{ id, capacidad }]: los registros de su hilo que declaran capacidad
- *   dentro(registro, ancestro) si `ancestro` está en el hilo de `registro`
- *   bloqueado(id, clave, salida)
- *   bloqueadoP(id, salida)     P de cualquier ámbito que `id` tiene bloqueado con esa salida
- */
-export function reglasDelTope(ev, ctx) {
-  if (!ev || typeof ev !== 'object' || ev.contexto?.genesis === true) return [];
-  const validos = (Array.isArray(ev.movimientos) ? ev.movimientos : [])
-    .map((m, i) => ({ m, i }))
-    .filter(({ m }) => m && typeof m === 'object' && !validarMovimiento(m).length);
-  const errores = [];
-  const falla = (i, capa, texto) => errores.push({ i, capa, texto });
-  if (ctx.reglas === 2) {
-    for (const { m, i } of validos) {
-      if (m.token === 'E' && (m.registro !== undefined || m.divisible !== undefined || m.emisores !== undefined)) {
-        falla(i, 5, 'registro, divisible y emisores no existían en la versión 2: no caben en su prefijo');
-      }
-    }
-    return errores;
-  }
-
-  // Vista de las series de E tras el evento: su contrato, lo emitido y lo consumido.
-  const vistas = new Map();
-  const estado = (k) => {
-    if (!vistas.has(k)) {
-      const s = ctx.serie(k);
-      vistas.set(k, s ? { ...s } : null);
-    }
-    return vistas.get(k);
-  };
-  const pEmitido = new Map(); // clave de P → emitido tras el evento
-  const verP = (k) => pEmitido.get(k) ?? ctx.serie(k)?.emitido ?? 0;
-  const bloqueos = new Map(); // JSON [id, clave, salida] → delta del evento
-  const verB = (id, k, salida) => ctx.bloqueado(id, k, salida) + (bloqueos.get(JSON.stringify([id, k, salida])) ?? 0);
-  const emitidas = new Map(); // clave de E → índice de su primera emisión en el evento
-  const conjuntas = []; // [{ i, clave, emisores }]
-  const liberaciones = []; // [{ i, salida }]
-
-  for (const { m, i } of validos) {
-    const k = claveToken(m);
-    if (m.token === 'E') {
-      if (m.de === null) {
-        if (m.registro !== undefined && !ctx.registro(m.registro)) { falla(i, 4, 'registro desconocido de la serie ' + k + ': ' + corto(m.registro) + ' (la E se ata a un registro del eje)'); continue; }
-        let s = estado(k);
-        if (!s) {
-          s = { emisor: m.emisor, emitido: 0, ...contratoE(m, ctx.alta(m.emisor)?.id) };
-          vistas.set(k, s);
-        } else {
-          if ((m.divisible === true) !== Boolean(s.divisible)) falla(i, 4, 'la serie ' + k + (s.divisible ? ' es' : ' no es') + ' divisible: una ampliación no cambia su contrato');
-          const tiene = s.emisores ?? [s.emisor];
-          if (!mismoConjunto(tiene, m.emisores ?? [m.emisor])) falla(i, 4, 'la serie ' + k + ' la emiten ' + tiene.join(', ') + ': una ampliación no cambia sus emisores');
-        }
-        if (!s.divisible && !Number.isInteger(m.cantidad)) falla(i, 4, enEnteros(k));
-        s.emitido += m.cantidad;
-        if (!emitidas.has(k)) emitidas.set(k, i);
-        if (m.emisores) conjuntas.push({ i, clave: k, emisores: m.emisores });
-        continue;
-      }
-      const s = estado(k);
-      if (!s) continue; // sin serie no hay saldo: lo rechaza la simulación del eje
-      if (!s.divisible && !Number.isInteger(m.cantidad)) falla(i, 4, enEnteros(k));
-      if (m.a === null && m.estado === undefined) s.consumido += m.cantidad;
-      continue;
-    }
-    if (m.token !== 'P') continue;
-    if (m.de === null) { pEmitido.set(k, verP(k) + m.cantidad); continue; }
-    if (m.estado === 'bloqueo' || m.estado === 'liberacion') {
-      const llave = JSON.stringify([m.de, k, m.salida]);
-      bloqueos.set(llave, (bloqueos.get(llave) ?? 0) + (m.estado === 'bloqueo' ? m.cantidad : -m.cantidad));
-      if (m.estado === 'liberacion') liberaciones.push({ i, salida: m.salida });
-    }
-  }
-
-  // La caducidad solo RELAJA (la E caducada no cuenta para el tope, la cuota ni el P que la respalda), así que se
-  // mira con el reloj del eje, no con el del autor (SEG-03, [X] confirmar VG): el menor entre el t del evento y el
-  // mayor t aceptado ANTES de él. Fechar a futuro no hace caducar la E viva en beneficio propio.
-  // Y el reloj lo marcan los demás (SEG-05, [X] confirmar VG): ese mayor t se toma solo de los eventos de identidades
-  // distintas del autor y de los emisores de la E que este evento emite (a quienes beneficia que caduque). Sin
-  // ninguno, no hay reloj y nada caduca: el E vivo cuenta entero. Si no, quien escribe antes un evento suyo fechado a
-  // futuro adelanta el reloj para sí.
-  let tReloj;
-  const reloj = () => {
-    if (tReloj !== undefined) return tReloj;
-    const excluidos = new Set([ev.autor]);
-    for (const { m } of validos) {
-      if (m.token !== 'E' || m.de !== null) continue;
-      excluidos.add(m.emisor);
-      for (const e of Array.isArray(m.emisores) ? m.emisores : []) excluidos.add(e);
-    }
-    const tMax = ctx.tMaximo?.([...excluidos]) ?? -Infinity;
-    tReloj = esInstante(ev.t) ? Math.min(msUTC(ev.t), tMax) : NaN;
-    return tReloj;
-  };
-  const caducaYa = (s) => Boolean(s.caduca) && !Number.isNaN(reloj()) && reloj() >= msUTC(s.caduca);
-  const vivoDe = (s) => (!s || caducaYa(s) ? 0 : s.emitido - s.consumido);
-
-  // Todas las series de E tras el evento, con su franja; calculado una vez.
-  let todas = null;
-  const series = () => {
-    if (todas) return todas;
-    const vistas2 = new Map(ctx.seriesE());
-    for (const [k, s] of vistas) if (s) vistas2.set(k, s);
-    todas = [...vistas2].map(([k, s]) => [k, s, franjaDe(partirClave(k).denominacion)]);
-    return todas;
-  };
-
-  // 4. El P que respalda E vivo no se libera: el de una serie, o el de una familia (todas sus franjas).
-  for (const { i, salida } of liberaciones) {
-    if (typeof salida !== 'string' || !salida.startsWith('E:')) continue;
-    const familia = franjaDe(partirClave(salida).denominacion) === TODAS_LAS_FRANJAS;
-    const vivo = familia
-      ? series().filter(([k]) => familiaDe(k) === salida).reduce((suma, [, s]) => suma + vivoDe(s), 0)
-      : vivoDe(estado(salida));
-    if (vivo > MARGEN) falla(i, 4, 'el P bloqueado con la salida «' + salida + '» respalda ' + vivo + ' de E vivo: no se libera mientras viva');
-  }
-
-  // 5. La emisión conjunta: cada coemisor la firma con su propio bloqueo de P para la serie (o para su familia).
-  for (const { i, clave, emisores } of conjuntas) {
-    const salidas = [clave, familiaDe(clave)];
-    for (const e of emisores) {
-      if (e === ev.autor) continue;
-      let suyo = salidas.reduce((suma, x) => suma + ctx.bloqueadoP(e, x), 0);
-      for (const [llave, d] of bloqueos) {
-        const [id, kp, salida] = JSON.parse(llave);
-        if (id === e && kp.startsWith('P:') && salidas.includes(salida)) suyo += d;
-      }
-      if (!(suyo > 0)) falla(i, 5, 'emisión conjunta de ' + clave + ': ' + e + ' no tiene P bloqueado para la serie (su firma es ese bloqueo, con la salida = la clave de la serie o de su familia)');
-    }
-  }
-
-  // 2 y 3. El tope compartido, por franja, y la cuota, por serie, para cada serie que el evento emite.
-  for (const [k, i] of emitidas) {
-    const s = estado(k);
-    const topes = ctx.topes(s.registro);
-    if (!topes.length) continue; // sin capacidad declarada: deuda del emisor
-    const vivoSerie = vivoDe(s);
-    const franja = franjaDe(partirClave(k).denominacion);
-    for (const { id: A, capacidad } of topes) {
-      let vivo = 0;
-      for (const [, otra, f] of series()) if (f === franja && ctx.dentro(otra.registro, A)) vivo += vivoDe(otra);
-      if (vivo > capacidad + MARGEN) {
-        falla(i, 4, 'tope de E del registro ' + corto(A) + ' en la franja «' + franja + '»: su E vivo (con sus descendientes, todas las denominaciones y todos los emisores de esa franja) llegaría a ' + vivo + ' y su capacidad es ' + capacidad);
-      }
-      const kp = verP('P:' + A) > 0 ? 'P:' + A : 'P:' + AMBITO_GENESIS;
-      const emitidoP = verP(kp);
-      const emisores = s.emisores ?? [s.emisor];
-      const familia = familiaDe(k);
-      const bloqueado = emisores.reduce((suma, e) => suma + verB(e, kp, k) + verB(e, kp, familia), 0);
-      const exacta = emitidoP > 0 ? (bloqueado * capacidad) / emitidoP : 0;
-      const cuota = s.divisible ? exacta : Math.floor(exacta + MARGEN);
-      if (vivoSerie > cuota + MARGEN) {
-        falla(i, 4, 'cuota de ' + k + ' en el registro ' + corto(A) + ': ' + emisores.join(' + ') + ' bloquea' + (emisores.length > 1 ? 'n ' : ' ') + bloqueado + ' de ' + kp + ' con la salida de la serie, de ' + emitidoP +
-          ' emitido; da ' + cuota + ' de ' + capacidad + (s.divisible ? '' : ' (hacia abajo)') + ' y el E vivo de la serie llegaría a ' + vivoSerie);
-      }
-    }
-  }
-  return errores;
-}
-
-/**
- * El génesis emite a su autor, sus series de E y R quedan a su nombre, su P
- * es sobre todo el eje («genesis»: aún no existe ningún otro registro) y solo
- * declara el tipo y la clave de su autor. Lo emite una persona; con las
- * reglas de la versión 2 (`reglas` = 2: un eje guardado con ella), también
- * un grupo (el tipo que había entonces).
- */
-function erroresGenesis(g, reglas = 3) {
-  const errores = [];
-  const totales = new Map();
-  const divisibles = new Map(); // clave de E → divisible, fijado por su primera emisión
-  const movimientos = Array.isArray(g.movimientos) ? g.movimientos.filter((m) => m && typeof m === 'object') : [];
-  for (const m of movimientos) {
-    if (m.de !== null || m.a !== g.autor) errores.push('el génesis solo emite a su autor');
-    else if (m.token === 'T' && reglas !== 2) errores.push(T_NO_SE_EMITE); // VG, 8-11: no hay T acumulable
-    else if ((m.token === 'E' || m.token === 'R') && m.emisor !== g.autor) errores.push('en el génesis emite su autor: ' + m.emisor);
-    else if (m.token === 'P' && m.ambito !== AMBITO_GENESIS) errores.push('el P del génesis es sobre todo el eje: ámbito «' + AMBITO_GENESIS + '»');
-    else if (m.token === 'E' && reglas === 2 && (m.registro !== undefined || m.divisible !== undefined || m.emisores !== undefined)) {
-      errores.push('registro, divisible y emisores no existían en la versión 2');
-    } else if (m.token === 'E' && m.registro !== undefined) {
-      errores.push('en el génesis no hay registro que nombrar: su E queda atada al génesis');
-    } else if (m.token === 'E' && m.emisores !== undefined) {
-      errores.push('en el génesis emite solo su autor: sin emisión conjunta');
-    } else {
-      const k = claveToken(m);
-      totales.set(k, (totales.get(k) ?? 0) + cantidadBase(m));
-      if (!Number.isFinite(totales.get(k))) errores.push('la serie ' + k + ' no admite tanto');
-      if (m.token === 'E' && reglas !== 2) {
-        // Fracciones solo en las series declaradas divisibles (R2, VG 7-11 noche).
-        const divisible = m.divisible === true;
-        if (!divisibles.has(k)) divisibles.set(k, divisible);
-        else if (divisibles.get(k) !== divisible) errores.push('la serie ' + k + (divisibles.get(k) ? ' es' : ' no es') + ' divisible: una ampliación no cambia su contrato');
-        if (!divisibles.get(k) && Number.isFinite(m.cantidad) && !Number.isInteger(m.cantidad)) errores.push(enEnteros(k));
-      }
-    }
-  }
-  for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
-    if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
-    else if (motivoTipo(id, tipo, reglas)) errores.push(motivoTipo(id, tipo, reglas));
-    else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
-  }
-  for (const id of Object.keys(g.contexto?.claves ?? {})) {
-    if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');
-  }
-  // R9: sin clave no se actúa. Fuera de la demostración, el génesis declara la clave de su autor (y va firmado
-  // con ella: erroresFirmaGenesis, que es su prueba de posesión). Un eje guardado con la versión 2 no la conocía.
-  const demo = g.contexto?.demostracion;
-  if (demo !== undefined && demo !== true) errores.push('demostracion va como true o no va');
-  if (reglas !== 2 && demo !== true && !g.contexto?.claves?.[g.autor]) {
-    errores.push('sin clave no se actúa: el génesis declara la clave de su autor y va firmado con ella (o se crea como demostración, { demostracion: true })');
-  }
-  return errores;
-}
-
-/**
- * Si el génesis declara la clave de su autor, la clave es pública e
- * importable y el génesis va firmado con ella por su autor. Es la misma regla
- * al crear el eje y al restaurarlo.
- */
-async function erroresFirmaGenesis(g) {
-  const clave = g.contexto?.claves?.[g.autor];
-  if (!clave) return [];
-  if (!(await clavePublicaValida(clave))) return ['clave inválida para ' + g.autor];
-  if (!g.firma) return ['el génesis con clave debe ir firmado con ella'];
-  if (g.firmante !== g.autor) return ['el firmante del génesis debe ser su autor'];
-  if (!(await verificar(g, clave))) return ['firma del génesis inválida: debe ir firmado con la clave de su autor'];
-  return [];
 }
 
 /** La copia que guarda el eje (normalizarEvento); lo que no cabe en JSON se rechaza. */
