@@ -98,6 +98,17 @@ export function desplegarSerie(s, registroDe = () => null, { delLibro = false } 
   return { 0: [fam('E')], 1: [p.emisor], 2: [p.denominacion], ...(registro ? { 5: [registro] } : {}), ...(franja ? { 7: [franja] } : {}) };
 }
 
+/** La huella de una clave pública (como autoridad.huella): los ocho primeros caracteres de su x. */
+const huella = (jwk) => String(jwk?.x ?? '').slice(0, 8) || '?';
+
+/** Las claves públicas que declara un evento (contexto.claves), como nodos: titular, clave y prueba de posesión. */
+function llavesDe(e) {
+  const claves = e?.contexto?.claves;
+  if (!claves || typeof claves !== 'object' || Array.isArray(claves)) return [];
+  const pruebas = e.posesion && typeof e.posesion === 'object' && !Array.isArray(e.posesion) ? e.posesion : {};
+  return Object.entries(claves).map(([titular, jwk]) => ({ k: 'llave', titular, jwk, prueba: Object.hasOwn(pruebas, titular) ? pruebas[titular] : undefined }));
+}
+
 /** El payload de la época: la décupla misma, o lo que expone su cargador (src/epocas.js, cargarEpocaBtml). */
 function payloadDeEpoca(epoch) {
   if (Array.isArray(epoch)) return epoch;
@@ -186,9 +197,15 @@ export class ContextoEje {
         // El 7 de un movimiento: 0 la caducidad (de una emisión de E), 1 la fecha a la que se refiere (T informativo).
         return d === 0 && nodo.m.caduca !== undefined ? [nodo.m.caduca] : d === 1 && nodo.m.refiere !== undefined ? [nodo.m.refiere] : [];
       case 'ev':
+        // B4: el 5 de un evento es solo suyo (su id y las claves que declara): ni el payload ni lo anclado lo ocupan.
+        if (d === 5) return this.#meta(this.#ev, d);
         return [...this.#meta(this.#ev, d), ...this.#propio(this.#ev.payload, d, null, [])];
       case 'reg': {
         const e = this.#eje.obtener(nodo.id);
+        // B4: el alta de una identidad, leída desde ella (A.6), tiene en su 5 solo su id y la clave de esa identidad:
+        // ni lo que el payload ni lo que otros anclen ahí se confunde con su clave.
+        if (nodo.titular !== undefined && d === 5) return [nodo.id, ...llavesDe(e).filter((l) => l.titular === nodo.titular)];
+        if (d === 5) return this.#meta(e, d);
         return [...this.#meta(e, d), ...this.#vistasDeRegistro(nodo.id, d), ...this.#propio(e.payload, d, nodo.id, []), ...this.#escritos(nodo.id, [d])];
       }
       case 'epoch':
@@ -232,6 +249,7 @@ export class ContextoEje {
   valor(nodo) {
     if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
     if (nodo?.k === 'serie' || nodo?.k === 'clave' || nodo?.k === 'salida') return nodo.clave;
+    if (nodo?.k === 'llave') return huella(nodo.jwk);
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
   }
@@ -249,6 +267,7 @@ export class ContextoEje {
       case 'serie': return nodo.clave;
       case 'clave': return nodo.clave;
       case 'salida': return String(nodo.clave);
+      case 'llave': return 'clave ' + huella(nodo.jwk) + ' de ' + nodo.titular;
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
@@ -269,8 +288,13 @@ export class ContextoEje {
   /** D-META: los ocupantes implícitos del dígito d de un evento. */
   #meta(e, d) {
     if (d === 1) return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i }));
-    if (d === 3) return [e.autor, ...(e.firmante ? [e.firmante] : [])];
-    if (d === 5) return e.id ? [e.id] : [];
+    // B4 (VG, 10-11): el firmante es el segundo ocupante del 3, siempre: «nadie» si no va firmado (así nada del
+    // payload ocupa su sitio).
+    if (d === 3) return [e.autor, e.firmante ?? NADIE];
+    // B4: en el 5, el id y las claves públicas que el registro declara (en un alta: la de quien la escribe para sí,
+    // o la de la cosa que da de alta), cada una con su titular (3) y su prueba de posesión (4).
+    // El id va siempre primero («nadie» si la candidata aún no lo tiene): las claves son el resto.
+    if (d === 5) return [e.id ?? NADIE, ...llavesDe(e)];
     if (d === 6) return [{ k: 'meta6', e }];
     return [];
   }
@@ -444,7 +468,7 @@ export class ContextoEje {
     if (d === 6) {
       // «pasado: de dónde viene (quién la dio de alta)», epoch.3.6 (familia ciclo, encargo 2): A.6.6.0 es el t del alta, A.6.3 su autor.
       const alta = this.#eje.alta(a);
-      return alta && this.#eje.obtener(alta.id) ? [{ k: 'reg', id: alta.id }] : [];
+      return alta && this.#eje.obtener(alta.id) ? [{ k: 'reg', id: alta.id, titular: a }] : [];
     }
     if (d === 7) return [{ k: 'tiempo', id: a }];
     return [];
@@ -479,7 +503,16 @@ export class ContextoEje {
         if (d === 3) return this.#eje.identidades();
         if (d === 5) return this.#eje.genesisId ? [this.#eje.genesisId] : [];
         if (d === 6) return [{ k: 'reloj' }];
+        // 9, cómo es este libro: «demostración» si su génesis lo marca (sin clave se actúa; R9). Para el propio
+        // génesis, que aún no está, lo que diga él.
+        if (d === 9) {
+          const demo = this.#eje.genesisId ? this.#eje.demostracion === true : this.#ev?.contexto?.genesis === true && this.#ev.contexto.demostracion === true;
+          return demo ? ['demostración'] : [];
+        }
         return [];
+      case 'llave':
+        // Una clave pública declarada (B4): 0 su huella, 3 su titular, 4 su prueba de posesión (si la lleva).
+        return d === 0 ? [huella(nodo.jwk)] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
       case 'reloj': {
         const ms = this.#eje.tMaximo();
         return d === 0 && Number.isFinite(ms) ? [new Date(ms).toISOString()] : [];

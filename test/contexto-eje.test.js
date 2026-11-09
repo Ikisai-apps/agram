@@ -116,7 +116,7 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
 test('D-META: el evento como registro: 3 autor (y firmante), 5 id, 6.0 t, 6.5 sobre y en, 1 movimientos que colisionan con el payload', async () => {
   const { eje, menu, compra } = await ejemploCompra();
   const ctx = new ContextoEje(eje, { ev: compra });
-  assert.deepEqual(val('ev.3', ctx), ['huesped', 'huesped', 'cocina'], 'el autor primero; luego lo que el payload tiene en su 3');
+  assert.deepEqual(val('ev.3', ctx), ['huesped', NADIE, 'huesped', 'cocina'], 'el autor, el firmante («nadie»: no va firmado) y luego lo que el payload tiene en su 3');
   assert.equal(uno('first ev.3', ctx), 'huesped');
   assert.equal(uno('ev.5', ctx), compra.id);
   assert.equal(uno('ev.6.0', ctx), '2026-11-07T13:30:00Z');

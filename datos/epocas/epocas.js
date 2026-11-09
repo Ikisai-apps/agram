@@ -240,7 +240,19 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"
     },
     {
-      "ref": "e8c350cbdf57ec3d948e7b917caee267eddd777caf1306e31724076e98861aab"
+      "ref": "7c413947c156969948e7da24fb480ab15af42176f400e07f03455fd326a174f2"
+    },
+    {
+      "ref": "7d522ab9cffcb214fc95866396009b2d057c6a2aca95bef1fe4ac897e6e422f9"
+    },
+    {
+      "ref": "d0bba9017ab3a926d1f4281b04a8fb7dda8fcead234544c61b9ce6d20536547e"
+    },
+    {
+      "ref": "f773dd6c5ce49da448821019cba9aa125a90116cd0c63ae787014fd7dc4cc45c"
+    },
+    {
+      "ref": "4b40c379d3ce08d5bb25607cd39282b33a0480b54347770a09612ea8acf1e9b1"
     },
     {
       "ref": "0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e"
@@ -2561,6 +2573,90 @@ export const EPOCA_0_DATOS = {
 // reglas/*.json: los registros de las reglas de la época, { archivo, id, registro }; el id, el hash de su cuerpo canónico
 export const REGLAS_DE_EPOCA_DATOS = [
   {
+    "archivo": "a-declared-key-comes-with-its-proof.json",
+    "id": "f773dd6c5ce49da448821019cba9aa125a90116cd0c63ae787014fd7dc4cc45c",
+    "registro": [
+      [
+        "a declared key comes with its proof"
+      ],
+      [
+        0
+      ],
+      [
+        "=count before.9 > 0 or count (ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) = 0"
+      ],
+      [
+        "ev.5 each 3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "R9, VG 7-11 noche: la clave nueva llega con su prueba de posesión, su firma sobre el id del alta (inventario ID-6)",
+        "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+        "VG, 10-11, B1: la clave de quien escribe su propia alta se prueba con su firma (who has a key signs)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after a key is declared at its alta"
+      ],
+      [
+        "a declared key comes with its proof: the key of {(ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) each 3} comes without the signature of that key on the id of this alta (posesion)"
+      ]
+    ]
+  },
+  {
+    "archivo": "a-key-is-declared-at-its-alta.json",
+    "id": "d0bba9017ab3a926d1f4281b04a8fb7dda8fcead234544c61b9ce6d20536547e",
+    "registro": [
+      [
+        "a key is declared at its alta"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) = 0"
+      ],
+      [
+        "ev.5 each 3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: las claves se declaran en el alta y no cambian (inventario ID-2, ID-6)",
+        "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+        "VG, 10-11, B1: una persona declara la suya en su propia alta; la de una cosa la declara quien la da de alta, al darle tokens"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after without a key nobody acts"
+      ],
+      [
+        "a key is declared at its alta: {(ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) each 3} already has an account, or is neither the author nor receives anything here"
+      ]
+    ]
+  },
+  {
     "archivo": "at-most-a-year-ahead.json",
     "id": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277",
     "registro": [
@@ -2960,7 +3056,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "not-before-its-focus.json",
-    "id": "e8c350cbdf57ec3d948e7b917caee267eddd777caf1306e31724076e98861aab",
+    "id": "4b40c379d3ce08d5bb25607cd39282b33a0480b54347770a09612ea8acf1e9b1",
     "registro": [
       [
         "not before its focus"
@@ -2992,7 +3088,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after every record hangs on a record of the ledger"
+        "after a declared key comes with its proof"
       ],
       [
         "not before its focus: the transaction is dated {first ev.6.0}, before its focus {first ev.6.5} ({first (first ev.6.5).6.0})"
@@ -3382,6 +3478,90 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "the genesis only mints to its author: {first ev.3} moves something else in it"
+      ]
+    ]
+  },
+  {
+    "archivo": "who-has-a-key-signs.json",
+    "id": "7c413947c156969948e7da24fb480ab15af42176f400e07f03455fd326a174f2",
+    "registro": [
+      [
+        "who has a key signs"
+      ],
+      [
+        1
+      ],
+      [
+        "=nth 1 ev.3 = first ev.3 or (count (first ev.3).6.5 <= 1 and count (ev.5 where it != first ev.5 and first it.3 = first ev.3) = 0)"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "R9, VG 7-11 noche (regla madre aceptada): sin clave no se actúa; quien tiene clave firma lo que escribe (inventario ID-4, ID-5)",
+        "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after every record hangs on a record of the ledger"
+      ],
+      [
+        "who has a key signs: {first ev.3} has a key and this transaction is not signed by them (signer: {nth 1 ev.3})"
+      ]
+    ]
+  },
+  {
+    "archivo": "without-a-key-nobody-acts.json",
+    "id": "7d522ab9cffcb214fc95866396009b2d057c6a2aca95bef1fe4ac897e6e422f9",
+    "registro": [
+      [
+        "without a key nobody acts"
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        "=count before.9 > 0 or count (first ev.3).6.5 > 1 or count (ev.5 where it != first ev.5 and first it.3 = first ev.3) > 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "R9, VG 7-11 noche (regla madre aceptada): sin clave no se actúa; quien tiene clave firma lo que escribe (inventario ID-4, ID-5)",
+        "VG, 10-11, B4: la clave pública va en el 5 del alta y el firmante es el segundo ocupante del 3 del evento; verificar la firma es suelo (src/autoridad.js) (mapa §16 [D])",
+        "VG, 7-11 noche: un libro de demostración (lo marca su génesis, before.9) conserva lo de antes: sin clave se escribe"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after who has a key signs"
+      ],
+      [
+        "without a key nobody acts: {first ev.3} has no key (it goes in their alta; only a demonstration ledger allows writing without one)"
       ]
     ]
   },
