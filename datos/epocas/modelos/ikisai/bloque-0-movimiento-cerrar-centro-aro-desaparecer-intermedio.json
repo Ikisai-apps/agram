@@ -1,0 +1,14 @@
+[
+  ["movimiento"],
+  [2, "lottie"],
+  ["cerrar"],
+  ["centro"],
+  ["once", 48],
+  ["*"],
+  [
+    "arte/fase2/bloque-0/biblioteca/comun/aro/aro-desaparecer-intermedio.json",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "48 fotogramas conservados por excepcion de fase 1."
+  ]
+]

@@ -5,7 +5,9 @@
 // que no tiene recursos (solo formas) y siempre responde. Documentación: docs/CONTRATO.md, «Modelos de visualización».
 //
 //   modelo(eje, yo)                                  la cadena de modelos a consultar, en orden
-//   pieza(modelos, tipo, pv, clave, variante, { tamano })   la primera pieza que exista en la cadena (nunca null si el sobrio está)
+//   pieza(modelos, tipo, pv, clave, variante, { tamano, rol, de })   la primera pieza que exista en la cadena (nunca null si el sobrio está)
+//   corresponde(cabecera, tipo, dado, pv)            la clave de pieza que corresponde a lo que da el núcleo (epoch.9.7.0.4.n.2)
+//   rolPorDefecto(cabecera, tipo, pv)                la segunda componente de la clave por defecto en un mundo (el rol del muñequito)
 //   modelosDeLaEpoca()                               los modelos que referencia epoch.9.7, con sus piezas leídas
 //   piezasDeModelo(registro, { eje, id })            las piezas de un modelo (las referencias de sus posiciones y, en el eje, lo anclado)
 //   leerPieza(registro, { pv })                      una pieza como objeto plano
@@ -17,10 +19,13 @@
 // representaciones. Un modelo es una décupla: 0 nombre, nivel de detalle y nota; 1-4 y 6-9 las piezas del mundo de
 // cada punto de vista, como lista de referencias { ref } a registros de pieza (en el eje, también las piezas ancladas
 // en esa posición); 5 los marcos y los iconos del aro. Una pieza es una décupla: 0 tipo; 1 [tamaño mínimo, formato]
-// o, sin recurso, [tamaño mínimo, forma sobria]; 2 su clave (el paso 1-10, la acción, la primitiva o efecto, o el
-// mundo del que es icono; «*» = cualquiera); 3 su orientación; 4 [repetición, fotogramas]; 5 los mundos en que sirve; 6 su
-// recurso (una ruta relativa del repositorio o una URL) y su procedencia. Los nombres de los tipos, de las claves, de
-// las orientaciones, de los niveles y de las palabras de repetición son datos de la cabecera: aquí no hay ninguno.
+// o, sin recurso, [tamaño mínimo, forma sobria]; 2 su clave: la condición (el paso 1-10, la acción, la primitiva o
+// efecto, o el mundo del que es icono o marco; «*» = cualquiera) y, detrás, lo que distingue piezas con la misma
+// condición (el rol del muñequito, el nombre del elemento, del marco o del icono: etapa 5, la fase 2); 3 su
+// orientación; 4 [repetición, fotogramas]; 5 los mundos en que sirve; 6 su recurso (una ruta relativa del repositorio
+// o una URL) y su procedencia; 7 su rango entre las piezas de la misma clave (0 o nada la primera; 1 la que queda de
+// respaldo detrás de una nueva). Los nombres de los tipos, de las claves, de las orientaciones, de los niveles y de
+// las palabras de repetición son datos de la cabecera: aquí no hay ninguno.
 
 import { EPOCA_0_BTML } from './epocas.js';
 import { esReferencia, esLista, esTerminal, direccion, resolver } from './btml.js';
@@ -42,7 +47,9 @@ const FORMATOS_VEDADOS_EN_EL_EJE = Object.freeze(['html']);
 /** Dónde puede estar el recurso de una pieza del eje si es una ruta relativa del repositorio (SEG-14). */
 const CARPETA_DE_ARTE = 'arte/';
 /** Las posiciones de una pieza. */
-const PIEZA = Object.freeze({ tipo: 0, medida: 1, clave: 2, variante: 3, tiempo: 4, mundos: 5, recurso: 6 });
+const PIEZA = Object.freeze({ tipo: 0, medida: 1, clave: 2, variante: 3, tiempo: 4, mundos: 5, recurso: 6, rango: 7 });
+/** Las posiciones de un tipo de pieza en la cabecera (epoch.9.7.0.4.n): el tipo, los nombres de su clave, la correspondencia. */
+const TIPO = Object.freeze({ tipo: 0, claves: 1, correspondencia: 2 });
 
 const epocaDe = (opciones) => opciones?.epoca ?? EPOCA_0_BTML;
 const raizDe = (epoca) => (Array.isArray(epoca) ? epoca : epoca.registro ?? epoca.payload);
@@ -112,7 +119,12 @@ export function cabecera(opciones = {}) {
     niveles: lista(CABECERA.niveles),
     cadena: lista(CABECERA.cadena),
     variantes: lista(CABECERA.variantes),
-    tipos: hojas(c?.[CABECERA.tipos]).filter(Array.isArray).map((t) => ({ tipo: hoja(t[0]), clave: texto(hoja(t[1])) ?? null })),
+    tipos: hojas(c?.[CABECERA.tipos]).filter(Array.isArray).map((t) => {
+      const claves = hojas(t[TIPO.claves]).map(texto).filter((x) => x !== undefined);
+      // La correspondencia (etapa 5): filas [[lo dado], [la clave de la pieza], [mundos…]]; sin mundos, vale en todos.
+      const correspondencia = hojas(t[TIPO.correspondencia]).filter(Array.isArray).map((f) => ({ de: hoja(f[0]), a: hoja(f[1]), mundos: hojas(f[2]).filter((m) => typeof m === 'number') })).filter((f) => f.de !== undefined && f.a !== undefined);
+      return { tipo: hoja(t[TIPO.tipo]), clave: claves[0] ?? null, claves, correspondencia };
+    }),
     preferencia: texto(hoja(c?.[CABECERA.preferencia])) ?? null,
     animados: lista(CABECERA.animados),
     bucle: repeticion[0] ?? null,
@@ -125,9 +137,10 @@ export function cabecera(opciones = {}) {
 
 /**
  * Una pieza como objeto plano, o null si el registro no es una pieza (su 0 no es un tipo de la cabecera):
- * { tipo, pv, clave, <nombre de la clave>: clave, variante, tamano, formato | forma, bucle, fotogramas, recurso,
- * procedencia, mundos, animado, crudo }. `pv` es el mundo desde el que se lee (la posición del modelo). Sin
- * orientación, la primera de la cabecera; sin clave, la comodín; sin tamaño mínimo, 0 (cabe en todo).
+ * { tipo, pv, clave, <nombre de la clave>: clave, subclave, <nombre de la segunda clave>: subclave, variante, tamano,
+ * formato | forma, bucle, fotogramas, recurso, procedencia, mundos, animado, rango, crudo }. `pv` es el mundo desde el
+ * que se lee (la posición del modelo). Sin orientación, la primera de la cabecera; sin clave, la comodín; sin
+ * segunda componente, null; sin tamaño mínimo, 0 (cabe en todo); sin rango, 0 (la primera opción).
  */
 export function leerPieza(registro, { pv = null, cabecera: cab, ...opciones } = {}) {
   const c = cab ?? cabecera(opciones);
@@ -138,8 +151,10 @@ export function leerPieza(registro, { pv = null, cabecera: cab, ...opciones } = 
   const [tamanoCrudo, formatoOForma] = hojas(registro[PIEZA.medida]);
   const tamano = typeof tamanoCrudo === 'number' ? tamanoCrudo : 0;
   const esFormato = typeof formatoOForma === 'string' && c.formatos.includes(formatoOForma);
-  const claveCruda = hoja(registro[PIEZA.clave]);
+  const [claveCruda, subclaveCruda] = hojas(registro[PIEZA.clave]);
   const clave = typeof claveCruda === 'number' || (typeof claveCruda === 'string' && claveCruda) ? claveCruda : CUALQUIERA;
+  const subclave = texto(subclaveCruda) ?? null;
+  const rangoCrudo = hoja(registro[PIEZA.rango]);
   const variante = texto(hoja(registro[PIEZA.variante])) ?? c.variantes[0] ?? null;
   const [repeticion, fotogramasCrudo] = hojas(registro[PIEZA.tiempo]);
   const tiempo = registro[PIEZA.tiempo] !== undefined;
@@ -149,6 +164,7 @@ export function leerPieza(registro, { pv = null, cabecera: cab, ...opciones } = 
     tipo,
     pv,
     clave,
+    subclave,
     variante,
     tamano,
     ...(esFormato ? { formato: formatoOForma } : { forma: typeof formatoOForma === 'string' ? formatoOForma : null }),
@@ -158,11 +174,13 @@ export function leerPieza(registro, { pv = null, cabecera: cab, ...opciones } = 
     procedencia: recurso.slice(1).filter((x) => typeof x === 'string'),
     mundos: hojas(registro[PIEZA.mundos]).filter((x) => esTerminal(x)),
     animado: esFormato && c.animados.includes(formatoOForma),
+    rango: typeof rangoCrudo === 'number' && rangoCrudo > 0 ? rangoCrudo : 0,
     tiempo,
     repeticion: typeof repeticion === 'string' ? repeticion : null,
     crudo: registro,
   };
   if (t.clave && !Object.hasOwn(pieza, t.clave)) pieza[t.clave] = clave; // el nombre de la clave del tipo (paso, accion, primitiva, mundo), si no pisa un campo propio
+  if (t.claves[1] && !Object.hasOwn(pieza, t.claves[1])) pieza[t.claves[1]] = subclave; // y el de la segunda (rol, nombre)
   return pieza;
 }
 
@@ -285,33 +303,71 @@ export function modelo(eje, yo, opciones = {}) {
 const numero = (clave) => (typeof clave === 'number' ? clave : -Infinity);
 
 /**
+ * La clave de pieza que corresponde a lo que el núcleo o la carta dan (`dado`) para un tipo en un mundo, según la
+ * correspondencia de la cabecera (epoch.9.7.0.4.n.2): la fila de ese dado con el mundo `pv` entre los suyos, si no la
+ * fila sin mundos, si no lo dado tal cual (la correspondencia solo renombra lo que renombra).
+ */
+export function corresponde(c, tipo, dado, pv) {
+  const filas = (c?.tipos ?? []).find((t) => t.tipo === tipo)?.correspondencia ?? [];
+  const mias = filas.filter((f) => f.de === dado);
+  const conMundo = typeof pv === 'number' ? mias.find((f) => f.mundos.includes(pv)) : undefined;
+  return (conMundo ?? mias.find((f) => !f.mundos.length))?.a ?? dado;
+}
+
+/** La segunda componente de la clave por defecto de un tipo en un mundo (el rol por defecto del muñequito: la fila de la correspondencia cuyo dado es el mundo), o null. */
+export function rolPorDefecto(c, tipo, pv) {
+  const filas = (c?.tipos ?? []).find((t) => t.tipo === tipo)?.correspondencia ?? [];
+  const fila = filas.find((f) => f.de === pv);
+  return fila ? texto(fila.a) ?? null : null;
+}
+
+/**
  * La primera pieza que exista en la cadena `modelos` (lo que da modelo()) para un tipo, un mundo (pv) y una clave (el
  * paso de madurez, la acción, la primitiva o el punto de vista del icono), con una orientación. En cada modelo, por
  * orden: la orientación pedida y, si no la hay, las de la cabecera (la primera es la de respaldo); con una clave
  * numérica, la pieza del paso pedido o la del paso inferior más cercano (la comodín es la más baja); con una palabra,
- * la exacta o la comodín; entre varias, la de mayor tamaño mínimo que quepa en `tamano` (sin tamaño, todas caben).
- * Solo si ningún modelo responde en ese mundo devuelve null: el sobrio, completo por forma, siempre responde.
- * → { modelo, nivel, tipo, pv, clave, <nombre de la clave>, variante, tamano, formato | forma, recurso, bucle, fotogramas, … }
+ * la exacta o la comodín; entre varias, la de mayor tamaño mínimo que quepa en `tamano` (sin tamaño, todas caben) y,
+ * a igual tamaño, la de menor rango (la nueva antes que la que quedó de respaldo con la misma clave; a igual rango,
+ * la primera del modelo). Con `rol` (etapa 5), la segunda componente de la clave: las piezas de ese rol o nombre; si
+ * el modelo no tiene ninguna del rol pedido en ese mundo, las del rol por defecto del mundo (la correspondencia de la
+ * cabecera, rolPorDefecto) y, si tampoco, cualquiera. Con `de`, una clave numérica k se lee como «k de `de`» y se
+ * reescala a los pasos que el modelo tiene para ese tipo y mundo (su mayor clave numérica): la madurez 11 de 15 pide
+ * la etapa 8 de 10. Solo si ningún modelo responde en ese mundo devuelve null: el sobrio, completo por forma,
+ * siempre responde.
+ * → { modelo, nivel, tipo, pv, clave, <nombre de la clave>, subclave, variante, tamano, formato | forma, recurso, bucle, fotogramas, rango, … }
  */
-export function pieza(modelos, tipo, pv, clave, variante, { tamano } = {}) {
+export function pieza(modelos, tipo, pv, clave, variante, { tamano, rol, de } = {}) {
   const pedida = clave === undefined || clave === null ? CUALQUIERA : clave;
   for (const m of modelos ?? []) {
-    const candidatas = m.piezas.filter((p) => p.tipo === tipo && p.pv === pv && (tamano === undefined || !(p.tamano > tamano)));
-    if (!candidatas.length) continue;
+    const delTipo = m.piezas.filter((p) => p.tipo === tipo && p.pv === pv && (tamano === undefined || !(p.tamano > tamano)));
+    if (!delTipo.length) continue;
+    let candidatas = delTipo;
+    if (typeof rol === 'string' && rol) {
+      const propias = delTipo.filter((p) => p.subclave === rol);
+      const defecto = propias.length ? null : rolPorDefecto(m.cabecera, tipo, pv);
+      const porDefecto = defecto ? delTipo.filter((p) => p.subclave === defecto) : [];
+      candidatas = propias.length ? propias : porDefecto.length ? porDefecto : delTipo;
+    }
+    // Con «k de de», k se reescala a los pasos de este modelo (su mayor clave numérica para el tipo y el mundo).
+    let k = pedida;
+    if (typeof pedida === 'number' && typeof de === 'number' && de > 0) {
+      const tope = Math.max(0, ...candidatas.map((p) => numero(p.clave)).filter((n) => Number.isFinite(n)));
+      if (tope > 0) k = Math.max(1, Math.ceil((pedida * tope) / de));
+    }
     const orientaciones = [...new Set([variante, ...(m.cabecera?.variantes ?? []), ...candidatas.map((p) => p.variante)].filter((v) => typeof v === 'string'))];
     for (const v of orientaciones) {
       const lista = candidatas.filter((p) => p.variante === v);
       let mejores;
-      if (typeof pedida === 'number') {
-        const caben = lista.filter((p) => p.clave === CUALQUIERA || (typeof p.clave === 'number' && p.clave <= pedida));
+      if (typeof k === 'number') {
+        const caben = lista.filter((p) => p.clave === CUALQUIERA || (typeof p.clave === 'number' && p.clave <= k));
         const mayor = Math.max(...caben.map((p) => numero(p.clave)));
         mejores = caben.filter((p) => numero(p.clave) === mayor);
       } else {
-        const exactas = lista.filter((p) => p.clave === pedida);
+        const exactas = lista.filter((p) => p.clave === k);
         mejores = exactas.length ? exactas : lista.filter((p) => p.clave === CUALQUIERA);
       }
       if (!mejores.length) continue;
-      const elegida = mejores.reduce((a, b) => (b.tamano > a.tamano ? b : a));
+      const elegida = mejores.reduce((a, b) => (b.tamano > a.tamano || (b.tamano === a.tamano && b.rango < a.rango) ? b : a));
       const { crudo: _crudo, tiempo: _tiempo, repeticion: _repeticion, ...plana } = elegida;
       return { modelo: m.nombre, nivel: m.nivel, ...plana };
     }
@@ -343,8 +399,10 @@ export function validarModelo(m, opciones = {}) {
       if (!leerPieza(destino, { pv, cabecera: c })) motivos.push('posición ' + pv + ': ' + r.ref.slice(0, 8) + ' no es una pieza (su 0 no es un tipo de la cabecera)');
     }
   }
+  const vistas = new Set(); // una pieza que sirve en varios mundos se valida una vez
   modeloObj.piezas.forEach((p) => {
-    const donde = 'pieza ' + p.tipo + ' ' + String(p.clave) + ' ' + p.variante + ' (mundo ' + p.pv + ')';
+    if (p.donde) { if (vistas.has(p.donde)) return; vistas.add(p.donde); }
+    const donde = 'pieza ' + p.tipo + ' ' + String(p.clave) + (p.subclave ? ' ' + p.subclave : '') + ' ' + p.variante + ' (mundo ' + p.pv + ')';
     if (p.tamano !== 0 && !tamanos.includes(p.tamano)) motivos.push(donde + ': tamaño mínimo ' + p.tamano + ' que la época no tiene');
     if (p.animado) {
       if (!p.tiempo) motivos.push(donde + ': animada (' + p.formato + ') sin su 4 [repetición, fotogramas]: bucle y fotogramas son obligatorios en lo animado');
@@ -359,7 +417,7 @@ export function validarModelo(m, opciones = {}) {
 }
 
 /** Las posiciones de una pieza y de la cabecera, por nombre, para quien construye modelos (arte/importar.mjs). */
-export const POSICIONES = Object.freeze({ pieza: PIEZA, cabecera: CABECERA, modelos: SITIO.modelos });
+export const POSICIONES = Object.freeze({ pieza: PIEZA, cabecera: CABECERA, tipo: TIPO, modelos: SITIO.modelos });
 
 /** ¿Es `x` una lista de referencias (la forma de una posición de un modelo de la época)? */
 export const esListaDeReferencias = (x) => esLista(x) && x.every(esReferencia);

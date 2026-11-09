@@ -1,0 +1,14 @@
+[
+  ["movimiento"],
+  [2, "lottie"],
+  ["bloquear"],
+  ["centro"],
+  ["once", 50],
+  ["*"],
+  [
+    "arte/fase2/bloque-4/biblioteca/comun/movimiento/bloquear-centro-intermedio.json",
+    "arte/fase2/bloque-4 (nivel intermedio)",
+    "fase-2; bloque-4; vector nativo",
+    "Efecto transparente sin caja. La aplicacion conserva y mueve la pieza real; las entradas se limitan al lienzo local."
+  ]
+]

@@ -1,0 +1,13 @@
+[
+  ["munequito"],
+  [2, "svg"],
+  ["*", "carretillero"],
+  ["centro"],
+  ["once", 1],
+  [4],
+  [
+    "arte/fase2/bloque-0/biblioteca/fabrica/munequito/carretillero-base-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

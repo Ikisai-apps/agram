@@ -1,0 +1,15 @@
+[
+  ["munequito"],
+  [2, "lottie"],
+  ["esperar", "vendedor"],
+  ["centro"],
+  ["loop", 48],
+  [1],
+  [
+    "arte/fase2/bloque-0/biblioteca/ciudad/munequito/vendedor-esperar-intermedio.json",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "48 fotogramas conservados por excepcion de fase 1."
+  ],
+  [1]
+]

@@ -7,6 +7,6 @@
     { "ruta": "ciudad/elemento/tienda-centro-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
     { "ruta": "ciudad/elemento/tienda-izquierda-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
     { "ruta": "ciudad/elemento/tienda-derecha-intermedio.svg", "familia": "elemento", "nombre": "tienda", "paso": 5 },
-    { "ruta": "ciudad/munequito/vendedor-esperar-intermedio.json", "mundo": "ciudad", "familia": "munequito", "nombre": "esperar", "bucle": true, "fotogramas": 48 }
+    { "ruta": "ciudad/munequito/vendedor-esperar-intermedio.json", "mundo": "ciudad", "familia": "munequito", "nombre": "vendedor", "accion": "esperar", "bucle": true, "fotogramas": 48 }
   ]
 }

@@ -1,0 +1,13 @@
+[
+  ["elemento"],
+  [2, "svg"],
+  ["*", "estrella-brillo"],
+  ["centro"],
+  ["once", 1],
+  [8],
+  [
+    "arte/fase2/bloque-0/biblioteca/cielo/elemento/estrella-brillo-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

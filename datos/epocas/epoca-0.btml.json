@@ -1166,6 +1166,21 @@
           "sobrio",
           "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (the generic animated one, then the sober one, which always answers)"
         ]
+      ],
+      [
+        ["animations"],
+        ["number"],
+        ["any"],
+        ["owner"],
+        ["write"],
+        ["7"],
+        ["etapa 5 (la fase 2 del arte): la carta animada nunca reproduce más animaciones a la vez; primero lo enfocado y lo nuevo, el resto queda en su fotograma"],
+        ["optional"],
+        ["arrival"],
+        [
+          10,
+          "how many animations play at once in the animated render: the focused and the new first, the rest stay on their frame"
+        ]
       ]
     ],
     [
@@ -1606,6 +1621,8 @@
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
           "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (el animado genérico y luego el sobrio, que siempre responde)",
+          "template preferences param animations label: animaciones",
+          "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "level seed: semilla",
           "level sprout: brote",
           "level shoot: vástago",
@@ -1721,31 +1738,54 @@
       [
         [
           "model",
-          "a visualization model is a record: 0 its name, its level of detail and a note; 1-4 and 6-9 the pieces of each world, as references to piece records (in the ledger, also pieces anchored there); 5 the frames and the icons of the ring. A piece is a record: 0 its type; 1 [minimum size, format] or, with no resource, [minimum size, sober form: texto, rectangulo, punto]; 2 its key (the step 1-10, the action, the primitive or effect, or the world whose icon it is; * for any); 3 its orientation; 4 [loop or once, frames]; 5 the worlds it serves (digits, or * for every world); 6 its resource (a relative path of the repository or a URL) and where it comes from"
+          "a visualization model is a record: 0 its name, its level of detail and a note; 1-4 and 6-9 the pieces of each world, as references to piece records (in the ledger, also pieces anchored there); 5 the frames and the icons of the ring. A piece is a record: 0 its type; 1 [minimum size, format] or, with no resource, [minimum size, sober form: texto, rectangulo, punto]; 2 its key: the condition (the step 1-10, the action, the primitive or effect, or the world whose icon or frame it is; * for any) and, behind it, what tells apart pieces with the same condition (the role of a character, the name of an element, a frame or an icon); 3 its orientation; 4 [loop or once, frames]; 5 the worlds it serves (digits, or * for every world); 6 its resource (a relative path of the repository or a URL) and where it comes from; 7 its rank among the pieces with the same key (0 or absent the first choice, 1 a fallback kept behind a newer piece)"
         ],
         ["sello", "intermedio", "ilustrado"],
         ["animado-generico", "sobrio"],
         ["centro", "izquierda", "derecha"],
         [
-          [["elemento"], ["paso"]],
-          [["munequito"], ["accion"]],
-          [["movimiento"], ["primitiva"]],
+          [["elemento"], ["paso", "nombre"]],
+          [
+            ["munequito"],
+            ["accion", "rol"],
+            [
+              [[1], ["vendedor"]],
+              [[2], ["jardinero"]],
+              [[3], ["socorrista"]],
+              [[4], ["operario"]],
+              [[6], ["relojero"]],
+              [[7], ["tejedor"]],
+              [[8], ["astronomo"]],
+              [[9], ["guia"]]
+            ]
+          ],
+          [
+            ["movimiento"],
+            ["primitiva"],
+            [
+              [["acunar"], ["crear-abajo"]],
+              [["acunar"], ["crear-pasado"], [6]],
+              [["acunar"], ["crear-futuro"], [7]],
+              [["acunar"], ["crear-arriba"], [8]]
+            ]
+          ],
           [["fondo"], ["paso"]],
-          [["marco"], ["paso"]],
-          [["icono"], ["mundo"]]
+          [["marco"], ["mundo", "nombre"]],
+          [["icono"], ["mundo", "nombre"]],
+          [["etapa"], ["paso"]]
         ],
         ["9360000000"],
         ["lottie", "video"],
         ["loop", "once"],
         [10],
         [
-          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza con el nombre de su clave; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
+          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza, cada uno con los nombres de su clave (la primera componente es la condición: el paso, la acción, la primitiva o el mundo; la segunda, si la hay, distingue piezas con la misma condición: el rol del muñequito, el nombre del elemento, del marco o del icono) y, en su 2, la correspondencia entre lo que el núcleo o la carta dan y la clave de la pieza, por filas [[lo dado], [la clave], [mundos…]]: para el muñequito, el rol por defecto de cada mundo (lo dado es el mundo); para el movimiento, la primitiva del libro (acunar, transferir, bloquear, liberar, quemar) → el efecto, con los mundos en que vale esa fila (sin mundos, en todos: acunar es crear-abajo salvo en el pasado, el futuro y el cielo, de donde entra por su lado). Etapa 5 (la fase 2): etapa, la pieza grande del mundo por paso de madurez; elemento, un objeto suelto; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
           ["https://agram.ikisai.com"]
         ]
       ],
-      {"ref":"f1efc230b063a990fe65b111b3c631676b4bf553b7a27b49039b46ef81e24d88"},
-      {"ref":"80e9512d116de0185a27155c4e32e06826757f97367b48e9ce5f0a05c5c35882"},
-      {"ref":"66085c4ad5071b2a29d2cbd589afa9971db6ff93b2c32e5fb7962d355cb99436"}
+      {"ref":"96b4daa4d2ba41e938f5d427ff5bab31547b73e7728b9b6ce399e402b46b982b"},
+      {"ref":"8aa6e52bc61392b4f8f2921b9602d9d2edb3858cb4cc004c1de6e83f707f33d2"},
+      {"ref":"8910d6adecfe13a2a372bf0315b600ed3f06812ac6088140acd5e644c549abbe"}
     ],
     [
       [

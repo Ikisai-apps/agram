@@ -1,0 +1,14 @@
+[
+  ["elemento"],
+  [2, "svg"],
+  ["*", "cuenta-rara"],
+  ["centro"],
+  ["once", 1],
+  [7, 6],
+  [
+    "arte/fase2/bloque-0/biblioteca/hilos/elemento/cuenta-rara-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "Correspondencia confirmada por Core en ACEPTACION-00.md; sirve en pasado y futuro."
+  ]
+]

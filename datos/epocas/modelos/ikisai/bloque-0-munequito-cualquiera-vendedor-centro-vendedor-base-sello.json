@@ -1,0 +1,13 @@
+[
+  ["munequito"],
+  [1, "svg"],
+  ["*", "vendedor"],
+  ["centro"],
+  ["once", 1],
+  [1],
+  [
+    "arte/fase2/bloque-0/biblioteca/ciudad/munequito/vendedor-base-sello.svg",
+    "arte/fase2/bloque-0 (nivel sello), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

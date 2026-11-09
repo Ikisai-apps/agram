@@ -1,0 +1,13 @@
+[
+  ["icono"],
+  [2, "svg"],
+  ["*", "aro"],
+  ["centro"],
+  ["once", 1],
+  [5],
+  [
+    "arte/fase2/bloque-0/biblioteca/comun/aro/aro-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

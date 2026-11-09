@@ -1,0 +1,14 @@
+[
+  ["icono"],
+  [2, "svg"],
+  [9, "seguir"],
+  ["centro"],
+  ["once", 1],
+  [5],
+  [
+    "arte/fase2/bloque-0/biblioteca/comun/aro/seguir-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "Lienzo normalizado 256 a 512 con escala uniforme 2; dibujo conservado."
+  ]
+]

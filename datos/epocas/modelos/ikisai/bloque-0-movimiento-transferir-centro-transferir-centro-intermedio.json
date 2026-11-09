@@ -1,0 +1,14 @@
+[
+  ["movimiento"],
+  [2, "lottie"],
+  ["transferir"],
+  ["centro"],
+  ["once", 50],
+  ["*"],
+  [
+    "arte/fase2/bloque-0/biblioteca/comun/movimiento/transferir-centro-intermedio.json",
+    "arte/fase2/bloque-0 (nivel intermedio)",
+    "bloque-0; formas vectoriales nativas",
+    "Efecto local sin caja ni trayectoria de la pieza; termina transparente. Reproducir una sola vez."
+  ]
+]

@@ -2,15 +2,19 @@
   [
     "animado-generico",
     "intermedio",
-    "el animado genérico de la época (encargo 3c-2b, tras 3c-1): incompleto a propósito; solo la ciudad (PV1) con la tienda de la prueba 03 y el vendedor esperando; sin iconos del aro"
+    "el animado genérico de la época (encargo 3c-2b, tras 3c-1; etapa 5): incompleto a propósito; solo la ciudad (PV1) con la tienda y el vendedor esperando de la fase 2 (arte/fase2), y las piezas de la prueba 03 de respaldo (rango 1); sin iconos del aro"
   ],
   [
-    {"ref":"86974623a89054b7d55acb876c4ec09f93138a7115b3930ae2e337cbec283f06"},
-    {"ref":"0cfc032f15654e823abdf3cfa9b9f312a86692ae4bb1bbc3d091088fae6c0f30"},
-    {"ref":"d01dc29b356daa464516394489071203566664c1862253bed4b318ecd3acb54d"},
-    {"ref":"69185a21a75bb0b18af620cbb98d8998db90d46c565acd0a367ec904317e6d5e"},
-    {"ref":"98329f58d0ea78183ef082187c3d7248fc74af8d5510226cad9f8d80b80c0c93"},
-    {"ref":"e9db86ffc9e7c6af72dfd440e2cd1419dc7131b73b501417761d99d25b93ba3a"},
-    {"ref":"ab100ee9d3f5172450a047dc79d80cc49e6114d4ebf4594b41dd9f090f95a27f"}
+    {"ref":"eeea479eda2f38439c3379dec4e9354e245f2d46c85a48ecec1a70dd328b2790"},
+    {"ref":"3a21adab9b551231612d56f7e29a8dd333146ac2ed85b4f0b45a4e482e4d9327"},
+    {"ref":"c40a94341016d8acecdb58836da9b9ffc400497deb8f2a3e87ebc2e67bede58e"},
+    {"ref":"d415424fb43de90232da2a60dd813a2de1562ad92d9be48e8349da62ef70460d"},
+    {"ref":"599d88a179e4dfa5c98d03069db5a9ec06307c3f0a877d8dde3629f9d59d6bc6"},
+    {"ref":"dfe1c5dcc81bde9fbb29f40070133ed069aa4ad0e0c7d08e4b0232187d3804cb"},
+    {"ref":"48bd1253a8cb5d54dfff8befcd8be56b714560ddf3c1ee890b4be5a378a052ee"},
+    {"ref":"4502b68346caba51e71f26347a9e909797a0de00c980b195ef5dbaf6d2ea955e"},
+    {"ref":"9112d2e90322f1a215f80981a455bc2969764e9952ca3b928d3711f0f681af7f"},
+    {"ref":"7b375600ed0616be0edff6a538a6d0cb6b038dfb7c7fa3e937c8733cd7eb2fe5"},
+    {"ref":"c544c8fcc9a94c2e6409c91dddc90ba84a08e54dba4bfac79a77624ed0839329"}
   ]
 ]
