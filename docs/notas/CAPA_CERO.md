@@ -27,8 +27,8 @@ Una condición es una función `(tx, libroAntes, contexto) → null | motivo` (o
 
 Tres opciones aritméticas de las primitivas, para que las reglas de hoy quepan sin cambiar de comportamiento:
 
-- `clase` y `etiqueta`: el libro suma aparte cada clase (`emision`, `asignacion`, `informativo`, `reposicion`, `obtencion`) y, por titular, cada etiqueta. Lo emitido de una serie es lo acuñado como emisión; el T gastado de un día es lo acuñado como asignación con la etiqueta de ese día; el P que obtiene una identidad por una regla que escribe (encargo 3b) es lo acuñado como obtención con la etiqueta = el nombre de la regla, y el eje no lo repite para el mismo titular y registro.
-- `tope` (acuñar): acuña como mucho lo que falte para que lo acuñado con esa clase y etiqueta llegue al tope. Es la acuñación programada del mapa §16 («T: acuñación programada por reloj, quemar al gastar»): quien fija el tope (la asignación del día, TT-2) es la regla, no el libro.
+- `clase` y `etiqueta`: el libro suma aparte cada clase (`emision`, `asignacion`, `informativo`, `reposicion`, `obtencion`) y, por titular, cada etiqueta. Lo emitido de una serie es lo acuñado como emisión; el T gastado de un día es lo acuñado como asignación con la etiqueta de ese día; el P que obtiene una identidad por una regla que escribe (encargo 3b) es lo acuñado como obtención con la etiqueta = el nombre de la regla; esa suma es el nivel ya alcanzado, contra el que el eje acuña con tope (abajo).
+- `tope` (acuñar): acuña como mucho lo que falte para que lo acuñado con esa clase y etiqueta llegue al tope. Es la acuñación programada del mapa §16 («T: acuñación programada por reloj, quemar al gastar»): quien fija el tope (la asignación del día, TT-2) es la regla, no el libro. Desde la decisión de VG tras el 3b-bis, también la obtención de P: lo que una regla que escribe coloca con `put v at A.2.1.(r)` es un nivel, y el eje lo acuña con `tope: v` (clase `obtencion`, etiqueta = la regla): solo la diferencia, y nada si el nivel ya está alcanzado (un paso que acuña 0 no se asienta; el eje ni siquiera lo pone). Nunca se quema por bajar el nivel. Y un segundo tope, **por serie**: lo que una regla acuña por lo que llega de una serie de E o de R (la colocación dice en `desde` el movimiento en que se hizo) no pasa, sumando todos los orígenes, de diez por unidad acuñada de esa serie (lo emitido antes y lo que la transacción acuña), menos lo que esa regla ya acuñó por ella; así la misma unidad no da P dos veces aunque vuelva al emisor por un tercero y salga otra vez. El paso apunta cuánto viene de cada serie (`series`) y el eje lo suma al asentar (`eje.obtenidoDeSerie(serie, regla)`).
 - `fuentes` (transferir, quemar): las series de donde sale, en orden; lo que sale de otra serie queda en el diario como reposición. Era el débito de P que subía por el hilo (PP-4); desde el encargo 3b el eje ya no la usa: el P se mueve en su registro exacto y reposicionarlo es una transacción con dos movimientos, quemar aquí y acuñar allí con factor (subir ×0,1, bajar ×1,1: «P is repositioned one step at a time»).
 - `salida` (transferir; encargo 3b): sale de lo bloqueado de `de` con esa salida y llega a `a` bloqueado con ella, o a su disponible si la salida nombra a `a`. Es delegar (mapa §15 [D] (6): «transferencia con salida») y recoger lo que guarda una invitación (§16).
 
@@ -51,7 +51,7 @@ Tres opciones aritméticas de las primitivas, para que las reglas de hoy quepan 
 | `payload` | `memo` |
 | `autor`, `t`, `id`, `firma`, `firmante` | los mismos campos de la transacción |
 | `contexto.genesis` | `abre: [autor]`: la cuenta del autor del génesis nace con él. El génesis no mueve nada (encargo 3b: la época 0 en el eje) |
-| (detrás de los movimientos) | la obtención de P: lo que colocan las reglas que escriben de la época (`put … at A.2.1.(r)`) se acuña en la misma transacción, `acunar(P:r, A, 10)` con clase `obtencion` |
+| (detrás de los movimientos) | la obtención de P: lo que colocan las reglas que escriben de la época (`put v at A.2.1.(r)`, un nivel) se acuña en la misma transacción, `acunar(P:r/A, A, v, { tope: v })` con clase `obtencion` y etiqueta = la regla: lo que falte para llegar al nivel, hasta donde llegue el cupo de las series de donde viene (el tope por serie: diez por unidad acuñada de la serie, de todos los orígenes); un paso por regla, titular y registro (el máximo de lo colocado), y ninguno si el nivel ya está alcanzado o no queda cupo |
 
 Lo que el eje guardaba aparte y ahora lee del libro (inventario §4):
 
@@ -170,7 +170,7 @@ console.log(await eje.validar(malo));
 ancla: menú 0000000000 · autor: huesped · memo: el payload de la compra
 paso 0: acunar(T:hora, huesped, 1) [asignacion, tope 24] + quemar(T:hora, huesped, 1)
 paso 1: transferir(E:casa/EUR, huesped, cocina, 12)
-paso 2: acunar(P:compra/huesped, huesped, 10) [obtencion]
+paso 2: acunar(P:compra/huesped, huesped, 10) [obtencion, tope 10]
 cartera de huesped: R:casa 1 · P:alta de huesped/huesped 10 · P:génesis/huesped 610 · E:casa/EUR 48 · P:compra/huesped 10
 T sobre el menú: {"hora":1}
 minting E needs own R issued: minting E needs own R issued: huesped mints E and has never issued R of its own
@@ -181,7 +181,7 @@ aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100
 ]
 ```
 
-La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe. La cocina no obtiene nada por los euros que recibe: le llegan de la huésped, no de su emisor, la casa (encargo 3b-bis: solo da P lo que llega de su emisor, diez por unidad). Cada serie de P lleva su origen (`P:<registro>/<origen>`): todo lo de la cartera de la huésped es de origen huésped. En su cartera están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa una R y sesenta euros (diez por unidad: 610 sobre el génesis). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
+La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe, también como acuñación programada (tope 10: el nivel que coloca la regla; VG, tras 3b-bis). La cocina no obtiene nada por los euros que recibe: le llegan de la huésped, no de su emisor, la casa (encargo 3b-bis: solo da P lo que llega de su emisor, diez por unidad neta). Cada serie de P lleva su origen (`P:<registro>/<origen>`): todo lo de la cartera de la huésped es de origen huésped. En su cartera están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa una R y sesenta euros (diez por unidad: 610 sobre el génesis). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
 
 ## 5. Lo que queda para los pasos siguientes
 

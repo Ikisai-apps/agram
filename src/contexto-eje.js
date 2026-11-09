@@ -18,7 +18,9 @@
 //            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
 //            su reparto en A.2.6.8), A.6 su alta (el registro que abrió su
 //            cuenta: A.6.6.0 su t, A.6.3 su autor), A.7.e el T de la escala e gastado de la
-//            asignación del día civil de ev.6.0.3; de un registro X: X.1 sus series de E atadas y vivas
+//            asignación del día civil de ev.6.0.3, A.8.6 lo recibido de su emisor por serie de E y R
+//            (0 serie, 1 neto, 3 emisor; la base del tope de la obtención, VG tras 3b-bis); de un
+//            registro X: X.1 sus series de E atadas y vivas
 //            (0 serie, 1 lo vivo, 7 caducidad); de una serie del libro S (la de un movimiento o de una
 //            entrada de la cartera): S.8 lo emitido hasta antes de ev
 //
@@ -31,8 +33,8 @@
 // alta (sus vistas) o una magnitud (D-VALOR).
 //
 // Solo usa la API pública del eje (obtener, alta, libro.vista, gastadoT,
-// series, serie, vivo, registroDe, sobre, identidades, tMaximo, genesisId; sin libro,
-// saldos, saldo y bloqueos).
+// series, serie, vivo, registroDe, sobre, identidades, tMaximo, genesisId,
+// obtenidoPor, recibidoDelEmisor; sin libro, saldos, saldo y bloqueos).
 // Lo que el libro tendría que dar y hoy se lee aparte: docs/BQLM.md §7,
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
 
@@ -365,6 +367,8 @@ export class ContextoEje {
       case 'posicionado': return 'P de ' + nodo.titular + ' en ' + String(nodo.registro).slice(0, 8);
       case 'origenP': return nodo.origen;
       case 'obtenido': return 'P de origen ' + nodo.origen + ' en ' + String(nodo.registro).slice(0, 8);
+      case 'frente': return nodo.id + ' frente a otros';
+      case 'recibido': return nodo.neto + ' ' + nodo.clave + ' de ' + nodo.emisor;
       case 'grupo': return 'grupo ' + nodo.zona + ' de ' + nodo.titular;
       case 'compromiso': return nodo.cantidad + ' ' + nodo.serie + ' de ' + nodo.titular + ' con ' + String(nodo.decision).slice(0, 8);
       default: return '«' + (nodo?.k ?? 'nodo') + '»';
@@ -614,9 +618,23 @@ export class ContextoEje {
       return alta && this.#eje.obtener(alta.id) ? [{ k: 'reg', id: alta.id, titular: a }] : [];
     }
     if (d === 7) return [{ k: 'tiempo', id: a }];
-    // B5: una posición donde la época materializa lecturas de la identidad (A.3.1, «obligation»).
+    // El 8 de una identidad, frente a otros: 8.6 lo recibido de su emisor por serie (de dónde viene lo que tiene; VG
+    // tras 3b-bis: la base del tope de la obtención) y las lecturas que la época pone ahí (A.8.1, «obligation»).
+    if (d === 8) return [{ k: 'frente', id: a }];
+    // B5: una posición donde la época materializa lecturas de la identidad.
     if (this.#hayLecturas('A', d)) return [{ k: 'lectura', letra: 'A', sujeto: a, d }];
     return [];
+  }
+
+  /**
+   * Lo recibido de su emisor por una identidad (VG, tras 3b-bis: la obtención de P es un tope acumulado, diez por
+   * unidad neta recibida del emisor): una entrada por serie de E o de R que le ha llegado alguna vez directamente de su
+   * emisor, también la que ya no tiene; vale la serie (se indexa por su clave: A.8.6.(serie)). Lo que pasa entre
+   * tenedores no cuenta. Lee el libro de antes de la candidata.
+   */
+  #recibidos(a) {
+    if (typeof this.#eje?.recibidoDelEmisor !== 'function') return [];
+    return this.#eje.recibidoDelEmisor(a).map((x) => ({ k: 'recibido', titular: a, clave: x.serie, emisor: x.emisor, recibido: x.recibido, devuelto: x.devuelto, neto: x.neto }));
   }
 
   /**
@@ -800,6 +818,20 @@ export class ContextoEje {
         if (d === 3) return this.#adoptados(nodo.id);
         if (d === 6) return this.#obtenidos(nodo.id);
         return this.#lecturaEn('A.2.' + d, nodo.id);
+      case 'frente':
+        // El 8 de una identidad, frente a otros: 6 lo recibido de su emisor por serie (de dónde viene); lo demás, las
+        // lecturas que la época pone en A.8.d (8.1, «obligation»: su R en manos de otros).
+        if (d === 6) return this.#recibidos(nodo.id);
+        return this.#lecturaEn('A.8.' + d, nodo.id);
+      case 'recibido':
+        // Una entrada de lo recibido de su emisor (A.8.6): 0 la serie, 1 cuánto neto (recibido del emisor menos
+        // devuelto al emisor), 3 el emisor, 4 lo devuelto, 6 lo recibido.
+        if (d === 0) return [{ k: 'serie', clave: nodo.clave }];
+        if (d === 1) return [nodo.neto];
+        if (d === 3) return [nodo.emisor];
+        if (d === 4) return [nodo.devuelto];
+        if (d === 6) return [nodo.recibido];
+        return [];
       case 'posicionado':
         // Una entrada del P posicionado (A.2.1): 0 el registro, 1 cuánto (disponible y bloqueado), 2 lo bloqueado por
         // salida, 3 su titular, 4 lo disponible, 6 sus orígenes (encargo 3b-bis: uno por quien lo obtuvo, que vale su
