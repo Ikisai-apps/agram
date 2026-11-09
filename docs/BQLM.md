@@ -283,35 +283,42 @@ Prueba: `test/reglas-bqlm.test.js`. Cada regla da el mismo veredicto que su cond
 import { evaluarRegla } from './src/bqlm.js';
 import { ContextoEje } from './src/contexto-eje.js';
 import { EPOCA_0_BTML } from './src/epocas.js';
+import { REGLAS_3B_DATOS } from './datos/epocas/epocas.js';
 import { crearEvento } from './src/evento.js';
 import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 
 const { eje, menu, compra } = await ejemploCompra();
 const malo = await crearEvento({ autor: 'huesped', sobre: menu.id, t: compra.t, payload: 'vale', movimientos: [
   { token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null },
-  { token: 'E', emisor: 'huesped', denominacion: 'vale', cantidad: 1, de: null, a: 'huesped' },
+  { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa' },
   { token: 'P', ambito: menu.id, cantidad: 1, de: null, a: 'huesped' }] });
 const ctx = new ContextoEje(eje, { ev: malo, epoch: EPOCA_0_BTML });
-console.log(EPOCA_0_BTML.condiciones.length, 'reglas');
-EPOCA_0_BTML.condiciones.forEach((r, k) => {
+console.log(EPOCA_0_BTML.condiciones.length, 'reglas en la época y', REGLAS_3B_DATOS.length, 'fuera, para el 3b');
+for (const r of EPOCA_0_BTML.condiciones) {
   const v = evaluarRegla(r, ctx);
-  if (!v.pasa) console.log('2.' + Math.floor(k / 10) + '.' + (k % 10), v.motivo);
-});
+  if (!v.pasa) console.log('época:', v.motivo);
+}
+for (const { registro } of REGLAS_3B_DATOS) {
+  const v = evaluarRegla(registro, ctx);
+  if (!v.pasa) console.log('3b:', v.motivo);
+}
 console.log(await eje.validar(malo));
 ```
 
 ```text
-27 reglas
-2.1.8 P is minted on one's own record: huesped mints P:7c3eb52fe755163f18e8d67121f72a55247d435f9c9210f5abdb1195ec1f5f20 on a record they did not write, or on the whole ledger
-2.2.1 minting P or E needs own R at stake: huesped has no R:huesped locked as collateral (exit R:huesped) covering a tenth of what was minted of it, before or in this transaction
+21 reglas en la época y 6 fuera, para el 3b
+época: E is minted by and to its issuer: huesped mints E of casa, or to someone else
+3b: minting P or E needs own R at stake: huesped has no R:huesped locked as collateral (exit R:huesped) covering a tenth of what was minted of it, before or in this transaction
+3b: P is minted on one's own record: huesped mints P:7c3eb52fe755163f18e8d67121f72a55247d435f9c9210f5abdb1195ec1f5f20 on a record they did not write, or on the whole ledger
 [
+  'nadie emite en nombre de otro: casa no es el autor',
   'P sobre 7c3eb52f lo acuña solo quien escribió el registro (cocina): huesped puede transferir el P que tenga, no acuñarlo',
   'emitir P exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)',
   'emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)'
 ]
 ```
 
-Leído: la huésped quema un minuto, emite un vale suyo y acuña P sobre el menú, que escribió la cocina. Dos reglas no pasan: acuñar P sobre un registro ajeno y emitir P y E sin su R en juego. El eje da los mismos motivos con el texto de siempre (el de la R en juego, una vez por la P y otra por la E). «minting E needs P on the record» pasa, porque en la misma transacción se acuña P sobre el foco.
+Leído: la huésped quema un minuto, emite un vale a nombre de la casa y acuña P sobre el menú, que escribió la cocina. Una regla de la época no pasa: nadie emite E de otro. Dos de las traducciones que esperan al 3b tampoco: acuñar P sobre un registro ajeno y emitir P y E sin su R en juego. El eje da los mismos motivos con el texto de siempre (el de la R en juego, una vez por la P y otra por la E). «minting E needs P on the record» pasa, porque en la misma transacción se acuña P sobre el foco.
 
 ### 10.1 Las reglas, leídas
 
@@ -331,7 +338,7 @@ Leído: la huésped quema un minuto, emite un vale suyo y acuña P sobre el men�
 | 2.1.1 | the author has an account | Quien escribe está entre las identidades del libro de antes (`before.3`). El génesis no lo necesita: su cuenta nace con él |
 | 2.1.2 | not before its focus | La fecha de la transacción no es anterior a la de su foco (D-FECHA, en segundos). Si el foco no está en el libro, no dice nada: lo para el ancla |
 | 2.1.3 | not before the writer joined | Ni anterior al alta de quien escribe (la vista nueva `A.6`; su t es `A.6.6.0`) |
-| 2.1.4 | at most a year ahead | Ni más de un año (31 536 000 segundos, escrito en su 1) por delante del mayor t del libro (`before.6.0`). Con el libro vacío no hay tope |
+| 2.1.4 | at most a year ahead | Ni más de un año por delante del mayor t del libro (`before.6.0`). El año lo lee del calendario de la época, `epoch.7.0.6.1` (sus segundos: 364 + 1 días; VG, 10-11, A3), no de un número en la regla. Con el libro vacío no hay tope |
 | 2.1.5 | R is minted by its issuer | Nadie acuña R de otro: R:Y solo la acuña Y. Emitir R ya no exige colateral (VG, 9-11) |
 | 2.1.6 | nobody mints T | Ninguna transacción acuña T, ni el génesis: el T de cada día sale de la asignación de la época |
 | 2.1.7 | P is minted to its minter | El P que se acuña va a quien escribe; delegar es transferir el P que se tiene. Traduce el código de hoy; el mapa §15 lo cambia |
@@ -442,7 +449,7 @@ Lo marcado [X] en las cinco familias y en la integración. Se suma a §8.
 - **Vistas que faltan**: el contrato de una serie que ya no está viva; las series vivas del subárbol de un registro (EE-5); el reloj de los demás (RL-4); lo bloqueado con una salida por todos los titulares (BL-3).
 - **El reloj en milisegundos o en segundos** (D-FECHA da segundos; JS compara milisegundos), también para las caducidades con fracción de segundo.
 - **El tope de diez de `path`** (PATH-10).
-- **El año**: 2.1.4 escribe en su 1 un año de 365 días (`tokens.SEGUNDOS.anio`) porque la época no lo lleva; de `epoch.1.3.1` sale uno de 364 (TT-16; el año de D-FECHA, §4).
+- **El año**: resuelto (VG, 10-11, A3): el calendario de la época (`epoch.7.0`) lleva los segundos de cada escala y el año es de 364 + 1 días; «at most a year ahead» lo lee de ahí y `tokens.SEGUNDOS` también. Queda abierto si el año de D-FECHA ha de seguir al civil (§4).
 - **Cómo se declara la capacidad** de un registro (EE-2).
 - **Dónde viven las lecturas** que otras reglas o un criterio de PV2 reutilizan (EV-3, TT-11, RR-2, RR-8): como reglas de la época con otra marca en su 4 o su 5, como plantillas en el 9, o repetidas dentro de cada regla.
 - **La clave de una identidad, el firmante y la demostración** (ID-4 a ID-7, GN-2): su posición en el alta o en D-META.

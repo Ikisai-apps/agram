@@ -210,7 +210,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "6b47a7f6cf16ce0140365e50fe0d92746e49aeef2167c4712f50bae5de6bb7c2"
+      "ref": "a52540bbcf1e932744373a92f92c2eee600b70375338667d289bcbc28b1fa586"
     },
     {
       "ref": "4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89"
@@ -219,10 +219,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b9ca4b2a8845258dc5c7634ca19e1b3d818fc3ffd0f6e676b3863856e13999e5"
     },
     {
-      "ref": "2145a6057756678a856a17412e8e1b55e96a5739953ccbd94817e9122735e230"
+      "ref": "ef34a7fd9ca11973c25c5fe0d7fb28cbbd2b8a30cea2853f9b0f6b66437e7f0b"
     },
     {
-      "ref": "073a126e6e2d0888f7db2ad5e0eb24bb3a55f082292e9fee33b2fe1c60d92d43"
+      "ref": "9192e43a85d2cf3125114bb858f0d1ef961322ecab7ed5006b4da2f8c8a17b21"
     },
     {
       "ref": "603c2d35612943d52bb21049efd77b3712b38da08e998cbbb64b275a1c388f1c"
@@ -234,13 +234,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "40994540fd9ff135e5ec2bc359268fa4ba4de6568d86451d0fd112cb13dc9c65"
     },
     {
-      "ref": "98b1921553b9d545c3f4c0a2090e5189d8509426bceea7c158af339ffecee91c"
+      "ref": "0dade32e48389e7e9191ef2d731c32067be124a0d4621bc206f0643bd8380bb6"
     },
     {
-      "ref": "041aa3c9ed730091dec2d07d0f9ab9c3f88aa2ae44b7c7988a207beca2b94643"
-    },
-    {
-      "ref": "32ccbebb222164edacde809aadde19a2a93fa2a1c1c641b3884bfdd0ceba33ec"
+      "ref": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"
     },
     {
       "ref": "8ba85d306013f16b3ca28d78188035f42f0d0ab1bc773563717b6d4ea9e576af"
@@ -252,7 +249,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e"
     },
     {
-      "ref": "4a662c2854d161fa58ea2eceeacda90092a78440f7d526f862fa8ff8dc42a7f8"
+      "ref": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277"
     },
     {
       "ref": "5a94105a1aaa173982000b180d64ecd90a6c5608fcf73e6c3f0e3d4131e372d0"
@@ -261,25 +258,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b469613ccc0fb0830f86dd643346724a8761c3020cceaf7b2c7ee1619740f47c"
     },
     {
-      "ref": "3df924ee219713906cd28c985d7288333fe9da7fc923ede122e709e22b3eceb9"
+      "ref": "21e95ca3edb2c6d50ce48b64babe3467284ecf67d44ad76288d88bede8e1a301"
     },
     {
-      "ref": "20ed5b535c14b876f845180463c1e41129522e3f6f8767d4dafe226bb2d86f29"
-    },
-    {
-      "ref": "a9f05b0594bab8dcdb3e5d0cdd0638721f293d16aa86a1b8295fa1db45847690"
-    },
-    {
-      "ref": "5d9f2e36808952fc6b6bf3ab8830147d613c3eaee2bef308fcd892554689a58e"
-    },
-    {
-      "ref": "6fc58bc8ccb73309470a32645b91e4a1f662f804d73ff6d7ee2957cf12530543"
-    },
-    {
-      "ref": "b15894099b50402265bed739dcf9cd630460532763abf43bbfd2ef64ac4dea13"
-    },
-    {
-      "ref": "c362f07db6bdbb20d30db15025b5516780bcba24a2ff1aa9397e644d9b0b7385"
+      "ref": "acf1909465b7ac87c387177605d3aa1d1387cea4b8210296111ecb3c050ac07d"
     },
     {
       "ref": "cd24473416a75910b6afc49946dce617283dd5c3fa5184987090c44f93eff2ea"
@@ -1550,13 +1532,42 @@ export const EPOCA_0_BTML_DATOS = [
     "VG, 9-11: PV3 es la regla de atención; grupo por defecto «desconocidos», con precio «mi propia R» (mapa §16 [D])",
     "VG, 9-11: la capa de transacciones: cinco primitivas, anclaje y memo (mapa §16 [D])",
     "VG, 9-11: molde de regla y léxico mínimo de BQL, palabras cortas en inglés (mapa §16 [D])",
-    "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])"
+    "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])",
+    "VG, 10-11: cada regla es su propio registro y el 2 de la época es la lista de sus referencias (mapa §16 [D], A1)",
+    "VG, 10-11: los datos del mundo viven en la época y ninguna regla lleva una constante que la época tenga (mapa §16 [D], A3)"
   ],
   [
     [
       [
         [
+          "segundo"
+        ],
+        [
+          1
+        ]
+      ],
+      [
+        [
+          "minuto"
+        ],
+        [
+          60
+        ]
+      ],
+      [
+        [
+          "hora"
+        ],
+        [
+          3600
+        ]
+      ],
+      [
+        [
           "día"
+        ],
+        [
+          86400
         ],
         [
           1
@@ -1567,6 +1578,9 @@ export const EPOCA_0_BTML_DATOS = [
           "semana"
         ],
         [
+          604800
+        ],
+        [
           7
         ]
       ],
@@ -1575,12 +1589,18 @@ export const EPOCA_0_BTML_DATOS = [
           "ciclo"
         ],
         [
+          2419200
+        ],
+        [
           28
         ]
       ],
       [
         [
           "año"
+        ],
+        [
+          31536000
         ],
         [
           365
@@ -1592,6 +1612,10 @@ export const EPOCA_0_BTML_DATOS = [
     ],
     [
       "el tiempo lo marcan los demás"
+    ],
+    [
+      7,
+      8
     ]
   ],
   [
@@ -2535,17 +2559,17 @@ export const EPOCA_0_DATOS = {
 export const REGLAS_DE_EPOCA_DATOS = [
   {
     "archivo": "at-most-a-year-ahead.json",
-    "id": "4a662c2854d161fa58ea2eceeacda90092a78440f7d526f862fa8ff8dc42a7f8",
+    "id": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277",
     "registro": [
       [
         "at most a year ahead"
       ],
       [
-        31536000,
-        0
+        0,
+        "epoch.7.0.6.1"
       ],
       [
-        "=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + 31536000 or count up ev = 0"
+        "=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + epoch.7.0.6.1 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -2561,7 +2585,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "*"
       ],
       [
-        "Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)"
+        "Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)",
+        "VG, 10-11, A3: el año es el del calendario de la época (epoch.7.0.6.1, sus segundos: 364 + 1 días), no 365 escrito en la regla"
       ],
       [
         "epoch 0"
@@ -2613,7 +2638,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "e-is-tied-to-a-record-that-exists.json",
-    "id": "c362f07db6bdbb20d30db15025b5516780bcba24a2ff1aa9397e644d9b0b7385",
+    "id": "acf1909465b7ac87c387177605d3aa1d1387cea4b8210296111ecb3c050ac07d",
     "registro": [
       [
         "E is tied to a record that exists"
@@ -2642,7 +2667,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after minting E needs P on the record"
+        "after T is not locked"
       ],
       [
         "E is tied to a record that exists: {(ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"
@@ -2693,18 +2718,17 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "every-record-hangs-on-a-record-of-the-ledger.json",
-    "id": "32ccbebb222164edacde809aadde19a2a93fa2a1c1c641b3884bfdd0ceba33ec",
+    "id": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63",
     "registro": [
       [
         "every record hangs on a record of the ledger"
       ],
       [
         0,
-        1,
-        2
+        1
       ],
       [
-        "=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 = 2 and first (first (first ev.6).5).5 = first (first ev.6).5)"
+        "=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5)"
       ],
       [
         "ev.3"
@@ -2736,17 +2760,17 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "informative-t-is-only-burned.json",
-    "id": "2145a6057756678a856a17412e8e1b55e96a5739953ccbd94817e9122735e230",
+    "id": "ef34a7fd9ca11973c25c5fe0d7fb28cbbd2b8a30cea2853f9b0f6b66437e7f0b",
     "registro": [
       [
         "informative T is only burned"
       ],
       [
-        7,
-        9
+        "epoch.7.0",
+        "epoch.7.2"
       ],
       [
-        "=count (ev.1 where T in it.0.0 and it.0.1 >= 7 and (it.4 != burn or count it.2 > 0 or (it.0.1 < 9 and (count it.7 = 0 or it.7 in it.2)))) = 0 and count (ev.1 where ((T in it.0.0 and it.0.1 < 7) or E in it.0.0 or P in it.0.0 or R in it.0.0) and (count it.9 > 0 or (count it.7 > 0 and not it.7 in it.2))) = 0"
+        "=count (ev.1 where T in it.0.0 and count epoch.7.0.(it.0.1) = 0 and (it.4 != burn or count it.2 > 0 or (it.0.1 in epoch.7.2 and (count it.7 = 0 or it.7 in it.2)))) = 0 and count (ev.1 where ((T in it.0.0 and count epoch.7.0.(it.0.1) = 1) or E in it.0.0 or P in it.0.0 or R in it.0.0) and (count it.9 > 0 or (count it.7 > 0 and not it.7 in it.2))) = 0"
       ],
       [
         "ev.3"
@@ -2761,7 +2785,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "*"
       ],
       [
-        "VG, 8-11: tres escalas informativas (pasado, futuro, inventado), ilimitadas, que solo se consumen y llevan la fecha a la que se refieren (mapa §12 [D] asignación diaria; dudas A4)"
+        "VG, 8-11: tres escalas informativas (pasado, futuro, inventado), ilimitadas, que solo se consumen y llevan la fecha a la que se refieren (mapa §12 [D] asignación diaria; dudas A4)",
+        "VG, 10-11, A3: las escalas informativas son las que el calendario no mide (epoch.7.0) y las que se refieren a otra fecha las dice epoch.7.2"
       ],
       [
         "epoch 0"
@@ -2816,18 +2841,18 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "locks-keep-their-holder-and-name-an-exit.json",
-    "id": "073a126e6e2d0888f7db2ad5e0eb24bb3a55f082292e9fee33b2fe1c60d92d43",
+    "id": "9192e43a85d2cf3125114bb858f0d1ef961322ecab7ed5006b4da2f8c8a17b21",
     "registro": [
       [
         "locks keep their holder and name an exit"
       ],
       [
-        2,
+        1,
         "bloqueo",
         "liberacion"
       ],
       [
-        "=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7) < 2)) = 0"
+        "=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7) <= 1)) = 0"
       ],
       [
         "ev.3"
@@ -2850,121 +2875,6 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "locks keep their holder and name an exit: {first ev.3} locks or releases with someone else on one side, or without an exit"
-      ]
-    ]
-  },
-  {
-    "archivo": "minting-e-needs-p-on-the-record.json",
-    "id": "b15894099b50402265bed739dcf9cd630460532763abf43bbfd2ef64ac4dea13",
-    "registro": [
-      [
-        "minting E needs P on the record"
-      ],
-      [
-        0,
-        "genesis"
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and E in it.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and it.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: emisión escalonada, «si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida; inventario ES-3)",
-        "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after minting P or E needs own R at stake"
-      ],
-      [
-        "minting E needs P on the record: {first ev.3} has no P on {first ev.6.5} (a balance or P moved in this transaction)"
-      ]
-    ]
-  },
-  {
-    "archivo": "minting-needs-real-t.json",
-    "id": "5d9f2e36808952fc6b6bf3ab8830147d613c3eaee2bef308fcd892554689a58e",
-    "registro": [
-      [
-        "minting needs real T"
-      ],
-      [
-        1,
-        7
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and not T in it.0.0) = 0 or count (ev.1 where T in it.0.0 and it.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: la emisión es escalonada, «normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»; mover T es consumirlo (mapa §12 [D] ciclo de vida)"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after T is not locked"
-      ],
-      [
-        "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0) each 0.0)} without burning real T (scales 0 to 6) in the same transaction"
-      ]
-    ]
-  },
-  {
-    "archivo": "minting-p-or-e-needs-own-r-at-stake.json",
-    "id": "6fc58bc8ccb73309470a32645b91e4a1f662f804d73ff6d7ee2957cf12530543",
-    "registro": [
-      [
-        "minting P or E needs own R at stake"
-      ],
-      [
-        10,
-        1e-9,
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and (P in it.0.0 or E in it.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1) or count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1)) or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: emisión escalonada, «si T + R + (opc) P; si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida)",
-        "R6, VG 7-11 noche: R propia en juego = R propia bloqueada como colateral de su serie, al menos la décima parte de lo emitido (inventario RR-6, RR-3 [X el 1/10])",
-        "§15 [D] N3: dos secuencias, emitir P exige R [X revisar]; §15 [D] R según el corpus retira el colateral de la #75 [X]"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after minting needs real T"
-      ],
-      [
-        "minting P or E needs own R at stake: {first ev.3} has no R:{first ev.3} locked as collateral (exit R:{first ev.3}) covering a tenth of what was minted of it, before or in this transaction"
       ]
     ]
   },
@@ -3128,78 +3038,6 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
-    "archivo": "p-is-minted-on-one-s-own-record.json",
-    "id": "20ed5b535c14b876f845180463c1e41129522e3f6f8767d4dafe226bb2d86f29",
-    "registro": [
-      [
-        "P is minted on one's own record"
-      ],
-      [
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) = 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "Mapa §12 [D] ciclo de vida de P: «el autor de X acuña P:X»; sobre todo el eje, solo el génesis (inventario PP-2) · §15 [D] lo retira: «desaparece: el autor de X acuña P:X; P del génesis sobre todo el eje» [X revisar con el P nuevo]"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after P is minted to its minter"
-      ],
-      [
-        "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
-      ]
-    ]
-  },
-  {
-    "archivo": "p-is-minted-to-its-minter.json",
-    "id": "3df924ee219713906cd28c985d7288333fe9da7fc923ede122e709e22b3eceb9",
-    "registro": [
-      [
-        "P is minted to its minter"
-      ],
-      [
-        0
-      ],
-      [
-        "=count (ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "mint"
-      ],
-      [
-        "*"
-      ],
-      [
-        "FUNDAMENTOS y mapa §12 [D] ciclo de vida de P: acuña P quien escribió el registro, para sí (inventario PP-2) · §15 [D] lo cambia: escribir un registro propio da diez unidades de P (N1) [X revisar con el P nuevo]"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "after nobody mints T"
-      ],
-      [
-        "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
-      ]
-    ]
-  },
-  {
     "archivo": "p-moves-within-a-known-scope.json",
     "id": "9c85164fc130197c5f6d1bc79c0a702ec70cc3b9d01811b751b3e0718f235b03",
     "registro": [
@@ -3313,7 +3151,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "t-is-not-locked.json",
-    "id": "a9f05b0594bab8dcdb3e5d0cdd0638721f293d16aa86a1b8295fa1db45847690",
+    "id": "21e95ca3edb2c6d50ce48b64babe3467284ecf67d44ad76288d88bede8e1a301",
     "registro": [
       [
         "T is not locked"
@@ -3341,7 +3179,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after P is minted on one's own record"
+        "after nobody mints T"
       ],
       [
         "T is not locked: {first ev.3} locks or releases T; locking is for E, P and R"
@@ -3431,7 +3269,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-genesis-e-names-no-record.json",
-    "id": "041aa3c9ed730091dec2d07d0f9ab9c3f88aa2ae44b7c7988a207beca2b94643",
+    "id": "0dade32e48389e7e9191ef2d731c32067be124a0d4621bc206f0643bd8380bb6",
     "registro": [
       [
         "the genesis E names no record"
@@ -3460,7 +3298,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after the genesis P is over the whole ledger"
+        "after the genesis only mints to its author"
       ],
       [
         "the genesis E names no record: its E is tied to the genesis itself"
@@ -3510,8 +3348,245 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "writing-burns-today-s-t.json",
+    "id": "a52540bbcf1e932744373a92f92c2eee600b70375338667d289bcbc28b1fa586",
+    "registro": [
+      [
+        "writing burns today's T"
+      ],
+      [
+        1,
+        "epoch.7.0",
+        "epoch.1.3.1"
+      ],
+      [
+        "=(count (ev.1 where T in it.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0 and count epoch.7.0.(it.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0 and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "burn",
+        "transfer"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
+        "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
+        "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "first"
+      ],
+      [
+        "writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"
+      ]
+    ]
+  }
+];
+
+// reglas-3b/*.json: traducciones del encargo 2 que el mapa §15 cambia (P acuñado, escalonado, colateral de R): fuera de la época, sin conectar; se reescriben en el 3b
+export const REGLAS_3B_DATOS = [
+  {
+    "archivo": "minting-e-needs-p-on-the-record.json",
+    "id": "8d8559de7f10842e7bd106ec9bfcd82f424ab9ab61153a1ca57241c713338499",
+    "registro": [
+      [
+        "minting E needs P on the record"
+      ],
+      [
+        0,
+        "genesis"
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and E in it.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and it.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: emisión escalonada, «si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida; inventario ES-3)",
+        "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after minting P or E needs own R at stake"
+      ],
+      [
+        "minting E needs P on the record: {first ev.3} has no P on {first ev.6.5} (a balance or P moved in this transaction)"
+      ]
+    ]
+  },
+  {
+    "archivo": "minting-needs-real-t.json",
+    "id": "2d2ee7dd2852a180e92ae24b3e3a43514905de03a514b7133307795e4fd7a097",
+    "registro": [
+      [
+        "minting needs real T"
+      ],
+      [
+        1,
+        7
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and not T in it.0.0) = 0 or count (ev.1 where T in it.0.0 and it.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: la emisión es escalonada, «normalmente será T + (opc) R; si T + R + (opc) P; si T+R+P + (opc) E»; mover T es consumirlo (mapa §12 [D] ciclo de vida)",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after T is not locked"
+      ],
+      [
+        "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0) each 0.0)} without burning real T (scales 0 to 6) in the same transaction"
+      ]
+    ]
+  },
+  {
+    "archivo": "minting-p-or-e-needs-own-r-at-stake.json",
+    "id": "690da05598a328a2a7a14aacdc61a0eacccff8adcc01042977aa27c7060159d9",
+    "registro": [
+      [
+        "minting P or E needs own R at stake"
+      ],
+      [
+        10,
+        1e-9,
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and (P in it.0.0 or E in it.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1) or count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1)) or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: emisión escalonada, «si T + R + (opc) P; si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida)",
+        "R6, VG 7-11 noche: R propia en juego = R propia bloqueada como colateral de su serie, al menos la décima parte de lo emitido (inventario RR-6, RR-3 [X el 1/10])",
+        "§15 [D] N3: dos secuencias, emitir P exige R [X revisar]; §15 [D] R según el corpus retira el colateral de la #75 [X]",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after minting needs real T"
+      ],
+      [
+        "minting P or E needs own R at stake: {first ev.3} has no R:{first ev.3} locked as collateral (exit R:{first ev.3}) covering a tenth of what was minted of it, before or in this transaction"
+      ]
+    ]
+  },
+  {
+    "archivo": "p-is-minted-on-one-s-own-record.json",
+    "id": "e7e1b0d75d3372933ce4a67cc8c1fef24cf95d39078949b76209455305431d5b",
+    "registro": [
+      [
+        "P is minted on one's own record"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) = 0 or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Mapa §12 [D] ciclo de vida de P: «el autor de X acuña P:X»; sobre todo el eje, solo el génesis (inventario PP-2) · §15 [D] lo retira: «desaparece: el autor de X acuña P:X; P del génesis sobre todo el eje» [X revisar con el P nuevo]",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after P is minted to its minter"
+      ],
+      [
+        "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
+      ]
+    ]
+  },
+  {
+    "archivo": "p-is-minted-to-its-minter.json",
+    "id": "bd360a381eb973f5a5e00ab286aa03e66d943f467aec5726076bd85399bea985",
+    "registro": [
+      [
+        "P is minted to its minter"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "FUNDAMENTOS y mapa §12 [D] ciclo de vida de P: acuña P quien escribió el registro, para sí (inventario PP-2) · §15 [D] lo cambia: escribir un registro propio da diez unidades de P (N1) [X revisar con el P nuevo]",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after nobody mints T"
+      ],
+      [
+        "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
+      ]
+    ]
+  },
+  {
     "archivo": "the-genesis-p-is-over-the-whole-ledger.json",
-    "id": "98b1921553b9d545c3f4c0a2090e5189d8509426bceea7c158af339ffecee91c",
+    "id": "a658e92c5ea83b97fdcfaa9df8fa870dbf5945d9e54c3823ee263f2ff9e02169",
     "registro": [
       [
         "the genesis P is over the whole ledger"
@@ -3534,7 +3609,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "mapa §10.1 [D]: P del génesis sobre todo el eje (tokens.AMBITO_GENESIS)",
-        "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)"
+        "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)",
+        "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
       ],
       [
         "epoch 0"
@@ -3544,46 +3620,6 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0 and it.0.1 != \"genesis\") each 0.1}"
-      ]
-    ]
-  },
-  {
-    "archivo": "writing-burns-today-s-t.json",
-    "id": "6b47a7f6cf16ce0140365e50fe0d92746e49aeef2167c4712f50bae5de6bb7c2",
-    "registro": [
-      [
-        "writing burns today's T"
-      ],
-      [
-        1,
-        7,
-        "epoch.1.3.1"
-      ],
-      [
-        "=(count (ev.1 where T in it.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0 and it.0.1 < 7 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0 and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
-      ],
-      [
-        "ev.3"
-      ],
-      [
-        "burn",
-        "transfer"
-      ],
-      [
-        "*"
-      ],
-      [
-        "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
-        "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])"
-      ],
-      [
-        "epoch 0"
-      ],
-      [
-        "first"
-      ],
-      [
-        "writing burns today's T: {first ev.3} burns no T, or more T than is left today (day {ev.6.0.3})"
       ]
     ]
   }

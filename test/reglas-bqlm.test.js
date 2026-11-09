@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import { evaluarRegla } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML } from '../src/epocas.js';
+import { REGLAS_3B_DATOS } from '../datos/epocas/epocas.js';
 import { Eje } from '../src/eje.js';
 import { validarForma, canonico, cuerpo, hash, RAIZ } from '../src/evento.js';
 import { SECCIONES_DEL_CICLO, T_NO_SE_EMITE } from '../src/ciclo.js';
@@ -34,7 +35,10 @@ import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 
-const REGLAS = EPOCA_0_BTML.condiciones;
+// Las de la época y las seis que el mapa §15 cambia (datos/epocas/reglas-3b/: fuera de la época, sin conectar), que
+// se siguen comparando con el código que las aplica hoy.
+const REGLAS_3B = REGLAS_3B_DATOS.map((x) => x.registro);
+const REGLAS = [...EPOCA_0_BTML.condiciones, ...REGLAS_3B];
 const nombreDe = (r) => r[0][0];
 const DIVERGENCIAS = process.env.AGRAM_DIVERGENCIAS === '1';
 
@@ -169,7 +173,9 @@ async function repasar(eje, cuenta) {
 
 // ---------- la época ----------
 
-test('las 27 reglas de economía están en epoch.2 en el orden de su 8, cada una con su condición JS', () => {
+test('las 27 reglas de economía: 21 en epoch.2 en el orden de su 8 y 6 en reglas-3b, cada una con su condición JS', () => {
+  assert.equal(EPOCA_0_BTML.condiciones.length, 21);
+  assert.deepEqual(REGLAS_3B.map(nombreDe).sort(), ['P is minted on one\'s own record', 'P is minted to its minter', 'minting E needs P on the record', 'minting P or E needs own R at stake', 'minting needs real T', 'the genesis P is over the whole ledger']);
   assert.equal(REGLAS.length, 27);
   const js = motivosJS(new Eje(), { autor: 'g', sobre: null, t: '2026-11-07T09:00:00Z', movimientos: [], payload: ['x'], contexto: { genesis: true } });
   assert.deepEqual(REGLAS.map(nombreDe).sort(), Object.keys(js).sort(), 'una condición JS por regla, y ninguna de más');

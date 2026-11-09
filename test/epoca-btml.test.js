@@ -8,9 +8,9 @@ import { readFileSync } from 'node:fs';
 import { EPOCA_0, EPOCA_0_BTML, EPOCAS, CORTES_PROVISIONALES, cargarEpocaBtml, leerDireccion } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS } from '../datos/epocas/epocas.js';
 import { validarPayload, esTerminal } from '../src/btml.js';
-import { FAMILIAS, ESCALAS_T, ESCALAS_INFORMATIVAS, ASIGNACION_T, PARTES_T } from '../src/tokens.js';
+import { FAMILIAS, ESCALAS_T, ESCALAS_REALES, ESCALAS_INFORMATIVAS, ASIGNACION_T, PARTES_T, SEGUNDOS } from '../src/tokens.js';
 import { MODOS } from '../src/modos.js';
-import { evaluar, PRIMITIVAS } from '../src/bqlm.js';
+import { evaluar, analizar, rellenar, PRIMITIVAS } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 
 const DIEZ = [...Array(10).keys()];
@@ -95,7 +95,7 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
 test('2: la lista de referencias a los registros de las reglas, en el orden de su 8; la primera, «writing burns today\'s T»', () => {
   // VG, 10-11, A1: cada regla es su propio registro y el 2 de la época es la lista de referencias, una hoja por regla.
   const reglas = EPOCA_0_BTML.condiciones;
-  assert.equal(reglas.length, 27);
+  assert.equal(reglas.length, 21);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -108,11 +108,11 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 27);
+  assert.equal(uno('count epoch.2'), 21);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
-  assert.deepEqual(val('(first epoch.2).1'), [1, 7, 'epoch.1.3.1']);
+  assert.deepEqual(val('(first epoch.2).1'), [1, 'epoch.7.0', 'epoch.1.3.1']);
   assert.match(uno('(first epoch.2).2'), /^=\(count \(ev\.1 where T in it\.0\.0/);
   assert.deepEqual(val('(first epoch.2).3'), ['ev.3']);
   assert.deepEqual(val('(first epoch.2).4'), ['burn', 'transfer']);
@@ -121,7 +121,7 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);
-  assert.equal(uno('(nth 26 epoch.2).0'), 'P moves within a known scope');
+  assert.equal(uno('(last epoch.2).0'), 'P moves within a known scope');
   assert.deepEqual(val('epoch.2.0'), reglas.map((r) => r[0][0]), 'el 0 de cada una');
 });
 
@@ -130,7 +130,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 27);
+  assert.equal(enDisco.length, 21);
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');
@@ -168,8 +168,15 @@ test('3 a 9: plantilla de identidad, primitivas y despliegues, procedencia, cale
   assert.deepEqual([0, 1, 2, 3, 4].map((k) => uno('epoch.4.0.' + k + '.0')), [...PRIMITIVAS]);
   assert.deepEqual([0, 1, 2, 3, 4].map((k) => uno('epoch.4.1.' + k + '.0')), ['D-META', 'D-MOV', 'D-SERIE', 'D-FECHA', 'D-VALOR']);
   assert.ok(val('epoch.6').length >= 10 && val('epoch.6').every((l) => /^VG, \d+-11/.test(l)), 'una línea por decisión de VG, con fecha');
-  assert.deepEqual([0, 1, 2, 3].map((k) => uno('epoch.7.0.' + k + '.1')), [1, 7, 28, 365]);
+  // 7: el calendario (VG, 10-11, A3): los segundos de cada escala real, por su dígito (el de D-SERIE); las
+  // informativas no se miden. Semana de 7 días, ciclo de 28, año de 364 + 1. Y las escalas que se refieren a otra fecha.
+  assert.deepEqual(ESCALAS_REALES.map((e, k) => uno('epoch.7.0.' + k + '.1')), ESCALAS_REALES.map((e) => SEGUNDOS[e]));
+  assert.deepEqual(ESCALAS_T.map((e, k) => uno('count epoch.7.0.' + k)), ESCALAS_T.map((e) => (ESCALAS_REALES.includes(e) ? 1 : 0)), 'el calendario mide las reales; las informativas no están');
+  assert.deepEqual([3, 4, 5, 6].map((k) => uno('epoch.7.0.' + k + '.2')), [1, 7, 28, 365]);
+  assert.match(uno('epoch.7.0.6.3'), /^364 \+ 1/);
   assert.equal(uno('epoch.7.1'), 'el tiempo lo marcan los demás');
+  assert.deepEqual(val('epoch.7.2'), [ESCALAS_T.indexOf('pasado'), ESCALAS_T.indexOf('futuro')]);
+  assert.equal(SEGUNDOS.anio, 365 * 86400);
   assert.deepEqual(val('epoch.8.0'), [...CORTES_PROVISIONALES]);
   assert.deepEqual(EPOCA_0_BTML.cortesConOrigen(), { cortes: [...CORTES_PROVISIONALES], origen: 'epoca' });
   assert.deepEqual(EPOCA_0_BTML.cortes('lo que sea'), EPOCA_0.cortes());
@@ -183,6 +190,50 @@ test('3 a 9: plantilla de identidad, primitivas y despliegues, procedencia, cale
   assert.deepEqual(val('epoch.9.1'), [5, 4, 1, 7, 2, 8, 9, 3, 'segunda alta']);
   assert.equal(EPOCA_0_BTML.nombre, 'época 0');
   assert.deepEqual(val('epoch.0'), ['época 0', 'epoch 0']);
+});
+
+/** Los números de un árbol de expresión del BQL mínimo (sus literales). */
+function numerosDe(arbol, fuera = []) {
+  if (!arbol || typeof arbol !== 'object') return fuera;
+  if (arbol.n === 'lit' && typeof arbol.v === 'number') fuera.push(arbol.v);
+  for (const v of Object.values(arbol)) if (v && typeof v === 'object' && !Object.isFrozen(v)) numerosDe(v, fuera);
+  return fuera;
+}
+
+/** Los números que lleva una regla: los de sus posiciones, los de su condición y los de las {expresiones} de su mensaje. */
+function numerosDeRegla(regla) {
+  const fuera = [];
+  for (const posicion of regla) {
+    for (const x of posicion) {
+      if (typeof x === 'number') fuera.push(x);
+      else if (typeof x === 'string' && x.startsWith('=')) numerosDe(analizar(x), fuera);
+      else if (typeof x === 'string') for (const [, e] of x.matchAll(/\{([^{}]+)\}/g)) numerosDe(analizar(e), fuera);
+    }
+  }
+  return fuera;
+}
+
+test('A3: ninguna regla lleva un número que la época tenga (los datos del mundo se leen de la época)', () => {
+  // Los números de la época, fuera de sus reglas: el calendario, las asignaciones, los cortes, los órdenes de magnitud…
+  const deLaEpoca = new Set();
+  const recoger = (x) => (Array.isArray(x) ? x.forEach(recoger) : typeof x === 'number' && deLaEpoca.add(x));
+  JSON_EN_DISCO.forEach((x, d) => d !== 2 && recoger(x));
+  // 0 y 1 son la nada y la unidad de contar (count … = 0, count … >= 1), no datos del mundo.
+  const neutros = new Set([0, 1]);
+  assert.ok(deLaEpoca.has(31536000) && deLaEpoca.has(7) && deLaEpoca.has(24), 'la época lleva el año en segundos, la semana y las horas del día');
+  const fuera = [];
+  for (const r of EPOCA_0_BTML.condiciones) {
+    for (const n of numerosDeRegla(r)) if (deLaEpoca.has(n) && !neutros.has(n)) fuera.push(r[0][0] + ': ' + n);
+  }
+  assert.deepEqual(fuera, []);
+  // La prueba ve lo que tiene que ver: una regla con el año escrito no pasa.
+  const conAnio = [...EPOCA_0_BTML.condiciones[0]];
+  conAnio[2] = ['=(first ev.6.0).0 <= before.6.0.0 + 31536000'];
+  assert.deepEqual(numerosDeRegla(conAnio).filter((n) => deLaEpoca.has(n) && !neutros.has(n)), [31536000]);
+  // «at most a year ahead» lee el año del calendario de la época.
+  const anio = EPOCA_0_BTML.condiciones.find((r) => r[0][0] === 'at most a year ahead');
+  assert.match(anio[2][0], /epoch\.7\.0\.6\.1/);
+  assert.equal(rellenar('{epoch.7.0.6.1}', ctx), String(SEGUNDOS.anio));
 });
 
 test('cargarEpocaBtml rechaza una época con posiciones vacías, sin las diez o con una regla incompleta', async () => {

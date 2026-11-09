@@ -1,7 +1,7 @@
 [
   ["every record hangs on a record of the ledger"],
-  [0, 1, 2],
-  ["=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 = 2 and first (first (first ev.6).5).5 = first (first ev.6).5)"],
+  [0, 1],
+  ["=(count before.5 = 0 and count (first ev.6).5 = 1) or (count (first ev.6).5 > 1 and first (first (first ev.6).5).5 = first (first ev.6).5)"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],

@@ -1,11 +1,14 @@
 [
   ["at most a year ahead"],
-  [31536000, 0],
-  ["=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + 31536000 or count up ev = 0"],
+  [0, "epoch.7.0.6.1"],
+  ["=count before.6.0 = 0 or (first ev.6.0).0 <= before.6.0.0 + epoch.7.0.6.1 or count up ev = 0"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
-  ["Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)"],
+  [
+    "Revisión de seguridad 7-11 noche: sin reloj externo, un evento no va más de un año por delante del mayor t aceptado [X confirmar VG] (inventario RL-3)",
+    "VG, 10-11, A3: el año es el del calendario de la época (epoch.7.0.6.1, sus segundos: 364 + 1 días), no 365 escrito en la regla"
+  ],
   ["epoch 0"],
   ["after not before the writer joined"],
   ["at most a year ahead: {first ev.6.0} is more than a year after the latest time in the ledger ({before.6.0})"]

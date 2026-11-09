@@ -7,7 +7,8 @@
   ["*"],
   [
     "VG, 7-11 noche: emisión escalonada, «si T+R+P + (opc) E» (mapa §12 [D] ciclo de vida; inventario ES-3)",
-    "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]"
+    "§15 [D]: E exige R y P sobre el registro [X revisar con el nuevo P]",
+    "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
   ],
   ["epoch 0"],
   ["after minting P or E needs own R at stake"],

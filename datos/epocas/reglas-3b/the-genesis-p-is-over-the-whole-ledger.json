@@ -7,7 +7,8 @@
   ["*"],
   [
     "mapa §10.1 [D]: P del génesis sobre todo el eje (tokens.AMBITO_GENESIS)",
-    "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)"
+    "mapa §15 [D] «P como peso de criterio» RETIRA «P del génesis sobre todo el eje»: esta regla traduce el código de hoy y cae con el P nuevo (paso 4 del plan)",
+    "Encargo 3a (10-11): fuera de la época y sin conectar; traduce el código de hoy, que el mapa §15 cambia (P acuñado, escalonado, colateral de R): se reescribe en el 3b"
   ],
   ["epoch 0"],
   ["after the genesis only mints to its author"],

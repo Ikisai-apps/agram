@@ -1577,12 +1577,12 @@ Decisión de VG (9-11, mapa §16 [D]): **la época es un registro leído con la 
 |---|---|
 | 0 nombre | `['época 0', 'epoch 0']` |
 | 1 recursos | las cuatro familias, en el orden de `FAMILIAS`: 1.0 E, 1.1 P, 1.2 R, 1.3 T; cada una `[[letra, nombre], [estructura], [estado]]`. E: las cuatro orientaciones del corpus (financiero y material, conocimiento e información, social y relacional, productivo y capacidad). P: cinco criterios, las miradas 1-5 (económico, administrativo, social, técnico, de encaje), «[X] confirmar VG». R: seis grupos, los seis precios de la atención (su R, E, P, mi R devuelta, vetado, desconocidos), «[X] confirmar VG». T: diez escalas como dígitos (0 segundo … 6 año, 7 pasado, 8 futuro, 9 inventado), cada una `[[nombre], [asignación diaria], [en partes de]]`: 86400, 1440, 24, 1, 1 de 7, 1 de 28, 1 de 364, y «sin límite» en 7, 8 y 9 |
-| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
+| 2 criterios | las reglas largas, como condiciones (`docs/BQLM.md` §10). Cada regla es su propio registro (VG, 10-11, A1), y el 2 es la **lista de referencias** `{ ref }` a esos registros, una hoja por regla y sin tope de diez, en el orden que dice el 8 de cada una. Los registros viven en `datos/epocas/reglas/<su 0 en kebab>.json`; su id es el hash de su cuerpo canónico, como el de un evento. Son 21; las seis traducciones que el mapa §15 cambia (P acuñado, escalonado, colateral de R) están fuera, en `datos/epocas/reglas-3b/`, sin conectar. La primera es «writing burns today's T» (`docs/BQLM.md` §6) |
 | 3 con quién | 3.0 la plantilla de identidad (qué va en cada posición de un alta: 1 cartera, 2 criterios y P posicionado, 3 grupos de atención y R, 7 tiempo…); 3.1 el autor del primer registro, «el autor del génesis» |
 | 4 qué se hace | 4.0 las cinco primitivas (`mint`, `transfer`, `lock`, `release`, `burn`) y 4.1 los cinco despliegues (D-META, D-MOV, D-SERIE, D-FECHA, D-VALOR), con su nombre y una línea |
 | 5 dónde encaja | las cien reglas cortas: 5.p.d = `[[nombre], [significado], [ejemplo]]` de la regla del dígito d en la profundidad p |
 | 6 de dónde viene | la procedencia: una línea por decisión de VG citada, con su fecha |
-| 7 para cuándo | 7.0 el calendario (día, semana de 7, ciclo de 28, año de 364 + 1) y 7.1 el reloj: «el tiempo lo marcan los demás» |
+| 7 para cuándo | 7.0 el calendario: las siete escalas que se miden, por su dígito, cada una `[[nombre], [segundos], [días]]` (segundo 1, minuto 60, hora 3600, día 86 400; semana de 7 días, ciclo de 28, año de 364 + 1 = 31 536 000 segundos); las informativas no se miden y no están. 7.1 el reloj: «el tiempo lo marcan los demás». 7.2 las escalas que se refieren a otra fecha: 7 (pasado) y 8 (futuro). Son los datos del mundo (VG, 10-11, A3): `src/tokens.js` lee de aquí `SEGUNDOS`, y del 1.3 `ASIGNACION_T` y `PARTES_T`, y ninguna regla escribe un número que la época tenga |
 | 8 frente a otros | 8.0 los cortes de las cajas (1 2 3 4 6 10 16 26 42), 8.1 los órdenes de magnitud (8.1.n = `[[10^(n−1)], [10^n]]`) y 8.2 el mínimo y el máximo de cada modo |
 | 9 cómo | 9.0 las plantillas (recuento: «weighted sum», «weighted mean», «threshold»; cerrado: «all announced movements happened»; atención: el grupo «desconocidos» con precio «my own R») y 9.1 el orden del tutorial: 5, 4, 1, 7, 2, 8, 9, 3 y la segunda alta |
 
@@ -1614,7 +1614,7 @@ epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
 (first epoch.2).0 → writing burns today's T
-count epoch.2 → 27
+count epoch.2 → 21
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

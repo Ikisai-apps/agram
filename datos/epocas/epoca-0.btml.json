@@ -39,30 +39,24 @@
     ]
   ],
   [
-    {"ref":"6b47a7f6cf16ce0140365e50fe0d92746e49aeef2167c4712f50bae5de6bb7c2"},
+    {"ref":"a52540bbcf1e932744373a92f92c2eee600b70375338667d289bcbc28b1fa586"},
     {"ref":"4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89"},
     {"ref":"b9ca4b2a8845258dc5c7634ca19e1b3d818fc3ffd0f6e676b3863856e13999e5"},
-    {"ref":"2145a6057756678a856a17412e8e1b55e96a5739953ccbd94817e9122735e230"},
-    {"ref":"073a126e6e2d0888f7db2ad5e0eb24bb3a55f082292e9fee33b2fe1c60d92d43"},
+    {"ref":"ef34a7fd9ca11973c25c5fe0d7fb28cbbd2b8a30cea2853f9b0f6b66437e7f0b"},
+    {"ref":"9192e43a85d2cf3125114bb858f0d1ef961322ecab7ed5006b4da2f8c8a17b21"},
     {"ref":"603c2d35612943d52bb21049efd77b3712b38da08e998cbbb64b275a1c388f1c"},
     {"ref":"2c3f7b6d03820948adfe36236c30c29760e699727aafc5327de6342a047b9b53"},
     {"ref":"40994540fd9ff135e5ec2bc359268fa4ba4de6568d86451d0fd112cb13dc9c65"},
-    {"ref":"98b1921553b9d545c3f4c0a2090e5189d8509426bceea7c158af339ffecee91c"},
-    {"ref":"041aa3c9ed730091dec2d07d0f9ab9c3f88aa2ae44b7c7988a207beca2b94643"},
-    {"ref":"32ccbebb222164edacde809aadde19a2a93fa2a1c1c641b3884bfdd0ceba33ec"},
+    {"ref":"0dade32e48389e7e9191ef2d731c32067be124a0d4621bc206f0643bd8380bb6"},
+    {"ref":"0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"},
     {"ref":"8ba85d306013f16b3ca28d78188035f42f0d0ab1bc773563717b6d4ea9e576af"},
     {"ref":"470e6f3343b1837cc5fc5dddd428547bfc77cb5bcc4f5da429a998f8a65710c8"},
     {"ref":"0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e"},
-    {"ref":"4a662c2854d161fa58ea2eceeacda90092a78440f7d526f862fa8ff8dc42a7f8"},
+    {"ref":"0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277"},
     {"ref":"5a94105a1aaa173982000b180d64ecd90a6c5608fcf73e6c3f0e3d4131e372d0"},
     {"ref":"b469613ccc0fb0830f86dd643346724a8761c3020cceaf7b2c7ee1619740f47c"},
-    {"ref":"3df924ee219713906cd28c985d7288333fe9da7fc923ede122e709e22b3eceb9"},
-    {"ref":"20ed5b535c14b876f845180463c1e41129522e3f6f8767d4dafe226bb2d86f29"},
-    {"ref":"a9f05b0594bab8dcdb3e5d0cdd0638721f293d16aa86a1b8295fa1db45847690"},
-    {"ref":"5d9f2e36808952fc6b6bf3ab8830147d613c3eaee2bef308fcd892554689a58e"},
-    {"ref":"6fc58bc8ccb73309470a32645b91e4a1f662f804d73ff6d7ee2957cf12530543"},
-    {"ref":"b15894099b50402265bed739dcf9cd630460532763abf43bbfd2ef64ac4dea13"},
-    {"ref":"c362f07db6bdbb20d30db15025b5516780bcba24a2ff1aa9397e644d9b0b7385"},
+    {"ref":"21e95ca3edb2c6d50ce48b64babe3467284ecf67d44ad76288d88bede8e1a301"},
+    {"ref":"acf1909465b7ac87c387177605d3aa1d1387cea4b8210296111ecb3c050ac07d"},
     {"ref":"cd24473416a75910b6afc49946dce617283dd5c3fa5184987090c44f93eff2ea"},
     {"ref":"3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f"},
     {"ref":"9c85164fc130197c5f6d1bc79c0a702ec70cc3b9d01811b751b3e0718f235b03"}
@@ -646,16 +640,22 @@
     "VG, 9-11: PV3 es la regla de atención; grupo por defecto «desconocidos», con precio «mi propia R» (mapa §16 [D])",
     "VG, 9-11: la capa de transacciones: cinco primitivas, anclaje y memo (mapa §16 [D])",
     "VG, 9-11: molde de regla y léxico mínimo de BQL, palabras cortas en inglés (mapa §16 [D])",
-    "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])"
+    "VG, 9-11: la época es un registro leído con la cruceta; no hay posiciones vacías, nunca se escribe [] (mapa §16 [D])",
+    "VG, 10-11: cada regla es su propio registro y el 2 de la época es la lista de sus referencias (mapa §16 [D], A1)",
+    "VG, 10-11: los datos del mundo viven en la época y ninguna regla lleva una constante que la época tenga (mapa §16 [D], A3)"
   ],
   [
     [
-      [["día"], [1]],
-      [["semana"], [7]],
-      [["ciclo"], [28]],
-      [["año"], [365], ["364 + 1: trece ciclos de 28 días y un día"]]
+      [["segundo"], [1]],
+      [["minuto"], [60]],
+      [["hora"], [3600]],
+      [["día"], [86400], [1]],
+      [["semana"], [604800], [7]],
+      [["ciclo"], [2419200], [28]],
+      [["año"], [31536000], [365], ["364 + 1: trece ciclos de 28 días y un día"]]
     ],
-    ["el tiempo lo marcan los demás"]
+    ["el tiempo lo marcan los demás"],
+    [7, 8]
   ],
   [
     [1, 2, 3, 4, 6, 10, 16, 26, 42],

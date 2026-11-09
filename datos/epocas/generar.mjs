@@ -13,6 +13,11 @@
 // («first», «after <nombre>»): `npm run epocas` la reescribe desde los
 // archivos de reglas/, así que no se edita a mano.
 //
+// En reglas-3b/ están las traducciones del encargo 2 que el mapa §15 cambia
+// (el P acuñado por el autor, el P del génesis sobre el eje, el escalonado,
+// el colateral de R): no son reglas de la época ni se conectan; se reescriben
+// en el 3b. Siguen aquí para comparar con el código que las aplica hoy.
+//
 // Corregir una regla no la modifica en sitio: se añade un ocupante a su
 // registro, un archivo en correcciones/ { "sobre": <id de la regla>, "en":
 // <la posición, un dígito>, "ocupante": <lo nuevo>, "de": <procedencia> }.
@@ -127,6 +132,9 @@ export function generar(carpeta = CARPETA) {
   }
   partes.push('// reglas/*.json: los registros de las reglas de la época, { archivo, id, registro }; el id, el hash de su cuerpo canónico');
   partes.push(`export const REGLAS_DE_EPOCA_DATOS = ${JSON.stringify(reglasDe(join(carpeta, 'reglas')), null, 2)};`);
+  partes.push('');
+  partes.push('// reglas-3b/*.json: traducciones del encargo 2 que el mapa §15 cambia (P acuñado, escalonado, colateral de R): fuera de la época, sin conectar; se reescriben en el 3b');
+  partes.push(`export const REGLAS_3B_DATOS = ${JSON.stringify(reglasDe(join(carpeta, 'reglas-3b')), null, 2)};`);
   partes.push('');
   partes.push('// correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }');
   partes.push(`export const CORRECCIONES_DE_EPOCA_DATOS = ${JSON.stringify(correccionesDe(join(carpeta, 'correcciones')), null, 2)};`);
