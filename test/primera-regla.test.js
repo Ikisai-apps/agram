@@ -110,11 +110,11 @@ test('lo gastado hoy (A.7.e) cuenta: 23 horas más caben tras la compra; la hora
   assert.equal(juzgar(eje, mañana).pasa, true);
 });
 
-test('lo que la regla no ve: una cosa no tiene asignación; lo que gasta de más lo para el saldo (el suelo), no esta regla', async () => {
+test('una cosa no tiene asignación (B1: su alta la escribió otro): la regla le cuenta solo el T de su cartera, como el saldo', async () => {
   const { eje, menu } = await ejemploCompra();
   const ev = await crearEvento({ autor: 'cocina', sobre: menu.id, t: '2026-11-07T16:00:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 19, de: 'cocina', a: null }], payload: ['Más horas de las que tiene'] });
   assert.ok((await eje.validar(ev)).some((e) => /saldo insuficiente de T:hora en cocina/.test(e)));
-  assert.equal(juzgar(eje, ev).pasa, true, '[X] decidir VG: la asignación de una cosa (docs/BQLM.md §8)');
+  assert.equal(juzgar(eje, ev).pasa, false, 'la cocina tiene 18 horas en su cartera: 19 no caben');
 });
 
 test('sin época la regla no puede leer la asignación: PENDIENTE, y no pasa', async () => {

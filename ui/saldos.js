@@ -1,7 +1,7 @@
 // Saldos por series, en corto. Cada familia de tokens es una serie (VG,
 // 7-11): T por escala (una hora no son sesenta minutos), E por emisor y
 // denominación, P por ámbito, R por emisor. Por cada identidad, una línea
-// con su tipo, la huella de su clave y lo que tiene de cada familia; debajo,
+// con lo que es (persona o cosa, por quién escribió su alta), la huella de su clave y lo que tiene de cada familia; debajo,
 // las series emitidas (eje.series()): quién emite cada una, cuánto ha
 // emitido y cuánto queda en carteras (lo demás se ha consumido).
 
@@ -68,7 +68,8 @@ export function htmlSaldos(eje) {
   const carteras = eje.identidades().map((id) => {
     const f = familiasDe(eje, id);
     const clave = eje.clave(id);
-    const tipo = eje.tipo(id);
+    const persona = typeof eje.esPersona === 'function' ? eje.esPersona(id) : null;
+    const tipo = persona === true ? 'persona' : persona === false ? 'cosa' : null; // B1: por quién escribió su alta
     return `<div class="cartera">
       <div class="quien"><b>${escapar(id)}</b>${tipo ? ` <span>${escapar(tipo)}</span>` : ''} <span class="huella">${clave ? 'clave ' + escapar(autoridad.huella(clave)) : 'sin clave'}</span></div>
       <div class="fams">${['T', 'E', 'P', 'R'].map((x) => chips(id, x, f[x])).join('')}</div>

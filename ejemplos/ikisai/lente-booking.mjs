@@ -59,13 +59,13 @@ export async function ejemploLente({ t = '2026-11-08T20:00:00Z' } = {}) {
   // persona.
   const luego = new Date(Date.parse(t) + 3600e3).toISOString();
 
-  // La casa da de alta a las secretarias y a «recien» (personas).
+  // Las secretarias y «recien» escriben su propia alta (VG, 10-11, B1: son personas) y la casa les da un euro.
   const nombres = Object.keys(ASOCIACIONES);
   const personas = [...nombres.map((n) => ASOCIACIONES[n].secretaria), RECIEN];
+  for (const id of personas) await eje.entrar({ identidad: id, t });
   const altas = await eje.escribir({
     autor: CASA, sobre: eje.genesisId, t, payload: ['Altas de vecinos', personas],
-    movimientos: [minutos(CASA), ...personas.map((id) => daEuro(CASA, id))], // existen al recibir tokens
-    contexto: { tipos: Object.fromEntries(personas.map((p) => [p, 'persona'])) },
+    movimientos: [minutos(CASA), ...personas.map((id) => daEuro(CASA, id))],
   });
 
   // Cada secretaria escribe el registro de su asociación (un grupo es un registro) y, sobre él, emite su R con su

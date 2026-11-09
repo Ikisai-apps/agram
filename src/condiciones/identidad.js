@@ -5,8 +5,8 @@
 // texto y mismo orden que tenían en src/eje.js; ahora son condiciones de
 // validez de la transacción (VG, 9-11: la capa cero).
 
-import { claveToken, cantidadBase, AMBITO_GENESIS, EMITEN } from '../tokens.js';
-import { motivoTipo, motivoAjenos, EMITEN_V2, T_NO_SE_EMITE, validosDe } from '../ciclo.js';
+import { claveToken, cantidadBase, AMBITO_GENESIS } from '../tokens.js';
+import { motivoTipo, motivoAjenos, EMITEN_V2, T_NO_SE_EMITE, SIN_TIPO, validosDe } from '../ciclo.js';
 import { verificar, verificarPosesion, clavePublicaValida } from '../autoridad.js';
 
 const enEnteros = (k) => 'la serie ' + k + ' va en enteros: no se declaró divisible (divisible: true en su primera emisión)';
@@ -23,7 +23,9 @@ export const FIRMA = Object.freeze({
   familia: 'identidad',
   evaluar: async (tx, libro, ctx) => {
     const ev = ctx.evento;
-    const clave = ctx.clave(ev.autor);
+    // B1: quien aún no tiene cuenta escribe su propia alta, y la clave que declara en ella para sí es la suya: la
+    // firma de este registro con esa clave es su prueba de posesión.
+    const clave = ctx.clave(ev.autor) ?? (libro.tiene(ev.autor) ? undefined : ev.contexto?.claves?.[ev.autor]);
     if (clave) {
       if (!ev.firma) return 'firma ausente de ' + ev.autor;
       if (ev.firmante !== ev.autor) return 'el firmante debe ser el autor';
@@ -52,9 +54,13 @@ export const CLAVES = Object.freeze({
     const errores = [];
     const declaradas = ev.contexto?.claves ?? {};
     for (const [id, jwk] of Object.entries(declaradas)) {
+      // B1: quien escribe su propia alta declara su clave (su firma es la prueba de posesión, ID-5); para otra
+      // identidad, la que recibe tokens en este alta (una cosa), con su prueba de posesión.
+      const propia = id === ev.autor;
       if (ctx.tieneClave(id) || libro.tiene(id)) errores.push('no se puede cambiar la clave de ' + id);
-      else if (!movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
+      else if (!propia && !movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
       else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
+      else if (propia && !Object.hasOwn(ev.posesion ?? {}, id)) continue;
       else if (!Object.hasOwn(ev.posesion ?? {}, id)) {
         if (ctx.exigeClave) errores.push('la clave de ' + id + ' llega sin prueba de posesión: el alta lleva la firma de esa clave sobre su id (posesion)');
       } else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
@@ -66,19 +72,26 @@ export const CLAVES = Object.freeze({
   },
 });
 
-/** ID-2, ID-3. Los tipos (persona o cosa) se declaran en el alta, como la clave, y no cambian. */
+/**
+ * ID-2, ID-3. No hay tipo (VG, 10-11, B1): fuera del prefijo de la versión 2,
+ * un alta no declara persona ni cosa (se lee de quién la escribe). En el
+ * prefijo de la versión 2 (suelo de persistencia), las reglas de entonces: los
+ * tipos se declaraban en el alta, como la clave, y no cambiaban.
+ */
 export const TIPOS = Object.freeze({
   nombre: 'ID-3',
   filas: Object.freeze(['ID-2', 'ID-3']),
   familia: 'identidad',
   evaluar: (tx, libro, ctx) => {
     const ev = ctx.evento;
+    const tipos = ev.contexto?.tipos;
+    if (ctx.reglas !== 2) return tipos !== undefined ? SIN_TIPO : null;
     const movimientos = objetos(ev);
     const errores = [];
-    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      const mal = motivoTipo(id, tipo, ctx.reglas);
+    for (const [id, tipo] of Object.entries(tipos ?? {})) {
+      const mal = motivoTipo(id, tipo);
       if (mal) errores.push(mal);
-      else if (ctx.tipoDeclarado(id) || libro.tiene(id)) errores.push('no se puede cambiar el tipo de ' + id);
+      else if (ctx.tipoV2Declarado(id) || libro.tiene(id)) errores.push('no se puede cambiar el tipo de ' + id);
       else if (!movimientos.some((m) => m.a === id)) errores.push('tipo declarado para ' + id + ' sin darle tokens');
     }
     return errores;
@@ -106,9 +119,10 @@ export const AJENOS = Object.freeze({
 /**
  * GN-1, GN-2 (sin la firma). El génesis emite a su autor, sus series de E y
  * R quedan a su nombre, su P es sobre todo el eje («genesis»: aún no existe
- * ningún otro registro) y solo declara el tipo y la clave de su autor. Lo
- * emite una persona; con las reglas de la versión 2 (`reglas` = 2: un eje
- * guardado con ella), también un grupo (el tipo que había entonces).
+ * ningún otro registro) y solo declara la clave de su autor. Su autor escribe
+ * su propia alta: es una persona (VG, 10-11, B1: no hay tipo). Con las reglas
+ * de la versión 2 (`reglas` = 2: un eje guardado con ella), declara el tipo de
+ * su autor, persona o grupo (lo que había entonces).
  */
 export function erroresGenesis(g, reglas = 3) {
   const errores = [];
@@ -139,10 +153,13 @@ export function erroresGenesis(g, reglas = 3) {
       }
     }
   }
-  for (const [id, tipo] of Object.entries(g.contexto?.tipos ?? {})) {
+  // B1: no hay tipo; el autor del génesis escribe su propia alta: es una persona. Solo un génesis guardado con la
+  // versión 2 declara el tipo de su autor (suelo de persistencia: las reglas de entonces).
+  if (reglas !== 2 && g.contexto?.tipos !== undefined) errores.push(SIN_TIPO);
+  for (const [id, tipo] of Object.entries(reglas === 2 ? g.contexto?.tipos ?? {} : {})) {
     if (id !== g.autor) errores.push('el génesis solo declara el tipo de su autor');
-    else if (motivoTipo(id, tipo, reglas)) errores.push(motivoTipo(id, tipo, reglas));
-    else if (!(reglas === 2 ? EMITEN_V2 : EMITEN).includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
+    else if (motivoTipo(id, tipo)) errores.push(motivoTipo(id, tipo));
+    else if (!EMITEN_V2.includes(tipo)) errores.push('el génesis lo emite una persona: su autor no puede ser ' + tipo);
   }
   for (const id of Object.keys(g.contexto?.claves ?? {})) {
     if (id !== g.autor) errores.push('el génesis solo declara la clave de su autor');

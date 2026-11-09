@@ -129,17 +129,17 @@ console.log(await eje.validar(malo));
 ```
 
 ```text
-ancla: 7c3eb52f 0000000000 · autor: huesped · memo: el payload de la compra
+ancla: 61aa68f7 0000000000 · autor: huesped · memo: el payload de la compra
 paso 0: acunar(T:hora, huesped, 1) [asignacion, tope 24] + quemar(T:hora, huesped, 1)
 paso 1: transferir(E:casa/EUR, huesped, cocina, 12)
 cartera de huesped: {"E:casa/EUR":{"disponible":48,"bloqueado":{}}}
 T sobre el menú: {"hora":1}
 ES-1: emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)
-ES-1: emitir E exige P del autor sobre el registro 7c3eb52f (saldo o movimiento de P en el mismo evento)
+ES-1: emitir E exige P del autor sobre el registro 61aa68f7 (saldo o movimiento de P en el mismo evento)
 aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100 pedido
 [
   'emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)',
-  'emitir E exige P del autor sobre el registro 7c3eb52f (saldo o movimiento de P en el mismo evento)',
+  'emitir E exige P del autor sobre el registro 61aa68f7 (saldo o movimiento de P en el mismo evento)',
   'saldo insuficiente de E:casa/EUR en huesped'
 ]
 ```

@@ -182,7 +182,7 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   assert.deepEqual(val('("huesped").1.0.3', ctx), ['casa'], 'y su 3, quien la emite');
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
-  assert.equal(uno('("huesped").7.1', ctx), 0);
+  assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
   assert.equal(uno('("casa").7.1', ctx), 241, 'la casa gastó 1 minuto escribiendo y dio 240 a la cocina');
   assert.deepEqual(val('("huesped").7.8', ctx), [], 'las informativas no se gastan de ninguna asignación');
   // Al día siguiente, la asignación empieza entera: lo gastado vuelve a 0.
@@ -216,7 +216,7 @@ test('vistas: lo bloqueado por salida en A.1.(serie).2, y las series atadas viva
 test('before: el libro de antes: 3 las identidades, 5 el génesis, 6.0 el mayor t', async () => {
   const { eje } = await ejemploCompra();
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
-  assert.deepEqual(val('before.3', ctx), ['casa', 'cocina', 'huesped']);
+  assert.deepEqual(val('before.3', ctx), ['casa', 'huesped', 'cocina']);
   assert.equal(uno('before.5', ctx), eje.genesisId);
   assert.equal(uno('before.6.0', ctx), '2026-11-07T13:30:00.000Z');
   assert.equal(uno('before.3.("cocina").1.("T:hora").1', ctx), 18);

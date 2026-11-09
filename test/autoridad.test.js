@@ -39,11 +39,13 @@ test('nadie mueve tokens ajenos', async () => {
   );
 });
 
-test('una identidad nueva nace con clave si quien la da de alta la declara; luego debe firmar', async () => {
+test('una persona nace con clave si la declara en su propia alta (B1), firmada con ella; luego debe firmar', async () => {
   const raiz = await generarClaves();
   const bea = await generarClaves();
   const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'E', denominacion: 'minuto', cantidad: 600 }], foco: 'g', t: T0, clave: raiz.publica, privada: raiz.privada });
-  await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea', contexto: { tipos: { bea: 'persona' }, claves: { bea: bea.publica } } }, raiz.privada); // una persona: escribe con su T (Core, 8-11)
+  // B1 (VG, 10-11): la persona escribe su propia alta, con su clave y firmada con ella (su prueba de posesión).
+  await eje.entrar({ identidad: 'bea', t: T0, clave: bea.publica, privada: bea.privada });
+  await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'minutos para bea' }, raiz.privada);
   assert.deepEqual(eje.clave('bea'), bea.publica);
   await assert.rejects(eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }), /firma/);
   const ok = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }, bea.privada);

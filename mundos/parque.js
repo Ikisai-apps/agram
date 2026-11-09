@@ -25,9 +25,9 @@
 // - quien escucha hace onda en su propia agua.
 //
 // [X] decidir VG (abierto en este mundo):
-// - persona o grupo sale del tipo declarado en el alta de quien recibe; una
-//   cosa (que también es titular) se dibuja como un muelle, y quien no
-//   declaró tipo, como una bañera con borde discontinuo;
+// - persona o cosa sale de quién escribió el alta de quien recibe (B1; un
+//   grupo, solo en el prefijo de la versión 2); una cosa se dibuja como un muelle, y quien no
+//   tiene alta, como una bañera con borde discontinuo;
 // - «hablar» = escribir sobre un registro de otro, y «escuchar» = un registro
 //   que es una referencia entera al de otro (catálogo, PR #45: ver);
 // - el nombre del efecto es el del catálogo («hablar», «escuchar», «subir el
@@ -38,15 +38,27 @@
 import { esReferencia } from '../src/btml.js';
 import { escapar, n1, recorte, baseDe, descendientes, nombreEn, ritmo, atributos, ordenPlano } from './comun.js';
 
-const X_TIPO = '[X] decidir VG: persona o grupo sale del tipo declarado en el alta de quien recibe';
+const X_TIPO = '[X] decidir VG: persona o cosa sale de quién escribió el alta de quien recibe (B1); grupo, solo en el prefijo de la versión 2';
 const X_PAQUETE = '[X] decidir VG: el movimiento de tokens se dibuja como paquete; en el catálogo, «paquete» es un impulso (celda de clase 1) y el movimiento se llama como aquí';
 
 /** Sentido de un movimiento de tokens, como en el catálogo de efectos. */
 const sentido = (m) => (m.de === null ? 'emitir' : m.a === null ? 'consumir' : 'mover');
 
-/** Forma del agua de una identidad por su tipo declarado. */
+/** Forma del agua de una identidad por lo que es: persona, cosa o (en el prefijo de la versión 2) grupo. */
 export function aguaDe(tipo) {
   return tipo === 'grupo' ? 'piscina' : tipo === 'persona' ? 'banera' : tipo === 'cosa' ? 'muelle' : 'sin-tipo';
+}
+
+/**
+ * Lo que es una identidad, para dibujarla (VG, 10-11, B1: no hay tipo): una
+ * persona si escribió su propia alta, una cosa si la escribió otro, y en el
+ * prefijo de la versión 2 lo que declaraba su alta (un grupo); null sin alta.
+ */
+export function claseDe(eje, id) {
+  const v2 = typeof eje.tipoV2 === 'function' ? eje.tipoV2(id) : null;
+  if (v2) return v2;
+  const p = typeof eje.esPersona === 'function' ? eje.esPersona(id) : null;
+  return p === true ? 'persona' : p === false ? 'cosa' : null;
 }
 
 /** Acto de un escrito de A sobre un registro de B: escuchar si solo lo ve (una referencia entera a él); si no, hablar. */
@@ -78,7 +90,7 @@ export function datosParque(eje, foco, { camino = [], maximo = 6, maximoMensajes
     if (!b || b.autor === e.autor) continue;
     const acto = actoDe(e, b);
     // Quien escucha recibe lo que lee: el agua que hace onda es la suya. Quien habla, deja algo en el agua del otro.
-    const tipo = eje.tipo(b.autor);
+    const tipo = claseDe(eje, b.autor);
     // El paquete: el primer movimiento que no es T (el tiempo lo gasta todo escrito).
     const mov = e.movimientos.find((m) => m.token !== 'T');
     const paquete = Boolean(mov);
@@ -96,7 +108,7 @@ export function datosParque(eje, foco, { camino = [], maximo = 6, maximoMensajes
   const todas = [...new Set([...declarados, ...actividad.keys()])];
   todas.sort((a, b) => Number(declarados.includes(b)) - Number(declarados.includes(a)) || (actividad.get(b) ?? 0) - (actividad.get(a) ?? 0));
   const aguas = todas.slice(0, maximo).map((id) => {
-    const tipo = eje.tipo(id);
+    const tipo = claseDe(eje, id);
     return { id, tipo, forma: aguaDe(tipo), declarado: declarados.includes(id), recibidos: recibidos.get(id) ?? 0 };
   });
 

@@ -96,7 +96,7 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
 test('2: la lista de referencias a los registros de las reglas, en el orden de su 8; la primera, «writing burns today\'s T»', () => {
   // VG, 10-11, A1: cada regla es su propio registro y el 2 de la época es la lista de referencias, una hoja por regla.
   const reglas = EPOCA_0_BTML.condiciones;
-  assert.equal(reglas.length, 21);
+  assert.equal(reglas.length, 22);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -109,7 +109,7 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 21);
+  assert.equal(uno('count epoch.2'), 22);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
@@ -131,7 +131,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 21);
+  assert.equal(enDisco.length, 22);
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');

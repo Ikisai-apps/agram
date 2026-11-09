@@ -31,8 +31,8 @@ test('hilo del ejemplo: cuatro décuplas, la más cercana primero', async () => 
 test('hijos del génesis del ejemplo', async () => {
   const { eje, alta } = await ejemploCompra();
   const seq = secuencia(eje, eje.genesisId, { sentido: 'hijos' });
-  assert.equal(seq.total, 1);
-  assert.equal(seq.decuplas[0].id, alta.id);
+  assert.equal(seq.total, 2); // el alta de la huésped, que escribe ella (B1), y las altas de la casa
+  assert.deepEqual(seq.decuplas.map((d) => d.id).sort(), [alta.id, eje.alta('huesped').id].sort());
 });
 
 test('la hilera se corta en diez aunque el hilo sea más largo', async () => {

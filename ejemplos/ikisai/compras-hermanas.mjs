@@ -19,7 +19,8 @@
 //
 // La base de cada registro la escribe la propia cosa, con su clave y gastando
 // su T (mapa §12). Cada registro que resume a otros da de alta, en su mismo
-// evento, a su cosa: tipo 'cosa', su clave y unos minutos de T. Así se
+// evento, a su cosa: su clave y unos minutos de T (es una cosa porque su alta
+// la escribe otro: VG, 10-11, B1). Así se
 // identifica hoy un registro con su identidad ([X] decidir VG, src/bases.js
 // identidadDe); la del génesis es su autor, la casa.
 
@@ -47,8 +48,8 @@ const eur = (de, a, cantidad) => ({ token: 'E', emisor: 'casa', denominacion: 'E
 /** Las cosas del ejemplo: cada registro que resume a otros es una cosa con su clave. */
 export const COSAS = Object.freeze(['comedor', 'menu-dia', 'menu-cena', 'mercado', 'puesto']);
 
-/** Da de alta a una cosa en el propio registro: tipo, clave y minutos para escribir sus bases. */
-const altaDeCosa = (cosa, claves) => ({ tipos: { [cosa]: 'cosa' }, claves: { [cosa]: claves[cosa].publica } });
+/** Da de alta a una cosa en el propio registro: su clave (los minutos para escribir sus bases van en los movimientos). */
+const altaDeCosa = (cosa, claves) => ({ claves: { [cosa]: claves[cosa].publica } });
 
 /**
  * claves (opcional): { casa, comedor, 'menu-dia', 'menu-cena', mercado,
@@ -61,8 +62,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'casa',
-    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
+    identidad: 'casa', // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
     emision: [
       { token: 'E', denominacion: 'EUR', cantidad: 500 },
       { token: 'P', cantidad: 10, ambito: 'genesis' },
@@ -74,11 +74,12 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
   });
   const escribir = (datos) => eje.escribir(datos, priv(datos.autor));
 
-  // Proyecto A: el comedor da de alta a cocina, huesped y vecina, y a su cosa.
-  const personas = {};
+  // Las personas escriben su propia alta (VG, 10-11, B1), con su clave si la tienen; la invitación es del 3b.
+  for (const id of ['huesped', 'vecina']) await eje.entrar({ identidad: id, t: T, clave: claves[id]?.publica, privada: claves[id]?.privada });
+
+  // Proyecto A: el comedor da de alta a cocina y a su cosa, y da euros a huesped y vecina.
   // La cocina es una cosa de la casa (su máquina: escribe con el T que le da), sin clave en el eje de demostración:
   // así la única cosa con clave que da de alta el comedor es el propio comedor (identidadDe).
-  for (const id of ['huesped', 'vecina']) if (claves[id]?.publica) personas[id] = claves[id].publica;
   const comedor = await escribir({
     autor: 'casa',
     sobre: eje.genesisId,
@@ -92,10 +93,7 @@ export async function ejemploComprasHermanas({ claves: dadas = {} } = {}) {
       minutos('casa', 'comedor', 10),
     ],
     payload: ['Comedor del fin de semana', ['cocina', 'huesped', 'vecina']],
-    contexto: {
-      tipos: { cocina: 'cosa', huesped: 'persona', vecina: 'persona', comedor: 'cosa' },
-      claves: { ...personas, comedor: claves.comedor.publica },
-    },
+    contexto: { claves: { comedor: claves.comedor.publica } },
   });
 
   // El menú del día y sus cuatro compras hermanas.

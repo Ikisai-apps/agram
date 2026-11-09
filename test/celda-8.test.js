@@ -36,7 +36,7 @@ test('celda 8: hermanos por defecto y un toque para proyecto y todo el eje; cada
   const porDefecto = htmlOcho(eje, guisos.id);
   assert.deepEqual(botones(porDefecto), [['hermanos', true, 'hermanos'], ['proyecto', false, 'proyecto'], ['general', false, 'todo el eje']]);
   assert.match(porDefecto, /<div class="ocho-cohortes" role="group" aria-label="cohorte de la celda 8">/);
-  const n = { hermanos: 4, proyecto: 9, general: 14 };
+  const n = { hermanos: 4, proyecto: 9, general: 16 }; // general: con las altas de huesped y vecina (B1)
   for (const c of COHORTES) {
     const o = ocho(eje, guisos.id, { alcance: c });
     assert.equal(o.n, n[c], c);

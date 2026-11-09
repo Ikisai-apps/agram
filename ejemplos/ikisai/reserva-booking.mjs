@@ -208,8 +208,7 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
   const priv = (id) => claves[id]?.privada;
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: CASA,
-    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
+    identidad: CASA, // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
     emision: [
       { token: 'E', denominacion: 'EUR', cantidad: 500 }, // la serie E:casa/EUR
       { token: 'E', denominacion: 'hora', cantidad: 1000 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
@@ -222,10 +221,9 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
     privada: priv('casa'),
   });
 
-  // La casa da de alta a recepción y a una persona huésped (con dinero para
-  // pagar): existen al recibir tokens, y el alta declara qué es cada una.
-  const declaradas = {};
-  for (const id of ['recepcion', 'huesped']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
+  // Recepción y la persona huésped escriben su propia alta (VG, 10-11, B1: persona es quien escribe la suya), con
+  // su clave si la tienen; la invitación de la casa que las encauza es del 3b. Después la casa les da lo suyo.
+  for (const id of ['recepcion', 'huesped']) await eje.entrar({ identidad: id, t, clave: claves[id]?.publica, privada: priv(id) });
   const alta = await eje.escribir({
     autor: CASA,
     sobre: eje.genesisId,
@@ -238,7 +236,6 @@ export async function ejemploReserva({ claves = {}, confirmar = true, temporada:
       eur(300, CASA, 'huesped'),
     ],
     payload: ['Altas de la temporada', ['recepcion', 'huesped']],
-    contexto: { tipos: { recepcion: 'persona', huesped: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // El dominio (VG, 7-11): el «Alojamiento» de la casa, raíz de todo lo de

@@ -306,13 +306,13 @@ console.log(await eje.validar(malo));
 ```
 
 ```text
-21 reglas en la época y 6 fuera, para el 3b
+22 reglas en la época y 6 fuera, para el 3b
 época: E is minted by and to its issuer: huesped mints E of casa, or to someone else
 3b: minting P or E needs own R at stake: huesped has no R:huesped locked as collateral (exit R:huesped) covering a tenth of what was minted of it, before or in this transaction
-3b: P is minted on one's own record: huesped mints P:7c3eb52fe755163f18e8d67121f72a55247d435f9c9210f5abdb1195ec1f5f20 on a record they did not write, or on the whole ledger
+3b: P is minted on one's own record: huesped mints P:61aa68f7143444ac0c86a6251982c4449c94464dfcfadeeee9d5ccb45da69705 on a record they did not write, or on the whole ledger
 [
   'nadie emite en nombre de otro: casa no es el autor',
-  'P sobre 7c3eb52f lo acuña solo quien escribió el registro (cocina): huesped puede transferir el P que tenga, no acuñarlo',
+  'P sobre 61aa68f7 lo acuña solo quien escribió el registro (cocina): huesped puede transferir el P que tenga, no acuñarlo',
   'emitir P exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)',
   'emitir E exige R propia en juego: R:huesped bloqueada como colateral (salida «R:huesped»), al menos la décima parte de lo emitido de R:huesped, antes o en el mismo evento (R6)'
 ]

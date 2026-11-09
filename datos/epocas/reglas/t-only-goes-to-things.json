@@ -1,0 +1,16 @@
+[
+  ["T only goes to things"],
+  [0, "genesis"],
+  ["=count (ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3 and not ((count (first it.3.1).6 = 0 or first (first it.3.1).6.3 != first it.3.1) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) or (count (first it.3.1).6 = 0 or first (first it.3.1).6.3 = first ev.3 or first (first it.3.1).6.3 = first (first ev.3).6.3 or count ((first ev.3).1 where P in it2.0.0.0 and it2.1 > 0 and (it2.0.0.1 = \"genesis\" or it2.0.0.1 in path (first (first it.3.1).6))) > 0)))) = 0"],
+  ["(ev.1 where T in it.0.0.0 and transfer in it.4) each 3.1"],
+  ["transfer"],
+  ["*"],
+  [
+    "VG, 7-11 noche: T no cruza de persona; «recibir T solo es un registro de una cantidad de tiempo; podemos hacer que se transforme en E» (mapa §12 [D])",
+    "VG, 8-11: una persona da su T a una cosa («T de segundo para automatismos y maquinaria»); de cosa a cosa, solo del mismo dueño (regla de Core aceptada; inventario TT-8, TT-9)",
+    "VG, 10-11, B1: persona o cosa se lee del 3 del alta: cosa es lo que da de alta otra identidad, su dueño (mapa §16 [D])"
+  ],
+  ["epoch 0"],
+  ["after T is not locked"],
+  ["T only goes to things: {first ev.3} gives T to {(ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3) each 3.1}: T does not cross to a person, and a thing gives it only to a thing of the same owner; giving time to another is minting E in one's own time"]
+]

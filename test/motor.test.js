@@ -108,10 +108,11 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   // Un elemento neutro: su posición 1 declara capacidad 1; su posición 2 no declara nada.
   const t = '2026-12-01T09:00:00Z';
   const gasta = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, de, a: null });
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'E', denominacion: 'minuto', cantidad: 300 }], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
   // T no cruza de persona (VG, 7-11 noche): el alta les cede minutos de g como E (E:g/minuto); cada una escribe con su propio T.
   const dar = ['ana', 'beto', 'carla'].map((a) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 100, de: 'g', a }));
-  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), ...dar], payload: 'altas', contexto: { tipos: { ana: 'persona', beto: 'persona', carla: 'persona' } } });
+  for (const id of ['ana', 'beto', 'carla']) await eje.entrar({ identidad: id, t }); // B1: cada persona escribe su alta
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g'), ...dar], payload: 'altas' });
   const elemento = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta('g')], payload: ['elemento', [['sitio'], ['precio'], [1]], [['otro sitio'], ['precio']]] }); // por hojas: 1 y 2 son décuplas
   let minuto = 10;
   /** Un ocupante: el registro y, si se da, su tramo anclado en su 7 por quien lo escribe («lo lejano = anclaje»). */
@@ -169,7 +170,7 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
 
 test('capacidad: un tramo es una décupla [[inicio], [fin]]; una lista de dos hojas en el 7 son dos ocupantes, no un tramo', async () => {
   const t = '2026-12-01T09:00:00Z';
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', emision: [], foco: 'raíz', t });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', emision: [], foco: 'raíz', t });
   const gasta = (cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'g', a: null });
   const escribir = (payload, extra = {}) => eje.escribir({ autor: 'g', sobre: eje.genesisId, t, movimientos: [gasta(9)], payload, ...extra });
   const propio = await escribir(['r', 'a', 'b', 'c', 'd', 'e', 'f', [['2026-12-01'], ['2026-12-03']]]);

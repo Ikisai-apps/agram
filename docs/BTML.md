@@ -106,7 +106,7 @@ true true 0000000000 {}
 |---|---|---|
 | `genesis: true` | `Eje.genesis` | Marca el génesis. Solo puede haber uno por eje. |
 | `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor) y quien da de alta | Clave pública de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
-| `tipos: { identidad: 'persona' \| 'cosa' }` | `Eje.genesis` (tipo del autor, con `tipo`) y quien da de alta | Tipo de una identidad que **recibe tokens en este mismo evento**. Solo decide quién emite (§2.4, §7.1). |
+| `tipos` | nadie (solo un eje de la versión 2) | **Ya no existe** (VG, 10-11, B1: desaparece el tipo). Persona o cosa se lee de quién escribe el alta: una persona escribe la suya; una cosa la da de alta otra identidad, su dueño (§7.1). Fuera del prefijo de la versión 2 un alta que lo declara se rechaza. |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
 | `clasifica: { posicion, evento, camino, indice? }` | `ui/clasificar.js` (`escribirColocacion`, modo «crear») | El registro coloca en una subposición de `posicion` (por dirección, su `en`) la pieza de la lista de esa posición que vive en `evento`, camino `camino` (`[]` si la pieza es un escrito) y, si es un elemento de una lista, `indice` (su lugar en ella). Desde entonces la pieza cuenta como clasificada. Ver §6.7. |
@@ -280,7 +280,7 @@ Cómo se nombra la plaza dentro de la denominación no está decidido: el ejempl
 La emisión es un movimiento con `de: null`, `emisor` igual al autor del evento y `a` igual al emisor: la serie nace en la cartera de quien la emite. Para darla (las plazas a la habitación, la reputación a cocina) se mueve después, en el mismo evento si quiere. La serie es limitada porque solo crece cuando su emisor emite; mover más de lo que hay se rechaza por saldo, y lo emitido de una serie no puede llegar a infinito. Las series de E y R del génesis quedan a nombre de su autor (`Eje.genesis` completa `emisor`). La emisión de E puede llevar `caduca` (ISO): la fija la primera emisión, las ampliaciones coinciden y nada se ejecuta solo al caducar; `caducada(eje, clave, t)` la lee.
 
 ```js
-eje.tipo(identidad)          // → 'persona' | 'cosa' | null (sin tipo declarado; 'grupo' solo en un eje de la versión 2)
+eje.esPersona(identidad)     // → true si escribió su propia alta (persona), false si se la escribió otra identidad (cosa), null sin alta (VG, 10-11, B1)
 eje.alta(identidad)          // → { id, t } del evento en que recibió tokens por primera vez, o null
 eje.saldoT(id, escala, t)    // → T disponible el día de t: lo que queda de su asignación (persona) o lo que le dieron (cosa); ningún T se acumula (VG, 8-11)
 eje.presente(id)             // → false si el registro se pagó solo con T informativo (VG, 8-11); true si no; undefined si no está
@@ -307,10 +307,11 @@ const da = (a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de: 'casa
 const emite = (emisor, denominacion, cantidad) => ({ token: 'E', emisor, denominacion, cantidad, de: null, a: emisor });
 const cama = (cantidad, de, a) => ({ token: 'E', emisor: 'casa', denominacion: 'cama@2026-11-13', cantidad, de, a });
 const enJuego = (persona, a) => [{ token: 'R', emisor: persona, cantidad: 2, de: null, a: persona }, { token: 'R', emisor: persona, cantidad: 0.5, de: persona, a: persona, estado: 'bloqueo', salida: 'R:' + persona }, { token: 'R', emisor: persona, cantidad: 1, de: persona, a }];
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
-const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), da('hab-2', 5), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'bea' }], payload: 'altas', contexto: { tipos: { bea: 'persona', 'hab-2': 'cosa' } } });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 500 }, { token: 'P', cantidad: 5, ambito: 'genesis' }], foco: 'Casa', t });
+await eje.entrar({ identidad: 'bea', t }); // bea escribe su propia alta: es una persona (VG, 10-11, B1)
+const alta = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t, movimientos: [gasta('casa'), da('hab-2', 5), { token: 'P', cantidad: 1, ambito: 'genesis', de: 'casa', a: 'bea' }], payload: 'altas' }); // la habitación, una cosa: su alta la escribe la casa
 const plazas = await eje.escribir({ autor: 'casa', sobre: alta.id, t, movimientos: [gasta('casa'), ...enJuego('casa', 'bea'), emite('casa', 'cama@2026-11-13', 2), cama(2, 'casa', 'hab-2')], payload: 'dos camas el 13-11, para la habitación 2' });
-console.log(JSON.stringify(eje.serie('E:casa/cama@2026-11-13')), JSON.stringify(eje.recursos('hab-2')), eje.tipo('hab-2'));
+console.log(JSON.stringify(eje.serie('E:casa/cama@2026-11-13')), JSON.stringify(eje.recursos('hab-2')), eje.esPersona('hab-2'));
 await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), ...enJuego('bea', 'casa'), emite('bea', 'cama@2026-11-13', 1)], payload: 'la mía' });
 console.log(JSON.stringify(eje.serie('E:bea/cama@2026-11-13')), JSON.stringify(eje.serie('E:casa/cama@2026-11-13')));
 await eje.escribir({ autor: 'bea', sobre: plazas.id, t: luego, movimientos: [gasta('bea'), emite('casa', 'cama@2026-11-14', 1)], payload: 'x' }).catch((e) => console.log(e.message));
@@ -325,10 +326,10 @@ console.log(eje.series().map((x) => x.clave + ' ' + x.emitido).join(' · '));
 ```
 
 ```text
-{"emisor":"casa","emitido":2} [{"emisor":"casa","denominacion":"cama@2026-11-13","cantidad":2}] cosa
+{"emisor":"casa","emitido":2} [{"emisor":"casa","denominacion":"cama@2026-11-13","cantidad":2}] false
 {"emisor":"bea","emitido":1} {"emisor":"casa","emitido":2}
 evento rechazado: nadie emite en nombre de otro: casa no es el autor
-evento rechazado: solo las personas emiten: hab-2 es cosa; emitir E exige R propia en juego: R:hab-2 bloqueada como colateral (salida «R:hab-2»), al menos la décima parte de lo emitido de R:hab-2, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 938bfd8d (saldo o movimiento de P en el mismo evento)
+evento rechazado: solo las personas emiten: hab-2 es una cosa (su alta la escribió casa); emitir E exige R propia en juego: R:hab-2 bloqueada como colateral (salida «R:hab-2»), al menos la décima parte de lo emitido de R:hab-2, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 954a2a97 (saldo o movimiento de P en el mismo evento)
 evento rechazado: saldo insuficiente de E:casa/cama@2026-11-13 en hab-2
 evento rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día (VG, 8-11: no hay T acumulable)
 1 [{"emisor":"casa","cantidad":3},{"emisor":"bea","cantidad":0.5}]
@@ -592,9 +593,10 @@ compra · huesped · 2026-11-07T13:30:00Z · sobre menú en 0000000000 · posici
   1 · cuánto: 1
   2 · con qué condición: EUR 12
   ↳ ocupante 2 · cocina · Cuenta del menú
-6cb2ff68 · casa · 2026-11-07T09:00:00Z · génesis
+e670f7ae · casa · 2026-11-07T09:00:00Z · génesis
 Casa de ejemplo
-↳ ocupante 1 · casa · Altas del fin de semana
+↳ ocupante 1 · huesped · alta de huesped
+↳ ocupante 2 · casa · Altas del fin de semana
 ```
 
 La cuenta es el ocupante 2 de la posición 1: el 1 es la propia décupla de la compra. En la app, el conmutador «leído» de Pointed enseña `leerEvento` del foco, y el de Clasificar, el de la posición en foco. `node ejemplos/ikisai/leer.mjs` imprime la compra, el menú y la reserva leídos.
@@ -743,7 +745,7 @@ console.log(r.ref === menu.id, JSON.stringify(resolver(eje.obtener(r.ref).payloa
 
 ```text
 ["EUR 12"]
-[[{"ref":"7c3eb52fe755163f18e8d67121f72a55247d435f9c9210f5abdb1195ec1f5f20","dir":"1000000000"}],[1],["EUR 12"]]
+[[{"ref":"61aa68f7143444ac0c86a6251982c4449c94464dfcfadeeee9d5ccb45da69705","dir":"1000000000"}],[1],["EUR 12"]]
 undefined undefined
 true ["ensalada","guiso","fruta"] undefined
 ```
@@ -786,7 +788,7 @@ console.log(cuenta.sobre === compra.id, cuenta.en, nota.en);
 
 ```text
 huesped@7000000000 > huesped@0000000000 > cocina@0000000000 > casa@0000000000 > casa@0000000000
-c475dae0@1000000000 d72aaaea@7000000000
+2fe9802d@1000000000 9c523922@7000000000
 1 0
 true 1000000000 7000000000
 ```
@@ -855,10 +857,10 @@ console.log(ocupantes(eje, compra.id, [3]).map((o) => o.indice + ':' + o.conteni
 
 ```text
 [[1],[1,0]]
-propio [1] fe48a3c2 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["fe48a3c2:1000000000#1"]
-propio [1,0] fe48a3c2 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["fe48a3c2:1000000000#1.0[0]"]
-referencia [1] 7c3eb52f 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["fe48a3c2:1000000000#1.0[0]","7c3eb52f:1000000000"]
-escrito [] c475dae0 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["c475dae0:0000000000"]
+propio [1] 94800edf 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1"]
+propio [1,0] 94800edf 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1.0[0]"]
+referencia [1] 61aa68f7 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["94800edf:1000000000#1.0[0]","61aa68f7:1000000000"]
+escrito [] 2fe9802d 1000000000 [0,0,0,0,0,0,0,0,0,0] exacto 10 ["2fe9802d:0000000000"]
 4 1 0
 ["ensalada","guiso","fruta"] "Cuenta del menú"
 0:huesped 1:cocina
@@ -908,7 +910,7 @@ console.log(rota.rota, rota.contenido, JSON.stringify(rota.procedencia));
 ```
 
 ```text
-7c3eb52f 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["7c3eb52f"]
+61aa68f7 1000000000 [1] ["ensalada","guiso","fruta"] undefined ["61aa68f7"]
 true undefined []
 ```
 
@@ -1051,8 +1053,8 @@ console.log(leerCamino([3, 1], 'época 0', { payload: compra.payload }).map((x) 
 ```
 
 ```text
-0 propio 1 [[{"ref":"7c3eb52fe755163f18e8d67121f72a
-1 escrito raíz ["Cuenta del menú","=REF(\"fe48a3c2\", \
+0 propio 1 [[{"ref":"61aa68f7143444ac0c86a6251982c4
+1 escrito raíz ["Cuenta del menú","=REF(\"94800edf\", \
 0 propio 0 ensalada
 0 propio 1 guiso
 0 propio 2 fruta
@@ -1083,7 +1085,7 @@ eje.obligaciones(emisor)       // → su R en manos ajenas
 eje.saldoT(identidad, escala, t) // → T disponible el día de t (sin t, el de su último evento): lo que queda de la asignación de una persona más saldo(identidad, 'T:' + escala); sin conversión; lanza si la escala no existe
 eje.tiempos(identidad)         // → [{ escala, cantidad }] del T explícito (el de una cosa; una persona no tiene: VG, 8-11), en el orden de ESCALAS_T, solo saldos > 0
 eje.recursos(identidad)        // → [{ emisor, denominacion, cantidad }]
-eje.tipo(identidad)            // → 'persona' | 'cosa' | null
+eje.esPersona(identidad)       // → true (escribió su propia alta) | false (cosa: se la escribió otro) | null (sin alta)
 eje.poderes(identidad)         // → [{ ambito, cantidad }] sus P con saldo > 0 (no hay P total)
 eje.poderSobre(identidad, id)  // → suma de sus P cuyo ámbito es 'genesis' o un registro del hilo de `id`
 eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
@@ -1126,11 +1128,11 @@ const T = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
 const ev = await crearEvento({ autor: 'casa', sobre: 'g', t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'hola' });
 const f = await firmar(ev, casa.privada);
 console.log(f.id === ev.id, f.firmante, await verificar(f, casa.publica), await verificar(f, bea.publica), await verificar(ev, casa.publica));
-const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
 const g = eje.obtener(eje.genesisId);
 console.log(g.firmante, JSON.stringify(Object.keys(g.contexto.claves)), g.contexto.claves.casa.kty, g.contexto.claves.casa.crv);
 await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'sin firma' }).catch((e) => console.log(e.message));
-const alta = await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: 'alta de bea', contexto: { tipos: { bea: 'cosa' }, claves: { bea: bea.publica } } }, casa.privada); // bea, una cosa de la casa: T no cruza de persona
+const alta = await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: 'alta de bea', contexto: { claves: { bea: bea.publica } } }, casa.privada); // bea, una cosa de la casa (su alta la escribe la casa, B1): T no cruza de persona
 console.log(alta.firmante, eje.clave('bea').x === bea.publica.x);
 await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, casa.privada).catch((e) => console.log(e.message));
 const ok = await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, bea.privada);
@@ -1238,11 +1240,10 @@ for (const d of intentos) await eje.escribir(d).catch((e) => console.log(e.messa
 
 ```text
 evento rechazado: foco desconocido: nadie
-evento rechazado: autor desconocido: bea; saldo insuficiente de T:minuto en bea
 evento mal formado: escribir consume T del autor: un movimiento de T con de = raiz y a = null (VG, 7-11 noche)
 evento rechazado: T no se emite: ni el génesis; cada persona tiene su asignación del día (VG, 8-11: no hay T acumulable)
-evento rechazado: nadie emite en nombre de otro: bea no es el autor; emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 1cff5d47 (saldo o movimiento de P en el mismo evento)
-evento rechazado: emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 1cff5d47 (saldo o movimiento de P en el mismo evento)
+evento rechazado: nadie emite en nombre de otro: bea no es el autor; emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
+evento rechazado: emitir E exige R propia en juego: R:raiz bloqueada como colateral (salida «R:raiz»), al menos la décima parte de lo emitido de R:raiz, antes o en el mismo evento (R6); emitir E exige P del autor sobre el registro 5b39c631 (saldo o movimiento de P en el mismo evento)
 evento rechazado: T del día agotado (minuto): quedan 1440
 evento rechazado: T del día agotado (hora): quedan 24
 evento mal formado: en debe ser una dirección de diez dígitos
@@ -1255,11 +1256,11 @@ evento rechazado: ya hay génesis
 El génesis es el primer evento del eje. Se escribe **por convención, fuera del sistema**: emite (`de: null`) a su autor, si quiere, series de E, P y R, nunca T (VG, 8-11: «no hay un tipo de T que se acumule»: su autor vive de su asignación del día) (después solo emiten las personas, escalonado, §2.4), es el único sin foco (`sobre: null`) y lleva `contexto.genesis: true`. Fija el foco raíz (su `payload`) y la primera identidad, y puede declarar su tipo. A partir de él, todo se genera dentro.
 
 ```js
-Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, tipo, exigirFirmas = false, demostracion = false })  // → Promise<Eje>
+Eje.genesis({ identidad, emision, foco, t = ahora, contexto = {}, clave, privada, exigirFirmas = false, demostracion = false })  // → Promise<Eje>
 //   identidad: primera identidad; emision: [{ token, cantidad, escala | denominacion | ambito | emisor }] (se completa con de: null, a: identidad; en E y R, emisor: identidad)
-//   tipo: 'persona' por omisión (contexto.tipos); tipo: null, sin tipo: su autor no emite ni tiene asignación de T; 'grupo' se rechaza (VG, 8-11)
+//   su autor escribe su propia alta: es una persona (VG, 10-11, B1: no hay tipo; pasar `tipo` lanza)
 //   emision: E, P y R iniciales, si quiere (puede ir vacía); T no: «T no se emite: ni el génesis; cada persona tiene su asignación del día» (VG, 8-11)
-//   lanza si una serie de E o R del génesis lleva otro emisor, si el génesis declara el tipo de otra identidad o si su autor es una cosa
+//   lanza si una serie de E o R del génesis lleva otro emisor o si declara tipos
 //   foco: payload BTML raíz; clave/privada: si se dan, el génesis declara la clave y va firmado
 //   sin clave no se actúa (R9): sin clave/privada lanza, salvo con demostracion: true (contexto.demostracion,
 //   eje.demostracion), que conserva lo de antes: sin claves y sin prueba de posesión obligatoria
@@ -1270,16 +1271,16 @@ eje.genesisId                                      // id del génesis
 ```sh
 node --input-type=module -e "
 import { Eje } from './src/eje.js';
-const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
+const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 5 }], foco: ['casa', ['menu']], t: '2026-11-06T20:00:00Z' });
 console.log(JSON.stringify(eje.obtener(eje.genesisId)));
-const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, en: '1000000000', t: '2026-11-06T20:01:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'hora', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea', contexto: { tipos: { bea: 'cosa' } } }); // T, solo a una cosa; raiz gasta su asignación del día: ningún T se acumula (VG, 8-11)
+const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, en: '1000000000', t: '2026-11-06T20:01:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: null }, { token: 'T', escala: 'hora', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'alta de bea' }); // bea, una cosa: su alta la escribe raiz (B1); T, solo a una cosa; raiz gasta su asignación del día: ningún T se acumula (VG, 8-11)
 console.log(JSON.stringify(eje.identidades()), eje.saldoT('raiz', 'minuto'), eje.saldoT('raiz', 'hora'), eje.saldoT('bea', 'hora'), eje.saldo('raiz', 'E:raiz/EUR'), JSON.stringify(eje.serie('E:raiz/EUR')));
 console.log(alta.sobre === eje.genesisId, alta.en, eje.sobre(eje.genesisId, '1000000000').length);
 "
 ```
 
 ```text
-{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true,"demostracion":true,"tipos":{"raiz":"persona"}},"id":"110bc04fb6ab884e6f9fbc7e0f50d560e2219d4e4cdbbc138d293a6a3e94bc60"}
+{"autor":"raiz","sobre":null,"en":"0000000000","t":"2026-11-06T20:00:00Z","movimientos":[{"token":"E","denominacion":"EUR","cantidad":5,"emisor":"raiz","de":null,"a":"raiz"}],"payload":["casa",["menu"]],"contexto":{"genesis":true,"demostracion":true},"id":"46eff3677068219205af1d5a9aba3d7915098fd3f85f493815dc69adea70eee6"}
 ["raiz","bea"] 1439 22 2 5 {"emisor":"raiz","emitido":5}
 true 1000000000 1
 ```
@@ -1325,14 +1326,14 @@ const datos = JSON.parse(JSON.stringify(serializar(eje)));
 console.log(datos.version, datos.exigirFirmas, datos.eventos.length, datos.eventos.map((e) => e.id.slice(0, 8)).join(' '));
 const otro = await restaurar(datos);
 console.log(otro.saldo('cocina', 'E:casa/EUR'), JSON.stringify(otro.identidades()), otro.orden.length);
-datos.eventos[3].movimientos[1].cantidad = 1;
+datos.eventos[4].movimientos[1].cantidad = 1; // la compra
 await restaurar(datos).catch((e) => console.log(e.message));
 "
 ```
 
 ```text
-3 false 5 6cb2ff68 3399a980 7c3eb52f fe48a3c2 c475dae0
-12 ["casa","cocina","huesped"] 5
+3 false 6 e670f7ae 463fe28b ccd89ab3 61aa68f7 94800edf 2fe9802d
+12 ["casa","huesped","cocina"] 6
 evento rechazado: id no corresponde al cuerpo
 ```
 
@@ -1614,7 +1615,7 @@ epoch.1.3.1.2.1 → 24
 epoch.1.3.1.4.2 → 7
 epoch.5.1.1.0 → cuánto
 (first epoch.2).0 → writing burns today's T
-count epoch.2 → 21
+count epoch.2 → 22
 epoch.8.0 → 1, 2, 3, 4, 6, 10, 16, 26, 42
 epoch.9.1 → 5, 4, 1, 7, 2, 8, 9, 3, segunda alta
 ```

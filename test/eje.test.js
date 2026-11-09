@@ -58,17 +58,23 @@ test('escribir sobre el foco mueve tokens y crea identidades al recibir', async 
   assert.deepEqual([eje.saldoT('cocina', 'hora'), eje.saldoT('cocina', 'minuto')], [0, 0]);
   // El consumo queda anotado en el registro que soporta el escrito: aquí, el génesis.
   assert.deepEqual(eje.tiempoSobre(eje.genesisId), { hora: 1 });
-  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'hora', cantidad: 10, de: 'raiz', a: 'cocina' }], payload: 'x' }), /T no cruza de persona: cocina no es el autor/);
-  assert.deepEqual(eje.identidades(), ['raiz', 'cocina']);
+  // La cocina es una cosa (B1: su alta la escribió la raíz): la raíz, una persona, sí le da T. A una persona, no.
+  assert.equal(eje.esPersona('cocina'), false);
+  await eje.entrar({ identidad: 'bea', t: T0 });
+  await assert.rejects(eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'hora', cantidad: 10, de: 'raiz', a: 'bea' }], payload: 'x' }), /T no cruza de persona: bea no es el autor/);
+  await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'hora', cantidad: 10, de: 'raiz', a: 'cocina' }], payload: 'x' });
+  assert.deepEqual(eje.identidades(), ['raiz', 'cocina', 'bea']);
   assert.deepEqual(eje.hilo(ev.id).map((e) => e.id), [ev.id, eje.genesisId]);
-  assert.equal(eje.sobre(eje.genesisId).length, 1);
+  assert.equal(eje.sobre(eje.genesisId).length, 3);
 });
 
-test('rechazos: foco desconocido, autor desconocido, emisión, saldo, duplicado', async () => {
+test('rechazos: foco desconocido, emisión, saldo, duplicado; quien no tiene cuenta escribe su propia alta (B1)', async () => {
   const eje = await ejeBase();
   const base = { autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'x' };
   await assert.rejects(eje.escribir({ ...base, sobre: 'nadie', movimientos: [gastaT('raiz')] }), /foco desconocido/);
-  await assert.rejects(eje.escribir({ ...base, autor: 'bea', movimientos: [gastaT('bea')] }), /autor desconocido/);
+  // VG, 10-11, B1: quien aún no tiene cuenta y escribe, escribe su propia alta: es una persona (en una demostración, sin clave).
+  await eje.escribir({ ...base, autor: 'bea', movimientos: [gastaT('bea')] });
+  assert.equal(eje.esPersona('bea'), true);
   // VG, 8-11: no hay T acumulable; nadie emite T, ni el génesis.
   await assert.rejects(
     eje.escribir({ ...base, movimientos: [gastaT('raiz'), { token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'raiz' }] }),
@@ -125,12 +131,13 @@ test('T por escala: sin conversión; el evento mínimo mueve T de cualquier esca
   assert.throws(() => eje.saldoT('raiz'), /escala T inválida/);
 });
 
-// Altas con tipo: la casa y bea son personas, la habitación una cosa (no hay identidades de grupo: VG, 8-11).
-// VG, 7-11 noche: solo emiten personas, así que la casa que emite plazas es una persona (antes, un grupo).
+// Altas: la casa y bea escriben la suya y son personas; a la habitación la da de alta la raíz y es una cosa (VG, 10-11,
+// B1: no hay tipo; no hay identidades de grupo: VG, 8-11). VG, 7-11 noche: solo emiten personas, así que la casa que
+// emite plazas es una persona (antes, un grupo).
 async function conAltas() {
   const eje = await ejeBase(ALTA);
+  for (const id of ['casa', 'bea']) await eje.entrar({ identidad: id, t: ALTA });
   const alta = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: ALTA, payload: 'altas',
-    contexto: { tipos: { casa: 'persona', bea: 'persona', 'habitacion-2': 'cosa' } },
     movimientos: [gastaT('raiz'), ...['casa', 'bea', 'habitacion-2'].map((a) => ({ token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 20, de: 'raiz', a }))] });
   return { eje, alta };
 }
@@ -157,8 +164,9 @@ async function escalonE(eje, persona) {
 
 test('E: una persona emite una serie limitada que respalda, a sí misma, y solo ella la amplía', async () => {
   const { eje } = await conAltas();
-  assert.equal(eje.tipo('casa'), 'persona');
-  assert.equal(eje.tipo('raiz'), 'persona'); // por omisión, el autor del génesis es una persona (VG, 8-11)
+  assert.equal(eje.esPersona('casa'), true);
+  assert.equal(eje.esPersona('raiz'), true); // el autor del génesis escribe su propia alta: es una persona (B1)
+  assert.equal(eje.esPersona('habitacion-2'), false); // su alta la escribió la raíz: es una cosa
   const dominio = await escalonE(eje, 'casa');
   // La casa emite un token por plaza y noche: dos camas el 13-11. La serie es suya: E:casa/cama@2026-11-13.
   const plazas = await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'plazas del 13-11',
@@ -191,12 +199,12 @@ test('E: una persona emite una serie limitada que respalda, a sí misma, y solo 
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: plazas.id, t: T0, payload: 'x',
     movimientos: [gastaT('casa'), enJuego('casa'), { token: 'P', cantidad: 1, ambito: 'genesis', de: null, a: 'casa' }] }), /P sobre todo el eje \(«genesis»\) solo lo emite el génesis/);
   assert.deepEqual(eje.serie('E:nadie/x'), { emisor: null, emitido: 0 });
-  assert.deepEqual(eje.series().map((s) => s.clave), ['E:raiz/EUR', 'E:raiz/hora', 'T:hora', 'R:casa', 'P:' + dominio.id, 'E:casa/cama@2026-11-13']);
-  // Al restaurar, las series y los tipos se reconstruyen desde los eventos.
+  assert.deepEqual(eje.series().map((s) => s.clave), ['E:raiz/EUR', 'E:raiz/hora', 'T:minuto', 'T:hora', 'R:casa', 'P:' + dominio.id, 'E:casa/cama@2026-11-13']);
+  // Al restaurar, las series y quién es persona o cosa se reconstruyen desde los eventos.
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
   assert.deepEqual(otro.serie('E:casa/cama@2026-11-13'), { emisor: 'casa', emitido: 3 });
   assert.deepEqual(otro.series(), eje.series());
-  assert.equal(otro.tipo('habitacion-2'), 'cosa');
+  assert.equal(otro.esPersona('habitacion-2'), false);
 });
 
 test('E ligada al emisor como R: nadie se queda un nombre; la misma denominación de otro es otra serie', async () => {
@@ -237,24 +245,18 @@ test('emitir es solo de personas (VG, 7-11 noche); las cosas reciben, conservan 
   assert.equal(eje.saldo('bea', 'E:casa/plaza@2026-11-13'), 1);
   // Pero no emite: ni E ni R.
   await assert.rejects(eje.escribir({ autor: 'habitacion-2', sobre: plazas.id, t: T0, payload: 'x',
-    movimientos: [gastaT('habitacion-2'), emite('habitacion-2', 'plaza@2026-11-13', 1)] }), /solo las personas emiten: habitacion-2 es cosa/);
+    movimientos: [gastaT('habitacion-2'), emite('habitacion-2', 'plaza@2026-11-13', 1)] }), /solo las personas emiten: habitacion-2 es una cosa \(su alta la escribió raiz\)/);
   await assert.rejects(eje.escribir({ autor: 'habitacion-2', sobre: plazas.id, t: T0, payload: 'x',
-    movimientos: [gastaT('habitacion-2'), { token: 'R', cantidad: 1, emisor: 'habitacion-2', de: null, a: 'habitacion-2' }] }), /solo las personas emiten: habitacion-2 es cosa/);
+    movimientos: [gastaT('habitacion-2'), { token: 'R', cantidad: 1, emisor: 'habitacion-2', de: null, a: 'habitacion-2' }] }), /solo las personas emiten: habitacion-2 es una cosa/);
   // VG, 8-11: cada persona emite a su nombre; nadie emite en el de otro (no hay grupos a cuyo nombre emitir).
   await assert.rejects(eje.escribir({ autor: 'casa', sobre: plazas.id, t: T0, payload: 'x',
     movimientos: [gastaT('casa'), { token: 'R', cantidad: 1, emisor: 'bea', de: null, a: 'bea' }] }), /nadie emite en nombre de otro: bea no es el autor/);
-  // Quien no declaró tipo en su alta tampoco emite (un génesis con tipo: null).
-  const sinTipo = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: null, emision: [], foco: 'g', t: T0 });
-  await assert.rejects(sinTipo.escribir({ autor: 'raiz', sobre: sinTipo.genesisId, t: T0, payload: 'x',
-    movimientos: [gastaT('raiz'), emite('raiz', 'EUR', 1)] }), /solo las personas emiten: raiz no declaró tipo en su alta/);
-  // El tipo se declara en el alta, con tokens, y no cambia.
-  const alta = eje.obtener(eje.alta('bea').id); // el alta de bea es el registro de altas
-  const base = { autor: 'raiz', sobre: alta.id, t: T0, payload: 'x' };
-  await assert.rejects(eje.escribir({ ...base, contexto: { tipos: { bea: 'cosa' } }, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 1, de: 'raiz', a: 'bea' }] }), /no se puede cambiar el tipo de bea/);
-  // Y no hay identidades de grupo (VG, 8-11): un grupo es un registro; su autor emite P sobre él y lo delega.
-  await assert.rejects(eje.escribir({ ...base, contexto: { tipos: { dani: 'grupo' } }, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 1, de: 'raiz', a: 'dani' }] }), /tipo inválido para dani: no hay identidades de grupo: un grupo es un registro; su autor emite P sobre él y lo delega/);
-  await assert.rejects(eje.escribir({ ...base, contexto: { tipos: { dani: 'persona' } }, movimientos: [gastaT('raiz')] }), /tipo declarado para dani sin darle tokens/);
-  await assert.rejects(eje.escribir({ ...base, contexto: { tipos: { dani: 'robot' } }, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 1, de: 'raiz', a: 'dani' }] }), /tipo inválido para dani: robot/);
+  // No hay tipo (VG, 10-11, B1): un alta no declara persona, cosa ni grupo; lo dice quién la escribe. Un grupo es un
+  // registro; su autor emite P sobre él y lo delega (VG, 8-11).
+  const base = { autor: 'raiz', sobre: eje.genesisId, t: T0, payload: 'x' };
+  for (const tipo of ['cosa', 'grupo', 'persona', 'robot']) {
+    await assert.rejects(eje.escribir({ ...base, contexto: { tipos: { dani: tipo } }, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'hora', cantidad: 1, de: 'raiz', a: 'dani' }] }), /no hay tipo en el alta/);
+  }
 });
 
 test('R: su emisor la declara y la amplía fuera del génesis, con rastro visible; nadie más', async () => {
@@ -295,11 +297,10 @@ test('T en enteros: sin fracciones no hay error de coma flotante', async () => {
 
 test('el génesis emite a su autor; sus series de E y R quedan a su nombre; su autor es una persona', async () => {
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1, emisor: 'otra' }], foco: 'g', t: T0 }), /emisión de E va a su propio emisor/);
-  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'cosa', emision: [], foco: 'g', t: T0 }), /el génesis lo emite una persona: su autor no puede ser cosa/);
-  // VG, 7-11 noche: «todos son emitidos por una persona individualmente»; y desde el 8-11 no hay tipo grupo.
-  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'grupo', emision: [], foco: 'g', t: T0 }), /tipo inválido para raiz: no hay identidades de grupo/);
-  const g = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [{ token: 'R', cantidad: 3 }], foco: 'g', t: T0 });
-  assert.equal(g.tipo('raiz'), 'persona');
+  // VG, 10-11, B1: no hay tipo; el autor del génesis escribe su propia alta y es una persona.
+  await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'cosa', emision: [], foco: 'g', t: T0 }), /no hay tipo/);
+  const g = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [{ token: 'R', cantidad: 3 }], foco: 'g', t: T0 });
+  assert.equal(g.esPersona('raiz'), true);
   assert.deepEqual(g.serie('R:raiz'), { emisor: 'raiz', emitido: 3 });
   const eje = await ejeBase();
   const datos = JSON.parse(JSON.stringify(serializar(eje)));

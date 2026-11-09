@@ -66,16 +66,18 @@ const texto = (x) => typeof x === 'string' && x.length > 0;
  * Y R6 (VG, 7-11 noche): emitir R:X exige R del autor bloqueada con la salida
  * «R:X», al menos la décima parte de lo emitido de R:X, y «R propia en juego»
  * es ese colateral de su propia serie (el generador solo bloquea, no libera).
+ * B1 (VG, 10-11): no hay tipo; persona es quien escribió su propia alta (quien
+ * aún no tiene alta y escribe, escribe la suya), y cosa quien recibió tokens en
+ * un alta escrita por otro, su dueño.
  */
 class Modelo {
-  constructor(genesisId, autor, tipo, emision, tGenesis = T0) {
+  constructor(genesisId, autor, emision, tGenesis = T0) {
     this.gastado = new Map(); // persona + escala → T de su asignación gastado en T0 (VG, 8-11: todo va en T0, un solo día)
     this.g = genesisId;
     this.padre = new Map([[genesisId, null]]);
     this.autorDe = new Map([[genesisId, autor]]);
     this.alta = new Map([[autor, genesisId]]);
     this.saldos = new Map();
-    this.tipos = new Map([[autor, tipo]]);
     this.existe = new Set([autor]);
     for (const [k, v] of emision) this.saldos.set(autor + '\u0000' + k, v);
     // R3 (VG, 7-11 noche): lo emitido de cada serie P, para saber si está cerrada.
@@ -91,6 +93,10 @@ class Modelo {
    * sobre un registro que escribió;
    * escalonado T → R → P → E. true si el evento las cumple.
    */
+  /** B1: ¿es persona? Quien escribió su propia alta, o quien aún no tiene alta (escribe la suya). */
+  persona(id) {
+    return !this.existe.has(id) || this.autorDe.get(this.alta.get(id)) === id;
+  }
   cicloOk(ev) {
     const autor = ev.autor;
     const pAntes = (reg) => this.cubren(reg).reduce((s, a) => s + Math.max(0, this.saldos.get(autor + '\u0000P:' + a) ?? 0), 0);
@@ -100,7 +106,7 @@ class Modelo {
     for (const m of ev.movimientos) {
       if (m.de !== null) continue;
       emitidas.add(m.token);
-      if (this.tipos.get(autor) !== 'persona') return false;
+      if (!this.persona(autor)) return false;
       if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) return false; // VG, 8-11: nadie emite a nombre de otro
       if (m.token === 'T') return false; // VG, 8-11: T no se emite, es la asignación diaria
       if (m.token === 'P' && (m.a !== autor || this.autorDe.get(m.ambito) !== autor)) return false;
@@ -151,19 +157,20 @@ class Modelo {
   }
   /** null si se rechaza; si no, la función que lo aplica. */
   probar(ev) {
-    if (!this.padre.has(ev.sobre) || !this.existe.has(ev.autor)) return null;
-    for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) {
-      if (!['persona', 'cosa'].includes(tipo) || this.tipos.has(id) || this.existe.has(id) || !ev.movimientos.some((m) => m.a === id)) return null;
-    }
+    // B1: quien no tiene alta y escribe, escribe la suya; y un alta no declara tipo.
+    if (!this.padre.has(ev.sobre) || ev.contexto?.tipos !== undefined) return null;
     const vista = new Map(this.saldos);
     const ver = (id, k) => vista.get(id + '\u0000' + k) ?? 0;
     const poner = (id, k, v) => vista.set(id + '\u0000' + k, v);
     if (!ev.movimientos.every((m) => this.formaMov(m))) return null;
     // VG, 7-11 noche: escribir consume T del autor, y T no cruza de persona.
     if (!ev.movimientos.some((m) => m.token === 'T' && m.de === ev.autor && m.a === null)) return null;
-    // Salvo de una persona (o una cosa) a una cosa (Core, 8-11): la máquina gasta el T de su dueño.
-    const tipoDe = (id) => this.tipos.get(id) ?? ev.contexto?.tipos?.[id];
-    const aCosa = (m) => ['persona', 'cosa'].includes(this.tipos.get(ev.autor)) && tipoDe(m.a) === 'cosa';
+    // Salvo de una persona a una cosa (Core, 8-11): la máquina gasta el T de su dueño; de una cosa, a otra cosa del
+    // mismo dueño, o si el autor escribió su alta o tiene P sobre ella (B1: cosa = alta escrita por otro).
+    const duenoDe = (id) => (this.existe.has(id) ? this.autorDe.get(this.alta.get(id)) : ev.autor);
+    const esCosa = (id) => (this.existe.has(id) ? !this.persona(id) : id !== ev.autor);
+    const pSobre = (reg) => this.cubren(reg).reduce((s, a) => s + Math.max(0, this.saldos.get(ev.autor + '\u0000P:' + a) ?? 0), 0);
+    const aCosa = (m) => esCosa(m.a) && (this.persona(ev.autor) || !this.existe.has(m.a) || duenoDe(m.a) === ev.autor || duenoDe(m.a) === duenoDe(ev.autor) || pSobre(this.alta.get(m.a)) > 0);
     if (ev.movimientos.some((m) => m.token === 'T' && m.de !== null && m.a !== null && m.a !== ev.autor && !aCosa(m))) return null;
     if (!this.cicloOk(ev)) return null;
     const emitidasAqui = new Set();
@@ -201,7 +208,7 @@ class Modelo {
           resta -= usa;
         }
         if (resta > 0) return null;
-      } else if (m.token === 'T' && m.a !== ev.autor && this.tipos.get(ev.autor) === 'persona') {
+      } else if (m.token === 'T' && m.a !== ev.autor && this.persona(ev.autor)) {
         // Gastar T propio (consumirlo o darlo a una cosa): primero la asignación del día, luego el T explícito.
         const usa = Math.min(Math.max(0, queda(m.escala)), m.cantidad);
         if (ver(m.de, k) < m.cantidad - usa) return null;
@@ -217,6 +224,8 @@ class Modelo {
       this.saldos = vista;
       this.padre.set(ev.id, ev.sobre);
       this.autorDe.set(ev.id, ev.autor);
+      // B1: su propia alta abre la cuenta de quien escribe sin tenerla.
+      if (!this.existe.has(ev.autor)) { this.existe.add(ev.autor); this.alta.set(ev.autor, ev.id); }
       for (const m of ev.movimientos) {
         if (m.a !== null && !this.alta.has(m.a)) this.alta.set(m.a, ev.id);
         if (m.a !== null) this.existe.add(m.a);
@@ -225,7 +234,6 @@ class Modelo {
         if (m.estado === 'bloqueo' && m.token === 'R') this.colateral.set(m.de + '\u0000' + m.salida, (this.colateral.get(m.de + '\u0000' + m.salida) ?? 0) + m.cantidad);
       }
       for (const [e, n] of gastadoAqui) this.gastado.set(ev.autor + e, (this.gastado.get(ev.autor + e) ?? 0) + n);
-      for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.tipos.set(id, tipo);
     };
   }
 }
@@ -246,7 +254,7 @@ function movAleatorio(g, autor, ids, conocidos) {
 }
 
 const fam = (k) => (k.startsWith('P:') ? 'P' : k);
-const fotoEje = (e) => JSON.stringify({ o: e.orden, s: [...e.saldos].map(([k, v]) => [k, [...v]]), se: e.series(), t: e.identidades().map((i) => [i, e.tipo(i)]), p: e.identidades().map((i) => e.poderes(i)) });
+const fotoEje = (e) => JSON.stringify({ o: e.orden, s: [...e.saldos].map(([k, v]) => [k, [...v]]), se: e.series(), t: e.identidades().map((i) => [i, e.esPersona(i)]), p: e.identidades().map((i) => e.poderes(i)) });
 
 /**
  * El eje acepta exactamente lo que acepta el modelo y deja los mismos saldos;
@@ -260,19 +268,22 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
   const vistos = { delegaEstrechando: 0, emiteOtro: 0, rechazoSeparador: 0, rNoEmisor: 0 };
   for (let s = 0; s < 14; s++) {
     const g = prng(SEMILLA + s);
-    // VG, 7-11 noche: el génesis lo emite una persona; ya no un grupo. Y no emite T (VG, 8-11: no hay T acumulable):
-    // sin tipo, su autor no tendría asignación con la que escribir.
-    const tipoG = 'persona';
+    // VG, 7-11 noche: el génesis lo emite una persona: su autor escribe su propia alta (B1). Y no emite T (VG, 8-11:
+    // no hay T acumulable): su autor vive de su asignación del día.
     const emision = [['E:r/EUR', 40], ['P:genesis', 8], ['R:r', 6]];
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: tipoG, emision: [{ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: AYER });
-    const mod = new Modelo(eje.genesisId, 'r', tipoG, emision, AYER);
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 40 }, { token: 'P', ambito: 'genesis', cantidad: 8 }, { token: 'R', emisor: 'r', cantidad: 6 }], foco: 'g', t: AYER });
+    const mod = new Modelo(eje.genesisId, 'r', emision, AYER);
+    // B1: b, una persona, escribe su propia alta; c y hab son cosas: las da de alta r.
+    const deB = { autor: 'b', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('b')], payload: 'alta de b' };
+    const evB = await eje.escribir(deB);
+    mod.probar({ ...deB, id: evB.id })();
     const ids = [eje.genesisId];
     const consumido = new Map();
-    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta', contexto: { tipos: { b: 'persona', c: 'cosa', hab: 'cosa' } } };
+    const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: 'genesis', cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta' };
     const ev0 = await eje.escribir(alta);
     mod.probar({ ...alta, id: ev0.id })();
-    consumido.set('T:minuto', 1);
-    ids.push(ev0.id);
+    consumido.set('T:minuto', 2); // el alta de b y la de r
+    ids.push(evB.id, ev0.id);
     for (let paso = 0; paso < 30; paso++) {
       const conocidos = [...mod.existe];
       const autor = g.si(0.9) ? g.pick(conocidos) : g.pick(IDS);
@@ -282,14 +293,14 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       // con su colateral (R6: la décima parte, bloqueada con la salida = la serie). Las emisiones de R al azar
       // (movAleatorio) van sin colateral: el modelo y el eje las rechazan igual.
       if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 0.5, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor });
-      const tipos = {};
+      // B1: no hay tipo; a veces un alta lo declara igual (y se rechaza), y a veces se da de alta a una cosa nueva.
+      const contexto = g.si(0.05) ? { tipos: { [g.pick(IDS)]: g.pick(['persona', 'grupo', 'cosa', 'robot']) } } : {};
       if (g.si(0.3)) {
         const nuevo = g.pick(IDS);
-        tipos[nuevo] = g.pick(['persona', 'grupo', 'cosa', 'robot']);
         // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
         if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
-      const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto: { tipos } };
+      const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
       const antes = fotoEje(eje);
       let ev = null;
       try { ev = await eje.escribir(datos); } catch (e) {
@@ -323,8 +334,8 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
       for (const se of eje.series()) {
         assert.equal(claveToken(partirClave(se.clave)), se.clave);
         if (se.token === 'E' || se.token === 'R') assert.equal(se.emisor, partirClave(se.clave).emisor);
-        // Fuera del génesis solo emiten personas, a su nombre (VG, 8-11); el génesis puede no declarar tipo.
-        assert.ok(se.emisor === 'r' || eje.tipo(se.emisor) === 'persona', se.clave + ' la emite ' + se.emisor);
+        // Solo emiten personas, a su nombre (VG, 8-11): quien escribió su propia alta (B1).
+        assert.ok(se.emisor === 'r' || eje.esPersona(se.emisor) === true, se.clave + ' la emite ' + se.emisor);
       }
       for (const id of conocidos) {
         const x = ev.id;
@@ -342,7 +353,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, dele
 });
 
 test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuál, y nada a medias se restaura', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [], foco: 'g', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0 });
   const d = ida(eje);
   // Desde el ciclo E/P/R/T (VG, 7-11 noche) la versión es la 3; la 2 se migra (test/persistencia.test.js).
   await assert.rejects(restaurar({ ...d, version: 1 }), /versión 1; esta es la 3/);
@@ -353,7 +364,7 @@ test('regresión: VERSION 2 — un eje de otra versión se rechaza diciendo cuá
 test('cantidades no enteras de E y P: 0,3 − 0,1 no alcanza para 0,2',
   { skip: 'TOK-03: [X] decidir VG con qué aritmética van las fracciones de E (solo en las series declaradas divisibles, R2, VG 7-11 noche) y de P. Hoy, con 0,3 EUR divisibles, pagar 0,1 deja 0,19999999999999998 y pagar luego 0,2 se rechaza por «saldo insuficiente de E:r/EUR»; igual con P (fuzz 2, sonda-float)' },
   async () => {
-    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', tipo: 'persona', emision: [{ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
+    const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 0.3, divisible: true }], foco: 'g', t: T0 });
     const pago = (c) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: c, de: 'r', a: null });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.1)], payload: 'a' });
     await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), pago(0.2)], payload: 'b' });
@@ -795,7 +806,8 @@ test('propiedad: en una dirección de un registro hay como mucho un ocupante con
 const dia = (n) => new Date(Date.parse('2026-11-12') + n * 86400000).toISOString().slice(0, 10);
 // Los minutos que se pasaban ya no se dan: T no cruza de persona (VG, 7-11 noche); se ignoran.
 async function altaHuesped(eje, id, eur) {
-  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]], contexto: { tipos: { [id]: 'persona' } } });
+  await eje.entrar({ identidad: id, t: '2026-11-08T08:00:00Z' }); // B1: la persona escribe su propia alta
+  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]] });
 }
 
 /**

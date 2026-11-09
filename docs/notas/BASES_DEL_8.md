@@ -159,20 +159,20 @@ console.log('nota sobre el café: sin novedades', leerBase(eje, ej.menu.id).fres
 
 ```text
 guisos {"posiciones":5,"terminales":9,"escritos":0,"identidades":2,"profundidadHilo":3,"formulasResueltas":1,"formulasPendientes":1,"tokens":{"T:hora":1,"E:casa/EUR":12}}
-sin bases: PENDIENTE · sin base escrita · respaldo general: n 14 · sin base escrita
+sin bases: PENDIENTE · sin base escrita · respaldo general: n 16 · sin base escrita
 quién escribe la base del menú: menu-dia identidad · casa poder · cocina no
 menú     firma menu-dia  (identidad) · hijos 4 · subárbol  5 · fundidas 0 · T:hora 0 4 1 0 0 0 0 0 0 0 · sin novedades true
 cena     firma menu-cena (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
 puesto   firma puesto    (identidad) · hijos 2 · subárbol  3 · fundidas 0 · T:hora 0 3 0 0 0 0 0 0 0 0 · sin novedades true
 comedor  firma comedor   (identidad) · hijos 2 · subárbol  9 · fundidas 2 · T:hora 0 7 1 0 0 0 0 1 0 0 · sin novedades true
 mercado  firma mercado   (identidad) · hijos 1 · subárbol  4 · fundidas 1 · T:hora 1 3 0 0 0 0 0 0 0 0 · sin novedades true
-génesis  firma casa      (identidad) · hijos 2 · subárbol 14 · fundidas 2 · T:hora 2 10 1 0 0 0 0 1 0 0 · sin novedades true
-0 idea: 2 | 1 aprendizaje: 10 | 2 avanzado: 1 | 3 aprendizaje profesional: 0 | 4 resolución profesional: 0 | 5 aprendizaje superior: 0 | 6 solución profesional avanzada: 0 | 7 investigación: 1 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
+génesis  firma casa      (identidad) · hijos 4 · subárbol 16 · fundidas 2 · T:hora 4 10 1 0 0 0 0 1 0 0 · sin novedades true
+0 idea: 4 | 1 aprendizaje: 10 | 2 avanzado: 1 | 3 aprendizaje profesional: 0 | 4 resolución profesional: 0 | 5 aprendizaje superior: 0 | 6 solución profesional avanzada: 0 | 7 investigación: 1 | 8 trabajo maestro: 0 | 9 resolución experimental muy avanzada: 0
 hermanos RESUELTO escrita · n  4 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.375 · terminales (recuento) 9 · la 4 en 2/4
 proyecto RESUELTO escrita · n  9 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.081 · terminales (recuento) 9 · la 4 en 2/9
-general  RESUELTO escrita · n 14 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.018 · terminales (recuento) 9 · la 4 en 2/14
+general  RESUELTO escrita · n 16 · EUR 12 caja 6 (solución profesional avanzada) cuota 0.018 · terminales (recuento) 9 · la 4 en 2/16
 lo escrito = lo calculado al vuelo antes: true
-BQL: BASES("hermanos") = 4 · BASES("general") = 14 · BASES("proyecto", "T:hora") = 1 · BASES("proyecto", "E:casa/EUR", "cuota") = 0.081 · BASES("general", "E:casa/EUR", "suma") = 685
+BQL: BASES("hermanos") = 4 · BASES("general") = 16 · BASES("proyecto", "T:hora") = 1 · BASES("proyecto", "E:casa/EUR", "cuota") = 0.081 · BASES("general", "E:casa/EUR", "suma") = 685
 menú tras un té: {"t":"2026-11-07T18:00:00Z","hijosNuevos":1,"basesNuevas":0,"debajo":0,"sinNovedades":false} · génesis: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":0,"debajo":1,"sinNovedades":false}
 menú corregido: hijos 5 · anteriores 1 · comedor: {"t":"2026-11-07T18:00:00Z","hijosNuevos":0,"basesNuevas":1,"debajo":0,"sinNovedades":false}
 nota sobre el café: sin novedades true · comprobar false [["escritos","posiciones","tiempo:hora","posiciones por PV"]]

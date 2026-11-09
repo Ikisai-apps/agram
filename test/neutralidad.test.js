@@ -69,15 +69,16 @@ function repartir(g, n, k) {
 async function mundo(personas, { tercero = 'C', tipos = {}, pX = 1, criterio = 'normas' } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'g', tipo: 'persona', t: ALTA, foco: ['raíz'],
+    identidad: 'g', t: ALTA, foco: ['raíz'],
     emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
   const altas = [tercero, ...personas];
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const id of altas) if ((tipos[id] ?? 'persona') === 'persona') await eje.entrar({ identidad: id, t: ALTA });
   await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: ALTA,
     movimientos: [minuto('g'), ...altas.map((id) => minuto('g', 5000, id))],
     payload: 'altas',
-    contexto: { tipos: Object.fromEntries(altas.map((id) => [id, tipos[id] ?? 'persona'])) },
   });
   const casa = await eje.escribir({
     autor: tercero, sobre: eje.genesisId, t: T0, movimientos: [minuto(tercero)],
@@ -309,8 +310,9 @@ test('propiedad (NEU-02): repartir el mismo P:X entre k identidades no cambia si
 // VG, 8-11: «lo único que tenemos de grupo es la delegación»: no hay identidades de grupo, y nadie emite a nombre de otro.
 test('NEU-03: agruparse no añade un emisor (no hay identidades de grupo; un grupo es un registro con P delegado)',
   async () => {
-    await assert.rejects(mundo(['P1', 'P2', 'G'], { tipos: { G: 'grupo' } }), /tipo inválido para G: no hay identidades de grupo/);
     const { eje, X } = await mundo(['P1', 'P2']);
+    // No hay tipo (B1), así que tampoco «grupo»: un alta no declara qué es nadie.
+    await assert.rejects(eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, movimientos: [minuto('g'), minuto('g', 5, 'G')], payload: 'un grupo', contexto: { tipos: { G: 'grupo' } } }), /no hay tipo en el alta/);
     await assert.rejects(
       eje.escribir({ autor: 'P1', sobre: X, t: T0, movimientos: [minuto('P1'), { token: 'R', emisor: 'P2', cantidad: 100, de: null, a: 'P2' }], payload: 'R de los dos' }),
       /nadie emite en nombre de otro: P2 no es el autor/,
@@ -530,19 +532,20 @@ test('propiedad (R8): N identidades falsas con ruido en la posición del dueño 
 });
 
 /**
- * Un eje con claves, sin demostración (R9): g firma el génesis; S2 entra con
- * su clave y su prueba de posesión, y S3 recibe tokens sin clave.
+ * Un eje con claves, sin demostración (R9): g firma el génesis; S2 escribe su
+ * propia alta (B1: una persona) con su clave, firmada con ella (su prueba de
+ * posesión), y S3 recibe tokens sin clave (una cosa de g).
  */
 async function mundoConClaves() {
   const [kg, k2] = [await generarClaves(), await generarClaves()];
   const eje = await Eje.genesis({
-    identidad: 'g', tipo: 'persona', t: T0, foco: ['raíz'], clave: kg.publica, privada: kg.privada,
+    identidad: 'g', t: T0, foco: ['raíz'], clave: kg.publica, privada: kg.privada,
     emision: [{ token: 'E', denominacion: 'minuto', cantidad: 1e9 }, { token: 'P', ambito: 'genesis', cantidad: 10 }],
   });
+  await eje.entrar({ identidad: 'S2', t: T0, clave: k2.publica, privada: k2.privada });
   const X = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: T0, movimientos: [minuto('g'), minuto('g', 5000, 'S2'), minuto('g', 5000, 'S3')], payload: 'altas',
-    contexto: { tipos: { S2: 'persona', S3: 'persona' }, claves: { S2: k2.publica } },
-  }, kg.privada, { S2: k2.privada });
+  }, kg.privada);
   return { eje, X: X.id, kg, k2 };
 }
 

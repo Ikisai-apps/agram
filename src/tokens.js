@@ -158,19 +158,11 @@ export const ESCALAS_T = Object.freeze([...ESCALAS_REALES, ...ESCALAS_INFORMATIV
 export const MAXIMO_ESCALAS_T = 10;
 if (ESCALAS_T.length > MAXIMO_ESCALAS_T) throw new Error('T admite como mucho ' + MAXIMO_ESCALAS_T + ' escalas');
 
-/**
- * Tipos de identidad que se declaran en el alta. Solo sirven para saber quién
- * emite. Sin grupo (VG, 8-11; [X] confirmar VG): un grupo es un registro con
- * P delegado, no una identidad (src/ciclo.js, motivoTipo).
- */
-export const TIPOS = Object.freeze(['persona', 'cosa']);
-
-/**
- * Quien puede emitir (iniciar o ampliar una serie): solo las personas (VG,
- * 7-11 noche: «todos son emitidos por una persona individualmente»), en su
- * propio nombre.
- */
-export const EMITEN = Object.freeze(['persona']);
+// No hay tipos de identidad (VG, 10-11, B1): una persona es la identidad que
+// escribe su propia alta; una cosa, la que da de alta otra identidad, su
+// dueño (src/eje.js, esPersona). Solo emiten las personas (VG, 7-11 noche:
+// «todos son emitidos por una persona individualmente»), en su propio nombre;
+// lo dice una regla de la época que lee quién escribió el alta.
 
 /**
  * Estados de un movimiento que no cambia de titular (VG, 7-11 noche): bloquear

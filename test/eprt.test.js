@@ -10,7 +10,7 @@ async function mundo() {
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'casa',
-    tipo: 'persona', // da T a sus cosas, la cocina y la sala (Core, 8-11: T no cruza de persona, pero una persona sí lo da a una cosa)
+    // da T a sus cosas, la cocina y la sala (Core, 8-11: T no cruza de persona, pero una persona sí lo da a una cosa)
     emision: [
       { token: 'P', cantidad: 5, ambito: 'genesis' },
       { token: 'R', cantidad: 20, emisor: 'casa' }, // la casa nace con reputación propia que puede repartir
@@ -19,7 +19,7 @@ async function mundo() {
     t: T0,
   });
   const g = eje.genesisId;
-  const alta = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'sala' }], payload: ['altas', ['cocina', 'sala']], contexto: { tipos: { cocina: 'cosa', sala: 'cosa' } } });
+  const alta = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'cocina' }, { token: 'T', escala: 'minuto', cantidad: 20, de: 'casa', a: 'sala' }], payload: ['altas', ['cocina', 'sala']] }); // dos cosas: su alta la escribe la casa (B1)
   const menu = await eje.escribir({ autor: 'cocina', sobre: alta.id, t: T0, movimientos: [gastaT('cocina')], payload: 'menú' });
   const evento = await eje.escribir({ autor: 'sala', sobre: alta.id, t: T0, movimientos: [gastaT('sala')], payload: 'boda' });
   return { eje, g, alta, menu, evento };
@@ -94,7 +94,7 @@ test('P por delegación desde un registro de dominio (VG, 7-11): la casa delega,
   const { eje, g, alta } = await mundo();
   const dominio = await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa')], payload: 'Alojamiento' });
   await eje.escribir({ autor: 'casa', sobre: dominio.id, t: T0, payload: 'recepción',
-    contexto: { tipos: { recepcion: 'cosa' } }, // la recepción, una cosa de la casa: escribe con el T que le da
+    // la recepción, una cosa de la casa (B1: su alta la escribe la casa): escribe con el T que le da
     movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 10, de: 'casa', a: 'recepcion' }, { token: 'P', cantidad: 2, ambito: dominio.id, de: 'casa', a: 'recepcion' }] });
   const reserva = await eje.escribir({ autor: 'sala', sobre: dominio.id, t: T0, movimientos: [gastaT('sala')], payload: 'reserva' });
   assert.equal(eje.poderSobre('recepcion', reserva.id), 2); // autoriza lo que cuelga del dominio

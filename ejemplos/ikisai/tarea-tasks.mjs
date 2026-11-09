@@ -302,8 +302,7 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
   // (VG, 8-11: no hay T acumulable): escribe y trabaja con su asignación del día.
   const eje = await Eje.genesis({
     demostracion: true,
-    identidad: 'casa',
-    tipo: 'persona', // solo las personas emiten (VG, 7-11 noche)
+    identidad: 'casa', // escribe su propia alta, el génesis: es una persona (VG, 10-11, B1); solo las personas emiten
     emision: [
       ...PARTIDAS.map(([concepto, importe]) => ({ token: 'E', denominacion: concepto, cantidad: importe })), // el génesis pone emisor = casa
       { token: 'E', denominacion: 'hora', cantidad: 200 }, // el tiempo que la casa cede a otros: E:casa/hora (T no cruza de persona)
@@ -318,10 +317,10 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
 
   // Altas: la organizadora recibe las series de las partidas de la carpa
   // (y ningún otro E); el proveedor externo, horas de la casa (E:casa/hora).
-  // Existen al recibir tokens, y el alta declara qué son. Escribir cuesta un
-  // minuto por posición, de su propio T. La tarima se queda en la casa.
-  const declaradas = {};
-  for (const id of ['organizadora', 'proveedor']) if (claves[id]?.publica) declaradas[id] = claves[id].publica;
+  // Antes, cada una escribe su propia alta (VG, 10-11, B1: persona es quien escribe la suya), con su clave si la
+  // tiene; la invitación de la casa es del 3b. Escribir cuesta un minuto por posición, de su propio T. La tarima
+  // se queda en la casa.
+  for (const id of ['organizadora', 'proveedor']) await eje.entrar({ identidad: id, t: T0, clave: claves[id]?.publica, privada: priv(id) });
   const altas = ['Altas para la fiesta del sábado', ['organizadora', 'proveedor']];
   r.alta = await eje.escribir({
     autor: 'casa',
@@ -335,7 +334,6 @@ export async function ejemploTarea({ claves = {}, hasta = 'ejecutada' } = {}) {
       { token: 'E', emisor: 'casa', denominacion: 'hora', cantidad: 20, de: 'casa', a: 'proveedor' },
     ],
     payload: altas,
-    contexto: { tipos: { organizadora: 'persona', proveedor: 'persona' }, ...(Object.keys(declaradas).length ? { claves: declaradas } : {}) },
   }, priv('casa'));
 
   // Partidas del sábado: la casa escribe cada partida [concepto, importe] en

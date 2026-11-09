@@ -124,7 +124,7 @@ console.log('con { medidas: true }:', m.escritos, 'escritos ·', m.movimientos, 
 E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 %
 T:hora 1: caja 1 · cuota frente al padre 25 %
 recuentos (información): hilo 3 · escritos 0 · movimientos 2 · posiciones 5 · identidades 2
-8 · general · sin base escrita (respaldo al vuelo) · n 14
+8 · general · sin base escrita (respaldo al vuelo) · n 16
 E:casa/EUR 12: caja 6 · cuota frente al padre 37,5 % · en la cohorte 1,8 %
 P:genesis 0: caja 0 · cuota frente al padre — · en la cohorte 0 %
 T:hora 1: caja 1 · cuota frente al padre 25 % · en la cohorte 3,1 %
@@ -294,40 +294,40 @@ console.log(render(escena(eje, [compra.id, c2.id, c3.id, menu.id], { ahora, capa
 ```
 
 ```text
-escena · 5 de 5 focos · común 7c3eb52f · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 7c3eb52f cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
-1 n1 fe48a3c2 huesped · 0 Compra del menú del día · 1 [3] · 2 →7c3eb52f · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
-2 n2 c475dae0 cocina · 0 Cuenta del menú · 1 =REF("fe48a3c2", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
-3 n1 5a9b4243 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
-4 n1 545d01d0 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+escena · 5 de 5 focos · común 61aa68f7 · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 61aa68f7 cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · ← 7
+1 n1 94800edf huesped · 0 Compra del menú del día · 1 [3] · 2 →61aa68f7 · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0 · hilo→0 · ref 1.0.0→0:1000000000 · ref 2.0→0:2000000000 · ← 2
+2 n2 2fe9802d cocina · 0 Cuenta del menú · 1 =REF("94800edf", "1200000000") … · 2 =LOCAL(1) + 15 min · 3 ==no es fórmula · hermano 1 de 1 · pasado 4 futuro 0 · hilo→1 en 1000000000 · fórmula 1→1:1200000000
+3 n1 d220d90a huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
+4 n1 ae29aa14 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0 · hilo→0 · ref 1.0→0:1000000000
 aristas: hilo 4 · referencia 4 · fórmula 1 · fuera de escena 0
 recuentos: grupos 3 · pasado 19 · futuro 0
 medidas del 8 (suma de 5 focos): escritos 4 · movimientos 8 · posiciones 16 · identidades 8
 ---
-escena · 4 de 4 focos · común 6cb2ff68 · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n0 6cb2ff68 casa · Casa de ejemplo · hermano 1 de 1 · pasado 1 futuro 0 · ← 1
-1 n1 3399a980 casa · 0 Altas del fin de semana · 1 [2] · hermano 1 de 1 · pasado 2 futuro 0 · hilo→0 · ← 1
-2 n2 7c3eb52f cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
-3*n3 fe48a3c2 huesped · 0 Compra del menú del día · 1 [3] · 2 →7c3eb52f · 3 [2] · 4 [2] · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
+escena · 4 de 4 focos · común e670f7ae · época 0 · camino raíz · 32 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n0 e670f7ae casa · Casa de ejemplo · hermano 1 de 1 · pasado 2 futuro 0 · ← 1
+1 n1 ccd89ab3 casa · 0 Altas del fin de semana · 1 [2] · hermano 1 de 1 (2 en el eje) · pasado 2 futuro 0 · hilo→0 · ← 1
+2 n2 61aa68f7 cocina · 0 Menú del día · 1 [3] · 2 [2] · hermano 1 de 1 · pasado 5 futuro 0 · hilo→1 · ← 3
+3*n3 94800edf huesped · 0 Compra del menú del día · 1 [3] · 2 →61aa68f7 · 3 [2] · 4 [2] · hermano 1 de 1 (3 en el eje) · pasado 4 futuro 0 · hilo→2 · ref 1.0.0→2:1000000000 · ref 2.0→2:2000000000
 aristas: hilo 3 · referencia 2 · fórmula 0 · fuera de escena 0
-recuentos: grupos 4 · pasado 12 · futuro 0
+recuentos: grupos 4 · pasado 13 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 3 de 3 focos · común 7c3eb52f · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 fe48a3c2 huesped · 0 Compra del menú del día · 1 [3] · 2 →7c3eb52f · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0
-1*n1 5a9b4243 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
-2 n1 545d01d0 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
+escena · 3 de 3 focos · común 61aa68f7 · época 0 · camino raíz · 31 de 10000 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 94800edf huesped · 0 Compra del menú del día · 1 [3] · 2 →61aa68f7 · 3 [2] · 4 [2] · hermano 1 de 3 · pasado 4 futuro 0
+1*n1 d220d90a huesped · 0 Segunda compra · 1 [3] · hermano 2 de 3 · pasado 3 futuro 0
+2 n1 ae29aa14 huesped · 0 Tercera compra · 1 [3] · hermano 3 de 3 · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 4
 recuentos: grupos 1 · pasado 10 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
 ---
-escena · 2 de 4 focos · común 7c3eb52f · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
-0 n1 fe48a3c2 huesped · 0 Compra del menú del día · 1 [3] · 2 →7c3eb52f · 3 [2] · 4 [2] · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
-1 n1 5a9b4243 huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
+escena · 2 de 4 focos · común 61aa68f7 · época 0 · camino raíz · 27 de 30 posiciones · mín 1000 (no llega) · máx 10000
+0 n1 94800edf huesped · 0 Compra del menú del día · 1 [3] · 2 →61aa68f7 · 3 [2] · 4 [2] · hermano 1 de 2 (3 en el eje) · pasado 4 futuro 0
+1 n1 d220d90a huesped · 0 Segunda compra · 1 [3] · hermano 2 de 2 (3 en el eje) · pasado 3 futuro 0
 aristas: hilo 0 · referencia 0 · fórmula 0 · fuera de escena 3
 recuentos: grupos 1 · pasado 7 · futuro 0
 medidas del 8: bajo demanda (escena con { medidas: true })
-aviso: capacidad de la escena: 30 posiciones. El foco 545d01d0 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: 545d01d0 7c3eb52f. Trae 27 de 31 posiciones.
+aviso: capacidad de la escena: 30 posiciones. El foco ae29aa14 (3º de 4) la llevaría a 31; la escena se corta ahí y quedan fuera 2 focos: ae29aa14 61aa68f7. Trae 27 de 31 posiciones.
 ```
 
 Lectura de la primera escena: se pidieron en desorden y el marco las coloca por el hilo, en preorden. El menú es el común (n0) y recibe siete aristas: el hilo de las tres compras y sus cuatro referencias. La cuenta (n2) cuelga de la compra anclada en su posición 1 (los recursos) y su fórmula lee la 1.2 de la compra (el precio); por eso va justo detrás de la compra y antes de la segunda compra: las tres compras siguen el orden de llegada, pero no van seguidas. En la segunda, el génesis es un terminal y sale como tal, sin índice. En la última, la compra trae 23 posiciones con contenido (ella 9, el menú 6, las altas 3, el génesis 1 y la cuenta escrita encima 4), la segunda compra suma 4 y la tercera pasaría de 30: se corta ahí y el menú, pedido detrás, también queda fuera.

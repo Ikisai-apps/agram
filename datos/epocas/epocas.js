@@ -210,7 +210,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "d45ba998ce731ea3ebf9777ff0c6180163e04e46e8a72e6e705a5593e69126fe"
+      "ref": "849efa27a9ac2cc18c78f47162f31e7748529c139f2badad7b1ebe737a089664"
     },
     {
       "ref": "4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89"
@@ -240,10 +240,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"
     },
     {
-      "ref": "8ba85d306013f16b3ca28d78188035f42f0d0ab1bc773563717b6d4ea9e576af"
-    },
-    {
-      "ref": "470e6f3343b1837cc5fc5dddd428547bfc77cb5bcc4f5da429a998f8a65710c8"
+      "ref": "e8c350cbdf57ec3d948e7b917caee267eddd777caf1306e31724076e98861aab"
     },
     {
       "ref": "0eb7e040782659ab779877f640410be438bf4f53de30205e9dcf251a8fa4420e"
@@ -252,7 +249,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277"
     },
     {
-      "ref": "16d5e36a8967d22fd8f872b394eb2386dfffec83766f71d0f05972c6e17871bd"
+      "ref": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5"
+    },
+    {
+      "ref": "f611573512c553a1c54a28482f60f467f7f78449cdb2bda8e41720fb21a36b29"
     },
     {
       "ref": "392d8fcdd240b149633b88285e7b17e6f085be431f52078999ab36331f1b98f2"
@@ -261,7 +261,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "594208d063ca58163752ccfdc6c4d0cc0f1004d02fc74ab53bc3d757b4d97aec"
     },
     {
-      "ref": "12a61d746d2f8a9e303047210519d8f07fabd6948229914085a3cec25f5e9fd3"
+      "ref": "95e362844bdd5b5efce24f38960d816262db3aac507de2ce7a0a50f63856a487"
+    },
+    {
+      "ref": "8bb48a4e2fdba4b920a6999ae324a736e70e13bc04e6e520fb7d36371b85792f"
     },
     {
       "ref": "361f89a43385d4e05c826f96e9640bf42010a1b4735b2cb69ceead78e39d5423"
@@ -2638,7 +2641,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "e-is-tied-to-a-record-that-exists.json",
-    "id": "12a61d746d2f8a9e303047210519d8f07fabd6948229914085a3cec25f5e9fd3",
+    "id": "8bb48a4e2fdba4b920a6999ae324a736e70e13bc04e6e520fb7d36371b85792f",
     "registro": [
       [
         "E is tied to a record that exists"
@@ -2667,7 +2670,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after T is not locked"
+        "after T only goes to things"
       ],
       [
         "E is tied to a record that exists: {(ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"
@@ -2957,7 +2960,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "not-before-its-focus.json",
-    "id": "470e6f3343b1837cc5fc5dddd428547bfc77cb5bcc4f5da429a998f8a65710c8",
+    "id": "e8c350cbdf57ec3d948e7b917caee267eddd777caf1306e31724076e98861aab",
     "registro": [
       [
         "not before its focus"
@@ -2989,7 +2992,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after the author has an account"
+        "after every record hangs on a record of the ledger"
       ],
       [
         "not before its focus: the transaction is dated {first ev.6.0}, before its focus {first ev.6.5} ({first (first ev.6.5).6.0})"
@@ -3038,6 +3041,43 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "only-persons-mint.json",
+    "id": "fdb5550b4157d4dca22214ad36cd12f02c7e82793ab043eb74fb40262ee3e7b5",
+    "registro": [
+      [
+        "only persons mint"
+      ],
+      [
+        0
+      ],
+      [
+        "=count (ev.1 where mint in it.4) = 0 or (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3)"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG, 7-11 noche: «todos son emitidos por una persona individualmente» (mapa §12 [D] ciclo de vida)",
+        "VG, 10-11, B1: desaparece el tipo; persona es la identidad cuya alta escribe ella misma (first A.6.3 = A), y cosa el registro cuya alta escribió otra identidad, su dueño (mapa §16 [D])"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after at most a year ahead"
+      ],
+      [
+        "only persons mint: {first ev.3} is a thing (its alta was written by {first (first ev.3).6.3}), and only persons mint"
+      ]
+    ]
+  },
+  {
     "archivo": "p-moves-within-a-known-scope.json",
     "id": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c",
     "registro": [
@@ -3077,7 +3117,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "r-is-minted-by-its-issuer.json",
-    "id": "16d5e36a8967d22fd8f872b394eb2386dfffec83766f71d0f05972c6e17871bd",
+    "id": "f611573512c553a1c54a28482f60f467f7f78449cdb2bda8e41720fb21a36b29",
     "registro": [
       [
         "R is minted by its issuer"
@@ -3105,7 +3145,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after at most a year ahead"
+        "after only persons mint"
       ],
       [
         "R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) each 0.0.1}"
@@ -3227,43 +3267,41 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
-    "archivo": "the-author-has-an-account.json",
-    "id": "8ba85d306013f16b3ca28d78188035f42f0d0ab1bc773563717b6d4ea9e576af",
+    "archivo": "t-only-goes-to-things.json",
+    "id": "95e362844bdd5b5efce24f38960d816262db3aac507de2ce7a0a50f63856a487",
     "registro": [
       [
-        "the author has an account"
+        "T only goes to things"
       ],
       [
-        0
+        0,
+        "genesis"
       ],
       [
-        "=count before.5 = 0 or first ev.3 in before.3"
+        "=count (ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3 and not ((count (first it.3.1).6 = 0 or first (first it.3.1).6.3 != first it.3.1) and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) or (count (first it.3.1).6 = 0 or first (first it.3.1).6.3 = first ev.3 or first (first it.3.1).6.3 = first (first ev.3).6.3 or count ((first ev.3).1 where P in it2.0.0.0 and it2.1 > 0 and (it2.0.0.1 = \"genesis\" or it2.0.0.1 in path (first (first it.3.1).6))) > 0)))) = 0"
       ],
       [
-        "ev.3"
+        "(ev.1 where T in it.0.0.0 and transfer in it.4) each 3.1"
       ],
       [
-        "mint",
-        "transfer",
-        "lock",
-        "release",
-        "burn"
+        "transfer"
       ],
       [
         "*"
       ],
       [
-        "mapa §12 [D] «Identidades: quien da de alta declara»: una identidad nace al recibir tokens por primera vez",
-        "VG, 9-11 (mapa §16): altas = primera transacción a una clave"
+        "VG, 7-11 noche: T no cruza de persona; «recibir T solo es un registro de una cantidad de tiempo; podemos hacer que se transforme en E» (mapa §12 [D])",
+        "VG, 8-11: una persona da su T a una cosa («T de segundo para automatismos y maquinaria»); de cosa a cosa, solo del mismo dueño (regla de Core aceptada; inventario TT-8, TT-9)",
+        "VG, 10-11, B1: persona o cosa se lee del 3 del alta: cosa es lo que da de alta otra identidad, su dueño (mapa §16 [D])"
       ],
       [
         "epoch 0"
       ],
       [
-        "after every record hangs on a record of the ledger"
+        "after T is not locked"
       ],
       [
-        "the author has an account: {first ev.3} has none (no transaction has given them anything yet)"
+        "T only goes to things: {first ev.3} gives T to {(ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3) each 3.1}: T does not cross to a person, and a thing gives it only to a thing of the same owner; giving time to another is minting E in one's own time"
       ]
     ]
   },
@@ -3349,7 +3387,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "d45ba998ce731ea3ebf9777ff0c6180163e04e46e8a72e6e705a5593e69126fe",
+    "id": "849efa27a9ac2cc18c78f47162f31e7748529c139f2badad7b1ebe737a089664",
     "registro": [
       [
         "writing burns today's T"
@@ -3360,7 +3398,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.3.1"
       ],
       [
-        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
+        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and ((count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - sum (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0 or not (count (first ev.3).6 = 0 or first (first ev.3).6.3 = first ev.3) and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > sum (first ev.3).1.(it.0).1) = 0)) or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3375,7 +3413,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG, 7-11 noche: escribir consume T del autor (mapa §12 [D])",
         "VG, 8-11: T como asignación diaria, «te lo gastas como quieras, no te puedes gastar más» (mapa §12 [D])",
-        "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla"
+        "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
+        "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño"
       ],
       [
         "epoch 0"

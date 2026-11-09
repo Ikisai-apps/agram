@@ -98,7 +98,7 @@ test('firma quitada tras restaurar: falla la capa 3 y solo ella', async () => {
   assert.equal(firmada.criptografia.firma, 'verificada');
   // El eje no admite el guardado sin la firma; las capas dicen cuál de ellas cae.
   const roto = JSON.parse(JSON.stringify(serializar(eje)));
-  delete roto.eventos[3].firma;
+  delete roto.eventos[4].firma; // la compra (antes van el génesis, el alta de la huésped, las de la casa y el menú)
   await assert.rejects(restaurar(roto), /firma ausente de huesped/);
   const { firma, firmante, ...sinFirma } = otro.obtener(compra.id);
   void firma; void firmante;
@@ -153,7 +153,7 @@ test('acreditación y permiso no se confunden: serie sin emitir, emisión ajena,
   // Cocina (una cosa de la casa, Core 8-11) emite T: solo las personas emiten (capa 5).
   const t = await validez(eje, await borrador('cocina', [{ token: 'T', escala: 'minuto', cantidad: 5, de: null, a: 'cocina' }]));
   assert.deepEqual(estados(t), ['ok', 'ok', 'ok', 'ok', 'falla']);
-  assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es cosa/);
+  assert.match(t.permiso.motivos[0], /solo las personas emiten: cocina es una cosa/);
   // Huesped (persona) tampoco emite T: no se emite (capa 5).
   const emite = await validez(eje, await borrador('huesped', [{ token: 'T', escala: 'hora', cantidad: 1, de: null, a: 'huesped' }]));
   assert.deepEqual(estados(emite), ['ok', 'ok', 'ok', 'ok', 'falla']);
@@ -343,7 +343,7 @@ test('más de diez profundidades: no es fallo de forma; la capa 2 da lo mismo qu
   assert.match(bql.interpretacion.formulas[0].texto, /más de diez profundidades/);
 });
 
-test('firma que no se puede verificar: pendiente solo si la clave aún puede llegar', async () => {
+test('firma que no se puede verificar: cuenta como sin firma; la clave de quien escribe su alta va en ella (B1)', async () => {
   const { eje, compra } = await ejemploCompra(); // sin claves
   const otra = await generarClaves();
   // Cocina ya tiene alta y no tiene clave: el eje no deja añadírsela («no se puede cambiar la clave»). Cuenta como sin firma (G1).
@@ -352,11 +352,16 @@ test('firma que no se puede verificar: pendiente solo si la clave aún puede lle
   assert.equal(v.criptografia.firma, 'sin verificar');
   assert.equal(v.criptografia.estado, 'ok');
   assert.deepEqual(await eje.validar(deCocina), []); // el eje la admite
-  // Un autor sin alta: su clave puede llegar con el alta y entonces se verificaría.
+  // Un autor sin alta escribe su propia alta (B1): su clave, si la tiene, va en ella. Sin declararla, su firma no se
+  // puede verificar nunca: cuenta como sin firma (G1), igual que la de cocina.
   const deNadie = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x' }), otra.privada);
   const n = await validez(eje, deNadie);
-  assert.equal(n.criptografia.estado, 'pendiente');
-  assert.match(n.criptografia.motivos.join(' '), /aún no tiene alta: su clave puede llegar con ella/);
+  assert.deepEqual([n.criptografia.estado, n.criptografia.firma], ['ok', 'sin verificar']);
+  // Con la clave declarada en su alta y firmada con ella, se verifica: su firma es su prueba de posesión.
+  const conClave = await firmar(await crearEvento({ autor: 'nadie', sobre: compra.id, t: T, movimientos: [gastaT('nadie')], payload: 'x', contexto: { claves: { nadie: otra.publica } } }), otra.privada);
+  const k = await validez(eje, conClave);
+  assert.deepEqual([k.criptografia.estado, k.criptografia.firma, k.criptografia.clavesDeclaradas], ['ok', 'verificada', [{ identidad: 'nadie', por: 'nadie', posesion: 'probada' }]]);
+  assert.deepEqual(await eje.validar(conClave), []);
 });
 
 test('un registro desconocido o malformado no tumba nada: lo que no se puede comprobar, falla', async () => {

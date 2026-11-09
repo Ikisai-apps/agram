@@ -63,5 +63,8 @@ export const AUTOR_CON_ALTA = Object.freeze({
   nombre: 'ID-1',
   filas: Object.freeze(['ID-1']),
   familia: 'identidad',
-  evaluar: (tx, libro, ctx) => (libro.tiene(ctx.evento.autor) ? null : 'autor desconocido: ' + ctx.evento.autor),
+  // B1 (VG, 10-11): quien aún no tiene cuenta y escribe, escribe su propia alta (es una persona; sin clave no
+  // actúa fuera de una demostración, ID-5). Solo en el prefijo de la versión 2 (suelo de persistencia) una identidad
+  // existía únicamente al recibir tokens.
+  evaluar: (tx, libro, ctx) => (ctx.reglas !== 2 || libro.tiene(ctx.evento.autor) ? null : 'autor desconocido: ' + ctx.evento.autor),
 });

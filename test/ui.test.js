@@ -206,7 +206,9 @@ test('saldos: las series de cada identidad en corto y las series emitidas con lo
   assert.match(html, /Series emitidas · 4 \(T 2 · E 1 · P 1\)/);
   assert.equal((html.match(/class="cartera"/g) ?? []).length, 3);
   // Nadie emite T, ni el génesis (VG, 8-11): lo que gastan las personas sale de su asignación diaria.
-  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>casa</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
+  // La serie de T es de quien la consumió primero: la huésped, al escribir su propia alta (B1).
+  assert.equal(eje.serie('T:minuto').emisor, 'huesped');
+  assert.ok(html.includes(`<td><b>T</b> minuto</td><td>huesped</td><td>${eje.serie('T:minuto').emitido}</td><td>${minutos}</td>`));
   assert.ok(html.indexOf('<b>T</b> hora') < html.indexOf('<b>T</b> minuto'));
 });
 
@@ -220,7 +222,7 @@ test('saldos: muchas series no alargan la pantalla: ids en corto, el resto plega
     poderes: () => [],
     reputaciones: () => [],
     clave: () => null,
-    tipo: () => 'grupo',
+    esPersona: () => true,
     saldo: () => 1,
     series: () => series,
   };

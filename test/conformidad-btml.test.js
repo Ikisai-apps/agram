@@ -45,7 +45,7 @@ const ID_INEXISTENTE = 'f'.repeat(64); // bien formado, pero no está en el eje
 
 /** Un eje mínimo: la raíz tiene tiempo (minutos) y poder sobre todo el eje; su foco es el payload dado. */
 async function ejeCon(foco) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: EMISION, foco, t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco, t: T0 });
   return { eje, id: eje.genesisId };
 }
 
@@ -55,7 +55,7 @@ const escribe = (eje, sobre, payload, en, autor = 'raiz', t = T0) =>
 
 /** Da de alta una cosa: la raíz (una persona) le da minutos de su T. */
 const alta = (eje, quien, minutos = 60) =>
-  eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), daT('raiz', quien, minutos)], payload: 'alta de ' + quien, contexto: { tipos: { [quien]: 'cosa' } } });
+  eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), daT('raiz', quien, minutos)], payload: 'alta de ' + quien }); // una cosa: su alta la escribe la raíz (B1)
 
 /** Payload mínimo donde existe el camino `indices`: en cada nivel, relleno real hasta el índice y el siguiente nodo en él. */
 const conCamino = (indices, hoja) => indices.reduceRight((hijo, i) => [...Array.from({ length: i }, (_, k) => 'r' + k), hijo], hoja);
@@ -95,7 +95,7 @@ test('BTML-01 la unidad de información es el evento (identidad, firmante, conte
 
 test('BTML-02 el evento tiene identidad y metadatos propios (firmante, contexto) separados de un payload libre', async () => {
   const { publica, privada } = await generarClaves();
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: EMISION, foco: 'Casa', t: T0, clave: publica, privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'Casa', t: T0, clave: publica, privada });
   // Un payload que «dice» ser metadatos no los cambia: el payload es libre.
   const ev = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: ['autor: mallory', 'firmante: nadie', { ref: eje.genesisId }], contexto: { nota: 'metadato' } }, privada);
   assert.equal(ev.autor, 'raiz');
@@ -163,7 +163,7 @@ test('B:TOK-01 todo evento es una transición de tokens con el payload encima: n
 });
 
 test('B:TOK-02 el evento más pequeño mueve T; E, P y R entran solo cuando el evento los toca', async () => {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }], foco: 'Casa', t: T0 });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: [...EMISION, { token: 'E', denominacion: 'EUR', cantidad: 100 }], foco: 'Casa', t: T0 });
   const g = eje.genesisId;
   await alta(eje, 'ana');
   // Sin T no hay evento, aunque mueva E.
@@ -201,11 +201,11 @@ test('BTML-05 el génesis emite los tokens iniciales a la primera identidad bajo
 test('BTML-06 firma quien tiene clave y el eje verifica; el firmante es el autor; la clave nueva se declara al dar tokens; nadie mueve tokens ajenos', async () => {
   const raiz = await generarClaves();
   const ana = await generarClaves();
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: EMISION, foco: 'Casa', t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: 'Casa', t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
   // La clave de ana la declara raiz en el mismo evento que le da tokens.
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'clave sin tokens', contexto: { claves: { ana: ana.publica } } }, raiz.privada), /sin darle tokens/);
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30)], payload: 'alta de ana', contexto: { tipos: { ana: 'cosa' }, claves: { ana: ana.publica } } }, raiz.privada);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30)], payload: 'alta de ana', contexto: { claves: { ana: ana.publica } } }, raiz.privada);
   assert.deepEqual(eje.clave('ana'), ana.publica);
   // Quien tiene clave firma; el firmante es el autor; el eje verifica.
   await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'sin firma' }), /firma ausente de ana/);
@@ -221,9 +221,9 @@ test('BTML-06 firma quien tiene clave y el eje verifica; el firmante es el autor
 test('BTML-07 forma, interpretación, firma y autorización son comprobaciones distintas: firmar no hace verdadero ni validar autoriza', async () => {
   const raiz = await generarClaves();
   const bea = await generarClaves();
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', tipo: 'persona', emision: EMISION, foco: ['Casa', 'recurso'], t: T0, clave: raiz.publica, privada: raiz.privada });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'raiz', emision: EMISION, foco: ['Casa', 'recurso'], t: T0, clave: raiz.publica, privada: raiz.privada });
   const g = eje.genesisId;
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30), daT('raiz', 'bea', 30)], payload: 'altas', contexto: { tipos: { ana: 'cosa', bea: 'cosa' }, claves: { bea: bea.publica } } }, raiz.privada);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30), daT('raiz', 'bea', 30)], payload: 'altas', contexto: { claves: { bea: bea.publica } } }, raiz.privada);
   // Forma válida no es admisión: un evento bien formado sobre un foco que no existe no entra.
   const huerfano = await firmar(await crearEvento({ autor: 'raiz', sobre: ID_INEXISTENTE, t: T0, movimientos: [gastaT('raiz')], payload: 'x' }), raiz.privada);
   assert.deepEqual(validarForma(huerfano), []);

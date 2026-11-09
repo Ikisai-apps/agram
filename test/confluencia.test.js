@@ -78,7 +78,9 @@ test('comparables: hermanos ⊂ proyecto ⊂ general, en orden de llegada y con 
   assert.equal(eje.hilo(rapida.id).length, 4);
   // Un foco que es él mismo un proyecto: su cohorte es lo que cuelga de él; sus hermanos, los otros proyectos.
   assert.deepEqual(comparables(eje, alta2.id, 'proyecto').map((e) => e.id), [alta2.id]);
-  assert.deepEqual(comparables(eje, alta.id, 'hermanos').map((e) => e.id), [alta.id, alta2.id]);
+  // Sus hermanos son lo que cuelga del génesis: las altas de la casa y las que escriben las huéspedes (B1).
+  assert.deepEqual(comparables(eje, alta.id, 'hermanos').map((e) => e.id), eje.sobre(eje.genesisId).map((e) => e.id));
+  assert.ok([alta.id, alta2.id, eje.alta('huesped').id, eje.alta('huesped2').id].every((id) => comparables(eje, alta.id, 'hermanos').some((e) => e.id === id)));
   const general = comparables(eje, rapida.id, 'general');
   assert.deepEqual(general.map((e) => e.id), eje.orden); // orden de llegada
   assert.deepEqual(comparables(eje, eje.genesisId, 'proyecto').map((e) => e.id), eje.orden); // el proyecto del génesis es todo el eje
@@ -90,7 +92,7 @@ test('comparables: hermanos ⊂ proyecto ⊂ general, en orden de llegada y con 
 
 test('el proyecto se recorre por el índice de hijos: solo su subárbol, en orden de llegada aunque los proyectos se intercalen', async () => {
   const t = '2026-11-07T09:00:00Z';
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', tipo: 'persona', emision: [], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'raíz', t }); // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
   const escribe = (sobre, payload) => eje.escribir({ autor: 'casa', sobre, t, movimientos: [gasta('casa')], payload });
   const a = await escribe(eje.genesisId, ['Proyecto A']);
   const b = await escribe(eje.genesisId, ['Proyecto B']);
@@ -184,18 +186,19 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
   const eje = await Eje.genesis({
     demostracion: true,
     identidad: 'casa',
-    tipo: 'persona', // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
+    // VG, 7-11 noche: el génesis lo emite una persona (antes, un grupo)
     emision: [{ token: 'P', cantidad: 5, ambito: 'genesis' }, { token: 'R', cantidad: 3, emisor: 'casa' }],
     foco: 'raíz',
     t,
   });
+  // B1 (VG, 10-11): Ana escribe su propia alta; la casa le da P y R después.
+  await eje.entrar({ identidad: 'ana', t });
   const alta = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
     t,
     movimientos: [gasta('casa'), { token: 'P', cantidad: 2, ambito: 'genesis', de: 'casa', a: 'ana' }, { token: 'R', cantidad: 1, emisor: 'casa', de: 'casa', a: 'ana' }],
     payload: ['Alta de Ana', ['ana']],
-    contexto: { tipos: { ana: 'persona' } },
   });
   const estrecha = await eje.escribir({
     autor: 'casa',
@@ -214,7 +217,7 @@ test('tokens por clave: P por ámbito y R por emisor nunca se suman en un total'
   assert.equal(c.tokens['P:' + alta.id].caja, 3); // tres de poder: la caja 3 de la escala de la época 0
   assert.deepEqual([c.tokens['P:' + alta.id].cajas[3], c.tokens['P:' + alta.id].encima], [1, 0]); // nadie más movió poder sobre el alta
   assert.equal(c.tokens['R:casa'].maximo, 3);
-  assert.deepEqual(c.comparables[1].tokens, { 'T:minuto': 1, 'P:genesis': 2, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
+  assert.deepEqual(c.comparables.find((x) => x.id === alta.id).tokens, { 'T:minuto': 1, 'P:genesis': 2, 'R:casa': 1, 'tiempo:minuto': 1 }); // el alta: una clave por serie, ningún total
   assert.equal(c.tokens['P:genesis'].etiqueta, 'P movido sobre el eje');
   assert.equal(etiquetaClave('P:' + alta.id), 'P movido sobre ' + alta.id.slice(0, 8));
   assert.equal(etiquetaClave('R:casa'), 'R movida de casa');

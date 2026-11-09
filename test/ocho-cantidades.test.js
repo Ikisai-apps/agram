@@ -36,11 +36,13 @@ const unico = (x) => x + ' #' + (++cuenta);
 /** Un mercado M de g con un foco F y unos hermanos; las personas pagan EUR al escribir. */
 async function mercado() {
   const eje = await Eje.genesis({
-    demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz',
+    demostracion: true, identidad: 'g', t: AYER, foco: 'raíz',
     emision: [{ token: 'E', denominacion: 'EUR', cantidad: 1e6, divisible: true }],
   });
   const ids = ['ana', 'bea', 'cris', 'dani'];
-  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas', contexto: { tipos: Object.fromEntries(ids.map((x) => [x, 'persona'])) },
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const x of ids) await eje.entrar({ identidad: x, t: AYER });
+  await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [gasta('g'), ...ids.map((x) => eur('g', x, 1000))] });
   const M = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: T0, payload: 'mercado', movimientos: [gasta('g')] });
   return { eje, M: M.id, ids };
@@ -110,7 +112,7 @@ test('el T consumido sobre un registro es una cantidad del 8 (tiempo:<escala>), 
   await hermano(eje, M, 'ana', { pago: 10, minutos: 7 });
   await hermano(eje, M, 'bea', { pago: 10, minutos: 3 });
   assert.equal(medir(eje, M).tokens['tiempo:minuto'], 10);
-  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 2); // las altas y el mercado
+  assert.equal(medir(eje, eje.genesisId).tokens['tiempo:minuto'], 6); // las altas (las cuatro de las personas, que escriben la suya, B1, y la de g) y el mercado
   // El subárbol del génesis funde el T gastado en todo el eje, sin recorrerlo: lo que da eje.tiempoBajo.
   const general = confluir(eje, M, { alcance: 'general' });
   assert.equal(general.tokens['tiempo:minuto'].suma, eje.tiempoBajo(eje.genesisId).minuto);

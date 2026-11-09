@@ -29,12 +29,13 @@ const cerca = (a, b) => Math.abs(a - b) < 1e-9;
 
 /** Eje de demostración: «g» da de alta a quien se diga (personas salvo que se diga otro tipo), con minutos de sobra. */
 async function demo(ids, tipos = {}) {
-  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', tipo: 'persona', t: AYER, foco: 'raíz', emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
+  const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: AYER, foco: 'raíz', emision: [{ token: 'P', ambito: 'genesis', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
   // T no cruza de persona (VG, 7-11 noche): a una cosa, g le da T; a las demás, minutos como E (E:g/minuto).
+  // B1 (VG, 10-11): las personas escriben su propia alta; persona o cosa se lee de quién la escribe.
+  for (const id of ids) if ((tipos[id] ?? 'persona') === 'persona') await eje.entrar({ identidad: id, t: AYER });
   const alta = await eje.escribir({
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [minuto('g'), ...ids.map((id) => (tipos[id] === 'cosa' ? { token: 'T', escala: 'minuto', cantidad: 1000, de: 'g', a: id } : { token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1000, de: 'g', a: id }))],
-    contexto: { tipos: Object.fromEntries(ids.map((id) => [id, tipos[id] ?? 'persona'])) },
   });
   return { eje, alta };
 }
@@ -50,7 +51,8 @@ async function emiteYDa(eje, emisor, cantidad, a = {}, sobre = eje.genesisId) {
 // ---------- 1 · la lente: un acto firmado del lector ----------
 
 test('R6·1 la lente es un acto del lector en la posición 3 de su alta: pares [emisor, peso], la última declaración manda', async () => {
-  const { eje, alta } = await demo(['casa', 'norte', 'sur', 'ana']);
+  const { eje } = await demo(['casa', 'norte', 'sur', 'ana']);
+  const alta = { id: eje.alta('casa').id }; // B1: el alta de la casa es la que escribió ella misma
   assert.equal(lenteDe(eje, 'casa'), null); // sin declarar, no hay lente
   assert.equal(peso(eje, 'casa', 'norte'), null);
   assert.deepEqual(anclasDeLente(eje, 'casa'), [alta.id]);
@@ -67,17 +69,21 @@ test('R6·1 la lente es un acto del lector en la posición 3 de su alta: pares [
   assert.deepEqual([peso(eje, 'casa', 'norte'), peso(eje, 'casa', 'sur'), peso(eje, 'casa', 'ana')], [1, 0, 0.25]);
   // Un registro «lente» propio (contexto.lente) también sirve de ancla.
   const reg = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mi lente', contexto: { lente: true }, movimientos: [minuto('ana')] });
-  assert.deepEqual(anclasDeLente(eje, 'ana'), [alta.id, reg.id]);
+  assert.deepEqual(anclasDeLente(eje, 'ana'), [eje.alta('ana').id, reg.id]);
   await declararLente(eje, { lector: 'ana', pesos: { norte: 0.75 }, t: T0, ancla: reg.id });
   assert.equal(peso(eje, 'ana', 'norte'), 0.75);
 });
 
 test('R6·1 no es lente: lo que escribe otro en la posición 3 del lector, otra posición, un registro ajeno o pares mal formados', async () => {
-  const { eje, alta } = await demo(['casa', 'norte', 'intruso']);
-  // Otro escribe en la posición 3 del alta de la casa: no es la lente de la casa (es, como mucho, la suya: comparten alta).
+  const { eje } = await demo(['casa', 'norte', 'intruso']);
+  const alta = { id: eje.alta('casa').id }; // B1: cada persona escribe su propia alta
+  // Otro escribe en la posición 3 del alta de la casa: no es la lente de la casa, ni la suya (su alta es otra).
   await eje.escribir({ autor: 'intruso', sobre: alta.id, en: POSICION_LENTE, t: T0, payload: [['intruso', 1]], movimientos: [minuto('intruso')] });
   assert.equal(lenteDe(eje, 'casa'), null);
-  assert.equal(peso(eje, 'intruso', 'intruso'), 1); // su propia lente, que no cambia la de nadie
+  assert.equal(peso(eje, 'intruso', 'intruso'), null);
+  await eje.escribir({ autor: 'intruso', sobre: eje.alta('intruso').id, en: POSICION_LENTE, t: T0, payload: [['intruso', 1]], movimientos: [minuto('intruso')] });
+  assert.equal(peso(eje, 'intruso', 'intruso'), 1); // su propia lente, en su alta, que no cambia la de nadie
+  assert.equal(lenteDe(eje, 'casa'), null);
   // La casa en otra posición, o sobre un registro que no es su alta ni un registro «lente» suyo: no cuenta.
   await eje.escribir({ autor: 'casa', sobre: alta.id, en: '2000000000', t: T0, payload: [['norte', 1]], movimientos: [minuto('casa')] });
   const ajeno = await eje.escribir({ autor: 'intruso', sobre: eje.genesisId, t: T0, payload: 'lente de otro', contexto: { lente: true }, movimientos: [minuto('intruso')] });
@@ -304,7 +310,7 @@ test('R6 en Booking: la casa da 1 a la secretaria de una asociación y 0,5 a la 
   assert.ok(cerca(detalleValor(eje, 'casa', 'huesped').porEmisor.reduce((s, x) => s + x.aporte, 0), 0.2));
   // Las asociaciones son registros (VG, 8-11): su R es la de su secretaria, con su colateral (R6), y la asociación es su P.
   assert.equal(colateralDe(eje, 'secretaria-norte'), 10);
-  assert.equal(eje.tipo('vecinos-norte'), null);
+  assert.equal(eje.esPersona('vecinos-norte'), null); // un grupo es un registro, no una identidad: no tiene alta
   assert.equal(eje.saldo('secretaria-norte', 'P:' + asociaciones['vecinos-norte'].id), 1);
   const bql = valorEnBql(eje, reserva);
   assert.deepEqual([bql.estado, bql.texto], ['RESUELTO', '0.2']);

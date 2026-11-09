@@ -42,7 +42,7 @@ const ejeGrande = async (minutos = 0) => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'Casa de ejemplo', t: t0 });
   for (let d = 0; d < dias; d++) {
     await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: new Date(Date.parse(t0) + d * DIA).toISOString(), payload: 'T para la fábrica, día ' + d,
-      movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 1439, de: 'casa', a: 'fabrica' }], ...(d === 0 ? { contexto: { tipos: { fabrica: 'cosa' } } } : {}) });
+      movimientos: [gastaT('casa'), { token: 'T', escala: 'minuto', cantidad: 1439, de: 'casa', a: 'fabrica' }] }); // la fábrica, una cosa: su alta la escribe la casa (B1)
   }
   return eje;
 };
@@ -410,8 +410,10 @@ test('lo lejano sin base en el foco se ancla en su posición en vez de rechazars
   assert.deepEqual(salida.anclados, [{ celda: [7, 0, 0], en: '7000000000', payload: 'repetir el sábado', faltan: ['5', '6'] }]);
   // Escribir solo el payload perdería lo anclado: se avisa.
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
-  // Si escribirSalida falla al escribir (aquí, un autor sin T), el aviso sigue: el payload solo aún no se puede escribir.
-  await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'nadie', sobre: compra.id, salida, t: T }), /evento rechazado/);
+  // Si escribirSalida falla al escribir (aquí, una cosa sin T: B1, su alta la escribió la casa), el aviso sigue: el
+  // payload solo aún no se puede escribir.
+  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'maquina' }], payload: 'una máquina sin T' });
+  await assert.rejects(escribirSalida(eje, { modo: 'mapped', autor: 'maquina', sobre: compra.id, salida, t: T }), /evento rechazado/);
   assert.equal(eje.sobre(compra.id).length, 0);
   await assert.rejects(escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: compra.id, payload: salida.payload, t: T }), /se ancla aparte \(7\.0\.0 en 7000000000\)/);
   // Lo gastado se ve en el registro que lo soporta (VG, 7-11 noche: el consumo de T se anota en `sobre`).

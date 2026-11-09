@@ -19,7 +19,7 @@
 // grupo; sin escalonado ni regla del reloj. Las reglas nuevas rigen los
 // eventos nuevos.
 
-import { AMBITO_GENESIS, EMITEN, ESCALAS_INFORMATIVAS, SEGUNDOS, TIPOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
+import { AMBITO_GENESIS, ESCALAS_INFORMATIVAS, SEGUNDOS, asignacionT, claveToken, validarMovimiento } from './tokens.js';
 import { msUTC, msDeGuardado } from './instante.js';
 import { esConsolidacion, FABRICA } from './autorizacion.js';
 import { esConsumoT } from './evento.js';
@@ -43,18 +43,17 @@ const corto = (x) => String(x).slice(0, 8);
 export const TIPOS_V2 = Object.freeze(['persona', 'grupo', 'cosa']);
 
 /**
- * Por qué no vale declarar `tipo` para `id` en un alta (null si vale). No hay
- * identidades de grupo (VG, 8-11; **[X] confirmar VG**): «lo único que tenemos
- * de grupo es la delegación: yo te delego T, P, R, E para que tú lo uses; es
- * la persona la que hace el registro». Un grupo es un registro: su autor
- * emite P sobre él y lo delega. Los eventos de la versión 2 conservan su tipo
- * grupo (TIPOS_V2).
+ * Por qué no vale declarar `tipo` para `id` en un alta (null si vale). Solo en
+ * el prefijo de la versión 2 (suelo de persistencia: sus reglas): fuera no hay
+ * tipo (VG, 10-11, B1), y persona o cosa se lee de quién escribe el alta.
  */
-export function motivoTipo(id, tipo, reglas) {
-  if ((reglas === 2 ? TIPOS_V2 : TIPOS).includes(tipo)) return null;
-  if (tipo === 'grupo') return 'tipo inválido para ' + id + ': no hay identidades de grupo: un grupo es un registro; su autor emite P sobre él y lo delega (VG, 8-11)';
+export function motivoTipo(id, tipo) {
+  if (TIPOS_V2.includes(tipo)) return null;
   return 'tipo inválido para ' + id + ': ' + tipo;
 }
+
+/** Fuera del prefijo de la versión 2 no hay tipo (VG, 10-11, B1): el motivo para un alta que lo declara. */
+export const SIN_TIPO = 'no hay tipo en el alta (VG, 10-11, B1): persona o cosa se lee de quién escribe el alta; persona es quien escribe la suya';
 
 /** El motivo de rechazo cuando alguien mueve lo de otro: nadie mueve tokens ajenos (ni por cuenta de nadie). */
 export function motivoAjenos(de) {
@@ -78,13 +77,30 @@ export function acotarAltaV2(alta, tPrimeroV3) {
 
 /**
  * ¿Gasta este movimiento de la asignación diaria de T de su autor (VG, 8-11)?
- * Un movimiento de T de una persona con alta, suyo, sin estado, que sale de
- * sus manos (consumo o a otra identidad), en una escala real (las
- * informativas son ilimitadas: esInformativoT). Lo usan el eje y las capas de
- * validez al aplicar, como reglasDelCiclo al validar.
+ * Un movimiento de T de una persona (`persona`: su autor escribió su alta o
+ * la escribe ahora, VG 10-11, B1), suyo, sin estado, que sale de sus manos
+ * (consumo o a otra identidad), en una escala real (las informativas son
+ * ilimitadas: esInformativoT). Lo usan el eje y las capas de validez al
+ * aplicar, como reglasDelCiclo al validar.
  */
-export function gastaAsignacion(m, autor, tipoAutor) {
-  return Boolean(m) && m.token === 'T' && !ESCALAS_INFORMATIVAS.includes(m.escala) && EMITEN.includes(tipoAutor) && m.de === autor && m.a !== autor && m.estado === undefined;
+export function gastaAsignacion(m, autor, persona) {
+  return Boolean(m) && m.token === 'T' && !ESCALAS_INFORMATIVAS.includes(m.escala) && persona === true && m.de === autor && m.a !== autor && m.estado === undefined;
+}
+
+/**
+ * ¿Escribe `autor` como persona, según el contexto de las reglas del ciclo?
+ * (VG, 10-11, B1: persona = quien escribió su propia alta.) Sí si lo es, o si
+ * aún no tiene alta: entonces lo que escribe es su alta.
+ */
+export function escribePersona(autor, ctx) {
+  const p = ctx.persona?.(autor);
+  return p === null || p === undefined ? true : p;
+}
+
+/** ¿Es `id` una cosa? (B1: su alta la escribió otra identidad; o la recibe ahora, en un alta que escribe otro.) */
+export function esCosa(id, autor, ctx) {
+  const p = ctx.persona?.(id);
+  return p === false || ((p === null || p === undefined) && id !== autor);
 }
 
 /**
@@ -196,13 +212,16 @@ function emision(ev, ctx, validos) {
   const falla = (i, capa, texto) => errores.push({ i, capa, texto });
   const autor = ev.autor;
   const emitidoAntes = emitidoAntesDe(ctx);
-  const tipoAutor = ctx.tipo(autor);
+  const persona = escribePersona(autor, ctx);
   const caducas = new Map(); // clave → caducidad fijada en este evento
 
   for (const { m, i } of validos) {
     if (m.de !== null) continue;
-    if (!EMITEN.includes(tipoAutor)) {
-      falla(i, 5, 'solo las personas emiten: ' + autor + (tipoAutor ? ' es ' + tipoAutor : ' no declaró tipo en su alta'));
+    if (!persona) {
+      // B1 (VG, 10-11): persona = quien escribió su propia alta; una cosa es lo que dio de alta otra identidad, su dueño.
+      // Quien entró en el prefijo de la versión 2 es lo que declaró su alta entonces (suelo de persistencia).
+      const tipoV2 = ctx.tipo?.(autor);
+      falla(i, 5, 'solo las personas emiten: ' + autor + (tipoV2 ? ' es ' + tipoV2 + ' (lo declaró su alta, de la versión 2)' : ' es una cosa (su alta la escribió ' + (ctx.registro(ctx.alta(autor)?.id)?.autor ?? 'otra identidad') + ')'));
       continue;
     }
     if ((m.token === 'E' || m.token === 'R') && m.emisor !== autor) {
@@ -281,13 +300,13 @@ function tNoSeBloquea(ev, ctx, validos) {
 function asignacionDelDia(ev, ctx, validos) {
   const errores = [];
   const autor = ev.autor;
-  const tipoAutor = ctx.tipo(autor);
-  const altaAutor = EMITEN.includes(tipoAutor) ? ctx.alta(autor) : null;
-  if (!altaAutor || !ctx.gastadoT) return errores;
+  // B1: la asignación es de las personas: de quien escribió su alta o la escribe ahora (aún sin cuenta: nada gastado).
+  if (!escribePersona(autor, ctx) || !ctx.gastadoT) return errores;
+  const conAlta = Boolean(ctx.alta(autor));
   const asignada = new Map(); // escala → lo que queda de la asignación, durante el evento
   const explicito = new Map(); // escala → T explícito disponible, durante el evento
   const verA = (e) => {
-    if (!asignada.has(e)) { const a = asignacionT(ev.t, e); asignada.set(e, Math.max(0, a.cantidad - ctx.gastadoT(autor, e, a.periodo))); }
+    if (!asignada.has(e)) { const a = asignacionT(ev.t, e); asignada.set(e, Math.max(0, a.cantidad - (conAlta ? ctx.gastadoT(autor, e, a.periodo) : 0))); }
     return asignada.get(e);
   };
   const verX = (e) => (explicito.has(e) ? explicito.get(e) : Math.max(0, ctx.saldo(autor, 'T:' + e)));
@@ -319,7 +338,8 @@ function asignacionDelDia(ev, ctx, validos) {
 function tNoCruza(ev, ctx, validos) {
   const errores = [];
   const autor = ev.autor;
-  const tipoAutor = ctx.tipo(autor);
+  // B1 (VG, 10-11): persona o cosa por la autoría del alta, no por un tipo declarado.
+  const personaAutor = escribePersona(autor, ctx);
   const poderAntes = poderAntesDe(ev, ctx);
   // El dueño de una identidad: quien escribió su alta (si se da de alta en este mismo evento, el autor).
   const duenoDe = (id) => { const alta = ctx.alta(id); return alta ? ctx.registro(alta.id)?.autor : autor; };
@@ -330,11 +350,11 @@ function tNoCruza(ev, ctx, validos) {
   };
   for (const { m, i } of validos) {
     if (m.token !== 'T' || m.de === null || m.a === null || m.a === autor) continue;
-    const tipoA = ctx.tipo(m.a) ?? ev.contexto?.tipos?.[m.a] ?? null;
-    if (tipoAutor === 'persona' && tipoA === 'cosa') continue; // una persona da su T a una cosa
+    const cosaA = esCosa(m.a, autor, ctx);
+    if (personaAutor && cosaA) continue; // una persona da su T a una cosa
     // De cosa a cosa (VG, 8-11; regla de Core aceptada): solo entre cosas del mismo dueño (quien escribió sus altas) o
     // si el autor escribió el alta de la cosa destino o tiene P sobre ella. Si no, una cosa repartiría T ajeno.
-    if (tipoAutor === 'cosa' && tipoA === 'cosa') {
+    if (!personaAutor && cosaA) {
       if (!cosaACosa(autor, m.a)) errores.push({ i, capa: 5, texto: 'T de cosa a cosa solo entre cosas del mismo dueño, o si ' + autor + ' escribió el alta de ' + m.a + ' o tiene P sobre ella (VG, 8-11)' });
       continue;
     }

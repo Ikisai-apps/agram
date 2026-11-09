@@ -255,18 +255,18 @@ function cohorteDe(eje, foco, alcance) {
 /**
  * Identidad propia de un registro: la propia cosa, que puede escribir sus
  * bases sin más (§12: «la escribe la propia cosa con su clave»). Hoy: la única
- * cosa (tipo 'cosa', con clave) a la que el propio registro da de alta en su
- * contexto; la del génesis, su autor, si tiene clave. Si no hay exactamente
- * una, null.
+ * cosa con clave a la que el propio registro da de alta (VG, 10-11, B1: una
+ * cosa es la identidad cuya alta escribió otra; aquí, el autor del registro,
+ * que declara su clave en él); la del génesis, su autor, si tiene clave. Si no
+ * hay exactamente una, null.
  * [X] decidir VG: cómo se identifica un registro con una identidad (AARPIA).
  */
 export function identidadDe(eje, id) {
   const ev = eje.obtener(id);
   if (!ev) return null;
   if (ev.sobre === null) return eje.clave(ev.autor) ? ev.autor : null;
-  const cosas = Object.entries(ev.contexto?.tipos ?? {})
-    .filter(([nombre, tipo]) => tipo === 'cosa' && ev.contexto?.claves?.[nombre] && eje.clave(nombre))
-    .map(([nombre]) => nombre);
+  const cosas = Object.keys(ev.contexto?.claves ?? {})
+    .filter((nombre) => nombre !== ev.autor && eje.clave(nombre) && eje.alta(nombre)?.id === ev.id && eje.esPersona(nombre) === false);
   return cosas.length === 1 ? cosas[0] : null;
 }
 
