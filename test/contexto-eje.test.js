@@ -208,9 +208,37 @@ test('vistas: lo bloqueado por salida en A.1.(serie).2, y las series atadas viva
   const k = seriePlaza(habitacion.id, 0, '2026-11-16');
   assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").1', ctx), eje.vivo(k, '2026-11-08T10:00:00Z'));
   assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").0.5', ctx), habitacion.id, 'la serie está atada a la habitación');
-  // Pasada la caducidad de esa noche, ya no está viva.
-  const tarde = new ContextoEje(eje, { ev: { autor: 'casa', sobre: habitacion.id, t: '2026-11-18T10:00:00Z', movimientos: [], payload: ['tarde'] } });
-  assert.deepEqual(val('("' + habitacion.id + '").1.("' + k + '")', tarde), []);
+  // Lo vivo caduca con el reloj de los demás (B6; SEG-03, SEG-05): la casa, fechando a futuro, no la hace caducar.
+  const tarde = () => new ContextoEje(eje, { ev: { autor: 'casa', sobre: habitacion.id, t: '2026-11-18T10:00:00Z', movimientos: [], payload: ['tarde'] } });
+  assert.equal(uno('("' + habitacion.id + '").1.("' + k + '").1', tarde()), eje.vivo(k));
+  // Cuando otro escribe pasada esa noche, ya no está viva.
+  await eje.escribir({ autor: 'huesped', sobre: habitacion.id, t: '2026-11-18T09:00:00Z', payload: ['de vuelta'], movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }] });
+  assert.deepEqual(val('("' + habitacion.id + '").1.("' + k + '")', tarde()), []);
+  assert.equal(uno('before.6.3', tarde()), '2026-11-18T09:00:00.000Z', 'el reloj de los demás');
+});
+
+test('B6: el reloj de los demás (before.6.3), las series vivas del subárbol (X.7.1), lo bloqueado por salida de todos (before.2) y el orden del movimiento (nth en ev.1)', async () => {
+  const { eje, alojamiento, habitacion } = await ejemploReserva({ confirmar: false });
+  const ev = { autor: 'casa', sobre: habitacion.id, t: '2026-11-09T10:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'casa', a: null }, { token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: null }], payload: ['mirar'] };
+  const ctx = new ContextoEje(eje, { ev });
+  // El reloj de los demás: el mayor t de las identidades que no son el autor de la candidata.
+  assert.equal(uno('before.6.3', ctx), new Date(eje.tMaximo(['casa'])).toISOString());
+  assert.equal(uno('before.6.0', ctx), new Date(eje.tMaximo()).toISOString());
+  // X.7.1: las series de E vivas de todo el subárbol; el alojamiento ve las de su habitación, que cuelga de él.
+  const vivasDe = (id) => eje.series().filter((s) => s.token === 'E' && s.registro && eje.hilo(s.registro).some((x) => x.id === id) && eje.vivo(s.clave) > 0).map((s) => s.clave);
+  assert.ok(vivasDe(habitacion.id).length > 0);
+  assert.deepEqual(val('("' + habitacion.id + '").7.1 each 0', ctx).map((n) => ctx.valor(n)), vivasDe(habitacion.id));
+  assert.deepEqual(val('("' + alojamiento.id + '").7.1 each 0', ctx).map((n) => ctx.valor(n)), vivasDe(alojamiento.id));
+  assert.deepEqual(val('("' + alojamiento.id + '").1', ctx).filter((n) => n?.k === 'viva'), [], 'en su 1, solo lo atado al propio registro');
+  assert.equal(uno('sum (("' + alojamiento.id + '").7.1 each 1)', ctx), vivasDe(alojamiento.id).reduce((n, k) => n + eje.vivo(k), 0));
+  // before.2: por salida y serie, lo bloqueado sumado sobre todos los titulares (BL-3); vale su salida.
+  const { salida, clave } = eje.bloqueos('casa').find((b) => b.token === 'P');
+  const total = eje.bloqueosCon(salida).filter((b) => b.clave === clave).reduce((n, b) => n + b.cantidad, 0);
+  assert.equal(uno('sum ((before.2.("' + salida + '") where it.0 = "' + clave + '") each 1)', ctx), total);
+  assert.deepEqual(val('first (before.2.("' + salida + '") where it.0 = "' + clave + '") .3', ctx), eje.bloqueosCon(salida).filter((b) => b.clave === clave).map((b) => b.identidad));
+  // El orden de un movimiento es su lugar en ev.1: los movimientos van primero, por orden (nth, desde 0).
+  assert.equal(uno('(nth 1 ev.1).0.0.1', ctx), 2, 'el segundo movimiento es el de la hora (escala 2)');
+  assert.equal(uno('(nth 0 ev.1).0.0.1', ctx), 1);
 });
 
 test('before: el libro de antes: 3 las identidades, 5 el génesis, 6.0 el mayor t', async () => {

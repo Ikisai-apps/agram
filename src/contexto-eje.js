@@ -177,6 +177,21 @@ export class ContextoEje {
     return fuera;
   }
 
+  /** B6: [{ k: 'bloqueados', salida, clave, cantidad, titulares }], uno por salida y serie con algo bloqueado, por llegada de su titular. */
+  #bloqueadosPorSalida() {
+    const porLlave = new Map();
+    for (const id of this.#eje.identidades()) {
+      for (const b of this.#eje.bloqueos(id)) {
+        const llave = b.salida + '\u0000' + b.clave;
+        if (!porLlave.has(llave)) porLlave.set(llave, { k: 'bloqueados', salida: b.salida, clave: b.clave, cantidad: 0, titulares: [] });
+        const x = porLlave.get(llave);
+        x.cantidad += b.cantidad;
+        if (!x.titulares.includes(id)) x.titulares.push(id);
+      }
+    }
+    return [...porLlave.values()];
+  }
+
   /** El sujeto de una lectura de registro: la candidata o el registro del eje. */
   #sujetoDe(e) {
     return e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id };
@@ -296,6 +311,7 @@ export class ContextoEje {
     if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
     if (nodo?.k === 'serie' || nodo?.k === 'clave' || nodo?.k === 'salida') return nodo.clave;
     if (nodo?.k === 'llave') return huella(nodo.jwk);
+    if (nodo?.k === 'bloqueados') return nodo.salida;
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
   }
@@ -314,6 +330,7 @@ export class ContextoEje {
       case 'clave': return nodo.clave;
       case 'salida': return String(nodo.clave);
       case 'llave': return 'clave ' + huella(nodo.jwk) + ' de ' + nodo.titular;
+      case 'bloqueados': return nodo.cantidad + ' ' + nodo.clave + ' con la salida ' + nodo.salida;
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
@@ -342,19 +359,49 @@ export class ContextoEje {
     // El id va siempre primero («nadie» si la candidata aún no lo tiene): las claves son el resto.
     if (d === 5) return [e.id ?? NADIE, ...llavesDe(e)];
     if (d === 6) return [{ k: 'meta6', e }];
-    // B5: una posición donde la época materializa lecturas del registro (X.7.4, «atendido») tiene su nodo implícito.
+    // B6: el 7, el futuro del registro: 7.1 las series vivas de su subárbol; y las lecturas que la época pone en el 7.
+    if (d === 7) return [{ k: 'futuro', e }];
+    // B5: una posición donde la época materializa lecturas del registro tiene su nodo implícito.
     if (this.#hayLecturas('X', d)) return [{ k: 'lectura', letra: 'X', sujeto: this.#sujetoDe(e), d }];
     return [];
   }
 
-  /** Vista de un registro: en su 1, las series de E atadas a él y vivas a la fecha de ev. */
+  /**
+   * El reloj de la caducidad (SEG-03, SEG-05, RL-4): el menor entre el t de la candidata y el reloj de los demás
+   * (el mayor t del libro entre las identidades que no son su autor ni emiten la E que ella acuña). Sin los demás
+   * no hay reloj y nada caduca: undefined. Como src/condiciones/tope.js.
+   */
+  #relojDeCaducidad() {
+    const demas = this.#relojDeLosDemas();
+    const t = this.#ev?.t;
+    if (!Number.isFinite(demas) || !esInstante(t)) return undefined;
+    return new Date(Math.min(msUTC(t), demas)).toISOString();
+  }
+
+  /** El reloj de los demás, en milisegundos (-Infinity si no hay ninguno): el mayor t de las identidades que no son el autor de la candidata ni emiten la E que acuña. */
+  #relojDeLosDemas() {
+    const excluidos = new Set(this.#ev ? [this.#ev.autor] : []);
+    for (const m of Array.isArray(this.#ev?.movimientos) ? this.#ev.movimientos : []) {
+      if (!m || m.token !== 'E' || m.de !== null) continue;
+      excluidos.add(m.emisor);
+      for (const x of Array.isArray(m.emisores) ? m.emisores : []) excluidos.add(x);
+    }
+    return this.#eje.tMaximo([...excluidos]);
+  }
+
+  /** Las series de E vivas (con el reloj de la caducidad) atadas a uno de los registros `ids`. */
+  #vivas(pertenece) {
+    const t = this.#relojDeCaducidad();
+    return this.#eje.series()
+      .filter((s) => s.token === 'E' && s.registro && pertenece(s.registro))
+      .map((s) => ({ k: 'viva', clave: s.clave, vivo: t === undefined ? this.#eje.vivo(s.clave) : this.#eje.vivo(s.clave, t), caduca: s.caduca }))
+      .filter((s) => s.vivo > 0);
+  }
+
+  /** Vista de un registro: en su 1, las series de E atadas a él y vivas con el reloj de la caducidad. */
   #vistasDeRegistro(id, d) {
     if (d !== 1) return [];
-    const t = this.#ev?.t;
-    return this.#eje.series()
-      .filter((s) => s.token === 'E' && s.registro === id)
-      .map((s) => ({ k: 'viva', clave: s.clave, vivo: this.#eje.vivo(s.clave, t), caduca: s.caduca }))
-      .filter((s) => s.vivo > 0);
+    return this.#vivas((r) => r === id);
   }
 
   /** Lo escrito anclado exactamente en `camino` del registro `id` (un camino que acaba en 0 no es exacto: colisiona con el de arriba). */
@@ -552,6 +599,8 @@ export class ContextoEje {
       case 'before':
         // 1, lo que hay: los registros del libro, por llegada (B5: «atendido» busca ahí quién cita una devolución).
         if (d === 1) return this.#eje.orden.map((id) => ({ k: 'reg', id }));
+        // 2, con qué condición: lo bloqueado por salida y serie, sumado sobre todos los titulares (B6); vale su salida.
+        if (d === 2) return this.#bloqueadosPorSalida();
         if (d === 3) return this.#eje.identidades();
         if (d === 5) return this.#eje.genesisId ? [this.#eje.genesisId] : [];
         if (d === 6) return [{ k: 'reloj' }];
@@ -566,9 +615,23 @@ export class ContextoEje {
         // Una clave pública declarada (B4): 0 su huella, 3 su titular, 4 su prueba de posesión (si la lleva).
         return d === 0 ? [huella(nodo.jwk)] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
       case 'reloj': {
-        const ms = this.#eje.tMaximo();
-        return d === 0 && Number.isFinite(ms) ? [new Date(ms).toISOString()] : [];
+        // 0 el mayor t del libro; 3, «con quién»: el reloj de los demás (B6), sin el autor de la candidata ni quien
+        // emite la E que acuña; nada si no hay ninguno.
+        const ms = d === 0 ? this.#eje.tMaximo() : d === 3 ? this.#relojDeLosDemas() : NaN;
+        return Number.isFinite(ms) ? [new Date(ms).toISOString()] : [];
       }
+      case 'futuro': {
+        // B6: 7.1 las series de E vivas del subárbol del registro (él y todo lo que cuelga de él), con el reloj de la
+        // caducidad; lo demás, las lecturas que la época pone en X.7.d.
+        if (d === 1) {
+          const id = nodo.e.id;
+          return id && this.#eje?.obtener(id) ? this.#vivas((r) => this.#eje.hilo(r).some((x) => x.id === id)) : [];
+        }
+        return this.#lectura('X', this.#sujetoDe(nodo.e), 7, d);
+      }
+      case 'bloqueados':
+        // B6: lo bloqueado con una salida en una serie, sumado sobre todos los titulares: 0 la serie, 1 cuánto, 3 quiénes.
+        return d === 0 ? [{ k: 'serie', clave: nodo.clave }] : d === 1 ? [nodo.cantidad] : d === 3 ? nodo.titulares : [];
       case 'meta6':
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
         if (d === 5) return [...(nodo.e.sobre ? [nodo.e.sobre] : []), nodo.e.en ?? '0000000000'];

@@ -105,12 +105,17 @@ Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro 
 | `A.1` | la cartera de la identidad A: un ocupante por serie con algo disponible o bloqueado; cada uno, 0 la serie, 1 lo disponible, 2 lo bloqueado, un ocupante por salida (0 la salida, 1 cuánto) | `eje.libro.vista` (la capa cero, `docs/notas/CAPA_CERO.md`) |
 | `A.6` | el alta de la identidad A: el registro que abrió su cuenta (`epoch.3.6`, «pasado: de dónde viene»); `A.6.6.0` es su t y `A.6.3` su autor. Sin alta en el eje, nada | `eje.alta`, `eje.obtener` |
 | `A.7.e` | el T de la escala e (0-6) gastado de la asignación del día civil de `ev.6.0.3`: consumido o dado a una cosa; en las escalas informativas (7-9), nada | `eje.gastadoT` |
-| `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad | `eje.series`, `eje.vivo` |
+| `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad. Lo vivo caduca con el **reloj de la caducidad**: el menor entre `ev.6.0` y el reloj de los demás (`before.6.3`); sin los demás, nada caduca (SEG-03, SEG-05, RL-4; como `src/condiciones/tope.js`) | `eje.series`, `eje.vivo`, `eje.tMaximo` |
+| `X.7.1` | las series de E vivas de **todo el subárbol** de X (X y lo que cuelga de él), con el mismo reloj; cada una como en `X.1` (B6). El resto del 7 implícito son las lecturas que la época pone ahí (`X.7.4`, §5) | `eje.series`, `eje.hilo`, `eje.vivo` |
 | `S.1.0`, `S.1.1` | de una serie S (la de un movimiento, `ev.1.0`, la de una entrada de la cartera, `A.1.0`, o la que nombra una salida): lo emitido y lo consumido hasta antes de la candidata (el `S.8` del encargo 2) | `eje.serie`, `libro.sumas` |
 | `before.1` | los registros del libro, por llegada | `eje.orden` |
+| `before.2` | lo bloqueado por salida y serie, **sumado sobre todos los titulares** (B6, BL-3): un ocupante por salida y serie, que vale su salida (así `before.2.("salida")` los da); 0 la serie, 1 cuánto, 3 los titulares | `eje.identidades`, `eje.bloqueos` |
 | `before.3` | las identidades del libro | `eje.identidades` |
 | `before.5` | el génesis | `eje.genesisId` |
 | `before.6.0` | el mayor t del libro | `eje.tMaximo` |
+| `before.6.3` | el **reloj de los demás** (B6): el mayor t del libro entre las identidades que no son el autor de la candidata ni emiten la E que ella acuña; nada si no hay ninguna | `eje.tMaximo(excluidos)` |
+
+**El orden de un movimiento** es su lugar en `ev.1` (B6): los movimientos van primero, en su orden, y `nth k ev.1` es el k-ésimo (desde 0); no hace falta otra posición.
 
 El contexto no lee el tipo de ninguna identidad (R10, `test/neutralidad-reglas.test.js`).
 
@@ -410,9 +415,9 @@ Queda en JavaScript. Entre paréntesis, lo que falta: una posición (vista o des
 | EE-10 (la emisión conjunta: cada coemisor tiene su P bloqueado) | Faltan los coemisores del movimiento y la clave de familia de la serie (despliegue). Lo bloqueado de cada coemisor sí está en su cartera |
 | EE-8 con la salida de una familia (franja «*»); EE-4 | D-SERIE da la denominación con la franja dentro y la franja aparte, pero no la clave de familia ni la denominación sin franja, y sin operaciones de texto no se casa «cama@n1» con «cama@*» (despliegue). 2.2.4 deja fuera esa salida |
 | EE-2 (la capacidad de un registro) | La capacidad es un entero en el 2 del payload, pero el 2 puede llevar otras cosas y el léxico no tiene prueba de tipo (decisión VG: declararla como magnitud, «4 plazas», que D-VALOR da en `X.2.1`, o una vista de capacidad) |
-| EE-5 con EE-11 y RL-4 (el tope por franja) | Para cada registro del hilo con capacidad hay que sumar lo vivo de la franja en todo su subárbol: `X.1` solo da las series atadas al propio registro y `down` baja un nivel (vista: «series vivas del subárbol de X»). Lo vivo ha de caducar con el reloj de los demás (RL-4: `tMaximo(excluidos)` no tiene posición). EE-11 es el caso vacío |
+| EE-5 con EE-11 (el tope por franja) | Las vistas ya están (B6): lo vivo de todo el subárbol es `X.7.1` y caduca con el reloj de los demás (`before.6.3`). Falta cómo se declara la capacidad (EE-2) y la franja sin denominación (EE-4) para escribirla. EE-11 es el caso vacío |
 | EE-7 (la cuota por P bloqueado) | Necesita lo emitido de P:A, que no es una posición, la familia (EE-4), divisible (EE-9) y la capacidad (EE-2); además el mapa ya la cambia (D1: frente al total comprometido; F1: el subárbol en numerador y denominador). Se escribe con el P nuevo (vista y decisión VG) |
-| EE-3, EE-6, EE-12, RL-4 | EE-3 es el despliegue D-SERIE.7, que ya existe; EE-6 es la vista `X.1`; EE-12 es una propiedad del libro (nada se mueve solo al caducar: suelo); RL-4 es el reloj que usan EE-5 y EE-6 (vista) |
+| EE-3, EE-6, EE-12, RL-4 | EE-3 es el despliegue D-SERIE.7, que ya existe; EE-6 es la vista `X.1`; EE-12 es una propiedad del libro (nada se mueve solo al caducar: suelo); RL-4 es el reloj de la caducidad, ya en `X.1` y `X.7.1` (`before.6.3`, B6), con el que 2.2.4 da lo mismo que JS |
 | PP-5 (no se estrecha P hacia una serie cerrada; hacia la raíz de otro, solo su autor) | JS lleva el P de quien escribe movimiento a movimiento dentro de la transacción, y D-MOV no da el orden del movimiento (despliegue). §15 cambia además delegar por reposicionar con factor |
 | PP-3 (R3: ampliar P:X solo ejecutando una consolidación autorizada, una vez) | Lee el estado de una consolidación, que vive en el contexto y en el eje. §15 retira el guion consolidar → autorizar → ejecutar (decisión VG) |
 | RR-3 y RR-4 (el colateral de R) | RETIRADAS por VG (9-11, mapa §15, «R según el corpus»): R se emite sin colateral; el respaldo es la obligación de atender. 2.1.5 es lo que queda de la emisión. Hoy el eje aún exige el colateral |
@@ -442,7 +447,6 @@ Lo que la verificación dejó sin el mismo veredicto, con la prueba que lo docum
 | GENESIS-GUARDA | 2.0.0, 2.2.0 y las del ciclo | un evento sin foco que no es el génesis pasa por `or count up ev = 0`; lo para el ancla | la guarda del génesis |
 | PATH-10 | 2.2.2 | P en un antepasado a más de diez niveles del foco: el eje acepta y la regla queda PENDIENTE | `path` tiene tope de diez |
 | EE-4 | 2.2.4 | liberar un bloqueo de familia con E viva: JS lo rechaza y la regla no lo mira | falta la clave de familia |
-| RL-4 | 2.2.4 | liberar el respaldo de una E caducada según la fecha del evento pero viva según el reloj de los demás | falta la vista del reloj de los demás |
 | VA-3 | las del ciclo | un evento del prefijo v2 que las reglas de la versión 2 aceptan | ninguna posición dice si el evento es del prefijo |
 | RR-3 retirada, RR-1 retirada | 2.1.5 y las de R | emitir R sin colateral, transferir R entre tenedores: el eje de hoy lo rechaza y las reglas no | decisión de VG (9-11) |
 
@@ -458,7 +462,7 @@ Lo marcado [X] en las cinco familias y en la integración. Se suma a §8.
 - **El tipo de una identidad**: la asignación de una cosa (§8), «solo las personas emiten» (ID-9), el paso de T entre personas y cosas (TT-8, TT-9) y la regla de tipos (ID-3), frente a H2 («no se mira el tipo»): ¿se retira ya o espera a que «cosa = registro con clave propia» tenga posición?
 - **D-MOV**: separar la caducidad y la fecha a la que se refiere en el 7; en qué posición van «divisible» y «emisores» (EE-9, EE-10); el orden del movimiento en su transacción (PP-5).
 - **D-SERIE**: una posición con la clave de familia o con la denominación sin franja (EE-4).
-- **Vistas que faltan**: el contrato de una serie que ya no está viva; las series vivas del subárbol de un registro (EE-5); el reloj de los demás (RL-4); lo bloqueado con una salida por todos los titulares (BL-3).
+- **Vistas que faltan**: el contrato de una serie que ya no está viva. Las series vivas del subárbol (`X.7.1`), el reloj de los demás (`before.6.3`) y lo bloqueado con una salida por todos los titulares (`before.2`) ya están (VG, 10-11, B6); sus posiciones son una propuesta [H].
 - **El reloj en milisegundos o en segundos** (D-FECHA da segundos; JS compara milisegundos), también para las caducidades con fracción de segundo.
 - **El tope de diez de `path`** (PATH-10).
 - **El año**: resuelto (VG, 10-11, A3): el calendario de la época (`epoch.7.0`) lleva los segundos de cada escala y el año es de 364 + 1 días; «at most a year ahead» lo lee de ahí y `tokens.SEGUNDOS` también. Queda abierto si el año de D-FECHA ha de seguir al civil (§4).

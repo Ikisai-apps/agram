@@ -279,7 +279,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "8bb48a4e2fdba4b920a6999ae324a736e70e13bc04e6e520fb7d36371b85792f"
     },
     {
-      "ref": "361f89a43385d4e05c826f96e9640bf42010a1b4735b2cb69ceead78e39d5423"
+      "ref": "74b23f3705ffa44dd59fa213c14638ac912c07fdf59ae040f1715f56f8ccecf9"
     },
     {
       "ref": "3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f"
@@ -2988,7 +2988,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "locked-p-backing-live-e-is-not-released.json",
-    "id": "361f89a43385d4e05c826f96e9640bf42010a1b4735b2cb69ceead78e39d5423",
+    "id": "74b23f3705ffa44dd59fa213c14638ac912c07fdf59ae040f1715f56f8ccecf9",
     "registro": [
       [
         "locked P backing live E is not released"
@@ -3000,7 +3000,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "*"
       ],
       [
-        "=count (((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"
+        "=count (((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or count before.6.3 = 0 or ev.6.0.0 < (first it2.7.0).0 or before.6.3.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"
       ],
       [
         "(ev.1 where P in it.0.0.0 and it.4 = release) each 3.0"
@@ -3013,7 +3013,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "VG, 7-11 noche: el P bloqueado que respalda una E no se libera mientras viva el E (mapa §12 [D] «E atada al recurso»)",
-        "VG, 9-11: D1, el bloqueo sigue respaldando la E (mapa §15 [D])"
+        "VG, 9-11: D1, el bloqueo sigue respaldando la E (mapa §15 [D])",
+        "VG, 10-11, B6: lo vivo caduca con el reloj de los demás (before.6.3; SEG-03, SEG-05, RL-4): el menor entre el t de la transacción y el mayor t de las otras identidades; sin ellas, nada caduca"
       ],
       [
         "epoch 0"
@@ -3022,7 +3023,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after E is tied to a record that exists"
       ],
       [
-        "locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"
+        "locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or count before.6.3 = 0 or ev.6.0.0 < (first it2.7.0).0 or before.6.3.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"
       ]
     ]
   },

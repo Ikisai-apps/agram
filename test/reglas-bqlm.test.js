@@ -576,13 +576,22 @@ divergencia('EE-4', 'locked P backing live E is not released', 'falta un desplie
     await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['bloquea la familia'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: fam }, { token: 'E', emisor: 'casa', denominacion: 'cama@n1', registro: w.A, cantidad: 1, de: null, a: 'casa' }] });
     return { eje: w.eje, ev: await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 7200e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: fam }] }), aceptaElEje: false };
   });
-divergencia('RL-4', 'locked P backing live E is not released', 'falta una vista: X.1 caduca con ev.6.0 y la condición JS con el reloj de los demás (tMaximo sin el autor), que no tiene posición',
-  async () => {
-    const w = await mundo();
-    const k = 'E:casa/noche@n9@' + w.A;
-    await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['noche'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: k }, { token: 'E', emisor: 'casa', denominacion: 'noche@n9', registro: w.A, caduca: iso(T0 + 2 * 3600e3), cantidad: 1, de: null, a: 'casa' }] });
-    return { eje: w.eje, ev: await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] }), aceptaElEje: false };
-  });
+test('RL-4, resuelta (B6: el reloj de los demás, before.6.3): lo vivo de X.1 caduca con ese reloj, como la condición JS', async () => {
+  const w = await mundo();
+  const k = 'E:casa/noche@n9@' + w.A;
+  await w.eje.escribir({ autor: 'casa', sobre: w.A, t: iso(T0 + 3600e3), payload: ['noche'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'bloqueo', salida: k }, { token: 'E', emisor: 'casa', denominacion: 'noche@n9', registro: w.A, caduca: iso(T0 + 2 * 3600e3), cantidad: 1, de: null, a: 'casa' }] });
+  // Caducada según la fecha de la transacción, viva según el reloj de los demás (nadie más ha escrito después).
+  const ev = await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] });
+  const { bq, js } = await comparar(w.eje, ev, false);
+  assert.ok(js['locked P backing live E is not released'].length > 0, 'JS la rechaza');
+  assert.equal(bq['locked P backing live E is not released'].pasa, false, 'y la regla también');
+  // Cuando los demás pasan de la caducidad, la E ya no respalda nada: las dos la dejan pasar.
+  await w.eje.escribir({ autor: 'bea', sobre: w.A, t: iso(T0 + 3 * 3600e3), payload: ['más tarde'], movimientos: [minuto('bea')] });
+  const despues = await aMano({ autor: 'casa', sobre: w.A, t: iso(T0 + 6 * 3600e3), payload: ['libera'], movimientos: [minuto('casa'), { token: 'P', ambito: w.A, cantidad: 1, de: 'casa', a: 'casa', estado: 'liberacion', salida: k }] });
+  const otra = await comparar(w.eje, despues, true);
+  assert.deepEqual(otra.js['locked P backing live E is not released'], []);
+  assert.equal(otra.bq['locked P backing live E is not released'].pasa, true);
+});
 (DIVERGENCIAS ? test : test.skip)('VA-3 · minting P or E needs own R at stake: [X] VG: ninguna posición dice si un evento es del prefijo de la versión 2; la condición JS no lo evalúa y la regla sí (¿época propia o suelo de la persistencia?)', async () => {
   const g = await aMano({ autor: 'club', sobre: null, t: '2026-11-06T09:00:00Z', payload: ['v2'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 10, de: null, a: 'club' }], contexto: { genesis: true, tipos: { club: 'grupo' } } });
   const ev = await aMano({ autor: 'club', sobre: g.id, t: '2026-11-06T10:00:00Z', payload: ['vale'], movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'club', a: null }, { token: 'E', emisor: 'club', denominacion: 'vale', cantidad: 1, de: null, a: 'club' }] });

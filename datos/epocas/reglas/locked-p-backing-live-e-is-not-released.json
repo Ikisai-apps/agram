@@ -1,15 +1,16 @@
 [
   ["locked P backing live E is not released"],
   [0, 1e-9, "E", "*"],
-  ["=count (((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"],
+  ["=count (((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or count before.6.3 = 0 or ev.6.0.0 < (first it2.7.0).0 or before.6.3.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"],
   ["(ev.1 where P in it.0.0.0 and it.4 = release) each 3.0"],
   ["release"],
   ["*"],
   [
     "VG, 7-11 noche: el P bloqueado que respalda una E no se libera mientras viva el E (mapa §12 [D] «E atada al recurso»)",
-    "VG, 9-11: D1, el bloqueo sigue respaldando la E (mapa §15 [D])"
+    "VG, 9-11: D1, el bloqueo sigue respaldando la E (mapa §15 [D])",
+    "VG, 10-11, B6: lo vivo caduca con el reloj de los demás (before.6.3; SEG-03, SEG-05, RL-4): el menor entre el t de la transacción y el mayor t de las otras identidades; sin ellas, nada caduca"
   ],
   ["epoch 0"],
   ["after E is tied to a record that exists"],
-  ["locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"]
+  ["locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or count before.6.3 = 0 or ev.6.0.0 < (first it2.7.0).0 or before.6.3.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"]
 ]
