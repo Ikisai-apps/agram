@@ -316,7 +316,9 @@ async function mercado(gastos) {
   const g = () => gastos[k++ % gastos.length];
   await entrarPorInvitacion(eje, { por: 'g', quien: 'casa', t: AYER });
   await eje.escribir({ autor: 'g', sobre: alta.id, t: AYER, payload: 'alta de casa', movimientos: [gasta('g'), cedeE('g', 'casa', 10)] });
-  const X = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, payload: ['mercado', 'ofertas', '=BUSCAR(1)', 'ana'], movimientos: [gasta('casa', g())] });
+  // Revisión de seguridad (encargo 3b): escribir sobre el alta de otra identidad (el génesis es el alta de g) tiene el
+  // precio de su atención; casa cuelga su mercado de su propia alta.
+  const X = await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, payload: ['mercado', 'ofertas', '=BUSCAR(1)', 'ana'], movimientos: [gasta('casa', g())] });
   for (const [autor, texto] of [['bea', 'ruido'], ['ana', 'oferta de ana'], ['robot', 'oferta del robot'], ['casa', 'oferta de casa']]) {
     await eje.escribir({ autor, sobre: X.id, en: direccion([1]), t: T0, payload: texto, movimientos: [gasta(autor, g())] });
   }

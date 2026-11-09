@@ -44,6 +44,9 @@ const deMemoria = (de) => ({ token: 'T', escala: 'pasado', cantidad: 1, de, a: n
  * aceptan (su alta, encargo 3b; personas, VG 10-11 B1); la raíz les cede minutos y da de alta a la sala (una cosa). No
  * hay identidades de grupo (VG, 8-11).
  */
+/** El registro de las altas de cada mundo: lo escribe raiz sobre su génesis y las personas cuelgan de él lo suyo. */
+const ALTAS = new WeakMap();
+
 async function mundo({ t = ALTA } = {}) {
   const eje = await Eje.genesis({
     demostracion: true,
@@ -56,6 +59,7 @@ async function mundo({ t = ALTA } = {}) {
   for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t });
   const alta = await eje.escribir({ autor: 'raiz', sobre: g, t, payload: 'altas',
     movimientos: [gasta('raiz'), ...['ana', 'bea', 'sala'].map((a) => cedeT('raiz', a, 60))] });
+  ALTAS.set(eje, alta.id);
   return { eje, g, alta };
 }
 
@@ -63,7 +67,9 @@ async function mundo({ t = ALTA } = {}) {
  * Un registro de una persona (diez P sobre él por escribirlo: mapa §15 [D] N1) y, sobre él, su R: emite 10 (con T
  * real, sin colateral: VG, 9-11) y da una a bea (o a quien se diga).
  */
-async function taller(eje, persona, { sobre = eje.genesisId, t = T0, ante = 'bea', payload = 'taller de ' + persona } = {}) {
+// Revisión de seguridad (encargo 3b): escribir sobre el alta de otra identidad (el génesis es el alta de raiz) tiene el
+// precio de su atención; por omisión el taller cuelga del registro de las altas, que no es el alta de nadie que escriba.
+async function taller(eje, persona, { sobre = ALTAS.get(eje) ?? eje.genesisId, t = T0, ante = 'bea', payload = 'taller de ' + persona } = {}) {
   const reg = await eje.escribir({ autor: persona, sobre, t, payload, movimientos: [gasta(persona)] });
   await eje.escribir({ autor: persona, sobre: reg.id, t, payload: 'reputación en ' + payload,
     movimientos: [gasta(persona), emiteR(persona, 10), mueveR(persona, 1, persona, ante)] });
@@ -558,7 +564,9 @@ test('NEU-04 (revisión de la #62) el delegado que acuña: quien solo tiene P lo
   // (Bea ya tenía P sobre el génesis: el de la R y los minutos de la raíz que recibió, mapa §15 [D] N2.)
   const altas = eje.sobre(g).find((x) => x.payload === 'altas');
   const antes = eje.poderSobre('bea', g);
-  await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'bajo', movimientos: [gasta('bea'), { token: 'P', ambito: g, cantidad: 1, de: 'bea', a: null }, emiteP('bea', altas.id, 1.1)] });
+  // Sobre el registro de las altas: sobre el génesis (el alta de raiz) tendría el precio de su atención (revisión de
+  // seguridad, encargo 3b).
+  await eje.escribir({ autor: 'bea', sobre: altas.id, t: T0, payload: 'bajo', movimientos: [gasta('bea'), { token: 'P', ambito: g, cantidad: 1, de: 'bea', a: null }, emiteP('bea', altas.id, 1.1)] });
   assert.deepEqual([antes - eje.poderSobre('bea', g), eje.poderSobre('bea', altas.id)], [1, 1.1]);
 });
 

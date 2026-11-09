@@ -27,7 +27,9 @@ const minutos = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad,
  * Otra persona huésped: la casa la invita y ella acepta (su alta; mapa §16 [D] «El árbol mínimo es la invitación»),
  * y después la casa le da dinero.
  */
-async function altaHuesped(eje, id, { eur = 200, t = '2026-11-08T08:00:00Z' } = {}) {
+async function altaHuesped(eje, id, { eur = 200, t } = {}) {
+  // Revisión de seguridad (encargo 3b): la aceptación no se fecha antes del último t del libro.
+  t ??= new Date(Math.max(Date.parse('2026-11-08T08:00:00Z'), eje.tMaximo())).toISOString();
   await entrarPorInvitacion(eje, { por: CASA, quien: id, t });
   return eje.escribir({
     autor: CASA,
@@ -83,9 +85,10 @@ test('ejemplo Ikisai: una reserva de alojamiento recorre el eje entero (saldos, 
   assert.deepEqual([libre(CASA, alojamiento.id), libre('recepcion', atiende.id)], [9, 7]);
   assert.equal(eje.poderSobre('recepcion', alojamiento.id), 0); // ya no hay P delegado por la casa
   // N2: quien consigue E obtiene P sobre el registro de su serie. La huésped recibió en la entrega sus noches de plaza,
-  // atadas a la habitación: diez P sobre ella. No escribió la habitación ni nadie le dio P (antes de la entrega no
-  // tenía ninguno; lo comprueba el test del ciclo).
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 10);
+  // atadas a la habitación: diez P sobre ella por cada serie (una por noche: tres; revisión de seguridad del encargo 3b,
+  // una obtención por receptor y serie). No escribió la habitación ni nadie le dio P (antes de la entrega no tenía
+  // ninguno; lo comprueba el test del ciclo).
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 30);
   assert.deepEqual(eje.bloqueos('huesped'), []);
   // El alojamiento declara su capacidad (R2): 4 plazas, que el eje cuenta por noche (la franja).
   assert.deepEqual(alojamiento.payload, ['Alojamiento', ['plazas por noche'], 4]);
@@ -343,7 +346,7 @@ test('P obtenido (mapa §15 [D] N2): la huésped no tiene P sobre la habitación
   // N1: por escribir la reserva, diez sobre ella.
   assert.equal(eje.poderSobre('huesped', reserva.id), 10);
   await confirmarReserva(eje, reserva);
-  assert.equal(eje.poderSobre('huesped', habitacion.id), 10);
+  assert.equal(eje.poderSobre('huesped', habitacion.id), 30); // diez por cada una de sus tres noches (series)
 });
 
 test('confirmar es idempotente: una reserva ya confirmada devuelve su confirmación, no cobra dos veces ni entrega otra plaza', async () => {
@@ -366,7 +369,7 @@ test('confirmar es idempotente: una reserva ya confirmada devuelve su confirmaci
 test('capacidad: dos reservas solapadas de la cama individual colisionan en la plaza, y la segunda no se entrega por saldo insuficiente', async () => {
   const { eje, habitacion, reserva } = await ejemploReserva(); // la primera, del 20 al 23, ya está cerrada
   await altaHuesped(eje, 'huesped2');
-  const segunda = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.individual, noches: ['2026-11-22', '2026-11-24'], t: '2026-11-08T20:00:00Z' });
+  const segunda = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.individual, noches: ['2026-11-22', '2026-11-24'], t: '2026-11-09T09:30:00Z' });
   // Escribirla no reserva nada: se escribe y colisiona con la primera en la plaza; se ven las dos.
   assert.deepEqual(ocupantes(eje, habitacion.id, [1, 1]).filter((o) => o.origen === 'escrito').map((o) => o.evento), [reserva.id, segunda.id]);
   // El contador informa de que no cabría; quien decide es el saldo de la casa: la noche del 22 ya no tiene token.
@@ -398,7 +401,7 @@ test('capacidad: dos reservas solapadas de la cama individual colisionan en la p
 test('capacidad: dos reservas que no se solapan (la salida de una es la entrada de la otra) se cierran las dos', async () => {
   const { eje, habitacion, reserva } = await ejemploReserva(); // del 20 al 23
   await altaHuesped(eje, 'huesped2');
-  const despues = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.individual, noches: ['2026-11-23', '2026-11-25'], t: '2026-11-08T20:00:00Z' });
+  const despues = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.individual, noches: ['2026-11-23', '2026-11-25'], t: '2026-11-09T09:30:00Z' });
   assert.deepEqual(ocupacion(eje, despues.id).map((o) => [o.aLaVez, o.cabe]), [[0, true]]); // la noche de salida no se ocupa
   const { entrega, pago: pagada } = await confirmarReserva(eje, despues, { t: '2026-11-09T10:00:00Z' });
   assert.deepEqual([entrega.payload, pagada.payload], ['Plaza entregada', 'Pagada']);
@@ -407,7 +410,7 @@ test('capacidad: dos reservas que no se solapan (la salida de una es la entrada 
   assert.equal(eje.saldo(CASA, EUR), 365 - 200 + 110);
   assert.deepEqual(cerradas(eje, [reserva, despues]), [true, true]);
   // La capacidad es de cada plaza: la cama de matrimonio en las mismas noches que la primera también cabe.
-  const otra = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.matrimonio, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-08T21:00:00Z' });
+  const otra = await reservar(eje, { autor: 'huesped2', habitacion, plaza: PLAZAS.matrimonio, noches: ['2026-11-20', '2026-11-21'], t: '2026-11-09T10:30:00Z' });
   assert.equal(otra.en, '1000000000'); // la primera plaza: colisión con la posición 1 entera
   assert.deepEqual(ocupacion(eje, otra.id).map((o) => [o.camino, o.capacidad, o.cabe]), [[[1, 0], 1, true]]); // solo la plaza declara capacidad
   await confirmarReserva(eje, otra, { t: '2026-11-09T11:00:00Z' });

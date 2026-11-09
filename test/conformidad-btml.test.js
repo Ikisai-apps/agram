@@ -53,6 +53,17 @@ async function ejeCon(foco) {
 }
 
 /**
+ * Un eje mínimo cuyo foco es un registro de la raíz sobre su génesis (no el génesis). Revisión de seguridad (encargo
+ * 3b): todo registro anclado sobre el alta de otra identidad paga el precio de su atención («attention has a price»),
+ * y el génesis es el alta de la raíz; las cosas que escriben en el foco lo hacen sobre un registro, no sobre un alta.
+ */
+async function ejeConFoco(foco) {
+  const { eje } = await ejeCon('raíz');
+  const r = await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz')], payload: foco });
+  return { eje, id: r.id };
+}
+
+/**
  * C1 (VG, 10-11): una referencia a un evento que no está ya no entra en un eje local («mientras el eje es local; con
  * red, se resuelve antes de aceptar»). Para leer una referencia ausente, una réplica a la que aún no ha llegado el
  * referido: el mismo eje, visto sin ese evento. Devuelve { vista, ausente } (el id que la vista no tiene).
@@ -127,7 +138,7 @@ test('BTML-02 el evento tiene identidad y metadatos propios (firmante, contexto)
 // aplique: queda la mitad que sí se puede comprobar (donde no aplica, no aparece; tampoco en el payload). La otra
 // mitad no tiene sustituto en el núcleo.
 test('BTML-02b el evento lleva un metadato propio de autoridad cuando aplica (encargo 3b: ya no aplica a nada)', async () => {
-  const { eje, id } = await ejeCon(['Casa', 'recurso']);
+  const { eje, id } = await ejeConFoco(['Casa', 'recurso']);
   await alta(eje, 'ana');
   const c = await consolidar(eje, { autor: 'ana', foco: id, t: T0, elecciones: { 1: 'algo' } });
   // Donde no aplica, no aparece: ni en un registro cualquiera ni en la consolidación.
@@ -230,15 +241,18 @@ test('BTML-06 firma quien tiene clave y el eje verifica; el firmante es el autor
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'clave sin tokens', contexto: { claves: { ana: ana.publica } } }, raiz.privada), /a key is declared at its alta/);
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 30)], payload: 'alta de ana', contexto: { claves: { ana: ana.publica } } }, raiz.privada);
   assert.deepEqual(eje.clave('ana'), ana.publica);
+  // Revisión de seguridad (encargo 3b): escribir sobre el alta de otro (el génesis es la de la raíz) paga su atención;
+  // ana escribe sobre un registro de la raíz.
+  const casa = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: 'Casa' }, raiz.privada);
   // Quien tiene clave firma; el firmante es el autor; el eje verifica.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'sin firma' }), /who has a key signs: ana has a key/);
-  const ev = await crearEvento({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana')], payload: 'mensaje de ana' });
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: casa.id, t: T0, movimientos: [gastaT('ana')], payload: 'sin firma' }), /who has a key signs: ana has a key/);
+  const ev = await crearEvento({ autor: 'ana', sobre: casa.id, t: T0, movimientos: [gastaT('ana')], payload: 'mensaje de ana' });
   await assert.rejects(eje.anadir(await firmar(ev, raiz.privada, 'raiz')), /who has a key signs/);
   await assert.rejects(eje.anadir(await firmar(ev, raiz.privada)), /firma inválida de ana/);
   const bueno = await eje.anadir(await firmar(ev, ana.privada));
   assert.equal(bueno.firmante, bueno.autor);
   // Nadie mueve tokens ajenos, ni firmando.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'robo' }, ana.privada), /nobody moves tokens of others/);
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: casa.id, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'robo' }, ana.privada), /nobody moves tokens of others/);
 });
 
 test('BTML-07 forma, interpretación, firma y autorización son comprobaciones distintas: firmar no hace verdadero ni validar autoriza', async () => {
@@ -259,7 +273,10 @@ test('BTML-07 forma, interpretación, firma y autorización son comprobaciones d
   assert.equal(evaluar(eje, dicho.id, [3]).estado, 'PENDIENTE'); // bien formado y firmado, interpretación insuficiente
   // Ni forma ni firma autorizan: una «autorización» firmada no cambia el estado. Encargo 3b (mapa §15 [D]): el estado
   // es la lectura de cerrado de la propuesta (motor.cerrado), que una fase escrita a mano no mueve.
-  const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'algo' } });
+  // Revisión de seguridad (encargo 3b): ana no escribe sobre el alta de la raíz (el génesis) sin pagar su atención;
+  // consolida sobre un registro de la raíz.
+  const casa = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['Casa', 'recurso'] }, raiz.privada);
+  const c = await consolidar(eje, { autor: 'ana', foco: casa.id, t: T0, elecciones: { 1: 'algo' } });
   const antes = cerrado(eje, c.id);
   const falsa = await eje.escribir({ autor: 'bea', sobre: c.id, en: FABRICA, t: T0, movimientos: [gastaT('bea')], payload: '==autorizo', contexto: { fase: 'autorizado' } }, bea.privada);
   assert.equal(await verificar(falsa, bea.publica), true);
@@ -739,7 +756,7 @@ test('BTML-44b nada se modifica en sitio tampoco en memoria: el payload guardado
 });
 
 test('BTML-45 dos eventos distintos colisionan en la misma posición sin ser idénticos ni sobrescribirse', async () => {
-  const { eje, id } = await ejeCon(['Casa', 'recurso']);
+  const { eje, id } = await ejeConFoco(['Casa', 'recurso']);
   await alta(eje, 'ana');
   const a = await escribe(eje, id, 'mismo texto', '1000000000');
   const b = await escribe(eje, id, 'mismo texto', '1000000000', 'ana');
@@ -922,7 +939,7 @@ test('BTML-57 al reconstruir no se generan arrays intermedios vacíos ni se inve
 });
 
 test('BTML-58 un solo árbol lógico: fuentes, proyección y consolidación son estados de la misma interpretación', async () => {
-  const { eje, id } = await ejeCon(['Casa', 'recurso', 'criterio']);
+  const { eje, id } = await ejeConFoco(['Casa', 'recurso', 'criterio']);
   await alta(eje, 'ana');
   const fuente = await escribe(eje, id, 'alternativa', '1000000000');
   const d = descubrir(eje, id, { posiciones: [1] });
@@ -986,7 +1003,7 @@ test('BTML-61 lo escrito va en el PV donde se escribe: es el payload entero del 
 });
 
 test('BTML-63 herencia por referencia: las celdas vacías anteriores a la última se rellenan con {ref: foco, dir}; sin esa posición en el foco, consolidar rechaza y desdeMapped ancla lo lejano', async () => {
-  const { eje, id } = await ejeCon(['Casa', 'recurso', 'criterio']);
+  const { eje, id } = await ejeConFoco(['Casa', 'recurso', 'criterio']);
   const celdas = [];
   celdas[2] = ['otro criterio'];
   const { payload, heredadas } = desdeMapped(eje, celdas, id);
@@ -1100,7 +1117,7 @@ test('B:MOT-02 descubrir no elige una sola opción: conserva por posición las a
 });
 
 test('B:MOT-03 consolidar es la única fijación y no borra: un evento nuevo, con referencias a sus fuentes y el vector de cada una', async () => {
-  const { eje, id } = await ejeCon(['Casa', 'recurso', 'criterio']);
+  const { eje, id } = await ejeConFoco(['Casa', 'recurso', 'criterio']);
   await alta(eje, 'ana');
   const fuente = await escribe(eje, id, ['Oferta', 'grande'], '1000000000');
   const antes = eje.orden.length;

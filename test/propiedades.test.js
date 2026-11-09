@@ -314,7 +314,9 @@ test('propiedad: secuencias de escrituras — atomicidad, saldos ≥ 0, conserva
       // VG, 8-11: T no se emite (cada persona tiene su asignación diaria); una persona emite su R con su colateral (R6).
       if (op === 7) mov.push({ token: 'T', escala: 'minuto', cantidad: 1, de: null, a: autor });
       if (op === 8) mov.push({ token: 'R', emisor: autor, cantidad: 10, de: null, a: autor }, { token: 'R', emisor: autor, cantidad: 1, de: autor, a: autor, estado: 'bloqueo', salida: 'R:' + autor });
-      const datos = { autor, sobre: g.si(0.9) ? g.pick(ids) : hex(g), en: direccion([g.int(0, 2)]), t: T0, movimientos: mov, payload: op === 6 ? ['x', null] : ['p', paso, s], contexto: { paso } };
+      // Solo r escribe sobre el génesis, su alta: los demás pagarían el precio de su atención (revisión de seguridad,
+      // encargo 3b).
+      const datos = { autor, sobre: g.si(0.9) ? g.pick(autor === 'r' ? ids : ids.slice(1)) : hex(g), en: direccion([g.int(0, 2)]), t: T0, movimientos: mov, payload: op === 6 ? ['x', null] : ['p', paso, s], contexto: { paso } };
       const antes = foto(eje);
       let ev;
       try {
@@ -637,7 +639,8 @@ async function ejeConFirmas(g, pares) {
   for (let i = 0; i < g.int(1, 4); i++) {
     const autor = g.pick(['r', 'b']);
     // En el 0, 1 o 2: el 3 del alta de r es su atención, y escribir ahí tiene precio (encargo 3b, mapa §16 [D]).
-    const ev = await eje.escribir({ autor, sobre: g.pick(ids), en: g.si() ? direccion([g.int(0, 2)]) : '0000000000', t: T0, movimientos: [gastaT(autor), { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 1, de: autor, a: autor === 'r' ? 'b' : 'r' }], payload: payloadEje(g, ids), contexto: { i } }, priv[autor]);
+    // b no escribe sobre el génesis, el alta de r: tendría el precio de su atención (revisión de seguridad, encargo 3b).
+    const ev = await eje.escribir({ autor, sobre: g.pick(autor === 'b' ? ids.slice(1) : ids), en: g.si() ? direccion([g.int(0, 2)]) : '0000000000', t: T0, movimientos: [gastaT(autor), { token: 'E', denominacion: 'EUR', emisor: 'r', cantidad: 1, de: autor, a: autor === 'r' ? 'b' : 'r' }], payload: payloadEje(g, ids), contexto: { i } }, priv[autor]);
     ids.push(ev.id);
   }
   return eje;

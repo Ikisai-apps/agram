@@ -255,8 +255,11 @@ async function mundo() {
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: ['altas'],
     movimientos: [minuto('g'), ...personas.map((x) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: x })), { token: 'T', escala: 'hora', cantidad: 3, de: 'g', a: 'cocina' }],
   });
-  for (const x of personas) await eje.escribir({ autor: x, sobre: eje.genesisId, t: iso(T0), payload: ['R de ' + x], movimientos: [minuto(x), { token: 'R', emisor: x, cantidad: 100, de: null, a: x }] });
-  const A = (await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: iso(T0), movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], 6] })).id;
+  // Los demás escriben bajo la plaza de g, no sobre su alta (escribir sobre el alta ajena es escribirle y paga atención:
+  // revisión de seguridad del encargo 3b).
+  const plaza = (await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: ['Plaza'], movimientos: [minuto('g')] })).id;
+  for (const x of personas) await eje.escribir({ autor: x, sobre: plaza, t: iso(T0), payload: ['R de ' + x], movimientos: [minuto(x), { token: 'R', emisor: x, cantidad: 100, de: null, a: x }] });
+  const A = (await eje.escribir({ autor: 'casa', sobre: plaza, t: iso(T0), movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], 6] })).id;
   const B = (await eje.escribir({ autor: 'casa', sobre: A, t: iso(T0), movimientos: [minuto('casa')], payload: ['Habitación', ['camas'], 3] })).id;
   await eje.escribir({ autor: 'casa', sobre: A, t: iso(T0), payload: ['delega'], movimientos: [minuto('casa'), { token: 'P', ambito: A, cantidad: 2, de: 'casa', a: 'socia' }] });
   return { eje, A, B, personas: ['g', ...personas] };

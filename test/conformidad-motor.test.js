@@ -62,6 +62,13 @@ const gastaT = (de, cantidad = 1) => ({ token: 'T', escala: 'minuto', cantidad, 
 const daT = (de, a, cantidad, emisor = de) => ({ token: 'E', emisor, denominacion: 'minuto', cantidad, de, a });
 const daE = (de, a, cantidad, denominacion = 'EUR', emisor = 'raiz') => ({ token: 'E', emisor, denominacion, cantidad, de, a });
 const ID_INEXISTENTE = 'f'.repeat(64);
+/** El precio del equipo (zona 4) en el alta de su dueño: su 3.4.2. */
+const EQUIPO_GRATIS = '3420000000';
+/**
+ * Revisión de seguridad (encargo 3b): todo lo que se ancla sobre el alta de otra identidad paga el precio de su
+ * atención. `dueno` deja su equipo (zona 4) sin precio: cero de su R; quien entra en ese grupo escribe gratis sobre su alta.
+ */
+const equipoSinPrecio = (eje, dueno, t, privada) => eje.escribir({ autor: dueno, sobre: eje.alta(dueno).id, en: EQUIPO_GRATIS, t, movimientos: [gastaT(dueno)], payload: [['their R'], [0]] }, privada);
 /** P dado dentro de su ámbito, que es un registro (mapa §15 [D]: «P moves within a known scope»). */
 const daP = (de, a, cantidad, ambito) => ({ token: 'P', ambito, cantidad, de, a });
 /**
@@ -88,7 +95,11 @@ async function mundo(foco = ['Compra', 'yogur', 'sin lactosa', 'aviso a cocina',
   });
   const g = eje.genesisId;
   // Las personas entran por invitación de la raíz (encargo 3b, VG, 9-11, mapa §15 [D]).
-  for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: ALTA });
+  // Revisión de seguridad (encargo 3b): todo lo que se ancla sobre el alta de otra identidad (el génesis es el alta de
+  // la raíz) paga el precio de su atención. ana y bea entran en el equipo de la raíz (zona 4) y la raíz deja ese
+  // grupo sin precio (su 3.4.2: cero de su R), así que escriben sobre el foco del génesis como antes.
+  for (const id of ['ana', 'bea']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: ALTA, grupo: 4 });
+  await equipoSinPrecio(eje, 'raiz', ALTA);
   await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 300), daT('raiz', 'bea', 120), daE('raiz', 'ana', 50)], payload: 'altas de ana y bea' });
   return { eje, g };
 }
@@ -158,7 +169,9 @@ async function casaConUnaPlaza() {
   });
   const hab = eje.genesisId;
   // Altas un mes antes: los huéspedes son personas, entran por invitación de la casa y escriben con su propio T.
-  for (const id of ['h1', 'h2']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: ALTA });
+  // Piden en la plaza del génesis (el alta de la casa): entran en su equipo, que la casa deja sin precio (revisión de seguridad, encargo 3b).
+  for (const id of ['h1', 'h2']) await entrarPorInvitacion(eje, { por: 'casa', quien: id, t: ALTA, grupo: 4 });
+  await equipoSinPrecio(eje, 'casa', ALTA);
   return { eje, hab };
 }
 
@@ -186,7 +199,9 @@ async function reservaDelHuesped() {
   for (const id of ['casa', 'huesped']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
   // La casa emite su serie limitada: un token por plaza y noche (con R suya emitida, sobre su alta, donde tiene P).
   await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'capacidad: una plaza la noche del 7-11' });
-  const hab = await escribe(eje, g, ['Habitación 1', 'cama A'], undefined, 'casa');
+  // La habitación cuelga del alta de la casa: sobre el génesis (el alta de la raíz) pagaría su atención (revisión de seguridad, encargo 3b).
+  const hab = await escribe(eje, eje.alta('casa').id, ['Habitación 1', 'cama A'], undefined, 'casa');
+  void g;
   const c = await consolidar(eje, { autor: 'huesped', foco: hab.id, camino: [1], t: T0, elecciones: { 1: 'reserva noche del 7-11' } });
   await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('huesped')], payload: anuncio('E:casa/plaza', 1, 'dar la plaza', 'casa', 'huesped') });
   const antes = cerrado(eje, c.id).cerrado;
@@ -1008,8 +1023,10 @@ test('MOT-61 capas de validez distintas: forma, interpretación, criptografía y
   assert.equal(await verificarId({ ...p, payload: 'cambiado' }), false);
   assert.equal(await verificar(p, raiz.publica), true);
   // 5 · permiso: cada uno mueve lo suyo (VG, 8-11, mapa §15 [D] «Una sola operación: registrar»). Ana entra por invitación de la raíz, que la firma.
-  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: ALTA, privadaDe: (id) => (id === 'raiz' ? raiz.privada : undefined) });
-  await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta' }, raiz.privada);
+  // La aceptación no se fecha antes de lo último del libro, y ana, en el equipo sin precio, consolida sobre el génesis (revisión de seguridad, encargo 3b).
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: T0, grupo: 4, privadaDe: (id) => (id === 'raiz' ? raiz.privada : undefined) });
+  await equipoSinPrecio(eje, 'raiz', T0, raiz.privada);
+  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60)], payload: 'alta' }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
   await assert.rejects(registrar(eje, { autor: 'ana', sobre: c.id, t: T0, movimientos: [gastaT('ana'), daT('raiz', 'ana', 1)], payload: 'me lo doy' }), /nobody moves tokens of others/);
 });
@@ -1037,8 +1054,10 @@ test('MOT-62 las capas no se confunden: estructura válida y firmada no es autor
   const g = eje.genesisId;
   // Las personas entran por invitación de la raíz (que firma); bea, con su clave en su alta.
   const privadaDe = (id) => (id === 'raiz' ? raiz.privada : undefined);
-  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: ALTA, privadaDe });
-  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'bea', t: ALTA, clave: bea, privadaDe });
+  // En el equipo de la raíz, sin precio: ana consolida sobre el génesis (revisión de seguridad, encargo 3b).
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'ana', t: ALTA, grupo: 4, privadaDe });
+  await entrarPorInvitacion(eje, { por: 'raiz', quien: 'bea', t: ALTA, clave: bea, grupo: 4, privadaDe });
+  await equipoSinPrecio(eje, 'raiz', ALTA, raiz.privada);
   await eje.escribir({ autor: 'raiz', sobre: g, t: ALTA, movimientos: [gastaT('raiz'), daT('raiz', 'ana', 60), daT('raiz', 'bea', 60)], payload: 'altas' }, raiz.privada);
   const c = await consolidar(eje, { autor: 'ana', foco: g, t: T0, elecciones: { 1: 'x' } });
   await registrar(eje, { autor: 'ana', sobre: c.id, en: ANUNCIO, t: T0, movimientos: [gastaT('ana')], payload: anuncio('E:raiz/minuto', 5, 'devolver', 'ana', 'raiz') });
@@ -1497,8 +1516,10 @@ test('TOK-27 cada denominación de E está ligada a su emisor: las plazas de dos
   // Las casas que emiten son personas; entran por invitación (y la R que les guarda la raíz les da P sobre su alta,
   // el génesis), y emiten con R suya emitida (encargo 3b, VG, 8-11 y 9-11, mapa §15 [D]).
   for (const id of ['casaA', 'casaB']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
+  void g;
   for (const [casa, n] of [['casaA', 2], ['casaB', 3]]) {
-    await eje.escribir({ autor: casa, sobre: g, t: T0, movimientos: [gastaT(casa), ...rEnJuego(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
+    // Sobre su propia alta: sobre el génesis (el alta de la raíz) pagaría su atención (revisión de seguridad, encargo 3b).
+    await eje.escribir({ autor: casa, sobre: eje.alta(casa).id, t: T0, movimientos: [gastaT(casa), ...rEnJuego(casa), { token: 'E', denominacion: 'plaza', emisor: casa, cantidad: n, de: null, a: casa }], payload: 'plazas de ' + casa });
   }
   assert.deepEqual([eje.saldo('casaA', 'E:casaA/plaza'), eje.saldo('casaB', 'E:casaB/plaza')], [2, 3]);
   assert.equal(eje.saldo('casaA', 'E:casaB/plaza'), 0); // la misma palabra, dos series
@@ -1509,12 +1530,14 @@ test('TOK-28 cada emisor emite sus propias series (la E que respalda y su R) y s
   const g = eje.genesisId;
   // La casa que emite es una persona: entra por invitación y emite con R suya emitida (encargo 3b, mapa §15 [D]).
   for (const id of ['casa', 'otro']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: ALTA });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
+  // Cada una sobre su propia alta: sobre el génesis (el alta de la raíz) pagaría su atención (revisión de seguridad, encargo 3b).
+  void g;
+  await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 2, de: null, a: 'casa' }], payload: 'plazas' });
+  await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, movimientos: [gastaT('casa'), { token: 'R', emisor: 'casa', cantidad: 5, de: null, a: 'casa' }], payload: 'reputación de la casa' });
   // Sin colateral (VG, 9-11, mapa §15 [D] «R según el corpus»: se retira el de la #75): 7 emitidos, 1 en la raíz.
   assert.deepEqual([eje.saldo('casa', 'E:casa/plaza'), eje.saldo('casa', 'R:casa'), eje.bloqueado('casa', 'R:casa')], [2, 6, 0]);
   // Solo la casa amplía su serie: otro no puede emitir a nombre de la casa.
-  await assert.rejects(eje.escribir({ autor: 'otro', sobre: g, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /E is minted by and to its issuer|la emisión de E va a su propio emisor/);
+  await assert.rejects(eje.escribir({ autor: 'otro', sobre: eje.alta('otro').id, t: T0, movimientos: [gastaT('otro'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'amplío la serie ajena' }), /E is minted by and to its issuer|la emisión de E va a su propio emisor/);
   assert.equal(eje.serie('E:casa/plaza').emitido, 2);
 });
 
@@ -1529,7 +1552,8 @@ test('TOK-29b nadie emite una denominación de E ajena: ni el génesis amplía l
   const g = eje.genesisId;
   // La casa que emite es una persona: entra por invitación y emite con R suya emitida (encargo 3b, mapa §15 [D]).
   for (const id of ['casa']) await entrarPorInvitacion(eje, { por: 'raiz', quien: id, t: T0 });
-  await eje.escribir({ autor: 'casa', sobre: g, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
+  // Sobre su propia alta: sobre el génesis (el alta de la raíz) pagaría su atención (revisión de seguridad, encargo 3b).
+  await eje.escribir({ autor: 'casa', sobre: eje.alta('casa').id, t: T0, movimientos: [gastaT('casa'), ...rEnJuego('casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza' });
   await assert.rejects(eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'casa', cantidad: 1, de: null, a: 'casa' }], payload: 'plaza ajena' }), /(E is minted by and to|R is minted by) its issuer/);
   // Lo que la raíz llame «plaza» es su propia serie (E:raiz/plaza): la de la casa no cambia.
   await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), ...rEnJuego('raiz', 'casa'), { token: 'E', denominacion: 'plaza', emisor: 'raiz', cantidad: 1, de: null, a: 'raiz' }], payload: 'plaza de la raíz' });
@@ -1686,11 +1710,12 @@ test('TOK-48 los cuatro tokens tienen mecanismos efectivos: T paga la escritura,
   const { eje, g } = await mundo();
   // T (VG, 7-11 noche; Core, 8-11): pobre es una cosa, y la raíz (una persona) le da un minuto de su T. Cada
   // escritura lo consume y queda anotada en el registro que la soporta; una cosa no tiene asignación: sin T no escribe.
-  await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: 'pobre' }], payload: 'alta con un minuto' });
-  const antes = eje.tiempoSobre(g).minuto ?? 0;
-  await escribe(eje, g, 'una', undefined, 'pobre');
-  await assert.rejects(escribe(eje, g, 'otra', undefined, 'pobre'), /saldo insuficiente de T:minuto en pobre/); // T
-  assert.equal(eje.tiempoSobre(g).minuto, antes + 1);
+  // Pobre escribe sobre su alta (la escribió la raíz): sobre el génesis, el alta de la raíz, pagaría su atención (revisión de seguridad, encargo 3b).
+  const altaPobre = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz'), { token: 'T', escala: 'minuto', cantidad: 1, de: 'raiz', a: 'pobre' }], payload: 'alta con un minuto' });
+  const antes = eje.tiempoSobre(altaPobre.id).minuto ?? 0;
+  await escribe(eje, altaPobre.id, 'una', undefined, 'pobre');
+  await assert.rejects(escribe(eje, altaPobre.id, 'otra', undefined, 'pobre'), /saldo insuficiente de T:minuto en pobre/); // T
+  assert.equal(eje.tiempoSobre(altaPobre.id).minuto, antes + 1);
   // P (encargo 3b, VG, 8-11, mapa §15 [D] «Una sola operación: registrar»; mapa §15 [D] (5)): se retira autorizar; el P comprometido cuenta en el recuento del dueño.
   const decision = await eje.escribir({ autor: 'raiz', sobre: g, t: T0, movimientos: [gastaT('raiz')], payload: ['¿Compramos?', ['x'], [['decidir'], ['x'], ['threshold'], ['raiz']]] });
   assert.equal(recuento(eje, decision.id).pasa, false);
@@ -1737,7 +1762,8 @@ test('TOK-54 ninguna organización es imprescindible para participar: los tokens
   // Cris entra por invitación de ana, no de la raíz (encargo 3b, VG, 9-11, mapa §16 [D] «El árbol mínimo es la invitación»).
   await entrarPorInvitacion(eje, { por: 'ana', quien: 'cris', t: T0 });
   await eje.escribir({ autor: 'ana', sobre: g, t: T0, movimientos: [gastaT('ana'), daT('ana', 'cris', 5, 'raiz'), daE('ana', 'cris', 5)], payload: 'ana da a cris' });
-  const ev = await escribe(eje, g, 'cris participa', undefined, 'cris');
+  // Cris escribe sobre su propia alta: no está en el equipo de la raíz y sobre el génesis pagaría su atención (revisión de seguridad, encargo 3b).
+  const ev = await escribe(eje, eje.alta('cris').id, 'cris participa', undefined, 'cris');
   assert.equal(ev.autor, 'cris');
   assert.equal(eje.saldo('cris', 'E:raiz/EUR'), 5);
 });

@@ -162,7 +162,9 @@ const mueveE = (emisor, denominacion, cantidad, de, a) => ({ token: 'E', emisor,
  * registro nombrado quedan atadas a su alta, donde también tiene P (la escribió ella). Devuelve el dominio.
  */
 async function escalonE(eje, persona) {
-  const r = await eje.escribir({ autor: persona, sobre: eje.genesisId, t: T0, payload: 'reputación de ' + persona,
+  // Sobre su propia alta: escribir sobre la de otro (el génesis es el alta de raiz) tiene el precio de su atención
+  // (revisión de seguridad, encargo 3b).
+  const r = await eje.escribir({ autor: persona, sobre: eje.alta(persona).id, t: T0, payload: 'reputación de ' + persona,
     movimientos: [gastaT(persona), { token: 'R', cantidad: 10, emisor: persona, de: null, a: persona }] });
   return eje.escribir({ autor: persona, sobre: r.id, t: T0, payload: 'dominio de ' + persona, movimientos: [gastaT(persona)] });
 }

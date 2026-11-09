@@ -44,11 +44,14 @@ async function mundo({ capacidad = 4, personas = ['casa', 'socia', 'bea'] } = {}
     autor: 'g', sobre: eje.genesisId, t: ALTA, payload: 'altas',
     movimientos: [minuto('g'), ...personas.map((p) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 5000, de: 'g', a: p }))],
   });
+  // Revisión de seguridad (encargo 3b): escribir sobre el alta ajena (el génesis es el alta de g) tiene el precio de la
+  // atención de su dueño; las personas escriben bajo un registro común que g cuelga del génesis.
+  const plaza = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: ALTA, payload: ['Plaza'], movimientos: [minuto('g')] });
   for (const p of personas) {
-    await eje.escribir({ autor: p, sobre: eje.genesisId, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }] });
+    await eje.escribir({ autor: p, sobre: plaza.id, t: T0, payload: 'R de ' + p, movimientos: [minuto(p), { token: 'R', emisor: p, cantidad: 100, de: null, a: p }] });
   }
-  const A = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], capacidad] });
-  return { eje, A: A.id };
+  const A = await eje.escribir({ autor: 'casa', sobre: plaza.id, t: T0, movimientos: [minuto('casa')], payload: ['Alojamiento', ['plazas'], capacidad] });
+  return { eje, A: A.id, plaza: plaza.id };
 }
 
 /** La casa da parte de su P sobre A (una transferencia: no copia ni acuña). */
@@ -136,9 +139,9 @@ test('R2·2: el tope es por franja (lo que va tras la última «@»): cada noche
 });
 
 test('R2·2: sin capacidad declarada no hay tope ni hace falta P bloqueado (deuda del emisor)', async () => {
-  const { eje } = await mundo();
+  const { eje, plaza } = await mundo();
   // La casa tiene P sobre la tienda porque la escribió (mapa §15 [D] N1): emitir E exige P sobre su registro.
-  const libre = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T0, movimientos: [minuto('casa')], payload: ['Tienda', ['sin capacidad']] });
+  const libre = await eje.escribir({ autor: 'casa', sobre: plaza, t: T0, movimientos: [minuto('casa')], payload: ['Tienda', ['sin capacidad']] });
   await eje.escribir(emision('casa', { A: libre.id, denominacion: 'EUR', cantidad: 1e6, bloquea: 0 }));
   const s = eje.series().find((x) => x.clave === serieE('casa', 'EUR', libre.id));
   assert.deepEqual([s.tope, s.nota, s.emitido], [null, SIN_CAPACIDAD, 1e6]);

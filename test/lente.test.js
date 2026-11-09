@@ -34,11 +34,15 @@ async function demo(ids) {
     autor: 'g', sobre: eje.genesisId, t: AYER, payload: 'altas',
     movimientos: [minuto('g'), ...ids.map((id) => ({ token: 'E', emisor: 'g', denominacion: 'minuto', cantidad: 1000, de: 'g', a: id }))],
   });
+  // Revisión de seguridad (encargo 3b): escribir sobre el alta ajena (el génesis es el alta de g) tiene el precio de su
+  // atención; lo de todos cuelga de un registro común que g escribe en el génesis.
+  const plaza = await eje.escribir({ autor: 'g', sobre: eje.genesisId, t: AYER, payload: ['Plaza'], movimientos: [minuto('g')] });
+  eje.plaza = plaza.id;
   return { eje, alta };
 }
 
 /** `emisor` emite `cantidad` de su R (emitir R exige T real: el minuto que quema) y reparte `a` ({ titular: cantidad }). */
-async function emiteYDa(eje, emisor, cantidad, a = {}, sobre = eje.genesisId) {
+async function emiteYDa(eje, emisor, cantidad, a = {}, sobre = eje.plaza) {
   return eje.escribir({
     autor: emisor, sobre, t: T0, payload: unico('R de ' + emisor),
     movimientos: [minuto(emisor), R(emisor, cantidad, null, emisor), ...Object.entries(a).map(([t, c]) => R(emisor, c, emisor, t))],
@@ -72,8 +76,12 @@ test('lente: los grupos de atención del lector que cobran con la R de quien esc
 test('lente: no cuenta lo que otro escribe en los grupos del lector, ni el lector en otra posición', async () => {
   const { eje } = await demo(['casa', 'norte', 'intruso']);
   const alta = eje.alta('casa').id;
-  // Otro ancla nombres en el 3.3.3 del alta de la casa: no son sus cercanos (solo cuenta lo que ancla la casa).
-  await eje.escribir({ autor: 'intruso', sobre: alta, en: '3330000000', t: T0, payload: ['intruso'], movimientos: [minuto('intruso')] });
+  // Otro ancla nombres en el 3.3.3 del alta de la casa: no son sus cercanos (solo cuenta lo que ancla la casa). Revisión
+  // de seguridad (encargo 3b): sin el precio de su grupo ni siquiera entra; pagándolo (desconocidos: la R de la casa,
+  // devuelta), entra y sigue sin contar.
+  await emiteYDa(eje, 'casa', 10, { intruso: 1 });
+  await assert.rejects(eje.escribir({ autor: 'intruso', sobre: alta, en: '3330000000', t: T0, payload: ['intruso'], movimientos: [minuto('intruso')] }), /attention has a price/);
+  await eje.escribir({ autor: 'intruso', sobre: alta, en: '3330000000', t: T0, payload: ['intruso'], movimientos: [minuto('intruso'), R('casa', 1, 'intruso', 'casa')] });
   assert.deepEqual([...lenteDe(eje, 'casa').pesos], []);
   // El intruso en su propia alta sí: su lente, que no cambia la de nadie.
   await cercanos(eje, 'intruso', ['norte']);
@@ -122,7 +130,7 @@ test('ampliar R:X no diluye a quien ya la tiene: cada unidad cuenta una', async 
   assert.equal(valor(eje, 'casa', 'ana'), 10); // no baja
   assert.equal(valor(eje, 'casa', 'bea'), 10);
   // Devolver parte (pedir atención) la quita de quien la devuelve.
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'te pido atención', movimientos: [minuto('ana'), R('norte', 5, 'ana', 'norte')] });
+  await eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'te pido atención', movimientos: [minuto('ana'), R('norte', 5, 'ana', 'norte')] });
   assert.equal(valor(eje, 'casa', 'ana'), 5);
 });
 
@@ -131,14 +139,14 @@ test('ampliar R:X no diluye a quien ya la tiene: cada unidad cuenta una', async 
 test('emitir R: solo su emisor, sin colateral; exige T real en la misma transacción (VG, 8-11 tarde, N3)', async () => {
   const { eje } = await demo(['ana', 'bea']);
   // Sin colateral (VG, 9-11: el respaldo es la obligación de atender).
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] });
+  await eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana')] });
   assert.equal(eje.saldo('ana', 'R:ana'), 10);
   assert.equal(eje.bloqueado('ana', 'R:ana'), 0);
   // Sin T real (solo T informativo), no.
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x',
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'x',
     movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'ana', a: null }, R('ana', 10, null, 'ana')] }), /minting R needs real T/);
   // Nadie emite la R de otro, ni a nombre de un grupo (VG, 8-11).
-  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('ana'), R('bea', 30, null, 'bea')] }),
+  await assert.rejects(eje.escribir({ autor: 'ana', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [minuto('ana'), R('bea', 30, null, 'bea')] }),
     /R is minted by its issuer/);
 });
 
@@ -147,19 +155,19 @@ test('R se transfiere entre tenedores sin cambiar de emisor, y el tenedor puede 
   await emiteYDa(eje, 'ana', 10, { bea: 4 });
   assert.equal(eje.obligaciones('ana'), 4);
   // Se corrige la #62: bea la pasa a cris; sigue siendo R:ana (su emisor no cambia).
-  await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'te la paso', movimientos: [minuto('bea'), R('ana', 2, 'bea', 'cris')] });
+  await eje.escribir({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'te la paso', movimientos: [minuto('bea'), R('ana', 2, 'bea', 'cris')] });
   assert.deepEqual([eje.saldo('bea', claveR('ana')), eje.saldo('cris', claveR('ana')), eje.obligaciones('ana')], [2, 2, 4]);
   // Perdonar (VG, 9-11, «R, últimas dos»): cris quema la que tiene sin pedir atención; la obligación de ana se extingue.
-  await eje.escribir({ autor: 'cris', sobre: eje.genesisId, t: T0, payload: 'te la perdono', movimientos: [minuto('cris'), R('ana', 2, 'cris', null)] });
+  await eje.escribir({ autor: 'cris', sobre: eje.plaza, t: T0, payload: 'te la perdono', movimientos: [minuto('cris'), R('ana', 2, 'cris', null)] });
   assert.deepEqual([eje.saldo('cris', claveR('ana')), eje.obligaciones('ana')], [0, 2]);
   // Nadie mueve la R de otro tenedor.
-  await assert.rejects(eje.escribir({ autor: 'cris', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [minuto('cris'), R('ana', 1, 'bea', 'cris')] }), /nobody moves tokens of others/);
+  await assert.rejects(eje.escribir({ autor: 'cris', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [minuto('cris'), R('ana', 1, 'bea', 'cris')] }), /nobody moves tokens of others/);
 });
 
 test('devolver R es pedir atención; atender es un registro del emisor anclado sobre la petición, con T real (VG, 9-11)', async () => {
   const { eje } = await demo(['ana', 'bea', 'otra']);
   await emiteYDa(eje, 'ana', 10, { bea: 4 });
-  const dev = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
+  const dev = await eje.escribir({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
   assert.deepEqual(pendientes(eje, 'ana'), [dev.id]);
   assert.deepEqual(devoluciones(eje, 'ana').map((d) => [d.id, d.de, d.cantidad, d.atencion]), [[dev.id, 'bea', 1, null]]);
   // Lo que escribe otro sobre la petición no la atiende; ni lo que el emisor paga solo con T informativo (no es presente).
@@ -172,7 +180,7 @@ test('devolver R es pedir atención; atender es un registro del emisor anclado s
   // La atención es el registro que atiende (presente), no el primero del emisor sobre la petición.
   assert.equal(devoluciones(eje, 'ana')[0].atencion, at.id);
   // Las capas de validez leen las mismas reglas: emitir R sin T real falla.
-  const sinT = await crearEvento({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'bea', a: null }, R('bea', 10, null, 'bea')] });
+  const sinT = await crearEvento({ autor: 'bea', sobre: eje.plaza, t: T0, payload: 'x', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'bea', a: null }, R('bea', 10, null, 'bea')] });
   assert.match((await validez(eje, sinT)).permiso.motivos.join(' '), /minting R needs real T/);
   // Y el eje entero se restaura igual (las reglas de R se revalidan).
   const otro = await restaurar(JSON.parse(JSON.stringify(serializar(eje))));
@@ -236,6 +244,8 @@ test('propiedad: N identidades falsas que se emiten R entre sí (y la regalan) n
     await emiteYDa(eje, 'sur', g.pick([10, 100]), { bea: g.int(1, 5) });
     await cercanos(eje, 'casa', g.si(0.5) ? ['norte', 'sur'] : ['norte']);
     await cercanos(eje, 'ana', ['sur']);
+    // Revisión de seguridad (encargo 3b): anclar en el alta de la casa tiene su precio (desconocidos: su R, devuelta).
+    await emiteYDa(eje, 'casa', N, Object.fromEntries(falsas.map((f) => [f, 1])));
     const lectores = ['casa', 'ana', 'bea'];
     const antes = fotoDeValores(eje, lectores, [...reales, ...falsas]);
     // Las falsas se emiten R, se la dan entre ellas, a los lectores y a los reales; se ponen unas a otras en sus grupos
@@ -245,7 +255,7 @@ test('propiedad: N identidades falsas que se emiten R entre sí (y la regalan) n
       for (let k = 0; k < g.int(1, 4); k++) a[g.pick([...falsas.filter((x) => x !== f), ...lectores, 'norte'])] = g.int(1, 1000);
       await emiteYDa(eje, f, 1e4, a);
       await cercanos(eje, f, falsas.slice(0, 5));
-      await eje.escribir({ autor: f, sobre: eje.alta('casa').id, en: '3330000000', t: T0, payload: [f], movimientos: [minuto(f)] });
+      await eje.escribir({ autor: f, sobre: eje.alta('casa').id, en: '3330000000', t: T0, payload: [f], movimientos: [minuto(f), R('casa', 1, f, 'casa')] });
     }
     assert.equal(fotoDeValores(eje, lectores, [...reales, ...falsas]), antes, 'semilla ' + s);
     // Y lo que las falsas tienen vale 0 para la casa, aunque tengan mucha R entre todas.

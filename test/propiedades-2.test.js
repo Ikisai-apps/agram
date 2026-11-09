@@ -86,11 +86,10 @@ class Modelo {
     for (const id of eje.identidades()) for (const b of eje.bloqueos(id)) this.bloqueados.set(id + '\u0000' + b.clave + '\u0000' + b.salida, b.cantidad);
     this.emitido = new Map(); // serie de E o R → lo emitido (para la finitud)
     for (const se of eje.series()) if (se.token === 'E' || se.token === 'R') this.emitido.set(se.clave, se.emitido);
-    // Lo ya obtenido, por regla, titular y registro (del libro: es el estado de partida, no lo que se comprueba).
+    // Lo ya obtenido, por regla (y serie de origen, en su etiqueta), titular y registro (del libro: es el estado de
+    // partida, no lo que se comprueba).
     this.obtenido = new Set();
-    for (const regla of OBTENCIONES) for (const id of eje.identidades()) for (const reg of eje.orden) {
-      if (eje.libro.sumas({ primitiva: 'acunar', serie: 'P:' + reg, titular: id, clase: 'obtencion', etiqueta: regla }) > 0) this.obtenido.add(JSON.stringify([regla, id, reg]));
-    }
+    for (const a of eje.libro.asientos({ clase: 'obtencion' })) this.obtenido.add(JSON.stringify([a.etiqueta, a.a, a.serie.slice(2)]));
   }
   /** B1: ¿es persona? Quien escribió su propia alta. */
   persona(id) {
@@ -230,8 +229,9 @@ class Modelo {
     obtiene(OBTENCIONES[0], ev.autor, ev.id);
     for (const m of ev.movimientos) {
       if (m.de === null || m.a === null || m.estado !== undefined) continue;
-      if (m.token === 'E' && m.a !== m.de) obtiene(OBTENCIONES[1], m.a, this.registroE(m));
-      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2], m.a, this.alta.get(m.emisor));
+      // Revisión de seguridad (encargo 3b): una vez por receptor y serie de origen; E, solo a quien ya tiene alta.
+      if (m.token === 'E' && m.a !== m.de && this.existe.has(m.a)) obtiene(OBTENCIONES[1] + ' · ' + claveToken(m), m.a, this.registroE(m));
+      if (m.token === 'R' && m.de === m.emisor && m.a !== m.emisor) obtiene(OBTENCIONES[2] + ' · ' + claveToken(m), m.a, this.alta.get(m.emisor));
     }
     return () => {
       this.saldos = vista;
@@ -298,6 +298,10 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
     const alta = { autor: 'r', sobre: eje.genesisId, t: AYER, movimientos: [gastaT('r'), ...['b', 'c', 'hab'].map((a) => ({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: 'r', a })), { token: 'P', ambito: eje.genesisId, cantidad: 2, de: 'r', a: 'b' }, { token: 'P', ambito: eje.genesisId, cantidad: 1, de: 'r', a: 'hab' }, { token: 'R', emisor: 'r', cantidad: 2, de: 'r', a: 'c' }, { token: 'R', emisor: 'r', cantidad: 1, de: 'r', a: 'r', estado: 'bloqueo', salida: 'R:r' }, { token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 5, de: 'r', a: 'hab' }], payload: 'alta' };
     const ev0 = await eje.escribir(alta);
     ids.push(ev0.id);
+    // Revisión de seguridad (encargo 3b): escribir sobre el alta de otra persona tiene el precio de su atención; los
+    // registros al azar cuelgan de los demás (el modelo no cobra atención).
+    const altasDePersonas = new Set([eje.genesisId, eje.alta('b').id]);
+    const sobres = ids.filter((id) => !altasDePersonas.has(id));
     const mod = new Modelo(eje);
     for (let paso = 0; paso < 30; paso++) {
       const conocidos = [...mod.existe];
@@ -318,7 +322,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
         // T no cruza de persona (VG, 7-11 noche): el alta da al nuevo un euro de la serie de r.
         if (g.si(0.8)) movimientos.push({ token: 'E', emisor: 'r', denominacion: 'EUR', cantidad: 1, de: autor, a: nuevo });
       }
-      const datos = { autor, sobre: g.si(0.95) ? g.pick(ids) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
+      const datos = { autor, sobre: g.si(0.95) ? g.pick(sobres) : hex(g), t: T0, movimientos, payload: ['p', paso], contexto };
       const antes = fotoEje(eje);
       let ev = null;
       try { ev = await eje.escribir(datos); } catch (e) {
@@ -332,6 +336,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
       if (!ev) continue;
       aplicar();
       ids.push(ev.id);
+      sobres.push(ev.id);
       for (const m of ev.movimientos) {
         if (m.token === 'P' && m.de !== null && m.a !== null) vistos.mueveP++;
         if (m.token === 'P' && m.de === null) vistos.reposiciona++;
@@ -378,7 +383,8 @@ test('regresión (encargo 3b): pasarse a uno mismo R ajena no da P sobre el alta
   await entrarPorInvitacion(eje, { por: 'r', quien: 'b', t: AYER });
   const raiz = 'P:' + eje.alta('r').id;
   const antes = eje.saldo('b', raiz);
-  await eje.escribir({ autor: 'b', sobre: eje.genesisId, t: T0, movimientos: [gastaT('b'), { token: 'R', emisor: 'r', cantidad: 1, de: 'b', a: 'b' }], payload: 'yo a mí' });
+  // Bajo el alta propia de b (escribir sobre el alta de r tendría el precio de su atención: revisión de seguridad).
+  await eje.escribir({ autor: 'b', sobre: eje.alta('b').id, t: T0, movimientos: [gastaT('b'), { token: 'R', emisor: 'r', cantidad: 1, de: 'b', a: 'b' }], payload: 'yo a mí' });
   assert.equal(eje.saldo('b', raiz), antes);
 });
 
@@ -839,8 +845,10 @@ const dia = (n) => new Date(Date.parse('2026-11-12') + n * 86400000).toISOString
 // Los minutos que se pasaban ya no se dan: T no cruza de persona (VG, 7-11 noche); se ignoran.
 async function altaHuesped(eje, id, eur) {
   // B1: la persona escribe su propia alta, aceptando la invitación de la casa (encargo 3b).
-  await entrarPorInvitacion(eje, { por: BK.CASA, quien: id, t: '2026-11-08T08:00:00Z' });
-  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t: '2026-11-08T08:00:00Z', movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]] });
+  // Revisión de seguridad (encargo 3b): la aceptación no se fecha antes del último t del libro.
+  const t = new Date(Math.max(Date.parse('2026-11-08T08:00:00Z'), eje.tMaximo())).toISOString();
+  await entrarPorInvitacion(eje, { por: BK.CASA, quien: id, t });
+  return eje.escribir({ autor: BK.CASA, sobre: eje.genesisId, t, movimientos: [gastaT(BK.CASA), ...(eur ? [{ token: 'E', emisor: BK.CASA, denominacion: 'EUR', cantidad: eur, de: BK.CASA, a: id }] : []), ...(eur ? [] : [{ token: 'R', emisor: BK.CASA, cantidad: 1, de: BK.CASA, a: id }])], payload: ['Alta', [id]] });
 }
 
 /**

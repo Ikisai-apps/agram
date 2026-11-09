@@ -30,12 +30,18 @@ const R = (emisor, cantidad, de, a) => ({ token: 'R', emisor, cantidad, de, a })
 const P = (ambito, cantidad, de, a, extra = {}) => ({ token: 'P', ambito, cantidad, de, a, ...extra });
 const regla = (nombre) => [...EPOCA_0_BTML.condiciones, ...EPOCA_0_BTML.escrituras].find((r) => r[0][0] === nombre);
 
-/** g escribe el génesis y emite su R y sus vales; invita a ana (cercanos, zona 3) y a bea (sin grupo: desconocidos). */
+/**
+ * g escribe el génesis y emite su R y sus vales; invita a ana (cercanos, zona 3) y a bea (sin grupo: desconocidos), y
+ * escribe la plaza, un registro suyo sobre el génesis donde los demás escriben sin pagar atención (escribir sobre el
+ * alta de otro, el génesis incluido, es escribirle: revisión de seguridad del encargo 3b).
+ */
+let plaza;
 async function mundo() {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: T0, foco: 'raíz', emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'vale', cantidad: 100 }] });
   await entrarPorInvitacion(eje, { por: 'g', quien: 'ana', t: T0, grupo: 3 });
   await entrarPorInvitacion(eje, { por: 'g', quien: 'bea', t: T0 });
   const g = eje.genesisId;
+  plaza = (await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: ['Plaza'], movimientos: [minuto('g')] })).id;
   const X = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: ['Huerto'], movimientos: [minuto('g')] });
   const Y = await eje.escribir({ autor: 'g', sobre: X.id, t: T0, payload: ['Bancal'], movimientos: [minuto('g')] });
   return { eje, g, X, Y };
@@ -82,7 +88,7 @@ test('«getting E gives ten P on its record»: quien recibe E obtiene P sobre el
   const { eje, g } = await mundo();
   const da = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: 'ana' }] });
   assert.ok(obtenido(eje, da).some(([a, s, c]) => a === 'ana' && s === 'P:' + g && c === 10), 'el vale está atado al alta de g (el génesis)');
-  const bloquea = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'aparto', movimientos: [minuto('ana'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'ana', a: 'ana', estado: 'bloqueo', salida: 'algo' }] });
+  const bloquea = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'aparto', movimientos: [minuto('ana'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'ana', a: 'ana', estado: 'bloqueo', salida: 'algo' }] });
   assert.deepEqual(obtenido(eje, bloquea).filter(([a]) => a === 'ana' && false), []);
   assert.ok(!obtenido(eje, bloquea).some(([, s]) => s === 'P:' + g), 'bloquear E no es conseguirla');
 });
@@ -125,13 +131,13 @@ test('«P moves within a known scope»: P va sobre un registro del libro; ya no 
 
 test('«minting R needs real T»: con T real se emite R; solo con T informativo, no', async () => {
   const { eje, g } = await mundo();
-  assert.deepEqual(await motivos(eje, { autor: 'bea', sobre: g, payload: 'mi R', movimientos: [minuto('bea'), R('bea', 5, null, 'bea')] }), []);
-  assert.ok((await motivos(eje, { autor: 'bea', sobre: g, payload: 'mi R', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'bea', a: null }, R('bea', 5, null, 'bea')] })).some((m) => /minting R needs real T/.test(m)));
+  assert.deepEqual(await motivos(eje, { autor: 'bea', sobre: plaza, payload: 'mi R', movimientos: [minuto('bea'), R('bea', 5, null, 'bea')] }), []);
+  assert.ok((await motivos(eje, { autor: 'bea', sobre: plaza, payload: 'mi R', movimientos: [{ token: 'T', escala: 'inventado', cantidad: 1, de: 'bea', a: null }, R('bea', 5, null, 'bea')] })).some((m) => /minting R needs real T/.test(m)));
 });
 
 test('«minting E needs P on its record» y «minting E needs own R issued» (N3, D2): E sobre un registro donde se tiene P, con R propia emitida', async () => {
   const { eje, g, X } = await mundo();
-  const propio = await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: ['Puesto de bea'], movimientos: [minuto('bea')] });
+  const propio = await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: ['Puesto de bea'], movimientos: [minuto('bea')] });
   const vale = (registro) => ({ token: 'E', emisor: 'bea', denominacion: 'fruta', registro, cantidad: 3, de: null, a: 'bea' });
   // Sin R propia: bea solo tiene la R de g que le dio la invitación.
   assert.ok((await motivos(eje, { autor: 'bea', sobre: propio.id, payload: 'fruta', movimientos: [minuto('bea'), vale(propio.id)] })).some((m) => /minting E needs own R issued/.test(m)));
@@ -155,7 +161,8 @@ test('tomar prestados criterios (la lente de criterios): A.2.3 son las personas 
   const { eje, g } = await mundo();
   const altaAna = eje.alta('ana').id;
   await eje.escribir({ autor: 'ana', sobre: altaAna, en: '2300000000', t: T0, payload: ['g'], movimientos: [minuto('ana')] });
-  await eje.escribir({ autor: 'bea', sobre: altaAna, en: '2300000000', t: T0, payload: ['bea'], movimientos: [minuto('bea')] });
+  // bea no puede ni escribir ahí sin pagar la atención de ana (revisión de seguridad); y aunque pagara, no contaría.
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: altaAna, en: '2300000000', t: T0, payload: ['bea'], movimientos: [minuto('bea')] }), /attention has a price/);
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
   assert.deepEqual(evaluar('("ana").2.3', ctx).valor, ['g'], 'solo lo que ancla ella: lo de bea no cuenta');
   assert.ok(g);
@@ -165,16 +172,16 @@ test('tomar prestados criterios (la lente de criterios): A.2.3 son las personas 
 
 test('el peso por dominio («share», A.2.1.8): P de A en X ÷ P de A en el dominio de X, y no cambia al dividir o fundir identidades', async () => {
   const { eje, g } = await mundo();
-  const Ra = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: ['Taller de ana'], movimientos: [minuto('ana')] });
+  const Ra = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: ['Taller de ana'], movimientos: [minuto('ana')] });
   const Xa = await eje.escribir({ autor: 'ana', sobre: Ra.id, t: T0, payload: ['Mesa'], movimientos: [minuto('ana')] });
   const antes = [peso(eje, 'ana', Xa.id), peso(eje, 'ana', Ra.id)];
   assert.deepEqual(antes, [0.5, 0.5], 'diez sobre la mesa y diez sobre el taller: el dominio es el taller');
   // Dividir: ana pasa la mitad de cada P del dominio a bea (otra identidad suya, digamos). Lo escribe fuera del
   // dominio (sobre el génesis), para que el P que obtiene al escribir no caiga en él.
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'divido', movimientos: [minuto('ana'), P(Ra.id, 5, 'ana', 'bea'), P(Xa.id, 5, 'ana', 'bea')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'divido', movimientos: [minuto('ana'), P(Ra.id, 5, 'ana', 'bea'), P(Xa.id, 5, 'ana', 'bea')] });
   assert.deepEqual([peso(eje, 'ana', Xa.id), peso(eje, 'bea', Xa.id)], [antes[0], antes[0]], 'cada parte pesa lo mismo que el todo');
   // Fundir: bea se lo devuelve.
-  await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'fundo', movimientos: [minuto('bea'), P(Ra.id, 5, 'bea', 'ana'), P(Xa.id, 5, 'bea', 'ana')] });
+  await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'fundo', movimientos: [minuto('bea'), P(Ra.id, 5, 'bea', 'ana'), P(Xa.id, 5, 'bea', 'ana')] });
   assert.equal(peso(eje, 'ana', Xa.id), antes[0]);
   // La lectura, en su posición: A.2.1.8 de cada entrada.
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
@@ -211,7 +218,7 @@ test('el recuento según el PV2 del dueño (N4): por defecto solo el dueño; con
 test('cerrado y siguiente (N5): lo anunciado en el 4.1 cierra el proceso cuando cada parte mueve lo suyo; nadie mueve lo ajeno', async () => {
   const { eje, g } = await mundo();
   await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 10, de: 'g', a: 'ana' }] });
-  const trato = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: ['Trato', ['x'], ['all announced movements happened']], movimientos: [minuto('ana')] });
+  const trato = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: ['Trato', ['x'], ['all announced movements happened']], movimientos: [minuto('ana')] });
   const anuncio = [['E:g/vale'], [3], ['pagar'], [['ana'], ['g']]];
   await eje.escribir({ autor: 'ana', sobre: trato.id, en: ANUNCIO, t: T0, payload: anuncio, movimientos: [minuto('ana', 4)] });
   assert.equal(cerrado(eje, trato.id).cerrado, false);
@@ -234,10 +241,10 @@ test('cerrado y siguiente (N5): lo anunciado en el 4.1 cierra el proceso cuando 
 
 test('R según el corpus: se emite sin colateral, pasa de tenedor a tenedor sin cambiar de emisor, se perdona quemándola', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 4, 'ana', 'bea')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 4, 'ana', 'bea')] });
   assert.equal(eje.obligaciones('ana'), 4);
   // bea la pasa a g (sin devolverla a ana): sigue siendo R:ana.
-  await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 2, 'bea', 'g')] });
+  await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 2, 'bea', 'g')] });
   assert.deepEqual([eje.saldo('g', 'R:ana'), eje.obligaciones('ana')], [2, 4]);
   // g la perdona: la quema sin pedir atención; la obligación de ana baja.
   await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'te la perdono', movimientos: [minuto('g'), R('ana', 2, 'g', null)] });
@@ -246,7 +253,7 @@ test('R según el corpus: se emite sin colateral, pasa de tenedor a tenedor sin 
 
 test('R: devolverla es pedir atención; la atiende un registro del emisor sobre la petición, con T real («attended»)', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 2, 'ana', 'bea')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 2, 'ana', 'bea')] });
   const peticion = await eje.escribir({ autor: 'bea', sobre: eje.alta('ana').id, en: '3000000000', t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
   assert.deepEqual(pendientes(eje, 'ana'), [peticion.id]);
   await eje.escribir({ autor: 'ana', sobre: peticion.id, t: T0, payload: 'te atiendo', movimientos: [minuto('ana')] });
@@ -255,8 +262,8 @@ test('R: devolverla es pedir atención; la atiende un registro del emisor sobre 
 
 test('la lente de R es la condición de aceptación (§16): vale una unidad la R de quien el lector acepta como pago, y nada la de los demás', async () => {
   const { eje, g } = await mundo();
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 3, 'ana', 'bea')] });
-  await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'mi R', movimientos: [minuto('bea'), R('bea', 100, null, 'bea')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 3, 'ana', 'bea')] });
+  await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('bea'), R('bea', 100, null, 'bea')] });
   // g pone a ana con los cercanos (zona 3: cobran con su R).
   await eje.escribir({ autor: 'g', sobre: g, en: '3330000000', t: T0, payload: ['ana'], movimientos: [minuto('g')] });
   assert.deepEqual([...lenteDe(eje, 'g').pesos], [['ana', 1]]);
@@ -324,13 +331,19 @@ test('«a person joins by an invitation»: sin invitación, con la de otro, cadu
   assert.ok((await motivos(eje, { autor: 'dani', sobre: g, payload: 'yo', movimientos: [minuto('dani')] })).some((m) => rechaza.test(m)), 'sin invitación');
   const inv = await eje.invitar({ autor: 'g', invitado: 'eva', t: T0, hasta: '2026-11-09T00:00:00Z' });
   assert.ok((await motivos(eje, { autor: 'dani', sobre: inv.id, payload: 'yo', movimientos: [minuto('dani')] })).some((m) => rechaza.test(m)), 'la de otra persona');
-  assert.ok((await motivos(eje, { autor: 'eva', sobre: inv.id, t: '2026-11-10T00:00:00Z', payload: 'yo', movimientos: [minuto('eva')] })).some((m) => rechaza.test(m)), 'caducada');
   assert.deepEqual(await motivos(eje, { autor: 'eva', sobre: inv.id, payload: 'yo', movimientos: [minuto('eva')] }), [], 'a tiempo');
+  // Caducada: la caducidad se lee con el reloj de los demás (min del t de la aceptación y before.6.3), como la de E.
+  // Fechada después sin que nadie más haya escrito, el reloj de los demás aún no pasó del 7: entra.
+  assert.deepEqual(await motivos(eje, { autor: 'eva', sobre: inv.id, t: '2026-11-10T00:00:00Z', payload: 'yo', movimientos: [minuto('eva')] }), [], 'nadie ha visto pasar el plazo');
+  await eje.escribir({ autor: 'g', sobre: g, t: '2026-11-10T00:00:00Z', payload: 'pasa el día', movimientos: [minuto('g')] });
+  assert.ok((await motivos(eje, { autor: 'eva', sobre: inv.id, t: '2026-11-10T00:00:00Z', payload: 'yo', movimientos: [minuto('eva')] })).some((m) => rechaza.test(m)), 'caducada para los demás');
+  assert.ok((await motivos(eje, { autor: 'eva', sobre: inv.id, t: T0, payload: 'yo', movimientos: [minuto('eva')] })).some((m) => rechaza.test(m)), 'fechar atrás no la revive');
   // Con clave: solo la que nombra la invitación.
   const [buena, mala] = [await generarClaves(), await generarClaves()];
-  const conClave = await eje.invitar({ autor: 'g', invitado: 'fer', t: T0, clave: buena.publica });
-  await assert.rejects(eje.aceptar(conClave, mala, { t: T0 }), rechaza);
-  const alta = await eje.aceptar(conClave, buena, { t: T0 });
+  const T1 = '2026-11-10T00:00:00Z';
+  const conClave = await eje.invitar({ autor: 'g', invitado: 'fer', t: T1, clave: buena.publica });
+  await assert.rejects(eje.aceptar(conClave, mala, { t: T1 }), rechaza);
+  const alta = await eje.aceptar(conClave, buena, { t: T1 });
   assert.equal(eje.clave('fer').x, buena.publica.x);
   assert.ok(alta.firma);
 });
@@ -344,21 +357,21 @@ test('lo que guarda una invitación solo lo recoge su invitada, aceptándola: na
   await entrarPorInvitacion(eje, { por: 'g', quien: 'hugo', t: T0, da: [] });
   const otra = await eje.invitar({ autor: 'g', invitado: 'hugo2', t: T0 });
   void otra;
-  assert.ok((await motivos(eje, { autor: 'hugo', sobre: g, payload: 'x', movimientos: [minuto('hugo'), { ...recoge, a: 'hugo', salida: 'hugo' }] })).some((m) => /nobody moves tokens of others|no hay/.test(m)));
+  assert.ok((await motivos(eje, { autor: 'hugo', sobre: plaza, payload: 'x', movimientos: [minuto('hugo'), { ...recoge, a: 'hugo', salida: 'hugo' }] })).some((m) => /nobody moves tokens of others|no hay/.test(m)));
 });
 
 test('«T only goes to things» con el P nuevo: una persona da T a una cosa; de cosa a cosa, del mismo dueño o con P sobre su alta', async () => {
   const { eje, g } = await mundo();
   const T = (de, a, cantidad) => ({ token: 'T', escala: 'minuto', cantidad, de, a });
   await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: ['robot'], movimientos: [minuto('g'), T('g', 'robot', 10)] });
-  const carro = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: ['carro'], movimientos: [minuto('ana'), T('ana', 'carro', 10)] });
+  const carro = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: ['carro'], movimientos: [minuto('ana'), T('ana', 'carro', 10)] });
   const regla = /T only goes to things/;
-  assert.deepEqual(await motivos(eje, { autor: 'ana', sobre: g, payload: 't', movimientos: [minuto('ana'), T('ana', 'robot', 2)] }), [], 'una persona, a una cosa');
-  assert.ok((await motivos(eje, { autor: 'ana', sobre: g, payload: 't', movimientos: [minuto('ana'), T('ana', 'bea', 2)] })).some((m) => regla.test(m)), 'a una persona, no');
-  const robotDa = () => motivos(eje, { autor: 'robot', sobre: g, payload: 't', movimientos: [T('robot', null, 1), T('robot', 'carro', 2)] });
+  assert.deepEqual(await motivos(eje, { autor: 'ana', sobre: plaza, payload: 't', movimientos: [minuto('ana'), T('ana', 'robot', 2)] }), [], 'una persona, a una cosa');
+  assert.ok((await motivos(eje, { autor: 'ana', sobre: plaza, payload: 't', movimientos: [minuto('ana'), T('ana', 'bea', 2)] })).some((m) => regla.test(m)), 'a una persona, no');
+  const robotDa = () => motivos(eje, { autor: 'robot', sobre: plaza, payload: 't', movimientos: [T('robot', null, 1), T('robot', 'carro', 2)] });
   assert.ok((await robotDa()).some((m) => regla.test(m)), 'el robot de g, al carro de ana: sin P sobre su alta');
   // ana da al robot P sobre el alta del carro (su registro): ahora sí.
-  await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'P', movimientos: [minuto('ana'), P(carro.id, 1, 'ana', 'robot')] });
+  await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'P', movimientos: [minuto('ana'), P(carro.id, 1, 'ana', 'robot')] });
   assert.deepEqual(await robotDa(), []);
 });
 
@@ -390,22 +403,51 @@ test('aceptar una invitación solo recoge lo que esa invitación guarda para qui
 test('la obtención no se repite: un ir y venir de R no acuña P dos veces, y la R que llega de un tenedor no da P', async () => {
   const { eje, g } = await mundo();
   const altaAna = eje.alta('ana').id;
-  const R1 = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 1, 'ana', 'bea')] });
+  const R1 = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 1, 'ana', 'bea')] });
   assert.ok(obtenido(eje, R1).some(([a, s]) => a === 'bea' && s === 'P:' + altaAna), 'la primera vez, de su emisor: diez');
   const antes = eje.poderSobre('bea', altaAna);
   for (let i = 0; i < 3; i++) {
-    await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'vuelve ' + i, movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
-    const va = await eje.escribir({ autor: 'ana', sobre: g, t: T0, payload: 'va ' + i, movimientos: [minuto('ana'), R('ana', 1, 'ana', 'bea'), R('ana', 1, 'ana', 'bea')] });
+    await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'vuelve ' + i, movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
+    const va = await eje.escribir({ autor: 'ana', sobre: plaza, t: T0, payload: 'va ' + i, movimientos: [minuto('ana'), R('ana', 1, 'ana', 'bea'), R('ana', 1, 'ana', 'bea')] });
     assert.deepEqual(obtenido(eje, va).filter(([a, s]) => a === 'bea' && s === 'P:' + altaAna), [], 'ni en el ir y venir ni dos veces en una transacción');
   }
   assert.equal(eje.poderSobre('bea', altaAna), antes);
   // bea pasa R de ana a g: g la recibe de un tenedor, no de su emisor.
-  const pasa = await eje.escribir({ autor: 'bea', sobre: g, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'g')] });
+  const pasa = await eje.escribir({ autor: 'bea', sobre: plaza, t: T0, payload: 'te paso R de ana', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'g')] });
   assert.deepEqual(obtenido(eje, pasa).filter(([a]) => a === 'g'), []);
-  // E: una vez por receptor y registro.
+  // E: una vez por receptor y serie.
   const da = (n) => eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'vales ' + n, movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de: 'g', a: 'ana' }] });
   assert.equal(obtenido(eje, await da(1)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 1);
   assert.equal(obtenido(eje, await da(2)).filter(([a, s]) => a === 'ana' && s === 'P:' + g).length, 0);
+});
+
+test('conseguir E da P una vez por receptor y serie, venga de quien venga: la misma E por tres manos da P una vez a cada una', async () => {
+  const { eje, g } = await mundo();
+  await entrarPorInvitacion(eje, { por: 'g', quien: 'carla', t: T0 });
+  const vale = (de, a) => ({ token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 1, de, a });
+  const pasa = async (de, a, n) => obtenido(eje, await eje.escribir({ autor: de, sobre: de === 'g' ? g : plaza, t: T0, payload: 'pasa ' + n, movimientos: [minuto(de), vale(de, a)] })).filter(([x, k]) => x === a && k === 'P:' + g).length;
+  // g → ana → bea → carla: cada mano obtiene P sobre el registro de la serie (el génesis) al conseguirla, también de un
+  // revendedor («compro un recurso y eso me da P sobre él»).
+  assert.deepEqual([await pasa('g', 'ana', 1), await pasa('ana', 'bea', 2), await pasa('bea', 'carla', 3)], [1, 1, 1]);
+  // La segunda vez a la misma mano, no: ni de su emisor ni de otro.
+  assert.deepEqual([await pasa('carla', 'ana', 4), await pasa('g', 'bea', 5)], [0, 0]);
+  // Ni a uno mismo ni a quien aún no tiene alta.
+  const aMi = await eje.escribir({ autor: 'g', sobre: g, t: T0, payload: 'a mí', movimientos: [minuto('g'), { token: 'E', emisor: 'g', denominacion: 'vale', cantidad: 5, de: 'g', a: 'nadie-aun' }] });
+  assert.deepEqual(obtenido(eje, aMi).filter(([x]) => x === 'nadie-aun'), []);
+});
+
+test('«attention has a price» en todo el alta ajena: anclar en 3100000000, en 3200000000 o sin dirección también paga; su dueño no', async () => {
+  const { eje, g } = await mundo();
+  const precio = /attention has a price/;
+  for (const en of ['3100000000', '3200000000', undefined]) {
+    const ev = { autor: 'bea', sobre: g, ...(en ? { en } : {}), payload: 'hola', movimientos: [minuto('bea')] };
+    assert.ok((await motivos(eje, ev)).some((m) => precio.test(m)), 'sin pago, en ' + (en ?? 'el alta'));
+    assert.deepEqual(await motivos(eje, { ...ev, movimientos: [minuto('bea'), R('g', 1, 'bea', 'g')] }), [], 'pagando, en ' + (en ?? 'el alta'));
+  }
+  // El dueño escribe en su propia alta, en su 3 o fuera, sin pagarse.
+  for (const en of ['3000000000', '3530000000', undefined]) assert.deepEqual(await motivos(eje, { autor: 'g', sobre: g, ...(en ? { en } : {}), payload: 'mi configuración', movimientos: [minuto('g')] }), []);
+  // Sobre un registro de g que no es su alta (la plaza), escribir no paga.
+  assert.deepEqual(await motivos(eje, { autor: 'bea', sobre: plaza, payload: 'hola', movimientos: [minuto('bea')] }), []);
 });
 
 test('una cosa reposiciona su P como cualquiera: reponer no es emitir («only persons mint» no la frena)', async () => {

@@ -138,11 +138,11 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const gasta = (de, minutos = 1) => ({ token: 'T', escala: 'minuto', cantidad: minutos, de, a: null });
   const paga = (de, eur) => ({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: eur, de, a: 'cocina' });
   // La casa invita a la otra persona huésped, que acepta (su alta), y después le da euros.
-  await entrarPorInvitacion(eje, { por: 'casa', quien: 'huesped2', t: '2026-11-07T12:00:00Z', privadaDe: priv });
+  await entrarPorInvitacion(eje, { por: 'casa', quien: 'huesped2', t: '2026-11-07T14:20:00Z', privadaDe: priv });
   const alta2 = await eje.escribir({
     autor: 'casa',
     sobre: eje.genesisId,
-    t: '2026-11-07T12:00:00Z',
+    t: '2026-11-07T14:20:00Z',
     movimientos: [
       gasta('casa'),
       { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 30, de: 'casa', a: 'huesped2' },
@@ -155,7 +155,7 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   const rapida = await eje.escribir({
     autor: 'huesped2',
     sobre: menu.id,
-    t: '2026-11-07T13:35:00Z',
+    t: '2026-11-07T14:35:00Z',
     movimientos: [gasta('huesped2'), paga('huesped2', 12)],
     payload: ['Compra rápida', recursos],
   }, priv('huesped2'));
@@ -173,13 +173,13 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   let minuto = 40;
   for (const payload of payloads) {
     const autor = vecinas.length % 2 ? 'huesped2' : 'huesped';
-    vecinas.push(await eje.escribir({ autor, sobre: menu.id, t: '2026-11-07T13:' + minuto++ + ':00Z', movimientos: [gasta(autor)], payload }, priv(autor)));
+    vecinas.push(await eje.escribir({ autor, sobre: menu.id, t: '2026-11-07T14:' + minuto++ + ':00Z', movimientos: [gasta(autor)], payload }, priv(autor)));
   }
   const criterioCocina = await eje.escribir({
     autor: 'cocina',
     sobre: vecinas[5].id,
     en: '2000000000',
-    t: '2026-11-07T13:50:00Z',
+    t: '2026-11-07T14:50:00Z',
     movimientos: [gasta('cocina')],
     payload: ['Criterio de cocina', 'sin picante'],
   }, priv('cocina'));

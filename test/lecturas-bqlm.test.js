@@ -36,8 +36,9 @@ const uno = (expr, ctx) => {
 async function conR() {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: T0, foco: 'raíz', emision: [{ token: 'R', cantidad: 10 }, { token: 'E', denominacion: 'minuto', cantidad: 1e6 }] });
   for (const id of ['ana', 'bea', 'otra']) await entrarPorInvitacion(eje, { por: 'g', quien: id, t: T0, da: [] });
-  await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 4, 'ana', 'bea'), R('ana', 2, 'ana', 'otra')] });
-  const dev = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
+  await eje.escribir({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload: 'mi R', movimientos: [minuto('ana'), R('ana', 10, null, 'ana'), R('ana', 4, 'ana', 'bea'), R('ana', 2, 'ana', 'otra')] });
+  // La petición, en el 3 del alta de ana: devolverle su R es el precio de su atención (revisión de seguridad, encargo 3b).
+  const dev = await eje.escribir({ autor: 'bea', sobre: eje.alta('ana').id, en: '3000000000', t: T0, payload: 'ana, te pido atención', movimientos: [minuto('bea'), R('ana', 1, 'bea', 'ana')] });
   return { eje, dev };
 }
 
@@ -87,7 +88,7 @@ test('«present» (X.6.1) e «informative» (X.6.7) dan lo mismo que evento.esPr
 test('«present» e «informative» con T pasado: válido, gratis en T real y no presente', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'g', t: T0, foco: 'raíz' });
   await entrarPorInvitacion(eje, { por: 'g', quien: 'ana', t: T0 });
-  const recuerdo = await eje.escribir({ autor: 'ana', sobre: eje.genesisId, t: T0, payload: 'lo que hice hace un año', movimientos: [{ token: 'T', escala: 'pasado', cantidad: 1, de: 'ana', a: null, refiere: '2025-11-08T10:00:00Z' }] });
+  const recuerdo = await eje.escribir({ autor: 'ana', sobre: eje.alta('ana').id, t: T0, payload: 'lo que hice hace un año', movimientos: [{ token: 'T', escala: 'pasado', cantidad: 1, de: 'ana', a: null, refiere: '2025-11-08T10:00:00Z' }] });
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
   assert.equal(esPresente(recuerdo), false);
   assert.deepEqual([uno('first ("' + recuerdo.id + '").6.1', ctx), uno('first ("' + recuerdo.id + '").6.7', ctx)], [false, true]);

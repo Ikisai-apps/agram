@@ -51,7 +51,9 @@ const ejeGrande = async (minutos = 0) => {
  * Una ficha cuyo precio [1][2] desarrolla las clases 0–3. VG, 7-11 noche: por hojas: el precio es una
  * décupla porque cada posición va entre corchetes (['EUR 12']); con solo hojas sería una lista de cuatro ocupantes.
  */
-const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.genesisId, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] });
+// Revisión de seguridad (encargo 3b): sobre el génesis (el alta de casa) tendría el precio de su atención; la ficha
+// cuelga del alta de la huésped.
+const escribirFicha = (eje) => eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, t: T, movimientos: [gastaT('huesped')], payload: ['Ficha', ['menú', 1, [['EUR 12'], ['de huesped'], ['precio fijo'], ['aviso a cocina']]]] });
 
 test('clases de modificación: VG nombró 0–4; las 5–9 están sin decidir; la clase es el dígito n+2 bajo el camino', () => {
   assert.equal(CLASES.length, 10);
@@ -172,10 +174,11 @@ test('la raíz de un foco terminal hereda su posición 0, como en main ([X] deci
   assert.deepEqual(s.heredadas, [0]);
   assert.deepEqual(s.anclados, []);
   assert.equal(resolver(eje.obtener(g).payload, s.payload[0].dir), 'Casa de ejemplo');
-  // Así escribe app.js (escribirDesde con el payload de desdeMapped): ya no falla.
-  const app = await escribirDesde(eje, { modo: 'mapped', autor: 'huesped', sobre: g, payload: s.payload, t: T });
+  // Así escribe app.js (escribirDesde con el payload de desdeMapped): ya no falla. Escribe casa, la dueña del génesis:
+  // sobre el alta de otra identidad se paga su atención (revisión de seguridad, encargo 3b).
+  const app = await escribirDesde(eje, { modo: 'mapped', autor: 'casa', sobre: g, payload: s.payload, t: T });
   assert.deepEqual(app.payload, [ref(g, '0000000000'), 'algo']);
-  const { registro } = await escribirSalida(eje, { autor: 'huesped', sobre: g, salida: s, t: T });
+  const { registro } = await escribirSalida(eje, { autor: 'casa', sobre: g, salida: s, t: T });
   assert.deepEqual(registro.contexto.heredadas, [0]);
   // Lo mismo con un camino que lleva a un terminal: la cantidad de una ficha, bajo [1, 1] (en la compra canónica,
   // 1.2 es la lista de un ocupante y no un terminal).

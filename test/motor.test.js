@@ -174,8 +174,9 @@ test('capacidad: una posición declara cuántos ocupantes pueden ser válidos a 
   // Con capacidad, el tramo es obligatorio para contar.
   const sinTramo = await ocupar('carla');
   assert.throws(() => ocupacion(eje, sinTramo.id), /sin tramo en el 7/);
-  // Cuenta también lo que referencia la posición desde otro anclaje (aquí, sobre el génesis).
-  const fuera = await ocupar('carla', { sobre: eje.genesisId, en: '0000000000', payload: ['fuera', { ref: elemento.id, dir: '1000000000' }], tramo: [['2026-12-10'], ['2026-12-12']] });
+  // Cuenta también lo que referencia la posición desde otro anclaje (aquí, sobre el alta de carla: sobre el génesis,
+  // el alta de g, tendría el precio de su atención; revisión de seguridad, encargo 3b).
+  const fuera = await ocupar('carla', { sobre: eje.alta('carla').id, en: '0000000000', payload: ['fuera', { ref: elemento.id, dir: '1000000000' }], tramo: [['2026-12-10'], ['2026-12-12']] });
   assert.equal(await validar(fuera), true);
   assert.ok(registrosEn(eje, elemento.id, '1000000000').some((r) => r.id === fuera.id));
   const tercero = await ocupar('beto', { tramo: [['2026-12-11'], ['2026-12-13']] });

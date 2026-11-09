@@ -685,7 +685,7 @@ export class Eje {
       return [];
     }
     const pasos = [];
-    const ya = new Set(); // la obtención no se repite: una vez por regla, titular y registro (revisión de seguridad)
+    const ya = new Set(); // la obtención no se repite: una vez por regla, titular, registro y serie de origen (revisión de seguridad)
     for (const regla of reglas) {
       let r;
       try {
@@ -697,11 +697,13 @@ export class Eje {
       for (const w of r.escrituras) {
         if (w.camino.length !== 2 || w.camino[0] !== 2 || w.camino[1] !== 1) continue; // solo A.2.1: el P posicionado
         if (typeof w.sujeto !== 'string' || !w.sujeto || typeof w.clave !== 'string' || !w.clave || !(w.valor > 0) || !Number.isFinite(w.valor)) continue;
-        const etiqueta = nombreDeRegla(regla);
+        // Una vez por regla, titular, registro y serie de origen (la del movimiento que la da, si viene de uno).
+        const deSerie = w.origen?.k === 'mov' && w.origen.m ? claveToken(w.origen.m) : null;
+        const etiqueta = nombreDeRegla(regla) + (deSerie ? ' · ' + deSerie : '');
         const vez = JSON.stringify([etiqueta, w.sujeto, w.clave]);
         if (ya.has(vez) || this.libro.sumas({ primitiva: 'acunar', serie: 'P:' + w.clave, titular: w.sujeto, clase: OBTENCION, etiqueta }) > 0) continue;
         ya.add(vez);
-        pasos.push([acunar('P:' + w.clave, w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: etiqueta })]);
+        pasos.push([acunar('P:' + w.clave, w.sujeto, w.valor, { clase: OBTENCION, etiqueta, regla: nombreDeRegla(regla) })]);
       }
     }
     return pasos;

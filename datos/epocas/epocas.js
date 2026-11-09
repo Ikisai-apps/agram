@@ -390,19 +390,19 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"
     },
     {
-      "ref": "35e030e23703e56ef4494426c53200aea884f54ea4cde44ba7f457744b4dc84c"
+      "ref": "2141d171a19a49ef58f9abfb160a88a1858ae18fe1d273c4183e13e57ab3689f"
     },
     {
-      "ref": "78479f5f138ca0511452e4927c5af25df712c1373c5c40b60f62ed34d56c6cfe"
+      "ref": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"
     },
     {
       "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
     },
     {
-      "ref": "80bc82326ab897fe535829ee2156a8f4ab5a1f3ee94002865571257275dd12a6"
+      "ref": "5f68c6e73918b489b97b4b9cb371162e6ce6d1e8b8a34be5da7e717d2747ea54"
     },
     {
-      "ref": "47d42f5c583eb5a395faaeffb4fc83202803b9b0047bddfd11339cbb33d2aafd"
+      "ref": "90bc1479eee1ab3a0c2d455bab70d7cbeaa2a2c2d4d2fea520d7628937f55bc2"
     },
     {
       "ref": "eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"
@@ -2876,7 +2876,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "a-person-joins-by-an-invitation.json",
-    "id": "78479f5f138ca0511452e4927c5af25df712c1373c5c40b60f62ed34d56c6cfe",
+    "id": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32",
     "registro": [
       [
         "a person joins by an invitation"
@@ -2887,7 +2887,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "ev.5"
       ],
       [
-        "=count (first ev.3).6 > 0 or (\"invitation\" in (first (first ev.6).5).0 and first ev.3 in (first (first ev.6).5).3.1 and count (first (first (first ev.6).5).3).6 > 0 and (count ((first (first ev.6).5).7 where count it.0 > 0) = 0 or (first ev.6).0.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0)) and (count (first (first ev.6).5).3.5 = 0 or count (ev.5 where count it.2 > 0 and it.3 = first ev.3 and it.2 in (first (first ev.6).5).3.5) > 0))"
+        "=count (first ev.3).6 > 0 or (\"invitation\" in (first (first ev.6).5).0 and first ev.3 in (first (first ev.6).5).3.1 and count (first (first (first ev.6).5).3).6 > 0 and (count before.6.0 = 0 or (first ev.6).0.0 >= first before.6.0.0) and (count ((first (first ev.6).5).7 where count it.0 > 0) = 0 or (first ev.6).0.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0) or (count before.6.3 > 0 and first before.6.3.0 <= last (((first (first ev.6).5).7 where count it.0 > 0) each 0))) and (count (first (first ev.6).5).3.5 = 0 or count (ev.5 where count it.2 > 0 and it.3 = first ev.3 and it.2 in (first (first ev.6).5).3.5) > 0))"
       ],
       [
         "ev.3"
@@ -2905,7 +2905,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "VG, 9-11 (mapa §16 [D] «El árbol mínimo es la invitación»): «4 aceptar = tu primera transacción firmada = tu alta»; «el génesis de cada persona = su aceptación anclada sobre la invitación»",
         "Diseño Core aceptado: la invitación es una décupla: 0 «invitación», 1 lo que te doy, 2 la época, 3 yo, tú (tu clave) y el grupo común, 4 aceptar, 5 el dominio, 6 mi hilo, 7 hasta cuándo vale, 8 el grupo de mi atención que te asigno, 9 el tema y el tutorial; mínima = 2 y 3",
-        "Quien aún no tiene alta y escribe (una persona: escribe la suya) lo hace sobre una invitación de una identidad con alta que la nombra en su 3.1, dentro de su 7 y, si nombra una clave en su 3.5, con esa clave. El alta sin invitación es solo la de la primera identidad del eje: el génesis (src/eje.js, Eje.genesis)"
+        "Quien aún no tiene alta y escribe (una persona: escribe la suya) lo hace sobre una invitación de una identidad con alta que la nombra en su 3.1, dentro de su 7 y, si nombra una clave en su 3.5, con esa clave. El alta sin invitación es solo la de la primera identidad del eje: el génesis (src/eje.js, Eje.genesis)",
+        "Revisión de seguridad (encargo 3b): el 7 se compara con el mismo reloj que la caducidad de E, min(t de la aceptación, el reloj de los demás: before.6.3), y la aceptación no se fecha antes del último t del libro (before.6.0); así no se acepta una invitación caducada fechando atrás"
       ],
       [
         "epoch 0"
@@ -3003,13 +3004,12 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attention-has-a-price.json",
-    "id": "35e030e23703e56ef4494426c53200aea884f54ea4cde44ba7f457744b4dc84c",
+    "id": "2141d171a19a49ef58f9abfb160a88a1858ae18fe1d273c4183e13e57ab3689f",
     "registro": [
       [
         "attention has a price"
       ],
       [
-        "\"3000000000\"",
         "A.3",
         "\"nothing\"",
         "\"their R\"",
@@ -3018,7 +3018,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "\"P\""
       ],
       [
-        "=not (count (first ev.6).5 > 1 and last (first ev.6).5 = \"3000000000\" and first ev.3 != first (first (first ev.6).5).3 and count (first (first (first ev.6).5).3).6 > 0 and first (first (first (first ev.6).5).3).6 = first (first ev.6).5) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) > 0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and not (count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0) and last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.1)"
+        "=not (first ev.3 != first (first (first ev.6).5).3 and count (first (first (first ev.6).5).3).6 > 0 and first (first (first (first ev.6).5).3).6 = first (first ev.6).5) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) > 0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it3.3) each 1))).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (((first (first (first ev.6).5).3).3 where first ev.3 in it2.3) each 1))).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0 and last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = last (first up first (first ev.3).6).8)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = last (first up first (first ev.3).6).8)).2.1) or (count ((first (first (first ev.6).5).3).3 where first ev.3 in it.3) = 0 and not (count (first ev.3).6 > 0 and count up first (first ev.3).6 > 0 and first (first up first (first ev.3).6).3 = first (first (first ev.6).5).3 and \"invitation\" in (first up first (first ev.3).6).0) and last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.0 != \"nothing\" and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first (first ev.6).5).3 and ((last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first (first ev.6).5).3) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"E\" and E in it.0.0.0) or (last (last ((first (first (first ev.6).5).3).3 where it2.1 = 0)).2.0 = \"P\" and P in it.0.0.0))) each 1) >= last (last ((first (first (first ev.6).5).3).3 where it.1 = 0)).2.1)"
       ],
       [
         "ev.3"
@@ -3033,7 +3033,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 9-11 (mapa §16 [D] «PV3 = regla de atención»): «cada persona clasifica al mundo respecto a sí misma por el precio de su atención»; los mensajes son registros anclados en mi 3 con el pago en su 1; «una regla larga del 3 del dominio receptor lo exige (si no hay pago no entra; el veto rechaza)»",
         "La lente de R y las condiciones de aceptación son la misma cosa: aceptar tu R como pago es darte peso (src/lente.js)",
         "El grupo de quien escribe: el último que lo nombra en su 3 (A.3.k.3); si no lo nombra ninguno, el que le asignó la invitación que aceptó (su 8); si no, desconocidos (zona 0, epoch.9.0.2). El precio: el último del 2 del grupo (A.3.k.2: [[en qué], [cuánto]]): «their R» su R, «my R» mi R devuelta, «E», «P», «nothing» el veto",
-        "Cuelga del 3 del alta del receptor (su 5 dirá la ruta cuando las reglas se cuelguen de rutas; hoy se guarda sola: solo mira lo anclado en el 3 de un alta ajena)"
+        "Revisión de seguridad (encargo 3b): se aplica a todo registro anclado sobre el alta de otra identidad, en cualquier dirección (su 3 entero, 3100000000, 3.2… y fuera del 3); la única exención es la autoría: el dueño escribe en su propia alta sin pagarse"
       ],
       [
         "epoch 0"
@@ -3209,7 +3209,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "getting-e-gives-ten-p-on-its-record.json",
-    "id": "80bc82326ab897fe535829ee2156a8f4ab5a1f3ee94002865571257275dd12a6",
+    "id": "5f68c6e73918b489b97b4b9cb371162e6ce6d1e8b8a34be5da7e717d2747ea54",
     "registro": [
       [
         "getting E gives ten P on its record"
@@ -3218,7 +3218,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.1.4.1"
       ],
       [
-        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
+        "=count (ev.1 where E in it.0.0.0 and transfer in it.4 and it.3.1 != it.3.0 and count (first it.3.1).6 > 0 and count it.5 > 0 and put first epoch.1.1.4.1 at (first it.3.1).2.1.(first it.5)) >= 0"
       ],
       [
         "ev.1 each 3.1"
@@ -3236,7 +3236,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "Cada transferencia de E que llega a otro da P en el registro al que está atada la serie (su 5; sin registro nombrado, el alta de su emisor)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y registro: el libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js)"
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): una sola vez por receptor y serie, venga de quien venga («compro un recurso y eso me da P sobre él»: comprarlo a un revendedor también es conseguirlo), ni a uno mismo ni a quien aún no tiene alta: el libro no repite una obtención de la misma regla para el mismo titular, registro y serie de origen (src/eje.js); así la misma E pasando de mano en mano da P una vez a cada mano"
       ],
       [
         "epoch 0"
@@ -3958,7 +3958,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
-    "id": "47d42f5c583eb5a395faaeffb4fc83202803b9b0047bddfd11339cbb33d2aafd",
+    "id": "90bc1479eee1ab3a0c2d455bab70d7cbeaa2a2c2d4d2fea520d7628937f55bc2",
     "registro": [
       [
         "receiving R gives ten P on the root of its issuer"
@@ -3985,7 +3985,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 8-11 tarde (mapa §15 [D] N3): dos secuencias; la obtención («cuando uso R consigo P; y lo mismo con P y E») es la acuñación automática de diez unidades posicionadas en el registro donde se usó (propuesta Core aceptada en la conversación)",
         "Encargo 3b: regla que escribe («put» en su 4): no es una condición; lo que coloca en A.2.1.(r) (el P posicionado) lo acuña el libro en la misma transacción, con la clase «obtencion» (src/eje.js)",
         "La raíz del dominio de una identidad es su alta (A.6); devolver R a su emisor no le da P (no es recibir R de otro)",
-        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular y registro (src/eje.js); así un ir y venir de R entre dos identidades no acuña P sin fin"
+        "Revisión de seguridad (encargo 3b; [X] confirmar VG): solo la R que llega directamente de su emisor (la que pasa de tenedor a tenedor no da P), y una sola vez por receptor y emisor: el libro no repite una obtención de la misma regla para el mismo titular, registro y serie de origen (src/eje.js); la R no se compra, se cede; así un ir y venir de R entre dos identidades no acuña P sin fin"
       ],
       [
         "epoch 0"
@@ -4367,7 +4367,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "e98009d0c57f0b1b565c082cfedeff206dbd3e3aebbc041e3aff6844bd2b16a1";
+export const EPOCA_0_BTML_ID = "a2e5ba46a1071745e8e1490a8d333b31baa4c2801ec9444d935a86eab88ae3ce";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

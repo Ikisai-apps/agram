@@ -49,8 +49,9 @@ test('una persona nace con clave si la declara en su propia alta (B1), al acepta
   await entrarPorInvitacion(eje, { por: 'raiz', quien: 'bea', t: T0, clave: bea, privadaDe: () => raiz.privada });
   await eje.escribir({ autor: 'raiz', sobre: eje.genesisId, t: T0, movimientos: [gastaT('raiz'), { token: 'E', emisor: 'raiz', denominacion: 'minuto', cantidad: 2, de: 'raiz', a: 'bea' }], payload: 'minutos para bea' }, raiz.privada);
   assert.deepEqual(eje.clave('bea'), bea.publica);
-  await assert.rejects(eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }), /who has a key signs: bea has a key/);
-  const ok = await eje.escribir({ autor: 'bea', sobre: eje.genesisId, t: T0, movimientos: [gastaT('bea')], payload: 'x' }, bea.privada);
+  // Sobre su propia alta (sobre la de raiz, el génesis, pagaría el precio de su atención: revisión de seguridad, encargo 3b).
+  await assert.rejects(eje.escribir({ autor: 'bea', sobre: eje.alta('bea').id, t: T0, movimientos: [gastaT('bea')], payload: 'x' }), /who has a key signs: bea has a key/);
+  const ok = await eje.escribir({ autor: 'bea', sobre: eje.alta('bea').id, t: T0, movimientos: [gastaT('bea')], payload: 'x' }, bea.privada);
   assert.equal(ok.autor, 'bea');
   // No se puede cambiar una clave ya registrada, ni declarar una clave sin dar tokens.
   const otra = await generarClaves();
