@@ -89,7 +89,8 @@ test('1: las cuatro familias con su estructura; T, diez escalas como dígitos co
       assert.equal(uno('epoch.1.3.1.' + k + '.2'), PARTES_T[e] ?? 1, e + ': en partes de');
     }
   });
-  assert.equal(uno('epoch.1.3.1.(("T:hora").1).1'), 24, 'la escala de una serie de T indexa su asignación');
+  const conHora = new ContextoEje(null, { epoch: EPOCA_0_BTML, ev: { autor: 'a', sobre: null, t: '2026-11-09T10:00:00Z', movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'a', a: null }], payload: ['x'] } });
+  assert.equal(evaluar('epoch.1.3.1.((first ev.1).0.0.1).1', conHora).valor[0], 24, 'la escala de la serie de un movimiento de T indexa su asignación');
 });
 
 test('2: la lista de referencias a los registros de las reglas, en el orden de su 8; la primera, «writing burns today\'s T»', () => {

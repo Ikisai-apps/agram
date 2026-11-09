@@ -197,8 +197,8 @@ test('las vistas nuevas del contexto: A.6 el alta de una identidad, S.8 lo emiti
   const alta = antes.alta('huesped');
   assert.deepEqual(leer('(first (first ev.3).6).5'), [alta.id]);
   assert.deepEqual(leer('(first (first ev.3).6).6.0'), [alta.t]);
-  assert.deepEqual(leer('((ev.1 where E in it.0.0) each 0).8'), [antes.serie('E:casa/EUR').emitido]);
-  assert.deepEqual(leer('(("E:casa/EUR")).8'), [], 'una clave escrita en el payload no es una serie del libro: sin 8');
+  assert.deepEqual(leer('((ev.1 where E in it.0.0.0) each 0).1.0'), [antes.serie('E:casa/EUR').emitido]);
+  assert.deepEqual(leer('(("E:casa/EUR")).1.0'), [], 'una clave escrita como texto no es la serie: la serie es un registro (B3)');
   assert.deepEqual(leer('("nadie-con-alta").6'), []);
 });
 
@@ -470,11 +470,13 @@ divergencia('D-META-1', "writing burns today's T", '[X] VG: ev.1 trae los movimi
   enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', { ref: AUSENTE }] }, true));
 divergencia('D-META-3', 'the author has an account', '[X] VG: lo mismo en ev.3 (el 3 del payload colisiona con el autor y el firmante)',
   enLaCompra({ movimientos: [minuto('huesped')], payload: ['x', '-', '-', { ref: AUSENTE }] }, true));
-divergencia('D-MOV-7', 'informative T is only burned', 'falta una posición: D-MOV pone «caduca ?? refiere» en el 7; con las dos, la fecha a la que se refiere no se ve ([X] VG: separarlas en D-MOV)',
-  async () => {
-    const { eje, menu } = await ejemploCompra();
-    return { eje, ev: await aMano({ autor: 'casa', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['vale'], movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa', caduca: '2026-12-01T00:00:00Z', refiere: '2025-01-01T00:00:00Z' }] }), aceptaElEje: false };
-  });
+test('D-MOV-7, resuelta (B3: en el movimiento, 7.0 caduca y 7.1 refiere): una E con caducidad y fecha a la que se refiere, la regla la ve como JS', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const ev = await aMano({ autor: 'casa', sobre: menu.id, t: '2026-11-07T16:00:00Z', payload: ['vale'], movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 1, de: null, a: 'casa', caduca: '2026-12-01T00:00:00Z', refiere: '2025-01-01T00:00:00Z' }] });
+  const { bq, js } = comparar(eje, ev, false);
+  assert.ok(js['informative T is only burned'].length > 0, 'JS la rechaza');
+  assert.equal(bq['informative T is only burned'].pasa, false, 'y la regla también');
+});
 divergencia('R10-T', "writing burns today's T", '[X] VG, la asignación de una cosa (BQLM §8): la regla no lee el tipo y le cuenta a una cosa la asignación de la época; lo para el saldo',
   enLaCompra({ autor: 'cocina', movimientos: [{ token: 'T', escala: 'hora', cantidad: 43, de: 'cocina', a: null }] }, false));
 divergencia('RELOJ-MS', 'not before its focus', 'falta una posición: D-FECHA da segundos enteros; dentro del mismo segundo, unos milisegundos antes del foco pasan ([X] VG: un despliegue con el milisegundo o un reloj en segundos)',

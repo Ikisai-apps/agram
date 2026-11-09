@@ -35,7 +35,7 @@
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
 
 import { ARIDAD, esReferencia, esLista, direccion, indicesDe, resolver } from './btml.js';
-import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil } from './tokens.js';
+import { ESCALAS_T, ESCALAS_REALES, SEGUNDOS, claveToken, partirClave, franjaDe, diaCivil, validarMovimiento } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
 import { pendiente, Presupuesto, SIMBOLOS, NADIE } from './bqlm.js';
 
@@ -172,9 +172,19 @@ export class ContextoEje {
     if (nodo === null || typeof nodo !== 'object') return [];
     switch (nodo.k) {
       case 'serie':
-        // Vista del libro (familia ciclo, encargo 2): el 8 de una serie del libro es lo emitido hasta antes de ev.
-        if (d === 8) return this.#eje ? [this.#eje.serie(nodo.clave).emitido] : [];
-        return desplegarSerie(nodo.clave, (k) => this.#eje?.registroDe(k) ?? null, { delLibro: true })?.[d] ?? [];
+        return this.#serie(nodo.clave, d);
+      case 'clave':
+        // El 0 de una serie: su clave legible, por partes (0 familia, 1 escala, emisor o ámbito, 2 denominación).
+        return desplegarSerie(nodo.clave, () => null, { delLibro: true })?.[d] ?? [];
+      case 'cuanto':
+        // El 1 de una serie: 0 lo emitido y 1 lo consumido, hasta antes de ev.
+        return d === 0 ? [nodo.emitido] : d === 1 ? [nodo.consumido] : [];
+      case 'contrato':
+        // El 2 de una serie de E: 0 «divisible» si lo es, 7 su caducidad si la tiene.
+        return d === 0 && nodo.divisible ? ['divisible'] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
+      case 'fechas':
+        // El 7 de un movimiento: 0 la caducidad (de una emisión de E), 1 la fecha a la que se refiere (T informativo).
+        return d === 0 && nodo.m.caduca !== undefined ? [nodo.m.caduca] : d === 1 && nodo.m.refiere !== undefined ? [nodo.m.refiere] : [];
       case 'ev':
         return [...this.#meta(this.#ev, d), ...this.#propio(this.#ev.payload, d, null, [])];
       case 'reg': {
@@ -221,7 +231,7 @@ export class ContextoEje {
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
   valor(nodo) {
     if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
-    if (nodo?.k === 'serie') return nodo.clave;
+    if (nodo?.k === 'serie' || nodo?.k === 'clave' || nodo?.k === 'salida') return nodo.clave;
     if (nodo?.k === 'ev') return this.#ev.id;
     return undefined;
   }
@@ -237,6 +247,8 @@ export class ContextoEje {
       case 'dec': return JSON.stringify(nodo.v);
       case 'mov': return primitivaDe(nodo.m) + ' ' + nodo.m.cantidad + ' ' + claveToken(nodo.m) + ' (' + (nodo.m.de ?? 'nadie') + ' → ' + (nodo.m.a ?? 'nadie') + ')';
       case 'serie': return nodo.clave;
+      case 'clave': return nodo.clave;
+      case 'salida': return String(nodo.clave);
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
       case 'bloqueo': return nodo.salida;
@@ -351,10 +363,76 @@ export class ContextoEje {
 
   // ---------- textos: despliegues, registros e identidades ----------
 
-  /** El dígito d de un texto: su despliegue (fecha, serie), el registro que nombra, la identidad que es o su valor. */
+  // ---------- la serie como registro (VG, 10-11, B3) ----------
+
+  /**
+   * ¿Es `clave` una serie que existe: del libro de antes, o que la candidata
+   * acuña? Entonces es un registro (#serie). Se recuerda por contexto.
+   */
+  #esSerie(clave) {
+    if (!this.#seriesConocidas) this.#seriesConocidas = new Map();
+    if (this.#seriesConocidas.has(clave)) return this.#seriesConocidas.get(clave);
+    let r = null;
+    if (desplegarSerie(clave)) {
+      const delLibro = this.#eje && this.#eje.serie(clave).emisor !== null;
+      const acunada = (Array.isArray(this.#ev?.movimientos) ? this.#ev.movimientos : [])
+        .find((m) => m && typeof m === 'object' && m.de === null && !validarMovimiento(m).length && claveToken(m) === clave);
+      if (delLibro || acunada) r = { delLibro, acunada };
+    }
+    this.#seriesConocidas.set(clave, r);
+    return r;
+  }
+
+  #seriesConocidas = null;
+
+  /**
+   * El dígito d de una serie como registro (B3): 0 su clave legible (vale la
+   * clave; 0.0 familia, 0.1 escala de T como dígito, emisor o ámbito, 0.2
+   * denominación), 1 lo emitido (1.0) y lo consumido (1.1) hasta antes de ev, 2
+   * su contrato de E (2.0 «divisible», 2.7 caducidad), 3 sus emisores, 5 el
+   * registro al que está atada (E), 7 su franja (E). Lo materializa el libro
+   * como vista; una serie que nace en la candidata, su primera emisión.
+   */
+  #serie(clave, d) {
+    if (d === 0) return [{ k: 'clave', clave }];
+    const p = desplegarSerie(clave);
+    if (!p) return [];
+    const conocida = this.#esSerie(clave);
+    const libro = conocida?.delLibro ? this.#eje.serie(clave) : null;
+    const m = conocida?.acunada;
+    const familia = clave[0];
+    if (d === 1) {
+      const consumido = libro ? this.#eje.libro.sumas({ primitiva: 'quemar', serie: clave }) : 0;
+      return [{ k: 'cuanto', emitido: libro ? libro.emitido : 0, consumido }];
+    }
+    if (familia !== 'E' && familia !== 'R') return [];
+    if (d === 3) {
+      if (familia === 'R') return [...p[1]];
+      return libro ? (libro.emisores ?? [libro.emisor]) : m ? (m.emisores ?? [m.emisor]) : [...p[1]];
+    }
+    if (familia !== 'E') return [];
+    if (d === 2) {
+      const contrato = libro ? { divisible: libro.divisible === true, caduca: libro.caduca ?? null } : m ? { divisible: m.divisible === true, caduca: m.caduca ?? null } : null;
+      return contrato && (contrato.divisible || contrato.caduca) ? [{ k: 'contrato', ...contrato }] : [];
+    }
+    if (d === 5) {
+      const registro = partirClave(clave).registro ?? (libro ? this.#eje.registroDe(clave) : null);
+      return registro ? [registro] : [];
+    }
+    if (d === 7) return p[7] ?? [];
+    return [];
+  }
+
+  /**
+   * El dígito d de un texto: su despliegue (fecha), el registro que nombra, la
+   * identidad que es o su valor. Una clave de serie escrita como texto ya no se
+   * despliega (B3): la serie es un registro al que llegan el 0 de un
+   * movimiento, de una entrada de la cartera o de una serie viva, y la salida
+   * de un bloqueo; un texto del payload no la fabrica (SEG-09).
+   */
   #deTexto(s, d) {
-    const tabla = desplegarFecha(s) ?? desplegarSerie(s, (k) => this.#eje?.registroDe(k) ?? null);
-    if (tabla) return tabla[d] ?? [];
+    const fecha = desplegarFecha(s);
+    if (fecha) return fecha[d] ?? [];
     if (RE_ID.test(s) && this.#eje?.obtener(s)) return this.#un({ k: 'reg', id: s }, d);
     if (this.#eje?.alta(s)) return this.#deIdentidad(s, d);
     return desplegarValor(s)?.[d] ?? [];
@@ -420,7 +498,10 @@ export class ContextoEje {
         if (d === 2) return Object.entries(nodo.bloqueado).filter(([, cantidad]) => cantidad > 0).map(([salida, cantidad]) => ({ k: 'bloqueo', salida, cantidad }));
         return [];
       case 'bloqueo':
-        return d === 0 ? [nodo.salida] : d === 1 ? [nodo.cantidad] : [];
+        return d === 0 ? [{ k: 'salida', clave: nodo.salida }] : d === 1 ? [nodo.cantidad] : [];
+      case 'salida':
+        // La salida de un bloqueo vale su texto; si nombra una serie que existe, es la referencia a su registro (B3).
+        return this.#esSerie(nodo.clave) ? this.#serie(nodo.clave, d) : [];
       case 'tiempo': {
         if (d >= ESCALAS_REALES.length) return [];
         const dia = this.#ev ? diaCivil(this.#ev.t) : NaN;
@@ -439,7 +520,7 @@ export class ContextoEje {
     switch (d) {
       case 0: return [{ k: 'serie', clave: claveToken(m) }];
       case 1: return [m.cantidad];
-      case 2: return [m.estado, m.salida, m.caduca].filter((x) => x !== undefined);
+      case 2: return [m.estado, m.salida === undefined ? undefined : { k: 'salida', clave: m.salida }, m.caduca].filter((x) => x !== undefined);
       case 3: return [{ k: 'par', de: m.de, a: m.a }];
       case 4: return [SIMBOLOS[primitivaDe(m)]];
       case 5: {
@@ -447,7 +528,8 @@ export class ContextoEje {
         const registro = m.registro ?? this.#eje?.registroDe(claveToken(m));
         return registro ? [registro] : [];
       }
-      case 7: return [m.caduca ?? m.refiere].filter((x) => x !== undefined);
+      // B3 (VG, 10-11): 7.0 la caducidad, 7.1 la fecha a la que se refiere; ya no comparten posición.
+      case 7: return m.caduca !== undefined || m.refiere !== undefined ? [{ k: 'fechas', m }] : [];
       case 9: return m.nota === undefined ? [] : [m.nota];
       default: return [];
     }

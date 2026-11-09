@@ -1,12 +1,12 @@
 [
   ["T is whole"],
   [0],
-  ["=count (ev.1 where T in it.0.0 and it.1 != floor it.1) = 0"],
+  ["=count (ev.1 where T in it.0.0.0 and it.1 != floor it.1) = 0"],
   ["ev.3"],
   ["mint", "transfer", "lock", "release", "burn"],
   ["*"],
   ["VG, 7-11: las series se estandarizan; cada escala de T es un token, sin medias horas (mapa §12 [D])"],
   ["epoch 0"],
   ["after every event moves tokens"],
-  ["T is whole: {first ev.3} moves {first ((ev.1 where T in it.0.0 and it.1 != floor it.1) each 1)} of a T scale; each scale is a token"]
+  ["T is whole: {first ev.3} moves {first ((ev.1 where T in it.0.0.0 and it.1 != floor it.1) each 1)} of a T scale; each scale is a token"]
 ]

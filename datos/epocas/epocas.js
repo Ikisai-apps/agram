@@ -210,31 +210,31 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "a52540bbcf1e932744373a92f92c2eee600b70375338667d289bcbc28b1fa586"
+      "ref": "d45ba998ce731ea3ebf9777ff0c6180163e04e46e8a72e6e705a5593e69126fe"
     },
     {
       "ref": "4a10858405c279d9713f48d36a2e1876dee23761cfa95415c010ca99b136be89"
     },
     {
-      "ref": "b9ca4b2a8845258dc5c7634ca19e1b3d818fc3ffd0f6e676b3863856e13999e5"
+      "ref": "140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521"
     },
     {
-      "ref": "ef34a7fd9ca11973c25c5fe0d7fb28cbbd2b8a30cea2853f9b0f6b66437e7f0b"
+      "ref": "acfda499fa8769d8cf8b8f6fa292e3e01fb9c6800069ed22716a186c723cc633"
     },
     {
-      "ref": "9192e43a85d2cf3125114bb858f0d1ef961322ecab7ed5006b4da2f8c8a17b21"
+      "ref": "1c5d38823ec26917f476a6461f32bf77ec4553e05d13f1603cdc7e7394f54a04"
     },
     {
-      "ref": "603c2d35612943d52bb21049efd77b3712b38da08e998cbbb64b275a1c388f1c"
+      "ref": "94ea53770c748e88010b07580c9e972969de47ddc3bfe26a5d7ad7dfaf6a1e9b"
     },
     {
-      "ref": "2c3f7b6d03820948adfe36236c30c29760e699727aafc5327de6342a047b9b53"
+      "ref": "9830243a50f947baed45764e0f4627d361c20add067fec47499766eaf03ad1f6"
     },
     {
       "ref": "40994540fd9ff135e5ec2bc359268fa4ba4de6568d86451d0fd112cb13dc9c65"
     },
     {
-      "ref": "0dade32e48389e7e9191ef2d731c32067be124a0d4621bc206f0643bd8380bb6"
+      "ref": "78b17a3977eaa6f24e64aa3c10937359598b3ccffbed22ad65b77b6c64b383df"
     },
     {
       "ref": "0209b3336b7fcad6cc7896176469188a16bbec20f12405d41d67cef2e02a9a63"
@@ -252,25 +252,25 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "0f6ebaccf4eca121d8efefa682582b0539aaf434bb51a26c1124e1e3ae8ed277"
     },
     {
-      "ref": "5a94105a1aaa173982000b180d64ecd90a6c5608fcf73e6c3f0e3d4131e372d0"
+      "ref": "16d5e36a8967d22fd8f872b394eb2386dfffec83766f71d0f05972c6e17871bd"
     },
     {
-      "ref": "b469613ccc0fb0830f86dd643346724a8761c3020cceaf7b2c7ee1619740f47c"
+      "ref": "392d8fcdd240b149633b88285e7b17e6f085be431f52078999ab36331f1b98f2"
     },
     {
-      "ref": "21e95ca3edb2c6d50ce48b64babe3467284ecf67d44ad76288d88bede8e1a301"
+      "ref": "594208d063ca58163752ccfdc6c4d0cc0f1004d02fc74ab53bc3d757b4d97aec"
     },
     {
-      "ref": "acf1909465b7ac87c387177605d3aa1d1387cea4b8210296111ecb3c050ac07d"
+      "ref": "12a61d746d2f8a9e303047210519d8f07fabd6948229914085a3cec25f5e9fd3"
     },
     {
-      "ref": "cd24473416a75910b6afc49946dce617283dd5c3fa5184987090c44f93eff2ea"
+      "ref": "361f89a43385d4e05c826f96e9640bf42010a1b4735b2cb69ceead78e39d5423"
     },
     {
       "ref": "3b296ac0c047bf3397cc6594c1ccbabcd4b22cfd20741885f39af49469f81d5f"
     },
     {
-      "ref": "9c85164fc130197c5f6d1bc79c0a702ec70cc3b9d01811b751b3e0718f235b03"
+      "ref": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c"
     }
   ],
   [
@@ -2601,7 +2601,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "e-is-minted-by-and-to-its-issuer.json",
-    "id": "603c2d35612943d52bb21049efd77b3712b38da08e998cbbb64b275a1c388f1c",
+    "id": "94ea53770c748e88010b07580c9e972969de47ddc3bfe26a5d7ad7dfaf6a1e9b",
     "registro": [
       [
         "E is minted by and to its issuer"
@@ -2610,7 +2610,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) = 0"
+        "=count (ev.1 where E in it.0.0.0 and mint in it.4 and (it.0.0.1 != first ev.3 or it.3.1 != it.0.0.1)) = 0"
       ],
       [
         "ev.3"
@@ -2632,13 +2632,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after locks keep their holder and name an exit"
       ],
       [
-        "E is minted by and to its issuer: {first ev.3} mints E of {(ev.1 where E in it.0.0 and mint in it.4 and (it.0.1 != first ev.3 or it.3.1 != it.0.1)) each 0.1}, or to someone else"
+        "E is minted by and to its issuer: {first ev.3} mints E of {(ev.1 where E in it.0.0.0 and mint in it.4 and (it.0.0.1 != first ev.3 or it.3.1 != it.0.0.1)) each 0.0.1}, or to someone else"
       ]
     ]
   },
   {
     "archivo": "e-is-tied-to-a-record-that-exists.json",
-    "id": "acf1909465b7ac87c387177605d3aa1d1387cea4b8210296111ecb3c050ac07d",
+    "id": "12a61d746d2f8a9e303047210519d8f07fabd6948229914085a3cec25f5e9fd3",
     "registro": [
       [
         "E is tied to a record that exists"
@@ -2648,10 +2648,10 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) = 0"
+        "=count (ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) = 0"
       ],
       [
-        "(ev.1 where E in it.0.0 and it.4 = mint) each 3.1"
+        "(ev.1 where E in it.0.0.0 and it.4 = mint) each 3.1"
       ],
       [
         "mint"
@@ -2670,7 +2670,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after T is not locked"
       ],
       [
-        "E is tied to a record that exists: {(ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"
+        "E is tied to a record that exists: {(ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"
       ]
     ]
   },
@@ -2760,7 +2760,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "informative-t-is-only-burned.json",
-    "id": "ef34a7fd9ca11973c25c5fe0d7fb28cbbd2b8a30cea2853f9b0f6b66437e7f0b",
+    "id": "acfda499fa8769d8cf8b8f6fa292e3e01fb9c6800069ed22716a186c723cc633",
     "registro": [
       [
         "informative T is only burned"
@@ -2770,7 +2770,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.7.2"
       ],
       [
-        "=count (ev.1 where T in it.0.0 and count epoch.7.0.(it.0.1) = 0 and (it.4 != burn or count it.2 > 0 or (it.0.1 in epoch.7.2 and (count it.7 = 0 or it.7 in it.2)))) = 0 and count (ev.1 where ((T in it.0.0 and count epoch.7.0.(it.0.1) = 1) or E in it.0.0 or P in it.0.0 or R in it.0.0) and (count it.9 > 0 or (count it.7 > 0 and not it.7 in it.2))) = 0"
+        "=count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 0 and (it.4 != burn or count it.2 > 0 or (it.0.0.1 in epoch.7.2 and count it.7.1 = 0))) = 0 and count (ev.1 where ((T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1) or E in it.0.0.0 or P in it.0.0.0 or R in it.0.0.0) and (count it.9 > 0 or count it.7.1 > 0)) = 0"
       ],
       [
         "ev.3"
@@ -2801,7 +2801,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "locked-p-backing-live-e-is-not-released.json",
-    "id": "cd24473416a75910b6afc49946dce617283dd5c3fa5184987090c44f93eff2ea",
+    "id": "361f89a43385d4e05c826f96e9640bf42010a1b4735b2cb69ceead78e39d5423",
     "registro": [
       [
         "locked P backing live E is not released"
@@ -2813,10 +2813,10 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "*"
       ],
       [
-        "=count (((ev.1 where P in it.0.0 and it.4 = release) each 2) where it.0 = \"E\" and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0) each 1) + sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7 = 0 or ev.6.0.0 < (first it2.7).0)) each 1) - sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"
+        "=count (((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001) = 0"
       ],
       [
-        "(ev.1 where P in it.0.0 and it.4 = release) each 3.0"
+        "(ev.1 where P in it.0.0.0 and it.4 = release) each 3.0"
       ],
       [
         "release"
@@ -2835,13 +2835,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after E is tied to a record that exists"
       ],
       [
-        "locked P backing live E is not released: {(((ev.1 where P in it.0.0 and it.4 = release) each 2) where it.0 = \"E\" and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0) each 1) + sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7 = 0 or ev.6.0.0 < (first it2.7).0)) each 1) - sum ((ev.1 where E in it2.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"
+        "locked P backing live E is not released: {(((ev.1 where P in it.0.0.0 and it.4 = release) each 2) where E in it.0.0 and it.7 != \"*\" and sum (((first it.5).1.(it) where count it2.4 = 0 and E in it2.0.0.0) each 1) + sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = mint and (count it2.5 = 0 or first it2.5 in (first it2.5).5) and (count it2.7.0 = 0 or ev.6.0.0 < (first it2.7.0).0)) each 1) - sum ((ev.1 where E in it2.0.0.0 and it in it2.0 and it2.4 = burn) each 1) > 0.000000001)} still backs live E"
       ]
     ]
   },
   {
     "archivo": "locks-keep-their-holder-and-name-an-exit.json",
-    "id": "9192e43a85d2cf3125114bb858f0d1ef961322ecab7ed5006b4da2f8c8a17b21",
+    "id": "1c5d38823ec26917f476a6461f32bf77ec4553e05d13f1603cdc7e7394f54a04",
     "registro": [
       [
         "locks keep their holder and name an exit"
@@ -2852,7 +2852,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "liberacion"
       ],
       [
-        "=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7) <= 1)) = 0"
+        "=count (ev.1 where (mint in it.4 or burn in it.4 or transfer in it.4 or lock in it.4 or release in it.4) and (\"bloqueo\" in it.2 or \"liberacion\" in it.2) and (not (lock in it.4 or release in it.4) or it.3.0 != it.3.1 or count (it.2 where it2 != \"\" and not it2 in it.7.0) <= 1)) = 0"
       ],
       [
         "ev.3"
@@ -2880,7 +2880,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "nobody-mints-t.json",
-    "id": "b469613ccc0fb0830f86dd643346724a8761c3020cceaf7b2c7ee1619740f47c",
+    "id": "392d8fcdd240b149633b88285e7b17e6f085be431f52078999ab36331f1b98f2",
     "registro": [
       [
         "nobody mints T"
@@ -2889,7 +2889,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where T in it.0.0 and mint in it.4) = 0"
+        "=count (ev.1 where T in it.0.0.0 and mint in it.4) = 0"
       ],
       [
         "ev.3"
@@ -2910,7 +2910,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after R is minted by its issuer"
       ],
       [
-        "nobody mints T: {first ev.3} mints {sum ((ev.1 where T in it.0.0 and mint in it.4) each 1)} T; everyone has today's allowance"
+        "nobody mints T: {first ev.3} mints {sum ((ev.1 where T in it.0.0.0 and mint in it.4) each 1)} T; everyone has today's allowance"
       ]
     ]
   },
@@ -3039,7 +3039,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "p-moves-within-a-known-scope.json",
-    "id": "9c85164fc130197c5f6d1bc79c0a702ec70cc3b9d01811b751b3e0718f235b03",
+    "id": "fd5ff4eb68335aa8125cc3f2d21e9666c93d43c59d7a61a349e4ab1109f9076c",
     "registro": [
       [
         "P moves within a known scope"
@@ -3049,7 +3049,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "genesis"
       ],
       [
-        "=count (ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) = 0"
+        "=count (ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) = 0"
       ],
       [
         "ev.3"
@@ -3071,13 +3071,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after nobody moves tokens of others"
       ],
       [
-        "P moves within a known scope: {first ((ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) each 0)} names no record in the ledger"
+        "P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) each 0)} names no record in the ledger"
       ]
     ]
   },
   {
     "archivo": "r-is-minted-by-its-issuer.json",
-    "id": "5a94105a1aaa173982000b180d64ecd90a6c5608fcf73e6c3f0e3d4131e372d0",
+    "id": "16d5e36a8967d22fd8f872b394eb2386dfffec83766f71d0f05972c6e17871bd",
     "registro": [
       [
         "R is minted by its issuer"
@@ -3086,7 +3086,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) = 0"
+        "=count (ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) = 0"
       ],
       [
         "ev.3"
@@ -3108,13 +3108,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after at most a year ahead"
       ],
       [
-        "R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) each 0.1}"
+        "R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) each 0.0.1}"
       ]
     ]
   },
   {
     "archivo": "r-is-minted-to-its-issuer.json",
-    "id": "2c3f7b6d03820948adfe36236c30c29760e699727aafc5327de6342a047b9b53",
+    "id": "9830243a50f947baed45764e0f4627d361c20add067fec47499766eaf03ad1f6",
     "registro": [
       [
         "R is minted to its issuer"
@@ -3123,7 +3123,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) = 0"
+        "=count (ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) = 0"
       ],
       [
         "ev.3"
@@ -3145,13 +3145,13 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after E is minted by and to its issuer"
       ],
       [
-        "R is minted to its issuer: R minted to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 3.1}, not to {(ev.1 where R in it.0.0 and mint in it.4 and it.3.1 != it.0.1) each 0.1}"
+        "R is minted to its issuer: R minted to {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 3.1}, not to {(ev.1 where R in it.0.0.0 and mint in it.4 and it.3.1 != it.0.0.1) each 0.0.1}"
       ]
     ]
   },
   {
     "archivo": "t-is-not-locked.json",
-    "id": "21e95ca3edb2c6d50ce48b64babe3467284ecf67d44ad76288d88bede8e1a301",
+    "id": "594208d063ca58163752ccfdc6c4d0cc0f1004d02fc74ab53bc3d757b4d97aec",
     "registro": [
       [
         "T is not locked"
@@ -3160,7 +3160,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where T in it.0.0 and (lock in it.4 or release in it.4)) = 0"
+        "=count (ev.1 where T in it.0.0.0 and (lock in it.4 or release in it.4)) = 0"
       ],
       [
         "ev.3"
@@ -3188,7 +3188,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "t-is-whole.json",
-    "id": "b9ca4b2a8845258dc5c7634ca19e1b3d818fc3ffd0f6e676b3863856e13999e5",
+    "id": "140674b9456c609e4ea0ab855e2dc6d32615065523e92bad5968fea4bd746521",
     "registro": [
       [
         "T is whole"
@@ -3197,7 +3197,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where T in it.0.0 and it.1 != floor it.1) = 0"
+        "=count (ev.1 where T in it.0.0.0 and it.1 != floor it.1) = 0"
       ],
       [
         "ev.3"
@@ -3222,7 +3222,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after every event moves tokens"
       ],
       [
-        "T is whole: {first ev.3} moves {first ((ev.1 where T in it.0.0 and it.1 != floor it.1) each 1)} of a T scale; each scale is a token"
+        "T is whole: {first ev.3} moves {first ((ev.1 where T in it.0.0.0 and it.1 != floor it.1) each 1)} of a T scale; each scale is a token"
       ]
     ]
   },
@@ -3269,7 +3269,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-genesis-e-names-no-record.json",
-    "id": "0dade32e48389e7e9191ef2d731c32067be124a0d4621bc206f0643bd8380bb6",
+    "id": "78b17a3977eaa6f24e64aa3c10937359598b3ccffbed22ad65b77b6c64b383df",
     "registro": [
       [
         "the genesis E names no record"
@@ -3279,7 +3279,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         0
       ],
       [
-        "=count before.5 = 1 or count (ev.1 where E in it.0.0 and count it.5 > 0) = 0"
+        "=count before.5 = 1 or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"
       ],
       [
         "ev.3"
@@ -3349,7 +3349,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "a52540bbcf1e932744373a92f92c2eee600b70375338667d289bcbc28b1fa586",
+    "id": "d45ba998ce731ea3ebf9777ff0c6180163e04e46e8a72e6e705a5593e69126fe",
     "registro": [
       [
         "writing burns today's T"
@@ -3360,7 +3360,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch.1.3.1"
       ],
       [
-        "=(count (ev.1 where T in it.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0 and count epoch.7.0.(it.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0 and it2.0.1 = it.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.1).1 - (first ev.3).7.(it.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
+        "=(count (ev.1 where T in it.0.0.0 and burn in it.4 and it.3.0 = first ev.3) >= 1 and count (ev.1 where T in it.0.0.0 and count epoch.7.0.(it.0.0.1) = 1 and it.3.0 = first ev.3 and it.3.1 != first ev.3 and sum ((ev.1 where T in it2.0.0.0 and it2.0.0.1 = it.0.0.1 and it2.3.0 = first ev.3 and it2.3.1 != first ev.3) each 1) > epoch.1.3.1.(it.0.0.1).1 - (first ev.3).7.(it.0.0.1) + sum (first ev.3).1.(it.0).1) = 0) or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3394,7 +3394,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 export const REGLAS_3B_DATOS = [
   {
     "archivo": "minting-e-needs-p-on-the-record.json",
-    "id": "8d8559de7f10842e7bd106ec9bfcd82f424ab9ab61153a1ca57241c713338499",
+    "id": "60a54a1d30eb164c229d8aa729d24aed4d36a4990ab90fa502cdf5cbf8ff8953",
     "registro": [
       [
         "minting E needs P on the record"
@@ -3404,7 +3404,7 @@ export const REGLAS_3B_DATOS = [
         "genesis"
       ],
       [
-        "=count (ev.1 where mint in it.4 and E in it.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and it.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
+        "=count (ev.1 where mint in it.4 and E in it.0.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and it.0.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3433,7 +3433,7 @@ export const REGLAS_3B_DATOS = [
   },
   {
     "archivo": "minting-needs-real-t.json",
-    "id": "2d2ee7dd2852a180e92ae24b3e3a43514905de03a514b7133307795e4fd7a097",
+    "id": "d4d33942db4a2f0925355d768a6a4d5b841e5844595f328d1a5ef5b8db376079",
     "registro": [
       [
         "minting needs real T"
@@ -3443,7 +3443,7 @@ export const REGLAS_3B_DATOS = [
         7
       ],
       [
-        "=count (ev.1 where mint in it.4 and not T in it.0.0) = 0 or count (ev.1 where T in it.0.0 and it.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
+        "=count (ev.1 where mint in it.4 and not T in it.0.0.0) = 0 or count (ev.1 where T in it.0.0.0 and it.0.0.1 < 7 and burn in it.4 and count it.2 = 0 and it.3.0 = first ev.3) >= 1 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3465,13 +3465,13 @@ export const REGLAS_3B_DATOS = [
         "after T is not locked"
       ],
       [
-        "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0) each 0.0)} without burning real T (scales 0 to 6) in the same transaction"
+        "minting needs real T: {first ev.3} mints {first ((ev.1 where mint in it.4 and not T in it.0.0.0) each 0.0.0)} without burning real T (scales 0 to 6) in the same transaction"
       ]
     ]
   },
   {
     "archivo": "minting-p-or-e-needs-own-r-at-stake.json",
-    "id": "690da05598a328a2a7a14aacdc61a0eacccff8adcc01042977aa27c7060159d9",
+    "id": "7d21b8ce16998baa4f0a8eb7f9238dba3ea8f55c43c654e94b52b9873794e015",
     "registro": [
       [
         "minting P or E needs own R at stake"
@@ -3482,7 +3482,7 @@ export const REGLAS_3B_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where mint in it.4 and (P in it.0.0 or E in it.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1) or count (ev.1 where R in it.0.0 and first ev.3 in it.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0 and first ev.3 in it.0.1) each 2 where \"R\" in it.0.0 and first ev.3 in it.0.1) each 1) + sum ((ev.1 where R in it.0.0 and lock in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0 and release in it.4 and first ev.3 in it.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0 and first ev.3 in it.0.1) each 0.8) + sum ((ev.1 where R in it.0.0 and mint in it.4 and first ev.3 in it.0.1) each 1)) or count up ev = 0"
+        "=count (ev.1 where mint in it.4 and (P in it.0.0.0 or E in it.0.0.0)) = 0 or (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) > 0 and (count (ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) = 0 and (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= sum (((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 0.1.0) + sum ((ev.1 where R in it.0.0.0 and mint in it.4 and first ev.3 in it.0.0.1) each 1) or count (ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) > 0 and (sum ((((first ev.3).1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 2 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 1) + sum ((ev.1 where R in it.0.0.0 and lock in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1) - sum ((ev.1 where R in it.0.0.0 and release in it.4 and first ev.3 in it.0.0.1 and it.3.0 = first ev.3 and it.0 in it.2) each 1)) * 10 + 0.000000001 >= max ((ev.1 where R in it.0.0.0 and first ev.3 in it.0.0.1) each 0.1.0) + sum ((ev.1 where R in it.0.0.0 and mint in it.4 and first ev.3 in it.0.0.1) each 1)) or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3512,7 +3512,7 @@ export const REGLAS_3B_DATOS = [
   },
   {
     "archivo": "p-is-minted-on-one-s-own-record.json",
-    "id": "e7e1b0d75d3372933ce4a67cc8c1fef24cf95d39078949b76209455305431d5b",
+    "id": "c71f5d6b90d548549d2d3acf67903215f28a289ca291476513c2d529cafb5c48",
     "registro": [
       [
         "P is minted on one's own record"
@@ -3521,7 +3521,7 @@ export const REGLAS_3B_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) = 0 or count up ev = 0"
+        "=count (ev.1 where mint in it.4 and P in it.0.0.0 and not (first it.0.0.1.3 = first ev.3)) = 0 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3543,13 +3543,13 @@ export const REGLAS_3B_DATOS = [
         "after P is minted to its minter"
       ],
       [
-        "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and not (first it.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
+        "P is minted on one's own record: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0.0 and not (first it.0.0.1.3 = first ev.3)) each 0)} on a record they did not write, or on the whole ledger"
       ]
     ]
   },
   {
     "archivo": "p-is-minted-to-its-minter.json",
-    "id": "bd360a381eb973f5a5e00ab286aa03e66d943f467aec5726076bd85399bea985",
+    "id": "04a62f2e78f8d8aba4e38adf6028fd30c8808a9b6cb7b9f5c3720888f97b5e28",
     "registro": [
       [
         "P is minted to its minter"
@@ -3558,7 +3558,7 @@ export const REGLAS_3B_DATOS = [
         0
       ],
       [
-        "=count (ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
+        "=count (ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"
       ],
       [
         "ev.3"
@@ -3580,13 +3580,13 @@ export const REGLAS_3B_DATOS = [
         "after nobody mints T"
       ],
       [
-        "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
+        "P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) each 0)} to someone else"
       ]
     ]
   },
   {
     "archivo": "the-genesis-p-is-over-the-whole-ledger.json",
-    "id": "a658e92c5ea83b97fdcfaa9df8fa870dbf5945d9e54c3823ee263f2ff9e02169",
+    "id": "7541f4036627f255d642ab2a717d4aeea24231487e370b1455b6568d9f13107b",
     "registro": [
       [
         "the genesis P is over the whole ledger"
@@ -3596,7 +3596,7 @@ export const REGLAS_3B_DATOS = [
         "genesis"
       ],
       [
-        "=count before.5 = 1 or count (ev.1 where P in it.0.0 and it.0.1 != \"genesis\") = 0"
+        "=count before.5 = 1 or count (ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") = 0"
       ],
       [
         "ev.3"
@@ -3619,7 +3619,7 @@ export const REGLAS_3B_DATOS = [
         "after the genesis only mints to its author"
       ],
       [
-        "the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0 and it.0.1 != \"genesis\") each 0.1}"
+        "the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") each 0.0.1}"
       ]
     ]
   }

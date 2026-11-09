@@ -1,7 +1,7 @@
 [
   ["R is minted by its issuer"],
   [0],
-  ["=count (ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) = 0"],
+  ["=count (ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) = 0"],
   ["ev.3"],
   ["mint"],
   ["*"],
@@ -11,5 +11,5 @@
   ],
   ["epoch 0"],
   ["after at most a year ahead"],
-  ["R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0 and mint in it.4 and it.0.1 != first ev.3) each 0.1}"]
+  ["R is minted by its issuer: {first ev.3} mints R of {(ev.1 where R in it.0.0.0 and mint in it.4 and it.0.0.1 != first ev.3) each 0.0.1}"]
 ]

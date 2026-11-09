@@ -1,7 +1,7 @@
 [
   ["T is not locked"],
   [0],
-  ["=count (ev.1 where T in it.0.0 and (lock in it.4 or release in it.4)) = 0"],
+  ["=count (ev.1 where T in it.0.0.0 and (lock in it.4 or release in it.4)) = 0"],
   ["ev.3"],
   ["lock", "release"],
   ["*"],

@@ -89,14 +89,14 @@ El evaluador no sabe nada del eje: pregunta a un **contexto** con esta interfaz.
 | Código | Qué despliega | Posiciones |
 |---|---|---|
 | D-META | un evento (la candidata o un registro del eje) | 3 autor y firmante (el firmante solo si va firmado), 5 id, 6.0 t, 6.5 sobre y en, 1 los movimientos, que colisionan con lo que el payload tenga en su 1 |
-| D-MOV | un movimiento | 0 su serie (la clave, que se despliega con D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya), 3.0 de, 3.1 a (null es el símbolo «nadie», `NADIE`), 4 la primitiva, un símbolo (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E), 7 caducidad o fecha a la que se refiere, 9 nota |
-| D-SERIE | una clave de serie | 0 familia (un símbolo si la serie viene del libro: la de un movimiento, una entrada de la cartera o una serie atada; un texto si es una clave escrita en el payload), 1 la escala de T como dígito (segundo 0 … año 6, pasado 7, futuro 8, inventado 9), el emisor (E, R) o el ámbito (P), 2 denominación, 5 registro, 7 franja |
+| D-MOV | un movimiento | 0 su serie (un registro: D-SERIE), 1 cuánto, 2 estado, salida y caducidad (las que haya; la salida vale su texto y, si nombra una serie que existe, es la referencia a su registro), 3.0 de, 3.1 a (null es el símbolo «nadie», `NADIE`), 4 la primitiva, un símbolo (`mint` si de = null, `burn` si a = null, `lock` y `release` por el estado, si no `transfer`), 5 el registro de la serie (E), 7.0 la caducidad y 7.1 la fecha a la que se refiere (B3: ya no comparten posición), 9 nota |
+| D-SERIE | una serie de tokens, que es un registro (VG, 10-11, B3) | 0 su clave legible, que vale la clave de texto del libro (su clave interna) y se lee por partes: 0.0 familia (un símbolo del libro), 0.1 la escala de T como dígito (segundo 0 … año 6, pasado 7, futuro 8, inventado 9), el emisor (E, R) o el ámbito (P), 0.2 denominación; 1.0 lo emitido y 1.1 lo consumido, hasta antes de la candidata; 2 el contrato de E: 2.0 «divisible» si lo es, 2.7 su caducidad; 3 sus emisores (E, R); 5 el registro al que está atada (E); 7 su franja (E). La materializa el libro como vista (`eje.serie`, `eje.registroDe`, las sumas de lo quemado); la de una serie que nace en la candidata sale de su primera emisión |
 | D-FECHA | un instante ISO con zona | k = el número de periodo de la escala k desde 1970-01-01T00:00Z, en UTC: 0 segundo, 1 minuto, 2 hora, 3 día civil (`tokens.diaCivil`), 4 semana, 5 ciclo de 28 días, 6 año |
 | D-VALOR | un terminal «12 EUR» o «EUR 12» (con espacio) | 1 cuánto, 2 unidad; solo lectura |
 
 La convención del año de D-FECHA: años de 364 + 1 días (`tokens.SEGUNDOS.anio`, trece ciclos de 28 días y uno más) contados desde el 1 de enero de 1970, sin bisiestos; la semana cuenta desde ese día, que fue jueves. Es un número de periodo para comparar y agrupar, no una fecha del calendario civil ([X] decidir VG si el año ha de seguir al civil).
 
-Un texto se despliega por su forma: un instante (D-FECHA), una clave de serie (D-SERIE), el id de un registro del eje (el registro), una identidad con alta (sus vistas) o una magnitud (D-VALOR). Sigue valiendo su texto para comparar.
+Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro del eje (el registro), una identidad con alta (sus vistas) o una magnitud (D-VALOR). Sigue valiendo su texto para comparar. Una clave de serie escrita como texto ya no se despliega (B3: D-SERIE deja de ser un despliegue de texto): la serie es un registro al que se llega desde el 0 de un movimiento, de una entrada de la cartera o de una serie viva de un registro, y desde la salida de un bloqueo; un texto del payload no la fabrica (SEG-09).
 
 **Vistas del libro como posiciones** (a la fecha de la candidata):
 
@@ -106,7 +106,7 @@ Un texto se despliega por su forma: un instante (D-FECHA), una clave de serie (D
 | `A.6` | el alta de la identidad A: el registro que abrió su cuenta (`epoch.3.6`, «pasado: de dónde viene»); `A.6.6.0` es su t y `A.6.3` su autor. Sin alta en el eje, nada | `eje.alta`, `eje.obtener` |
 | `A.7.e` | el T de la escala e (0-6) gastado de la asignación del día civil de `ev.6.0.3`: consumido o dado a una cosa; en las escalas informativas (7-9), nada | `eje.gastadoT` |
 | `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad | `eje.series`, `eje.vivo` |
-| `S.8` | de una serie del libro S (la de un movimiento, `ev.1.0`, o la de una entrada de la cartera, `A.1.0`): lo emitido hasta antes de la candidata [H]; una clave escrita en el payload no la tiene | `eje.serie` |
+| `S.1.0`, `S.1.1` | de una serie S (la de un movimiento, `ev.1.0`, la de una entrada de la cartera, `A.1.0`, o la que nombra una salida): lo emitido y lo consumido hasta antes de la candidata (el `S.8` del encargo 2) | `eje.serie`, `libro.sumas` |
 | `before.3` | las identidades del libro | `eje.identidades` |
 | `before.5` | el génesis | `eje.genesisId` |
 | `before.6.0` | el mayor t del libro | `eje.tMaximo` |
@@ -222,23 +222,23 @@ import { ejemploCompra } from './ejemplos/ikisai/compra-food.mjs';
 const { eje, compra } = await ejemploCompra();
 const antes = await Eje.desde(eje.orden.slice(0, -1).map((id) => eje.obtener(id)));
 const ctx = new ContextoEje(antes, { ev: compra, epoch: EPOCA_0_BTML });
-for (const e of ['first ev.3', 'ev.6.0', 'ev.6.0.3', 'ev.1.4', 'ev.1.0', '(ev.1 where it.4 = burn) each 0.1', '(first ev.3).1.("E:casa/EUR").1', '(first ev.3).7.2', 'epoch.1.3.1.2.1', 'count path ev']) {
+for (const e of ['first ev.3', 'ev.6.0', 'ev.6.0.3', 'ev.1.4', 'ev.1.0', '(ev.1 where it.4 = burn) each 0.0.1', '(first ev.3).1.("E:casa/EUR").1', '(first ev.3).7.2', 'epoch.1.3.1.2.1', 'count path ev']) {
   const r = evaluar(e, ctx);
-  console.log(e.padEnd(34), r.texto ?? r.estado + ' ' + r.motivo);
+  console.log(e.padEnd(36), r.texto ?? r.estado + ' ' + r.motivo);
 }
 ```
 
 ```text
-first ev.3                         huesped
-ev.6.0                             2026-11-07T13:30:00Z
-ev.6.0.3                           20764
-ev.1.4                             burn, transfer
-ev.1.0                             T:hora, E:casa/EUR, ensalada, guiso, fruta
-(ev.1 where it.4 = burn) each 0.1  2
-(first ev.3).1.("E:casa/EUR").1    60
-(first ev.3).7.2                   0
-epoch.1.3.1.2.1                    24
-count path ev                      4
+first ev.3                           huesped
+ev.6.0                               2026-11-07T13:30:00Z
+ev.6.0.3                             20764
+ev.1.4                               burn, transfer
+ev.1.0                               T:hora, E:casa/EUR, ensalada, guiso, fruta
+(ev.1 where it.4 = burn) each 0.0.1  2
+(first ev.3).1.("E:casa/EUR").1      60
+(first ev.3).7.2                     0
+epoch.1.3.1.2.1                      24
+count path ev                        4
 ```
 
 Leído: quien escribe es la persona huésped; el día civil de la compra es el 20764; sus dos movimientos son una quema y una transferencia; `ev.1.0` trae las dos series y, por la referencia del payload, los tres platos del menú; la quema es de la escala 2 (hora); antes de la compra tenía 60 EUR de la casa y no había gastado ninguna hora ese día; la asignación diaria de horas es 24; y el hilo de la compra tiene cuatro registros.

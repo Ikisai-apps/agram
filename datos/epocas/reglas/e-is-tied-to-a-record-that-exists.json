@@ -1,8 +1,8 @@
 [
   ["E is tied to a record that exists"],
   [1, 0],
-  ["=count (ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) = 0"],
-  ["(ev.1 where E in it.0.0 and it.4 = mint) each 3.1"],
+  ["=count (ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) = 0"],
+  ["(ev.1 where E in it.0.0.0 and it.4 = mint) each 3.1"],
   ["mint"],
   ["*"],
   [
@@ -11,5 +11,5 @@
   ],
   ["epoch 0"],
   ["after T is not locked"],
-  ["E is tied to a record that exists: {(ev.1 where E in it.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"]
+  ["E is tied to a record that exists: {(ev.1 where E in it.0.0.0 and it.4 = mint and count it.5 >= 1 and not (first it.5 in (first it.5).5)) each 0} names a record that is not in the ledger"]
 ]

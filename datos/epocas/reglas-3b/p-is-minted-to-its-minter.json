@@ -1,7 +1,7 @@
 [
   ["P is minted to its minter"],
   [0],
-  ["=count (ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"],
+  ["=count (ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) = 0 or count up ev = 0"],
   ["ev.3"],
   ["mint"],
   ["*"],
@@ -11,5 +11,5 @@
   ],
   ["epoch 0"],
   ["after nobody mints T"],
-  ["P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0 and it.3.1 != first ev.3) each 0)} to someone else"]
+  ["P is minted to its minter: {first ev.3} mints {first ((ev.1 where mint in it.4 and P in it.0.0.0 and it.3.1 != first ev.3) each 0)} to someone else"]
 ]

@@ -1,12 +1,12 @@
 [
   ["P moves within a known scope"],
   [0, "genesis"],
-  ["=count (ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) = 0"],
+  ["=count (ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) = 0"],
   ["ev.3"],
   ["transfer", "burn"],
   ["*"],
   ["Mapa §12 [D] ciclo de vida de P: «delegar estrechando», el débito sube por el hilo (inventario PP-4) · §15 [D]: reposicionar = quemar y acuñar con factor, subir deja una décima [X revisar con el P nuevo]"],
   ["epoch 0"],
   ["after nobody moves tokens of others"],
-  ["P moves within a known scope: {first ((ev.1 where P in it.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.1 != \"genesis\" and not (it.0.1 in it.0.1.5)) each 0)} names no record in the ledger"]
+  ["P moves within a known scope: {first ((ev.1 where P in it.0.0.0 and (transfer in it.4 or burn in it.4) and it.3.0 = first ev.3 and it.0.0.1 != \"genesis\" and not (it.0.0.1 in it.0.0.1.5)) each 0)} names no record in the ledger"]
 ]

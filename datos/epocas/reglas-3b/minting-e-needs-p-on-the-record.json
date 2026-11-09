@@ -1,7 +1,7 @@
 [
   ["minting E needs P on the record"],
   [0, "genesis"],
-  ["=count (ev.1 where mint in it.4 and E in it.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.1 = \"genesis\" or it.0.1 = before.5 or it.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0 and it.1 > 0 and it.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"],
+  ["=count (ev.1 where mint in it.4 and E in it.0.0.0) = 0 or not (first ev.6.5 in (first ev.6.5).5) or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and (it.0.0.1 = \"genesis\" or it.0.0.1 = before.5 or it.0.0.1 = first ev.6.5)) > 0 or count ((first ev.3).1 where P in it.0.0.0 and it.1 > 0 and it.0.0.1 in path (first ev.6.5)) > 0 or count (ev.1 where P in it.0.0.0 and (it.3.0 = first ev.3 or it.3.1 = first ev.3) and it.0.0.1 in path (first ev.6.5)) > 0 or count up ev = 0"],
   ["ev.3"],
   ["mint"],
   ["*"],

@@ -1,7 +1,7 @@
 [
   ["the genesis P is over the whole ledger"],
   [1, "genesis"],
-  ["=count before.5 = 1 or count (ev.1 where P in it.0.0 and it.0.1 != \"genesis\") = 0"],
+  ["=count before.5 = 1 or count (ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") = 0"],
   ["ev.3"],
   ["mint"],
   ["*"],
@@ -12,5 +12,5 @@
   ],
   ["epoch 0"],
   ["after the genesis only mints to its author"],
-  ["the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0 and it.0.1 != \"genesis\") each 0.1}"]
+  ["the genesis P is over the whole ledger: scope «genesis», not {(ev.1 where P in it.0.0.0 and it.0.0.1 != \"genesis\") each 0.0.1}"]
 ]

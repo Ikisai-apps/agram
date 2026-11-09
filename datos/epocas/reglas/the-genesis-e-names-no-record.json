@@ -1,7 +1,7 @@
 [
   ["the genesis E names no record"],
   [1, 0],
-  ["=count before.5 = 1 or count (ev.1 where E in it.0.0 and count it.5 > 0) = 0"],
+  ["=count before.5 = 1 or count (ev.1 where E in it.0.0.0 and count it.5 > 0) = 0"],
   ["ev.3"],
   ["mint"],
   ["*"],

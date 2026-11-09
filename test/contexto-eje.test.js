@@ -88,16 +88,29 @@ test('D-MOV: cada movimiento es una décupla con su primitiva', async () => {
   const ctx = new ContextoEje(null, { ev });
   assert.deepEqual(val('ev.1.4', ctx), ['burn', 'mint', 'transfer', 'lock', 'release', 'burn'].map((p) => SIMBOLOS[p]));
   assert.deepEqual(val('ev.1.1', ctx), [2, 4, 1, 3, 1, 1]);
-  assert.deepEqual(val('ev.1.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
+  // B3: el 0 de un movimiento es su serie, un registro: su 0 es la clave legible (0.0 familia, 0.1 escala o emisor o ámbito).
+  assert.deepEqual(val('ev.1.0.0.0', ctx), ['T', 'E', 'E', 'P', 'P', 'T'].map((f) => SIMBOLOS[f]));
+  assert.deepEqual(evaluar('ev.1.0.0', ctx).texto, 'T:minuto, E:ana/cama@2026-11-13@' + id + ', E:ana/cama@2026-11-13@' + id + ', P:' + id + ', P:' + id + ', T:pasado', 'la clave legible vale la clave');
   assert.deepEqual(val('ev.1.3.0', ctx), ['ana', NADIE, 'ana', 'ana', 'ana', 'ana']);
   assert.deepEqual(val('ev.1.3.1', ctx), [NADIE, 'ana', 'bea', 'ana', 'ana', NADIE]);
-  assert.deepEqual(val('(ev.1 where it.4 = lock) each 2', ctx), ['bloqueo', 'la cama']);
+  assert.deepEqual(evaluar('(ev.1 where it.4 = lock) each 2', ctx).texto, 'bloqueo, la cama');
   assert.deepEqual(val('(ev.1 where it.4 = mint) each 2', ctx), ['2026-11-14T12:00:00Z'], 'la caducidad es condición');
-  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7', ctx), ['2026-11-14T12:00:00Z'], 'y es para cuándo');
+  // B3: el 7 se parte: 7.0 la caducidad, 7.1 la fecha a la que se refiere.
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7.0', ctx), ['2026-11-14T12:00:00Z'], 'y es para cuándo: 7.0');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 7.1', ctx), []);
   assert.deepEqual(val('ev.1.5', ctx), [id, id], 'el registro de la serie de E');
-  assert.deepEqual(val('(ev.1 where it.0.1 = 7) each 7', ctx), ['2025-11-09T10:00:00Z'], 'el T pasado lleva la fecha a la que se refiere');
+  assert.deepEqual(val('(ev.1 where it.0.0.1 = 7) each 7.1', ctx), ['2025-11-09T10:00:00Z'], 'el T pasado lleva la fecha a la que se refiere: 7.1');
+  assert.deepEqual(val('(ev.1 where it.0.0.1 = 7) each 7.0', ctx), []);
   assert.deepEqual(val('ev.1.9', ctx), ['lo hice el año pasado']);
   assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.7', ctx), ['2026-11-13'], 'la franja de la serie');
+  // La serie como registro: 1.0 emitido y 1.1 consumido (antes de ev), 2 su contrato, 3 sus emisores, 5 su registro.
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.1.0', ctx), [0], 'nace en la candidata: nada emitido antes');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.2.7', ctx), ['2026-11-14T12:00:00Z'], 'su caducidad es del contrato');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.2.0', ctx), [], 'no es divisible');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.3', ctx), ['ana'], 'la emite ana');
+  assert.deepEqual(val('(ev.1 where it.4 = mint) each 0.5', ctx), [id]);
+  // Una clave escrita como texto ya no se despliega: la serie es un registro al que se llega desde el libro.
+  assert.deepEqual(val('("E:ana/vale").0', new ContextoEje(null, { epoch: [['x']] })), []);
 });
 
 test('D-META: el evento como registro: 3 autor (y firmante), 5 id, 6.0 t, 6.5 sobre y en, 1 movimientos que colisionan con el payload', async () => {
@@ -164,7 +177,9 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   const ctx = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-07T18:00:00Z', movimientos: [], payload: ['después'] } });
   assert.deepEqual(val('("huesped").1', ctx).map((o) => o.clave), ['E:casa/EUR']);
   assert.equal(uno('("huesped").1.("E:casa/EUR").1', ctx), 48);
-  assert.equal(uno('("huesped").1.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, que se despliega');
+  assert.equal(uno('("huesped").1.0.0.0', ctx), SIMBOLOS.E, 'el 0 de cada entrada es la serie, un registro: su 0.0 es la familia');
+  assert.equal(uno('("huesped").1.0.1.0', ctx), 500, 'y su 1.0, lo emitido');
+  assert.deepEqual(val('("huesped").1.0.3', ctx), ['casa'], 'y su 3, quien la emite');
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 0);
