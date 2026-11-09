@@ -14,9 +14,11 @@
 //            (0 segundo, 1 minuto, 2 hora, 3 día civil, 4 semana, 5 ciclo de 28 días, 6 año de 364 + 1)
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
-//            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.7.e el T de la escala e gastado de la
+//            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.6 su alta (el registro que abrió su
+//            cuenta: A.6.6.0 su t, A.6.3 su autor), A.7.e el T de la escala e gastado de la
 //            asignación del día civil de ev.6.0.3; de un registro X: X.1 sus series de E atadas y vivas
-//            (0 serie, 1 lo vivo, 7 caducidad)
+//            (0 serie, 1 lo vivo, 7 caducidad); de una serie del libro S (la de un movimiento o de una
+//            entrada de la cartera): S.8 lo emitido hasta antes de ev
 //
 // Orden de los ocupantes de una posición: primero los implícitos (D-META y
 // vistas), después lo propio del payload (por camino exacto: una lista da sus
@@ -27,7 +29,7 @@
 // alta (sus vistas) o una magnitud (D-VALOR).
 //
 // Solo usa la API pública del eje (obtener, alta, libro.vista, gastadoT,
-// series, vivo, registroDe, sobre, identidades, tMaximo, genesisId; sin libro,
+// series, serie, vivo, registroDe, sobre, identidades, tMaximo, genesisId; sin libro,
 // saldos, saldo y bloqueos).
 // Lo que el libro tendría que dar y hoy se lee aparte: docs/BQLM.md §7,
 // «Pendiente de integrar». No lee el tipo de ninguna identidad (R10).
@@ -167,6 +169,8 @@ export class ContextoEje {
     if (nodo === null || typeof nodo !== 'object') return [];
     switch (nodo.k) {
       case 'serie':
+        // Vista del libro (familia ciclo, encargo 2): el 8 de una serie del libro es lo emitido hasta antes de ev.
+        if (d === 8) return this.#eje ? [this.#eje.serie(nodo.clave).emitido] : [];
         return desplegarSerie(nodo.clave, (k) => this.#eje?.registroDe(k) ?? null, { delLibro: true })?.[d] ?? [];
       case 'ev':
         return [...this.#meta(this.#ev, d), ...this.#propio(this.#ev.payload, d, null, [])];
@@ -343,9 +347,14 @@ export class ContextoEje {
     return desplegarValor(s)?.[d] ?? [];
   }
 
-  /** Vistas del libro como posiciones de una identidad: 1 la cartera, 7 el tiempo gastado hoy. */
+  /** Vistas del libro como posiciones de una identidad: 1 la cartera, 6 su alta (el registro que la abrió), 7 el tiempo gastado hoy. */
   #deIdentidad(a, d) {
     if (d === 1) return this.#cartera(a);
+    if (d === 6) {
+      // «pasado: de dónde viene (quién la dio de alta)», epoch.3.6 (familia ciclo, encargo 2): A.6.6.0 es el t del alta, A.6.3 su autor.
+      const alta = this.#eje.alta(a);
+      return alta && this.#eje.obtener(alta.id) ? [{ k: 'reg', id: alta.id }] : [];
+    }
     if (d === 7) return [{ k: 'tiempo', id: a }];
     return [];
   }
