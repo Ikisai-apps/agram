@@ -7,7 +7,7 @@ Nota · 9-11-2026 · Paso 1 del plan del mapa global (§16, «La capa cero: tran
 **Qué hay ahora.**
 
 - `src/libro.js`: el libro. Asientos por identidad y serie (disponible, y bloqueado por salida), las cinco primitivas, la atomicidad (una transacción se aplica entera o nada) y un evaluador de condiciones enchufable. Sin reglas de negocio: solo aritmética.
-- `src/condiciones/`: las reglas de siempre, envueltas tal cual como condiciones de validez, por familias (`evento.js`, `identidad.js`, `ciclo.js`, `tope.js`, `r.js`) y en el mismo orden en que las aplicaba `eje.validar`. Cada una cita las filas de `docs/notas/INVENTARIO_REGLAS.md` §2 que cubre.
+- `src/condiciones/`: el suelo y lo que queda de las reglas de JavaScript (desde el encargo 3a, junto a las reglas de la época conectadas: `reglas.js`, §3), como condiciones de validez, por familias (`evento.js`, `identidad.js`, `ciclo.js`, `tope.js`, `r.js`) y en el mismo orden en que las aplicaba `eje.validar`. Cada una cita las filas de `docs/notas/INVENTARIO_REGLAS.md` §2 que cubre.
 - `src/eje.js`: `Eje` conserva su API, pero por dentro traduce cada evento a una transacción (`eje.transaccion(ev)`) y delega en el libro con las condiciones. Saldos, bloqueos, lo emitido y consumido de cada serie, el T gastado del día y el T consumido sobre cada registro se leen del libro (`eje.libro`).
 - `src/validez.js`: las capas leen el eje de justo antes del registro (`eje.antes(k)`, el mismo eje reaplicado) y evalúan las mismas condiciones del ciclo y de R (`motivosDe`). Una sola verdad.
 - La persistencia no cambia: se guarda la lista de eventos (versión 3) y el libro se reconstruye aplicándolos.
@@ -64,45 +64,76 @@ Lo que el eje guardaba aparte y ahora lee del libro (inventario §4):
 
 Siguen en el eje (no son aritmética de saldos): las claves y los tipos de las altas, el reloj (`tMaximo`), las consolidaciones que ya ampliaron P (R3), el prefijo de la versión 2 y los índices (lo escrito sobre cada registro, por posición, por autor, por prefijo).
 
-## 3. Las condiciones envueltas
+## 3. Las condiciones
 
-En el orden en que se evalúan (`CONDICIONES` en `src/condiciones/index.js`), que es el de `eje.validar` antes de este cambio. «Suelo» es lo que el inventario (§1) deja como código. La última columna (encargo 2, 9-11) dice qué regla de `epoch.2` la traduce, por su posición 2.g.k (`docs/BQLM.md` §10), o que no cabe (el motivo, en §10.3). Las reglas aún no están conectadas: el eje sigue usando estas condiciones.
+**Encargo 3a (VG, 10-11, paso 9): las reglas conectadas.** Las reglas del 2 de la época (`docs/BQLM.md` §5 y §10) son condiciones de la transacción (`src/condiciones/reglas.js`): cada una se evalúa con el BQL mínimo sobre el eje de antes (`ContextoEje`) y rechaza con el mensaje de su 9. Las condiciones JS que sustituyen, verificadas por equivalencia (`test/reglas-bqlm.test.js`, con los ejemplos de Ikisai y un fuzz con semilla fija), se retiraron de `src/`; su código vive solo en `test/condiciones-retiradas.mjs`, y la red de equivalencia las sigue comparando. Las reglas no se evalúan en el prefijo de la versión 2 (suelo de persistencia), en un evento mal formado (la forma es suelo) ni en uno con una referencia a un evento ausente (C1). Si alguna regla falla con un veredicto, cuentan esas; si no, la primera que queda PENDIENTE (lo que no se sabe no se acepta). El génesis también pasa por ellas.
 
-| Condición | Filas del inventario | Archivo | Qué comprueba (de dónde venía) | Regla BQLM (`docs/BQLM.md` §10) |
-|---|---|---|---|---|
-| `EV-1` | EV-1, EV-2, EV-3, TT-5, TT-7, PP-1, BL-1, RR-1 | `evento.js` | la forma del evento y de sus movimientos (`validarForma`) | 2.0.1, 2.0.0 (EV-2), 2.0.2 (TT-7), 2.0.3 (TT-5), 2.0.4 (BL-1), 2.0.5 y 2.0.6 (la emisión va a su emisor); el resto de la forma es suelo; RR-1, retirada |
-| `suelo:id` | — | `evento.js` | el id es el hash del cuerpo | — (suelo) |
-| `suelo:nuevo` | — | `evento.js` | el evento no está ya | — (suelo) |
-| `suelo:un-genesis` | — | `evento.js` | solo hay un génesis | — (suelo) |
-| `ancla` | — | `evento.js` | el foco existe (solo el génesis no tiene) | 2.1.0 |
-| `ID-1` | ID-1 | `evento.js` | el autor tiene cuenta en el libro (su alta) | 2.1.1 |
-| `ID-5` | ID-4, ID-5 | `identidad.js` | quien tiene clave firma; sin clave no se actúa (R9) | no cabe |
-| `ID-6` | ID-2, ID-6 | `identidad.js` | las claves se declaran en el alta, con su prueba de posesión | no cabe |
-| `ID-3` | ID-2, ID-3 | `identidad.js` | los tipos se declaran en el alta y no cambian; sin grupos | no cabe |
-| `VA-3` | VA-3 | `ciclo.js` | las reglas de emisión de la versión 2, en su prefijo | no cabe |
-| `RL-1` | RL-1, RL-2, RL-3 | `ciclo.js` | el reloj: ni antes que el foco ni que el alta del autor, ni más de un año por delante | 2.1.2, 2.1.3, 2.1.4 |
-| `ID-9` | ID-9, ID-10, TT-1, PP-2, PP-3, EE-9 | `ciclo.js` | quién emite: solo personas, a su nombre; T no; P sobre un registro suyo, una vez (R3); la caducidad de la serie | 2.1.5 (R), 2.0.5 (E), 2.1.6 (TT-1), 2.1.7 y 2.1.8 (PP-2); no caben «solo las personas emiten», PP-3 y EE-9 |
-| `TT-6` | TT-6 | `ciclo.js` | T no se bloquea ni se libera | 2.1.9 |
-| `TT-4` | TT-2, TT-3, TT-4 | `ciclo.js` | T del día agotado | 2.0.0 |
-| `TT-8` | TT-8, TT-9 | `ciclo.js` | T no cruza de persona; de cosa a cosa, solo del mismo dueño | no cabe |
-| `PP-5` | PP-5 | `ciclo.js` | no se estrecha P hacia una serie cerrada ni hacia la raíz de otro | no cabe |
-| `ES-1` | ES-1, ES-2, ES-3 | `ciclo.js` | el escalonado: R exige T; P, T y R en juego; E, además P sobre el registro | 2.2.0, 2.2.1, 2.2.2 |
-| `VA-3` | VA-3 | `tope.js` | en el prefijo de la versión 2, la E no lleva registro, divisible ni emisores | no cabe |
-| `EE-1` | EE-1, EE-9 | `tope.js` | el registro de la serie de E existe; su contrato (divisible, emisores) | 2.2.3 (el registro); el contrato no cabe |
-| `EE-8` | EE-8 | `tope.js` | el P que respalda E vivo no se libera | 2.2.4 (salida de una serie); la de familia no cabe |
-| `EE-10` | EE-10 | `tope.js` | en la emisión conjunta, cada coemisor tiene su P bloqueado | no cabe |
-| `EE-5` | EE-3, EE-4, EE-5, EE-6, EE-7, EE-11, RL-4 | `tope.js` | el tope compartido por franja y la cuota por P bloqueado | no cabe |
-| `RR-3` | RR-3 | `r.js` | emitir R exige colateral | retirada (VG, 9-11); 2.1.5 sin colateral |
-| `RR-4` | RR-4 | `r.js` | el colateral no se libera con devoluciones sin atender ni bajo el mínimo | retirada (VG, 9-11) |
-| `RR-5` | RR-5 | `r.js` | solo el emisor atiende las devoluciones de su R | no cabe |
-| `ID-8` | ID-8 | `identidad.js` | de paso: nadie mueve tokens ajenos | 2.2.5 |
-| `PP-4` | PP-4 | `ciclo.js` | de paso: el ámbito del P que se mueve existe | 2.2.6 |
+En el orden en que se evalúan (`CONDICIONES` en `src/condiciones/index.js`):
 
-Después, la aritmética del libro, paso a paso: saldo disponible, bloqueado con esa salida, series finitas. El eje pone a sus fallos el texto de siempre (`saldo insuficiente de <serie> en <id>`, `saldo disponible insuficiente para bloquear …`, `no hay … bloqueado en … con la salida «…»`, `saldo insuficiente de P sobre …`, `la serie … no admite tanto`); el gasto de la asignación del día que no alcanza no lleva texto propio porque ya lo dice `TT-4`.
+| Condición | Archivo | Qué comprueba | Por qué sigue en código |
+|---|---|---|---|
+| `EV-1` | `evento.js` | la forma del evento y de sus movimientos (`validarForma`) | suelo de forma (BTML). Seis reglas repiten parte de ella (abajo): son una segunda red, que solo mira eventos bien formados |
+| `suelo:id` | `evento.js` | el id es el hash del cuerpo | suelo |
+| `suelo:nuevo` | `evento.js` | el evento no está ya | suelo |
+| `suelo:un-genesis` | `evento.js` | solo hay un génesis, y es el único sin foco | suelo (absorbe «solo el génesis carece de foco», del antiguo `ancla`) |
+| `suelo:referencias` | `evento.js` | una referencia del payload a un evento que el eje no tiene se rechaza al entrar | suelo (VG, 10-11, C1: «mientras el eje es local; con red, se resuelve antes de aceptar») |
+| `ID-1` | `evento.js` | en el prefijo de la versión 2, el autor tiene cuenta | suelo de persistencia (B1: fuera de él, quien escribe sin cuenta escribe su propia alta) |
+| `suelo:firma` | `identidad.js` | la firma verifica; la bandera `exigirFirmas` | suelo: criptografía (`src/autoridad.js`). En el prefijo de la versión 2, las reglas de entonces |
+| `suelo:claves` | `identidad.js` | la clave es una clave pública válida; la prueba de posesión verifica; no hay prueba sin clave | suelo: criptografía. En el prefijo de la versión 2, las reglas de entonces |
+| `ID-3` | `identidad.js` | no hay tipo en el alta; en el prefijo de la versión 2, los tipos de entonces | suelo de persistencia (B1, A4) |
+| las 26 reglas de la época | `reglas.js` | la tabla de abajo | — |
+| `VA-3` | `ciclo.js` | las reglas de emisión de la versión 2, en su prefijo | suelo de persistencia |
+| `PP-2` | `ciclo.js` | el P acuñado (PP-2, PP-3: lo acuña quien escribió el registro, una vez; R3); la caducidad de una serie de E la fija su primera emisión (EE-9); en el prefijo de la versión 2, solo las personas declaradas emiten | 3b (el mapa §15 cambia el P acuñado); EE-9 no cabe (§10.3 de `docs/BQLM.md`) |
+| `PP-5` | `ciclo.js` | no se estrecha P hacia una serie cerrada ni hacia la raíz de otro | no cabe (el orden del movimiento ya es `nth` en `ev.1`, B6; §15 lo cambia por reposicionar con factor) |
+| `ES-1` | `ciclo.js` | el escalonado: R exige T; P, T y R en juego; E, además P sobre el registro | 3b (el mapa §15 lo cambia: D1, D2) |
+| `VA-3` | `tope.js` | en el prefijo de la versión 2, la E no lleva registro, divisible ni emisores | suelo de persistencia |
+| `EE-1` | `tope.js` | el contrato de la serie de E (divisible, emisores) | no cabe (que el registro exista ya es la regla «E is tied to a record that exists») |
+| `EE-8` | `tope.js` | el P que respalda E vivo no se libera | la salida de familia (EE-4) no cabe; la regla «locked P backing live E is not released» cubre la de una serie, también conectada |
+| `EE-10` | `tope.js` | en la emisión conjunta, cada coemisor tiene su P bloqueado | no cabe |
+| `EE-5` | `tope.js` | el tope compartido por franja y la cuota por P bloqueado | no cabe del todo (las vistas ya están: `X.7.1`, `before.6.3`; falta cómo se declara la capacidad, EE-2) |
+| `RR-3`, `RR-4` | `r.js` | el colateral de R | 3b (retiradas por VG, 9-11; el eje aún las aplica) |
+| `RR-5` | `r.js` | solo el emisor atiende las devoluciones de su R | no cabe (atender lo define el criterio de PV2) |
 
-Al crear un eje, el génesis pasa `GN-1` (GN-1, GN-2, TT-1: lo que emite y declara) y `GN-2` (GN-2, ID-5, ID-7: su firma); al restaurarlo, además, su forma (`EV-1`) y su id, y la firma solo si todo lo demás pasa. En BQL mínimo, lo que comprueba `GN-1` está en las reglas 2.0.7, 2.0.8 y 2.0.9 y, en el génesis, también en 2.0.5, 2.1.5, 2.1.6 y 2.2.5; `GN-2` no cabe.
+Después, la aritmética del libro, paso a paso (suelo: la atomicidad de los saldos): saldo disponible, bloqueado con esa salida, series finitas. El eje pone a sus fallos el texto de siempre (`saldo insuficiente de <serie> en <id>`, `saldo disponible insuficiente para bloquear …`, `no hay … bloqueado en … con la salida «…»`, `saldo insuficiente de P sobre …`, `la serie … no admite tanto`).
 
-Las secciones de las reglas siguen en su sitio y se pueden llamar enteras como antes: `reglasDelCiclo` (`src/ciclo.js`, con `SECCIONES_DEL_CICLO`), `reglasDelTope` (`src/condiciones/tope.js`, reexportada por `src/eje.js`) y `reglasDeR` (`src/lente.js`, con `SECCIONES_DE_R`).
+**Regla ↔ condición retirada ↔ suelo.** Las 26 reglas de la época, en el orden de su 8, con lo que sustituyen. «Retirada» quiere decir que el código JS ya no está en `src/` (vive en `test/condiciones-retiradas.mjs`); «a la vez» quiere decir que la condición JS sigue y la regla también rechaza (la forma, o una parte que la regla no cubre).
+
+| Regla | Condición JS | Estado | Capa de validez |
+|---|---|---|---|
+| writing burns today's T | `TT-4` (TT-2, TT-3, TT-4); la mitad de forma de `EV-1` (EV-2) | `TT-4` retirada; la forma, a la vez | 4 |
+| every record hangs on a record of the ledger | `ancla` | retirada; «solo el génesis carece de foco» pasa a `suelo:un-genesis` | 3 |
+| every event moves tokens | `EV-1` (EV-1) | a la vez (forma) | 1 |
+| T is whole | `EV-1` (TT-7) | a la vez (forma) | 1 |
+| informative T is only burned | `EV-1` (TT-5) | a la vez (forma) | 1 |
+| locks keep their holder and name an exit | `EV-1` (BL-1) | a la vez (forma) | 1 |
+| E is minted by and to its issuer | `EV-1` (la emisión va a su emisor) e `ID-9` (nadie emite en nombre de otro, E) | `ID-9`, retirada; la forma, a la vez | 5 |
+| R is minted to its issuer | `EV-1` (la emisión de R va a su emisor) | a la vez (forma) | 1 |
+| the genesis only mints to its author | `GN-1` | a la vez (el génesis) | 5 |
+| the genesis E names no record | `GN-1` | a la vez (el génesis) | 5 |
+| who has a key signs | `ID-5` (firma ausente, el firmante es el autor) | retirada; verificar la firma es `suelo:firma` | 3 |
+| without a key nobody acts | `ID-5` (sin clave no se actúa, R9) | retirada | 3 |
+| a key is declared at its alta | `ID-6` (no se cambia la clave; sin darle tokens) | retirada; la clave válida es `suelo:claves` | 3 |
+| a declared key comes with its proof | `ID-6` (sin prueba de posesión) | retirada; verificar la prueba es `suelo:claves` | 3 |
+| not before its focus | `RL-1` (RL-1) | retirada | 4 |
+| not before the writer joined | `RL-1` (RL-2) | retirada | 4 |
+| at most a year ahead | `RL-1` (RL-3) | retirada | 4 |
+| only persons mint | `ID-9` (solo las personas emiten) | retirada (en el prefijo de la versión 2, el tipo declarado: `PP-2`) | 5 |
+| R is minted by its issuer | `ID-9` (nadie emite en nombre de otro, R) | retirada | 5 |
+| nobody mints T | `ID-9` (TT-1, T no se emite) | retirada (en el génesis, `GN-1` a la vez) | 5 |
+| T is not locked | `TT-6` | retirada | 5 |
+| T only goes to things | `TT-8` (TT-8, TT-9) | retirada | 5 |
+| E is tied to a record that exists | `EE-1` (el registro de la serie) | retirada esa parte; el contrato sigue en `EE-1` | 4 |
+| locked P backing live E is not released | `EE-8` | a la vez (la salida de familia, EE-4, solo la mira JS) | 4 |
+| nobody moves tokens of others | `ID-8` (de paso) | retirada | 5 |
+| P moves within a known scope | `PP-4` (de paso) | retirada | 4 |
+
+Las seis reglas del 3b (`datos/epocas/reglas-3b/`: el P acuñado, el P del génesis, el escalonado) no están en la época ni conectadas: su código JS sigue (`PP-2`, `ES-1`, `GN-1`), y la red de equivalencia las compara con él.
+
+Las lecturas (B5: «present», «informative», «attended», «obligation») están en el 2 de la época, pero no son condiciones: el contexto las pone en la posición que dice su 3 (`docs/BQLM.md` §5).
+
+Al crear un eje, el génesis pasa `GN-1` (GN-1, GN-2, TT-1: lo que emite y declara), `GN-2` (GN-2, ID-5, ID-7: su firma), `suelo:referencias` y las reglas de la época; al restaurarlo, además, su forma (`EV-1`) y su id, y la firma solo si todo lo demás pasa.
+
+Las secciones que quedan en JS se pueden llamar enteras como antes: `reglasDelCiclo` (`src/ciclo.js`, con `SECCIONES_DEL_CICLO`: `PP-2`, `PP-5`, `ES-1`), `reglasDelTope` (`src/condiciones/tope.js`, reexportada por `src/eje.js`) y `reglasDeR` (`src/lente.js`, con `SECCIONES_DE_R`).
 
 ## 4. Un ejemplo
 
@@ -148,7 +179,7 @@ La hora de la huésped no es un saldo: sale de su asignación del día (acuñaci
 
 ## 5. Lo que queda para los pasos siguientes
 
-- Las condiciones son las reglas de JavaScript de siempre, envueltas: el paso 2 las escribió en BQL mínimo, en `epoch.2` (27 reglas verificadas contra estas condiciones, `docs/BQLM.md` §10, `test/reglas-bqlm.test.js`); conectarlas al eje y retirar estas es el encargo 3.
+- Hecho en el encargo 3a (paso 9): las reglas de la época están conectadas al eje y las condiciones JS que sustituyen, retiradas (§3). Queda para el 3b el P acuñado, el escalonado y el colateral de R (el mapa §15 los cambia), y para VG si las seis reglas de forma sustituyen a `validarForma` en lo que repiten.
 - La capa 4 de validez (`capaAcreditacion`) conserva su simulación por movimiento, con sus propios textos («saldo de … tiene …, mueve …»), aunque lee el libro de antes y las mismas condiciones; pasarla a la simulación del libro cambiaría sus textos.
 - `src/bases.js` (`poderAntes`) rehace a mano el débito de P anterior a una base; las bases leen el T sobre cada registro, que ya viene del libro. Pasar sus sumas a `libro.sumas` es del paso del 8.
 - El génesis no emite T y la asignación diaria no es todavía una acuñación por reloj de verdad: se acuña al gastar, con tope. Igual con el T informativo.

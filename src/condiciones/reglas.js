@@ -72,7 +72,7 @@ export function motivoDeRegla(nombre, ctx, epoca = EPOCA_0_BTML) {
 /**
  * En qué capa de la validez (src/validez.js, docs/VALIDEZ.md) cae lo que rechaza cada regla: 3 criptografía y
  * procedencia (la clave, el firmante, el foco), 4 el respaldo (el T del día, el reloj, la E viva) y 5 el permiso
- * (quién emite, quién mueve qué). Las de forma solo fallan en un evento que la forma (capa 1) ya rechaza.
+ * (quién emite, quién mueve qué); 1 las de forma. Las demás, 5.
  */
 export const CAPA_DE_REGLA = Object.freeze({
   'who has a key signs': 3,
@@ -87,6 +87,12 @@ export const CAPA_DE_REGLA = Object.freeze({
   'E is tied to a record that exists': 4,
   'locked P backing live E is not released': 4,
   'P moves within a known scope': 4,
+  // Las de forma: solo fallan en un evento que la forma ya rechaza, y entonces no se evalúan.
+  'every event moves tokens': 1,
+  'T is whole': 1,
+  'informative T is only burned': 1,
+  'locks keep their holder and name an exit': 1,
+  'R is minted to its issuer': 1,
 });
 
 /**
