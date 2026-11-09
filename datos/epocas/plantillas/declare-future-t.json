@@ -48,6 +48,30 @@
       ["required"],
       [4],
       ["declare future T", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «declare future T»"],
+      ["required"],
+      [5],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «declare future T»"],
+      ["required"],
+      [6],
+      ["=me", "who writes"]
     ]
   ],
   ["=count it.5 > 0"],

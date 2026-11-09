@@ -51,6 +51,30 @@
       ["required"],
       [4],
       ["commit time", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «commit time»"],
+      ["required"],
+      [5],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «commit time»"],
+      ["required"],
+      [6],
+      ["=me", "who writes"]
     ]
   ],
   ["=count (me.1 where not (T in it2.0.0.0) and it2.1 > 0) > 0"],

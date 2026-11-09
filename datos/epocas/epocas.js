@@ -469,7 +469,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"
     },
     {
-      "ref": "fad741ae37a71b15dfb5890e709da47cc1a6b3586e3308a04568e30958a9c86f"
+      "ref": "2839bc0459da64e0f9d212f00290dee370bf6a6cb40404299c4bfeb7e32c5181"
     },
     {
       "ref": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"
@@ -662,7 +662,7 @@ export const EPOCA_0_BTML_DATOS = [
           "decide"
         ],
         [
-          "commit P"
+          "deliver"
         ]
       ],
       [
@@ -673,7 +673,7 @@ export const EPOCA_0_BTML_DATOS = [
           "attend"
         ],
         [
-          "attend"
+          "deliver"
         ]
       ],
       [
@@ -688,7 +688,7 @@ export const EPOCA_0_BTML_DATOS = [
         ]
       ],
       [
-        "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que cumple un movimiento anunciado de esa familia]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4"
+        "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que mueve un movimiento anunciado de esa familia: pay la E, deliver lo demás]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4"
       ]
     ]
   ],
@@ -3331,22 +3331,22 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "24fc2107e671a6ba31bfd4a847db7d6d7ce8b4db7659c0d52c17723cbe164532"
         },
         {
-          "ref": "fe240ea2fd33ff2bea76bc019c4753472395d8efb68c45d4496701cd734b5aea"
+          "ref": "e6a070b4401b97f057cd6dc5c923c79346321e090a92bea1369d7ff8dec1744b"
         },
         {
-          "ref": "1d3bb14e94dde4f67e9158164982aefe9bdfc8205cffa3274ab564dfcbe67871"
+          "ref": "806e9cf638e43b0a89da5877fd9d9a2b82dffb8b0e9298647e2c962a1cd42423"
         },
         {
-          "ref": "dee7d1b8196327a5987a2a4e3a54684f3acdbadc8cf4fe6f796f0bec2d59e384"
+          "ref": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79"
         },
         {
-          "ref": "8364bc3aa527fff99fab41bdc63839a8bf9ab101355adfd54078c7c5ff21a091"
+          "ref": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d"
         },
         {
-          "ref": "d9e1e918b7ca7f06f04a394ce8dbaccdf4285955b43a2e3dbbfd758aa8c1bb43"
+          "ref": "52d0f4d069f7b5bb543a7fa546fce46b9d3ab74c475a97bf6708a374c4e82945"
         },
         {
-          "ref": "0896648aeb312540fc895d100ab5b8468ce1ca36168945ad42339c97042615f9"
+          "ref": "74e758af804594f382ce4069980da2c1592f3e3b6090b6bdd07bbb4d30e04127"
         },
         {
           "ref": "d79fc5c437eb74abb8e1fa636b84b383061d5cbbbf393681ad073a7773822fe9"
@@ -3355,16 +3355,16 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "e9061e0f3c2b6f03f37cca86a88f8bdc2a7a05b46cbf315498b01f4ea10288b2"
         },
         {
-          "ref": "6aea025f9c2d209f38e7b7dcb7497875d2e2ea487fcd6cd90def8f4f86805007"
+          "ref": "a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda"
         },
         {
           "ref": "a2903afa88be81ba996077d8aead129885c094004fdf1af77d4595bcc655dc12"
         },
         {
-          "ref": "72d0255ee06a2731459204384c3912384cb85bd8c85b18132f0e07e259798083"
+          "ref": "73e01442c1d70a63fce67ec72ed0e5f563daa086fab93039bd4ff9244f62b050"
         },
         {
-          "ref": "37859395f6637f08e3cbcd72d91929534515f5d0c07f3bd497a734126882889b"
+          "ref": "be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb"
         },
         {
           "ref": "3fc84e94716dd1797116dc54b7880a044cc32ad36f974e19838b35d046a898b4"
@@ -3379,13 +3379,13 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "56f838a09eb654377bb06ed2fffb005a3f69aaf932cb4bf03ba1cd19bd5889ae"
         },
         {
-          "ref": "70669ad695d87a471d0c99b0f7543e59aafcbd7b71391924d1a809c4681830e3"
+          "ref": "67779033642aa7657714f8117fd2f428b47c4637ecb0b42d5ab7449fc20c2ca9"
         },
         {
-          "ref": "bef72798b31740109afcdfdad4c432dd8f4251bd785560d164542963699768eb"
+          "ref": "6ed47b1b3d387fbda597f77748dc173288e5a997c1c641c08bf61afffbe365c2"
         },
         {
-          "ref": "9f57287840f7bc7175093e1c37a95f9979cbc8bc9e496cd3598e4c0d1233ea69"
+          "ref": "f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5"
         },
         {
           "ref": "34f93175643f2b95cbc3d56a3fa4b271eb6a671b6a7e8755e1ca1480a7fbbcbb"
@@ -3397,19 +3397,19 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b"
         },
         {
-          "ref": "3e9d63e4d9da91c0b7363bd36de44ea693ed9f378f915d47d42f60fee5ebac15"
+          "ref": "0d1f901c08c82fb6c59eb2c244c03d5f592a523cb098ca157c873b09f2417f26"
         },
         {
-          "ref": "937b03eafb6c1032aa4b9a7f7da98aead75bc94509558b3e3bcc9b525edbc745"
+          "ref": "476857f001ef33902c02ab59f9312fa4f229b0e692a843426501b6471bae1e50"
         },
         {
-          "ref": "47040cc1729ba82eeb8421401a2f8177b95595fad8716501af48f5fec7ba44de"
+          "ref": "2601f60ed3e5c93e5bbc1ca29c4d1615376006462947d40c534186cda2b5b072"
         },
         {
           "ref": "f6318461cc022563a680fc277a19f284e42094bdf4f087d879c1ea457191e25a"
         },
         {
-          "ref": "9e15ea6427b296ff660fc72d0c34e21a800b8d440567b2c9a0bc1bcfca685f7e"
+          "ref": "5e344b63ed7dd82077370e685438be1019bc8e7c9b34c13d13d803206fe8e7a8"
         },
         {
           "ref": "38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"
@@ -4598,7 +4598,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attention-has-a-price.json",
-    "id": "fad741ae37a71b15dfb5890e709da47cc1a6b3586e3308a04568e30958a9c86f",
+    "id": "2839bc0459da64e0f9d212f00290dee370bf6a6cb40404299c4bfeb7e32c5181",
     "registro": [
       [
         "attention has a price"
@@ -4615,7 +4615,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "\"P\""
       ],
       [
-        "=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count it.4.8 > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"
+        "=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count (it.4.8 where count it2.5 > 0) > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"
       ],
       [
         "ev.3"
@@ -6420,7 +6420,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "issue-e-tied-to-x.json",
-    "id": "fe240ea2fd33ff2bea76bc019c4753472395d8efb68c45d4496701cd734b5aea",
+    "id": "e6a070b4401b97f057cd6dc5c923c79346321e090a92bea1369d7ff8dec1744b",
     "registro": [
       [
         "issue E tied to X"
@@ -6556,6 +6556,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "issue E tied to X",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «issue E tied to X»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «issue E tied to X»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -6630,7 +6696,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "lock-e-as-a-bid-for-a-quota.json",
-    "id": "1d3bb14e94dde4f67e9158164982aefe9bdfc8205cffa3274ab564dfcbe67871",
+    "id": "806e9cf638e43b0a89da5877fd9d9a2b82dffb8b0e9298647e2c962a1cd42423",
     "registro": [
       [
         "lock E as a bid for a quota"
@@ -6734,6 +6800,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "lock E as a bid for a quota",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «lock E as a bid for a quota»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «lock E as a bid for a quota»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -6804,7 +6936,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "consume.json",
-    "id": "dee7d1b8196327a5987a2a4e3a54684f3acdbadc8cf4fe6f796f0bec2d59e384",
+    "id": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79",
     "registro": [
       [
         "consume"
@@ -6908,6 +7040,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "consume",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «consume»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «consume»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -6977,7 +7175,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-p.json",
-    "id": "8364bc3aa527fff99fab41bdc63839a8bf9ab101355adfd54078c7c5ff21a091",
+    "id": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d",
     "registro": [
       [
         "commit P"
@@ -7114,6 +7312,39 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "commit P",
             "the action"
           ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «commit P»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -7164,12 +7395,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "2"
+        "2.1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "Votar (mapa §15 [D] (5): comprometer = bloquear P con la salida = la decisión), con la mirada opcional; el P de una mirada pesa solo si la decisión dice esa mirada en su 2.3"
+        "Votar (mapa §15 [D] (5): comprometer = bloquear P con la salida = la decisión), con la mirada opcional; el P de una mirada pesa solo si la decisión dice esa mirada en su criterio (2.2). Ancla en el 2.1 de X (criterio, cuánto): anclado en el 2 entero, el 3 del registro se leería como parte del 2.3 de X, la lista de quién cuenta"
       ],
       [
         "epoch 0"
@@ -7185,7 +7416,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "reposition-p-toward-x.json",
-    "id": "d9e1e918b7ca7f06f04a394ce8dbaccdf4285955b43a2e3dbbfd758aa8c1bb43",
+    "id": "52d0f4d069f7b5bb543a7fa546fce46b9d3ab74c475a97bf6708a374c4e82945",
     "registro": [
       [
         "reposition P toward X"
@@ -7289,6 +7520,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "reposition P toward X",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «reposition P toward X»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «reposition P toward X»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -7359,7 +7656,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "2"
+        "2.1"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
@@ -7380,7 +7677,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-capacity-or-threshold.json",
-    "id": "0896648aeb312540fc895d100ab5b8468ce1ca36168945ad42339c97042615f9",
+    "id": "74e758af804594f382ce4069980da2c1592f3e3b6090b6bdd07bbb4d30e04127",
     "registro": [
       [
         "declare capacity or threshold"
@@ -7517,6 +7814,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "declare capacity or threshold",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «declare capacity or threshold»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «declare capacity or threshold»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -7547,7 +7910,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ]
       ],
       [
-        "2"
+        "2.2"
       ],
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
@@ -7979,7 +8342,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "give-own-r.json",
-    "id": "6aea025f9c2d209f38e7b7dcb7497875d2e2ea487fcd6cd90def8f4f86805007",
+    "id": "a29b9b379f3e861e3e3e19b8cd1c32b9617ed14e9aa7e1a3c2d29a6982f01fda",
     "registro": [
       [
         "give own R"
@@ -8049,6 +8412,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "give own R",
             "the action"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «give own R»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «give own R»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=me",
+            "who writes"
           ]
         ]
       ],
@@ -8384,7 +8813,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attend.json",
-    "id": "72d0255ee06a2731459204384c3912384cb85bd8c85b18132f0e07e259798083",
+    "id": "73e01442c1d70a63fce67ec72ed0e5f563daa086fab93039bd4ff9244f62b050",
     "registro": [
       [
         "attend"
@@ -8455,6 +8884,105 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "attend",
             "the action"
           ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «attend»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «attend»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «attend»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -8506,7 +9034,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "forgive.json",
-    "id": "37859395f6637f08e3cbcd72d91929534515f5d0c07f3bd497a734126882889b",
+    "id": "be16ac1f715a3b9aa537d5cb1f336ed6c4986d3ba868021b6e58faad7c5f5cfb",
     "registro": [
       [
         "forgive"
@@ -8576,6 +9104,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "forgive",
             "the action"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «forgive»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «forgive»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=me",
+            "who writes"
           ]
         ]
       ],
@@ -9596,7 +10190,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "deliver.json",
-    "id": "70669ad695d87a471d0c99b0f7543e59aafcbd7b71391924d1a809c4681830e3",
+    "id": "67779033642aa7657714f8117fd2f428b47c4637ecb0b42d5ab7449fc20c2ca9",
     "registro": [
       [
         "deliver"
@@ -9631,8 +10225,8 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             1
           ],
           [
-            "=first (it.4.8 where first it2.3.0 = me and T in (before.4.(first it2.0)).0.0)",
-            "the announced movement of T (in the 4.1 of X) that I deliver"
+            "=first (it.4.8 where first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0))",
+            "the announced movement of mine that is not E (T to work, P to decide, R to attend; in the 4.1 of X) that I deliver"
           ]
         ],
         [
@@ -9667,10 +10261,76 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "deliver",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «deliver»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «deliver»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
-        "=count (it.4.8 where first it2.3.0 = me and T in (before.4.(first it2.0)).0.0) > 0"
+        "=count (it.4.8 where first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0)) > 0"
       ],
       [
         "me"
@@ -9697,20 +10357,20 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ],
         [
           [
-            "=first (first ev.1).0"
+            "=last (first ev.1).0"
           ],
           [
-            "=first (first ev.1).1"
+            "=last (first ev.1).1"
           ],
           [
             "transfer"
           ],
           [
             [
-              "=first (first ev.1).3.0"
+              "=last (first ev.1).3.0"
             ],
             [
-              "=first (first ev.1).3.1"
+              "=last (first ev.1).3.1"
             ]
           ]
         ]
@@ -9721,7 +10381,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       [
         "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
         "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
-        "La estación de trabajar (T): mueve lo anunciado de la familia T que me toca (la lectura «stage», X.4.8, con before.4 para la familia)"
+        "Las estaciones de trabajar (T), decidir (P) y atender (R): mueve lo anunciado que me toca y no es E (la lectura «stage», X.4.8, con before.4 para la familia); lo de E lo mueve «pay»"
       ],
       [
         "epoch 0"
@@ -9737,7 +10397,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "pay.json",
-    "id": "bef72798b31740109afcdfdad4c432dd8f4251bd785560d164542963699768eb",
+    "id": "6ed47b1b3d387fbda597f77748dc173288e5a997c1c641c08bf61afffbe365c2",
     "registro": [
       [
         "pay"
@@ -9808,6 +10468,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "pay",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «pay»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «pay»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -9838,20 +10564,20 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         ],
         [
           [
-            "=first (first ev.1).0"
+            "=last (first ev.1).0"
           ],
           [
-            "=first (first ev.1).1"
+            "=last (first ev.1).1"
           ],
           [
             "transfer"
           ],
           [
             [
-              "=first (first ev.1).3.0"
+              "=last (first ev.1).3.0"
             ],
             [
-              "=first (first ev.1).3.1"
+              "=last (first ev.1).3.1"
             ]
           ]
         ]
@@ -9878,7 +10604,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "close.json",
-    "id": "9f57287840f7bc7175093e1c37a95f9979cbc8bc9e496cd3598e4c0d1233ea69",
+    "id": "f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5",
     "registro": [
       [
         "close"
@@ -9948,6 +10674,105 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "close",
             "the action"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «close»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «close»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «close»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
           ]
         ]
       ],
@@ -10480,7 +11305,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-time.json",
-    "id": "3e9d63e4d9da91c0b7363bd36de44ea693ed9f378f915d47d42f60fee5ebac15",
+    "id": "0d1f901c08c82fb6c59eb2c244c03d5f592a523cb098ca157c873b09f2417f26",
     "registro": [
       [
         "commit time"
@@ -10616,6 +11441,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "commit time",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «commit time»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «commit time»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -10687,7 +11578,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-future-t.json",
-    "id": "937b03eafb6c1032aa4b9a7f7da98aead75bc94509558b3e3bcc9b525edbc745",
+    "id": "476857f001ef33902c02ab59f9312fa4f229b0e692a843426501b6471bae1e50",
     "registro": [
       [
         "declare future T"
@@ -10822,6 +11713,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "declare future T",
             "the action"
           ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «declare future T»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «declare future T»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
         ]
       ],
       [
@@ -10894,7 +11851,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "expire-something-mine.json",
-    "id": "47040cc1729ba82eeb8421401a2f8177b95595fad8716501af48f5fec7ba44de",
+    "id": "2601f60ed3e5c93e5bbc1ca29c4d1615376006462947d40c534186cda2b5b072",
     "registro": [
       [
         "expire something mine"
@@ -10997,6 +11954,72 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "expire something mine",
             "the action"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «expire something mine»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «expire something mine»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
           ]
         ]
       ],
@@ -11288,7 +12311,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "change-cohort.json",
-    "id": "9e15ea6427b296ff660fc72d0c34e21a800b8d440567b2c9a0bc1bcfca685f7e",
+    "id": "5e344b63ed7dd82077370e685438be1019bc8e7c9b34c13d13d803206fe8e7a8",
     "registro": [
       [
         "change cohort"
@@ -11358,6 +12381,105 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "change cohort",
             "the action"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «change cohort»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «change cohort»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo 3c-2a: parámetro de «change cohort»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
           ]
         ]
       ],
@@ -11644,7 +12766,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "28bccdfa37e77bd044a2205af0cec7e91b882b2a71f02caf5bb2325ef5e190f9";
+export const EPOCA_0_BTML_ID = "4c4737fe8fb41da59a2e5731b244df30f5f1be8a70227c039096e28afafad9e2";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

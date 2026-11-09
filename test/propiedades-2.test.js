@@ -11,7 +11,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
-import { claveToken, partirClave } from '../src/tokens.js';
+import { claveToken, partirClave, raizDeAmbito } from '../src/tokens.js';
 import { serializar, restaurar, VERSION } from '../src/persistencia.js';
 import { direccion, indicesDe, esReferencia, ARIDAD } from '../src/btml.js';
 import * as B from '../src/bql.js';
@@ -169,7 +169,7 @@ class Modelo {
     if (!this.existe.has(autor)) return false;
     const P = ev.movimientos.filter((m) => m.token === 'P');
     // P moves within a known scope: todo P va sobre un registro del libro (no «genesis»).
-    if (P.some((m) => !this.padre.has(m.ambito))) return false;
+    if (P.some((m) => !this.padre.has(raizDeAmbito(m.ambito)))) return false;
     for (const m of ev.movimientos) {
       if (m.de !== null && m.de !== autor) return false; // nobody moves tokens of others
       if (m.de !== null) continue;
@@ -328,7 +328,7 @@ class Modelo {
   }
 }
 
-function movAleatorio(g, autor, ids, conocidos) {
+function movAleatorio(g, autor, ids, conocidos, eje) {
   const de = g.si(0.12) ? null : g.si(0.85) ? autor : g.pick(conocidos);
   const a = g.si(0.15) ? null : g.pick([...conocidos, ...IDS]);
   const cantidad = g.pick([1, 1, 2, 3, 5, 0, -1, 1.5, 1e308]);
@@ -338,7 +338,12 @@ function movAleatorio(g, autor, ids, conocidos) {
     const emisor = g.si(0.7) ? autor : g.pick(IDS);
     return { token: 'E', emisor, denominacion: g.pick(['EUR', 'plaza', 'a/b', 'x:1', 'n|2', '']), cantidad, de, a: de === null && g.si(0.8) ? emisor : a };
   }
-  if (tok === 'P') return { token: 'P', ambito: g.pick([...ids, ...ids, 'genesis', hex(g), 'a:b']), cantidad, de, a };
+  // P por mirada (encargo 3c-2a): el ámbito es un registro o una mirada suya (r.1, r.3: donde cae lo obtenido por E y por R).
+  if (tok === 'P') {
+    // La mitad de las veces, un ámbito donde el autor tiene P de verdad (su P está en registros enteros y en miradas).
+    const suyos = eje ? eje.poderes(autor).map((x) => x.ambito) : [];
+    return { token: 'P', ambito: suyos.length && g.si(0.5) ? g.pick(suyos) : g.pick([...ids, ...ids, ...ids.map((x) => x + '.1'), ...ids.map((x) => x + '.3'), 'genesis', hex(g), 'a:b']), cantidad, de, a };
+  }
   const emisor = g.si(0.5) ? autor : g.pick(conocidos);
   return { token: 'R', emisor, cantidad, de: de === null ? null : g.si(0.6) ? emisor : de, a: de === null && g.si(0.8) ? emisor : a };
 }
@@ -390,7 +395,7 @@ test('propiedad: series de tokens contra un modelo — emisión por emisor, P ob
       const conocidos = [...mod.existe];
       const autor = g.si(0.9) ? g.pick(conocidos) : g.pick(IDS);
       const movimientos = [gastaT(autor)];
-      for (let i = 0; i < g.int(0, 3); i++) movimientos.push(movAleatorio(g, autor, ids, conocidos));
+      for (let i = 0; i < g.int(0, 3); i++) movimientos.push(movAleatorio(g, autor, ids, conocidos, eje));
       // Con el escalonado, una emisión al azar casi nunca cumple: a veces se añade la más simple (T + R propia).
       if (g.si(0.2)) movimientos.push({ token: 'R', emisor: autor, cantidad: 1, de: null, a: autor });
       // Y a veces, un paso de reposición de P (bien o mal hecho).

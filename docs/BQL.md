@@ -662,7 +662,7 @@ BASES("general", "E:casa/EUR")   → 6
 BASES("hermanos", "E:casa/EUR", "cuota") → 0.375
 CAJA("terminales")               → ERROR: CAJA: terminales es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 FRESCURA()                       → 0
-CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: P:<génesis>/casa, T:minuto, R:casa, E:casa/EUR, P:<id>/casa, P:<id>/casa, P:<id>/huesped, P:<génesis>/huesped, P:<id>/casa, P:<id>/vecina…)
+CAJA("E:csa/EUR")                → PENDIENTE: CAJA: la serie E:csa/EUR no se ha emitido en el eje (series emitidas: P:<génesis>/casa, T:minuto, R:casa, E:casa/EUR, P:<id>/casa, P:<id>/casa, P:<id>/huesped, P:<génesis>.3/huesped, P:<id>/casa, P:<id>/vecina…)
 CAJA("movimientos.E:casa/EUR")   → ERROR: CAJA: medida desconocida: movimientos.E:casa/EUR (una cantidad: T:<escala>, E:<emisor>/<denominación>, P:<ámbito>/<origen>, R:<emisor> o tiempo:<escala> (el T consumido sobre el registro))
 --- llega un té al menú
 FRESCURA("hermanos")             → 1

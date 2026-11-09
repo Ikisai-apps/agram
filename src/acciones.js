@@ -27,7 +27,7 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
-import { direccion, esReferencia, esDecupla, esTerminal } from './btml.js';
+import { direccion, esReferencia, esDecupla } from './btml.js';
 import { plantilla as plantillaDeDatos, madurez, niveles as nivelesGenericos, configuracion, mensaje } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
@@ -141,16 +141,14 @@ export function parametros(plantilla) {
 /** El camino de dígitos de una posición «1.2» (o «-» si no va en el registro). */
 const caminoDe = (posicion) => (posicion === '-' ? null : String(posicion).split('.').map(Number));
 
-/** Pone un valor en una posición del payload (creando las décuplas intermedias): una hoja va entre corchetes, una lista tal cual. */
+/** Pone un valor en una posición del payload (creando las décuplas intermedias): una hoja va entre corchetes (forma canónica), una lista tal cual. */
 function poner(payload, camino, valor) {
   let nodo = payload;
   for (let k = 0; k < camino.length - 1; k++) {
     if (!Array.isArray(nodo[camino[k]])) nodo[camino[k]] = [];
     nodo = nodo[camino[k]];
   }
-  const d = camino[camino.length - 1];
-  if (camino.length === 1 && d === 0 && !Array.isArray(valor)) nodo[0] = valor; // la representación: una hoja suelta
-  else nodo[d] = Array.isArray(valor) ? valor : [valor];
+  nodo[camino[camino.length - 1]] = Array.isArray(valor) ? valor : [valor];
 }
 
 /** Las posiciones sin valor de un payload (huecos), como caminos «1.2». */
@@ -403,7 +401,8 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   if (motivos.length) return { ok: false, evento: null, motivos };
   const payload = prep.payload;
   // La representación del registro: el mensaje de la plantilla, salvo que un parámetro ocupe el 0.
-  if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, { ...prep.candidata, movimientos }, yo, X);
+  // Se rellena sobre la candidata sin movimientos: así el 1 y el 3 del payload no colisionan con D-META.
+  if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
   let evento;
   try {
     evento = await crearEvento({ autor: yo, sobre: prep.sobre, en: prep.en, t, movimientos, payload });
@@ -434,9 +433,12 @@ export function estaciones(eje, X, opciones = {}) {
   const epoca = epocaDe(opciones);
   const ctx = contextoDe(eje, epoca, {});
   const s = '("' + ev.id + '")';
+  // Los anuncios de X: los registros que su dueño ancla en su 4.1 (como los lee la plantilla de cerrado, por `down`:
+  // lo anclado en el 4 de X no se confunde con ellos); los pendientes, la lectura «stage».
+  const anuncios = '((down ' + s + ') where last (first it.6).5 = "4100000000" and first it.3 = first ' + s + '.3)';
   return estacionesDeLaEpoca(opciones).map((e) => {
     const de = (expr) => (valores('((' + expr + ' where count it.5 > 0) where ' + e.familia + ' in (before.4.(first it.0)).0.0) each 5', ctx).valores ?? []).filter((x) => typeof x === 'string');
-    const anunciados = [...new Set(de(s + '.4.1'))];
+    const anunciados = [...new Set(de(anuncios))];
     const pendientes = [...new Set(de(s + '.4.8'))];
     return { ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)) };
   });
@@ -496,7 +498,8 @@ export async function camino(eje, X, yo, opciones = {}) {
 
   // (1) El tutorial: el 9 de la plantilla de X (la de datos, o la de identidad si X es un alta) y el 9 del propio X.
   const esAlta = [...eje.identidades()].some((id) => eje.alta(id)?.id === ev.id);
-  const deIdentidad = esAlta ? nombresDel9(en(raiz, SITIO.identidad)) : [];
+  // El tutorial del alta (el 9 de la plantilla de identidad) es de quien la escribió: su dueño.
+  const deIdentidad = esAlta && ev.autor === yo ? nombresDel9(en(raiz, SITIO.identidad)) : [];
   const nombres = [...nombresDel9(plantillaDeDatos(eje, ev, opciones)), ...deIdentidad, ...nombresDel9(ev.payload)];
   for (const n of nombres) {
     if (porNombre.has(n)) {
@@ -548,7 +551,7 @@ export async function camino(eje, X, yo, opciones = {}) {
   }
   // Las caducidades próximas: las series vivas del subárbol (X.7.1) que caducan antes de un día del calendario.
   const dia = Number(hoja(en(raiz, SITIO.dia))) || 86400;
-  const reloj = Number.isFinite(eje.tMaximo()) ? eje.tMaximo() : Date.now();
+  const reloj = Date.parse(t);
   const vivas = valores('("' + ev.id + '").7.1 each 0', ctx).valores ?? [];
   const caducan = valores('("' + ev.id + '").7.1 each 7', ctx).valores ?? [];
   vivas.forEach((clave, i) => {

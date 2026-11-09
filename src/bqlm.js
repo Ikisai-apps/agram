@@ -743,7 +743,8 @@ export function rellenar(mensaje, contexto, opciones = {}) {
   return mensaje.replace(/\{([^{}]+)\}/g, (_, expr) => {
     let r;
     try {
-      r = evaluar(analizada(expr), contexto, opciones);
+      // Con sujeto (el 9 de una plantilla de transacción, con it = X), `it` vale fuera de where (encargo 3c-2a).
+      r = evaluar(analizada(expr, Object.hasOwn(opciones, 'sujeto')), contexto, opciones);
     } catch (e) {
       r = { estado: e.estado ?? 'ERROR' };
     }

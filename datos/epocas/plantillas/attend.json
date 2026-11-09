@@ -24,6 +24,42 @@
       ["required"],
       [2],
       ["attend", "the action"]
+    ],
+    [
+      ["about"],
+      ["ref"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["encargo 3c-2a: parámetro de «attend»"],
+      ["required"],
+      [3],
+      ["=first it.5", "what the record is about: X"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «attend»"],
+      ["required"],
+      [4],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «attend»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
     ]
   ],
   ["=first (first it.6.5).3 = me and count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = me and it2.3.1 = me) > 0"],

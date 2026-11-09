@@ -1,4 +1,4 @@
-# El contrato entre el núcleo y la pantalla: la mitad de datos
+# El contrato entre el núcleo y la pantalla: la mitad de datos y la mitad de acción
 
 Encargo 3c-1 (VG, 9-11). Principio: la pantalla, **la carta**, pinta un registro X con un tamaño, en un punto de vista k, **sin lógica propia**. Todo lo que decide algo (qué se enseña, cómo se llama, en qué orden, qué nivel tiene, qué cabe) viene del núcleo como **posición**, **vista** o **regla**. Nada hardcodeado en la pantalla; nada de negocio en JavaScript que pueda ser una regla o un dato de la época. Este documento describe las **entradas de datos** del contrato, `src/contrato.js` (exportado desde `src/index.js` como el espacio de nombres `contrato`), y, del encargo 3c-2b (tras 3c-1), **el libro local** (`src/local.js`, §10), **los pasos** (`src/pasos.js`, §11.4) y **los modelos de visualización** (`src/modelos.js`, §11); las plantillas de transacción del aro, `transaccion()` y el camino son del encargo 3c-2a. Pruebas: `test/contrato.test.js`, `test/local.test.js`, `test/pasos.test.js`, `test/modelos.test.js`, con una carta de texto (`test/carta-texto.mjs`) que pinta cada ejemplo de `ejemplos/` en los tres tamaños importando solo el contrato, y sus salidas esperadas (`test/carta-esperada.json`). Lo que aquí decide Core y VG no ha visto va marcado **«Core, pendiente de revisar VG»**; lo que de verdad queda abierto, en «Para decidir VG».
 
@@ -23,6 +23,11 @@ Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `
 | los modelos de visualización (§11) | `epoch.9.7` (0 la cabecera; 1… las referencias a los modelos, `datos/epocas/modelos/`) |
 | la tabla de pasos (§11.4) | `epoch.9.8` |
 | la asignación diaria de T que gasta el libro local (§10) | `epoch.1.3.1` (la escala 0, el segundo) |
+| las plantillas de transacción, las acciones del aro (§12) | `epoch.9.6` (0 la cabecera; 9.6.1 las referencias, `datos/epocas/plantillas/`) |
+| los precios de los seis grupos de R (§12.1) | `epoch.1.2.1` (cada grupo, su `[[en qué], [cuánto]]` en el 2) y las lecturas «attention group» y «attention price» |
+| los precios de las cuatro orientaciones de E (§12.3) | `epoch.1.0.1` (cada orientación, su `[[en qué], [cuánto]]` en el 2); el de cada serie, en su emisión (`precio`, `precios`) |
+| las estaciones de la fábrica (§12.4) | `epoch.4.2` (`[[familia], [qué se hace], [la plantilla que mueve lo anunciado]]`) y la lectura «stage» |
+| el tutorial del alta (§12.6) | `epoch.3.0.9` (el 9 de la plantilla de identidad) |
 
 ## 1. Plantillas: `plantilla(eje, X)` y lo que se lee de ellas
 
@@ -168,7 +173,7 @@ idiomas()                                    // → ['en', 'es']
 ## 9. Qué cambia en el eje y en los ejemplos
 
 - `src/contexto-eje.js`: el 8 de un registro (y de la candidata) tiene su nodo implícito: 8.6 la medida (la vista) y las lecturas de la época en `X.8.d` (`X.8.1`, «maturity»). Añadido al final del bloque de vistas. Para una identidad, `A.8.1` sigue siendo «obligation».
-- `datos/epocas/epoca-0.btml.json`: 8.3, 8.4, 8.5, 9.2, 9.3, 9.4, 9.5 y una línea de procedencia en el 6; `datos/epocas/reglas/maturity.json`. Son 40 reglas: 30 condiciones, 3 que escriben, 7 lecturas.
+- `datos/epocas/epoca-0.btml.json`: 8.3, 8.4, 8.5, 9.2, 9.3, 9.4, 9.5 y una línea de procedencia en el 6; `datos/epocas/reglas/maturity.json`. Eran 40 reglas: 30 condiciones, 3 que escriben, 7 lecturas (con el 3c-2a, 43: diez lecturas, §12).
 - `ejemplos/ikisai/compra-food.mjs` y `reserva-booking.mjs`: la compra y la reserva nombran su plantilla en su 5. Cambian los ids de los ejemplos (el génesis referencia la época) y las salidas de los documentos se regeneraron.
 
 ## 10. El libro local: `LibroLocal(eje, yo)`, `ver`, `tocar`, `recorrido`, `englobar`
@@ -262,7 +267,98 @@ console.log(pasos.tabla().map((f) => f.pv + ' ' + f.nombre).join(' · '));
 4 ciclo · 8 cuota · 7 escala · * madurez
 ```
 
-## 12. Para decidir VG
+## 12. Acciones: el aro, la transacción y el camino
+
+Encargo 3c-2a (VG, tras 3b-bis). La mitad de acción del contrato, `src/acciones.js` (exportado como el espacio de nombres `acciones`). Principio (VG): nada hardcodeado en la pantalla ni negocio en JavaScript que pueda ser una regla o un dato de la época; **la carta solo lista y lanza lo que el núcleo le da**. Pruebas: `test/acciones.test.js`; la carta de texto (`test/carta-texto.mjs`, `pintarPara`) pinta el aro y el camino para quien mira.
+
+```js
+import { acciones } from './src/index.js';
+const { acciones: aro, transaccion, camino, autoejecutar, estaciones, plantillasDeTransaccion, parametros } = acciones;
+```
+
+### 12.1 Los datos que VG decidió (todo en la época, con su procedencia en el 6: «VG, tras 3b-bis»)
+
+**Los seis grupos de R son seis precios** (`epoch.1.2.1`). Cada grupo lleva en su 2 el token con que se paga escribir a alguien de ese grupo: desconocidos `my R` (la propia R del destinatario devuelta: gratis para quien ya tiene R suya; los desconocidos caen aquí por defecto), comercial `E` (la cantidad la fija el dueño en su `A.3.1.2`; el token no se cambia), expertos `P` (P del remitente sobre el dominio del destinatario: gratis para quien tiene criterio sobre lo suyo), cercanos `their R` (atención por atención), equipo **`open record`** (sin pago mientras exista un registro abierto, con movimientos anunciados y pendientes, que nombre a los dos en su 3), vetados `nothing` (no llegan). Los nombres de los grupos son los que ya tenía la época. La regla «attention has a price» ya no lleva escrito el grupo ni el precio: los lee de dos **lecturas nuevas** de la propia transacción, **«attention group»** (`X.6.3`: de dónde viene, con quién: la zona en que el dueño del alta sobre la que se escribe pone a quien escribe: el último de sus grupos que lo nombra, el que le asignó su invitación, o la zona de `epoch.9.0.2.1`) y **«attention price»** (`X.6.2`: con qué condición: el último 2 de esa zona, el de la época o el que el dueño ancló en el `3.k.2` de su alta). `epoch.9.0.2` deja de repetir el precio.
+
+**P por mirada.** El ámbito de una serie de P admite una ruta de posición: `P:<r>.<d>/<origen>` (`tokens.ambitoDe`, `raizDeAmbito`, `miradaDeAmbito`). P sobre r entero pesa en todo lo de r; P sobre `r.d` pesa solo en decisiones sobre la mirada d (1 su E, 2 su P, 3 su R, 4 su T, 5 su encaje). La serie como registro da la mirada en su `0.5`; `A.2.1` y `A.2.6` llevan una entrada por ámbito, cada una con el registro en su 0 y la mirada en su 5. Obtención: «getting E gives ten P on its record» coloca en `r.1` (`put … at A.2.1.(r).1`: el destino de `put` admite un dígito tras el índice por valor); «receiving R…» en el `3` del alta del emisor; «writing a record…» sigue sobre r entero. Reposicionar hacia `r.d` es un paso de siempre (de r a `r.d`, bajar: una décima más; de `r.d` a r, subir: una décima; de una mirada a otra, o de una mirada a un hijo, dos). «minting E needs P on its record» admite P en r o en `r.1`. Recuentos: la lectura «weight» pesa un compromiso de P sobre `r.d` solo si la decisión dice esa mirada en su criterio (**«view d»**, una magnitud, en su 2.2 junto al umbral, o en su 2 si es una lista); el P del registro entero pesa siempre; si la decisión no dice mirada, es sobre r entero. `eje.poderSobre(A, r, origen, mirada)` y `motor.peso(eje, A, X, mirada)` toman la mirada (sin ella, todo el P posicionado en r, el entero y el de cada mirada). Los cinco criterios de P de `epoch.1.1` quedan como etiquetas de las posiciones 1-5.
+
+**La orientación de una E es el token que la paga.** Las cuatro orientaciones de `epoch.1.0.1` llevan su precio `[[en qué], [cuánto]]` (financiera ↔ E, conocimiento ↔ P, social ↔ R, productiva ↔ T). Cada serie de E declara en su **emisión** su precio principal (`precio: [<serie o familia>, <cuánto por unidad>]`) y los que acepta (`precios`, una lista de pares); son del contrato de la serie (`tope.contratoE`), y la serie como registro los da en su **2.2** (con qué condición se consigue una unidad), el principal primero y, sin declarar, el de la primera orientación (una unidad de E). Se eligió el 2.2 porque el 2 de la serie ya es su contrato (2.0 divisible, 2.7 caducidad) y el precio es la condición de conseguirla.
+
+**Los pasos de un proceso se tipan por token.** La lectura **«stage»** (`X.4.8`: fábrica, frente a otros: lo ocurrido frente a lo previsto, que es la regla corta del 8 en la profundidad 1) da los movimientos anunciados en el 4.1 de X que aún no han pasado (la misma condición que la plantilla de cerrado). Las **estaciones** son datos de `epoch.4.2`: `[[familia], [qué se hace], [la plantilla que mueve lo anunciado]]`: E pagar (`pay`), P decidir, R atender, T trabajar (`deliver`). La familia de un anuncio se lee buscando su serie por su valor en las series del libro, la vista nueva **`before.4`** (`before.4.("E:casa/EUR")`): un texto no fabrica una serie. `estaciones(eje, X)` → `[{ familia, estacion, plantilla, anunciados, hechos, pendientes }]`. Es la base de las estaciones de la fábrica y del PV4 del aro; no cambia el motor.
+
+### 12.2 Las plantillas de transacción: `acciones(eje, X, k, yo)`
+
+Cada acción del aro es una plantilla de transacción, un registro de la época en `epoch.9.6.1` (la lista de referencias a `datos/epocas/plantillas/<nombre>.json`; `npm run epocas` la reescribe en el orden de su 8) con el molde de regla adaptado:
+
+| | Lleva |
+|---|---|
+| 0 | el nombre (inglés) |
+| 1 | los parámetros que pide, cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo (`text`, `number`, `ref`, `identity`, `instant`, `tenfold`), 2 validación `=…` con `it` = el valor, 3 quién lo da, 4 qué se hace con él, 5 **dónde va en el registro que escribe** («1.2»; «-» si no va en él), 6 de dónde viene, 7 `required` u `optional`, 8 orden, 9 los defectos y, la última hoja, la ayuda. Un defecto `=…` se lee sobre `it` = X, `me` y la candidata `ev` |
+| 2 | **cuándo se ofrece**: BQL mínimo con `it` = X y **`me`** = la identidad que mira (nombre nuevo del contexto, junto a `ev`, `epoch`, `before`) |
+| 3 | quién la lanza (`me`) |
+| 4 | **lo que mueve**: un movimiento por décupla, 0 la serie (una clave, una fórmula o sus partes `[familia, emisor|escala|ámbito, denominación|origen, registro]`), 1 cuánto, 2 la primitiva y, si la lleva, su salida (lock, release, transfer con salida), el precio de una emisión de E o la fecha de un T informativo, 3 `[[de], [a]]` (`nobody` es nadie); lo que da cero o nada no se mueve. O `read` si solo lee; o `path` (`path all`) si lanza el camino |
+| 5 | **dónde ancla**: el dígito (o camino, con huecos `{parámetro}`: `3.{zone}.2`) de X y, si no es X, una fórmula que da el registro (`=first (first it.3).6`, el alta del dueño de X) |
+| 6, 7 | procedencia, época |
+| 8 | **`[punto de vista, orden]`**: la primera de cada PV es la acción por defecto |
+| 9 | el mensaje (inglés, con huecos sobre `it`, `me`, `ev`): la representación del registro que escribe |
+
+El registro que escribe cada acción nombra la acción en su 4 (`actions`) y, si lo tiene, su tipo de datos en su 5 («apply a resource» escribe una «purchase»); lo que queda entre las posiciones que piden los parámetros se rellena con datos (1 sobre qué, 2 el criterio, 3 quién): nunca un hueco. `acciones` devuelve las plantillas del PV k cuya condición pasa para `me` sobre X, en el orden del 8: `[{ nombre, plantilla, parametros: [{ nombre, tipo, requerido, ayuda, posicion, valor, falta }], porDefecto, lectura, camino }]`, con los defectos ya resueltos y lo que falta marcado. **Si una acción no debe aparecer, es su 2 quien lo dice.**
+
+El catálogo (MUNDOS_DISEÑO §11 con la corrección de VG al 4), con su condición:
+
+| PV | Acción | Se ofrece si (su 2) |
+|---|---|---|
+| 1 | **apply a resource** (dar E a X: propina, pagar, reservar; escribe una «purchase») | tengo E y no soy el dueño de X; el precio por defecto es el de la primera serie viva de X (su 2.2); sin serie, lo da quien lanza |
+| 1 | issue E tied to X (la emisión lleva su precio) | tengo P en X o en X.1 |
+| 1 | lock E as a bid for a quota | tengo E |
+| 1 | consume | tengo E de una serie atada a X |
+| 2 | **commit P** (votar; con mirada opcional) | tengo P en el dominio de X; ancla en X.2.1 |
+| 2 | reposition P toward X (un paso: subir una décima, bajar una décima más) | tengo P entero en el padre o en un hijo de X |
+| 2 | declare capacity or threshold | soy el dueño de X; ancla en X.2.2 |
+| 2 | borrow criteria from someone (un nombre en el 2.3 de mi alta) | el dueño de X no soy yo y tiene alta |
+| 3 | **write to X** (el paquete con el pago del grupo: un movimiento por token posible, solo mueve el que el precio nombra; «their R» acuña antes la propia R que falte) | el dueño de X no soy yo, tiene alta y no me ha vetado; ancla en el 3 de su alta |
+| 3 | give own R · return R (ask for attention) · attend · forgive · set a group price (`3.{zone}.2` de mi alta) | su 2 |
+| 4 | **aggregate T** (el registro de la escala superior en la fábrica de X con lo de abajo, `down X`, en su 6) · break down · propose · deliver (lo anunciado que me toca y no es E) · pay (lo anunciado de E) · close | su 2 |
+| 6 | **anchor here** (no sobre el alta de otro: ahí se escribe con «write to X») · reference X from another record · view thread (lee) | su 2 |
+| 7 | **commit time** (bloquear hasta una fecha) · declare future T (T informativo con su fecha) · expire something mine | su 2 |
+| 8 | **measure** (una base en el 8 de X) · change cohort · compare with another record (lee) | tengo P en X o soy su dueño |
+| 9 | **follow the path** (`path`) · view the whole tutorial (lee) · auto-run to the end (`path all`) · ask for a recommendation (lee) | X existe |
+
+### 12.3 Construir y validar: `transaccion(eje, plantilla, params, yo)`
+
+`params.X` es el registro. Construye la candidata desde la plantilla: el ancla (su 5), el payload con los parámetros dados y los defectos de los que faltan (en orden, con lo ya puesto a la vista como `ev`: el pago de «write to X» es la lectura `ev.6.2` de la propia candidata), los movimientos de su 4 y, salvo que un parámetro ocupe el 0, su mensaje como representación. Valida primero los parámetros con su 2 (motivos por posición, `{ regla: <parámetro>, mensaje, parametro }`) y después la transacción entera contra las reglas **sin asentarla**: `eje.validar(ev)`, que ya existía (las condiciones sobre el libro de antes, sin confirmar). Devuelve `{ ok, evento, motivos: [{ regla, mensaje }] }` con los mensajes por `contrato.mensaje(…, idioma)` en el idioma de la configuración de `yo` (o el que se pida); lo que no es una regla de la época (la aritmética del libro) llega con su texto. **Si `ok`, la carta lo firma y lo asienta** con lo que ya existe (`eje.anadir`); aquí no se asienta nada. Una plantilla `read` devuelve `ok` con `lectura`; una `path`, el paso del camino que lanzaría (`paso`), o todos los míos (`pasos`) con `path all`.
+
+### 12.4 Las estaciones: `estaciones(eje, X)`
+
+Lo anunciado en X por estación (§12.1): `[{ familia, estacion, plantilla, anunciados, hechos, pendientes }]`. Los anuncios son los registros que el dueño ancla en el 4.1 de X (leídos por `down`, como la plantilla de cerrado); los pendientes, la lectura «stage».
+
+### 12.5 El camino: `camino(eje, X, yo, { sugerencias })` y `autoejecutar(eje, X, yo, firmar)`
+
+Tres fuentes, en este orden, y cada paso `{ fuente, falta, hacer, espera, hecho }`:
+
+1. **El tutorial** (`fuente: 'tutorial'`): los nombres de plantillas de transacción (o de reglas) escritos en el 9 de la plantilla de X (la de datos; la de identidad, `epoch.3.0.9`, si X es mi alta) o del propio X. Un paso está `hecho` si hay un registro mío en su ancla. Una regla en el tutorial no se lanza: se cumple o no («a key is declared at its alta»: la clave se declara en el alta misma).
+2. **Las reglas** (`fuente: 'reglas'`, con la regla que lo deriva): cada movimiento anunciado y pendiente (la lectura «stage», con la plantilla de su estación: si lo debo yo es un paso mío, `hacer: { plantilla, X, parametros }`; si lo debe otro, un paso de **espera**, `espera: <quién>`: el camino enseña las dos cosas), el recuento del dueño sin alcanzar («commit P» si lo puedo lanzar; si no, espera del dueño), las peticiones de atención sin atender de mi alta («attend») y las caducidades próximas (un día del calendario, `epoch.7.0.3.1`: «expire something mine» si la serie es mía; si no, espera del emisor). `falta` se lee en humano con el 9 de la regla vía `mensaje()`, en mi idioma.
+3. **Las sugerencias** (`fuente: 'sugerencia'`): un gancho opcional, `sugerencias(eje, X, yo) → [{ plantilla, parametros }]`, sin LLM aquí; cada una se construye y se valida con `transaccion` y queda marcada (`pasa`, `motivos`).
+
+Si la madurez de X es 0 o desconocida, devuelve además `niveles` (los de su plantilla o los de `contrato.niveles()`). Orden: primero lo que nombra el criterio del dueño (`X.2.3`), luego lo que nombra el mío (el 2.3 de mi alta), luego el resto.
+
+`autoejecutar` construye y lanza los pasos míos en orden mientras pasen: cada uno con `transaccion`, firmado con `firmar(evento)` (lo que la carta sepa firmar) y asentado con `eje.anadir`; se detiene en el primero que no pasa: `{ hechos: [{ paso, evento }], parado: { paso, motivos } | null }`. En la reserva abierta de Booking, la huésped paga y la casa entrega las tres plazas por el aro, y la reserva queda cerrada (`test/acciones.test.js`).
+
+### 12.6 El tutorial del alta
+
+Sale de los datos, sin código especial: el 9 de la plantilla de identidad (`epoch.3.0.9`) lista «a key is declared at its alta» (la regla: la clave se declara en el alta misma, así que el paso solo dice si está), «set a group price» (los grupos de atención) y «anchor here» (el primer registro). `autoejecutar` sobre un alta nueva pone el precio de su primer grupo y se para en el primer registro, que pide un título.
+
+## 13. Para decidir VG
+
+Del encargo 3c-2a:
+
+- **La mirada de una decisión** va en su criterio (`X.2.2`, junto al umbral, o en su 2 si es una lista) como «view d», y no en el 2.3 como decía el encargo: en el 2.3 un ocupante que no es un nombre rompe el defecto «sin lista, solo el dueño» (N4). «O el compromiso lo dice» queda: el compromiso de P sobre `r.d` ya lleva su mirada en la serie.
+- **El precio de la E en el 2.2 de la serie** y declarado en la emisión (`precio`, `precios`); una familia sola como precio («E») deja la serie concreta a quien paga.
+- **«stage» en `X.4.8`** y **`before.4`** (las series del libro) para leer la familia de un anuncio por su valor.
+- **El aro**: el molde de las plantillas (parámetros como posiciones de una plantilla de datos; `[punto de vista, orden]` en el 8; el ancla con huecos `{parámetro}`; el registro que escribe nombra la acción en su 4 y su tipo en su 5; las posiciones intermedias se rellenan con «sobre qué», «criterio» y «quién»); que «apply a resource» escriba una «purchase»; que «commit P» y «reposition P» anclen en X.2.1 y «declare capacity» en X.2.2 (anclados en el 2 entero, el 3 del registro se leería como parte del 2.3 de X); que «deliver» mueva todo lo anunciado que no es E (P, R y T) y «pay» la E; que «aggregate T» englobe los hijos de X en su fábrica; que las acciones que solo leen («view thread», «compare…», «view the whole tutorial», «ask for a recommendation») sean plantillas con `read` en su 4.
+- **El equipo** paga «open record» con cuánto 0: abierto es «con movimientos anunciados y pendientes» (la lectura «stage»), no «sin cerrar» en general.
+- **La clave en el tutorial** es una regla, no una acción: no hay plantilla que la declare después del alta.
+- **Los textos de las plantillas** (ayudas, mensajes) en inglés como los de las reglas; sin traducción al español todavía.
 
 - **La forma de las plantillas**: la diagonal (0.0 nombre, 4.4 `template`, 8.8 niveles, 9.9 modelo de división) y que una plantilla solo describa la profundidad 0 (las subposiciones, como el 1.2 de la compra, llevan la regla corta de su profundidad). ¿Plantillas anidadas (el 1 de una compra con su propia plantilla «resource»)?
 - **El 5 como tipo**: la referencia a la plantilla por nombre o por `{ ref }`; en BQL mínimo `X.5` sigue siendo solo el id y las claves (B4), así que el tipo se lee del payload, no del contexto.

@@ -171,7 +171,7 @@ ancla: menú 0000000000 · autor: huesped · memo: el payload de la compra
 paso 0: acunar(T:hora, huesped, 1) [asignacion, tope 24] + quemar(T:hora, huesped, 1)
 paso 1: transferir(E:casa/EUR, huesped, cocina, 12)
 paso 2: acunar(P:compra/huesped, huesped, 10) [obtencion, tope 10]
-cartera de huesped: R:casa 1 · P:alta de huesped/huesped 10 · P:génesis/huesped 610 · E:casa/EUR 48 · P:compra/huesped 10
+cartera de huesped: R:casa 1 · P:alta de huesped/huesped 10 · P:génesis.3/huesped 10 · E:casa/EUR 48 · P:génesis.1/huesped 600 · P:compra/huesped 10
 T sobre el menú: {"hora":1}
 minting E needs own R issued: minting E needs own R issued: huesped mints E and has never issued R of its own
 aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100 pedido
@@ -181,7 +181,7 @@ aritmética, paso 2: saldo disponible insuficiente de E:casa/EUR en huesped: 100
 ]
 ```
 
-La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe, también como acuñación programada (tope 10: el nivel que coloca la regla; VG, tras 3b-bis). La cocina no obtiene nada por los euros que recibe: le llegan de la huésped, no de su emisor, la casa (encargo 3b-bis: solo da P lo que llega de su emisor, diez por unidad neta). Cada serie de P lleva su origen (`P:<registro>/<origen>`): todo lo de la cartera de la huésped es de origen huésped. En su cartera están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa una R y sesenta euros (diez por unidad: 610 sobre el génesis). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
+La hora de la huésped no es un saldo: sale de su asignación del día (acuñación programada con tope 24) y se quema sobre el menú, que es lo que `tiempoSobre` suma. Detrás de los movimientos va la obtención de P (encargo 3b): la huésped obtiene diez P sobre la compra que escribe, también como acuñación programada (tope 10: el nivel que coloca la regla; VG, tras 3b-bis). La cocina no obtiene nada por los euros que recibe: le llegan de la huésped, no de su emisor, la casa (encargo 3b-bis: solo da P lo que llega de su emisor, diez por unidad neta). Cada serie de P lleva su origen (`P:<registro>/<origen>`): todo lo de la cartera de la huésped es de origen huésped. En su cartera están, además, la unidad de R de la casa que le guardaba su invitación y el P que obtuvo al escribir su alta (diez) y al recibir de la casa una R y sesenta euros (diez por unidad, por mirada: diez sobre el 3 del génesis por la R y 600 sobre su 1 por los euros; encargo 3c-2a). El evento malo falla por una regla de la época («minting E needs own R issued»: emite E sin haber emitido nunca R propia) y por la aritmética del paso 2; `eje.validar` da los mismos motivos.
 
 ## 5. Lo que queda para los pasos siguientes
 

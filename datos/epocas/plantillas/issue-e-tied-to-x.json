@@ -51,6 +51,30 @@
       ["required"],
       [4],
       ["issue E tied to X", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «issue E tied to X»"],
+      ["required"],
+      [5],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «issue E tied to X»"],
+      ["required"],
+      [6],
+      ["=me", "who writes"]
     ]
   ],
   ["=count (me.2.1 where it2.0 = first it.5 and (count it2.5 = 0 or first it2.5 = 1) and it2.1 > 0) > 0"],

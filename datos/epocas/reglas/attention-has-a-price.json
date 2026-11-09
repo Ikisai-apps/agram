@@ -11,7 +11,7 @@
     "\"E\"",
     "\"P\""
   ],
-  ["=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count it.4.8 > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"],
+  ["=not (first ev.3 != first (first ev.6.5).3 and count (first (first ev.6.5).3).6 > 0 and first (first (first ev.6.5).3).6 = first ev.6.5) or (first ev.6.2.0 != \"nothing\" and (first ev.6.2.0 != \"open record\" or count (before.1 where first ev.3 in it.3 and first (first ev.6.5).3 in it.3 and count (it.4.8 where count it2.5 > 0) > 0) > 0) and sum ((ev.1 where transfer in it.4 and it.3.0 = first ev.3 and it.3.1 = first (first ev.6.5).3 and ((first ev.6.2.0 = \"their R\" and R in it.0.0.0 and it.0.0.1 = first ev.3) or (first ev.6.2.0 = \"my R\" and R in it.0.0.0 and it.0.0.1 = first (first ev.6.5).3) or (first ev.6.2.0 = \"E\" and E in it.0.0.0) or (first ev.6.2.0 = \"P\" and P in it.0.0.0 and first (first (first ev.6.5).3).6 in path (first it.0.0.1)))) each 1) >= first ev.6.2.1)"],
   ["ev.3"],
   ["transfer"],
   ["*"],

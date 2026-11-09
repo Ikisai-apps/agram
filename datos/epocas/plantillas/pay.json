@@ -27,6 +27,30 @@
       ["required"],
       [2],
       ["pay", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «pay»"],
+      ["required"],
+      [3],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «pay»"],
+      ["required"],
+      [4],
+      ["=me", "who writes"]
     ]
   ],
   ["=count (it.4.8 where first it2.3.0 = me and E in (before.4.(first it2.0)).0.0) > 0"],
@@ -39,10 +63,10 @@
       [["=me"], ["nobody"]]
     ],
     [
-      ["=first (first ev.1).0"],
-      ["=first (first ev.1).1"],
+      ["=last (first ev.1).0"],
+      ["=last (first ev.1).1"],
       ["transfer"],
-      [["=first (first ev.1).3.0"], ["=first (first ev.1).3.1"]]
+      [["=last (first ev.1).3.0"], ["=last (first ev.1).3.1"]]
     ]
   ],
   ["4"],

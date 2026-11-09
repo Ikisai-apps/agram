@@ -42,6 +42,30 @@
       ["required"],
       [3],
       ["expire something mine", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «expire something mine»"],
+      ["required"],
+      [4],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «expire something mine»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
     ]
   ],
   ["=count (me.1 where E in it2.0.0.0 and it2.0.0.1 = me and it2.1 > 0) > 0"],

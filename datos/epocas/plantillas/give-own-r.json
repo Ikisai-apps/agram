@@ -24,6 +24,30 @@
       ["required"],
       [2],
       ["give own R", "the action"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «give own R»"],
+      ["required"],
+      [3],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «give own R»"],
+      ["required"],
+      [4],
+      ["=me", "who writes"]
     ]
   ],
   ["=first it.3 != me and count (first it.3).6 > 0"],

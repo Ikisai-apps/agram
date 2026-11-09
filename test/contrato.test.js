@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as C from '../src/contrato.js';
-import { pintar } from './carta-texto.mjs';
+import { pintar, pintarPara } from './carta-texto.mjs';
 import { EPOCA_0_BTML, cargarEpocaBtml } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { evaluar } from '../src/bqlm.js';
@@ -293,7 +293,7 @@ test('la carta de texto solo importa el contrato (y, si acaso, bqlm y libro), y 
   const fuente = readFileSync(new URL('./carta-texto.mjs', import.meta.url), 'utf8');
   const importados = [...fuente.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
   assert.ok(importados.length >= 1);
-  for (const i of importados) assert.ok(['../src/contrato.js', '../src/bqlm.js', '../src/libro.js'].includes(i), 'la carta no importa ' + i);
+  for (const i of importados) assert.ok(['../src/contrato.js', '../src/acciones.js', '../src/bqlm.js', '../src/libro.js'].includes(i), 'la carta no importa ' + i);
   const esperado = JSON.parse(readFileSync(new URL('./carta-esperada.json', import.meta.url), 'utf8'));
   const nombresDe = (r) => {
     const n = new Map();
@@ -312,10 +312,17 @@ test('la carta de texto solo importa el contrato (y, si acaso, bqlm y libro), y 
   const h = await ejemploComprasHermanas();
   const l = await ejemploLente();
   const focos = { compra: [c, c.compra.id], 'menú': [c, c.menu.id], reserva: [b, b.reserva.id], tarea: [t, t.tarea.id], hermanas: [h, h.compra.id], lente: [l, l.reserva.id] };
-  assert.deepEqual(Object.keys(esperado).sort(), Object.keys(focos).sort());
+  // Con quien mira (encargo 3c-2a): el aro y el camino, del menú para la huésped y de la reserva abierta para las dos partes.
+  const abierta = await ejemploReserva({ confirmar: false });
+  const paraQuien = { 'menú·huesped': [c, c.menu.id, 'huesped'], 'reserva·huesped': [abierta, abierta.reserva.id, 'huesped'], 'reserva·casa': [abierta, abierta.reserva.id, 'casa'] };
+  assert.deepEqual(Object.keys(esperado).sort(), [...Object.keys(focos), ...Object.keys(paraQuien)].sort());
   for (const [nombre, [r, id]] of Object.entries(focos)) {
     const nombres = nombresDe(r);
     for (const tamano of [1, 2, 3]) assert.equal(sinIds(pintar(r.eje, id, tamano), nombres), esperado[nombre][tamano - 1], nombre + ' en el tamaño ' + tamano);
+  }
+  for (const [nombre, [r, id, yo]] of Object.entries(paraQuien)) {
+    const nombres = nombresDe(r);
+    for (const tamano of [2, 3]) assert.equal(sinIds(await pintarPara(r.eje, id, tamano, yo, { t: '2026-11-09T09:00:00Z' }), nombres), esperado[nombre][tamano - 2], nombre + ' para ' + yo + ' en el tamaño ' + tamano);
   }
   // Lo que pinta cada tamaño es lo que la época dice que cabe: un dato en el hueco, cuatro en la tarjeta, diez en la pantalla.
   assert.equal(pintar(eje, compra.id, 1).split('\n').length, 1);

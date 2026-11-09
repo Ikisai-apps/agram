@@ -24,6 +24,42 @@
       ["required"],
       [2],
       ["change cohort", "the action"]
+    ],
+    [
+      ["about"],
+      ["ref"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["encargo 3c-2a: parámetro de «change cohort»"],
+      ["required"],
+      [3],
+      ["=first it.5", "what the record is about: X"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo 3c-2a: parámetro de «change cohort»"],
+      ["required"],
+      [4],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["encargo 3c-2a: parámetro de «change cohort»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
     ]
   ],
   ["=first it.3 = me"],
