@@ -969,7 +969,15 @@ async function arrancar() {
     if (texto !== null) manejadores.guiaArchivo(texto);
   });
   let temporizador = null;
-  window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
+  // Repintar solo si cambia el ancho y no hay un campo con el foco: el teclado del móvil solo cambia el alto y
+  // dispara resize, y un repintado entero cerraba el teclado y perdía el archivo elegido (VG, 10-11, al restaurar).
+  let anchoAnterior = window.innerWidth;
+  window.addEventListener('resize', () => {
+    const editando = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName ?? '');
+    if (editando || window.innerWidth === anchoAnterior) return;
+    anchoAnterior = window.innerWidth;
+    clearTimeout(temporizador); temporizador = setTimeout(pintar, 120);
+  });
   // Lo escrito en la pregunta de la guía se recuerda (un repintado entero no lo pierde).
   raiz.addEventListener('input', (e) => { if (e.target.matches?.('[data-guia-pregunta]')) estado.guia.borrador = e.target.value; });
   // El libro compartido: al volver la red y cada 30 s con la pestaña visible (la cola decide si toca reintentar).
