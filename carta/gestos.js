@@ -25,6 +25,8 @@ const UMBRAL_PELLIZCO = 30;
  *   leido()                  alternar la lente «leído»
  *   englobar()               guardar este rato (englobar el libro local)
  *   quien(id) · ejemplo(id) · reiniciar() · seguir()
+ *   arranque(que)            la pantalla de arranque: menu, crear, restaurar, ejemplo o cuenta:<alta>
+ *   crear(form) · restaurar(form) · copia(form | null) · olvidar()   mi cuenta: crearla, restaurarla de su copia, la copia de seguridad, olvidarla
  *   hermano(delta)           cambiar de PV o de hermano (deslizar horizontal, flechas ← →)
  *   saltar(pv)               las teclas 0-9: ir a ese PV
  * Devuelve una función que quita los ganchos.
@@ -55,6 +57,9 @@ export function instalar(raiz, m) {
     if ((el = b('[data-englobar]'))) { e.preventDefault(); m.englobar?.(); return; }
     if ((el = b('[data-config]'))) { e.preventDefault(); m.configurar?.(null); return; }
     if ((el = b('[data-reiniciar]'))) { e.preventDefault(); m.reiniciar?.(); return; }
+    if ((el = b('[data-arranque]'))) { e.preventDefault(); m.arranque?.(el.dataset.arranque); return; }
+    if ((el = b('[data-copia]'))) { e.preventDefault(); m.copia?.(null); return; }
+    if ((el = b('[data-olvidar]'))) { e.preventDefault(); m.olvidar?.(); return; }
     if ((el = b('[data-leido]'))) { e.preventDefault(); m.leido?.(); return; }
     if ((el = b('[data-voltear]'))) { e.preventDefault(); m.voltear?.(); return; }
     if ((el = b('[data-abrir]'))) { e.preventDefault(); if (el.dataset.abrir) m.foco?.(el.dataset.abrir, 0); return; }
@@ -174,6 +179,9 @@ export function instalar(raiz, m) {
     e.preventDefault();
     if (f.matches('[data-formulario]')) m.enviar?.(f);
     else if (f.matches('[data-configuracion]')) m.configurar?.(f);
+    else if (f.matches('[data-crear]')) m.crear?.(f);
+    else if (f.matches('[data-restaurar]')) m.restaurar?.(f);
+    else if (f.matches('[data-copia-form]')) m.copia?.(f);
   });
   on('change', (e) => {
     const t = e.target;

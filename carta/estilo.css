@@ -207,5 +207,18 @@ small{color:var(--muted)}
 .formulario details.btml code{font-size:11px;overflow-wrap:anywhere}
 .formulario footer button{background:var(--accent);color:var(--accent-fg);border-color:var(--accent);width:100%;min-height:44px}
 
+/* mi cuenta: la pantalla de arranque (sola, sin eje) y los diálogos de crear, restaurar y la copia de seguridad */
+.arranque-pantalla{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px 0}
+.arranque-pantalla .formulario{width:min(100%,480px)}
+.arranque .opciones{display:grid;gap:8px}
+.arranque .opciones button{min-height:44px;width:100%}
+.arranque .opciones .principal{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.cuentas-lista{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.cuentas-lista button{width:100%;min-height:40px;text-align:left}
+.arranque select{padding:6px 8px;border-radius:8px;border:1px solid var(--rule);background:var(--bg);width:100%}
+.arranque .volver-arranque{font-size:13px}
+.arranque input[type="file"]{padding:6px 0;border:0;background:transparent}
+.copia .aviso{margin:0}
+
 @media (max-width:480px){body{font-size:15px} .representacion{font-size:1.2rem} .barra select{max-width:36vw}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
