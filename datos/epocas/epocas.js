@@ -3869,6 +3869,91 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         "the occupants of the 0 of a record are its representations and the card picks the one that fits: a leaf is a text representation without minimum size (the first format of the list, text); a tenfold is a rich one: its 0 the alternative text, its 1 [minimum size, format], its 5 where the resource is (a relative URL of the repository or a reference); a template says in its 0.1 which formats the 0 of its type admits, and what it does not admit is left out. The sizes: 1 the minimum slot, 2 the card, 3 the whole screen, each with the data that fit in it. Core, pendiente de revisar VG (encargo 3c-1)"
+      ],
+      [
+        [
+          [
+            0
+          ],
+          [
+            "#FFFFFF"
+          ]
+        ],
+        [
+          [
+            1
+          ],
+          [
+            "#FFC91D"
+          ]
+        ],
+        [
+          [
+            2
+          ],
+          [
+            "#65BF4D"
+          ]
+        ],
+        [
+          [
+            3
+          ],
+          [
+            "#40CCD9"
+          ]
+        ],
+        [
+          [
+            4
+          ],
+          [
+            "#EF5353"
+          ]
+        ],
+        [
+          [
+            5
+          ],
+          [
+            "#161A24"
+          ]
+        ],
+        [
+          [
+            6
+          ],
+          [
+            "#D58D4E"
+          ]
+        ],
+        [
+          [
+            7
+          ],
+          [
+            "#9762D8"
+          ]
+        ],
+        [
+          [
+            8
+          ],
+          [
+            "#17396F"
+          ]
+        ],
+        [
+          [
+            9
+          ],
+          [
+            "#AE7447"
+          ]
+        ]
+      ],
+      [
+        "the colours of 9.5.4, one per point of view, digit 0 to 9 (hex): the palette of the art, phase 1 (paleta de la fase 1 del arte; VG 10-11: also in the sober render, as a brushstroke: the border of each card in the colour of its own point of view, whatever its depth, the letters untouched)"
       ]
     ],
     [
@@ -13440,7 +13525,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "6166e9e817c385e208c717116ea41ff1cb861ad71dab8a2b88f242b418ae6bf2";
+export const EPOCA_0_BTML_ID = "413ed9d6ba6faef7b36e2a4b29278c3cd595bd233fb19e68a8e756f464d22b51";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

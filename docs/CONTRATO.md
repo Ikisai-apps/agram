@@ -77,6 +77,7 @@ De dónde salen: lo propio del 0 de X (una hoja, una lista de hojas o una décup
 ```js
 representaciones(eje, X)   // → [{ texto, tamano, formato, recurso }], por tamaño mínimo
 tamanos()                  // → [{ tamano, nombre, datos }]
+colores()                  // → { [pv]: "#rrggbb" }, el color de cada punto de vista (epoch.9.5.4); la carta lo pasa a --pv-0 … --pv-9
 ```
 
 ## 3. Ocupantes ordenados y paginados: `ocupantes(eje, X, d, desde, cuantos)`

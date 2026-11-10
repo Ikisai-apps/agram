@@ -15,6 +15,51 @@
 :root[data-theme="dark"]{
   --bg:#15130f; --fg:#ece6dc; --muted:#a39888; --rule:#312b24; --panel:#1e1a15; --panel2:#2a241c;
   --accent:#d9a46a; --accent-fg:#15130f; --ok:#9ad6b2; --warn:#f0b27a; --warnbg:#3a2412; color-scheme:dark}
+/* El color de cada punto de vista: una pincelada, también en sobrio. Los diez colores no están aquí: salen de la
+   época (epoch.9.5.4) y la carta los pone como --pv-0 … --pv-9 al arrancar (carta/dom.js variablesDeColor). Cada
+   carta lleva el de SU punto de vista (data-pv, data-centro, data-roseton), a cualquier profundidad: el borde en el
+   color mezclado con la línea (más suave que las letras), el fondo con una tonalidad ligera, las letras intactas. */
+:root{--tinte-borde:55%; --tinte-fondo:8%}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--tinte-borde:62%; --tinte-fondo:13%}}
+:root[data-theme="dark"]{--tinte-borde:62%; --tinte-fondo:13%}
+[data-pv="0"],[data-centro="0"],[data-roseton="0"]{--c:var(--pv-0)}
+[data-pv="1"],[data-centro="1"],[data-roseton="1"]{--c:var(--pv-1)}
+[data-pv="2"],[data-centro="2"],[data-roseton="2"]{--c:var(--pv-2)}
+[data-pv="3"],[data-centro="3"],[data-roseton="3"]{--c:var(--pv-3)}
+[data-pv="4"],[data-centro="4"],[data-roseton="4"]{--c:var(--pv-4)}
+[data-pv="5"],[data-centro="5"],[data-roseton="5"]{--c:var(--pv-5)}
+[data-pv="6"],[data-centro="6"],[data-roseton="6"]{--c:var(--pv-6)}
+[data-pv="7"],[data-centro="7"],[data-roseton="7"]{--c:var(--pv-7)}
+[data-pv="8"],[data-centro="8"],[data-roseton="8"]{--c:var(--pv-8)}
+[data-pv="9"],[data-centro="9"],[data-roseton="9"]{--c:var(--pv-9)}
+/* el blanco y el casi negro de la paleta (0 y 5) se mezclan con el gris para verse en el tema donde no contrastan */
+:root{--neutro:var(--muted)}
+.pv[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{
+  --borde:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-borde),var(--rule));
+  --fondo:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-fondo),var(--panel))}
+[data-pv="0"],[data-centro="0"],[data-roseton="0"]{--c:color-mix(in oklab,var(--pv-0) 40%,var(--neutro))}
+[data-pv="5"],[data-centro="5"],[data-roseton="5"]{--c:color-mix(in oklab,var(--pv-5) 70%,var(--neutro))}
+.pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{border-color:var(--borde)}
+.pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.roseton[data-roseton],.pv[data-pv] .comprimido{background:var(--fondo)}
+.ocupante-ref[data-pv]{background:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-fondo),var(--panel2))}
+.ocupantes.anidados{margin:4px 0 0 10px;padding-left:6px;border-left:2px solid color-mix(in oklab,var(--c,var(--rule)) 40%,transparent)}
+@supports not (color:color-mix(in oklab,red,blue)){ /* sin color-mix: las mezclas salen de --pv-N-rgb (calculado al arrancar) con alfa */
+  [data-pv],[data-centro],[data-roseton]{--borde:var(--rule);--fondo:var(--panel)}
+  [data-pv="0"],[data-centro="0"],[data-roseton="0"]{--c:var(--muted)}
+  .pv[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{border-color:var(--rule)}
+  [data-pv="0"],[data-centro="0"],[data-roseton="0"]{--rgb:var(--pv-0-rgb,128 128 128)}
+  [data-pv="1"],[data-centro="1"],[data-roseton="1"]{--rgb:var(--pv-1-rgb,128 128 128)}
+  [data-pv="2"],[data-centro="2"],[data-roseton="2"]{--rgb:var(--pv-2-rgb,128 128 128)}
+  [data-pv="3"],[data-centro="3"],[data-roseton="3"]{--rgb:var(--pv-3-rgb,128 128 128)}
+  [data-pv="4"],[data-centro="4"],[data-roseton="4"]{--rgb:var(--pv-4-rgb,128 128 128)}
+  [data-pv="5"],[data-centro="5"],[data-roseton="5"]{--rgb:var(--pv-5-rgb,128 128 128)}
+  [data-pv="6"],[data-centro="6"],[data-roseton="6"]{--rgb:var(--pv-6-rgb,128 128 128)}
+  [data-pv="7"],[data-centro="7"],[data-roseton="7"]{--rgb:var(--pv-7-rgb,128 128 128)}
+  [data-pv="8"],[data-centro="8"],[data-roseton="8"]{--rgb:var(--pv-8-rgb,128 128 128)}
+  [data-pv="9"],[data-centro="9"],[data-roseton="9"]{--rgb:var(--pv-9-rgb,128 128 128)}
+  .pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{border-color:rgb(var(--rgb) / .55)}
+  .pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.roseton[data-roseton],.pv[data-pv] .comprimido{background:linear-gradient(rgb(var(--rgb) / .08),rgb(var(--rgb) / .08)),var(--panel)}
+}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%;height:100%}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.4;
@@ -166,16 +211,21 @@ small{color:var(--muted)}
 .pasos{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted)}
 .pasos b{color:var(--fg);font-weight:500}
 
-/* los rosetones */
-.rosetones{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:12px 0;padding-top:8px;border-top:1px solid var(--rule)}
-.roseton{width:var(--hueco);height:var(--hueco);padding:2px;border-radius:50%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;position:relative;line-height:1;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
+/* los rosetones: diez (uno por PV, el 0 y el 5 en el centro de cada grupo). Apilado, dos tiras pegadas arriba y abajo
+   de la pantalla (arriba el tetraedro de la X: 1 2 0 3 4; abajo la cruz: 6 7 5 8 9); en la matriz, una barra fija */
+.rosetones{display:flex;gap:6px;justify-content:center;align-items:flex-start;margin:0;padding:6px 0;overflow-x:auto;scrollbar-width:none}
+.rosetones::-webkit-scrollbar{display:none}
+.rosetones-arriba{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--rule)}
+.rosetones-abajo{position:sticky;bottom:0;z-index:5;background:var(--bg);border-top:1px solid var(--rule);padding-bottom:max(6px,env(safe-area-inset-bottom,0px))}
+.roseton{flex:0 0 auto;width:var(--hueco);height:var(--hueco);padding:2px;border-radius:50%;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;position:relative;line-height:1;font-size:14px;font-weight:600;font-variant-numeric:tabular-nums}
 .roseton .numero{position:absolute;top:4px;left:50%;transform:translateX(-50%);font-size:9px}
-.roseton.nivel-2{width:var(--tarjeta);height:auto;min-height:var(--hueco);border-radius:var(--radio);font-weight:400;align-items:stretch;text-align:left;padding:6px 8px;gap:4px}
+.roseton.grupo-nucleo{width:40px;height:40px;align-self:center}
+.roseton.nivel-2{width:var(--tarjeta);height:auto;min-height:var(--hueco);border-radius:var(--radio);font-weight:400;align-items:stretch;text-align:left;padding:6px 8px;gap:4px;align-self:flex-start}
 .roseton.nivel-2 .numero{position:static;transform:none}
 .roseton.nivel-2 .dato{font-weight:600}
 .roseton ul{margin:0;padding-left:14px;font-size:12px}
-.carta-matriz .rosetones{position:fixed;inset:auto 16px 8px 16px;margin:0;border:0;justify-content:space-between;pointer-events:none}
-.carta-matriz .roseton{pointer-events:auto;background:var(--panel)}
+.rosetones-barra{position:fixed;inset:auto 16px 8px 16px;border:0;justify-content:space-between;pointer-events:none;overflow:visible}
+.rosetones-barra .roseton{pointer-events:auto}
 
 /* el aro */
 .aro-fondo,.formulario-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
@@ -242,3 +292,5 @@ html.opinando #carta *{cursor:crosshair}
 .opinar-botones{display:flex;gap:8px;justify-content:flex-end}
 .opinar-guardar{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
 .opinar-aviso{position:fixed;z-index:70;left:50%;transform:translateX(-50%);bottom:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;max-width:calc(100vw - 32px)}
+.roseton.grupo-nucleo{font-size:12px}
+.roseton.grupo-nucleo .numero{top:2px;font-size:8px}

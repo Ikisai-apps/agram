@@ -78,12 +78,32 @@ function htmlRepresentacion(rep, { clase = 'rep' } = {}) {
   return `<span class="${clase}">${escapar(rep.texto ?? '—')}</span>`;
 }
 
+/**
+ * Los colores de la época como variables CSS: --pv-N (el hex) y --pv-N-rgb («r g b», para los navegadores sin
+ * color-mix, que mezclan con rgb(var(--pv-N-rgb) / alfa)). Nada de hex en las hojas de estilo: salen de epoch.9.5.4.
+ */
+export function variablesDeColor(colores = {}) {
+  const fuera = {};
+  for (const [pv, hex] of Object.entries(colores)) {
+    const m = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (!m) continue;
+    fuera[`--pv-${pv}`] = hex;
+    fuera[`--pv-${pv}-rgb`] = [0, 2, 4].map((i) => parseInt(m[1].slice(i, i + 2), 16)).join(' ');
+  }
+  return fuera;
+}
+
 /** Un ocupante: una hoja, su texto; una referencia, un botón que entra en el registro; una décupla, sus hojas. En animado, delante, su elemento (la pieza suelta del mundo). */
 function htmlOcupante(o) {
+  const dentro = o.anidados?.length ? o.anidados.map((g) => `<ul class="ocupantes anidados" data-anidado="${g.pv}">${g.lista.map((x) => `<li>${htmlOcupante(x)}</li>`).join('')}</ul>`).join('') : '';
+  return htmlOcupanteSolo(o) + dentro;
+}
+
+function htmlOcupanteSolo(o) {
   const elemento = o.elemento?.recurso ? htmlPieza(o.elemento, { clase: 'pieza-elemento', alt: '' }) : '';
   if (o.tipo === 'referencia' && o.X) {
     const rep = o.representacion?.recurso ? htmlRepresentacion(o.representacion, { clase: 'rep-mini' }) : elemento;
-    return `<button type="button" class="ocupante ocupante-ref"${nodo('ocupante', { x0: o.texto, rep: repDe(o.representacion) })} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
+    return `<button type="button" class="ocupante ocupante-ref"${nodo('ocupante', { x0: o.texto, rep: repDe(o.representacion) })}${o.pv !== null && o.pv !== undefined ? ` data-pv="${o.pv}"` : ''} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
   }
   if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla"${nodo('ocupante')}>${elemento}${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
   return `<span class="ocupante ocupante-hoja"${nodo('ocupante')}>${elemento}${escapar(o.texto)}</span>`;
@@ -184,13 +204,24 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   </section>`;
 }
 
-/** Los rosetones de identidad: ocho mosaicos muy comprimidos de mi foco, en las esquinas y los lados. */
-function htmlRosetones(lista) {
-  if (!lista.length) return '';
-  return `<nav class="rosetones"${nodo('rosetones')} aria-label="${attr(t('miFoco'))}">${lista.map((r) => `<button type="button" class="roseton grupo-${r.grupo} lado-${r.lado ?? ''} fila-${r.fila ?? ''} nivel-${r.nivel}"${nodo('roseton', { tam: NOMBRE_NIVEL[r.nivel] })} data-roseton="${r.pv}" data-x="${r.X}" title="${attr(t('deMiAlta', { que: r.etiqueta }))}">
+/**
+ * Los rosetones de identidad: diez mosaicos muy comprimidos de mi foco, uno por PV (el 0 y el 5 incluidos). En la
+ * matriz, una barra fija abajo; apilada (el móvil), dos tiras: arriba el tetraedro de la X con su centro, abajo la cruz
+ * con el suyo (las que traza la geometría: la X son los PV 1-4, la cruz 6-9, y el 0 y el 5 el centro de cada una).
+ */
+function htmlRoseton(r) {
+  return `<button type="button" class="roseton grupo-${r.grupo} lado-${r.lado ?? ''} fila-${r.fila ?? ''} nivel-${r.nivel}"${nodo('roseton', { tam: NOMBRE_NIVEL[r.nivel] })} data-roseton="${r.pv}" data-x="${r.X}" title="${attr(t('deMiAlta', { que: r.etiqueta }))}">
     <span class="numero">${r.pv}</span><span class="dato">${escapar(r.comprimido.dato)}</span>
     ${r.nivel >= NIVEL.tarjeta && r.ocupantes ? `<span class="etiqueta">${escapar(r.etiqueta)}</span><ul>${r.ocupantes.lista.slice(0, 4).map((o) => `<li>${escapar(o.texto)}</li>`).join('') || `<li class="nada">${t('nada')}</li>`}</ul>` : ''}
-  </button>`).join('')}</nav>`;
+  </button>`;
+}
+const nav = (lista, clase) => `<nav class="rosetones ${clase}"${nodo('rosetones')} aria-label="${attr(t('miFoco'))}">${lista.map(htmlRoseton).join('')}</nav>`;
+const ARRIBA = [1, 2, 0, 3, 4];
+function htmlRosetones(lista, { apilada = false, parte } = {}) {
+  if (!lista?.length) return '';
+  if (!apilada) return parte === 'abajo' ? '' : nav(lista, 'rosetones-barra');
+  const mias = lista.filter((r) => (ARRIBA.includes(r.pv) ? 'arriba' : 'abajo') === parte);
+  return mias.length ? nav(mias, `rosetones-${parte}`) : '';
 }
 
 /** El aro: ocho huecos alrededor, uno por PV lateral, con la acción por defecto (lanzada por el id de su plantilla); un segundo toque despliega las demás. */
@@ -401,8 +432,9 @@ export function html(arbol, extra = {}) {
     ${htmlBarra(a, extra)}
     ${avisos.length ? `<p class="aviso" role="alert">${avisos.map(escapar).join(' · ')}</p>` : ''}
     ${extra.exito ? `<p class="exito" role="status">${escapar(extra.exito)}</p>` : ''}
+    ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'arriba' })}
     <div class="escena">${escena}</div>
-    ${htmlRosetones(a.rosetones)}
+    ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'abajo' })}
     ${htmlAro(a.aro)}
     ${htmlFormulario(a.formulario)}
     ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura }) : ''}

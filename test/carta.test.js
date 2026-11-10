@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arbol, formulario, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA, ANIMAR } from '../carta/carta.js';
-import { html, htmlPieza } from '../carta/dom.js';
+import { html, htmlPieza, variablesDeColor } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
 import * as A from '../src/acciones.js';
 import * as modelos from '../src/modelos.js';
@@ -70,8 +70,8 @@ test('la carta de la compra en una pantalla alta (400×700) se apila y en una an
   assert.equal(orden.comprimido.dato, C.ocupantes(eje, X.id, 1).total);
   const cuota = a.laterales.find((n) => n.pv === 8);
   assert.equal(cuota.comprimido.dato, 9, 'el paso «cuota» del PV8 es el dato comprimido');
-  // Mi foco: ocho rosetones de mi alta.
-  assert.equal(a.rosetones.length, LATERALES.length);
+  // Mi foco: diez rosetones de mi alta, uno por PV (el 0 y el 5 incluidos), en el orden de las dos tiras.
+  assert.deepEqual(a.rosetones.map((r) => r.pv), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
   assert.ok(a.rosetones.every((r) => r.X === eje.alta('huesped').id));
   // Las identidades y la configuración (los defectos) van en el árbol; sin aro ni formulario abiertos.
   assert.deepEqual(a.identidades.map((i) => i.id), eje.identidades());
@@ -444,4 +444,84 @@ test('los tres ejemplos pintan en los dos modos sin fallar (compra, reserva, tar
       assert.doesNotMatch(h, /undefined|\[object Object\]/, clave + ' en ' + medidas.ancho);
     }
   }
+});
+
+// ---------- el color por punto de vista (VG, 10-11: también en sobrio, como pincelada) ----------
+
+const nav = (h, clase) => { const i = h.indexOf('<nav class="rosetones ' + clase + '"'); return i < 0 ? '' : h.slice(i, h.indexOf('</nav>', i)); };
+const pvsDe = (trozo) => [...trozo.matchAll(/data-roseton="(\d)"/g)].map((m) => Number(m[1]));
+
+test('los colores de los PV son datos de la época (epoch.9.5.4): la carta los lee, los pasa a variables CSS y cambiarlos en una copia los cambia', async () => {
+  const { eje, compra: X } = await compra();
+  const oficial = { 0: '#FFFFFF', 1: '#FFC91D', 2: '#65BF4D', 3: '#40CCD9', 4: '#EF5353', 5: '#161A24', 6: '#D58D4E', 7: '#9762D8', 8: '#17396F', 9: '#AE7447' };
+  assert.deepEqual(C.colores(), oficial);
+  const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
+  assert.deepEqual(a.colores, oficial);
+  const v = variablesDeColor(a.colores);
+  assert.equal(v['--pv-1'], '#FFC91D');
+  assert.equal(v['--pv-1-rgb'], '255 201 29');
+  assert.equal(Object.keys(v).length, 20);
+  // Cambiar el 2 en una copia de la época cambia la variable; sin paleta, no hay color (y no se rompe nada).
+  const otra = epocaCon((e) => { e[9][5][4][2] = [[2], ['#123456']]; });
+  assert.equal(C.colores({ epoca: otra })[2], '#123456');
+  const b = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: otra });
+  assert.equal(variablesDeColor(b.colores)['--pv-2'], '#123456');
+  const sin = epocaCon((e) => { e[9][5].length = 4; });
+  assert.deepEqual(C.colores({ epoca: sin }), {});
+  assert.doesNotMatch(html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: sin })), /undefined|\[object Object\]/);
+  // Nada de hex en la hoja de estilo ni en el pintado: los colores salen de la época.
+  for (const f of ['../carta/estilo.css', '../carta/dom.js']) {
+    const fuente = readFileSync(new URL(f, import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    const hex = fuente.match(/#[0-9a-fA-F]{6}/g) ?? [];
+    if (f.endsWith('.css')) assert.ok(hex.every((h) => !Object.values(oficial).includes(h.toUpperCase())), 'la paleta no está en ' + f + ': ' + hex);
+    else assert.deepEqual(hex, [], f);
+  }
+});
+
+test('cada ocupante que es una referencia lleva el data-pv del dígito de su posición en su padre, a cualquier profundidad (1 → 4 → 2…); el foco es el 0 y su reverso el 5', async () => {
+  const c = await ejemploTarea();
+  const niveles = Object.fromEntries(LATERALES.map((pv) => [pv, NIVEL.bloque]));
+  const a = await arbol({ foco: { X: c.tarea.id, pv: 0 }, niveles, anidar: 4 }, c.eje, 'huesped', MOVIL);
+  // El árbol: cada referencia anidada trae el dígito del grupo que la contiene; se reúnen las cadenas.
+  const cadenas = [];
+  const refs = [];
+  const recorrer = (o, camino) => {
+    if (o.tipo !== 'referencia') return;
+    const aqui = [...camino, o.pv];
+    cadenas.push(aqui);
+    refs.push(o.pv);
+    for (const g of o.anidados) for (const x of g.lista) { if (x.tipo === 'referencia') assert.equal(x.pv, g.pv, 'una referencia lleva el dígito de su grupo'); recorrer(x, aqui); }
+  };
+  for (const n of a.laterales) for (const o of n.ocupantes?.lista ?? []) { assert.equal(o.pv, n.pv, 'en un bloque, el ocupante ocupa el PV del bloque'); recorrer(o, []); }
+  const larga = cadenas.reduce((m, x) => (x.length > m.length ? x : m), []);
+  assert.ok(larga.length >= 3, 'hay un anidamiento de al menos tres niveles: ' + larga.join('→'));
+  // El HTML: cada referencia pintada lleva su data-pv (cuenta por dígito igual que el árbol), también las anidadas.
+  const h = html(a);
+  const porDigito = (xs) => xs.reduce((m, d) => ({ ...m, [d]: (m[d] ?? 0) + 1 }), {});
+  const pintados = [...h.matchAll(/class="ocupante ocupante-ref"[^>]*? data-pv="(\d)"/g)].map((m) => Number(m[1]));
+  assert.deepEqual(porDigito(pintados), porDigito(refs));
+  assert.ok(larga.slice(1).some((d, i) => d !== larga[i]), 'la cadena cambia de dígito al anidar: ' + larga.join('→'));
+  // El foco: el anverso es el 0 y el reverso el 5 (data-centro, que el CSS pinta).
+  assert.match(h, /class="nucleo anverso[^"]*"[^>]* data-centro="0"/);
+  const r = html(await arbol({ foco: { X: c.tarea.id, pv: 5 } }, c.eje, 'huesped', MOVIL));
+  assert.match(r, /class="nucleo reverso[^"]*"[^>]* data-centro="5"/);
+  // Un PV (cualquier tamaño) lleva el suyo; y la época decide el color de cada uno (no hay hex aquí).
+  for (const n of a.laterales) assert.match(h, new RegExp(`<section class="pv pv-${n.pv} [^>]*data-pv="${n.pv}"`));
+  assert.doesNotMatch(h, /#[0-9a-fA-F]{6}/);
+});
+
+test('los rosetones salen también apilados (el móvil): dos tiras, arriba el tetraedro de la X con su centro (1 2 0 3 4) y abajo la cruz con el suyo (6 7 5 8 9); en la matriz, una barra de diez', async () => {
+  const { eje, compra: X } = await compra();
+  const m = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL));
+  assert.deepEqual(pvsDe(nav(m, 'rosetones-arriba')), [1, 2, 0, 3, 4]);
+  assert.deepEqual(pvsDe(nav(m, 'rosetones-abajo')), [6, 7, 5, 8, 9]);
+  assert.ok(m.indexOf('rosetones-arriba') < m.indexOf('class="escena"') && m.indexOf('class="escena"') < m.indexOf('rosetones-abajo'), 'arriba y abajo de la escena, no al final de la página');
+  assert.doesNotMatch(m, /rosetones-barra/);
+  const g = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR));
+  assert.deepEqual(pvsDe(nav(g, 'rosetones-barra')), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
+  assert.doesNotMatch(g, /rosetones-arriba|rosetones-abajo/);
+  // Crecen un paso al tocarlos (estado.rosetones) también apilados, y el 0 y el 5 llevan lo suyo.
+  const t = await arbol({ foco: { X: X.id, pv: 0 }, rosetones: { 5: NIVEL.tarjeta } }, eje, 'huesped', MOVIL);
+  assert.equal(t.rosetones.find((r) => r.pv === 5).nivel, NIVEL.tarjeta);
+  assert.match(nav(html(t), 'rosetones-abajo'), /roseton[^"]* nivel-2"[^>]*data-roseton="5"/);
 });

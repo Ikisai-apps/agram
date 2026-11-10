@@ -19,7 +19,7 @@
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
 import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
-import { html, htmlSincronia, trasPintar } from './dom.js';
+import { html, htmlSincronia, trasPintar, variablesDeColor } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
 import { t, idiomaDeInterfaz } from './textos.js';
@@ -210,6 +210,7 @@ async function pintar() {
     }
     const extra = extraDe();
     limpiarLottie();
+    for (const [k, v] of Object.entries(variablesDeColor(a?.colores))) document.documentElement.style.setProperty(k, v);
     raiz.innerHTML = html(a, extra);
     lineaPintada = htmlSincronia(extra.sincronia);
     limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
@@ -600,7 +601,7 @@ const manejadores = {
     if (CENTROS.includes(pv)) { estado.foco.pv = pv; pintar(); return; }
     estado.niveles[pv] = Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.comprimido);
     pintar();
-    raiz.querySelector(`[data-pv="${pv}"]`)?.focus();
+    raiz.querySelector(`[data-pv="${pv}"]:not(.ocupante)`)?.focus();
   },
 
   // ---------- mi cuenta ----------

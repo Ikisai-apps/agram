@@ -306,6 +306,21 @@ export function tamanos(opciones = {}) {
 }
 
 /**
+ * Los colores de los puntos de vista de la época (epoch.9.5.4): { [pv]: '#rrggbb' }, uno por dígito del 0 al 9. Solo
+ * entra lo que es un hex de seis cifras; si la época no trae paleta, el objeto sale vacío (la carta no pinta color).
+ */
+export function colores(opciones = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const fuera = {};
+  for (const c of hojas(en(raiz, [...SITIO.representacion, 4])).filter(Array.isArray)) {
+    const pv = hoja(c[0]);
+    const hex = hoja(c[1]);
+    if (Number.isInteger(pv) && pv >= 0 && pv <= 9 && typeof hex === 'string' && /^#[0-9a-fA-F]{6}$/.test(hex)) fuera[pv] = hex.toUpperCase();
+  }
+  return fuera;
+}
+
+/**
  * Las representaciones de X: los ocupantes de su 0, normalizados [{ texto, tamano, formato, recurso }] y ordenados
  * por tamaño mínimo. Una hoja es una representación de texto sin tamaño mínimo (0; el formato es el primero de la
  * lista de la época); una décupla (en el 0, o un registro anclado en la raíz, que colisiona con el 0) es una

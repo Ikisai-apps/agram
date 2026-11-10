@@ -128,7 +128,7 @@ const legibleDe = (eje, o, tipo, opciones) => contrato.legible(eje, o, tipo, opc
  * elemento }; el texto es el legible del núcleo. En animado, `elemento` es la pieza suelta del mundo (`pv`) para el
  * ocupante: un registro referenciado, por su propia madurez; lo demás, la comodín.
  */
-function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0 } = {}) {
+function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0, posicion = pv, anidar = ctx.estado?.anidar ?? 0 } = {}) {
   const l = legibleDe(eje, o, tipoDato, ctx.opciones);
   const elementoDe = (X) => {
     if (!ctx.animado || pv === null || !LATERALES.includes(pv)) return null;
@@ -139,6 +139,8 @@ function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0 } = {
     const X = eje?.obtener(o.ref) ? o.ref : null;
     return {
       tipo: 'referencia',
+      pv: posicion, // el dígito de la posición que ocupa en su padre: de él sale su color (contrato.colores)
+      anidados: X && anidar > 0 ? anidadosDe(eje, X, tamano, ctx, anidar - 1) : [],
       texto: l.texto,
       ref: o.ref,
       dir: dirCorta(o.dir),
@@ -148,9 +150,25 @@ function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0 } = {
       elemento: elementoDe(X),
     };
   }
-  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: l.texto, hojas: (l.partes.posiciones ?? []).map((p) => p?.texto ?? ''), elemento: elementoDe(null) };
-  if (esLista(o)) return { tipo: 'lista', texto: l.texto, elemento: elementoDe(null) };
-  return { tipo: 'hoja', texto: l.texto, valor: o, elemento: elementoDe(null) };
+  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', pv: posicion, texto: l.texto, hojas: (l.partes.posiciones ?? []).map((p) => p?.texto ?? ''), elemento: elementoDe(null) };
+  if (esLista(o)) return { tipo: 'lista', pv: posicion, texto: l.texto, elemento: elementoDe(null) };
+  return { tipo: 'hoja', pv: posicion, texto: l.texto, valor: o, elemento: elementoDe(null) };
+}
+
+/**
+ * Los ocupantes anidados de un registro: por cada punto de vista lateral que tenga ocupantes, los que caben (los de
+ * un hueco comprimido), cada uno con el dígito de su posición en su padre y, mientras quede `anidar`, los suyos. Así
+ * 1 → 4 → 2 lleva los dígitos 1, 4 y 2 a cualquier profundidad (estado.anidar dice cuántos niveles se despliegan).
+ */
+function anidadosDe(eje, X, tamano, ctx, anidar) {
+  const fuera = [];
+  for (const pv of LATERALES) {
+    const o = contrato.ocupantes(eje, X, pv, 0, ctx.paso, ctx.opciones);
+    if (!o.total) continue;
+    const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
+    fuera.push({ pv, total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx, tipoDato, { posicion: pv, anidar })) });
+  }
+  return fuera;
 }
 
 /** Los pasos de X por punto de vista: { [pv]: { nombre, k, de } }, con el paso de todo elemento (pv «*») como respaldo en `comun`. */
@@ -376,7 +394,7 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
     const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
     return {
       ...base,
-      ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx, tipoDato)) },
+      ocupantes: { total: o.total, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamano, ctx, tipoDato, { posicion: pv })) },
       ancla: ev ? { sobre: ev.sobre ?? null, en: ev.en ? dirCorta(ev.en) : '', sobreTexto: ev.sobre ? legibleDe(eje, { ref: ev.sobre }, null, ctx.opciones).texto : null } : null,
       validacion: contrato.validar(eje, X, ctx.opciones),
     };
@@ -534,12 +552,17 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   return { payload, nombre: contrato.texto(eje, contrato.claves.plantilla(p.nombre), o.idioma, { original: p.nombre, epoca: o.epoca }), campos, sobre: alta.id, en: direccion([9]), de: actual.de };
 }
 
-/** Los rosetones: ocho mosaicos muy comprimidos de mi propio foco (mi alta), uno por PV lateral. */
+/**
+ * Los rosetones: diez mosaicos muy comprimidos de mi propio foco (mi alta), uno por PV, el 0 y el 5 incluidos. El
+ * orden es el de las dos tiras del móvil (VG, 10-11): arriba el tetraedro de la X con su centro (1, 2, 0, 3, 4),
+ * abajo la cruz con el suyo (6, 7, 5, 8, 9).
+ */
+export const ORDEN_ROSETONES = Object.freeze([1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
 function rosetonesDe(eje, yoDatos, ctx, medidas) {
   if (!yoDatos) return [];
   const alta = yoDatos.alta;
   const pasos = pasosPorPv(eje, alta, ctx.opciones);
-  return LATERALES.map((pv) => {
+  return ORDEN_ROSETONES.map((pv) => {
     const nivel = ctx.estado.rosetones?.[pv] ?? NIVEL.comprimido;
     const propio = pasos.porPv[pv];
     const total = contrato.ocupantes(eje, alta, pv, 0, 0, ctx.opciones).total;
@@ -551,7 +574,7 @@ function rosetonesDe(eje, yoDatos, ctx, medidas) {
     if (nivel >= NIVEL.tarjeta) {
       const o = contrato.ocupantes(eje, alta, pv, 0, tamanoDeNivel(2, ctx.opciones)?.datos ?? ctx.paso, ctx.opciones);
       const tipoDato = contrato.tipo(eje, alta, pv, ctx.opciones);
-      nodo.ocupantes = { total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(1, ctx.opciones), ctx, tipoDato)) };
+      nodo.ocupantes = { total: o.total, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(1, ctx.opciones), ctx, tipoDato, { posicion: pv })) };
     }
     return nodo;
   });
@@ -645,6 +668,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     medidas: m,
     animado,
     limite,
+    colores: contrato.colores(opciones), // epoch.9.5.4: el color de cada PV, un dato de la época
     configuracion,
     centro: nodoCentro(eje, X, pvsCentro.includes(pvCentro) || !CENTROS.includes(pvCentro) ? pvCentro : pvsCentro[0] ?? CENTROS[0], ctx, m, huecoCentro),
     centros: pvsCentro,

@@ -1719,7 +1719,20 @@
         [[2], ["card"], [4]],
         [[3], ["screen"], [10]]
       ],
-      ["the occupants of the 0 of a record are its representations and the card picks the one that fits: a leaf is a text representation without minimum size (the first format of the list, text); a tenfold is a rich one: its 0 the alternative text, its 1 [minimum size, format], its 5 where the resource is (a relative URL of the repository or a reference); a template says in its 0.1 which formats the 0 of its type admits, and what it does not admit is left out. The sizes: 1 the minimum slot, 2 the card, 3 the whole screen, each with the data that fit in it. Core, pendiente de revisar VG (encargo 3c-1)"]
+      ["the occupants of the 0 of a record are its representations and the card picks the one that fits: a leaf is a text representation without minimum size (the first format of the list, text); a tenfold is a rich one: its 0 the alternative text, its 1 [minimum size, format], its 5 where the resource is (a relative URL of the repository or a reference); a template says in its 0.1 which formats the 0 of its type admits, and what it does not admit is left out. The sizes: 1 the minimum slot, 2 the card, 3 the whole screen, each with the data that fit in it. Core, pendiente de revisar VG (encargo 3c-1)"],
+      [
+        [[0], ["#FFFFFF"]],
+        [[1], ["#FFC91D"]],
+        [[2], ["#65BF4D"]],
+        [[3], ["#40CCD9"]],
+        [[4], ["#EF5353"]],
+        [[5], ["#161A24"]],
+        [[6], ["#D58D4E"]],
+        [[7], ["#9762D8"]],
+        [[8], ["#17396F"]],
+        [[9], ["#AE7447"]]
+      ],
+      ["the colours of 9.5.4, one per point of view, digit 0 to 9 (hex): the palette of the art, phase 1 (paleta de la fase 1 del arte; VG 10-11: also in the sober render, as a brushstroke: the border of each card in the colour of its own point of view, whatever its depth, the letters untouched)"]
     ],
     [
       [
