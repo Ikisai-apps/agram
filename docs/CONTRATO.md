@@ -670,3 +670,37 @@ Encargo de VG (tanda 2): «descargo un markdown con el contexto, hablo fuera, vu
 **En el camino**: `externa.sugerenciasDe` es el gancho `sugerencias` de `acciones.camino` (§12.5): cada propuesta sobre el registro en foco es un paso de la tercera fuente con su «porque» y marcado si ahora pasa las reglas (`acciones.transaccion`, con la firma de quien mira: sin esto una identidad con clave vería siempre «who has a key signs»); una inválida sobre ese registro sale como paso inválido con su motivo. Las que tratan de otro registro, o de ninguno que exista, se listan en el panel de la guía («propuestas importadas · N») con «ir al registro» y «rechazar». Tres botones por propuesta: **aceptar** (lanza la acción con esos parámetros: `acciones.transaccion` + firma + `eje.anadir`; si algo no pasa, abre el formulario con el motivo), **modificar** (o tocar el nombre: el formulario normal de la acción con los parámetros rellenos, editable; al lanzarlo desde ahí, la propuesta deja de estar pendiente) y **rechazar** (desaparece). Nada se asienta sin que quien mira lo lance, y lo asentado lo firma él y lo comprueban las reglas. «Seguir» (`autoejecutar`) no lanza propuestas.
 
 **Core, pendiente de revisar VG**: que las propuestas sobre otro registro estén en el panel y no en todos los caminos; que `anchor here` lleve `type`, `about`, `version`, `seen` y `route` como opcionales (§12.7); que el ajuste «opinions anchor» viva en «guide settings»; que el contexto exportado llegue a 20 000 caracteres.
+
+
+## 17. Be: el mando de Core
+
+Encargo de VG y Core (10-11): **Be es el modo en que Core lee el eje compartido sin la pantalla** (el modo «Be» de la tabla de interacciones: «nombrarlo», «desde el PV…», «siguiente»). Core es una IA que trabaja desde la línea de comandos; `be.mjs` le da lo que la pantalla da a VG, en texto plano y en español. **Esta primera versión solo lee**: escribir (con identidad propia y firma) vendrá después. Código: `be.mjs` (raíz; sin dependencias, usa `src/sincronia.js`, `src/lectura.js`, `src/acciones.js`, `carta/texto.js` y `carta/guia.js` tal cual, sin código especial). Pruebas: `test/be.test.js` (servidor de prueba en un puerto libre, `be.mjs` como proceso hijo con configuración y caché temporales).
+
+### 17.1 Uso y configuración
+
+`node be.mjs <orden> [argumentos] [--config <ruta>] [--como <identidad>]`.
+
+La **configuración** es un JSON **fuera del repositorio**, con `--config <ruta>` o la variable `AGRAM_BE_CONFIG`: `{ "sync_url": "https://…/functions/v1", "eje": "vg", "clave_lectura": "…" }` (también valen `url` y `claveLectura`). Ni la dirección, ni el eje, ni la clave están en el código; la clave de lectura no se imprime ni entra en la caché.
+
+### 17.2 La caché
+
+La primera llamada baja el eje entero con `sincronizar(null)` (el eje nace del génesis del servidor y cada evento pasa por las reglas, §15.2) y lo guarda en **`~/.agram/be/<eje>.json`** (fuera del repo; `AGRAM_BE_CACHE` cambia la carpeta; `persistencia.serializar` del eje, `Sincronia.serializar()` sin la clave y la marca de las opiniones ya vistas). Las siguientes llamadas restauran la caché y bajan solo lo nuevo (`desde` el último orden conocido). Una caché de otro servidor o de otro eje, o ilegible, se ignora y se baja de nuevo. **Sin red** se lee la caché y la salida empieza con `(sin red: leo la caché (<fecha>, hasta el orden N))`; sin caché, falla diciéndolo. Los errores del servidor salen tal cual (`servidor 401: …` la clave de lectura, `servidor 404: …` el eje) y la orden termina con código 1.
+
+### 17.3 Las órdenes
+
+`<X>` es un registro por su id, por un prefijo de ocho o más caracteres o por su 0 (`acciones.registroDe`). `--como <identidad>` es quien mira (por defecto, el autor del génesis; debe tener alta).
+
+| Orden | Qué da |
+|---|---|
+| `estado` | el eje, el número de registros, el último orden del servidor, las identidades con su alta y su 0, y el registro «AGRAM» si existe |
+| `ver <X>` | la lectura humana (`leerEvento`), la madurez y la carta de texto en tamaño 3 (`pintarPara`) como `--como` |
+| `camino <X>` | los pasos (`acciones.camino`): fuente, hecho / espera a / qué hacer y lo que falta |
+| `aro <X>` | las acciones por punto de vista (`acciones.acciones`), `*` la de por defecto, nombre canónico y traducido, y los parámetros que faltan |
+| `diario [--desde n] [--cuantos n]` | las entradas leídas (`leerEvento`) por llegada (`--desde`: número de llegada empezando en 1; por defecto las últimas `--cuantos`, 10), con su orden y hora del servidor |
+| `opiniones [proyecto] [--nuevas]` | `acciones.opiniones(eje, proyecto)` (por defecto el registro cuyo 0 es «AGRAM»): fecha, autor, clasificación, el registro opinado (id corto y 0), la ruta, el texto y las respuestas en hilo. Cada listado marca en la caché lo que ha enseñado; `--nuevas` enseña solo lo que no estaba (una opinión con una respuesta nueva sale, con la respuesta marcada `NUEVA`) |
+| `contexto <X> [--tope n]` | el mismo contexto que la guía manda a la IA (`guia.contexto`), para que Core vea lo que ve la guía |
+| `buscar <texto>` | los registros cuyo 0 o cuya lectura contienen el texto (hasta 50) |
+
+### 17.4 Lo que no hace aún
+
+No escribe: ni opiniones, ni respuestas, ni acciones del aro. Escribir pedirá una **identidad propia de Core** (un alta en el eje, con su clave, que VG da) y la **firma** de cada evento, con la T de minuto de todo registro (§12.7, §15); y habrá que decidir si pasa por `acciones.transaccion` como cualquier acción. No sube nada (`sincronizar` se llama con `subir: false`) y no guarda claves privadas.
