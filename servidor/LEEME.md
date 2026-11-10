@@ -12,6 +12,8 @@ servidor/
     funciones/eventos/api.js         el contrato como (Request) → Response; lo comparten la función y el servidor de prueba
     funciones/eventos/verificar.js   hash y firma reimplementados sin el núcleo (la paridad la comprueba test/paridad-funcion.test.js)
     funciones/eventos/LEEME.md       cómo probar la función a mano
+    funciones/guia/index.ts          la función de la guía del PV9 (Deno): contesta preguntas llamando a la API de Anthropic
+    funciones/guia/api.js            su contrato como (Request) → Response; lo comparten la función y el servidor de prueba (autónoma: se despliega sola)
   prueba/
     servidor.mjs                     el mismo contrato en Node (node:http), en memoria o en un JSON; para pruebas y desarrollo
     cripto-nucleo.mjs                la comprobación del servidor hecha con src/evento.js y src/autoridad.js
@@ -60,9 +62,28 @@ node servidor/prueba/servidor.mjs --puerto 8787 --archivo /tmp/libro.json    # p
 
 El mismo contrato en `http://127.0.0.1:8787` (`POST /ejes` con `X-Crear-Ejes: prueba`, `POST /eventos`, `GET /eventos`), sin Supabase. Diferencias con la función de Deno: **ninguna de contrato**. Cambian el almacén (memoria o JSON en vez de PostgREST), la criptografía (el núcleo, en vez de `verificar.js`; `test/paridad-funcion.test.js` comprueba que deciden lo mismo), que `POST /ejes` se autoriza con `--secreto`/`AGRAM_CREAR_EJES` (no hay clave de servicio) y que, además de `/eventos/ejes`, responde en `/ejes`. Las pruebas lo arrancan en un puerto libre: `test/servidor-prueba.test.js` (el contrato), `test/sincronia.test.js` (el cliente).
 
+## La guía del PV9 (función `guia`)
+
+La carta tiene una guía de solo lectura en el PV9 que pregunta a Claude con el contexto de la pantalla (`docs/CONTRATO.md` §16). Su vía preferida es esta función, hermana de `eventos`: la clave de Anthropic vive en el servidor, nunca en el navegador ni en el repositorio.
+
+1. **Los secretos.** `supabase secrets set ANTHROPIC_API_KEY=<la clave de la API de Anthropic>` (guardarla también en `PROD/ikisai-apps/private/`, nunca en el repositorio). `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` las inyecta Supabase (la función lee con ellas la tabla `ejes` para comprobar la clave de lectura).
+2. **Desplegar.** `supabase functions deploy guia --no-verify-jwt` desde una carpeta con `supabase/functions/guia/` que contenga `index.ts` y `api.js` (copiar los dos de `servidor/supabase/funciones/guia/`; es autónoma, no importa nada de `eventos`). `--no-verify-jwt`: la función lleva su propia autorización, la clave de lectura del eje (`X-Clave-Lectura`), la misma del libro compartido.
+3. **Probarla.**
+```sh
+curl -s -X POST https://<ref>.supabase.co/functions/v1/guia \
+  -H "X-Clave-Lectura: $CLAVE" -H "Content-Type: application/json" \
+  -d '{"eje":"vg","mensajes":[{"role":"user","content":"¿qué es AGRAM?"}],"contexto":"pantalla de prueba"}'
+# → 200 {"texto":"…","uso":{"entrada":…,"salida":…}}; sin la cabecera → 401; eje que no existe → 404;
+#   contexto de más de 8 000 caracteres → 413; más de 30 preguntas por minuto en el eje → 429.
+```
+4. **La carta.** Sin cambios: la guía usa el mismo `sync url`, `sync ledger` y clave de lectura del libro compartido; los ajustes de la guía (modelo, vía `server`, historial, tope del contexto) están en «configuración». Con el servidor de prueba (`servidor/prueba/servidor.mjs`), `/guia` responde con un eco fijo, sin llamar a nadie.
+
+Mientras no haya servidor, la guía tiene una vía **directa** (provisional): la clave de Anthropic se pega en «configuración» y vive solo en ese navegador (`agram.ia.<alta>`, fuera del eje y de la copia de seguridad).
+
 ## Lo que queda para desplegar
 
 - Crear el proyecto Supabase (VG) y guardar sus credenciales en `PROD/ikisai-apps/private/`.
 - Pasar la migración y desplegar la función (pasos 2 a 4). Probarla a mano (`funciones/eventos/LEEME.md`).
 - Crear el eje de VG y repartir su clave de lectura a sus dispositivos.
 - Configurar la carta en cada dispositivo («Configurar la carta tras desplegar», arriba). La carta ya está enganchada (`docs/CONTRATO.md` §15.8).
+- Para la guía: `supabase secrets set ANTHROPIC_API_KEY=…` y desplegar `guia` («La guía del PV9», arriba).

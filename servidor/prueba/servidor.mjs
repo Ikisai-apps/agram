@@ -20,6 +20,14 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { crearApi } from '../supabase/funciones/eventos/api.js';
 import * as criptoNucleo from './cripto-nucleo.mjs';
+import { crearGuia } from '../supabase/funciones/guia/api.js';
+
+/** El «proveedor» de la guía en la prueba: un eco fijo (nada sale de la máquina): la pregunta y las primeras líneas del contexto. */
+export const ecoDeLaGuia = async ({ mensajes, contexto, modelo }) => {
+  const pregunta = mensajes[mensajes.length - 1].content;
+  const lineas = contexto.split('\n').slice(0, 3).join('\n');
+  return { texto: '(guía de prueba) ' + pregunta + ' [' + modelo + ']\n' + lineas, uso: { entrada: contexto.length, salida: 0 } };
+};
 
 /**
  * El almacén en memoria (api.js dice qué ofrece cada método). `archivo`
@@ -94,7 +102,10 @@ async function aRequest(req, base) {
  */
 export async function arrancar({ puerto = 0, archivo, secreto = process.env.AGRAM_CREAR_EJES ?? 'prueba', ahora = () => new Date(), ...opciones } = {}) {
   const almacen = almacenEnMemoria({ archivo, ahora });
-  const manejar = crearApi({ almacen, cripto: criptoNucleo, crearEjes: { secreto }, ahora, ...opciones });
+  const manejarEjes = crearApi({ almacen, cripto: criptoNucleo, crearEjes: { secreto }, ahora, ...opciones });
+  const manejarGuia = crearGuia({ almacen, llamar: ecoDeLaGuia, ahora, ...(opciones.preguntasPorMinuto ? { preguntasPorMinuto: opciones.preguntasPorMinuto } : {}) });
+  // /guia (la función `guia` de Supabase) responde con el eco; todo lo demás, el libro compartido.
+  const manejar = (request) => (new URL(request.url).pathname.replace(/\/+$/, '').endsWith('/guia') ? manejarGuia(request) : manejarEjes(request));
   const servidor = createServer(async (req, res) => {
     const base = 'http://' + (req.headers.host ?? 'localhost');
     const respuesta = await manejar(await aRequest(req, base));
