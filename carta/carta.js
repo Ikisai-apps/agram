@@ -4,6 +4,14 @@
 // lo pide al núcleo: contrato, acciones, local, pasos y modelos. Aquí solo se mide el espacio, se pide y se ordena en
 // un árbol de nodos planos (sin DOM) que carta/dom.js convierte en HTML y test/carta.test.js comprueba en Node.
 //
+// En animado (etapa 5, la fase 2 del arte), cada PV lleva además: su ETAPA (la pieza grande del mundo, por el paso
+// de madurez del foco reescalado a los pasos del modelo, con la orientación de su lado), su MARCO (el del mundo), en
+// bloque y en foco su FONDO (el de la etapa inferior más cercana) y su PERSONAJE (el muñequito del rol por defecto
+// del mundo: esperar en bucle en lo enfocado, actuar cuando llega una transacción nueva, celebrar una vez cuando el
+// paso propio del PV llega a su «de», y parado en los demás), los ELEMENTOS de sus ocupantes y los EFECTOS de los
+// movimientos nuevos del diario (la primitiva del libro llevada a la clave de la pieza por la correspondencia de la
+// cabecera). Qué rol, qué efecto y cuántas animaciones a la vez son datos (la cabecera y la configuración).
+//
 //   arbol(estado, eje, yo, medidas, opciones)        → el árbol de la carta para quien mira (async: el camino lo es)
 //   formulario(eje, X, accion, yo, valores, opciones) → los campos del formulario de una acción del aro
 //   enviar(eje, X, accion, valores, yo, firmar, …)    → transaccion y, si pasa, firma y asienta
@@ -20,13 +28,18 @@ import * as contrato from '../src/contrato.js';
 import * as acciones from '../src/acciones.js';
 import * as pasosDe from '../src/pasos.js';
 import * as modelos from '../src/modelos.js';
+import { partirClave } from '../src/tokens.js';
 import { esReferencia, esLista, esDecupla, indicesDe, direccion } from '../src/btml.js';
 import { t } from './textos.js';
 
 /** El tipo de una pieza del modelo de visualización que la carta pide (vocabulario de la cabecera epoch.9.7.0.4). */
-const PIEZA = Object.freeze({ elemento: 'elemento', munequito: 'munequito', icono: 'icono' });
-/** La acción del muñequito en reposo. */
-const ESPERAR = 'esperar';
+const PIEZA = Object.freeze({ elemento: 'elemento', munequito: 'munequito', icono: 'icono', etapa: 'etapa', fondo: 'fondo', marco: 'marco', movimiento: 'movimiento' });
+/** Las acciones del muñequito que la carta pide (las claves de las piezas munequito: arte/MANIFIESTO.md §1): en reposo, cuando llega algo, cuando el paso se cierra. */
+const ACCION = Object.freeze({ esperar: 'esperar', actuar: 'actuar', celebrar: 'celebrar' });
+/** Cómo se reproduce una pieza animada: parada en su fotograma, en bucle, o una vez. */
+export const ANIMAR = Object.freeze({ no: 'no', bucle: 'bucle', una: 'una' });
+/** Cuántas animaciones a la vez si la configuración no lo dice ni la época trae el defecto. */
+const LIMITE_DE_ANIMACIONES = 10;
 
 /**
  * La geometría (diseño de VG). `grupo`: dónde va; `lado`: el índice de la orientación en epoch.9.7.0.3 (0 el centro,
@@ -110,9 +123,18 @@ function representacionQueCabe(eje, X, tamano, { animado, opciones }) {
 /** Un valor en texto legible, como lo dice el núcleo en el idioma de quien mira (contrato.legible); `tipo`, el de la posición o el parámetro. */
 const legibleDe = (eje, o, tipo, opciones) => contrato.legible(eje, o, tipo, opciones);
 
-/** Un ocupante como nodo: { tipo: 'hoja' | 'referencia' | 'decupla' | 'lista', texto, ref, dir, X, representacion }; el texto es el legible del núcleo. */
-function nodoOcupante(eje, o, tamano, ctx, tipoDato) {
+/**
+ * Un ocupante como nodo: { tipo: 'hoja' | 'referencia' | 'decupla' | 'lista', texto, ref, dir, X, representacion,
+ * elemento }; el texto es el legible del núcleo. En animado, `elemento` es la pieza suelta del mundo (`pv`) para el
+ * ocupante: un registro referenciado, por su propia madurez; lo demás, la comodín.
+ */
+function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0 } = {}) {
   const l = legibleDe(eje, o, tipoDato, ctx.opciones);
+  const elementoDe = (X) => {
+    if (!ctx.animado || pv === null || !LATERALES.includes(pv)) return null;
+    const m = X ? contrato.madurez(eje, X, ctx.opciones) : null;
+    return conRecurso(piezaDe(ctx, PIEZA.elemento, pv, m?.nivel ?? null, lado, tamano, { de: m?.de ?? undefined }));
+  };
   if (esReferencia(o)) {
     const X = eje?.obtener(o.ref) ? o.ref : null;
     return {
@@ -123,11 +145,12 @@ function nodoOcupante(eje, o, tamano, ctx, tipoDato) {
       X,
       representacion: X ? representacionQueCabe(eje, X, tamano, ctx) : null,
       autor: X ? eje.obtener(X).autor : null,
+      elemento: elementoDe(X),
     };
   }
-  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: l.texto, hojas: (l.partes.posiciones ?? []).map((p) => p?.texto ?? '') };
-  if (esLista(o)) return { tipo: 'lista', texto: l.texto };
-  return { tipo: 'hoja', texto: l.texto, valor: o };
+  if (Array.isArray(o) && esDecupla(o)) return { tipo: 'decupla', texto: l.texto, hojas: (l.partes.posiciones ?? []).map((p) => p?.texto ?? ''), elemento: elementoDe(null) };
+  if (esLista(o)) return { tipo: 'lista', texto: l.texto, elemento: elementoDe(null) };
+  return { tipo: 'hoja', texto: l.texto, valor: o, elemento: elementoDe(null) };
 }
 
 /** Los pasos de X por punto de vista: { [pv]: { nombre, k, de } }, con el paso de todo elemento (pv «*») como respaldo en `comun`. */
@@ -142,14 +165,113 @@ function pasosPorPv(eje, X, opciones) {
   return { porPv, comun };
 }
 
-/** La pieza del modelo para un PV: el elemento por paso de madurez (o el paso propio del PV), con su orientación y tamaño; null en sobrio. */
-function piezaDe(ctx, tipo, pv, clave, lado, tamano) {
+/** La pieza del modelo para un PV: por tipo, mundo y clave, con la orientación de su lado y el tamaño; `rol` y `de` como en modelos.pieza; null en sobrio. */
+function piezaDe(ctx, tipo, pv, clave, lado, tamano, { rol, de } = {}) {
   if (!ctx.animado || !ctx.cadena.length) return null;
   const variante = ctx.variantes[lado] ?? ctx.variantes[0];
-  const p = modelos.pieza(ctx.cadena, tipo, pv, clave, variante, { tamano: tamano?.tamano });
+  const p = modelos.pieza(ctx.cadena, tipo, pv, clave, variante, { tamano: tamano?.tamano, rol, de });
   if (!p) return null;
   const { crudo: _c, ...plana } = p;
   return plana;
+}
+
+/** La posición del modelo donde viven los marcos y los iconos: el centro (el reverso, el segundo de los centros de la geometría). */
+const CENTRO_DEL_MODELO = CENTROS[1] ?? CENTROS[0];
+
+/**
+ * El rol del personaje de un PV de X. GANCHO: hoy el rol no sale del registro (nada en la época lo dice todavía); se
+ * devuelve null y la carta usa el rol por defecto del mundo, que es un dato de la cabecera (epoch.9.7.0.4: la
+ * correspondencia del muñequito, modelos.rolPorDefecto). Cuando el registro diga su rol, es aquí donde se lee.
+ */
+function rolDeRegistro(_eje, _X, _pv, _ctx) {
+  return null;
+}
+
+/** El rol con que se pide el personaje de un PV: el del registro si lo dice, si no el por defecto del mundo. */
+function rolDe(ctx, eje, X, pv) {
+  return rolDeRegistro(eje, X, pv, ctx) ?? modelos.rolPorDefecto(ctx.cabecera, PIEZA.munequito, pv);
+}
+
+/** La etapa de un PV: la pieza grande del mundo por el paso de madurez del foco (k de de, reescalado por el modelo), orientada por su lado. */
+const etapaDe = (ctx, pv, lado, tamano) => piezaDe(ctx, PIEZA.etapa, pv, ctx.madurez?.nivel ?? null, lado, tamano, { de: ctx.madurez?.de ?? undefined });
+/** El fondo de un PV: el de la etapa inferior más cercana a la madurez del foco (la fase 2 trae las de 5 y 10); solo con recurso. */
+const fondoDe = (ctx, pv, tamano) => conRecurso(piezaDe(ctx, PIEZA.fondo, pv, ctx.madurez?.nivel ?? null, 0, tamano, { de: ctx.madurez?.de ?? undefined }));
+/** El marco de un PV: el de su mundo (en el 5 del modelo, por mundo); el del centro, el neutro (la comodín). */
+const marcoDe = (ctx, pv, tamano) => conRecurso(piezaDe(ctx, PIEZA.marco, CENTRO_DEL_MODELO, pv, 0, tamano));
+/** Una pieza solo si trae recurso (una forma sobria no se pinta como fondo, marco ni efecto). */
+const conRecurso = (p) => (p && p.recurso ? p : null);
+
+/** Las transacciones nuevas del diario que tocan un PV de X (lo que la app marca en estado.nuevos), ya repartidas por PV: ctx.nuevosPorPv. */
+function nuevosPorPvDe(eje, X, nuevos, opciones) {
+  const porPv = new Map();
+  if (!nuevos || !nuevos.size) return porPv;
+  const total = contrato.diario(eje, X, 0, 0, opciones).total;
+  if (!total) return porPv;
+  for (const e of contrato.diario(eje, X, 0, total, opciones).entradas) {
+    if (!nuevos.has(e.id)) continue;
+    const pv = pvDondeCuelga(eje, X, e.id);
+    if (pv === null) continue;
+    if (!porPv.has(pv)) porPv.set(pv, []);
+    porPv.get(pv).push(e);
+  }
+  return porPv;
+}
+
+/** El PV de X bajo el que cuelga una transacción del diario: el primer dígito del «en» del hijo directo de X en su cadena de anclas; X mismo o lo anclado en su 0, el centro (0); null si no cuelga de X. */
+function pvDondeCuelga(eje, X, id) {
+  let ev = eje.obtener(id);
+  if (!ev) return null;
+  if (ev.id === X) return CENTROS[0];
+  while (ev && ev.sobre !== X) ev = ev.sobre ? eje.obtener(ev.sobre) : null;
+  if (!ev) return null;
+  try {
+    return ev.en ? indicesDe(ev.en)[0] ?? CENTROS[0] : CENTROS[0];
+  } catch {
+    return CENTROS[0];
+  }
+}
+
+/** ¿Es una serie del tiempo (T)? La que tiene escala (tokens.partirClave); el T de cada escritura se quema siempre y no es lo que una transacción consume. */
+const esDeTiempo = (serie) => { try { return typeof serie === 'string' && partirClave(serie).escala !== undefined; } catch { return false; } };
+
+/**
+ * Los efectos que un PV reproduce por lo nuevo del diario: por cada primitiva distinta de los movimientos declarados
+ * (sin `clase`, que es la asignación de T y la obtención de P, y sin el T que cuesta escribir: acompañan a toda
+ * escritura y no son lo que la transacción hace), la pieza de movimiento cuya
+ * clave da la correspondencia de la cabecera para ese mundo (acunar → crear-abajo, o crear-pasado/futuro/arriba
+ * según el mundo). Los efectos sirven en todos los mundos (*); el centro no es un mundo y pide por `mundoDelCentro`.
+ * → { entradas: [ids], efectos: [{ primitiva, clave, pieza }], consumido }: consumido si todo lo declarado que no es
+ * tiempo se quema (sale de alguien y no llega a nadie): la pieza se oculta al acabar el efecto.
+ */
+function nuevosDe(ctx, pv, lado, tamano, mundoDelCentro) {
+  const entradas = ctx.nuevosPorPv.get(pv) ?? [];
+  if (!entradas.length) return null;
+  // Lo declarado: sin la asignación de T y la obtención de P (clase) y sin el tiempo que cuesta escribir (la serie T de cada escritura).
+  const declarados = entradas.flatMap((e) => e.movimientos.filter((m) => !m.clase && !esDeTiempo(m.serie)));
+  const primitivas = [...new Set(declarados.map((m) => m.primitiva))];
+  const mundo = LATERALES.includes(pv) ? pv : mundoDelCentro;
+  const efectos = primitivas.map((primitiva) => {
+    const clave = modelos.corresponde(ctx.cabecera, PIEZA.movimiento, primitiva, mundo);
+    return { primitiva, clave, pieza: conRecurso(piezaDe(ctx, PIEZA.movimiento, mundo, clave, lado, tamano)) };
+  }).filter((e) => e.pieza);
+  // Lo consumido: todo lo declarado sale de alguien y no llega a nadie (la forma de una quema en el libro).
+  const consumido = declarados.length > 0 && declarados.every((m) => m.de && (m.a === null || m.a === undefined));
+  return { entradas: entradas.map((e) => e.id), efectos, consumido };
+}
+
+/**
+ * El personaje de un PV: el muñequito del rol (rolDe) con la acción que toca: actuar (una vez) si hay transacciones
+ * nuevas en el PV, celebrar (una vez) si el paso propio del PV ha llegado a su «de», si no esperar: en bucle si el PV
+ * está enfocado (bloque o foco), parado en su fotograma en los demás. → { rol, accion, animar, pieza } o null.
+ */
+function personajeDe(ctx, eje, X, pv, lado, tamano, { enfocado, nuevos, paso }) {
+  const rol = rolDe(ctx, eje, X, pv);
+  const cerrado = paso && typeof paso.k === 'number' && typeof paso.de === 'number' && paso.de > 0 && paso.k >= paso.de;
+  const accion = nuevos ? ACCION.actuar : cerrado ? ACCION.celebrar : ACCION.esperar;
+  const animar = accion !== ACCION.esperar ? ANIMAR.una : enfocado ? ANIMAR.bucle : ANIMAR.no;
+  const pieza = piezaDe(ctx, PIEZA.munequito, pv, accion, lado, tamano, { rol });
+  if (!pieza) return null;
+  return { rol, accion, animar, pieza };
 }
 
 /** El nodo de un punto de vista lateral de X en su nivel. */
@@ -172,6 +294,14 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
     ? { dato: propio.k, de: propio.de, que: propio.nombre }
     : { dato: todo.total, de: null, que: nodo.etiqueta };
   nodo.pieza = piezaDe(ctx, PIEZA.elemento, pv, ctx.pasos.comun?.k ?? null, g.lado, nodo.tamano);
+  if (ctx.animado) {
+    // La etapa del mundo por la madurez del foco (el sello en comprimido, el intermedio en tarjeta y bloque, el
+    // ilustrado donde lo hay), el marco del mundo y los efectos de lo nuevo; en bloque, el fondo y el personaje.
+    nodo.etapa = etapaDe(ctx, pv, g.lado, nodo.tamano);
+    nodo.marco = marcoDe(ctx, pv, nodo.tamano);
+    nodo.nuevos = nuevosDe(ctx, pv, g.lado, nodo.tamano, ctx.mundoDelCentro);
+    nodo.consumido = Boolean(nodo.nuevos?.consumido);
+  }
   if (nivel < NIVEL.tarjeta) return nodo;
   // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración.
   const cuantos = nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
@@ -179,14 +309,16 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   nodo.ocupantes = {
     total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
-    lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx, tipoDato)),
+    lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx, tipoDato, { pv, lado: g.lado })),
     cargarMas: o.total > o.desde + o.ocupantes.length,
   };
+  if (ctx.animado) nodo.personaje = personajeDe(ctx, eje, X, pv, g.lado, nodo.tamano, { enfocado: nivel >= NIVEL.bloque, nuevos: Boolean(nodo.nuevos), paso: propio ?? null });
   if (nivel >= NIVEL.bloque) {
     // Dentro del bloque, lista o matriz según la forma del hueco: lo decide la época (epoch.8.3.2).
     const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
     nodo.disposicion = d.disposicion;
-    nodo.munequito = piezaDe(ctx, PIEZA.munequito, pv, ESPERAR, g.lado, nodo.tamano);
+    if (ctx.animado) nodo.fondo = fondoDe(ctx, pv, nodo.tamano);
+    nodo.munequito = nodo.personaje?.pieza ?? null;
   }
   // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
   if (g.grupo === 'cruz' && g.lado === 1) {
@@ -233,6 +365,11 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
     pasos: ctx.pasos,
     leido: Boolean(ctx.estado.leido),
   };
+  if (ctx.animado) {
+    base.marco = marcoDe(ctx, null, tamano); // el centro no es un mundo: el marco neutro (la comodín)
+    base.nuevos = nuevosDe(ctx, pv, g.lado, tamano, ctx.mundoDelCentro);
+    base.consumido = Boolean(base.nuevos?.consumido);
+  }
   if (g.cara === 'anverso') return { ...base, campos: camposDe(eje, X, ctx) };
   if (g.cara === 'reverso') {
     const o = contrato.ocupantes(eje, X, pv, 0, ctx.paso, ctx.opciones);
@@ -249,9 +386,17 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
   const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
+  const escenario = ctx.animado && LATERALES.includes(pv) ? {
+    lado: ctx.variantes[g.lado] ?? ctx.variantes[0] ?? null,
+    etapa: etapaDe(ctx, pv, g.lado, tamano),
+    marco: marcoDe(ctx, pv, tamano),
+    fondo: fondoDe(ctx, pv, tamano),
+    personaje: personajeDe(ctx, eje, X, pv, g.lado, tamano, { enfocado: true, nuevos: Boolean(base.nuevos), paso: ctx.pasos.porPv[pv] ?? null }),
+  } : {};
   return {
     ...base,
-    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato)), cargarMas: o.total > o.desde + o.ocupantes.length },
+    ...escenario,
+    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato, { pv, lado: g.lado })), cargarMas: o.total > o.desde + o.ocupantes.length },
     disposicion: d.disposicion,
   };
 }
@@ -423,6 +568,7 @@ function localDe(libro, t) {
  *   rosetones: { [pv]: 1-2 } el paso de cada rosetón de identidad
  *   local: LibroLocal | null el libro local de yo (solo se lee)
  *   leido: boolean           si la lente «leído» del 0 está abierta
+ *   nuevos: Set<id>          las transacciones del diario llegadas desde la última vez (lo que el animado anima: efectos y actuar)
  * `medidas`: { ancho, alto, hueco, tarjeta } en píxeles. `opciones.epoca`, la época que se lee; `opciones.t`, el reloj.
  */
 export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
@@ -437,10 +583,19 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const cabecera = modelos.cabecera(opciones);
   // El idioma de quien mira (su preferencia «language»): todo texto de la época pasa por el núcleo con él.
   const idioma = idiomaDe(eje, yo, opciones);
+  const nuevos = estado.nuevos instanceof Set ? estado.nuevos : new Set(Array.isArray(estado.nuevos) ? estado.nuevos : []);
+  // Cuántas animaciones a la vez: la preferencia «animations» de quien mira (su registro de preferencias), si no el
+  // defecto de la época (epoch.9.3.7), si no el de la carta.
+  const limiteDe = (c) => (typeof c?.animations === 'number' && c.animations > 0 ? c.animations : null);
+  const limite = (configuracion.de && limiteDe(configuracion)) || limiteDe(defectos) || LIMITE_DE_ANIMACIONES;
   const ctx = {
     estado, opciones: { ...opciones, idioma }, animado,
     variantes: cabecera.variantes,
+    cabecera,
     cadena: animado ? modelos.modelo(eje, yo, opciones) : [],
+    madurez: animado ? contrato.madurez(eje, X, opciones) : null,
+    nuevosPorPv: animado ? nuevosPorPvDe(eje, X, nuevos, opciones) : new Map(),
+    limite,
     // El paso de «cargar más»: el de la época (epoch.8.3.3) o, si quien mira lo ha escrito en sus preferencias, el suyo.
     paso: configuracion.de && typeof configuracion.step === 'number' && configuracion.step > 0 ? configuracion.step : contrato.paso(opciones),
     pasos: pasosPorPv(eje, X, opciones),
@@ -452,6 +607,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const apilada = d.disposicion !== disposiciones; // más alto que ancho: las franjas apiladas (Sequenced); si no, la matriz (Mapped)
   const pvsCentro = d.pvs.filter((pv) => CENTROS.includes(pv));
   const pvsLaterales = d.pvs.filter((pv) => LATERALES.includes(pv));
+  ctx.mundoDelCentro = pvsLaterales[0] ?? LATERALES[0]; // los efectos sirven en todos los mundos; el centro pide por el primero
   const pvCentro = typeof estado.foco === 'object' && estado.foco && typeof estado.foco.pv === 'number' ? estado.foco.pv : CENTROS[0];
   // Los huecos: en la matriz las esquinas son un cuarto y la cruz un noveno; apilado, cada franja es media pantalla.
   const huecoDe = (pv) => (apilada
@@ -472,6 +628,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     cargarMas: d.cargarMas,
     medidas: m,
     animado,
+    limite,
     configuracion,
     centro: nodoCentro(eje, X, pvsCentro.includes(pvCentro) || !CENTROS.includes(pvCentro) ? pvCentro : pvsCentro[0] ?? CENTROS[0], ctx, m, huecoCentro),
     centros: pvsCentro,

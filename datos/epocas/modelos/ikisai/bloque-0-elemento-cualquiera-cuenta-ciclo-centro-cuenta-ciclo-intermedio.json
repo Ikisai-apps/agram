@@ -1,0 +1,14 @@
+[
+  ["elemento"],
+  [2, "svg"],
+  ["*", "cuenta-ciclo"],
+  ["centro"],
+  ["once", 1],
+  [6, 7],
+  [
+    "arte/fase2/bloque-0/biblioteca/hilos/elemento/cuenta-ciclo-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "Correspondencia confirmada por Core en ACEPTACION-00.md; sirve en pasado y futuro."
+  ]
+]

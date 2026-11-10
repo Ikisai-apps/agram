@@ -1,0 +1,13 @@
+[
+  ["etapa"],
+  [2, "svg"],
+  [5],
+  ["centro"],
+  ["once", 1],
+  [9],
+  [
+    "arte/fase2/bloque-0/biblioteca/camino/fondo/etapa-5-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

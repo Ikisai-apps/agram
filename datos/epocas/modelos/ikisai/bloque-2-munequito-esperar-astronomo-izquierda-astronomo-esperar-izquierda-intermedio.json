@@ -1,0 +1,14 @@
+[
+  ["munequito"],
+  [2, "lottie"],
+  ["esperar", "astronomo"],
+  ["izquierda"],
+  ["loop", 50],
+  [8],
+  [
+    "arte/fase2/bloque-2/biblioteca/cielo/munequito/astronomo-esperar-izquierda-intermedio.json",
+    "arte/fase2/bloque-2 (nivel intermedio)",
+    "fase-2; bloque-2; vector nativo",
+    "Personaje aprobado convertido a formas nativas; articulaciones y herramienta coordinadas. Orientacion por compresion y desplazamiento facial, sin espejar relojes ni manos."
+  ]
+]

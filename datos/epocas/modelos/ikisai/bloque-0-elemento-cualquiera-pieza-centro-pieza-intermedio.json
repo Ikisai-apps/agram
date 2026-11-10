@@ -1,0 +1,13 @@
+[
+  ["elemento"],
+  [2, "svg"],
+  ["*", "pieza"],
+  ["centro"],
+  ["once", 1],
+  [4],
+  [
+    "arte/fase2/bloque-0/biblioteca/fabrica/elemento/pieza-intermedio.svg",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0"
+  ]
+]

@@ -3,30 +3,61 @@
 // el idioma de quien mira (contrato.texto, contrato.legible). Solo se escribe el marcado con los atributos data-*
 // que carta/gestos.js lee; los textos propios de la interfaz (botones, títulos) salen de carta/textos.js. Sobrio por
 // defecto: formas y texto; en animado, las piezas con recurso van como <img> (svg, imagen) o como un contenedor
-// Lottie que trasPintar() rellena con lottie-web si está cargado.
+// Lottie que trasPintar() rellena con lottie-web si está cargado. El animado entero (etapa 5): cada PV lleva su
+// escenario (el fondo detrás, la etapa, el personaje, los efectos superpuestos) dentro de su marco; los ocupantes, su
+// elemento; nunca más de N animaciones a la vez (data-animaciones, un dato de la configuración), primero lo nuevo y
+// lo enfocado; las que salen de pantalla se pausan.
 
-import { NIVEL, LATERALES } from './carta.js';
+import { NIVEL, LATERALES, ANIMAR } from './carta.js';
 import { t } from './textos.js';
 
 export const escapar = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const corto = (id) => String(id ?? '').slice(0, 8);
 const attr = (s) => escapar(s).replace(/'/g, '&#39;');
 
-/** La pieza de un modelo como HTML: en sobrio una forma (una clase), en animado un <img> o un hueco Lottie fijado en su fotograma. */
-export function htmlPieza(pieza, { paso, animar = false, alt = '' } = {}) {
+/**
+ * La pieza de un modelo como HTML: en sobrio una forma (una clase), en animado un <img> o un hueco Lottie fijado en
+ * su fotograma. `animar`: no (parada en su fotograma), bucle, o una vez (ANIMAR; true vale por bucle); `prioridad`
+ * ordena quién se reproduce cuando hay más de las que caben (0 lo nuevo, 1 lo enfocado, 2 el resto); `clase`, el
+ * papel de la pieza en el escenario (fondo, etapa, personaje, efecto, marco, elemento); `oculta`, en un efecto, que
+ * al acabar oculte la pieza real a la que se superpone.
+ */
+export function htmlPieza(pieza, { paso, animar = false, alt = '', clase = '', prioridad = 2, oculta = false } = {}) {
   if (!pieza) return '';
+  const clases = ['pieza', ...(clase ? [clase] : [])];
   if (pieza.recurso && pieza.formato) {
     const fotogramas = pieza.fotogramas ?? 0;
     const k = paso && typeof paso.k === 'number' && paso.de ? Math.min(paso.k, paso.de) : 0;
     const de = paso && paso.de ? paso.de : 10;
     const fotograma = fotogramas ? Math.round((k * fotogramas) / de) : 0;
     if (pieza.animado || pieza.bucle) {
-      return `<div class="pieza pieza-lottie" data-lottie="${attr(pieza.recurso)}" data-fotograma="${fotograma}" data-animar="${animar ? 1 : 0}" data-bucle="${attr(pieza.bucle ?? '')}" role="img" aria-label="${attr(alt || pieza.tipo)}"></div>`;
+      const modo = animar === true ? ANIMAR.bucle : animar || ANIMAR.no;
+      const bucle = modo === ANIMAR.una ? 0 : modo === ANIMAR.bucle ? 1 : pieza.bucle ? 1 : 0;
+      return `<div class="${clases.concat('pieza-lottie').join(' ')}" data-lottie="${attr(pieza.recurso)}" data-fotograma="${fotograma}" data-animar="${modo === ANIMAR.no ? 0 : 1}" data-bucle="${bucle}" data-prioridad="${prioridad}"${oculta ? ' data-oculta="1"' : ''} role="img" aria-label="${attr(alt || pieza.tipo)}"></div>`;
     }
-    return `<img class="pieza pieza-imagen" src="./${attr(pieza.recurso)}" alt="${attr(alt || pieza.tipo)}" loading="lazy" decoding="async">`;
+    return `<img class="${clases.concat('pieza-imagen').join(' ')}" src="./${attr(pieza.recurso)}" alt="${attr(alt || pieza.tipo)}" loading="lazy" decoding="async">`;
   }
-  return `<span class="pieza forma forma-${attr(pieza.forma ?? 'texto')}" aria-hidden="true"></span>`;
+  return `<span class="${clases.concat('forma', 'forma-' + attr(pieza.forma ?? 'texto')).join(' ')}" aria-hidden="true"></span>`;
 }
+
+/**
+ * El escenario de un PV en animado: el fondo detrás (solo con recurso), la etapa (la pieza grande del mundo), el
+ * personaje con su acción (en bucle, una vez o parado) y, superpuestos y una sola vez, los efectos de lo nuevo. Si lo
+ * nuevo consume la pieza (consumido), el efecto la oculta al acabar. Vacío si el nodo no trae etapa ni personaje.
+ */
+function htmlEscenario(n, { paso, etiqueta = '' } = {}) {
+  if (!n.etapa?.recurso && !n.personaje && !n.fondo && !n.nuevos?.efectos?.length) return '';
+  const fondo = n.fondo?.recurso ? htmlPieza(n.fondo, { clase: 'pieza-fondo', alt: '' }) : '';
+  const etapa = n.etapa?.recurso ? htmlPieza(n.etapa, { clase: 'pieza-etapa', alt: etiqueta }) : '';
+  const personaje = n.personaje?.pieza?.recurso
+    ? htmlPieza(n.personaje.pieza, { paso, animar: n.personaje.animar, clase: 'pieza-personaje accion-' + attr(n.personaje.accion), prioridad: n.personaje.animar === ANIMAR.una ? 0 : 1, alt: n.personaje.rol ?? n.personaje.accion })
+    : '';
+  const efectos = (n.nuevos?.efectos ?? []).map((e) => htmlPieza(e.pieza, { animar: ANIMAR.una, clase: 'pieza-efecto efecto-' + attr(e.clave), prioridad: 0, oculta: Boolean(n.consumido), alt: e.clave })).join('');
+  return `<div class="escenario${n.consumido ? ' consumido' : ''}" data-escenario>${fondo}${etapa}${personaje}${efectos}</div>`;
+}
+
+/** El marco de un PV o del centro, superpuesto al borde (solo con recurso). */
+const htmlMarco = (marco) => (marco?.recurso ? htmlPieza(marco, { clase: 'pieza-marco', alt: '' }) : '');
 
 /** Una representación del 0 como HTML: texto, o la imagen que cabe (solo llega con recurso en animado). */
 function htmlRepresentacion(rep, { clase = 'rep' } = {}) {
@@ -35,14 +66,15 @@ function htmlRepresentacion(rep, { clase = 'rep' } = {}) {
   return `<span class="${clase}">${escapar(rep.texto ?? '—')}</span>`;
 }
 
-/** Un ocupante: una hoja, su texto; una referencia, un botón que entra en el registro; una décupla, sus hojas. */
+/** Un ocupante: una hoja, su texto; una referencia, un botón que entra en el registro; una décupla, sus hojas. En animado, delante, su elemento (la pieza suelta del mundo). */
 function htmlOcupante(o) {
+  const elemento = o.elemento?.recurso ? htmlPieza(o.elemento, { clase: 'pieza-elemento', alt: '' }) : '';
   if (o.tipo === 'referencia' && o.X) {
-    const rep = o.representacion?.recurso ? htmlRepresentacion(o.representacion, { clase: 'rep-mini' }) : '';
+    const rep = o.representacion?.recurso ? htmlRepresentacion(o.representacion, { clase: 'rep-mini' }) : elemento;
     return `<button type="button" class="ocupante ocupante-ref" data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
   }
-  if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla">${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
-  return `<span class="ocupante ocupante-hoja">${escapar(o.texto)}</span>`;
+  if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla">${elemento}${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
+  return `<span class="ocupante ocupante-hoja">${elemento}${escapar(o.texto)}</span>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
@@ -80,17 +112,19 @@ export function htmlCamino(c, { X } = {}) {
 function htmlLateral(n, arbol) {
   const clases = ['pv', `pv-${n.pv}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `fila-${n.fila ?? ''}`, `nivel-${n.nivel}`].join(' ');
   if (n.nivel === NIVEL.oculto) return `<div class="${clases}" data-pv="${n.pv}" data-x="${n.X}" hidden></div>`;
-  const animar = Boolean(arbol.animado && arbol.estadoAnimacion?.nuevos?.has?.(n.X));
-  const pieza = htmlPieza(n.pieza, { paso: n.paso, animar, alt: n.etiqueta });
+  // En comprimido, la etapa en sello (si el modelo la trae) o el elemento; en tarjeta y bloque, el escenario entero.
+  const sello = n.etapa?.recurso ? htmlPieza(n.etapa, { clase: 'pieza-etapa', alt: n.etiqueta }) : htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta });
+  const efectos = n.nivel === NIVEL.comprimido && n.nuevos?.efectos?.length ? htmlEscenario({ nuevos: n.nuevos, consumido: n.consumido }) : '';
   const dato = `<span class="dato" title="${attr(n.comprimido.que ?? '')}">${escapar(n.comprimido.dato)}${n.comprimido.de ? `<small>/${escapar(n.comprimido.de)}</small>` : ''}</span>`;
   const cabeza = `<header class="pv-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}</span>${dato}</header>`;
+  const marco = htmlMarco(n.marco);
   let cuerpo = '';
-  if (n.nivel === NIVEL.comprimido) cuerpo = `<div class="comprimido" title="${attr(n.etiqueta)}: ${attr(n.ayuda ?? '')}"><span class="numero">${n.pv}</span>${pieza || dato}${pieza ? dato : ''}</div>`;
+  if (n.nivel === NIVEL.comprimido) cuerpo = `<div class="comprimido" title="${attr(n.etiqueta)}: ${attr(n.ayuda ?? '')}"><span class="numero">${n.pv}</span>${sello || dato}${sello ? dato : ''}${efectos}${marco}</div>`;
   else {
     const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) : '';
-    cuerpo = cabeza + pieza + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) : '') + camino
-      + (n.munequito ? htmlPieza(n.munequito, { paso: n.paso, animar: arbol.animado }) : '')
-      + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>`;
+    const escenario = htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
+    cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) : '') + camino
+      + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
   }
   return `<section class="${clases}" data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
 }
@@ -106,13 +140,15 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   const leido = `<div class="leido"><button type="button" class="leido-boton" data-leido aria-pressed="${c.leido}" title="${attr(t(c.leido ? 'leidoOcultar' : 'leidoVer'))}">${t('leido')}</button>${c.leido && leidoTexto !== undefined ? `<pre class="leido-texto" tabindex="0">${escapar(leidoTexto)}</pre>` : ''}</div>`;
   const madurez = c.madurez?.nombre ? `<span class="madurez" title="${attr(t('madurezTitulo', { nivel: c.madurez.nivel, de: c.madurez.de }))}">${escapar(c.madurez.nombre)} <small>${c.madurez.nivel}/${c.madurez.de}</small></span>` : '';
   const quien = `<span class="quien">${escapar(c.autor ?? '')}</span>`;
+  const marco = htmlMarco(c.marco);
+  const efectos = c.nuevos?.efectos?.length ? htmlEscenario({ nuevos: c.nuevos, consumido: c.consumido }) : '';
   if (c.cara === 'anverso') {
     return `<section class="nucleo anverso tamano-${c.tamano?.tamano ?? 1}" data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
-      <h1 class="representacion">${htmlRepresentacion(c.representacion)}</h1>
+      <h1 class="representacion">${htmlRepresentacion(c.representacion)}${efectos}</h1>
       <label class="campo campo-0"><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${htmlCampos(c.campos, c.X)}
-      ${leido}
+      ${leido}${marco}
     </section>`;
   }
   if (c.cara === 'reverso') {
@@ -125,13 +161,14 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       ${ancla}
       ${htmlOcupantes(c.ocupantes, { pv: c.pv })}
       <label class="campo campo-5"><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
-      ${pasos}${validacion}
+      ${pasos}${validacion}${efectos}${marco}
     </section>`;
   }
   return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}" data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${quien}<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button></header>
+    ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
-    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>
+    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${htmlMarco(c.marco)}
   </section>`;
 }
 
@@ -221,7 +258,7 @@ function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '' } = {})
  */
 export function html(arbol, extra = {}) {
   if (!arbol || arbol.vacio) return `<div class="carta vacia"><p class="aviso">${escapar(arbol?.avisos?.join(' · ') ?? t('sinRegistro'))}</p></div>`;
-  const a = { ...arbol, estadoAnimacion: { nuevos: new Set(extra.nuevos ?? []) } };
+  const a = { ...arbol };
   const clase = ['carta', a.apilada ? 'carta-apilada' : 'carta-matriz', a.animado ? 'animado' : 'sobrio', `disposicion-${a.disposicion}`].join(' ');
   const laterales = Object.fromEntries(a.laterales.map((n) => [n.pv, htmlLateral(n, a)]));
   const de = (pv) => laterales[pv] ?? '';
@@ -233,7 +270,7 @@ export function html(arbol, extra = {}) {
   const escena = a.apilada
     ? `<div class="franja franja-cruz" data-franja="cruz">${cruz.map(de).join('')}</div>${htmlCentro(a.centro, a, extra)}<div class="franja franja-x" data-franja="x">${x.map(de).join('')}</div>`
     : `<div class="matriz">${[1, 8, 2, 6, 0, 7, 3, 9, 4].map((pv) => (pv === 0 ? htmlCentro(a.centro, a, extra) : de(pv) || `<div class="pv hueco-vacio"></div>`)).join('')}</div>`;
-  return `<div class="${clase}" data-x="${a.X}" data-disposicion="${attr(a.disposicion)}">
+  return `<div class="${clase}" data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
     ${htmlBarra(a, extra)}
     ${avisos.length ? `<p class="aviso" role="alert">${avisos.map(escapar).join(' · ')}</p>` : ''}
     ${extra.exito ? `<p class="exito" role="status">${escapar(extra.exito)}</p>` : ''}
@@ -247,16 +284,22 @@ export function html(arbol, extra = {}) {
 
 /**
  * Tras pintar: los huecos Lottie se rellenan con lottie-web (si `lottie` está cargado), cada uno fijado en su
- * fotograma; solo los marcados data-animar="1" se reproducen; los que salen de pantalla se pausan
- * (IntersectionObserver). Devuelve una función que destruye lo creado (para el siguiente pintado).
+ * fotograma; solo los marcados data-animar="1" se reproducen, y nunca más de `limite` a la vez (data-animaciones de
+ * la carta: la preferencia «animations»): por prioridad (data-prioridad: 0 lo nuevo y los efectos, 1 lo enfocado, 2
+ * el resto) y, dentro de ella, por orden en el documento; el resto espera en su fotograma y entra cuando un efecto
+ * acaba. Un efecto (data-bucle="0") se reproduce una vez y al acabar se retira; si lleva data-oculta, oculta
+ * también la pieza real de su escenario (lo consumido). Los que salen de pantalla se pausan (IntersectionObserver).
+ * Devuelve una función que destruye lo creado (para el siguiente pintado), con `vivas()` (cuántas se reproducen).
  */
-export function trasPintar(raiz, { lottie = globalThis.lottie } = {}) {
+export function trasPintar(raiz, { lottie = globalThis.lottie, limite } = {}) {
   const huecos = [...raiz.querySelectorAll('[data-lottie]')];
-  if (!huecos.length) return () => {};
+  const nada = Object.assign(() => {}, { vivas: () => 0 });
+  if (!huecos.length) return nada;
   if (!lottie) {
     for (const h of huecos) h.classList.add('sin-lottie');
-    return () => {};
+    return nada;
   }
+  const tope = Number(limite ?? raiz.querySelector('[data-animaciones]')?.dataset.animaciones) || Infinity;
   const vivas = [];
   let obs = null;
   const cache = new Map();
@@ -265,33 +308,52 @@ export function trasPintar(raiz, { lottie = globalThis.lottie } = {}) {
     const d = await cache.get(ruta);
     return d ? JSON.parse(JSON.stringify(d)) : null;
   };
+  // Quién se reproduce: las que piden animarse, por prioridad y orden; las primeras `tope` tienen sitio.
+  const candidatas = huecos.filter((h) => h.dataset.animar === '1').map((h, k) => ({ h, k, p: Number(h.dataset.prioridad) || 0 })).sort((a, b) => a.p - b.p || a.k - b.k).map((x) => x.h);
+  const conSitio = new Set(candidatas.slice(0, Number.isFinite(tope) ? tope : candidatas.length));
+  const enEspera = candidatas.slice(conSitio.size);
+  const reproduciendo = () => vivas.filter((a) => !a.isPaused && !a.__acabada).length;
+  const arrancar = (h) => { if (h.__anim && h.__cargada && conSitio.has(h) && h.__visible !== false && !h.__anim.__acabada) h.__anim.play(); };
+  const darSitio = () => { while (enEspera.length && reproduciendo() < tope) { const h = enEspera.shift(); conSitio.add(h); arrancar(h); } };
   if ('IntersectionObserver' in globalThis) {
     obs = new IntersectionObserver((entradas) => {
       for (const e of entradas) {
         const a = e.target.__anim;
         if (!a) continue;
         e.target.__visible = e.isIntersecting;
-        if (e.isIntersecting && e.target.dataset.animar === '1') a.play();
-        else if (!e.isIntersecting && !a.isPaused) a.pause();
+        if (e.isIntersecting) arrancar(e.target);
+        else if (!a.isPaused) a.pause();
       }
     }, { rootMargin: '50px' });
   }
   for (const h of huecos) {
     datos('./' + h.dataset.lottie).then((animationData) => {
       if (!animationData || !h.isConnected) return;
-      const anim = lottie.loadAnimation({ container: h, renderer: 'svg', loop: h.dataset.bucle !== 'once', autoplay: false, animationData, rendererSettings: { preserveAspectRatio: 'xMidYMid meet' } });
+      const unaVez = h.dataset.bucle === '0';
+      const anim = lottie.loadAnimation({ container: h, renderer: 'svg', loop: !unaVez, autoplay: false, animationData, rendererSettings: { preserveAspectRatio: 'xMidYMid meet' } });
       h.__anim = anim;
       vivas.push(anim);
       const f = Number(h.dataset.fotograma) || 0;
       anim.addEventListener('DOMLoaded', () => {
         anim.goToAndStop(Math.min(f, Math.max(0, anim.totalFrames - 1)), true);
-        if (h.dataset.animar === '1' && h.__visible !== false) anim.play();
+        h.__cargada = true;
+        arrancar(h);
       });
+      if (unaVez) {
+        anim.addEventListener('complete', () => {
+          anim.__acabada = true;
+          if (h.classList.contains('pieza-efecto')) {
+            h.classList.add('acabado');
+            if (h.dataset.oculta === '1') h.closest('[data-escenario]')?.classList.add('consumida');
+          }
+          darSitio();
+        });
+      }
       if (obs) obs.observe(h);
     });
   }
-  return () => {
+  return Object.assign(() => {
     if (obs) obs.disconnect();
     for (const a of vivas) a.destroy();
-  };
+  }, { vivas: reproduciendo });
 }

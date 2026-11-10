@@ -1,0 +1,15 @@
+[
+  ["movimiento"],
+  [2, "lottie"],
+  ["transferir"],
+  ["centro"],
+  ["once", 48],
+  ["*"],
+  [
+    "arte/fase2/bloque-0/biblioteca/comun/movimiento/mover-intermedio.json",
+    "arte/fase2/bloque-0 (nivel intermedio), heredada de la fase 1",
+    "fase-1; migracion de indice bloque-0",
+    "Movimiento original con caja; respaldo heredado. Sustitucion por efecto en bloque 4; transferir adelantado en bloque 0. 48 fotogramas conservados por excepcion de fase 1."
+  ],
+  [1]
+]

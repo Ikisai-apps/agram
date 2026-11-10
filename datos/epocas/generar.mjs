@@ -149,7 +149,8 @@ export function ordenarPorOcho(reglas) {
 // posición de su mundo) y ninguna posición pasa de diez: una lista de referencias no tiene tope. `npm run epocas`
 // reescribe las posiciones 1-9 de cada modelo desde su carpeta de piezas, y el 9.7 de la raíz (detrás de su
 // cabecera) con las referencias a los modelos, por nombre de archivo. Una posición sin piezas delante de otra con
-// ellas lleva la hoja SIN_PIEZAS (nunca se escribe []).
+// ellas lleva la hoja SIN_PIEZAS (nunca se escribe []). Dentro de una posición, las piezas van por su rango (el 7 de la
+// pieza; etapa 5): la nueva delante de la que quedó de respaldo con su misma clave.
 
 /** La carpeta de los modelos de la época. */
 export const MODELOS = 'modelos';
@@ -186,7 +187,10 @@ export function mundosDePieza(registro) {
  */
 export function modeloConPiezas(cabecera, piezas) {
   const posiciones = [];
-  for (let d = 1; d < 10; d++) posiciones[d] = piezas.filter((p) => mundosDePieza(p.registro).includes(d)).map(({ id }) => ({ ref: id }));
+  // Por rango (el 7 de la pieza: 0 o nada la primera opción, 1 la que queda de respaldo), estable: la nueva delante de la de respaldo.
+  const rango = (p) => (Array.isArray(p.registro?.[7]) && typeof p.registro[7][0] === 'number' ? p.registro[7][0] : 0);
+  const ordenadas = piezas.map((p, k) => ({ p, k })).sort((a, b) => rango(a.p) - rango(b.p) || a.k - b.k).map(({ p }) => p);
+  for (let d = 1; d < 10; d++) posiciones[d] = ordenadas.filter((p) => mundosDePieza(p.registro).includes(d)).map(({ id }) => ({ ref: id }));
   let ultimo = 0;
   for (let d = 1; d < 10; d++) if (posiciones[d].length) ultimo = d;
   const fuera = [cabecera];
