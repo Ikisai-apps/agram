@@ -230,10 +230,16 @@ function htmlFormulario(f) {
   </form></div>`;
 }
 
-/** El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su etiqueta en el idioma. */
-function htmlConfiguracion(p, { motivos = [] } = {}) {
+/**
+ * El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su
+ * etiqueta en el idioma. En una cuenta (`claveLectura` es una cadena, quizá vacía), además el campo aparte de la clave
+ * de lectura del libro compartido: sin `name` (no entra en el registro de preferencias: la app lo lee por
+ * data-clave-lectura y lo guarda en el almacén local de la cuenta, nunca en el eje).
+ */
+export function htmlConfiguracion(p, { motivos = [], claveLectura } = {}) {
   if (!p) return '';
-  const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label><input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('');
+  const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label><input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
+    + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '');
   return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion" data-configuracion aria-label="${attr(t('configuracion'))}">
     <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
@@ -255,8 +261,22 @@ function htmlSoy(arbol, { cuentas = [], cuenta = null } = {}) {
   return `<label class="ajuste">${t('soy')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
 }
 
-/** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, la copia de seguridad (en una cuenta) o reiniciar (en un ejemplo). */
-function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null } = {}) {
+/**
+ * La línea del libro compartido, junto a «guardado en este navegador» (carta/sincronia.js lineaDeEstado): lo que falta
+ * por subir, sin red, el orden que cambió o «al día»; los errores tal cual; y lo que no entró, en un desplegable con el
+ * id corto, el motivo y de dónde viene. Sin sincronía (un ejemplo, o una cuenta sin servidor), nada.
+ */
+export function htmlSincronia(s) {
+  if (!s) return '';
+  const errores = s.errores?.length ? ` <span class="error" role="alert">${s.errores.map(escapar).join(' · ')}</span>` : '';
+  const rechazados = s.rechazados?.length
+    ? `<details class="rechazados"><summary>${escapar(s.titulo)}</summary><ul>${s.rechazados.map((r) => `<li><code>${escapar(r.id)}</code> ${escapar(r.motivo)} <small>(${escapar(r.deTexto)})</small></li>`).join('')}</ul></details>`
+    : '';
+  return `<small class="sincronia" data-sincronia role="status" title="${attr(t('sincroniaTitulo'))}">${(s.partes ?? []).map(escapar).join(' · ')}${errores}${rechazados}</small>`;
+}
+
+/** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, la copia de seguridad (en una cuenta) o reiniciar (en un ejemplo); debajo, lo guardado y el libro compartido. */
+function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null } = {}) {
   const quien = htmlSoy(arbol, { cuentas, cuenta });
   const ej = !cuenta && ejemplos.length ? `<label class="ajuste">${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
@@ -264,7 +284,7 @@ function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuenta
   const propios = cuenta
     ? `<button type="button" data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button" data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
     : `<button type="button" data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
-  return `<header class="barra">${quien}${ej}${local}<button type="button" data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}<small class="guardado">${escapar(guardado)}</small></header>`;
+  return `<header class="barra">${quien}${ej}${local}<button type="button" data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</header>`;
 }
 
 /**
@@ -338,7 +358,8 @@ export function htmlCopia(c) {
  * src/lectura.js), `ejemplos` y `ejemplo` (el selector), `guardado`, `aviso`, `exito`, `preferencias` (el formulario
  * de configuración si está abierto), `nuevos` (los ids llegados por el diario desde la última vez: los que se animan),
  * `cuentas` y `cuenta` (mis cuentas en este navegador y la abierta, o null en un ejemplo), `arranque` (la pantalla de
- * crear, restaurar o probar, sola si no hay eje y como diálogo si lo hay) y `copia` (el diálogo de la copia de seguridad).
+ * crear, restaurar o probar, sola si no hay eje y como diálogo si lo hay), `copia` (el diálogo de la copia de seguridad),
+ * `sincronia` (la línea del libro compartido, o null) y `claveLectura` (en una cuenta, la de este navegador o '').
  */
 export function html(arbol, extra = {}) {
   // Sin eje (nadie ha elegido aún cuenta ni ejemplo): la pantalla de arranque entera.
@@ -364,7 +385,7 @@ export function html(arbol, extra = {}) {
     ${htmlRosetones(a.rosetones)}
     ${htmlAro(a.aro)}
     ${htmlFormulario(a.formulario)}
-    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias }) : ''}
+    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;

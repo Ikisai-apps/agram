@@ -1,5 +1,7 @@
 # Enganchar el libro compartido en la carta (para una PR posterior)
 
+> **Hecho** (rama `carta-sincronia`): la carta ya sincroniza; lo vigente está en `docs/CONTRATO.md` §15.8, `carta/sincronia.js` y `test/carta-sincronia.test.js`. Este documento queda como **registro histórico** de la especificación que se siguió; lo que se decidió además de lo que dice está en §15.7 y §15.8 del contrato (las preferencias sin defecto en el formulario, el registro que acaba en el primer hueco, la clave de lectura dentro de lo cifrado de la copia, restaurar bajando el eje del servidor).
+
 Etapa 3 del roadmap (`docs/CONTRATO.md` §15; `servidor/LEEME.md`). La PR del libro compartido no toca `carta/` porque la etapa 2 (mi cuenta, #103: `carta/app.js`, `carta/cuentas.js`, la pantalla de arranque) entró a la vez. Esto dice **dónde llamar a qué**; los nombres de `carta/app.js` son los de `main` `93e86a3` (`estado`, `guardar()`, `arrancar()`, `manejadores.seguir`, `firmarCon`) y las claves de almacén las de `carta/cuentas.js`: lo que importa es el momento, no la línea.
 
 ## 1. Qué hay en el núcleo

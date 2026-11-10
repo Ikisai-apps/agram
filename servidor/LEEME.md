@@ -36,9 +36,20 @@ curl -X POST https://<ref>.supabase.co/functions/v1/eventos/ejes \
 # → 201 {"eje":"vg","claveLectura":"<43 caracteres base64url>","creado":"2026-…"}
 ```
 
-La clave de lectura se devuelve **una sola vez**: el servidor guarda solo su hash SHA-256. Se guarda en `PROD/ikisai-apps/private/` y se da a cada dispositivo de VG (la carta la guarda en `localStorage` por cuenta; `carta/sincronia-ui.md`). Si se pierde, se crea otro eje y se vuelven a subir los eventos (son los mismos: el servidor es idempotente por id).
+La clave de lectura se devuelve **una sola vez**: el servidor guarda solo su hash SHA-256. Se guarda en `PROD/ikisai-apps/private/` y se da a cada dispositivo de VG (la carta la guarda en `localStorage` por cuenta, `agram.sync.<alta>`; `docs/CONTRATO.md` §15.8). Si se pierde, se crea otro eje y se vuelven a subir los eventos (son los mismos: el servidor es idempotente por id).
 
 La URL que va en la configuración de la carta (`sync url`) es la base de la función: `https://<ref>.supabase.co/functions/v1`; el nombre del eje (`sync ledger`), `vg`. Las rutas cuelgan de ahí: `POST …/functions/v1/eventos`, `GET …/functions/v1/eventos?eje=vg&desde=0`, `POST …/functions/v1/eventos/ejes`.
+
+## Configurar la carta tras desplegar
+
+En el primer dispositivo, con la cuenta de VG abierta en la carta (`https://agram.ikisai.com`):
+
+1. **configuración** (la barra): en **servidor** la base de la función, `https://<ref>.supabase.co/functions/v1`; en **eje compartido** el nombre del eje creado arriba (`vg`); en **clave de lectura** la que devolvió `POST …/eventos/ejes`. **guardar**. El servidor y el eje van en el registro de preferencias (en el eje, que se comparte; no son secretos); la clave de lectura, solo en este navegador (`agram.sync.<alta>`), nunca en el eje.
+2. La línea de estado, bajo «guardado en este navegador», dice «al día con el eje compartido» cuando todo ha subido (o «n por subir», «sin red…», los errores tal cual: un 401 es la clave de lectura).
+3. **copia de seguridad**: el archivo lleva ahora también la clave de lectura, cifrada con la frase.
+4. En cada otro dispositivo: **restaurar una cuenta** con ese archivo y la frase. La carta baja el eje del servidor (`sincronizar(null)`) y repone la clave de lectura; desde ahí, los dos dispositivos se sincronizan solos (al escribir, al volver la red y cada 30 s).
+
+Con el servidor de prueba es igual, con `http://127.0.0.1:8787` como servidor y la carta servida desde `http://localhost:<puerto>` o `http://127.0.0.1:<puerto>` (CORS).
 
 ## El servidor de prueba
 
@@ -54,4 +65,4 @@ El mismo contrato en `http://127.0.0.1:8787` (`POST /ejes` con `X-Crear-Ejes: pr
 - Crear el proyecto Supabase (VG) y guardar sus credenciales en `PROD/ikisai-apps/private/`.
 - Pasar la migración y desplegar la función (pasos 2 a 4). Probarla a mano (`funciones/eventos/LEEME.md`).
 - Crear el eje de VG y repartir su clave de lectura a sus dispositivos.
-- Enganchar la carta (`carta/sincronia-ui.md`): una PR posterior, porque `carta/` lo está tocando la etapa 2 (mi cuenta).
+- Configurar la carta en cada dispositivo («Configurar la carta tras desplegar», arriba). La carta ya está enganchada (`docs/CONTRATO.md` §15.8).

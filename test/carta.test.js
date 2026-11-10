@@ -229,7 +229,10 @@ test('las preferencias se editan como un registro más: la candidata sale de la 
   const { eje } = await compra();
   const p = preferencias(eje, 'huesped', { language: 'es', step: '5' });
   assert.equal(p.sobre, eje.alta('huesped').id);
-  assert.deepEqual(p.campos.map((c) => c.etiqueta), Object.keys(C.configuracion(eje, null)).filter((k) => k !== 'de'));
+  // Todas las preferencias de la época, también las que no tienen defecto (el servidor y el eje compartido, etapa 3).
+  assert.deepEqual(p.campos.map((c) => c.etiqueta), C.clavesDeConfiguracion().map((c) => c.clave));
+  assert.ok(Object.keys(C.configuracion(eje, null)).filter((k) => k !== 'de').every((k) => p.campos.some((c) => c.clave === k)));
+  assert.equal(p.payload.length, 8, 'sin servidor ni eje compartido, el registro acaba en el 7: BTML no tiene posiciones vacías');
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
   const conf = C.configuracion(eje, 'huesped');
   assert.deepEqual([conf.language, conf.step], ['es', 5]);

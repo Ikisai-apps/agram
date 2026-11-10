@@ -14,13 +14,17 @@
 //   agram.clave.<alta>        su clave privada, como JWK (igual que las de las identidades de ejemplo en agram.claves:
 //                             exportada tal cual, sin cifrar; solo la frase de la copia la cifra al salir del navegador)
 //   agram.local.<alta>.<yo>   el libro local de quien mira en esa cuenta
+//   agram.sync.<alta>         su clave de lectura del libro compartido (un secreto: nunca en el eje; va cifrada en la copia)
+//   agram.sync.estado.<alta>  el estado de su sincronía (src/sincronia.js serializar: la cola, los órdenes del
+//                             servidor, lo rechazado; sin la clave de lectura): carta/sincronia.js
 // Los ejemplos siguen en agram.eje, agram.claves, agram.foco, agram.yo, agram.ejemplo y agram.local.<yo>.
 //
-// La COPIA DE SEGURIDAD es un archivo agram-cuenta-<nombre>.json con la clave privada cifrada con una frase (PBKDF2
-// con sal aleatoria y muchas iteraciones → AES-GCM, con el id del alta como dato asociado), la clave pública, el
-// nombre, el id del alta y el eje serializado: una FOTO del eje, para seguir en otro dispositivo hasta que exista el
-// libro compartido (etapa 3). La frase no se guarda en ningún sitio; el archivo no lleva nada en claro salvo el
-// nombre, el idioma, la identidad, el id y la clave pública (y el eje, que es público por naturaleza).
+// La COPIA DE SEGURIDAD es un archivo agram-cuenta-<nombre>.json con la clave privada (y, si la hay, la clave de
+// lectura del libro compartido) cifrada con una frase (PBKDF2 con sal aleatoria y muchas iteraciones → AES-GCM, con
+// el id del alta como dato asociado), la clave pública, el nombre, el id del alta y el eje serializado: una FOTO del
+// eje; con el libro compartido configurado, el otro dispositivo baja el resto del servidor al restaurar
+// (carta/sincronia.js). La frase no se guarda en ningún sitio; el archivo no lleva nada en claro salvo el nombre, el
+// idioma, la identidad, el id y la clave pública (y el eje, que es público por naturaleza).
 //
 // Sin DOM: lo prueba test/cuentas.test.js con el WebCrypto de Node. carta/app.js lo engancha a la pantalla.
 
@@ -34,6 +38,8 @@ export const CLAVES = Object.freeze({
   eje: (alta) => 'agram.eje.' + alta,
   clave: (alta) => 'agram.clave.' + alta,
   local: (alta, yo) => 'agram.local.' + alta + '.' + yo,
+  lectura: (alta) => 'agram.sync.' + alta,
+  sincronia: (alta) => 'agram.sync.estado.' + alta,
 });
 
 /** Las claves de localStorage de los ejemplos (las de siempre: carta/app.js y antigua/ui/ejemplos.js). */
@@ -170,14 +176,46 @@ export function recordarUltima(alta) {
   return escribir(CLAVES.ultima, alta);
 }
 
-/** Guarda una cuenta en este navegador: la lista, su eje y su clave privada (JWK, como las de ejemplo). Devuelve false si no hay almacenamiento. */
-export async function guardarCuenta({ cuenta, eje, privada }) {
+/**
+ * Guarda una cuenta en este navegador: la lista, su eje, su clave privada (JWK, como las de ejemplo) y, si viene
+ * (una copia restaurada que la llevaba), su clave de lectura. Devuelve false si no hay almacenamiento.
+ */
+export async function guardarCuenta({ cuenta, eje, privada, claveLectura }) {
   const jwk = await autoridad.exportarPrivada(privada);
   const lista = cuentas().filter((c) => c.alta !== cuenta.alta);
   lista.push({ nombre: cuenta.nombre, idioma: cuenta.idioma, identidad: cuenta.identidad, alta: cuenta.alta, publica: cuenta.publica });
-  const ok = escribir(CLAVES.cuentas, JSON.stringify(lista)) && escribir(CLAVES.clave(cuenta.alta), JSON.stringify(jwk)) && persistencia.guardarLocal(eje, CLAVES.eje(cuenta.alta));
+  const ok = escribir(CLAVES.cuentas, JSON.stringify(lista)) && escribir(CLAVES.clave(cuenta.alta), JSON.stringify(jwk)) && persistencia.guardarLocal(eje, CLAVES.eje(cuenta.alta))
+    && (!claveLectura || guardarClaveLectura(cuenta.alta, claveLectura));
   if (ok) recordarUltima(cuenta.alta);
   return ok;
+}
+
+/** La clave de lectura del libro compartido de una cuenta (agram.sync.<alta>), o null. Nunca va en el eje. */
+export function claveLectura(alta) {
+  const v = leer(CLAVES.lectura(alta));
+  return typeof v === 'string' && v.trim() ? v.trim() : null;
+}
+
+/** Guarda la clave de lectura de una cuenta; vacía, la borra. Devuelve false si no hay almacenamiento. */
+export function guardarClaveLectura(alta, clave) {
+  const v = typeof clave === 'string' ? clave.trim() : '';
+  if (!v) { borrar(CLAVES.lectura(alta)); return true; }
+  return escribir(CLAVES.lectura(alta), v);
+}
+
+/** El estado guardado de la sincronía de una cuenta (lo que dio Sincronia#serializar), o null. */
+export function estadoSincronia(alta) {
+  try {
+    const datos = JSON.parse(leer(CLAVES.sincronia(alta)) ?? 'null');
+    return datos && typeof datos === 'object' ? datos : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Guarda el estado de la sincronía de una cuenta (Sincronia#serializar: sin la clave de lectura). */
+export function guardarEstadoSincronia(alta, datos) {
+  return escribir(CLAVES.sincronia(alta), JSON.stringify(datos));
 }
 
 /** Guarda solo el eje de una cuenta (tras cada registro nuevo). */
@@ -187,18 +225,19 @@ export function guardarEje(cuenta, eje) {
 
 /**
  * Abre una cuenta guardada en este navegador: restaura su eje (revalidado) e importa su clave privada; comprueba que
- * el eje declara para mi identidad la clave pública de la cuenta. → { cuenta, eje, privada, publica } o null (y el
- * motivo en `motivo`) si falta algo o no cuadra.
+ * el eje declara para mi identidad la clave pública de la cuenta. → { cuenta, eje, privada, publica } o, si falta
+ * algo o no cuadra, sin `eje` y con el motivo en `motivo` (si lo que falta es solo el eje, con `privada`: la carta
+ * puede bajarlo del libro compartido, carta/sincronia.js).
  */
 export async function abrirCuenta(alta) {
   const cuenta = cuentas().find((c) => c.alta === alta);
   if (!cuenta) return { motivo: 'no hay ninguna cuenta con ese alta en este navegador' };
   try {
-    const eje = await persistencia.cargarLocal(CLAVES.eje(alta));
-    if (!eje) return { cuenta, motivo: 'el eje de la cuenta no está o no se ha podido abrir' };
     const jwk = JSON.parse(leer(CLAVES.clave(alta)) ?? 'null');
     if (!jwk) return { cuenta, motivo: 'la clave privada de la cuenta no está en este navegador' };
     const privada = await autoridad.importarPrivada(jwk);
+    const eje = await persistencia.cargarLocal(CLAVES.eje(alta));
+    if (!eje) return { cuenta, privada, publica: cuenta.publica, motivo: 'el eje de la cuenta no está o no se ha podido abrir' };
     if (!mismaClave(eje.clave(cuenta.identidad), cuenta.publica) || eje.alta(cuenta.identidad)?.id !== alta) return { cuenta, motivo: 'el eje guardado no declara la clave de la cuenta' };
     return { cuenta, eje, privada, publica: cuenta.publica };
   } catch (e) {
@@ -206,19 +245,24 @@ export async function abrirCuenta(alta) {
   }
 }
 
-/** Olvida una cuenta en este navegador: su eje, su clave privada, sus libros locales y su entrada en la lista. Sin copia, no se recupera. */
+/**
+ * Olvida una cuenta en este navegador: su eje, su clave privada, sus libros locales, su clave de lectura, el estado de
+ * su sincronía y su entrada en la lista. Sin copia, no se recupera.
+ */
 export function olvidarCuenta(alta, identidades = []) {
   const lista = cuentas().filter((c) => c.alta !== alta);
   escribir(CLAVES.cuentas, JSON.stringify(lista));
   borrar(CLAVES.eje(alta));
   borrar(CLAVES.clave(alta));
+  borrar(CLAVES.lectura(alta));
+  borrar(CLAVES.sincronia(alta));
   for (const yo of identidades) borrar(CLAVES.local(alta, yo));
   if (ultima() === alta) borrar(CLAVES.ultima);
 }
 
 /** Las claves de localStorage que usa una cuenta (para comprobar que no se cruzan con las de los ejemplos). */
 export function clavesDe(cuenta, identidades = [cuenta.identidad]) {
-  return [CLAVES.cuentas, CLAVES.ultima, CLAVES.eje(cuenta.alta), CLAVES.clave(cuenta.alta), ...identidades.map((yo) => CLAVES.local(cuenta.alta, yo))];
+  return [CLAVES.cuentas, CLAVES.ultima, CLAVES.eje(cuenta.alta), CLAVES.clave(cuenta.alta), CLAVES.lectura(cuenta.alta), CLAVES.sincronia(cuenta.alta), ...identidades.map((yo) => CLAVES.local(cuenta.alta, yo))];
 }
 
 /** ¿Son la misma clave pública (el mismo material x, y)? */
@@ -235,16 +279,22 @@ async function claveDeFrase(frase, sal, iteraciones) {
 }
 
 /**
- * Exporta la cuenta como archivo de copia: la clave privada cifrada con la frase, la pública, el nombre, el idioma,
- * la identidad, el id del alta y el eje serializado (una foto). La frase no se guarda. → el objeto del archivo (JSON).
+ * Exporta la cuenta como archivo de copia: la clave privada cifrada con la frase (y, si se da, la clave de lectura
+ * del libro compartido, dentro de lo cifrado), la pública, el nombre, el idioma, la identidad, el id del alta y el eje
+ * serializado (una foto). La frase no se guarda. → el objeto del archivo (JSON).
+ *
+ * Lo cifrado es el JWK privado tal cual (como siempre) o, con clave de lectura, { privada: JWK, claveLectura }: una
+ * copia sin clave de lectura es idéntica a las de antes, y restaurarCuenta lee las dos formas.
  */
-export async function exportarCuenta({ cuenta, eje, privada }, frase, { iteraciones = CIFRADO.iteraciones, t = new Date().toISOString() } = {}) {
+export async function exportarCuenta({ cuenta, eje, privada, claveLectura }, frase, { iteraciones = CIFRADO.iteraciones, t = new Date().toISOString() } = {}) {
   if (typeof frase !== 'string' || !frase) throw new Error('la copia necesita una frase');
   const jwk = await autoridad.exportarPrivada(privada);
   const sal = aleatorio(CIFRADO.sal);
   const iv = aleatorio(CIFRADO.iv);
   const clave = await claveDeFrase(frase, sal, iteraciones);
-  const datos = await subtle().encrypt({ name: CIFRADO.cifrado, iv, additionalData: utf8(cuenta.alta) }, clave, utf8(JSON.stringify(jwk)));
+  const lectura = typeof claveLectura === 'string' ? claveLectura.trim() : '';
+  const secreto = lectura ? { privada: jwk, claveLectura: lectura } : jwk;
+  const datos = await subtle().encrypt({ name: CIFRADO.cifrado, iv, additionalData: utf8(cuenta.alta) }, clave, utf8(JSON.stringify(secreto)));
   return {
     formato: FORMATO,
     version: VERSION,
@@ -266,9 +316,10 @@ export const textoDeArchivo = (archivo) => JSON.stringify(archivo);
 export const FRASE_INCORRECTA = 'la frase no abre esta copia (frase incorrecta o archivo dañado)';
 
 /**
- * Restaura una cuenta desde su archivo de copia y la frase: descifra la clave privada, la importa, comprueba que es
- * la pareja de la pública, restaura el eje (persistencia.restaurar: cada evento se revalida) y comprueba que el eje
- * declara esa clave para la identidad en su alta. → { cuenta, eje, privada, publica }. Lanza con un motivo claro.
+ * Restaura una cuenta desde su archivo de copia y la frase: descifra la clave privada (y la de lectura, si la
+ * lleva), la importa, comprueba que es la pareja de la pública, restaura el eje (persistencia.restaurar: cada evento
+ * se revalida) y comprueba que el eje declara esa clave para la identidad en su alta. → { cuenta, eje, privada,
+ * publica, claveLectura } (claveLectura: undefined si la copia no la lleva). Lanza con un motivo claro.
  */
 export async function restaurarCuenta(archivo, frase) {
   const a = typeof archivo === 'string' ? JSON.parse(archivo) : archivo;
@@ -281,10 +332,14 @@ export async function restaurarCuenta(archivo, frase) {
   if (typeof a.alta !== 'string' || typeof a.identidad !== 'string' || !(await autoridad.clavePublicaValida(a.publica))) throw new Error('el archivo no lleva la identidad, el alta y la clave pública');
   if (typeof frase !== 'string' || !frase) throw new Error(FRASE_INCORRECTA);
   let jwk;
+  let claveLectura;
   try {
     const clave = await claveDeFrase(frase, deBase64(c.sal), c.iteraciones);
     const claro = await subtle().decrypt({ name: CIFRADO.cifrado, iv: deBase64(c.iv), additionalData: utf8(a.alta) }, clave, deBase64(c.datos));
-    jwk = JSON.parse(new TextDecoder().decode(claro));
+    const secreto = JSON.parse(new TextDecoder().decode(claro));
+    // Las dos formas de lo cifrado: el JWK tal cual (sin clave de lectura) o { privada, claveLectura }.
+    jwk = secreto && secreto.privada && typeof secreto.privada === 'object' ? secreto.privada : secreto;
+    if (secreto && typeof secreto.claveLectura === 'string' && secreto.claveLectura) claveLectura = secreto.claveLectura;
   } catch {
     throw new Error(FRASE_INCORRECTA);
   }
@@ -293,5 +348,5 @@ export async function restaurarCuenta(archivo, frase) {
   const eje = await persistencia.restaurar(a.eje);
   if (!mismaClave(eje.clave(a.identidad), a.publica) || eje.alta(a.identidad)?.id !== a.alta) throw new Error('el eje de la copia no declara esa clave para ' + a.identidad + ' en su alta');
   const cuenta = { nombre: String(a.nombre ?? a.identidad), idioma: typeof a.idioma === 'string' ? a.idioma : undefined, identidad: a.identidad, alta: a.alta, publica: { kty: a.publica.kty, crv: a.publica.crv, x: a.publica.x, y: a.publica.y } };
-  return { cuenta, eje, privada, publica: cuenta.publica };
+  return { cuenta, eje, privada, publica: cuenta.publica, claveLectura };
 }
