@@ -18,7 +18,7 @@
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
-import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
+import { arbol, enviar, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
@@ -42,7 +42,7 @@ const FRASE_MINIMA = 8;
 
 const raiz = document.querySelector('#carta');
 const estado = {
-  eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, paginas: {}, aro: null, formulario: null,
+  eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, recientes: [], paginas: {}, aro: null, formulario: null,
   rosetones: {}, local: null, leido: leidoAbierto(), aviso: '', exito: '', guardado: '', config: false, motivosPreferencias: [],
   vistos: new Set(), nuevos: new Set(), hermanos: null,
   // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
@@ -58,11 +58,18 @@ let limpiarLottie = () => {};
 let gestos = null;
 let pintando = null;
 let lineaPintada = null; // el HTML de la línea del libro compartido que hay en pantalla
+let ultimo = null; // el último árbol pintado: si es Mapped (no apilada), los pasos de tamaño son los de la época
 
 /** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
 const firmarCon = (id) => (privadaDe(id) ? (ev) => autoridad.firmar(ev, privadaDe(id)) : undefined);
-const medidas = () => ({ ancho: Math.max(240, window.innerWidth), alto: Math.max(320, window.innerHeight) });
+/** La pantalla que mide la carta: la ventana, sin lo que ocupa la barra (en Mapped la escena es el resto, sin scroll). */
+const medidas = () => {
+  const barra = raiz?.querySelector?.('.barra')?.offsetHeight ?? 0;
+  return { ancho: Math.max(240, window.innerWidth), alto: Math.max(320, window.innerHeight - barra) };
+};
+/** ¿Está la carta en Mapped (la matriz del ordenador)? Lo dice el último árbol (la época decide por la forma de la pantalla). */
+const enMapped = () => Boolean(ultimo && !ultimo.vacio && !ultimo.apilada);
 /** El idioma de quien mira: su preferencia «language». */
 const idioma = () => contrato.configuracion(estado.eje, estado.identidad).language;
 /** La clave de localStorage del libro local de quien mira: por cuenta, o la de los ejemplos. */
@@ -272,6 +279,8 @@ async function pintar() {
     const extra = extraDe();
     limpiarLottie();
     for (const [k, v] of Object.entries(variablesDeColor(a?.colores))) document.documentElement.style.setProperty(k, v);
+    ultimo = a;
+    document.documentElement.classList.toggle('mapped', enMapped());
     raiz.innerHTML = html(a, extra);
     lineaPintada = htmlSincronia(extra.sincronia);
     limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
@@ -324,7 +333,7 @@ function irA(X, pv = 0) {
   if (!estado.eje?.obtener(X)) return;
   const cambia = estado.foco.X !== X;
   estado.foco = { X, pv };
-  if (cambia) { estado.niveles = {}; estado.paginas = {}; estado.aro = null; estado.formulario = null; }
+  if (cambia) { estado.niveles = {}; estado.recientes = []; estado.paginas = {}; estado.aro = null; estado.formulario = null; }
   limpiarMensajes();
   tocar(X, cambia ? null : 'pv ' + pv);
   marcarNuevos();
@@ -338,6 +347,7 @@ function cambiarDeEje(eje, identidad) {
   estado.identidad = identidad;
   estado.foco = { X: null, pv: 0 };
   estado.niveles = {};
+  estado.recientes = [];
   estado.paginas = {};
   estado.aro = null;
   estado.formulario = null;
@@ -441,8 +451,30 @@ async function entrarEnEjemplo() {
 /** Lo escrito en los inputs de un formulario, por nombre. */
 const valoresDe = (form) => Object.fromEntries([...form.querySelectorAll('input[name],select[name]')].filter((i) => i.type !== 'file').map((i) => [i.name, i.value]));
 
+/**
+ * Escribe mis preferencias con estos valores sobre las de ahora, como un registro más en el 9 de mi alta (la plantilla
+ * «preferences»): lo que hace la configuración al guardar y lo que hace un interruptor de la barra al tocarlo.
+ */
+async function escribirPreferencias(valores) {
+  const p = preferencias(estado.eje, estado.identidad, valores);
+  if (!p) throw new Error(t('sinAlta'));
+  await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: p.sobre, en: p.en, payload: p.payload }, privadaDe(estado.identidad));
+}
+
 const manejadores = {
   nivel(pv, delta, X) {
+    if (enMapped()) {
+      // Mapped: los pasos de la época (carta.ampliar): sube o baja ese PV; pasado el tope, a pantalla completa; si compite
+      // con otro tocado antes en su fila o columna, gana el más reciente y el otro baja un paso.
+      const r = ampliar(estado, pv, delta, { pvs: ultimo?.pvs });
+      estado.niveles = r.niveles;
+      estado.recientes = r.recientes;
+      limpiarMensajes();
+      tocar(X ?? estado.foco.X, 'tamaño ' + pv + ' ' + (r.completa ? 'completa' : estado.niveles[pv]));
+      if (r.completa) { irA(X ?? estado.foco.X, pv); return; }
+      pintar();
+      return;
+    }
     const actual = estado.niveles[pv] ?? NIVEL.comprimido;
     const siguiente = actual + delta;
     if (siguiente > NIVEL.bloque) { irA(X ?? estado.foco.X, pv); return; } // el siguiente gesto no es un tamaño: entrar en el PV
@@ -451,8 +483,37 @@ const manejadores = {
     tocar(X ?? estado.foco.X, 'nivel ' + pv + ' ' + estado.niveles[pv]);
     pintar();
   },
+  /** Mapped: los puntitos del foco suben un paso todos los PV (hasta el 3×3); su mando, los baja. */
+  todos(delta) {
+    const r = ampliarTodos(estado, delta, { pvs: ultimo?.pvs });
+    estado.niveles = r.niveles;
+    estado.recientes = r.recientes;
+    limpiarMensajes();
+    tocar(estado.foco.X, 'todos ' + delta);
+    pintar();
+  },
+  /** Un interruptor de la barra: escribe esa preferencia (sobrio o animado) como lo hace la configuración, y repinta. */
+  async preferencia(clave, valor) {
+    if (!clave || !estado.eje) return;
+    try {
+      await escribirPreferencias({ [clave]: valor });
+      guardar();
+      estado.aviso = '';
+    } catch (e) {
+      estado.aviso = String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '');
+    }
+    abrirSincronia();
+    pintar();
+  },
+  /** Mapped, sin scroll: la página siguiente o la anterior de los ocupantes de un PV. */
+  pagina(pv, delta) {
+    estado.paginas[pv] = Math.max(1, (estado.paginas[pv] ?? 1) + delta);
+    tocar(estado.foco.X, 'página ' + pv + ' ' + estado.paginas[pv]);
+    pintar();
+  },
   profundidad(delta, pv, X) {
     if (pv !== null && pv !== undefined) return manejadores.nivel(pv, delta, X);
+    if (enMapped()) return manejadores.todos(delta);
     // Sin PV: todos los laterales a la vez.
     for (const k of LATERALES) estado.niveles[k] = Math.min(NIVEL.bloque, Math.max(NIVEL.comprimido, (estado.niveles[k] ?? NIVEL.comprimido) + delta));
     tocar(estado.foco.X, 'profundidad ' + delta);
@@ -492,6 +553,7 @@ const manejadores = {
     else if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
     else if (estado.formulario) estado.formulario = null;
     else if (estado.aro) estado.aro = null;
+    else if (enMapped() && LATERALES.includes(estado.foco.pv)) estado.foco = { ...estado.foco, pv: CENTROS[0] }; // salir de la pantalla completa
     else return;
     pintar();
   },
@@ -548,10 +610,9 @@ const manejadores = {
     const campoIa = form.querySelector('[data-clave-ia]');
     if (campoIa && altaDeGuia()) guia.guardarClaveIa(almacenLocal(), altaDeGuia(), campoIa.value);
     const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
-    const p = preferencias(estado.eje, estado.identidad, valores);
-    if (!p) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
+    if (!preferencias(estado.eje, estado.identidad, valores)) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
-      await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: p.sobre, en: p.en, payload: p.payload }, privadaDe(estado.identidad));
+      await escribirPreferencias(valores);
       const ajustesGuia = guia.ajustesEditables(estado.eje, estado.identidad, valoresGuia);
       if (ajustesGuia?.cambiado) await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: ajustesGuia.sobre, en: ajustesGuia.en, payload: ajustesGuia.payload }, privadaDe(estado.identidad));
       guardar();
@@ -651,6 +712,7 @@ const manejadores = {
   hermano(delta, pv) {
     // Cambiar de PV (la franja) o de hermano: con un PV abierto, el siguiente lateral; en el centro, el hermano del foco.
     if (pv !== null && pv !== undefined) {
+      if (enMapped()) return; // en Mapped cada PV tiene su sitio: deslizar sobre uno no lo cambia por otro
       const i = LATERALES.indexOf(pv);
       const siguiente = LATERALES[(i + delta + LATERALES.length) % LATERALES.length];
       estado.niveles = { [siguiente]: Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.tarjeta) };
@@ -938,6 +1000,7 @@ async function reiniciar() {
   const { eje, foco } = await crearEjemplo(estado);
   estado.eje = eje;
   estado.niveles = {};
+  estado.recientes = [];
   estado.paginas = {};
   estado.vistos = new Set();
   estado.nuevos = new Set();

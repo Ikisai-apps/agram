@@ -1,0 +1,339 @@
+// Mapped en el ordenador (VG, 10-11, tanda 3): sin scroll nunca; los pasos de tamaño de cada PV son datos de la época
+// (epoch.8.6); los puntitos del foco suben un paso a todos y el clic sobre un PV solo a ese; un PV a pantalla completa
+// con flechas a sus vecinos y «volver»; los rosetones cada uno en su esquina o lateral; el interruptor sobrio/animado
+// escribe la preferencia; el formulario enseña lo obligatorio y lo demás tras «más»; el criterio por defecto, traducido.
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { arbol, formulario, preferencias, ampliar, ampliarTodos, escalaDeTamanos, repartir, LATERALES, CENTROS, GEOMETRIA, NIVEL } from '../carta/carta.js';
+import { html } from '../carta/dom.js';
+import * as C from '../src/contrato.js';
+import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
+import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
+
+const T1 = '2026-11-08T10:00:00Z';
+const ORDENADOR = { ancho: 1200, alto: 800 };
+const GRANDE = { ancho: 1920, alto: 1080 };
+const MOVIL = { ancho: 400, alto: 700 };
+const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+const CASI = 1e-9;
+
+function epocaCon(cambiar) {
+  const e = JSON.parse(JSON.stringify(EPOCA_0_BTML_DATOS));
+  const plantillas = JSON.parse(JSON.stringify(PLANTILLAS_DE_EPOCA_DATOS));
+  cambiar(e, plantillas);
+  return cargarEpocaBtml(e, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS], plantillas, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML.id });
+}
+
+/** La suma de una lista de fracciones. */
+const suma = (l) => l.reduce((a, b) => a + b, 0);
+
+/** Comprueba que el árbol no pide más del 100 % de la pantalla en ningún eje y que cada caja cabe en ella. */
+function sinScroll(a, que = '') {
+  assert.ok(a.mapa, 'en Mapped el árbol trae el reparto ' + que);
+  assert.ok(suma(a.mapa.columnas) <= 1 + CASI, 'columnas ' + a.mapa.columnas + ' ' + que);
+  assert.ok(suma(a.mapa.filas) <= 1 + CASI, 'filas ' + a.mapa.filas + ' ' + que);
+  for (const caja of [a.mapa.centro, ...a.laterales.map((n) => n.caja).filter(Boolean)]) {
+    assert.ok(caja.x >= -CASI && caja.y >= -CASI && caja.ancho >= 0 && caja.alto >= 0, JSON.stringify(caja));
+    assert.ok(caja.x + caja.ancho <= 1 + CASI && caja.y + caja.alto <= 1 + CASI, 'la caja se sale: ' + JSON.stringify(caja) + ' ' + que);
+  }
+  // Las cajas de los PV no se pisan entre sí ni con la del foco.
+  const cajas = [a.mapa.centro, ...a.laterales.map((n) => n.caja).filter(Boolean)];
+  for (let i = 0; i < cajas.length; i++) for (let j = i + 1; j < cajas.length; j++) {
+    const p = cajas[i];
+    const q = cajas[j];
+    const pisan = p.x + p.ancho > q.x + CASI && q.x + q.ancho > p.x + CASI && p.y + p.alto > q.y + CASI && q.y + q.alto > p.y + CASI;
+    assert.ok(!pisan, 'se pisan ' + JSON.stringify(p) + ' y ' + JSON.stringify(q) + ' ' + que);
+  }
+}
+
+test('los pasos de tamaño de Mapped son datos de la época (epoch.8.6): nombres, fracciones de esquina y de lado y datos que caben, con su procedencia', () => {
+  const fila = EPOCA_0_BTML.registro[8][6];
+  assert.equal(fila[0][0], 'size steps');
+  assert.match(fila[2][0], /^VG, 10-11/);
+  const pasos = C.pasosDeTamano();
+  assert.deepEqual(pasos.map((p) => p.nombre), fila[1].map((p) => p[0][0]));
+  assert.deepEqual(pasos.map((p) => [p.esquina, p.lado]), [[0, 0], [0, 0], [1 / 16, 1 / 16], [1 / 4, 1 / 9], [1, 1]]);
+  assert.deepEqual(pasos.map((p) => p.datos), [0, 1, 9, 10, 1000]);
+  // En español, por la clave «size <nombre>».
+  assert.deepEqual(C.pasosDeTamano({ idioma: 'es' }).map((p) => p.texto), ['oculto', 'punto', 'grupo', 'bloque', 'pantalla completa']);
+  // Lo que la carta deduce de la tabla, sin nombres: el de partida (el punto), el primero con espacio (el grupo), el tope (el bloque) y la pantalla completa.
+  const e = escalaDeTamanos();
+  assert.deepEqual([e.partida, e.conEspacio, e.tope, e.completa], [1, 2, 3, 4]);
+});
+
+test('la pantalla inicial: el foco (el 0) ocupa toda la pantalla con sus diez puntitos y nada más; ningún PV tiene caja', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const medidas of [ORDENADOR, GRANDE]) {
+    const a = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', medidas);
+    assert.equal(a.apilada, false);
+    assert.deepEqual(a.mapa.centro, { x: 0, y: 0, ancho: 1, alto: 1 });
+    assert.ok(a.laterales.every((n) => n.caja === null && n.pasoDeTamano.nombre === 'dot'));
+    assert.deepEqual(a.mapa.puntos.lista.map((p) => p.pv), a.pvs, 'los diez puntitos, los PV de la división');
+    assert.equal(a.mapa.puntos.sube, true);
+    assert.equal(a.mapa.puntos.baja, false);
+    sinScroll(a, 'inicial');
+    const h = html(a);
+    assert.equal((h.match(/class="punto[^"]*"[^>]*data-todos="1"/g) ?? []).length, a.pvs.length);
+    assert.match(h, /data-todos="-1"[^>]* disabled/);
+    assert.doesNotMatch(h, /class="celda fila/, 'sin cajas de PV');
+  }
+});
+
+test('los puntitos suben un paso a todos a la vez hasta el 3×3 (otra pulsación no hace nada) y su mando los baja; la cruz va en proporción', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const e = escalaDeTamanos();
+  let estado = { foco: { X: compra.id, pv: 0 } };
+  const pasos = [];
+  for (let i = 0; i < 3; i++) {
+    estado = { ...estado, ...ampliarTodos(estado, +1) };
+    pasos.push(LATERALES.map((pv) => estado.niveles[pv]));
+  }
+  assert.deepEqual(pasos[0], LATERALES.map(() => e.partida + 1));
+  assert.deepEqual(pasos[1], LATERALES.map(() => e.tope));
+  assert.deepEqual(pasos[2], pasos[1], 'en el tope, otra pulsación no hace nada');
+  assert.deepEqual(estado.recientes, []);
+  const a = await arbol(estado, eje, 'huesped', ORDENADOR);
+  assert.equal(a.mapa.matriz, true);
+  assert.ok(a.laterales.every((n) => n.caja && n.relleno && n.nivel === NIVEL.bloque));
+  // Las esquinas querrían medio lado (un cuarto) y la cruz un tercio (un noveno): todo en proporción, sin pasar de 1.
+  const [izq, centro, der] = a.mapa.columnas;
+  assert.ok(Math.abs(izq - der) < CASI && izq > centro, 'la X más ancha que la cruz: ' + a.mapa.columnas);
+  assert.ok(Math.abs(izq / centro - (1 / 2) / (1 / 3)) < 1e-6, 'en proporción a lo que quieren');
+  sinScroll(a, 'tres pulsaciones');
+  // Tras el primer paso (el grupo): cada PV en una dieciseisava parte, pegado a su esquina o a su lado.
+  const g = await arbol({ ...estado, ...ampliarTodos({}, +1) }, eje, 'huesped', ORDENADOR);
+  for (const n of g.laterales) {
+    assert.ok(Math.abs(n.caja.ancho * n.caja.alto - 1 / 16) < 1e-9, 'pv ' + n.pv + ' ' + JSON.stringify(n.caja));
+    const [f, c] = GEOMETRIA[n.pv].celda;
+    if (c === 0) assert.equal(n.caja.x, 0);
+    if (c === 2) assert.ok(Math.abs(n.caja.x + n.caja.ancho - 1) < CASI);
+    if (f === 0) assert.equal(n.caja.y, 0);
+    if (f === 2) assert.ok(Math.abs(n.caja.y + n.caja.alto - 1) < CASI);
+  }
+  sinScroll(g, 'grupo');
+  // Bajar: un paso a todos, nunca por debajo del de partida.
+  const abajo = ampliarTodos(ampliarTodos(estado, -1), -5);
+  assert.ok(LATERALES.every((pv) => abajo.niveles[pv] === e.partida));
+});
+
+test('el clic sobre un PV sube un paso solo a ese PV; en el tope, el siguiente lo pone a pantalla completa; sus botoncitos y el asa están en el HTML', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const e = escalaDeTamanos();
+  let estado = { foco: { X: compra.id, pv: 0 }, ...ampliarTodos({}, +1) };
+  const r = ampliar(estado, 1, +1);
+  assert.equal(r.niveles[1], e.tope);
+  assert.ok(LATERALES.filter((pv) => pv !== 1).every((pv) => r.niveles[pv] === estado.niveles[pv]), 'los demás no cambian');
+  assert.deepEqual(r.recientes, [1]);
+  assert.equal(r.completa, false);
+  estado = { ...estado, ...r };
+  const a = await arbol(estado, eje, 'huesped', ORDENADOR);
+  const uno = a.laterales.find((n) => n.pv === 1);
+  assert.equal(uno.pasoDeTamano.nombre, 'block');
+  // El más reciente se queda lo suyo: un cuarto de pantalla (medio lado en cada eje).
+  assert.ok(Math.abs(uno.caja.ancho - 0.5) < 1e-9 && Math.abs(uno.caja.alto - 0.5) < 1e-9, JSON.stringify(uno.caja));
+  assert.equal(a.mapa.reciente, 1);
+  sinScroll(a, 'un PV en bloque');
+  const h = html(a);
+  assert.match(h, /data-tamano="1" data-pv="1"/);
+  assert.match(h, /data-tamano="-1" data-pv="1"/);
+  assert.match(h, /data-asa="1"[^>]*data-dx="1" data-dy="1"/, 'el asa del 1 crece hacia abajo a la derecha (hacia el centro)');
+  assert.match(h, /data-asa="9"[^>]*data-dx="0" data-dy="-1"/, 'la del 9, hacia arriba');
+  // Uno más: la pantalla completa.
+  const s = ampliar(estado, 1, +1);
+  assert.equal(s.completa, true);
+  // Bajar uno solo y no por debajo del de partida.
+  assert.equal(ampliar(estado, 1, -10).niveles[1], e.partida);
+});
+
+test('la competición: si dos tocados uno a uno no caben en su fila o su columna, gana el más reciente y el otro baja un paso', () => {
+  const e = escalaDeTamanos();
+  let estado = {};
+  for (const pv of [1, 1]) estado = { ...estado, ...ampliar(estado, pv, +1) };
+  assert.equal(estado.niveles[1], e.tope);
+  // El 2 comparte fila con el 1: en bloque los dos no caben a lo ancho (medio + medio + el centro).
+  for (const pv of [2, 2]) estado = { ...estado, ...ampliar(estado, pv, +1) };
+  assert.equal(estado.niveles[2], e.tope);
+  assert.equal(estado.niveles[1], e.tope - 1, 'el 1, más antiguo, baja un paso');
+  assert.deepEqual(estado.recientes, [1, 2]);
+  const r = repartir(estado.niveles, LATERALES, e, { recientes: estado.recientes });
+  assert.ok(Math.abs(r.columnas[2] - 0.5) < 1e-9, 'el 2 se queda su medio ancho: ' + r.columnas);
+  assert.ok(Math.abs(suma(r.columnas) - 1) < 1e-9 && Math.abs(suma(r.filas) - 1) < 1e-9);
+  // El 3 no compite con el 2 (ni fila ni columna): el 1 sí (misma columna) y vuelve a bajar.
+  const t = ampliar(ampliar(estado, 3, +1), 3, +1);
+  assert.equal(t.niveles[2], e.tope);
+  assert.ok(t.niveles[1] <= e.tope - 1);
+});
+
+test('sin scroll en ningún estado: el árbol nunca pide más del 100 % de la pantalla en ningún eje (todas las combinaciones de dos pasos y recientes)', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const e = escalaDeTamanos();
+  const opciones = [e.partida, e.conEspacio, e.tope];
+  let k = 0;
+  for (const p1 of opciones) for (const p8 of opciones) for (const p7 of opciones) for (const resto of opciones) {
+    const niveles = Object.fromEntries(LATERALES.map((pv) => [pv, resto]));
+    Object.assign(niveles, { 1: p1, 8: p8, 7: p7 });
+    for (const recientes of [[], [1], [8, 7], [7, 1]]) {
+      const r = repartir(niveles, LATERALES, e, { recientes });
+      assert.ok(Math.abs(suma(r.columnas) - 1) < 1e-9 && Math.abs(suma(r.filas) - 1) < 1e-9, JSON.stringify({ niveles, recientes, r }));
+      assert.ok([...r.columnas, ...r.filas].every((f) => f >= 0));
+      k++;
+    }
+  }
+  assert.ok(k > 300);
+  for (const medidas of [ORDENADOR, GRANDE]) {
+    const a = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: { 1: e.tope, 2: e.conEspacio, 9: e.tope, 6: e.conEspacio }, recientes: [9, 1] }, eje, 'huesped', medidas);
+    sinScroll(a, 'mezcla ' + medidas.ancho);
+  }
+});
+
+test('la pantalla completa de un PV: solo ese PV (sin rosetones), flechas a sus vecinos en su sitio de la geometría, el 0 y el 5 en el centro y «volver»; dentro, la división de la época con el máximo de datos de Mapped', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const a = await arbol({ foco: { X: compra.id, pv: 4 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(a.mapa.completa.pv, 4);
+  assert.equal(a.centro.pv, 4);
+  assert.deepEqual(a.mapa.centro, { x: 0, y: 0, ancho: 1, alto: 1 });
+  assert.deepEqual(a.laterales, [], 'un solo PV');
+  assert.deepEqual(a.rosetones, [], 'sin rosetones');
+  const vecinos = a.mapa.completa.vecinos;
+  assert.deepEqual(vecinos.map((v) => v.pv).sort(), a.pvs.filter((pv) => pv !== 4).sort());
+  for (const v of vecinos) assert.deepEqual([v.fila, v.columna], GEOMETRIA[v.pv].celda);
+  assert.deepEqual(vecinos.filter((v) => v.centro).map((v) => v.pv), CENTROS);
+  assert.equal(a.mapa.completa.volver, CENTROS[0]);
+  // La división de la época con los datos del paso de pantalla completa (el máximo de Mapped, epoch.8.2).
+  const maximo = C.modos().find((m) => m.maximo === C.pasosDeTamano()[escalaDeTamanos().completa].datos);
+  assert.ok(maximo, 'los datos de la pantalla completa son el máximo de un modo de la época');
+  assert.deepEqual(a.centro.division, (({ pvs, datos, cargarMas }) => ({ pvs, datos, cargarMas }))(C.division(eje, compra.id, { datos: maximo.maximo, forma: ORDENADOR })));
+  // La medida del PV4 es su paso (el ciclo), no la genérica.
+  assert.equal(a.centro.medida.nombre, 'ciclo');
+  assert.equal(a.centro.medida.propio, true);
+  const h = html(a);
+  assert.match(h, /class="mapa completa" data-completa="4"/);
+  assert.equal((h.match(/class="vecino /g) ?? []).length, vecinos.length);
+  assert.match(h, /class="volver volver-claro"[^>]*data-foco-pv="0"/);
+  assert.doesNotMatch(h, /data-roseton=/);
+  assert.match(h, /class="vecino fila-0 columna-0[^"]*"[^>]*data-foco-pv="1"/, 'el 1, arriba a la izquierda');
+  assert.match(h, /class="vecino fila-2 columna-1[^"]*"[^>]*data-foco-pv="9"/, 'el 9, abajo');
+});
+
+test('los rosetones en el ordenador: cada uno en su esquina o lateral (el 0 arriba y el 5 abajo, al centro), una sola vez; en el móvil, las dos tiras de siempre', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const estado of [{}, ampliarTodos({}, 1), ampliarTodos(ampliarTodos({}, 1), 1)]) {
+    const a = await arbol({ foco: { X: compra.id, pv: 0 }, ...estado }, eje, 'huesped', ORDENADOR);
+    const h = html(a);
+    const pvs = [...h.matchAll(/data-roseton="(\d)"/g)].map((m) => Number(m[1]));
+    assert.deepEqual([...pvs].sort(), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], 'los diez, una sola vez');
+    for (const r of a.rosetones) {
+      const sitio = GEOMETRIA[r.pv].borde ?? GEOMETRIA[r.pv].celda;
+      assert.deepEqual([r.sitio.fila, r.sitio.columna], sitio);
+      assert.match(h, new RegExp(`class="roseton [^"]*sitio-f${sitio[0]} sitio-c${sitio[1]}[^"]*"[^>]*data-roseton="${r.pv}"`));
+    }
+    assert.deepEqual(a.rosetones.filter((r) => r.sitio.centro).map((r) => [r.pv, r.sitio.fila]), [[0, 0], [5, 2]]);
+    assert.match(h, /<nav class="rosetones rosetones-mapa"/);
+    assert.doesNotMatch(h, /rosetones-barra|rosetones-arriba|rosetones-abajo/);
+  }
+  const m = html(await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', MOVIL));
+  assert.match(m, /rosetones-arriba/);
+  assert.doesNotMatch(m, /rosetones-mapa/);
+});
+
+test('cambiar la tabla de pasos en una copia de la época cambia el árbol: las fracciones, lo que cabe y hasta dónde llegan los puntitos', async () => {
+  const { eje, compra } = await ejemploCompra();
+  // El grupo, en una novena parte y con dos datos: la caja crece y caben menos.
+  const otra = epocaCon((e) => { e[8][6][1][2] = [['group'], [1, 9], [1, 9], [2]]; });
+  const base = await arbol({ foco: { X: compra.id, pv: 0 }, ...ampliarTodos({}, 1) }, eje, 'huesped', ORDENADOR);
+  const b = await arbol({ foco: { X: compra.id, pv: 0 }, ...ampliarTodos({}, 1, { epoca: otra }) }, eje, 'huesped', ORDENADOR, { epoca: otra });
+  const uno = (a) => a.laterales.find((n) => n.pv === 1);
+  assert.ok(Math.abs(uno(b).caja.ancho - 1 / 3) < 1e-9 && Math.abs(uno(base).caja.ancho - 1 / 4) < 1e-9);
+  assert.equal(uno(b).pasoDeTamano.fraccion, 1 / 9);
+  assert.ok(uno(b).ocupantes.cuantos <= 2);
+  // Sin el paso «bloque» la escala se acorta: el tope es el grupo y los puntitos se paran ahí.
+  const corta = epocaCon((e) => { e[8][6][1].splice(3, 1); });
+  const e = escalaDeTamanos({ epoca: corta });
+  assert.deepEqual([e.tope, e.completa], [2, 3]);
+  const t = ampliarTodos(ampliarTodos({}, 1, { epoca: corta }), 1, { epoca: corta });
+  assert.ok(LATERALES.every((pv) => t.niveles[pv] === 2));
+  // La carta no lleva escritos los nombres de los pasos.
+  const fuente = readFileSync(new URL('../carta/carta.js', import.meta.url), 'utf8');
+  const literales = new Set([...fuente.matchAll(/'((?:[^'\\]|\\.)*)'/g)].map((m) => m[1]));
+  for (const p of C.pasosDeTamano()) assert.ok(!literales.has(p.nombre), 'carta/carta.js lleva escrito «' + p.nombre + '»');
+});
+
+test('el interruptor sobrio/animado de la barra es la preferencia de dos valores: tocarlo escribe «render» como la configuración y el árbol pasa a animado', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const a = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(a.interruptores.length, 1);
+  const i = a.interruptores[0];
+  const conf = C.configuracion(eje, 'huesped');
+  assert.equal(i.valor, conf[i.clave]);
+  assert.deepEqual(i.opciones.map((o) => o.valor), C.clavesDeConfiguracion().find((c) => c.clave === i.clave).valores);
+  const h = html(a);
+  assert.match(h, new RegExp(`<span class="interruptor"[^>]*>.*data-preferencia="${i.clave}" data-valor="${i.opciones[1].valor}" aria-pressed="false"`));
+  // Tocar la otra palabra: la app escribe la candidata de preferencias() con esa clave (como guarda la configuración).
+  const otra = i.opciones.find((o) => o.valor !== i.valor).valor;
+  const p = preferencias(eje, 'huesped', { [i.clave]: otra });
+  await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
+  assert.equal(C.configuracion(eje, 'huesped')[i.clave], otra);
+  const b = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(b.animado, true);
+  assert.equal(b.interruptores[0].valor, otra);
+  // En español, las dos palabras traducidas.
+  const q = preferencias(eje, 'huesped', { language: 'es' });
+  await eje.escribir({ autor: 'huesped', sobre: q.sobre, en: q.en, t: T1, movimientos: [minuto('huesped')], payload: q.payload });
+  const c = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  // La app lo pinta y lo lanza por data-preferencia (la tecla la toca gestos.js; la escritura, app.js como la configuración).
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /async preferencia\(clave, valor\)[\s\S]*?escribirPreferencias\(\{ \[clave\]: valor \}\)/);
+});
+
+test('el formulario de una acción: a la vista solo lo obligatorio; lo opcional tras «más»', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const f = formulario(eje, menu.id, 'anchor here', 'huesped');
+  const opcionales = f.campos.filter((c) => !c.requerido);
+  assert.ok(opcionales.length >= 1, 'anchor here tiene parámetros opcionales');
+  const a = await arbol({ foco: { X: menu.id, pv: 0 }, formulario: { X: menu.id, accion: 'anchor here', valores: {} } }, eje, 'huesped', ORDENADOR);
+  const h = html(a);
+  const i = h.indexOf('<details class="mas-parametros">');
+  assert.ok(i > 0, 'el «más»');
+  const fuera = h.slice(h.indexOf('<form class="formulario"'), i);
+  const dentro = h.slice(i, h.indexOf('</details>', i));
+  for (const c of f.campos) {
+    const marca = `name="${c.nombre}"`;
+    assert.ok((c.requerido ? fuera : dentro).includes(marca), c.nombre + (c.requerido ? ' a la vista' : ' tras «más»'));
+  }
+  // Sin opcionales, no hay «más».
+  const b = await arbol({ foco: { X: menu.id, pv: 0 }, formulario: { X: menu.id, accion: 'apply a resource', valores: {} } }, eje, 'huesped', ORDENADOR);
+  assert.doesNotMatch(html(b), /mas-parametros/);
+});
+
+test('en español, el criterio por defecto de una acción sale traducido (contrato.texto, como las acciones) y al enviar vuelve al canónico', async () => {
+  const { eje, menu } = await ejemploCompra();
+  const p = preferencias(eje, 'huesped', { language: 'es' });
+  await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
+  const f = formulario(eje, menu.id, 'apply a resource', 'huesped');
+  const criterio = f.campos.find((c) => c.nombre === 'criteria');
+  assert.equal(criterio.valor, 'all announced movements happened', 'el valor sigue siendo el canónico (lo que se envía: data-crudo)');
+  assert.equal(criterio.legible, 'todos los movimientos anunciados ocurrieron');
+  assert.equal(f.campos.find((c) => c.nombre === 'actions').legible, 'aplicar un recurso');
+  // Ningún defecto de texto queda en inglés en crudo: los que la época sabe nombrar salen traducidos.
+  for (const c of f.campos.filter((x) => typeof x.valor === 'string' && x.tipo === 'text')) assert.notEqual(c.legible, c.valor, c.nombre);
+  // Si quien lo escribe deja la traducción (o la vuelve a escribir), se lee el canónico.
+  assert.deepEqual(C.desdeLegible('todos los movimientos anunciados ocurrieron', 'text', { eje, idioma: 'es' }), { valor: 'all announced movements happened' });
+  const h = html(await arbol({ foco: { X: menu.id, pv: 0 }, formulario: { X: menu.id, accion: 'apply a resource', valores: {} } }, eje, 'huesped', ORDENADOR));
+  assert.match(h, /name="criteria"[^>]*value="todos los movimientos anunciados ocurrieron"[^>]*data-crudo="&quot;all announced movements happened&quot;"/);
+});
+
+test('la medida de cada carta va pequeña en su fila de arriba: la del PV4 es su paso (el ciclo), la de un PV sin paso propio, la madurez', async () => {
+  const { eje: b, reserva } = await ejemploReserva();
+  const a = await arbol({ foco: { X: reserva.id, pv: 0 }, ...ampliarTodos(ampliarTodos({}, 1), 1) }, b, 'huesped', ORDENADOR);
+  const cuatro = a.laterales.find((n) => n.pv === 4);
+  assert.deepEqual([cuatro.medida.nombre, cuatro.medida.k, cuatro.medida.de, cuatro.medida.propio], ['ciclo', 4, 4, true]);
+  const uno = a.laterales.find((n) => n.pv === 1);
+  assert.deepEqual([uno.medida.nombre, uno.medida.propio], ['madurez', false]);
+  const h = html(a);
+  assert.match(h, /<section class="pv pv-4 [^>]*><header class="pv-cabeza"><span class="numero">4<\/span><span class="etiqueta">[^<]*<\/span><span class="medida"[^>]*>ciclo 4<small>\/4<\/small>/);
+});

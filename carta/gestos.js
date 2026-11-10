@@ -8,6 +8,8 @@
 const MANTENER_MS = 450;
 const UMBRAL_DESLIZAR = 40;
 const UMBRAL_PELLIZCO = 30;
+/** Arrastrar desde la esquina de un PV (Mapped): cada tanto de esta fracción del lado menor de la escena es un paso. */
+const UMBRAL_ASA = 1 / 8;
 
 /**
  * Engancha los gestos en `raiz` y los traduce a los manejadores de la app:
@@ -31,6 +33,11 @@ const UMBRAL_PELLIZCO = 30;
  *   crear(form) · restaurar(form) · copia(form | null) · olvidar()   mi cuenta: crearla, restaurarla de su copia, la copia de seguridad, olvidarla
  *   hermano(delta)           cambiar de PV o de hermano (deslizar horizontal, flechas ← →)
  *   saltar(pv)               las teclas 0-9: ir a ese PV
+ *   todos(delta)             Mapped: los puntitos del foco (un paso a todos los PV) y su mando para bajar
+ *   preferencia(clave, valor) un interruptor de la barra (sobrio o animado): escribir esa preferencia
+ *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
+ * En Mapped, nivel(pv, delta, X) llega también de los botoncitos de cada PV (data-tamano) y del arrastre desde su
+ * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro).
  * Devuelve una función que quita los ganchos.
  */
 export function instalar(raiz, m) {
@@ -45,9 +52,11 @@ export function instalar(raiz, m) {
 
   // ---- toques y clics ----
   let ultimoToque = { t: 0, el: null };
+  let arrastrado = 0; // tras arrastrar un asa, el clic que sigue no cuenta
   on('click', (e) => {
     const t = e.target;
     if (t.closest('input, textarea, select, option, pre')) return;
+    if (Date.now() - arrastrado < 400) { e.preventDefault(); return; }
     const b = (sel) => t.closest(sel);
     let el;
     if ((el = b('[data-cerrar]')) && (t === el || t.closest('.cerrar'))) { e.preventDefault(); m.cerrar?.(); return; }
@@ -59,6 +68,11 @@ export function instalar(raiz, m) {
     for (const que of ['aceptar', 'modificar', 'rechazar']) {
       if ((el = b(`[data-propuesta-${que}]`))) { e.preventDefault(); m.propuesta?.(que, el.dataset[`propuesta${que[0].toUpperCase()}${que.slice(1)}`]); return; }
     }
+    if ((el = b('[data-todos]'))) { e.preventDefault(); m.todos?.(Number(el.dataset.todos)); return; }
+    if ((el = b('[data-tamano]'))) { e.preventDefault(); m.nivel?.(Number(el.dataset.pv), Number(el.dataset.tamano), el.dataset.x); return; }
+    if ((el = b('[data-preferencia]'))) { e.preventDefault(); m.preferencia?.(el.dataset.preferencia, el.dataset.valor); return; }
+    if ((el = b('[data-pagina]'))) { e.preventDefault(); m.pagina?.(Number(el.dataset.pagina), Number(el.dataset.delta)); return; }
+    if (b('[data-asa]')) { e.preventDefault(); return; }
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
     if ((el = b('[data-aro-hueco]'))) { e.preventDefault(); m.aro?.(xDe(el) ?? el.closest('.aro')?.dataset.x, Number(el.dataset.aroHueco), { desplegar: true }); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
@@ -115,7 +129,17 @@ export function instalar(raiz, m) {
   // ---- punteros: deslizar, arrastrar en vertical sobre el centro, pellizco ----
   const punteros = new Map();
   let pellizco = null;
+  let asa = null; // el arrastre desde la esquina de un PV (Mapped)
   on('pointerdown', (e) => {
+    const a = e.target.closest?.('[data-asa]');
+    if (a) {
+      e.preventDefault();
+      const escena = a.closest('.escena') ?? raiz;
+      const r = escena.getBoundingClientRect?.() ?? { width: 0, height: 0 };
+      asa = { pv: Number(a.dataset.asa), x: e.clientX, y: e.clientY, dx: Number(a.dataset.dx), dy: Number(a.dataset.dy), X: a.dataset.x, umbral: Math.max(24, Math.min(r.width, r.height) * UMBRAL_ASA) };
+      a.setPointerCapture?.(e.pointerId);
+      return;
+    }
     punteros.set(e.pointerId, { x: e.clientX, y: e.clientY, t: Date.now(), el: e.target });
     if (punteros.size === 1) empezarMantener(e);
     if (punteros.size === 2) {
@@ -140,6 +164,17 @@ export function instalar(raiz, m) {
     }
   });
   const soltar = (e) => {
+    if (asa) {
+      // Lo recorrido en la dirección en que crece el PV (de su esquina o lado hacia el centro): un paso por umbral.
+      const n = Math.hypot(asa.dx, asa.dy) || 1;
+      const recorrido = ((e.clientX - asa.x) * asa.dx + (e.clientY - asa.y) * asa.dy) / n;
+      const pasos = Math.trunc(recorrido / asa.umbral);
+      const { pv, X } = asa;
+      asa = null;
+      arrastrado = Date.now();
+      if (pasos) m.nivel?.(pv, pasos, X);
+      return;
+    }
     const p = punteros.get(e.pointerId);
     punteros.delete(e.pointerId);
     cancelarMantener();
@@ -155,7 +190,7 @@ export function instalar(raiz, m) {
     }
   };
   on('pointerup', soltar);
-  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); pellizco = null; });
+  on('pointercancel', (e) => { punteros.delete(e.pointerId); cancelarMantener(); pellizco = null; asa = null; });
 
   // ---- rueda con Ctrl: profundidad ----
   on('wheel', (e) => {

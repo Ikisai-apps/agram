@@ -510,7 +510,7 @@ test('cada ocupante que es una referencia lleva el data-pv del dígito de su pos
   assert.doesNotMatch(h, /#[0-9a-fA-F]{6}/);
 });
 
-test('los rosetones salen también apilados (el móvil): dos tiras, arriba el tetraedro de la X con su centro (1 2 0 3 4) y abajo la cruz con el suyo (6 7 5 8 9); en la matriz, una barra de diez', async () => {
+test('los rosetones salen también apilados (el móvil): dos tiras, arriba el tetraedro de la X con su centro (1 2 0 3 4) y abajo la cruz con el suyo (6 7 5 8 9); en la matriz (Mapped), cada uno en su esquina o lateral (test/carta-mapped.test.js)', async () => {
   const { eje, compra: X } = await compra();
   const m = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL));
   assert.deepEqual(pvsDe(nav(m, 'rosetones-arriba')), [1, 2, 0, 3, 4]);
@@ -518,8 +518,8 @@ test('los rosetones salen también apilados (el móvil): dos tiras, arriba el te
   assert.ok(m.indexOf('rosetones-arriba') < m.indexOf('class="escena"') && m.indexOf('class="escena"') < m.indexOf('rosetones-abajo'), 'arriba y abajo de la escena, no al final de la página');
   assert.doesNotMatch(m, /rosetones-barra/);
   const g = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR));
-  assert.deepEqual(pvsDe(nav(g, 'rosetones-barra')), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
-  assert.doesNotMatch(g, /rosetones-arriba|rosetones-abajo/);
+  assert.deepEqual(pvsDe(nav(g, 'rosetones-mapa')), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
+  assert.doesNotMatch(g, /rosetones-arriba|rosetones-abajo|rosetones-barra/);
   // Crecen un paso al tocarlos (estado.rosetones) también apilados, y el 0 y el 5 llevan lo suyo.
   const t = await arbol({ foco: { X: X.id, pv: 0 }, rosetones: { 5: NIVEL.tarjeta } }, eje, 'huesped', MOVIL);
   assert.equal(t.rosetones.find((r) => r.pv === 5).nivel, NIVEL.tarjeta);

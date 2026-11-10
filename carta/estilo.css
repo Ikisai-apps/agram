@@ -22,23 +22,23 @@
 :root{--tinte-borde:55%; --tinte-fondo:8%}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--tinte-borde:62%; --tinte-fondo:13%}}
 :root[data-theme="dark"]{--tinte-borde:62%; --tinte-fondo:13%}
-[data-pv="0"],[data-centro="0"],[data-roseton="0"]{--c:var(--pv-0)}
-[data-pv="1"],[data-centro="1"],[data-roseton="1"]{--c:var(--pv-1)}
-[data-pv="2"],[data-centro="2"],[data-roseton="2"]{--c:var(--pv-2)}
-[data-pv="3"],[data-centro="3"],[data-roseton="3"]{--c:var(--pv-3)}
-[data-pv="4"],[data-centro="4"],[data-roseton="4"]{--c:var(--pv-4)}
-[data-pv="5"],[data-centro="5"],[data-roseton="5"]{--c:var(--pv-5)}
-[data-pv="6"],[data-centro="6"],[data-roseton="6"]{--c:var(--pv-6)}
-[data-pv="7"],[data-centro="7"],[data-roseton="7"]{--c:var(--pv-7)}
-[data-pv="8"],[data-centro="8"],[data-roseton="8"]{--c:var(--pv-8)}
-[data-pv="9"],[data-centro="9"],[data-roseton="9"]{--c:var(--pv-9)}
+[data-pv="0"],[data-centro="0"],[data-roseton="0"],[data-color="0"]{--c:var(--pv-0)}
+[data-pv="1"],[data-centro="1"],[data-roseton="1"],[data-color="1"]{--c:var(--pv-1)}
+[data-pv="2"],[data-centro="2"],[data-roseton="2"],[data-color="2"]{--c:var(--pv-2)}
+[data-pv="3"],[data-centro="3"],[data-roseton="3"],[data-color="3"]{--c:var(--pv-3)}
+[data-pv="4"],[data-centro="4"],[data-roseton="4"],[data-color="4"]{--c:var(--pv-4)}
+[data-pv="5"],[data-centro="5"],[data-roseton="5"],[data-color="5"]{--c:var(--pv-5)}
+[data-pv="6"],[data-centro="6"],[data-roseton="6"],[data-color="6"]{--c:var(--pv-6)}
+[data-pv="7"],[data-centro="7"],[data-roseton="7"],[data-color="7"]{--c:var(--pv-7)}
+[data-pv="8"],[data-centro="8"],[data-roseton="8"],[data-color="8"]{--c:var(--pv-8)}
+[data-pv="9"],[data-centro="9"],[data-roseton="9"],[data-color="9"]{--c:var(--pv-9)}
 /* el blanco y el casi negro de la paleta (0 y 5) se mezclan con el gris para verse en el tema donde no contrastan */
 :root{--neutro:var(--muted)}
 .pv[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{
   --borde:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-borde),var(--rule));
   --fondo:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-fondo),var(--panel))}
-[data-pv="0"],[data-centro="0"],[data-roseton="0"]{--c:color-mix(in oklab,var(--pv-0) 40%,var(--neutro))}
-[data-pv="5"],[data-centro="5"],[data-roseton="5"]{--c:color-mix(in oklab,var(--pv-5) 70%,var(--neutro))}
+[data-pv="0"],[data-centro="0"],[data-roseton="0"],[data-color="0"]{--c:color-mix(in oklab,var(--pv-0) 40%,var(--neutro))}
+[data-pv="5"],[data-centro="5"],[data-roseton="5"],[data-color="5"]{--c:color-mix(in oklab,var(--pv-5) 70%,var(--neutro))}
 .pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.ocupante-ref[data-pv],.roseton[data-roseton],.pv[data-pv] .comprimido{border-color:var(--borde)}
 .pv:not(.nivel-1)[data-pv],.nucleo[data-centro],.roseton[data-roseton],.pv[data-pv] .comprimido{background:var(--fondo)}
 .ocupante-ref[data-pv]{background:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-fondo),var(--panel2))}
@@ -97,15 +97,6 @@ small{color:var(--muted)}
 .franja{display:flex;gap:8px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;padding:4px 0;min-width:0;scrollbar-width:thin}
 .franja>.pv{scroll-snap-align:start;flex:0 0 auto}
 .franja>.pv.nivel-3{flex:1 0 100%}
-.carta-matriz .matriz{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(var(--tarjeta),auto));gap:8px;position:relative;min-height:calc(100vh - 80px)}
-.carta-matriz .matriz>.pv,.carta-matriz .matriz>.nucleo{min-width:0}
-.carta-matriz .pv.nivel-3.grupo-x{position:absolute;width:50%;height:50%;z-index:3;overflow:auto;background:var(--bg);box-shadow:0 6px 24px rgba(0,0,0,.18)}
-.carta-matriz .pv.nivel-3.grupo-x.lado-izquierda.fila-arriba{left:0;top:0}
-.carta-matriz .pv.nivel-3.grupo-x.lado-derecha.fila-arriba{right:0;top:0}
-.carta-matriz .pv.nivel-3.grupo-x.lado-izquierda.fila-abajo{left:0;bottom:0}
-.carta-matriz .pv.nivel-3.grupo-x.lado-derecha.fila-abajo{right:0;bottom:0}
-.carta-matriz .pv.nivel-3.grupo-cruz{z-index:2;overflow:auto}
-.hueco-vacio{visibility:hidden}
 
 /* un PV lateral */
 .pv{display:flex;flex-direction:column;gap:6px;border:1px solid var(--rule);border-radius:var(--radio);background:var(--panel);padding:6px;min-width:0;text-align:left;transition:flex-basis .15s ease,width .15s ease}
@@ -239,8 +230,6 @@ small{color:var(--muted)}
 .roseton.nivel-2 .numero{position:static;transform:none}
 .roseton.nivel-2 .dato{font-weight:600}
 .roseton ul{margin:0;padding-left:14px;font-size:12px}
-.rosetones-barra{position:fixed;inset:auto 16px 8px 16px;border:0;justify-content:space-between;pointer-events:none;overflow:visible}
-.rosetones-barra .roseton{pointer-events:auto}
 
 /* el aro */
 .aro-fondo,.formulario-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
@@ -325,3 +314,79 @@ html.opinando #carta *{cursor:crosshair}
 .opiniones ol{margin:0;padding-left:16px;font-size:12px;display:grid;gap:3px}
 .opiniones time{font-family:var(--mono);color:var(--muted)}
 .opiniones small{display:block;overflow-wrap:anywhere;color:var(--muted)}
+
+/* Mapped (VG, 10-11): en el ordenador la carta ocupa la ventana entera y no se desborda nunca, ni en vertical ni en
+   horizontal; se avanza hacia adentro y por tamaño. Cada PV va en su caja, que el árbol trae en fracciones de la
+   pantalla (carta/carta.js repartir); aquí solo se pinta. Los pasos y sus fracciones son de la época (epoch.8.6). */
+html.mapped,html.mapped body{height:100%;overflow:hidden}
+html.mapped body{padding:0}
+.carta-matriz{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding:0 12px}
+.carta-matriz>*{flex:none}
+.carta-matriz .barra{padding:6px 0;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
+.carta-matriz .barra .guardado,.carta-matriz .barra .sincronia{flex:0 1 auto;flex-basis:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carta-matriz>.aviso,.carta-matriz>.exito{margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.carta-matriz .escena{flex:1 1 auto;min-height:0;margin:6px 0 8px;overflow:hidden}
+.mapa{position:absolute;inset:0;overflow:hidden}
+.mapa-celdas{position:absolute;inset:30px} /* el anillo de fuera: los rosetones (y, a pantalla completa, las flechas a los vecinos) */
+.mapa-celdas>.celda{position:absolute;padding:3px;overflow:hidden;transition:left .2s ease,top .2s ease,width .2s ease,height .2s ease}
+.mapa-celdas>.celda>.pv,.mapa-celdas>.celda>.nucleo{width:100%;height:100%;min-height:0;overflow:hidden}
+.mapa .pv.nivel-2,.mapa .pv.nivel-3{width:100%;cursor:pointer}
+.mapa .pv .ocupantes{min-height:0;overflow:hidden}
+.mapa .pv.nivel-2 .ocupantes{max-height:none}
+.mapa .pv .pv-pie{display:none}
+.mapa .pv .escenario{max-height:40%;width:auto;aspect-ratio:1/1}
+.mapa .nucleo{align-content:start}
+.mapa .nucleo .campos{grid-template-columns:repeat(auto-fill,minmax(min(100%,220px),1fr));gap:4px 10px}
+.mapa .nucleo .representacion{font-size:1.25rem}
+.mapa .guia-historial{max-height:30%}
+.mapa .ocupantes .pagina{display:flex;align-items:center;justify-content:center;gap:8px}
+.mapa .ocupantes .pagina button{min-height:24px;padding:0 10px}
+/* los mandos de cada PV: en la esquina (o el lado) que mira al centro; el asa, para arrastrar desde ahí */
+.mandos{position:absolute;z-index:4;display:flex;gap:2px;align-items:center;opacity:.55;transition:opacity .15s ease}
+.celda:hover .mandos,.mandos:focus-within{opacity:1}
+.mandos{bottom:5px} /* siempre abajo, en el lado que mira al centro: arriba taparían la cabecera */
+.mandos.columna-0{right:5px} .mandos.columna-2{left:5px} .mandos.columna-1{left:50%;transform:translateX(-50%)}
+.mandos .tamano{min-height:0;width:22px;height:22px;padding:0;border-radius:50%;font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center;background:var(--bg)}
+.asa{display:inline-block;width:16px;height:16px;border-radius:4px;border:2px solid var(--muted);background:var(--bg);touch-action:none}
+.mandos.fila-0.columna-0 .asa,.mandos.fila-2.columna-2 .asa{cursor:nwse-resize}
+.mandos.fila-0.columna-2 .asa,.mandos.fila-2.columna-0 .asa{cursor:nesw-resize}
+.mandos.fila-1 .asa{cursor:ew-resize}
+.mandos.columna-1 .asa{cursor:ns-resize}
+/* los puntitos del foco: los diez PV; tocar uno amplía todos. Cuánto llena cada uno, la fracción de su paso */
+.puntos{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.punto{--lleno:0;min-height:0;width:22px;height:22px;padding:0;border-radius:50%;font-size:10px;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+  border:2px solid color-mix(in oklab,var(--c,var(--rule)) 70%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) calc(var(--lleno) * 100%),var(--panel))}
+.punto.centro{width:16px;height:16px;font-size:8px}
+.punto[aria-disabled="true"]{cursor:default}
+.todos-menos{min-height:0;width:22px;height:22px;padding:0;border-radius:50%;line-height:1}
+/* la medida de cada carta: pequeña, en su fila de arriba */
+.medida{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.medida small{font-size:10px}
+.nucleo-cabeza .madurez.medida{font-size:11px;padding:0 6px}
+.pv-cabeza .medida{margin-left:auto}
+/* los rosetones de mi foco: cada uno en su esquina o lateral, por encima de los bloques, muy comprimidos */
+.rosetones-mapa{position:absolute;inset:0;display:block;margin:0;padding:0;pointer-events:none;overflow:visible;z-index:6}
+.rosetones-mapa .roseton{position:absolute;pointer-events:auto;width:28px;height:28px;font-size:12px;box-shadow:0 1px 4px rgba(0,0,0,.18)}
+.rosetones-mapa .roseton .numero{top:2px;font-size:7px}
+.rosetones-mapa .roseton.sitio-centro{width:22px;height:22px;font-size:10px}
+.rosetones-mapa .sitio-f0{top:0} .rosetones-mapa .sitio-f2{bottom:0} .rosetones-mapa .sitio-f1{top:50%;transform:translateY(-50%)}
+.rosetones-mapa .sitio-c0{left:0} .rosetones-mapa .sitio-c2{right:0} .rosetones-mapa .sitio-c1{left:50%;transform:translateX(-50%)}
+.rosetones-mapa .sitio-f0.sitio-centro{top:3px;margin-left:34px} .rosetones-mapa .sitio-f2.sitio-centro{bottom:3px;margin-left:34px}
+.rosetones-mapa .roseton.nivel-2{width:var(--tarjeta);height:auto;z-index:7}
+/* un PV a pantalla completa: flechas a los vecinos en su sitio de la geometría, el 0 y el 5 en el centro, «volver» */
+.vecinos{position:absolute;inset:0;pointer-events:none;z-index:5}
+.vecino{position:absolute;pointer-events:auto;min-height:0;height:28px;min-width:28px;padding:0 8px;border-radius:999px;font-weight:600;font-size:13px;
+  border:2px solid color-mix(in oklab,var(--c,var(--rule)) 65%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 14%,var(--panel))}
+.vecino.fila-0{top:0} .vecino.fila-2{bottom:0} .vecino.fila-1{top:50%;transform:translateY(-50%)}
+.vecino.columna-0{left:0} .vecino.columna-2{right:0} .vecino.columna-1{left:50%;transform:translateX(-50%)}
+.vecinos-centro{position:absolute;left:calc(50% + 62px);bottom:1px;transform:translateX(-50%);display:flex;gap:6px;pointer-events:auto}
+.vecinos-centro .vecino{position:static;transform:none;height:26px;min-width:26px;font-size:11px}
+.volver.volver-claro{border-radius:999px;padding:2px 14px;font-size:14px;min-width:0;background:var(--accent);color:var(--accent-fg);border-color:var(--accent);margin-left:auto}
+.mapa.completa .ocupantes.disposicion-matrix{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+/* el interruptor de la barra: sobrio o animado */
+.interruptor{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden;flex:none}
+.interruptor button{border:0;border-radius:0;min-height:28px;padding:2px 10px;background:transparent;font-size:13px}
+.interruptor button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
+/* el formulario de una acción: lo opcional, tras «más» */
+.formulario .mas-parametros{display:grid;gap:10px}
+.formulario .mas-parametros summary{cursor:pointer;color:var(--accent);font-size:14px}

@@ -44,19 +44,22 @@ const LIMITE_DE_ANIMACIONES = 10;
 /**
  * La geometría (diseño de VG). `grupo`: dónde va; `lado`: el índice de la orientación en epoch.9.7.0.3 (0 el centro,
  * 1 el lado del PV1, 2 el del PV2); `fila`: arriba o abajo. Los centros no son laterales: el 0 es el anverso y el 5
- * el reverso.
+ * el reverso. `celda`: [fila, columna] en la matriz 3×3 de Mapped (1 arriba a la izquierda, 8 arriba, 2 arriba a la
+ * derecha, 6 izquierda, 7 derecha, 3 abajo a la izquierda, 9 abajo, 4 abajo a la derecha; el 0 y el 5 en el centro);
+ * `borde`: dónde va su rosetón en el ordenador (el de cada lateral, su celda; el 0 arriba al centro y el 5 abajo al
+ * centro, VG 10-11).
  */
 export const GEOMETRIA = Object.freeze({
-  0: { grupo: 'nucleo', lado: 0, cara: 'anverso' },
-  5: { grupo: 'nucleo', lado: 0, cara: 'reverso' },
-  1: { grupo: 'x', lado: 1, fila: 'arriba' },
-  2: { grupo: 'x', lado: 2, fila: 'arriba' },
-  3: { grupo: 'x', lado: 1, fila: 'abajo' },
-  4: { grupo: 'x', lado: 2, fila: 'abajo' },
-  6: { grupo: 'cruz', lado: 1, fila: 'medio' },
-  7: { grupo: 'cruz', lado: 2, fila: 'medio' },
-  8: { grupo: 'cruz', lado: 0, fila: 'arriba' },
-  9: { grupo: 'cruz', lado: 0, fila: 'abajo' },
+  0: { grupo: 'nucleo', lado: 0, cara: 'anverso', celda: [1, 1], borde: [0, 1] },
+  5: { grupo: 'nucleo', lado: 0, cara: 'reverso', celda: [1, 1], borde: [2, 1] },
+  1: { grupo: 'x', lado: 1, fila: 'arriba', celda: [0, 0] },
+  2: { grupo: 'x', lado: 2, fila: 'arriba', celda: [0, 2] },
+  3: { grupo: 'x', lado: 1, fila: 'abajo', celda: [2, 0] },
+  4: { grupo: 'x', lado: 2, fila: 'abajo', celda: [2, 2] },
+  6: { grupo: 'cruz', lado: 1, fila: 'medio', celda: [1, 0] },
+  7: { grupo: 'cruz', lado: 2, fila: 'medio', celda: [1, 2] },
+  8: { grupo: 'cruz', lado: 0, fila: 'arriba', celda: [0, 1] },
+  9: { grupo: 'cruz', lado: 0, fila: 'abajo', celda: [2, 1] },
 });
 export const CENTROS = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter((pv) => GEOMETRIA[pv].grupo === 'nucleo'));
 export const LATERALES = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter((pv) => GEOMETRIA[pv].grupo !== 'nucleo'));
@@ -66,9 +69,14 @@ export const LATERALES = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter
  * imagen); el bloque, lo que le toque de pantalla. Son píxeles de la pantalla, no datos del dominio: quien llama los
  * puede cambiar.
  */
-export const MEDIDAS = Object.freeze({ ancho: 400, alto: 700, hueco: 48, tarjeta: 160 });
+export const MEDIDAS = Object.freeze({ ancho: 400, alto: 700, hueco: 48, tarjeta: 160, linea: 30 });
 
-/** Los pasos de tamaño de un PV lateral: 0 oculto, 1 comprimido, 2 tarjeta, 3 bloque; el siguiente gesto entra en el PV. */
+/**
+ * Lo que se pinta de un PV lateral, de menos a más: 0 oculto, 1 comprimido (un dato), 2 tarjeta (los ocupantes que
+ * caben), 3 bloque (la lista o la matriz, paginada); el siguiente gesto entra en el PV. En el móvil (apilada) son los
+ * pasos de tamaño; en Mapped los pasos son los de la época (epoch.8.6, `escalaDeTamanos`) y esto es solo lo que cabe
+ * dentro de cada uno.
+ */
 export const NIVEL = Object.freeze({ oculto: 0, comprimido: 1, tarjeta: 2, bloque: 3 });
 
 const corto = (id) => String(id ?? '').slice(0, 8);
@@ -292,8 +300,12 @@ function personajeDe(ctx, eje, X, pv, lado, tamano, { enfocado, nuevos, paso }) 
   return { rol, accion, animar, pieza };
 }
 
-/** El nodo de un punto de vista lateral de X en su nivel. */
-function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
+/**
+ * El nodo de un punto de vista lateral de X en su nivel. En Mapped (`mapa`), la carta ya ha medido su caja: `cuantos`
+ * son los datos que caben en ella (los del paso, recortados por lo que mide) y `pagina` la que se ve (sin scroll: se
+ * pasa de página, no se carga debajo); la disposición de dentro la dice la división de la época también en el grupo.
+ */
+function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null) {
   const g = GEOMETRIA[pv];
   const lado = ctx.variantes[g.lado] ?? ctx.variantes[0] ?? null;
   const nodo = {
@@ -302,6 +314,7 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
     ayuda: contrato.ayuda(eje, X, pv, ctx.opciones),
     tamano: nivel >= NIVEL.comprimido ? tamanoDeNivel(nivel, ctx.opciones) : null,
     paso: ctx.pasos.porPv[pv] ?? ctx.pasos.comun ?? null,
+    medida: medidaDe(ctx, pv),
   };
   if (nivel === NIVEL.oculto) return nodo;
   const paso = ctx.paso;
@@ -321,15 +334,18 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
     nodo.consumido = Boolean(nodo.nuevos?.consumido);
   }
   if (nivel < NIVEL.tarjeta) return nodo;
-  // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración.
-  const cuantos = nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
-  const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración (en Mapped, por páginas).
+  const cuantos = mapa ? mapa.cuantos : nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
+  const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   nodo.ocupantes = {
     total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
     lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(nivel - 1, ctx.opciones), ctx, tipoDato, { pv, lado: g.lado })),
-    cargarMas: o.total > o.desde + o.ocupantes.length,
+    cargarMas: !mapa && o.total > o.desde + o.ocupantes.length,
+    pagina: pagina ? { actual: pagina.actual, de: pagina.de } : null,
   };
+  if (mapa && nivel < NIVEL.bloque) nodo.disposicion = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones }).disposicion;
   if (ctx.animado) nodo.personaje = personajeDe(ctx, eje, X, pv, g.lado, nodo.tamano, { enfocado: nivel >= NIVEL.bloque, nuevos: Boolean(nodo.nuevos), paso: propio ?? null });
   if (nivel >= NIVEL.bloque) {
     // Dentro del bloque, lista o matriz según la forma del hueco: lo decide la época (epoch.8.3.2).
@@ -353,6 +369,17 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
   return nodo;
 }
 
+/**
+ * La medida que enseña un PV en la fila de arriba de su carta (VG, 10-11): su paso propio si la tabla de pasos le da
+ * uno (epoch.9.8: el 4 su ciclo, el 7 su escala, el 8 su cuota) y, si no, el de todo elemento (la madurez). Así el PV4,
+ * el sitio de las acciones, dice en qué etapa del ciclo está y no la medida genérica. → { nombre, k, de, propio } o null.
+ */
+function medidaDe(ctx, pv) {
+  const propio = ctx.pasos.porPv[pv];
+  const p = propio && typeof propio.k === 'number' ? propio : ctx.pasos.comun;
+  return p && typeof p.k === 'number' ? { nombre: p.nombre, k: p.k, de: p.de ?? null, propio: p === propio } : null;
+}
+
 /** Los campos del anverso: cada PV lateral con su etiqueta y su primer ocupante en texto legible (lo que rellena el 0 desde los demás). */
 function camposDe(eje, X, ctx) {
   return LATERALES.map((pv) => {
@@ -370,8 +397,12 @@ function camposDe(eje, X, ctx) {
   });
 }
 
-/** El nodo del centro: el anverso (PV0, la representación que cabe y sus campos), el reverso (PV5, cómo encaja) o un PV abierto como foco. */
-function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
+/**
+ * El nodo del centro: el anverso (PV0, la representación que cabe y sus campos), el reverso (PV5, cómo encaja) o un PV
+ * abierto como foco. En Mapped (`mapa`), un PV abierto es la pantalla completa: dentro, la división de la época con los
+ * datos de ese paso (el máximo de Mapped), por páginas de lo que cabe.
+ */
+function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
   const ev = eventoDe(eje, X);
   const g = GEOMETRIA[pv] ?? { grupo: 'nucleo', lado: 0 };
   const px = Math.min(hueco.ancho, hueco.alto);
@@ -406,10 +437,11 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
     };
   }
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
-  const cuantos = ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
-  const o = contrato.ocupantes(eje, X, pv, 0, cuantos, ctx.opciones);
+  const cuantos = mapa ? mapa.cuantos : ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
+  const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
-  const d = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
+  const d = contrato.division(eje, X, { datos: mapa ? mapa.datos : Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
   const escenario = ctx.animado && LATERALES.includes(pv) ? {
     lado: ctx.variantes[g.lado] ?? ctx.variantes[0] ?? null,
     etapa: etapaDe(ctx, pv, g.lado, tamano),
@@ -420,8 +452,10 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco) {
   return {
     ...base,
     ...escenario,
-    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato, { pv, lado: g.lado })), cargarMas: o.total > o.desde + o.ocupantes.length },
+    ocupantes: { total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden, lista: o.ocupantes.map((x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato, { pv, lado: g.lado })), cargarMas: !mapa && o.total > o.desde + o.ocupantes.length, pagina: pagina ? { actual: pagina.actual, de: pagina.de } : null },
     disposicion: d.disposicion,
+    division: mapa ? { pvs: d.pvs, datos: d.datos, cargarMas: d.cargarMas } : null,
+    medida: medidaDe(ctx, pv),
   };
 }
 
@@ -559,9 +593,27 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
 }
 
 /**
+ * Los interruptores de la barra: cada preferencia de la plantilla «preferences» cuya validación admite exactamente dos
+ * valores (contrato.clavesDeConfiguracion, `valores`: hoy el pintado, sobrio o animado), con su etiqueta y cada valor en
+ * el idioma («template <plantilla> param <clave> option <valor>»); `valor` es el que rige. Tocar uno escribe la
+ * preferencia como lo hace la configuración (preferencias(), un registro más en el 9 del alta) y repinta.
+ */
+function interruptoresDe(configuracion, opciones) {
+  const p = plantillaDePreferencias(opciones);
+  if (!p) return [];
+  const T = (que, clave, original) => contrato.texto(null, contrato.claves.parametro(p.nombre, clave, que), opciones.idioma, { original, epoca: opciones.epoca });
+  return contrato.clavesDeConfiguracion(opciones).filter((c) => c.valores?.length === 2).map((c) => ({
+    clave: c.clave,
+    etiqueta: T('label', c.clave, c.clave),
+    valor: hojas(configuracion[c.clave] ?? c.defecto)[0] ?? null,
+    opciones: c.valores.map((v) => ({ valor: v, texto: T('option ' + v, c.clave, v) })),
+  }));
+}
+
+/**
  * Los rosetones: diez mosaicos muy comprimidos de mi propio foco (mi alta), uno por PV, el 0 y el 5 incluidos. El
  * orden es el de las dos tiras del móvil (VG, 10-11): arriba el tetraedro de la X con su centro (1, 2, 0, 3, 4),
- * abajo la cruz con el suyo (6, 7, 5, 8, 9).
+ * abajo la cruz con el suyo (6, 7, 5, 8, 9). En el ordenador, cada uno en su `sitio` (su esquina o lateral).
  */
 export const ORDEN_ROSETONES = Object.freeze([1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
 function rosetonesDe(eje, yoDatos, ctx, medidas) {
@@ -574,6 +626,8 @@ function rosetonesDe(eje, yoDatos, ctx, medidas) {
     const total = contrato.ocupantes(eje, alta, pv, 0, 0, ctx.opciones).total;
     const nodo = {
       pv, X: alta, grupo: GEOMETRIA[pv].grupo, lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null, fila: GEOMETRIA[pv].fila ?? null, nivel,
+      // Dónde va en el ordenador (VG, 10-11): en su esquina o lateral, como su PV; el 0 arriba al centro y el 5 abajo.
+      sitio: { fila: (GEOMETRIA[pv].borde ?? GEOMETRIA[pv].celda)[0], columna: (GEOMETRIA[pv].borde ?? GEOMETRIA[pv].celda)[1], centro: CENTROS.includes(pv) },
       etiqueta: contrato.etiqueta(eje, alta, pv, ctx.opciones),
       comprimido: propio && typeof propio.k === 'number' ? { dato: propio.k, de: propio.de, que: propio.nombre } : { dato: total, de: null, que: null },
     };
@@ -603,18 +657,199 @@ function localDe(libro, t) {
   return { gastadoHoy: libro.gastadoHoy(ahora), quedaHoy: libro.quedaHoy(ahora), pendientes: libro.recorrido().length, anterior: libro.anterior, serie: libro.serie };
 }
 
+// ---------- Mapped: los pasos de tamaño, el reparto de la pantalla y los dos mandos (VG, 10-11) ----------
+
+/**
+ * Los pasos de tamaño de la época (epoch.8.6, contrato.pasosDeTamano) con lo que la carta necesita saber de ellos,
+ * todo leído de sus datos: `partida`, el primero en que cabe un dato (el punto: el de quien aún no se ha tocado);
+ * `conEspacio`, el primero que ocupa pantalla (el grupo); `completa`, el que ocupa la pantalla entera en una esquina y
+ * en un lado (un solo PV); `tope`, el mayor por debajo de ese (el bloque: la pantalla en 3×3), hasta donde llegan los
+ * mandos de todos. Cambiar la tabla en una copia de la época cambia todo esto.
+ */
+export function escalaDeTamanos(opciones = {}) {
+  const pasos = contrato.pasosDeTamano(opciones);
+  const completa = pasos.findIndex((p) => p.esquina >= 1 && p.lado >= 1);
+  const partida = Math.max(0, pasos.findIndex((p) => p.datos > 0));
+  const conEspacio = pasos.findIndex((p) => p.esquina > 0 || p.lado > 0);
+  const tope = Math.max(partida, (completa >= 0 ? completa : pasos.length) - 1);
+  return { pasos, partida, conEspacio: conEspacio >= 0 ? conEspacio : tope, tope, completa };
+}
+
+/** El paso de tamaño de un PV en Mapped: el que guarda el estado, o el de partida. */
+const pasoGuardado = (estado, pv, escala) => Math.min(Math.max(estado?.niveles?.[pv] ?? escala.partida, 0), Math.max(0, escala.pasos.length - 1));
+
+/** La fracción de pantalla de un PV en un paso: la de una esquina en la X, la de un lado en la cruz. */
+const fraccionDe = (pv, paso) => (paso ? (GEOMETRIA[pv]?.grupo === 'x' ? paso.esquina : paso.lado) : 0);
+
+/**
+ * Lo que cada PV quiere de pantalla, antes de repartirla. «En matriz» si alguno está en el tope (el bloque): entonces
+ * la pantalla queda en 3×3 y los demás ocupan su celda entera, como si estuvieran al menos en el primer paso con
+ * espacio (se rellenan con lo que tengan); si no, cada uno quiere lo de su paso y el punto no ocupa nada. El lado de
+ * lo que quiere un PV es la raíz de su fracción (un cuarto de pantalla es media anchura y media altura). El centro (el
+ * foco) quiere, en matriz, la celda de un lado en el tope (el 0 en el centro del 3×3); fuera de ella, lo que quede.
+ * → { matriz, efectivo: { [pv]: paso }, lado: { [pv]: número }, columnas: [3], filas: [3] } (lo que quiere cada banda).
+ */
+function deseos(niveles, pvs, escala) {
+  const laterales = pvs.filter((pv) => LATERALES.includes(pv));
+  const guardado = (pv) => pasoGuardado({ niveles }, pv, escala);
+  const matriz = laterales.some((pv) => guardado(pv) >= escala.tope);
+  const efectivo = {};
+  const lado = {};
+  for (const pv of laterales) {
+    const k = guardado(pv);
+    efectivo[pv] = matriz && escala.pasos[k]?.datos > 0 ? Math.max(k, escala.conEspacio) : k;
+    lado[pv] = Math.sqrt(Math.max(0, fraccionDe(pv, escala.pasos[efectivo[pv]])));
+  }
+  const centro = matriz ? Math.sqrt(Math.max(0, escala.pasos[escala.tope]?.lado ?? 0)) : 0;
+  const banda = (eje, i) => Math.max(0, ...laterales.filter((pv) => GEOMETRIA[pv].celda[eje] === i).map((pv) => lado[pv]), i === 1 ? centro : 0);
+  return { matriz, efectivo, lado, columnas: [0, 1, 2].map((i) => banda(1, i)), filas: [0, 1, 2].map((i) => banda(0, i)) };
+}
+
+/**
+ * Reparte un eje de la pantalla (las tres columnas o las tres filas) entre lo que quieren sus bandas, sin pasar nunca
+ * de 1: si sobra, el centro se lo queda (el foco se rellena); si falta, la banda de `fija` (la del PV tocado más
+ * recientemente) se queda lo suyo y las demás se reparten el resto en proporción; sin ninguna fija, todas en
+ * proporción (la cruz se encoge a la vez que la X: los mandos de todos).
+ */
+function repartirEje(quiere, fija) {
+  const suma = quiere.reduce((a, b) => a + b, 0);
+  if (suma <= 1) return quiere.map((q, i) => (i === 1 ? q + (1 - suma) : q));
+  if (fija !== null && fija !== undefined && quiere[fija] < 1) {
+    const otras = suma - quiere[fija];
+    const queda = 1 - quiere[fija];
+    return quiere.map((q, i) => (i === fija ? q : otras > 0 ? (q * queda) / otras : 0));
+  }
+  return quiere.map((q) => q / suma);
+}
+
+/**
+ * El reparto de la pantalla de Mapped: las fracciones de las tres columnas y las tres filas (cada eje suma 1: nunca
+ * se pide más pantalla de la que hay, y nunca hay scroll) y la caja de cada PV y del centro, en fracciones de la
+ * pantalla { x, y, ancho, alto }. En matriz, cada PV llena su celda; fuera de ella, cada PV ocupa lo de su paso pegado
+ * a su esquina o a su lado, y un punto no tiene caja (va junto al foco). `recientes`: los PV tocados uno a uno, del
+ * más antiguo al más reciente (el último gana lo suyo).
+ */
+export function repartir(niveles, pvs, escala, { recientes = [] } = {}) {
+  const q = deseos(niveles, pvs, escala);
+  const ultimo = [...recientes].reverse().find((pv) => pvs.includes(pv) && LATERALES.includes(pv) && q.lado[pv] > 0);
+  const columnas = repartirEje(q.columnas, ultimo === undefined ? null : GEOMETRIA[ultimo].celda[1]);
+  const filas = repartirEje(q.filas, ultimo === undefined ? null : GEOMETRIA[ultimo].celda[0]);
+  const inicio = (lista, i) => lista.slice(0, i).reduce((a, b) => a + b, 0);
+  const celda = ([f, c]) => ({ x: inicio(columnas, c), y: inicio(filas, f), ancho: columnas[c], alto: filas[f] });
+  const cajas = {};
+  for (const pv of Object.keys(q.lado).map(Number)) {
+    const lado = q.lado[pv];
+    if (!(lado > 0)) { cajas[pv] = null; continue; }
+    const r = celda(GEOMETRIA[pv].celda);
+    if (q.matriz) { cajas[pv] = r; continue; }
+    // Pegado a su esquina o a su lado: a la izquierda o arriba en la primera banda, a la derecha o abajo en la última, centrado en la del medio.
+    const [f, c] = GEOMETRIA[pv].celda;
+    const ancho = Math.min(lado, r.ancho);
+    const alto = Math.min(lado, r.alto);
+    const x = c === 0 ? r.x : c === 2 ? r.x + r.ancho - ancho : r.x + (r.ancho - ancho) / 2;
+    const y = f === 0 ? r.y : f === 2 ? r.y + r.alto - alto : r.y + (r.alto - alto) / 2;
+    cajas[pv] = { x, y, ancho, alto };
+  }
+  return { matriz: q.matriz, efectivo: q.efectivo, columnas, filas, cajas, centro: celda(GEOMETRIA[CENTROS[0]].celda), reciente: ultimo ?? null };
+}
+
+/**
+ * Un paso de tamaño en un solo PV (el clic sobre él, sus botoncitos, el arrastre desde su esquina): sube o baja
+ * `delta` pasos entre el de partida y el tope; pasar del tope es la pantalla completa (`completa`: la app pone ese PV
+ * como foco). Si al crecer los PV de su fila (al ensanchar) o de su columna (al alargar) ya no caben juntos, sin contar
+ * el foco, compiten con él los que se tocaron antes uno a uno y están en un paso igual o mayor: gana el más reciente y
+ * cada uno de esos baja un paso (VG, 10-11). Puro: devuelve el estado nuevo
+ * { niveles, recientes, completa }, no lo guarda.
+ */
+export function ampliar(estado, pv, delta, opciones = {}) {
+  const escala = escalaDeTamanos(opciones);
+  const pvs = opciones.pvs ?? LATERALES;
+  const niveles = { ...(estado?.niveles ?? {}) };
+  const antes = (estado?.recientes ?? []).filter((x) => x !== pv);
+  const nuevo = pasoGuardado(estado, pv, escala) + delta;
+  if (escala.completa >= 0 && nuevo >= escala.completa) {
+    niveles[pv] = escala.tope;
+    return { niveles, recientes: [...antes, pv], completa: true };
+  }
+  niveles[pv] = Math.max(escala.partida, Math.min(escala.tope, nuevo));
+  if (delta <= 0) return { niveles, recientes: antes, completa: false };
+  const q = deseos(niveles, pvs, escala);
+  const [f, c] = GEOMETRIA[pv].celda;
+  // Lo que piden los PV en cada banda (sin el foco, que se queda lo que sobre): si no cabe, hay competición.
+  const banda = (eje, i) => Math.max(0, ...Object.keys(q.lado).map(Number).filter((x) => GEOMETRIA[x].celda[eje] === i).map((x) => q.lado[x]));
+  const desborda = (eje) => banda(eje, 0) + banda(eje, 1) + banda(eje, 2) > 1 + 1e-9;
+  const caidos = new Set();
+  for (const eje of [1, 0]) {
+    if (!desborda(eje)) continue;
+    // Los rivales: los tocados antes que comparten su fila (al ensanchar) o su columna (al alargar), en otra banda.
+    for (const otro of antes) {
+      const [fo, co] = GEOMETRIA[otro]?.celda ?? [];
+      const rival = eje === 1 ? fo === f && co !== c : co === c && fo !== f;
+      // Compite quien está en un paso igual o mayor que el que acaba de alcanzar el más reciente.
+      if (rival && !caidos.has(otro) && pasoGuardado({ niveles }, otro, escala) >= niveles[pv] && pasoGuardado({ niveles }, otro, escala) > escala.partida) {
+        niveles[otro] = pasoGuardado({ niveles }, otro, escala) - 1;
+        caidos.add(otro);
+      }
+    }
+  }
+  return { niveles, recientes: [...antes, pv], completa: false };
+}
+
+/**
+ * Los puntitos del foco (y su mando para bajar): un paso a todos los PV a la vez, entre el de partida y el tope (la
+ * pantalla en 3×3); ya en el tope, otra pulsación no hace nada. Nadie es «el más reciente»: todos en proporción.
+ */
+export function ampliarTodos(estado, delta, opciones = {}) {
+  const escala = escalaDeTamanos(opciones);
+  const niveles = { ...(estado?.niveles ?? {}) };
+  for (const pv of opciones.pvs ?? LATERALES) niveles[pv] = Math.max(escala.partida, Math.min(escala.tope, pasoGuardado(estado, pv, escala) + delta));
+  return { niveles, recientes: [], completa: false };
+}
+
+/** Cuántos datos caben en una caja de `px` píxeles: filas de una línea (menos la cabecera) por columnas de una tarjeta. */
+function capacidad(px, m) {
+  const filas = Math.max(1, Math.floor((px.alto - m.linea * 2) / m.linea));
+  const columnas = Math.max(1, Math.floor(px.ancho / m.tarjeta));
+  return filas * columnas;
+}
+
+/** La página de ocupantes que se ve de un PV en Mapped (estado.paginas: la página, desde 1): { actual, de, desde }. */
+function paginaDe(ctx, eje, X, pv, cuantos) {
+  const total = contrato.ocupantes(eje, X, pv, 0, 0, ctx.opciones).total;
+  const de = Math.max(1, Math.ceil(total / Math.max(1, cuantos)));
+  const actual = Math.min(Math.max(1, ctx.estado.paginas?.[pv] ?? 1), de);
+  return { actual, de, desde: (actual - 1) * cuantos };
+}
+
+/** Lo que se pinta dentro de un paso de Mapped: oculto si no caben datos, comprimido si no ocupa pantalla (el punto), bloque desde el tope, tarjeta entre medias. */
+function nivelDePaso(k, escala) {
+  const p = escala.pasos[k];
+  if (!p || p.datos <= 0) return NIVEL.oculto;
+  if (k < escala.conEspacio) return NIVEL.comprimido;
+  return k >= escala.tope ? NIVEL.bloque : NIVEL.tarjeta;
+}
+
+/** El paso de tamaño como lo lleva el árbol: { indice, nombre, texto, fraccion, datos }. */
+const pasoDelArbol = (pv, k, escala) => {
+  const p = escala.pasos[k];
+  return p ? { indice: k, nombre: p.nombre, texto: p.texto ?? p.nombre, fraccion: fraccionDe(pv, p), datos: p.datos } : null;
+};
+
 /**
  * El árbol de la carta para `yo` mirando el foco de `estado` en una pantalla de `medidas`. `estado`:
  *   foco: { X, pv }          el registro y el PV del centro (el 0 anverso, el 5 reverso, otro: ese PV abierto como foco)
- *   niveles: { [pv]: 0-3 }   el paso de tamaño de cada PV lateral (por defecto, comprimido)
- *   paginas: { [pv]: n }     cuántas páginas de ocupantes se han cargado en cada PV
+ *   niveles: { [pv]: k }     el paso de tamaño de cada PV lateral: en el móvil, NIVEL (por defecto, comprimido); en
+ *                            Mapped, el índice en los pasos de la época (epoch.8.6; por defecto, el de partida: el punto)
+ *   recientes: [pv]          Mapped: los PV tocados uno a uno, del más antiguo al más reciente (el último gana lo suyo)
+ *   paginas: { [pv]: n }     cuántas páginas de ocupantes se han cargado en cada PV (en Mapped, la página que se ve)
  *   aro: { X, pv } | null    el aro abierto sobre un registro (pv: el hueco desplegado)
  *   formulario: { X, accion, valores, motivos, resultado } | null
  *   rosetones: { [pv]: 1-2 } el paso de cada rosetón de identidad
  *   local: LibroLocal | null el libro local de yo (solo se lee)
  *   leido: boolean           si la lente «leído» del 0 está abierta
  *   nuevos: Set<id>          las transacciones del diario llegadas desde la última vez (lo que el animado anima: efectos y actuar)
- * `medidas`: { ancho, alto, hueco, tarjeta } en píxeles. `opciones.epoca`, la época que se lee; `opciones.t`, el reloj.
+ * En Mapped, el foco en un PV lateral es ese PV a pantalla completa (el paso que sigue al tope).
+ * `medidas`: { ancho, alto, hueco, tarjeta, linea } en píxeles. `opciones.epoca`, la época que se lee; `opciones.t`, el reloj.
  */
 export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const m = { ...MEDIDAS, ...medidas };
@@ -648,20 +883,63 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     proyecto: yo ? acciones.proyectoDeOpiniones(eje, yo, opciones) : null,
   };
   // Cuántos datos caben en la pantalla, en huecos comprimidos; la época dice qué puntos de vista y cómo se disponen.
-  const capacidad = Math.max(1, Math.floor(m.ancho / m.hueco) * Math.floor(m.alto / m.hueco));
-  const d = contrato.division(eje, X, { datos: capacidad, forma: { ancho: m.ancho, alto: m.alto }, ...opciones });
+  const cabenEnPantalla = Math.max(1, Math.floor(m.ancho / m.hueco) * Math.floor(m.alto / m.hueco));
+  const d = contrato.division(eje, X, { datos: cabenEnPantalla, forma: { ancho: m.ancho, alto: m.alto }, ...opciones });
   const disposiciones = contrato.division(eje, X, { datos: 1, forma: { ancho: 1, alto: 1 }, ...opciones }).disposicion; // la de un hueco cuadrado
   const apilada = d.disposicion !== disposiciones; // más alto que ancho: las franjas apiladas (Sequenced); si no, la matriz (Mapped)
   const pvsCentro = d.pvs.filter((pv) => CENTROS.includes(pv));
   const pvsLaterales = d.pvs.filter((pv) => LATERALES.includes(pv));
   ctx.mundoDelCentro = pvsLaterales[0] ?? LATERALES[0]; // los efectos sirven en todos los mundos; el centro pide por el primero
-  const pvCentro = typeof estado.foco === 'object' && estado.foco && typeof estado.foco.pv === 'number' ? estado.foco.pv : CENTROS[0];
-  // Los huecos: en la matriz las esquinas son un cuarto y la cruz un noveno; apilado, cada franja es media pantalla.
-  const huecoDe = (pv) => (apilada
-    ? { ancho: m.ancho, alto: m.alto / 2 }
-    : GEOMETRIA[pv]?.grupo === 'x' ? { ancho: m.ancho / 2, alto: m.alto / 2 } : { ancho: m.ancho / 3, alto: m.alto / 3 });
-  const huecoCentro = apilada ? { ancho: m.ancho, alto: m.alto / 3 } : { ancho: m.ancho / 3, alto: m.alto / 3 };
-  const laterales = pvsLaterales.map((pv) => nodoLateral(eje, X, pv, estado.niveles?.[pv] ?? NIVEL.comprimido, ctx, m, huecoDe(pv)));
+  const pvPedido = typeof estado.foco === 'object' && estado.foco && typeof estado.foco.pv === 'number' ? estado.foco.pv : CENTROS[0];
+  const pvCentro = pvsCentro.includes(pvPedido) || !CENTROS.includes(pvPedido) ? pvPedido : pvsCentro[0] ?? CENTROS[0];
+  let laterales;
+  let centro;
+  let mapa = null;
+  if (apilada) {
+    // El móvil (Sequenced): las franjas, cada una media pantalla; los pasos de tamaño son los de siempre (NIVEL).
+    laterales = pvsLaterales.map((pv) => nodoLateral(eje, X, pv, estado.niveles?.[pv] ?? NIVEL.comprimido, ctx, m, { ancho: m.ancho, alto: m.alto / 2 }));
+    centro = nodoCentro(eje, X, pvCentro, ctx, m, { ancho: m.ancho, alto: m.alto / 3 });
+  } else {
+    // Mapped: sin scroll; la pantalla se reparte entre los PV por sus pasos de tamaño (epoch.8.6) y se avanza hacia adentro.
+    const escala = escalaDeTamanos(ctx.opciones);
+    const px = (caja) => ({ ancho: caja.ancho * m.ancho, alto: caja.alto * m.alto });
+    const completa = LATERALES.includes(pvCentro) && pvsLaterales.includes(pvCentro);
+    if (completa) {
+      // Un PV a pantalla completa: solo él, con flechas a sus vecinos (la geometría de Mapped) y «volver»; sin rosetones.
+      const todo = { ancho: m.ancho, alto: m.alto };
+      const paso = escala.pasos[escala.completa] ?? escala.pasos[escala.tope] ?? null;
+      const cuantos = Math.max(1, Math.min(capacidad(todo, m), paso?.datos ?? ctx.paso, contrato.division(eje, X, { datos: paso?.datos ?? ctx.paso, ...ctx.opciones }).datos));
+      centro = nodoCentro(eje, X, pvCentro, ctx, m, todo, { cuantos, datos: paso?.datos ?? ctx.paso });
+      laterales = [];
+      mapa = {
+        completa: { pv: pvCentro, paso: pasoDelArbol(pvCentro, escala.completa, escala), vecinos: [...pvsLaterales, ...pvsCentro].filter((pv) => pv !== pvCentro).map((pv) => ({ pv, etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones), fila: GEOMETRIA[pv].celda[0], columna: GEOMETRIA[pv].celda[1], centro: CENTROS.includes(pv) })), volver: CENTROS[0] },
+        pasos: escala.pasos, matriz: false, columnas: [0, 1, 0], filas: [0, 1, 0], centro: { x: 0, y: 0, ancho: 1, alto: 1 }, puntos: null,
+      };
+    } else {
+      const r = repartir(estado.niveles ?? {}, pvsLaterales, escala, { recientes: estado.recientes ?? [] });
+      laterales = pvsLaterales.map((pv) => {
+        const guardado = pasoGuardado(estado, pv, escala);
+        const efectivo = r.efectivo[pv] ?? guardado;
+        const nivel = nivelDePaso(efectivo, escala);
+        const caja = r.cajas[pv] ?? null;
+        const hueco = caja ? px(caja) : { ancho: m.hueco, alto: m.hueco };
+        const cuantos = Math.max(1, Math.min(escala.pasos[efectivo]?.datos ?? 1, capacidad(hueco, m), nivel >= NIVEL.bloque ? ctx.paso : Infinity));
+        const n = nodoLateral(eje, X, pv, nivel, ctx, m, hueco, { cuantos });
+        return { ...n, pasoDeTamano: pasoDelArbol(pv, guardado, escala), caja, relleno: Boolean(r.matriz && caja), celda: GEOMETRIA[pv].celda, crece: guardado < (escala.completa >= 0 ? escala.completa : escala.tope), mengua: guardado > escala.partida };
+      });
+      centro = nodoCentro(eje, X, pvCentro, ctx, m, px(r.centro));
+      // Los puntitos del foco: los diez PV en su paso, junto a la información del foco; tocarlos sube un paso a todos.
+      const puntos = d.pvs.map((pv) => {
+        const k = LATERALES.includes(pv) ? pasoGuardado(estado, pv, escala) : null;
+        return { pv, etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones), paso: k === null ? null : pasoDelArbol(pv, k, escala) };
+      });
+      const niveles = pvsLaterales.map((pv) => pasoGuardado(estado, pv, escala));
+      mapa = {
+        completa: null, pasos: escala.pasos, matriz: r.matriz, columnas: r.columnas, filas: r.filas, centro: r.centro, reciente: r.reciente,
+        puntos: { lista: puntos, sube: niveles.some((k) => k < escala.tope), baja: niveles.some((k) => k > escala.partida) },
+      };
+    }
+  }
   const aro = estado.aro?.X && eje.obtener(estado.aro.X) ? nodoAro(eje, estado.aro.X, yo, ctx) : null;
   const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, ctx.opciones) : null;
   return {
@@ -678,10 +956,14 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     limite,
     colores: contrato.colores(opciones), // epoch.9.5.4: el color de cada PV, un dato de la época
     configuracion,
-    centro: nodoCentro(eje, X, pvsCentro.includes(pvCentro) || !CENTROS.includes(pvCentro) ? pvCentro : pvsCentro[0] ?? CENTROS[0], ctx, m, huecoCentro),
+    // Los interruptores de la barra: las preferencias de dos valores (hoy el pintado, sobrio o animado), cada valor en el idioma.
+    interruptores: interruptoresDe(configuracion, ctx.opciones),
+    centro,
     centros: pvsCentro,
     laterales,
-    rosetones: rosetonesDe(eje, yoDatos, ctx, m),
+    mapa,
+    // Los rosetones de mi foco; en la pantalla completa de un PV no se ven.
+    rosetones: mapa?.completa ? [] : rosetonesDe(eje, yoDatos, ctx, m),
     aro,
     formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null } : null,
     camino: await caminoDe(eje, X, yo, ctx),
