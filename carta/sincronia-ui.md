@@ -1,6 +1,6 @@
 # Enganchar el libro compartido en la carta (para una PR posterior)
 
-Etapa 3 del roadmap (`docs/CONTRATO.md` §13; `servidor/LEEME.md`). La PR del libro compartido no toca `carta/` porque la etapa 2 (mi cuenta: `carta/app.js`, `carta/cuentas.js`, la pantalla de arranque) la está cambiando a la vez. Esto dice **dónde llamar a qué** cuando entre; los nombres de `carta/app.js` son los de `main` `c55da53` (`estado`, `guardar()`, `arrancar()`, `manejadores.seguir`, `firmarCon`), y la PR de cuentas puede haberlos movido: lo que importa es el momento, no la línea.
+Etapa 3 del roadmap (`docs/CONTRATO.md` §15; `servidor/LEEME.md`). La PR del libro compartido no toca `carta/` porque la etapa 2 (mi cuenta, #103: `carta/app.js`, `carta/cuentas.js`, la pantalla de arranque) entró a la vez. Esto dice **dónde llamar a qué**; los nombres de `carta/app.js` son los de `main` `93e86a3` (`estado`, `guardar()`, `arrancar()`, `manejadores.seguir`, `firmarCon`) y las claves de almacén las de `carta/cuentas.js`: lo que importa es el momento, no la línea.
 
 ## 1. Qué hay en el núcleo
 
@@ -17,8 +17,8 @@ S.cola · S.rechazados · S.pendientes(eje) · S.marcarReloj(eje)
 ## 2. La configuración: `sync url` y `sync ledger`; la clave de lectura aparte
 
 - La plantilla «preferences» (`epoch.9.3`) tiene dos posiciones nuevas, **8 `sync url`** (la base del servidor: `https://<ref>.supabase.co/functions/v1`, o `http://127.0.0.1:8787` con el servidor de prueba) y **9 `sync ledger`** (el nombre del eje en el servidor). Se leen con `contrato.configuracion(eje, yo)['sync url']` y `['sync ledger']`; sin valor, `undefined`: el eje vive solo en este dispositivo. Sus etiquetas y ayudas en español ya están en `epoch.9.4` («servidor», «eje compartido»): el formulario de preferencias de la carta las pinta solo, como las demás posiciones (el 5 sigue siendo el tipo y no se pinta).
-- **La clave de lectura NO va en el registro de preferencias** (el registro entra en el eje y el eje se comparte: cualquiera que lea el eje la vería). Vive en `localStorage`, **por cuenta**: clave `agram.sincronia.clave.<identidad>` (o la convención de nombres que fije `carta/cuentas.js` para lo que es secreto del dispositivo, junto a la clave privada). La pantalla de preferencias pinta un campo aparte «clave de lectura» que escribe y lee ese `localStorage`, nunca el eje. Lo mismo que hace la copia de seguridad cifrada de la etapa 2 con la clave privada vale para esta: forma parte de lo que se exporta cifrado con frase.
-- El estado de la sincronía (`S.serializar()`: la cola, los órdenes del servidor, lo rechazado; sin la clave) se guarda **junto al eje**, por cuenta: `agram.sincronia.<identidad>` con `guardarLocal`, en la misma función `guardar()` que guarda el eje y el libro local.
+- **La clave de lectura NO va en el registro de preferencias** (el registro entra en el eje y el eje se comparte: cualquiera que lea el eje la vería). Vive en `localStorage`, **por cuenta**, junto a lo que `carta/cuentas.js` ya guarda por cuenta (`agram.eje.<id del alta>` el eje, `agram.clave.<id del alta>` la clave privada, `agram.cuenta` la última usada): la clave de lectura en **`agram.sync.<id del alta>`**. La pantalla de preferencias pinta un campo aparte «clave de lectura» que escribe y lee ese `localStorage`, nunca el eje. Lo mismo que hace la copia de seguridad cifrada de la etapa 2 con la clave privada vale para esta: forma parte de lo que se exporta cifrado con frase.
+- El estado de la sincronía (`S.serializar()`: la cola, los órdenes del servidor, lo rechazado; sin la clave) se guarda **junto al eje**, por cuenta: `agram.sync.estado.<id del alta>` con `guardarLocal`, en la misma función `guardar()` que guarda el eje y el libro local (el estado no es secreto; la clave de `agram.sync.<id del alta>` sí: se tratan aparte).
 
 ## 3. Dónde llamar a qué
 
@@ -31,7 +31,7 @@ S.cola · S.rechazados · S.pendientes(eje) · S.marcarReloj(eje)
    - guarda `S.serializar()`;
    - enseña el estado (§4).
 6. **Cambiar de cuenta** (`carta/cuentas.js`): cada cuenta tiene su eje, su libro local y su sincronía; al cambiar, se cierra la de antes (nada que cerrar: es un objeto) y se abre la de la nueva como en el paso 1.
-7. **Reiniciar** (`reiniciar()`): borrar también `agram.sincronia.<identidad>`; la clave de lectura solo si se borra la cuenta entera.
+7. **Reiniciar** (`reiniciar()`) y borrar una cuenta: borrar también `agram.sync.estado.<id del alta>`; la clave de lectura (`agram.sync.<id del alta>`) solo si se borra la cuenta entera.
 
 ## 4. Qué enseñar
 

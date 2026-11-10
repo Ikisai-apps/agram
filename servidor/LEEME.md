@@ -2,7 +2,7 @@
 
 Etapa 3 del roadmap (`MUELA/equipo/agram/ROADMAP_MVP.md`; mapa §17 [D], VG): un único eje accesible desde el móvil y el ordenador. El servidor es mínimo y de **solo añadir**: guarda eventos firmados, los ordena por llegada y da la hora; **no valida reglas** (eso lo hace cada cliente con el núcleo, `src/sincronia.js`). El eje es **privado con clave de lectura**; se escribe solo con eventos **firmados por una identidad con alta en el eje**.
 
-**Nada está desplegado.** El proyecto Supabase de AGRAM aún no existe; lo que hay aquí es código listo para desplegar y probado contra el servidor de prueba local (`servidor/prueba/servidor.mjs`), que sirve el mismo contrato. El contrato entero: `docs/CONTRATO.md` §13.
+**Nada está desplegado.** El proyecto Supabase de AGRAM aún no existe; lo que hay aquí es código listo para desplegar y probado contra el servidor de prueba local (`servidor/prueba/servidor.mjs`), que sirve el mismo contrato. El contrato entero: `docs/CONTRATO.md` §15.
 
 ```
 servidor/
