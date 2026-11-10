@@ -172,6 +172,21 @@ small{color:var(--muted)}
 .cargar-mas button{width:100%;font-size:13px}
 .pv.nivel-2 .ocupantes{font-size:13px;max-height:calc(var(--tarjeta) - 56px);overflow:hidden}
 
+/* la guía del PV9 (solo lectura): a lo ancho de su franja o de su bloque */
+.franja>.pv:has(.guia){flex:1 0 100%;width:auto;order:-1}
+.guia{display:flex;flex-direction:column;gap:6px;width:100%;flex-basis:100%;margin-top:8px;padding:8px;border:1px solid var(--rule);border-radius:var(--radio);background:var(--bg);font-size:14px;min-width:0}
+.guia-cabeza{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 10px}
+.guia-cabeza h4{margin:0;font-size:13px;color:var(--muted);font-weight:600}
+.guia-cabeza .ayuda{flex:1 1 12ch}
+.guia-historial{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:min(40vh,320px);overflow:auto}
+.guia-historial li{white-space:pre-wrap;overflow-wrap:anywhere;padding:6px 8px;border-radius:8px;background:var(--panel2)}
+.guia-historial .guia-yo{background:var(--panel);border:1px solid var(--rule)}
+.guia-historial li b{font-size:11px;color:var(--muted);font-weight:500;margin-right:6px}
+.guia-historial .guia-pensando{background:none;color:var(--muted);font-style:italic}
+.guia-rapidas{display:flex;flex-wrap:wrap;gap:6px}
+.guia-form{display:flex;gap:6px}
+.guia-form button{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.guia-ajustes{border:1px solid var(--rule);border-radius:8px;margin:8px 0;padding:6px 10px}
 /* el diario y el camino */
 .diario h4,.camino h4{margin:6px 0 2px;font-size:12px;color:var(--muted);font-weight:500}
 .diario ol,.camino ol{margin:0;padding-left:16px;font-size:12px;display:grid;gap:3px}

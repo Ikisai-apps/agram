@@ -49,7 +49,9 @@ export function instalar(raiz, m) {
     const b = (sel) => t.closest(sel);
     let el;
     if ((el = b('[data-cerrar]')) && (t === el || t.closest('.cerrar'))) { e.preventDefault(); m.cerrar?.(); return; }
-    if (t.closest('.formulario, .aro') && !t.closest('button')) return; // dentro de un diálogo, nada más que los botones
+    if (t.closest('.formulario, .aro, .guia') && !t.closest('button')) return; // dentro de un diálogo (o de la guía), nada más que los botones
+    if ((el = b('[data-guia-rapida]'))) { e.preventDefault(); m.guiaRapida?.(Number(el.dataset.guiaRapida)); return; }
+    if ((el = b('[data-guia-vaciar]'))) { e.preventDefault(); m.guiaVaciar?.(); return; }
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
     if ((el = b('[data-aro-hueco]'))) { e.preventDefault(); m.aro?.(xDe(el) ?? el.closest('.aro')?.dataset.x, Number(el.dataset.aroHueco), { desplegar: true }); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
@@ -87,7 +89,7 @@ export function instalar(raiz, m) {
   let mantener = null;
   const empezarMantener = (e) => {
     const el = e.target.closest('[data-x]');
-    if (!el || e.target.closest('input, textarea, select, .aro, .formulario')) return;
+    if (!el || e.target.closest('input, textarea, select, .aro, .formulario, .guia')) return;
     cancelarMantener();
     mantener = { timer: setTimeout(() => { mantener = null; m.aro?.(el.dataset.x, null); }, MANTENER_MS), x: e.clientX, y: e.clientY };
   };
@@ -139,7 +141,7 @@ export function instalar(raiz, m) {
     const dx = e.clientX - p.x;
     const dy = e.clientY - p.y;
     if (Date.now() - p.t > 900) return;
-    if (Math.abs(dx) > UMBRAL_DESLIZAR && Math.abs(dx) > Math.abs(dy) * 1.5 && !p.el.closest?.('input, .formulario, .aro')) {
+    if (Math.abs(dx) > UMBRAL_DESLIZAR && Math.abs(dx) > Math.abs(dy) * 1.5 && !p.el.closest?.('input, .formulario, .aro, .guia')) {
       m.hermano?.(dx < 0 ? +1 : -1, pvDe(p.el) ? Number(pvDe(p.el).dataset.pv) : null);
     } else if (Math.abs(dy) > UMBRAL_DESLIZAR * 1.5 && Math.abs(dy) > Math.abs(dx) * 1.5 && p.el.closest?.('[data-centro]') && !p.el.closest?.('input, pre, ul')) {
       m.voltear?.(); // mantener y arrastrar en vertical sobre el centro: el atajo para dar la vuelta
@@ -182,6 +184,7 @@ export function instalar(raiz, m) {
     else if (f.matches('[data-crear]')) m.crear?.(f);
     else if (f.matches('[data-restaurar]')) m.restaurar?.(f);
     else if (f.matches('[data-copia-form]')) m.copia?.(f);
+    else if (f.matches('[data-guia-form]')) m.guiaPreguntar?.(f.querySelector('[data-guia-pregunta]')?.value ?? '');
   });
   on('change', (e) => {
     const t = e.target;

@@ -30,6 +30,7 @@
 
 import { Eje, autoridad, persistencia, contrato, salida } from '../src/index.js';
 import { plantillaDePreferencias, preferencias } from './carta.js';
+import { CLAVES as GUIA } from './guia.js';
 
 /** Las claves de localStorage de las cuentas. Las de los ejemplos, aparte (CLAVES_EJEMPLO), y no se cruzan. */
 export const CLAVES = Object.freeze({
@@ -256,6 +257,8 @@ export function olvidarCuenta(alta, identidades = []) {
   borrar(CLAVES.clave(alta));
   borrar(CLAVES.lectura(alta));
   borrar(CLAVES.sincronia(alta));
+  borrar(GUIA.ia(alta)); // la clave de la guía (vía directa) y su conversación, también de este navegador
+  borrar(GUIA.historial(alta));
   for (const yo of identidades) borrar(CLAVES.local(alta, yo));
   if (ultima() === alta) borrar(CLAVES.ultima);
 }

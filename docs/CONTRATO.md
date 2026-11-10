@@ -558,3 +558,81 @@ Las sincronizaciones van **de una en una** (`sinc.enSerie`): la que llega con ot
 **La línea de estado** (bajo «guardado en este navegador», `sinc.lineaDeEstado` → `dom.htmlSincronia`): «n por subir» y, sin red, «sin red: se subirá al volver»; «el orden cambió al sincronizar» si se reordenó; «al día con el eje compartido» si no hay nada que decir; los errores tal cual (un 401 es la clave de lectura; «el eje … del servidor no es este», que `sync ledger` apunta a otro eje); y, si algo no entró, «n registros no entraron» con un desplegable que lista el id corto, el motivo y de dónde viene (`reglas`: de otro dispositivo, las reglas no lo admiten aquí; `reorden`: de aquí, dejó de valer al llegar antes otro; `servidor`: de aquí, el servidor no lo acepta, con el estado HTTP; deja de salir cuando el servidor lo acepta). Nada de esto bloquea: se escribe en local y la cola sube.
 
 **Core, pendiente de revisar VG**: que escribir exija también la clave de lectura (el encargo solo la pedía para leer; cuesta nada y evita que un extraño siquiera sondee el eje); que `POST /ejes` cuelgue de la función `eventos` (`…/eventos/ejes`) para desplegar una sola función; que un rechazo del servidor no se salte (bloquea lo de detrás hasta que alguien mire); que el reloj del servidor entre solo en `before.6.3`; que la lógica compartida de la función vaya en `.js` y no en `.ts` (Node la importa sin transpilar).
+
+
+## 16. La guía: preguntar a Claude con el contexto exacto de la pantalla
+
+Encargo de VG y Core (10-11): **el 9 es donde se enchufa una IA, y funciona sin ella**. La guía responde «qué estoy viendo, qué significa, qué viene después»; es de **solo lectura** (no cambia nada, no dice que ha hecho algo; las acciones serían una segunda fase). Vive en el PV9, debajo de los pasos del camino: en móvil a lo ancho de su franja (con la tarjeta ya), en la matriz dentro del bloque del 9 o cuando el 9 es el foco. Funciona también en los ejemplos (vía directa). Código: `carta/guia.js` (puro, sin DOM), `carta/texto.js` (la carta de texto, movida desde `test/carta-texto.mjs`, que la reexporta), la sección de `carta/dom.js` (`htmlGuia`) y `carta/app.js`; el servidor: `servidor/supabase/funciones/guia/`. Pruebas: `test/guia.test.js`.
+
+### 16.1 Las instrucciones son dato: «la guía empieza leyendo en el 9»
+
+Tres capas, de lo general a lo particular, como un CLAUDE.md:
+
+1. **El 9 de la época** (`epoch.9.9`): la guía misma, un registro referenciado como las reglas, las plantillas y los modelos (`datos/epocas/guia/guide.json`, su id en `GUIA_DE_EPOCA_DATOS`; `npm run epocas` escribe la referencia). Sus posiciones: 0 el nombre (`guide`), 1 **el papel** (guía de AGRAM para quien mira; solo lee; responde corto en el idioma de la configuración; nunca inventa ni dice que ha hecho algo), 2 **el resumen de AGRAM** (unas 25 líneas: los diez puntos de vista y sus mundos, los cuatro tokens, madurez y etapas, el aro, el camino, cuentas y libro compartido, los tamaños), 3 **las normas de formato**, 4 **las preguntas hechas** (los botones rápidos: «¿qué estoy viendo?», «¿qué viene ahora?», «¿qué significa esta posición?») y 5 el nombre de la plantilla de sus ajustes. El inglés es el canónico del registro; el español está en el 9.4 por clave (`guide role`, `guide summary`, `guide rules`, `guide question N`). `contrato.guia(eje, idioma)` → `{ id, nombre, papel, resumen, normas, preguntas, ajustes }`; el idioma sin traducción cae al inglés.
+2. **El 9 de la plantilla del foco** (`plantilla(X)[9]`): lo que el tipo diga para la guía, leído en humano.
+3. **El 9 del propio foco** (`X.9`: «cómo seguir», el tutorial fijo del dueño; lo escrito en su propio 9 y lo anclado ahí): lo que ese registro dice para la guía. **Los registros de configuración** (el de preferencias y el de ajustes de la guía, que también cuelgan del 9 del alta) **no se mandan**: pueden llevar dónde se comparte el eje (`contrato.esDeConfiguracion`).
+
+`guia.instrucciones(eje, X, yo)` junta las tres (el texto base, y detrás «Instrucciones del 9 de la plantilla de este registro: …» y «Instrucciones del 9 de este registro: …», si hay). **El código no lleva escrita ninguna palabra de la guía**: solo lee esas posiciones (una prueba lo comprueba frase a frase). Cada tipo y cada registro pueden llevar así sus propias instrucciones sin tocar el código.
+
+### 16.2 Los ajustes: una plantilla propia, no «preferences»
+
+La plantilla «preferences» (§7) ya tiene las diez posiciones ocupadas (0-9; el 5 es el tipo), así que `guide` y `guide via` **no caben como posiciones nuevas suyas**: los ajustes de la guía son una plantilla de dominio **«guide settings»** (`epoch.9.2`, la tercera detrás de «purchase» y «booking»), un registro más anclado en el `9` del alta por su dueño, como el de preferencias. Posiciones: 1 `guide model` (`claude-sonnet-5-5`), 2 `guide via` (`server` o `direct`, validado por la plantilla; `server`), 3 `guide history` (turnos de la conversación que se guardan: 20), 4 `guide context` (tope del contexto en caracteres: 6000), 5 el tipo. Etiquetas y ayudas en es y en por las claves de siempre (`template guide settings param … label | help`). `contrato.configuracionDe(eje, yo, nombre)` y `clavesDeConfiguracionDe(nombre)` generalizan `configuracion` y `clavesDeConfiguracion` a otra plantilla; `contrato.configuracionGuia(eje, yo)` los lee, con los defectos de la época si no hay registro; `guia.ajustes()` los da con los números como números. El formulario de «configuración» pinta estos campos aparte (sin `name`, con `data-guia-campo`) y, si cambian, escribe el registro; el de preferencias sigue igual. Las posiciones 1-4 son el contrato; las etiquetas, de la época.
+
+**La clave de la API NUNCA va en el eje.** Vive en `localStorage` `agram.ia.<alta>` (campo aparte del mismo formulario, `data-clave-ia`, como la clave de lectura), no entra en la copia de seguridad, se borra al olvidar la cuenta, y la interfaz avisa de que vive solo en este navegador y de que cualquiera con acceso a él puede leerla. La conversación, en `agram.guia.<alta>` (solo los últimos 20 turnos; se vacía con el botón «vaciar»).
+
+### 16.3 El contexto de cada pregunta: `contexto(estado, eje, yo, { ancho, alto, cuenta, tope })`
+
+Texto, con un tope (`guide context`, 6000 caracteres): **modo y ancho** (el modo lo da la época por la forma de la pantalla, como en la carta), **quién soy** (persona o cosa, en su cuenta o en un ejemplo), **el foco** con su lectura humana (`leerEvento`), su madurez y el punto de vista abierto, **la carta de texto del foco** a la pantalla (`texto.pintar`, tamaño 3), **el camino** (`acciones.camino`: pasos míos, de espera, hechos, niveles), **las acciones del aro por punto de vista** (con su nombre traducido; `*` la de por defecto), **las últimas cinco entradas del diario** leídas, y lo relevante de la configuración (idioma y render; nunca dónde se comparte el eje). Cada bloque se recorta **por el final** a su parte del tope (reparto por pesos) y el propio texto lo dice: «[recortado por el tope de N caracteres: foco, carta]».
+
+Un ejemplo real (la compra de Ikisai, 400 px, recortado):
+
+```
+pantalla: 400×800 px · modo list (franjas apiladas) · render sober · idioma en
+
+quien mira: huesped (persona) · en un ejemplo con datos inventados
+
+foco: cdeef0f0 · punto de vista abierto: 0
+madurez: nivel 11 de 15 · list
+lectura del registro:
+cdeef0f0 · huesped · 2026-11-07T13:30:00Z · sobre 42159022 en 0000000000
+0 · representación: Compra del menú del día
+1 · recursos: …
+
+carta de texto del foco:
+[screen · matrix] Compra del menú del día
+  nivel 11/15 · list (11 posiciones, 0 de profundidad, 13 unidades)
+  1 · order: [[→ 42159022:1], [1], [EUR 12]]
+  …
+
+camino: 0 pasos
+
+acciones del aro, por punto de vista (* la de por defecto):
+PV1: issue E tied to X* · lock E as a bid for a quota
+…
+PV9: follow the path* · view the whole tutorial · auto-run to the end · ask for a recommendation
+
+últimas entradas del diario:
+- 2026-11-07T13:30:00Z · cdeef0f0 · huesped · …
+
+language: en · render: sober
+```
+
+### 16.4 Dos vías de llamada
+
+**Servidor (la preferida)**: `POST {sync url}/guia` (la base del libro compartido, §15.1; en Supabase, la función `guia` hermana de `eventos`), con `X-Clave-Lectura` (la del libro compartido de la cuenta: sin cuenta con servidor, eje compartido y clave de lectura no se llama).
+
+| Petición | Respuesta |
+|---|---|
+| `POST {url}/guia` con `{ eje, modelo?, mensajes: [{ role, content }…], contexto, instrucciones? }` | `200 { texto, uso: { entrada, salida } }` |
+
+`eje` es el nombre del eje compartido; `mensajes` empieza por `user`, alterna y acaba en una pregunta del usuario (hasta 24, cada uno de hasta 2000 caracteres); `contexto` (hasta **8 000** caracteres) es el de §16.3; `instrucciones` (hasta 8 000), las de §16.1: **el servidor no sabe nada de AGRAM**, junta las dos como el `system` de la llamada. Errores: `400` forma, `401` clave de lectura (comprobada contra `ejes.clave_lectura_hash`), `404` eje, `413` cuerpo, contexto o instrucciones demasiado grandes, `429` más de **30 preguntas por minuto** por eje (o la cuota del proveedor), `502` el proveedor falla (con su motivo; también si la clave del proveedor en el servidor no vale), `OPTIONS` CORS como `eventos`. La función (`servidor/supabase/funciones/guia/index.ts`, Deno; el contrato, en `api.js`, el mismo módulo que usa el servidor de prueba) llama a `https://api.anthropic.com/v1/messages` con `ANTHROPIC_API_KEY` de `Deno.env`, `anthropic-version: 2023-06-01`, `max_tokens` 800 y el modelo pedido (por defecto `claude-sonnet-5-5`). El servidor de prueba (`servidor/prueba/servidor.mjs`) responde `/guia` con un **eco fijo** («(guía de prueba) …» y las primeras líneas del contexto) sin llamar a nada. Desplegarla: `servidor/LEEME.md`.
+
+**Directo (provisional, hasta que haya servidor)**: la carta llama a la API de mensajes desde el navegador con la clave de `agram.ia.<alta>` y las cabeceras `x-api-key`, `anthropic-version: 2023-06-01` y `anthropic-dangerous-direct-browser-access: true`; el `system` es lo mismo, instrucciones y contexto. Sin clave, no llama y lo dice. Vale también en los ejemplos (la clave va por alta de quien mira).
+
+`guia.preguntar(...)` → `{ ok: true, texto, uso }` o `{ ok: false, motivo, estado? }`: los errores salen tal cual en el panel («la clave de lectura no vale para este eje (401)», «la clave de Anthropic no vale (401)», «sin red», «demasiadas preguntas o cuota agotada (429)»).
+
+### 16.5 El panel
+
+Dentro del PV9, debajo de los pasos: la conversación (los últimos turnos), «pensando…» mientras contesta, los **botones rápidos** (las preguntas hechas de la época, §16.1), un campo de pregunta y «preguntar», y «vaciar». Solo se repinta su sección (lo escrito en el campo se recuerda aunque se repinte la carta entera). Para la selección de «opinar» lleva `data-nodo="guia"`.
+
+**Core, pendiente de revisar VG**: que los ajustes sean una plantilla aparte por no caber en «preferences» (diez posiciones llenas); que el cliente mande las instrucciones al servidor (el servidor no las lleva: así no hay que redesplegar para cambiarlas, y el tope de 8 000 caracteres las acota); el reparto del tope del contexto por bloques; que la conversación sea de la alta de quien mira y no del eje (no se sincroniza); el límite de 30 preguntas por minuto cuenta por instancia de la función, no globalmente.

@@ -8,7 +8,7 @@
 // elemento; nunca más de N animaciones a la vez (data-animaciones, un dato de la configuración), primero lo nuevo y
 // lo enfocado; las que salen de pantalla se pausan.
 
-import { NIVEL, LATERALES, ANIMAR } from './carta.js';
+import { NIVEL, LATERALES, ANIMAR, GEOMETRIA } from './carta.js';
 import { t } from './textos.js';
 
 export const escapar = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -140,6 +140,26 @@ export function htmlCamino(c, { X } = {}) {
   return `<section class="camino"${nodo('camino')} aria-label="${attr(t('camino'))}">${niveles}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
 }
 
+/**
+ * La guía del PV9 (carta/guia.js; solo lectura): la conversación guardada, «pensando…» mientras contesta, el error tal
+ * cual, las preguntas hechas de la época como botones, el campo de pregunta y «preguntar». `g`: { historial, pensando,
+ * pendiente, error, borrador, preguntas, via }; sin `g` (no hay eje) no se pinta. La app repinta solo esta sección.
+ */
+export function htmlGuia(g) {
+  if (!g) return '';
+  const turnos = g.historial.map((m) => `<li class="guia-${m.role === 'user' ? 'yo' : 'claude'}"><b>${t(m.role === 'user' ? 'guiaYo' : 'guiaClaude')}</b> ${escapar(m.content)}</li>`).join('')
+    + (g.pensando ? `<li class="guia-yo"><b>${t('guiaYo')}</b> ${escapar(g.pendiente ?? '')}</li><li class="guia-pensando" role="status">${t('guiaPensando')}</li>` : '');
+  const rapidas = g.preguntas.map((q, i) => `<button type="button"${nodo('control')} data-guia-rapida="${i}"${g.pensando ? ' disabled' : ''}>${escapar(q)}</button>`).join('');
+  return `<section class="guia"${nodo('guia')} data-guia aria-label="${attr(t('guia'))}">
+    <header class="guia-cabeza"><h4>${t('guia')}</h4><small class="ayuda">${escapar(t(g.via === 'direct' ? 'guiaViaDirecta' : 'guiaViaServidor'))}</small>${g.historial.length ? `<button type="button"${nodo('control')} data-guia-vaciar title="${attr(t('guiaVaciarTitulo'))}">${t('guiaVaciar')}</button>` : ''}</header>
+    <ol class="guia-historial" aria-live="polite">${turnos || `<li class="nada">${t('guiaVacia')}</li>`}</ol>
+    ${g.error ? `<p class="aviso" role="alert">${escapar(g.error)}</p>` : ''}
+    <div class="guia-rapidas">${rapidas}</div>
+    <form class="guia-form" data-guia-form><input type="text" name="pregunta" data-guia-pregunta value="${attr(g.borrador ?? '')}" placeholder="${attr(t('guiaPregunta'))}" aria-label="${attr(t('guiaPregunta'))}" autocomplete="off"${g.pensando ? ' disabled' : ''}><button type="submit"${g.pensando ? ' disabled' : ''}>${t('guiaPreguntar')}</button></form>
+    <small class="ayuda">${escapar(t('guiaAyuda'))}</small>
+  </section>`;
+}
+
 /** Un PV lateral en su nivel: comprimido (un dato), tarjeta (etiqueta y lo que cabe), bloque (la lista o la matriz). */
 function htmlLateral(n, arbol) {
   const clases = ['pv', `pv-${n.pv}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `fila-${n.fila ?? ''}`, `nivel-${n.nivel}`].join(' ');
@@ -153,7 +173,7 @@ function htmlLateral(n, arbol) {
   let cuerpo = '';
   if (n.nivel === NIVEL.comprimido) cuerpo = `<div class="comprimido" title="${attr(n.etiqueta)}: ${attr(n.ayuda ?? '')}"><span class="numero">${n.pv}</span>${sello || dato}${sello ? dato : ''}${efectos}${marco}</div>`;
   else {
-    const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) : '';
+    const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) + (arbol.centro?.pv !== n.pv && (arbol.apilada || n.nivel >= NIVEL.bloque) ? htmlGuia(arbol.guia) : '') : '';
     const escenario = htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
     cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
@@ -200,7 +220,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${quien}<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button></header>
     ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
-    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${htmlMarco(c.marco)}
+    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' ? htmlGuia(arbol.guia) : ''}${htmlMarco(c.marco)}
   </section>`;
 }
 
@@ -274,15 +294,28 @@ function htmlFormulario(f) {
 }
 
 /**
+ * Los ajustes de la guía dentro del formulario de la configuración: los campos de la plantilla de ajustes de la época
+ * (sin `name`: la app los lee por data-guia-campo y los escribe como su propio registro en el 9 del alta) y, aparte, la
+ * clave de la API (data-clave-ia: solo para la vía directa; vive en este navegador, nunca en el eje).
+ */
+function htmlAjustesGuia(g) {
+  if (!g) return '';
+  const campos = g.campos.map((c) => `<div class="campo"${nodo('control')}><label for="guia-${c.pv}">${escapar(c.etiqueta)}</label><input id="guia-${c.pv}" data-guia-campo="${attr(c.clave)}" type="text" value="${attr(c.valor)}" placeholder="${attr(c.marcador)}" title="${attr(c.ayuda)}" autocomplete="off"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('');
+  const clave = `<div class="campo"${nodo('control')}><label for="guia-clave-ia">${t('guiaClaveIa')}</label><input id="guia-clave-ia" data-clave-ia type="password" value="${attr(g.claveIa ?? '')}" title="${attr(t('guiaClaveIaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('guiaClaveIaAyuda'))}</small></div>`;
+  return `<fieldset class="guia-ajustes"><legend>${t('guiaAjustes')}</legend>${campos}${clave}</fieldset>`;
+}
+
+/**
  * El formulario de la configuración, generado desde la plantilla «preferences»: cada campo por su clave, con su
  * etiqueta en el idioma. En una cuenta (`claveLectura` es una cadena, quizá vacía), además el campo aparte de la clave
  * de lectura del libro compartido: sin `name` (no entra en el registro de preferencias: la app lo lee por
  * data-clave-lectura y lo guarda en el almacén local de la cuenta, nunca en el eje).
  */
-export function htmlConfiguracion(p, { motivos = [], claveLectura } = {}) {
+export function htmlConfiguracion(p, { motivos = [], claveLectura, guia } = {}) {
   if (!p) return '';
   const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label><input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
-    + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '');
+    + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '')
+    + htmlAjustesGuia(guia);
   return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion aria-label="${attr(t('configuracion'))}">
     <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
@@ -437,7 +470,7 @@ export function html(arbol, extra = {}) {
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'abajo' })}
     ${htmlAro(a.aro)}
     ${htmlFormulario(a.formulario)}
-    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura }) : ''}
+    ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes }) : ''}
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;

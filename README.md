@@ -36,4 +36,6 @@ Render animado de la web antigua (`antigua/mundos/`): la cruz entera sobre el mi
 
 **El libro compartido** (etapa 3, `docs/CONTRATO.md` §15.8): en «configuración», el **servidor**, el **eje compartido** y la **clave de lectura** (esta solo en el navegador, nunca en el eje; va cifrada en la copia), y tu cuenta se sincroniza sola al escribir, al volver la red y cada 30 s; la barra dice lo que falta por subir y lo que no entró. Al restaurar la copia en otro dispositivo, el eje se baja del servidor. Los ejemplos no se sincronizan; desplegar el servidor: `servidor/LEEME.md`. «Probar con un ejemplo» sigue ahí, con datos inventados, aparte de tus cuentas.
 
+**La guía del PV9** (`docs/CONTRATO.md` §16): debajo de los pasos del camino, un panel de solo lectura para preguntar a Claude sobre lo que ves, con el contexto exacto de la pantalla (y lo que cada tipo y cada registro escriban en su 9). Vía servidor (la clave de Anthropic vive en el servidor) o directa (la clave solo en este navegador, en «configuración»). No cambia nada.
+
 Prueba del reproductor de piezas: [pruebas/carta/](pruebas/carta/). Los modelos de visualización que la carta consulta son registros de la época (`datos/epocas/modelos/`, `docs/CONTRATO.md` §11); un paquete de arte se convierte en modelo con `node arte/importar.mjs <carpeta>` (`arte/MANIFIESTO.md`).

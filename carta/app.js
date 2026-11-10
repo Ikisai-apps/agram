@@ -19,12 +19,13 @@
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
 import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
-import { html, htmlSincronia, trasPintar, variablesDeColor } from './dom.js';
+import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
 import { t, idiomaDeInterfaz } from './textos.js';
 import * as cuentas from './cuentas.js';
 import * as sinc from './sincronia.js';
+import * as guia from './guia.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -49,6 +50,8 @@ const estado = {
   // El libro compartido de la cuenta abierta: su Sincronia (src/sincronia.js) o null (un ejemplo, o una cuenta sin
   // servidor, eje compartido o clave de lectura), y lo que enseña la línea de estado (sinc.lineaDeEstado) o null.
   sincronia: null, lineaSincronia: null,
+  // La guía del PV9: la conversación de la alta en pantalla, lo escrito sin enviar y lo que está pasando.
+  guia: { alta: null, historial: [], borrador: '', pensando: false, pendiente: '', error: '' },
 };
 let limpiarLottie = () => {};
 let gestos = null;
@@ -190,8 +193,42 @@ function extraDe() {
     preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
     claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
+    guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
     arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
   };
+}
+
+// ---------- la guía del PV9 ----------
+
+const almacenLocal = () => { try { return globalThis.localStorage; } catch { return undefined; } };
+/** El alta de quien mira: por ella van la conversación (agram.guia.<alta>) y la clave de la API (agram.ia.<alta>). */
+const altaDeGuia = () => (estado.eje && estado.identidad ? estado.eje.alta(estado.identidad)?.id ?? null : null);
+
+/** Lo que pinta htmlGuia: la conversación de quien mira (cargada al cambiar de alta), lo que está pasando y las preguntas hechas de la época. */
+function datosGuia() {
+  const alta = altaDeGuia();
+  if (!alta) return null;
+  const g = estado.guia;
+  const aj = guia.ajustes(estado.eje, estado.identidad);
+  if (g.alta !== alta) Object.assign(g, { alta, historial: guia.cargarHistorial(almacenLocal(), alta, aj.historial), borrador: '', pensando: false, pendiente: '', error: '' });
+  return { historial: g.historial, pensando: g.pensando, pendiente: g.pendiente, error: g.error, borrador: g.borrador, preguntas: guia.preguntasRapidas(estado.eje, idioma()), via: aj.via };
+}
+
+/** Repinta solo la sección de la guía (repintarlo todo borraría lo que se está escribiendo y el desplazamiento). */
+function pintarGuia() {
+  const el = raiz.querySelector('[data-guia]');
+  if (!el) return;
+  const campo = el.querySelector('[data-guia-pregunta]');
+  if (campo && !estado.guia.pensando && document.activeElement === campo) estado.guia.borrador = campo.value;
+  const nuevo = htmlGuia(datosGuia());
+  for (const g of raiz.querySelectorAll('[data-guia]')) g.outerHTML = nuevo;
+  raiz.querySelector('.guia-historial')?.lastElementChild?.scrollIntoView?.({ block: 'nearest' });
+}
+
+/** Los ajustes de la guía para el formulario de configuración: los campos de la época y la clave de la API de este navegador. */
+function guiaAjustesDe() {
+  const a = guia.ajustesEditables(estado.eje, estado.identidad);
+  return a ? { ...a, claveIa: guia.claveIa(almacenLocal(), altaDeGuia()) ?? '' } : undefined;
 }
 
 async function pintar() {
@@ -208,6 +245,7 @@ async function pintar() {
         console.error(e);
       }
     }
+    if (a && !a.vacio) a.guia = datosGuia();
     const extra = extraDe();
     limpiarLottie();
     for (const [k, v] of Object.entries(variablesDeColor(a?.colores))) document.documentElement.style.setProperty(k, v);
@@ -482,10 +520,16 @@ const manejadores = {
     // La clave de lectura, aparte: al almacén local de la cuenta, nunca al registro de preferencias (que va en el eje).
     const campoClave = form.querySelector('[data-clave-lectura]');
     if (campoClave && estado.cuenta) cuentas.guardarClaveLectura(estado.cuenta.alta, campoClave.value);
+    // Lo de la guía: la clave de la API, también aparte (solo en este navegador); los demás ajustes son un registro más.
+    const campoIa = form.querySelector('[data-clave-ia]');
+    if (campoIa && altaDeGuia()) guia.guardarClaveIa(almacenLocal(), altaDeGuia(), campoIa.value);
+    const valoresGuia = Object.fromEntries([...form.querySelectorAll('[data-guia-campo]')].map((i) => [i.dataset.guiaCampo, i.value]));
     const p = preferencias(estado.eje, estado.identidad, valores);
     if (!p) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
       await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: p.sobre, en: p.en, payload: p.payload }, privadaDe(estado.identidad));
+      const ajustesGuia = guia.ajustesEditables(estado.eje, estado.identidad, valoresGuia);
+      if (ajustesGuia?.cambiado) await salida.escribirDesde(estado.eje, { modo: 'sequenced', autor: estado.identidad, sobre: ajustesGuia.sobre, en: ajustesGuia.en, payload: ajustesGuia.payload }, privadaDe(estado.identidad));
       guardar();
       estado.config = false;
       estado.motivosPreferencias = [];
@@ -602,6 +646,56 @@ const manejadores = {
     estado.niveles[pv] = Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.comprimido);
     pintar();
     raiz.querySelector(`[data-pv="${pv}"]:not(.ocupante)`)?.focus();
+  },
+
+  // ---------- la guía del PV9 (carta/guia.js): solo lectura ----------
+
+  /** Pregunta a la guía con el contexto exacto de la pantalla; la respuesta se guarda en la conversación de esta alta. */
+  async guiaPreguntar(pregunta) {
+    const texto = String(pregunta ?? '').trim();
+    const g = estado.guia;
+    const eje = estado.eje;
+    const yo = estado.identidad;
+    const alta = altaDeGuia();
+    if (!texto || g.pensando || !alta) return;
+    datosGuia();
+    Object.assign(g, { pensando: true, pendiente: texto, error: '', borrador: '' });
+    pintarGuia();
+    const aj = guia.ajustes(eje, yo);
+    let r;
+    try {
+      const destino = guia.destinoDe(eje, yo);
+      r = await guia.preguntar({
+        via: aj.via, url: destino?.url, ejeCompartido: destino?.eje, claveLectura: cuentas.claveLectura(alta), claveIa: guia.claveIa(almacenLocal(), alta),
+        modelo: aj.modelo, instrucciones: guia.instrucciones(eje, estado.foco.X, yo), historial: g.alta === alta ? g.historial : [], pregunta: texto, maximo: aj.historial,
+        contexto: await guia.contexto(estado, eje, yo, { ...medidas(), cuenta: Boolean(estado.cuenta), tope: aj.contexto }),
+      });
+    } catch (e) {
+      r = { ok: false, motivo: String(e?.message ?? e) };
+    }
+    if (r.ok) {
+      const h = [...guia.cargarHistorial(almacenLocal(), alta, aj.historial), { role: 'user', content: texto }, { role: 'assistant', content: r.texto }].slice(-aj.historial);
+      guia.guardarHistorial(almacenLocal(), alta, h, aj.historial);
+      if (g.alta === alta) g.historial = h;
+    } else if (g.alta === alta) {
+      g.error = r.motivo;
+      g.borrador = texto;
+    }
+    if (g.alta === alta) Object.assign(g, { pensando: false, pendiente: '' });
+    pintarGuia();
+  },
+  /** Una de las preguntas hechas de la época (los botones rápidos). */
+  guiaRapida(i) {
+    const q = guia.preguntasRapidas(estado.eje, idioma())[i];
+    if (q) return manejadores.guiaPreguntar(q);
+  },
+  /** Vaciar la conversación de esta alta. */
+  guiaVaciar() {
+    const alta = altaDeGuia();
+    if (!alta) return;
+    guia.vaciarHistorial(almacenLocal(), alta);
+    Object.assign(estado.guia, { historial: [], error: '' });
+    pintarGuia();
   },
 
   // ---------- mi cuenta ----------
@@ -774,6 +868,8 @@ async function arrancar() {
   opinar.instalar({ raiz, cuenta: () => estado.cuenta?.nombre ?? 'ejemplo', alCambiar: () => { void pintar(); } });
   let temporizador = null;
   window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
+  // Lo escrito en la pregunta de la guía se recuerda (un repintado entero no lo pierde).
+  raiz.addEventListener('input', (e) => { if (e.target.matches?.('[data-guia-pregunta]')) estado.guia.borrador = e.target.value; });
   // El libro compartido: al volver la red y cada 30 s con la pestaña visible (la cola decide si toca reintentar).
   window.addEventListener('online', () => { if (estado.sincronia) void sincronizar(); });
   setInterval(() => { if (estado.sincronia && document.visibilityState === 'visible') void sincronizar(); }, sinc.CADA);
