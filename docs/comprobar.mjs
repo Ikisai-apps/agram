@@ -3,6 +3,9 @@
 //
 //   node docs/comprobar.mjs            todos los de docs/*.md y docs/notas/*.md
 //   node docs/comprobar.mjs BQL        solo los documentos cuyo nombre contiene «BQL»
+//   node docs/comprobar.mjs --escribir  reescribe en los documentos la salida impresa de los
+//                                       ejemplos que corren bien (código 0) y ya no coinciden
+//                                       (típico: cambió el id de la época); se puede combinar con un filtro
 //
 // Qué cuenta como ejemplo ejecutable:
 // - un bloque ```sh que es `node --input-type=module -e '…'` o `-e "…"` (otro
@@ -33,10 +36,12 @@
 // Sale con código 1 si algún ejemplo no da la salida impresa.
 // [X] decidir VG: si esto entra en `node --test` (docs/notas/PRUEBA_DEL_EXTRANJERO.md §7, pregunta 7).
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 
-const filtro = process.argv[2];
+const escribir = process.argv.includes('--escribir');
+const filtro = process.argv.slice(2).find((a) => !a.startsWith('--'));
+const reescrituras = new Map(); // archivo → [{ desde, hasta, texto }] (líneas 1-based del bloque de salida, sin las vallas)
 const archivos = [
   ...readdirSync('docs').filter((f) => f.endsWith('.md')).map((f) => 'docs/' + f),
   ...readdirSync('docs/notas').filter((f) => f.endsWith('.md')).map((f) => 'docs/notas/' + f),
@@ -113,6 +118,12 @@ function comparar(archivo, codigo, b, salida) {
     console.log(`✓ ${archivo}:${b.linea}${b.leido !== undefined ? ' · leído' : ''}`);
     return;
   }
+  if (escribir && r.status === 0 && salida.lenguaje !== undefined) {
+    if (!reescrituras.has(archivo)) reescrituras.set(archivo, []);
+    reescrituras.get(archivo).push({ desde: salida.linea + 1, hasta: salida.fin - 1, texto: real });
+    console.log(`↻ ${archivo}:${b.linea} → salida reescrita en la línea ${salida.linea}`);
+    return;
+  }
   distintos++;
   console.log(`✗ ${archivo}:${b.linea} → salida en la línea ${salida.linea} (código de salida ${r.status})`);
   const e = esperado.split('\n');
@@ -156,6 +167,15 @@ for (const archivo of archivos) {
     } else return;
     comparar(archivo, codigo, b, salida);
   });
+}
+for (const [archivo, lista] of reescrituras) {
+  const lineas = readFileSync(archivo, 'utf8').split('\n');
+  const crlf = lineas.some((l) => l.endsWith('\r'));
+  for (const { desde, hasta, texto } of lista.sort((a, b) => b.desde - a.desde)) {
+    lineas.splice(desde - 1, hasta - desde + 1, ...texto.split('\n').map((l) => (crlf ? l + '\r' : l)));
+  }
+  writeFileSync(archivo, lineas.join('\n'));
+  console.log(`escrito ${archivo}: ${lista.length} ${lista.length === 1 ? 'salida' : 'salidas'}`);
 }
 console.log(`\n${total - distintos} de ${total} ejemplos dan la salida impresa${leidos ? ` (${leidos} ${leidos === 1 ? 'bloque leído' : 'bloques leídos'})` : ''}${historicos ? ` · ${historicos} anexos históricos sin ejecutar` : ''}${fragmentos ? ` · ${fragmentos} ${fragmentos === 1 ? 'fragmento' : 'fragmentos'} sin ejecutar` : ''}`);
 process.exitCode = distintos ? 1 : 0;
