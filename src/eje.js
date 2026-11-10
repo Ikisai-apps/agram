@@ -88,6 +88,7 @@ export class Eje {
   #prefijoV2 = new Set(); // ids de los eventos del principio guardados con la versión 2
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
+  #relojExterno = -Infinity; // la hora que dan los demás desde fuera del eje (el `recibido` del libro compartido, src/sincronia.js), en milisegundos UTC
 
   /**
    * exigirFirmas: todo autor debe tener clave registrada y firmar. Si no, solo firman quienes tienen clave.
@@ -240,9 +241,29 @@ export class Eje {
   tMaximo(excluidos) {
     if (excluidos === undefined) return this.#tMax;
     const fuera = new Set(excluidos);
-    let max = -Infinity;
+    let max = this.#relojExterno;
     for (const [autor, ms] of this.#tPorAutor) if (ms > max && !fuera.has(autor)) max = ms;
     return max;
+  }
+
+  /**
+   * El reloj de los demás que llega de fuera (etapa 3, el libro compartido: el
+   * `recibido` del servidor, la hora a la que los demás vieron cada evento).
+   * Entra SOLO en el reloj de los demás (`tMaximo(excluidos)`, lo que las
+   * reglas leen como `before.6.3`), nunca en el mayor t del libro
+   * (`tMaximo()`, `before.6.0`: eso son los eventos) ni en ningún evento (no
+   * cambia ningún id). Se queda con el mayor; un instante que no se lee se
+   * ignora. Devuelve el reloj externo en milisegundos (-Infinity si no hay).
+   */
+  marcarReloj(instante) {
+    const ms = typeof instante === 'number' ? instante : Date.parse(instante);
+    if (Number.isFinite(ms) && ms > this.#relojExterno) this.#relojExterno = ms;
+    return this.#relojExterno;
+  }
+
+  /** El reloj externo marcado (milisegundos UTC; -Infinity si ninguno). */
+  get relojExterno() {
+    return this.#relojExterno;
   }
 
   /**
@@ -353,6 +374,70 @@ export class Eje {
     const n = Math.max(0, Math.min(hasta, this.orden.length));
     for (let k = 0; k < n; k++) eje.#aplicar(this.eventos.get(this.orden[k]));
     return eje;
+  }
+
+  /**
+   * Reordena el eje (etapa 3, el libro compartido: el orden que vale es el de
+   * llegada al servidor, y el local puede diferir). `lista` son eventos (o ids
+   * de eventos que el eje ya tiene), el génesis el primero y el mismo de
+   * siempre; lo que el eje tenía y no está en la lista va detrás, en su orden
+   * de entrada (lo que aún no se ha subido). Se reconstruye un eje nuevo
+   * volviendo a validar cada evento en el orden nuevo, como al restaurar
+   * (nada se da por bueno): lo que no pasa no entra y se devuelve en
+   * `rechazados` [{ id, motivo }] sin lanzar; `anadidos` son los ids de los
+   * eventos que no estaban. El eje adopta el resultado en sitio (los índices,
+   * el libro, las claves, el reloj externo), así que quien lo tenía sigue
+   * teniéndolo. No se reordena el prefijo de la versión 2 (sus reglas eran
+   * otras): si lo hay, la lista ha de empezar por él tal cual.
+   */
+  async reordenar(lista) {
+    const tenia = new Set(this.orden);
+    const eventosDe = (x) => (typeof x === 'string' ? this.eventos.get(x) : x);
+    const dados = lista.map(eventosDe);
+    if (dados.some((e) => !e || typeof e !== 'object')) throw new Error('reordenar: la lista lleva ids que el eje no tiene');
+    const ids = new Set(dados.map((e) => e.id));
+    const todos = [...dados, ...this.orden.filter((id) => !ids.has(id)).map((id) => this.eventos.get(id))];
+    if (!todos.length || todos[0].id !== this.genesisId) throw new Error('reordenar: el génesis va primero y es el de siempre');
+    for (let k = 0; k < this.eventosV2; k++) if (todos[k]?.id !== this.orden[k]) throw new Error('reordenar: el prefijo de la versión 2 no se reordena');
+    const [g, ...resto] = todos;
+    const nuevo = new Eje({ exigirFirmas: this.exigirFirmas, eventosV2: this.eventosV2 });
+    nuevo.#relojExterno = this.#relojExterno;
+    const motivos = await nuevo.#libro.evaluar(nuevo.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: this.eventosV2 > 0, reglas: this.eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(nuevo, { ev: g, epoch }) });
+    if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
+    nuevo.#aplicar(g);
+    const rechazados = [];
+    const anadidos = [];
+    for (const ev of resto) {
+      try {
+        const guardado = await nuevo.anadir(ev);
+        if (!tenia.has(guardado.id)) anadidos.push(guardado.id);
+      } catch (e) {
+        rechazados.push({ id: ev?.id, motivo: e.message });
+      }
+    }
+    this.#adoptar(nuevo);
+    return { anadidos, rechazados };
+  }
+
+  /** Toma todo el estado de `otro` (un eje recién construido): lo público y lo privado. */
+  #adoptar(otro) {
+    this.eventos = otro.eventos;
+    this.orden = otro.orden;
+    this.claves = otro.claves;
+    this.hijos = otro.hijos;
+    this.demostracion = otro.demostracion;
+    this.#libro = otro.#libro;
+    this.#series = otro.#series;
+    this.#obtenidoDeSerie = otro.#obtenidoDeSerie;
+    this.#tiposV2 = otro.#tiposV2;
+    this.#hijosEn = otro.#hijosEn;
+    this.#prefijos = otro.#prefijos;
+    this.#porAutor = otro.#porAutor;
+    this.#llegada = otro.#llegada;
+    this.#prefijoV2 = otro.#prefijoV2;
+    this.#tMax = otro.#tMax;
+    this.#tPorAutor = otro.#tPorAutor;
+    this.#relojExterno = otro.#relojExterno;
   }
 
   get genesisId() {

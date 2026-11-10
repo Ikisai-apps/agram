@@ -481,3 +481,57 @@ Al abrir la carta: si lo último fue una cuenta, se entra en ella (`abrirCuenta`
 La clave privada va cifrada con la frase (PBKDF2 con sal aleatoria y 600 000 iteraciones → AES-GCM de 256 bits, con el id del alta como dato asociado: el cifrado no vale con otro alta); la frase no se guarda en ningún sitio y la carta pide que se repita (ocho caracteres como mínimo: una comodidad de la pantalla, no un dato de la época). En claro solo van el nombre, el idioma, la identidad, el id del alta, la clave pública y el eje (público por naturaleza). El eje exportado es una **foto**: lo que se haga después en un dispositivo no aparece en el otro hasta que exista el libro compartido (etapa 3); la interfaz lo dice. `restaurarCuenta(archivo, frase)` descifra, importa la clave, comprueba que es la pareja de la pública, restaura el eje con `persistencia.restaurar` (cada evento vuelve a pasar por las reglas: ids, firmas, saldos) y comprueba que el eje declara esa clave para la identidad en su alta; la frase incorrecta y un archivo tocado dan el mismo motivo, sin pistas. Si la cuenta ya estaba en este navegador, la copia la sustituye y la carta lo dice.
 
 **Qué es dato de la época y qué no.** Del núcleo y de la época: cómo se construye el génesis, qué reglas lo aceptan, dónde va la clave (el 5) y el idioma (el 9 del alta), las etiquetas del formulario de crear, el tutorial del alta y los idiomas disponibles. De la carta (sus textos, `carta/textos.js`): los nombres de los botones, el mínimo de la frase, el nombre del archivo y el mapeo de claves de localStorage. Nada se añadió a la época: el tutorial de `epoch.3.0.9` ya cubría el alta nueva (la clave, el precio de un grupo, el primer registro con «anchor here»). Seguridad: nada real en el repositorio (ninguna cuenta ni clave de ejemplo se escribe en archivos; las pruebas generan las suyas), la privada nunca sale del navegador sin cifrar, y lo restaurado no se da por bueno.
+
+## 15. El libro compartido: `Sincronia({ url, eje, claveLectura })`, `subir`, `bajar`, `sincronizar`
+
+Etapa 3 del roadmap (mapa §17 [D], VG: «estoy de acuerdo con tus 2 recomendaciones»): un único eje accesible desde el móvil y el ordenador. Decisiones: se aloja en la nube de Ikisai, que es **Supabase**, en un **proyecto aparte para AGRAM**; el eje es **privado con clave de lectura**; se escribe solo con eventos **firmados por una identidad con alta en el eje**; **el servidor no valida reglas**: guarda, ordena por llegada y da la hora. **Nada está desplegado**: el proyecto Supabase no existe aún; lo que hay es la migración y la función listas (`servidor/supabase/`), un servidor de prueba en Node con el mismo contrato (`servidor/prueba/servidor.mjs`) y el cliente (`src/sincronia.js`, espacio de nombres `sincronia`), probados entre sí (`test/sincronia.test.js`, `test/servidor-prueba.test.js`, `test/paridad-funcion.test.js`). Cómo desplegar y crear el primer eje: `servidor/LEEME.md`. Cómo enganchar la carta: `carta/sincronia-ui.md` (una PR posterior: `carta/` lo toca la etapa 2).
+
+### 15.1 El contrato HTTP
+
+Todo cuelga de una base `url` (`https://<ref>.supabase.co/functions/v1` en Supabase, donde la función se llama `eventos`; `http://127.0.0.1:8787` con el servidor de prueba). JSON en los dos sentidos; los errores, `{ error }`.
+
+| Petición | Qué hace | Respuestas |
+|---|---|---|
+| `POST {url}/eventos/ejes` con `{ eje }` | crea un eje y genera su **clave de lectura**, que devuelve **una sola vez** (guarda solo su hash SHA-256). Protegido: `Authorization: Bearer <clave de servicio>` o `X-Crear-Ejes: <AGRAM_CREAR_EJES>`. El servidor de prueba responde también en `POST /ejes` | `201 { eje, claveLectura, creado }`; `400` nombre inválido (`[a-z0-9][a-z0-9._-]{0,63}`); `401`; `409` ya existe; `503` crear ejes deshabilitado |
+| `POST {url}/eventos` con `{ eje, evento }` y `X-Clave-Lectura` | guarda un evento. Comprueba la forma, que `id` = SHA-256 del cuerpo canónico y que la firma verifica con la clave del **alta** del autor (el primer evento del eje que la declara en `contexto.claves`); en un eje vacío solo entra un génesis firmado por sí mismo. **Idempotente**: el mismo id devuelve su orden | `201 { orden, recibido }`; `200 { orden, recibido, duplicado: true }`; `400` forma, id o firma; `401` clave de lectura; `403` autor sin alta; `404` eje; `413` cuerpo > 256 KB; `429` más de 60 escrituras por minuto en el eje |
+| `GET {url}/eventos?eje=…&desde=<orden>&cuantos=<≤500>` con `X-Clave-Lectura` | los eventos con `orden > desde`, por llegada, paginados (500 por defecto) | `200 { eventos: [{ orden, recibido, evento }], siguiente }` (`siguiente`: el `desde` de la página siguiente, o `null`); `400`, `401`, `404` |
+| `OPTIONS` | CORS: `https://agram.ikisai.com` y `http://localhost:*` | `204` |
+
+`orden` es el número de llegada (un `bigserial`: crece en todo el servidor, no por eje; solo importa su orden) y `recibido`, la hora del servidor al guardarlo. La tabla `eventos` es de solo añadir: clave primaria `(eje, id)`, índice `(eje, orden)`, un disparador que impide UPDATE, DELETE y TRUNCATE a cualquier rol, RLS activo **sin políticas** para `anon`/`authenticated` (todo pasa por la función con el rol de servicio: una política de lectura anónima dejaría leer el eje entero con la clave anónima, que es pública, saltándose la clave de lectura). La tabla `ejes` guarda `eje`, `clave_lectura_hash` y `creado`.
+
+### 15.2 Qué valida quién
+
+- **El servidor** (`servidor/supabase/funciones/eventos/verificar.js`, sin el núcleo; en el servidor de prueba, el núcleo mismo): solo la **forma**: los campos, el hash y la firma del autor con la clave de su alta. Ni movimientos, ni payload, ni `t`, ni posesión, ni reglas. Un génesis sin clave declarada (un eje de demostración) no se puede compartir.
+- **El cliente** (`sincronizar`): cada evento bajado pasa por `eje.anadir` con las reglas enteras. Lo que no pasa va a **`rechazados`** (`{ id, motivo, de: 'reglas' }`), se recuerda para no volver a intentarlo y **no rompe la sincronización**: lo siguiente entra igual.
+
+### 15.3 La cola
+
+Lo pendiente es lo que el eje local tiene y el servidor no (`pendientes(eje)`: no hay que encolar a mano). Se sube **en orden de entrada**, porque cada evento depende de los anteriores. Sin red (`SinRed`: el `fetch` falla), nada lanza: el primer pendiente queda en `cola` con `intentos` y `proximo` (espera creciente: 1 s, 2 s, 4 s… hasta 5 min), y hasta ese instante no se reintenta ni él ni lo de detrás. Un rechazo del servidor (`ErrorDelServidor`, con `estado`) se anota en `rechazados` con `de: 'servidor'` y en la cola con su `error`, y espera igual: lo de detrás depende de él, así que no se salta. `serializar()` → `{ version, url, eje, desde, ordenes, recibidos, cola, rechazados }` (**sin la clave de lectura**) y `Sincronia.restaurar(datos, { claveLectura })`: la cola sobrevive a recargar, como el eje.
+
+### 15.4 La reconciliación del orden
+
+No hay conflictos: todo evento válido se acepta **en orden de llegada al servidor**, y ese es el orden que vale. El orden local puede diferir (lo escrito sin red va, en local, delante de lo que otro dispositivo subió antes). `sincronizar` lo nota al bajar: si lo local ya va en el orden del servidor y todo lo nuevo llega detrás, añade por detrás (`eje.anadir`); si no, **`eje.reordenar(lista)`**: el eje se reconstruye en el orden del servidor, con lo nuevo en su sitio y **lo pendiente de subir detrás**, volviendo a validar cada evento como al restaurar; lo que en ese orden deja de pasar las reglas (otro dispositivo gastó antes lo mismo) va a `rechazados` (`de: 'reorden'`) sin lanzar. El eje adopta el resultado **en sitio** (el mismo objeto, con sus índices y su libro reconstruidos), así que quien lo tenía sigue teniéndolo; el informe lo dice (`reordenado: true`). El prefijo de la versión 2 de persistencia no se reordena. Un eje local cuyo génesis no es el del servidor no se mezcla: `errores` lo dice y nada se sube.
+
+### 15.5 El reloj de los demás
+
+El `recibido` del servidor es la hora a la que los demás vieron cada evento. Entra en el eje con **`eje.marcarReloj(instante)`** (se queda con el mayor; no toca ningún evento, así que ningún id cambia) y las reglas lo leen donde ya leían el reloj de los demás: **`before.6.3`** (`eje.tMaximo(excluidos)`, el mayor t de quienes no son el autor de la candidata: SEG-05), sin tocarlas. No entra en `before.6.0`, el mayor t del libro: eso son los eventos. `Sincronia.marcarReloj(eje)` lo vuelve a marcar tras restaurar.
+
+### 15.6 Privacidad
+
+Leer exige la clave de lectura del eje (`X-Clave-Lectura`; el servidor compara su hash); escribir también, y además la firma del autor con la clave de su alta. La clave de lectura **no va en el eje** (el eje se comparte): vive en el almacén local del dispositivo, por cuenta (`carta/sincronia-ui.md`). Ningún secreto en el código: la función lee todo de `Deno.env`; las credenciales, en `PROD/ikisai-apps/private/`.
+
+### 15.7 Configuración
+
+La plantilla «preferences» (§7) tiene dos posiciones más: **8 `sync url`** (la base del servidor) y **9 `sync ledger`** (el nombre del eje), de texto, sin defecto (sin valor, el eje vive solo en el dispositivo), con etiqueta y ayuda en español en `epoch.9.4` («servidor», «eje compartido»). `configuracion(eje, yo)` las devuelve como `'sync url'` y `'sync ledger'`.
+
+<!-- comprobar: fragmento -->
+```js
+import { sincronia, contrato } from './src/index.js';
+const c = contrato.configuracion(eje, 'vg');                       // c['sync url'], c['sync ledger']
+const S = new sincronia.Sincronia({ url: c['sync url'], eje: c['sync ledger'], claveLectura });
+const informe = await S.sincronizar(eje);                         // → { bajados, anadidos, rechazados, subidos, pendientes, reordenado, sinRed, errores }
+const { eje: nuevo } = await S.sincronizar(null);                 // sin eje local: nace del génesis del servidor
+guardar(S.serializar());                                          // la cola, con el eje; la clave de lectura aparte
+```
+
+**Core, pendiente de revisar VG**: que escribir exija también la clave de lectura (el encargo solo la pedía para leer; cuesta nada y evita que un extraño siquiera sondee el eje); que `POST /ejes` cuelgue de la función `eventos` (`…/eventos/ejes`) para desplegar una sola función; que un rechazo del servidor no se salte (bloquea lo de detrás hasta que alguien mire); que el reloj del servidor entre solo en `before.6.3`; que la lógica compartida de la función vaya en `.js` y no en `.ts` (Node la importa sin transpilar).
