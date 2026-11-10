@@ -1181,6 +1181,30 @@
           10,
           "how many animations play at once in the animated render: the focused and the new first, the rest stay on their frame"
         ]
+      ],
+      [
+        ["sync url"],
+        ["text"],
+        ["any"],
+        ["owner"],
+        ["write"],
+        ["8"],
+        ["etapa 3 (el libro compartido, mapa §17): dónde está el servidor del libro compartido; sin valor, el eje vive solo en este dispositivo"],
+        ["optional"],
+        ["arrival"],
+        ["the base url of the shared ledger server (…/functions/v1 in Supabase); empty, this ledger lives only on this device"]
+      ],
+      [
+        ["sync ledger"],
+        ["text"],
+        ["any"],
+        ["owner"],
+        ["write"],
+        ["9"],
+        ["etapa 3 (el libro compartido, mapa §17): el nombre del eje en el servidor; la clave de lectura no va aquí (es un secreto: vive en el almacén local de la cuenta)"],
+        ["optional"],
+        ["arrival"],
+        ["the name of this ledger on the shared server; the read key is not stored here (it is a secret: it lives in the device's local store, per account)"]
       ]
     ],
     [
@@ -1623,6 +1647,10 @@
           "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (el animado genérico y luego el sobrio, que siempre responde)",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
+          "template preferences param sync url label: servidor",
+          "template preferences param sync url help: la dirección base del servidor del libro compartido (…/functions/v1 en Supabase); vacío, este eje vive solo en este dispositivo",
+          "template preferences param sync ledger label: eje compartido",
+          "template preferences param sync ledger help: el nombre de este eje en el servidor; la clave de lectura no va aquí (es un secreto: vive en el almacén local de la cuenta)",
           "level seed: semilla",
           "level sprout: brote",
           "level shoot: vástago",

@@ -3242,6 +3242,70 @@ export const EPOCA_0_BTML_DATOS = [
           10,
           "how many animations play at once in the animated render: the focused and the new first, the rest stay on their frame"
         ]
+      ],
+      [
+        [
+          "sync url"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "8"
+        ],
+        [
+          "etapa 3 (el libro compartido, mapa §17): dónde está el servidor del libro compartido; sin valor, el eje vive solo en este dispositivo"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "the base url of the shared ledger server (…/functions/v1 in Supabase); empty, this ledger lives only on this device"
+        ]
+      ],
+      [
+        [
+          "sync ledger"
+        ],
+        [
+          "text"
+        ],
+        [
+          "any"
+        ],
+        [
+          "owner"
+        ],
+        [
+          "write"
+        ],
+        [
+          "9"
+        ],
+        [
+          "etapa 3 (el libro compartido, mapa §17): el nombre del eje en el servidor; la clave de lectura no va aquí (es un secreto: vive en el almacén local de la cuenta)"
+        ],
+        [
+          "optional"
+        ],
+        [
+          "arrival"
+        ],
+        [
+          "the name of this ledger on the shared server; the read key is not stored here (it is a secret: it lives in the device's local store, per account)"
+        ]
       ]
     ],
     [
@@ -3687,6 +3751,10 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (el animado genérico y luego el sobrio, que siempre responde)",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
+          "template preferences param sync url label: servidor",
+          "template preferences param sync url help: la dirección base del servidor del libro compartido (…/functions/v1 en Supabase); vacío, este eje vive solo en este dispositivo",
+          "template preferences param sync ledger label: eje compartido",
+          "template preferences param sync ledger help: el nombre de este eje en el servidor; la clave de lectura no va aquí (es un secreto: vive en el almacén local de la cuenta)",
           "level seed: semilla",
           "level sprout: brote",
           "level shoot: vástago",
@@ -13372,7 +13440,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "fe1f68bf200c9404ef1dd83803c5f845c412d09d8f40a655bbabc560e7fd1eed";
+export const EPOCA_0_BTML_ID = "6166e9e817c385e208c717116ea41ff1cb861ad71dab8a2b88f242b418ae6bf2";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
