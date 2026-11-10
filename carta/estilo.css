@@ -309,3 +309,19 @@ html.opinando #carta *{cursor:crosshair}
 .opinar-aviso{position:fixed;z-index:70;left:50%;transform:translateX(-50%);bottom:16px;background:var(--panel2);color:var(--fg);border:1px solid var(--accent);border-radius:8px;padding:6px 12px;font-size:13px;max-width:calc(100vw - 32px)}
 .roseton.grupo-nucleo{font-size:12px}
 .roseton.grupo-nucleo .numero{top:2px;font-size:8px}
+
+/* la salida externa del PV9: exportar, importar, propuestas, y las opiniones ancladas */
+.guia-externa{display:flex;flex-wrap:wrap;gap:6px}
+.propuestas h5{margin:6px 0 2px;font-size:12px;color:var(--muted);font-weight:500}
+.propuestas ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.propuestas li,.camino .paso.propuesta{flex-wrap:wrap;gap:4px 8px;align-items:baseline;padding:6px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--panel)}
+.camino .paso.propuesta{display:flex}
+.propuestas .invalida,.camino .paso.propuesta.invalida{border-color:var(--warn);background:var(--warnbg)}
+.propuesta .porque,.propuesta .motivo,.propuesta .motivos{flex:1 1 100%;font-size:12px;overflow-wrap:anywhere}
+.propuesta .motivo,.propuesta .motivos{color:var(--warn)}
+.propuesta-botones{display:flex;flex-wrap:wrap;gap:6px;flex:1 1 100%}
+.propuesta-nombre{font-weight:600}
+.opiniones h4{margin:6px 0 2px;font-size:12px;color:var(--muted);font-weight:500}
+.opiniones ol{margin:0;padding-left:16px;font-size:12px;display:grid;gap:3px}
+.opiniones time{font-family:var(--mono);color:var(--muted)}
+.opiniones small{display:block;overflow-wrap:anywhere;color:var(--muted)}

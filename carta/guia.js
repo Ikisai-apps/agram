@@ -38,9 +38,9 @@ const recortar = (texto, n) => (texto.length <= n ? texto : texto.slice(0, Math.
 const corto = (id) => String(id ?? '').slice(0, 8);
 
 /** Las posiciones de la plantilla de ajustes de la guía (docs/CONTRATO.md §16): las etiquetas son de la época, las posiciones son el contrato. */
-const POSICION = Object.freeze({ modelo: 1, via: 2, historial: 3, contexto: 4 });
+const POSICION = Object.freeze({ modelo: 1, via: 2, historial: 3, contexto: 4, ancla: contrato.POSICION_ANCLA_DE_OPINIONES });
 
-/** Los ajustes de la guía de quien mira, con los números como números: { modelo, via, historial, contexto, de }. */
+/** Los ajustes de la guía de quien mira, con los números como números: { modelo, via, historial, contexto, de } y, si dijo dónde ancla sus opiniones (§12.7), `ancla` (el id o el 0 que escribió). */
 export function ajustes(eje, yo, opciones = {}) {
   const c = contrato.configuracionGuia(eje, yo, opciones);
   const claves = contrato.clavesDeConfiguracionDe(contrato.ajustesDeLaGuia(opciones), opciones);
@@ -52,6 +52,7 @@ export function ajustes(eje, yo, opciones = {}) {
     historial: n(de(POSICION.historial), RESPALDO.historial),
     contexto: n(de(POSICION.contexto), RESPALDO.contexto),
     de: c.de ?? null,
+    ...(contrato.anclaDeLasOpiniones(eje, yo, opciones) ? { ancla: contrato.anclaDeLasOpiniones(eje, yo, opciones) } : {}),
   };
 }
 
@@ -75,12 +76,14 @@ export function ajustesEditables(eje, yo, valores = {}, opciones = {}) {
   for (const { pv, clave, defecto } of claves) {
     const numero = typeof defecto === 'number';
     const dado = valores[clave] !== undefined ? String(valores[clave]).trim() : undefined;
-    let v = dado === undefined || dado === '' ? actual[clave] ?? defecto : numero ? Number(dado) : dado;
+    // Un ajuste sin defecto (el ancla de las opiniones) se quita escribiendo «-»; vacío conserva el actual.
+    const quitar = dado === '-' && defecto === undefined;
+    let v = quitar ? undefined : dado === undefined || dado === '' ? actual[clave] ?? defecto : numero ? Number(dado) : dado;
     if (numero && !(Number.isFinite(v) && v > 0)) v = actual[clave] ?? defecto;
     if (v !== (actual[clave] ?? defecto)) cambiado = true;
-    payload[pv] = [v];
+    if (v !== undefined) payload[pv] = [v]; // BTML no tiene posiciones vacías
     campos.push({
-      pv, clave, numero, valor: v, marcador: defecto,
+      pv, clave, numero, valor: v ?? '', marcador: defecto ?? '',
       etiqueta: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'label'), idioma, { original: clave, ...opciones }),
       ayuda: contrato.texto(eje, contrato.claves.parametro(plantilla.nombre, clave, 'help'), idioma, { original: '', ...opciones }),
     });

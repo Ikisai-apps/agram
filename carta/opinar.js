@@ -179,10 +179,13 @@ export const estadoDe = (almacen) => ({ activo: leerActivo(almacen), cuantas: le
 /**
  * Engancha «opinar» en la carta. `raiz`: el elemento de la carta; `cuenta()`: el nombre de la cuenta (o «ejemplo»);
  * `alCambiar()`: lo que hay que repintar cuando cambia el conmutador o la lista (la barra lleva el contador).
+ * `alGuardar(opinion)`: opcional, async; lo que se hace además con cada opinión guardada (anclarla como registro en el
+ * proyecto AGRAM, carta/externa.js). Devuelve { ok, id } o { ok: false, motivo } (o { sinAncla: true }: nada que decir);
+ * la cajita lo cuenta: la opinión siempre queda en local, también si falla.
  * Con el conmutador activo, los clics, toques y gestos sobre la carta se detienen en fase de captura (no llegan a
  * carta/gestos.js) y abren la cajita. Devuelve { quitar, activo }.
  */
-export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {}, almacen = globalThis.localStorage }) {
+export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {}, alGuardar = null, almacen = globalThis.localStorage }) {
   const doc = raiz.ownerDocument;
   const ventana = doc.defaultView;
   let activo = leerActivo(almacen);
@@ -205,7 +208,7 @@ export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {},
     aviso.textContent = texto;
     doc.body.append(aviso);
     const este = aviso;
-    ventana.setTimeout(() => { if (aviso === este) { este.remove(); aviso = null; } }, 3000);
+    ventana.setTimeout(() => { if (aviso === este) { este.remove(); aviso = null; } }, texto.length > 90 ? 7000 : 3000);
   };
 
   const colocar = (el, marcado) => {
@@ -261,7 +264,10 @@ export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {},
       const op = nuevaOpinion({ nodo, entorno, version, cuenta: cuenta(), ahora: Date.now() }, texto.value);
       const ok = anadirOpinion(almacen, op);
       cerrar();
-      decir(ok ? t('opinarGuardada', { cuantas: leerOpiniones(almacen).length }) : t('sinAlmacenamiento'));
+      let anclada = null;
+      try { anclada = alGuardar ? await alGuardar(op) : null; } catch (e) { anclada = { ok: false, motivo: String(e?.message ?? e) }; }
+      const lista = ok ? t('opinarGuardada', { cuantas: leerOpiniones(almacen).length }) : t('sinAlmacenamiento');
+      decir(anclada?.ok ? lista + ' · ' + t('opinarAnclada', { id: String(anclada.id).slice(0, 8) }) : anclada && !anclada.sinAncla ? lista + ' · ' + t('opinarSoloLocal', { motivo: anclada.motivo ?? '' }) : lista);
       alCambiar();
     };
     guardar.addEventListener('click', guardarYa);

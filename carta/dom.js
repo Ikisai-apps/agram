@@ -124,10 +124,28 @@ function htmlDiario(d) {
   return `<section class="diario"${nodo('diario')}><h4>${d.total} ${t(d.total === 1 ? 'transaccion' : 'transacciones')}</h4><ol>${filas || `<li class="nada">${t('nada')}</li>`}</ol></section>`;
 }
 
+/**
+ * Una propuesta importada (carta/externa.js) como paso de la tercera fuente: lo que propone, su «porque», si ahora pasa
+ * las reglas y los tres botones (aceptar: lanzarla; modificar: el formulario con los parámetros; rechazar: descartarla).
+ * Una que no se entiende sale como inválida, con su motivo y solo «rechazar».
+ */
+function htmlPropuesta(p) {
+  const id = attr(p.propuesta);
+  const porque = p.porque ? `<span class="porque"><b>${t('propuestaPorque')}</b> ${escapar(p.porque)}</span>` : '';
+  const rechazar = `<button type="button"${nodo('control')} data-propuesta-rechazar="${id}" title="${attr(t('propuestaRechazarTitulo'))}">${t('propuestaRechazar')}</button>`;
+  if (p.invalida) {
+    return `<li class="paso propuesta invalida"${nodo('paso')} data-propuesta="${id}"><span class="fuente">${escapar(p.fuente)}</span> <b>${t('propuestaInvalida')}</b> <span class="falta">${escapar(p.falta ?? '')}</span> <span class="motivo">${escapar(p.invalida)}</span> ${porque}<span class="propuesta-botones">${rechazar}</span></li>`;
+  }
+  const noPasa = p.pasa === false && p.motivos?.length ? `<small class="motivos" role="status">${escapar(t('propuestaNoPasa', { motivos: p.motivos.map((m) => m.mensaje).join('; ') }))}</small>` : '';
+  return `<li class="paso propuesta mio${p.pasa === false ? ' no-pasa' : ''}"${nodo('paso')} data-propuesta="${id}"><button type="button" class="propuesta-nombre" data-propuesta-modificar="${id}" title="${attr(t('propuestaModificarTitulo'))}">${escapar(p.hacer?.nombre ?? '')}</button> <span class="fuente">${escapar(p.fuente)}</span> ${porque}${noPasa}
+    <span class="propuesta-botones"><button type="button"${nodo('control')} data-propuesta-aceptar="${id}" title="${attr(t('propuestaAceptarTitulo'))}">${t('propuestaAceptar')}</button><button type="button"${nodo('control')} data-propuesta-modificar="${id}" title="${attr(t('propuestaModificarTitulo'))}">${t('propuestaModificar')}</button>${rechazar}</span></li>`;
+}
+
 /** El camino: cada paso, mío (lanzable, por el id de su plantilla), de espera (marcado) o hecho; los niveles si la madurez es 0; «seguir». */
 export function htmlCamino(c, { X } = {}) {
   if (!c) return '';
   const pasos = c.pasos.map((p, i) => {
+    if (p.propuesta !== null && p.propuesta !== undefined) return htmlPropuesta(p);
     const clase = p.hecho ? 'hecho' : p.espera ? 'espera' : p.mio ? 'mio' : 'otro';
     const cuerpo = `<span class="fuente">${escapar(p.fuente)}</span> <span class="falta">${escapar(p.falta ?? '')}</span>`;
     const marca = p.hecho ? `<span class="marca">${t('hecho')}</span>` : p.espera ? `<span class="marca">${escapar(t('esperaA', { quien: p.espera }))}</span>` : '';
@@ -136,8 +154,27 @@ export function htmlCamino(c, { X } = {}) {
       : `<li class="paso ${clase}"${nodo('paso')}>${cuerpo} ${marca}</li>`;
   }).join('');
   const niveles = c.niveles ? `<p class="niveles">${t('paraUbicarse')} ${c.niveles.map((n) => `<span>${escapar(n)}</span>`).join(' → ')}</p>` : '';
-  const seguir = c.pasos.some((p) => p.mio && !p.hacer?.lectura) ? `<button type="button" class="seguir" data-seguir>${t('seguir')}</button>` : '';
+  const seguir = c.pasos.some((p) => p.mio && !p.hacer?.lectura && (p.propuesta === null || p.propuesta === undefined)) ? `<button type="button" class="seguir" data-seguir>${t('seguir')}</button>` : '';
   return `<section class="camino"${nodo('camino')} aria-label="${attr(t('camino'))}">${niveles}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
+}
+
+/**
+ * Las propuestas importadas que no están en el camino de este registro: las que tratan de otro (con «ir al registro») y
+ * las que no se entienden (con su motivo); cada una se puede rechazar. `p`: { fuera: [evaluación de carta/externa.js],
+ * aqui } o nada.
+ */
+function htmlPropuestasFuera(p) {
+  if (!p || (!p.fuera.length && !p.aqui)) return '';
+  const fila = (e) => `<li class="propuesta${e.valida ? '' : ' invalida'}"${nodo('paso')} data-propuesta="${attr(e.id)}"><b>${escapar(e.valida ? e.nombre : t('propuestaInvalida'))}</b> ${e.valida ? `<small>${escapar(t('propuestaSobre', { sobre: e.sobreTexto ?? corto(e.sobre) }))}</small>` : `<span class="falta">${escapar(e.accion)}</span> <span class="motivo">${escapar(e.motivo)}</span>`}${e.porque ? ` <span class="porque"><b>${t('propuestaPorque')}</b> ${escapar(e.porque)}</span>` : ''}
+    <span class="propuesta-botones">${e.valida ? `<button type="button"${nodo('control')} data-abrir="${attr(e.sobre)}">${t('propuestaAbrir')}</button>` : ''}<button type="button"${nodo('control')} data-propuesta-rechazar="${attr(e.id)}" title="${attr(t('propuestaRechazarTitulo'))}">${t('propuestaRechazar')}</button></span></li>`;
+  return `<div class="propuestas"${nodo('propuestas')}><h5>${t('propuestasPendientes', { cuantas: p.fuera.length + p.aqui })}</h5>${p.aqui ? `<small class="ayuda">${t('propuestaAqui', { cuantas: p.aqui })}</small>` : ''}<ul>${p.fuera.map(fila).join('')}</ul></div>`;
+}
+
+/** Las opiniones ancladas en un registro (el proyecto donde yo las ancla), con cuántas respuestas lleva cada una. */
+function htmlOpiniones(o) {
+  if (!o?.length) return '';
+  const filas = o.map((x) => `<li><time datetime="${attr(x.t)}">${escapar(x.t.replace('T', ' ').replace('Z', ''))}</time> · <b>${escapar(x.autor)}</b> · <button type="button" class="enlace" data-abrir="${x.id}">${corto(x.id)}</button> ${escapar(x.texto)}<small>${escapar(x.clasificacion.join(' · '))}${x.respuestas ? ' · ' + escapar(t('opinionesRespuestas', { cuantas: x.respuestas })) : ''}</small></li>`).join('');
+  return `<section class="opiniones"${nodo('opiniones')}><h4>${t('opiniones')} · ${o.length}</h4><ol>${filas}</ol></section>`;
 }
 
 /**
@@ -155,6 +192,8 @@ export function htmlGuia(g) {
     <ol class="guia-historial" aria-live="polite">${turnos || `<li class="nada">${t('guiaVacia')}</li>`}</ol>
     ${g.error ? `<p class="aviso" role="alert">${escapar(g.error)}</p>` : ''}
     <div class="guia-rapidas">${rapidas}</div>
+    <div class="guia-externa"><button type="button"${nodo('control')} data-guia-exportar title="${attr(t('exportarContextoTitulo'))}">${t('exportarContexto')}</button><button type="button"${nodo('control')} data-guia-importar title="${attr(t('importarPropuestasTitulo'))}">${t('importarPropuestas')}</button><input type="file" accept=".json,.md,.markdown,.txt,application/json,text/markdown,text/plain" data-guia-archivo hidden aria-label="${attr(t('importarPropuestas'))}"></div>
+    ${htmlPropuestasFuera(g.propuestas)}
     <form class="guia-form" data-guia-form><input type="text" name="pregunta" data-guia-pregunta value="${attr(g.borrador ?? '')}" placeholder="${attr(t('guiaPregunta'))}" aria-label="${attr(t('guiaPregunta'))}" autocomplete="off"${g.pensando ? ' disabled' : ''}><button type="submit"${g.pensando ? ' disabled' : ''}>${t('guiaPreguntar')}</button></form>
     <small class="ayuda">${escapar(t('guiaAyuda'))}</small>
   </section>`;
@@ -175,7 +214,7 @@ function htmlLateral(n, arbol) {
   else {
     const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) + (arbol.centro?.pv !== n.pv && (arbol.apilada || n.nivel >= NIVEL.bloque) ? htmlGuia(arbol.guia) : '') : '';
     const escenario = htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
-    cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) : '') + camino
+    cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
   }
   return `<section class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;

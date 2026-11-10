@@ -26,6 +26,7 @@ import { t, idiomaDeInterfaz } from './textos.js';
 import * as cuentas from './cuentas.js';
 import * as sinc from './sincronia.js';
 import * as guia from './guia.js';
+import * as externa from './externa.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -204,6 +205,22 @@ const almacenLocal = () => { try { return globalThis.localStorage; } catch { ret
 /** El alta de quien mira: por ella van la conversación (agram.guia.<alta>) y la clave de la API (agram.ia.<alta>). */
 const altaDeGuia = () => (estado.eje && estado.identidad ? estado.eje.alta(estado.identidad)?.id ?? null : null);
 
+/** Descarga un archivo { nombre, tipo, contenido } (el mismo gesto que el de exportar opiniones; con su tipo, no solo JSON). */
+function descargarArchivo({ nombre, tipo, contenido }) {
+  const url = URL.createObjectURL(new Blob([contenido], { type: tipo }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+/** Dónde se guardan las propuestas importadas: por cuenta (su alta) o «ejemplo» (agram.propuestas.<alta|ejemplo>). */
+const dondePropuestas = () => (estado.cuenta ? estado.cuenta.alta : 'ejemplo');
+const propuestasPendientes = () => (estado.eje && estado.identidad ? externa.leerPropuestas(almacenLocal(), dondePropuestas()) : []);
+
 /** Lo que pinta htmlGuia: la conversación de quien mira (cargada al cambiar de alta), lo que está pasando y las preguntas hechas de la época. */
 function datosGuia() {
   const alta = altaDeGuia();
@@ -211,7 +228,13 @@ function datosGuia() {
   const g = estado.guia;
   const aj = guia.ajustes(estado.eje, estado.identidad);
   if (g.alta !== alta) Object.assign(g, { alta, historial: guia.cargarHistorial(almacenLocal(), alta, aj.historial), borrador: '', pensando: false, pendiente: '', error: '' });
-  return { historial: g.historial, pensando: g.pensando, pendiente: g.pendiente, error: g.error, borrador: g.borrador, preguntas: guia.preguntasRapidas(estado.eje, idioma()), via: aj.via };
+  // Las propuestas importadas: las que tratan de este registro están en el camino; aquí, el resto y las que no se entienden.
+  const evaluadas = externa.evaluarTodas(estado.eje, estado.identidad, propuestasPendientes());
+  const propuestas = {
+    aqui: evaluadas.filter((e) => e.sobre === estado.foco.X).length,
+    fuera: evaluadas.filter((e) => e.sobre !== estado.foco.X).map((e) => (e.sobre ? { ...e, sobreTexto: contrato.legible(estado.eje, { ref: e.sobre }, null, { idioma: idioma() }).texto } : e)),
+  };
+  return { historial: g.historial, pensando: g.pensando, pendiente: g.pendiente, error: g.error, borrador: g.borrador, preguntas: guia.preguntasRapidas(estado.eje, idioma()), via: aj.via, propuestas };
 }
 
 /** Repinta solo la sección de la guía (repintarlo todo borraría lo que se está escribiendo y el desplazamiento). */
@@ -239,7 +262,7 @@ async function pintar() {
     let a = null;
     if (estado.eje) {
       try {
-        a = await arbol(estado, estado.eje, estado.identidad, medidas());
+        a = await arbol(estado, estado.eje, estado.identidad, medidas(), { sugerencias: externa.sugerenciasDe(propuestasPendientes()), firmar: firmarCon(estado.identidad) });
       } catch (e) {
         a = { vacio: true, avisos: [t('noSePinta', { motivo: e.message ?? e })] };
         console.error(e);
@@ -497,6 +520,7 @@ const manejadores = {
     const r = await enviar(estado.eje, f.X, f.accion, valores, estado.identidad, firmarCon(estado.identidad));
     if (r.ok && r.asentado) {
       trasEscribir();
+      if (f.propuesta) externa.quitarPropuesta(almacenLocal(), dondePropuestas(), f.propuesta);
       estado.formulario = null;
       estado.exito = t('registrado', { accion: nombreDeAccion(f.accion), id: r.asentado.id.slice(0, 8) }) + (r.asentado.firma ? ' ' + t('firmado') : '');
       tocar(f.X, 'hecho ' + canonicoDe(f.accion));
@@ -684,6 +708,67 @@ const manejadores = {
     if (g.alta === alta) Object.assign(g, { pensando: false, pendiente: '' });
     pintarGuia();
   },
+  /** Descargar el markdown con las instrucciones de la guía y el contexto exacto de la pantalla (carta/externa.js). */
+  async guiaExportar() {
+    if (!estado.eje || !estado.foco.X) return;
+    try {
+      const archivo = await externa.exportar(estado, estado.eje, estado.identidad, { ...medidas(), cuenta: Boolean(estado.cuenta) });
+      descargarArchivo(archivo);
+      estado.exito = t('externaDescargado', { archivo: archivo.nombre });
+      estado.aviso = '';
+    } catch (e) {
+      estado.aviso = String(e?.message ?? e);
+    }
+    pintar();
+  },
+  /** Elegir el archivo de propuestas (el input oculto de la guía); lo que se elija llega a guiaArchivo. */
+  guiaImportar() {
+    raiz.querySelector('[data-guia-archivo]')?.click();
+  },
+  /** El texto de un archivo de propuestas: las que se entienden y las que no entran como pendientes. */
+  guiaArchivo(texto) {
+    const r = externa.importar(texto);
+    if (!r.ok) { estado.aviso = r.motivo; estado.exito = ''; }
+    else if (externa.anadirPropuestas(almacenLocal(), dondePropuestas(), r.propuestas)) { estado.exito = t('externaImportadas', { cuantas: r.propuestas.length }); estado.aviso = ''; }
+    else { estado.aviso = t('sinAlmacenamiento'); estado.exito = ''; }
+    pintar();
+  },
+  /**
+   * Una propuesta importada: aceptar (lanzarla con sus parámetros: acciones.transaccion, las reglas y la firma; si algo no
+   * pasa, el formulario con el motivo), modificar (el formulario con los parámetros rellenos) o rechazar (descartarla).
+   */
+  async propuesta(que, id) {
+    const p = externa.leerPropuestas(almacenLocal(), dondePropuestas()).find((x) => x.id === id);
+    if (!p || !estado.eje) return;
+    if (que === 'rechazar') {
+      externa.quitarPropuesta(almacenLocal(), dondePropuestas(), id);
+      limpiarMensajes();
+      pintar();
+      return;
+    }
+    const e = externa.evaluar(estado.eje, estado.identidad, p);
+    if (!e.valida) return;
+    let motivos = [];
+    if (que === 'aceptar') {
+      const r = await enviar(estado.eje, e.sobre, e.accion, e.parametros, estado.identidad, firmarCon(estado.identidad));
+      if (r.ok && r.asentado) {
+        trasEscribir();
+        externa.quitarPropuesta(almacenLocal(), dondePropuestas(), id);
+        estado.exito = t('registrado', { accion: nombreDeAccion(e.accion), id: r.asentado.id.slice(0, 8) }) + (r.asentado.firma ? ' ' + t('firmado') : '');
+        estado.aviso = '';
+        tocar(e.sobre, 'hecho ' + canonicoDe(e.accion));
+        marcarNuevos();
+        pintar();
+        return;
+      }
+      motivos = r.motivos ?? []; // lo que no pasa se enseña en el formulario, para cambiarlo
+    }
+    estado.formulario = { X: e.sobre, accion: e.accion, valores: e.parametros, motivos, resultado: null, propuesta: id };
+    estado.aro = null;
+    limpiarMensajes();
+    tocar(e.sobre, 'lanzar ' + canonicoDe(e.accion));
+    pintar();
+  },
   /** Una de las preguntas hechas de la época (los botones rápidos). */
   guiaRapida(i) {
     const q = guia.preguntasRapidas(estado.eje, idioma())[i];
@@ -865,7 +950,24 @@ async function reiniciar() {
 
 async function arrancar() {
   gestos = instalar(raiz, manejadores);
-  opinar.instalar({ raiz, cuenta: () => estado.cuenta?.nombre ?? 'ejemplo', alCambiar: () => { void pintar(); } });
+  opinar.instalar({
+    raiz, cuenta: () => estado.cuenta?.nombre ?? 'ejemplo', alCambiar: () => { void pintar(); },
+    // Con «opinions anchor» (los ajustes de la guía), cada opinión se escribe además como un registro anclado en el proyecto.
+    async alGuardar(opinion) {
+      const r = await externa.anclarOpinion(estado.eje, estado.identidad, opinion, { firmar: firmarCon(estado.identidad) });
+      if (r.ok) trasEscribir();
+      return r;
+    },
+  });
+  // El archivo de propuestas que elige la persona (el input oculto de la guía).
+  raiz.addEventListener('change', async (e) => {
+    if (!e.target.matches?.('[data-guia-archivo]')) return;
+    const archivo = e.target.files?.[0];
+    let texto = null;
+    try { texto = archivo ? await archivo.text() : null; } catch { estado.aviso = t('externaNoSeLee'); pintar(); }
+    e.target.value = '';
+    if (texto !== null) manejadores.guiaArchivo(texto);
+  });
   let temporizador = null;
   window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
   // Lo escrito en la pregunta de la guía se recuerda (un repintado entero no lo pierde).

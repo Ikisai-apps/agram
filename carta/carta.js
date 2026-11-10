@@ -343,6 +343,12 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco) {
     const d = contrato.diario(eje, X, 0, cuantos, ctx.opciones);
     // Cada asiento, legible: la primitiva del libro y la cantidad con su serie como la dice el núcleo.
     nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + legibleDe(eje, m, null, ctx.opciones).texto), ancla: e.ancla })) };
+    // Las opiniones ancladas en este registro, si es el proyecto donde se anclan (acciones.opiniones): con sus respuestas.
+    if (ctx.proyecto === X) {
+      const cuenta = (l) => l.reduce((n, r) => n + 1 + cuenta(r.respuestas), 0);
+      const lista = acciones.opiniones(eje, X, ctx.opciones);
+      if (lista.length) nodo.opiniones = lista.map((o) => ({ id: o.id, autor: o.autor, t: o.t, texto: o.texto, clasificacion: o.clasificacion, respuestas: cuenta(o.respuestas) }));
+    }
   }
   return nodo;
 }
@@ -585,7 +591,7 @@ async function caminoDe(eje, X, yo, ctx) {
   if (!yo) return { pasos: [], niveles: null };
   const c = await acciones.camino(eje, X, yo, ctx.opciones);
   return {
-    pasos: c.pasos.map((p) => ({ fuente: p.fuente, falta: p.falta, hecho: Boolean(p.hecho), espera: p.espera ?? null, regla: p.regla ?? null, mio: Boolean(p.hacer) && !p.espera && !p.hecho, hacer: p.hacer ? { ...accionDe(p.hacer.plantilla, ctx.opciones), X: p.hacer.X, parametros: p.hacer.parametros, lectura: Boolean(p.hacer.lectura) } : null, pasa: p.pasa, motivos: p.motivos })),
+    pasos: c.pasos.map((p) => ({ fuente: p.fuente, falta: p.falta, hecho: Boolean(p.hecho), espera: p.espera ?? null, regla: p.regla ?? null, porque: p.porque ?? null, propuesta: p.propuesta ?? null, invalida: p.invalida ?? null, mio: Boolean(p.hacer) && !p.espera && !p.hecho, hacer: p.hacer ? { ...accionDe(p.hacer.plantilla, ctx.opciones), X: p.hacer.X, parametros: p.hacer.parametros, lectura: Boolean(p.hacer.lectura) } : null, pasa: p.pasa, motivos: p.motivos })),
     niveles: c.niveles ?? null,
   };
 }
@@ -638,6 +644,8 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     // El paso de «cargar más»: el de la época (epoch.8.3.3) o, si quien mira lo ha escrito en sus preferencias, el suyo.
     paso: configuracion.de && typeof configuracion.step === 'number' && configuracion.step > 0 ? configuracion.step : contrato.paso(opciones),
     pasos: pasosPorPv(eje, X, opciones),
+    // El proyecto donde yo ancla sus opiniones (su ajuste «opinions anchor»): en su pasado se listan (docs/CONTRATO.md §12.7).
+    proyecto: yo ? acciones.proyectoDeOpiniones(eje, yo, opciones) : null,
   };
   // Cuántos datos caben en la pantalla, en huecos comprimidos; la época dice qué puntos de vista y cómo se disponen.
   const capacidad = Math.max(1, Math.floor(m.ancho / m.hueco) * Math.floor(m.alto / m.hueco));

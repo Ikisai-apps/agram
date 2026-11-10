@@ -24,6 +24,8 @@ const UMBRAL_PELLIZCO = 30;
  *   roseton(pv)              un paso en un rosetón de identidad
  *   leido()                  alternar la lente «leído»
  *   englobar()               guardar este rato (englobar el libro local)
+ *   guiaExportar() · guiaImportar()  la salida externa del PV9 (carta/externa.js): descargar el contexto, elegir el archivo de propuestas
+ *   propuesta(que, id)       aceptar, modificar o rechazar una propuesta importada (el paso de la tercera fuente del camino)
  *   quien(id) · ejemplo(id) · reiniciar() · seguir()
  *   arranque(que)            la pantalla de arranque: menu, crear, restaurar, ejemplo o cuenta:<alta>
  *   crear(form) · restaurar(form) · copia(form | null) · olvidar()   mi cuenta: crearla, restaurarla de su copia, la copia de seguridad, olvidarla
@@ -52,6 +54,11 @@ export function instalar(raiz, m) {
     if (t.closest('.formulario, .aro, .guia') && !t.closest('button')) return; // dentro de un diálogo (o de la guía), nada más que los botones
     if ((el = b('[data-guia-rapida]'))) { e.preventDefault(); m.guiaRapida?.(Number(el.dataset.guiaRapida)); return; }
     if ((el = b('[data-guia-vaciar]'))) { e.preventDefault(); m.guiaVaciar?.(); return; }
+    if ((el = b('[data-guia-exportar]'))) { e.preventDefault(); m.guiaExportar?.(); return; }
+    if ((el = b('[data-guia-importar]'))) { e.preventDefault(); m.guiaImportar?.(); return; }
+    for (const que of ['aceptar', 'modificar', 'rechazar']) {
+      if ((el = b(`[data-propuesta-${que}]`))) { e.preventDefault(); m.propuesta?.(que, el.dataset[`propuesta${que[0].toUpperCase()}${que.slice(1)}`]); return; }
+    }
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
     if ((el = b('[data-aro-hueco]'))) { e.preventDefault(); m.aro?.(xDe(el) ?? el.closest('.aro')?.dataset.x, Number(el.dataset.aroHueco), { desplegar: true }); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
