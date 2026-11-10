@@ -1,41 +1,59 @@
-// El arranque de la carta en el navegador: el eje de ejemplo (o el guardado), las claves de las identidades de prueba,
-// el libro local de quien mira, el estado de la pantalla y el ciclo medir → pedir el árbol (carta/carta.js) → pintar
+// El arranque de la carta en el navegador: mi cuenta (un eje propio cuyo génesis es mi alta, con mi clave generada en
+// este dispositivo: carta/cuentas.js) o el eje de ejemplo (con las claves de las identidades de prueba), el libro
+// local de quien mira, el estado de la pantalla y el ciclo medir → pedir el árbol (carta/carta.js) → pintar
 // (carta/dom.js) → enganchar gestos (carta/gestos.js). Lo nuevo del diario desde la última vez (estado.nuevos) es lo
-// que el animado anima (efectos, actuar) y se olvida en cuanto se ha pintado. La fontanería es la de la web antigua (antigua/ui/ejemplos.js,
-// antigua/ui/leido.js, antigua/ui/comun.js y las mismas claves de localStorage): el mismo eje y las mismas claves
-// sirven a las dos webs. Nada real: identidades de ejemplo con claves generadas en este navegador.
+// que el animado anima (efectos, actuar) y se olvida en cuanto se ha pintado.
+//
+// Al abrir: si hay una cuenta usada la última vez, se entra en ella; si lo último fue un ejemplo, en el ejemplo; si
+// nunca se eligió nada, la pantalla de arranque ofrece crear mi cuenta, restaurar una cuenta desde su copia o probar
+// con un ejemplo. Las cuentas viven en sus propias claves de localStorage (cuentas.js, CLAVES) y los ejemplos en las
+// de siempre (CLAVES_EJEMPLO: la fontanería de la web antigua, antigua/ui/ejemplos.js, antigua/ui/leido.js,
+// antigua/ui/comun.js; el mismo eje de ejemplo y las mismas claves sirven a las dos webs). Nada real en el
+// repositorio: las identidades de ejemplo llevan claves generadas en este navegador; la de mi cuenta, también, y solo
+// sale de él cifrada con una frase (la copia de seguridad).
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento } from '../src/index.js';
-import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS } from './carta.js';
+import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, trasPintar } from './dom.js';
 import { instalar } from './gestos.js';
-import { t } from './textos.js';
+import { t, idiomaDeInterfaz } from './textos.js';
+import * as cuentas from './cuentas.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
 
-const CLAVE_EJE = 'agram.eje';
-const CLAVE_CLAVES = 'agram.claves';
-const CLAVE_FOCO = 'agram.foco';
-const CLAVE_YO = 'agram.yo';
-const CLAVE_LOCAL = 'agram.local.';
+const { CLAVES_EJEMPLO, EJEMPLO } = cuentas;
+const CLAVE_EJE = CLAVES_EJEMPLO.eje;
+const CLAVE_CLAVES = CLAVES_EJEMPLO.claves;
+const CLAVE_FOCO = CLAVES_EJEMPLO.foco;
+const CLAVE_YO = CLAVES_EJEMPLO.yo;
 const IDENTIDADES_EJEMPLO = ['casa', 'cocina', 'huesped', 'recepcion'];
+/** Cuántos caracteres pide, como mínimo, la frase de la copia de seguridad (una comodidad de la pantalla, no un dato de la época). */
+const FRASE_MINIMA = 8;
 
 const raiz = document.querySelector('#carta');
 const estado = {
   eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, paginas: {}, aro: null, formulario: null,
   rosetones: {}, local: null, leido: leidoAbierto(), aviso: '', exito: '', guardado: '', config: false, motivosPreferencias: [],
   vistos: new Set(), nuevos: new Set(), hermanos: null,
+  // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
+  // de arranque ({ modo, campos, valores, motivos, ocupado }) y el diálogo de la copia ({ archivo, minimo, motivos, hecho, ocupado }).
+  cuenta: null, arranque: null, copia: null,
 };
 let limpiarLottie = () => {};
 let gestos = null;
 let pintando = null;
 
-const privadaDe = (id) => estado.claves[id]?.privada;
+/** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
+const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
 const firmarCon = (id) => (privadaDe(id) ? (ev) => autoridad.firmar(ev, privadaDe(id)) : undefined);
 const medidas = () => ({ ancho: Math.max(240, window.innerWidth), alto: Math.max(320, window.innerHeight) });
 /** El idioma de quien mira: su preferencia «language». */
 const idioma = () => contrato.configuracion(estado.eje, estado.identidad).language;
+/** La clave de localStorage del libro local de quien mira: por cuenta, o la de los ejemplos. */
+const claveLocalDe = (id) => (estado.cuenta ? cuentas.CLAVES.local(estado.cuenta.alta, id) : CLAVES_EJEMPLO.local(id));
+/** El PV donde la carta pinta el camino (la geometría de VG: la cruz, abajo); ahí se abre el tutorial de un alta nueva. */
+const PV_CAMINO = Number(Object.keys(GEOMETRIA).find((pv) => GEOMETRIA[pv].grupo === 'cruz' && GEOMETRIA[pv].fila === 'abajo'));
 /** El nombre canónico de una acción del aro (por su id o su nombre): lo que anota el libro local. */
 function canonicoDe(accion) {
   const p = acciones.plantillaDeTransaccion(accion);
@@ -70,7 +88,7 @@ async function cargarClaves() {
 }
 
 function guardar() {
-  const ok = persistencia.guardarLocal(estado.eje, CLAVE_EJE);
+  const ok = estado.cuenta ? cuentas.guardarEje(estado.cuenta, estado.eje) : persistencia.guardarLocal(estado.eje, CLAVE_EJE);
   estado.guardado = ok ? t('guardadoEnNavegador', { cuantos: estado.eje.orden.length }) : t('sinAlmacenamiento');
   guardarLibroLocal();
 }
@@ -78,9 +96,9 @@ function guardar() {
 /** El libro local de quien mira: el guardado en este navegador (vuelve a quemar cada segundo) o uno nuevo. */
 function abrirLibroLocal() {
   const id = estado.identidad;
-  if (!id) { estado.local = null; return; }
+  if (!id || !estado.eje) { estado.local = null; return; }
   try {
-    const datos = JSON.parse(leerLocal(CLAVE_LOCAL + id) ?? 'null');
+    const datos = JSON.parse(leerLocal(claveLocalDe(id)) ?? 'null');
     estado.local = datos ? local.LibroLocal.restaurar(estado.eje, datos) : new local.LibroLocal(estado.eje, id);
   } catch {
     estado.local = new local.LibroLocal(estado.eje, id);
@@ -88,12 +106,12 @@ function abrirLibroLocal() {
 }
 
 function guardarLibroLocal() {
-  if (estado.local) guardarLocal(CLAVE_LOCAL + estado.identidad, JSON.stringify(estado.local.serializar()));
+  if (estado.local) guardarLocal(claveLocalDe(estado.identidad), JSON.stringify(estado.local.serializar()));
 }
 
 /** Cada toque gasta un segundo del libro local; si no queda, el motivo que da la época se enseña y no se corta nada. */
 function tocar(X, accion) {
-  if (!estado.local || !X || !estado.eje.obtener(X)) return;
+  if (!estado.local || !X || !estado.eje?.obtener(X)) return;
   const r = accion ? estado.local.tocar(X, accion) : estado.local.ver(X);
   if (!r.ok) estado.aviso = r.motivo;
   guardarLibroLocal();
@@ -102,10 +120,21 @@ function tocar(X, accion) {
 /** Lo nuevo desde la última vez: los ids del diario del foco que aún no se habían visto (lo que el animado anima). */
 function marcarNuevos() {
   const X = estado.foco.X;
-  if (!X) return;
+  if (!X || !estado.eje) return;
   const d = contrato.diario(estado.eje, X, 0, 100);
   estado.nuevos = new Set(d.entradas.map((e) => e.id).filter((id) => !estado.vistos.has(id) && estado.vistos.size));
   for (const e of d.entradas) estado.vistos.add(e.id);
+}
+
+/** Lo que la carta no decide y la app sabe (dom.js html, `extra`). */
+function extraDe() {
+  return {
+    ejemplos: EJEMPLOS.map((e) => ({ id: e.id, etiqueta: e.etiqueta })), ejemplo: ejemploElegido(), guardado: estado.guardado, aviso: estado.aviso, exito: estado.exito, nuevos: estado.nuevos,
+    leidoTexto: estado.leido && estado.foco.X && estado.eje ? leerTexto(estado.foco.X) : undefined,
+    preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
+    cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
+    arranque: estado.arranque, copia: estado.copia,
+  };
 }
 
 async function pintar() {
@@ -113,29 +142,27 @@ async function pintar() {
   const marca = { otra: false };
   pintando = marca;
   marca.promesa = (async () => {
-    let a;
-    try {
-      a = await arbol(estado, estado.eje, estado.identidad, medidas());
-    } catch (e) {
-      a = { vacio: true, avisos: [t('noSePinta', { motivo: e.message ?? e })] };
-      console.error(e);
+    let a = null;
+    if (estado.eje) {
+      try {
+        a = await arbol(estado, estado.eje, estado.identidad, medidas());
+      } catch (e) {
+        a = { vacio: true, avisos: [t('noSePinta', { motivo: e.message ?? e })] };
+        console.error(e);
+      }
     }
-    const extra = {
-      ejemplos: EJEMPLOS.map((e) => ({ id: e.id, etiqueta: e.etiqueta })), ejemplo: ejemploElegido(), guardado: estado.guardado, aviso: estado.aviso, exito: estado.exito, nuevos: estado.nuevos,
-      leidoTexto: estado.leido && estado.foco.X ? leerTexto(estado.foco.X) : undefined,
-      preferencias: estado.config ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
-    };
+    const extra = extraDe();
     limpiarLottie();
     raiz.innerHTML = html(a, extra);
-    limpiarLottie = a.animado ? trasPintar(raiz) : () => {};
+    limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
     // Lo nuevo se anima una vez: en cuanto se ha pintado con lottie-web, deja de ser nuevo (si lottie aún no está, el
     // repintado al cargarlo lo anima).
-    if (a.animado && globalThis.lottie) estado.nuevos = new Set();
+    if (a?.animado && globalThis.lottie) estado.nuevos = new Set();
     globalThis.__carta = { arbol: a, vivas: () => limpiarLottie.vivas?.() ?? 0 }; // para medir (pruebas de rendimiento)
     gestos?.observar();
-    if (estado.foco.X) guardarLocal(CLAVE_FOCO, estado.foco.X);
-    document.documentElement.classList.toggle('animado', Boolean(a.animado));
-    if (a.animado) cargarLottie();
+    if (estado.foco.X && !estado.cuenta) guardarLocal(CLAVE_FOCO, estado.foco.X);
+    document.documentElement.classList.toggle('animado', Boolean(a?.animado));
+    if (a?.animado) cargarLottie();
   })().finally(() => {
     const otra = marca.otra;
     pintando = null;
@@ -174,7 +201,7 @@ function limpiarMensajes() {
 
 /** Enfocar un registro (o un PV de un registro como foco). */
 function irA(X, pv = 0) {
-  if (!estado.eje.obtener(X)) return;
+  if (!estado.eje?.obtener(X)) return;
   const cambia = estado.foco.X !== X;
   estado.foco = { X, pv };
   if (cambia) { estado.niveles = {}; estado.paginas = {}; estado.aro = null; estado.formulario = null; }
@@ -183,6 +210,96 @@ function irA(X, pv = 0) {
   marcarNuevos();
   pintar();
 }
+
+/** Un eje nuevo en pantalla (una cuenta o un ejemplo): se olvida lo visto y lo abierto. */
+function cambiarDeEje(eje, identidad) {
+  guardarLibroLocal();
+  estado.eje = eje;
+  estado.identidad = identidad;
+  estado.foco = { X: null, pv: 0 };
+  estado.niveles = {};
+  estado.paginas = {};
+  estado.aro = null;
+  estado.formulario = null;
+  estado.rosetones = {};
+  estado.config = false;
+  estado.vistos = new Set();
+  estado.nuevos = new Set();
+  estado.arranque = null;
+  estado.copia = null;
+  limpiarMensajes();
+}
+
+/** Descarga un texto como archivo (GitHub Pages: un enlace con `download` y un blob). */
+function descargar(texto, nombre) {
+  const url = URL.createObjectURL(new Blob([texto], { type: 'application/json' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nombre;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---------- mi cuenta ----------
+
+/** Entra en una cuenta guardada en este navegador: su eje, su clave, mi alta como foco. false (y el motivo en el aviso) si no se abre. */
+async function entrarEnCuenta(alta) {
+  const r = await cuentas.abrirCuenta(alta);
+  if (!r.eje) {
+    estado.aviso = t('cuentaNoAbre', { nombre: r.cuenta?.nombre ?? alta.slice(0, 8), motivo: r.motivo });
+    estado.arranque = { modo: 'menu' };
+    await pintar();
+    return false;
+  }
+  entrarCon(r);
+  estado.guardado = t('cuentaAbierta', { nombre: r.cuenta.nombre, cuantos: r.eje.orden.length });
+  irA(r.cuenta.alta);
+  return true;
+}
+
+/** Deja como eje en pantalla el de una cuenta abierta, creada o restaurada ({ cuenta, eje, privada }). */
+function entrarCon({ cuenta, eje, privada }) {
+  cambiarDeEje(eje, cuenta.identidad);
+  estado.cuenta = { ...cuenta, privada };
+  cuentas.recordarUltima(cuenta.alta);
+  abrirLibroLocal();
+}
+
+/** Entra en el ejemplo: el eje guardado en este navegador (si sus claves son las de esta sesión) o uno nuevo. */
+async function entrarEnEjemplo() {
+  estado.claves = await cargarClaves();
+  let cargado = await persistencia.cargarLocal(CLAVE_EJE);
+  if (cargado && estado.claves.casa && JSON.stringify(cargado.clave('casa')) !== JSON.stringify(estado.claves.casa.publica)) cargado = null; // claves de otra sesión
+  let foco;
+  const yo = leerLocal(CLAVE_YO) ?? 'huesped';
+  if (cargado) {
+    cambiarDeEje(cargado, yo);
+    estado.cuenta = null;
+    foco = restaurarEjemplo(cargado, estado) ?? cargado.genesisId;
+    estado.guardado = t('cargadoDelNavegador', { cuantos: cargado.orden.length });
+  } else {
+    const apartado = persistencia.apartarLocal(CLAVE_EJE);
+    cambiarDeEje(null, yo);
+    estado.cuenta = null;
+    const nuevo = await crearEjemplo(estado);
+    estado.eje = nuevo.eje;
+    foco = nuevo.foco;
+    guardar();
+    if (apartado) estado.aviso = t('ejeApartado', { clave: CLAVE_EJE + '.anterior' });
+  }
+  if (!estado.eje.identidades().includes(estado.identidad)) estado.identidad = estado.eje.identidades()[0];
+  cuentas.recordarUltima(EJEMPLO);
+  abrirLibroLocal();
+  estado.foco = { X: foco, pv: 0 };
+  tocar(foco, null);
+  marcarNuevos();
+  await pintar();
+}
+
+/** Lo escrito en los inputs de un formulario, por nombre. */
+const valoresDe = (form) => Object.fromEntries([...form.querySelectorAll('input[name],select[name]')].filter((i) => i.type !== 'file').map((i) => [i.name, i.value]));
 
 const manejadores = {
   nivel(pv, delta, X) {
@@ -230,7 +347,9 @@ const manejadores = {
     pintar();
   },
   cerrar() {
-    if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
+    if (estado.copia) estado.copia = null;
+    else if (estado.arranque && estado.eje) estado.arranque = null;
+    else if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
     else if (estado.formulario) estado.formulario = null;
     else if (estado.aro) estado.aro = null;
     else return;
@@ -338,11 +457,17 @@ const manejadores = {
     }
     pintar();
   },
-  quien(id) {
-    if (!estado.eje.identidades().includes(id)) return;
+  /** El selector «soy»: una de mis cuentas (cuenta:<alta>), crear o restaurar una, probar con un ejemplo, o una identidad del eje de ejemplo. */
+  async quien(valor) {
+    if (valor.startsWith('cuenta:')) { await entrarEnCuenta(valor.slice('cuenta:'.length)); return; }
+    if (valor === 'nueva') return manejadores.arranque('crear');
+    if (valor === 'restaurar') return manejadores.arranque('restaurar');
+    if (valor === EJEMPLO) return manejadores.arranque(EJEMPLO);
+    const id = valor;
+    if (!estado.eje?.identidades().includes(id)) return;
     guardarLibroLocal();
     estado.identidad = id;
-    guardarLocal(CLAVE_YO, id);
+    if (!estado.cuenta) guardarLocal(CLAVE_YO, id);
     abrirLibroLocal();
     estado.aro = null;
     estado.formulario = null;
@@ -351,7 +476,7 @@ const manejadores = {
     pintar();
   },
   async ejemplo(id) {
-    if (!EJEMPLOS.some((e) => e.id === id) || id === ejemploElegido()) return;
+    if (estado.cuenta || !EJEMPLOS.some((e) => e.id === id) || id === ejemploElegido()) return;
     elegirEjemplo(id);
     await reiniciar();
   },
@@ -394,12 +519,146 @@ const manejadores = {
     pintar();
     raiz.querySelector(`[data-pv="${pv}"]`)?.focus();
   },
+
+  // ---------- mi cuenta ----------
+
+  /** La pantalla de arranque: el menú, crear, restaurar, probar con un ejemplo o entrar en una cuenta guardada. */
+  async arranque(que) {
+    limpiarMensajes();
+    if (que === 'crear') {
+      estado.arranque = { modo: 'crear', campos: cuentas.camposDelAlta({ idioma: idiomaDeInterfaz() }), valores: {}, motivos: [] };
+    } else if (que === 'restaurar') {
+      estado.arranque = { modo: 'restaurar', motivos: [] };
+    } else if (que === EJEMPLO) {
+      estado.arranque = null;
+      await entrarEnEjemplo();
+      return;
+    } else if (typeof que === 'string' && que.startsWith('cuenta:')) {
+      await entrarEnCuenta(que.slice('cuenta:'.length));
+      return;
+    } else {
+      estado.arranque = { modo: 'menu' };
+    }
+    estado.copia = null;
+    estado.config = false;
+    estado.formulario = null;
+    estado.aro = null;
+    await pintar();
+  },
+  /** Crear mi cuenta con el nombre y el idioma del formulario: la clave se genera aquí, el génesis es mi alta, y se entra. */
+  async crear(form) {
+    const ar = estado.arranque;
+    if (!ar || ar.modo !== 'crear' || ar.ocupado) return;
+    ar.valores = valoresDe(form);
+    ar.motivos = [];
+    ar.ocupado = true;
+    await pintar();
+    try {
+      const r = await cuentas.crearCuenta({ nombre: ar.valores.nombre, idioma: ar.valores.idioma });
+      const guardada = await cuentas.guardarCuenta(r);
+      entrarCon(r);
+      estado.guardado = guardada ? t('guardadoEnNavegador', { cuantos: r.eje.orden.length }) : t('sinAlmacenamiento');
+      estado.exito = t('cuentaCreada');
+      estado.niveles[PV_CAMINO] = NIVEL.tarjeta; // el tutorial del alta nueva, a la vista
+      estado.foco = { X: r.cuenta.alta, pv: 0 };
+      tocar(r.cuenta.alta, null);
+      marcarNuevos();
+      await pintar();
+    } catch (e) {
+      ar.ocupado = false;
+      ar.motivos = [{ mensaje: String(e?.message ?? e) }];
+      await pintar();
+    }
+  },
+  /** Restaurar una cuenta desde su archivo de copia y la frase: se descifra, se revalida el eje, se guarda aquí y se entra. */
+  async restaurar(form) {
+    const ar = estado.arranque;
+    if (!ar || ar.modo !== 'restaurar' || ar.ocupado) return;
+    const archivo = form.querySelector('input[name="archivo"]')?.files?.[0];
+    const { frase } = valoresDe(form);
+    if (!archivo) { ar.motivos = [{ mensaje: t('sinArchivo') }]; await pintar(); return; }
+    ar.motivos = [];
+    ar.ocupado = true;
+    await pintar();
+    let texto;
+    try {
+      texto = await archivo.text();
+    } catch (e) {
+      ar.ocupado = false;
+      ar.motivos = [{ mensaje: t('archivoNoLeido', { motivo: e?.message ?? e }) }];
+      await pintar();
+      return;
+    }
+    try {
+      const r = await cuentas.restaurarCuenta(texto, frase);
+      const existia = cuentas.cuentas().some((c) => c.alta === r.cuenta.alta);
+      const guardada = await cuentas.guardarCuenta(r);
+      entrarCon(r);
+      estado.guardado = guardada ? t('guardadoEnNavegador', { cuantos: r.eje.orden.length }) : t('sinAlmacenamiento');
+      estado.exito = t('cuentaRestaurada', { nombre: r.cuenta.nombre, cuantos: r.eje.orden.length }) + (existia ? ' · ' + t('cuentaSustituida') : '');
+      estado.foco = { X: r.cuenta.alta, pv: 0 };
+      tocar(r.cuenta.alta, null);
+      marcarNuevos();
+      await pintar();
+    } catch (e) {
+      ar.ocupado = false;
+      ar.motivos = [{ mensaje: String(e?.message ?? e) }];
+      await pintar();
+    }
+  },
+  /** La copia de seguridad: abrir el diálogo (null) o, con el formulario, cifrar con la frase y descargar el archivo. */
+  async copia(form) {
+    if (!estado.cuenta) return;
+    if (!form) {
+      estado.copia = { archivo: cuentas.nombreDeArchivo(estado.cuenta), minimo: FRASE_MINIMA, motivos: [], hecho: '' };
+      estado.config = false;
+      estado.formulario = null;
+      estado.aro = null;
+      limpiarMensajes();
+      await pintar();
+      return;
+    }
+    const c = estado.copia;
+    if (!c || c.ocupado) return;
+    const { frase, frase2 } = valoresDe(form);
+    if (!frase || frase.length < FRASE_MINIMA) { c.motivos = [{ mensaje: t('fraseCorta') }]; await pintar(); return; }
+    if (frase !== frase2) { c.motivos = [{ mensaje: t('frasesNoCoinciden') }]; await pintar(); return; }
+    c.motivos = [];
+    c.ocupado = true;
+    await pintar();
+    try {
+      const archivo = await cuentas.exportarCuenta({ cuenta: estado.cuenta, eje: estado.eje, privada: estado.cuenta.privada }, frase);
+      descargar(cuentas.textoDeArchivo(archivo), c.archivo);
+      estado.copia = null;
+      estado.exito = t('copiaDescargada', { archivo: c.archivo });
+    } catch (e) {
+      c.ocupado = false;
+      c.motivos = [{ mensaje: String(e?.message ?? e) }];
+    }
+    await pintar();
+  },
+  /** Olvidar esta cuenta en este navegador (su eje, su clave y sus libros locales); sin copia no se recupera. */
+  async olvidar() {
+    const c = estado.cuenta;
+    if (!c) return;
+    if (!globalThis.confirm(t('olvidarConfirmar', { nombre: c.nombre }))) return;
+    const ids = estado.eje?.identidades?.() ?? [c.identidad];
+    estado.local = null; // su libro local no se vuelve a guardar
+    cambiarDeEje(null, null);
+    cuentas.olvidarCuenta(c.alta, ids);
+    estado.cuenta = null;
+    estado.arranque = { modo: 'menu' };
+    estado.aviso = t('cuentaOlvidada', { nombre: c.nombre });
+    await pintar();
+  },
 };
 
+/** Reiniciar el ejemplo: borra lo guardado del ejemplo en este navegador y empieza el elegido (no toca las cuentas). */
 async function reiniciar() {
+  if (estado.cuenta) return;
   persistencia.borrarLocal(CLAVE_EJE);
   try { globalThis.localStorage?.removeItem(CLAVE_CLAVES); } catch { /* sin almacenamiento */ }
-  for (const id of estado.eje?.identidades?.() ?? []) { try { globalThis.localStorage?.removeItem(CLAVE_LOCAL + id); } catch { /* nada */ } }
+  for (const id of estado.eje?.identidades?.() ?? []) { try { globalThis.localStorage?.removeItem(CLAVES_EJEMPLO.local(id)); } catch { /* nada */ } }
   estado.claves = await cargarClaves();
   const { eje, foco } = await crearEjemplo(estado);
   estado.eje = eje;
@@ -415,32 +674,17 @@ async function reiniciar() {
 // ---------- arranque ----------
 
 async function arrancar() {
-  estado.claves = await cargarClaves();
-  let cargado = await persistencia.cargarLocal(CLAVE_EJE);
-  if (cargado && estado.claves.casa && JSON.stringify(cargado.clave('casa')) !== JSON.stringify(estado.claves.casa.publica)) cargado = null; // claves de otra sesión
-  let foco;
-  estado.identidad = leerLocal(CLAVE_YO) ?? 'huesped';
-  if (cargado) {
-    estado.eje = cargado;
-    foco = restaurarEjemplo(cargado, estado) ?? cargado.genesisId;
-    estado.guardado = t('cargadoDelNavegador', { cuantos: cargado.orden.length });
-  } else {
-    const apartado = persistencia.apartarLocal(CLAVE_EJE);
-    const nuevo = await crearEjemplo(estado);
-    estado.eje = nuevo.eje;
-    foco = nuevo.foco;
-    guardar();
-    if (apartado) estado.aviso = t('ejeApartado', { clave: CLAVE_EJE + '.anterior' });
-  }
-  if (!estado.eje.identidades().includes(estado.identidad)) estado.identidad = estado.eje.identidades()[0];
-  abrirLibroLocal();
   gestos = instalar(raiz, manejadores);
   let temporizador = null;
   window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
-  estado.foco = { X: foco, pv: 0 };
-  tocar(foco, null);
-  marcarNuevos();
-  await pintar();
+  // Dónde entrar: la última cuenta usada; si lo último fue un ejemplo, el ejemplo; si hay cuentas y no se sabe cuál, la
+  // última de la lista; si no hay nada elegido, la pantalla de arranque.
+  const lista = cuentas.cuentas();
+  const u = cuentas.ultima();
+  if (u === EJEMPLO) await entrarEnEjemplo();
+  else if (u && lista.some((c) => c.alta === u)) await entrarEnCuenta(u);
+  else if (lista.length) await entrarEnCuenta(lista[lista.length - 1].alta);
+  else { estado.arranque = { modo: 'menu' }; await pintar(); }
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('./sw.js').catch(() => { /* sin SW: la web funciona igual con red */ });
   }

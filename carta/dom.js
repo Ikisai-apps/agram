@@ -242,21 +242,107 @@ function htmlConfiguracion(p, { motivos = [] } = {}) {
   </form></div>`;
 }
 
-/** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, reiniciar. */
-function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '' } = {}) {
-  const quien = `<label class="ajuste">${t('soy')} <select data-quien>${arbol.identidades.map((i) => `<option value="${attr(i.id)}" ${i.id === arbol.yo ? 'selected' : ''}>${escapar(i.id)}${i.persona ? '' : ' ' + t('cosa')}</option>`).join('')}</select></label>`;
-  const ej = ejemplos.length ? `<label class="ajuste">${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
+/**
+ * El selector «soy»: mis cuentas (por su nombre, `cuenta:<alta>`), aparte las identidades del ejemplo (en una cuenta,
+ * solo la opción de probar con un ejemplo), y crear o restaurar una cuenta. La app lee el valor elegido.
+ */
+function htmlSoy(arbol, { cuentas = [], cuenta = null } = {}) {
+  const mias = cuentas.length ? `<optgroup label="${attr(t('misCuentas'))}">${cuentas.map((c) => `<option value="cuenta:${attr(c.alta)}" ${cuenta && c.alta === cuenta.alta ? 'selected' : ''}>${escapar(c.nombre)}</option>`).join('')}</optgroup>` : '';
+  const ejemplo = cuenta
+    ? `<optgroup label="${attr(t('ejemplos'))}"><option value="ejemplo">${t('probarConEjemplo')}</option></optgroup>`
+    : `<optgroup label="${attr(t('ejemplos'))}">${arbol.identidades.map((i) => `<option value="${attr(i.id)}" ${i.id === arbol.yo ? 'selected' : ''}>${escapar(i.id)}${i.persona ? '' : ' ' + t('cosa')}</option>`).join('')}</optgroup>`;
+  const nuevas = `<optgroup label="${attr(t('cuenta'))}"><option value="nueva">${t('crearMiCuenta')}…</option><option value="restaurar">${t('restaurarUnaCuenta')}…</option></optgroup>`;
+  return `<label class="ajuste">${t('soy')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
+}
+
+/** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, la copia de seguridad (en una cuenta) o reiniciar (en un ejemplo). */
+function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null } = {}) {
+  const quien = htmlSoy(arbol, { cuentas, cuenta });
+  const ej = !cuenta && ejemplos.length ? `<label class="ajuste">${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
   const local = arbol.local ? `<span class="tiempo" title="${attr(t('tiempoLocalTitulo', { serie: arbol.local.serie }))}">${escapar(t('hoy', { segundos: arbol.local.gastadoHoy }))}${tiempo ? ' · ' + escapar(tiempo) : ''}</span><button type="button" class="englobar" data-englobar ${arbol.local.pendientes ? '' : 'disabled'} title="${attr(t('englobarTitulo', { cuantas: arbol.local.pendientes }))}">${t('englobar')}${arbol.local.pendientes ? ` · ${arbol.local.pendientes}` : ''}</button>` : '';
-  return `<header class="barra">${quien}${ej}${local}<button type="button" data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button><button type="button" data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button><small class="guardado">${escapar(guardado)}</small></header>`;
+  const propios = cuenta
+    ? `<button type="button" data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button" data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
+    : `<button type="button" data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
+  return `<header class="barra">${quien}${ej}${local}<button type="button" data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}<small class="guardado">${escapar(guardado)}</small></header>`;
+}
+
+/**
+ * La pantalla de arranque (o el diálogo, sobre la carta): crear mi cuenta, restaurar una cuenta desde su copia, o
+ * probar con un ejemplo; y, si hay cuentas en este navegador, entrar en una. `ar`: { modo: 'menu' | 'crear' |
+ * 'restaurar', campos (los del alta, del núcleo), valores, motivos, ocupado }. El formulario de crear se genera de los
+ * campos que da cuentas.camposDelAlta (etiquetas y ayudas del núcleo); el de restaurar pide el archivo y la frase.
+ */
+export function htmlArranque(ar, { cuentas = [], sobreCarta = false } = {}) {
+  if (!ar) return '';
+  const motivos = ar.motivos?.length ? `<ul class="motivos" role="alert">${ar.motivos.map((m) => `<li>${escapar(m.mensaje ?? m)}</li>`).join('')}</ul>` : '';
+  const volver = sobreCarta ? `<button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button>` : (ar.modo !== 'menu' ? `<button type="button" class="volver-arranque" data-arranque="menu">${t('volver')}</button>` : '');
+  let cuerpo = '';
+  if (ar.modo === 'crear') {
+    const campos = (ar.campos ?? []).map((c) => {
+      const id = 'alta-' + c.nombre;
+      const valor = ar.valores?.[c.nombre] ?? c.valor ?? '';
+      const control = c.opciones
+        ? `<select id="${id}" name="${attr(c.nombre)}">${c.opciones.map((o) => `<option value="${attr(o)}" ${o === valor ? 'selected' : ''}>${escapar(o)}</option>`).join('')}</select>`
+        : `<input id="${id}" name="${attr(c.nombre)}" type="text" value="${attr(valor)}" required autocomplete="${c.nombre === 'nombre' ? 'name' : 'off'}" placeholder="${attr((c.marcador ?? []).join(' · '))}" title="${attr(c.ayuda ?? '')}">`;
+      return `<div class="campo"><label for="${id}">${escapar(c.etiqueta)} <small class="numero">${c.pv}</small></label>${control}<small class="ayuda">${escapar(c.ayuda ?? '')}</small></div>`;
+    }).join('');
+    cuerpo = `<form class="formulario arranque-form" data-crear aria-label="${attr(t('crearMiCuenta'))}">
+      <header><h2>${t('crearMiCuenta')}</h2>${volver}</header>
+      <p class="ayuda">${escapar(t('crearAyuda'))}</p>
+      ${campos}${motivos}
+      <footer><button type="submit" ${ar.ocupado ? 'disabled' : ''}>${t(ar.ocupado ? 'creando' : 'crear')}</button></footer>
+    </form>`;
+  } else if (ar.modo === 'restaurar') {
+    cuerpo = `<form class="formulario arranque-form" data-restaurar aria-label="${attr(t('restaurarUnaCuenta'))}">
+      <header><h2>${t('restaurarUnaCuenta')}</h2>${volver}</header>
+      <p class="ayuda">${escapar(t('restaurarAyuda'))}</p>
+      <div class="campo"><label for="copia-archivo">${t('archivoDeCopia')}</label><input id="copia-archivo" name="archivo" type="file" accept="application/json,.json" required></div>
+      <div class="campo"><label for="copia-frase">${t('frase')}</label><input id="copia-frase" name="frase" type="password" autocomplete="off" required></div>
+      ${motivos}
+      <footer><button type="submit" ${ar.ocupado ? 'disabled' : ''}>${t(ar.ocupado ? 'restaurando' : 'restaurar')}</button></footer>
+    </form>`;
+  } else {
+    const entrar = cuentas.length ? `<ul class="cuentas-lista">${cuentas.map((c) => `<li><button type="button" data-arranque="cuenta:${attr(c.alta)}">${escapar(t('entrarComo', { nombre: c.nombre }))}</button></li>`).join('')}</ul>` : '';
+    cuerpo = `<div class="formulario arranque-menu" role="dialog" aria-label="${attr(t('arranqueTitulo'))}">
+      <header><h2>${t('arranqueTitulo')}</h2>${volver}</header>
+      <p class="ayuda">${escapar(t('arranqueIntro'))}</p>
+      ${entrar}${motivos}
+      <div class="opciones">
+        <button type="button" class="principal" data-arranque="crear">${t('crearMiCuenta')}</button>
+        <button type="button" data-arranque="restaurar">${t('restaurarUnaCuenta')}</button>
+        <button type="button" data-arranque="ejemplo">${t('probarConEjemplo')}</button>
+      </div>
+    </div>`;
+  }
+  return sobreCarta ? `<div class="formulario-fondo arranque" data-cerrar>${cuerpo}</div>` : `<div class="arranque-pantalla arranque">${cuerpo}</div>`;
+}
+
+/** El diálogo de la copia de seguridad: la frase (dos veces) y «descargar»; el eje exportado es una foto. */
+export function htmlCopia(c) {
+  if (!c) return '';
+  const motivos = c.motivos?.length ? `<ul class="motivos" role="alert">${c.motivos.map((m) => `<li>${escapar(m.mensaje ?? m)}</li>`).join('')}</ul>` : '';
+  return `<div class="formulario-fondo" data-cerrar><form class="formulario copia" data-copia-form aria-label="${attr(t('copiaDeSeguridad'))}">
+    <header><h2>${t('copiaDeSeguridad')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
+    <p class="ayuda">${escapar(t('copiaAyuda', { archivo: c.archivo ?? '' }))}</p>
+    <p class="aviso">${escapar(t('copiaEsFoto'))}</p>
+    <div class="campo"><label for="copia-frase-1">${t('frase')}</label><input id="copia-frase-1" name="frase" type="password" autocomplete="new-password" required minlength="${Number(c.minimo) || 0}"><small class="ayuda">${escapar(t('fraseAyuda', { minimo: c.minimo }))}</small></div>
+    <div class="campo"><label for="copia-frase-2">${t('repetirFrase')}</label><input id="copia-frase-2" name="frase2" type="password" autocomplete="new-password" required></div>
+    ${motivos}${c.hecho ? `<p class="exito" role="status">${escapar(c.hecho)}</p>` : ''}
+    <footer><button type="submit" ${c.ocupado ? 'disabled' : ''}>${t(c.ocupado ? 'cifrando' : 'descargar')}</button></footer>
+  </form></div>`;
 }
 
 /**
  * La carta entera como HTML. `extra`: lo que la carta no decide y la app sabe: `leidoTexto` (la lectura humana del 0,
  * src/lectura.js), `ejemplos` y `ejemplo` (el selector), `guardado`, `aviso`, `exito`, `preferencias` (el formulario
- * de configuración si está abierto) y `nuevos` (los ids llegados por el diario desde la última vez: los que se animan).
+ * de configuración si está abierto), `nuevos` (los ids llegados por el diario desde la última vez: los que se animan),
+ * `cuentas` y `cuenta` (mis cuentas en este navegador y la abierta, o null en un ejemplo), `arranque` (la pantalla de
+ * crear, restaurar o probar, sola si no hay eje y como diálogo si lo hay) y `copia` (el diálogo de la copia de seguridad).
  */
 export function html(arbol, extra = {}) {
+  // Sin eje (nadie ha elegido aún cuenta ni ejemplo): la pantalla de arranque entera.
+  if (extra.arranque && (!arbol || arbol.vacio)) return `<div class="carta vacia">${extra.aviso ? `<p class="aviso" role="alert">${escapar(extra.aviso)}</p>` : ''}${htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: false })}</div>`;
   if (!arbol || arbol.vacio) return `<div class="carta vacia"><p class="aviso">${escapar(arbol?.avisos?.join(' · ') ?? t('sinRegistro'))}</p></div>`;
   const a = { ...arbol };
   const clase = ['carta', a.apilada ? 'carta-apilada' : 'carta-matriz', a.animado ? 'animado' : 'sobrio', `disposicion-${a.disposicion}`].join(' ');
@@ -279,6 +365,8 @@ export function html(arbol, extra = {}) {
     ${htmlAro(a.aro)}
     ${htmlFormulario(a.formulario)}
     ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias }) : ''}
+    ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
+    ${htmlCopia(extra.copia)}
   </div>`;
 }
 
