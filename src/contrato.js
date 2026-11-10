@@ -609,6 +609,21 @@ export const ajustesDeLaGuia = (opciones = {}) => guia(null, 'en', opciones)?.aj
 /** Los ajustes de la guía de quien mira (configuracionDe con su plantilla): { <etiqueta>: valor, …, de }. */
 export const configuracionGuia = (eje, quien, opciones = {}) => configuracionDe(eje, quien, ajustesDeLaGuia(opciones), opciones);
 
+/** La posición de los ajustes de la guía donde cada cual dice dónde ancla sus opiniones como registros (docs/CONTRATO.md §12.7): la 6 de «guide settings». */
+export const POSICION_ANCLA_DE_OPINIONES = 6;
+
+/**
+ * Dónde ancla `quien` sus opiniones como registros: lo que dice su registro de ajustes de la guía en la posición 6 (el id
+ * o el 0 de un registro, tal cual lo escribió) o null si no lo ha dicho (o escribió «-»: quitarla). La resolución a un
+ * registro es de acciones.registroDe.
+ */
+export function anclaDeLasOpiniones(eje, quien, opciones = {}) {
+  const nombre = ajustesDeLaGuia(opciones);
+  const clave = clavesDeConfiguracionDe(nombre, opciones).find((c) => c.pv === POSICION_ANCLA_DE_OPINIONES)?.clave;
+  const v = clave ? configuracionDe(eje, quien, nombre, opciones)[clave] : undefined;
+  return typeof v === 'string' && v.trim() && v.trim() !== '-' ? v.trim() : null;
+}
+
 /** ¿Es X un registro de configuración (de las preferencias o de los ajustes de la guía)? Lo que no se manda a ninguna IA: puede llevar dónde se comparte el eje. */
 export function esDeConfiguracion(eje, X, opciones = {}) {
   const p = plantilla(eje, X, opciones);
@@ -679,8 +694,10 @@ function clavesDe(p) {
 /**
  * Las instrucciones de la guía del PV9, leídas de la época (el 9.9: un registro referenciado, como las reglas): el texto
  * base, que es dato y no código. Cada texto va en el idioma pedido por su clave en el 9.4 («guide role», «guide
- * summary», «guide rules», «guide question N»); si falta, el inglés del propio registro. → { id, nombre, papel,
- * resumen, normas, preguntas: [texto], ajustes: nombre de la plantilla de sus ajustes } o null si la época no trae guía.
+ * summary», «guide rules», «guide answer», «guide question N»); si falta, el inglés del propio registro. → { id, nombre,
+ * papel, resumen, normas, preguntas: [texto], ajustes: nombre de la plantilla de sus ajustes, respuesta: cómo se
+ * responde desde fuera de AGRAM (§16.6), opinion: nombre de la plantilla de una opinión, ancla: nombre de la
+ * transacción que la ancla } o null si la época no trae guía.
  */
 export function guia(eje, idioma = 'en', opciones = {}) {
   const epoca = epocaDe(opciones);
@@ -698,6 +715,9 @@ export function guia(eje, idioma = 'en', opciones = {}) {
     normas: cuerpo(3, 'guide rules'),
     preguntas: hojas(registro[4]).filter((x) => typeof x === 'string').map((q, k) => T('guide question ' + (k + 1), q)),
     ajustes: texto(hoja(registro[5])) ?? null,
+    respuesta: cuerpo(6, 'guide answer'),
+    opinion: texto(hoja(registro[7])) ?? null,
+    ancla: texto(hoja(registro[8])) ?? null,
   };
 }
 

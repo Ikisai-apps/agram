@@ -60,6 +60,66 @@
       ["required"],
       [5],
       ["anchor here", "the action"]
+    ],
+    [
+      ["type"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["5"],
+      ["externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"],
+      ["optional"],
+      [6],
+      ["the template of the new record, by name (for example opinion)"]
+    ],
+    [
+      ["about"],
+      ["ref"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["6"],
+      ["externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"],
+      ["optional"],
+      [7],
+      ["the record the new one is about, as a reference"]
+    ],
+    [
+      ["version"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["7"],
+      ["externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"],
+      ["optional"],
+      [8],
+      ["the version of the card where the new record was written"]
+    ],
+    [
+      ["seen"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["8"],
+      ["externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"],
+      ["optional"],
+      [9],
+      ["what the thing the new record is about showed, in a few words"]
+    ],
+    [
+      ["route"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["9"],
+      ["externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"],
+      ["optional"],
+      [10],
+      ["a path to follow from the new record: the names of the steps (the tutorial of its 9)"]
     ]
   ],
   ["=not (first it.3 != me and count (first it.3).6 > 0 and first (first it.3).6 = first it.5)"],

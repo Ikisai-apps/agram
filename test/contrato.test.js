@@ -43,7 +43,7 @@ test('plantilla: la compra nombra «purchase» en su 5 y la reserva «booking»;
   const { eje: b, reserva } = await ejemploReserva();
   assert.equal(C.nombreDePlantilla(C.plantilla(b, reserva.id)), 'booking');
   // Las que hay: las de dominio de la época (detrás de su cabecera), las preferencias y las del eje.
-  assert.deepEqual(C.plantillas(eje).map((p) => [p.nombre, p.donde]), [['purchase', '9210000000'], ['booking', '9220000000'], ['guide settings', '9230000000'], ['preferences', '9300000000']]);
+  assert.deepEqual(C.plantillas(eje).map((p) => [p.nombre, p.donde]), [['purchase', '9210000000'], ['booking', '9220000000'], ['guide settings', '9230000000'], ['opinion', '9240000000'], ['preferences', '9300000000']]);
   for (const p of C.plantillas(eje)) assert.ok(C.esPlantilla(p.registro) && p.registro[4][4].includes('template'), p.nombre + ': su 4.4 dice template');
   // Un id de un registro que no es plantilla, una referencia a una posición de la época que no lo es, o un nombre
   // desconocido, no son plantilla; una referencia a la plantilla de la época sí, y una plantilla escrita en el eje también.

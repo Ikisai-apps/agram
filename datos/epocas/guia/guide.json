@@ -18,5 +18,14 @@
   ],
   [
     "guide settings"
+  ],
+  [
+    "How to answer from outside AGRAM. This file is the context of one screen of AGRAM plus these instructions; you can read it anywhere. If you only explain, answer in plain text. If you want to propose changes, answer with one JSON object and nothing else (a single ```json block is also accepted):\n{ \"propuestas\": [ { \"accion\": \"<name of an action of the ring>\", \"sobre\": \"<id (the first eight characters are enough) or the 0 of the record it is about>\", \"parametros\": { \"<name or label of a parameter>\": <value>, ... }, \"porque\": \"<one sentence: why>\" } ] }\naccion is the name of one of the actions listed in this file (the canonical English name or the one in the person's language). sobre is the record the action is about; if it is the focus, use its id. parametros: only the parameters the action asks for, by their name or label, with the value as it is read on screen (text, number, a date as 2026-11-20, a record by its id or its 0). porque is shown to the person next to your proposal.\nYour answer writes nothing: the person sees every proposal in the path of AGRAM and accepts it, rejects it or changes it before anything is written, and every write is signed by them and checked by the rules. Do not invent ids, records or actions that are not in this file; if you are not sure, do not propose it."
+  ],
+  [
+    "opinion"
+  ],
+  [
+    "anchor here"
   ]
 ]

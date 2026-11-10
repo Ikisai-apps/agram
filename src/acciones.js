@@ -28,7 +28,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves } from './contrato.js';
+import { plantilla as plantillaDeDatos, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -442,6 +442,56 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   return { ok: delEje.length === 0, evento, motivos: delEje };
 }
 
+// ---------- 3b. las opiniones como registros ----------
+
+/**
+ * El registro que nombra un texto: su id entero, los primeros caracteres de un id (ocho o más, si solo uno empieza así)
+ * o su 0 (lo que dice contrato.desdeLegible para una referencia). null si no es ninguno.
+ */
+export function registroDe(eje, cual, opciones = {}) {
+  const s = String(cual ?? '').trim();
+  if (!s || !eje) return null;
+  if (RE_ID.test(s) && eje.obtener(s)) return s;
+  if (/^[0-9a-f]{8,63}$/.test(s)) {
+    const a = eje.orden.filter((id) => id.startsWith(s));
+    if (a.length === 1) return a[0];
+  }
+  const r = desdeLegible(s, 'ref', { eje, ...opciones });
+  return typeof r.valor === 'string' ? r.valor : null;
+}
+
+/** El registro del proyecto donde `yo` ancla sus opiniones (su ajuste «opinions anchor», resuelto con registroDe), o null. */
+export function proyectoDeOpiniones(eje, yo, opciones = {}) {
+  const v = yo ? anclaDeLasOpiniones(eje, yo, opciones) : null;
+  return v ? registroDe(eje, v, opciones) : null;
+}
+
+/**
+ * Las opiniones ancladas en un registro (el proyecto AGRAM): los registros anclados bajo él cuya plantilla es la de
+ * opinión (el nombre lo da la guía de la época, su 7), con sus respuestas (los registros anclados debajo de cada una, en
+ * hilo). → [{ id, autor, t, texto, clasificacion: [«etiqueta: valor»], sobre (el id del registro opinado o null), ruta,
+ * respuestas: [{ id, autor, t, texto, respuestas }] }], en el orden del libro. Lo lee la carta para listarlas en el 6 y
+ * lo lee quien lea el eje desde fuera: sin código especial.
+ */
+export function opiniones(eje, proyecto, opciones = {}) {
+  const P = eventoDe(eje, proyecto);
+  const tipo = guiaDeLaEpoca(null, 'en', opciones)?.opinion;
+  if (!P || !eje?.obtener(P.id) || !tipo) return [];
+  const textoDe0 = (e) => String(hojas(e.payload?.[0]).find((x) => typeof x === 'string' || typeof x === 'number') ?? '');
+  const hilo = (e, hondo) => eje.sobre(e.id).map((h) => ({ id: h.id, autor: h.autor, t: h.t, texto: textoDe0(h), respuestas: hondo < 12 ? hilo(h, hondo + 1) : [] }));
+  const orden = new Map(eje.orden.map((id, i) => [id, i]));
+  return eje.sobre(P.id)
+    .filter((h) => nombreDePlantilla(plantillaDeDatos(eje, h, opciones)) === tipo)
+    .sort((a, b) => orden.get(a.id) - orden.get(b.id))
+    .map((h) => ({
+      id: h.id, autor: h.autor, t: h.t, texto: textoDe0(h),
+      clasificacion: hojas(h.payload?.[1]).filter((x) => typeof x === 'string'),
+      sobre: hojas(h.payload?.[6]).find((x) => esReferencia(x))?.ref ?? null,
+      ruta: hojas(h.payload?.[9]).filter((x) => typeof x === 'string'),
+      respuestas: hilo(h, 0),
+    }));
+}
+
 // ---------- 4. las estaciones ----------
 
 /** Las estaciones de la fábrica (epoch.4.2): [{ familia, estacion, plantilla }]. */
@@ -497,8 +547,9 @@ const nombresDel9 = (decupla) => hojas(Array.isArray(decupla) ? decupla[9] : und
  * del dueño sin alcanzar («commit P»), las peticiones de atención sin atender («attend») y las caducidades próximas
  * («expire something mine»); si lo puede lanzar yo es un paso mío (`hacer`: la plantilla y sus parámetros), si lo
  * tiene que dar otro es un paso de espera (`espera`: de quién); (3) `sugerencias`, un gancho opcional (función
- * (eje, X, yo) → [{ plantilla, parametros }]) cuyos pasos van marcados como sugerencia y pasan por las mismas reglas
- * (`pasa`, `motivos`). `falta` se lee en humano con el 9 de la regla o de la plantilla, en el idioma de yo. Si la
+ * (eje, X, yo) → [{ plantilla, parametros, sobre?, porque?, id?, invalida? }]) cuyos pasos van marcados como sugerencia
+ * y pasan por las mismas reglas (`pasa`, `motivos`); `sobre` es otro registro que X, `porque` se enseña con el paso, y
+ * una con `invalida` (el motivo) no se construye: sale como paso inválido. `falta` se lee en humano con el 9 de la regla o de la plantilla, en el idioma de yo. Si la
  * madurez de X es 0 o desconocida, devuelve además `niveles` (los de su plantilla o los genéricos) para que la persona
  * se ubique. Orden: primero lo que nombra el criterio del dueño (X.2.3), luego lo que nombra el mío (el 2.3 de mi alta).
  */
@@ -594,10 +645,19 @@ export async function camino(eje, X, yo, opciones = {}) {
   if (typeof opciones.sugerencias === 'function') {
     for (const s of (await opciones.sugerencias(eje, ev, yo)) ?? []) {
       const nombre = typeof s === 'string' ? s : s?.plantilla;
+      // Lo que la sugerencia dice de sí misma, para quien la enseña: por qué (`porque`) y su identidad (`propuesta`).
+      const suya = { ...(typeof s?.porque === 'string' && s.porque ? { porque: s.porque } : {}), ...(s?.id !== undefined ? { propuesta: s.id } : {}) };
+      // Una sugerencia que no se entiende se enseña con su motivo (`invalida`), no se descarta en silencio.
+      if (s && typeof s === 'object' && s.invalida) {
+        pasos.push({ fuente: 'sugerencia', falta: String(nombre ?? ''), hacer: null, hecho: false, espera: null, pasa: false, motivos: [{ regla: null, mensaje: String(s.invalida) }], invalida: String(s.invalida), ...suya });
+        continue;
+      }
       if (!porNombre.has(nombre)) continue;
-      const r = await transaccion(eje, nombre, { X: ev.id, ...(s?.parametros ?? {}) }, yo, opciones);
-      const paso = mio(nombre, s?.parametros ?? {});
-      pasos.push({ fuente: 'sugerencia', ...paso, hecho: false, espera: null, pasa: r.ok, motivos: r.motivos });
+      // Una sugerencia puede tratar de otro registro (`sobre`): por defecto, el de X.
+      const sobre = (s?.sobre !== undefined && eventoDe(eje, s.sobre)) || ev;
+      const r = await transaccion(eje, nombre, { X: sobre.id, ...(s?.parametros ?? {}) }, yo, opciones);
+      const paso = mio(nombre, s?.parametros ?? {}, sobre);
+      pasos.push({ fuente: 'sugerencia', ...paso, hecho: false, espera: null, pasa: r.ok, motivos: r.motivos, ...suya });
     }
   }
 

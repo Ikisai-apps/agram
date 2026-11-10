@@ -54,7 +54,7 @@ test('los ajustes de la guía son una plantilla de la época con sus defectos, y
   assert.deepEqual(G.ajustes(eje, 'huesped'), { modelo: 'claude-sonnet-5-5', via: 'server', historial: 20, contexto: 6000, de: null });
   const a = G.ajustesEditables(eje, 'huesped', { 'guide via': 'direct', 'guide context': '3000' });
   assert.equal(a.cambiado, true);
-  assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context']);
+  assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context', 'opinions anchor']);
   assert.equal(a.campos[1].etiqueta, 'guide via', 'en el idioma de la configuración (en): la etiqueta canónica');
   assert.equal(G.ajustesEditables(eje, 'huesped', {}, { idioma: 'es' }).campos[1].etiqueta, 'vía de la guía');
   const sinCambios = G.ajustesEditables(eje, 'huesped', {});
@@ -269,7 +269,7 @@ test('la clave de la API nunca entra en el eje: ni los ajustes ni el contexto ni
   const { eje, compra } = await ejemploCompra();
   const a = G.ajustesEditables(eje, 'huesped', { 'guide via': 'direct' });
   assert.ok(!JSON.stringify(a.payload).includes('clave'));
-  assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context']);
+  assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context', 'opinions anchor']);
   const alm = almacenFalso();
   G.guardarClaveIa(alm, eje.alta('huesped').id, 'SECRETO-123');
   assert.ok(!(await G.contexto(estadoDe(compra.id), eje, 'huesped', {})).includes('SECRETO-123'));

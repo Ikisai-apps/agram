@@ -3174,6 +3174,376 @@ export const EPOCA_0_BTML_DATOS = [
             "guide settings",
             "its type: this template, named in the 5 of the record (B4: the 5 is the type)"
           ]
+        ],
+        [
+          [
+            "opinions anchor"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "6"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "where my opinions are anchored as records: the id (or the 0) of a record, the project of AGRAM, made with «anchor here» over my alta; empty: they stay only in this browser (write - to remove it)"
+          ]
+        ]
+      ],
+      [
+        [
+          [
+            "opinion"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "0"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "the buttons are too small here",
+            "what the person says about the thing they were looking at"
+          ]
+        ],
+        [
+          [
+            "classification"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "1"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "type",
+            "pv",
+            "d",
+            "size",
+            "representation",
+            "mode",
+            "width",
+            "render",
+            "the thing they touched, one occupant per label as «label: value», in this order: type, point of view, position, size, representation, mode, width and render"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "2"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "all announced movements happened",
+            "the closing template (epoch.9.0.1), as in any anchored record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "3"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "=me",
+            "who gives the opinion"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "template",
+            "write"
+          ],
+          [
+            "4"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "anchor here",
+            "how it was written"
+          ]
+        ],
+        [
+          [
+            "type"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "5"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "opinion",
+            "the template of the record"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "6"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "the record the opinion is about (X), as a reference: the thing they touched or, if it was no record, the one in focus"
+          ]
+        ],
+        [
+          [
+            "version"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "7"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "2026-11-10",
+            "the version of the card where it was written (the VERSION of sw.js)"
+          ]
+        ],
+        [
+          [
+            "seen"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "8"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "Menú del día",
+            "what the thing they touched showed, in a few words (up to eighty characters)"
+          ]
+        ],
+        [
+          [
+            "route"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "9"
+          ],
+          [
+            "carta/externa.js: las opiniones de «opinar» como registros anclados en el proyecto AGRAM (salida externa del PV9, docs/CONTRATO.md §12 y §16)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "the types of the ancestors of the thing they touched, from the farthest to the nearest (it needs the 6, 7 and 8 written: a position is never empty)"
+          ]
         ]
       ]
     ],
@@ -3590,6 +3960,16 @@ export const EPOCA_0_BTML_DATOS = [
           "template anchor here param who help: quién escribe",
           "template anchor here param actions label: acción",
           "template anchor here param actions help: la acción",
+          "template anchor here param type label: tipo",
+          "template anchor here param type help: la plantilla del registro nuevo, por su nombre (por ejemplo opinión)",
+          "template anchor here param version label: versión",
+          "template anchor here param version help: la versión de la carta donde se escribió el registro nuevo",
+          "template anchor here param seen label: visto",
+          "template anchor here param seen help: lo que enseñaba aquello de lo que trata el registro nuevo, en pocas palabras",
+          "template anchor here param about label: sobre qué",
+          "template anchor here param about help: el registro del que trata el nuevo, como referencia",
+          "template anchor here param route label: ruta",
+          "template anchor here param route help: un camino a seguir desde el registro nuevo: los nombres de los pasos (el tutorial de su 9)",
           "template anchor here message: anchor here: {me} ancla un registro nuevo sobre {first it.0}",
           "template apply a resource: aplicar un recurso",
           "template apply a resource param what label: qué",
@@ -4001,6 +4381,7 @@ export const EPOCA_0_BTML_DATOS = [
           "guide question 1: ¿Qué estoy viendo?",
           "guide question 2: ¿Qué viene ahora?",
           "guide question 3: ¿Qué significa esta posición?",
+          "guide answer: Cómo responder desde fuera de AGRAM. Este archivo es el contexto de una pantalla de AGRAM más estas instrucciones; lo puedes leer en cualquier sitio. Si solo explicas, responde en texto plano. Si quieres proponer cambios, responde con un único objeto JSON y nada más (también se acepta un único bloque ```json):\n{ \"propuestas\": [ { \"accion\": \"<nombre de una acción del aro>\", \"sobre\": \"<id (bastan los ocho primeros caracteres) o el 0 del registro del que trata>\", \"parametros\": { \"<nombre o etiqueta de un parámetro>\": <valor>, ... }, \"porque\": \"<una frase: por qué>\" } ] }\naccion es el nombre de una de las acciones que figuran en este archivo (el inglés canónico o el del idioma de la persona). sobre es el registro del que trata la acción; si es el foco, usa su id. parametros: solo los que pide la acción, por su nombre o su etiqueta, con el valor como se lee en pantalla (texto, número, una fecha como 2026-11-20, un registro por su id o su 0). porque se le enseña a la persona junto a tu propuesta.\nTu respuesta no escribe nada: la persona ve cada propuesta en el camino de AGRAM y la acepta, la rechaza o la cambia antes de que se escriba nada, y cada escritura la firma ella y la comprueban las reglas. No inventes ids, registros ni acciones que no estén en este archivo; si no estás seguro, no lo propongas.",
           "template guide settings: ajustes de la guía",
           "template guide settings param guide settings label: ajustes de la guía",
           "template guide settings param guide settings help: los ajustes de la guía: qué modelo contesta y cómo se le llama",
@@ -4011,7 +4392,30 @@ export const EPOCA_0_BTML_DATOS = [
           "template guide settings param guide history label: turnos de la guía",
           "template guide settings param guide history help: cuántos turnos de la conversación se guardan en este navegador",
           "template guide settings param guide context label: contexto de la guía",
-          "template guide settings param guide context help: cuántos caracteres de la pantalla se mandan como contexto"
+          "template guide settings param guide context help: cuántos caracteres de la pantalla se mandan como contexto",
+          "template guide settings param opinions anchor label: ancla de las opiniones",
+          "template guide settings param opinions anchor help: dónde se anclan mis opiniones como registros: el id (o el 0) de un registro, el proyecto de AGRAM, hecho con «anclar aquí» sobre mi alta; vacío: se quedan solo en este navegador (escribe - para quitarla)",
+          "template opinion: opinión",
+          "template opinion param opinion label: opinión",
+          "template opinion param opinion help: lo que la persona dice sobre lo que estaba mirando",
+          "template opinion param classification label: clasificación",
+          "template opinion param classification help: lo que tocó, un ocupante por etiqueta como «etiqueta: valor», en este orden: tipo, punto de vista, posición, tamaño, representación, modo, ancho, render, versión de la carta y el texto que enseñaba",
+          "template opinion param criteria label: criterio",
+          "template opinion param criteria help: la plantilla de cerrado (epoch.9.0.1), como en todo registro anclado",
+          "template opinion param who label: quién",
+          "template opinion param who help: quién da la opinión",
+          "template opinion param actions label: acción",
+          "template opinion param actions help: cómo se escribió",
+          "template opinion param type label: tipo",
+          "template opinion param type help: la plantilla del registro",
+          "template opinion param about label: sobre qué",
+          "template opinion param about help: el registro del que trata la opinión (X), como referencia: lo que tocó o, si no era un registro, el que tenía en foco",
+          "template opinion param version label: versión",
+          "template opinion param version help: la versión de la carta donde se escribió (la VERSION de sw.js)",
+          "template opinion param seen label: visto",
+          "template opinion param seen help: lo que enseñaba lo que tocó, en pocas palabras (hasta ochenta caracteres)",
+          "template opinion param route label: ruta",
+          "template opinion param route help: los tipos de los ancestros de lo que tocó, del más lejano al más cercano (pide el 6, el 7 y el 8 escritos: una posición nunca queda vacía)"
         ]
       ],
       [
@@ -4241,7 +4645,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "f666e2efeed2e843b49fe31f7eea09b5182cc1e6b6f182a6834848f7c006a0d5"
         },
         {
-          "ref": "34f93175643f2b95cbc3d56a3fa4b271eb6a671b6a7e8755e1ca1480a7fbbcbb"
+          "ref": "8098780ae5167fe7182172e080231d320ca002f652f33a3ca8318b6da36a9c66"
         },
         {
           "ref": "73a2035bf1a9eb1a3994158a52c41c49ae152ac39cc42f323d13ecede0c4d3b5"
@@ -4580,10 +4984,10 @@ export const EPOCA_0_BTML_DATOS = [
     [
       [
         "guide",
-        "the guide of the PV9 (read only): what is on screen, what it means and what comes next. One record: 0 its name, 1 its role, 2 a summary of AGRAM, 3 the format rules, 4 the quick questions, 5 the name of the template of its settings (in 9.2). The code of the card only starts reading here, like a CLAUDE.md: the 9 of the epoch, then the 9 of the template of the focus, then the 9 of the focus itself (docs/CONTRATO.md §16). Core, pendiente de revisar VG"
+        "the guide of the PV9 (read only): what is on screen, what it means and what comes next. One record: 0 its name, 1 its role, 2 a summary of AGRAM, 3 the format rules, 4 the quick questions, 5 the name of the template of its settings (in 9.2), 6 how to answer from outside AGRAM (the format of the file that comes back: docs/CONTRATO.md §16.6), 7 the name of the template of an opinion (in 9.2), 8 the name of the transaction template that anchors it. The code of the card only starts reading here, like a CLAUDE.md: the 9 of the epoch, then the 9 of the template of the focus, then the 9 of the focus itself (docs/CONTRATO.md §16). Core, pendiente de revisar VG"
       ],
       {
-        "ref": "300fb16daa1f300e08dce421fbf15ec1d09d1f4f8fb47a95422b165bdff15177"
+        "ref": "4766f3121bed6fbcfa8f6b6b48175dae5335f1500ff447e9ff34a2bdea968b10"
       }
     ]
   ]
@@ -11811,7 +12215,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "anchor-here.json",
-    "id": "34f93175643f2b95cbc3d56a3fa4b271eb6a671b6a7e8755e1ca1480a7fbbcbb",
+    "id": "8098780ae5167fe7182172e080231d320ca002f652f33a3ca8318b6da36a9c66",
     "registro": [
       [
         "anchor here"
@@ -11979,6 +12383,166 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
           [
             "anchor here",
             "the action"
+          ]
+        ],
+        [
+          [
+            "type"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "5"
+          ],
+          [
+            "externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            6
+          ],
+          [
+            "the template of the new record, by name (for example opinion)"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "6"
+          ],
+          [
+            "externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            7
+          ],
+          [
+            "the record the new one is about, as a reference"
+          ]
+        ],
+        [
+          [
+            "version"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "7"
+          ],
+          [
+            "externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            8
+          ],
+          [
+            "the version of the card where the new record was written"
+          ]
+        ],
+        [
+          [
+            "seen"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "8"
+          ],
+          [
+            "externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            9
+          ],
+          [
+            "what the thing the new record is about showed, in a few words"
+          ]
+        ],
+        [
+          [
+            "route"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "9"
+          ],
+          [
+            "externa: una opinión es un registro anclado con «anchor here»: su tipo (5), el registro opinado (6) y la ruta (9)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            10
+          ],
+          [
+            "a path to follow from the new record: the names of the steps (the tutorial of its 9)"
           ]
         ]
       ],
@@ -13755,7 +14319,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
 export const GUIA_DE_EPOCA_DATOS = [
   {
     "archivo": "guide.json",
-    "id": "300fb16daa1f300e08dce421fbf15ec1d09d1f4f8fb47a95422b165bdff15177",
+    "id": "4766f3121bed6fbcfa8f6b6b48175dae5335f1500ff447e9ff34a2bdea968b10",
     "registro": [
       [
         "guide"
@@ -13776,13 +14340,22 @@ export const GUIA_DE_EPOCA_DATOS = [
       ],
       [
         "guide settings"
+      ],
+      [
+        "How to answer from outside AGRAM. This file is the context of one screen of AGRAM plus these instructions; you can read it anywhere. If you only explain, answer in plain text. If you want to propose changes, answer with one JSON object and nothing else (a single ```json block is also accepted):\n{ \"propuestas\": [ { \"accion\": \"<name of an action of the ring>\", \"sobre\": \"<id (the first eight characters are enough) or the 0 of the record it is about>\", \"parametros\": { \"<name or label of a parameter>\": <value>, ... }, \"porque\": \"<one sentence: why>\" } ] }\naccion is the name of one of the actions listed in this file (the canonical English name or the one in the person's language). sobre is the record the action is about; if it is the focus, use its id. parametros: only the parameters the action asks for, by their name or label, with the value as it is read on screen (text, number, a date as 2026-11-20, a record by its id or its 0). porque is shown to the person next to your proposal.\nYour answer writes nothing: the person sees every proposal in the path of AGRAM and accepts it, rejects it or changes it before anything is written, and every write is signed by them and checked by the rules. Do not invent ids, records or actions that are not in this file; if you are not sure, do not propose it."
+      ],
+      [
+        "opinion"
+      ],
+      [
+        "anchor here"
       ]
     ]
   }
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "795e47dbe783a5979e01dfe31fa69d0b67dc608f726d6bb98c9213c24eb00bde";
+export const EPOCA_0_BTML_ID = "c651b1d83ebee812b79102d2201b7bad172f66ee6377b6d0d209af10ece7264b";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
