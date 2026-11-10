@@ -482,6 +482,17 @@ export async function enviar(eje, X, accion, valores, yo, firmar, opciones = {})
 }
 
 /**
+ * La plantilla «preferences» de la época, la que describe mi configuración: la posición la dice la cabecera de los
+ * modelos (epoch.9.7.0.5: la preferencia `model` vive dentro de ella). → { nombre, registro, donde } o null.
+ */
+export function plantillaDePreferencias(opciones = {}) {
+  const sitio = modelos.cabecera(opciones).preferencia;
+  if (!sitio) return null;
+  const donde = direccion(indicesDe(sitio).slice(0, -1));
+  return contrato.plantillas(null, opciones).find((x) => x.donde === donde) ?? null;
+}
+
+/**
  * La candidata del registro de preferencias de `yo` con los valores dados sobre los actuales: la plantilla
  * «preferences» de la época (la posición la dice la cabecera de los modelos, epoch.9.7.0.5: la preferencia `model`
  * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
@@ -493,10 +504,7 @@ export async function enviar(eje, X, accion, valores, yo, firmar, opciones = {})
 export function preferencias(eje, yo, valores = {}, opciones = {}) {
   const alta = eje?.alta(yo);
   if (!alta) return null;
-  const sitio = modelos.cabecera(opciones).preferencia;
-  if (!sitio) return null;
-  const donde = direccion(indicesDe(sitio).slice(0, -1));
-  const p = contrato.plantillas(eje, opciones).find((x) => x.donde === donde);
+  const p = plantillaDePreferencias(opciones);
   if (!p) return null;
   const o = { ...opciones, idioma: idiomaDe(eje, yo, opciones) };
   const T = (que, etiqueta, original) => contrato.texto(eje, contrato.claves.parametro(p.nombre, etiqueta, que), o.idioma, { original, epoca: o.epoca });
