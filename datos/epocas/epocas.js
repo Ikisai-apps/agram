@@ -2344,6 +2344,92 @@ export const EPOCA_0_BTML_DATOS = [
       [
         "la carta nunca ordena: el orden lo nombra la plantilla del tipo (su d.8) o el dueño en el 2.3 de su registro; si no, el primero de esta lista (Core, pendiente de revisar VG (encargo 3c-1))"
       ]
+    ],
+    [
+      [
+        "size steps"
+      ],
+      [
+        [
+          [
+            "hidden"
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ]
+        ],
+        [
+          [
+            "dot"
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            1
+          ]
+        ],
+        [
+          [
+            "group"
+          ],
+          [
+            1,
+            16
+          ],
+          [
+            1,
+            16
+          ],
+          [
+            9
+          ]
+        ],
+        [
+          [
+            "block"
+          ],
+          [
+            1,
+            4
+          ],
+          [
+            1,
+            9
+          ],
+          [
+            10
+          ]
+        ],
+        [
+          [
+            "full"
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1,
+            1
+          ],
+          [
+            1000
+          ]
+        ]
+      ],
+      [
+        "VG, 10-11 (Mapped, tanda 3): los pasos de tamaño de cada punto de vista en una pantalla ancha, de menor a mayor, cada uno [[nombre], [fracción de pantalla en una esquina (1-4)], [fracción en un lado (6-9)], [cuántos datos caben]]; una fracción es un número o dos hojas (numerador, denominador). oculto; punto (un puntito junto al foco: no ocupa pantalla); grupo (una dieciseisava parte, pegado a su esquina o lateral: 5 o 9 campos, la división de 8.3 con los datos que tenga); bloque (un cuarto las esquinas, un noveno la cruz: la pantalla en 3×3, los demás ocupan su sitio y se rellenan); completa (un solo punto de vista a pantalla completa, con el máximo de datos de Mapped de 8.2 y la división de 8.3 dentro). Sin scroll: se avanza hacia adentro y por tamaño, y la carta reparte la pantalla entre los que compiten (docs/CONTRATO.md §4.1)"
+      ]
     ]
   ],
   [
@@ -4281,6 +4367,7 @@ export const EPOCA_0_BTML_DATOS = [
           "template write to X param actions label: acción",
           "template write to X param actions help: la acción",
           "template write to X message: write to X: {me} escribe a {first it.3} sobre {first it.0}",
+          "template all announced movements happened: todos los movimientos anunciados ocurrieron",
           "template purchase: compra",
           "template purchase param purchase label: compra",
           "template purchase param purchase help: lo comprado, como título o imagen",
@@ -4322,6 +4409,8 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param step help: cuántos ocupantes, entradas o datos por carga",
           "template preferences param render label: pintado",
           "template preferences param render help: sobrio (sober) o animado (animated): dos pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»)",
+          "template preferences param render option sober: sobrio",
+          "template preferences param render option animated: animado",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
           "template preferences param sizes label: tamaños",
@@ -4362,6 +4451,11 @@ export const EPOCA_0_BTML_DATOS = [
           "size slot: hueco",
           "size card: tarjeta",
           "size screen: pantalla",
+          "size hidden: oculto",
+          "size dot: punto",
+          "size group: grupo",
+          "size block: bloque",
+          "size full: pantalla completa",
           "legible price: {amount} {series} por unidad",
           "legible amount: {amount} {series}",
           "legible record: registro de {n} posiciones",
@@ -14355,7 +14449,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "c651b1d83ebee812b79102d2201b7bad172f66ee6377b6d0d209af10ece7264b";
+export const EPOCA_0_BTML_ID = "cdc916a283b980db858a5684e062868531196d2d618121522826910cd4e628d6";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

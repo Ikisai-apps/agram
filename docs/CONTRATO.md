@@ -16,6 +16,7 @@ Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `
 | los niveles de madurez | `epoch.8.4` (y la lectura «maturity», en el 2) |
 | los órdenes de los ocupantes | `epoch.8.5` |
 | los modos y su máximo | `epoch.8.2` |
+| los pasos de tamaño de un PV en Mapped (§4.1) | `epoch.8.6` |
 | las plantillas de dominio | `epoch.9.2` (0 la cabecera, con el tipo genérico de cada dígito en 9.2.0.1; 9.2.1 «purchase», 9.2.2 «booking») |
 | la plantilla «preferences» | `epoch.9.3` (9.3.6 la preferencia `model`, encargo 3c-2b) |
 | los mensajes por idioma y los textos por clave (§8) | `epoch.9.4` (0 la cabecera; 9.4.1 «es»: las reglas, las plantillas, los niveles, los órdenes, los tamaños y los formatos de `legible`; 9.4.2 «en»: solo los formatos canónicos de `legible`) |
@@ -119,6 +120,32 @@ modos()                                       // → [{ nombre, minimo, maximo }
 
 `ruta` es el registro en foco (su id, el evento o `{ id }`). Los nombres de las disposiciones son los de la época (`list`, `matrix`): cambiarlos en la época cambia lo que devuelve.
 
+### 4.1 Mapped: los pasos de tamaño de cada punto de vista (VG, 10-11)
+
+En una pantalla ancha (la matriz, Mapped) **no hay scroll nunca**: la carta ocupa la ventana entera y se avanza hacia adentro (profundidad) y por tamaño, no hacia abajo. Cada punto de vista lateral tiene un **paso de tamaño**, y los pasos son datos de la época, `epoch.8.6` («size steps», procedencia «VG, 10-11»), una fila por paso de menor a mayor, `[[nombre], [fracción en una esquina], [fracción en un lado], [datos que caben]]` (una fracción es un número o dos hojas, numerador y denominador):
+
+| Paso | Esquina (1-4) | Lado (6-9) | Datos | Qué es |
+|---|---|---|---|---|
+| `hidden` | 0 | 0 | 0 | oculto (también lo que la división de 8.3 no enseña) |
+| `dot` | 0 | 0 | 1 | un puntito junto al foco: no ocupa pantalla; el de partida |
+| `group` | 1/16 | 1/16 | 9 | un grupito pegado a su esquina o lateral; dentro, la división de 8.3 con los datos que tenga (5 → la X con el 0, 9 → el 3×3) |
+| `block` | 1/4 | 1/9 | 10 | la pantalla queda en 3×3: los demás ocupan su celda y se rellenan con lo que tengan |
+| `full` | 1 | 1 | 1000 | un solo PV a pantalla completa, con el máximo de Mapped (8.2) y la división de 8.3 dentro |
+
+`pasosDeTamano({ idioma })` → `[{ indice, nombre, esquina, lado, datos, texto }]` (`texto`, por la clave «size <nombre>»). La carta no lleva ningún nombre ni fracción escrita; lo que necesita lo deduce de la tabla (`carta/carta.js`, `escalaDeTamanos`): el de **partida** es el primero en que cabe un dato (el punto), el primero **con espacio** es el primero cuya fracción no es 0 (el grupo), la **pantalla completa** es el que ocupa 1 en esquina y lado, y el **tope** es el anterior a ese (el bloque). Cambiar la tabla en una copia de la época cambia los pasos, las cajas y lo que cabe (`test/carta-mapped.test.js`).
+
+**El reparto de la pantalla** (`repartir`, puro; el árbol trae para cada PV su `pasoDeTamano` y su `caja` en fracciones de la pantalla, y el centro la suya). La pantalla es la matriz 3×3 de la geometría (1 arriba a la izquierda, 8 arriba, 2 arriba a la derecha, 6 izquierda, 7 derecha, 3 abajo a la izquierda, 9 abajo, 4 abajo a la derecha; el 0 y el 5 en el centro). Lo que quiere un PV es la raíz de su fracción en cada eje (un cuarto de pantalla es medio ancho y medio alto); cada columna y cada fila quieren lo del mayor de sus PV. Si algún PV está en el tope, la pantalla está **en matriz**: los demás llenan su celda como si estuvieran al menos en el primer paso con espacio, y el foco quiere la celda de un lado en el tope (un tercio). Después, en cada eje: si lo que se quiere cabe, el centro (el foco) se queda lo que sobra; si no cabe, la banda del PV tocado **más recientemente** se queda lo suyo y las demás se reparten el resto **en proporción**; si nadie es el más reciente (los puntitos suben a todos a la vez), todas en proporción: la cruz se encoge con la X. Cada eje suma exactamente 1: el árbol nunca pide más del 100 % de la pantalla.
+
+**La competición** (`ampliar`, puro, Core, regla elegida): cuando un PV crece por su cuenta (el clic, sus botoncitos, el arrastre) y los PV de su fila (al ensanchar) o de su columna (al alargar) ya no caben juntos, sin contar el foco, **gana el más reciente**: cada PV de esa fila o columna que se tocó antes uno a uno y está en un paso igual o mayor que el que acaba de alcanzar **baja un paso**. Quien ha subido con los puntitos no compite (todos en proporción).
+
+**Los dos mandos.** (a) Los **puntitos del foco** (los diez PV en su paso, junto a la información del foco; la pantalla inicial es solo el 0 con ellos) suben **un paso a todos** hasta el tope (`ampliarTodos`); en el tope, otra pulsación no hace nada, y un mando aparte los baja un paso. (b) El **clic sobre un PV** sube un paso **solo a ese** (`ampliar`); en el tope, el siguiente lo pone **a pantalla completa** (el foco pasa a ese PV); sus **botoncitos** (+ y −) y el **asa** de su esquina hacen lo mismo: arrastrar el asa hacia el centro amplía y hacia fuera reduce, un paso por cada octavo del lado menor de la pantalla recorrido en la dirección de su esquina o lado (la que va hacia el centro: el «umbral por cuadrante»).
+
+**La pantalla completa** de un PV: solo él, sin rosetones; en los lados y esquinas, flechas a los PV vecinos en su sitio de la geometría, el 0 y el 5 junto al 9 (abajo al centro, pequeños), y un botón claro **volver** (y Esc) que deja el PV en el tope. Dentro, `division` con los datos del paso (el máximo de Mapped), por **páginas** de lo que cabe (sin scroll, «anterior» y «siguiente» en lugar de «cargar más»; también en los bloques).
+
+**Los rosetones** en el ordenador: cada uno en su esquina o lateral (el 0 arriba al centro y el 5 abajo al centro, junto al 8 y al 9, más pequeños), por encima de los bloques, una sola vez; en la pantalla completa no se ven. En el móvil (apilada) siguen las dos tiras.
+
+**La medida de cada carta**, pequeña y en su fila de arriba (VG, 10-11; Core, regla elegida): la de un PV es **su paso propio** si la tabla de pasos le da uno (`epoch.9.8`: el 4 su ciclo, el 7 su escala, el 8 su cuota) y, si no, la de todo elemento (la madurez). Así el PV4, el sitio de las acciones, dice en qué etapa del ciclo está.
+
 ## 5. Madurez: la medida del 8 como lectura
 
 La madurez de X es una **lectura** nueva en la época, **«maturity»** (`datos/epocas/reglas/maturity.json`): un registro de regla como las demás, en el 2 de la época y en la cadena del 8 (después de «weight»), con `read` en su 4. **Se materializa en `X.8.1`**: frente a otros (8), cuánto (1): el nivel es la cantidad con que X se compara con los demás, y el 8.1 es el sitio donde el despliegue de la cruceta pone «cuánto» de la comparabilidad; la medida de la que sale queda en **`X.8.6`** (de dónde viene), una vista del contexto: 8.6.1 (cuánto) las posiciones escritas de X y de todo lo que cuelga de él, 8.6.5 (dónde encaja) la profundidad del subárbol en registros, 8.6.4 (qué se hace) las unidades que mueven sus transacciones. Las bases del 8 siguen siendo registros anclados en el 8; esto es lo implícito.
@@ -160,7 +187,10 @@ La **configuración** vive como un registro anclado en **`yo.9`** (el 9 del alta
 ```js
 yo(eje, identidad, { t })   // → { identidad, alta, cartera, criterio: { posicionado, adopta }, atencion, tiempo } o null
 configuracion(eje, yo)      // → { step, render, language, sizes, model, de }  (de: el id del registro, o null si son los defectos)
+clavesDeConfiguracion()     // → [{ pv, clave, defecto, valores? }]: valores, si su validación es una enumeración («="sober" in it.2 or "animated" in it.2»)
 ```
+
+Las preferencias de **dos valores** (hoy solo el pintado, `render`: sober o animated) son los **interruptores** de la barra de la carta (VG, 10-11): las dos palabras en el idioma (clave «template preferences param <clave> option <valor>»); tocar la otra escribe la preferencia como lo hace la configuración (un registro más en el 9 del alta) y repinta.
 
 ## 8. Mensajes y traducción: `mensaje(eje, regla, idioma, { ev })`
 
@@ -210,6 +240,7 @@ Un valor de una posición o de un parámetro ya no se enseña como JSON en crudo
 | una lista | sus ocupantes legibles, separados por « · » | `lista` |
 | una cantidad de token `{ serie, cantidad }` (un asiento del diario) | «12 EUR», «1 hora» | `cantidad, serie` |
 | el nombre de una acción del aro, de una plantilla de datos, un nivel | su traducción («aplicar un recurso», «compra», «semilla») | `accion, id` / `plantilla` / `nivel` |
+| el nombre de una plantilla de cerrado (`epoch.9.0.1`: el criterio por defecto, VG 10-11) | su traducción por «template <nombre>» («todos los movimientos anunciados ocurrieron»); `desdeLegible` la devuelve al canónico | `cerrado` |
 | un número, un texto | tal cual (los dígitos no se localizan: el input los devuelve igual) | `valor` |
 
 `desdeLegible(texto, tipo, { eje, idioma })` es la inversa mínima para editar los **tipos simples** (`esTipoSimple(tipo)`: los tipos genéricos de `epoch.9.2.0.1`; una décupla se edita en BTML): un número (con coma o punto decimal), un instante (ISO estricto; un día «AAAA-MM-DD» o «AAAA-MM-DDTHH:MM», como lo da un input, completados en UTC), una identidad por su id o por el 0 de su alta, una referencia por su id o por el 0 de un registro, un nivel o el nombre de una acción o de una plantilla por su traducción, y el texto tal cual; vacío, `{ valor: undefined }`. Devuelve `{ valor }` o `{ motivo }` (el motivo, con los formatos «legible not a number», «… not an instant», «… unknown identity», «… unknown record» de `epoch.9.4`). La carta enseña en el input de cada parámetro el valor legible (y el crudo en un desplegable «ver en BTML»); al enviar, si el texto no se tocó manda el crudo, si el tipo es simple lo lee con `desdeLegible`, y lo demás como antes (JSON si empieza por `[` o `{`).

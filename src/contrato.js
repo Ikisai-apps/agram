@@ -68,6 +68,8 @@ const SITIO = Object.freeze({
   bloque: [8, 3], // el espacio de bloque: 1 la tabla datos → PV, 2 la disposición por la forma del hueco, 3 el paso
   madurez: [8, 4], // 1 umbrales por posición, 2 sus nombres, 3 techos de los órdenes, 4 sus nombres
   ordenes: [8, 5], // 1 los órdenes: [[nombre], [mecanismo, …], [qué]]
+  pasosDeTamano: [8, 6], // 1 los pasos de tamaño de un PV en Mapped: [[nombre], [fracción en una esquina], [fracción en un lado], [datos que caben]]
+  cerrados: [9, 0, 1, 1], // las plantillas de cerrado: [[nombre], [fórmula]]
   plantillas: [9, 2], // 0 la cabecera (0.1 el tipo genérico por dígito), 1… las plantillas de dominio
   preferencias: [9, 3], // la plantilla «preferences»
   guia: [9, 9], // 0 la cabecera, 1… las referencias a los registros de la guía del PV9 (leer: docs/CONTRATO.md §16)
@@ -476,6 +478,29 @@ export function division(eje, ruta, { datos = 1, forma, modo, ...opciones } = {}
   return { pvs: pvs.slice(), disposicion, paso: paso(opciones), datos: n, maximo, cargarMas };
 }
 
+/** Una fracción de la época: un número, o dos hojas [numerador, denominador]; lo que no se lee, 0. */
+function fraccion(x) {
+  const h = hojas(x).filter((v) => typeof v === 'number' && Number.isFinite(v));
+  if (h.length >= 2) return h[1] > 0 ? h[0] / h[1] : 0;
+  return h.length ? h[0] : 0;
+}
+
+/**
+ * Los pasos de tamaño de un punto de vista en una pantalla ancha (Mapped; epoch.8.6, VG 10-11), de menor a mayor:
+ * [{ indice, nombre, esquina, lado, datos }], con `esquina` y `lado` la fracción de pantalla que ocupa un PV de la X
+ * (1-4) o de la cruz (6-9) en ese paso y `datos` los que caben (lo que se pide a la división de 8.3). Con `idioma`,
+ * cada uno trae además `texto`, su nombre traducido («size <nombre>»). La carta no lleva ninguno escrito: cambiar la
+ * tabla en una copia de la época cambia los pasos, las fracciones y lo que cabe (docs/CONTRATO.md §4.1).
+ */
+export function pasosDeTamano(opciones = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  return hojas(en(raiz, [...SITIO.pasosDeTamano, 1])).filter(Array.isArray).map((p, indice) => {
+    const nombre = texto(hoja(p[0]));
+    const paso = { indice, nombre, esquina: fraccion(p[1]), lado: fraccion(p[2]), datos: Number(hoja(p[3])) || 0 };
+    return opciones.idioma ? { ...paso, texto: texto_(null, CLAVE.tamano(nombre), opciones.idioma, { original: nombre, epoca: opciones.epoca }) } : paso;
+  });
+}
+
 // ---------- 5. la madurez ----------
 
 /** Los niveles genéricos de la época (epoch.8.4): los de posición y los de orden de magnitud, en orden (con `idioma`, traducidos: «level <nombre>»). */
@@ -677,6 +702,18 @@ export function clavesDeConfiguracionDe(nombre, opciones = {}) {
   return clavesDe(plantillas(null, opciones).find((x) => x.nombre === nombre)?.registro);
 }
 
+/**
+ * Los valores que admite una posición cuando su validación es una enumeración, «="a" in it.N or "b" in it.N …» (la del
+ * pintado: sober o animated): las palabras entre comillas, en su orden; null si la validación no es de esa forma.
+ */
+function valoresDeValidacion(formula) {
+  if (typeof formula !== 'string') return null;
+  const clausula = /^\s*"([^"]+)"\s+in\s+it(?:\.\d+)*\s*$/;
+  const partes = formula.replace(/^=/, '').split(/\s+or\s+/);
+  if (!formula.startsWith('=') || !partes.every((x) => clausula.test(x))) return null;
+  return partes.map((x) => x.match(clausula)[1]);
+}
+
 function clavesDe(p) {
   if (!esPlantilla(p)) return [];
   const claves = [];
@@ -686,7 +723,8 @@ function clavesDe(p) {
     const clave = texto(hoja(desc?.[0]));
     if (!clave) continue;
     const defecto = hojas(desc[9]).slice(0, -1);
-    claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined });
+    const valores = valoresDeValidacion(texto(ultima(desc[2])));
+    claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined, ...(valores ? { valores } : {}) });
   }
   return claves;
 }
@@ -801,6 +839,9 @@ function plano_(formato, partes) {
   if (typeof formato !== 'string') return Object.values(partes).filter((v) => v !== undefined && v !== null && v !== '').join(' ');
   return formato.replace(/\{([^{}]+)\}/g, (_, k) => (partes[k] === undefined || partes[k] === null ? '' : String(partes[k])));
 }
+
+/** Los nombres de las plantillas de cerrado de la época (epoch.9.0.1: «all announced movements happened»). */
+const cerradosDe = (epoca) => hojas(en(raizDe(epoca), SITIO.cerrados)).filter(Array.isArray).map((c) => texto(hoja(c[0]))).filter(Boolean);
 
 /** Los nombres de las plantillas de transacción de la época (epoch.9.6), con su id. */
 const accionesDe = (epoca) => (Array.isArray(epoca?.transacciones) ? epoca.transacciones : []).map((x) => ({ id: x.id, nombre: texto(hoja(x.plantilla?.[0])) })).filter((x) => x.nombre);
@@ -920,6 +961,8 @@ export function legible(eje, valor, tipo, { idioma = 'en', ...opciones } = {}) {
   const accion = accionesDe(epoca).find((a) => a.nombre === s);
   if (accion) return { texto: texto_(eje, CLAVE.plantilla(s), idioma, { original: s, epoca }), partes: { accion: s, id: accion.id } };
   if (plantillas(eje, { epoca }).some((p) => p.nombre === s)) return { texto: texto_(eje, CLAVE.plantilla(s), idioma, { original: s, epoca }), partes: { plantilla: s } };
+  // El nombre de una plantilla de cerrado (el criterio por defecto de un registro): también su traducción.
+  if (cerradosDe(epoca).includes(s)) return { texto: texto_(eje, CLAVE.plantilla(s), idioma, { original: s, epoca }), partes: { cerrado: s } };
   return { texto: s, partes: { valor: s } };
 }
 
@@ -969,7 +1012,7 @@ export function desdeLegible(textoDado, tipo, { eje, idioma = 'en', ...opciones 
     const canonico = niveles({ epoca }).find((n) => texto_(eje, CLAVE.nivel(n), idioma, { original: n, epoca }) === s);
     return { valor: canonico ?? s };
   }
-  const nombres = [...accionesDe(epoca).map((a) => a.nombre), ...plantillas(eje, { epoca }).map((p) => p.nombre)];
+  const nombres = [...accionesDe(epoca).map((a) => a.nombre), ...plantillas(eje, { epoca }).map((p) => p.nombre), ...cerradosDe(epoca)];
   const canonico = nombres.find((n) => texto_(eje, CLAVE.plantilla(n), idioma, { original: n, epoca }) === s);
   return { valor: canonico ?? s };
 }
