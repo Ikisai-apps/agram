@@ -1,6 +1,7 @@
 // El arranque de la carta en el navegador: el eje de ejemplo (o el guardado), las claves de las identidades de prueba,
 // el libro local de quien mira, el estado de la pantalla y el ciclo medir → pedir el árbol (carta/carta.js) → pintar
-// (carta/dom.js) → enganchar gestos (carta/gestos.js). La fontanería es la de la web antigua (antigua/ui/ejemplos.js,
+// (carta/dom.js) → enganchar gestos (carta/gestos.js). Lo nuevo del diario desde la última vez (estado.nuevos) es lo
+// que el animado anima (efectos, actuar) y se olvida en cuanto se ha pintado. La fontanería es la de la web antigua (antigua/ui/ejemplos.js,
 // antigua/ui/leido.js, antigua/ui/comun.js y las mismas claves de localStorage): el mismo eje y las mismas claves
 // sirven a las dos webs. Nada real: identidades de ejemplo con claves generadas en este navegador.
 
@@ -127,6 +128,10 @@ async function pintar() {
     limpiarLottie();
     raiz.innerHTML = html(a, extra);
     limpiarLottie = a.animado ? trasPintar(raiz) : () => {};
+    // Lo nuevo se anima una vez: en cuanto se ha pintado con lottie-web, deja de ser nuevo (si lottie aún no está, el
+    // repintado al cargarlo lo anima).
+    if (a.animado && globalThis.lottie) estado.nuevos = new Set();
+    globalThis.__carta = { arbol: a, vivas: () => limpiarLottie.vivas?.() ?? 0 }; // para medir (pruebas de rendimiento)
     gestos?.observar();
     if (estado.foco.X) guardarLocal(CLAVE_FOCO, estado.foco.X);
     document.documentElement.classList.toggle('animado', Boolean(a.animado));
