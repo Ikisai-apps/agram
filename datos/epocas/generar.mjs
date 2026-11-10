@@ -99,6 +99,20 @@ export function plantillasDe(carpeta = join(CARPETA, 'plantillas')) {
   });
 }
 
+/**
+ * Los registros de la guía (el 9.9 de la época, PV9): uno por archivo en guia/<su 0 en kebab>.json, un registro más de
+ * la época con su id (el hash de su cuerpo canónico). Su 0 es el nombre, su 1 el papel, su 2 el resumen de AGRAM, su 3
+ * las normas de formato y su 4 las preguntas hechas (en inglés: la traducción va por clave en el 9.4).
+ */
+export function guiaDe(carpeta = join(CARPETA, 'guia')) {
+  return jsonDe(carpeta).map((archivo) => {
+    const registro = leerJSON(join(carpeta, archivo));
+    const nombre = Array.isArray(registro) && Array.isArray(registro[0]) ? registro[0][0] : undefined;
+    if (archivo !== kebab(nombre) + '.json') throw new Error('guia/' + archivo + ': el archivo se llama como el 0 de su registro en kebab (' + kebab(nombre) + '.json)');
+    return { archivo, id: idDe(registro), registro };
+  });
+}
+
 /** Las plantillas de transacción en el orden de su 8: [punto de vista, orden]. */
 export function ordenarPorAro(plantillas) {
   const ocho = (p) => (Array.isArray(p.registro[8]) ? p.registro[8] : []).map(Number);
@@ -216,7 +230,7 @@ export function modelosDe(carpeta = join(CARPETA, MODELOS)) {
 /**
  * La raíz de la época con su 2 = las referencias a las reglas de reglas/, en el orden de su 8; su 9.6 = su cabecera
  * (la que hay en disco) y, en su 9.6.1, las referencias a las plantillas de transacción de plantillas/, en el orden de
- * su 8 (encargo 3c-2a); y su 9.7 = su cabecera seguida de las referencias a los modelos de modelos/, por nombre de
+ * su 8 (encargo 3c-2a); su 9.9 = su cabecera seguida de la referencia a la guía de guia/ (PV9) y su 9.7 = su cabecera seguida de las referencias a los modelos de modelos/, por nombre de
  * archivo (encargo 3c-2b).
  */
 export function raizConReglas(carpeta = CARPETA) {
@@ -226,6 +240,12 @@ export function raizConReglas(carpeta = CARPETA) {
   if (Array.isArray(nueve) && Array.isArray(nueve[7])) {
     const cabecera = Array.isArray(nueve[7][0]) ? nueve[7][0] : nueve[7];
     nueve[7] = [cabecera, ...modelosDe(join(carpeta, MODELOS)).map(({ id }) => ({ ref: id }))];
+  }
+  // 9.9 la guía: su cabecera (la que hay en disco) y, detrás, la referencia al registro de la guía.
+  const guia = guiaDe(join(carpeta, 'guia'));
+  if (guia.length && Array.isArray(nueve) && Array.isArray(nueve[9])) {
+    const cabecera = Array.isArray(nueve[9][0]) ? nueve[9][0] : nueve[9];
+    nueve[9] = [cabecera, ...guia.map(({ id }) => ({ ref: id }))];
   }
   const plantillas = ordenarPorAro(plantillasDe(join(carpeta, 'plantillas')));
   if (plantillas.length && Array.isArray(nueve) && Array.isArray(nueve[6])) {
@@ -256,6 +276,9 @@ export function generar(carpeta = CARPETA) {
   partes.push('');
   partes.push('// plantillas/*.json: las plantillas de transacción (las acciones del aro, encargo 3c-2a), { archivo, id, registro }, en el orden de su 8 (el del 9.6 de la época)');
   partes.push(`export const PLANTILLAS_DE_EPOCA_DATOS = ${JSON.stringify(ordenarPorAro(plantillasDe(join(carpeta, 'plantillas'))), null, 2)};`);
+  partes.push('');
+  partes.push('// guia/*.json: el registro de la guía del PV9 (el 9.9 de la época), { archivo, id, registro }; el 9.9 de la raíz lo referencia');
+  partes.push(`export const GUIA_DE_EPOCA_DATOS = ${JSON.stringify(guiaDe(join(carpeta, 'guia')), null, 2)};`);
   partes.push('');
   partes.push('// el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)');
   partes.push(`export const EPOCA_0_BTML_ID = ${JSON.stringify(idDe(raizConReglas(carpeta)))};`);

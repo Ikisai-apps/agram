@@ -2974,6 +2974,207 @@ export const EPOCA_0_BTML_DATOS = [
             "how far the booking has come, in five levels (8.8): Core, pendiente de revisar VG (encargo 3c-1)"
           ]
         ]
+      ],
+      [
+        [
+          [
+            "guide settings"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "0"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "required"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "guide settings",
+            "the guide's settings: which model answers and how it is called"
+          ]
+        ],
+        [
+          [
+            "guide model"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "1"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "claude-sonnet-5-5",
+            "the model that answers the guide"
+          ]
+        ],
+        [
+          [
+            "guide via"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=\"server\" in it.2 or \"direct\" in it.2"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "2"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "server",
+            "server: through the shared ledger server (route /guia, the key lives there); direct: from this browser with a key kept only in this browser"
+          ]
+        ],
+        [
+          [
+            "guide history"
+          ],
+          [
+            "number"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "3"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            20,
+            "how many turns of the conversation are kept in this browser"
+          ]
+        ],
+        [
+          [
+            "guide context"
+          ],
+          [
+            "number"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "template",
+            "write"
+          ],
+          [
+            "4"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            6000,
+            "how many characters of the screen are sent as context"
+          ]
+        ],
+        [
+          [
+            "guide settings"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "owner"
+          ],
+          [
+            "write"
+          ],
+          [
+            "5"
+          ],
+          [
+            "la guía del PV9 (solo lectura): sus ajustes viven en un registro de este tipo en el 9 del alta, junto al de preferencias (que ya tiene las diez posiciones)"
+          ],
+          [
+            "optional"
+          ],
+          [
+            "arrival"
+          ],
+          [
+            "guide settings",
+            "its type: this template, named in the 5 of the record (B4: the 5 is the type)"
+          ]
+        ]
       ]
     ],
     [
@@ -3793,7 +3994,24 @@ export const EPOCA_0_BTML_DATOS = [
           "legible not an instant: no es una fecha (AAAA-MM-DD o AAAA-MM-DDTHH:MM): {text}",
           "legible unknown identity: ninguna identidad conocida se llama {text}",
           "legible unknown record: ningún registro del libro se llama {text}",
-          "legible does not satisfy: no cumple {formula}"
+          "legible does not satisfy: no cumple {formula}",
+          "guide role: Eres la guía de AGRAM para quien mira la pantalla. Solo lees: nunca cambias nada y nunca dices que has hecho algo. Responde corto, en el idioma de la configuración que figura en el contexto. Explica lo que hay en pantalla, qué significa y qué viene después. Nunca inventes registros, ids, saldos, pasos ni acciones que no estén en el contexto; si el contexto no lo dice, dilo.",
+          "guide summary: AGRAM es un libro compartido de eventos. Cada evento es una transición de tokens con un payload BTML encima; registrar es hacer una transacción, y nada se modifica en sitio: corregir es añadir.\nUn registro es una décupla: diez posiciones, de la 0 a la 9, cada una un punto de vista (PV) con su propio mundo. Qué significa cada dígito lo dice una regla corta de la época; la época es a su vez un registro y sus reglas son datos.\nPV0 representación (la lente): cómo se muestra el registro; puede engañar. PV1 recursos (el reino): cantidades, entradas, precios, disponibilidad. PV2 criterios (el jardín): lo que distingue cosas parecidas; votos, umbrales, preferencias. PV3 comunicación (el parque acuático): quién escribe a quién, grupos, atención.\nPV4 fábrica: preparar con recursos, criterios y mensajes, y ejecutar; aquí se hacen las cosas. PV5 estructura: el propio registro en foco, sus referencias y firmas, en el centro de la cruz. PV6 pasado (hilos): registros encadenados por referencia, procedencia. PV7 futuro (hilos): previsiones, compromisos, caducidades.\nPV8 comparabilidad (el cielo): medidas y madurez frente a registros comparables; las estrellas no son verdad. PV9 camino: los pasos desde donde estás hacia la acción; sugerir no es ejecutar.\nCuatro tokens. E, recursos: por emisor y denominación (dinero, bienes, plazas, cupos). P, poder o criterio: siempre posicionado en un registro, guarda quién lo dio y pesa solo en ese dominio. R, reputación: exige emisor y pasa de tenedor a tenedor; devolverla a su emisor es pedir atención. T, tiempo: siete escalas reales (del segundo al año); cada persona tiene su asignación diaria y escribir la gasta.\nMadurez: todo registro tiene un nivel del 1 al 10 (semilla, brote, retoño, tallo, rama, hoja, yema, flor, fruto, décupla) según cuántas posiciones tiene escritas, su profundidad y lo que mueve; más allá de diez, por órdenes de magnitud (lista, tienda, manzana, distrito, reino). El render animado enseña etapas (sello, intermedio, ilustrado).\nEl aro: alrededor de un registro, las acciones que el núcleo ofrece a quien mira, punto de vista a punto de vista; la primera de cada uno es la acción por defecto. Cada acción es una plantilla de transacción que se comprueba contra las reglas de la época antes de escribirse.\nEl camino: lo que falta y lo que espera. Un paso es mío (puedo lanzarlo) o de espera de otro; viene de un tutorial, de las reglas o de una sugerencia. Seguir el camino lanza mis pasos en orden.\nCuentas: tu cuenta es tu propio eje, cuyo primer registro es tu alta (tu identidad), con una clave generada en el dispositivo que solo sale cifrada, en la copia de seguridad. Con un servidor, un nombre de eje compartido y su clave de lectura, el eje se comparte entre dispositivos; cada dispositivo comprueba las reglas por su cuenta. Los ejemplos llevan datos inventados y no tienen cuenta.\nLos tamaños: el hueco (el más pequeño), la tarjeta, la pantalla. En el móvil los puntos de vista se apilan en franjas (Sequenced); en una pantalla ancha forman un mapa de nueve celdas (Mapped).",
+          "guide rules: Texto plano, sin títulos ni tablas en markdown; párrafos cortos o hasta cinco líneas. Nombra las posiciones por número y nombre (por ejemplo PV2 criterios) y los ids por sus ocho primeros caracteres. Si te piden actuar, di que esta guía solo explica y señala el aro o el camino, donde se ofrece la acción. Si el contexto dice que se ha recortado, avisa de que puede estar incompleto. Si no lo sabes, dilo.",
+          "guide question 1: ¿Qué estoy viendo?",
+          "guide question 2: ¿Qué viene ahora?",
+          "guide question 3: ¿Qué significa esta posición?",
+          "template guide settings: ajustes de la guía",
+          "template guide settings param guide settings label: ajustes de la guía",
+          "template guide settings param guide settings help: los ajustes de la guía: qué modelo contesta y cómo se le llama",
+          "template guide settings param guide model label: modelo de la guía",
+          "template guide settings param guide model help: el modelo que contesta a la guía",
+          "template guide settings param guide via label: vía de la guía",
+          "template guide settings param guide via help: servidor: por el servidor del libro compartido (ruta /guia, la clave vive allí); directo: desde este navegador con una clave que solo se guarda en este navegador",
+          "template guide settings param guide history label: turnos de la guía",
+          "template guide settings param guide history help: cuántos turnos de la conversación se guardan en este navegador",
+          "template guide settings param guide context label: contexto de la guía",
+          "template guide settings param guide context help: cuántos caracteres de la pantalla se mandan como contexto"
         ]
       ],
       [
@@ -4358,6 +4576,15 @@ export const EPOCA_0_BTML_DATOS = [
           "for every element: its maturity level, X.8.1 (contrato.madurez), among the levels of its template (8.8) or the generic ones of epoch.8.4"
         ]
       ]
+    ],
+    [
+      [
+        "guide",
+        "the guide of the PV9 (read only): what is on screen, what it means and what comes next. One record: 0 its name, 1 its role, 2 a summary of AGRAM, 3 the format rules, 4 the quick questions, 5 the name of the template of its settings (in 9.2). The code of the card only starts reading here, like a CLAUDE.md: the 9 of the epoch, then the 9 of the template of the focus, then the 9 of the focus itself (docs/CONTRATO.md §16). Core, pendiente de revisar VG"
+      ],
+      {
+        "ref": "300fb16daa1f300e08dce421fbf15ec1d09d1f4f8fb47a95422b165bdff15177"
+      }
     ]
   ]
 ];
@@ -13524,8 +13751,38 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   }
 ];
 
+// guia/*.json: el registro de la guía del PV9 (el 9.9 de la época), { archivo, id, registro }; el 9.9 de la raíz lo referencia
+export const GUIA_DE_EPOCA_DATOS = [
+  {
+    "archivo": "guide.json",
+    "id": "300fb16daa1f300e08dce421fbf15ec1d09d1f4f8fb47a95422b165bdff15177",
+    "registro": [
+      [
+        "guide"
+      ],
+      [
+        "You are AGRAM's guide for the person looking at the screen. You only read: you never change anything and you never say that you have done something. Answer short, in the language of the configuration given in the context. Explain what is on screen, what it means and what comes next. Never invent records, ids, balances, steps or actions that are not in the context; if the context does not say it, say so."
+      ],
+      [
+        "AGRAM is a shared ledger of events. Every event is a transition of tokens with a BTML payload on top; registering is making a transaction, and nothing is modified in place: correcting is adding.\nA record is a tenfold: ten positions, 0 to 9, each one a point of view (PV) with its own world. What each digit means is a short rule of the epoch; the epoch is itself a record and its rules are data.\nPV0 representation (the lens): how the record is shown; it can mislead. PV1 resources (the kingdom): quantities, entries, prices, availability. PV2 criteria (the garden): what tells similar things apart; votes, thresholds, preferences. PV3 communication (the water park): who writes to whom, groups, attention.\nPV4 factory: prepare with resources, criteria and messages, and execute; here things are done. PV5 structure: the focused record itself, its references and signatures, at the centre of the cross. PV6 past (threads): records chained by reference, provenance. PV7 future (threads): forecasts, commitments, expirations.\nPV8 comparability (the sky): measures and maturity against comparable records; the stars are not truth. PV9 path: the steps from where you are towards action; suggesting is not executing.\nFour tokens. E, resources: by issuer and denomination (money, goods, places, quotas). P, power or criterion: always positioned on a record, it keeps who gave it and weighs only in that domain. R, reputation: needs an issuer, passes between holders; giving it back to its issuer asks for attention. T, time: seven real scales (second to year); each person has a daily allowance and writing spends it.\nMaturity: every record has a level from 1 to 10 (seed, sprout, shoot, stem, branch, leaf, bud, flower, fruit, tenfold) by how many positions are written, how deep and how much it moves; beyond ten, by orders of magnitude (list, shop, block, district, kingdom). The animated render shows stages (stamp, intermediate, illustrated).\nThe ring: around a record, the actions the core offers to whoever looks, point of view by point of view; the first of each is the default. Each action is a transaction template checked against the rules of the epoch before it is written.\nThe path: what is missing and what is waiting. A step is mine (I can launch it) or waiting for someone else; it comes from a tutorial, from the rules or from a suggestion. Following the path launches my steps in order.\nAccounts: your account is your own ledger whose first record is your alta (your identity), with a key generated on the device that leaves it only encrypted, in the backup. With a server, a shared ledger name and its read key, the ledger is shared between devices; every device checks the rules itself. The examples have invented data and no account.\nThe sizes: the slot (smallest), the card, the screen. On a phone the points of view stack in strips (Sequenced); on a wide screen they form a map of nine cells (Mapped)."
+      ],
+      [
+        "Plain text, no markdown headings or tables; short paragraphs or up to five lines. Name positions by number and name (for example PV2 criteria) and ids by their first eight characters. If you are asked to act, say that this guide only explains and point to the ring or the path where the action is offered. If the context says it was cut, say it may be incomplete. If you do not know, say so."
+      ],
+      [
+        "What am I looking at?",
+        "What comes next?",
+        "What does this position mean?"
+      ],
+      [
+        "guide settings"
+      ]
+    ]
+  }
+];
+
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "413ed9d6ba6faef7b36e2a4b29278c3cd595bd233fb19e68a8e756f464d22b51";
+export const EPOCA_0_BTML_ID = "795e47dbe783a5979e01dfe31fa69d0b67dc608f726d6bb98c9213c24eb00bde";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

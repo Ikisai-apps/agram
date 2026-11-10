@@ -24,7 +24,7 @@
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
 import { esLectura, esEscritura } from './bqlm.js';
-import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS, GUIA_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
   'representación', // 0 · PV0, lente libre
@@ -403,7 +403,7 @@ export const REGISTROS_DE_MODELOS = Object.freeze(MODELOS_DE_EPOCA_DATOS.flatMap
  * (datos/epocas/modelos/): las mismas cien reglas cortas que EPOCA_0. No
  * está en EPOCAS: es la misma época en otro formato.
  */
-export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS], plantillas: PLANTILLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
+export const EPOCA_0_BTML = cargarEpocaBtml(EPOCA_0_BTML_DATOS, { registros: [...REGLAS_DE_EPOCA_DATOS, ...REGISTROS_DE_MODELOS, ...GUIA_DE_EPOCA_DATOS], plantillas: PLANTILLAS_DE_EPOCA_DATOS, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML_ID });
 
 /** El id de la época 0: el registro con id conocido que el génesis lleva en su contexto (contexto.epoca) y que una invitación referencia en su 2. */
 export { EPOCA_0_BTML_ID };

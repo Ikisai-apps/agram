@@ -70,6 +70,7 @@ const SITIO = Object.freeze({
   ordenes: [8, 5], // 1 los órdenes: [[nombre], [mecanismo, …], [qué]]
   plantillas: [9, 2], // 0 la cabecera (0.1 el tipo genérico por dígito), 1… las plantillas de dominio
   preferencias: [9, 3], // la plantilla «preferences»
+  guia: [9, 9], // 0 la cabecera, 1… las referencias a los registros de la guía del PV9 (leer: docs/CONTRATO.md §16)
   mensajes: [9, 4], // 0 la cabecera, 1… un registro por idioma: [[código, nombre], [«regla: texto», …]]
   representacion: [9, 5], // 1 los formatos (el primero, el de una hoja), 2 los tamaños: [[tamaño], [nombre], [datos]]
 });
@@ -586,9 +587,37 @@ export function yo(eje, identidad, { t, ...opciones } = {}) {
  * hojas de cada d.9 menos la ayuda). `yo` es la identidad o lo que devuelve yo(). → { <etiqueta>: valor, …, de: id | null }.
  */
 export function configuracion(eje, quien, opciones = {}) {
+  return leerConfiguracion(eje, quien, en(raizDe(epocaDe(opciones)), SITIO.preferencias), opciones);
+}
+
+/**
+ * Los ajustes de otra plantilla de configuración de la época, por su nombre (hoy «guide settings»: la guía del PV9; la
+ * de preferencias tiene ya las diez posiciones): el registro anclado en el 9 de mi alta por mí cuyo tipo es esa
+ * plantilla (el último), leído con sus etiquetas como claves; sin registro, sus defectos. → { <etiqueta>: valor, …, de }.
+ */
+export function configuracionDe(eje, quien, nombre, opciones = {}) {
+  const p = plantillas(null, opciones).find((x) => x.nombre === nombre)?.registro;
+  return leerConfiguracion(eje, quien, p, opciones);
+}
+
+/**
+ * El nombre de la plantilla de los ajustes de la guía del PV9: lo dice el propio registro de la guía (su 5), no el
+ * código. Sus posiciones, por orden, son las claves de `configuracionDe` (docs/CONTRATO.md §16).
+ */
+export const ajustesDeLaGuia = (opciones = {}) => guia(null, 'en', opciones)?.ajustes ?? null;
+
+/** Los ajustes de la guía de quien mira (configuracionDe con su plantilla): { <etiqueta>: valor, …, de }. */
+export const configuracionGuia = (eje, quien, opciones = {}) => configuracionDe(eje, quien, ajustesDeLaGuia(opciones), opciones);
+
+/** ¿Es X un registro de configuración (de las preferencias o de los ajustes de la guía)? Lo que no se manda a ninguna IA: puede llevar dónde se comparte el eje. */
+export function esDeConfiguracion(eje, X, opciones = {}) {
+  const p = plantilla(eje, X, opciones);
+  if (!p) return false;
+  return p === en(raizDe(epocaDe(opciones)), SITIO.preferencias) || p === plantillas(null, opciones).find((x) => x.nombre === ajustesDeLaGuia(opciones))?.registro;
+}
+
+function leerConfiguracion(eje, quien, p, opciones) {
   const identidad = typeof quien === 'string' ? quien : quien?.identidad;
-  const raiz = raizDe(epocaDe(opciones));
-  const p = en(raiz, SITIO.preferencias);
   if (!esPlantilla(p)) return { de: null };
   const valores = {};
   // El 5 es el tipo (B4: ahí el registro nombra su plantilla), no una preferencia: la plantilla lo describe para que
@@ -625,7 +654,15 @@ export function configuracion(eje, quien, opciones = {}) {
  * el formulario de la configuración.
  */
 export function clavesDeConfiguracion(opciones = {}) {
-  const p = en(raizDe(epocaDe(opciones)), SITIO.preferencias);
+  return clavesDe(en(raizDe(epocaDe(opciones)), SITIO.preferencias));
+}
+
+/** Lo mismo para otra plantilla de configuración de la época, por su nombre (hoy «guide settings»). */
+export function clavesDeConfiguracionDe(nombre, opciones = {}) {
+  return clavesDe(plantillas(null, opciones).find((x) => x.nombre === nombre)?.registro);
+}
+
+function clavesDe(p) {
   if (!esPlantilla(p)) return [];
   const claves = [];
   for (let d = 1; d < ARIDAD; d++) {
@@ -637,6 +674,31 @@ export function clavesDeConfiguracion(opciones = {}) {
     claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined });
   }
   return claves;
+}
+
+/**
+ * Las instrucciones de la guía del PV9, leídas de la época (el 9.9: un registro referenciado, como las reglas): el texto
+ * base, que es dato y no código. Cada texto va en el idioma pedido por su clave en el 9.4 («guide role», «guide
+ * summary», «guide rules», «guide question N»); si falta, el inglés del propio registro. → { id, nombre, papel,
+ * resumen, normas, preguntas: [texto], ajustes: nombre de la plantilla de sus ajustes } o null si la época no trae guía.
+ */
+export function guia(eje, idioma = 'en', opciones = {}) {
+  const epoca = epocaDe(opciones);
+  const raiz = raizDe(epoca);
+  const ref = hojas(en(raiz, SITIO.guia)).find((h) => esReferencia(h));
+  const registro = ref ? epoca.registros?.get(ref.ref) : null;
+  if (!Array.isArray(registro)) return null;
+  const T = (clave, original) => texto_(eje, clave, idioma, { original, ...opciones });
+  const cuerpo = (d, clave) => T(clave, hojas(registro[d]).filter((x) => typeof x === 'string')[0] ?? '');
+  return {
+    id: ref.ref,
+    nombre: texto(hoja(hoja(registro[0]))),
+    papel: cuerpo(1, 'guide role'),
+    resumen: cuerpo(2, 'guide summary'),
+    normas: cuerpo(3, 'guide rules'),
+    preguntas: hojas(registro[4]).filter((x) => typeof x === 'string').map((q, k) => T('guide question ' + (k + 1), q)),
+    ajustes: texto(hoja(registro[5])) ?? null,
+  };
 }
 
 // ---------- 8. mensajes y traducción ----------

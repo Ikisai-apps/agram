@@ -43,7 +43,7 @@ test('plantilla: la compra nombra «purchase» en su 5 y la reserva «booking»;
   const { eje: b, reserva } = await ejemploReserva();
   assert.equal(C.nombreDePlantilla(C.plantilla(b, reserva.id)), 'booking');
   // Las que hay: las de dominio de la época (detrás de su cabecera), las preferencias y las del eje.
-  assert.deepEqual(C.plantillas(eje).map((p) => [p.nombre, p.donde]), [['purchase', '9210000000'], ['booking', '9220000000'], ['preferences', '9300000000']]);
+  assert.deepEqual(C.plantillas(eje).map((p) => [p.nombre, p.donde]), [['purchase', '9210000000'], ['booking', '9220000000'], ['guide settings', '9230000000'], ['preferences', '9300000000']]);
   for (const p of C.plantillas(eje)) assert.ok(C.esPlantilla(p.registro) && p.registro[4][4].includes('template'), p.nombre + ': su 4.4 dice template');
   // Un id de un registro que no es plantilla, una referencia a una posición de la época que no lo es, o un nombre
   // desconocido, no son plantilla; una referencia a la plantilla de la época sí, y una plantilla escrita en el eje también.
@@ -290,7 +290,7 @@ test('mensaje: el 9 de cada regla en español (epoch.9.4, «es») con los mismos
 // ---------- 9. la carta de texto y la ausencia de constantes ----------
 
 test('la carta de texto solo importa el contrato (y, si acaso, bqlm y libro), y pinta cada ejemplo en los tres tamaños como se espera', async () => {
-  const fuente = readFileSync(new URL('./carta-texto.mjs', import.meta.url), 'utf8');
+  const fuente = readFileSync(new URL('../carta/texto.js', import.meta.url), 'utf8');
   const importados = [...fuente.matchAll(/from\s+'([^']+)'/g)].map((m) => m[1]);
   assert.ok(importados.length >= 1);
   for (const i of importados) assert.ok(['../src/contrato.js', '../src/acciones.js', '../src/bqlm.js', '../src/libro.js'].includes(i), 'la carta no importa ' + i);
