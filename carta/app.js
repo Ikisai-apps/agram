@@ -21,6 +21,7 @@ import { autoridad, persistencia, local, salida, contrato, acciones, direccion, 
 import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, trasPintar } from './dom.js';
 import { instalar } from './gestos.js';
+import * as opinar from './opinar.js';
 import { t, idiomaDeInterfaz } from './textos.js';
 import * as cuentas from './cuentas.js';
 import * as sinc from './sincronia.js';
@@ -189,7 +190,7 @@ function extraDe() {
     preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
     claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
-    arranque: estado.arranque, copia: estado.copia,
+    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
   };
 }
 
@@ -769,6 +770,7 @@ async function reiniciar() {
 
 async function arrancar() {
   gestos = instalar(raiz, manejadores);
+  opinar.instalar({ raiz, cuenta: () => estado.cuenta?.nombre ?? 'ejemplo', alCambiar: () => { void pintar(); } });
   let temporizador = null;
   window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
   // El libro compartido: al volver la red y cada 30 s con la pestaña visible (la cola decide si toca reintentar).

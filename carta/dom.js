@@ -16,6 +16,18 @@ const corto = (id) => String(id ?? '').slice(0, 8);
 const attr = (s) => escapar(s).replace(/'/g, '&#39;');
 
 /**
+ * Los atributos de clasificación de un elemento (para el botón «opinar», carta/opinar.js clasificar): data-nodo es el
+ * tipo (carta, barra, control, foco, pv, ocupante, campo, aro, hueco, accion, camino, paso, roseton, diario,
+ * formulario, configuracion, copia) y data-nodo-* lo que lo sitúa y aún no dicen los data-* de la carta (data-x,
+ * data-pv, data-centro, data-roseton): x0 (el texto del 0 del registro), d (la posición de un campo), tam (oculto,
+ * comprimido, tarjeta, bloque o foco), rep (la representación elegida), cara, modo, ancho, alto. Solo se escriben
+ * los que hay.
+ */
+const NOMBRE_NIVEL = Object.freeze(Object.fromEntries(Object.entries(NIVEL).map(([k, v]) => [v, k])));
+const repDe = (r) => (r ? `${r.recurso ? 'imagen' : 'texto'}${r.formato ? ':' + r.formato : ''}${r.tamano !== undefined ? '@' + r.tamano : ''}` : 'ninguna');
+const nodo = (tipo, campos = {}) => ` data-nodo="${tipo}"` + Object.entries(campos).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => ` data-nodo-${k}="${attr(v)}"`).join('');
+
+/**
  * La pieza de un modelo como HTML: en sobrio una forma (una clase), en animado un <img> o un hueco Lottie fijado en
  * su fotograma. `animar`: no (parada en su fotograma), bucle, o una vez (ANIMAR; true vale por bucle); `prioridad`
  * ordena quién se reproduce cuando hay más de las que caben (0 lo nuevo, 1 lo enfocado, 2 el resto); `clase`, el
@@ -71,17 +83,17 @@ function htmlOcupante(o) {
   const elemento = o.elemento?.recurso ? htmlPieza(o.elemento, { clase: 'pieza-elemento', alt: '' }) : '';
   if (o.tipo === 'referencia' && o.X) {
     const rep = o.representacion?.recurso ? htmlRepresentacion(o.representacion, { clase: 'rep-mini' }) : elemento;
-    return `<button type="button" class="ocupante ocupante-ref" data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
+    return `<button type="button" class="ocupante ocupante-ref"${nodo('ocupante', { x0: o.texto, rep: repDe(o.representacion) })} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
   }
-  if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla">${elemento}${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
-  return `<span class="ocupante ocupante-hoja">${elemento}${escapar(o.texto)}</span>`;
+  if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla"${nodo('ocupante')}>${elemento}${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
+  return `<span class="ocupante ocupante-hoja"${nodo('ocupante')}>${elemento}${escapar(o.texto)}</span>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
 function htmlOcupantes(oc, { pv, disposicion } = {}) {
   if (!oc) return '';
   const lista = oc.lista.length ? oc.lista.map((o) => `<li>${htmlOcupante(o)}</li>`).join('') : `<li class="nada">${t('nada')}</li>`;
-  const mas = oc.cargarMas ? `<li class="cargar-mas"><button type="button" data-cargar-mas="${pv}">${escapar(t('cargarMas', { cuantos: oc.total - oc.lista.length }))}</button></li>` : '';
+  const mas = oc.cargarMas ? `<li class="cargar-mas"><button type="button"${nodo('control')} data-cargar-mas="${pv}">${escapar(t('cargarMas', { cuantos: oc.total - oc.lista.length }))}</button></li>` : '';
   return `<ul class="ocupantes ${disposicion ? 'disposicion-' + attr(disposicion) : ''}" data-total="${oc.total}">${lista}${mas}</ul>`;
 }
 
@@ -89,7 +101,7 @@ function htmlOcupantes(oc, { pv, disposicion } = {}) {
 function htmlDiario(d) {
   if (!d) return '';
   const filas = d.entradas.map((e) => `<li><time datetime="${attr(e.t)}">${escapar(e.t.replace('T', ' ').replace('Z', ''))}</time> · <b>${escapar(e.autor)}</b> · <button type="button" class="enlace" data-abrir="${e.id}">${corto(e.id)}</button><small>${escapar(e.movimientos.join(', '))}</small></li>`).join('');
-  return `<section class="diario"><h4>${d.total} ${t(d.total === 1 ? 'transaccion' : 'transacciones')}</h4><ol>${filas || `<li class="nada">${t('nada')}</li>`}</ol></section>`;
+  return `<section class="diario"${nodo('diario')}><h4>${d.total} ${t(d.total === 1 ? 'transaccion' : 'transacciones')}</h4><ol>${filas || `<li class="nada">${t('nada')}</li>`}</ol></section>`;
 }
 
 /** El camino: cada paso, mío (lanzable, por el id de su plantilla), de espera (marcado) o hecho; los niveles si la madurez es 0; «seguir». */
@@ -100,18 +112,18 @@ export function htmlCamino(c, { X } = {}) {
     const cuerpo = `<span class="fuente">${escapar(p.fuente)}</span> <span class="falta">${escapar(p.falta ?? '')}</span>`;
     const marca = p.hecho ? `<span class="marca">${t('hecho')}</span>` : p.espera ? `<span class="marca">${escapar(t('esperaA', { quien: p.espera }))}</span>` : '';
     return p.mio
-      ? `<li class="paso ${clase}"><button type="button" data-paso="${i}" data-x="${attr(p.hacer?.X ?? X ?? '')}" data-lanzar="${attr(p.hacer.id)}">${escapar(p.hacer.nombre)}</button> ${cuerpo}</li>`
-      : `<li class="paso ${clase}">${cuerpo} ${marca}</li>`;
+      ? `<li class="paso ${clase}"${nodo('paso')}><button type="button" data-paso="${i}" data-x="${attr(p.hacer?.X ?? X ?? '')}" data-lanzar="${attr(p.hacer.id)}">${escapar(p.hacer.nombre)}</button> ${cuerpo}</li>`
+      : `<li class="paso ${clase}"${nodo('paso')}>${cuerpo} ${marca}</li>`;
   }).join('');
   const niveles = c.niveles ? `<p class="niveles">${t('paraUbicarse')} ${c.niveles.map((n) => `<span>${escapar(n)}</span>`).join(' → ')}</p>` : '';
   const seguir = c.pasos.some((p) => p.mio && !p.hacer?.lectura) ? `<button type="button" class="seguir" data-seguir>${t('seguir')}</button>` : '';
-  return `<section class="camino" aria-label="${attr(t('camino'))}">${niveles}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
+  return `<section class="camino"${nodo('camino')} aria-label="${attr(t('camino'))}">${niveles}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
 }
 
 /** Un PV lateral en su nivel: comprimido (un dato), tarjeta (etiqueta y lo que cabe), bloque (la lista o la matriz). */
 function htmlLateral(n, arbol) {
   const clases = ['pv', `pv-${n.pv}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `fila-${n.fila ?? ''}`, `nivel-${n.nivel}`].join(' ');
-  if (n.nivel === NIVEL.oculto) return `<div class="${clases}" data-pv="${n.pv}" data-x="${n.X}" hidden></div>`;
+  if (n.nivel === NIVEL.oculto) return `<div class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel] })} data-pv="${n.pv}" data-x="${n.X}" hidden></div>`;
   // En comprimido, la etapa en sello (si el modelo la trae) o el elemento; en tarjeta y bloque, el escenario entero.
   const sello = n.etapa?.recurso ? htmlPieza(n.etapa, { clase: 'pieza-etapa', alt: n.etiqueta }) : htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta });
   const efectos = n.nivel === NIVEL.comprimido && n.nuevos?.efectos?.length ? htmlEscenario({ nuevos: n.nuevos, consumido: n.consumido }) : '';
@@ -126,12 +138,12 @@ function htmlLateral(n, arbol) {
     cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
   }
-  return `<section class="${clases}" data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
+  return `<section class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
 }
 
 /** Los campos del anverso: cada PV lateral con su etiqueta y un input (editar escribe un ocupante nuevo, nunca en sitio). */
 function htmlCampos(campos, X) {
-  return `<dl class="campos">${campos.map((c) => `<div class="campo campo-${c.pv}"><dt><label for="campo-${c.pv}" title="${attr(c.ayuda ?? '')}">${escapar(c.etiqueta)}${c.total > 1 ? ` <small>· ${c.total}</small>` : ''}</label></dt><dd><input id="campo-${c.pv}" class="campo-input" data-campo="${c.pv}" data-x="${X}" value="${attr(c.valor)}" placeholder="${attr((c.marcador ?? []).join(' · '))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></dd></div>`).join('')}</dl>`;
+  return `<dl class="campos">${campos.map((c) => `<div class="campo campo-${c.pv}"${nodo('campo', { d: c.pv })}><dt><label for="campo-${c.pv}" title="${attr(c.ayuda ?? '')}">${escapar(c.etiqueta)}${c.total > 1 ? ` <small>· ${c.total}</small>` : ''}</label></dt><dd><input id="campo-${c.pv}" class="campo-input" data-campo="${c.pv}" data-x="${X}" value="${attr(c.valor)}" placeholder="${attr((c.marcador ?? []).join(' · '))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></dd></div>`).join('')}</dl>`;
 }
 
 /** El centro: el anverso (0), el reverso (5) o un PV abierto como foco. */
@@ -143,10 +155,10 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
   const marco = htmlMarco(c.marco);
   const efectos = c.nuevos?.efectos?.length ? htmlEscenario({ nuevos: c.nuevos, consumido: c.consumido }) : '';
   if (c.cara === 'anverso') {
-    return `<section class="nucleo anverso tamano-${c.tamano?.tamano ?? 1}" data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
+    return `<section class="nucleo anverso tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'anverso', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       <h1 class="representacion">${htmlRepresentacion(c.representacion)}${efectos}</h1>
-      <label class="campo campo-0"><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
+      <label class="campo campo-0"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${htmlCampos(c.campos, c.X)}
       ${leido}${marco}
     </section>`;
@@ -155,16 +167,16 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     const ancla = c.ancla ? `<p class="ancla">${t('sobre')} <button type="button" class="enlace" data-abrir="${attr(c.ancla.sobre ?? '')}" ${c.ancla.sobre ? '' : 'disabled'}>${escapar(c.ancla.sobreTexto ?? t('laRaiz'))}</button>${c.ancla.en ? ` · ${t('en')} ${escapar(c.ancla.en)}` : ''}</p>` : '';
     const pasos = c.pasos ? `<ul class="pasos">${Object.values(c.pasos.porPv).concat(c.pasos.comun ? [c.pasos.comun] : []).map((p) => `<li><b>${escapar(p.nombre)}</b> ${p.k === null ? '—' : escapar(p.k)}${p.de ? `<small>/${escapar(p.de)}</small>` : ''}</li>`).join('')}</ul>` : '';
     const validacion = c.validacion?.length ? `<ul class="motivos">${c.validacion.map((v) => `<li>${escapar(v.motivo)}</li>`).join('')}</ul>` : '';
-    return `<section class="nucleo reverso tamano-${c.tamano?.tamano ?? 1}" data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
+    return `<section class="nucleo reverso tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'reverso', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       <p class="tipo">${c.plantilla ? `${t('plantilla')} <b>${escapar(c.plantilla)}</b>` : t('sinPlantilla')}${c.t ? ` · <time>${escapar(c.t)}</time>` : ''}</p>
       ${ancla}
       ${htmlOcupantes(c.ocupantes, { pv: c.pv })}
-      <label class="campo campo-5"><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
+      <label class="campo campo-5"${nodo('campo', { d: 5 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.plantilla ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
       ${pasos}${validacion}${efectos}${marco}
     </section>`;
   }
-  return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}" data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
+  return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${quien}<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button></header>
     ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
@@ -175,7 +187,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
 /** Los rosetones de identidad: ocho mosaicos muy comprimidos de mi foco, en las esquinas y los lados. */
 function htmlRosetones(lista) {
   if (!lista.length) return '';
-  return `<nav class="rosetones" aria-label="${attr(t('miFoco'))}">${lista.map((r) => `<button type="button" class="roseton grupo-${r.grupo} lado-${r.lado ?? ''} fila-${r.fila ?? ''} nivel-${r.nivel}" data-roseton="${r.pv}" data-x="${r.X}" title="${attr(t('deMiAlta', { que: r.etiqueta }))}">
+  return `<nav class="rosetones"${nodo('rosetones')} aria-label="${attr(t('miFoco'))}">${lista.map((r) => `<button type="button" class="roseton grupo-${r.grupo} lado-${r.lado ?? ''} fila-${r.fila ?? ''} nivel-${r.nivel}"${nodo('roseton', { tam: NOMBRE_NIVEL[r.nivel] })} data-roseton="${r.pv}" data-x="${r.X}" title="${attr(t('deMiAlta', { que: r.etiqueta }))}">
     <span class="numero">${r.pv}</span><span class="dato">${escapar(r.comprimido.dato)}</span>
     ${r.nivel >= NIVEL.tarjeta && r.ocupantes ? `<span class="etiqueta">${escapar(r.etiqueta)}</span><ul>${r.ocupantes.lista.slice(0, 4).map((o) => `<li>${escapar(o.texto)}</li>`).join('') || `<li class="nada">${t('nada')}</li>`}</ul>` : ''}
   </button>`).join('')}</nav>`;
@@ -185,12 +197,12 @@ function htmlRosetones(lista) {
 function htmlAro(aro) {
   if (!aro) return '';
   const huecos = aro.huecos.map((h) => {
-    const defecto = h.accion ? `<button type="button" class="accion por-defecto" data-lanzar="${attr(h.accion.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(h.accion.nombre)}">${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span>${escapar(h.accion.nombre)}</span>${h.accion.faltan.length ? `<small>[${escapar(h.accion.faltan.join(', '))}]</small>` : ''}</button>` : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t('nadaQueHacer'))}">—</span>`;
+    const defecto = h.accion ? `<button type="button" class="accion por-defecto"${nodo('accion')} data-lanzar="${attr(h.accion.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(h.accion.nombre)}">${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span>${escapar(h.accion.nombre)}</span>${h.accion.faltan.length ? `<small>[${escapar(h.accion.faltan.join(', '))}]</small>` : ''}</button>` : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t('nadaQueHacer'))}">—</span>`;
     const otras = h.otras.length ? `<button type="button" class="mas" data-aro-hueco="${h.pv}" aria-expanded="${h.abierto}" title="${attr(t('lasDemasAcciones', { que: h.etiqueta }))}">+${h.otras.length}</button>` : '';
-    const lista = h.abierto && h.otras.length ? `<ul class="otras">${h.otras.map((a) => `<li><button type="button" data-lanzar="${attr(a.id)}" data-x="${aro.X}">${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}</ul>` : '';
-    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}" data-pv="${h.pv}"><span class="numero">${h.pv}</span><span class="etiqueta">${escapar(h.etiqueta)}</span>${defecto}${otras}${lista}</li>`;
+    const lista = h.abierto && h.otras.length ? `<ul class="otras">${h.otras.map((a) => `<li><button type="button"${nodo('accion')} data-lanzar="${attr(a.id)}" data-x="${aro.X}">${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}</ul>` : '';
+    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}"${nodo('hueco')} data-pv="${h.pv}"><span class="numero">${h.pv}</span><span class="etiqueta">${escapar(h.etiqueta)}</span>${defecto}${otras}${lista}</li>`;
   }).join('');
-  return `<div class="aro-fondo" data-cerrar><div class="aro" role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><p class="aro-centro"><b>${escapar(aro.texto)}</b><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></p><ul>${huecos}</ul></div></div>`;
+  return `<div class="aro-fondo" data-cerrar><div class="aro"${nodo('aro')} role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><p class="aro-centro"><b>${escapar(aro.texto)}</b><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></p><ul>${huecos}</ul></div></div>`;
 }
 
 /** Un valor en crudo como texto de input (una lista o una décupla, en JSON). */
@@ -222,7 +234,7 @@ function htmlFormulario(f) {
   }).join('');
   const motivos = f.motivos?.length ? `<ul class="motivos" role="alert">${f.motivos.map((m) => `<li>${escapar(m.mensaje)}</li>`).join('')}</ul>` : '';
   const resultado = f.resultado ? `<p class="exito" role="status">${escapar(f.resultado)}</p>` : '';
-  return `<div class="formulario-fondo" data-cerrar><form class="formulario" data-formulario data-x="${f.X}" data-accion="${attr(f.accion)}" aria-label="${attr(f.nombre)}">
+  return `<div class="formulario-fondo" data-cerrar><form class="formulario" data-formulario${nodo('formulario')} data-x="${f.X}" data-accion="${attr(f.accion)}" aria-label="${attr(f.nombre)}">
     <header><h2>${escapar(f.nombre)}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     ${f.ofrecida ? '' : `<p class="aviso">${t('noSeOfrece')}</p>`}
     ${campos}${motivos}${resultado}
@@ -240,7 +252,7 @@ export function htmlConfiguracion(p, { motivos = [], claveLectura } = {}) {
   if (!p) return '';
   const campos = p.campos.map((c) => `<div class="campo"><label for="pref-${c.pv}">${escapar(c.etiqueta)}</label><input id="pref-${c.pv}" name="${attr(c.clave)}" type="text" value="${attr(valorInput(Array.isArray(c.valor) ? c.valor.join(' ') : c.valor))}" placeholder="${attr(c.marcador.join(' '))}" title="${attr(c.ayuda)}" autocomplete="off"><small class="ayuda">${escapar(c.ayuda)}</small></div>`).join('')
     + (typeof claveLectura === 'string' ? `<div class="campo"><label for="pref-clave-lectura">${t('claveLectura')}</label><input id="pref-clave-lectura" data-clave-lectura type="password" value="${attr(claveLectura)}" title="${attr(t('claveLecturaAyuda'))}" autocomplete="off" spellcheck="false"><small class="ayuda">${escapar(t('claveLecturaAyuda'))}</small></div>` : '');
-  return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion" data-configuracion aria-label="${attr(t('configuracion'))}">
+  return `<div class="formulario-fondo" data-cerrar><form class="formulario configuracion"${nodo('configuracion')} data-configuracion aria-label="${attr(t('configuracion'))}">
     <header><h2>${t('miConfiguracion')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('configuracionAyuda', { plantilla: p.nombre }))}</p>
     ${campos}${motivos.length ? `<ul class="motivos" role="alert">${motivos.map((m) => `<li>${escapar(m.mensaje ?? m)}</li>`).join('')}</ul>` : ''}
@@ -258,7 +270,7 @@ function htmlSoy(arbol, { cuentas = [], cuenta = null } = {}) {
     ? `<optgroup label="${attr(t('ejemplos'))}"><option value="ejemplo">${t('probarConEjemplo')}</option></optgroup>`
     : `<optgroup label="${attr(t('ejemplos'))}">${arbol.identidades.map((i) => `<option value="${attr(i.id)}" ${i.id === arbol.yo ? 'selected' : ''}>${escapar(i.id)}${i.persona ? '' : ' ' + t('cosa')}</option>`).join('')}</optgroup>`;
   const nuevas = `<optgroup label="${attr(t('cuenta'))}"><option value="nueva">${t('crearMiCuenta')}…</option><option value="restaurar">${t('restaurarUnaCuenta')}…</option></optgroup>`;
-  return `<label class="ajuste">${t('soy')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
+  return `<label class="ajuste"${nodo('control')}>${t('soy')} <select data-quien>${mias}${ejemplo}${nuevas}</select></label>`;
 }
 
 /**
@@ -276,15 +288,23 @@ export function htmlSincronia(s) {
 }
 
 /** La barra: quién soy, el ejemplo, el tiempo de hoy, «guardar este rato», la configuración, la copia de seguridad (en una cuenta) o reiniciar (en un ejemplo); debajo, lo guardado y el libro compartido. */
-function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null } = {}) {
+/** Los controles de «opinar» (carta/opinar.js): el conmutador con su contador y, si hay opiniones, exportar, copiar y borrar la última. */
+export function htmlOpinar(o) {
+  if (!o) return '';
+  const conmutador = `<button type="button" class="opinar-boton" data-opinar-ctl="alternar" aria-pressed="${Boolean(o.activo)}" title="${attr(t('opinarTitulo'))}">${t('opinar')}${o.cuantas ? ` · ${o.cuantas}` : ''}</button>`;
+  if (!o.cuantas) return conmutador;
+  return conmutador + `<span class="opinar-menu"><button type="button" data-opinar-ctl="exportar" title="${attr(t('opinarExportarTitulo'))}">${t('opinarExportar')}</button><button type="button" data-opinar-ctl="copiar" title="${attr(t('opinarCopiarTitulo'))}">${t('opinarCopiar')}</button><button type="button" data-opinar-ctl="borrar" title="${attr(t('opinarBorrarTitulo'))}">${t('opinarBorrar')}</button></span>`;
+}
+
+function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null } = {}) {
   const quien = htmlSoy(arbol, { cuentas, cuenta });
-  const ej = !cuenta && ejemplos.length ? `<label class="ajuste">${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
+  const ej = !cuenta && ejemplos.length ? `<label class="ajuste"${nodo('control')}>${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
-  const local = arbol.local ? `<span class="tiempo" title="${attr(t('tiempoLocalTitulo', { serie: arbol.local.serie }))}">${escapar(t('hoy', { segundos: arbol.local.gastadoHoy }))}${tiempo ? ' · ' + escapar(tiempo) : ''}</span><button type="button" class="englobar" data-englobar ${arbol.local.pendientes ? '' : 'disabled'} title="${attr(t('englobarTitulo', { cuantas: arbol.local.pendientes }))}">${t('englobar')}${arbol.local.pendientes ? ` · ${arbol.local.pendientes}` : ''}</button>` : '';
+  const local = arbol.local ? `<span class="tiempo" title="${attr(t('tiempoLocalTitulo', { serie: arbol.local.serie }))}">${escapar(t('hoy', { segundos: arbol.local.gastadoHoy }))}${tiempo ? ' · ' + escapar(tiempo) : ''}</span><button type="button" class="englobar"${nodo('control')} data-englobar ${arbol.local.pendientes ? '' : 'disabled'} title="${attr(t('englobarTitulo', { cuantas: arbol.local.pendientes }))}">${t('englobar')}${arbol.local.pendientes ? ` · ${arbol.local.pendientes}` : ''}</button>` : '';
   const propios = cuenta
-    ? `<button type="button" data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button" data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
-    : `<button type="button" data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
-  return `<header class="barra">${quien}${ej}${local}<button type="button" data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</header>`;
+    ? `<button type="button"${nodo('control')} data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button"${nodo('control')} data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
+    : `<button type="button"${nodo('control')} data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
+  return `<header class="barra"${nodo('barra')}>${quien}${ej}${local}<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}${htmlOpinar(opinar)}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</header>`;
 }
 
 /**
@@ -335,14 +355,14 @@ export function htmlArranque(ar, { cuentas = [], sobreCarta = false } = {}) {
       </div>
     </div>`;
   }
-  return sobreCarta ? `<div class="formulario-fondo arranque" data-cerrar>${cuerpo}</div>` : `<div class="arranque-pantalla arranque">${cuerpo}</div>`;
+  return sobreCarta ? `<div class="formulario-fondo arranque"${nodo('arranque')} data-cerrar>${cuerpo}</div>` : `<div class="arranque-pantalla arranque"${nodo('arranque')}>${cuerpo}</div>`;
 }
 
 /** El diálogo de la copia de seguridad: la frase (dos veces) y «descargar»; el eje exportado es una foto. */
 export function htmlCopia(c) {
   if (!c) return '';
   const motivos = c.motivos?.length ? `<ul class="motivos" role="alert">${c.motivos.map((m) => `<li>${escapar(m.mensaje ?? m)}</li>`).join('')}</ul>` : '';
-  return `<div class="formulario-fondo" data-cerrar><form class="formulario copia" data-copia-form aria-label="${attr(t('copiaDeSeguridad'))}">
+  return `<div class="formulario-fondo" data-cerrar><form class="formulario copia"${nodo('copia')} data-copia-form aria-label="${attr(t('copiaDeSeguridad'))}">
     <header><h2>${t('copiaDeSeguridad')}</h2><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></header>
     <p class="ayuda">${escapar(t('copiaAyuda', { archivo: c.archivo ?? '' }))}</p>
     <p class="aviso">${escapar(t('copiaEsFoto'))}</p>
@@ -377,7 +397,7 @@ export function html(arbol, extra = {}) {
   const escena = a.apilada
     ? `<div class="franja franja-cruz" data-franja="cruz">${cruz.map(de).join('')}</div>${htmlCentro(a.centro, a, extra)}<div class="franja franja-x" data-franja="x">${x.map(de).join('')}</div>`
     : `<div class="matriz">${[1, 8, 2, 6, 0, 7, 3, 9, 4].map((pv) => (pv === 0 ? htmlCentro(a.centro, a, extra) : de(pv) || `<div class="pv hueco-vacio"></div>`)).join('')}</div>`;
-  return `<div class="${clase}" data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
+  return `<div class="${clase}"${nodo('carta', { modo: a.apilada ? 'apilada' : 'matriz', render: a.animado ? 'animado' : 'sobrio', ancho: a.medidas?.ancho, alto: a.medidas?.alto, x0: a.centro?.representacion?.texto ?? '' })} data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
     ${htmlBarra(a, extra)}
     ${avisos.length ? `<p class="aviso" role="alert">${avisos.map(escapar).join(' · ')}</p>` : ''}
     ${extra.exito ? `<p class="exito" role="status">${escapar(extra.exito)}</p>` : ''}
