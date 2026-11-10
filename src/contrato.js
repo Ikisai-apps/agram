@@ -12,7 +12,10 @@
 //   representaciones(eje, X)               los ocupantes del 0 como representaciones, normalizadas y por tamaño mínimo
 //   ocupantes(eje, X, d, desde, cuantos)   los ocupantes de una posición, en el orden que dice la época, paginados
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
-//   divisionDelMundo(eje, pv, { nivel })   la rejilla de un mundo a pantalla completa: columnas, filas, niveles, herencia, bandas (epoch.8.7)
+//   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo (epoch.8.7)
+//   hijosDe(eje, X, pv, { nivel })         los hijos de X en un mundo: [{ digito, nombre, ocupantes, vacio }]
+//   estilo(eje, X, { de })                 el estilo propio (X.0.9) o el de los de abajo (X.5.0) con su cascada: { css, origen }
+//   cssSeguro(texto)                       un estilo saneado (solo declaraciones corrientes, sin recursos ni código) o ""
 //   madurez(eje, X)                        el nivel de X (la lectura «maturity», X.8.1) y su medida (X.8.6)
 //   diario(eje, X, desde, cuantos)         las transacciones del subárbol de X por llegada, con sus asientos
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
@@ -34,6 +37,7 @@ import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, dire
 import { ocupantes as ocupantesDe } from './encaje.js';
 import { ESCALAS_T, partirClave } from './tokens.js';
 import { esInstante, msUTC } from './instante.js';
+import { HITOS } from './bases.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
 const RE_SERIE = /^[EPRT]:.+/;
@@ -69,7 +73,7 @@ const SITIO = Object.freeze({
   bloque: [8, 3], // el espacio de bloque: 1 la tabla datos → PV, 2 la disposición por la forma del hueco, 3 el paso
   madurez: [8, 4], // 1 umbrales por posición, 2 sus nombres, 3 techos de los órdenes, 4 sus nombres
   ordenes: [8, 5], // 1 los órdenes: [[nombre], [mecanismo, …], [qué]]
-  divisionDelMundo: [8, 7], // 1 la división de cada mundo a pantalla completa: [[pv], [columnas], [filas], [niveles], [de qué hereda], [nota]]
+  divisionDelMundo: [8, 7], // 1 la división de cada mundo a pantalla completa: [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]]
   pasosDeTamano: [8, 6], // 1 los pasos de tamaño de un PV en Mapped: [[nombre], [fracción en una esquina], [fracción en un lado], [datos que caben]]
   cerrados: [9, 0, 1, 1], // las plantillas de cerrado: [[nombre], [fórmula]]
   plantillas: [9, 2], // 0 la cabecera (0.1 el tipo genérico por dígito), 1… las plantillas de dominio
@@ -513,49 +517,198 @@ function escalasDelCalendario(raiz) {
     .filter((e) => medidas.has(e.nombre)).map((e, indice) => ({ indice, ...e }));
 }
 
-/** Una dimensión de la división de un mundo: un número, o referencias a lo que la época mide → { n, bandas?, paso? }. */
-function dimensionDelMundo(raiz, x) {
-  const hs = hojas(x);
-  if (typeof hs[0] === 'number') return { n: hs[0] };
-  const refs = hs.filter((h) => typeof h === 'string');
-  const nombres = refs.filter((h) => !/^epoch./.test(h));
-  if (refs.includes('epoch.1.3') && refs.includes('epoch.7')) {
-    const bandas = escalasDelCalendario(raiz);
-    return { n: bandas.length, bandas, paso: nombres[0] ?? null };
-  }
-  if (refs[0] === 'epoch.9.8') {
-    // el «de» del paso con ese nombre en la tabla de pasos: la cuota «k de 10» da diez bandas
-    const fila = hojas(en(raiz, [9, 8])).filter(Array.isArray).find((r) => texto(hoja(r[1])) === nombres[0]);
-    const n = Number(hoja(fila?.[3])) || 0;
-    return { n, bandas: Array.from({ length: n }, (_, indice) => ({ indice })), paso: nombres[0] };
-  }
-  return { n: 0 };
+/** Las diez cajas nivel.grado de los hitos de las bases (src/bases.js): [{ indice, nivel, grado, nombre }]. */
+function cajasDeHitos() {
+  return HITOS.map((h) => {
+    const [nivel, grado] = String(h.nivel).split('.').map(Number);
+    return { indice: h.indice, nivel, grado, nombre: h.nombre };
+  });
 }
 
 /**
- * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11): cuántas columnas y
- * filas de celdas, cuántos niveles de profundidad tiene (cada celda vuelve a dividirse al entrar), de qué otro PV
- * hereda (su rejilla de dentro enseña lo de aquel a esa profundidad, y lo propio es la fila y la columna añadidas) y,
- * si la fila referencia lo que la época mide, las bandas (el 6 y el 7: una por escala de T del calendario; el 8: una por
- * caja de la cuota). `nivel` es el nivel de profundidad en que se mira (desde 1). → { pv, columnas, filas, niveles,
- * nivel, entra, hereda, bandas?, paso?, nota } o null si la época no dice nada de ese PV. El 0 y el 5 vuelven con
- * columnas 0 y filas 0: no se dividen.
+ * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11 noche): no es una
+ * matriz con herencia sino la cruceta aplicada al elemento pulsado. Al entrar en un elemento, sus hijos son los
+ * dígitos que ese mundo enciende (cada uno, un PV aplicado al elemento de arriba). La fila de la época, una por PV,
+ * es `[[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]]`; las
+ * posiciones que no aplican llevan `0`, `[]` o `"-"`. `nivel` es el nivel de profundidad en que se mira (desde 1).
+ * → { pv, hijos, profundidad, nivel, entra, forma, formas, bandas?, paso?, hilos?, estilo, nota } o null si la época
+ * no dice nada de ese PV. `forma` es la del nivel pedido (la última se repite); `bandas` (y `paso`, el paso de
+ * epoch.9.8 que coloca cada entrada) salen de lo que la fila mide: en las franjas (el 6 y el 7), una por escala de T
+ * que el calendario mide; en el cielo (el 8) y el camino (el 9), las diez cajas de los hitos
+ * ([{ indice, nivel, grado, nombre }]); `hilos` (el 6 y el 7), los PV de las filas horizontales, de arriba abajo;
+ * `estilo`, el CSS por defecto de la época para los hijos de un elemento de este mundo (texto, puede ser "").
  */
 export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
   const fila = hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray).find((r) => hoja(r[0]) === pv);
   if (!fila) return null;
-  const c = dimensionDelMundo(raiz, fila[1]);
-  const f = dimensionDelMundo(raiz, fila[2]);
-  const niveles = Number(hoja(fila[3])) || 0;
-  const hereda = typeof hoja(fila[4]) === 'number' ? hoja(fila[4]) : null;
-  const bandas = f.bandas ?? c.bandas;
-  const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, niveles));
+  const numeros = (x) => hojas(x).filter((n) => typeof n === 'number');
+  const textos = (x) => hojas(x).filter((s) => typeof s === 'string');
+  const hijos = numeros(fila[1]);
+  const profundidad = Number(hoja(fila[2])) || 0;
+  const formas = textos(fila[3]);
+  const mide = textos(fila[4]).filter((s) => s !== '-');
+  const hilos = numeros(fila[7]);
+  const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
+  const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos');
+  let bandas;
+  if (mide.includes('epoch.1.3') && mide.includes('epoch.7')) bandas = escalasDelCalendario(raiz);
+  else if (mide.includes('hitos')) bandas = cajasDeHitos();
   return {
-    pv, columnas: c.n, filas: f.n, niveles, nivel: actual, entra: actual < niveles, hereda,
-    ...(bandas ? { bandas, paso: f.paso ?? c.paso ?? null } : {}),
-    nota: texto(ultima(fila[5])) ?? '',
+    pv, hijos, profundidad, nivel: actual, entra: actual < profundidad,
+    forma: formas.length ? formas[Math.min(actual - 1, formas.length - 1)] : null, formas,
+    ...(bandas ? { bandas, paso: nombres[0] ?? null } : {}),
+    ...(hilos.length ? { hilos } : {}),
+    estilo: cssSeguro(textos(fila[5]).join('; ')),
+    nota: texto(ultima(fila[6])) ?? '',
   };
+}
+
+/**
+ * Los hijos del elemento X en el mundo `pv` (epoch.8.7): los dígitos que ese mundo enciende, cada uno con su nombre a
+ * la profundidad del nivel (epoch.5: en profundidad 1, 0 qué es, 1 cuánto, 2 con qué condición…) y los ocupantes de
+ * X.<dígito>: [{ digito, nombre, ocupantes, total, vacio }]. `vacio` es que no tiene ocupantes: la carta pinta su
+ * nombre apagado y no entra; si todos están vacíos, no baja. Sin fila en la época para ese PV, ninguno. `cuantos` (por
+ * defecto el paso de la época) limita los ocupantes que se devuelven de cada hijo; `total` es cuántos hay.
+ */
+export function hijosDe(eje, X, pv, { nivel = 1, cuantos, ...opciones } = {}) {
+  const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
+  if (!d) return [];
+  const raiz = raizDe(epocaDe(opciones));
+  const profundidad = Math.min(Math.max(1, d.nivel), ARIDAD - 1);
+  return d.hijos.map((digito) => {
+    const camino = [...Array(profundidad).fill(0), digito];
+    const o = ocupantes(eje, X, digito, 0, cuantos, opciones);
+    return { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
+  });
+}
+
+// ---------- 4b. los dos estilos como datos (VG, 10-11 noche) ----------
+
+/** Lo máximo que mide un estilo (caracteres): más largo, no es un estilo sino una carga. */
+const MAXIMO_CSS = 2000;
+
+/**
+ * Las propiedades de CSS corriente que un dato puede pedir (más las variables `--x`): colores, fondos, bordes, tipografía,
+ * espaciado, grid y flex, tamaños. Nada que saque un elemento de su sitio (position, z-index, transform), tape la
+ * pantalla, cargue un recurso (content, cursor, list-style-image, @font-face…) o dispare algo (animation, transition).
+ */
+const PROPIEDADES_CSS = new Set([
+  'color', 'opacity', 'background', 'background-color', 'background-image', 'background-position', 'background-size', 'background-repeat', 'background-clip',
+  'border', 'border-top', 'border-right', 'border-bottom', 'border-left', 'border-color', 'border-width', 'border-style', 'border-radius',
+  'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color', 'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+  'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style',
+  'border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius',
+  'outline', 'outline-color', 'outline-width', 'outline-style', 'outline-offset', 'box-shadow', 'text-shadow',
+  'font', 'font-family', 'font-size', 'font-style', 'font-weight', 'font-variant', 'line-height', 'letter-spacing', 'word-spacing',
+  'text-align', 'text-transform', 'text-decoration', 'text-decoration-color', 'text-decoration-line', 'text-decoration-style', 'text-indent', 'text-overflow', 'white-space', 'vertical-align',
+  'margin', 'margin-top', 'margin-right', 'margin-bottom', 'margin-left', 'padding', 'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+  'gap', 'row-gap', 'column-gap', 'grid-gap',
+  'display', 'grid', 'grid-template', 'grid-template-columns', 'grid-template-rows', 'grid-template-areas', 'grid-auto-columns', 'grid-auto-rows', 'grid-auto-flow',
+  'grid-column', 'grid-row', 'grid-area', 'grid-column-start', 'grid-column-end', 'grid-row-start', 'grid-row-end',
+  'flex', 'flex-direction', 'flex-wrap', 'flex-flow', 'flex-grow', 'flex-shrink', 'flex-basis',
+  'justify-content', 'justify-items', 'justify-self', 'align-content', 'align-items', 'align-self', 'place-content', 'place-items', 'place-self',
+  'width', 'height', 'min-width', 'min-height', 'max-width', 'max-height', 'aspect-ratio',
+]);
+
+/** Funciones de CSS que cargan un recurso de fuera o ejecutan algo; ninguna llega al estilo. */
+const FUNCIONES_PROHIBIDAS = /(url|image-set|image|src|element|cross-fade|paint|expression)\s*\(/i;
+
+/**
+ * Un texto de estilo (el 0.9 de un registro, el 5.0, o el de la época) saneado, o "" si no es seguro. El libro es
+ * compartido y un dato nunca ejecuta JavaScript ni carga un recurso de fuera, así que de un texto solo se aceptan
+ * declaraciones `propiedad: valor;` de CSS corriente (la lista blanca de PROPIEDADES_CSS) y variables `--x: …`:
+ * ni llaves (ni selectores ni reglas), ni `<` `>` (nada de etiquetas), ni `@` (ni `@import`), ni barras invertidas ni
+ * comentarios (las formas de esconder lo anterior), ni `url(`, `expression(`, `javascript:`, `behavior`,
+ * `-moz-binding`; máximo 2000 caracteres. Lo que de este modo es sospechoso invalida todo el texto (""); una
+ * declaración que no es de la lista blanca o no se entiende se descarta sola y se conservan las demás. El resultado
+ * es `propiedad: valor;` separadas por un espacio.
+ */
+export function cssSeguro(css) {
+  if (typeof css !== 'string' || css.length > MAXIMO_CSS) return '';
+  // Sin caracteres de control (salvo el salto y la tabulación) ni invisibles que cambian lo que se lee (cero ancho, separadores de línea).
+  if (/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(css.replace(/[\n\r\t]/g, ''))) return '';
+  const plano = css.toLowerCase().replace(/\s+/g, '');
+  if (/[{}<>@\\]/.test(css) || css.includes('/*') || css.includes('*/')) return '';
+  if (/javascript:|vbscript:|data:|behavior|-moz-binding|expression\(|url\(|@import/.test(plano) || FUNCIONES_PROHIBIDAS.test(css)) return '';
+  const fuera = [];
+  for (const crudo of css.split(';')) {
+    const decl = crudo.trim();
+    if (!decl) continue;
+    const dos = decl.indexOf(':');
+    if (dos < 1) continue;
+    const propiedad = decl.slice(0, dos).trim().toLowerCase();
+    const valor = decl.slice(dos + 1).trim();
+    if (!valor || !(/^--[a-z0-9_-]+$/.test(propiedad) || PROPIEDADES_CSS.has(propiedad))) continue;
+    if (!/^[\w\s#%.,()+*/"'-]+$/.test(valor) || !equilibrado(valor)) continue;
+    fuera.push(propiedad + ': ' + valor.replace(/\s+/g, ' ') + ';');
+  }
+  return fuera.join(' ');
+}
+
+/** ¿Tiene un valor sus paréntesis y comillas cerrados? (una declaración no puede abrir nada que se cuele en la siguiente). */
+function equilibrado(valor) {
+  let abiertos = 0;
+  let comilla = null;
+  for (const c of valor) {
+    if (comilla) { if (c === comilla) comilla = null; continue; }
+    if (c === '"' || c === "'") comilla = c;
+    else if (c === '(') abiertos++;
+    else if (c === ')' && --abiertos < 0) return false;
+  }
+  return abiertos === 0 && comilla === null;
+}
+
+/** El último texto de la lista de ocupantes (o de hojas) que, saneado, es un estilo. */
+function ultimoEstilo(lista) {
+  let css = '';
+  for (const o of lista) {
+    const limpio = typeof o === 'string' ? cssSeguro(o) : '';
+    if (limpio) css = limpio;
+  }
+  return css;
+}
+
+/**
+ * El estilo escrito en la posición `camino` de un registro del eje: el de su último ocupante que sea un estilo. Un
+ * ocupante puede ser el texto mismo (en el payload del registro) o un escrito en esa posición (una referencia a un
+ * registro cuyo payload es el texto); se lee su payload, nunca se sigue más allá.
+ */
+function estiloEscrito(eje, X, camino, opciones) {
+  if (!eventoDe(eje, X)) return '';
+  const textos = ocupantes(eje, X, camino, 0, 1000, opciones).ocupantes.flatMap((o) => (esReferencia(o) && !o.dir ? hojas(eje.obtener(o.ref)?.payload) : [o]));
+  return ultimoEstilo(textos);
+}
+
+/**
+ * El estilo de un elemento como dato, con la cascada de lo más cercano a lo más lejano (VG, 10-11 noche). Dos estilos:
+ * `de: 'propio'`: cómo se pinta X; su 0.9 (representación · cómo), si no la plantilla de X (su 0.9), si no nada (la
+ * época no dice cómo se pinta un registro propio: la fila de epoch.8.7 es de los hijos); `de: 'hijos'`: cómo se
+ * pintan los de abajo; su 5.0 (estructura · qué es), si no el 5.0 de su padre (el registro sobre el que se escribió),
+ * si no el 5.0 de su plantilla, si no el de la fila de epoch.8.7 del mundo `pv` donde cuelga X (sin `pv`, nada).
+ * Todo texto pasa por cssSeguro. → { css, origen } con origen 'registro' | 'padre' | 'plantilla' | 'epoca' | null.
+ */
+export function estilo(eje, X, { de = 'propio', pv, ...opciones } = {}) {
+  const ninguno = { css: '', origen: null };
+  if (de !== 'propio' && de !== 'hijos') throw new TypeError("el estilo es 'propio' o 'hijos'");
+  const ev = eventoDe(eje, X);
+  const camino = de === 'propio' ? [0, 9] : [5, 0];
+  // El 5.0 ocupa la dirección del 5 (x.0 es x, colisión por ceros): lo escrito en él es lo escrito en el 5, y lo que no es un estilo (el nombre de la plantilla) no cuenta.
+  const enEje = de === 'propio' ? camino : [5];
+  const delRegistro = ev ? estiloEscrito(eje, X, enEje, opciones) : '';
+  if (delRegistro) return { css: delRegistro, origen: 'registro' };
+  if (de === 'hijos' && typeof ev?.sobre === 'string') {
+    const delPadre = estiloEscrito(eje, ev.sobre, enEje, opciones);
+    if (delPadre) return { css: delPadre, origen: 'padre' };
+  }
+  const p = ev ? plantilla(eje, X, opciones) : null;
+  const dePlantilla = p ? ultimoEstilo(hojas(en(p, camino))) : '';
+  if (dePlantilla) return { css: dePlantilla, origen: 'plantilla' };
+  if (de === 'hijos' && typeof pv === 'number') {
+    const delMundo = divisionDelMundo(eje, pv, opciones)?.estilo ?? '';
+    if (delMundo) return { css: delMundo, origen: 'epoca' };
+  }
+  return ninguno;
 }
 
 // ---------- 5. la madurez ----------

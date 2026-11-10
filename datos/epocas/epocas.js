@@ -2441,19 +2441,25 @@ export const EPOCA_0_BTML_DATOS = [
             0
           ],
           [
-            0
+            "-"
           ],
           [
             0
           ],
           [
-            0
+            "lente"
           ],
           [
             "-"
           ],
           [
-            "sin división: el 0 es la lente (el anverso)"
+            "-"
+          ],
+          [
+            "la lente, sin división: el 0 es el anverso"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2461,19 +2467,25 @@ export const EPOCA_0_BTML_DATOS = [
             5
           ],
           [
-            0
+            "-"
           ],
           [
             0
           ],
           [
-            0
+            "json"
           ],
           [
             "-"
           ],
           [
-            "sin división: el 5 es el reverso de la lente"
+            "-"
+          ],
+          [
+            "el reverso: el JSON del registro"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2481,19 +2493,28 @@ export const EPOCA_0_BTML_DATOS = [
             1
           ],
           [
+            1,
+            2,
+            3,
             4
           ],
           [
             4
           ],
           [
-            4
+            "cruceta"
           ],
           [
             "-"
           ],
           [
-            "4 × 4, cuatro niveles: cada celda vuelve a dividirse en 4 × 4 al entrar (el 4⁴)"
+            "--hueco: 1fr"
+          ],
+          [
+            "cuatro esquinas (↖1 ↗2 ↙3 ↘4) con el elemento pulsado en el centro; cada esquina vuelve a dividirse al entrar"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2501,19 +2522,30 @@ export const EPOCA_0_BTML_DATOS = [
             2
           ],
           [
+            1,
+            2,
+            3,
+            4,
             5
           ],
           [
             5
           ],
           [
-            5
+            "escalera",
+            "columnas"
           ],
           [
-            1
+            "-"
           ],
           [
-            "5 × 5, cinco niveles: la 4 × 4 de dentro enseña lo del 1 a esa profundidad; la fila y la columna añadidas son lo propio del 2"
+            "-"
+          ],
+          [
+            "nivel 1: escalera de cinco peldaños; nivel 2 en adelante: cinco columnas, una por hijo, con el siguiente nivel dentro"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2521,19 +2553,31 @@ export const EPOCA_0_BTML_DATOS = [
             3
           ],
           [
+            1,
+            2,
+            3,
+            4,
+            5,
             6
           ],
           [
             6
           ],
           [
-            6
+            "rejilla",
+            "conversacion"
           ],
           [
-            2
+            "-"
           ],
           [
-            "6 × 6, seis niveles: la 5 × 5 de dentro enseña lo del 2 (y con él lo del 1) a esa profundidad; la fila y la columna añadidas son lo propio del 3"
+            "-"
+          ],
+          [
+            "nivel 1: rejilla 3 × 2 de los seis grupos de atención; dentro, la conversación"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2541,19 +2585,26 @@ export const EPOCA_0_BTML_DATOS = [
             4
           ],
           [
-            10
-          ],
-          [
-            10
+            "-"
           ],
           [
             1
           ],
           [
+            "matriz"
+          ],
+          [
+            "epoch.5",
+            "pv"
+          ],
+          [
             "-"
           ],
           [
-            "10 × 10, un nivel (la fábrica): columnas por tipo de interacción, filas por trabajo; el apilado por cruce lo da el paso «ciclo» de epoch.9.8"
+            "10 × 10: columnas = los diez PV como tipo de interacción, filas = posición modificada; la celda es la lista de ejecuciones"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2561,7 +2612,13 @@ export const EPOCA_0_BTML_DATOS = [
             6
           ],
           [
+            "-"
+          ],
+          [
             1
+          ],
+          [
+            "franjas"
           ],
           [
             "epoch.1.3",
@@ -2569,13 +2626,16 @@ export const EPOCA_0_BTML_DATOS = [
             "escala"
           ],
           [
-            1
-          ],
-          [
             "-"
           ],
           [
-            "una banda por escala de T que el calendario mide: las escalas de epoch.1.3.1 cuyo nombre está en epoch.7, de la más fina a la más gruesa; cada entrada, en la banda del paso «escala» de epoch.9.8; el zoom es pasar de escala"
+            "una franja vertical por escala de T que el calendario mide, la más cercana a ahora a la derecha; cuatro hilos horizontales (los PV 1 3 2 4, en ese orden de filas)"
+          ],
+          [
+            1,
+            3,
+            2,
+            4
           ]
         ],
         [
@@ -2583,7 +2643,13 @@ export const EPOCA_0_BTML_DATOS = [
             7
           ],
           [
+            "-"
+          ],
+          [
             1
+          ],
+          [
+            "franjas"
           ],
           [
             "epoch.1.3",
@@ -2591,13 +2657,16 @@ export const EPOCA_0_BTML_DATOS = [
             "escala"
           ],
           [
-            1
-          ],
-          [
             "-"
           ],
           [
-            "igual que el 6, hacia el futuro: una banda por escala de T que el calendario mide"
+            "espejo del 6: la franja más cercana a ahora a la izquierda; cuatro hilos horizontales (los PV 2 4 1 3, en ese orden de filas)"
+          ],
+          [
+            2,
+            4,
+            1,
+            3
           ]
         ],
         [
@@ -2605,20 +2674,26 @@ export const EPOCA_0_BTML_DATOS = [
             8
           ],
           [
+            "-"
+          ],
+          [
             1
           ],
           [
-            "epoch.9.8",
+            "cielo"
+          ],
+          [
+            "hitos",
             "cuota"
-          ],
-          [
-            1
           ],
           [
             "-"
           ],
           [
-            "una banda por caja de la cuota: el «de» del paso «cuota» de epoch.9.8 (k de 10)"
+            "las diez cajas nivel.grado de los hitos; cada registro, en la caja del paso «cuota» de epoch.9.8"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2626,24 +2701,31 @@ export const EPOCA_0_BTML_DATOS = [
             9
           ],
           [
-            1
-          ],
-          [
-            10
+            "-"
           ],
           [
             1
+          ],
+          [
+            "camino"
+          ],
+          [
+            "hitos",
+            "epoch.9.8"
           ],
           [
             "-"
           ],
           [
-            "los diez pasos del camino (acciones.camino); sin pasos, los niveles de madurez"
+            "primero las diez posiciones nivel.grado para situarse; después los pasos del camino (acciones.camino)"
+          ],
+          [
+            "-"
           ]
         ]
       ],
       [
-        "VG, 10-11 (Mapped, tanda 4): la división de cada mundo en pantalla completa, una fila por punto de vista [[pv], [columnas], [filas], [niveles de profundidad], [de qué hereda, o «-»], [nota]]. Un número es literal; una lista de referencias es lo que la época mide (epoch.1.3 con epoch.7: las escalas de T del calendario, y el nombre del paso de epoch.9.8 que da la banda de cada entrada; epoch.9.8 con el nombre de un paso: su «de»). Qué hereda: la rejilla de dentro enseña lo del otro punto de vista a esa profundidad (docs/CONTRATO.md §4.2)"
+        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)"
       ]
     ]
   ],
@@ -14664,7 +14746,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "d16005dc6f8c0f482c223a42b5dd241000e73814e1cb79fde2430f46605c5aea";
+export const EPOCA_0_BTML_ID = "a9c6d4294f53da7ca17a51083f553ce3a6448722a513b624290e81c1d412ef44";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
