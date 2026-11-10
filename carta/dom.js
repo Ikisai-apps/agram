@@ -119,6 +119,48 @@ function htmlPagina(p, pv) {
 /** La medida de una carta, pequeña y en su fila de arriba: el paso propio del PV (el ciclo en el 4) o la madurez. */
 const htmlMedida = (m) => (m ? `<span class="medida" title="${attr(m.nombre)} ${attr(m.k)}${m.de ? ' / ' + attr(m.de) : ''}">${escapar(m.nombre)} ${escapar(m.k)}${m.de ? `<small>/${escapar(m.de)}</small>` : ''}</span>` : '');
 
+/** Un elemento de una banda: un ocupante (como siempre) o una entrada del diario (su hora y lo que movió). */
+function htmlElementoDeBanda(o) {
+  if (o.tipo !== 'entrada') return htmlOcupanteSolo(o);
+  return `<button type="button" class="ocupante ocupante-ref ocupante-entrada"${nodo('ocupante')} data-pv="${o.pv}" data-abrir="${attr(o.ref)}" data-x="${attr(o.ref)}" title="${attr(o.t)}"><span class="texto">${escapar(o.texto)}</span><small class="quien">${escapar(o.t.replace('T', ' ').replace('Z', ''))}</small></button>`;
+}
+
+/** Una celda de la rejilla de un mundo: su ocupante; si se puede entrar, un clic baja un nivel (data-celda) y un botoncito abre el registro. */
+function htmlCeldaDeRejilla(c) {
+  const o = c.ocupante;
+  let dentro = '';
+  if (o && c.entra) {
+    dentro = `<button type="button" class="ocupante ocupante-ref ocupante-celda"${nodo('ocupante', { x0: o.texto })} data-pv="${o.pv}" data-celda="${o.X}" data-x="${o.X}" title="${attr(t('entrarEnCelda', { que: o.texto }))}"><span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button><button type="button" class="celda-abrir"${nodo('control')} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('abrirEnCelda', { que: o.texto }))}" aria-label="${attr(t('abrirEnCelda', { que: o.texto }))}">↗</button>`;
+  } else if (o) dentro = htmlOcupanteSolo(o);
+  return `<div class="rejilla-celda${o ? '' : ' vacia'}" data-color="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}">${dentro}</div>`;
+}
+
+/** Una banda: su nombre (la escala de T) o su número (la caja de la cuota), y lo que cae en ella. */
+function htmlBandaDeRejilla(b, pasos) {
+  const nombre = b.nombre ?? (pasos ? t('pasoDelCamino', { n: b.indice + 1 }) : String(b.indice));
+  let cuerpo;
+  if (pasos) cuerpo = b.nivel !== undefined ? `<span class="ocupante ocupante-hoja${b.actual ? ' actual' : ''}">${escapar(b.nivel)}</span>` : `<span class="paso ${b.hecho ? 'hecho' : b.espera ? 'espera' : b.mio ? 'mio' : 'otro'}"><span class="falta">${escapar(b.falta ?? '')}</span></span>`;
+  else cuerpo = b.items.map(htmlElementoDeBanda).join('') + (b.mas ? `<small class="mas-banda">${escapar(t('masEnBanda', { n: b.mas }))}</small>` : '');
+  return `<div class="rejilla-banda${(b.items?.length ?? 1) ? '' : ' vacia'}" data-banda="${b.indice}"><span class="banda-nombre">${escapar(nombre)}</span><div class="banda-cuerpo">${cuerpo}</div></div>`;
+}
+
+/**
+ * La rejilla de un mundo (epoch.8.7): columnas × filas de celdas, cada una con el color del PV de cuyo contenido es
+ * (en el 2 y el 3, las de dentro son del PV que hereda); o, si la época da bandas, una banda por escala o por caja. Con
+ * niveles de profundidad, la cabecera dice dónde se está y «subir» vuelve un nivel; abajo, «‹ n de m ›» por rejillas
+ * enteras. En un bloque, la misma rejilla sin cabecera.
+ */
+function htmlRejilla(r, { completa = false } = {}) {
+  if (!r) return '';
+  const cabeza = completa && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
+  const sin = r.sinBanda?.length ? `<div class="rejilla-sin" title="${attr(t('sinBandaTitulo'))}">${r.sinBanda.map(htmlElementoDeBanda).join('')}</div>` : '';
+  const cuerpo = r.bandas
+    ? `<div class="rejilla-bandas" style="--filas:${r.bandas.length}">${r.bandas.map((b) => htmlBandaDeRejilla(b, r.pasos)).join('')}</div>${sin}`
+    : `<div class="rejilla-celdas" style="--columnas:${r.columnas};--filas:${r.filas}">${r.celdas.map(htmlCeldaDeRejilla).join('')}</div>`;
+  const paginas = r.pagina && r.pagina.de > 1 ? `<ul class="ocupantes rejilla-paginas">${htmlPagina(r.pagina, r.pv)}</ul>` : '';
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}">${cabeza}${cuerpo}${paginas}</div>`;
+}
+
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
 function htmlOcupantes(oc, { pv, disposicion } = {}) {
   if (!oc) return '';
@@ -224,7 +266,7 @@ function htmlLateral(n, arbol) {
   else {
     const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) + (arbol.centro?.pv !== n.pv && (arbol.apilada || n.nivel >= NIVEL.bloque) ? htmlGuia(arbol.guia) : '') : '';
     const escenario = htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
-    cuerpo = cabeza + escenario + htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion }) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
+    cuerpo = cabeza + escenario + (n.rejilla ? htmlRejilla(n.rejilla) : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion })) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
   }
   return `<section class="${clases}"${nodo('pv', { tam: n.pasoDeTamano?.nombre ?? NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
@@ -269,9 +311,9 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     </section>`;
   }
   return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
-    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quien}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} data-foco-pv="${arbol.mapa.completa.volver}" data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
+    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quien}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
     ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
-    ${htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
+    ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
     <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' ? htmlGuia(arbol.guia) : ''}${htmlMarco(c.marco)}
   </section>`;
 }

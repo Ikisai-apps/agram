@@ -12,6 +12,7 @@
 //   representaciones(eje, X)               los ocupantes del 0 como representaciones, normalizadas y por tamaño mínimo
 //   ocupantes(eje, X, d, desde, cuantos)   los ocupantes de una posición, en el orden que dice la época, paginados
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
+//   divisionDelMundo(eje, pv, { nivel })   la rejilla de un mundo a pantalla completa: columnas, filas, niveles, herencia, bandas (epoch.8.7)
 //   madurez(eje, X)                        el nivel de X (la lectura «maturity», X.8.1) y su medida (X.8.6)
 //   diario(eje, X, desde, cuantos)         las transacciones del subárbol de X por llegada, con sus asientos
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
@@ -68,6 +69,7 @@ const SITIO = Object.freeze({
   bloque: [8, 3], // el espacio de bloque: 1 la tabla datos → PV, 2 la disposición por la forma del hueco, 3 el paso
   madurez: [8, 4], // 1 umbrales por posición, 2 sus nombres, 3 techos de los órdenes, 4 sus nombres
   ordenes: [8, 5], // 1 los órdenes: [[nombre], [mecanismo, …], [qué]]
+  divisionDelMundo: [8, 7], // 1 la división de cada mundo a pantalla completa: [[pv], [columnas], [filas], [niveles], [de qué hereda], [nota]]
   pasosDeTamano: [8, 6], // 1 los pasos de tamaño de un PV en Mapped: [[nombre], [fracción en una esquina], [fracción en un lado], [datos que caben]]
   cerrados: [9, 0, 1, 1], // las plantillas de cerrado: [[nombre], [fórmula]]
   plantillas: [9, 2], // 0 la cabecera (0.1 el tipo genérico por dígito), 1… las plantillas de dominio
@@ -499,6 +501,61 @@ export function pasosDeTamano(opciones = {}) {
     const paso = { indice, nombre, esquina: fraccion(p[1]), lado: fraccion(p[2]), datos: Number(hoja(p[3])) || 0 };
     return opciones.idioma ? { ...paso, texto: texto_(null, CLAVE.tamano(nombre), opciones.idioma, { original: nombre, epoca: opciones.epoca }) } : paso;
   });
+}
+
+/**
+ * Las escalas de T que el calendario mide (epoch.1.3 con epoch.7): las escalas de epoch.1.3.1 (cada una con su dígito,
+ * 0-9) cuyo nombre está en el calendario de epoch.7, de la más fina a la más gruesa: [{ indice, escala, nombre }].
+ */
+function escalasDelCalendario(raiz) {
+  const medidas = new Set(hojas(en(raiz, [7, 0])).filter(Array.isArray).map((r) => texto(hoja(r[0]))));
+  return hojas(en(raiz, [1, 3, 1])).filter(Array.isArray).map((f, escala) => ({ escala, nombre: texto(hoja(f[0])) }))
+    .filter((e) => medidas.has(e.nombre)).map((e, indice) => ({ indice, ...e }));
+}
+
+/** Una dimensión de la división de un mundo: un número, o referencias a lo que la época mide → { n, bandas?, paso? }. */
+function dimensionDelMundo(raiz, x) {
+  const hs = hojas(x);
+  if (typeof hs[0] === 'number') return { n: hs[0] };
+  const refs = hs.filter((h) => typeof h === 'string');
+  const nombres = refs.filter((h) => !/^epoch./.test(h));
+  if (refs.includes('epoch.1.3') && refs.includes('epoch.7')) {
+    const bandas = escalasDelCalendario(raiz);
+    return { n: bandas.length, bandas, paso: nombres[0] ?? null };
+  }
+  if (refs[0] === 'epoch.9.8') {
+    // el «de» del paso con ese nombre en la tabla de pasos: la cuota «k de 10» da diez bandas
+    const fila = hojas(en(raiz, [9, 8])).filter(Array.isArray).find((r) => texto(hoja(r[1])) === nombres[0]);
+    const n = Number(hoja(fila?.[3])) || 0;
+    return { n, bandas: Array.from({ length: n }, (_, indice) => ({ indice })), paso: nombres[0] };
+  }
+  return { n: 0 };
+}
+
+/**
+ * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11): cuántas columnas y
+ * filas de celdas, cuántos niveles de profundidad tiene (cada celda vuelve a dividirse al entrar), de qué otro PV
+ * hereda (su rejilla de dentro enseña lo de aquel a esa profundidad, y lo propio es la fila y la columna añadidas) y,
+ * si la fila referencia lo que la época mide, las bandas (el 6 y el 7: una por escala de T del calendario; el 8: una por
+ * caja de la cuota). `nivel` es el nivel de profundidad en que se mira (desde 1). → { pv, columnas, filas, niveles,
+ * nivel, entra, hereda, bandas?, paso?, nota } o null si la época no dice nada de ese PV. El 0 y el 5 vuelven con
+ * columnas 0 y filas 0: no se dividen.
+ */
+export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const fila = hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray).find((r) => hoja(r[0]) === pv);
+  if (!fila) return null;
+  const c = dimensionDelMundo(raiz, fila[1]);
+  const f = dimensionDelMundo(raiz, fila[2]);
+  const niveles = Number(hoja(fila[3])) || 0;
+  const hereda = typeof hoja(fila[4]) === 'number' ? hoja(fila[4]) : null;
+  const bandas = f.bandas ?? c.bandas;
+  const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, niveles));
+  return {
+    pv, columnas: c.n, filas: f.n, niveles, nivel: actual, entra: actual < niveles, hereda,
+    ...(bandas ? { bandas, paso: f.paso ?? c.paso ?? null } : {}),
+    nota: texto(ultima(fila[5])) ?? '',
+  };
 }
 
 // ---------- 5. la madurez ----------

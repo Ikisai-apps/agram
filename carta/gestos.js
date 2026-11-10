@@ -36,6 +36,8 @@ const UMBRAL_ASA = 1 / 8;
  *   todos(delta)             Mapped: los puntitos del foco (un paso a todos los PV) y su mando para bajar
  *   preferencia(clave, valor) un interruptor de la barra (sobrio o animado): escribir esa preferencia
  *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
+ *   celda(pv, X)             Mapped, pantalla completa: entrar en una celda de la rejilla de un PV (un nivel más adentro)
+ *   subir(pv)                Mapped, pantalla completa: volver un nivel de profundidad en la rejilla de un PV
  * En Mapped, nivel(pv, delta, X) llega también de los botoncitos de cada PV (data-tamano) y del arrastre desde su
  * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro).
  * Devuelve una función que quita los ganchos.
@@ -85,6 +87,8 @@ export function instalar(raiz, m) {
     if ((el = b('[data-olvidar]'))) { e.preventDefault(); m.olvidar?.(); return; }
     if ((el = b('[data-leido]'))) { e.preventDefault(); m.leido?.(); return; }
     if ((el = b('[data-voltear]'))) { e.preventDefault(); m.voltear?.(); return; }
+    if ((el = b('[data-celda]'))) { e.preventDefault(); m.celda?.(Number(el.dataset.pv), el.dataset.celda); return; }
+    if ((el = b('[data-subir]'))) { e.preventDefault(); m.subir?.(Number(el.dataset.subir)); return; }
     if ((el = b('[data-abrir]'))) { e.preventDefault(); if (el.dataset.abrir) m.foco?.(el.dataset.abrir, 0); return; }
     if ((el = b('[data-foco-pv]'))) { e.preventDefault(); m.foco?.(el.dataset.x ?? xDe(el), Number(el.dataset.focoPv)); return; }
     if ((el = b('[data-roseton]'))) { e.preventDefault(); m.roseton?.(Number(el.dataset.roseton)); return; }

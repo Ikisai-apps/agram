@@ -17,6 +17,7 @@ Toda entrada toma el eje y, como última opción, `{ epoca }` (lo que devuelve `
 | los órdenes de los ocupantes | `epoch.8.5` |
 | los modos y su máximo | `epoch.8.2` |
 | los pasos de tamaño de un PV en Mapped (§4.1) | `epoch.8.6` |
+| la división de cada mundo en pantalla completa (§4.2) | `epoch.8.7` (con las escalas de T de `epoch.1.3`, el calendario de `epoch.7` y los pasos de `epoch.9.8`) |
 | las plantillas de dominio | `epoch.9.2` (0 la cabecera, con el tipo genérico de cada dígito en 9.2.0.1; 9.2.1 «purchase», 9.2.2 «booking») |
 | la plantilla «preferences» | `epoch.9.3` (9.3.6 la preferencia `model`, encargo 3c-2b) |
 | los mensajes por idioma y los textos por clave (§8) | `epoch.9.4` (0 la cabecera; 9.4.1 «es»: las reglas, las plantillas, los niveles, los órdenes, los tamaños y los formatos de `legible`; 9.4.2 «en»: solo los formatos canónicos de `legible`) |
@@ -145,6 +146,40 @@ En una pantalla ancha (la matriz, Mapped) **no hay scroll nunca**: la carta ocup
 **Los rosetones** en el ordenador: cada uno en su esquina o lateral (el 0 arriba al centro y el 5 abajo al centro, junto al 8 y al 9, más pequeños), por encima de los bloques, una sola vez; en la pantalla completa no se ven. En el móvil (apilada) siguen las dos tiras.
 
 **La medida de cada carta**, pequeña y en su fila de arriba (VG, 10-11; Core, regla elegida): la de un PV es **su paso propio** si la tabla de pasos le da uno (`epoch.9.8`: el 4 su ciclo, el 7 su escala, el 8 su cuota) y, si no, la de todo elemento (la madurez). Así el PV4, el sitio de las acciones, dice en qué etapa del ciclo está.
+
+### 4.2 La división de cada mundo en pantalla completa: `divisionDelMundo(eje, pv, { nivel })` (VG, 10-11)
+
+A pantalla completa cada mundo (un punto de vista lateral) se divide en una **rejilla** y la división es un dato de la época, `epoch.8.7` («world division», procedencia «VG, 10-11»), una fila por PV, `[[pv], [columnas], [filas], [niveles de profundidad], [de qué hereda], [nota]]` (sin posiciones vacías: `0` y `"-"` donde no aplica):
+
+| PV | Columnas × filas | Niveles | Hereda | Qué es |
+|---|---|---|---|---|
+| 0, 5 | 0 × 0 | 0 | `-` | sin división: son la lente y su reverso |
+| 1 | 4 × 4 | 4 | `-` | cada celda vuelve a dividirse en 4 × 4 al entrar (el 4⁴) |
+| 2 | 5 × 5 | 5 | 1 | la 4 × 4 de dentro enseña lo del 1 a esa profundidad; la fila y la columna añadidas son lo propio del 2 |
+| 3 | 6 × 6 | 6 | 2 | la 5 × 5 de dentro enseña lo del 2 (y con él lo del 1); la fila y la columna añadidas son lo propio del 3 |
+| 4 | 10 × 10 | 1 | `-` | la fábrica: columnas por tipo de interacción, filas por trabajo; el apilado por cruce lo da el paso `ciclo` (§11.4) |
+| 6, 7 | 1 × tantas bandas como escalas de T reales | 1 | `-` | `[["epoch.1.3", "epoch.7", "escala"]]` en las filas: una banda por escala |
+| 8 | 1 × 10 | 1 | `-` | `["epoch.9.8", "cuota"]`: una banda por caja de la cuota, el «de» (10) del paso `cuota` |
+| 9 | 1 × 10 | 1 | `-` | los diez pasos del camino (§12.5); sin pasos, los niveles de madurez |
+
+**Referencias a lo que la época mide.** Un número es literal. Una lista de referencias se resuelve al leer: `epoch.1.3` con `epoch.7` son **las escalas de T que el calendario mide** (las de `epoch.1.3.1` cuyo nombre está en el calendario `epoch.7`; hoy siete: segundo, minuto, hora, día, semana, ciclo y año; pasado, futuro e inventado no se miden), con su dígito 0-9, que es el que da `pasos.escala` (§11.4), y el nombre del paso de `epoch.9.8` que coloca cada entrada (`escala`); `epoch.9.8` con el nombre de un paso es el «de» de ese paso. No se escribe «7»: quitar el año del calendario deja seis bandas (`test/division-mundos.test.js`).
+
+```js
+divisionDelMundo(eje, pv, { nivel, epoca })
+// → { pv, columnas, filas, niveles, nivel, entra, hereda, bandas?, paso?, nota } | null
+```
+
+`nivel` es el nivel de profundidad en que se mira (desde 1, sin pasar de `niveles`); `entra` es si aún se puede entrar más adentro (`nivel < niveles`); `hereda` es el PV del que hereda o `null`; `bandas`, `[{ indice, escala?, nombre? }]`, solo si la fila referencia lo que la época mide, y `paso` el paso que coloca las entradas; `null` si la época no dice nada de ese PV (la carta cae a la división de §4). El 0 y el 5 vuelven con `columnas` y `filas` a 0.
+
+**La carta** (`carta/carta.js`, `rejillaDe`) pinta la pantalla completa de un PV con esa rejilla en lugar de paginar de diez en diez; no sabe qué hay en cada celda, lo da el núcleo: los **ocupantes ordenados** (§3) se colocan por filas, y si hay más ocupantes que celdas, páginas de rejillas enteras («‹ n de m ›»). **Entrar en una celda** (un clic, `data-celda`) baja un nivel de profundidad si `niveles` > 1: la rejilla pasa a ser la de ese registro (`estado.profundidad[pv]`, la lista de registros por los que se ha entrado; el foco no cambia) y **volver** (el botón, `data-subir`, y Esc) sube; en el último nivel la celda ya no entra y su clic abre el registro como siempre (`data-abrir`); en las celdas que entran, un botoncito ↗ abre el registro.
+
+**La herencia del 2 y el 3**: la celda (fila, columna) pertenece al PV más profundo cuya rejilla la contiene como heredada; las primeras (la 4 × 4 en la esquina de arriba a la izquierda del 2) son del 1 y enseñan sus ocupantes **del mismo registro y a la misma profundidad** que el 1 enseñaría; la fila y la columna añadidas son del propio PV. Cada celda lleva el color de su PV (`data-color`; cada ocupante, el de su posición, `data-pv`). Las páginas se cuentan por rejillas enteras: cada PV de la cadena avanza sus ocupantes en bloques de sus celdas propias (16, 9 y 11 en el 3) y el total es el de la cadena que más páginas pide.
+
+**Las bandas** (en lugar de celdas): el **6 y el 7** ponen cada entrada en la banda de su escala (el paso `escala` de `epoch.9.8` sobre la entrada: de la más fina a la más gruesa; el zoom es pasar de escala): los ocupantes que son registros; en el pasado (el 6), las entradas del diario (§6); si el PV no tiene ocupantes, lo que cuelga de X (su hilo). Lo que no tiene escala (no quema T) va aparte, en una tira pequeña bajo las bandas. El **8** pone cada uno en la caja de su cuota (0-9, el paso `cuota`); el **9** pinta los pasos del camino (`acciones.camino`) uno por celda, o los niveles de madurez si no hay pasos.
+
+**En un bloque** (un cuarto o un noveno de la pantalla, §4.1) la misma rejilla se usa **si cabe** (cada celda de 48 px o más, `MEDIDAS.hueco`); si no, la división de §4 (`epoch.8.3`) como hasta ahora. En un bloque no se entra: se sube a pantalla completa.
+
+**Decisiones de Core, pendientes de revisar VG**: los ocupantes de las bandas (los del PV, el diario en el pasado y el hilo si no hay otros) y la tira «sin T»; que el 9 pinte los pasos del camino (no los ocupantes); que `volver` suba un nivel antes de salir de la pantalla completa; que la profundidad es por PV y se olvida al cambiar de registro.
 
 ## 5. Madurez: la medida del 8 como lectura
 

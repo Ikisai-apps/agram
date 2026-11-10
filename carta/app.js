@@ -42,7 +42,7 @@ const FRASE_MINIMA = 8;
 
 const raiz = document.querySelector('#carta');
 const estado = {
-  eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, recientes: [], paginas: {}, aro: null, formulario: null,
+  eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, recientes: [], paginas: {}, profundidad: {}, aro: null, formulario: null,
   rosetones: {}, local: null, leido: leidoAbierto(), aviso: '', exito: '', guardado: '', config: false, motivosPreferencias: [],
   vistos: new Set(), nuevos: new Set(), hermanos: null,
   // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
@@ -333,7 +333,7 @@ function irA(X, pv = 0) {
   if (!estado.eje?.obtener(X)) return;
   const cambia = estado.foco.X !== X;
   estado.foco = { X, pv };
-  if (cambia) { estado.niveles = {}; estado.recientes = []; estado.paginas = {}; estado.aro = null; estado.formulario = null; }
+  if (cambia) { estado.niveles = {}; estado.recientes = []; estado.paginas = {}; estado.profundidad = {}; estado.aro = null; estado.formulario = null; }
   limpiarMensajes();
   tocar(X, cambia ? null : 'pv ' + pv);
   marcarNuevos();
@@ -349,6 +349,7 @@ function cambiarDeEje(eje, identidad) {
   estado.niveles = {};
   estado.recientes = [];
   estado.paginas = {};
+  estado.profundidad = {};
   estado.aro = null;
   estado.formulario = null;
   estado.rosetones = {};
@@ -511,6 +512,20 @@ const manejadores = {
     tocar(estado.foco.X, 'página ' + pv + ' ' + estado.paginas[pv]);
     pintar();
   },
+  /** Mapped, pantalla completa: entrar en una celda de la rejilla de un PV baja un nivel de profundidad. */
+  celda(pv, X) {
+    estado.profundidad[pv] = [...(estado.profundidad[pv] ?? []), X];
+    estado.paginas[pv] = 1;
+    tocar(estado.foco.X, 'celda ' + pv + ' ' + estado.profundidad[pv].length);
+    pintar();
+  },
+  /** Mapped, pantalla completa: volver un nivel de profundidad. */
+  subir(pv) {
+    estado.profundidad[pv] = (estado.profundidad[pv] ?? []).slice(0, -1);
+    estado.paginas[pv] = 1;
+    tocar(estado.foco.X, 'subir ' + pv);
+    pintar();
+  },
   profundidad(delta, pv, X) {
     if (pv !== null && pv !== undefined) return manejadores.nivel(pv, delta, X);
     if (enMapped()) return manejadores.todos(delta);
@@ -553,6 +568,7 @@ const manejadores = {
     else if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
     else if (estado.formulario) estado.formulario = null;
     else if (estado.aro) estado.aro = null;
+    else if (enMapped() && estado.profundidad[estado.foco.pv]?.length) estado.profundidad[estado.foco.pv].pop(); // subir un nivel de la rejilla
     else if (enMapped() && LATERALES.includes(estado.foco.pv)) estado.foco = { ...estado.foco, pv: CENTROS[0] }; // salir de la pantalla completa
     else return;
     pintar();
@@ -1002,6 +1018,7 @@ async function reiniciar() {
   estado.niveles = {};
   estado.recientes = [];
   estado.paginas = {};
+  estado.profundidad = {};
   estado.vistos = new Set();
   estado.nuevos = new Set();
   abrirLibroLocal();

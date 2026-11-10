@@ -2430,6 +2430,221 @@ export const EPOCA_0_BTML_DATOS = [
       [
         "VG, 10-11 (Mapped, tanda 3): los pasos de tamaño de cada punto de vista en una pantalla ancha, de menor a mayor, cada uno [[nombre], [fracción de pantalla en una esquina (1-4)], [fracción en un lado (6-9)], [cuántos datos caben]]; una fracción es un número o dos hojas (numerador, denominador). oculto; punto (un puntito junto al foco: no ocupa pantalla); grupo (una dieciseisava parte, pegado a su esquina o lateral: 5 o 9 campos, la división de 8.3 con los datos que tenga); bloque (un cuarto las esquinas, un noveno la cruz: la pantalla en 3×3, los demás ocupan su sitio y se rellenan); completa (un solo punto de vista a pantalla completa, con el máximo de datos de Mapped de 8.2 y la división de 8.3 dentro). Sin scroll: se avanza hacia adentro y por tamaño, y la carta reparte la pantalla entre los que compiten (docs/CONTRATO.md §4.1)"
       ]
+    ],
+    [
+      [
+        "world division"
+      ],
+      [
+        [
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            "-"
+          ],
+          [
+            "sin división: el 0 es la lente (el anverso)"
+          ]
+        ],
+        [
+          [
+            5
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            0
+          ],
+          [
+            "-"
+          ],
+          [
+            "sin división: el 5 es el reverso de la lente"
+          ]
+        ],
+        [
+          [
+            1
+          ],
+          [
+            4
+          ],
+          [
+            4
+          ],
+          [
+            4
+          ],
+          [
+            "-"
+          ],
+          [
+            "4 × 4, cuatro niveles: cada celda vuelve a dividirse en 4 × 4 al entrar (el 4⁴)"
+          ]
+        ],
+        [
+          [
+            2
+          ],
+          [
+            5
+          ],
+          [
+            5
+          ],
+          [
+            5
+          ],
+          [
+            1
+          ],
+          [
+            "5 × 5, cinco niveles: la 4 × 4 de dentro enseña lo del 1 a esa profundidad; la fila y la columna añadidas son lo propio del 2"
+          ]
+        ],
+        [
+          [
+            3
+          ],
+          [
+            6
+          ],
+          [
+            6
+          ],
+          [
+            6
+          ],
+          [
+            2
+          ],
+          [
+            "6 × 6, seis niveles: la 5 × 5 de dentro enseña lo del 2 (y con él lo del 1) a esa profundidad; la fila y la columna añadidas son lo propio del 3"
+          ]
+        ],
+        [
+          [
+            4
+          ],
+          [
+            10
+          ],
+          [
+            10
+          ],
+          [
+            1
+          ],
+          [
+            "-"
+          ],
+          [
+            "10 × 10, un nivel (la fábrica): columnas por tipo de interacción, filas por trabajo; el apilado por cruce lo da el paso «ciclo» de epoch.9.8"
+          ]
+        ],
+        [
+          [
+            6
+          ],
+          [
+            1
+          ],
+          [
+            "epoch.1.3",
+            "epoch.7",
+            "escala"
+          ],
+          [
+            1
+          ],
+          [
+            "-"
+          ],
+          [
+            "una banda por escala de T que el calendario mide: las escalas de epoch.1.3.1 cuyo nombre está en epoch.7, de la más fina a la más gruesa; cada entrada, en la banda del paso «escala» de epoch.9.8; el zoom es pasar de escala"
+          ]
+        ],
+        [
+          [
+            7
+          ],
+          [
+            1
+          ],
+          [
+            "epoch.1.3",
+            "epoch.7",
+            "escala"
+          ],
+          [
+            1
+          ],
+          [
+            "-"
+          ],
+          [
+            "igual que el 6, hacia el futuro: una banda por escala de T que el calendario mide"
+          ]
+        ],
+        [
+          [
+            8
+          ],
+          [
+            1
+          ],
+          [
+            "epoch.9.8",
+            "cuota"
+          ],
+          [
+            1
+          ],
+          [
+            "-"
+          ],
+          [
+            "una banda por caja de la cuota: el «de» del paso «cuota» de epoch.9.8 (k de 10)"
+          ]
+        ],
+        [
+          [
+            9
+          ],
+          [
+            1
+          ],
+          [
+            10
+          ],
+          [
+            1
+          ],
+          [
+            "-"
+          ],
+          [
+            "los diez pasos del camino (acciones.camino); sin pasos, los niveles de madurez"
+          ]
+        ]
+      ],
+      [
+        "VG, 10-11 (Mapped, tanda 4): la división de cada mundo en pantalla completa, una fila por punto de vista [[pv], [columnas], [filas], [niveles de profundidad], [de qué hereda, o «-»], [nota]]. Un número es literal; una lista de referencias es lo que la época mide (epoch.1.3 con epoch.7: las escalas de T del calendario, y el nombre del paso de epoch.9.8 que da la banda de cada entrada; epoch.9.8 con el nombre de un paso: su «de»). Qué hereda: la rejilla de dentro enseña lo del otro punto de vista a esa profundidad (docs/CONTRATO.md §4.2)"
+      ]
     ]
   ],
   [
@@ -14449,7 +14664,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "cdc916a283b980db858a5684e062868531196d2d618121522826910cd4e628d6";
+export const EPOCA_0_BTML_ID = "d16005dc6f8c0f482c223a42b5dd241000e73814e1cb79fde2430f46605c5aea";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
