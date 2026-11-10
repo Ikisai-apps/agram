@@ -1,13 +1,16 @@
-// La división de cada mundo en pantalla completa (VG, 10-11, tanda 4): epoch.8.7 «world division» es un dato de la época
-// (una fila por PV: columnas, filas, niveles de profundidad, de qué hereda); contrato.divisionDelMundo la lee y la carta
-// coloca el contenido del PV en esa rejilla (el 2 y el 3 heredan del 1 y del 2 a la misma profundidad; el 6 y el 7, una
-// banda por escala de T que el calendario mide; el 8, una por caja de la cuota; el 9, los pasos del camino).
+// La división de cada mundo en pantalla completa (VG, 10-11 noche, corrige la tanda 4): epoch.8.7 «world division» es un
+// dato de la época y la división no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila
+// por PV: [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]].
+// contrato.divisionDelMundo la lee, contrato.hijosDe da los hijos de un elemento con sus ocupantes y la carta coloca
+// las celdas según la forma del nivel: una por hijo (un hijo sin ocupantes, apagado y sin entrar), las franjas del 6 y
+// el 7 (una por escala de T que el calendario mide), las diez cajas del 8 (los HITOS) y los pasos del camino del 9.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { arbol, escalaDeTamanos, LATERALES, CENTROS } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
+import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
@@ -37,90 +40,162 @@ async function conCarpeta() {
 }
 
 const completa = (X, pv, extra = {}) => ({ foco: { X, pv }, ...extra });
+const celdasDe = (r) => r.celdas.map((c) => [c.fila, c.columna, c.pv]);
 
-test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [columnas], [filas], [niveles], [de qué hereda], [nota]], sin posiciones vacías', () => {
+test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo], [nota], [hilos]], sin posiciones vacías', () => {
   const fila = EPOCA_0_BTML.registro[8][7];
   assert.equal(fila[0][0], 'world division');
-  assert.match(fila[2][0], /^VG, 10-11/);
+  assert.match(fila[2][0], /^VG, 10-11 noche/);
   const filas = fila[1];
   assert.deepEqual(filas.map((f) => f[0][0]), [0, 5, 1, 2, 3, 4, 6, 7, 8, 9]);
-  for (const f of filas) { assert.equal(f.length, 6); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
-  const d = (pv) => C.divisionDelMundo(null, pv);
-  assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).columnas, d(pv).filas, d(pv).niveles]), [[4, 4, 4], [5, 5, 5], [6, 6, 6], [10, 10, 1]]);
-  assert.deepEqual([d(1).hereda, d(2).hereda, d(3).hereda, d(4).hereda], [null, 1, 2, null]);
-  assert.deepEqual([0, 5].map((pv) => [d(pv).columnas, d(pv).filas]), [[0, 0], [0, 0]], 'el 0 y el 5 no se dividen');
-  assert.equal(d(8).filas, 10);
-  assert.equal(d(9).filas, 10);
-  // Las bandas del 6 y el 7 son las escalas de T que mide el calendario (epoch.1.3 ∩ epoch.7), no un número escrito: nombres y dígito de la escala de epoch.1.3.1.
+  for (const f of filas) { assert.equal(f.length, 8); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
+  const d = (pv, nivel = 1) => C.divisionDelMundo(null, pv, { nivel });
+  // hijos, profundidad y forma: la cruceta aplicada al elemento pulsado, no una matriz con herencia
+  assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
+    [[1, 2, 3, 4], 4, 'cruceta'],
+    [[1, 2, 3, 4, 5], 5, 'escalera'],
+    [[1, 2, 3, 4, 5, 6], 6, 'rejilla'],
+    [[], 1, 'matriz'],
+  ]);
+  for (const pv of [1, 2, 3, 4, 6, 7, 8, 9, 0, 5]) for (const quitado of ['columnas', 'filas', 'hereda']) assert.equal(quitado in d(pv), false, quitado + ' ya no existe');
+  assert.deepEqual([0, 5].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma, d(pv).entra]), [[[], 0, 'lente', false], [[], 0, 'json', false]], 'el 0 y el 5 no se dividen');
+  // el 2 enciende los sitios del 1 más el centro (5, dónde encaja); el 3, los del 2 más el lateral izquierdo (6, de dónde viene)
+  assert.deepEqual(d(2).hijos, [...d(1).hijos, 5]);
+  assert.deepEqual(d(3).hijos, [...d(2).hijos, 6]);
+  // los hilos horizontales del 6 y el 7, y solo ellos
+  assert.deepEqual(d(6).hilos, [1, 3, 2, 4]);
+  assert.deepEqual(d(7).hilos, [2, 4, 1, 3]);
+  assert.equal([1, 2, 3, 4, 8, 9].some((pv) => 'hilos' in d(pv)), false);
+  // el 4 mide epoch.5 y el pv; la franja del 6 y el 7, las escalas de T que el calendario mide (epoch.1.3 ∩ epoch.7), no un número escrito
   const medidas = EPOCA_0_BTML.registro[7][0].map((r) => r[0][0]);
   const escalas = EPOCA_0_BTML.registro[1][3][1].map((r, escala) => ({ escala, nombre: r[0][0] })).filter((e) => medidas.includes(e.nombre));
   for (const pv of [6, 7]) {
-    assert.equal(d(pv).bandas.length, escalas.length);
+    assert.deepEqual([d(pv).forma, d(pv).hijos, d(pv).paso], ['franjas', [], 'escala']);
     assert.deepEqual(d(pv).bandas.map((b) => [b.escala, b.nombre]), escalas.map((e) => [e.escala, e.nombre]));
-    assert.equal(d(pv).filas, escalas.length);
   }
   assert.ok(escalas.length < EPOCA_0_BTML.registro[1][3][1].length, 'hay escalas de T que el calendario no mide (pasado, futuro, inventado)');
+  // el 8 y el 9: las diez cajas nivel.grado de HITOS (src/bases.js)
+  const cajas = HITOS.map((h) => ({ indice: h.indice, nivel: Number(h.nivel.split('.')[0]), grado: Number(h.nivel.split('.')[1]), nombre: h.nombre }));
+  assert.deepEqual([d(8).forma, d(9).forma], ['cielo', 'camino']);
+  assert.deepEqual(d(8).bandas, cajas);
+  assert.deepEqual(d(9).bandas, cajas);
+  assert.equal(d(8).paso, 'cuota', 'el paso que coloca cada registro en su caja es un dato de la fila');
+  // el estilo de los de abajo: el CSS por defecto de la época para los hijos (de ejemplo, uno mínimo en el 1)
+  assert.equal(d(1).estilo, '--hueco: 1fr;');
+  assert.equal(d(2).estilo, '');
+  assert.equal(C.divisionDelMundo(null, 11), null);
 });
 
-test('divisionDelMundo con el nivel en que se mira: entra mientras queden niveles; no pasa del último', () => {
-  assert.deepEqual([1, 2, 4, 5].map((n) => [C.divisionDelMundo(null, 2, { nivel: n }).nivel, C.divisionDelMundo(null, 2, { nivel: n }).entra]), [[1, true], [2, true], [4, true], [5, false]]);
-  assert.equal(C.divisionDelMundo(null, 2, { nivel: 99 }).nivel, 5);
-  assert.equal(C.divisionDelMundo(null, 4, { nivel: 1 }).entra, false, 'un solo nivel: no se entra');
+test('divisionDelMundo: la forma es la del nivel en que se mira (la última se repite); entra mientras queden niveles de profundidad', () => {
+  const d = (pv, nivel) => C.divisionDelMundo(null, pv, { nivel });
+  assert.deepEqual([1, 2, 3, 5, 6, 99].map((n) => d(2, n).forma), ['escalera', 'columnas', 'columnas', 'columnas', 'columnas', 'columnas'], 'el 2: escalera y, de ahí en adelante, columnas');
+  assert.deepEqual(d(2, 1).formas, ['escalera', 'columnas']);
+  assert.deepEqual([1, 2, 6].map((n) => d(3, n).forma), ['rejilla', 'conversacion', 'conversacion'], 'el 3: rejilla y dentro la conversación');
+  assert.deepEqual([1, 2, 4].map((n) => d(1, n).forma), ['cruceta', 'cruceta', 'cruceta'], 'una sola forma: se repite en todos los niveles');
+  assert.deepEqual([1, 2, 4, 5].map((n) => [d(2, n).nivel, d(2, n).entra]), [[1, true], [2, true], [4, true], [5, false]]);
+  assert.equal(d(2, 99).nivel, 5);
+  assert.equal(d(4, 1).entra, false, 'un solo nivel: no se entra');
   assert.equal(C.divisionDelMundo(null, 1, { epoca: epocaCon((e) => { e[8][7][1] = e[8][7][1].filter((f) => f[0][0] !== 1); }) }), null, 'sin fila, la época no dice nada del PV');
 });
 
-test('la división sale de la época: cambiar la fila en una copia cambia el árbol (el 1 en 3 × 3, el 6 con una escala menos, el 8 con cinco cajas)', async () => {
+test('hijosDe(eje, X, pv): los dígitos que el mundo enciende, con su nombre a esa profundidad (epoch.5) y los ocupantes de X.<dígito>; vacio si no hay', async () => {
+  const { eje, compra, nota, carpeta } = await conCarpeta();
+  const nombres = (nivel) => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => EPOCA_0_BTML.registro[5][nivel][d][0][0]);
+  const h = C.hijosDe(eje, carpeta.id, 3);
+  assert.deepEqual(h.map((x) => x.digito), [1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(h.map((x) => x.nombre), [1, 2, 3, 4, 5, 6].map((d) => nombres(1)[d]), 'profundidad 1: cuánto, con qué condición, con quién, qué se hace, dónde encaja, de dónde viene');
+  assert.deepEqual(h.map((x) => x.nombre).slice(0, 2), ['cuánto', 'con qué condición']);
+  assert.deepEqual(h.map((x) => x.vacio), [false, true, true, true, true, true], 'la carpeta solo tiene ocupantes en su 1');
+  assert.deepEqual(h[0].ocupantes, C.ocupantes(eje, carpeta.id, 1, 0, 100).ocupantes);
+  assert.equal(h[0].total, 1);
+  assert.deepEqual(h[1].ocupantes, []);
+  // a mayor nivel, el nombre es el de esa profundidad de epoch.5
+  assert.deepEqual(C.hijosDe(eje, nota.id, 1, { nivel: 2 }).map((x) => x.nombre), [1, 2, 3, 4].map((d) => nombres(2)[d]));
+  assert.deepEqual(C.hijosDe(eje, compra.id, 4).map((x) => x.digito), [], 'la matriz del 4 no tiene hijos');
+  assert.deepEqual(C.hijosDe(eje, 'no-existe', 1).map((x) => x.vacio), [true, true, true, true], 'un registro que no existe: todos vacíos');
+  assert.deepEqual(C.hijosDe(eje, compra.id, 99), [], 'sin fila, ninguno');
+});
+
+test('la división sale de la época: cambiar la fila en una copia cambia el árbol (el 1 en tres columnas, el 6 con una escala menos, el 8 sin lo que mide)', async () => {
   const { eje, compra } = await ejemploCompra();
   const base = await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE);
-  assert.equal(base.centro.rejilla.celdas.length, 16);
+  assert.equal(base.centro.rejilla.celdas.length, 4);
+  assert.deepEqual(celdasDe(base.centro.rejilla), [[0, 0, 1], [0, 1, 2], [1, 0, 3], [1, 1, 4]], 'cruceta: ↖1 ↗2 ↙3 ↘4');
   const epoca = epocaCon((e) => {
-    filaDe(e, 1)[1] = [3];
-    filaDe(e, 1)[2] = [3];
+    filaDe(e, 1)[1] = [1, 2, 3];
+    filaDe(e, 1)[3] = ['columnas'];
     e[7][0] = e[7][0].filter((r) => r[0][0] !== 'año'); // el calendario deja de medir el año
-    e[9][8].find((f) => f[1]?.[0] === 'cuota')[3] = [5];
+    filaDe(e, 8)[4] = ['-'];
   });
   const otra = await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE, { epoca });
-  assert.equal(otra.centro.rejilla.celdas.length, 9);
-  assert.match(html(otra), /data-rejilla="1"[^>]*data-columnas="3" data-filas="3"/);
+  assert.deepEqual(celdasDe(otra.centro.rejilla), [[0, 0, 1], [0, 1, 2], [0, 2, 3]]);
+  assert.match(html(otra), /data-rejilla="1"[^>]*data-columnas="3" data-filas="1"/);
   assert.equal((await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE)).centro.rejilla.bandas.length, 7);
   assert.equal((await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE, { epoca })).centro.rejilla.bandas.length, 6);
   assert.equal((await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE)).centro.rejilla.bandas.length, 10);
-  assert.equal((await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE, { epoca })).centro.rejilla.bandas.length, 5);
+  assert.equal((await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE, { epoca })).centro.rejilla, null, 'sin cajas que medir, el cielo no se divide (cae a la lista de ocupantes)');
 });
 
-test('el 1 en pantalla completa da 16 celdas (4 × 4); el 2 da 25 con 16 heredadas del 1 y 9 propias; el 3 da 36: 16 del 1, 9 del 2 y 11 propias', async () => {
+test('la geometría sale de la forma y de los hijos: cruceta 2 × 2, escalera 1 × 5, columnas 5, rejilla 3 × 2, matriz 10 × 10', async () => {
   const { eje, carpeta } = await conCarpeta();
-  const por = async (pv) => (await arbol(completa(carpeta.id, pv), eje, 'casa', GRANDE)).centro.rejilla;
-  const r1 = await por(1);
-  assert.deepEqual([r1.columnas, r1.filas, r1.celdas.length, r1.nivel, r1.niveles], [4, 4, 16, 1, 4]);
-  assert.ok(r1.celdas.every((c) => c.pv === 1));
-  const r2 = await por(2);
-  assert.equal(r2.celdas.length, 25);
-  assert.equal(r2.celdas.filter((c) => c.pv === 1).length, 16);
-  assert.equal(r2.celdas.filter((c) => c.pv === 2).length, 9);
-  // Las 16 heredadas son las de la esquina de arriba a la izquierda (la 4 × 4); las propias, la fila y la columna añadidas.
-  assert.ok(r2.celdas.filter((c) => c.pv === 1).every((c) => c.fila < 4 && c.columna < 4));
-  assert.ok(r2.celdas.filter((c) => c.pv === 2).every((c) => c.fila === 4 || c.columna === 4));
-  // La 4 × 4 de dentro enseña lo del 1 de ese registro (lo mismo que su rejilla propia), y lo propio es lo del 2.
-  assert.deepEqual(r2.celdas.filter((c) => c.pv === 1 && c.ocupante).map((c) => [c.fila, c.columna, c.ocupante.texto]), r1.celdas.filter((c) => c.ocupante).map((c) => [c.fila, c.columna, c.ocupante.texto]));
-  assert.deepEqual(r2.celdas.filter((c) => c.pv === 2 && c.ocupante).map((c) => c.ocupante.texto), C.ocupantes(eje, carpeta.id, 2, 0, 9).ocupantes.map((o) => C.legible(eje, o, C.tipo(eje, carpeta.id, 2), {}).texto));
+  const por = async (pv, nivel = 1, extra = {}) => {
+    const ruta = nivel === 1 ? {} : { profundidad: { [pv]: Array(nivel - 1).fill(carpeta.id) } };
+    return (await arbol(completa(carpeta.id, pv, { ...ruta, ...extra }), eje, 'casa', GRANDE)).centro.rejilla;
+  };
+  const forma = (r) => [r.forma, r.columnas, r.filas, r.celdas.length];
+  assert.deepEqual(forma(await por(1)), ['cruceta', 2, 2, 4]);
+  assert.deepEqual(forma(await por(2)), ['escalera', 1, 5, 5]);
+  assert.deepEqual(forma(await por(2, 2)), ['columnas', 5, 1, 5]);
+  assert.deepEqual(forma(await por(3)), ['rejilla', 3, 2, 6]);
+  assert.deepEqual(forma(await por(4)), ['matriz', 10, 10, 100]);
   const r3 = await por(3);
-  assert.equal(r3.celdas.length, 36);
-  assert.deepEqual([1, 2, 3].map((pv) => r3.celdas.filter((c) => c.pv === pv).length), [16, 9, 11]);
-  assert.ok(r3.celdas.filter((c) => c.pv === 3).every((c) => c.fila === 5 || c.columna === 5));
-  // El color de cada celda es el de su PV (data-color) y el de cada ocupante ya lo lleva por su posición (data-pv).
-  const h = html(await arbol(completa(carpeta.id, 2), eje, 'casa', GRANDE));
-  assert.equal((h.match(/class="rejilla-celda[^"]*" data-color="1"/g) ?? []).length, 16);
-  assert.equal((h.match(/class="rejilla-celda[^"]*" data-color="2"/g) ?? []).length, 9);
+  assert.deepEqual(celdasDe(r3), [[0, 0, 1], [0, 1, 2], [0, 2, 3], [1, 0, 4], [1, 1, 5], [1, 2, 6]], 'cada celda lleva el dígito de su hijo');
+  assert.deepEqual((await por(2)).celdas.map((c) => c.nombre), ['cuánto', 'con qué condición', 'con quién', 'qué se hace', 'dónde encaja']);
+  // el color de cada celda es el de su hijo (data-color y data-pv)
+  const h = html(await arbol(completa(carpeta.id, 3), eje, 'casa', GRANDE));
+  for (const d of [1, 2, 3, 4, 5, 6]) assert.match(h, new RegExp(`class="rejilla-celda hijo[^"]*" data-color="${d}" data-pv="${d}"`));
+  // la matriz del 4 sigue siendo una lista de ocupantes por filas, con su página
+  const r4 = await por(4);
+  assert.deepEqual(r4.pagina, { actual: 1, de: 1 });
+  assert.ok(r4.celdas.every((c) => c.pv === 4));
 });
 
-test('entrar en una celda del 1 baja un nivel de profundidad y «volver» sube; en el último nivel, la celda ya no entra', async () => {
+test('la regla del vacío: un hijo sin ocupantes se pinta con su nombre apagado y no se entra; si todos están vacíos, no se baja', async () => {
+  const { eje, hoja, nota, carpeta } = await conCarpeta();
+  const lee = (estado) => arbol(estado, eje, 'casa', GRANDE).then((a) => ({ a, r: a.centro.rejilla }));
+  const { a, r } = await lee(completa(carpeta.id, 1));
+  assert.deepEqual(r.celdas.map((c) => c.vacio), [false, true, true, true]);
+  assert.equal(r.vacia, false);
+  const h = html(a);
+  assert.equal((h.match(/class="rejilla-celda hijo vacia"[^>]*data-vacio/g) ?? []).length, 3, 'tres hijos vacíos, con data-vacio');
+  assert.doesNotMatch(h, /class="rejilla-celda hijo"[^>]*data-vacio/);
+  for (const c of r.celdas.filter((x) => x.vacio)) assert.deepEqual([c.entra, c.ocupantes.length, typeof c.nombre], [false, 0, 'string'], 'su nombre se conserva (apagado) y no entra');
+  assert.equal(r.celdas[0].entra, true, 'la nota tiene algo dentro: se entra');
+  // «Hoja» no tiene nada dentro: el ocupante existe pero no se baja a él
+  const dentro = (await lee(completa(carpeta.id, 1, { profundidad: { 1: [nota.id] } }))).r;
+  assert.equal(dentro.celdas[0].ocupante.X, hoja.id);
+  assert.equal(dentro.celdas[0].entra, false);
+  assert.equal(dentro.vacia, false);
+  // la compra del ejemplo: el 3 tiene ocupantes en el 3 y el 4 pero no en el 5 ni el 6
+  const { eje: e2, compra } = await ejemploCompra();
+  const r2 = (await arbol(completa(compra.id, 3), e2, 'huesped', GRANDE)).centro.rejilla;
+  assert.deepEqual(r2.celdas.map((c) => c.vacio), [false, false, false, false, C.ocupantes(e2, compra.id, 5).total === 0, C.ocupantes(e2, compra.id, 6).total === 0]);
+  // un registro sin nada en ningún hijo: todos vacíos, y la rejilla lo dice
+  const vacio = await e2.escribir({ autor: 'casa', sobre: compra.id, t: '2026-11-08T10:00:00Z', movimientos: T, payload: [['Vacío']] });
+  const rv = (await arbol(completa(vacio.id, 1), e2, 'casa', GRANDE)).centro.rejilla;
+  assert.equal(rv.vacia, true);
+  assert.ok(rv.celdas.every((c) => c.vacio && !c.entra));
+  assert.match(html(await arbol(completa(vacio.id, 1), e2, 'casa', GRANDE)), /data-vacia/);
+});
+
+test('entrar en una celda baja un nivel de profundidad y «volver» sube; en el último nivel, la celda ya no entra', async () => {
   const { eje, hoja, nota, carpeta } = await conCarpeta();
   const lee = (estado) => arbol(estado, eje, 'casa', GRANDE).then((a) => ({ a, r: a.centro.rejilla }));
   const { a: a0, r: r0 } = await lee(completa(carpeta.id, 1));
-  assert.equal(r0.nivel, 1);
+  assert.deepEqual([r0.nivel, r0.niveles], [1, 4]);
   const celda = r0.celdas.find((c) => c.ocupante);
-  assert.equal(celda.entra, true, 'el ocupante es un registro y quedan niveles');
+  assert.equal(celda.pv, 1, 'el ocupante está en el hijo 1 (cuánto) de la carpeta');
+  assert.equal(celda.entra, true, 'el ocupante es un registro con algo dentro y quedan niveles');
   assert.equal(celda.ocupante.X, nota.id);
   const h0 = html(a0);
   assert.match(h0, new RegExp(`data-celda="${nota.id}"`));
@@ -129,7 +204,7 @@ test('entrar en una celda del 1 baja un nivel de profundidad y «volver» sube; 
   // Entrar (lo que hace la app: estado.profundidad[pv] = [...ruta, X]): la rejilla es ahora la de «Nota» y enseña sus ocupantes.
   const { a: a1, r: r1 } = await lee(completa(carpeta.id, 1, { profundidad: { 1: [nota.id] } }));
   assert.deepEqual([r1.nivel, r1.X, r1.ruta], [2, nota.id, [nota.id]]);
-  assert.equal(r1.celdas.length, 16, 'cada celda vuelve a dividirse en 4 × 4');
+  assert.equal(r1.celdas.length, 4, 'cada esquina vuelve a dividirse');
   assert.equal(r1.celdas.find((c) => c.ocupante).ocupante.X, hoja.id);
   const h1 = html(a1);
   assert.match(h1, /class="volver volver-claro"[^>]*data-subir="1"/, 'a nivel 2, volver sube un nivel');
@@ -148,56 +223,61 @@ test('entrar en una celda del 1 baja un nivel de profundidad y «volver» sube; 
   assert.equal(r4.celdas.every((c) => !c.entra), true);
 });
 
-test('la paginación es por rejillas enteras: «n de m» con más ocupantes que celdas, y la segunda página sigue donde acabó la primera', async () => {
+test('la matriz del 4 pagina por matrices enteras; las demás formas no paginan (cada hijo lleva la lista de sus ocupantes)', async () => {
   const { eje, compra } = await ejemploCompra();
-  // Una época con el 1 en 1 × 2: dos celdas por página; el 1 de la compra trae un solo ocupante, así que el 3 (36 celdas, 16 del 1) no pagina y el 2 tampoco.
-  const epoca = epocaCon((e) => { filaDe(e, 2)[1] = [2]; filaDe(e, 2)[2] = [1]; filaDe(e, 2)[4] = ['-']; });
+  // Una época con el 2 como matriz: 100 celdas por página; la compra trae pocos ocupantes en el 2, una sola página.
+  const epoca = epocaCon((e) => { filaDe(e, 2)[3] = ['matriz']; });
   const r = (await arbol(completa(compra.id, 2), eje, 'huesped', GRANDE, { epoca })).centro.rejilla;
-  assert.equal(r.celdas.length, 2);
-  const de = Math.ceil(C.ocupantes(eje, compra.id, 2, 0, 0).total / 2);
-  assert.deepEqual(r.pagina, { actual: 1, de });
-  assert.ok(de >= 1);
+  assert.equal(r.celdas.length, 100);
+  assert.deepEqual(r.pagina, { actual: 1, de: 1 });
+  const total = C.ocupantes(eje, compra.id, 2, 0, 0).total;
+  assert.equal(r.celdas.filter((c) => c.ocupante).length, total);
+  assert.deepEqual(r.celdas.filter((c) => c.ocupante).map((c) => c.ocupante.texto), C.ocupantes(eje, compra.id, 2, 0, total).ocupantes.map((o) => C.legible(eje, o, C.tipo(eje, compra.id, 2), {}).texto));
   const ultima = (await arbol(completa(compra.id, 2, { paginas: { 2: 99 } }), eje, 'huesped', GRANDE, { epoca })).centro.rejilla;
-  assert.equal(ultima.pagina.actual, de, 'no pasa de la última');
-  const dos = (await arbol(completa(compra.id, 2, { paginas: { 2: 2 } }), eje, 'huesped', GRANDE, { epoca })).centro.rejilla;
-  if (de >= 2) assert.equal(dos.celdas[0].ocupante?.texto, C.legible(eje, C.ocupantes(eje, compra.id, 2, 2, 1).ocupantes[0], C.tipo(eje, compra.id, 2), {}).texto);
-  if (de > 1) assert.match(html(await arbol(completa(compra.id, 2), eje, 'huesped', GRANDE, { epoca })), /data-pagina="2" data-delta="1"/);
+  assert.equal(ultima.pagina.actual, 1, 'no pasa de la última');
+  const cruceta = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.equal(cruceta.pagina, null);
+  assert.deepEqual(cruceta.celdas[0].ocupantes.map((o) => o.texto).length, C.ocupantes(eje, compra.id, 1).total, 'cada hijo lleva todos sus ocupantes (hasta el paso de la época)');
 });
 
-test('el 6 y el 7: una banda por escala de T que el calendario mide, de la más fina a la más gruesa, y cada entrada en la banda del paso «escala»', async () => {
+test('el 6 y el 7: una franja por escala de T que el calendario mide; el 6 con la más lejana a la izquierda y hoy a la derecha, el 7 al revés', async () => {
   const { eje, compra } = await ejemploCompra();
   const escalas = C.divisionDelMundo(null, 6).bandas;
-  for (const pv of [6, 7]) {
-    const r = (await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)).centro.rejilla;
-    assert.equal(r.bandas.length, escalas.length, 'tantas bandas como escalas reales');
-    assert.deepEqual(r.bandas.map((b) => b.nombre), escalas.map((e) => e.nombre));
-    assert.deepEqual(r.bandas.map((b) => b.escala), [...r.bandas.map((b) => b.escala)].sort((a, b) => a - b), 'de la más fina a la más gruesa');
+  const r6 = (await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE)).centro.rejilla;
+  const r7 = (await arbol(completa(compra.id, 7), eje, 'huesped', GRANDE)).centro.rejilla;
+  for (const r of [r6, r7]) {
+    assert.equal(r.forma, 'franjas');
+    assert.equal(r.bandas.length, escalas.length, 'tantas franjas como escalas reales');
   }
-  // El diario de la compra (el pasado, el 6) quema horas: su entrada está en la banda «hora» y en ninguna otra.
-  const pasado = (await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE)).centro.rejilla;
-  const conEntradas = pasado.bandas.filter((b) => b.items.length);
+  assert.deepEqual(r7.bandas.map((b) => b.escala), [...r7.bandas.map((b) => b.escala)].sort((a, b) => a - b), 'el 7: la más cercana a ahora (la más fina) a la izquierda');
+  assert.deepEqual(r6.bandas.map((b) => b.escala), [...r7.bandas.map((b) => b.escala)].reverse(), 'el 6: al revés, la más cercana a ahora a la derecha');
+  assert.deepEqual(r7.bandas.map((b) => b.nombre), escalas.map((e) => e.nombre));
+  // El diario de la compra (el pasado, el 6) quema horas: su entrada está en la franja «hora» y en ninguna otra.
+  const conEntradas = r6.bandas.filter((b) => b.items.length);
   assert.deepEqual(conEntradas.map((b) => b.nombre), ['hora']);
   assert.equal(conEntradas[0].items[0].tipo, 'entrada');
   const h = html(await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE));
-  assert.equal((h.match(/class="rejilla-banda[ "]/g) ?? []).length, escalas.length);
+  assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, escalas.length);
 });
 
-test('el 8 da diez bandas (la cuota «k de 10»); el 9, los diez pasos del camino o, sin pasos, los niveles de madurez', async () => {
+test('el 8 da las diez cajas nivel.grado de HITOS; el 9, primero esas diez posiciones para situarse y después los pasos del camino o, sin pasos, los niveles de madurez', async () => {
   const { eje, compra } = await ejemploCompra();
   const r8 = (await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.equal(r8.forma, 'cielo');
   assert.equal(r8.bandas.length, 10);
   assert.deepEqual(r8.bandas.map((b) => b.indice), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
-  // Lo que cuelga de la compra (su hilo) cae en la caja de su cuota: el diario de la compra mueve lo único que hay bajo el menú.
-  const hijos = (await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE)).centro.rejilla;
-  assert.ok(hijos.bandas.reduce((n, b) => n + b.items.length, 0) + hijos.sinBanda.length >= 0);
+  assert.deepEqual(r8.bandas.map((b) => b.nombre), HITOS.map((h) => h.nombre));
+  assert.deepEqual(r8.bandas.map((b) => `${b.nivel}.${b.grado}`), HITOS.map((h) => h.nivel));
   const r9 = (await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.equal(r9.forma, 'camino');
   assert.equal(r9.bandas.length, 10);
   assert.equal(r9.pasos, true);
+  assert.deepEqual(r9.situarse.map((b) => b.nombre), HITOS.map((h) => h.nombre), 'las diez posiciones para situarse');
   const a9 = await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE);
   if (a9.camino.pasos.length) assert.deepEqual(r9.bandas.map((b) => b.falta).slice(0, a9.camino.pasos.length), a9.camino.pasos.map((p) => p.falta));
   else assert.ok(r9.bandas.every((b) => typeof b.nivel === 'string'), 'sin pasos, los niveles de madurez');
   const h = html(a9);
-  assert.equal((h.match(/class="rejilla-banda[ "]/g) ?? []).length, 10);
+  assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, 10);
 });
 
 test('en un bloque la rejilla se usa si cabe (celdas de 48 px o más); si no, la división de epoch.8.3 como hasta ahora', async () => {
@@ -206,21 +286,21 @@ test('en un bloque la rejilla se usa si cabe (celdas de 48 px o más); si no, la
   const estado = { foco: { X: compra.id, pv: 0 }, niveles: Object.fromEntries(LATERALES.map((pv) => [pv, e.tope])) };
   const a = await arbol(estado, eje, 'huesped', ORDENADOR);
   const bloque = (pv) => a.laterales.find((n) => n.pv === pv);
-  // El 1 en una esquina (un cuarto de 1200 × 800: 600 × 400, o menos si compiten): 4 × 4 de 48 px caben.
+  // El 1 en una esquina (un cuarto de 1200 × 800: 600 × 400, o menos si compiten): la cruceta 2 × 2 de 48 px cabe.
   const n1 = bloque(1);
   assert.ok(n1.nivel >= NIVEL_BLOQUE && n1.rejilla, 'el 1 usa la rejilla');
-  assert.equal(n1.rejilla.celdas.length, 16);
+  assert.equal(n1.rejilla.celdas.length, 4);
   assert.ok(n1.rejilla.columnas * 48 <= n1.caja.ancho * ORDENADOR.ancho && n1.rejilla.filas * 48 <= n1.caja.alto * ORDENADOR.alto);
   assert.equal(n1.rejilla.entra, false, 'en un bloque no se entra: se sube a pantalla completa');
   // El 4 (10 × 10 = 480 px) no cabe en un cuarto de 800 de alto: cae a la división de 8.3, con su lista de ocupantes.
   const n4 = bloque(4);
   assert.equal(n4.rejilla, undefined, 'el 4 no cabe: sin rejilla');
   assert.ok(n4.ocupantes && n4.disposicion, 'la división de epoch.8.3 como hasta ahora');
-  // Cambiar la época para que el 1 sea 10 × 10 lo deja también sin rejilla en ese bloque.
-  const epoca = epocaCon((x) => { filaDe(x, 1)[1] = [10]; filaDe(x, 1)[2] = [10]; });
+  // Cambiar la época para que el 1 sea una matriz (10 × 10) lo deja también sin rejilla en ese bloque.
+  const epoca = epocaCon((x) => { filaDe(x, 1)[3] = ['matriz']; });
   const b = await arbol(estado, eje, 'huesped', ORDENADOR, { epoca });
   assert.equal(b.laterales.find((n) => n.pv === 1).rejilla, undefined);
-  // Las bandas del 6 (7 × 48 = 336 px) no caben en su bloque a 1920 × 1080 (270 px de alto); con tres escalas menos en el calendario (192 px), sí.
+  // Las franjas del 6 (7 × 48 = 336 px) no caben en su bloque a 1920 × 1080 (270 px de alto); con tres escalas menos en el calendario (192 px), sí.
   const g = await arbol(estado, eje, 'huesped', GRANDE);
   assert.equal(g.laterales.find((n) => n.pv === 6).rejilla, undefined);
   const pocas = epocaCon((x) => { x[7][0] = x[7][0].filter((r) => ['segundo', 'minuto', 'hora', 'día'].includes(r[0][0])); });

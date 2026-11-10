@@ -10,6 +10,7 @@
 
 import { NIVEL, LATERALES, ANIMAR, GEOMETRIA } from './carta.js';
 import { t } from './textos.js';
+import { cssSeguro } from '../src/contrato.js';
 
 export const escapar = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const corto = (id) => String(id ?? '').slice(0, 8);
@@ -99,11 +100,14 @@ function htmlOcupante(o) {
   return htmlOcupanteSolo(o) + dentro;
 }
 
+/** El data-id de un ocupante que es un registro con estilo (el de la rejilla): a él se aplica `[data-id="…"]` (htmlEstilos). */
+const dataId = (o) => (o?.estilo && o.X ? ` data-id="${attr(o.X)}"` : '');
+
 function htmlOcupanteSolo(o) {
   const elemento = o.elemento?.recurso ? htmlPieza(o.elemento, { clase: 'pieza-elemento', alt: '' }) : '';
   if (o.tipo === 'referencia' && o.X) {
     const rep = o.representacion?.recurso ? htmlRepresentacion(o.representacion, { clase: 'rep-mini' }) : elemento;
-    return `<button type="button" class="ocupante ocupante-ref"${nodo('ocupante', { x0: o.texto, rep: repDe(o.representacion) })}${o.pv !== null && o.pv !== undefined ? ` data-pv="${o.pv}"` : ''} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
+    return `<button type="button" class="ocupante ocupante-ref"${nodo('ocupante', { x0: o.texto, rep: repDe(o.representacion) })}${o.pv !== null && o.pv !== undefined ? ` data-pv="${o.pv}"` : ''}${dataId(o)} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}">${rep}<span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button>`;
   }
   if (o.tipo === 'decupla') return `<span class="ocupante ocupante-decupla"${nodo('ocupante')}>${elemento}${o.hojas.map((h) => `<span class="hoja">${escapar(h)}</span>`).join('')}</span>`;
   return `<span class="ocupante ocupante-hoja"${nodo('ocupante')}>${elemento}${escapar(o.texto)}</span>`;
@@ -125,14 +129,22 @@ function htmlElementoDeBanda(o) {
   return `<button type="button" class="ocupante ocupante-ref ocupante-entrada"${nodo('ocupante')} data-pv="${o.pv}" data-abrir="${attr(o.ref)}" data-x="${attr(o.ref)}" title="${attr(o.t)}"><span class="texto">${escapar(o.texto)}</span><small class="quien">${escapar(o.t.replace('T', ' ').replace('Z', ''))}</small></button>`;
 }
 
-/** Una celda de la rejilla de un mundo: su ocupante; si se puede entrar, un clic baja un nivel (data-celda) y un botoncito abre el registro. */
+/** Un ocupante de una celda de la rejilla: si se puede entrar, un clic baja un nivel (data-celda) y un botoncito abre el registro. */
+function htmlOcupanteDeCelda(o) {
+  if (o.entra) {
+    return `<button type="button" class="ocupante ocupante-ref ocupante-celda"${nodo('ocupante', { x0: o.texto })} data-pv="${o.pv}"${dataId(o)} data-celda="${o.X}" data-x="${o.X}" title="${attr(t('entrarEnCelda', { que: o.texto }))}"><span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button><button type="button" class="celda-abrir"${nodo('control')} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('abrirEnCelda', { que: o.texto }))}" aria-label="${attr(t('abrirEnCelda', { que: o.texto }))}">↗</button>`;
+  }
+  return htmlOcupanteSolo(o);
+}
+
+/**
+ * Una celda de la rejilla de un mundo: la de un hijo (su dígito en data-pv, su nombre, sus ocupantes) o la de la matriz.
+ * Un hijo sin ocupantes lleva data-vacio: el nombre apagado y nada que entrar.
+ */
 function htmlCeldaDeRejilla(c) {
-  const o = c.ocupante;
-  let dentro = '';
-  if (o && c.entra) {
-    dentro = `<button type="button" class="ocupante ocupante-ref ocupante-celda"${nodo('ocupante', { x0: o.texto })} data-pv="${o.pv}" data-celda="${o.X}" data-x="${o.X}" title="${attr(t('entrarEnCelda', { que: o.texto }))}"><span class="texto">${escapar(o.texto)}</span>${o.autor ? `<small class="quien">${escapar(o.autor)}</small>` : ''}</button><button type="button" class="celda-abrir"${nodo('control')} data-abrir="${o.X}" data-x="${o.X}" title="${attr(t('abrirEnCelda', { que: o.texto }))}" aria-label="${attr(t('abrirEnCelda', { que: o.texto }))}">↗</button>`;
-  } else if (o) dentro = htmlOcupanteSolo(o);
-  return `<div class="rejilla-celda${o ? '' : ' vacia'}" data-color="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}">${dentro}</div>`;
+  const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+  const nombre = c.nombre ? `<span class="celda-nombre">${escapar(c.nombre)}</span>` : '';
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}>${nombre}${lista.map(htmlOcupanteDeCelda).join('')}</div>`;
 }
 
 /** Una banda: su nombre (la escala de T) o su número (la caja de la cuota), y lo que cae en ella. */
@@ -141,14 +153,15 @@ function htmlBandaDeRejilla(b, pasos) {
   let cuerpo;
   if (pasos) cuerpo = b.nivel !== undefined ? `<span class="ocupante ocupante-hoja${b.actual ? ' actual' : ''}">${escapar(b.nivel)}</span>` : `<span class="paso ${b.hecho ? 'hecho' : b.espera ? 'espera' : b.mio ? 'mio' : 'otro'}"><span class="falta">${escapar(b.falta ?? '')}</span></span>`;
   else cuerpo = b.items.map(htmlElementoDeBanda).join('') + (b.mas ? `<small class="mas-banda">${escapar(t('masEnBanda', { n: b.mas }))}</small>` : '');
-  return `<div class="rejilla-banda${(b.items?.length ?? 1) ? '' : ' vacia'}" data-banda="${b.indice}"><span class="banda-nombre">${escapar(nombre)}</span><div class="banda-cuerpo">${cuerpo}</div></div>`;
+  return `<div class="rejilla-banda hijo${(b.items?.length ?? 1) ? '' : ' vacia'}" data-banda="${b.indice}"><span class="banda-nombre">${escapar(nombre)}</span><div class="banda-cuerpo">${cuerpo}</div></div>`;
 }
 
 /**
- * La rejilla de un mundo (epoch.8.7): columnas × filas de celdas, cada una con el color del PV de cuyo contenido es
- * (en el 2 y el 3, las de dentro son del PV que hereda); o, si la época da bandas, una banda por escala o por caja. Con
- * niveles de profundidad, la cabecera dice dónde se está y «subir» vuelve un nivel; abajo, «‹ n de m ›» por rejillas
- * enteras. En un bloque, la misma rejilla sin cabecera.
+ * La rejilla de un mundo (epoch.8.7): una celda por hijo (el dígito que ese mundo enciende, con el color de su PV), o la
+ * matriz del 4; o, si la época da bandas, una banda por escala o por caja. Con niveles de profundidad, la cabecera dice
+ * dónde se está y «subir» vuelve un nivel; la matriz pagina («‹ n de m ›»). El contenedor lleva data-id (el registro
+ * que se divide) y cada celda la clase `hijo`: a ellos se aplican los dos estilos del registro (htmlEstilos). En un
+ * bloque, la misma rejilla sin cabecera.
  */
 function htmlRejilla(r, { completa = false } = {}) {
   if (!r) return '';
@@ -158,7 +171,7 @@ function htmlRejilla(r, { completa = false } = {}) {
     ? `<div class="rejilla-bandas" style="--filas:${r.bandas.length}">${r.bandas.map((b) => htmlBandaDeRejilla(b, r.pasos)).join('')}</div>${sin}`
     : `<div class="rejilla-celdas" style="--columnas:${r.columnas};--filas:${r.filas}">${r.celdas.map(htmlCeldaDeRejilla).join('')}</div>`;
   const paginas = r.pagina && r.pagina.de > 1 ? `<ul class="ocupantes rejilla-paginas">${htmlPagina(r.pagina, r.pv)}</ul>` : '';
-  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}">${cabeza}${cuerpo}${paginas}</div>`;
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${cabeza}${cuerpo}${paginas}</div>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
@@ -310,7 +323,7 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       ${pasos}${validacion}${efectos}${marco}
     </section>`;
   }
-  return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
+  return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}"${c.estilo && !c.rejilla ? ` data-id="${attr(c.X)}"` : ''} aria-label="${attr(c.etiqueta)}">
     <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quien}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
     ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
@@ -570,7 +583,9 @@ export function html(arbol, extra = {}) {
   const escena = a.apilada
     ? `<div class="franja franja-cruz" data-franja="cruz">${cruz.map(de).join('')}</div>${htmlCentro(a.centro, a, extra)}<div class="franja franja-x" data-franja="x">${x.map(de).join('')}</div>`
     : htmlMapa(a, extra, laterales);
+  const estilos = htmlEstilos(a);
   return `<div class="${clase}"${nodo('carta', { modo: a.apilada ? 'apilada' : 'matriz', render: a.animado ? 'animado' : 'sobrio', ancho: a.medidas?.ancho, alto: a.medidas?.alto, x0: a.centro?.representacion?.texto ?? '' })} data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
+    ${estilos}
     ${htmlBarra(a, extra)}
     ${avisos.length ? `<p class="aviso" role="alert">${avisos.map(escapar).join(' · ')}</p>` : ''}
     ${extra.exito ? `<p class="exito" role="status">${escapar(extra.exito)}</p>` : ''}
@@ -583,6 +598,31 @@ export function html(arbol, extra = {}) {
     ${extra.arranque ? htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: true }) : ''}
     ${htmlCopia(extra.copia)}
   </div>`;
+}
+
+/**
+ * Los dos estilos de lo que se pinta (el propio, X.0.9, y el de los de abajo, X.5.0; contrato.estilo), como CSS acotado a
+ * su registro: `[data-id="<id>"] { … }` y `[data-id="<id>"] .hijo { … }`. Cada texto vuelve a pasar por cssSeguro aquí
+ * (el árbol podría llegar de otro sitio) y solo se emite si el id es un identificador sin más: nada que no sea una
+ * declaración corriente llega al <style>, y sin `<` ni `}` en ella no puede cerrarlo ni salir de su regla.
+ */
+export function htmlEstilos(a) {
+  const vistos = new Map();
+  const ver = (id, estilo) => { if (typeof id === 'string' && /^[0-9A-Za-z_-]{1,128}$/.test(id) && estilo && !vistos.has(id)) vistos.set(id, estilo); };
+  ver(a.X, a.centro?.estilo);
+  ver(a.centro?.rejilla?.X, a.centro?.rejilla?.estilo);
+  for (const n of [a.centro?.rejilla, ...(a.laterales ?? []).map((l) => l.rejilla)]) {
+    for (const c of n?.celdas ?? []) for (const o of c.ocupantes ?? []) ver(o.X, o.estilo);
+    for (const b of n?.bandas ?? []) for (const o of b.items ?? []) ver(o.X, o.estilo);
+  }
+  const reglas = [];
+  for (const [id, e] of vistos) {
+    const propio = cssSeguro(e.propio?.css);
+    const hijos = cssSeguro(e.hijos?.css);
+    if (propio) reglas.push(`[data-id="${id}"]{${propio}}`);
+    if (hijos) reglas.push(`[data-id="${id}"] .hijo{${hijos}}`);
+  }
+  return reglas.length ? `<style data-estilos>${reglas.join('')}</style>` : '';
 }
 
 /** Una caja de fracciones de la pantalla como estilo en tantos por ciento (lo único que el pintado hace con ella). */

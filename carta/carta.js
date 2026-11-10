@@ -422,6 +422,7 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
     plantilla: nombreDePlantillaDe(eje, X, ctx),
     pasos: ctx.pasos,
     leido: Boolean(ctx.estado.leido),
+    estilo: estiloDe(eje, X, pv, ctx), // los dos estilos del registro (X.0.9 y X.5.0), saneados: la carta los emite como CSS
   };
   if (ctx.animado) {
     base.marco = marcoDe(ctx, null, tamano); // el centro no es un mundo: el marco neutro (la comodín)
@@ -824,58 +825,91 @@ function paginaDe(ctx, eje, X, pv, cuantos) {
   const actual = Math.min(Math.max(1, ctx.estado.paginas?.[pv] ?? 1), de);
   return { actual, de, desde: (actual - 1) * cuantos };
 }
-
-/**
- * La división de cada mundo en pantalla completa (epoch.8.7, contrato.divisionDelMundo): la rejilla de celdas de un PV.
- * Una celda por columna y fila; los ocupantes ordenados del núcleo se colocan en ella por filas, en páginas de rejillas
- * enteras («‹ n de m ›»). Si el PV hereda de otro (el 2 del 1, el 3 del 2), las primeras celdas (la rejilla de dentro,
- * en la esquina de arriba a la izquierda) enseñan lo del PV heredado A LA MISMA PROFUNDIDAD, y las demás (la fila y la
- * columna añadidas) lo propio; cada celda lleva el PV de cuyo contenido es (de él sale su color). Entrar en una celda
- * (un registro) baja un nivel de profundidad (`ruta`: los registros por los que se ha entrado) mientras queden niveles.
- * Si la época da bandas (las escalas de T del 6 y el 7, las cajas de la cuota del 8) o el PV es el del camino (el 9),
- * en vez de celdas hay bandas. Nada de esto decide qué hay: lo dan los ocupantes, los pasos y el camino del núcleo.
- * → { pv, columnas, filas, niveles, nivel, entra, hereda, ruta, X, pagina, celdas } o { …, bandas, sinBanda } o null.
- */
-const esPvDelCamino = (pv) => GEOMETRIA[pv]?.grupo === 'cruz' && GEOMETRIA[pv]?.fila === 'abajo';
 const esPvDelPasado = (pv) => GEOMETRIA[pv]?.grupo === 'cruz' && GEOMETRIA[pv]?.lado === 1;
 
-/** Los registros por los que se ha entrado en la rejilla de un PV: los que existen, sin pasar de sus niveles. */
+/** Los registros por los que se ha entrado en la rejilla de un PV: los que existen, sin pasar de su profundidad. */
 function rutaDe(estado, eje, pv, opciones) {
   const d = contrato.divisionDelMundo(eje, pv, opciones);
   const ruta = [];
-  for (const id of estado.profundidad?.[pv] ?? []) if (eje.obtener(id) && ruta.length < Math.max(0, (d?.niveles ?? 1) - 1)) ruta.push(id);
+  for (const id of estado.profundidad?.[pv] ?? []) if (eje.obtener(id) && ruta.length < Math.max(0, (d?.profundidad ?? 1) - 1)) ruta.push(id);
   return ruta;
 }
 
-/** El PV de cuyo contenido es la celda (fila, columna) de la rejilla de `pv`: el más profundo que la hereda. */
-function duenoDeCelda(eje, pv, fila, columna, opciones, guarda = 12) {
-  const d = contrato.divisionDelMundo(eje, pv, opciones);
-  const h = d?.hereda !== null && d?.hereda !== undefined && guarda > 0 ? contrato.divisionDelMundo(eje, d.hereda, opciones) : null;
-  return h && fila < h.filas && columna < h.columnas ? duenoDeCelda(eje, d.hereda, fila, columna, opciones, guarda - 1) : pv;
+/**
+ * La geometría de las celdas de un nivel: sale de su forma (epoch.8.7) y de sus hijos, no de un número escrito. Una
+ * tabla por forma, con la geometría y cómo se colocan sus celdas. cruceta: las cuatro esquinas (2 × 2); escalera y
+ * conversación: una columna de hijos; columnas: una por hijo; rejilla: tres columnas (3 × 2 con seis hijos); matriz:
+ * 10 × 10; franjas, cielo y camino: una banda por entrada de lo que mide la fila (las escalas del calendario, las diez
+ * cajas de los hitos). Lo que no está aquí (la lente, el JSON) no se divide. Los pintores de cada forma son otro encargo.
+ */
+const enColumnas = (columnas, minimo = 1) => (d) => (d.hijos.length ? { columnas, filas: Math.max(minimo, Math.ceil(d.hijos.length / columnas)) } : null);
+const unaColumna = (d) => (d.hijos.length ? { columnas: 1, filas: d.hijos.length } : null);
+const porBandas = (d) => (d.bandas?.length ? { columnas: 1, filas: d.bandas.length } : null);
+const FORMAS = {
+  cruceta: { geometria: enColumnas(2, 2), celdas: celdasDeHijos },
+  escalera: { geometria: unaColumna, celdas: celdasDeHijos },
+  conversacion: { geometria: unaColumna, celdas: celdasDeHijos },
+  columnas: { geometria: (d) => (d.hijos.length ? { columnas: d.hijos.length, filas: 1 } : null), celdas: celdasDeHijos },
+  rejilla: { geometria: enColumnas(3), celdas: celdasDeHijos },
+  matriz: { geometria: () => ({ columnas: 10, filas: 10 }), celdas: celdasDeMatriz },
+  franjas: { geometria: porBandas, celdas: bandasDeRejilla, alReves: true },
+  cielo: { geometria: porBandas, celdas: bandasDeRejilla },
+  camino: { geometria: porBandas, celdas: caminoDeRejilla },
+};
+const geometriaDe = (d) => FORMAS[d.forma]?.geometria(d) ?? null;
+
+/** El estilo propio y el de los de abajo de X (los dos datos, ya saneados; contrato.estilo), una sola vez por registro y mundo. */
+function estiloDe(eje, X, pv, ctx) {
+  const memo = (ctx.estilos ??= new Map());
+  const clave = X + '|' + pv;
+  if (!memo.has(clave)) memo.set(clave, { propio: contrato.estilo(eje, X, { de: 'propio', ...ctx.opciones }), hijos: contrato.estilo(eje, X, { de: 'hijos', pv, ...ctx.opciones }) });
+  return memo.get(clave);
 }
 
-function celdasDeRejilla(eje, R, pv, d, ctx, pagina) {
+/** ¿Tiene X algo que enseñar al entrar en él en el mundo `pv` (a ese nivel)? La regla del vacío: si todos sus hijos están vacíos, no se baja. */
+const tieneHijos = (eje, X, pv, nivel, ctx) => contrato.hijosDe(eje, X, pv, { nivel, cuantos: 1, ...ctx.opciones }).some((h) => !h.vacio);
+
+/** Los ocupantes de una celda como nodos; cada uno que es un registro con algo dentro entra (mientras queden niveles). */
+function nodosDeCelda(eje, R, ocupantes, pv, digito, d, ctx, entrar) {
+  const tipoDato = contrato.tipo(eje, R, digito, ctx.opciones);
+  return ocupantes.map((x) => {
+    const n = nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato, { pv: digito, lado: GEOMETRIA[digito]?.lado ?? 0, posicion: digito });
+    n.entra = Boolean(entrar && d.entra && n.tipo === 'referencia' && n.X && tieneHijos(eje, n.X, pv, d.nivel + 1, ctx));
+    if (n.X) n.estilo = estiloDe(eje, n.X, pv, ctx);
+    return n;
+  });
+}
+
+/**
+ * Las celdas de un nivel con hijos (cruceta, escalera, columnas, rejilla, conversación): una por hijo, con su nombre a
+ * esa profundidad y sus ocupantes (contrato.hijosDe). Un hijo sin ocupantes es `vacio`: se pinta con su nombre
+ * apagado y no se entra. Cada celda lleva el dígito del hijo (`pv`) y, de él, el color.
+ */
+function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
+  const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, ...ctx.opciones }).map((h, i) => {
+    const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio);
+    return { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra) };
+  });
+  return { celdas, vacia: celdas.every((c) => c.vacio), pagina: null };
+}
+
+/** La matriz 10 × 10 del 4: los ocupantes del PV colocados por filas, en páginas de matrices enteras («‹ n de m ›»). */
+function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
   const celdas = [];
-  for (let fila = 0; fila < d.filas; fila++) for (let columna = 0; columna < d.columnas; columna++) celdas.push({ fila, columna, pv: duenoDeCelda(eje, pv, fila, columna, ctx.opciones), ocupante: null, entra: false });
-  const duenos = [...new Set(celdas.map((c) => c.pv))];
-  const paginasDe = duenos.map((p) => Math.max(1, Math.ceil(contrato.ocupantes(eje, R, p, 0, 0, ctx.opciones).total / celdas.filter((c) => c.pv === p).length)));
-  const de = Math.max(1, ...paginasDe);
+  for (let fila = 0; fila < g.filas; fila++) for (let columna = 0; columna < g.columnas; columna++) celdas.push({ fila, columna, pv, ocupantes: [], ocupante: null, entra: false });
+  const de = Math.max(1, Math.ceil(contrato.ocupantes(eje, R, pv, 0, 0, ctx.opciones).total / celdas.length));
   const actual = Math.min(Math.max(1, pagina), de);
-  for (const p of duenos) {
-    const suyas = celdas.filter((c) => c.pv === p);
-    const o = contrato.ocupantes(eje, R, p, (actual - 1) * suyas.length, suyas.length, ctx.opciones);
-    const tipoDato = contrato.tipo(eje, R, p, ctx.opciones);
-    o.ocupantes.forEach((x, i) => {
-      const n = nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), ctx, tipoDato, { pv: p, lado: GEOMETRIA[p]?.lado ?? 0, posicion: p });
-      suyas[i].ocupante = n;
-      suyas[i].entra = d.entra && n.tipo === 'referencia' && Boolean(n.X);
-    });
-  }
+  const o = contrato.ocupantes(eje, R, pv, (actual - 1) * celdas.length, celdas.length, ctx.opciones);
+  const nodos = nodosDeCelda(eje, R, o.ocupantes, pv, pv, d, ctx, entrar);
+  nodos.forEach((n, i) => { celdas[i].ocupantes = [n]; celdas[i].ocupante = n; celdas[i].entra = n.entra; });
   return { celdas, pagina: { actual, de } };
 }
 
-/** Las bandas del 6, el 7 y el 8: cada entrada del diario, del hilo o de los ocupantes, en la banda del paso que nombra la época. */
-function bandasDeRejilla(eje, R, pv, d, ctx, hueco) {
+/**
+ * Las bandas del 6, el 7 y el 8: cada entrada del diario, del hilo o de los ocupantes, en la banda del paso que nombra
+ * la época. Las de mayor escala quedan a la izquierda en el 6 (la más cercana a ahora, a la derecha) y al revés en el 7.
+ */
+function bandasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const paso = d.paso;
   const items = [];
   const total = contrato.ocupantes(eje, R, pv, 0, 0, ctx.opciones).total;
@@ -901,33 +935,46 @@ function bandasDeRejilla(eje, R, pv, d, ctx, hueco) {
     if (!banda) { sinBanda.push(it.nodo); continue; }
     if (banda.items.length < caben) banda.items.push(it.nodo); else banda.mas++;
   }
-  return { bandas, sinBanda };
+  if (FORMAS[d.forma].alReves && esPvDelPasado(pv)) bandas.reverse(); // la más lejana a la izquierda, hoy a la derecha
+  return { bandas, sinBanda, pagina: null };
 }
 
-/** Los pasos del camino del 9, uno por celda (hasta lo que dice la época); sin pasos, los niveles de madurez. */
-function pasosDeRejilla(eje, R, d, ctx, camino) {
-  const cuantos = d.columnas * d.filas;
+/** Los pasos del camino del 9, uno por celda (hasta lo que dice la época); sin pasos, los niveles de madurez. Las diez posiciones para situarse van aparte (`situarse`). */
+function caminoDeRejilla(eje, R, pv, d, g, ctx, { camino }) {
+  return { bandas: pasosDeRejilla(eje, R, g.columnas * g.filas, ctx, camino), situarse: d.bandas ?? [], pasos: true, sinBanda: [], pagina: null };
+}
+
+function pasosDeRejilla(eje, R, cuantos, ctx, camino) {
   if (camino?.pasos?.length) return camino.pasos.slice(0, cuantos).map((p, indice) => ({ indice, falta: p.falta, hecho: p.hecho, mio: p.mio, espera: p.espera, fuente: p.fuente }));
   const m = contrato.madurez(eje, R, ctx.opciones);
   return (camino?.niveles ?? contrato.niveles(ctx.opciones)).slice(0, cuantos).map((nombre, indice) => ({ indice, nivel: String(nombre), actual: nombre === m?.nombre }));
 }
 
+/**
+ * La división de cada mundo en pantalla completa (epoch.8.7, contrato.divisionDelMundo): la cruceta aplicada al
+ * elemento pulsado. La geometría sale de la forma del nivel y de los hijos (geometriaDe): una celda por hijo, con su
+ * dígito (`pv`, de él sale el color), su nombre y sus ocupantes; un hijo sin ocupantes está `vacio` (nombre apagado, no
+ * se entra) y, si todos lo están, no se baja. Entrar en un ocupante que es un registro baja un nivel de profundidad
+ * (`ruta`: los registros por los que se ha entrado) mientras queden niveles. Las franjas del 6 y el 7, el cielo del 8
+ * y el camino del 9 llevan bandas en lugar de celdas. Nada de esto decide qué hay: lo dan los ocupantes, los pasos y
+ * el camino del núcleo. → { pv, forma, columnas, filas, niveles, nivel, entra, ruta, X, estilo, pagina, celdas } o
+ * { …, bandas, sinBanda } o null.
+ */
 function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, camino = null, hueco = { ancho: 1, alto: 1 }, entrar = true } = {}) {
   const d = contrato.divisionDelMundo(eje, pv, { nivel: ruta.length + 1, ...ctx.opciones });
-  if (!d || d.columnas * d.filas <= 0) return null;
+  const g = d ? geometriaDe(d) : null;
+  if (!g || g.columnas * g.filas <= 0) return null;
   const R = ruta.length ? ruta[ruta.length - 1] : X;
-  const base = { pv, columnas: d.columnas, filas: d.filas, niveles: d.niveles, nivel: d.nivel, entra: d.entra && entrar, hereda: d.hereda, ruta, X: R, texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto };
-  if (d.bandas) return { ...base, ...bandasDeRejilla(eje, R, pv, d, ctx, hueco), pagina: null };
-  if (esPvDelCamino(pv)) return { ...base, bandas: pasosDeRejilla(eje, R, d, ctx, camino), pasos: true, sinBanda: [], pagina: null };
-  return { ...base, ...celdasDeRejilla(eje, R, pv, { ...d, entra: d.entra && entrar }, ctx, pagina) };
+  const base = { pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar, ruta, X: R, texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx) };
+  return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, camino, hueco, entrar }) };
 }
 
 /** ¿Cabe la rejilla de `pv` en un hueco, con celdas de al menos `medidas.hueco` píxeles? (en un bloque; si no, la división de 8.3). */
 function rejillaCabe(eje, pv, hueco, medidas, opciones) {
   const d = contrato.divisionDelMundo(eje, pv, opciones);
-  return Boolean(d) && d.columnas * d.filas > 0 && d.columnas * medidas.hueco <= hueco.ancho && d.filas * medidas.hueco <= hueco.alto;
+  const g = d ? geometriaDe(d) : null;
+  return Boolean(g) && g.columnas * g.filas > 0 && g.columnas * medidas.hueco <= hueco.ancho && g.filas * medidas.hueco <= hueco.alto;
 }
-
 /** Lo que se pinta dentro de un paso de Mapped: oculto si no caben datos, comprimido si no ocupa pantalla (el punto), bloque desde el tope, tarjeta entre medias. */
 function nivelDePaso(k, escala) {
   const p = escala.pasos[k];

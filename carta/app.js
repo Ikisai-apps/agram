@@ -747,7 +747,7 @@ const manejadores = {
     if (CENTROS.includes(pv)) { estado.foco.pv = pv; pintar(); return; }
     estado.niveles[pv] = Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.comprimido);
     pintar();
-    raiz.querySelector(`[data-pv="${pv}"]:not(.ocupante)`)?.focus();
+    raiz.querySelector(`[data-pv="${pv}"]:not(.ocupante):not(.rejilla-celda)`)?.focus();
   },
 
   // ---------- la guía del PV9 (carta/guia.js): solo lectura ----------

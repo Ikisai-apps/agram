@@ -49,7 +49,7 @@ export function instalar(raiz, m) {
     quitar.push(() => donde.removeEventListener(tipo, fn, opciones));
   };
   const documento = raiz.ownerDocument ?? raiz;
-  const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante)'); // un ocupante anidado también lleva data-pv (su color), pero no es un PV
+  const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante):not(.rejilla-celda)'); // un ocupante anidado también lleva data-pv (su color), pero no es un PV
   const xDe = (el) => el?.closest?.('[data-x]')?.dataset.x ?? null;
 
   // ---- toques y clics ----
