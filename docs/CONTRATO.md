@@ -147,39 +147,73 @@ En una pantalla ancha (la matriz, Mapped) **no hay scroll nunca**: la carta ocup
 
 **La medida de cada carta**, pequeña y en su fila de arriba (VG, 10-11; Core, regla elegida): la de un PV es **su paso propio** si la tabla de pasos le da uno (`epoch.9.8`: el 4 su ciclo, el 7 su escala, el 8 su cuota) y, si no, la de todo elemento (la madurez). Así el PV4, el sitio de las acciones, dice en qué etapa del ciclo está.
 
-### 4.2 La división de cada mundo en pantalla completa: `divisionDelMundo(eje, pv, { nivel })` (VG, 10-11)
+### 4.2 La división de cada mundo en pantalla completa: `divisionDelMundo(eje, pv, { nivel })` (VG, 10-11 noche)
 
-A pantalla completa cada mundo (un punto de vista lateral) se divide en una **rejilla** y la división es un dato de la época, `epoch.8.7` («world division», procedencia «VG, 10-11»), una fila por PV, `[[pv], [columnas], [filas], [niveles de profundidad], [de qué hereda], [nota]]` (sin posiciones vacías: `0` y `"-"` donde no aplica):
+A pantalla completa la división de un mundo (un punto de vista lateral) **no es una rejilla n × n con herencia: es la cruceta aplicada al elemento pulsado** (VG, 10-11 noche; corrige la tanda 4 de la mañana). Al entrar en un elemento, sus **hijos** son los dígitos que ese mundo enciende, cada uno un PV aplicado al nodo de arriba, con el nombre que da `epoch.5` a esa profundidad (en profundidad ≥ 1: 0 qué es, 1 cuánto, 2 con qué condición, 3 con quién, 4 qué se hace, 5 dónde encaja, 6 de dónde viene, 7 para cuándo, 8 frente a otros, 9 cómo). La división es un dato de la época, `epoch.8.7` («world division», procedencia «VG, 10-11 noche»), una fila por PV, sin posiciones vacías (donde no aplica va `0` o `"-"`: una posición de BTML no puede estar vacía):
 
-| PV | Columnas × filas | Niveles | Hereda | Qué es |
-|---|---|---|---|---|
-| 0, 5 | 0 × 0 | 0 | `-` | sin división: son la lente y su reverso |
-| 1 | 4 × 4 | 4 | `-` | cada celda vuelve a dividirse en 4 × 4 al entrar (el 4⁴) |
-| 2 | 5 × 5 | 5 | 1 | la 4 × 4 de dentro enseña lo del 1 a esa profundidad; la fila y la columna añadidas son lo propio del 2 |
-| 3 | 6 × 6 | 6 | 2 | la 5 × 5 de dentro enseña lo del 2 (y con él lo del 1); la fila y la columna añadidas son lo propio del 3 |
-| 4 | 10 × 10 | 1 | `-` | la fábrica: columnas por tipo de interacción, filas por trabajo; el apilado por cruce lo da el paso `ciclo` (§11.4) |
-| 6, 7 | 1 × tantas bandas como escalas de T reales | 1 | `-` | `[["epoch.1.3", "epoch.7", "escala"]]` en las filas: una banda por escala |
-| 8 | 1 × 10 | 1 | `-` | `["epoch.9.8", "cuota"]`: una banda por caja de la cuota, el «de» (10) del paso `cuota` |
-| 9 | 1 × 10 | 1 | `-` | los diez pasos del camino (§12.5); sin pasos, los niveles de madurez |
+`[[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]]`
 
-**Referencias a lo que la época mide.** Un número es literal. Una lista de referencias se resuelve al leer: `epoch.1.3` con `epoch.7` son **las escalas de T que el calendario mide** (las de `epoch.1.3.1` cuyo nombre está en el calendario `epoch.7`; hoy siete: segundo, minuto, hora, día, semana, ciclo y año; pasado, futuro e inventado no se miden), con su dígito 0-9, que es el que da `pasos.escala` (§11.4), y el nombre del paso de `epoch.9.8` que coloca cada entrada (`escala`); `epoch.9.8` con el nombre de un paso es el «de» de ese paso. No se escribe «7»: quitar el año del calendario deja seis bandas (`test/division-mundos.test.js`).
+| PV | Hijos | Profundidad | Formas (una por nivel; la última se repite) | Lo que mide | Qué es |
+|---|---|---|---|---|---|
+| 0 | `-` | 0 | `lente` | `-` | la lente, sin división |
+| 5 | `-` | 0 | `json` | `-` | el reverso: el JSON del registro |
+| 1 | 1 2 3 4 | 4 | `cruceta` | `-` | cuatro esquinas (↖1 ↗2 ↙3 ↘4), el pulsado en el centro; cada esquina vuelve a dividirse al entrar |
+| 2 | 1 2 3 4 5 | 5 | `escalera`, `columnas` | `-` | nivel 1: escalera de cinco peldaños; nivel ≥ 2: cinco columnas, una por hijo, con el siguiente nivel dentro |
+| 3 | 1 2 3 4 5 6 | 6 | `rejilla`, `conversacion` | `-` | nivel 1: rejilla 3 × 2 de los seis grupos de atención; dentro, la conversación |
+| 4 | `-` | 1 | `matriz` | `epoch.5`, `pv` | 10 × 10: columnas = los diez PV como tipo de interacción, filas = posición modificada; la celda es la lista de ejecuciones |
+| 6 | `-` | 1 | `franjas` | `epoch.1.3`, `epoch.7`, `escala` | una franja vertical por escala de T que mide el calendario, la más cercana a ahora a la derecha; cuatro hilos horizontales |
+| 7 | `-` | 1 | `franjas` | lo mismo | espejo del 6: la más cercana a ahora a la izquierda |
+| 8 | `-` | 1 | `cielo` | `hitos`, `cuota` | las diez cajas nivel.grado de `HITOS` (`src/bases.js`); cada registro, en la caja del paso `cuota` |
+| 9 | `-` | 1 | `camino` | `hitos`, `epoch.9.8` | primero las diez posiciones nivel.grado para situarse; después los pasos del camino (`acciones.camino`, §12.5) |
+
+**Las posiciones de la fila.** `hijos` son los dígitos (el 2 enciende los sitios del 1 más el centro, el 5 «dónde encaja»; el 3, los del 2 más el lateral izquierdo, el 6 «de dónde viene»: ya no hay `hereda`, está en `hijos`); `profundidad` son los niveles a los que se puede entrar; `formas` es la forma de cada nivel (el nivel pide su forma; pasado el último, se repite); `lo que mide` son referencias a lo que la época o las bases dan (una referencia no es un número escrito); **`hilos`** (la posición 8, aparte para que las siete anteriores no cambien de sitio) son los PV de las filas horizontales de las franjas, de arriba abajo: el 6 `1 3 2 4`, el 7 `2 4 1 3`, `-` en las demás; `estilo de los de abajo` es el texto de CSS por defecto de la época para los hijos de un elemento de ese mundo (§4.3), `-` si no hay (hoy un solo ejemplo mínimo, `--hueco: 1fr` en el 1, para que la cascada se pueda probar).
+
+**Referencias a lo que se mide.** Una lista de referencias se resuelve al leer: `epoch.1.3` con `epoch.7` son **las escalas de T que el calendario mide** (las de `epoch.1.3.1` cuyo nombre está en el calendario `epoch.7`; hoy siete: segundo, minuto, hora, día, semana, ciclo y año; pasado, futuro e inventado no se miden), con su dígito 0-9, que es el que da `pasos.escala` (§11.4), y el nombre del paso de `epoch.9.8` que coloca cada entrada (`escala`); `hitos` son las diez cajas de `HITOS` (`src/bases.js`), `nivel.grado` («0.3 idea» … «5.3 resolución experimental muy avanzada»), con el paso (`cuota`, en el 8) que coloca cada registro en su caja. No se escribe «7» ni «10»: quitar el año del calendario deja seis franjas (`test/division-mundos.test.js`).
 
 ```js
 divisionDelMundo(eje, pv, { nivel, epoca })
-// → { pv, columnas, filas, niveles, nivel, entra, hereda, bandas?, paso?, nota } | null
+// → { pv, hijos, profundidad, nivel, entra, forma, formas, bandas?, paso?, hilos?, estilo, nota } | null
+hijosDe(eje, X, pv, { nivel, epoca })
+// → [{ digito, nombre, ocupantes, total, vacio }]
 ```
 
-`nivel` es el nivel de profundidad en que se mira (desde 1, sin pasar de `niveles`); `entra` es si aún se puede entrar más adentro (`nivel < niveles`); `hereda` es el PV del que hereda o `null`; `bandas`, `[{ indice, escala?, nombre? }]`, solo si la fila referencia lo que la época mide, y `paso` el paso que coloca las entradas; `null` si la época no dice nada de ese PV (la carta cae a la división de §4). El 0 y el 5 vuelven con `columnas` y `filas` a 0.
+`nivel` es el nivel de profundidad en que se mira (desde 1, sin pasar de `profundidad`); `entra` es si aún se puede entrar más adentro (`nivel < profundidad`); `forma` es la del nivel pedido y `formas` todas; `bandas` solo si la fila mide algo que se reparte en bandas: `[{ indice, escala, nombre }]` (las franjas, de la escala más fina a la más gruesa) o `[{ indice, nivel, grado, nombre }]` (el cielo y el camino, las diez cajas de `HITOS`), con `paso` el paso de `epoch.9.8` que coloca cada entrada en su banda; `hilos` solo en el 6 y el 7; `estilo` es el CSS por defecto de la época para los de abajo, ya pasado por `cssSeguro` (§4.3), `""` si no hay; `null` si la época no dice nada de ese PV (la carta cae a la división de §4). El 0 y el 5 vuelven con `hijos` vacío y profundidad 0: no se dividen. **Ya no existen** `columnas`, `filas` ni `hereda`: la geometría de las celdas la saca la carta de `forma` y `hijos`.
 
-**La carta** (`carta/carta.js`, `rejillaDe`) pinta la pantalla completa de un PV con esa rejilla en lugar de paginar de diez en diez; no sabe qué hay en cada celda, lo da el núcleo: los **ocupantes ordenados** (§3) se colocan por filas, y si hay más ocupantes que celdas, páginas de rejillas enteras («‹ n de m ›»). **Entrar en una celda** (un clic, `data-celda`) baja un nivel de profundidad si `niveles` > 1: la rejilla pasa a ser la de ese registro (`estado.profundidad[pv]`, la lista de registros por los que se ha entrado; el foco no cambia) y **volver** (el botón, `data-subir`, y Esc) sube; en el último nivel la celda ya no entra y su clic abre el registro como siempre (`data-abrir`); en las celdas que entran, un botoncito ↗ abre el registro.
+`hijosDe` da los hijos del elemento X en ese mundo: uno por dígito de `hijos`, con su `nombre` a la profundidad del nivel (`epoch.5`), los `ocupantes` de `X.<dígito>` (tal cual los da `ocupantes`, hasta el paso de la época; `total` es cuántos hay) y `vacio` (sin ocupantes). **La regla del vacío** (VG): un hijo sin ocupantes se pinta con su nombre apagado y no se entra; si todos están vacíos, no se baja. La aplica la carta; el núcleo solo da los hijos con sus ocupantes.
 
-**La herencia del 2 y el 3**: la celda (fila, columna) pertenece al PV más profundo cuya rejilla la contiene como heredada; las primeras (la 4 × 4 en la esquina de arriba a la izquierda del 2) son del 1 y enseñan sus ocupantes **del mismo registro y a la misma profundidad** que el 1 enseñaría; la fila y la columna añadidas son del propio PV. Cada celda lleva el color de su PV (`data-color`; cada ocupante, el de su posición, `data-pv`). Las páginas se cuentan por rejillas enteras: cada PV de la cadena avanza sus ocupantes en bloques de sus celdas propias (16, 9 y 11 en el 3) y el total es el de la cadena que más páginas pide.
+**La carta** (`carta/carta.js`, `rejillaDe`) pinta la pantalla completa de un PV a partir de la forma del nivel, con una tabla por forma (`FORMAS`: geometría y colocación de las celdas): `cruceta` 2 × 2 (las cuatro esquinas; el centro aún no se pinta flotante), `escalera` 1 × n filas, `columnas` n columnas, `rejilla` 3 columnas (3 × 2 con seis hijos), `conversacion` una columna, `matriz` 10 × 10 (los ocupantes del PV por filas, en páginas de matrices enteras, «‹ n de m ›»), `franjas`, `cielo` y `camino` con bandas (una por escala de T o por caja). Cada celda de un hijo lleva su dígito (`data-pv`, de él sale el color, `data-color`), su nombre (`celda-nombre`) y la lista de sus ocupantes, y `data-vacio` si no tiene; los pintores propios de cada forma (tarjeta con tabla, escalera con barras, conversación…) son otro encargo. **Entrar en un ocupante** que es un registro con algo dentro (un clic, `data-celda`) baja un nivel de profundidad si quedan niveles: la rejilla pasa a ser la de ese registro (`estado.profundidad[pv]`, la lista de registros por los que se ha entrado; el foco no cambia) y **volver** (el botón, `data-subir`, y Esc) sube; en el último nivel, o si el ocupante no tiene nada dentro, la celda ya no entra y su clic abre el registro como siempre (`data-abrir`); en las celdas que entran, un botoncito ↗ abre el registro.
 
-**Las bandas** (en lugar de celdas): el **6 y el 7** ponen cada entrada en la banda de su escala (el paso `escala` de `epoch.9.8` sobre la entrada: de la más fina a la más gruesa; el zoom es pasar de escala): los ocupantes que son registros; en el pasado (el 6), las entradas del diario (§6); si el PV no tiene ocupantes, lo que cuelga de X (su hilo). Lo que no tiene escala (no quema T) va aparte, en una tira pequeña bajo las bandas. El **8** pone cada uno en la caja de su cuota (0-9, el paso `cuota`); el **9** pinta los pasos del camino (`acciones.camino`) uno por celda, o los niveles de madurez si no hay pasos.
+**Las bandas** (en lugar de celdas): las **franjas** del **6 y el 7** ponen cada entrada en la franja de su escala (el paso `escala` de `epoch.9.8` sobre la entrada; el zoom es pasar de escala): los ocupantes que son registros; en el pasado (el 6), las entradas del diario (§6); si el PV no tiene ocupantes, lo que cuelga de X (su hilo). En el 6 la más lejana va a la izquierda y la más cercana a ahora a la derecha; el 7 al revés. Lo que no tiene escala (no quema T) va aparte, en una tira pequeña bajo las bandas. El **cielo** del **8** pone cada uno en la caja de su cuota (0-9, el paso `cuota`); el **camino** del **9** pinta los pasos del camino (`acciones.camino`) uno por celda, o los niveles de madurez si no hay pasos, y lleva aparte las diez posiciones para situarse (`situarse`).
 
 **En un bloque** (un cuarto o un noveno de la pantalla, §4.1) la misma rejilla se usa **si cabe** (cada celda de 48 px o más, `MEDIDAS.hueco`); si no, la división de §4 (`epoch.8.3`) como hasta ahora. En un bloque no se entra: se sube a pantalla completa.
 
-**Decisiones de Core, pendientes de revisar VG**: los ocupantes de las bandas (los del PV, el diario en el pasado y el hilo si no hay otros) y la tira «sin T»; que el 9 pinte los pasos del camino (no los ocupantes); que `volver` suba un nivel antes de salir de la pantalla completa; que la profundidad es por PV y se olvida al cambiar de registro.
+**Decisiones de Core, pendientes de revisar VG**: que `hilos` sea una posición propia al final de la fila y no una sublista de `lo que mide`; que el 8 lleve en `lo que mide` el nombre del paso (`cuota`) y no solo `hitos`; que las franjas sigan con la geometría de bandas de antes (una columna de n filas) hasta que haya pintor propio; que el ocupante de un hijo entre solo si lo que hay dentro tiene algo en el mismo mundo (un registro sin ocupantes en ninguno de sus hijos no se baja); los ocupantes de las bandas (los del PV, el diario en el pasado y el hilo si no hay otros) y la tira «sin T»; que `volver` suba un nivel antes de salir de la pantalla completa; que la profundidad es por PV y se olvida al cambiar de registro.
+
+### 4.3 Los dos estilos como datos (VG, 10-11 noche)
+
+El aspecto de un registro y el de lo que hay debajo de él son **datos**, dos textos de CSS en dos posiciones del propio registro (nada que ver con el código de la carta):
+
+| Estilo | Posición | Es |
+|---|---|---|
+| **propio** | `X.0.9` | representación · cómo: cómo se pinta X |
+| **de los de abajo** | `X.5.0` | estructura · qué es: cómo se pintan los hijos de X (en la carta, los elementos de clase `hijo`) |
+
+Una posición puede tener varios ocupantes (la corrección es un escrito nuevo, §3): **gana el último** que sea un estilo. El 5.0 ocupa la misma dirección que el 5 (x.0 es x, colisión por ceros), así que en él conviven con el estilo cosas que no lo son (el nombre de la plantilla en el 5); lo que no pasa por `cssSeguro` no cuenta.
+
+```js
+estilo(eje, X, { de: 'propio' | 'hijos', pv, epoca })
+// → { css, origen }   origen: 'registro' | 'padre' | 'plantilla' | 'epoca' | null
+cssSeguro(texto)
+// → el texto saneado, o ""
+```
+
+**La cascada** (gana lo más cercano; un texto que `cssSeguro` deja en nada no cuenta y pasa la mano al siguiente): para `propio`, el `X.0.9`; si no, el `0.9` de la plantilla de X (§1); si no, nada: la fila de `epoch.8.7` es de los de abajo y no dice cómo se pinta un registro (`{ css: "", origen: null }`). Para `hijos`, el `X.5.0`; si no, el `5.0` del padre de X (el registro sobre el que se escribió, `sobre`); si no, el `5.0` de la plantilla de X; si no, el «estilo de los de abajo» de la fila de `epoch.8.7` del mundo `pv` donde cuelga X (sin `pv`, no hay época que consultar). El resultado pasa siempre por `cssSeguro`.
+
+**`cssSeguro(texto)`** deja pasar solo declaraciones `propiedad: valor;` de CSS corriente y variables `--x: …`: la lista blanca de propiedades son colores, fondos, bordes, tipografía, espaciado, grid y flex, tamaños y variables (no `position`, `z-index`, `transform`, `content`, `cursor`, `animation`…: nada que saque un elemento de su sitio, tape la pantalla o dispare algo). Un texto con `{` `}` `<` `>` `@` (y por tanto `@import`), barras invertidas o comentarios, `url(` (ni `image-set(`, `src(` y parecidas), `expression(`, `javascript:`, `behavior` o `-moz-binding`, caracteres de control o invisibles, o de más de 2000 caracteres, se rechaza entero (`""`); una declaración con una propiedad fuera de la lista blanca, con un valor que no se entiende o con `!important` se descarta sola y se conservan las demás. Lo que sale son las declaraciones normalizadas, separadas por un espacio.
+
+**Por qué no hay JavaScript como dato.** El libro es compartido: lo que un registro dice en su 0.9 o en su 5.0 lo lee y lo pinta quien mira, y a veces alguien que no es su autor ni ha elegido leerlo. Un estilo es una descripción; un guion es una acción, y ejecutar el guion de otro desde un dato rompería la separación entre lo que dice el libro y lo que hace la máquina de quien lo abre. Tampoco se carga nada de fuera (`url(`, `@import`): un dato no puede hacer que el navegador de otro pida algo a un servidor ajeno. Con estas dos reglas un estilo no puede ni ejecutar código ni salir de su sitio.
+
+**La carta** (`carta/carta.js`, `carta/dom.js`) lleva en el nodo del foco, en el de la rejilla y en cada ocupante que es un registro su `estilo: { propio, hijos }` (cada uno `{ css, origen }`), y `html` emite un `<style data-estilos>` con una regla por estilo no vacío, acotada al registro por su `data-id`: `[data-id="<id>"] { … }` para el propio y `[data-id="<id>"] .hijo { … }` para el de los de abajo. El contenedor de la rejilla y el ocupante que es un registro llevan su `data-id`; cada celda de la rejilla, la clase `hijo`. `dom.js` vuelve a pasar cada texto por `cssSeguro` al emitir (el árbol podría venir de otro sitio) y solo emite un `data-id` que sea un identificador sin más; nada de texto sin sanear llega al `innerHTML`.
 
 ## 5. Madurez: la medida del 8 como lectura
 
