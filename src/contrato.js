@@ -603,6 +603,27 @@ export function configuracion(eje, quien, opciones = {}) {
   return { ...valores, de: registro?.id ?? null };
 }
 
+/**
+ * Las posiciones de la plantilla «preferences» que son preferencias, en orden: [{ pv, clave, defecto }] (todas las
+ * que la plantilla describe salvo el 5, que es el tipo: B4). `defecto` es el de la época, o undefined si la posición
+ * no lo tiene (como `sync url` y `sync ledger`: sin valor, configuracion no las devuelve). Lo que la carta pinta en
+ * el formulario de la configuración.
+ */
+export function clavesDeConfiguracion(opciones = {}) {
+  const p = en(raizDe(epocaDe(opciones)), SITIO.preferencias);
+  if (!esPlantilla(p)) return [];
+  const claves = [];
+  for (let d = 1; d < ARIDAD; d++) {
+    if (d === 5) continue;
+    const desc = descripcion(p, [d]);
+    const clave = texto(hoja(desc?.[0]));
+    if (!clave) continue;
+    const defecto = hojas(desc[9]).slice(0, -1);
+    claves.push({ pv: d, clave, defecto: defecto.length ? (defecto.length === 1 ? defecto[0] : defecto) : undefined });
+  }
+  return claves;
+}
+
 // ---------- 8. mensajes y traducción ----------
 
 /** Los idiomas con mensajes en la época (epoch.9.4): sus códigos, con el canónico (en) delante y sin repetir. */

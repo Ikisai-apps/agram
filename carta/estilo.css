@@ -40,6 +40,11 @@ small{color:var(--muted)}
 .barra select{padding:4px 6px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);max-width:40vw}
 .barra .tiempo{font-variant-numeric:tabular-nums}
 .barra .guardado{flex-basis:100%;font-size:11px}
+.barra .sincronia{flex-basis:100%;font-size:11px;overflow-wrap:anywhere}
+.barra .sincronia .error{color:var(--warn)}
+.barra .sincronia .rechazados summary{cursor:pointer;color:var(--warn)}
+.barra .sincronia .rechazados ul{margin:4px 0;padding-left:18px}
+.barra .sincronia code{font-family:var(--mono)}
 
 /* la escena */
 .escena{position:relative;margin:10px 0;min-width:0}

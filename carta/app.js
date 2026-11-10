@@ -11,13 +11,19 @@
 // antigua/ui/comun.js; el mismo eje de ejemplo y las mismas claves sirven a las dos webs). Nada real en el
 // repositorio: las identidades de ejemplo llevan claves generadas en este navegador; la de mi cuenta, también, y solo
 // sale de él cifrada con una frase (la copia de seguridad).
+//
+// El libro compartido (etapa 3, carta/sincronia.js): una cuenta con `sync url` y `sync ledger` en su configuración y
+// clave de lectura en este navegador sincroniza su eje con el servidor: al entrar (sin esperar: se pinta ya con lo
+// local), tras cada escritura, al volver la red y cada 30 s con la pestaña visible; de una en una. Los ejemplos no
+// sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
-import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento } from '../src/index.js';
+import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
 import { arbol, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
-import { html, trasPintar } from './dom.js';
+import { html, htmlSincronia, trasPintar } from './dom.js';
 import { instalar } from './gestos.js';
 import { t, idiomaDeInterfaz } from './textos.js';
 import * as cuentas from './cuentas.js';
+import * as sinc from './sincronia.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -39,10 +45,14 @@ const estado = {
   // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
   // de arranque ({ modo, campos, valores, motivos, ocupado }) y el diálogo de la copia ({ archivo, minimo, motivos, hecho, ocupado }).
   cuenta: null, arranque: null, copia: null,
+  // El libro compartido de la cuenta abierta: su Sincronia (src/sincronia.js) o null (un ejemplo, o una cuenta sin
+  // servidor, eje compartido o clave de lectura), y lo que enseña la línea de estado (sinc.lineaDeEstado) o null.
+  sincronia: null, lineaSincronia: null,
 };
 let limpiarLottie = () => {};
 let gestos = null;
 let pintando = null;
+let lineaPintada = null; // el HTML de la línea del libro compartido que hay en pantalla
 
 /** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
@@ -91,6 +101,51 @@ function guardar() {
   const ok = estado.cuenta ? cuentas.guardarEje(estado.cuenta, estado.eje) : persistencia.guardarLocal(estado.eje, CLAVE_EJE);
   estado.guardado = ok ? t('guardadoEnNavegador', { cuantos: estado.eje.orden.length }) : t('sinAlmacenamiento');
   guardarLibroLocal();
+  // El estado de la sincronía va junto al eje, por cuenta (sin la clave de lectura, que va aparte).
+  if (estado.sincronia && estado.cuenta) cuentas.guardarEstadoSincronia(estado.cuenta.alta, estado.sincronia.serializar());
+}
+
+/** Tras cada escritura en el eje: guardar y, si la cuenta comparte su eje, sincronizar sin esperar (lo pendiente es lo que el servidor no tiene). */
+function trasEscribir() {
+  guardar();
+  if (estado.sincronia) void sincronizar();
+}
+
+/**
+ * Sincroniza la cuenta en pantalla con el libro compartido, de una en una (sinc.enSerie: la que llega con otra en
+ * marcha se repite al acabar). Si el eje cambió (reordenado o con algo añadido), guardar y pintar; si no, solo la
+ * línea de estado (repintarlo todo cada 30 s borraría lo que se está escribiendo en un formulario).
+ */
+const sincronizar = sinc.enSerie(async () => {
+  const S = estado.sincronia;
+  const cuenta = estado.cuenta;
+  const eje = estado.eje;
+  if (!S || !cuenta || !eje) return;
+  const informe = await sinc.pasar(S, eje, cuenta.alta);
+  if (estado.sincronia !== S || estado.eje !== eje) return; // otra cuenta en pantalla: lo de esta ya quedó guardado
+  estado.lineaSincronia = sinc.lineaDeEstado(S, informe);
+  if (informe.reordenado || informe.anadidos.length) {
+    guardar();
+    marcarNuevos();
+    await pintar();
+  } else pintarSincronia();
+}, { alFallar: (e) => console.error(e) });
+
+/** Solo la línea del libro compartido, si cambió (así un desplegable abierto sigue abierto). */
+function pintarSincronia() {
+  const nuevo = htmlSincronia(estado.lineaSincronia);
+  const el = raiz.querySelector('[data-sincronia]');
+  if (nuevo === lineaPintada && (el || !nuevo)) return;
+  lineaPintada = nuevo;
+  if (el) el.outerHTML = nuevo;
+  else raiz.querySelector('.barra .guardado')?.insertAdjacentHTML('afterend', nuevo);
+}
+
+/** Abre la sincronía de la cuenta en pantalla (con servidor, eje compartido y clave de lectura) y sincroniza sin esperar. */
+function abrirSincronia() {
+  estado.sincronia = estado.cuenta && estado.eje ? sinc.abrir({ alta: estado.cuenta.alta, eje: estado.eje, yo: estado.cuenta.identidad }) : null;
+  estado.lineaSincronia = null;
+  if (estado.sincronia) void sincronizar();
 }
 
 /** El libro local de quien mira: el guardado en este navegador (vuelve a quemar cada segundo) o uno nuevo. */
@@ -132,6 +187,7 @@ function extraDe() {
     ejemplos: EJEMPLOS.map((e) => ({ id: e.id, etiqueta: e.etiqueta })), ejemplo: ejemploElegido(), guardado: estado.guardado, aviso: estado.aviso, exito: estado.exito, nuevos: estado.nuevos,
     leidoTexto: estado.leido && estado.foco.X && estado.eje ? leerTexto(estado.foco.X) : undefined,
     preferencias: estado.config && estado.eje ? preferencias(estado.eje, estado.identidad) : null, motivosPreferencias: estado.motivosPreferencias,
+    claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     arranque: estado.arranque, copia: estado.copia,
   };
@@ -154,6 +210,7 @@ async function pintar() {
     const extra = extraDe();
     limpiarLottie();
     raiz.innerHTML = html(a, extra);
+    lineaPintada = htmlSincronia(extra.sincronia);
     limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
     // Lo nuevo se anima una vez: en cuanto se ha pintado con lottie-web, deja de ser nuevo (si lottie aún no está, el
     // repintado al cargarlo lo anima).
@@ -227,6 +284,8 @@ function cambiarDeEje(eje, identidad) {
   estado.nuevos = new Set();
   estado.arranque = null;
   estado.copia = null;
+  estado.sincronia = null; // la del eje de antes no sigue (la de una cuenta se abre en entrarCon)
+  estado.lineaSincronia = null;
   limpiarMensajes();
 }
 
@@ -246,7 +305,8 @@ function descargar(texto, nombre) {
 
 /** Entra en una cuenta guardada en este navegador: su eje, su clave, mi alta como foco. false (y el motivo en el aviso) si no se abre. */
 async function entrarEnCuenta(alta) {
-  const r = await cuentas.abrirCuenta(alta);
+  let r = await cuentas.abrirCuenta(alta);
+  if (!r.eje && r.privada) r = await ejeDesdeElLibro(r);
   if (!r.eje) {
     estado.aviso = t('cuentaNoAbre', { nombre: r.cuenta?.nombre ?? alta.slice(0, 8), motivo: r.motivo });
     estado.arranque = { modo: 'menu' };
@@ -259,12 +319,29 @@ async function entrarEnCuenta(alta) {
   return true;
 }
 
-/** Deja como eje en pantalla el de una cuenta abierta, creada o restaurada ({ cuenta, eje, privada }). */
+/**
+ * Una cuenta cuyo eje no está en este navegador: si tiene clave de lectura y se sabe dónde se comparte (el estado
+ * guardado de su sincronía), el eje nace del génesis del servidor (sinc.ejeDelServidor). Si no se puede, la cuenta
+ * no se abre, como hoy, con el motivo.
+ */
+async function ejeDesdeElLibro(r) {
+  const claveLectura = cuentas.claveLectura(r.cuenta.alta);
+  const datos = cuentas.estadoSincronia(r.cuenta.alta);
+  if (!claveLectura || typeof datos?.url !== 'string' || typeof datos?.eje !== 'string') return r;
+  const d = await sinc.ejeDelServidor({ cuenta: r.cuenta, url: datos.url, eje: datos.eje, claveLectura });
+  if (!d.eje) return { ...r, motivo: r.motivo + ' · ' + t('noBajaElEje', { motivo: d.motivo }) };
+  cuentas.guardarEje(r.cuenta, d.eje);
+  cuentas.guardarEstadoSincronia(r.cuenta.alta, d.sincronia.serializar());
+  return { ...r, eje: d.eje };
+}
+
+/** Deja como eje en pantalla el de una cuenta abierta, creada o restaurada ({ cuenta, eje, privada }), con su sincronía. */
 function entrarCon({ cuenta, eje, privada }) {
   cambiarDeEje(eje, cuenta.identidad);
   estado.cuenta = { ...cuenta, privada };
   cuentas.recordarUltima(cuenta.alta);
   abrirLibroLocal();
+  abrirSincronia();
 }
 
 /** Entra en el ejemplo: el eje guardado en este navegador (si sus claves son las de esta sesión) o uno nuevo. */
@@ -379,7 +456,7 @@ const manejadores = {
     if (motivos.length) { f.motivos = motivos; f.resultado = null; pintar(); return; }
     const r = await enviar(estado.eje, f.X, f.accion, valores, estado.identidad, firmarCon(estado.identidad));
     if (r.ok && r.asentado) {
-      guardar();
+      trasEscribir();
       estado.formulario = null;
       estado.exito = t('registrado', { accion: nombreDeAccion(f.accion), id: r.asentado.id.slice(0, 8) }) + (r.asentado.firma ? ' ' + t('firmado') : '');
       tocar(f.X, 'hecho ' + canonicoDe(f.accion));
@@ -400,6 +477,9 @@ const manejadores = {
     if (!form) { estado.config = true; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; pintar(); return; }
     const valores = {};
     for (const input of form.querySelectorAll('input[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
+    // La clave de lectura, aparte: al almacén local de la cuenta, nunca al registro de preferencias (que va en el eje).
+    const campoClave = form.querySelector('[data-clave-lectura]');
+    if (campoClave && estado.cuenta) cuentas.guardarClaveLectura(estado.cuenta.alta, campoClave.value);
     const p = preferencias(estado.eje, estado.identidad, valores);
     if (!p) { estado.motivosPreferencias = [{ mensaje: t('sinAlta') }]; pintar(); return; }
     try {
@@ -411,12 +491,14 @@ const manejadores = {
     } catch (e) {
       estado.motivosPreferencias = [{ mensaje: String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '') }];
     }
+    // El servidor, el eje compartido o la clave pueden haber cambiado: la sincronía se vuelve a abrir (y sube la configuración).
+    abrirSincronia();
     pintar();
   },
   async campo(X, pv, texto) {
     try {
       const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion([pv]), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
-      guardar();
+      trasEscribir();
       estado.exito = t('escrito', { id: ev.id.slice(0, 8), pv, X: X.slice(0, 8) }) + (ev.firma ? ' ' + t('firmado') : '');
       estado.aviso = '';
       tocar(X, 'escribir ' + pv);
@@ -448,7 +530,7 @@ const manejadores = {
     if (!estado.local) return;
     try {
       const ev = await estado.local.englobar(firmarCon(estado.identidad), { nota: t('unRatoEnLaCarta') });
-      guardar();
+      trasEscribir();
       estado.exito = ev ? t('esteRatoEnElEje', { id: ev.id.slice(0, 8) }) : t('nadaQueEnglobar');
       estado.aviso = '';
       marcarNuevos();
@@ -485,7 +567,7 @@ const manejadores = {
     const X = estado.foco.X;
     try {
       const r = await acciones.autoejecutar(estado.eje, X, estado.identidad, firmarCon(estado.identidad));
-      guardar();
+      trasEscribir();
       const hechos = r.hechos.map((h) => nombreDeAccion(h.paso.hacer.plantilla)).join(', ');
       estado.exito = (r.hechos.length ? t('hechos', { cuales: hechos }) : t('ningunPasoDado')) + (r.parado ? ' ' + t('paradoEn', { que: r.parado.paso.hacer ? nombreDeAccion(r.parado.paso.hacer.plantilla) : r.parado.paso.falta, motivos: r.parado.motivos.map((m) => m.mensaje).join('; ') }) : '');
       estado.aviso = '';
@@ -591,11 +673,23 @@ const manejadores = {
     }
     try {
       const r = await cuentas.restaurarCuenta(texto, frase);
+      // Con el libro compartido (la copia lleva la clave de lectura y su eje, el servidor y el eje compartido), el eje
+      // nace del génesis del servidor (sincronizar(null)) y lo de la foto que falte va detrás; si no se puede, se sigue
+      // con la foto, como hoy, y se dice.
+      const destino = r.claveLectura ? sincronia.destino(r.eje, r.cuenta.identidad) : null;
+      let delLibro = null;
+      let aviso = '';
+      if (destino) {
+        const d = await sinc.ejeDelServidor({ cuenta: r.cuenta, url: destino.url, eje: destino.eje, claveLectura: r.claveLectura, foto: r.eje });
+        if (d.eje) { r.eje = d.eje; delLibro = d.sincronia; } else aviso = t('noBajaDelServidor', { motivo: d.motivo });
+      }
       const existia = cuentas.cuentas().some((c) => c.alta === r.cuenta.alta);
       const guardada = await cuentas.guardarCuenta(r);
+      if (delLibro) cuentas.guardarEstadoSincronia(r.cuenta.alta, delLibro.serializar());
       entrarCon(r);
       estado.guardado = guardada ? t('guardadoEnNavegador', { cuantos: r.eje.orden.length }) : t('sinAlmacenamiento');
-      estado.exito = t('cuentaRestaurada', { nombre: r.cuenta.nombre, cuantos: r.eje.orden.length }) + (existia ? ' · ' + t('cuentaSustituida') : '');
+      estado.exito = t('cuentaRestaurada', { nombre: r.cuenta.nombre, cuantos: r.eje.orden.length }) + (delLibro ? ' · ' + t('ejeDelServidor', { cuantos: r.eje.orden.length }) : '') + (existia ? ' · ' + t('cuentaSustituida') : '');
+      estado.aviso = aviso;
       estado.foco = { X: r.cuenta.alta, pv: 0 };
       tocar(r.cuenta.alta, null);
       marcarNuevos();
@@ -627,7 +721,7 @@ const manejadores = {
     c.ocupado = true;
     await pintar();
     try {
-      const archivo = await cuentas.exportarCuenta({ cuenta: estado.cuenta, eje: estado.eje, privada: estado.cuenta.privada }, frase);
+      const archivo = await cuentas.exportarCuenta({ cuenta: estado.cuenta, eje: estado.eje, privada: estado.cuenta.privada, claveLectura: cuentas.claveLectura(estado.cuenta.alta) }, frase);
       descargar(cuentas.textoDeArchivo(archivo), c.archivo);
       estado.copia = null;
       estado.exito = t('copiaDescargada', { archivo: c.archivo });
@@ -677,6 +771,9 @@ async function arrancar() {
   gestos = instalar(raiz, manejadores);
   let temporizador = null;
   window.addEventListener('resize', () => { clearTimeout(temporizador); temporizador = setTimeout(pintar, 120); });
+  // El libro compartido: al volver la red y cada 30 s con la pestaña visible (la cola decide si toca reintentar).
+  window.addEventListener('online', () => { if (estado.sincronia) void sincronizar(); });
+  setInterval(() => { if (estado.sincronia && document.visibilityState === 'visible') void sincronizar(); }, sinc.CADA);
   // Dónde entrar: la última cuenta usada; si lo último fue un ejemplo, el ejemplo; si hay cuentas y no se sabe cuál, la
   // última de la lista; si no hay nada elegido, la pantalla de arranque.
   const lista = cuentas.cuentas();

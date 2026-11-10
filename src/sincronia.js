@@ -29,8 +29,31 @@
 // `before.6.3`), sin tocar las reglas ni ningún evento.
 
 import { Eje } from './eje.js';
+import { configuracion } from './contrato.js';
 
 export const VERSION_SINCRONIA = 1;
+
+/** Las claves de la configuración (plantilla «preferences», 8 y 9: docs/CONTRATO.md §15.7) que dicen dónde se comparte el eje. */
+export const CONFIGURACION = Object.freeze({ url: 'sync url', eje: 'sync ledger' });
+
+const primeraHoja = (x) => (Array.isArray(x) ? x.find((h) => typeof h === 'string') : x);
+
+/**
+ * Dónde comparte `yo` este eje, según su configuración: { url, eje } si tiene las dos (la url, http o https), o null:
+ * sin ellas el eje vive solo en este dispositivo. La clave de lectura no está aquí (no va en el eje).
+ */
+export function destino(eje, yo, opciones = {}) {
+  const c = configuracion(eje, yo, opciones);
+  const url = primeraHoja(c[CONFIGURACION.url]);
+  const nombre = primeraHoja(c[CONFIGURACION.eje]);
+  if (typeof url !== 'string' || typeof nombre !== 'string' || !url.trim() || !nombre.trim()) return null;
+  try {
+    if (!/^https?:$/.test(new URL(url.trim()).protocol)) return null;
+  } catch {
+    return null;
+  }
+  return { url: url.trim().replace(/\/+$/, ''), eje: nombre.trim() };
+}
 
 /** La espera antes de reintentar tras `intentos` fallos, en milisegundos: 1 s, 2 s, 4 s… hasta cinco minutos. */
 export function espera(intentos) {

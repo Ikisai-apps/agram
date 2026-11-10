@@ -512,17 +512,25 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   const defectos = contrato.configuracion(eje, null, opciones);
   const payload = [[p.nombre]];
   const campos = [];
+  // Las preferencias las dice el núcleo (contrato.clavesDeConfiguracion): también las que no tienen defecto (el
+  // servidor y el eje compartido, etapa 3), que se pintan vacías; la posición que no es una preferencia es el tipo (B4).
+  const deLaEpoca = new Set(contrato.clavesDeConfiguracion(opciones).map((c) => c.clave));
   p.registro.forEach((desc, d) => {
     if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
     const clave = hojas(desc[0])[0];
-    if (defectos[clave] === undefined) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
+    if (!deLaEpoca.has(clave)) { payload[d] = [p.nombre]; return; } // no es una preferencia: el tipo (B4)
     const numero = typeof hojas(defectos[clave])[0] === 'number';
     const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
     const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
-    payload[d] = limpio.length ? limpio : hojas(defectos[clave]);
-    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: payload[d].length === 1 ? payload[d][0] : payload[d] });
+    // Vacía y sin defecto, la posición queda sin escribir (BTML no tiene posiciones vacías).
+    const v = limpio.length ? limpio : hojas(defectos[clave]);
+    if (v.length) payload[d] = v;
+    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v });
   });
-  for (let d = 0; d < payload.length; d++) if (payload[d] === undefined) payload[d] = [];
+  // El registro acaba en el primer hueco: lo de detrás de una posición sin valor no se puede escribir (BTML no tiene
+  // huecos), y una preferencia sin valor es la de la época (sync ledger sin sync url no comparte nada).
+  const hueco = payload.findIndex((x) => x === undefined);
+  if (hueco >= 0) payload.length = hueco;
   return { payload, nombre: contrato.texto(eje, contrato.claves.plantilla(p.nombre), o.idioma, { original: p.nombre, epoca: o.epoca }), campos, sobre: alta.id, en: direccion([9]), de: actual.de };
 }
 
