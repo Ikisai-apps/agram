@@ -121,8 +121,16 @@ export function cabecera(opciones = {}) {
     variantes: lista(CABECERA.variantes),
     tipos: hojas(c?.[CABECERA.tipos]).filter(Array.isArray).map((t) => {
       const claves = hojas(t[TIPO.claves]).map(texto).filter((x) => x !== undefined);
-      // La correspondencia (etapa 5): filas [[lo dado], [la clave de la pieza], [mundos…]]; sin mundos, vale en todos.
-      const correspondencia = hojas(t[TIPO.correspondencia]).filter(Array.isArray).map((f) => ({ de: hoja(f[0]), a: hoja(f[1]), mundos: hojas(f[2]).filter((m) => typeof m === 'number') })).filter((f) => f.de !== undefined && f.a !== undefined);
+      // La correspondencia (etapa 5): filas [[lo dado], [la clave de la pieza], [mundos…]]; sin mundos, vale en todos. Una
+      // fila con varias claves y tantos mundos como claves las empareja una a una (VG, 11-11, el elemento: una fila por
+      // dado, que una décupla no pasa de diez filas): [[hijo], [tienda, parterre…], [1, 2…]] es tienda en el 1, parterre en el 2…
+      const correspondencia = hojas(t[TIPO.correspondencia]).filter(Array.isArray).flatMap((f) => {
+        const de = hoja(f[0]);
+        const claves = hojas(f[1]);
+        const mundos = hojas(f[2]).filter((m) => typeof m === 'number');
+        if (claves.length > 1 && claves.length === mundos.length) return claves.map((a, k) => ({ de, a, mundos: [mundos[k]] }));
+        return [{ de, a: claves[0], mundos }];
+      }).filter((f) => f.de !== undefined && f.a !== undefined);
       return { tipo: hoja(t[TIPO.tipo]), clave: claves[0] ?? null, claves, correspondencia };
     }),
     preferencia: texto(hoja(c?.[CABECERA.preferencia])) ?? null,

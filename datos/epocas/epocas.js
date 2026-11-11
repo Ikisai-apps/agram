@@ -5104,6 +5104,120 @@ export const EPOCA_0_BTML_DATOS = [
             [
               "paso",
               "nombre"
+            ],
+            [
+              [
+                [
+                  "hijo"
+                ],
+                [
+                  "tienda",
+                  "parterre",
+                  "estanque",
+                  "estacion",
+                  "constelacion",
+                  "hito"
+                ],
+                [
+                  1,
+                  2,
+                  3,
+                  4,
+                  8,
+                  9
+                ]
+              ],
+              [
+                [
+                  "ocupante"
+                ],
+                [
+                  "mercancia",
+                  "flor",
+                  "paquete",
+                  "pieza",
+                  "cuenta-pasado",
+                  "cuenta-futuro",
+                  "estrella",
+                  "paso"
+                ],
+                [
+                  1,
+                  2,
+                  3,
+                  4,
+                  6,
+                  7,
+                  8,
+                  9
+                ]
+              ],
+              [
+                [
+                  "vacio"
+                ],
+                [
+                  "polvo"
+                ],
+                [
+                  8
+                ]
+              ],
+              [
+                [
+                  "actual"
+                ],
+                [
+                  "puerta"
+                ],
+                [
+                  9
+                ]
+              ],
+              [
+                [
+                  "hecho"
+                ],
+                [
+                  "sello"
+                ],
+                [
+                  4
+                ]
+              ],
+              [
+                [
+                  "repetido"
+                ],
+                [
+                  "cuenta-ciclo"
+                ],
+                [
+                  6
+                ]
+              ],
+              [
+                [
+                  "persona"
+                ],
+                [
+                  "bano"
+                ],
+                [
+                  3
+                ]
+              ],
+              [
+                [
+                  "cerrado"
+                ],
+                [
+                  "verja"
+                ],
+                [
+                  3
+                ]
+              ]
             ]
           ],
           [
@@ -5282,7 +5396,7 @@ export const EPOCA_0_BTML_DATOS = [
           10
         ],
         [
-          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza, cada uno con los nombres de su clave (la primera componente es la condición: el paso, la acción, la primitiva o el mundo; la segunda, si la hay, distingue piezas con la misma condición: el rol del muñequito, el nombre del elemento, del marco o del icono) y, en su 2, la correspondencia entre lo que el núcleo o la carta dan y la clave de la pieza, por filas [[lo dado], [la clave], [mundos…]]: para el muñequito, el rol por defecto de cada mundo (lo dado es el mundo); para el movimiento, la primitiva del libro (acunar, transferir, bloquear, liberar, quemar) → el efecto, con los mundos en que vale esa fila (sin mundos, en todos: acunar es crear-abajo salvo en el pasado, el futuro y el cielo, de donde entra por su lado). Etapa 5 (la fase 2): etapa, la pieza grande del mundo por paso de madurez; elemento, un objeto suelto; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
+          "encargo 3c-2b (tras 3c-1; VG: nada hardcodeado en la pantalla, los modelos de visualización son registros y cualquiera puede estar incompleto): 1 los niveles de detalle; 2 la cadena de respaldo detrás del modelo que nombra la configuración (epoch.9.3.6), el último siempre responde; 3 las orientaciones, la primera la de respaldo (izquierda mira al PV1, derecha al PV2: son piezas distintas, nunca un espejo); 4 los tipos de pieza, cada uno con los nombres de su clave (la primera componente es la condición: el paso, la acción, la primitiva o el mundo; la segunda, si la hay, distingue piezas con la misma condición: el rol del muñequito, el nombre del elemento, del marco o del icono) y, en su 2, la correspondencia entre lo que el núcleo o la carta dan y la clave de la pieza, por filas [[lo dado], [la clave], [mundos…]]: para el muñequito, el rol por defecto de cada mundo (lo dado es el mundo); para el movimiento, la primitiva del libro (acunar, transferir, bloquear, liberar, quemar) → el efecto, con los mundos en que vale esa fila (sin mundos, en todos: acunar es crear-abajo salvo en el pasado, el futuro y el cielo, de donde entra por su lado); para el elemento (VG, 11-11: el animado como capas sobre el sobrio a pantalla completa), lo que la carta da de cada celda del mundo → el nombre del elemento que se dibuja en ella: hijo (el contenedor de un hijo con ocupantes), ocupante (cada unidad), vacio (un hijo sin ocupantes), actual (la posición donde está el foco), hecho (lo ejecutado), repetido (lo que vuelve en su ciclo), persona (un ocupante que es una persona), cerrado (lo cerrado); una fila con varias claves y tantos mundos como claves las empareja una a una (la primera clave con el primer mundo…), y un dado sin fila en un mundo no se dibuja en él. Etapa 5 (la fase 2): etapa, la pieza grande del mundo por paso de madurez; elemento, un objeto suelto; 5 la posición de la época donde la plantilla «preferences» describe la preferencia que nombra el modelo (epoch.9.3.6, su etiqueta es la clave de la configuración); 6 los formatos animados, en los que bucle y fotogramas son obligatorios; 7 las palabras de repetición, la primera es bucle; 8 los fotogramas de lo nuevo van en múltiplos de. La forma de la pieza y del modelo: Core, pendiente de revisar VG; 9 (SEG-14) detrás de esta nota, la lista de orígenes (https://host, sin ruta) de donde una pieza que viene del ledger puede traer su recurso, además de las rutas relativas de arte/; vacía, solo estas",
           [
             "https://agram.ikisai.com"
           ]
@@ -14746,7 +14860,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "a9c6d4294f53da7ca17a51083f553ce3a6448722a513b624290e81c1d412ef44";
+export const EPOCA_0_BTML_ID = "2559f63bad52305c6a15c7dfb2dcfbab0551489a3ac9a9cfe471db3dc0c2090f";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

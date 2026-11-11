@@ -72,6 +72,61 @@ function htmlEscenario(n, { paso, etiqueta = '' } = {}) {
 /** El marco de un PV o del centro, superpuesto al borde (solo con recurso). */
 const htmlMarco = (marco) => (marco?.recurso ? htmlPieza(marco, { clase: 'pieza-marco', alt: '' }) : '');
 
+// ---------- El animado a pantalla completa: capas sobre el sobrio (VG, 11-11) ----------
+// «El animado es el sobrio añadiéndole las imágenes animadas y los fondos»: la rejilla de un mundo es la misma en los
+// dos modos y el animado solo AÑADE nodos, todos con la clase `capa`; quitarlos devuelve el HTML sobrio exacto. Nada
+// de lo que añaden ocupa sitio (todo es absoluto: dónde va cada uno lo dice estilo.css, por `data-forma`).
+
+/** Una pieza como capa: la de htmlPieza con la clase `capa` y la de su papel. */
+const capaPieza = (pieza, { clase = '', ...op } = {}) => (pieza?.recurso ? htmlPieza(pieza, { alt: '', ...op, clase: 'capa ' + clase }) : '');
+
+/**
+ * El dibujo del mundo dentro de un hijo (celda.capa o banda.capa): el del hijo (o el del vacío), uno por ocupante y el
+ * sello de lo hecho, detrás de su texto; su tamaño escala con la cifra del hijo (--total, solo CSS). Los ocupantes, si
+ * se dan, sustituyen a los de la capa (los de las bandas, que los lleva cada ocupante).
+ */
+function htmlDibujo(capa, ocupantes = capa?.ocupantes ?? []) {
+  if (!capa || (!capa.hijo && !ocupantes.length && !capa.hecho)) return '';
+  const hijo = capa.hijo?.recurso ? htmlPieza(capa.hijo, { clase: 'dibujo-hijo', alt: '' }) : '';
+  const unos = ocupantes.filter((p) => p?.recurso).map((p) => htmlPieza(p, { clase: 'dibujo-ocupante', alt: '' })).join('');
+  const hecho = capa.hecho?.recurso ? htmlPieza(capa.hecho, { clase: 'dibujo-hecho', alt: '' }) : '';
+  return `<div class="capa capa-dibujo${capa.hijo ? '' : ' sin-hijo'}" style="--total:${Number(capa.total) || 0}" aria-hidden="true">${hijo}${unos ? `<span class="dibujo-ocupantes">${unos}</span>` : ''}${hecho}</div>`;
+}
+
+/** Los efectos de lo nuevo sobre un hijo o sobre el centro del mundo: una vez, sin caja, sin recibir el ratón. */
+function htmlEfectosCapa(n, clase = '') {
+  const efectos = (n?.efectos ?? []).filter((e) => e.pieza?.recurso);
+  if (!efectos.length) return '';
+  return `<div class="capa capa-efectos${clase ? ' ' + clase : ''}" aria-hidden="true">${efectos.map((e) => htmlPieza(e.pieza, { animar: ANIMAR.una, clase: 'pieza-efecto efecto-' + attr(e.clave), prioridad: 0, alt: e.clave })).join('')}</div>`;
+}
+
+/** El dibujo de un ocupante dentro de su propia forma (la bola de una cuenta, la estrella del cielo). */
+const htmlDibujoDeOcupante = (o) => (o?.dibujo?.recurso ? htmlPieza(o.dibujo, { clase: 'capa capa-ocupante', alt: '' }) : '');
+
+/** Las cuatro esquinas del marco, por dónde se recorta el dibujo (CSS: .marco-esquina.<esquina>). */
+const ESQUINAS = Object.freeze(['arriba-izquierda', 'arriba-derecha', 'abajo-izquierda', 'abajo-derecha']);
+
+/**
+ * El marco del mundo alrededor de la rejilla entera. El dibujo del marco es un cuadrado (sus trazos son cuadrados,
+ * redondos o hexagonales) y la rejilla no: para rodearla sin deformarlo, cada esquina enseña la esquina del dibujo
+ * (el mismo <img>, recortado) y una línea del color del mundo las une (CSS).
+ */
+function htmlMarcoCapa(marco) {
+  if (!marco?.recurso) return '';
+  const img = `<img src="./${attr(marco.recurso)}" alt="" loading="lazy" decoding="async">`;
+  return `<div class="capa capa-marco" aria-hidden="true">${ESQUINAS.map((e) => `<span class="marco-esquina ${e}">${img}</span>`).join('')}</div>`;
+}
+
+/** El personaje del mundo en el hueco entre celdas (dónde, por data-forma en CSS); detrás, su dibujo quieto por si Lottie no carga. */
+function htmlPersonajeCapa(k, r) {
+  const p = k?.personaje;
+  if (!p?.pieza?.recurso) return '';
+  const hoy = r.forma === 'franjas' && r.bandas?.length ? (r.bandas.findIndex((b) => b.ahora) === 0 ? 'inicio' : 'fin') : '';
+  const quieto = p.pieza.animado && k.respaldo?.recurso ? htmlPieza(k.respaldo, { clase: 'respaldo', alt: p.rol ?? '' }) : '';
+  const vivo = htmlPieza(p.pieza, { animar: p.animar, clase: 'pieza-personaje accion-' + attr(p.accion), prioridad: p.animar === ANIMAR.una ? 0 : 1, alt: p.rol ?? p.accion });
+  return `<div class="capa capa-personaje" style="--columnas:${Number(r.columnas) || 1};--filas:${Number(r.filas) || 1}"${hoy ? ` data-hoy="${hoy}"` : ''}>${quieto}${vivo}</div>`;
+}
+
 /** Una representación del 0 como HTML: texto, o la imagen que cabe (solo llega con recurso en animado). */
 function htmlRepresentacion(rep, { clase = 'rep' } = {}) {
   if (!rep) return `<span class="${clase} rep-vacia">—</span>`;
@@ -186,11 +241,11 @@ function htmlCeldaDeRejilla(c, forma) {
   const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
   const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total);
-  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}</div></div>`;
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlEfectosCapa(c.capa?.efectos)}</div>`;
 }
 
 /** La tarjeta central flotante de la cruceta: cara 0 (nombre, medida y su barra si tiene «de») y cara 5 (plantilla, ancla, pasos); ↻ la gira (data-girar). */
-function htmlFlotante(f) {
+function htmlFlotante(f, etapa = null) {
   if (!f) return '';
   const girar = `<button type="button" class="girar"${nodo('control')} data-girar title="${attr(t('girarTitulo'))}" aria-label="${attr(t('girar'))}">↻</button>`;
   const cabeza = (n) => `<header class="flotante-cabeza"><span class="numero">${f.pv}</span><span class="etiqueta">${escapar(f.etiqueta ?? '')}</span><small class="cara-n">${escapar(t('cara', { n }))}</small>${girar}</header>`;
@@ -200,14 +255,14 @@ function htmlFlotante(f) {
   const ancla = f.ancla ? `<p class="ancla">${t('sobre')} <button type="button" class="enlace" data-abrir="${attr(f.ancla.sobre ?? '')}"${f.ancla.sobre ? '' : ' disabled'}>${escapar(f.ancla.sobreTexto ?? t('laRaiz'))}</button>${f.ancla.en ? ` · ${t('en')} ${escapar(f.ancla.en)}` : ''}</p>` : '';
   const pasos = f.pasos?.length ? `<ul class="pasos">${f.pasos.map((p) => `<li><b>${escapar(p.nombre)}</b> ${p.k === null || p.k === undefined ? '—' : escapar(p.k)}${p.de ? `<small>/${escapar(p.de)}</small>` : ''}</li>`).join('')}</ul>` : '';
   return `<div class="centro-flotante" data-color="${f.pv}" data-x="${attr(f.X)}"><div class="flotante-giro">`
-    + `<section class="flotante-cara cara-0">${cabeza(0)}<p class="flotante-nombre">${escapar(f.texto ?? '')}</p>${medida}</section>`
+    + `<section class="flotante-cara cara-0">${cabeza(0)}<p class="flotante-nombre">${escapar(f.texto ?? '')}</p>${medida}${capaPieza(etapa, { clase: 'pieza-etapa capa-etapa', alt: f.etiqueta ?? '' })}</section>`
     + `<section class="flotante-cara cara-5" aria-hidden="true">${cabeza(5)}<p class="tipo">${f.plantilla ? `${t('plantilla')} <b>${escapar(f.plantilla)}</b>` : t('sinPlantilla')}</p>${ancla}${pasos}</section>`
     + `</div></div>`;
 }
 
 /** La matriz del 4: la esquina, los diez tipos de interacción arriba, y cada fila con su posición delante; la diagonal marcada; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS). */
 function htmlMatriz(r) {
-  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><span class="hijo-nombre"></span><span class="hijo-cifra">${c.estado ? escapar(t(c.estado === 'ejecutada' ? 'estadoEjecutada' : 'estadoPropuesta')) : ''}</span><div class="hijo-cuerpo">${c.ocupante ? htmlOcupanteDeCelda(c.ocupante) : ''}</div></div>`;
+  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><span class="hijo-nombre"></span><span class="hijo-cifra">${c.estado ? escapar(t(c.estado === 'ejecutada' ? 'estadoEjecutada' : 'estadoPropuesta')) : ''}</span><div class="hijo-cuerpo">${c.ocupante ? htmlOcupanteDeCelda(c.ocupante) : ''}${htmlDibujo(c.capa)}</div></div>`;
   const ejes = r.ejes ?? { columnas: [], filas: [] };
   const cabeza = `<span class="matriz-esquina" title="${attr(t('matrizEjesTitulo'))}">${escapar(t('matrizEsquina'))}</span>` + ejes.columnas.map((c) => `<span class="matriz-eje matriz-columna" data-color="${c.pv}" title="${attr(c.pv + ' · ' + (c.etiqueta ?? ''))}"><b>${c.pv}</b> ${escapar(c.etiqueta ?? '')}</span>`).join('');
   const filas = Array.from({ length: r.filas }, (_, i) => {
@@ -222,7 +277,7 @@ function htmlCuenta(o) {
   const cuando = o.t ? fecha(o.t) : '';
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
   const titulo = [o.texto, cuando, o.hiloSupuesto ? t('hiloSupuesto') : ''].filter(Boolean).join(' · ');
-  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true"></span><span class="cuenta-texto">${cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
+  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
 }
 
 /**
@@ -237,7 +292,7 @@ function htmlFranjas(r) {
   const peso = (i) => (n > 1 ? Math.round((1 + (n - 1 - Math.abs(i - ahora)) / (n - 1)) * 100) / 100 : 1);
   const columnas = `var(--ancho-hilo) ${r.bandas.map((_, i) => `minmax(0,${peso(i)}fr)`).join(' ')}`;
   const cuantas = (b) => b.items.length + (b.mas ?? 0);
-  const franjas = r.bandas.map((b, i) => `<div class="rejilla-banda hijo franja-tiempo${b.ahora ? ' ahora' : ''}${cuantas(b) ? '' : ' vacia'}" data-banda="${b.indice}" style="grid-column:${i + 2};grid-row:1 / -1"><header class="hijo-cabeza"><span class="hijo-nombre banda-nombre">${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cuantas(b) || ''}</span></header><div class="hijo-cuerpo"></div></div>`).join('');
+  const franjas = r.bandas.map((b, i) => `<div class="rejilla-banda hijo franja-tiempo${b.ahora ? ' ahora' : ''}${cuantas(b) ? '' : ' vacia'}" data-banda="${b.indice}" style="grid-column:${i + 2};grid-row:1 / -1"><header class="hijo-cabeza"><span class="hijo-nombre banda-nombre">${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cuantas(b) || ''}</span></header><div class="hijo-cuerpo">${htmlDibujo(b.capa)}</div></div>`).join('');
   const lineas = hilos.map((h, j) => `<div class="hilo" data-hilo="${h.pv ?? ''}"${h.pv !== null ? ` data-color="${h.pv}"` : ''} style="grid-column:1 / -1;grid-row:${j + 2}"><span class="hilo-nombre">${h.pv !== null ? `<b>${h.pv}</b> ` : ''}${escapar(h.etiqueta ?? '')}</span></div>`).join('');
   const cruces = r.bandas.map((b, i) => (b.cruces ?? []).map((c, j) => (c.items.length || c.mas
     ? `<div class="cruce" data-banda="${b.indice}" data-hilo="${c.hilo ?? ''}" style="grid-column:${i + 2};grid-row:${j + 2}">${c.items.map(htmlCuenta).join('')}${c.mas ? `<span class="cuenta cuenta-mayor"${c.hilo !== null ? ` data-color="${c.hilo}"` : ''} title="${attr(t('masEnCruce', { n: c.mas }))}">${c.mas}</span>` : ''}</div>`
@@ -246,12 +301,12 @@ function htmlFranjas(r) {
 }
 
 /** Una caja nivel.grado (el cielo del 8 y las posiciones del camino del 9): su rótulo y su nombre arriba; dentro, `cuerpo`. */
-const htmlCaja = (b, clase, cuerpo, cifra = '') => `<div class="rejilla-banda hijo ${clase}" data-banda="${b.indice}" data-nivel="${b.nivel}" data-grado="${b.grado}" style="--nivel:${Number(b.nivel) || 0}"><header class="hijo-cabeza"><span class="hijo-nombre"><b class="rotulo">${escapar(b.nivel + '.' + b.grado)}</b> ${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpo}</div></div>`;
+const htmlCaja = (b, clase, cuerpo, cifra = '', dibujo = '') => `<div class="rejilla-banda hijo ${clase}" data-banda="${b.indice}" data-nivel="${b.nivel}" data-grado="${b.grado}" style="--nivel:${Number(b.nivel) || 0}"><header class="hijo-cabeza"><span class="hijo-nombre"><b class="rotulo">${escapar(b.nivel + '.' + b.grado)}</b> ${escapar(b.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpo}${dibujo}</div></div>`;
 
 /** Un comparable en el cielo: su estrella (intensidad por el nivel de la caja, borde con el grado 2, halo con el 3: solo CSS) y su nombre. */
 function htmlEstrella(o) {
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
-  return `<button type="button" class="ocupante estrella"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★</span><span class="texto">${escapar(o.texto)}</span></button>`;
+  return `<button type="button" class="ocupante estrella"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★${htmlDibujoDeOcupante(o)}</span><span class="texto">${escapar(o.texto)}</span></button>`;
 }
 
 /** El cielo del 8: el panel pequeño (la cuota del foco y las posiciones que tiene escritas) y las diez cajas en dos filas; la vacía, apagada con su paso del camino. */
@@ -264,7 +319,7 @@ function htmlCielo(r) {
   const cajas = r.bandas.map((b) => {
     const llena = b.items.length || b.mas;
     const cuerpo = llena ? b.items.map(htmlEstrella).join('') + (b.mas ? `<span class="estrella estrella-mas" title="${attr(t('masEnBanda', { n: b.mas }))}">${escapar(t('masEnBanda', { n: b.mas }))}</span>` : '') : b.foco ? `<span class="cielo-foco">${escapar(t('cieloFoco'))}</span>` : htmlEscribir(b.escribir, t('vacia'));
-    return htmlCaja(b, `caja-cielo${llena || b.foco ? '' : ' vacia'}${b.foco ? ' foco' : ''}`, cuerpo, llena ? b.items.length + b.mas : '');
+    return htmlCaja(b, `caja-cielo${llena || b.foco ? '' : ' vacia'}${b.foco ? ' foco' : ''}`, cuerpo, llena ? b.items.length + b.mas : '', htmlDibujo(b.capa));
   }).join('');
   return `${panel}<div class="rejilla-bandas rejilla-cielo" style="--columnas:${r.columnas};--filas:${r.filas}">${cajas}</div>`;
 }
@@ -276,7 +331,7 @@ function htmlCielo(r) {
  */
 function htmlCaminoDeRejilla(r, arbol) {
   const madurez = r.madurez ? `<p class="camino-madurez">${escapar(t('madurezDelFoco', r.madurez))}</p>` : '';
-  const posiciones = r.bandas.map((b) => htmlCaja(b, `posicion${b.items.length ? '' : ' vacia'}`, b.items.length ? b.items.map(htmlElementoDeBanda).join('') : htmlEscribir(b.escribir))).join('');
+  const posiciones = r.bandas.map((b) => htmlCaja(b, `posicion${b.items.length ? '' : ' vacia'}`, b.items.length ? b.items.map(htmlElementoDeBanda).join('') : htmlEscribir(b.escribir), '', htmlDibujo(b.capa, b.items.map((o) => o.dibujo)))).join('');
   const mensajes = arbol
     ? `<div class="camino-mensajes"><details class="plegable" open><summary>${escapar(t('caminoPasos', { n: arbol.camino?.pasos?.length ?? 0 }))}</summary>${htmlCamino(arbol.camino, { X: arbol.X })}</details>${arbol.guia ? `<details class="plegable" open><summary>${t('guia')}</summary>${htmlGuia(arbol.guia)}</details>` : ''}</div>`
     : '';
@@ -287,7 +342,7 @@ function htmlCaminoDeRejilla(r, arbol) {
 function htmlBandaDeRejilla(b) {
   const nombre = b.nombre ?? String(b.indice);
   const cuerpo = (b.items ?? []).map(htmlElementoDeBanda).join('') + (b.mas ? `<small class="mas-banda">${escapar(t('masEnBanda', { n: b.mas }))}</small>` : '');
-  return `<div class="rejilla-banda hijo${b.items?.length ? '' : ' vacia'}" data-banda="${b.indice}"><span class="hijo-nombre banda-nombre">${escapar(nombre)}</span><div class="hijo-cuerpo banda-cuerpo">${cuerpo}</div></div>`;
+  return `<div class="rejilla-banda hijo${b.items?.length ? '' : ' vacia'}" data-banda="${b.indice}"><span class="hijo-nombre banda-nombre">${escapar(nombre)}</span><div class="hijo-cuerpo banda-cuerpo">${cuerpo}${htmlDibujo(b.capa, (b.items ?? []).map((o) => o.dibujo))}</div></div>`;
 }
 
 /**
@@ -309,9 +364,13 @@ function htmlRejilla(r, { completa = false, arbol = null } = {}) {
   else if (r.forma === 'camino' && r.bandas) cuerpo = htmlCaminoDeRejilla(r, completa ? arbol : null);
   else if (r.forma === 'matriz' && r.celdas) cuerpo = htmlMatriz(r);
   else if (r.bandas) cuerpo = `<div class="rejilla-bandas" style="--filas:${r.bandas.length}">${r.bandas.map(htmlBandaDeRejilla).join('')}</div>${sin}`;
-  else cuerpo = `<div class="rejilla-celdas rejilla-${attr(r.forma ?? '')}" style="--columnas:${r.columnas};--filas:${r.filas}">${r.celdas.map((c) => htmlCeldaDeRejilla(c, r.forma)).join('')}${completa ? htmlFlotante(r.flotante) : ''}</div>`;
+  else cuerpo = `<div class="rejilla-celdas rejilla-${attr(r.forma ?? '')}" style="--columnas:${r.columnas};--filas:${r.filas}">${r.celdas.map((c) => htmlCeldaDeRejilla(c, r.forma)).join('')}${completa ? htmlFlotante(r.flotante, r.capas?.etapa) : ''}</div>`;
   const paginas = r.pagina && r.pagina.de > 1 ? `<ul class="ocupantes rejilla-paginas">${htmlPagina(r.pagina, r.pv)}</ul>` : '';
-  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${cabeza}${cuerpo}${paginas}</div>`;
+  // En animado y a pantalla completa, las capas (r.capas): el fondo del mundo debajo de todo; encima, el personaje en el hueco, lo nuevo sin hijo y el marco.
+  const k = completa ? r.capas : null;
+  const debajo = k ? capaPieza(k.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
+  const encima = k ? htmlPersonajeCapa(k, r) + htmlEfectosCapa(k.efectos, 'capa-efectos-centro') + htmlMarcoCapa(k.marco) : '';
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
@@ -463,11 +522,15 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       ${pasos}${validacion}${efectos}${marco}
     </section>`;
   }
+  // A pantalla completa, el escenario y el marco del centro son capas de la rejilla (htmlRejilla); sin tarjeta central, la etapa va en la cabecera.
+  const capas = c.rejilla?.capas ?? null;
+  const etapaEnCabeza = capas && !c.rejilla.flotante ? capaPieza(capas.etapa, { clase: 'pieza-etapa capa-etapa capa-etapa-cabeza', alt: c.etiqueta }) : '';
+  const quienConEtapa = etapaEnCabeza ? quien.replace('</span>', etapaEnCabeza + '</span>') : quien;
   return `<section class="nucleo abierto tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'abierto', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}"${c.estilo && !c.rejilla ? ` data-id="${attr(c.X)}"` : ''} aria-label="${attr(c.etiqueta)}">
-    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quien}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
-    ${htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
+    <header class="nucleo-cabeza"><span class="numero">${c.pv}</span><span class="etiqueta">${escapar(c.etiqueta)}</span>${htmlMedida(c.medida)}${quienConEtapa}${arbol.mapa?.completa ? `<button type="button" class="volver volver-claro"${nodo('control')} ${c.rejilla?.ruta?.length ? `data-subir="${c.pv}"` : `data-foco-pv="${arbol.mapa.completa.volver}"`} data-x="${c.X}" title="${attr(t('volverTitulo'))}">← ${t('volver')}</button>` : `<button type="button" class="volver" data-foco-pv="0" data-x="${c.X}" title="${attr(t('volverAl0'))}">0</button>`}</header>
+    ${c.rejilla ? '' : htmlEscenario(c, { paso: c.pasos?.porPv?.[c.pv] ?? null, etiqueta: c.etiqueta })}
     ${c.rejilla ? htmlRejilla(c.rejilla, { completa: true, arbol }) : htmlOcupantes(c.ocupantes, { pv: c.pv, disposicion: c.disposicion })}
-    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${htmlMarco(c.marco)}
+    <p class="ayuda">${escapar(c.ayuda ?? '')}</p>${GEOMETRIA[c.pv]?.grupo === 'cruz' && GEOMETRIA[c.pv]?.fila === 'abajo' && !c.rejilla?.camino ? htmlGuia(arbol.guia) : ''}${c.rejilla ? '' : htmlMarco(c.marco)}
   </section>`;
 }
 
@@ -838,8 +901,10 @@ export function trasPintar(raiz, { lottie = globalThis.lottie, limite } = {}) {
     const d = await cache.get(ruta);
     return d ? JSON.parse(JSON.stringify(d)) : null;
   };
-  // Quién se reproduce: las que piden animarse, por prioridad y orden; las primeras `tope` tienen sitio.
-  const candidatas = huecos.filter((h) => h.dataset.animar === '1').map((h, k) => ({ h, k, p: Number(h.dataset.prioridad) || 0 })).sort((a, b) => a.p - b.p || a.k - b.k).map((x) => x.h);
+  // Quién se reproduce: las que piden animarse, por prioridad y orden; las primeras `tope` tienen sitio. Con
+  // «reducir movimiento» en el sistema, ninguna: cada una se queda en su fotograma.
+  const quieto = typeof globalThis.matchMedia === 'function' && globalThis.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const candidatas = huecos.filter((h) => h.dataset.animar === '1' && !quieto).map((h, k) => ({ h, k, p: Number(h.dataset.prioridad) || 0 })).sort((a, b) => a.p - b.p || a.k - b.k).map((x) => x.h);
   const conSitio = new Set(candidatas.slice(0, Number.isFinite(tope) ? tope : candidatas.length));
   const enEspera = candidatas.slice(conSitio.size);
   const reproduciendo = () => vivas.filter((a) => !a.isPaused && !a.__acabada).length;

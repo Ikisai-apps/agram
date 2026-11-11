@@ -273,10 +273,14 @@ const esDeTiempo = (serie) => { try { return typeof serie === 'string' && partir
 function nuevosDe(ctx, pv, lado, tamano, mundoDelCentro) {
   const entradas = ctx.nuevosPorPv.get(pv) ?? [];
   if (!entradas.length) return null;
+  return efectosDeEntradas(ctx, entradas, LATERALES.includes(pv) ? pv : mundoDelCentro, lado, tamano);
+}
+
+/** Los efectos de unas entradas nuevas del diario en un mundo (lo que hace nuevosDe para un PV): { entradas, efectos, consumido }. */
+function efectosDeEntradas(ctx, entradas, mundo, lado, tamano) {
   // Lo declarado: sin la asignación de T y la obtención de P (clase) y sin el tiempo que cuesta escribir (la serie T de cada escritura).
   const declarados = entradas.flatMap((e) => e.movimientos.filter((m) => !m.clase && !esDeTiempo(m.serie)));
   const primitivas = [...new Set(declarados.map((m) => m.primitiva))];
-  const mundo = LATERALES.includes(pv) ? pv : mundoDelCentro;
   const efectos = primitivas.map((primitiva) => {
     const clave = modelos.corresponde(ctx.cabecera, PIEZA.movimiento, primitiva, mundo);
     return { primitiva, clave, pieza: conRecurso(piezaDe(ctx, PIEZA.movimiento, mundo, clave, lado, tamano)) };
@@ -459,6 +463,8 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
     fondo: fondoDe(ctx, pv, tamano),
     personaje: personajeDe(ctx, eje, X, pv, g.lado, tamano, { enfocado: true, nuevos: Boolean(base.nuevos), paso: ctx.pasos.porPv[pv] ?? null }),
   } : {};
+  // A pantalla completa, el animado son capas sobre la misma rejilla sobria (capasDeRejilla): el fondo, la etapa, los dibujos, el personaje, los efectos y el marco.
+  if (ctx.animado && LATERALES.includes(pv) && mapa?.rejilla) capasDeRejilla(eje, X, pv, mapa.rejilla, ctx, escenario, tamano);
   return {
     ...base,
     ...escenario,
@@ -899,7 +905,7 @@ function accionPorDefecto(eje, R, pv, ctx) {
 
 /**
  * El contexto con que se piden los nodos de la rejilla: siempre el sobrio. La forma del segundo nivel es la misma en
- * sobrio y en animado (el animado será solo capas añadidas sobre este mismo DOM), así que sus ocupantes no llevan la
+ * sobrio y en animado (el animado son solo capas añadidas sobre este mismo DOM, capasDeRejilla), así que sus ocupantes no llevan la
  * pieza suelta del mundo ni una representación con recurso.
  */
 const sobrioDe = (ctx) => (ctx.animado ? (ctx.comoSobrio ??= { ...ctx, animado: false, cadena: [] }) : ctx);
@@ -1116,7 +1122,7 @@ function caminoDeRejilla(eje, R, pv, d, g, ctx) {
  * registro baja un nivel de profundidad (`ruta`: los registros por los que se ha entrado) mientras queden niveles. Las
  * franjas del 6 y el 7, el cielo del 8 y el camino del 9 llevan bandas en lugar de celdas. Nada de esto decide qué
  * hay: lo dan los ocupantes, los pasos, las acciones y el diario del núcleo; y nada depende del modelo (sobrio o
- * animado dan el mismo árbol de la rejilla). → { pv, forma, columnas, filas, niveles, nivel, entra, ruta, X, estilo,
+ * animado dan el mismo árbol de la rejilla; en animado, capasDeRejilla solo le añade sus capas). → { pv, forma, columnas, filas, niveles, nivel, entra, ruta, X, estilo,
  * pagina, celdas, flotante?, ejes? } o { …, bandas, sinBanda, hilos?, cuota?, enElFoco?, camino?, madurez? } o null.
  */
 function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1, alto: 1 }, entrar = true } = {}) {
@@ -1126,6 +1132,85 @@ function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1,
   const R = ruta.length ? ruta[ruta.length - 1] : X;
   const base = { pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar, ruta, X: R, texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx) };
   return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, hueco, entrar }) };
+}
+
+/**
+ * Lo que la correspondencia de la cabecera dibuja en un mundo para lo que da el núcleo (VG, 11-11): `dado` es uno de
+ * los dados del tipo elemento (epoch.9.7.0.4: hijo, ocupante, vacio, actual, hecho, repetido, persona, cerrado) y la
+ * fila de ese mundo dice el nombre del elemento (tienda, flor, polvo…). Sin fila en el mundo, nada (la
+ * correspondencia solo renombra lo que renombra, y aquí lo no renombrado no se pinta); con fila, la pieza de ese
+ * nombre al paso del mundo (`paso`, el de su etapa), solo si el modelo la tiene con recurso.
+ */
+function elementoDelMundo(ctx, mundo, dado, paso, lado, tamano) {
+  const nombre = modelos.corresponde(ctx.cabecera, PIEZA.elemento, dado, mundo);
+  if (nombre === dado) return null;
+  const p = conRecurso(piezaDe(ctx, PIEZA.elemento, mundo, paso, lado, tamano, { rol: nombre }));
+  return p && p.subclave === nombre ? p : null;
+}
+
+/** ¿Es lo que ocupa una celda una persona? Una hoja que es una identidad del eje que es persona (eje.esPersona). */
+const esPersonaOcupante = (eje, o) => o?.tipo === 'hoja' && typeof o.valor === 'string' && eje.esPersona?.(o.valor) === true;
+
+/**
+ * Las capas del animado sobre la rejilla de un mundo a pantalla completa (VG, 11-11: «el animado es el sobrio
+ * añadiéndole las imágenes animadas y los fondos»). La rejilla `r` es la misma que en sobrio (rejillaDe no depende del
+ * modelo); aquí solo se le añade lo que se pinta encima y debajo, sin tocar nada de lo que ya tiene:
+ *   r.capas = { fondo, etapa, marco, personaje, respaldo, efectos }: el fondo del mundo (por la madurez del foco, el
+ *     del escenario), la etapa del elemento pulsado (R, por su madurez), el marco del mundo, el personaje del rol por
+ *     defecto (esperar en bucle; actuar si hay algo nuevo bajo R), su respaldo estático (la pieza «*» de su rol: lo que
+ *     se ve si Lottie no carga) y los efectos de lo nuevo que no cae en ningún hijo (van al centro del mundo);
+ *   celda.capa / banda.capa = { total, hijo, ocupantes, hecho, efectos }: el dibujo del hijo (o el del vacío), uno por
+ *     ocupante (o el de persona), el sello de lo hecho (la estación ejecutada) y los efectos de lo nuevo que cuelga de
+ *     ese hijo (pvDondeCuelga);
+ *   ocupante.dibujo: en las bandas (las cuentas del 6 y el 7, las estrellas del 8, los pasos del 9), el de cada uno.
+ * Qué dibujo va con qué es la correspondencia de la cabecera (elementoDelMundo); dónde va cada capa, CSS.
+ */
+function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano) {
+  const lado = GEOMETRIA[pv].lado;
+  const R = r.X ?? X;
+  const madurez = R === X ? ctx.madurez : contrato.madurez(eje, R, ctx.opciones);
+  const etapa = R === X ? escenario.etapa : piezaDe(ctx, PIEZA.etapa, pv, madurez?.nivel ?? null, lado, tamano, { de: madurez?.de ?? undefined });
+  const paso = typeof etapa?.clave === 'number' ? etapa.clave : null; // el paso del mundo: el de su etapa en el modelo
+  const dibujo = (dado) => elementoDelMundo(ctx, pv, dado, paso, lado, tamano);
+  const deOcupante = (o) => (esPersonaOcupante(eje, o) && dibujo('persona')) || dibujo('ocupante');
+  const efectosDe = (entradas) => (entradas?.length ? efectosDeEntradas(ctx, entradas, pv, lado, tamano) : null);
+  for (const c of r.celdas ?? []) {
+    const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+    c.capa = {
+      total: c.total ?? lista.length,
+      hijo: r.forma === 'matriz' ? null : c.vacio || !lista.length ? dibujo('vacio') : dibujo('hijo'),
+      ocupantes: lista.map(deOcupante).filter(Boolean),
+      hecho: c.estado === 'ejecutada' ? dibujo('hecho') : null,
+      efectos: null,
+    };
+  }
+  for (const b of r.bandas ?? []) {
+    const items = new Set([...(b.items ?? []), ...(b.cruces ?? []).flatMap((x) => x.items)]);
+    for (const o of items) o.dibujo = deOcupante(o);
+    const llena = Boolean(b.items?.length || b.mas);
+    b.capa = { total: (b.items?.length ?? 0) + (b.mas ?? 0), hijo: llena ? dibujo('hijo') : b.foco ? null : dibujo('vacio'), ocupantes: [], hecho: null, efectos: null };
+  }
+  // Lo nuevo bajo R, por el dígito del que cuelga (pvDondeCuelga): al hijo de ese dígito si lo hay; si no, al centro del mundo.
+  const porDigito = R === X ? ctx.nuevosPorPv : nuevosPorPvDe(eje, R, ctx.nuevos, ctx.opciones);
+  const alCentro = [];
+  for (const [digito, entradas] of porDigito) {
+    const celda = r.forma === 'matriz' ? null : (r.celdas ?? []).find((c) => c.pv === digito);
+    if (celda) celda.capa.efectos = efectosDe(entradas);
+    else alCentro.push(...entradas);
+  }
+  const hayNuevos = [...porDigito.values()].some((l) => l.length > 0);
+  const pasos = R === X ? ctx.pasos : pasosPorPv(eje, R, ctx.opciones);
+  const personaje = personajeDe(ctx, eje, R, pv, lado, tamano, { enfocado: true, nuevos: hayNuevos, paso: pasos.porPv[pv] ?? null });
+  const quieto = personaje ? conRecurso(piezaDe(ctx, PIEZA.munequito, pv, modelos.CUALQUIERA, lado, tamano, { rol: personaje.rol })) : null;
+  r.capas = {
+    fondo: escenario.fondo ?? null,
+    etapa: conRecurso(etapa),
+    marco: escenario.marco ?? null,
+    personaje: personaje?.pieza?.recurso ? personaje : null,
+    respaldo: quieto && quieto.subclave === personaje.rol && !quieto.animado ? quieto : null,
+    efectos: efectosDe(alCentro),
+  };
+  return r;
 }
 
 /** ¿Cabe la rejilla de `pv` en un hueco, con celdas de al menos `medidas.hueco` píxeles? (en un bloque; si no, la división de 8.3). */
@@ -1189,6 +1274,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     cadena: animado ? modelos.modelo(eje, yo, opciones) : [],
     madurez: animado ? contrato.madurez(eje, X, opciones) : null,
     nuevosPorPv: animado ? nuevosPorPvDe(eje, X, nuevos, opciones) : new Map(),
+    nuevos,
     limite,
     // El paso de «cargar más»: el de la época (epoch.8.3.3) o, si quien mira lo ha escrito en sus preferencias, el suyo.
     paso: configuracion.de && typeof configuracion.step === 'number' && configuracion.step > 0 ? configuracion.step : contrato.paso(opciones),
