@@ -1,0 +1,16 @@
+[
+  ["where it comes from"],
+  ["X.6.5", "path"],
+  ["=(path it) where it2 != it"],
+  [6],
+  ["point of view"],
+  ["*"],
+  [
+    "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+    "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+    "En BQL: de dónde viene el nodo, su hilo hacia arriba (path, sin el nodo: los registros de los que cuelga hasta la raíz). El diario (contrato.diario, lo llegado a su subárbol) es el pasado del registro, el 6 en la profundidad 0, que ya leen las franjas del mundo 6; aplicado a un nodo, «de dónde viene» es su hilo"
+  ],
+  ["epoch 0"],
+  ["after where it fits"],
+  ["where it comes from: its thread upwards, the records it hangs from up to the root"]
+]

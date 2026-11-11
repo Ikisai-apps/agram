@@ -1052,12 +1052,45 @@ function paginaDe(ctx, eje, X, pv, cuantos) {
 }
 const esPvDelPasado = (pv) => GEOMETRIA[pv]?.grupo === 'cruz' && GEOMETRIA[pv]?.lado === 1;
 
-/** Los registros por los que se ha entrado en la rejilla de un PV: los que existen, sin pasar de su profundidad. */
+/**
+ * Los pasos por los que se ha bajado en la rejilla de un PV (estado.profundidad[pv]), sin pasar de su profundidad: el id
+ * de un registro en el que se entró (o { X, d }, con el dígito de la celda donde estaba) o { d }, un dígito por el que se
+ * bajó dentro del mismo registro (encargo «lecturas»: 1 → 1.1 → 1.1.1 → 1.1.1.1). Lo que no existe se salta.
+ */
 function rutaDe(estado, eje, pv, opciones) {
   const d = contrato.divisionDelMundo(eje, pv, opciones);
+  const tope = Math.max(0, (d?.profundidad ?? 1) - 1);
   const ruta = [];
-  for (const id of estado.profundidad?.[pv] ?? []) if (eje.obtener(id) && ruta.length < Math.max(0, (d?.profundidad ?? 1) - 1)) ruta.push(id);
+  for (const p of estado.profundidad?.[pv] ?? []) {
+    if (ruta.length >= tope) break;
+    const paso = typeof p === 'string' ? { X: p, d: null } : p && typeof p === 'object' ? { X: typeof p.X === 'string' ? p.X : null, d: Number.isInteger(p.d) ? p.d : null } : null;
+    if (paso && (paso.X ? eje.obtener(paso.X) : paso.d !== null)) ruta.push(paso);
+  }
   return ruta;
+}
+
+/**
+ * Dónde está la rejilla tras bajar por `ruta` (encargo «lecturas», issue #12): el registro que se divide (R: el último en
+ * que se entró, o X), los dígitos bajados dentro de él (`base`: sus hijos son R.<base>.<dígito>) y la dirección entera
+ * desde X (`direccion`: el mundo y el dígito de cada nivel, con la que se lee lo derivado), o null si un registro en que
+ * se entró no dice en qué celda estaba y no se encuentra entre lo anclado.
+ */
+function lugarDe(eje, X, pv, ruta, ctx) {
+  let R = X;
+  let base = [];
+  let direccion = [pv];
+  ruta.forEach((p, i) => {
+    if (!p.X) { base = [...base, p.d]; if (direccion) direccion = [...direccion, p.d]; return; }
+    let d = p.d;
+    if (d === null) {
+      const hijos = contrato.divisionDelMundo(eje, pv, { nivel: i + 1, ...ctx.opciones })?.hijos ?? [];
+      d = hijos.find((k) => contrato.ocupantes(eje, R, [...base, k], 0, Infinity, ctx.opciones).ocupantes.some((o) => o?.ref === p.X)) ?? null;
+    }
+    direccion = direccion && d !== null ? [...direccion, d] : null;
+    R = p.X;
+    base = [];
+  });
+  return { R, base, direccion };
 }
 
 /**
@@ -1124,8 +1157,8 @@ function accionPorDefecto(eje, R, pv, ctx) {
 const sobrioDe = (ctx) => (ctx.animado ? (ctx.comoSobrio ??= { ...ctx, animado: false, cadena: [] }) : ctx);
 
 /** Los ocupantes de una celda como nodos; cada uno que es un registro con algo dentro entra (mientras queden niveles). */
-function nodosDeCelda(eje, R, ocupantes, pv, digito, d, ctx, entrar) {
-  const tipoDato = contrato.tipo(eje, R, digito, ctx.opciones);
+function nodosDeCelda(eje, R, ocupantes, pv, digito, d, ctx, entrar, base = []) {
+  const tipoDato = contrato.tipo(eje, R, base.length ? [...base, digito] : digito, ctx.opciones);
   const sobrio = sobrioDe(ctx);
   return ocupantes.map((x) => {
     const n = nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), sobrio, tipoDato, { pv: digito, lado: GEOMETRIA[digito]?.lado ?? 0, posicion: digito, anidar: 0 });
@@ -1133,6 +1166,20 @@ function nodosDeCelda(eje, R, ocupantes, pv, digito, d, ctx, entrar) {
     if (n.X) n.estilo = estiloDe(eje, n.X, pv, ctx);
     return n;
   });
+}
+
+/**
+ * Lo derivado de una celda (contrato.hijosDe con la dirección: contrato.leerRuta), como nodos con su marca: `derivado` y
+ * `por`, la cadena de lecturas que lo justifica («1 cuánto › 3 con quién»), tal cual la da el núcleo. No se entra en ellos.
+ */
+function derivadosDeCelda(eje, h, ctx) {
+  const sobrio = sobrioDe(ctx);
+  return (h.derivados ?? []).map((x) => ({
+    ...nodoOcupante(eje, x.valor, tamanoDeNivel(2, ctx.opciones), sobrio, null, { pv: h.digito, lado: GEOMETRIA[h.digito]?.lado ?? 0, posicion: h.digito, anidar: 0 }),
+    derivado: true,
+    por: x.por.map((p) => p.pv + ' ' + (p.nombre ?? p.regla)).join(' › '),
+    entra: false,
+  }));
 }
 
 /** Los hijos del nivel siguiente de un registro (contrato.hijosDe al nivel + 1), solo su nombre y cuántos tiene; los vacíos, con su paso del camino. */
@@ -1193,13 +1240,17 @@ function medidaDeHijo(h, eje, ctx) {
  * celda lleva el dígito del hijo (`pv`) y, de él, el color. En la cruceta, además, la tarjeta central (`flotante`); en
  * las columnas, dentro de cada una, el nivel siguiente de cada ocupante que es un registro (`siguiente`).
  */
-function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
+function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar, base = [], direccion = null, raiz = R }) {
   const forma = FORMAS[d.forma];
-  const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, ...ctx.opciones }).map((h, i) => {
-    const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio);
+  const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, base, ...(direccion ? { direccion, raiz } : {}), ...ctx.opciones }).map((h, i) => {
+    const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio, base);
     // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
     if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
     const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h, eje, ctx) };
+    // Lo que deriva del libro (encargo «lecturas»), detrás de lo anclado: la misma forma, con su marca y su porqué.
+    if (h.derivados?.length) { celda.derivados = derivadosDeCelda(eje, h, ctx); celda.totalDerivados = h.totalDerivados; }
+    // Bajar por el dígito (encargo «lecturas»): la celda se divide a su vez, R.<base>.<dígito>, mientras queden niveles.
+    if (entrar && d.entra && !h.vacio) celda.bajar = h.digito;
     if (forma.siguiente) celda.siguiente = ocupantes.filter((o) => o.tipo === 'referencia' && o.X).map((o) => ({ X: o.X, texto: o.texto, hijos: hijosSiguientes(eje, o.X, pv, d.nivel + 1, ctx) }));
     return celda;
   });
@@ -1397,9 +1448,14 @@ function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1,
   const d = contrato.divisionDelMundo(eje, pv, { nivel: ruta.length + 1, ...ctx.opciones });
   const g = d ? geometriaDe(d) : null;
   if (!g || g.columnas * g.filas <= 0) return null;
-  const R = ruta.length ? ruta[ruta.length - 1] : X;
-  const base = { pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar, ruta, X: R, texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx) };
-  return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, hueco, entrar }) };
+  const pasos = ruta.map((p) => (typeof p === 'string' ? { X: p, d: null } : p));
+  const { R, base: sub, direccion } = lugarDe(eje, X, pv, pasos, ctx);
+  const base = {
+    pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar,
+    ruta: pasos.map((p) => p.X ?? p.d), X: R, base: sub, direccion: direccion ? direccion.join('.') : null,
+    texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx),
+  };
+  return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, hueco, entrar, base: sub, direccion, raiz: X }) };
 }
 
 /**

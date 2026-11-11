@@ -512,6 +512,36 @@ export const EPOCA_0_BTML_DATOS = [
     },
     {
       "ref": "6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1"
+    },
+    {
+      "ref": "182ed6516faf42095c41cc9810fe0864cc260b5c954f541372b37af7a103060b"
+    },
+    {
+      "ref": "85301ca57acb65990b393c4e30aaa36b0af3e3f1293abd1cdbecb1cba737f82e"
+    },
+    {
+      "ref": "9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"
+    },
+    {
+      "ref": "f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"
+    },
+    {
+      "ref": "2920884790a9d8dc0a8d785693f4c87a9140d37c3806bd64002f8f35ddc58f12"
+    },
+    {
+      "ref": "990567541aba234ab8ad2e758e78dd0b20832b613046f3fb3af51961fb16a1cf"
+    },
+    {
+      "ref": "e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81"
+    },
+    {
+      "ref": "0694a4835b81b0984129c71f34f9b128bc4d03f76e8c4d48c8fc977a38bab68c"
+    },
+    {
+      "ref": "aa72fd49227155025fc574ba7159e61c42228ad80d75e68dadcf8669d0ec67bf"
+    },
+    {
+      "ref": "b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2"
     }
   ],
   [
@@ -4399,6 +4429,16 @@ export const EPOCA_0_BTML_DATOS = [
           "receiving R gives ten P on the root of its issuer: quien recibe R de su emisor obtiene {first epoch.1.1.4.1} P por unidad sobre el alta de su emisor",
           "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
           "stage: lo que el registro anunció en su 4.1 y aún no ha pasado, por estación: E pagar, P decidir, R atender, T trabajar",
+          "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
+          "how much: lo que se mueve en el nodo y en lo que cuelga de él con alguien que no es su dueño",
+          "on what condition: los criterios sobre el nodo, lo anclado en su 2",
+          "with whom: las identidades con las que se mueve algo en el nodo, quienes tienen la R de su dueño y lo que se le escribe en su 3",
+          "what is done: el trabajo: lo que otro escribe en lo del dueño moviendo T, lo anunciado y pendiente, y a quién ha dado T el dueño",
+          "where it fits: el registro sobre el que está anclado el nodo",
+          "where it comes from: su hilo hacia arriba, los registros de los que cuelga hasta la raíz",
+          "by when: el T futuro declarado en lo que cuelga del nodo, con su fecha",
+          "against others: sus hermanos, lo anclado sobre el mismo registro",
+          "how: las acciones que su plantilla nombra como camino",
           "T is not locked: {first ev.3} bloquea o libera T; bloquear es de E, P y R",
           "T is whole: {first ev.3} mueve {first ((ev.1 where T in it.0.0.0 and it.1 != floor it.1) each 1)} de una escala de T; cada escala es un token",
           "T only goes to things: {first ev.3} da T a {(ev.1 where T in it.0.0.0 and transfer in it.4 and it.3.1 != first ev.3) each 3.1}: T no cruza a una persona, y una cosa solo lo da a una cosa del mismo dueño; dar tiempo a otro es acuñar E del tiempo propio",
@@ -6568,6 +6608,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "against-others.json",
+    "id": "aa72fd49227155025fc574ba7159e61c42228ad80d75e68dadcf8669d0ec67bf",
+    "registro": [
+      [
+        "against others"
+      ],
+      [
+        "X.6.5"
+      ],
+      [
+        "=(down up it) where it2 != it"
+      ],
+      [
+        8
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: frente a otros, sus hermanos (lo anclado sobre el mismo registro); la cuota y los hitos son medidas, no ocupantes (contrato.madurez, pasos)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after by when"
+      ],
+      [
+        "against others: its siblings, what is anchored on the same record"
+      ]
+    ]
+  },
+  {
     "archivo": "at-most-a-year-ahead.json",
     "id": "0cc86f944652a65b87a8f8b86376217d4e717b0bcadc7de0c8dc81ba88767163",
     "registro": [
@@ -6778,6 +6856,45 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "by-when.json",
+    "id": "0694a4835b81b0984129c71f34f9b128bc4d03f76e8c4d48c8fc977a38bab68c",
+    "registro": [
+      [
+        "by when"
+      ],
+      [
+        "X.7",
+        "epoch.1.3.1"
+      ],
+      [
+        "js futuro"
+      ],
+      [
+        7
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "Envuelta: el T futuro declarado en el subárbol del nodo (un movimiento de T de la escala «futuro» de epoch.1.3.1, con la fecha a la que se refiere); el BQL mínimo no lee la fecha a la que se refiere un movimiento informativo"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after where it comes from"
+      ],
+      [
+        "by when: the future T declared in what hangs from the node, with its date"
+      ]
+    ]
+  },
+  {
     "archivo": "e-is-minted-by-and-to-its-issuer.json",
     "id": "94ea53770c748e88010b07580c9e972969de47ddc3bfe26a5d7ad7dfaf6a1e9b",
     "registro": [
@@ -6982,6 +7099,84 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "getting E gives ten P on its record: who receives E from its issuer holds {first epoch.1.1.4.1} P per net unit received on the 1 of the record of its series"
+      ]
+    ]
+  },
+  {
+    "archivo": "how-much.json",
+    "id": "85301ca57acb65990b393c4e30aaa36b0af3e3f1293abd1cdbecb1cba737f82e",
+    "registro": [
+      [
+        "how much"
+      ],
+      [
+        "X.1",
+        "epoch.4.0"
+      ],
+      [
+        "js flujo"
+      ],
+      [
+        1
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "Envuelta: los registros de todo el subárbol del nodo (contrato.diario) que mueven tokens con alguien que no es el dueño del nodo (transferir, acuñar o quemar con otra parte, o quemar otro), con sus movimientos; no cuentan la asignación del día, el T informativo ni el P que dan las reglas al escribir o al recibir R, ni lo que el dueño se mueve a sí mismo (el T que quema al escribir). El BQL mínimo no baja por un subárbol entero (down da un nivel y no hay unión) y recorrerlo reventaría el presupuesto, como la madurez (X.8.6)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after what it is"
+      ],
+      [
+        "how much: what moves in the node and in what hangs from it with someone who is not its owner"
+      ]
+    ]
+  },
+  {
+    "archivo": "how.json",
+    "id": "b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2",
+    "registro": [
+      [
+        "how"
+      ],
+      [
+        "X.9",
+        "epoch.9.6"
+      ],
+      [
+        "js camino"
+      ],
+      [
+        9
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "Envuelta: el tutorial del camino (acciones.camino, su primera fuente): las plantillas de transacción que nombra el 9 de la plantilla del nodo o el suyo propio; el resto del camino construye transacciones candidatas (asíncrono) y no es una lectura"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after against others"
+      ],
+      [
+        "how: the actions its template names as its path"
       ]
     ]
   },
@@ -7500,6 +7695,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "obligation: how much R of this identity others hold, available or locked"
+      ]
+    ]
+  },
+  {
+    "archivo": "on-what-condition.json",
+    "id": "9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3",
+    "registro": [
+      [
+        "on what condition"
+      ],
+      [
+        "X.2"
+      ],
+      [
+        "=(down it) where last (first it2.6).5 = \"2000000000\" or last (first it2.6).5 = \"2100000000\" or last (first it2.6).5 = \"2200000000\" or last (first it2.6).5 = \"2300000000\" or last (first it2.6).5 = \"2400000000\" or last (first it2.6).5 = \"2500000000\" or last (first it2.6).5 = \"2600000000\" or last (first it2.6).5 = \"2700000000\" or last (first it2.6).5 = \"2800000000\" or last (first it2.6).5 = \"2900000000\""
+      ],
+      [
+        2
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: los criterios del nodo, lo anclado sobre él en su 2 o en una subposición 2.d (el criterio de cada uno sobre el elemento); sobre una identidad no hay (down no vale)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after how much"
+      ],
+      [
+        "on what condition: the criteria on the node, what is anchored in its 2"
       ]
     ]
   },
@@ -8035,6 +8268,165 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "what-is-done.json",
+    "id": "2920884790a9d8dc0a8d785693f4c87a9140d37c3806bd64002f8f35ddc58f12",
+    "registro": [
+      [
+        "what is done"
+      ],
+      [
+        "X.4",
+        "X.4.8",
+        "before.1"
+      ],
+      [
+        "=it where not it in before.3 and first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
+        "=(down it) where first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
+        "=it.4.8",
+        "=before.3 where it2 = it and it2 != me and count (before.1 where count (it3.1 where T in it4.0.0.0 and it4.3.0 = me and it4.3.1 = it2) > 0) > 0"
+      ],
+      [
+        4
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: el trabajo, que es T (admitir es darle R y T): de un registro, él mismo o lo anclado sobre él si lo escribe otro que el dueño (me) quemando o moviendo T; lo anunciado y pendiente (la lectura «stage», X.4.8); de una identidad, ella misma si el dueño le ha dado T (lo laboral)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after with whom"
+      ],
+      [
+        "what is done: the work, what someone else writes on the owner's things moving T, what is announced and pending, and whom the owner has given T"
+      ]
+    ]
+  },
+  {
+    "archivo": "what-it-is.json",
+    "id": "182ed6516faf42095c41cc9810fe0864cc260b5c954f541372b37af7a103060b",
+    "registro": [
+      [
+        "what it is"
+      ],
+      [
+        "X.0",
+        "epoch.9.5"
+      ],
+      [
+        "js representaciones"
+      ],
+      [
+        0
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "Envuelta: lo que el registro es, sus representaciones normalizadas por formato y tamaño mínimo (contrato.representaciones: los formatos de epoch.9.5.1 que admite su plantilla y los tamaños de epoch.9.5.2); el BQL mínimo no normaliza formatos ni tamaños"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after stage"
+      ],
+      [
+        "what it is: what the node is, its representations (its text or its resource)"
+      ]
+    ]
+  },
+  {
+    "archivo": "where-it-comes-from.json",
+    "id": "e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81",
+    "registro": [
+      [
+        "where it comes from"
+      ],
+      [
+        "X.6.5",
+        "path"
+      ],
+      [
+        "=(path it) where it2 != it"
+      ],
+      [
+        6
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: de dónde viene el nodo, su hilo hacia arriba (path, sin el nodo: los registros de los que cuelga hasta la raíz). El diario (contrato.diario, lo llegado a su subárbol) es el pasado del registro, el 6 en la profundidad 0, que ya leen las franjas del mundo 6; aplicado a un nodo, «de dónde viene» es su hilo"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after where it fits"
+      ],
+      [
+        "where it comes from: its thread upwards, the records it hangs from up to the root"
+      ]
+    ]
+  },
+  {
+    "archivo": "where-it-fits.json",
+    "id": "990567541aba234ab8ad2e758e78dd0b20832b613046f3fb3af51961fb16a1cf",
+    "registro": [
+      [
+        "where it fits"
+      ],
+      [
+        "X.6.5"
+      ],
+      [
+        "=up it"
+      ],
+      [
+        5
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: dónde encaja el nodo, el registro sobre el que está anclado (up); su plantilla y su validez no son ocupantes (las dan contrato.plantilla y contrato.validar)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after what is done"
+      ],
+      [
+        "where it fits: the record it is anchored on"
+      ]
+    ]
+  },
+  {
     "archivo": "who-has-a-key-signs.json",
     "id": "8d182143bb983cfa5b278368988eb9117e5048455405da48734a6306fb8c6111",
     "registro": [
@@ -8072,6 +8464,51 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "who has a key signs: {first ev.3} has a key and this transaction is not signed by them (signer: {nth 1 ev.3})"
+      ]
+    ]
+  },
+  {
+    "archivo": "with-whom.json",
+    "id": "f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb",
+    "registro": [
+      [
+        "with whom"
+      ],
+      [
+        "X.1",
+        "X.3",
+        "A.1",
+        "A.3",
+        "before.3"
+      ],
+      [
+        "=before.3 where not it in before.3 and it2 != me and (it2 in (it.1 each 3.0) or it2 in (it.1 each 3.1) or it2 = first it.3)",
+        "=before.3 where not it in before.3 and it = (first it.3).6 and it2 != me and count (it2.1 where R in it3.0.0.0 and it3.0.0.1 = first it.3) > 0",
+        "=before.3 where it in before.3 and it2 != it and (it2 in (it.3 each 3) or count (it2.1 where R in it3.0.0.0 and it3.0.0.1 = it) > 0)",
+        "=(down it) where last (first it2.6).5 = \"3000000000\" or last (first it2.6).5 = \"3100000000\" or last (first it2.6).5 = \"3200000000\" or last (first it2.6).5 = \"3300000000\" or last (first it2.6).5 = \"3400000000\" or last (first it2.6).5 = \"3500000000\" or last (first it2.6).5 = \"3600000000\" or last (first it2.6).5 = \"3700000000\" or last (first it2.6).5 = \"3800000000\" or last (first it2.6).5 = \"3900000000\""
+      ],
+      [
+        3
+      ],
+      [
+        "point of view"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+        "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+        "En BQL: de un registro, las identidades con las que mueve tokens y su autor, salvo el dueño (me); de un alta, quienes tienen R de su identidad (admitir es darle R); de una identidad, quienes están en sus grupos de atención (A.3) o tienen su R; y los comentarios: lo anclado sobre el nodo en su 3 o en una subposición 3.d"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after on what condition"
+      ],
+      [
+        "with whom: the identities something moves with in the node, who holds the R of its owner, and what is written to it in its 3"
       ]
     ]
   },
@@ -15930,7 +16367,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "113177cdc936d1e0fdb8be1d02e633d1b4c3fa5cf4039d8a6da7e3ad0852dd87";
+export const EPOCA_0_BTML_ID = "c207bc6334c0e3902fded3724b17871a98e4631a0f333d65f3f1d7ff509f1613";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

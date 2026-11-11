@@ -657,6 +657,14 @@ export const esLectura = (regla) => Array.isArray(regla) && Array.isArray(regla[
  */
 export const esEscritura = (regla) => Array.isArray(regla) && Array.isArray(regla[4]) && regla[4].includes('put');
 
+/**
+ * ¿Es la lectura de un punto de vista? (encargo «lecturas», issue #12, VG 11-11 noche): una regla de la época con
+ * «point of view» en su 4, «qué lee el PV d aplicado a un nodo», d su 3. No es una condición ni una lectura que el
+ * contexto materialice: la aplica el contrato (contrato.leer, contrato.leerRuta) con it = el nodo. Cada ocupante de su
+ * 2 es una fórmula «=…» o «js <nombre>», una lectura del núcleo en JavaScript que el contrato nombra (docs/CONTRATO.md §4.4).
+ */
+export const esLecturaDePv = (regla) => Array.isArray(regla) && Array.isArray(regla[4]) && regla[4].includes('point of view');
+
 /** Dónde se materializa una lectura: el último ocupante de su 3, como «X.6.1» (de un registro) o «A.8.1» (de una identidad). */
 export const posicionDeLectura = (regla) => (esLectura(regla) ? ultimo(regla[3]) : undefined);
 

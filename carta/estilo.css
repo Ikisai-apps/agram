@@ -446,6 +446,11 @@ html.mapped body{padding:0}
 .hijo-cuerpo{position:relative;flex:1;min-height:0;min-width:0;overflow:auto;padding:4px 8px}
 .hijo.vacia{border-bottom-width:1px}
 .hijo[data-vacio] .hijo-cabeza{border-bottom:0}
+/* Lo derivado del libro en una celda (encargo «lecturas»): una marca discreta, sin cambiar la forma; bajar por el dígito de la celda; la dirección en la cabecera */
+.hijo .derivado{opacity:.85;font-style:italic}
+.hijo .derivado>td,.hijo li.derivado{box-shadow:inset 2px 0 0 color-mix(in oklab,var(--c,var(--rule)) 45%,transparent)}
+.hijo>.bajar{position:absolute;right:4px;bottom:4px;padding:0 6px;font-size:12px;line-height:18px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 40%,transparent);border-radius:9px;background:var(--panel2);color:var(--muted);cursor:pointer}
+.direccion-rejilla{font-variant-numeric:tabular-nums;color:var(--muted);font-size:12px}
 .hijo[data-vacio] .hijo-nombre{font-weight:400;color:var(--muted)}
 .hijo[data-vacio] .hijo-cuerpo{display:flex;align-items:center;justify-content:center;text-align:center}
 .hijo-vacio{font-size:11px;font-style:italic;color:var(--muted)}

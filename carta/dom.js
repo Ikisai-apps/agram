@@ -282,9 +282,12 @@ const htmlEscribir = (e, antes = '') => `<span class="hijo-vacio">${escapar((ant
 
 /** Una fila de la tabla de una esquina de la cruceta: una décupla, una columna por hoja; lo demás, el ocupante en una celda. */
 function htmlFilaDeTabla(o) {
-  if (o.tipo === 'decupla') return `<tr${nodo('ocupante')}>${o.hojas.map((h) => `<td>${escapar(h)}</td>`).join('')}</tr>`;
-  return `<tr><td colspan="10">${htmlOcupanteDeCelda(o)}</td></tr>`;
+  if (o.tipo === 'decupla') return `<tr${nodo('ocupante')}${marcaDerivado(o)}>${o.hojas.map((h) => `<td>${escapar(h)}</td>`).join('')}</tr>`;
+  return `<tr${marcaDerivado(o)}><td colspan="10">${htmlOcupanteDeCelda(o)}</td></tr>`;
 }
+
+/** Lo derivado del libro en una celda (encargo «lecturas»): solo una clase y el porqué en el title, sin cambiar la forma. */
+const marcaDerivado = (o) => (o?.derivado ? ` class="derivado" title="${attr(t('derivadoPor', { por: o.por ?? '' }))}"` : '');
 
 /** Un mensaje de la conversación: el ocupante con su autor y su hora (como una entrada del diario, ocupante-entrada); si se puede entrar, baja un nivel. */
 function htmlMensaje(o) {
@@ -307,11 +310,11 @@ function htmlSiguiente(s) {
 
 /** Lo de dentro de un hijo con ocupantes, según la forma de su mundo: la tabla de la cruceta, la conversación, la lista (con el nivel siguiente en las columnas). */
 function cuerpoDeHijo(c, forma) {
-  const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+  const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
   if (!lista.length) return c.vacio ? htmlEscribir(c.escribir) : '';
   if (forma === 'cruceta') return `<table class="hijo-tabla"><tbody>${lista.map(htmlFilaDeTabla).join('')}</tbody></table>`;
-  if (forma === 'conversacion') return `<ol class="conversacion">${lista.map((o) => `<li>${htmlMensaje(o)}</li>`).join('')}</ol>`;
-  return `<ul class="hijo-lista">${lista.map((o) => `<li>${htmlOcupanteDeCelda(o)}</li>`).join('')}</ul>${forma === 'columnas' ? htmlSiguiente(c.siguiente) : ''}`;
+  if (forma === 'conversacion') return `<ol class="conversacion">${lista.map((o) => `<li${marcaDerivado(o)}>${htmlMensaje(o)}</li>`).join('')}</ol>`;
+  return `<ul class="hijo-lista">${lista.map((o) => `<li${marcaDerivado(o)}>${htmlOcupanteDeCelda(o)}</li>`).join('')}</ul>${forma === 'columnas' ? htmlSiguiente(c.siguiente) : ''}`;
 }
 
 /**
@@ -321,10 +324,10 @@ function cuerpoDeHijo(c, forma) {
  * cada peldaño su escalón (--peldano).
  */
 function htmlCeldaDeRejilla(c, forma) {
-  const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+  const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
-  const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total);
-  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}</div>`;
+  const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total + (c.totalDerivados ?? 0));
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
 }
 
 /** Una fracción entre 0 y 1 con tres decimales, para una variable de CSS (solo un número: nada del dato llega al estilo). */
@@ -531,7 +534,7 @@ function htmlBandaDeRejilla(b) {
  */
 function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}) {
   if (!r) return '';
-  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
+  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.direccion && r.nivel > 1 ? `<span class="direccion-rejilla">${escapar(r.direccion)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
   const sin = r.sinBanda?.length ? `<div class="rejilla-sin" title="${attr(t('sinBandaTitulo'))}">${r.sinBanda.map(htmlElementoDeBanda).join('')}</div>` : '';
   let cuerpo;
   if (r.forma === 'franjas' && r.bandas) cuerpo = htmlFranjas(r) + sin;
@@ -546,7 +549,7 @@ function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}
   const k = completa ? r.capas : null;
   const debajo = k ? capaPieza(k.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
   const encima = k ? htmlPersonajeCapa(k, r) + htmlEfectosCapa(k.efectos, 'capa-efectos-centro') + htmlMarcoCapa(k.marco) : '';
-  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}${apilada ? ' rejilla-apilada' : ''}${apilada && r.enColumna ? ' en-columna' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}${r.X ? ` data-hueco-x="${attr(r.X)}"${completa ? ` data-hueco-pv="${r.pv}"` : ''}` : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}${apilada ? ' rejilla-apilada' : ''}${apilada && r.enColumna ? ' en-columna' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}${r.X ? ` data-hueco-x="${attr(r.X)}"${completa ? ` data-hueco-pv="${r.pv}"` : ''}${r.base?.length ? ` data-hueco-en="${r.base.join('.')}"` : ''}` : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
