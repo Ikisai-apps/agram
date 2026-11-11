@@ -47,7 +47,7 @@ const RAIZ = '0000000000';
 const SEPARADOR = ' · ';
 /** Los tipos de dato de las plantillas que este módulo sabe leer y escribir (los de epoch.9.2.0.1 y los parámetros del aro); lo demás es texto. */
 const TIPO = Object.freeze({ numero: 'number', referencia: 'ref', identidad: 'identity', instante: 'instant', nivel: 'level' });
-/** Las claves de traducción (epoch.9.4): «template <nombre>», «template <nombre> param <etiqueta> label | help | placeholder», «template <nombre> message», «level <nombre>», «order <nombre>», «size <nombre>», «legible <qué>». */
+/** Las claves de traducción (epoch.9.4): «template <nombre>», «template <nombre> param <etiqueta> label | help | placeholder», «template <nombre> message», «level <nombre>», «order <nombre>», «size <nombre>», «legible <qué>», «reason <qué>». */
 const CLAVE = Object.freeze({
   plantilla: (nombre) => 'template ' + nombre,
   parametro: (nombre, etiqueta, que) => 'template ' + nombre + ' param ' + etiqueta + ' ' + que,
@@ -56,7 +56,10 @@ const CLAVE = Object.freeze({
   orden: (nombre) => 'order ' + nombre,
   tamano: (nombre) => 'size ' + nombre,
   legible: (que) => 'legible ' + que,
+  motivo: (que) => 'reason ' + que,
 });
+/** Los motivos con que una acción rechaza que no son de una regla de la época (src/acciones.js): su clave «reason <qué>» (epoch.9.4; el canónico, en el registro «en»; los huecos {…} los rellena `motivo`). */
+export const MOTIVOS = Object.freeze(['anchor not in ledger', 'anchor not a position', 'position without value', 'no series', 'unknown template', 'X not in ledger', 'who launches']);
 
 // ---------- la época y sus sitios ----------
 
@@ -1043,6 +1046,11 @@ function texto_(eje, clave, idioma = 'en', { original, ...opciones } = {}) {
 export { texto_ as texto };
 /** Las claves de traducción que usa este módulo (epoch.9.4), para quien compone una clave fuera: plantilla(nombre), parametro(nombre, etiqueta, que), mensaje(nombre), nivel, orden, tamano, legible. */
 export const claves = CLAVE;
+
+/** Un motivo de una acción en el idioma (clave «reason <qué>», uno de MOTIVOS) con sus huecos {…} rellenos con `partes`; sin idioma, el canónico (en). */
+export function motivo(que, partes = {}, { idioma = 'en', ...opciones } = {}) {
+  return plano_(texto_(null, CLAVE.motivo(que), idioma, { epoca: opciones.epoca }), partes);
+}
 
 /** Un formato con huecos planos «{parte}» relleno con sus partes; sin formato, las partes seguidas. */
 function plano_(formato, partes) {

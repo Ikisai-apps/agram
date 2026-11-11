@@ -4779,6 +4779,13 @@ export const EPOCA_0_BTML_DATOS = [
           "legible unknown identity: ninguna identidad conocida se llama {text}",
           "legible unknown record: ningún registro del libro se llama {text}",
           "legible does not satisfy: no cumple {formula}",
+          "reason anchor not in ledger: {name}: el registro sobre el que se ancla no está en el libro ({formula})",
+          "reason anchor not a position: {name}: el ancla no es una posición ({path})",
+          "reason position without value: {name}: la posición {position} del registro no tiene valor",
+          "reason no series: {name}: no hay serie para un movimiento de {amount}",
+          "reason unknown template: plantilla de transacción desconocida: {template}",
+          "reason X not in ledger: {name}: X no es un registro del libro",
+          "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
           "guide role: Eres la guía de AGRAM para quien mira la pantalla. Solo lees: nunca cambias nada y nunca dices que has hecho algo. Responde corto, en el idioma de la configuración que figura en el contexto. Explica lo que hay en pantalla, qué significa y qué viene después. Nunca inventes registros, ids, saldos, pasos ni acciones que no estén en el contexto; si el contexto no lo dice, dilo.",
           "guide summary: AGRAM es un libro compartido de eventos. Cada evento es una transición de tokens con un payload BTML encima; registrar es hacer una transacción, y nada se modifica en sitio: corregir es añadir.\nUn registro es una décupla: diez posiciones, de la 0 a la 9, cada una un punto de vista (PV) con su propio mundo. Qué significa cada dígito lo dice una regla corta de la época; la época es a su vez un registro y sus reglas son datos.\nPV0 representación (la lente): cómo se muestra el registro; puede engañar. PV1 recursos (el reino): cantidades, entradas, precios, disponibilidad. PV2 criterios (el jardín): lo que distingue cosas parecidas; votos, umbrales, preferencias. PV3 comunicación (el parque acuático): quién escribe a quién, grupos, atención.\nPV4 fábrica: preparar con recursos, criterios y mensajes, y ejecutar; aquí se hacen las cosas. PV5 estructura: el propio registro en foco, sus referencias y firmas, en el centro de la cruz. PV6 pasado (hilos): registros encadenados por referencia, procedencia. PV7 futuro (hilos): previsiones, compromisos, caducidades.\nPV8 comparabilidad (el cielo): medidas y madurez frente a registros comparables; las estrellas no son verdad. PV9 camino: los pasos desde donde estás hacia la acción; sugerir no es ejecutar.\nCuatro tokens. E, recursos: por emisor y denominación (dinero, bienes, plazas, cupos). P, poder o criterio: siempre posicionado en un registro, guarda quién lo dio y pesa solo en ese dominio. R, reputación: exige emisor y pasa de tenedor a tenedor; devolverla a su emisor es pedir atención. T, tiempo: siete escalas reales (del segundo al año); cada persona tiene su asignación diaria y escribir la gasta.\nMadurez: todo registro tiene un nivel del 1 al 10 (semilla, brote, retoño, tallo, rama, hoja, yema, flor, fruto, décupla) según cuántas posiciones tiene escritas, su profundidad y lo que mueve; más allá de diez, por órdenes de magnitud (lista, tienda, manzana, distrito, reino). El render animado enseña etapas (sello, intermedio, ilustrado).\nEl aro: alrededor de un registro, las acciones que el núcleo ofrece a quien mira, punto de vista a punto de vista; la primera de cada uno es la acción por defecto. Cada acción es una plantilla de transacción que se comprueba contra las reglas de la época antes de escribirse.\nEl camino: lo que falta y lo que espera. Un paso es mío (puedo lanzarlo) o de espera de otro; viene de un tutorial, de las reglas o de una sugerencia. Seguir el camino lanza mis pasos en orden.\nCuentas: tu cuenta es tu propio eje, cuyo primer registro es tu alta (tu identidad), con una clave generada en el dispositivo que solo sale cifrada, en la copia de seguridad. Con un servidor, un nombre de eje compartido y su clave de lectura, el eje se comparte entre dispositivos; cada dispositivo comprueba las reglas por su cuenta. Los ejemplos llevan datos inventados y no tienen cuenta.\nLos tamaños: el hueco (el más pequeño), la tarjeta, la pantalla. En el móvil los puntos de vista se apilan en franjas (Sequenced); en una pantalla ancha forman un mapa de nueve celdas (Mapped).",
           "guide rules: Texto plano, sin títulos ni tablas en markdown; párrafos cortos o hasta cinco líneas. Nombra las posiciones por número y nombre (por ejemplo PV2 criterios) y los ids por sus ocho primeros caracteres. Si te piden actuar, di que esta guía solo explica y señala el aro o el camino, donde se ofrece la acción. Si el contexto dice que se ha recortado, avisa de que puede estar incompleto. Si no lo sabes, dilo.",
@@ -4851,7 +4858,14 @@ export const EPOCA_0_BTML_DATOS = [
           "legible not an instant: not a date (YYYY-MM-DD or YYYY-MM-DDTHH:MM): {text}",
           "legible unknown identity: no known identity is called {text}",
           "legible unknown record: no record of the ledger is called {text}",
-          "legible does not satisfy: does not satisfy {formula}"
+          "legible does not satisfy: does not satisfy {formula}",
+          "reason anchor not in ledger: {name}: the record it anchors on is not in the ledger ({formula})",
+          "reason anchor not a position: {name}: the anchor is not a position ({path})",
+          "reason position without value: {name}: position {position} of the record has no value",
+          "reason no series: {name}: no series for a movement of {amount}",
+          "reason unknown template: unknown transaction template: {template}",
+          "reason X not in ledger: {name}: X is not a record of the ledger",
+          "reason who launches: {name}: who launches it (yo) is an identity"
         ]
       ]
     ],
@@ -14885,7 +14899,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "78f5a3c02397c78d36a796ee74fba6494fafcdd516c96f6c23121d02c1e050f3";
+export const EPOCA_0_BTML_ID = "ddde08dccd604bc0202fa11b2922868206e99d55bc47fa1f503945f27b08a5f3";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

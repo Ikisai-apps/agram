@@ -74,6 +74,9 @@ export function clavesPedidas(opciones = {}) {
   for (const t of contrato.tamanos({ epoca })) pide(K.tamano(t.nombre), 'tamaño', 'epoch.9.5', t.nombre);
   for (const q of LEGIBLE) pide(K.legible(q), 'formato legible', 'legible', q);
 
+  // Los motivos con que una acción rechaza antes de llegar al libro (src/acciones.js): «reason <qué>».
+  for (const q of contrato.MOTIVOS) pide(K.motivo(q), 'motivo (acción)', 'src/acciones.js', q);
+
   // Los motivos: el mensaje de cada regla de la época (su 9, canónico en inglés), con el nombre de la regla por clave (contrato.mensaje).
   for (const { regla } of epoca.reglasConId ?? []) {
     const nombre = nombreDeRegla(regla);
