@@ -9,6 +9,9 @@ import { readFileSync } from 'node:fs';
 import { arbol, formulario, preferencias, ampliar, ampliarTodos, escalaDeTamanos, repartir, LATERALES, CENTROS, GEOMETRIA, NIVEL } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
+import * as A from '../src/acciones.js';
+import * as modelos from '../src/modelos.js';
+import { instalar } from '../carta/gestos.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
@@ -368,4 +371,109 @@ test('el segundo nivel a pantalla completa (las formas sobrias de cada mundo): s
   assert.equal(movil.apilada, true);
   assert.equal(movil.centro.rejilla ?? null, null);
   assert.doesNotMatch(html(movil), /rejilla-completa/);
+});
+
+// ---------- el aro: ocho sitios en 3 × 3 alrededor del elemento (VG, mockup v3) ----------
+
+test('el aro trae ocho sitios con su pv y su celda de la matriz 3 × 3 (sin centro), la acción por defecto de cada mundo y, si se despliega, las alternativas; un sitio sin acciones va apagado', async () => {
+  const { eje, compra, menu } = await ejemploCompra();
+  const a = await arbol({ foco: { X: menu.id, pv: 0 }, aro: { X: menu.id, pv: null } }, eje, 'huesped', GRANDE);
+  assert.deepEqual(a.aro.huecos.map((h) => h.pv), LATERALES);
+  assert.equal(a.aro.huecos.length, 8);
+  // la matriz 3 × 3 sin el centro: ocho celdas distintas, las de GEOMETRIA
+  const celdas = a.aro.huecos.map((h) => h.celda.join(','));
+  assert.equal(new Set(celdas).size, 8);
+  assert.ok(!celdas.includes('1,1'), 'el centro es el propio elemento');
+  assert.deepEqual(a.aro.huecos.map((h) => [h.pv, h.celda]), LATERALES.map((pv) => [pv, GEOMETRIA[pv].celda]));
+  assert.deepEqual([1, 8, 2, 6, 7, 3, 9, 4].map((pv) => GEOMETRIA[pv].celda.join('')), ['00', '01', '02', '10', '12', '20', '21', '22'], 'arriba izquierda, arriba, arriba derecha, izquierda, derecha, abajo izquierda, abajo, abajo derecha');
+  // la acción por defecto sale de acciones.acciones (las plantillas de la época), no de la carta; las demás son las alternativas
+  for (const h of a.aro.huecos) {
+    const lista = A.acciones(eje, menu.id, h.pv, 'huesped');
+    const porDefecto = lista.find((x) => x.porDefecto) ?? lista[0] ?? null;
+    assert.equal(h.accion?.id ?? null, porDefecto?.id ?? null, 'la acción por defecto del sitio ' + h.pv);
+    assert.deepEqual(h.otras.map((o) => o.id), lista.filter((x) => x !== porDefecto).map((x) => x.id));
+  }
+  // el DOM: cada sitio lleva su pv (el color --pv-N) y su fila y columna; el árbol no trae píxeles
+  const h = html(a);
+  for (const g of a.aro.huecos) assert.match(h, new RegExp(`<li class="hueco hueco-${g.pv}[^"]*"[^>]* data-pv="${g.pv}" data-fila="${g.celda[0]}" data-columna="${g.celda[1]}"`));
+  assert.doesNotMatch(JSON.stringify(a.aro), /"(left|top|style|ancla|x|y|ancho|alto)"/, 'el árbol del aro no sabe de píxeles');
+  assert.doesNotMatch(h, /<ul class="otras"/, 'sin desplegar, no hay alternativas');
+  // volver a pulsar un sitio (estado.aro.pv) despliega las alternativas de ese mundo, y solo las de ese
+  const d = await arbol({ foco: { X: menu.id, pv: 0 }, aro: { X: menu.id, pv: 6 } }, eje, 'huesped', GRANDE);
+  const seis = d.aro.huecos.find((g) => g.pv === 6);
+  assert.equal(seis.abierto, true);
+  assert.ok(seis.otras.length >= 1);
+  assert.equal(d.aro.huecos.filter((g) => g.abierto).length, 1);
+  const hd = html(d);
+  assert.equal((hd.match(/<ul class="otras"/g) ?? []).length, 1);
+  for (const o of seis.otras) assert.match(hd, new RegExp(`<ul class="otras">[^]*data-lanzar="${o.id}"`));
+  // un sitio sin acciones se pinta apagado y sin botón (en la compra, el 3 no ofrece nada a la huésped)
+  const c = await arbol({ foco: { X: compra.id, pv: 0 }, aro: { X: compra.id, pv: null } }, eje, 'huesped', GRANDE);
+  const tres = c.aro.huecos.find((g) => g.pv === 3);
+  assert.equal(tres.accion, null);
+  assert.match(html(c), /<li class="hueco hueco-3[^"]* apagado"/);
+  assert.match(html(c), /<span class="accion vacia"/);
+  assert.doesNotMatch(html(c).match(/<li class="hueco hueco-3[^]*?<\/li>/)[0], /data-lanzar/);
+});
+
+test('la cadena de la época empieza por ikisai y el modelo por defecto la devuelve en ese orden (el interruptor «animado» enseña el arte sin tocar Configuración)', async () => {
+  const { eje } = await ejemploCompra();
+  assert.deepEqual(modelos.cabecera().cadena, ['ikisai', 'animado-generico', 'sobrio']);
+  assert.deepEqual(modelos.modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio']);
+  assert.equal(C.configuracion(eje, 'huesped').render, 'sober', 'lo que se pinta lo manda render; el modelo solo ordena la cadena');
+});
+
+/** Una raíz de mentira para gestos.js: guarda los oyentes y deja disparar eventos con un objetivo hecho a mano. */
+function gestosDeMentira({ ventana = { innerWidth: 1920, innerHeight: 1080 }, aroAbierto = false } = {}) {
+  const oyentes = [];
+  const documento = { defaultView: ventana, addEventListener: (t, f) => oyentes.push([t, f]), removeEventListener() {} };
+  const raiz = { ownerDocument: documento, addEventListener: (t, f) => oyentes.push([t, f]), removeEventListener() {}, querySelector: (sel) => (sel === '.aro' && aroAbierto ? {} : null) };
+  const llamadas = [];
+  const m = new Proxy({}, { get: (_, nombre) => (...args) => { llamadas.push([nombre, ...args]); } });
+  instalar(raiz, m);
+  const disparar = (tipo, evento) => { for (const [t, f] of oyentes) if (t === tipo) f(evento); };
+  return { disparar, llamadas };
+}
+
+/** Un objetivo de mentira: `closest` responde por un trozo del selector pedido. */
+const objetivo = (respuestas) => ({ closest: (sel) => { for (const [trozo, v] of Object.entries(respuestas)) if (sel.includes(trozo)) return v; return null; } });
+
+test('gestos: el clic derecho sobre un elemento abre el aro con la caja del elemento (getBoundingClientRect) como ancla; si es enorme, una caja en el puntero', () => {
+  const caja = (left, top, width, height) => ({ dataset: { x: 'X1' }, getBoundingClientRect: () => ({ left, top, width, height }) });
+  const g = gestosDeMentira();
+  let prevenido = 0;
+  g.disparar('contextmenu', { target: objetivo({ '.ocupante': caja(300, 200, 180, 40), '[data-x]': caja(300, 200, 180, 40) }), clientX: 320, clientY: 210, preventDefault: () => { prevenido++; } });
+  assert.equal(prevenido, 1);
+  assert.deepEqual(g.llamadas[0], ['aro', 'X1', null, { ancla: { x: 300, y: 200, ancho: 180, alto: 40 } }]);
+  const g2 = gestosDeMentira();
+  g2.disparar('contextmenu', { target: objetivo({ '.ocupante': caja(0, 0, 1900, 1000), '[data-x]': caja(0, 0, 1900, 1000) }), clientX: 500, clientY: 400, preventDefault() {} });
+  assert.deepEqual(g2.llamadas[0], ['aro', 'X1', null, { ancla: { x: 440, y: 382, ancho: 120, alto: 36 } }], 'un elemento que ocupa media ventana no sirve de ancla');
+});
+
+test('gestos: clic derecho sobre un sitio del aro despliega sus alternativas; con el aro abierto, las teclas 1-4 y 6-9 son del aro y Esc cierra', () => {
+  const g = gestosDeMentira({ aroAbierto: true });
+  const sitio = { dataset: { pv: '7' }, closest: () => ({ dataset: { x: 'X1' } }) };
+  g.disparar('contextmenu', { target: objetivo({ '.aro .hueco': sitio }), preventDefault() {} });
+  assert.deepEqual(g.llamadas[0], ['aro', 'X1', 7, { desplegar: true }]);
+  const tecla = (key) => g.disparar('keydown', { key, target: objetivo({}), preventDefault() {}, ctrlKey: false, metaKey: false, altKey: false });
+  tecla('4');
+  tecla('0');
+  tecla('Escape');
+  assert.deepEqual(g.llamadas.slice(1), [['aroTecla', 4], ['aroTecla', 0], ['cerrar']]);
+  // sin aro abierto, las teclas siguen saltando de mundo
+  const h = gestosDeMentira();
+  h.disparar('keydown', { key: '4', target: objetivo({}), preventDefault() {}, ctrlKey: false, metaKey: false, altKey: false });
+  assert.deepEqual(h.llamadas, [['saltar', 4]]);
+});
+
+test('la app ancla el aro al elemento en Mapped con position:fixed (en app.js, no en el árbol), recortado a la ventana; el móvil apilado lo deja centrado', () => {
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /function situarAro\(\)/);
+  assert.match(app, /if \(!aro \|\| !ancla \|\| !enMapped\(\)\) return;/, 'solo en Mapped y con ancla: el apilado queda centrado');
+  assert.match(app, /aro\.style\.left = dentro\(/);
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  assert.match(css, /\.aro\.anclado\{position:fixed/);
+  assert.match(css, /\.hueco\[data-fila="2"\] \.otras\{top:auto;bottom/, 'las alternativas de la fila de abajo crecen hacia arriba');
+  const carta = readFileSync(new URL('../carta/carta.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(carta.slice(carta.indexOf('function nodoAro'), carta.indexOf('/** El idioma de quien mira')), /getBoundingClientRect|innerWidth|style/);
 });

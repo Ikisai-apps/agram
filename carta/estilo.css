@@ -231,25 +231,40 @@ small{color:var(--muted)}
 .roseton.nivel-2 .dato{font-weight:600}
 .roseton ul{margin:0;padding-left:14px;font-size:12px}
 
-/* el aro */
-.aro-fondo,.formulario-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
-.aro{position:relative;width:min(92vw,520px);aspect-ratio:1/1;max-height:92vh;border-radius:50%;background:var(--bg);border:1px solid var(--rule);box-shadow:0 10px 40px rgba(0,0,0,.3);display:grid;place-items:center}
-.aro ul{list-style:none;margin:0;padding:0;position:absolute;inset:0}
-.aro-centro{position:absolute;inset:50% auto auto 50%;transform:translate(-50%,-50%);width:38%;text-align:center;font-size:13px;display:grid;gap:4px;place-items:center;overflow-wrap:anywhere;margin:0}
-.hueco{position:absolute;width:30%;display:grid;gap:2px;justify-items:center;text-align:center;font-size:11px;color:var(--muted)}
-.hueco .etiqueta{font-size:11px}
-.hueco .accion{font-size:12px;padding:4px 8px;min-height:36px;display:grid;gap:2px;justify-items:center;max-width:100%;overflow:hidden}
-.hueco .accion span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.hueco .accion.por-defecto{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-.hueco .accion small{color:inherit;opacity:.8;font-size:10px}
-.hueco .accion.vacia{opacity:.5}
-.hueco .mas{font-size:11px;min-height:24px;padding:0 8px}
-.hueco .otras{position:static;list-style:none;margin:2px 0 0;padding:0;display:grid;gap:2px;background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:4px;z-index:2;width:120%}
-.hueco .otras button{font-size:12px;width:100%}
-.hueco .pieza{width:24px;height:24px}
-.hueco-1{left:7%;top:7%} .hueco-2{right:7%;top:7%} .hueco-3{left:7%;bottom:7%} .hueco-4{right:7%;bottom:7%}
-.hueco-6{left:0;top:50%;transform:translateY(-50%)} .hueco-7{right:0;top:50%;transform:translateY(-50%)}
-.hueco-8{left:50%;top:0;transform:translateX(-50%)} .hueco-9{left:50%;bottom:0;transform:translateX(-50%)}
+/* el aro: ocho sitios en la matriz 3 × 3 (sin centro) alrededor del elemento. Por defecto, centrado en la pantalla (móvil apilado); en Mapped,
+   la app lo ancla al elemento con position:fixed (left, top y las medidas del centro, en línea: carta/app.js, situarAro) */
+.aro-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.aro-fondo.anclado{display:block;padding:0}
+.formulario-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.aro{--sitio-ancho:148px;--sitio-alto:36px;--hueco:6px;--centro-ancho:120px;--centro-alto:64px;position:relative;display:grid;gap:var(--hueco);grid-template-columns:var(--sitio-ancho) var(--centro-ancho) var(--sitio-ancho);grid-template-rows:var(--sitio-alto) var(--centro-alto) var(--sitio-alto);max-width:100%}
+.aro.anclado{position:fixed;margin:0}
+.aro:not(.anclado){--sitio-ancho:min(112px,29vw);--centro-ancho:min(112px,29vw)} /* centrado (móvil apilado): los tres cuartos de la anchura de la ventana */
+.aro ul{display:contents;list-style:none;margin:0;padding:0}
+.aro-centro{grid-area:2 / 2;position:relative;z-index:0;margin:0;padding:4px;display:grid;gap:4px;place-items:center;text-align:center;font-size:13px;overflow:hidden;overflow-wrap:anywhere;border-radius:10px;background:var(--bg);border:1px solid var(--rule);box-shadow:0 6px 24px rgba(0,0,0,.25)}
+.aro.anclado .aro-centro{background:transparent;box-shadow:none;border:2px dashed var(--accent);pointer-events:none}
+.aro.anclado .aro-centro>*{display:none}
+.hueco{position:relative;min-width:0;z-index:1}
+.hueco.desplegado{z-index:3}
+.hueco[data-fila="1"]{align-self:center;height:var(--sitio-alto)} /* 6 y 7: a la altura de su chip, en el medio del elemento */
+.hueco[data-columna="1"]{justify-self:center;width:min(100%,176px)} /* 8 y 9: centrados sobre y bajo el elemento */
+.hueco[data-fila="0"]{grid-row:1} .hueco[data-fila="1"]{grid-row:2} .hueco[data-fila="2"]{grid-row:3}
+.hueco[data-columna="0"]{grid-column:1} .hueco[data-columna="1"]{grid-column:2} .hueco[data-columna="2"]{grid-column:3}
+.hueco .sitio{display:flex;align-items:stretch;height:100%;box-sizing:border-box;border:2px solid var(--c,var(--rule));border-radius:999px;background:var(--panel);color:var(--fg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+@supports (color:color-mix(in oklab,red,blue)){.hueco .sitio{background:color-mix(in oklab,var(--c,var(--panel)) 42%,var(--bg))}}
+.hueco .accion{flex:1;min-width:0;display:flex;align-items:center;gap:5px;border:0;border-radius:0;background:transparent;color:inherit;font-size:12px;line-height:1.1;padding:0 8px 0 4px;min-height:0;text-align:left}
+.hueco .accion .nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.hueco .accion small{color:inherit;opacity:.75;font-size:10px}
+.hueco .numero{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--c,var(--rule));color:var(--bg);font-size:11px;font-weight:700}
+.hueco .pieza{flex:none;width:18px;height:18px}
+.hueco .accion.por-defecto:hover,.hueco .accion.por-defecto:focus-visible{background:color-mix(in oklab,var(--c,var(--accent)) 30%,transparent)}
+.aro:not(.anclado) .hueco .pieza{display:none} .aro:not(.anclado) .hueco .mas{padding:0 5px}
+.hueco.apagado .sitio{opacity:.45;background:var(--panel);border-style:dashed}
+.hueco .mas{flex:none;border:0;border-left:1px solid var(--c,var(--rule));border-radius:0;background:transparent;color:inherit;font-size:11px;min-height:0;min-width:0;padding:0 7px}
+.hueco .otras{position:absolute;top:calc(100% + 4px);left:0;min-width:100%;width:max-content;max-width:60vw;margin:0;padding:4px;display:grid;gap:2px;background:var(--bg);border:2px solid var(--c,var(--rule));border-radius:10px;box-shadow:0 6px 24px rgba(0,0,0,.3)}
+.hueco[data-fila="2"] .otras{top:auto;bottom:calc(100% + 4px)}
+.hueco[data-columna="2"] .otras{left:auto;right:0}
+.hueco .otras-titulo{font-size:10px;color:var(--muted);padding:0 4px 2px}
+.hueco .otras button{font-size:12px;width:100%;text-align:left;min-height:30px}
 .cerrar{min-width:32px;border-radius:50%;padding:0}
 
 /* los formularios */

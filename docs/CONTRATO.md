@@ -468,6 +468,8 @@ Lo nuevo es lo que la app marca en `estado.nuevos` (las transacciones del diario
 
 Encargo 3c-2a (VG, tras 3b-bis). La mitad de acción del contrato, `src/acciones.js` (exportado como el espacio de nombres `acciones`). Principio (VG): nada hardcodeado en la pantalla ni negocio en JavaScript que pueda ser una regla o un dato de la época; **la carta solo lista y lanza lo que el núcleo le da**. Pruebas: `test/acciones.test.js`; la carta de texto (`test/carta-texto.mjs`, `pintarPara`) pinta el aro y el camino para quien mira.
 
+**La carta pinta el aro como ocho sitios en la matriz 3 × 3 sin centro alrededor del elemento pulsado** (mockup v3): cada sitio es el de su PV (`celda` = `GEOMETRIA[pv].celda`, data-fila y data-columna en el DOM), en el color de su PV, con la acción por defecto de `acciones.acciones(eje, X, pv, yo)` y, al volver a pulsar el sitio («+N» o clic derecho), las alternativas como una columna pegada al chip; un sitio sin acciones va apagado. Con el aro abierto, las teclas 1-4 y 6-9 lanzan la acción por defecto de ese sitio y Esc lo cierra. El árbol (`nodoAro`) no sabe de píxeles: en Mapped la app (`carta/app.js`, `situarAro`) lo ancla al elemento con un `position: fixed` calculado de su `getBoundingClientRect()` al abrirlo (que `carta/gestos.js` pasa como ancla) y recortado a la ventana; en el móvil apilado sigue centrado.
+
 ```js
 import { acciones } from './src/index.js';
 const { acciones: aro, transaccion, camino, autoejecutar, estaciones, plantillasDeTransaccion, parametros } = acciones;

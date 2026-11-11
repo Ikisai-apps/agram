@@ -488,7 +488,11 @@ function accionDe(nombreCanonico, opciones) {
   return { id: p?.id ?? nombreCanonico, nombre: contrato.texto(null, contrato.claves.plantilla(nombreCanonico), opciones.idioma, { original: nombreCanonico, epoca: opciones.epoca }) };
 }
 
-/** El aro sobre X: ocho huecos, uno por PV lateral, con la acción por defecto y las demás (acciones.acciones). Cada acción, por su id y su nombre en el idioma. */
+/**
+ * El aro sobre X: ocho sitios, uno por PV lateral, dispuestos como la matriz 3 × 3 sin centro (`celda`: [fila, columna] de
+ * GEOMETRIA; el centro es el propio elemento), con la acción por defecto y las demás (acciones.acciones). Cada acción, por su id
+ * y su nombre en el idioma. El árbol no sabe de píxeles: dónde cae el aro en la pantalla lo calcula la app al abrirlo.
+ */
 function nodoAro(eje, X, yo, ctx) {
   const abierto = ctx.estado.aro?.pv ?? null;
   const huecos = LATERALES.map((pv) => {
@@ -497,6 +501,7 @@ function nodoAro(eje, X, yo, ctx) {
     const resumen = (a) => ({ id: a.id, nombre: a.etiqueta, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.etiqueta) });
     return {
       pv,
+      celda: [...GEOMETRIA[pv].celda],
       lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null,
       etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
       accion: porDefecto ? resumen(porDefecto) : null,

@@ -556,16 +556,22 @@ function htmlRosetones(lista, { apilada = false, parte } = {}) {
   return mias.length ? nav(mias, `rosetones-${parte}`) : '';
 }
 
-/** El aro: ocho huecos alrededor, uno por PV lateral, con la acción por defecto (lanzada por el id de su plantilla); un segundo toque despliega las demás. */
+/**
+ * El aro: ocho sitios alrededor del elemento, en la matriz 3 × 3 sin centro (data-fila y data-columna de cada sitio; el CSS los
+ * pone en su celda), cada uno en el color de su PV (data-pv) con la acción por defecto (lanzada por el id de su plantilla); «+N» o
+ * el clic derecho despliegan las demás como una columna pegada al chip. El centro es el propio elemento. Dónde cae en la pantalla
+ * lo decide la app (carta/app.js), no el árbol.
+ */
 function htmlAro(aro) {
   if (!aro) return '';
   const huecos = aro.huecos.map((h) => {
-    const defecto = h.accion ? `<button type="button" class="accion por-defecto"${nodo('accion')} data-lanzar="${attr(h.accion.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(h.accion.nombre)}">${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span>${escapar(h.accion.nombre)}</span>${h.accion.faltan.length ? `<small>[${escapar(h.accion.faltan.join(', '))}]</small>` : ''}</button>` : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t('nadaQueHacer'))}">—</span>`;
+    const nombre = h.accion ? `${escapar(h.accion.nombre)}${h.accion.faltan.length ? ` <small>[${escapar(h.accion.faltan.join(', '))}]</small>` : ''}` : '';
+    const defecto = h.accion ? `<button type="button" class="accion por-defecto"${nodo('accion')} data-lanzar="${attr(h.accion.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(h.accion.nombre)}"><span class="numero">${h.pv}</span>${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span class="nombre">${nombre}</span></button>` : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t('nadaQueHacer'))}"><span class="numero">${h.pv}</span><span class="nombre">—</span></span>`;
     const otras = h.otras.length ? `<button type="button" class="mas" data-aro-hueco="${h.pv}" aria-expanded="${h.abierto}" title="${attr(t('lasDemasAcciones', { que: h.etiqueta }))}">+${h.otras.length}</button>` : '';
-    const lista = h.abierto && h.otras.length ? `<ul class="otras">${h.otras.map((a) => `<li><button type="button"${nodo('accion')} data-lanzar="${attr(a.id)}" data-x="${aro.X}">${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}</ul>` : '';
-    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}"${nodo('hueco')} data-pv="${h.pv}"><span class="numero">${h.pv}</span><span class="etiqueta">${escapar(h.etiqueta)}</span>${defecto}${otras}${lista}</li>`;
+    const lista = h.abierto && h.otras.length ? `<ul class="otras"><li class="otras-titulo">${escapar(t('lasDemasAcciones', { que: h.etiqueta }))}</li>${h.otras.map((a) => `<li><button type="button"${nodo('accion')} data-lanzar="${attr(a.id)}" data-x="${aro.X}">${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}</ul>` : '';
+    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}${h.accion ? '' : ' apagado'}${h.abierto ? ' desplegado' : ''}"${nodo('hueco')} data-pv="${h.pv}" data-fila="${h.celda[0]}" data-columna="${h.celda[1]}"><span class="sitio">${defecto}${otras}</span>${lista}</li>`;
   }).join('');
-  return `<div class="aro-fondo" data-cerrar><div class="aro"${nodo('aro')} role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><p class="aro-centro"><b>${escapar(aro.texto)}</b><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></p><ul>${huecos}</ul></div></div>`;
+  return `<div class="aro-fondo" data-cerrar><div class="aro"${nodo('aro')} data-x="${aro.X}" role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><ul>${huecos}</ul><p class="aro-centro"><b>${escapar(aro.texto)}</b><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></p></div></div>`;
 }
 
 /** Un valor en crudo como texto de input (una lista o una décupla, en JSON). */

@@ -261,6 +261,45 @@ function guiaAjustesDe() {
   return a ? { ...a, claveIa: guia.claveIa(almacenLocal(), altaDeGuia()) ?? '' } : undefined;
 }
 
+/**
+ * Ancla el aro abierto al elemento pulsado (VG: «el aro se abre sobre el elemento»). Solo en Mapped y si hay ancla (la caja del elemento
+ * al abrirlo, de gestos.js): un position:fixed calculado aquí con las medidas del propio CSS (--sitio-ancho, --sitio-alto, --hueco), con el
+ * centro del tamaño del elemento (no menos que el mínimo del CSS), y recortado para que no se salga de la ventana. En el móvil apilado
+ * no hay sitio: sigue centrado (CSS). Nada de esto está en el árbol ni en los datos.
+ */
+function situarAro() {
+  const fondo = raiz.querySelector('.aro-fondo');
+  const aro = fondo?.querySelector('.aro');
+  const ancla = estado.aro?.ancla;
+  if (!aro || !ancla || !enMapped()) return;
+  const estilo = getComputedStyle(aro);
+  const px = (v) => parseFloat(estilo.getPropertyValue(v)) || 0;
+  const sitioAncho = px('--sitio-ancho');
+  const sitioAlto = px('--sitio-alto');
+  const hueco = px('--hueco');
+  const vw = document.documentElement.clientWidth || globalThis.innerWidth || 0;
+  const vh = globalThis.innerHeight || 0;
+  const MARGEN = 8;
+  // el centro es el elemento, recortado a lo que deja libre la ventana tras los sitios de los lados (y no menos que el mínimo del CSS)
+  const caja = (desde, largo, total, sitio, minimo) => {
+    const ini = Math.max(desde, MARGEN + sitio + hueco);
+    const fin = Math.min(desde + largo, total - MARGEN - sitio - hueco);
+    const tam = Math.max(fin - ini, minimo);
+    return [Math.round(fin - ini >= minimo ? ini : (ini + fin) / 2 - tam / 2), Math.round(tam)];
+  };
+  const [centroX, centroAncho] = caja(ancla.x, ancla.ancho, vw, sitioAncho, px('--centro-ancho'));
+  const [centroY, centroAlto] = caja(ancla.y, ancla.alto, vh, sitioAlto, px('--centro-alto'));
+  const ancho = centroAncho + 2 * sitioAncho + 2 * hueco;
+  const alto = centroAlto + 2 * sitioAlto + 2 * hueco;
+  const dentro = (v, tam, total) => Math.round(Math.min(Math.max(v, MARGEN), Math.max(MARGEN, total - tam - MARGEN)));
+  fondo.classList.add('anclado');
+  aro.classList.add('anclado');
+  aro.style.setProperty('--centro-ancho', centroAncho + 'px');
+  aro.style.setProperty('--centro-alto', centroAlto + 'px');
+  aro.style.left = dentro(centroX - sitioAncho - hueco, ancho, vw) + 'px';
+  aro.style.top = dentro(centroY - sitioAlto - hueco, alto, vh) + 'px';
+}
+
 async function pintar() {
   if (pintando) { pintando.otra = true; return pintando.promesa; }
   const marca = { otra: false };
@@ -282,6 +321,7 @@ async function pintar() {
     ultimo = a;
     document.documentElement.classList.toggle('mapped', enMapped());
     raiz.innerHTML = html(a, extra);
+    situarAro();
     lineaPintada = htmlSincronia(extra.sincronia);
     limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
     // Lo nuevo se anima una vez: en cuanto se ha pintado con lottie-web, deja de ser nuevo (si lottie aún no está, el
@@ -546,13 +586,19 @@ const manejadores = {
     const input = raiz.querySelector(`[data-centro] [data-campo="${pv}"]`);
     if (input) { input.focus(); input.select?.(); }
   },
-  aro(X, pv, { desplegar } = {}) {
+  aro(X, pv, { desplegar, ancla } = {}) {
     if (!X) return;
-    estado.aro = { X, pv: desplegar ? (estado.aro?.pv === pv ? null : pv) : null };
+    // `ancla`: la caja del elemento pulsado en la ventana (de gestos.js, al abrir); al desplegar un sitio se conserva la de antes. Es estado de pantalla, no del árbol.
+    estado.aro = { X, pv: desplegar ? (estado.aro?.pv === pv ? null : pv) : null, ancla: ancla ?? (desplegar && estado.aro?.X === X ? estado.aro.ancla : null) };
     estado.formulario = null;
     limpiarMensajes();
     tocar(X, 'aro' + (pv !== null && pv !== undefined ? ' ' + pv : ''));
     pintar();
+  },
+  /** Las teclas 1-4 y 6-9 con el aro abierto: lanzar la acción por defecto de ese sitio (si no tiene, nada). */
+  aroTecla(pv) {
+    const hueco = ultimo?.aro?.huecos?.find((h) => h.pv === pv);
+    if (estado.aro && hueco?.accion) manejadores.lanzar(estado.aro.X, hueco.accion.id);
   },
   lanzar(X, accion, paso) {
     const sobre = X ?? estado.aro?.X ?? estado.foco.X;

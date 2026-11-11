@@ -16,7 +16,9 @@ const UMBRAL_ASA = 1 / 8;
  *   nivel(pv, delta, X)      un paso de tamaño en un PV lateral (toque, Enter, rueda con Ctrl, pellizco)
  *   foco(X, pv)              entrar en un registro (o en un PV como foco)
  *   voltear()                dar la vuelta al centro (0 ↔ 5)
- *   aro(X, pv | null)        abrir el aro sobre X (y desplegar el hueco pv); null cierra
+ *   aro(X, pv | null, { desplegar, ancla })  abrir el aro sobre X (y desplegar el sitio pv); `ancla` es la caja del elemento pulsado
+ *                            en la ventana ({ x, y, ancho, alto }, getBoundingClientRect al abrirlo): la app lo ancla ahí en Mapped
+ *   aroTecla(pv)             con el aro abierto, las teclas 1-4 y 6-9 lanzan la acción por defecto de ese sitio
  *   lanzar(X, accion, paso)  abrir el formulario de una acción (o del paso del camino)
  *   cerrar()                 cerrar el aro, el formulario o la configuración
  *   enviar(form)             enviar el formulario de una acción
@@ -51,6 +53,19 @@ export function instalar(raiz, m) {
   const documento = raiz.ownerDocument ?? raiz;
   const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante):not(.rejilla-celda):not(.hijo)'); // un ocupante anidado o un hijo de la rejilla también llevan data-pv (su color), pero no son un PV
   const xDe = (el) => el?.closest?.('[data-x]')?.dataset.x ?? null;
+  /**
+   * La caja (en coordenadas de la ventana, al abrir el aro) del elemento pulsado: el ocupante, el hijo de la rejilla, la tarjeta central o,
+   * si no, lo marcado con data-x. Si ocupa más de la mitad de la ventana no sirve de ancla (sería un aro gigante): una caja pequeña en el puntero.
+   */
+  const anclaDe = (objetivo, x, y) => {
+    const ventana = documento.defaultView;
+    const caja = objetivo?.closest?.('.ocupante, .centro-flotante, .hijo, [data-x]');
+    const r = caja?.getBoundingClientRect?.();
+    const vw = ventana?.innerWidth ?? 0;
+    const vh = ventana?.innerHeight ?? 0;
+    if (r && r.width > 0 && r.height > 0 && r.width <= vw / 2 && r.height <= vh / 2) return { x: r.left, y: r.top, ancho: r.width, alto: r.height };
+    return Number.isFinite(x) && Number.isFinite(y) ? { x: x - 60, y: y - 18, ancho: 120, alto: 36 } : null;
+  };
 
   // ---- toques y clics ----
   let ultimoToque = { t: 0, el: null };
@@ -127,18 +142,22 @@ export function instalar(raiz, m) {
     const el = e.target.closest('[data-x]');
     if (!el || e.target.closest('input, textarea, select, .aro, .formulario, .guia')) return;
     cancelarMantener();
-    mantener = { timer: setTimeout(() => { mantener = null; m.aro?.(el.dataset.x, null); }, MANTENER_MS), x: e.clientX, y: e.clientY };
+    const objetivo = e.target;
+    mantener = { timer: setTimeout(() => { mantener = null; m.aro?.(el.dataset.x, null, { ancla: anclaDe(objetivo, e.clientX, e.clientY) }); }, MANTENER_MS), x: e.clientX, y: e.clientY };
   };
   const cancelarMantener = () => {
     if (mantener) clearTimeout(mantener.timer);
     mantener = null;
   };
   on('contextmenu', (e) => {
+    // clic derecho sobre un sitio del aro: despliega las alternativas de ese mundo (como volver a pulsarlo)
+    const sitio = e.target.closest('.aro .hueco');
+    if (sitio) { e.preventDefault(); cancelarMantener(); m.aro?.(sitio.closest('.aro')?.dataset.x, Number(sitio.dataset.pv), { desplegar: true }); return; }
     const el = e.target.closest('[data-x]');
     if (!el || e.target.closest('input, textarea, pre')) return;
     e.preventDefault();
     cancelarMantener();
-    m.aro?.(el.dataset.x, null);
+    m.aro?.(el.dataset.x, null, { ancla: anclaDe(e.target, e.clientX, e.clientY) });
   });
 
   // ---- punteros: deslizar, arrastrar en vertical sobre el centro, pellizco ----
@@ -222,6 +241,8 @@ export function instalar(raiz, m) {
       return;
     }
     if (e.key === 'Escape') { m.cerrar?.(); return; }
+    // con el aro abierto, gana él: 1-4 y 6-9 lanzan la acción por defecto de ese sitio; 0 y 5 no hacen nada (no hay sitio)
+    if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey && raiz.querySelector('.aro')) { e.preventDefault(); m.aroTecla?.(Number(e.key)); return; }
     if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) { e.preventDefault(); m.saltar?.(Number(e.key)); return; }
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); m.hermano?.(e.key === 'ArrowRight' ? +1 : -1, null); return; }
     if (e.key === 'Enter') {
