@@ -520,9 +520,22 @@ function accionDe(nombreCanonico, opciones) {
 }
 
 /**
+ * Un valor de una opción (contrato.opciones) como lo escribe Pointed (escritura.item): una referencia, «@id» o «@id:dirección»;
+ * lo demás, su texto. Lo que se manda al campo (app.js campo) al elegirla.
+ */
+const textoPointed = (v) => (esReferencia(v) ? '@' + v.ref + (v.dir && v.dir !== '0000000000' ? ':' + v.dir : '') : typeof v === 'string' && /^[0-9a-f]{64}$/.test(v) ? '@' + v : String(v));
+/** Las opciones de la posición pv de X (contrato.opciones) como las pinta la carta: { valor (lo que se escribe), texto }. */
+const opcionesDe = (eje, X, pv, ctx) => contrato.opciones(eje, X, pv, { yo: ctx.yo, ...ctx.opciones }).map((o) => ({ valor: textoPointed(o.valor), texto: o.texto }));
+
+/**
  * El aro sobre X: ocho sitios, uno por PV lateral, dispuestos como la matriz 3 × 3 sin centro (`celda`: [fila, columna] de
- * GEOMETRIA; el centro es el propio elemento), con la acción por defecto y las demás (acciones.acciones). Cada acción, por su id
- * y su nombre en el idioma. El árbol no sabe de píxeles: dónde cae el aro en la pantalla lo calcula la app al abrirlo.
+ * GEOMETRIA; el centro es el propio elemento). Cada sitio trae su acción por defecto (`accionPorDefecto`: la primera de
+ * acciones.acciones, lo que hace un clic), las demás (`alternativas`) y los valores posibles de su posición (`opciones`:
+ * contrato.opciones, para escribirlos): lo que despliega el clic mantenido. `accion` y `otras` son los mismos que
+ * `accionPorDefecto` y `alternativas`. El centro es el campo del elemento (su 0): `valor` (lo que dice ahora), `opciones0`
+ * (lo que se despliega debajo al editarlo) y `opciones5` (las del 5, su reverso, encima); `editando`, si está en edición
+ * (estado.aro.editar). Cada acción, por su id y su nombre en el idioma. El árbol no sabe de píxeles: dónde cae el aro en la
+ * pantalla lo calcula la app al abrirlo.
  */
 function nodoAro(eje, X, yo, ctx) {
   const abierto = ctx.estado.aro?.pv ?? null;
@@ -530,29 +543,68 @@ function nodoAro(eje, X, yo, ctx) {
     const lista = acciones.acciones(eje, X, pv, yo, ctx.opciones);
     const porDefecto = lista.find((a) => a.porDefecto) ?? lista[0] ?? null;
     const resumen = (a) => ({ id: a.id, nombre: a.etiqueta, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.etiqueta) });
+    const accion = porDefecto ? resumen(porDefecto) : null;
+    const otras = lista.filter((a) => a !== porDefecto).map(resumen);
+    const opciones = opcionesDe(eje, X, pv, ctx);
     return {
       pv,
       celda: [...GEOMETRIA[pv].celda],
       lado: ctx.variantes[GEOMETRIA[pv].lado] ?? null,
       etiqueta: contrato.etiqueta(eje, X, pv, ctx.opciones),
-      accion: porDefecto ? resumen(porDefecto) : null,
-      otras: lista.filter((a) => a !== porDefecto).map(resumen),
-      abierto: abierto === pv,
+      accion,
+      otras,
+      accionPorDefecto: accion,
+      alternativas: otras,
+      opciones,
+      abierto: abierto === pv && (otras.length > 0 || opciones.length > 0),
       icono: piezaDe(ctx, PIEZA.icono, CENTROS[1] ?? 5, pv, GEOMETRIA[pv].lado, tamanoDeNivel(1, ctx.opciones)),
     };
   });
-  return { X, texto: representacionQueCabe(eje, X, tamanoDeNivel(1, ctx.opciones), ctx)?.texto ?? corto(X), huecos };
+  const [anverso, reverso] = CENTROS;
+  const texto = representacionQueCabe(eje, X, tamanoDeNivel(1, ctx.opciones), ctx)?.texto ?? corto(X);
+  const centro = {
+    pv: anverso,
+    etiqueta: contrato.etiqueta(eje, X, anverso, ctx.opciones),
+    valor: texto,
+    opciones0: opcionesDe(eje, X, anverso, ctx),
+    opciones5: reverso === undefined ? [] : opcionesDe(eje, X, reverso, ctx),
+    pv5: reverso ?? null,
+    editando: Boolean(ctx.estado.aro?.editar),
+  };
+  return { X, texto, huecos, centro };
 }
 
 /** El idioma de quien mira: el que se pide o el de su configuración (la preferencia «language»). */
 const idiomaDe = (eje, yo, opciones) => opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language;
 
 /**
+ * Dónde anclará en X el registro que escribe una acción (su 5: el dígito o camino de X), como dirección; null si el camino
+ * lleva huecos {parámetro} o el registro donde ancla es otro (una fórmula): entonces no se sabe aún quiénes son sus hermanos.
+ */
+function anclaDeAccion(plantilla) {
+  const [ruta, otro] = hojas(plantilla?.[5]);
+  if (otro !== undefined || typeof ruta !== 'string' || !/^\d(\.\d)*$/.test(ruta)) return null;
+  return direccion(ruta.split('.').map(Number));
+}
+
+/**
+ * Las opciones de un parámetro de una acción sobre X (contrato.opciones con `parametro`), como las pinta el formulario:
+ * { valor (lo que va en el input: el id de un registro o de una identidad, el texto), texto }. Una referencia a una
+ * posición de un registro no se escribe en el input de un tipo simple: no sale.
+ */
+function opcionesDeParametro(eje, X, p, en, yo, o) {
+  return contrato.opciones(eje, X, null, { ...o, yo, parametro: { ...p, ...(en ? { en } : {}) } })
+    .filter((x) => !(esReferencia(x.valor) && x.valor.dir && x.valor.dir !== '0000000000'))
+    .map((x) => ({ valor: esReferencia(x.valor) ? x.valor.ref : String(x.valor), texto: x.texto }));
+}
+
+/**
  * Los campos del formulario de una acción del aro (por su id o su nombre canónico) sobre X para `yo`: cada parámetro
  * con su nombre canónico, su etiqueta y su ayuda en el idioma de yo, tipo, si es requerido, su validación, su valor
  * (el dado, o el defecto que resuelve el núcleo), ese valor legible (contrato.legible) y si su tipo es simple (se
  * edita en texto, contrato.desdeLegible) o se edita en BTML.
- * → { X, accion (el id), nombre, pv, campos: [{ nombre, etiqueta, tipo, requerido, ayuda, validacion, posicion, valor, legible, simple, falta }], lectura, camino } o null.
+ * `opciones` de cada campo: los valores posibles del parámetro (opcionesDeParametro), el desplegable con «otro…» del formulario.
+ * → { X, accion (el id), nombre, pv, campos: [{ nombre, etiqueta, tipo, requerido, ayuda, validacion, posicion, valor, legible, simple, falta, opciones }], lectura, camino } o null.
  */
 export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
   const plantilla = acciones.plantillaDeTransaccion(accion, opciones);
@@ -562,6 +614,7 @@ export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
   const canonico = acciones.nombreDeAccion(plantilla);
   const ofrecida = acciones.acciones(eje, X, pv, yo, o).find((a) => a.nombre === canonico);
   const defectos = new Map((ofrecida?.parametros ?? []).map((p) => [p.nombre, p.valor]));
+  const en = anclaDeAccion(plantilla);
   const campos = acciones.parametros(plantilla, o).map((p) => {
     const valor = valores[p.nombre] !== undefined ? valores[p.nombre] : defectos.get(p.nombre);
     return {
@@ -570,6 +623,7 @@ export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
       legible: valor === undefined ? '' : legibleDe(eje, valor, p.tipo, o).texto,
       simple: contrato.esTipoSimple(p.tipo, o),
       falta: p.requerido && valor === undefined,
+      opciones: opcionesDeParametro(eje, X, p, en, yo, o),
     };
   });
   const { id, nombre } = accionDe(canonico, o);

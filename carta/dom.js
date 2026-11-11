@@ -644,22 +644,39 @@ function htmlRosetones(lista, { apilada = false, parte } = {}) {
   return mias.length ? nav(mias, `rosetones-${parte}`) : '';
 }
 
+/** Una lista de valores posibles (contrato.opciones) para escribir en la posición pv de X: cada uno, un botón (data-opcion, data-valor). */
+const htmlOpciones = (lista, pv, X, clase = 'opciones') => (lista?.length ? `<ul class="${clase}" data-opciones="${pv}">${lista.map((o) => `<li><button type="button" class="opcion"${nodo('opcion')} data-opcion="${pv}" data-valor="${attr(o.valor)}" data-x="${attr(X)}" title="${attr(o.texto)}">${escapar(o.texto)}</button></li>`).join('')}</ul>` : '');
+
 /**
  * El aro: ocho sitios alrededor del elemento, en la matriz 3 × 3 sin centro (data-fila y data-columna de cada sitio; el CSS los
- * pone en su celda), cada uno en el color de su PV (data-pv) con la acción por defecto (lanzada por el id de su plantilla); «+N» o
- * el clic derecho despliegan las demás como una columna pegada al chip. El centro es el propio elemento. Dónde cae en la pantalla
- * lo decide la app (carta/app.js), no el árbol.
+ * pone en su celda), cada uno en el color de su PV (data-pv) con su acción por defecto (lanzada por el id de su plantilla: un clic).
+ * El clic mantenido (o el derecho) sobre un sitio despliega su lista, pegada al chip: las demás acciones y los valores posibles de
+ * su posición para escribirlos. Un sitio sin acciones ni valores va apagado y sin lista. El centro es el propio elemento (su 0):
+ * un clic entra en él y el clic mantenido lo edita: el input con su valor, la lista del 0 debajo y la del 5 (su reverso) encima.
+ * Sin botones extra: Esc o un clic fuera cierra. Dónde cae en la pantalla lo decide la app (carta/app.js), no el árbol.
  */
 function htmlAro(aro) {
   if (!aro) return '';
   const huecos = aro.huecos.map((h) => {
-    const nombre = h.accion ? `${escapar(h.accion.nombre)}${h.accion.faltan.length ? ` <small>[${escapar(h.accion.faltan.join(', '))}]</small>` : ''}` : '';
-    const defecto = h.accion ? `<button type="button" class="accion por-defecto"${nodo('accion')} data-lanzar="${attr(h.accion.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(h.accion.nombre)}"><span class="numero">${h.pv}</span>${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span class="nombre">${nombre}</span></button>` : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t('nadaQueHacer'))}"><span class="numero">${h.pv}</span><span class="nombre">—</span></span>`;
-    const otras = h.otras.length ? `<button type="button" class="mas" data-aro-hueco="${h.pv}" aria-expanded="${h.abierto}" title="${attr(t('lasDemasAcciones', { que: h.etiqueta }))}">+${h.otras.length}</button>` : '';
-    const lista = h.abierto && h.otras.length ? `<ul class="otras"><li class="otras-titulo">${escapar(t('lasDemasAcciones', { que: h.etiqueta }))}</li>${h.otras.map((a) => `<li><button type="button"${nodo('accion')} data-lanzar="${attr(a.id)}" data-x="${aro.X}">${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}</ul>` : '';
-    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}${h.accion ? '' : ' apagado'}${h.abierto ? ' desplegado' : ''}"${nodo('hueco')} data-pv="${h.pv}" data-fila="${h.celda[0]}" data-columna="${h.celda[1]}"><span class="sitio">${defecto}${otras}</span>${lista}</li>`;
+    const a = h.accionPorDefecto ?? h.accion;
+    const alternativas = h.alternativas ?? h.otras ?? [];
+    const opciones = h.opciones ?? [];
+    const conLista = alternativas.length > 0 || opciones.length > 0;
+    const nombre = a ? `${escapar(a.nombre)}${a.faltan.length ? ` <small>[${escapar(a.faltan.join(', '))}]</small>` : ''}` : '';
+    const cuantas = conLista ? ` <small class="cuantas" aria-hidden="true">${alternativas.length + opciones.length}</small>` : '';
+    const defecto = a
+      ? `<button type="button" class="accion por-defecto"${nodo('accion')} data-lanzar="${attr(a.id)}" data-x="${aro.X}" title="${attr(h.etiqueta)}: ${attr(a.nombre)}"><span class="numero">${h.pv}</span>${h.icono?.recurso ? htmlPieza(h.icono, { alt: h.etiqueta }) : ''}<span class="nombre">${nombre}</span>${cuantas}</button>`
+      : `<span class="accion vacia" title="${attr(h.etiqueta)}: ${attr(t(conLista ? 'aroMantenerLista' : 'nadaQueHacer'))}"><span class="numero">${h.pv}</span><span class="nombre">${conLista ? escapar(h.etiqueta) : '—'}</span>${cuantas}</span>`;
+    const lista = h.abierto && conLista
+      ? `<ul class="otras"><li class="otras-titulo">${escapar(h.etiqueta)}</li>${alternativas.map((x) => `<li><button type="button"${nodo('accion')} data-lanzar="${attr(x.id)}" data-x="${aro.X}">${escapar(x.nombre)}${x.faltan.length ? ` <small>[${escapar(x.faltan.join(', '))}]</small>` : ''}</button></li>`).join('')}${opciones.length ? `<li class="otras-titulo otras-valores">${escapar(t('aroEscribir'))}</li>${opciones.map((o) => `<li><button type="button" class="opcion"${nodo('opcion')} data-opcion="${h.pv}" data-valor="${attr(o.valor)}" data-x="${aro.X}" title="${attr(o.texto)}">${escapar(o.texto)}</button></li>`).join('')}` : ''}</ul>`
+      : '';
+    return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}${a || conLista ? '' : ' apagado'}${h.abierto ? ' desplegado' : ''}"${nodo('hueco')} data-pv="${h.pv}" data-fila="${h.celda[0]}" data-columna="${h.celda[1]}"${conLista ? ' data-con-lista' : ''}><span class="sitio">${defecto}</span>${lista}</li>`;
   }).join('');
-  return `<div class="aro-fondo" data-cerrar><div class="aro"${nodo('aro')} data-x="${aro.X}" role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><ul>${huecos}</ul><p class="aro-centro"><b>${escapar(aro.texto)}</b><button type="button" class="cerrar" data-cerrar aria-label="${attr(t('cerrar'))}">×</button></p></div></div>`;
+  const c = aro.centro;
+  const edicion = c?.editando
+    ? `<div class="aro-edicion">${htmlOpciones(c.opciones5, c.pv5, aro.X, 'opciones opciones-arriba')}<input class="campo-input" data-campo="${c.pv}" data-x="${aro.X}" value="${attr(c.valor ?? '')}" aria-label="${attr(c.etiqueta ?? '')}" autocomplete="off">${htmlOpciones(c.opciones0, c.pv, aro.X, 'opciones opciones-abajo')}</div>`
+    : '';
+  return `<div class="aro-fondo" data-cerrar><div class="aro${c?.editando ? ' editando' : ''}"${nodo('aro')} data-x="${aro.X}" role="dialog" aria-label="${attr(t('aroDe', { que: aro.texto }))}"><ul>${huecos}</ul><div class="aro-centro" data-aro-centro data-x="${aro.X}" title="${attr(t('aroCentroTitulo'))}"><b>${escapar(aro.texto)}</b>${edicion}</div></div></div>`;
 }
 
 /** Un valor en crudo como texto de input (una lista o una décupla, en JSON). */
@@ -675,7 +692,9 @@ function valorDeInput(c) {
 /**
  * El formulario generado desde la plantilla de transacción: cada parámetro con su etiqueta, ayuda, tipo y validación.
  * El input enseña el valor legible (el crudo va en data-crudo, y en un desplegable «ver en BTML»); al enviar, la app lee
- * lo escrito con contrato.desdeLegible en los tipos simples (data-simple) y, si no se tocó, manda el crudo.
+ * lo escrito con contrato.desdeLegible en los tipos simples (data-simple) y, si no se tocó, manda el crudo. Un parámetro con
+ * valores posibles (sus `opciones`, de contrato.opciones) lleva delante un <select> con ellos y «otro…»: elegir uno lo pone
+ * en el input (oculto); «otro…» lo destapa para escribir (gestos.js, data-otro-de).
  */
 function htmlFormulario(f) {
   if (!f) return '';
@@ -685,8 +704,18 @@ function htmlFormulario(f) {
     const valor = valorDeInput(c);
     const crudo = c.valor === null || c.valor === undefined ? '' : JSON.stringify(c.valor);
     const btml = crudo ? `<details class="btml"><summary>${t('verEnBtml')}</summary><code>${escapar(crudo)}</code></details>` : '';
+    // Con valores posibles (contrato.opciones), un desplegable; «otro…» destapa el input (que es el que se envía).
+    const opciones = c.opciones ?? [];
+    const crudoTexto = c.valor === null || c.valor === undefined || typeof c.valor === 'object' ? null : String(c.valor);
+    const elegida = opciones.find((o) => o.valor === crudoTexto || o.valor === valor) ?? null;
+    const otro = !elegida && valor !== '';
+    // Sin valor, una opción en blanco (elegida); lo requerido lo pide el desplegable (el input, oculto, no se puede enfocar).
+    const select = opciones.length
+      ? `<select class="param-opciones" data-otro-de="${id}" aria-label="${attr(c.etiqueta)}"${c.requerido ? ' required' : ''}>${elegida || otro ? '' : '<option value="" selected></option>'}${opciones.map((o) => `<option value="${attr(o.valor)}"${o === elegida ? ' selected' : ''}>${escapar(o.texto)}</option>`).join('')}<option value="${attr(t('otro'))}" data-otro${otro ? ' selected' : ''}>${escapar(t('otro'))}</option></select>`
+      : '';
+    const valorDelInput = valor; // el legible, como siempre (el crudo en data-crudo); elegir otra opción pone su valor
     return `<div class="campo ${c.falta ? 'falta' : ''}"><label for="${id}">${escapar(c.etiqueta)}${c.requerido ? ` <abbr title="${attr(t('requerido'))}">*</abbr>` : ''} <small class="tipo">${escapar(c.tipo)}</small></label>
-      <input id="${id}" name="${attr(c.nombre)}" type="${tipoInput}" ${tipoInput === 'number' ? 'step="any"' : ''} value="${attr(valor)}" ${c.requerido ? 'required' : ''} data-tipo="${attr(c.tipo)}" data-etiqueta="${attr(c.etiqueta)}" data-simple="${c.simple ? 1 : 0}" data-crudo="${attr(crudo)}" data-legible="${attr(valor)}" data-validacion="${attr(c.validacion ?? '')}" title="${attr(c.ayuda)}" autocomplete="off">
+      ${select}<input id="${id}" name="${attr(c.nombre)}" type="${tipoInput}" ${tipoInput === 'number' ? 'step="any"' : ''} value="${attr(valorDelInput)}" ${c.requerido && !opciones.length ? 'required' : ''} data-tipo="${attr(c.tipo)}" data-etiqueta="${attr(c.etiqueta)}" data-simple="${c.simple ? 1 : 0}" data-crudo="${attr(crudo)}" data-legible="${attr(valorDelInput)}" data-validacion="${attr(c.validacion ?? '')}" title="${attr(c.ayuda)}" autocomplete="off"${opciones.length && !otro ? ' hidden' : ''}>
       <small class="ayuda">${escapar(c.ayuda)}${c.validacion ? ` <code>${escapar(c.validacion)}</code>` : ''}</small>${btml}</div>`;
   };
   // A la vista, solo lo obligatorio; lo opcional, tras «más».

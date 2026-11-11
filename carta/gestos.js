@@ -4,8 +4,18 @@
 // flechas ← → y teclas 0-9 (saltar al PV), rueda con Ctrl, Enter y Esc, clic en «cargar más». Hover solo en ordenador
 // (CSS). Interactuar en pantalla o por el aro es lo mismo: aquí solo se traducen los eventos del navegador a las
 // llamadas de la app; nada se decide.
+//
+// Un clic y un clic mantenido (VG, 11-11, issues #5, #6, #9), con un solo gestor por delegación para todo lo pulsable:
+// un clic entra en profundidad (lo de siempre: una celda, un registro, un PV, una fila); mantener (≈ medio segundo, o el
+// clic derecho en el ordenador) sobre cualquier cosa con un registro detrás (data-x) abre el aro alrededor, anclado al
+// punto pulsado si la cosa es grande. Dentro del aro, lo mismo: un clic en un sitio lanza su acción por defecto y
+// mantenerlo despliega su lista (las demás acciones y los valores que se pueden escribir); un clic en el centro entra en
+// el elemento y mantenerlo lo edita. Mantener sobre un campo del anverso abre el aro con la lista de ese campo. El clic
+// que llega al soltar tras mantener no cuenta.
 
-const MANTENER_MS = 450;
+const MANTENER_MS = 500;
+/** Tras un clic mantenido (o el clic derecho, o el mantener del móvil que el navegador también da como menú), lo que llega en este rato no cuenta. */
+const TRAS_MANTENER_MS = 700;
 const UMBRAL_DESLIZAR = 40;
 const UMBRAL_PELLIZCO = 30;
 /** Arrastrar desde la esquina de un PV (Mapped): cada tanto de esta fracción del lado menor de la escena es un paso. */
@@ -19,6 +29,9 @@ const UMBRAL_ASA = 1 / 8;
  *   aro(X, pv | null, { desplegar, ancla })  abrir el aro sobre X (y desplegar el sitio pv); `ancla` es la caja del elemento pulsado
  *                            en la ventana ({ x, y, ancho, alto }, getBoundingClientRect al abrirlo): la app lo ancla ahí en Mapped
  *   aroTecla(pv)             con el aro abierto, las teclas 1-4 y 6-9 lanzan la acción por defecto de ese sitio
+ *   aroEntrar(X)             un clic en el centro del aro: cerrarlo y entrar en el elemento
+ *   editarAro()              mantener el centro del aro: editarlo (el input con la lista del 0 debajo y la del 5 encima)
+ *   opcion(X, pv, valor)     un valor de una lista del aro: escribirlo en la posición pv de X (como campo)
  *   lanzar(X, accion, paso)  abrir el formulario de una acción (o del paso del camino)
  *   cerrar()                 cerrar el aro, el formulario o la configuración
  *   enviar(form)             enviar el formulario de una acción
@@ -57,17 +70,42 @@ export function instalar(raiz, m) {
   const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante):not(.rejilla-celda):not(.hijo)'); // un ocupante anidado o un hijo de la rejilla también llevan data-pv (su color), pero no son un PV
   const xDe = (el) => el?.closest?.('[data-x]')?.dataset.x ?? null;
   /**
-   * La caja (en coordenadas de la ventana, al abrir el aro) del elemento pulsado: el ocupante, el hijo de la rejilla, la tarjeta central o,
-   * si no, lo marcado con data-x. Si ocupa más de la mitad de la ventana no sirve de ancla (sería un aro gigante): una caja pequeña en el puntero.
+   * La caja (en coordenadas de la ventana, al abrir el aro) del elemento pulsado: el ocupante, el campo, la fila, la cuenta, la estrella,
+   * el hijo de la rejilla, la tarjeta central o, si no, lo marcado con data-x. Si es grande (más de un tercio del ancho o un cuarto del
+   * alto de la ventana: un hijo que ocupa media pantalla, issue #9) no sirve de ancla (sería un aro gigante): una caja pequeña en el puntero.
    */
   const anclaDe = (objetivo, x, y) => {
     const ventana = documento.defaultView;
-    const caja = objetivo?.closest?.('.ocupante, .centro-flotante, .hijo, [data-x]');
+    const caja = objetivo?.closest?.('.ocupante, .campo, .fila-cabeza, .centro-flotante, .hijo, [data-x]');
     const r = caja?.getBoundingClientRect?.();
     const vw = ventana?.innerWidth ?? 0;
     const vh = ventana?.innerHeight ?? 0;
-    if (r && r.width > 0 && r.height > 0 && r.width <= vw / 2 && r.height <= vh / 2) return { x: r.left, y: r.top, ancho: r.width, alto: r.height };
+    if (r && r.width > 0 && r.height > 0 && r.width <= vw / 3 && r.height <= vh / 4) return { x: r.left, y: r.top, ancho: r.width, alto: r.height };
     return Number.isFinite(x) && Number.isFinite(y) ? { x: x - 60, y: y - 18, ancho: 120, alto: 36 } : null;
+  };
+  /**
+   * El clic mantenido (o el derecho) sobre `t`, en el punto (x, y): dentro del aro, un sitio con lista la despliega y el centro se
+   * edita; un campo del anverso abre el aro sobre su registro con la lista de ese campo; cualquier otra cosa con un registro detrás
+   * (data-x), el aro sobre él. Devuelve si hizo algo.
+   */
+  let ultimoMantener = 0;
+  const mantenido = (t, x, y) => {
+    if (Date.now() - ultimoMantener < TRAS_MANTENER_MS) return true; // el móvil da el mantener y además el menú: una vez
+    const dentro = t.closest?.('.aro');
+    if (dentro) {
+      const sitio = t.closest('.hueco');
+      if (sitio && sitio.dataset.conLista !== undefined) { ultimoMantener = Date.now(); m.aro?.(dentro.dataset.x, Number(sitio.dataset.pv), { desplegar: true }); return true; }
+      if (t.closest('[data-aro-centro]') && !t.closest('input')) { ultimoMantener = Date.now(); m.editarAro?.(); return true; }
+      return false;
+    }
+    if (t.closest?.('.formulario, .guia, textarea, select, pre')) return false;
+    const campo = t.closest?.('.campo, .fila')?.querySelector?.('[data-campo]') ?? t.closest?.('[data-campo]');
+    if (campo && campo.dataset.x) { ultimoMantener = Date.now(); m.aro?.(campo.dataset.x, Number(campo.dataset.campo), { desplegar: true, ancla: anclaDe(t, x, y) }); return true; }
+    const el = t.closest?.('[data-x]');
+    if (!el || !el.dataset.x) return false;
+    ultimoMantener = Date.now();
+    m.aro?.(el.dataset.x, null, { ancla: anclaDe(t, x, y) });
+    return true;
   };
 
   // ---- toques y clics ----
@@ -77,9 +115,13 @@ export function instalar(raiz, m) {
     const t = e.target;
     if (t.closest('input, textarea, select, option, pre')) return;
     if (Date.now() - arrastrado < 400) { e.preventDefault(); return; }
+    if (Date.now() - ultimoMantener < TRAS_MANTENER_MS) { e.preventDefault(); return; } // el clic de soltar tras mantener
     const b = (sel) => t.closest(sel);
     let el;
     if ((el = b('[data-cerrar]')) && (t === el || t.closest('.cerrar'))) { e.preventDefault(); m.cerrar?.(); return; }
+    // Dentro del aro: un valor de una lista se escribe; un clic en el centro (sin editarlo) entra en el elemento.
+    if ((el = b('.aro [data-opcion]'))) { e.preventDefault(); m.opcion?.(el.dataset.x ?? el.closest('.aro')?.dataset.x, Number(el.dataset.opcion), el.dataset.valor); return; }
+    if ((el = b('.aro:not(.editando) [data-aro-centro]'))) { e.preventDefault(); m.aroEntrar?.(el.dataset.x ?? el.closest('.aro')?.dataset.x); return; }
     if (t.closest('.formulario, .aro, .guia') && !t.closest('button')) return; // dentro de un diálogo (o de la guía), nada más que los botones
     if ((el = b('[data-guia-rapida]'))) { e.preventDefault(); m.guiaRapida?.(Number(el.dataset.guiaRapida)); return; }
     if ((el = b('[data-guia-vaciar]'))) { e.preventDefault(); m.guiaVaciar?.(); return; }
@@ -97,7 +139,6 @@ export function instalar(raiz, m) {
     if ((el = b('[data-pagina]'))) { e.preventDefault(); m.pagina?.(Number(el.dataset.pagina), Number(el.dataset.delta)); return; }
     if (b('[data-asa]')) { e.preventDefault(); return; }
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
-    if ((el = b('[data-aro-hueco]'))) { e.preventDefault(); m.aro?.(xDe(el) ?? el.closest('.aro')?.dataset.x, Number(el.dataset.aroHueco), { desplegar: true }); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
     if ((el = b('[data-seguir]'))) { e.preventDefault(); m.seguir?.(); return; }
     if ((el = b('[data-englobar]'))) { e.preventDefault(); m.englobar?.(); return; }
@@ -146,25 +187,22 @@ export function instalar(raiz, m) {
   // ---- mantener (y clic derecho): el aro ----
   let mantener = null;
   const empezarMantener = (e) => {
-    const el = e.target.closest('[data-x]');
-    if (!el || e.target.closest('input, textarea, select, .aro, .formulario, .guia')) return;
+    const t = e.target;
+    if (e.button !== undefined && e.button !== 0) return; // el clic derecho va por contextmenu
+    if (t.closest('textarea, select, .formulario, .guia') || (t.closest('input') && !t.closest('[data-campo]'))) return;
+    if (!t.closest('.aro') && !t.closest('[data-x]')) return;
     cancelarMantener();
-    const objetivo = e.target;
-    mantener = { timer: setTimeout(() => { mantener = null; m.aro?.(el.dataset.x, null, { ancla: anclaDe(objetivo, e.clientX, e.clientY) }); }, MANTENER_MS), x: e.clientX, y: e.clientY };
+    mantener = { timer: setTimeout(() => { mantener = null; mantenido(t, e.clientX, e.clientY); }, MANTENER_MS), x: e.clientX, y: e.clientY };
   };
   const cancelarMantener = () => {
     if (mantener) clearTimeout(mantener.timer);
     mantener = null;
   };
   on('contextmenu', (e) => {
-    // clic derecho sobre un sitio del aro: despliega las alternativas de ese mundo (como volver a pulsarlo)
-    const sitio = e.target.closest('.aro .hueco');
-    if (sitio) { e.preventDefault(); cancelarMantener(); m.aro?.(sitio.closest('.aro')?.dataset.x, Number(sitio.dataset.pv), { desplegar: true }); return; }
-    const el = e.target.closest('[data-x]');
-    if (!el || e.target.closest('input, textarea, pre')) return;
-    e.preventDefault();
+    // el clic derecho (y el mantener del móvil, que el navegador da también como menú) es mantener; en un texto, el menú de siempre
+    if (e.target.closest('input, textarea, pre')) return;
     cancelarMantener();
-    m.aro?.(el.dataset.x, null, { ancla: anclaDe(e.target, e.clientX, e.clientY) });
+    if (mantenido(e.target, e.clientX, e.clientY)) e.preventDefault();
   });
 
   // ---- punteros: deslizar, arrastrar en vertical sobre el centro, pellizco ----
@@ -273,6 +311,16 @@ export function instalar(raiz, m) {
   });
   on('change', (e) => {
     const t = e.target;
+    if (t.matches('[data-otro-de]')) {
+      // Un parámetro con valores posibles: el elegido va al input (oculto); «otro…» lo destapa para escribir. Solo pantalla.
+      const input = t.ownerDocument?.getElementById?.(t.dataset.otroDe);
+      if (!input) return;
+      const otro = t.selectedOptions?.[0]?.hasAttribute?.('data-otro') ?? false;
+      input.hidden = !otro;
+      input.value = otro ? '' : t.value;
+      if (otro) input.focus?.();
+      return;
+    }
     if (t.matches('[data-quien]')) m.quien?.(t.value);
     else if (t.matches('[data-ejemplo]')) m.ejemplo?.(t.value);
     else if (t.matches('[data-campo]')) {

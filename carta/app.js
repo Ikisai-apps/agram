@@ -662,11 +662,34 @@ const manejadores = {
   aro(X, pv, { desplegar, ancla } = {}) {
     if (!X) return;
     // `ancla`: la caja del elemento pulsado en la ventana (de gestos.js, al abrir); al desplegar un sitio se conserva la de antes. Es estado de pantalla, no del árbol.
-    estado.aro = { X, pv: desplegar ? (estado.aro?.pv === pv ? null : pv) : null, ancla: ancla ?? (desplegar && estado.aro?.X === X ? estado.aro.ancla : null) };
+    // Desplegar un sitio en un aro abierto sobre otro registro (o cerrado) lo abre ya desplegado; en el mismo, lo pliega si ya lo estaba.
+    const mismo = estado.aro?.X === X;
+    estado.aro = { X, pv: desplegar ? (mismo && estado.aro?.pv === pv ? null : pv) : null, ancla: ancla ?? (desplegar && mismo ? estado.aro.ancla : null), editar: false };
     estado.formulario = null;
     limpiarMensajes();
     tocar(X, 'aro' + (pv !== null && pv !== undefined ? ' ' + pv : ''));
     pintar();
+  },
+  /** Mantener el centro del aro: editarlo (el input con su valor, la lista del 0 debajo y la del 5 encima); el foco, en el input. */
+  async editarAro() {
+    if (!estado.aro) return;
+    estado.aro = { ...estado.aro, pv: null, editar: true };
+    tocar(estado.aro.X, 'aro editar');
+    await pintar();
+    const input = raiz.querySelector('.aro [data-campo]');
+    if (input) { input.focus(); input.select?.(); }
+  },
+  /** Un clic en el centro del aro: cerrarlo y entrar en el elemento (su anverso). */
+  aroEntrar(X) {
+    if (!X) return;
+    estado.aro = null;
+    irA(X, CENTROS[0]);
+  },
+  /** Un valor de una lista del aro (contrato.opciones): se escribe en la posición pv de X como cualquier campo, y el aro se cierra. */
+  opcion(X, pv, valor) {
+    if (!X || valor === undefined || valor === '') return;
+    estado.aro = null;
+    return manejadores.campo(X, pv, valor);
   },
   /** Las teclas 1-4 y 6-9 con el aro abierto: lanzar la acción por defecto de ese sitio (si no tiene, nada). */
   aroTecla(pv) {
@@ -765,6 +788,7 @@ const manejadores = {
     try {
       const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion([pv]), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
       trasEscribir();
+      estado.aro = null; // lo escrito desde el centro del aro en edición: hecho, se cierra
       estado.exito = t('escrito', { id: ev.id.slice(0, 8), pv, X: X.slice(0, 8) }) + (ev.firma ? ' ' + t('firmado') : '');
       estado.aviso = '';
       tocar(X, 'escribir ' + pv);

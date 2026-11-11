@@ -173,8 +173,12 @@ export const TEXTOS = Object.freeze({
     cerrar: 'cerrar',
     nadaQueHacer: 'nada que hacer',
     lasDemasAcciones: 'las demás acciones de {que}',
+    aroMantenerLista: 'mantén pulsado para ver la lista',
+    aroEscribir: 'escribir aquí',
+    aroCentroTitulo: 'un clic: entrar · mantener pulsado: editar',
     // el formulario
     requerido: 'requerido',
+    otro: 'otro…',
     verEnBtml: 'ver en BTML',
     noSeOfrece: 'esta acción no se ofrece ahora sobre este registro; se puede intentar igual',
     leer: 'leer',

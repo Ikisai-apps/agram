@@ -3,7 +3,7 @@
 // con flechas a sus vecinos y «volver»; los rosetones cada uno en su esquina o lateral; el interruptor sobrio/animado
 // escribe la preferencia; el formulario enseña lo obligatorio y lo demás tras «más»; el criterio por defecto, traducido.
 
-import { test } from 'node:test';
+import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { arbol, formulario, preferencias, ampliar, ampliarTodos, escalaDeTamanos, repartir, medidasDePantalla, MEDIDAS, ALTO_BAJO, LATERALES, CENTROS, GEOMETRIA, NIVEL } from '../carta/carta.js';
@@ -16,6 +16,7 @@ import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epoc
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
+import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
 
 const T1 = '2026-11-08T10:00:00Z';
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -444,13 +445,86 @@ test('el aro trae ocho sitios con su pv y su celda de la matriz 3 × 3 (sin cent
   const hd = html(d);
   assert.equal((hd.match(/<ul class="otras"/g) ?? []).length, 1);
   for (const o of seis.otras) assert.match(hd, new RegExp(`<ul class="otras">[^]*data-lanzar="${o.id}"`));
-  // un sitio sin acciones se pinta apagado y sin botón (en la compra, el 3 no ofrece nada a la huésped)
+  // un sitio sin acciones no tiene clic (en la compra, el 3 no ofrece nada a la huésped), pero sí valores que escribir (las
+  // identidades: contrato.opciones), que despliega el clic mantenido; sin acciones ni valores, apagado y sin lista
   const c = await arbol({ foco: { X: compra.id, pv: 0 }, aro: { X: compra.id, pv: null } }, eje, 'huesped', GRANDE);
   const tres = c.aro.huecos.find((g) => g.pv === 3);
   assert.equal(tres.accion, null);
-  assert.match(html(c), /<li class="hueco hueco-3[^"]* apagado"/);
-  assert.match(html(c), /<span class="accion vacia"/);
-  assert.doesNotMatch(html(c).match(/<li class="hueco hueco-3[^]*?<\/li>/)[0], /data-lanzar/);
+  assert.deepEqual(tres.opciones.map((o) => o.valor), eje.identidades());
+  const sitioTres = (a) => html(a).match(/<li class="hueco hueco-3[^]*?<\/li>/)[0];
+  assert.doesNotMatch(sitioTres(c), /apagado|data-lanzar/);
+  assert.match(sitioTres(c), /<span class="accion vacia"[^]*data-con-lista|data-con-lista[^]*<span class="accion vacia"/);
+  const sinNada = { ...c, aro: { ...c.aro, huecos: c.aro.huecos.map((g) => (g.pv === 3 ? { ...g, opciones: [] } : g)) } };
+  assert.match(sitioTres(sinNada), /<li class="hueco hueco-3[^"]* apagado"/);
+  assert.doesNotMatch(sitioTres(sinNada), /data-lanzar|data-con-lista/);
+});
+
+test('el aro (VG, 11-11, #5): cada sitio trae su acción por defecto, sus alternativas y los valores de su posición (contrato.opciones); el centro, su valor, la lista del 0 y la del 5; sin botones extra', async () => {
+  const H = await ejemploComprasHermanas();
+  const X = H.fruta.id;
+  const a = await arbol({ foco: { X, pv: 0 }, aro: { X, pv: 3 } }, H.eje, 'huesped', GRANDE);
+  const comoTexto = (l) => l.map((o) => o.texto);
+  for (const h of a.aro.huecos) {
+    const lista = A.acciones(H.eje, X, h.pv, 'huesped');
+    const porDefecto = lista.find((x) => x.porDefecto) ?? lista[0] ?? null;
+    assert.equal(h.accionPorDefecto?.id ?? null, porDefecto?.id ?? null, 'el clic del sitio ' + h.pv);
+    assert.deepEqual(h.alternativas.map((x) => x.id), lista.filter((x) => x !== porDefecto).map((x) => x.id));
+    assert.deepEqual(comoTexto(h.opciones), comoTexto(C.opciones(H.eje, X, h.pv, { yo: 'huesped', idioma: a.idioma })), 'los valores del sitio ' + h.pv);
+  }
+  const c = a.aro.centro;
+  assert.equal(c.valor, a.aro.texto);
+  assert.deepEqual(comoTexto(c.opciones0), comoTexto(C.opciones(H.eje, X, 0, { idioma: a.idioma })));
+  assert.ok(c.opciones0.length >= 1, 'el 0 de las compras hermanas');
+  assert.deepEqual(comoTexto(c.opciones5), comoTexto(C.opciones(H.eje, X, 5, { idioma: a.idioma })));
+  assert.ok(c.opciones5.some((o) => o.valor === 'purchase'), 'el 5: las plantillas');
+  assert.equal(c.editando, false);
+  const h = html(a);
+  // desplegado el 3 (como lo deja el clic mantenido): sus alternativas y, aparte, los valores para escribir
+  const tres = a.aro.huecos.find((g) => g.pv === 3);
+  const lista3 = h.match(/<li class="hueco hueco-3[^]*?<\/ul><\/li>/)[0];
+  for (const o of tres.alternativas) assert.match(lista3, new RegExp(`data-lanzar="${o.id}"`));
+  for (const o of tres.opciones) assert.match(lista3, new RegExp(`data-opcion="3" data-valor="${o.valor}"`));
+  // sin botones extra: ni «+N», ni ×, ni play; el centro es pulsable (data-aro-centro) y no está en edición
+  assert.doesNotMatch(h, /data-aro-hueco|class="mas"|class="cerrar"[^>]*>×<\/button><\/p><\/div><\/div>/);
+  assert.doesNotMatch(h.slice(h.indexOf('<div class="aro-fondo"')), /class="cerrar"/);
+  assert.match(h, /<div class="aro-centro" data-aro-centro data-x="[0-9a-f]{64}"/);
+  assert.doesNotMatch(h, /aro-edicion/);
+  // mantener el centro (estado.aro.editar): el input con su valor, la lista del 5 encima y la del 0 debajo
+  const e = await arbol({ foco: { X, pv: 0 }, aro: { X, pv: null, editar: true } }, H.eje, 'huesped', GRANDE);
+  assert.equal(e.aro.centro.editando, true);
+  const he = html(e);
+  assert.match(he, /<div class="aro editando"/);
+  const edicion = he.match(/<div class="aro-edicion">[^]*?<\/div>/)[0];
+  assert.match(edicion, /^<div class="aro-edicion"><ul class="opciones opciones-arriba" data-opciones="5">[^]*<\/ul><input class="campo-input" data-campo="0" data-x="[0-9a-f]{64}" value="[^"]+"[^>]*><ul class="opciones opciones-abajo" data-opciones="0">/);
+  for (const o of e.aro.centro.opciones0) assert.match(edicion, new RegExp(`data-opcion="0" data-valor="${o.valor}"`));
+});
+
+test('el formulario (#5): un parámetro con valores posibles es un <select> con «otro…» que destapa el input; sin valores, el input libre', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const f = formulario(eje, compra.id, 'write to X', 'huesped');
+  const quien = f.campos.find((c) => c.nombre === 'who');
+  assert.deepEqual(quien.opciones.map((o) => o.valor), eje.identidades());
+  assert.deepEqual(f.campos.find((c) => c.nombre === 'text').opciones, []);
+  const pintar = async (valores) => html(await arbol({ foco: { X: compra.id, pv: 0 }, formulario: { X: compra.id, accion: 'write to X', valores } }, eje, 'huesped', ORDENADOR));
+  const h = await pintar({});
+  assert.match(h, /<select class="param-opciones" data-otro-de="param-who" aria-label="who" required><option value="" selected><\/option><option value="casa">[^]*?<option value="otro…" data-otro>otro…<\/option><\/select><input id="param-who" name="who"[^>]* hidden>/, 'sin valor, en blanco; lo requerido lo pide el desplegable');
+  assert.doesNotMatch(h.match(/<input id="param-who"[^>]*>/)[0], / required/);
+  assert.match(h, /<input id="param-text" name="text"[^>]* required/, 'sin valores, el input libre de siempre');
+  assert.doesNotMatch(h, /data-otro-de="param-text"/);
+  const dado = await pintar({ who: 'huesped' });
+  assert.match(dado, /<option value="huesped" selected>[^]*?<input id="param-who" name="who"[^>]*value="Alta de huesped"[^>]* hidden>/, 'el valor dado, elegido; el input (su legible, como siempre), oculto');
+  const otro = await pintar({ who: 'nadie' });
+  assert.match(otro, /<option value="otro…" data-otro selected>otro…<\/option><\/select><input id="param-who" name="who"[^>]*value="nadie"[^>]*>/);
+  assert.doesNotMatch(otro.match(/<input id="param-who"[^>]*>/)[0], / hidden/, 'un valor fuera de la lista: «otro…» y el input a la vista');
+  // gestos.js: elegir un valor lo pone en el input (oculto); «otro…» lo destapa vacío
+  const g = gestosDeMentira();
+  const input = { hidden: true, value: 'huesped', focus() { this.enfocado = true; } };
+  const select = (value, esOtro) => ({ matches: (sel) => sel === '[data-otro-de]', dataset: { otroDe: 'param-who' }, value, selectedOptions: [{ hasAttribute: (a) => a === 'data-otro' && esOtro }], ownerDocument: { getElementById: (id) => (id === 'param-who' ? input : null) } });
+  g.disparar('change', { target: select('casa', false) });
+  assert.deepEqual([input.hidden, input.value], [true, 'casa']);
+  g.disparar('change', { target: select('', true) });
+  assert.deepEqual([input.hidden, input.value, input.enfocado], [false, '', true]);
+  assert.deepEqual(g.llamadas, [], 'es cosa de la pantalla: la app no se entera hasta enviar');
 });
 
 test('la cadena de la época empieza por ikisai y el modelo por defecto la devuelve en ese orden (el interruptor «animado» enseña el arte sin tocar Configuración)', async () => {
@@ -487,11 +561,23 @@ test('gestos: el clic derecho sobre un elemento abre el aro con la caja del elem
   assert.deepEqual(g2.llamadas[0], ['aro', 'X1', null, { ancla: { x: 440, y: 382, ancho: 120, alto: 36 } }], 'un elemento que ocupa media ventana no sirve de ancla');
 });
 
-test('gestos: clic derecho sobre un sitio del aro despliega sus alternativas; con el aro abierto, las teclas 1-4 y 6-9 son del aro y Esc cierra', () => {
+test('gestos: dentro del aro, el clic derecho (mantener) sobre un sitio con lista la despliega y sobre el centro lo edita; un clic en un valor lo escribe y en el centro entra; con el aro abierto, las teclas 1-4 y 6-9 son del aro y Esc cierra', () => {
   const g = gestosDeMentira({ aroAbierto: true });
-  const sitio = { dataset: { pv: '7' }, closest: () => ({ dataset: { x: 'X1' } }) };
-  g.disparar('contextmenu', { target: objetivo({ '.aro .hueco': sitio }), preventDefault() {} });
+  const aro = { dataset: { x: 'X1' } };
+  const conLista = { dataset: { pv: '7', conLista: '' } };
+  g.disparar('contextmenu', { target: objetivo({ '.aro': aro, '.hueco': conLista }), preventDefault() {} });
   assert.deepEqual(g.llamadas[0], ['aro', 'X1', 7, { desplegar: true }]);
+  // un sitio sin lista (apagado o solo con su acción por defecto): mantenerlo no hace nada
+  const h0 = gestosDeMentira({ aroAbierto: true });
+  h0.disparar('contextmenu', { target: objetivo({ '.aro': aro, '.hueco': { dataset: { pv: '3' } } }), preventDefault() {} });
+  assert.deepEqual(h0.llamadas, []);
+  const c = gestosDeMentira({ aroAbierto: true });
+  c.disparar('contextmenu', { target: objetivo({ '.aro': aro, '[data-aro-centro]': { dataset: { x: 'X1' } } }), preventDefault() {} });
+  assert.deepEqual(c.llamadas, [['editarAro']]);
+  const k = gestosDeMentira({ aroAbierto: true });
+  k.disparar('click', { target: objetivo({ '[data-opcion]': { dataset: { opcion: '3', valor: 'huesped', x: 'X1' } } }), preventDefault() {} });
+  k.disparar('click', { target: objetivo({ '[data-aro-centro]': { dataset: { x: 'X1' } } }), preventDefault() {} });
+  assert.deepEqual(k.llamadas, [['opcion', 'X1', 3, 'huesped'], ['aroEntrar', 'X1']]);
   const tecla = (key) => g.disparar('keydown', { key, target: objetivo({}), preventDefault() {}, ctrlKey: false, metaKey: false, altKey: false });
   tecla('4');
   tecla('0');
@@ -501,6 +587,46 @@ test('gestos: clic derecho sobre un sitio del aro despliega sus alternativas; co
   const h = gestosDeMentira();
   h.disparar('keydown', { key: '4', target: objetivo({}), preventDefault() {}, ctrlKey: false, metaKey: false, altKey: false });
   assert.deepEqual(h.llamadas, [['saltar', 4]]);
+});
+
+test('gestos: un clic entra en profundidad (una celda, un registro) y mantener medio segundo abre el aro sobre el elemento, anclado a él; el clic que llega al soltar no cuenta; mantener un campo abre el aro con su lista; moverse cancela', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 10_000_000 });
+  try {
+    const caja = { dataset: { x: 'R1', abrir: 'R1' }, getBoundingClientRect: () => ({ left: 300, top: 200, width: 180, height: 40 }) };
+    const ocupante = objetivo({ '[data-abrir]': caja, '.ocupante': caja, '[data-x]': caja });
+    const g = gestosDeMentira();
+    const pulsar = (target, ms, { mover = 0 } = {}) => {
+      g.disparar('pointerdown', { pointerId: 1, clientX: 320, clientY: 210, button: 0, target });
+      if (mover) g.disparar('pointermove', { pointerId: 1, clientX: 320 + mover, clientY: 210, target });
+      mock.timers.tick(ms);
+      g.disparar('pointerup', { pointerId: 1, clientX: 320 + mover, clientY: 210, target });
+      g.disparar('click', { target, preventDefault() {} });
+    };
+    pulsar(ocupante, 120);
+    assert.deepEqual(g.llamadas, [['foco', 'R1', 0]], 'un clic entra en el registro');
+    pulsar(ocupante, 520);
+    assert.deepEqual(g.llamadas.slice(1), [['aro', 'R1', null, { ancla: { x: 300, y: 200, ancho: 180, alto: 40 } }]], 'mantener abre el aro y el clic de soltar no entra');
+    mock.timers.tick(1000);
+    const celda = objetivo({ '[data-celda]': { dataset: { celda: 'R2', pv: '2', x: 'R2' }, closest: () => ({ dataset: { rejilla: '1' } }) }, '[data-x]': { dataset: { x: 'R2' } } });
+    pulsar(celda, 80);
+    assert.deepEqual(g.llamadas.slice(2), [['celda', 1, 'R2']], 'un clic en una celda baja un nivel');
+    pulsar(celda, 600, { mover: 30 });
+    assert.deepEqual(g.llamadas.slice(3), [['celda', 1, 'R2']], 'moverse más de unos píxeles no es mantener: al soltar es un clic');
+    mock.timers.tick(1000);
+    // un campo del anverso: mantenerlo abre el aro sobre su registro con la lista de ese campo desplegada
+    const input = { dataset: { campo: '3', x: 'X1' } };
+    const campo = objetivo({ input, '[data-campo]': input, '[data-x]': input });
+    g.disparar('pointerdown', { pointerId: 2, clientX: 50, clientY: 60, button: 0, target: campo });
+    mock.timers.tick(520);
+    assert.deepEqual(g.llamadas.at(-1), ['aro', 'X1', 3, { desplegar: true, ancla: { x: -10, y: 42, ancho: 120, alto: 36 } }]);
+    // el clic derecho no arranca el mantener (va por contextmenu)
+    const n = g.llamadas.length;
+    g.disparar('pointerdown', { pointerId: 3, clientX: 50, clientY: 60, button: 2, target: ocupante });
+    mock.timers.tick(600);
+    assert.equal(g.llamadas.length, n);
+  } finally {
+    mock.timers.reset();
+  }
 });
 
 test('la app ancla el aro al elemento en Mapped con position:fixed (en app.js, no en el árbol), recortado a la ventana; el móvil apilado lo deja centrado', () => {
