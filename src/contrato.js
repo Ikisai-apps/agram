@@ -25,6 +25,7 @@
 //                                          en un idioma (epoch.9.4), o el canónico (en) o el original si falta
 //   legible(eje, valor, tipo, { idioma })  un valor de una posición o un parámetro en texto legible, con sus partes
 //   desdeLegible(texto, tipo, { eje })     la inversa mínima para editar los tipos simples: { valor } o { motivo }
+//   opciones(eje, X, pv, { yo, idioma })   lo que se puede escribir en una posición, de los datos: [{ valor, texto }] (issue #5)
 //
 // Solo lee: nada de aquí escribe en el eje. Las entradas de acción son del encargo 3c-2: las plantillas de
 // transacción, transaccion() y el camino (3c-2a); el libro local (src/local.js), los pasos (src/pasos.js) y los
@@ -1225,4 +1226,152 @@ export function desdeLegible(textoDado, tipo, { eje, idioma = 'en', ...opciones 
   const nombres = [...accionesDe(epoca).map((a) => a.nombre), ...plantillas(eje, { epoca }).map((p) => p.nombre), ...cerradosDe(epoca)];
   const canonico = nombres.find((n) => texto_(eje, CLAVE.plantilla(n), idioma, { original: n, epoca }) === s);
   return { valor: canonico ?? s };
+}
+
+// ---------- 9. las opciones de una posición (issue #5: «desplegables en todas partes») ----------
+
+/** La posición donde un registro nombra su plantilla (B4: el 5 es el tipo; es la que lee plantilla()). */
+const POSICION_DEL_TIPO = 5;
+/** Dónde pone la época los modelos de visualización (epoch.9.7: 0 la cabecera, con la dirección de la preferencia que nombra el modelo en 0.5; 1… las referencias a los modelos). */
+const SITIO_MODELOS = [9, 7];
+/** Cuántos valores, como mucho, da un rango de enteros de una validación («=it >= 0 and it <= 9»: los dígitos). */
+const MAXIMO_RANGO = ARIDAD;
+
+/** Los enteros que admite una validación de la forma «=it >= a and it <= b» (a ≤ b, como mucho diez), o null. */
+function rangoDeValidacion(formula) {
+  const m = typeof formula === 'string' ? /^=\s*it\s*>=\s*(-?\d+)\s+and\s+it\s*<=\s*(-?\d+)\s*$/.exec(formula) : null;
+  if (!m) return null;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  return b >= a && b - a < MAXIMO_RANGO ? Array.from({ length: b - a + 1 }, (_, k) => a + k) : null;
+}
+
+/** Los idiomas de la época (epoch.9.4) con su nombre: [{ valor: código, texto: nombre }]; el canónico, por su código. */
+function idiomasConNombre(opciones) {
+  const registros = hojas(en(raizDe(epocaDe(opciones)), SITIO.mensajes)).slice(1).filter(Array.isArray);
+  return idiomas(opciones).map((codigo) => {
+    const nombre = texto(hojas(registros.find((r) => hojas(r[0]).includes(codigo))?.[0])[1]);
+    return { valor: codigo, texto: nombre ?? codigo };
+  });
+}
+
+/** Los nombres de los modelos de la época (epoch.9.7.1…, cada uno por el 0.0 de su registro), en su orden. */
+function nombresDeModelos(opciones) {
+  const epoca = epocaDe(opciones);
+  return hojas(en(raizDe(epoca), SITIO_MODELOS)).slice(1).filter(esReferencia)
+    .map((r) => texto(hoja(hoja(epoca.registros?.get?.(r.ref)?.[0])))).filter(Boolean);
+}
+
+/** La dirección (diez dígitos) de la preferencia que nombra el modelo: la cabecera de los modelos (epoch.9.7.0.5), o null. */
+function direccionDelModelo(opciones) {
+  const d = texto(hoja(en(raizDe(epocaDe(opciones)), [...SITIO_MODELOS, 0, 5])));
+  return d && /^[0-9]{10}$/.test(d) ? d : null;
+}
+
+/** Los registros hermanos de X: los anclados en su mismo padre con su misma plantilla (sin plantilla, en su misma posición), sin X. */
+function hermanosDe(eje, ev, opciones) {
+  if (typeof ev.sobre !== 'string' || !eje?.obtener?.(ev.sobre)) return [];
+  const p = plantilla(eje, ev, opciones);
+  return eje.sobre(ev.sobre).filter((h) => h.id !== ev.id && (p ? plantilla(eje, h, opciones) === p : h.en === ev.en));
+}
+
+/**
+ * Las opciones de una posición: lo que se puede escribir en la posición `pv` de X (un dígito o un camino «1.2»), sacado
+ * de los datos y nunca de una lista escrita aquí. En este orden, la primera fuente que da algo:
+ *   (a) si la posición nombra la plantilla (el 5: B4), las plantillas que hay (epoch.9.2, epoch.9.3 y las del eje); si su
+ *       tipo (contrato.tipo) es `ref` y nombra una plantilla, los registros del eje de esa plantilla; si es `identity`,
+ *       las identidades del eje; cada uno con su legible;
+ *   (b) si es una enumeración de la época: la que escribe su validación («="a" in it… or "b" in it…», como el pintado;
+ *       un rango pequeño de enteros, «=it >= 0 and it <= 9», como los dígitos), los niveles si su tipo es `level`
+ *       (epoch.8.4), los idiomas de los mensajes si es la preferencia del idioma (epoch.9.4: la que tiene por defecto uno
+ *       de ellos), los modelos si es la
+ *       preferencia que nombra la cabecera de los modelos (epoch.9.7.0.5) o, en un parámetro de una acción, la lista de
+ *       la que su defecto «=first …» toma el primero;
+ *   (c) si no, los ocupantes ya escritos en esa posición en los registros hermanos (mismo padre, misma plantilla): lo
+ *       propio de su payload y lo anclado ahí (por su legible), sin repetir.
+ * `parametro` (un parámetro de acciones.parametros, con `en`: la dirección donde anclará el registro que escribe la
+ * acción) pide las de ese parámetro de una acción sobre X: su tipo, su validación y sus defectos son los del parámetro,
+ * y sus hermanos, los registros ya anclados donde anclará. Lo que no tiene lista da [] (también un tipo que no es simple, una
+ * décupla, que se edita en BTML): la carta pinta un input libre.
+ * → [{ valor, texto }]
+ */
+export function opciones(eje, X, pv, { yo, idioma, parametro, ...resto } = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev) return [];
+  const epoca = epocaDe(resto);
+  const o = { ...resto, epoca };
+  const leer = (v, tipoDe) => legible(eje, v, tipoDe, { ...o, idioma }).texto;
+  const raiz = raizDe(epoca);
+  const id = typeof ev.id === 'string' && eje?.obtener?.(ev.id) ? ev.id : null;
+  // Lo que se sabe de la posición: de la plantilla de X o del parámetro.
+  let tipoDato;
+  let formula;
+  let defectos = [];
+  let camino;
+  let hermanos;
+  let esTipo = false;
+  let preferencia = null;
+  if (parametro) {
+    tipoDato = hojas(parametro.tipo);
+    formula = parametro.validacion ?? null;
+    defectos = hojas(parametro.defectos);
+    camino = parametro.posicion && parametro.posicion !== '-' ? caminoDe(parametro.posicion) : null;
+    hermanos = id && typeof parametro.en === 'string' ? eje.sobre(id, parametro.en) : [];
+  } else {
+    camino = caminoDe(pv);
+    const p = plantilla(eje, ev, o);
+    const desc = descripcion(p, camino);
+    tipoDato = tipo(eje, ev, camino, o);
+    formula = texto(ultima(desc?.[2])) ?? null;
+    hermanos = hermanosDe(eje, ev, o);
+    esTipo = camino.length === 1 && camino[0] === POSICION_DEL_TIPO;
+    if (p && p === en(raiz, SITIO.preferencias)) preferencia = { defecto: hojas(desc?.[9]).slice(0, -1), direccion: direccion([...SITIO.preferencias, ...camino]) };
+  }
+  const t0 = tipoDato.find((x) => typeof x === 'string');
+  const unicas = (lista) => {
+    const vistos = new Set();
+    // Un valor es un terminal (una hoja o una referencia); una fórmula «=…» no es un valor que se elija.
+    const clave = (v) => JSON.stringify(v);
+    return lista.filter((x) => x && esTerminal(x.valor) && !(typeof x.valor === 'string' && x.valor.startsWith('=')) && x.texto !== '' && !vistos.has(clave(x.valor)) && vistos.add(clave(x.valor)));
+  };
+  // (a) referencias: las plantillas (el 5), los registros de una plantilla, las identidades.
+  if (esTipo) {
+    return unicas(plantillas(eje, o).map((p) => ({ valor: p.nombre, texto: texto_(eje, CLAVE.plantilla(p.nombre), idioma, { original: p.nombre, epoca }) })));
+  }
+  if (t0 === TIPO.referencia) {
+    const nombrada = plantillas(eje, o).find((p) => p.nombre !== t0 && tipoDato.includes(p.nombre));
+    if (nombrada) return unicas((eje?.orden ?? []).filter((r) => plantilla(eje, r, o) === nombrada.registro).map((r) => ({ valor: r, texto: leer({ ref: r }) })));
+  }
+  if (t0 === TIPO.identidad) {
+    const ids = eje?.identidades?.() ?? [];
+    if (ids.length) return unicas(ids.map((i) => ({ valor: i, texto: leer(i, [TIPO.identidad]) })));
+  }
+  // Lo que no es de un tipo simple (una décupla) se edita en BTML: sin lista.
+  if (!esTipoSimple(tipoDato, o)) return [];
+  // (b) las enumeraciones de la época.
+  const enumerada = valoresDeValidacion(formula) ?? rangoDeValidacion(formula);
+  if (enumerada) return unicas(enumerada.map((v) => ({ valor: v, texto: leer(v, tipoDato) })));
+  if (t0 === TIPO.nivel) return unicas(niveles({ epoca }).map((n) => ({ valor: n, texto: texto_(eje, CLAVE.nivel(n), idioma, { original: n, epoca }) })));
+  // La época no enlaza la preferencia del idioma con epoch.9.4 (solo lo dice su ayuda): es la que tiene por defecto un idioma de los mensajes.
+  if (preferencia?.defecto.length === 1 && idiomas(o).includes(preferencia.defecto[0])) return unicas(idiomasConNombre(o));
+  if (preferencia && preferencia.direccion === direccionDelModelo(o)) return unicas(nombresDeModelos(o).map((n) => ({ valor: n, texto: n })));
+  for (const d of defectos) {
+    const m = typeof d === 'string' ? /^=\s*first\s+(.+)$/.exec(d) : null;
+    if (!m || !id) continue;
+    const ctx = new ContextoEje(eje, { epoch: epoca, me: yo });
+    const lista = (vale(m[1], ctx, { sujeto: id }) ?? []).map((x) => plano(x, ctx)).filter(esTerminal);
+    if (lista.length) return unicas(lista.map((v) => ({ valor: v, texto: leer(v, tipoDato) })));
+  }
+  // (c) lo ya escrito en esa posición en los hermanos: lo propio de su payload y lo anclado ahí (por su legible).
+  if (!camino) return [];
+  const escritos = [];
+  for (const h of hermanos) {
+    for (const x of ocupantesDe(eje, h.id, camino, { orden: 'llegada', exacto: true })) {
+      if (x.tipo === 'propio' && esTerminal(x.contenido)) escritos.push({ valor: x.contenido, texto: leer(x.contenido, tipoDato) });
+      else if (x.tipo === 'escrito') {
+        const cero = leer({ ref: x.evento });
+        if (cero) escritos.push({ valor: cero, texto: cero });
+      }
+    }
+  }
+  return unicas(escritos);
 }

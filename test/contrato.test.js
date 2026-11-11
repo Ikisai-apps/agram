@@ -6,6 +6,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as C from '../src/contrato.js';
+import * as A from '../src/acciones.js';
 import { pintar, pintarPara } from './carta-texto.mjs';
 import { EPOCA_0_BTML, cargarEpocaBtml } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
@@ -387,4 +388,67 @@ test('el índice expone el contrato como espacio de nombres', async () => {
   assert.equal(agram.contrato.plantilla, C.plantilla);
   assert.equal(typeof agram.contrato.division, 'function');
   assert.equal(typeof agram.plantilla, 'undefined', 'ningún nombre plano nuevo');
+});
+
+// ---------- 9. las opciones de una posición (issue #5: «desplegables en todas partes») ----------
+
+test('opciones (a): el 5 lista las plantillas que hay; un tipo `ref` que nombra una plantilla, los registros de esa plantilla; `identity`, las identidades del eje; cada uno con su legible', async () => {
+  const { eje: e, compra: c, menu: m } = await ejemploCompra();
+  assert.deepEqual(C.opciones(e, c.id, 5).map((o) => o.valor), [...new Set(C.plantillas(e).map((p) => p.nombre))]);
+  const es = C.opciones(e, c.id, 5, { idioma: 'es' }).find((o) => o.valor === 'purchase');
+  assert.equal(es.texto, C.texto(e, C.claves.plantilla('purchase'), 'es', { original: 'purchase' }), 'el nombre de la plantilla, traducido');
+  // el 3 de una compra es `identity`: las identidades del eje, por el 0 de su alta
+  assert.deepEqual(C.tipo(e, c.id, 3), ['identity']);
+  assert.deepEqual(C.opciones(e, c.id, 3).map((o) => o.valor), e.identidades());
+  assert.deepEqual(C.opciones(e, c.id, 3).map((o) => o.texto), e.identidades().map((i) => C.legible(e, i, ['identity']).texto));
+  // una época cuya plantilla «opinion» dice en su 6 «ref purchase»: las opciones son las compras del eje
+  const epoca = epocaCon((x) => { x[9][2][4][6][1] = ['ref', 'purchase']; });
+  const T = '2026-11-07T18:00:00Z';
+  const op = await e.escribir({ autor: 'huesped', sobre: m.id, t: T, movimientos: [minuto('huesped')], payload: ['me gusta', 'x', 'y', 'huesped', 'z', 'opinion'] });
+  assert.deepEqual(C.opciones(e, op.id, 6, { epoca }), [{ valor: c.id, texto: C.legible(e, { ref: c.id }, null).texto }]);
+  assert.deepEqual(C.opciones(e, op.id, 6), [], 'con la época de siempre, su 6 es un `ref` sin plantilla y no tiene hermanos');
+  assert.deepEqual(C.opciones(e, 'f'.repeat(64), 0), [], 'un registro que no está, sin opciones');
+});
+
+test('opciones (b): las enumeraciones de la época: el pintado (su validación), el idioma (epoch.9.4), el modelo (epoch.9.7.0.5), los niveles (epoch.8.4), un rango de dígitos y la lista del defecto «=first …» de un parámetro', async () => {
+  const { eje: e, compra: c } = await ejemploCompra();
+  const T = '2026-11-07T18:00:00Z';
+  const mias = await e.escribir({ autor: 'huesped', sobre: e.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences', 'ikisai'] });
+  assert.deepEqual(C.opciones(e, mias.id, 2).map((o) => o.valor), ['sober', 'animated'], 'la validación «="sober" in it.2 or "animated" in it.2»');
+  assert.deepEqual(C.opciones(e, mias.id, 3).map((o) => o.valor), C.idiomas());
+  assert.equal(C.opciones(e, mias.id, 3).find((o) => o.valor === 'es').texto, EPOCA_0_BTML.registro[9][4].slice(1).find((r) => r[0].includes('es'))[0][1], 'con el nombre del idioma de su registro de mensajes');
+  const cabecera = EPOCA_0_BTML.registro[9][7][0];
+  assert.equal(cabecera[5][0], '9360000000', 'la cabecera de los modelos nombra la preferencia del 6');
+  assert.deepEqual(new Set(C.opciones(e, mias.id, 6).map((o) => o.valor)), new Set(cabecera[2]), 'los modelos de la época');
+  assert.deepEqual(C.opciones(e, mias.id, 1), [], 'el paso es un número sin enumeración ni hermanos');
+  assert.deepEqual(C.opciones(e, c.id, 8).map((o) => o.valor), C.niveles(), 'el 8 de una compra es un `level`');
+  assert.deepEqual(C.opciones(e, c.id, 8, { idioma: 'es' }).map((o) => o.texto), C.niveles({ idioma: 'es' }));
+  // un parámetro: «=it >= 0 and it <= 9» son los dígitos; el defecto «=first epoch.9.0.1.2», la lista de la que toma el primero
+  const precio = A.parametros(A.plantillaDeTransaccion('set a group price')).find((p) => p.nombre === 'zone');
+  assert.deepEqual(C.opciones(e, c.id, null, { parametro: precio }).map((o) => o.valor), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const criterio = A.parametros(A.plantillaDeTransaccion('commit time')).find((p) => p.nombre === 'criteria');
+  assert.deepEqual(C.opciones(e, c.id, null, { yo: 'huesped', parametro: criterio }).map((o) => o.valor), [CERRADO]);
+  const serie = A.parametros(A.plantillaDeTransaccion('commit time')).find((p) => p.nombre === 'series');
+  const mis = C.opciones(e, c.id, null, { yo: 'huesped', parametro: serie }).map((o) => o.valor);
+  assert.ok(mis.length >= 1 && mis.every((s) => C.yo(e, 'huesped').cartera.some((x) => x.serie === s) && !s.startsWith('T:')), 'las series de mi cartera que no son T: ' + mis);
+  // un tipo que no es simple (una décupla) se edita en BTML: sin lista
+  const pago = A.parametros(A.plantillaDeTransaccion('issue E tied to X')).find((p) => p.nombre === 'price');
+  assert.deepEqual(C.opciones(e, c.id, null, { yo: 'huesped', parametro: pago }), []);
+});
+
+test('opciones (c): sin referencia ni enumeración, lo ya escrito en esa posición en los registros hermanos (mismo padre, misma plantilla), sin repetir y sin el propio', async () => {
+  const H = await ejemploComprasHermanas();
+  const ceros = (r) => C.opciones(H.eje, r.id, 0).map((o) => o.valor);
+  assert.ok(ceros(H.fruta).length >= 1);
+  assert.ok(!ceros(H.fruta).includes(C.representaciones(H.eje, H.fruta.id)[0].texto), 'el propio no es una opción');
+  assert.ok(ceros(H.fruta).includes(C.representaciones(H.eje, H.compra.id)[0].texto), 'el 0 de una compra hermana sí');
+  assert.ok(!ceros(H.fruta).includes(C.representaciones(H.eje, H.cena?.id ?? H.compraCena.id)[0]?.texto), 'una compra de otro padre no');
+  assert.equal(new Set(ceros(H.fruta)).size, ceros(H.fruta).length, 'sin repetir');
+  assert.ok(C.opciones(H.eje, H.fruta.id, 4).every((o) => !(typeof o.valor === 'string' && o.valor.startsWith('='))), 'una fórmula no es un valor que se elija');
+  // un parámetro: lo ya escrito en esa posición por los registros anclados donde anclará la acción
+  const { eje: e, compra: c } = await ejemploCompra();
+  const texto = A.parametros(A.plantillaDeTransaccion('write to X')).find((p) => p.nombre === 'text');
+  assert.deepEqual(C.opciones(e, c.id, null, { parametro: { ...texto, en: '3000000000' } }), []);
+  await e.escribir({ autor: 'huesped', sobre: c.id, en: '3000000000', t: '2026-11-07T18:00:00Z', movimientos: [minuto('huesped')], payload: ['¿hay pan?'] });
+  assert.deepEqual(C.opciones(e, c.id, null, { parametro: { ...texto, en: '3000000000' } }), [{ valor: '¿hay pan?', texto: '¿hay pan?' }]);
 });
