@@ -15,7 +15,7 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import * as A from '../src/acciones.js';
 import * as C from '../src/contrato.js';
 import { recuento, cerrado, peso, ANUNCIO } from '../src/motor.js';
-import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
@@ -432,4 +432,40 @@ test('el índice expone las acciones como espacio de nombres, y el contexto resu
   assert.deepEqual(evaluar('me', ctx).valor, ['huesped']);
   assert.equal(evaluar('count me.3', ctx).valor[0], 6, 'sus grupos de atención');
   assert.equal(evaluar('me.1', new ContextoEje(eje, { epoch: EPOCA_0_BTML })).estado, 'PENDIENTE', 'sin quien mira, no hay me');
+});
+
+// ---------- la estación «autorizada» y las ejecuciones de la fábrica (encargo «datos2», issue #11) ----------
+
+test('la estación «autorizada»: la cuarta posición de cada estación de epoch.4.2 dice qué autoriza un anuncio pendiente (el recuento del anuncio); sigue pendiente hasta que se mueve', async () => {
+  assert.deepEqual(A.estacionesDeLaEpoca().map((e) => e.autoriza), ['epoch.9.0.0', 'epoch.9.0.0', 'epoch.9.0.0', 'epoch.9.0.0']);
+  const c = await ejemploCompra();
+  const f = await ejemploFabrica(c.eje, c);
+  const est = Object.fromEntries(A.estaciones(c.eje, c.compra.id).map((e) => [e.familia, e]));
+  // pagar ya pasó (la compra transfirió los doce euros); servir está respaldado (P comprometido con su anuncio); atender, no
+  assert.deepEqual([est.E.hechos, est.T.pendientes, est.T.autorizados, est.R.pendientes, est.R.autorizados], [[f.pagar.id], [f.servir.id], [f.servir.id], [f.atender.id], []]);
+  assert.deepEqual([recuento(c.eje, f.servir.id).pasa, recuento(c.eje, f.atender.id).pasa], [true, false]);
+  assert.equal(cerrado(c.eje, c.compra.id).cerrado, false, 'autorizada no es ejecutada');
+  // sin autorización en la época («-»), ningún autorizado
+  const sin = epocaCon((e) => { for (const x of e[4][2]) if (Array.isArray(x) && Array.isArray(x[0])) x[3] = ['-']; });
+  assert.deepEqual(A.estacionesDeLaEpoca({ epoca: sin }).map((e) => e.autoriza), [null, null, null, null]);
+  assert.deepEqual(A.estaciones(c.eje, c.compra.id, { epoca: sin }).flatMap((e) => e.autorizados), []);
+});
+
+test('ejecuciones: lo propio del 4 de X y cada registro anclado en X, con el PV de la plantilla que lo escribió o que lo cumple, la posición que modifica y su estación; lo que no se sabe, a null', async () => {
+  const c = await ejemploCompra();
+  const f = await ejemploFabrica(c.eje, c);
+  const lista = A.ejecuciones(c.eje, c.compra.id);
+  const de = (r) => lista.find((x) => x.ocupante?.ref === r.id);
+  const pvDe = (nombre) => A.plantillasDeTransaccion().find((p) => p.nombre === nombre).pv;
+  assert.deepEqual([f.pagar, f.servir, f.atender].map((r) => [de(r).pv, de(r).posicion, de(r).accion, de(r).estacion]), [[pvDe('pay'), 4, 'pay', 'ejecutada'], [pvDe('deliver'), 4, 'deliver', 'autorizada'], [pvDe('deliver'), 4, 'deliver', 'propuesta']]);
+  assert.deepEqual([de(f.capacidad).pv, de(f.capacidad).posicion, de(f.capacidad).accion, de(f.capacidad).estacion], [pvDe('declare capacity or threshold'), 2, 'declare capacity or threshold', null]);
+  assert.deepEqual([de(f.nota).pv, de(f.nota).posicion], [pvDe('anchor here'), 0], 'anclar aquí es del 6 y modifica la raíz: fuera de la diagonal');
+  // lo propio del 4 de la compra (pagar, servir) no tiene ni tipo ni posición; el respaldo cuelga del anuncio, no de la compra
+  assert.deepEqual(lista.filter((x) => !x.ocupante?.ref).map((x) => [x.ocupante, x.pv, x.posicion]), [['pagar', null, null], ['servir', null, null]]);
+  assert.equal(de(f.respaldo), undefined);
+  // un registro escrito a mano, sin plantilla: su posición sí, su tipo de interacción no
+  const nota = await c.eje.escribir({ autor: 'cocina', sobre: c.compra.id, en: '3000000000', t: T1, movimientos: [minuto('cocina')], payload: 'a mano' });
+  const otra = A.ejecuciones(c.eje, c.compra.id).find((x) => x.ocupante?.ref === nota.id);
+  assert.deepEqual([otra.pv, otra.posicion, otra.accion], [null, 3, null]);
+  assert.deepEqual(A.ejecuciones(c.eje, 'no-existe'), []);
 });

@@ -12,7 +12,7 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { crearEvento } from '../src/evento.js';
-import { ejemploCompra, ejemploCuenta, ejemploJardinYParque } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploCuenta, ejemploJardinYParque, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
 import { recuento, miradasDe } from '../src/motor.js';
 import { estadoDePaquete } from '../src/lente.js';
 import * as A from '../src/acciones.js';
@@ -470,7 +470,7 @@ test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); e
   const d = (pv) => C.divisionDelMundo(null, pv);
   assert.deepEqual([d(2).mide, d(2).enlace], [['epoch.1.1', 'epoch.9.0.0'], [1, 2, 3, 4, 5]]);
   assert.deepEqual([d(3).mide, d(3).enlace], [['epoch.1.2.1', 'attended'], [0, 1, 2, 3, 4, 5]]);
-  for (const pv of [0, 5, 1, 4, 6, 7, 8, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
+  for (const pv of [0, 5, 4, 6, 7, 8, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
   // el enlace del 2 son las miradas de epoch.1.1 y el del 3 las zonas de epoch.1.2.1, uno por hijo
   const raiz = EPOCA_0_BTML.registro;
   assert.deepEqual(d(2).enlace, raiz[1][1][1].map((m) => m[1][0]));
@@ -561,4 +561,69 @@ test('el estado de cada paquete del 3: una petición de atención (R devuelta a 
   // sin «attended» en lo que mide, no se da
   const sinLectura = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['epoch.1.2.1']; });
   assert.equal(C.hijosDe(eje, conversacion.id, 3, { nivel: 2, epoca: sinLectura }).some((h) => 'estados' in h), false);
+});
+
+// ---------- 11. lo que el núcleo mide de cada hijo del 1 (encargo «datos2», issue #11) ----------
+
+/** La compra con su cuenta y su fábrica (ejemplos/ikisai/compra-food.mjs, ejemploFabrica): coste, capacidad y lo que entra y sale. */
+async function conFabrica() {
+  const c = await ejemploCompra();
+  await ejemploCuenta(c.eje, c.compra);
+  return { ...c, ...(await ejemploFabrica(c.eje, c)) };
+}
+/** La denominación de una serie de E sin su registro: «1100000000@2026-11-20». */
+const denominacion = (serie) => serie.split('/')[1].replace(/@[0-9a-f]{64}$/, '');
+
+test('epoch.8.7: el 1 mide el coste, la capacidad y lo que entra y sale; su enlace dice qué hijo mide qué (1 el coste, 2 la capacidad, 3 lo que entra y sale, 4 nada)', () => {
+  const d = C.divisionDelMundo(null, 1);
+  assert.deepEqual([d.mide, d.enlace], [['epoch.9.2', 'capacity', 'epoch.4.0'], ['epoch.9.2', 'capacity', 'epoch.4.0', null]]);
+  assert.equal(d.enlace.length, d.hijos.length, 'uno por hijo, con null donde la fila pone «-»');
+  assert.ok(d.enlace.filter(Boolean).every((ref) => d.mide.includes(ref)), 'cada enlace es una referencia de lo que la fila mide');
+  assert.match(EPOCA_0_BTML.registro[8][7][2][3], /^Encargo «datos2» \(issue #11/, 'con su procedencia');
+});
+
+test('hijosDe en el 1 de la compra: el coste del 1.2 de su plantilla (hijo 1), la capacidad que declara por el aro (hijo 2) y lo que sale de su dueño (hijo 3); el 4 no mide nada', async () => {
+  const { eje, compra, capacidad } = await conFabrica();
+  const h = sinOcupantes(C.hijosDe(eje, compra.id, 1));
+  assert.deepEqual(h[0].coste, { posicion: '1.2', cuanto: 12, unidad: 'EUR', texto: 'EUR 12' });
+  // «declare capacity or threshold» de la huésped en el 2.2 de la compra: dos a la vez; no hay E atado a la compra, nada comprometido
+  assert.deepEqual(['capacidad', 'comprometido', 'disponible', 'franja', 'declara'].map((k) => h[1][k]), [2, 0, 2, '', capacidad.id]);
+  // lo que entra y sale, visto desde la huésped: paga 12 EUR a la cocina y quema su T al escribir (la compra, una hora; lo demás, minutos)
+  const quemado = C.diario(eje, compra.id, 0, 1e9).entradas.flatMap((e) => e.movimientos).filter((m) => m.serie === 'T:minuto' && m.de === 'huesped' && m.primitiva === 'quemar').reduce((s, m) => s + m.cantidad, 0);
+  assert.ok(quemado > 0);
+  assert.deepEqual(h[2].entradas, []);
+  assert.deepEqual(h[2].salidas.map((x) => [x.serie, x.cantidad, x.con]), [['T:hora', 1, [null]], ['E:casa/EUR', 12, ['cocina']], ['T:minuto', quemado, [null]]]);
+  // la cuenta la escribe la cocina: su T es de la cocina, no sale de la huésped; la asignación del día no cuenta como entrada
+  assert.equal(h[2].salidas.some((x) => x.con.includes('huesped')), false);
+  assert.deepEqual([h[0], h[1], h[2], h[3]].map((x) => ['coste', 'capacidad', 'entradas'].filter((k) => k in x)), [['coste'], ['capacidad'], ['entradas'], []]);
+});
+
+test('hijosDe en el 1 de la reserva: el coste llega por referencia (el precio de la plaza), la capacidad es la del Alojamiento con lo comprometido por noche, y entran las plazas y salen los euros', async () => {
+  const r = await ejemploReserva();
+  const h = sinOcupantes(C.hijosDe(r.eje, r.reserva.id, 1));
+  assert.deepEqual([h[0].coste.cuanto, h[0].coste.unidad], [55, 'EUR']);
+  // el Alojamiento declara 4 plazas por noche (su 2: el tope del eje); la noche más apretada es una de las de la reserva: una cama entregada
+  assert.deepEqual([h[1].capacidad, h[1].comprometido, h[1].disponible, h[1].franja, h[1].declara], [4, 1, 3, '2026-11-20', r.alojamiento.id]);
+  assert.equal(h[1].capacidad, r.eje.topes(r.reserva.id).find((x) => x.franja === '2026-11-20').capacidad);
+  // a la huésped le entran las tres noches de la cama individual (de la casa) y le salen los euros (a la casa) y su T
+  assert.deepEqual(h[2].entradas.map((x) => [denominacion(x.serie), x.cantidad, x.con]), ['2026-11-20', '2026-11-21', '2026-11-22'].map((n) => ['1100000000@' + n, 1, ['casa']]));
+  assert.deepEqual(h[2].salidas.find((x) => x.serie === 'E:casa/EUR'), { serie: 'E:casa/EUR', cantidad: 165, con: ['casa'] });
+  // la habitación no tiene plantilla: sin coste; su capacidad es la misma (la del Alojamiento, en su hilo)
+  const hab = sinOcupantes(C.hijosDe(r.eje, r.habitacion.id, 1));
+  assert.equal('coste' in hab[0], false);
+  assert.deepEqual([hab[1].capacidad, hab[1].disponible], [4, 3]);
+  // un registro sin nadie que declare capacidad en su hilo, sin capacidad
+  assert.equal('capacidad' in C.hijosDe(eje, compra.id, 1)[1], false);
+});
+
+test('lo que mide cada hijo del 1 sale de la época: otro enlace lo mueve de hijo; sin la referencia en lo que mide, no se da', async () => {
+  const { eje, compra } = await conFabrica();
+  const otro = epocaCon((e) => { filaDelMundo(e, 1)[8] = ['-', 'epoch.4.0', 'capacity', 'epoch.9.2']; });
+  const h = C.hijosDe(eje, compra.id, 1, { epoca: otro });
+  assert.deepEqual(h.map((x) => ['coste', 'capacidad', 'entradas'].filter((k) => k in x)), [[], ['entradas'], ['capacidad'], []], 'el 4.2 de la compra no es una magnitud: sin coste');
+  const sinCapacidad = epocaCon((e) => { filaDelMundo(e, 1)[4] = ['epoch.9.2', 'epoch.4.0']; });
+  assert.equal(C.hijosDe(eje, compra.id, 1, { epoca: sinCapacidad }).some((x) => 'capacidad' in x), false);
+  const sinEnlace = epocaCon((e) => { filaDelMundo(e, 1)[8] = ['-']; });
+  assert.equal('enlace' in C.divisionDelMundo(null, 1, { epoca: sinEnlace }), false);
+  assert.equal(C.hijosDe(eje, compra.id, 1, { epoca: sinEnlace }).some((x) => 'coste' in x || 'capacidad' in x || 'entradas' in x), false);
 });

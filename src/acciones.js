@@ -20,6 +20,7 @@
 //   camino(eje, X, yo)                      lo que falta: lo del tutorial, lo que derivan las reglas, las sugerencias
 //   autoejecutar(eje, X, yo, firmar)        lanza los pasos míos en orden mientras pasen
 //   estaciones(eje, X)                      lo anunciado en X por estación (E pagar, P decidir, R atender, T trabajar)
+//   ejecuciones(eje, X)                     la fábrica de X para la matriz del 4: cada ejecución con su PV, su posición y su estación
 //
 // Aquí no se decide nada: si una acción no se ofrece, lo dice su 2; qué mueve, su 4; dónde ancla, su 5. Este módulo
 // solo sabe leer el molde y construir el evento. No asienta nada: la carta firma y asienta con lo que ya existe
@@ -31,7 +32,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
+import { plantilla as plantillaDeDatos, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -528,16 +529,33 @@ export function opiniones(eje, proyecto, opciones = {}) {
 
 // ---------- 4. las estaciones ----------
 
-/** Las estaciones de la fábrica (epoch.4.2): [{ familia, estacion, plantilla }]. */
+/**
+ * Las estaciones de la fábrica (epoch.4.2): [{ familia, estacion, plantilla, autoriza }]. `autoriza` (encargo «datos2»,
+ * issue #11) es la cuarta posición de la estación, lo que autoriza un anuncio pendiente (la estación intermedia
+ * «autorizada»): `epoch.9.0.0`, el recuento del anuncio con el criterio de su dueño; null si la época no dice nada.
+ */
 export function estacionesDeLaEpoca(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
-  return hojas(en(raiz, SITIO.estaciones)).filter((x) => Array.isArray(x) && esDecupla(x)).map((x) => ({ familia: hoja(x[0]), estacion: hoja(x[1]), plantilla: hoja(x[2]) }));
+  return hojas(en(raiz, SITIO.estaciones)).filter((x) => Array.isArray(x) && esDecupla(x)).map((x) => {
+    const autoriza = texto(hoja(x[3]));
+    return { familia: hoja(x[0]), estacion: hoja(x[1]), plantilla: hoja(x[2]), autoriza: autoriza && autoriza !== '-' ? autoriza : null };
+  });
+}
+
+/** Lo que una estación sabe leer como autorización (epoch.4.2, su cuarta posición): el recuento del anuncio (motor.recuento). */
+const AUTORIZA = Object.freeze({ recuento: 'epoch.9.0.0' });
+
+/** ¿Está autorizado un anuncio pendiente? Si su estación lo dice con el recuento: el de su dueño pasa el umbral. */
+function autorizado(eje, id, e) {
+  if (e.autoriza !== AUTORIZA.recuento) return false;
+  try { return recuento(eje, id).pasa === true; } catch { return false; }
 }
 
 /**
  * Lo anunciado en X por estación (la lectura «stage», X.4.8, y los anuncios de su 4.1): [{ familia, estacion,
- * plantilla, anunciados, hechos, pendientes }], cada lista con los ids de los anuncios. La familia de un anuncio se
- * lee buscando su serie por su valor en las del libro (before.4).
+ * plantilla, autoriza, anunciados, hechos, pendientes, autorizados }], cada lista con los ids de los anuncios. La
+ * familia de un anuncio se lee buscando su serie por su valor en las del libro (before.4). `autorizados` (encargo
+ * «datos2», issue #11) son los pendientes que la estación da por autorizados (su `autoriza`): siguen pendientes.
  */
 export function estaciones(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -552,8 +570,42 @@ export function estaciones(eje, X, opciones = {}) {
     const de = (expr) => (valores('((' + expr + ' where count it.5 > 0) where ' + e.familia + ' in (before.4.(first it.0)).0.0) each 5', ctx).valores ?? []).filter((x) => typeof x === 'string');
     const anunciados = [...new Set(de(anuncios))];
     const pendientes = [...new Set(de(s + '.4.8'))];
-    return { ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)) };
+    return { ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)), autorizados: pendientes.filter((id) => autorizado(eje, id, e)) };
   });
+}
+
+/**
+ * Las ejecuciones de la fábrica de X, para la matriz del 4 (encargo «datos2», issue #11; Core, pendiente de revisar VG):
+ * lo propio del 4 de X y cada registro anclado en X (en cualquier posición: registrar ya es ejecutar, docs/MOTOR.md),
+ * por llegada: [{ ocupante, pv, posicion, accion, estacion }]. `posicion` es la que modifica (el primer dígito del `en`
+ * del registro); `pv`, el tipo de interacción: el de la plantilla de transacción que el registro nombra en su 4 (la
+ * acción que lo escribió) o, si es un anuncio del 4.1, el de la plantilla de su estación (pay, deliver); `estacion`,
+ * la de un anuncio: «ejecutada» (hecho), «autorizada» (pendiente y autorizado) o «propuesta» (pendiente). Lo que no se
+ * sabe va a null (lo propio del payload no tiene ni lo uno ni lo otro): la carta lo pone aparte, sin inventar celda.
+ */
+export function ejecuciones(eje, X, opciones = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev || !eje?.obtener(ev.id)) return [];
+  const plantillas = plantillasDeTransaccion(opciones);
+  const porNombre = new Map(plantillas.map((p) => [p.nombre, p]));
+  const estacionDe = new Map();
+  const plantillaDe = new Map();
+  for (const e of estaciones(eje, ev.id, opciones)) {
+    for (const id of e.anunciados) plantillaDe.set(id, e.plantilla);
+    for (const id of e.pendientes) estacionDe.set(id, e.autorizados.includes(id) ? 'autorizada' : 'propuesta');
+    for (const id of e.hechos) estacionDe.set(id, 'ejecutada');
+  }
+  const anclados = eje.sobre(ev.id);
+  const deX = new Set(anclados.map((h) => h.id));
+  const total = ocupantesDeContrato(eje, ev.id, 4, 0, 0, opciones).total;
+  const propios = ocupantesDeContrato(eje, ev.id, 4, 0, total, opciones).ocupantes
+    .filter((o) => !(esReferencia(o) && deX.has(o.ref)))
+    .map((o) => ({ ocupante: o, pv: null, posicion: null, accion: null, estacion: null }));
+  return [...propios, ...anclados.map((h) => {
+    const accion = hojas(h.payload?.[4]).find((x) => typeof x === 'string' && porNombre.has(x)) ?? plantillaDe.get(h.id) ?? null;
+    const posicion = Number(String(h.en ?? '0')[0]);
+    return { ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion: estacionDe.get(h.id) ?? null };
+  })];
 }
 
 // ---------- 5. el camino ----------
