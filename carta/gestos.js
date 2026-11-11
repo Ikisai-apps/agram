@@ -49,7 +49,7 @@ export function instalar(raiz, m) {
     quitar.push(() => donde.removeEventListener(tipo, fn, opciones));
   };
   const documento = raiz.ownerDocument ?? raiz;
-  const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante):not(.rejilla-celda)'); // un ocupante anidado también lleva data-pv (su color), pero no es un PV
+  const pvDe = (el) => el?.closest?.('[data-pv]:not(.ocupante):not(.rejilla-celda):not(.hijo)'); // un ocupante anidado o un hijo de la rejilla también llevan data-pv (su color), pero no son un PV
   const xDe = (el) => el?.closest?.('[data-x]')?.dataset.x ?? null;
 
   // ---- toques y clics ----
@@ -86,8 +86,19 @@ export function instalar(raiz, m) {
     if ((el = b('[data-copia]'))) { e.preventDefault(); m.copia?.(null); return; }
     if ((el = b('[data-olvidar]'))) { e.preventDefault(); m.olvidar?.(); return; }
     if ((el = b('[data-leido]'))) { e.preventDefault(); m.leido?.(); return; }
+    if ((el = b('[data-girar]'))) {
+      // La tarjeta central flotante de la rejilla: girarla entre su cara 0 y su cara 5 es solo cosa de la pantalla (no cambia el estado).
+      e.preventDefault();
+      const tarjeta = el.closest('.centro-flotante');
+      if (tarjeta) {
+        const girada = tarjeta.classList.toggle('girada');
+        for (const [cara, oculta] of [['.cara-0', girada], ['.cara-5', !girada]]) tarjeta.querySelector(cara)?.setAttribute('aria-hidden', String(oculta));
+      }
+      return;
+    }
     if ((el = b('[data-voltear]'))) { e.preventDefault(); m.voltear?.(); return; }
-    if ((el = b('[data-celda]'))) { e.preventDefault(); m.celda?.(Number(el.dataset.pv), el.dataset.celda); return; }
+    // Entrar en una celda: la profundidad es la del mundo de la rejilla (data-rejilla), no la del dígito del hijo donde está el ocupante.
+    if ((el = b('[data-celda]'))) { e.preventDefault(); m.celda?.(Number(el.closest('[data-rejilla]')?.dataset.rejilla ?? el.dataset.pv), el.dataset.celda); return; }
     if ((el = b('[data-subir]'))) { e.preventDefault(); m.subir?.(Number(el.dataset.subir)); return; }
     if ((el = b('[data-abrir]'))) { e.preventDefault(); if (el.dataset.abrir) m.foco?.(el.dataset.abrir, 0); return; }
     if ((el = b('[data-foco-pv]'))) { e.preventDefault(); m.foco?.(el.dataset.x ?? xDe(el), Number(el.dataset.focoPv)); return; }

@@ -337,3 +337,35 @@ test('la medida de cada carta va pequeña en su fila de arriba: la del PV4 es su
   const h = html(a);
   assert.match(h, /<section class="pv pv-4 [^>]*><header class="pv-cabeza"><span class="numero">4<\/span><span class="etiqueta">[^<]*<\/span><span class="medida"[^>]*>ciclo 4<small>\/4<\/small>/);
 });
+
+test('el segundo nivel a pantalla completa (las formas sobrias de cada mundo): sin scroll a 1920 × 1080 ni a 1366 × 768, con flechas a los vecinos y «volver»; el nivel 2 del 1 y del 2, también', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const PORTATIL = { ancho: 1366, alto: 768 };
+  const formas = { 1: 'cruceta', 2: 'escalera', 3: 'rejilla', 4: 'matriz', 6: 'franjas', 7: 'franjas', 8: 'cielo', 9: 'camino' };
+  for (const medidas of [GRANDE, PORTATIL]) {
+    for (const pv of LATERALES) {
+      const a = await arbol({ foco: { X: compra.id, pv } }, eje, 'huesped', medidas);
+      sinScroll(a, 'pantalla completa del ' + pv + ' a ' + medidas.ancho);
+      assert.equal(a.centro.rejilla.forma, formas[pv]);
+      const h = html(a);
+      assert.match(h, new RegExp(`class="rejilla rejilla-completa" data-rejilla="${pv}" data-forma="${formas[pv]}"`));
+      assert.equal((h.match(/class="vecino /g) ?? []).length, a.mapa.completa.vecinos.length);
+      assert.match(h, /class="volver volver-claro"/);
+    }
+    // el nivel 2: se entra por un ocupante que es un registro con algo dentro (el que lleva data-celda)
+    for (const [pv, forma] of [[1, 'cruceta'], [2, 'columnas']]) {
+      const r1 = (await arbol({ foco: { X: compra.id, pv } }, eje, 'huesped', medidas)).centro.rejilla;
+      const dentro = r1.celdas.flatMap((c) => c.ocupantes).find((o) => o.entra);
+      assert.ok(dentro, 'algo en lo que entrar en el ' + pv);
+      const a = await arbol({ foco: { X: compra.id, pv }, profundidad: { [pv]: [dentro.X] } }, eje, 'huesped', medidas);
+      sinScroll(a, 'nivel 2 del ' + pv);
+      assert.deepEqual([a.centro.rejilla.nivel, a.centro.rejilla.forma, a.centro.rejilla.X], [2, forma, dentro.X]);
+      assert.match(html(a), new RegExp(`class="volver volver-claro"[^>]*data-subir="${pv}"`));
+    }
+  }
+  // en el móvil (apilada) nada de esto: el centro abierto sigue sin rejilla
+  const movil = await arbol({ foco: { X: compra.id, pv: 1 } }, eje, 'huesped', MOVIL);
+  assert.equal(movil.apilada, true);
+  assert.equal(movil.centro.rejilla ?? null, null);
+  assert.doesNotMatch(html(movil), /rejilla-completa/);
+});

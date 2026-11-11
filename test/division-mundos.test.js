@@ -7,9 +7,13 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arbol, escalaDeTamanos, LATERALES, CENTROS } from '../carta/carta.js';
+import { readFileSync } from 'node:fs';
+import { arbol, escalaDeTamanos, preferencias, LATERALES, CENTROS } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
+import { t } from '../carta/textos.js';
 import * as C from '../src/contrato.js';
+import * as A from '../src/acciones.js';
+import { pasos } from '../src/pasos.js';
 import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
@@ -260,7 +264,7 @@ test('el 6 y el 7: una franja por escala de T que el calendario mide; el 6 con l
   assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, escalas.length);
 });
 
-test('el 8 da las diez cajas nivel.grado de HITOS; el 9, primero esas diez posiciones para situarse y después los pasos del camino o, sin pasos, los niveles de madurez', async () => {
+test('el 8 da las diez cajas nivel.grado de HITOS; el 9, primero esas diez posiciones para situarse (con la madurez del foco) y debajo los pasos del camino y la guía, plegables', async () => {
   const { eje, compra } = await ejemploCompra();
   const r8 = (await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE)).centro.rejilla;
   assert.equal(r8.forma, 'cielo');
@@ -268,16 +272,20 @@ test('el 8 da las diez cajas nivel.grado de HITOS; el 9, primero esas diez posic
   assert.deepEqual(r8.bandas.map((b) => b.indice), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual(r8.bandas.map((b) => b.nombre), HITOS.map((h) => h.nombre));
   assert.deepEqual(r8.bandas.map((b) => `${b.nivel}.${b.grado}`), HITOS.map((h) => h.nivel));
-  const r9 = (await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE)).centro.rejilla;
-  assert.equal(r9.forma, 'camino');
-  assert.equal(r9.bandas.length, 10);
-  assert.equal(r9.pasos, true);
-  assert.deepEqual(r9.situarse.map((b) => b.nombre), HITOS.map((h) => h.nombre), 'las diez posiciones para situarse');
   const a9 = await arbol(completa(compra.id, 9), eje, 'huesped', GRANDE);
-  if (a9.camino.pasos.length) assert.deepEqual(r9.bandas.map((b) => b.falta).slice(0, a9.camino.pasos.length), a9.camino.pasos.map((p) => p.falta));
-  else assert.ok(r9.bandas.every((b) => typeof b.nivel === 'string'), 'sin pasos, los niveles de madurez');
+  const r9 = a9.centro.rejilla;
+  assert.equal(r9.forma, 'camino');
+  assert.equal(r9.camino, true);
+  assert.equal(r9.bandas.length, 10);
+  assert.deepEqual(r9.bandas.map((b) => b.nombre), HITOS.map((h) => h.nombre), 'primero las diez posiciones para situarse');
+  assert.deepEqual(r9.bandas.map((b) => `${b.nivel}.${b.grado}`), HITOS.map((h) => h.nivel));
+  const m = C.madurez(eje, compra.id);
+  assert.deepEqual([r9.madurez.nivel, r9.madurez.de], [m.nivel, m.de], 'la madurez del foco, del núcleo (ninguna caja se enciende: nada asigna nivel ni grado al foco)');
   const h = html(a9);
   assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, 10);
+  // Debajo, los pasos del camino y la guía de siempre (htmlCamino), plegables; la guía no se repite fuera de la rejilla.
+  assert.match(h, /class="camino-mensajes"><details class="plegable" open><summary>[^<]*<\/summary><section class="camino"/);
+  assert.deepEqual([r8.columnas, r8.filas, r9.columnas, r9.filas], [5, 2, 5, 2], 'las diez cajas en dos filas');
 });
 
 test('en un bloque la rejilla se usa si cabe (celdas de 48 px o más); si no, la división de epoch.8.3 como hasta ahora', async () => {
@@ -300,12 +308,17 @@ test('en un bloque la rejilla se usa si cabe (celdas de 48 px o más); si no, la
   const epoca = epocaCon((x) => { filaDe(x, 1)[3] = ['matriz']; });
   const b = await arbol(estado, eje, 'huesped', ORDENADOR, { epoca });
   assert.equal(b.laterales.find((n) => n.pv === 1).rejilla, undefined);
-  // Las franjas del 6 (7 × 48 = 336 px) no caben en su bloque a 1920 × 1080 (270 px de alto); con tres escalas menos en el calendario (192 px), sí.
+  // Las franjas del 6 son verticales: siete columnas (7 × 48 = 336 px) y los cuatro hilos más la fila de los nombres
+  // (5 × 48 = 240 px) caben en su bloque a 1920 × 1080; en una pantalla de 900 × 600 (un bloque de 300 × 200), no;
+  // con tres escalas menos en el calendario (4 × 48 = 192 px de ancho), tampoco: no caben los cinco de alto.
   const g = await arbol(estado, eje, 'huesped', GRANDE);
-  assert.equal(g.laterales.find((n) => n.pv === 6).rejilla, undefined);
+  const r6 = g.laterales.find((n) => n.pv === 6).rejilla;
+  assert.deepEqual([r6?.forma, r6?.columnas, r6?.filas, r6?.bandas.length], ['franjas', 7, 5, 7]);
+  const pequena = { ancho: 900, alto: 600 };
+  assert.equal((await arbol(estado, eje, 'huesped', pequena)).laterales.find((n) => n.pv === 6).rejilla, undefined);
   const pocas = epocaCon((x) => { x[7][0] = x[7][0].filter((r) => ['segundo', 'minuto', 'hora', 'día'].includes(r[0][0])); });
-  const h = await arbol(estado, eje, 'huesped', GRANDE, { epoca: pocas });
-  assert.equal(h.laterales.find((n) => n.pv === 6).rejilla?.bandas.length, 4);
+  assert.equal((await arbol(estado, eje, 'huesped', pequena, { epoca: pocas })).laterales.find((n) => n.pv === 6).rejilla, undefined);
+  assert.equal((await arbol(estado, eje, 'huesped', GRANDE, { epoca: pocas })).laterales.find((n) => n.pv === 6).rejilla?.bandas.length, 4);
 });
 
 test('la pantalla completa de cada PV lateral usa su rejilla (menos el 0 y el 5, que no se dividen); sin fila en la época, la división de antes', async () => {
@@ -319,3 +332,191 @@ test('la pantalla completa de cada PV lateral usa su rejilla (menos el 0 y el 5,
 });
 
 const NIVEL_BLOQUE = 3;
+
+// ---------- las formas sobrias del segundo nivel (VG, mockup v3): lo que cada mundo pinta a pantalla completa ----------
+
+/** El HTML de la rejilla a pantalla completa (desde su contenedor hasta la ayuda del centro). */
+const rejillaHtml = (h) => {
+  const desde = h.indexOf('<div class="rejilla rejilla-completa"');
+  return h.slice(desde, h.indexOf('<p class="ayuda">', desde));
+};
+
+test('la cruceta trae cuatro celdas (las esquinas) y el pulsado como tarjeta central flotante con sus dos caras y ↻; en un bloque, sin tarjeta', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const a = await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.equal(r.celdas.length, 4);
+  assert.deepEqual(Object.keys(r.flotante).sort(), ['X', 'ancla', 'etiqueta', 'medida', 'pasos', 'plantilla', 'pv', 'texto'].sort());
+  assert.equal(r.flotante.X, compra.id);
+  assert.equal(r.flotante.texto, C.legible(eje, { ref: compra.id }, null, { idioma: a.idioma }).texto, 'su nombre, el legible del núcleo');
+  assert.equal(r.flotante.medida.k, a.centro.medida.k, 'su medida en este mundo, la del PV');
+  const h = rejillaHtml(html(a));
+  assert.match(h, /^<div class="rejilla rejilla-completa" data-rejilla="1" data-forma="cruceta"/);
+  assert.match(h, /<div class="rejilla-celdas rejilla-cruceta"/);
+  assert.equal((h.match(/class="rejilla-celda hijo[ "]/g) ?? []).length, 4);
+  assert.equal((h.match(/class="centro-flotante"/g) ?? []).length, 1);
+  assert.match(h, /class="flotante-cara cara-0">[\s\S]*data-girar[\s\S]*class="flotante-cara cara-5" aria-hidden="true">[\s\S]*data-girar/, 'cara 0 y cara 5, cada una con su ↻');
+  assert.match(h, /class="flotante-barra" style="--lleno:0\.\d+"/, 'la medida con «de» lleva su barra');
+  // las esquinas: la tarjeta del hijo (nombre, total) y su tabla; la décupla, una columna por hoja
+  assert.match(h, /data-pv="1"[^>]*><header class="hijo-cabeza"><span class="numero">1<\/span><span class="hijo-nombre">cuánto<\/span><span class="hijo-cifra">\d+<\/span><\/header><div class="hijo-cuerpo"><table class="hijo-tabla">/);
+  // en un bloque, la misma rejilla sin tarjeta flotante
+  const e = escalaDeTamanos();
+  const b = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: Object.fromEntries(LATERALES.map((pv) => [pv, e.tope])) }, eje, 'huesped', ORDENADOR);
+  assert.ok(b.laterales.find((n) => n.pv === 1).rejilla.flotante, 'el árbol la trae');
+  assert.doesNotMatch(html(b), /class="centro-flotante"/, 'pero en un bloque no se pinta');
+});
+
+test('los ganchos del animado: cada hijo es .hijo[data-pv] con .hijo-nombre, .hijo-cifra y .hijo-cuerpo; el contenedor .rejilla-completa[data-forma] posicionado y aislado; los huecos salen de --hueco', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const pv of [1, 2, 3]) {
+    const h = rejillaHtml(html(await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)));
+    const hijos = h.split('<div class="rejilla-celda hijo').slice(1);
+    assert.ok(hijos.length >= 4, 'hijos del ' + pv);
+    for (const x of hijos) {
+      assert.match(x, /^[^"]*" data-color="\d" data-pv="\d"/);
+      for (const c of ['hijo-nombre', 'hijo-cifra', 'hijo-cuerpo']) assert.ok(x.includes(`class="${c}`), c + ' en ' + x.slice(0, 80));
+    }
+  }
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  assert.match(css, /\.rejilla-completa\{position:relative;isolation:isolate;--hueco:/);
+  assert.match(css, /\.rejilla-completa \.rejilla-celdas,\.rejilla-completa \.rejilla-bandas\{gap:var\(--hueco\)\}/);
+  assert.match(css, /\.flotante-giro\{[^}]*transition:transform 300ms ease-out/, 'el giro: rotateY en 300 ms');
+  assert.match(css, /\.centro-flotante\.girada \.flotante-giro\{transform:rotateY\(180deg\)\}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\{\.flotante-giro\{transition:none\}\}/);
+  // nada de eso puede venir de datos: cssSeguro no deja pasar position, z-index, transform ni animation
+  assert.equal(C.cssSeguro('position: absolute; z-index: 3; transform: rotateY(180deg); animation: x 1s'), '');
+  assert.equal(C.cssSeguro('--hueco: 12px; position: absolute'), '--hueco: 12px;');
+  // girar la tarjeta es solo cosa de la pantalla (gestos.js, data-girar); entrar en una celda baja en el mundo de la rejilla
+  const gestos = readFileSync(new URL('../carta/gestos.js', import.meta.url), 'utf8');
+  assert.match(gestos, /\[data-girar\][\s\S]*?classList\.toggle\('girada'\)/);
+  assert.match(gestos, /m\.celda\?\.\(Number\(el\.closest\('\[data-rejilla\]'\)\?\.dataset\.rejilla/);
+});
+
+test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción por defecto del PV>», con el nombre que dan las acciones en el idioma', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const yo of ['huesped', 'casa']) {
+    const a = await arbol(completa(compra.id, 3), eje, yo, GRANDE);
+    const vacio = a.centro.rejilla.celdas.find((c) => c.vacio);
+    assert.ok(vacio, 'el 3 de la compra tiene un hijo vacío');
+    const lista = A.acciones(eje, compra.id, vacio.pv, yo, { idioma: a.idioma });
+    const defecto = lista.find((x) => x.porDefecto) ?? lista[0] ?? null;
+    assert.deepEqual(vacio.escribir, defecto ? { id: defecto.id, nombre: defecto.etiqueta } : null);
+    const h = rejillaHtml(html(a));
+    const texto = defecto ? t('escribirAquiAccion', { accion: defecto.etiqueta }) : t('escribirAqui');
+    assert.ok(h.includes(`data-pv="${vacio.pv}" data-fila="${vacio.fila}" data-columna="${vacio.columna}" data-vacio><header class="hijo-cabeza"><span class="numero">${vacio.pv}</span><span class="hijo-nombre">${vacio.nombre}</span><span class="hijo-cifra"></span></header><div class="hijo-cuerpo"><span class="hijo-vacio">${texto}</span>`), 'nombre apagado y debajo el paso del camino');
+  }
+  // las celdas con ocupantes no lo llevan
+  const r = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.ok(r.celdas.filter((c) => !c.vacio).every((c) => c.escribir === null));
+});
+
+test('el nivel 2 del 2 son cinco columnas con el nivel siguiente dentro (contrato.hijosDe al nivel + 1, con la misma regla del vacío)', async () => {
+  const { eje, nota, carpeta } = await conCarpeta();
+  const a = await arbol(completa(carpeta.id, 2, { profundidad: { 2: [carpeta.id] } }), eje, 'casa', GRANDE);
+  const r = a.centro.rejilla;
+  assert.deepEqual([r.forma, r.nivel, r.columnas, r.filas, r.celdas.length], ['columnas', 2, 5, 1, 5]);
+  const columna = r.celdas.find((c) => c.siguiente?.length);
+  assert.equal(columna.pv, 1, 'la nota cuelga del 1 de la carpeta');
+  const sig = columna.siguiente[0];
+  assert.equal(sig.X, nota.id);
+  const esperados = C.hijosDe(eje, nota.id, 2, { nivel: 3 });
+  assert.deepEqual(sig.hijos.map((h) => [h.digito, h.nombre, h.total, h.vacio]), esperados.map((h) => [h.digito, h.nombre, h.total, h.vacio]));
+  assert.equal(sig.hijos.find((h) => !h.vacio).digito, 1, 'la hoja, en el 1 de la nota');
+  assert.ok(sig.hijos.filter((h) => h.vacio).every((h) => 'escribir' in h), 'los vacíos llevan su paso del camino');
+  const h = rejillaHtml(html(a));
+  assert.match(h, /<div class="rejilla-celdas rejilla-columnas" style="--columnas:5;--filas:1">/);
+  assert.equal((h.match(/class="siguiente-hijo[ "]/g) ?? []).length, 5);
+  assert.equal((h.match(/class="siguiente-hijo vacia"[^>]*data-vacio/g) ?? []).length, 4);
+});
+
+test('la matriz del 4 trae sus dos ejes nombrados (columnas: los diez PV como tipo de interacción; filas: la posición modificada) y la diagonal marcada', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const a = await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  const opts = { idioma: a.idioma };
+  const diez = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  assert.deepEqual(r.ejes.columnas.map((c) => c.pv), diez);
+  assert.deepEqual(r.ejes.columnas.map((c) => c.etiqueta), diez.map((k) => C.etiqueta(eje, null, k, opts)));
+  assert.deepEqual(r.ejes.filas.map((f) => f.nombre), diez.map((k) => C.etiqueta(eje, null, [0, k], opts)));
+  assert.deepEqual(r.ejes.filas.slice(0, 3).map((f) => f.nombre), ['qué es', 'cuánto', 'con qué condición']);
+  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => [c.fila, c.columna]), diez.map((k) => [k, k]));
+  const h = rejillaHtml(html(a));
+  assert.equal((h.match(/class="matriz-eje matriz-columna"/g) ?? []).length, 10);
+  assert.equal((h.match(/class="matriz-eje matriz-fila"/g) ?? []).length, 10);
+  assert.equal((h.match(/class="rejilla-celda hijo[^"]* diagonal"/g) ?? []).length, 10);
+  assert.equal((h.match(/class="rejilla-celda hijo estacion/g) ?? []).length, C.ocupantes(eje, compra.id, 4).total, 'cada celda con ocupante, una estación');
+});
+
+test('las franjas del 6 y el 7 son verticales y traen cuatro hilos horizontales en el orden de d.hilos; cada cuenta en su franja y en un hilo', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const pv of [6, 7]) {
+    const d = C.divisionDelMundo(eje, pv);
+    const a = await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE);
+    const r = a.centro.rejilla;
+    assert.deepEqual(r.hilos.map((x) => x.pv), d.hilos);
+    assert.deepEqual([r.columnas, r.filas], [d.bandas.length, d.hilos.length + 1], 'una columna por franja; una fila por hilo y la de los nombres');
+    for (const b of r.bandas) assert.deepEqual(b.cruces.map((c) => c.hilo), d.hilos, 'cada franja, cruzada por los cuatro hilos');
+    const h = rejillaHtml(html(a));
+    assert.deepEqual([...h.matchAll(/class="hilo" data-hilo="(\d)" data-color="\d" style="grid-column:1 \/ -1;grid-row:(\d)"/g)].map((m) => [Number(m[1]), Number(m[2])]), d.hilos.map((x, j) => [x, j + 2]), 'los hilos, de arriba abajo, atraviesan todas las columnas');
+    assert.deepEqual([...h.matchAll(/class="rejilla-banda hijo franja-tiempo[^"]*" data-banda="(\d)" style="grid-column:(\d+);grid-row:1 \/ -1"/g)].map((m) => [Number(m[1]), Number(m[2])]), r.bandas.map((b, i) => [b.indice, i + 2]), 'las franjas, columnas de izquierda a derecha, de arriba abajo');
+    assert.equal(r.bandas.find((b) => b.ahora).escala, Math.min(...d.bandas.map((b) => b.escala)), 'la más cercana a ahora, marcada');
+  }
+  // la entrada del diario de la compra (en la franja «hora») no cuelga de ninguno de los cuatro hilos: va en el primero, marcada
+  const a6 = await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE);
+  const r6 = a6.centro.rejilla;
+  const hora = r6.bandas.find((b) => b.nombre === 'hora');
+  assert.equal(hora.cruces[0].items[0].tipo, 'entrada');
+  assert.equal(hora.cruces[0].items[0].hilo, r6.hilos[0].pv);
+  assert.equal(hora.cruces[0].items[0].hiloSupuesto, true);
+  assert.match(html(a6), /<div class="cruce" data-banda="2" data-hilo="1" style="grid-column:\d+;grid-row:2"><button type="button" class="ocupante cuenta supuesta"[^>]*title="[^"]*2026-11-07 13:30/, 'nombre y fecha en el title');
+});
+
+test('más cuentas de las que caben en un cruce: una cuenta mayor con el número', async () => {
+  const { eje, compra } = await ejemploCompra();
+  // Muchos escritos que queman horas colgados de la compra: el 7 (sin ocupantes) reparte lo que cuelga de ella.
+  for (let i = 0; i < 12; i++) await eje.escribir({ autor: 'casa', sobre: compra.id, t: `2026-11-08T1${i % 10}:0${i % 6}:00Z`, movimientos: [{ token: 'T', escala: 'hora', cantidad: 1, de: 'casa', a: null }], payload: [['Hora ' + i]] });
+  const pequena = { ancho: 900, alto: 500 };
+  const a = await arbol(completa(compra.id, 7), eje, 'casa', pequena);
+  const cruce = a.centro.rejilla.bandas.flatMap((b) => b.cruces).find((c) => c.mas);
+  assert.ok(cruce, 'algún cruce no da abasto');
+  assert.match(html(a), new RegExp(`class="cuenta cuenta-mayor"[^>]*>${cruce.mas}</span>`));
+});
+
+test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.1 2.1 3.1 3.2, abajo 4.1 4.2 5.1 5.2 5.3), la caja del foco por su cuota y las vacías con su paso del camino', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const a = await arbol(completa(compra.id, 8), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.deepEqual([r.columnas, r.filas], [5, 2]);
+  const h = rejillaHtml(html(a));
+  const cajas = [...h.matchAll(/class="rejilla-banda hijo caja-cielo[^"]*" data-banda="(\d)" data-nivel="(\d)" data-grado="(\d)"/g)].map((m) => `${m[2]}.${m[3]}`);
+  assert.deepEqual(cajas, HITOS.map((x) => x.nivel));
+  assert.deepEqual([cajas.slice(0, 5), cajas.slice(5)], [['0.3', '1.1', '2.1', '3.1', '3.2'], ['4.1', '4.2', '5.1', '5.2', '5.3']]);
+  assert.match(h, /<div class="rejilla-bandas rejilla-cielo" style="--columnas:5;--filas:2">/);
+  const cuota = pasos(eje, compra.id).cuota;
+  assert.deepEqual(r.cuota, { nombre: 'cuota', k: cuota.k, de: cuota.de });
+  assert.deepEqual(r.bandas.filter((b) => b.foco).map((b) => b.indice), [cuota.k]);
+  assert.deepEqual(r.enElFoco, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].filter((k) => C.ocupantes(eje, compra.id, k, 0, 0).total > 0));
+  const medir = A.acciones(eje, compra.id, 8, 'huesped', { idioma: a.idioma }).find((x) => x.porDefecto);
+  const vacias = r.bandas.filter((x) => !x.items.length && !x.foco);
+  assert.ok(vacias.length);
+  for (const b of vacias) assert.deepEqual(b.escribir, { id: medir.id, nombre: medir.etiqueta });
+  assert.ok(h.includes(`<span class="hijo-vacio">${t('vacia')} · ${t('escribirAquiAccion', { accion: medir.etiqueta })}</span>`));
+});
+
+test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de cada mundo es el mismo HTML', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const sobrio = {};
+  for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) sobrio[pv] = rejillaHtml(html(await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)));
+  const clave = C.clavesDeConfiguracion().find((c) => c.clave === 'render');
+  const otra = clave.valores.find((v) => v !== C.configuracion(eje, 'huesped').render);
+  const p = preferencias(eje, 'huesped', { render: otra });
+  await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: '2026-11-07T13:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: p.payload });
+  // la preferencia es un escrito más: el diario (el 6) y la madurez del alta no son de la compra; lo de la compra no cambia
+  for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) {
+    const a = await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE);
+    assert.equal(a.animado, true);
+    const h = rejillaHtml(html(a));
+    assert.ok(h.length > 200, 'rejilla del ' + pv);
+    assert.equal(h, sobrio[pv], 'el mundo ' + pv + ' es igual en sobrio y en animado');
+  }
+});
