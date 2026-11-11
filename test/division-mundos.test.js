@@ -52,12 +52,8 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   assert.match(fila[2][0], /^VG, 10-11 noche/);
   const filas = fila[1];
   assert.deepEqual(filas.map((f) => f[0][0]), [0, 5, 1, 2, 3, 4, 6, 7, 8, 9]);
-<<<<<<< HEAD
-  // ocho posiciones; el 6 y el 7, una novena: el orden de sus listas verticales (VG 11-11, #18)
-  for (const f of filas) { assert.equal(f.length, [6, 7].includes(f[0][0]) ? 9 : 8); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
-=======
-  for (const f of filas) { assert.equal(f.length, 9); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
->>>>>>> beta-datos
+  // nueve posiciones (la 8 es el enlace, #11); el 6 y el 7, una décima: el orden de sus listas verticales (VG 11-11, #18)
+  for (const f of filas) { assert.equal(f.length, [6, 7].includes(f[0][0]) ? 10 : 9); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
   const d = (pv, nivel = 1) => C.divisionDelMundo(null, pv, { nivel });
   // hijos, profundidad y forma: la cruceta aplicada al elemento pulsado, no una matriz con herencia
   assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
