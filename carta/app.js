@@ -18,7 +18,7 @@
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
-import { arbol, enviar, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
+import { arbol, enviar, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
@@ -63,10 +63,13 @@ let ultimo = null; // el último árbol pintado: si es Mapped (no apilada), los 
 /** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
 const firmarCon = (id) => (privadaDe(id) ? (ev) => autoridad.firmar(ev, privadaDe(id)) : undefined);
-/** La pantalla que mide la carta: la ventana, sin lo que ocupa la barra (en Mapped la escena es el resto, sin scroll). */
+/**
+ * La pantalla que mide la carta: la ventana, sin lo que ocupa la barra (en Mapped la escena es el resto, sin scroll).
+ * Las medidas por tamaño de pantalla (el móvil apaisado, más bajo) las calcula carta.js medidasDePantalla.
+ */
 const medidas = () => {
   const barra = raiz?.querySelector?.('.barra')?.offsetHeight ?? 0;
-  return { ancho: Math.max(240, window.innerWidth), alto: Math.max(320, window.innerHeight - barra) };
+  return medidasDePantalla(window.innerWidth, window.innerHeight - barra);
 };
 /** ¿Está la carta en Mapped (la matriz del ordenador)? Lo dice el último árbol (la época decide por la forma de la pantalla). */
 const enMapped = () => Boolean(ultimo && !ultimo.vacio && !ultimo.apilada);
@@ -272,6 +275,9 @@ function situarAro() {
   const aro = fondo?.querySelector('.aro');
   const ancla = estado.aro?.ancla;
   if (!aro || !ancla || !enMapped()) return;
+  // Primero la clase: sin ella el CSS del aro centrado (min(112px, 29vw)) no es un número y las medidas saldrían a 0.
+  fondo.classList.add('anclado');
+  aro.classList.add('anclado');
   const estilo = getComputedStyle(aro);
   const px = (v) => parseFloat(estilo.getPropertyValue(v)) || 0;
   const sitioAncho = px('--sitio-ancho');
@@ -292,8 +298,6 @@ function situarAro() {
   const ancho = centroAncho + 2 * sitioAncho + 2 * hueco;
   const alto = centroAlto + 2 * sitioAlto + 2 * hueco;
   const dentro = (v, tam, total) => Math.round(Math.min(Math.max(v, MARGEN), Math.max(MARGEN, total - tam - MARGEN)));
-  fondo.classList.add('anclado');
-  aro.classList.add('anclado');
   aro.style.setProperty('--centro-ancho', centroAncho + 'px');
   aro.style.setProperty('--centro-alto', centroAlto + 'px');
   aro.style.left = dentro(centroX - sitioAncho - hueco, ancho, vw) + 'px';

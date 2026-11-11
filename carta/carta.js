@@ -72,6 +72,21 @@ export const LATERALES = Object.freeze(Object.keys(GEOMETRIA).map(Number).filter
 export const MEDIDAS = Object.freeze({ ancho: 400, alto: 700, hueco: 48, tarjeta: 160, linea: 30 });
 
 /**
+ * Las medidas de una pantalla (VG, 11-11: el móvil apaisado enseña Mapped y todo cabe sin scroll). `ancho` y `alto` son los
+ * píxeles útiles (el alto, sin la barra). En apaisado y bajo (menos de ALTO_BAJO px) el hueco, la tarjeta y la línea se reducen en
+ * proporción al alto que queda (con un mínimo), para que la matriz 3 × 3, los rosetones y el centro quepan; en vertical
+ * (Sequenced) y en el ordenador son las de siempre (MEDIDAS). Son píxeles de pantalla, no datos del dominio.
+ */
+export const ALTO_BAJO = 500;
+export const FACTOR_MINIMO = 0.6;
+export function medidasDePantalla(ancho, alto) {
+  const base = { ancho: Math.max(240, ancho), alto: Math.max(320, alto) };
+  if (ancho <= alto || base.alto >= ALTO_BAJO) return base;
+  const k = Math.max(FACTOR_MINIMO, base.alto / ALTO_BAJO);
+  return { ...base, hueco: Math.round(MEDIDAS.hueco * k), tarjeta: Math.round(MEDIDAS.tarjeta * k), linea: Math.round(MEDIDAS.linea * k) };
+}
+
+/**
  * Lo que se pinta de un PV lateral, de menos a más: 0 oculto, 1 comprimido (un dato), 2 tarjeta (los ocupantes que
  * caben), 3 bloque (la lista o la matriz, paginada); el siguiente gesto entra en el PV. En el móvil (apilada) son los
  * pasos de tamaño; en Mapped los pasos son los de la época (epoch.8.6, `escalaDeTamanos`) y esto es solo lo que cabe

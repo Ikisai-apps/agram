@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbol, formulario, preferencias, ampliar, ampliarTodos, escalaDeTamanos, repartir, LATERALES, CENTROS, GEOMETRIA, NIVEL } from '../carta/carta.js';
+import { arbol, formulario, preferencias, ampliar, ampliarTodos, escalaDeTamanos, repartir, medidasDePantalla, MEDIDAS, ALTO_BAJO, LATERALES, CENTROS, GEOMETRIA, NIVEL } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
 import * as A from '../src/acciones.js';
@@ -476,4 +476,110 @@ test('la app ancla el aro al elemento en Mapped con position:fixed (en app.js, n
   assert.match(css, /\.hueco\[data-fila="2"\] \.otras\{top:auto;bottom/, 'las alternativas de la fila de abajo crecen hacia arriba');
   const carta = readFileSync(new URL('../carta/carta.js', import.meta.url), 'utf8');
   assert.doesNotMatch(carta.slice(carta.indexOf('function nodoAro'), carta.indexOf('/** El idioma de quien mira')), /getBoundingClientRect|innerWidth|style/);
+});
+
+// ---------- el móvil apaisado (VG, 11-11): vertical Sequenced, apaisado Mapped, todo sin scroll ----------
+
+// Las ventanas de los móviles girados, con la barra del navegador ya restada (alto de la ventana) y, de ese alto, lo que ocupa la barra de la
+// carta (39 px en una fila compacta; 80 si por error se pintara en dos filas): lo que llega a arbol() es lo que queda para la escena.
+const APAISADOS = [[844, 390], [915, 412], [740, 360]];
+const BARRA_DE_LA_CARTA = [39, 80];
+
+test('las medidas por pantalla (carta.js medidasDePantalla): en apaisado y bajo el hueco, la tarjeta y la línea se reducen en proporción al alto útil, con un mínimo; en vertical y en el ordenador, las de siempre', () => {
+  // el ordenador y el móvil en vertical no cambian
+  for (const [ancho, alto] of [[1366, 768], [1920, 1080], [400, 700], [390, 844], [1200, 800]]) {
+    assert.deepEqual(medidasDePantalla(ancho, alto), { ancho, alto }, ancho + ' × ' + alto + ' lleva las medidas de siempre (MEDIDAS)');
+  }
+  assert.ok(ALTO_BAJO > 390 && ALTO_BAJO <= 500);
+  const chico = medidasDePantalla(844, 351);
+  assert.deepEqual([chico.ancho, chico.alto], [844, 351]);
+  assert.ok(chico.hueco < MEDIDAS.hueco && chico.tarjeta < MEDIDAS.tarjeta && chico.linea < MEDIDAS.linea, JSON.stringify(chico));
+  assert.ok(chico.hueco >= 28 && chico.tarjeta >= 90 && chico.linea >= 17, 'no se encogen más de la cuenta: ' + JSON.stringify(chico));
+  // cuanto más bajo, más pequeño (hasta el mínimo), y nunca más que lo de siempre
+  let antes = Infinity;
+  for (const alto of [499, 450, 400, 351, 320]) {
+    const m = medidasDePantalla(900, alto);
+    assert.ok(m.hueco <= antes && m.hueco <= MEDIDAS.hueco && m.tarjeta <= MEDIDAS.tarjeta && m.linea <= MEDIDAS.linea);
+    antes = m.hueco;
+  }
+  // una ventana más alta que ancha no se reduce aunque sea baja (el teclado del móvil en vertical)
+  assert.deepEqual(medidasDePantalla(280, 300), { ancho: 280, alto: 320 });
+});
+
+test('el móvil apaisado (844 × 390, 915 × 412, 740 × 360, sin la barra del navegador ni la de la carta) es Mapped y no apilado: el foco, un PV en bloque, todos en el grupo y la pantalla completa de los ocho mundos, sin scroll', async () => {
+  const { eje: ejeCompra, compra: laCompra } = await ejemploCompra();
+  const { eje: ejeReserva, reserva } = await ejemploReserva();
+  for (const [eje, compra] of [[ejeCompra, laCompra], [ejeReserva, reserva]]) for (const [ancho, alto] of APAISADOS) {
+    for (const barra of BARRA_DE_LA_CARTA) {
+      const medidas = medidasDePantalla(ancho, alto - barra);
+      const donde = ancho + ' × ' + alto + ' (útil ' + medidas.alto + ')';
+      // el foco (la pantalla inicial)
+      const foco = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', medidas);
+      assert.equal(foco.apilada, false, 'Mapped y no apilada: ' + donde);
+      assert.ok(foco.mapa && foco.mapa.completa === null, donde);
+      sinScroll(foco, 'foco ' + donde);
+      // todos un paso (el grupo) y dos pasos (la matriz 3 × 3 en bloque)
+      let estado = { foco: { X: compra.id, pv: 0 } };
+      for (const paso of ['grupo', 'bloque']) {
+        estado = { ...estado, ...ampliarTodos(estado, +1) };
+        const a = await arbol(estado, eje, 'huesped', medidas);
+        assert.equal(a.apilada, false, paso + ' ' + donde);
+        sinScroll(a, paso + ' ' + donde);
+        if (paso === 'bloque') assert.ok(a.mapa.matriz && a.laterales.every((n) => n.caja && n.nivel === NIVEL.bloque), 'la matriz 3 × 3 en bloque ' + donde);
+      }
+      // un PV en bloque y los demás en punto (el clic sobre un PV sube un paso a ese solo)
+      const base = { foco: { X: compra.id, pv: 0 }, ...ampliarTodos({}, +1) };
+      for (const pv of [1, 8]) {
+        const unPv = await arbol({ ...base, ...ampliar(base, pv, +1) }, eje, 'huesped', medidas);
+        assert.equal(unPv.apilada, false);
+        sinScroll(unPv, 'el PV ' + pv + ' en bloque ' + donde);
+      }
+      // la pantalla completa de cada mundo
+      for (const pv of LATERALES) {
+        const a = await arbol({ foco: { X: compra.id, pv } }, eje, 'huesped', medidas);
+        assert.equal(a.apilada, false, 'pantalla completa del ' + pv + ' ' + donde);
+        assert.equal(a.mapa.completa.pv, pv);
+        sinScroll(a, 'pantalla completa del ' + pv + ' ' + donde);
+        const h = html(a);
+        assert.match(h, /class="volver volver-claro"/);
+        assert.equal((h.match(/class="vecino /g) ?? []).length, a.mapa.completa.vecinos.length);
+      }
+    }
+  }
+});
+
+test('el móvil en vertical (400 × 700, 390 × 844) sigue apilado (Sequenced) y gira a Mapped con el mismo foco; la medida del apilado no cambia', async () => {
+  const { eje, compra } = await ejemploCompra();
+  for (const [ancho, alto] of [[400, 700], [390, 844], [360, 640]]) {
+    const medidas = medidasDePantalla(ancho, alto - 80);
+    assert.deepEqual(medidas, { ancho, alto: alto - 80 }, 'el vertical lleva las medidas de siempre');
+    const a = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', medidas);
+    assert.equal(a.apilada, true, ancho + ' × ' + alto);
+    assert.equal(a.mapa, null);
+    // el mismo móvil girado: la proporción alto/ancho lo decide la época
+    const girado = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', medidasDePantalla(alto, ancho - 39));
+    assert.equal(girado.apilada, false, 'girado: ' + alto + ' × ' + ancho);
+    assert.ok(girado.mapa);
+  }
+  // y el umbral es de la época, no del código: ni carta.js ni app.js comparan alto y ancho para decidir
+  const carta = readFileSync(new URL('../carta/carta.js', import.meta.url), 'utf8');
+  assert.match(carta, /const apilada = d\.disposicion !== disposiciones;/);
+});
+
+test('el móvil apaisado, en CSS y en app.js: las medidas las manda app.js por el tamaño de la ventana; la barra de una fila y los rosetones de 32 px son solo CSS por alto y orientación', () => {
+  const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
+  assert.match(app, /medidasDePantalla\(window\.innerWidth, window\.innerHeight - barra\)/);
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  const bloque = css.slice(css.indexOf('@media (orientation:landscape) and (max-height:500px){'));
+  assert.ok(bloque.length > 200, 'hay un bloque CSS para el móvil apaisado');
+  assert.match(bloque, /\.barra,\.carta-matriz \.barra\{flex-wrap:nowrap/, 'la barra en una sola fila');
+  assert.match(bloque, /\.rosetones-mapa \.roseton[^{]*\{width:32px;height:32px/, 'los rosetones, objetivos de 32 px');
+  assert.match(bloque, /\.punto,\.punto\.centro,\.todos-menos\{width:32px;height:32px/, 'los puntitos del foco, de 32 px');
+  assert.match(bloque, /\.vecino\{height:32px;min-width:32px/, 'las flechas a los vecinos, de 32 px');
+  // el aro anclado lee sus medidas del CSS ya anclado (antes eran min(...) y salían a 0): la clase va antes de getComputedStyle
+  const situar = app.slice(app.indexOf('function situarAro()'));
+  assert.ok(situar.indexOf("aro.classList.add('anclado')") > 0 && situar.indexOf("aro.classList.add('anclado')") < situar.indexOf('getComputedStyle(aro)'));
+  // lo que repinta al girar sigue ahí: cambia el ancho y no hay un campo con el foco
+  assert.match(app, /window\.innerWidth === anchoAnterior\) return;/);
+  assert.match(app, /const editando = \/\^\(INPUT\|TEXTAREA\|SELECT\)\$\/\.test\(document\.activeElement\?\.tagName/);
 });

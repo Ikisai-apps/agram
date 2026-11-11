@@ -144,6 +144,12 @@ Los guisos mueven 12 EUR de los 32 que mueven las cuatro compras del menú (37,5
 
 **En el frontend** (`ui/ocho.js`, enganchado en `app.js`): la celda 8 llama a `ocho` al pintarse (es ahí donde se mide el foco; `mapa()` se pide sin medidas). Arriba, tres botones reales con `aria-pressed` (`hermanos`, `proyecto`, `todo el eje`); la elegida se recuerda en el navegador (`agram.ocho.cohorte`) solo como comodidad, y sin almacenamiento vuelve a hermanos. Debajo, de dónde se lee («entre hermanos · base 1a2b3c4d · sin novedades · n 4» o «sin base escrita (respaldo al vuelo)»), una fila por serie con la cantidad del foco, su caja y su cuota, y en una línea más discreta, marcada «información», los recuentos. Todo envuelve: a 400 px, sin scroll horizontal (un P sobre un registro se enseña con ocho caracteres de su id). En Scened, un botón «medir la escena» pide la suma. El cielo animado (`mundos/cielo.js`, `datosCielo`) lee con `ocho`, la misma función que la celda sobria: una sola verdad.
 
+### 0.6 El móvil: vertical Sequenced, apaisado Mapped
+
+VG, 11-11. **En vertical** (más alto que ancho) la carta del móvil es Sequenced: las franjas apiladas (`carta-apilada`); **al girarlo a apaisado** es Mapped (la matriz 3 × 3 con sus pasos de tamaño, la pantalla completa de un PV y el aro anclado), sin scroll de página y legible. La decisión sigue siendo de la época por la proporción alto/ancho (`contrato.division`, `epoch.8.3.2`), no del código: 844 × 390, 915 × 412 y 740 × 360 salen Mapped, 400 × 700 apilado.
+**Medidas por pantalla**: en apaisado y con menos de 500 px útiles, `carta.js medidasDePantalla` (que `app.js` llama con la ventana menos la barra) reduce el hueco (48), la tarjeta (160) y la línea (30) en proporción al alto, con un mínimo del 60 %; son píxeles de pantalla, no datos del dominio. En vertical y en el ordenador son las de siempre.
+**Solo CSS** (`carta/estilo.css`, `@media (orientation:landscape) and (max-height:500px)`): la barra de una fila, los rosetones, los puntitos, las flechas y los mandos como objetivos táctiles de 32 px, y las formas de la pantalla completa con letra más corta; al girar, `app.js` repinta cuando cambia el ancho (no con un campo enfocado).
+
 ## 1. Scened: qué es y qué no es
 
 El mapa (§2.7 [A]) lo describe como unas mil piezas en espacios panorámicos. Scened **no es el render animado** (los mundos llegan después, en el orden de §12: primero la cruz, luego la X): es la composición que un render, sobrio o animado, necesita para enseñar muchas piezas a la vez.

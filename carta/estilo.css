@@ -660,3 +660,108 @@ html.mapped body{padding:0}
 /* el formulario de una acción: lo opcional, tras «más» */
 .formulario .mas-parametros{display:grid;gap:10px}
 .formulario .mas-parametros summary{cursor:pointer;color:var(--accent);font-size:14px}
+
+/* El móvil apaisado (VG, 11-11): al girar el móvil la carta es Mapped (la época decide por la proporción) y todo cabe en la
+   pantalla, sin scroll de página y legible. Solo CSS por el alto y la orientación (nada cambia en el DOM): la barra en una
+   fila compacta, los rosetones y los mandos como objetivos táctiles de 32 px, las formas de la pantalla completa con letra
+   más pequeña. Las medidas en píxeles que usa el árbol (hueco, tarjeta, línea) las manda app.js por el tamaño de la ventana
+   (carta.js medidasDePantalla); aquí van las que repinta el CSS. Los controles que van dentro de una lista y no pueden
+   crecer sin comerse sus filas (el mando de tamaño, el asa, «↗», los enlaces) crecen su zona de toque con ::after. */
+@media (orientation:landscape) and (max-height:500px){
+  :root{--hueco:36px;--tarjeta:110px}
+  .carta-matriz{padding:0 8px}
+  .carta-matriz .escena{margin:2px 0 4px}
+  /* la barra: una sola fila de 36 px; los rótulos «soy» y «ejemplo» van en el propio desplegable, «hoy», «guardado» y la
+     sincronía (si no hay error) ocultos; si aun así no cabe, la propia barra se desliza (no la página) */
+  .barra,.carta-matriz .barra{flex-wrap:nowrap;gap:0 6px;padding:2px 0;font-size:12px;min-height:36px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none}
+  .barra::-webkit-scrollbar{display:none}
+  .barra>*{flex:none}
+  .barra .ajuste{font-size:0;gap:0}
+  .barra select{font-size:12px;min-height:32px;max-width:26vw;padding:2px 4px}
+  .barra button{min-height:32px;padding:2px 8px;font-size:12px}
+  .barra .interruptor button{padding:2px 8px}
+  .barra .tiempo,.barra .guardado{display:none}
+  .barra .sincronia:not(:has(.error,.rechazados)){display:none}
+  .barra .sincronia{flex:0 1 auto;font-size:11px}
+  .carta-matriz>.aviso,.carta-matriz>.exito{margin:2px 0;padding:3px 8px;font-size:12px}
+  /* los rosetones: 32 px, y el anillo de fuera, de 34 */
+  .mapa-celdas{inset:34px}
+  .rosetones-mapa .roseton,.rosetones-mapa .roseton.sitio-centro{width:32px;height:32px;font-size:12px}
+  .rosetones-mapa .sitio-f0.sitio-centro{top:0;margin-left:38px} .rosetones-mapa .sitio-f2.sitio-centro{bottom:0;margin-left:38px}
+  /* los mandos del foco y de cada PV */
+  .punto,.punto.centro,.todos-menos{width:32px;height:32px;min-height:32px;font-size:11px}
+  .puntos{gap:4px}
+  .vecino{height:32px;min-width:32px;font-size:12px}
+  .vecinos-centro{left:calc(50% + 58px)}
+  .vecinos-centro .vecino{height:32px;min-width:32px;font-size:12px}
+  .flotante-cabeza .girar,.mandos .tamano,.celda-abrir,.hijo-cuerpo .celda-abrir,.asa,.enlace,.hijo-cuerpo .ocupante-ref,.rejilla-cabeza .subir,.mapa .ocupantes .pagina button{position:relative}
+  .rejilla-cabeza .subir,.mapa .ocupantes .pagina button,.flotante-cabeza .girar,.volver.volver-claro{min-height:32px;min-width:32px}
+  .flotante-cabeza .girar{width:32px;height:32px}
+  .mandos .tamano{width:24px;height:24px}
+  .asa{width:20px;height:20px}
+  .hueco .mas{min-width:32px}
+  .ocupante.cuenta,.ocupante.estrella{position:relative}
+  .plegable>summary{display:flex;align-items:center;min-height:32px}
+  .mandos .tamano::after,.asa::after,.celda-abrir::after,.hijo-cuerpo .celda-abrir::after,.enlace::after,.hijo-cuerpo .ocupante-ref::after,.ocupante.cuenta::after,.ocupante.estrella::after{content:"";position:absolute;left:-4px;right:-4px;top:50%;height:32px;transform:translateY(-50%)}
+  /* el foco y los PV: letra y márgenes más cortos; la guía (alta de 440 px) no cabe en una celda de la matriz, se ve a pantalla completa */
+  .mapa .nucleo{padding:4px 8px;gap:4px}
+  .animado .pv.nivel-2,.animado .pv.nivel-3,.animado .nucleo:not(:has(>.rejilla-completa)){padding:clamp(4px,1.5%,10px)} /* el marco pintado, más fino */
+  .mapa .nucleo .representacion{font-size:1.05rem;margin:0}
+  .mapa .nucleo .campos{gap:2px 8px}
+  .mapa .nucleo .campo label,.mapa .nucleo .campo-0 .etiqueta-0{font-size:11px}
+  .mapa .nucleo .campo-input,.mapa .nucleo input{padding:2px 6px;font-size:12px;min-height:32px}
+  .mapa .nucleo .leido-boton{min-height:32px}
+  .mapa-celdas>.celda{container-type:size;padding:2px}
+  .mapa-celdas>.celda .pv-cabeza{font-size:12px}
+  .mapa:not(.completa) .celda .guia{display:none}
+  /* el foco a toda la pantalla (la pantalla inicial): dos columnas, a la izquierda su cabeza, sus diez puntitos y su nombre, a la derecha su campo y los diez campos */
+  @container (min-width:560px) and (min-height:170px){
+    .nucleo.anverso{grid-template-columns:minmax(0,5fr) minmax(0,7fr);grid-auto-flow:row;align-content:start;column-gap:12px}
+    .nucleo.anverso>.nucleo-cabeza{grid-column:1;grid-row:1}
+    .nucleo.anverso>.puntos{grid-column:1;grid-row:2}
+    .nucleo.anverso>.representacion{grid-column:1;grid-row:3}
+    .nucleo.anverso>.leido{grid-column:1;grid-row:4;justify-self:start}
+    .nucleo.anverso>.campo-0{grid-column:2;grid-row:1}
+    .nucleo.anverso>.campos{grid-column:2;grid-row:2 / span 3;grid-template-columns:repeat(3,minmax(0,1fr));align-content:start}
+  }
+  /* el centro de la matriz 3 × 3 (una celda baja: hasta 150 px): su cabeza (dar la vuelta) y los puntitos, en filas; si es más baja que
+     dos filas, una sola que se desliza */
+  @container (max-height:150px){
+    .nucleo.anverso{display:flex;flex-wrap:nowrap;align-items:center;gap:4px;padding:2px 4px}
+    .nucleo.anverso .etiqueta,.nucleo.anverso .quien,.nucleo.anverso .madurez,.nucleo.anverso .representacion,.nucleo.anverso .campo-0,.nucleo.anverso .campos,.nucleo.anverso .leido-boton,.nucleo.anverso .leido{display:none}
+    .nucleo.anverso>.nucleo-cabeza{flex:none}
+    .nucleo.anverso .voltear{width:32px;height:32px;min-height:32px}
+    .nucleo.anverso>.puntos{flex:1 1 auto;min-width:0;gap:2px}
+    .nucleo.anverso>.puntos>*{flex:none}
+  }
+  @container (max-height:100px){
+    .nucleo.anverso>.puntos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .nucleo.anverso>.puntos::-webkit-scrollbar{display:none}
+  }
+  /* los mandos de tamaño de cada PV, arriba a la derecha (en la cabeza, donde no tapan lo que se lee); la medida se ve a pantalla completa */
+  .mandos,.mandos.columna-0,.mandos.columna-2,.mandos.columna-1{top:2px;bottom:auto;left:auto;right:4px;transform:none}
+  .mapa-celdas>.celda .pv-cabeza .medida{display:none}
+  .mapa-celdas>.celda .pv-cabeza{padding-right:76px}
+  /* la pantalla completa de un PV: cabeza y nivel más cortos; lo que aun así no cabe (la guía del 9) se desliza dentro de la tarjeta, no la página */
+  .mapa .nucleo.abierto{gap:2px}
+  .mapa .nucleo.abierto[data-centro="9"]{overflow-y:auto;overscroll-behavior:contain}
+  .rejilla-cabeza{font-size:11px;line-height:1.1;gap:6px}
+  .rejilla-cabeza .subir{min-height:32px}
+  .rejilla{gap:2px}
+  /* la escalera (el 2): cada peldaño en una sola línea, su cabeza a la izquierda y lo que lleva a la derecha, para que se lea cada uno */
+  .rejilla-escalera>.hijo{flex-direction:row;align-items:stretch}
+  .rejilla-escalera>.hijo>.hijo-cabeza{flex:0 0 auto;max-width:46%;border-bottom:0}
+  .rejilla-escalera>.hijo>.hijo-cuerpo{flex:1 1 auto;display:flex;align-items:center;overflow:hidden;padding:0 6px}
+  .rejilla-escalera .hijo-lista{flex-wrap:nowrap;gap:0 8px;min-width:0}
+  /* la tarjeta flotante de la cruceta */
+  .flotante-cara{padding:4px 8px;gap:2px}
+  .flotante-nombre{font-size:14px}
+  .flotante-cifra b{font-size:22px}
+  .flotante-cifra small{font-size:12px}
+  .rejilla-cruceta{--flotante-alto:clamp(110px,26cqh,260px)}
+  .hijo-cabeza{padding:2px 6px;font-size:12px}
+  .hijo-cuerpo{padding:2px 6px}
+  .hijo-tabla{font-size:11px}
+  .hijo-tabla td{padding:2px 4px}
+
+}
