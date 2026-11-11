@@ -353,7 +353,7 @@ test('escribir: una acción del aro con --valores y un payload BTML con --archiv
   assert.equal((await conCfg('estado')).codigo, 0); // la caché de lectura al día para la prueba sin red
 });
 
-test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo que falta; «admit someone» sobre el registro lo admite por la regla general (el 3); dar R por UN escrito aún no lo acepta; y lo que las lecturas aún no derivan (1.3, 1.3.4, 1.4, 3.4)', async () => {
+test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo que falta; «admit someone» sobre el registro lo admite por la regla general (el 3); dar R por UN escrito aún no lo acepta; y lo que derivan las lecturas sin anclarlo (1.3, 1.3.4, 1.4, 3.4)', async () => {
   const yo = cuenta.cuenta.identidad;
   const eje = cuenta.eje;
   const firmar = Q.firmarCon(cuenta.privada);
@@ -399,9 +399,8 @@ test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo q
   assert.match(q.salida, /^pendiente de aceptación: 0 escritos en 0 registros$/m);
   const v = await be('identidad', '--config', cfgCore);
   assert.ok(v.salida.split('\n').some((l) => l.includes('«Sugerencia de Core» sobre ' + ids.menu.slice(0, 8)) && l.endsWith('· aceptado (' + yo + ' admite a core en su 3)')), v.salida);
-  // Lo que las lecturas aún no derivan de esos movimientos (se apunta, no se fuerza con anclas): Core como entidad con
-  // quien se trabaja en el 1.3 (y 1.3.4, laboral) del alta de VG, sus trabajos en el 1.4 y en el 4 del menú, y Core en el
-  // grupo «equipo» (3.4) de la atención de VG. Lo que pinta un PV es lo que hay anclado o escrito ahí (contrato.ocupantes).
+  // Lo anclado no cambia (no se fuerza con anclas): Core no está anclado en el 1.3 (ni el 1.3.4) del alta de VG, ni sus
+  // trabajos en el 1.4 ni en el 4 del menú, ni Core en el grupo «equipo» (3.4) de la atención de VG (contrato.ocupantes).
   const nombra = (lista, quien) => lista.some((o) => o === quien || (o?.ref && JSON.stringify(eje.obtener(o.ref)?.payload ?? '').includes('"' + quien + '"')));
   const alta = cuenta.cuenta.alta;
   assert.equal(nombra(C2.ocupantes(eje, alta, '1.3').ocupantes, 'core'), false, '1.3 del alta de VG: hoy no');
@@ -410,6 +409,12 @@ test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo q
   assert.equal(C2.ocupantes(eje, ids.menu, 4).ocupantes.some((o) => o?.ref === sugerencia.id), false, '4 del menú: hoy no');
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML, me: yo });
   assert.deepEqual(evaluar('=count (nth 4 ("' + yo + '").3).3', ctx, {}).valor, [0], 'el grupo «equipo» (3.4): hoy no');
+  // Lo derivan de esos movimientos las lecturas de los puntos de vista (encargo «lecturas», issue #12: contrato.leerRuta).
+  assert.ok(C2.leerRuta(eje, alta, [1, 3]).derivado.some((x) => x.valor === 'core'), '1.3 del alta de VG: derivado');
+  assert.ok(C2.leerRuta(eje, alta, [1, 3, 4]).derivado.some((x) => x.valor === 'core'), '1.3.4: derivado');
+  assert.ok(C2.leerRuta(eje, ids.menu, [1, 4]).derivado.some((x) => x.valor?.ref === sugerencia.id), '1.4 del menú: derivado');
+  assert.ok(C2.leer(eje, ids.menu, 4).derivado.some((x) => x.valor?.ref === sugerencia.id), '4 del menú: derivado');
+  assert.ok(C2.leerRuta(eje, alta, [3, 4]).derivado.some((x) => x.valor === 'core'), '3.4: derivado');
   // Sí está, por lo que mueve: Core tiene R de VG (la lente de quien la mire) y T que le dio VG.
   assert.equal(eje.saldo('core', 'R:' + yo), 2);
 });

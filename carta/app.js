@@ -692,10 +692,18 @@ const manejadores = {
     pintar();
   },
   /** Mapped, pantalla completa: entrar en una celda de la rejilla de un PV baja un nivel de profundidad. */
-  celda(pv, X) {
-    estado.profundidad[pv] = [...(estado.profundidad[pv] ?? []), X];
+  celda(pv, X, d) {
+    estado.profundidad[pv] = [...(estado.profundidad[pv] ?? []), Number.isInteger(d) ? { X, d } : X];
     estado.paginas[pv] = 1;
     tocar(estado.foco.X, 'celda ' + pv + ' ' + estado.profundidad[pv].length);
+    pintar();
+  },
+  /** Mapped, pantalla completa: bajar un nivel por el dígito d de una celda, dentro del mismo registro (encargo «lecturas»). */
+  bajar(pv, d) {
+    if (!Number.isInteger(pv) || !Number.isInteger(d)) return;
+    estado.profundidad[pv] = [...(estado.profundidad[pv] ?? []), { d }];
+    estado.paginas[pv] = 1;
+    tocar(estado.foco.X, 'bajar ' + pv + ' ' + d);
     pintar();
   },
   /** Mapped, pantalla completa: volver un nivel de profundidad. */
@@ -740,9 +748,11 @@ const manejadores = {
    * Mantener un hueco (issue #22: un hijo de la rejilla, el espacio libre de un mundo, un PV vacío): el aro con un input
    * nuevo en el centro; lo escrito crea el elemento en la posición pv de X (campo con `nuevo`) y abre su aro.
    */
-  async aroNuevo(X, pv, { ancla } = {}) {
+  async aroNuevo(X, pv, { ancla, en } = {}) {
     if (!X || !Number.isInteger(pv) || !estado.eje?.obtener(X)) return;
-    estado.aro = { X, pv: null, nuevo: pv, ancla: ancla ?? null, editar: false };
+    // Bajado por dígitos dentro de X (encargo «lecturas»): el elemento se crea en la dirección entera, X.<en>.<pv>.
+    const base = Array.isArray(en) && en.every(Number.isInteger) ? en : [];
+    estado.aro = { X, pv: null, nuevo: pv, ...(base.length ? { en: [...base, pv] } : {}), ancla: ancla ?? null, editar: false };
     estado.formulario = null;
     limpiarMensajes();
     tocar(X, 'aro nuevo ' + pv);
@@ -886,7 +896,9 @@ const manejadores = {
   },
   async campo(X, pv, texto, { nuevo = false } = {}) {
     try {
-      const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion([pv]), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
+      // Desde el aro de un hueco bajado por dígitos, la dirección entera (estado.aro.en); si no, la posición pv de X.
+      const en = nuevo && estado.aro?.X === X && estado.aro?.nuevo === pv && Array.isArray(estado.aro.en) ? estado.aro.en : [pv];
+      const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion(en), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
       trasEscribir();
       // Lo escrito desde el centro del aro en edición: hecho, se cierra. Desde el aro de un hueco (issue #22): el elemento
       // nuevo existe y se abre su aro (en su 2, «adjuntar un archivo»), en el mismo sitio.

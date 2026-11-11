@@ -51,7 +51,8 @@ test('B5: las diez lecturas están en el 2 de la época, con read en su 4 y su p
     assert.ok(!EPOCA_0_BTML.condiciones.includes(r), r[0][0] + ' no es una condición');
     assert.match(evaluarRegla(r, new ContextoEje(null, { epoch: EPOCA_0_BTML })).motivo, /es una lectura/);
   }
-  assert.equal(EPOCA_0_BTML.reglasConId.length, EPOCA_0_BTML.condiciones.length + EPOCA_0_BTML.escrituras.length + LECTURAS.length);
+  // y las diez de los puntos de vista (encargo «lecturas», «point of view» en su 4: tampoco son condiciones)
+  assert.equal(EPOCA_0_BTML.reglasConId.length, EPOCA_0_BTML.condiciones.length + EPOCA_0_BTML.escrituras.length + LECTURAS.length + EPOCA_0_BTML.lecturasDePv.length);
   // En el BQL mínimo, epoch.2 las da con las demás: se encuentran por su nombre.
   const ctx = new ContextoEje(null, { epoch: EPOCA_0_BTML });
   assert.equal(uno('count (epoch.2 where first it.0 = "present")', ctx), 1);

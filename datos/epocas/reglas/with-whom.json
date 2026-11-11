@@ -1,0 +1,23 @@
+[
+  ["with whom"],
+  ["X.1", "X.3", "A.1", "A.3", "before.3"],
+  [
+    "=before.3 where not it in before.3 and it2 != me and (it2 in (it.1 each 3.0) or it2 in (it.1 each 3.1) or it2 = first it.3)",
+    "=before.3 where not it in before.3 and it = (first it.3).6 and it2 != me and count (it2.1 where R in it3.0.0.0 and it3.0.0.1 = first it.3) > 0",
+    "=before.3 where it in before.3 and it2 != it and (it2 in (it.3 each 3) or count (it2.1 where R in it3.0.0.0 and it3.0.0.1 = it) > 0)",
+    "=(down it) where last (first it2.6).5 = \"3000000000\" or last (first it2.6).5 = \"3100000000\" or last (first it2.6).5 = \"3200000000\" or last (first it2.6).5 = \"3300000000\" or last (first it2.6).5 = \"3400000000\" or last (first it2.6).5 = \"3500000000\" or last (first it2.6).5 = \"3600000000\" or last (first it2.6).5 = \"3700000000\" or last (first it2.6).5 = \"3800000000\" or last (first it2.6).5 = \"3900000000\""
+  ],
+  [3],
+  ["point of view"],
+  ["*"],
+  [
+    "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+    "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+    "En BQL: de un registro, las identidades con las que mueve tokens y su autor, salvo el dueño (me); de un alta, quienes tienen R de su identidad (admitir es darle R); de una identidad, quienes están en sus grupos de atención (A.3) o tienen su R; y los comentarios: lo anclado sobre el nodo en su 3 o en una subposición 3.d"
+  ],
+  ["epoch 0"],
+  ["after on what condition"],
+  [
+    "with whom: the identities something moves with in the node, who holds the R of its owner, and what is written to it in its 3"
+  ]
+]

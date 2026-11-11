@@ -107,7 +107,8 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   // B5: las lecturas («read» en su 4) van en el 2 detrás de las condiciones, en la misma cadena del 8; encargo 3b: las
   // reglas que escriben («put» en su 4, la obtención de P) van entre unas y otras.
   const reglas = EPOCA_0_BTML.reglasConId.map((x) => x.regla);
-  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.escrituras.length, EPOCA_0_BTML.lecturas.length], [30, 3, 10]);
+  // Encargo «lecturas» (issue #12): las diez lecturas de los puntos de vista («point of view» en su 4) van al final.
+  assert.deepEqual([EPOCA_0_BTML.condiciones.length, EPOCA_0_BTML.escrituras.length, EPOCA_0_BTML.lecturas.length, EPOCA_0_BTML.lecturasDePv.length], [30, 3, 10, 10]);
   assert.equal(JSON_EN_DISCO[2].length, reglas.length);
   assert.ok(JSON_EN_DISCO[2].every((x) => Object.keys(x).join() === 'ref' && /^[0-9a-f]{64}$/.test(x.ref)), 'el 2 son referencias { ref }');
   assert.deepEqual(EPOCA_0_BTML.reglasConId.map((x) => x.id), JSON_EN_DISCO[2].map((x) => x.ref));
@@ -115,12 +116,14 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   reglas.forEach((r, k) => assert.equal(r[8][0], k === 0 ? 'first' : 'after ' + reglas[k - 1][0][0], r[0][0]));
   assert.equal(new Set(reglas.map((r) => r[0][0])).size, reglas.length, 'sin nombres repetidos');
   for (const r of reglas) {
-    assert.match(r[2][0], /^=/);
-    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p) || p === 'put') || (r[4].length === 1 && r[4][0] === 'read'), r[0][0] + ': su 4 son primitivas (y put si escribe), o read si es una lectura');
+    const dePv = r[4].length === 1 && r[4][0] === 'point of view';
+    if (dePv) assert.ok(r[2].every((f) => /^=/.test(f) || /^js [a-z]+$/.test(f)), r[0][0] + ': cada ocupante de su 2, una fórmula o una lectura JS nombrada');
+    else assert.match(r[2][0], /^=/);
+    assert.ok(r[4].every((p) => PRIMITIVAS.includes(p) || p === 'put') || (r[4].length === 1 && r[4][0] === 'read') || dePv, r[0][0] + ': su 4 son primitivas (y put si escribe), read si es una lectura o point of view si es la de un PV');
     assert.deepEqual(r[7], ['epoch 0']);
   }
   // Con el BQL mínimo, el 2 da las reglas (cada referencia lleva a su registro): first, nth k.
-  assert.equal(uno('count epoch.2'), 43);
+  assert.equal(uno('count epoch.2'), 53);
   assert.equal(evaluar('first epoch.2', ctx).texto, JSON_EN_DISCO[2][0].ref, 'una regla se lee por su id');
   assert.equal(uno('first epoch.2 = "' + JSON_EN_DISCO[2][0].ref + '"'), true, 'y vale su id');
   assert.equal(uno('(first epoch.2).0'), "writing burns today's T");
@@ -133,7 +136,8 @@ test('2: la lista de referencias a los registros de las reglas, en el orden de s
   assert.deepEqual(val('(first epoch.2).7'), ['epoch 0']);
   assert.deepEqual(val('(first epoch.2).8'), ['first']);
   assert.match(uno('(first epoch.2).9'), /\{first ev\.3\}/);
-  assert.equal(uno('(last epoch.2).0'), 'stage', 'las lecturas van al final');
+  assert.equal(uno('(nth 42 epoch.2).0'), 'stage', 'las lecturas van detrás');
+  assert.equal(uno('(last epoch.2).0'), 'how', 'y al final, las de los diez puntos de vista (del 0 al 9)');
   assert.equal(uno('(nth 29 epoch.2).0'), 'a person joins by an invitation', 'la última condición');
   assert.equal(uno('(nth 30 epoch.2).0'), 'writing a record gives ten P on it', 'y detrás, las que escriben');
   assert.deepEqual(val('epoch.2.0'), reglas.map((r) => r[0][0]), 'el 0 de cada una');
@@ -144,7 +148,7 @@ test('reglas como registros: un archivo por regla (su 0 en kebab), id = hash del
   const { REGLAS_DE_EPOCA_DATOS } = await import('../datos/epocas/epocas.js');
   const { hash, canonico } = await import('../src/evento.js');
   const enDisco = reglasDe();
-  assert.equal(enDisco.length, 43, '30 condiciones, 3 que escriben y 10 lecturas');
+  assert.equal(enDisco.length, 53, '30 condiciones, 3 que escriben, 10 lecturas y las 10 de los puntos de vista');
   for (const { archivo, id, registro } of enDisco) {
     assert.equal(archivo, kebab(registro[0][0]) + '.json');
     assert.equal(id, await hash(canonico(registro)), archivo + ': el id es el hash de su cuerpo canónico, como el de un evento');

@@ -15,6 +15,9 @@
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
 //   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo, orden (epoch.8.7)
 //   hijosDe(eje, X, pv, { nivel })         los hijos de X en un mundo: [{ digito, nombre, ocupantes, vacio }]
+//                                          (con `direccion`, además lo derivado de cada hijo: leerRuta con la dirección entera)
+//   leer(eje, N, d, { yo })                lo que el PV d lee de N: lo anclado en N.d y lo que deriva del libro (epoch.2, «point of view»)
+//   leerRuta(eje, N, [d1, d2, …])          las lecturas encadenadas por los dígitos de una dirección (N.d1.d2…)
 //   estilo(eje, X, { de })                 el estilo propio (X.0.9) o el de los de abajo (X.5.0) con su cascada: { css, origen }
 //   cssSeguro(texto)                       un estilo saneado (solo declaraciones corrientes, sin recursos ni código) o ""
 //   madurez(eje, X)                        el nivel de X (la lectura «maturity», X.8.1) y su medida (X.8.6)
@@ -640,18 +643,169 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
  *   cantidad, con }], `con` las otras partes (null es nadie: acuñar o quemar). La asignación del día y el T informativo
  *   no cuentan.
  */
-export function hijosDe(eje, X, pv, { nivel = 1, cuantos, ...opciones } = {}) {
+export function hijosDe(eje, X, pv, { nivel = 1, cuantos, base = [], direccion, raiz: nodoRaiz, ...opciones } = {}) {
   const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
   if (!d) return [];
   const raiz = raizDe(epocaDe(opciones));
   const profundidad = Math.min(Math.max(1, d.nivel), ARIDAD - 1);
-  const medir = medidasDeHijos(eje, X, d, opciones);
+  // Bajado dentro de X por dígitos (encargo «lecturas»): los hijos son X.<base>.<dígito>; lo que mide la fila es de X.<dígito>.
+  const sub = caminoDe(base);
+  const medir = sub.length ? null : medidasDeHijos(eje, X, d, opciones);
+  const derivar = Array.isArray(direccion) && direccion.length < ARIDAD;
   return d.hijos.map((digito, i) => {
     const camino = [...Array(profundidad).fill(0), digito];
-    const o = ocupantes(eje, X, digito, 0, cuantos, opciones);
-    const hijo = { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
+    const o = ocupantes(eje, X, [...sub, digito], 0, cuantos, opciones);
+    let hijo = { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
+    if (derivar) {
+      // Lo que deriva del libro con la dirección entera (el mundo y los dígitos por los que se ha bajado, desde la raíz),
+      // sin repetir lo anclado de la celda.
+      const anclados = new Set(ocupantes(eje, X, [...sub, digito], 0, Infinity, opciones).ocupantes.map(claveDeValor));
+      const derivados = leerRuta(eje, nodoRaiz ?? X, [...direccion, digito], opciones).derivado.filter((x) => !anclados.has(claveDeValor(x.valor)));
+      hijo = { ...hijo, derivados: derivados.slice(0, cuantos ?? paso(opciones)), totalDerivados: derivados.length, vacio: o.total === 0 && derivados.length === 0 };
+    }
     return medir ? { ...hijo, ...medir(i, o.ocupantes, digito) } : hijo;
   });
+}
+
+// ---------- 4.4 las diez lecturas: lo que el PV d lee de un nodo (encargo «lecturas», issue #12) ----------
+
+/**
+ * Las lecturas de los puntos de vista (VG, 11-11 noche): una regla larga por PV en epoch.2, «point of view» en su 4,
+ * «qué lee el PV d aplicado a un nodo N», con el PV en su 3: [{ pv, nombre, formulas, js, regla }], en el orden de su 8.
+ * `formulas` son las del BQL mínimo de su 2 (it = el nodo, me = de quién es lo suyo); `js`, las lecturas del núcleo en
+ * JavaScript que la regla nombra («js <nombre>», LECTURAS_JS) donde el BQL mínimo no alcanza.
+ */
+export function lecturasDePv(opciones = {}) {
+  return (epocaDe(opciones).lecturasDePv ?? []).map((regla) => {
+    const fuentes = hojas(regla[2]).filter((x) => typeof x === 'string');
+    return { pv: Number(hoja(regla[3])), nombre: nombreDeRegla(regla), formulas: fuentes.filter((x) => x.startsWith('=')), js: fuentes.filter((x) => x.startsWith('js ')).map((x) => x.slice(3)), regla };
+  });
+}
+
+/** Cuántos nodos sigue como mucho una lectura encadenada en cada dígito (lo demás no se lee: un tope, no un orden). */
+const TOPE_DE_NODOS = 200;
+/** Lo que no cuenta como cantidad de un nodo: la asignación del día, el T informativo y el P que dan las reglas al escribir o al recibir R. */
+const SIN_CANTIDAD = new Set(['asignacion', 'informativo', 'obtencion']);
+
+/** La clave de un valor para no repetirlo: un registro por su id (con o sin dirección), lo demás por su forma. */
+const claveDeValor = (v) => (esReferencia(v) ? 'ref ' + v.ref : JSON.stringify(v));
+
+/** Un nodo que se puede leer: el id de un registro del eje o una identidad con alta; lo demás (una hoja, una décupla), null. */
+function nodoDe(eje, x) {
+  if (esReferencia(x)) return eje?.obtener(x.ref) ? x.ref : null;
+  if (x && typeof x === 'object' && typeof x.id === 'string' && 'payload' in x) return eje?.obtener(x.id) ? x.id : null;
+  if (typeof x !== 'string') return null;
+  if (eje?.obtener(x)) return x;
+  return eje?.alta?.(x) ? x : null;
+}
+
+/** De quién es lo suyo en una lectura: el autor de un registro, la identidad misma. */
+const duenoDe = (eje, nodo) => eje?.obtener(nodo)?.autor ?? nodo;
+
+/** Un valor que da una lectura, como ocupante: un registro del eje es su referencia; lo demás, tal cual. */
+const ocupanteDe = (eje, v) => (typeof v === 'string' && eje?.obtener(v) ? { ref: v } : v);
+
+/**
+ * Las lecturas del núcleo en JavaScript que nombran las reglas («js <nombre>»): (eje, nodo, { me, epoca, opciones }) →
+ * [{ valor, ...lo que lo justifica }]. Solo leen registros (una identidad no tiene subárbol ni representación).
+ */
+const LECTURAS_JS = Object.freeze({
+  // 0: las representaciones (formatos y tamaños de la época, que el BQL mínimo no normaliza)
+  representaciones: (eje, nodo, { opciones }) => (eje?.obtener(nodo) ? representaciones(eje, nodo, opciones).map((r) => ({ valor: r.texto ?? r.recurso, formato: r.formato })).filter((x) => x.valor !== null && x.valor !== undefined) : []),
+  // 1: lo que se mueve en el subárbol con alguien que no es el dueño (el BQL mínimo no recorre un subárbol entero)
+  flujo: (eje, nodo, { me, opciones }) => (eje?.obtener(nodo) ? diario(eje, nodo, 0, Infinity, opciones).entradas : []).map((e) => {
+    const movimientos = e.movimientos.filter((m) => !SIN_CANTIDAD.has(m.clase) && ((m.de && m.de !== me) || (m.a && m.a !== me)))
+      .map(({ serie, cantidad, de, a }) => ({ serie, cantidad, de, a }));
+    return movimientos.length ? { valor: { ref: e.id }, movimientos } : null;
+  }).filter(Boolean),
+  // 7: el T futuro declarado (la escala «futuro» de epoch.1.3.1, el dígito 8 de D-SERIE) con la fecha a la que se refiere
+  futuro: (eje, nodo, { epoca, opciones }) => {
+    if (!eje?.obtener(nodo)) return [];
+    const futuro = texto(hoja(hojas(en(raizDe(epoca), [...SITIO.familias, 3, 1]))[8]?.[0]));
+    return diario(eje, nodo, 0, Infinity, opciones).entradas.map((e) => {
+      const m = (eje.obtener(e.id)?.movimientos ?? []).find((x) => x.token === 'T' && x.escala === futuro && typeof x.refiere === 'string');
+      return m ? { valor: { ref: e.id }, refiere: m.refiere, cantidad: m.cantidad } : null;
+    }).filter(Boolean);
+  },
+  // 9: el tutorial del camino (acciones.camino, su primera fuente): las acciones que nombra el 9 de su plantilla o el suyo
+  camino: (eje, nodo, { me, epoca, opciones }) => {
+    const ev = eje?.obtener(nodo);
+    if (!ev) return [];
+    const acciones = new Set(accionesDe(epoca).map((a) => a.nombre));
+    const del9 = (x) => (Array.isArray(x) ? hojas(x[9]) : []).filter((n) => typeof n === 'string' && acciones.has(n));
+    // El alta de quien la lee: el tutorial de la plantilla de identidad (epoch.3.0, su 9), como en acciones.camino.
+    const esAlta = eje.alta?.(ev.autor)?.id === ev.id && ev.autor === me;
+    return [...new Set([...del9(plantilla(eje, ev, opciones)), ...(esAlta ? del9(en(raizDe(epoca), [3, 0])) : []), ...del9(ev.payload)])].map((n) => ({ valor: n }));
+  },
+});
+
+/** Lo que da la lectura de un PV aplicada a un nodo: lo de cada fórmula de su 2 y cada lectura JS que nombra, sin repetir. */
+function aplicarLectura(eje, lectura, nodo, ctx, me, opciones) {
+  if (!lectura) return [];
+  const fuera = [];
+  for (const f of lectura.formulas) {
+    const v = vale(f, ctx, { sujeto: nodo });
+    if (v) for (const o of v) { const x = plano(o, ctx); if (x !== undefined && x !== null && typeof x !== 'boolean') fuera.push({ valor: ocupanteDe(eje, x) }); }
+  }
+  for (const nombre of lectura.js) {
+    const leerJs = LECTURAS_JS[nombre];
+    if (leerJs) fuera.push(...leerJs(eje, nodo, { me, epoca: epocaDe(opciones), opciones }).map(({ valor, ...extra }) => ({ valor: ocupanteDe(eje, valor), extra })));
+  }
+  const vistos = new Set();
+  return fuera.filter((x) => { const k = claveDeValor(x.valor); if (vistos.has(k)) return false; vistos.add(k); return true; });
+}
+
+/**
+ * Lo que el PV d lee de N (encargo «lecturas», issue #12, VG 11-11 noche): lo anclado en N.d (los ocupantes, como
+ * `ocupantes`) más lo que deriva del libro, la lectura de su PV (epoch.2, «point of view») aplicada a N. N es un registro
+ * del eje (su id o el evento) o una identidad con alta; `yo` dice de quién es «lo suyo» (por defecto, el dueño de N).
+ * → { pv, anclado, derivado: [{ valor, por }], lista: [{ valor, origen: 'anclado' | 'derivado', por? }] }; lo derivado no
+ * repite lo anclado y `por` es la cadena de lecturas que lo justifica: [{ pv, regla, nombre, desde, …movimientos o fecha }].
+ */
+export function leer(eje, N, d, opciones = {}) {
+  const r = leerRuta(eje, N, [Number(d)], opciones);
+  return { pv: Number(d), anclado: r.anclado, derivado: r.derivado, lista: r.lista };
+}
+
+/**
+ * La lectura encadenada de una dirección (VG: «el contenido de N.a.b.c es la regla de c aplicada al resultado de la de b
+ * aplicada al de la de a aplicada a N»): cada dígito aplica la lectura de su PV a cada nodo que dio el anterior (un
+ * registro o una identidad; una hoja no sigue). Lo anclado es lo de N en la dirección entera (ocupantes de N.a.b.c);
+ * lo derivado, lo que da el último dígito, sin repetir lo anclado y, con más de un dígito, sin volver a N ni a su hilo
+ * hacia arriba (donde ya se está). → { ruta, anclado, derivado, lista } (como `leer`).
+ */
+export function leerRuta(eje, N, ruta, { yo, t: _t, tope = TOPE_DE_NODOS, ...opciones } = {}) {
+  const digitos = caminoDe(ruta);
+  const raizNodo = nodoDe(eje, N);
+  const anclado = raizNodo && eje.obtener(raizNodo) && digitos.length ? ocupantes(eje, raizNodo, digitos, 0, Infinity, opciones).ocupantes : [];
+  const fuera = (derivado) => ({ ruta: digitos, anclado, derivado, lista: [...anclado.map((valor) => ({ valor, origen: 'anclado' })), ...derivado.map(({ valor, por }) => ({ valor, origen: 'derivado', por }))] });
+  if (!raizNodo || !digitos.length || digitos.length > ARIDAD) return fuera([]);
+  const epoca = epocaDe(opciones);
+  const me = yo ?? duenoDe(eje, raizNodo);
+  const ctx = new ContextoEje(eje, { epoch: epoca, me });
+  const porPv = new Map(lecturasDePv(opciones).map((l) => [l.pv, l]));
+  const nombreDe = (d) => texto(hoja(corta(raizDe(epoca), [0, d])?.[0])) ?? null;
+  let frente = [{ nodo: raizNodo, por: [] }];
+  let items = [];
+  digitos.forEach((d, i) => {
+    const lectura = porPv.get(d);
+    const porClave = new Map();
+    for (const f of frente) {
+      for (const x of aplicarLectura(eje, lectura, f.nodo, ctx, me, opciones)) {
+        const k = claveDeValor(x.valor);
+        const previo = porClave.get(k);
+        if (previo) { const paso = previo.por[previo.por.length - 1]; if (!paso.desde.includes(f.nodo)) paso.desde.push(f.nodo); continue; }
+        porClave.set(k, { valor: x.valor, por: [...f.por, { pv: d, regla: lectura.nombre, nombre: nombreDe(d), desde: [f.nodo], ...(x.extra ?? {}) }] });
+      }
+    }
+    items = [...porClave.values()];
+    if (i < digitos.length - 1) frente = items.map((x) => ({ nodo: nodoDe(eje, x.valor), por: x.por })).filter((x) => x.nodo).slice(0, tope);
+  });
+  // Lo encadenado no vuelve a N ni a su hilo hacia arriba (donde ya se está; un solo dígito sí: el 5 de N es su ancla);
+  // nada repite lo anclado.
+  const hilo = digitos.length > 1 && eje.obtener(raizNodo) ? eje.hilo(raizNodo).map((e) => claveDeValor({ ref: e.id })) : [];
+  const fuera_ = new Set([...anclado.map(claveDeValor), ...hilo]);
+  return fuera(items.filter((x) => !fuera_.has(claveDeValor(x.valor))));
 }
 
 /** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11). */

@@ -56,6 +56,7 @@ const UMBRAL_ASA = 1 / 8;
  *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
  *   celda(pv, X)             Mapped, pantalla completa: entrar en una celda de la rejilla de un PV (un nivel más adentro)
  *   subir(pv)                volver un nivel de profundidad en la rejilla de un PV (Mapped a pantalla completa, o una fila abierta de Sequenced)
+ *   bajar(pv, d)             bajar un nivel por el dígito d de una celda de la rejilla (la dirección crece un dígito: 1 → 1.1)
  *   fila(pv)                 Sequenced: abrir o cerrar la fila de un PV en la tarjeta del foco (las del hilo llevan al pasado o al futuro)
  *   digito(pv)               Sequenced: la fila de dígitos de abajo; ir a la fila de ese PV y abrirla
  *   menu()                   Sequenced: abrir o cerrar el menú de la barra de una línea
@@ -114,7 +115,9 @@ export function instalar(raiz, m) {
       const pv = hijo && el.contains(hijo) ? Number(hijo.dataset.pv) : el.dataset.huecoPv !== undefined ? Number(el.dataset.huecoPv) : NaN;
       if (Number.isInteger(pv)) {
         ultimoMantener = Date.now();
-        m.aroNuevo?.(el.dataset.huecoX, pv, { ancla: anclaDe(t, x, y) });
+        // bajado por dígitos dentro del registro (data-hueco-en, encargo «lecturas»): la dirección entera, la base y el dígito
+        const en = el.dataset.huecoEn ? el.dataset.huecoEn.split('.').map(Number) : [];
+        m.aroNuevo?.(el.dataset.huecoX, pv, { ancla: anclaDe(t, x, y), ...(en.length && hijo && el.contains(hijo) ? { en } : {}) });
         return true;
       }
       el = el.parentElement?.closest('[data-x]'); // sin posición (el contenedor de una rejilla en un bloque): el aro de lo de detrás, como siempre
@@ -188,7 +191,9 @@ export function instalar(raiz, m) {
     }
     if ((el = b('[data-voltear]'))) { e.preventDefault(); m.voltear?.(); return; }
     // Entrar en una celda: la profundidad es la del mundo de la rejilla (data-rejilla), no la del dígito del hijo donde está el ocupante.
-    if ((el = b('[data-celda]'))) { e.preventDefault(); m.celda?.(Number(el.closest('[data-rejilla]')?.dataset.rejilla ?? el.dataset.pv), el.dataset.celda); return; }
+    if ((el = b('[data-celda]'))) { e.preventDefault(); const k = Number(el.closest('.rejilla-celda.hijo[data-pv]')?.dataset.pv); m.celda?.(Number(el.closest('[data-rejilla]')?.dataset.rejilla ?? el.dataset.pv), el.dataset.celda, ...(Number.isInteger(k) ? [k] : [])); return; }
+    // Bajar por el dígito de una celda (encargo «lecturas»: 1 → 1.1 → 1.1.1), en el mundo de la rejilla.
+    if ((el = b('[data-bajar]'))) { e.preventDefault(); m.bajar?.(Number(el.closest('[data-rejilla]')?.dataset.rejilla), Number(el.dataset.bajar)); return; }
     if ((el = b('[data-subir]'))) { e.preventDefault(); m.subir?.(Number(el.dataset.subir)); return; }
     if ((el = b('[data-abrir]'))) { e.preventDefault(); if (el.dataset.abrir) m.foco?.(el.dataset.abrir, 0); return; }
     if ((el = b('[data-foco-pv]'))) { e.preventDefault(); m.foco?.(el.dataset.x ?? xDe(el), Number(el.dataset.focoPv)); return; }

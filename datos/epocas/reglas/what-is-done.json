@@ -1,0 +1,23 @@
+[
+  ["what is done"],
+  ["X.4", "X.4.8", "before.1"],
+  [
+    "=it where not it in before.3 and first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
+    "=(down it) where first it2.3 != me and count (it2.1 where T in it3.0.0.0) > 0",
+    "=it.4.8",
+    "=before.3 where it2 = it and it2 != me and count (before.1 where count (it3.1 where T in it4.0.0.0 and it4.3.0 = me and it4.3.1 = it2) > 0) > 0"
+  ],
+  [4],
+  ["point of view"],
+  ["*"],
+  [
+    "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
+    "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
+    "En BQL: el trabajo, que es T (admitir es darle R y T): de un registro, él mismo o lo anclado sobre él si lo escribe otro que el dueño (me) quemando o moviendo T; lo anunciado y pendiente (la lectura «stage», X.4.8); de una identidad, ella misma si el dueño le ha dado T (lo laboral)"
+  ],
+  ["epoch 0"],
+  ["after with whom"],
+  [
+    "what is done: the work, what someone else writes on the owner's things moving T, what is announced and pending, and whom the owner has given T"
+  ]
+]

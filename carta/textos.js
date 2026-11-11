@@ -117,6 +117,8 @@ export const TEXTOS = Object.freeze({
     subir: 'subir',
     subirTitulo: 'subir un nivel (Esc)',
     entrarEnCelda: 'entrar en {que} (un nivel más adentro)',
+    bajarTitulo: 'bajar al {d}: la celda se divide (un dígito más en la dirección)',
+    derivadoPor: 'derivado del libro: {por}',
     abrirEnCelda: 'abrir {que}',
     sinBandaTitulo: 'sin una medida con la que ponerlo en una banda',
     masEnBanda: '+{n}',

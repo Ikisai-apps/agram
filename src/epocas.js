@@ -23,7 +23,7 @@
 // docs/BTML.md §12). Convive con el formato de siempre, que no cambia.
 
 import { ARIDAD, indicesDe, esLista, esReferencia, esTerminal, validarPayload } from './btml.js';
-import { esLectura, esEscritura } from './bqlm.js';
+import { esLectura, esEscritura, esLecturaDePv } from './bqlm.js';
 import { EPOCA_0_DATOS, EPOCA_0_BTML_DATOS, EPOCA_0_BTML_ID, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS, MODELOS_DE_EPOCA_DATOS, GUIA_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
 
 export const PV = Object.freeze([
@@ -310,12 +310,17 @@ export function cargarEpocaBtml(payload, { registros = [], plantillas = [], corr
     const efectiva = r.map((x) => [...x]);
     for (const { en, ocupante } of corregidas.get(ref) ?? []) efectiva[en].push(ocupante);
     const c = efectiva[2][efectiva[2].length - 1];
-    if (typeof c !== 'string' || !c.startsWith('=') || c.startsWith('==')) throw new TypeError(nombre + ': ' + donde + ' lleva su condición «=…» en el 2');
+    const formula = (x) => typeof x === 'string' && x.startsWith('=') && !x.startsWith('==');
+    // La lectura de un punto de vista (encargo «lecturas»): cada ocupante de su 2, una fórmula o «js <nombre>».
+    if (esLecturaDePv(efectiva) ? !efectiva[2].every((x) => formula(x) || /^js [a-z]+$/.test(x)) : !formula(c)) throw new TypeError(nombre + ': ' + donde + ' lleva su condición «=…» en el 2');
     return Object.freeze({ id: ref, regla: congelarCopia(efectiva) });
   });
   // Las lecturas (B5: «read» en su 4) están en el 2 como las demás, pero no son condiciones: el contexto las
   // pone en la posición que dice su 3 (src/contexto-eje.js) y las otras reglas las leen ahí.
-  const condiciones = Object.freeze(reglasDel2.filter((x) => !esLectura(x.regla) && !esEscritura(x.regla)).map((x) => x.regla));
+  const condiciones = Object.freeze(reglasDel2.filter((x) => !esLectura(x.regla) && !esEscritura(x.regla) && !esLecturaDePv(x.regla)).map((x) => x.regla));
+  // Las lecturas de los puntos de vista (encargo «lecturas», issue #12: «point of view» en su 4) tampoco: las aplica el
+  // contrato a un nodo (contrato.leer), una por PV, en el orden de su 8.
+  const lecturasDePv = Object.freeze(reglasDel2.filter((x) => esLecturaDePv(x.regla)).map((x) => x.regla));
   const lecturas = Object.freeze(reglasDel2.filter((x) => esLectura(x.regla)).map((x) => x.regla));
   // Las reglas que escriben (encargo 3b: «put» en su 4, la obtención de P) tampoco son condiciones: lo que colocan
   // lo asienta el libro en la misma transacción (src/eje.js).
@@ -373,6 +378,7 @@ export function cargarEpocaBtml(payload, { registros = [], plantillas = [], corr
     reglas: Object.freeze(reglas),
     condiciones,
     lecturas,
+    lecturasDePv,
     escrituras,
     reglasConId: Object.freeze(reglasDel2),
     // Las plantillas de transacción (encargo 3c-2a): [{ id, plantilla }], en el orden del 9.6.
