@@ -90,7 +90,8 @@ export class Archivos {
     if (tipo === 'text/html') {
       if (bytes.length > LIMITE_HTML) Object.assign(e, { estado: 'error', motivo: t('archivoHtmlGrande', { tope: Math.round(LIMITE_HTML / 1024) }) });
       else e.texto = new TextDecoder('utf-8').decode(bytes);
-    } else if (tipo.startsWith('image/') && typeof URL.createObjectURL === 'function') {
+    } else if (Object.hasOwn(TIPOS, tipo) && typeof URL.createObjectURL === 'function') {
+      // una imagen (también SVG: en <img> no ejecuta nada) o una animación Lottie (su JSON): una URL local, para <img> o lottie-web
       e.url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
     }
     this.cache.set(id, e);

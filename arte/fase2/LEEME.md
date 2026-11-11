@@ -20,7 +20,7 @@ De cada bloque entran en el repositorio **solo** `biblioteca/` (los archivos: 50
 
 ## Cómo entra en la aplicación
 
-`node arte/importar.mjs arte/fase2/bloque-0 … arte/fase2/bloque-6 --nombre ikisai --escribir` lee los siete índices y genera **un** modelo de visualización (`datos/epocas/modelos/ikisai.json` y `ikisai/`), sin copiar ningún archivo: las piezas referencian estas rutas. Después, `npm run epocas`. Lo que el importador hace con cada campo del índice (`tipo`, `nombre`, `nivel`/`tamano`, `pv: "comun"`, `mundos`, `heredado`, `respaldo`) está en `arte/MANIFIESTO.md` §3 y §4.
+`node arte/importar.mjs arte/fase2/bloque-0 … arte/fase2/bloque-6 --nombre general --escribir` lee los siete índices y genera **un** modelo de visualización (`datos/epocas/modelos/general.json` y `general/`: el arte general de la época, #25), sin copiar ningún archivo: las piezas referencian estas rutas. Después, `npm run epocas`. Lo que el importador hace con cada campo del índice (`tipo`, `nombre`, `nivel`/`tamano`, `pv: "comun"`, `mundos`, `heredado`, `respaldo`) está en `arte/MANIFIESTO.md` §3 y §4.
 
 ## Seguridad
 

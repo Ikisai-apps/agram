@@ -1,10 +1,12 @@
 // Los modelos de visualización (encargo 3c-2b, tras 3c-1). Principio (VG): nada hardcodeado en la pantalla; los
 // modelos de visualización son REGISTROS; cualquier modelo puede estar incompleto y se rellena por partes; la carta
 // pregunta por una pieza (un tipo, un mundo, un paso o una acción, una orientación) y la cadena de modelos responde
-// en orden: el que nombra la configuración de quien mira, luego el animado genérico de la época, luego el sobrio,
-// que no tiene recursos (solo formas) y siempre responde. Documentación: docs/CONTRATO.md, «Modelos de visualización».
+// en orden: el arte propio del elemento (las piezas ancladas al registro: #25, el registro es su propio modelo
+// parcial), el que nombra la configuración de quien mira, luego el general de la época, el animado genérico y el
+// sobrio, que no tiene recursos (solo formas) y siempre responde. Documentación: docs/CONTRATO.md, «Modelos de visualización».
 //
-//   modelo(eje, yo)                                  la cadena de modelos a consultar, en orden
+//   modelo(eje, yo, { elemento })                    la cadena de modelos a consultar, en orden (con `elemento`, su arte propio delante)
+//   propio(eje, X)                                   el arte propio de un registro como modelo parcial (null si no lleva)
 //   pieza(modelos, tipo, pv, clave, variante, { tamano, rol, de })   la primera pieza que exista en la cadena (nunca null si el sobrio está)
 //   corresponde(cabecera, tipo, dado, pv)            la clave de pieza que corresponde a lo que da el núcleo (epoch.9.7.0.4.n.2)
 //   rolPorDefecto(cabecera, tipo, pv)                la segunda componente de la clave por defecto en un mundo (el rol del muñequito)
@@ -32,6 +34,11 @@ import { esReferencia, esLista, esTerminal, direccion, resolver } from './btml.j
 import { configuracion } from './contrato.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
+/**
+ * La referencia a un archivo adjunto (encargo «pv0», #22): «archivo:<sha256>», el hash del contenido en minúsculas. El
+ * archivo vive fuera del eje (la función `archivos`); la carta resuelve la referencia a su URL con la clave que tiene.
+ */
+export const RE_ARCHIVO = /^archivo:[0-9a-f]{64}$/;
 /** La clave comodín de una pieza: sirve para cualquier paso, acción, primitiva o punto de vista (como el «*» del 5 de una regla). */
 export const CUALQUIERA = '*';
 
@@ -55,11 +62,10 @@ export const FORMATOS_EN_SANDBOX = Object.freeze(['html']);
 export const pintaEnSandbox = (formato) => FORMATOS_EN_SANDBOX.includes(String(formato ?? '').toLowerCase());
 /** La referencia a un archivo adjunto que guarda un registro: «archivo:» y el SHA-256 de su contenido (docs/CONTRATO.md §2.1). */
 const PREFIJO_ARCHIVO = 'archivo:';
-const RE_ARCHIVO = /^archivo:([0-9a-f]{64})$/;
 /** La referencia de un archivo por su id (su SHA-256). */
 export const referenciaDeArchivo = (id) => PREFIJO_ARCHIVO + id;
 /** El id (el SHA-256) de una referencia `archivo:<sha256>`, o null si no lo es. */
-export const idDeArchivo = (recurso) => (typeof recurso === 'string' ? RE_ARCHIVO.exec(recurso)?.[1] ?? null : null);
+export const idDeArchivo = (recurso) => (typeof recurso === 'string' && RE_ARCHIVO.test(recurso) ? recurso.slice(PREFIJO_ARCHIVO.length) : null);
 /**
  * ¿Puede pintarse esta representación (o pieza) que viene del eje? Lo que se pinta en el iframe aislado solo si su
  * recurso es un archivo adjunto (lo baja la carta y lo pone en srcdoc; una URL no entra); lo demás, sí.
@@ -100,12 +106,12 @@ function origenesDe(posicion) {
 /**
  * ¿Es `recurso` aceptable en una pieza que viene del eje? Una ruta relativa dentro de `arte/` (sin «..», sin esquema, sin
  * «//», sin barras invertidas, sin porcentajes ni caracteres de control), una URL de uno de los orígenes de la lista
- * blanca de la cabecera o un archivo adjunto (`archivo:<sha256>`). Lo demás (otro origen, `data:`, `javascript:`, una
- * ruta fuera de `arte/`) no.
+ * blanca de la cabecera o un archivo adjunto por su hash («archivo:<sha256>», RE_ARCHIVO). Lo demás (otro origen,
+ * `data:`, `javascript:`, una ruta fuera de `arte/`) no.
  */
 export function recursoAdmitido(recurso, c) {
   if (typeof recurso !== 'string' || !recurso.length) return false;
-  if (idDeArchivo(recurso)) return true; // un archivo adjunto del eje (el bucket privado de la función `archivos`)
+  if (RE_ARCHIVO.test(recurso)) return true; // un adjunto por su hash (#22, #25): la carta lo resuelve; nunca una ruta ni una URL
   if (/[\u0000-\u001f\u007f\\\s]/.test(recurso)) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(recurso)) {
     try {
@@ -299,7 +305,7 @@ function esModelo(payload, c) {
  * repetir; el que no tiene recursos (el sobrio) siempre al final, aunque lo nombre la configuración. `yo` es la identidad o lo que devuelve contrato.yo(). Cada uno, { nombre, nivel, nota, donde, registro,
  * piezas, cabecera }.
  */
-export function modelo(eje, yo, opciones = {}) {
+export function modelo(eje, yo, { elemento, ...opciones } = {}) {
   const epoca = epocaDe(opciones);
   const raiz = raizDe(epoca);
   const c = cabecera(opciones);
@@ -310,7 +316,7 @@ export function modelo(eje, yo, opciones = {}) {
   const nombrado = etiqueta ? conf[etiqueta] : undefined;
   const nombres = [nombrado, ...c.cadena].map((x) => (esReferencia(x) ? x.ref : x)).filter((x) => typeof x === 'string' && x.length > 0);
   // Por nombre solo se resuelven los modelos de la época; uno del eje, por su id (SEG-14: un registro del eje que se
-  // llame «ikisai» no suplanta al de la época). Lo que no es ni lo uno ni lo otro se salta.
+  // llame «general» no suplanta al de la época). Lo que no es ni lo uno ni lo otro se salta.
   const resolverNombre = (n) => {
     const propio = deLaEpoca.find((m) => m.nombre === n || m.donde === n);
     if (propio) return propio;
@@ -329,7 +335,39 @@ export function modelo(eje, yo, opciones = {}) {
   }
   // El sobrio (un modelo sin ninguna pieza con recurso: solo formas) es el respaldo por definición: siempre al final
   // de la cadena, también si la configuración lo nombra (#3: con `model: sobrio` guardado, «animado» enseña el arte).
-  return [...fuera.filter(conRecursos), ...fuera.filter((m) => !conRecursos(m))];
+  const cadena = [...fuera.filter(conRecursos), ...fuera.filter((m) => !conRecursos(m))];
+  // Delante de todo, el arte propio del elemento que se pinta (#25), si lo lleva.
+  const suyo = elemento ? propio(eje, elemento, opciones) : null;
+  return suyo ? [suyo, ...cadena.filter((m) => m.donde !== suyo.donde)] : cadena;
+}
+
+/** Todos los mundos de un modelo (1-4 y 6-9): lo que vale «*» en el 5 de una pieza. */
+const MUNDOS = Object.freeze([1, 2, 3, 4, 6, 7, 8, 9]);
+
+/**
+ * El arte propio de un registro X (#25, VG 11-11: «cada elemento puede llevar su icono, su imagen, su Lottie propio»):
+ * X es su propio modelo parcial. Sus piezas son las de un modelo del eje (piezasDeModelo con `id`: lo que referencian
+ * sus posiciones 1-9 y lo ANCLADO en ellas por el autor de X, con los filtros de SEG-14) y cada una sirve en el mundo
+ * donde está y en los que dice su 5 («*», todos): un icono propio anclado una vez con «*» se ve en los ocho mundos. Su
+ * recurso puede ser un adjunto («archivo:<sha256>»). → { nombre: null, nivel: null, nota: null, donde: X, registro,
+ * piezas, cabecera, propio: true } o null si X no está en el eje o no lleva ninguna pieza propia.
+ */
+export function propio(eje, X, opciones = {}) {
+  const id = esReferencia(X) ? X.ref : X;
+  const ev = typeof id === 'string' ? eje?.obtener?.(id) : null;
+  if (!ev || !Array.isArray(ev.payload)) return null;
+  const c = cabecera(opciones);
+  const piezas = [];
+  for (const p of piezasDeModelo(ev.payload, { eje, id: ev.id, autor: ev.autor, cabecera: c, ...opciones })) {
+    const mundos = new Set([p.pv]);
+    for (const m of p.mundos) {
+      if (m === CUALQUIERA) MUNDOS.forEach((x) => mundos.add(x));
+      else if (typeof m === 'number' && Number.isInteger(m) && m >= 1 && m <= 9) mundos.add(m);
+    }
+    for (const pv of mundos) piezas.push({ ...p, pv });
+  }
+  if (!piezas.length) return null;
+  return { nombre: null, nivel: null, nota: null, donde: ev.id, registro: ev.payload, piezas, cabecera: c, propio: true };
 }
 
 /** ¿Trae el modelo alguna pieza con recurso? El que no (el sobrio) es el respaldo de forma: va al final de la cadena. */
@@ -384,7 +422,9 @@ export function rolPorDefecto(c, tipo, pv) {
  * reescala a los pasos que el modelo tiene para ese tipo y mundo (su mayor clave numérica): la madurez 11 de 15 pide
  * la etapa 8 de 10. Solo si ningún modelo responde en ese mundo devuelve null: el sobrio, completo por forma,
  * siempre responde.
- * → { modelo, nivel, tipo, pv, clave, <nombre de la clave>, subclave, variante, tamano, formato | forma, recurso, bucle, fotogramas, rango, … }
+ * `origen` es dónde está el modelo que responde (el id del registro del modelo, o el del elemento si es su arte
+ * propio, `propio: true`): la carta, en el pintado «propio», solo acepta piezas cuyo origen es el elemento que pinta.
+ * → { modelo, nivel, origen, propio, tipo, pv, clave, <nombre de la clave>, subclave, variante, tamano, formato | forma, recurso, bucle, fotogramas, rango, … }
  */
 export function pieza(modelos, tipo, pv, clave, variante, { tamano, rol, de } = {}) {
   const pedida = clave === undefined || clave === null ? CUALQUIERA : clave;
@@ -419,7 +459,7 @@ export function pieza(modelos, tipo, pv, clave, variante, { tamano, rol, de } = 
       if (!mejores.length) continue;
       const elegida = mejores.reduce((a, b) => (b.tamano > a.tamano || (b.tamano === a.tamano && b.rango < a.rango) ? b : a));
       const { crudo: _crudo, tiempo: _tiempo, repeticion: _repeticion, ...plana } = elegida;
-      return { modelo: m.nombre, nivel: m.nivel, ...plana };
+      return { modelo: m.nombre, nivel: m.nivel, origen: m.donde ?? null, propio: Boolean(m.propio), ...plana };
     }
   }
   return null;

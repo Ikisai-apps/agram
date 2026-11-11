@@ -19,7 +19,7 @@
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
 import { arbol, enviar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
-import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor } from './dom.js';
+import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor, resolverArchivos } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
 import { t, idiomaDeInterfaz } from './textos.js';
@@ -75,6 +75,9 @@ function destinoDeArchivos() {
   return d && claveLectura ? { url: d.url, eje: d.eje, claveLectura } : null;
 }
 const archivos = new Archivos({ destino: destinoDeArchivos, alCambiar: () => pintar() });
+// Las piezas del arte propio (#25) que son adjuntos: su URL local, la de lo bajado de la función `archivos` (con la clave
+// de lectura: un <img> no puede mandarla); mientras no ha llegado, null (no se pinta) y, al llegar, se repinta.
+resolverArchivos((id) => archivos.contenido(id).url ?? null);
 
 /** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);

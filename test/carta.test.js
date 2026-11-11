@@ -259,9 +259,9 @@ test('las preferencias se editan como un registro más: la candidata sale de la 
   assert.match(html(a), /pieza-imagen/);
 });
 
-/** La huésped pide el animado con el modelo de la fase 2 (ikisai) en sus preferencias. */
+/** La huésped pide el animado con el modelo de la fase 2 (general) en sus preferencias. */
 async function animadoConIkisai(eje, quien = 'huesped', mas = {}) {
-  const p = preferencias(eje, quien, { render: 'animated', model: 'ikisai', ...mas });
+  const p = preferencias(eje, quien, { render: 'animated', model: 'general', ...mas });
   await eje.escribir({ autor: quien, sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto(quien)], payload: p.payload });
 }
 

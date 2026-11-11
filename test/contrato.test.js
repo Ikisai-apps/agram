@@ -245,17 +245,17 @@ test('yo: mi alta y sus posiciones (cartera, criterio, atención, tiempo), leíd
 });
 
 test('configuracion: los defectos de la plantilla «preferences» si no hay registro, y el registro anclado en el 9 de mi alta si lo hay (validado por su plantilla)', async () => {
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3], model: 'ikisai', animations: 10, de: null });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3], model: 'general', animations: 10, de: null });
   assert.deepEqual(C.configuracion(eje, C.yo(eje, 'huesped')), C.configuracion(eje, 'huesped'));
   const T = '2026-11-07T18:00:00Z';
   const mias = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences'] });
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], model: 'ikisai', animations: 10, de: mias.id }, 'el 5 (el tipo) no es una preferencia; «model» (encargo 3c-2b) tiene su defecto');
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 20, render: 'animated', language: 'es', sizes: [1, 3], model: 'general', animations: 10, de: mias.id }, 'el 5 (el tipo) no es una preferencia; «model» (encargo 3c-2b) tiene su defecto');
   assert.deepEqual(C.validar(eje, mias), []);
   // Un registro de preferencias anclado en otro sitio no es mi configuración; lo último mío en mi 9 manda.
   await eje.escribir({ autor: 'huesped', sobre: menu.id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 99, 'sober', 'en', [2], 'preferences'] });
   assert.equal(C.configuracion(eje, 'huesped').step, 20);
   const otras = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 5, 'sober', 'en', [2], 'preferences'] });
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 5, render: 'sober', language: 'en', sizes: 2, model: 'ikisai', animations: 10, de: otras.id }, 'el último mío');
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 5, render: 'sober', language: 'en', sizes: 2, model: 'general', animations: 10, de: otras.id }, 'el último mío');
   // Sin su 5 no es un registro de preferencias (y como el 5 exige el 0-4, un registro de preferencias siempre dice todo).
   await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 7, 'animated'] });
   assert.equal(C.configuracion(eje, 'huesped').de, otras.id);
@@ -415,8 +415,8 @@ test('opciones (a): el 5 lista las plantillas que hay; un tipo `ref` que nombra 
 test('opciones (b): las enumeraciones de la época: el pintado (su validación), el idioma (epoch.9.4), el modelo (epoch.9.7.0.5), los niveles (epoch.8.4), un rango de dígitos y la lista del defecto «=first …» de un parámetro', async () => {
   const { eje: e, compra: c } = await ejemploCompra();
   const T = '2026-11-07T18:00:00Z';
-  const mias = await e.escribir({ autor: 'huesped', sobre: e.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences', 'ikisai'] });
-  assert.deepEqual(C.opciones(e, mias.id, 2).map((o) => o.valor), ['sober', 'animated'], 'la validación «="sober" in it.2 or "animated" in it.2»');
+  const mias = await e.escribir({ autor: 'huesped', sobre: e.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences', 'general'] });
+  assert.deepEqual(C.opciones(e, mias.id, 2).map((o) => o.valor), ['sober', 'own', 'animated'], 'la validación «="sober" in it.2 or "own" in it.2 or "animated" in it.2»');
   assert.deepEqual(C.opciones(e, mias.id, 3).map((o) => o.valor), C.idiomas());
   assert.equal(C.opciones(e, mias.id, 3).find((o) => o.valor === 'es').texto, EPOCA_0_BTML.registro[9][4].slice(1).find((r) => r[0].includes('es'))[0][1], 'con el nombre del idioma de su registro de mensajes');
   const cabecera = EPOCA_0_BTML.registro[9][7][0];
