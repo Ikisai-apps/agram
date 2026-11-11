@@ -52,7 +52,8 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   assert.match(fila[2][0], /^VG, 10-11 noche/);
   const filas = fila[1];
   assert.deepEqual(filas.map((f) => f[0][0]), [0, 5, 1, 2, 3, 4, 6, 7, 8, 9]);
-  for (const f of filas) { assert.equal(f.length, 8); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
+  // ocho posiciones; el 6 y el 7, una novena: el orden de sus listas verticales (VG 11-11, #18)
+  for (const f of filas) { assert.equal(f.length, [6, 7].includes(f[0][0]) ? 9 : 8); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
   const d = (pv, nivel = 1) => C.divisionDelMundo(null, pv, { nivel });
   // hijos, profundidad y forma: la cruceta aplicada al elemento pulsado, no una matriz con herencia
   assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
@@ -70,6 +71,8 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   assert.deepEqual(d(6).hilos, [1, 3, 2, 4]);
   assert.deepEqual(d(7).hilos, [2, 4, 1, 3]);
   assert.equal([1, 2, 3, 4, 8, 9].some((pv) => 'hilos' in d(pv)), false);
+  assert.deepEqual([d(6).orden, d(7).orden], ['latest', 'soonest']);
+  assert.equal([1, 2, 3, 4, 8, 9, 0, 5].some((pv) => 'orden' in d(pv)), false);
   // el 4 mide epoch.5 y el pv; la franja del 6 y el 7, las escalas de T que el calendario mide (epoch.1.3 ∩ epoch.7), no un número escrito
   const medidas = EPOCA_0_BTML.registro[7][0].map((r) => r[0][0]);
   const escalas = EPOCA_0_BTML.registro[1][3][1].map((r, escala) => ({ escala, nombre: r[0][0] })).filter((e) => medidas.includes(e.nombre));

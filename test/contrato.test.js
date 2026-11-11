@@ -140,7 +140,7 @@ test('ocupantes: tal cual (hojas, décuplas, referencias por su id), por llegada
   const r = C.ocupantes(eje, porEncaje, 1);
   assert.equal(r.orden, 'fit');
   assert.equal(r.total, 3);
-  assert.deepEqual(C.ordenes().map((o) => o.nombre), ['arrival', 'newest', 'fit']);
+  assert.deepEqual(C.ordenes().map((o) => o.nombre), ['arrival', 'newest', 'latest', 'soonest', 'fit']);
   assert.equal(C.paso(), 10);
   // Una candidata fuera del eje: lo propio de su payload.
   const candidata = await crearEvento({ autor: 'huesped', sobre: menu.id, t: T, movimientos: [minuto('huesped')], payload: ['x', ['p', 'q']] });

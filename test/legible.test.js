@@ -218,7 +218,8 @@ test('el árbol de la carta para la compra en es no lleva ninguna cadena que emp
   assert.deepEqual(hueco.accion.faltan, ['denominación']);
   assert.ok(hueco.otras.some((o) => o.nombre === 'bloquear E como puja por una cuota'));
   const seis = a.laterales.find((n) => n.pv === 6);
-  assert.ok(seis.diario.entradas[0].movimientos.some((x) => x === 'transferir 12 EUR'), JSON.stringify(seis.diario.entradas[0].movimientos));
+  const laCompra = seis.diario.entradas.find((e) => e.id === X.id); // el diario del 6, lo más reciente arriba (#18): la compra, por su id
+  assert.ok(laCompra.movimientos.some((x) => x === 'transferir 12 EUR'), JSON.stringify(laCompra.movimientos));
   // El formulario: el nombre traducido, la acción por id, cada campo con su etiqueta, su legible y si es simple.
   const f = a.formulario;
   assert.equal(f.nombre, 'aplicar un recurso');
