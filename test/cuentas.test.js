@@ -56,16 +56,16 @@ test('crear mi cuenta: un eje con un solo registro, mi alta escrita por mí (per
   assert.equal(Q.identidadDe('···', publica), autoridad.huella(publica));
 });
 
-test('el idioma es mi configuración: un registro «preferences» en el 9 de mi alta, firmado; con el idioma de la época no se escribe nada', async () => {
-  const { cuenta, eje, publica } = await Q.crearCuenta({ nombre: 'Víctor', idioma: 'es', t: T1 });
+test('el idioma es mi configuración: un registro «preferences» en el 9 de mi alta, firmado; con el idioma de la época (es) no se escribe nada', async () => {
+  const { cuenta, eje, publica } = await Q.crearCuenta({ nombre: 'Víctor', idioma: 'en', t: T1 });
   assert.equal(eje.orden.length, 2);
   const p = eje.obtener(eje.orden[1]);
   assert.deepEqual([p.autor, p.sobre, p.en, await autoridad.verificar(p, publica)], ['victor', cuenta.alta, '9000000000', true]);
-  assert.equal(C.configuracion(eje, 'victor').language, 'es');
+  assert.equal(C.configuracion(eje, 'victor').language, 'en');
   assert.equal(C.configuracion(eje, 'victor').de, p.id);
-  assert.equal(cuenta.idioma, 'es');
-  const en = await Q.crearCuenta({ nombre: 'Víctor', idioma: C.configuracion(null).language, t: T1 });
-  assert.equal(en.eje.orden.length, 1);
+  assert.equal(cuenta.idioma, 'en');
+  const porDefecto = await Q.crearCuenta({ nombre: 'Víctor', idioma: C.configuracion(null).language, t: T1 });
+  assert.equal(porDefecto.eje.orden.length, 1);
   // Los campos que pide crear salen del núcleo: la etiqueta del 0 (la regla corta) y la posición del idioma de la plantilla de preferencias, con los idiomas de la época.
   const campos = Q.camposDelAlta({ idioma: 'es' });
   assert.deepEqual(campos.map((c) => c.nombre), ['nombre', 'idioma']);
@@ -134,10 +134,10 @@ test('el camino de mi alta nueva lista el tutorial del 9 de la plantilla de iden
 
 test('guardar, listar, abrir y olvidar cuentas en un localStorage simulado; las claves de las cuentas no se cruzan con las de los ejemplos', async () => {
   await conAlmacen(async (almacen) => {
-    const mia = await Q.crearCuenta({ nombre: 'Víctor', idioma: 'es', t: T1 });
+    const mia = await Q.crearCuenta({ nombre: 'Víctor', idioma: 'en', t: T1 });
     assert.deepEqual([Q.cuentas(), Q.ultima()], [[], null]);
     assert.equal(await Q.guardarCuenta(mia), true);
-    assert.deepEqual(Q.cuentas(), [{ nombre: 'Víctor', idioma: 'es', identidad: 'victor', alta: mia.cuenta.alta, publica: mia.publica }]);
+    assert.deepEqual(Q.cuentas(), [{ nombre: 'Víctor', idioma: 'en', identidad: 'victor', alta: mia.cuenta.alta, publica: mia.publica }]);
     assert.equal(Q.ultima(), mia.cuenta.alta);
     // La clave privada se guarda como JWK exportado (como las de ejemplo en agram.claves), nunca en texto plano fuera del navegador.
     const jwk = JSON.parse(almacen.get(Q.CLAVES.clave(mia.cuenta.alta)));

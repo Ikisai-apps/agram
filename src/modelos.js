@@ -312,6 +312,20 @@ export function modelo(eje, yo, opciones = {}) {
 /** ¿Trae el modelo alguna pieza con recurso? El que no (el sobrio) es el respaldo de forma: va al final de la cadena. */
 export const conRecursos = (m) => Boolean(m?.piezas?.some((p) => p.recurso));
 
+/**
+ * Lo que la configuración ofrece como «modelo» (#4): la clave de la preferencia que nombra el modelo (la etiqueta de
+ * la posición que dice la cabecera, epoch.9.7.0.5) y los modelos de la época que tienen recursos (los paquetes de arte,
+ * en el orden de la cadena de la época; el sobrio no: es el respaldo, no se elige). → { clave, modelos: [{ nombre, nivel, donde }] }.
+ */
+export function eleccionDeModelo(opciones = {}) {
+  const c = cabecera(opciones);
+  const descripcion = c.preferencia ? resolver(raizDe(epocaDe(opciones)), c.preferencia) : undefined;
+  const clave = texto(hoja(descripcion?.[0])) ?? null;
+  const orden = (m) => { const k = c.cadena.indexOf(m.nombre); return k < 0 ? Infinity : k; }; // en el orden de la cadena de la época
+  const modelos = modelosDeLaEpoca(opciones).filter(conRecursos).map((m, k) => ({ m, k })).sort((a, b) => orden(a.m) - orden(b.m) || a.k - b.k);
+  return { clave, modelos: modelos.map(({ m: { nombre, nivel, donde } }) => ({ nombre, nivel, donde })) };
+}
+
 /** El valor numérico de una clave para ordenar los pasos: la comodín es la más baja. */
 const numero = (clave) => (typeof clave === 'number' ? clave : -Infinity);
 

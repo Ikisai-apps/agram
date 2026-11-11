@@ -357,7 +357,10 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
   // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración (en Mapped, por páginas).
   const cuantos = mapa ? mapa.cuantos : nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
   const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
-  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
+  // Las listas verticales del 6 y el 7 (el hilo de Sequenced, sus bloques de Mapped), en el orden que la época declara
+  // para ese mundo (epoch.8.7, VG 11-11 #18: lo más cercano al presente arriba); la carta no ordena, lo pide.
+  const vertical = ordenVertical(eje, pv, ctx);
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, vertical);
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   nodo.ocupantes = {
     total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
@@ -392,10 +395,13 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     // (capasDeRejilla): el dibujo del mundo en cada hijo; el fondo, la etapa y el marco los pinta el bloque. Sin
     // personaje (solo a pantalla completa) y lo nuevo, sobre el bloque entero (nodo.nuevos).
     if (ctx.animado && mapa && nodo.rejilla) capasDeRejilla(eje, X, pv, nodo.rejilla, ctx, nodo, nodo.tamano, { personaje: false, efectos: false });
+    // Sequenced, la fila abierta en animado (VG, 11-11, #7: «menos sobrecargado, pero algo»): las mismas capas, el dibujo
+    // del mundo en cada hijo; el fondo y la etapa los pinta la fila. Sin muñequito ni movimientos (sin efectos por hijo).
+    if (ctx.animado && secuencia && nodo.rejilla) capasDeRejilla(eje, X, pv, nodo.rejilla, ctx, nodo, nodo.tamano, { personaje: false, efectos: false });
   }
   // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
   if (g.grupo === 'cruz' && g.lado === 1) {
-    const d = contrato.diario(eje, X, 0, cuantos, ctx.opciones);
+    const d = contrato.diario(eje, X, 0, cuantos, vertical);
     // Cada asiento, legible: la primitiva del libro y la cantidad con su serie como la dice el núcleo.
     nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + legibleDe(eje, m, null, ctx.opciones).texto), ancla: e.ancla })) };
     // Las opiniones ancladas en este registro, si es el proyecto donde se anclan (acciones.opiniones): con sus respuestas.
@@ -406,6 +412,16 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     }
   }
   return nodo;
+}
+
+/**
+ * Las opciones con que se piden las listas verticales de un PV: las de siempre más el orden que la época declara para
+ * ese mundo (epoch.8.7, la novena posición de su fila: el 6, lo más reciente primero; el 7, lo más próximo primero), si
+ * declara alguno. La carta no ordena: pasa el nombre del orden a contrato.ocupantes y contrato.diario.
+ */
+function ordenVertical(eje, pv, ctx) {
+  const orden = contrato.divisionDelMundo(eje, pv, ctx.opciones)?.orden;
+  return orden ? { ...ctx.opciones, orden } : ctx.opciones;
 }
 
 /**
@@ -484,7 +500,7 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
   const cuantos = mapa ? mapa.cuantos : ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
   const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
-  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ordenVertical(eje, pv, ctx)); // la lista vertical del 6 y el 7, en su orden (#18)
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   const d = contrato.division(eje, X, { datos: mapa ? mapa.datos : Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
   const escenario = ctx.animado && LATERALES.includes(pv) ? {
@@ -662,7 +678,8 @@ export function plantillaDePreferencias(opciones = {}) {
  * «preferences» de la época (la posición la dice la cabecera de los modelos, epoch.9.7.0.5: la preferencia `model`
  * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
  * es una preferencia es su tipo (B4). Devuelve { payload, nombre, campos: [{ pv, clave, etiqueta, ayuda, marcador,
- * numero, valor }], sobre, en, de } para que la carta la escriba como un registro más, anclado en el 9 del alta
+ * numero, valor, opciones? }], sobre, en, de }; el modelo (#4) lleva `opciones` (los modelos de la época con
+ * recursos, sin el sobrio, [{ valor, texto }]) y, si solo hay uno, no es un campo: se guarda ese para que la carta la escriba como un registro más, anclado en el 9 del alta
  * (`clave` es la etiqueta canónica, la clave de la configuración; `etiqueta` y `ayuda`, en el idioma de yo); null si
  * yo no tiene alta.
  */
@@ -680,6 +697,10 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   // Las preferencias las dice el núcleo (contrato.clavesDeConfiguracion): también las que no tienen defecto (el
   // servidor y el eje compartido, etapa 3), que se pintan vacías; la posición que no es una preferencia es el tipo (B4).
   const deLaEpoca = new Set(contrato.clavesDeConfiguracion(opciones).map((c) => c.clave));
+  // «modelo» (#4): una lista de los modelos de la época con recursos (sin el sobrio); con uno solo, no se pregunta.
+  const eleccion = modelos.eleccionDeModelo(opciones);
+  const nombres = eleccion.modelos.map((m) => m.nombre);
+  const sinRecursos = new Set(modelos.modelosDeLaEpoca(opciones).filter((m) => !modelos.conRecursos(m)).map((m) => m.nombre));
   p.registro.forEach((desc, d) => {
     if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
     const clave = hojas(desc[0])[0];
@@ -688,9 +709,18 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
     const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
     const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
     // Vacía y sin defecto, la posición queda sin escribir (BTML no tiene posiciones vacías).
-    const v = limpio.length ? limpio : hojas(defectos[clave]);
+    let v = limpio.length ? limpio : hojas(defectos[clave]);
+    let lista = null;
+    if (clave === eleccion.clave && nombres.length) {
+      // El sobrio (o un modelo sin recursos de la época) no se elige: vale el defecto si está en la lista, si no el primero.
+      const defecto = hojas(defectos[clave]).find((x) => nombres.includes(x)) ?? nombres[0];
+      const elegido = typeof v[0] === 'string' && !sinRecursos.has(v[0]) ? v[0] : defecto;
+      v = [nombres.length === 1 ? nombres[0] : elegido];
+      lista = [...nombres, ...(nombres.includes(v[0]) ? [] : [v[0]])].map((x) => ({ valor: x, texto: T('option ' + x, clave, x) }));
+    }
     if (v.length) payload[d] = v;
-    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v });
+    if (lista && lista.length < 2) return; // un solo paquete de arte: se guarda el que hay y no se pregunta
+    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v, ...(lista ? { opciones: lista } : {}) });
   });
   // El registro acaba en el primer hueco: lo de detrás de una posición sin valor no se puede escribir (BTML no tiene
   // huecos), y una preferencia sin valor es la de la época (sync ledger sin sync url no comparte nada).
@@ -1040,6 +1070,19 @@ function centroFlotante(eje, R, pv, ctx) {
 }
 
 /**
+ * Lo que el núcleo mide de un hijo (contrato.hijosDe, encargo «datos», issue #11), tal cual: en el 2, el P de su mirada
+ * (`votos`: comprometidos y reposicionables, si hay alguno) y, si el criterio del dueño dice esa mirada, el recuento
+ * (`meta`: umbral, valor, pasa, faltan); en el 3, el precio de su zona de atención (`precio`). Nada si no lo da.
+ */
+function medidaDeHijo(h) {
+  const m = {};
+  if ((h.comprometidos ?? 0) + (h.reposicionables ?? 0) > 0) m.votos = { comprometidos: h.comprometidos, reposicionables: h.reposicionables };
+  if (typeof h.umbral === 'number') m.meta = { umbral: h.umbral, valor: h.valor, pasa: h.pasa, faltan: h.faltan };
+  if (h.precio) m.precio = h.precio;
+  return m;
+}
+
+/**
  * Las celdas de un nivel con hijos (cruceta, escalera, columnas, rejilla, conversación): una por hijo, con su nombre a
  * esa profundidad y sus ocupantes (contrato.hijosDe). Un hijo sin ocupantes es `vacio`: se pinta con su nombre
  * apagado, no se entra y lleva `escribir`, la acción por defecto de su PV (el paso del camino que lo llenaría). Cada
@@ -1050,7 +1093,9 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
   const forma = FORMAS[d.forma];
   const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, ...ctx.opciones }).map((h, i) => {
     const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio);
-    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null };
+    // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
+    if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
+    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h) };
     if (forma.siguiente) celda.siguiente = ocupantes.filter((o) => o.tipo === 'referencia' && o.X).map((o) => ({ X: o.X, texto: o.texto, hijos: hijosSiguientes(eje, o.X, pv, d.nivel + 1, ctx) }));
     return celda;
   });

@@ -2331,6 +2331,29 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           [
+            "latest"
+          ],
+          [
+            "instante",
+            "reverse"
+          ],
+          [
+            "by the time of each one (its t), the latest first: in the past, the nearest to now first"
+          ]
+        ],
+        [
+          [
+            "soonest"
+          ],
+          [
+            "instante"
+          ],
+          [
+            "by the time of each one (its t), the earliest first: in the future, the nearest to now first"
+          ]
+        ],
+        [
+          [
             "fit"
           ],
           [
@@ -2460,6 +2483,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2483,6 +2509,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "el reverso: el JSON del registro"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2515,6 +2544,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2536,7 +2568,8 @@ export const EPOCA_0_BTML_DATOS = [
             "columnas"
           ],
           [
-            "-"
+            "epoch.1.1",
+            "epoch.9.0.0"
           ],
           [
             "-"
@@ -2546,6 +2579,13 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            5
           ]
         ],
         [
@@ -2568,7 +2608,8 @@ export const EPOCA_0_BTML_DATOS = [
             "conversacion"
           ],
           [
-            "-"
+            "epoch.1.2.1",
+            "attended"
           ],
           [
             "-"
@@ -2578,6 +2619,14 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
           ]
         ],
         [
@@ -2602,6 +2651,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "10 × 10: columnas = los diez PV como tipo de interacción, filas = posición modificada; la celda es la lista de ejecuciones"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2636,6 +2688,12 @@ export const EPOCA_0_BTML_DATOS = [
             3,
             2,
             4
+          ],
+          [
+            "-"
+          ],
+          [
+            "latest"
           ]
         ],
         [
@@ -2667,6 +2725,12 @@ export const EPOCA_0_BTML_DATOS = [
             4,
             1,
             3
+          ],
+          [
+            "-"
+          ],
+          [
+            "soonest"
           ]
         ],
         [
@@ -2691,6 +2755,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "las diez cajas nivel.grado de los hitos; cada registro, en la caja del paso «cuota» de epoch.9.8"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2721,11 +2788,16 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ]
       ],
       [
-        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)"
+        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)",
+        "Encargo «datos» (issue #11, primera parte; Core, pendiente de revisar VG): la posición 8 de cada fila (la novena, detrás de los hilos) es el enlace, lo que cada hijo es de lo que la fila mide, uno por hijo y en su orden («-» si nada). El 2 mide el P por mirada (epoch.1.1: sus hijos 1-5 son las miradas 1-5 de su P, el enlace 1 2 3 4 5) y el recuento (epoch.9.0.0: el umbral del dueño si su criterio dice esa mirada, «view d»); el 3 mide los seis grupos de atención (epoch.1.2.1: hijo 1 ↔ zona 0 general, 2 ↔ 1 comercial, 3 ↔ 2 expertos, 4 ↔ 3 poder o cercanos, 5 ↔ 4 equipo, 6 ↔ 5 vetados, el enlace 0 1 2 3 4 5, con el precio de esa zona para el dueño del registro) y el estado de cada paquete (la lectura «attended»: una devolución de R pendiente o atendida; una R quemada por su tenedor, perdonada) (docs/CONTRATO.md §4.2)",
+        "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás"
       ]
     ]
   ],
@@ -4059,7 +4131,7 @@ export const EPOCA_0_BTML_DATOS = [
           "arrival"
         ],
         [
-          "en",
+          "es",
           "the language of the messages (epoch.9.4); en is the canonical one"
         ]
       ],
@@ -4668,30 +4740,38 @@ export const EPOCA_0_BTML_DATOS = [
           "template purchase: compra",
           "template purchase param purchase label: compra",
           "template purchase param purchase help: lo comprado, como título o imagen",
+          "template purchase param purchase placeholder: Compra del menú del día",
           "template purchase param order label: pedido",
           "template purchase param order help: qué se compra, cuántos y a qué precio: 1.0 el plato o el menú (una referencia), 1.1 la cantidad, 1.2 el precio unitario",
           "template purchase param order placeholder: menú · 1 · EUR 12",
           "template purchase param criteria label: criterio",
           "template purchase param criteria help: el criterio del menú y la plantilla de cerrado (epoch.9.0.1)",
+          "template purchase param criteria placeholder: todos los movimientos anunciados ocurrieron",
           "template purchase param who label: quién",
           "template purchase param who help: quién compra y quién sirve",
+          "template purchase param who placeholder: huesped, cocina",
           "template purchase param actions label: acciones",
           "template purchase param actions help: qué se hace con la compra",
+          "template purchase param actions placeholder: pagar, servir",
           "template booking: reserva",
           "template booking param booking label: reserva",
           "template booking param booking help: la estancia, como título o imagen",
+          "template booking param booking placeholder: Reserva de la cama individual, 3 noches",
           "template booking param stay label: estancia",
           "template booking param stay help: la plaza (una referencia), las noches, el precio por noche, el total y el total con el tiempo que lleva",
           "template booking param stay placeholder: plaza · 3 · precio · total · total y tiempo",
           "template booking param criteria label: criterio",
           "template booking param criteria help: el criterio de la habitación y la plantilla de cerrado (epoch.9.0.1)",
+          "template booking param criteria placeholder: todos los movimientos anunciados ocurrieron",
           "template booking param who label: quién",
           "template booking param who help: quién reserva y quién atiende",
+          "template booking param who placeholder: huesped, recepcion",
           "template booking param prepares label: prepara",
           "template booking param prepares help: lo que la reserva prepara: 4.0 pagar, 4.1 ocupar; sus anuncios cuelgan del 4.1",
           "template booking param prepares placeholder: pagar · ocupar",
           "template booking param type label: tipo",
           "template booking param type help: la plantilla del registro",
+          "template booking param type placeholder: reserva",
           "template booking param origin label: origen",
           "template booking param origin help: de dónde viene: la habitación de la que cuelga",
           "template booking param dates label: fechas",
@@ -4702,20 +4782,24 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences: preferencias",
           "template preferences param preferences label: preferencias",
           "template preferences param preferences help: mi configuración: cómo me enseña las cosas la carta",
+          "template preferences param preferences placeholder: preferencias",
           "template preferences param step label: paso",
           "template preferences param step help: cuántos ocupantes, entradas o datos por carga",
           "template preferences param render label: pintado",
           "template preferences param render help: sobrio (sober) o animado (animated): dos pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»)",
+          "template preferences param render placeholder: sobrio",
           "template preferences param render option sober: sobrio",
           "template preferences param render option animated: animado",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
+          "template preferences param language placeholder: es",
           "template preferences param sizes label: tamaños",
           "template preferences param sizes help: los pasos de tamaño con que trabaja la carta: 1 el hueco, 2 la tarjeta, 3 la pantalla (epoch.9.5.2)",
           "template preferences param type label: tipo",
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
           "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (ikisai, el animado genérico y luego el sobrio, que siempre responde); por defecto es ikisai, así el interruptor animado enseña el arte sin tocar la configuración",
+          "template preferences param model placeholder: ikisai",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "template preferences param sync url label: servidor",
@@ -4742,8 +4826,11 @@ export const EPOCA_0_BTML_DATOS = [
           "level confirmed: confirmada",
           "level settled: liquidada",
           "level closed: cerrada",
+          "level arrival: llegada",
           "order arrival: por llegada",
           "order newest: lo último primero",
+          "order latest: lo más reciente primero",
+          "order soonest: lo más próximo primero",
           "order fit: por encaje",
           "size slot: hueco",
           "size card: tarjeta",
@@ -4761,11 +4848,24 @@ export const EPOCA_0_BTML_DATOS = [
           "legible series P view: P sobre {record}, mirada {view}",
           "legible series R: R de {issuer}",
           "legible series T: {scale}",
+          "legible attention price my R: {amount} de la R de {owner}, devuelta",
+          "legible attention price their R: {amount} de la R propia de quien escribe",
+          "legible attention price E: {amount} E",
+          "legible attention price P: {amount} P sobre lo de {owner}",
+          "legible attention price open record: sin pago, con un registro abierto entre los dos",
+          "legible attention price nothing: no llegan",
           "legible not a number: no es un número: {text}",
           "legible not an instant: no es una fecha (AAAA-MM-DD o AAAA-MM-DDTHH:MM): {text}",
           "legible unknown identity: ninguna identidad conocida se llama {text}",
           "legible unknown record: ningún registro del libro se llama {text}",
           "legible does not satisfy: no cumple {formula}",
+          "reason anchor not in ledger: {name}: el registro sobre el que se ancla no está en el libro ({formula})",
+          "reason anchor not a position: {name}: el ancla no es una posición ({path})",
+          "reason position without value: {name}: la posición {position} del registro no tiene valor",
+          "reason no series: {name}: no hay serie para un movimiento de {amount}",
+          "reason unknown template: plantilla de transacción desconocida: {template}",
+          "reason X not in ledger: {name}: X no es un registro del libro",
+          "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
           "guide role: Eres la guía de AGRAM para quien mira la pantalla. Solo lees: nunca cambias nada y nunca dices que has hecho algo. Responde corto, en el idioma de la configuración que figura en el contexto. Explica lo que hay en pantalla, qué significa y qué viene después. Nunca inventes registros, ids, saldos, pasos ni acciones que no estén en el contexto; si el contexto no lo dice, dilo.",
           "guide summary: AGRAM es un libro compartido de eventos. Cada evento es una transición de tokens con un payload BTML encima; registrar es hacer una transacción, y nada se modifica en sitio: corregir es añadir.\nUn registro es una décupla: diez posiciones, de la 0 a la 9, cada una un punto de vista (PV) con su propio mundo. Qué significa cada dígito lo dice una regla corta de la época; la época es a su vez un registro y sus reglas son datos.\nPV0 representación (la lente): cómo se muestra el registro; puede engañar. PV1 recursos (el reino): cantidades, entradas, precios, disponibilidad. PV2 criterios (el jardín): lo que distingue cosas parecidas; votos, umbrales, preferencias. PV3 comunicación (el parque acuático): quién escribe a quién, grupos, atención.\nPV4 fábrica: preparar con recursos, criterios y mensajes, y ejecutar; aquí se hacen las cosas. PV5 estructura: el propio registro en foco, sus referencias y firmas, en el centro de la cruz. PV6 pasado (hilos): registros encadenados por referencia, procedencia. PV7 futuro (hilos): previsiones, compromisos, caducidades.\nPV8 comparabilidad (el cielo): medidas y madurez frente a registros comparables; las estrellas no son verdad. PV9 camino: los pasos desde donde estás hacia la acción; sugerir no es ejecutar.\nCuatro tokens. E, recursos: por emisor y denominación (dinero, bienes, plazas, cupos). P, poder o criterio: siempre posicionado en un registro, guarda quién lo dio y pesa solo en ese dominio. R, reputación: exige emisor y pasa de tenedor a tenedor; devolverla a su emisor es pedir atención. T, tiempo: siete escalas reales (del segundo al año); cada persona tiene su asignación diaria y escribir la gasta.\nMadurez: todo registro tiene un nivel del 1 al 10 (semilla, brote, retoño, tallo, rama, hoja, yema, flor, fruto, décupla) según cuántas posiciones tiene escritas, su profundidad y lo que mueve; más allá de diez, por órdenes de magnitud (lista, tienda, manzana, distrito, reino). El render animado enseña etapas (sello, intermedio, ilustrado).\nEl aro: alrededor de un registro, las acciones que el núcleo ofrece a quien mira, punto de vista a punto de vista; la primera de cada uno es la acción por defecto. Cada acción es una plantilla de transacción que se comprueba contra las reglas de la época antes de escribirse.\nEl camino: lo que falta y lo que espera. Un paso es mío (puedo lanzarlo) o de espera de otro; viene de un tutorial, de las reglas o de una sugerencia. Seguir el camino lanza mis pasos en orden.\nCuentas: tu cuenta es tu propio eje, cuyo primer registro es tu alta (tu identidad), con una clave generada en el dispositivo que solo sale cifrada, en la copia de seguridad. Con un servidor, un nombre de eje compartido y su clave de lectura, el eje se comparte entre dispositivos; cada dispositivo comprueba las reglas por su cuenta. Los ejemplos llevan datos inventados y no tienen cuenta.\nLos tamaños: el hueco (el más pequeño), la tarjeta, la pantalla. En el móvil los puntos de vista se apilan en franjas (Sequenced); en una pantalla ancha forman un mapa de nueve celdas (Mapped).",
           "guide rules: Texto plano, sin títulos ni tablas en markdown; párrafos cortos o hasta cinco líneas. Nombra las posiciones por número y nombre (por ejemplo PV2 criterios) y los ids por sus ocho primeros caracteres. Si te piden actuar, di que esta guía solo explica y señala el aro o el camino, donde se ofrece la acción. Si el contexto dice que se ha recortado, avisa de que puede estar incompleto. Si no lo sabes, dilo.",
@@ -4776,10 +4876,13 @@ export const EPOCA_0_BTML_DATOS = [
           "template guide settings: ajustes de la guía",
           "template guide settings param guide settings label: ajustes de la guía",
           "template guide settings param guide settings help: los ajustes de la guía: qué modelo contesta y cómo se le llama",
+          "template guide settings param guide settings placeholder: ajustes de la guía",
           "template guide settings param guide model label: modelo de la guía",
           "template guide settings param guide model help: el modelo que contesta a la guía",
+          "template guide settings param guide model placeholder: claude-sonnet-5-5",
           "template guide settings param guide via label: vía de la guía",
           "template guide settings param guide via help: servidor: por el servidor del libro compartido (ruta /guia, la clave vive allí); directo: desde este navegador con una clave que solo se guarda en este navegador",
+          "template guide settings param guide via placeholder: servidor",
           "template guide settings param guide history label: turnos de la guía",
           "template guide settings param guide history help: cuántos turnos de la conversación se guardan en este navegador",
           "template guide settings param guide context label: contexto de la guía",
@@ -4789,22 +4892,30 @@ export const EPOCA_0_BTML_DATOS = [
           "template opinion: opinión",
           "template opinion param opinion label: opinión",
           "template opinion param opinion help: lo que la persona dice sobre lo que estaba mirando",
+          "template opinion param opinion placeholder: los botones son demasiado pequeños aquí",
           "template opinion param classification label: clasificación",
           "template opinion param classification help: lo que tocó, un ocupante por etiqueta como «etiqueta: valor», en este orden: tipo, punto de vista, posición, tamaño, representación, modo, ancho, render, versión de la carta y el texto que enseñaba",
+          "template opinion param classification placeholder: tipo · pv · d · tamaño · representación · modo · ancho · render",
           "template opinion param criteria label: criterio",
           "template opinion param criteria help: la plantilla de cerrado (epoch.9.0.1), como en todo registro anclado",
+          "template opinion param criteria placeholder: todos los movimientos anunciados ocurrieron",
           "template opinion param who label: quién",
           "template opinion param who help: quién da la opinión",
+          "template opinion param who placeholder: =me",
           "template opinion param actions label: acción",
           "template opinion param actions help: cómo se escribió",
+          "template opinion param actions placeholder: anclar aquí",
           "template opinion param type label: tipo",
           "template opinion param type help: la plantilla del registro",
+          "template opinion param type placeholder: opinión",
           "template opinion param about label: sobre qué",
           "template opinion param about help: el registro del que trata la opinión (X), como referencia: lo que tocó o, si no era un registro, el que tenía en foco",
           "template opinion param version label: versión",
           "template opinion param version help: la versión de la carta donde se escribió (la VERSION de sw.js)",
+          "template opinion param version placeholder: 2026-11-10",
           "template opinion param seen label: visto",
           "template opinion param seen help: lo que enseñaba lo que tocó, en pocas palabras (hasta ochenta caracteres)",
+          "template opinion param seen placeholder: Menú del día",
           "template opinion param route label: ruta",
           "template opinion param route help: los tipos de los ancestros de lo que tocó, del más lejano al más cercano (pide el 6, el 7 y el 8 escritos: una posición nunca queda vacía)"
         ]
@@ -4823,11 +4934,24 @@ export const EPOCA_0_BTML_DATOS = [
           "legible series P view: P on {record}, view {view}",
           "legible series R: R of {issuer}",
           "legible series T: {scale}",
+          "legible attention price my R: {amount} of the R of {owner}, returned",
+          "legible attention price their R: {amount} of the own R of the writer",
+          "legible attention price E: {amount} E",
+          "legible attention price P: {amount} P on what is of {owner}",
+          "legible attention price open record: no payment, with an open record between both",
+          "legible attention price nothing: they do not get through",
           "legible not a number: not a number: {text}",
           "legible not an instant: not a date (YYYY-MM-DD or YYYY-MM-DDTHH:MM): {text}",
           "legible unknown identity: no known identity is called {text}",
           "legible unknown record: no record of the ledger is called {text}",
-          "legible does not satisfy: does not satisfy {formula}"
+          "legible does not satisfy: does not satisfy {formula}",
+          "reason anchor not in ledger: {name}: the record it anchors on is not in the ledger ({formula})",
+          "reason anchor not a position: {name}: the anchor is not a position ({path})",
+          "reason position without value: {name}: position {position} of the record has no value",
+          "reason no series: {name}: no series for a movement of {amount}",
+          "reason unknown template: unknown transaction template: {template}",
+          "reason X not in ledger: {name}: X is not a record of the ledger",
+          "reason who launches: {name}: who launches it (yo) is an identity"
         ]
       ]
     ],
@@ -14861,7 +14985,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "17123d49ba587576be4deae03811c8de3989a320b0f90a52e6317d6762ab1055";
+export const EPOCA_0_BTML_ID = "f176f9ba79d943e90bc97ad9b182fb9703f8d0944b34c6d3628341f08a54b8dd";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

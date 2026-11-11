@@ -11,13 +11,14 @@
 //   validar(eje, X)                        [{ posicion, motivo }] con las validaciones «=…» de la plantilla (it = X)
 //   representaciones(eje, X)               los ocupantes del 0 como representaciones, normalizadas y por tamaño mínimo
 //   ocupantes(eje, X, d, desde, cuantos)   los ocupantes de una posición, en el orden que dice la época, paginados
+//                                          (con `orden`, el de las listas verticales de un mundo: divisionDelMundo(…).orden)
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
-//   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo (epoch.8.7)
+//   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo, orden (epoch.8.7)
 //   hijosDe(eje, X, pv, { nivel })         los hijos de X en un mundo: [{ digito, nombre, ocupantes, vacio }]
 //   estilo(eje, X, { de })                 el estilo propio (X.0.9) o el de los de abajo (X.5.0) con su cascada: { css, origen }
 //   cssSeguro(texto)                       un estilo saneado (solo declaraciones corrientes, sin recursos ni código) o ""
 //   madurez(eje, X)                        el nivel de X (la lectura «maturity», X.8.1) y su medida (X.8.6)
-//   diario(eje, X, desde, cuantos)         las transacciones del subárbol de X por llegada, con sus asientos
+//   diario(eje, X, desde, cuantos)         las transacciones del subárbol de X por llegada (o en el `orden` que se nombre), con sus asientos
 //   yo(eje, identidad)                     mi alta y sus posiciones: cartera, criterio, atención, tiempo
 //   configuracion(eje, yo)                 mis preferencias (el registro en el 9 de mi alta) o los defectos de la plantilla
 //   mensaje(eje, regla, idioma, { ev })    el 9 de una regla en un idioma (epoch.9.4), con los huecos resueltos
@@ -37,8 +38,10 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, direccion, ARIDAD } from './btml.js';
 import { ocupantes as ocupantesDe } from './encaje.js';
 import { ESCALAS_T, partirClave } from './tokens.js';
-import { esInstante, msUTC } from './instante.js';
+import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { HITOS } from './bases.js';
+import { recuento, miradasDe } from './motor.js';
+import { estadoDePaquete } from './lente.js';
 
 const RE_ID = /^[0-9a-f]{64}$/;
 const RE_SERIE = /^[EPRT]:.+/;
@@ -48,7 +51,7 @@ const RAIZ = '0000000000';
 const SEPARADOR = ' · ';
 /** Los tipos de dato de las plantillas que este módulo sabe leer y escribir (los de epoch.9.2.0.1 y los parámetros del aro); lo demás es texto. */
 const TIPO = Object.freeze({ numero: 'number', referencia: 'ref', identidad: 'identity', instante: 'instant', nivel: 'level' });
-/** Las claves de traducción (epoch.9.4): «template <nombre>», «template <nombre> param <etiqueta> label | help | placeholder», «template <nombre> message», «level <nombre>», «order <nombre>», «size <nombre>», «legible <qué>». */
+/** Las claves de traducción (epoch.9.4): «template <nombre>», «template <nombre> param <etiqueta> label | help | placeholder», «template <nombre> message», «level <nombre>», «order <nombre>», «size <nombre>», «legible <qué>», «reason <qué>». */
 const CLAVE = Object.freeze({
   plantilla: (nombre) => 'template ' + nombre,
   parametro: (nombre, etiqueta, que) => 'template ' + nombre + ' param ' + etiqueta + ' ' + que,
@@ -57,7 +60,10 @@ const CLAVE = Object.freeze({
   orden: (nombre) => 'order ' + nombre,
   tamano: (nombre) => 'size ' + nombre,
   legible: (que) => 'legible ' + que,
+  motivo: (que) => 'reason ' + que,
 });
+/** Los motivos con que una acción rechaza que no son de una regla de la época (src/acciones.js): su clave «reason <qué>» (epoch.9.4; el canónico, en el registro «en»; los huecos {…} los rellena `motivo`). */
+export const MOTIVOS = Object.freeze(['anchor not in ledger', 'anchor not a position', 'position without value', 'no series', 'unknown template', 'X not in ledger', 'who launches']);
 
 // ---------- la época y sus sitios ----------
 
@@ -387,7 +393,10 @@ export function paso(opciones = {}) {
   return hoja(en(raiz, [...SITIO.bloque, 3, 1]));
 }
 
-/** El nombre del orden que rige una posición de X: el d.8 de su plantilla, lo que el dueño nombra en el 2.3 de X, o el primero de la época. */
+/**
+ * El orden que rige una posición de X: el d.8 de su plantilla, lo que el dueño nombra en el 2.3 de X, el que se pide en
+ * `opciones.orden` (el de las listas verticales de un mundo, epoch.8.7: divisionDelMundo(…).orden) o el primero de la época.
+ */
 function ordenDe(eje, ev, camino, opciones) {
   const conocidos = ordenes(opciones);
   const nombres = new Set(conocidos.map((o) => o.nombre));
@@ -401,14 +410,28 @@ function ordenDe(eje, ev, camino, opciones) {
     for (const h of eje.sobre(ev.id, direccion([2, 3]))) if (h.autor === ev.autor) nombrados.push(...(esTerminal(h.payload) ? [h.payload] : hojas(h.payload[0])));
   }
   const elegido = nombrados.filter((n) => typeof n === 'string' && nombres.has(n)).pop();
-  return conocidos.find((o) => o.nombre === elegido) ?? conocidos[0];
+  return conocidos.find((o) => o.nombre === elegido) ?? conocidos.find((o) => o.nombre === opciones.orden) ?? conocidos[0];
+}
+
+/** Un orden de la época por su nombre (epoch.8.5.1), o null. */
+const ordenPorNombre = (nombre, opciones) => (typeof nombre === 'string' ? ordenes(opciones).find((o) => o.nombre === nombre) ?? null : null);
+
+/**
+ * El mecanismo «instante» de un orden (epoch.8.5.1): por el t de cada uno, del más antiguo al más reciente, y a igual t
+ * por llegada (la ordenación es estable). `tDe` da el t de cada elemento; sin t, va con el de su registro (`tPorDefecto`).
+ */
+function porInstante(lista, tDe, tPorDefecto) {
+  const ms = (x) => { const v = msDeGuardado(tDe(x) ?? tPorDefecto); return Number.isNaN(v) ? Infinity : v; };
+  return lista.map((x, i) => ({ x, i, ms: ms(x) })).sort((a, b) => a.ms - b.ms || a.i - b.i).map((e) => e.x);
 }
 
 /**
  * Los ocupantes de la posición `d` de X, tal cual (hojas, décuplas o referencias por su id; un registro anclado, la
  * referencia a su id), en el orden que dice la época y paginados: { total, desde, cuantos, orden, ocupantes }. La carta
- * nunca ordena ni filtra: el orden es el del d.8 de la plantilla de X, el que el dueño nombra en el 2.3 de X o, por
- * defecto, el primero de epoch.8.5 (por llegada). `cuantos` por defecto es el paso de la época.
+ * nunca ordena ni filtra: el orden es el del d.8 de la plantilla de X, el que el dueño nombra en el 2.3 de X, el que se
+ * pide en `opciones.orden` (las listas verticales del 6 y el 7: divisionDelMundo(…).orden) o, por defecto, el primero
+ * de epoch.8.5 (por llegada). Con el mecanismo «instante», por el t de cada uno (el del registro referenciado; lo
+ * propio, el de X). `cuantos` por defecto es el paso de la época.
  */
 export function ocupantes(eje, X, d, desde = 0, cuantos, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -418,7 +441,7 @@ export function ocupantes(eje, X, d, desde = 0, cuantos, opciones = {}) {
   const [mecanismo, ...marcas] = orden?.mecanismo ?? [];
   let lista;
   if (typeof ev.id === 'string' && eje?.obtener(ev.id)) {
-    lista = ocupantesDe(eje, ev.id, camino, { orden: mecanismo, exacto: true })
+    lista = ocupantesDe(eje, ev.id, camino, { orden: mecanismo === 'instante' ? 'llegada' : mecanismo, exacto: true })
       .filter((o) => o.tipo !== 'referencia')
       .map((o) => (o.tipo === 'escrito' ? { ref: o.evento } : o.contenido));
   } else {
@@ -426,6 +449,7 @@ export function ocupantes(eje, X, d, desde = 0, cuantos, opciones = {}) {
     const nodo = camino.reduce((n, k) => (Array.isArray(n) && !(n !== ev.payload && esLista(n)) ? n[k] : undefined), ev.payload);
     lista = nodo === undefined ? [] : esLista(nodo) ? [...nodo] : [nodo];
   }
+  if (mecanismo === 'instante') lista = porInstante(lista, (x) => (esReferencia(x) ? eje?.obtener(x.ref)?.t : undefined), ev.t);
   if (marcas.includes('reverse')) lista.reverse();
   const n = cuantos ?? paso(opciones);
   return { total: lista.length, desde, cuantos: n, orden: orden?.nombre ?? null, ocupantes: lista.slice(desde, desde + n) };
@@ -530,14 +554,18 @@ function cajasDeHitos() {
  * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11 noche): no es una
  * matriz con herencia sino la cruceta aplicada al elemento pulsado. Al entrar en un elemento, sus hijos son los
  * dígitos que ese mundo enciende (cada uno, un PV aplicado al elemento de arriba). La fila de la época, una por PV,
- * es `[[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]]`; las
- * posiciones que no aplican llevan `0`, `[]` o `"-"`. `nivel` es el nivel de profundidad en que se mira (desde 1).
- * → { pv, hijos, profundidad, nivel, entra, forma, formas, bandas?, paso?, hilos?, estilo, nota } o null si la época
+ * es `[[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos], [enlace], [orden]]`;
+ * las posiciones que no aplican llevan `0`, `[]` o `"-"`. `nivel` es el nivel de profundidad en que se mira (desde 1).
+ * → { pv, hijos, profundidad, nivel, entra, forma, formas, mide, bandas?, paso?, hilos?, enlace?, orden?, estilo, nota } o null si la época
  * no dice nada de ese PV. `forma` es la del nivel pedido (la última se repite); `bandas` (y `paso`, el paso de
  * epoch.9.8 que coloca cada entrada) salen de lo que la fila mide: en las franjas (el 6 y el 7), una por escala de T
  * que el calendario mide; en el cielo (el 8) y el camino (el 9), las diez cajas de los hitos
  * ([{ indice, nivel, grado, nombre }]); `hilos` (el 6 y el 7), los PV de las filas horizontales, de arriba abajo;
- * `estilo`, el CSS por defecto de la época para los hijos de un elemento de este mundo (texto, puede ser "").
+ * `orden` (el 6 y el 7, VG 11-11), el nombre del orden de epoch.8.5 de sus listas verticales, de arriba abajo (lo más
+ * cercano al presente arriba): lo pasan a ocupantes() y diario() quien pinta esas listas, no las franjas;
+ * `estilo`, el CSS por defecto de la época para los hijos de un elemento de este mundo (texto, puede ser ""); `mide`, las
+ * referencias de lo que la fila mide; `enlace` (encargo «datos», issue #11), lo que cada hijo es de lo que la fila mide,
+ * uno por hijo y en su orden: en el 2, la mirada de su P (epoch.1.1); en el 3, la zona de atención (epoch.1.2.1).
  */
 export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
@@ -550,6 +578,8 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const formas = textos(fila[3]);
   const mide = textos(fila[4]).filter((s) => s !== '-');
   const hilos = numeros(fila[7]);
+  const enlace = numeros(fila[8]);
+  const orden = ordenPorNombre(texto(hoja(fila[9])), opciones)?.nombre ?? null;
   const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
   const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos');
   let bandas;
@@ -557,9 +587,11 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   else if (mide.includes('hitos')) bandas = cajasDeHitos();
   return {
     pv, hijos, profundidad, nivel: actual, entra: actual < profundidad,
-    forma: formas.length ? formas[Math.min(actual - 1, formas.length - 1)] : null, formas,
+    forma: formas.length ? formas[Math.min(actual - 1, formas.length - 1)] : null, formas, mide,
     ...(bandas ? { bandas, paso: nombres[0] ?? null } : {}),
     ...(hilos.length ? { hilos } : {}),
+    ...(enlace.length ? { enlace } : {}),
+    ...(orden ? { orden } : {}),
     estilo: cssSeguro(textos(fila[5]).join('; ')),
     nota: texto(ultima(fila[6])) ?? '',
   };
@@ -571,17 +603,106 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
  * X.<dígito>: [{ digito, nombre, ocupantes, total, vacio }]. `vacio` es que no tiene ocupantes: la carta pinta su
  * nombre apagado y no entra; si todos están vacíos, no baja. Sin fila en la época para ese PV, ninguno. `cuantos` (por
  * defecto el paso de la época) limita los ocupantes que se devuelven de cada hijo; `total` es cuántos hay.
+ *
+ * Lo que la fila mide, por hijo (encargo «datos», issue #11; solo si X es un registro del eje y la fila trae su enlace):
+ * - `epoch.1.1` (el P por mirada, el 2): `mirada` (la del enlace) y el P posicionado sobre X.<mirada>, de todos sus
+ *   titulares: `comprometidos` (bloqueado, con la salida que sea) y `reposicionables` (disponible: su titular lo
+ *   puede mover);
+ * - `epoch.9.0.0` (el recuento, el 2): si el criterio del dueño de X dice esa mirada («view d», motor.miradasDe), su
+ *   recuento (motor.recuento): `umbral` (el «above x» del dueño o el de la época), `valor`, `pasa` y `faltan` (lo que
+ *   le falta al valor para llegar al umbral, en las unidades del recuento; 0 si pasa);
+ * - `epoch.1.2.1` (los grupos de atención, el 3): `precio`, el de la zona del enlace para el dueño de X (su A.3: el de la
+ *   época o el que ancló en el 3.k.2 de su alta), { zona, grupo, enQue, cuanto, texto }, con `texto` legible en el
+ *   idioma («legible attention price <en qué>» de epoch.9.4);
+ * - `attended` (el 3): `estados`, uno por ocupante (lente.estadoDePaquete): «pendiente» o «atendido» si es una
+ *   petición de atención (una devolución de R a su emisor), «perdonado» si quema la R de otro, null si no es un paquete.
  */
 export function hijosDe(eje, X, pv, { nivel = 1, cuantos, ...opciones } = {}) {
   const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
   if (!d) return [];
   const raiz = raizDe(epocaDe(opciones));
   const profundidad = Math.min(Math.max(1, d.nivel), ARIDAD - 1);
-  return d.hijos.map((digito) => {
+  const medir = medidasDeHijos(eje, X, d, opciones);
+  return d.hijos.map((digito, i) => {
     const camino = [...Array(profundidad).fill(0), digito];
     const o = ocupantes(eje, X, digito, 0, cuantos, opciones);
-    return { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
+    const hijo = { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
+    return medir ? { ...hijo, ...medir(i, o.ocupantes) } : hijo;
   });
+}
+
+/** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11). */
+const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended' });
+
+/** El prefijo de las claves de texto del precio de una zona de atención: «legible attention price <en qué>». */
+const PRECIO_DE_ATENCION = 'attention price ';
+
+/** Un número sin el ruido de la coma flotante (como motor.recuento). */
+const redondo = (x) => Math.round(x * 1e9) / 1e9;
+
+/**
+ * El P posicionado sobre las miradas de un registro, de todos sus titulares (P por mirada, VG tras 3b-bis: el ámbito
+ * «r.d»): Map(mirada → { comprometidos, reposicionables }), con lo bloqueado (con cualquier salida) y lo disponible.
+ */
+function poderPorMirada(eje, id) {
+  const suma = new Map();
+  if (typeof eje?.libro?.vista !== 'function') return suma;
+  for (const titular of eje.identidades()) {
+    for (const [clave, v] of Object.entries(eje.libro.vista(titular))) {
+      if (!clave.startsWith('P:')) continue;
+      const p = partirClave(clave);
+      if (p.raiz !== id || p.mirada === undefined) continue;
+      const s = suma.get(p.mirada) ?? { comprometidos: 0, reposicionables: 0 };
+      s.reposicionables = redondo(s.reposicionables + v.disponible);
+      s.comprometidos = redondo(s.comprometidos + Object.values(v.bloqueado).reduce((x, y) => x + y, 0));
+      suma.set(p.mirada, s);
+    }
+  }
+  return suma;
+}
+
+/** El precio de un grupo de atención de quien es dueño (lo que da yo().atencion), legible en el idioma de las opciones. */
+function precioDeGrupo(eje, g, dueno, opciones) {
+  const epoca = epocaDe(opciones);
+  const idioma = opciones.idioma ?? 'en';
+  const { enQue, cuanto } = g.precio;
+  const formato = typeof enQue === 'string' ? texto_(eje, CLAVE.legible(PRECIO_DE_ATENCION + enQue), idioma, { epoca }) : null;
+  const partes = { amount: cuanto, owner: legible(eje, dueno, TIPO.identidad, { idioma, epoca }).texto };
+  const plano = [cuanto, enQue].filter((x) => x !== undefined && x !== null).join(' ');
+  return { zona: g.zona, grupo: g.nombre, enQue: enQue ?? null, cuanto: cuanto ?? null, texto: formato === null ? plano : plano_(formato, partes) };
+}
+
+/**
+ * Lo que la fila d de epoch.8.7 mide de cada hijo de X (hijosDe): una función (i, ocupantes) → los campos de más del
+ * hijo i, o null si X no es un registro del eje o la fila no mide nada que dé algo por hijo.
+ */
+function medidasDeHijos(eje, X, d, opciones) {
+  const ev = eventoDe(eje, X);
+  if (!ev || typeof ev.id !== 'string' || !eje?.obtener(ev.id)) return null;
+  const mide = new Set(d.mide);
+  const conEnlace = Array.isArray(d.enlace);
+  const poder = conEnlace && mide.has(MIDE.poder) ? poderPorMirada(eje, ev.id) : null;
+  const miradas = conEnlace && mide.has(MIDE.recuento) ? miradasDe(eje, ev.id) : [];
+  const grupos = conEnlace && mide.has(MIDE.atencion) ? atencionDe(ev.autor, contextoDe(eje, epocaDe(opciones))) : null;
+  const paquetes = mide.has(MIDE.atendido);
+  if (!poder && !miradas.length && !grupos && !paquetes) return null;
+  let cuenta;
+  return (i, lista) => {
+    const m = conEnlace ? d.enlace[i] : undefined;
+    const extra = {};
+    if (poder && typeof m === 'number') {
+      const p = poder.get(m) ?? { comprometidos: 0, reposicionables: 0 };
+      Object.assign(extra, { mirada: m, comprometidos: p.comprometidos, reposicionables: p.reposicionables });
+    }
+    if (miradas.includes(m)) {
+      cuenta ??= recuento(eje, ev.id);
+      if (cuenta.estado === 'RESUELTO') Object.assign(extra, { umbral: cuenta.umbral, valor: cuenta.valor, pasa: cuenta.pasa, faltan: cuenta.pasa ? 0 : redondo(Math.max(0, cuenta.umbral - cuenta.valor)) });
+    }
+    const g = grupos && typeof m === 'number' ? grupos.find((x) => x.zona === m) : null;
+    if (g) extra.precio = precioDeGrupo(eje, g, ev.autor, opciones);
+    if (paquetes) extra.estados = lista.map((o) => (esReferencia(o) ? estadoDePaquete(eje, o.ref) : null));
+    return extra;
+  };
 }
 
 // ---------- 4b. los dos estilos como datos (VG, 10-11 noche) ----------
@@ -751,7 +872,10 @@ export function madurez(eje, X, opciones = {}) {
 /**
  * El diario del subárbol de X: sus transacciones (X y lo anclado bajo él, a cualquier profundidad) por llegada, cada
  * una con sus asientos del libro (lo que de verdad se movió: movimientos, asignación y obtención) y su ancla.
- * Paginado desde un índice o desde un id: { total, desde, entradas: [{ id, t, autor, movimientos, ancla }] }.
+ * Paginado desde un índice o desde un id: { total, desde, entradas: [{ id, t, autor, movimientos, ancla }] }. Con
+ * `opciones.orden`, el nombre de un orden de epoch.8.5 (el de la lista vertical del 6: divisionDelMundo(…).orden), en
+ * ese orden: «instante» por el t de cada transacción (a igual t, por llegada) y «reverse» al revés; el encaje no
+ * ordena transacciones (por llegada).
  */
 export function diario(eje, X, desde = 0, cuantos, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -762,7 +886,10 @@ export function diario(eje, X, desde = 0, cuantos, opciones = {}) {
     const id = frente.shift();
     for (const h of eje.sobre(id)) if (!vistos.has(h.id)) { vistos.add(h.id); frente.push(h.id); }
   }
-  const ids = eje.orden.filter((id) => vistos.has(id));
+  let ids = eje.orden.filter((id) => vistos.has(id));
+  const [mecanismo, ...marcas] = ordenPorNombre(opciones.orden, opciones)?.mecanismo ?? [];
+  if (mecanismo === 'instante') ids = porInstante(ids, (id) => eje.obtener(id)?.t);
+  if (mecanismo && marcas.includes('reverse')) ids.reverse();
   const inicio = typeof desde === 'string' ? Math.max(0, ids.indexOf(desde)) : Math.max(0, desde);
   const n = cuantos ?? paso(opciones);
   const asientosDe = (e) => (e.sobre ? eje.libro.asientos({ registro: e.sobre }) : eje.libro.asientos()).filter((a) => a.tx?.id === e.id)
@@ -803,11 +930,7 @@ export function yo(eje, identidad, { t, ...opciones } = {}) {
     const mirada = uno(e + '.5', ctx);
     posicionado.push({ registro: uno(e + '.0', ctx), ...(mirada === undefined ? {} : { mirada }), cuanto: uno(e + '.1', ctx), disponible: uno(e + '.4', ctx), origenes: planos(e + '.6', ctx) });
   }
-  const atencion = [];
-  for (let k = 0; k < cuenta(A + '.3'); k++) {
-    const e = '(nth ' + k + ' ' + A + '.3)';
-    atencion.push({ nombre: uno(e + '.0', ctx) ?? null, zona: uno(e + '.1', ctx), precio: { enQue: uno('(last ' + e + '.2).0', ctx), cuanto: uno('(last ' + e + '.2).1', ctx) }, quienes: planos(e + '.3', ctx) });
-  }
+  const atencion = atencionDe(identidad, ctx);
   const escalas = hojas(en(raiz, [...SITIO.familias, 3, 1])).filter(Array.isArray).map((x) => hoja(x[0]));
   const tiempo = {};
   escalas.forEach((nombre, k) => {
@@ -815,6 +938,21 @@ export function yo(eje, identidad, { t, ...opciones } = {}) {
     if (typeof v === 'number') tiempo[nombre] = v;
   });
   return { identidad, alta: alta.id, cartera, criterio: { posicionado, adopta: planos(A + '.2.3', ctx) }, atencion, tiempo };
+}
+
+/**
+ * Los grupos de atención de una identidad (su A.3, mapa §16 [D]): uno por zona, en su orden, cada uno con su nombre, su
+ * zona, su precio (el último de su 2: { enQue, cuanto }) y quiénes están en él. [] si no tiene alta.
+ */
+function atencionDe(identidad, ctx) {
+  const A = '("' + identidad + '")';
+  const atencion = [];
+  const n = uno('count ' + A + '.3', ctx) ?? 0;
+  for (let k = 0; k < n; k++) {
+    const e = '(nth ' + k + ' ' + A + '.3)';
+    atencion.push({ nombre: uno(e + '.0', ctx) ?? null, zona: uno(e + '.1', ctx), precio: { enQue: uno('(last ' + e + '.2).0', ctx), cuanto: uno('(last ' + e + '.2).1', ctx) }, quienes: planos(e + '.3', ctx) });
+  }
+  return atencion;
 }
 
 /**
@@ -1044,6 +1182,11 @@ function texto_(eje, clave, idioma = 'en', { original, ...opciones } = {}) {
 export { texto_ as texto };
 /** Las claves de traducción que usa este módulo (epoch.9.4), para quien compone una clave fuera: plantilla(nombre), parametro(nombre, etiqueta, que), mensaje(nombre), nivel, orden, tamano, legible. */
 export const claves = CLAVE;
+
+/** Un motivo de una acción en el idioma (clave «reason <qué>», uno de MOTIVOS) con sus huecos {…} rellenos con `partes`; sin idioma, el canónico (en). */
+export function motivo(que, partes = {}, { idioma = 'en', ...opciones } = {}) {
+  return plano_(texto_(null, CLAVE.motivo(que), idioma, { epoca: opciones.epoca }), partes);
+}
 
 /** Un formato con huecos planos «{parte}» relleno con sus partes; sin formato, las partes seguidas. */
 function plano_(formato, partes) {

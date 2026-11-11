@@ -321,14 +321,42 @@ test('el interruptor sobrio/animado de la barra es la preferencia de dos valores
   const b = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
   assert.equal(b.animado, true);
   assert.equal(b.interruptores[0].valor, otra);
-  // En español, las dos palabras traducidas.
-  const q = preferencias(eje, 'huesped', { language: 'es' });
+  // En español (el idioma de la época), las dos palabras traducidas; en inglés, las canónicas.
+  assert.deepEqual(b.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  const q = preferencias(eje, 'huesped', { language: 'en' });
   await eje.escribir({ autor: 'huesped', sobre: q.sobre, en: q.en, t: T1, movimientos: [minuto('huesped')], payload: q.payload });
   const c = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
-  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sober', 'animated']);
   // La app lo pinta y lo lanza por data-preferencia (la tecla la toca gestos.js; la escritura, app.js como la configuración).
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
   assert.match(app, /async preferencia\(clave, valor\)[\s\S]*?escribirPreferencias\(\{ \[clave\]: valor \}\)/);
+});
+
+test('#4: en la configuración, «modelo» es un desplegable con los modelos de la época que tienen recursos (sin el sobrio), ikisai preseleccionado; con uno solo, no se pregunta', async () => {
+  const { eje } = await ejemploCompra();
+  const conRecursos = modelos.modelosDeLaEpoca().filter(modelos.conRecursos).map((m) => m.nombre);
+  assert.deepEqual([...conRecursos].sort(), ['animado-generico', 'ikisai'], 'hoy, dos paquetes de arte');
+  const p = preferencias(eje, 'huesped');
+  const campo = p.campos.find((c) => c.clave === 'model');
+  assert.deepEqual(campo.opciones.map((o) => o.valor), ['ikisai', 'animado-generico'], 'las opciones salen de los datos, en el orden de la cadena; el sobrio no está');
+  assert.equal(campo.valor, 'ikisai', 'sin preferencia, ikisai');
+  const h = html(await arbol({ foco: { X: eje.alta('huesped').id, pv: 0 } }, eje, 'huesped', ORDENADOR), { preferencias: p });
+  assert.match(h, /<select id="pref-\d+" name="model"[^>]*><option value="ikisai" selected>ikisai<\/option><option value="animado-generico">animado-generico<\/option><\/select>/);
+  assert.doesNotMatch(h, /<input[^>]*name="model"/);
+  // La cuenta de VG: con «sobrio» guardado, el desplegable propone ikisai (el sobrio no se elige) y al guardar queda ikisai.
+  const q = preferencias(eje, 'huesped', { model: 'sobrio' });
+  assert.equal(q.campos.find((c) => c.clave === 'model').valor, 'ikisai');
+  assert.ok(q.payload.some((x) => Array.isArray(x) && x[0] === 'ikisai'));
+  // Elegir el genérico lo guarda.
+  const g = preferencias(eje, 'huesped', { model: 'animado-generico' });
+  assert.equal(g.campos.find((c) => c.clave === 'model').valor, 'animado-generico');
+  // Una época con un solo paquete de arte (sin el genérico): el campo no se enseña y se guarda el que hay.
+  const una = epocaCon((e) => { e[9][7].splice(1, 1); });
+  assert.deepEqual(modelos.eleccionDeModelo({ epoca: una }).modelos.map((m) => m.nombre), ['ikisai']);
+  const u = preferencias(eje, 'huesped', { model: 'sobrio' }, { epoca: una });
+  assert.equal(u.campos.find((c) => c.clave === 'model'), undefined, 'con uno solo, no se pregunta');
+  assert.ok(u.payload.some((x) => Array.isArray(x) && x[0] === 'ikisai'), 'y se guarda el que hay');
+  assert.doesNotMatch(html(await arbol({ foco: { X: eje.alta('huesped').id, pv: 0 } }, eje, 'huesped', ORDENADOR), { preferencias: u }), /name="model"/);
 });
 
 test('el formulario de una acción: a la vista solo lo obligatorio; lo opcional tras «más»', async () => {
@@ -507,7 +535,7 @@ test('el formulario (#5): un parámetro con valores posibles es un <select> con 
   assert.deepEqual(f.campos.find((c) => c.nombre === 'text').opciones, []);
   const pintar = async (valores) => html(await arbol({ foco: { X: compra.id, pv: 0 }, formulario: { X: compra.id, accion: 'write to X', valores } }, eje, 'huesped', ORDENADOR));
   const h = await pintar({});
-  assert.match(h, /<select class="param-opciones" data-otro-de="param-who" aria-label="who" required><option value="" selected><\/option><option value="casa">[^]*?<option value="otro…" data-otro>otro…<\/option><\/select><input id="param-who" name="who"[^>]* hidden>/, 'sin valor, en blanco; lo requerido lo pide el desplegable');
+  assert.match(h, /<select class="param-opciones" data-otro-de="param-who" aria-label="[^"]*" required><option value="" selected><\/option><option value="casa">[^]*?<option value="otro…" data-otro>otro…<\/option><\/select><input id="param-who" name="who"[^>]* hidden>/, 'sin valor, en blanco; lo requerido lo pide el desplegable');
   assert.doesNotMatch(h.match(/<input id="param-who"[^>]*>/)[0], / required/);
   assert.match(h, /<input id="param-text" name="text"[^>]* required/, 'sin valores, el input libre de siempre');
   assert.doesNotMatch(h, /data-otro-de="param-text"/);

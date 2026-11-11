@@ -107,3 +107,23 @@ export function devoluciones(eje, emisor) {
 export function pendientes(eje, emisor) {
   return devoluciones(eje, emisor).filter((d) => d.atencion === null).map((d) => d.id);
 }
+
+/**
+ * El estado de un registro como paquete de atención (VG, 10-11, el parque del 3: cada mensaje es un paquete): una
+ * petición (devuelve R a su emisor) está «atendido» si la lectura «attended» de la época lo dice (el emisor ancló
+ * sobre ella un registro suyo con T real) y «pendiente» si no; una R quemada por su tenedor (perdonar) es «perdonado»;
+ * lo demás, null (un mensaje sin R no es una petición). «Rebotado» (sin pago) no existe en el libro: el motor rechaza
+ * esa transacción y no queda nada que leer.
+ */
+export function estadoDePaquete(eje, id) {
+  const ev = typeof id === 'string' ? eje?.obtener(id) : null;
+  if (!ev) return null;
+  const deR = (ev.movimientos ?? []).filter((m) => m && m.token === 'R' && typeof m.emisor === 'string' && m.de !== null && m.de !== m.emisor && m.estado === undefined);
+  if (deR.some((m) => m.a === m.emisor)) {
+    const lectura = EPOCA_0_BTML.lecturas.find((r) => r[0][0] === 'attended');
+    const r = lectura ? leerRegla(lectura, { k: 'reg', id: ev.id }, contexto(eje)) : null;
+    return r?.estado === 'RESUELTO' && r.valor[0] === true ? 'atendido' : 'pendiente';
+  }
+  if (deR.some((m) => m.a === null)) return 'perdonado';
+  return null;
+}

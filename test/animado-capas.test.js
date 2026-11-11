@@ -354,3 +354,113 @@ test('Mapped en bloque y en tarjeta (#16): el animado es el sobrio más capas; e
   assert.match(CSS, /\.animado \.pv\.nivel-2:has\(>\.pieza-marco\),\.animado \.pv\.nivel-3:has\(>\.pieza-marco\)/, 'el relleno solo con el marco estirado (Sequenced)');
   assert.match(CSS, /@container \(max-height:90px\)\{\.pv>\.capa-marco \.marco-esquina/);
 });
+
+/** La columna de Sequenced del HTML de la carta: el pasado, la tarjeta del foco con sus filas y el futuro. */
+const secuenciaDe = (h) => {
+  const desde = h.indexOf('<div class="secuencia" data-secuencia>');
+  const hasta = h.indexOf('<nav class="digitos"', desde);
+  assert.ok(desde > 0 && hasta > desde, 'Sequenced');
+  return h.slice(desde, hasta);
+};
+
+/** Un trozo de un HTML: desde `inicio` hasta `fin` (o el final). */
+const trozo = (h, inicio, fin) => { const i = h.indexOf(inicio); return i < 0 ? '' : h.slice(i, fin ? h.indexOf(fin, i) : undefined); };
+
+/** Las filas abiertas de la tarjeta, por PV: de `<li class="fila abierta"` a su cierre. */
+function filasAbiertasDe(h) {
+  const fuera = {};
+  const re = /<li class="fila abierta"[^>]*data-fila-pv="(\d)">/g;
+  let m;
+  while ((m = re.exec(h))) {
+    const etiquetas = /<(\/?)li\b[^>]*>/g;
+    etiquetas.lastIndex = m.index;
+    let n = 0;
+    let e;
+    while ((e = etiquetas.exec(h))) {
+      n += e[1] ? -1 : 1;
+      if (n === 0) break;
+    }
+    fuera[m[1]] = h.slice(m.index, e.index + e[0].length);
+  }
+  return fuera;
+}
+
+test('Sequenced en animado (#7): la columna es la del sobrio más capas; cada fila abierta, el fondo atenuado, la etapa junto a su nombre y el dibujo del mundo en cada hijo u ocupante; sin muñequitos, sin movimientos y nada flotando', async () => {
+  const { eje, compra, nota } = await conCarpeta();
+  // Algo en el pasado y en el futuro, para que el hilo tenga ocupantes (su elemento, también como capa).
+  await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '6000000000', t: T1, movimientos: [minuto('huesped')], payload: ['antes'] });
+  await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '7000000000', t: T1, movimientos: [minuto('huesped')], payload: ['después'] });
+  const pantallas = { 'el móvil (390 × 844)': medidasDePantalla(390, 844), 'el móvil pequeño (360 × 800)': medidasDePantalla(360, 800) };
+  const abiertas = Object.fromEntries([0, 1, 2, 3, 4, 5, 8, 9].map((pv) => [pv, NIVEL.bloque]));
+  const estados = {
+    'todas abiertas': { foco: { X: compra.id, pv: 0 }, niveles: abiertas },
+    'el 1 en su nivel 2': { foco: { X: compra.id, pv: 0 }, niveles: { 1: NIVEL.bloque, 3: NIVEL.bloque }, profundidad: { 1: [nota.id] } },
+  };
+  const casos = Object.entries(pantallas).flatMap(([que, m]) => Object.entries(estados).map(([cual, estado]) => [`${que}, ${cual}`, m, estado]));
+  const sobrio = [];
+  for (const [que, m, estado] of casos) {
+    const a = await arbol({ ...estado, nuevos: new Set() }, eje, 'huesped', m);
+    assert.equal(a.apilada, true, que + ': Sequenced');
+    assert.equal(a.animado, false);
+    const h = secuenciaDe(html(a));
+    assert.doesNotMatch(h, /class="[^"]*\bcapa\b/, 'el sobrio no lleva capas');
+    sobrio.push(h);
+  }
+  await animado(eje);
+  let dibujos = 0;
+  for (const [i, [que, m, estado]] of casos.entries()) {
+    const a = await arbol({ ...estado, nuevos: new Set() }, eje, 'huesped', m);
+    assert.equal(a.animado, true);
+    const h = secuenciaDe(html(a));
+    assert.ok((h.match(/class="[^"]*\bcapa\b/g) ?? []).length >= 4, que + ': el animado añade capas');
+    // Mismo DOM: quitar las capas da el sobrio exacto (nada cambia de sitio ni de medida: lo comprueba Playwright).
+    assert.equal(sinCapas(h), sobrio[i], que + ': el animado es el sobrio más capas');
+    // Nada de muñequitos, movimientos, escenario ni marco estirado encima.
+    assert.doesNotMatch(h, /pieza-personaje|capa-personaje|pieza-efecto|capa-efectos|class="escenario|pieza-marco|class="pieza pieza-elemento/, que);
+    // La tarjeta del foco: su marco neutro solo como borde (sus cuatro esquinas y una línea), lo último de la tarjeta.
+    assert.match(h, /<section class="nucleo anverso[^]*<div class="capa capa-marco" aria-hidden="true">(?:<span class="marco-esquina [a-z-]+"><img src="\.\/arte\/fase2\/[^"]+\/comun\/marco\/[^"]+"[^>]*><\/span>){4}<\/div>\s*<\/section>/, que + ': el marco neutro de la tarjeta, como borde');
+    const filas = filasAbiertasDe(h);
+    for (const f of a.secuencia.filas.filter((x) => x.abierta)) {
+      const fila = filas[f.pv];
+      const n = f.nodo;
+      const donde = `${que}, la fila ${f.pv}`;
+      assert.ok(fila, donde);
+      // La etapa, pequeña junto al nombre de la fila (dentro de su etiqueta, como capa).
+      if (n.etapa?.recurso) assert.match(fila, new RegExp(`^<li [^>]*><button type="button" class="fila-cabeza"[^>]*><span class="numero">${f.pv}</span><span class="etiqueta">[^<]*(?:<small>[^<]*</small>)?<img class="pieza capa pieza-etapa capa-etapa capa-etapa-fila pieza-imagen" src="\\./${n.etapa.recurso}"[^>]*></span>`), donde + ': la etapa junto al nombre');
+      // El fondo del mundo, lo primero del contenido (detrás de todo; atenuado: CSS).
+      if (n.fondo?.recurso) assert.match(fila, new RegExp(`<div class="fila-contenido"[^>]*><section [^>]*><img class="pieza capa pieza-fondo capa-fondo pieza-imagen" src="\\./${n.fondo.recurso}"`), donde + ': el fondo');
+      // El dibujo de la correspondencia (epoch.9.7.0.4) en cada hijo, sin personaje ni efectos.
+      if (n.rejilla) {
+        assert.equal(n.rejilla.capas.personaje, null, donde + ': sin personaje');
+        const conDibujo = (n.rejilla.celdas ?? []).filter((c) => c.capa.hijo || c.capa.ocupantes.length || c.capa.hecho).length
+          + (n.rejilla.bandas ?? []).filter((b) => b.capa.hijo || (b.items ?? []).some((o) => o.dibujo)).length;
+        assert.equal((fila.match(/<div class="capa capa-dibujo/g) ?? []).length, conDibujo, donde + ': un dibujo por hijo');
+        for (const c of n.rejilla.celdas ?? []) assert.equal(c.capa.efectos, null, donde + ': sin efectos por hijo');
+        dibujos += conDibujo;
+      }
+    }
+  }
+  assert.ok(dibujos > 10, 'las filas abiertas llevan el dibujo de sus hijos: ' + dibujos);
+  // Algo nuevo bajo la compra (en el 2): el árbol lo sabe, pero en vertical nada se mueve.
+  const nuevo = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '2000000000', t: T1, movimientos: [minuto('huesped'), { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'huesped', a: 'casa' }], payload: ['un euro más'] });
+  const a = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: abiertas, nuevos: new Set([nuevo.id]) }, eje, 'huesped', medidasDePantalla(390, 844));
+  assert.deepEqual(a.secuencia.filas.find((f) => f.pv === 2).nodo.nuevos.entradas, [nuevo.id]);
+  const h = secuenciaDe(html(a));
+  assert.doesNotMatch(h, /pieza-efecto|capa-efectos|pieza-personaje/);
+  // El hilo: el elemento de cada ocupante, como capa.
+  assert.match(trozo(h, 'data-hilo-zona="6"', '</section>'), /<span class="texto">antes<\/span>[^]*?<img class="pieza capa capa-elemento/);
+  // CSS: todo absoluto (nada cambia de sitio ni de medida); el fondo de la fila, muy atenuado.
+  const regla = (sel) => new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*position:absolute');
+  for (const sel of ['.pv>.capa-fondo', '.fila-cabeza .capa-etapa-fila', '.capa-dibujo', '.ocupante>.capa-elemento']) assert.match(CSS, regla(sel), sel);
+  assert.match(CSS, /\.fila-cabeza \.capa-etapa-fila\{[^}]*width:28px;height:28px/);
+  const opacidad = Number(/\.fila-contenido>\.pv>\.capa-fondo\{opacity:([\d.]+)\}/.exec(CSS)?.[1]);
+  assert.ok(opacidad > 0 && opacidad <= 0.3, 'el fondo, atenuado: ' + opacidad);
+  // Lo que se cambia del sobrio en las filas solo es fondo y aislamiento (nada de bordes, rellenos ni tamaños).
+  const delSobrio = CSS.split('\n').filter((l) => l.startsWith('.animado .fila-contenido') || l.startsWith('.animado .secuencia'));
+  assert.ok(delSobrio.length >= 3);
+  for (const l of delSobrio) {
+    const decl = l.slice(l.indexOf('{') + 1, l.lastIndexOf('}')).split(';').filter(Boolean).map((d) => d.split(':')[0].trim());
+    for (const p of decl) assert.ok(['background', 'isolation', 'position'].includes(p), `${p} en ${l.slice(0, 80)}`);
+    if (decl.includes('position')) assert.match(l, /position:relative/);
+  }
+});

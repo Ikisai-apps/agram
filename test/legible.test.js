@@ -218,7 +218,8 @@ test('el árbol de la carta para la compra en es no lleva ninguna cadena que emp
   assert.deepEqual(hueco.accion.faltan, ['denominación']);
   assert.ok(hueco.otras.some((o) => o.nombre === 'bloquear E como puja por una cuota'));
   const seis = a.laterales.find((n) => n.pv === 6);
-  assert.ok(seis.diario.entradas[0].movimientos.some((x) => x === 'transferir 12 EUR'), JSON.stringify(seis.diario.entradas[0].movimientos));
+  const laCompra = seis.diario.entradas.find((e) => e.id === X.id); // el diario del 6, lo más reciente arriba (#18): la compra, por su id
+  assert.ok(laCompra.movimientos.some((x) => x === 'transferir 12 EUR'), JSON.stringify(laCompra.movimientos));
   // El formulario: el nombre traducido, la acción por id, cada campo con su etiqueta, su legible y si es simple.
   const f = a.formulario;
   assert.equal(f.nombre, 'aplicar un recurso');
@@ -236,8 +237,8 @@ test('el árbol de la carta para la compra en es no lleva ninguna cadena que emp
   assert.match(h, /data-lanzar="[0-9a-f]{64}"/);
   assert.match(h, /data-legible="Menú del día"/);
   assert.match(h, /guardar este rato|configuración/);
-  // En inglés (sin preferencia), lo mismo de siempre: los nombres canónicos.
-  const en = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: X.id, pv: null } }, eje, 'cocina', { ancho: 400, alto: 700 });
+  // En inglés (pedido), lo mismo de siempre: los nombres canónicos; sin preferencia, el idioma de la época es el español.
+  const en = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: X.id, pv: null } }, eje, 'cocina', { ancho: 400, alto: 700 }, { idioma: 'en' });
   assert.equal(en.idioma, 'en');
   assert.equal(en.centro.campos.find((c) => c.pv === 1).etiqueta, 'order');
   // La reserva, en es: las fechas del 7 legibles y los niveles de «booking» traducidos.

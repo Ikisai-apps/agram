@@ -25,6 +25,8 @@ export const EJEMPLOS = Object.freeze([
     async crear(m, claves) {
       const { eje, compra } = await m.ejemploCompra({ claves });
       await m.ejemploCuenta(eje, compra, claves.cocina?.privada);
+      // El jardín y el parque (encargo «datos», issue #11): votos y umbral en el 2, paquetes en el 3.
+      if (m.ejemploJardinYParque) await m.ejemploJardinYParque(eje, { compra }, Object.fromEntries(Object.entries(claves).map(([k, v]) => [k, v?.privada])));
       return { eje, foco: compra.id };
     },
   },

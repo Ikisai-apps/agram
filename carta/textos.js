@@ -130,6 +130,13 @@ export const TEXTOS = Object.freeze({
     matrizEjesTitulo: 'columnas: el tipo de interacción (los diez puntos de vista); filas: la posición del registro que se modifica',
     estadoPropuesta: 'propuesta',
     estadoEjecutada: 'ejecutada',
+    // lo que el núcleo mide de cada hijo (encargo «datos», issue #11)
+    hijoUmbral: 'umbral {umbral} · faltan {faltan}',
+    hijoVotos: 'P {comprometidos} comprometido · {reposicionables} reposicionable',
+    hijoBarraUmbral: 'recuento {valor} de {umbral}',
+    paquetePendiente: 'pendiente de atender',
+    paqueteAtendido: 'atendido',
+    paquetePerdonado: 'perdonado',
     hiloSupuesto: 'no se sabe de qué hilo cuelga: va en el primero',
     masEnCruce: '{n} más en este cruce',
     cieloFoco: 'el foco está aquí',
