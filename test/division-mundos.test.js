@@ -503,13 +503,39 @@ test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.
   assert.ok(h.includes(`<span class="hijo-vacio">${t('vacia')} · ${t('escribirAquiAccion', { accion: medir.etiqueta })}</span>`));
 });
 
+/** El HTML sin ningún nodo de clase `capa` (con todo lo que lleva dentro). */
+function sinCapas(h) {
+  const vacios = new Set(['img', 'br', 'input', 'meta', 'link', 'hr', 'source', 'wbr']);
+  const re = /<(\/?)([a-zA-Z][\w-]*)((?:[^>"']|"[^"]*"|'[^']*')*)>/g;
+  let fuera = '';
+  let desde = 0;
+  let saltando = null;
+  let m;
+  while ((m = re.exec(h))) {
+    const [todo, cierre, nombre, attrs] = m;
+    const tag = nombre.toLowerCase();
+    if (saltando) {
+      if (tag === saltando.tag && !vacios.has(tag)) saltando.n += cierre ? -1 : 1;
+      if (saltando.n === 0) { saltando = null; desde = m.index + todo.length; }
+      continue;
+    }
+    if (!cierre && (/\bclass="([^"]*)"/.exec(attrs)?.[1] ?? '').split(/\s+/).includes('capa')) {
+      fuera += h.slice(desde, m.index);
+      if (vacios.has(tag)) desde = m.index + todo.length;
+      else saltando = { tag, n: 1 };
+    }
+  }
+  return fuera + (saltando ? '' : h.slice(desde));
+}
+
 test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de cada mundo es el mismo HTML', async () => {
   const { eje, compra } = await ejemploCompra();
   const sobrio = {};
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) sobrio[pv] = rejillaHtml(html(await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)));
   const clave = C.clavesDeConfiguracion().find((c) => c.clave === 'render');
   const otra = clave.valores.find((v) => v !== C.configuracion(eje, 'huesped').render);
-  // con el modelo sobrio explícito: el defecto de la época es ikisai y trae capas (el «mismo DOM sin .capa» lo comprueba test/animado-capas.test.js)
+  // aun con el modelo sobrio nombrado, va al final de la cadena (#3) y el animado trae sus capas: sin ellas, el mismo HTML
+  // (el «mismo DOM sin .capa» en detalle lo comprueba test/animado-capas.test.js)
   const p = preferencias(eje, 'huesped', { render: otra, model: 'sobrio' });
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: '2026-11-07T13:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: p.payload });
   // la preferencia es un escrito más: el diario (el 6) y la madurez del alta no son de la compra; lo de la compra no cambia
@@ -518,6 +544,7 @@ test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de 
     assert.equal(a.animado, true);
     const h = rejillaHtml(html(a));
     assert.ok(h.length > 200, 'rejilla del ' + pv);
-    assert.equal(h, sobrio[pv], 'el mundo ' + pv + ' es igual en sobrio y en animado');
+    assert.match(h, /class="capa /, 'el sobrio nombrado no quita el arte (#3)');
+    assert.equal(sinCapas(h), sobrio[pv], 'el mundo ' + pv + ' es igual en sobrio y en animado (sin las capas)');
   }
 });

@@ -273,7 +273,7 @@ function esModelo(payload, c) {
  * La cadena de modelos que la carta consulta, en orden (respaldo en cadena, VG): el que nombra la configuración de
  * `yo` (la preferencia cuya posición dice la cabecera: un nombre de la época o el id —{ ref } o el texto— de un registro
  * del eje que sea un modelo: por nombre solo se resuelven los de la época), luego los de la cadena de la época (epoch.9.7.0.2: el animado genérico y el sobrio), sin
- * repetir. `yo` es la identidad o lo que devuelve contrato.yo(). Cada uno, { nombre, nivel, nota, donde, registro,
+ * repetir; el que no tiene recursos (el sobrio) siempre al final, aunque lo nombre la configuración. `yo` es la identidad o lo que devuelve contrato.yo(). Cada uno, { nombre, nivel, nota, donde, registro,
  * piezas, cabecera }.
  */
 export function modelo(eje, yo, opciones = {}) {
@@ -304,8 +304,13 @@ export function modelo(eje, yo, opciones = {}) {
       fuera.push(m);
     }
   }
-  return fuera;
+  // El sobrio (un modelo sin ninguna pieza con recurso: solo formas) es el respaldo por definición: siempre al final
+  // de la cadena, también si la configuración lo nombra (#3: con `model: sobrio` guardado, «animado» enseña el arte).
+  return [...fuera.filter(conRecursos), ...fuera.filter((m) => !conRecursos(m))];
 }
+
+/** ¿Trae el modelo alguna pieza con recurso? El que no (el sobrio) es el respaldo de forma: va al final de la cadena. */
+export const conRecursos = (m) => Boolean(m?.piezas?.some((p) => p.recurso));
 
 /** El valor numérico de una clave para ordenar los pasos: la comodín es la más baja. */
 const numero = (clave) => (typeof clave === 'number' ? clave : -Infinity);

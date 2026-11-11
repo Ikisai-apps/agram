@@ -7,7 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import { modelo, pieza, modelosDeLaEpoca, cabecera, leerPieza, piezasDeModelo, validarModelo, recursoAdmitido, corresponde, rolPorDefecto, CUALQUIERA } from '../src/modelos.js';
+import { modelo, pieza, modelosDeLaEpoca, cabecera, leerPieza, piezasDeModelo, validarModelo, recursoAdmitido, corresponde, rolPorDefecto, conRecursos, CUALQUIERA } from '../src/modelos.js';
 import { importar, importarPaquetes, mundoDe } from '../arte/importar.mjs';
 import { configuracion, validar } from '../src/contrato.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
@@ -84,7 +84,12 @@ test('la cadena de respaldo: lo que nombra la configuración (model), luego el a
   assert.equal(configuracion(eje, 'huesped').model, 'ikisai', 'la preferencia «model» de la plantilla «preferences» (epoch.9.3.6)');
   assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'el defecto es ikisai: la cadena de la época, en su orden y sin repetir');
   await conModelo(eje, 'huesped', 'sobrio');
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['sobrio', 'ikisai', 'animado-generico'], 'quien nombra el sobrio lo tiene delante');
+  // #3: el sobrio (sin recursos) es el respaldo por definición: aunque la configuración lo nombre, va al final, y
+  // «animado» encuentra el arte (la cuenta de VG tenía `model: sobrio` guardado y no veía nada).
+  assert.equal(configuracion(eje, 'huesped').model, 'sobrio');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'quien nombra el sobrio lo tiene al final');
+  assert.ok(pieza(modelo(eje, 'huesped'), 'etapa', 1, 8, 'centro')?.recurso, 'con model: sobrio, la etapa del 1 trae su arte');
+  assert.deepEqual(modelo(eje, 'huesped').map(conRecursos), [true, true, false]);
   const mias = await conModelo(eje, 'huesped', 'ikisai');
   assert.deepEqual(validar(eje, mias), []);
   assert.equal(configuracion(eje, 'huesped').model, 'ikisai');
@@ -287,7 +292,9 @@ test('SEG-14: un modelo del eje se nombra por id ({ ref } o texto) y no por nomb
   const conRef = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [minuto('casa')], payload: [['con-ref', 'ilustrado'], [{ ref: referida.id }]] });
   await conModelo(eje, 'huesped', conRef.id);
   cadena = modelo(eje, 'huesped');
-  assert.equal(cadena[0].piezas.length, 0, 'la pieza referenciada del eje con URL ajena se descarta');
+  const conRefLeido = cadena.find((m) => m.donde === conRef.id);
+  assert.equal(conRefLeido.piezas.length, 0, 'la pieza referenciada del eje con URL ajena se descarta');
+  assert.ok(cadena.indexOf(conRefLeido) > cadena.findLastIndex(conRecursos), 'sin ningún recurso, al final de la cadena con el sobrio (#3)');
   assert.equal(fondo(cadena, 5).modelo, 'ikisai', 'no responde el modelo del eje: el siguiente de la cadena');
   // La lista blanca es un dato de la cabecera de la época; lo de la época no pasa por este filtro.
   assert.deepEqual(cabecera().origenes, ['https://agram.ikisai.com']);
