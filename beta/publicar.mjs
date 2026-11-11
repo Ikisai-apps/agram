@@ -21,7 +21,7 @@ import { spawnSync } from 'node:child_process';
 const RAIZ = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const PROYECTO = 'agram-beta';
 const RAMA = 'beta';
-const EXCLUIR = new Set(['.git', 'node_modules', 'test', 'bench', '.github', 'servidor', 'beta', '.playwright-mcp']);
+const EXCLUIR = new Set(['.git', 'node_modules', 'test', 'bench', '.github', 'servidor', 'beta', '.playwright-mcp', '.wrangler']);
 
 const args = process.argv.slice(2);
 const iConfig = args.indexOf('--config');
