@@ -59,9 +59,9 @@ export function clavesPedidas(opciones = {}) {
     }
   }
 
-  // Los valores de las preferencias de dos opciones (los interruptores de la barra): «template preferences param <clave> option <valor>».
+  // Los valores de las preferencias que son una enumeración (los interruptores de la barra, #25: sobrio, propio, todo): «template preferences param <clave> option <valor>».
   const preferencias = contrato.nombreDePlantilla(epoca.registro?.[9]?.[3]);
-  for (const c of contrato.clavesDeConfiguracion({ epoca })) if (c.valores?.length === 2) for (const v of c.valores) pide(K.parametro(preferencias, c.clave, 'option ' + v), 'opción de preferencia', preferencias, v);
+  for (const c of contrato.clavesDeConfiguracion({ epoca })) if (c.valores?.length >= 2) for (const v of c.valores) pide(K.parametro(preferencias, c.clave, 'option ' + v), 'opción de preferencia', preferencias, v);
 
   // Las plantillas de cerrado (el criterio por defecto de un registro).
   for (const c of hojas(epoca.registro?.[9]?.[0]?.[1]?.[1]).filter(Array.isArray)) {

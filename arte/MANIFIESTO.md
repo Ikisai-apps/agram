@@ -1,6 +1,6 @@
 # Manifiesto de arte: cómo un paquete de arte se convierte en modelo de visualización
 
-Encargo 3c-2b (tras 3c-1) y etapa 5 (la fase 2, `arte/fase2/`, importada como el modelo `ikisai`). Principio de VG: nada hardcodeado en la pantalla; **los modelos de visualización son registros**; cualquier modelo puede estar incompleto y se rellena por partes; la carta pide una pieza y la cadena de modelos responde (el que nombra la configuración de quien mira → el animado genérico de la época → el sobrio, que siempre responde). El núcleo está en `src/modelos.js`; la descripción completa, en `docs/CONTRATO.md`, «Modelos de visualización». Este documento dice **qué tiene que traer un paquete de arte** y **cómo se importa** sin copiar archivos.
+Encargo 3c-2b (tras 3c-1) y etapa 5 (la fase 2, `arte/fase2/`, importada como el modelo `general`, el arte general de la época: #25, antes `ikisai`). Principio de VG: nada hardcodeado en la pantalla; **los modelos de visualización son registros**; cualquier modelo puede estar incompleto y se rellena por partes; la carta pide una pieza y la cadena de modelos responde (el arte propio del elemento que se pinta, §6 → el que nombra la configuración de quien mira → el general de la época → el animado genérico → el sobrio, que siempre responde). El núcleo está en `src/modelos.js`; la descripción completa, en `docs/CONTRATO.md`, «Modelos de visualización». Este documento dice **qué tiene que traer un paquete de arte** y **cómo se importa** sin copiar archivos.
 
 ## 1. La pieza
 
@@ -47,8 +47,8 @@ Un modelo es un registro: **0** su nombre, su **nivel de detalle** (`sello`, `in
 ```sh
 node arte/importar.mjs arte/pruebas/03             # imprime el modelo (JSON) y los avisos en la salida de error
 node arte/importar.mjs arte/pruebas/03 --escribir  # lo deja en datos/epocas/modelos/prueba-03.json y prueba-03/
-node arte/importar.mjs arte/fase2/bloque-0 arte/fase2/bloque-1 arte/fase2/bloque-2 arte/fase2/bloque-3 arte/fase2/bloque-4 arte/fase2/bloque-5 arte/fase2/bloque-6 --nombre ikisai --nota "…" --escribir
-                                                   # varios paquetes (los bloques de una entrega) en UN modelo: datos/epocas/modelos/ikisai.json e ikisai/
+node arte/importar.mjs arte/fase2/bloque-0 arte/fase2/bloque-1 arte/fase2/bloque-2 arte/fase2/bloque-3 arte/fase2/bloque-4 arte/fase2/bloque-5 arte/fase2/bloque-6 --nombre general --nota "…" --escribir
+                                                   # varios paquetes (los bloques de una entrega) en UN modelo: datos/epocas/modelos/general.json y general/ (sin --nombre, varios paquetes van en «general»)
 npm run epocas                                     # la época lo referencia desde epoch.9.7
 ```
 
@@ -56,7 +56,11 @@ El importador **no copia ningún archivo**: las piezas referencian las rutas del
 
 ## 5. Lo que admite una pieza que viene del eje (SEG-14)
 
-Cualquiera puede publicar un modelo o piezas en un eje, pero **quien mira adopta**: su preferencia `model` nombra el modelo por **id** (`{ ref }` o el id como texto; por nombre solo se resuelven los modelos de la época, así que nadie suplanta a `ikisai`), y de un modelo del eje solo cuentan las piezas **ancladas por su autor** (la delegación está pendiente). Además, en una pieza del eje, y no en las de la época ni en las del repositorio:
+Cualquiera puede publicar un modelo o piezas en un eje, pero **quien mira adopta**: su preferencia `model` nombra el modelo por **id** (`{ ref }` o el id como texto; por nombre solo se resuelven los modelos de la época, así que nadie suplanta a `general`), y de un modelo del eje solo cuentan las piezas **ancladas por su autor** (la delegación está pendiente). Además, en una pieza del eje, y no en las de la época ni en las del repositorio:
 
-- el **recurso** es una ruta relativa dentro de `arte/` (sin `..`, sin esquema, sin `//`, `\` ni `%`) o una URL de un origen de la **lista blanca**, un dato de la cabecera de la época (`epoch.9.7.0.9`, detrás de la nota; hoy `https://agram.ikisai.com`). Cualquier otro recurso descarta la pieza y responde el respaldo;
+- el **recurso** es una ruta relativa dentro de `arte/` (sin `..`, sin esquema, sin `//`, `\` ni `%`), una URL de un origen de la **lista blanca**, un dato de la cabecera de la época (`epoch.9.7.0.9`, detrás de la nota; hoy `https://agram.ikisai.com`), o un **adjunto** `archivo:<sha256>` (#22, #25: el hash del contenido, en minúsculas; la carta lo resuelve a la URL de la función `archivos`). Cualquier otro recurso descarta la pieza y responde el respaldo;
 - el formato **`html`** no se admite (una pieza del eje que lo declare se descarta).
+
+## 6. El arte propio de un elemento (#25)
+
+Un registro cualquiera puede llevar **su propio arte**: es su propio modelo parcial. Sus piezas son registros de pieza (§1) **anclados en el propio registro por su autor** (lo que ancle otro no cuenta), en la posición de un mundo o en el 5; cada una sirve en el mundo donde está y en los que dice su 5 (`*`, los ocho). Lo más corriente es un **icono propio**: una pieza `elemento` con clave `*`, tamaño 0 (cabe en todo) y mundos `*`, anclada en el 5, con su recurso en `arte/…`, en un origen de la lista blanca o como adjunto `archivo:<sha256>`. La carta lo pone en su ocupante (las listas), en su hijo (las celdas de la pantalla completa, en lugar del dibujo del mundo) y en su centro (la tarjeta central cuando se entra en él); una etapa, un fondo, un muñequito o un marco propios sustituyen a los generales en lo de ese registro. Con el pintado «propio» solo se ve esto; con «todo», esto delante y el arte general detrás; con «sobrio», nada. El núcleo: `propio(eje, X)` y `modelo(eje, yo, { elemento })` en `src/modelos.js`; `docs/CONTRATO.md` §11.7.

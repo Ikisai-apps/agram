@@ -1464,14 +1464,17 @@
       [
         ["render"],
         ["text"],
-        ["=\"sober\" in it.2 or \"animated\" in it.2"],
+        ["=\"sober\" in it.2 or \"own\" in it.2 or \"animated\" in it.2"],
         ["owner"],
         ["write"],
         ["2"],
         ["encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"],
         ["optional"],
         ["arrival"],
-        ["sober", "sober or animated: two renders of the same operation (FUNDAMENTOS, «Sobrio y animado»)"]
+        [
+          "sober",
+          "sober, own or all (animated): three renders of the same operation (FUNDAMENTOS, «Sobrio y animado»); in this order: the first paints no art; the last, all of it (the own art of each element, then the model of who looks, the general art and the sober forms); the ones between, only the own art of each element, with the general art (backgrounds, characters and general drawings) switched off"
+        ]
       ],
       [
         ["language"],
@@ -1520,8 +1523,8 @@
         ["optional"],
         ["arrival"],
         [
-          "ikisai",
-          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (ikisai, the generic animated one, then the sober one, which always answers); the default is ikisai, so the animated switch shows the art without touching the settings"
+          "general",
+          "the visualization model consulted first, behind the own art of each element: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (general, the general art of the epoch; the generic animated one; then the sober one, which always answers); the default is general, so the switch shows the art without touching the settings"
         ]
       ],
       [
@@ -2043,10 +2046,11 @@
           "template preferences param step label: paso",
           "template preferences param step help: cuántos ocupantes, entradas o datos por carga",
           "template preferences param render label: pintado",
-          "template preferences param render help: sobrio (sober) o animado (animated): dos pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»)",
+          "template preferences param render help: sobrio (sober), propio (own) o todo (animated): tres pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»); sobrio no pinta arte; propio, solo el arte propio de cada elemento (sin fondos, muñequitos ni dibujos generales); todo, lo propio y, detrás, el modelo de quien mira, el general y el sobrio",
           "template preferences param render placeholder: sobrio",
           "template preferences param render option sober: sobrio",
-          "template preferences param render option animated: animado",
+          "template preferences param render option own: propio",
+          "template preferences param render option animated: todo",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
           "template preferences param language placeholder: es",
@@ -2055,8 +2059,8 @@
           "template preferences param type label: tipo",
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
-          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (ikisai, el animado genérico y luego el sobrio, que siempre responde); por defecto es ikisai, así el interruptor animado enseña el arte sin tocar la configuración",
-          "template preferences param model placeholder: ikisai",
+          "template preferences param model help: el modelo de visualización que se consulta primero, detrás del arte propio de cada elemento: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (general, el arte general de la época; el animado genérico y luego el sobrio, que siempre responde); por defecto es general, así el interruptor enseña el arte sin tocar la configuración",
+          "template preferences param model placeholder: general",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "template preferences param sync url label: servidor",
@@ -2180,6 +2184,7 @@
       [
         ["en", "English"],
         [
+          "template preferences param render option animated: all",
           "legible price: {amount} {series} per unit",
           "legible amount: {amount} {series}",
           "legible record: record of {n} positions",
@@ -2282,7 +2287,7 @@
           "a visualization model is a record: 0 its name, its level of detail and a note; 1-4 and 6-9 the pieces of each world, as references to piece records (in the ledger, also pieces anchored there); 5 the frames and the icons of the ring. A piece is a record: 0 its type; 1 [minimum size, format] or, with no resource, [minimum size, sober form: texto, rectangulo, punto]; 2 its key: the condition (the step 1-10, the action, the primitive or effect, or the world whose icon or frame it is; * for any) and, behind it, what tells apart pieces with the same condition (the role of a character, the name of an element, a frame or an icon); 3 its orientation; 4 [loop or once, frames]; 5 the worlds it serves (digits, or * for every world); 6 its resource (a relative path of the repository or a URL) and where it comes from; 7 its rank among the pieces with the same key (0 or absent the first choice, 1 a fallback kept behind a newer piece)"
         ],
         ["sello", "intermedio", "ilustrado"],
-        ["ikisai", "animado-generico", "sobrio"],
+        ["general", "animado-generico", "sobrio"],
         ["centro", "izquierda", "derecha"],
         [
           [
@@ -2346,7 +2351,7 @@
         ]
       ],
       {"ref":"96b4daa4d2ba41e938f5d427ff5bab31547b73e7728b9b6ce399e402b46b982b"},
-      {"ref":"8aa6e52bc61392b4f8f2921b9602d9d2edb3858cb4cc004c1de6e83f707f33d2"},
+      {"ref":"64ad13373feea685b16919e2f5e76939571a3e5c0c9a8071cc42f3f7471c02fa"},
       {"ref":"8910d6adecfe13a2a372bf0315b600ed3f06812ac6088140acd5e644c549abbe"}
     ],
     [

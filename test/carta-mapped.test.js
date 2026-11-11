@@ -303,7 +303,7 @@ test('cambiar la tabla de pasos en una copia de la época cambia el árbol: las 
   for (const p of C.pasosDeTamano()) assert.ok(!literales.has(p.nombre), 'carta/carta.js lleva escrito «' + p.nombre + '»');
 });
 
-test('el interruptor sobrio/animado de la barra es la preferencia de dos valores: tocarlo escribe «render» como la configuración y el árbol pasa a animado', async () => {
+test('el interruptor sobrio/propio/todo de la barra es la enumeración del pintado (#25): tocarlo escribe «render» como la configuración y el árbol pasa a animado', async () => {
   const { eje, compra } = await ejemploCompra();
   const a = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
   assert.equal(a.interruptores.length, 1);
@@ -313,8 +313,10 @@ test('el interruptor sobrio/animado de la barra es la preferencia de dos valores
   assert.deepEqual(i.opciones.map((o) => o.valor), C.clavesDeConfiguracion().find((c) => c.clave === i.clave).valores);
   const h = html(a);
   assert.match(h, new RegExp(`<span class="interruptor"[^>]*>.*data-preferencia="${i.clave}" data-valor="${i.opciones[1].valor}" aria-pressed="false"`));
-  // Tocar la otra palabra: la app escribe la candidata de preferencias() con esa clave (como guarda la configuración).
-  const otra = i.opciones.find((o) => o.valor !== i.valor).valor;
+  // Tres posiciones, en el orden de la época (epoch.9.3.2): sobrio, propio, todo.
+  assert.equal(i.opciones.length, 3);
+  // Tocar «todo» (la última): la app escribe la candidata de preferencias() con esa clave (como guarda la configuración).
+  const otra = i.opciones[i.opciones.length - 1].valor;
   const p = preferencias(eje, 'huesped', { [i.clave]: otra });
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
   assert.equal(C.configuracion(eje, 'huesped')[i.clave], otra);
@@ -322,40 +324,45 @@ test('el interruptor sobrio/animado de la barra es la preferencia de dos valores
   assert.equal(b.animado, true);
   assert.equal(b.interruptores[0].valor, otra);
   // En español (el idioma de la época), las dos palabras traducidas; en inglés, las canónicas.
-  assert.deepEqual(b.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  assert.deepEqual(b.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'propio', 'todo']);
+  // La configuración ofrece el pintado como desplegable con los mismos tres valores (salen de los datos).
+  const campo = preferencias(eje, 'huesped').campos.find((x) => x.clave === i.clave);
+  assert.deepEqual(campo.opciones.map((o) => [o.valor, o.texto]), i.opciones.map((o) => [o.valor, o.texto]));
+  assert.equal(campo.valor, otra);
+  assert.match(html(b, { preferencias: preferencias(eje, 'huesped') }), new RegExp(`<select id="pref-\\d+" name="${i.clave}"[^>]*>(<option [^>]*>[^<]*</option>){3}</select>`));
   const q = preferencias(eje, 'huesped', { language: 'en' });
   await eje.escribir({ autor: 'huesped', sobre: q.sobre, en: q.en, t: T1, movimientos: [minuto('huesped')], payload: q.payload });
   const c = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
-  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sober', 'animated']);
+  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sober', 'own', 'all']);
   // La app lo pinta y lo lanza por data-preferencia (la tecla la toca gestos.js; la escritura, app.js como la configuración).
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
   assert.match(app, /async preferencia\(clave, valor\)[\s\S]*?escribirPreferencias\(\{ \[clave\]: valor \}\)/);
 });
 
-test('#4: en la configuración, «modelo» es un desplegable con los modelos de la época que tienen recursos (sin el sobrio), ikisai preseleccionado; con uno solo, no se pregunta', async () => {
+test('#4: en la configuración, «modelo» es un desplegable con los modelos de la época que tienen recursos (sin el sobrio), general preseleccionado; con uno solo, no se pregunta', async () => {
   const { eje } = await ejemploCompra();
   const conRecursos = modelos.modelosDeLaEpoca().filter(modelos.conRecursos).map((m) => m.nombre);
-  assert.deepEqual([...conRecursos].sort(), ['animado-generico', 'ikisai'], 'hoy, dos paquetes de arte');
+  assert.deepEqual([...conRecursos].sort(), ['animado-generico', 'general'], 'hoy, dos paquetes de arte');
   const p = preferencias(eje, 'huesped');
   const campo = p.campos.find((c) => c.clave === 'model');
-  assert.deepEqual(campo.opciones.map((o) => o.valor), ['ikisai', 'animado-generico'], 'las opciones salen de los datos, en el orden de la cadena; el sobrio no está');
-  assert.equal(campo.valor, 'ikisai', 'sin preferencia, ikisai');
+  assert.deepEqual(campo.opciones.map((o) => o.valor), ['general', 'animado-generico'], 'las opciones salen de los datos, en el orden de la cadena; el sobrio no está');
+  assert.equal(campo.valor, 'general', 'sin preferencia, general');
   const h = html(await arbol({ foco: { X: eje.alta('huesped').id, pv: 0 } }, eje, 'huesped', ORDENADOR), { preferencias: p });
-  assert.match(h, /<select id="pref-\d+" name="model"[^>]*><option value="ikisai" selected>ikisai<\/option><option value="animado-generico">animado-generico<\/option><\/select>/);
+  assert.match(h, /<select id="pref-\d+" name="model"[^>]*><option value="general" selected>general<\/option><option value="animado-generico">animado-generico<\/option><\/select>/);
   assert.doesNotMatch(h, /<input[^>]*name="model"/);
-  // La cuenta de VG: con «sobrio» guardado, el desplegable propone ikisai (el sobrio no se elige) y al guardar queda ikisai.
+  // La cuenta de VG: con «sobrio» guardado, el desplegable propone general (el sobrio no se elige) y al guardar queda general.
   const q = preferencias(eje, 'huesped', { model: 'sobrio' });
-  assert.equal(q.campos.find((c) => c.clave === 'model').valor, 'ikisai');
-  assert.ok(q.payload.some((x) => Array.isArray(x) && x[0] === 'ikisai'));
+  assert.equal(q.campos.find((c) => c.clave === 'model').valor, 'general');
+  assert.ok(q.payload.some((x) => Array.isArray(x) && x[0] === 'general'));
   // Elegir el genérico lo guarda.
   const g = preferencias(eje, 'huesped', { model: 'animado-generico' });
   assert.equal(g.campos.find((c) => c.clave === 'model').valor, 'animado-generico');
   // Una época con un solo paquete de arte (sin el genérico): el campo no se enseña y se guarda el que hay.
   const una = epocaCon((e) => { e[9][7].splice(1, 1); });
-  assert.deepEqual(modelos.eleccionDeModelo({ epoca: una }).modelos.map((m) => m.nombre), ['ikisai']);
+  assert.deepEqual(modelos.eleccionDeModelo({ epoca: una }).modelos.map((m) => m.nombre), ['general']);
   const u = preferencias(eje, 'huesped', { model: 'sobrio' }, { epoca: una });
   assert.equal(u.campos.find((c) => c.clave === 'model'), undefined, 'con uno solo, no se pregunta');
-  assert.ok(u.payload.some((x) => Array.isArray(x) && x[0] === 'ikisai'), 'y se guarda el que hay');
+  assert.ok(u.payload.some((x) => Array.isArray(x) && x[0] === 'general'), 'y se guarda el que hay');
   assert.doesNotMatch(html(await arbol({ foco: { X: eje.alta('huesped').id, pv: 0 } }, eje, 'huesped', ORDENADOR), { preferencias: u }), /name="model"/);
 });
 
@@ -557,10 +564,10 @@ test('el formulario (#5): un parámetro con valores posibles es un <select> con 
   assert.deepEqual(g.llamadas, [], 'es cosa de la pantalla: la app no se entera hasta enviar');
 });
 
-test('la cadena de la época empieza por ikisai y el modelo por defecto la devuelve en ese orden (el interruptor «animado» enseña el arte sin tocar Configuración)', async () => {
+test('la cadena de la época empieza por general y el modelo por defecto la devuelve en ese orden (el interruptor «animado» enseña el arte sin tocar Configuración)', async () => {
   const { eje } = await ejemploCompra();
-  assert.deepEqual(modelos.cabecera().cadena, ['ikisai', 'animado-generico', 'sobrio']);
-  assert.deepEqual(modelos.modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio']);
+  assert.deepEqual(modelos.cabecera().cadena, ['general', 'animado-generico', 'sobrio']);
+  assert.deepEqual(modelos.modelo(eje, 'huesped').map((m) => m.nombre), ['general', 'animado-generico', 'sobrio']);
   assert.equal(C.configuracion(eje, 'huesped').render, 'sober', 'lo que se pinta lo manda render; el modelo solo ordena la cadena');
 });
 

@@ -5,7 +5,8 @@
 // registros de sus piezas, con las referencias de cada mundo), SIN copiar ningún archivo: las piezas referencian las
 // rutas del paquete. Varios paquetes (los bloques de una entrega) entran en un solo modelo.
 //
-//   node arte/importar.mjs <carpeta> [<carpeta>…] [--nombre <n>] [--nota <texto>]   imprime el modelo (y sus avisos, en la salida de error)
+//   node arte/importar.mjs <carpeta> [<carpeta>…] [--nombre <n>] [--nota <texto>]   imprime el modelo (y sus avisos, en la salida de error);
+//                                                                                    varios paquetes sin --nombre van en el modelo «general»
 //   node arte/importar.mjs <carpeta>… --escribir                                     lo escribe en datos/epocas/modelos/<nombre>.json y <nombre>/;
 //                                                                                     después, `npm run epocas` lo referencia desde epoch.9.7
 //
@@ -201,6 +202,9 @@ export function escribir({ nombre, modelo, piezas }, destino = join(RAIZ_REPO, '
   return rutas;
 }
 
+/** El nombre del modelo cuando se importan varios paquetes sin --nombre: el arte general de la época (epoch.9.7.0.2). */
+export const NOMBRE_GENERAL = 'general';
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const carpetas = [];
@@ -225,10 +229,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     }
     return { indice: JSON.parse(readFileSync(indiceRuta, 'utf8')), carpeta };
   });
-  if (carpetas.length > 1 && !nombre) {
-    console.error('varios paquetes van en un modelo: di su nombre con --nombre');
-    process.exit(2);
-  }
+  // Varios paquetes (los bloques de una entrega) van en UN modelo; sin --nombre, el arte general de la época (#25: la
+  // fase 2 es el general, no el de Ikisai; el arte propio de un elemento va anclado al registro, no en un modelo).
+  if (carpetas.length > 1 && !nombre) nombre = NOMBRE_GENERAL;
   const resultado = carpetas.length === 1 && !nombre ? importar(paquetes[0].indice, { carpeta: paquetes[0].carpeta }) : importarPaquetes(paquetes, { nombre, nota });
   for (const a of resultado.avisos) console.error('aviso: ' + a);
   if (escribirlo) {

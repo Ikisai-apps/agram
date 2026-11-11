@@ -4077,7 +4077,7 @@ export const EPOCA_0_BTML_DATOS = [
           "text"
         ],
         [
-          "=\"sober\" in it.2 or \"animated\" in it.2"
+          "=\"sober\" in it.2 or \"own\" in it.2 or \"animated\" in it.2"
         ],
         [
           "owner"
@@ -4099,7 +4099,7 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "sober",
-          "sober or animated: two renders of the same operation (FUNDAMENTOS, «Sobrio y animado»)"
+          "sober, own or all (animated): three renders of the same operation (FUNDAMENTOS, «Sobrio y animado»); in this order: the first paints no art; the last, all of it (the own art of each element, then the model of who looks, the general art and the sober forms); the ones between, only the own art of each element, with the general art (backgrounds, characters and general drawings) switched off"
         ]
       ],
       [
@@ -4232,8 +4232,8 @@ export const EPOCA_0_BTML_DATOS = [
           "arrival"
         ],
         [
-          "ikisai",
-          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (ikisai, the generic animated one, then the sober one, which always answers); the default is ikisai, so the animated switch shows the art without touching the settings"
+          "general",
+          "the visualization model consulted first, behind the own art of each element: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (general, the general art of the epoch; the generic animated one; then the sober one, which always answers); the default is general, so the switch shows the art without touching the settings"
         ]
       ],
       [
@@ -4816,10 +4816,11 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param step label: paso",
           "template preferences param step help: cuántos ocupantes, entradas o datos por carga",
           "template preferences param render label: pintado",
-          "template preferences param render help: sobrio (sober) o animado (animated): dos pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»)",
+          "template preferences param render help: sobrio (sober), propio (own) o todo (animated): tres pintados de la misma operación (FUNDAMENTOS, «Sobrio y animado»); sobrio no pinta arte; propio, solo el arte propio de cada elemento (sin fondos, muñequitos ni dibujos generales); todo, lo propio y, detrás, el modelo de quien mira, el general y el sobrio",
           "template preferences param render placeholder: sobrio",
           "template preferences param render option sober: sobrio",
-          "template preferences param render option animated: animado",
+          "template preferences param render option own: propio",
+          "template preferences param render option animated: todo",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
           "template preferences param language placeholder: es",
@@ -4828,8 +4829,8 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param type label: tipo",
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
-          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (ikisai, el animado genérico y luego el sobrio, que siempre responde); por defecto es ikisai, así el interruptor animado enseña el arte sin tocar la configuración",
-          "template preferences param model placeholder: ikisai",
+          "template preferences param model help: el modelo de visualización que se consulta primero, detrás del arte propio de cada elemento: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (general, el arte general de la época; el animado genérico y luego el sobrio, que siempre responde); por defecto es general, así el interruptor enseña el arte sin tocar la configuración",
+          "template preferences param model placeholder: general",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "template preferences param sync url label: servidor",
@@ -4956,6 +4957,7 @@ export const EPOCA_0_BTML_DATOS = [
           "English"
         ],
         [
+          "template preferences param render option animated: all",
           "legible price: {amount} {series} per unit",
           "legible amount: {amount} {series}",
           "legible record: record of {n} positions",
@@ -5248,7 +5250,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ilustrado"
         ],
         [
-          "ikisai",
+          "general",
           "animado-generico",
           "sobrio"
         ],
@@ -5567,7 +5569,7 @@ export const EPOCA_0_BTML_DATOS = [
         "ref": "96b4daa4d2ba41e938f5d427ff5bab31547b73e7728b9b6ce399e402b46b982b"
       },
       {
-        "ref": "8aa6e52bc61392b4f8f2921b9602d9d2edb3858cb4cc004c1de6e83f707f33d2"
+        "ref": "64ad13373feea685b16919e2f5e76939571a3e5c0c9a8071cc42f3f7471c02fa"
       },
       {
         "ref": "8910d6adecfe13a2a372bf0315b600ed3f06812ac6088140acd5e644c549abbe"
@@ -15638,7 +15640,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "ac760d8303af9c47359d5ea3c3970ecc2f1820129a89d27cbddb878012965a39";
+export const EPOCA_0_BTML_ID = "6ecc68eb063dff17d397dcd5e267777cd30a7058ee044a0697d010f07a4a5edc";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
@@ -16048,14 +16050,14 @@ export const MODELOS_DE_EPOCA_DATOS = [
     ]
   },
   {
-    "archivo": "ikisai.json",
-    "nombre": "ikisai",
-    "id": "8aa6e52bc61392b4f8f2921b9602d9d2edb3858cb4cc004c1de6e83f707f33d2",
+    "archivo": "general.json",
+    "nombre": "general",
+    "id": "64ad13373feea685b16919e2f5e76939571a3e5c0c9a8071cc42f3f7471c02fa",
     "registro": [
       [
-        "ikisai",
+        "general",
         "ilustrado",
-        "el modelo de dominio de Ikisai: la biblioteca de la fase 2 de la IA de imagen de VG (arte/fase2, aceptada por Core y VG el 9-11), los siete bloques en un modelo; los tres niveles conviven por tamaño mínimo (sello 1, intermedio 2, ilustrado 3); lo heredado de la fase 1 que fue sustituido queda de respaldo (rango 1)"
+        "el arte general de la época: la biblioteca de la fase 2 de la IA de imagen de VG (arte/fase2, aceptada por Core y VG el 9-11), los siete bloques en un modelo; responde detrás del arte propio de cada elemento y del modelo de quien mira; los tres niveles conviven por tamaño mínimo (sello 1, intermedio 2, ilustrado 3); lo heredado de la fase 1 que fue sustituido queda de respaldo (rango 1)"
       ],
       [
         {
