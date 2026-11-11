@@ -90,8 +90,13 @@ export class Archivos {
     if (tipo === 'text/html') {
       if (bytes.length > LIMITE_HTML) Object.assign(e, { estado: 'error', motivo: t('archivoHtmlGrande', { tope: Math.round(LIMITE_HTML / 1024) }) });
       else e.texto = new TextDecoder('utf-8').decode(bytes);
+    } else if (tipo === 'image/svg+xml') {
+      // Un SVG en <img> no ejecuta nada, pero una URL blob es del MISMO ORIGEN que la carta: abierta directamente
+      // (clic derecho, arrastrar a la barra) ejecutaría sus scripts con acceso al almacén local (la clave de lectura,
+      // las claves de la cuenta). Un data: URL es de origen opaco al navegarlo: solo sirve para <img> (SEG-15).
+      e.url = 'data:image/svg+xml;base64,' + aBase64(bytes);
     } else if (Object.hasOwn(TIPOS, tipo) && typeof URL.createObjectURL === 'function') {
-      // una imagen (también SVG: en <img> no ejecuta nada) o una animación Lottie (su JSON): una URL local, para <img> o lottie-web
+      // una imagen de píxeles o una animación Lottie (su JSON, para lottie-web): una URL local; ninguna de las dos ejecuta nada al navegarla
       e.url = URL.createObjectURL(new Blob([bytes], { type: tipo }));
     }
     this.cache.set(id, e);
@@ -169,4 +174,13 @@ export class Archivos {
       return this.cache.get(id);
     }
   }
+}
+
+/** Bytes → base64 (Node y navegador), para el data: URL de los SVG. */
+function aBase64(bytes) {
+  const b = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+  if (typeof globalThis.Buffer === 'function') return globalThis.Buffer.from(b).toString('base64');
+  let s = '';
+  for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000));
+  return btoa(s);
 }
