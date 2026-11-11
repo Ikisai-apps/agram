@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbol, formulario, enviar, preferencias, NIVEL, LATERALES, CENTROS, GEOMETRIA, ANIMAR } from '../carta/carta.js';
+import { arbol, formulario, enviar, preferencias, escalaDeTamanos, NIVEL, LATERALES, CENTROS, GEOMETRIA, ANIMAR } from '../carta/carta.js';
 import { html, htmlPieza, variablesDeColor } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
 import * as A from '../src/acciones.js';
@@ -58,9 +58,10 @@ test('la carta de la compra en una pantalla alta (400×700) se apila y en una an
   assert.equal(a.centro.etiqueta, C.etiqueta(eje, X.id, 0));
   assert.deepEqual(a.centro.campos.map((c) => c.etiqueta), LATERALES.map((pv) => C.etiqueta(eje, X.id, pv)));
   assert.equal(a.centro.madurez.nombre, C.madurez(eje, X.id).nombre);
-  // Cada lateral, comprimido por defecto: un dato (el paso del PV si lo hay, si no cuántos ocupantes), la etiqueta y su lado.
+  // Cada lateral, comprimido por defecto (su fila cerrada): un dato (el paso del PV si lo hay, si no cuántos ocupantes), la
+  // etiqueta y su lado; los del hilo (el pasado y el futuro), en bloque: van encima y debajo de la tarjeta.
   for (const n of a.laterales) {
-    assert.equal(n.nivel, NIVEL.comprimido);
+    assert.equal(n.nivel, n.hilo ? NIVEL.bloque : NIVEL.comprimido);
     assert.equal(n.etiqueta, C.etiqueta(eje, X.id, n.pv));
     assert.equal(typeof n.comprimido.dato, 'number');
     assert.equal(n.lado, modelos.cabecera().variantes[GEOMETRIA[n.pv].lado]);
@@ -70,9 +71,10 @@ test('la carta de la compra en una pantalla alta (400×700) se apila y en una an
   assert.equal(orden.comprimido.dato, C.ocupantes(eje, X.id, 1).total);
   const cuota = a.laterales.find((n) => n.pv === 8);
   assert.equal(cuota.comprimido.dato, 9, 'el paso «cuota» del PV8 es el dato comprimido');
-  // Mi foco: diez rosetones de mi alta, uno por PV (el 0 y el 5 incluidos), en el orden de las dos tiras.
-  assert.deepEqual(a.rosetones.map((r) => r.pv), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
-  assert.ok(a.rosetones.every((r) => r.X === eje.alta('huesped').id));
+  // Mi foco: diez rosetones de mi alta, uno por PV (el 0 y el 5 incluidos), en el ordenador; en el móvil en vertical, ninguno.
+  assert.deepEqual(b.rosetones.map((r) => r.pv), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
+  assert.ok(b.rosetones.every((r) => r.X === eje.alta('huesped').id));
+  assert.deepEqual(a.rosetones, []);
   // Las identidades y la configuración (los defectos) van en el árbol; sin aro ni formulario abiertos.
   assert.deepEqual(a.identidades.map((i) => i.id), eje.identidades());
   assert.equal(a.configuracion.de, null);
@@ -84,24 +86,29 @@ test('la carta de la compra en una pantalla alta (400×700) se apila y en una an
   assert.match(html(b), /class="carta carta-matriz sobrio/);
 });
 
-test('los pasos de tamaño: comprimido → tarjeta (los datos que caben) → bloque (la lista o la matriz según la época) → el PV como foco', async () => {
+test('las filas del móvil: cerrada (comprimido) → abierta (bloque, con el segundo nivel del PV) → el PV como foco; el diario va en el pasado', async () => {
   const { eje, compra: X, cuenta } = await compra();
-  const a = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.tarjeta, 2: NIVEL.bloque, 6: NIVEL.bloque, 9: NIVEL.oculto } }, eje, 'huesped', MOVIL);
+  const a = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque, 2: NIVEL.tarjeta } }, eje, 'huesped', MOVIL);
   const tamanos = C.tamanos();
-  const uno = a.laterales.find((n) => n.pv === 1);
-  assert.equal(uno.tamano.tamano, tamanos[1].tamano);
-  assert.equal(uno.ocupantes.cuantos, tamanos[1].datos, 'la tarjeta pide los datos que caben en ella');
+  const fila = (pv) => a.secuencia.filas.find((f) => f.pv === pv);
+  const uno = fila(1).nodo;
+  assert.equal(fila(1).abierta, true);
+  assert.equal(uno.nivel, NIVEL.bloque);
+  assert.equal(uno.tamano.tamano, tamanos[2].tamano);
+  assert.equal(uno.ocupantes.cuantos, C.paso(), 'abierta, pide el paso de la configuración');
   assert.equal(uno.ocupantes.lista.length, 2);
   assert.equal(uno.ocupantes.lista[1].tipo, 'referencia');
   assert.equal(uno.ocupantes.lista[1].X, cuenta.id);
   assert.equal(uno.ocupantes.lista[1].texto, 'Cuenta del menú');
   assert.equal(uno.ocupantes.orden, C.ocupantes(eje, X.id, 1).orden);
-  const dos = a.laterales.find((n) => n.pv === 2);
-  assert.equal(dos.tamano.tamano, tamanos[2].tamano);
-  assert.ok(C.division(eje, X.id, { datos: 1, forma: { ancho: 400, alto: 350 } }).disposicion === dos.disposicion);
-  const seis = a.laterales.find((n) => n.pv === 6);
-  assert.equal(seis.diario.total, C.diario(eje, X.id).total, 'el diario de lo llegado va en el PV del pasado');
-  assert.equal(a.laterales.find((n) => n.pv === 9).nivel, NIVEL.oculto);
+  // Lo que se ve dentro es el segundo nivel del PV, como en Mapped: la forma de su mundo (epoch.8.7) con sus hijos.
+  assert.equal(uno.rejilla.forma, C.divisionDelMundo(eje, 1).forma);
+  assert.deepEqual(uno.rejilla.celdas.map((c) => c.nombre), C.hijosDe(eje, X.id, 1, { nivel: 1, cuantos: 0 }).map((h) => h.nombre));
+  // La tarjeta (un paso de antes) también cuenta como abierta; las demás, cerradas.
+  assert.equal(fila(2).abierta, true);
+  assert.equal(fila(2).nodo.nivel, NIVEL.bloque);
+  assert.equal(fila(3).abierta, false);
+  assert.equal(a.secuencia.pasado.diario.total, C.diario(eje, X.id).total, 'el diario de lo llegado va en el pasado');
   // Entrar en el PV 1 como foco: el centro es esa posición, paginada, con la disposición que dice la época.
   const b = await arbol({ foco: { X: X.id, pv: 1 } }, eje, 'huesped', MOVIL);
   assert.equal(b.centro.cara, 'pv');
@@ -395,11 +402,12 @@ test('la carta no lleva constantes de negocio: cambiar la tabla de división o l
   const d = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: otrasEtiquetas });
   assert.equal(d.laterales.find((n) => n.pv === 1).etiqueta, 'pedido');
   assert.equal(d.centro.campos.find((f) => f.pv === 1).etiqueta, 'pedido');
-  // Otro paso de paginación y otros tamaños: el bloque y la tarjeta piden lo que dice la época.
-  const otroPaso = epocaCon((e) => { e[8][3][3][1] = [3]; e[9][5][2][1][2] = [2]; });
+  // Otro paso de paginación: las filas abiertas y el hilo piden lo que dice la época.
+  const otroPaso = epocaCon((e) => { e[8][3][3][1] = [3]; });
   const f = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.tarjeta, 2: NIVEL.bloque } }, eje, 'huesped', MOVIL, { epoca: otroPaso });
-  assert.equal(f.laterales.find((n) => n.pv === 1).ocupantes.cuantos, 2);
+  assert.equal(f.laterales.find((n) => n.pv === 1).ocupantes.cuantos, 3);
   assert.equal(f.laterales.find((n) => n.pv === 2).ocupantes.cuantos, 3);
+  assert.equal(f.secuencia.futuro.ocupantes.cuantos, 3);
   // Otro rol por defecto de la ciudad en una copia de la cabecera (epoch.9.7.0.4): el personaje del PV 1 cambia de rol.
   await animadoConIkisai(eje);
   const otroRol = epocaCon((e) => { e[9][7][0][4][1][2][0] = [[1], ['comprador']]; });
@@ -480,8 +488,9 @@ test('los colores de los PV son datos de la época (epoch.9.5.4): la carta los l
 
 test('cada ocupante que es una referencia lleva el data-pv del dígito de su posición en su padre, a cualquier profundidad (1 → 4 → 2…); el foco es el 0 y su reverso el 5', async () => {
   const c = await ejemploTarea();
-  const niveles = Object.fromEntries(LATERALES.map((pv) => [pv, NIVEL.bloque]));
-  const a = await arbol({ foco: { X: c.tarea.id, pv: 0 }, niveles, anidar: 4 }, c.eje, 'huesped', MOVIL);
+  // En Mapped, cada PV en el primer paso con espacio (la tarjeta: la lista de sus ocupantes con sus anidados).
+  const niveles = Object.fromEntries(LATERALES.map((pv) => [pv, escalaDeTamanos().conEspacio]));
+  const a = await arbol({ foco: { X: c.tarea.id, pv: 0 }, niveles, anidar: 4 }, c.eje, 'huesped', ORDENADOR);
   // El árbol: cada referencia anidada trae el dígito del grupo que la contiene; se reúnen las cadenas.
   const cadenas = [];
   const refs = [];
@@ -492,7 +501,7 @@ test('cada ocupante que es una referencia lleva el data-pv del dígito de su pos
     refs.push(o.pv);
     for (const g of o.anidados) for (const x of g.lista) { if (x.tipo === 'referencia') assert.equal(x.pv, g.pv, 'una referencia lleva el dígito de su grupo'); recorrer(x, aqui); }
   };
-  for (const n of a.laterales) for (const o of n.ocupantes?.lista ?? []) { assert.equal(o.pv, n.pv, 'en un bloque, el ocupante ocupa el PV del bloque'); recorrer(o, []); }
+  for (const n of a.laterales) for (const o of n.ocupantes?.lista ?? []) { assert.equal(o.pv, n.pv, 'en su PV, el ocupante ocupa el PV que lo lista'); recorrer(o, []); }
   const larga = cadenas.reduce((m, x) => (x.length > m.length ? x : m), []);
   assert.ok(larga.length >= 3, 'hay un anidamiento de al menos tres niveles: ' + larga.join('→'));
   // El HTML: cada referencia pintada lleva su data-pv (cuenta por dígito igual que el árbol), también las anidadas.
@@ -510,18 +519,141 @@ test('cada ocupante que es una referencia lleva el data-pv del dígito de su pos
   assert.doesNotMatch(h, /#[0-9a-fA-F]{6}/);
 });
 
-test('los rosetones salen también apilados (el móvil): dos tiras, arriba el tetraedro de la X con su centro (1 2 0 3 4) y abajo la cruz con el suyo (6 7 5 8 9); en la matriz (Mapped), cada uno en su esquina o lateral (test/carta-mapped.test.js)', async () => {
+// ---------- Sequenced: el móvil en vertical (VG, 11-11: «el hilo es el scroll, la tarjeta es un acordeón») ----------
+
+const trozoDe = (h, inicio, fin) => { const i = h.indexOf(inicio); return i < 0 ? '' : h.slice(i, fin ? h.indexOf(fin, i) : undefined); };
+
+test('Sequenced: el árbol apilado trae las diez filas con su PV, cerradas por defecto, en el orden de sus dígitos; las del hilo no se abren', async () => {
   const { eje, compra: X } = await compra();
-  const m = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL));
-  assert.deepEqual(pvsDe(nav(m, 'rosetones-arriba')), [1, 2, 0, 3, 4]);
-  assert.deepEqual(pvsDe(nav(m, 'rosetones-abajo')), [6, 7, 5, 8, 9]);
-  assert.ok(m.indexOf('rosetones-arriba') < m.indexOf('class="escena"') && m.indexOf('class="escena"') < m.indexOf('rosetones-abajo'), 'arriba y abajo de la escena, no al final de la página');
-  assert.doesNotMatch(m, /rosetones-barra/);
-  const g = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR));
-  assert.deepEqual(pvsDe(nav(g, 'rosetones-mapa')), [1, 2, 0, 3, 4, 6, 7, 5, 8, 9]);
-  assert.doesNotMatch(g, /rosetones-arriba|rosetones-abajo|rosetones-barra/);
-  // Crecen un paso al tocarlos (estado.rosetones) también apilados, y el 0 y el 5 llevan lo suyo.
-  const t = await arbol({ foco: { X: X.id, pv: 0 }, rosetones: { 5: NIVEL.tarjeta } }, eje, 'huesped', MOVIL);
-  assert.equal(t.rosetones.find((r) => r.pv === 5).nivel, NIVEL.tarjeta);
-  assert.match(nav(html(t), 'rosetones-abajo'), /roseton[^"]* nivel-2"[^>]*data-roseton="5"/);
+  const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
+  assert.deepEqual(a.secuencia.filas.map((f) => f.pv), [...a.pvs].sort((p, q) => p - q));
+  assert.deepEqual(a.secuencia.filas.map((f) => f.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  for (const f of a.secuencia.filas) {
+    assert.equal(f.etiqueta, C.etiqueta(eje, X.id, f.pv), 'la etiqueta del ' + f.pv);
+    assert.equal(f.total, C.ocupantes(eje, X.id, f.pv).total);
+    assert.equal(f.abierta, false, 'cerrada por defecto: ' + f.pv);
+    if (f.hilo) assert.equal(f.nodo, null);
+    else assert.equal(f.nodo.nivel, NIVEL.comprimido);
+  }
+  assert.deepEqual(a.secuencia.filas.filter((f) => f.hilo).map((f) => [f.pv, f.hilo]), [[6, 'antes'], [7, 'despues']]);
+  // Abrir una que es del hilo no la abre: el 6 y el 7 llevan al pasado y al futuro.
+  const b = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 6: NIVEL.bloque, 7: NIVEL.bloque } }, eje, 'huesped', MOVIL);
+  assert.ok(b.secuencia.filas.filter((f) => f.hilo).every((f) => !f.abierta));
+  // El HTML: la tarjeta con sus filas (cada cabeza abre la suya, data-fila) y el campo de cada PV; sin contenido abierto.
+  const h = html(a);
+  const filas = trozoDe(h, '<ol class="filas">', '</ol>');
+  assert.deepEqual([...filas.matchAll(/data-fila="(\d)"/g)].map((m) => Number(m[1])), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  assert.match(filas, /data-fila="1" data-x="[^"]+" aria-expanded="false"/);
+  assert.match(filas, /data-fila="6" data-x="[^"]+" data-hilo="antes"/);
+  assert.match(filas, /data-campo="1"/);
+  assert.doesNotMatch(h, /class="fila-contenido"/);
+  // Otra época sin la cruz: menos filas, sin hilo.
+  const sinCruz = epocaCon((e) => { e[8][3][1].find((f) => f[0][0] === 10)[1] = [1, 2, 3, 4, 0, 5]; });
+  const c = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: sinCruz });
+  assert.deepEqual(c.secuencia.filas.map((f) => f.pv), [0, 1, 2, 3, 4, 5]);
+  assert.deepEqual([c.secuencia.pasado, c.secuencia.futuro], [null, null]);
+});
+
+test('Sequenced: abrir una fila (NIVEL.bloque) trae debajo el segundo nivel del PV, con la regla del vacío; nunca la lista cruda con ∅', async () => {
+  const { eje, alta } = await compra();
+  // Un foco con 1-8 vacíos (el alta del fin de semana, de la casa): lo que se ve son los hijos con su nombre y «escribir aquí».
+  const abiertas = { 0: NIVEL.bloque, 1: NIVEL.bloque, 2: NIVEL.bloque, 3: NIVEL.bloque, 4: NIVEL.bloque, 5: NIVEL.bloque, 8: NIVEL.bloque, 9: NIVEL.bloque };
+  const a = await arbol({ foco: { X: alta.id, pv: 0 }, niveles: abiertas }, eje, 'casa', MOVIL);
+  const fila = (pv) => a.secuencia.filas.find((f) => f.pv === pv);
+  for (const pv of [1, 2, 3, 4, 8, 9]) {
+    const n = fila(pv).nodo;
+    assert.equal(fila(pv).abierta, true);
+    assert.equal(n.nivel, NIVEL.bloque);
+    assert.equal(n.rejilla.forma, C.divisionDelMundo(eje, pv).forma, 'la forma del mundo del ' + pv);
+  }
+  // La cruceta del 1: los cuatro hijos en una columna (no caben a lo ancho) y la tarjeta del elemento pulsado.
+  const uno = fila(1).nodo.rejilla;
+  assert.equal(uno.enColumna, true);
+  assert.ok(uno.flotante && uno.flotante.X === alta.id);
+  assert.ok(uno.celdas.some((c) => c.vacio && c.escribir?.nombre), 'un hijo vacío con su paso del camino');
+  // El 8 y el 9: las diez cajas nivel.grado (la cuota y el camino).
+  assert.equal(fila(8).nodo.rejilla.bandas.length, 10);
+  assert.equal(fila(9).nodo.rejilla.camino, true);
+  // El 5 (sin división de mundo) y vacío: la regla del vacío, no la lista.
+  assert.equal(fila(5).nodo.rejilla ?? null, null);
+  assert.equal(fila(5).nodo.vacio, true);
+  const h = html(a);
+  const dentro = [...h.matchAll(/<div class="fila-contenido"[^>]*>/g)].length;
+  assert.equal(dentro, 8);
+  assert.match(h, /escribir aquí · /);
+  assert.match(h, /class="rejilla rejilla-apilada en-columna" data-rejilla="1" data-forma="cruceta"/);
+  assert.match(trozoDe(h, 'data-rejilla="1"'), /^[^]*?<div class="centro-flotante"[^]*?<div class="rejilla-celdas rejilla-cruceta" style="--columnas:1;/, 'la tarjeta del pulsado, arriba de los hijos');
+  assert.doesNotMatch(trozoDe(h, '<ol class="filas">'), /class="nada">∅/, 'sin la lista cruda vacía');
+  // El 9 abierto: las posiciones, el camino y la guía (solo lectura) dentro de la fila.
+  const nueve = trozoDe(h, 'id="fila-9-contenido"', '</li>');
+  assert.match(nueve, /data-forma="camino"/);
+  assert.match(nueve, /<section class="camino"/);
+  assert.doesNotMatch(h, /undefined|\[object Object\]/);
+  // Entrar en un hijo (estado.profundidad) y subir, como en Mapped.
+  const { eje: e2, compra: X } = await compra();
+  const r1 = (await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque } }, e2, 'huesped', MOVIL)).secuencia.filas.find((f) => f.pv === 1).nodo.rejilla;
+  const hijo = r1.celdas.flatMap((c) => c.ocupantes).find((o) => o.entra);
+  assert.ok(hijo, 'algo en lo que entrar en el 1');
+  const b = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque }, profundidad: { 1: [hijo.X] } }, e2, 'huesped', MOVIL);
+  const r2 = b.secuencia.filas.find((f) => f.pv === 1).nodo.rejilla;
+  assert.deepEqual([r2.nivel, r2.X], [2, hijo.X]);
+  assert.match(html(b), /data-subir="1"/);
+  assert.match(html(await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque } }, e2, 'huesped', MOVIL)), new RegExp(`data-celda="${hijo.X}"`));
+});
+
+test('Sequenced: el pasado encima de la tarjeta y el futuro debajo, por páginas con el paso de la configuración («cargar más»)', async () => {
+  const { eje, compra: X } = await compra();
+  // Tres escritos en el 6 y tres en el 7 de la compra.
+  for (const [en, n] of [['6000000000', 3], ['7000000000', 3]]) for (let i = 0; i < n; i++) await eje.escribir({ autor: 'huesped', sobre: X.id, en, t: T1, movimientos: [minuto('huesped')], payload: ['nota ' + en[0] + '.' + i] });
+  const paso1 = epocaCon((e) => { e[8][3][3][1] = [1]; });
+  const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: paso1 });
+  const { pasado, futuro } = a.secuencia;
+  assert.deepEqual([pasado.pv, pasado.hilo, futuro.pv, futuro.hilo], [6, 'antes', 7, 'despues']);
+  assert.equal(pasado.ocupantes.total, 3);
+  assert.equal(pasado.ocupantes.lista.length, 1, 'una página: el paso de la época');
+  assert.equal(futuro.ocupantes.lista.length, 1);
+  assert.ok(pasado.cargarMas && futuro.cargarMas);
+  assert.equal(futuro.faltan, 2);
+  // Una página más (estado.paginas, lo que hace «cargar más»).
+  const b = await arbol({ foco: { X: X.id, pv: 0 }, paginas: { 6: 2, 7: 3 } }, eje, 'huesped', MOVIL, { epoca: paso1 });
+  assert.equal(b.secuencia.pasado.ocupantes.lista.length, 2);
+  assert.equal(b.secuencia.futuro.ocupantes.lista.length, 3);
+  assert.equal(b.secuencia.futuro.cargarMas, false);
+  // El HTML: el pasado, la tarjeta y el futuro, en ese orden; «cargar más» arriba del pasado y abajo del futuro.
+  const h = html(a);
+  const sec = trozoDe(h, '<div class="secuencia"');
+  const [p, n, f] = [sec.indexOf('data-hilo-zona="6"'), sec.indexOf('class="nucleo anverso'), sec.indexOf('data-hilo-zona="7"')];
+  assert.ok(p > 0 && p < n && n < f, 'pasado, tarjeta, futuro');
+  const zonaP = trozoDe(sec, 'data-hilo-zona="6"', '</section>');
+  assert.ok(zonaP.indexOf('data-cargar-mas="6"') < zonaP.indexOf('class="pv-cabeza hilo-cabeza"'), 'en el pasado, cargar más arriba y la cabeza junto a la tarjeta');
+  const zonaF = trozoDe(sec, 'data-hilo-zona="7"', '</section>');
+  assert.ok(zonaF.indexOf('class="pv-cabeza hilo-cabeza"') < zonaF.indexOf('data-cargar-mas="7"'), 'en el futuro, la cabeza junto a la tarjeta y cargar más abajo');
+});
+
+test('Sequenced: sin rosetones ni franja de comprimidos; la fila fija de los diez dígitos; la barra en una línea con «menú»; Mapped no cambia', async () => {
+  const { eje, compra: X } = await compra();
+  const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
+  const m = html(a, { ejemplos: [{ id: 'compra', etiqueta: 'la compra' }], ejemplo: 'compra' });
+  assert.deepEqual(a.rosetones, []);
+  assert.doesNotMatch(m, /class="rosetones|data-roseton=/);
+  assert.doesNotMatch(m, /class="franja|data-franja|class="comprimido"/);
+  // Los dígitos: los diez, en su orden y su color.
+  assert.deepEqual(a.secuencia.digitos.map((d) => d.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  const digitos = trozoDe(m, '<nav class="digitos"', '</nav>');
+  assert.deepEqual([...digitos.matchAll(/data-digito="(\d)" data-color="(\d)"/g)].map((x) => [Number(x[1]), Number(x[2])]), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => [d, d]));
+  // La barra: quién soy, el interruptor y «menú» en una línea; lo demás dentro del menú, oculto hasta abrirlo.
+  const barra = trozoDe(m, '<header class="barra barra-compacta"', '</header>');
+  const linea = trozoDe(barra, '<div class="barra-linea">', '<div class="barra-menu"');
+  assert.match(linea, /data-quien/);
+  assert.match(linea, /class="interruptor"/);
+  assert.match(linea, /data-menu aria-expanded="false"/);
+  assert.doesNotMatch(linea, /data-ejemplo|data-config|data-reiniciar/);
+  assert.match(barra, /<div class="barra-menu" id="barra-menu" hidden>[^]*data-ejemplo[^]*data-config[^]*data-reiniciar/);
+  assert.match(html(a, { menu: true }), /data-menu aria-expanded="true"[^]*<div class="barra-menu" id="barra-menu">/);
+  // Mapped: ni la secuencia ni los dígitos ni el menú; sus rosetones en su sitio.
+  const b = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(b.secuencia, undefined);
+  const g = html(b);
+  assert.doesNotMatch(g, /class="digitos"|data-menu|class="secuencia"|class="filas"/);
+  assert.match(g, /<nav class="rosetones rosetones-mapa"/);
 });

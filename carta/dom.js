@@ -272,6 +272,23 @@ function htmlMatriz(r) {
   return `<div class="rejilla-celdas rejilla-matriz" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>`;
 }
 
+/**
+ * La matriz del 4 cuando no cabe a lo ancho (Sequenced): las celdas con algo, una debajo de otra, cada una con sus dos
+ * ejes (el tipo de interacción y la posición que modifica) y su estado; sin ninguna, el paso del camino que la llenaría.
+ */
+function htmlMatrizEnColumna(r) {
+  const ejes = r.ejes ?? { columnas: [], filas: [] };
+  const llenas = r.celdas.filter((c) => c.ocupante);
+  if (!llenas.length) return `<div class="rejilla-celdas rejilla-matriz-columna vacia">${htmlEscribir(r.escribir, t('vacia'))}</div>`;
+  const celda = (c) => {
+    const col = ejes.columnas[c.columna];
+    const fila = ejes.filas[c.fila];
+    const nombre = [col ? `${col.pv} ${col.etiqueta ?? ''}` : '', fila ? `${fila.digito} ${fila.nombre ?? ''}` : ''].filter(Boolean).join(' · ');
+    return `<div class="rejilla-celda hijo estacion${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><header class="hijo-cabeza"><span class="hijo-nombre">${escapar(nombre)}</span><span class="hijo-cifra">${c.estado ? escapar(t(c.estado === 'ejecutada' ? 'estadoEjecutada' : 'estadoPropuesta')) : ''}</span></header><div class="hijo-cuerpo">${htmlOcupanteDeCelda(c.ocupante)}</div></div>`;
+  };
+  return `<div class="rejilla-celdas rejilla-matriz-columna" style="--columnas:1;--filas:${llenas.length}">${llenas.map(celda).join('')}</div>`;
+}
+
 /** Una cuenta ensartada en un hilo (un ocupante o una entrada del diario): la bola con el color del hilo, la fecha y el nombre; los dos, también en el title. */
 function htmlCuenta(o) {
   const cuando = o.t ? fecha(o.t) : '';
@@ -354,23 +371,24 @@ function htmlBandaDeRejilla(b) {
  * se divide) y cada hijo la clase `hijo`: a ellos se aplican los dos estilos del registro (htmlEstilos); los huecos
  * entre hijos salen de `--hueco`. En un bloque, la misma rejilla sin cabecera, sin tarjeta flotante y sin la guía.
  */
-function htmlRejilla(r, { completa = false, arbol = null } = {}) {
+function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}) {
   if (!r) return '';
-  const cabeza = completa && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
+  const cabeza = (completa || apilada) && r.niveles > 1 ? `<div class="rejilla-cabeza"><span class="nivel-rejilla">${escapar(t('rejillaNivel', { nivel: r.nivel, niveles: r.niveles }))}</span>${r.texto ? `<span class="ruta-rejilla">${escapar(r.texto)}</span>` : ''}${r.ruta.length ? `<button type="button" class="subir"${nodo('control')} data-subir="${r.pv}" title="${attr(t('subirTitulo'))}">↑ ${t('subir')}</button>` : ''}</div>` : '';
   const sin = r.sinBanda?.length ? `<div class="rejilla-sin" title="${attr(t('sinBandaTitulo'))}">${r.sinBanda.map(htmlElementoDeBanda).join('')}</div>` : '';
   let cuerpo;
   if (r.forma === 'franjas' && r.bandas) cuerpo = htmlFranjas(r) + sin;
   else if (r.forma === 'cielo' && r.bandas) cuerpo = htmlCielo(r) + sin;
   else if (r.forma === 'camino' && r.bandas) cuerpo = htmlCaminoDeRejilla(r, completa ? arbol : null);
-  else if (r.forma === 'matriz' && r.celdas) cuerpo = htmlMatriz(r);
+  else if (r.forma === 'matriz' && r.celdas) cuerpo = apilada && r.enColumna ? htmlMatrizEnColumna(r) : htmlMatriz(r);
   else if (r.bandas) cuerpo = `<div class="rejilla-bandas" style="--filas:${r.bandas.length}">${r.bandas.map(htmlBandaDeRejilla).join('')}</div>${sin}`;
+  else if (apilada) cuerpo = `${htmlFlotante(r.flotante)}<div class="rejilla-celdas rejilla-${attr(r.forma ?? '')}" style="--columnas:${r.enColumna ? 1 : r.columnas};--filas:${r.enColumna ? r.celdas.length : r.filas}">${r.celdas.map((c) => htmlCeldaDeRejilla(c, r.forma)).join('')}</div>`; // Sequenced: la tarjeta del elemento pulsado arriba, sin flotar
   else cuerpo = `<div class="rejilla-celdas rejilla-${attr(r.forma ?? '')}" style="--columnas:${r.columnas};--filas:${r.filas}">${r.celdas.map((c) => htmlCeldaDeRejilla(c, r.forma)).join('')}${completa ? htmlFlotante(r.flotante, r.capas?.etapa) : ''}</div>`;
   const paginas = r.pagina && r.pagina.de > 1 ? `<ul class="ocupantes rejilla-paginas">${htmlPagina(r.pagina, r.pv)}</ul>` : '';
   // En animado y a pantalla completa, las capas (r.capas): el fondo del mundo debajo de todo; encima, el personaje en el hueco, lo nuevo sin hijo y el marco.
   const k = completa ? r.capas : null;
   const debajo = k ? capaPieza(k.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
   const encima = k ? htmlPersonajeCapa(k, r) + htmlEfectosCapa(k.efectos, 'capa-efectos-centro') + htmlMarcoCapa(k.marco) : '';
-  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}${apilada ? ' rejilla-apilada' : ''}${apilada && r.enColumna ? ' en-columna' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
@@ -463,8 +481,12 @@ export function htmlGuia(g) {
   </section>`;
 }
 
-/** Un PV lateral en su nivel: comprimido (un dato), tarjeta (etiqueta y lo que cabe), bloque (la lista o la matriz). */
-function htmlLateral(n, arbol) {
+/**
+ * Un PV lateral en su nivel: comprimido (un dato), tarjeta (etiqueta y lo que cabe), bloque (la lista o la matriz). En una
+ * fila abierta de Sequenced (`enFila`), el bloque sin su cabeza (la lleva la fila) y con la rejilla apilada; sin rejilla
+ * ni ocupantes, la regla del vacío («escribir aquí · acción»).
+ */
+function htmlLateral(n, arbol, { enFila = false } = {}) {
   const clases = ['pv', `pv-${n.pv}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `fila-${n.fila ?? ''}`, `nivel-${n.nivel}`].join(' ');
   if (n.nivel === NIVEL.oculto) return `<div class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel] })} data-pv="${n.pv}" data-x="${n.X}" hidden></div>`;
   // En comprimido, la etapa en sello (si el modelo la trae) o el elemento; en tarjeta y bloque, el escenario entero.
@@ -478,7 +500,8 @@ function htmlLateral(n, arbol) {
   else {
     const camino = n.grupo === 'cruz' && n.fila === 'abajo' ? htmlCamino(arbol.camino, { X: n.X }) + (arbol.centro?.pv !== n.pv && (arbol.apilada || n.nivel >= NIVEL.bloque) ? htmlGuia(arbol.guia) : '') : '';
     const escenario = htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
-    cuerpo = cabeza + escenario + (n.rejilla ? htmlRejilla(n.rejilla) : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion })) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
+    const lista = n.vacio ? `<p class="vacio-pv">${htmlEscribir(n.escribir)}</p>` : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion });
+    cuerpo = (enFila ? '' : cabeza) + escenario + (n.rejilla ? htmlRejilla(n.rejilla, { apilada: enFila }) : lista) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + marco;
   }
   return `<section class="${clases}"${nodo('pv', { tam: n.pasoDeTamano?.nombre ?? NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
@@ -487,6 +510,52 @@ function htmlLateral(n, arbol) {
 /** Los campos del anverso: cada PV lateral con su etiqueta y un input (editar escribe un ocupante nuevo, nunca en sitio). */
 function htmlCampos(campos, X) {
   return `<dl class="campos">${campos.map((c) => `<div class="campo campo-${c.pv}"${nodo('campo', { d: c.pv })}><dt><label for="campo-${c.pv}" title="${attr(c.ayuda ?? '')}">${escapar(c.etiqueta)}${c.total > 1 ? ` <small>· ${c.total}</small>` : ''}</label></dt><dd><input id="campo-${c.pv}" class="campo-input" data-campo="${c.pv}" data-x="${X}" value="${attr(c.valor)}" placeholder="${attr((c.marcador ?? []).join(' · '))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></dd></div>`).join('')}</dl>`;
+}
+
+/**
+ * Sequenced: las filas de la tarjeta del foco, una por PV en el orden de sus dígitos. Cada una, su cabeza (el número, la
+ * etiqueta, cuántos tiene y su medida) que la abre o la cierra (data-fila) y su campo para escribir; abierta, debajo, el
+ * segundo nivel del PV (htmlLateral en bloque). Las del hilo (el pasado y el futuro) no se abren: llevan a su zona.
+ */
+function htmlFilas(arbol, c) {
+  const fila = (f) => {
+    const campo = c.campos.find((x) => x.pv === f.pv);
+    const etiqueta = escapar(f.etiqueta ?? '');
+    const input = f.pv === c.pv
+      ? `<input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">`
+      : campo ? `<input class="campo-input" data-campo="${f.pv}" data-x="${c.X}" value="${attr(campo.valor)}" placeholder="${attr((campo.marcador ?? []).join(' · '))}" title="${attr(campo.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">` : '';
+    const marca = f.hilo ? (f.hilo === 'antes' ? '↑' : '↓') : f.abierta ? '▾' : '▸';
+    const titulo = f.hilo ? t(f.hilo === 'antes' ? 'irAlPasado' : 'irAlFuturo') : t(f.abierta ? 'filaCerrar' : 'filaAbrir', { que: f.etiqueta ?? '' });
+    const cabeza = `<button type="button" class="fila-cabeza"${nodo('control')} data-fila="${f.pv}" data-x="${c.X}"${f.hilo ? ` data-hilo="${attr(f.hilo)}"` : ` aria-expanded="${f.abierta}" aria-controls="fila-${f.pv}-contenido"`} title="${attr(titulo)}"><span class="numero">${f.pv}</span><span class="etiqueta">${etiqueta}${f.total ? ` <small>· ${escapar(f.total)}</small>` : ''}</span>${f.medida?.propio ? htmlMedida(f.medida) : ''}<span class="fila-marca" aria-hidden="true">${marca}</span></button>`;
+    const contenido = f.abierta && f.nodo ? `<div class="fila-contenido" id="fila-${f.pv}-contenido">${htmlLateral(f.nodo, arbol, { enFila: true })}</div>` : '';
+    return `<li class="fila${f.abierta ? ' abierta' : ''}${f.hilo ? ' fila-hilo' : ''}"${nodo('campo', { d: f.pv })} data-color="${f.pv}" data-fila-pv="${f.pv}">${cabeza}${input}${contenido}</li>`;
+  };
+  return `<ol class="filas">${arbol.secuencia.filas.map(fila).join('')}</ol>`;
+}
+
+/**
+ * Sequenced: una zona del hilo, encima (el pasado) o debajo (el futuro) de la tarjeta: lo que pinta su PV en bloque (sus
+ * ocupantes y, en el pasado, el diario de lo llegado y las opiniones) como tarjetas apiladas desde la del foco hacia
+ * fuera; «cargar más» en el extremo, por páginas (el paso de la configuración). Vacía, la regla del vacío.
+ */
+function htmlHilo(n) {
+  if (!n) return '';
+  const pasado = n.hilo === 'antes';
+  const entrada = (e) => `<li class="hilo-carta hilo-entrada"><time datetime="${attr(e.t)}">${escapar(fecha(e.t))}</time> · <b>${escapar(e.autor)}</b> · <button type="button" class="enlace" data-abrir="${attr(e.id)}">${corto(e.id)}</button><small>${escapar(e.movimientos.join(', '))}</small></li>`;
+  const cartas = [...(n.ocupantes?.lista ?? []).map((o) => `<li class="hilo-carta">${htmlOcupante(o)}</li>`), ...(n.diario?.entradas ?? []).map(entrada)];
+  const vacio = cartas.length ? '' : `<li class="hilo-vacio">${htmlEscribir(n.escribir)}</li>`;
+  const mas = n.cargarMas ? `<li class="cargar-mas"><button type="button"${nodo('control')} data-cargar-mas="${n.pv}">${escapar(t('cargarMas', { cuantos: n.faltan }))}</button></li>` : '';
+  const total = (n.ocupantes?.total ?? 0) + (n.diario?.total ?? 0);
+  const cabeza = `<header class="pv-cabeza hilo-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}</span><small>${escapar(t(pasado ? 'hiloPasado' : 'hiloFuturo', { n: total }))}</small></header>`;
+  const lista = `<ol class="hilo-cartas">${pasado ? mas + [...cartas].reverse().join('') + vacio : vacio + cartas.join('') + mas}</ol>`;
+  const clases = ['pv', `pv-${n.pv}`, 'zona-hilo', `zona-${n.hilo}`, `grupo-${n.grupo}`, `lado-${n.lado ?? ''}`, `nivel-${n.nivel}`].join(' ');
+  return `<section class="${clases}"${nodo('pv', { tam: NOMBRE_NIVEL[n.nivel] })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" data-hilo-zona="${n.pv}" aria-label="${attr(n.etiqueta)}">${pasado ? htmlOpiniones(n.opiniones) + lista + cabeza : cabeza + lista}</section>`;
+}
+
+/** Sequenced: la fila fina y fija de abajo con los diez dígitos en su color; tocar uno lleva a su fila y la abre (los del hilo, a su zona). */
+function htmlDigitos(s) {
+  if (!s?.digitos?.length) return '';
+  return `<nav class="digitos"${nodo('control')} aria-label="${attr(t('digitosTitulo'))}">${s.digitos.map((d) => `<button type="button" class="digito" data-digito="${d.pv}" data-color="${d.pv}" title="${attr(d.pv + ' · ' + (d.etiqueta ?? ''))}" aria-label="${attr(d.pv + ' · ' + (d.etiqueta ?? ''))}">${d.pv}</button>`).join('')}</nav>`;
 }
 
 /** El centro: el anverso (0), el reverso (5) o un PV abierto como foco. */
@@ -503,8 +572,8 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       ${puntos}
       <h1 class="representacion">${htmlRepresentacion(c.representacion)}${efectos}</h1>
-      <label class="campo campo-0"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
-      ${htmlCampos(c.campos, c.X)}
+      ${arbol.secuencia ? htmlFilas(arbol, c) : `<label class="campo campo-0"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
+      ${htmlCampos(c.campos, c.X)}`}
       ${leido}${marco}
     </section>`;
   }
@@ -691,7 +760,7 @@ function htmlInterruptor(i) {
   return `<span class="interruptor"${nodo('control')} role="group" aria-label="${attr(i.etiqueta)}" title="${attr(i.etiqueta)}">${botones}</span>`;
 }
 
-function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null } = {}) {
+function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null, menu = false } = {}) {
   const quien = htmlSoy(arbol, { cuentas, cuenta });
   const ej = !cuenta && ejemplos.length ? `<label class="ajuste"${nodo('control')}>${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
   const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
@@ -699,6 +768,12 @@ function htmlBarra(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuenta
   const propios = cuenta
     ? `<button type="button"${nodo('control')} data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button"${nodo('control')} data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`
     : `<button type="button"${nodo('control')} data-reiniciar title="${attr(t('reiniciarTitulo'))}">${t('reiniciar')}</button>`;
+  const config = `<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>`;
+  if (arbol.apilada) {
+    // Sequenced: una línea (quién soy, sobrio o animado, «menú»); lo demás, debajo, al abrir el menú.
+    const linea = `<div class="barra-linea">${quien}${(arbol.interruptores ?? []).map(htmlInterruptor).join('')}<button type="button" class="menu-boton"${nodo('control')} data-menu aria-expanded="${Boolean(menu)}" aria-controls="barra-menu" title="${attr(t('menuTitulo'))}">${t('menu')}</button></div>`;
+    return `<header class="barra barra-compacta"${nodo('barra')}>${linea}<div class="barra-menu" id="barra-menu"${menu ? '' : ' hidden'}>${ej}${local}${config}${propios}${htmlOpinar(opinar)}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</div></header>`;
+  }
   return `<header class="barra"${nodo('barra')}>${quien}${ej}${local}${(arbol.interruptores ?? []).map(htmlInterruptor).join('')}<button type="button"${nodo('control')} data-config title="${attr(t('configuracionTitulo'))}">${t('configuracion')}</button>${propios}${htmlOpinar(opinar)}<small class="guardado">${escapar(guardado)}</small>${htmlSincronia(sincronia)}</header>`;
 }
 
@@ -789,8 +864,12 @@ export function html(arbol, extra = {}) {
   const cruz = a.laterales.filter((n) => n.grupo === 'cruz').sort((p, q) => ordenCruz(p) - ordenCruz(q)).map((n) => n.pv);
   const x = LATERALES.filter((pv) => a.laterales.find((n) => n.pv === pv)?.grupo === 'x');
   const avisos = [...(a.avisos ?? []), ...(extra.aviso ? [extra.aviso] : [])];
+  // Sequenced (el móvil en vertical): una columna, el pasado encima de la tarjeta del foco y el futuro debajo (sin
+  // árbol de la secuencia, las franjas de antes).
   const escena = a.apilada
-    ? `<div class="franja franja-cruz" data-franja="cruz">${cruz.map(de).join('')}</div>${htmlCentro(a.centro, a, extra)}<div class="franja franja-x" data-franja="x">${x.map(de).join('')}</div>`
+    ? (a.secuencia
+      ? `<div class="secuencia" data-secuencia>${htmlHilo(a.secuencia.pasado)}<div class="secuencia-ahora">${htmlCentro(a.centro, a, extra)}${htmlHilo(a.secuencia.futuro)}</div></div>`
+      : `<div class="franja franja-cruz" data-franja="cruz">${cruz.map(de).join('')}</div>${htmlCentro(a.centro, a, extra)}<div class="franja franja-x" data-franja="x">${x.map(de).join('')}</div>`)
     : htmlMapa(a, extra, laterales);
   const estilos = htmlEstilos(a);
   return `<div class="${clase}"${nodo('carta', { modo: a.apilada ? 'apilada' : 'matriz', render: a.animado ? 'animado' : 'sobrio', ancho: a.medidas?.ancho, alto: a.medidas?.alto, x0: a.centro?.representacion?.texto ?? '' })} data-x="${a.X}" data-disposicion="${attr(a.disposicion)}" data-animaciones="${Number(a.limite) || 0}">
@@ -801,6 +880,7 @@ export function html(arbol, extra = {}) {
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'arriba' })}
     <div class="escena">${escena}</div>
     ${htmlRosetones(a.rosetones, { apilada: a.apilada, parte: 'abajo' })}
+    ${a.apilada ? htmlDigitos(a.secuencia) : ''}
     ${htmlAro(a.aro)}
     ${htmlFormulario(a.formulario)}
     ${extra.preferencias ? htmlConfiguracion(extra.preferencias, { motivos: extra.motivosPreferencias, claveLectura: extra.claveLectura, guia: extra.guiaAjustes }) : ''}

@@ -45,6 +45,8 @@ const estado = {
   eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, recientes: [], paginas: {}, profundidad: {}, aro: null, formulario: null,
   rosetones: {}, local: null, leido: leidoAbierto(), aviso: '', exito: '', guardado: '', config: false, motivosPreferencias: [],
   vistos: new Set(), nuevos: new Set(), hermanos: null,
+  // Sequenced (el móvil en vertical): si el menú de la barra de una línea está abierto.
+  menu: false,
   // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
   // de arranque ({ modo, campos, valores, motivos, ocupado }) y el diálogo de la copia ({ archivo, minimo, motivos, hecho, ocupado }).
   cuenta: null, arranque: null, copia: null,
@@ -73,6 +75,10 @@ const medidas = () => {
 };
 /** ¿Está la carta en Mapped (la matriz del ordenador)? Lo dice el último árbol (la época decide por la forma de la pantalla). */
 const enMapped = () => Boolean(ultimo && !ultimo.vacio && !ultimo.apilada);
+/** ¿Está la carta en Sequenced con su columna (la tarjeta con sus filas y el hilo)? */
+const enSecuencia = () => Boolean(ultimo && !ultimo.vacio && ultimo.apilada && ultimo.secuencia);
+/** Sequenced: a qué fila o zona del hilo llevar la pantalla tras el próximo pintado (un dígito tocado), o null. */
+let irTrasPintar = null;
 /** El idioma de quien mira: su preferencia «language». */
 const idioma = () => contrato.configuracion(estado.eje, estado.identidad).language;
 /** La clave de localStorage del libro local de quien mira: por cuenta, o la de los ejemplos. */
@@ -205,7 +211,7 @@ function extraDe() {
     claveLectura: estado.cuenta && estado.config ? cuentas.claveLectura(estado.cuenta.alta) ?? '' : undefined, sincronia: estado.lineaSincronia,
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
-    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
+    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage), menu: estado.menu,
   };
 }
 
@@ -322,10 +328,14 @@ async function pintar() {
     const extra = extraDe();
     limpiarLottie();
     for (const [k, v] of Object.entries(variablesDeColor(a?.colores))) document.documentElement.style.setProperty(k, v);
+    // Sequenced: la tarjeta del foco se queda donde estaba al repintar (lo que crece encima, el pasado, no la mueve).
+    const antes = enSecuencia() ? raiz.querySelector('.secuencia-ahora > .nucleo')?.getBoundingClientRect().top ?? null : null;
+    const mismoFoco = ultimo?.X === a?.X;
     ultimo = a;
     document.documentElement.classList.toggle('mapped', enMapped());
     raiz.innerHTML = html(a, extra);
     situarAro();
+    if (enSecuencia()) colocarSecuencia(antes, mismoFoco);
     lineaPintada = htmlSincronia(extra.sincronia);
     limpiarLottie = a?.animado ? trasPintar(raiz) : () => {};
     // Lo nuevo se anima una vez: en cuanto se ha pintado con lottie-web, deja de ser nuevo (si lottie aún no está, el
@@ -342,6 +352,30 @@ async function pintar() {
     if (otra) pintar();
   });
   return marca.promesa;
+}
+
+/**
+ * Sequenced: el hilo es el scroll. Al llegar a un foco, la tarjeta arriba (bajo la barra) y el pasado encima, fuera de la
+ * pantalla; al repintar el mismo foco, la tarjeta donde estaba; tras tocar un dígito, su fila (o su zona del hilo) a la vista.
+ */
+function colocarSecuencia(antes, mismoFoco) {
+  const nucleo = raiz.querySelector('.secuencia-ahora > .nucleo');
+  if (!nucleo) return;
+  const barra = raiz.querySelector('.barra')?.offsetHeight ?? 0;
+  const ahora = nucleo.getBoundingClientRect().top;
+  if (antes !== null && mismoFoco) window.scrollBy({ top: ahora - antes, behavior: 'instant' });
+  else window.scrollTo({ top: Math.max(0, window.scrollY + ahora - barra), behavior: 'instant' });
+  const ir = irTrasPintar;
+  irTrasPintar = null;
+  if (ir === null) return;
+  const zona = raiz.querySelector(`[data-hilo-zona="${ir}"]`);
+  const fila = raiz.querySelector(`[data-fila-pv="${ir}"]`);
+  if (zona) zona.scrollIntoView({ block: zona.classList.contains('zona-antes') ? 'end' : 'start', behavior: 'smooth' });
+  else if (fila) {
+    const y = window.scrollY + fila.getBoundingClientRect().top - barra - 4;
+    window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+    fila.querySelector('[data-fila]')?.focus({ preventScroll: true });
+  }
 }
 
 function leerTexto(X) {
@@ -520,12 +554,47 @@ const manejadores = {
       pintar();
       return;
     }
+    if (enSecuencia()) {
+      // Sequenced: una fila cerrada se abre (bloque) y una abierta, con otro paso, entra en el PV; hacia abajo, se cierra.
+      const abierta = (estado.niveles[pv] ?? NIVEL.comprimido) >= NIVEL.tarjeta;
+      if (delta > 0 && abierta) { irA(X ?? estado.foco.X, pv); return; }
+      estado.niveles[pv] = delta > 0 ? NIVEL.bloque : NIVEL.comprimido;
+      limpiarMensajes();
+      tocar(X ?? estado.foco.X, 'fila ' + pv + ' ' + estado.niveles[pv]);
+      pintar();
+      return;
+    }
     const actual = estado.niveles[pv] ?? NIVEL.comprimido;
     const siguiente = actual + delta;
     if (siguiente > NIVEL.bloque) { irA(X ?? estado.foco.X, pv); return; } // el siguiente gesto no es un tamaño: entrar en el PV
     estado.niveles[pv] = Math.max(NIVEL.comprimido, siguiente);
     limpiarMensajes();
     tocar(X ?? estado.foco.X, 'nivel ' + pv + ' ' + estado.niveles[pv]);
+    pintar();
+  },
+  /** Sequenced: abrir o cerrar la fila de un PV (cerrada = comprimido, abierta = bloque); las del hilo llevan a su zona. */
+  fila(pv) {
+    if (ultimo?.secuencia?.filas?.find((f) => f.pv === pv)?.hilo) { manejadores.digito(pv); return; }
+    const abierta = (estado.niveles[pv] ?? NIVEL.comprimido) >= NIVEL.tarjeta;
+    estado.niveles[pv] = abierta ? NIVEL.comprimido : NIVEL.bloque;
+    if (abierta) { estado.profundidad[pv] = []; estado.paginas[pv] = 1; }
+    limpiarMensajes();
+    tocar(estado.foco.X, 'fila ' + pv + ' ' + estado.niveles[pv]);
+    pintar();
+  },
+  /** Sequenced: la fila de dígitos. Lleva a la fila de ese PV y la abre; los del hilo, al pasado o al futuro. */
+  digito(pv) {
+    const f = ultimo?.secuencia?.filas?.find((x) => x.pv === pv);
+    if (!f) return;
+    if (!f.hilo) estado.niveles[pv] = NIVEL.bloque;
+    if (estado.foco.pv !== CENTROS[0]) estado.foco.pv = CENTROS[0]; // las filas están en el anverso
+    irTrasPintar = pv;
+    tocar(estado.foco.X, 'dígito ' + pv);
+    pintar();
+  },
+  /** Sequenced: abrir o cerrar el menú de la barra de una línea. */
+  menu() {
+    estado.menu = !estado.menu;
     pintar();
   },
   /** Mapped: los puntitos del foco suben un paso todos los PV (hasta el 3×3); su mando, los baja. */
@@ -778,7 +847,7 @@ const manejadores = {
   hermano(delta, pv) {
     // Cambiar de PV (la franja) o de hermano: con un PV abierto, el siguiente lateral; en el centro, el hermano del foco.
     if (pv !== null && pv !== undefined) {
-      if (enMapped()) return; // en Mapped cada PV tiene su sitio: deslizar sobre uno no lo cambia por otro
+      if (enMapped() || enSecuencia()) return; // en Mapped y en la columna de Sequenced cada PV tiene su sitio: deslizar sobre uno no lo cambia por otro
       const i = LATERALES.indexOf(pv);
       const siguiente = LATERALES[(i + delta + LATERALES.length) % LATERALES.length];
       estado.niveles = { [siguiente]: Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.tarjeta) };
@@ -794,6 +863,7 @@ const manejadores = {
     if (otro && otro !== ev.id) irA(otro, 0);
   },
   saltar(pv) {
+    if (enSecuencia()) return manejadores.digito(pv); // las teclas 0-9, como la fila de dígitos
     if (CENTROS.includes(pv)) { estado.foco.pv = pv; pintar(); return; }
     estado.niveles[pv] = Math.max(NIVEL.tarjeta, estado.niveles[pv] ?? NIVEL.comprimido);
     pintar();

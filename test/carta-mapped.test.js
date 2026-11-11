@@ -222,7 +222,7 @@ test('la pantalla completa de un PV: solo ese PV (sin rosetones), flechas a sus 
   assert.match(h, /class="vecino fila-2 columna-1[^"]*"[^>]*data-foco-pv="9"/, 'el 9, abajo');
 });
 
-test('los rosetones en el ordenador: cada uno en su esquina o lateral (el 0 arriba y el 5 abajo, al centro), una sola vez; en el móvil, las dos tiras de siempre', async () => {
+test('los rosetones en el ordenador: cada uno en su esquina o lateral (el 0 arriba y el 5 abajo, al centro), una sola vez; en el móvil en vertical, ninguno (VG, 11-11: Sequenced)', async () => {
   const { eje, compra } = await ejemploCompra();
   for (const estado of [{}, ampliarTodos({}, 1), ampliarTodos(ampliarTodos({}, 1), 1)]) {
     const a = await arbol({ foco: { X: compra.id, pv: 0 }, ...estado }, eje, 'huesped', ORDENADOR);
@@ -239,7 +239,7 @@ test('los rosetones en el ordenador: cada uno en su esquina o lateral (el 0 arri
     assert.doesNotMatch(h, /rosetones-barra|rosetones-arriba|rosetones-abajo/);
   }
   const m = html(await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', MOVIL));
-  assert.match(m, /rosetones-arriba/);
+  assert.doesNotMatch(m, /rosetones-arriba|rosetones-abajo/);
   assert.doesNotMatch(m, /rosetones-mapa/);
 });
 

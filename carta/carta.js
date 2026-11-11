@@ -325,7 +325,7 @@ function personajeDe(ctx, eje, X, pv, lado, tamano, { enfocado, nuevos, paso }) 
  * son los datos que caben en ella (los del paso, recortados por lo que mide) y `pagina` la que se ve (sin scroll: se
  * pasa de página, no se carga debajo); la disposición de dentro la dice la división de la época también en el grupo.
  */
-function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null) {
+function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secuencia = false, rejilla = true } = {}) {
   const g = GEOMETRIA[pv];
   const lado = ctx.variantes[g.lado] ?? ctx.variantes[0] ?? null;
   const nodo = {
@@ -368,6 +368,18 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null) {
   if (mapa && nivel >= NIVEL.bloque && rejillaCabe(eje, pv, hueco, medidas, ctx.opciones)) {
     nodo.rejilla = rejillaDe(eje, X, pv, ctx, { pagina: ctx.estado.paginas?.[pv] ?? 1, hueco, entrar: false });
   }
+  if (secuencia && rejilla && nivel >= NIVEL.bloque) {
+    // Sequenced (el móvil en vertical): la fila abierta enseña el segundo nivel del PV como Mapped (rejillaDe: los hijos con
+    // su nombre, sus ocupantes y la regla del vacío), entrando y subiendo por estado.profundidad; en una columna si no cabe.
+    const r = rejillaDe(eje, X, pv, ctx, { ruta: rutaDe(ctx.estado, eje, pv, ctx.opciones), pagina: ctx.estado.paginas?.[pv] ?? 1, hueco, entrar: true });
+    if (r) {
+      r.enColumna = enColumnaDe(r, medidas, hueco);
+      if (r.forma === 'matriz') r.escribir = accionPorDefecto(eje, r.X, pv, ctx);
+      nodo.rejilla = r;
+    }
+  }
+  // La regla del vacío también en la lista: sin ocupantes, el paso del camino que la llenaría (Sequenced).
+  if (secuencia && !nodo.rejilla && !o.total) Object.assign(nodo, { vacio: true, escribir: accionPorDefecto(eje, X, pv, ctx) });
   if (mapa && nivel < NIVEL.bloque) nodo.disposicion = contrato.division(eje, X, { datos: Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones }).disposicion;
   if (ctx.animado) nodo.personaje = personajeDe(ctx, eje, X, pv, g.lado, nodo.tamano, { enfocado: nivel >= NIVEL.bloque, nuevos: Boolean(nodo.nuevos), paso: propio ?? null });
   if (nivel >= NIVEL.bloque) {
@@ -1233,12 +1245,61 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano) {
   return r;
 }
 
+/**
+ * ¿Va la rejilla de una fila de Sequenced en una sola columna? Si sus columnas no caben a lo ancho del hueco: una celda
+ * con hijos (cruceta, escalera, columnas, rejilla, matriz) necesita dos tarjetas de ancho para leerse; una caja
+ * nivel.grado (cielo, camino), media tarjeta. Son píxeles de pantalla, no datos del dominio.
+ */
+function enColumnaDe(r, medidas, hueco) {
+  const minimo = r.celdas ? medidas.tarjeta * 2 : medidas.tarjeta / 2;
+  return r.columnas > 1 && r.columnas * minimo > hueco.ancho;
+}
+
 /** ¿Cabe la rejilla de `pv` en un hueco, con celdas de al menos `medidas.hueco` píxeles? (en un bloque; si no, la división de 8.3). */
 function rejillaCabe(eje, pv, hueco, medidas, opciones) {
   const d = contrato.divisionDelMundo(eje, pv, opciones);
   const g = d ? geometriaDe(d) : null;
   return Boolean(g) && g.columnas * g.filas > 0 && g.columnas * medidas.hueco <= hueco.ancho && g.filas * medidas.hueco <= hueco.alto;
 }
+/** La zona del hilo de un PV en Sequenced: la cruz de en medio, el lado del PV1 el pasado y el del PV2 el futuro (la geometría); null si no es del hilo. */
+const zonaDelHilo = (pv) => (GEOMETRIA[pv]?.grupo === 'cruz' && GEOMETRIA[pv]?.fila === 'medio' ? (GEOMETRIA[pv].lado === 1 ? 'antes' : 'despues') : null);
+
+/**
+ * Sequenced (el móvil en vertical, VG 11-11): lo que la columna necesita. Una fila por cada PV de la división (en el
+ * orden de sus dígitos), cada una con su nodo: cerrada (comprimido, por defecto) o abierta (bloque, cuando
+ * estado.niveles la pone en tarjeta o más), con el segundo nivel del PV (nodoLateral en bloque, con la rejilla). Las
+ * filas del hilo (el pasado y el futuro) no se abren: su nodo, en bloque y paginado, va encima y debajo de la tarjeta.
+ * La fila de dígitos lleva los mismos PV. → { filas, pasado, futuro, digitos, nodos }.
+ */
+function secuenciaDe(eje, X, pvs, ctx, m) {
+  const hueco = { ancho: m.ancho, alto: m.alto };
+  const abierta = (pv) => (ctx.estado.niveles?.[pv] ?? NIVEL.comprimido) >= NIVEL.tarjeta;
+  const nodos = {};
+  const digitos = [...pvs].sort((a, b) => a - b);
+  for (const pv of digitos) {
+    const hilo = zonaDelHilo(pv);
+    const nivel = hilo || abierta(pv) ? NIVEL.bloque : NIVEL.comprimido;
+    const n = nodoLateral(eje, X, pv, nivel, ctx, m, hueco, null, { secuencia: true, rejilla: !hilo });
+    if (hilo) {
+      // El hilo, por páginas: hay más si quedan ocupantes o entradas del diario por cargar.
+      const faltan = (n.ocupantes ? n.ocupantes.total - n.ocupantes.lista.length : 0) + (n.diario ? n.diario.total - n.diario.entradas.length : 0);
+      Object.assign(n, { hilo, cargarMas: faltan > 0, faltan });
+    }
+    nodos[pv] = n;
+  }
+  const filas = digitos.map((pv) => ({
+    pv,
+    etiqueta: nodos[pv].etiqueta,
+    total: contrato.ocupantes(eje, X, pv, 0, 0, ctx.opciones).total,
+    medida: nodos[pv].medida,
+    hilo: nodos[pv].hilo ?? null,
+    abierta: !nodos[pv].hilo && nodos[pv].nivel >= NIVEL.bloque,
+    nodo: nodos[pv].hilo ? null : nodos[pv],
+  }));
+  const deZona = (z) => digitos.map((pv) => nodos[pv]).find((n) => n.hilo === z) ?? null; // antes: el pasado; despues: el futuro
+  return { filas, pasado: deZona('antes'), futuro: deZona('despues'), digitos: filas.map((f) => ({ pv: f.pv, etiqueta: f.etiqueta, hilo: f.hilo })), nodos };
+}
+
 /** Lo que se pinta dentro de un paso de Mapped: oculto si no caben datos, comprimido si no ocupa pantalla (el punto), bloque desde el tope, tarjeta entre medias. */
 function nivelDePaso(k, escala) {
   const p = escala.pasos[k];
@@ -1256,7 +1317,8 @@ const pasoDelArbol = (pv, k, escala) => {
 /**
  * El árbol de la carta para `yo` mirando el foco de `estado` en una pantalla de `medidas`. `estado`:
  *   foco: { X, pv }          el registro y el PV del centro (el 0 anverso, el 5 reverso, otro: ese PV abierto como foco)
- *   niveles: { [pv]: k }     el paso de tamaño de cada PV lateral: en el móvil, NIVEL (por defecto, comprimido); en
+ *   niveles: { [pv]: k }     el paso de tamaño de cada PV: en el móvil en vertical (Sequenced), NIVEL de su fila (por
+ *                            defecto comprimido, cerrada; tarjeta o bloque, abierta); en
  *                            Mapped, el índice en los pasos de la época (epoch.8.6; por defecto, el de partida: el punto)
  *   recientes: [pv]          Mapped: los PV tocados uno a uno, del más antiguo al más reciente (el último gana lo suyo)
  *   profundidad: { [pv]: [X] } Mapped, pantalla completa: los registros por los que se ha entrado en la rejilla de cada PV (epoch.8.7)
@@ -1267,7 +1329,8 @@ const pasoDelArbol = (pv, k, escala) => {
  *   local: LibroLocal | null el libro local de yo (solo se lee)
  *   leido: boolean           si la lente «leído» del 0 está abierta
  *   nuevos: Set<id>          las transacciones del diario llegadas desde la última vez (lo que el animado anima: efectos y actuar)
- * En Mapped, el foco en un PV lateral es ese PV a pantalla completa (el paso que sigue al tope).
+ * En Mapped, el foco en un PV lateral es ese PV a pantalla completa (el paso que sigue al tope). En Sequenced, el árbol
+ * lleva además `secuencia` ({ filas, pasado, futuro, digitos }: secuenciaDe) y no lleva rosetones.
  * `medidas`: { ancho, alto, hueco, tarjeta, linea } en píxeles. `opciones.epoca`, la época que se lee; `opciones.t`, el reloj.
  */
 export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
@@ -1317,9 +1380,13 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   let laterales;
   let centro;
   let mapa = null;
+  let secuencia = null;
   if (apilada) {
-    // El móvil (Sequenced): las franjas, cada una media pantalla; los pasos de tamaño son los de siempre (NIVEL).
-    laterales = pvsLaterales.map((pv) => nodoLateral(eje, X, pv, estado.niveles?.[pv] ?? NIVEL.comprimido, ctx, m, { ancho: m.ancho, alto: m.alto / 2 }));
+    // El móvil en vertical (Sequenced, VG 11-11): una columna. La tarjeta del foco (Pointed) con una fila por PV, cada
+    // una un acordeón (cerrada = comprimido, abierta = bloque, en estado.niveles) que abre debajo el segundo nivel del PV;
+    // y el hilo como scroll: encima el pasado y debajo el futuro, en bloque y por páginas (estado.paginas, «cargar más»).
+    secuencia = secuenciaDe(eje, X, d.pvs, ctx, m);
+    laterales = pvsLaterales.map((pv) => secuencia.nodos[pv]);
     centro = nodoCentro(eje, X, pvCentro, ctx, m, { ancho: m.ancho, alto: m.alto / 3 });
   } else {
     // Mapped: sin scroll; la pantalla se reparte entre los PV por sus pasos de tamaño (epoch.8.6) y se avanza hacia adentro.
@@ -1385,8 +1452,10 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     centros: pvsCentro,
     laterales,
     mapa,
-    // Los rosetones de mi foco; en la pantalla completa de un PV no se ven.
-    rosetones: mapa?.completa ? [] : rosetonesDe(eje, yoDatos, ctx, m),
+    // Los rosetones de mi foco; en la pantalla completa de un PV no se ven, ni en Sequenced (su sitio es la fila de dígitos).
+    rosetones: mapa?.completa || apilada ? [] : rosetonesDe(eje, yoDatos, ctx, m),
+    // Sequenced: las filas de la tarjeta, el pasado y el futuro del hilo y la fila de dígitos (en Mapped no está).
+    ...(secuencia ? { secuencia: { filas: secuencia.filas, pasado: secuencia.pasado, futuro: secuencia.futuro, digitos: secuencia.digitos } } : {}),
     aro,
     formulario: form ? { ...form, motivos: estado.formulario.motivos ?? [], resultado: estado.formulario.resultado ?? null } : null,
     camino,

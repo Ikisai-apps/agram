@@ -765,3 +765,82 @@ html.mapped body{padding:0}
   .hijo-tabla td{padding:2px 4px}
 
 }
+
+/* Sequenced, el móvil en vertical (VG, 11-11): una sola columna. La barra en una línea (quién soy, sobrio o animado y
+   «menú», que despliega lo demás debajo); la tarjeta del foco con una fila por PV, cada una un acordeón que abre debajo
+   el segundo nivel del PV (la rejilla de su mundo, en una columna si no cabe a lo ancho); el hilo como scroll, el
+   pasado encima de la tarjeta y el futuro debajo; abajo, fija, la fila de los diez dígitos en su color. Mapped y el
+   móvil apaisado no cambian. */
+.carta-apilada{padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
+.barra-compacta{position:sticky;top:0;z-index:8;background:var(--bg);flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:6px;padding:4px 0}
+.barra-linea{display:flex;align-items:center;gap:6px;min-width:0}
+.barra-linea .ajuste{flex:1 1 auto;min-width:0;font-size:0;gap:0}
+.barra-linea select{font-size:13px;min-height:32px;max-width:100%;width:100%}
+.barra-linea .interruptor{flex:none}
+.barra-linea .interruptor button{min-height:32px;padding:2px 8px}
+.menu-boton{flex:none;margin-left:auto;min-height:32px;padding:2px 10px}
+.menu-boton[aria-expanded="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
+.barra-menu{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:6px 0 2px;border-top:1px solid var(--rule)}
+.barra-menu[hidden]{display:none}
+.barra-menu .ajuste{display:inline-flex;gap:4px;align-items:center}
+.barra-menu .guardado,.barra-menu .sincronia{flex-basis:100%;font-size:11px}
+.secuencia,.secuencia-ahora{display:flex;flex-direction:column;gap:10px;min-width:0}
+/* la tarjeta y el futuro llenan al menos la pantalla bajo la barra: así la tarjeta sube hasta arriba y el pasado queda encima, fuera */
+.secuencia-ahora{min-height:calc(100vh - 104px);min-height:calc(100svh - 104px)}
+/* las filas de la tarjeta: la cabeza abre y cierra; el campo escribe; abierta, el PV debajo, a lo ancho */
+.filas{list-style:none;margin:0;padding:0;display:grid;gap:2px;min-width:0}
+.fila{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2px 6px;align-items:center;min-width:0;padding:2px 0 2px 6px;border-left:3px solid color-mix(in oklab,var(--c,var(--rule)) 70%,var(--rule))}
+.fila:not(:has(>.campo-input))>.fila-cabeza{grid-column:1 / -1}
+.fila-cabeza{display:flex;align-items:center;gap:6px;min-width:0;min-height:32px;padding:2px 4px;border:0;background:transparent;text-align:left;font-size:13px;color:var(--fg)}
+.fila-cabeza .numero{flex:none;font-size:10px;padding:0 5px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent);color:var(--fg)}
+.fila-cabeza .etiqueta{flex:1 1 auto;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila-cabeza .medida{flex:none;font-size:11px;color:var(--muted)}
+.fila-marca{flex:none;color:var(--muted);font-size:12px}
+.fila.abierta{background:color-mix(in oklab,var(--c,var(--rule)) 5%,transparent);border-radius:0 6px 6px 0}
+.fila.abierta>.fila-cabeza .fila-marca{color:var(--fg)}
+.fila .campo-input{font-size:13px;min-height:32px}
+.fila-contenido{grid-column:1 / -1;min-width:0;padding:2px 4px 6px 0}
+.fila-contenido>.pv{width:100%;padding:6px;cursor:default}
+.fila-contenido .pv-pie .ayuda{white-space:normal}
+.vacio-pv{margin:0;padding:6px 8px;border:1px dashed color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));border-radius:6px;text-align:center}
+.vacio-pv .hijo-vacio,.hilo-vacio .hijo-vacio{font-size:12px}
+/* la rejilla del mundo dentro de la fila: en el flujo de la página (crece con lo que lleva), sin flotar nada */
+.rejilla-apilada{flex:none;--hueco:4px}
+.rejilla-apilada .rejilla-celdas,.rejilla-apilada .rejilla-bandas{flex:none;grid-template-rows:none;grid-auto-rows:auto;gap:4px}
+.rejilla-apilada .rejilla-celda,.rejilla-apilada .rejilla-banda{overflow:visible}
+.rejilla-apilada .hijo-cuerpo{overflow:visible;padding:4px 8px 6px}
+.rejilla-apilada .hijo[data-vacio] .hijo-cuerpo{justify-content:flex-start;text-align:left}
+.rejilla-apilada .rejilla-cruceta{container-type:normal}
+.rejilla-apilada .rejilla-cruceta>.hijo[data-fila][data-columna] .hijo-cuerpo,.rejilla-apilada .rejilla-cruceta>.hijo[data-fila][data-columna] .hijo-cabeza{padding-left:8px;padding-right:8px}
+.rejilla-apilada .rejilla-escalera>.hijo{margin-left:calc(var(--peldano,0) * 2%)}
+.rejilla-apilada .rejilla-conversacion>.hijo{flex:none}
+.rejilla-apilada .centro-flotante{position:static;width:auto;height:auto;max-height:none;margin:0 0 4px;perspective:none}
+.rejilla-apilada .flotante-cara{min-height:0;max-height:none;box-shadow:none;padding:6px 10px}
+.rejilla-apilada .centro-flotante:not(.girada) .cara-5,.rejilla-apilada .centro-flotante.girada .cara-0{visibility:hidden}
+.rejilla-apilada .flotante-nombre{margin:0;font-size:15px}
+.rejilla-apilada .flotante-cifra{margin:0}
+.rejilla-apilada .flotante-cifra b{font-size:22px}
+.rejilla-apilada .rejilla-cielo .hijo-cabeza,.rejilla-apilada .rejilla-posiciones .hijo-cabeza{padding:2px 4px;font-size:11px;flex-wrap:wrap}
+.rejilla-apilada .rejilla-cielo .hijo-nombre,.rejilla-apilada .rejilla-posiciones .hijo-nombre{white-space:normal;overflow-wrap:break-word}
+.rejilla-apilada .caja-cielo .rotulo,.rejilla-apilada .posicion .rotulo{font-size:14px}
+.rejilla-apilada .rejilla-cielo .hijo-cuerpo,.rejilla-apilada .rejilla-posiciones .hijo-cuerpo{padding:2px 4px;gap:4px}
+.rejilla-apilada .rejilla-cielo .hijo-vacio,.rejilla-apilada .rejilla-posiciones .hijo-vacio{font-size:10px;overflow-wrap:anywhere}
+.rejilla-apilada.en-columna .rejilla-cielo,.rejilla-apilada.en-columna .rejilla-posiciones{grid-template-columns:minmax(0,1fr)}
+.rejilla-apilada.en-columna .caja-cielo,.rejilla-apilada.en-columna .posicion{flex-direction:row;align-items:stretch}
+.rejilla-apilada.en-columna .caja-cielo>.hijo-cabeza,.rejilla-apilada.en-columna .posicion>.hijo-cabeza{flex:0 0 42%;border-bottom:0;border-right:1px solid color-mix(in oklab,var(--c,var(--rule)) 25%,transparent)}
+.rejilla-apilada.en-columna .caja-cielo>.hijo-cuerpo,.rejilla-apilada.en-columna .posicion>.hijo-cuerpo{justify-content:flex-start;text-align:left}
+.rejilla-matriz-columna.vacia{display:block;padding:6px 8px;border:1px dashed var(--rule);border-radius:6px}
+.rejilla-matriz-columna .hijo-nombre{white-space:normal}
+/* el hilo: el pasado encima de la tarjeta (lo más cercano, abajo, junto a ella) y el futuro debajo */
+.zona-hilo{width:100%;padding:6px;cursor:default}
+.zona-hilo .hilo-cabeza{gap:8px}
+.zona-hilo .hilo-cabeza small{flex:none}
+.hilo-cartas{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;min-width:0}
+.hilo-carta{min-width:0}
+.hilo-entrada{padding:6px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--panel2);font-size:12px}
+.hilo-entrada time{font-family:var(--mono);color:var(--muted)}
+.hilo-entrada small{display:block;overflow-wrap:anywhere}
+.hilo-vacio{padding:4px 2px}
+/* la fila de los diez dígitos, fina y fija abajo */
+.digitos{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--rule)}
+.digito{flex:1 1 0;min-width:0;max-width:44px;height:32px;min-height:32px;padding:0;border-radius:8px;font-family:var(--mono);font-size:14px;font-weight:600;border-color:color-mix(in oklab,var(--c,var(--rule)) 70%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 26%,var(--panel))}

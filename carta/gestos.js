@@ -39,7 +39,10 @@ const UMBRAL_ASA = 1 / 8;
  *   preferencia(clave, valor) un interruptor de la barra (sobrio o animado): escribir esa preferencia
  *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
  *   celda(pv, X)             Mapped, pantalla completa: entrar en una celda de la rejilla de un PV (un nivel más adentro)
- *   subir(pv)                Mapped, pantalla completa: volver un nivel de profundidad en la rejilla de un PV
+ *   subir(pv)                volver un nivel de profundidad en la rejilla de un PV (Mapped a pantalla completa, o una fila abierta de Sequenced)
+ *   fila(pv)                 Sequenced: abrir o cerrar la fila de un PV en la tarjeta del foco (las del hilo llevan al pasado o al futuro)
+ *   digito(pv)               Sequenced: la fila de dígitos de abajo; ir a la fila de ese PV y abrirla
+ *   menu()                   Sequenced: abrir o cerrar el menú de la barra de una línea
  * En Mapped, nivel(pv, delta, X) llega también de los botoncitos de cada PV (data-tamano) y del arrastre desde su
  * esquina (data-asa: tantos pasos como umbrales recorre en la dirección que va de su esquina al centro).
  * Devuelve una función que quita los ganchos.
@@ -86,6 +89,9 @@ export function instalar(raiz, m) {
       if ((el = b(`[data-propuesta-${que}]`))) { e.preventDefault(); m.propuesta?.(que, el.dataset[`propuesta${que[0].toUpperCase()}${que.slice(1)}`]); return; }
     }
     if ((el = b('[data-todos]'))) { e.preventDefault(); m.todos?.(Number(el.dataset.todos)); return; }
+    if ((el = b('[data-menu]'))) { e.preventDefault(); m.menu?.(); return; }
+    if ((el = b('[data-fila]'))) { e.preventDefault(); m.fila?.(Number(el.dataset.fila)); return; }
+    if ((el = b('[data-digito]'))) { e.preventDefault(); m.digito?.(Number(el.dataset.digito)); return; }
     if ((el = b('[data-tamano]'))) { e.preventDefault(); m.nivel?.(Number(el.dataset.pv), Number(el.dataset.tamano), el.dataset.x); return; }
     if ((el = b('[data-preferencia]'))) { e.preventDefault(); m.preferencia?.(el.dataset.preferencia, el.dataset.valor); return; }
     if ((el = b('[data-pagina]'))) { e.preventDefault(); m.pagina?.(Number(el.dataset.pagina), Number(el.dataset.delta)); return; }
@@ -118,8 +124,9 @@ export function instalar(raiz, m) {
     if ((el = b('[data-abrir]'))) { e.preventDefault(); if (el.dataset.abrir) m.foco?.(el.dataset.abrir, 0); return; }
     if ((el = b('[data-foco-pv]'))) { e.preventDefault(); m.foco?.(el.dataset.x ?? xDe(el), Number(el.dataset.focoPv)); return; }
     if ((el = b('[data-roseton]'))) { e.preventDefault(); m.roseton?.(Number(el.dataset.roseton)); return; }
-    if ((el = pvDe(t)) && !t.closest('button')) {
-      // Toque sobre un PV lateral: un paso de tamaño; el doble toque sobre el centro, editar.
+    if ((el = pvDe(t)) && !t.closest('button') && !t.closest('.secuencia')) {
+      // Toque sobre un PV lateral: un paso de tamaño; el doble toque sobre el centro, editar. En Sequenced, lo de dentro de
+      // una fila abierta o del hilo no cambia nada al tocarlo (la fila se abre y se cierra por su cabeza).
       e.preventDefault();
       m.nivel?.(Number(el.dataset.pv), +1, el.dataset.x);
       return;
@@ -219,7 +226,7 @@ export function instalar(raiz, m) {
     if (Date.now() - p.t > 900) return;
     if (Math.abs(dx) > UMBRAL_DESLIZAR && Math.abs(dx) > Math.abs(dy) * 1.5 && !p.el.closest?.('input, .formulario, .aro, .guia')) {
       m.hermano?.(dx < 0 ? +1 : -1, pvDe(p.el) ? Number(pvDe(p.el).dataset.pv) : null);
-    } else if (Math.abs(dy) > UMBRAL_DESLIZAR * 1.5 && Math.abs(dy) > Math.abs(dx) * 1.5 && p.el.closest?.('[data-centro]') && !p.el.closest?.('input, pre, ul')) {
+    } else if (Math.abs(dy) > UMBRAL_DESLIZAR * 1.5 && Math.abs(dy) > Math.abs(dx) * 1.5 && p.el.closest?.('[data-centro]') && !p.el.closest?.('input, pre, ul, ol')) {
       m.voltear?.(); // mantener y arrastrar en vertical sobre el centro: el atajo para dar la vuelta
     }
   };

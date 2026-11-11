@@ -151,6 +151,16 @@ export const TEXTOS = Object.freeze({
     nada: '∅',
     deMiAlta: '{que} de mi alta',
     miFoco: 'mi foco',
+    // Sequenced (el móvil en vertical): la barra de una línea, las filas de la tarjeta, el hilo y la fila de dígitos
+    menu: 'menú',
+    menuTitulo: 'el ejemplo, hoy, guardar este rato, la configuración, reiniciar, opinar y lo guardado',
+    filaAbrir: 'abrir {que} debajo',
+    filaCerrar: 'cerrar {que}',
+    irAlPasado: 'subir al pasado (encima de la tarjeta)',
+    irAlFuturo: 'bajar al futuro (debajo de la tarjeta)',
+    hiloPasado: 'el pasado · {n}',
+    hiloFuturo: 'el futuro · {n}',
+    digitosTitulo: 'ir a una posición de la tarjeta',
     // el camino
     hecho: 'hecho',
     esperaA: 'espera a {quien}',
