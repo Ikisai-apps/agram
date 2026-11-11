@@ -489,6 +489,16 @@ html.mapped body{padding:0}
 .conversacion{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
 .conversacion .mensaje{display:flex;flex-direction:column;align-items:flex-start;gap:2px;max-width:min(46rem,92%);padding:6px 10px;border-radius:12px 12px 12px 4px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 35%,var(--rule));background:var(--bg);font-size:13px}
 .conversacion .mensaje .texto{white-space:normal}
+/* lo que el núcleo mide de cada hijo (encargo «datos», issue #11): umbral y votos en el 2, precio en el 3, estado del paquete */
+.hijo-pie{flex:none;display:flex;flex-direction:column;gap:3px;padding:3px 8px 5px;border-top:1px solid color-mix(in oklab,var(--c,var(--rule)) 18%,transparent);font-size:11px;color:var(--muted)}
+.hijo-medida,.hijo-precio{margin:0;overflow-wrap:anywhere}
+.hijo-precio b{color:var(--fg);font-weight:600}
+.hijo-barra{display:block;height:6px;border-radius:3px;border:1px solid color-mix(in oklab,var(--c,var(--accent)) 60%,var(--rule));background:transparent;overflow:hidden}
+.hijo-barra>span{display:block;height:100%;width:calc(var(--lleno,0) * 100%);background:color-mix(in oklab,var(--c,var(--accent)) 80%,var(--fg))}
+.hijo-barra[data-pasa]>span{background:color-mix(in oklab,var(--c,var(--accent)) 55%,var(--fg))}
+.conversacion .mensaje .paquete{font-size:10px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));color:var(--muted)}
+.conversacion .mensaje .paquete[data-estado="pendiente"]{border-style:dashed;color:var(--fg)}
+.conversacion .mensaje .paquete[data-estado="perdonado"]{text-decoration:line-through}
 /* la matriz (el 4): los ejes nombrados, la diagonal marcada; cada celda con ocupante, una estación con su estado */
 .rejilla-matriz{grid-template-columns:minmax(6.5rem,auto) repeat(var(--columnas),minmax(0,1fr));grid-template-rows:auto repeat(var(--filas),minmax(0,1fr))}
 .rejilla-completa .rejilla-matriz{gap:calc(var(--hueco) / 2)}

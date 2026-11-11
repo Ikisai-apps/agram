@@ -405,6 +405,21 @@ export function recuento(eje, X) {
 }
 
 /**
+ * Las miradas sobre las que decide X (encargo 3c-2a, P por mirada): las «view d» (una magnitud, D-VALOR) que su dueño
+ * dice en su criterio, en su 2.2 o en su 2 si es una lista, con la misma lectura que la regla «weight»; [] si no dice
+ * ninguna (la decisión es sobre el registro entero). Para la interfaz (el jardín: el umbral de cada mirada).
+ */
+export function miradasDe(eje, X) {
+  const id = typeof X === 'string' ? X : X?.id;
+  if (!eje.obtener(id)) return [];
+  const de = (donde) => {
+    const r = leer(eje, '((' + donde + ' where count it2.5 = 0 and count it2.0 = 0) where it2.2 = "view") each 1', id);
+    return r.estado === 'RESUELTO' ? r.valor.filter((v) => typeof v === 'number') : [];
+  };
+  return [...new Set([...de('it.2.2'), ...de('it.2')])];
+}
+
+/**
  * El peso de `A` sobre X, como su 100 % por dominio (mapa §15 [D] (3)) y por origen (encargo 3b-bis: «el P guarda su
  * origen»): el P que obtuvo A sobre X entre el P que obtuvo A en el dominio de X, esté en la mano que esté, con la
  * lectura «share» de la época (A.2.6.8). 0 si A no obtuvo P sobre X. Delegar o pasar P a otra identidad no lo cambia.

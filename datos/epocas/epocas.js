@@ -2483,6 +2483,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2506,6 +2509,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "el reverso: el JSON del registro"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2538,6 +2544,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ],
         [
@@ -2559,7 +2568,8 @@ export const EPOCA_0_BTML_DATOS = [
             "columnas"
           ],
           [
-            "-"
+            "epoch.1.1",
+            "epoch.9.0.0"
           ],
           [
             "-"
@@ -2569,6 +2579,13 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            1,
+            2,
+            3,
+            4,
+            5
           ]
         ],
         [
@@ -2591,7 +2608,8 @@ export const EPOCA_0_BTML_DATOS = [
             "conversacion"
           ],
           [
-            "-"
+            "epoch.1.2.1",
+            "attended"
           ],
           [
             "-"
@@ -2601,6 +2619,14 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
           ]
         ],
         [
@@ -2625,6 +2651,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "10 × 10: columnas = los diez PV como tipo de interacción, filas = posición modificada; la celda es la lista de ejecuciones"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2661,6 +2690,9 @@ export const EPOCA_0_BTML_DATOS = [
             4
           ],
           [
+            "-"
+          ],
+          [
             "latest"
           ]
         ],
@@ -2695,6 +2727,9 @@ export const EPOCA_0_BTML_DATOS = [
             3
           ],
           [
+            "-"
+          ],
+          [
             "soonest"
           ]
         ],
@@ -2720,6 +2755,9 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "las diez cajas nivel.grado de los hitos; cada registro, en la caja del paso «cuota» de epoch.9.8"
+          ],
+          [
+            "-"
           ],
           [
             "-"
@@ -2750,11 +2788,16 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "-"
+          ],
+          [
+            "-"
           ]
         ]
       ],
       [
-        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas], [orden: el de sus listas verticales, un orden de 8.5]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2). VG, 11-11 (#18): en las listas verticales del 6 y el 7 (el pasado y el futuro de Sequenced, sus bloques de Mapped), lo más cercano al presente arriba: el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian"
+        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)",
+        "Encargo «datos» (issue #11, primera parte; Core, pendiente de revisar VG): la posición 8 de cada fila (la novena, detrás de los hilos) es el enlace, lo que cada hijo es de lo que la fila mide, uno por hijo y en su orden («-» si nada). El 2 mide el P por mirada (epoch.1.1: sus hijos 1-5 son las miradas 1-5 de su P, el enlace 1 2 3 4 5) y el recuento (epoch.9.0.0: el umbral del dueño si su criterio dice esa mirada, «view d»); el 3 mide los seis grupos de atención (epoch.1.2.1: hijo 1 ↔ zona 0 general, 2 ↔ 1 comercial, 3 ↔ 2 expertos, 4 ↔ 3 poder o cercanos, 5 ↔ 4 equipo, 6 ↔ 5 vetados, el enlace 0 1 2 3 4 5, con el precio de esa zona para el dueño del registro) y el estado de cada paquete (la lectura «attended»: una devolución de R pendiente o atendida; una R quemada por su tenedor, perdonada) (docs/CONTRATO.md §4.2)",
+        "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás"
       ]
     ]
   ],
@@ -4805,6 +4848,12 @@ export const EPOCA_0_BTML_DATOS = [
           "legible series P view: P sobre {record}, mirada {view}",
           "legible series R: R de {issuer}",
           "legible series T: {scale}",
+          "legible attention price my R: {amount} de la R de {owner}, devuelta",
+          "legible attention price their R: {amount} de la R propia de quien escribe",
+          "legible attention price E: {amount} E",
+          "legible attention price P: {amount} P sobre lo de {owner}",
+          "legible attention price open record: sin pago, con un registro abierto entre los dos",
+          "legible attention price nothing: no llegan",
           "legible not a number: no es un número: {text}",
           "legible not an instant: no es una fecha (AAAA-MM-DD o AAAA-MM-DDTHH:MM): {text}",
           "legible unknown identity: ninguna identidad conocida se llama {text}",
@@ -4885,6 +4934,12 @@ export const EPOCA_0_BTML_DATOS = [
           "legible series P view: P on {record}, view {view}",
           "legible series R: R of {issuer}",
           "legible series T: {scale}",
+          "legible attention price my R: {amount} of the R of {owner}, returned",
+          "legible attention price their R: {amount} of the own R of the writer",
+          "legible attention price E: {amount} E",
+          "legible attention price P: {amount} P on what is of {owner}",
+          "legible attention price open record: no payment, with an open record between both",
+          "legible attention price nothing: they do not get through",
           "legible not a number: not a number: {text}",
           "legible not an instant: not a date (YYYY-MM-DD or YYYY-MM-DDTHH:MM): {text}",
           "legible unknown identity: no known identity is called {text}",
@@ -14930,7 +14985,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "0876dca7c4dbc97a3dbe0cb78001000cd3f3f04dc0b202482a72fb870328e94a";
+export const EPOCA_0_BTML_ID = "f176f9ba79d943e90bc97ad9b182fb9703f8d0944b34c6d3628341f08a54b8dd";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

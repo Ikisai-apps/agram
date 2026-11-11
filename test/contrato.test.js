@@ -12,7 +12,10 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { crearEvento } from '../src/evento.js';
-import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploCuenta, ejemploJardinYParque } from '../ejemplos/ikisai/compra-food.mjs';
+import { recuento, miradasDe } from '../src/motor.js';
+import { estadoDePaquete } from '../src/lente.js';
+import * as A from '../src/acciones.js';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
@@ -387,4 +390,112 @@ test('el índice expone el contrato como espacio de nombres', async () => {
   assert.equal(agram.contrato.plantilla, C.plantilla);
   assert.equal(typeof agram.contrato.division, 'function');
   assert.equal(typeof agram.plantilla, 'undefined', 'ningún nombre plano nuevo');
+});
+
+// ---------- 10. lo que el núcleo mide de cada hijo de los mundos 2 y 3 (encargo «datos», issue #11) ----------
+
+/** La compra con su jardín y su parque (ejemplos/ikisai/compra-food.mjs, ejemploJardinYParque). */
+async function jardinYParque() {
+  const c = await ejemploCompra();
+  await ejemploCuenta(c.eje, c.compra);
+  return { ...c, ...(await ejemploJardinYParque(c.eje, c)) };
+}
+const filaDelMundo = (e, pv) => e[8][7][1].find((f) => f[0][0] === pv);
+const sinOcupantes = (hijos) => hijos.map(({ ocupantes, nombre, ...h }) => h);
+
+test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); el 2 mide el P por mirada y el recuento, el 3 los grupos de atención y los paquetes', () => {
+  const d = (pv) => C.divisionDelMundo(null, pv);
+  assert.deepEqual([d(2).mide, d(2).enlace], [['epoch.1.1', 'epoch.9.0.0'], [1, 2, 3, 4, 5]]);
+  assert.deepEqual([d(3).mide, d(3).enlace], [['epoch.1.2.1', 'attended'], [0, 1, 2, 3, 4, 5]]);
+  for (const pv of [0, 5, 1, 4, 6, 7, 8, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
+  // el enlace del 2 son las miradas de epoch.1.1 y el del 3 las zonas de epoch.1.2.1, uno por hijo
+  const raiz = EPOCA_0_BTML.registro;
+  assert.deepEqual(d(2).enlace, raiz[1][1][1].map((m) => m[1][0]));
+  assert.deepEqual(d(3).enlace, raiz[1][2][1].map((z) => z[1][0]));
+  assert.equal(d(2).enlace.length, d(2).hijos.length);
+  assert.equal(d(3).enlace.length, d(3).hijos.length);
+  assert.match(raiz[8][7][2][1], /^Encargo «datos» \(issue #11/, 'con su procedencia');
+});
+
+test('hijosDe en el 2: cada hijo, su mirada y el P sobre ella (comprometido y reposicionable, de todos sus titulares); el umbral solo si el criterio del dueño dice esa mirada', async () => {
+  const { eje, compra, decision } = await jardinYParque();
+  // La compra: la huésped bajó su P a la mirada 2 (once) y comprometió cinco con la decisión; el criterio de la compra no dice ninguna mirada.
+  assert.deepEqual(sinOcupantes(C.hijosDe(eje, compra.id, 2)).map((h) => [h.digito, h.mirada, h.comprometidos, h.reposicionables, 'umbral' in h]), [
+    [1, 1, 0, 0, false], [2, 2, 5, 6, false], [3, 3, 0, 0, false], [4, 4, 0, 0, false], [5, 5, 0, 0, false],
+  ]);
+  assert.deepEqual(miradasDe(eje, compra.id), []);
+  // La decisión dice «view 2» y «above 10»: el hijo 2 lleva su recuento (siete comprometidos: cinco de la compra y dos suyos) y le faltan tres.
+  assert.deepEqual(miradasDe(eje, decision.id), [2]);
+  const r = recuento(eje, decision.id);
+  assert.deepEqual([r.plantilla, r.valor, r.umbral, r.pasa], ['weighted sum', 7, 10, false]);
+  const hijos = C.hijosDe(eje, decision.id, 2, { nivel: 2 });
+  const dos = hijos.find((h) => h.digito === 2);
+  assert.deepEqual([dos.mirada, dos.comprometidos, dos.reposicionables, dos.umbral, dos.valor, dos.pasa, dos.faltan], [2, 2, 9, 10, 7, false, 3]);
+  assert.equal(dos.faltan, r.umbral - r.valor);
+  assert.ok(hijos.filter((h) => h.digito !== 2).every((h) => !('umbral' in h)), 'el umbral solo en la mirada que dice el criterio');
+  // Las mismas cifras que yo() da por titular: la suma del P posicionado sobre la mirada 2 de la decisión.
+  const mio = C.yo(eje, 'huesped').criterio.posicionado.find((p) => p.registro === decision.id && p.mirada === 2);
+  assert.deepEqual([mio.cuanto - mio.disponible, mio.disponible], [dos.comprometidos, dos.reposicionables]);
+  // Comprometer cuatro más (de la mirada 2 de la decisión) la hace pasar: ya no le falta nada.
+  const mas = await A.transaccion(eje, 'commit P', { X: decision.id, power: 'P:' + decision.id + '.2/huesped', amount: 4 }, 'huesped', { t: '2026-11-07T16:00:00Z' });
+  assert.equal(mas.ok, true, JSON.stringify(mas.motivos));
+  await eje.anadir(mas.evento);
+  const despues = C.hijosDe(eje, decision.id, 2, { nivel: 2 }).find((h) => h.digito === 2);
+  assert.deepEqual([despues.comprometidos, despues.reposicionables, despues.valor, despues.pasa, despues.faltan], [6, 5, 11, true, 0]);
+});
+
+test('hijosDe en el 2 sale de la época: sin el recuento en lo que mide no hay umbral; sin enlace no hay mirada; otro enlace mueve el P a otro hijo', async () => {
+  const { eje, compra, decision } = await jardinYParque();
+  const con = (cambiar) => epocaCon((e) => cambiar(filaDelMundo(e, 2)));
+  const dosDe = (epoca) => C.hijosDe(eje, decision.id, 2, { nivel: 2, epoca }).find((h) => h.digito === 2);
+  const sinRecuento = dosDe(con((f) => { f[4] = ['epoch.1.1']; }));
+  assert.deepEqual([sinRecuento.comprometidos, 'umbral' in sinRecuento], [2, false]);
+  const sinEnlace = dosDe(con((f) => { f[8] = ['-']; }));
+  assert.equal(['mirada', 'comprometidos', 'umbral'].some((k) => k in sinEnlace), false);
+  const alReves = C.hijosDe(eje, compra.id, 2, { epoca: con((f) => { f[8] = [5, 4, 3, 2, 1]; }) });
+  assert.deepEqual(alReves.map((h) => [h.digito, h.mirada, h.comprometidos]), [[1, 5, 0], [2, 4, 0], [3, 3, 0], [4, 2, 5], [5, 1, 0]]);
+  // Un registro que no está en el eje no mide nada; los otros mundos, tampoco.
+  assert.equal(C.hijosDe(eje, 'no-existe', 2).some((h) => 'mirada' in h), false);
+  assert.equal(C.hijosDe(eje, compra.id, 1).some((h) => 'mirada' in h || 'precio' in h || 'estados' in h), false);
+});
+
+test('hijosDe en el 3: hijo 1 ↔ zona 0 … hijo 6 ↔ zona 5 (el enlace de la época), con el precio de esa zona para el dueño, legible; cambiar el precio o el enlace cambia lo que sale', async () => {
+  const { eje, compra } = await jardinYParque();
+  const zonas = EPOCA_0_BTML.registro[1][2][1];
+  const hijos = C.hijosDe(eje, compra.id, 3, { idioma: 'es' });
+  assert.deepEqual(hijos.map((h) => [h.digito, h.precio.zona, h.precio.grupo, h.precio.enQue, h.precio.cuanto]), zonas.map((z, k) => [k + 1, z[1][0], z[0][0], z[2][0][0], z[2][1][0]]));
+  // el mismo precio que yo() da al dueño de la compra (la huésped)
+  assert.deepEqual(hijos.map((h) => h.precio.enQue), C.yo(eje, 'huesped').atencion.map((g) => g.precio.enQue));
+  // legible, con los textos de la época (epoch.9.4: «legible attention price <en qué>»), en el idioma
+  const dueno = C.legible(eje, 'huesped', 'identity', { idioma: 'es' }).texto;
+  assert.equal(hijos[0].precio.texto, '1 de la R de ' + dueno + ', devuelta');
+  assert.equal(hijos[2].precio.texto, '1 P sobre lo de ' + dueno);
+  assert.equal(hijos[5].precio.texto, 'no llegan');
+  assert.equal(C.hijosDe(eje, compra.id, 3, { idioma: 'en' })[5].precio.texto, 'they do not get through');
+  // el dueño cambia el precio de los comerciales (set a group price, el 3.1.2 de su alta): el hijo 2 lo dice
+  const precio = await A.transaccion(eje, 'set a group price', { X: eje.alta('huesped').id, token: 'P', amount: 2, zone: 1 }, 'huesped', { t: '2026-11-07T16:00:00Z' });
+  assert.equal(precio.ok, true, JSON.stringify(precio.motivos));
+  await eje.anadir(precio.evento);
+  assert.deepEqual(['enQue', 'cuanto'].map((k) => C.hijosDe(eje, compra.id, 3)[1].precio[k]), ['P', 2]);
+  // otro enlace en una copia de la época: el hijo 1 pasa a ser los vetados
+  const alReves = epocaCon((e) => { filaDelMundo(e, 3)[8] = [5, 4, 3, 2, 1, 0]; });
+  assert.deepEqual(C.hijosDe(eje, compra.id, 3, { epoca: alReves }).map((h) => h.precio.zona), [5, 4, 3, 2, 1, 0]);
+  // sin los grupos en lo que mide, no hay precio
+  const sinGrupos = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['attended']; });
+  assert.equal(C.hijosDe(eje, compra.id, 3, { epoca: sinGrupos }).some((h) => 'precio' in h), false);
+});
+
+test('el estado de cada paquete del 3: una petición de atención (R devuelta a su emisor) pendiente o atendida, una R perdonada; lo demás, null; sin «attended» en lo que mide, no se da', async () => {
+  const { eje, compra, conversacion, atendida, respuesta, pendiente, perdonada } = await jardinYParque();
+  assert.deepEqual([atendida, pendiente, perdonada, respuesta, conversacion].map((r) => estadoDePaquete(eje, r.id)), ['atendido', 'pendiente', 'perdonado', null, null]);
+  assert.equal(estadoDePaquete(eje, 'no-existe'), null);
+  const tres = C.hijosDe(eje, conversacion.id, 3, { nivel: 2 }).find((h) => h.digito === 3);
+  assert.deepEqual(tres.ocupantes.map((o) => o.ref), [atendida.id, pendiente.id, perdonada.id]);
+  assert.deepEqual(tres.estados, ['atendido', 'pendiente', 'perdonado']);
+  // las hojas del 3 de la compra (quién habla con quién) no son paquetes; la conversación tampoco
+  const deLaCompra = C.hijosDe(eje, compra.id, 3).find((h) => h.digito === 3);
+  assert.deepEqual(deLaCompra.estados, deLaCompra.ocupantes.map(() => null));
+  // sin «attended» en lo que mide, no se da
+  const sinLectura = epocaCon((e) => { filaDelMundo(e, 3)[4] = ['epoch.1.2.1']; });
+  assert.equal(C.hijosDe(eje, conversacion.id, 3, { nivel: 2, epoca: sinLectura }).some((h) => 'estados' in h), false);
 });

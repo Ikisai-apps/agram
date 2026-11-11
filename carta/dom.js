@@ -218,7 +218,8 @@ function htmlFilaDeTabla(o) {
 /** Un mensaje de la conversación: el ocupante con su autor y su hora (como una entrada del diario, ocupante-entrada); si se puede entrar, baja un nivel. */
 function htmlMensaje(o) {
   const pie = [o.autor, o.t ? fecha(o.t) : ''].filter(Boolean).join(' · ');
-  const quien = pie ? `<small class="quien">${escapar(pie)}</small>` : '';
+  const estado = o.estado ? `<small class="paquete" data-estado="${attr(o.estado)}">${escapar(t('paquete' + o.estado.charAt(0).toUpperCase() + o.estado.slice(1)))}</small>` : '';
+  const quien = (pie ? `<small class="quien">${escapar(pie)}</small>` : '') + estado;
   if (o.tipo === 'referencia' && o.X) {
     const accion = o.entra ? `data-celda="${o.X}" title="${attr(t('entrarEnCelda', { que: o.texto }))}"` : `data-abrir="${o.X}" title="${attr(t('entrarEn', { que: o.texto }))}"`;
     return `<button type="button" class="ocupante ocupante-ref ocupante-entrada mensaje"${nodo('ocupante', { x0: o.texto })} data-pv="${o.pv}"${dataId(o)} ${accion} data-x="${o.X}"><span class="texto">${escapar(o.texto)}</span>${quien}</button>`;
@@ -252,7 +253,28 @@ function htmlCeldaDeRejilla(c, forma) {
   const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
   const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total);
-  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlEfectosCapa(c.capa?.efectos)}</div>`;
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span></header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}</div>`;
+}
+
+/** Una fracción entre 0 y 1 con tres decimales, para una variable de CSS (solo un número: nada del dato llega al estilo). */
+const fraccionCss = (x) => (Number.isFinite(x) ? Math.round(Math.min(1, Math.max(0, x)) * 1000) / 1000 : 0);
+
+/**
+ * Lo que el núcleo mide de un hijo, pequeño, debajo de su cuerpo (encargo «datos», issue #11): en el 2, la línea
+ * «umbral n · faltan m» (si el criterio del dueño dice esa mirada) y los votos (P comprometido y reposicionable sobre
+ * esa mirada), con una barra: hacia el umbral si lo hay; si no, la parte comprometida de los votos. En el 3, el grupo de
+ * atención y su precio.
+ */
+function htmlMedidaDeHijo(c) {
+  const partes = [];
+  if (c.meta) partes.push(t('hijoUmbral', { umbral: c.meta.umbral, faltan: c.meta.faltan }));
+  if (c.votos) partes.push(t('hijoVotos', { comprometidos: c.votos.comprometidos, reposicionables: c.votos.reposicionables }));
+  let barra = '';
+  if (c.meta && c.meta.umbral > 0) barra = `<span class="hijo-barra" data-de="umbral"${c.meta.pasa ? ' data-pasa' : ''} style="--lleno:${fraccionCss(c.meta.valor / c.meta.umbral)}" title="${attr(t('hijoBarraUmbral', { valor: c.meta.valor, umbral: c.meta.umbral }))}"><span></span></span>`;
+  else if (c.votos) barra = `<span class="hijo-barra" data-de="votos" style="--lleno:${fraccionCss(c.votos.comprometidos / (c.votos.comprometidos + c.votos.reposicionables))}" title="${attr(partes[partes.length - 1])}"><span></span></span>`;
+  const medida = partes.length ? `<p class="hijo-medida">${escapar(partes.join(' · '))}</p>${barra}` : '';
+  const precio = c.precio ? `<p class="hijo-precio" data-zona="${escapar(c.precio.zona)}"><b>${escapar(c.precio.grupo ?? '')}</b> · ${escapar(c.precio.texto ?? '')}</p>` : '';
+  return medida || precio ? `<footer class="hijo-pie">${medida}${precio}</footer>` : '';
 }
 
 /** La tarjeta central flotante de la cruceta: cara 0 (nombre, medida y su barra si tiene «de») y cara 5 (plantilla, ancla, pasos); ↻ la gira (data-girar). */

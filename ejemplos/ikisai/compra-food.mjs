@@ -186,3 +186,58 @@ export async function ejemploComprasVecinas(eje, { menu }, privadas = {}) {
   }, priv('cocina'));
   return { alta2, rapida, vecinas, criterioCocina };
 }
+
+/**
+ * El jardín y el parque de la compra (encargo «datos», issue #11): lo que hace falta para que el 2 y el 3 de la compra
+ * tengan votos, umbral, precios y paquetes que enseñar. Todo inventado.
+ *
+ * El 2 (P por mirada): la huésped baja su P de la compra a la mirada 2 (un paso: diez se vuelven once) y escribe en el 2
+ * de la compra una decisión, «¿Repetimos el menú el sábado?», cuyo criterio dice la mirada 2, la suma ponderada, «por
+ * encima de 10» y «cualquiera» (por cantidad); baja también su P de la decisión a la mirada 2 de la decisión, y
+ * compromete con ella cinco del 2 de la compra y dos del 2 de la decisión: el recuento da 7 y le faltan 3.
+ *
+ * El 3 (paquetes): la casa le da dos R suyas a la huésped; la huésped abre en el 3 de la compra una conversación con la
+ * casa y deja en su 3 tres paquetes: una petición de atención (le devuelve una R) que la casa atiende anclando su
+ * respuesta encima, otra que queda pendiente, y una R que perdona (la quema).
+ */
+export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
+  const priv = (id) => privadas[id];
+  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const P = (ambito, cantidad, de, a, extra = {}) => ({ token: 'P', ambito, cantidad, de, a, ...extra });
+  const R = (cantidad, de, a) => ({ token: 'R', emisor: 'casa', cantidad, de, a });
+  const t = (minuto) => '2026-11-07T15:' + String(minuto).padStart(2, '0') + ':00Z';
+  // El 2: votos y umbral.
+  const dos = compra.id + '.2';
+  await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '2100000000', t: t(0), movimientos: [gasta('huesped'), P(compra.id, 10, 'huesped', null), P(dos, 11, null, 'huesped')], payload: 'mi criterio, a la mirada 2' }, priv('huesped'));
+  const decision = await eje.escribir({
+    autor: 'huesped',
+    sobre: compra.id,
+    en: '2000000000',
+    t: t(1),
+    movimientos: [gasta('huesped')],
+    payload: ['¿Repetimos el menú el sábado?', ['sí', 'no'], [['decidir'], ['sí o no'], ['weighted sum', 'view 2', 'above 10'], ['cualquiera']]],
+  }, priv('huesped'));
+  const dosDeLaDecision = decision.id + '.2';
+  await eje.escribir({ autor: 'huesped', sobre: decision.id, en: '2100000000', t: t(2), movimientos: [gasta('huesped'), P(decision.id, 10, 'huesped', null), P(dosDeLaDecision, 11, null, 'huesped')], payload: 'mi criterio sobre la decisión, a su mirada 2' }, priv('huesped'));
+  const voto = await eje.escribir({
+    autor: 'huesped',
+    sobre: decision.id,
+    en: '2100000000',
+    t: t(3),
+    movimientos: [
+      gasta('huesped'),
+      P(dos, 5, 'huesped', 'huesped', { origen: 'huesped', estado: 'bloqueo', salida: decision.id }),
+      P(dosDeLaDecision, 2, 'huesped', 'huesped', { origen: 'huesped', estado: 'bloqueo', salida: decision.id }),
+    ],
+    payload: 'voto sí',
+  }, priv('huesped'));
+  // El 3: paquetes.
+  await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: t(4), movimientos: [gasta('casa'), R(2, 'casa', 'huesped')], payload: 'dos R de la casa para la huésped' }, priv('casa'));
+  const conversacion = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '3000000000', t: t(5), movimientos: [gasta('huesped')], payload: ['Conversación con la casa', ['huesped', 'casa']] }, priv('huesped'));
+  const pide = (minuto, texto) => eje.escribir({ autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(minuto), movimientos: [gasta('huesped'), R(1, 'huesped', 'casa')], payload: texto }, priv('huesped'));
+  const atendida = await pide(6, '¿Podéis guardarme una ración?');
+  const respuesta = await eje.escribir({ autor: 'casa', sobre: atendida.id, t: t(7), movimientos: [gasta('casa')], payload: 'Sí, te la guardamos' }, priv('casa'));
+  const pendiente = await pide(8, '¿Hay postre sin azúcar?');
+  const perdonada = await eje.escribir({ autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(9), movimientos: [gasta('huesped'), R(1, 'huesped', null)], payload: 'Esta te la perdono' }, priv('huesped'));
+  return { decision, voto, conversacion, atendida, respuesta, pendiente, perdonada };
+}
