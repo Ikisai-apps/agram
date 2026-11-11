@@ -480,16 +480,18 @@ test('el aro trae ocho sitios con su pv y su celda de la matriz 3 × 3 (sin cent
   const hd = html(d);
   assert.equal((hd.match(/<ul class="otras"/g) ?? []).length, 1);
   for (const o of seis.otras) assert.match(hd, new RegExp(`<ul class="otras">[^]*data-lanzar="${o.id}"`));
-  // un sitio sin acciones no tiene clic (en la compra, el 3 no ofrece nada a la huésped), pero sí valores que escribir (las
-  // identidades: contrato.opciones), que despliega el clic mantenido; sin acciones ni valores, apagado y sin lista
+  // en la compra, que es suya, el 3 ofrece a la huésped «admitir a alguien» (encargo equipo: darle R mía) y los valores que
+  // escribir (las identidades: contrato.opciones), que despliega el clic mantenido
   const c = await arbol({ foco: { X: compra.id, pv: 0 }, aro: { X: compra.id, pv: null } }, eje, 'huesped', GRANDE);
   const tres = c.aro.huecos.find((g) => g.pv === 3);
-  assert.equal(tres.accion, null);
+  assert.equal(tres.accion?.nombre, 'admitir a alguien');
   assert.deepEqual(tres.opciones.map((o) => o.valor), eje.identidades());
   const sitioTres = (a) => html(a).match(/<li class="hueco hueco-3[^]*?<\/li>/)[0];
-  assert.doesNotMatch(sitioTres(c), /apagado|data-lanzar/);
-  assert.match(sitioTres(c), /<span class="accion vacia"[^]*data-con-lista|data-con-lista[^]*<span class="accion vacia"/);
-  const sinNada = { ...c, aro: { ...c.aro, huecos: c.aro.huecos.map((g) => (g.pv === 3 ? { ...g, opciones: [] } : g)) } };
+  // un sitio sin acciones no tiene clic, pero sí su lista de valores; sin acciones ni valores, apagado y sin lista
+  const sinAcciones = { ...c, aro: { ...c.aro, huecos: c.aro.huecos.map((g) => (g.pv === 3 ? { ...g, accion: null, accionPorDefecto: null, otras: [], alternativas: [] } : g)) } };
+  assert.doesNotMatch(sitioTres(sinAcciones), /apagado|data-lanzar/);
+  assert.match(sitioTres(sinAcciones), /<span class="accion vacia"[^]*data-con-lista|data-con-lista[^]*<span class="accion vacia"/);
+  const sinNada = { ...sinAcciones, aro: { ...sinAcciones.aro, huecos: sinAcciones.aro.huecos.map((g) => (g.pv === 3 ? { ...g, opciones: [] } : g)) } };
   assert.match(sitioTres(sinNada), /<li class="hueco hueco-3[^"]* apagado"/);
   assert.doesNotMatch(sitioTres(sinNada), /data-lanzar|data-con-lista/);
 });
@@ -672,6 +674,37 @@ test('gestos: un clic en una celda de la rejilla o en la acción de un sitio del
   g.disparar('click', { target: enContenedorConFila({ dataset: { lanzar: 'A1', x: 'X1' } }, '[data-lanzar]'), preventDefault() {} });
   g.disparar('click', { target: { closest: (sel) => (sel === 'button[data-fila]' ? { dataset: { fila: '3' } } : null) }, preventDefault() {} });
   assert.deepEqual(g.llamadas, [['celda', 1, 'R2'], ['lanzar', 'X1', 'A1', null], ['fila', 3]]);
+});
+
+test('gestos: el doble clic (o doble toque) pone como foco lo que había bajo el primer clic, aunque el primero ya entrara y repintara (#23); sobre el centro sigue editando; dentro del aro no hace nada; el clic y el mantener no cambian', () => {
+  mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 20_000_000 });
+  try {
+    const celda = objetivo({ '[data-celda]': { dataset: { celda: 'R2', pv: '2', x: 'R2' }, closest: () => ({ dataset: { rejilla: '1' } }) }, '[data-x]': { dataset: { x: 'R2' } } });
+    const otro = objetivo({ '[data-x]': { dataset: { x: 'R9' } } }); // lo que queda bajo el puntero tras repintar
+    const g = gestosDeMentira();
+    g.disparar('click', { target: celda, preventDefault() {} });
+    mock.timers.tick(150);
+    g.disparar('click', { target: otro, preventDefault() {} });
+    g.disparar('dblclick', { target: otro, preventDefault() {} });
+    assert.deepEqual(g.llamadas, [['celda', 1, 'R2'], ['foco', 'R2', 0]], 'un clic entra (la celda); el doble clic enfoca el elemento del primer clic, no lo que quedó debajo');
+    // Un doble clic suelto (sin clic registrado antes, o pasado el rato): el elemento que tiene debajo.
+    mock.timers.tick(2000);
+    const h = gestosDeMentira();
+    h.disparar('dblclick', { target: otro, preventDefault() {} });
+    assert.deepEqual(h.llamadas, [['foco', 'R9', 0]]);
+    // Sobre el centro (ya es el foco): editar, como antes.
+    const centro = objetivo({ '[data-centro]': { dataset: { x: 'F', centro: '0' } }, '[data-x]': { dataset: { x: 'F' } } });
+    const c = gestosDeMentira();
+    c.disparar('click', { target: centro, preventDefault() {} });
+    c.disparar('dblclick', { target: centro, preventDefault() {} });
+    assert.deepEqual(c.llamadas.at(-1), ['editar', 'F', 0]);
+    // Dentro del aro o de un diálogo, nada.
+    const a = gestosDeMentira({ aroAbierto: true });
+    a.disparar('dblclick', { target: objetivo({ '.aro': { dataset: { x: 'X1' } }, '[data-x]': { dataset: { x: 'X1' } } }), preventDefault() {} });
+    assert.deepEqual(a.llamadas, []);
+  } finally {
+    mock.timers.reset();
+  }
 });
 
 test('la app ancla el aro al elemento en Mapped con position:fixed (en app.js, no en el árbol), recortado a la ventana; el móvil apilado lo deja centrado', () => {

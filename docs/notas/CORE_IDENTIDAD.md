@@ -22,13 +22,23 @@ node be.mjs identidad                                    # alta, T de minuto: 60
 node be.mjs proponer "AGRAM" --valores '{"content":"el sistema: núcleo, época y carta"}'
 node be.mjs proponer "Ikisai" --valores '{"content":"el ecosistema de apps"}'
 node be.mjs proponer "Mueling Sovereignty" --valores '{"content":"el proyecto"}'
-# VG: las acepta admitiendo a «core» en el 2.3 del proyecto; Core lo ve con «node be.mjs identidad»
+# VG: las acepta admitiendo a «core» en el proyecto (aro, PV3: «admitir a alguien», le da R suya)
+node be.mjs pendientes                                   # lo que aún no ha aceptado, por registro
 ```
+
+## Admitir es darle R (encargo equipo, VG 11-11 noche)
+
+Precisión de VG: admitir a una identidad en lo mío no es escribir su nombre en el 2.3; es un intercambio de R (la comunicación: el 3) y de T (el trabajo: el 4 y el 1) entre el dueño y ella, y lo que cada PV vea de ella lo han de dar las lecturas de esos movimientos, no un ancla puesta a mano.
+
+- **Entra hoy** (dato): la plantilla «admit someone» (PV3 de un registro mío): `whom` con las identidades del eje como opciones, `amount` de R mía (acuña antes la que falte) y `minutes` de T (0 por defecto; la regla «T only goes to things» solo deja darlo a una cosa mía). Ancla en el 3 de X como «give own R», y la regla de elegibles (R8) ya admite a quien el dueño nombra en el 3 de un registro sin lista en su 2.3. Prueba: `test/be.test.js` («admitir es darle R»), con Core sobre el menú de VG.
+- **Aceptar un escrito suelto** dándole R por él: «give own R» sobre el escrito ya se ofrece y mueve R del dueño al autor, pero la regla no lo lee (el escrito sigue pendiente).
 
 ## Para decidir VG
 
-- Aceptar **una** escritura suelta: hoy no existe; se admite al autor en todo el registro (preaceptación por registro, la corrección del dueño en su 2.3).
-- Una acción del aro para anclar un nombre en el 2.3 de un registro propio (hoy, con el formulario de la posición).
-- La preaceptación heredada por los registros de debajo: encajaría en el criterio del dueño (su PV2) o como delegación de P; no se ha inventado.
+- **La regla de elegibles por la R** (hoy `src/elegibles.js` mira nombres: el 2.3, el 3, `cualquiera`). Cambio mínimo propuesto, como dato: una lectura de la época «eligible» (como «attention group») que el núcleo evalúe en vez del código fijo, con dos cláusulas nuevas: (a) un escrito W sobre X es elegible si el dueño de X ancló sobre W un registro suyo que mueve R suya al autor de W (aceptar **un** escrito = darle R por él); (b) ¿es elegible en todo lo del dueño quien tiene R suya (`saldo R:<dueño> > 0`), o solo en el registro donde se la dio? Lo segundo es lo que hay hoy con «admit someone».
+- **La preaceptación heredada**: `elegibles` no mira a los padres. Propuesta: que admitido en un registro valga para los de debajo del mismo dueño (subir por `sobre` hasta su alta). Sin decidir no se ha hecho.
+- **Dejar de admitir**: no hay inversa. Corregir solo añade, y la R dada no vuelve si no la devuelve quien la tiene («return R») o la perdona. Opciones: que la admisión se lea por la R en mano (devolverla des-admite), o vetar (zona 5).
+- **Colocar por lo que se mueve** (1.3 y 1.3.4 «con quién», laboral; 1.4 y 4 sus trabajos; 3.4 el grupo «equipo»): hoy un PV pinta lo anclado o escrito en él (`contrato.ocupantes`) y el grupo «equipo» solo lee nombres anclados en el 3.4.3 del alta o el grupo de una invitación. Cambio mínimo propuesto, como dato: una lectura de la época por posición (como «stage» en `X.4.8`) que `contrato.ocupantes` añada a lo anclado: `A.1.3` las identidades con quien he movido R o T, `A.1.3.4` aquellas a las que he dado T (laboral), `X.1.4` y `X.4` lo escrito sobre X por quien admití que quema T, y una cláusula en «attention group» que ponga en la zona 4 a quien tiene R mía dada al admitirlo. La prueba lo deja escrito: hoy no sale en ninguno.
+- **Lo de la plantilla**: PV3 en el orden 7; ancla en el 3 de X (el de «give own R»); `minutes` 0 por defecto; las opciones de `whom` son todas las identidades (también quien mira; la validación lo rechaza).
+- **Doble clic = foco** (#23): VG decide al verlo.
 - Los 60 minutos por defecto del alta de una cosa y el ancla en el 1.4 del alta (datos de la plantilla).
-- Core en el grupo «equipo» (3.4) de la atención de VG: no lo coloca el núcleo solo; VG lo ancla en el 3.4.3 de su alta si quiere.
