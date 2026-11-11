@@ -99,7 +99,8 @@ export function instalar(raiz, m) {
       return false;
     }
     if (t.closest?.('.formulario, .guia, textarea, select, pre')) return false;
-    const campo = t.closest?.('.campo, .fila')?.querySelector?.('[data-campo]') ?? t.closest?.('[data-campo]');
+    // un campo: su input, su etiqueta (la .campo del anverso) o la cabeza de su fila (Sequenced); lo de dentro de una fila abierta no es el campo
+    const campo = t.closest?.('[data-campo]') ?? t.closest?.('.campo, .fila-cabeza')?.closest?.('.campo, .fila')?.querySelector?.('[data-campo]');
     if (campo && campo.dataset.x) { ultimoMantener = Date.now(); m.aro?.(campo.dataset.x, Number(campo.dataset.campo), { desplegar: true, ancla: anclaDe(t, x, y) }); return true; }
     const el = t.closest?.('[data-x]');
     if (!el || !el.dataset.x) return false;
@@ -132,7 +133,8 @@ export function instalar(raiz, m) {
     }
     if ((el = b('[data-todos]'))) { e.preventDefault(); m.todos?.(Number(el.dataset.todos)); return; }
     if ((el = b('[data-menu]'))) { e.preventDefault(); m.menu?.(); return; }
-    if ((el = b('[data-fila]'))) { e.preventDefault(); m.fila?.(Number(el.dataset.fila)); return; }
+    // la cabeza de una fila de Sequenced (un botón): las celdas de la rejilla y los sitios del aro también llevan data-fila (su fila en la cuadrícula), y no son filas
+    if ((el = b('button[data-fila]'))) { e.preventDefault(); m.fila?.(Number(el.dataset.fila)); return; }
     if ((el = b('[data-digito]'))) { e.preventDefault(); m.digito?.(Number(el.dataset.digito)); return; }
     if ((el = b('[data-tamano]'))) { e.preventDefault(); m.nivel?.(Number(el.dataset.pv), Number(el.dataset.tamano), el.dataset.x); return; }
     if ((el = b('[data-preferencia]'))) { e.preventDefault(); m.preferencia?.(el.dataset.preferencia, el.dataset.valor); return; }

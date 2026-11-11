@@ -676,6 +676,13 @@ const manejadores = {
     estado.aro = { ...estado.aro, pv: null, editar: true };
     tocar(estado.aro.X, 'aro editar');
     await pintar();
+    // Las dos listas, recortadas a la ventana (la del 5 crece hacia arriba y la del 0 hacia abajo: con scroll si no caben).
+    const MARGEN = 8;
+    for (const lista of raiz.querySelectorAll('.aro-edicion .opciones')) {
+      const r = lista.getBoundingClientRect();
+      const sobra = Math.max(MARGEN - r.top, r.bottom - (globalThis.innerHeight - MARGEN), 0);
+      if (sobra > 0) lista.style.maxHeight = Math.max(60, r.height - sobra) + 'px';
+    }
     const input = raiz.querySelector('.aro [data-campo]');
     if (input) { input.focus(); input.select?.(); }
   },

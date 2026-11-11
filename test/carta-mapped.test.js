@@ -629,6 +629,16 @@ test('gestos: un clic entra en profundidad (una celda, un registro) y mantener m
   }
 });
 
+test('gestos: un clic en una celda de la rejilla o en la acción de un sitio del aro entra o lanza aunque su contenedor lleve data-fila (su fila en la cuadrícula); solo la cabeza de una fila de Sequenced (un botón) abre la fila', () => {
+  // un objetivo que responde como el DOM: [data-fila] lo lleva el contenedor (una celda, un sitio), no un botón
+  const enContenedorConFila = (propio, clave) => ({ closest: (sel) => (sel === clave ? propio : sel === '[data-fila]' ? { dataset: { fila: '0' } } : null) });
+  const g = gestosDeMentira();
+  g.disparar('click', { target: enContenedorConFila({ dataset: { celda: 'R2', pv: '1' }, closest: () => ({ dataset: { rejilla: '1' } }) }, '[data-celda]'), preventDefault() {} });
+  g.disparar('click', { target: enContenedorConFila({ dataset: { lanzar: 'A1', x: 'X1' } }, '[data-lanzar]'), preventDefault() {} });
+  g.disparar('click', { target: { closest: (sel) => (sel === 'button[data-fila]' ? { dataset: { fila: '3' } } : null) }, preventDefault() {} });
+  assert.deepEqual(g.llamadas, [['celda', 1, 'R2'], ['lanzar', 'X1', 'A1', null], ['fila', 3]]);
+});
+
 test('la app ancla el aro al elemento en Mapped con position:fixed (en app.js, no en el árbol), recortado a la ventana; el móvil apilado lo deja centrado', () => {
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
   assert.match(app, /function situarAro\(\)/);
