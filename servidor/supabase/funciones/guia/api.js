@@ -14,7 +14,7 @@
 // entre el despliegue (api.anthropic.com con ANTHROPIC_API_KEY, index.ts) y la prueba (un eco).
 
 /** Orígenes admitidos por CORS: la carta publicada y el desarrollo local (los de la función `eventos`). */
-export const ORIGENES = Object.freeze(['https://agram.ikisai.com', /^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/]);
+export const ORIGENES = Object.freeze(['https://agram.ikisai.com', 'https://beta.agram.ikisai.com', 'https://agram-beta.pages.dev', /^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/]);
 export const PREGUNTAS_POR_MINUTO = 30;
 export const LIMITE_CONTEXTO = 8000;
 export const LIMITE_INSTRUCCIONES = 8000;

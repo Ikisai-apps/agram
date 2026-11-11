@@ -28,7 +28,7 @@
 import * as verificar from './verificar.js';
 
 /** Orígenes admitidos por CORS: la carta publicada y el desarrollo local. */
-export const ORIGENES = Object.freeze(['https://agram.ikisai.com', /^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/]);
+export const ORIGENES = Object.freeze(['https://agram.ikisai.com', 'https://beta.agram.ikisai.com', 'https://agram-beta.pages.dev', /^http:\/\/localhost(:\d+)?$/, /^http:\/\/127\.0\.0\.1(:\d+)?$/]);
 /** Tope del cuerpo de una petición, en bytes. */
 export const LIMITE_CUERPO = 256 * 1024;
 /** Escrituras admitidas por eje y minuto. */
