@@ -152,6 +152,43 @@ test('el clic sobre un PV sube un paso solo a ese PV; en el tope, el siguiente l
   assert.equal(ampliar(estado, 1, -10).niveles[1], e.partida);
 });
 
+test('#17: ir a la pantalla completa del 7 y volver no vacía el 4, ni al revés; el 3×3 vuelve como estaba (entrar no es un toque de tamaño)', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const m = medidasDePantalla(1366, 728); // 1366 × 768 sin la barra
+  // Foco en el 0 y todos en bloque (los puntitos, dos veces).
+  let estado = { foco: { X: compra.id, pv: 0 }, ...ampliarTodos(ampliarTodos({}, +1), +1) };
+  const foto = async () => {
+    const a = await arbol(estado, eje, 'huesped', m);
+    sinScroll(a, 'tras volver');
+    const h = html(a);
+    return { a, h, por: Object.fromEntries(a.laterales.map((n) => [n.pv, { nivel: n.nivel, caja: n.caja, rejilla: Boolean(n.rejilla), ocupantes: n.ocupantes?.lista.length ?? 0 }])) };
+  };
+  const antes = await foto();
+  assert.ok(antes.a.mapa.matriz && antes.a.laterales.every((n) => n.nivel === NIVEL.bloque));
+  for (const orden of [[7, 4], [4, 7]]) {
+    for (const pv of orden) {
+      // Un clic más sobre el PV ya en el tope (su «+»): la pantalla completa; la app pone el foco en él (estado.foco.pv).
+      const r = ampliar(estado, pv, +1);
+      assert.equal(r.completa, true);
+      estado = { ...estado, niveles: r.niveles, recientes: r.recientes, foco: { X: compra.id, pv } };
+      const dentro = await arbol(estado, eje, 'huesped', m);
+      assert.equal(dentro.mapa.completa.pv, pv);
+      // «volver»: el foco al 0 (data-foco-pv="0"), el mismo registro: la app no toca niveles ni recientes.
+      estado = { ...estado, foco: { X: compra.id, pv: 0 } };
+      const tras = await foto();
+      assert.deepEqual(tras.por, antes.por, `tras ir al ${pv} y volver (${orden.join(' → ')}), cada PV con su nivel, su caja y su contenido`);
+      assert.deepEqual(tras.a.mapa.columnas, antes.a.mapa.columnas);
+      assert.deepEqual(tras.a.mapa.filas, antes.a.mapa.filas);
+      for (const otro of [4, 7]) assert.deepEqual(tras.por[otro], antes.por[otro], `el ${otro} tras volver del ${pv}`);
+    }
+  }
+  // Lo mismo si el PV se agranda antes uno a uno: entrar y volver deja los tamaños y los recientes como estaban.
+  const uno = { foco: { X: compra.id, pv: 0 }, ...ampliar(ampliarTodos({}, +1), 7, +1) };
+  const r = ampliar(uno, 7, +1);
+  assert.equal(r.completa, true);
+  assert.deepEqual([r.niveles, r.recientes], [uno.niveles, uno.recientes]);
+});
+
 test('la competición: si dos tocados uno a uno no caben en su fila o su columna, gana el más reciente y el otro baja un paso', () => {
   const e = escalaDeTamanos();
   let estado = {};

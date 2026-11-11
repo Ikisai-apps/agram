@@ -809,7 +809,7 @@ export function repartir(niveles, pvs, escala, { recientes = [] } = {}) {
 /**
  * Un paso de tamaño en un solo PV (el clic sobre él, sus botoncitos, el arrastre desde su esquina): sube o baja
  * `delta` pasos entre el de partida y el tope; pasar del tope es la pantalla completa (`completa`: la app pone ese PV
- * como foco). Si al crecer los PV de su fila (al ensanchar) o de su columna (al alargar) ya no caben juntos, sin contar
+ * como foco; los tamaños y los recientes no cambian, así que volver deja el 3×3 como estaba). Si al crecer los PV de su fila (al ensanchar) o de su columna (al alargar) ya no caben juntos, sin contar
  * el foco, compiten con él los que se tocaron antes uno a uno y están en un paso igual o mayor: gana el más reciente y
  * cada uno de esos baja un paso (VG, 10-11). Puro: devuelve el estado nuevo
  * { niveles, recientes, completa }, no lo guarda.
@@ -820,10 +820,10 @@ export function ampliar(estado, pv, delta, opciones = {}) {
   const niveles = { ...(estado?.niveles ?? {}) };
   const antes = (estado?.recientes ?? []).filter((x) => x !== pv);
   const nuevo = pasoGuardado(estado, pv, escala) + delta;
-  if (escala.completa >= 0 && nuevo >= escala.completa) {
-    niveles[pv] = escala.tope;
-    return { niveles, recientes: [...antes, pv], completa: true };
-  }
+  // Pasar del tope es entrar en el PV, no un toque de tamaño (#17): el 3×3 queda como estaba, y al volver cada PV tiene
+  // su caja de antes. Si entrar contara como «el más reciente», al volver ese PV ganaría lo suyo en su fila y su
+  // columna y encogería a los demás (ir al 7 y volver vaciaba el 4, y al revés).
+  if (escala.completa >= 0 && nuevo >= escala.completa) return { niveles: { ...(estado?.niveles ?? {}) }, recientes: [...(estado?.recientes ?? [])], completa: true };
   niveles[pv] = Math.max(escala.partida, Math.min(escala.tope, nuevo));
   if (delta <= 0) return { niveles, recientes: antes, completa: false };
   const q = deseos(niveles, pvs, escala);
