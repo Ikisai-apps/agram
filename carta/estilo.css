@@ -125,7 +125,7 @@ small{color:var(--muted)}
 
 /* el animado entero (etapa 5): el escenario de un PV (fondo, etapa, personaje, efectos) y su marco */
 .pv,.nucleo{position:relative;isolation:isolate}
-.animado .pv.nivel-2,.animado .pv.nivel-3,.animado .nucleo:not(:has(>.rejilla-completa)){padding:clamp(10px,4%,36px)} /* el marco pintado tiene su grosor: el contenido queda dentro (a pantalla completa, el marco es una capa de la rejilla y el centro no cambia) */
+.animado .pv.nivel-2:has(>.pieza-marco),.animado .pv.nivel-3:has(>.pieza-marco),.animado .nucleo:has(>.pieza-marco){padding:clamp(10px,4%,36px)} /* el marco pintado entero (Sequenced) tiene su grosor: el contenido queda dentro; con el marco en capas (Mapped, el centro, la pantalla completa) nada cambia de medida */
 .animado .pv.nivel-3 .pv-pie{margin-bottom:2%}
 .escenario{position:relative;width:min(100%,var(--tarjeta));aspect-ratio:1/1;align-self:center;overflow:hidden;border-radius:8px}
 .pv.nivel-3 .escenario,.nucleo.abierto .escenario{width:min(100%,calc(var(--tarjeta) * 2))}
@@ -573,18 +573,18 @@ html.mapped body{padding:0}
 .capa .pieza,.capa.pieza{margin:0}
 /* 1 · el fondo del mundo: el dibujo centrado en su cuadrado, a toda la superficie sin deformarse (cover), atenuado */
 .rejilla-completa>.capa-fondo{position:absolute;inset:0;z-index:-1;width:100%;height:100%;object-fit:cover;object-position:50% 50%;opacity:.36;border-radius:8px;filter:saturate(.9)}
-.animado .rejilla-completa .rejilla-celda{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 10%,var(--bg)) 72%,transparent);box-shadow:0 2px 10px rgba(0,0,0,.12)}
-.animado .rejilla-completa .rejilla-celda.vacia{background:color-mix(in oklab,var(--bg) 40%,transparent);box-shadow:none}
-.animado .rejilla-completa .rejilla-matriz>.hijo.vacia{background:color-mix(in oklab,var(--bg) 30%,transparent)}
-.animado .rejilla-completa .franja-tiempo{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 6%,var(--bg)) 55%,transparent)}
-.animado .rejilla-completa .franja-tiempo.ahora{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 18%,var(--bg)) 72%,transparent)}
-.animado .rejilla-completa .posicion{background:color-mix(in oklab,var(--bg) 62%,transparent)}
-.animado .rejilla-completa .rejilla-cielo{background:color-mix(in oklab,color-mix(in oklab,var(--pv-8,#17396f) 80%,#000) 70%,transparent)}
+.animado .rejilla-completa .rejilla-celda,.animado .mapa .pv .rejilla-celda{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 10%,var(--bg)) 72%,transparent);box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.animado .rejilla-completa .rejilla-celda.vacia,.animado .mapa .pv .rejilla-celda.vacia{background:color-mix(in oklab,var(--bg) 40%,transparent);box-shadow:none}
+.animado .rejilla-completa .rejilla-matriz>.hijo.vacia,.animado .mapa .pv .rejilla-matriz>.hijo.vacia{background:color-mix(in oklab,var(--bg) 30%,transparent)}
+.animado .rejilla-completa .franja-tiempo,.animado .mapa .pv .franja-tiempo{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 6%,var(--bg)) 55%,transparent)}
+.animado .rejilla-completa .franja-tiempo.ahora,.animado .mapa .pv .franja-tiempo.ahora{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 18%,var(--bg)) 72%,transparent)}
+.animado .rejilla-completa .posicion,.animado .mapa .pv .posicion{background:color-mix(in oklab,var(--bg) 62%,transparent)}
+.animado .rejilla-completa .rejilla-cielo,.animado .mapa .pv .rejilla-cielo{background:color-mix(in oklab,color-mix(in oklab,var(--pv-8,#17396f) 80%,#000) 70%,transparent)}
 .animado .rejilla-completa .plegable,.animado .rejilla-completa .camino-madurez,.animado .rejilla-completa .cielo-panel{background:color-mix(in oklab,var(--panel) 86%,transparent);border-radius:6px}
 /* 3 · el dibujo del mundo dentro de cada hijo, detrás de su texto: el del hijo (tienda, parterre, estanque…) al pie,
    uno por ocupante (mercancía, flor, paquete…) delante, el sello de lo hecho en la esquina; escala con la cifra del
    hijo (--total: 0,6 con poco, 1,4 con cinco o más) sin cambiar la celda */
-.animado .rejilla-completa .hijo{isolation:isolate}
+.animado .rejilla-completa .hijo,.animado .mapa .pv .rejilla .hijo{isolation:isolate}
 .capa-dibujo{position:absolute;inset:0;z-index:-1;overflow:hidden;container-type:size;--escala:clamp(.6,calc(.6 + var(--total,0) * .16),1.4);--alto-hijo:min(92cqh,calc(62cqh * var(--escala)))}
 .capa-dibujo .dibujo-hijo{position:absolute;left:50%;bottom:0;width:auto;height:var(--alto-hijo);max-width:96cqw;aspect-ratio:1/1;object-fit:contain;transform:translateX(-50%);opacity:.92}
 .capa-dibujo .dibujo-ocupantes{position:absolute;left:4cqw;right:4cqw;bottom:3cqh;display:flex;flex-wrap:wrap-reverse;justify-content:center;align-items:flex-end;gap:2px;height:calc(30cqh * var(--escala));overflow:hidden}
@@ -610,11 +610,11 @@ html.mapped body{padding:0}
 .animado .rejilla-completa .estrella-forma:has(.capa-ocupante){position:relative;color:transparent}
 .estrella-forma>.capa-ocupante{position:absolute;inset:-25%;width:150%;height:150%;object-fit:contain}
 /* el nombre y la cifra de cada hijo, vestidos de cartel del mundo (solo color, fondo y sombra: la cabeza mide lo mismo) */
-.animado .rejilla-completa .hijo-cabeza{background:linear-gradient(color-mix(in oklab,var(--c,var(--accent)) 82%,#fff),color-mix(in oklab,var(--c,var(--accent)) 82%,#2a1a0c));color:#fffaf0;border-bottom-color:rgba(0,0,0,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 2px 0 rgba(0,0,0,.15);text-shadow:0 1px 1px rgba(0,0,0,.45)}
-.animado .rejilla-completa .hijo-cabeza .numero{background:rgba(255,255,255,.25);color:inherit}
-.animado .rejilla-completa .hijo-cabeza .hijo-cifra:not(:empty){color:#2a1a0c;background:#fff4d8;border-radius:999px;box-shadow:0 0 0 3px #fff4d8,0 0 0 4px rgba(0,0,0,.3);text-shadow:none}
-.animado .rejilla-completa .hijo[data-vacio] .hijo-cabeza,.animado .rejilla-completa .vacia>.hijo-cabeza{background:color-mix(in oklab,var(--c,var(--rule)) 14%,var(--bg));color:var(--muted);text-shadow:none;box-shadow:none}
-.animado .rejilla-completa .caja-cielo .hijo-cabeza{background:linear-gradient(rgba(255,255,255,.14),rgba(0,0,0,.25));color:var(--cielo-tinta)}
+.animado .rejilla-completa .hijo-cabeza,.animado .mapa .pv .rejilla .hijo-cabeza{background:linear-gradient(color-mix(in oklab,var(--c,var(--accent)) 82%,#fff),color-mix(in oklab,var(--c,var(--accent)) 82%,#2a1a0c));color:#fffaf0;border-bottom-color:rgba(0,0,0,.35);box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 2px 0 rgba(0,0,0,.15);text-shadow:0 1px 1px rgba(0,0,0,.45)}
+.animado .rejilla-completa .hijo-cabeza .numero,.animado .mapa .pv .rejilla .hijo-cabeza .numero{background:rgba(255,255,255,.25);color:inherit}
+.animado .rejilla-completa .hijo-cabeza .hijo-cifra:not(:empty),.animado .mapa .pv .rejilla .hijo-cabeza .hijo-cifra:not(:empty){color:#2a1a0c;background:#fff4d8;border-radius:999px;box-shadow:0 0 0 3px #fff4d8,0 0 0 4px rgba(0,0,0,.3);text-shadow:none}
+.animado .rejilla-completa .hijo[data-vacio] .hijo-cabeza,.animado .rejilla-completa .vacia>.hijo-cabeza,.animado .mapa .pv .rejilla .hijo[data-vacio] .hijo-cabeza,.animado .mapa .pv .rejilla .vacia>.hijo-cabeza{background:color-mix(in oklab,var(--c,var(--rule)) 14%,var(--bg));color:var(--muted);text-shadow:none;box-shadow:none}
+.animado .rejilla-completa .caja-cielo .hijo-cabeza,.animado .mapa .pv .rejilla .caja-cielo .hijo-cabeza{background:linear-gradient(rgba(255,255,255,.14),rgba(0,0,0,.25));color:var(--cielo-tinta)}
 /* 2 · la etapa del elemento pulsado: en la cruceta, dentro de la tarjeta central detrás del nombre y la cifra (la
    tarjeta mide lo mismo; en la cara 5 no se ve); en las demás formas, pequeña en la cabecera, junto al nombre */
 .animado .rejilla-completa .flotante-cara.cara-0{position:relative;isolation:isolate}
@@ -653,6 +653,22 @@ html.mapped body{padding:0}
 .marco-esquina.arriba-derecha{right:0;top:0} .marco-esquina.arriba-derecha>img{right:0;top:0}
 .marco-esquina.abajo-izquierda{left:0;bottom:0} .marco-esquina.abajo-izquierda>img{left:0;bottom:0}
 .marco-esquina.abajo-derecha{right:0;bottom:0} .marco-esquina.abajo-derecha>img{right:0;bottom:0}
+/* El animado en los bloques y las tarjetas de Mapped, y en el centro (VG, 11-11, #16: «se ve súper cutre» con el marco
+   flotando como una figura encima del contenido). Como a pantalla completa: el sobrio intacto y encima y debajo capas
+   absolutas (nada cambia de sitio ni de medida). El fondo del mundo atenuado detrás de todo; la etapa pequeña en la
+   cabecera, a la derecha del nombre; el dibujo del mundo en cada hijo (más tenue: el bloque es pequeño y se lee
+   encima) o, en una lista, junto a cada ocupante; y el marco abrazando el borde: la traza de sus esquinas a 4 px del
+   borde (lo de fuera lo recorta la caja) y la línea del color del mundo entre ellas. Sin personaje. */
+.pv>.capa-fondo{position:absolute;inset:0;z-index:-1;width:100%;height:100%;max-width:none;aspect-ratio:auto;object-fit:cover;object-position:50% 50%;opacity:.3;border-radius:inherit;filter:saturate(.9)}
+.animado .mapa .pv-cabeza .etiqueta:has(>.capa-etapa-pv){position:relative;min-width:0;overflow-x:clip;overflow-y:visible}
+.pv-cabeza .capa-etapa-pv{position:absolute;right:0;top:50%;width:26px;height:26px;max-width:none;aspect-ratio:1/1;object-fit:contain;transform:translateY(-50%);z-index:-1}
+.mapa .pv .capa-dibujo .dibujo-hijo{opacity:.45}
+.mapa .pv .capa-dibujo .dibujo-ocupante{opacity:.6}
+.animado .mapa .pv .ocupante:has(>.capa-elemento){position:relative;isolation:isolate}
+.ocupante>.capa-elemento{position:absolute;right:2px;top:50%;width:20px;height:20px;max-width:none;aspect-ratio:1/1;object-fit:contain;transform:translateY(-50%);z-index:-1;opacity:.6}
+.pv>.capa-marco,.nucleo>.capa-marco{--esquina:18px;--dibujo:calc(var(--esquina) * 512 / 88);position:absolute;inset:calc(4px - var(--esquina) * 36 / 88);z-index:4}
+.pv>.capa-marco::before,.nucleo>.capa-marco::before{border-width:2px;inset:calc(var(--esquina) * 36 / 88 - 1px)}
+.pv.nivel-2>.capa-marco{--esquina:14px}
 /* el interruptor de la barra: sobrio o animado */
 .interruptor{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden;flex:none}
 .interruptor button{border:0;border-radius:0;min-height:28px;padding:2px 10px;background:transparent;font-size:13px}
@@ -705,7 +721,7 @@ html.mapped body{padding:0}
   .mandos .tamano::after,.asa::after,.celda-abrir::after,.hijo-cuerpo .celda-abrir::after,.enlace::after,.hijo-cuerpo .ocupante-ref::after,.ocupante.cuenta::after,.ocupante.estrella::after{content:"";position:absolute;left:-4px;right:-4px;top:50%;height:32px;transform:translateY(-50%)}
   /* el foco y los PV: letra y márgenes más cortos; la guía (alta de 440 px) no cabe en una celda de la matriz, se ve a pantalla completa */
   .mapa .nucleo{padding:4px 8px;gap:4px}
-  .animado .pv.nivel-2,.animado .pv.nivel-3,.animado .nucleo:not(:has(>.rejilla-completa)){padding:clamp(4px,1.5%,10px)} /* el marco pintado, más fino */
+  .animado .pv.nivel-2:has(>.pieza-marco),.animado .pv.nivel-3:has(>.pieza-marco),.animado .nucleo:has(>.pieza-marco){padding:clamp(4px,1.5%,10px)} /* el marco pintado, más fino */
   .mapa .nucleo .representacion{font-size:1.05rem;margin:0}
   .mapa .nucleo .campos{gap:2px 8px}
   .mapa .nucleo .campo label,.mapa .nucleo .campo-0 .etiqueta-0{font-size:11px}
@@ -741,6 +757,10 @@ html.mapped body{padding:0}
   /* los mandos de tamaño de cada PV, arriba a la derecha (en la cabeza, donde no tapan lo que se lee); la medida se ve a pantalla completa */
   .mandos,.mandos.columna-0,.mandos.columna-2,.mandos.columna-1{top:2px;bottom:auto;left:auto;right:4px;transform:none}
   .mapa-celdas>.celda .pv-cabeza .medida{display:none}
+  /* el marco de los bloques, más pequeño; en una celda muy baja, solo la línea del color del mundo */
+  .pv>.capa-marco,.nucleo>.capa-marco{--esquina:13px}
+  .pv-cabeza .capa-etapa-pv{width:22px;height:22px}
+  @container (max-height:90px){.pv>.capa-marco .marco-esquina,.nucleo>.capa-marco .marco-esquina{display:none}}
   .mapa-celdas>.celda .pv-cabeza{padding-right:76px}
   /* la pantalla completa de un PV: cabeza y nivel más cortos; lo que aun así no cabe (la guía del 9) se desliza dentro de la tarjeta, no la página */
   .mapa .nucleo.abierto{gap:2px}

@@ -388,6 +388,10 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     nodo.disposicion = d.disposicion;
     if (ctx.animado) nodo.fondo = fondoDe(ctx, pv, nodo.tamano);
     nodo.munequito = nodo.personaje?.pieza ?? null;
+    // Mapped, el bloque en animado (VG, 11-11, #16): como la pantalla completa, capas sobre la misma rejilla sobria
+    // (capasDeRejilla): el dibujo del mundo en cada hijo; el fondo, la etapa y el marco los pinta el bloque. Sin
+    // personaje (solo a pantalla completa) y lo nuevo, sobre el bloque entero (nodo.nuevos).
+    if (ctx.animado && mapa && nodo.rejilla) capasDeRejilla(eje, X, pv, nodo.rejilla, ctx, nodo, nodo.tamano, { personaje: false, efectos: false });
   }
   // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
   if (g.grupo === 'cruz' && g.lado === 1) {
@@ -1195,9 +1199,10 @@ const esPersonaOcupante = (eje, o) => o?.tipo === 'hoja' && typeof o.valor === '
  *     ocupante (o el de persona), el sello de lo hecho (la estación ejecutada) y los efectos de lo nuevo que cuelga de
  *     ese hijo (pvDondeCuelga);
  *   ocupante.dibujo: en las bandas (las cuentas del 6 y el 7, las estrellas del 8, los pasos del 9), el de cada uno.
- * Qué dibujo va con qué es la correspondencia de la cabecera (elementoDelMundo); dónde va cada capa, CSS.
+ * Qué dibujo va con qué es la correspondencia de la cabecera (elementoDelMundo); dónde va cada capa, CSS. En un bloque
+ * de Mapped (#16), `personaje: false` y `efectos: false`: sin muñequito y lo nuevo sobre el bloque entero, no por hijo.
  */
-function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano) {
+function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conPersonaje = true, efectos: conEfectos = true } = {}) {
   const lado = GEOMETRIA[pv].lado;
   const R = r.X ?? X;
   const madurez = R === X ? ctx.madurez : contrato.madurez(eje, R, ctx.opciones);
@@ -1223,7 +1228,7 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano) {
     b.capa = { total: (b.items?.length ?? 0) + (b.mas ?? 0), hijo: llena ? dibujo('hijo') : b.foco ? null : dibujo('vacio'), ocupantes: [], hecho: null, efectos: null };
   }
   // Lo nuevo bajo R, por el dígito del que cuelga (pvDondeCuelga): al hijo de ese dígito si lo hay; si no, al centro del mundo.
-  const porDigito = R === X ? ctx.nuevosPorPv : nuevosPorPvDe(eje, R, ctx.nuevos, ctx.opciones);
+  const porDigito = !conEfectos ? new Map() : R === X ? ctx.nuevosPorPv : nuevosPorPvDe(eje, R, ctx.nuevos, ctx.opciones);
   const alCentro = [];
   for (const [digito, entradas] of porDigito) {
     const celda = r.forma === 'matriz' ? null : (r.celdas ?? []).find((c) => c.pv === digito);
@@ -1231,8 +1236,8 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano) {
     else alCentro.push(...entradas);
   }
   const hayNuevos = [...porDigito.values()].some((l) => l.length > 0);
-  const pasos = R === X ? ctx.pasos : pasosPorPv(eje, R, ctx.opciones);
-  const personaje = personajeDe(ctx, eje, R, pv, lado, tamano, { enfocado: true, nuevos: hayNuevos, paso: pasos.porPv[pv] ?? null });
+  const pasos = R === X || !conPersonaje ? ctx.pasos : pasosPorPv(eje, R, ctx.opciones);
+  const personaje = conPersonaje ? personajeDe(ctx, eje, R, pv, lado, tamano, { enfocado: true, nuevos: hayNuevos, paso: pasos.porPv[pv] ?? null }) : null;
   const quieto = personaje ? conRecurso(piezaDe(ctx, PIEZA.munequito, pv, modelos.CUALQUIERA, lado, tamano, { rol: personaje.rol })) : null;
   r.capas = {
     fondo: escenario.fondo ?? null,

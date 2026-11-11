@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbol, preferencias } from '../carta/carta.js';
+import { arbol, preferencias, ampliarTodos, medidasDePantalla, NIVEL } from '../carta/carta.js';
 import { html, trasPintar } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
 import * as modelos from '../src/modelos.js';
@@ -223,7 +223,7 @@ test('las capas no ocupan sitio ni mueven nada: absolutas, sin recibir el ratón
   const regla = (sel) => new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*position:absolute');
   for (const sel of ['.rejilla-completa>.capa-fondo', '.capa-dibujo', '.flotante-cara>.capa-etapa', '.capa-etapa-cabeza', '.rejilla-completa>.capa-personaje', '.capa-efectos', '.rejilla-completa>.capa-marco', '.cuenta-bola>.capa-ocupante', '.estrella-forma>.capa-ocupante']) assert.match(CSS, regla(sel), sel);
   assert.match(CSS, /\.capa\{pointer-events:none\}/);
-  assert.match(CSS, /\.animado \.nucleo:not\(:has\(>\.rejilla-completa\)\)\{padding:/, 'el relleno del marco pintado no toca la pantalla completa');
+  assert.match(CSS, /\.animado \.nucleo:has\(>\.pieza-marco\)\{padding:/, 'el relleno del marco pintado entero no toca la pantalla completa ni el marco en capas');
   assert.match(CSS, /--escala:clamp\(\.6,[^;]*,1\.4\)/, 'el dibujo escala con la cifra entre 0,6 y 1,4');
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)\{\.capa-efectos\{display:none\}\}/);
   // Lo que se cambia del sobrio en animado solo es color, fondo y sombra (nada de bordes, rellenos, tamaños ni huecos).
@@ -275,4 +275,82 @@ test('sin red, el personaje cae a su dibujo quieto sin error: trasPintar marca e
     globalThis.matchMedia = antes;
     globalThis.fetch = fetchAntes;
   }
+});
+
+/** Las secciones de los PV laterales del HTML de la carta, por PV: de `<section class="pv pv-N ` a su cierre. */
+function seccionesDe(h) {
+  const fuera = {};
+  const re = /<section class="pv pv-(\d) /g;
+  let m;
+  while ((m = re.exec(h))) {
+    const etiquetas = /<(\/?)section\b[^>]*>/g;
+    etiquetas.lastIndex = m.index;
+    let n = 0;
+    let e;
+    while ((e = etiquetas.exec(h))) {
+      n += e[1] ? -1 : 1;
+      if (n === 0) break;
+    }
+    fuera[m[1]] = h.slice(m.index, e.index + e[0].length);
+  }
+  return fuera;
+}
+
+test('Mapped en bloque y en tarjeta (#16): el animado es el sobrio más capas; el marco abraza el borde (sus esquinas y una línea), nunca flota encima; el fondo atenuado, la etapa en la cabecera, el dibujo del mundo en cada hijo; sin personaje', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const pantallas = { 'el ordenador (1366 × 768)': medidasDePantalla(1366, 728), 'el móvil apaisado (844 × 390)': medidasDePantalla(844, 350), 'la pantalla grande': GRANDE };
+  const bloques = ampliarTodos(ampliarTodos({}, +1), +1);
+  const tarjetas = ampliarTodos({}, +1);
+  const casos = Object.entries(pantallas).flatMap(([que, m]) => [[que + ', en bloque', m, bloques], [que + ', en tarjeta', m, tarjetas]]);
+  const sobrio = [];
+  for (const [que, m, niveles] of casos) {
+    const a = await arbol({ foco: { X: compra.id, pv: 0 }, ...niveles }, eje, 'huesped', m);
+    assert.equal(a.animado, false);
+    assert.equal(a.apilada, false, que + ': Mapped');
+    const s = seccionesDe(html(a));
+    assert.equal(Object.keys(s).length, MUNDOS.length, que);
+    for (const h of Object.values(s)) assert.doesNotMatch(h, /class="[^"]*\bcapa\b/, 'el sobrio no lleva capas');
+    sobrio.push(s);
+  }
+  await animado(eje);
+  let dibujos = 0;
+  for (const [i, [que, m, niveles]] of casos.entries()) {
+    const a = await arbol({ foco: { X: compra.id, pv: 0 }, ...niveles }, eje, 'huesped', m);
+    assert.equal(a.animado, true);
+    const s = seccionesDe(html(a));
+    for (const n of a.laterales) {
+      const h = s[n.pv];
+      const donde = `${que}, el ${n.pv}`;
+      assert.ok(n.nivel >= NIVEL.tarjeta, donde);
+      // Mismo DOM: quitar las capas da el sobrio exacto (nada cambia de sitio ni de medida: lo comprueba Playwright).
+      assert.equal(sinCapas(h), sobrio[i][n.pv], donde + ': el animado es el sobrio más capas');
+      // El marco: sus cuatro esquinas (el dibujo sin deformar) y la línea, lo último del PV; nunca el <img> estirado encima.
+      const marco = `<img src="./${n.marco.recurso}" alt="" loading="lazy" decoding="async">`;
+      assert.ok(h.endsWith(`<div class="capa capa-marco" aria-hidden="true">${['arriba-izquierda', 'arriba-derecha', 'abajo-izquierda', 'abajo-derecha'].map((e) => `<span class="marco-esquina ${e}">${marco}</span>`).join('')}</div></section>`), donde + ': el marco en sus esquinas');
+      assert.doesNotMatch(h, /pieza-marco|class="escenario|pieza-personaje|capa-personaje/, donde + ': ni marco flotante, ni escenario, ni personaje');
+      // La etapa del mundo, pequeña en la cabecera (dentro del nombre, a su derecha).
+      assert.match(h, new RegExp(`^<section [^>]*>(?:<img class="pieza capa pieza-fondo capa-fondo pieza-imagen"[^>]*>)?<header class="pv-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">[^<]*<img class="pieza capa pieza-etapa capa-etapa capa-etapa-pv pieza-imagen" src="\./${n.etapa.recurso}"`), donde + ': la etapa en la cabecera');
+      if (n.nivel >= NIVEL.bloque) {
+        // El fondo del mundo, lo primero del bloque (detrás de todo, atenuado: CSS).
+        assert.ok(h.includes(`<img class="pieza capa pieza-fondo capa-fondo pieza-imagen" src="./${n.fondo.recurso}"`), donde + ': el fondo');
+        // Con rejilla, el dibujo de la correspondencia en cada hijo (como a pantalla completa) y sin personaje.
+        if (n.rejilla) {
+          assert.equal(n.rejilla.capas.personaje, null, donde + ': sin personaje');
+          const conDibujo = (n.rejilla.celdas ?? []).filter((c) => c.capa.hijo || c.capa.ocupantes.length).length + (n.rejilla.bandas ?? []).filter((b) => b.capa.hijo).length;
+          assert.equal((h.match(/<div class="capa capa-dibujo/g) ?? []).length, conDibujo, donde + ': un dibujo por hijo');
+          dibujos += conDibujo;
+        }
+      } else {
+        assert.doesNotMatch(h, /capa-fondo/, donde + ': en tarjeta, sin fondo');
+      }
+      // En una lista, el elemento de cada ocupante es una capa (no empuja el texto).
+      assert.doesNotMatch(h, /class="pieza pieza-elemento/, donde);
+    }
+  }
+  assert.ok(dibujos > 10, 'los bloques con rejilla llevan el dibujo de sus hijos: ' + dibujos);
+  // CSS: todo absoluto y sin relleno añadido; en una celda muy baja del móvil, solo la línea.
+  const regla = (sel) => new RegExp(sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\{[^}]*position:absolute');
+  for (const sel of ['.pv>.capa-fondo', '.pv-cabeza .capa-etapa-pv', '.ocupante>.capa-elemento', '.pv>.capa-marco,.nucleo>.capa-marco']) assert.match(CSS, regla(sel), sel);
+  assert.match(CSS, /\.animado \.pv\.nivel-2:has\(>\.pieza-marco\),\.animado \.pv\.nivel-3:has\(>\.pieza-marco\)/, 'el relleno solo con el marco estirado (Sequenced)');
+  assert.match(CSS, /@container \(max-height:90px\)\{\.pv>\.capa-marco \.marco-esquina/);
 });

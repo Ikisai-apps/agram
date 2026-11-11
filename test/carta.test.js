@@ -314,13 +314,19 @@ test('el animado entero (etapa 5): cada PV lleva su etapa por madurez y orientac
     assert.equal(h.icono.tamano, 1);
     assert.ok(h.icono.recurso.endsWith('-sello.svg'));
   }
-  // El HTML: el escenario con su fondo, su etapa, su personaje, el marco, el elemento del ocupante, el tope de animaciones.
+  // El HTML en Mapped (#16): el sobrio más capas (test/animado-capas.test.js): el fondo, la etapa en la cabecera, el marco
+  // en sus esquinas, el elemento de cada ocupante como capa; sin escenario ni personaje en tarjeta ni en bloque.
   const h = html(a);
   assert.match(h, /data-animaciones="10"/);
-  assert.match(h, /<div class="escenario" data-escenario><img class="pieza pieza-fondo pieza-imagen"[^>]*><img class="pieza pieza-etapa pieza-imagen"[^>]*><div class="pieza pieza-personaje accion-esperar pieza-lottie" data-lottie="arte\/fase2\/bloque-2\/[^"]+" data-fotograma="\d+" data-animar="1" data-bucle="1" data-prioridad="1"/);
-  assert.match(h, /<img class="pieza pieza-marco pieza-imagen" src="\.\/arte\/fase2\/bloque-5\/biblioteca\/ciudad\/marco\/marco-centro-intermedio\.svg"/);
-  assert.match(h, /pieza-elemento/);
+  assert.match(h, /<img class="pieza capa pieza-fondo capa-fondo pieza-imagen" src="\.\/arte\/fase2\/[^"]+\/fondo\/fondo-05-/);
+  assert.match(h, /<span class="marco-esquina arriba-izquierda"><img src="\.\/arte\/fase2\/bloque-5\/biblioteca\/ciudad\/marco\/marco-centro-intermedio\.svg"/);
+  assert.match(h, /capa-elemento/);
+  assert.doesNotMatch(h, /class="escenario|pieza-personaje|pieza-marco/);
   assert.doesNotMatch(h, /undefined|\[object Object\]/);
+  // En Sequenced (el móvil en vertical), la fila abierta sigue con su escenario: el fondo, la etapa y el personaje esperando.
+  const v = html(await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque }, nuevos: new Set() }, eje, 'huesped', MOVIL));
+  assert.match(v, /<div class="escenario" data-escenario><img class="pieza pieza-fondo pieza-imagen"[^>]*><img class="pieza pieza-etapa pieza-imagen"[^>]*><div class="pieza pieza-personaje accion-esperar pieza-lottie" data-lottie="arte\/fase2\/bloque-2\/[^"]+" data-fotograma="\d+" data-animar="1" data-bucle="1" data-prioridad="1"/);
+  assert.match(v, /pieza-elemento|pieza-marco/);
   // Un PV abierto como foco lleva su escenario entero.
   const f = await arbol({ foco: { X: X.id, pv: 4 }, nuevos: new Set() }, eje, 'huesped', MOVIL);
   assert.equal(f.centro.cara, 'pv');
