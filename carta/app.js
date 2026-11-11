@@ -18,7 +18,7 @@
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
-import { arbol, enviar, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
+import { arbol, enviar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
@@ -27,6 +27,7 @@ import * as cuentas from './cuentas.js';
 import * as sinc from './sincronia.js';
 import * as guia from './guia.js';
 import * as externa from './externa.js';
+import { Archivos, TIPOS as TIPOS_DE_ARCHIVO, tipoDeArchivo, formatoDeTipo } from './archivos.js';
 import { EJEMPLOS, crearEjemplo, restaurarEjemplo, elegirEjemplo, ejemploElegido } from '../antigua/ui/ejemplos.js';
 import { alternarLeido, leidoAbierto } from '../antigua/ui/leido.js';
 import { leerLocal, guardarLocal } from '../antigua/ui/comun.js';
@@ -61,6 +62,19 @@ let gestos = null;
 let pintando = null;
 let lineaPintada = null; // el HTML de la línea del libro compartido que hay en pantalla
 let ultimo = null; // el último árbol pintado: si es Mapped (no apilada), los pasos de tamaño son los de la época
+
+/**
+ * Los archivos adjuntos (issues #21, #22; carta/archivos.js): se suben y se bajan con la función `archivos` del mismo
+ * servidor, eje compartido y clave de lectura que el libro compartido de la cuenta; sin ellos (un ejemplo, una cuenta sin
+ * servidor) no hay dónde. Lo bajado se queda en esta pestaña; al llegar algo pedido, se repinta.
+ */
+function destinoDeArchivos() {
+  if (!estado.cuenta || !estado.eje) return null;
+  const d = sincronia.destino(estado.eje, estado.identidad);
+  const claveLectura = cuentas.claveLectura(estado.cuenta.alta);
+  return d && claveLectura ? { url: d.url, eje: d.eje, claveLectura } : null;
+}
+const archivos = new Archivos({ destino: destinoDeArchivos, alCambiar: () => pintar() });
 
 /** La clave privada con que firma una identidad: la de mi cuenta si soy yo, si no la de ejemplo guardada en este navegador. */
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
@@ -143,6 +157,7 @@ const sincronizar = sinc.enSerie(async () => {
   const eje = estado.eje;
   if (!S || !cuenta || !eje) return;
   const informe = await sinc.pasar(S, eje, cuenta.alta);
+  if (archivos.pendientes.size && !informe.sinRed) await archivos.subirPendientes(); // lo adjuntado sin red, como la cola de eventos
   if (estado.sincronia !== S || estado.eje !== eje) return; // otra cuenta en pantalla: lo de esta ya quedó guardado
   estado.lineaSincronia = sinc.lineaDeEstado(S, informe);
   if (informe.reordenado || informe.anadidos.length) {
@@ -212,6 +227,7 @@ function extraDe() {
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
     arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage), menu: estado.menu,
+    archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
   };
 }
 
@@ -533,6 +549,47 @@ async function entrarEnEjemplo() {
   await pintar();
 }
 
+/** Abre el selector de archivos para una acción que pide uno (los tipos que admite la función `archivos`). */
+function elegirArchivo(X, accion, campos) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = Object.keys(TIPOS_DE_ARCHIVO).join(',');
+  input.hidden = true;
+  input.addEventListener('change', () => {
+    const elegido = input.files?.[0];
+    input.remove();
+    if (elegido) void adjuntarArchivo(X, accion, campos, elegido);
+  }, { once: true });
+  input.addEventListener('cancel', () => input.remove(), { once: true });
+  document.body.append(input);
+  input.click();
+}
+
+/**
+ * Adjunta un archivo elegido: lo sube (carta/archivos.js; sin red queda pendiente y se sube al sincronizar) y escribe la
+ * transacción de la acción con su referencia (`archivo:<sha256>`) y su formato en los parámetros que los piden.
+ */
+async function adjuntarArchivo(X, accion, campos, elegido) {
+  limpiarMensajes();
+  try {
+    const tipo = tipoDeArchivo(elegido.name, elegido.type);
+    const formato = tipo ? formatoDeTipo(tipo) : null;
+    if (tipo && !formato) throw new Error(t('archivoSinFormato', { tipo }));
+    const a = await archivos.adjuntar(elegido);
+    const valores = Object.fromEntries(campos.map((c) => [c.nombre, c.archivo === 'format' ? formato : a.referencia]));
+    const r = await enviar(estado.eje, X, accion, valores, estado.identidad, firmarCon(estado.identidad));
+    if (r.ok && r.asentado) {
+      trasEscribir();
+      estado.exito = t(a.sinRed ? 'archivoPendiente' : 'archivoAdjuntado', { id: a.id.slice(0, 8) }) + (r.asentado.firma ? ' ' + t('firmado') : '');
+      tocar(X, 'hecho ' + canonicoDe(accion));
+      marcarNuevos();
+    } else estado.aviso = (r.motivos ?? []).map((m) => m.mensaje).join(' · ');
+  } catch (e) {
+    estado.aviso = String(e.message ?? e);
+  }
+  pintar();
+}
+
 /** Lo escrito en los inputs de un formulario, por nombre. */
 const valoresDe = (form) => Object.fromEntries([...form.querySelectorAll('input[name],select[name]')].filter((i) => i.type !== 'file').map((i) => [i.name, i.value]));
 
@@ -676,6 +733,20 @@ const manejadores = {
     tocar(X, 'aro' + (pv !== null && pv !== undefined ? ' ' + pv : ''));
     pintar();
   },
+  /**
+   * Mantener un hueco (issue #22: un hijo de la rejilla, el espacio libre de un mundo, un PV vacío): el aro con un input
+   * nuevo en el centro; lo escrito crea el elemento en la posición pv de X (campo con `nuevo`) y abre su aro.
+   */
+  async aroNuevo(X, pv, { ancla } = {}) {
+    if (!X || !Number.isInteger(pv) || !estado.eje?.obtener(X)) return;
+    estado.aro = { X, pv: null, nuevo: pv, ancla: ancla ?? null, editar: false };
+    estado.formulario = null;
+    limpiarMensajes();
+    tocar(X, 'aro nuevo ' + pv);
+    await pintar();
+    const input = raiz.querySelector('.aro [data-nuevo][data-campo]');
+    if (input) input.focus();
+  },
   /** Mantener el centro del aro: editarlo (el input con su valor, la lista del 0 debajo y la del 5 encima); el foco, en el input. */
   async editarAro() {
     if (!estado.aro) return;
@@ -698,11 +769,12 @@ const manejadores = {
     estado.aro = null;
     irA(X, CENTROS[0]);
   },
-  /** Un valor de una lista del aro (contrato.opciones): se escribe en la posición pv de X como cualquier campo, y el aro se cierra. */
+  /** Un valor de una lista del aro (contrato.opciones): se escribe en la posición pv de X como cualquier campo, y el aro se cierra (en el de un hueco, crea el elemento). */
   opcion(X, pv, valor) {
     if (!X || valor === undefined || valor === '') return;
-    estado.aro = null;
-    return manejadores.campo(X, pv, valor);
+    const nuevo = Number.isInteger(estado.aro?.nuevo);
+    if (!nuevo) estado.aro = null;
+    return manejadores.campo(X, pv, valor, { nuevo });
   },
   /** Las teclas 1-4 y 6-9 con el aro abierto: lanzar la acción por defecto de ese sitio (si no tiene, nada). */
   aroTecla(pv) {
@@ -711,6 +783,18 @@ const manejadores = {
   },
   lanzar(X, accion, paso) {
     const sobre = X ?? estado.aro?.X ?? estado.foco.X;
+    // Una acción que pide un archivo (un parámetro cuyo 4 es «file»: «adjuntar un archivo»): el selector de archivos, ya
+    // (en el mismo gesto: el navegador solo lo abre así); al elegir, se sube y se escribe la transacción con su referencia.
+    const deArchivo = estado.eje?.obtener(sobre) ? formulario(estado.eje, sobre, accion, estado.identidad)?.campos.filter((c) => c.archivo) ?? [] : [];
+    if (deArchivo.length) {
+      estado.aro = null;
+      estado.formulario = null;
+      limpiarMensajes();
+      tocar(sobre, 'lanzar ' + canonicoDe(accion));
+      elegirArchivo(sobre, accion, deArchivo);
+      pintar();
+      return;
+    }
     estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso };
     estado.aro = null;
     limpiarMensajes();
@@ -797,12 +881,14 @@ const manejadores = {
     abrirSincronia();
     pintar();
   },
-  async campo(X, pv, texto) {
+  async campo(X, pv, texto, { nuevo = false } = {}) {
     try {
       const ev = await salida.escribirDesde(estado.eje, { modo: 'pointed', autor: estado.identidad, sobre: X, en: direccion([pv]), payload: salida.desdePointed(estado.eje, texto) }, privadaDe(estado.identidad));
       trasEscribir();
-      estado.aro = null; // lo escrito desde el centro del aro en edición: hecho, se cierra
-      estado.exito = t('escrito', { id: ev.id.slice(0, 8), pv, X: X.slice(0, 8) }) + (ev.firma ? ' ' + t('firmado') : '');
+      // Lo escrito desde el centro del aro en edición: hecho, se cierra. Desde el aro de un hueco (issue #22): el elemento
+      // nuevo existe y se abre su aro (en su 2, «adjuntar un archivo»), en el mismo sitio.
+      estado.aro = nuevo ? { X: ev.id, pv: null, ancla: estado.aro?.ancla ?? null, editar: false } : null;
+      estado.exito = t(nuevo ? 'creado' : 'escrito', { id: ev.id.slice(0, 8), pv, X: X.slice(0, 8) }) + (ev.firma ? ' ' + t('firmado') : '');
       estado.aviso = '';
       tocar(X, 'escribir ' + pv);
       marcarNuevos();

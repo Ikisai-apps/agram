@@ -7,6 +7,9 @@
 //
 //   node servidor/prueba/servidor.mjs [--puerto 8787] [--archivo eje.json] [--secreto prueba]
 //
+// También sirve la guía (/guia, con un eco) y los archivos adjuntos (/archivos y /archivos/<id>, la función
+// `archivos`, servidor/supabase/funciones/archivos/api.js tal cual, con los archivos en memoria).
+//
 // Diferencias con la función de Deno: ninguna de contrato. Cambian el almacén
 // (memoria o un JSON, en vez de PostgREST), la criptografía (el núcleo,
 // src/evento.js y src/autoridad.js, en vez de la reimplementación de
@@ -21,6 +24,7 @@ import { pathToFileURL } from 'node:url';
 import { crearApi } from '../supabase/funciones/eventos/api.js';
 import * as criptoNucleo from './cripto-nucleo.mjs';
 import { crearGuia } from '../supabase/funciones/guia/api.js';
+import { crearArchivos } from '../supabase/funciones/archivos/api.js';
 
 /** El «proveedor» de la guía en la prueba: un eco fijo (nada sale de la máquina): la pregunta y las primeras líneas del contexto. */
 export const ecoDeLaGuia = async ({ mensajes, contexto, modelo }) => {
@@ -47,6 +51,7 @@ export function almacenEnMemoria({ archivo, ahora = () => new Date() } = {}) {
     if (archivo) writeFileSync(archivo, JSON.stringify(datos));
   };
   const lista = (eje) => datos.eventos[eje] ?? [];
+  const archivos = new Map(); // «<eje>/<sha256>» → { tipo, bytes }
   return {
     async crearEje(eje, claveHash) {
       if (datos.ejes[eje]) return null;
@@ -79,6 +84,17 @@ export function almacenEnMemoria({ archivo, ahora = () => new Date() } = {}) {
     async listar(eje, desde, cuantos) {
       return lista(eje).filter((f) => f.orden > desde).slice(0, cuantos).map((f) => ({ orden: f.orden, recibido: f.recibido, cuerpo: f.cuerpo }));
     },
+    // Los archivos adjuntos (la función `archivos`): solo en memoria (no van al JSON), por eje y por su SHA-256.
+    async guardar(eje, id, tipo, bytes) {
+      const clave = eje + '/' + id;
+      if (archivos.has(clave)) return { nuevo: false };
+      archivos.set(clave, { tipo, bytes: new Uint8Array(bytes) });
+      return { nuevo: true };
+    },
+    async leer(eje, id) {
+      const a = archivos.get(eje + '/' + id);
+      return a ? { tipo: a.tipo, bytes: new Uint8Array(a.bytes) } : null;
+    },
     /** Solo para las pruebas: las filas de un eje, por llegada. */
     filas(eje) {
       return lista(eje).map((f) => ({ ...f }));
@@ -104,8 +120,15 @@ export async function arrancar({ puerto = 0, archivo, secreto = process.env.AGRA
   const almacen = almacenEnMemoria({ archivo, ahora });
   const manejarEjes = crearApi({ almacen, cripto: criptoNucleo, crearEjes: { secreto }, ahora, ...opciones });
   const manejarGuia = crearGuia({ almacen, llamar: ecoDeLaGuia, ahora, ...(opciones.preguntasPorMinuto ? { preguntasPorMinuto: opciones.preguntasPorMinuto } : {}) });
-  // /guia (la función `guia` de Supabase) responde con el eco; todo lo demás, el libro compartido.
-  const manejar = (request) => (new URL(request.url).pathname.replace(/\/+$/, '').endsWith('/guia') ? manejarGuia(request) : manejarEjes(request));
+  const manejarArchivos = crearArchivos({ almacen, ahora, ...(opciones.limiteArchivo ? { limite: opciones.limiteArchivo } : {}) });
+  // /guia (la función `guia` de Supabase) responde con el eco; /archivos y /archivos/<id> (la función `archivos`), en
+  // memoria; todo lo demás, el libro compartido.
+  const manejar = (request) => {
+    const camino = new URL(request.url).pathname.replace(/\/+$/, '');
+    if (camino.endsWith('/guia')) return manejarGuia(request);
+    if (/\/archivos(\/[^/]+)?$/.test(camino)) return manejarArchivos(request);
+    return manejarEjes(request);
+  };
   const servidor = createServer(async (req, res) => {
     const base = 'http://' + (req.headers.host ?? 'localhost');
     const respuesta = await manejar(await aRequest(req, base));
@@ -129,5 +152,5 @@ if (process.argv[1] && import.meta.url === new URL('file://' + process.argv[1].r
     return i > 0 ? process.argv[i + 1] : defecto;
   };
   const { url } = await arrancar({ puerto: Number(arg('puerto', 8787)), archivo: arg('archivo'), secreto: arg('secreto', process.env.AGRAM_CREAR_EJES ?? 'prueba') });
-  console.log('libro compartido de prueba en ' + url + ' (POST /ejes con X-Crear-Ejes, POST y GET /eventos)');
+  console.log('libro compartido de prueba en ' + url + ' (POST /ejes con X-Crear-Ejes, POST y GET /eventos, POST /archivos y GET /archivos/<id>)');
 }

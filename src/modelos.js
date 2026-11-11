@@ -42,8 +42,29 @@ const SITIO = Object.freeze({
 });
 /** Las posiciones de la cabecera (epoch.9.7.0). */
 const CABECERA = Object.freeze({ niveles: 1, cadena: 2, variantes: 3, tipos: 4, preferencia: 5, animados: 6, repeticion: 7, multiplo: 8, nota: 9 });
-/** Los formatos que una pieza del eje no puede traer (SEG-14): ejecutan código de quien la escribió. Las de la época y las del repositorio, sí. */
+/**
+ * Los formatos que una pieza del eje no puede traer (SEG-14): ejecutan código de quien la escribió. Las de la época y las
+ * del repositorio, sí. Excepción (issue #21, encargo pv0): un archivo adjunto (`archivo:<sha256>`, la función
+ * `archivos`) en uno de estos formatos sí entra, porque la carta lo pinta SOLO dentro de un <iframe sandbox> sin
+ * scripts ni mismo origen (FORMATOS_EN_SANDBOX, pintaEnSandbox).
+ */
 const FORMATOS_VEDADOS_EN_EL_EJE = Object.freeze(['html']);
+/** Los formatos que la carta pinta solo dentro de un <iframe sandbox=""> (srcdoc, sin allow-scripts ni allow-same-origin). */
+export const FORMATOS_EN_SANDBOX = Object.freeze(['html']);
+/** ¿Se pinta este formato solo en el iframe aislado? */
+export const pintaEnSandbox = (formato) => FORMATOS_EN_SANDBOX.includes(String(formato ?? '').toLowerCase());
+/** La referencia a un archivo adjunto que guarda un registro: «archivo:» y el SHA-256 de su contenido (docs/CONTRATO.md §2.1). */
+const PREFIJO_ARCHIVO = 'archivo:';
+const RE_ARCHIVO = /^archivo:([0-9a-f]{64})$/;
+/** La referencia de un archivo por su id (su SHA-256). */
+export const referenciaDeArchivo = (id) => PREFIJO_ARCHIVO + id;
+/** El id (el SHA-256) de una referencia `archivo:<sha256>`, o null si no lo es. */
+export const idDeArchivo = (recurso) => (typeof recurso === 'string' ? RE_ARCHIVO.exec(recurso)?.[1] ?? null : null);
+/**
+ * ¿Puede pintarse esta representación (o pieza) que viene del eje? Lo que se pinta en el iframe aislado solo si su
+ * recurso es un archivo adjunto (lo baja la carta y lo pone en srcdoc; una URL no entra); lo demás, sí.
+ */
+export const representacionAdmitida = (r) => !pintaEnSandbox(r?.formato) || idDeArchivo(r?.recurso) !== null;
 /** Dónde puede estar el recurso de una pieza del eje si es una ruta relativa del repositorio (SEG-14). */
 const CARPETA_DE_ARTE = 'arte/';
 /** Las posiciones de una pieza. */
@@ -78,11 +99,13 @@ function origenesDe(posicion) {
 
 /**
  * ¿Es `recurso` aceptable en una pieza que viene del eje? Una ruta relativa dentro de `arte/` (sin «..», sin esquema, sin
- * «//», sin barras invertidas, sin porcentajes ni caracteres de control) o una URL de uno de los orígenes de la lista
- * blanca de la cabecera. Lo demás (otro origen, `data:`, `javascript:`, una ruta fuera de `arte/`) no.
+ * «//», sin barras invertidas, sin porcentajes ni caracteres de control), una URL de uno de los orígenes de la lista
+ * blanca de la cabecera o un archivo adjunto (`archivo:<sha256>`). Lo demás (otro origen, `data:`, `javascript:`, una
+ * ruta fuera de `arte/`) no.
  */
 export function recursoAdmitido(recurso, c) {
   if (typeof recurso !== 'string' || !recurso.length) return false;
+  if (idDeArchivo(recurso)) return true; // un archivo adjunto del eje (el bucket privado de la función `archivos`)
   if (/[\u0000-\u001f\u007f\\\s]/.test(recurso)) return false;
   if (/^[a-z][a-z0-9+.-]*:/i.test(recurso)) {
     try {
@@ -97,10 +120,10 @@ export function recursoAdmitido(recurso, c) {
   return !recurso.split(/[/?#]/).some((seg) => seg === '..' || seg === '.');
 }
 
-/** ¿Admite una pieza que viene del eje? Sin formato vedado y, si trae recurso, uno acotado (recursoAdmitido). */
+/** ¿Admite una pieza que viene del eje? Sin formato vedado (salvo un archivo adjunto que se pinta aislado) y, si trae recurso, uno acotado (recursoAdmitido). */
 function piezaDelEjeAdmitida(p, c) {
   const formato = String(p.formato ?? p.forma ?? '').toLowerCase();
-  if (FORMATOS_VEDADOS_EN_EL_EJE.includes(formato)) return false;
+  if (FORMATOS_VEDADOS_EN_EL_EJE.includes(formato) && !(pintaEnSandbox(formato) && idDeArchivo(p.recurso))) return false;
   return p.recurso === null || recursoAdmitido(p.recurso, c);
 }
 

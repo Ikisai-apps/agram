@@ -18,6 +18,7 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
+import * as salida from '../src/escritura.js';
 
 // El idioma por defecto de la época es el español; esta batería comprueba los nombres canónicos de la época (en inglés), así que lo pide.
 const arbol = (estado, eje, yo, medidas, opciones = {}) => arbolEnIdioma(estado, eje, yo, medidas, { idioma: 'en', ...opciones });
@@ -739,4 +740,83 @@ test('el orden vertical del 6 y el 7 es un dato de la época (epoch.8.7): el pas
   assert.deepEqual(b.secuencia.pasado.ocupantes.lista.map((o) => o.texto), ['pasado 11-08', 'pasado 11-10', 'pasado 11-09']);
   assert.deepEqual(b.secuencia.futuro.ocupantes.lista.map((o) => o.texto), ['futuro 2026-12-20', 'futuro 2026-11-20', 'futuro 2027-01-06']);
   assert.equal(b.secuencia.pasado.ocupantes.orden, 'arrival');
+});
+
+// ---------- el PV0 con la representación del foco y un solo input; crear en un hueco; adjuntar (issues #21, #22, #24) ----------
+
+test('#21 #24: el anverso es la representación del foco (su HTML adjunto, SOLO en un iframe sandbox sin scripts) y un solo input; los campos de los laterales ya no se pintan en él', async () => {
+  const { eje, compra: laCompra } = await compra();
+  const X = await salida.escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: laCompra.id, en: '1000000000', payload: salida.desdePointed(eje, 'Proyecto AGRAM') });
+  const sin = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(sin.centro.representacion.texto, 'Proyecto AGRAM');
+  const anverso = (h) => h.slice(h.indexOf('<section class="nucleo anverso'), h.indexOf('</section>', h.indexOf('<section class="nucleo anverso')));
+  const a0 = anverso(html(sin));
+  assert.equal((a0.match(/data-campo=/g) ?? []).length, 1, 'un solo input: el del 0');
+  assert.match(a0, /data-campo="0"/);
+  assert.doesNotMatch(a0, /class="campos"/, 'sin los diez campos con su primer ocupante');
+  // Adjunta un HTML (la acción del PV2): el anverso lo pinta en un iframe aislado, en sobrio y en animado.
+  const id = 'c'.repeat(64);
+  const plantilla = A.acciones(eje, X.id, 2, 'huesped').find((x) => A.parametros(x.plantilla).some((p) => A.archivoDe(p)));
+  const r = await A.transaccion(eje, plantilla.id, { X: X.id, file: modelos.referenciaDeArchivo(id), format: 'html' }, 'huesped');
+  await eje.anadir(r.evento);
+  const con = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(con.centro.representacion.aislada, true);
+  assert.equal(con.centro.representacion.archivo, id);
+  assert.equal(con.centro.textoDelFoco, 'Proyecto AGRAM', 'el marcador del input sigue siendo su texto');
+  const landing = '<!doctype html><html><body><h1>AGRAM & co</h1><script>alert("x")</script><img src="https://fuera.example/t.png"></body></html>';
+  const h = anverso(html(con, { archivo: (x) => (x === id ? { estado: 'listo', texto: landing } : null) }));
+  const iframe = h.match(/<iframe[^>]*>/)[0];
+  assert.match(iframe, / sandbox=""/, 'sandbox vacío: sin allow-scripts ni allow-same-origin');
+  assert.doesNotMatch(iframe, /allow-/);
+  assert.match(iframe, /referrerpolicy="no-referrer"/);
+  assert.match(iframe, /srcdoc="&lt;!doctype html&gt;&lt;meta http-equiv=&quot;Content-Security-Policy&quot; content=&quot;default-src &#39;none&#39;; img-src data:/, 'el contenido escapado como atributo, con la política tras el doctype');
+  assert.doesNotMatch(h, /<script/, 'nada del HTML adjunto entra como marcado de la carta');
+  assert.doesNotMatch(h, /<h1>AGRAM/);
+  assert.equal((h.match(/data-campo=/g) ?? []).length, 1);
+  // Sin el contenido (aún no ha llegado, o no está): un hueco con su estado, nunca el HTML ni un <img>.
+  assert.match(anverso(html(con, { archivo: () => ({ estado: 'cargando' }) })), /rep-aislada rep-pendiente[^>]*>cargando…</);
+  assert.match(anverso(html(con)), /rep-aislada rep-pendiente[^>]*>archivo no disponible</);
+  assert.doesNotMatch(html(con), /<img[^>]*archivo:/);
+  // En el móvil (Sequenced) también arriba, con su input en la fila del 0.
+  const m = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
+  assert.equal(m.centro.representacion.aislada, true);
+  assert.match(html(m, { archivo: () => ({ estado: 'listo', texto: landing }) }), /<h1 class="representacion con-aislada"><iframe class="rep rep-aislada" sandbox=""/);
+  // Lo que se pinta aislado solo entra como archivo adjunto: una URL en el 0 no se pinta como HTML.
+  const conUrl = await eje.escribir({ autor: 'huesped', sobre: X.id, t: new Date(eje.tMaximo() + 1000).toISOString(), movimientos: [minuto('huesped')], payload: [['otra'], [3, 'html'], ['x'], ['x'], ['x'], ['https://agram.ikisai.com/x.html']] });
+  assert.ok(conUrl);
+  const otra = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(otra.centro.representacion.archivo, id, 'la URL no cuenta');
+});
+
+test('#22: mantener sobre un hueco vacío abre el aro con un input nuevo (crea el elemento en esa posición); el aro del elemento lleva «adjuntar un archivo» en su sitio 2, no preferente', async () => {
+  const { eje, compra: X } = await compra();
+  // Los huecos que se pueden pulsar: los hijos de la rejilla (el registro que se divide en el contenedor), el espacio libre a pantalla completa, un PV vacío.
+  const completa = html(await arbol({ foco: { X: X.id, pv: 3 } }, eje, 'huesped', ORDENADOR));
+  assert.match(completa, new RegExp(`class="rejilla rejilla-completa[^>]*data-hueco-x="${X.id}" data-hueco-pv="3"`));
+  const bloque = await arbol({ foco: { X: X.id, pv: 0 }, niveles: Object.fromEntries(LATERALES.map((pv) => [pv, escalaDeTamanos().tope])) }, eje, 'huesped', ORDENADOR);
+  const h = html(bloque);
+  assert.doesNotMatch(h.replace(/class="rejilla rejilla-completa[^>]*>/g, ''), /class="rejilla[^"]*"[^>]*data-hueco-pv/, 'fuera de la pantalla completa, el contenedor no es un hueco (sus hijos sí)');
+  const vacio = bloque.laterales.find((n) => n.vacio);
+  if (vacio) assert.match(h, new RegExp(`class="vacio-pv" data-hueco-x="${X.id}" data-hueco-pv="${vacio.pv}"`));
+  // El aro sobre el hueco 3 de X: sin sitios, un input nuevo con data-nuevo y los valores posibles del 3 debajo.
+  const a = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: X.id, nuevo: 3 } }, eje, 'huesped', ORDENADOR);
+  assert.equal(a.aro.nuevo, true);
+  assert.deepEqual(a.aro.huecos, []);
+  assert.equal(a.aro.centro.pv, 3);
+  assert.equal(a.aro.centro.etiqueta, C.etiqueta(eje, X.id, 3, { idioma: 'en' }));
+  const aro = html(a).match(/<div class="aro aro-nuevo[^]*?<\/div><\/div><\/div>/)[0];
+  assert.match(aro, new RegExp(`<input class="campo-input campo-nuevo" data-campo="3" data-x="${X.id}" data-nuevo value=""`));
+  // Crearlo es escribir en X.3 (lo que hace la app con `campo`): el elemento nuevo cuelga ahí.
+  const nuevo = await salida.escribirDesde(eje, { modo: 'pointed', autor: 'huesped', sobre: X.id, en: '3000000000', payload: salida.desdePointed(eje, 'una idea') });
+  assert.ok(C.ocupantes(eje, X.id, 3).ocupantes.some((o) => o.ref === nuevo.id));
+  // Su aro: en el sitio 2, «attach a file» en la lista, no como acción por defecto si hay otra antes.
+  const b = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: nuevo.id, pv: 2 } }, eje, 'huesped', ORDENADOR);
+  const dos = b.aro.huecos.find((x) => x.pv === 2);
+  const nombres = [dos.accion, ...dos.otras].map((x) => A.plantillaDeTransaccion(x.id)?.[0][0]);
+  assert.equal(nombres.at(-1), 'attach a file');
+  assert.notEqual(nombres[0], 'attach a file');
+  assert.match(html(b), /data-lanzar="[0-9a-f]{64}" data-x="[0-9a-f]{64}">attach a file/);
+  // El formulario de la acción dice qué parámetros salen del archivo (la app abre el selector en vez del formulario).
+  const f = formulario(eje, nuevo.id, dos.otras.at(-1).id, 'huesped', {}, { idioma: 'en' });
+  assert.deepEqual(f.campos.filter((c) => c.archivo).map((c) => [c.nombre, c.archivo]), [['file', 'ref'], ['format', 'format']]);
 });

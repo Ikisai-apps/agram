@@ -120,16 +120,26 @@ export function plantillaDeTransaccion(cual, opciones = {}) {
   return null;
 }
 
-/** Qué se hace con un parámetro (su 4): { que: 'payload' | 'key' | 'proof', para } (`para`: la identidad, con huecos {parámetro}). */
+/**
+ * Qué se hace con un parámetro (su 4): { que: 'payload' | 'key' | 'proof' | 'file', para } (`para`: en key y proof, la
+ * identidad, con huecos {parámetro}; en file, qué del archivo adjunto es: «ref», su referencia archivo:<sha256>, o
+ * «format», el formato de la época con que se representa). Un parámetro «file» va al payload como cualquiera: el 4
+ * solo le dice a quien lanza la acción que el valor sale de subir un archivo (la carta abre el selector de archivos).
+ */
 function destinoDe(cuatro) {
   const [que, para] = hojas(cuatro).map(texto);
-  return que === 'key' || que === 'proof' ? { que, para: para ?? '' } : { que: 'payload', para: null };
+  if (que === 'key' || que === 'proof') return { que, para: para ?? '' };
+  if (que === 'file') return { que, para: para === 'format' ? para : 'ref' };
+  return { que: 'payload', para: null };
 }
+
+/** Qué del archivo adjunto pide un parámetro (su 4 «file»): 'ref' (su referencia) o 'format' (su formato); null si no pide un archivo. */
+export const archivoDe = (p) => (p?.destino?.que === 'file' ? p.destino.para : null);
 
 /**
  * Los parámetros que pide una plantilla, leídos de su 1: [{ nombre, etiqueta, tipo, validacion, posicion, requerido,
  * defectos, ayuda, orden, destino }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él);
- * `destino`, qué se hace con él (su 4: el payload, o la clave y la prueba de posesión que declara el registro); `defectos`
+ * `destino`, qué se hace con él (su 4: el payload, la clave y la prueba de posesión que declara el registro, o un archivo adjunto); `defectos`
  * son las hojas del 9 menos la ayuda (una fórmula «=…» se evalúa sobre it = X, me y la candidata). `nombre` es el
  * canónico (inglés); `etiqueta` y `ayuda`, con `opciones.idioma`, su traducción (epoch.9.4: «template <nombre> param
  * <etiqueta> label | help»).
@@ -290,7 +300,7 @@ export function acciones(eje, X, k, yo, opciones = {}) {
       id,
       etiqueta: textoDe(eje, claves.plantilla(nombre), idioma, { original: nombre, epoca }),
       plantilla,
-      parametros: lista.map((p) => ({ nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, posicion: p.posicion, valor: valores[p.nombre], falta: p.requerido && valores[p.nombre] === undefined })),
+      parametros: lista.map((p) => ({ nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, posicion: p.posicion, valor: valores[p.nombre], falta: p.requerido && valores[p.nombre] === undefined, archivo: archivoDe(p) })),
       porDefecto: fuera.length === 0,
       lectura: esLectura(plantilla),
       camino: esCamino(plantilla),
@@ -446,7 +456,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   const posesion = {};
   for (const p of prep.parametros) {
     const v = prep.valores[p.nombre];
-    if (p.destino.que === 'payload' || v === undefined) continue;
+    if ((p.destino.que !== 'key' && p.destino.que !== 'proof') || v === undefined) continue; // payload y file van en el payload
     const quien = conHuecos(p.destino.para, prep.valores);
     if (!quien) return { ok: false, evento: null, motivos: [{ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre }] };
     (p.destino.que === 'key' ? claves : posesion)[quien] = String(v);

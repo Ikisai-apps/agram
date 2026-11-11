@@ -127,9 +127,47 @@ function htmlPersonajeCapa(k, r) {
   return `<div class="capa capa-personaje" style="--columnas:${Number(r.columnas) || 1};--filas:${Number(r.filas) || 1}"${hoy ? ` data-hoy="${hoy}"` : ''}>${quieto}${vivo}</div>`;
 }
 
-/** Una representación del 0 como HTML: texto, o la imagen que cabe (solo llega con recurso en animado). */
+/**
+ * Lo que la app sabe de los archivos adjuntos de esta pestaña (extra.archivo: id → { estado, texto?, url?, motivo? },
+ * carta/archivos.js); html() lo fija en cada pintado. Sin él, un archivo se pinta como «no disponible».
+ */
+let archivoDe = () => null;
+
+/**
+ * La política que lleva delante el HTML aislado (además del sandbox): nada se pide fuera (sin red, sin referer), solo
+ * lo incrustado (data:) y los estilos propios. Va tras el doctype, si lo hay, para no cambiar el modo del documento.
+ */
+const POLITICA_AISLADA = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'; font-src data:; media-src data:">`;
+const conPolitica = (html) => {
+  const m = /^\uFEFF?\s*<!doctype[^>]*>/i.exec(html);
+  return m ? m[0] + POLITICA_AISLADA + html.slice(m[0].length) : POLITICA_AISLADA + html;
+};
+
+/**
+ * Una representación que se pinta aislada (rep.aislada: el HTML adjunto, issue #21, SEG-14): SOLO dentro de un
+ * <iframe sandbox=""> (sin allow-scripts ni allow-same-origin: no ejecuta nada, origen opaco, sin formularios ni
+ * ventanas), sin referer, con su contenido en srcdoc escapado como atributo y la política de arriba; la carta no lo lee
+ * ni lo cambia. Mientras llega, o si no está (o pasa del tope), un hueco con su estado.
+ */
+function htmlAislada(rep, clase) {
+  const a = rep.archivo ? archivoDe(rep.archivo) : null;
+  if (typeof a?.texto === 'string') {
+    return `<iframe class="${clase} rep-aislada" sandbox="" referrerpolicy="no-referrer" title="${attr(t('archivoTitulo', { que: rep.texto ?? '' }))}" data-archivo="${attr(rep.archivo)}" srcdoc="${attr(conPolitica(a.texto))}"></iframe>`;
+  }
+  const estado = a?.estado === 'cargando' ? t('archivoCargando') : a?.motivo ?? t('archivoNoDisponible');
+  return `<span class="${clase} rep-aislada rep-pendiente" data-archivo="${attr(rep.archivo ?? '')}" role="status">${escapar(estado)}</span>`;
+}
+
+/** Una representación del 0 como HTML: texto, la imagen que cabe (solo llega con recurso en animado), la de un archivo adjunto (su URL local) o el HTML aislado. */
 function htmlRepresentacion(rep, { clase = 'rep' } = {}) {
   if (!rep) return `<span class="${clase} rep-vacia">—</span>`;
+  if (rep.aislada) return htmlAislada(rep, clase);
+  if (rep.archivo) {
+    const url = archivoDe(rep.archivo)?.url;
+    return typeof url === 'string' && url.startsWith('blob:')
+      ? `<img class="${clase} rep-imagen" src="${attr(url)}" alt="${attr(rep.texto ?? '')}" loading="lazy">`
+      : `<span class="${clase} rep-pendiente" data-archivo="${attr(rep.archivo)}">${escapar(rep.texto ?? t('archivoNoDisponible'))}</span>`;
+  }
   if (rep.recurso && typeof rep.recurso === 'string') return `<img class="${clase} rep-imagen" src="./${attr(rep.recurso)}" alt="${attr(rep.texto ?? '')}" loading="lazy">`;
   return `<span class="${clase}">${escapar(rep.texto ?? '—')}</span>`;
 }
@@ -206,6 +244,14 @@ function htmlOcupanteDeCelda(o) {
 /** Una hora del libro en corto: «2026-11-07 13:30». */
 const fecha = (s) => String(s ?? '').replace('T', ' ').replace(/(:\d\d)?(\.\d+)?Z$/, '');
 
+/**
+ * Un hueco vacío donde se puede crear un elemento (issue #22): la posición `pv` de R. Mantenerlo pulsado abre el aro
+ * con un input nuevo (gestos.js, data-hueco-x y data-hueco-pv). En la rejilla, el registro que se divide va en el
+ * contenedor (data-hueco-x) y la posición es el dígito de cada hijo (su data-pv); a pantalla completa, el espacio libre
+ * del contenedor es el propio mundo (data-hueco-pv).
+ */
+const htmlHueco = (R, pv) => (R && Number.isInteger(pv) ? ` data-hueco-x="${attr(R)}" data-hueco-pv="${pv}" title="${attr(t('huecoVacioTitulo'))}"` : '');
+
 /** El paso del camino de un hueco vacío (la regla del vacío): «escribir aquí · <acción por defecto de su PV>»; `antes`, lo que va delante («vacía»). */
 const htmlEscribir = (e, antes = '') => `<span class="hijo-vacio">${escapar((antes ? antes + ' · ' : '') + (e?.nombre ? t('escribirAquiAccion', { accion: e.nombre }) : t('escribirAqui')))}</span>`;
 
@@ -230,8 +276,8 @@ function htmlMensaje(o) {
 /** El nivel siguiente dentro de una columna del 2: por cada ocupante que es un registro, sus hijos (nombre y cuántos; los vacíos, con su paso del camino). */
 function htmlSiguiente(s) {
   if (!s?.length) return '';
-  const hijo = (h) => `<li class="siguiente-hijo${h.vacio ? ' vacia' : ''}" data-color="${h.digito}"${h.vacio ? ' data-vacio' : ''}><span class="numero">${h.digito}</span><span class="siguiente-nombre">${escapar(h.nombre ?? '')}</span>${h.vacio ? htmlEscribir(h.escribir) : `<span class="siguiente-cifra">${escapar(h.total)}</span>`}</li>`;
-  return `<div class="siguiente"><h5 class="siguiente-titulo">${t('siguienteNivel')}</h5>${s.map((r) => `<div class="siguiente-de" data-x="${attr(r.X)}"><span class="siguiente-texto">${escapar(r.texto)}</span><ol class="siguiente-hijos">${r.hijos.map(hijo).join('')}</ol></div>`).join('')}</div>`;
+  const hijo = (h, X) => `<li class="siguiente-hijo${h.vacio ? ' vacia' : ''}" data-color="${h.digito}"${h.vacio ? ' data-vacio' + htmlHueco(X, h.digito) : ''}><span class="numero">${h.digito}</span><span class="siguiente-nombre">${escapar(h.nombre ?? '')}</span>${h.vacio ? htmlEscribir(h.escribir) : `<span class="siguiente-cifra">${escapar(h.total)}</span>`}</li>`;
+  return `<div class="siguiente"><h5 class="siguiente-titulo">${t('siguienteNivel')}</h5>${s.map((r) => `<div class="siguiente-de" data-x="${attr(r.X)}"><span class="siguiente-texto">${escapar(r.texto)}</span><ol class="siguiente-hijos">${r.hijos.map((h) => hijo(h, r.X)).join('')}</ol></div>`).join('')}</div>`;
 }
 
 /** Lo de dentro de un hijo con ocupantes, según la forma de su mundo: la tabla de la cruceta, la conversación, la lista (con el nivel siguiente en las columnas). */
@@ -421,7 +467,7 @@ function htmlRejilla(r, { completa = false, arbol = null, apilada = false } = {}
   const k = completa ? r.capas : null;
   const debajo = k ? capaPieza(k.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
   const encima = k ? htmlPersonajeCapa(k, r) + htmlEfectosCapa(k.efectos, 'capa-efectos-centro') + htmlMarcoCapa(k.marco) : '';
-  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}${apilada ? ' rejilla-apilada' : ''}${apilada && r.enColumna ? ' en-columna' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
+  return `<div class="rejilla${completa ? ' rejilla-completa' : ''}${apilada ? ' rejilla-apilada' : ''}${apilada && r.enColumna ? ' en-columna' : ''}" data-rejilla="${r.pv}" data-forma="${attr(r.forma ?? '')}" data-nivel="${r.nivel}" data-niveles="${r.niveles}" data-columnas="${r.columnas}" data-filas="${r.filas}"${r.estilo && r.X ? ` data-id="${attr(r.X)}"` : ''}${r.vacia ? ' data-vacia' : ''}${r.X ? ` data-hueco-x="${attr(r.X)}"${completa ? ` data-hueco-pv="${r.pv}"` : ''}` : ''}>${debajo}${cabeza}${cuerpo}${paginas}${encima}</div>`;
 }
 
 /** La lista o la matriz de ocupantes de un PV, con «cargar más» al final si hay más. */
@@ -546,16 +592,11 @@ function htmlLateral(n, arbol, { enFila = false } = {}) {
     const escenario = capas || ligera ? '' : htmlEscenario(n, { paso: n.paso, etiqueta: n.etiqueta }) || (n.pieza ? htmlPieza(n.pieza, { paso: n.paso, alt: n.etiqueta }) : '');
     const fondo = capas || ligera ? capaPieza(n.fondo, { clase: 'pieza-fondo capa-fondo' }) : '';
     const nuevo = capas ? htmlEfectosCapa(n.nuevos) : '';
-    const lista = n.vacio ? `<p class="vacio-pv">${htmlEscribir(n.escribir)}</p>` : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion, capa: capas || ligera });
+    const lista = n.vacio ? `<p class="vacio-pv"${htmlHueco(n.X, n.pv)}>${htmlEscribir(n.escribir)}</p>` : htmlOcupantes(n.ocupantes, { pv: n.pv, disposicion: n.disposicion, capa: capas || ligera });
     cuerpo = fondo + (enFila ? '' : cabeza) + escenario + (n.rejilla ? htmlRejilla(n.rejilla, { apilada: enFila }) : lista) + (n.nivel >= NIVEL.bloque ? htmlDiario(n.diario) + htmlOpiniones(n.opiniones) : '') + camino
       + `<footer class="pv-pie"><button type="button" class="entrar" data-foco-pv="${n.pv}" data-x="${n.X}">${t('entrar')}</button><small class="ayuda">${escapar(n.ayuda ?? '')}</small></footer>` + nuevo + marco;
   }
   return `<section class="${clases}"${nodo('pv', { tam: n.pasoDeTamano?.nombre ?? NOMBRE_NIVEL[n.nivel], rep: repDe(n.representacion) })} data-pv="${n.pv}" data-x="${n.X}" data-nivel="${n.nivel}" aria-label="${attr(n.etiqueta)}" tabindex="0">${cuerpo}</section>`;
-}
-
-/** Los campos del anverso: cada PV lateral con su etiqueta y un input (editar escribe un ocupante nuevo, nunca en sitio). */
-function htmlCampos(campos, X) {
-  return `<dl class="campos">${campos.map((c) => `<div class="campo campo-${c.pv}"${nodo('campo', { d: c.pv })}><dt><label for="campo-${c.pv}" title="${attr(c.ayuda ?? '')}">${escapar(c.etiqueta)}${c.total > 1 ? ` <small>· ${c.total}</small>` : ''}</label></dt><dd><input id="campo-${c.pv}" class="campo-input" data-campo="${c.pv}" data-x="${X}" value="${attr(c.valor)}" placeholder="${attr((c.marcador ?? []).join(' · '))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></dd></div>`).join('')}</dl>`;
 }
 
 /**
@@ -568,7 +609,7 @@ function htmlFilas(arbol, c) {
     const campo = c.campos.find((x) => x.pv === f.pv);
     const etiqueta = escapar(f.etiqueta ?? '');
     const input = f.pv === c.pv
-      ? `<input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">`
+      ? `<input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(t('nuevoAquiMarcador', { que: c.textoDelFoco ?? c.representacion?.texto ?? '' }))}" title="${attr(c.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">`
       : campo ? `<input class="campo-input" data-campo="${f.pv}" data-x="${c.X}" value="${attr(campo.valor)}" placeholder="${attr((campo.marcador ?? []).join(' · '))}" title="${attr(campo.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">` : '';
     const marca = f.hilo ? (f.hilo === 'antes' ? '↑' : '↓') : f.abierta ? '▾' : '▸';
     const titulo = f.hilo ? t(f.hilo === 'antes' ? 'irAlPasado' : 'irAlFuturo') : t(f.abierta ? 'filaCerrar' : 'filaAbrir', { que: f.etiqueta ?? '' });
@@ -593,7 +634,7 @@ function htmlHilo(n, { capa = false } = {}) {
   const pasado = n.hilo === 'antes';
   const entrada = (e) => `<li class="hilo-carta hilo-entrada"><time datetime="${attr(e.t)}">${escapar(fecha(e.t))}</time> · <b>${escapar(e.autor)}</b> · <button type="button" class="enlace" data-abrir="${attr(e.id)}">${corto(e.id)}</button><small>${escapar(e.movimientos.join(', '))}</small></li>`;
   const cartas = [...(n.ocupantes?.lista ?? []).map((o) => `<li class="hilo-carta">${htmlOcupante(o, { capa })}</li>`), ...(n.diario?.entradas ?? []).map(entrada)];
-  const vacio = cartas.length ? '' : `<li class="hilo-vacio">${htmlEscribir(n.escribir)}</li>`;
+  const vacio = cartas.length ? '' : `<li class="hilo-vacio"${htmlHueco(n.X, n.pv)}>${htmlEscribir(n.escribir)}</li>`;
   const mas = n.cargarMas ? `<li class="cargar-mas"><button type="button"${nodo('control')} data-cargar-mas="${n.pv}">${escapar(t('cargarMas', { cuantos: n.faltan }))}</button></li>` : '';
   const total = (n.ocupantes?.total ?? 0) + (n.diario?.total ?? 0);
   const cabeza = `<header class="pv-cabeza hilo-cabeza"><span class="numero">${n.pv}</span><span class="etiqueta">${escapar(n.etiqueta)}</span><small>${escapar(t(pasado ? 'hiloPasado' : 'hiloFuturo', { n: total }))}</small></header>`;
@@ -622,9 +663,8 @@ function htmlCentro(c, arbol, { leidoTexto } = {}) {
     return `<section class="nucleo anverso tamano-${c.tamano?.tamano ?? 1}"${nodo('foco', { tam: 'foco', cara: 'anverso', rep: repDe(c.representacion) })} data-centro="${c.pv}" data-x="${c.X}" aria-label="${attr(c.etiqueta)}">
       <header class="nucleo-cabeza"><span class="etiqueta">${escapar(c.etiqueta)}</span>${madurez}${quien}${voltear}</header>
       ${puntos}
-      <h1 class="representacion">${htmlRepresentacion(c.representacion)}${efectos}</h1>
-      ${arbol.secuencia ? htmlFilas(arbol, c) : `<label class="campo campo-0"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(c.representacion?.texto ?? '')}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>
-      ${htmlCampos(c.campos, c.X)}`}
+      <h1 class="representacion${c.representacion?.aislada ? ' con-aislada' : ''}">${htmlRepresentacion(c.representacion)}${efectos}</h1>
+      ${arbol.secuencia ? htmlFilas(arbol, c) : `<label class="campo campo-0 campo-unico"${nodo('campo', { d: 0 })}><span class="etiqueta-0">${escapar(c.etiqueta)}</span><input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(t('nuevoAquiMarcador', { que: c.textoDelFoco ?? c.representacion?.texto ?? '' }))}" title="${attr(c.ayuda ?? '')}" autocomplete="off"></label>`}
       ${leido}${marco}
     </section>`;
   }
@@ -705,6 +745,11 @@ function htmlAro(aro) {
     return `<li class="hueco hueco-${h.pv} lado-${h.lado ?? ''}${a || conLista ? '' : ' apagado'}${h.abierto ? ' desplegado' : ''}"${nodo('hueco')} data-pv="${h.pv}" data-fila="${h.celda[0]}" data-columna="${h.celda[1]}"${conLista ? ' data-con-lista' : ''}><span class="sitio">${defecto}</span>${lista}</li>`;
   }).join('');
   const c = aro.centro;
+  if (c?.nuevo) {
+    // Sobre un hueco vacío (issue #22): solo el centro, con un input nuevo y, debajo, los valores posibles de esa posición.
+    const input = `<input class="campo-input campo-nuevo" data-campo="${c.pv}" data-x="${aro.X}" data-nuevo value="" placeholder="${attr(t('aroNuevoMarcador', { que: c.etiqueta ?? '' }))}" title="${attr(t('aroNuevoTitulo', { que: c.etiqueta ?? '' }))}" aria-label="${attr(aro.texto)}" autocomplete="off">`;
+    return `<div class="aro-fondo" data-cerrar><div class="aro aro-nuevo editando"${nodo('aro', { nuevo: c.pv })} data-x="${aro.X}" data-nuevo="${c.pv}" role="dialog" aria-label="${attr(aro.texto)}"><ul></ul><div class="aro-centro" data-aro-centro data-x="${aro.X}"><b><span class="numero">${c.pv}</span> ${escapar(c.etiqueta ?? '')}</b><div class="aro-edicion">${input}${htmlOpciones(c.opciones0, c.pv, aro.X, 'opciones opciones-abajo')}</div></div></div></div>`;
+  }
   const edicion = c?.editando
     ? `<div class="aro-edicion">${htmlOpciones(c.opciones5, c.pv5, aro.X, 'opciones opciones-arriba')}<input class="campo-input" data-campo="${c.pv}" data-x="${aro.X}" value="${attr(c.valor ?? '')}" aria-label="${attr(c.etiqueta ?? '')}" autocomplete="off">${htmlOpciones(c.opciones0, c.pv, aro.X, 'opciones opciones-abajo')}</div>`
     : '';
@@ -936,6 +981,7 @@ export function htmlCopia(c) {
  * `sincronia` (la línea del libro compartido, o null) y `claveLectura` (en una cuenta, la de este navegador o '').
  */
 export function html(arbol, extra = {}) {
+  archivoDe = typeof extra.archivo === 'function' ? extra.archivo : () => null; // los archivos adjuntos de esta pestaña (htmlRepresentacion)
   // Sin eje (nadie ha elegido aún cuenta ni ejemplo): la pantalla de arranque entera.
   if (extra.arranque && (!arbol || arbol.vacio)) return `<div class="carta vacia">${extra.aviso ? `<p class="aviso" role="alert">${escapar(extra.aviso)}</p>` : ''}${htmlArranque(extra.arranque, { cuentas: extra.cuentas, sobreCarta: false })}</div>`;
   if (!arbol || arbol.vacio) return `<div class="carta vacia"><p class="aviso">${escapar(arbol?.avisos?.join(' · ') ?? t('sinRegistro'))}</p></div>`;

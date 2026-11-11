@@ -15,6 +15,9 @@ servidor/
     funciones/eventos/LEEME.md       cómo probar la función a mano
     funciones/guia/index.ts          la función de la guía del PV9 (Deno): contesta preguntas llamando a la API de Anthropic
     funciones/guia/api.js            su contrato como (Request) → Response; lo comparten la función y el servidor de prueba (autónoma: se despliega sola)
+    funciones/archivos/index.ts      la función de los archivos adjuntos (Deno): el bucket privado agram-archivos por la API REST de Storage
+    funciones/archivos/api.js        su contrato (subir, bajar, tipos, tope); lo comparten la función y el servidor de prueba (autónoma)
+    migraciones/0002_archivos.sql    el bucket privado agram-archivos (2 MB, cinco tipos)
   prueba/
     servidor.mjs                     el mismo contrato en Node (node:http), en memoria o en un JSON; para pruebas y desarrollo
     cripto-nucleo.mjs                la comprobación del servidor hecha con src/evento.js y src/autoridad.js
@@ -81,6 +84,25 @@ curl -s -X POST https://<ref>.supabase.co/functions/v1/guia \
 
 Mientras no haya servidor, la guía tiene una vía **directa** (provisional): la clave de Anthropic se pega en «configuración» y vive solo en ese navegador (`agram.ia.<alta>`, fuera del eje y de la copia de seguridad).
 
+## Los archivos adjuntos (función `archivos`)
+
+La representación HTML del PV0 y la acción «adjuntar un archivo» (issues #21, #22; `docs/CONTRATO.md` §2.1). Los archivos van a un **bucket privado** de Supabase Storage, `agram-archivos`, bajo `<eje>/<sha256>`; el registro guarda solo `archivo:<sha256>`. La función comprueba la clave de lectura del eje (la tabla `ejes`, la misma del libro compartido) y entra al bucket con el rol de servicio; nadie más llega a él.
+
+1. **El bucket.** Pegar `migraciones/0002_archivos.sql` en el editor SQL (o `supabase db push` con ella en `supabase/migrations/`): crea `agram-archivos` privado, con tope de 2 MB y los cinco tipos admitidos; es idempotente. Por el panel es lo mismo: Storage → New bucket → `agram-archivos`, Public **desactivado**, límite 2 MB, tipos `text/html, image/png, image/jpeg, image/svg+xml, application/json`. **Sin políticas** en `storage.objects` para `anon` ni `authenticated`.
+2. **Desplegar.** `supabase functions deploy archivos --no-verify-jwt` desde una carpeta con `supabase/functions/archivos/` que contenga `index.ts` y `api.js` (copiar los dos de `servidor/supabase/funciones/archivos/`; es autónoma). `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` las inyecta Supabase; no hace falta ningún secreto más.
+3. **Probarla.**
+```sh
+curl -s -X POST "https://<ref>.supabase.co/functions/v1/archivos?eje=vg" \
+  -H "X-Clave-Lectura: $CLAVE" -H "Content-Type: text/html" --data-binary @arte-agram/agram.html
+# → 201 {"id":"<sha256>","tipo":"text/html","bytes":…}; otra vez → 200 (idempotente);
+#   sin la cabecera → 401; otro tipo → 415; más de 2 MB → 413
+curl -s -D - "https://<ref>.supabase.co/functions/v1/archivos/<sha256>?eje=vg" -H "X-Clave-Lectura: $CLAVE" -o /dev/null
+# → 200 con Content-Type text/html, Content-Disposition: inline, Content-Security-Policy: sandbox; …, nosniff
+```
+4. **La carta.** Sin cambios: usa el mismo `sync url`, `sync ledger` y clave de lectura de la cuenta. Supabase Storage puede guardar el HTML como `text/plain`: la función sirve el tipo por el contenido (`tipoPorContenido`). CORS: los mismos orígenes que `eventos` (`ORIGENES` en `api.js`).
+
+Con el servidor de prueba (`servidor/prueba/servidor.mjs`), `/archivos` y `/archivos/<id>` responden igual, con los archivos en memoria (no van al `--archivo` JSON).
+
 ## Lo que queda para desplegar
 
 - Crear el proyecto Supabase (VG) y guardar sus credenciales en `PROD/ikisai-apps/private/`.
@@ -88,3 +110,4 @@ Mientras no haya servidor, la guía tiene una vía **directa** (provisional): la
 - Crear el eje de VG y repartir su clave de lectura a sus dispositivos.
 - Configurar la carta en cada dispositivo («Configurar la carta tras desplegar», arriba). La carta ya está enganchada (`docs/CONTRATO.md` §15.8).
 - Para la guía: `supabase secrets set ANTHROPIC_API_KEY=…` y desplegar `guia` («La guía del PV9», arriba).
+- Para los archivos adjuntos: pasar `0002_archivos.sql` (el bucket privado) y desplegar `archivos` («Los archivos adjuntos», arriba).

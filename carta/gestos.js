@@ -36,7 +36,8 @@ const UMBRAL_ASA = 1 / 8;
  *   cerrar()                 cerrar el aro, el formulario o la configuración
  *   enviar(form)             enviar el formulario de una acción
  *   configurar(form | null)  abrir la configuración (null) o guardarla (el formulario)
- *   campo(X, pv, texto)      escribir un ocupante nuevo en la posición pv de X
+ *   campo(X, pv, texto, { nuevo })  escribir un ocupante nuevo en la posición pv de X (nuevo: desde el aro de un hueco: crea el elemento y abre su aro)
+ *   aroNuevo(X, pv, { ancla })  mantener sobre un hueco (data-hueco-x, data-hueco-pv; issue #22): el aro con un input nuevo que crea el elemento en X.pv
  *   cargarMas(pv)            una página más de ocupantes del PV
  *   roseton(pv)              un paso en un rosetón de identidad
  *   leido()                  alternar la lente «leído»
@@ -102,7 +103,20 @@ export function instalar(raiz, m) {
     // un campo: su input, su etiqueta (la .campo del anverso) o la cabeza de su fila (Sequenced); lo de dentro de una fila abierta no es el campo
     const campo = t.closest?.('[data-campo]') ?? t.closest?.('.campo, .fila-cabeza')?.closest?.('.campo, .fila')?.querySelector?.('[data-campo]');
     if (campo && campo.dataset.x) { ultimoMantener = Date.now(); m.aro?.(campo.dataset.x, Number(campo.dataset.campo), { desplegar: true, ancla: anclaDe(t, x, y) }); return true; }
-    const el = t.closest?.('[data-x]');
+    // un hueco (issue #22: un hijo de la rejilla, vacío o no, el espacio libre de un mundo a pantalla completa, un PV vacío):
+    // si es lo más cercano, el aro con un input nuevo que crea el elemento en esa posición; lo que tiene un registro detrás, gana
+    let el = t.closest?.('[data-x], [data-hueco-x]');
+    if (el?.dataset.huecoX && !el.dataset.x) {
+      // en la rejilla, la posición es el dígito del hijo pulsado (su data-pv); fuera de todo hijo, la del contenedor si la lleva
+      const hijo = t.closest('.rejilla-celda.hijo[data-pv]');
+      const pv = hijo && el.contains(hijo) ? Number(hijo.dataset.pv) : el.dataset.huecoPv !== undefined ? Number(el.dataset.huecoPv) : NaN;
+      if (Number.isInteger(pv)) {
+        ultimoMantener = Date.now();
+        m.aroNuevo?.(el.dataset.huecoX, pv, { ancla: anclaDe(t, x, y) });
+        return true;
+      }
+      el = el.parentElement?.closest('[data-x]'); // sin posición (el contenedor de una rejilla en un bloque): el aro de lo de detrás, como siempre
+    }
     if (!el || !el.dataset.x) return false;
     ultimoMantener = Date.now();
     m.aro?.(el.dataset.x, null, { ancla: anclaDe(t, x, y) });
@@ -192,7 +206,7 @@ export function instalar(raiz, m) {
     const t = e.target;
     if (e.button !== undefined && e.button !== 0) return; // el clic derecho va por contextmenu
     if (t.closest('textarea, select, .formulario, .guia') || (t.closest('input') && !t.closest('[data-campo]'))) return;
-    if (!t.closest('.aro') && !t.closest('[data-x]')) return;
+    if (!t.closest('.aro') && !t.closest('[data-x], [data-hueco-x]')) return;
     cancelarMantener();
     mantener = { timer: setTimeout(() => { mantener = null; mantenido(t, e.clientX, e.clientY); }, MANTENER_MS), x: e.clientX, y: e.clientY };
   };
@@ -327,7 +341,7 @@ export function instalar(raiz, m) {
     else if (t.matches('[data-ejemplo]')) m.ejemplo?.(t.value);
     else if (t.matches('[data-campo]')) {
       const texto = t.value.trim();
-      if (texto) m.campo?.(t.dataset.x, Number(t.dataset.campo), texto);
+      if (texto) m.campo?.(t.dataset.x, Number(t.dataset.campo), texto, { nuevo: t.dataset.nuevo !== undefined });
     }
   });
   on('keydown', (e) => {

@@ -88,7 +88,7 @@ test('acciones: lo que el aro ofrece a cada identidad en cada PV lo dicen las pl
   // Nada decidido en JS: cambiar el 2 de una plantilla en una copia de la época cambia lo que se ofrece.
   const sinAplicar = epocaCon((e, plantillas) => { plantillas.find((p) => p.registro[0][0] === 'apply a resource').registro[2] = ['=1 = 2']; });
   assert.ok(!nombres(A.acciones(eje, menu.id, 1, 'huesped', { epoca: sinAplicar })).includes('apply a resource'));
-  assert.equal(A.plantillasDeTransaccion().length, 34);
+  assert.equal(A.plantillasDeTransaccion().length, 35);
   assert.deepEqual([...new Set(A.plantillasDeTransaccion().map((p) => p.pv))], [1, 2, 3, 4, 6, 7, 8, 9]);
 });
 

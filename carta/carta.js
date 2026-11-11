@@ -136,11 +136,32 @@ function tamanoDeNivel(nivel, opciones) {
  * recurso. → { texto, tamano, formato, recurso } o null.
  */
 function representacionQueCabe(eje, X, tamano, { animado, opciones }) {
-  const todas = contrato.representaciones(eje, X, opciones);
+  const todas = contrato.representaciones(eje, X, opciones).filter(modelos.representacionAdmitida);
   const deHoja = todas.find((r) => r.tamano === 0 && !r.recurso)?.formato ?? null;
   const caben = todas.filter((r) => r.tamano <= (tamano?.tamano ?? 0) && (animado || (!r.recurso && r.formato === deHoja)));
   if (!caben.length) return null;
-  return caben.reduce((a, b) => (b.tamano >= a.tamano ? b : a));
+  return conArchivo(caben.reduce((a, b) => (b.tamano >= a.tamano ? b : a)));
+}
+
+/**
+ * Una representación con lo que la carta necesita para pintarla (issue #21): `archivo`, el id del archivo adjunto si su
+ * recurso es `archivo:<sha256>` (la app lo baja con la clave de lectura); `aislada`, si su formato se pinta solo dentro
+ * de un <iframe sandbox> sin scripts (modelos.pintaEnSandbox: SEG-14). Lo decide el núcleo; aquí no se nombra ningún formato.
+ */
+function conArchivo(r) {
+  if (!r) return r;
+  const archivo = modelos.idDeArchivo(r.recurso);
+  return archivo || modelos.pintaEnSandbox(r.formato) ? { ...r, archivo, aislada: modelos.pintaEnSandbox(r.formato) } : r;
+}
+
+/**
+ * La representación del foco en el anverso del PV0 (issues #21, #24): la que se pinta aislada (el HTML adjunto: la
+ * landing de un proyecto) si la tiene, la última que se adjuntó, en cualquier modo y tamaño; si no, la que cabe
+ * (representacionQueCabe: la imagen o el texto).
+ */
+function representacionDelFoco(eje, X, tamano, ctx) {
+  const aisladas = contrato.representaciones(eje, X, ctx.opciones).filter((r) => modelos.pintaEnSandbox(r.formato) && modelos.representacionAdmitida(r));
+  return aisladas.length ? conArchivo(aisladas[aisladas.length - 1]) : representacionQueCabe(eje, X, tamano, ctx);
 }
 
 /** Un valor en texto legible, como lo dice el núcleo en el idioma de quien mira (contrato.legible); `tipo`, el de la posición o el parámetro. */
@@ -486,7 +507,9 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
     base.nuevos = nuevosDe(ctx, pv, g.lado, tamano, ctx.mundoDelCentro);
     base.consumido = Boolean(base.nuevos?.consumido);
   }
-  if (g.cara === 'anverso') return { ...base, campos: camposDe(eje, X, ctx) };
+  // El anverso (issues #21, #24): arriba la representación del foco (su HTML adjunto si lo tiene) y un solo input, el del 0;
+  // los campos de los laterales siguen en el árbol para las filas de Sequenced (en Mapped están en los mundos).
+  if (g.cara === 'anverso') return { ...base, representacion: representacionDelFoco(eje, X, tamano, ctx), textoDelFoco: representacionQueCabe(eje, X, tamanoDeNivel(1, ctx.opciones), ctx)?.texto ?? null, campos: camposDe(eje, X, ctx) };
   if (g.cara === 'reverso') {
     const o = contrato.ocupantes(eje, X, pv, 0, ctx.paso, ctx.opciones);
     const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
@@ -558,7 +581,7 @@ function nodoAro(eje, X, yo, ctx) {
   const huecos = LATERALES.map((pv) => {
     const lista = acciones.acciones(eje, X, pv, yo, ctx.opciones);
     const porDefecto = lista.find((a) => a.porDefecto) ?? lista[0] ?? null;
-    const resumen = (a) => ({ id: a.id, nombre: a.etiqueta, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta).map((p) => p.etiqueta) });
+    const resumen = (a) => ({ id: a.id, nombre: a.etiqueta, lectura: a.lectura, camino: a.camino, faltan: a.parametros.filter((p) => p.falta && !p.archivo).map((p) => p.etiqueta) }); // lo que sale de subir un archivo no «falta»: lo pone el selector
     const accion = porDefecto ? resumen(porDefecto) : null;
     const otras = lista.filter((a) => a !== porDefecto).map(resumen);
     const opciones = opcionesDe(eje, X, pv, ctx);
@@ -588,6 +611,20 @@ function nodoAro(eje, X, yo, ctx) {
     editando: Boolean(ctx.estado.aro?.editar),
   };
   return { X, texto, huecos, centro };
+}
+
+/**
+ * El aro sobre un hueco vacío (issue #22): un clic mantenido sobre un hijo vacío o el espacio libre de un mundo abre el
+ * aro con un input nuevo en el centro; lo que se escriba crea el elemento en la posición `pv` de R (lo escribe la app
+ * como cualquier campo, carta/app.js campo). Sin sitios: el elemento aún no existe; al crearlo, la app abre su aro.
+ */
+function nodoAroNuevo(eje, R, pv, ctx) {
+  const etiqueta = contrato.etiqueta(eje, R, pv, ctx.opciones);
+  const de = legibleDe(eje, { ref: R }, null, ctx.opciones).texto;
+  return {
+    X: R, nuevo: true, texto: t('aroNuevoDe', { que: etiqueta, de }), huecos: [],
+    centro: { pv, nuevo: true, etiqueta, de, ayuda: contrato.ayuda(eje, R, pv, ctx.opciones), valor: '', opciones0: opcionesDe(eje, R, pv, ctx), opciones5: [], pv5: null, editando: true },
+  };
 }
 
 /** El idioma de quien mira: el que se pide o el de su configuración (la preferencia «language»). */
@@ -635,6 +672,7 @@ export function formulario(eje, X, accion, yo, valores = {}, opciones = {}) {
     const valor = valores[p.nombre] !== undefined ? valores[p.nombre] : defectos.get(p.nombre);
     return {
       nombre: p.nombre, etiqueta: p.etiqueta, tipo: p.tipo, requerido: p.requerido, ayuda: p.ayuda, validacion: p.validacion, posicion: p.posicion,
+      archivo: acciones.archivoDe(p), // un parámetro que sale de subir un archivo (su referencia o su formato): la app abre el selector
       valor: valor === undefined ? null : valor,
       legible: valor === undefined ? '' : legibleDe(eje, valor, p.tipo, o).texto,
       simple: contrato.esTipoSimple(p.tipo, o),
@@ -1427,7 +1465,8 @@ const pasoDelArbol = (pv, k, escala) => {
  *   recientes: [pv]          Mapped: los PV tocados uno a uno, del más antiguo al más reciente (el último gana lo suyo)
  *   profundidad: { [pv]: [X] } Mapped, pantalla completa: los registros por los que se ha entrado en la rejilla de cada PV (epoch.8.7)
  *   paginas: { [pv]: n }     cuántas páginas de ocupantes se han cargado en cada PV (en Mapped, la página que se ve)
- *   aro: { X, pv } | null    el aro abierto sobre un registro (pv: el hueco desplegado)
+ *   aro: { X, pv } | null    el aro abierto sobre un registro (pv: el hueco desplegado); { X, nuevo: d }: sobre el
+ *                            hueco vacío d de X, con un input nuevo que crea el elemento en X.d (issue #22)
  *   formulario: { X, accion, valores, motivos, resultado } | null
  *   rosetones: { [pv]: 1-2 } el paso de cada rosetón de identidad
  *   local: LibroLocal | null el libro local de yo (solo se lee)
@@ -1534,7 +1573,8 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
       };
     }
   }
-  const aro = estado.aro?.X && eje.obtener(estado.aro.X) ? nodoAro(eje, estado.aro.X, yo, ctx) : null;
+  const aro = !estado.aro?.X || !eje.obtener(estado.aro.X) ? null
+    : Number.isInteger(estado.aro.nuevo) ? nodoAroNuevo(eje, estado.aro.X, estado.aro.nuevo, ctx) : nodoAro(eje, estado.aro.X, yo, ctx);
   const form = estado.formulario?.accion && eje.obtener(estado.formulario.X) ? formulario(eje, estado.formulario.X, estado.formulario.accion, yo, estado.formulario.valores ?? {}, ctx.opciones) : null;
   return {
     tipo: 'carta',

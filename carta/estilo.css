@@ -911,3 +911,29 @@ html.mapped body{padding:0}
 .fila-contenido .capa-dibujo .dibujo-ocupante{opacity:.55}
 .rejilla-apilada .rejilla-cruceta>.hijo .capa-dibujo{left:0;right:0}
 .animado .secuencia .ocupante:has(>.capa-elemento){position:relative;isolation:isolate}
+
+/* El anverso del PV0 (issues #21, #24): arriba la representación del foco y debajo un solo input; el HTML adjunto, en su
+   iframe aislado (sandbox sin scripts: la carta no toca su contenido), con su propio scroll dentro */
+.nucleo .representacion.con-aislada{font-size:inherit;font-weight:normal;min-width:0}
+.rep-aislada{display:block;width:100%;height:min(70vh,640px);border:0;border-radius:8px;background:white;color-scheme:light}
+.rep-aislada.rep-pendiente{display:grid;place-items:center;height:120px;font-size:13px;color:var(--muted);border:1px dashed var(--rule);background:transparent}
+.rep-pendiente{color:var(--muted)}
+.campo-unico .campo-input{width:100%;box-sizing:border-box}
+/* Sequenced: la cabecera de la tarjeta con altura acotada (el iframe lleva su scroll) */
+.carta-apilada .nucleo.anverso .rep-aislada{height:min(46vh,420px)}
+/* Mapped: el iframe ocupa el centro; con él, una sola columna (sin los dos lados del foco a toda pantalla) */
+.mapa .nucleo.anverso:has(>.con-aislada){grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto auto;height:100%;box-sizing:border-box}
+.mapa .nucleo.anverso:has(>.con-aislada)>*{grid-column:1;grid-row:auto}
+.mapa .nucleo.anverso>.con-aislada{height:100%;min-height:0}
+.mapa .nucleo.anverso .rep-aislada{height:100%;min-height:100px}
+@container (min-width:560px) and (min-height:170px){
+  .nucleo.anverso:has(>.con-aislada){grid-template-columns:minmax(0,1fr)}
+  .nucleo.anverso:has(>.con-aislada)>*{grid-column:1;grid-row:auto}
+}
+/* un hueco donde se puede crear un elemento (mantenerlo pulsado: issue #22) */
+[data-hueco-pv]:not(.rejilla){cursor:copy}
+/* el aro sobre un hueco: solo el centro, un poco más ancho, con su input nuevo */
+.aro.aro-nuevo{--centro-ancho:min(240px,70vw);--centro-alto:72px}
+.aro.aro-nuevo .aro-centro{grid-area:2 / 1 / 3 / 4;justify-self:center;width:var(--centro-ancho);padding:8px}
+.aro.aro-nuevo .aro-centro>b{display:block;font-size:12px;color:var(--muted)}
+.aro.anclado.aro-nuevo .aro-centro>b{display:block}

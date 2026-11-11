@@ -4444,6 +4444,20 @@ export const EPOCA_0_BTML_DATOS = [
           "template apply a resource message: apply a resource: {me} da {first ev.1.1 * first (first ev.1.2).1} {first (first ev.1.2).0} a {first it.3} por {first it.0}",
           "template ask for a recommendation: pedir una recomendación",
           "template ask for a recommendation message: ask for a recommendation: las sugerencias del camino de {first it.0}",
+          "template attach a file: adjuntar un archivo",
+          "template attach a file param file label: archivo",
+          "template attach a file param file help: el archivo, subido a los archivos del eje: archivo:<su sha256> (la carta abre el selector de archivos y lo sube)",
+          "template attach a file param format label: formato",
+          "template attach a file param format help: el formato del archivo como representación (epoch.9.5.1): html, image, svg o lottie",
+          "template attach a file param size label: tamaño",
+          "template attach a file param size help: el tamaño mínimo donde se ve (epoch.9.5.2): 3, la pantalla entera",
+          "template attach a file param criteria label: criterio",
+          "template attach a file param criteria help: la plantilla de cerrado del registro",
+          "template attach a file param who label: quién",
+          "template attach a file param who help: quién lo adjunta",
+          "template attach a file param actions label: acción",
+          "template attach a file param actions help: la acción",
+          "template attach a file message: attach a file: {me} adjunta un archivo a {first it.0}",
           "template attend: atender",
           "template attend param text label: texto",
           "template attend param text help: la respuesta",
@@ -5141,6 +5155,9 @@ export const EPOCA_0_BTML_DATOS = [
         },
         {
           "ref": "d79fc5c437eb74abb8e1fa636b84b383061d5cbbbf393681ad073a7773822fe9"
+        },
+        {
+          "ref": "6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1"
         },
         {
           "ref": "e9061e0f3c2b6f03f37cca86a88f8bdc2a7a05b46cbf315498b01f4ea10288b2"
@@ -10364,6 +10381,260 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "attach-a-file.json",
+    "id": "6d875ed77dbd348a0c896e38bab2d3c5c821fa66b5b6b0b3de1a4e092feef8f1",
+    "registro": [
+      [
+        "attach a file"
+      ],
+      [
+        [
+          [
+            "file"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "file",
+            "ref"
+          ],
+          [
+            "5"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the file, uploaded to the files of the ledger: archivo:<its sha256> (the card opens the file chooser and uploads it)"
+          ]
+        ],
+        [
+          [
+            "format"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "file",
+            "format"
+          ],
+          [
+            "1.1"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "the format of the file as a representation (epoch.9.5.1): html, image, svg or lottie"
+          ]
+        ],
+        [
+          [
+            "size"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1.0"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            3,
+            "the minimum size where it shows (epoch.9.5.2): 3, the whole screen"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who attaches it"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "encargo pv0 (issues #21, #22, VG 11-11): parámetro de «attach a file»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "attach a file",
+            "the action"
+          ]
+        ]
+      ],
+      [
+        "=not (first it.3 != me and count (first it.3).6 > 0 and first (first it.3).6 = first it.5)"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ]
+      ],
+      [
+        "0"
+      ],
+      [
+        "Encargo pv0 (issues #21, #22, #24; VG 11-11): adjuntar un archivo es una acción del aro en el sitio 2 del elemento (el documento, el recurso), no preferente pero en la lista; dónde viven los archivos lo decide Core por ahora (lo definirá AARPIA): la función «archivos» del libro compartido, un bucket privado, y el registro guarda solo la referencia archivo:<sha256>",
+        "Molde: el de las acciones del aro (encargo 3c-2a). Un parámetro cuyo 4 es «file» sale de subir un archivo: «file ref» es su referencia, «file format» el formato de la época con que se representa; los dos van al payload como cualquier otro",
+        "El registro que escribe es una representación rica de X (epoch.9.5): anclado en la raíz de X (colisiona con su 0), su 0 el mensaje (el texto alternativo), su 1 [tamaño mínimo, formato] y su 5 el recurso, la referencia al archivo; el HTML se pinta solo dentro de un iframe aislado, sin scripts (SEG-14)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        "attach a file: {me} attaches a file to {first it.0}"
+      ]
+    ]
+  },
+  {
     "archivo": "write-to-x.json",
     "id": "e9061e0f3c2b6f03f37cca86a88f8bdc2a7a05b46cbf315498b01f4ea10288b2",
     "registro": [
@@ -15309,7 +15580,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "3c5ec6f077957524a7a9e2e5b19f7eab577c71b3fd0ea6146f949e5526eda855";
+export const EPOCA_0_BTML_ID = "b2c93ea1e31baec40e402bdfefdfd1a2e8aebe12067aa40ec63fe6e761ab49ce";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

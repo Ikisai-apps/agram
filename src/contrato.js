@@ -315,6 +315,11 @@ export function validar(eje, X, opciones = {}) {
 
 // ---------- 2. representaciones ----------
 
+/** Los formatos de las representaciones de la época (epoch.9.5.1), en su orden (el primero, el de una hoja: texto). */
+export function formatos(opciones = {}) {
+  return hojas(en(raizDe(epocaDe(opciones)), [...SITIO.representacion, 1])).filter((f) => typeof f === 'string');
+}
+
 /** Los tamaños de la época (epoch.9.5.2): [{ tamano, nombre, datos }], por tamaño. */
 export function tamanos(opciones = {}) {
   const raiz = raizDe(epocaDe(opciones));
@@ -362,7 +367,7 @@ export function representaciones(eje, X, opciones = {}) {
     else fuera.push({ texto: String(h), tamano: 0, formato: deHoja, recurso: null });
   };
   const rica = (dec) => {
-    const [tamano, formato] = hojas(dec[1]);
+    const [tamano, formato] = hojas(dec[1]).map(hoja); // [tamaño, formato], o la décupla [[tamaño], [formato]] (1.0 y 1.1: lo que escribe una plantilla)
     if (!medidas.has(tamano) || !admite.has(formato)) return;
     fuera.push({ texto: texto(hoja(dec[0])) ?? null, tamano, formato, recurso: hoja(dec[5]) ?? null });
   };
