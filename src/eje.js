@@ -98,7 +98,7 @@ export class Eje {
   constructor({ exigirFirmas = false, eventosV2 = 0 } = {}) {
     this.eventos = new Map(); // id → evento
     this.orden = []; // ids en orden de entrada
-    this.claves = new Map(); // identidad → clave pública (JWK)
+    this.claves = new Map(); // identidad → clave pública (hex x-only, BIP-340: src/autoridad.js)
     this.hijos = new Map(); // id → eventos escritos sobre él, en orden de entrada (índice)
     this.#hijosEn = new Map(); // id → Map(en → los mismos eventos, solo los anclados en esa dirección, en orden de entrada)
     this.#prefijos = new Map(); // primeros PREFIJO caracteres del id → ids, en orden de entrada (índice de conPrefijo)
@@ -1070,7 +1070,7 @@ export class Eje {
    *   atención que te asigno (su zona); 9 el tema y el tutorial.
    * Lo que da (`da`: movimientos sin de ni a, por omisión una unidad de su R) lo bloquea con la salida = `invitado`:
    * quien acepta lo recoge en su alta (la salida nombra a quien lo recibe). Su R, si no la tiene, la acuña antes en la
-   * misma transacción (emitir R exige T real: quema un minuto). `clave` es la clave pública del invitado (JWK): si
+   * misma transacción (emitir R exige T real: quema un minuto). `clave` es la clave pública del invitado (hex): si
    * va, solo vale una aceptación declarada y firmada con ella. Devuelve la invitación.
    */
   async invitar({ autor, invitado, clave, da = [{ token: 'R', cantidad: 1 }], grupo = 0, dominio, comun, hasta, tema, t, privada } = {}) {
@@ -1088,7 +1088,7 @@ export class Eje {
       }
       movimientos.push({ ...m, de: autor, a: autor, estado: 'bloqueo', salida: invitado });
     }
-    const x = typeof clave?.x === 'string' ? clave.x : null;
+    const x = typeof clave === 'string' && clave ? clave : null;
     const tres = [[autor], [invitado], ...(comun || x ? [comun ? [{ ref: comun }] : ['sin grupo común']] : []), ...(x ? [['yo y tú'], ['te invito'], [x]] : [])];
     const payload = [
       ['invitation'],
@@ -1213,7 +1213,7 @@ export class Eje {
       if (!deAutor.has(ev.autor)) deAutor.set(ev.autor, []);
       deAutor.get(ev.autor).push(ev);
     }
-    for (const [id, jwk] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, jwk);
+    for (const [id, clave] of Object.entries(ev.contexto?.claves ?? {})) this.claves.set(id, clave);
     // Los tipos solo se leen en el prefijo de la versión 2 (suelo de persistencia); fuera no hay tipo (B1).
     if (!reglas3) for (const [id, tipo] of Object.entries(ev.contexto?.tipos ?? {})) this.#tiposV2.set(id, tipo);
     // Qué series existen, en orden de aparición, con su emisor y su contrato (las cantidades son del libro). Una

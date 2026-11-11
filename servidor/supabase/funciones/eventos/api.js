@@ -55,7 +55,7 @@ export const hashDeClave = (clave) => verificar.hash(clave);
  *   crearEje(eje, claveHash) → { creado } | null si ya existía
  *   eje(eje) → { eje, clave_lectura_hash, creado } | null
  *   vacio(eje) → boolean
- *   claveDe(eje, autor) → JWK | undefined (la declarada en el primer evento del eje que la lleva: el alta)
+ *   claveDe(eje, autor) → clave pública (hex x-only) | undefined (la declarada en el primer evento del eje que la lleva: el alta)
  *   obtener(eje, id) → { orden, recibido } | null
  *   insertar(eje, { id, autor, firma, cuerpo }) → { orden, recibido } | null si el id ya estaba
  *   listar(eje, desde, cuantos) → [{ orden, recibido, cuerpo }] con orden > desde, por orden

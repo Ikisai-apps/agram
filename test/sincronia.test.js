@@ -97,7 +97,7 @@ test('A sube el génesis, B lo baja; tres eventos de A, uno sin red que queda en
   assert.equal(ejeB.obtener(e2.id).payload[0], 'dos');
 
   // Una firma inválida la rechaza el servidor (400); un cuerpo tocado con el mismo id, también.
-  const firmaMala = { ...e3, firma: e3.firma.slice(0, -2) + (e3.firma.endsWith('AA') ? 'BB' : 'AA'), id: await hash('otro') };
+  const firmaMala = { ...e3, firma: e3.firma.slice(0, -2) + (e3.firma.endsWith('aa') ? 'bb' : 'aa'), id: await hash('otro') };
   let r = await subir(claveLectura, 'vg', firmaMala);
   assert.equal(r.status, 400);
   assert.match((await r.json()).error, /id no corresponde/);

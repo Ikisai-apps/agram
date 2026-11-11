@@ -460,7 +460,13 @@ async function entrarEnCuenta(alta) {
   let r = await cuentas.abrirCuenta(alta);
   if (!r.eje && r.privada) r = await ejeDesdeElLibro(r);
   if (!r.eje) {
-    estado.aviso = t('cuentaNoAbre', { nombre: r.cuenta?.nombre ?? alta.slice(0, 8), motivo: r.motivo });
+    const nombre = r.cuenta?.nombre ?? alta.slice(0, 8);
+    estado.aviso = r.antigua ? t('cuentaDeFirmasAntiguas', { nombre }) : t('cuentaNoAbre', { nombre, motivo: r.motivo });
+    // Una cuenta de antes de las firmas BIP-340 no se abrirá nunca: se ofrece borrarla (con su confirmación).
+    if (r.antigua && globalThis.confirm?.(t('olvidarAntiguaConfirmar', { nombre }))) {
+      cuentas.olvidarCuenta(alta, [r.cuenta.identidad]);
+      estado.aviso = t('cuentaOlvidada', { nombre });
+    }
     estado.arranque = { modo: 'menu' };
     await pintar();
     return false;
@@ -1106,7 +1112,7 @@ const manejadores = {
       await pintar();
     } catch (e) {
       ar.ocupado = false;
-      ar.motivos = [{ mensaje: String(e?.message ?? e) }];
+      ar.motivos = [{ mensaje: e?.antigua ? t('copiaDeFirmasAntiguas') : String(e?.message ?? e) }];
       await pintar();
     }
   },

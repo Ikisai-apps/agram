@@ -45,6 +45,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | `DOS_ESCALAS_BTML.md` | Qué pueden ser `matrix_data` y `block_data`, y las fronteras de las diez profundidades | abierta |
 | `AUDITORIA_AJUSTE.md` | Dónde se separa el código de lo decidido: fichas votadas, el §12 línea a línea y preguntas para VG | base `95e5396`; buena parte ya resuelta en `main` (ver su estado) |
 | `PRUEBA_DEL_EXTRANJERO.md` | La prueba del extranjero: un agente con solo BTML, BQL y MOTOR escribe registros y fórmulas, y un conocedor lo califica | hecha; el anexo es histórico y dice qué cambia hoy |
+| `FIRMAS_BIP340.md` | Por qué las firmas son Schnorr BIP-340 (secp256k1) y no ECDSA P-256: formato, librería vendorizada, sin compatibilidad | decidida por VG el 11-11; rama `beta-schnorr` (`src/autoridad.js`, `src/vendor/`) |
 | `CAPA_CERO.md` | La capa cero: el libro de transacciones, la correspondencia evento ↔ transacción y las condiciones envueltas con su fila del inventario | paso 1 del mapa §16 (VG, 9-11); en `src/libro.js` y `src/condiciones/` |
 
 ## Dónde está cada cosa en el código
@@ -54,7 +55,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | eventos, eje, tokens, génesis | `docs/BTML.md` §1, §2, §8 | `src/evento.js`, `src/eje.js`, `src/tokens.js` | `test/eje.test.js`, `test/eprt.test.js`, `test/evento.test.js`, `test/tokens.test.js` |
 | la capa cero: el libro de transacciones y las reglas como condiciones de validez | `docs/FUNDAMENTOS.md` («La capa de transacciones»), `docs/notas/CAPA_CERO.md` | `src/libro.js`, `src/condiciones/`, `src/eje.js` | `test/libro.test.js`, `test/capa-cero.test.js` |
 | direcciones, payload, colisiones, encaje | `docs/BTML.md` §3–§6 | `src/btml.js`, `src/encaje.js` | `test/encaje.test.js`, `test/vector.test.js`, `test/conformidad-btml.test.js` |
-| firmas y claves | `docs/BTML.md` §7 | `src/autoridad.js` | `test/autoridad.test.js` |
+| firmas y claves (Schnorr BIP-340) | `docs/BTML.md` §7, `docs/notas/FIRMAS_BIP340.md`, `src/vendor/LEEME.md` | `src/autoridad.js`, `src/vendor/noble-secp256k1.js` | `test/autoridad.test.js` (con los vectores de BIP-340), `test/paridad-funcion.test.js` |
 | épocas y reglas cortas | `docs/REGLAS_CORTAS.md` | `src/epocas.js`, `datos/epocas/` | `test/epocas.test.js` |
 | fórmulas | `docs/BQL.md` | `src/bql.js` | `test/bql.test.js`, `test/bql-colecciones.test.js`, `test/conformidad-bql.test.js` |
 | el BQL mínimo, sus despliegues y vistas, la época como registro y la primera regla | `docs/BQLM.md`, `docs/BTML.md` §12 | `src/bqlm.js`, `src/contexto-eje.js`, `src/epocas.js` (`cargarEpocaBtml`), `datos/epocas/epoca-0.btml.json` | `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`, `test/seguridad-bqlm.test.js` |

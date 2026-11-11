@@ -46,7 +46,7 @@ La unidad de información es el evento: **una transición de tokens con un paylo
 | `payload` | BTML | sí | Terminal o array posicional. Ver §3. |
 | `contexto` | objeto | no (por defecto `{}`) | Metadatos libres. Forma parte del id. Claves en uso hoy: ver §1.4. |
 | `id` | 64 hex | lo calcula `crearEvento` | SHA-256 del cuerpo canónico. |
-| `firmante`, `firma` | cadena, base64url | solo si se firma | Los añade `firmar`. No forman parte del id. Ver §7. |
+| `firmante`, `firma` | cadena; la firma, BIP-340 en hex (64 bytes, 128 caracteres en minúsculas) | solo si se firma | Los añade `firmar`. No forman parte del id. Ver §7. |
 
 El objeto que devuelve `crearEvento` es la **copia en JSON** de lo que se le pasa (lo que se valida, se hashea y se guarda es lo mismo), congelada entera (`congelar`: también `payload`, `movimientos` y `contexto`, a todos los niveles), y siempre lleva `en` y `contexto` rellenos. Quien lo crea puede seguir usando y mutando sus arrays sin cambiar el evento. Lo que no cabe en JSON (un ciclo, un BigInt) es `evento mal formado: no cabe en JSON`; un array de más de diez posiciones en el payload se rechaza antes de copiarlo, sin recorrer su longitud (`evento mal formado: payload <ruta>: más de 10 posiciones`). Lo que se guarda y se transmite es ese objeto tal cual, en JSON. El eje (`anadir`, `desde`) guarda a su vez una copia normalizada y congelada de cada evento que recibe: solo sus campos (los del cuerpo, `id`, `firmante`, `firma`), con `en` y `contexto` por defecto si faltan; un campo de más no entra. No existe modificar en sitio, tampoco en memoria.
 
@@ -105,7 +105,7 @@ true true 0000000000 {}
 | Clave | Quién la escribe | Significado |
 |---|---|---|
 | `genesis: true`, `epoca` | `Eje.genesis` | Marca el génesis. Solo puede haber uno por eje. `epoca` es el id de la época 0 (`EPOCA_0_BTML.id`): el génesis es la época 0 en este eje (encargo 3b). |
-| `claves: { identidad: JWK }` | `Eje.genesis` (clave del autor), `eje.aceptar` (la de quien acepta una invitación) y quien da de alta una cosa | Clave pública de quien escribe su propia alta o de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
+| `claves: { identidad: clave pública }` (hex x-only, §7.2) | `Eje.genesis` (clave del autor), `eje.aceptar` (la de quien acepta una invitación) y quien da de alta una cosa | Clave pública de quien escribe su propia alta o de una identidad que **recibe tokens en este mismo evento**. Ver §7.2. |
 | `tipos` | nadie (solo un eje de la versión 2) | **Ya no existe** (VG, 10-11, B1: desaparece el tipo). Persona o cosa se lee de quién escribe el alta: una persona escribe la suya; una cosa la da de alta otra identidad, su dueño (§7.1). Fuera del prefijo de la versión 2 un alta que lo declara se rechaza. |
 | `modo` | `escritura.escribirDesde` | `'pointed'`, `'sequenced'`, `'mapped'` o `'scened'`. |
 | `heredadas` | `escritura.escribirDesde` (con `celda`, `heredadas` o desde `escribirSalida`) | Posiciones del payload que son relleno heredado del foco: cada una es una referencia al foco en su propia dirección, y el foco tiene contenido en ese camino exacto (se comprueba: una heredada nunca cuelga). No se emiten y no cuentan para el tope del modo (la proporción sí las cuenta, como antes); lo demás se vio o se escribió. Posiciones como número (`3`), subposiciones o clases como texto (`'1.2'`, `'1.2.3'`). Ver `docs/MOTOR.md` §7.3. |
@@ -1112,12 +1112,12 @@ eje.poderSobre(identidad, id)  // → su P posicionado en el registro `id`, disp
 eje.invitar({ autor, invitado, … }) // → Promise<la invitación>: anclada en el 3 del alta de quien invita
 eje.aceptar(invitacion, clave?, { t }?) // → Promise<el alta de quien acepta>: una persona
 eje.reputaciones(identidad)    // → [{ emisor, cantidad }] su R, por emisor
-eje.clave(identidad)           // → JWK pública o undefined
+eje.clave(identidad)           // → clave pública (hex x-only, 64 caracteres) o undefined
 ```
 
 ### 7.2 Claves
 
-- Una clave pública es un JWK EC P-256: `{ kty: 'EC', crv: 'P-256', x, y }`. Al declararla, el eje comprueba que Web Crypto la importa para verificar y que no lleva parte privada (`d`): si no, `clave inválida para <id>` (`autoridad.clavePublicaValida`).
+- Las firmas son **Schnorr sobre secp256k1 según BIP-340**, como Nostr (NIP-01) y Taproot (`docs/notas/FIRMAS_BIP340.md`; la librería, vendorizada: `src/vendor/LEEME.md`). Una clave pública es la **x de 32 bytes** del punto (x-only), en hexadecimal en minúsculas: 64 caracteres. Al declararla, el eje comprueba que es eso y que la x es la de un punto de la curva (`lift_x` de BIP-340): si no, `clave inválida para <id>` (`autoridad.clavePublicaValida`). Mayúsculas, prefijos (`02…`) u otros largos no valen: una sola escritura por clave. No hay compatibilidad con las claves ECDSA P-256 (JWK) de antes.
 - El génesis solo declara la clave de su autor; si la declara, el génesis va firmado con ella por su autor, igual al crearlo (`Eje.genesis`) que al restaurarlo (`Eje.desde`).
 - Se declara en `contexto.claves[identidad]` **del alta de esa identidad**: el génesis para el autor inicial, con `clave`; la aceptación de su invitación para una persona (`eje.aceptar(invitacion, { publica, privada })`); el evento en que recibe tokens por primera vez para una cosa. Una clave declarada para una identidad que ya existe, o para una que no recibe tokens en ese evento, se rechaza. **No se puede cambiar una clave registrada.**
 - **Sin clave no se actúa** (R9, regla madre de la neutralidad aceptada por VG el 7-11 noche; `docs/notas/NEUTRALIDAD_IDENTIDAD.md` §4). Una identidad sin clave registrada puede recibir tokens, pero no escribe: no mueve tokens ni escribe bases (`sin clave no se actúa: <id> no tiene clave registrada`). El génesis declara la clave de su autor y va firmado con ella; sin `clave`, `Eje.genesis` lanza.
@@ -1127,18 +1127,20 @@ eje.clave(identidad)           // → JWK pública o undefined
 ### 7.3 Firmas
 
 ```js
-generarClaves()              // → Promise<{ publica: JWK, privada: CryptoKey }>
-firmar(ev, privada, firmante = ev.autor)  // → Promise<evento congelado con firmante y firma>; firma = ECDSA P-256 / SHA-256 sobre los bytes del id, en base64url
+generarClaves()              // → Promise<{ publica, privada }>: hex de 32 bytes cada una (la pública, x-only); el azar, de Web Crypto
+publicaDe(privada)           // → la pública (hex x-only) de una privada; lanza si la privada no vale (0 < d < n)
+firmar(ev, privada, firmante = ev.autor)  // → Promise<evento congelado con firmante y firma>; firma = BIP-340 sobre los 32 bytes del id (aux_rand de Web Crypto), en hex: 128 caracteres
 verificar(ev, publica)       // → Promise<boolean>
 firmarPosesion(ev, identidad, privada)    // → Promise<evento con posesion[identidad]>: la clave nueva firma el id (R9)
 verificarPosesion(ev, identidad, publica) // → Promise<boolean>
 eje.escribir(datos, privada, { <identidad>: privada }?)  // el tercer argumento añade la prueba de posesión de cada clave nueva
-exportarPrivada(privada)     // → Promise<JWK>   (para guardarla en local; nunca entra en el eje)
-importarPrivada(jwk)         // → Promise<CryptoKey>
-huella(publica)              // → primeros 8 caracteres de x, para mostrar
+exportarPrivada(privada)     // → Promise<hex>   la misma privada, comprobada (para guardarla en local; nunca entra en el eje)
+importarPrivada(hex)         // → Promise<hex>   la comprueba al leerla; lanza si no vale (por ejemplo, un JWK P-256 de antes)
+clavePublicaValida(publica)  // → boolean: hex x-only de un punto de la curva
+huella(publica)              // → sus primeros 8 caracteres, para mostrar
 ```
 
-Reglas del eje: quien tiene clave registrada **debe firmar** cada evento suyo, `firmante` debe ser el `autor` (también en el génesis), y la firma se verifica al añadir y al restaurar. `verificar` solo acepta la firma en base64url canónico, como la escribe `firmar` (sin relleno, sin espacios, sin bits sobrantes distintos de cero). Quien no tiene clave escribe sin firma, salvo que el eje se cree con `exigirFirmas: true` (entonces todo autor necesita clave y el génesis debe ir firmado). La firma no cambia el id. Las claves privadas nunca entran en el eje.
+Reglas del eje: quien tiene clave registrada **debe firmar** cada evento suyo, `firmante` debe ser el `autor` (también en el génesis), y la firma se verifica al añadir y al restaurar. `verificar` solo acepta la firma como la escribe `firmar`: 64 bytes en hexadecimal en minúsculas (una sola escritura por firma); el mensaje firmado es el id (los 32 bytes del SHA-256 del cuerpo canónico), así que la firma sigue fuera del hash. Quien no tiene clave escribe sin firma, salvo que el eje se cree con `exigirFirmas: true` (entonces todo autor necesita clave y el génesis debe ir firmado). La firma no cambia el id. Las claves privadas nunca entran en el eje.
 
 ```sh
 node --input-type=module -e "
@@ -1153,20 +1155,20 @@ const f = await firmar(ev, casa.privada);
 console.log(f.id === ev.id, f.firmante, await verificar(f, casa.publica), await verificar(f, bea.publica), await verificar(ev, casa.publica));
 const eje = await Eje.genesis({ demostracion: true, identidad: 'casa', emision: [], foco: 'g', t: '2026-11-06T20:00:00Z', clave: casa.publica, privada: casa.privada });
 const g = eje.obtener(eje.genesisId);
-console.log(g.firmante, JSON.stringify(Object.keys(g.contexto.claves)), g.contexto.claves.casa.kty, g.contexto.claves.casa.crv);
+console.log(g.firmante, JSON.stringify(Object.keys(g.contexto.claves)), g.contexto.claves.casa.length, g.contexto.claves.casa === casa.publica);
 await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'sin firma' }).catch((e) => console.log(e.message));
 const alta = await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa'), { token: 'T', escala: 'minuto', cantidad: 60, de: 'casa', a: 'bea' }], payload: 'alta de bea', contexto: { claves: { bea: bea.publica } } }, casa.privada); // bea, una cosa de la casa (su alta la escribe la casa, B1): T no cruza de persona
-console.log(alta.firmante, eje.clave('bea').x === bea.publica.x);
+console.log(alta.firmante, eje.clave('bea') === bea.publica);
 await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, casa.privada).catch((e) => console.log(e.message));
 const ok = await eje.escribir({ autor: 'bea', sobre: alta.id, t: '2026-11-06T20:00:00Z', movimientos: [T('bea')], payload: 'x' }, bea.privada);
-console.log(ok.firmante, ok.firma.length > 0);
+console.log(ok.firmante, ok.firma.length === 128);
 await eje.escribir({ autor: 'casa', sobre: g.id, t: '2026-11-06T20:00:00Z', movimientos: [T('casa')], payload: 'cambio', contexto: { claves: { bea: casa.publica } } }, casa.privada).catch((e) => console.log(e.message));
 "
 ```
 
 ```text
 true casa true false false
-casa ["casa"] EC P-256
+casa ["casa"] 64 true
 evento rechazado: who has a key signs: casa has a key and this transaction is not signed by them (signer: nadie)
 casa true
 evento rechazado: firma inválida de bea
@@ -1187,11 +1189,11 @@ Un génesis firmado del eje de ejemplo tiene esta forma (la clave y la firma var
   "contexto": {
     "genesis": true,
     "epoca": "<id de la época 0>",
-    "claves": { "casa": { "kty": "EC", "crv": "P-256", "x": "5-vP4RyU9PK1UGD3Zy6AkAg3Q-w3QunjJgiETVU0y84", "y": "Wt3mst49Jno-ckzR5uKCLRbmiwogElGJ1AYu6i6fjaw" } }
+    "claves": { "casa": "d95dc4936c57cf68318a04398093205d55e199bff3e2574319ece42adfe075d3" }
   },
   "id": "<id del génesis>",
   "firmante": "casa",
-  "firma": "duuWmzDqaavT6EfzTKcgXai4f9wSw8L0ElwXGJKwkScOaXEpWhtLqxpzBWW9gbSo9aV1XpeQAzsYTP8X4CoRYw"
+  "firma": "2149e3e4663b34448d41f15c87aeecb3486efd475ee5069c144b89ef5a52f90d9945d819e4168e1073cb58eb45581d5e307dc4d272f7256c3dc9ced7bfe93a2b"
 }
 ```
 
@@ -1436,7 +1438,7 @@ export class Eje {
   constructor({ exigirFirmas = false } = {});
   static async genesis({ identidad, emision, foco, t, contexto, clave, privada, exigirFirmas, demostracion = false }): Promise<Eje>;  // sin movimientos; la emisión, en una segunda transacción; sin clave lanza, salvo demostracion (R9); con tipo o con P lanza
   static async desde(eventos, { exigirFirmas = false } = {}): Promise<Eje>;
-  eventos: Map<id, Evento>; orden: id[]; claves: Map<identidad, JWK>; exigirFirmas: boolean; demostracion: boolean;   // series y altas son privados: se leen con serie(), series(), alta(), esPersona()
+  eventos: Map<id, Evento>; orden: id[]; claves: Map<identidad, string>; exigirFirmas: boolean; demostracion: boolean;   // series y altas son privados: se leen con serie(), series(), alta(), esPersona()
   get libro(): Libro;                                      // la capa cero (src/libro.js): saldos, bloqueos, vistas por identidad, sumas, el diario
   get saldos(): Map<identidad, Map<clave, number>>;        // copia leída del libro (compatibilidad)
   get bloqueados(): Map<identidad, Map<clave, Map<salida, number>>>;  // ídem
@@ -1463,7 +1465,7 @@ export class Eje {
   presente(id): boolean | undefined;                       // false si se pagó solo con T informativo (VG, 8-11)
   gastadoT(identidad, escala, dia): number;
   tiempoInformativo(id): { escala, cantidad, autor, t, refiere, nota, id }[];
-  clave(identidad): JWK | undefined;
+  clave(identidad): string | undefined;   // hex x-only
   esPersona(identidad): boolean | null;                    // B1: escribió su propia alta (en el prefijo v2, el tipo declarado); null sin alta
   tipoV2(identidad): string | null;                        // el tipo que declaró un alta del prefijo de la versión 2
   async invitar({ autor, invitado, clave?, da?, grupo?, dominio?, comun?, hasta?, tema?, t, privada? }): Promise<Evento>;  // la invitación, en el 3 del alta de autor (§7.1)
@@ -1530,9 +1532,11 @@ export function colisiones(mapa): { dir, ocupantes }[];
 export function caminoDe(o): number[];
 
 // src/autoridad.js
-export async function generarClaves(): Promise<{ publica: JWK, privada: CryptoKey }>;
-export async function exportarPrivada(privada): Promise<JWK>;
-export async function importarPrivada(jwk): Promise<CryptoKey>;
+export async function generarClaves(): Promise<{ publica: string, privada: string }>;   // hex: x-only y escalar, 32 bytes
+export function publicaDe(privada: string): string;
+export async function exportarPrivada(privada: string): Promise<string>;
+export async function importarPrivada(privada: string): Promise<string>;
+export function clavePublicaValida(publica): boolean;
 export async function firmar(ev, privada, firmante = ev.autor): Promise<Evento>;
 export async function verificar(ev, publica): Promise<boolean>;
 export async function firmarPosesion(ev, identidad, privada): Promise<Evento>;  // R9: la clave nueva firma el id del alta (posesion)

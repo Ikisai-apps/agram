@@ -1,14 +1,19 @@
 // Lo que el servidor comprueba de un evento: su FORMA, no las reglas. Es una
-// reimplementación mínima y sin dependencias de src/evento.js (canónico, cuerpo,
-// hash) y src/autoridad.js (verificar la firma), en JavaScript puro con Web
-// Crypto, que corre igual en Deno (la función de borde, index.ts) y en Node (la
-// prueba de paridad, test/paridad-funcion.test.js, la compara con el núcleo).
-// No importa nada del núcleo: la función se despliega sola.
+// reimplementación mínima de src/evento.js (canónico, cuerpo, hash, con Web
+// Crypto) y src/autoridad.js (verificar la firma Schnorr BIP-340 sobre
+// secp256k1), que corre igual en Deno (la función de borde, index.ts) y en Node
+// (la prueba de paridad, test/paridad-funcion.test.js, la compara con el núcleo).
+// No importa nada del núcleo: la función se despliega sola. Su única
+// dependencia es noble-secp256k1.js, en esta misma carpeta: una copia idéntica,
+// byte a byte, de src/vendor/noble-secp256k1.js (el sha256 lo da
+// src/vendor/LEEME.md y lo comprueba test/autoridad.test.js).
 //
 // Lo que NO hace, a propósito: validar movimientos, payload BTML, el instante
 // t, las reglas de la época ni las pruebas de posesión. Eso lo valida cada
 // cliente con src/eje.js (quien no pase va a `rechazados` del cliente, nunca
 // al servidor: el servidor solo guarda, ordena por llegada y da la hora).
+
+import { schnorr } from './noble-secp256k1.js';
 
 export const RAIZ = '0000000000';
 
@@ -71,7 +76,7 @@ export const esHash = (id) => typeof id === 'string' && /^[0-9a-f]{64}$/.test(id
 
 /**
  * Errores de forma que el servidor mira antes de nada (vacío si la forma vale):
- * autor, id (un hash), firmante = autor, firma (base64url), sobre (id o null),
+ * autor, id (un hash), firmante = autor, firma (64 bytes en hex), sobre (id o null),
  * en (diez dígitos), contexto (un objeto) y posesion (objeto de firmas) si va.
  */
 export function errores(ev) {
@@ -79,7 +84,7 @@ export function errores(ev) {
   const e = [];
   if (typeof ev.autor !== 'string' || !ev.autor) e.push('autor obligatorio');
   if (!esHash(ev.id)) e.push('id debe ser un hash SHA-256 en hexadecimal');
-  if (typeof ev.firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(ev.firma)) e.push('firma obligatoria (base64url)');
+  if (!esFirma(ev.firma)) e.push('firma obligatoria (64 bytes en hexadecimal)');
   if (ev.firmante !== ev.autor) e.push('el firmante debe ser el autor');
   if (ev.sobre !== null && typeof ev.sobre !== 'string') e.push('sobre debe ser id o null');
   if (typeof ev.en !== 'string' || !/^[0-9]{10}$/.test(ev.en)) e.push('en debe ser una dirección de diez dígitos');
@@ -96,30 +101,28 @@ export async function verificarId(ev) {
   return ev.id === (await hash(canonico(cuerpo(ev))));
 }
 
-const ALG = { name: 'ECDSA', namedCurve: 'P-256' };
-const FIRMA = { name: 'ECDSA', hash: 'SHA-256' };
-
 const aBytes = (hex) => Uint8Array.from(hex.match(/.{2}/g), (h) => parseInt(h, 16));
-const aBase64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const deBase64url = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
 
-/** ¿Es `jwk` una clave pública EC P-256 declarable (sin parte privada)? */
-export function esClavePublica(jwk) {
-  return Boolean(jwk) && typeof jwk === 'object' && !Array.isArray(jwk) && jwk.kty === 'EC' && jwk.crv === 'P-256'
-    && typeof jwk.x === 'string' && typeof jwk.y === 'string' && !('d' in jwk);
+/** ¿Es `firma` una firma BIP-340 escrita como la escribe src/autoridad.js: 64 bytes en hexadecimal (minúsculas)? */
+export const esFirma = (firma) => typeof firma === 'string' && /^[0-9a-f]{128}$/.test(firma);
+
+/**
+ * ¿Tiene `clave` la forma de una clave pública declarable: 32 bytes x-only en
+ * hexadecimal (minúsculas)? Que su x sea de un punto de la curva lo mira
+ * verificarFirma (una clave sin punto no verifica nada).
+ */
+export function esClavePublica(clave) {
+  return esHash(clave);
 }
 
 /**
- * ¿Firma `firma` (base64url canónico, como la escribe src/autoridad.js) el id
- * (hex) con la clave pública `jwk`? false ante cualquier cosa rara, sin lanzar.
+ * ¿Firma `firma` (BIP-340, hex, como la escribe src/autoridad.js) el id (hex)
+ * con la clave pública `clave` (x-only, hex)? false ante cualquier cosa rara, sin lanzar.
  */
-export async function verificarFirma(firma, id, jwk) {
-  if (typeof firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(firma) || !esHash(id) || !esClavePublica(jwk)) return false;
+export async function verificarFirma(firma, id, clave) {
+  if (!esFirma(firma) || !esHash(id) || !esClavePublica(clave)) return false;
   try {
-    const bytes = deBase64url(firma);
-    if (aBase64url(bytes) !== firma) return false;
-    const clave = await globalThis.crypto.subtle.importKey('jwk', { kty: jwk.kty, crv: jwk.crv, x: jwk.x, y: jwk.y, ext: true }, ALG, true, ['verify']);
-    return await globalThis.crypto.subtle.verify(FIRMA, clave, bytes, aBytes(id));
+    return schnorr.verify(aBytes(firma), aBytes(id), aBytes(clave));
   } catch {
     return false;
   }
@@ -137,7 +140,7 @@ export const esGenesis = (ev) => ev.sobre === null && ev.contexto?.genesis === t
 /**
  * La comprobación entera que hace el servidor de un evento que llega a un eje:
  * la forma, el id y la firma con la clave del autor. `claveDelAutor` es una
- * función async (autor) → JWK | undefined que busca la clave declarada en el
+ * función async (autor) → clave pública (hex) | undefined que busca la clave declarada en el
  * alta del autor entre los eventos ya guardados del eje; `vacio` dice si el eje
  * no tiene aún ningún evento. Devuelve { ok: true, evento } (la copia
  * normalizada, lo que se guarda) o { ok: false, estado, error }: 400 si la

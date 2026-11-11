@@ -150,29 +150,22 @@ test('conPrefijo da lo mismo que filtrar eje.orden, y REF, «@id» y Scened resu
   for (const p of prefijos) assert.deepEqual(otro.conPrefijo(p), eje.orden.filter((id) => id.startsWith(p)));
 });
 
-test('verificar recuerda las claves congeladas y no las que pueden cambiar', async () => {
+test('verificar da la misma respuesta cada vez con la misma clave (un texto: no hay nada importado que recordar)', async () => {
   const a = await generarClaves();
   const b = await generarClaves();
   const firmado = async (par, autor) => firmar(await crearEvento({ autor, sobre: 'x', t: T0, movimientos: [gastaT(autor)], payload: 'p' }), par.privada);
   const deA = await firmado(a, 'a');
   const deB = await firmado(b, 'b');
-  // Congelada (como la guarda el eje): la misma respuesta cada vez.
-  const congelada = Object.freeze({ ...a.publica });
   for (let i = 0; i < 3; i++) {
-    assert.equal(await verificar(deA, congelada), true);
-    assert.equal(await verificar(deB, congelada), false);
-    assert.equal(await verificar({ ...deA, firma: deB.firma }, congelada), false);
+    assert.equal(await verificar(deA, a.publica), true);
+    assert.equal(await verificar(deB, a.publica), false);
+    assert.equal(await verificar({ ...deA, firma: deB.firma }, a.publica), false);
+    assert.equal(await verificar(deB, b.publica), true);
   }
-  // Una congelada que no se puede importar sigue sin verificar nada.
-  const rota = Object.freeze({ ...a.publica, x: 'AAAA' });
+  // Una clave sin punto en la curva no verifica nada, ni a la primera ni después.
+  const rota = 'eefdea4cdb677750a420fee807eacf21eb9898ae79b9768766e4faa04a2d4a34';
   assert.equal(await verificar(deA, rota), false);
   assert.equal(await verificar(deA, rota), false);
-  // Una que se puede cambiar no se recuerda: si cambia, verifica con la nueva.
-  const mutable = { ...a.publica };
-  assert.equal(await verificar(deA, mutable), true);
-  Object.assign(mutable, b.publica);
-  assert.equal(await verificar(deA, mutable), false);
-  assert.equal(await verificar(deB, mutable), true);
 });
 
 test('el eje verifica con su clave guardada (congelada) en cada evento firmado', async () => {

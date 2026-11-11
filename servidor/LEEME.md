@@ -1,6 +1,6 @@
 # El libro compartido: el servidor
 
-Etapa 3 del roadmap (`MUELA/equipo/agram/ROADMAP_MVP.md`; mapa §17 [D], VG): un único eje accesible desde el móvil y el ordenador. El servidor es mínimo y de **solo añadir**: guarda eventos firmados, los ordena por llegada y da la hora; **no valida reglas** (eso lo hace cada cliente con el núcleo, `src/sincronia.js`). El eje es **privado con clave de lectura**; se escribe solo con eventos **firmados por una identidad con alta en el eje**.
+Etapa 3 del roadmap (`MUELA/equipo/agram/ROADMAP_MVP.md`; mapa §17 [D], VG): un único eje accesible desde el móvil y el ordenador. El servidor es mínimo y de **solo añadir**: guarda eventos firmados, los ordena por llegada y da la hora; **no valida reglas** (eso lo hace cada cliente con el núcleo, `src/sincronia.js`). El eje es **privado con clave de lectura**; se escribe solo con eventos **firmados por una identidad con alta en el eje** (firmas Schnorr BIP-340, `docs/notas/FIRMAS_BIP340.md`; sin compatibilidad con las P-256 de antes: un eje con eventos P-256 no se sube, se empieza uno nuevo).
 
 **Nada está desplegado.** El proyecto Supabase de AGRAM aún no existe; lo que hay aquí es código listo para desplegar y probado contra el servidor de prueba local (`servidor/prueba/servidor.mjs`), que sirve el mismo contrato. El contrato entero: `docs/CONTRATO.md` §15.
 
@@ -10,7 +10,8 @@ servidor/
     migraciones/0001_eventos.sql     las tablas `ejes` y `eventos` (solo añadir, RLS, disparador contra UPDATE/DELETE)
     funciones/eventos/index.ts       la función de borde (Deno): el contrato sobre PostgREST, por fetch, sin dependencias
     funciones/eventos/api.js         el contrato como (Request) → Response; lo comparten la función y el servidor de prueba
-    funciones/eventos/verificar.js   hash y firma reimplementados sin el núcleo (la paridad la comprueba test/paridad-funcion.test.js)
+    funciones/eventos/verificar.js   hash y firma (Schnorr BIP-340) reimplementados sin el núcleo (la paridad la comprueba test/paridad-funcion.test.js)
+    funciones/eventos/noble-secp256k1.js  la librería de BIP-340: copia idéntica, byte a byte, de src/vendor/noble-secp256k1.js (src/vendor/LEEME.md)
     funciones/eventos/LEEME.md       cómo probar la función a mano
     funciones/guia/index.ts          la función de la guía del PV9 (Deno): contesta preguntas llamando a la API de Anthropic
     funciones/guia/api.js            su contrato como (Request) → Response; lo comparten la función y el servidor de prueba (autónoma: se despliega sola)
@@ -25,7 +26,7 @@ Lo hace VG, o Core con VG delante. Ningún valor de credenciales entra en este r
 
 1. **Crear el proyecto.** En la cuenta de Supabase de Ikisai (la misma de Ikisai Apps), un proyecto **aparte** para AGRAM (plan gratuito), para no tocar producción. Región: la de Ikisai Apps. Guardar la URL del proyecto, la clave anónima y la **clave de servicio** en `PROD/ikisai-apps/private/` (junto a `cloud-credentials.json`, por ejemplo como `agram-supabase.json`), **nunca en el repositorio**.
 2. **Las tablas.** O bien con la CLI (`supabase link --project-ref <ref>` desde una carpeta con `supabase/migrations/` que contenga `0001_eventos.sql`, y `supabase db push`), o bien pegando `migraciones/0001_eventos.sql` tal cual en el editor SQL del panel. Es idempotente (`if not exists`, `drop trigger if exists`).
-3. **La función.** `supabase functions deploy eventos --no-verify-jwt` desde una carpeta con `supabase/functions/eventos/` que contenga `index.ts`, `api.js` y `verificar.js` (copiar los tres archivos de `servidor/supabase/funciones/eventos/`). `--no-verify-jwt` porque la función lleva su propia autorización (la clave de lectura del eje y las firmas de los eventos): así la carta no necesita la clave anónima. `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` las inyecta Supabase en toda función.
+3. **La función.** `supabase functions deploy eventos --no-verify-jwt` desde una carpeta con `supabase/functions/eventos/` que contenga `index.ts`, `api.js`, `verificar.js` y `noble-secp256k1.js` (copiar los cuatro archivos de `servidor/supabase/funciones/eventos/`; el último es la librería de las firmas Schnorr BIP-340, `docs/notas/FIRMAS_BIP340.md`, y `verificar.js` la importa con una ruta relativa). `--no-verify-jwt` porque la función lleva su propia autorización (la clave de lectura del eje y las firmas de los eventos): así la carta no necesita la clave anónima. `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY` las inyecta Supabase en toda función.
 4. **Variables de entorno.** Opcional: `supabase secrets set AGRAM_CREAR_EJES=<un secreto largo al azar>` para crear ejes con la cabecera `X-Crear-Ejes` sin manejar la clave de servicio desde fuera. Sin ella, crear ejes solo vale con `Authorization: Bearer <clave de servicio>`. Guardar el secreto en la misma carpeta privada.
 5. **CORS.** La función admite `https://agram.ikisai.com` y `http://localhost:*` (`ORIGENES` en `api.js`). Otro origen (una vista previa) se añade ahí y se vuelve a desplegar.
 

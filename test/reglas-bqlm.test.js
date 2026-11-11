@@ -468,7 +468,7 @@ test('B4: las reglas de la clave y la firma dan el veredicto de ID-5 e ID-6 en u
   const ctx = new ContextoEje(eje, { ev: casos[8][1], epoch: EPOCA_0_BTML });
   const { evaluar } = await import('../src/bqlm.js');
   assert.equal(evaluar('count ("ana").6.5', ctx).valor[0], 2);
-  assert.equal(evaluar('nth 1 ("ana").6.5', ctx).texto, 'clave ' + ka.publica.x.slice(0, 8) + ' de ana');
+  assert.equal(evaluar('nth 1 ("ana").6.5', ctx).texto, 'clave ' + ka.publica.slice(0, 8) + ' de ana');
   assert.equal(evaluar('nth 1 ev.3', ctx).texto, 'nadie');
   assert.equal(evaluar('nth 1 ev.3', new ContextoEje(eje, { ev: casos[7][1], epoch: EPOCA_0_BTML })).texto, 'ana');
   assert.equal(evaluar('count ("g").6.5', ctx).valor[0], 2, 'la del génesis, también');

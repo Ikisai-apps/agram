@@ -187,7 +187,7 @@ consolidar(eje, { autor, foco, elecciones, titulo = 'Consolidación', t, camino 
 | `titulo` | terminal | Va en la posición 0 del payload. |
 | `t` | ISO | Instante. Pasa a `escribirDesde`. |
 | `camino` | `number[]` | Profundidad: la consolidación se ancla en `direccion([...camino, 4])` y los huecos se heredan de `[...camino, i]`. |
-| `privada` | CryptoKey | Si el autor tiene clave, firma (`docs/BTML.md` §7). |
+| `privada` | hex (BIP-340, 32 bytes) | Si el autor tiene clave, firma (`docs/BTML.md` §7). |
 
 ### 3.2 Elecciones
 

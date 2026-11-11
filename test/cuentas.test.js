@@ -40,7 +40,8 @@ test('crear mi cuenta: un eje con un solo registro, mi alta escrita por mí (per
   assert.equal(g.contexto.epoca, EPOCA_0_BTML.id, 'referencia la época 0');
   assert.equal(await autoridad.verificar(g, publica), true);
   assert.equal(await autoridad.verificar(g, (await autoridad.generarClaves()).publica), false);
-  assert.ok(privada && typeof privada === 'object' && !('d' in privada), 'la privada es una CryptoKey, no un JWK');
+  assert.match(privada, /^[0-9a-f]{64}$/, 'la privada: 32 bytes en hex (BIP-340)');
+  assert.equal(autoridad.publicaDe(privada), publica, 'y es la pareja de la pública (x-only, hex)');
   // Las reglas lo aceptan tal cual: reconstruir el eje desde sus eventos lo revalida (ids, firmas, saldos).
   const otra = await Eje.desde(persistencia.serializar(eje).eventos);
   assert.deepEqual(otra.orden, eje.orden);
@@ -83,9 +84,7 @@ test('exportar y restaurar con la frase correcta devuelve el mismo eje y la mism
   assert.deepEqual(archivo.eje, persistencia.serializar(mia.eje), 'el eje entero, serializado: una foto');
   assert.deepEqual([archivo.clave.kdf, archivo.clave.cifrado, archivo.clave.iteraciones], [Q.CIFRADO.kdf, Q.CIFRADO.cifrado, Q.CIFRADO.iteraciones]);
   const texto = Q.textoDeArchivo(archivo);
-  const jwk = await autoridad.exportarPrivada(mia.privada);
-  assert.ok(!texto.includes(jwk.d), 'la parte privada no está en claro');
-  assert.ok(!texto.includes('"d":'), 'ningún JWK con parte privada');
+  assert.ok(!texto.includes(mia.privada), 'la clave privada no está en claro');
   assert.ok(!texto.includes(FRASE), 'la frase no se guarda');
   assert.equal(Q.nombreDeArchivo(mia.cuenta), 'agram-cuenta-victor.json');
   // Restaurar en «otro dispositivo»: desde el texto del archivo.
@@ -139,9 +138,8 @@ test('guardar, listar, abrir y olvidar cuentas en un localStorage simulado; las 
     assert.equal(await Q.guardarCuenta(mia), true);
     assert.deepEqual(Q.cuentas(), [{ nombre: 'Víctor', idioma: 'en', identidad: 'victor', alta: mia.cuenta.alta, publica: mia.publica }]);
     assert.equal(Q.ultima(), mia.cuenta.alta);
-    // La clave privada se guarda como JWK exportado (como las de ejemplo en agram.claves), nunca en texto plano fuera del navegador.
-    const jwk = JSON.parse(almacen.get(Q.CLAVES.clave(mia.cuenta.alta)));
-    assert.deepEqual([jwk.kty, jwk.crv, typeof jwk.d], ['EC', 'P-256', 'string']);
+    // La clave privada se guarda tal cual, en hex (como las de ejemplo en agram.claves), nunca en texto plano fuera del navegador.
+    assert.equal(almacen.get(Q.CLAVES.clave(mia.cuenta.alta)), mia.privada);
     // Abrir: el eje revalidado y la clave importada; firma como antes.
     const abierta = await Q.abrirCuenta(mia.cuenta.alta);
     assert.deepEqual([abierta.motivo, abierta.cuenta, abierta.eje.orden], [undefined, mia.cuenta, mia.eje.orden]);
@@ -174,6 +172,30 @@ test('guardar, listar, abrir y olvidar cuentas en un localStorage simulado; las 
 
 /** Las claves fijas de los ejemplos (sin las funciones). */
 const CLAVES_EJEMPLO_PLANAS = () => Object.values(Q.CLAVES_EJEMPLO).filter((v) => typeof v === 'string');
+
+test('sin compatibilidad con las firmas de antes (P-256): una cuenta guardada con un JWK no se abre (antigua) y una copia de la versión 1 no se restaura (antigua)', async () => {
+  await conAlmacen(async (almacen) => {
+    const mia = await Q.crearCuenta({ nombre: 'Víctor', t: T1 });
+    assert.equal(await Q.guardarCuenta(mia), true);
+    // Lo que guardaba la carta antes: la privada como JWK P-256.
+    almacen.set(Q.CLAVES.clave(mia.cuenta.alta), JSON.stringify({ kty: 'EC', crv: 'P-256', x: 'AAAA', y: 'BBBB', d: 'CCCC' }));
+    const r = await Q.abrirCuenta(mia.cuenta.alta);
+    assert.equal(r.antigua, true);
+    assert.equal(r.eje, undefined);
+    // Una privada hex que no es la pareja de la pública de la cuenta tampoco abre (y no es «antigua»).
+    almacen.set(Q.CLAVES.clave(mia.cuenta.alta), (await autoridad.generarClaves()).privada);
+    const otra = await Q.abrirCuenta(mia.cuenta.alta);
+    assert.equal(otra.antigua, undefined);
+    assert.match(otra.motivo, /no es la pareja/);
+  });
+  const mia = await Q.crearCuenta({ nombre: 'Víctor', t: T1 });
+  const archivo = await Q.exportarCuenta(mia, FRASE, { t: T1, iteraciones: 1000 });
+  assert.equal(archivo.version, 2);
+  assert.match(archivo.publica, /^[0-9a-f]{64}$/);
+  const error = await Q.restaurarCuenta({ ...archivo, version: 1 }, FRASE).then(() => null, (e) => e);
+  assert.equal(error?.antigua, true);
+  assert.match(error.message, /versión 1/);
+});
 
 test('las claves de los ejemplos que usa la carta son las de cuentas.js (un solo sitio), y cuentas.js no lleva palabras de la época', () => {
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');

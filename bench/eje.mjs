@@ -13,12 +13,12 @@
 //
 // No escribe nada en el repositorio. La tabla sale por la salida estándar en
 // Markdown; docs/notas/RENDIMIENTO.md recoge una pasada comentada.
-// Las claves ECDSA salen de Web Crypto (no de la semilla): los ids cambian
+// Las claves (Schnorr BIP-340) salen del azar de Web Crypto (no de la semilla): los ids cambian
 // de una pasada a otra, la forma del eje no.
 
 import { pathToFileURL } from 'node:url';
 import { Eje } from '../src/eje.js';
-import { generarClaves, firmar, verificar } from '../src/autoridad.js';
+import { generarClaves, firmar, verificar, clavePublicaValida } from '../src/autoridad.js';
 import { crearEvento, verificarId } from '../src/evento.js';
 import { direccion } from '../src/btml.js';
 import { contarPosiciones } from '../src/modos.js';
@@ -409,14 +409,8 @@ async function pasada(n, semilla, solo = null) {
   fila('validar', 'validar firmado (ms/evento)', await porElemento(firmados, (ev) => eje.validar(ev)), firmados.length + ' eventos');
   if (sinFirma.length) fila('validar', 'validar sin firma (ms/evento)', await porElemento(sinFirma, (ev) => eje.validar(ev)), sinFirma.length + ' eventos');
   fila('validar', '· verificarId: canónico + SHA-256 (ms/evento)', await porElemento(firmados, (ev) => verificarId(ev)));
-  fila('validar', '· verificar la firma, importando la clave (ms/evento)', await porElemento(firmados, (ev) => verificar(ev, eje.clave(ev.autor))));
-  const ECDSA = { name: 'ECDSA', namedCurve: 'P-256' };
-  const importadas = new Map();
-  for (const ev of firmados) if (!importadas.has(ev.autor)) importadas.set(ev.autor, await crypto.subtle.importKey('jwk', { ...eje.clave(ev.autor), ext: true }, ECDSA, true, ['verify']));
-  const aBytes = (hex) => Uint8Array.from(hex.match(/.{2}/g), (h) => parseInt(h, 16));
-  const deB64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
-  fila('validar', '· solo subtle.verify, con la clave ya importada (ms/evento)', await porElemento(firmados, (ev) => crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, importadas.get(ev.autor), deB64(ev.firma), aBytes(ev.id))));
-  fila('validar', '· solo importar la clave pública (ms/evento)', await porElemento(firmados, (ev) => crypto.subtle.importKey('jwk', { ...eje.clave(ev.autor), ext: true }, ECDSA, true, ['verify'])));
+  fila('validar', '· verificar la firma BIP-340 (ms/evento)', await porElemento(firmados, (ev) => verificar(ev, eje.clave(ev.autor))));
+  fila('validar', '· solo la clave: lift_x de la x (ms/evento)', await porElemento(firmados, (ev) => clavePublicaValida(eje.clave(ev.autor))));
   }
 
   // Ocupantes, árbol, mapa y eje temporal de cada foco.

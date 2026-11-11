@@ -17,7 +17,7 @@ Nota de lectura · 9-11-2026 · Base: `main` en 24ef6c5 · No cambia código ni 
 Lo que debe quedarse como código porque no es una regla de funcionamiento sino lo que las reglas necesitan para existir:
 
 - **BTML**: la forma del payload (terminal, décupla, lista por hojas, sin huecos ni nulos, raíz ≤ 10), las direcciones de diez dígitos con ceros finales, `resolver` y `nodoEn`.
-- **Evento**: JSON canónico, hash SHA-256 como id, firma ECDSA y prueba de posesión (verificar es criptografía, no regla), instante ISO estricto en UTC, congelado, y la **llegada** (el orden de entrada en el eje).
+- **Evento**: JSON canónico, hash SHA-256 como id, firma Schnorr BIP-340 (antes ECDSA P-256; `docs/notas/FIRMAS_BIP340.md`) y prueba de posesión (verificar es criptografía, no regla), instante ISO estricto en UTC, congelado, y la **llegada** (el orden de entrada en el eje).
 - **Aritmética de saldos por serie**: la clave de serie (`claveToken`, `partirClave`), aplicar los movimientos de un evento en orden sobre una vista (todo o nada), disponible y bloqueado por salida.
 - **Intérprete de BQL**: tokenizar, analizar, evaluar, los cuatro estados y sus subtipos, la pila de ciclos, el presupuesto, el gancho de lectura `puedeLeer`.
 - **Reconstrucción**: ocupantes de una dirección (propio por ceros finales, lo que alcanza una referencia, lo escrito anclado ahí) y seguir referencias; el hilo por `sobre`.

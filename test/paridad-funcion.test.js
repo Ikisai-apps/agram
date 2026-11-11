@@ -48,29 +48,43 @@ test('cuerpo y normalizar: la misma copia que el núcleo (en y contexto por defe
   assert.equal(funcion.normalizar(null), null);
 });
 
-test('la firma: verifica lo que el núcleo firma y rechaza lo mismo que el núcleo (relleno, bits sobrantes, otra clave, id raro)', async () => {
+test('la firma: verifica lo que el núcleo firma y rechaza lo mismo que el núcleo (mayúsculas, largo, otra clave, clave sin punto, id raro)', async () => {
   const claves = await generarClaves();
   const otras = await generarClaves();
   const ev = await firmar(await crearEvento({ autor: 'vg', sobre: null, t: T, movimientos: [], payload: ['x'], contexto: { genesis: true } }), claves.privada);
+  const otroUltimo = (h) => h.slice(0, -1) + (h.endsWith('0') ? '1' : '0');
+  // Una x sin punto en la curva (vector 5 de BIP-340) y la x = p (fuera del cuerpo, vector 14).
+  const sinPunto = 'eefdea4cdb677750a420fee807eacf21eb9898ae79b9768766e4faa04a2d4a34';
+  const fueraDelCuerpo = 'fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc30';
   const casos = [
     [ev.firma, ev.id, claves.publica],
     [ev.firma, ev.id, otras.publica],
-    [ev.firma + '=', ev.id, claves.publica],
-    [ev.firma.replace(/-/g, '+'), ev.id, claves.publica],
-    [ev.firma.slice(0, -1) + (ev.firma.endsWith('A') ? 'B' : 'A'), ev.id, claves.publica],
+    [ev.firma.toUpperCase(), ev.id, claves.publica],
+    [ev.firma + '00', ev.id, claves.publica],
+    [ev.firma.slice(0, -2), ev.id, claves.publica],
+    [otroUltimo(ev.firma), ev.id, claves.publica],
     ['', ev.id, claves.publica],
     [ev.firma, 'nohex', claves.publica],
-    [ev.firma, ev.id, { kty: 'EC', crv: 'P-256', x: 'AAAA', y: 'BBBB' }],
-    [ev.firma, ev.id, { ...claves.publica, d: 'privada' }],
+    [ev.firma, ev.id.toUpperCase(), claves.publica],
+    [ev.firma, otroUltimo(ev.id), claves.publica],
+    [ev.firma, ev.id, claves.publica.toUpperCase()],
+    [ev.firma, ev.id, sinPunto],
+    [ev.firma, ev.id, fueraDelCuerpo],
+    [ev.firma, ev.id, claves.privada],
+    [ev.firma, ev.id, '02' + claves.publica],
+    [ev.firma, ev.id, { x: claves.publica }],
   ];
-  for (const [firma, id, jwk] of casos) {
-    const nucleo = await verificar({ firma, id }, jwk);
-    assert.equal(await funcion.verificarFirma(firma, id, jwk), nucleo, 'caso ' + JSON.stringify([firma.slice(0, 6), id.slice(0, 6), Object.keys(jwk)]));
+  for (const [firma, id, clave] of casos) {
+    const nucleo = await verificar({ firma, id }, clave);
+    assert.equal(await funcion.verificarFirma(firma, id, clave), nucleo, 'caso ' + JSON.stringify([firma.slice(0, 6), id.slice(0, 6), typeof clave === 'string' ? clave.slice(0, 6) : clave]));
   }
   assert.equal(await funcion.verificarFirma(ev.firma, ev.id, claves.publica), true);
   assert.equal(await funcion.verificarFirma(ev.firma, ev.id, null), false);
-  assert.equal(funcion.esClavePublica({ ...claves.publica, d: 'x' }), false);
+  assert.equal(funcion.esClavePublica({ x: claves.publica }), false);
+  assert.equal(funcion.esClavePublica(claves.publica.toUpperCase()), false);
   assert.equal(funcion.esClavePublica(claves.publica), true);
+  assert.equal(funcion.esFirma(ev.firma), true);
+  assert.equal(funcion.esFirma(ev.firma.toUpperCase()), false);
 });
 
 /** Los casos que el servidor decide: el mismo evento ante un eje vacío o con el alta de vg. */

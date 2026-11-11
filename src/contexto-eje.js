@@ -108,15 +108,15 @@ export function desplegarSerie(s, registroDe = () => null, { delLibro = false } 
   return { 0: [fam('E')], 1: [p.emisor], 2: [p.denominacion], ...(registro ? { 5: [registro] } : {}), ...(franja ? { 7: [franja] } : {}) };
 }
 
-/** La huella de una clave pública (como autoridad.huella): los ocho primeros caracteres de su x. */
-const huella = (jwk) => String(jwk?.x ?? '').slice(0, 8) || '?';
+/** La huella de una clave pública (como autoridad.huella): sus ocho primeros caracteres (hex x-only, BIP-340). */
+const huella = (clave) => (typeof clave === 'string' ? clave.slice(0, 8) : '') || '?';
 
 /** Las claves públicas que declara un evento (contexto.claves), como nodos: titular, clave y prueba de posesión. */
 function llavesDe(e) {
   const claves = e?.contexto?.claves;
   if (!claves || typeof claves !== 'object' || Array.isArray(claves)) return [];
   const pruebas = e.posesion && typeof e.posesion === 'object' && !Array.isArray(e.posesion) ? e.posesion : {};
-  return Object.entries(claves).map(([titular, jwk]) => ({ k: 'llave', titular, jwk, prueba: Object.hasOwn(pruebas, titular) ? pruebas[titular] : undefined }));
+  return Object.entries(claves).map(([titular, clave]) => ({ k: 'llave', titular, clave, prueba: Object.hasOwn(pruebas, titular) ? pruebas[titular] : undefined }));
 }
 
 /** El payload de la época: la décupla misma, o lo que expone su cargador (src/epocas.js, cargarEpocaBtml). */
@@ -349,7 +349,7 @@ export class ContextoEje {
   valor(nodo) {
     if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
     if (nodo?.k === 'serie' || nodo?.k === 'clave' || nodo?.k === 'salida') return nodo.clave;
-    if (nodo?.k === 'llave') return huella(nodo.jwk);
+    if (nodo?.k === 'llave') return huella(nodo.clave);
     if (nodo?.k === 'bloqueados') return nodo.salida;
     if (nodo?.k === 'origenP') return nodo.origen;
     if (nodo?.k === 'ev') return this.#ev.id;
@@ -369,7 +369,7 @@ export class ContextoEje {
       case 'serie': return nodo.clave;
       case 'clave': return nodo.clave;
       case 'salida': return String(nodo.clave);
-      case 'llave': return 'clave ' + huella(nodo.jwk) + ' de ' + nodo.titular;
+      case 'llave': return 'clave ' + huella(nodo.clave) + ' de ' + nodo.titular;
       case 'bloqueados': return nodo.cantidad + ' ' + nodo.clave + ' con la salida ' + nodo.salida;
       case 'entrada': return nodo.clave;
       case 'viva': return nodo.clave;
@@ -802,7 +802,7 @@ export class ContextoEje {
         return [];
       case 'llave':
         // Una clave pública declarada (B4): 0 su huella, 3 su titular, 4 su prueba de posesión (si la lleva).
-        return d === 0 ? [huella(nodo.jwk)] : d === 2 && typeof nodo.jwk?.x === 'string' ? [nodo.jwk.x] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
+        return d === 0 ? [huella(nodo.clave)] : d === 2 && typeof nodo.clave === 'string' ? [nodo.clave] : d === 3 ? [nodo.titular] : d === 4 && nodo.prueba !== undefined ? [nodo.prueba] : [];
       case 'reloj': {
         // 0 el mayor t del libro; 3, «con quién»: el reloj de los demás (B6), sin el autor de la candidata ni quien
         // emite la E que acuña; nada si no hay ninguno.

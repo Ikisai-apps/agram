@@ -60,15 +60,15 @@ export const CLAVES = Object.freeze({
     const errores = [];
     const declaradas = ev.contexto?.claves ?? {};
     const v2 = ctx.reglas === 2;
-    for (const [id, jwk] of Object.entries(declaradas)) {
+    for (const [id, clave] of Object.entries(declaradas)) {
       // B1: quien escribe su propia alta declara su clave (su firma es la prueba de posesión); para otra identidad,
       // la que recibe tokens en este alta (una cosa), con su prueba de posesión.
       const propia = id === ev.autor;
       if (v2 && (ctx.tieneClave(id) || libro.tiene(id))) errores.push('no se puede cambiar la clave de ' + id);
       else if (v2 && !propia && !movimientos.some((m) => m.a === id)) errores.push('clave declarada para ' + id + ' sin darle tokens');
-      else if (!(await clavePublicaValida(jwk))) errores.push('clave inválida para ' + id);
+      else if (!clavePublicaValida(clave)) errores.push('clave inválida para ' + id);
       else if (!Object.hasOwn(ev.posesion ?? {}, id)) continue;
-      else if (!(await verificarPosesion(ev, id, jwk))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
+      else if (!(await verificarPosesion(ev, id, clave))) errores.push('prueba de posesión inválida para ' + id + ': no la firma la clave que se declara');
     }
     for (const id of Object.keys(ev.posesion ?? {})) {
       if (!Object.hasOwn(declaradas, id)) errores.push('prueba de posesión de ' + id + ' sin clave declarada para él en este evento');
@@ -172,13 +172,13 @@ export function erroresGenesis(g, reglas = 3) {
 
 /**
  * GN-2 (la firma). Si el génesis declara la clave de su autor, la clave es
- * pública e importable y el génesis va firmado con ella por su autor. Es la
+ * una clave pública válida (src/autoridad.js) y el génesis va firmado con ella por su autor. Es la
  * misma regla al crear el eje y al restaurarlo.
  */
 export async function erroresFirmaGenesis(g) {
   const clave = g.contexto?.claves?.[g.autor];
   if (!clave) return [];
-  if (!(await clavePublicaValida(clave))) return ['clave inválida para ' + g.autor];
+  if (!clavePublicaValida(clave)) return ['clave inválida para ' + g.autor];
   if (!g.firma) return ['el génesis con clave debe ir firmado con ella'];
   if (g.firmante !== g.autor) return ['el firmante del génesis debe ser su autor'];
   if (!(await verificar(g, clave))) return ['firma del génesis inválida: debe ir firmado con la clave de su autor'];

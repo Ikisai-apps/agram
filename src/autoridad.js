@@ -1,82 +1,78 @@
 // Autoridad mínima: cada identidad puede tener una clave pública; quien la
 // tiene firma sus eventos y el eje lo comprueba. Nadie mueve tokens ajenos:
-// todo movimiento sale del autor. ECDSA P-256 con Web Crypto, igual en Node
-// y en el navegador. Las claves privadas nunca entran en el eje.
+// todo movimiento sale del autor. Firmas Schnorr sobre secp256k1 según
+// BIP-340 (como Nostr y Taproot), con la librería vendorizada en
+// src/vendor/noble-secp256k1.js (src/vendor/LEEME.md; docs/notas/FIRMAS_BIP340.md):
+// el mismo archivo en Node, en el navegador y en Deno. Las claves privadas
+// nunca entran en el eje.
+//
+// Formato (todo en hexadecimal en minúsculas, una sola escritura por valor):
+//   clave pública  32 bytes, x-only (64 caracteres)
+//   clave privada  32 bytes, 0 < d < n (64 caracteres)
+//   firma          64 bytes (128 caracteres), del id del evento (los 32 bytes del SHA-256 del cuerpo canónico)
 
-const ALG = { name: 'ECDSA', namedCurve: 'P-256' };
-const FIRMA = { name: 'ECDSA', hash: 'SHA-256' };
-const subtle = () => globalThis.crypto.subtle;
+import { schnorr } from './vendor/noble-secp256k1.js';
 
-/** Genera un par de claves. Devuelve { publica (JWK exportable), privada (CryptoKey) }. */
-export async function generarClaves() {
-  const par = await subtle().generateKey(ALG, true, ['sign', 'verify']);
-  const publica = await subtle().exportKey('jwk', par.publicKey);
-  return { publica: { kty: publica.kty, crv: publica.crv, x: publica.x, y: publica.y }, privada: par.privateKey };
-}
-
-/** Exporta la clave privada como JWK (para guardarla en local); importarPrivada la recupera. */
-export async function exportarPrivada(privada) {
-  return subtle().exportKey('jwk', privada);
-}
-
-export async function importarPrivada(jwk) {
-  return subtle().importKey('jwk', jwk, ALG, true, ['sign']);
-}
-
-async function importarPublica(jwk) {
-  return subtle().importKey('jwk', { ...jwk, ext: true }, ALG, true, ['verify']);
-}
-
-// Claves públicas ya importadas, por el objeto JWK. Importar cuesta casi lo
-// mismo que verificar (docs/notas/RENDIMIENTO.md), y el eje verifica muchas
-// veces con la misma clave: la que guarda congelada desde el alta. Solo se
-// recuerdan las JWK congeladas. Object.isFrozen mira solo el primer nivel:
-// el material de la clave (kty, crv, x, y) son textos de ese nivel y no
-// cambian; un array key_ops de dentro sí podría, y solo decide si la clave se
-// puede importar para verificar. El eje congela entera la copia que guarda,
-// así que con sus claves el resultado es el mismo que importar cada vez. Una
-// importación fallida no se recuerda.
-const importadas = new WeakMap();
-
-function importarVerificadora(jwk) {
-  if (!jwk || typeof jwk !== 'object' || !Object.isFrozen(jwk)) return importarPublica(jwk);
-  let promesa = importadas.get(jwk);
-  if (!promesa) {
-    promesa = importarPublica(jwk);
-    importadas.set(jwk, promesa);
-    promesa.catch(() => importadas.delete(jwk));
-  }
-  return promesa;
-}
+const HEX32 = /^[0-9a-f]{64}$/;
+const HEX64 = /^[0-9a-f]{128}$/;
 
 const aBytes = (hex) => Uint8Array.from(hex.match(/.{2}/g), (h) => parseInt(h, 16));
-const aBase64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const deBase64url = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(s.length / 4) * 4, '=')), (c) => c.charCodeAt(0));
+const aHex = (bytes) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+const aleatorio = (n) => globalThis.crypto.getRandomValues(new Uint8Array(n));
+
+/** La clave pública (x-only, hex) de una clave privada (hex). Lanza si la privada no vale. */
+export function publicaDe(privada) {
+  if (typeof privada !== 'string' || !HEX32.test(privada)) throw new Error('clave privada inválida: 32 bytes en hexadecimal (minúsculas)');
+  return aHex(schnorr.getPublicKey(aBytes(privada)));
+}
+
+/** Genera un par de claves con el azar de Web Crypto. Devuelve { publica, privada }, las dos en hexadecimal. */
+export async function generarClaves() {
+  const privada = aHex(schnorr.utils.randomSecretKey());
+  return { publica: publicaDe(privada), privada };
+}
+
+/**
+ * La clave privada como se guarda en local (o se cifra en la copia): el mismo texto hexadecimal. importarPrivada la
+ * comprueba (32 bytes, 0 < d < n) y la devuelve; lanza si no vale.
+ */
+export async function exportarPrivada(privada) {
+  publicaDe(privada);
+  return privada;
+}
+
+export async function importarPrivada(privada) {
+  publicaDe(privada);
+  return privada;
+}
+
+/** La firma BIP-340 (hex) del id con la privada; el azar auxiliar (aux_rand) sale de Web Crypto. */
+function firmarId(id, privada) {
+  if (typeof id !== 'string' || !HEX32.test(id)) throw new Error('el evento no tiene id');
+  publicaDe(privada);
+  return aHex(schnorr.sign(aBytes(id), aBytes(privada), aleatorio(32)));
+}
 
 /** Firma el id de un evento (el hash de su cuerpo). Devuelve el evento con firmante y firma. */
 export async function firmar(ev, privada, firmante = ev.autor) {
   if (!ev.id) throw new Error('el evento no tiene id');
-  const firma = aBase64url(await subtle().sign(FIRMA, privada, aBytes(ev.id)));
-  return Object.freeze({ ...ev, firmante, firma });
+  return Object.freeze({ ...ev, firmante, firma: firmarId(ev.id, privada) });
 }
 
 /**
- * Comprueba la firma de un evento con la clave pública (JWK) de su firmante.
- * La firma debe estar en base64url canónico, tal como la escribe `firmar`:
- * sin relleno, sin espacios y sin bits sobrantes distintos de cero, para que
- * unos bytes manipulados no pasen por la misma firma.
+ * Comprueba la firma de un evento con la clave pública (x-only, hex) de su firmante. La firma debe ir en
+ * hexadecimal en minúsculas, 64 bytes, tal como la escribe `firmar`: una sola escritura por firma.
  */
 export async function verificar(ev, publica) {
   return verificarFirma(ev.firma, ev.id, publica);
 }
 
-/** Una firma (base64url canónico) del id con la clave pública (JWK). */
-async function verificarFirma(firma, id, publica) {
-  if (typeof firma !== 'string' || !/^[A-Za-z0-9_-]+$/.test(firma) || !id) return false;
+/** Una firma (hex) del id con la clave pública (hex). false ante cualquier cosa rara, sin lanzar. */
+function verificarFirma(firma, id, publica) {
+  if (typeof firma !== 'string' || !HEX64.test(firma) || typeof id !== 'string' || !HEX32.test(id)) return false;
+  if (typeof publica !== 'string' || !HEX32.test(publica)) return false;
   try {
-    const bytes = deBase64url(firma);
-    if (aBase64url(bytes) !== firma) return false;
-    return await subtle().verify(FIRMA, await importarVerificadora(publica), bytes, aBytes(id));
+    return schnorr.verify(aBytes(firma), aBytes(id), aBytes(publica));
   } catch {
     return false;
   }
@@ -90,7 +86,7 @@ async function verificarFirma(firma, id, publica) {
  */
 export async function firmarPosesion(ev, identidad, privada) {
   if (!ev.id) throw new Error('el evento no tiene id');
-  const firma = aBase64url(await subtle().sign(FIRMA, privada, aBytes(ev.id)));
+  const firma = firmarId(ev.id, privada);
   return Object.freeze({ ...ev, posesion: { ...(ev.posesion ?? {}), [identidad]: firma } });
 }
 
@@ -102,22 +98,20 @@ export async function verificarPosesion(ev, identidad, publica) {
 }
 
 /**
- * Una clave pública declarable: JWK EC P-256 con x e y, sin parte privada
- * (`d`: las claves privadas nunca entran en el eje) y que Web Crypto pueda
- * importar para verificar. Si no, la identidad quedaría muda para siempre.
+ * Una clave pública declarable: 32 bytes x-only en hexadecimal (minúsculas) cuya x es la de un punto de la curva
+ * (lift_x de BIP-340). Si no, la identidad quedaría muda para siempre.
  */
-export async function clavePublicaValida(jwk) {
-  if (!jwk || typeof jwk !== 'object' || Array.isArray(jwk)) return false;
-  if (jwk.kty !== 'EC' || jwk.crv !== 'P-256' || typeof jwk.x !== 'string' || typeof jwk.y !== 'string' || 'd' in jwk) return false;
+export function clavePublicaValida(publica) {
+  if (typeof publica !== 'string' || !HEX32.test(publica)) return false;
   try {
-    await importarPublica(jwk);
+    schnorr.utils.lift_x(BigInt('0x' + publica));
     return true;
   } catch {
     return false;
   }
 }
 
-/** Huella corta de una clave pública, para mostrarla. */
+/** Huella corta de una clave pública, para mostrarla: sus ocho primeros caracteres. */
 export function huella(publica) {
-  return (publica.x ?? '').slice(0, 8);
+  return typeof publica === 'string' ? publica.slice(0, 8) : '';
 }

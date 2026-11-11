@@ -238,11 +238,13 @@ test('regresión: restaurar exige al génesis lo mismo que Eje.genesis (en la ve
   await assert.rejects(Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0, contexto: { claves: { fantasma } } }), /clave de su autor/);
 });
 
-test('regresión: una clave declarada debe ser pública e importable (sin d, sin x/y basura)', async () => {
+test('regresión: una clave declarada debe ser una clave pública BIP-340 (hex x-only de un punto de la curva)', async () => {
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [{ token: 'R', cantidad: 1 }, { token: 'E', denominacion: 'minuto', cantidad: 600 }], foco: 'g', t: T0 });
   const par = await generarClaves();
   const alta = (clave) => eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r'), { token: 'E', emisor: 'r', denominacion: 'minuto', cantidad: 5, de: 'r', a: 'bea' }], payload: 'alta', contexto: { claves: { bea: clave } } });
-  await assert.rejects(alta({ ...par.publica, d: 'PRIVADA' }), /clave inválida/);
+  await assert.rejects(alta(par.publica.toUpperCase()), /clave inválida/);
+  await assert.rejects(alta('02' + par.publica), /clave inválida/);
+  await assert.rejects(alta('eefdea4cdb677750a420fee807eacf21eb9898ae79b9768766e4faa04a2d4a34'), /clave inválida/); // sin punto (BIP-340, vector 5)
   await assert.rejects(alta({ kty: 'EC', crv: 'P-256', x: 'zz', y: 'zz' }), /clave inválida/);
   assert.equal(eje.clave('bea'), undefined);
 });
@@ -678,7 +680,7 @@ test('propiedad: serializar→restaurar es idempotente y los bytes manipulados s
   assert.ok(rechazos > 50);
 });
 
-test('regresión: el firmante del génesis es su autor; la firma es base64url canónica', async () => {
+test('regresión: el firmante del génesis es su autor; la firma es una sola escritura (hex en minúsculas, 64 bytes)', async () => {
   const par = await generarClaves();
   const eje = await Eje.genesis({ demostracion: true, identidad: 'r', emision: [], foco: 'g', t: T0, clave: par.publica, privada: par.privada });
   const ev = await eje.escribir({ autor: 'r', sobre: eje.genesisId, t: T0, movimientos: [gastaT('r')], payload: 'x' }, par.privada);
@@ -687,12 +689,13 @@ test('regresión: el firmante del génesis es su autor; la firma es base64url ca
   await assert.rejects(restaurar(sinFirmante), /firmante/);
   const otroFirmante = datos(); otroFirmante.eventos[0].firmante = 'otro';
   await assert.rejects(restaurar(otroFirmante), /firmante/);
-  const relleno = datos(); relleno.eventos[1].firma += '==';
+  const relleno = datos(); relleno.eventos[1].firma += '00';
   await assert.rejects(restaurar(relleno), /firma inválida/);
-  // El último carácter de una firma de 64 bytes lleva bits de sobra: solo una variante es válida.
-  const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+  const mayusculas = datos(); mayusculas.eventos[1].firma = mayusculas.eventos[1].firma.toUpperCase();
+  await assert.rejects(restaurar(mayusculas), /firma inválida/);
+  // Cambiar el último carácter por cualquier otro hex (o una mayúscula) rompe la firma: solo vale la que se escribió.
   let validas = 0;
-  for (const c of B64) if (await verificar({ ...ev, firma: ev.firma.slice(0, -1) + c }, par.publica)) validas++;
+  for (const c of '0123456789abcdefABCDEF') if (await verificar({ ...ev, firma: ev.firma.slice(0, -1) + c }, par.publica)) validas++;
   assert.equal(validas, 1);
 });
 

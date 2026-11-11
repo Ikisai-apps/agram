@@ -26,7 +26,7 @@
 
 import { ARIDAD, esReferencia, esDireccion, esLista, direccion } from './btml.js';
 import { RAIZ, validarForma, verificarId, esPresente } from './evento.js';
-import { verificar, verificarPosesion } from './autoridad.js';
+import { verificar, verificarPosesion, clavePublicaValida } from './autoridad.js';
 import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS, raizDeAmbito } from './tokens.js';
 import { EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE, SIN_TIPO } from './ciclo.js';
 import { incongruenciaDe } from './tiempo.js';
@@ -342,17 +342,17 @@ async function capaCriptografia(eje, ev, id, libro, enEje, idCorrecto) {
   const clavesDeclaradas = [];
   if (!esGenesis) {
     const declaradas = ev.contexto?.claves ?? {};
-    for (const [nueva, jwk] of Object.entries(declaradas)) {
+    for (const [nueva, clave] of Object.entries(declaradas)) {
       const suya = nueva === ev.autor && propia;
       // La prueba de posesión (R9): la clave nueva firma el id del alta (`posesion`, src/autoridad.js); la del autor
       // de su propia alta, su firma (B1).
       const conPrueba = Boolean(ev.posesion) && typeof ev.posesion === 'object' && Object.hasOwn(ev.posesion, nueva);
-      const posesion = suya && !conPrueba ? (firma === 'verificada' ? 'probada' : 'sin probar') : !conPrueba ? 'sin probar' : (await verificarPosesion(ev, nueva, jwk)) ? 'probada' : 'falla';
+      const posesion = suya && !conPrueba ? (firma === 'verificada' ? 'probada' : 'sin probar') : !conPrueba ? 'sin probar' : (await verificarPosesion(ev, nueva, clave)) ? 'probada' : 'falla';
       clavesDeclaradas.push({ identidad: nueva, por: ev.autor, posesion });
       // Dónde se declara una clave y que llegue con su prueba son reglas de la época (B4); aquí, lo criptográfico.
       if (v2 && (libro.eje.claves.has(nueva) || conCuenta(libro, nueva))) r.falla('no se puede cambiar la clave de ' + nueva);
       else if (v2 && !suya && !lista(ev.movimientos).some((m) => m?.a === nueva)) r.falla('clave declarada para ' + nueva + ' sin darle tokens');
-      else if (!(jwk && jwk.kty === 'EC' && jwk.crv === 'P-256' && jwk.x && jwk.y)) r.falla('clave inválida para ' + nueva);
+      else if (!clavePublicaValida(clave)) r.falla('clave inválida para ' + nueva);
       else if (posesion === 'falla') r.falla('prueba de posesión inválida para ' + nueva + ': no la firma la clave que se declara');
     }
     for (const otra of Object.keys(ev.posesion && typeof ev.posesion === 'object' ? ev.posesion : {})) {
