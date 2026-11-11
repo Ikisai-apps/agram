@@ -680,22 +680,25 @@ html.mapped body{padding:0}
 .animado .rejilla-completa .hijo-cabeza .hijo-cifra:not(:empty),.animado .mapa .pv .rejilla .hijo-cabeza .hijo-cifra:not(:empty){color:#2a1a0c;background:#fff4d8;border-radius:999px;box-shadow:0 0 0 3px #fff4d8,0 0 0 4px rgba(0,0,0,.3);text-shadow:none}
 .animado .rejilla-completa .hijo[data-vacio] .hijo-cabeza,.animado .rejilla-completa .vacia>.hijo-cabeza,.animado .mapa .pv .rejilla .hijo[data-vacio] .hijo-cabeza,.animado .mapa .pv .rejilla .vacia>.hijo-cabeza{background:color-mix(in oklab,var(--c,var(--rule)) 14%,var(--bg));color:var(--muted);text-shadow:none;box-shadow:none}
 .animado .rejilla-completa .caja-cielo .hijo-cabeza,.animado .mapa .pv .rejilla .caja-cielo .hijo-cabeza{background:linear-gradient(rgba(255,255,255,.14),rgba(0,0,0,.25));color:var(--cielo-tinta)}
-/* 2 · la etapa del elemento pulsado: en la cruceta, dentro de la tarjeta central detrás del nombre y la cifra (la
-   tarjeta mide lo mismo; en la cara 5 no se ve); en las demás formas, pequeña en la cabecera, junto al nombre */
+/* 2 · la etapa del elemento pulsado (o su arte propio, #25): en la cruceta, en la esquina de abajo a la derecha de la
+   tarjeta central, junto a la cifra y no detrás del nombre (#8: detrás lo ensuciaba); la tarjeta mide lo mismo y en la
+   cara 5 no se ve. En las demás formas, pequeña en la cabecera, junto al nombre */
 .animado .rejilla-completa .flotante-cara.cara-0{position:relative;isolation:isolate}
-.flotante-cara>.capa-etapa{position:absolute;inset:8%;z-index:-1;width:84%;height:84%;object-fit:contain;opacity:.38}
+.flotante-cara>.capa-etapa{position:absolute;right:8px;bottom:16px;z-index:-1;width:min(24%,52px);height:auto;max-height:40%;aspect-ratio:1/1;object-fit:contain;opacity:.9}
 .animado .nucleo.abierto>.nucleo-cabeza .quien{position:relative}
 .capa-etapa-cabeza{position:absolute;left:0;top:50%;width:34px;height:34px;object-fit:contain;transform:translateY(-50%)}
-/* 4 · el personaje del mundo, en el hueco entre celdas (nunca dentro de una): por la forma; esperar en bucle, actuar
-   con lo nuevo; hasta que Lottie pinta (o si no carga), su dibujo quieto */
+/* 4 · el personaje del mundo, fuera de las celdas: por la forma; esperar en bucle, actuar con lo nuevo; hasta que
+   Lottie pinta (o si no carga), su dibujo quieto. Donde el hueco entre celdas (--hueco, 6 px) es menor que la figura
+   (#8: pisaba los bordes en la rejilla, la conversación, la matriz…), va al margen exterior de la rejilla: de pie sobre
+   el marco, asomando en la cabecera del centro, o en la columna de los ejes de la matriz */
 .rejilla-completa>.capa-personaje{--personaje:clamp(64px,11vmin,124px);position:absolute;z-index:2;width:var(--personaje);height:var(--personaje);left:calc(100% * (var(--columnas) - 1) / var(--columnas));bottom:0;transform:translateX(-50%)}
 .capa-personaje .pieza{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 3px 3px rgba(0,0,0,.3))}
 .capa-personaje .respaldo{display:none}
 .capa-personaje:has(.sin-lottie) .respaldo,.capa-personaje:has(.pieza-lottie:empty) .respaldo{display:block}
 .capa-personaje .sin-lottie{display:none}
-.rejilla-completa[data-forma="cruceta"]>.capa-personaje{left:50%;bottom:0}
-.rejilla-completa[data-forma="escalera"]>.capa-personaje{left:0;transform:none}
-.rejilla-completa[data-forma="conversacion"]>.capa-personaje{left:auto;right:0;transform:none}
+.rejilla-completa:is([data-forma="cruceta"],[data-forma="escalera"],[data-forma="columnas"],[data-forma="rejilla"],[data-forma="conversacion"])>.capa-personaje{--personaje:clamp(44px,7vmin,56px);z-index:5;left:50%;bottom:calc(100% - var(--sobre-cabeza,0px));transform:translateX(-50%)}
+.rejilla-completa:has(>.rejilla-cabeza)>.capa-personaje{--sobre-cabeza:20px}
+.rejilla-completa[data-forma="matriz"]>.capa-personaje{--personaje:clamp(44px,7vmin,56px);left:10px;bottom:14px;transform:none}
 .rejilla-completa[data-forma="franjas"]>.capa-personaje{bottom:0;transform:none}
 .rejilla-completa[data-forma="franjas"]>.capa-personaje[data-hoy="fin"]{left:auto;right:0}
 .rejilla-completa[data-forma="franjas"]>.capa-personaje[data-hoy="inicio"]{left:7.5rem}
@@ -711,6 +714,9 @@ html.mapped body{padding:0}
    es un cuadrado y no se deforma: cada esquina enseña su esquina (88 de 512, antes de la barra de título que llevan
    algunos) y una línea del color del mundo las une por donde pasan sus trazos (a 36 de 512 del borde). */
 .rejilla-completa>.capa-marco{--esquina:22px;--dibujo:calc(var(--esquina) * 512 / 88);position:absolute;inset:-10px;z-index:4}
+/* con cabecera («nivel 1 de 4», ↑ subir), el marco empieza debajo de ella: no la pisa (#8) */
+.rejilla-completa>.rejilla-cabeza~.capa-marco{top:12px}
+.rejilla-completa:has(>.capa-marco) .matriz-esquina{padding-left:8px} /* el rótulo de los ejes de la matriz, dentro del marco (la caja mide lo mismo) */
 .capa-marco::before{content:'';position:absolute;inset:calc(var(--esquina) * 36 / 88 - 1.5px);border:3px solid color-mix(in oklab,var(--c,var(--accent)) 72%,#172333);border-radius:8px}
 .marco-esquina{position:absolute;width:var(--esquina);height:var(--esquina);overflow:hidden}
 .marco-esquina>img{position:absolute;width:var(--dibujo);height:var(--dibujo);max-width:none;margin:0}

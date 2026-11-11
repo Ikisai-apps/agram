@@ -539,7 +539,7 @@ test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de 
   const sobrio = {};
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) sobrio[pv] = rejillaHtml(html(await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)));
   const clave = C.clavesDeConfiguracion().find((c) => c.clave === 'render');
-  const otra = clave.valores.find((v) => v !== C.configuracion(eje, 'huesped').render);
+  const otra = clave.valores[clave.valores.length - 1]; // «todo» (#25): el último de la enumeración
   // aun con el modelo sobrio nombrado, va al final de la cadena (#3) y el animado trae sus capas: sin ellas, el mismo HTML
   // (el «mismo DOM sin .capa» en detalle lo comprueba test/animado-capas.test.js)
   const p = preferencias(eje, 'huesped', { render: otra, model: 'sobrio' });
