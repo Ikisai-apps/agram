@@ -17,7 +17,7 @@ test('traducciones: la lista de lo pedido cubre cada tipo de texto de la época 
   const pedidas = clavesPedidas();
   const tipos = new Set(pedidas.map((c) => c.tipo));
   for (const t of ['acción', 'parámetro de acción', 'mensaje de acción', 'plantilla', 'posición de plantilla', 'plantilla de cerrado', 'estado', 'nivel de madurez', 'orden', 'tamaño', 'formato legible', 'motivo (regla)', 'motivo (acción)', 'guía', 'opción de preferencia']) assert.ok(tipos.has(t), 'sin claves de tipo «' + t + '»');
-  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 35, 'las 35 plantillas de transacción');
+  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 36, 'las 36 plantillas de transacción');
   assert.equal(new Set(pedidas.map((c) => c.clave)).size, pedidas.length, 'sin claves repetidas');
 });
 
