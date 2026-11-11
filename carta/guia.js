@@ -114,7 +114,7 @@ const nombreDeAccion = (eje, idioma, id) => {
 export async function contexto(estado, eje, yo, opciones = {}) {
   const X = typeof estado?.foco === 'string' ? estado.foco : estado?.foco?.X;
   if (!eje || !X || !eje.obtener(X)) return t('noHayFoco');
-  const idioma = contrato.configuracion(eje, yo, opciones).language ?? 'en';
+  const idioma = opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language ?? 'en';
   const o = { ...opciones, idioma };
   const tope = opciones.tope ?? ajustes(eje, yo, opciones).contexto;
   const ancho = Math.max(240, opciones.ancho ?? MEDIDAS.ancho);
@@ -206,7 +206,7 @@ function delNueve(eje, X, o) {
  * época → 9 de la plantilla → 9 del registro). → texto, o '' si la época no trae guía.
  */
 export function instrucciones(eje, X, yo, opciones = {}) {
-  const idioma = contrato.configuracion(eje, yo, opciones).language ?? 'en';
+  const idioma = opciones.idioma ?? contrato.configuracion(eje, yo, opciones).language ?? 'en';
   const base = contrato.guia(eje, idioma, opciones);
   if (!base) return '';
   const partes = [base.papel, base.resumen, base.normas];

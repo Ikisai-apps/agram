@@ -320,11 +320,12 @@ test('el interruptor sobrio/animado de la barra es la preferencia de dos valores
   const b = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
   assert.equal(b.animado, true);
   assert.equal(b.interruptores[0].valor, otra);
-  // En español, las dos palabras traducidas.
-  const q = preferencias(eje, 'huesped', { language: 'es' });
+  // En español (el idioma de la época), las dos palabras traducidas; en inglés, las canónicas.
+  assert.deepEqual(b.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  const q = preferencias(eje, 'huesped', { language: 'en' });
   await eje.escribir({ autor: 'huesped', sobre: q.sobre, en: q.en, t: T1, movimientos: [minuto('huesped')], payload: q.payload });
   const c = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
-  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sobrio', 'animado']);
+  assert.deepEqual(c.interruptores[0].opciones.map((o) => o.texto), ['sober', 'animated']);
   // La app lo pinta y lo lanza por data-preferencia (la tecla la toca gestos.js; la escritura, app.js como la configuración).
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
   assert.match(app, /async preferencia\(clave, valor\)[\s\S]*?escribirPreferencias\(\{ \[clave\]: valor \}\)/);

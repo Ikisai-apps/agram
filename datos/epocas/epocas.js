@@ -4059,7 +4059,7 @@ export const EPOCA_0_BTML_DATOS = [
           "arrival"
         ],
         [
-          "en",
+          "es",
           "the language of the messages (epoch.9.4); en is the canonical one"
         ]
       ],
@@ -4720,7 +4720,7 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param render option animated: animado",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
-          "template preferences param language placeholder: en",
+          "template preferences param language placeholder: es",
           "template preferences param sizes label: tamaños",
           "template preferences param sizes help: los pasos de tamaño con que trabaja la carta: 1 el hueco, 2 la tarjeta, 3 la pantalla (epoch.9.5.2)",
           "template preferences param type label: tipo",
@@ -14885,7 +14885,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "5a6bcf90a39ef3440d79c594f3dc43e37d9fa5769a509bcfb428d12607600f55";
+export const EPOCA_0_BTML_ID = "78f5a3c02397c78d36a796ee74fba6494fafcdd516c96f6c23121d02c1e050f3";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

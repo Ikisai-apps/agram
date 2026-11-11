@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbol, formulario, enviar, preferencias, escalaDeTamanos, NIVEL, LATERALES, CENTROS, GEOMETRIA, ANIMAR } from '../carta/carta.js';
+import { arbol as arbolEnIdioma, formulario, enviar, preferencias, escalaDeTamanos, NIVEL, LATERALES, CENTROS, GEOMETRIA, ANIMAR } from '../carta/carta.js';
 import { html, htmlPieza, variablesDeColor } from '../carta/dom.js';
 import * as C from '../src/contrato.js';
 import * as A from '../src/acciones.js';
@@ -19,6 +19,8 @@ import { ejemploCompra, ejemploCuenta } from '../ejemplos/ikisai/compra-food.mjs
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
 
+// El idioma por defecto de la época es el español; esta batería comprueba los nombres canónicos de la época (en inglés), así que lo pide.
+const arbol = (estado, eje, yo, medidas, opciones = {}) => arbolEnIdioma(estado, eje, yo, medidas, { idioma: 'en', ...opciones });
 const T1 = '2026-11-08T10:00:00Z';
 const MOVIL = { ancho: 400, alto: 700 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -151,7 +153,7 @@ test('el aro: el de la huésped sobre el menú trae «apply a resource» y «wri
 
 test('el formulario de «apply a resource» trae la etiqueta, la ayuda, el tipo y la validación de cada parámetro de la plantilla, con los defectos rellenos', async () => {
   const { eje, menu } = await compra();
-  const f = formulario(eje, menu.id, 'apply a resource', 'huesped');
+  const f = formulario(eje, menu.id, 'apply a resource', 'huesped', {}, { idioma: 'en' });
   const plantilla = A.plantillaDeTransaccion('apply a resource');
   assert.equal(f.accion, A.plantillasDeTransaccion().find((p) => p.plantilla === plantilla).id, 'la acción, por el id de su plantilla');
   assert.equal(f.nombre, 'apply a resource', 'y su nombre en el idioma de quien mira (en: el canónico)');
@@ -163,7 +165,7 @@ test('el formulario de «apply a resource» trae la etiqueta, la ayuda, el tipo 
   assert.equal(precio.falta, true, 'el menú no tiene serie: el precio lo da quien lanza');
   assert.deepEqual(f.campos.find((c) => c.nombre === 'what').valor, { ref: menu.id });
   // Con un valor dado, el campo lo lleva; el árbol pinta el formulario con sus motivos.
-  const g = formulario(eje, menu.id, 'apply a resource', 'huesped', { quantity: 3 });
+  const g = formulario(eje, menu.id, 'apply a resource', 'huesped', { quantity: 3 }, { idioma: 'en' });
   assert.equal(g.campos.find((c) => c.nombre === 'quantity').valor, 3);
   const a = await arbol({ foco: { X: menu.id, pv: 0 }, formulario: { X: menu.id, accion: 'apply a resource', valores: { quantity: 3 }, motivos: [{ regla: 'price', mensaje: 'price: falta' }] } }, eje, 'huesped', MOVIL);
   assert.equal(a.formulario.campos.find((c) => c.nombre === 'quantity').valor, 3);
@@ -234,7 +236,7 @@ test('el libro local: ver quema un T de segundo y englobar asienta un minuto en 
 
 test('las preferencias se editan como un registro más: la candidata sale de la plantilla «preferences» y la configuración la lee', async () => {
   const { eje } = await compra();
-  const p = preferencias(eje, 'huesped', { language: 'es', step: '5' });
+  const p = preferencias(eje, 'huesped', { language: 'en', step: '5' }, { idioma: 'en' });
   assert.equal(p.sobre, eje.alta('huesped').id);
   // Todas las preferencias de la época, también las que no tienen defecto (el servidor y el eje compartido, etapa 3).
   assert.deepEqual(p.campos.map((c) => c.etiqueta), C.clavesDeConfiguracion().map((c) => c.clave));
@@ -242,7 +244,7 @@ test('las preferencias se editan como un registro más: la candidata sale de la 
   assert.equal(p.payload.length, 8, 'sin servidor ni eje compartido, el registro acaba en el 7: BTML no tiene posiciones vacías');
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto('huesped')], payload: p.payload });
   const conf = C.configuracion(eje, 'huesped');
-  assert.deepEqual([conf.language, conf.step], ['es', 5]);
+  assert.deepEqual([conf.language, conf.step], ['en', 5]);
   assert.ok(conf.de);
   // Pedir animado: el árbol lo dice y pide piezas a la cadena de modelos (en animado hay pieza; con la cadena sobria, su forma).
   const q = preferencias(eje, 'huesped', { render: 'animated', model: 'animado-generico' });

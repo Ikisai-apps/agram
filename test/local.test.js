@@ -59,6 +59,8 @@ test('ver y tocar queman un T de segundo del día en el libro local, lo anotan y
 test('sin T de segundo del día, ver y tocar devuelven el motivo de la regla de la época (writing burns today\'s T) y no lanzan; el día siguiente vuelve', async () => {
   const { eje, menu } = await ejemploCompra();
   const epoca = epocaCon((e) => { e[1][3][1][0][1] = [2]; }); // dos segundos al día
+  // El idioma de la época es el español: el motivo en inglés lo pide la configuración de la huésped.
+  await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: '2026-11-07T17:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['preferences', 10, 'sober', 'en', [1, 2, 3], 'preferences'] });
   const local = new LibroLocal(eje, 'huesped', { epoca });
   assert.equal(local.quedaHoy(T(0)), 2);
   assert.equal(local.ver(menu.id, { t: T(0) }).ok, true);

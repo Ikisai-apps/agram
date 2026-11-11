@@ -251,7 +251,7 @@ diario(eje, X, desde = 0, cuantos = paso())   // → { total, desde, entradas: [
 
 `yo` es mi alta y sus posiciones, las vistas del encargo 3a leídas con el BQL mínimo: `A.1` la cartera, `A.2` el criterio (2.1 el P posicionado, 2.3 los criterios que adopto), `A.3` los grupos de atención (nombre, zona, precio, quiénes), `A.7` el tiempo gastado hoy por escala (a la fecha `t`; por defecto el reloj del libro).
 
-La **configuración** vive como un registro anclado en **`yo.9`** (el 9 del alta, «cómo: su guía») escrito por mí, cuyo tipo es la plantilla **«preferences»** de la época (`epoch.9.3`): 1 `step` (cuántos por carga; 10), 2 `render` (`sober` o `animated`), 3 `language` (`en`), 4 `sizes` (los pasos de tamaño, 1 2 3), 5 `preferences` (su tipo: B4, el 5 nombra la plantilla, y no es una preferencia: `configuracion` no lo lee) y, del encargo 3c-2b, 6 `model` (el modelo de visualización que la carta consulta primero, §11.2; por defecto `ikisai`). Las etiquetas de la plantilla son las claves de lo que devuelve; sus defectos, las hojas del d.9 menos la ayuda. Sin registro, los defectos; con varios míos, el último; lo que otro ancle ahí no cuenta. Como el 5 exige el 0-4, un registro de preferencias dice todo (y `validar` lo valida con la plantilla); el 6 es opcional.
+La **configuración** vive como un registro anclado en **`yo.9`** (el 9 del alta, «cómo: su guía») escrito por mí, cuyo tipo es la plantilla **«preferences»** de la época (`epoch.9.3`): 1 `step` (cuántos por carga; 10), 2 `render` (`sober` o `animated`), 3 `language` (`es`; el canónico de los mensajes, `en`), 4 `sizes` (los pasos de tamaño, 1 2 3), 5 `preferences` (su tipo: B4, el 5 nombra la plantilla, y no es una preferencia: `configuracion` no lo lee) y, del encargo 3c-2b, 6 `model` (el modelo de visualización que la carta consulta primero, §11.2; por defecto `ikisai`). Las etiquetas de la plantilla son las claves de lo que devuelve; sus defectos, las hojas del d.9 menos la ayuda. Sin registro, los defectos; con varios míos, el último; lo que otro ancle ahí no cuenta. Como el 5 exige el 0-4, un registro de preferencias dice todo (y `validar` lo valida con la plantilla); el 6 es opcional.
 
 ```js
 yo(eje, identidad, { t })   // → { identidad, alta, cartera, criterio: { posicionado, adopta }, atencion, tiempo } o null
@@ -745,7 +745,7 @@ PV9: follow the path* · view the whole tutorial · auto-run to the end · ask f
 últimas entradas del diario:
 - 2026-11-07T13:30:00Z · cdeef0f0 · huesped · …
 
-language: en · render: sober
+language: es · render: sober
 ```
 
 ### 16.4 Dos vías de llamada

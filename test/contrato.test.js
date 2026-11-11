@@ -242,7 +242,7 @@ test('yo: mi alta y sus posiciones (cartera, criterio, atención, tiempo), leíd
 });
 
 test('configuracion: los defectos de la plantilla «preferences» si no hay registro, y el registro anclado en el 9 de mi alta si lo hay (validado por su plantilla)', async () => {
-  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'en', sizes: [1, 2, 3], model: 'ikisai', animations: 10, de: null });
+  assert.deepEqual(C.configuracion(eje, 'huesped'), { step: 10, render: 'sober', language: 'es', sizes: [1, 2, 3], model: 'ikisai', animations: 10, de: null });
   assert.deepEqual(C.configuracion(eje, C.yo(eje, 'huesped')), C.configuracion(eje, 'huesped'));
   const T = '2026-11-07T18:00:00Z';
   const mias = await eje.escribir({ autor: 'huesped', sobre: eje.alta('huesped').id, en: '9000000000', t: T, movimientos: [minuto('huesped')], payload: ['preferences', 20, 'animated', 'es', [1, 3], 'preferences'] });
@@ -322,7 +322,7 @@ test('la carta de texto solo importa el contrato (y, si acaso, bqlm y libro), y 
   }
   for (const [nombre, [r, id, yo]] of Object.entries(paraQuien)) {
     const nombres = nombresDe(r);
-    for (const tamano of [2, 3]) assert.equal(sinIds(await pintarPara(r.eje, id, tamano, yo, { t: '2026-11-09T09:00:00Z' }), nombres), esperado[nombre][tamano - 2], nombre + ' para ' + yo + ' en el tamaño ' + tamano);
+    for (const tamano of [2, 3]) assert.equal(sinIds(await pintarPara(r.eje, id, tamano, yo, { t: '2026-11-09T09:00:00Z', idioma: 'en' }), nombres), esperado[nombre][tamano - 2], nombre + ' para ' + yo + ' en el tamaño ' + tamano);
   }
   // Lo que pinta cada tamaño es lo que la época dice que cabe: un dato en el hueco, cuatro en la tarjeta, diez en la pantalla.
   assert.equal(pintar(eje, compra.id, 1).split('\n').length, 1);

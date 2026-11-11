@@ -121,9 +121,9 @@ test('transaccion: una compra entera por el aro (acciones → transaccion → as
 test('transaccion: los motivos legibles, en el idioma de quien lanza (los parámetros con su ayuda; las reglas con su 9 traducido; el libro con su texto)', async () => {
   const { eje, menu } = await ejemploCompra();
   // Un parámetro que no cumple su validación, y uno que falta.
-  const mal = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 0, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1 });
+  const mal = await A.transaccion(eje, 'apply a resource', { X: menu.id, quantity: 0, price: [['E:casa/EUR'], [12]] }, 'huesped', { t: T1, idioma: 'en' });
   assert.deepEqual([mal.ok, mal.evento, mal.motivos], [false, null, [{ regla: 'quantity', mensaje: 'quantity: how many units', parametro: 'quantity' }]]);
-  const sin = await A.transaccion(eje, 'apply a resource', { X: menu.id }, 'huesped', { t: T1 });
+  const sin = await A.transaccion(eje, 'apply a resource', { X: menu.id }, 'huesped', { t: T1, idioma: 'en' });
   assert.deepEqual(sin.motivos.map((m) => m.regla), ['price']);
   // Una regla de la época, en español (la configuración de la cocina lo pide): la cocina es una cosa y no acuña.
   await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '9000000000', t: T1, movimientos: [minuto('cocina')], payload: ['preferences', 10, 'sober', 'es', [1, 2, 3], 'preferences'] });

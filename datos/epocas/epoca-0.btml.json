@@ -1449,7 +1449,7 @@
         ["encargo 3c-1: la configuración vive en el 9 del alta, un registro de este tipo"],
         ["optional"],
         ["arrival"],
-        ["en", "the language of the messages (epoch.9.4); en is the canonical one"]
+        ["es", "the language of the messages (epoch.9.4); en is the canonical one"]
       ],
       [
         ["sizes"],
@@ -1985,7 +1985,7 @@
           "template preferences param render option animated: animado",
           "template preferences param language label: idioma",
           "template preferences param language help: el idioma de los mensajes (epoch.9.4); en es el canónico",
-          "template preferences param language placeholder: en",
+          "template preferences param language placeholder: es",
           "template preferences param sizes label: tamaños",
           "template preferences param sizes help: los pasos de tamaño con que trabaja la carta: 1 el hueco, 2 la tarjeta, 3 la pantalla (epoch.9.5.2)",
           "template preferences param type label: tipo",
