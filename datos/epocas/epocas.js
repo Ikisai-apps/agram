@@ -4160,8 +4160,8 @@ export const EPOCA_0_BTML_DATOS = [
           "arrival"
         ],
         [
-          "sobrio",
-          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (the generic animated one, then the sober one, which always answers)"
+          "ikisai",
+          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (ikisai, the generic animated one, then the sober one, which always answers); the default is ikisai, so the animated switch shows the art without touching the settings"
         ]
       ],
       [
@@ -4715,7 +4715,7 @@ export const EPOCA_0_BTML_DATOS = [
           "template preferences param type label: tipo",
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
-          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (el animado genérico y luego el sobrio, que siempre responde)",
+          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (ikisai, el animado genérico y luego el sobrio, que siempre responde); por defecto es ikisai, así el interruptor animado enseña el arte sin tocar la configuración",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "template preferences param sync url label: servidor",
@@ -5088,6 +5088,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ilustrado"
         ],
         [
+          "ikisai",
           "animado-generico",
           "sobrio"
         ],
@@ -14860,7 +14861,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "2559f63bad52305c6a15c7dfb2dcfbab0551489a3ac9a9cfe471db3dc0c2090f";
+export const EPOCA_0_BTML_ID = "17123d49ba587576be4deae03811c8de3989a320b0f90a52e6317d6762ab1055";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

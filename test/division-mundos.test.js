@@ -509,7 +509,8 @@ test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de 
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) sobrio[pv] = rejillaHtml(html(await arbol(completa(compra.id, pv), eje, 'huesped', GRANDE)));
   const clave = C.clavesDeConfiguracion().find((c) => c.clave === 'render');
   const otra = clave.valores.find((v) => v !== C.configuracion(eje, 'huesped').render);
-  const p = preferencias(eje, 'huesped', { render: otra });
+  // con el modelo sobrio explícito: el defecto de la época es ikisai y trae capas (el «mismo DOM sin .capa» lo comprueba test/animado-capas.test.js)
+  const p = preferencias(eje, 'huesped', { render: otra, model: 'sobrio' });
   await eje.escribir({ autor: 'huesped', sobre: p.sobre, en: p.en, t: '2026-11-07T13:30:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: p.payload });
   // la preferencia es un escrito más: el diario (el 6) y la madurez del alta no son de la compra; lo de la compra no cambia
   for (const pv of [1, 2, 3, 4, 6, 7, 8, 9]) {

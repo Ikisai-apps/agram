@@ -1486,8 +1486,8 @@
         ["optional"],
         ["arrival"],
         [
-          "sobrio",
-          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (the generic animated one, then the sober one, which always answers)"
+          "ikisai",
+          "the visualization model consulted first: a name of epoch.9.7 or the id of a model record of the ledger; behind it, the chain of epoch.9.7.0.2 (ikisai, the generic animated one, then the sober one, which always answers); the default is ikisai, so the animated switch shows the art without touching the settings"
         ]
       ],
       [
@@ -1980,7 +1980,7 @@
           "template preferences param type label: tipo",
           "template preferences param type help: su tipo: esta plantilla, preferences, nombrada en el 5 del registro (B4: el 5 es el tipo)",
           "template preferences param model label: modelo",
-          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (el animado genérico y luego el sobrio, que siempre responde)",
+          "template preferences param model help: el modelo de visualización que se consulta primero: un nombre de epoch.9.7 o el id de un registro de modelo del eje; detrás, la cadena de epoch.9.7.0.2 (ikisai, el animado genérico y luego el sobrio, que siempre responde); por defecto es ikisai, así el interruptor animado enseña el arte sin tocar la configuración",
           "template preferences param animations label: animaciones",
           "template preferences param animations help: cuántas animaciones se reproducen a la vez en el pintado animado: primero lo enfocado y lo nuevo, el resto queda en su fotograma",
           "template preferences param sync url label: servidor",
@@ -2164,7 +2164,7 @@
           "a visualization model is a record: 0 its name, its level of detail and a note; 1-4 and 6-9 the pieces of each world, as references to piece records (in the ledger, also pieces anchored there); 5 the frames and the icons of the ring. A piece is a record: 0 its type; 1 [minimum size, format] or, with no resource, [minimum size, sober form: texto, rectangulo, punto]; 2 its key: the condition (the step 1-10, the action, the primitive or effect, or the world whose icon or frame it is; * for any) and, behind it, what tells apart pieces with the same condition (the role of a character, the name of an element, a frame or an icon); 3 its orientation; 4 [loop or once, frames]; 5 the worlds it serves (digits, or * for every world); 6 its resource (a relative path of the repository or a URL) and where it comes from; 7 its rank among the pieces with the same key (0 or absent the first choice, 1 a fallback kept behind a newer piece)"
         ],
         ["sello", "intermedio", "ilustrado"],
-        ["animado-generico", "sobrio"],
+        ["ikisai", "animado-generico", "sobrio"],
         ["centro", "izquierda", "derecha"],
         [
           [

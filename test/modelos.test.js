@@ -36,7 +36,7 @@ async function conModelo(eje, quien, nombre, t = T) {
 test('la época lleva los modelos como registros: epoch.9.7 es la cabecera y las referencias a sobrio, animado-generico e ikisai, cada uno con sus piezas referenciadas por mundo; npm run epocas los tiene al día', () => {
   const c = cabecera();
   assert.deepEqual(c.niveles, ['sello', 'intermedio', 'ilustrado']);
-  assert.deepEqual(c.cadena, ['animado-generico', 'sobrio']);
+  assert.deepEqual(c.cadena, ['ikisai', 'animado-generico', 'sobrio'], 'ikisai primero: el interruptor animado enseña el arte sin tocar Configuración');
   assert.deepEqual(c.variantes, ['centro', 'izquierda', 'derecha']);
   assert.deepEqual(c.tipos.map((t) => [t.tipo, t.claves]), [['elemento', ['paso', 'nombre']], ['munequito', ['accion', 'rol']], ['movimiento', ['primitiva']], ['fondo', ['paso']], ['marco', ['mundo', 'nombre']], ['icono', ['mundo', 'nombre']], ['etapa', ['paso']]]);
   assert.deepEqual(c.tipos.map((t) => t.clave), ['paso', 'accion', 'primitiva', 'paso', 'mundo', 'mundo', 'paso'], 'la primera componente sigue siendo «clave»');
@@ -79,38 +79,42 @@ test('la época lleva los modelos como registros: epoch.9.7 es la cabecera y las
   assert.deepEqual(evaluar('(first epoch.9.7.3.5).0', ctx).valor, ['icono'], 'el 5 del sobrio: el icono y el marco');
 });
 
-test('la cadena de respaldo: lo que nombra la configuración (model), luego el animado genérico, luego el sobrio; por defecto, sobrio', async () => {
+test('la cadena de respaldo: lo que nombra la configuración (model), luego el animado genérico, luego el sobrio; por defecto, ikisai', async () => {
   const { eje } = await ejemploCompra();
-  assert.equal(configuracion(eje, 'huesped').model, 'sobrio', 'la preferencia «model» de la plantilla «preferences» (epoch.9.3.6)');
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['sobrio', 'animado-generico'], 'el defecto es el sobrio; detrás, la cadena sin repetir');
+  assert.equal(configuracion(eje, 'huesped').model, 'ikisai', 'la preferencia «model» de la plantilla «preferences» (epoch.9.3.6)');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'el defecto es ikisai: la cadena de la época, en su orden y sin repetir');
+  await conModelo(eje, 'huesped', 'sobrio');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['sobrio', 'ikisai', 'animado-generico'], 'quien nombra el sobrio lo tiene delante');
   const mias = await conModelo(eje, 'huesped', 'ikisai');
   assert.deepEqual(validar(eje, mias), []);
   assert.equal(configuracion(eje, 'huesped').model, 'ikisai');
   assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio']);
   await conModelo(eje, 'huesped', 'animado-generico');
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio']);
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'ikisai', 'sobrio']);
   await conModelo(eje, 'huesped', 'desconocido');
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio'], 'un nombre que no existe no rompe la cadena');
-  assert.deepEqual(modelo(eje, 'nadie').map((m) => m.nombre), ['sobrio', 'animado-generico'], 'sin alta, los defectos');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'un nombre que no existe no rompe la cadena');
+  assert.deepEqual(modelo(eje, 'nadie').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'sin alta, los defectos');
   // Un modelo del eje, anclado al dominio de un proyecto, con una pieza anclada en su ciudad: por su id o por su nombre.
   const propio = await eje.escribir({ autor: 'casa', sobre: eje.genesisId, t: T, movimientos: [minuto('casa')], payload: [['casa-rural', 'ilustrado', 'el modelo de la casa']] });
   await eje.escribir({ autor: 'casa', sobre: propio.id, en: '1000000000', t: T, movimientos: [minuto('casa')], payload: [['fondo'], [2, 'image'], [3], ['centro'], ['once', 1], [1], ['arte/casa/fondo-3.png', 'la casa']] });
   await conModelo(eje, 'huesped', propio.id);
   const cadena = modelo(eje, 'huesped');
-  assert.deepEqual(cadena.map((m) => [m.nombre, m.donde === propio.id, m.piezas.length]), [['casa-rural', true, 1], ['animado-generico', false, 11], ['sobrio', false, 42]]);
+  assert.deepEqual(cadena.map((m) => [m.nombre, m.donde === propio.id, m.piezas.length]), [['casa-rural', true, 1], ['ikisai', false, 756], ['animado-generico', false, 11], ['sobrio', false, 42]]);
   await conModelo(eje, 'huesped', 'casa-rural');
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio'], 'un modelo del eje no se resuelve por nombre (SEG-14): solo por id');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'un modelo del eje no se resuelve por nombre (SEG-14): solo por id');
   assert.deepEqual(pieza(cadena, 'fondo', 1, 5, 'centro', { tamano: 2 }).recurso, 'arte/casa/fondo-3.png', 'la pieza anclada en la ciudad del modelo del eje');
   assert.equal(pieza(cadena, 'fondo', 1, 5, 'centro', { tamano: 1 }).modelo, 'sobrio', 'en el hueco no cabe (tamaño mínimo 2): el siguiente que responda');
   // La cadena misma es un dato de la época.
   const otra = epocaCon((e) => { e[9][7][0][2] = ['sobrio']; });
-  assert.deepEqual(modelo(eje, 'cocina', { epoca: otra }).map((m) => m.nombre), ['sobrio']);
+  assert.deepEqual(modelo(eje, 'cocina', { epoca: otra }).map((m) => m.nombre), ['ikisai', 'sobrio'], 'el defecto de la época (ikisai) y, detrás, su cadena: solo el sobrio');
 });
 
 test('pieza: la primera que exista en la cadena; con un paso, el inferior más cercano del mismo modelo antes del siguiente modelo; la orientación pedida y, si no, la de respaldo; el sobrio siempre responde', async () => {
   const { eje } = await ejemploCompra();
   await conModelo(eje, 'huesped', 'animado-generico');
-  const cadena = modelo(eje, 'huesped');
+  // la cadena de la época sin ikisai (animado genérico → sobrio): es el respaldo que este caso comprueba
+  const cadena = modelo(eje, 'huesped', { epoca: epocaCon((e) => { e[9][7][0][2] = ['animado-generico', 'sobrio']; }) });
+  assert.deepEqual(cadena.map((m) => m.nombre), ['animado-generico', 'sobrio']);
   const tienda = (o) => 'arte/fase2/bloque-0/biblioteca/ciudad/elemento/tienda-' + o + '-intermedio.svg';
   // La tienda (la de la fase 2; la de la prueba 03, de respaldo con rango 1): paso 5 en las tres orientaciones y, como respaldo de 1-10, paso 1 con el mismo recurso.
   const p7 = pieza(cadena, 'elemento', 1, 7, 'derecha');
@@ -239,7 +243,7 @@ test('SEG-14: un modelo del eje se nombra por id ({ ref } o texto) y no por nomb
   await ancla('casa', pieza1(['arte/casa/fondo-3.png']));
   await conModelo(eje, 'huesped', propio.id);
   let cadena = modelo(eje, 'huesped');
-  assert.deepEqual(cadena.map((m) => [m.nombre, m.piezas.length]), [['casa-rural', 1], ['animado-generico', 11], ['sobrio', 42]]);
+  assert.deepEqual(cadena.map((m) => [m.nombre, m.piezas.length]), [['casa-rural', 1], ['ikisai', 756], ['animado-generico', 11], ['sobrio', 42]]);
   assert.equal(cadena[0].piezas[0].recurso, 'arte/casa/fondo-3.png');
   assert.equal(fondo(cadena, 1).modelo, 'sobrio', 'la pieza del tercero (paso 1) no cuenta: responde el respaldo');
   assert.equal(fondo(cadena, 3).modelo, 'casa-rural', 'la del autor, sí');
@@ -249,7 +253,7 @@ test('SEG-14: un modelo del eje se nombra por id ({ ref } o texto) y no por nomb
   await conModelo(eje, 'huesped', { ref: propio.id });
   assert.equal(modelo(eje, 'huesped')[0].donde, propio.id, 'la preferencia como { ref }');
   await conModelo(eje, 'huesped', 'f'.repeat(64));
-  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['animado-generico', 'sobrio'], 'un id que el eje no tiene se salta');
+  assert.deepEqual(modelo(eje, 'huesped').map((m) => m.nombre), ['ikisai', 'animado-generico', 'sobrio'], 'un id que el eje no tiene se salta');
 
   // Un registro del eje que parece el modelo «ikisai» no suplanta al de la época.
   const falso = await eje.escribir({ autor: 'cocina', sobre: eje.alta('cocina').id, en: '1000000000', t: T, movimientos: [minuto('cocina')], payload: [['ikisai', 'ilustrado', 'yo soy ikisai']] });
@@ -284,7 +288,7 @@ test('SEG-14: un modelo del eje se nombra por id ({ ref } o texto) y no por nomb
   await conModelo(eje, 'huesped', conRef.id);
   cadena = modelo(eje, 'huesped');
   assert.equal(cadena[0].piezas.length, 0, 'la pieza referenciada del eje con URL ajena se descarta');
-  assert.equal(fondo(cadena, 5).modelo, 'sobrio');
+  assert.equal(fondo(cadena, 5).modelo, 'ikisai', 'no responde el modelo del eje: el siguiente de la cadena');
   // La lista blanca es un dato de la cabecera de la época; lo de la época no pasa por este filtro.
   assert.deepEqual(cabecera().origenes, ['https://agram.ikisai.com']);
   const sinLista = epocaCon((e) => { e[9][7][0][9] = [e[9][7][0][9][0]]; });
