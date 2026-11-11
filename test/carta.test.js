@@ -323,10 +323,14 @@ test('el animado entero (etapa 5): cada PV lleva su etapa por madurez y orientac
   assert.match(h, /capa-elemento/);
   assert.doesNotMatch(h, /class="escenario|pieza-personaje|pieza-marco/);
   assert.doesNotMatch(h, /undefined|\[object Object\]/);
-  // En Sequenced (el móvil en vertical), la fila abierta sigue con su escenario: el fondo, la etapa y el personaje esperando.
+  // En Sequenced (el móvil en vertical, #7), la fila abierta lleva capas ligeras sobre el sobrio: el fondo atenuado, la
+  // etapa junto al nombre de la fila y el dibujo del mundo en cada hijo; sin escenario, sin muñequito y sin el marco
+  // estirado encima (test/animado-capas.test.js: quitar las capas da el sobrio).
   const v = html(await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 1: NIVEL.bloque }, nuevos: new Set() }, eje, 'huesped', MOVIL));
-  assert.match(v, /<div class="escenario" data-escenario><img class="pieza pieza-fondo pieza-imagen"[^>]*><img class="pieza pieza-etapa pieza-imagen"[^>]*><div class="pieza pieza-personaje accion-esperar pieza-lottie" data-lottie="arte\/fase2\/bloque-2\/[^"]+" data-fotograma="\d+" data-animar="1" data-bucle="1" data-prioridad="1"/);
-  assert.match(v, /pieza-elemento|pieza-marco/);
+  assert.match(v, /<img class="pieza capa pieza-fondo capa-fondo pieza-imagen" src="\.\/arte\/fase2\/[^"]+\/fondo\/fondo-05-/);
+  assert.match(v, /class="pieza capa pieza-etapa capa-etapa capa-etapa-fila pieza-imagen"/);
+  assert.match(v, /class="capa capa-dibujo/);
+  assert.doesNotMatch(v, /class="escenario|pieza-personaje|pieza-marco|class="pieza pieza-elemento/);
   // Un PV abierto como foco lleva su escenario entero.
   const f = await arbol({ foco: { X: X.id, pv: 4 }, nuevos: new Set() }, eje, 'huesped', MOVIL);
   assert.equal(f.centro.cara, 'pv');
@@ -372,7 +376,9 @@ test('el animado anima lo que pasa: un movimiento nuevo del diario reproduce una
   assert.deepEqual([cuatro.paso.k, cuatro.paso.de], [4, 4]);
   assert.deepEqual([cuatro.personaje.accion, cuatro.personaje.animar, cuatro.personaje.rol], ['celebrar', ANIMAR.una, modelos.rolPorDefecto(c, 'munequito', 4)]);
   assert.equal(e.laterales.find((n) => n.pv === 1).personaje.accion, 'esperar');
-  assert.match(html(e), /pieza-personaje accion-celebrar pieza-lottie" data-lottie="[^"]+" data-fotograma="\d+" data-animar="1" data-bucle="0" data-prioridad="0"/);
+  // En el móvil en vertical no hay muñequitos (#7): la celebración se ve a pantalla completa (Mapped), en la capa del personaje.
+  assert.doesNotMatch(html(e), /pieza-personaje/);
+  assert.match(html(await arbol({ foco: { X: reserva.id, pv: 4 }, nuevos: new Set() }, b2, 'huesped', ORDENADOR)), /pieza-personaje accion-celebrar pieza-lottie" data-lottie="[^"]+" data-fotograma="\d+" data-animar="1" data-bucle="0" data-prioridad="0"/);
   // El tope: la preferencia «animations» de quien mira.
   await animadoConIkisai(b2, 'huesped', { animations: '3' });
   const f = await arbol({ foco: { X: reserva.id, pv: 0 } }, b2, 'huesped', MOVIL);
@@ -625,13 +631,13 @@ test('Sequenced: el pasado encima de la tarjeta y el futuro debajo, por páginas
   assert.equal(b.secuencia.pasado.ocupantes.lista.length, 2);
   assert.equal(b.secuencia.futuro.ocupantes.lista.length, 3);
   assert.equal(b.secuencia.futuro.cargarMas, false);
-  // El HTML: el pasado, la tarjeta y el futuro, en ese orden; «cargar más» arriba del pasado y abajo del futuro.
+  // El HTML: el pasado, la tarjeta y el futuro, en ese orden; «cargar más» al final de cada lista (#18: lo más lejano, abajo).
   const h = html(a);
   const sec = trozoDe(h, '<div class="secuencia"');
   const [p, n, f] = [sec.indexOf('data-hilo-zona="6"'), sec.indexOf('class="nucleo anverso'), sec.indexOf('data-hilo-zona="7"')];
   assert.ok(p > 0 && p < n && n < f, 'pasado, tarjeta, futuro');
   const zonaP = trozoDe(sec, 'data-hilo-zona="6"', '</section>');
-  assert.ok(zonaP.indexOf('data-cargar-mas="6"') < zonaP.indexOf('class="pv-cabeza hilo-cabeza"'), 'en el pasado, cargar más arriba y la cabeza junto a la tarjeta');
+  assert.ok(zonaP.indexOf('data-cargar-mas="6"') < zonaP.indexOf('class="pv-cabeza hilo-cabeza"'), 'en el pasado, cargar más al final de la lista y la cabeza junto a la tarjeta');
   const zonaF = trozoDe(sec, 'data-hilo-zona="7"', '</section>');
   assert.ok(zonaF.indexOf('class="pv-cabeza hilo-cabeza"') < zonaF.indexOf('data-cargar-mas="7"'), 'en el futuro, la cabeza junto a la tarjeta y cargar más abajo');
 });
@@ -662,4 +668,73 @@ test('Sequenced: sin rosetones ni franja de comprimidos; la fila fija de los die
   const g = html(b);
   assert.doesNotMatch(g, /class="digitos"|data-menu|class="secuencia"|class="filas"/);
   assert.match(g, /<nav class="rosetones rosetones-mapa"/);
+});
+
+// ---------- El orden vertical del 6 y el 7 (VG, 11-11, #18): lo más cercano al presente arriba ----------
+
+test('el orden vertical del 6 y el 7 es un dato de la época (epoch.8.7): el pasado, lo más reciente arriba; el futuro, lo más próximo arriba; la carta no ordena y las franjas no cambian', async () => {
+  const { eje, compra: X } = await compra();
+  // Escritos en el 6 y el 7 con fechas que no siguen el orden de llegada.
+  const escribir = (en, t, texto) => eje.escribir({ autor: 'huesped', sobre: X.id, en, t, movimientos: [minuto('huesped')], payload: [texto] });
+  for (const t of ['2026-11-08T12:00:00Z', '2026-11-10T09:00:00Z', '2026-11-09T09:00:00Z']) await escribir('6000000000', t, 'pasado ' + t.slice(5, 10));
+  for (const t of ['2026-12-20T10:00:00Z', '2026-11-20T10:00:00Z', '2027-01-06T10:00:00Z']) await escribir('7000000000', t, 'futuro ' + t.slice(0, 10));
+  // La época lo declara en la fila de cada mundo (su novena posición), con un orden de epoch.8.5.
+  assert.equal(C.divisionDelMundo(eje, 6).orden, 'latest');
+  assert.equal(C.divisionDelMundo(eje, 7).orden, 'soonest');
+  for (const pv of [1, 2, 3, 4, 8, 9]) assert.equal(C.divisionDelMundo(eje, pv).orden, undefined, 'sin orden vertical: ' + pv);
+  const ordenes = Object.fromEntries(C.ordenes().map((o) => [o.nombre, o.mecanismo]));
+  assert.deepEqual([ordenes.latest, ordenes.soonest], [['instante', 'reverse'], ['instante']]);
+  // El contrato: por defecto, por llegada (lo que leen las franjas y el resto); con el orden del mundo, por fecha.
+  const textos = (o) => o.ocupantes.map((x) => eje.obtener(x.ref).payload[0]);
+  assert.deepEqual(textos(C.ocupantes(eje, X.id, 6)), ['pasado 11-08', 'pasado 11-10', 'pasado 11-09']);
+  assert.deepEqual(textos(C.ocupantes(eje, X.id, 6, 0, 10, { orden: 'latest' })), ['pasado 11-10', 'pasado 11-09', 'pasado 11-08']);
+  assert.deepEqual(textos(C.ocupantes(eje, X.id, 7, 0, 10, { orden: 'soonest' })), ['futuro 2026-11-20', 'futuro 2026-12-20', 'futuro 2027-01-06']);
+  assert.equal(C.ocupantes(eje, X.id, 6, 0, 10, { orden: 'latest' }).orden, 'latest');
+  const fechas = (d) => d.entradas.map((e) => Date.parse(e.t));
+  const decreciente = (l) => l.every((v, i) => i === 0 || l[i - 1] >= v);
+  const porLlegada = C.diario(eje, X.id, 0, 100);
+  assert.ok(!decreciente(fechas(porLlegada)), 'el diario, por llegada, no va por fecha');
+  const reciente = C.diario(eje, X.id, 0, 100, { orden: 'latest' });
+  assert.equal(reciente.total, porLlegada.total);
+  assert.ok(decreciente(fechas(reciente)), 'el diario con «latest»: lo más reciente primero');
+  // Sequenced: el pasado y el futuro piden su orden y lo pintan de arriba abajo tal cual.
+  const a = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL);
+  const { pasado, futuro } = a.secuencia;
+  assert.deepEqual(pasado.ocupantes.lista.map((o) => o.texto), ['pasado 11-10', 'pasado 11-09', 'pasado 11-08']);
+  assert.deepEqual([pasado.ocupantes.orden, futuro.ocupantes.orden], ['latest', 'soonest']);
+  assert.deepEqual(futuro.ocupantes.lista.map((o) => o.texto), ['futuro 2026-11-20', 'futuro 2026-12-20', 'futuro 2027-01-06']);
+  assert.ok(decreciente(pasado.diario.entradas.map((e) => Date.parse(e.t))), 'el diario del pasado: lo más reciente arriba');
+  const h = html(a);
+  const enOrden = (zona, lista) => { const i = lista.map((x) => zona.indexOf('>' + x + '<')); assert.ok(i.every((v, k) => v > 0 && (k === 0 || i[k - 1] < v)), lista.join(' → ')); };
+  const zonaP = trozoDe(h, 'data-hilo-zona="6"', '</section>');
+  const zonaF = trozoDe(h, 'data-hilo-zona="7"', '</section>');
+  enOrden(zonaP, ['pasado 11-10', 'pasado 11-09', 'pasado 11-08']);
+  enOrden(zonaF, ['futuro 2026-11-20', 'futuro 2026-12-20', 'futuro 2027-01-06']);
+  // Por páginas, «cargar más» al final de cada lista (abajo: lo más lejano).
+  const paso1 = epocaCon((e) => { e[8][3][3][1] = [1]; });
+  const p = html(await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: paso1 }));
+  const p6 = trozoDe(p, 'data-hilo-zona="6"', '</section>');
+  assert.ok(p6.indexOf('>pasado 11-10<') > 0 && p6.indexOf('>pasado 11-10<') < p6.indexOf('data-cargar-mas="6"'), 'la primera página del pasado es lo más reciente; cargar más, debajo');
+  assert.doesNotMatch(p6, /pasado 11-0[89]/);
+  const p7 = trozoDe(p, 'data-hilo-zona="7"', '</section>');
+  assert.ok(p7.indexOf('>futuro 2026-11-20<') > 0 && p7.indexOf('>futuro 2026-11-20<') < p7.indexOf('data-cargar-mas="7"'));
+  // Mapped: los bloques del 6 y el 7 (su lista de ocupantes y el diario) llevan el mismo orden.
+  const m = await arbol({ foco: { X: X.id, pv: 0 }, niveles: { 6: 3, 7: 3 } }, eje, 'huesped', ORDENADOR);
+  const seis = m.laterales.find((n) => n.pv === 6);
+  const siete = m.laterales.find((n) => n.pv === 7);
+  assert.deepEqual(seis.ocupantes.lista.map((o) => o.texto), ['pasado 11-10', 'pasado 11-09', 'pasado 11-08']);
+  assert.deepEqual(siete.ocupantes.lista.map((o) => o.texto), ['futuro 2026-11-20', 'futuro 2026-12-20', 'futuro 2027-01-06']);
+  assert.ok(decreciente(seis.diario.entradas.map((e) => Date.parse(e.t))));
+  // Las franjas de la pantalla completa no cambian: el 6 con hoy a la derecha, el 7 con hoy a la izquierda.
+  const f6 = (await arbol({ foco: { X: X.id, pv: 6 } }, eje, 'huesped', ORDENADOR)).centro.rejilla;
+  const f7 = (await arbol({ foco: { X: X.id, pv: 7 } }, eje, 'huesped', ORDENADOR)).centro.rejilla;
+  assert.equal(f6.forma, 'franjas');
+  assert.equal(f6.bandas.at(-1).ahora, true);
+  assert.equal(f7.bandas[0].ahora, true);
+  // Sin el dato, por llegada: la carta no ordena por su cuenta.
+  const sinOrden = epocaCon((e) => { for (const f of e[8][7][1]) if ([6, 7].includes(f[0][0])) f.length = 8; });
+  const b = await arbol({ foco: { X: X.id, pv: 0 } }, eje, 'huesped', MOVIL, { epoca: sinOrden });
+  assert.deepEqual(b.secuencia.pasado.ocupantes.lista.map((o) => o.texto), ['pasado 11-08', 'pasado 11-10', 'pasado 11-09']);
+  assert.deepEqual(b.secuencia.futuro.ocupantes.lista.map((o) => o.texto), ['futuro 2026-12-20', 'futuro 2026-11-20', 'futuro 2027-01-06']);
+  assert.equal(b.secuencia.pasado.ocupantes.orden, 'arrival');
 });

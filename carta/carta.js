@@ -357,7 +357,10 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
   // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración (en Mapped, por páginas).
   const cuantos = mapa ? mapa.cuantos : nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
   const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
-  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
+  // Las listas verticales del 6 y el 7 (el hilo de Sequenced, sus bloques de Mapped), en el orden que la época declara
+  // para ese mundo (epoch.8.7, VG 11-11 #18: lo más cercano al presente arriba); la carta no ordena, lo pide.
+  const vertical = ordenVertical(eje, pv, ctx);
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, vertical);
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   nodo.ocupantes = {
     total: o.total, desde: o.desde, cuantos: o.cuantos, orden: o.orden,
@@ -392,10 +395,13 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     // (capasDeRejilla): el dibujo del mundo en cada hijo; el fondo, la etapa y el marco los pinta el bloque. Sin
     // personaje (solo a pantalla completa) y lo nuevo, sobre el bloque entero (nodo.nuevos).
     if (ctx.animado && mapa && nodo.rejilla) capasDeRejilla(eje, X, pv, nodo.rejilla, ctx, nodo, nodo.tamano, { personaje: false, efectos: false });
+    // Sequenced, la fila abierta en animado (VG, 11-11, #7: «menos sobrecargado, pero algo»): las mismas capas, el dibujo
+    // del mundo en cada hijo; el fondo y la etapa los pinta la fila. Sin muñequito ni movimientos (sin efectos por hijo).
+    if (ctx.animado && secuencia && nodo.rejilla) capasDeRejilla(eje, X, pv, nodo.rejilla, ctx, nodo, nodo.tamano, { personaje: false, efectos: false });
   }
   // El diario de lo llegado, en el PV del pasado (la cruz, lado del PV1): lo que entró bajo X por llegada.
   if (g.grupo === 'cruz' && g.lado === 1) {
-    const d = contrato.diario(eje, X, 0, cuantos, ctx.opciones);
+    const d = contrato.diario(eje, X, 0, cuantos, vertical);
     // Cada asiento, legible: la primitiva del libro y la cantidad con su serie como la dice el núcleo.
     nodo.diario = { total: d.total, entradas: d.entradas.map((e) => ({ id: e.id, t: e.t, autor: e.autor, movimientos: e.movimientos.map((m) => m.primitiva + ' ' + legibleDe(eje, m, null, ctx.opciones).texto), ancla: e.ancla })) };
     // Las opiniones ancladas en este registro, si es el proyecto donde se anclan (acciones.opiniones): con sus respuestas.
@@ -406,6 +412,16 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     }
   }
   return nodo;
+}
+
+/**
+ * Las opciones con que se piden las listas verticales de un PV: las de siempre más el orden que la época declara para
+ * ese mundo (epoch.8.7, la novena posición de su fila: el 6, lo más reciente primero; el 7, lo más próximo primero), si
+ * declara alguno. La carta no ordena: pasa el nombre del orden a contrato.ocupantes y contrato.diario.
+ */
+function ordenVertical(eje, pv, ctx) {
+  const orden = contrato.divisionDelMundo(eje, pv, ctx.opciones)?.orden;
+  return orden ? { ...ctx.opciones, orden } : ctx.opciones;
 }
 
 /**
@@ -484,7 +500,7 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
   // Un PV lateral abierto como foco: su lista entera (paginada), con la disposición que dice la época para este hueco.
   const cuantos = mapa ? mapa.cuantos : ctx.paso * (ctx.estado.paginas?.[pv] ?? 1);
   const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
-  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ctx.opciones);
+  const o = contrato.ocupantes(eje, X, pv, pagina ? pagina.desde : 0, cuantos, ordenVertical(eje, pv, ctx)); // la lista vertical del 6 y el 7, en su orden (#18)
   const tipoDato = contrato.tipo(eje, X, pv, ctx.opciones);
   const d = contrato.division(eje, X, { datos: mapa ? mapa.datos : Math.max(1, o.ocupantes.length || 1), forma: hueco, ...ctx.opciones });
   const escenario = ctx.animado && LATERALES.includes(pv) ? {

@@ -2331,6 +2331,29 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           [
+            "latest"
+          ],
+          [
+            "instante",
+            "reverse"
+          ],
+          [
+            "by the time of each one (its t), the latest first: in the past, the nearest to now first"
+          ]
+        ],
+        [
+          [
+            "soonest"
+          ],
+          [
+            "instante"
+          ],
+          [
+            "by the time of each one (its t), the earliest first: in the future, the nearest to now first"
+          ]
+        ],
+        [
+          [
             "fit"
           ],
           [
@@ -2636,6 +2659,9 @@ export const EPOCA_0_BTML_DATOS = [
             3,
             2,
             4
+          ],
+          [
+            "latest"
           ]
         ],
         [
@@ -2667,6 +2693,9 @@ export const EPOCA_0_BTML_DATOS = [
             4,
             1,
             3
+          ],
+          [
+            "soonest"
           ]
         ],
         [
@@ -2725,7 +2754,7 @@ export const EPOCA_0_BTML_DATOS = [
         ]
       ],
       [
-        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)"
+        "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas], [orden: el de sus listas verticales, un orden de 8.5]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2). VG, 11-11 (#18): en las listas verticales del 6 y el 7 (el pasado y el futuro de Sequenced, sus bloques de Mapped), lo más cercano al presente arriba: el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian"
       ]
     ]
   ],
@@ -4744,6 +4773,8 @@ export const EPOCA_0_BTML_DATOS = [
           "level closed: cerrada",
           "order arrival: por llegada",
           "order newest: lo último primero",
+          "order latest: lo más reciente primero",
+          "order soonest: lo más próximo primero",
           "order fit: por encaje",
           "size slot: hueco",
           "size card: tarjeta",
@@ -14861,7 +14892,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "17123d49ba587576be4deae03811c8de3989a320b0f90a52e6317d6762ab1055";
+export const EPOCA_0_BTML_ID = "c9df9e0e96c98ca20e04e8efe99b2f168d38bad436a4050f35bd3833726fe4a4";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

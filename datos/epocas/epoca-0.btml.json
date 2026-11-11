@@ -815,6 +815,16 @@
         [["arrival"], ["llegada"], ["by arrival: the order of the ledger (the default, the first)"]],
         [["newest"], ["llegada", "reverse"], ["by arrival, the latest first"]],
         [
+          ["latest"],
+          ["instante", "reverse"],
+          ["by the time of each one (its t), the latest first: in the past, the nearest to now first"]
+        ],
+        [
+          ["soonest"],
+          ["instante"],
+          ["by the time of each one (its t), the earliest first: in the future, the nearest to now first"]
+        ],
+        [
           ["fit"],
           ["encaje"],
           ["by fit: the vector of differences with the position (encaje.ordenarPorEncaje)"]
@@ -886,7 +896,8 @@
           ["epoch.1.3", "epoch.7", "escala"],
           ["-"],
           ["una franja vertical por escala de T que el calendario mide, la más cercana a ahora a la derecha; cuatro hilos horizontales (los PV 1 3 2 4, en ese orden de filas)"],
-          [1, 3, 2, 4]
+          [1, 3, 2, 4],
+          ["latest"]
         ],
         [
           [7],
@@ -896,7 +907,8 @@
           ["epoch.1.3", "epoch.7", "escala"],
           ["-"],
           ["espejo del 6: la franja más cercana a ahora a la izquierda; cuatro hilos horizontales (los PV 2 4 1 3, en ese orden de filas)"],
-          [2, 4, 1, 3]
+          [2, 4, 1, 3],
+          ["soonest"]
         ],
         [
           [8],
@@ -919,7 +931,7 @@
           ["-"]
         ]
       ],
-      ["VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)"]
+      ["VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas], [orden: el de sus listas verticales, un orden de 8.5]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2). VG, 11-11 (#18): en las listas verticales del 6 y el 7 (el pasado y el futuro de Sequenced, sus bloques de Mapped), lo más cercano al presente arriba: el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian"]
     ]
   ],
   [
@@ -2009,6 +2021,8 @@
           "level closed: cerrada",
           "order arrival: por llegada",
           "order newest: lo último primero",
+          "order latest: lo más reciente primero",
+          "order soonest: lo más próximo primero",
           "order fit: por encaje",
           "size slot: hueco",
           "size card: tarjeta",

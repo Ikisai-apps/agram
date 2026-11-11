@@ -127,7 +127,7 @@ small{color:var(--muted)}
 /* el animado entero (etapa 5): el escenario de un PV (fondo, etapa, personaje, efectos) y su marco */
 .pv,.nucleo{position:relative;isolation:isolate}
 .animado .pv.nivel-2:has(>.pieza-marco),.animado .pv.nivel-3:has(>.pieza-marco),.animado .nucleo:has(>.pieza-marco){padding:clamp(10px,4%,36px)} /* el marco pintado entero (Sequenced) tiene su grosor: el contenido queda dentro; con el marco en capas (Mapped, el centro, la pantalla completa) nada cambia de medida */
-.animado .pv.nivel-3 .pv-pie{margin-bottom:2%}
+.animado .pv.nivel-3:has(>.pieza-marco) .pv-pie{margin-bottom:2%} /* solo con el marco pintado entero; con capas (Mapped, las filas de Sequenced) nada cambia de medida */
 .escenario{position:relative;width:min(100%,var(--tarjeta));aspect-ratio:1/1;align-self:center;overflow:hidden;border-radius:8px}
 .pv.nivel-3 .escenario,.nucleo.abierto .escenario{width:min(100%,calc(var(--tarjeta) * 2))}
 .pv.nivel-2 .escenario{width:72px}
@@ -865,3 +865,17 @@ html.mapped body{padding:0}
 /* la fila de los diez dígitos, fina y fija abajo */
 .digitos{position:fixed;left:0;right:0;bottom:0;z-index:8;display:flex;justify-content:center;gap:2px;padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px));background:var(--bg);border-top:1px solid var(--rule)}
 .digito{flex:1 1 0;min-width:0;max-width:44px;height:32px;min-height:32px;padding:0;border-radius:8px;font-family:var(--mono);font-size:14px;font-weight:600;border-color:color-mix(in oklab,var(--c,var(--rule)) 70%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 26%,var(--panel))}
+/* Sequenced en animado (VG, 11-11, #7: «menos sobrecargado, pero algo»): el sobrio intacto y, encima y debajo, capas
+   absolutas (nada cambia de sitio ni de medida). En cada fila abierta, el fondo del mundo muy atenuado detrás de lo que
+   se lee, la etapa pequeña junto al nombre de la fila y el dibujo del mundo en cada hijo (o junto a cada ocupante de una
+   lista, también en el hilo); sin muñequitos ni movimientos. La tarjeta del foco lleva su marco solo como borde. */
+.fila-contenido>.pv>.capa-fondo{opacity:.18}
+.fila-cabeza .etiqueta:has(>.capa-etapa-fila){position:relative;isolation:isolate;overflow-x:clip;overflow-y:visible}
+.fila-cabeza .capa-etapa-fila{position:absolute;right:0;top:50%;width:28px;height:28px;max-width:none;aspect-ratio:1/1;object-fit:contain;transform:translateY(-50%);z-index:-1}
+.animado .fila-contenido .rejilla .hijo{isolation:isolate}
+.animado .fila-contenido .rejilla-celda{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 10%,var(--bg)) 78%,transparent)}
+.animado .fila-contenido .rejilla-celda.vacia{background:color-mix(in oklab,var(--bg) 50%,transparent)}
+.fila-contenido .capa-dibujo .dibujo-hijo{opacity:.4}
+.fila-contenido .capa-dibujo .dibujo-ocupante{opacity:.55}
+.rejilla-apilada .rejilla-cruceta>.hijo .capa-dibujo{left:0;right:0}
+.animado .secuencia .ocupante:has(>.capa-elemento){position:relative;isolation:isolate}
