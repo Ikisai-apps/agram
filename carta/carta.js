@@ -608,7 +608,8 @@ export function plantillaDePreferencias(opciones = {}) {
  * «preferences» de la época (la posición la dice la cabecera de los modelos, epoch.9.7.0.5: la preferencia `model`
  * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
  * es una preferencia es su tipo (B4). Devuelve { payload, nombre, campos: [{ pv, clave, etiqueta, ayuda, marcador,
- * numero, valor }], sobre, en, de } para que la carta la escriba como un registro más, anclado en el 9 del alta
+ * numero, valor, opciones? }], sobre, en, de }; el modelo (#4) lleva `opciones` (los modelos de la época con
+ * recursos, sin el sobrio, [{ valor, texto }]) y, si solo hay uno, no es un campo: se guarda ese para que la carta la escriba como un registro más, anclado en el 9 del alta
  * (`clave` es la etiqueta canónica, la clave de la configuración; `etiqueta` y `ayuda`, en el idioma de yo); null si
  * yo no tiene alta.
  */
@@ -626,6 +627,10 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   // Las preferencias las dice el núcleo (contrato.clavesDeConfiguracion): también las que no tienen defecto (el
   // servidor y el eje compartido, etapa 3), que se pintan vacías; la posición que no es una preferencia es el tipo (B4).
   const deLaEpoca = new Set(contrato.clavesDeConfiguracion(opciones).map((c) => c.clave));
+  // «modelo» (#4): una lista de los modelos de la época con recursos (sin el sobrio); con uno solo, no se pregunta.
+  const eleccion = modelos.eleccionDeModelo(opciones);
+  const nombres = eleccion.modelos.map((m) => m.nombre);
+  const sinRecursos = new Set(modelos.modelosDeLaEpoca(opciones).filter((m) => !modelos.conRecursos(m)).map((m) => m.nombre));
   p.registro.forEach((desc, d) => {
     if (d === 0 || !Array.isArray(desc) || !esDecupla(desc)) return;
     const clave = hojas(desc[0])[0];
@@ -634,9 +639,18 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
     const dado = valores[clave] !== undefined ? hojas(valores[clave]) : hojas(actual[clave]);
     const limpio = dado.map((v) => (numero && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : v)).filter((v) => v !== '' && v !== undefined && v !== null);
     // Vacía y sin defecto, la posición queda sin escribir (BTML no tiene posiciones vacías).
-    const v = limpio.length ? limpio : hojas(defectos[clave]);
+    let v = limpio.length ? limpio : hojas(defectos[clave]);
+    let lista = null;
+    if (clave === eleccion.clave && nombres.length) {
+      // El sobrio (o un modelo sin recursos de la época) no se elige: vale el defecto si está en la lista, si no el primero.
+      const defecto = hojas(defectos[clave]).find((x) => nombres.includes(x)) ?? nombres[0];
+      const elegido = typeof v[0] === 'string' && !sinRecursos.has(v[0]) ? v[0] : defecto;
+      v = [nombres.length === 1 ? nombres[0] : elegido];
+      lista = [...nombres, ...(nombres.includes(v[0]) ? [] : [v[0]])].map((x) => ({ valor: x, texto: T('option ' + x, clave, x) }));
+    }
     if (v.length) payload[d] = v;
-    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v });
+    if (lista && lista.length < 2) return; // un solo paquete de arte: se guarda el que hay y no se pregunta
+    campos.push({ pv: d, clave, etiqueta: T('label', clave, clave), ayuda: T('help', clave, hojas(desc[9]).slice(-1)[0] ?? ''), marcador: hojas(defectos[clave]), numero, valor: v.length === 1 ? v[0] : v, ...(lista ? { opciones: lista } : {}) });
   });
   // El registro acaba en el primer hueco: lo de detrás de una posición sin valor no se puede escribir (BTML no tiene
   // huecos), y una preferencia sin valor es la de la época (sync ledger sin sync url no comparte nada).
