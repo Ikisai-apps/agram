@@ -19,6 +19,8 @@
 // que falte, así que está cerrada (motor.cerrado).
 
 import { Eje } from '../../src/eje.js';
+import { transaccion } from '../../src/acciones.js';
+import { firmar } from '../../src/autoridad.js';
 import { entrarPorInvitacion } from './altas.mjs';
 
 /**
@@ -240,4 +242,40 @@ export async function ejemploJardinYParque(eje, { compra }, privadas = {}) {
   const pendiente = await pide(8, '¿Hay postre sin azúcar?');
   const perdonada = await eje.escribir({ autor: 'huesped', sobre: conversacion.id, en: '3000000000', t: t(9), movimientos: [gasta('huesped'), R(1, 'huesped', null)], payload: 'Esta te la perdono' }, priv('huesped'));
   return { decision, voto, conversacion, atendida, respuesta, pendiente, perdonada };
+}
+
+/**
+ * La fábrica de la compra (encargo «datos2», issue #11): lo que hace falta para que la matriz del 4 enseñe sus tres
+ * estaciones y para que el 1 tenga capacidad. Todo inventado.
+ *
+ * La huésped anuncia en el 4.1 de la compra tres movimientos (un registro por movimiento: [[serie], [cuánto], [qué],
+ * [[de], [a]]]): pagar los doce euros a la cocina, que la compra misma ya transfirió (ejecutada); darle una hora a la
+ * cocina para servir, que respalda comprometiendo su P sobre ese anuncio («commit P»: su recuento pasa el umbral, así
+ * que está autorizada aunque la hora aún no se ha movido); y devolverle una R a la casa para que la atienda, sin más
+ * (propuesta). Además, por el aro: declara la capacidad de la compra («declare capacity or threshold», en su 2.2: dos a
+ * la vez) y ancla una nota en ella («anchor here», en su raíz: una interacción del 6 sobre la posición 0).
+ */
+export async function ejemploFabrica(eje, { compra }, privadas = {}) {
+  const priv = (id) => privadas[id];
+  const t = (minuto) => '2026-11-07T16:' + String(minuto).padStart(2, '0') + ':00Z';
+  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const anuncia = (minuto, serie, cantidad, que, de, a) => eje.escribir({
+    autor: 'huesped', sobre: compra.id, en: '4100000000', t: t(minuto), movimientos: [gasta('huesped')], payload: [[serie], [cantidad], [que], [[de], [a]]],
+  }, priv('huesped'));
+  const pagar = await anuncia(0, 'E:casa/EUR', 12, 'pagar', 'huesped', 'cocina');
+  const servir = await anuncia(1, 'T:hora', 1, 'servir', 'huesped', 'cocina');
+  const atender = await anuncia(2, 'R:casa', 1, 'atender', 'huesped', 'casa');
+  // Por el aro: la plantilla construye el registro (nombra la acción en su 4; con clave, se valida ya firmado) y la
+  // huésped lo escribe con su firma.
+  const accion = async (minuto, cual, params) => {
+    const privada = priv('huesped');
+    const r = await transaccion(eje, cual, params, 'huesped', { t: t(minuto), ...(privada ? { firmar: (ev) => firmar(ev, privada) } : {}) });
+    if (!r.ok) throw new Error(cual + ': ' + r.motivos.map((m) => m.mensaje).join('; '));
+    const { autor, sobre, en, movimientos, payload } = r.evento;
+    return eje.escribir({ autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
+  };
+  const respaldo = await accion(3, 'commit P', { X: servir.id, power: 'P:' + servir.id + '/huesped', amount: 10 });
+  const capacidad = await accion(4, 'declare capacity or threshold', { X: compra.id, capacity: 2 });
+  const nota = await accion(5, 'anchor here', { X: compra.id, title: 'Nota de la huésped' });
+  return { pagar, servir, atender, respaldo, capacidad, nota };
 }

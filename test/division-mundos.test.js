@@ -17,7 +17,7 @@ import { pasos } from '../src/pasos.js';
 import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
-import { ejemploCompra, ejemploJardinYParque } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploJardinYParque, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -447,7 +447,10 @@ test('la matriz del 4 trae sus dos ejes nombrados (columnas: los diez PV como ti
   assert.equal((h.match(/class="matriz-eje matriz-columna"/g) ?? []).length, 10);
   assert.equal((h.match(/class="matriz-eje matriz-fila"/g) ?? []).length, 10);
   assert.equal((h.match(/class="rejilla-celda hijo[^"]* diagonal"/g) ?? []).length, 10);
-  assert.equal((h.match(/class="rejilla-celda hijo estacion/g) ?? []).length, C.ocupantes(eje, compra.id, 4).total, 'cada celda con ocupante, una estación');
+  assert.equal((h.match(/class="rejilla-celda hijo estacion/g) ?? []).length, r.celdas.filter((c) => c.ocupante).length, 'cada celda con ocupante, una estación');
+  // lo propio del 4 de la compra (pagar, servir) no dice tipo de interacción ni posición: va aparte, no en una celda inventada (encargo «datos2»)
+  assert.equal(r.sinPosicion.length, C.ocupantes(eje, compra.id, 4).total);
+  assert.ok(h.includes('class="matriz-sin-posicion"'));
 });
 
 test('las franjas del 6 y el 7 son verticales y traen cuatro hilos horizontales en el orden de d.hilos; cada cuenta en su franja y en un hilo', async () => {
@@ -604,4 +607,56 @@ test('el 3 a pantalla completa: cada caja con su grupo de atención y su precio 
   // los textos son de la interfaz (carta/textos.js) y el estilo solo CSS
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
   for (const sel of ['.hijo-pie{', '.hijo-barra{', '.hijo-precio b{', '.conversacion .mensaje .paquete{']) assert.ok(css.includes(sel), sel);
+});
+
+// ---------- el 1 y el 4 a pantalla completa con lo que mide el núcleo (encargo «datos2», issue #11) ----------
+
+/** La compra con su fábrica (ejemplos/ikisai/compra-food.mjs, ejemploFabrica): tres anuncios con sus estaciones, capacidad y una nota. */
+async function conFabrica() {
+  const c = await ejemploCompra();
+  return { ...c, ...(await ejemploFabrica(c.eje, c)) };
+}
+
+test('el 1 a pantalla completa: el pie de cada esquina con lo que mide su hijo (el coste en el 1, disponible sobre capacidad con su barra en el 2, la tabla de lo que entra y sale en el 3)', async () => {
+  const { eje, compra } = await conFabrica();
+  const a = await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.equal(r.forma, 'cruceta');
+  const [uno, dos, tres, cuatro] = r.celdas;
+  const hijos = C.hijosDe(eje, compra.id, 1);
+  assert.deepEqual(uno.coste, hijos[0].coste);
+  assert.deepEqual(dos.capacidad, { capacidad: 2, comprometido: 0, disponible: 2, franja: '' });
+  assert.deepEqual(tres.flujo.map((f) => [f.serie, f.entra, f.sale]), hijos[2].salidas.map((x) => [x.serie, 0, x.cantidad]));
+  assert.deepEqual(tres.flujo.map((f) => f.texto).slice(0, 2), ['hora', 'EUR'], 'la serie, legible');
+  assert.equal(['coste', 'capacidad', 'flujo'].some((k) => k in cuatro), false);
+  const h = rejillaHtml(html(a));
+  assert.ok(h.includes(`<p class="hijo-coste">${t('hijoCoste', { coste: 'EUR 12' })}</p>`));
+  assert.ok(h.includes(`<p class="hijo-capacidad">${t('hijoDisponible', { disponible: 2, capacidad: 2 })}</p><span class="hijo-barra" data-de="capacidad" style="--lleno:1"`));
+  assert.ok(h.includes(`<table class="hijo-flujo"><thead><tr><th scope="col">${t('hijoFlujoSerie')}</th>`));
+  assert.equal((h.match(/class="hijo-pie"/g) ?? []).length, 3, 'tres esquinas miden algo; la cuarta, no');
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  for (const sel of ['.hijo-flujo{', '.hijo-barra[data-de="capacidad"]>span{', '.rejilla-cruceta>.hijo[data-columna="0"] .hijo-pie{']) assert.ok(css.includes(sel), sel);
+});
+
+test('la matriz del 4: cada ejecución en su celda (columna = el PV de su plantilla, fila = la posición que modifica), con su estación; las tres estaciones en (4, 4) y lo que no se sabe colocar, aparte', async () => {
+  const { eje, compra, pagar, servir, atender, capacidad, nota } = await conFabrica();
+  const a = await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  const celda = (fila, columna) => r.celdas.find((x) => x.fila === fila && x.columna === columna);
+  assert.deepEqual(celda(4, 4).ocupantes.map((o) => [o.X, o.estado]), [[pagar.id, 'ejecutada'], [servir.id, 'autorizada'], [atender.id, 'propuesta']]);
+  assert.equal(celda(4, 4).estado, null, 'mezcladas: cada ejecución lleva la suya');
+  assert.deepEqual(celda(2, 2).ocupantes.map((o) => o.X), [capacidad.id]);
+  assert.deepEqual([celda(0, 6).ocupantes.map((o) => o.X), celda(0, 6).diagonal], [[nota.id], false]);
+  assert.equal(r.celdas.reduce((s, c) => s + c.ocupantes.length, 0) + r.sinPosicion.length, A.ejecuciones(eje, compra.id).length, 'ni se pierde ni se inventa ninguna');
+  assert.ok(r.sinPosicion.every((o) => !o.X), 'aparte, lo propio del 4 (pagar, servir)');
+  const h = rejillaHtml(html(a));
+  for (const e of ['ejecutada', 'autorizada', 'propuesta']) assert.ok(h.includes(`<li class="ejecucion" data-estado="${e}" title="${t(e === 'ejecutada' ? 'estadoEjecutada' : e === 'autorizada' ? 'estadoAutorizada' : 'estadoPropuesta')}">`), e);
+  assert.ok(h.includes(`<span class="matriz-eje">${t('matrizSinPosicion')}</span>`));
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  for (const sel of ['.ejecucion[data-estado="autorizada"]{', '.ejecucion[data-estado="ejecutada"]::after{', '.matriz-sin-posicion{']) assert.ok(css.includes(sel), sel);
+  // sin «pv» en lo que mide la fila del 4 (epoch.8.7), los ocupantes del 4 por orden, como antes
+  const sinPv = epocaCon((e) => { filaDe(e, 4)[4] = ['epoch.5']; });
+  const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: sinPv })).centro.rejilla;
+  assert.equal('sinPosicion' in b, false);
+  assert.equal(b.celdas.filter((x) => x.ocupante).length, C.ocupantes(eje, compra.id, 4).total);
 });

@@ -652,6 +652,9 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "pay"
+        ],
+        [
+          "epoch.9.0.0"
         ]
       ],
       [
@@ -663,6 +666,9 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "deliver"
+        ],
+        [
+          "epoch.9.0.0"
         ]
       ],
       [
@@ -674,6 +680,9 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "deliver"
+        ],
+        [
+          "epoch.9.0.0"
         ]
       ],
       [
@@ -685,10 +694,14 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "deliver"
+        ],
+        [
+          "epoch.9.0.0"
         ]
       ],
       [
-        "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que mueve un movimiento anunciado de esa familia: pay la E, deliver lo demás]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4"
+        "VG, tras 3b-bis (encargo 3c-2a): los pasos de un proceso se tipan por token; cada estación es [[familia], [qué se hace], [la plantilla de transacción que mueve un movimiento anunciado de esa familia: pay la E, deliver lo demás]]; la lectura «stage» (X.4.8) da lo anunciado y pendiente, y se agrupa por estación con before.4",
+        "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): la cuarta posición de cada estación es lo que autoriza un anuncio pendiente, la estación intermedia «autorizada» entre propuesta y ejecutada; epoch.9.0.0 es el recuento del anuncio con el criterio de su dueño (motor.recuento: el P comprometido con él, con salida = el anuncio, pasa el umbral), la autorización como P que respalda; «-» si esa estación no tiene autorización. No cambia el motor ni la lectura «stage»: el anuncio sigue pendiente hasta que se mueve"
       ]
     ]
   ],
@@ -2534,7 +2547,9 @@ export const EPOCA_0_BTML_DATOS = [
             "cruceta"
           ],
           [
-            "-"
+            "epoch.9.2",
+            "capacity",
+            "epoch.4.0"
           ],
           [
             "--hueco: 1fr"
@@ -2546,6 +2561,9 @@ export const EPOCA_0_BTML_DATOS = [
             "-"
           ],
           [
+            "epoch.9.2",
+            "capacity",
+            "epoch.4.0",
             "-"
           ]
         ],
@@ -2797,7 +2815,8 @@ export const EPOCA_0_BTML_DATOS = [
       [
         "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)",
         "Encargo «datos» (issue #11, primera parte; Core, pendiente de revisar VG): la posición 8 de cada fila (la novena, detrás de los hilos) es el enlace, lo que cada hijo es de lo que la fila mide, uno por hijo y en su orden («-» si nada). El 2 mide el P por mirada (epoch.1.1: sus hijos 1-5 son las miradas 1-5 de su P, el enlace 1 2 3 4 5) y el recuento (epoch.9.0.0: el umbral del dueño si su criterio dice esa mirada, «view d»); el 3 mide los seis grupos de atención (epoch.1.2.1: hijo 1 ↔ zona 0 general, 2 ↔ 1 comercial, 3 ↔ 2 expertos, 4 ↔ 3 poder o cercanos, 5 ↔ 4 equipo, 6 ↔ 5 vetados, el enlace 0 1 2 3 4 5, con el precio de esa zona para el dueño del registro) y el estado de cada paquete (la lectura «attended»: una devolución de R pendiente o atendida; una R quemada por su tenedor, perdonada) (docs/CONTRATO.md §4.2)",
-        "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás"
+        "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás",
+        "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): el 1 mide epoch.9.2 (el coste: lo que el registro declara en el <dígito>.2 del hijo, «a qué precio» en el 1.2 de «purchase» y de «booking»), capacity (la capacidad: el último «declare capacity or threshold» del dueño o el 2 del registro más cercano de su hilo que la declara, con lo comprometido del E atado a él, por franja) y epoch.4.0 (lo que entra y sale de E y de T por las primitivas, visto desde el dueño); su enlace es qué hijo mide qué: 1 cuánto ↔ el coste, 2 con qué condición ↔ la capacidad, 3 con quién ↔ lo que entra y sale (cada movimiento tiene un de y un a), 4 qué se hace ↔ nada (lo que se hace es la fábrica, el 4) (docs/CONTRATO.md §4.2)"
       ]
     ]
   ],
@@ -15309,7 +15328,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "3c5ec6f077957524a7a9e2e5b19f7eab577c71b3fd0ea6146f949e5526eda855";
+export const EPOCA_0_BTML_ID = "90ffa7600d19e3177db97eab28790b95204d1605ee7f22d6c60d2b2ac40342d8";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

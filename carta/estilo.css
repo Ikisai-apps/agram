@@ -519,6 +519,19 @@ html.mapped body{padding:0}
 .hijo-barra{display:block;height:6px;border-radius:3px;border:1px solid color-mix(in oklab,var(--c,var(--accent)) 60%,var(--rule));background:transparent;overflow:hidden}
 .hijo-barra>span{display:block;height:100%;width:calc(var(--lleno,0) * 100%);background:color-mix(in oklab,var(--c,var(--accent)) 80%,var(--fg))}
 .hijo-barra[data-pasa]>span{background:color-mix(in oklab,var(--c,var(--accent)) 55%,var(--fg))}
+/* lo que el núcleo mide de cada hijo del 1 (encargo «datos2», issue #11): coste, disponible sobre capacidad, lo que entra y sale */
+.hijo-coste,.hijo-capacidad{margin:0;overflow-wrap:anywhere}
+.hijo-coste{color:var(--fg)}
+.hijo-barra[data-de="capacidad"]>span{background:color-mix(in oklab,var(--ok) 75%,var(--fg))}
+.hijo-barra[data-agotada]{border-style:dashed}
+.hijo-flujo{width:100%;border-collapse:collapse;font-size:10px;table-layout:fixed}
+.hijo-flujo th,.hijo-flujo td{padding:0 3px;text-align:right;font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hijo-flujo th[scope="row"],.hijo-flujo thead th:first-child{text-align:left;width:55%}
+.hijo-flujo thead th{color:var(--muted);border-bottom:1px solid var(--rule)}
+.hijo-flujo td{color:var(--fg);font-variant-numeric:tabular-nums}
+.hijo-flujo .hijo-flujo-mas td{text-align:left;color:var(--muted)}
+.rejilla-cruceta>.hijo[data-columna="0"] .hijo-pie{padding-right:calc(var(--flotante-ancho) / 2 + 8px)}
+.rejilla-cruceta>.hijo[data-columna="1"] .hijo-pie{padding-left:calc(var(--flotante-ancho) / 2 + 8px)}
 .conversacion .mensaje .paquete{font-size:10px;padding:0 6px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));color:var(--muted)}
 .conversacion .mensaje .paquete[data-estado="pendiente"]{border-style:dashed;color:var(--fg)}
 .conversacion .mensaje .paquete[data-estado="perdonado"]{text-decoration:line-through}
@@ -539,6 +552,24 @@ html.mapped body{padding:0}
 .rejilla-matriz>.estacion[data-estado="propuesta"]{--estado:#c9a227}
 .rejilla-matriz>.estacion[data-estado="ejecutada"]{--estado:var(--ok)}
 .rejilla-matriz>.estacion[data-estado="ejecutada"]::after{content:'✓';position:absolute;right:3px;bottom:2px;width:16px;height:16px;border-radius:50%;border:2px solid var(--ok);color:var(--ok);font-size:10px;line-height:12px;text-align:center;transform:rotate(-12deg)}
+/* la estación intermedia y la celda como lista de ejecuciones, cada una con su estación; la fila aparte de lo que no
+   tiene celda (encargo «datos2», issue #11) */
+.rejilla-matriz>.estacion[data-estado="autorizada"]{--estado:#3f7fbf}
+.rejilla-matriz .ejecuciones{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;width:100%;min-width:0;font-weight:400}
+.ejecucion{--estado:var(--c,var(--rule));position:relative;display:flex;align-items:center;gap:3px;min-width:0;padding:0 16px 0 3px;border:1px solid color-mix(in oklab,var(--estado) 70%,var(--fg));border-radius:3px;background:color-mix(in oklab,var(--estado) 25%,var(--bg));font-size:10px;line-height:1.3}
+.ejecucion[data-estado="propuesta"]{--estado:#c9a227;border-style:dashed}
+.ejecucion[data-estado="autorizada"]{--estado:#3f7fbf}
+.ejecucion[data-estado="ejecutada"]{--estado:var(--ok)}
+.ejecucion[data-estado="ejecutada"]::after{content:'✓';position:absolute;right:1px;top:50%;width:11px;height:11px;margin-top:-6px;border-radius:50%;border:1.5px solid var(--ok);color:var(--ok);font-size:8px;line-height:9px;text-align:center;transform:rotate(-12deg)}
+.ejecucion .ocupante{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;padding:0;min-height:0;border:0;background:transparent}
+.ejecucion .estacion-nombre{flex:none;font-size:9px;color:var(--muted)}
+.ejecucion .quien,.ejecucion .celda-abrir{display:none}
+.rejilla-matriz .hijo-cuerpo:has(>.ejecuciones){align-items:flex-start;justify-content:flex-start;overflow:hidden}
+.ejecucion-mas{font-size:9px;color:var(--muted);text-align:center}
+.matriz-sin-posicion{flex:none;display:flex;align-items:center;gap:6px;min-width:0;padding-top:4px;border-top:1px dashed var(--rule);font-size:11px;color:var(--muted);overflow:hidden}
+.matriz-sin-posicion .matriz-eje{flex:none}
+.ejecuciones.en-fila{list-style:none;margin:0;padding:0;display:flex;flex-direction:row;flex-wrap:nowrap;gap:4px;min-width:0;overflow:hidden}
+.ejecuciones.en-fila .ejecucion{flex:0 1 auto;max-width:12rem;padding-right:3px}
 /* las franjas (el 6 y el 7): franjas verticales por escala y cuatro hilos horizontales que las atraviesan */
 .rejilla-franjas{--ancho-hilo:7.5rem;--cabeza-franja:2.4rem;flex:1;min-height:0;display:grid;row-gap:0}
 .rejilla-completa .rejilla-franjas{column-gap:var(--hueco);row-gap:0}

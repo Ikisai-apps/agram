@@ -1072,13 +1072,24 @@ function centroFlotante(eje, R, pv, ctx) {
 /**
  * Lo que el núcleo mide de un hijo (contrato.hijosDe, encargo «datos», issue #11), tal cual: en el 2, el P de su mirada
  * (`votos`: comprometidos y reposicionables, si hay alguno) y, si el criterio del dueño dice esa mirada, el recuento
- * (`meta`: umbral, valor, pasa, faltan); en el 3, el precio de su zona de atención (`precio`). Nada si no lo da.
+ * (`meta`: umbral, valor, pasa, faltan); en el 3, el precio de su zona de atención (`precio`). En el 1 (encargo
+ * «datos2»): el coste (`coste`), la capacidad con lo comprometido y lo disponible (`capacidad`) y lo que entra y sale
+ * por serie (`flujo`: [{ serie, texto, entra, sale }], el nombre de la serie, legible). Nada si no lo da.
  */
-function medidaDeHijo(h) {
+function medidaDeHijo(h, eje, ctx) {
   const m = {};
   if ((h.comprometidos ?? 0) + (h.reposicionables ?? 0) > 0) m.votos = { comprometidos: h.comprometidos, reposicionables: h.reposicionables };
   if (typeof h.umbral === 'number') m.meta = { umbral: h.umbral, valor: h.valor, pasa: h.pasa, faltan: h.faltan };
   if (h.precio) m.precio = h.precio;
+  if (h.coste) m.coste = h.coste;
+  if (typeof h.capacidad === 'number') m.capacidad = { capacidad: h.capacidad, comprometido: h.comprometido, disponible: h.disponible, franja: h.franja ?? '' };
+  if ((h.entradas?.length ?? 0) + (h.salidas?.length ?? 0) > 0) {
+    const filas = new Map();
+    const fila = (serie) => filas.get(serie) ?? filas.set(serie, { serie, texto: legibleDe(eje, serie, null, ctx.opciones).texto || serie, entra: 0, sale: 0 }).get(serie);
+    for (const x of h.entradas ?? []) fila(x.serie).entra = x.cantidad;
+    for (const x of h.salidas ?? []) fila(x.serie).sale = x.cantidad;
+    m.flujo = [...filas.values()];
+  }
   return m;
 }
 
@@ -1095,7 +1106,7 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
     const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio);
     // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
     if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
-    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h) };
+    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h, eje, ctx) };
     if (forma.siguiente) celda.siguiente = ocupantes.filter((o) => o.tipo === 'referencia' && o.X).map((o) => ({ X: o.X, texto: o.texto, hijos: hijosSiguientes(eje, o.X, pv, d.nivel + 1, ctx) }));
     return celda;
   });
@@ -1104,37 +1115,66 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
 
 /**
  * El estado de cada anuncio del 4 de R por las estaciones de la fábrica (acciones.estaciones): «ejecutada» lo que ya
- * pasó, «propuesta» lo anunciado y pendiente. El núcleo no distingue todavía una estación «autorizada».
+ * pasó, «autorizada» lo pendiente que su estación da por autorizado (encargo «datos2», issue #11: el recuento del
+ * anuncio pasa), «propuesta» lo demás anunciado y pendiente.
  */
 function estadosDeEstaciones(eje, R, ctx) {
   const estados = new Map();
   for (const e of acciones.estaciones(eje, R, ctx.opciones)) {
-    for (const id of e.pendientes) estados.set(id, 'propuesta');
+    for (const id of e.pendientes) estados.set(id, (e.autorizados ?? []).includes(id) ? 'autorizada' : 'propuesta');
     for (const id of e.hechos) estados.set(id, 'ejecutada');
   }
   return estados;
 }
 
+/** El estado de una celda de la matriz: el de sus ejecuciones si todas dicen el mismo; si no, ninguno (cada una lleva el suyo). */
+function estadoDeCelda(nodos) {
+  const estados = [...new Set(nodos.map((n) => n.estado ?? null))];
+  return estados.length === 1 ? estados[0] : null;
+}
+
 /**
- * La matriz 10 × 10 del 4: los ocupantes del PV colocados por filas, en páginas de matrices enteras («‹ n de m ›»), con
- * sus dos ejes nombrados (columnas: los diez PV como tipo de interacción, con su etiqueta corta; filas: la posición que
- * se modifica, con su nombre de la regla corta a profundidad 1) y la diagonal marcada. Cada celda con un ocupante que
- * es un anuncio lleva su estado (estadosDeEstaciones). El núcleo aún no dice el PV de interacción ni la posición de
- * cada ocupante: van en el orden de siempre, por filas.
+ * La matriz 10 × 10 del 4, con sus dos ejes nombrados (columnas: los diez PV como tipo de interacción, con su etiqueta
+ * corta; filas: la posición que se modifica, con su nombre de la regla corta a profundidad 1) y la diagonal marcada.
+ * Si la fila de la época mide el PV de interacción («pv» en lo que mide, epoch.8.7; encargo «datos2», issue #11), cada
+ * ejecución de la fábrica de R va en su celda (acciones.ejecuciones: columna = el PV de la plantilla que la escribió o
+ * que la cumple, fila = la posición que modifica), la celda es su lista, cada una con su estación (propuesta,
+ * autorizada, ejecutada) y lo que el núcleo no sabe colocar va aparte, en la fila «sin posición» (`sinPosicion`), sin
+ * inventar celda. Si no, los ocupantes del PV van por orden, por filas, en páginas de matrices enteras («‹ n de m ›»).
  */
 function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
   const celdas = [];
   for (let fila = 0; fila < g.filas; fila++) for (let columna = 0; columna < g.columnas; columna++) celdas.push({ fila, columna, pv, ocupantes: [], ocupante: null, entra: false, diagonal: fila === columna, estado: null });
+  const ejes = {
+    columnas: POSICIONES.slice(0, g.columnas).map((k) => ({ pv: k, etiqueta: contrato.etiqueta(eje, null, k, ctx.opciones) })),
+    filas: POSICIONES.slice(0, g.filas).map((k) => ({ digito: k, nombre: contrato.etiqueta(eje, null, [0, k], ctx.opciones) })),
+  };
+  if ((d.mide ?? []).includes('pv')) {
+    const lista = acciones.ejecuciones(eje, R, ctx.opciones);
+    const nodos = nodosDeCelda(eje, R, lista.map((x) => x.ocupante), pv, pv, d, ctx, entrar);
+    const sinPosicion = [];
+    lista.forEach((x, i) => {
+      const n = nodos[i];
+      n.estado = x.estacion;
+      n.accion = x.accion;
+      const celda = x.pv === null || x.posicion === null ? null : celdas.find((c) => c.fila === x.posicion && c.columna === x.pv);
+      if (celda) celda.ocupantes.push(n);
+      else sinPosicion.push(n);
+    });
+    for (const c of celdas) {
+      c.ocupante = c.ocupantes[0] ?? null;
+      c.entra = c.ocupantes.some((n) => n.entra);
+      c.estado = c.ocupantes.length ? estadoDeCelda(c.ocupantes) : null;
+      c.total = c.ocupantes.length;
+    }
+    return { celdas, ejes, sinPosicion, pagina: { actual: 1, de: 1 } };
+  }
   const de = Math.max(1, Math.ceil(contrato.ocupantes(eje, R, pv, 0, 0, ctx.opciones).total / celdas.length));
   const actual = Math.min(Math.max(1, pagina), de);
   const o = contrato.ocupantes(eje, R, pv, (actual - 1) * celdas.length, celdas.length, ctx.opciones);
   const nodos = nodosDeCelda(eje, R, o.ocupantes, pv, pv, d, ctx, entrar);
   const estados = nodos.some((n) => n.X) ? estadosDeEstaciones(eje, R, ctx) : new Map();
   nodos.forEach((n, i) => { celdas[i].ocupantes = [n]; celdas[i].ocupante = n; celdas[i].entra = n.entra; celdas[i].estado = (n.X && estados.get(n.X)) ?? null; });
-  const ejes = {
-    columnas: POSICIONES.slice(0, g.columnas).map((k) => ({ pv: k, etiqueta: contrato.etiqueta(eje, null, k, ctx.opciones) })),
-    filas: POSICIONES.slice(0, g.filas).map((k) => ({ digito: k, nombre: contrato.etiqueta(eje, null, [0, k], ctx.opciones) })),
-  };
   return { celdas, ejes, pagina: { actual, de } };
 }
 

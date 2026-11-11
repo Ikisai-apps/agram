@@ -37,7 +37,7 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, direccion, ARIDAD } from './btml.js';
 import { ocupantes as ocupantesDe } from './encaje.js';
-import { ESCALAS_T, partirClave } from './tokens.js';
+import { ESCALAS_T, partirClave, franjaDe, capacidadDe } from './tokens.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { HITOS } from './bases.js';
 import { recuento, miradasDe } from './motor.js';
@@ -565,7 +565,9 @@ function cajasDeHitos() {
  * cercano al presente arriba): lo pasan a ocupantes() y diario() quien pinta esas listas, no las franjas;
  * `estilo`, el CSS por defecto de la época para los hijos de un elemento de este mundo (texto, puede ser ""); `mide`, las
  * referencias de lo que la fila mide; `enlace` (encargo «datos», issue #11), lo que cada hijo es de lo que la fila mide,
- * uno por hijo y en su orden: en el 2, la mirada de su P (epoch.1.1); en el 3, la zona de atención (epoch.1.2.1).
+ * uno por hijo y en su orden: en el 2, la mirada de su P (epoch.1.1); en el 3, la zona de atención (epoch.1.2.1); en el 1
+ * (encargo «datos2», issue #11), la referencia de lo que mide cada hijo (epoch.9.2 el coste, capacity la capacidad,
+ * epoch.4.0 lo que entra y sale), con null donde la fila pone «-» (ese hijo no mide nada).
  */
 export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
@@ -578,7 +580,9 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const formas = textos(fila[3]);
   const mide = textos(fila[4]).filter((s) => s !== '-');
   const hilos = numeros(fila[7]);
-  const enlace = numeros(fila[8]);
+  // El enlace, uno por hijo: un número (la mirada, la zona) o una referencia (el 1); «-» en un hijo que no mide nada.
+  const enlaceCrudo = hojas(fila[8]).filter((x) => typeof x === 'number' || typeof x === 'string');
+  const enlace = enlaceCrudo.every((x) => x === '-') ? [] : enlaceCrudo.map((x) => (x === '-' ? null : x));
   const orden = ordenPorNombre(texto(hoja(fila[9])), opciones)?.nombre ?? null;
   const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
   const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos');
@@ -616,6 +620,20 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
  *   idioma («legible attention price <en qué>» de epoch.9.4);
  * - `attended` (el 3): `estados`, uno por ocupante (lente.estadoDePaquete): «pendiente» o «atendido» si es una
  *   petición de atención (una devolución de R a su emisor), «perdonado» si quema la R de otro, null si no es un paquete.
+ *
+ * En el 1 (encargo «datos2», issue #11; Core, pendiente de revisar VG), el hijo cuyo enlace es:
+ * - `epoch.9.2` (las plantillas de dominio): `coste`, lo que X declara en <dígito>.2 (la condición del hijo: en el 1,
+ *   «a qué precio», el 1.2 de «purchase» y de «booking») si X tiene plantilla y ahí hay una magnitud «EUR 12»:
+ *   { posicion, cuanto, unidad, texto };
+ * - `capacity`: `capacidad`, `comprometido`, `disponible` (= capacidad − comprometido), `franja` y `declara` (el registro
+ *   que la declara): la del último «declare capacity or threshold» del dueño de X anclado en X (su parámetro «capacity»)
+ *   o, si no hay, la del registro más cercano del hilo de X que la declara en su 2 (tokens.capacidadDe, el tope de E del
+ *   eje). Lo comprometido es el E vivo de las series atadas a ese registro o a lo que cuelga de él que ya no está libre
+ *   en manos de su emisor (entregado o bloqueado), por franja (la noche de una plaza); se da la franja más apretada;
+ * - `epoch.4.0` (las primitivas): `entradas` y `salidas`, lo que el libro movió de E y de T en X y en lo que cuelga de
+ *   él (contrato.diario) hacia su dueño (acuñar, transferir) y desde él (transferir, quemar), por serie: [{ serie,
+ *   cantidad, con }], `con` las otras partes (null es nadie: acuñar o quemar). La asignación del día y el T informativo
+ *   no cuentan.
  */
 export function hijosDe(eje, X, pv, { nivel = 1, cuantos, ...opciones } = {}) {
   const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
@@ -627,12 +645,96 @@ export function hijosDe(eje, X, pv, { nivel = 1, cuantos, ...opciones } = {}) {
     const camino = [...Array(profundidad).fill(0), digito];
     const o = ocupantes(eje, X, digito, 0, cuantos, opciones);
     const hijo = { digito, nombre: texto(hoja(corta(raiz, camino)?.[0])) ?? null, ocupantes: o.ocupantes, total: o.total, vacio: o.total === 0 };
-    return medir ? { ...hijo, ...medir(i, o.ocupantes) } : hijo;
+    return medir ? { ...hijo, ...medir(i, o.ocupantes, digito) } : hijo;
   });
 }
 
 /** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11). */
-const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended' });
+const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended', coste: 'epoch.9.2', capacidad: 'capacity', flujo: 'epoch.4.0' });
+
+/** La plantilla de transacción que declara capacidad (epoch.9.6) y su parámetro (encargo «datos2»): se leen de la época. */
+const DECLARAR_CAPACIDAD = Object.freeze({ plantilla: 'declare capacity or threshold', parametro: 'capacity' });
+
+/** Las clases de asiento que no son de un registro sino del día (la asignación de T) o informativas (T pasado, futuro o inventado). */
+const SIN_FLUJO = new Set(['asignacion', 'informativo']);
+
+/**
+ * El coste que X declara en <dígito>.2 (encargo «datos2», issue #11): si X tiene plantilla y ahí hay una magnitud
+ * («EUR 12», o una referencia que llega a una), { posicion, cuanto, unidad, texto }; si no, null.
+ */
+function costeDeRegistro(eje, ev, digito, opciones) {
+  if (typeof digito !== 'number' || !plantilla(eje, ev, opciones)) return null;
+  const ctx = contextoDe(eje, epocaDe(opciones));
+  const sitio = '(first ("' + ev.id + '").' + digito + '.2)';
+  const cuanto = uno(sitio + '.1', ctx);
+  if (typeof cuanto !== 'number') return null;
+  const unidad = uno(sitio + '.2', ctx);
+  const dicho = uno(sitio, ctx);
+  return { posicion: digito + '.2', cuanto, unidad: typeof unidad === 'string' ? unidad : null, texto: typeof dicho === 'string' ? dicho : [unidad, cuanto].filter((x) => x !== undefined && x !== null).join(' ') };
+}
+
+/**
+ * Lo que el libro movió de E y de T en X y en lo que cuelga de él (contrato.diario), visto desde su dueño (encargo
+ * «datos2», issue #11): { entradas, salidas }, cada una [{ serie, cantidad, con }] por orden de aparición; entra lo que
+ * se acuña o transfiere al dueño, sale lo que transfiere o quema; `con`, las otras partes (null: nadie).
+ */
+function flujoDeRegistro(eje, ev, opciones) {
+  const dueno = ev.autor;
+  const entradas = new Map();
+  const salidas = new Map();
+  const suma = (mapa, serie, cantidad, otro) => {
+    const s = mapa.get(serie) ?? { serie, cantidad: 0, con: [] };
+    s.cantidad = redondo(s.cantidad + cantidad);
+    if (!s.con.includes(otro)) s.con.push(otro);
+    mapa.set(serie, s);
+  };
+  for (const e of diario(eje, ev.id, 0, Infinity, opciones).entradas) {
+    for (const m of e.movimientos) {
+      if (!/^[ET]:/.test(m.serie) || SIN_FLUJO.has(m.clase) || m.de === m.a) continue;
+      if (m.a === dueno && (m.primitiva === 'acunar' || m.primitiva === 'transferir')) suma(entradas, m.serie, m.cantidad, m.de ?? null);
+      else if (m.de === dueno && (m.primitiva === 'transferir' || m.primitiva === 'quemar')) suma(salidas, m.serie, m.cantidad, m.a ?? null);
+    }
+  }
+  return { entradas: [...entradas.values()], salidas: [...salidas.values()] };
+}
+
+/** El registro que declara la capacidad de X: el último «declare capacity or threshold» de su dueño anclado en X, o el más cercano de su hilo que la declara en su 2. */
+function declaraCapacidad(eje, ev, opciones) {
+  const p = (Array.isArray(epocaDe(opciones).transacciones) ? epocaDe(opciones).transacciones : []).map((x) => x.plantilla).find((x) => texto(hoja(x?.[0])) === DECLARAR_CAPACIDAD.plantilla);
+  const param = p ? hojas(p[1]).filter(Array.isArray).find((x) => texto(hoja(x[0])) === DECLARAR_CAPACIDAD.parametro) : null;
+  const ancla = p ? texto(hoja(p[5])) : undefined;
+  const donde = param ? texto(hoja(param[5])) : undefined;
+  if (ancla && donde && !ancla.startsWith('=')) {
+    const escritos = eje.sobre(ev.id, direccion(caminoDe(ancla))).filter((h) => h.autor === ev.autor && hojas(h.payload?.[4]).includes(DECLARAR_CAPACIDAD.plantilla));
+    const ultimo = escritos[escritos.length - 1];
+    const c = ultimo ? hoja(en(ultimo.payload, caminoDe(donde))) : undefined;
+    if (typeof c === 'number' && c > 0) return { id: ultimo.id, capacidad: c };
+  }
+  for (const e of eje.hilo(ev.id)) {
+    const c = capacidadDe(e.payload);
+    if (c !== undefined) return { id: e.id, capacidad: c };
+  }
+  return null;
+}
+
+/**
+ * La capacidad de X y lo que queda (encargo «datos2», issue #11): { capacidad, comprometido, disponible, franja,
+ * declara } o null si nadie la declara. Lo comprometido, por franja, es el E vivo de las series atadas al registro que
+ * la declara (o a lo que cuelga de él) que ya no está libre en manos de su emisor; se da la franja con menos disponible.
+ */
+function capacidadDeRegistro(eje, ev, opciones) {
+  const declarada = declaraCapacidad(eje, ev, opciones);
+  if (!declarada) return null;
+  const porFranja = new Map();
+  for (const s of typeof eje.series === 'function' ? eje.series() : []) {
+    if (s.token !== 'E' || !s.registro || !eje.hilo(s.registro).some((e) => e.id === declarada.id)) continue;
+    const franja = franjaDe(s.denominacion);
+    const fuera = Math.max(0, eje.vivo(s.clave) - eje.saldo(s.emisor, s.clave));
+    porFranja.set(franja, redondo((porFranja.get(franja) ?? 0) + fuera));
+  }
+  const [franja, comprometido] = [...porFranja.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0] ?? ['', 0];
+  return { capacidad: declarada.capacidad, comprometido, disponible: redondo(declarada.capacidad - comprometido), franja, declara: declarada.id };
+}
 
 /** El prefijo de las claves de texto del precio de una zona de atención: «legible attention price <en qué>». */
 const PRECIO_DE_ATENCION = 'attention price ';
@@ -685,11 +787,22 @@ function medidasDeHijos(eje, X, d, opciones) {
   const miradas = conEnlace && mide.has(MIDE.recuento) ? miradasDe(eje, ev.id) : [];
   const grupos = conEnlace && mide.has(MIDE.atencion) ? atencionDe(ev.autor, contextoDe(eje, epocaDe(opciones))) : null;
   const paquetes = mide.has(MIDE.atendido);
-  if (!poder && !miradas.length && !grupos && !paquetes) return null;
+  // El 1 (encargo «datos2», issue #11): coste, capacidad y lo que entra y sale, en el hijo que dice el enlace.
+  const delUno = (ref) => conEnlace && mide.has(ref) && d.enlace.includes(ref);
+  const conCoste = delUno(MIDE.coste);
+  const capacidad = delUno(MIDE.capacidad) ? capacidadDeRegistro(eje, ev, opciones) : null;
+  const flujo = delUno(MIDE.flujo) ? flujoDeRegistro(eje, ev, opciones) : null;
+  if (!poder && !miradas.length && !grupos && !paquetes && !conCoste && !capacidad && !flujo) return null;
   let cuenta;
-  return (i, lista) => {
+  return (i, lista, digito) => {
     const m = conEnlace ? d.enlace[i] : undefined;
     const extra = {};
+    if (conCoste && m === MIDE.coste) {
+      const c = costeDeRegistro(eje, ev, digito, opciones);
+      if (c) extra.coste = c;
+    }
+    if (capacidad && m === MIDE.capacidad) Object.assign(extra, capacidad);
+    if (flujo && m === MIDE.flujo) Object.assign(extra, flujo);
     if (poder && typeof m === 'number') {
       const p = poder.get(m) ?? { comprometidos: 0, reposicionables: 0 };
       Object.assign(extra, { mirada: m, comprometidos: p.comprometidos, reposicionables: p.reposicionables });

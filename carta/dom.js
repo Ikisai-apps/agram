@@ -274,7 +274,33 @@ function htmlMedidaDeHijo(c) {
   else if (c.votos) barra = `<span class="hijo-barra" data-de="votos" style="--lleno:${fraccionCss(c.votos.comprometidos / (c.votos.comprometidos + c.votos.reposicionables))}" title="${attr(partes[partes.length - 1])}"><span></span></span>`;
   const medida = partes.length ? `<p class="hijo-medida">${escapar(partes.join(' · '))}</p>${barra}` : '';
   const precio = c.precio ? `<p class="hijo-precio" data-zona="${escapar(c.precio.zona)}"><b>${escapar(c.precio.grupo ?? '')}</b> · ${escapar(c.precio.texto ?? '')}</p>` : '';
-  return medida || precio ? `<footer class="hijo-pie">${medida}${precio}</footer>` : '';
+  const recursos = htmlRecursosDeHijo(c);
+  return medida || precio || recursos ? `<footer class="hijo-pie">${medida}${precio}${recursos}</footer>` : '';
+}
+
+/** Cuántas series caben en la tabla pequeña del pie de un hijo del 1; las demás, contadas. */
+const SERIES_EN_EL_PIE = 4;
+
+/**
+ * Lo que el núcleo mide de un hijo del 1 (encargo «datos2», issue #11): el coste («coste EUR 12»), la capacidad con la
+ * barra «disponible / capacidad» (y lo comprometido y su franja en el title) y una tabla pequeña de lo que entra y sale
+ * por serie (las primeras; las demás, contadas).
+ */
+function htmlRecursosDeHijo(c) {
+  const coste = c.coste ? `<p class="hijo-coste">${escapar(t('hijoCoste', { coste: c.coste.texto }))}</p>` : '';
+  let capacidad = '';
+  if (c.capacidad) {
+    const k = c.capacidad;
+    const titulo = t(k.franja ? 'hijoCapacidadFranja' : 'hijoCapacidadTitulo', { disponible: k.disponible, capacidad: k.capacidad, comprometido: k.comprometido, franja: k.franja });
+    capacidad = `<p class="hijo-capacidad">${escapar(t('hijoDisponible', { disponible: k.disponible, capacidad: k.capacidad }))}</p><span class="hijo-barra" data-de="capacidad"${k.disponible > 0 ? '' : ' data-agotada'} style="--lleno:${fraccionCss(k.capacidad > 0 ? k.disponible / k.capacidad : 0)}" title="${attr(titulo)}"><span></span></span>`;
+  }
+  let flujo = '';
+  if (c.flujo?.length) {
+    const filas = c.flujo.slice(0, SERIES_EN_EL_PIE).map((f) => `<tr><th scope="row" title="${attr(f.serie)}">${escapar(f.texto)}</th><td>${f.entra ? escapar(f.entra) : ''}</td><td>${f.sale ? escapar(f.sale) : ''}</td></tr>`).join('');
+    const mas = c.flujo.length > SERIES_EN_EL_PIE ? `<tr class="hijo-flujo-mas"><td colspan="3">${escapar(t('hijoFlujoMas', { n: c.flujo.length - SERIES_EN_EL_PIE }))}</td></tr>` : '';
+    flujo = `<table class="hijo-flujo"><thead><tr><th scope="col">${escapar(t('hijoFlujoSerie'))}</th><th scope="col">${escapar(t('hijoFlujoEntra'))}</th><th scope="col">${escapar(t('hijoFlujoSale'))}</th></tr></thead><tbody>${filas}${mas}</tbody></table>`;
+  }
+  return coste + capacidad + flujo;
 }
 
 /** La tarjeta central flotante de la cruceta: cara 0 (nombre, medida y su barra si tiene «de») y cara 5 (plantilla, ancla, pasos); ↻ la gira (data-girar). */
@@ -293,33 +319,61 @@ function htmlFlotante(f, etapa = null) {
     + `</div></div>`;
 }
 
-/** La matriz del 4: la esquina, los diez tipos de interacción arriba, y cada fila con su posición delante; la diagonal marcada; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS). */
+/** Las ejecuciones que se ven en una celda de la matriz; las demás, contadas («+n»). */
+const EJECUCIONES_EN_CELDA = 3;
+
+/** El nombre de una estación de la fábrica (propuesta, autorizada, ejecutada), en el idioma de la interfaz. */
+const textoEstacion = (estado) => t({ ejecutada: 'estadoEjecutada', autorizada: 'estadoAutorizada' }[estado] ?? 'estadoPropuesta');
+
+/**
+ * Lo de dentro de una celda de la matriz (encargo «datos2», issue #11: la celda es la lista de ejecuciones): cada una
+ * con su estación si la tiene (su color y, si está ejecutada, su sello), las primeras y las demás contadas.
+ */
+function htmlEjecuciones(lista) {
+  if (!lista.length) return '';
+  const items = lista.slice(0, EJECUCIONES_EN_CELDA).map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}" title="${attr(textoEstacion(o.estado))}"` : ''}>${htmlOcupanteDeCelda(o)}${o.estado ? `<small class="estacion-nombre">${escapar(textoEstacion(o.estado))}</small>` : ''}</li>`).join('');
+  const mas = lista.length > EJECUCIONES_EN_CELDA ? `<li class="ejecucion-mas">${escapar(t('matrizMas', { n: lista.length - EJECUCIONES_EN_CELDA }))}</li>` : '';
+  return `<ul class="ejecuciones">${items}${mas}</ul>`;
+}
+
+/** La fila aparte de la matriz: lo que el núcleo no sabe colocar (sin tipo de interacción o sin posición), sin inventar celda. */
+function htmlSinPosicion(r) {
+  if (!r.sinPosicion?.length) return '';
+  const items = r.sinPosicion.map((o) => `<li class="ejecucion"${o.estado ? ` data-estado="${attr(o.estado)}"` : ''}>${htmlOcupanteDeCelda(o)}</li>`).join('');
+  return `<div class="matriz-sin-posicion" title="${attr(t('matrizSinPosicionTitulo'))}"><span class="matriz-eje">${escapar(t('matrizSinPosicion'))}</span><ul class="ejecuciones en-fila">${items}</ul></div>`;
+}
+
+/** La cifra de una celda de la matriz: su estación si todas dicen la misma; si no, cuántas ejecuciones tiene. */
+const cifraDeCelda = (c) => (c.estado ? textoEstacion(c.estado) : (c.ocupantes?.length ?? 0) > 1 ? String(c.ocupantes.length) : '');
+
+/** La matriz del 4: la esquina, los diez tipos de interacción arriba, y cada fila con su posición delante; la diagonal marcada; cada celda con ocupante, una estación con su estado (y su sello si está ejecutada, solo CSS); debajo, lo que no tiene celda. */
 function htmlMatriz(r) {
-  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><span class="hijo-nombre"></span><span class="hijo-cifra">${c.estado ? escapar(t(c.estado === 'ejecutada' ? 'estadoEjecutada' : 'estadoPropuesta')) : ''}</span><div class="hijo-cuerpo">${c.ocupante ? htmlOcupanteDeCelda(c.ocupante) : ''}${htmlDibujo(c.capa)}</div></div>`;
+  const celda = (c) => `<div class="rejilla-celda hijo${c.ocupante ? ' estacion' : ' vacia'}${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><span class="hijo-nombre"></span><span class="hijo-cifra">${escapar(cifraDeCelda(c))}</span><div class="hijo-cuerpo">${htmlEjecuciones(c.ocupantes ?? (c.ocupante ? [c.ocupante] : []))}${htmlDibujo(c.capa)}</div></div>`;
   const ejes = r.ejes ?? { columnas: [], filas: [] };
   const cabeza = `<span class="matriz-esquina" title="${attr(t('matrizEjesTitulo'))}">${escapar(t('matrizEsquina'))}</span>` + ejes.columnas.map((c) => `<span class="matriz-eje matriz-columna" data-color="${c.pv}" title="${attr(c.pv + ' · ' + (c.etiqueta ?? ''))}"><b>${c.pv}</b> ${escapar(c.etiqueta ?? '')}</span>`).join('');
   const filas = Array.from({ length: r.filas }, (_, i) => {
     const f = ejes.filas[i];
     return `<span class="matriz-eje matriz-fila" title="${attr(f ? f.digito + ' · ' + (f.nombre ?? '') : '')}">${f ? `<b>${f.digito}</b> ${escapar(f.nombre ?? '')}` : ''}</span>` + r.celdas.filter((c) => c.fila === i).map(celda).join('');
   }).join('');
-  return `<div class="rejilla-celdas rejilla-matriz" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>`;
+  return `<div class="rejilla-celdas rejilla-matriz" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>${htmlSinPosicion(r)}`;
 }
 
 /**
  * La matriz del 4 cuando no cabe a lo ancho (Sequenced): las celdas con algo, una debajo de otra, cada una con sus dos
- * ejes (el tipo de interacción y la posición que modifica) y su estado; sin ninguna, el paso del camino que la llenaría.
+ * ejes (el tipo de interacción y la posición que modifica) y su estado, y lo que no tiene celda aparte; sin nada, el
+ * paso del camino que la llenaría.
  */
 function htmlMatrizEnColumna(r) {
   const ejes = r.ejes ?? { columnas: [], filas: [] };
   const llenas = r.celdas.filter((c) => c.ocupante);
-  if (!llenas.length) return `<div class="rejilla-celdas rejilla-matriz-columna vacia">${htmlEscribir(r.escribir, t('vacia'))}</div>`;
+  if (!llenas.length && !r.sinPosicion?.length) return `<div class="rejilla-celdas rejilla-matriz-columna vacia">${htmlEscribir(r.escribir, t('vacia'))}</div>`;
   const celda = (c) => {
     const col = ejes.columnas[c.columna];
     const fila = ejes.filas[c.fila];
     const nombre = [col ? `${col.pv} ${col.etiqueta ?? ''}` : '', fila ? `${fila.digito} ${fila.nombre ?? ''}` : ''].filter(Boolean).join(' · ');
-    return `<div class="rejilla-celda hijo estacion${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><header class="hijo-cabeza"><span class="hijo-nombre">${escapar(nombre)}</span><span class="hijo-cifra">${c.estado ? escapar(t(c.estado === 'ejecutada' ? 'estadoEjecutada' : 'estadoPropuesta')) : ''}</span></header><div class="hijo-cuerpo">${htmlOcupanteDeCelda(c.ocupante)}${htmlDibujo(c.capa)}</div></div>`;
+    return `<div class="rejilla-celda hijo estacion${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><header class="hijo-cabeza"><span class="hijo-nombre">${escapar(nombre)}</span><span class="hijo-cifra">${escapar(cifraDeCelda(c))}</span></header><div class="hijo-cuerpo">${htmlEjecuciones(c.ocupantes ?? [c.ocupante])}${htmlDibujo(c.capa)}</div></div>`;
   };
-  return `<div class="rejilla-celdas rejilla-matriz-columna" style="--columnas:1;--filas:${llenas.length}">${llenas.map(celda).join('')}</div>`;
+  return `<div class="rejilla-celdas rejilla-matriz-columna" style="--columnas:1;--filas:${Math.max(1, llenas.length)}">${llenas.map(celda).join('')}</div>${htmlSinPosicion(r)}`;
 }
 
 /** Una cuenta ensartada en un hilo (un ocupante o una entrada del diario): la bola con el color del hilo, la fecha y el nombre; los dos, también en el title. */
