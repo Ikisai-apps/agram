@@ -353,6 +353,67 @@ test('escribir: una acción del aro con --valores y un payload BTML con --archiv
   assert.equal((await conCfg('estado')).codigo, 0); // la caché de lectura al día para la prueba sin red
 });
 
+test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo que falta; «admit someone» sobre el registro lo admite por la regla general (el 3); dar R por UN escrito aún no lo acepta; y lo que las lecturas aún no derivan (1.3, 1.3.4, 1.4, 3.4)', async () => {
+  const yo = cuenta.cuenta.identidad;
+  const eje = cuenta.eje;
+  const firmar = Q.firmarCon(cuenta.privada);
+  // Lo pendiente de Core, por registro: la sugerencia en el menú de VG (lo del proyecto ya lo admite su 2.3).
+  const p = await be('pendientes', '--config', cfgCore);
+  assert.equal(p.codigo, 0, p.error);
+  assert.match(p.salida, /^pendiente de aceptación: 1 escrito en 1 registro$/m);
+  assert.match(p.salida, new RegExp('^' + ids.menu.slice(0, 8) + ' «Menú del día» · de ' + yo + ' · 1$', 'm'));
+  assert.match(p.salida, /^  [0-9a-f]{8} «Sugerencia de Core» en 0000000000 · \d{4}-/m);
+  const sugerencia = eje.sobre(ids.menu).find((e) => e.autor === 'core');
+  assert.ok(sugerencia);
+  // Aceptar UN escrito dándole R por ese trabajo: «give own R» sobre el escrito ya existe (PV3) y mueve R de VG a Core,
+  // pero la regla de elegibles (R8) no lo lee: el escrito sigue pendiente (lo que falta, en CONTRATO §12.2 y en el informe).
+  assert.ok(acciones.acciones(eje, sugerencia.id, 3, yo).some((a) => a.nombre === 'give own R'));
+  const dar = await C.enviar(eje, sugerencia.id, 'give own R', { amount: 1 }, yo, firmar);
+  assert.equal(dar.ok, true, JSON.stringify(dar.motivos));
+  assert.equal(eje.saldo('core', 'R:' + yo), 1);
+  assert.equal(EL.elegibles(eje, ids.menu).autores.has('core'), false, 'dar R por un escrito aún no lo acepta');
+  // «admit someone» (PV3 de un registro mío): a quién, con las identidades del eje como opciones (como las pide la carta).
+  const admitir = acciones.acciones(eje, ids.menu, 3, yo).find((a) => a.nombre === 'admit someone');
+  assert.ok(admitir, 'el aro de VG ofrece «admit someone» en el 3 de su menú');
+  const whom = admitir.parametros.find((x) => x.nombre === 'whom');
+  assert.equal(whom.falta, true);
+  assert.ok(C2.opciones(eje, ids.menu, null, { yo, parametro: whom }).some((o) => o.valor === 'core'));
+  assert.equal(acciones.acciones(eje, ids.menu, 3, 'core').some((a) => a.nombre === 'admit someone'), false, 'solo el dueño admite en lo suyo');
+  // Admitir es un intercambio de tokens: R de VG para Core (la comunicación) y T (el trabajo; a una cosa suya, que la regla
+  // «T only goes to things» deja), y ancla en el 3 del registro, «con quién», como «give own R».
+  const minutos = eje.saldoT('core', 'minuto');
+  const ad = await C.enviar(eje, ids.menu, 'admit someone', { whom: 'core', minutes: 5 }, yo, firmar);
+  assert.equal(ad.ok, true, JSON.stringify(ad.motivos));
+  // (la R que le falta en mano la acuña antes, como «give own R»: la dio entera por la sugerencia)
+  assert.deepEqual(ad.asentado.movimientos.map((m) => [m.token, m.cantidad, m.de, m.a]), [['T', 1, yo, null], ['R', 1, null, yo], ['R', 1, yo, 'core'], ['T', 5, yo, 'core']]);
+  assert.deepEqual([ad.asentado.sobre, ad.asentado.en, ad.asentado.payload[3]], [ids.menu, '3000000000', [[yo], ['core']]]);
+  assert.deepEqual([eje.saldo('core', 'R:' + yo), eje.saldoT('core', 'minuto')], [2, minutos + 5]);
+  // A una persona no se le da T: lo dicen las reglas, no la plantilla.
+  const persona = await acciones.transaccion(eje, 'admit someone', { X: ids.menu, whom: yo, minutes: 1 }, yo, { firmar });
+  assert.equal(persona.ok, false, 'ni a sí mismo');
+  // La regla general (R8) ya lo lee: lo que el dueño nombra en el 3 del registro (sin lista en su 2.3) admite a su autor.
+  const el = EL.elegibles(eje, ids.menu);
+  assert.deepEqual([el.autores.has('core'), el.origen], [true, 'defecto']);
+  await sincronizarVG();
+  const q = await be('pendientes', '--config', cfgCore);
+  assert.match(q.salida, /^pendiente de aceptación: 0 escritos en 0 registros$/m);
+  const v = await be('identidad', '--config', cfgCore);
+  assert.ok(v.salida.split('\n').some((l) => l.includes('«Sugerencia de Core» sobre ' + ids.menu.slice(0, 8)) && l.endsWith('· aceptado (' + yo + ' admite a core en su 3)')), v.salida);
+  // Lo que las lecturas aún no derivan de esos movimientos (se apunta, no se fuerza con anclas): Core como entidad con
+  // quien se trabaja en el 1.3 (y 1.3.4, laboral) del alta de VG, sus trabajos en el 1.4 y en el 4 del menú, y Core en el
+  // grupo «equipo» (3.4) de la atención de VG. Lo que pinta un PV es lo que hay anclado o escrito ahí (contrato.ocupantes).
+  const nombra = (lista, quien) => lista.some((o) => o === quien || (o?.ref && JSON.stringify(eje.obtener(o.ref)?.payload ?? '').includes('"' + quien + '"')));
+  const alta = cuenta.cuenta.alta;
+  assert.equal(nombra(C2.ocupantes(eje, alta, '1.3').ocupantes, 'core'), false, '1.3 del alta de VG: hoy no');
+  assert.equal(nombra(C2.ocupantes(eje, alta, '1.3.4').ocupantes, 'core'), false, '1.3.4: hoy no');
+  assert.equal(C2.ocupantes(eje, ids.menu, '1.4').ocupantes.some((o) => o?.ref === sugerencia.id), false, '1.4 del menú: hoy no');
+  assert.equal(C2.ocupantes(eje, ids.menu, 4).ocupantes.some((o) => o?.ref === sugerencia.id), false, '4 del menú: hoy no');
+  const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML, me: yo });
+  assert.deepEqual(evaluar('=count (nth 4 ("' + yo + '").3).3', ctx, {}).valor, [0], 'el grupo «equipo» (3.4): hoy no');
+  // Sí está, por lo que mueve: Core tiene R de VG (la lente de quien la mire) y T que le dio VG.
+  assert.equal(eje.saldo('core', 'R:' + yo), 2);
+});
+
 test('sin red: lee la caché y lo dice; sin caché, lo dice y falla', async () => {
   await servidor.cerrar();
   const r = await conCfg('estado');

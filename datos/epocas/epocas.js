@@ -4388,6 +4388,20 @@ export const EPOCA_0_BTML_DATOS = [
           "without a key nobody acts: {first ev.3} no tiene clave (va en su alta; solo un libro de demostración deja escribir sin ella)",
           "writing a record gives ten P on it: {first ev.3} obtiene {first epoch.1.1.4.1} P sobre el registro que escribe",
           "writing burns today's T: {first ev.3} no quema T, o quema más T del que le queda hoy (día {ev.6.0.3})",
+          "template admit someone: admitir a alguien",
+          "template admit someone param whom label: a quién",
+          "template admit someone param whom help: a quién admito en X: una identidad con alta (las opciones son las identidades del eje)",
+          "template admit someone param amount label: R",
+          "template admit someone param amount help: cuánta R mía le doy: la atención que me puede pedir (R, la comunicación)",
+          "template admit someone param minutes label: minutos",
+          "template admit someone param minutes help: los minutos de mi T que le doy por el trabajo que hace sobre X (T, el trabajo; con 0 no se mueve)",
+          "template admit someone param criteria label: criterio",
+          "template admit someone param criteria help: la plantilla de cerrado del registro",
+          "template admit someone param who label: quién",
+          "template admit someone param who help: quién admite: el dueño de X",
+          "template admit someone param actions label: acción",
+          "template admit someone param actions help: la acción",
+          "template admit someone message: admit someone: {me} admite a {last ev.3.1} en {first it.0} con {first ev.1.0} de su R",
           "template aggregate T: agrupar T",
           "template aggregate T param title label: título",
           "template aggregate T param title help: el título del registro de la escala superior",
@@ -5159,6 +5173,9 @@ export const EPOCA_0_BTML_DATOS = [
         },
         {
           "ref": "3fc84e94716dd1797116dc54b7880a044cc32ad36f974e19838b35d046a898b4"
+        },
+        {
+          "ref": "2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb"
         },
         {
           "ref": "2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52"
@@ -11740,6 +11757,318 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "admit-someone.json",
+    "id": "2965f8623b0bfde0972d590c850768eb0916530e2fa14ea6765dfa163c0512cb",
+    "registro": [
+      [
+        "admit someone"
+      ],
+      [
+        [
+          [
+            "whom"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "=it != me and count it.6 > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.1"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "whom I admit on X: an identity with an alta (the options are the identities of the ledger)"
+          ]
+        ],
+        [
+          [
+            "amount"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1.0"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            1,
+            "how much of my R I give them: the attention they can ask of me (R, the communication)"
+          ]
+        ],
+        [
+          [
+            "minutes"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it >= 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1.1"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            0,
+            "the minutes of my T I give them for the work they do on X (T, the work; 0 moves none)"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.0"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who admits: the owner of X"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "encargo equipo (VG, 11-11 noche, issues #28 y #29): parámetro de «admit someone»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "admit someone",
+            "the action"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ],
+        [
+          [
+            "R",
+            "=me"
+          ],
+          [
+            "=first ev.1.0 - sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = me) each 1)"
+          ],
+          [
+            "mint"
+          ],
+          [
+            [
+              "nobody"
+            ],
+            [
+              "=me"
+            ]
+          ]
+        ],
+        [
+          [
+            "R",
+            "=me"
+          ],
+          [
+            "=first ev.1.0"
+          ],
+          [
+            "transfer"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "=last ev.3.1"
+            ]
+          ]
+        ],
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            "=first ev.1.1"
+          ],
+          [
+            "transfer"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "=last ev.3.1"
+            ]
+          ]
+        ]
+      ],
+      [
+        "3"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "Encargo equipo (VG, 11-11 noche): admitir a alguien en lo mío no es escribir su nombre: es un intercambio de tokens entre el dueño y esa identidad, R mía (la atención que me puede pedir: la comunicación) y, si se da, T (el trabajo que hace sobre lo mío). Es «give own R» con la identidad elegida (whom) sobre un registro mío y, como ella, ancla en el 3 de X («con quién»), donde la regla de elegibles (R8, src/elegibles.js) ya lee a quien el dueño nombra cuando el registro no tiene lista en su 2.3. No fija ninguna posición para colocar a nadie en un PV: lo que cada PV vea de ella lo ha de dar una lectura de sus movimientos"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        "admit someone: {me} admits {last ev.3.1} on {first it.0} with {first ev.1.0} of its R"
+      ]
+    ]
+  },
+  {
     "archivo": "aggregate-t.json",
     "id": "2bd533ca2e2c33d60d18c8f80a614d231621ad8b0c92f04e271c76761020fb52",
     "registro": [
@@ -15309,7 +15638,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "3c5ec6f077957524a7a9e2e5b19f7eab577c71b3fd0ea6146f949e5526eda855";
+export const EPOCA_0_BTML_ID = "ac760d8303af9c47359d5ea3c3970ecc2f1820129a89d27cbddb878012965a39";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

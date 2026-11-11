@@ -1,5 +1,5 @@
 // Los gestos de la carta (tabla de VG). Móvil: toque = enfocar (un paso de tamaño), mantener = abrir el aro, doble toque
-// = editar (0 o 5), deslizar vertical = recorrer (el scroll de la franja), horizontal = cambiar de PV o hermano, pellizco
+// = poner como foco lo tocado (#23; sobre el centro, editar 0 o 5), deslizar vertical = recorrer (el scroll de la franja), horizontal = cambiar de PV o hermano, pellizco
 // = profundidad, tirar al final = cargar más. Ordenador: clic, clic derecho o mantener, doble clic, rueda y flechas,
 // flechas ← → y teclas 0-9 (saltar al PV), rueda con Ctrl, Enter y Esc, clic en «cargar más». Hover solo en ordenador
 // (CSS). Interactuar en pantalla o por el aro es lo mismo: aquí solo se traducen los eventos del navegador a las
@@ -16,6 +16,8 @@
 const MANTENER_MS = 500;
 /** Tras un clic mantenido (o el clic derecho, o el mantener del móvil que el navegador también da como menú), lo que llega en este rato no cuenta. */
 const TRAS_MANTENER_MS = 700;
+/** Doble clic (o doble toque) = foco (#23): el registro bajo el primer clic vale para el doble clic que llega en este rato. */
+const DOBLE_MS = 500;
 const UMBRAL_DESLIZAR = 40;
 const UMBRAL_PELLIZCO = 30;
 /** Arrastrar desde la esquina de un PV (Mapped): cada tanto de esta fracción del lado menor de la escena es un paso. */
@@ -112,9 +114,19 @@ export function instalar(raiz, m) {
   // ---- toques y clics ----
   let ultimoToque = { t: 0, el: null };
   let arrastrado = 0; // tras arrastrar un asa, el clic que sigue no cuenta
+  /**
+   * El elemento bajo el primer clic de un doble clic (#23): el primero ya entra (y repinta), así que el doble clic se lee
+   * con lo que había debajo al empezar. X es el registro de un elemento (data-x) que no es un PV entero; centro, si era el centro.
+   */
+  let primerClic = { t: 0, X: null, centro: false };
+  const elementoDe = (t) => {
+    const el = t.closest?.('[data-x]');
+    return el && el !== pvDe(t) && el.dataset.x ? el.dataset.x : null;
+  };
   on('click', (e) => {
     const t = e.target;
     if (t.closest('input, textarea, select, option, pre')) return;
+    if (Date.now() - primerClic.t > DOBLE_MS && !t.closest('.aro, .formulario, .guia')) primerClic = { t: Date.now(), X: elementoDe(t), centro: !!t.closest('[data-centro]') };
     if (Date.now() - arrastrado < 400) { e.preventDefault(); return; }
     if (Date.now() - ultimoMantener < TRAS_MANTENER_MS) { e.preventDefault(); return; } // el clic de soltar tras mantener
     const b = (sel) => t.closest(sel);
@@ -182,8 +194,18 @@ export function instalar(raiz, m) {
     }
   });
   on('dblclick', (e) => {
-    const centro = e.target.closest('[data-centro]');
-    if (centro && !e.target.closest('button, input')) { e.preventDefault(); m.editar?.(centro.dataset.x, Number(centro.dataset.centro)); }
+    const t = e.target;
+    // Doble clic (o doble toque) sobre un elemento con un registro detrás: ponerlo como foco, en Mapped y en Sequenced
+    // (#23, propuesta de Core). Un clic sigue entrando y mantener sigue abriendo el aro; dentro del aro, de un diálogo o
+    // de un texto, nada. Sobre el centro (que ya es el foco), editar, como antes.
+    const primero = Date.now() - primerClic.t <= DOBLE_MS ? primerClic : null;
+    primerClic = { t: 0, X: null, centro: false };
+    if (t.closest('input, textarea, select, pre, .aro, .formulario, .guia')) return;
+    if (primero?.X && !primero.centro) { e.preventDefault(); m.foco?.(primero.X, 0); return; }
+    const centro = t.closest('[data-centro]');
+    if (centro && !t.closest('button')) { e.preventDefault(); m.editar?.(centro.dataset.x, Number(centro.dataset.centro)); return; }
+    const X = elementoDe(t);
+    if (X) { e.preventDefault(); m.foco?.(X, 0); }
   });
 
   // ---- mantener (y clic derecho): el aro ----

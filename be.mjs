@@ -23,7 +23,7 @@ import { sincronia, persistencia, contrato, acciones, autoridad, salida, elegibl
 import { pintarPara } from './carta/texto.js';
 import * as guia from './carta/guia.js';
 
-const ORDENES = ['estado', 'ver', 'camino', 'aro', 'diario', 'opiniones', 'contexto', 'buscar', 'identidad', 'escribir', 'proponer'];
+const ORDENES = ['estado', 'ver', 'camino', 'aro', 'diario', 'opiniones', 'contexto', 'buscar', 'identidad', 'pendientes', 'escribir', 'proponer'];
 /** Las banderas sin valor. */
 const BANDERAS = ['nuevas', 'crear', 'pedir', 'ayuda'];
 /** El nombre de la identidad de Core si la configuración no dice otro. */
@@ -39,6 +39,7 @@ const AYUDA = `uso: node be.mjs <orden> [argumentos] [--config <ruta>] [--como <
   buscar <texto>                    registros cuyo 0 o lectura lo contienen
   identidad                         la identidad de Core: su clave (huella), su alta, su T y lo que ha escrito en lo ajeno
                                     (aceptado o pendiente, por el criterio de cada dueño)
+  pendientes                        lo que Core ha escrito en lo ajeno y su dueño aún no ha aceptado, por registro
   identidad --crear [--nombre core] [--minutos 60] [--salida <ruta>]
                                     genera el par de claves de Core (BIP-340) en la configuración (nunca se imprime) y deja
                                     la petición de alta: un archivo que VG importa en la carta (guía · importar propuestas)
@@ -53,7 +54,8 @@ const AYUDA = `uso: node be.mjs <orden> [argumentos] [--config <ruta>] [--como <
                                     atajo de «escribir propose»: una propuesta en la fábrica (el 4) del registro; por defecto
                                     el proyecto de VG (su ancla de opiniones, o el registro AGRAM)
 Lo que Core escribe sobre un registro ajeno queda pendiente hasta que el dueño lo acepta con la regla general: lo
-admite su criterio, nombrando a «core» en el 2.3 del registro («con quién») o en su 3. Todo pasa por las reglas.
+admite su criterio, nombrando a «core» en el 2.3 del registro («con quién») o en su 3 (la acción «admit someone» del
+aro: le da R suya y ancla en el 3). Todo pasa por las reglas.
 configuración: JSON fuera del repo con { "sync_url", "eje", "clave_lectura" } (--config o AGRAM_BE_CONFIG)
 
 primer uso (lo hace Core a mano):
@@ -64,7 +66,8 @@ primer uso (lo hace Core a mano):
   node be.mjs proponer "AGRAM" --valores '{"content":"el sistema: núcleo, época y carta"}'
   node be.mjs proponer "Ikisai" --valores '{"content":"el ecosistema de apps"}'
   node be.mjs proponer "Mueling Sovereignty" --valores '{"content":"el proyecto"}'
-  # VG: las acepta nombrando a «core» en el 2.3 del proyecto; Core lo ve con «node be.mjs identidad»`;
+  # VG: las acepta admitiendo a «core» en el proyecto («admit someone», PV3: le da R suya); Core lo ve con
+  # «node be.mjs pendientes» (lo que falta) o «node be.mjs identidad» (todo)`;
 
 class ErrorBe extends Error {}
 
@@ -486,6 +489,33 @@ const ordenesDe = {
     const ajenos = eje.orden.map((id) => eje.obtener(id)).filter((e) => e.autor === yo.nombre && e.sobre && eje.obtener(e.sobre)?.autor !== yo.nombre);
     out.push('escrito en lo ajeno: ' + ajenos.length);
     for (const e of ajenos) out.push('  ' + corto(e.id) + ' «' + cero(e) + '» sobre ' + etiquetaDe(eje, e.sobre) + ' en ' + e.en + ' · ' + aceptacionDe(eje, e));
+    return out;
+  },
+
+  /**
+   * Lo que Core tiene pendiente de aceptación, por registro: sus escritos sobre registros ajenos que el criterio del
+   * dueño aún no admite (la regla general, R8, como en `identidad`), agrupados por el registro sobre el que van.
+   */
+  async pendientes({ eje, cfg }) {
+    const yo = coreEnEje(eje, cfg);
+    const porRegistro = new Map();
+    for (const id of eje.orden) {
+      const e = eje.obtener(id);
+      if (e.autor !== yo.nombre || !e.sobre) continue;
+      const X = eje.obtener(e.sobre);
+      if (!X || X.autor === yo.nombre) continue;
+      const el = elegibles.elegibles(eje, X.id);
+      if (el.todos || el.autores.has(e.autor)) continue;
+      if (!porRegistro.has(X.id)) porRegistro.set(X.id, []);
+      porRegistro.get(X.id).push(e);
+    }
+    const n = [...porRegistro.values()].reduce((s, l) => s + l.length, 0);
+    const out = ['pendiente de aceptación: ' + n + (n === 1 ? ' escrito' : ' escritos') + ' en ' + porRegistro.size + (porRegistro.size === 1 ? ' registro' : ' registros')];
+    for (const [X, lista] of porRegistro) {
+      out.push(etiquetaDe(eje, X) + ' · de ' + eje.obtener(X).autor + ' · ' + lista.length);
+      for (const e of lista) out.push('  ' + corto(e.id) + ' «' + cero(e) + '» en ' + e.en + ' · ' + e.t);
+    }
+    if (n) out.push('(lo acepta el dueño admitiendo a ' + yo.nombre + ' en ese registro: «admit someone», que le da R suya)');
     return out;
   },
 
