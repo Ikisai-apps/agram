@@ -28,7 +28,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
+import { plantilla as plantillaDeDatos, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -214,13 +214,13 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
   const provisional = { autor: yo, sobre, en: '0000000000', t, movimientos: [], payload };
   if (esFormula(formulaRegistro)) {
     const r = valores0(eje, epoca, formulaRegistro, provisional, yo, X);
-    if (typeof r !== 'string' || !eje.obtener(r)) motivos.push({ regla: nombre, mensaje: nombre + ': the record it anchors on is not in the ledger (' + String(formulaRegistro) + ')' });
+    if (typeof r !== 'string' || !eje.obtener(r)) motivos.push({ regla: nombre, mensaje: motivoDe('anchor not in ledger', { name: nombre, formula: String(formulaRegistro) }, { idioma, epoca }) });
     else sobre = r;
   }
   const rutaLlena = conHuecos(ruta ?? '0', valores);
   const digitos = rutaLlena.split('.').map(Number);
   const enDir = digitos.every((d) => Number.isInteger(d) && d >= 0 && d <= 9) && digitos.length <= 10 ? direccion(digitos) : null;
-  if (!enDir) motivos.push({ regla: nombre, mensaje: nombre + ': the anchor is not a position (' + rutaLlena + ')' });
+  if (!enDir) motivos.push({ regla: nombre, mensaje: motivoDe('anchor not a position', { name: nombre, path: rutaLlena }, { idioma, epoca }) });
   const candidata = { autor: yo, sobre, en: enDir ?? '0000000000', t, movimientos: [], payload };
   // Los defectos de lo que falta, en su orden, con lo ya puesto a la vista (ev).
   for (const p of lista) {
@@ -241,7 +241,7 @@ function preparar(eje, plantilla, X, yo, params, { t, epoca, idioma }) {
     }
     if (p.validacion && !cumple(p.validacion, ctx, sujetoDeValor(v))) motivos.push({ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre });
   }
-  for (const h of huecos(payload)) motivos.push({ regla: nombre, mensaje: nombre + ': position ' + h + ' of the record has no value' });
+  for (const h of huecos(payload)) motivos.push({ regla: nombre, mensaje: motivoDe('position without value', { name: nombre, position: h }, { idioma, epoca }) });
   return { sobre, en: candidata.en, payload, valores, parametros: lista, motivos, candidata };
 }
 
@@ -322,7 +322,7 @@ function serieDe(partes) {
  * Los movimientos que describe el 4 de la plantilla, evaluados sobre la candidata: cada décupla da un movimiento (o
  * ninguno, si su cuánto es cero o nada). Devuelve { movimientos, motivos }.
  */
-function movimientosDe(eje, epoca, plantilla, candidata, yo, X) {
+function movimientosDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
   const nombre = nombreDeAccion(plantilla);
   const ctx = contextoDe(eje, epoca, { ev: candidata, me: yo });
   const vale = (h) => (esFormula(h) ? valores(h, ctx, sujetoDe(X)).valores ?? [] : h === undefined ? [] : [h]);
@@ -338,7 +338,7 @@ function movimientosDe(eje, epoca, plantilla, candidata, yo, X) {
     if (!(typeof cuanto === 'number' && cuanto > 1e-12)) continue; // lo que da cero o nada no se mueve
     const partes = hojas(receta[0]).map((h) => vale(h)[0]);
     const serie = partes.every((x) => x !== undefined) ? serieDe(partes) : null;
-    if (!serie) { motivos.push({ regla: nombre, mensaje: nombre + ': no series for a movement of ' + cuanto }); continue; }
+    if (!serie) { motivos.push({ regla: nombre, mensaje: motivoDe('no series', { name: nombre, amount: cuanto }, { idioma, epoca }) }); continue; }
     const [primitiva, extra] = hojas(receta[2]);
     const [de, a] = hojas(receta[3]).map((x) => quien(hoja(x)));
     const m = { ...serie, cantidad: Math.round(cuanto * 1e9) / 1e9 };
@@ -398,13 +398,13 @@ function motivosDelEje(eje, textos, ev, idioma, opciones) {
 export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   const epoca = epocaDe(opciones);
   const plantilla = plantillaDeTransaccion(cual, opciones);
-  if (!plantilla) return { ok: false, evento: null, motivos: [{ regla: null, mensaje: 'unknown transaction template: ' + String(Array.isArray(cual) ? cual[0] : cual?.ref ?? cual) }] };
+  const idioma = idiomaDe(eje, yo, opciones);
+  if (!plantilla) return { ok: false, evento: null, motivos: [{ regla: null, mensaje: motivoDe('unknown template', { template: String(Array.isArray(cual) ? cual[0] : cual?.ref ?? cual) }, { idioma, epoca }) }] };
   const nombre = nombreDeAccion(plantilla);
   const { X: cualX, ...dados } = params;
   const X = eventoDe(eje, cualX);
-  if (!X || !eje?.obtener(X.id)) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': X is not a record of the ledger' }] };
-  if (typeof yo !== 'string' || !yo) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: nombre + ': who launches it (yo) is an identity' }] };
-  const idioma = idiomaDe(eje, yo, opciones);
+  if (!X || !eje?.obtener(X.id)) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: motivoDe('X not in ledger', { name: nombre }, { idioma, epoca }) }] };
+  if (typeof yo !== 'string' || !yo) return { ok: false, evento: null, motivos: [{ regla: nombre, mensaje: motivoDe('who launches', { name: nombre }, { idioma, epoca }) }] };
   const t = relojDe(eje, opciones);
   if (esLectura(plantilla)) {
     const { motivos, candidata } = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
@@ -422,7 +422,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
   if (prep.motivos.length) return { ok: false, evento: null, motivos: prep.motivos };
-  const { movimientos, motivos } = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X);
+  const { movimientos, motivos } = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
   if (motivos.length) return { ok: false, evento: null, motivos };
   const payload = prep.payload;
   // La representación del registro: el mensaje de la plantilla, salvo que un parámetro ocupe el 0.

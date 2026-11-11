@@ -239,7 +239,7 @@ test('la matriz del 4 pagina por matrices enteras; las demás formas no paginan 
   assert.deepEqual(r.pagina, { actual: 1, de: 1 });
   const total = C.ocupantes(eje, compra.id, 2, 0, 0).total;
   assert.equal(r.celdas.filter((c) => c.ocupante).length, total);
-  assert.deepEqual(r.celdas.filter((c) => c.ocupante).map((c) => c.ocupante.texto), C.ocupantes(eje, compra.id, 2, 0, total).ocupantes.map((o) => C.legible(eje, o, C.tipo(eje, compra.id, 2), {}).texto));
+  assert.deepEqual(r.celdas.filter((c) => c.ocupante).map((c) => c.ocupante.texto), C.ocupantes(eje, compra.id, 2, 0, total).ocupantes.map((o) => C.legible(eje, o, C.tipo(eje, compra.id, 2), { idioma: 'es' }).texto));
   const ultima = (await arbol(completa(compra.id, 2, { paginas: { 2: 99 } }), eje, 'huesped', GRANDE, { epoca })).centro.rejilla;
   assert.equal(ultima.pagina.actual, 1, 'no pasa de la última');
   const cruceta = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;

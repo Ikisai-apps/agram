@@ -45,7 +45,7 @@ const clic = (nodo = {}, entorno = {}) => nuevaOpinion({
 
 test('exportar: un markdown con las instrucciones de la guía, el contexto de la pantalla y «Cómo responder», que sale de la época', async () => {
   const { eje, compra } = await mundo();
-  const a = await X.exportar(estadoDe(compra.id), eje, 'huesped', { ahora: AHORA, ancho: 400, alto: 800 });
+  const a = await X.exportar(estadoDe(compra.id), eje, 'huesped', { ahora: AHORA, ancho: 400, alto: 800, idioma: 'en' });
   assert.equal(a.nombre, 'agram-contexto-2026-11-10.md');
   assert.equal(a.tipo, 'text/markdown');
   const titulos = [...a.contenido.matchAll(/^## (.+)$/gm)].map((m) => m[1]);
@@ -53,11 +53,11 @@ test('exportar: un markdown con las instrucciones de la guía, el contexto de la
   const guia = contrato.guia(eje, 'en');
   // 1. Las instrucciones: las mismas que se mandan a la IA (la cascada del 9).
   const [, instr, ctx, acc, resp] = a.contenido.split(/^## .+$/m);
-  assert.equal(instr.trim(), G.instrucciones(eje, compra.id, 'huesped'));
+  assert.equal(instr.trim(), G.instrucciones(eje, compra.id, 'huesped', { idioma: 'en' }));
   assert.ok(instr.includes(guia.papel) && instr.includes(guia.resumen) && instr.includes(guia.normas));
   // 2. El contexto de la pantalla, sin el tope de 6000 de la guía.
   assert.ok(ctx.includes('foco: ' + compra.id.slice(0, 8)));
-  assert.equal(ctx.trim(), (await G.contexto(estadoDe(compra.id), eje, 'huesped', { ancho: 400, alto: 800, tope: X.TOPE_EXPORTAR })).trim());
+  assert.equal(ctx.trim(), (await G.contexto(estadoDe(compra.id), eje, 'huesped', { ancho: 400, alto: 800, tope: X.TOPE_EXPORTAR, idioma: 'en' })).trim());
   // Las acciones con sus parámetros, para quien responde fuera (sus nombres canónicos).
   assert.match(acc, /^- anchor here · PV6/m);
   assert.match(acc, /^ {4}· title \[text, requerido\]/m);

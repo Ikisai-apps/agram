@@ -52,7 +52,7 @@ test('los ajustes de la guía son una plantilla de la época con sus defectos, y
   const { eje } = await ejemploCompra();
   assert.deepEqual(contrato.configuracionGuia(eje, 'huesped'), { 'guide model': 'claude-sonnet-5-5', 'guide via': 'server', 'guide history': 20, 'guide context': 6000, de: null });
   assert.deepEqual(G.ajustes(eje, 'huesped'), { modelo: 'claude-sonnet-5-5', via: 'server', historial: 20, contexto: 6000, de: null });
-  const a = G.ajustesEditables(eje, 'huesped', { 'guide via': 'direct', 'guide context': '3000' });
+  const a = G.ajustesEditables(eje, 'huesped', { 'guide via': 'direct', 'guide context': '3000' }, { idioma: 'en' });
   assert.equal(a.cambiado, true);
   assert.deepEqual(a.campos.map((c) => c.clave), ['guide model', 'guide via', 'guide history', 'guide context', 'opinions anchor']);
   assert.equal(a.campos[1].etiqueta, 'guide via', 'en el idioma de la configuración (en): la etiqueta canónica');
@@ -87,7 +87,7 @@ test('carta/guia.js no lleva escrito nada de lo que dice la guía: lo lee de la 
 
 test('contexto() sobre la compra: modo y ancho, quién soy, el foco con su lectura y su madurez, la carta de texto, el camino, las acciones del aro y el diario', async () => {
   const { eje, compra } = await ejemploCompra();
-  const c400 = await G.contexto(estadoDe(compra.id), eje, 'huesped', { ancho: 400, alto: 800 });
+  const c400 = await G.contexto(estadoDe(compra.id), eje, 'huesped', { ancho: 400, alto: 800, idioma: 'en' });
   assert.match(c400, /400×800 px/);
   assert.match(c400, /franjas apiladas/);
   assert.match(c400, /huesped \(persona\)/);
@@ -101,7 +101,8 @@ test('contexto() sobre la compra: modo y ancho, quién soy, el foco con su lectu
   assert.match(c400, /acciones del aro/);
   assert.match(c400, /PV9: follow the path\*/);
   assert.match(c400, /últimas entradas del diario:\n- 2026-11-07T13:30:00Z/);
-  assert.match(c400, /language: en/);
+  assert.match(c400, /idioma en/);
+  assert.match(c400, /language: es/, 'la configuración dice es: el idioma por defecto de la época');
   assert.ok(c400.length <= 6000);
   const c1200 = await G.contexto(estadoDe(compra.id), eje, 'huesped', { ancho: 1200, alto: 700, cuenta: true });
   assert.match(c1200, /1200×700 px/);
@@ -128,13 +129,13 @@ test('contexto() respeta el tope: recorta por el final de cada bloque y lo dice'
 test('las instrucciones son el texto de la época y, detrás, lo escrito en el 9 del foco (no la configuración)', async () => {
   const { eje, compra } = await ejemploCompra();
   const base = contrato.guia(eje, 'en');
-  const sola = G.instrucciones(eje, compra.id, 'huesped');
+  const sola = G.instrucciones(eje, compra.id, 'huesped', { idioma: 'en' });
   assert.ok(sola.startsWith(base.papel));
   assert.ok(sola.includes(base.resumen) && sola.includes(base.normas));
   assert.ok(!sola.includes('Instrucciones del 9'), 'sin nada en el 9, nada más que el texto base');
   // Una instrucción propia del registro, escrita en su 9 por su dueño.
   await eje.anadir(await crearEvento({ autor: 'huesped', sobre: compra.id, en: direccion([9]), t: '2026-11-08T10:00:00Z', movimientos: [minuto('huesped')], payload: 'Si preguntan por el pago, explica que ya está hecho.' }));
-  const con = G.instrucciones(eje, compra.id, 'huesped');
+  const con = G.instrucciones(eje, compra.id, 'huesped', { idioma: 'en' });
   assert.ok(con.startsWith(sola));
   assert.match(con, /Instrucciones del 9 de este registro:\nSi preguntan por el pago, explica que ya está hecho\./);
   // El registro de configuración (el 9 de un alta) no se manda: puede llevar dónde se comparte el eje.

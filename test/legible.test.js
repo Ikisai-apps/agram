@@ -237,8 +237,8 @@ test('el árbol de la carta para la compra en es no lleva ninguna cadena que emp
   assert.match(h, /data-lanzar="[0-9a-f]{64}"/);
   assert.match(h, /data-legible="Menú del día"/);
   assert.match(h, /guardar este rato|configuración/);
-  // En inglés (sin preferencia), lo mismo de siempre: los nombres canónicos.
-  const en = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: X.id, pv: null } }, eje, 'cocina', { ancho: 400, alto: 700 });
+  // En inglés (pedido), lo mismo de siempre: los nombres canónicos; sin preferencia, el idioma de la época es el español.
+  const en = await arbol({ foco: { X: X.id, pv: 0 }, aro: { X: X.id, pv: null } }, eje, 'cocina', { ancho: 400, alto: 700 }, { idioma: 'en' });
   assert.equal(en.idioma, 'en');
   assert.equal(en.centro.campos.find((c) => c.pv === 1).etiqueta, 'order');
   // La reserva, en es: las fechas del 7 legibles y los niveles de «booking» traducidos.
