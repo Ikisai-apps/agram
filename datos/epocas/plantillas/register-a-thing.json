@@ -1,0 +1,114 @@
+[
+  ["register a thing"],
+  [
+    [
+      ["thing"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3.1"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [1],
+      ["the identity of the new thing (a name without an alta in this ledger)"]
+    ],
+    [
+      ["minutes"],
+      ["number"],
+      ["=it > 0"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [2],
+      [60, "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"]
+    ],
+    [
+      ["key"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["key", "{thing}"],
+      ["-"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [3],
+      ["the public key of the thing (x-only, 64 hexadecimal characters): this record declares it at its alta"]
+    ],
+    [
+      ["proof"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["proof", "{thing}"],
+      ["-"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["optional"],
+      [4],
+      ["the proof of possession: the signature of the thing, with its key, on the id of this record; the thing makes it, so it comes in its request"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [5],
+      ["=first epoch.9.0.1.2", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3.0"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [6],
+      ["=me", "who registers the thing: its owner"]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["encargo core-escribe (VG, 11-11): parámetro de «register a thing»"],
+      ["required"],
+      [7],
+      ["register a thing", "the action"]
+    ]
+  ],
+  ["=first it.5 = first me.6"],
+  ["me"],
+  [
+    [
+      ["T:minuto"],
+      [1],
+      ["burn"],
+      [["=me"], ["nobody"]]
+    ],
+    [
+      ["T:minuto"],
+      ["=first ev.1"],
+      ["transfer"],
+      [["=me"], ["=last ev.3.1"]]
+    ]
+  ],
+  ["1.4"],
+  [
+    "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
+    "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
+    "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)"
+  ],
+  ["epoch 0"],
+  [1, 5],
+  ["register a thing: {me} registers the thing {last ev.3.1}"]
+]

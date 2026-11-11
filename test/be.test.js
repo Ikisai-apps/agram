@@ -12,7 +12,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { arrancar } from '../servidor/prueba/servidor.mjs';
-import { acciones, salida, sincronia } from '../src/index.js';
+import { acciones, salida, sincronia, autoridad, motor, elegibles as EL, direccion } from '../src/index.js';
+import * as C2 from '../src/contrato.js';
+import { ContextoEje } from '../src/contexto-eje.js';
+import { EPOCA_0_BTML } from '../src/epocas.js';
+import { evaluar } from '../src/bqlm.js';
+import * as C from '../carta/carta.js';
 import * as Q from '../carta/cuentas.js';
 import * as G from '../carta/guia.js';
 import * as X from '../carta/externa.js';
@@ -192,6 +197,160 @@ test('errores del servidor tal cual: clave de lectura mala (401) y eje que no ex
   const r404 = await be('estado', '--config', nada);
   assert.equal(r404.codigo, 1);
   assert.match(r404.error, /servidor 404/);
+});
+
+// ---------- Core escribe (encargo core-escribe, VG 11-11): su identidad «cosa», su alta y sus propuestas ----------
+
+let cfgCore; // la configuración de Core: la misma de lectura, más su identidad
+let core; // { nombre, publica, privada } (de su configuración, para comprobar; no se imprime)
+let propuestaIkisai;
+const sincronizarVG = async () => {
+  const S = new sincronia.Sincronia({ url: servidor.url, eje: 'vg', claveLectura });
+  const informe = await S.sincronizar(cuenta.eje);
+  assert.deepEqual([informe.pendientes, informe.errores, S.rechazados], [[], [], []]);
+  return informe;
+};
+
+test('identidad --crear: el par de claves de Core en su configuración (nunca se imprime) y la petición de alta; sin alta no escribe', async () => {
+  cfgCore = join(carpeta, 'core.json');
+  writeFileSync(cfgCore, JSON.stringify({ sync_url: servidor.url, eje: 'vg', clave_lectura: claveLectura }));
+  const r = await be('identidad', '--crear', '--config', cfgCore);
+  assert.equal(r.codigo, 0, r.error);
+  core = JSON.parse(readFileSync(cfgCore, 'utf8')).identidad;
+  assert.equal(core.nombre, 'core');
+  assert.equal(autoridad.publicaDe(core.privada), core.publica, 'la privada es la pareja de la pública');
+  assert.match(r.salida, /^identidad de Core creada: core · clave [0-9a-f]{8}…/m);
+  assert.match(r.salida, /^alta: aún no$/m);
+  assert.ok(!r.salida.includes(core.privada) && !r.salida.includes(core.publica), 'ni la privada ni la pública enteras se imprimen');
+  assert.ok(!r.salida.includes(claveLectura));
+  // La petición: una propuesta del formato de la guía (carta/externa.js), la plantilla «register a thing» sobre el alta de VG, con su instante.
+  const ruta = join(carpeta, 'peticion-alta-core.json');
+  assert.ok(r.salida.includes('petición de alta: ' + ruta), r.salida);
+  const p = JSON.parse(readFileSync(ruta, 'utf8'));
+  assert.equal(p.propuestas.length, 1);
+  const [una] = p.propuestas;
+  assert.deepEqual([una.accion, una.sobre, una.parametros.thing, una.parametros.key, una.parametros.minutes], ['register a thing', cuenta.cuenta.alta, 'core', core.publica, 60]);
+  assert.match(una.parametros.proof, /^[0-9a-f]{128}$/);
+  assert.match(una.t, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  assert.ok(!JSON.stringify(p).includes(core.privada));
+  // No se pisa una clave; sin alta no se escribe.
+  const otra = await be('identidad', '--crear', '--config', cfgCore);
+  assert.equal(otra.codigo, 1);
+  assert.match(otra.error, /ya tiene identidad/);
+  const sinAlta = await be('proponer', 'Ikisai', '--config', cfgCore);
+  assert.equal(sinAlta.codigo, 1);
+  assert.match(sinAlta.error, /«core» aún no tiene alta en este eje/);
+});
+
+test('VG da de alta a Core desde la carta: importa la petición y la acepta (con su instante); Core es una cosa de VG con su clave y su T', async () => {
+  await sincronizarVG();
+  const yo = cuenta.cuenta.identidad;
+  const firmar = Q.firmarCon(cuenta.privada);
+  const r = X.importar(readFileSync(join(carpeta, 'peticion-alta-core.json'), 'utf8'));
+  assert.equal(r.ok, true, r.motivo);
+  const e = X.evaluar(cuenta.eje, yo, r.propuestas[0]);
+  assert.equal(e.valida, true, e.motivo);
+  assert.deepEqual([e.accion, e.sobre, e.t], ['register a thing', cuenta.cuenta.alta, r.propuestas[0].t]);
+  // En el camino del alta de VG es un paso de la tercera fuente que pasa (con su instante: la prueba firma ese id).
+  const { pasos } = await acciones.camino(cuenta.eje, cuenta.cuenta.alta, yo, { sugerencias: X.sugerenciasDe(r.propuestas), firmar });
+  const paso = pasos.find((x) => x.fuente === 'sugerencia');
+  assert.deepEqual([paso.hacer.plantilla, paso.pasa], ['register a thing', true], JSON.stringify(paso.motivos));
+  // Sin su instante el id cambia y la prueba de posesión no vale: lo dicen las reglas.
+  const sinT = await C.enviar(cuenta.eje, e.sobre, e.accion, e.parametros, yo, firmar);
+  assert.equal(sinT.ok, false);
+  assert.match(sinT.motivos.map((m) => m.mensaje).join('; '), /posesión/);
+  // Aceptar, como la carta (app.js, propuesta('aceptar')): acciones.transaccion con la firma de VG y el instante de la petición.
+  const ok = await C.enviar(cuenta.eje, e.sobre, e.accion, e.parametros, yo, firmar, { t: e.t });
+  assert.equal(ok.ok, true, JSON.stringify(ok.motivos));
+  const alta = ok.asentado;
+  assert.deepEqual([alta.autor, alta.firmante, alta.sobre, alta.en, alta.contexto.claves.core], [yo, yo, cuenta.cuenta.alta, '1400000000', core.publica]);
+  assert.match(alta.posesion.core, /^[0-9a-f]{128}$/);
+  assert.equal(cuenta.eje.esPersona('core'), false, 'una cosa: su alta la escribió VG');
+  assert.equal(cuenta.eje.clave('core'), core.publica);
+  assert.equal(cuenta.eje.saldoT('core', 'minuto'), 60);
+  await sincronizarVG();
+  // Be la ve: alta, quién la escribió, su T, el proyecto de VG y aún nada escrito en lo ajeno.
+  const v = await be('identidad', '--config', cfgCore);
+  assert.equal(v.codigo, 0, v.error);
+  assert.match(v.salida, new RegExp('^alta: ' + alta.id.slice(0, 8) + ' · la escribió ' + yo + ' \\(es una cosa suya\\)', 'm'));
+  assert.match(v.salida, /^T de minuto: 60$/m);
+  assert.match(v.salida, new RegExp('^proyecto de VG: ' + ids.agram.slice(0, 8) + ' «AGRAM»$', 'm'));
+  assert.match(v.salida, /^escrito en lo ajeno: 0$/m);
+});
+
+test('proponer: Core escribe una propuesta firmada en la fábrica del proyecto de VG; por la regla general queda pendiente hasta que el criterio de VG la admite', async () => {
+  const r = await be('proponer', 'Ikisai', '--valores', JSON.stringify({ content: 'el ecosistema de apps' }), '--config', cfgCore);
+  assert.equal(r.codigo, 0, r.error);
+  assert.match(r.salida, /^propuesta: [0-9a-f]{8} «Ikisai» en la fábrica de [0-9a-f]{8} «AGRAM» · por core$/m);
+  assert.match(r.salida, new RegExp('^estado: pendiente: ' + cuenta.cuenta.identidad + ' no lo ha aceptado$', 'm'));
+  assert.match(r.salida, /^subido al eje compartido: 1 registro$/m);
+  // VG lo baja: el registro es de Core, firmado por Core, con las reglas enteras (sincronizar valida cada evento).
+  await sincronizarVG();
+  const yo = cuenta.cuenta.identidad;
+  const eje = cuenta.eje;
+  propuestaIkisai = eje.sobre(ids.agram, motor.FABRICA).find((e) => e.autor === 'core');
+  assert.ok(propuestaIkisai, 'la propuesta de Core cuelga de la fábrica (el 4) del proyecto');
+  assert.deepEqual([propuestaIkisai.firmante, propuestaIkisai.payload[0], propuestaIkisai.payload[1], propuestaIkisai.payload[3], propuestaIkisai.payload[4]], ['core', ['Ikisai'], ['el ecosistema de apps'], ['core', yo], ['propose']]);
+  // La regla general (R8): ocupa la fábrica del proyecto, pero no entra en lo de VG (no es elegible) hasta que VG lo admite.
+  assert.equal(EL.elegibles(eje, ids.agram).autores.has('core'), false);
+  assert.ok(EL.ocupantesElegibles(eje, ids.agram, [4]).noElegibles >= 1);
+  // VG la acepta con el mecanismo general: nombra a «core» en el 2.3 del proyecto («criterio · con quién»), una corrección
+  // suya que src/elegibles.js ya lee. Admite lo que core escriba sobre ese registro (preacepta), no una propuesta suelta.
+  await salida.escribirDesde(eje, { modo: 'sequenced', autor: yo, sobre: ids.agram, en: direccion([2, 3]), payload: ['core'], t: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z') }, cuenta.privada);
+  assert.equal(EL.elegibles(eje, ids.agram).autores.has('core'), true);
+  await sincronizarVG();
+  const v = await be('identidad', '--config', cfgCore);
+  assert.match(v.salida, /^escrito en lo ajeno: 1$/m);
+  assert.match(v.salida, new RegExp('^  ' + propuestaIkisai.id.slice(0, 8) + ' «Ikisai» sobre ' + ids.agram.slice(0, 8) + ' «AGRAM» en 4000000000 · aceptado \\(' + yo + ' admite a core en el 2.3\\)$', 'm'));
+  assert.match(v.salida, /^T de minuto: 59$/m, 'la propuesta le cuesta un minuto de lo que le dio VG');
+});
+
+test('dónde se ve Core en lo de VG: su alta en el 1.4 del alta de VG, su propuesta en el 4 del proyecto y su nombre en el 2.3; hoy no en el grupo «equipo» (3.4)', () => {
+  const eje = cuenta.eje;
+  const altaCore = eje.alta('core').id;
+  // 1.4 (recursos × fábrica: lo que se hace con los recursos, quién actúa): el alta de Core, que VG escribió ahí.
+  assert.deepEqual(C2.ocupantes(eje, cuenta.cuenta.alta, '1.4').ocupantes, [{ ref: altaCore }]);
+  // El 4 del proyecto: la propuesta de Core, con su autor.
+  assert.ok(C2.ocupantes(eje, ids.agram, 4).ocupantes.some((o) => o.ref === propuestaIkisai.id));
+  // El 2 del proyecto: el criterio de VG que admite a Core (su 2.3, «con quién»).
+  assert.ok(C2.ocupantes(eje, ids.agram, '2.3').ocupantes.some((o) => o.ref && JSON.stringify(eje.obtener(o.ref).payload) === '["core"]'));
+  // Lo que el núcleo no coloca solo (se apunta, no se fuerza): Core no está en el grupo «equipo» (zona 4) de la atención
+  // de VG: eso lo pone VG anclando en el 3.4.3 de su alta.
+  const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML, me: cuenta.cuenta.identidad });
+  const r = evaluar('=count (nth 4 ("' + cuenta.cuenta.identidad + '").3).3', ctx, {});
+  assert.deepEqual([r.estado, r.valor], ['RESUELTO', [0]]);
+});
+
+test('escribir: una acción del aro con --valores y un payload BTML con --archivo, firmados por Core; en lo suyo, en lo aceptado y en lo no aceptado, por la misma regla', async () => {
+  const yo = cuenta.cuenta.identidad;
+  const nota = await be('escribir', 'anchor here', '--sobre', propuestaIkisai.id.slice(0, 8), '--valores', JSON.stringify({ título: 'Nota de Core', content: 'el detalle' }), '--config', cfgCore);
+  assert.equal(nota.codigo, 0, nota.error);
+  assert.match(nota.salida, new RegExp('^escrito: [0-9a-f]{8} «Nota de Core» · anchor here · por core · sobre ' + propuestaIkisai.id.slice(0, 8)));
+  assert.match(nota.salida, /^estado: en lo suyo$/m);
+  assert.match(nota.salida, /^subido al eje compartido: 1 registro$/m);
+  const archivo = join(carpeta, 'payload.json');
+  writeFileSync(archivo, JSON.stringify(['Idea de Core', 'escrita como un formulario']));
+  const libre = await be('escribir', '--archivo', archivo, '--sobre', 'AGRAM', '--en', '6', '--config', cfgCore);
+  assert.equal(libre.codigo, 0, libre.error);
+  assert.match(libre.salida, /^escrito: [0-9a-f]{8} «Idea de Core» · payload \(sequenced\) · por core · sobre [0-9a-f]{8} «AGRAM» en 6000000000$/m);
+  assert.match(libre.salida, new RegExp('^estado: aceptado \\(' + yo + ' admite a core en el 2.3\\)$', 'm'));
+  // En un registro de VG que no admite a Core (el menú): se escribe igual, pero queda pendiente.
+  const menu = await be('escribir', 'anchor here', '--sobre', ids.menu.slice(0, 8), '--valores', JSON.stringify({ title: 'Sugerencia de Core' }), '--config', cfgCore);
+  assert.equal(menu.codigo, 0, menu.error);
+  assert.match(menu.salida, new RegExp('^estado: pendiente: ' + yo + ' no lo ha aceptado$', 'm'));
+  const conEn = await be('escribir', 'anchor here', '--sobre', 'AGRAM', '--en', '1', '--config', cfgCore);
+  assert.equal(conEn.codigo, 1);
+  assert.match(conEn.error, /--en solo va con --archivo/);
+  const raro = await be('escribir', 'anchor here', '--sobre', 'AGRAM', '--valores', JSON.stringify({ nada: 1 }), '--config', cfgCore);
+  assert.equal(raro.codigo, 1);
+  assert.match(raro.error, /«nada» no es un parámetro de «anchor here»/);
+  // VG lo baja con las reglas enteras: todo de Core, firmado por Core.
+  await sincronizarVG();
+  const deCore = cuenta.eje.orden.map((id) => cuenta.eje.obtener(id)).filter((e) => e.autor === 'core');
+  assert.equal(deCore.length, 4);
+  assert.ok(deCore.every((e) => e.firmante === 'core'));
+  assert.equal(servidor.almacen.filas('vg').length, cuenta.eje.orden.length);
+  assert.equal((await conCfg('estado')).codigo, 0); // la caché de lectura al día para la prueba sin red
 });
 
 test('sin red: lee la caché y lo dice; sin caché, lo dice y falla', async () => {

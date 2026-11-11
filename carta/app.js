@@ -985,7 +985,8 @@ const manejadores = {
     if (!e.valida) return;
     let motivos = [];
     if (que === 'aceptar') {
-      const r = await enviar(estado.eje, e.sobre, e.accion, e.parametros, estado.identidad, firmarCon(estado.identidad));
+      // Con su instante, si lo trae (la petición de alta de una cosa: su prueba de posesión firma el id de ese registro).
+      const r = await enviar(estado.eje, e.sobre, e.accion, e.parametros, estado.identidad, firmarCon(estado.identidad), e.t ? { t: e.t } : {});
       if (r.ok && r.asentado) {
         trasEscribir();
         externa.quitarPropuesta(almacenLocal(), dondePropuestas(), id);

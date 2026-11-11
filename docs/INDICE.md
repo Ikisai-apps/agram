@@ -46,6 +46,7 @@ Son notas de lectura y de resultados, con fecha y con su base (el commit de `mai
 | `AUDITORIA_AJUSTE.md` | Dónde se separa el código de lo decidido: fichas votadas, el §12 línea a línea y preguntas para VG | base `95e5396`; buena parte ya resuelta en `main` (ver su estado) |
 | `PRUEBA_DEL_EXTRANJERO.md` | La prueba del extranjero: un agente con solo BTML, BQL y MOTOR escribe registros y fórmulas, y un conocedor lo califica | hecha; el anexo es histórico y dice qué cambia hoy |
 | `FIRMAS_BIP340.md` | Por qué las firmas son Schnorr BIP-340 (secp256k1) y no ECDSA P-256: formato, librería vendorizada, sin compatibilidad | decidida por VG el 11-11; rama `beta-schnorr` (`src/autoridad.js`, `src/vendor/`) |
+| `CORE_IDENTIDAD.md` | Core como identidad que escribe: una cosa de VG (alta con «register a thing» y petición), sus órdenes en Be y la regla general de lo ajeno | encargo core-escribe (VG, 11-11); rama `beta-core` (`be.mjs`, `src/acciones.js`) |
 | `CAPA_CERO.md` | La capa cero: el libro de transacciones, la correspondencia evento ↔ transacción y las condiciones envueltas con su fila del inventario | paso 1 del mapa §16 (VG, 9-11); en `src/libro.js` y `src/condiciones/` |
 
 ## Dónde está cada cosa en el código

@@ -91,9 +91,11 @@ function jsonDe(texto) {
 }
 
 /**
- * Lee el archivo que vuelve de fuera: { "propuestas": [ { accion, sobre, parametros, porque } ] } (en un .json o en un
- * bloque json de un .md; también vale la lista sola). → { ok: true, propuestas: [{ id, accion, sobre, parametros,
- * porque, importada }] } con cada una tal como llegó (se entiende o no se decide al evaluarla), o { ok: false, motivo }.
+ * Lee el archivo que vuelve de fuera: { "propuestas": [ { accion, sobre, parametros, porque, t? } ] } (en un .json o en
+ * un bloque json de un .md; también vale la lista sola). → { ok: true, propuestas: [{ id, accion, sobre, parametros,
+ * porque, importada, t? }] } con cada una tal como llegó (se entiende o no se decide al evaluarla), o { ok: false, motivo }.
+ * `t` (opcional, un instante) es el del registro que se escribirá: lo trae la petición de alta de una cosa (be.mjs
+ * identidad --crear), cuya prueba de posesión firma el id de ese registro exacto.
  */
 export function importar(texto, { ahora = Date.now() } = {}) {
   const v = jsonDe(String(texto ?? ''));
@@ -104,7 +106,7 @@ export function importar(texto, { ahora = Date.now() } = {}) {
   return {
     ok: true,
     propuestas: lista.map((p, i) => (esObjeto(p)
-      ? { id: `${base}-${i}`, accion: p.accion, sobre: p.sobre, parametros: esObjeto(p.parametros) ? p.parametros : p.parametros === undefined ? {} : p.parametros, porque: typeof p.porque === 'string' ? p.porque : '', importada: marca }
+      ? { id: `${base}-${i}`, accion: p.accion, sobre: p.sobre, parametros: esObjeto(p.parametros) ? p.parametros : p.parametros === undefined ? {} : p.parametros, porque: typeof p.porque === 'string' ? p.porque : '', importada: marca, ...(typeof p.t === 'string' && p.t ? { t: p.t } : {}) }
       : { id: `${base}-${i}`, accion: undefined, sobre: undefined, parametros: {}, porque: '', crudo: cadena(p), importada: marca })),
   };
 }
@@ -151,7 +153,7 @@ export function evaluar(eje, yo, propuesta, opciones = {}) {
   const idioma = idiomaDe(eje, yo, opciones);
   const o = { ...opciones, idioma };
   const sobre = propuesta.sobre === undefined || propuesta.sobre === null ? null : acciones.registroDe(eje, cadena(propuesta.sobre), o);
-  const base = { id: propuesta.id, porque: propuesta.porque ?? '', accion: cadena(propuesta.accion), nombre: cadena(propuesta.accion), sobre, parametros: {}, crudo: propuesta.crudo };
+  const base = { id: propuesta.id, porque: propuesta.porque ?? '', accion: cadena(propuesta.accion), nombre: cadena(propuesta.accion), sobre, parametros: {}, crudo: propuesta.crudo, ...(typeof propuesta.t === 'string' && propuesta.t ? { t: propuesta.t } : {}) };
   const invalida = (motivo) => ({ ...base, valida: false, motivo });
   if (propuesta.crudo !== undefined) return invalida(t('externaNoEsUnaPropuesta', { que: propuesta.crudo }));
   const plantilla = plantillaPorNombre(eje, propuesta.accion, o);
@@ -195,7 +197,7 @@ export function sugerenciasDe(propuestas, opciones = {}) {
   return (eje, ev, yo) => evaluarTodas(eje, yo, propuestas, opciones)
     .filter((e) => e.sobre === ev.id)
     .map((e) => (e.valida
-      ? { plantilla: e.accion, sobre: e.sobre, parametros: e.parametros, porque: e.porque, id: e.id }
+      ? { plantilla: e.accion, sobre: e.sobre, parametros: e.parametros, porque: e.porque, id: e.id, ...(e.t ? { t: e.t } : {}) }
       : { invalida: e.motivo, plantilla: e.nombre, sobre: e.sobre, porque: e.porque, id: e.id }));
 }
 

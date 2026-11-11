@@ -4,8 +4,11 @@
 // referencias a datos/epocas/plantillas/<nombre>.json) con el molde de regla adaptado:
 //
 //   0 nombre (inglés)        1 parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta,
-//                              1 tipo, 2 validación «=…» con it = el valor, 5 dónde va en el registro, 7 required u
-//                              optional, 9 defectos y ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev)
+//                              1 tipo, 2 validación «=…» con it = el valor, 4 qué se hace con él, 5 dónde va en el
+//                              registro, 7 required u optional, 9 defectos y ayuda; un defecto «=…» se lee sobre it = X,
+//                              me y la candidata ev. Su 4 es «payload», o «key {p}» / «proof {p}»: la clave pública que
+//                              el registro declara para la identidad que da el parámetro p y su prueba de posesión,
+//                              fuera del payload: así da de alta una cosa con su clave, encargo core-escribe)
 //   2 cuándo se ofrece       BQL mínimo con it = X y me = la identidad que mira (el nombre `me` del contexto)
 //   3 quién la lanza         4 lo que mueve: un movimiento por décupla (0 serie, 1 cuánto, 2 primitiva y su salida,
 //                              precio o fecha, 3 [[de], [a]]), «read» si solo lee, «path» si lanza el camino
@@ -117,9 +120,16 @@ export function plantillaDeTransaccion(cual, opciones = {}) {
   return null;
 }
 
+/** Qué se hace con un parámetro (su 4): { que: 'payload' | 'key' | 'proof', para } (`para`: la identidad, con huecos {parámetro}). */
+function destinoDe(cuatro) {
+  const [que, para] = hojas(cuatro).map(texto);
+  return que === 'key' || que === 'proof' ? { que, para: para ?? '' } : { que: 'payload', para: null };
+}
+
 /**
  * Los parámetros que pide una plantilla, leídos de su 1: [{ nombre, etiqueta, tipo, validacion, posicion, requerido,
- * defectos, ayuda, orden }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él); `defectos`
+ * defectos, ayuda, orden, destino }]. `posicion` es dónde va en el registro que escribe («1.2»; «-» si no va en él);
+ * `destino`, qué se hace con él (su 4: el payload, o la clave y la prueba de posesión que declara el registro); `defectos`
  * son las hojas del 9 menos la ayuda (una fórmula «=…» se evalúa sobre it = X, me y la candidata). `nombre` es el
  * canónico (inglés); `etiqueta` y `ayuda`, con `opciones.idioma`, su traducción (epoch.9.4: «template <nombre> param
  * <etiqueta> label | help»).
@@ -140,6 +150,7 @@ export function parametros(plantilla, opciones = {}) {
       defectos: hojas(p[9]).slice(0, -1),
       ayuda: t(claves.parametro(nombre, k, 'help'), texto(ultima(p[9])) ?? ''),
       orden: Number(hoja(p[8])) || 0,
+      destino: destinoDe(p[4]),
     };
   }).sort((a, b) => a.orden - b.orden);
 }
@@ -428,9 +439,22 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   // La representación del registro: el mensaje de la plantilla, salvo que un parámetro ocupe el 0.
   // Se rellena sobre la candidata sin movimientos: así el 1 y el 3 del payload no colisionan con D-META.
   if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
+  // Las claves que el registro declara y sus pruebas de posesión (un parámetro con «key {p}» o «proof {p}» en su 4): la
+  // clave va en el contexto (el 5 del evento, dentro del cuerpo), la prueba fuera del cuerpo, como la firma; así una
+  // persona da de alta una cosa con la clave de la cosa (la prueba la firma la cosa sobre el id de este registro).
+  const claves = {};
+  const posesion = {};
+  for (const p of prep.parametros) {
+    const v = prep.valores[p.nombre];
+    if (p.destino.que === 'payload' || v === undefined) continue;
+    const quien = conHuecos(p.destino.para, prep.valores);
+    if (!quien) return { ok: false, evento: null, motivos: [{ regla: p.nombre, mensaje: p.etiqueta + ': ' + p.ayuda, parametro: p.nombre }] };
+    (p.destino.que === 'key' ? claves : posesion)[quien] = String(v);
+  }
   let evento;
   try {
-    evento = await crearEvento({ autor: yo, sobre: prep.sobre, en: prep.en, t, movimientos, payload });
+    evento = await crearEvento({ autor: yo, sobre: prep.sobre, en: prep.en, t, movimientos, payload, ...(Object.keys(claves).length ? { contexto: { claves } } : {}) });
+    if (Object.keys(posesion).length) evento = Object.freeze({ ...evento, posesion });
     // Quien tiene clave firma (R9): la candidata se valida ya firmada, con lo que la carta sepa firmar (opciones.firmar,
     // async (evento) → evento firmado); si no, una identidad con clave vería siempre «who has a key signs».
     if (typeof opciones.firmar === 'function') evento = (await opciones.firmar(evento)) ?? evento;
@@ -655,7 +679,8 @@ export async function camino(eje, X, yo, opciones = {}) {
       if (!porNombre.has(nombre)) continue;
       // Una sugerencia puede tratar de otro registro (`sobre`): por defecto, el de X.
       const sobre = (s?.sobre !== undefined && eventoDe(eje, s.sobre)) || ev;
-      const r = await transaccion(eje, nombre, { X: sobre.id, ...(s?.parametros ?? {}) }, yo, opciones);
+      // Una sugerencia puede traer su instante (`t`): la que lleva una prueba de posesión firmada sobre el id solo pasa con él.
+      const r = await transaccion(eje, nombre, { X: sobre.id, ...(s?.parametros ?? {}) }, yo, typeof s?.t === 'string' && s.t ? { ...opciones, t: s.t } : opciones);
       const paso = mio(nombre, s?.parametros ?? {}, sobre);
       pasos.push({ fuente: 'sugerencia', ...paso, hecho: false, espera: null, pasa: r.ok, motivos: r.motivos, ...suya });
     }

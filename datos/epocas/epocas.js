@@ -4688,6 +4688,22 @@ export const EPOCA_0_BTML_DATOS = [
           "template reference X from another record param actions label: acción",
           "template reference X from another record param actions help: la acción",
           "template reference X from another record message: reference X from another record: {me} referencia {first it.0} desde un registro suyo",
+          "template register a thing: dar de alta una cosa",
+          "template register a thing param thing label: cosa",
+          "template register a thing param thing help: la identidad de la cosa nueva (un nombre sin alta en este eje)",
+          "template register a thing param minutes label: minutos",
+          "template register a thing param minutes help: los minutos de T que doy a la cosa para escribir (una cosa no tiene T diario: gasta lo que le da su dueño)",
+          "template register a thing param key label: clave",
+          "template register a thing param key help: la clave pública de la cosa (x-only, 64 caracteres hexadecimales): este registro la declara en su alta",
+          "template register a thing param proof label: prueba",
+          "template register a thing param proof help: la prueba de posesión: la firma de la cosa, con su clave, sobre el id de este registro; la hace la cosa, así que viene en su petición",
+          "template register a thing param criteria label: criterio",
+          "template register a thing param criteria help: la plantilla de cerrado del registro",
+          "template register a thing param who label: quién",
+          "template register a thing param who help: quién da de alta la cosa: su dueño",
+          "template register a thing param actions label: acción",
+          "template register a thing param actions help: la acción",
+          "template register a thing message: register a thing: {me} da de alta la cosa {last ev.3.1}",
           "template reposition P toward X: reposicionar P hacia X",
           "template reposition P toward X param from label: desde",
           "template reposition P toward X param from help: la serie de P que se mueve: P mío sobre el padre o un hijo de X",
@@ -5110,6 +5126,9 @@ export const EPOCA_0_BTML_DATOS = [
         },
         {
           "ref": "6673dd08e2ec537c4bb74d4e1935052c784f4e70148a5ad0458334dd4ae65f79"
+        },
+        {
+          "ref": "c40a734ef6f8724c568b9edd3d94fc6864a2856a5e2462612a4ebe28e95f1d28"
         },
         {
           "ref": "9350e15110720d8f0cd5cead5d6be871fd18b7cce5d2e9d340238bfbce90e67d"
@@ -9190,6 +9209,311 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
       ],
       [
         "consume: {me} burns {first ev.1.1} {first ev.1.0} of {first it.0}"
+      ]
+    ]
+  },
+  {
+    "archivo": "register-a-thing.json",
+    "id": "c40a734ef6f8724c568b9edd3d94fc6864a2856a5e2462612a4ebe28e95f1d28",
+    "registro": [
+      [
+        "register a thing"
+      ],
+      [
+        [
+          [
+            "thing"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.1"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the identity of the new thing (a name without an alta in this ledger)"
+          ]
+        ],
+        [
+          [
+            "minutes"
+          ],
+          [
+            "number"
+          ],
+          [
+            "=it > 0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            60,
+            "the minutes of T I give the thing to write with (a thing has no daily T: it spends what its owner gives it)"
+          ]
+        ],
+        [
+          [
+            "key"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "key",
+            "{thing}"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "the public key of the thing (x-only, 64 hexadecimal characters): this record declares it at its alta"
+          ]
+        ],
+        [
+          [
+            "proof"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "proof",
+            "{thing}"
+          ],
+          [
+            "-"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "optional"
+          ],
+          [
+            4
+          ],
+          [
+            "the proof of possession: the signature of the thing, with its key, on the id of this record; the thing makes it, so it comes in its request"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=first epoch.9.0.1.2",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3.0"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            6
+          ],
+          [
+            "=me",
+            "who registers the thing: its owner"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "encargo core-escribe (VG, 11-11): parámetro de «register a thing»"
+          ],
+          [
+            "required"
+          ],
+          [
+            7
+          ],
+          [
+            "register a thing",
+            "the action"
+          ]
+        ]
+      ],
+      [
+        "=first it.5 = first me.6"
+      ],
+      [
+        "me"
+      ],
+      [
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            1
+          ],
+          [
+            "burn"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "nobody"
+            ]
+          ]
+        ],
+        [
+          [
+            "T:minuto"
+          ],
+          [
+            "=first ev.1"
+          ],
+          [
+            "transfer"
+          ],
+          [
+            [
+              "=me"
+            ],
+            [
+              "=last ev.3.1"
+            ]
+          ]
+        ]
+      ],
+      [
+        "1.4"
+      ],
+      [
+        "Encargo core-escribe (VG, 11-11 noche): Core es una identidad «cosa» que escribe en el eje de VG con su propia clave. Una cosa es la identidad cuya alta escribe otra, su dueño (VG, 10-11, B1): esta plantilla es esa alta, sobre mi propia alta",
+        "La clave de la cosa se declara en este registro («a key is declared at its alta»: quien recibe algo aquí) y llega con su prueba de posesión («a declared key comes with its proof»): la cosa firma el id de este registro; por eso la prueba viene en la petición de la cosa, con el instante del registro",
+        "Lo que recibe es T de minuto: una cosa no tiene asignación diaria, gasta lo que le da su dueño (Core, 8-11: una persona da su T a sus cosas). Ancla en el 1.4 de mi alta (recursos × fábrica: lo que se hace con mis recursos, quién actúa: VG, 11-11)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        "register a thing: {me} registers the thing {last ev.3.1}"
       ]
     ]
   },
@@ -14985,7 +15309,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "f176f9ba79d943e90bc97ad9b182fb9703f8d0944b34c6d3628341f08a54b8dd";
+export const EPOCA_0_BTML_ID = "3c5ec6f077957524a7a9e2e5b19f7eab577c71b3fd0ea6146f949e5526eda855";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
