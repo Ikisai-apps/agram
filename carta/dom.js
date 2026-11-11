@@ -28,6 +28,28 @@ const NOMBRE_NIVEL = Object.freeze(Object.fromEntries(Object.entries(NIVEL).map(
 const repDe = (r) => (r ? `${r.recurso ? 'imagen' : 'texto'}${r.formato ? ':' + r.formato : ''}${r.tamano !== undefined ? '@' + r.tamano : ''}` : 'ninguna');
 const nodo = (tipo, campos = {}) => ` data-nodo="${tipo}"` + Object.entries(campos).filter(([, v]) => v !== undefined && v !== null && v !== '').map(([k, v]) => ` data-nodo-${k}="${attr(v)}"`).join('');
 
+/** Quién convierte un adjunto «archivo:<sha256>» en su URL (#22, #25): lo instala la app (resolverArchivos); sin él, null. */
+let resolverDeArchivos = null;
+/** La app instala aquí cómo se sirve un adjunto por su hash (la función `archivos` con la clave del eje que tiene en local). */
+export function resolverArchivos(fn) {
+  resolverDeArchivos = typeof fn === 'function' ? fn : null;
+}
+const RE_ARCHIVO = /^archivo:[0-9a-f]{64}$/;
+/**
+ * La dirección con que se pide el recurso de una pieza: una URL http(s) tal cual (las del eje ya pasaron la lista blanca
+ * de la época, modelos.recursoAdmitido), un adjunto «archivo:<sha256>» por el resolutor de la app (sin él, null: no se
+ * pinta) y una ruta del repositorio relativa a la página.
+ */
+export function srcDeRecurso(recurso) {
+  if (typeof recurso !== 'string' || !recurso) return null;
+  if (RE_ARCHIVO.test(recurso)) {
+    const url = resolverDeArchivos?.(recurso.slice('archivo:'.length));
+    return typeof url === 'string' && /^(https?:|blob:)/.test(url) ? url : null;
+  }
+  if (/^https?:\/\//.test(recurso)) return recurso;
+  return './' + recurso;
+}
+
 /**
  * La pieza de un modelo como HTML: en sobrio una forma (una clase), en animado un <img> o un hueco Lottie fijado en
  * su fotograma. `animar`: no (parada en su fotograma), bucle, o una vez (ANIMAR; true vale por bucle); `prioridad`
@@ -39,6 +61,8 @@ export function htmlPieza(pieza, { paso, animar = false, alt = '', clase = '', p
   if (!pieza) return '';
   const clases = ['pieza', ...(clase ? [clase] : [])];
   if (pieza.recurso && pieza.formato) {
+    const src = srcDeRecurso(pieza.recurso);
+    if (!src) return ''; // un adjunto sin resolutor (o sin red): no se pinta
     const fotogramas = pieza.fotogramas ?? 0;
     const k = paso && typeof paso.k === 'number' && paso.de ? Math.min(paso.k, paso.de) : 0;
     const de = paso && paso.de ? paso.de : 10;
@@ -48,7 +72,7 @@ export function htmlPieza(pieza, { paso, animar = false, alt = '', clase = '', p
       const bucle = modo === ANIMAR.una ? 0 : modo === ANIMAR.bucle ? 1 : pieza.bucle ? 1 : 0;
       return `<div class="${clases.concat('pieza-lottie').join(' ')}" data-lottie="${attr(pieza.recurso)}" data-fotograma="${fotograma}" data-animar="${modo === ANIMAR.no ? 0 : 1}" data-bucle="${bucle}" data-prioridad="${prioridad}"${oculta ? ' data-oculta="1"' : ''} role="img" aria-label="${attr(alt || pieza.tipo)}"></div>`;
     }
-    return `<img class="${clases.concat('pieza-imagen').join(' ')}" src="./${attr(pieza.recurso)}" alt="${attr(alt || pieza.tipo)}" loading="lazy" decoding="async">`;
+    return `<img class="${clases.concat('pieza-imagen').join(' ')}" src="${attr(src)}" alt="${attr(alt || pieza.tipo)}" loading="lazy" decoding="async">`;
   }
   return `<span class="${clases.concat('forma', 'forma-' + attr(pieza.forma ?? 'texto')).join(' ')}" aria-hidden="true"></span>`;
 }
@@ -112,8 +136,9 @@ const ESQUINAS = Object.freeze(['arriba-izquierda', 'arriba-derecha', 'abajo-izq
  * (el mismo <img>, recortado) y una línea del color del mundo las une (CSS).
  */
 function htmlMarcoCapa(marco) {
-  if (!marco?.recurso) return '';
-  const img = `<img src="./${attr(marco.recurso)}" alt="" loading="lazy" decoding="async">`;
+  const src = srcDeRecurso(marco?.recurso);
+  if (!src) return '';
+  const img = `<img src="${attr(src)}" alt="" loading="lazy" decoding="async">`;
   return `<div class="capa capa-marco" aria-hidden="true">${ESQUINAS.map((e) => `<span class="marco-esquina ${e}">${img}</span>`).join('')}</div>`;
 }
 
@@ -1092,7 +1117,9 @@ export function trasPintar(raiz, { lottie = globalThis.lottie, limite } = {}) {
     }, { rootMargin: '50px' });
   }
   for (const h of huecos) {
-    datos('./' + h.dataset.lottie).then((animationData) => {
+    const src = srcDeRecurso(h.dataset.lottie);
+    if (!src) continue;
+    datos(src).then((animationData) => {
       if (!animationData || !h.isConnected) return;
       const unaVez = h.dataset.bucle === '0';
       const anim = lottie.loadAnimation({ container: h, renderer: 'svg', loop: !unaVez, autoplay: false, animationData, rendererSettings: { preserveAspectRatio: 'xMidYMid meet' } });

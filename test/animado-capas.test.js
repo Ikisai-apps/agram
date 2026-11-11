@@ -33,9 +33,9 @@ const FILAS = {
   cerrado: { 3: 'verja' },
 };
 
-/** La huésped en animado con el modelo de la fase 2 (ikisai): la cadena lo trae delante del genérico y del sobrio. */
+/** La huésped en animado con el modelo de la fase 2 (general): la cadena lo trae delante del genérico y del sobrio. */
 async function animado(eje, quien = 'huesped') {
-  const p = preferencias(eje, quien, { render: 'animated', model: 'ikisai' });
+  const p = preferencias(eje, quien, { render: 'animated', model: 'general' });
   await eje.escribir({ autor: quien, sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto(quien)], payload: p.payload });
 }
 
@@ -104,10 +104,10 @@ test('la correspondencia del elemento es un dato de la cabecera (epoch.9.7.0.4):
   assert.equal(modelos.rolPorDefecto(c, 'munequito', 1), 'vendedor');
   assert.equal(modelos.corresponde(c, 'movimiento', 'acunar', 6), 'crear-pasado');
   assert.equal(modelos.corresponde(c, 'movimiento', 'acunar', 2), 'crear-abajo');
-  // Y cada nombre de una fila es un elemento que el modelo ikisai tiene en ese mundo (el arte de la fase 2).
-  const ikisai = modelos.modelosDeLaEpoca().find((m) => m.nombre === 'ikisai');
+  // Y cada nombre de una fila es un elemento que el modelo general tiene en ese mundo (el arte de la fase 2).
+  const general = modelos.modelosDeLaEpoca().find((m) => m.nombre === 'general');
   for (const porMundo of Object.values(FILAS)) {
-    for (const [pv, nombre] of Object.entries(porMundo)) assert.ok(ikisai.piezas.some((p) => p.tipo === 'elemento' && p.pv === Number(pv) && p.subclave === nombre), nombre + ' en el ' + pv);
+    for (const [pv, nombre] of Object.entries(porMundo)) assert.ok(general.piezas.some((p) => p.tipo === 'elemento' && p.pv === Number(pv) && p.subclave === nombre), nombre + ' en el ' + pv);
   }
 });
 
@@ -180,7 +180,7 @@ test('las capas de cada mundo: fondo, etapa (en la tarjeta de la cruceta o en la
     assert.deepEqual([r.capas.personaje.accion, r.capas.personaje.animar], ['esperar', 'bucle']);
     assert.equal((h.match(/class="capa capa-personaje"/g) ?? []).length, 1, 'un personaje por mundo');
     assert.match(h, /<div class="capa capa-personaje" style="--columnas:\d+;--filas:\d+"[^>]*><img class="pieza respaldo pieza-imagen" src="[^"]+-base-[^"]+\.svg"[^>]*><div class="pieza pieza-personaje accion-esperar pieza-lottie" data-lottie="[^"]+" data-fotograma="0" data-animar="1" data-bucle="1" data-prioridad="1"/, 'detrás, su dibujo quieto (si Lottie no carga)');
-    assert.ok(CSS.includes(`.rejilla-completa[data-forma="${r.forma}"]>.capa-personaje{`) || ['columnas', 'rejilla', 'matriz'].includes(r.forma), 'su sitio por forma: ' + r.forma);
+    assert.ok(CSS.includes(`.rejilla-completa[data-forma="${r.forma}"]>.capa-personaje{`) || CSS.includes(`[data-forma="${r.forma}"],`) || CSS.includes(`[data-forma="${r.forma}"])>.capa-personaje{`), 'su sitio por forma: ' + r.forma);
     // 6 · el marco, alrededor de la rejilla, lo último
     const marco = `<img src="./${r.capas.marco.recurso}" alt="" loading="lazy" decoding="async">`;
     assert.ok(h.includes(`<div class="capa capa-marco" aria-hidden="true">${['arriba-izquierda', 'arriba-derecha', 'abajo-izquierda', 'abajo-derecha'].map((e) => `<span class="marco-esquina ${e}">${marco}</span>`).join('')}</div></div>`), 'el marco, en sus cuatro esquinas, lo último de la rejilla del ' + pv);
@@ -463,4 +463,102 @@ test('Sequenced en animado (#7): la columna es la del sobrio más capas; cada fi
     for (const p of decl) assert.ok(['background', 'isolation', 'position'].includes(p), `${p} en ${l.slice(0, 80)}`);
     if (decl.includes('position')) assert.match(l, /position:relative/);
   }
+});
+
+// ---------- #25: el arte como atributo del elemento y los tres pintados (sobrio · propio · todo) ----------
+
+/** El icono propio del menú: una pieza «elemento» anclada por su autor en su 5, que sirve en todos los mundos («*»). */
+const ICONO_PROPIO = 'arte/fase2/bloque-0/biblioteca/jardin/elemento/fruto-intermedio.svg';
+async function menuConIcono() {
+  const { eje, compra, menu } = await ejemploCompra();
+  const autor = eje.obtener(menu.id).autor;
+  await eje.escribir({ autor, sobre: menu.id, en: '5000000000', t: '2026-11-08T09:30:00Z', movimientos: [minuto(autor)], payload: [['elemento'], [0, 'svg'], ['*'], ['centro'], ['once', 1], ['*'], [ICONO_PROPIO, 'prueba: el arte propio del menú']] });
+  return { eje, compra, menu };
+}
+/** El pintado de la huésped: un valor de la enumeración de la época (epoch.9.3.2), por su posición. */
+async function pintado(eje, k, quien = 'huesped') {
+  const valores = C.clavesDeConfiguracion().find((c) => c.valores?.length >= 3).valores;
+  const p = preferencias(eje, quien, { render: valores[k] });
+  await eje.escribir({ autor: quien, sobre: p.sobre, en: p.en, t: T1, movimientos: [minuto(quien)], payload: p.payload });
+  return valores[k];
+}
+
+test('#25: el arte propio de un registro va primero: el menú con su icono se ve en su ocupante, en su hijo y en su centro (todo y propio); en sobrio, nada', async () => {
+  const { eje, compra, menu } = await menuConIcono();
+  assert.deepEqual(modelos.modelo(eje, 'huesped', { elemento: menu.id }).map((m) => m.nombre ?? 'propio'), ['propio', 'general', 'animado-generico', 'sobrio'], 'la cadena: lo propio, luego la de quien mira');
+  const comprobar = async (que) => {
+    // su ocupante: en el bloque del 2 de la compra (el menú es un ocupante de su 2)
+    const a = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: { 2: NIVEL.bloque } }, eje, 'huesped', GRANDE);
+    const ocupante = a.laterales.find((n) => n.pv === 2).ocupantes.lista.find((o) => o.X === menu.id);
+    assert.equal(ocupante?.elemento?.recurso, ICONO_PROPIO, que + ': su ocupante');
+    assert.equal(ocupante.elemento.origen, menu.id);
+    // su hijo: la celda del 2 en la cruceta del 1 a pantalla completa
+    const b = await arbol({ foco: { X: compra.id, pv: 1 } }, eje, 'huesped', GRANDE);
+    const celda = b.centro.rejilla.celdas.find((c) => c.pv === 2);
+    assert.ok(celda.capa.ocupantes.some((p) => p.recurso === ICONO_PROPIO && p.origen === menu.id), que + ': su hijo');
+    assert.ok(html(b).includes('dibujo-ocupante pieza-imagen" src="./' + ICONO_PROPIO + '"'), que + ': pintado');
+    // su centro: entrar en él (el pulsado de la cruceta) lo pone en la tarjeta central
+    const c = await arbol({ foco: { X: compra.id, pv: 1 }, profundidad: { 1: [menu.id] } }, eje, 'huesped', GRANDE);
+    assert.equal(c.centro.rejilla.X, menu.id);
+    assert.equal(c.centro.rejilla.capas.etapa?.recurso, ICONO_PROPIO, que + ': su centro');
+    const cara0 = html(c).split('<section class="flotante-cara cara-0">')[1]?.split('</section>')[0] ?? '';
+    assert.ok(cara0.includes('capa-etapa') && cara0.includes('src="./' + ICONO_PROPIO + '"'), que + ': en la cara 0 de la tarjeta central');
+    return { a, b, c };
+  };
+  // todo (el último de la enumeración): lo propio y, detrás, el arte general
+  await pintado(eje, 2);
+  const todo = await comprobar('todo');
+  assert.ok(todo.b.centro.rejilla.capas.fondo?.recurso && todo.b.centro.rejilla.capas.personaje, 'en todo, el fondo y el muñequito generales siguen');
+  assert.ok(todo.b.centro.rejilla.celdas.some((c) => c.capa.hijo?.modelo === 'general'), 'y los dibujos generales');
+  // propio (el de en medio): solo lo propio de cada elemento
+  await pintado(eje, 1);
+  const propio = await comprobar('propio');
+  const r = propio.b.centro.rejilla;
+  assert.equal(propio.b.animado, true);
+  assert.equal(r.capas.fondo, null, 'sin fondo general');
+  assert.equal(r.capas.personaje, null, 'sin muñequito general');
+  assert.equal(r.capas.marco, null, 'sin marco general');
+  assert.ok(r.celdas.every((c) => !c.capa.hijo && c.capa.ocupantes.every((p) => p.origen === menu.id)), 'sin dibujos generales: solo el retrato del menú');
+  assert.ok(!/class="capa capa-(fondo|personaje|marco)/.test(html(propio.b)), 'en el HTML tampoco');
+  // sobrio (el primero, el defecto): nada de arte, ni el propio
+  await pintado(eje, 0);
+  const s = await arbol({ foco: { X: compra.id, pv: 1 } }, eje, 'huesped', GRANDE);
+  assert.equal(s.animado, false);
+  assert.ok(!html(s).includes(ICONO_PROPIO), 'en sobrio no se pinta ni lo propio');
+});
+
+test('#25: lo que otro ancla en un registro no es su arte propio; un adjunto «archivo:<sha256>» se lee y la carta lo resuelve con lo que instala la app', async () => {
+  const { eje, compra, menu } = await ejemploCompra();
+  const autor = eje.obtener(menu.id).autor;
+  const ajeno = autor === 'huesped' ? 'casa' : 'huesped';
+  await eje.escribir({ autor: ajeno, sobre: menu.id, en: '5000000000', t: '2026-11-08T09:30:00Z', movimientos: [minuto(ajeno)], payload: [['elemento'], [0, 'svg'], ['*'], ['centro'], ['once', 1], ['*'], [ICONO_PROPIO]] });
+  assert.equal(modelos.propio(eje, menu.id), null, 'la pieza anclada por otro no cuenta');
+  const sha = 'ab'.repeat(32);
+  await eje.escribir({ autor, sobre: menu.id, en: '5000000000', t: '2026-11-08T09:31:00Z', movimientos: [minuto(autor)], payload: [['elemento'], [0, 'image'], ['*'], ['centro'], ['once', 1], ['*'], ['archivo:' + sha]] });
+  assert.equal(modelos.propio(eje, menu.id).piezas[0].recurso, 'archivo:' + sha);
+  await pintado(eje, 2);
+  const a = await arbol({ foco: { X: compra.id, pv: 1 } }, eje, 'huesped', GRANDE);
+  const { srcDeRecurso, resolverArchivos } = await import('../carta/dom.js');
+  assert.ok(a.centro.rejilla.celdas.find((c) => c.pv === 2).capa.ocupantes.some((p) => p.recurso === 'archivo:' + sha));
+  assert.ok(!html(a).includes('archivo:'), 'sin resolutor (la app no lo ha instalado), el adjunto no se pinta');
+  resolverArchivos((id) => 'https://ejemplo.invalid/archivos/' + id);
+  try {
+    assert.equal(srcDeRecurso('archivo:' + sha), 'https://ejemplo.invalid/archivos/' + sha);
+    assert.ok(html(a).includes('src="https://ejemplo.invalid/archivos/' + sha + '"'), 'con resolutor, su URL');
+    assert.equal(srcDeRecurso('arte/x.svg'), './arte/x.svg');
+    resolverArchivos(() => 'javascript:alert(1)');
+    assert.equal(srcDeRecurso('archivo:' + sha), null, 'el resolutor solo puede dar http(s) o blob');
+  } finally {
+    resolverArchivos(null);
+  }
+});
+
+test('#8: la etapa de la tarjeta central va a su esquina (no detrás del nombre y la cifra); el marco empieza bajo la cabecera; el personaje, fuera de las celdas', () => {
+  const regla = (sel) => CSS.split('\n').find((l) => l.startsWith(sel + '{'));
+  const etapa = regla('.flotante-cara>.capa-etapa');
+  assert.ok(etapa && etapa.includes('right:8px') && etapa.includes('bottom:16px') && !etapa.includes('inset:'), 'la etapa en la esquina de abajo a la derecha');
+  assert.ok(regla('.rejilla-completa>.rejilla-cabeza~.capa-marco')?.includes('top:12px'), 'el marco empieza bajo «nivel 1 de 4»');
+  const personaje = CSS.split('\n').find((l) => l.includes('[data-forma="conversacion"]') && l.includes('capa-personaje'));
+  assert.ok(personaje && personaje.includes('[data-forma="rejilla"]') && personaje.includes('bottom:calc(100% - var(--sobre-cabeza'), 'conversación y rejilla: el personaje sobre el marco, en la cabecera, no en el hueco de 6 px');
+  assert.ok(regla('.rejilla-completa[data-forma="matriz"]>.capa-personaje')?.includes('left:10px'), 'matriz: en la columna de los ejes');
 });

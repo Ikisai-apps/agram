@@ -156,7 +156,8 @@ function nodoOcupante(eje, o, tamano, ctx, tipoDato, { pv = null, lado = 0, posi
   const elementoDe = (X) => {
     if (!ctx.animado || pv === null || !LATERALES.includes(pv)) return null;
     const m = X ? contrato.madurez(eje, X, ctx.opciones) : null;
-    return conRecurso(piezaDe(ctx, PIEZA.elemento, pv, m?.nivel ?? null, lado, tamano, { de: m?.de ?? undefined }));
+    // El arte propio del ocupante primero (#25): un registro con su icono se ve con él; lo demás, el general del mundo.
+    return conRecurso(piezaDe(ctx, PIEZA.elemento, pv, m?.nivel ?? null, lado, tamano, { de: m?.de ?? undefined, elemento: X ?? null }));
   };
   if (esReferencia(o)) {
     const X = eje?.obtener(o.ref) ? o.ref : null;
@@ -207,12 +208,43 @@ function pasosPorPv(eje, X, opciones) {
   return { porPv, comun };
 }
 
-/** La pieza del modelo para un PV: por tipo, mundo y clave, con la orientación de su lado y el tamaño; `rol` y `de` como en modelos.pieza; null en sobrio. */
-function piezaDe(ctx, tipo, pv, clave, lado, tamano, { rol, de } = {}) {
-  if (!ctx.animado || !ctx.cadena.length) return null;
+/**
+ * La pieza del modelo para un PV: por tipo, mundo y clave, con la orientación de su lado y el tamaño; `rol` y `de` como en
+ * modelos.pieza; null en sobrio. La cadena empieza por el arte propio del `elemento` que se pinta (#25: sus piezas
+ * ancladas, modelos.propio; por defecto, el foco X) y sigue con la de quien mira (ctx.cadena: su modelo, el general, el
+ * animado genérico, el sobrio). En el pintado «propio» (ctx.soloPropio) no hay cadena detrás: solo se aceptan piezas
+ * cuyo origen es el propio elemento, y sin arte propio no se pinta nada (los fondos, muñequitos y dibujos generales, apagados).
+ */
+function piezaDe(ctx, tipo, pv, clave, lado, tamano, { rol, de, elemento = ctx.X } = {}) {
+  if (!ctx.animado) return null;
+  const suyo = propioDe(ctx, elemento);
+  const cadena = ctx.soloPropio ? (suyo ? [suyo] : []) : suyo ? [suyo, ...ctx.cadena] : ctx.cadena;
+  if (!cadena.length) return null;
   const variante = ctx.variantes[lado] ?? ctx.variantes[0];
-  const p = modelos.pieza(ctx.cadena, tipo, pv, clave, variante, { tamano: tamano?.tamano, rol, de });
-  if (!p) return null;
+  const p = modelos.pieza(cadena, tipo, pv, clave, variante, { tamano: tamano?.tamano, rol, de });
+  if (!p || (ctx.soloPropio && p.origen !== suyo?.donde)) return null;
+  const { crudo: _c, ...plana } = p;
+  return plana;
+}
+
+/** El arte propio de un registro (modelos.propio), una vez por pintado: null si no es un registro del eje o no lleva. */
+function propioDe(ctx, X) {
+  const id = esReferencia(X) ? X.ref : X;
+  if (typeof id !== 'string' || !ctx.eje) return null;
+  ctx.propios ??= new Map();
+  if (!ctx.propios.has(id)) ctx.propios.set(id, modelos.propio(ctx.eje, id, ctx.opciones));
+  return ctx.propios.get(id);
+}
+
+/**
+ * El retrato de un elemento: su pieza `elemento` PROPIA (cualquier paso y nombre) en un mundo, o null. Es lo que lo
+ * representa allí donde se le ve entero: su ocupante en una celda o banda, y la tarjeta central cuando es el pulsado (#25).
+ */
+function retratoDe(ctx, elemento, pv, lado, tamano) {
+  const suyo = ctx.animado ? propioDe(ctx, elemento) : null;
+  if (!suyo) return null;
+  const p = modelos.pieza([suyo], PIEZA.elemento, pv, null, ctx.variantes[lado] ?? ctx.variantes[0], { tamano: tamano?.tamano });
+  if (!p?.recurso) return null;
   const { crudo: _c, ...plana } = p;
   return plana;
 }
@@ -288,17 +320,17 @@ const esDeTiempo = (serie) => { try { return typeof serie === 'string' && partir
 function nuevosDe(ctx, pv, lado, tamano, mundoDelCentro) {
   const entradas = ctx.nuevosPorPv.get(pv) ?? [];
   if (!entradas.length) return null;
-  return efectosDeEntradas(ctx, entradas, LATERALES.includes(pv) ? pv : mundoDelCentro, lado, tamano);
+  return efectosDeEntradas(ctx, entradas, LATERALES.includes(pv) ? pv : mundoDelCentro, lado, tamano, ctx.X);
 }
 
 /** Los efectos de unas entradas nuevas del diario en un mundo (lo que hace nuevosDe para un PV): { entradas, efectos, consumido }. */
-function efectosDeEntradas(ctx, entradas, mundo, lado, tamano) {
+function efectosDeEntradas(ctx, entradas, mundo, lado, tamano, elemento = ctx.X) {
   // Lo declarado: sin la asignación de T y la obtención de P (clase) y sin el tiempo que cuesta escribir (la serie T de cada escritura).
   const declarados = entradas.flatMap((e) => e.movimientos.filter((m) => !m.clase && !esDeTiempo(m.serie)));
   const primitivas = [...new Set(declarados.map((m) => m.primitiva))];
   const efectos = primitivas.map((primitiva) => {
     const clave = modelos.corresponde(ctx.cabecera, PIEZA.movimiento, primitiva, mundo);
-    return { primitiva, clave, pieza: conRecurso(piezaDe(ctx, PIEZA.movimiento, mundo, clave, lado, tamano)) };
+    return { primitiva, clave, pieza: conRecurso(piezaDe(ctx, PIEZA.movimiento, mundo, clave, lado, tamano, { elemento })) };
   }).filter((e) => e.pieza);
   // Lo consumido: todo lo declarado sale de alguien y no llega a nadie (la forma de una quema en el libro).
   const consumido = declarados.length > 0 && declarados.every((m) => m.de && (m.a === null || m.a === undefined));
@@ -315,7 +347,7 @@ function personajeDe(ctx, eje, X, pv, lado, tamano, { enfocado, nuevos, paso }) 
   const cerrado = paso && typeof paso.k === 'number' && typeof paso.de === 'number' && paso.de > 0 && paso.k >= paso.de;
   const accion = nuevos ? ACCION.actuar : cerrado ? ACCION.celebrar : ACCION.esperar;
   const animar = accion !== ACCION.esperar ? ANIMAR.una : enfocado ? ANIMAR.bucle : ANIMAR.no;
-  const pieza = piezaDe(ctx, PIEZA.munequito, pv, accion, lado, tamano, { rol });
+  const pieza = piezaDe(ctx, PIEZA.munequito, pv, accion, lado, tamano, { rol, elemento: X });
   if (!pieza) return null;
   return { rol, accion, animar, pieza };
 }
@@ -573,7 +605,7 @@ function nodoAro(eje, X, yo, ctx) {
       alternativas: otras,
       opciones,
       abierto: abierto === pv && (otras.length > 0 || opciones.length > 0),
-      icono: piezaDe(ctx, PIEZA.icono, CENTROS[1] ?? 5, pv, GEOMETRIA[pv].lado, tamanoDeNivel(1, ctx.opciones)),
+      icono: piezaDe(ctx, PIEZA.icono, CENTROS[1] ?? 5, pv, GEOMETRIA[pv].lado, tamanoDeNivel(1, ctx.opciones), { elemento: X }),
     };
   });
   const [anverso, reverso] = CENTROS;
@@ -679,7 +711,8 @@ export function plantillaDePreferencias(opciones = {}) {
  * vive dentro de ella) dice sus posiciones, la etiqueta de cada d es la clave de la configuración y la posición que no
  * es una preferencia es su tipo (B4). Devuelve { payload, nombre, campos: [{ pv, clave, etiqueta, ayuda, marcador,
  * numero, valor, opciones? }], sobre, en, de }; el modelo (#4) lleva `opciones` (los modelos de la época con
- * recursos, sin el sobrio, [{ valor, texto }]) y, si solo hay uno, no es un campo: se guarda ese para que la carta la escriba como un registro más, anclado en el 9 del alta
+ * recursos, sin el sobrio, [{ valor, texto }]), y también una enumeración de la época (#25: el pintado, sus valores
+ * en su orden y en el idioma); el modelo, si solo hay uno, no es un campo: se guarda ese para que la carta la escriba como un registro más, anclado en el 9 del alta
  * (`clave` es la etiqueta canónica, la clave de la configuración; `etiqueta` y `ayuda`, en el idioma de yo); null si
  * yo no tiene alta.
  */
@@ -697,6 +730,8 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
   // Las preferencias las dice el núcleo (contrato.clavesDeConfiguracion): también las que no tienen defecto (el
   // servidor y el eje compartido, etapa 3), que se pintan vacías; la posición que no es una preferencia es el tipo (B4).
   const deLaEpoca = new Set(contrato.clavesDeConfiguracion(opciones).map((c) => c.clave));
+  // Las que son una enumeración de la época (#25: el pintado, sobrio, propio o todo) son un desplegable con sus valores.
+  const enumeraciones = new Map(contrato.clavesDeConfiguracion(opciones).filter((c) => c.valores?.length >= 2).map((c) => [c.clave, c.valores]));
   // «modelo» (#4): una lista de los modelos de la época con recursos (sin el sobrio); con uno solo, no se pregunta.
   const eleccion = modelos.eleccionDeModelo(opciones);
   const nombres = eleccion.modelos.map((m) => m.nombre);
@@ -717,6 +752,9 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
       const elegido = typeof v[0] === 'string' && !sinRecursos.has(v[0]) ? v[0] : defecto;
       v = [nombres.length === 1 ? nombres[0] : elegido];
       lista = [...nombres, ...(nombres.includes(v[0]) ? [] : [v[0]])].map((x) => ({ valor: x, texto: T('option ' + x, clave, x) }));
+    } else if (enumeraciones.has(clave)) {
+      const valoresDe = enumeraciones.get(clave);
+      lista = [...valoresDe, ...(v.length && !valoresDe.includes(v[0]) ? [v[0]] : [])].map((x) => ({ valor: x, texto: T('option ' + x, clave, x) }));
     }
     if (v.length) payload[d] = v;
     if (lista && lista.length < 2) return; // un solo paquete de arte: se guarda el que hay y no se pregunta
@@ -730,16 +768,33 @@ export function preferencias(eje, yo, valores = {}, opciones = {}) {
 }
 
 /**
- * Los interruptores de la barra: cada preferencia de la plantilla «preferences» cuya validación admite exactamente dos
- * valores (contrato.clavesDeConfiguracion, `valores`: hoy el pintado, sobrio o animado), con su etiqueta y cada valor en
- * el idioma («template <plantilla> param <clave> option <valor>»); `valor` es el que rige. Tocar uno escribe la
- * preferencia como lo hace la configuración (preferencias(), un registro más en el 9 del alta) y repinta.
+ * El pintado de quien mira (#25): la preferencia `render` es una enumeración de la época (epoch.9.3.2, «="sober" in it.2
+ * or "own" in it.2 or "animated" in it.2») cuyo ORDEN es el del pintado: el primero (el defecto) no pinta arte; el
+ * último, todo (lo propio de cada elemento y, detrás, la cadena de quien mira); los de en medio, solo lo propio de cada
+ * elemento. Un valor que la enumeración no tiene y no es el defecto (un registro antiguo) vale como el último.
+ * → { animado: se pinta arte, soloPropio: solo el propio }.
+ */
+function pintadoDe(configuracion, defectos, opciones) {
+  const valor = hojas(configuracion.render)[0];
+  const defecto = hojas(defectos.render)[0];
+  if (valor === undefined || valor === defecto) return { animado: false, soloPropio: false };
+  // La enumeración del pintado: la de la preferencia cuyo defecto es el de quien no ha elegido (el carta no escribe su clave).
+  const valores = contrato.clavesDeConfiguracion(opciones).find((c) => c.valores?.includes(defecto) && c.valores.includes(valor))?.valores ?? [];
+  const k = valores.indexOf(valor);
+  return { animado: true, soloPropio: k > 0 && k < valores.length - 1 };
+}
+
+/**
+ * Los interruptores de la barra: cada preferencia de la plantilla «preferences» cuya validación es una enumeración
+ * (contrato.clavesDeConfiguracion, `valores`: hoy el pintado, sobrio, propio o todo), con su etiqueta y cada valor en el
+ * idioma («template <plantilla> param <clave> option <valor>»), en el orden de la época; `valor` es el que rige. Tocar
+ * uno escribe la preferencia como lo hace la configuración (preferencias(), un registro más en el 9 del alta) y repinta.
  */
 function interruptoresDe(configuracion, opciones) {
   const p = plantillaDePreferencias(opciones);
   if (!p) return [];
   const T = (que, clave, original) => contrato.texto(null, contrato.claves.parametro(p.nombre, clave, que), opciones.idioma, { original, epoca: opciones.epoca });
-  return contrato.clavesDeConfiguracion(opciones).filter((c) => c.valores?.length === 2).map((c) => ({
+  return contrato.clavesDeConfiguracion(opciones).filter((c) => c.valores?.length >= 2).map((c) => ({
     clave: c.clave,
     etiqueta: T('label', c.clave, c.clave),
     valor: hojas(configuracion[c.clave] ?? c.defecto)[0] ?? null,
@@ -1276,10 +1331,10 @@ function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1,
  * correspondencia solo renombra lo que renombra, y aquí lo no renombrado no se pinta); con fila, la pieza de ese
  * nombre al paso del mundo (`paso`, el de su etapa), solo si el modelo la tiene con recurso.
  */
-function elementoDelMundo(ctx, mundo, dado, paso, lado, tamano) {
+function elementoDelMundo(ctx, mundo, dado, paso, lado, tamano, elemento = ctx.X) {
   const nombre = modelos.corresponde(ctx.cabecera, PIEZA.elemento, dado, mundo);
   if (nombre === dado) return null;
-  const p = conRecurso(piezaDe(ctx, PIEZA.elemento, mundo, paso, lado, tamano, { rol: nombre }));
+  const p = conRecurso(piezaDe(ctx, PIEZA.elemento, mundo, paso, lado, tamano, { rol: nombre, elemento }));
   return p && p.subclave === nombre ? p : null;
 }
 
@@ -1305,11 +1360,12 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conP
   const lado = GEOMETRIA[pv].lado;
   const R = r.X ?? X;
   const madurez = R === X ? ctx.madurez : contrato.madurez(eje, R, ctx.opciones);
-  const etapa = R === X ? escenario.etapa : piezaDe(ctx, PIEZA.etapa, pv, madurez?.nivel ?? null, lado, tamano, { de: madurez?.de ?? undefined });
+  const etapa = R === X ? escenario.etapa : piezaDe(ctx, PIEZA.etapa, pv, madurez?.nivel ?? null, lado, tamano, { de: madurez?.de ?? undefined, elemento: R });
   const paso = typeof etapa?.clave === 'number' ? etapa.clave : null; // el paso del mundo: el de su etapa en el modelo
-  const dibujo = (dado) => elementoDelMundo(ctx, pv, dado, paso, lado, tamano);
-  const deOcupante = (o) => (esPersonaOcupante(eje, o) && dibujo('persona')) || dibujo('ocupante');
-  const efectosDe = (entradas) => (entradas?.length ? efectosDeEntradas(ctx, entradas, pv, lado, tamano) : null);
+  const dibujo = (dado) => elementoDelMundo(ctx, pv, dado, paso, lado, tamano, R);
+  // Cada ocupante que es un registro con arte propio se ve con su retrato (#25); los demás, con el dibujo del mundo.
+  const deOcupante = (o) => (o?.X && retratoDe(ctx, o.X, pv, lado, tamano)) || (esPersonaOcupante(eje, o) && dibujo('persona')) || dibujo('ocupante');
+  const efectosDe = (entradas) => (entradas?.length ? efectosDeEntradas(ctx, entradas, pv, lado, tamano, R) : null);
   for (const c of r.celdas ?? []) {
     const lista = c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
     c.capa = {
@@ -1337,10 +1393,13 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conP
   const hayNuevos = [...porDigito.values()].some((l) => l.length > 0);
   const pasos = R === X || !conPersonaje ? ctx.pasos : pasosPorPv(eje, R, ctx.opciones);
   const personaje = conPersonaje ? personajeDe(ctx, eje, R, pv, lado, tamano, { enfocado: true, nuevos: hayNuevos, paso: pasos.porPv[pv] ?? null }) : null;
-  const quieto = personaje ? conRecurso(piezaDe(ctx, PIEZA.munequito, pv, modelos.CUALQUIERA, lado, tamano, { rol: personaje.rol })) : null;
+  const quieto = personaje ? conRecurso(piezaDe(ctx, PIEZA.munequito, pv, modelos.CUALQUIERA, lado, tamano, { rol: personaje.rol, elemento: R })) : null;
+  // En la tarjeta central, lo propio del pulsado primero (#25): su etapa propia si la lleva; si no, su retrato (su pieza
+  // elemento propia); si no, la etapa del modelo de quien mira.
+  const suya = etapa?.propio ? etapa : retratoDe(ctx, R, pv, lado, tamano) ?? etapa;
   r.capas = {
     fondo: escenario.fondo ?? null,
-    etapa: conRecurso(etapa),
+    etapa: conRecurso(suya),
     marco: escenario.marco ?? null,
     personaje: personaje?.pieza?.recurso ? personaje : null,
     respaldo: quieto && quieto.subclave === personaje.rol && !quieto.animado ? quieto : null,
@@ -1445,7 +1504,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const yoDatos = yo ? contrato.yo(eje, yo, { t: opciones.t, epoca: opciones.epoca }) : null;
   const configuracion = contrato.configuracion(eje, yo, opciones);
   const defectos = contrato.configuracion(eje, null, opciones);
-  const animado = configuracion.render !== undefined && configuracion.render !== defectos.render;
+  const { animado, soloPropio } = pintadoDe(configuracion, defectos, opciones);
   const cabecera = modelos.cabecera(opciones);
   // El idioma de quien mira (su preferencia «language»): todo texto de la época pasa por el núcleo con él.
   const idioma = idiomaDe(eje, yo, opciones);
@@ -1455,7 +1514,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
   const limiteDe = (c) => (typeof c?.animations === 'number' && c.animations > 0 ? c.animations : null);
   const limite = (configuracion.de && limiteDe(configuracion)) || limiteDe(defectos) || LIMITE_DE_ANIMACIONES;
   const ctx = {
-    estado, opciones: { ...opciones, idioma }, animado, X, yo: yo ?? null,
+    estado, eje, opciones: { ...opciones, idioma }, animado, soloPropio, X, yo: yo ?? null,
     variantes: cabecera.variantes,
     cabecera,
     cadena: animado ? modelos.modelo(eje, yo, opciones) : [],
@@ -1547,10 +1606,12 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     cargarMas: d.cargarMas,
     medidas: m,
     animado,
+    // El pintado (#25, epoch.9.3.2): sobrio, propio (solo el arte propio de cada elemento) o todo.
+    pintado: { valor: hojas(configuracion.render ?? defectos.render)[0] ?? null, animado, soloPropio },
     limite,
     colores: contrato.colores(opciones), // epoch.9.5.4: el color de cada PV, un dato de la época
     configuracion,
-    // Los interruptores de la barra: las preferencias de dos valores (hoy el pintado, sobrio o animado), cada valor en el idioma.
+    // Los interruptores de la barra: las preferencias que son una enumeración (hoy el pintado: sobrio, propio o todo), cada valor en el idioma.
     interruptores: interruptoresDe(configuracion, ctx.opciones),
     centro,
     centros: pvsCentro,
