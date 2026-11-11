@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbol, escalaDeTamanos, preferencias, LATERALES, CENTROS } from '../carta/carta.js';
+import { arbol, escalaDeTamanos, preferencias, previsualizar, LATERALES, CENTROS } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
 import { t } from '../carta/textos.js';
 import * as C from '../src/contrato.js';
@@ -17,7 +17,7 @@ import { pasos } from '../src/pasos.js';
 import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
-import { ejemploCompra, ejemploJardinYParque, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploJardinYParque, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -77,7 +77,8 @@ test('epoch.8.7 «world division» es un dato de la época con su procedencia: u
   const medidas = EPOCA_0_BTML.registro[7][0].map((r) => r[0][0]);
   const escalas = EPOCA_0_BTML.registro[1][3][1].map((r, escala) => ({ escala, nombre: r[0][0] })).filter((e) => medidas.includes(e.nombre));
   for (const pv of [6, 7]) {
-    assert.deepEqual([d(pv).forma, d(pv).hijos, d(pv).paso], ['franjas', [], 'escala']);
+    // el 6 por la escala del T que quema; el 7, primero por la fecha a la que se refiere (encargo «datos3») y si no, por su escala
+    assert.deepEqual([d(pv).forma, d(pv).hijos, d(pv).paso, d(pv).pasos], ['franjas', [], pv === 7 ? 'cuando' : 'escala', pv === 7 ? ['cuando', 'escala'] : ['escala']]);
     assert.deepEqual(d(pv).bandas.map((b) => [b.escala, b.nombre]), escalas.map((e) => [e.escala, e.nombre]));
   }
   assert.ok(escalas.length < EPOCA_0_BTML.registro[1][3][1].length, 'hay escalas de T que el calendario no mide (pasado, futuro, inventado)');
@@ -497,7 +498,7 @@ test('el cielo del 8 trae las diez cajas nivel.grado en dos filas (arriba 0.3 1.
   const cajas = [...h.matchAll(/class="rejilla-banda hijo caja-cielo[^"]*" data-banda="(\d)" data-nivel="(\d)" data-grado="(\d)"/g)].map((m) => `${m[2]}.${m[3]}`);
   assert.deepEqual(cajas, HITOS.map((x) => x.nivel));
   assert.deepEqual([cajas.slice(0, 5), cajas.slice(5)], [['0.3', '1.1', '2.1', '3.1', '3.2'], ['4.1', '4.2', '5.1', '5.2', '5.3']]);
-  assert.match(h, /<div class="rejilla-bandas rejilla-cielo" style="--columnas:5;--filas:2">/);
+  assert.match(h, /<div class="rejilla-bandas rejilla-cielo( sin-base)?" style="--columnas:5;--filas:2">/);
   const cuota = pasos(eje, compra.id).cuota;
   assert.deepEqual(r.cuota, { nombre: 'cuota', k: cuota.k, de: cuota.de });
   assert.deepEqual(r.bandas.filter((b) => b.foco).map((b) => b.indice), [cuota.k]);
@@ -659,4 +660,83 @@ test('la matriz del 4: cada ejecución en su celda (columna = el PV de su planti
   const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: sinPv })).centro.rejilla;
   assert.equal('sinPosicion' in b, false);
   assert.equal(b.celdas.filter((x) => x.ocupante).length, C.ocupantes(eje, compra.id, 4).total);
+});
+
+// ---------- encargo «datos3» (issue #11, tercera parte): el 6/7 por hilos y fechas, el 8 con su cohorte, el 9 con previsualizar ----------
+
+/** La compra con su fábrica, su futuro y su cohorte (ejemploFuturoYCohorte). */
+async function conFuturo() {
+  const c = await ejemploCompra();
+  const fabrica = await ejemploFabrica(c.eje, c);
+  return { ...c, ...fabrica, ...(await ejemploFuturoYCohorte(c.eje, c)) };
+}
+
+test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del PV del que cuelga (pvDeEntrada), con su estado y la marca de incongruencia; el 6, en los hilos de su diario', async () => {
+  const c = await conFuturo();
+  const a7 = await arbol(completa(c.compra.id, 7), c.eje, 'huesped', GRANDE);
+  const r7 = a7.centro.rejilla;
+  const donde = (id) => {
+    for (const b of r7.bandas) for (const x of b.cruces) for (const o of x.items) if ((o.X ?? o.ref) === id) return { franja: b.nombre, hilo: x.hilo, o };
+    return null;
+  };
+  // por su «when»: mañana en «día», el 12 en «semana», hasta fin de mes en «ciclo», Nochebuena en «año»
+  assert.deepEqual([c.manana, c.semana, c.plazo, c.nochebuena, c.vales].map((x) => donde(x.id)?.franja), ['día', 'semana', 'ciclo', 'año', 'día']);
+  // los hilos: la fábrica (4) y los recursos (1) de la compra; lo declarado en el 7 mismo no cuelga de ninguno de los cuatro
+  assert.deepEqual([donde(c.nochebuena.id).hilo, donde(c.vales.id).hilo], [4, 1]);
+  assert.deepEqual([donde(c.manana.id).hilo, donde(c.manana.id).o.hiloSupuesto], [r7.hilos[0].pv, true]);
+  assert.ok(new Set(r7.bandas.flatMap((b) => b.cruces.filter((x) => x.items.length).map((x) => x.hilo))).size > 1, 'en más de un hilo');
+  // el estado del futuro y la incongruencia (declara un minuto; por su fecha, otra franja)
+  assert.deepEqual([donde(c.manana.id).o.estado.tipo, donde(c.plazo.id).o.estado.tipo, donde(c.vales.id).o.estado.tipo], ['previsto', 'bloqueado', 'caduca']);
+  assert.deepEqual(donde(c.semana.id).o.incongruente, { declarada: 'minuto', franja: 'semana' });
+  const h7 = rejillaHtml(html(a7));
+  assert.match(h7, /class="ocupante cuenta supuesta cuenta-rara"[^>]*data-estado="previsto"/);
+  assert.match(h7, new RegExp(`<small class="cuenta-estado">${t('estadoBloqueado', { fecha: '' }).replace(/\s+$/, '')}`));
+  assert.ok(h7.includes('incongruente: declara minuto y por su fecha le toca semana'));
+  // el 6: cada entrada del diario en el hilo de la posición que modificó (la fábrica en el 4, los recursos en el 1…)
+  const r6 = (await arbol(completa(c.compra.id, 6), c.eje, 'huesped', GRANDE)).centro.rejilla;
+  const hilos6 = new Set(r6.bandas.flatMap((b) => b.cruces.filter((x) => x.items.some((o) => !o.hiloSupuesto)).map((x) => x.hilo)));
+  assert.ok(hilos6.has(4) && hilos6.has(1), 'el 6 en más de un hilo: ' + [...hilos6]);
+  const pagar = r6.bandas.flatMap((b) => b.cruces.flatMap((x) => x.items.map((o) => ({ o, hilo: x.hilo })))).find((x) => x.o.ref === c.pagar.id);
+  assert.deepEqual([pagar.hilo, pagar.o.hiloSupuesto ?? false], [4, false]);
+});
+
+test('el cielo del 8: las estrellas con nombre de la cohorte elegida (el proyecto, por «change cohort»), su selector y «sin base escrita»; la carta puede mirar otra cohorte (estado.cohorte)', async () => {
+  const c = await conFuturo();
+  const a = await arbol(completa(c.compra.id, 8), c.eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  const co = C.cohorteDe(c.eje, c.compra.id);
+  assert.deepEqual([r.cohorte.valor, r.cohorte.elegida, r.cohorte.opciones.map((x) => [x.valor, x.texto, x.actual])], ['project', 'project', [['siblings', 'hermanos', false], ['project', 'proyecto', true], ['genesis', 'general', false]]]);
+  assert.deepEqual(r.base, { escrita: false, autor: null, t: null });
+  for (const b of r.bandas) assert.equal(b.items.length + b.mas, co.comparables.filter((x) => x.caja === b.indice).length, 'cada caja, sus comparables');
+  const foco = r.bandas.find((b) => b.foco);
+  assert.equal(foco.indice, co.caja);
+  assert.equal(foco.items[0].foco, true, 'la estrella del foco, la primera de su caja');
+  const h = rejillaHtml(html(a));
+  assert.ok(h.includes(`<span class="cielo-base">${t('sinBaseEscrita')}</span>`));
+  assert.match(h, /<div class="rejilla-bandas rejilla-cielo sin-base"/);
+  assert.match(h, /<button type="button" class="cohorte actual" data-nodo="control" data-cohorte="project" aria-pressed="true"/);
+  assert.match(h, /class="ocupante estrella foco"[^>]*title="Compra del menú del día"/);
+  assert.match(h, /<span class="texto">Menú del día<\/span>/, 'las estrellas, con su nombre');
+  // mirar con los hermanos: solo la compra (la cuota entera, la caja 9)
+  const r2 = (await arbol({ ...completa(c.compra.id, 8), cohorte: 'siblings' }, c.eje, 'huesped', GRANDE)).centro.rejilla;
+  assert.deepEqual([r2.cohorte.valor, r2.bandas.map((b) => b.items.length)], ['siblings', [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]]);
+});
+
+test('el camino del 9: cada paso mío con «previsualizar» junto a ejecutar; previsualizar construye y valida sin escribir y la carta lo enseña bajo el paso', async () => {
+  const c = await conFuturo();
+  const a = await arbol(completa(c.compra.id, 9), c.eje, 'huesped', GRANDE);
+  const i = a.camino.pasos.findIndex((p) => p.mio && !p.hacer.lectura);
+  assert.ok(i >= 0, 'algún paso mío');
+  const p = a.camino.pasos[i];
+  const h = html(a);
+  assert.ok(h.includes(`data-previsualizar="${i}"`) && h.includes(`data-lanzar="${p.hacer.id}"`));
+  const antes = c.eje.orden.length;
+  const v = await previsualizar(c.eje, p.hacer.X ?? c.compra.id, p.hacer.id, p.hacer.parametros ?? {}, 'huesped');
+  assert.equal(c.eje.orden.length, antes, 'no escribe nada');
+  assert.equal(typeof v.ok, 'boolean');
+  assert.ok(v.ok ? Array.isArray(v.movimientos) : v.motivos.length > 0);
+  const conPrevia = html(await arbol({ ...completa(c.compra.id, 9), previa: { foco: c.compra.id, paso: i, ...v } }, c.eje, 'huesped', GRANDE));
+  assert.match(conPrevia, /<small class="previa (pasa|no-pasa)" role="status">/);
+  // las diez posiciones siguen sin encenderse: el núcleo no dice cuáles tiene disponibles ni en cuál está (decisión de VG)
+  assert.ok(a.centro.rejilla.bandas.every((b) => !b.items.length));
 });

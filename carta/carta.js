@@ -312,18 +312,13 @@ function nuevosPorPvDe(eje, X, nuevos, opciones) {
   return porPv;
 }
 
-/** El PV de X bajo el que cuelga una transacción del diario: el primer dígito del «en» del hijo directo de X en su cadena de anclas; X mismo o lo anclado en su 0, el centro (0); null si no cuelga de X. */
+/**
+ * El PV de X bajo el que cuelga una transacción del diario, del núcleo (contrato.pvDeEntrada, encargo «datos3»): el de
+ * la posición que modificó (el primer dígito de su «en») o, si se anclaba en la raíz, la posición de su padre a la que
+ * se refiere (`{ ref, dir }`); X mismo o lo anclado en su 0, el centro (0); null si no cuelga de X.
+ */
 function pvDondeCuelga(eje, X, id) {
-  let ev = eje.obtener(id);
-  if (!ev) return null;
-  if (ev.id === X) return CENTROS[0];
-  while (ev && ev.sobre !== X) ev = ev.sobre ? eje.obtener(ev.sobre) : null;
-  if (!ev) return null;
-  try {
-    return ev.en ? indicesDe(ev.en)[0] ?? CENTROS[0] : CENTROS[0];
-  } catch {
-    return CENTROS[0];
-  }
+  return contrato.pvDeEntrada(eje, X, id);
 }
 
 /** ¿Es una serie del tiempo (T)? La que tiene escala (tokens.partirClave); el T de cada escritura se quema siempre y no es lo que una transacción consume. */
@@ -730,6 +725,20 @@ export async function enviar(eje, X, accion, valores, yo, firmar, opciones = {})
   } catch (e) {
     return { ...r, ok: false, asentado: null, motivos: [{ regla: null, mensaje: String(e.message ?? e).replace(/^evento (rechazado|mal formado): /, '') }] };
   }
+}
+
+/**
+ * Previsualiza una acción (un paso del camino, encargo «datos3»): construye, firma con `firmar` y valida con
+ * acciones.transaccion, como enviar, pero no asienta nada (docs/CONTRATO.md §12.3: transaccion valida sin asentar).
+ * → { ok, motivos, movimientos: [texto], lectura?, paso? } con los movimientos de la candidata legibles (de → a, cantidad
+ * y serie, en el idioma de yo).
+ */
+export async function previsualizar(eje, X, accion, valores, yo, firmar, opciones = {}) {
+  const r = await acciones.transaccion(eje, accion, { X, ...valores }, yo, { ...opciones, ...(typeof firmar === 'function' ? { firmar } : {}) });
+  const o = { ...opciones, idioma: idiomaDe(eje, yo, opciones) };
+  const quien = (x) => (x === null || x === undefined ? '∅' : legibleDe(eje, x, ['identity'], o).texto);
+  const movimientos = (r.evento?.movimientos ?? []).map((m) => `${quien(m.de)} → ${quien(m.a)} · ${m.cantidad} ${m.token}${m.escala ? ':' + m.escala : m.emisor ? ':' + m.emisor + (m.denominacion ? '/' + m.denominacion : '') : m.ambito ? ':' + String(m.ambito).slice(0, 8) : ''}${m.estado ? ' · ' + m.estado + (m.salida ? ' ' + m.salida : '') : ''}`);
+  return { ok: Boolean(r.ok), motivos: r.motivos ?? [], movimientos, ...(r.lectura ? { lectura: r.lectura } : {}), ...(r.paso ? { paso: r.paso } : {}) };
 }
 
 /**
@@ -1323,32 +1332,29 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
 }
 
 /**
- * Lo que se reparte en las bandas del 6, el 7 y el 8: los ocupantes del PV que son registros; en el pasado (el 6), las
- * entradas del diario; si no hay nada de eso, lo que cuelga de R (su hilo). → [{ id, nodo }].
+ * Lo que se reparte en las franjas del 6 y el 7: los ocupantes del PV que son registros; en el pasado (el 6), las
+ * entradas del diario; en el futuro (el 7), lo que lee el PV (contrato.leer, encargo «datos3»: lo anclado en su 7 y lo
+ * que en el subárbol se refiere a una fecha, por esa fecha); si no hay nada de eso, lo que cuelga de R (su hilo).
+ * → [{ id, nodo }], cada nodo con el estado de su futuro si lo tiene.
  */
 function itemsDeBandas(eje, R, pv, ctx) {
   const items = [];
   const total = contrato.ocupantes(eje, R, pv, 0, 0, ctx.opciones).total;
-  const todos = contrato.ocupantes(eje, R, pv, 0, Math.max(1, total), ctx.opciones).ocupantes;
+  const todos = esPvDelPasado(pv) ? contrato.ocupantes(eje, R, pv, 0, Math.max(1, total), ctx.opciones).ocupantes : contrato.leer(eje, R, pv, { ...ctx.opciones, yo: ctx.yo ?? undefined }).lista.map((x) => x.valor);
   const tipoDato = contrato.tipo(eje, R, pv, ctx.opciones);
   const sobrio = sobrioDe(ctx);
   const nodoRef = (x) => nodoOcupante(eje, x, tamanoDeNivel(2, ctx.opciones), sobrio, tipoDato, { pv, lado: GEOMETRIA[pv]?.lado ?? 0, posicion: pv, anidar: 0 });
-  for (const x of todos) if (esReferencia(x) && eje.obtener(x.ref)) items.push({ id: x.ref, nodo: nodoRef(x) });
+  const conEstado = (id, nodo) => { const e = contrato.estadoDeEntrada(eje, id, ctx.opciones); return e ? { ...nodo, estado: e } : nodo; };
+  for (const x of todos) if (esReferencia(x) && eje.obtener(x.ref)) items.push({ id: x.ref, nodo: conEstado(x.ref, nodoRef(x)) });
   if (esPvDelPasado(pv)) {
     for (const e of contrato.diario(eje, R, 0, 1e9, ctx.opciones).entradas) {
       const m = e.movimientos.map((a) => a.primitiva + ' ' + legibleDe(eje, a, null, ctx.opciones).texto).join(' · ');
-      items.push({ id: e.id, nodo: { tipo: 'entrada', pv, texto: m || e.id.slice(0, 8), t: e.t, autor: e.autor, ref: e.id } });
+      items.push({ id: e.id, nodo: { tipo: 'entrada', pv, texto: m || e.id.slice(0, 8), t: e.t, autor: e.autor, ref: e.id, ...(e.estado ? { estado: e.estado } : {}) } });
     }
   } else if (!items.length) {
-    for (const h of eje.sobre(R)) items.push({ id: h.id, nodo: nodoRef({ ref: h.id }) });
+    for (const h of eje.sobre(R)) items.push({ id: h.id, nodo: conEstado(h.id, nodoRef({ ref: h.id })) });
   }
   return items;
-}
-
-/** La banda de una entrada: la del valor de su paso (`d.paso` de epoch.9.8: la escala en el 6 y el 7, la cuota en el 8), o null. */
-function bandaDe(eje, id, d, bandas, ctx) {
-  const k = d.paso ? pasosDe.pasos(eje, id, ctx.opciones)[d.paso]?.k : null;
-  return typeof k === 'number' ? bandas.find((b) => (b.escala ?? b.indice) === k) ?? null : null;
 }
 
 /** Recorta una lista a lo que cabe: si pasa, la última que cabe se cambia por una cuenta mayor con cuántas representa (`mas`). */
@@ -1364,6 +1370,9 @@ function recortar(caja, caben) {
  * orden de `d.hilos` (cada uno, el PV del que cuelga lo ensartado). Cada cuenta se ensarta en su franja (por el paso
  * de la época, pasos.escala) y en el hilo del PV del que cuelga bajo R (pvDondeCuelga); si no cuelga de ninguno de
  * los hilos, en el primero, marcada `hiloSupuesto`. Lo que no cabe en un cruce se cuenta en una cuenta mayor (`mas`).
+ * La franja de cada cuenta es la del núcleo (contrato.franjaDeEntrada, encargo «datos3»): el primer paso de la fila que
+ * da valor (el 7: la fecha a la que se refiere; si no, su escala); si no coincide con la escala que declara, la cuenta
+ * lleva `incongruente` ({ declarada, franja }: los nombres de las dos), y su estado del futuro (`estado`) si lo tiene.
  */
 function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const hilos = (d.hilos ?? []).map((h) => ({ pv: h, etiqueta: contrato.etiqueta(eje, null, h, ctx.opciones) }));
@@ -1372,9 +1381,12 @@ function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const caben = Math.max(1, Math.floor(hueco.ancho / Math.max(1, g.columnas) / ctx.medidas.tarjeta)) * Math.max(1, Math.floor(altoCruce / ctx.medidas.linea) - 1);
   const bandas = d.bandas.map((b) => ({ ...b, ahora: (b.escala ?? b.indice) === cercana, items: [], mas: 0, cruces: (hilos.length ? hilos : [{ pv: null }]).map((h) => ({ hilo: h.pv, items: [], mas: 0 })) }));
   const sinBanda = [];
+  const nombreDeEscala = (k) => d.bandas.find((b) => b.escala === k)?.nombre ?? null;
   for (const it of itemsDeBandas(eje, R, pv, ctx)) {
-    const banda = bandaDe(eje, it.id, d, bandas, ctx);
+    const f = contrato.franjaDeEntrada(eje, it.id, pv, { ...ctx.opciones, division: d });
+    const banda = f && f.k !== null ? bandas.find((b) => (b.escala ?? b.indice) === f.k) ?? null : null;
     if (!banda) { sinBanda.push(it.nodo); continue; }
+    if (f.incongruente) it.nodo.incongruente = { declarada: nombreDeEscala(f.declarada), franja: banda.nombre };
     const donde = pvDondeCuelga(eje, R, it.id);
     const cruce = banda.cruces.find((c) => c.hilo !== null && c.hilo === donde) ?? banda.cruces[0];
     it.nodo.hilo = cruce.hilo;
@@ -1391,29 +1403,41 @@ function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
 }
 
 /**
- * El cielo del 8: las diez cajas nivel.grado de los hitos (d.bandas) en dos filas; cada comparable en la caja de su
- * paso (`d.paso`, la cuota). La caja de R mismo (su cuota) va marcada `foco`; una caja sin nadie lleva el paso del
- * camino del 8 (`escribir`). Aparte, el paso de R (`cuota`) y las posiciones que R tiene escritas (`enElFoco`).
+ * El cielo del 8: las diez cajas nivel.grado de los hitos (d.bandas) en dos filas; en cada una, las estrellas de los
+ * comparables de la cohorte de R que caen en ella, con su nombre (contrato.cohorteDe, encargo «datos3»: la cohorte
+ * elegida en la carta, `estado.cohorte`, o la que eligió el dueño, o la primera; cada comparable en la caja de su cuota
+ * en ella); la estrella de R mismo, `foco`. La caja de R va marcada `foco`; una caja sin nadie lleva el paso del camino
+ * del 8 (`escribir`); lo que no mueve nada va aparte (`sinBanda`). Aparte, el paso de R (`cuota`), las posiciones que R
+ * tiene escritas (`enElFoco`), la cohorte con las que se pueden elegir (`cohorte`: el selector, si hay más de una) y la
+ * base (`base`: quién la escribió y cuándo, o `escrita: false`, calculado al vuelo).
  */
 function cieloDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
-  const propio = d.paso ? pasosDe.pasos(eje, R, ctx.opciones)[d.paso] ?? null : null;
-  const kPropio = typeof propio?.k === 'number' ? propio.k : null;
+  const c = contrato.cohorteDe(eje, R, { ...ctx.opciones, cohorte: ctx.estado?.cohorte ?? undefined });
+  const kPropio = typeof c?.caja === 'number' ? c.caja : null;
   const caben = Math.max(1, Math.floor(hueco.ancho / Math.max(1, g.columnas) / ctx.medidas.tarjeta)) * Math.max(1, Math.floor(hueco.alto / Math.max(1, g.filas) / (ctx.medidas.linea * 2)) - 1);
   const bandas = d.bandas.map((b) => ({ ...b, items: [], mas: 0, foco: kPropio !== null && (b.escala ?? b.indice) === kPropio }));
   const sinBanda = [];
-  for (const it of itemsDeBandas(eje, R, pv, ctx)) {
-    const banda = bandaDe(eje, it.id, d, bandas, ctx);
-    if (banda) banda.items.push(it.nodo); else sinBanda.push(it.nodo);
+  const tipoDato = contrato.tipo(eje, R, pv, ctx.opciones);
+  const sobrio = sobrioDe(ctx);
+  const estrella = (x) => ({ ...nodoOcupante(eje, { ref: x.ref }, tamanoDeNivel(2, ctx.opciones), sobrio, tipoDato, { pv, lado: GEOMETRIA[pv]?.lado ?? 0, posicion: pv, anidar: 0 }), ...(x.foco ? { foco: true } : {}) });
+  for (const x of c?.comparables ?? []) {
+    const banda = x.caja === null ? null : bandas.find((b) => (b.escala ?? b.indice) === x.caja);
+    if (banda) banda.items.push(estrella(x)); else sinBanda.push(estrella(x));
   }
   const escribir = accionPorDefecto(eje, R, pv, ctx);
   for (const b of bandas) {
+    // La estrella de R, primero: que no la tape la cuenta mayor.
+    b.items.sort((x, y) => Number(Boolean(y.foco)) - Number(Boolean(x.foco)));
     recortar(b, caben);
     b.escribir = !b.items.length && !b.mas && !b.foco ? escribir : null;
   }
+  const base = c?.base ?? null;
   return {
     bandas, sinBanda, pagina: null,
-    cuota: kPropio !== null ? { nombre: d.paso, k: kPropio, de: propio.de ?? null } : null,
+    cuota: kPropio !== null ? { nombre: d.paso, k: kPropio, de: (d.paso ? pasosDe.tabla(ctx.opciones).find((x) => x.nombre === d.paso)?.de : null) ?? null } : null,
     enElFoco: POSICIONES.filter((k) => contrato.ocupantes(eje, R, k, 0, 0, ctx.opciones).total > 0),
+    cohorte: c ? { valor: c.cohorte, texto: c.texto, elegida: c.elegida, opciones: c.cohortes.length > 1 ? c.cohortes.map((x) => ({ valor: x.valor, texto: x.texto, actual: x.valor === c.cohorte })) : [] } : null,
+    base: base ? { escrita: base.escrita, autor: base.autor ? legibleDe(eje, base.autor, ['identity'], ctx.opciones).texto : null, t: base.t ?? null } : null,
   };
 }
 
@@ -1514,7 +1538,10 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conP
     const items = new Set([...(b.items ?? []), ...(b.cruces ?? []).flatMap((x) => x.items)]);
     for (const o of items) o.dibujo = deOcupante(o);
     const llena = Boolean(b.items?.length || b.mas);
-    b.capa = { total: (b.items?.length ?? 0) + (b.mas ?? 0), hijo: llena ? dibujo('hijo') : b.foco ? null : dibujo('vacio'), ocupantes: [], hecho: null, efectos: null };
+    // El cielo sin base escrita (encargo «datos3»): lo calculado al vuelo lleva además el polvo (el dibujo del vacío)
+    // bajo sus estrellas; las cajas vacías ya son polvo.
+    const polvo = r.base && r.base.escrita === false && llena ? dibujo('vacio') : null;
+    b.capa = { total: (b.items?.length ?? 0) + (b.mas ?? 0), hijo: llena ? dibujo('hijo') : b.foco ? null : dibujo('vacio'), ocupantes: polvo ? [polvo] : [], hecho: null, efectos: null };
   }
   // Lo nuevo bajo R, por el dígito del que cuelga (pvDondeCuelga): al hijo de ese dígito si lo hay; si no, al centro del mundo.
   const porDigito = !conEfectos ? new Map() : R === X ? ctx.nuevosPorPv : nuevosPorPvDe(eje, R, ctx.nuevos, ctx.opciones);
@@ -1665,6 +1692,8 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     medidas: m,
   };
   const camino = await caminoDe(eje, X, yo, ctx);
+  // Lo previsualizado de un paso del camino (encargo «datos3»): la app lo guarda en estado.previa y aquí solo se pasa.
+  if (estado.previa && estado.previa.foco === X) camino.previa = estado.previa;
   // Cuántos datos caben en la pantalla, en huecos comprimidos; la época dice qué puntos de vista y cómo se disponen.
   const cabenEnPantalla = Math.max(1, Math.floor(m.ancho / m.hueco) * Math.floor(m.alto / m.hueco));
   const d = contrato.division(eje, X, { datos: cabenEnPantalla, forma: { ancho: m.ancho, alto: m.alto }, ...opciones });

@@ -73,8 +73,9 @@ test('las diez lecturas son reglas largas de epoch.2, una por PV («point of vie
   assert.deepEqual(l.map((x) => x.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual(l.map((x) => x.nombre), ['what it is', 'how much', 'on what condition', 'with whom', 'what is done', 'where it fits', 'where it comes from', 'by when', 'against others', 'how']);
   // En BQL donde el BQL mínimo alcanza; envueltas (una lectura JS nombrada) donde no.
-  assert.deepEqual(l.filter((x) => x.formulas.length && !x.js.length).map((x) => x.pv), [2, 3, 4, 5, 6, 8]);
-  assert.deepEqual(l.filter((x) => x.js.length).map((x) => [x.pv, x.js]), [[0, ['representaciones']], [1, ['flujo']], [7, ['futuro']], [9, ['camino']]]);
+  assert.deepEqual(l.filter((x) => x.formulas.length && !x.js.length).map((x) => x.pv), [2, 3, 4, 5, 6]);
+  // el 8, además de sus hermanos en BQL, la cohorte que eligió el dueño, envuelta (encargo «datos3»)
+  assert.deepEqual(l.filter((x) => x.js.length).map((x) => [x.pv, x.js]), [[0, ['representaciones']], [1, ['flujo']], [7, ['futuro']], [8, ['cohorte']], [9, ['camino']]]);
   for (const x of l) {
     assert.ok(esLecturaDePv(x.regla));
     assert.ok(!EPOCA_0_BTML.condiciones.includes(x.regla) && !EPOCA_0_BTML.lecturas.includes(x.regla), x.nombre + ': ni condición ni lectura materializada');
@@ -270,4 +271,31 @@ test('crear en un hueco de cualquier nivel escribe la dirección entera: el cont
   assert.equal(ev.en, '1130000000');
   const r = (await arbol(estado, c.eje, 'huesped', GRANDE)).centro.rejilla;
   assert.ok(r.celdas.find((x) => x.pv === 3).ocupantes.some((o) => o.texto === 'nuevo en 1.1.3'), 'lo escrito se lee en la celda 3 del nivel 3 (1.1.3)');
+});
+
+// ---------- encargo «datos3» (issue #11): el 7 por la fecha «when» y el 8 con la cohorte que eligió el dueño ----------
+
+test('el 7 lee lo que tiene fecha por esa fecha (lo más próximo primero), no por el t del registro, con su estado; el 8 añade la cohorte que eligió el dueño', async () => {
+  const c = await conCore();
+  const declarar = async (what, when) => {
+    const tx = await acciones.transaccion(c.eje, 'declare future T', { X: c.agram, what, when, units: 1 }, c.yo, { t: c.t(), firmar: c.firmar });
+    assert.equal(tx.ok, true, JSON.stringify(tx.motivos));
+    return (await c.eje.anadir(tx.evento)).id;
+  };
+  const lejos = await declarar('cerrar el año', '2026-12-20T10:00:00Z');
+  const cerca = await declarar('revisar', '2026-12-01T10:00:00Z');
+  const siete = C.leer(c.eje, c.alta, 7).derivado;
+  assert.deepEqual(valores(siete), [cerca, lejos], 'por la fecha a la que se refiere, aunque llegó después');
+  assert.deepEqual(siete.map((x) => [x.por[0].estado, x.por[0].fecha, x.por[0].refiere]), [['previsto', '2026-12-01T10:00:00Z', '2026-12-01T10:00:00Z'], ['previsto', '2026-12-20T10:00:00Z', '2026-12-20T10:00:00Z']]);
+  // el 8: sin elegir, los hermanos (el BQL de la regla); VG elige compararlo con todo el libro y entra lo demás, con su caja
+  assert.deepEqual(new Set(valores(C.leer(c.eje, c.agram, 8).derivado)), new Set([c.menu, c.altaCore]));
+  const cambio = await acciones.transaccion(c.eje, 'change cohort', { X: c.agram, cohort: 'genesis' }, c.yo, { t: c.t(), firmar: c.firmar });
+  assert.equal(cambio.ok, true, JSON.stringify(cambio.motivos));
+  await c.eje.anadir(cambio.evento);
+  const ocho = C.leer(c.eje, c.agram, 8).derivado;
+  assert.ok(ocho.some((x) => x.valor.ref === c.propuesta), 'la propuesta de Core no es hermana de AGRAM, pero está en el libro');
+  const porCohorte = ocho.find((x) => x.valor.ref === c.propuesta).por[0];
+  assert.deepEqual([porCohorte.regla, porCohorte.cohorte], ['against others', 'genesis']);
+  assert.ok(porCohorte.caja === null || (porCohorte.caja >= 0 && porCohorte.caja <= 9));
+  assert.ok(!ocho.some((x) => x.valor.ref === c.agram), 'nunca él mismo');
 });

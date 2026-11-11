@@ -187,6 +187,10 @@ small{color:var(--muted)}
 .camino .paso{display:flex;flex-wrap:wrap;gap:4px 8px;align-items:baseline;padding:3px 0}
 .camino .paso.hecho{color:var(--muted);text-decoration:line-through}
 .camino .paso.espera .marca{color:var(--warn);font-style:italic}
+/* encargo «datos3»: previsualizar un paso (no escribe) y lo que daría */
+.camino .paso .previsualizar{font-size:12px;padding:1px 8px;border:1px dashed var(--rule);border-radius:999px;background:transparent;color:var(--fg)}
+.camino .paso .previa{flex-basis:100%;font-size:12px;color:var(--muted)}
+.camino .paso .previa.no-pasa{color:var(--warn)}
 .camino .fuente{font-family:var(--mono);color:var(--muted);font-size:11px}
 .camino .niveles{font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px}
 .camino .seguir{margin-top:6px;background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
@@ -592,9 +596,23 @@ html.mapped body{padding:0}
 .cuenta-texto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cuenta-texto small{color:var(--muted)}
 .cuenta.supuesta{border-style:dashed}
+/* encargo «datos3»: la cuenta rara (incongruente: su escala declarada no es la de su fecha) y la cuenta con estado del futuro */
+.cuenta.cuenta-rara{border-color:var(--warn);border-width:2px;box-shadow:inset 0 0 0 1px var(--warnbg)}
+.cuenta-estado{color:var(--muted);font-style:italic}
+.cuenta[data-estado="bloqueado"] .cuenta-bola{box-shadow:0 0 0 2px var(--bg),0 0 0 3px var(--c,var(--muted))}
+.cuenta[data-estado="previsto"] .cuenta-bola{background:transparent;border:2px solid var(--c,var(--muted))}
+.cuenta:is([data-estado="caducado"],[data-estado="liberado"]) .cuenta-texto{text-decoration:line-through;color:var(--muted)}
 .cuenta-mayor{justify-content:center;min-width:32px;height:32px;padding:0 8px;font-size:14px;font-weight:700;background:color-mix(in oklab,var(--c,var(--rule)) 30%,var(--bg))}
 /* el cielo (el 8): las diez cajas nivel.grado en dos filas; la estrella brilla por el nivel, el grado añade borde (2) o halo (3) */
 .cielo-panel{margin:0;font-size:12px;color:var(--muted)}
+/* encargo «datos3»: la cohorte (su selector) y la base; sin base escrita, el cielo con el borde discontinuo */
+.cielo-panel .cohortes{display:inline-flex;gap:4px;flex-wrap:wrap;vertical-align:middle}
+.cielo-panel .cohorte{padding:1px 8px;border:1px solid var(--rule);border-radius:999px;background:var(--bg);color:var(--fg);font-size:12px}
+.cielo-panel .cohorte.actual{border-color:var(--fg);font-weight:700}
+.cielo-panel .cielo-base{font-style:italic}
+.rejilla-cielo.sin-base{outline:2px dashed color-mix(in oklab,var(--cielo-tinta) 55%,transparent);outline-offset:-4px}
+.estrella.foco .estrella-forma{outline:2px solid var(--cielo-tinta,#fff);outline-offset:1px}
+.estrella.foco .texto{font-weight:700}
 .rejilla-cielo{grid-template-columns:repeat(var(--columnas),minmax(0,1fr));padding:var(--hueco,6px);border-radius:8px;background:color-mix(in oklab,var(--pv-8,#17396f) 80%,#000);--cielo-tinta:#eef2ff}
 .caja-cielo{display:flex;flex-direction:column;min-width:0;min-height:0;overflow:hidden;border:1px solid rgba(255,255,255,.16);border-radius:6px;color:var(--cielo-tinta)}
 .caja-cielo .hijo-cabeza{border-bottom-color:rgba(255,255,255,.12)}

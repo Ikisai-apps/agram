@@ -25,17 +25,17 @@ function epocaCon(cambiar) {
 
 test('la tabla de pasos es un dato de la época: una fila por punto de vista (4 el ciclo, 8 la cuota, 7 la escala, * la madurez), con k y de como fórmulas o como lecturas del núcleo', () => {
   const t = tabla();
-  assert.deepEqual(t.map((f) => [f.pv, f.nombre]), [[4, 'ciclo'], [8, 'cuota'], [7, 'escala'], ['*', 'madurez']]);
+  assert.deepEqual(t.map((f) => [f.pv, f.nombre]), [[4, 'ciclo'], [8, 'cuota'], [7, 'escala'], [7, 'cuando'], ['*', 'madurez']]); // «cuando»: encargo «datos3»
   assert.ok(t.every((f) => f.nota), 'cada fila dice qué es');
   for (const f of t) for (const x of [f.k, f.de]) assert.ok(typeof x === 'number' || /^=/.test(x) || mecanismos().includes(x), f.nombre + ': ' + x);
-  assert.deepEqual(mecanismos(), ['maturity', 'share box']);
+  assert.deepEqual(mecanismos(), ['maturity', 'share box', 'when scale']);
 });
 
 test('los cuatro pasos sobre los ejemplos: la compra, el menú, la cuenta, la reserva y la tarea', async () => {
   const { eje, menu, compra } = await ejemploCompra();
   const cuenta = await ejemploCuenta(eje, compra);
   const p = pasos(eje, compra.id);
-  assert.deepEqual(Object.keys(p), ['ciclo', 'cuota', 'escala', 'madurez']);
+  assert.deepEqual(Object.keys(p), ['ciclo', 'cuota', 'escala', 'cuando', 'madurez']);
   assert.deepEqual(p.ciclo, { pv: 4, k: 0, de: 0 }, 'la compra no anuncia movimientos: cero de cero');
   assert.deepEqual(p.escala, { pv: 7, k: 2, de: 10 }, 'la compra quema una hora: la escala 2 de epoch.1.3.1');
   assert.deepEqual(p.madurez, { pv: '*', k: 11, de: 15 });
@@ -93,14 +93,14 @@ test('cambiar la tabla en una copia de la época cambia el resultado: los nombre
     t[3][3] = ['=count epoch.9.1 - 1']; // y su de es otro: los nueve del tutorial menos uno
     t[2][0] = [6]; // la cuota pasa al 6
     t[1][2] = ['=count epoch.9.1']; // el ciclo lee otra cosa: los nueve del tutorial
-    t.splice(4, 1); // y no hay madurez
+    t.splice(t.findIndex((f) => Array.isArray(f) && f[1]?.[0] === 'madurez'), 1); // y no hay madurez
   });
   const p = pasos(eje, compra.id, { epoca });
-  assert.deepEqual(Object.keys(p), ['ciclo', 'cuota', 'scale']);
+  assert.deepEqual(Object.keys(p), ['ciclo', 'cuota', 'scale', 'cuando']);
   assert.deepEqual(p.scale, { pv: 7, k: 2, de: 8 });
   assert.equal(p.cuota.pv, 6);
   assert.deepEqual(p.ciclo, { pv: 4, k: 9, de: 0 });
-  assert.deepEqual(tabla({ epoca }).map((f) => f.nombre), ['ciclo', 'cuota', 'scale']);
+  assert.deepEqual(tabla({ epoca }).map((f) => f.nombre), ['ciclo', 'cuota', 'scale', 'cuando']);
   // Una fila que nombra una lectura que el núcleo no da, o una fórmula que no se resuelve, da null: nunca lanza.
   const rara = epocaCon((e) => { e[9][8][1][2] = ['nothing known']; e[9][8][1][3] = ['=it.4.9.9 + 1']; });
   assert.deepEqual(pasos(eje, compra.id, { epoca: rara }).ciclo, { pv: 4, k: null, de: null });

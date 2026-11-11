@@ -47,6 +47,8 @@ const UMBRAL_ASA = 1 / 8;
  *   guiaExportar() · guiaImportar()  la salida externa del PV9 (carta/externa.js): descargar el contexto, elegir el archivo de propuestas
  *   propuesta(que, id)       aceptar, modificar o rechazar una propuesta importada (el paso de la tercera fuente del camino)
  *   quien(id) · ejemplo(id) · reiniciar() · seguir()
+ *   previsualizar(X, accion, paso)  construir y validar un paso del camino sin escribir (encargo «datos3»)
+ *   cohorte(valor)  la cohorte con que el cielo del 8 compara (encargo «datos3»)
  *   arranque(que)            la pantalla de arranque: menu, crear, restaurar, ejemplo o cuenta:<alta>
  *   crear(form) · restaurar(form) · copia(form | null) · olvidar()   mi cuenta: crearla, restaurarla de su copia, la copia de seguridad, olvidarla
  *   hermano(delta)           cambiar de PV o de hermano (deslizar horizontal, flechas ← →)
@@ -172,6 +174,8 @@ export function instalar(raiz, m) {
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
     if ((el = b('[data-seguir]'))) { e.preventDefault(); m.seguir?.(); return; }
+    if ((el = b('[data-previsualizar]'))) { e.preventDefault(); m.previsualizar?.(el.dataset.x ?? xDe(el), el.dataset.accion, Number(el.dataset.previsualizar)); return; }
+    if ((el = b('[data-cohorte]'))) { e.preventDefault(); m.cohorte?.(el.dataset.cohorte); return; }
     if ((el = b('[data-englobar]'))) { e.preventDefault(); m.englobar?.(); return; }
     if ((el = b('[data-config]'))) { e.preventDefault(); m.configurar?.(null); return; }
     if ((el = b('[data-reiniciar]'))) { e.preventDefault(); m.reiniciar?.(); return; }

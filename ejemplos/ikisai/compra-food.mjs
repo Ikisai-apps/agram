@@ -279,3 +279,41 @@ export async function ejemploFabrica(eje, { compra }, privadas = {}) {
   const nota = await accion(5, 'anchor here', { X: compra.id, title: 'Nota de la huésped' });
   return { pagar, servir, atender, respaldo, capacidad, nota };
 }
+
+/**
+ * El futuro y el cielo de la compra (encargo «datos3», issue #11): lo que hace falta para que el 7 tenga entradas en
+ * más de una franja y con estado, y para que el 8 compare con una cohorte elegida. Todo inventado.
+ *
+ * Por el aro, la huésped declara en el 7 de la compra dos T futuros («declare future T»: previstos, uno para mañana y
+ * otro para la semana que viene, por su «when») y bloquea cinco de sus euros hasta fin de mes («commit time»: bloqueado
+ * hasta); y en su 8 elige compararla con su proyecto («change cohort», project). A mano, sin el aro: la cocina prevé en
+ * la fábrica de la compra (su 4) la cena de Nochebuena (T futuro con su fecha) y la casa emite en sus recursos (su 1)
+ * tres vales que caducan mañana: cuelgan de los hilos 4 y 1 del 7.
+ */
+export async function ejemploFuturoYCohorte(eje, { compra }, privadas = {}) {
+  const priv = (id) => privadas[id];
+  const t = (minuto) => '2026-11-07T16:' + String(minuto).padStart(2, '0') + ':00Z';
+  const accion = async (minuto, cual, params) => {
+    const privada = priv('huesped');
+    const r = await transaccion(eje, cual, params, 'huesped', { t: t(minuto), ...(privada ? { firmar: (ev) => firmar(ev, privada) } : {}) });
+    if (!r.ok) throw new Error(cual + ': ' + r.motivos.map((m) => m.mensaje).join('; '));
+    const { autor, sobre, en, movimientos, payload } = r.evento;
+    return eje.escribir({ autor, sobre, en, t: t(minuto), movimientos, payload }, priv('huesped'));
+  };
+  const manana = await accion(10, 'declare future T', { X: compra.id, what: 'Repetir el menú', when: '2026-11-08T13:30:00Z', units: 1 });
+  const semana = await accion(11, 'declare future T', { X: compra.id, what: 'Cena del grupo', when: '2026-11-12T20:00:00Z', units: 2 });
+  const plazo = await accion(12, 'commit time', { X: compra.id, series: 'E:casa/EUR', amount: 5, until: '2026-11-30T12:00:00Z' });
+  const cohorte = await accion(13, 'change cohort', { X: compra.id, cohort: 'project' });
+  const gasta = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const nochebuena = await eje.escribir({
+    autor: 'cocina', sobre: compra.id, en: '4000000000', t: t(14),
+    movimientos: [gasta('cocina'), { token: 'T', escala: 'futuro', cantidad: 3, de: 'cocina', a: null, refiere: '2026-12-24T20:00:00Z' }],
+    payload: [['Cena de Nochebuena']],
+  }, priv('cocina'));
+  const vales = await eje.escribir({
+    autor: 'casa', sobre: compra.id, en: '1000000000', t: t(15),
+    movimientos: [gasta('casa'), { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 3, de: null, a: 'casa', caduca: '2026-11-08T09:00:00Z' }],
+    payload: [['Vales del desayuno']],
+  }, priv('casa'));
+  return { manana, semana, plazo, cohorte, nochebuena, vales };
+}

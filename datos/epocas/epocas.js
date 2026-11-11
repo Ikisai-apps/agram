@@ -535,10 +535,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81"
     },
     {
-      "ref": "0694a4835b81b0984129c71f34f9b128bc4d03f76e8c4d48c8fc977a38bab68c"
+      "ref": "0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56"
     },
     {
-      "ref": "aa72fd49227155025fc574ba7159e61c42228ad80d75e68dadcf8669d0ec67bf"
+      "ref": "42ccc655be7f6b8c07eb1ea29bf9c16c13efb8ce022d7ae182b78cca7e4b4e5a"
     },
     {
       "ref": "b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2"
@@ -2760,6 +2760,7 @@ export const EPOCA_0_BTML_DATOS = [
           [
             "epoch.1.3",
             "epoch.7",
+            "cuando",
             "escala"
           ],
           [
@@ -2796,13 +2797,14 @@ export const EPOCA_0_BTML_DATOS = [
           ],
           [
             "hitos",
-            "cuota"
+            "cuota",
+            "cohort"
           ],
           [
             "-"
           ],
           [
-            "las diez cajas nivel.grado de los hitos; cada registro, en la caja del paso «cuota» de epoch.9.8"
+            "las diez cajas nivel.grado de los hitos; cada comparable de la cohorte, en la caja de su cuota en ella (el paso «cuota» de epoch.9.8 frente a la cohorte entera)"
           ],
           [
             "-"
@@ -2846,7 +2848,8 @@ export const EPOCA_0_BTML_DATOS = [
         "VG, 10-11 noche (corrige la tanda 4 de Mapped): la división de un mundo no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila por punto de vista [[pv], [hijos: los dígitos que ese mundo enciende, cada uno un PV aplicado al elemento], [profundidad: niveles al entrar], [formas, una por nivel; la última se repite], [lo que mide: referencias a lo que la época o las bases dan, «-» si nada], [estilo de los de abajo: texto CSS por defecto para los hijos], [nota], [hilos: los PV de las filas horizontales de las franjas]]. Donde no aplica va «-» (sin hijos, sin estilo, sin hilos): una posición BTML no puede estar vacía. El 2 enciende los sitios del 1 más el 5 (dónde encaja); el 3, los del 2 más el 6 (de dónde viene); un hijo sin ocupantes se pinta apagado y no se entra (docs/CONTRATO.md §4.2)",
         "Encargo «datos» (issue #11, primera parte; Core, pendiente de revisar VG): la posición 8 de cada fila (la novena, detrás de los hilos) es el enlace, lo que cada hijo es de lo que la fila mide, uno por hijo y en su orden («-» si nada). El 2 mide el P por mirada (epoch.1.1: sus hijos 1-5 son las miradas 1-5 de su P, el enlace 1 2 3 4 5) y el recuento (epoch.9.0.0: el umbral del dueño si su criterio dice esa mirada, «view d»); el 3 mide los seis grupos de atención (epoch.1.2.1: hijo 1 ↔ zona 0 general, 2 ↔ 1 comercial, 3 ↔ 2 expertos, 4 ↔ 3 poder o cercanos, 5 ↔ 4 equipo, 6 ↔ 5 vetados, el enlace 0 1 2 3 4 5, con el precio de esa zona para el dueño del registro) y el estado de cada paquete (la lectura «attended»: una devolución de R pendiente o atendida; una R quemada por su tenedor, perdonada) (docs/CONTRATO.md §4.2)",
         "VG, 11-11 (#18): la posición 9 (la décima, detrás del enlace) es el orden de las listas verticales del 6 y el 7 (un orden de 8.5): el 6, «latest» (lo más reciente primero, el pasado más lejano abajo); el 7, «soonest» (lo más próximo primero, el futuro más lejano abajo); las franjas no cambian; «-» en los demás",
-        "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): el 1 mide epoch.9.2 (el coste: lo que el registro declara en el <dígito>.2 del hijo, «a qué precio» en el 1.2 de «purchase» y de «booking»), capacity (la capacidad: el último «declare capacity or threshold» del dueño o el 2 del registro más cercano de su hilo que la declara, con lo comprometido del E atado a él, por franja) y epoch.4.0 (lo que entra y sale de E y de T por las primitivas, visto desde el dueño); su enlace es qué hijo mide qué: 1 cuánto ↔ el coste, 2 con qué condición ↔ la capacidad, 3 con quién ↔ lo que entra y sale (cada movimiento tiene un de y un a), 4 qué se hace ↔ nada (lo que se hace es la fábrica, el 4) (docs/CONTRATO.md §4.2)"
+        "Encargo «datos2» (issue #11, segunda parte; Core, pendiente de revisar VG): el 1 mide epoch.9.2 (el coste: lo que el registro declara en el <dígito>.2 del hijo, «a qué precio» en el 1.2 de «purchase» y de «booking»), capacity (la capacidad: el último «declare capacity or threshold» del dueño o el 2 del registro más cercano de su hilo que la declara, con lo comprometido del E atado a él, por franja) y epoch.4.0 (lo que entra y sale de E y de T por las primitivas, visto desde el dueño); su enlace es qué hijo mide qué: 1 cuánto ↔ el coste, 2 con qué condición ↔ la capacidad, 3 con quién ↔ lo que entra y sale (cada movimiento tiene un de y un a), 4 qué se hace ↔ nada (lo que se hace es la fábrica, el 4) (docs/CONTRATO.md §4.2)",
+        "Encargo «datos3» (issue #11, tercera parte; Core, pendiente de revisar VG): el 7 mide «cuando» antes de «escala» (dos pasos de epoch.9.8, en su orden): cada entrada va en la franja de la fecha a la que se refiere (el «when» de «declare future T», la salida con fecha de un bloqueo, la caducidad de una emisión de E; la escala del calendario de su distancia al reloj del libro) y, si no se refiere a ninguna, en la de la escala del T que quema; es incongruente si las dos no coinciden. El 8 mide «cohort»: los comparables de la cohorte (la que se pida o la que eligió el dueño con «change cohort»: siblings, project o genesis), cada uno en la caja de su cuota en ella, con quién escribió la base de la cohorte (docs/CONTRATO.md §4.2)"
       ]
     ]
   ],
@@ -4958,6 +4961,9 @@ export const EPOCA_0_BTML_DATOS = [
           "legible attention price P: {amount} P sobre lo de {owner}",
           "legible attention price open record: sin pago, con un registro abierto entre los dos",
           "legible attention price nothing: no llegan",
+          "legible cohort siblings: hermanos",
+          "legible cohort project: proyecto",
+          "legible cohort genesis: general",
           "legible not a number: no es un número: {text}",
           "legible not an instant: no es una fecha (AAAA-MM-DD o AAAA-MM-DDTHH:MM): {text}",
           "legible unknown identity: ninguna identidad conocida se llama {text}",
@@ -5045,6 +5051,9 @@ export const EPOCA_0_BTML_DATOS = [
           "legible attention price P: {amount} P on what is of {owner}",
           "legible attention price open record: no payment, with an open record between both",
           "legible attention price nothing: they do not get through",
+          "legible cohort siblings: siblings",
+          "legible cohort project: project",
+          "legible cohort genesis: genesis",
           "legible not a number: not a number: {text}",
           "legible not an instant: not a date (YYYY-MM-DD or YYYY-MM-DDTHH:MM): {text}",
           "legible unknown identity: no known identity is called {text}",
@@ -5295,7 +5304,7 @@ export const EPOCA_0_BTML_DATOS = [
           "ref": "f6318461cc022563a680fc277a19f284e42094bdf4f087d879c1ea457191e25a"
         },
         {
-          "ref": "5e344b63ed7dd82077370e685438be1019bc8e7c9b34c13d13d803206fe8e7a8"
+          "ref": "10d36b4e56820777fe931ad1e7924437e6608c42a1e7eddeda6fd09c528ba16b"
         },
         {
           "ref": "38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"
@@ -5654,7 +5663,7 @@ export const EPOCA_0_BTML_DATOS = [
     [
       [
         "steps",
-        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most). Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
+        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most), and when scale (encargo «datos3»: the calendar scale of the date the record refers to, contrato.escalaDeFecha over contrato.estadoDeEntrada). Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
       ],
       [
         [
@@ -5705,6 +5714,23 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "the T scale of the record: the digit of the series of the first T it burns, 0-9 as the ten scales of epoch.1.3.1 (0 second … 6 year, 7 past, 8 future, 9 invented); null if it burns no T"
+        ]
+      ],
+      [
+        [
+          7
+        ],
+        [
+          "cuando"
+        ],
+        [
+          "when scale"
+        ],
+        [
+          10
+        ],
+        [
+          "encargo «datos3» (issue #11; Core, pendiente de revisar VG): the calendar scale of the date the record refers to (the «when» of declare future T, the exit date of a lock, the expiry of an issue of E) seen from the clock of the ledger: the finest scale of epoch.7.0 that holds the distance, the coarsest beyond it; its digit in epoch.1.3.1, as escala; null if the record refers to no date"
         ]
       ],
       [
@@ -6609,7 +6635,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "against-others.json",
-    "id": "aa72fd49227155025fc574ba7159e61c42228ad80d75e68dadcf8669d0ec67bf",
+    "id": "42ccc655be7f6b8c07eb1ea29bf9c16c13efb8ce022d7ae182b78cca7e4b4e5a",
     "registro": [
       [
         "against others"
@@ -6618,7 +6644,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "X.6.5"
       ],
       [
-        "=(down up it) where it2 != it"
+        "=(down up it) where it2 != it",
+        "js cohorte"
       ],
       [
         8
@@ -6632,7 +6659,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "En BQL: frente a otros, sus hermanos (lo anclado sobre el mismo registro); la cuota y los hitos son medidas, no ocupantes (contrato.madurez, pasos)"
+        "En BQL: frente a otros, sus hermanos (lo anclado sobre el mismo registro); la cuota y los hitos son medidas, no ocupantes (contrato.madurez, pasos)",
+        "Encargo «datos3» (issue #11, Core, pendiente de revisar VG): envuelta, además, los comparables de la cohorte que el dueño eligió con «change cohort» en el 8 del nodo (project: el subárbol del proyecto; genesis: todo el libro), cada uno con la caja de su cuota en ella (contrato.cohorteDe); con la cohorte de los hermanos no añade nada: ya los da el BQL"
       ],
       [
         "epoch 0"
@@ -6641,7 +6669,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after by when"
       ],
       [
-        "against others: its siblings, what is anchored on the same record"
+        "against others: its siblings, what is anchored on the same record, and the comparables of the cohort its owner chose"
       ]
     ]
   },
@@ -6857,7 +6885,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "by-when.json",
-    "id": "0694a4835b81b0984129c71f34f9b128bc4d03f76e8c4d48c8fc977a38bab68c",
+    "id": "0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56",
     "registro": [
       [
         "by when"
@@ -6881,7 +6909,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
       [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
-        "Envuelta: el T futuro declarado en el subárbol del nodo (un movimiento de T de la escala «futuro» de epoch.1.3.1, con la fecha a la que se refiere); el BQL mínimo no lee la fecha a la que se refiere un movimiento informativo"
+        "Envuelta: el T futuro declarado en el subárbol del nodo (un movimiento de T de la escala «futuro» de epoch.1.3.1, con la fecha a la que se refiere); el BQL mínimo no lee la fecha a la que se refiere un movimiento informativo",
+        "Encargo «datos3» (issue #11, Core, pendiente de revisar VG): da lo que en el subárbol tiene un estado del futuro (contrato.estadoDeEntrada: previsto, el T futuro con su «when»; bloqueado o liberado, un bloqueo cuya salida es una fecha, lo que hace «commit time»; caduca o caducado, una emisión de E con caducidad o la quema de E propia), ordenado por esa fecha (lo más próximo primero) y no por el t del registro; el BQL mínimo no ordena por fechas"
       ],
       [
         "epoch 0"
@@ -6890,7 +6919,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "after where it comes from"
       ],
       [
-        "by when: the future T declared in what hangs from the node, with its date"
+        "by when: what hangs from the node and refers to a date (the future T declared, what is locked until a date, what expires), soonest first"
       ]
     ]
   },
@@ -15873,7 +15902,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "change-cohort.json",
-    "id": "5e344b63ed7dd82077370e685438be1019bc8e7c9b34c13d13d803206fe8e7a8",
+    "id": "10d36b4e56820777fe931ad1e7924437e6608c42a1e7eddeda6fd09c528ba16b",
     "registro": [
       [
         "change cohort"
@@ -15887,7 +15916,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
             "text"
           ],
           [
-            "any"
+            "=\"siblings\" in it or \"project\" in it or \"genesis\" in it"
           ],
           [
             "me"
@@ -16367,7 +16396,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "c207bc6334c0e3902fded3724b17871a98e4631a0f333d65f3f1d7ff509f1613";
+export const EPOCA_0_BTML_ID = "4a41d4ab2bdc30658914b2b3258ce01219de52bcf6a3c259ac1393bad3330d04";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

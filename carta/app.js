@@ -18,7 +18,7 @@
 // sincronizan nunca. Nada de esto bloquea: se escribe en local y la cola sube lo pendiente.
 
 import { autoridad, persistencia, local, salida, contrato, acciones, direccion, leerEvento, sincronia } from '../src/index.js';
-import { arbol, enviar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
+import { arbol, enviar, previsualizar, formulario, medidasDePantalla, preferencias, ampliar, ampliarTodos, NIVEL, LATERALES, CENTROS, GEOMETRIA } from './carta.js';
 import { html, htmlSincronia, htmlGuia, trasPintar, variablesDeColor, resolverArchivos } from './dom.js';
 import { instalar } from './gestos.js';
 import * as opinar from './opinar.js';
@@ -809,6 +809,7 @@ const manejadores = {
       return;
     }
     estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso };
+    estado.previa = null;
     estado.aro = null;
     limpiarMensajes();
     tocar(sobre, 'lanzar ' + canonicoDe(accion));
@@ -980,6 +981,24 @@ const manejadores = {
     } catch (e) {
       estado.aviso = String(e.message ?? e);
     }
+    pintar();
+  },
+  /** Previsualizar un paso del camino (encargo «datos3»): construirlo y validarlo sin escribir; lo que daría, bajo el paso. */
+  async previsualizar(X, accion, paso) {
+    const p = ultimo?.camino?.pasos?.[paso];
+    if (!accion || !p?.hacer) return;
+    try {
+      const r = await previsualizar(estado.eje, X ?? estado.foco.X, accion, p.hacer.parametros ?? {}, estado.identidad, firmarCon(estado.identidad));
+      estado.previa = { foco: estado.foco.X, paso, ...r };
+    } catch (e) {
+      estado.previa = { foco: estado.foco.X, paso, ok: false, motivos: [{ regla: null, mensaje: String(e.message ?? e) }], movimientos: [] };
+    }
+    pintar();
+  },
+  /** La cohorte con que el cielo del 8 compara (encargo «datos3»): solo se mira así; elegirla para siempre es «change cohort», en el aro del 8. */
+  cohorte(valor) {
+    estado.cohorte = valor || null;
+    tocar(estado.foco.X, 'cohorte ' + valor);
     pintar();
   },
   hermano(delta, pv) {

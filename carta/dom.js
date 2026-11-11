@@ -454,9 +454,14 @@ function htmlMatrizEnColumna(r) {
 function htmlCuenta(o) {
   const cuando = o.t ? fecha(o.t) : '';
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
-  const titulo = [o.texto, cuando, o.hiloSupuesto ? t('hiloSupuesto') : ''].filter(Boolean).join(' · ');
-  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
+  const estado = o.estado ? t(ESTADOS_DE_CUENTA[o.estado.tipo] ?? 'estadoPrevisto', { fecha: o.estado.fecha ? fecha(o.estado.fecha) : '' }) : '';
+  const rara = o.incongruente ? t('incongruente', o.incongruente) : '';
+  const titulo = [o.texto, cuando, estado, rara, o.hiloSupuesto ? t('hiloSupuesto') : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}${o.incongruente ? ' cuenta-rara' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${o.estado ? ` data-estado="${attr(o.estado.tipo)}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${estado ? `<small class="cuenta-estado">${escapar(estado)}</small> ` : cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
 }
+
+/** El texto de cada estado del futuro de una cuenta (contrato.estadoDeEntrada), por su nombre. */
+const ESTADOS_DE_CUENTA = Object.freeze({ previsto: 'estadoPrevisto', bloqueado: 'estadoBloqueado', liberado: 'estadoLiberado', caduca: 'estadoCaduca', caducado: 'estadoCaducado' });
 
 /**
  * Las franjas del 6 y el 7: una franja vertical por escala (la más cercana a ahora, más ancha) y los hilos horizontales
@@ -484,13 +489,24 @@ const htmlCaja = (b, clase, cuerpo, cifra = '', dibujo = '') => `<div class="rej
 /** Un comparable en el cielo: su estrella (intensidad por el nivel de la caja, borde con el grado 2, halo con el 3: solo CSS) y su nombre. */
 function htmlEstrella(o) {
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
-  return `<button type="button" class="ocupante estrella"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★${htmlDibujoDeOcupante(o)}</span><span class="texto">${escapar(o.texto)}</span></button>`;
+  return `<button type="button" class="ocupante estrella${o.foco ? ' foco' : ''}"${nodo('ocupante', { x0: o.texto })}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(o.texto)}"><span class="estrella-forma" aria-hidden="true">★${htmlDibujoDeOcupante(o)}</span><span class="texto">${escapar(o.texto)}</span></button>`;
 }
 
-/** El cielo del 8: el panel pequeño (la cuota del foco y las posiciones que tiene escritas) y las diez cajas en dos filas; la vacía, apagada con su paso del camino. */
+/**
+ * El cielo del 8: el panel pequeño (el del astrónomo: la cohorte, con su selector si hay más de una, quién escribió la
+ * base o «sin base escrita», la cuota del foco y las posiciones que tiene escritas) y las diez cajas en dos filas; la
+ * vacía, apagada con su paso del camino. Sin base escrita, el cielo lleva el borde discontinuo (`sin-base`).
+ */
 function htmlCielo(r) {
   const cajaDe = (k) => r.bandas.find((b) => (b.escala ?? b.indice) === k);
   const partes = [];
+  if (r.cohorte) {
+    const elegir = r.cohorte.opciones?.length
+      ? `<span class="cohortes" role="group" aria-label="${attr(t('cohorte'))}">${r.cohorte.opciones.map((o) => `<button type="button" class="cohorte${o.actual ? ' actual' : ''}"${nodo('control')} data-cohorte="${attr(o.valor)}" aria-pressed="${o.actual ? 'true' : 'false'}" title="${attr(t('cohorteElegir', { cohorte: o.texto }) + (o.valor === r.cohorte.elegida ? ' · ' + t('cohorteDelDueno') : ''))}">${escapar(o.texto)}</button>`).join('')}</span>`
+      : `<b class="cohorte actual">${escapar(r.cohorte.texto ?? r.cohorte.valor)}</b>`;
+    partes.push(`${escapar(t('cohorte'))} ${elegir}`);
+  } else partes.push(escapar(t('sinCohorte')));
+  if (r.base) partes.push(`<span class="cielo-base">${escapar(r.base.escrita ? t('baseEscritaPor', { autor: r.base.autor ?? '', cuando: r.base.t ? fecha(r.base.t) : '' }) : t('sinBaseEscrita'))}</span>`);
   if (r.cuota) { const c = cajaDe(r.cuota.k); partes.push(escapar(t('cieloCuota', { paso: r.cuota.nombre, k: c ? `${c.nivel}.${c.grado}` : r.cuota.k }))); }
   if (r.enElFoco?.length) partes.push(escapar(t('enElFoco', { posiciones: r.enElFoco.join(' ') })));
   const panel = partes.length ? `<p class="cielo-panel">${partes.join(' · ')}</p>` : '';
@@ -499,7 +515,7 @@ function htmlCielo(r) {
     const cuerpo = llena ? b.items.map(htmlEstrella).join('') + (b.mas ? `<span class="estrella estrella-mas" title="${attr(t('masEnBanda', { n: b.mas }))}">${escapar(t('masEnBanda', { n: b.mas }))}</span>` : '') : b.foco ? `<span class="cielo-foco">${escapar(t('cieloFoco'))}</span>` : htmlEscribir(b.escribir, t('vacia'));
     return htmlCaja(b, `caja-cielo${llena || b.foco ? '' : ' vacia'}${b.foco ? ' foco' : ''}`, cuerpo, llena ? b.items.length + b.mas : '', htmlDibujo(b.capa));
   }).join('');
-  return `${panel}<div class="rejilla-bandas rejilla-cielo" style="--columnas:${r.columnas};--filas:${r.filas}">${cajas}</div>`;
+  return `${panel}<div class="rejilla-bandas rejilla-cielo${r.base && !r.base.escrita ? ' sin-base' : ''}" style="--columnas:${r.columnas};--filas:${r.filas}">${cajas}</div>`;
 }
 
 /**
@@ -584,7 +600,13 @@ function htmlPropuesta(p) {
     <span class="propuesta-botones"><button type="button"${nodo('control')} data-propuesta-aceptar="${id}" title="${attr(t('propuestaAceptarTitulo'))}">${t('propuestaAceptar')}</button><button type="button"${nodo('control')} data-propuesta-modificar="${id}" title="${attr(t('propuestaModificarTitulo'))}">${t('propuestaModificar')}</button>${rechazar}</span></li>`;
 }
 
-/** El camino: cada paso, mío (lanzable, por el id de su plantilla), de espera (marcado) o hecho; los niveles si la madurez es 0; «seguir». */
+/** Lo que daría un paso previsualizado (carta.previsualizar): si pasaría y con qué movimientos, o por qué no. */
+function htmlPrevia(v) {
+  const texto = v.ok ? (v.movimientos?.length ? t('previaPasa', { movimientos: v.movimientos.join(' · ') }) : t('previaPasaSinMovimientos')) : t('previaNoPasa', { motivos: (v.motivos ?? []).map((m) => m.mensaje).join('; ') });
+  return `<small class="previa${v.ok ? ' pasa' : ' no-pasa'}" role="status">${escapar(texto)}</small>`;
+}
+
+/** El camino: cada paso, mío (lanzable, por el id de su plantilla, y con «previsualizar»), de espera (marcado) o hecho; los niveles si la madurez es 0; «seguir». */
 export function htmlCamino(c, { X } = {}) {
   if (!c) return '';
   const pasos = c.pasos.map((p, i) => {
@@ -592,8 +614,11 @@ export function htmlCamino(c, { X } = {}) {
     const clase = p.hecho ? 'hecho' : p.espera ? 'espera' : p.mio ? 'mio' : 'otro';
     const cuerpo = `<span class="fuente">${escapar(p.fuente)}</span> <span class="falta">${escapar(p.falta ?? '')}</span>`;
     const marca = p.hecho ? `<span class="marca">${t('hecho')}</span>` : p.espera ? `<span class="marca">${escapar(t('esperaA', { quien: p.espera }))}</span>` : '';
+    // Previsualizar (encargo «datos3»): construye y valida el paso sin escribir; lo que daría, debajo.
+    const previa = c.previa?.paso === i ? htmlPrevia(c.previa) : '';
+    const ver = p.hacer && !p.hacer.lectura ? ` <button type="button" class="previsualizar"${nodo('control')} data-previsualizar="${i}" data-x="${attr(p.hacer?.X ?? X ?? '')}" data-accion="${attr(p.hacer.id)}" title="${attr(t('previsualizarTitulo'))}">${t('previsualizar')}</button>` : '';
     return p.mio
-      ? `<li class="paso ${clase}"${nodo('paso')}><button type="button" data-paso="${i}" data-x="${attr(p.hacer?.X ?? X ?? '')}" data-lanzar="${attr(p.hacer.id)}">${escapar(p.hacer.nombre)}</button> ${cuerpo}</li>`
+      ? `<li class="paso ${clase}"${nodo('paso')}><button type="button" data-paso="${i}" data-x="${attr(p.hacer?.X ?? X ?? '')}" data-lanzar="${attr(p.hacer.id)}">${escapar(p.hacer.nombre)}</button>${ver} ${cuerpo}${previa}</li>`
       : `<li class="paso ${clase}"${nodo('paso')}>${cuerpo} ${marca}</li>`;
   }).join('');
   const niveles = c.niveles ? `<p class="niveles">${t('paraUbicarse')} ${c.niveles.map((n) => `<span>${escapar(n)}</span>`).join(' → ')}</p>` : '';

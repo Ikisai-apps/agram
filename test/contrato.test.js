@@ -12,7 +12,10 @@ import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, C
 import { evaluar } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { crearEvento } from '../src/evento.js';
-import { ejemploCompra, ejemploCuenta, ejemploJardinYParque, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploCuenta, ejemploJardinYParque, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
+import { generarClaves } from '../src/autoridad.js';
+import { escribirBase, SIN_BASE_ESCRITA, HITOS } from '../src/bases.js';
+import { pasos as pasosDe, pasoDe } from '../src/pasos.js';
 import { recuento, miradasDe } from '../src/motor.js';
 import { estadoDePaquete } from '../src/lente.js';
 import * as A from '../src/acciones.js';
@@ -207,7 +210,7 @@ test('diario: las transacciones del subárbol por llegada, con los asientos del 
   assert.equal(d.total, eje.orden.filter((id) => eje.hilo(id).some((x) => x.id === menu.id)).length);
   assert.deepEqual(d.entradas.map((e) => e.id), [menu.id, compra.id, cuenta.id]);
   assert.deepEqual(d.entradas[1], {
-    id: compra.id, t: compra.t, autor: 'huesped', ancla: { sobre: menu.id, en: '0000000000' },
+    id: compra.id, t: compra.t, autor: 'huesped', ancla: { sobre: menu.id, en: '0000000000' }, pv: 1, estado: null,
     movimientos: [
       { primitiva: 'acunar', serie: 'T:hora', de: null, a: 'huesped', cantidad: 1, clase: 'asignacion', etiqueta: 20764 },
       { primitiva: 'quemar', serie: 'T:hora', de: 'huesped', a: null, cantidad: 1 },
@@ -626,4 +629,115 @@ test('lo que mide cada hijo del 1 sale de la época: otro enlace lo mueve de hij
   const sinEnlace = epocaCon((e) => { filaDelMundo(e, 1)[8] = ['-']; });
   assert.equal('enlace' in C.divisionDelMundo(null, 1, { epoca: sinEnlace }), false);
   assert.equal(C.hijosDe(eje, compra.id, 1, { epoca: sinEnlace }).some((x) => 'coste' in x || 'capacidad' in x || 'entradas' in x), false);
+});
+
+// ---------- encargo «datos3» (issue #11, tercera parte): los mundos 6/7, 8 y 9 ----------
+
+/** La compra con la cuenta, la fábrica y su futuro y su cohorte (ejemploFuturoYCohorte), firmado si se dan claves. */
+async function conFuturo(claves = {}) {
+  const c = await ejemploCompra({ claves });
+  const privadas = Object.fromEntries(Object.entries(claves).map(([k, v]) => [k, v?.privada]));
+  const cuenta = await ejemploCuenta(c.eje, c.compra, privadas.cocina);
+  const fabrica = await ejemploFabrica(c.eje, c, privadas);
+  return { ...c, cuenta, ...fabrica, ...(await ejemploFuturoYCohorte(c.eje, c, privadas)), privadas };
+}
+
+test('diario: cada entrada con el PV de X del que cuelga (su «en», o la posición de su padre a la que se refiere) y el estado de su futuro', async () => {
+  const c = await conFuturo();
+  const d = C.diario(c.eje, c.compra.id, 0, 100).entradas;
+  const de = (ev) => d.find((e) => e.id === ev.id);
+  assert.equal(de(c.compra).pv, 0, 'X mismo, el centro');
+  assert.equal(de(c.cuenta).pv, 1, 'la cuenta modifica el 1 de la compra');
+  assert.equal(de(c.pagar).pv, 4, 'un anuncio del 4.1');
+  assert.deepEqual([de(c.manana).pv, de(c.semana).pv, de(c.plazo).pv, de(c.cohorte).pv], [7, 7, 7, 8]);
+  assert.deepEqual([de(c.manana).estado, de(c.cuenta).estado], [{ tipo: 'previsto', fecha: '2026-11-08T13:30:00Z', cantidad: 1 }, null]);
+  // anclada en la raíz del menú, la compra se refiere a su 1 ({ ref: menu, dir: '1000000000' }): cuelga del 1 del menú
+  assert.equal(C.pvDeEntrada(c.eje, c.menu.id, c.compra.id), 1);
+  assert.equal(C.pvDeEntrada(c.eje, c.compra.id, c.menu.id), null, 'el menú no cuelga de la compra');
+  // un registro anclado en la raíz sin referencia a su padre: el centro
+  const suelto = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, t: '2026-11-07T17:00:00Z', movimientos: [minuto('casa')], payload: [['Nota suelta']] });
+  assert.equal(C.pvDeEntrada(c.eje, c.compra.id, suelto.id), 0);
+  const nieto = await c.eje.escribir({ autor: 'casa', sobre: c.cuenta.id, en: '3000000000', t: '2026-11-07T17:01:00Z', movimientos: [minuto('casa')], payload: [['Sobre la cuenta']] });
+  assert.equal(C.pvDeEntrada(c.eje, c.compra.id, nieto.id), 3, 'el de la posición que modificó, aunque cuelgue de la cuenta');
+});
+
+test('estadoDeEntrada: previsto (T futuro con su «when»), bloqueado hasta y liberado (un bloqueo con fecha), caduca y caducado (la caducidad de una emisión de E o la quema de E propia)', async () => {
+  const c = await conFuturo();
+  assert.deepEqual(C.estadoDeEntrada(c.eje, c.semana.id), { tipo: 'previsto', fecha: '2026-11-12T20:00:00Z', cantidad: 2 });
+  const plazo = C.estadoDeEntrada(c.eje, c.plazo.id);
+  assert.deepEqual([plazo.tipo, plazo.fecha, plazo.cantidad], ['bloqueado', '2026-11-30T12:00:00Z', 5]);
+  assert.equal(c.eje.bloqueado('huesped', plazo.serie, plazo.fecha), 5, 'sigue bloqueado en el libro');
+  // liberarlo: el mismo registro ya dice «liberado» (la fecha era la salida)
+  const bloqueo = c.eje.obtener(c.plazo.id).movimientos.find((m) => m.estado === 'bloqueo');
+  await c.eje.escribir({ autor: 'huesped', sobre: c.compra.id, en: '7000000000', t: '2026-11-07T17:00:00Z', movimientos: [minuto('huesped'), { ...bloqueo, estado: 'liberacion' }], payload: [['Libero el plazo']] });
+  assert.equal(C.estadoDeEntrada(c.eje, c.plazo.id).tipo, 'liberado');
+  // una emisión de E con caducidad: caduca antes de la fecha, caducada después (el reloj del libro o `t`)
+  const emite = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '1000000000', t: '2026-11-07T17:02:00Z', movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'bono', cantidad: 3, de: null, a: 'casa', caduca: '2026-11-09T00:00:00Z' }], payload: [['Bonos de la casa']] });
+  assert.equal(C.estadoDeEntrada(c.eje, emite.id).tipo, 'caduca');
+  assert.equal(C.estadoDeEntrada(c.eje, emite.id, { t: '2026-11-10T00:00:00Z' }).tipo, 'caducado');
+  const quema = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '7000000000', t: '2026-11-07T17:03:00Z', movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'bono', cantidad: 1, de: 'casa', a: null }], payload: [['Caduco un bono']] });
+  assert.equal(C.estadoDeEntrada(c.eje, quema.id).tipo, 'caducado');
+  assert.equal(C.estadoDeEntrada(c.eje, c.cuenta.id), null);
+});
+
+test('la franja de una entrada del 7 es la de la fecha a la que se refiere (epoch.7.0 desde el reloj del libro) y, si no tiene, la de su escala; incongruente si no coinciden', async () => {
+  const c = await conFuturo();
+  const escalas = Object.fromEntries(C.divisionDelMundo(c.eje, 7).bandas.map((b) => [b.nombre, b.escala]));
+  // el reloj del libro es el del último registro (2026-11-07T16:13): mañana a las 13:30 cae en «día», el 12 en «semana», el 30 en «ciclo»
+  assert.deepEqual([c.manana, c.semana, c.plazo].map((x) => C.franjaDeEntrada(c.eje, x.id, 7).k), [escalas['día'], escalas.semana, escalas.ciclo]);
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7), { k: escalas['día'], paso: 'cuando', declarada: escalas.minuto, incongruente: true }, 'declara un minuto (lo que quema al escribir) y por su fecha le toca un día');
+  assert.equal(pasoDe(c.eje, c.manana.id, 'cuando').k, escalas['día'], 'el paso «cuando» de epoch.9.8 (mecanismo «when scale»)');
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 7), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false }, 'sin fecha, por su escala');
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.cuenta.id, 6), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false }, 'el 6, solo por su escala');
+  // con otro reloj, otra franja; más allá del año, la más gruesa
+  assert.equal(C.escalaDeFecha(c.eje, '2026-11-12T20:00:00Z', { t: '2026-11-12T19:30:00Z' }), escalas.hora);
+  assert.equal(C.escalaDeFecha(c.eje, '2030-01-01T00:00:00Z'), escalas['año']);
+  assert.equal(C.escalaDeFecha(c.eje, 'no es una fecha'), null);
+  // es un dato de la época: sin «cuando» en lo que mide el 7, todo por su escala
+  const sinCuando = epocaCon((e) => { filaDelMundo(e, 7)[4] = ['epoch.1.3', 'epoch.7', 'escala']; });
+  assert.deepEqual(C.franjaDeEntrada(c.eje, c.manana.id, 7, { epoca: sinCuando }), { k: escalas.minuto, paso: 'escala', declarada: escalas.minuto, incongruente: false });
+});
+
+test('cohortes y cohorteDe: las que admite «change cohort» (su validación), la que eligió el dueño, los comparables por caja de su cuota en ella y quién escribió la base', async () => {
+  const claves = {};
+  for (const id of ['casa', 'cocina', 'huesped']) claves[id] = await generarClaves();
+  const c = await conFuturo(claves);
+  assert.deepEqual(C.cohortes({ idioma: 'es' }), [
+    { valor: 'siblings', alcance: 'hermanos', texto: 'hermanos' }, { valor: 'project', alcance: 'proyecto', texto: 'proyecto' }, { valor: 'genesis', alcance: 'general', texto: 'general' },
+  ]);
+  assert.deepEqual(C.divisionDelMundo(null, 8, { idioma: 'es' }).cohortes.map((x) => x.valor), ['siblings', 'project', 'genesis']);
+  // la elegida por la huésped («change cohort» en el 8 de la compra): el proyecto (las altas del fin de semana)
+  const p = C.cohorteDe(c.eje, c.compra.id);
+  assert.deepEqual([p.cohorte, p.alcance, p.elegida, p.registro], ['project', 'proyecto', 'project', c.alta.id]);
+  assert.ok(p.comparables.some((x) => x.ref === c.menu.id) && p.comparables.some((x) => x.ref === c.cuenta.id), 'el subárbol del proyecto');
+  assert.deepEqual(p.base, { escrita: false, registro: c.alta.id, texto: SIN_BASE_ESCRITA });
+  for (const x of p.comparables) assert.ok(x.caja === null || (Number.isInteger(x.caja) && x.caja >= 0 && x.caja <= 9));
+  assert.equal(p.caja, p.comparables.find((x) => x.foco).caja);
+  // pedida: los hermanos (solo la compra sobre el menú): toda la cuota es suya, la caja 9, la misma que el paso «cuota»
+  const h = C.cohorteDe(c.eje, c.compra.id, { cohorte: 'hermanos' });
+  assert.deepEqual([h.cohorte, h.comparables.map((x) => x.ref), h.caja], ['siblings', [c.compra.id], pasosDe(c.eje, c.compra.id).cuota.k]);
+  // la base escrita en el 8 del proyecto: quién y cuándo
+  const base = await escribirBase(c.eje, { registro: c.alta.id, autor: 'casa', privada: claves.casa.privada, t: '2026-11-07T18:00:00Z' });
+  assert.deepEqual(C.cohorteDe(c.eje, c.compra.id).base, { escrita: true, id: base.id, autor: 'casa', t: '2026-11-07T18:00:00Z', registro: c.alta.id });
+  // el formulario de «change cohort» lista las tres (opciones b: su validación es una enumeración) y no admite otra
+  const param = A.parametros(A.plantillaDeTransaccion('change cohort')).find((x) => x.nombre === 'cohort');
+  assert.deepEqual(C.opciones(c.eje, c.compra.id, null, { parametro: param }).map((x) => x.valor), ['siblings', 'project', 'genesis']);
+  const otra = await A.transaccion(c.eje, 'change cohort', { X: c.compra.id, cohort: 'barrio' }, 'huesped', {});
+  assert.equal(otra.ok, false);
+});
+
+test('hijosDe en el 8: las diez cajas de los hitos como hijos, con los comparables de la cohorte en la caja de su cuota, la cohorte y la base', async () => {
+  const c = await conFuturo();
+  const h = C.hijosDe(c.eje, c.compra.id, 8);
+  assert.deepEqual(h.map((x) => [x.digito, x.nombre]), HITOS.map((x) => [x.indice, x.nombre]));
+  const co = C.cohorteDe(c.eje, c.compra.id);
+  for (const x of h) {
+    assert.deepEqual(x.comparables.map((y) => y.ref), co.comparables.filter((y) => y.caja === x.digito).map((y) => y.ref));
+    assert.deepEqual([x.total, x.vacio, x.cohorte, x.base], [x.comparables.length, x.comparables.length === 0, 'project', co.base]);
+  }
+  assert.deepEqual(h.filter((x) => x.foco).map((x) => x.digito), [co.caja]);
+  assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { cohorte: 'siblings' }).map((x) => x.total), [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  // sin «cohort» en lo que mide el 8, como antes: sin hijos
+  const sin = epocaCon((e) => { filaDelMundo(e, 8)[4] = ['hitos', 'cuota']; });
+  assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { epoca: sin }), []);
 });

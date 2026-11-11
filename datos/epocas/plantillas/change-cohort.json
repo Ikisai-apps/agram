@@ -4,7 +4,7 @@
     [
       ["cohort"],
       ["text"],
-      ["any"],
+      ["=\"siblings\" in it or \"project\" in it or \"genesis\" in it"],
       ["me"],
       ["payload"],
       ["0"],

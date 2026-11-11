@@ -30,6 +30,8 @@ export const EJEMPLOS = Object.freeze([
       if (m.ejemploJardinYParque) await m.ejemploJardinYParque(eje, { compra }, privadas);
       // La fábrica (encargo «datos2», issue #11): las tres estaciones en la matriz del 4 y la capacidad en el 1.
       if (m.ejemploFabrica) await m.ejemploFabrica(eje, { compra }, privadas);
+      // El futuro y el cielo (encargo «datos3», issue #11): entradas con estado en el 7 y la cohorte del proyecto en el 8.
+      if (m.ejemploFuturoYCohorte) await m.ejemploFuturoYCohorte(eje, { compra }, privadas);
       return { eje, foco: compra.id };
     },
   },

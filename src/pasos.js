@@ -6,13 +6,14 @@
 // registro, o el nombre de una lectura que el núcleo ya da (aquí no se recalcula nada que el núcleo dé). Este módulo
 // solo sabe dónde está la tabla y cómo se materializa cada mecanismo. Documentación: docs/CONTRATO.md, «Los pasos».
 //
-//   pasos(eje, X)   → { <nombre>: { pv, k, de } } para cada fila de la tabla; k es null si la lectura no da valor
-//   tabla()         → las filas de la tabla, leídas
+//   pasos(eje, X)          → { <nombre>: { pv, k, de } } para cada fila de la tabla; k es null si la lectura no da valor
+//   pasoDe(eje, X, nombre) → { pv, k, de } de una sola fila (sin leer las demás), o null si la tabla no la tiene
+//   tabla()                → las filas de la tabla, leídas
 
 import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
 import { evaluar } from './bqlm.js';
-import { madurez } from './contrato.js';
+import { madurez, estadoDeEntrada, escalaDeFecha } from './contrato.js';
 import { cuota } from './mapped.js';
 import { cajaDeCuota } from './bases.js';
 
@@ -40,6 +41,10 @@ function eventoDe(eje, X) {
  * → { k, de } con null donde no hay valor.
  *   maturity    la madurez de X (contrato.madurez, la lectura «maturity» en X.8.1): el nivel entre los de su plantilla o los genéricos
  *   share box   la caja (0-9) de la cuota de X frente a su padre (mapped.cuota, bases.cajaDeCuota), en la serie en que más pesa; null en la raíz
+ *   when scale  la escala del calendario de la fecha a la que se refiere X (encargo «datos3», issue #11): la del estado de
+ *               su futuro (contrato.estadoDeEntrada: el «when» de «declare future T», la salida con fecha de un bloqueo, la
+ *               caducidad de una emisión de E) a la distancia del reloj del libro (contrato.escalaDeFecha, epoch.7.0); null
+ *               si X no se refiere a ninguna fecha
  */
 const MECANISMOS = Object.freeze({
   maturity(eje, ev, opciones) {
@@ -54,6 +59,11 @@ const MECANISMOS = Object.freeze({
     if (!mueve.length) return { k: null, de: null };
     const mayor = mueve.reduce((a, b) => (b.cuota > a.cuota ? b : a));
     return { k: cajaDeCuota(mayor.cuota), de: null };
+  },
+  'when scale'(eje, ev, opciones) {
+    if (!eje || typeof ev.id !== 'string' || !eje.obtener(ev.id)) return { k: null, de: null };
+    const estado = estadoDeEntrada(eje, ev.id, opciones);
+    return { k: estado?.fecha ? escalaDeFecha(eje, estado.fecha, opciones) : null, de: null };
   },
 });
 
@@ -76,8 +86,23 @@ export function tabla(opciones = {}) {
  * que no quema T no tiene escala; la raíz no tiene cuota). X es un id del eje, un evento o una candidata.
  */
 export function pasos(eje, X, opciones = {}) {
+  return lector(eje, X, opciones)?.(tabla(opciones)) ?? {};
+}
+
+/**
+ * Un solo paso de X, el de la fila `nombre` de la tabla (sin leer las demás: la cuota sitúa X en su cohorte y no hace
+ * falta para saber su escala): { pv, k, de }, o null si la tabla no tiene esa fila o X no es nada.
+ */
+export function pasoDe(eje, X, nombre, opciones = {}) {
+  const fila = tabla(opciones).find((f) => f.nombre === nombre);
+  if (!fila) return null;
+  return lector(eje, X, opciones)?.([fila])?.[nombre] ?? null;
+}
+
+/** Lo que lee las filas de la tabla sobre X: (filas) → { <nombre>: { pv, k, de } }, o null si X no es nada. */
+function lector(eje, X, opciones) {
   const ev = eventoDe(eje, X);
-  if (!ev) return {};
+  if (!ev) return null;
   const epoca = epocaDe(opciones);
   let ctx = null;
   const contexto = () => (ctx ??= new ContextoEje(eje, { ev, epoch: epoca }));
@@ -97,12 +122,14 @@ export function pasos(eje, X, opciones = {}) {
     if (typeof que === 'string' && Object.hasOwn(MECANISMOS, que)) return mecanismo(que)[cual];
     return null;
   };
-  const fuera = {};
-  for (const fila of tabla(opciones)) {
-    if (!fila.nombre) continue;
-    fuera[fila.nombre] = { pv: fila.pv, k: valorDe(fila.k, 'k'), de: valorDe(fila.de, 'de') };
-  }
-  return fuera;
+  return (filas) => {
+    const fuera = {};
+    for (const fila of filas) {
+      if (!fila.nombre) continue;
+      fuera[fila.nombre] = { pv: fila.pv, k: valorDe(fila.k, 'k'), de: valorDe(fila.de, 'de') };
+    }
+    return fuera;
+  };
 }
 
 /** Los mecanismos que este módulo conoce, por su palabra (lo que una fila de la tabla puede nombrar en vez de una fórmula). */
