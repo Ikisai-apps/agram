@@ -1,6 +1,6 @@
 // La división de cada mundo en pantalla completa (VG, 10-11 noche, corrige la tanda 4): epoch.8.7 «world division» es un
 // dato de la época y la división no es una matriz con herencia sino la cruceta aplicada al elemento pulsado. Una fila
-// por PV: [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos]].
+// por PV: [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo de los de abajo], [nota], [hilos], [enlace]].
 // contrato.divisionDelMundo la lee, contrato.hijosDe da los hijos de un elemento con sus ocupantes y la carta coloca
 // las celdas según la forma del nivel: una por hijo (un hijo sin ocupantes, apagado y sin entrar), las franjas del 6 y
 // el 7 (una por escala de T que el calendario mide), las diez cajas del 8 (los HITOS) y los pasos del camino del 9.
@@ -17,7 +17,7 @@ import { pasos } from '../src/pasos.js';
 import { HITOS } from '../src/bases.js';
 import { EPOCA_0_BTML, cargarEpocaBtml, REGISTROS_DE_MODELOS } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
-import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploJardinYParque } from '../ejemplos/ikisai/compra-food.mjs';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const ORDENADOR = { ancho: 1200, alto: 800 };
@@ -46,13 +46,13 @@ async function conCarpeta() {
 const completa = (X, pv, extra = {}) => ({ foco: { X, pv }, ...extra });
 const celdasDe = (r) => r.celdas.map((c) => [c.fila, c.columna, c.pv]);
 
-test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo], [nota], [hilos]], sin posiciones vacías', () => {
+test('epoch.8.7 «world division» es un dato de la época con su procedencia: una fila por PV [[pv], [hijos], [profundidad], [formas], [lo que mide], [estilo], [nota], [hilos], [enlace]], sin posiciones vacías', () => {
   const fila = EPOCA_0_BTML.registro[8][7];
   assert.equal(fila[0][0], 'world division');
   assert.match(fila[2][0], /^VG, 10-11 noche/);
   const filas = fila[1];
   assert.deepEqual(filas.map((f) => f[0][0]), [0, 5, 1, 2, 3, 4, 6, 7, 8, 9]);
-  for (const f of filas) { assert.equal(f.length, 8); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
+  for (const f of filas) { assert.equal(f.length, 9); assert.ok(f.every((p) => Array.isArray(p) && p.length > 0), 'sin posiciones vacías: ' + JSON.stringify(f).slice(0, 60)); }
   const d = (pv, nivel = 1) => C.divisionDelMundo(null, pv, { nivel });
   // hijos, profundidad y forma: la cruceta aplicada al elemento pulsado, no una matriz con herencia
   assert.deepEqual([1, 2, 3, 4].map((pv) => [d(pv).hijos, d(pv).profundidad, d(pv).forma]), [
@@ -547,4 +547,58 @@ test('nada de la forma depende del modelo: en sobrio y en animado la rejilla de 
     assert.match(h, /class="capa /, 'el sobrio nombrado no quita el arte (#3)');
     assert.equal(sinCapas(h), sobrio[pv], 'el mundo ' + pv + ' es igual en sobrio y en animado (sin las capas)');
   }
+});
+
+// ---------- lo que el núcleo mide de cada hijo, en la pantalla completa del 2 y del 3 (encargo «datos», issue #11) ----------
+
+/** La compra con su jardín y su parque (ejemplos/ikisai/compra-food.mjs): votos y umbral en el 2, paquetes en el 3. */
+async function conJardinYParque() {
+  const c = await ejemploCompra();
+  return { ...c, ...(await ejemploJardinYParque(c.eje, c)) };
+}
+
+test('el 2 a pantalla completa: cada peldaño y cada columna con sus votos (P comprometido y reposicionable) y, si el criterio dice su mirada, «umbral n · faltan m» y la barra hacia el umbral', async () => {
+  const { eje, compra, decision } = await conJardinYParque();
+  // nivel 1, la escalera de la compra: el peldaño 2 con los votos de su mirada; sin umbral (el criterio de la compra no dice mirada)
+  const a = await arbol(completa(compra.id, 2), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.equal(r.forma, 'escalera');
+  const hijos = C.hijosDe(eje, compra.id, 2);
+  assert.deepEqual(r.celdas.map((c) => [c.pv, c.votos ?? null, c.meta ?? null]), hijos.map((h) => [h.digito, h.comprometidos + h.reposicionables > 0 ? { comprometidos: h.comprometidos, reposicionables: h.reposicionables } : null, null]));
+  const h1 = rejillaHtml(html(a));
+  const votos = t('hijoVotos', { comprometidos: 5, reposicionables: 6 });
+  assert.ok(h1.includes(`<footer class="hijo-pie"><p class="hijo-medida">${votos}</p><span class="hijo-barra" data-de="votos" style="--lleno:0.455"`), 'la línea de los votos y la barra de lo comprometido');
+  assert.equal((h1.match(/class="hijo-pie"/g) ?? []).length, 1, 'solo el peldaño que tiene votos');
+  // nivel 2, dentro de la decisión: la columna 2 con «umbral 10 · faltan 3» y la barra hacia el umbral (7 de 10)
+  const b = await arbol(completa(compra.id, 2, { profundidad: { 2: [decision.id] } }), eje, 'huesped', GRANDE);
+  const dos = b.centro.rejilla.celdas.find((c) => c.pv === 2);
+  assert.equal(b.centro.rejilla.forma, 'columnas');
+  assert.deepEqual([dos.meta, dos.votos], [{ umbral: 10, valor: 7, pasa: false, faltan: 3 }, { comprometidos: 2, reposicionables: 9 }]);
+  const h2 = rejillaHtml(html(b));
+  assert.ok(h2.includes(`<p class="hijo-medida">${t('hijoUmbral', { umbral: 10, faltan: 3 })} · ${t('hijoVotos', { comprometidos: 2, reposicionables: 9 })}</p><span class="hijo-barra" data-de="umbral" style="--lleno:0.7"`));
+});
+
+test('el 3 a pantalla completa: cada caja con su grupo de atención y su precio (el enlace de la época); dentro, cada mensaje con el estado de su paquete', async () => {
+  const { eje, compra, conversacion } = await conJardinYParque();
+  const a = await arbol(completa(compra.id, 3), eje, 'huesped', GRANDE);
+  const r = a.centro.rejilla;
+  assert.equal(r.forma, 'rejilla');
+  const hijos = C.hijosDe(eje, compra.id, 3, { idioma: a.idioma });
+  assert.deepEqual(r.celdas.map((c) => [c.pv, c.precio]), hijos.map((h) => [h.digito, h.precio]));
+  const h1 = rejillaHtml(html(a));
+  for (const h of hijos) assert.ok(h1.includes(`<p class="hijo-precio" data-zona="${h.precio.zona}"><b>${h.precio.grupo}</b> · ${h.precio.texto}</p>`), 'el precio de la zona ' + h.precio.zona);
+  // la regla del vacío sigue igual: el nombre apagado y debajo el paso del camino, y el precio en el pie
+  assert.ok(r.celdas.some((c) => c.vacio && c.precio));
+  // nivel 2: la conversación, cada mensaje con su paquete
+  const b = await arbol(completa(compra.id, 3, { profundidad: { 3: [conversacion.id] } }), eje, 'huesped', GRANDE);
+  assert.equal(b.centro.rejilla.forma, 'conversacion');
+  const tres = b.centro.rejilla.celdas.find((c) => c.pv === 3);
+  assert.deepEqual(tres.ocupantes.map((o) => o.estado ?? null), ['atendido', 'pendiente', 'perdonado']);
+  const h2 = rejillaHtml(html(b));
+  for (const [estado, clave] of [['atendido', 'paqueteAtendido'], ['pendiente', 'paquetePendiente'], ['perdonado', 'paquetePerdonado']]) {
+    assert.ok(h2.includes(`<small class="paquete" data-estado="${estado}">${t(clave)}</small>`), estado);
+  }
+  // los textos son de la interfaz (carta/textos.js) y el estilo solo CSS
+  const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
+  for (const sel of ['.hijo-pie{', '.hijo-barra{', '.hijo-precio b{', '.conversacion .mensaje .paquete{']) assert.ok(css.includes(sel), sel);
 });

@@ -986,6 +986,19 @@ function centroFlotante(eje, R, pv, ctx) {
 }
 
 /**
+ * Lo que el núcleo mide de un hijo (contrato.hijosDe, encargo «datos», issue #11), tal cual: en el 2, el P de su mirada
+ * (`votos`: comprometidos y reposicionables, si hay alguno) y, si el criterio del dueño dice esa mirada, el recuento
+ * (`meta`: umbral, valor, pasa, faltan); en el 3, el precio de su zona de atención (`precio`). Nada si no lo da.
+ */
+function medidaDeHijo(h) {
+  const m = {};
+  if ((h.comprometidos ?? 0) + (h.reposicionables ?? 0) > 0) m.votos = { comprometidos: h.comprometidos, reposicionables: h.reposicionables };
+  if (typeof h.umbral === 'number') m.meta = { umbral: h.umbral, valor: h.valor, pasa: h.pasa, faltan: h.faltan };
+  if (h.precio) m.precio = h.precio;
+  return m;
+}
+
+/**
  * Las celdas de un nivel con hijos (cruceta, escalera, columnas, rejilla, conversación): una por hijo, con su nombre a
  * esa profundidad y sus ocupantes (contrato.hijosDe). Un hijo sin ocupantes es `vacio`: se pinta con su nombre
  * apagado, no se entra y lleva `escribir`, la acción por defecto de su PV (el paso del camino que lo llenaría). Cada
@@ -996,7 +1009,9 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar }) {
   const forma = FORMAS[d.forma];
   const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, ...ctx.opciones }).map((h, i) => {
     const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio);
-    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null };
+    // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
+    if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
+    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h) };
     if (forma.siguiente) celda.siguiente = ocupantes.filter((o) => o.tipo === 'referencia' && o.X).map((o) => ({ X: o.X, texto: o.texto, hijos: hijosSiguientes(eje, o.X, pv, d.nivel + 1, ctx) }));
     return celda;
   });
