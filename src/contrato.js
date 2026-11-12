@@ -14,6 +14,7 @@
 //                                          (con `orden`, el de las listas verticales de un mundo: divisionDelMundo(…).orden)
 //   division(eje, ruta, { datos, forma })  qué puntos de vista caben y cómo se disponen (epoch.8.3)
 //   divisionDelMundo(eje, pv, { nivel })   la división de un mundo a pantalla completa: hijos, profundidad, forma, bandas, hilos, estilo, orden (epoch.8.7)
+//   formaDe(eje, pv, modo, { nivel })      la forma de un mundo en un modo (epoch.8.7, posición 3: una hoja por modo, «-» hereda del anterior)
 //   hijosDe(eje, X, pv, { nivel })         los hijos de X en un mundo: [{ digito, nombre, ocupantes, vacio }]
 //                                          (con `direccion`, además lo derivado de cada hijo: leerRuta con la dirección entera)
 //   leer(eje, N, d, { yo })                lo que el PV d lee de N: lo anclado en N.d y lo que deriva del libro (epoch.2, «point of view»)
@@ -859,6 +860,38 @@ export function botonDeEjecutar(eje, X, opciones = {}) {
   return { estado, pulsable: true, peldano: r.peldano, nivel: r.nivel, grado: r.grado, nombre: r.nombre, marca, subida: marca && r.peldano > marca.peldano ? r.peldano - marca.peldano : 0 };
 }
 
+/** El modo por defecto de la división de un mundo: el de la fila de epoch.8.7 de siempre, Mapped. */
+const MODO_DE_LA_DIVISION = 'mapped';
+/** Entre los niveles de una misma hoja de formas de epoch.8.7: «escalera > columnas» es escalera en el nivel 1 y columnas en el 2. */
+const ENTRE_NIVELES = '>';
+
+/**
+ * La forma de un mundo en un modo (epoch.8.7, VG 12-11, #52): la posición 3 de la fila del PV es una LISTA con una hoja por
+ * modo, en el orden de los modos de la época (epoch.8.2: Pointed, Sequenced, Mapped, Scened, Be); en cada hoja, la forma de
+ * cada nivel separadas por «>» (la última se repite), y «-» donde el modo no declara la suya y hereda la del modo anterior
+ * (Mapped de Sequenced, Sequenced de Pointed; Scened de Mapped; Be de Scened). Una lista más corta que los modos deja
+ * los últimos en «-». El PV de la primera profundidad define cómo se ve a cualquier profundidad: esto no lo cambia.
+ * → { forma, formas, de } (`forma` la del `nivel` pedido, desde 1, la última se repite; `formas` las de todos los niveles;
+ * `de` el modo de la época donde se declara) o { forma: null, formas: [], de: null } si ningún modo hasta este la declara;
+ * null si la época no dice nada de ese PV. Un modo que la época no tiene lanza.
+ */
+export function formaDe(_eje, pv, modo = MODO_DE_LA_DIVISION, { nivel = 1, ...opciones } = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const fila = hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray).find((r) => hoja(r[0]) === pv);
+  if (!fila) return null;
+  const orden = modos(opciones).map((m) => String(m.nombre).toLowerCase());
+  const donde = orden.indexOf(String(modo).toLowerCase());
+  if (donde < 0) throw new Error('modo desconocido: ' + modo + ' (la época tiene ' + orden.join(', ') + ')');
+  const hojasDeModo = hojas(fila[3]).filter((s) => typeof s === 'string');
+  for (let i = Math.min(donde, hojasDeModo.length - 1); i >= 0; i--) {
+    if (hojasDeModo[i].trim() === '-') continue;
+    const formas = hojasDeModo[i].split(ENTRE_NIVELES).map((s) => s.trim()).filter(Boolean);
+    const actual = Math.min(Math.max(1, Math.floor(nivel)), formas.length);
+    return { forma: formas[actual - 1], formas, de: orden[i] };
+  }
+  return { forma: null, formas: [], de: null };
+}
+
 /**
  * La división de un mundo (un punto de vista lateral) a pantalla completa (epoch.8.7, VG 10-11 noche): no es una
  * matriz con herencia sino la cruceta aplicada al elemento pulsado. Al entrar en un elemento, sus hijos son los
@@ -880,7 +913,7 @@ export function botonDeEjecutar(eje, X, opciones = {}) {
  * `pasos`, los nombres de los pasos de epoch.9.8 que la fila mide, en su orden (el 7: «cuando» y «escala»), y, si la fila
  * mide «cohort» (el 8), `cohortes`, las cohortes que la época admite ([{ valor, alcance, texto }], cohortes()).
  */
-export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
+export function divisionDelMundo(eje, pv, { nivel = 1, modo = MODO_DE_LA_DIVISION, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
   const fila = hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray).find((r) => hoja(r[0]) === pv);
   if (!fila) return null;
@@ -888,14 +921,14 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const textos = (x) => hojas(x).filter((s) => typeof s === 'string');
   const hijos = numeros(fila[1]);
   const profundidad = Number(hoja(fila[2])) || 0;
-  const formas = textos(fila[3]);
+  const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
+  const { formas, forma } = formaDe(eje, pv, modo, { nivel: actual, ...opciones });
   const mide = textos(fila[4]).filter((s) => s !== '-');
   const hilos = numeros(fila[7]);
   // El enlace, uno por hijo: un número (la mirada, la zona) o una referencia (el 1); «-» en un hijo que no mide nada.
   const enlaceCrudo = hojas(fila[8]).filter((x) => typeof x === 'number' || typeof x === 'string');
   const enlace = enlaceCrudo.every((x) => x === '-') ? [] : enlaceCrudo.map((x) => (x === '-' ? null : x));
   const orden = ordenPorNombre(texto(hoja(fila[9])), opciones)?.nombre ?? null;
-  const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
   const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos' && s !== MIDE.rango);
   // Los pasos de epoch.9.8 que la fila nombra, en su orden (encargo «datos3»): la entrada va en la franja del primero que
   // da valor (el 7: por la fecha a la que se refiere y, si no, por su escala); el último es la escala que declara.
@@ -906,7 +939,7 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   else if (mide.includes('hitos')) bandas = cajasDeHitos(opciones);
   return {
     pv, hijos, profundidad, nivel: actual, entra: actual < profundidad,
-    forma: formas.length ? formas[Math.min(actual - 1, formas.length - 1)] : null, formas, mide,
+    forma, formas, modo: String(modo).toLowerCase(), mide,
     ...(bandas ? { bandas, paso: nombres[0] ?? null, pasos } : {}),
     ...(mide.includes(MIDE.cohorte) ? { cohortes: cohortes(opciones) } : {}),
     ...(mide.includes(MIDE.ejecucion) ? { ejes: ejesDeLaMatriz(opciones) } : {}),
