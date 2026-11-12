@@ -1043,6 +1043,7 @@ test('ejecutar desde el 4 (VG 12-11, decisión 7): la celda abierta enseña la s
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
   assert.match(app, /ejecutar: Boolean\(ejecutar\) \|\| \(paso !== null && paso !== undefined\)/);
   assert.match(app, /denominacion \? \{ denominacion \} : \{\}/);
+  assert.match(app, /const delPaso = paso !== null && paso !== undefined \? ultimo\?\.camino\?\.pasos\?\.\[paso\]\?\.hacer : null;/, 'un paso del camino abre el formulario con sus parámetros');
 });
 
 test('gestos: arrastrar un elemento y soltarlo sobre el centro lo pone como foco (#23), solo en Mapped; en Sequenced, sobre el propio foco o sin llegar al centro, nada; el clic que sigue no cuenta', () => {

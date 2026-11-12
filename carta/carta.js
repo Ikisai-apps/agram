@@ -783,6 +783,7 @@ function ejecucionDe(eje, X, accion, yo, valores, o) {
   return {
     partes: e.partes, coste: e.coste, exigido: e.exigido, posiciones: e.posiciones, propuesta: e.propuesta, denominacion: e.denominacion,
     escala: escala ?? e.propuesta.desde, elegida: Boolean(escala), cubre: e.cubre, alcanza: e.alcanza, escalas: e.escalas,
+    incompleto: Boolean(e.incompleto), // faltan parámetros: lo exigido es el de lo que ya hay
     boton: contrato.botonDeEjecutar(eje, X, o),
   };
 }

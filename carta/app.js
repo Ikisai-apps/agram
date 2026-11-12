@@ -828,7 +828,10 @@ const manejadores = {
     }
     // Ejecutar desde el 4 (VG 12-11, decisión 7): desde una celda abierta del 4 o un paso del camino del 9, el formulario
     // enseña lo exigido en T, la denominación y el botón de ejecutar por el rango.
-    estado.formulario = { X: sobre, accion, valores: {}, motivos: [], resultado: null, paso, ejecutar: Boolean(ejecutar) || (paso !== null && paso !== undefined) };
+    // Un paso del camino lleva sus parámetros (el anuncio que cumple «deliver», por ejemplo): el formulario sale con ellos.
+    const delPaso = paso !== null && paso !== undefined ? ultimo?.camino?.pasos?.[paso]?.hacer : null;
+    const valores = delPaso && delPaso.id === accion && delPaso.parametros && typeof delPaso.parametros === 'object' ? { ...delPaso.parametros } : {};
+    estado.formulario = { X: sobre, accion, valores, motivos: [], resultado: null, paso, ejecutar: Boolean(ejecutar) || (paso !== null && paso !== undefined) };
     estado.previa = null;
     estado.aro = null;
     limpiarMensajes();

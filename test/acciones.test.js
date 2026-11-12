@@ -701,6 +701,7 @@ test('ejecutar desde el 4 (VG 12-11, decisión 7): el 4 recopila lo que exige ca
   assert.deepEqual([e.coste, e.coste], [r.exigido, e.posiciones * 60], 'lo exigido por posición es lo de la regla del coste: un minuto por posición');
   assert.deepEqual(e.partes.map((p) => [p.parte, p.segundos]), [['coste', e.coste], ['plantilla', 0]], 'lo anunciado aún no se mueve: la plantilla no exige T');
   assert.equal(e.exigido, e.coste);
+  assert.equal(e.partes[1].anunciado, 3600, 'lo que anuncia (una hora de T para su fecha) se dice aparte: no se exige ahora');
   assert.equal(e.propuesta.desde, escalaQueCubre(e.posiciones), 'la propuesta parte de la escala que cubre lo emitido (#65)');
   assert.deepEqual(e.propuesta.piezas, A.denominacion(e.coste, e.propuesta.desde));
   assert.ok(e.propuesta.segundos >= e.coste && e.cubre && e.alcanza);
@@ -738,8 +739,13 @@ test('ejecutar desde el 4 (VG 12-11, decisión 7): el 4 recopila lo que exige ca
   const cosa = await generarClaves();
   const alta = A.ejecucion(c.eje, 'register a thing', { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60, key: cosa.publica }, 'casa', { t: T1 });
   assert.equal(alta.ok, true, JSON.stringify(alta.motivos));
-  assert.deepEqual(alta.partes[1], { parte: 'plantilla', plantilla: 'register a thing', segundos: 3600, movimientos: [{ escala: 'minuto', cantidad: 60 }] });
+  assert.deepEqual(alta.partes[1], { parte: 'plantilla', plantilla: 'register a thing', segundos: 3600, movimientos: [{ escala: 'minuto', cantidad: 60 }], anunciado: 0 });
   assert.equal(alta.exigido, alta.coste + 3600, 'todas las partes suman');
+  // con parámetros por rellenar, lo exigido es el de lo que ya hay (incompleto): crecerá al rellenarlos
+  const aMedias = A.ejecucion(c.eje, 'declare future T', { X: c.compra.id }, 'huesped', { t: T1 });
+  assert.deepEqual([aMedias.ok, aMedias.incompleto, aMedias.motivos.some((m) => m.parametro === 'what')], [true, true, true]);
+  assert.ok(aMedias.coste > 0 && aMedias.coste < e.coste);
+  assert.equal(e.incompleto, false);
   // lo que no escribe no se ejecuta
   assert.equal(A.ejecucion(c.eje, 'view thread', { X: c.compra.id }, 'huesped').ok, false);
 });

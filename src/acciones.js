@@ -463,9 +463,11 @@ function resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, p
   const posiciones = contarPosiciones(payload);
   const reales = movimientos.filter((m) => m.token === 'T' && ESCALAS_REALES.includes(m.escala) && m.de === yo && m.estado !== ANUNCIADO && m.estado !== 'liberacion');
   const dePlantilla = reales.reduce((s, m) => s + segundosDe(m.escala, m.cantidad), 0);
+  // Lo que anuncia (un movimiento anunciado de T de quien la lanza, el T futuro): no se exige ahora; se dice aparte.
+  const anunciado = movimientos.filter((m) => m.token === 'T' && ESCALAS_REALES.includes(m.escala) && m.de === yo && m.estado === ANUNCIADO).reduce((s, m) => s + segundosDe(m.escala, m.cantidad), 0);
   const partes = [
     { parte: 'coste', regla: REGLA_DEL_COSTE, posiciones, segundos: coste },
-    { parte: 'plantilla', plantilla: nombre, segundos: dePlantilla, movimientos: reales.map((m) => ({ escala: m.escala, cantidad: m.cantidad })) },
+    { parte: 'plantilla', plantilla: nombre, segundos: dePlantilla, movimientos: reales.map((m) => ({ escala: m.escala, cantidad: m.cantidad })), anunciado },
   ];
   const escala = escalaQueCubre(posiciones);
   let propuesta = { desde: escala, piezas: denominacion(coste, escala) };
@@ -489,8 +491,9 @@ function resumenDeEjecucion(eje, { payload, movimientos, yo, t, epoca, nombre, p
  * botón de ejecutar). `opciones.denominacion` la ajusta: la escala de la que parte («hora»: 5 h 30 min) o las piezas
  * ([{ escala, cantidad }]). → { ok, motivos, partes: [{ parte: 'coste', regla, posiciones, segundos }, { parte:
  * 'plantilla', plantilla, segundos, movimientos }], coste, exigido (la suma, en segundos), posiciones, propuesta: {
- * desde, piezas, segundos }, denominacion (las piezas que se quemarían), paga, cubre, alcanza, escalas } o, si la
- * plantilla no escribe o algo falla, { ok: false, motivos }. Ejecutar es transaccion con la misma `denominacion`.
+ * desde, piezas, segundos }, denominacion (las piezas que se quemarían), paga, cubre, alcanza, escalas, incompleto } o, si
+ * la plantilla no escribe o algo falla, { ok: false, motivos }. Con parámetros por rellenar, `incompleto` y sus motivos: lo
+ * exigido es el de lo que ya hay. Ejecutar es transaccion con la misma `denominacion`.
  */
 export function ejecucion(eje, cual, params = {}, yo, opciones = {}) {
   const epoca = epocaDe(opciones);
@@ -504,12 +507,14 @@ export function ejecucion(eje, cual, params = {}, yo, opciones = {}) {
   const nombre = nombreDeAccion(plantilla);
   try {
     const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
-    if (prep.motivos.length) return { ok: false, motivos: prep.motivos };
+    // Con parámetros por rellenar, lo exigido se calcula con lo que ya hay (`incompleto`: crecerá al rellenarlos); lo que
+    // movería la plantilla no se cuenta hasta tenerlos (sin su fecha, un anuncio parecería una quema de ya).
+    const incompleto = prep.motivos.length > 0;
     const hecha = movimientosBql(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
-    if (hecha.motivos.length) return { ok: false, motivos: hecha.motivos };
+    if (hecha.motivos.length && !incompleto) return { ok: false, motivos: hecha.motivos };
     const payload = prep.payload;
     if (!prep.parametros.some((p) => p.posicion === '0' && prep.valores[p.nombre] !== undefined)) payload[0] = mensajeDe(eje, epoca, plantilla, prep.candidata, yo, X);
-    return { ok: true, motivos: [], ...resumenDeEjecucion(eje, { payload, movimientos: hecha.movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion }) };
+    return { ok: true, incompleto, motivos: prep.motivos, ...resumenDeEjecucion(eje, { payload, movimientos: hecha.motivos.length || incompleto ? [] : hecha.movimientos, yo, t, epoca, nombre, pedida: opciones.denominacion }) };
   } catch (e) {
     return { ok: false, motivos: [{ regla: nombre, mensaje: nombre + ': ' + e.message }] };
   }

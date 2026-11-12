@@ -386,7 +386,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "106a623313d80e8e101c43ed20e479ef1c4671f08281ea8a810c71d59bf0b4dc"
+      "ref": "482083e34cd653ee4445ac08760a463992357941bc03a5d17f2910ff7c26e7d4"
     },
     {
       "ref": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"
@@ -9443,7 +9443,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "106a623313d80e8e101c43ed20e479ef1c4671f08281ea8a810c71d59bf0b4dc",
+    "id": "482083e34cd653ee4445ac08760a463992357941bc03a5d17f2910ff7c26e7d4",
     "registro": [
       [
         "writing burns today's T"
@@ -9473,7 +9473,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
         "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)",
         "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente (VG, 8-11: el T informativo paga la escritura), y la regla no le exige el coste. La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js",
-        "VG 12-11, #64 c (el T futuro como anuncio): lo anunciado (estado «anunciado», con su when) aún no se mueve, así que ni paga la escritura ni gasta lo que queda hoy: las sumas solo cuentan lo que se mueve ya"
+        "VG, 12-11, #64 c (el T futuro como anuncio): lo anunciado (estado «anunciado», con su when) aún no se mueve, así que ni paga la escritura ni gasta lo que queda hoy: las sumas solo cuentan lo que se mueve ya"
       ],
       [
         "epoch 0"
@@ -16977,7 +16977,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "816e536bc50c9ce179ab254edc3700eb012e5977718ed14da526028ad407d8ae";
+export const EPOCA_0_BTML_ID = "dd617e35312e6ba92599495018b2c60eb27b2536609fd8cf051ca7970754c6b8";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
