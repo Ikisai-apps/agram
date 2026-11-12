@@ -16,7 +16,7 @@ Decisión de VG (11-11 noche): Core escribe en el eje compartido de VG con su pr
 
 ```sh
 export AGRAM_BE_CONFIG=~/.agram/be/vg-config.json       # { sync_url, eje, clave_lectura }
-node be.mjs identidad --crear                            # deja ~/.agram/be/peticion-alta-core.json
+node be.mjs identidad --crear --minutos 60               # deja ~/.agram/be/peticion-alta-core.json (la T de una cosa no tiene defecto: #46)
 # VG: guía → importar propuestas → ese archivo → aceptar («dar de alta una cosa», en el camino de su alta)
 node be.mjs identidad                                    # alta, T de minuto: 60
 node be.mjs proponer "AGRAM" --valores '{"content":"el sistema: núcleo, época y carta"}'
@@ -36,9 +36,9 @@ Precisión de VG: admitir a una identidad en lo mío no es escribir su nombre en
 ## Para decidir VG
 
 - **La regla de elegibles por la R** (hoy `src/elegibles.js` mira nombres: el 2.3, el 3, `cualquiera`). Cambio mínimo propuesto, como dato: una lectura de la época «eligible» (como «attention group») que el núcleo evalúe en vez del código fijo, con dos cláusulas nuevas: (a) un escrito W sobre X es elegible si el dueño de X ancló sobre W un registro suyo que mueve R suya al autor de W (aceptar **un** escrito = darle R por él); (b) ¿es elegible en todo lo del dueño quien tiene R suya (`saldo R:<dueño> > 0`), o solo en el registro donde se la dio? Lo segundo es lo que hay hoy con «admit someone».
-- **La preaceptación heredada**: `elegibles` no mira a los padres. Propuesta: que admitido en un registro valga para los de debajo del mismo dueño (subir por `sobre` hasta su alta). Sin decidir no se ha hecho.
-- **Dejar de admitir**: no hay inversa. Corregir solo añade, y la R dada no vuelve si no la devuelve quien la tiene («return R») o la perdona. Opciones: que la admisión se lea por la R en mano (devolverla des-admite), o vetar (zona 5).
+- ~~**La preaceptación heredada**~~ **Cerrado** (VG 11-11, #31; encargo pv3): la admisión baja por el árbol; `elegibles` sube por `sobre` mientras el dueño sea el mismo (admitido en el proyecto, en sus issues; en el alta, en todo lo suyo) y da `heredados`.
+- ~~**Dejar de admitir**~~ **Cerrado** (VG 11-11, #32; encargo pv3): es QUITAR, la plantilla «remove someone» (la corrección del dueño en el 3 de X: ni ahí ni en lo de debajo, y la lectura del 3 deja de colocarlo por esa admisión); devolver la R es la liquidación, aparte; vetar («veto someone», el 3.5.3 del alta) gana sobre cualquier R y sobre el 2.3. La celda del 3 la deciden los movimientos (#33): R sola → 3.3, R y T → 3.4 (`docs/CONTRATO.md` §4.5).
 - ~~**Colocar por lo que se mueve**~~ **Cerrado** (encargo «lecturas», issue #12, VG 11-11 noche: por punto de vista, no por posición): las diez lecturas de los puntos de vista (`epoch.2`, «point of view» en su 4; `docs/CONTRATO.md` §4.4) se encadenan por los dígitos y la celda trae lo anclado más lo derivado (`contrato.leer`, `contrato.leerRuta`; en la carta, con una marca discreta). En el alta de VG: el **1.3** da a `core` (con quien VG ha movido R o T, y lo que Core quemó en lo de VG), el **1.3.4** a `core` (tiene T de VG: laboral), el **1.4** la propuesta y la sugerencia de Core (sus trabajos), el **3.4** a `core` (tiene R de VG dada al admitirlo, con T); en el menú, el **4** y el **1.4** la sugerencia. `contrato.ocupantes` no cambia (lo anclado) y la cláusula en «attention group» no se ha tocado: el 3.4 lo da la lectura, no la zona 4 (`test/be.test.js`, `test/lecturas.test.js`).
 - **Lo de la plantilla**: PV3 en el orden 7; ancla en el 3 de X (el de «give own R»); `minutes` 0 por defecto; las opciones de `whom` son todas las identidades (también quien mira; la validación lo rechaza).
 - **Doble clic = foco** (#23): VG decide al verlo.
-- Los 60 minutos por defecto del alta de una cosa y el ancla en el 1.4 del alta (datos de la plantilla).
+- ~~Los 60 minutos por defecto del alta de una cosa~~ **Cerrado** (VG 12-11, #46): sin defecto, un desplegable por escalas; reponer es otra transferencia de T. Sigue el ancla en el 1.4 del alta (dato de la plantilla).
