@@ -80,17 +80,18 @@ small{color:var(--muted)}
 .numero{font-family:var(--mono);color:var(--muted);font-size:12px}
 .quien{font-family:var(--mono);font-size:12px;color:var(--muted)}
 
-/* la barra */
-.barra{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule);font-size:13px;color:var(--muted)}
-.barra .ajuste{display:inline-flex;gap:4px;align-items:center}
-.barra select{padding:4px 6px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);max-width:40vw}
-.barra .tiempo{font-variant-numeric:tabular-nums}
-.barra .guardado{flex-basis:100%;font-size:11px}
-.barra .sincronia{flex-basis:100%;font-size:11px;overflow-wrap:anywhere}
-.barra .sincronia .error{color:var(--warn)}
-.barra .sincronia .rechazados summary{cursor:pointer;color:var(--warn)}
-.barra .sincronia .rechazados ul{margin:4px 0;padding-left:18px}
-.barra .sincronia code{font-family:var(--mono)}
+/* las opciones del 0 de mi alta (antes, la barra): dentro de la cruceta del sitio, en las posiciones del 0; lo común de los controles */
+.sitio-controles{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:13px;color:var(--muted);min-width:0}
+.sitio-controles .ajuste{display:inline-flex;gap:4px;align-items:center;min-width:0}
+.sitio-controles select{padding:4px 6px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);max-width:100%;min-height:32px}
+.sitio-controles .tiempo{font-variant-numeric:tabular-nums}
+.sitio-controles button{min-height:32px}
+.sitio-controles .guardado{flex-basis:100%;font-size:11px}
+.sitio-controles .sincronia{flex-basis:100%;font-size:11px;overflow-wrap:anywhere}
+.sitio-controles .sincronia .error{color:var(--warn)}
+.sitio-controles .sincronia .rechazados summary{cursor:pointer;color:var(--warn)}
+.sitio-controles .sincronia .rechazados ul{margin:4px 0;padding-left:18px}
+.sitio-controles .sincronia code{font-family:var(--mono)}
 
 /* la escena */
 .escena{position:relative;margin:10px 0;min-width:0}
@@ -320,7 +321,7 @@ small{color:var(--muted)}
 .arranque input[type="file"]{padding:6px 0;border:0;background:transparent}
 .copia .aviso{margin:0}
 
-@media (max-width:480px){body{font-size:15px} .representacion{font-size:1.2rem} .barra select{max-width:36vw}}
+@media (max-width:480px){body{font-size:15px} .representacion{font-size:1.2rem}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 
 /* opinar: el conmutador, la cajita y el elemento marcado */
@@ -363,8 +364,6 @@ html.mapped,html.mapped body{height:100%;overflow:hidden}
 html.mapped body{padding:0}
 .carta-matriz{height:100vh;height:100dvh;display:flex;flex-direction:column;overflow:hidden;padding:0 12px}
 .carta-matriz>*{flex:none}
-.carta-matriz .barra{padding:6px 0;flex-wrap:nowrap;overflow:hidden;white-space:nowrap}
-.carta-matriz .barra .guardado,.carta-matriz .barra .sincronia{flex:0 1 auto;flex-basis:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .carta-matriz>.aviso,.carta-matriz>.exito{margin:4px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .carta-matriz .escena{flex:1 1 auto;min-height:0;margin:6px 0 8px;overflow:hidden}
 .mapa{position:absolute;inset:0;overflow:hidden}
@@ -791,7 +790,7 @@ html.mapped body{padding:0}
 .pv>.capa-marco,.nucleo>.capa-marco{--esquina:18px;--dibujo:calc(var(--esquina) * 512 / 88);position:absolute;inset:calc(4px - var(--esquina) * 36 / 88);z-index:4}
 .pv>.capa-marco::before,.nucleo>.capa-marco::before{border-width:2px;inset:calc(var(--esquina) * 36 / 88 - 1px)}
 .pv.nivel-2>.capa-marco{--esquina:14px}
-/* el interruptor de la barra: sobrio o animado */
+/* el interruptor del 5 del 0 de mi alta: sobrio o animado */
 .interruptor{display:inline-flex;border:1px solid var(--rule);border-radius:999px;overflow:hidden;flex:none}
 .interruptor button{border:0;border-radius:0;min-height:28px;padding:2px 10px;background:transparent;font-size:13px}
 .interruptor button[aria-pressed="true"]{background:var(--accent);color:var(--accent-fg)}
@@ -800,8 +799,7 @@ html.mapped body{padding:0}
 .formulario .mas-parametros summary{cursor:pointer;color:var(--accent);font-size:14px}
 
 /* El móvil apaisado (VG, 11-11): al girar el móvil la carta es Mapped (la época decide por la proporción) y todo cabe en la
-   pantalla, sin scroll de página y legible. Solo CSS por el alto y la orientación (nada cambia en el DOM): la barra en una
-   fila compacta, los rosetones y los mandos como objetivos táctiles de 32 px, las formas de la pantalla completa con letra
+   pantalla, sin scroll de página y legible. Solo CSS por el alto y la orientación (nada cambia en el DOM): los rosetones y los mandos como objetivos táctiles de 32 px, las formas de la pantalla completa con letra
    más pequeña. Las medidas en píxeles que usa el árbol (hueco, tarjeta, línea) las manda app.js por el tamaño de la ventana
    (carta.js medidasDePantalla); aquí van las que repinta el CSS. Los controles que van dentro de una lista y no pueden
    crecer sin comerse sus filas (el mando de tamaño, el asa, «↗», los enlaces) crecen su zona de toque con ::after. */
@@ -809,18 +807,8 @@ html.mapped body{padding:0}
   :root{--hueco:36px;--tarjeta:110px}
   .carta-matriz{padding:0 8px}
   .carta-matriz .escena{margin:2px 0 4px}
-  /* la barra: una sola fila de 36 px; los rótulos «soy» y «ejemplo» van en el propio desplegable, «hoy», «guardado» y la
-     sincronía (si no hay error) ocultos; si aun así no cabe, la propia barra se desliza (no la página) */
-  .barra,.carta-matriz .barra{flex-wrap:nowrap;gap:0 6px;padding:2px 0;font-size:12px;min-height:36px;overflow-x:auto;overflow-y:hidden;white-space:nowrap;scrollbar-width:none}
-  .barra::-webkit-scrollbar{display:none}
-  .barra>*{flex:none}
-  .barra .ajuste{font-size:0;gap:0}
-  .barra select{font-size:12px;min-height:32px;max-width:26vw;padding:2px 4px}
-  .barra button{min-height:32px;padding:2px 8px;font-size:12px}
-  .barra .interruptor button{padding:2px 8px}
-  .barra .tiempo,.barra .guardado{display:none}
-  .barra .sincronia:not(:has(.error,.rechazados)){display:none}
-  .barra .sincronia{flex:0 1 auto;font-size:11px}
+  /* el personaje de cada sitio, objetivo táctil de 32 px (sin barra de arriba: la escena es la ventana entera) */
+  .sitio-interrogante{width:32px;height:32px;min-height:32px}
   .carta-matriz>.aviso,.carta-matriz>.exito{margin:2px 0;padding:3px 8px;font-size:12px}
   /* los rosetones: 32 px, y el anillo de fuera, de 34 */
   .mapa-celdas{inset:34px}
@@ -906,27 +894,17 @@ html.mapped body{padding:0}
 
 }
 
-/* Sequenced, el móvil en vertical (VG, 11-11): una sola columna. La barra en una línea (quién soy, sobrio o animado y
-   «menú», que despliega lo demás debajo); la tarjeta del foco con una fila por PV, cada una un acordeón que abre debajo
+/* Sequenced, el móvil en vertical (VG, 11-11): una sola columna. Arriba de la columna, el personaje del 0 (VG, 12-11, #38:
+   sustituye a la barra de una línea y su menú); la tarjeta del foco con una fila por PV, cada una un acordeón que abre debajo
    el segundo nivel del PV (la rejilla de su mundo, en una columna si no cabe a lo ancho); el hilo como scroll, el
    pasado encima de la tarjeta y el futuro debajo; abajo, fija, la fila de los diez dígitos en su color. Mapped y el
    móvil apaisado no cambian. */
 .carta-apilada{padding-bottom:calc(48px + env(safe-area-inset-bottom,0px))}
-.barra-compacta{position:sticky;top:0;z-index:8;background:var(--bg);flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:6px;padding:4px 0}
-.barra-linea{display:flex;align-items:center;gap:6px;min-width:0}
-.barra-linea .ajuste{flex:1 1 auto;min-width:0;font-size:0;gap:0}
-.barra-linea select{font-size:13px;min-height:32px;max-width:100%;width:100%}
-.barra-linea .interruptor{flex:none}
-.barra-linea .interruptor button{min-height:32px;padding:2px 8px}
-.menu-boton{flex:none;margin-left:auto;min-height:32px;padding:2px 10px}
-.menu-boton[aria-expanded="true"]{background:var(--accent);color:var(--accent-fg);border-color:var(--accent)}
-.barra-menu{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;padding:6px 0 2px;border-top:1px solid var(--rule)}
-.barra-menu[hidden]{display:none}
-.barra-menu .ajuste{display:inline-flex;gap:4px;align-items:center}
-.barra-menu .guardado,.barra-menu .sincronia{flex-basis:100%;font-size:11px}
 .secuencia,.secuencia-ahora{display:flex;flex-direction:column;gap:10px;min-width:0}
-/* la tarjeta y el futuro llenan al menos la pantalla bajo la barra: así la tarjeta sube hasta arriba y el pasado queda encima, fuera */
-.secuencia-ahora{min-height:calc(100vh - 104px);min-height:calc(100svh - 104px)}
+.cero-columna{position:sticky;top:0;z-index:8;display:flex;align-items:center;gap:8px;min-height:40px;padding:4px 0;background:var(--bg);border-bottom:1px solid var(--rule);font-size:13px;color:var(--muted)}
+.cero-columna .sitio-interrogante{width:32px;height:32px;min-height:32px}
+/* la tarjeta y el futuro llenan al menos la pantalla bajo el personaje del 0: así la tarjeta sube hasta arriba y el pasado queda encima, fuera */
+.secuencia-ahora{min-height:calc(100vh - 56px);min-height:calc(100svh - 56px)}
 /* las filas de la tarjeta: la cabeza abre y cierra; el campo escribe; abierta, el PV debajo, a lo ancho */
 .filas{list-style:none;margin:0;padding:0;display:grid;gap:2px;min-width:0}
 .fila{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:2px 6px;align-items:center;min-width:0;padding:2px 0 2px 6px;border-left:3px solid color-mix(in oklab,var(--c,var(--rule)) 70%,var(--rule))}
@@ -1038,6 +1016,21 @@ html.mapped body{padding:0}
 .filtro-caja[data-filtro="recibo"]{border-style:dashed;font-weight:700}
 .sitio-interrogante{flex:none;width:22px;height:22px;min-height:22px;padding:0;border-radius:50%;border:1px solid color-mix(in oklab,var(--c,var(--accent)) 60%,var(--rule));background:color-mix(in oklab,var(--c,var(--accent)) 12%,var(--bg));color:inherit;font-weight:700;font-size:12px;line-height:1;cursor:pointer}
 .rejilla-cabeza .sitio-interrogante{margin-left:4px}
+.sitio-interrogante{position:relative}
+.sitio-interrogante.sitio-centro{margin-left:auto;margin-right:6px}
+.pv-cabeza .sitio-interrogante,.hijo-cabeza .sitio-interrogante{margin-left:6px}
+/* el muñeco del sitio (animado): una capa sobre el mismo botón, cubre el «?» y no recibe el ratón; el clic es del botón */
+.animado .sitio-interrogante{width:30px;height:30px;min-height:30px}
+.capa-sitio{position:absolute;inset:-2px;display:block;border-radius:50%;background:var(--bg);box-shadow:0 0 0 1px color-mix(in oklab,var(--c,var(--accent)) 60%,var(--rule));overflow:hidden}
+.sitio-interrogante .capa-sitio .pieza-sitio{position:absolute;inset:3px;width:calc(100% - 6px);height:calc(100% - 6px);aspect-ratio:auto;margin:0;align-self:auto;object-fit:contain}
+.capa-personaje[data-sitio]{pointer-events:auto;cursor:pointer}
+/* Sequenced: el interrogante de cada fila, sobre su cabeza (que es un botón y no admite otro dentro) */
+.fila:has(>.sitio-fila){grid-template-columns:minmax(0,1fr) minmax(0,1.1fr) auto}
+.fila>.fila-cabeza,.fila>.campo-input,.fila>.sitio-fila{grid-row:1}
+.fila>.fila-cabeza{grid-column:1}
+.fila>.campo-input{grid-column:2}
+.fila>.sitio-fila{grid-column:3;justify-self:end}
+.fila:has(>.sitio-fila):not(:has(>.campo-input))>.fila-cabeza{grid-column:1 / 3}
 .caja-tres .personas{list-style:none;margin:0;padding:4px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start}
 .persona{display:inline-flex;align-items:center;gap:6px;max-width:100%;min-height:28px;padding:2px 8px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 40%,var(--rule));background:var(--bg);color:inherit;font-size:12px;cursor:grab;touch-action:none;user-select:none;-webkit-touch-callout:none}
 .persona .texto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -1052,6 +1045,7 @@ html.mapped body{padding:0}
 .persona-rejilla{font-weight:600}
 /* la cruceta del propio nodo de un sitio (el personaje del sitio, #38): sus diez posiciones en la geometría de la cruz */
 .sitio-fondo{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;z-index:20;padding:16px}
+.sitio-cruceta[data-sitio-general]{width:min(94vw,860px)}
 .sitio-cruceta{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:12px;width:min(92vw,720px);max-height:92vh;overflow:auto;display:grid;gap:10px}
 .sitio-cruceta header{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .sitio-cruceta h2{margin:0;font-size:16px;display:flex;align-items:center;gap:8px}
