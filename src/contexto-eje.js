@@ -18,8 +18,8 @@
 //            (0 segundo, 1 minuto, 2 hora, 3 día civil, 4 semana, 5 ciclo de 28 días, 6 año de 364 + 1)
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
 //   relojes  X.6.8, los tres relojes de un registro (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de
-//            Nostr al transportarlo, 6.8.2 el bloque de Bitcoin que lo sella: su instante, su altura y su hash (eje.sello, de
-//            src/sello.js; vacíos hasta que exista el transporte y el sello esté en un bloque)
+//            Nostr al transportarlo: su instante y la clave del relé (eje.recibo, de
+//            src/sincronia.js), 6.8.2 el bloque de Bitcoin que lo sella: su instante, su altura y su hash (eje.sello, de src/sello.js; vacíos hasta que el transporte dé el recibo y el sello esté en un bloque)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
 //            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.2.1 su P posicionado (por registro,
 //            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
@@ -938,6 +938,12 @@ export class ContextoEje {
         // el 0: es lo que compara «clocks out of order»), su altura y su hash. Lo da el eje (eje.sello), una vista del libro
         // que no es parte del cuerpo firmado ni del id.
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
+        // 1, la marca del transporte (el recibo de llegada que firma el relé de Nostr, servidor/sim/aarpia/): su instante y la
+        // clave del relé. Lo da el eje (eje.recibo), una vista del libro como el sello. Vacío hasta que el transporte lo da.
+        if (d === 1) {
+          const recibo = nodo.e.id ? this.#eje.recibo?.(nodo.e.id) : null;
+          return recibo ? [recibo.instante, recibo.rele] : [];
+        }
         if (d === 2) {
           const sello = nodo.e.id ? this.#eje.sello?.(nodo.e.id) : null;
           return sello ? [sello.instante, sello.altura, sello.hash] : [];

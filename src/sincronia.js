@@ -28,6 +28,13 @@
 // evento, y entra en el eje como el reloj de los demás (eje.marcarReloj →
 // `before.6.3`), sin tocar las reglas ni ningún evento.
 //
+// El recibo: si el servidor responde a `GET /eventos/recibo?eje&id` (el transporte simulado de AARPIA, servidor/sim/aarpia/:
+// `{ instante, rele, firma, recibo }`, la marca de llegada que firma el relé de Nostr), tras asentar eventos nuevos se pide el
+// recibo de cada uno (hasta 500 por pasada) y entra en el eje como el segundo reloj del registro (eje.marcarRecibo →
+// X.6.8.1: instante y clave del relé). Es una vista del libro: no toca el evento, su id ni su firma. Un servidor sin esa
+// ruta (la función de Supabase la trata como una lectura de eventos, o contesta 404/405) se detecta una vez por sesión y no
+// se insiste; un error se anota en `informe.recibos.errores` y se reintenta en la siguiente pasada, sin romper nada.
+//
 // El sello: con un adaptador `sello` (src/sello.js), tras asentar eventos nuevos (los que baja y los que sube) se piden
 // al servicio de sello sus ids (solo los ids), y en cada sincronización se pide la prueba de los pendientes; la que ya está
 // en un bloque se comprueba (`verificar`) y, si vale, entra en el eje como el tercer reloj del registro (eje.marcarSello →
@@ -41,6 +48,9 @@ export const VERSION_SINCRONIA = 1;
 
 /** Cuántas pruebas de sello se piden como mucho en cada sincronización (el resto, en la siguiente). */
 export const PRUEBAS_POR_PASADA = 500;
+
+/** Cuántos recibos de llegada se piden como mucho en cada sincronización (el resto, en la siguiente). */
+export const RECIBOS_POR_PASADA = 500;
 
 /** Las claves de la configuración (plantilla «preferences», 8 y 9: docs/CONTRATO.md §15.7) que dicen dónde se comparte el eje. */
 export const CONFIGURACION = Object.freeze({ url: 'sync url', eje: 'sync ledger' });
@@ -99,6 +109,9 @@ export class Sincronia {
   #recibidos = new Map(); // id → recibido (ISO)
   #cola = new Map(); // id → { intentos, proximo, error }: lo pendiente de subir con sus reintentos
   #rechazados = new Map(); // id → { motivo, de }: lo que no entró (de: 'reglas', 'reorden' o 'servidor')
+  #recibos = new Map(); // id → 'por pedir' | 'sin recibo' (el servidor no lo tiene) | { instante, rele, firma, recibo? }
+  #recibosPorPasada = RECIBOS_POR_PASADA; // cuántos recibos se piden por pasada (por defecto RECIBOS_POR_PASADA; solo las pruebas lo cambian)
+  #sinRutaDeRecibo = false; // el servidor no sirve GET /eventos/recibo: detectado una vez por sesión (no se guarda)
   #sello; // el adaptador de src/sello.js, o null: sin él nada se sella
   #sellos = new Map(); // id → 'por sellar' | 'pendiente' (en un lote, aún sin bloque) | { altura, hash, instante, verificado }
 
@@ -106,9 +119,10 @@ export class Sincronia {
    * url: la base del servidor (…/functions/v1 en Supabase; http://127.0.0.1:8787 en pruebas). eje: el nombre del eje.
    * claveLectura: la clave de lectura (va en X-Clave-Lectura; nunca se guarda aquí). firmar (opcional): async (evento) →
    * evento firmado, para lo local que llegara sin firma. fetch: la de la plataforma, o una de prueba. sello (opcional): el
-   * adaptador de src/sello.js; sin él no se sella nada.
+   * adaptador de src/sello.js; sin él no se sella nada. recibosPorPasada (opcional): el tope de recibos por
+   * sincronización (RECIBOS_POR_PASADA, 500).
    */
-  constructor({ url, eje, claveLectura, firmar, fetch = globalThis.fetch?.bind(globalThis), ahora = () => Date.now(), sello = null } = {}) {
+  constructor({ url, eje, claveLectura, firmar, fetch = globalThis.fetch?.bind(globalThis), ahora = () => Date.now(), sello = null, recibosPorPasada = RECIBOS_POR_PASADA } = {}) {
     if (typeof url !== 'string' || !url) throw new TypeError('sincronía: hace falta la url del servidor');
     if (typeof eje !== 'string' || !eje) throw new TypeError('sincronía: hace falta el nombre del eje');
     this.#url = url.replace(/\/+$/, '');
@@ -118,6 +132,7 @@ export class Sincronia {
     this.#fetch = fetch;
     this.#ahora = ahora;
     this.#sello = sello ?? null;
+    this.#recibosPorPasada = Number.isSafeInteger(recibosPorPasada) && recibosPorPasada > 0 ? recibosPorPasada : RECIBOS_POR_PASADA;
   }
 
   get url() {
@@ -156,6 +171,14 @@ export class Sincronia {
   /** Olvida los rechazos (para volver a intentarlo tras arreglar algo). */
   olvidarRechazados() {
     this.#rechazados.clear();
+  }
+
+  /**
+   * El estado del recibo de llegada de un registro: { instante, rele, firma, recibo? } si ya lo tiene, 'por pedir' si aún
+   * no se ha pedido (o falló), 'sin recibo' si el servidor dijo que no lo tiene, o undefined si no se conoce.
+   */
+  estadoDeRecibo(id) {
+    return this.#recibos.get(id);
   }
 
   /** El adaptador de sello de esta sincronía (o null). */
@@ -241,6 +264,13 @@ export class Sincronia {
     return ejeLocal.relojExterno;
   }
 
+  /** Marca en el eje los recibos ya recibidos (tras restaurar, como marcarReloj): el segundo reloj, X.6.8.1. */
+  marcarRecibos(ejeLocal) {
+    let n = 0;
+    for (const [id, e] of this.#recibos) if (typeof e === 'object' && ejeLocal.marcarRecibo(id, e)) n += 1;
+    return n;
+  }
+
   /** Marca en el eje los sellos ya recibidos (tras restaurar, como marcarReloj): el tercer reloj, X.6.8.2. */
   marcarSellos(ejeLocal) {
     let n = 0;
@@ -294,8 +324,54 @@ export class Sincronia {
     // Sin red al bajar, se intenta igual subir lo pendiente: así queda en cola con su espera (el primer intento falla).
     if (subir) await this.#subirPendientes(eje, informe);
     informe.pendientes = this.pendientes(eje);
+    await this.#recibir(eje, informe);
     await this.#sellar(eje, informe);
     return informe;
+  }
+
+  /**
+   * El recibo de llegada, tras asentar: lo nuevo (lo bajado que entró y lo subido) pasa a `por pedir`; de cada uno se pide
+   * `GET /eventos/recibo` (hasta RECIBOS_POR_PASADA, el resto en la próxima) y se escribe en el eje (X.6.8.1). Informe:
+   * `recibos` { recibidos: ids que entraron en el eje, pendientes: cuántos faltan, errores } (solo si había algo que pedir).
+   * Si el servidor no tiene la ruta, se deja de pedir en esta sesión. Nunca lanza.
+   */
+  async #recibir(eje, informe) {
+    if (this.#sinRutaDeRecibo) return;
+    for (const id of [...informe.anadidos, ...informe.subidos]) if (eje.eventos.has(id) && !this.#recibos.has(id)) this.#recibos.set(id, 'por pedir');
+    const porPedir = [...this.#recibos].filter(([id, e]) => e === 'por pedir' && eje.eventos.has(id)).map(([id]) => id);
+    if (!porPedir.length) return;
+    const r = (informe.recibos = { recibidos: [], pendientes: 0, errores: [] });
+    const q = (id) => '/eventos/recibo?' + new URLSearchParams({ eje: this.#eje, id }).toString();
+    for (const id of porPedir.slice(0, this.#recibosPorPasada)) {
+      try {
+        const datos = await this.#pedir(q(id));
+        // Un servidor sin la ruta (la función de Supabase) lo toma por una lectura de eventos: 200 sin la forma del recibo.
+        if (typeof datos?.instante !== 'string' || typeof datos?.rele !== 'string' || typeof datos?.firma !== 'string') {
+          this.#sinRutaDeRecibo = true;
+          break;
+        }
+        eje.marcarRecibo(id, datos);
+        this.#recibos.set(id, eje.recibo(id) ?? 'sin recibo');
+        if (eje.recibo(id)) r.recibidos.push(id);
+        else r.errores.push({ id, motivo: 'el recibo del servidor no tiene la forma esperada' });
+      } catch (e) {
+        if (e instanceof ErrorDelServidor && e.estado === 404 && /^sin recibo/.test(e.message.replace(/^servidor 404: /, ''))) {
+          this.#recibos.set(id, 'sin recibo'); // la ruta existe pero ese id no tiene recibo: no se insiste
+        } else if (e instanceof ErrorDelServidor && [404, 405, 501].includes(e.estado) && !/^eje desconocido/.test(e.message.replace(/^servidor [0-9]+: /, ''))) {
+          this.#sinRutaDeRecibo = true; // sin la ruta: una vez por sesión
+          break;
+        } else {
+          r.errores.push({ id: e instanceof SinRed ? null : id, motivo: e.message });
+          break; // sin red, 401, 5xx…: se reintenta en la próxima pasada
+        }
+      }
+    }
+    if (this.#sinRutaDeRecibo) {
+      delete informe.recibos;
+      for (const [id, e] of [...this.#recibos]) if (e === 'por pedir') this.#recibos.delete(id);
+      return;
+    }
+    r.pendientes = [...this.#recibos].filter(([id, e]) => e === 'por pedir' && eje.eventos.has(id)).length;
   }
 
   /**
@@ -420,6 +496,7 @@ export class Sincronia {
       recibidos: [...this.#recibidos],
       cola: [...this.#cola].map(([id, c]) => [id, { ...c }]),
       rechazados: [...this.#rechazados].map(([id, r]) => [id, { ...r }]),
+      ...(this.#recibos.size ? { recibos: [...this.#recibos].map(([id, e]) => [id, typeof e === 'object' ? { ...e } : e]) } : {}),
       ...(this.#sellos.size ? { sellos: [...this.#sellos].map(([id, e]) => [id, typeof e === 'object' ? { ...e } : e]) } : {}),
     };
   }
@@ -433,6 +510,10 @@ export class Sincronia {
     for (const [id, recibido] of datos.recibidos ?? []) s.#recibidos.set(id, recibido);
     for (const [id, c] of datos.cola ?? []) s.#cola.set(id, { intentos: c.intentos ?? 0, proximo: c.proximo ?? 0, error: c.error ?? null });
     for (const [id, r] of datos.rechazados ?? []) s.#rechazados.set(id, { motivo: r.motivo, de: r.de });
+    for (const [id, e] of datos.recibos ?? []) {
+      if (e === 'por pedir' || e === 'sin recibo') s.#recibos.set(id, e);
+      else if (e && typeof e === 'object') s.#recibos.set(id, { instante: e.instante, rele: e.rele, firma: e.firma, ...(e.recibo ? { recibo: e.recibo } : {}) });
+    }
     for (const [id, e] of datos.sellos ?? []) {
       if (e === 'por sellar' || e === 'pendiente') s.#sellos.set(id, e);
       else if (e && typeof e === 'object') s.#sellos.set(id, { altura: e.altura, hash: e.hash, instante: e.instante, verificado: e.verificado === true });

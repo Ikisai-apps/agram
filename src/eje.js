@@ -89,6 +89,7 @@ export class Eje {
   #tMax = -Infinity; // el mayor t aceptado en el eje, en milisegundos UTC
   #tPorAutor = new Map(); // autor → el mayor t aceptado de sus eventos, en milisegundos UTC (el reloj de los demás, SEG-05)
   #relojExterno = -Infinity; // la hora que dan los demás desde fuera del eje (el `recibido` del libro compartido, src/sincronia.js), en milisegundos UTC
+  #recibos = new Map(); // id → el recibo de llegada del transporte (src/sincronia.js): { instante, rele, firma, recibo? }; vista del libro, fuera del cuerpo y del id (X.6.8.1)
   #sellos = new Map(); // id → el sello de tiempo que lo ancla (src/sello.js): { altura, hash, instante, verificado }; vista del libro, fuera del cuerpo y del id (X.6.8.2)
 
   /**
@@ -268,6 +269,29 @@ export class Eje {
   }
 
   /**
+   * El recibo de llegada del transporte de un registro (el segundo reloj, `X.6.8.1`: el instante en que el relé de Nostr
+   * lo recibió y la clave del relé que lo firmó; la simulación de AARPIA, servidor/sim/aarpia/). Como el sello, es una
+   * vista del libro que llega de fuera: NO es parte del cuerpo firmado, no cambia ningún id ni ninguna firma y no entra en
+   * ninguna regla de escritura. `recibo` = { instante, rele, firma } (la forma de `GET /eventos/recibo`; `recibo`, opcional,
+   * el id Nostr del recibo). Se queda con el recibo más antiguo (el de menor instante). Devuelve si lo anotó; un registro
+   * que el eje no tiene, o un recibo mal formado, se ignoran.
+   */
+  marcarRecibo(id, recibo) {
+    if (!this.eventos.has(id) || !recibo || typeof recibo !== 'object') return false;
+    const { instante, rele, firma, recibo: idRecibo } = recibo;
+    if (!esInstante(instante) || typeof rele !== 'string' || !/^[0-9a-f]{64}$/.test(rele) || typeof firma !== 'string' || !/^[0-9a-f]{128}$/.test(firma)) return false;
+    const antes = this.#recibos.get(id);
+    if (antes && msUTC(antes.instante) <= msUTC(instante)) return false;
+    this.#recibos.set(id, Object.freeze({ instante, rele, firma, ...(typeof idRecibo === 'string' && /^[0-9a-f]{64}$/.test(idRecibo) ? { recibo: idRecibo } : {}) }));
+    return true;
+  }
+
+  /** El recibo de llegada de un registro { instante, rele, firma, recibo? } o null si aún no lo tiene (X.6.8.1). */
+  recibo(id) {
+    return this.#recibos.get(id) ?? null;
+  }
+
+  /**
    * El sello de tiempo que ancla un registro (el tercer reloj, `X.6.8.2`: el bloque de Bitcoin que lo sella,
    * src/sello.js). Como el reloj externo, es una vista del libro que llega de fuera: NO es parte del cuerpo firmado, no
    * cambia ningún id ni ninguna firma, y no entra en ninguna regla de escritura. `sello` = { altura, hash, instante }
@@ -429,6 +453,7 @@ export class Eje {
     const [g, ...resto] = todos;
     const nuevo = new Eje({ exigirFirmas: this.exigirFirmas, eventosV2: this.eventosV2 });
     nuevo.#relojExterno = this.#relojExterno;
+    nuevo.#recibos = this.#recibos;
     nuevo.#sellos = this.#sellos;
     const motivos = await nuevo.#libro.evaluar(nuevo.transaccion(g), CONDICIONES_GENESIS_GUARDADO, { evento: g, tLaxo: this.eventosV2 > 0, reglas: this.eventosV2 > 0 ? 2 : 3, contextoBqlm: (epoch) => new ContextoEje(nuevo, { ev: g, epoch }) });
     if (motivos.length) throw new Error('génesis rechazado: ' + motivos.map((m) => m.texto).join('; '));
@@ -466,6 +491,7 @@ export class Eje {
     this.#tMax = otro.#tMax;
     this.#tPorAutor = otro.#tPorAutor;
     this.#relojExterno = otro.#relojExterno;
+    this.#recibos = otro.#recibos;
     this.#sellos = otro.#sellos;
   }
 

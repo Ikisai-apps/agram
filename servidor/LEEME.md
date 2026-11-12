@@ -66,6 +66,16 @@ node servidor/prueba/servidor.mjs --puerto 8787 --archivo /tmp/libro.json    # p
 
 El mismo contrato en `http://127.0.0.1:8787` (`POST /ejes` con `X-Crear-Ejes: prueba`, `POST /eventos`, `GET /eventos`), sin Supabase. Diferencias con la función de Deno: **ninguna de contrato**. Cambian el almacén (memoria o JSON en vez de PostgREST), la criptografía (el núcleo, en vez de `verificar.js`; `test/paridad-funcion.test.js` comprueba que deciden lo mismo), que `POST /ejes` se autoriza con `--secreto`/`AGRAM_CREAR_EJES` (no hay clave de servicio) y que, además de `/eventos/ejes`, responde en `/ejes`. Las pruebas lo arrancan en un puerto libre: `test/servidor-prueba.test.js` (el contrato), `test/sincronia.test.js` (el cliente).
 
+## El transporte (simulación de AARPIA)
+
+El segundo reloj de cada registro (`X.6.8.1`, el recibo de llegada que firma un relé de Nostr; `docs/CONTRATO.md` §4.4) lo pide `src/sincronia.js` al servidor con `GET /eventos/recibo?eje=…&id=…` → `{ instante, rele, firma, recibo }`. Hoy **no hay AARPIA ni relé real**: `servidor/sim/aarpia/` es una **simulación** (copia del commit 73bfc4d de `InTheState/aarpia/transporte`, ver su `LEEME.md`), JavaScript puro, sin dependencias: **la misma API que las funciones `eventos` y `archivos`** (importa las de `servidor/supabase/funciones/`), con un relé Nostr en memoria por debajo (cada evento viaja como un kind 7700; el recibo, un 7701 firmado por el relé) y un Blossom en memoria para los archivos (cifrados antes de subir). Pruebas: `test/sim-aarpia.test.js`; la paridad con un evento real, `test/recibo.test.js`. Cuando exista AARPIA real se sustituye con la misma forma.
+
+```sh
+node servidor/sim/aarpia/servidor.mjs                    # http://127.0.0.1:8788/eventos, /eventos/recibo y /archivos  (--puerto, --secreto)
+```
+
+El sobre 7700 lo firma una clave de transporte del servicio, no el autor (la carta, por HTTP, no manda su clave privada). Un servidor **sin** `/eventos/recibo` (la función de Supabase de hoy) es válido: la sincronía lo detecta una vez por sesión y no vuelve a pedirlo. El servidor de prueba (`servidor/prueba/servidor.mjs`) sirve la ruta en memoria, con un relé y una firma falsos, para que `test/sincronia.test.js` la cubra.
+
 ## El sello de tiempo (simulación de StateArk)
 
 El tercer reloj de cada registro (`X.6.8.2`, el bloque de Bitcoin que lo sella; `docs/CONTRATO.md` §4.4) lo pone `src/sello.js`. Hoy **no hay Bitcoin ni StateArk**: `servidor/sim/stateark/` es una **simulación** (copia del commit b65c93d de `InTheState/stateark/sim`, ver su `LEEME.md`), JavaScript puro, sin dependencias, con las pruebas en `test/sim-stateark.test.js`. Cuando exista StateArk real se sustituye con la misma forma (`sellar`, `prueba`, `verificar`).

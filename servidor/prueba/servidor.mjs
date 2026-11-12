@@ -7,7 +7,9 @@
 //
 //   node servidor/prueba/servidor.mjs [--puerto 8787] [--archivo eje.json] [--secreto prueba]
 //
-// También sirve la guía (/guia, con un eco) y los archivos adjuntos (/archivos y /archivos/<id>, la función
+// También sirve el recibo de llegada (`GET /eventos/recibo?eje&id` → `{ instante, rele, firma, recibo }`, el reloj X.6.8.1 de
+// servidor/sim/aarpia/) en memoria, con el `recibido` de cada evento como instante y un relé y una firma FALSOS (de prueba,
+// no firmados de verdad: lo que se comprueba aquí es la ruta, no la criptografía), y la guía (/guia, con un eco) y los archivos adjuntos (/archivos y /archivos/<id>, la función
 // `archivos`, servidor/supabase/funciones/archivos/api.js tal cual, con los archivos en memoria).
 //
 // Diferencias con la función de Deno: ninguna de contrato. Cambian el almacén
@@ -20,8 +22,9 @@
 
 import { createServer } from 'node:http';
 import { readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
-import { crearApi } from '../supabase/funciones/eventos/api.js';
+import { crearApi, hashDeClave } from '../supabase/funciones/eventos/api.js';
 import * as criptoNucleo from './cripto-nucleo.mjs';
 import { crearGuia } from '../supabase/funciones/guia/api.js';
 import { crearArchivos } from '../supabase/funciones/archivos/api.js';
@@ -32,6 +35,15 @@ export const ecoDeLaGuia = async ({ mensajes, contexto, modelo }) => {
   const lineas = contexto.split('\n').slice(0, 3).join('\n');
   return { texto: '(guía de prueba) ' + pregunta + ' [' + modelo + ']\n' + lineas, uso: { entrada: contexto.length, salida: 0 } };
 };
+
+/** La clave del «relé» de prueba (falsa) que figura en el recibo de llegada. */
+export const RELE_DE_PRUEBA = createHash('sha256').update('rele de prueba').digest('hex');
+
+/** El recibo de llegada de prueba de una fila: el `recibido` del servidor, el relé falso y una «firma» determinista (falsa). */
+export function reciboDePrueba(fila) {
+  const sha = (x) => createHash('sha256').update(x).digest('hex');
+  return { instante: fila.recibido, rele: RELE_DE_PRUEBA, firma: sha('firma' + fila.id) + sha('firma2' + fila.id), recibo: sha('recibo' + fila.id) };
+}
 
 /**
  * El almacén en memoria (api.js dice qué ofrece cada método). `archivo`
@@ -95,6 +107,11 @@ export function almacenEnMemoria({ archivo, ahora = () => new Date() } = {}) {
       const a = archivos.get(eje + '/' + id);
       return a ? { tipo: a.tipo, bytes: new Uint8Array(a.bytes) } : null;
     },
+    /** El recibo de llegada de prueba de un evento del eje, o null (solo para /eventos/recibo). */
+    async recibo(eje, id) {
+      const f = lista(eje).find((x) => x.id === id);
+      return f ? reciboDePrueba(f) : null;
+    },
     /** Solo para las pruebas: las filas de un eje, por llegada. */
     filas(eje) {
       return lista(eje).map((f) => ({ ...f }));
@@ -121,11 +138,25 @@ export async function arrancar({ puerto = 0, archivo, secreto = process.env.AGRA
   const manejarEjes = crearApi({ almacen, cripto: criptoNucleo, crearEjes: { secreto }, ahora, ...opciones });
   const manejarGuia = crearGuia({ almacen, llamar: ecoDeLaGuia, ahora, ...(opciones.preguntasPorMinuto ? { preguntasPorMinuto: opciones.preguntasPorMinuto } : {}) });
   const manejarArchivos = crearArchivos({ almacen, ahora, ...(opciones.limiteArchivo ? { limite: opciones.limiteArchivo } : {}) });
+  // /eventos/recibo: la misma autorización que GET /eventos (la clave de lectura del eje).
+  const manejarRecibo = async (request) => {
+    const responder = (estado, cuerpo) => new Response(JSON.stringify(cuerpo), { status: estado, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+    if (request.method !== 'GET') return responder(405, { error: 'solo GET' });
+    const url = new URL(request.url);
+    const nombre = url.searchParams.get('eje') ?? '';
+    const fila = await almacen.eje(nombre);
+    if (!fila) return responder(404, { error: 'eje desconocido: ' + nombre });
+    const clave = request.headers.get('x-clave-lectura');
+    if (!clave || (await hashDeClave(clave)) !== fila.clave_lectura_hash) return responder(401, { error: 'clave de lectura ausente o incorrecta' });
+    const recibo = await almacen.recibo(nombre, url.searchParams.get('id') ?? '');
+    return recibo ? responder(200, recibo) : responder(404, { error: 'sin recibo para ese id en ese eje' });
+  };
   // /guia (la función `guia` de Supabase) responde con el eco; /archivos y /archivos/<id> (la función `archivos`), en
   // memoria; todo lo demás, el libro compartido.
   const manejar = (request) => {
     const camino = new URL(request.url).pathname.replace(/\/+$/, '');
     if (camino.endsWith('/guia')) return manejarGuia(request);
+    if (camino.endsWith('/eventos/recibo') && request.method !== 'OPTIONS') return manejarRecibo(request);
     if (/\/archivos(\/[^/]+)?$/.test(camino)) return manejarArchivos(request);
     return manejarEjes(request);
   };

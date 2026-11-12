@@ -296,3 +296,34 @@ test('sin red desde el principio: nada falla, todo queda en cola, y SinRed es di
   await assert.rejects(S.subir(eje.obtener(eje.genesisId)), SinRed);
   await assert.rejects(S.bajar(), SinRed);
 });
+
+test('el recibo de llegada (X.6.8.1): el servidor de prueba sirve /eventos/recibo y la sincronía lo pone en el eje, al subir y al bajar, sin tocar el evento; sin clave, 401; id desconocido, 404', async () => {
+  const claveLectura = await crearEje('recibo');
+  const cuenta = await generarClaves();
+  const ejeA = await Eje.genesis({ identidad: 'vg', foco: ['mi eje'], t: T(0), clave: cuenta.publica, privada: cuenta.privada, exigirFirmas: true });
+  const A = new Sincronia({ url: servidor.url, eje: 'recibo', claveLectura, ahora });
+  const B = new Sincronia({ url: servidor.url, eje: 'recibo', claveLectura, ahora });
+  const e1 = await ejeA.escribir({ autor: 'vg', sobre: ejeA.genesisId, t: T(1), movimientos: [minuto('vg')], payload: ['uno'] }, cuenta.privada);
+  const firma = e1.firma;
+
+  let informe = await A.sincronizar(ejeA);
+  assert.deepEqual(informe.recibos.recibidos, [ejeA.genesisId, e1.id]);
+  const r = ejeA.recibo(e1.id);
+  assert.equal(r.instante, A.recibido(e1.id), 'el instante del recibo es el `recibido` del servidor');
+  assert.match(r.rele, /^[0-9a-f]{64}$/);
+  assert.deepEqual(evaluar('=(first it.6).8.1', new ContextoEje(ejeA), { sujeto: e1.id }).valor, [r.instante, r.rele]);
+  assert.equal(ejeA.obtener(e1.id).firma, firma, 'la firma, intacta');
+
+  // B baja el eje: sus recibos llegan igual.
+  informe = await B.sincronizar(null);
+  assert.deepEqual(informe.recibos.recibidos.sort(), [ejeA.genesisId, e1.id].sort());
+  assert.deepEqual(informe.eje.recibo(e1.id), r);
+
+  // La ruta: la misma autorización que GET /eventos.
+  const pedir = (id, cab) => fetch(servidor.url + '/eventos/recibo?eje=recibo&id=' + id, { headers: cab });
+  assert.equal((await pedir(e1.id, {})).status, 401);
+  assert.equal((await pedir(e1.id, { 'X-Clave-Lectura': 'x' })).status, 401);
+  assert.equal((await pedir('e'.repeat(64), { 'X-Clave-Lectura': claveLectura })).status, 404);
+  assert.equal((await fetch(servidor.url + '/eventos/recibo?eje=nadie&id=' + e1.id, { headers: { 'X-Clave-Lectura': claveLectura } })).status, 404);
+  assert.equal((await fetch(servidor.url + '/eventos/recibo?eje=recibo&id=' + e1.id, { method: 'POST', headers: { 'X-Clave-Lectura': claveLectura } })).status, 405);
+});
