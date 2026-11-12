@@ -201,7 +201,7 @@ test('vistas: A.1 es la cartera por serie (1 disponible, 2 bloqueado por salida)
   assert.equal(uno('("cocina").1.("T:hora").1', ctx), 18, 'la cosa conserva el T que le dio su persona');
   assert.equal(uno('("huesped").7.2', ctx), 1, 'una hora gastada el día de la compra');
   assert.equal(uno('("huesped").7.1', ctx), 1, 'el minuto de escribir su propia alta (B1)');
-  assert.equal(uno('("casa").7.1', ctx), 255, 'la casa gastó 15 minutos escribiendo (su emisión inicial, la invitación y las altas, por lo que la regla del coste exige por sus posiciones) y dio 240 a la cocina');
+  assert.equal(uno('("casa").7.1', ctx), 253, 'la casa gastó 13 minutos escribiendo (su emisión inicial, la invitación y el alta de cocina, por lo que la regla del coste exige por sus posiciones) y dio 240 a la cocina');
   assert.deepEqual(val('("huesped").7.8', ctx), [], 'las informativas no se gastan de ninguna asignación');
   // Al día siguiente, la asignación empieza entera: lo gastado vuelve a 0.
   const mañana = new ContextoEje(eje, { ev: { autor: 'huesped', sobre: compra.id, t: '2026-11-08T09:00:00Z', movimientos: [], payload: ['mañana'] } });

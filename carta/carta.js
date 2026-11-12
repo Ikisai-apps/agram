@@ -434,7 +434,7 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
   if (secuencia && rejilla && nivel >= NIVEL.bloque) {
     // Sequenced (el móvil en vertical): la fila abierta enseña el segundo nivel del PV como Mapped (rejillaDe: los hijos con
     // su nombre, sus ocupantes y la regla del vacío), entrando y subiendo por estado.profundidad; en una columna si no cabe.
-    const r = rejillaDe(eje, X, pv, ctx, { ruta: rutaDe(ctx.estado, eje, pv, ctx.opciones), pagina: ctx.estado.paginas?.[pv] ?? 1, hueco, entrar: true });
+    const r = rejillaDe(eje, X, pv, ctx, { ruta: rutaDe(ctx.estado, eje, pv, ctx.opciones), pagina: ctx.estado.paginas?.[pv] ?? 1, hueco, entrar: true, modo: 'sequenced' });
     if (r) {
       r.enColumna = enColumnaDe(r, medidas, hueco);
       if (r.forma === 'matriz') r.escribir = accionPorDefecto(eje, r.X, pv, ctx);
@@ -1599,8 +1599,8 @@ function rangoDeR(eje, R, ctx) {
  * animado dan el mismo árbol de la rejilla; en animado, capasDeRejilla solo le añade sus capas). → { pv, forma, columnas, filas, niveles, nivel, entra, ruta, X, estilo,
  * pagina, celdas, flotante?, ejes? } o { …, bandas, sinBanda, hilos?, cuota?, enElFoco?, camino?, madurez? } o null.
  */
-function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1, alto: 1 }, entrar = true } = {}) {
-  const d = contrato.divisionDelMundo(eje, pv, { nivel: ruta.length + 1, ...ctx.opciones });
+function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1, alto: 1 }, entrar = true, modo = 'mapped' } = {}) {
+  const d = contrato.divisionDelMundo(eje, pv, { nivel: ruta.length + 1, modo, ...ctx.opciones }); // la forma es la del modo (epoch.8.7, #52)
   const g = d ? geometriaDe(d) : null;
   if (!g || g.columnas * g.filas <= 0) return null;
   const pasos = ruta.map((p) => (typeof p === 'string' ? { X: p, d: null } : p));

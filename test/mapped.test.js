@@ -78,7 +78,7 @@ test('mapa: alcance con los tres números de Mapped; cuenta el contenido real de
   const m = mapa(eje, compra.id);
   const traidos = [eje.obtener(m.foco), ...m.hilo, ...m.hijos];
   assert.deepEqual(m.alcance, { conseguido: traidos.reduce((n, e) => n + contenido(e.payload), 0), minimo: 100, maximo: 1000, alMinimo: false }); // el ejemplo es pequeño: se dice, no es error
-  assert.equal(m.alcance.conseguido, 21); // compra 11 (con la plantilla de cerrado en su 2 y su plantilla en su 5), menú 6, altas 3 y el génesis, un terminal, 1
+  assert.equal(m.alcance.conseguido, 19); // compra 11 (con la plantilla de cerrado en su 2 y su plantilla en su 5), menú 6, el alta de cocina 1 y el génesis, un terminal, 1
   assert.equal(m.corte, null);
   assert.deepEqual(m.avisos, []);
   // Una cadena larga: el foco y diez de su hilo, de diez posiciones cada uno: 110, por encima del mínimo.
@@ -150,7 +150,7 @@ test('celda 8: ocho() lee la base escrita del 8 por cantidades; sin ella, el res
   assert.ok(textoOcho(despues).startsWith('8 · hermanos · base ' + base.id.slice(0, 8) + ' (sin novedades) · n 4'));
   // Con las altas de huesped y vecina, que escriben ellas (B1); encargo 3b: entran aceptando la invitación de la casa, y
   // la emisión inicial de la casa es una transacción suya sobre el génesis.
-  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 17);
+  assert.equal(ocho(eje, ej.guisos.id, { alcance: 'general' }).n, 18);
   // El génesis no tiene hermanos.
   const g = ocho(eje, eje.genesisId);
   assert.deepEqual([g.estado, g.cantidades, g.recuentos], ['PENDIENTE', [], []]);

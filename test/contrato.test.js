@@ -846,3 +846,32 @@ test('verificado: además del sello, trae la altura de su bloque, la profundidad
   // leer del 5 lo trae igual.
   assert.equal(C.leer(eje, compra.id, 5).verificado.profundidad, 6);
 });
+
+test('formaDe: las formas van por modo en epoch.8.7 (VG 12-11, #52): una hoja por modo, «-» hereda del modo anterior, cinco modos', () => {
+  assert.deepEqual(C.modos().map((m) => m.nombre), ['Pointed', 'Sequenced', 'Mapped', 'Scened', 'Be'], 'cinco modos, en el orden de epoch.8.2');
+  // la posición 3 de cada fila es una lista con una hoja por modo (no una décupla: solo hojas)
+  for (const f of EPOCA_0_BTML.registro[8][7][1]) assert.ok(f[3].length === 5 && f[3].every((h) => typeof h === 'string'), 'una hoja por modo: ' + JSON.stringify(f[0]));
+  // lo de hoy: Mapped y Sequenced se ven como siempre; Pointed no declara forma
+  assert.deepEqual([1, 2, 3, 4, 6, 7, 8, 9].map((pv) => C.formaDe(null, pv, 'mapped').forma), ['cruceta', 'escalera', 'rejilla', 'matriz', 'franjas', 'franjas', 'cielo', 'camino']);
+  assert.deepEqual([1, 2, 3, 4, 6, 7, 8, 9].map((pv) => C.formaDe(null, pv, 'sequenced').forma), ['cruceta', 'escalera', 'rejilla', 'matriz', 'franjas', 'franjas', 'cielo', 'camino']);
+  assert.deepEqual(C.formaDe(null, 2, 'pointed'), { forma: null, formas: [], de: null }, 'Pointed no declara forma y no hay modo anterior');
+  // los niveles dentro de la hoja; la última forma se repite
+  assert.deepEqual(C.formaDe(null, 2, 'mapped', { nivel: 1 }), { forma: 'escalera', formas: ['escalera', 'columnas'], de: 'mapped' });
+  assert.deepEqual([1, 2, 5, 99].map((nivel) => C.formaDe(null, 2, 'mapped', { nivel }).forma), ['escalera', 'columnas', 'columnas', 'columnas']);
+  // herencia hacia abajo: Scened ← Mapped y Be ← Scened («-» en los datos)
+  assert.deepEqual(C.formaDe(null, 3, 'scened'), { forma: 'rejilla', formas: ['rejilla', 'conversacion'], de: 'mapped' });
+  assert.deepEqual(C.formaDe(null, 3, 'be'), { forma: 'rejilla', formas: ['rejilla', 'conversacion'], de: 'mapped' });
+  assert.equal(C.formaDe(null, 11, 'mapped'), null, 'sin fila, la época no dice nada del PV');
+  assert.throws(() => C.formaDe(null, 1, 'inventado'), /modo desconocido/);
+  assert.equal(C.formaDe(null, 1, 'MAPPED').forma, 'cruceta', 'el nombre del modo no distingue mayúsculas');
+  // sin modo, el de siempre: Mapped (la fila de hoy); divisionDelMundo lo lee con la misma herencia y dice de qué modo
+  assert.equal(C.divisionDelMundo(null, 2).forma, 'escalera');
+  assert.deepEqual(['pointed', 'sequenced', 'mapped', 'scened', 'be'].map((modo) => C.divisionDelMundo(null, 1, { modo }).forma), [null, 'cruceta', 'cruceta', 'cruceta', 'cruceta']);
+  // la herencia es de los datos: una época con otras hojas la cambia (Pointed con la suya, Mapped heredando de Sequenced, Be con la suya)
+  const otra = epocaCon((e) => { e[8][7][1].find((f) => f[0][0] === 1)[3] = ['fila', 'columnas', '-', '-', 'cielo']; });
+  const por = (modo) => C.formaDe(null, 1, modo, { epoca: otra });
+  assert.deepEqual(['pointed', 'sequenced', 'mapped', 'scened', 'be'].map((m) => [por(m).forma, por(m).de]), [['fila', 'pointed'], ['columnas', 'sequenced'], ['columnas', 'sequenced'], ['columnas', 'sequenced'], ['cielo', 'be']]);
+  // una lista más corta que los modos deja los últimos heredando
+  const corta = epocaCon((e) => { e[8][7][1].find((f) => f[0][0] === 1)[3] = ['cruceta']; });
+  assert.deepEqual(['pointed', 'mapped', 'be'].map((m) => C.formaDe(null, 1, m, { epoca: corta }).de), ['pointed', 'pointed', 'pointed']);
+});

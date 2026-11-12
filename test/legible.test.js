@@ -121,7 +121,7 @@ test('legible: precio, serie, instante, identidad, referencia, décupla, lista, 
   assert.equal(L([undefined, [1], ['x']], 'tenfold').texto, 'registro de 2 posiciones');
   assert.equal(L([undefined, [1], ['x']], 'tenfold', { idioma: 'en' }).texto, 'record of 2 positions');
   // Una lista: sus ocupantes, legibles.
-  assert.equal(L(['huesped', 'cocina'], 'identity').texto, 'Alta de huesped · Altas del fin de semana');
+  assert.equal(L(['huesped', 'cocina'], 'identity').texto, 'Alta de huesped · cocina');
   assert.equal(L(['pagar', 'servir']).texto, 'pagar · servir');
   // Una cantidad de token (un asiento): cuánto y la serie.
   assert.equal(L({ primitiva: 'transferir', serie: 'E:casa/EUR', cantidad: 12 }).texto, '12 EUR');
@@ -228,7 +228,7 @@ test('el árbol de la carta para la compra en es no lleva ninguna cadena que emp
   const campo = (n) => f.campos.find((c) => c.nombre === n);
   assert.deepEqual([campo('what').etiqueta, campo('what').legible, campo('what').simple], ['qué', 'Menú del día', true]);
   assert.deepEqual([campo('price').etiqueta, campo('price').simple], ['precio', false]);
-  assert.deepEqual([campo('who').legible, campo('actions').legible, campo('type').legible], ['Alta de huesped · Altas del fin de semana', 'aplicar un recurso', 'compra']);
+  assert.deepEqual([campo('who').legible, campo('actions').legible, campo('type').legible], ['Alta de huesped · cocina', 'aplicar un recurso', 'compra']);
   assert.equal(campo('quantity').ayuda, 'cuántas unidades');
   // El HTML: sin nombres de acciones en inglés ni [[, el crudo en «ver en BTML» y los textos de la interfaz en español.
   const h = html(a);

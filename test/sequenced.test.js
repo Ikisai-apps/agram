@@ -25,15 +25,15 @@ test('hilo del ejemplo: cuatro décuplas, la más cercana primero', async () => 
   assert.equal(seq.total, 4);
   assert.deepEqual(
     seq.decuplas.map((d) => d.terminal ?? d.posiciones[0].contenido), // el génesis del ejemplo es un terminal
-    ['Compra del menú del día', 'Menú del día', 'Altas del fin de semana', 'Casa de ejemplo'],
+    ['Compra del menú del día', 'Menú del día', 'cocina', 'Casa de ejemplo'],
   );
 });
 
 test('hijos del génesis del ejemplo', async () => {
   const { eje, alta } = await ejemploCompra();
   const seq = secuencia(eje, eje.genesisId, { sentido: 'hijos' });
-  // Encargo 3b: la emisión inicial de la casa, su invitación a la huésped (anclada en el 3 de su alta, el génesis) y las
-  // altas de la casa. El alta de la huésped cuelga de la invitación que acepta (mapa §16 [D], «El árbol mínimo es la
+  // Encargo 3b: la emisión inicial de la casa, su invitación a la huésped (anclada en el 3 de su alta, el génesis), el alta
+  // de cocina (que da también euros a la huésped). El alta de la huésped cuelga de la invitación que acepta (mapa §16 [D], «El árbol mínimo es la
   // invitación»), no del génesis.
   assert.equal(seq.total, 3);
   const invitacion = eje.obtener(eje.alta('huesped').id).sobre;
@@ -79,10 +79,10 @@ test('secuencia: alcance con los tres números de Sequenced; mínimo no consegui
   // Nada escrito sobre el último: no llega al mínimo, y no es error.
   assert.deepEqual(secuencia(eje, ultimo, { sentido: 'hijos' }).alcance, { conseguido: 0, minimo: 10, maximo: 100, alMinimo: false });
   assert.equal(secuencia(eje, ultimo, { maximo: 3 }).alcance.conseguido, 3);
-  // El ejemplo: compra 10 (encargo 3b: su 2 nombra también la plantilla de cerrado), menú 6, altas 3 y el génesis, un
+  // El ejemplo: compra 10 (encargo 3b: su 2 nombra también la plantilla de cerrado), menú 6, la alta de cocina 1 y el génesis, un
   // terminal, 1.
   const { eje: ej, compra } = await ejemploCompra();
-  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 21); // (encargo 3c-1: su 5 nombra su plantilla, «purchase»)
+  assert.equal(secuencia(ej, compra.id).alcance.conseguido, 19); // (encargo 3c-1: su 5 nombra su plantilla, «purchase»)
 });
 
 // VG, 7-11 noche (10.2): todos cortan duro, también Sequenced, con el aviso de Scened.

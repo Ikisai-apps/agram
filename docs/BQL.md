@@ -676,7 +676,7 @@ FRESCURA("general")              → 1
 FRESCURA()                       → 0
 comprobar(la base del menú).alDia → false
 --- límites y autorización
-FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 24 registros y quedan 18 pasos de presupuesto
+FRESCURA("general")              → PENDIENTE POR LÍMITE: el alcance general (8 de <génesis>) exige examinar al menos 25 registros y quedan 18 pasos de presupuesto
 CAJA("formulasPendientes")       → ERROR: CAJA: formulasPendientes es un recuento informativo: el 8 solo sitúa y compara cantidades (R7)
 ```
 
