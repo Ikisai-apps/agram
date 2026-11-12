@@ -4,7 +4,6 @@
 // toca el núcleo: solo lo enseña.
 
 import { indicesDe } from '../../src/btml.js';
-import { recomendacionDeEscala } from '../../src/tiempo.js';
 
 export function escapar(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -84,16 +83,6 @@ export function htmlCifras(nombre, alcance) {
   const titulo = 'posiciones con contenido: las que trae esta vista · el mínimo que intenta el modo · el máximo que puede representar y emitir'
     + (alcance.alMinimo === false ? ' (no llega al mínimo: no hay más información)' : '');
   return `<span class="cifras${bajo}" title="${escapar(titulo)}">${escapar(nombre)} · ${escapar(textoCifras(alcance))}</span>`;
-}
-
-/**
- * La recomendación de escala de T de un registro recién escrito (VG, 8-11:
- * si lo emitido se sale del orden de la escala gastada, se recomienda la de
- * orden superior; nunca se rechaza): una línea discreta, o nada.
- */
-export function htmlRecomendacionT(ev) {
-  const r = recomendacionDeEscala(ev);
-  return r ? `<div class="pista recomendacion-t">${escapar(r.texto[0].toUpperCase() + r.texto.slice(1))}.</div>` : '';
 }
 
 /**

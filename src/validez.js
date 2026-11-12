@@ -29,7 +29,6 @@ import { RAIZ, validarForma, verificarId, esPresente } from './evento.js';
 import { verificar, verificarPosesion, clavePublicaValida } from './autoridad.js';
 import { claveToken, validarMovimiento, asignacionT, AMBITO_GENESIS, raizDeAmbito } from './tokens.js';
 import { EMITEN_V2, motivoTipo, motivoAjenos, gastaAsignacion, esInformativoT, repartirGastoT, T_NO_SE_EMITE, SIN_TIPO } from './ciclo.js';
-import { incongruenciaDe } from './tiempo.js';
 import { EPOCA_0, EPOCA_0_BTML, leerDireccion } from './epocas.js';
 import { evaluar, consultar, esFormula } from './bql.js';
 import { seguir } from './encaje.js';
@@ -282,8 +281,7 @@ function capaInterpretacion(eje, vista, ev, id) {
     referencias.length ? resueltas + ' de ' + referencias.length + ' referencias resuelven' : 'sin referencias',
     ...(hondo ? ['más de diez profundidades'] : []),
   ].join(' · ');
-  // La escala del T gastado frente al tamaño de lo emitido (VG, 7-11 noche): se enseña, nunca falla.
-  return parte(2, r.estado, r.textos, resumen, { formulas, referencias, incongruenciaT: incongruenciaDe(ev) });
+  return parte(2, r.estado, r.textos, resumen, { formulas, referencias });
 }
 
 // ---------- 3 · criptografía y procedencia ----------

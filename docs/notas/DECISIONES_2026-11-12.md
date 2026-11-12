@@ -18,7 +18,7 @@ Cada nota tiene cuatro líneas: *Qué se decidió*, *Por qué* (lo que dice la f
 | 2. El 3: admisión, grupos, mínimos y personaje | #29, #31, #32, #33, #34 (sustituida), #35, #37, #38, #46 |
 | 3. El 4, la escalera y el rango | #39, #40, #41, y las decisiones 7 y 8 del estudio (en #49) |
 | 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50 |
-| 5. Tiempo e incongruencia | #42, decisión 4 de #49 (los tres relojes, `X.6.8`) |
+| 5. Tiempo e incongruencia | #42, #65, decisión 4 de #49 (los tres relojes, `X.6.8`) |
 | 6. Pantalla | #23 |
 
 Al final: «Lo que queda abierto» y «Lo que las fuentes no dicen o dicen distinto».
@@ -245,6 +245,13 @@ Pruebas de 1 a 4 y 9: las del paso 1 y 2 del estudio (ver #43). Para 5 a 8, las 
 - **Por qué.** Solo los tres relojes pueden estar realmente fuera de orden.
 - **Qué cambia.** Quitar `incongruente`/`franjaDeEntrada` por escala del núcleo y de la carta; dejar el hueco para los tres relojes. Rama `beta-bqllee`.
 - **Pruebas.** La fuente no las nombra: deben cubrir que ya no se marca incongruencia por escala y que `cuenta-rara` no salta con un solo reloj.
+
+### #65 — Se retira también la «escala frente a tamaño» del núcleo; queda `escalaQueCubre` (DECIDIDO VG 12-11)
+
+- **Qué se decidió.** #42 quitó la incongruencia de escala de la carta y de `contrato.js`, pero el núcleo conservaba `tiempo.incongruenciaDe` (con `incongruenciaT` en `validez`) y `tiempo.recomendacionDeEscala` (decisión del 8-11). VG 12-11: **se retiran las dos**; la única incongruencia del núcleo es «clocks out of order» (los tres relojes de `X.6.8`). El cálculo de la recomendación no se pierde: pasa a ser `tiempo.escalaQueCubre(posiciones)` (orden de magnitud de lo emitido → escala del calendario que lo cubre), una utilidad del 4 para proponer la denominación de T al ejecutar (decisión 7 de #49, tema 3).
+- **Por qué.** La escala ya no la declara el autor a ojo sino que la propone el 4 a partir de lo emitido, así que el desajuste no puede darse salvo por fallo del propio 4: eso es cosa de una prueba, no de una marca al usuario.
+- **Qué cambia.** `src/tiempo.js` (fuera `incongruenciaDe` y `recomendacionDeEscala`; entra `escalaQueCubre`), `src/validez.js` (la interpretación ya no lleva `incongruenciaT`), `antigua/` (fuera `htmlRecomendacionT` y la línea tras escribir), `docs/CONTRATO.md`, `docs/FUNDAMENTOS.md`, `docs/MODOS.md`, `docs/notas/NEUTRALIDAD_IDENTIDAD.md` (C16), `docs/notas/INVENTARIO_REGLAS.md` (TT-13 retirada, TT-14 reconvertida). Rama `beta-sinescala`.
+- **Pruebas.** Retirada la de `incongruenciaDe` (`test/t-consumido.test.js`); la de la recomendación de `test/ui.test.js` pasa a probar `escalaQueCubre` (fronteras 0, 1, 10, 11, 100, 1000, 1001, 10^7 y el desborde).
 
 ### Los tres relojes en `X.6.8` (decisión 4 de #49, DECIDIDO VG)
 
