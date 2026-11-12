@@ -313,6 +313,7 @@ function htmlSiguiente(s) {
 /** Lo de dentro de un hijo con ocupantes, según la forma de su mundo: la tabla de la cruceta, la conversación, la lista (con el nivel siguiente en las columnas). */
 function cuerpoDeHijo(c, forma) {
   const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
+  if (!lista.length && Number.isInteger(c.capaDelTres)) return `<span class="hijo-vacio">${escapar(t('capaVacia'))}</span>`; // una capa de la conversación del 3 (encargo pv3): nada que escribir ahí
   if (!lista.length) return c.vacio ? htmlEscribir(c.escribir) : '';
   if (forma === 'cruceta') return `<table class="hijo-tabla"><tbody>${lista.map(htmlFilaDeTabla).join('')}</tbody></table>`;
   if (forma === 'conversacion') return `<ol class="conversacion">${lista.map((o) => `<li${marcaDerivado(o)}>${htmlMensaje(o)}</li>`).join('')}</ol>`;

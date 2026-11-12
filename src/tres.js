@@ -338,7 +338,8 @@ export function conversacionDelTres(eje, X, persona, { caja } = {}) {
       ids = todos.filter((W) => enLoDelOtro(W) || conT(W)).map((W) => W.id);
     } else if (capa === 3) {
       const darR = (W, de, a) => W.autor === de && (W.movimientos ?? []).some((m) => m?.token === 'R' && m.emisor === de && m.de === de && m.a === a);
-      ids = todos.filter((W) => W.sobre && ((darR(W, O, P) && eje.obtener(W.sobre)?.autor === P) || (darR(W, P, O) && eje.obtener(W.sobre)?.autor === O))).map((W) => W.sobre);
+      // (sobre un registro, no sobre un alta: escribir a alguien también le da R, y eso es el chat)
+      ids = todos.filter((W) => W.sobre && !esAltaDe(eje, W.sobre) && ((darR(W, O, P) && eje.obtener(W.sobre)?.autor === P) || (darR(W, P, O) && eje.obtener(W.sobre)?.autor === O))).map((W) => W.sobre);
     } else if (capa === 2) {
       const prestado = c.alta ? (eje.sobreDe?.(c.alta, direccion([2, 3]), new Set([O])) ?? []).some((e) => textosDe(e.payload).includes(P)) : false;
       ids = todos.filter((W) => primerDigito(W.en) === 2 && W.sobre && ((W.autor === P && (prestado || eje.obtener(W.sobre)?.autor === O)) || (W.autor === O && eje.obtener(W.sobre)?.autor === P))).map((W) => W.id);

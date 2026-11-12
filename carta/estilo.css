@@ -1055,8 +1055,8 @@ html.mapped body{padding:0}
 .sitio-cruceta h2{margin:0;font-size:16px;display:flex;align-items:center;gap:8px}
 .sitio-icono{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:color-mix(in oklab,var(--accent) 18%,var(--bg));border:1px solid var(--accent);font-size:13px}
 .sitio-posiciones{list-style:none;margin:0;padding:0;display:grid;gap:6px;grid-template-columns:repeat(3,minmax(0,1fr))}
-.sitio-celda{grid-row:var(--fila);grid-column:var(--columna);display:grid;gap:6px;min-width:0}
-.sitio-posicion{display:grid;gap:3px;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 8%,var(--bg));font-size:12px}
+.sitio-celda{grid-row:var(--fila);grid-column:var(--columna);display:grid;gap:6px;min-width:0;align-content:start}
+.sitio-posicion{display:grid;gap:3px;align-content:start;min-width:0;padding:6px 8px;border-radius:8px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));background:color-mix(in oklab,var(--c,var(--rule)) 8%,var(--bg));font-size:12px}
 .sitio-posicion .numero{font-size:10px;font-weight:700;justify-self:start;padding:0 5px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent)}
 .sitio-posicion .nombre{font-weight:600}
 .sitio-posicion .valor{color:var(--muted);overflow-wrap:anywhere}

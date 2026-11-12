@@ -189,6 +189,7 @@ export const TEXTOS = Object.freeze({
     capaCriterios: 'paquetes de criterios',
     capaFavoritos: 'favoritos',
     capaTrabajo: 'trabajo',
+    capaVacia: 'nada todavía',
     sitioTitulo: 'el sitio {lugar}: su configuración (la cruceta del propio nodo)',
     sitioDe: 'sitio {lugar} de {que}',
     reclasificado: '{que} a la caja {caja}',

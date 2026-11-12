@@ -1313,7 +1313,7 @@ function celdasDeConversacion(eje, R, pv, d, g, ctx, opciones) {
   const sobrio = sobrioDe(ctx);
   const celdas = c.capas.map((k, i) => {
     const ocupantes = k.items.map((it) => ({ ...nodoOcupante(eje, { ref: it.ref }, tamanoDeNivel(2, ctx.opciones), sobrio, null, { pv: k.capa, lado: GEOMETRIA[k.capa]?.lado ?? 0, posicion: k.capa, anidar: 0 }), ...(it.estado ? { estado: it.estado } : {}), entra: false }));
-    return { fila: i, columna: 0, pv: k.capa, capa: k.capa, nombre: t(CAPAS[k.capa]), vacio: ocupantes.length === 0, total: ocupantes.length, ocupantes, ocupante: ocupantes[0] ?? null, entra: false, escribir: null };
+    return { fila: i, columna: 0, pv: k.capa, capaDelTres: k.capa, nombre: t(CAPAS[k.capa]), vacio: ocupantes.length === 0, total: ocupantes.length, ocupantes, ocupante: ocupantes[0] ?? null, entra: false, escribir: null };
   });
   return { celdas, vacia: celdas.every((x) => x.vacio), pagina: null, columnas: 1, filas: Math.max(1, celdas.length), persona: { identidad: c.persona, texto: c.texto, caja: c.caja, nombre: c.nombre, alta: R } };
 }
