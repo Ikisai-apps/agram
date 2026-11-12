@@ -102,6 +102,32 @@ export function ajustesEditablesDe(nombre, eje, yo, valores = {}, opciones = {})
   return { payload, campos, sobre: alta.id, en: direccion([9]), cambiado: cambiado && payload !== null };
 }
 
+/** Una clave x-only: 64 caracteres hexadecimales. */
+const RE_CLAVE_X = /^[0-9a-f]{64}$/i;
+
+/**
+ * Los avisos de lo escrito en un formulario de ajustes antes de guardarlo (repaso beta #13): un número que no lo es (o,
+ * con `positivo`, que no es mayor que 0) y unas claves del observador que no son x-only (64 hex). Sin esto, el ajuste
+ * volvía al defecto o se guardaba tal cual sin decir nada. `campos`: los de ajustesEditablesDe o preferencias
+ * ({ clave, etiqueta, numero }); `valores`: { clave: texto }. → [texto del aviso] (vacío: todo en regla).
+ */
+export function avisosDeAjustes(campos, valores, { positivo = true } = {}) {
+  const avisos = [];
+  for (const c of campos ?? []) {
+    const dado = valores?.[c.clave] === undefined ? '' : String(valores[c.clave]).trim();
+    if (dado === '') continue;
+    // Una lista de números (los tamaños, «1 2 3») vale si cada uno lo es.
+    const malos = c.numero ? dado.split(/\s+/).filter((x) => !(Number.isFinite(Number(x)) && (!positivo || Number(x) > 0))) : [];
+    if (malos.length) {
+      avisos.push(t(positivo ? 'ajusteNoEsNumero' : 'ajusteNoEsNumeroSimple', { ajuste: c.etiqueta ?? c.clave, valor: malos.join(' ') }));
+    } else if (c.clave === 'observer keys') {
+      const mal = dado.split(/\s+/).filter((x) => !RE_CLAVE_X.test(x));
+      if (mal.length) avisos.push(t('ajusteNoEsClave', { ajuste: c.etiqueta ?? c.clave, valor: mal.join(' ') }));
+    }
+  }
+  return avisos;
+}
+
 /** Las preguntas hechas de la época (los botones rápidos), en el idioma. */
 export function preguntasRapidas(eje, idioma, opciones = {}) {
   return contrato.guia(eje, idioma, opciones)?.preguntas ?? [];

@@ -380,7 +380,7 @@ test('la cruceta trae cuatro celdas (las esquinas) y el pulsado como tarjeta cen
   assert.match(h, /class="flotante-cara cara-0">[\s\S]*data-girar[\s\S]*class="flotante-cara cara-5" aria-hidden="true">[\s\S]*data-girar/, 'cara 0 y cara 5, cada una con su ↻');
   assert.match(h, /class="flotante-barra" style="--lleno:0\.\d+"/, 'la medida con «de» lleva su barra');
   // las esquinas: la tarjeta del hijo (nombre, total) y su tabla; la décupla, una columna por hoja
-  assert.match(h, /data-pv="1"[^>]*><header class="hijo-cabeza"><span class="numero">1<\/span><span class="hijo-nombre">cuánto<\/span><span class="hijo-cifra">\d+<\/span><button type="button" class="sitio-interrogante"[^>]*data-sitio="1\.1" data-sitio-x="[0-9a-f]{64}"[^>]*>\?<\/button><\/header><div class="hijo-cuerpo"><table class="hijo-tabla">/);
+  assert.match(h, /data-pv="1"[^>]*><header class="hijo-cabeza"><span class="numero">1<\/span><span class="hijo-nombre" title="cuánto">cuánto<\/span><span class="hijo-cifra">\d+<\/span><button type="button" class="sitio-interrogante"[^>]*data-sitio="1\.1" data-sitio-x="[0-9a-f]{64}"[^>]*>\?<\/button><\/header><div class="hijo-cuerpo"><table class="hijo-tabla">/);
   // en un bloque, la misma rejilla sin tarjeta flotante
   const e = escalaDeTamanos();
   const b = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: Object.fromEntries(LATERALES.map((pv) => [pv, e.tope])) }, eje, 'huesped', ORDENADOR);
@@ -425,7 +425,7 @@ test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción
     assert.deepEqual(vacio.escribir, defecto ? { id: defecto.id, nombre: defecto.etiqueta } : null);
     const h = rejillaHtml(html(a));
     const texto = defecto ? t('escribirAquiAccion', { accion: defecto.etiqueta }) : t('escribirAqui');
-    assert.ok(h.replace(/<button type="button" class="sitio-interrogante"[^>]*>\?<\/button>/g, '').includes(`data-pv="${vacio.pv}" data-fila="${vacio.fila}" data-columna="${vacio.columna}" data-vacio><header class="hijo-cabeza"><span class="numero">${vacio.pv}</span><span class="hijo-nombre">${vacio.nombre}</span><span class="hijo-cifra"></span></header><div class="hijo-cuerpo"><span class="hijo-vacio">${texto}</span>`), 'nombre apagado y debajo el paso del camino');
+    assert.ok(h.replace(/<button type="button" class="sitio-interrogante"[^>]*>\?<\/button>/g, '').includes(`data-pv="${vacio.pv}" data-fila="${vacio.fila}" data-columna="${vacio.columna}" data-vacio><header class="hijo-cabeza"><span class="numero">${vacio.pv}</span><span class="hijo-nombre" title="${vacio.nombre}">${vacio.nombre}</span><span class="hijo-cifra"></span></header><div class="hijo-cuerpo"><span class="hijo-vacio">${texto}</span>`), 'nombre apagado y debajo el paso del camino');
   }
   // las celdas con ocupantes no lo llevan
   const r = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;

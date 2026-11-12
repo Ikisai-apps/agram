@@ -65,7 +65,7 @@ html{-webkit-text-size-adjust:100%;height:100%}
 body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:16px;line-height:1.4;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-bottom:env(safe-area-inset-bottom,0px);overflow-x:hidden}
 button,input,select{font:inherit;color:inherit}
-button{cursor:pointer;min-height:32px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);padding:4px 10px;max-width:100%;overflow-wrap:anywhere}
+button{cursor:pointer;min-height:32px;border-radius:8px;border:1px solid var(--rule);background:var(--panel);padding:4px 10px;max-width:100%;overflow-wrap:break-word;hyphens:auto}
 button:disabled{opacity:.5;cursor:default}
 button:focus-visible,input:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
 @media (hover:hover){button:hover:not(:disabled){border-color:var(--accent)} .pv.nivel-1:hover .comprimido{border-color:var(--accent)} .ocupante-ref:hover{border-color:var(--accent)}}
@@ -152,7 +152,7 @@ small{color:var(--muted)}
 .ocupantes{list-style:none;margin:0;padding:0;display:grid;gap:4px;min-width:0}
 .ocupantes.disposicion-matrix{grid-template-columns:repeat(3,minmax(0,1fr))}
 .ocupantes li{min-width:0}
-.ocupante{display:block;font-size:14px;overflow-wrap:anywhere;min-width:0}
+.ocupante{display:block;font-size:14px;overflow-wrap:break-word;hyphens:auto;min-width:0} /* repaso beta #7: se parte entre sílabas (lang=es), no a mitad de palabra; anywhere solo donde no cabe de otro modo */
 .ocupante-ref{display:grid;grid-template-columns:auto 1fr;gap:2px 6px;align-items:center;text-align:left;width:100%;padding:6px 8px;border:1px solid var(--rule);background:var(--panel2);border-radius:8px;color:var(--accent)}
 .ocupante-ref .texto{grid-column:2;font-weight:500}
 .ocupante-ref .quien{grid-column:2}
@@ -204,7 +204,7 @@ small{color:var(--muted)}
 .nucleo-cabeza .madurez{background:var(--panel2);border-radius:999px;padding:1px 8px}
 .nucleo-cabeza .quien{flex:1;text-align:right}
 .voltear,.volver{min-height:32px;min-width:32px;border-radius:50%;padding:0;display:inline-flex;align-items:center;justify-content:center;font-size:18px;line-height:1}
-.representacion{margin:0;font-size:1.4rem;font-weight:600;overflow-wrap:anywhere;line-height:1.25}
+.representacion{margin:0;font-size:1.4rem;font-weight:600;overflow-wrap:break-word;hyphens:auto;text-wrap:balance;line-height:1.25}
 .representacion .rep-imagen{max-width:100%;max-height:50vh;display:block;border-radius:8px}
 .nucleo.tamano-1 .representacion{font-size:1.1rem}
 .campos{margin:0;display:grid;gap:6px}
@@ -271,12 +271,16 @@ small{color:var(--muted)}
 .hueco .sitio{display:flex;align-items:stretch;height:100%;box-sizing:border-box;border:2px solid var(--c,var(--rule));border-radius:999px;background:var(--panel);color:var(--fg);overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 @supports (color:color-mix(in oklab,red,blue)){.hueco .sitio{background:color-mix(in oklab,var(--c,var(--panel)) 42%,var(--bg))}}
 .hueco .accion{flex:1;min-width:0;display:flex;align-items:center;gap:5px;border:0;border-radius:0;background:transparent;color:inherit;font-size:12px;line-height:1.1;padding:0 8px 0 4px;min-height:0;text-align:left}
-.hueco .accion .nombre{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.hueco .accion .nombre{min-width:0;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow-wrap:break-word;hyphens:auto} /* repaso #16: hasta dos líneas y, si no cabe, elipsis; el title lleva el nombre entero */
 .hueco .accion small{color:inherit;opacity:.75;font-size:10px}
 .hueco .numero{flex:none;display:inline-grid;place-items:center;width:20px;height:20px;border-radius:50%;background:var(--c,var(--rule));color:var(--bg);font-size:11px;font-weight:700}
 .hueco .pieza{flex:none;width:18px;height:18px}
 .hueco .accion.por-defecto:hover,.hueco .accion.por-defecto:focus-visible{background:color-mix(in oklab,var(--c,var(--accent)) 30%,transparent)}
 .aro:not(.anclado) .hueco .pieza{display:none}
+/* el aro centrado (móvil): sitios de 112 px; sin la cifra y con menos relleno caben palabras enteras (repaso beta #16) */
+.aro:not(.anclado) .hueco .accion{font-size:11px;gap:3px;padding:0 5px 0 3px}
+.aro:not(.anclado) .hueco .cuantas{display:none}
+.aro:not(.anclado) .hueco .numero{width:18px;height:18px;font-size:10px}
 .hueco.apagado .sitio{opacity:.45;background:var(--panel);border-style:dashed}
 /* cuántas cosas despliega el clic mantenido (las demás acciones y los valores): solo una cifra, no un botón */
 .hueco .cuantas{flex:none;margin-left:auto;padding:0 2px;font-size:10px;opacity:.7}
@@ -294,7 +298,7 @@ small{color:var(--muted)}
 /* los formularios */
 .formulario{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:14px;width:min(92vw,480px);max-height:92vh;overflow:auto;display:grid;gap:10px}
 .formulario header{display:flex;justify-content:space-between;align-items:center;gap:8px}
-.formulario h2{margin:0;font-size:1.1rem}
+.formulario h2{margin:0;font-size:1.1rem;text-wrap:balance}
 .formulario .campo label{font-size:14px}
 .formulario .campo .tipo{font-family:var(--mono)}
 .formulario .campo.falta input{border-color:var(--warn)}
@@ -388,6 +392,14 @@ html.mapped body{padding:0}
 .mapa .pv.nivel-2,.mapa .pv.nivel-3{width:100%;cursor:pointer}
 .mapa .pv .ocupantes{min-height:0;overflow:hidden}
 .mapa .pv.nivel-2 .ocupantes{max-height:none}
+/* repaso beta #6: los mandos ocupan su propia franja abajo (no tapan lo de dentro); lo largo se corta con elipsis (el title lleva el texto entero) y el camino del 9 se desplaza dentro de su tarjeta */
+.mapa:not(.completa) .mapa-celdas>.celda>.pv:is(.nivel-2,.nivel-3){padding-bottom:30px}
+.mapa:not(.completa) .pv:is(.nivel-2,.nivel-3) .ocupantes.disposicion-matrix{grid-template-columns:repeat(auto-fit,minmax(min(100%,110px),1fr))} /* en una tarjeta estrecha, dos columnas antes que tres que parten las palabras */
+.mapa:not(.completa) .pv:is(.nivel-2,.nivel-3) .ocupante-ref .texto{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;line-clamp:4;overflow:hidden}
+.mapa:not(.completa) .pv.nivel-2 .camino{flex:1 1 0;min-height:0;overflow:auto}
+.mapa:not(.completa) .mapa-celdas>.celda>.pv-9.nivel-3{overflow-y:auto}
+.mapa:not(.completa) .mapa-celdas>.celda>.pv-9.nivel-3>*{flex:none}
+.camino-comun{margin:0 0 4px;font-size:12px;color:var(--muted);overflow-wrap:anywhere}
 .mapa .pv .pv-pie{display:none}
 .mapa .pv .escenario{max-height:40%;width:auto;aspect-ratio:1/1}
 .mapa .nucleo{align-content:start}
@@ -456,6 +468,7 @@ html.mapped body{padding:0}
 .rejilla-celda{position:relative;min-width:0;min-height:0;overflow:hidden;display:flex;flex-direction:column;border:1px solid color-mix(in oklab,var(--c,var(--rule)) var(--tinte-borde),var(--rule));border-radius:6px;background:color-mix(in oklab,var(--c,var(--rule)) var(--tinte-fondo),transparent)}
 .rejilla-celda.vacia{background:color-mix(in oklab,var(--c,var(--rule)) 2%,transparent);border-style:dashed}
 .hijo-cabeza{display:flex;align-items:baseline;gap:6px;min-width:0;padding:4px 8px;font-size:13px;border-bottom:1px solid color-mix(in oklab,var(--c,var(--rule)) 25%,transparent)}
+.hijo-cabeza .numero,.flotante-cabeza .numero,.siguiente-hijo .numero,.fila-cabeza .numero{font-family:var(--sans);font-variant-numeric:tabular-nums} /* repaso beta #19: «0», no «e» */
 .hijo-cabeza .numero{flex:none;font-size:10px;line-height:1.5;padding:0 5px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent)}
 .hijo-nombre{flex:1;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hijo-cifra{flex:none;font-weight:700;font-variant-numeric:tabular-nums;color:var(--muted)}
@@ -488,7 +501,11 @@ html.mapped body{padding:0}
 .rejilla-cruceta>.hijo[data-columna="1"] .hijo-cuerpo{padding-left:calc(var(--flotante-ancho) / 2 + 8px)}
 .rejilla-cruceta>.hijo[data-fila="1"][data-columna="0"] .hijo-cabeza{padding-right:calc(var(--flotante-ancho) / 2 + 8px)}
 .rejilla-cruceta>.hijo[data-fila="1"][data-columna="1"] .hijo-cabeza{padding-left:calc(var(--flotante-ancho) / 2 + 8px)}
-.hijo-tabla{width:100%;border-collapse:collapse;font-size:12px}
+.hijo-tabla{width:100%;max-width:100%;border-collapse:collapse;font-size:12px}
+/* Repaso beta #3/#4: el texto de una fila parte (no ensancha la tabla) y la tabla cabe siempre en su celda. */
+.hijo-tabla td{min-width:0;overflow-wrap:anywhere}
+.hijo-tabla .ocupante-ref{flex-wrap:wrap}
+.hijo-tabla .ocupante-ref .texto{white-space:normal;overflow:visible;text-overflow:clip}
 .hijo-tabla td{padding:3px 6px;border-bottom:1px solid color-mix(in oklab,var(--c,var(--rule)) 22%,var(--rule));vertical-align:middle}
 .hijo-tabla td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 .hijo-tabla td[colspan]{text-align:left}
@@ -502,7 +519,7 @@ html.mapped body{padding:0}
 .flotante-cabeza .etiqueta{flex:1;font-weight:600;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .flotante-cabeza .cara-n{color:var(--muted);font-size:10px;border:1px solid var(--rule);border-radius:999px;padding:0 6px}
 .flotante-cabeza .girar{min-height:0;width:24px;height:24px;padding:0;border-radius:50%;line-height:1}
-.flotante-nombre{margin:auto 0 0;font-size:16px;font-weight:700;text-align:center;overflow-wrap:anywhere}
+.flotante-nombre{margin:auto 0 0;font-size:16px;font-weight:700;text-align:center;overflow-wrap:break-word;hyphens:auto;text-wrap:balance}
 .flotante-cifra{margin:0 0 auto;text-align:center;font-variant-numeric:tabular-nums}
 .flotante-cifra b{font-size:30px;line-height:1.1}
 .flotante-cifra small{font-size:14px;color:var(--muted)}
@@ -564,6 +581,9 @@ html.mapped body{padding:0}
 .matriz-esquina,.matriz-eje{display:flex;align-items:center;gap:4px;min-width:0;font-size:11px;color:var(--muted);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .matriz-eje b{font-size:10px;padding:0 4px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent);color:var(--fg)}
 .matriz-columna{justify-content:center;padding:2px 0;border-bottom:3px solid color-mix(in oklab,var(--c,var(--rule)) 60%,transparent)}
+/* repaso beta #8: la cabecera parte en hasta tres líneas (el title lleva el nombre entero) */
+.rejilla-matriz .matriz-columna{white-space:normal;text-overflow:clip;overflow-wrap:anywhere;line-height:1.15;max-height:3.6em;text-align:left;align-items:flex-start}
+.rejilla-matriz .matriz-columna b{flex:none}
 .matriz-fila{justify-content:flex-end;padding-right:6px}
 .rejilla-matriz>.hijo{border-radius:4px}
 .rejilla-matriz>.hijo.vacia{background:transparent;border-color:var(--rule)}
@@ -584,7 +604,8 @@ html.mapped body{padding:0}
 .ejecucion[data-estado="autorizada"]{--estado:#3f7fbf}
 .ejecucion[data-estado="ejecutada"]{--estado:var(--ok)}
 .ejecucion[data-estado="ejecutada"]::after{content:'✓';position:absolute;right:1px;top:50%;width:11px;height:11px;margin-top:-6px;border-radius:50%;border:1.5px solid var(--ok);color:var(--ok);font-size:8px;line-height:9px;text-align:center;transform:rotate(-12deg)}
-.ejecucion .ocupante{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;padding:0;min-height:0;border:0;background:transparent}
+.ejecucion .ocupante{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;font-size:10px;padding:0;min-height:0;border:0;background:transparent} /* repaso #8: dos líneas, no una */
+.ejecucion .ocupante .texto{white-space:normal;overflow-wrap:anywhere;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;line-clamp:2;overflow:hidden}
 .ejecucion .estacion-nombre{flex:none;font-size:9px;color:var(--muted)}
 .verificado{flex:none;font-size:9px;color:var(--ok);opacity:.8;white-space:nowrap;letter-spacing:.02em}
 .verificado-linea{margin:2px 0}
@@ -931,8 +952,11 @@ html.mapped body{padding:0}
 .fila:not(:has(>.campo-input))>.fila-cabeza{grid-column:1 / -1}
 .fila-cabeza{display:flex;align-items:center;gap:6px;min-width:0;min-height:32px;padding:2px 4px;border:0;background:transparent;text-align:left;font-size:13px;color:var(--fg)}
 .fila-cabeza .numero{flex:none;font-size:10px;padding:0 5px;border-radius:4px;background:color-mix(in oklab,var(--c,var(--rule)) 30%,transparent);color:var(--fg)}
-.fila-cabeza .etiqueta{flex:1 1 auto;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fila-cabeza .medida{flex:none;font-size:11px;color:var(--muted)}
+.fila-cabeza{flex-wrap:wrap}
+.fila-cabeza .etiqueta{flex:1 1 0;min-width:0;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* repaso beta #25: la medida (ciclo 1/5, cuota 9/10) pasa a su línea, bajo la etiqueta, en vez de comérsela */
+.fila-cabeza .medida{flex:1 0 100%;order:5;padding-left:26px;font-size:10px;color:var(--muted);line-height:1.1}
+.fila-cabeza .fila-marca{order:2}
 .fila-marca{flex:none;color:var(--muted);font-size:12px}
 .fila.abierta{background:color-mix(in oklab,var(--c,var(--rule)) 5%,transparent);border-radius:0 6px 6px 0}
 .fila.abierta>.fila-cabeza .fila-marca{color:var(--fg)}
@@ -1024,12 +1048,13 @@ html.mapped body{padding:0}
 [data-hueco-pv]:not(.rejilla){cursor:copy}
 /* el aro sobre un hueco: solo el centro, un poco más ancho, con su input nuevo */
 .aro.aro-nuevo{--centro-ancho:min(240px,70vw);--centro-alto:72px}
+.aro.anclado.aro-nuevo{--centro-ancho:240px} /* repaso #17: en el ancla, un número (min() no se puede leer en app.js situarAro: el centro salía de 14px) */
 .aro.aro-nuevo .aro-centro{grid-area:2 / 1 / 3 / 4;justify-self:center;width:var(--centro-ancho);padding:8px}
 .aro.aro-nuevo .aro-centro>b{display:block;font-size:12px;color:var(--muted)}
 .aro.anclado.aro-nuevo .aro-centro>b{display:block}
 /* el 3 por tema (encargo pv3, VG 12-11): cada caja, sus personas con el marcador del canal de R (doy, recibo); el botón
    que cicla y el interrogante del sitio en la cabeza; arrastrar una persona a otra caja la reclasifica */
-.caja-tres .hijo-cabeza{align-items:center}
+.caja-tres .hijo-cabeza{align-items:center;flex-wrap:wrap;row-gap:2px} /* repaso beta #6: en una caja estrecha el botón y el «?» bajan de línea en vez de comerse el nombre */
 .caja-tres .hijo-nombre{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .filtro-caja{flex:none;font-size:11px;min-height:22px;padding:0 8px;border-radius:999px;border:1px solid color-mix(in oklab,var(--c,var(--rule)) 45%,var(--rule));background:var(--bg);color:inherit;cursor:pointer}
 .filtro-caja[data-filtro="doy"]{border-color:var(--c,var(--accent));font-weight:700}

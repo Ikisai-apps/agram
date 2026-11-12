@@ -332,7 +332,7 @@ function htmlCeldaDeRejilla(c, forma) {
   const lista = [...(c.ocupantes ?? (c.ocupante ? [c.ocupante] : [])), ...(c.derivados ?? [])];
   const peldano = forma === 'escalera' ? ` style="--peldano:${c.fila}"` : '';
   const cifra = c.vacio || c.total === undefined ? '' : escapar(c.total + (c.totalDerivados ?? 0));
-  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span>${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
+  return `<div class="rejilla-celda hijo${lista.length ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}${peldano}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre" title="${attr(c.nombre ?? '')}">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${cifra}</span>${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpoDeHijo(c, forma)}${htmlDibujo(c.capa)}</div>${htmlMedidaDeHijo(c)}${htmlEfectosCapa(c.capa?.efectos)}${Number.isInteger(c.bajar) ? `<button type="button" class="bajar"${nodo('control')} data-bajar="${c.bajar}" title="${attr(t('bajarTitulo', { d: c.bajar }))}" aria-label="${attr(t('bajarTitulo', { d: c.bajar }))}">↘</button>` : ''}</div>`;
 }
 
 /**
@@ -376,7 +376,7 @@ function htmlCajaDelTres(c) {
     m.rango ? t(c.rangoPendiente ? 'cajaRangoPendiente' : 'cajaRango', { rango: m.rango }) : '',
     c.fuera ? t('cajaFuera', { n: c.fuera }) : '',
   ].filter(Boolean);
-  return `<div class="rejilla-celda hijo caja-tres${c.total ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-caja="${c.caja}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${c.total ? escapar(c.total) : ''}</span>${filtro}${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpo}${htmlDibujo(c.capa)}</div>${pie.length ? `<footer class="hijo-pie"><p class="hijo-minimo">${escapar(pie.join(' · '))}</p></footer>` : ''}</div>`;
+  return `<div class="rejilla-celda hijo caja-tres${c.total ? '' : ' vacia'}" data-color="${c.pv}" data-pv="${c.pv}" data-caja="${c.caja}" data-fila="${c.fila}" data-columna="${c.columna}"${c.vacio ? ' data-vacio' : ''}><header class="hijo-cabeza"><span class="numero">${c.pv}</span><span class="hijo-nombre" title="${attr(c.nombre ?? '')}">${escapar(c.nombre ?? '')}</span><span class="hijo-cifra">${c.total ? escapar(c.total) : ''}</span>${filtro}${htmlInterrogante(c.sitio)}</header><div class="hijo-cuerpo">${cuerpo}${htmlDibujo(c.capa)}</div>${pie.length ? `<footer class="hijo-pie"><p class="hijo-minimo">${escapar(pie.join(' · '))}</p></footer>` : ''}</div>`;
 }
 
 /**
@@ -759,12 +759,30 @@ function htmlPrevia(v) {
 }
 
 /** El camino: cada paso, mío (lanzable, por el id de su plantilla, y con «previsualizar»), de espera (marcado) o hecho; los niveles si la madurez es 0; «seguir». */
+/**
+ * La parte que repiten los pasos del camino: lo que va antes del primer « · » de su texto (p. ej. el «stage: lo que el
+ * registro anunció…» de cada estación), si lo comparten al menos dos pasos. Se enseña una vez, no una por paso (repaso beta #2).
+ */
+export function prefijoComunDePasos(pasos) {
+  const cuenta = new Map();
+  for (const p of pasos ?? []) {
+    if (p.propuesta !== null && p.propuesta !== undefined) continue;
+    const i = typeof p.falta === 'string' ? p.falta.indexOf(' · ') : -1;
+    if (i > 0) cuenta.set(p.falta.slice(0, i), (cuenta.get(p.falta.slice(0, i)) ?? 0) + 1);
+  }
+  let mejor = null;
+  for (const [prefijo, n] of cuenta) if (n >= 2 && (!mejor || n > mejor[1])) mejor = [prefijo, n];
+  return mejor?.[0] ?? '';
+}
+
 export function htmlCamino(c, { X } = {}) {
   if (!c) return '';
+  const comun = prefijoComunDePasos(c.pasos);
   const pasos = c.pasos.map((p, i) => {
     if (p.propuesta !== null && p.propuesta !== undefined) return htmlPropuesta(p);
     const clase = p.hecho ? 'hecho' : p.espera ? 'espera' : p.mio ? 'mio' : 'otro';
-    const cuerpo = `<span class="fuente">${escapar(p.fuente)}</span> <span class="falta">${escapar(p.falta ?? '')}</span>`;
+    const falta = comun && typeof p.falta === 'string' && p.falta.startsWith(comun + ' · ') ? p.falta.slice(comun.length + 3) : (p.falta ?? '');
+    const cuerpo = `<span class="fuente">${escapar(p.fuente)}</span> <span class="falta">${escapar(falta)}</span>`;
     const marca = p.hecho ? `<span class="marca">${t('hecho')}</span>` : p.espera ? `<span class="marca">${escapar(t('esperaA', { quien: p.espera }))}</span>` : '';
     // Previsualizar (encargo «datos3»): construye y valida el paso sin escribir; lo que daría, debajo.
     const previa = c.previa?.paso === i ? htmlPrevia(c.previa) : '';
@@ -775,7 +793,8 @@ export function htmlCamino(c, { X } = {}) {
   }).join('');
   const niveles = c.niveles ? `<p class="niveles">${t('paraUbicarse')} ${c.niveles.map((n) => `<span>${escapar(n)}</span>`).join(' → ')}</p>` : '';
   const seguir = c.pasos.some((p) => p.mio && !p.hacer?.lectura && (p.propuesta === null || p.propuesta === undefined)) ? `<button type="button" class="seguir" data-seguir>${t('seguir')}</button>` : '';
-  return `<section class="camino"${nodo('camino')} aria-label="${attr(t('camino'))}">${niveles}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
+  const compartido = comun ? `<p class="camino-comun">${escapar(comun)}</p>` : '';
+  return `<section class="camino"${nodo('camino')} aria-label="${attr(t('camino'))}">${niveles}${compartido}<ol>${pasos || `<li class="nada">${t('nadaQueHacerAqui')}</li>`}</ol>${seguir}</section>`;
 }
 
 /**
@@ -861,6 +880,15 @@ function htmlLateral(n, arbol, { enFila = false } = {}) {
 }
 
 /**
+ * El marcador de un campo de fila: lo que la época espera, salvo una nota interna del corpus («Décupla del corpus V4: …»,
+ * que no es un ejemplo para quien escribe); en su lugar, la etiqueta legible del PV (repaso beta #25).
+ */
+export function marcadorLegible(marcador, etiqueta) {
+  const util = (marcador ?? []).filter((m) => !/^décupla del corpus/i.test(String(m).trim()));
+  return util.length ? util.join(' · ') : String(etiqueta ?? '');
+}
+
+/**
  * Sequenced: las filas de la tarjeta del foco, una por PV en el orden de sus dígitos. Cada una, su cabeza (el número, la
  * etiqueta, cuántos tiene y su medida) que la abre o la cierra (data-fila) y su campo para escribir; abierta, debajo, el
  * segundo nivel del PV (htmlLateral en bloque). Las del hilo (el pasado y el futuro) no se abren: llevan a su zona.
@@ -871,7 +899,7 @@ function htmlFilas(arbol, c) {
     const etiqueta = escapar(f.etiqueta ?? '');
     const input = f.pv === c.pv
       ? `<input class="campo-input" data-campo="${c.pv}" data-x="${c.X}" value="" placeholder="${attr(t('nuevoAquiMarcador', { que: c.textoDelFoco ?? c.representacion?.texto ?? '' }))}" title="${attr(c.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">`
-      : campo ? `<input class="campo-input" data-campo="${f.pv}" data-x="${c.X}" value="${attr(campo.valor)}" placeholder="${attr((campo.marcador ?? []).join(' · '))}" title="${attr(campo.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">` : '';
+      : campo ? `<input class="campo-input" data-campo="${f.pv}" data-x="${c.X}" value="${attr(campo.valor)}" placeholder="${attr(marcadorLegible(campo.marcador, f.etiqueta))}" title="${attr(campo.ayuda ?? '')}" aria-label="${attr(f.etiqueta ?? '')}" autocomplete="off">` : '';
     const marca = f.hilo ? (f.hilo === 'antes' ? '↑' : '↓') : f.abierta ? '▾' : '▸';
     const titulo = f.hilo ? t(f.hilo === 'antes' ? 'irAlPasado' : 'irAlFuturo') : t(f.abierta ? 'filaCerrar' : 'filaAbrir', { que: f.etiqueta ?? '' });
     // En animado, la fila abierta lleva la etapa de su mundo pequeña junto al nombre (una capa: no ocupa sitio, #7).
@@ -1175,7 +1203,7 @@ function htmlInterruptor(i) {
 function controlesDelCero(arbol, { ejemplos = [], ejemplo = null, guardado = '', cuentas = [], cuenta = null, sincronia = null, opinar = null } = {}) {
   const quien = htmlSoy(arbol, { cuentas, cuenta });
   const ej = !cuenta && ejemplos.length ? `<label class="ajuste"${nodo('control')}>${t('ejemplo')} <select data-ejemplo>${ejemplos.map((e) => `<option value="${attr(e.id)}" ${e.id === ejemplo ? 'selected' : ''}>${escapar(e.etiqueta)}</option>`).join('')}</select></label>` : '';
-  const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${k}`).join(' · ') : '';
+  const tiempo = arbol.tiempo ? Object.entries(arbol.tiempo).filter(([, v]) => v > 0).map(([k, v]) => `${v} ${v === 1 ? t('escalaUna_' + k) : t('escala_' + k)}`).join(' · ') : '';
   const local = arbol.local ? `<span class="tiempo" title="${attr(t('tiempoLocalTitulo', { serie: arbol.local.serie }))}">${escapar(t('hoy', { segundos: arbol.local.gastadoHoy }))}${tiempo ? ' · ' + escapar(tiempo) : ''}</span><button type="button" class="englobar"${nodo('control')} data-englobar ${arbol.local.pendientes ? '' : 'disabled'} title="${attr(t('englobarTitulo', { cuantas: arbol.local.pendientes }))}">${t('englobar')}${arbol.local.pendientes ? ` · ${arbol.local.pendientes}` : ''}</button>` : '';
   const propios = cuenta
     ? `<button type="button"${nodo('control')} data-copia title="${attr(t('copiaTitulo'))}">${t('copiaDeSeguridad')}</button><button type="button"${nodo('control')} data-olvidar title="${attr(t('olvidarTitulo'))}">${t('olvidar')}</button>`

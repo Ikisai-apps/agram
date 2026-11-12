@@ -188,7 +188,10 @@ export const estadoDe = (almacen) => ({ activo: leerActivo(almacen), cuantas: le
 export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {}, alGuardar = null, almacen = globalThis.localStorage }) {
   const doc = raiz.ownerDocument;
   const ventana = doc.defaultView;
-  let activo = leerActivo(almacen);
+  // Al cargar, «opinar» siempre arranca apagado: un modo que intercepta todo toque no puede quedar encendido de una
+  // sesión a otra sin que se vea (repaso beta #1). Se enciende a propósito con el conmutador de la cruceta del 0.
+  let activo = false;
+  guardarActivo(almacen, false);
   let caja = null;
   let aviso = null;
   const marcar = () => doc.documentElement.classList.toggle('opinando', activo);
@@ -327,6 +330,8 @@ export function instalar({ raiz, cuenta = () => 'ejemplo', alCambiar = () => {},
     const objetivo = e.target;
     if (!objetivo?.closest) return;
     if (objetivo.closest('.opinar-caja')) return;
+    // El «?» del personaje del 0 siempre abre su cruceta, aunque opinar esté activo: es por donde se apaga.
+    if (objetivo.closest('.sitio-interrogante[data-sitio-general]')) return;
     const ctl = objetivo.closest('[data-opinar-ctl]');
     if (ctl) {
       if (e.type === 'click') { e.preventDefault(); detener(e); void control(ctl.dataset.opinarCtl); }
