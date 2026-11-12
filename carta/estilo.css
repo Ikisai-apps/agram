@@ -959,6 +959,10 @@ html.mapped body{padding:0}
    se lee, la etapa pequeña junto al nombre de la fila y el dibujo del mundo en cada hijo (o junto a cada ocupante de una
    lista, también en el hilo); sin muñequitos ni movimientos. La tarjeta del foco lleva su marco solo como borde. */
 .fila-contenido>.pv>.capa-fondo{opacity:.18}
+/* El fondo del mundo no va detrás del texto de una caja alta (en una fila abierta de Sequenced, en cualquier bloque más alto que ancho): a 2,4× enseñaba un trozo
+   de la escena (un cuadro pálido) bajo las letras. Solo una banda arriba, la de la cabecera y un poco más, con su degradado a transparente; el resto, el fondo de la tarjeta. */
+.fila-contenido>.pv>.capa-fondo{bottom:auto;height:112px;object-position:50% 0;-webkit-mask-image:linear-gradient(to bottom,#000 45%,transparent);mask-image:linear-gradient(to bottom,#000 45%,transparent)}
+@container (max-aspect-ratio:1/1){.mapa .pv>.capa-fondo{bottom:auto;height:112px;object-position:50% 0;-webkit-mask-image:linear-gradient(to bottom,#000 45%,transparent);mask-image:linear-gradient(to bottom,#000 45%,transparent)}}
 .fila-cabeza .etiqueta:has(>.capa-etapa-fila){position:relative;isolation:isolate;overflow-x:clip;overflow-y:visible}
 .fila-cabeza .capa-etapa-fila{position:absolute;right:0;top:50%;width:28px;height:28px;max-width:none;aspect-ratio:1/1;object-fit:contain;transform:translateY(-50%);z-index:-1}
 .animado .fila-contenido .rejilla .hijo{isolation:isolate}
