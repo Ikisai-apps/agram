@@ -726,7 +726,7 @@ export function celdaDeEjecucion(eje, id, opciones = {}) {
  * → { peldano, nivel, grado, nombre, direccion, medida: { fila, columna, profundidad, direccion, cadena } | null,
  *     exacto, celdas: [{ peldano, fila, columna, profundidad, direccion, cadena, alcanza }], disponibles } o null.
  */
-export function rango(eje, X, { tope = TOPE_DE_NODOS, celdas: memoDado, ...opciones } = {}) {
+export function rango(eje, X, { tope = Infinity, celdas: memoDado, ...opciones } = {}) {
   const ev = eventoDe(eje, X);
   if (!ev || typeof ev.id !== 'string' || !eje?.obtener?.(ev.id)) return null;
   const pasos = escalera(opciones);
