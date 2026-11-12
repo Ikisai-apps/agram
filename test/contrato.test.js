@@ -473,7 +473,10 @@ test('epoch.8.7: la posición 8 de cada fila es el enlace (dato de la época); e
   const d = (pv) => C.divisionDelMundo(null, pv);
   assert.deepEqual([d(2).mide, d(2).enlace], [['epoch.1.1', 'epoch.9.0.0'], [1, 2, 3, 4, 5]]);
   assert.deepEqual([d(3).mide, d(3).enlace], [['epoch.1.2.1', 'attended'], [0, 1, 2, 3, 4, 5]]);
-  for (const pv of [0, 5, 4, 6, 7, 8, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
+  for (const pv of [0, 5, 4, 6, 7, 9]) assert.equal('enlace' in d(pv), false, 'sin enlace en el ' + pv);
+  // el del 8 es la escalera dulce, una dirección por caja (encargo «el4»); el del 4, los dos ejes de la matriz (ejes, no enlace)
+  assert.deepEqual(d(8).enlace, C.escalera().map((p) => p.direccion));
+  assert.deepEqual(d(4).ejes, C.ejesDeLaMatriz());
   // el enlace del 2 son las miradas de epoch.1.1 y el del 3 las zonas de epoch.1.2.1, uno por hijo
   const raiz = EPOCA_0_BTML.registro;
   assert.deepEqual(d(2).enlace, raiz[1][1][1].map((m) => m[1][0]));
@@ -726,18 +729,105 @@ test('cohortes y cohorteDe: las que admite «change cohort» (su validación), l
   assert.equal(otra.ok, false);
 });
 
-test('hijosDe en el 8: las diez cajas de los hitos como hijos, con los comparables de la cohorte en la caja de su cuota, la cohorte y la base', async () => {
+test('hijosDe en el 8: las diez cajas de los hitos como hijos, con los comparables de la cohorte en la caja de su rango (un solo rango, encargo «el4»), la cohorte y la base', async () => {
   const c = await conFuturo();
   const h = C.hijosDe(c.eje, c.compra.id, 8);
   assert.deepEqual(h.map((x) => [x.digito, x.nombre]), HITOS.map((x) => [x.indice, x.nombre]));
   const co = C.cohorteDe(c.eje, c.compra.id);
   for (const x of h) {
-    assert.deepEqual(x.comparables.map((y) => y.ref), co.comparables.filter((y) => y.caja === x.digito).map((y) => y.ref));
+    assert.deepEqual(x.comparables.map((y) => y.ref), co.comparables.filter((y) => y.rango === x.digito).map((y) => y.ref));
     assert.deepEqual([x.total, x.vacio, x.cohorte, x.base], [x.comparables.length, x.comparables.length === 0, 'project', co.base]);
   }
-  assert.deepEqual(h.filter((x) => x.foco).map((x) => x.digito), [co.caja]);
-  assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { cohorte: 'siblings' }).map((x) => x.total), [0, 0, 0, 0, 0, 0, 0, 0, 0, 1]);
+  assert.deepEqual(h.filter((x) => x.foco).map((x) => x.digito), [co.rango]);
+  assert.equal(co.rango, C.rango(c.eje, c.compra.id).peldano);
+  assert.ok(co.comparables.every((x) => x.rango === C.rango(c.eje, x.ref).peldano));
+  // la caja de su cuota sigue ahí, como medida
+  assert.ok(co.comparables.every((x) => x.caja === null || (Number.isInteger(x.caja) && x.caja >= 0 && x.caja <= 9)));
+  assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { cohorte: 'siblings' }).map((x) => x.total), [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
   // sin «cohort» en lo que mide el 8, como antes: sin hijos
   const sin = epocaCon((e) => { filaDelMundo(e, 8)[4] = ['hitos', 'cuota']; });
   assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 8, { epoca: sin }), []);
+});
+
+// ---------- encargo «el4» (VG 12-11, #39 y #41): la escalera dulce y un solo rango, el del 8 ----------
+
+/** Una cadena de n registros anidados desde X, cada uno anclado en el anterior (el primero en X), escritos por `autor`. */
+async function cadenaDe(e, X, n, { autor, en = '0000000000', movimientos, desde = 0 }) {
+  const fuera = [];
+  let sobre = X;
+  for (let k = 0; k < n; k++) {
+    const t = '2026-11-08T10:' + String(desde + k).padStart(2, '0') + ':00Z';
+    const r = await e.escribir({ autor, sobre, en, t, movimientos: movimientos(k), payload: [['Paso ' + (k + 1)]] });
+    fuera.push(r);
+    sobre = r.id;
+  }
+  return fuera;
+}
+/** Planear con T futuro (registrar · proyección al futuro: la celda del peldaño 6, 4.2). */
+const planear = (k) => [minuto('cocina'), { token: 'T', escala: 'futuro', cantidad: 1, de: 'cocina', a: null, refiere: '2026-12-0' + ((k % 9) + 1) + 'T10:00:00Z' }];
+
+test('rango: la compra y el alta de los ejemplos no cubren ninguna celda de la escalera: el primer peldaño (0.3, la idea), sin medida; disponible solo ese', async () => {
+  const c = await conFuturo();
+  for (const X of [c.compra.id, c.alta.id, c.eje.alta('casa').id]) {
+    const r = C.rango(c.eje, X);
+    assert.deepEqual([r.peldano, `${r.nivel}.${r.grado}`, r.nombre, r.direccion, r.medida, r.exacto, r.disponibles], [0, '0.3', HITOS[0].nombre, '1000000000', null, false, [0]], X.slice(0, 8));
+    assert.equal(r.celdas.length, 10);
+    assert.ok(r.celdas.every((x) => x.profundidad === 0 && x.alcanza === null));
+  }
+  // las celdas de la escalera son la fila k con la columna k+1 (la 9 con la 0)
+  assert.deepEqual(C.rango(c.eje, c.compra.id).celdas.map((x) => [x.fila, x.columna]), [[0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9], [9, 0]]);
+  assert.equal(C.rango(c.eje, 'no-existe'), null);
+});
+
+test('rango: el peldaño por la celda de la escalera cubierta y su profundidad; un desajuste puntúa hacia arriba (menos profundidad: ese peldaño; más: el siguiente)', async () => {
+  const c = await ejemploCompra();
+  // registrar (la posición 6, a mano) con T futuro: la celda 6 · 7, el peldaño 6 (7777777000 → 4.2)
+  const cadena = await cadenaDe(c.eje, c.compra.id, 8, { autor: 'cocina', en: '6000000000', movimientos: planear });
+  assert.deepEqual(cadena.map((r) => [C.celdaDeEjecucion(c.eje, r.id).oficio, C.celdaDeEjecucion(c.eje, r.id).ejecucion]), Array(8).fill([6, 7]));
+  const r = C.rango(c.eje, c.compra.id);
+  const celda = r.celdas.find((x) => x.peldano === 6);
+  assert.deepEqual([celda.profundidad, celda.direccion, celda.cadena], [8, '7777777700', cadena.map((x) => x.id)]);
+  assert.deepEqual([r.peldano, `${r.nivel}.${r.grado}`, r.exacto, r.medida.direccion], [7, '5.1', false, '7777777700'], 'ocho de profundidad, uno más que su peldaño: sube al siguiente');
+  assert.deepEqual(r.disponibles, [0, 1, 2, 3, 4, 5, 6, 7]);
+  // desde lo anclado más abajo, la misma cadena es más corta: 7 (exacto, 4.2) y 1 (desajuste, 4.2)
+  const siete = C.rango(c.eje, cadena[0].id);
+  assert.deepEqual([siete.peldano, `${siete.nivel}.${siete.grado}`, siete.exacto, siete.medida.direccion, siete.direccion], [6, '4.2', true, '7777777000', '7777777000']);
+  const uno = C.rango(c.eje, cadena[6].id);
+  assert.deepEqual([uno.peldano, `${uno.nivel}.${uno.grado}`, uno.exacto, uno.medida.direccion], [6, '4.2', false, '7000000000'], 'una sola: su dirección cae entre 4.1 y 4.2, puntúa hacia arriba');
+  assert.deepEqual(C.rango(c.eje, cadena[7].id).peldano, 0, 'lo último de la cadena no tiene nada debajo');
+});
+
+test('rango: el primer peldaño exacto (gestionar con E en la raíz, 1000000000 → 0.3) y, a dos de profundidad, el siguiente (1.1); el mayor de todas las celdas', async () => {
+  const c = await ejemploCompra();
+  const fichas = await cadenaDe(c.eje, c.compra.id, 2, { autor: 'casa', movimientos: () => [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'ficha', cantidad: 1, de: null, a: 'casa' }] });
+  assert.deepEqual(C.celdaDeEjecucion(c.eje, fichas[0].id), { oficio: 0, ejecucion: 1, por: { oficio: 'posicion', ejecucion: 'token E' } });
+  const abajo = C.rango(c.eje, fichas[0].id);
+  assert.deepEqual([abajo.peldano, abajo.exacto, abajo.medida.direccion], [0, true, '1000000000'], 'mostrar con E una vez: 0.3 exacto');
+  const arriba = C.rango(c.eje, c.compra.id);
+  assert.deepEqual([arriba.peldano, `${arriba.nivel}.${arriba.grado}`, arriba.exacto, arriba.medida.direccion], [1, '1.1', false, '1100000000']);
+  // con otra celda más alta cubierta, gana la mayor
+  await cadenaDe(c.eje, c.compra.id, 1, { autor: 'cocina', en: '6000000000', movimientos: planear, desde: 30 });
+  assert.equal(C.rango(c.eje, c.compra.id).peldano, 6);
+});
+
+test('el 9 lee el rango del 8: las posiciones para situarse son las que deja (del primer peldaño al suyo) y la suya, sin rango declarado', async () => {
+  const c = await ejemploCompra();
+  const sin = C.hijosDe(c.eje, c.compra.id, 9);
+  assert.deepEqual(sin.map((x) => [x.digito, x.disponible, x.actual]), HITOS.map((h) => [h.indice, h.indice === 0, h.indice === 0]));
+  assert.deepEqual(sin.map((x) => x.direccion), C.escalera().map((p) => p.direccion));
+  await cadenaDe(c.eje, c.compra.id, 1, { autor: 'cocina', en: '6000000000', movimientos: planear });
+  const r = C.rango(c.eje, c.compra.id);
+  assert.equal(r.peldano, 6);
+  const h = C.hijosDe(c.eje, c.compra.id, 9);
+  assert.deepEqual(h.filter((x) => x.disponible).map((x) => x.digito), r.disponibles);
+  assert.deepEqual(h.filter((x) => x.actual).map((x) => x.digito), [6]);
+  assert.ok(h.every((x) => x.vacio && x.total === 0), 'situarse no es un ocupante');
+  // la regla del 9 dice que lee el rango del 8 (su nota), y la del 8 que el rango es suyo
+  const reglas = C.lecturasDePv();
+  assert.match(reglas.find((x) => x.pv === 9).regla[6].at(-1), /situarse lee el rango del 8/);
+  assert.match(reglas.find((x) => x.pv === 8).regla[6].at(-1), /un solo rango, el del 8/);
+  // sin escalera en la época, ni rango ni posiciones
+  const sinEscalera = epocaCon((e) => { filaDelMundo(e, 8)[8] = ['-']; });
+  assert.equal(C.rango(c.eje, c.compra.id, { epoca: sinEscalera }), null);
+  assert.deepEqual(C.hijosDe(c.eje, c.compra.id, 9, { epoca: sinEscalera }), []);
 });

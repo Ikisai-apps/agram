@@ -821,6 +821,7 @@ const manejadores = {
     else if (estado.config) { estado.config = false; estado.motivosPreferencias = []; }
     else if (estado.formulario) estado.formulario = null;
     else if (estado.aro) estado.aro = null;
+    else if (estado.celdaMatriz) estado.celdaMatriz = null; // la celda abierta de la matriz del 4 (encargo «el4»)
     else if (enMapped() && estado.profundidad[estado.foco.pv]?.length) estado.profundidad[estado.foco.pv].pop(); // subir un nivel de la rejilla
     else if (enMapped() && LATERALES.includes(estado.foco.pv)) estado.foco = { ...estado.foco, pv: CENTROS[0] }; // salir de la pantalla completa
     else return;
@@ -999,6 +1000,13 @@ const manejadores = {
   cohorte(valor) {
     estado.cohorte = valor || null;
     tocar(estado.foco.X, 'cohorte ' + valor);
+    pintar();
+  },
+  /** Abrir (o cerrar) una celda de la matriz del 4 de X (encargo «el4», VG 12-11, #49.8): su lista de movimientos, hasta diez. Solo se mira. */
+  celdaMatriz(X, celda) {
+    const misma = estado.celdaMatriz?.X === X && estado.celdaMatriz?.celda === celda;
+    estado.celdaMatriz = X && celda && !misma ? { X, celda } : null;
+    tocar(estado.foco.X, 'celda de la matriz ' + (estado.celdaMatriz?.celda ?? '-'));
     pintar();
   },
   hermano(delta, pv) {

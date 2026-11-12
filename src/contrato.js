@@ -45,7 +45,7 @@ import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { esReferencia, esLista, esTerminal, esDecupla, indicesDe, resolver, direccion, ARIDAD } from './btml.js';
 import { ocupantes as ocupantesDe } from './encaje.js';
-import { ESCALAS_T, partirClave, franjaDe, capacidadDe, claveToken } from './tokens.js';
+import { ESCALAS_T, ESCALAS_INFORMATIVAS, partirClave, franjaDe, capacidadDe, claveToken } from './tokens.js';
 import { esInstante, msUTC, msDeGuardado } from './instante.js';
 import { HITOS, cajaDeCuota, confluir, situar, SIN_BASE_ESCRITA } from './bases.js';
 import { pasoDe } from './pasos.js';
@@ -70,6 +70,8 @@ const CLAVE = Object.freeze({
   tamano: (nombre) => 'size ' + nombre,
   legible: (que) => 'legible ' + que,
   motivo: (que) => 'reason ' + que,
+  oficio: (nombre) => 'office ' + nombre,
+  ejecucion: (nombre) => 'execution ' + nombre,
 });
 /** Los motivos con que una acción rechaza que no son de una regla de la época (src/acciones.js): su clave «reason <qué>» (epoch.9.4; el canónico, en el registro «en»; los huecos {…} los rellena `motivo`). */
 export const MOTIVOS = Object.freeze(['anchor not in ledger', 'anchor not a position', 'position without value', 'no series', 'unknown template', 'X not in ledger', 'who launches']);
@@ -556,12 +558,215 @@ function escalasDelCalendario(raiz) {
     .filter((e) => medidas.has(e.nombre)).map((e, indice) => ({ indice, ...e }));
 }
 
-/** Las diez cajas nivel.grado de los hitos de las bases (src/bases.js): [{ indice, nivel, grado, nombre }]. */
-function cajasDeHitos() {
+/**
+ * Las diez cajas nivel.grado de los hitos de las bases (src/bases.js): [{ indice, nivel, grado, nombre, direccion? }];
+ * `direccion`, la de su peldaño de la escalera dulce (escalera(), el enlace de la fila del 8), si la época la da.
+ */
+function cajasDeHitos(opciones = {}) {
+  const pasos = escalera(opciones);
   return HITOS.map((h) => {
     const [nivel, grado] = String(h.nivel).split('.').map(Number);
-    return { indice: h.indice, nivel, grado, nombre: h.nombre };
+    return { indice: h.indice, nivel, grado, nombre: h.nombre, ...(pasos[h.indice] ? { direccion: pasos[h.indice].direccion } : {}) };
   });
+}
+
+// ---------- 4.2 bis: la matriz del 4, la escalera dulce y el rango (encargo «el4», VG 12-11, issues #39, #40, #41) ----------
+
+/** Las filas de epoch.8.7, la división de cada mundo. */
+const filasDeDivision = (raiz) => hojas(en(raiz, [...SITIO.divisionDelMundo, 1])).filter(Array.isArray);
+/** Lo que mide una fila de epoch.8.7: sus referencias, sin «-». */
+const mideDeFila = (fila) => hojas(fila?.[4]).filter((s) => typeof s === 'string' && s !== '-');
+/** Una dirección de la escalera: los diez dígitos de un punto del cubo [0..9]^10. */
+const RE_DIRECCION = /^\d{10}$/;
+
+/**
+ * Los dos ejes de la matriz del 4 (VG 12-11, #41): el enlace de la fila de epoch.8.7 que mide «execution», dos listas,
+ * [[los oficios], [[la ejecución, sus criterios…], …]]. → { filas: [{ indice, nombre, texto? }], columnas: [{ indice,
+ * nombre, criterios, texto? }] } o null si la época no los da. Las filas son los oficios (el tipo de acción: 0 mostrar,
+ * 1 gestionar, 2 administrar, 3 coordinar, 4 hacer, 5 verificar, 6 registrar, 7 planear, 8 medir, 9 guiar); las
+ * columnas, la ejecución (lo que se mueve: 0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token
+ * propio, 6 adjudicación al pasado, 7 proyección al futuro, 8 crecimiento que genera rangos, 9 contenido que guía), cada
+ * una con lo que la elige (celdaDeEjecucion). Con `idioma`, el `texto` de cada nombre («office <nombre>», «execution
+ * <nombre>» de epoch.9.4; si falta, el nombre).
+ */
+export function ejesDeLaMatriz({ idioma, ...opciones } = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const fila = filasDeDivision(raiz).find((r) => mideDeFila(r).includes(MIDE.ejecucion));
+  const [oficios, ejecucion] = hojas(fila?.[8]).filter(Array.isArray);
+  if (!oficios || !ejecucion) return null;
+  const traducir = (clave, nombre) => (idioma ? { texto: texto_(null, clave, idioma, { original: nombre, ...opciones }) } : {});
+  return {
+    filas: hojas(oficios).filter((s) => typeof s === 'string').map((nombre, indice) => ({ indice, nombre, ...traducir(CLAVE.oficio(nombre), nombre) })),
+    columnas: hojas(ejecucion).filter(Array.isArray).map((c, indice) => {
+      const [nombre, ...criterios] = hojas(c).filter((s) => typeof s === 'string');
+      return { indice, nombre, criterios, ...traducir(CLAVE.ejecucion(nombre), nombre) };
+    }),
+  };
+}
+
+/**
+ * La escalera dulce (VG 12-11, #41): el enlace de la fila de epoch.8.7 que mide «rank» (el cielo del 8), una dirección
+ * por caja, en el orden de las cajas: la fila k ↔ el dígito k+1 repetido k+1 veces con ceros detrás (la fila es el tipo
+ * de acción y la dirección el intercambio hecho, un dígito más porque cambiar es más que ver; la fila 9 ↔ diez ceros, el
+ * ciclo da la vuelta). → [{ indice, direccion, digito, profundidad, fila, columna, nivel, grado, nombre }]: `fila` es el
+ * oficio (el índice) y `columna` la ejecución (el dígito) de su celda en la matriz del 4; `profundidad`, cuántas veces se
+ * repite el dígito (diez ceros, diez); `nivel`, `grado` y `nombre`, los del hito de esa caja (src/bases.js, HITOS).
+ */
+export function escalera(opciones = {}) {
+  const raiz = raizDe(epocaDe(opciones));
+  const fila = filasDeDivision(raiz).find((r) => mideDeFila(r).includes(MIDE.rango) && hojas(r[8]).some((s) => RE_DIRECCION.test(String(s))));
+  const direcciones = hojas(fila?.[8]).filter((s) => typeof s === 'string' && RE_DIRECCION.test(s));
+  return direcciones.map((direccion, indice) => {
+    const digito = Number(direccion[0]);
+    const profundidad = direccion.length - direccion.replace(new RegExp('^' + direccion[0] + '+'), '').length;
+    const h = HITOS[indice];
+    const [nivel, grado] = h ? String(h.nivel).split('.').map(Number) : [null, null];
+    return { indice, direccion, digito, profundidad, fila: indice, columna: digito, nivel, grado, nombre: h?.nombre ?? null };
+  });
+}
+
+/** Lo que no es lo que una ejecución mueve: la asignación del día y el P que dan las reglas al escribir o al recibir. */
+const NO_MUEVE = new Set(['asignacion', 'obtencion']);
+/** La familia (E, P, R, T) de una serie «E:casa/EUR», o null. */
+const familiaDeSerie = (serie) => (typeof serie === 'string' && /^[EPRT]:/.test(serie) ? serie[0] : null);
+
+/**
+ * La celda de una ejecución en la matriz del 4 (VG 12-11, #41; Core, pendiente de revisar VG): el registro `id`, anclado
+ * en su padre. → { oficio, ejecucion, por: { oficio, ejecucion } } o null (sin registro o sin ejes en la época); `oficio`
+ * o `ejecucion` a null si no se sabe (la carta lo pone aparte, sin inventar celda).
+ *
+ * - El **oficio** (la fila, el tipo de acción) es el PV de la plantilla de transacción que el registro nombra en su 4 (la
+ *   acción que lo escribió por el aro, `por.oficio` «plantilla»); en un movimiento anunciado (lo anclado en el 4.1), el
+ *   de la plantilla de la estación de su familia (epoch.4.2, «estacion»); si no, la posición que modifica, el primer
+ *   dígito de su «en» (el PV k ↔ el oficio k, «posicion»).
+ * - La **ejecución** (la columna) es lo que mueve, por los criterios de cada columna (ejesDeLaMatriz), en este orden: el
+ *   tiempo (`scale <escala>`, el T de una escala informativa de epoch.1.3.1, pasado o futuro; `dated`, lo que tiene un
+ *   estado con fecha, estadoDeEntrada); lo que mueve (`token <familia>`, por el orden de sus movimientos; en un anuncio,
+ *   la serie anunciada); y si no mueve nada, la posición en que escribe (`content at <k>`) o el contenido (`content`).
+ *   No cuentan como lo que se mueve la asignación del día, el P que dan las reglas ni el T propio que se quema al
+ *   escribir (el coste de escribir, no un intercambio). En cada paso gana la primera columna que lo nombra.
+ */
+export function celdaDeEjecucion(eje, id, opciones = {}) {
+  const h = eje?.obtener?.(esReferencia(id) ? id.ref : id);
+  const ejes = h ? ejesDeLaMatriz(opciones) : null;
+  if (!ejes) return null;
+  const epoca = epocaDe(opciones);
+  const anclaje = String(h.en ?? RAIZ);
+  const posicion = Number(anclaje[0]);
+  const plantillas = (Array.isArray(epoca.transacciones) ? epoca.transacciones : []).map((x) => x.plantilla);
+  const pvDe = (nombre) => {
+    const p = plantillas.find((q) => texto(hoja(q?.[0])) === nombre);
+    const pv = p ? Number(hoja(p[8])) : NaN;
+    return Number.isInteger(pv) ? pv : null;
+  };
+  const anunciada = anclaje.startsWith('41') ? texto(ultima(h.payload?.[0])) ?? null : null;
+  const familiaAnunciada = familiaDeSerie(anunciada);
+  let oficio = null;
+  let porOficio = null;
+  const nombrada = hojas(h.payload?.[4]).find((x) => typeof x === 'string' && pvDe(x) !== null);
+  if (nombrada) { oficio = pvDe(nombrada); porOficio = 'plantilla'; }
+  else if (familiaAnunciada) {
+    const estacion = hojas(en(raizDe(epoca), [4, 2])).filter((x) => Array.isArray(x) && esDecupla(x)).find((x) => hoja(x[0]) === familiaAnunciada);
+    const pv = estacion ? pvDe(texto(hoja(estacion[2]))) : null;
+    if (pv !== null) { oficio = pv; porOficio = 'estacion'; }
+  }
+  if (oficio === null && Number.isInteger(posicion)) { oficio = posicion; porOficio = 'posicion'; }
+  if (oficio !== null && oficio >= ejes.filas.length) oficio = null;
+  // Lo que mueve: las familias por orden y las escalas informativas de T.
+  const familias = [];
+  const escalas = new Set();
+  const anotar = (serie) => {
+    const f = familiaDeSerie(serie);
+    if (!f) return;
+    const escala = f === 'T' ? serie.slice(2) : null;
+    if (escala && ESCALAS_INFORMATIVAS.includes(escala)) escalas.add(escala);
+    else if (!familias.includes(f)) familias.push(f);
+  };
+  if (familiaAnunciada) anotar(anunciada);
+  else {
+    const asientos = (h.sobre ? eje.libro.asientos({ registro: h.sobre }) : eje.libro.asientos()).filter((a) => a.tx?.id === h.id);
+    for (const a of asientos) {
+      if (NO_MUEVE.has(a.clase)) continue;
+      const escala = familiaDeSerie(a.serie) === 'T' ? a.serie.slice(2) : null;
+      const coste = a.primitiva === 'quemar' && escala && !ESCALAS_INFORMATIVAS.includes(escala) && a.de === h.autor && !a.a && !a.clase;
+      if (!coste) anotar(a.serie);
+    }
+  }
+  const fechado = Boolean(estadoDeEntrada(eje, h.id, opciones)?.fecha);
+  const nada = !familias.length && !escalas.size && !fechado;
+  let ejecucion = null;
+  let porEjecucion = null;
+  const elegir = (cumple) => {
+    for (const c of ejes.columnas) {
+      const criterio = c.criterios.find(cumple);
+      if (criterio) { ejecucion = c.indice; porEjecucion = criterio; return true; }
+    }
+    return false;
+  };
+  if (!elegir((k) => (k.startsWith('scale ') && escalas.has(k.slice(6))) || (k === 'dated' && fechado))) {
+    if (!familias.some((f) => elegir((k) => k === 'token ' + f)) && nada) {
+      if (!elegir((k) => k === 'content at ' + posicion)) elegir((k) => k === 'content');
+    }
+  }
+  return { oficio, ejecucion, por: { oficio: oficio === null ? null : porOficio, ejecucion: porEjecucion } };
+}
+
+/**
+ * El rango de X (VG 12-11, #39 y #41; Core, pendiente de revisar VG): uno solo, el del 8, el peldaño de la escalera dulce
+ * (escalera()) que ha alcanzado. Cada peldaño k es una celda de su matriz del 4, la fila k con la columna de su dígito
+ * (k+1; la fila 9 con la 0), y su profundidad (k+1); X cubre esa celda a profundidad n si hay una cadena de n
+ * ejecuciones anidadas en ella, la primera anclada en X y cada una en la anterior (la dirección, el dígito repetido n
+ * veces). Un desajuste puntúa hacia arriba: una celda cubierta a menos profundidad que la de su peldaño llega a ese
+ * peldaño (su dirección cae entre el anterior y él), y a más profundidad, al siguiente; sin nada cubierto, el primero
+ * (el vacío también sube: 0.3, la idea). El rango es el mayor. Sin rango declarado: las posiciones en que X se puede
+ * situar (el 9) son las que deja, del primer peldaño al suyo (`disponibles`).
+ * → { peldano, nivel, grado, nombre, direccion, medida: { fila, columna, profundidad, direccion, cadena } | null,
+ *     exacto, celdas: [{ peldano, fila, columna, profundidad, direccion, cadena, alcanza }], disponibles } o null.
+ */
+export function rango(eje, X, { tope = TOPE_DE_NODOS, celdas: memoDado, ...opciones } = {}) {
+  const ev = eventoDe(eje, X);
+  if (!ev || typeof ev.id !== 'string' || !eje?.obtener?.(ev.id)) return null;
+  const pasos = escalera(opciones);
+  if (!pasos.length) return null;
+  const memo = memoDado instanceof Map ? memoDado : new Map();
+  const celdaDe = (id) => {
+    if (!memo.has(id)) memo.set(id, celdaDeEjecucion(eje, id, opciones));
+    return memo.get(id);
+  };
+  let vistos = 0;
+  // La cadena más larga de ejecuciones anidadas en la celda (fila, columna), desde lo anclado en `id`.
+  const cadena = (id, fila, columna, n) => {
+    if (n >= ARIDAD) return [];
+    let mejor = [];
+    for (const h of eje.sobre(id)) {
+      if (++vistos > tope * ARIDAD) break;
+      const c = celdaDe(h.id);
+      if (c?.oficio !== fila || c?.ejecucion !== columna) continue;
+      const larga = [h.id, ...cadena(h.id, fila, columna, n + 1)];
+      if (larga.length > mejor.length) mejor = larga;
+    }
+    return mejor;
+  };
+  const ultimo = pasos.length - 1;
+  const celdas = pasos.map((p) => {
+    const ids = cadena(ev.id, p.fila, p.columna, 0);
+    const n = ids.length;
+    return {
+      peldano: p.indice, fila: p.fila, columna: p.columna, profundidad: n,
+      direccion: n ? String(p.digito).repeat(n).padEnd(ARIDAD, '0') : null, cadena: ids,
+      alcanza: n === 0 ? null : n > p.profundidad ? Math.min(ultimo, p.indice + 1) : p.indice,
+    };
+  });
+  const cubiertas = celdas.filter((c) => c.alcanza !== null);
+  const mejor = cubiertas.reduce((a, c) => (!a || c.alcanza > a.alcanza || (c.alcanza === a.alcanza && c.profundidad > a.profundidad) ? c : a), null);
+  const peldano = mejor ? mejor.alcanza : 0;
+  const p = pasos[peldano];
+  return {
+    peldano, nivel: p.nivel, grado: p.grado, nombre: p.nombre, direccion: p.direccion,
+    medida: mejor ? { fila: mejor.fila, columna: mejor.columna, profundidad: mejor.profundidad, direccion: mejor.direccion, cadena: mejor.cadena } : null,
+    exacto: Boolean(mejor && mejor.peldano === peldano && mejor.profundidad === pasos[mejor.peldano].profundidad),
+    celdas, disponibles: pasos.slice(0, peldano + 1).map((x) => x.indice),
+  };
 }
 
 /**
@@ -601,19 +806,21 @@ export function divisionDelMundo(_eje, pv, { nivel = 1, ...opciones } = {}) {
   const enlace = enlaceCrudo.every((x) => x === '-') ? [] : enlaceCrudo.map((x) => (x === '-' ? null : x));
   const orden = ordenPorNombre(texto(hoja(fila[9])), opciones)?.nombre ?? null;
   const actual = Math.min(Math.max(1, Math.floor(nivel)), Math.max(1, profundidad));
-  const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos');
+  const nombres = mide.filter((s) => !/^epoch\./.test(s) && s !== 'hitos' && s !== MIDE.rango);
   // Los pasos de epoch.9.8 que la fila nombra, en su orden (encargo «datos3»): la entrada va en la franja del primero que
   // da valor (el 7: por la fecha a la que se refiere y, si no, por su escala); el último es la escala que declara.
   const deLaTabla = new Set(hojas(en(raiz, [9, 8])).slice(1).filter(Array.isArray).map((r) => texto(hoja(r[1]))));
   const pasos = nombres.filter((n) => deLaTabla.has(n));
   let bandas;
   if (mide.includes('epoch.1.3') && mide.includes('epoch.7')) bandas = escalasDelCalendario(raiz);
-  else if (mide.includes('hitos')) bandas = cajasDeHitos();
+  else if (mide.includes('hitos')) bandas = cajasDeHitos(opciones);
   return {
     pv, hijos, profundidad, nivel: actual, entra: actual < profundidad,
     forma: formas.length ? formas[Math.min(actual - 1, formas.length - 1)] : null, formas, mide,
     ...(bandas ? { bandas, paso: nombres[0] ?? null, pasos } : {}),
     ...(mide.includes(MIDE.cohorte) ? { cohortes: cohortes(opciones) } : {}),
+    ...(mide.includes(MIDE.ejecucion) ? { ejes: ejesDeLaMatriz(opciones) } : {}),
+    ...(mide.includes(MIDE.rango) ? { escalera: escalera(opciones) } : {}),
     ...(hilos.length ? { hilos } : {}),
     ...(enlace.length ? { enlace } : {}),
     ...(orden ? { orden } : {}),
@@ -667,6 +874,7 @@ export function hijosDe(eje, X, pv, { nivel = 1, cuantos, base = [], direccion, 
   const d = divisionDelMundo(eje, pv, { nivel, ...opciones });
   if (!d) return [];
   if (!d.hijos.length && d.bandas && d.cohortes) return cajasDelCielo(eje, X, d, { cohorte, cuantos, ...opciones });
+  if (!d.hijos.length && d.bandas && d.escalera?.length) return posicionesParaSituarse(eje, X, d, opciones);
   const raiz = raizDe(epocaDe(opciones));
   const profundidad = Math.min(Math.max(1, d.nivel), ARIDAD - 1);
   // Bajado dentro de X por dígitos (encargo «lecturas»): los hijos son X.<base>.<dígito>; lo que mide la fila es de X.<dígito>.
@@ -686,6 +894,19 @@ export function hijosDe(eje, X, pv, { nivel = 1, cuantos, base = [], direccion, 
     }
     return medir ? { ...hijo, ...medir(i, o.ocupantes, digito) } : hijo;
   });
+}
+
+/**
+ * Las posiciones del 9 para situarse como hijos (hijosDe; encargo «el4», VG 12-11, #39): una por caja nivel.grado de los
+ * hitos (`digito`, el índice), sin ocupantes, con `disponible` (las que deja el rango del 8 de X, rango(): del primer
+ * peldaño al suyo) y `actual` (la suya). Sin rango declarado: situarse es elegir entre las disponibles.
+ */
+function posicionesParaSituarse(eje, X, d, opciones) {
+  const r = rango(eje, X, opciones);
+  return d.bandas.map((b) => ({
+    digito: b.indice, nombre: b.nombre, nivel: b.nivel, grado: b.grado, direccion: b.direccion ?? null, ocupantes: [], total: 0, vacio: true,
+    disponible: Boolean(r?.disponibles.includes(b.indice)), actual: r?.peldano === b.indice,
+  }));
 }
 
 // ---------- 4.4 las diez lecturas: lo que el PV d lee de un nodo (encargo «lecturas», issue #12) ----------
@@ -757,7 +978,7 @@ const LECTURAS_JS = Object.freeze({
     const elegida = cohorteEscrita(eje, eje.obtener(nodo), opciones);
     const c = elegida ? cohorteDe(eje, nodo, { ...opciones, cohorte: elegida.valor }) : null;
     if (!c || c.alcance === ALCANCE_DE_COHORTE.siblings) return [];
-    return c.comparables.filter((x) => x.ref !== nodo).map((x) => ({ valor: { ref: x.ref }, cohorte: c.cohorte, caja: x.caja }));
+    return c.comparables.filter((x) => x.ref !== nodo).map((x) => ({ valor: { ref: x.ref }, cohorte: c.cohorte, caja: x.caja, rango: x.rango }));
   },
   // 9: el tutorial del camino (acciones.camino, su primera fuente): las acciones que nombra el 9 de su plantilla o el suyo
   camino: (eje, nodo, { me, epoca, opciones }) => {
@@ -841,7 +1062,7 @@ export function leerRuta(eje, N, ruta, { yo, t: _t, tope = TOPE_DE_NODOS, ...opc
 }
 
 /** Las referencias de lo que mide una fila de epoch.8.7 que dan algo por hijo (encargo «datos», issue #11). */
-const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended', coste: 'epoch.9.2', capacidad: 'capacity', flujo: 'epoch.4.0', cohorte: 'cohort' });
+const MIDE = Object.freeze({ poder: 'epoch.1.1', recuento: 'epoch.9.0.0', atencion: 'epoch.1.2.1', atendido: 'attended', coste: 'epoch.9.2', capacidad: 'capacity', flujo: 'epoch.4.0', cohorte: 'cohort', ejecucion: 'execution', rango: 'rank' });
 
 /** La plantilla de transacción que declara capacidad (epoch.9.6) y su parámetro (encargo «datos2»): se leen de la época. */
 const DECLARAR_CAPACIDAD = Object.freeze({ plantilla: 'declare capacity or threshold', parametro: 'capacity' });
@@ -1362,7 +1583,9 @@ function cohorteEscrita(eje, ev, opciones) {
  * serie en que más pesa (lo mismo que el paso «cuota», share box, pero frente a la cohorte entera; bases.cajaDeCuota),
  * o null si no mueve nada. La base es la escrita en el 8 que resume la cohorte (bases.situar): quién la escribió y cuándo;
  * sin ella, { escrita: false, texto: SIN_BASE_ESCRITA } (lo que se ve está calculado al vuelo).
- * → { cohorte, alcance, texto, elegida, cohortes, registro, base, comparables: [{ ref, caja, cuota, serie, foco }], caja } o null.
+ * Encargo «el4» (VG 12-11, #39: un solo rango, el del 8): cada comparable lleva además su `rango`, el peldaño de la
+ * escalera que ha alcanzado (rango(), 0-9), y la cohorte el del foco; `caja` sigue siendo la de su cuota (una medida).
+ * → { cohorte, alcance, texto, elegida, cohortes, registro, base, comparables: [{ ref, caja, cuota, serie, foco, rango }], caja, rango } o null.
  */
 export function cohorteDe(eje, X, { cohorte, ...opciones } = {}) {
   const ev = eventoDe(eje, X);
@@ -1373,6 +1596,7 @@ export function cohorteDe(eje, X, { cohorte, ...opciones } = {}) {
   if (!c) return null;
   let s;
   try { s = confluir(eje, ev.id, { alcance: c.alcance }); } catch { return null; }
+  const celdas = new Map();
   const comparables = (s.comparables ?? []).map((fila) => {
     let mejor = null;
     for (const clave of Object.keys(fila.tokens ?? {}).sort()) {
@@ -1380,7 +1604,8 @@ export function cohorteDe(eje, X, { cohorte, ...opciones } = {}) {
       const suma = s.tokens?.[clave]?.suma;
       if (v > 0 && suma > 0 && (!mejor || v / suma > mejor.cuota)) mejor = { serie: clave, cuota: v / suma };
     }
-    return { ref: fila.id, caja: mejor ? cajaDeCuota(mejor.cuota) : null, cuota: mejor ? redondo(mejor.cuota) : null, serie: mejor?.serie ?? null, foco: fila.id === ev.id };
+    const r = rango(eje, fila.id, { ...opciones, celdas });
+    return { ref: fila.id, caja: mejor ? cajaDeCuota(mejor.cuota) : null, cuota: mejor ? redondo(mejor.cuota) : null, serie: mejor?.serie ?? null, foco: fila.id === ev.id, rango: r ? r.peldano : null };
   });
   let base = null;
   let leida;
@@ -1390,14 +1615,18 @@ export function cohorteDe(eje, X, { cohorte, ...opciones } = {}) {
   return {
     cohorte: c.valor, alcance: c.alcance, texto: c.texto, elegida: elegida?.valor ?? null, cohortes: lista, registro: s.registro ?? null, base, comparables,
     caja: comparables.find((x) => x.foco)?.caja ?? null,
+    rango: comparables.find((x) => x.foco)?.rango ?? rango(eje, ev.id, { ...opciones, celdas })?.peldano ?? null,
   };
 }
 
-/** Las cajas del cielo del 8 como hijos (hijosDe): una por banda de los hitos, con los comparables de la cohorte de X que caen en ella. */
+/**
+ * Las cajas del cielo del 8 como hijos (hijosDe): una por banda de los hitos (un peldaño de la escalera), con los
+ * comparables de la cohorte de X cuyo rango es ese peldaño (encargo «el4», #39: un solo rango; la cuota queda como medida).
+ */
 function cajasDelCielo(eje, X, d, { cohorte, cuantos, ...opciones }) {
   const c = cohorteDe(eje, X, { cohorte, ...opciones });
   return d.bandas.map((b) => {
-    const dentro = (c?.comparables ?? []).filter((x) => x.caja === b.indice);
+    const dentro = (c?.comparables ?? []).filter((x) => x.rango === b.indice);
     return {
       digito: b.indice, nombre: b.nombre, nivel: b.nivel, grado: b.grado,
       ocupantes: dentro.slice(0, cuantos ?? paso(opciones)).map((x) => ({ ref: x.ref })), total: dentro.length, vacio: dentro.length === 0,

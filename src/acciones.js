@@ -32,7 +32,7 @@ import { evaluar, rellenar, nombreDeRegla } from './bqlm.js';
 import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS } from './tokens.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
-import { plantilla as plantillaDeDatos, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones } from './contrato.js';
+import { plantilla as plantillaDeDatos, ocupantes as ocupantesDeContrato, nombreDePlantilla, madurez, niveles as nivelesGenericos, configuracion, mensaje, texto as textoDe, claves, motivo as motivoDe, guia as guiaDeLaEpoca, desdeLegible, anclaDeLasOpiniones, celdaDeEjecucion } from './contrato.js';
 import { recuento } from './motor.js';
 import { pendientes as peticionesPendientes } from './lente.js';
 
@@ -582,6 +582,8 @@ export function estaciones(eje, X, opciones = {}) {
  * acción que lo escribió) o, si es un anuncio del 4.1, el de la plantilla de su estación (pay, deliver); `estacion`,
  * la de un anuncio: «ejecutada» (hecho), «autorizada» (pendiente y autorizado) o «propuesta» (pendiente). Lo que no se
  * sabe va a null (lo propio del payload no tiene ni lo uno ni lo otro): la carta lo pone aparte, sin inventar celda.
+ * Encargo «el4» (VG 12-11, #41): cada una lleva además su celda de la matriz del 4 (contrato.celdaDeEjecucion):
+ * `oficio` (la fila, el tipo de acción), `ejecucion` (la columna, lo que mueve) y `por` (de dónde sale cada uno).
  */
 export function ejecuciones(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -600,11 +602,15 @@ export function ejecuciones(eje, X, opciones = {}) {
   const total = ocupantesDeContrato(eje, ev.id, 4, 0, 0, opciones).total;
   const propios = ocupantesDeContrato(eje, ev.id, 4, 0, total, opciones).ocupantes
     .filter((o) => !(esReferencia(o) && deX.has(o.ref)))
-    .map((o) => ({ ocupante: o, pv: null, posicion: null, accion: null, estacion: null }));
+    .map((o) => ({ ocupante: o, pv: null, posicion: null, accion: null, estacion: null, oficio: null, ejecucion: null, por: null }));
   return [...propios, ...anclados.map((h) => {
     const accion = hojas(h.payload?.[4]).find((x) => typeof x === 'string' && porNombre.has(x)) ?? plantillaDe.get(h.id) ?? null;
     const posicion = Number(String(h.en ?? '0')[0]);
-    return { ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion: estacionDe.get(h.id) ?? null };
+    const celda = celdaDeEjecucion(eje, h.id, opciones);
+    return {
+      ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion: estacionDe.get(h.id) ?? null,
+      oficio: celda?.oficio ?? null, ejecucion: celda?.ejecucion ?? null, por: celda?.por ?? null,
+    };
   })];
 }
 
