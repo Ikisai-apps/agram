@@ -304,7 +304,7 @@ test('cambiar la tabla de pasos en una copia de la época cambia el árbol: las 
   for (const p of C.pasosDeTamano()) assert.ok(!literales.has(p.nombre), 'carta/carta.js lleva escrito «' + p.nombre + '»');
 });
 
-test('el interruptor sobrio/propio/todo de la barra es la enumeración del pintado (#25): tocarlo escribe «render» como la configuración y el árbol pasa a animado', async () => {
+test('el interruptor sobrio/propio/todo (el 5 del 0 de mi alta, antes la barra) es la enumeración del pintado (#25): tocarlo escribe «render» como la configuración y el árbol pasa a animado', async () => {
   const { eje, compra } = await ejemploCompra();
   const a = await arbol({ foco: { X: compra.id, pv: 0 } }, eje, 'huesped', ORDENADOR);
   assert.equal(a.interruptores.length, 1);
@@ -312,8 +312,11 @@ test('el interruptor sobrio/propio/todo de la barra es la enumeración del pinta
   const conf = C.configuracion(eje, 'huesped');
   assert.equal(i.valor, conf[i.clave]);
   assert.deepEqual(i.opciones.map((o) => o.valor), C.clavesDeConfiguracion().find((c) => c.clave === i.clave).valores);
-  const h = html(a);
-  assert.match(h, new RegExp(`<span class="interruptor"[^>]*>.*data-preferencia="${i.clave}" data-valor="${i.opciones[1].valor}" aria-pressed="false"`));
+  // La barra ya no existe (#38): el interruptor es una opción del 5 del 0 de mi alta, que se ve con su cruceta abierta.
+  assert.doesNotMatch(html(a), /class="barra|data-preferencia/);
+  const abierta = await arbol({ foco: { X: compra.id, pv: 0 }, sitio: { X: eje.alta('huesped').id, lugar: '0', general: true } }, eje, 'huesped', ORDENADOR);
+  const h = html(abierta);
+  assert.match(h, new RegExp(`data-posicion="5"[^]*?<span class="interruptor"[^>]*>.*data-preferencia="${i.clave}" data-valor="${i.opciones[1].valor}" aria-pressed="false"`));
   // Tres posiciones, en el orden de la época (epoch.9.3.2): sobrio, propio, todo.
   assert.equal(i.opciones.length, 3);
   // Tocar «todo» (la última): la app escribe la candidata de preferencias() con esa clave (como guarda la configuración).
@@ -809,13 +812,16 @@ test('el móvil en vertical (400 × 700, 390 × 844) sigue apilado (Sequenced) y
   assert.match(carta, /const apilada = d\.disposicion !== disposiciones;/);
 });
 
-test('el móvil apaisado, en CSS y en app.js: las medidas las manda app.js por el tamaño de la ventana; la barra de una fila y los rosetones de 32 px son solo CSS por alto y orientación', () => {
+test('el móvil apaisado, en CSS y en app.js: las medidas las manda app.js por el tamaño de la ventana; el personaje de cada sitio y los rosetones de 32 px son solo CSS por alto y orientación', () => {
   const app = readFileSync(new URL('../carta/app.js', import.meta.url), 'utf8');
-  assert.match(app, /medidasDePantalla\(window\.innerWidth, window\.innerHeight - barra\)/);
+  // Sin barra (#38): la escena mide la ventana entera.
+  assert.match(app, /medidasDePantalla\(window\.innerWidth, window\.innerHeight\)/);
+  assert.doesNotMatch(app, /querySelector\('\.barra'\)/);
   const css = readFileSync(new URL('../carta/estilo.css', import.meta.url), 'utf8');
   const bloque = css.slice(css.indexOf('@media (orientation:landscape) and (max-height:500px){'));
   assert.ok(bloque.length > 200, 'hay un bloque CSS para el móvil apaisado');
-  assert.match(bloque, /\.barra,\.carta-matriz \.barra\{flex-wrap:nowrap/, 'la barra en una sola fila');
+  assert.doesNotMatch(css, /\.barra[\s{,.:>-]/, 'la barra superior ya no tiene estilos');
+  assert.match(bloque, /\.sitio-interrogante\{width:32px;height:32px/, 'el personaje del sitio, objetivo táctil de 32 px');
   assert.match(bloque, /\.rosetones-mapa \.roseton[^{]*\{width:32px;height:32px/, 'los rosetones, objetivos de 32 px');
   assert.match(bloque, /\.punto,\.punto\.centro,\.todos-menos\{width:32px;height:32px/, 'los puntitos del foco, de 32 px');
   assert.match(bloque, /\.vecino\{height:32px;min-width:32px/, 'las flechas a los vecinos, de 32 px');
@@ -872,11 +878,11 @@ test('el personaje del sitio (#38): el interrogante de cada caja del 3 (y del 3 
   const a = await arbol({ foco: { X: alta, pv: 3 } }, eje, 'casa', GRANDE);
   const h = html(a);
   for (const d of [0, 1, 2, 3, 4, 5]) assert.match(h, new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3.${d}" data-sitio-x="${alta}"`));
-  assert.match(h, new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3" data-sitio-x="${alta}"`));
+  assert.match(h, new RegExp(`class="sitio-interrogante sitio-centro"[^>]*data-sitio="3" data-sitio-x="${alta}"`));
   // pulsarlo: gestos → sitio(X, lugar); la app pone estado.sitio y el árbol trae la cruceta del nodo 3.3
   const g = gestosDeMentira();
   g.disparar('click', { target: objetivo({ '[data-sitio]': { dataset: { sitio: '3.3', sitioX: alta } } }), preventDefault() {} });
-  assert.deepEqual(g.llamadas, [['sitio', alta, '3.3']]);
+  assert.deepEqual(g.llamadas, [['sitio', alta, '3.3', { general: false }]]);
   const b = await arbol({ foco: { X: alta, pv: 3 }, sitio: { X: alta, lugar: '3.3' } }, eje, 'casa', GRANDE);
   assert.deepEqual(b.sitio.posiciones.map((p) => p.posicion), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   const uno = b.sitio.posiciones[1];

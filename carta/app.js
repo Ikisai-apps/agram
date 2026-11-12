@@ -46,8 +46,6 @@ const estado = {
   eje: null, claves: {}, identidad: null, foco: { X: null, pv: 0 }, niveles: {}, recientes: [], paginas: {}, profundidad: {}, aro: null, formulario: null,
   rosetones: {}, local: null, leido: leidoAbierto(), aviso: '', exito: '', guardado: '', config: false, motivosPreferencias: [],
   vistos: new Set(), nuevos: new Set(), hermanos: null,
-  // Sequenced (el móvil en vertical): si el menú de la barra de una línea está abierto.
-  menu: false,
   // Mi cuenta: la abierta ({ nombre, idioma, identidad, alta, publica, privada }) o null en un ejemplo; la pantalla
   // de arranque ({ modo, campos, valores, motivos, ocupado }) y el diálogo de la copia ({ archivo, minimo, motivos, hecho, ocupado }).
   cuenta: null, arranque: null, copia: null,
@@ -84,13 +82,11 @@ resolverArchivos((id) => archivos.contenido(id).url ?? null);
 const privadaDe = (id) => (estado.cuenta && id === estado.cuenta.identidad ? estado.cuenta.privada : estado.claves[id]?.privada);
 const firmarCon = (id) => (privadaDe(id) ? (ev) => autoridad.firmar(ev, privadaDe(id)) : undefined);
 /**
- * La pantalla que mide la carta: la ventana, sin lo que ocupa la barra (en Mapped la escena es el resto, sin scroll).
- * Las medidas por tamaño de pantalla (el móvil apaisado, más bajo) las calcula carta.js medidasDePantalla.
+ * La pantalla que mide la carta: la ventana entera (sin barra superior desde el #38: el personaje del 0 está en el centro; en
+ * Mapped la escena es todo, sin scroll). Las medidas por tamaño de pantalla (el móvil apaisado, más bajo) las calcula
+ * carta.js medidasDePantalla.
  */
-const medidas = () => {
-  const barra = raiz?.querySelector?.('.barra')?.offsetHeight ?? 0;
-  return medidasDePantalla(window.innerWidth, window.innerHeight - barra);
-};
+const medidas = () => medidasDePantalla(window.innerWidth, window.innerHeight);
 /** ¿Está la carta en Mapped (la matriz del ordenador)? Lo dice el último árbol (la época decide por la forma de la pantalla). */
 const enMapped = () => Boolean(ultimo && !ultimo.vacio && !ultimo.apilada);
 /** ¿Está la carta en Sequenced con su columna (la tarjeta con sus filas y el hilo)? */
@@ -178,7 +174,7 @@ function pintarSincronia() {
   if (nuevo === lineaPintada && (el || !nuevo)) return;
   lineaPintada = nuevo;
   if (el) el.outerHTML = nuevo;
-  else raiz.querySelector('.barra .guardado')?.insertAdjacentHTML('afterend', nuevo);
+  else raiz.querySelector('.sitio-cruceta[data-sitio-general] .guardado')?.insertAdjacentHTML('afterend', nuevo);
 }
 
 /** Abre la sincronía de la cuenta en pantalla (con servidor, eje compartido y clave de lectura) y sincroniza sin esperar. */
@@ -231,7 +227,7 @@ function extraDe() {
     cuentas: cuentas.cuentas(), cuenta: estado.cuenta ? { nombre: estado.cuenta.nombre, alta: estado.cuenta.alta, identidad: estado.cuenta.identidad } : null,
     guiaAjustes: estado.config && estado.eje ? guiaAjustesDe() : undefined,
     exteriorAjustes: estado.config && estado.eje ? guia.ajustesEditablesDe(exterior.AJUSTES.plantilla, estado.eje, estado.identidad) ?? undefined : undefined,
-    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage), menu: estado.menu,
+    arranque: estado.arranque, copia: estado.copia, opinar: opinar.estadoDe(globalThis.localStorage),
     archivo: (id) => archivos.contenido(id), // los archivos adjuntos (el HTML del PV0 en su iframe aislado, las imágenes)
   };
 }
@@ -376,13 +372,13 @@ async function pintar() {
 }
 
 /**
- * Sequenced: el hilo es el scroll. Al llegar a un foco, la tarjeta arriba (bajo la barra) y el pasado encima, fuera de la
+ * Sequenced: el hilo es el scroll. Al llegar a un foco, la tarjeta arriba (bajo el personaje del 0) y el pasado encima, fuera de la
  * pantalla; al repintar el mismo foco, la tarjeta donde estaba; tras tocar un dígito, su fila (o su zona del hilo) a la vista.
  */
 function colocarSecuencia(antes, mismoFoco) {
   const nucleo = raiz.querySelector('.secuencia-ahora > .nucleo');
   if (!nucleo) return;
-  const barra = raiz.querySelector('.barra')?.offsetHeight ?? 0;
+  const barra = raiz.querySelector('.cero-columna')?.offsetHeight ?? 0;
   const ahora = nucleo.getBoundingClientRect().top;
   if (antes !== null && mismoFoco) window.scrollBy({ top: ahora - antes, behavior: 'instant' });
   else window.scrollTo({ top: Math.max(0, window.scrollY + ahora - barra), behavior: 'instant' });
@@ -451,6 +447,7 @@ function cambiarDeEje(eje, identidad) {
   estado.profundidad = {};
   estado.aro = null;
   estado.formulario = null;
+  estado.sitio = null;
   estado.rosetones = {};
   estado.config = false;
   estado.vistos = new Set();
@@ -624,7 +621,7 @@ const valoresDe = (form) => Object.fromEntries([...form.querySelectorAll('input[
 
 /**
  * Escribe mis preferencias con estos valores sobre las de ahora, como un registro más en el 9 de mi alta (la plantilla
- * «preferences»): lo que hace la configuración al guardar y lo que hace un interruptor de la barra al tocarlo.
+ * «preferences»): lo que hace la configuración al guardar y lo que hace un interruptor del 5 del 0 de mi alta (antes, de la barra) al tocarlo.
  */
 async function escribirPreferencias(valores) {
   const p = preferencias(estado.eje, estado.identidad, valores);
@@ -684,11 +681,6 @@ const manejadores = {
     tocar(estado.foco.X, 'dígito ' + pv);
     pintar();
   },
-  /** Sequenced: abrir o cerrar el menú de la barra de una línea. */
-  menu() {
-    estado.menu = !estado.menu;
-    pintar();
-  },
   /** Mapped: los puntitos del foco suben un paso todos los PV (hasta el 3×3); su mando, los baja. */
   todos(delta) {
     const r = ampliarTodos(estado, delta, { pvs: ultimo?.pvs });
@@ -698,7 +690,7 @@ const manejadores = {
     tocar(estado.foco.X, 'todos ' + delta);
     pintar();
   },
-  /** Un interruptor de la barra: escribe esa preferencia (sobrio o animado) como lo hace la configuración, y repinta. */
+  /** Un interruptor del 5 del 0 de mi alta (sobrio o animado; antes, de la barra): escribe esa preferencia (sobrio o animado) como lo hace la configuración, y repinta. */
   async preferencia(clave, valor) {
     if (!clave || !estado.eje) return;
     try {
@@ -853,9 +845,9 @@ const manejadores = {
     pintar();
   },
   /** El interrogante (o el muñeco) de un sitio: la cruceta del propio nodo X.<lugar>, como menú de configuración (#38). */
-  sitio(X, lugar) {
+  sitio(X, lugar, { general = false } = {}) {
     if (!X || !estado.eje?.obtener(X)) return;
-    estado.sitio = { X, lugar };
+    estado.sitio = { X, lugar, general };
     estado.aro = null;
     estado.formulario = null;
     limpiarMensajes();
@@ -946,7 +938,7 @@ const manejadores = {
     pintar();
   },
   async configurar(form) {
-    if (!form) { estado.config = true; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; pintar(); return; }
+    if (!form) { estado.config = true; estado.motivosPreferencias = []; estado.formulario = null; estado.aro = null; estado.sitio = null; pintar(); return; }
     const valores = {};
     for (const input of form.querySelectorAll('input[name]')) valores[input.name] = input.value.trim().split(/\s+/).filter(Boolean);
     // La clave de lectura, aparte: al almacén local de la cuenta, nunca al registro de preferencias (que va en el eje).
@@ -1039,6 +1031,7 @@ const manejadores = {
     abrirLibroLocal();
     estado.aro = null;
     estado.formulario = null;
+    estado.sitio = null;
     estado.rosetones = {};
     limpiarMensajes();
     pintar();
@@ -1333,6 +1326,7 @@ const manejadores = {
       estado.config = false;
       estado.formulario = null;
       estado.aro = null;
+      estado.sitio = null;
       limpiarMensajes();
       await pintar();
       return;
@@ -1382,6 +1376,7 @@ async function reiniciar() {
   const { eje, foco } = await crearEjemplo(estado);
   estado.eje = eje;
   estado.niveles = {};
+  estado.sitio = null;
   estado.recientes = [];
   estado.paginas = {};
   estado.profundidad = {};

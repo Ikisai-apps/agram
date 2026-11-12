@@ -373,7 +373,7 @@ test('la cruceta trae cuatro celdas (las esquinas) y el pulsado como tarjeta cen
   assert.match(h, /class="flotante-cara cara-0">[\s\S]*data-girar[\s\S]*class="flotante-cara cara-5" aria-hidden="true">[\s\S]*data-girar/, 'cara 0 y cara 5, cada una con su ↻');
   assert.match(h, /class="flotante-barra" style="--lleno:0\.\d+"/, 'la medida con «de» lleva su barra');
   // las esquinas: la tarjeta del hijo (nombre, total) y su tabla; la décupla, una columna por hoja
-  assert.match(h, /data-pv="1"[^>]*><header class="hijo-cabeza"><span class="numero">1<\/span><span class="hijo-nombre">cuánto<\/span><span class="hijo-cifra">\d+<\/span><\/header><div class="hijo-cuerpo"><table class="hijo-tabla">/);
+  assert.match(h, /data-pv="1"[^>]*><header class="hijo-cabeza"><span class="numero">1<\/span><span class="hijo-nombre">cuánto<\/span><span class="hijo-cifra">\d+<\/span><button type="button" class="sitio-interrogante"[^>]*data-sitio="1\.1" data-sitio-x="[0-9a-f]{64}"[^>]*>\?<\/button><\/header><div class="hijo-cuerpo"><table class="hijo-tabla">/);
   // en un bloque, la misma rejilla sin tarjeta flotante
   const e = escalaDeTamanos();
   const b = await arbol({ foco: { X: compra.id, pv: 0 }, niveles: Object.fromEntries(LATERALES.map((pv) => [pv, e.tope])) }, eje, 'huesped', ORDENADOR);
@@ -418,7 +418,7 @@ test('la regla del vacío pinta el paso del camino: «escribir aquí · <acción
     assert.deepEqual(vacio.escribir, defecto ? { id: defecto.id, nombre: defecto.etiqueta } : null);
     const h = rejillaHtml(html(a));
     const texto = defecto ? t('escribirAquiAccion', { accion: defecto.etiqueta }) : t('escribirAqui');
-    assert.ok(h.includes(`data-pv="${vacio.pv}" data-fila="${vacio.fila}" data-columna="${vacio.columna}" data-vacio><header class="hijo-cabeza"><span class="numero">${vacio.pv}</span><span class="hijo-nombre">${vacio.nombre}</span><span class="hijo-cifra"></span></header><div class="hijo-cuerpo"><span class="hijo-vacio">${texto}</span>`), 'nombre apagado y debajo el paso del camino');
+    assert.ok(h.replace(/<button type="button" class="sitio-interrogante"[^>]*>\?<\/button>/g, '').includes(`data-pv="${vacio.pv}" data-fila="${vacio.fila}" data-columna="${vacio.columna}" data-vacio><header class="hijo-cabeza"><span class="numero">${vacio.pv}</span><span class="hijo-nombre">${vacio.nombre}</span><span class="hijo-cifra"></span></header><div class="hijo-cuerpo"><span class="hijo-vacio">${texto}</span>`), 'nombre apagado y debajo el paso del camino');
   }
   // las celdas con ocupantes no lo llevan
   const r = (await arbol(completa(compra.id, 1), eje, 'huesped', GRANDE)).centro.rejilla;
@@ -701,7 +701,7 @@ test('el 3 a pantalla completa por tema (encargo pv3): cada caja con su grupo y 
   assert.match(h1, /<button type="button" class="filtro-caja"[^>]*data-filtro-caja="0" data-filtro="todos"/);
   assert.match(h1, new RegExp(`<button type="button" class="sitio-interrogante"[^>]*data-sitio="3.0" data-sitio-x="${compra.id}"`));
   assert.match(h1, new RegExp(`<button type="button" class="ocupante persona"[^>]*data-persona="casa" data-caja="0" data-pv="0" data-x="${eje.alta('casa').id}" data-celda="${eje.alta('casa').id}"`));
-  assert.match(html(a), new RegExp(`class="sitio-interrogante"[^>]*data-sitio="3" data-sitio-x="${compra.id}"`), 'y el del nodo 3 entero, en la cabecera');
+  assert.match(html(a), new RegExp(`class="sitio-interrogante sitio-centro"[^>]*data-sitio="3" data-sitio-x="${compra.id}"`), 'y el del nodo 3 entero, en la cabecera del PV a pantalla completa');
   // nivel 2: entrar en la casa (su alta, desde la caja 0) es su conversación, cada mensaje con su paquete
   const b = await arbol(completa(compra.id, 3, { profundidad: { 3: [{ X: eje.alta('casa').id, d: 0 }] } }), eje, 'huesped', GRANDE);
   const r2 = b.centro.rejilla;

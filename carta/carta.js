@@ -381,6 +381,43 @@ function personajeDe(ctx, eje, X, pv, lado, tamano, { enfocado, nuevos, paso }) 
 }
 
 /**
+ * El personaje del sitio X.<lugar> en animado (VG, 12-11, issue #38): el muñeco del elemento (modelos.propio) y, si el
+ * nodo no tiene arte propio, el del modelo `general` (la cadena de piezaDe), parado, en el hueco donde en sobrio está el
+ * interrogante. → { rol, accion, pieza } o null (sobrio, o sin arte).
+ */
+function personajeDelSitio(ctx, eje, X, pv, lado) {
+  if (!ctx.animado) return null;
+  const p = personajeDe(ctx, eje, X, pv, lado, tamanoDeNivel(NIVEL.comprimido, ctx.opciones), { enfocado: false, nuevos: false, paso: null });
+  return p?.pieza?.recurso ? { rol: p.rol, accion: p.accion, pieza: p.pieza } : null;
+}
+
+/**
+ * El sitio de un cuadrante (PV, sub-PV, caja del 3, celda, fila de Sequenced): el nodo X.<lugar>, cuya cruceta abre su
+ * interrogante (sobrio) o su muñeco (animado, misma acción y mismo sitio; el muñeco es una capa del botón). → { X, lugar, personaje? }.
+ */
+function sitioDe(ctx, eje, X, lugar, pv) {
+  const s = { X, lugar };
+  const personaje = personajeDelSitio(ctx, eje, X, pv, GEOMETRIA[pv]?.lado ?? 0);
+  return personaje ? { ...s, personaje } : s;
+}
+
+/** El sitio de un hijo (sub-PV, caja o celda) en el nivel de una rejilla: el nodo R.<camino>.<dígito> (hasta ocho dígitos; la cruceta del sitio no admite más). */
+function sitioDeHijo(R, pv, base, digito) {
+  const camino = [pv, ...(base ?? []), digito];
+  return camino.length < 9 && camino.every((k) => Number.isInteger(k) && k >= 0 && k <= 9) ? { X: R, lugar: camino.join('.') } : null;
+}
+
+/**
+ * El personaje del 0 (VG, 12-11, #38: «la barra superior desaparece»): el sitio 0 de MI alta, con las opciones de lo que
+ * era la barra como sus posiciones (quién soy, sobrio o animado, configuración, sincronía…: dom.js htmlSitio). Sin alta
+ * (nadie ha entrado), el 0 del propio foco. `general` lo marca para que su cruceta lleve esas opciones.
+ */
+function sitioCero(eje, ctx, X) {
+  const alta = ctx.yo ? eje.alta(ctx.yo)?.id ?? null : null;
+  return { ...sitioDe(ctx, eje, alta ?? X, '0', 0), general: true };
+}
+
+/**
  * El nodo de un punto de vista lateral de X en su nivel. En Mapped (`mapa`), la carta ya ha medido su caja: `cuantos`
  * son los datos que caben en ella (los del paso, recortados por lo que mide) y `pagina` la que se ve (sin scroll: se
  * pasa de página, no se carga debajo); la disposición de dentro la dice la división de la época también en el grupo.
@@ -414,6 +451,8 @@ function nodoLateral(eje, X, pv, nivel, ctx, medidas, hueco, mapa = null, { secu
     nodo.consumido = Boolean(nodo.nuevos?.consumido);
   }
   if (nivel < NIVEL.tarjeta) return nodo;
+  // El personaje del sitio (VG, 12-11, #38): cada cuadrante abierto tiene su responsable, el nodo X.<pv>.
+  nodo.sitio = sitioDe(ctx, eje, X, String(pv), pv);
   // Tarjeta y bloque: los ocupantes que caben, paginados por el paso de la configuración (en Mapped, por páginas).
   const cuantos = mapa ? mapa.cuantos : nivel >= NIVEL.bloque ? paso * (ctx.estado.paginas?.[pv] ?? 1) : nodo.tamano?.datos ?? paso;
   const pagina = mapa ? paginaDe(ctx, eje, X, pv, cuantos) : null;
@@ -540,6 +579,8 @@ function nodoCentro(eje, X, pv, ctx, medidas, hueco, mapa = null) {
     pasos: ctx.pasos,
     leido: Boolean(ctx.estado.leido),
     estilo: estiloDe(eje, X, pv, ctx), // los dos estilos del registro (X.0.9 y X.5.0), saneados: la carta los emite como CSS
+    // El personaje del centro (VG, 12-11, #38): el del 0 es la configuración general (la cruceta del 0 de mi alta, donde estaba la barra); el del 5 y el de un PV abierto, sus nodos.
+    sitio: g.cara === 'anverso' ? sitioCero(eje, ctx, X) : sitioDe(ctx, eje, X, g.cara === 'reverso' ? '5' : String(pv), pv),
   };
   if (ctx.animado) {
     base.marco = marcoDe(ctx, null, tamano); // el centro no es un mundo: el marco neutro (la comodín)
@@ -868,7 +909,7 @@ function pintadoDe(configuracion, defectos, opciones) {
 }
 
 /**
- * Los interruptores de la barra: cada preferencia de la plantilla «preferences» cuya validación es una enumeración
+ * Los interruptores del 5 del 0 de mi alta (antes, de la barra): cada preferencia de la plantilla «preferences» cuya validación es una enumeración
  * (contrato.clavesDeConfiguracion, `valores`: hoy el pintado, sobrio, propio o todo), con su etiqueta y cada valor en el
  * idioma («template <plantilla> param <clave> option <valor>»), en el orden de la época; `valor` es el que rige. Tocar
  * uno escribe la preferencia como lo hace la configuración (preferencias(), un registro más en el 9 del alta) y repinta.
@@ -1295,11 +1336,11 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar, base = [], direccion = n
   const forma = FORMAS[d.forma];
   const celdas = contrato.hijosDe(eje, R, pv, { nivel: d.nivel, cuantos: ctx.paso, base, filtros: ctx.estado?.filtrosDelTres ?? {}, ...(direccion ? { direccion, raiz } : {}), ...ctx.opciones }).map((h, i) => {
     // El 3 por tema (encargo pv3): la caja es de personas, cada una con su marcador (doy, recibo) y, al entrar, su conversación.
-    if (h.personas) return celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar);
+    if (h.personas) return celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar, base);
     const ocupantes = nodosDeCelda(eje, R, h.ocupantes, pv, h.digito, d, ctx, entrar && !h.vacio, base);
     // Lo que el núcleo mide de cada hijo (encargo «datos», issue #11): el estado de cada paquete del 3, en su ocupante.
     if (h.estados) ocupantes.forEach((o, k) => { if (h.estados[k]) o.estado = h.estados[k]; });
-    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, ...medidaDeHijo(h, eje, ctx) };
+    const celda = { fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total, ocupantes, ocupante: ocupantes[0] ?? null, entra: ocupantes.some((o) => o.entra), escribir: h.vacio ? accionPorDefecto(eje, R, h.digito, ctx) : null, sitio: sitioDeHijo(R, pv, base, h.digito), ...medidaDeHijo(h, eje, ctx) };
     // Lo que deriva del libro (encargo «lecturas»), detrás de lo anclado: la misma forma, con su marca y su porqué.
     if (h.derivados?.length) { celda.derivados = derivadosDeCelda(eje, h, ctx); celda.totalDerivados = h.totalDerivados; }
     // Bajar por el dígito (encargo «lecturas»): la celda se divide a su vez, R.<base>.<dígito>, mientras queden niveles.
@@ -1318,7 +1359,7 @@ function celdasDeHijos(eje, R, pv, d, g, ctx, { entrar, base = [], direccion = n
  * todos, doy, recibo), sus mínimos (`minimo`, `fuera`: cuántos cayeron al 0) y su sitio, el nodo R.3.d (el interrogante
  * que abre su cruceta). En la caja no se baja por el dígito: dentro hay personas, no lo anclado.
  */
-function celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar) {
+function celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar, base = []) {
   const personas = h.personas.map((p) => ({
     tipo: 'persona', identidad: p.identidad, texto: p.texto, X: p.alta, pv: h.digito, caja: h.digito, doy: p.doy, recibo: p.recibo, porque: p.porque, cae: p.cae ?? null,
     entra: Boolean(entrar && d.entra && p.alta),
@@ -1326,7 +1367,7 @@ function celdaDeCaja(eje, R, pv, d, g, h, i, ctx, entrar) {
   return {
     fila: Math.floor(i / g.columnas), columna: i % g.columnas, pv: h.digito, caja: h.digito, nombre: h.nombre, vacio: h.vacio, total: h.total,
     ocupantes: [], ocupante: null, personas, entra: personas.some((p) => p.entra), escribir: null,
-    filtro: h.filtro, minimo: h.minimo, fuera: h.fuera, rangoPendiente: h.rangoPendiente, sitio: { X: R, lugar: pv + '.' + h.digito },
+    filtro: h.filtro, minimo: h.minimo, fuera: h.fuera, rangoPendiente: h.rangoPendiente, sitio: sitioDeHijo(R, pv, base, h.digito),
   };
 }
 
@@ -1363,7 +1404,7 @@ function nodoSitio(eje, s, yo, ctx) {
   const n = acciones.sitio(eje, s.X, s.lugar, yo, ctx.opciones);
   if (!n) return null;
   return {
-    X: n.X, lugar: n.direccion, texto: legibleDe(eje, { ref: n.X }, null, ctx.opciones).texto,
+    X: n.X, lugar: n.direccion, general: Boolean(s.general), texto: legibleDe(eje, { ref: n.X }, null, ctx.opciones).texto,
     posiciones: n.posiciones.map((p) => ({ ...p, valor: p.valor.map(String).join(' · '), celda: GEOMETRIA[p.posicion].celda })),
   };
 }
@@ -1642,8 +1683,8 @@ function rejillaDe(eje, X, pv, ctx, { ruta = [], pagina = 1, hueco = { ancho: 1,
     pv, forma: d.forma, columnas: g.columnas, filas: g.filas, niveles: d.profundidad, nivel: d.nivel, entra: d.entra && entrar,
     ruta: pasos.map((p) => p.X ?? p.d), X: R, base: sub, direccion: direccion ? direccion.join('.') : null,
     texto: R === X ? null : legibleDe(eje, { ref: R }, null, ctx.opciones).texto, estilo: estiloDe(eje, R, pv, ctx),
-    // El personaje del sitio (encargo pv3): en el 3 por tema, el interrogante del nodo R.3 (su cruceta)
-    ...(d.mide?.includes(MIDE_GRUPOS) && !pasos.length ? { sitio: { X: R, lugar: String(pv) } } : {}),
+    // El personaje del sitio (VG, 12-11, #38): el nodo R.<camino> de lo que la rejilla divide (su cruceta); a nivel 1 es el del propio PV.
+    ...([pv, ...sub].length < 9 ? { sitio: { X: R, lugar: [pv, ...sub].join('.') } } : {}),
   };
   return { ...base, ...FORMAS[d.forma].celdas(eje, R, pv, d, g, ctx, { pagina, hueco, entrar, base: sub, direccion, raiz: X }) };
 }
@@ -1694,6 +1735,8 @@ function capasDeRejilla(eje, X, pv, r, ctx, escenario, tamano, { personaje: conP
   const dePersona = (p) => (eje.esPersona?.(p.identidad) === true && dibujo('persona')) || dibujo('ocupante');
   for (const c of r.celdas ?? []) {
     const lista = c.personas ?? c.ocupantes ?? (c.ocupante ? [c.ocupante] : []);
+    // El muñeco del sitio de la celda, en el mismo sitio que su interrogante (VG, 12-11, #38).
+    if (c.sitio) { const pj = personajeDelSitio(ctx, eje, R, pv, lado); if (pj) c.sitio = { ...c.sitio, personaje: pj }; }
     c.capa = {
       total: c.total ?? lista.length,
       hijo: r.forma === 'matriz' ? null : c.vacio || !lista.length ? dibujo('vacio') : dibujo('hijo'),
@@ -1785,6 +1828,7 @@ function secuenciaDe(eje, X, pvs, ctx, m) {
     total: contrato.ocupantes(eje, X, pv, 0, 0, ctx.opciones).total,
     medida: nodos[pv].medida,
     hilo: nodos[pv].hilo ?? null,
+    sitio: sitioDe(ctx, eje, X, String(pv), pv),
     abierta: !nodos[pv].hilo && nodos[pv].nivel >= NIVEL.bloque,
     nodo: nodos[pv].hilo ? null : nodos[pv],
   }));
@@ -1948,7 +1992,7 @@ export async function arbol(estado, eje, yo, medidas = {}, opciones = {}) {
     limite,
     colores: contrato.colores(opciones), // epoch.9.5.4: el color de cada PV, un dato de la época
     configuracion,
-    // Los interruptores de la barra: las preferencias que son una enumeración (hoy el pintado: sobrio, propio o todo), cada valor en el idioma.
+    // Los interruptores del 5 del 0 de mi alta (la barra ya no existe): las preferencias que son una enumeración (hoy el pintado: sobrio, propio o todo), cada valor en el idioma.
     interruptores: interruptoresDe(configuracion, ctx.opciones),
     centro,
     centros: pvsCentro,

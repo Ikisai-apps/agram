@@ -63,7 +63,7 @@ const UMBRAL_ARRASTRE = 24;
  *   hermano(delta)           cambiar de PV o de hermano (deslizar horizontal, flechas ← →)
  *   saltar(pv)               las teclas 0-9: ir a ese PV
  *   todos(delta)             Mapped: los puntitos del foco (un paso a todos los PV) y su mando para bajar
- *   preferencia(clave, valor) un interruptor de la barra (sobrio o animado): escribir esa preferencia
+ *   preferencia(clave, valor) un interruptor del 5 del 0 de mi alta (sobrio o animado): escribir esa preferencia
  *   pagina(pv, delta)        Mapped: la página siguiente o la anterior de un PV (sin scroll)
  *   celda(pv, X)             Mapped, pantalla completa: entrar en una celda de la rejilla de un PV (un nivel más adentro)
  *   celdaMatriz(X, celda)    la matriz del 4 a pantalla completa: abrir la celda «fila.columna» de X (su lista de movimientos); null la cierra
@@ -71,9 +71,8 @@ const UMBRAL_ARRASTRE = 24;
  *   bajar(pv, d)             bajar un nivel por el dígito d de una celda de la rejilla (la dirección crece un dígito: 1 → 1.1)
  *   fila(pv)                 Sequenced: abrir o cerrar la fila de un PV en la tarjeta del foco (las del hilo llevan al pasado o al futuro)
  *   digito(pv)               Sequenced: la fila de dígitos de abajo; ir a la fila de ese PV y abrirla
- *   menu()                   Sequenced: abrir o cerrar el menú de la barra de una línea
  *   filtroCaja(caja)         el 3 por tema (encargo pv3): el botón de una caja cicla todos → doy → recibo
- *   sitio(X, lugar)          el interrogante (o el muñeco) de un sitio: abrir la cruceta del propio nodo X.<lugar> (#38)
+ *   sitio(X, lugar, { general })  el interrogante (o el muñeco) de un sitio: abrir la cruceta del propio nodo X.<lugar> (#38); el del 0 de mi alta (general) lleva las opciones de lo que era la barra
  *   lanzarCon(X, accion, valores)  una posición de esa cruceta: el formulario de su acción con los parámetros del sitio
  *   reclasificar(persona, caja)  arrastrar a una persona de una caja del 3 a otra (mantener y arrastrar, en Mapped y en
  *                            Sequenced): reclasificar la conversación (al 5, vetar)
@@ -179,7 +178,6 @@ export function instalar(raiz, m) {
       if ((el = b(`[data-propuesta-${que}]`))) { e.preventDefault(); m.propuesta?.(que, el.dataset[`propuesta${que[0].toUpperCase()}${que.slice(1)}`]); return; }
     }
     if ((el = b('[data-todos]'))) { e.preventDefault(); m.todos?.(Number(el.dataset.todos)); return; }
-    if ((el = b('[data-menu]'))) { e.preventDefault(); m.menu?.(); return; }
     // la cabeza de una fila de Sequenced (un botón): las celdas de la rejilla y los sitios del aro también llevan data-fila (su fila en la cuadrícula), y no son filas
     if ((el = b('button[data-fila]'))) { e.preventDefault(); m.fila?.(Number(el.dataset.fila)); return; }
     if ((el = b('[data-digito]'))) { e.preventDefault(); m.digito?.(Number(el.dataset.digito)); return; }
@@ -196,7 +194,7 @@ export function instalar(raiz, m) {
       m.lanzarCon?.(el.dataset.x ?? xDe(el), el.dataset.sitioLanzar, valores);
       return;
     }
-    if ((el = b('[data-sitio]'))) { e.preventDefault(); m.sitio?.(el.dataset.sitioX ?? xDe(el), el.dataset.sitio); return; }
+    if ((el = b('[data-sitio]'))) { e.preventDefault(); m.sitio?.(el.dataset.sitioX ?? xDe(el), el.dataset.sitio, { general: el.dataset.sitioGeneral !== undefined }); return; }
     // data-ejecutar (VG 12-11, decisión 7): lanzado desde una celda abierta del 4, el formulario en modo ejecutar.
     if ((el = b('[data-lanzar]'))) { e.preventDefault(); m.lanzar?.(el.dataset.x ?? xDe(el), el.dataset.lanzar, el.dataset.paso !== undefined ? Number(el.dataset.paso) : null, ...(el.dataset.ejecutar !== undefined ? [{ ejecutar: true }] : [])); return; }
     if ((el = b('[data-cargar-mas]'))) { e.preventDefault(); m.cargarMas?.(Number(el.dataset.cargarMas)); return; }
