@@ -337,19 +337,20 @@ test('camino: la reserva dice a la huésped lo que le falta (pagar) y lo que esp
   const h = await A.camino(eje, reserva.id, 'huesped', { t });
   const mios = h.pasos.filter((p) => p.hacer && !p.espera);
   const esperas = h.pasos.filter((p) => p.espera);
-  assert.deepEqual([mios.length, mios[0].hacer.plantilla, esperas.length, [...new Set(esperas.map((p) => p.espera))]], [1, 'pay', 3, ['casa']]);
+  // VG 12-11 (decisión 8): las tres noches van en un anuncio de la casa: una espera, con las tres.
+  assert.deepEqual([mios.length, mios[0].hacer.plantilla, esperas.length, [...new Set(esperas.map((p) => p.espera))]], [1, 'pay', 1, ['casa']]);
   assert.match(mios[0].falta, /^stage: .* · pagar 165 E:casa\/EUR huesped → casa$/);
-  assert.ok(esperas.every((p) => /ocupar 1 E:casa\/1100000000@2026-11-2\d@/.test(p.falta)));
+  assert.equal(esperas[0].falta.match(/1 E:casa\/1100000000@2026-11-2\d@/g).length, 3);
   assert.equal(h.niveles, undefined, 'la reserva ya tiene madurez: no hace falta ubicarse');
-  // La casa ve lo contrario: tres pasos suyos (las plazas) y la espera del pago.
+  // La casa ve lo contrario: un paso suyo (las tres plazas, en una transacción sobre su anuncio) y la espera del pago.
   const c = await A.camino(eje, reserva.id, 'casa', { t });
-  assert.deepEqual([c.pasos.filter((p) => p.hacer && !p.espera).map((p) => p.hacer.plantilla), c.pasos.filter((p) => p.espera).map((p) => p.espera)], [['pay', 'pay', 'pay'], ['huesped']]);
+  assert.deepEqual([c.pasos.filter((p) => p.hacer && !p.espera).map((p) => p.hacer.plantilla), c.pasos.filter((p) => p.espera).map((p) => p.espera)], [['pay'], ['huesped']]);
   // Autoejecutar: la huésped paga, la casa entrega, y la reserva queda cerrada; nadie mueve lo ajeno.
   const a = await A.autoejecutar(eje, reserva.id, 'huesped', null, { t });
   assert.deepEqual([a.hechos.length, a.parado, movs(a.hechos[0].evento)[1]], [1, null, ['E', 165, 'huesped', 'casa']]);
   assert.equal(cerrado(eje, reserva.id).cerrado, false);
   const b = await A.autoejecutar(eje, reserva.id, 'casa', null, { t });
-  assert.deepEqual([b.hechos.length, b.parado], [3, null]);
+  assert.deepEqual([b.hechos.length, b.parado, b.hechos[0].evento.movimientos.length], [1, null, 4], 'las tres noches en una transacción (con su T)');
   assert.equal(cerrado(eje, reserva.id).cerrado, true);
   assert.deepEqual((await A.camino(eje, reserva.id, 'huesped', { t })).pasos, []);
   // La firma que le pasa la carta se aplica a cada evento antes de asentarlo.
@@ -423,9 +424,10 @@ test('aggregate T engloba lo que cuelga de X en un registro de la fábrica de X 
   // Tasks: la organizadora paga lo anunciado con «pay» en vez de a mano.
   const t = await ejemploTarea({ hasta: 'entregada' });
   const pasos = (await A.camino(t.eje, t.tarea.id, 'organizadora', { t: '2026-11-13T18:00:00Z' })).pasos.filter((p) => p.hacer);
-  assert.deepEqual(pasos.map((p) => p.hacer.plantilla), ['pay', 'pay']);
+  // Un anuncio con los dos pagos (VG 12-11, decisión 8): un paso, una transacción anclada sobre él.
+  assert.deepEqual(pasos.map((p) => p.hacer.plantilla), ['pay']);
   const auto = await A.autoejecutar(t.eje, t.tarea.id, 'organizadora', null, { t: '2026-11-13T18:00:00Z' });
-  assert.deepEqual([auto.hechos.length, auto.parado, cerrado(t.eje, t.tarea.id).cerrado], [2, null, true]);
+  assert.deepEqual([auto.hechos.length, auto.parado, cerrado(t.eje, t.tarea.id).cerrado, auto.hechos[0].evento.sobre], [1, null, true, t.anuncios[0].id]);
 });
 
 test('el índice expone las acciones como espacio de nombres, y el contexto resuelve «me»', async () => {

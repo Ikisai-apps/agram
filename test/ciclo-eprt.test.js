@@ -653,3 +653,25 @@ test('un eje de la versión 2 se restaura con las reglas de entonces; lo nuevo, 
   const conBloqueo = await crearEvento({ autor: 'club', sobre: g.id, t: T0, payload: 'x', movimientos: [gasta('club'), { ...gasta('club'), a: 'club', estado: 'bloqueo', salida: 's' }] });
   await assert.rejects(restaurar(JSON.parse(JSON.stringify({ version: 2, eventos: [g, conBloqueo] }))), /estado, salida y caduca no existían en la versión 2/);
 });
+// VG 12-11 (estudio BQL-transacciones, decisión 8): un movimiento anunciado no toca saldos ni emite: el libro no lo
+// aplica, las reglas del ciclo no lo ven como emisión ni como movimiento de nadie, y se guarda y se restaura con su registro.
+test('lo anunciado no emite ni mueve: ni saldo, ni serie nueva, ni emisión ajena; su forma la valida validarMovimiento', async () => {
+  const { ejemploCompra } = await import('../ejemplos/ikisai/compra-food.mjs');
+  const { eje, compra } = await ejemploCompra();
+  // La forma: con estado «anunciado», refiere es la fecha para la que se anuncia; sin salida; el T informativo no se anuncia.
+  const e = { token: 'E', emisor: 'casa', denominacion: 'vale', cantidad: 3, de: null, a: 'casa' };
+  assert.deepEqual(validarMovimiento({ ...e, estado: 'anunciado', refiere: '2026-12-01T00:00:00Z' }), []);
+  assert.match(validarMovimiento({ ...e, estado: 'anunciado', refiere: 'mañana' }).join(), /refiere debe ser instante/);
+  assert.match(validarMovimiento({ token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'casa', a: 'huesped', estado: 'anunciado', salida: 'x' }).join(), /no lleva salida/);
+  assert.match(validarMovimiento({ token: 'T', escala: 'futuro', cantidad: 1, de: 'huesped', a: null, estado: 'anunciado', refiere: '2026-12-01T00:00:00Z' }).join(), /no se anuncia/);
+  assert.match(validarMovimiento({ ...e, refiere: '2026-12-01T00:00:00Z' }).join(), /refiere solo en T pasado, futuro o inventado, o en un movimiento anunciado/);
+  // La huésped anuncia que la casa emitirá vales y le dará euros: ni la casa los emite ni le da nada todavía.
+  const antes = eje.saldo('huesped', 'E:casa/EUR');
+  const anuncio = await eje.escribir({ autor: 'huesped', sobre: compra.id, en: '4100000000', t: '2026-11-07T15:00:00Z', movimientos: [gasta('huesped'), { ...e, estado: 'anunciado' }, { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 4, de: 'casa', a: 'huesped', estado: 'anunciado' }], payload: 'vales y euros' });
+  assert.deepEqual([eje.saldo('huesped', 'E:casa/EUR'), eje.series().some((s) => s.clave === 'E:casa/vale'), eje.saldo('casa', 'E:casa/vale')], [antes, false, 0]);
+  const v = await validez(eje, anuncio.id);
+  assert.notEqual(v.permiso.estado, 'falla', 'nadie emite lo ajeno: lo anunciado no es una emisión');
+  assert.ok(Object.values(v).every((x) => !x || typeof x !== 'object' || x.estado !== 'falla'), 'ninguna capa falla: el respaldo no se pide para lo anunciado');
+  const otro = await restaurar(serializar(eje));
+  assert.deepEqual(otro.obtener(anuncio.id).movimientos.slice(1).map((m) => m.estado), ['anunciado', 'anunciado']);
+});

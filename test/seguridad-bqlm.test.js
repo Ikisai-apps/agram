@@ -5,9 +5,12 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluar, evaluarRegla, POR_LIMITE, LIMITES, NADIE } from '../src/bqlm.js';
+import { evaluar, evaluarRegla, evaluarEscritura, POR_LIMITE, LIMITES, NADIE, DESTINOS_DE_PUT } from '../src/bqlm.js';
 import { ContextoEje } from '../src/contexto-eje.js';
-import { EPOCA_0_BTML } from '../src/epocas.js';
+import { EPOCA_0_BTML, cargarEpocaBtml } from '../src/epocas.js';
+import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
+import * as A from '../src/acciones.js';
+import { generarClaves, firmar as firmarEvento } from '../src/autoridad.js';
 import { crearEvento, canonico, cuerpo, hash, RAIZ } from '../src/evento.js';
 import { validarMovimiento } from '../src/tokens.js';
 import { Libro, acunar, bloquear, transaccion } from '../src/libro.js';
@@ -121,4 +124,55 @@ test('SEG-13 el presupuesto cobra lo que devuelve cada referencia aunque esté m
   const r = evaluar('count ev.1', new ContextoEje(eje, { ev: cien }));
   assert.deepEqual([r.estado, r.subtipo], ['PENDIENTE', POR_LIMITE], 'cien referencias a doscientos ocupantes son veinte mil, más que el presupuesto');
   assert.equal(evaluar('count ev.1', new ContextoEje(eje, { ev: cien }), { limites: { ocupantes: 50000 } }).valor[0], 20001, 'con más presupuesto se cuenta entero');
+});
+
+// ---------- BQL mueve: el invariante del núcleo (VG 12-11, estudio BQL-transacciones, decisión 6) ----------
+
+/** La época 0 con una regla o una plantilla cambiadas (los datos, no el código). */
+function epocaCambiada({ regla, plantilla } = {}) {
+  const registros = REGLAS_DE_EPOCA_DATOS.map((r) => (regla && r.registro[0][0] === regla.nombre ? { ...r, registro: r.registro.map((x, i) => (i === 2 ? [regla.formula] : i === 4 && regla.cuatro ? regla.cuatro : x)) } : r));
+  const plantillas = PLANTILLAS_DE_EPOCA_DATOS.map((p) => (plantilla && p.registro[0][0] === plantilla.nombre ? { ...p, registro: p.registro.map((x, i) => (i === 4 ? plantilla.cuatro : x)) } : p));
+  return cargarEpocaBtml(JSON.parse(JSON.stringify(EPOCA_0_BTML_DATOS)), { registros, plantillas, correcciones: CORRECCIONES_DE_EPOCA_DATOS, id: EPOCA_0_BTML.id });
+}
+
+test('SEG-14 nadie mueve lo ajeno desde una regla: una regla de la época con un verbo no se carga (y evaluada, es ERROR); un put solo en una regla que escribe y solo en su lista cerrada', async () => {
+  // Una condición que intentara mover (aunque el verbo quede detrás de un and que da falso): la época no se carga.
+  assert.throws(() => epocaCambiada({ regla: { nombre: 'nobody moves tokens of others', formula: '=1 = 2 and transfer 1 R.("casa") from "casa" to first ev.3' } }), /mueve \(«transfer»\): una regla solo lee; solo una plantilla de transacción mueve/);
+  // Ni una lectura ni una regla que escribe pueden llevar un verbo; una lectura tampoco coloca.
+  assert.throws(() => epocaCambiada({ regla: { nombre: 'stage', formula: '=burn 1 T.1 from first it.3' } }), /una regla solo lee/);
+  assert.throws(() => epocaCambiada({ regla: { nombre: 'writing a record gives ten P on it', formula: '=mint 10 P.(first ev.5).(first ev.3) to first ev.3' } }), /una regla solo lee/);
+  assert.throws(() => epocaCambiada({ regla: { nombre: 'stage', formula: '=put 10 at (first it.3).2.1.(it)' } }), /coloca \(put\) sin ser una regla que escribe/);
+  // Evaluada a mano (sin el cargador), la regla con un verbo es ERROR: nunca se mueve nada desde una regla.
+  const { eje, menu } = await ejemploCompra();
+  const ev = await crearEvento({ autor: 'huesped', sobre: menu.id, t: '2026-11-07T15:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'huesped', a: null }], payload: ['x'] });
+  const ctx = new ContextoEje(eje, { ev, epoch: EPOCA_0_BTML });
+  const r = evaluarRegla([['thief'], [], ['=1 = 1 or transfer 12 E.("casa").("EUR") from "cocina" to first ev.3'], ['ev.3'], ['transfer'], ['*'], ['x'], ['epoch 0'], ['first'], ['no']], ctx);
+  assert.deepEqual([r.pasa, r.estado], [false, 'ERROR']);
+  // Una regla que escribe solo coloca en A.2.1 (el P posicionado): el libro, por su cuenta, solo acuña hasta un nivel ahí.
+  const w = evaluarEscritura([['writer'], [], ['=put 100 at (first ev.3).1.("E:casa/EUR")'], ['ev.3'], ['put'], ['*'], ['x'], ['epoch 0'], ['first'], ['no']], ctx);
+  assert.deepEqual([w.estado, w.escrituras], ['ERROR', []]);
+  assert.deepEqual(DESTINOS_DE_PUT, [[2, 1]]);
+});
+
+test('SEG-15 las plantillas construyen y firma quien mueve: un verbo que nombra lo ajeno se construye, pero lo rechaza la regla; lo que sale lo firma quien lanza la plantilla', async () => {
+  const claves = { casa: await generarClaves(), cocina: await generarClaves(), huesped: await generarClaves() };
+  const { eje, menu } = await ejemploCompra({ claves });
+  const firmar = (ev) => firmarEvento(ev, claves.huesped.privada);
+  // «anchor here» con una sentencia que mueve los euros de la cocina hacia quien lanza: la candidata se construye (la
+  // plantilla propone), la firma la huésped, y la regla «nobody moves tokens of others» la rechaza.
+  const ladrona = epocaCambiada({ plantilla: { nombre: 'anchor here', cuatro: ['=transfer 12 E.("casa").("EUR") from first it.3 to me'] } });
+  const r = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'mía' }, 'huesped', { t: '2026-11-07T15:00:00Z', firmar, epoca: ladrona });
+  assert.equal(r.ok, false);
+  assert.deepEqual([r.evento.autor, r.evento.firmante, r.evento.movimientos[1]], ['huesped', 'huesped', { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 12, de: 'cocina', a: 'huesped' }]);
+  assert.ok(r.motivos.some((m) => m.regla === 'nobody moves tokens of others'), JSON.stringify(r.motivos));
+  await assert.rejects(eje.anadir(r.evento), /nobody moves tokens of others/);
+  // Lo suyo, en cambio, pasa: la misma plantilla moviendo lo de quien la lanza (la firma la huésped, que es quien mueve).
+  const propia = epocaCambiada({ plantilla: { nombre: 'anchor here', cuatro: ['=transfer 2 E.("casa").("EUR") from me to first it.3'] } });
+  const ok = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'propina' }, 'huesped', { t: '2026-11-07T15:00:00Z', firmar, epoca: propia });
+  assert.deepEqual([ok.ok, ok.evento.firmante, ok.evento.movimientos[1].de], [true, 'huesped', 'huesped'], JSON.stringify(ok.motivos));
+  // Una serie escrita como texto no la fabrica una plantilla (SEG-09): ERROR al construir.
+  const texto = epocaCambiada({ plantilla: { nombre: 'anchor here', cuatro: ['=transfer 2 "E:casa/EUR" from me to first it.3'] } });
+  const t = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'texto' }, 'huesped', { t: '2026-11-07T15:00:00Z', epoca: texto });
+  assert.equal(t.ok, false);
+  assert.match(t.motivos[0].mensaje, /un texto no fabrica una serie/);
 });

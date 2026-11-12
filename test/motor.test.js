@@ -213,3 +213,33 @@ test('descubrir: cada elemento de una lista muestra su propio valor, no el de la
   ]);
 });
 
+
+// VG 12-11 (estudio BQL-transacciones, decisión 8; #48): el anuncio es un movimiento anunciado del libro, y un anuncio puede
+// llevar varios. Lo cumple lo que se ancla sobre él: siguiente propone a cada parte un registro anclado sobre el anuncio
+// con todo lo suyo, cerrado espera a que cada movimiento anunciado lo mueva alguien así, y cierre da el último que lo hizo.
+test('el anuncio como movimientos anunciados: cada parte cumple lo suyo con un registro anclado sobre el anuncio; cerrado cuando se ha movido todo', async () => {
+  const { eje, compra, menu } = await ejemploCompra();
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
+  const anunciado = (m) => ({ ...m, estado: 'anunciado' });
+  const pagar = { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 5, de: 'huesped', a: 'cocina' };
+  const devolver = { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 1, de: 'cocina', a: 'huesped' };
+  const saldo = eje.saldo('huesped', 'E:casa/EUR');
+  const a = await registrar(eje, { autor: 'huesped', sobre: c.id, en: ANUNCIO, t: T, movimientos: [minuto('huesped'), anunciado(pagar), anunciado(devolver)], payload: 'pagar y devolver' });
+  assert.equal(eje.saldo('huesped', 'E:casa/EUR'), saldo, 'anunciar no mueve');
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  const deHuesped = siguiente(eje, c.id, 'huesped');
+  assert.deepEqual(deHuesped.faltaDeMi.map((x) => [x.anuncio, x.transaccion.sobre, x.transaccion.en, x.transaccion.movimientos.slice(1)]), [[a.id, a.id, FABRICA, [pagar]]]);
+  assert.deepEqual(deHuesped.espera.map((x) => [x.anuncio, x.de]), [[a.id, 'cocina']]);
+  // Lo de la huésped, sobre el anuncio: aún abierta (falta lo de la cocina) y a ella ya no le falta nada.
+  await registrar(eje, { ...deHuesped.faltaDeMi[0].transaccion, t: T });
+  assert.deepEqual([cerrado(eje, c.id).cerrado, siguiente(eje, c.id, 'huesped').faltaDeMi], [false, []]);
+  // Un pago suelto de la cocina en la propuesta (no sobre el anuncio) no lo cumple (#48: se casaba por existencia).
+  await registrar(eje, { autor: 'cocina', sobre: c.id, t: T, movimientos: [minuto('cocina'), devolver], payload: 'suelto' });
+  assert.equal(cerrado(eje, c.id).cerrado, false);
+  const [{ transaccion }] = siguiente(eje, c.id, 'cocina').faltaDeMi;
+  const ultimo = await registrar(eje, { ...transaccion, t: T });
+  assert.equal(cerrado(eje, c.id).cerrado, true);
+  const { cierre } = await import('../src/motor.js');
+  assert.equal(cierre(eje, c.id).id, ultimo.id, 'el registro que lo cerró cuelga del anuncio');
+  void menu;
+});

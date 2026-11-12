@@ -371,12 +371,12 @@ test('el animado anima lo que pasa: un movimiento nuevo del diario reproduce una
   assert.deepEqual(tres.nuevos.entradas, [ev.id]);
   assert.deepEqual(tres.nuevos.efectos, [], 'solo quema el T de escribir: ningún efecto');
   assert.equal(d.laterales.find((n) => n.pv === 4).personaje.accion, 'esperar');
-  // La reserva confirmada: el ciclo del PV 4 llega a su «de» (4 de 4) → celebra una vez.
+  // La reserva confirmada: el ciclo del PV 4 llega a su «de» (2 de 2: sus dos anuncios, VG 12-11, decisión 8) → celebra una vez.
   const { eje: b2, reserva } = await ejemploReserva();
   await animadoConIkisai(b2);
   const e = await arbol({ foco: { X: reserva.id, pv: 0 }, niveles: { 4: NIVEL.bloque, 1: NIVEL.bloque }, nuevos: new Set() }, b2, 'huesped', MOVIL);
   const cuatro = e.laterales.find((n) => n.pv === 4);
-  assert.deepEqual([cuatro.paso.k, cuatro.paso.de], [4, 4]);
+  assert.deepEqual([cuatro.paso.k, cuatro.paso.de], [2, 2]);
   assert.deepEqual([cuatro.personaje.accion, cuatro.personaje.animar, cuatro.personaje.rol], ['celebrar', ANIMAR.una, modelos.rolPorDefecto(c, 'munequito', 4)]);
   assert.equal(e.laterales.find((n) => n.pv === 1).personaje.accion, 'esperar');
   // En el móvil en vertical no hay muñequitos (#7): la celebración se ve a pantalla completa (Mapped), en la capa del personaje.

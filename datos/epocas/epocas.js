@@ -523,7 +523,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"
     },
     {
-      "ref": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"
+      "ref": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7"
+    },
+    {
+      "ref": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"
     },
     {
       "ref": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"
@@ -551,9 +554,6 @@ export const EPOCA_0_BTML_DATOS = [
     },
     {
       "ref": "c63bc40ef1a4ef5644854d87c2ee868000f8aca50b4b8c13998ff2b21d7d364f"
-    },
-    {
-      "ref": "c867eee0f04e55b1944318997dc2ad0adecaa70f14b98ca03f80c5ca08737e43"
     }
   ],
   [
@@ -8602,7 +8602,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "the-cost-of-writing.json",
-    "id": "c867eee0f04e55b1944318997dc2ad0adecaa70f14b98ca03f80c5ca08737e43",
+    "id": "4488dfbd26ad2bc4ccf48b31d3d795acb78b642ecbf035648f5eaddfac8652e7",
     "registro": [
       [
         "the cost of writing"
@@ -8632,7 +8632,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after how"
+        "after clocks out of order"
       ],
       [
         "the cost of writing: what a record demands in T, in seconds: one minute of the calendar per position of its payload"
@@ -8736,7 +8736,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-it-is.json",
-    "id": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09",
+    "id": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a",
     "registro": [
       [
         "what it is"
@@ -8766,7 +8766,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after clocks out of order"
+        "after the cost of writing"
       ],
       [
         "what it is: what the node is, its representations (its text or its resource)"
@@ -16270,7 +16270,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "503173796077726904f611ba102fc404e04965124f866055ced1524043eb16dc";
+export const EPOCA_0_BTML_ID = "4d77e55433a1f4ea6325de52288461bfc46974597faccae5f8b5638bb462f1b7";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];
