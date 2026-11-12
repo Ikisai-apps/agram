@@ -5,7 +5,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { evaluar, evaluarRegla, evaluarEscritura, POR_LIMITE, LIMITES, NADIE, DESTINOS_DE_PUT } from '../src/bqlm.js';
+import { evaluar, evaluarRegla, evaluarEscritura, POR_LIMITE, LIMITES, NADIE, DESTINOS_DE_PUT, VERIFICACION, COSTE_FIRMA, queMueve } from '../src/bqlm.js';
+import { readFileSync } from 'node:fs';
 import { ContextoEje } from '../src/contexto-eje.js';
 import { EPOCA_0_BTML, cargarEpocaBtml } from '../src/epocas.js';
 import { EPOCA_0_BTML_DATOS, REGLAS_DE_EPOCA_DATOS, PLANTILLAS_DE_EPOCA_DATOS, CORRECCIONES_DE_EPOCA_DATOS } from '../datos/epocas/epocas.js';
@@ -175,4 +176,54 @@ test('SEG-15 las plantillas construyen y firma quien mueve: un verbo que nombra 
   const t = await A.transaccion(eje, 'anchor here', { X: menu.id, title: 'texto' }, 'huesped', { t: '2026-11-07T15:00:00Z', epoca: texto });
   assert.equal(t.ok, false);
   assert.match(t.motivos[0].mensaje, /un texto no fabrica una serie/);
+});
+
+// ---------- primitivas de verificación (Core AGRAM 12-11, #67; docs/BQLM.md §12) ----------
+
+/** Un contexto que revienta si se le pregunta algo: una primitiva con argumentos literales no lo toca. */
+const SIN_LIBRO = new Proxy({}, { get: (_, k) => (k === 'then' ? undefined : () => { throw new Error('la primitiva leyó el contexto: ' + String(k)); }) });
+
+test('SEG-16 ninguna primitiva firma: no hay sign ni claves privadas en el léxico, y src/cripto.js solo llama a schnorr.verify', () => {
+  for (const f of Object.keys(VERIFICACION)) assert.doesNotMatch(f, /^sign$|priv|secret|key|firm/i, f);
+  assert.ok(Object.hasOwn(VERIFICACION, 'signed'), 'signed verifica: devuelve verdadero o falso');
+  for (const e of ['sign(bytes("00"), bytes("00"))', 'schnorr(1)', 'getPublicKey(bytes("00"))']) assert.match(evaluar(e, SIN_LIBRO).motivo, /no es BQL mínimo/, e);
+  const fuente = readFileSync(new URL('../src/cripto.js', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.deepEqual([...fuente.matchAll(/schnorr\.(\w+)/g)].map((m) => m[1]), ['verify']);
+  assert.doesNotMatch(fuente, /getPublicKey|randomSecretKey|\.sign\(|privad/);
+});
+
+test('SEG-17 ninguna primitiva lee fuera del libro: con argumentos literales no toca el contexto; src/cripto.js no importa nada más que la verificación ni hace E/S', () => {
+  const casos = ['hex(bytes("00ff"))', 'hex(utf8("a"))', 'hex(hash("a"))', 'hex(hash("a", "t"))', 'hex(sha256(bytes("")))', 'hex(sha256d(bytes("")))', 'hex(cat(bytes("01"), bytes("02")))',
+    'hex(slice(bytes("0102"), 0, 1))', 'hex(reverse(bytes("0102")))', 'le(bytes("01"))', 'below(bytes("00"), bytes("01"))', 'signed(bytes("' + '00'.repeat(64) + '"), bytes("' + '00'.repeat(32) + '"), bytes("' + '00'.repeat(32) + '"))'];
+  for (const e of casos) assert.equal(evaluar(e, SIN_LIBRO).estado, 'RESUELTO', e + ': ' + evaluar(e, SIN_LIBRO).motivo);
+  for (const e of casos) assert.deepEqual(queMueve('=' + e), { verbo: null, put: false }, e);
+  const fuente = readFileSync(new URL('../src/cripto.js', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '');
+  assert.deepEqual([...fuente.matchAll(/^import .* from '(.*)';$/gm)].map((m) => m[1]), ['./vendor/noble-secp256k1.js']);
+  assert.doesNotMatch(fuente, /fetch|XMLHttpRequest|globalThis|process\.|require\(|import\(|Date\.|Math\.random|localStorage|crypto\.subtle/);
+});
+
+test('SEG-18 el presupuesto corta una tx o un cat desmesurados antes de procesarlos; una tx de 100 KB cabe', () => {
+  // Una transacción válida de ~100 KB (un scriptSig enorme): cabe en el presupuesto de una evaluación.
+  const tx = (n) => '01000000' + '01' + 'aa'.repeat(32) + '00000000' + 'fe' + Buffer.from(Uint32Array.of(n).buffer).toString('hex') + '51'.repeat(n) + 'ffffffff' + '01' + '0000000000000000' + '00' + '00000000';
+  const ctx = (h) => new ContextoEje(null, { epoch: [[h]] });
+  const cien = evaluar('count (first tx(bytes(first epoch.0)).1)', ctx(tx(100000)));
+  assert.equal(cien.estado, 'RESUELTO', cien.motivo);
+  // Una de 1,2 MB: bytes(…) paga 1,2 MB y tx(…) pediría 2,4 MB más; se para con PENDIENTE POR LÍMITE.
+  const t0 = Date.now();
+  const enorme = evaluar('count (first tx(bytes(first epoch.0)).1)', ctx(tx(1200000)));
+  assert.equal(enorme.subtipo, POR_LIMITE, enorme.motivo);
+  assert.match(enorme.motivo, /bytes procesados/);
+  assert.ok(Date.now() - t0 < 5000, 'se corta sin procesarla');
+  // cat: con un tope de 1000 bytes, dos bytes(…) de 500 caben y el cat de los dos, no.
+  const h = 'ab'.repeat(500);
+  assert.equal(evaluar('count (bytes("' + h + '") = bytes("' + h + '"))', SIN_LIBRO, { limites: { bytes: 1000 } }).estado, 'RESUELTO');
+  assert.equal(evaluar('hex(cat(bytes("' + h + '"), bytes("' + h + '")))', SIN_LIBRO, { limites: { bytes: 1000 } }).subtipo, POR_LIMITE);
+  // Un cat que se repite en un where: el presupuesto es de toda la evaluación.
+  const repetido = evaluar('count (epoch.0 where count cat(bytes(it), bytes(it), bytes(it), bytes(it)) = 1)', new ContextoEje(null, { epoch: [Array.from({ length: 200 }, (_, k) => 'ab'.repeat(2000) + k.toString(16).padStart(2, '0'))] }));
+  assert.equal(repetido.subtipo, POR_LIMITE, repetido.motivo);
+  // Las firmas pagan COSTE_FIRMA cada una: no se pueden verificar sin tope.
+  assert.ok(LIMITES.bytes / COSTE_FIRMA < 100);
+  const firma = 'signed(bytes("' + '00'.repeat(64) + '"), bytes("' + '00'.repeat(32) + '"), bytes("' + '00'.repeat(32) + '"))';
+  const muchas = evaluar('count (epoch.0 where ' + firma + ')', new ContextoEje(null, { epoch: [Array.from({ length: 100 }, (_, k) => 'f' + k)] }));
+  assert.equal(muchas.subtipo, POR_LIMITE, muchas.motivo);
 });

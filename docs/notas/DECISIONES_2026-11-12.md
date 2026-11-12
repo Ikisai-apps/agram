@@ -17,7 +17,7 @@ Cada nota tiene cuatro líneas: *Qué se decidió*, *Por qué* (lo que dice la f
 | 1. Lecturas y profundidad | #12 (diseño 8.7, §7), #44, #45, #47 |
 | 2. El 3: admisión, grupos, mínimos y personaje | #29, #31, #32, #33, #34 (sustituida), #35, #37, #38, #46 |
 | 3. El 4, la escalera y el rango | #39, #40, #41, y las decisiones 7 y 8 del estudio (en #49) |
-| 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50 |
+| 4. BQL con transacciones | #43, #48, #49 (decisiones 1 a 10), #50, #67 |
 | 5. Tiempo e incongruencia | #42, #65, decisión 4 de #49 (los tres relojes, `X.6.8`) |
 | 6. Pantalla | #23 |
 
@@ -234,6 +234,15 @@ Pruebas de 1 a 4 y 9: las del paso 1 y 2 del estudio (ver #43). Para 5 a 8, las 
 - **Por qué.** La fuente da la regla de seguridad; el resto es diseño.
 - **Qué cambia.** Dejarlo establecido en `docs/MOTOR.md` y `docs/CONTRATO.md`; la estación «verificada» como dato de la época (con #49 decisión 8: los estados salen del motor y pasan a datos).
 - **Pruebas.** La fuente no las nombra: deben cubrir que un movimiento apoyado en algo no verificado no se ejecuta y que mostrar rápido no lo ejecuta.
+
+### #67 — Primitivas puras de verificación en BQL (Core AGRAM 12-11, para el SIP de StateArk)
+
+Fuente: decisión de Core AGRAM del 12-11, a petición de Core StateArk (`InTheState/stateark/sip/HUECOS_BQL.md`, huecos H1 a H8 y H10). No es una decisión de VG: la marca es **Propuesta Core**, aplicada.
+
+- **Qué se decidió.** BQL gana primitivas **puras** de verificación, sin efectos ni entrada/salida, nunca de firma ni de claves privadas: `bytes`, `hex`, `utf8`, `hash` (canónico o etiquetado BIP-340), `sha256`, `sha256d`, `cat`, `slice`, `reverse`, `le`, `below`, `merkle` (esquemas `"bitcoin"` y `"sip"`), `ots`, `cabecera`, `tx` y `signed` (BIP-340), con un tipo nuevo, los **bytes**, distinto de texto y número (en los datos BTML viajan como hex). Forma, coste y semántica: `docs/BQLM.md` §12.
+- **Por qué.** Los SIP de StateArk son épocas de AGRAM: un registro de AGRAM no va a buscar nada al eje de StateArk, lleva **copiada** la prueba (el sello de tiempo, el recibo, el candado) y una regla tiene que comprobarla **sin salir del libro**. Sin estas primitivas, la regla tenía que creerse lo copiado (la raíz, la hora, las salidas, la preimagen). Una regla que las usa sigue «solo leyendo» (invariante de #49, decisión 6): todo lo que verifica está en el libro; las primitivas no son verbos. Son la única excepción a «no hay funciones con nombre»: no escogen nada del libro (eso sigue siendo posición), calculan sobre bytes.
+- **Qué cambia.** Núcleo: `src/cripto.js` (lo puro: SHA-256 propio, porque el de noble no se exporta y Web Crypto es asíncrono; cabecera, transacción, Merkle, OTS; BIP-340 con `schnorr.verify`, la única llamada a la librería) y `src/bqlm.js` (las llamadas, el tipo bytes, el presupuesto por byte: `LIMITES.bytes`, 2 000 000 por evaluación; `COSTE_FIRMA`, 65 536 por firma). Ningún dato de la época cambia. Anunciado y no hecho: «verificado» como regla de la época que lee `X.6.8.2` (`docs/CONTRATO.md` §4.4).
+- **Pruebas.** `test/bqlm-cripto.test.js`: SHA-256 de FIPS 180-2 y cruzado con `node:crypto`; los vectores de BIP-340; el bloque génesis (cabecera, prueba de trabajo, coinbase, Merkle de una tx); un Merkle «bitcoin» de tres con duplicado; el Merkle «sip» con la misma raíz que el sellador de `servidor/sim/stateark`; OTS sintético; una transacción con testigo; `signed` sobre `bytes(id)` de un evento firmado; el candado §8 en Taproot (vector de rust-miniscript de StateArk); y que `analizar` acepta las reglas del SIP 0. `test/seguridad-bqlm.test.js`, SEG-16 a SEG-18: ninguna primitiva firma, ninguna lee fuera del libro, el presupuesto corta una `tx` o un `cat` desmesurados.
 
 ---
 
