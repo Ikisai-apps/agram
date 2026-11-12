@@ -2,9 +2,12 @@
 // StateArk: por eso este puente vive fuera de esa carpeta). src/sello.js no conoce ninguna simulación (TOK-74): recibe
 // el sellador inyectado (`selloCon`) y esto se lo da. Solo en Node; en el navegador, hace falta «seal url».
 //
-// Desde el commit 8fe065f de la simulación (H9), la prueba trae la cabecera de 80 bytes, los pasos OTS y la firma del
-// observador de cabeceras: con ella la regla «sealed» de la época (X.6.8.5) da VERDADERO si la cuenta raíz del eje
-// declara la clave del observador (`claveObservador`) en «exterior settings».6. El observador firma aquí con BIP-340
+// Desde el commit 8fe065f de la simulación (H9), la prueba trae la cabecera de 80 bytes y la firma del observador de
+// cabeceras, y desde 0ddd6e7 (VG 13-11: el sello ancla por Taproot, no por OpenTimestamps) el anclaje: la transacción de
+// anclaje, serializada como Bitcoin, cuya salida P2TR compromete el lote como hoja OP_RETURN <raíz> de su árbol Taproot
+// (clave interna NUMS en la simulación), y el camino de Merkle «bitcoin» de esa transacción a la cabecera. Con ella la
+// regla «sealed» de la época (X.6.8.5) da VERDADERO si la cuenta raíz del eje declara la clave del observador
+// (`claveObservador`) en «exterior settings».6. El observador firma aquí con BIP-340
 // real (la noble de src/vendor), que es lo que comprueba `signed` del BQL mínimo; la simulación, sola, firmaría con su
 // esquema simulado, que ninguna regla da por bueno.
 

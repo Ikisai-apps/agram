@@ -16,6 +16,8 @@ Un solo módulo ESM, sin dependencias ni `import`, que exporta `schnorr` (BIP-34
 
 `servidor/supabase/funciones/eventos/noble-secp256k1.js` es **el mismo archivo, byte a byte** (la función de borde se despliega sola, sin el núcleo). `test/autoridad.test.js` comprueba que los dos dan este sha256 y que este LEEME lo dice.
 
+**Qué se usa del paquete** (encargo «taproot», 13-11-2026, H20): `src/autoridad.js` firma y verifica con `schnorr`; `src/cripto.js` (las primitivas puras del BQL mínimo) usa `sha256`, `schnorr.verify` y, para el TapTweak de BIP-341 (`taptweak`), la aritmética pública de la curva que `schnorr` ya exporta: `schnorr.utils.lift_x` y `schnorr.Point` (`BASE.multiplyUnsafe` de un ajuste público y `add`), sin secretos. Por eso el Taproot **no exporta nada de más**: el bloque `export` final sigue siendo `schnorr` y `sha256`, el archivo no cambia y su sha256 es el mismo (`test/seguridad-bqlm.test.js`, SEG-16, comprueba qué llama `src/cripto.js`).
+
 ### Por qué esta librería y esta versión
 
 VG pidió «la de Bitcoin Core o la de Nostr». La de Bitcoin Core (libsecp256k1, en C) exigiría WebAssembly: descartada por ahora. Queda **la de Nostr**: la librería de referencia de Nostr, [`nostr-tools`](https://github.com/nbd-wtf/nostr-tools), firma y verifica los eventos (NIP-01) con `schnorr` de `@noble/curves/secp256k1.js` (`pure.ts`). En su versión **2.26.0** (npm, 07-11-2026; commit `2027d15a39b7605e28ca22f54509cb767fd13751` de `master`, 07-11-2026) fija `@noble/curves` **2.0.1** y `@noble/hashes` **2.0.1**, de septiembre de 2025.

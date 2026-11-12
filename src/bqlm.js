@@ -67,8 +67,9 @@
 // acuña por su cuenta hasta un nivel, solo en los destinos de DESTINOS_DE_PUT) o en una plantilla (el nivel en mano).
 //
 // Primitivas de verificación (Core AGRAM 12-11, #67; docs/BQLM.md §12): bytes hex utf8 hash sha256 sha256d cat slice
-// reverse le below merkle ots cabecera tx signed lookup, escritas como llamadas, nombre(a, b…); y payload(X) (13-11, H19),
-// que lee el payload de un registro tal como se escribió. Son PURAS: solo leen sus
+// reverse le below merkle ots cabecera tx signed lookup, escritas como llamadas, nombre(a, b…); payload(X) (13-11, H19),
+// que lee el payload de un registro tal como se escribió; y tapleaf(script) y taptweak(interna, hoja, hermanos) (13-11,
+// H20: el sello ancla por Taproot), la hoja y la clave de salida de BIP-341. Son PURAS: solo leen sus
 // argumentos (nada del contexto ni de fuera), nunca firman ni ven claves privadas, y cuentan en el presupuesto por byte
 // procesado (LIMITES.bytes). Traen un tipo nuevo, los BYTES (esBytes), distinto de texto y número: en los datos BTML
 // viajan como texto hex y se convierten con bytes(…); se leen en hex. cabecera(…) y tx(…) dan una décupla pura, que se
@@ -78,7 +79,7 @@
 // puras). Hay una implementación sobre el eje en src/contexto-eje.js.
 
 import { canonico } from './evento.js';
-import { sha256, sha256d, hashEtiquetado, concatenar, deHex, aHex, igualesBytes, menor, enteroLe, leerCabecera, leerTx, raizMerkle, aplicarOts, verificarBip340 } from './cripto.js';
+import { sha256, sha256d, hashEtiquetado, concatenar, deHex, aHex, igualesBytes, menor, enteroLe, leerCabecera, leerTx, raizMerkle, aplicarOts, verificarBip340, tapleaf, taptweak } from './cripto.js';
 
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'ERROR']);
 
@@ -154,10 +155,15 @@ export const VERIFICACION = Object.freeze({
   // Core AGRAM 13-11 (H17, H19 del SIP 0, «sin tuplas»): leer una clave en dos listas hermanas, y el payload tal cual.
   lookup: Object.freeze({ forma: 'lookup(claves, valores, clave)', aridad: [3, 3] }),
   payload: Object.freeze({ forma: 'payload(X)', aridad: [1, 1] }),
+  // Core AGRAM 13-11 (H20 del SIP 0; VG: el sello ancla por Taproot, no por OpenTimestamps): BIP-341.
+  tapleaf: Object.freeze({ forma: 'tapleaf(script)', aridad: [1, 1] }),
+  taptweak: Object.freeze({ forma: 'taptweak(interna, hoja, hermanos)', aridad: [3, 3] }),
 });
 
 /** Lo que cuesta verificar una firma BIP-340, en bytes del presupuesto (una verificación cuesta como hashear ~64 KB). */
 export const COSTE_FIRMA = 65536;
+/** Lo que cuesta un TapTweak (subir la interna a un punto, multiplicar el generador y sumar): como una firma. */
+export const COSTE_TAPTWEAK = COSTE_FIRMA;
 
 /** El subtipo de PENDIENTE cuando se agota un límite de cálculo (como en BQL V0). */
 export const POR_LIMITE = 'PENDIENTE POR LÍMITE';
@@ -1207,6 +1213,23 @@ function calcularPrimitiva(nodo, st) {
         4: [t.locktime],
         5: [aBytesBql(t.txid)],
       })];
+    }
+    case 'tapleaf': {
+      // H20 (13-11): el hash TapLeaf de BIP-341 de un script Tapscript (versión 0xc0): la hoja de compromiso del sello es
+      // tapleaf(cat(bytes("6a20"), raíz del lote)), OP_RETURN <32 bytes>.
+      const script = argBytes(nodo, 0, st);
+      pagar(st, script.length + 70);
+      return [aBytesBql(tapleaf(script))];
+    }
+    case 'taptweak': {
+      // H20 (13-11): la clave de salida x-only de BIP-341 desde la clave interna, la hoja y sus hermanos en el árbol
+      // Taproot (TapBranch ordena: el camino son solo hermanos, sin lados; bytes o su hex, como en merkle; ausentes o
+      // vacíos, la hoja es la raíz). ERROR si la interna no es un punto de la curva.
+      const interna = argBytes(nodo, 0, st);
+      const hojaT = argBytes(nodo, 1, st);
+      const hermanos = secuencia(calcular(nodo.args[2], st), st).map((h, k) => bytesDeDato(h, 'taptweak: el hermano ' + k, st));
+      pagar(st, COSTE_TAPTWEAK + 96 * (hermanos.length + 1));
+      return [aBytesBql(taptweak(interna, hojaT, hermanos))];
     }
     case 'signed': {
       const firma = argBytes(nodo, 0, st);

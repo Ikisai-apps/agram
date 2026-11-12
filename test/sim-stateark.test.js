@@ -1,13 +1,17 @@
-// Pruebas de la simulación de StateArk (§3 sello de tiempo), copiadas tal cual del commit d6bc6bd de InTheState/stateark/sim con las rutas adaptadas a servidor/sim/stateark/.
-// Cada archivo original es un describe. (§5, §6 y §8 están en sim-stateark-pagos / -custodia / -candado.)
+// Pruebas de la simulación de StateArk (§3 sello de tiempo, anclado por Taproot), copiadas tal cual del commit 0ddd6e7 de InTheState/stateark/sim con las rutas adaptadas a servidor/sim/stateark/ (y los vectores de rust-miniscript de taproot, de test/vectores-miniscript.js).
+// Cada archivo original es un describe. (§5, §6 y §8 están en sim-stateark-pagos / -custodia / -candado; el observador y el recibo «pago», en sim-stateark-observador / -recibo-pago.)
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { sellar, prueba, verificar, minar, SIMULADO, crearSellador } from '../servidor/sim/stateark/index.js';
-import { sha256Texto } from '../servidor/sim/stateark/hash.js';
+import { sha256Texto, sha256d } from '../servidor/sim/stateark/hash.js';
 import { arbol, raizDesde, hoja } from '../servidor/sim/stateark/merkle.js';
 import { Sellador } from '../servidor/sim/stateark/sello.js';
 import { Cadena } from '../servidor/sim/stateark/cadena.js';
 import { crearServidor } from '../servidor/sim/stateark/servidor.js';
+import { claveDeSalida, arbolTaproot, raizDesdeHermanos, scriptDeCompromiso, anclar, scriptDeSalida } from '../servidor/sim/stateark/taproot.js';
+import { liftX } from '../servidor/sim/stateark/secp.js';
+import { NUMS, hoja as hojaTapscript } from '../servidor/sim/stateark/miniscript.js';
+import { VECTORES_MINISCRIPT as VEC } from './vectores-miniscript.js'; // test/vectores/miniscript.json de stateark-sim, como constante
 
 describe("sim stateark: index", () => {
   test('las tres llamadas sueltas del §3 funcionan sobre el sellador por defecto', async () => {
@@ -99,8 +103,8 @@ describe("sim stateark: sello", () => {
       assert.equal(p.hash, b.hash);
       assert.equal(p.instante, b.instante);
       assert.equal(p.lote, r.lote);
-      assert.equal(p.prueba.via, 'simulado');
-      assert.equal(p.prueba.ots, null);
+      assert.equal(p.prueba.via, 'taproot');
+      assert.match(p.prueba.taproot.tx, /^02000000/); // una transacción con forma de Bitcoin
       assert.deepEqual(await s.verificar(id, p), { ok: true, motivo: 'sellado', altura: 1, hash: b.hash, instante: b.instante });
     }
   });
@@ -346,5 +350,40 @@ describe("sim stateark: servidor", () => {
     const rc = await ok(await fetch(`${base}/pagos/candado/${hash}`));
     assert.equal(rc.estado, 'cobrado');
     assert.equal((await ok(await post('/pagos/verificar-candado', { recibo: rc }))).motivo, 'en firme');
+  });
+});
+
+describe("sim stateark: taproot", () => {
+  test('la secp256k1 mínima da la clave de salida de rust-miniscript (TapTweak de BIP-341)', async () => {
+    assert.equal(await claveDeSalida(NUMS, VEC.candado.raiz), VEC.candado.clave_salida);
+  });
+
+  test('lift_x rechaza una x que no está en la curva', () => {
+    assert.throws(() => liftX('0'.repeat(63) + '5'), RangeError); // x = 5: 5³ + 7 = 132 no es un cuadrado mod p
+  });
+
+  test('árbol Taproot: cada hoja vuelve a la raíz con solo sus hermanos (TapBranch ordena), con 1 a 9 hojas', async () => {
+    for (let n = 1; n <= 9; n++) {
+      const hojas = await Promise.all(Array.from({ length: n }, async (_, k) => hojaTapscript(scriptDeCompromiso(await sha256Texto(`lote ${k}`)))));
+      const { raiz, hermanos } = await arbolTaproot(hojas);
+      for (let k = 0; k < n; k++) assert.equal(await raizDesdeHermanos(hojas[k], hermanos[k]), raiz, `n=${n}, k=${k}`);
+      if (n === 1) assert.equal(raiz, hojas[0]);
+    }
+  });
+
+  test('la hoja de compromiso es OP_RETURN <32 bytes> y no admite otra cosa', () => {
+    assert.equal(scriptDeCompromiso('ab'.repeat(32)), '6a20' + 'ab'.repeat(32));
+    assert.throws(() => scriptDeCompromiso('ab'), TypeError);
+  });
+
+  test('anclar: una transacción con forma de Bitcoin cuya salida P2TR compromete todos los lotes', async () => {
+    const raices = await Promise.all([1, 2, 3].map((k) => sha256Texto(`raíz ${k}`)));
+    const a = await anclar(raices, { previa: await sha256Texto('previa') });
+    assert.equal(a.txid, await sha256d(a.tx));
+    assert.equal(scriptDeSalida(a.tx, 0), '5120' + a.clave);
+    for (const r of raices) {
+      const raiz = await raizDesdeHermanos(await hojaTapscript(scriptDeCompromiso(r)), a.hermanos.get(r));
+      assert.equal(await claveDeSalida(a.interna, raiz), a.clave);
+    }
   });
 });

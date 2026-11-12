@@ -187,12 +187,13 @@ test('SEG-15 las plantillas construyen y firma quien mueve: un verbo que nombra 
 /** Un contexto que revienta si se le pregunta algo: una primitiva con argumentos literales no lo toca. */
 const SIN_LIBRO = new Proxy({}, { get: (_, k) => (k === 'then' ? undefined : () => { throw new Error('la primitiva leyó el contexto: ' + String(k)); }) });
 
-test('SEG-16 ninguna primitiva firma: no hay sign ni claves privadas en el léxico, y src/cripto.js solo llama a schnorr.verify', () => {
+test('SEG-16 ninguna primitiva firma: no hay sign ni claves privadas en el léxico, y src/cripto.js solo llama a schnorr.verify y, para el TapTweak (H20), a la aritmética pública de la curva', () => {
   for (const f of Object.keys(VERIFICACION)) assert.doesNotMatch(f, /^sign$|priv|secret|key|firm/i, f);
   assert.ok(Object.hasOwn(VERIFICACION, 'signed'), 'signed verifica: devuelve verdadero o falso');
   for (const e of ['sign(bytes("00"), bytes("00"))', 'schnorr(1)', 'getPublicKey(bytes("00"))']) assert.match(evaluar(e, SIN_LIBRO).motivo, /no es BQL mínimo/, e);
   const fuente = readFileSync(new URL('../src/cripto.js', import.meta.url), 'utf8').replace(/^\s*\/\/.*$/gm, '');
-  assert.deepEqual([...fuente.matchAll(/schnorr\.(\w+)/g)].map((m) => m[1]), ['verify']);
+  assert.deepEqual([...fuente.matchAll(/schnorr\.(\w+(?:\.\w+)?)/g)].map((m) => m[1]), ['verify', 'utils.lift_x', 'Point.BASE'], 'verify; y lift_x y el generador, sin secretos, para el TapTweak');
+  assert.doesNotMatch(fuente, /\.multiply\(|fromPrivateKey|taggedHash/, 'solo multiplyUnsafe del generador por un ajuste público');
   assert.doesNotMatch(fuente, /getPublicKey|randomSecretKey|\.sign\(|privad/);
 });
 
@@ -250,4 +251,34 @@ test('SEG-19 la regla «sealed» no acepta un sello firmado por una clave fuera 
   const prueba = (await selloCompleto(eje.genesisId, { observador: declarada })).decupla;
   const falso = await eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: '2026-11-10T10:03:00Z', movimientos: [pagaElCoste('vg')], payload: ['dos', '-', '-', '-', '-', '-', ['-', '-', '-', '-', '-', '-', '-', '-', ['-', '-', prueba]]] }, cuenta.privada);
   assert.equal(sealed(falso.id).estado, 'PENDIENTE', 'sin sello del eje, falta el dato; lo del payload no cuenta');
+});
+
+test('SEG-20 la regla «sealed» no acepta un anclaje Taproot manipulado: otra clave interna, un hermano Taproot cambiado o de más, otra salida, otra transacción (H20)', async () => {
+  const cuenta = await generarClaves();
+  const eje = await Eje.genesis({ identidad: 'vg', foco: ['mi eje'], t: '2026-11-10T10:00:00Z', clave: cuenta.publica, privada: cuenta.privada, exigirFirmas: true });
+  const declarada = await generarClaves();
+  await declararExterior(eje, { observadores: [declarada.publica], privada: cuenta.privada, t: '2026-11-10T10:01:00Z' });
+  const sealed = (id) => evaluar('=first (first it.6).8.5', new ContextoEje(eje, { epoch: EPOCA_0_BTML }), { sujeto: id });
+  let minuto = 2;
+  const nuevo = async () => eje.escribir({ autor: 'vg', sobre: eje.genesisId, t: '2026-11-10T10:' + String(minuto++).padStart(2, '0') + ':00Z', movimientos: [pagaElCoste('vg')], payload: ['r' + minuto] }, cuenta.privada);
+  // El de verdad, con otros lotes en el mismo anclaje: verdadero.
+  const bueno = await nuevo();
+  eje.marcarSello(bueno.id, await selloCompleto(bueno.id, { observador: declarada, otrosLotes: 3 }));
+  assert.deepEqual(sealed(bueno.id).valor, [true]);
+  // Otra clave interna que sí es un punto de la curva (la x del generador), un hermano cambiado o uno de más: la clave de
+  // salida ya no es la de la transacción. Una transacción cambiada (otra salida, otro locktime): tampoco cuadra. Falso.
+  const G = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+  for (const [que, cambiar] of [
+    ['otra interna', (x) => { x.prueba.taproot.interna = G; }],
+    ['un hermano cambiado', (x) => { x.prueba.taproot.hermanos[1] = 'ab'.repeat(32); }],
+    ['un hermano de más', (x) => { x.prueba.taproot.hermanos.push('ab'.repeat(32)); }],
+    ['un hermano de menos', (x) => { x.prueba.taproot.hermanos.pop(); }],
+    ['otra salida en la transacción', (x) => { x.prueba.taproot.tx = x.prueba.taproot.tx.replace(/22(5120[0-9a-f]{64})00000000$/, (m, sc) => '22' + sc.slice(0, -2) + (sc.endsWith('00') ? '01' : '00') + '00000000'); }],
+    ['otro locktime (otro txid)', (x) => { x.prueba.taproot.tx = x.prueba.taproot.tx.slice(0, -8) + '01000000'; }],
+  ]) {
+    const ev = await nuevo();
+    eje.marcarSello(ev.id, await selloCompleto(ev.id, { observador: declarada, otrosLotes: 3, cambiar }));
+    assert.deepEqual(sealed(ev.id).valor, [false], que);
+    assert.equal(verificadoDe(eje, ev.id).sello, false, que);
+  }
 });

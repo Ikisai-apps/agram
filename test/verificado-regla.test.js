@@ -1,7 +1,8 @@
 // «verificado» como regla de la época (encargo «verificado-regla»; VG 12-11, #64 d, #67 y #50; docs/CONTRATO.md §4.4):
-// las lecturas «sealed» (X.6.8.5: la prueba del sello de tiempo copiada en X.6.8.2, la décupla del SIP 0) y «received»
-// (X.6.8.4: el recibo de llegada copiado en X.6.8.1) son reglas de la época escritas con las primitivas de verificación;
-// contrato.verificado es la fachada que las evalúa. Sellos completos sintéticos (test/ayudas-sello.js) y los de la
+// las lecturas «sealed» (X.6.8.5: la prueba del sello de tiempo copiada en X.6.8.2, la décupla del SIP 0, que desde el
+// encargo «taproot» ancla por Taproot: VG 13-11, H20) y «received» (X.6.8.4: el recibo de llegada copiado en X.6.8.1) son
+// reglas de la época escritas con las primitivas de verificación; contrato.verificado es la fachada que las evalúa. Y
+// «paid» (X.6.8.6: el recibo de pago de StateArk copiado en X.6.8.3), con el carril de pagos de la simulación 0ddd6e7. Sellos completos sintéticos (test/ayudas-sello.js) y los de la
 // simulación de StateArk (servidor/sim/sello-agram.js): verdadero con todo; PENDIENTE si falta un dato; falso con una
 // clave no declarada, una firma mala o una prueba que no cuadra. Y «sin verificar no se ejecuta»: las estaciones de
 // epoch.4.3 con y sin sello configurado, y «pendiente de sello» en la carta.
@@ -16,12 +17,15 @@ import { EPOCA_0_BTML } from '../src/epocas.js';
 import { generarClaves } from '../src/autoridad.js';
 import { validarPayload } from '../src/btml.js';
 import { selloSimulado } from '../servidor/sim/sello-agram.js';
-import { selloComoDecupla } from '../servidor/sim/stateark/index.js';
+import { selloComoDecupla, Simulacion, Custodia, esquemaNoble, firmaSimulada, mensajeAutorizacion } from '../servidor/sim/stateark/index.js';
+import { huella } from '../servidor/sim/stateark/canon.js';
+import { sha256Texto } from '../servidor/sim/stateark/hash.js';
+import { schnorr } from '../src/vendor/noble-secp256k1.js';
 import { arbol as arbolEnIdioma } from '../carta/carta.js';
 import { html } from '../carta/dom.js';
 import { ejemploCompra, ejemploFabrica } from '../ejemplos/ikisai/compra-food.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
-import { selloCompleto, observadorDePrueba, releDePrueba, reciboFirmado, declararExterior } from './ayudas-sello.js';
+import { selloCompleto, observadorDePrueba, releDePrueba, reciboFirmado, declararExterior, NUMS } from './ayudas-sello.js';
 
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
 const regla = (nombre) => EPOCA_0_BTML.lecturas.find((r) => r[0][0] === nombre);
@@ -37,7 +41,7 @@ async function ejeDePrueba({ observadores = [], sello } = {}) {
   return { cuenta, eje, e1, e2 };
 }
 
-test('las dos reglas están en el 2 de la época: «sealed» en X.6.8.5 y «received» en X.6.8.4, lecturas (read) que no mueven', () => {
+test('las reglas están en el 2 de la época: «sealed» en X.6.8.5, «received» en X.6.8.4 y «paid» en X.6.8.6, lecturas (read) que no mueven', () => {
   for (const [nombre, donde] of [['sealed', 'X.6.8.5'], ['received', 'X.6.8.4']]) {
     const r = regla(nombre);
     assert.ok(r, nombre + ' está en EPOCA_0_BTML.lecturas');
@@ -47,8 +51,16 @@ test('las dos reglas están en el 2 de la época: «sealed» en X.6.8.5 y «rece
     assert.ok(!EPOCA_0_BTML.condiciones.includes(r), 'no es una condición de la transacción');
     assert.match(contrato.mensaje(null, r, 'es'), /^(sealed|received): /, 'su 9 en español (epoch.9.4)');
   }
-  assert.match(regla('sealed')[2].at(-1), /signed\(.*"StateArk\/Observador\/Cabecera\/v1"\), bytes\(.*\.7\.3\)\) and first .*\.7\.3 in before\.8\.6$/);
-  assert.match(regla('sealed')[2].at(-1), /below\(reverse\(/, 'la prueba de trabajo de la cabecera');
+  assert.deepEqual(regla('paid')[3], ['X.6.8.6'], '«paid» en X.6.8.6, junto al recibo de pago copiado en X.6.8.3');
+  assert.deepEqual(regla('paid')[4], ['read']);
+  assert.match(contrato.mensaje(null, regla('paid'), 'es'), /^paid: /);
+  const f = regla('sealed')[2].at(-1);
+  assert.match(f, /signed\(.*"StateArk\/Observador\/Cabecera\/v1"\), bytes\(.*\.7\.3\)\) and first .*\.7\.3 in before\.8\.6 and /);
+  assert.match(f, /below\(reverse\(/, 'la prueba de trabajo de la cabecera');
+  assert.match(f, /cat\(bytes\("5120"\), taptweak\(bytes\(first .*\.8\.2\), tapleaf\(cat\(bytes\("6a20"\), bytes\(first .*\.3\)\)\), .*\.8\.3\)\) = first \(nth \(first .*\.8\.1\) \(first tx\(bytes\(first .*\.8\.0\)\)\)\.2\)\.1/, 'la cadena Taproot: hoja de compromiso, TapTweak y la salida de la transacción de anclaje');
+  assert.match(f, /merkle\(first \(first tx\(.*\)\)\.5, .*\.7\.4, .*\.7\.5, "bitcoin"\)/, 'el txid de la transacción de anclaje llega a la cabecera');
+  assert.doesNotMatch(f, /ots\(/, 'ots queda como primitiva sin uso');
+  assert.match(f, /"taproot" in .*\.6$/);
 });
 
 test('un solo mapa de posiciones del sello: la fórmula de «sealed» es la que escribe formulaDeSellado() con él, y decuplaDeSello pone cada parte donde dice', async () => {
@@ -64,8 +76,18 @@ test('un solo mapa de posiciones del sello: la fórmula de «sealed» es la que 
   assert.match(en('cabecera'), /^[0-9a-f]{160}$/);
   assert.match(en('firma'), /^[0-9a-f]{128}$/);
   assert.equal(en('alturaLe'), '07000000');
+  // El anclaje Taproot (8): la transacción, la salida, la clave interna y, con otros lotes, los hermanos.
+  assert.match(en('tx'), /^02000000/);
+  assert.deepEqual([en('vout'), en('interna')], [0, NUMS]);
+  assert.equal(en('via'), 'taproot');
   // El camino «sip», sin tuplas: los lados y los hermanos en dos posiciones hermanas, en paralelo.
-  assert.deepEqual([decupla[Number(selloDe.POSICIONES_DEL_SELLO.lados)], decupla[Number(selloDe.POSICIONES_DEL_SELLO.hermanos)].length], [['d'], 1]);
+  assert.equal(en('lados'), 'd');
+  assert.match(en('hermanos'), /^[0-9a-f]{64}$/);
+  const { decupla: conTodo } = await selloCompleto(id, { observador: obs, ids: [id, 'cd'.repeat(32), 'ef'.repeat(32)], otrosLotes: 3, otrasTx: 2 });
+  for (const k of ['ladosBitcoin', 'hermanosBitcoin', 'hermanosTaproot', 'lados', 'hermanos']) {
+    const x = selloDe.POSICIONES_DEL_SELLO[k].split('.').map(Number).reduce((y, d) => y?.[d], conTodo);
+    assert.ok(Array.isArray(x) && x.length >= 1, k + ' es una lista en su posición');
+  }
   // Otro mapa da otra fórmula (lo que habrá que hacer cuando StateArk cambie la forma del sello).
   assert.notEqual(selloDe.formulaDeSellado({ ...selloDe.POSICIONES_DEL_SELLO, clave: '9' }), selloDe.formulaDeSellado());
 });
@@ -77,11 +99,14 @@ test('sello completo sintético con la clave del observador declarada por la cue
   eje.marcarSello(e1.id, await selloCompleto(e1.id, { altura: 7, observador: obs }));
   assert.equal(eje.sello(e1.id).decupla[0][0], 'sello de tiempo', 'la prueba copiada se guarda con el sello');
   assert.deepEqual(leer(eje, e1.id, 5).valor, [true]);
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, altura: 7, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
-  // En un lote de varios ids, con su camino «sip»: también.
-  eje.marcarSello(e2.id, await selloCompleto(e2.id, { altura: 9, observador: obs, ids: [e1.id, e2.id, eje.genesisId] }));
-  assert.ok(eje.sello(e2.id).decupla[8].length >= 1, 'un camino de verdad (los lados en el 8 y los hermanos en el 9, al final: solo si lo hay)');
-  assert.equal(eje.sello(e1.id).decupla.length, 8, 'un lote de un solo id: sin camino, sin posición 8 (ni hueco ni «-»)');
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, pago: null, altura: 7, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
+  // En un lote de varios ids, con su camino «sip», otros lotes en el mismo anclaje (hermanos Taproot) y otras transacciones
+  // en el bloque (camino «bitcoin»): también.
+  eje.marcarSello(e2.id, await selloCompleto(e2.id, { altura: 9, observador: obs, ids: [e1.id, e2.id, eje.genesisId], otrosLotes: 2, otrasTx: 3 }));
+  assert.ok(eje.sello(e2.id).decupla[9][0].length >= 1, 'un camino de verdad (los lados en el 9.0 y los hermanos en el 9.1, al final: solo si lo hay)');
+  assert.equal(eje.sello(e2.id).decupla[8].length, 4, 'con hermanos Taproot (8.3)');
+  assert.equal(eje.sello(e2.id).decupla[7].length, 6, 'con camino «bitcoin» (7.4, 7.5)');
+  assert.equal(eje.sello(e1.id).decupla.length, 9, 'un lote de un solo id: sin camino «sip», sin posición 9 (ni hueco ni «-»)');
   assert.equal(contrato.verificado(eje, e2.id).sello, true);
 });
 
@@ -105,6 +130,16 @@ test('falta 7.0 (o la firma, o la clave): PENDIENTE, nunca verdadero; sin sello,
   eje.marcarSello(e2.id, await selloCompleto(e2.id, { observador: obs, cambiar: (p) => { delete p.prueba.observador; } }));
   assert.equal(leer(eje, e2.id, 5).estado, 'PENDIENTE');
   assert.equal(contrato.verificado(eje, e2.id).sello, false);
+  // Sin el anclaje Taproot (la transacción, el vout o la clave interna: 8.0-8.2), aunque el lote tenga varios ids (sin 8
+  // no puede ir el camino «sip», 9): PENDIENTE, no falso.
+  for (const cambiar of [(p) => { delete p.prueba.taproot; }, (p) => { delete p.prueba.taproot.tx; }, (p) => { delete p.prueba.taproot.interna; }, (p) => { p.prueba.taproot.vout = -1; }]) {
+    const { eje: b, e1: y1, e2: y2 } = await ejeDePrueba({ observadores: [obs.publica] });
+    b.marcarSello(y1.id, await selloCompleto(y1.id, { observador: obs, ids: [y1.id, y2.id], cambiar }));
+    assert.equal(b.sello(y1.id).decupla.length, 8, 'con lo observado (7) y sin anclaje (8) ni camino (9)');
+    const r = leer(b, y1.id, 5);
+    assert.equal(r.estado, 'PENDIENTE', r.motivo);
+    assert.deepEqual(contrato.verificado(b, y1.id).pendiente.map((p) => p.lectura), ['sello']);
+  }
 });
 
 test('clave no declarada, firma mala, prueba que no cuadra: «sealed» falso (no pendiente)', async () => {
@@ -127,6 +162,28 @@ test('clave no declarada, firma mala, prueba que no cuadra: «sealed» falso (no
   // Una altura firmada que no es la del sello: falso.
   eje2.marcarSello(x2.id, await selloCompleto(x2.id, { altura: 5, observador: obs, cambiar: (p) => { p.prueba.observador.altura_le = '06000000'; } }));
   assert.deepEqual(leer(eje2, x2.id, 5).valor, [false]);
+  // La cadena Taproot manipulada: otra clave interna (un punto de la curva), un hermano Taproot de más o cambiado, otra
+  // salida, una vía que no es «taproot»: falso.
+  const G = '79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798';
+  for (const [que, opciones, cambiar] of [
+    ['otra interna', {}, (p) => { p.prueba.taproot.interna = G; }],
+    ['un hermano de más', {}, (p) => { p.prueba.taproot.hermanos.push('ab'.repeat(32)); }],
+    ['un hermano cambiado', { otrosLotes: 2 }, (p) => { p.prueba.taproot.hermanos[0] = 'cd'.repeat(32); }],
+    ['un camino «bitcoin» cambiado', { otrasTx: 2 }, (p) => { p.prueba.pasos[0][1] = 'ef'.repeat(32); }],
+    ['otra vía', {}, (p) => { p.prueba.via = 'opentimestamps'; }],
+  ]) {
+    const { eje: b, e1: y1 } = await ejeDePrueba({ observadores: [obs.publica] });
+    b.marcarSello(y1.id, await selloCompleto(y1.id, { observador: obs, ...opciones, cambiar }));
+    assert.deepEqual(leer(b, y1.id, 5).valor, [false], que);
+    assert.equal(contrato.verificado(b, y1.id).sello, false, que);
+  }
+  // Una interna que no es la x de un punto de la curva: ERROR (nunca verdadero).
+  const { eje: b, e1: y1 } = await ejeDePrueba({ observadores: [obs.publica] });
+  b.marcarSello(y1.id, await selloCompleto(y1.id, { observador: obs, cambiar: (p) => { p.prueba.taproot.interna = '0'.repeat(63) + '5'; } }));
+  const r = leer(b, y1.id, 5);
+  assert.equal(r.estado, 'ERROR');
+  assert.match(r.motivo, /taptweak: la clave interna no es la x de un punto/);
+  assert.equal(contrato.verificado(b, y1.id).sello, false);
 });
 
 test('profundidad y en firme: con la regla verdadera, las confirmaciones de la cuenta raíz; sin ella, nunca en firme', async () => {
@@ -145,24 +202,24 @@ test('profundidad y en firme: con la regla verdadera, las confirmaciones de la c
   assert.deepEqual([v.altura, v.profundidad, v.enFirme, v.sello], [100, 6, false, false]);
 });
 
-test('con la simulación de StateArk (9be12c3, sin huecos ni tuplas): la prueba trae cabecera, caminos y observador; «sealed» verdadero si la cuenta raíz declara su clave, con y sin camino «bitcoin»', async () => {
+test('con la simulación de StateArk (0ddd6e7, el sello por Taproot): la prueba trae el anclaje, la cabecera, los caminos y el observador; «sealed» verdadero si la cuenta raíz declara su clave, con y sin caminos «sip», «bitcoin» y hermanos Taproot', async () => {
   const s = selloSimulado({ inicio: '2026-11-10T11:00:00.000Z', reloj: () => Date.parse('2026-11-10T11:00:00.000Z') });
   const { eje, e1, e2 } = await ejeDePrueba({ observadores: [await s.claveObservador()] });
-  // Un bloque con un solo compromiso (sin camino «bitcoin») y otro con dos lotes (con él).
+  // Un bloque con un solo lote y la transacción de anclaje sola (sin hermanos Taproot ni camino «bitcoin»), y otro con dos
+  // lotes en el mismo anclaje y otra transacción en el bloque (con los dos).
   await s.sellar([e1.id, eje.genesisId]);
   await s.minar();
   await s.sellar([e2.id]);
   await s.sellar(['ee'.repeat(32)]);
-  await s.minar();
-  assert.equal((await s.prueba(e1.id)).prueba.pasos.length, 0);
-  assert.ok((await s.prueba(e2.id)).prueba.pasos.length > 0, 'dos lotes en el bloque: camino «bitcoin» del lote a la cabecera');
-  for (const id of [e1.id, e2.id]) {
-    const p = await s.prueba(id);
-    // La misma décupla que la de la simulación, salvo que, sin camino «bitcoin», lo observado (7) va con cada parte en
-    // una lista de uno: así es una décupla (la de la simulación es entonces una lista de hojas y 7.0 no existe en BTML).
-    const nuestra = selloDe.decuplaDeSello(p, id);
-    const desenvuelta = nuestra.map((x, k) => (k === 7 && x.length === 4 ? x.map((y) => y[0]) : x));
-    assert.deepEqual(desenvuelta, selloComoDecupla(p, id));
+  await (await s.sellador).minar(['ff'.repeat(32)]);
+  const p1 = await s.prueba(e1.id);
+  assert.deepEqual([p1.prueba.via, p1.prueba.taproot.hermanos.length, p1.prueba.pasos.length], ['taproot', 0, 0]);
+  const p2 = await s.prueba(e2.id);
+  assert.ok(p2.prueba.taproot.hermanos.length > 0, 'dos lotes en el anclaje: hermanos Taproot');
+  assert.ok(p2.prueba.pasos.length > 0, 'dos transacciones en el bloque: camino «bitcoin» de la de anclaje a la cabecera');
+  for (const [id, p] of [[e1.id, p1], [e2.id, p2]]) {
+    // La misma décupla que la de la simulación, byte a byte (7 y 8 siempre décuplas, cada hoja suelta entre corchetes).
+    assert.deepEqual(selloDe.decuplaDeSello(p, id), selloComoDecupla(p, id));
     assert.equal(validarPayload(selloDe.decuplaDeSello(p, id)).ok, true);
     assert.equal((await s.verificar(id, p)).ok, true);
     eje.marcarSello(id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true, decupla: selloDe.decuplaDeSello(p, id) });
@@ -176,14 +233,16 @@ test('con la simulación de StateArk (9be12c3, sin huecos ni tuplas): la prueba 
   const p = await s.prueba(o1.id);
   otro.marcarSello(o1.id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true, decupla: selloDe.decuplaDeSello(p, o1.id) });
   assert.deepEqual(leer(otro, o1.id, 5).valor, [false]);
-  // Una prueba de antes de H9 (sin cabecera ni observador): PENDIENTE.
-  const vieja = { ...p, prueba: { camino: p.prueba.camino, ots: null, via: 'simulado' } };
-  const { eje: e3, e1: z1 } = await ejeDePrueba({ observadores: [await s.claveObservador()] });
-  await s.sellar([z1.id]);
-  await s.minar();
-  const pz = await s.prueba(z1.id);
-  e3.marcarSello(z1.id, { altura: pz.altura, hash: pz.hash, instante: pz.instante, verificado: true, decupla: selloDe.decuplaDeSello({ ...pz, prueba: vieja.prueba }, z1.id) });
-  assert.equal(leer(e3, z1.id, 5).estado, 'PENDIENTE');
+  // Una prueba de antes de H9 (sin cabecera ni observador) o de antes de Taproot (con cabecera y observador, sin anclaje):
+  // PENDIENTE.
+  for (const vieja of [(x) => ({ camino: x.camino, ots: null, via: 'simulado' }), (x) => ({ ...x, taproot: undefined, via: 'simulado' })]) {
+    const { eje: e3, e1: z1 } = await ejeDePrueba({ observadores: [await s.claveObservador()] });
+    await s.sellar([z1.id]);
+    await s.minar();
+    const pz = await s.prueba(z1.id);
+    e3.marcarSello(z1.id, { altura: pz.altura, hash: pz.hash, instante: pz.instante, verificado: true, decupla: selloDe.decuplaDeSello({ ...pz, prueba: vieja(pz.prueba) }, z1.id) });
+    assert.equal(leer(e3, z1.id, 5).estado, 'PENDIENTE');
+  }
 });
 
 test('«received» (X.6.8.4): el recibo de llegada firmado por su relé es verdadero; con una firma mala, falso; sin el id del recibo, PENDIENTE', async () => {
@@ -193,7 +252,7 @@ test('«received» (X.6.8.4): el recibo de llegada firmado por su relé es verda
   eje.marcarSello(e1.id, await selloCompleto(e1.id, { observador: obs }));
   eje.marcarRecibo(e1.id, reciboFirmado(rele, { instante: '2026-11-10T10:30:00.000Z' }));
   assert.deepEqual(leer(eje, e1.id, 4).valor, [true]);
-  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
+  assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: true, relojes: true, pago: null, altura: 1, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
   // e2: el transporte da recibos (e1 tiene) y e2 no tiene: false, sin pendiente de recibo.
   assert.equal(contrato.verificado(eje, e2.id).recibo, false);
   // Firma mala: la de otro id.
@@ -254,4 +313,109 @@ test('el reverso de un registro con sello configurado y sin sello comprobado dic
   const r = await reverso();
   assert.equal(r.centro.pendienteDeSello, true);
   assert.match(html(r), /<p class="verificado-linea"><small class="pendiente-sello" title="[^"]+">pendiente de sello<\/small><\/p>/);
+});
+
+// ---------- «paid» (X.6.8.6): el recibo de pago de StateArk copiado en X.6.8.3 (encargo «taproot», Core AGRAM 13-11) ----------
+
+const INICIO_PAGO = '2026-11-12T00:00:00.000Z';
+const ordenDePago = (destino, extra = {}) => ({
+  schema: 'stateark.payment-instruction@1', rail: 'bitcoin.onchain', asset: 'BTC',
+  amount: { valor: 61_000, unidad: 'sat' }, destino,
+  vencimiento: { marca: 'valido_hasta', valor: 50, fuente: 'consenso', unidad: 'bitcoin_block_height' },
+  on_timeout: 'caducado', correlation_id: 'AGRAM-PAID', ...extra,
+});
+
+/**
+ * Un pago del carril de la simulación de StateArk (0ddd6e7), con `n` pagos en el mismo bloque: el carril, la custodia
+ * del carril (BIP-340 real: la noble de src/vendor, lo que comprueba signed) y `firmar(campos)`, el sobre del recibo
+ * único (Custodia.firmarRecibo) de unos campos (los de Carril.reciboPago, o unos tocados).
+ */
+async function pagoDeLaSim(n = 1) {
+  const sim = await Simulacion.crear({ inicio: INICIO_PAGO, reloj: () => Date.parse(INICIO_PAGO) });
+  const c = sim.carril;
+  const vg = await sha256Texto('clave vg');
+  await c.crearCartera('vg', { titular: vg });
+  await c.crearCartera('aina', { titular: await sha256Texto('clave aina') });
+  for (let k = 0; k < n; k++) await c.acunar(await c.direccion('vg'), 200_000);
+  await sim.minar();
+  const pagar = async () => {
+    const ins = ordenDePago({ clase: 'bitcoin/address', valor: await c.direccion('aina') });
+    const plan = await c.preparar('vg', ins);
+    const firma = await firmaSimulada(vg, await mensajeAutorizacion(await huella(plan)));
+    return c.ejecutar('vg', ins, plan, await c.autorizar(plan, { titular: vg, firma }));
+  };
+  const txids = [];
+  for (let k = 0; k < n; k++) txids.push((await pagar()).posicion.txid);
+  await sim.minar();
+  const custodia = new Custodia({ esquema: esquemaNoble(schnorr) });
+  await custodia.crearClave('nostr', 'carril');
+  const firmar = (campos) => custodia.firmarRecibo('carril', campos, { t: INICIO_PAGO });
+  return { sim, c, txid: txids[0], pagar, firmar };
+}
+
+test('«paid» con el recibo de pago de la simulación (0ddd6e7): la transacción cruda está en el bloque y paga cuánto al destino, y el emisor firmó el recibo: verdadero; verificado lo da en «pago»', async () => {
+  for (const n of [1, 3]) {
+    const { c, txid, firmar } = await pagoDeLaSim(n);
+    const sobre = await firmar(await c.reciboPago(txid));
+    const { eje, e1, e2 } = await ejeDePrueba();
+    assert.equal(eje.marcarPago(e1.id, sobre), true);
+    const copiado = eje.pago(e1.id).decupla;
+    // Dónde va cada cosa: el mapa del recibo de pago.
+    const en = (k) => selloDe.POSICIONES_DEL_PAGO[k].split('.').map(Number).reduce((y, d) => y?.[d], copiado);
+    assert.deepEqual(en('clase'), ['recibo', 'pago']);
+    assert.deepEqual(en('sujeto'), [txid]);
+    assert.deepEqual([en('emisor'), en('t'), en('id'), en('firma')], [sobre.emisor, sobre.t, sobre.id, sobre.firma]);
+    assert.match(en('tx')[0], /^02000000/);
+    assert.equal(copiado[4].length, n === 1 ? 2 : 4, 'sin camino «bitcoin» si la transacción está sola en su bloque');
+    assert.equal(validarPayload(copiado).ok, true);
+    assert.deepEqual(leer(eje, e1.id, 6).valor, [true], `«paid» con ${n} pagos en el bloque`);
+    const v = contrato.verificado(eje, e1.id);
+    assert.deepEqual([v.pago, v.pendiente.map((p) => p.lectura)], [true, ['sello']], 'el pago se da aparte; no entra en ok, que es de los relojes');
+    // Sin recibo de pago: PENDIENTE, y verificado no lo exige.
+    assert.equal(leer(eje, e2.id, 6).estado, 'PENDIENTE');
+    assert.equal(contrato.verificado(eje, e2.id).pago, null);
+  }
+});
+
+test('«paid» falso con un recibo firmado que miente (otro importe, otro destino, otro bloque, otro camino) o con la firma de otro; PENDIENTE sin recibo (un pago sin bloque); marcarPago no guarda lo que no da su id', async () => {
+  const { c, txid, pagar, firmar } = await pagoDeLaSim(3);
+  const campos = await c.reciboPago(txid);
+  const ata = (k, v) => ({ ...structuredClone(campos), ata: campos.ata.map(([a, b]) => [a, a === k ? v : b]) });
+  const casos = [
+    ['otro importe', { ...structuredClone(campos), cuanto: [61_001, 'sat'] }],
+    ['otra unidad', { ...structuredClone(campos), cuanto: [61_000, 'EUR'] }],
+    ['otro destino', ata('destino', '0014' + '00'.repeat(20))],
+    ['otro bloque', ata('bloque', '00'.repeat(32))],
+    ['otro hermano del camino «bitcoin»', (() => { const x = structuredClone(campos); x.evidencia[3][0] = '11'.repeat(32); return x; })()],
+    ['otro txid en el sujeto', { ...structuredClone(campos), sujeto: ['ab'.repeat(32)] }],
+  ];
+  for (const [que, tocados] of casos) {
+    const { eje, e1 } = await ejeDePrueba();
+    assert.equal(eje.marcarPago(e1.id, await firmar(tocados)), true, que + ': el recibo es BTML y da su id; la regla dice si es verdad');
+    assert.deepEqual(leer(eje, e1.id, 6).valor, [false], que);
+    assert.equal(contrato.verificado(eje, e1.id).pago, false, que);
+  }
+  // La firma de otro recibo (el id es el de este cuerpo, pero no lo firmó su emisor): falso.
+  const { eje, e1, e2 } = await ejeDePrueba();
+  const bueno = await firmar(campos);
+  const otro = await firmar({ ...structuredClone(campos), noAfirma: ['nada'] });
+  assert.equal(eje.marcarPago(e1.id, { ...bueno, firma: otro.firma }), true);
+  assert.deepEqual(leer(eje, e1.id, 6).valor, [false]);
+  // Lo que no se guarda: un id que no es el de su cuerpo, otra clase, otro esquema, un registro que el eje no tiene.
+  assert.equal(eje.marcarPago(e2.id, { ...bueno, id: otro.id }), false);
+  assert.equal(eje.marcarPago(e2.id, { ...bueno, schema: 'otro@1' }), false);
+  assert.equal(eje.marcarPago(e2.id, await firmar({ clase: 'sello', sujeto: [txid], universo: 'x', noAfirma: ['nada'] })), false);
+  assert.equal(eje.marcarPago('cd'.repeat(32), bueno), false);
+  assert.equal(eje.pago(e2.id), null);
+  assert.equal(leer(eje, e2.id, 6).estado, 'PENDIENTE');
+  // Un pago aún sin bloque no tiene recibo de pago («unconfirmed»): no hay nada que copiar y «paid» queda PENDIENTE.
+  const r = await pagar();
+  await assert.rejects(c.reciboPago(r.posicion.txid), /unconfirmed/);
+  assert.deepEqual(contrato.verificado(eje, e2.id).pendiente.map((p) => p.lectura), ['sello']);
+  assert.equal(contrato.verificado(eje, e2.id).pago, null);
+});
+
+test('un solo mapa del recibo de pago: la fórmula de «paid» es la que escribe formulaDePago() con él', () => {
+  assert.equal(regla('paid')[2].at(-1), selloDe.formulaDePago());
+  assert.notEqual(selloDe.formulaDePago({ ...selloDe.POSICIONES_DEL_PAGO, firma: '9' }), selloDe.formulaDePago());
 });

@@ -23,6 +23,8 @@ import { esId, sha256, sha256Texto, aBytes } from './hash.js';
 import { canonico, huella, hashEtiquetado } from './canon.js';
 import { politicaCandado } from './miniscript.js';
 import { madurez } from './madurez.js';
+import { serializar } from './tx.js';
+import { caminoDePasos } from './sello.js';
 
 export const ESQUEMA_INSTRUCCION = 'stateark.payment-instruction@1';
 export const ESQUEMA_PLAN = 'stateark.payment-plan@1';
@@ -296,7 +298,7 @@ export class Carril {
     if (plan.cambio_sat) salidas.push({ sat: plan.cambio_sat, direccion: plan.cambio_a });
     if (plan.puntero) salidas.push({ sat: 0, op_return: PREFIJO_PUNTERO + plan.puntero });
     const tx = { esquema: ESQUEMA_TX, entradas: plan.entradas.map((e) => ({ txid: e.txid, vout: e.vout })), salidas };
-    const txid = await huella(tx);
+    const { txid } = await serializar(tx);
     for (const e of plan.entradas) {
       const m = this.monedas.get(`${e.txid}:${e.vout}`);
       if (!m || m.sat !== e.sat) throw rechazo('input_unknown', `la moneda ${e.txid}:${e.vout} no existe`);
@@ -341,7 +343,7 @@ export class Carril {
   }
 
   async #difundir(tx) {
-    const txid = await huella(tx);
+    const { txid, cruda, scripts } = await serializar(tx);
     for (const e of tx.entradas) {
       const m = this.monedas.get(`${e.txid}:${e.vout}`);
       if (!m || m.gastada_por) throw rechazo('input_spent', `${e.txid}:${e.vout} no está libre`);
@@ -350,7 +352,7 @@ export class Carril {
     tx.salidas.forEach((s, vout) => {
       if (s.direccion) this.monedas.set(`${txid}:${vout}`, { txid, vout, sat: s.sat, direccion: s.direccion, candado: s.candado ?? null, gastada_por: null });
     });
-    this.txs.set(txid, { tx, altura: null });
+    this.txs.set(txid, { tx, cruda, scripts, altura: null });
     this.pendientes.push(txid);
     return { txid, pendiente: true };
   }
@@ -382,6 +384,36 @@ export class Carril {
         universe: UNIVERSO,
         binds_to: [['txid', txid], ['destino', base.destino], ['importe_sat', String(base.importe_sat)], ['instruccion', base.instruccion.huella]],
       }],
+    };
+  }
+
+  /**
+   * El recibo único (`stateark.recibo@1`, clase «pago») de un pago ya en un bloque: los campos que firma
+   * `Custodia.firmarRecibo`. Lo comprueba la regla «paid» del SIP 0 sin fiarse de quien pagó:
+   *   2/3  destino (el script, hex) · bloque (su hash, orden interno) · altura · orden (huella de la orden) ·
+   *        universo · cuánto («61000 sat») · no afirma…
+   *   4    la evidencia, una décupla: [[transacción cruda], [cabecera], lados, hermanos] (el camino de Merkle
+   *        «bitcoin» del txid a la raíz de la cabecera, solo si el bloque tiene más de una transacción)
+   * null si el txid no es de un pago ejecutado aquí; lanza si aún no está en un bloque.
+   */
+  async reciboPago(txid) {
+    const base = this.recibos.get(txid);
+    if (!base) return null;
+    const { tx, cruda, scripts, altura } = this.txs.get(txid);
+    if (altura === null) throw rechazo('unconfirmed', 'el pago aún no está en un bloque: su recibo no tiene evidencia');
+    const vout = tx.salidas.findIndex((s) => s.direccion === base.destino && s.sat === base.importe_sat);
+    const b = this.cadena.bloque(altura);
+    const evidencia = [[cruda], [b.cabecera]];
+    const { lados, hermanos } = caminoDePasos(await this.cadena.pasosDe(altura, txid));
+    if (lados.length) evidencia.push(lados, hermanos);
+    return {
+      clase: 'pago',
+      sujeto: [txid],
+      ata: [['destino', scripts[vout]], ['bloque', b.hash], ['altura', String(altura)], ['orden', base.instruccion.huella]],
+      universo: UNIVERSO,
+      cuanto: [base.importe_sat, 'sat'],
+      noAfirma: base.alcance.filter((a) => a.startsWith('NO afirma')).map((a) => a.slice('NO afirma '.length)),
+      evidencia,
     };
   }
 
@@ -501,7 +533,7 @@ export class Carril {
     const txid = recibo.posicion?.txid;
     const registro = this.txs.get(txid);
     if (!registro) return { ok: false, motivo: 'esa transacción no está en la cadena' };
-    if ((await huella(registro.tx)) !== txid) return { ok: false, motivo: 'la transacción no da su txid' };
+    if ((await serializar(registro.tx)).txid !== txid) return { ok: false, motivo: 'la transacción no da su txid' };
     if (registro.altura === null) return { ok: false, motivo: 'pendiente: la transacción aún no está en un bloque' };
     const b = this.cadena.bloque(registro.altura);
     if (!b.lotes.includes(txid) || !(await this.cadena.integro(b.altura))) return { ok: false, motivo: 'el bloque no contiene esa transacción' };
