@@ -13,6 +13,7 @@ import { html } from '../carta/dom.js';
 import { arbol, formulario, preferencias } from '../carta/carta.js';
 import { contrato, acciones as A, salida } from '../src/index.js';
 import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { costeT } from '../src/escritura.js';
 
 const almacenFalso = () => {
   const m = new Map();
@@ -256,7 +257,8 @@ test('con «opinions anchor», cada opinión guardada se escribe como un registr
   assert.deepEqual(ev.payload[6], [{ ref: compra.id }], '6 la referencia al registro opinado');
   assert.deepEqual([ev.payload[7], ev.payload[8]], [['v-prueba'], ['Menú del día']], '7 la versión de la carta, 8 lo que enseñaba');
   assert.deepEqual(ev.payload[9], ['carta', 'pv'], '9 la ruta de ancestros');
-  assert.ok(ev.movimientos.some((m) => m.token === 'T' && m.cantidad === 1), 'quema su T de minuto como todo registro');
+  // El coste de escribir (VG 12-11, decisión 7): la regla de la época, un minuto por posición, como todo registro.
+  assert.ok(ev.movimientos.some((m) => m.token === 'T' && m.escala === 'minuto' && m.de === 'huesped' && m.a === null && m.cantidad === costeT(ev.payload)), 'quema su T de minuto como todo registro');
   // La lectura de apoyo: la opinión, con su clasificación, y sus respuestas (registros anclados debajo).
   const resp = await A.transaccion(eje, 'anchor here', { X: r.id, title: 'Lo miro', content: 'respuesta de Core' }, 'huesped');
   const respuesta = await eje.anadir(resp.evento);

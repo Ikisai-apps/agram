@@ -22,6 +22,7 @@ import * as Q from '../carta/cuentas.js';
 import * as G from '../carta/guia.js';
 import * as X from '../carta/externa.js';
 import { nuevaOpinion } from '../carta/opinar.js';
+import { costeT } from '../src/escritura.js';
 
 const BE = fileURLToPath(new URL('../be.mjs', import.meta.url));
 const T = (m) => '2026-11-10T10:' + String(m).padStart(2, '0') + ':00Z';
@@ -302,7 +303,10 @@ test('proponer: Core escribe una propuesta firmada en la fábrica del proyecto d
   const v = await be('identidad', '--config', cfgCore);
   assert.match(v.salida, /^escrito en lo ajeno: 1$/m);
   assert.match(v.salida, new RegExp('^  ' + propuestaIkisai.id.slice(0, 8) + ' «Ikisai» sobre ' + ids.agram.slice(0, 8) + ' «AGRAM» en 4000000000 · aceptado \\(' + yo + ' admite a core en el 2.3\\)$', 'm'));
-  assert.match(v.salida, /^T de minuto: 59$/m, 'la propuesta le cuesta un minuto de lo que le dio VG');
+  // El coste de escribir (VG 12-11, decisión 7): la regla de la época, un minuto por posición de la propuesta.
+  const coste = propuestaIkisai.movimientos.find((m) => m.token === 'T' && m.de === 'core' && m.a === null).cantidad;
+  assert.equal(coste, costeT(propuestaIkisai.payload));
+  assert.match(v.salida, new RegExp('^T de minuto: ' + (60 - coste) + '$', 'm'), 'la propuesta le cuesta lo que exige de lo que le dio VG');
 });
 
 test('dónde se ve Core en lo de VG: su alta en el 1.4 del alta de VG, su propuesta en el 4 del proyecto y su nombre en el 2.3; hoy no en el grupo «equipo» (3.4)', () => {
@@ -385,7 +389,7 @@ test('admitir es darle R (encargo equipo, VG 11-11 noche): pendientes lista lo q
   const ad = await C.enviar(eje, ids.menu, 'admit someone', { whom: 'core', minutes: 5 }, yo, firmar);
   assert.equal(ad.ok, true, JSON.stringify(ad.motivos));
   // (la R que le falta en mano la acuña antes, como «give own R»: la dio entera por la sugerencia)
-  assert.deepEqual(ad.asentado.movimientos.map((m) => [m.token, m.cantidad, m.de, m.a]), [['T', 1, yo, null], ['R', 1, null, yo], ['R', 1, yo, 'core'], ['T', 5, yo, 'core']]);
+  assert.deepEqual(ad.asentado.movimientos.map((m) => [m.token, m.cantidad, m.de, m.a]), [['T', costeT(ad.asentado.payload), yo, null], ['R', 1, null, yo], ['R', 1, yo, 'core'], ['T', 5, yo, 'core']]); // el coste de escribir, por posición (VG 12-11, decisión 7)
   assert.deepEqual([ad.asentado.sobre, ad.asentado.en, ad.asentado.payload[3]], [ids.menu, '3000000000', [[yo], ['core']]]);
   assert.deepEqual([eje.saldo('core', 'R:' + yo), eje.saldoT('core', 'minuto')], [2, minutos + 5]);
   // A una persona no se le da T: lo dicen las reglas, no la plantilla.

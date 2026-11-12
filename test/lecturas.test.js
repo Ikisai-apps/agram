@@ -322,7 +322,8 @@ async function librosDeEjemplo() {
 }
 
 /** El 1 de antes de #44 en BQL (la reescritura del estudio, §4a): con alguien que no es el dueño. */
-const UNO_DE_ANTES = '=under it where count (moves it2 where not (it3.4.1 = "asignacion" or it3.4.1 = "informativo" or it3.4.1 = "obtencion") and (not mint in it3.4 and it3.3.0 != me or not burn in it3.4 and it3.3.1 != me)) > 0';
+// VG 12-11 (decisión 8): lo anunciado (la clase «anuncio») no se ha movido; el diario de antes no lo tenía.
+const UNO_DE_ANTES = '=under it where count (moves it2 where not (it3.4.1 = "asignacion" or it3.4.1 = "informativo" or it3.4.1 = "obtencion" or it3.4.1 = "anuncio") and (not mint in it3.4 and it3.3.0 != me or not burn in it3.4 and it3.3.1 != me)) > 0';
 
 test('paridad JS ↔ BQL: el diario (por llegada, «soonest» y «latest»), estadoDeEntrada y el paso «cuando» (con tres relojes), el 7 y el 1 (el de antes y el de #44) dan lo mismo que su JavaScript de antes en cada registro de los ejemplos', async () => {
   const ids = (l) => l.map((x) => x.valor?.ref ?? x.valor);

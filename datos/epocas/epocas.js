@@ -526,7 +526,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"
     },
     {
-      "ref": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574"
+      "ref": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"
     },
     {
       "ref": "9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"
@@ -7479,7 +7479,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "how-much.json",
-    "id": "e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574",
+    "id": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97",
     "registro": [
       [
         "how much"
@@ -7491,7 +7491,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "moves"
       ],
       [
-        "=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"
+        "=under it where count (moves it2 where not (it3.4.1 = \"asignacion\" or it3.4.1 = \"informativo\" or it3.4.1 = \"obtencion\" or it3.4.1 = \"anuncio\") and not (burn in it3.4 and T in it3.0.0.0 and it3.3.0 = me)) > 0"
       ],
       [
         1
@@ -7506,7 +7506,8 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "Encargo «lecturas» (issue #12, VG 11-11 noche): una regla larga por punto de vista en epoch.2, «qué lee el PV d aplicado a un nodo N», con el nodo como sujeto (it); se encadenan por los dígitos de la dirección según las reglas cortas (epoch.5): el contenido de N.a.b.c es la regla de c aplicada a lo que da la de b aplicada a lo que da la de a aplicada a N. Lo que hay en una celda es lo anclado en su dirección más lo que da esta lectura (contrato.leer, contrato.leerRuta)",
         "Point of view en su 4: no es una condición ni una lectura materializada (el contexto no la pone en ninguna posición); su 3 es el PV que lee. Cada ocupante de su 2 es una fórmula del BQL mínimo con it = el nodo (un registro o una identidad) y me = de quién es lo suyo (el dueño del nodo raíz, o quien se pida), y la lectura es lo que dan todas, sin repetir; «js <nombre>» nombra una lectura del núcleo en JavaScript que el contrato aplica (envoltura, como las condiciones de la capa cero) donde el BQL mínimo no alcanza. Una fórmula que no se resuelve sobre un nodo (down de una identidad) no da nada",
         "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
-        "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)"
+        "En BQL (antes «js flujo», contrato.diario): los registros del nodo y de todo lo que cuelga de él (under) cuyos asientos del libro (moves) mueven algo: no cuentan la asignación del día, el T informativo ni el P que dan las reglas (la clase del asiento, 4.1), ni el T que el dueño quema al escribir. VG 12-11 (#44): SÍ cuenta lo que el dueño se mueve a sí mismo (acuñar es crear: un sofá en E, lo mismo en P y R); sin tope en el núcleo (la pantalla pagina)",
+        "VG 12-11 (estudio BQL-transacciones, decisión 8): tampoco cuenta lo anunciado (la clase «anuncio»): no se ha movido; moves lo da porque es un movimiento del registro, que lo cumple lo que se ancla sobre él"
       ],
       [
         "epoch 0"
@@ -16269,7 +16270,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "d33783a7153adc34ed00c4005d90b4284adf7a7a9d5269d3f01e4ef1e545ae0c";
+export const EPOCA_0_BTML_ID = "503173796077726904f611ba102fc404e04965124f866055ced1524043eb16dc";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

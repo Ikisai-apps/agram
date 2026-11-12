@@ -234,7 +234,9 @@ export class ContextoEje {
 
   /** El sujeto de una lectura de registro: la candidata o el registro del eje. */
   #sujetoDe(e) {
-    return e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id };
+    // Una «candidata» que ya está en el eje (quien lee un registro asentado como ev) se lee como el registro: con lo que
+    // cuelga de él (la lectura «stage», VG 12-11, decisión 8, mira lo anclado sobre sus anuncios).
+    return e === this.#ev && !(typeof e.id === 'string' && this.#eje?.obtener(e.id)) ? CANDIDATA : { k: 'reg', id: e.id };
   }
 
   /** El nodo de 'ev', 'epoch' o 'before', o undefined si este contexto no lo tiene. */

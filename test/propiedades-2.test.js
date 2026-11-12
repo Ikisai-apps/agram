@@ -949,7 +949,8 @@ async function altaHuesped(eje, id, eur) {
  * rechaza no escribe nada. Encargo 3b: cada parte escribe su movimiento sobre
  * la reserva (la entrega, de la casa; el pago, de quien reserva).
  */
-const parte = (eje, r, autor, titulo) => eje.sobre(r.id).some((e) => e.autor === autor && e.payload === titulo);
+// Lo que cumple cada anuncio de la reserva cuelga de él (VG 12-11, decisión 8).
+const parte = (eje, r, autor, titulo) => eje.sobre(r.id, '4100000000').flatMap((a) => eje.sobre(a.id)).some((e) => e.autor === autor && e.payload === titulo);
 test('propiedad: Booking — series de plaza conservadas y acotadas por la capacidad; entregada ⇔ pagada; la comprobación previa no escribe', async () => {
   const vistos = { confirmada: 0, solape: 0, sinDinero: 0 };
   for (let s = 0; s < 6; s++) {

@@ -407,11 +407,12 @@ test('la medida de cada carta va pequeña en su fila de arriba: la del PV4 es su
   const { eje: b, reserva } = await ejemploReserva();
   const a = await arbol({ foco: { X: reserva.id, pv: 0 }, ...ampliarTodos(ampliarTodos({}, 1), 1) }, b, 'huesped', ORDENADOR);
   const cuatro = a.laterales.find((n) => n.pv === 4);
-  assert.deepEqual([cuatro.medida.nombre, cuatro.medida.k, cuatro.medida.de, cuatro.medida.propio], ['ciclo', 4, 4, true]);
+  // Dos anuncios (VG 12-11, decisión 8: las noches de la casa en uno, el pago en otro), los dos cumplidos.
+  assert.deepEqual([cuatro.medida.nombre, cuatro.medida.k, cuatro.medida.de, cuatro.medida.propio], ['ciclo', 2, 2, true]);
   const uno = a.laterales.find((n) => n.pv === 1);
   assert.deepEqual([uno.medida.nombre, uno.medida.propio], ['madurez', false]);
   const h = html(a);
-  assert.match(h, /<section class="pv pv-4 [^>]*><header class="pv-cabeza"><span class="numero">4<\/span><span class="etiqueta">[^<]*<\/span><span class="medida"[^>]*>ciclo 4<small>\/4<\/small>/);
+  assert.match(h, /<section class="pv pv-4 [^>]*><header class="pv-cabeza"><span class="numero">4<\/span><span class="etiqueta">[^<]*<\/span><span class="medida"[^>]*>ciclo 2<small>\/2<\/small>/);
 });
 
 test('el segundo nivel a pantalla completa (las formas sobrias de cada mundo): sin scroll a 1920 × 1080 ni a 1366 × 768, con flechas a los vecinos y «volver»; el nivel 2 del 1 y del 2, también', async () => {

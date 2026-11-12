@@ -101,8 +101,8 @@ test('efectos: cada paso con el nombre del catálogo, en su mundo y visto desde 
   // el camino lo ve como un paso adelante (antes eran las fases «autorizado» y «ejecutado», que ya no existen).
   const sig = falta(d, pendiente.id).efecto;
   assert.deepEqual([sig.tipo, sig.mundo, sig.nombre, sig.enCamino], ['sustituir', 0, 'mostrar', 'paso adelante']);
-  // Lo cerrado lleva el efecto del registro real que lo cerró.
-  assert.equal(d.dados[0].efecto.nombre, efectosDe(eje, ejec.id).find((e) => e.tipo === 'sustituir').nombre);
+  // Lo cerrado lleva el efecto del registro real que lo cerró: anclado en el 4 del anuncio que cumple (VG 12-11, decisión 8).
+  assert.equal(d.dados[0].efecto.nombre, efectosDe(eje, ejec.id).find((e) => e.tipo === 'anclado').nombre);
   // Una posición sin desarrollar se ancla en su mundo: los hilos del pasado la ven entrar por la izquierda.
   const seis = d.pasos.find((p) => p.clave === 'desarrollar:6').efecto;
   assert.deepEqual([seis.tipo, seis.mundo, seis.nombre], ['anclado', 6, 'entra por la izquierda']);

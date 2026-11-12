@@ -38,7 +38,7 @@
 
 import { ARIDAD } from '../../src/btml.js';
 import { efectosDe } from '../../src/efectos.js';
-import { propuestas, cierre } from '../../src/motor.js';
+import { propuestas, cierre, ANUNCIO } from '../../src/motor.js';
 import {
   escapar, n1, corto, recorte, baseDe, nombreEn, nombreMundo, ritmo, atributos, ordenPlano, cabeLaMatriz, textoCorto,
 } from './comun.js';
@@ -104,7 +104,11 @@ export function datosFabrica(eje, foco, { camino = [] } = {}) {
 
   const cajas = propuestas(eje, foco, camino).map((c) => {
     // Lo que cada parte escribió sobre la propuesta: sus movimientos (cada uno mueve lo suyo).
-    const partes = eje.sobre(c.id).map((x) => ({ id: x.id, autor: x.autor, movimientos: x.movimientos.filter((m) => m.token !== 'T').map((m) => ({ ...m })) }));
+    // Lo registrado sobre la propuesta y, desde que el anuncio lo cumple lo que se ancla sobre él (VG 12-11, decisión 8),
+    // sobre sus anuncios (su 4.1), por llegada.
+    const orden = new Map(eje.orden.map((id, i) => [id, i]));
+    const escritos = [...eje.sobre(c.id), ...eje.sobre(c.id, ANUNCIO).flatMap((a) => eje.sobre(a.id))].sort((a, b) => orden.get(a.id) - orden.get(b.id));
+    const partes = escritos.map((x) => ({ id: x.id, autor: x.autor, movimientos: x.movimientos.filter((m) => m.token !== 'T' && m.estado !== 'anunciado').map((m) => ({ ...m })) }));
     const estacion = c.cerrado === true ? 1 : 0;
     return {
       consolidacion: c.id, autor: c.autor, titulo: textoCorto(c.titulo), estado: ESTACIONES[estacion].estado, cerrado: c.cerrado,
