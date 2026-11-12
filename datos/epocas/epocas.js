@@ -527,7 +527,7 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45"
     },
     {
-      "ref": "884556e8a48de90fcc087a056fdddd508490b31db6ea2e54d1579aa8a9201df7"
+      "ref": "923d0b63c9d8632985046d71fb0582be23ae70401fb8152c483813f0cb69fcfd"
     },
     {
       "ref": "c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1"
@@ -8872,7 +8872,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "sealed.json",
-    "id": "884556e8a48de90fcc087a056fdddd508490b31db6ea2e54d1579aa8a9201df7",
+    "id": "923d0b63c9d8632985046d71fb0582be23ae70401fb8152c483813f0cb69fcfd",
     "registro": [
       [
         "sealed"
@@ -8884,7 +8884,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "sip"
       ],
       [
-        "=bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).5) = bytes(first it.5) and (count (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1 = 0 and merkle(bytes(first it.5), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).4, \"sip\") = first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).3 or count (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1 > 0 and ots(merkle(bytes(first it.5), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).4, \"sip\"), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1) = first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).3) and hex(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).7) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).2 and below(reverse(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).7), first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).8) and le(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.3)) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).1 and signed(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.2), hash(cat(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.3)), \"StateArk/Observador/Cabecera/v1\"), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.4)) and first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.4 in before.8.6"
+        "=bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).4) = bytes(first it.5) and hex(merkle(bytes(first it.5), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8, (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).9, \"sip\")) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).3 and merkle(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).3), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.4, (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.5, \"bitcoin\") = first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.0))).3 and hex(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.0))).7) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).2 and below(reverse(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.0))).7), first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.0))).8) and le(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.2)) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).1 and signed(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.1), hash(cat(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.0), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.2)), \"StateArk/Observador/Cabecera/v1\"), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.3)) and first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).7.3 in before.8.6"
       ],
       [
         "X.6.8.5"
@@ -8897,10 +8897,11 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "VG 12-11 (#64 d, #67; encargo «verificado-regla»): la estación «verificado» y la lectura «verificado» dejan de ser código y pasan a ser reglas de la época escritas en BQL con las primitivas puras de verificación (docs/BQLM.md §12); contrato.verificado es solo la fachada que las evalúa",
-        "La regla comprueba, sin salir del libro, la prueba que el registro X trae COPIADA en X.6.8.2 (la décupla del sello de tiempo del SIP 0 de Core StateArk, InTheState/stateark/sip: 1 altura, 2 hash, 3 raíz del lote, 4 camino «sip», 5 el id sellado, 8.0 la cabecera, 8.1 los pasos OTS, 8.2 la firma del observador, 8.3 la altura en 4 bytes LE, 8.4 su clave): que la hoja es el propio X (su 5); que su id con el camino «sip» da la raíz del lote y que esa raíz llega a la raíz de Merkle de la cabecera (con los pasos OTS si los hay, o igual a ella); que la cabecera da el hash del sello (su doble SHA-256, orden interno) y cumple su prueba de trabajo (below: hash < objetivo); que 8.3 es la altura del sello; que el observador firmó cabecera ‖ altura con el hash etiquetado «StateArk/Observador/Cabecera/v1» (BIP-340); y que su clave está entre las «observer keys» de la cuenta raíz del eje (before.8.6: la posición 6 del registro «exterior settings» de la identidad del génesis, src/exterior.js ajustesDelEje)",
+        "La regla comprueba, sin salir del libro, la prueba que el registro X trae COPIADA en X.6.8.2 (la décupla del sello de tiempo del SIP 0 de Core StateArk, InTheState/stateark/sip b052690, sin huecos, relleno ni tuplas: 1 altura, 2 hash, 3 raíz del lote, 4 el id sellado, 5 instante, 6 vía, 7 lo observado — 7.0 la cabecera, 7.1 la firma del observador, 7.2 la altura en 4 bytes LE, 7.3 su clave y, si los hay, 7.4 los lados y 7.5 los hermanos del camino «bitcoin» del lote a la cabecera —, 8 los lados y 9 los hermanos del camino «sip», si lo hay): que la hoja es el propio X (su 5); que su id con el camino «sip» (ninguno en un lote de un solo id) da la raíz del lote y que esa raíz con el camino «bitcoin» (ninguno si el bloque tiene un solo compromiso) llega a la raíz de Merkle de la cabecera; que la cabecera da el hash del sello (su doble SHA-256, orden interno) y cumple su prueba de trabajo (below: hash < objetivo); que la altura firmada es la del sello; que el observador firmó cabecera ‖ altura con el hash etiquetado «StateArk/Observador/Cabecera/v1» (BIP-340); y que su clave está entre las «observer keys» de la cuenta raíz del eje (before.8.6: la posición 6 del registro «exterior settings» de la identidad del génesis, src/exterior.js ajustesDelEje)",
         "VG 12-11 (H9 del SIP 0): una regla no ve la cadena; que la cabecera es de la cadena buena lo dice el observador de cabeceras (StateArk, con su firma de servicio) dentro de la misma prueba, y su clave va en el LIBRO (los ajustes del exterior de la cuenta raíz), no en ninguna época",
-        "Lo que falta (sin sello, o un sello sin cabecera, firma o clave: el de la simulación de antes de H9) deja la lectura PENDIENTE (falta el dato), nunca verdadera; una clave fuera de la lista, una firma que no vale o una prueba que no cuadra la dejan falsa. Core AGRAM 12-11: se materializa en X.6.8.5, junto al reloj que comprueba (6.8.2), como proponía el SIP 0",
-        "Core AGRAM 12-11: la fórmula sigue la de la regla «sealed» del borrador del SIP 0 con dos cambios: la lista de claves se lee ya normalizada en before.8.6 (en «exterior settings».6 puede ir como un texto con espacios, que el BQL mínimo no parte) y se comprueba también la prueba de trabajo de la cabecera"
+        "Lo que falta (sin sello, o un sello sin cabecera, firma o clave: 7.0, 7.1, 7.3; el de la simulación de antes de H9) deja la lectura PENDIENTE (falta el dato), nunca verdadera; una clave fuera de la lista, una firma que no vale o una prueba que no cuadra la dejan falsa. Core AGRAM 12-11: se materializa en X.6.8.5, junto al reloj que comprueba (6.8.2), como proponía el SIP 0",
+        "Core AGRAM 12-11: la fórmula sigue la de la regla «sealed» del borrador del SIP 0 con dos cambios: la lista de claves se lee ya normalizada en before.8.6 (en «exterior settings».6 puede ir como un texto con espacios, que el BQL mínimo no parte) y se comprueba también la prueba de trabajo de la cabecera",
+        "Core AGRAM 12-11 (aviso de Core StateArk: VG prohibió el relleno «-» y el SIP 0 rehace sus décuplas): las posiciones del sello que lee esta fórmula salen de un solo mapa, POSICIONES_DEL_SELLO de src/sello.js, y la fórmula se escribe con formulaDeSellado() de ese mismo módulo (una prueba comprueba que es esta); cuando cambie la forma del sello se cambia el mapa, decuplaDeSello y se reescribe este 2"
       ],
       [
         "epoch 0"
@@ -17071,7 +17072,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "6dc6437b55072323941e078bb1690aa7f545da6c2b1a7c1284bbb2a71d2f7fcc";
+export const EPOCA_0_BTML_ID = "11baeee65ac88595c97ac209f120f567d7874867fd60cbbba8b956a09ed99690";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

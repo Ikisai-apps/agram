@@ -1,4 +1,4 @@
-// Copia de test/observador.test.js de stateark-sim (Core StateArk, commit 8fe065f), con las rutas adaptadas a este repo (servidor/sim/stateark/ y src/).
+// Copia de test/observador.test.js de stateark-sim (Core StateArk, commit 9be12c3), con las rutas adaptadas a este repo (servidor/sim/stateark/ y src/).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync } from 'node:fs';
@@ -78,16 +78,23 @@ test('un sellador que declara otros observadores no acepta el suyo', async () =>
   assert.match((await s.verificar(id, s.prueba(id))).motivo, /no está entre los declarados/);
 });
 
-test('la décupla del sello es BTML válido según AGRAM (8.0 cabecera … 8.4 clave)', { skip: !hayAgram && 'no está el repo de AGRAM' }, async () => {
+test('la décupla del sello es BTML válido según AGRAM (sin huecos, sin relleno y sin tuplas: 7 lo observado, 8 y 9 lados y hermanos si los hay)', { skip: !hayAgram && 'no está el repo de AGRAM' }, async () => {
   const { validarPayload } = await import(pathToFileURL(`${AGRAM}/btml.js`).href);
   for (const [n, otros] of [[1, 0], [3, 2]]) {
     const { ids, p } = await sellado(n, otros);
     const d = selloComoDecupla(p, ids[0]);
     assert.deepEqual(validarPayload(d), { ok: true, errores: [] }, `n=${n}, otros=${otros}`);
     assert.equal(d[1], p.altura);
-    assert.equal(d[8][0], p.prueba.cabecera);
-    assert.equal(d[8][3], alturaLe(p.altura));
-    assert.equal(d[8][4], p.prueba.observador.clave);
+    assert.equal(d[4], ids[0]);
+    assert.equal(d[7][0], p.prueba.cabecera);
+    assert.equal(d[7][2], alturaLe(p.altura));
+    assert.equal(d[7][3], p.prueba.observador.clave);
+    assert.equal(d.length, n === 1 ? 8 : 10); // un lote de un solo id no tiene camino
+    assert.equal(d[7].length, otros === 0 ? 4 : 6); // un solo compromiso en el bloque: sin camino «bitcoin»
+    if (n > 1) assert.equal(d[8].length, d[9].length); // lados y hermanos en paralelo
+    // Ninguna tupla: los caminos son listas de hojas.
+    const tieneTuplas = (x) => Array.isArray(x) && x.some((e) => Array.isArray(e) && e.length === 2 && ['i', 'd'].includes(e[0]) && /^[0-9a-f]{64}$/.test(e[1]));
+    assert.equal([d[7], d[8] ?? [], d[9] ?? []].some(tieneTuplas), false);
   }
 });
 

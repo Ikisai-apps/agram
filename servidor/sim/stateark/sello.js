@@ -206,24 +206,38 @@ export class Sellador {
   }
 }
 
+/** Los pasos OTS de la sim (append|prepend X, sha256, sha256) como camino de Merkle «bitcoin»: lados y hermanos. */
+export function caminoDePasos(pasos) {
+  const lados = [];
+  const hermanos = [];
+  for (let i = 0; i < pasos.length; i += 3) {
+    const [op, x] = pasos[i];
+    if (!(op === 'append' || op === 'prepend') || pasos[i + 1]?.[0] !== 'sha256' || pasos[i + 2]?.[0] !== 'sha256') throw new TypeError('pasos que no son un camino de Merkle de Bitcoin');
+    lados.push(op === 'append' ? 'd' : 'i'); // append: el hermano va a la derecha
+    hermanos.push(x);
+  }
+  return { lados, hermanos };
+}
+
 /**
- * La prueba como la décupla BTML del sello del SIP 0, lista para ir en X.6.8.2 del registro sellado:
- *   0 ["sello de tiempo", "SIP 0"], 1 altura, 2 hash, 3 lote, 4 camino (o «-» si el lote es de un solo id),
- *   5 el id, 6 instante, 7 vía, 8 [cabecera, pasos (o «-»), firma del observador, altura en 4 bytes LE, clave], 9 «-»
+ * La prueba como la décupla BTML del sello del SIP 0, lista para ir en X.6.8.2 del registro sellado.
+ * SIN HUECOS, SIN RELLENO Y SIN TUPLAS (VG, 12-11 y 13-11): los caminos van como dos listas hermanas, lados
+ * y hermanos, y lo opcional al final.
+ *   0 ["sello de tiempo", "SIP 0"]  1 altura  2 hash del bloque  3 raíz del lote  4 el id sellado (la hoja)
+ *   5 instante del bloque  6 vía
+ *   7 lo observado: [cabecera, firma, altura en 4 bytes LE, clave del observador,
+ *                    lados y hermanos del camino «bitcoin» del lote a la raíz de la cabecera (si lo hay)]
+ *   8 lados y 9 hermanos del camino «sip» del id a la raíz del lote (si lo hay)
  */
 export function selloComoDecupla(prueba, id) {
   if (!prueba || prueba.pendiente) throw new TypeError('un sello pendiente aún no tiene décupla');
   const p = prueba.prueba;
-  return [
-    ['sello de tiempo', 'SIP 0'],
-    prueba.altura,
-    prueba.hash,
-    prueba.lote,
-    p.camino.length ? p.camino.map(([l, h]) => [l, h]) : '-',
-    id,
-    prueba.instante,
-    p.via,
-    [p.cabecera, p.pasos.length ? p.pasos.map((x) => [...x]) : '-', p.observador.firma, p.observador.altura_le, p.observador.clave],
-    '-',
-  ];
+  const observado = [p.cabecera, p.observador.firma, p.observador.altura_le, p.observador.clave];
+  if (p.pasos.length) {
+    const { lados, hermanos } = caminoDePasos(p.pasos);
+    observado.push(lados, hermanos);
+  }
+  const d = [['sello de tiempo', 'SIP 0'], prueba.altura, prueba.hash, prueba.lote, id, prueba.instante, p.via, observado];
+  if (p.camino.length) d.push(p.camino.map(([l]) => l), p.camino.map(([, h]) => h));
+  return d;
 }

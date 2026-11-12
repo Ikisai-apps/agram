@@ -65,9 +65,6 @@ export function fijarLectorDelExterior(f) {
   lectorDelExterior = typeof f === 'function' ? f : undefined;
 }
 
-/** Una décupla con «-» (la posición vacía de BTML: validarPayload no admite huecos) como nada, en todos sus niveles. */
-const sinGuiones = (x) => (Array.isArray(x) ? x.map((y) => (y === '-' ? undefined : sinGuiones(y))) : x);
-
 /** Cuántas referencias encadenadas se siguen (como src/encaje.js). */
 const MAX_SALTOS = 20;
 
@@ -472,6 +469,19 @@ export class ContextoEje {
     } else return undefined;
     pres.gastar(lista.length);
     return lista.map((a) => ({ k: 'asiento', a }));
+  }
+
+  /**
+   * `payload(X)` del BQL mínimo (Core AGRAM 13-11, H19 del SIP 0): el payload de un registro (o de la candidata) tal
+   * como se escribió, sin lo implícito (D-META, vistas, lecturas) ni lo anclado: una décupla (o el terminal, si el
+   * payload es uno). undefined si el nodo no es un registro.
+   */
+  payload(nodo) {
+    const e = nodo?.k === 'ev' ? this.#ev : this.#evento(nodo);
+    if (!e) return undefined;
+    const p = e.payload;
+    if (p === undefined || p === null) return { k: 'dec', id: null, camino: [], v: [] };
+    return Array.isArray(p) ? { k: 'dec', id: null, camino: [], v: p } : p;
   }
 
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
@@ -1019,14 +1029,13 @@ export class ContextoEje {
           const recibo = nodo.e.id ? this.#eje.recibo?.(nodo.e.id) : null;
           return recibo ? [recibo.instante, recibo.rele, { k: 'dec', id: null, camino: [], v: [['recibo de llegada'], recibo.instante, recibo.rele, recibo.firma, recibo.recibo ?? undefined] }] : [];
         }
-        // Detrás, la prueba copiada (encargo «verificado-regla», #67): la décupla del sello de tiempo del SIP 0 (0 «sello
-        // de tiempo», 1 altura, 2 hash, 3 raíz del lote, 4 camino «sip», 5 el id sellado, 6 instante, 7 vía, 8 cabecera,
-        // pasos OTS, firma del observador, altura LE y su clave), con «-» (la posición vacía de BTML) como nada. La lee
-        // la regla «sealed» (X.6.8.5): todo lo que verifica está aquí, copiado; nada sale del libro.
+        // Detrás, la prueba copiada (encargo «verificado-regla», #67): la décupla del sello de tiempo del SIP 0, sin huecos
+        // (src/sello.js decuplaDeSello y POSICIONES_DEL_SELLO). La lee la regla «sealed» (X.6.8.5): todo lo que verifica
+        // está aquí, copiado; nada sale del libro.
         if (d === 2) {
           const sello = nodo.e.id ? this.#eje.sello?.(nodo.e.id) : null;
           if (!sello) return [];
-          return [sello.instante, sello.altura, sello.hash, ...(Array.isArray(sello.decupla) ? [{ k: 'dec', id: null, camino: [], v: sinGuiones(sello.decupla) }] : [])];
+          return [sello.instante, sello.altura, sello.hash, ...(Array.isArray(sello.decupla) ? [{ k: 'dec', id: null, camino: [], v: sello.decupla }] : [])];
         }
         // 3-9: las lecturas de la época que se materializan aquí (X.6.8.4 «received», X.6.8.5 «sealed»).
         return this.#lecturaEn('X.6.8.' + d, this.#sujetoDe(nodo.e));

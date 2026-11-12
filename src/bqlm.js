@@ -67,7 +67,8 @@
 // acuña por su cuenta hasta un nivel, solo en los destinos de DESTINOS_DE_PUT) o en una plantilla (el nivel en mano).
 //
 // Primitivas de verificación (Core AGRAM 12-11, #67; docs/BQLM.md §12): bytes hex utf8 hash sha256 sha256d cat slice
-// reverse le below merkle ots cabecera tx signed, escritas como llamadas, nombre(a, b…). Son PURAS: solo leen sus
+// reverse le below merkle ots cabecera tx signed lookup, escritas como llamadas, nombre(a, b…); y payload(X) (13-11, H19),
+// que lee el payload de un registro tal como se escribió. Son PURAS: solo leen sus
 // argumentos (nada del contexto ni de fuera), nunca firman ni ven claves privadas, y cuentan en el presupuesto por byte
 // procesado (LIMITES.bytes). Traen un tipo nuevo, los BYTES (esBytes), distinto de texto y número: en los datos BTML
 // viajan como texto hex y se convierten con bytes(…); se leen en hex. cabecera(…) y tx(…) dan una décupla pura, que se
@@ -145,11 +146,14 @@ export const VERIFICACION = Object.freeze({
   reverse: Object.freeze({ forma: 'reverse(b)', aridad: [1, 1] }),
   le: Object.freeze({ forma: 'le(b)', aridad: [1, 1] }),
   below: Object.freeze({ forma: 'below(a, b)', aridad: [2, 2] }),
-  merkle: Object.freeze({ forma: 'merkle(hoja, camino, esquema)', aridad: [3, 3] }),
-  ots: Object.freeze({ forma: 'ots(raiz, pasos)', aridad: [2, 2] }),
+  merkle: Object.freeze({ forma: 'merkle(hoja, lados, hermanos, esquema)', aridad: [4, 4] }),
+  ots: Object.freeze({ forma: 'ots(x, pasos)', aridad: [2, 2] }),
   cabecera: Object.freeze({ forma: 'cabecera(b)', aridad: [1, 1] }),
   tx: Object.freeze({ forma: 'tx(b)', aridad: [1, 1] }),
   signed: Object.freeze({ forma: 'signed(firma, mensaje, clave)', aridad: [3, 3] }),
+  // Core AGRAM 13-11 (H17, H19 del SIP 0, «sin tuplas»): leer una clave en dos listas hermanas, y el payload tal cual.
+  lookup: Object.freeze({ forma: 'lookup(claves, valores, clave)', aridad: [3, 3] }),
+  payload: Object.freeze({ forma: 'payload(X)', aridad: [1, 1] }),
 });
 
 /** Lo que cuesta verificar una firma BIP-340, en bytes del presupuesto (una verificación cuesta como hashear ~64 KB). */
@@ -1010,6 +1014,24 @@ function secuencia(lista, st, nivel = 0) {
   return fuera;
 }
 
+/**
+ * Los elementos de una lista hermana (las claves o los valores de lookup): si lo que llega es una sola décupla (la
+ * posición de un registro con valores que no son hojas), cada posición suya, 0 a 9, hasta la primera vacía, es un
+ * elemento (sus ocupantes); si no, cada ocupante es un elemento. → [[ocupantes del elemento k]].
+ */
+function elementos(lista, st) {
+  if (lista.length === 1 && valorDe(lista[0], st.ctx) === undefined) {
+    const fuera = [];
+    for (let d = 0; d <= 9; d++) {
+      const g = bajar(lista[0], [d], st);
+      if (!g.length) break;
+      fuera.push(g);
+    }
+    return fuera;
+  }
+  return lista.map((o) => [o]);
+}
+
 /** Bytes de un hermano o de un argumento de ots: bytes, o el texto hex en que viajan en los datos. */
 function bytesDeDato(v, donde, st) {
   if (esBytes(v)) return v.b;
@@ -1107,40 +1129,65 @@ function calcularPrimitiva(nodo, st) {
       return [menor(a, b)];
     }
     case 'merkle': {
+      // Core AGRAM 13-11 (H18, «sin tuplas»): el camino son dos listas hermanas, los lados («i» el hermano a la izquierda,
+      // «d» a la derecha) y los hermanos (bytes o su hex), de la hoja a la raíz. Ausentes o vacías: la raíz es la hoja
+      // (en «sip», su hash de hoja). La forma de tres argumentos (pares [lado, hermano]) se retiró.
       const hoja = argBytes(nodo, 0, st);
-      const esquema = argTexto(nodo, 2, st);
+      const esquema = argTexto(nodo, 3, st);
       if (esquema !== 'bitcoin' && esquema !== 'sip') throw fallo('merkle: el esquema es «bitcoin» o «sip», no «' + esquema + '»');
-      const plano = secuencia(calcular(nodo.args[1], st), st);
-      if (plano.length % 2) throw fallo('merkle: el camino son pares [lado, hermano], y aquí hay ' + plano.length + ' valores');
-      const pasos = [];
-      for (let k = 0; k < plano.length; k += 2) {
-        const lado = plano[k];
+      const lados = secuencia(calcular(nodo.args[1], st), st);
+      const hermanos = secuencia(calcular(nodo.args[2], st), st);
+      if (lados.length !== hermanos.length) throw fallo('merkle: los lados y los hermanos van en paralelo, uno por paso, y aquí hay ' + lados.length + ' lados y ' + hermanos.length + ' hermanos');
+      const pasos = lados.map((lado, k) => {
         if (lado !== 'i' && lado !== 'd') throw fallo('merkle: el lado de un paso es «i» (el hermano a la izquierda) o «d» (a la derecha), no «' + leer(lado, ctx) + '»');
-        pasos.push([lado, bytesDeDato(plano[k + 1], 'merkle: el hermano del paso ' + k / 2, st)]);
-      }
+        return [lado, bytesDeDato(hermanos[k], 'merkle: el hermano del paso ' + k, st)];
+      });
       pagar(st, 65 + pasos.length * (esquema === 'sip' ? 65 : 96));
       return [aBytesBql(raizMerkle(hoja, pasos, esquema))];
     }
     case 'ots': {
+      // Core AGRAM 13-11 (H18): OpenTimestamps real, con los pasos como UNA lista de textos, «prepend <hex>»,
+      // «append <hex>» o «sha256», sin tuplas. Sin pasos, x tal cual.
       const inicio = argBytes(nodo, 0, st);
       let largo = inicio.length;
-      const plano = secuencia(calcular(nodo.args[1], st), st);
       const pasos = [];
-      for (let k = 0; k < plano.length; k++) {
-        const op = plano[k];
-        if (op === 'sha256') {
+      for (const texto of secuencia(calcular(nodo.args[1], st), st)) {
+        const m = typeof texto === 'string' ? /^(prepend|append) (\S+)$|^(sha256)$/.exec(texto.trim()) : null;
+        if (!m) throw fallo('ots: paso desconocido «' + leer(texto, ctx) + '» (un texto: «prepend <hex>», «append <hex>» o «sha256»)');
+        if (m[3]) {
           pagar(st, largo);
           largo = 32;
-          pasos.push([op]);
-        } else if (op === 'prepend' || op === 'append') {
-          if (k + 1 >= plano.length) throw fallo('ots: «' + op + '» lleva sus bytes detrás');
-          const arg = bytesDeDato(plano[++k], 'ots: ' + op, st);
-          largo += arg.length;
-          pagar(st, largo);
-          pasos.push([op, arg]);
-        } else throw fallo('ots: paso desconocido «' + leer(op, ctx) + '» (prepend, append o sha256)');
+          pasos.push(['sha256']);
+          continue;
+        }
+        const arg = deHex(m[2]);
+        if (!arg) throw fallo('ots: «' + m[1] + '» lleva bytes en hex detrás, no «' + m[2] + '»');
+        largo += arg.length;
+        pagar(st, largo);
+        pasos.push([m[1], arg]);
       }
       return [aBytesBql(aplicarOts(inicio, pasos))];
+    }
+    case 'lookup': {
+      // Core AGRAM 13-11 (H17): los valores de una clave en dos listas hermanas (claves y valores, en paralelo): los de
+      // las posiciones donde la clave es esa, en su orden; nada si ninguna. Puro.
+      const claves = elementos(calcular(nodo.args[0], st), st).map((g) => {
+        const v = g.length === 1 ? valorDe(g[0], ctx) : undefined;
+        if (v === undefined) throw fallo('lookup: cada clave es un valor (un texto o un número), no «' + textoDe(g, ctx) + '»');
+        return v;
+      });
+      const valores = elementos(calcular(nodo.args[1], st), st);
+      if (claves.length !== valores.length) throw fallo('lookup: las claves y los valores van en paralelo, y aquí hay ' + claves.length + ' claves y ' + valores.length + ' valores');
+      const clave = argumento(nodo, 2, st);
+      return claves.flatMap((k, i) => (mismo(k, clave) ? valores[i] : []));
+    }
+    case 'payload': {
+      // Core AGRAM 13-11 (H19): la décupla de un registro tal como se escribió, sin lo implícito (D-META, vistas, lecturas,
+      // lo anclado). Es lectura del contexto, como una posición; en un registro guardado su 3 ya no lleva al autor.
+      const o = uno(calcular(nodo.args[0], st), 'payload: el primero', ctx);
+      const p = typeof ctx.payload === 'function' ? ctx.payload(o) : undefined;
+      if (p === undefined) throw fallo('payload: «' + leer(o, ctx) + '» no es un registro ni la candidata');
+      return [p];
     }
     case 'cabecera': {
       const b = argBytes(nodo, 0, st);

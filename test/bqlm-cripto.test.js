@@ -151,24 +151,24 @@ test('tx: una transacción con testigo (BIP-144) hecha a mano: el txid no cubre 
 
 // ---------- Merkle ----------
 
-test('merkle «bitcoin»: el árbol de una tx (la raíz es el txid, camino vacío) y uno de tres con el impar duplicado', () => {
+test('merkle «bitcoin»: el árbol de una tx (la raíz es el txid, camino ausente) y uno de tres con el impar duplicado; lados y hermanos en dos listas hermanas (Core AGRAM 13-11, H18)', () => {
   const c1 = ctx([[COINBASE], [GENESIS]]);
-  assert.equal(vale('merkle(first tx(bytes(first epoch.0)).5, epoch.9, "bitcoin") = first cabecera(bytes(first epoch.1)).3', c1), true);
+  assert.equal(vale('merkle(first tx(bytes(first epoch.0)).5, epoch.9, epoch.8, "bitcoin") = first cabecera(bytes(first epoch.1)).3', c1), true, 'lados y hermanos ausentes: la raíz es la hoja');
   const [a, b, d] = ['01', '02', '03'].map((x) => shad(bx(x)));
   const ab = shad(Buffer.concat([a, b]));
   const dd = shad(Buffer.concat([d, d]));
   const raiz = hx(shad(Buffer.concat([ab, dd])));
-  // Los caminos como en SIP-0.md: una décupla de pares [lado, hermano] (hex), de la hoja a la raíz.
-  const datos = [[hx(a), hx(b), hx(d)], [['d', hx(b)], ['d', hx(dd)]], [['d', hx(d)], ['i', hx(ab)]], [raiz]];
+  // Los caminos como en el SIP 0 (b052690, sin tuplas): dos listas hermanas, los lados y los hermanos (hex), de la hoja a la raíz.
+  const datos = [[hx(a), hx(b), hx(d)], ['d', 'd'], [hx(b), hx(dd)], ['d', 'i'], [hx(d), hx(ab)], [raiz]];
   const c = ctx(datos);
-  assert.equal(vale('hex(merkle(bytes(nth 0 epoch.0), epoch.1, "bitcoin"))', c), raiz);
-  assert.equal(vale('hex(merkle(bytes(nth 2 epoch.0), epoch.2, "bitcoin"))', c), raiz, 'el impar se duplica: su hermano es él mismo');
-  assert.equal(vale('hex(merkle(bytes(nth 1 epoch.0), epoch.1, "bitcoin")) = first epoch.3', c), false, 'otra hoja con el mismo camino');
-  // El camino también vale como lista plana (lado, hermano, lado, hermano…), sin el tope de diez de una décupla.
-  assert.equal(vale('hex(merkle(bytes(nth 2 epoch.0), epoch.1, "bitcoin"))', ctx([[hx(a), hx(b), hx(d)], ['d', hx(d), 'i', hx(ab)]])), raiz);
-  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.1, "otro")', c).motivo, /«bitcoin» o «sip»/);
-  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.0, "sip")', c).motivo, /pares \[lado, hermano\]|lado de un paso/);
-  assert.match(estado('merkle(bytes("00"), epoch.9, "sip")', c).motivo, /32 bytes/);
+  assert.equal(vale('hex(merkle(bytes(nth 0 epoch.0), epoch.1, epoch.2, "bitcoin"))', c), raiz);
+  assert.equal(vale('hex(merkle(bytes(nth 2 epoch.0), epoch.3, epoch.4, "bitcoin"))', c), raiz, 'el impar se duplica: su hermano es él mismo');
+  assert.equal(vale('hex(merkle(bytes(nth 1 epoch.0), epoch.1, epoch.2, "bitcoin")) = first epoch.5', c), false, 'otra hoja con el mismo camino');
+  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.1, epoch.2, "otro")', c).motivo, /«bitcoin» o «sip»/);
+  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.1, epoch.4, "bitcoin")', ctx([[hx(a)], ['d', 'd'], [], [], [hx(b)]])).motivo, /en paralelo/, 'tantos lados como hermanos');
+  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.0, epoch.0, "sip")', c).motivo, /lado de un paso/);
+  assert.match(estado('merkle(bytes("00"), epoch.9, epoch.9, "sip")', c).motivo, /32 bytes/);
+  assert.match(estado('merkle(bytes(nth 0 epoch.0), epoch.1, "bitcoin")', c).motivo, /lleva 4 argumentos, no 3/, 'la forma de tres argumentos se retiró');
 });
 
 test('merkle «sip» (SIP-0.md, normativo): la misma raíz que el sellador de servidor/sim/stateark para cada id de lotes de 1, 2, 5 y 7', async () => {
@@ -181,17 +181,22 @@ test('merkle «sip» (SIP-0.md, normativo): la misma raíz que el sellador de se
       const p = sellador.prueba(id);
       assert.ok(p && !p.pendiente);
       assert.equal((await sellador.verificar(id, p)).ok, true);
-      // La prueba copiada en BTML, como el sello de tiempo de SIP-0.md: 3 la raíz del lote, 4 el camino, 5 la hoja.
-      const c = ctx([['sello de tiempo'], [p.altura], [p.hash], [p.lote], p.prueba.camino, [id]]);
-      assert.equal(vale('hex(merkle(bytes(first epoch.5), epoch.4, "sip")) = first epoch.3', c), true, n + ' ids, ' + id.slice(0, 8));
-      assert.equal(vale('merkle(bytes(first epoch.5), epoch.4, "sip") = bytes(first epoch.3)', c), true);
+      // La prueba copiada en BTML, como el sello de tiempo del SIP 0 (b052690): 3 la raíz del lote, 4 la hoja, 8 los lados
+      // y 9 los hermanos (solo si hay camino: un lote de un id no lo lleva; aquí, posiciones vacías del dato de prueba).
+      const lados = p.prueba.camino.map(([l]) => l);
+      const hermanos = p.prueba.camino.map(([, h]) => h);
+      const c = ctx([['sello de tiempo'], [p.altura], [p.hash], [p.lote], [id], [p.instante], ['simulado'], ['observado'], lados, hermanos]);
+      const L = 'epoch.8';
+      const H = 'epoch.9';
+      assert.equal(vale('hex(merkle(bytes(first epoch.4), ' + L + ', ' + H + ', "sip")) = first epoch.3', c), true, n + ' ids, ' + id.slice(0, 8));
+      assert.equal(vale('merkle(bytes(first epoch.4), ' + L + ', ' + H + ', "sip") = bytes(first epoch.3)', c), true);
       // A mano, la definición de SIP-0.md: hoja = SHA-256(0x00 ‖ id), nodo = SHA-256(0x01 ‖ izq ‖ der).
       let actual = sha(Buffer.concat([Buffer.of(0), bx(id)]));
       for (const [lado, h] of p.prueba.camino) actual = sha(Buffer.concat([Buffer.of(1), ...(lado === 'i' ? [bx(h), actual] : [actual, bx(h)])]));
       assert.equal(hx(actual), p.lote);
       // Otra hoja con ese camino no da la raíz; el esquema «bitcoin» tampoco.
-      assert.equal(vale('hex(merkle(sha256(bytes(first epoch.5)), epoch.4, "sip")) = first epoch.3', c), false);
-      assert.equal(vale('hex(merkle(bytes(first epoch.5), epoch.4, "bitcoin")) = first epoch.3', c), false);
+      assert.equal(vale('hex(merkle(sha256(bytes(first epoch.4)), ' + L + ', ' + H + ', "sip")) = first epoch.3', c), false);
+      assert.equal(vale('hex(merkle(bytes(first epoch.4), ' + L + ', ' + H + ', "bitcoin")) = first epoch.3', c), false);
     }
     if (n === 1) assert.equal(sellador.prueba(ids[0]).prueba.camino.length, 0, 'un lote de un id: camino vacío, la raíz es su hoja');
   }
@@ -199,18 +204,43 @@ test('merkle «sip» (SIP-0.md, normativo): la misma raíz que el sellador de se
 
 // ---------- OpenTimestamps ----------
 
-test('ots: un camino sintético de pasos prepend, append y sha256 da lo que llega a la cabecera', () => {
+test('ots: un camino sintético de pasos «prepend <hex>», «append <hex>» y «sha256», UNA lista de textos (Core AGRAM 13-11, H18), da lo que llega a la cabecera', () => {
   const raiz = sha(Buffer.from('lote'));
   let x = Buffer.concat([bx('aabb'), raiz]);
   x = Buffer.concat([x, bx('cc')]);
   x = sha(x);
   x = sha(Buffer.concat([bx('dd'), x]));
-  const pasos = [['prepend', 'aabb'], ['append', 'cc'], ['sha256'], ['prepend', 'dd'], ['sha256']];
-  const c = ctx([[hx(raiz)], pasos, [hx(x)]]);
+  const pasos = ['prepend aabb', 'append cc', 'sha256', 'prepend dd', 'sha256'];
+  const c = ctx([[hx(raiz)], pasos, [hx(x)], [['prepend', 'aabb']], ['prepend zz']]);
   assert.equal(vale('hex(ots(bytes(first epoch.0), epoch.1))', c), hx(x));
   assert.equal(vale('ots(bytes(first epoch.0), epoch.1) = bytes(first epoch.2)', c), true);
   assert.match(estado('ots(bytes(first epoch.0), epoch.0)', c).motivo, /paso desconocido/);
-  assert.match(estado('ots(bytes(first epoch.0), epoch.9)', c).estado, /RESUELTO/, 'sin pasos, la raíz tal cual');
+  assert.match(estado('ots(bytes(first epoch.0), epoch.3)', c).motivo, /paso desconocido/, 'sin tuplas: un par [op, hex] ya no es un paso');
+  assert.match(estado('ots(bytes(first epoch.0), epoch.4)', c).motivo, /en hex/);
+  assert.equal(vale('hex(ots(bytes(first epoch.0), epoch.9))', c), hx(raiz), 'sin pasos, x tal cual');
+});
+
+// ---------- lookup y payload (Core AGRAM 13-11: H17 y H19 del SIP 0, «sin tuplas») ----------
+
+test('lookup(claves, valores, clave): los valores de esa clave en dos listas hermanas, varios si se repite, nada si no está; puro', () => {
+  const c = ctx([['recibo'], ['causa', 'bloque', 'causa'], ['primera', 'abc', 'segunda'], [[1], ['120000 sat'], [['x'], ['y']]], ['a', 'b', 'c'], ['a', 'b']]);
+  assert.equal(vale('first lookup(epoch.1, epoch.2, "bloque")', c), 'abc');
+  assert.deepEqual(estado('lookup(epoch.1, epoch.2, "causa")', c).valor, ['primera', 'segunda']);
+  assert.deepEqual(estado('lookup(epoch.1, epoch.2, "nada")', c).valor, []);
+  assert.equal(vale('first (lookup(epoch.4, epoch.3, "b")).1', c), 120000, 'los valores de una décupla hermana, posición a posición (aquí, una magnitud: D-VALOR)');
+  assert.match(estado('lookup(epoch.1, epoch.5, "causa")', c).motivo, /en paralelo/);
+  assert.deepEqual(queMueve('=first lookup(epoch.1, epoch.2, "bloque") = "abc"'), { verbo: null, put: false });
+});
+
+test('payload(X): la décupla de un registro tal como se escribió, sin lo implícito (su 3 no lleva al autor) ni lo anclado', async () => {
+  const ev = await crearEvento({ autor: 'ana', sobre: null, t: '2026-11-13T10:00:00Z', movimientos: [{ token: 'T', escala: 'minuto', cantidad: 1, de: 'ana', a: null }], payload: ['pago', ['nota'], ['bloque', 'cuánto'], ['abc', '5 sat']] });
+  const c = new ContextoEje(null, { ev });
+  assert.equal(vale('first ev.3', c), 'ana', 'el 3 de un registro lleva al autor (D-META)');
+  assert.deepEqual(estado('(payload(ev)).3', c).valor, ['abc', '5 sat'], 'payload: lo escrito');
+  assert.deepEqual(estado('(payload(ev)).1', c).valor, ['nota'], 'el 1 escrito, no los movimientos');
+  assert.equal(vale('first lookup((payload(ev)).2, (payload(ev)).3, "bloque")', c), 'abc');
+  assert.equal(vale('count (payload(ev)).5', c), 0, 'el 5 escrito (nada), no el id');
+  assert.match(estado('payload(1)', c).motivo, /no es un registro/);
 });
 
 // ---------- BIP-340 ----------
@@ -251,7 +281,7 @@ test('signed sobre bytes(id) de un evento real firmado: el mensaje de un registr
 // ---------- forma ----------
 
 test('forma: las primitivas son llamadas con su número de argumentos; no son verbos (una regla que las usa solo lee)', () => {
-  assert.deepEqual(Object.keys(VERIFICACION).sort(), ['below', 'bytes', 'cabecera', 'cat', 'hash', 'hex', 'le', 'merkle', 'ots', 'reverse', 'sha256', 'sha256d', 'signed', 'slice', 'tx', 'utf8']);
+  assert.deepEqual(Object.keys(VERIFICACION).sort(), ['below', 'bytes', 'cabecera', 'cat', 'hash', 'hex', 'le', 'lookup', 'merkle', 'ots', 'payload', 'reverse', 'sha256', 'sha256d', 'signed', 'slice', 'tx', 'utf8']);
   assert.match(estado('hash').motivo, /se escribe con sus argumentos entre paréntesis/);
   assert.match(estado('slice(bytes("00"), 1)').motivo, /lleva 3 argumentos, no 2/);
   assert.match(estado('hash(1, "a", "b")').motivo, /lleva 1 o 2 argumentos, no 3/);
@@ -266,7 +296,9 @@ const SIP = 'C:/Users/acer/Documents/InTheState/stateark/sip/reglas';
 
 // El SIP está vivo (Core StateArk lo reescribe con las formas de §12): la prueba lee las reglas que haya, sin fijar
 // cuántas. Todas han de analizarse; la única diferencia de forma admitida es la de su primer borrador, merkle(hoja,
-// camino) sin esquema, que AGRAM no acepta (el esquema decide la raíz) y que con el esquema se analiza.
+// camino) sin esquema, que AGRAM no acepta (el esquema decide la raíz) y que con el esquema se analiza. Y (encargo
+// «verificado-regla», SIP b052690, «sin tuplas», VG 13-11) desde H17-H19 (lookup, merkle con lados y hermanos, payload)
+// todas: las siete del SIP de hoy se analizan sin sustituciones.
 test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (salvo merkle sin esquema, que se señala)', { skip: !existsSync(SIP) && 'sin InTheState/stateark/sip en esta máquina' }, () => {
   const reglas = readdirSync(SIP).filter((f) => f.endsWith('.json')).map((f) => ({ f, r: JSON.parse(readFileSync(SIP + '/' + f, 'utf8')) }));
   assert.ok(reglas.length >= 6);
@@ -285,6 +317,11 @@ test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (s
     }
   }
   for (const f of ['authorized-by-the-holder.json', 'in-firm.json', 'linked.json', 'the-lock-ends-before-the-e.json']) assert.equal(resultado[f], 'ok', f);
+  // SIP b052690 (sin tuplas): las siete, también «sealed» y «paid» (merkle con lados y hermanos, lookup, payload).
+  if (reglas.some(({ f }) => f === 'paid.json') && /lookup\(/.test(JSON.stringify(reglas.find(({ f }) => f === 'paid.json').r))) {
+    assert.equal(reglas.length, 7);
+    assert.deepEqual(Object.values(resultado), Array(7).fill('ok'), JSON.stringify(resultado));
+  }
 });
 
 // ---------- el candado §8 en Taproot (vector de rust-miniscript) ----------

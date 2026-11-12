@@ -47,8 +47,27 @@ test('las dos reglas están en el 2 de la época: «sealed» en X.6.8.5 y «rece
     assert.ok(!EPOCA_0_BTML.condiciones.includes(r), 'no es una condición de la transacción');
     assert.match(contrato.mensaje(null, r, 'es'), /^(sealed|received): /, 'su 9 en español (epoch.9.4)');
   }
-  assert.match(regla('sealed')[2].at(-1), /signed\(.*"StateArk\/Observador\/Cabecera\/v1"\), bytes\(.*\.8\.4\)\) and first .*\.8\.4 in before\.8\.6$/);
+  assert.match(regla('sealed')[2].at(-1), /signed\(.*"StateArk\/Observador\/Cabecera\/v1"\), bytes\(.*\.7\.3\)\) and first .*\.7\.3 in before\.8\.6$/);
   assert.match(regla('sealed')[2].at(-1), /below\(reverse\(/, 'la prueba de trabajo de la cabecera');
+});
+
+test('un solo mapa de posiciones del sello: la fórmula de «sealed» es la que escribe formulaDeSellado() con él, y decuplaDeSello pone cada parte donde dice', async () => {
+  assert.equal(regla('sealed')[2].at(-1), selloDe.formulaDeSellado(), 'datos/epocas/reglas/sealed.json se reescribe con formulaDeSellado()');
+  const obs = await observadorDePrueba();
+  const id = 'ab'.repeat(32);
+  const { decupla } = await selloCompleto(id, { altura: 7, observador: obs, ids: [id, 'cd'.repeat(32)] });
+  // Lo que hay en la posición del mapa (una lista de uno, como la lee BTML, se lee como su elemento).
+  const en = (k) => { const x = selloDe.POSICIONES_DEL_SELLO[k].split('.').map(Number).reduce((y, d) => y?.[d], decupla); return Array.isArray(x) && x.length === 1 && !Array.isArray(x[0]) ? x[0] : x; };
+  assert.ok([en('clase')].flat().includes(selloDe.POSICIONES_DEL_SELLO.marca));
+  assert.deepEqual([en('altura'), en('id'), en('clave')], [7, id, obs.publica]);
+  for (const k of ['hash', 'lote']) assert.match(en(k), /^[0-9a-f]{64}$/);
+  assert.match(en('cabecera'), /^[0-9a-f]{160}$/);
+  assert.match(en('firma'), /^[0-9a-f]{128}$/);
+  assert.equal(en('alturaLe'), '07000000');
+  // El camino «sip», sin tuplas: los lados y los hermanos en dos posiciones hermanas, en paralelo.
+  assert.deepEqual([decupla[Number(selloDe.POSICIONES_DEL_SELLO.lados)], decupla[Number(selloDe.POSICIONES_DEL_SELLO.hermanos)].length], [['d'], 1]);
+  // Otro mapa da otra fórmula (lo que habrá que hacer cuando StateArk cambie la forma del sello).
+  assert.notEqual(selloDe.formulaDeSellado({ ...selloDe.POSICIONES_DEL_SELLO, clave: '9' }), selloDe.formulaDeSellado());
 });
 
 test('sello completo sintético con la clave del observador declarada por la cuenta raíz: «sealed» verdadero y verificado ok', async () => {
@@ -61,26 +80,28 @@ test('sello completo sintético con la clave del observador declarada por la cue
   assert.deepEqual(contrato.verificado(eje, e1.id), { ok: true, sello: true, recibo: null, relojes: true, altura: 7, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
   // En un lote de varios ids, con su camino «sip»: también.
   eje.marcarSello(e2.id, await selloCompleto(e2.id, { altura: 9, observador: obs, ids: [e1.id, e2.id, eje.genesisId] }));
-  assert.ok(eje.sello(e2.id).decupla[4].length >= 1, 'un camino de verdad');
+  assert.ok(eje.sello(e2.id).decupla[8].length >= 1, 'un camino de verdad (los lados en el 8 y los hermanos en el 9, al final: solo si lo hay)');
+  assert.equal(eje.sello(e1.id).decupla.length, 8, 'un lote de un solo id: sin camino, sin posición 8 (ni hueco ni «-»)');
   assert.equal(contrato.verificado(eje, e2.id).sello, true);
 });
 
-test('falta 8.0 (o la firma, o la clave): PENDIENTE, nunca verdadero; sin sello, también PENDIENTE', async () => {
+test('falta 7.0 (o la firma, o la clave): PENDIENTE, nunca verdadero; sin sello, también PENDIENTE', async () => {
   const obs = await observadorDePrueba();
   const { eje, e1, e2 } = await ejeDePrueba({ observadores: [obs.publica] });
   const sinSello = contrato.verificado(eje, e1.id);
   assert.equal(sinSello.sello, false);
   assert.deepEqual(sinSello.pendiente.map((p) => p.lectura), ['sello']);
   assert.equal(leer(eje, e1.id, 5).estado, 'PENDIENTE');
-  // Sin cabecera (8.0), como el sello de la simulación antes de H9.
+  // Sin cabecera (7.0), como el sello de la simulación antes de H9: la décupla no lleva lo observado (7), sin huecos.
   eje.marcarSello(e1.id, await selloCompleto(e1.id, { observador: obs, cambiar: (p) => { delete p.prueba.cabecera; } }));
-  assert.equal(eje.sello(e1.id).decupla[8][0], '-');
+  assert.equal(eje.sello(e1.id).decupla.length, 7);
+  assert.ok(!JSON.stringify(eje.sello(e1.id).decupla).includes('"-"'), 'sin relleno');
   const r = leer(eje, e1.id, 5);
   assert.equal(r.estado, 'PENDIENTE');
   assert.match(r.motivo, /^sealed: .*vacía/);
   const v = contrato.verificado(eje, e1.id);
   assert.deepEqual([v.ok, v.sello, v.pendiente.map((p) => p.lectura)], [false, false, ['sello']]);
-  // Sin la firma ni la clave del observador (8.2, 8.4).
+  // Sin la firma ni la clave del observador (7.1, 7.3).
   eje.marcarSello(e2.id, await selloCompleto(e2.id, { observador: obs, cambiar: (p) => { delete p.prueba.observador; } }));
   assert.equal(leer(eje, e2.id, 5).estado, 'PENDIENTE');
   assert.equal(contrato.verificado(eje, e2.id).sello, false);
@@ -96,7 +117,7 @@ test('clave no declarada, firma mala, prueba que no cuadra: «sealed» falso (no
   assert.deepEqual([contrato.verificado(eje, e1.id).sello, contrato.verificado(eje, e1.id).pendiente], [false, []]);
   // La clave declarada, pero la firma de otro.
   const ajena = await selloCompleto(e2.id, { observador: otro });
-  eje.marcarSello(e2.id, await selloCompleto(e2.id, { observador: obs, cambiar: (p) => { p.prueba.observador.firma = ajena.decupla[8][2]; } }));
+  eje.marcarSello(e2.id, await selloCompleto(e2.id, { observador: obs, cambiar: (p) => { p.prueba.observador.firma = ajena.decupla[7][1][0]; } }));
   assert.deepEqual(leer(eje, e2.id, 5).valor, [false]);
   // La prueba de otro registro (su hoja no es este id): no se guarda la décupla (su 5 no es este id), luego PENDIENTE.
   const { eje: eje2, e1: x1, e2: x2 } = await ejeDePrueba({ observadores: [obs.publica] });
@@ -124,14 +145,24 @@ test('profundidad y en firme: con la regla verdadera, las confirmaciones de la c
   assert.deepEqual([v.altura, v.profundidad, v.enFirme, v.sello], [100, 6, false, false]);
 });
 
-test('con la simulación de StateArk (8fe065f): la prueba trae cabecera, pasos y observador; «sealed» verdadero si la cuenta raíz declara su clave', async () => {
+test('con la simulación de StateArk (9be12c3, sin huecos ni tuplas): la prueba trae cabecera, caminos y observador; «sealed» verdadero si la cuenta raíz declara su clave, con y sin camino «bitcoin»', async () => {
   const s = selloSimulado({ inicio: '2026-11-10T11:00:00.000Z', reloj: () => Date.parse('2026-11-10T11:00:00.000Z') });
   const { eje, e1, e2 } = await ejeDePrueba({ observadores: [await s.claveObservador()] });
-  await s.sellar([e1.id, e2.id, eje.genesisId]);
+  // Un bloque con un solo compromiso (sin camino «bitcoin») y otro con dos lotes (con él).
+  await s.sellar([e1.id, eje.genesisId]);
   await s.minar();
+  await s.sellar([e2.id]);
+  await s.sellar(['ee'.repeat(32)]);
+  await s.minar();
+  assert.equal((await s.prueba(e1.id)).prueba.pasos.length, 0);
+  assert.ok((await s.prueba(e2.id)).prueba.pasos.length > 0, 'dos lotes en el bloque: camino «bitcoin» del lote a la cabecera');
   for (const id of [e1.id, e2.id]) {
     const p = await s.prueba(id);
-    assert.deepEqual(selloDe.decuplaDeSello(p, id), selloComoDecupla(p, id), 'la misma décupla que la de la simulación');
+    // La misma décupla que la de la simulación, salvo que, sin camino «bitcoin», lo observado (7) va con cada parte en
+    // una lista de uno: así es una décupla (la de la simulación es entonces una lista de hojas y 7.0 no existe en BTML).
+    const nuestra = selloDe.decuplaDeSello(p, id);
+    const desenvuelta = nuestra.map((x, k) => (k === 7 && x.length === 4 ? x.map((y) => y[0]) : x));
+    assert.deepEqual(desenvuelta, selloComoDecupla(p, id));
     assert.equal(validarPayload(selloDe.decuplaDeSello(p, id)).ok, true);
     assert.equal((await s.verificar(id, p)).ok, true);
     eje.marcarSello(id, { altura: p.altura, hash: p.hash, instante: p.instante, verificado: true, decupla: selloDe.decuplaDeSello(p, id) });

@@ -60,18 +60,19 @@ export { reglasDelTope, SIN_CAPACIDAD } from './condiciones/tope.js';
 
 /**
  * La décupla del sello de tiempo del SIP 0 que se guarda con un sello (marcarSello), copiada y congelada, o null si no
- * vale: BTML válido (validarPayload), diez posiciones, «sello de tiempo» en su 0, el id del registro en su 5, y la altura y
- * el hash del sello en su 1 y su 2. No comprueba la prueba: eso es de la regla «sealed».
+ * vale: BTML válido (validarPayload), de una a diez posiciones, «sello de tiempo» en su 0 y, en su primer nivel, el id del
+ * registro, la altura y el hash del sello (dónde va cada cosa lo dice src/sello.js, POSICIONES_DEL_SELLO: aquí no se fija,
+ * para que cambiar la forma del sello sea tocar un sitio). No comprueba la prueba: eso es de la regla «sealed».
  */
 function decuplaDeSelloValida(d, id, altura, hash) {
-  if (!Array.isArray(d) || d.length !== 10) return null;
+  if (!Array.isArray(d) || d.length < 1 || d.length > 10) return null;
   try {
     if (!validarPayload(d).ok) return null;
   } catch {
     return null;
   }
   const cero = Array.isArray(d[0]) ? d[0] : [d[0]];
-  if (!cero.includes('sello de tiempo') || d[5] !== id || d[1] !== altura || d[2] !== hash) return null;
+  if (!cero.includes('sello de tiempo') || !d.includes(id) || !d.includes(altura) || !d.includes(hash)) return null;
   const congelar = (x) => (Array.isArray(x) ? Object.freeze(x.map(congelar)) : x);
   return congelar(JSON.parse(JSON.stringify(d)));
 }
@@ -326,10 +327,10 @@ export class Eje {
    * un registro que el eje no tiene, o un sello mal formado, se ignoran.
    *
    * `decupla` (encargo «verificado-regla», #67), opcional: la PRUEBA COPIADA, la décupla del sello de tiempo del SIP 0
-   * (src/sello.js decuplaDeSello: 0 «sello de tiempo», 1 altura, 2 hash, 3 raíz del lote, 4 camino, 5 el id, 6 instante,
-   * 7 vía, 8 cabecera, pasos, firma del observador, altura LE, clave). Va en X.6.8.2 detrás de lo de siempre y la
+   * (src/sello.js decuplaDeSello y POSICIONES_DEL_SELLO: la altura, el hash, la raíz del lote, el id, el instante, la vía,
+   * lo observado — cabecera, firma del observador, altura LE, clave, pasos — y el camino). Va en X.6.8.2 detrás de lo de siempre y la
    * comprueba la regla «sealed» de la época (X.6.8.5): esa regla, no `verificado`, dice si el registro está sellado.
-   * Una décupla que no es BTML, no es de un sello de tiempo, no lleva este id en su 5 o no es de esta altura y este
+   * Una décupla que no es BTML, no es de un sello de tiempo, no lleva este id o no es de esta altura y este
    * hash, no se guarda (el sello sí).
    */
   marcarSello(id, sello) {
