@@ -148,14 +148,17 @@
     {"ref":"61684c984c1158c62f8a165d0d44a9e827961cd2526b96c4318a006f2b7f152a"},
     {"ref":"c18f55cc90fe2a94590a0dfedf5d92e35621c8f3c9dfbe818a897b00285fcfa8"},
     {"ref":"6060969c90b7696379d90a36c90eb5e036a702700327878d0c530df600a0f1a1"},
-    {"ref":"182ed6516faf42095c41cc9810fe0864cc260b5c954f541372b37af7a103060b"},
-    {"ref":"85301ca57acb65990b393c4e30aaa36b0af3e3f1293abd1cdbecb1cba737f82e"},
+    {"ref":"18b7e5e85622b4d8936e30084a5d31d57d1825911476363b28ef40f9ea661e71"},
+    {"ref":"6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"},
+    {"ref":"bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"},
+    {"ref":"7c9b8dd246536ad9ade82693322f1bc0fea085d4d498a234293ac7d7ca565d09"},
+    {"ref":"e6663fe9e932897b370551ddccbef3ef73c5bb5f0e83bd26c83ec5dc9613b574"},
     {"ref":"9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"},
     {"ref":"f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"},
-    {"ref":"2920884790a9d8dc0a8d785693f4c87a9140d37c3806bd64002f8f35ddc58f12"},
+    {"ref":"ac849ec534e10f7139bd254bd2ec3a357df86b1d28babaa70f7b71526483e513"},
     {"ref":"990567541aba234ab8ad2e758e78dd0b20832b613046f3fb3af51961fb16a1cf"},
-    {"ref":"e6bd7119ced3004a12971dda3eefb7f681b0621189efe17898f56adf02221d81"},
-    {"ref":"0c7930e68a4629bb536656f718f456d5bbbacd50bb113e71cb00aab06996dd56"},
+    {"ref":"ac078a27fc11b6213a945fca3c7fd2969bb3a1984464df2f21fbaf25b91997bf"},
+    {"ref":"cd8c375175c656c4c902ebc420b043e942d15779825914a349b7103af3dd35cb"},
     {"ref":"42ccc655be7f6b8c07eb1ea29bf9c16c13efb8ce022d7ae182b78cca7e4b4e5a"},
     {"ref":"b68e8a458fdaf257885f8ab1895a813e1476304d860fe67f61b266eaef956bd2"}
   ],
@@ -766,7 +769,28 @@
       [["año"], [31536000], [365], ["364 + 1: trece ciclos de 28 días y un día"]]
     ],
     ["el tiempo lo marcan los demás"],
-    [7, 8]
+    [7, 8],
+    [
+      [600],
+      [7200],
+      ["the margins of the three clocks (X.6.8, VG 12-11 #42 and decision 4 of the estudio BQL-transacciones), in seconds: 0 how far the clock of the ledger may go ahead of the mark of Nostr, 1 how far either may go ahead of the block of Bitcoin (the time of a block admits about two hours); a signed difference beyond its margin is the only real incongruence (X.6.9, «clocks out of order»). Core, pendiente de revisar VG"]
+    ],
+    [
+      [
+        "future states",
+        "the states of the future of a record (VG 12-11, estudio BQL-transacciones: estadoDeEntrada falls to BQL; Core, pendiente de revisar VG): one row per state, [[name], [when: a formula «=…» of the minimal BQL with it = the movement that refers the record to a date, X.7.9 (the reading «dated movement»)], [its date: a formula with the same it]]; the first row whose formula gives true is the state of the record. The names are the core's; their texts, the screen's"
+      ],
+      [["previsto"], ["=T in it.0.0.0"], ["=first it.7.1"]],
+      [
+        ["bloqueado"],
+        ["=lock in it.4 and sum ((first it.3.0).1.(it.0).2.(first it.7.2) each 1) > 0"],
+        ["=first it.7.2"]
+      ],
+      [["liberado"], ["=lock in it.4"], ["=first it.7.2"]],
+      [["caducado"], ["=mint in it.4 and (first it.7.0).0 <= before.6.0.0"], ["=first it.7.0"]],
+      [["caduca"], ["=mint in it.4"], ["=first it.7.0"]],
+      [["caducado"], ["=burn in it.4"], ["=first it.6.0"]]
+    ]
   ],
   [
     [1, 2, 3, 4, 6, 10, 16, 26, 42],
@@ -1625,14 +1649,17 @@
           "receiving R gives ten P on the root of its issuer: quien recibe R de su emisor obtiene {first epoch.1.1.4.1} P por unidad sobre el alta de su emisor",
           "share: la parte del P que obtuvo una identidad, esté en la mano que esté, en el dominio del registro, que está sobre ese registro",
           "stage: lo que el registro anunció en su 4.1 y aún no ha pasado, por estación: E pagar, P decidir, R atender, T trabajar",
+          "dated movement: el primer movimiento del registro que se refiere a una fecha: el T futuro declarado, lo bloqueado hasta una fecha, una emisión de E que caduca o la quema de E propia",
+          "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
+          "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
-          "how much: lo que se mueve en el nodo y en lo que cuelga de él con alguien que no es su dueño",
+          "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
           "with whom: las identidades con las que se mueve algo en el nodo, quienes tienen la R de su dueño y lo que se le escribe en su 3",
           "what is done: el trabajo: lo que otro escribe en lo del dueño moviendo T, lo anunciado y pendiente, y a quién ha dado T el dueño",
           "where it fits: el registro sobre el que está anclado el nodo",
-          "where it comes from: su hilo hacia arriba, los registros de los que cuelga hasta la raíz",
-          "by when: el T futuro declarado en lo que cuelga del nodo, con su fecha",
+          "where it comes from: su hilo hacia arriba, los registros de los que cuelga hasta la raíz; y su diario, todo lo que le ha llegado a él y a lo que cuelga de él, lo más reciente primero",
+          "by when: lo que cuelga del nodo y se refiere a una fecha (el T futuro declarado, lo bloqueado hasta una fecha, lo que caduca), lo más próximo primero",
           "against others: sus hermanos, lo anclado sobre el mismo registro",
           "how: las acciones que su plantilla nombra como camino",
           "T is not locked: {first ev.3} bloquea o libera T; bloquear es de E, P y R",
@@ -2403,7 +2430,7 @@
     [
       [
         "steps",
-        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most), and when scale (encargo «datos3»: the calendar scale of the date the record refers to, contrato.escalaDeFecha over contrato.estadoDeEntrada). Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
+        "a step is a reading that gives a discrete value k out of de; the animation uses it as the frame index (step k → frame k): the states the engine no longer has. One row per point of view: [[pv], [name], [k], [de], [note]]; pv is a digit or * (every element); k and de are formulas «=…» of the minimal BQL with it = the record (its first where gives it2), or the name of a reading the core already gives: maturity (contrato.madurez: the level among the levels of its template or of epoch.8.4) and share box (the box 0-9 of the share of the record against its parent, bases.cajaDeCuota over mapped.cuota, in the series it moves most). The step «cuando» was the reading when scale (contrato.escalaDeFecha in JavaScript) and is BQL since VG 12-11 (estudio BQL-transacciones): the count of the scales of epoch.7.0 (each by its position: epoch.7.0 is one décupla) that the distance between the date the record refers to (X.7.7, «for when», in seconds) and the clock of the ledger (before.6.0) reaches, without the coarsest. Encargo 3c-2b (tras 3c-1); the rows: Core, pendiente de revisar VG"
       ],
       [
         [4],
@@ -2429,9 +2456,9 @@
       [
         [7],
         ["cuando"],
-        ["when scale"],
+        ["=(count (epoch.7.0.0 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.1 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.2 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.3 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.4 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7) + count (epoch.7.0.5 where it2.1 <= first (first it.7).7 - before.6.0.0 or it2.1 <= before.6.0.0 - first (first it.7).7)) where count (first it.7).7 > 0"],
         [10],
-        ["encargo «datos3» (issue #11; Core, pendiente de revisar VG): the calendar scale of the date the record refers to (the «when» of declare future T, the exit date of a lock, the expiry of an issue of E) seen from the clock of the ledger: the finest scale of epoch.7.0 that holds the distance, the coarsest beyond it; its digit in epoch.1.3.1, as escala; null if the record refers to no date"]
+        ["encargo «datos3» (issue #11; Core, pendiente de revisar VG): the calendar scale of the date the record refers to (the «when» of declare future T, the exit date of a lock, the expiry of an issue of E) seen from the clock of the ledger: the finest scale of epoch.7.0 that holds the distance, the coarsest beyond it; its digit in epoch.1.3.1, as escala (the scales of epoch.7.0 go in the order of epoch.1.3.1); null if the record refers to no date"]
       ],
       [
         ["*"],

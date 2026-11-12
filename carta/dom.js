@@ -254,6 +254,7 @@ const htmlMedida = (m) => (m ? `<span class="medida" title="${attr(m.nombre)} ${
 
 /** Un elemento de una banda: un ocupante (como siempre) o una entrada del diario (su hora y lo que movió). */
 function htmlElementoDeBanda(o) {
+  if (o.arriba) return htmlCuenta(o); // el hilo hacia arriba del 6 (#45), con su marca, también sin franja
   if (o.tipo !== 'entrada') return htmlOcupanteSolo(o);
   return `<button type="button" class="ocupante ocupante-ref ocupante-entrada"${nodo('ocupante')} data-pv="${o.pv}" data-abrir="${attr(o.ref)}" data-x="${attr(o.ref)}" title="${attr(o.t)}"><span class="texto">${escapar(o.texto)}</span><small class="quien">${escapar(o.t.replace('T', ' ').replace('Z', ''))}</small></button>`;
 }
@@ -286,8 +287,9 @@ function htmlFilaDeTabla(o) {
   return `<tr${marcaDerivado(o)}><td colspan="10">${htmlOcupanteDeCelda(o)}</td></tr>`;
 }
 
-/** Lo derivado del libro en una celda (encargo «lecturas»): solo una clase y el porqué en el title, sin cambiar la forma. */
-const marcaDerivado = (o) => (o?.derivado ? ` class="derivado" title="${attr(t('derivadoPor', { por: o.por ?? '' }))}"` : '');
+/** Lo derivado del libro en una celda (encargo «lecturas»): solo una clase y el porqué en el title, sin cambiar la forma; con su relación (VG 12-11: directo, heredado o del hilo), otra clase y su texto. */
+const RELACION_DERIVADA = Object.freeze({ arriba: 'derivadoArriba', directo: 'derivadoDirecto', heredado: 'derivadoHeredado' });
+const marcaDerivado = (o) => (o?.derivado ? ` class="derivado${RELACION_DERIVADA[o.relacion] ? ' ' + o.relacion : ''}" title="${attr([t('derivadoPor', { por: o.por ?? '' }), RELACION_DERIVADA[o.relacion] ? t(RELACION_DERIVADA[o.relacion]) : ''].filter(Boolean).join(' · '))}"` : '');
 
 /** Un mensaje de la conversación: el ocupante con su autor y su hora (como una entrada del diario, ocupante-entrada); si se puede entrar, baja un nivel. */
 function htmlMensaje(o) {
@@ -455,9 +457,9 @@ function htmlCuenta(o) {
   const cuando = o.t ? fecha(o.t) : '';
   const destino = o.tipo === 'entrada' ? o.ref : o.X;
   const estado = o.estado ? t(ESTADOS_DE_CUENTA[o.estado.tipo] ?? 'estadoPrevisto', { fecha: o.estado.fecha ? fecha(o.estado.fecha) : '' }) : '';
-  const rara = o.incongruente ? t('incongruente', o.incongruente) : '';
-  const titulo = [o.texto, cuando, estado, rara, o.hiloSupuesto ? t('hiloSupuesto') : ''].filter(Boolean).join(' · ');
-  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}${o.incongruente ? ' cuenta-rara' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${o.estado ? ` data-estado="${attr(o.estado.tipo)}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${estado ? `<small class="cuenta-estado">${escapar(estado)}</small> ` : cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
+  const rara = o.rara ? t('cuentaRara') : '';
+  const titulo = [o.texto, cuando, estado, rara, o.hiloSupuesto ? t('hiloSupuesto') : '', o.arriba ? t('derivadoArriba') : ''].filter(Boolean).join(' · ');
+  return `<button type="button" class="ocupante cuenta${o.hiloSupuesto ? ' supuesta' : ''}${o.rara ? ' cuenta-rara' : ''}${o.arriba ? ' cuenta-arriba' : ''}"${nodo('ocupante', { x0: o.texto })}${o.hilo !== null && o.hilo !== undefined ? ` data-color="${o.hilo}"` : ''}${o.estado ? ` data-estado="${attr(o.estado.tipo)}"` : ''}${dataId(o)}${destino ? ` data-abrir="${attr(destino)}" data-x="${attr(destino)}"` : ''} title="${attr(titulo)}"><span class="cuenta-bola" aria-hidden="true">${htmlDibujoDeOcupante(o)}</span><span class="cuenta-texto">${estado ? `<small class="cuenta-estado">${escapar(estado)}</small> ` : cuando ? `<small>${escapar(cuando)}</small> ` : ''}${escapar(o.texto)}</span></button>`;
 }
 
 /** El texto de cada estado del futuro de una cuenta (contrato.estadoDeEntrada), por su nombre. */

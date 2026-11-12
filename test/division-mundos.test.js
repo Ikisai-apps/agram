@@ -261,9 +261,12 @@ test('el 6 y el 7: una franja por escala de T que el calendario mide; el 6 con l
   assert.deepEqual(r6.bandas.map((b) => b.escala), [...r7.bandas.map((b) => b.escala)].reverse(), 'el 6: al revés, la más cercana a ahora a la derecha');
   assert.deepEqual(r7.bandas.map((b) => b.nombre), escalas.map((e) => e.nombre));
   // El diario de la compra (el pasado, el 6) quema horas: su entrada está en la franja «hora» y en ninguna otra.
-  const conEntradas = r6.bandas.filter((b) => b.items.length);
+  const conEntradas = r6.bandas.filter((b) => b.items.some((o) => o.tipo === 'entrada'));
   assert.deepEqual(conEntradas.map((b) => b.nombre), ['hora']);
   assert.equal(conEntradas[0].items[0].tipo, 'entrada');
+  // Lo demás del 6 es su hilo hacia arriba (#45, VG 12-11: el 6 lee el hilo y el diario), en la franja de lo que quema.
+  const otras = r6.bandas.flatMap((b) => b.items).filter((o) => o.tipo !== 'entrada');
+  assert.ok(otras.length > 0 && otras.every((o) => o.arriba && !o.hiloSupuesto), 'el hilo de la compra (el menú y lo de arriba)');
   const h = html(await arbol(completa(compra.id, 6), eje, 'huesped', GRANDE));
   assert.equal((h.match(/class="rejilla-banda hijo[ "]/g) ?? []).length, escalas.length);
 });
@@ -594,8 +597,8 @@ test('el 3 a pantalla completa: cada caja con su grupo de atención y su precio 
   assert.deepEqual(r.celdas.map((c) => [c.pv, c.precio]), hijos.map((h) => [h.digito, h.precio]));
   const h1 = rejillaHtml(html(a));
   for (const h of hijos) assert.ok(h1.includes(`<p class="hijo-precio" data-zona="${h.precio.zona}"><b>${h.precio.grupo}</b> · ${h.precio.texto}</p>`), 'el precio de la zona ' + h.precio.zona);
-  // la regla del vacío sigue igual: el nombre apagado y debajo el paso del camino, y el precio en el pie
-  assert.ok(r.celdas.some((c) => c.vacio && c.precio));
+  // el precio en el pie de cada caja (con o sin contenido: VG 12-11, #44 y #45, el 1 y el 6 leen más y ya no hay cajas vacías aquí)
+  assert.ok(r.celdas.every((c) => c.precio));
   // nivel 2: la conversación, cada mensaje con su paquete
   const b = await arbol(completa(compra.id, 3, { profundidad: { 3: [conversacion.id] } }), eje, 'huesped', GRANDE);
   assert.equal(b.centro.rejilla.forma, 'conversacion');
@@ -671,7 +674,7 @@ async function conFuturo() {
   return { ...c, ...fabrica, ...(await ejemploFuturoYCohorte(c.eje, c)) };
 }
 
-test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del PV del que cuelga (pvDeEntrada), con su estado y la marca de incongruencia; el 6, en los hilos de su diario', async () => {
+test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del PV del que cuelga (pvDeEntrada), con su estado y sin incongruencia de escala (#42); el 6, en los hilos de su diario', async () => {
   const c = await conFuturo();
   const a7 = await arbol(completa(c.compra.id, 7), c.eje, 'huesped', GRANDE);
   const r7 = a7.centro.rejilla;
@@ -685,13 +688,15 @@ test('el 7 coloca cada entrada por la fecha a la que se refiere, en el hilo del 
   assert.deepEqual([donde(c.nochebuena.id).hilo, donde(c.vales.id).hilo], [4, 1]);
   assert.deepEqual([donde(c.manana.id).hilo, donde(c.manana.id).o.hiloSupuesto], [r7.hilos[0].pv, true]);
   assert.ok(new Set(r7.bandas.flatMap((b) => b.cruces.filter((x) => x.items.length).map((x) => x.hilo))).size > 1, 'en más de un hilo');
-  // el estado del futuro y la incongruencia (declara un minuto; por su fecha, otra franja)
+  // el estado del futuro; la «incongruencia de escala» (declara un minuto y por su fecha le toca otra franja) se retiró
+  // (VG 12-11, #42): ninguna cuenta es rara mientras no haya más reloj que el del libro (X.6.8)
   assert.deepEqual([donde(c.manana.id).o.estado.tipo, donde(c.plazo.id).o.estado.tipo, donde(c.vales.id).o.estado.tipo], ['previsto', 'bloqueado', 'caduca']);
-  assert.deepEqual(donde(c.semana.id).o.incongruente, { declarada: 'minuto', franja: 'semana' });
+  assert.equal(donde(c.semana.id).o.incongruente, undefined);
+  assert.equal(r7.bandas.some((b) => b.items.some((o) => o.rara)), false);
   const h7 = rejillaHtml(html(a7));
-  assert.match(h7, /class="ocupante cuenta supuesta cuenta-rara"[^>]*data-estado="previsto"/);
+  assert.match(h7, /class="ocupante cuenta supuesta"[^>]*data-estado="previsto"/);
+  assert.ok(!h7.includes('cuenta-rara') && !h7.includes('incongruente'));
   assert.match(h7, new RegExp(`<small class="cuenta-estado">${t('estadoBloqueado', { fecha: '' }).replace(/\s+$/, '')}`));
-  assert.ok(h7.includes('incongruente: declara minuto y por su fecha le toca semana'));
   // el 6: cada entrada del diario en el hilo de la posición que modificó (la fábrica en el 4, los recursos en el 1…)
   const r6 = (await arbol(completa(c.compra.id, 6), c.eje, 'huesped', GRANDE)).centro.rejilla;
   const hilos6 = new Set(r6.bandas.flatMap((b) => b.cruces.filter((x) => x.items.some((o) => !o.hiloSupuesto)).map((x) => x.hilo)));

@@ -1,0 +1,16 @@
+[
+  ["clocks out of order"],
+  ["X.6.8", "epoch.7.3"],
+  ["=count (first it.6).8.1 > 0 and (first (first it.6).8.0).0 > (first (first it.6).8.1).0 + first epoch.7.3.0 or count (first it.6).8.2 > 0 and (first (first it.6).8.0).0 > (first (first it.6).8.2).0 + first epoch.7.3.1 or count (first it.6).8.1 > 0 and count (first it.6).8.2 > 0 and (first (first it.6).8.1).0 > (first (first it.6).8.2).0 + first epoch.7.3.1"],
+  ["X.6.9"],
+  ["read"],
+  ["*"],
+  [
+    "VG 12-11 (estudio BQL-transacciones, decisiones 1-4 y 9; issues #42, #43, #44, #45, #49): BQL lee el libro con moves (los asientos de un registro, una identidad o una serie, con su D-MOV: 4.1 la clase del asiento, 6.0 el instante, 6.5 el registro, 7.2 bloqueado hasta), under (todo lo que cuelga de un nodo) y by (ordenar); las lecturas que estaban envueltas en JavaScript caen a BQL",
+    "VG 12-11 (#42): la «incongruencia de escala» era un invento del mockup y se retira; la única incongruencia real son los tres relojes fuera de orden (X.6.8: 0 el t del libro, 1 la marca de Nostr al transportarlo, 2 el bloque de Bitcoin que lo ancla). Se puntúan como el vector de diferencias con signo del encaje: una diferencia negativa más allá de su margen (epoch.7.3) es la cuenta rara; las distancias, latencias de anclaje, serán la medida del 8 (sin uso hasta que haya transporte)",
+    "Hoy siempre da falso: ni Nostr ni Bitcoin existen todavía. Se materializa en X.6.9 (la posición que proponía el estudio; Core, pendiente de revisar VG)"
+  ],
+  ["epoch 0"],
+  ["after for when"],
+  ["clocks out of order: the clock of the ledger, the mark of Nostr and the block of Bitcoin do not go in order"]
+]

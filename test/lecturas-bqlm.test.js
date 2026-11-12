@@ -15,7 +15,8 @@ import { esPresente } from '../src/evento.js';
 import { esInformativoT } from '../src/ciclo.js';
 import { devoluciones } from '../src/lente.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
-import { ejemploCompra } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
+import { diaCivil } from '../src/tokens.js';
 import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
 import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
 import { ejemploLente } from '../ejemplos/ikisai/lente-booking.mjs';
@@ -42,9 +43,11 @@ async function conR() {
   return { eje, dev };
 }
 
-test('B5: las diez lecturas están en el 2 de la época, con read en su 4 y su posición en el 3; no son condiciones', () => {
-  assert.deepEqual(LECTURAS.map((r) => r[0][0]), ['present', 'informative', 'attended', 'obligation', 'share', 'weight', 'maturity', 'attention group', 'attention price', 'stage']);
-  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.6.8', 'X.2.4.8', 'X.8.1', 'X.6.3', 'X.6.2', 'X.4.8']);
+test('B5: las trece lecturas están en el 2 de la época, con read en su 4 y su posición en el 3; no son condiciones', () => {
+  // VG 12-11 (estudio BQL-transacciones): el movimiento con fecha (X.7.9), la fecha a la que se refiere (X.7.7) y los tres
+  // relojes fuera de orden (X.6.9, #42).
+  assert.deepEqual(LECTURAS.map((r) => r[0][0]), ['present', 'informative', 'attended', 'obligation', 'share', 'weight', 'maturity', 'attention group', 'attention price', 'stage', 'dated movement', 'for when', 'clocks out of order']);
+  assert.deepEqual(LECTURAS.map(posicionDeLectura), ['X.6.1', 'X.6.7', 'X.7.4', 'A.8.1', 'A.2.6.8', 'X.2.4.8', 'X.8.1', 'X.6.3', 'X.6.2', 'X.4.8', 'X.7.9', 'X.7.7', 'X.6.9']);
   for (const r of LECTURAS) {
     assert.ok(esLectura(r));
     assert.equal(r.length, 10, 'una lectura lleva las diez posiciones, como toda regla');
@@ -125,4 +128,107 @@ test('«attended» (X.7.4): una devolución de R queda atendida cuando su emisor
   const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML });
   // Un registro que no devuelve R no está atendido aunque alguien lo cite.
   assert.equal(uno('first ("' + eje.genesisId + '").7.4', ctx), false);
+});
+
+// ---------- BQL lee transacciones (VG 12-11, estudio BQL-transacciones, decisiones 1-4) ----------
+
+/** La compra con un subárbol de tres niveles bajo ella (la casa, la cocina y otra vez la casa) y su futuro. */
+async function conTresNiveles() {
+  const c = await ejemploCompra();
+  const t = (m) => '2026-11-07T17:' + String(m).padStart(2, '0') + ':00Z';
+  const uno = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '9000000000', t: t(1), movimientos: [minuto('casa')], payload: [['Nivel 1']] });
+  const dos = await c.eje.escribir({ autor: 'cocina', sobre: uno.id, en: '9000000000', t: t(2), movimientos: [minuto('cocina')], payload: [['Nivel 2']] });
+  const tres = await c.eje.escribir({ autor: 'casa', sobre: dos.id, en: '9000000000', t: t(3), movimientos: [minuto('casa')], payload: [['Nivel 3']] });
+  return { ...c, uno, dos, tres, ctx: new ContextoEje(c.eje, { epoch: EPOCA_0_BTML }) };
+}
+
+const conSujeto = (expr, ctx, sujeto, opciones = {}) => evaluar(expr, ctx, { sujeto, ...opciones });
+
+test('under: el nodo y todo lo que cuelga de él, a cualquier profundidad y por llegada (un subárbol de tres niveles); de una hoja, ella sola; el presupuesto es su tope', async () => {
+  const c = await conTresNiveles();
+  const ids = (r) => r.valor.map((o) => c.ctx.valor(o));
+  const deUno = conSujeto('=under it', c.ctx, c.uno.id);
+  assert.deepEqual(ids(deUno), [c.uno.id, c.dos.id, c.tres.id]);
+  assert.deepEqual(ids(conSujeto('=under it', c.ctx, c.tres.id)), [c.tres.id], 'una hoja: ella sola');
+  const deCompra = ids(conSujeto('=under it', c.ctx, c.compra.id));
+  assert.deepEqual(deCompra, c.eje.orden.filter((id) => c.eje.hilo(id).some((e) => e.id === c.compra.id)), 'por llegada, todo el subárbol');
+  assert.deepEqual(deCompra.slice(-3), [c.uno.id, c.dos.id, c.tres.id]);
+  // el tercer nivel bajo la compra: su hilo es tres más largo
+  assert.deepEqual(ids(conSujeto('=(under it) where count (path it2) = count (path it) + 3', c.ctx, c.compra.id)), [c.tres.id]);
+  // down baja uno; under, todos
+  assert.equal(conSujeto('=count (under it) - count (down it)', c.ctx, c.uno.id).valor[0], 2);
+  // el presupuesto: un subárbol mayor que él es PENDIENTE POR LÍMITE
+  const corto = conSujeto('=count (under it)', c.ctx, c.compra.id, { limites: { ocupantes: 2 } });
+  assert.deepEqual([corto.estado, corto.subtipo], ['PENDIENTE', 'PENDIENTE POR LÍMITE']);
+  // de algo que no es un registro, ERROR
+  assert.equal(evaluar('under "casa"', c.ctx).estado, 'ERROR');
+  assert.equal(evaluar('under 3', c.ctx).estado, 'ERROR');
+});
+
+test('moves: los asientos del libro de un registro (también los que añade el libro, con su clase en 4.1), de una identidad y de una serie; un nodo sin movimientos da nada; una identidad sin alta es ERROR', async () => {
+  const c = await conTresNiveles();
+  const v = (expr, sujeto) => { const r = conSujeto(expr, c.ctx, sujeto); assert.equal(r.estado, 'RESUELTO', expr + ': ' + r.motivo); return r.valor; };
+  // de un registro: lo que asentó su transacción, con la asignación del día que añade el libro
+  const delLibro = c.eje.libro.asientos().filter((a) => a.tx?.id === c.dos.id);
+  const PRIMITIVA = { acunar: 'mint', transferir: 'transfer', bloquear: 'lock', liberar: 'release', quemar: 'burn' };
+  assert.deepEqual(v('=(moves it) each 4.0', c.dos.id).map((s) => s.simbolo), delLibro.map((a) => PRIMITIVA[a.primitiva]));
+  assert.ok(delLibro.some((a) => a.clase) && delLibro.some((a) => !a.clase));
+  assert.deepEqual(v('=(moves it) each 4.1', c.dos.id), delLibro.filter((a) => a.clase).map((a) => a.clase), 'la clase del asiento: solo la tiene lo que añade el libro (la asignación, la obtención…)');
+  assert.equal(v('=count (moves it where burn in it2.4)', c.dos.id)[0], 1, 'el 4 vale su primitiva');
+  assert.equal(c.ctx.valor(v('=(first (moves it)).0', c.dos.id)[0]), 'T:minuto', 'la serie vale su clave');
+  // 6: el instante y el registro que lo asienta
+  assert.deepEqual(v('=(moves it) each 6.0', c.dos.id), delLibro.map(() => c.dos.t));
+  assert.deepEqual(v('=(moves it) each 6.5', c.dos.id).map((o) => c.ctx.valor(o)), delLibro.map(() => c.dos.id));
+  assert.equal(v('=(first (moves it)).6.0.0', c.dos.id)[0], Math.floor(Date.parse(c.dos.t) / 1000));
+  // lo mismo que el libro: tantos asientos como los del diario
+  for (const id of c.eje.orden) assert.equal(v('=count (moves it)', id)[0], c.eje.libro.asientos().filter((a) => a.tx?.id === id).length, id.slice(0, 8));
+  // de una identidad: donde es de o a
+  const deCocina = v('=moves "cocina"');
+  assert.ok(deCocina.length > 0 && deCocina.every((o) => o.a.de === 'cocina' || o.a.a === 'cocina'));
+  assert.equal(deCocina.length, c.eje.libro.asientos().filter((a) => a.de === 'cocina' || a.a === 'cocina').length);
+  // de una serie del libro (por su valor en before.4; un texto no la fabrica)
+  assert.equal(v('=count (moves before.4.("T:minuto"))')[0], c.eje.libro.asientos({ serie: 'T:minuto' }).length);
+  // nada que mover: la candidata sin movimientos
+  const vacia = new ContextoEje(c.eje, { epoch: EPOCA_0_BTML, ev: { autor: 'casa', sobre: c.compra.id, t: '2026-11-07T18:00:00Z', movimientos: [], payload: ['nada'] } });
+  assert.equal(evaluar('count (moves ev)', vacia).valor[0], 0);
+  // una identidad sin alta, un número o un contexto sin libro: ERROR
+  assert.match(evaluar('moves "fulano"', c.ctx).motivo, /no es un registro, una identidad ni una serie/);
+  assert.equal(evaluar('moves 3', c.ctx).estado, 'ERROR');
+  assert.equal(evaluar('moves "casa"', new ContextoEje(null, {})).estado, 'ERROR');
+  // SEG-09: el payload no fabrica asientos: una décupla del payload con «asignacion» en su 4.1 no es un movimiento
+  const falso = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '9000000000', t: '2026-11-07T18:01:00Z', movimientos: [minuto('casa')], payload: [['falso'], [[['T:minuto'], [99], ['sin estado'], [['casa'], ['casa']], ['mint', 'asignacion']]]] });
+  assert.equal(v('=count (moves it where it2.4.1 = "asignacion")', falso.id)[0], 1, 'solo la asignación de verdad');
+  assert.equal(v('=count (moves it where it2.1 = 99)', falso.id)[0], 0);
+});
+
+test('by: ordena por un número o un texto, de menor a mayor y los empates por llegada; da el siguiente it como where; una clave vacía es PENDIENTE y mezclar tipos, ERROR', async () => {
+  const c = await conTresNiveles();
+  const ids = (r) => r.valor.map((o) => c.ctx.valor(o));
+  // al revés de la llegada: por su instante, lo último primero
+  assert.deepEqual(ids(conSujeto('=(under it) by 0 - (first it2.6.0).0', c.ctx, c.uno.id)), [c.tres.id, c.dos.id, c.uno.id]);
+  // por un texto (el autor, también si no tiene alta): casa, casa, cocina; los empates (casa), por llegada
+  assert.deepEqual(ids(conSujeto('=(under it) by first it2.3', c.ctx, c.uno.id)), [c.uno.id, c.tres.id, c.dos.id]);
+  // un by dentro de un where: el elemento del where es it2 y el del by, it3
+  assert.equal(conSujeto('=count ((under it) where count ((down it2) by first it3.3) > 0)', c.ctx, c.uno.id).valor[0], 2);
+  // claves
+  assert.equal(conSujeto('=(under it) by first it2.9', c.ctx, c.uno.id).estado, 'PENDIENTE', 'una clave vacía');
+  assert.equal(conSujeto('=(under it) by it2.6', c.ctx, c.uno.id).estado, 'ERROR', 'una décupla no es una clave');
+  assert.match(evaluar('(before.3) by 1', c.ctx).estado, /RESUELTO/);
+  assert.throws(() => analizar('it by 1'), /it solo vale dentro de where/);
+});
+
+test('D-MOV 7.2 (bloqueado hasta: la salida que es un instante, que se despliega como fecha) y X.6.8 (los tres relojes: el del libro; Nostr y Bitcoin vacíos); los tres relojes en orden no son una cuenta rara', async () => {
+  const c = await ejemploCompra();
+  const futuro = await ejemploFuturoYCohorte(c.eje, c);
+  const ctx = new ContextoEje(c.eje, { epoch: EPOCA_0_BTML });
+  const lock = '(first (moves it where lock in it2.4))';
+  assert.equal(conSujeto('=first ' + lock + '.7.2', ctx, futuro.plazo.id).valor[0], '2026-11-30T12:00:00Z');
+  assert.equal(conSujeto('=(first ' + lock + '.7.2).0', ctx, futuro.plazo.id).valor[0], Date.parse('2026-11-30T12:00:00Z') / 1000);
+  assert.equal(conSujeto('=(first (' + lock + '.2 where it2 != "bloqueo")).3', ctx, futuro.plazo.id).valor[0], diaCivil('2026-11-30T12:00:00Z'), 'la salida que es un instante se despliega (D-FECHA)');
+  assert.equal(conSujeto('=count (moves it where count it2.7.2 > 0)', ctx, futuro.manana.id).valor[0], 0, 'sin bloqueo, sin 7.2');
+  // los relojes
+  assert.equal(conSujeto('=first (first it.6).8.0', ctx, futuro.plazo.id).valor[0], c.eje.obtener(futuro.plazo.id).t);
+  assert.equal(conSujeto('=count (first it.6).8.1 + count (first it.6).8.2', ctx, futuro.plazo.id).valor[0], 0);
+  assert.equal(conSujeto('=first (first it.6).9', ctx, futuro.plazo.id).valor[0], false, '«clocks out of order»: hoy, nunca');
+  assert.deepEqual(evaluar('epoch.7.3.0', ctx).valor, [600]);
 });

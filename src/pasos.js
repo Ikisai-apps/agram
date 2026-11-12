@@ -13,7 +13,7 @@
 import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
 import { evaluar } from './bqlm.js';
-import { madurez, estadoDeEntrada, escalaDeFecha } from './contrato.js';
+import { madurez } from './contrato.js';
 import { cuota } from './mapped.js';
 import { cajaDeCuota } from './bases.js';
 
@@ -41,10 +41,8 @@ function eventoDe(eje, X) {
  * → { k, de } con null donde no hay valor.
  *   maturity    la madurez de X (contrato.madurez, la lectura «maturity» en X.8.1): el nivel entre los de su plantilla o los genéricos
  *   share box   la caja (0-9) de la cuota de X frente a su padre (mapped.cuota, bases.cajaDeCuota), en la serie en que más pesa; null en la raíz
- *   when scale  la escala del calendario de la fecha a la que se refiere X (encargo «datos3», issue #11): la del estado de
- *               su futuro (contrato.estadoDeEntrada: el «when» de «declare future T», la salida con fecha de un bloqueo, la
- *               caducidad de una emisión de E) a la distancia del reloj del libro (contrato.escalaDeFecha, epoch.7.0); null
- *               si X no se refiere a ninguna fecha
+ * «when scale» (la escala del calendario de la fecha a la que se refiere X) ya no es un mecanismo: es una fórmula de la
+ * tabla, sobre X.7.7 y before.6.0 (VG 12-11, estudio BQL-transacciones).
  */
 const MECANISMOS = Object.freeze({
   maturity(eje, ev, opciones) {
@@ -59,11 +57,6 @@ const MECANISMOS = Object.freeze({
     if (!mueve.length) return { k: null, de: null };
     const mayor = mueve.reduce((a, b) => (b.cuota > a.cuota ? b : a));
     return { k: cajaDeCuota(mayor.cuota), de: null };
-  },
-  'when scale'(eje, ev, opciones) {
-    if (!eje || typeof ev.id !== 'string' || !eje.obtener(ev.id)) return { k: null, de: null };
-    const estado = estadoDeEntrada(eje, ev.id, opciones);
-    return { k: estado?.fecha ? escalaDeFecha(eje, estado.fecha, opciones) : null, de: null };
   },
 });
 
@@ -105,7 +98,7 @@ function lector(eje, X, opciones) {
   if (!ev) return null;
   const epoca = epocaDe(opciones);
   let ctx = null;
-  const contexto = () => (ctx ??= new ContextoEje(eje, { ev, epoch: epoca }));
+  const contexto = () => (ctx ??= new ContextoEje(eje, { ev, epoch: epoca, ahora: opciones.t }));
   const sujeto = () => (typeof ev.id === 'string' && eje?.obtener(ev.id) ? ev.id : contexto().nombre('ev'));
   const memo = new Map();
   const mecanismo = (nombre) => {
