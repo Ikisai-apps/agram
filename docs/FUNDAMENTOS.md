@@ -2,6 +2,8 @@
 
 Resumen de lo que está decidido para construir el núcleo. El detalle y la trazabilidad viven fuera de este repositorio.
 
+Lo decidido con VG el 11 y el 12 de noviembre (la admisión por el árbol y el 3 por movimientos, la escalera y el rango, BQL con transacciones, los tres relojes, el foco en pantalla) está recogido, una nota por decisión y agrupado por temas, en `docs/notas/DECISIONES_2026-11-12.md`; esta página no lo repite.
+
 ## Lectura segura: de la cruz a la X
 
 El eje horizontal es la cadena de registros: pasado a la izquierda, presente en el centro, proyecciones a futuro a la derecha (PV6 y PV7, **hilos** encadenados por referencia). La confluencia hacia arriba produce PV8 (mediciones, niveles y grados). De ahí bajan los caminos de PV9. En el centro queda el registro en foco: PV5. Una lente sobre él es PV0. De la confluencia de árboles vecinos salen los cuatro ramales: PV1 entre 6 y 8, PV2 entre 8 y 7, PV3 entre 6 y 9, PV4 entre 7 y 9. La mano del usuario trabaja en 1–4 y ejecuta en 4. **Ejecutar escribe**: produce un registro nuevo que entra en el eje. La X escribe hacia la cruz; la cruz se lee hacia la X.
