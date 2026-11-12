@@ -30,3 +30,11 @@ Las de solo leer (ask for a recommendation, compare with another record, view th
 - **«Declarar T futuro» como anuncio de T**: hoy es el T informativo con su fecha (sin cambiar el evento, por la doble ejecución); que lo cumpla el T real que se trabaja anclado sobre él queda por decidir.
 - **Los ejemplos de antes**: compra (`ejemploFabrica`), Booking y Tasks escriben ya el anuncio como movimientos anunciados; las pruebas y los ejemplos que lo escriben como payload siguen leyéndose con la misma fórmula. Retirar esa forma es otro paso.
 - **«Sin verificar no se ejecuta»** (#50): la estación «verificada» existe como dato, pero nada exige verificar antes de mover.
+
+## Tras la fusión con PV3 (encargo «fusión», 12-11)
+
+Al fundir esta rama con PV3 v2 (la R como precio universal) ganó la semántica de PV3 y el mecanismo de aquí:
+
+- **write to X**: la sentencia dice lo de PV3: si `me` tiene R de `first it.3` (se la dio), la devuelve (`transfer … R.(first it.3)`); si no, `put` de su R hasta el precio y `transfer` a `first it.3`. **attend** devuelve la R que X trajo de su autor (`transfer` de `R.(first it.3)`). **register a thing**: los minutos sin defecto (#46), la sentencia los lee del parámetro. **admit someone** quedó migrada (`put`, `transfer` de R y de T); las plantillas nuevas de PV3 que solo quemaban el minuto (configure a place, move to group, remove someone, set a minimum, set a minimum rank, veto someone) son «write».
+- Con todas dando el mismo evento por las dos vías (los cinco remitentes de PV3 y gus incluidos), **la lista de antes se retiró**: las décuplas del 4 y `"nobody"`, `recetasDe`, `movimientosDe`, la rama por partes de `serieDe`, el minuto copiado, `doble` y `opciones.via`. Lo que movía la lista en cada caso de los ejemplos quedó en `test/doble-ejecucion-esperada.json` (los ids, por su lugar en el orden del eje), y la prueba exige que las sentencias sigan moviendo eso.
+- Sigue pendiente lo de «Lo que queda» salvo su primer punto.
