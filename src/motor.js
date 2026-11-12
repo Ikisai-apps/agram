@@ -279,12 +279,51 @@ export function cerrado(eje, X) {
   const id = typeof X === 'string' ? X : X?.id;
   if (!eje.obtener(id)) throw new Error('registro desconocido: ' + String(id).slice(0, 8));
   const { porNombre, defecto } = plantillas(1);
+  // Los otros dos finales (VG 12-11, #71.2): cerrado con error y caducado, antes que la plantilla del dueño.
+  const otro = finDe(eje, id, porNombre);
+  if (otro) return { cerrado: true, plantilla: otro.plantilla, estado: 'RESUELTO', motivo: null, fin: otro.fin, causa: otro.causa, plazo: otro.plazo, registro: otro.registro };
   const nombre = delCriterio(eje, id, 7).filter((x) => porNombre.has(x)).pop();
   const plantilla = nombre ?? defecto;
   const r = leer(eje, porNombre.get(plantilla), id);
-  if (r.estado !== 'RESUELTO') return { cerrado: null, plantilla, estado: r.estado, motivo: r.motivo };
+  if (r.estado !== 'RESUELTO') return { cerrado: null, plantilla, estado: r.estado, motivo: r.motivo, fin: null };
   const v = r.valor[0];
-  return { cerrado: v === true, plantilla, estado: 'RESUELTO', motivo: null };
+  return { cerrado: v === true, plantilla, estado: 'RESUELTO', motivo: null, fin: v === true ? 'cumplido' : null };
+}
+
+/**
+ * Los finales de un proceso que no son «cumplido» (VG 12-11, #71.2; CONVERGENCIA de AARPIA §2.1): `fin` es el valor que
+ * `cerrado` da, `plantilla` la de cerrado de la época (epoch.9.0.1) que lo lee y `accion` lo que dice en su 4 el registro
+ * que lo escribe, anclado en el 4 del proceso (las plantillas de transacción «close with error» y «expire»). El orden
+ * es el de prioridad: si un proceso tiene los dos, es «cerrado con error».
+ */
+export const FINES = Object.freeze([
+  Object.freeze({ fin: 'error', plantilla: 'closed with error', accion: 'close with error' }),
+  Object.freeze({ fin: 'caducado', plantilla: 'expired', accion: 'expire' }),
+]);
+
+/** Quien manda en `quien`: el autor de su alta (una persona, ella misma; una cosa, su dueño). */
+const principalDe = (eje, quien) => {
+  const alta = eje.alta(quien);
+  return (alta && eje.obtener(alta.id)?.autor) || quien;
+};
+
+/**
+ * ¿Terminó X con error o caducado? La plantilla de cerrado de la época (epoch.9.0.1: «closed with error», «expired»)
+ * lee si hay un registro de cierre del dueño de X (o de una cosa suya) anclado en su 4; y este recoge ese registro, su
+ * causa (el 0 del de error) y el plazo vencido (el 2.1 del de caducado). null si no.
+ */
+function finDe(eje, id, porNombre) {
+  const dueno = eje.obtener(id).autor;
+  for (const f of FINES) {
+    const formula = porNombre.get(f.plantilla);
+    if (!formula) continue;
+    const r = leer(eje, formula, id);
+    if (r.estado !== 'RESUELTO' || r.valor[0] !== true) continue;
+    const registro = eje.sobre(id, FABRICA).find((e) => [e.payload?.[4]].flat(Infinity).includes(f.accion) && principalDe(eje, e.autor) === dueno);
+    const hoja = (x) => [x].flat(Infinity)[0];
+    return { ...f, registro: registro?.id ?? null, causa: f.fin === 'error' ? hoja(registro?.payload?.[0]) ?? null : null, plazo: f.fin === 'caducado' ? hoja(registro?.payload?.[2]?.[1]) ?? null : null };
+  }
+  return null;
 }
 
 /**
@@ -324,7 +363,8 @@ function movimientoDelPayload(registro) {
 }
 
 /**
- * Lo que a X le falta (mapa §15 [D]; encargo 3b): de `yo` y de los demás. Lee con la plantilla «what is missing» de
+ * Lo que a X le falta (mapa §15 [D]; encargo 3b): de `yo` y de los demás. Un proceso cerrado con error o caducado no pide nada
+ * (`fin`, con su `causa` o su `plazo`). Lee con la plantilla «what is missing» de
  * la época (epoch.9.0.3) los movimientos anunciados en X que aún no han pasado y, si el dueño de X declara recuento en
  * su criterio, si el recuento no pasa. Devuelve { cerrado, faltaDeMi: [{ que, plantilla, transaccion }], espera:
  * [{ que, de }], tutorial? }: lo mío, con la plantilla de transacción que lo cumpliría y que yo puedo lanzar (la
@@ -337,6 +377,9 @@ export function siguiente(eje, X, yo) {
   const id = typeof X === 'string' ? X : X?.id;
   const reg = eje.obtener(id);
   if (!reg) throw new Error('registro desconocido: ' + String(id).slice(0, 8));
+  // Un proceso cerrado con error o caducado deja de pedir pasos (VG 12-11, #71.2): no falta nada de nadie.
+  const cierre = cerrado(eje, id);
+  if (cierre.fin === 'error' || cierre.fin === 'caducado') return { cerrado: true, fin: cierre.fin, ...(cierre.fin === 'error' ? { causa: cierre.causa } : { plazo: cierre.plazo }), faltaDeMi: [], espera: [] };
   const { porNombre } = plantillas(3);
   const faltaDeMi = [];
   const espera = [];
@@ -583,7 +626,7 @@ export function ocupacion(eje, id) {
   if (!conCapacidad.length) return [];
   const tramo = tramoDe(eje, id);
   const validos = registrosEn(eje, ev.sobre, ev.en)
-    .filter((o) => o.id !== id && cerrado(eje, o.id).cerrado === true)
+    .filter((o) => o.id !== id && cerrado(eje, o.id).fin === 'cumplido')
     .map((o) => ({ id: o.id, autor: o.autor, anclado: o.sobre === ev.sobre && o.en === ev.en, tramo: tramoOTodo(eje, o.id) }))
     .filter((o) => o.tramo.inicio < tramo.fin && tramo.inicio < o.tramo.fin);
   const aLaVez = maximoALaVez(validos.map((o) => o.tramo), tramo);

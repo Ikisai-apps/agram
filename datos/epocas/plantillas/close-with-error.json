@@ -1,0 +1,78 @@
+[
+  ["close with error"],
+  [
+    [
+      ["cause"],
+      ["text"],
+      ["=it != \"\""],
+      ["me"],
+      ["payload"],
+      ["0"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"],
+      ["required"],
+      [1],
+      ["the cause of the error", "why the process is closed with an error: required text"]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"],
+      ["required"],
+      [2],
+      ["close with error", "the action"]
+    ],
+    [
+      ["about"],
+      ["ref"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"],
+      ["required"],
+      [3],
+      ["=first it.5", "what the record is about: X"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"],
+      ["required"],
+      [4],
+      ["closed with error", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
+    ]
+  ],
+  ["=first it.3 = me and count (first it.4).8 > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"],
+  [["me"], ["person"]],
+  ["write"],
+  ["4"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1, el terminal de error con causa de la FSM de AARPIA): un registro anclado en el 4 del proceso, con la causa como texto obligatorio en su 0; solo el dueño (como «close») y solo si algo anunciado sigue pendiente y el proceso no está ya cerrado con error o caducado; es un cierre distinto de «all announced movements happened»: la plantilla de cerrado «closed with error» (epoch.9.0.1) lo lee, y el proceso deja de pedir pasos (motor.siguiente). Modo «persona»: cerrar un proceso con error es una decisión de su dueño que da por perdido lo anunciado; un agente que lo ejecuta y falla propone la causa pero no cierra por su cuenta (subir el modo a «agente» es un cambio de la época, no un caso de este registro)",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
+  ],
+  ["epoch 0"],
+  [4, 7],
+  ["close with error: {me} closes {first it.0} with an error: {first ev.0}"]
+]

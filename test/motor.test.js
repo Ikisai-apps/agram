@@ -6,6 +6,7 @@ import { evaluar } from '../src/bql.js';
 import { Eje } from '../src/eje.js';
 import { entrarPorInvitacion } from '../ejemplos/ikisai/altas.mjs';
 import { pagaElCoste } from './ayudas-coste.js';
+import * as A from '../src/acciones.js';
 
 const minuto = (de, cantidad) => (cantidad === undefined ? pagaElCoste(de) : { token: 'T', escala: 'minuto', cantidad, de, a: null });
 /** Un movimiento anunciado en el 4.1 de X por su dueño: [[serie], [cuánto], [qué], [[de], [a]]] (motor.ANUNCIO). */
@@ -243,4 +244,93 @@ test('el anuncio como movimientos anunciados: cada parte cumple lo suyo con un r
   const { cierre } = await import('../src/motor.js');
   assert.equal(cierre(eje, c.id).id, ultimo.id, 'el registro que lo cerró cuelga del anuncio');
   void menu;
+});
+
+// ---------- los otros dos finales de un proceso (VG 12-11, #71.2; CONVERGENCIA de AARPIA §2.1) ----------
+
+/**
+ * La casa (persona, dueña) abre un encargo con un anuncio pendiente: la cocina (una cosa suya) le debe 7 EUR para el 10-11.
+ * La huésped es otra persona. Devuelve { eje, encargo, anuncio }.
+ */
+async function encargoConPlazo() {
+  const { eje, menu } = await ejemploCompra();
+  const t0 = '2026-11-08T12:00:00Z';
+  const encargo = await eje.escribir({ autor: 'casa', sobre: menu.id, t: t0, payload: ['Encargo de la casa', ['x'], ['all announced movements happened'], ['casa']], movimientos: [minuto('casa')] });
+  const anunciado = { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 7, de: 'cocina', a: 'casa', estado: 'anunciado', refiere: '2026-11-10T10:00:00Z' };
+  const anuncio = await registrar(eje, { autor: 'casa', sobre: encargo.id, en: ANUNCIO, t: t0, payload: 'pagar el género', movimientos: [minuto('casa'), anunciado] });
+  return { eje, encargo, anuncio };
+}
+
+test('cerrado con error: un registro del dueño anclado en el 4 con su causa cierra el proceso sin cumplirlo; cerrado lo lee distinto, siguiente y el camino callan, lo ajeno no cuenta y sin causa no pasa', async () => {
+  const { eje, encargo } = await encargoConPlazo();
+  const t = '2026-11-08T13:00:00Z';
+  assert.deepEqual([cerrado(eje, encargo.id).cerrado, cerrado(eje, encargo.id).fin], [false, null]);
+  assert.equal(siguiente(eje, encargo.id, 'cocina').espera.length + siguiente(eje, encargo.id, 'cocina').faltaDeMi.length, 1, 'abierto: la cocina debe 7 EUR');
+  assert.deepEqual(A.acciones(eje, encargo.id, 4, 'casa').map((a) => a.nombre).filter((n) => n === 'close with error'), ['close with error']);
+  assert.deepEqual(A.acciones(eje, encargo.id, 4, 'huesped').map((a) => a.nombre).filter((n) => n === 'close with error'), [], 'solo el dueño');
+  // Sin causa no pasa: la plantilla la pide con texto (`=it != ""`) y un texto vacío no se escribe a mano (la forma).
+  const sin = await A.transaccion(eje, 'close with error', { X: encargo.id, cause: '' }, 'casa', { t, idioma: 'en' });
+  assert.deepEqual([sin.ok, sin.motivos.map((m) => m.regla)], [false, ['cause']]);
+  await assert.rejects(registrar(eje, { autor: 'casa', sobre: encargo.id, en: FABRICA, t, payload: [[''], ['x'], ['closed with error'], ['casa'], ['close with error']], movimientos: [minuto('casa')] }), /payload 00: ni terminal ni array/, 'un texto vacío no se escribe: ni la causa');
+  // Lo de quien no es el dueño (la huésped) se escribe, pero no cierra nada: cerrado solo lee el del dueño (o el de una cosa suya).
+  await registrar(eje, { autor: 'huesped', sobre: encargo.id, en: FABRICA, t, payload: [['me lo quito de encima'], ['x'], ['closed with error'], ['huesped'], ['close with error']], movimientos: [minuto('huesped')] });
+  assert.equal(cerrado(eje, encargo.id).fin, null, 'la huésped no es la dueña');
+  // El dueño lo cierra con la plantilla de la época: la causa es texto obligatorio.
+  const r = await A.transaccion(eje, 'close with error', { X: encargo.id, cause: 'el proveedor no repartió' }, 'casa', { t });
+  assert.deepEqual([r.ok, r.modo, r.evento.en, r.evento.payload[0], r.evento.payload[4]], [true, 'person', FABRICA, ['el proveedor no repartió'], ['close with error']], JSON.stringify(r.motivos));
+  await eje.anadir(r.evento);
+  const c = cerrado(eje, encargo.id);
+  assert.deepEqual([c.cerrado, c.fin, c.plantilla, c.causa, c.registro], [true, 'error', 'closed with error', 'el proveedor no repartió', r.evento.id]);
+  assert.notEqual(c.plantilla, 'all announced movements happened', 'distinto de lo cumplido');
+  // Deja de pedir pasos: siguiente de la cocina y de la casa, y el camino, ya no esperan nada.
+  assert.deepEqual(siguiente(eje, encargo.id, 'cocina'), { cerrado: true, fin: 'error', causa: 'el proveedor no repartió', faltaDeMi: [], espera: [] });
+  assert.deepEqual(siguiente(eje, encargo.id, 'casa').faltaDeMi, []);
+  assert.deepEqual((await A.camino(eje, encargo.id, 'cocina', { t })).pasos.filter((p) => p.regla === 'stage'), []);
+  // Ya cerrado, no se ofrece otro cierre.
+  assert.deepEqual(A.acciones(eje, encargo.id, 4, 'casa').map((a) => a.nombre).filter((n) => ['close with error', 'expire'].includes(n)), []);
+});
+
+test('caducado: un registro anclado en el 4 con el plazo vencido (la fecha de un anuncio pendiente) que el libro comprueba con su reloj; lo escribe el dueño o una cosa suya (modo agent), cerrado lo lee caducado y siguiente calla', async () => {
+  const { eje, encargo } = await encargoConPlazo();
+  const despues = '2026-11-11T09:00:00Z';
+  const ofrece = (yo) => A.acciones(eje, encargo.id, 4, yo).map((a) => a.nombre).includes('expire');
+  assert.deepEqual([ofrece('casa'), ofrece('cocina')], [false, false], 'sin plazo vencido no se ofrece');
+  // Antes de que venza para el libro, lo rechaza aunque quien escribe lo fechara tarde: lo que cuenta es el reloj del libro (8-11).
+  const pronto = await A.transaccion(eje, 'expire', { X: encargo.id, deadline: '2026-11-10T10:00:00Z' }, 'cocina', { t: despues });
+  assert.equal(pronto.ok, false);
+  // El reloj del libro pasa del plazo: lo mueve un registro cualquiera.
+  await eje.escribir({ autor: 'casa', sobre: encargo.id, t: despues, payload: ['un latido'], movimientos: [minuto('casa')] });
+  assert.deepEqual([ofrece('casa'), ofrece('cocina'), ofrece('huesped')], [true, true, false], 'vencido: lo ofrecen el dueño y su cosa; no la huésped');
+  assert.equal(A.acciones(eje, encargo.id, 4, 'cocina').find((a) => a.nombre === 'expire').parametros.find((p) => p.nombre === 'deadline').valor, '2026-11-10T10:00:00Z', 'el plazo por defecto es el del anuncio pendiente vencido');
+  // La regla comprueba que es la fecha de un anuncio pendiente y que de verdad venció: otra fecha no vale.
+  const otra = await A.transaccion(eje, 'expire', { X: encargo.id, deadline: '2026-11-09T10:00:00Z' }, 'cocina', { t: despues, idioma: 'en' });
+  assert.deepEqual([otra.ok, otra.motivos.map((m) => m.regla)], [false, ['an expiry has expired']]);
+  assert.match(otra.motivos[0].mensaje, /^an expiry has expired: 2026-11-09T10:00:00Z is not the date of a pending announcement of /);
+  // La huésped lo escribe a mano (el libro lo acepta: el plazo es de verdad) pero no es la dueña ni una cosa suya: no cierra.
+  await registrar(eje, { autor: 'huesped', sobre: encargo.id, en: FABRICA, t: despues, payload: [['caduca'], ['x'], [['expired'], ['2026-11-10T10:00:00Z']], ['huesped'], ['expire']], movimientos: [minuto('huesped')] });
+  assert.equal(cerrado(eje, encargo.id).fin, null, 'lo que no es del dueño ni de una cosa suya no cierra');
+  // La cocina (una cosa de la casa) lo lanza: «expire» es de modo agent, el del programador de AARPIA.
+  const r = await A.transaccion(eje, 'expire', { X: encargo.id }, 'cocina', { t: despues });
+  assert.equal(r.ok, true, JSON.stringify(r.motivos));
+  assert.deepEqual([r.ok, r.modo, r.evento.en, r.evento.payload[2], r.evento.payload[4]], [true, 'agent', FABRICA, [['expired'], ['2026-11-10T10:00:00Z']], ['expire']], JSON.stringify(r.motivos));
+  await eje.anadir(r.evento);
+  const c = cerrado(eje, encargo.id);
+  assert.deepEqual([c.cerrado, c.fin, c.plantilla, c.plazo, c.registro], [true, 'caducado', 'expired', '2026-11-10T10:00:00Z', r.evento.id]);
+  assert.deepEqual(siguiente(eje, encargo.id, 'cocina'), { cerrado: true, fin: 'caducado', plazo: '2026-11-10T10:00:00Z', faltaDeMi: [], espera: [] });
+  assert.deepEqual([ofrece('casa'), ofrece('cocina')], [false, false], 'ya cerrado, no se ofrece');
+});
+
+test('los finales: lo cumplido sigue siendo «cumplido» (fin) y con error gana a caducado', async () => {
+  const { eje, compra } = await ejemploCompra();
+  const c = await consolidar(eje, { autor: 'huesped', foco: compra.id, t: T, elecciones: { 1: 'dos menús' } });
+  assert.deepEqual([cerrado(eje, c.id).cerrado, cerrado(eje, c.id).fin], [true, 'cumplido'], 'no anuncia nada: cumplido');
+  const { eje: e2, encargo } = await encargoConPlazo();
+  await e2.escribir({ autor: 'casa', sobre: encargo.id, t: '2026-11-11T09:00:00Z', payload: ['un latido'], movimientos: [minuto('casa')] });
+  const t = '2026-11-11T10:00:00Z';
+  const caduca = await A.transaccion(e2, 'expire', { X: encargo.id }, 'casa', { t });
+  await e2.anadir(caduca.evento);
+  assert.equal(cerrado(e2, encargo.id).fin, 'caducado');
+  // Un cierre con error escrito después (a mano: la plantilla ya no se ofrece) tiene prioridad.
+  await registrar(e2, { autor: 'casa', sobre: encargo.id, en: FABRICA, t, payload: [['falló'], ['x'], ['closed with error'], ['casa'], ['close with error']], movimientos: [minuto('casa')] });
+  assert.deepEqual([cerrado(e2, encargo.id).fin, cerrado(e2, encargo.id).causa], ['error', 'falló']);
 });

@@ -16,8 +16,8 @@ test('traducciones: ninguna clave que la carta pide queda sin traducir al españ
 test('traducciones: la lista de lo pedido cubre cada tipo de texto de la época (si un tipo se vacía, el recorrido se ha roto)', () => {
   const pedidas = clavesPedidas();
   const tipos = new Set(pedidas.map((c) => c.tipo));
-  for (const t of ['acción', 'parámetro de acción', 'mensaje de acción', 'plantilla', 'posición de plantilla', 'plantilla de cerrado', 'estado', 'nivel de madurez', 'orden', 'tamaño', 'formato legible', 'motivo (regla)', 'motivo (acción)', 'guía', 'opción de preferencia']) assert.ok(tipos.has(t), 'sin claves de tipo «' + t + '»');
-  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 42, 'las 42 plantillas de transacción');
+  for (const t of ['acción', 'parámetro de acción', 'mensaje de acción', 'plantilla', 'posición de plantilla', 'plantilla de cerrado', 'estado', 'nivel de madurez', 'orden', 'tamaño', 'formato legible', 'motivo (regla)', 'motivo (acción)', 'guía', 'opción de preferencia', 'modo de ejecución']) assert.ok(tipos.has(t), 'sin claves de tipo «' + t + '»');
+  assert.equal(pedidas.filter((c) => c.tipo === 'acción').length, 44, 'las 44 plantillas de transacción');
   assert.equal(new Set(pedidas.map((c) => c.clave)).size, pedidas.length, 'sin claves repetidas');
 });
 

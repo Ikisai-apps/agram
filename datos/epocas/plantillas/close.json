@@ -63,7 +63,7 @@
     ]
   ],
   ["=first it.3 = me and count it.4.1 > 0 and count it.4.8 = 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["4"],
   [

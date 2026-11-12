@@ -476,7 +476,10 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"
     },
     {
-      "ref": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"
+      "ref": "57eb7dddf25b2c5c342d124144e6b176fb53167ff1fbff22f7fec24eaa82ca7c"
+    },
+    {
+      "ref": "1f44a8054d903ae04943b6250026dcee89708a6700762c0db29393153dad4e25"
     },
     {
       "ref": "f5d4ad1bca9d4fafec9b1f7d7bad6c3bb07fb920ca04d6568f8ee6189b9694e2"
@@ -3157,6 +3160,22 @@ export const EPOCA_0_BTML_DATOS = [
             [
               "=count (first it.4).8 = 0"
             ]
+          ],
+          [
+            [
+              "closed with error"
+            ],
+            [
+              "=count (it.4 where \"close with error\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"
+            ]
+          ],
+          [
+            [
+              "expired"
+            ],
+            [
+              "=count (it.4 where \"expire\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"
+            ]
           ]
         ],
         [
@@ -3164,7 +3183,8 @@ export const EPOCA_0_BTML_DATOS = [
         ],
         [
           "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)",
-          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo"
+          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo",
+          "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2): «closed with error» y «expired» son los otros dos finales de un proceso, no un criterio que el dueño elija en su X.2.7: los lee motor.cerrado siempre, antes que la plantilla del dueño, y valen solo si el registro de cierre anclado en el 4 de X (la plantilla «close with error» o «expire») lo escribe el dueño de X o una cosa suya (first (first it2.3).6.3 = first it.3). Un proceso así está cerrado pero no cumplido (cerrado.fin), no cuenta como válido y deja de pedir pasos"
         ]
       ],
       [
@@ -3215,6 +3235,36 @@ export const EPOCA_0_BTML_DATOS = [
         [
           "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)",
           "VG 12-11 (decisión 8): «what is missing» es la lectura «stage» (X.4.8)"
+        ]
+      ],
+      [
+        [
+          "ejecución"
+        ],
+        [
+          [
+            [
+              "reviewed to run by the system"
+            ],
+            [
+              "=((it.9.6) where \"review execution mode\" in it2.4 and first it2.3 = first it.3) each 2"
+            ]
+          ],
+          [
+            [
+              "declared as an agent"
+            ],
+            [
+              "=count (((first it.6).9) where \"declare agent\" in it2.4 and first it2.3 = first (first it.6).3) > 0"
+            ]
+          ]
+        ],
+        [
+          "reviewed to run by the system"
+        ],
+        [
+          "«reviewed to run by the system», con it = el génesis del libro: lo que el dueño de la época revisó para que lo lance el sistema solo: los ids de las plantillas de transacción (epoch.9.6) que nombra el 2 de cada registro anclado en el 9.6 del génesis, que dice «review execution mode» en su 4 y lo escribe el autor del génesis. «declared as an agent», con it = una identidad: su dueño (el autor de su alta) la declaró agente con un registro anclado en el 9 de su alta que dice «declare agent» en su 4; una identidad declarada agente no lanza las plantillas «person»",
+          "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.1; CONVERGENCIA §2.2: «no se sube a auto sin revisión»): el modo de ejecución de una plantilla es el valor de su 3.1: person (defecto: solo una persona la lanza), agent (puede lanzarla un agente de AARPIA escribiendo como identidad: una cosa que su dueño ha declarado agente) o system (la lanza el sistema solo). Subir a system no lo hace un valor editado: exige un registro de revisión del dueño de la época sobre esa plantilla (su id), y una plantilla que declara system sin él se lee como agent (acciones.modoDeEjecucion). Como la revisión nombra el id de la plantilla, cambiar la plantilla (otro id) la anula"
         ]
       ]
     ],
@@ -4935,6 +4985,7 @@ export const EPOCA_0_BTML_DATOS = [
         [
           "a declared key comes with its proof: la clave de {(ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) each 3} llega sin la firma de esa clave sobre el id de este alta (posesion)",
           "a key is declared at its alta: {(ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) each 3} ya tiene cuenta, o ni escribe ni recibe nada aquí",
+          "an expiry has expired: {first ev.2.1} no es la fecha de un anuncio pendiente de {first (first ev.6).5}, o aún no ha vencido con el último tiempo del libro ({before.6.0})",
           "a person joins by an invitation: {first ev.3} no tiene alta y no acepta una invitación que lo nombre (a tiempo, con su clave)",
           "at most a year ahead: {first ev.6.0} está más de un año por delante del mayor tiempo del libro ({before.6.0})",
           "attended: el registro devuelve R a su emisor y ese emisor ancló sobre él un registro suyo con T real",
@@ -5176,6 +5227,30 @@ export const EPOCA_0_BTML_DATOS = [
           "template close param who label: quién",
           "template close param who help: quién escribe",
           "template close message: close: {me} cierra {first it.0}: todo lo anunciado ha pasado",
+          "template close with error: cerrar con error",
+          "template close with error param cause label: causa",
+          "template close with error param cause help: por qué se cierra con error: texto obligatorio",
+          "template close with error param actions label: acción",
+          "template close with error param actions help: la acción",
+          "template close with error param about label: sobre",
+          "template close with error param about help: de qué trata el registro: X",
+          "template close with error param criteria label: criterio",
+          "template close with error param criteria help: la plantilla de cerrado del registro",
+          "template close with error param who label: quién",
+          "template close with error param who help: quién escribe",
+          "template close with error message: close with error: {me} cierra {first it.0} con error: {first ev.0}",
+          "template expire: caducar",
+          "template expire param deadline label: plazo",
+          "template expire param deadline help: el plazo declarado que ha vencido: la fecha de un anuncio pendiente del proceso (su 7.1), anterior al último tiempo del libro",
+          "template expire param actions label: acción",
+          "template expire param actions help: la acción",
+          "template expire param about label: sobre",
+          "template expire param about help: de qué trata el registro: X",
+          "template expire param criteria label: criterio",
+          "template expire param criteria help: la plantilla de cerrado del registro",
+          "template expire param who label: quién",
+          "template expire param who help: quién escribe",
+          "template expire message: expire: {me} caduca {first it.0}: el plazo {first ev.2.1} ha vencido",
           "template commit P: comprometer P",
           "template commit P param power label: poder",
           "template commit P param power help: la serie de P que se compromete: P mío en el dominio de X",
@@ -5427,6 +5502,11 @@ export const EPOCA_0_BTML_DATOS = [
           "template write to X param actions help: la acción",
           "template write to X message: write to X: {me} escribe a {first it.3} sobre {first it.0}",
           "template all announced movements happened: todos los movimientos anunciados ocurrieron",
+          "template closed with error: cerrado con error",
+          "template expired: caducado",
+          "launch mode person: persona",
+          "launch mode agent: agente",
+          "launch mode system: sistema",
           "template purchase: compra",
           "template purchase param purchase label: compra",
           "template purchase param purchase help: lo comprado, como título o imagen",
@@ -5576,6 +5656,7 @@ export const EPOCA_0_BTML_DATOS = [
           "reason unknown template: plantilla de transacción desconocida: {template}",
           "reason X not in ledger: {name}: X no es un registro del libro",
           "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
+          "reason only a person launches: {name}: solo una persona la lanza, y {who} es un agente (el modo de ejecución de la plantilla es «{mode}»)",
           "guide role: Eres la guía de AGRAM para quien mira la pantalla. Solo lees: nunca cambias nada y nunca dices que has hecho algo. Responde corto, en el idioma de la configuración que figura en el contexto. Explica lo que hay en pantalla, qué significa y qué viene después. Nunca inventes registros, ids, saldos, pasos ni acciones que no estén en el contexto; si el contexto no lo dice, dilo.",
           "guide summary: AGRAM es un libro compartido de eventos. Cada evento es una transición de tokens con un payload BTML encima; registrar es hacer una transacción, y nada se modifica en sitio: corregir es añadir.\nUn registro es una décupla: diez posiciones, de la 0 a la 9, cada una un punto de vista (PV) con su propio mundo. Qué significa cada dígito lo dice una regla corta de la época; la época es a su vez un registro y sus reglas son datos.\nPV0 representación (la lente): cómo se muestra el registro; puede engañar. PV1 recursos (el reino): cantidades, entradas, precios, disponibilidad. PV2 criterios (el jardín): lo que distingue cosas parecidas; votos, umbrales, preferencias. PV3 comunicación (el parque acuático): quién escribe a quién, grupos, atención.\nPV4 fábrica: preparar con recursos, criterios y mensajes, y ejecutar; aquí se hacen las cosas. PV5 estructura: el propio registro en foco, sus referencias y firmas, en el centro de la cruz. PV6 pasado (hilos): registros encadenados por referencia, procedencia. PV7 futuro (hilos): previsiones, compromisos, caducidades.\nPV8 comparabilidad (el cielo): medidas y madurez frente a registros comparables; las estrellas no son verdad. PV9 camino: los pasos desde donde estás hacia la acción; sugerir no es ejecutar.\nCuatro tokens. E, recursos: por emisor y denominación (dinero, bienes, plazas, cupos). P, poder o criterio: siempre posicionado en un registro, guarda quién lo dio y pesa solo en ese dominio. R, reputación: exige emisor y pasa de tenedor a tenedor; devolverla a su emisor es pedir atención. T, tiempo: siete escalas reales (del segundo al año); cada persona tiene su asignación diaria y escribir la gasta.\nMadurez: todo registro tiene un nivel del 1 al 10 (semilla, brote, retoño, tallo, rama, hoja, yema, flor, fruto, décupla) según cuántas posiciones tiene escritas, su profundidad y lo que mueve; más allá de diez, por órdenes de magnitud (lista, tienda, manzana, distrito, reino). El render animado enseña etapas (sello, intermedio, ilustrado).\nEl aro: alrededor de un registro, las acciones que el núcleo ofrece a quien mira, punto de vista a punto de vista; la primera de cada uno es la acción por defecto. Cada acción es una plantilla de transacción que se comprueba contra las reglas de la época antes de escribirse.\nEl camino: lo que falta y lo que espera. Un paso es mío (puedo lanzarlo) o de espera de otro; viene de un tutorial, de las reglas o de una sugerencia. Seguir el camino lanza mis pasos en orden.\nCuentas: tu cuenta es tu propio eje, cuyo primer registro es tu alta (tu identidad), con una clave generada en el dispositivo que solo sale cifrada, en la copia de seguridad. Con un servidor, un nombre de eje compartido y su clave de lectura, el eje se comparte entre dispositivos; cada dispositivo comprueba las reglas por su cuenta. Los ejemplos llevan datos inventados y no tienen cuenta.\nLos tamaños: el hueco (el más pequeño), la tarjeta, la pantalla. En el móvil los puntos de vista se apilan en franjas (Sequenced); en una pantalla ancha forman un mapa de nueve celdas (Mapped).",
           "guide rules: Texto plano, sin títulos ni tablas en markdown; párrafos cortos o hasta cinco líneas. Nombra las posiciones por número y nombre (por ejemplo PV2 criterios) y los ids por sus ocho primeros caracteres. Si te piden actuar, di que esta guía solo explica y señala el aro o el camino, donde se ofrece la acción. Si el contexto dice que se ha recortado, avisa de que puede estar incompleto. Si no lo sabes, dilo.",
@@ -5689,7 +5770,11 @@ export const EPOCA_0_BTML_DATOS = [
           "reason no series: {name}: no series for a movement of {amount}",
           "reason unknown template: unknown transaction template: {template}",
           "reason X not in ledger: {name}: X is not a record of the ledger",
-          "reason who launches: {name}: who launches it (yo) is an identity"
+          "reason who launches: {name}: who launches it (yo) is an identity",
+          "reason only a person launches: {name}: only a person launches it, and {who} is an agent (the execution mode of the template is «{mode}»)",
+          "launch mode person: person",
+          "launch mode agent: agent",
+          "launch mode system: system"
         ]
       ]
     ],
@@ -5834,134 +5919,140 @@ export const EPOCA_0_BTML_DATOS = [
     [
       [
         "transaction templates",
-        "the actions of the ring (encargo 3c-2a): one record per action in datos/epocas/plantillas/, with the rule mould adapted (0 name, 1 the parameters it asks for, 2 when it is offered: BQL with it = X and me = who looks, 3 who launches it, 4 what it moves or read/path, 5 where it anchors, 6 origin, 7 epoch, 8 [point of view, order], 9 message); 9.6.1 is the list of references, in the order of their 8; the first of each point of view is the default action"
+        "the actions of the ring (encargo 3c-2a): one record per action in datos/epocas/plantillas/, with the rule mould adapted (0 name, 1 the parameters it asks for, 2 when it is offered: BQL with it = X and me = who looks, 3 who launches it (3.0) and whether an agent can (3.1: person, agent or system; system needs a review, epoch.9.0.4), 4 what it moves or read/path, 5 where it anchors, 6 origin, 7 epoch, 8 [point of view, order], 9 message); 9.6.1 is the list of references, in the order of their 8; the first of each point of view is the default action"
       ],
       [
         {
-          "ref": "bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b"
+          "ref": "69aa56aa9ebf86e62280fc0b92704e8f9c12c2ef64a73bb2a3292cc98249db91"
         },
         {
-          "ref": "266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a"
+          "ref": "f7dd391f2f52978e438d543c7dec85a3db987b5b1b350431811a183253c4591e"
         },
         {
-          "ref": "a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377"
+          "ref": "6843e898c9c535fe1e8d2c62e4f28de4795354e71619b82a0826aeb8bdab2201"
         },
         {
-          "ref": "21e71f7b98450c1917ed089ca464324765ceeaff4e387202df51fad2a23f4ca2"
+          "ref": "5accd07e3af521de388cd4d3286adfbb1d02cb11d52db687aece27b99831bb83"
         },
         {
-          "ref": "ab8a884d4b114130e541c5353bd2fac112585bc39d8cc76181dd780b7c1c9c63"
+          "ref": "a92903a40fc951d12de89d2c9b9e06384a761ccdac1d2e7f78f9d9303a964bd1"
         },
         {
-          "ref": "c3cf4da2a904f00468ece3a9b874bf479ba260eb2f62b31b49b6d6efeb479e58"
+          "ref": "4575e6919300c6bd5fab72f66e9f3f5bfcf79a1daaec8269354de82c27a879b1"
         },
         {
-          "ref": "6a6f9e07f4326cc05d28e952d79841b2e725e65b7da3c4f1958f75efd7d79c56"
+          "ref": "b856a7cb22faa27b637ac0a93b3098714a1bee7aa2ca19b848188ed11b6ef8c1"
         },
         {
-          "ref": "204342efd71c6e4da9acfd54e68f2d4e37742d41502038fd58b8b3486ea7fe55"
+          "ref": "2abccb047debea7748d647a48f6280ec2261a895b1332202c1dca82a71f69b58"
         },
         {
-          "ref": "4053c9cf3571ff8acbe7df3cd8e06c9a9f78c88ec8da412e5201c17451ba6ed1"
+          "ref": "7c4e470390c2e8d5f21ddcdbcc211002c6144c0ac6d1a3542f4c35fb82ea7bfc"
         },
         {
-          "ref": "e288326da71ff7a1e0f6cedfa749079a726f061fc8d2588c903474198cedb1ba"
+          "ref": "0e30c5f3078328fe813a5cac6434a5dd5223fa096dbfe4ac9c9488c81e728d4f"
         },
         {
-          "ref": "054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39"
+          "ref": "182576d36d293f01ce9033a53be599ae3c693e21dbb28998d845d9821b26573a"
         },
         {
-          "ref": "bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f"
+          "ref": "b3d6e3aee074772d31362e170744b16ea3c3aed357b271fc1c8e3b63d2bd1f95"
         },
         {
-          "ref": "fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152"
+          "ref": "8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56"
         },
         {
-          "ref": "d18d3fd5ca40c0a77f4e7944efbb0adea694acce66559fc6ff138812424c4c24"
+          "ref": "d1bf7a79cd98d59eaf06a74ed5c7dcd0deb1bb2e9774df49eb711c580cd717f9"
         },
         {
-          "ref": "3e056b9ed1f916d61f63ef887ca5ec2420bd608cd219e6ff1ff38cf613d19ba6"
+          "ref": "e8d9cfd003507afc87bb9a426a269a8528cf611eda04005790f3b999f59f368c"
         },
         {
-          "ref": "87ecf2029ba03dd754028148765f7ad203c9eeefb8fa41a381ac3f2344374fc2"
+          "ref": "d991e64f4a62c7fcc67e0a2f9807d8b0e8a060bad8d83b1b3b3bfc2aa3083d32"
         },
         {
-          "ref": "b85d283de300c162384f6bffac54b170345648be39f19071889ab77953adc5c2"
+          "ref": "7e54bb75de1af767b54f3b8bc38e8d69614e2cd340f6fd21d644946f16149ad0"
         },
         {
-          "ref": "2b6305d58313329bf1c0c4989867665f4b6eefba8a31549d7c6e3e2582c4d41a"
+          "ref": "a187de2635fc1260f636f3c0a4991ef1487596a35898d572c928a4db1c7a9144"
         },
         {
-          "ref": "7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb"
+          "ref": "e4dd0aac695577988012e778ed4e08e46901f64d78365e45e682f577cabbbedd"
         },
         {
-          "ref": "767fab20c4bf757de48750ee26a68579d28d72ec34361825149b02898abf2a05"
+          "ref": "ac2fff3f41a4855bbdacef367f2587b20fa166b6e85c7d1e09d83985a3a8026c"
         },
         {
-          "ref": "15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161"
+          "ref": "f37f5ef7d8f3a25e9039eea8d39e3004ea6cfa97f2cab37c8626a8a27ec13d51"
         },
         {
-          "ref": "b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb"
+          "ref": "1cac9a321d12a40637b12280d12c78c0955d53b90274a3901d24afeadf6630ac"
         },
         {
-          "ref": "a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a"
+          "ref": "5a87ba45e631fe6dbca139e79bd6e04e578e202dade00c8951c3766335ea51a0"
         },
         {
-          "ref": "d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce"
+          "ref": "3cf9a7ccf3d575850fd27cdef3ec668da0e632391ad6ba1b0ed5a0a156aa1d19"
         },
         {
-          "ref": "a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f"
+          "ref": "bda95c76a9868bb1c260bbada2a5c316d3ed2ab66f5c73fb0e83a8cd9b0a9dbb"
         },
         {
-          "ref": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"
+          "ref": "952d44f81d09fc82ec89ffc2856b9f599de70ca42c0736db74b990e029d2d782"
         },
         {
-          "ref": "46d4f4f21a62ce049e25dfca95013199e6ead82ac0bdbe1cfaaeae6d1c9053c3"
+          "ref": "46157035738b63f708c09a4ecc224d6001a2cf23a090ae43b5400a5c1dfb24ee"
         },
         {
-          "ref": "67190905e2d72019dd88fccfd87807208f436bba54a5573f09c46dabc10696f4"
+          "ref": "e305b9c49c28299cb751dfc2405bc259ce19990cd6dd8df38ed1daeca0e53b3c"
         },
         {
-          "ref": "e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61"
+          "ref": "03e0bae7ccab78efe3492a98c46fe13c53027fb35b79ee552d62247bf80f0774"
         },
         {
-          "ref": "90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476"
+          "ref": "387d94b79cb79593d3d1b202f944ccc190018e417ce3c46f97631a8a2a41f224"
         },
         {
-          "ref": "1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e"
+          "ref": "0b2fdf6f9d48c74b12880b9cc982574ee348531bb549aa1d3dc3e0e0cefc9b73"
         },
         {
-          "ref": "d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b"
+          "ref": "a4aa180389e4bb6d934725f0ba8b3d614198a4fa906f4ed02b272a036e9740cc"
         },
         {
-          "ref": "27bd5e96f15c5f91184679cd55f26da0a3ffec65f80bb17a5488356ac7e1c878"
+          "ref": "72d421bb398e6a1fadb7a05694ef38c2627b1a9dc0a999eb057568149577da08"
         },
         {
-          "ref": "93618b3ea9eef8b126110b93870580b47318f43c36871bda61780018badeb7ee"
+          "ref": "bcae420bb31fa7ed3ce0de0fb3c0014fa78515db47c8044fa2bf80a78ebee2a7"
         },
         {
-          "ref": "c054ee665e44c695182f5bd38f0e636bb0fe32f446b941a952a6a7fcfd7c216a"
+          "ref": "b2f54a87f08a5d0db0b5da9d04d4cb9a5437de18b8415d7dcccf6ad94abc5518"
         },
         {
-          "ref": "7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c"
+          "ref": "8a36936f7ff8b7524b45b386e19d5f84b5cf8098447833f8dd74cca583ac425e"
         },
         {
-          "ref": "912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464"
+          "ref": "e887a1041202015515bc17c4851e79e76a8bb57115e4bbe972e0d09539242dfc"
         },
         {
-          "ref": "38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"
+          "ref": "62b8cc2debfda202eb4e01a22a809f3bcae15326e0d45210d9cab1e9a879d6aa"
         },
         {
-          "ref": "600cf1d6b656a584ed9e6be01e9e0fc3bafaf6133bc28a22617c94873e02f311"
+          "ref": "012a31d44cf53ceaa73f392981dae56f4dd807d943d46ef27fdfc4326643405b"
         },
         {
-          "ref": "33d96e96eebb51af9c69a37e5396525f00d8674d34961aa0b38e63186d64b7cf"
+          "ref": "29e3ed3f8f25dc33648fe2e51c40319f3795e9fe0ea905fc82137824c5089475"
         },
         {
-          "ref": "a5982b7f9571109da47d78a9511c6ba276615a89233bf5bf09188a678190df1a"
+          "ref": "bccd82580877c144e672039ba734397e27c4dc72b7f983f0c4076ddeef90f1d4"
         },
         {
-          "ref": "994d5eab9e1d5a20731abd0219ccb60a6313498276fe3b63d6feb6ebc6069e48"
+          "ref": "d001a953136f40157cb410cc7d131abdb0cbc956bd1f7413a01a858916e33250"
+        },
+        {
+          "ref": "628ccdfdf23df6b6b82e152342418ca769c45972d1fe945a7e22ebf5ca9ed7bd"
+        },
+        {
+          "ref": "21f483bffd44de5270b60076065aa33cd4db62a86ddecce3b31aec546cc07152"
         }
       ]
     ],
@@ -7313,6 +7404,47 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "against others: its siblings, what is anchored on the same record, and the comparables of the cohort its owner chose"
+      ]
+    ]
+  },
+  {
+    "archivo": "an-expiry-has-expired.json",
+    "id": "57eb7dddf25b2c5c342d124144e6b176fb53167ff1fbff22f7fec24eaa82ca7c",
+    "registro": [
+      [
+        "an expiry has expired"
+      ],
+      [
+        0
+      ],
+      [
+        "=not (\"expire\" in ev.4) or (count ev.2.1 > 0 and (first ev.2.1).0 < first before.6.0.0 and count ((first (first (first ev.6).5).4).8 where count ((moves it where \"anunciado\" in it2.2) where count it2.7.1 > 0 and first it2.7.1.0 = (first ev.2.1).0) > 0) > 0)"
+      ],
+      [
+        "ev.3"
+      ],
+      [
+        "mint",
+        "transfer",
+        "lock",
+        "release",
+        "burn"
+      ],
+      [
+        "*"
+      ],
+      [
+        "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1): «caducar» no es una opinión de quien escribe: el registro anclado sobre un proceso que dice «expire» lleva en su 2.1 el plazo vencido, y el libro comprueba (solo lee) que ese plazo es la fecha de un movimiento anunciado y pendiente del proceso (su 7.1, el «when» del anuncio) y que de verdad venció con el reloj del libro (before.6.0, el mayor t aceptado), no con el instante que diga quien lo escribe (que puede ir hasta un año por delante)",
+        "Quién cuenta como quien cierra no lo dice esta regla sino la lectura: la plantilla de cerrado «expired» (epoch.9.0.1) solo lee el registro del dueño del proceso o de una cosa suya. El plazo del tipo de contexto (#71.3) entrará aquí cuando el tipo de contexto sea un registro de la época"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after a person joins by an invitation"
+      ],
+      [
+        "an expiry has expired: {first ev.2.1} is not the date of a pending announcement of {first (first ev.6).5}, or it has not passed yet at the latest time in the ledger ({before.6.0})"
       ]
     ]
   },
@@ -9403,7 +9535,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-a-record-gives-ten-p-on-it.json",
-    "id": "b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d",
+    "id": "1f44a8054d903ae04943b6250026dcee89708a6700762c0db29393153dad4e25",
     "registro": [
       [
         "writing a record gives ten P on it"
@@ -9434,7 +9566,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after a person joins by an invitation"
+        "after an expiry has expired"
       ],
       [
         "writing a record gives ten P on it: {first ev.3} gets {first epoch.1.1.4.1} P on the record it writes"
@@ -9492,7 +9624,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
 export const PLANTILLAS_DE_EPOCA_DATOS = [
   {
     "archivo": "set-a-minimum.json",
-    "id": "bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b",
+    "id": "69aa56aa9ebf86e62280fc0b92704e8f9c12c2ef64a73bb2a3292cc98249db91",
     "registro": [
       [
         "set a minimum"
@@ -9567,7 +9699,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -9595,7 +9732,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "set-a-minimum-rank.json",
-    "id": "266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a",
+    "id": "f7dd391f2f52978e438d543c7dec85a3db987b5b1b350431811a183253c4591e",
     "registro": [
       [
         "set a minimum rank"
@@ -9703,7 +9840,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -9731,7 +9873,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "configure-a-place.json",
-    "id": "a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377",
+    "id": "6843e898c9c535fe1e8d2c62e4f28de4795354e71619b82a0826aeb8bdab2201",
     "registro": [
       [
         "configure a place"
@@ -9838,7 +9980,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -9866,7 +10013,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "apply-a-resource.json",
-    "id": "21e71f7b98450c1917ed089ca464324765ceeaff4e387202df51fad2a23f4ca2",
+    "id": "5accd07e3af521de388cd4d3286adfbb1d02cb11d52db687aece27b99831bb83",
     "registro": [
       [
         "apply a resource"
@@ -10109,7 +10256,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where E in it2.0.0.0 and it2.1 > 0) > 0 and first it.3 != me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=transfer first memo.1.1 * first (first memo.1.2).1 before.4.(first (first memo.1.2).0) from me to first it.3"
@@ -10137,7 +10289,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "issue-e-tied-to-x.json",
-    "id": "ab8a884d4b114130e541c5353bd2fac112585bc39d8cc76181dd780b7c1c9c63",
+    "id": "a92903a40fc951d12de89d2c9b9e06384a761ccdac1d2e7f78f9d9303a964bd1",
     "registro": [
       [
         "issue E tied to X"
@@ -10345,7 +10497,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.2.1 where it2.0 = first it.5 and (count it2.5 = 0 or first it2.5 = 1) and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=mint first memo.1.1 E.(me).(first memo.1.0).(it) to me price first memo.1.2"
@@ -10373,7 +10530,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "lock-e-as-a-bid-for-a-quota.json",
-    "id": "c3cf4da2a904f00468ece3a9b874bf479ba260eb2f62b31b49b6d6efeb479e58",
+    "id": "4575e6919300c6bd5fab72f66e9f3f5bfcf79a1daaec8269354de82c27a879b1",
     "registro": [
       [
         "lock E as a bid for a quota"
@@ -10549,7 +10706,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where E in it2.0.0.0 and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=lock first memo.1.1 before.4.(first memo.1.0) from me exit it"
@@ -10576,7 +10738,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "consume.json",
-    "id": "6a6f9e07f4326cc05d28e952d79841b2e725e65b7da3c4f1958f75efd7d79c56",
+    "id": "b856a7cb22faa27b637ac0a93b3098714a1bee7aa2ca19b848188ed11b6ef8c1",
     "registro": [
       [
         "consume"
@@ -10752,7 +10914,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where E in it2.0.0.0 and it2.1 > 0 and first it2.0.5 = first it.5) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=burn first memo.1.1 before.4.(first memo.1.0) from me"
@@ -10779,7 +10946,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "register-a-thing.json",
-    "id": "204342efd71c6e4da9acfd54e68f2d4e37742d41502038fd58b8b3486ea7fe55",
+    "id": "2abccb047debea7748d647a48f6280ec2261a895b1332202c1dca82a71f69b58",
     "registro": [
       [
         "register a thing"
@@ -11019,7 +11186,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.5 = first me.6"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=transfer first memo.1 T.1 from me to first memo.3.1"
@@ -11048,7 +11220,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-p.json",
-    "id": "4053c9cf3571ff8acbe7df3cd8e06c9a9f78c88ec8da412e5201c17451ba6ed1",
+    "id": "7c4e470390c2e8d5f21ddcdbcc211002c6144c0ac6d1a3542f4c35fb82ea7bfc",
     "registro": [
       [
         "commit P"
@@ -11224,7 +11396,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where P in it2.0.0.0 and it2.1 > 0 and last (path it where first it3.3 = first it.3) in path (first it2.0.0.1)) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=lock first memo.1.1 before.4.(first memo.1.0) from me exit it"
@@ -11252,7 +11429,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "reposition-p-toward-x.json",
-    "id": "e288326da71ff7a1e0f6cedfa749079a726f061fc8d2588c903474198cedb1ba",
+    "id": "0e30c5f3078328fe813a5cac6434a5dd5223fa096dbfe4ac9c9488c81e728d4f",
     "registro": [
       [
         "reposition P toward X"
@@ -11428,7 +11605,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where P in it2.0.0.0 and it2.1 > 0 and count it2.0.5 = 0 and (first it2.0.0.1 in up it or first it2.0.0.1 in down it)) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=burn first memo.1.1 before.4.(first memo.1.0) from me",
@@ -11457,7 +11639,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-capacity-or-threshold.json",
-    "id": "054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39",
+    "id": "182576d36d293f01ce9033a53be599ae3c693e21dbb28998d845d9821b26573a",
     "registro": [
       [
         "declare capacity or threshold"
@@ -11666,7 +11848,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -11694,7 +11881,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "borrow-criteria-from-someone.json",
-    "id": "bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f",
+    "id": "b3d6e3aee074772d31362e170744b16ea3c3aed357b271fc1c8e3b63d2bd1f95",
     "registro": [
       [
         "borrow criteria from someone"
@@ -11738,7 +11925,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 != me and count (first it.3).6 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -11767,7 +11959,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attach-a-file.json",
-    "id": "fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152",
+    "id": "8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56",
     "registro": [
       [
         "attach a file"
@@ -11976,7 +12168,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=not (first it.3 != me and count (first it.3).6 > 0 and first (first it.3).6 = first it.5)"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -12004,7 +12201,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "write-to-x.json",
-    "id": "d18d3fd5ca40c0a77f4e7944efbb0adea694acce66559fc6ff138812424c4c24",
+    "id": "d1bf7a79cd98d59eaf06a74ed5c7dcd0deb1bb2e9774df49eb711c580cd717f9",
     "registro": [
       [
         "write to X"
@@ -12181,7 +12378,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 != me and count (first it.3).6 > 0 and count ((first it.3).3 where me in it2.3 and last it2.2.0 = \"nothing\") = 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) < first ev.6.2.1 and put first ev.6.2.1 at me.1.(R.(me)).1 and transfer first ev.6.2.1 R.(me) from me to first it.3 or (first ev.6.2.0 = \"my R\" or first ev.6.2.0 = \"their R\" and sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3) each 1) >= first ev.6.2.1) and transfer first ev.6.2.1 R.(first it.3) from me to first it.3 or first ev.6.2.0 = \"E\" and transfer first ev.6.2.1 (first ((me.1 where E in it2.0.0.0 and it2.1 >= first ev.6.2.1) each 0)) from me to first it.3 or first ev.6.2.0 = \"P\" and transfer first ev.6.2.1 (first ((me.1 where P in it2.0.0.0 and it2.1 >= first ev.6.2.1 and first (first it.3).6 in path (first it2.0.0.1)) each 0)) from me to first it.3"
@@ -12211,7 +12413,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "give-own-r.json",
-    "id": "3e056b9ed1f916d61f63ef887ca5ec2420bd608cd219e6ff1ff38cf613d19ba6",
+    "id": "e8d9cfd003507afc87bb9a426a269a8528cf611eda04005790f3b999f59f368c",
     "registro": [
       [
         "give own R"
@@ -12354,7 +12556,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 != me and count (first it.3).6 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=put memo.1 at me.1.(R.(me)).1",
@@ -12383,7 +12590,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "return-r-ask-for-attention.json",
-    "id": "87ecf2029ba03dd754028148765f7ad203c9eeefb8fa41a381ac3f2344374fc2",
+    "id": "d991e64f4a62c7fcc67e0a2f9807d8b0e8a060bad8d83b1b3b3bfc2aa3083d32",
     "registro": [
       [
         "return R (ask for attention)"
@@ -12560,7 +12767,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3 and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=transfer first memo.1 R.(first it.3) from me to first it.3"
@@ -12589,7 +12801,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "attend.json",
-    "id": "b85d283de300c162384f6bffac54b170345648be39f19071889ab77953adc5c2",
+    "id": "7e54bb75de1af767b54f3b8bc38e8d69614e2cd340f6fd21d644946f16149ad0",
     "registro": [
       [
         "attend"
@@ -12765,7 +12977,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first (first it.6.5).3 = me and (count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = me and it2.3.1 = me) > 0 or count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) > 0)"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=transfer sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1) R.(first it.3) from me to first it.3"
@@ -12794,7 +13011,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "forgive.json",
-    "id": "2b6305d58313329bf1c0c4989867665f4b6eefba8a31549d7c6e3e2582c4d41a",
+    "id": "a187de2635fc1260f636f3c0a4991ef1487596a35898d572c928a4db1c7a9144",
     "registro": [
       [
         "forgive"
@@ -12937,7 +13154,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where R in it2.0.0.0 and it2.0.0.1 = first it.3 and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=burn first memo.1 R.(first it.3) from me"
@@ -12964,7 +13186,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "set-a-group-price.json",
-    "id": "7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb",
+    "id": "e4dd0aac695577988012e778ed4e08e46901f64d78365e45e682f577cabbbedd",
     "registro": [
       [
         "set a group price"
@@ -13074,7 +13296,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.5 = first me.6"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -13103,7 +13330,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "admit-someone.json",
-    "id": "767fab20c4bf757de48750ee26a68579d28d72ec34361825149b02898abf2a05",
+    "id": "ac2fff3f41a4855bbdacef367f2587b20fa166b6e85c7d1e09d83985a3a8026c",
     "registro": [
       [
         "admit someone"
@@ -13311,7 +13538,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=put first memo.1.0 at me.1.(R.(me)).1",
@@ -13341,7 +13573,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "remove-someone.json",
-    "id": "15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161",
+    "id": "f37f5ef7d8f3a25e9039eea8d39e3004ea6cfa97f2cab37c8626a8a27ec13d51",
     "registro": [
       [
         "remove someone"
@@ -13516,7 +13748,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -13544,7 +13781,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "veto-someone.json",
-    "id": "b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb",
+    "id": "1cac9a321d12a40637b12280d12c78c0955d53b90274a3901d24afeadf6630ac",
     "registro": [
       [
         "veto someone"
@@ -13588,7 +13825,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -13617,7 +13859,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "move-to-group.json",
-    "id": "a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a",
+    "id": "5a87ba45e631fe6dbca139e79bd6e04e578e202dade00c8951c3766335ea51a0",
     "registro": [
       [
         "move to group"
@@ -13693,7 +13935,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (before.3 where first it2.6 = first it.5 and it2 != me) > 0 or (first it.3 != me and count (first it.3).6 > 0)"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -13722,7 +13969,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "aggregate-t.json",
-    "id": "d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce",
+    "id": "3cf9a7ccf3d575850fd27cdef3ec668da0e632391ad6ba1b0ed5a0a156aa1d19",
     "registro": [
       [
         "aggregate T"
@@ -13964,7 +14211,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (down it) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -13992,7 +14244,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "break-down.json",
-    "id": "a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f",
+    "id": "bda95c76a9868bb1c260bbada2a5c316d3ed2ab66f5c73fb0e83a8cd9b0a9dbb",
     "registro": [
       [
         "break down"
@@ -14233,7 +14485,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -14260,7 +14517,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "propose.json",
-    "id": "e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d",
+    "id": "952d44f81d09fc82ec89ffc2856b9f599de70ca42c0736db74b990e029d2d782",
     "registro": [
       [
         "propose"
@@ -14436,7 +14693,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.3 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "write"
@@ -14464,7 +14726,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "deliver.json",
-    "id": "46d4f4f21a62ce049e25dfca95013199e6ead82ac0bdbe1cfaaeae6d1c9053c3",
+    "id": "46157035738b63f708c09a4ecc224d6001a2cf23a090ae43b5400a5c1dfb24ee",
     "registro": [
       [
         "deliver"
@@ -14607,7 +14869,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and not (E in (before.4.(first it2.0)).0.0) or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and not (E in it3.0.0.0)) > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and it2.3.0 = me and (transfer in it2.4 and transfer it2.1 it2.0 from it2.3.0 to it2.3.1 or burn in it2.4 and burn it2.1 it2.0 from it2.3.0)) >= 0"
@@ -14638,7 +14905,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "pay.json",
-    "id": "67190905e2d72019dd88fccfd87807208f436bba54a5573f09c46dabc10696f4",
+    "id": "e305b9c49c28299cb751dfc2405bc259ce19990cd6dd8df38ed1daeca0e53b3c",
     "registro": [
       [
         "pay"
@@ -14781,7 +15048,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count ((first it.4).8 where count (moves it2 where \"anunciado\" in it3.2) = 0 and first it2.3.0 = me and E in (before.4.(first it2.0)).0.0 or count (moves it2 where \"anunciado\" in it3.2 and it3.3.0 = me and E in it3.0.0.0) > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=count (moves (first memo.1) where \"anunciado\" in it2.2) = 0 and transfer last (first memo.1).1 before.4.(last (first memo.1).0) from last (first memo.1).3.0 to last (first memo.1).3.1 or count ((moves (first memo.1)) where \"anunciado\" in it2.2 and transfer in it2.4 and it2.3.0 = me and transfer it2.1 it2.0 from it2.3.0 to it2.3.1) >= 0"
@@ -14811,7 +15083,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "close.json",
-    "id": "e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61",
+    "id": "03e0bae7ccab78efe3492a98c46fe13c53027fb35b79ee552d62247bf80f0774",
     "registro": [
       [
         "close"
@@ -14987,7 +15259,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me and count it.4.1 > 0 and count it.4.8 = 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -15014,8 +15291,426 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "close-with-error.json",
+    "id": "387d94b79cb79593d3d1b202f944ccc190018e417ce3c46f97631a8a2a41f224",
+    "registro": [
+      [
+        "close with error"
+      ],
+      [
+        [
+          [
+            "cause"
+          ],
+          [
+            "text"
+          ],
+          [
+            "=it != \"\""
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "0"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "the cause of the error",
+            "why the process is closed with an error: required text"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "close with error",
+            "the action"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "closed with error",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «close with error»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
+        ]
+      ],
+      [
+        "=first it.3 = me and count (first it.4).8 > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"
+      ],
+      [
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
+      ],
+      [
+        "write"
+      ],
+      [
+        "4"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1, el terminal de error con causa de la FSM de AARPIA): un registro anclado en el 4 del proceso, con la causa como texto obligatorio en su 0; solo el dueño (como «close») y solo si algo anunciado sigue pendiente y el proceso no está ya cerrado con error o caducado; es un cierre distinto de «all announced movements happened»: la plantilla de cerrado «closed with error» (epoch.9.0.1) lo lee, y el proceso deja de pedir pasos (motor.siguiente). Modo «persona»: cerrar un proceso con error es una decisión de su dueño que da por perdido lo anunciado; un agente que lo ejecuta y falla propone la causa pero no cierra por su cuenta (subir el modo a «agente» es un cambio de la época, no un caso de este registro)",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que ya no va copiado como un minuto en cada plantilla: lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        4,
+        7
+      ],
+      [
+        "close with error: {me} closes {first it.0} with an error: {first ev.0}"
+      ]
+    ]
+  },
+  {
+    "archivo": "expire.json",
+    "id": "0b2fdf6f9d48c74b12880b9cc982574ee348531bb549aa1d3dc3e0e0cefc9b73",
+    "registro": [
+      [
+        "expire"
+      ],
+      [
+        [
+          [
+            "deadline"
+          ],
+          [
+            "instant"
+          ],
+          [
+            "=(first it).0 < first before.6.0.0"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2.1"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"
+          ],
+          [
+            "required"
+          ],
+          [
+            1
+          ],
+          [
+            "=first ((moves (first ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0)) where \"anunciado\" in it2.2 and count it2.7.1 > 0 and first it2.7.1.0 < first before.6.0.0) each 7.1)",
+            "the declared deadline that has passed: the date of a pending announcement of the process (its 7.1), earlier than the latest time in the ledger"
+          ]
+        ],
+        [
+          [
+            "actions"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "4"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"
+          ],
+          [
+            "required"
+          ],
+          [
+            2
+          ],
+          [
+            "expire",
+            "the action"
+          ]
+        ],
+        [
+          [
+            "about"
+          ],
+          [
+            "ref"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "1"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"
+          ],
+          [
+            "required"
+          ],
+          [
+            3
+          ],
+          [
+            "=first it.5",
+            "what the record is about: X"
+          ]
+        ],
+        [
+          [
+            "criteria"
+          ],
+          [
+            "text"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "2.0"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"
+          ],
+          [
+            "required"
+          ],
+          [
+            4
+          ],
+          [
+            "expired",
+            "the closing template of the record"
+          ]
+        ],
+        [
+          [
+            "who"
+          ],
+          [
+            "identity"
+          ],
+          [
+            "any"
+          ],
+          [
+            "me"
+          ],
+          [
+            "payload"
+          ],
+          [
+            "3"
+          ],
+          [
+            "convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"
+          ],
+          [
+            "required"
+          ],
+          [
+            5
+          ],
+          [
+            "=me",
+            "who writes"
+          ]
+        ]
+      ],
+      [
+        "=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"
+      ],
+      [
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
+      ],
+      [
+        "write"
+      ],
+      [
+        "4"
+      ],
+      [
+        "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+        "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+        "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1, el caducado de la FSM, que escribe el programador de AARPIA, §3): un registro anclado en el 4 del proceso cuando ha vencido un plazo que el proceso declaró (hoy, la fecha de un anuncio pendiente: su 7.1, el «when» del movimiento anunciado; el plazo del tipo de contexto entrará con el #71.3), con ese plazo como dato en su 2.1; lo escribe el dueño o una cosa suya (quien tiene al dueño como autor de su alta: first me.6.3 = first it.3), y la regla de la época «an expiry has expired» comprueba que el plazo de verdad venció con el reloj del libro (before.6.0), no con el que diga quien escribe. Es un cierre distinto de «closed with error» y de «all announced movements happened»: la plantilla de cerrado «expired» (epoch.9.0.1) lo lee y el proceso deja de pedir pasos (motor.siguiente). Modo «agente»: lo escribe el programador de AARPIA, una cosa del dueño, cuando nadie más lo va a escribir; no es una decisión nueva sino la consecuencia de un plazo que el dueño ya declaró y el libro ya vio vencido",
+        "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        4,
+        8
+      ],
+      [
+        "expire: {me} expires {first it.0}: the deadline {first ev.2.1} has passed"
+      ]
+    ]
+  },
+  {
     "archivo": "anchor-here.json",
-    "id": "90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476",
+    "id": "a4aa180389e4bb6d934725f0ba8b3d614198a4fa906f4ed02b272a036e9740cc",
     "registro": [
       [
         "anchor here"
@@ -15350,7 +16045,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=not (first it.3 != me and count (first it.3).6 > 0 and first (first it.3).6 = first it.5)"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -15378,7 +16078,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "reference-x-from-another-record.json",
-    "id": "1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e",
+    "id": "72d421bb398e6a1fadb7a05694ef38c2627b1a9dc0a999eb057568149577da08",
     "registro": [
       [
         "reference X from another record"
@@ -15552,7 +16252,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (before.1 where first it2.3 = me) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -15580,7 +16285,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "view-thread.json",
-    "id": "d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b",
+    "id": "bcae420bb31fa7ed3ce0de0fb3c0014fa78515db47c8044fa2bf80a78ebee2a7",
     "registro": [
       [
         "view thread"
@@ -15594,7 +16299,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "read"
@@ -15621,7 +16331,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "commit-time.json",
-    "id": "27bd5e96f15c5f91184679cd55f26da0a3ffec65f80bb17a5488356ac7e1c878",
+    "id": "b2f54a87f08a5d0db0b5da9d04d4cb9a5437de18b8415d7dcccf6ad94abc5518",
     "registro": [
       [
         "commit time"
@@ -15829,7 +16539,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where not (T in it2.0.0.0) and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=lock first memo.1.1 before.4.(first memo.1.0) from me exit first memo.1.2"
@@ -15857,7 +16572,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "declare-future-t.json",
-    "id": "93618b3ea9eef8b126110b93870580b47318f43c36871bda61780018badeb7ee",
+    "id": "8a36936f7ff8b7524b45b386e19d5f84b5cf8098447833f8dd74cca583ac425e",
     "registro": [
       [
         "declare future T"
@@ -16064,7 +16779,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=burn first memo.1.1 T.1 from me when first memo.1.0"
@@ -16093,7 +16813,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "expire-something-mine.json",
-    "id": "c054ee665e44c695182f5bd38f0e636bb0fe32f446b941a952a6a7fcfd7c216a",
+    "id": "e887a1041202015515bc17c4851e79e76a8bb57115e4bbe972e0d09539242dfc",
     "registro": [
       [
         "expire something mine"
@@ -16269,7 +16989,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count (me.1 where E in it2.0.0.0 and it2.0.0.1 = me and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "=burn first memo.1.1 before.4.(first memo.1.0) from me"
@@ -16296,7 +17021,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "measure.json",
-    "id": "7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c",
+    "id": "62b8cc2debfda202eb4e01a22a809f3bcae15326e0d45210d9cab1e9a879d6aa",
     "registro": [
       [
         "measure"
@@ -16472,7 +17197,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me or count (me.2.1 where it2.0 = first it.5 and it2.1 > 0) > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -16500,7 +17230,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "change-cohort.json",
-    "id": "912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464",
+    "id": "012a31d44cf53ceaa73f392981dae56f4dd807d943d46ef27fdfc4326643405b",
     "registro": [
       [
         "change cohort"
@@ -16676,7 +17406,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=first it.3 = me"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "person"
+        ]
       ],
       [
         "write"
@@ -16703,7 +17438,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "compare-with-another-record.json",
-    "id": "38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c",
+    "id": "29e3ed3f8f25dc33648fe2e51c40319f3795e9fe0ea905fc82137824c5089475",
     "registro": [
       [
         "compare with another record"
@@ -16746,7 +17481,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "read"
@@ -16773,7 +17513,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "follow-the-path.json",
-    "id": "600cf1d6b656a584ed9e6be01e9e0fc3bafaf6133bc28a22617c94873e02f311",
+    "id": "bccd82580877c144e672039ba734397e27c4dc72b7f983f0c4076ddeef90f1d4",
     "registro": [
       [
         "follow the path"
@@ -16787,7 +17527,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "path"
@@ -16814,7 +17559,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "view-the-whole-tutorial.json",
-    "id": "33d96e96eebb51af9c69a37e5396525f00d8674d34961aa0b38e63186d64b7cf",
+    "id": "d001a953136f40157cb410cc7d131abdb0cbc956bd1f7413a01a858916e33250",
     "registro": [
       [
         "view the whole tutorial"
@@ -16828,7 +17573,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "read"
@@ -16854,7 +17604,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "auto-run-to-the-end.json",
-    "id": "a5982b7f9571109da47d78a9511c6ba276615a89233bf5bf09188a678190df1a",
+    "id": "628ccdfdf23df6b6b82e152342418ca769c45972d1fe945a7e22ebf5ca9ed7bd",
     "registro": [
       [
         "auto-run to the end"
@@ -16868,7 +17618,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "path",
@@ -16896,7 +17651,7 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "ask-for-a-recommendation.json",
-    "id": "994d5eab9e1d5a20731abd0219ccb60a6313498276fe3b63d6feb6ebc6069e48",
+    "id": "21f483bffd44de5270b60076065aa33cd4db62a86ddecce3b31aec546cc07152",
     "registro": [
       [
         "ask for a recommendation"
@@ -16910,7 +17665,12 @@ export const PLANTILLAS_DE_EPOCA_DATOS = [
         "=count it.5 > 0"
       ],
       [
-        "me"
+        [
+          "me"
+        ],
+        [
+          "agent"
+        ]
       ],
       [
         "read"
@@ -16977,7 +17737,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "dd617e35312e6ba92599495018b2c60eb27b2536609fd8cf051ca7970754c6b8";
+export const EPOCA_0_BTML_ID = "7f5c24306f29a862a107c468266a623e74b909cdf7e08d3f8ac366bf0b407305";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

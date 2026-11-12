@@ -1,0 +1,15 @@
+[
+  ["an expiry has expired"],
+  [0],
+  ["=not (\"expire\" in ev.4) or (count ev.2.1 > 0 and (first ev.2.1).0 < first before.6.0.0 and count ((first (first (first ev.6).5).4).8 where count ((moves it where \"anunciado\" in it2.2) where count it2.7.1 > 0 and first it2.7.1.0 = (first ev.2.1).0) > 0) > 0)"],
+  ["ev.3"],
+  ["mint", "transfer", "lock", "release", "burn"],
+  ["*"],
+  [
+    "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1): «caducar» no es una opinión de quien escribe: el registro anclado sobre un proceso que dice «expire» lleva en su 2.1 el plazo vencido, y el libro comprueba (solo lee) que ese plazo es la fecha de un movimiento anunciado y pendiente del proceso (su 7.1, el «when» del anuncio) y que de verdad venció con el reloj del libro (before.6.0, el mayor t aceptado), no con el instante que diga quien lo escribe (que puede ir hasta un año por delante)",
+    "Quién cuenta como quien cierra no lo dice esta regla sino la lectura: la plantilla de cerrado «expired» (epoch.9.0.1) solo lee el registro del dueño del proceso o de una cosa suya. El plazo del tipo de contexto (#71.3) entrará aquí cuando el tipo de contexto sea un registro de la época"
+  ],
+  ["epoch 0"],
+  ["after a person joins by an invitation"],
+  ["an expiry has expired: {first ev.2.1} is not the date of a pending announcement of {first (first ev.6).5}, or it has not passed yet at the latest time in the ledger ({before.6.0})"]
+]

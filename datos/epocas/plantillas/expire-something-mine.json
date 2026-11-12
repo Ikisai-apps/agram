@@ -69,7 +69,7 @@
     ]
   ],
   ["=count (me.1 where E in it2.0.0.0 and it2.0.0.1 = me and it2.1 > 0) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=burn first memo.1.1 before.4.(first memo.1.0) from me"],
   ["7"],
   [
