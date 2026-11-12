@@ -968,7 +968,8 @@ html.mapped body{padding:0}
 .animado .fila-contenido .rejilla .hijo{isolation:isolate}
 .animado .fila-contenido .rejilla-celda{background:color-mix(in oklab,color-mix(in oklab,var(--c,var(--rule)) 10%,var(--bg)) 78%,transparent)}
 .animado .fila-contenido .rejilla-celda.vacia{background:color-mix(in oklab,var(--bg) 50%,transparent)}
-.fila-contenido .capa-dibujo .dibujo-hijo{opacity:.4}
+/* El dibujo del hijo en una fila abierta no va grande detrás del texto (el cuerpo de la tienda se leía como un cuadro bajo las letras): una figura pequeña en la esquina inferior derecha de la celda, como el icono de un ocupante. */
+.fila-contenido .rejilla-apilada .capa-dibujo .dibujo-hijo{left:auto;right:6px;top:auto;bottom:4px;transform:none;width:auto;height:min(72px,var(--alto-hijo));max-width:none;opacity:.9;pointer-events:none}
 .fila-contenido .capa-dibujo .dibujo-ocupante{opacity:.55}
 .rejilla-apilada .rejilla-cruceta>.hijo .capa-dibujo{left:0;right:0}
 .animado .secuencia .ocupante:has(>.capa-elemento){position:relative;isolation:isolate}

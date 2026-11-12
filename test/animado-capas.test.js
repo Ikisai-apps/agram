@@ -458,6 +458,9 @@ test('Sequenced en animado (#7): la columna es la del sobrio más capas; cada fi
   // El fondo de una caja alta no va detrás del texto: solo una banda arriba (la cabecera y un poco más), con su degradado.
   const banda = /\.fila-contenido>\.pv>\.capa-fondo\{bottom:auto;height:(\d+)px;object-position:50% 0;[^}]*mask-image:linear-gradient\(to bottom,#000 \d+%,transparent\)/.exec(CSS);
   assert.ok(banda && Number(banda[1]) >= 96 && Number(banda[1]) <= 120, 'el fondo de la fila, una banda arriba con degradado');
+  // El dibujo del hijo en una fila abierta: una figura pequeña (72 px como mucho) en la esquina de abajo a la derecha, sin recibir el ratón.
+  const hijoFila = /\.fila-contenido \.rejilla-apilada \.capa-dibujo \.dibujo-hijo\{([^}]*)\}/.exec(CSS)?.[1] ?? '';
+  for (const d of ['right:6px', 'bottom:4px', 'transform:none', 'height:min(72px,var(--alto-hijo))', 'opacity:.9', 'pointer-events:none']) assert.ok(hijoFila.includes(d), 'el dibujo del hijo en la fila: ' + d);
   assert.match(CSS, /@container \(max-aspect-ratio:1\/1\)\{\.mapa \.pv>\.capa-fondo\{bottom:auto;height:112px/, 'y en cualquier celda más alta que ancha');
   // Lo que se cambia del sobrio en las filas solo es fondo y aislamiento (nada de bordes, rellenos ni tamaños).
   const delSobrio = CSS.split('\n').filter((l) => l.startsWith('.animado .fila-contenido') || l.startsWith('.animado .secuencia'));
