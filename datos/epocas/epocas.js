@@ -386,7 +386,7 @@ export const EPOCA_0_BTML_DATOS = [
   ],
   [
     {
-      "ref": "c2113f5b9fd8424d5693b3bb941321a39b7f2be360e2fae34c2ea93de9a00ec2"
+      "ref": "7fb35f34e4f17df4fc652762d9aeb91a8d6cdbf83d247be0cb66da1fa770805a"
     },
     {
       "ref": "342eb8973f896a3d9e1a2e6abfbf1889aa5f54abe650d76367ccfe41f254452d"
@@ -9297,7 +9297,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "writing-burns-today-s-t.json",
-    "id": "c2113f5b9fd8424d5693b3bb941321a39b7f2be360e2fae34c2ea93de9a00ec2",
+    "id": "7fb35f34e4f17df4fc652762d9aeb91a8d6cdbf83d247be0cb66da1fa770805a",
     "registro": [
       [
         "writing burns today's T"
@@ -9326,7 +9326,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "VG, 10-11, A3: qué escalas tienen asignación lo dice el calendario de la época (epoch.7.0: las escalas que se miden en segundos), no un número en la regla",
         "VG, 10-11, B1: la asignación del día es de las personas (quien escribió su alta o la escribe ahora); una cosa gasta el T que le dio su dueño",
         "VG, 10-11, A2 (mapa §16 [D]): las reglas de «*» no llevan excepción para el génesis; con el génesis = la época 0 (fuera del sistema: no pasa por las reglas) y la entrada por invitación, no hay transacción sin foco ni sin cuenta anterior. Se retira la forma provisional «no tiene foco» (encargo 3b, paso 5)",
-        "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente, y la regla no le exige el coste (Core, pendiente de revisar VG). La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js"
+        "VG, 12-11, #64 b: la condición exige lo calculado por la regla «the cost of writing»: lo que el autor quema de T en las escalas del calendario (cantidad por los segundos de su escala, epoch.7.0) ha de llegar a lo que esa regla da para el payload (un minuto por posición, A3); una sola tarifa venga de donde venga el registro. Más vale; menos se rechaza. Cada escala se reconoce por sus segundos en el calendario (epoch.7.0.(escala).1 = epoch.7.0.k.1), no por su dígito, para que la regla no lleve números que la época tenga (A3). La quema se lee de `moves ev` (los movimientos de la candidata, sin lo que el payload tenga en su 1) y no de `ev.1`, porque cada lectura de `ev.1` expande también el payload y, siete veces, pasa el presupuesto de cálculo en un registro de mil posiciones. Si el autor no quema nada de T real (solo T informativo: pasado, futuro, inventado), el registro es una memoria o un plan, gratis en T real y no presente (VG, 8-11: el T informativo paga la escritura), y la regla no le exige el coste. La cuenta del coste repite la de la lectura (first (first ev.8).6.1 * first epoch.7.0.1.1) porque una regla no llama a otra: lo comprueba test/coste-exigido.test.js"
       ],
       [
         "epoch 0"
@@ -16828,7 +16828,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "1b1763da848b43f5724c9bb7590ccba1cd51f1d864438a89cab62d7afc835ade";
+export const EPOCA_0_BTML_ID = "ae3745fe8eb7f10f46326f7b48ecd3b4f01dbbbed43989d51b3b3c85ad03b5c4";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

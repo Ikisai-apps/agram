@@ -5,7 +5,7 @@ El BQL mínimo es el álgebra con la que se escriben las condiciones de las regl
 Este documento describe lo que existe en `src/bqlm.js` (el analizador y el evaluador) y `src/contexto-eje.js` (el contexto sobre el eje). `src/bql.js` (BQL V0, `docs/BQL.md`) sigue igual. Las reglas de la época 0 (§6 y §10) son registros de la época (§5) y, desde el encargo 3a (VG, 10-11), están conectadas al eje: cada una es una condición de la transacción (`src/condiciones/reglas.js`), y las condiciones de JavaScript que sustituyen se retiraron (`docs/notas/CAPA_CERO.md` §3). El encargo 3b (VG, 8-11 y 9-11, mapa §15 y §16) añade las reglas que escriben (`put`, §1 y §5: la obtención de P), las del P como peso de criterio, la atención con precio y la invitación (§10), y las vistas que leen (§4: el criterio `A.2`, los grupos de atención `A.3`, los compromisos `X.2.4`; y, tras el 3b-bis, lo recibido de su emisor `A.8.6`, la base del tope de la obtención). Pruebas: `test/bqlm.test.js`, `test/contexto-eje.test.js`, `test/epoca-btml.test.js`, `test/primera-regla.test.js`, `test/reglas-bqlm.test.js` (cada regla de la época frente a su condición JS), `test/reglas-3b.test.js` (cada regla del 3b en positivo y en negativo, y sus propiedades), `test/reglas-tope.test.js` (la obtención como tope acumulado: dos plazas en dos transacciones, el polvo, el ir y venir, la reventa, el máximo en una transacción, la persistencia) y, de la revisión de seguridad, `test/seguridad-bqlm.test.js` (SEG-09 a SEG-12: el payload no fabrica movimientos ni «nadie»; el presupuesto de ocupantes; las salidas y series con nombres reservados, `__proto__`, `constructor`, `prototype`, que la validación de movimientos rechaza y el libro guarda como claves propias).
 
 ```js
-import { analizar, evaluar, evaluarRegla, evaluarEscritura, evaluarPlantilla, queMueve, leerRegla, esLectura, esEscritura, rellenar, textoDe, ESTADOS, PALABRAS, ENLACES, NOMBRES, DESTINOS_DE_PUT, PRIMITIVAS, LIMITES, POR_LIMITE, SIMBOLOS, NADIE, esSimbolo, Presupuesto, Parada, pendiente, porLimite } from './src/bqlm.js';
+import { analizar, evaluar, evaluarRegla, evaluarEscritura, evaluarPlantilla, queMueve, leerRegla, esLectura, esEscritura, rellenar, textoDe, ESTADOS, PALABRAS, ENLACES, NOMBRES, DESTINOS_DE_PUT, PRIMITIVAS, LIMITES, POR_LIMITE, SIMBOLOS, NADIE, esSimbolo, Presupuesto, Parada, pendiente, porLimite, VERIFICACION, COSTE_FIRMA, esBytes, hexDe } from './src/bqlm.js';
 import { ContextoEje, NADIE, primitivaDe, desplegarFecha, desplegarSerie, desplegarValor } from './src/contexto-eje.js';
 import { cargarEpocaBtml, EPOCA_0_BTML } from './src/epocas.js';
 ```
@@ -33,6 +33,7 @@ Exacto y nada más. Cualquier otro nombre da ERROR «no es BQL mínimo: «X»»;
 | nombres | `ev`, `epoch`, `before`, `me`, `memo` | la transacción candidata, el registro de la época, el libro de antes y, desde el encargo 3c-2a, la identidad que mira (sus vistas: `me.1` la cartera, `me.2.1` su P, `me.3` sus grupos); lo leen las plantillas de transacción del aro (`docs/CONTRATO.md` §12). `memo` (VG 12-11, decisión 5) es el payload de la candidata, sin movimientos ni metadatos: `memo.1` es el 1 del payload, sin el doble sentido de `ev.1` |
 | serie | `T.d`, `R.(x)`, `E.(x).(y)`, `E.(x).(y).(z)`, `P.(x)`, `P.(x).(y)` | la serie como posición de su familia (VG 12-11, decisión 5): `T.1` el T de minuto (el dígito de su escala), `T.8` el futuro, `R.(me)` la R de quien escribe, `E.(emisor).(denominación)[.(registro)]`, `P.(ámbito)[.(origen)]`. Vale la serie (D-SERIE), exista o no: su valor es su clave. Una parte vacía no hace serie (nada) |
 | mover | `mint q S to A`, `transfer q S from A to B`, `lock q S from A exit E`, `release q S from A exit E`, `burn q S from A`, con `when F` (mint, transfer, burn) y `price Pr` (mint) | **solo en una plantilla de transacción** (§11; invariante del núcleo): los cinco símbolos como verbos. Cada uno vale verdadero y anota un movimiento; lo que vale cero o nada no se mueve |
+| verificar | `bytes(h)`, `hex(b)`, `utf8(t)`, `hash(x[, etiqueta])`, `sha256(b)`, `sha256d(b)`, `cat(b, …)`, `slice(b, i, j)`, `reverse(b)`, `le(b)`, `below(a, b)`, `merkle(hoja, camino, esquema)`, `ots(raiz, pasos)`, `cabecera(b)`, `tx(b)`, `signed(firma, mensaje, clave)` | las primitivas puras de verificación (§12; Core AGRAM 12-11, #67): la única excepción a «no hay funciones con nombre». Calculan sobre bytes, un tipo nuevo; nunca firman; son lectura |
 | colocar | `put v at X.d.(k)`, `put v at X.d.(k).e` | en una regla que escribe (`put` en su 4): anota «la posición d.(k) de cada X vale al menos v» (un nivel, un estado BTML; no «añade v») y vale verdadero (§5); con un dígito tras el índice, coloca en esa posición de la entrada k (encargo 3c-2a: el P sobre la mirada e del registro k, `A.2.1.(r).1`). Solo en los destinos de una lista cerrada, `DESTINOS_DE_PUT` (hoy `A.2.1`, la obtención; VG 12-11, decisión 6). En una plantilla, solo el nivel en mano, `put v at A.1.(S).1` (§11) |
 
 `moves`, `under` y `by` entraron el 12-11 (VG, estudio BQL-transacciones, decisiones 1 y 2: «ninguna palabra más por ahora»): leer el libro es una palabra y no una posición (el 1 de un registro ya junta sus movimientos, su payload y sus series vivas), y son las dos que faltaban para el 1, el 6 y el 7 de los puntos de vista. Para todo lo demás sigue la regla de oro: lo concreto es posición.
@@ -333,7 +334,7 @@ for (const n of [23, 24]) {
 
 Encargo 2 del plan del mapa (§16): las reglas de economía que eran condiciones en JavaScript escritas en BQL mínimo como décuplas del molde. Las tradujeron cinco familias en paralelo (T, ciclo, identidad, E y R) y cada una se verificó por equivalencia: evaluada con `evaluarRegla` sobre el eje de justo antes, frente a la condición JS que traduce, sobre el mismo eje, en los eventos de `node --test`, de los ejemplos de Ikisai, de `docs/comprobar.mjs` y de un fuzz por familia. **Encargo 3a (VG, 10-11): están conectadas al eje.** Cada regla del 2 de la época es una condición de la transacción (`src/condiciones/reglas.js`): se evalúa sobre el eje de antes y rechaza con el mensaje de su 9. Las condiciones JS que sustituyen se retiraron de `src/` y viven solo en `test/condiciones-retiradas.mjs`, donde la red de equivalencia las sigue comparando; la tabla de qué sustituye cada regla y qué queda en código está en `docs/notas/CAPA_CERO.md` §3. **Encargo 3b (VG, 8-11 y 9-11, mapa §15 y §16): las reglas del P como peso de criterio, de R según el corpus, de la atención con precio y de la invitación** entran en la época y se conectan igual; las que no traducen una condición JS (las cambia el mapa o son nuevas) se prueban en positivo y en negativo (`test/reglas-3b.test.js`), no por equivalencia.
 
-Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3). El 3b solo añadió una palabra, `put` (con `at`), que el mapa ya tenía en el léxico.
+Regla de oro (VG): si una regla no se puede escribir con el léxico, no se añade una función al BQL mínimo. Lo que falta es una posición (una vista o un despliegue), o la regla es suelo. Lo que no cabe queda en JavaScript, con su motivo (§10.3). El 3b solo añadió una palabra, `put` (con `at`), que el mapa ya tenía en el léxico. Las primitivas de verificación (§12, #67) no rompen la regla: no escogen nada del libro, calculan sobre bytes copiados en él.
 
 **Cómo están en la época.** El 2 de la época es la lista de referencias a sus registros (§5): 30 condiciones, 3 reglas que escriben y 10 lecturas (las tres últimas, del encargo 3c-2a), cada una con las diez posiciones llenas; y, al final, las 10 lecturas de los puntos de vista (encargo «lecturas», issue #12: `point of view` en su 4, `EPOCA_0_BTML.lecturasDePv`), que no son condiciones ni se materializan: cada ocupante de su 2 es una fórmula con `it` = el nodo y `me` = su dueño, o `js <nombre>`, una lectura del núcleo en JavaScript donde este BQL no alcanza (`docs/CONTRATO.md` §4.4). El 8 de cada una encadena el orden: la primera es `first` y cada una va `after` la anterior; `EPOCA_0_BTML.condiciones` da las condiciones en ese orden, `EPOCA_0_BTML.escrituras` las que escriben y `EPOCA_0_BTML.lecturas` las lecturas. Se nombran por su 0, no por su lugar (la numeración «2.g.k» del encargo 2, de cuando iban en páginas de diez, ya no existe). La carpeta `datos/epocas/reglas-3b/`, con las traducciones del código de antes del 3b que esperaban fuera, se retiró: lo que el mapa §15 cambia ya está en la época.
 
@@ -541,3 +542,65 @@ VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49,
 
 Pruebas: `test/bqlm.test.js` (los verbos, la serie de su familia, el invariante, `put` y `memo`), `test/seguridad-bqlm.test.js` (SEG-14 y SEG-15: una regla con un verbo no se carga; lo que nombra lo ajeno lo rechaza la regla y lo firma quien lanza), `test/acciones.test.js` (la doble ejecución, cerrada: las sentencias mueven lo que movía la lista, `test/doble-ejecucion-esperada.json`; el coste, el anuncio y #48).
 
+
+## 12. Primitivas de verificación
+
+Core AGRAM, 12-11 (`docs/notas/DECISIONES_2026-11-12.md` #67; pedidas por Core StateArk para escribir el SIP 0, su `HUECOS_BQL.md`). BQL gana **primitivas puras de verificación**: comprueban, sin salir del libro, las pruebas que un registro trae copiadas (el sello de tiempo de `X.6.8.2`, un recibo de pago, un candado por hash, una firma). Son la única excepción a «no hay funciones con nombre» (§1) y a la regla de oro de §10: no escogen nada concreto del libro (eso sigue siendo posición), **calculan sobre bytes**, y eso no es una posición. Código: `src/cripto.js` (lo puro) y `src/bqlm.js` (`VERIFICACION`, `esBytes`, `COSTE_FIRMA`). Pruebas: `test/bqlm-cripto.test.js` (vectores) y `test/seguridad-bqlm.test.js` (SEG-16 a SEG-18).
+
+**Por qué son lectura.** Sin efectos ni entrada/salida: solo leen sus argumentos (que el evaluador calcula como cualquier subexpresión), no llaman al contexto, no ven la red ni el reloj. **Nunca firman ni ven claves privadas**: la única llamada a la librería vendorizada es `schnorr.verify`. No son verbos (`queMueve` no las cuenta: el invariante del núcleo de §11 sigue igual), así que una regla que las usa **sigue solo leyendo**: todo lo que verifica está en el libro, copiado en el registro. Que la cabecera sea de la cadena buena no lo puede decir una regla (H9 del SIP): tiene que entrar en el libro como dato firmado por quien la observa.
+
+**El tipo bytes.** Un valor nuevo del evaluador, distinto de texto y número (`esBytes`): solo lo producen las primitivas. En los datos BTML los bytes viajan como **texto hex** y se convierten con `bytes(…)`; se leen (en un mensaje, en `texto`) en hex en minúsculas. Dos bytes son iguales si lo son byte a byte; bytes y texto nunca son iguales (`bytes("00ff") = "00ff"` es falso, como `1 = "1"`): para comparar con un hex del dato, `hex(b) = …` o `b = bytes(…)`. No tienen posiciones (se cortan con `slice`), no operan en la aritmética, no son clave de un índice por valor, de un `put`, de una salida ni de un precio.
+
+| Forma | Da | Notas |
+|---|---|---|
+| `bytes(hex)` | bytes | longitud par, cifras 0-9 y a-f (mayúsculas o minúsculas); si no, ERROR |
+| `hex(b)` | texto | en minúsculas |
+| `utf8(texto)` | bytes | |
+| `hash(x)` | bytes | SHA-256 de la serialización canónica BTML de x (`canonico`, la del id de evento): `hash("abc")` hashea `"abc"` con sus comillas; un número, su JSON; un registro, su valor (su id, como texto). Si x ya es bytes, hashea los bytes. Una décupla no tiene valor: ERROR |
+| `hash(x, etiqueta)` | bytes | el hash etiquetado de BIP-340, `sha256(sha256(etiqueta) ‖ sha256(etiqueta) ‖ m)`, con m el canónico de x o x si es bytes |
+| `sha256(b)`, `sha256d(b)` | bytes | sobre bytes; `sha256d` es el doble de Bitcoin |
+| `cat(b1, b2, …)` | bytes | concatena (uno o más) |
+| `slice(b, desde, hasta)` | bytes | índices de byte, fin excluido; `0 ≤ desde ≤ hasta ≤ largo` o ERROR |
+| `reverse(b)` | bytes | el orden de Bitcoin: un explorador enseña txid y hash de bloque al revés de como se hashean |
+| `le(b)` | número | entero little-endian sin signo de 1 a 8 bytes (ERROR si no cabe en un número exacto) |
+| `below(a, b)` | verdadero o falso | a < b como enteros sin signo **big-endian**, de igual longitud. La prueba de trabajo: `below(reverse(first C.7), first C.8)` |
+| `merkle(hoja, camino, esquema)` | bytes, la raíz | esquema `"sip"` (SIP-0.md, normativo, el de `servidor/sim/stateark/merkle.js`): hoja = SHA-256(0x00 ‖ id), nodo = SHA-256(0x01 ‖ izq ‖ der), el impar sube sin duplicarse; `"bitcoin"`: la hoja es el txid (orden interno) tal cual, nodo = sha256d(izq ‖ der), el impar se duplica (su hermano es él mismo). El camino, de la hoja a la raíz, pares `[lado, hermano]`: `"i"` si el hermano va a la izquierda, `"d"` si a la derecha; el hermano, en hex (como viaja en el dato) o en bytes. Vale la forma de SIP-0.md (una décupla de pares) y una lista plana `lado, hermano, lado, hermano…`, que no tiene el tope de diez posiciones de una décupla |
+| `ots(raiz, pasos)` | bytes | los pasos OpenTimestamps, en orden: `["prepend", hex]`, `["append", hex]`, `["sha256"]` (también como lista plana); da lo que llega a la cabecera |
+| `cabecera(b)` | décupla | una cabecera de bloque de Bitcoin (80 bytes): 1 versión, 2 bloque anterior (bytes), 3 raíz de Merkle (bytes), 4 hora, 5 bits, 6 nonce (números), 7 hash del bloque (bytes, sha256d, orden interno), 8 objetivo (32 bytes big-endian, desde los bits) |
+| `tx(b)` | décupla | una transacción cruda, con o sin testigo (BIP-144): 1 entradas (cada una 0 txid, 1 vout, y además 2 scriptSig, 3 secuencia), 2 salidas (cada una 0 sats, 1 script), 3 testigos (uno por entrada, sus elementos en su 0; vacío sin testigo), 4 locktime, 5 txid (bytes, orden interno: sha256d sin el testigo). ERROR si falta o sobra algo |
+| `signed(firma, mensaje, clave)` | verdadero o falso | BIP-340: firma 64 bytes, mensaje 32, clave x-only 32, todos bytes (otro tipo es ERROR; otra longitud, falso). El mensaje de un registro firmado es `bytes(id)`: `signed(f, bytes(first ev.5), k)` |
+
+Se escriben como llamadas, con su número de argumentos (`VERIFICACION`, el analizador lo comprueba: `merkle(a, b)` es ERROR de sintaxis, «lleva 3 argumentos»). Cada argumento es un ocupante, como en la aritmética (G3): vacío, PENDIENTE; de más de uno, ERROR; salvo el camino de `merkle` y los pasos de `ots`, que son listas. Lo que devuelven `cabecera` y `tx` es una décupla pura que se lee por posiciones como cualquier otra (`first cabecera(b).3`, `tx(b).2 where first it.0 = 50000`).
+
+**Coste.** Cada primitiva da un paso y **paga en el presupuesto los bytes que procesa antes de procesarlos** (`Presupuesto.gastarBytes`): `bytes` la mitad del texto, `hash` y `sha256` lo que hashean, `cat` lo que junta, `tx` el doble de la transacción (leerla y su txid), `cabecera` 160, cada paso de Merkle 65 o 96, y `signed` `COSTE_FIRMA` (65 536: verificar una firma cuesta como hashear unos 64 KB). El tope es `LIMITES.bytes`, 2 000 000 por evaluación (`opciones.limites.bytes`), y pasarse es PENDIENTE POR LÍMITE, como los demás límites (§3). Una transacción de 100 KB cabe (200 KB); una de 1 MB se corta sin llegar a leerse; un `cat` o un `signed` dentro de un `where` largo se corta igual. Unas treinta firmas por evaluación.
+
+**El SHA-256.** Es código propio en `src/cripto.js`, no una librería: el SHA-256 de `src/vendor/noble-secp256k1.js` va dentro y no se exporta (solo `schnorr`), y Web Crypto es asíncrono. Las pruebas lo cruzan con `node:crypto` y con el hash etiquetado de noble.
+
+**El SIP 0** (Core StateArk, `InTheState/stateark/sip/`, solo lectura) escribe sus reglas con estas formas; `test/bqlm-cripto.test.js` comprueba que `analizar` las acepta todas, y señala la única diferencia de forma de su primer borrador: `merkle(hoja, camino)` sin esquema.
+
+```js
+import { evaluar } from './src/bqlm.js';
+import { ContextoEje } from './src/contexto-eje.js';
+
+// El bloque génesis de Bitcoin, copiado como dato: su cabecera (80 bytes en hex) y un camino de Merkle vacío.
+const genesis = '0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c';
+const ctx = new ContextoEje(null, { epoch: [[genesis]] });
+const c = 'first cabecera(bytes(first epoch.0))';
+for (const e of ['hex(sha256(utf8("abc")))', 'bytes("00ff") = "00ff"', c + '.4', 'hex(reverse(' + c + '.7))', 'below(reverse(' + c + '.7), ' + c + '.8)', 'hash', 'merkle(bytes("00"), epoch.9)', 'sign(bytes("00"))']) {
+  const r = evaluar(e, ctx);
+  console.log(r.estado.padEnd(9), r.texto ?? r.motivo);
+}
+```
+
+```text
+RESUELTO  ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad
+RESUELTO  false
+RESUELTO  1231006505
+RESUELTO  000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f
+RESUELTO  true
+ERROR     sintaxis: hash es una primitiva de verificación y se escribe con sus argumentos entre paréntesis: hash(x) o hash(x, etiqueta)
+ERROR     sintaxis: merkle(hoja, camino, esquema) lleva 3 argumentos, no 2
+ERROR     no es BQL mínimo: «sign» (no hay funciones con nombre)
+```
+
+Leído: el SHA-256 de «abc»; bytes y texto no son iguales; la hora del génesis; su hash, al revés, es el que enseña un explorador; cumple su prueba de trabajo; y las tres formas mal escritas dan ERROR con su motivo: una primitiva sin paréntesis, `merkle` sin esquema y una firma, que no existe.

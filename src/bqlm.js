@@ -66,8 +66,18 @@
 // ERROR aunque el verbo no se llegue a evaluar. `put` solo vale en una regla que escribe (opciones.escribir: el libro
 // acuña por su cuenta hasta un nivel, solo en los destinos de DESTINOS_DE_PUT) o en una plantilla (el nivel en mano).
 //
-// Los ocupantes son números, textos o nodos opacos del contexto. Hay una
-// implementación sobre el eje en src/contexto-eje.js.
+// Primitivas de verificación (Core AGRAM 12-11, #67; docs/BQLM.md §12): bytes hex utf8 hash sha256 sha256d cat slice
+// reverse le below merkle ots cabecera tx signed, escritas como llamadas, nombre(a, b…). Son PURAS: solo leen sus
+// argumentos (nada del contexto ni de fuera), nunca firman ni ven claves privadas, y cuentan en el presupuesto por byte
+// procesado (LIMITES.bytes). Traen un tipo nuevo, los BYTES (esBytes), distinto de texto y número: en los datos BTML
+// viajan como texto hex y se convierten con bytes(…); se leen en hex. cabecera(…) y tx(…) dan una décupla pura, que se
+// lee por posiciones como cualquier otra. Una regla que las usa sigue solo leyendo.
+//
+// Los ocupantes son números, textos o nodos opacos del contexto (y, de las primitivas de verificación, bytes y décuplas
+// puras). Hay una implementación sobre el eje en src/contexto-eje.js.
+
+import { canonico } from './evento.js';
+import { sha256, sha256d, hashEtiquetado, concatenar, deHex, aHex, igualesBytes, menor, enteroLe, leerCabecera, leerTx, raizMerkle, aplicarOts, verificarBip340 } from './cripto.js';
 
 export const ESTADOS = Object.freeze(['RESUELTO', 'PENDIENTE', 'ERROR']);
 
@@ -117,7 +127,33 @@ const FORMAS = Object.freeze({
  * expandir en una evaluación (el máximo de Scened, 10000), anidamiento de la
  * expresión y niveles de un hilo (`path`). Pasarse es PENDIENTE POR LÍMITE.
  */
-export const LIMITES = Object.freeze({ pasos: 100000, ocupantes: 10000, anidamiento: 100, hilo: 10 });
+export const LIMITES = Object.freeze({ pasos: 100000, ocupantes: 10000, anidamiento: 100, hilo: 10, bytes: 2000000 });
+
+/**
+ * Las primitivas de verificación (Core AGRAM 12-11, #67; docs/BQLM.md §12): su forma y cuántos argumentos llevan
+ * ([mínimo, máximo]). Puras: sin efectos, sin contexto, sin firmar.
+ */
+export const VERIFICACION = Object.freeze({
+  bytes: Object.freeze({ forma: 'bytes(hex)', aridad: [1, 1] }),
+  hex: Object.freeze({ forma: 'hex(b)', aridad: [1, 1] }),
+  utf8: Object.freeze({ forma: 'utf8(texto)', aridad: [1, 1] }),
+  hash: Object.freeze({ forma: 'hash(x) o hash(x, etiqueta)', aridad: [1, 2] }),
+  sha256: Object.freeze({ forma: 'sha256(b)', aridad: [1, 1] }),
+  sha256d: Object.freeze({ forma: 'sha256d(b)', aridad: [1, 1] }),
+  cat: Object.freeze({ forma: 'cat(b1, b2, …)', aridad: [1, Infinity] }),
+  slice: Object.freeze({ forma: 'slice(b, desde, hasta)', aridad: [3, 3] }),
+  reverse: Object.freeze({ forma: 'reverse(b)', aridad: [1, 1] }),
+  le: Object.freeze({ forma: 'le(b)', aridad: [1, 1] }),
+  below: Object.freeze({ forma: 'below(a, b)', aridad: [2, 2] }),
+  merkle: Object.freeze({ forma: 'merkle(hoja, camino, esquema)', aridad: [3, 3] }),
+  ots: Object.freeze({ forma: 'ots(raiz, pasos)', aridad: [2, 2] }),
+  cabecera: Object.freeze({ forma: 'cabecera(b)', aridad: [1, 1] }),
+  tx: Object.freeze({ forma: 'tx(b)', aridad: [1, 1] }),
+  signed: Object.freeze({ forma: 'signed(firma, mensaje, clave)', aridad: [3, 3] }),
+});
+
+/** Lo que cuesta verificar una firma BIP-340, en bytes del presupuesto (una verificación cuesta como hashear ~64 KB). */
+export const COSTE_FIRMA = 65536;
 
 /** El subtipo de PENDIENTE cuando se agota un límite de cálculo (como en BQL V0). */
 export const POR_LIMITE = 'PENDIENTE POR LÍMITE';
@@ -165,21 +201,55 @@ export const esSimbolo = (o) => MARCA.has(o);
  * pasa al contexto en cada llamada a ocupantes.
  */
 export class Presupuesto {
-  constructor(tope = LIMITES.ocupantes) {
+  constructor(tope = LIMITES.ocupantes, topeBytes = LIMITES.bytes) {
     this.tope = tope;
     this.usados = 0;
     this.memo = new Map();
+    // Los bytes que procesan las primitivas de verificación (§12): cada una paga lo que lee o produce antes de hacerlo.
+    this.topeBytes = topeBytes;
+    this.bytes = 0;
   }
 
   gastar(n = 1) {
     this.usados += n;
     if (this.usados > this.tope) throw porLimite('más de ' + this.tope + ' ocupantes expandidos');
   }
+
+  gastarBytes(n) {
+    this.bytes += n;
+    if (this.bytes > this.topeBytes) throw porLimite('más de ' + this.topeBytes + ' bytes procesados por las primitivas de verificación');
+  }
 }
+
+/**
+ * Los bytes (§12): un valor propio, congelado, distinto de texto y número, que solo producen las primitivas de
+ * verificación. Se leen en hex; dos bytes son iguales si lo son byte a byte. Un texto hex del payload no es bytes hasta
+ * que pasa por bytes(…).
+ */
+const BYTES = new WeakSet();
+function aBytesBql(u8) {
+  const o = Object.freeze({ b: u8 });
+  BYTES.add(o);
+  return o;
+}
+/** ¿Es `o` un valor de bytes del BQL mínimo? */
+export const esBytes = (o) => BYTES.has(o);
+/** El hex de un valor de bytes (o undefined si no lo es). */
+export const hexDe = (o) => (BYTES.has(o) ? aHex(o.b) : undefined);
+
+/** Una décupla pura (la de cabecera(…) o tx(…)): pos[d] es la lista de ocupantes de su posición d. */
+const PURAS = new WeakSet();
+function pura(posiciones) {
+  const pos = Array.from({ length: 10 }, (_, d) => Object.freeze(posiciones[d] ?? []));
+  const o = Object.freeze({ pos: Object.freeze(pos) });
+  PURAS.add(o);
+  return o;
+}
+const esPura = (o) => PURAS.has(o);
 
 const PREFIJAS = new Set(['first', 'last', 'count', 'sum', 'max', 'min', 'floor', 'up', 'down', 'path', 'under', 'moves']);
 const COMPARACIONES = new Set(['=', '!=', '<', '<=', '>', '>=']);
-const RESERVADAS = new Set([...PALABRAS, ...NOMBRES, ...PRIMITIVAS, ...SIMBOLOS_FAMILIA]);
+const RESERVADAS = new Set([...PALABRAS, ...NOMBRES, ...PRIMITIVAS, ...SIMBOLOS_FAMILIA, ...Object.keys(VERIFICACION)]);
 // Tras un símbolo de primitiva, ¿empieza un operando? Entonces es un verbo (mint 3 R.(me) to me); si no, el símbolo
 // (burn in it.4, it.4 = burn).
 const EMPIEZA_OPERANDO = new Set([...NOMBRES, ...PREFIJAS, 'nth', ...SIMBOLOS_FAMILIA]);
@@ -432,11 +502,35 @@ export function analizar(src, { sujeto = false } = {}) {
         }
         return { n: 'it', nivel, posicionable: true };
       }
+      if (Object.hasOwn(VERIFICACION, tk.v)) {
+        if (!es('op', '(')) throw fallo('sintaxis: ' + tk.v + ' es una primitiva de verificación y se escribe con sus argumentos entre paréntesis: ' + VERIFICACION[tk.v].forma);
+        return llamadaPura(tk.v);
+      }
       if (RESERVADAS.has(tk.v)) throw fallo('sintaxis: «' + tk.v + '» fuera de sitio en ' + tk.pos);
       const llamada = es('op', '(') ? ' (no hay funciones con nombre)' : '';
       throw fallo('no es BQL mínimo: «' + tk.v + '»' + llamada);
     }
     throw fallo('sintaxis: «' + tk.v + '» inesperado en ' + tk.pos);
+  }
+  /** Una primitiva de verificación (§12): f(a, b…), con su número de argumentos. */
+  function llamadaPura(f) {
+    i++; // «(»
+    entrar();
+    const args = [];
+    if (!es('op', ')')) {
+      for (;;) {
+        args.push(expresion());
+        if (!es('op', ',')) break;
+        i++;
+      }
+    }
+    esperar('op', ')');
+    salir();
+    const { forma, aridad: [min, max] } = VERIFICACION[f];
+    if (args.length < min || args.length > max) {
+      throw fallo('sintaxis: ' + forma + ' lleva ' + (min === max ? min : max === Infinity ? 'al menos ' + min : min + ' o ' + max) + (min === 1 && max === 1 ? ' argumento' : ' argumentos') + ', no ' + args.length);
+    }
+    return { n: 'llamada', f, args, posicionable: true };
   }
   /** ¿Empieza un operando en el token de ahora? (tras un símbolo de primitiva: entonces es un verbo). */
   function empiezaOperando() {
@@ -497,7 +591,7 @@ export function evaluar(src, contexto, opciones = {}) {
     if (verbo && !opciones.mover) throw fallo(verbo + ': solo una plantilla de transacción mueve (la firma quien la lanza); una regla solo lee (invariante del núcleo)');
     if (put && !opciones.mover && !opciones.escribir) throw fallo('put: solo en una regla que escribe (put en su 4) o en una plantilla de transacción');
     const st = {
-      ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: opciones.presupuesto instanceof Presupuesto ? opciones.presupuesto : new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes),
+      ctx: contexto, its: conSujeto ? [opciones.sujeto] : [], pasos: 0, tope: opciones.limites?.pasos ?? LIMITES.pasos, presupuesto: opciones.presupuesto instanceof Presupuesto ? opciones.presupuesto : new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes, opciones.limites?.bytes ?? LIMITES.bytes),
       escrituras: opciones.escribir && !opciones.mover ? [] : null, movimientos: opciones.mover ? [] : null,
     };
     const valor = calcular(arbol, st);
@@ -540,14 +634,23 @@ function paso(st, n = 1) {
 }
 
 function valorDe(o, ctx) {
-  if (typeof o === 'number' || typeof o === 'string' || typeof o === 'boolean' || esSimbolo(o)) return o;
+  if (typeof o === 'number' || typeof o === 'string' || typeof o === 'boolean' || esSimbolo(o) || esBytes(o)) return o;
+  if (esPura(o)) return undefined;
   return esNodo(o) ? ctx.valor?.(o) : undefined;
+}
+
+/** ¿Son el mismo valor? Los bytes, byte a byte; lo demás, idéntico. */
+function mismo(a, b) {
+  if (esBytes(a) || esBytes(b)) return esBytes(a) && esBytes(b) && igualesBytes(a.b, b.b);
+  return a === b;
 }
 
 function leer(o, ctx) {
   if (typeof o === 'string') return o;
   if (typeof o === 'number' || typeof o === 'boolean') return String(o);
   if (esSimbolo(o)) return o.simbolo;
+  if (esBytes(o)) return aHex(o.b);
+  if (esPura(o)) return '«décupla»';
   return ctx?.texto?.(o) ?? (valorDe(o, ctx) !== undefined ? String(valorDe(o, ctx)) : '«décupla»');
 }
 
@@ -579,7 +682,7 @@ function nombresDe(o, st) {
   const v = valorDe(o, st.ctx);
   if (v !== undefined) return [v];
   paso(st);
-  return st.ctx.ocupantes(o, [0], st.presupuesto).map((x) => valorDe(x, st.ctx)).filter((x) => x !== undefined);
+  return bajar(o, [0], st).map((x) => valorDe(x, st.ctx)).filter((x) => x !== undefined);
 }
 
 function igual(A, B, ctx) {
@@ -587,7 +690,26 @@ function igual(A, B, ctx) {
   const a = valorDe(uno(A, 'comparar', ctx), ctx);
   const b = valorDe(uno(B, 'comparar', ctx), ctx);
   if (a === undefined || b === undefined) throw fallo('comparar: una décupla no tiene valor; lee una de sus posiciones');
-  return a === b;
+  return mismo(a, b);
+}
+
+/**
+ * Los ocupantes de la posición `digitos` de un ocupante: los del contexto o, si es una décupla pura (§12), los suyos.
+ * Los bytes no tienen posiciones (se cortan con slice); un número tampoco.
+ */
+function bajar(o, digitos, st) {
+  if (!esPura(o) && !esBytes(o)) return st.ctx.ocupantes(o, digitos, st.presupuesto);
+  let actual = [o];
+  for (const d of digitos) {
+    actual = actual.flatMap((x) => {
+      if (esBytes(x)) throw fallo('los bytes no tienen posiciones: córtalos con slice(b, desde, hasta)');
+      if (esPura(x)) return x.pos[d];
+      if (typeof x === 'number' || typeof x === 'boolean') return [];
+      return st.ctx.ocupantes(x, [d], st.presupuesto);
+    });
+    st.presupuesto.gastar(actual.length);
+  }
+  return actual;
 }
 
 function calcular(nodo, st) {
@@ -607,7 +729,7 @@ function calcular(nodo, st) {
     case 'paso': {
       const base = calcular(nodo.base, st);
       paso(st, base.length || 1);
-      return base.flatMap((o) => ctx.ocupantes(o, nodo.digitos, st.presupuesto));
+      return base.flatMap((o) => bajar(o, nodo.digitos, st));
     }
     case 'clave': {
       const base = calcular(nodo.base, st);
@@ -615,7 +737,7 @@ function calcular(nodo, st) {
       if (typeof v === 'number') {
         if (!Number.isInteger(v) || v < 0 || v > 9) throw fallo('una posición es un dígito 0-9, no ' + v);
         paso(st, base.length || 1);
-        return base.flatMap((o) => ctx.ocupantes(o, [v], st.presupuesto));
+        return base.flatMap((o) => bajar(o, [v], st));
       }
       if (typeof v !== 'string') throw fallo('una posición por valor es un dígito o un texto, no «' + v + '»');
       return base.filter((o) => nombresDe(o, st).includes(v));
@@ -682,7 +804,7 @@ function calcular(nodo, st) {
         if (x.length === 0) return [false];
         const v = valorDe(uno(x, 'in', ctx), ctx);
         if (v === undefined) throw fallo('in: una décupla no tiene valor; lee una de sus posiciones');
-        return [calcular(nodo.b, st).some((o) => valorDe(o, ctx) === v)];
+        return [calcular(nodo.b, st).some((o) => mismo(valorDe(o, ctx), v))];
       }
       const a = numero(calcular(nodo.a, st), nodo.op, ctx);
       const b = numero(calcular(nodo.b, st), nodo.op, ctx);
@@ -714,6 +836,8 @@ function calcular(nodo, st) {
     }
     case 'verbo':
       return mover(nodo, st);
+    case 'llamada':
+      return verificar(nodo, st);
     case 'put': {
       // En una plantilla (evaluarPlantilla): el nivel en mano, put v at A.1.(S).1 acuña lo que falte.
       if (st.movimientos) return nivelEnMano(nodo, st);
@@ -727,7 +851,7 @@ function calcular(nodo, st) {
       const valor = numero(calcular(nodo.v, st), 'put', ctx);
       const sujetos = calcular(nodo.t.base.base, st);
       const clave = valorDe(uno(calcular(nodo.t.expr, st), 'put: la clave', ctx), ctx);
-      if (clave === undefined || esSimbolo(clave)) throw fallo('put: la clave del destino es un valor (un id o un texto)');
+      if (clave === undefined || esSimbolo(clave) || esBytes(clave)) throw fallo('put: la clave del destino es un valor (un id o un texto)');
       paso(st, sujetos.length || 1);
       // `desde`: el elemento del where en que se coloca (el movimiento, en las reglas que recorren ev.1), si lo hay: con
       // él, quien asienta sabe de qué serie viene la colocación (el tope por serie de la obtención, src/eje.js).
@@ -830,6 +954,225 @@ function numeroDe(o, donde, ctx) {
   return v;
 }
 
+// ---------- primitivas de verificación (§12) ----------
+
+const ORDINAL = ['primer', 'segundo', 'tercer', 'cuarto', 'quinto', 'sexto', 'séptimo', 'octavo', 'noveno', 'décimo'];
+const ordinal = (k) => (ORDINAL[k] ?? k + 1 + '.º') + ' argumento';
+
+/** Lo que una primitiva paga antes de procesar n bytes: un paso y n bytes del presupuesto. */
+function pagar(st, n) {
+  paso(st);
+  st.presupuesto.gastarBytes(n);
+}
+
+/** El valor del k-ésimo argumento: uno solo (vacío → PENDIENTE; de más de uno → ERROR, como G3). */
+function argumento(nodo, k, st) {
+  const o = uno(calcular(nodo.args[k], st), nodo.f + ': el ' + ordinal(k), st.ctx);
+  return valorDe(o, st.ctx);
+}
+
+function argBytes(nodo, k, st) {
+  const v = argumento(nodo, k, st);
+  if (!esBytes(v)) throw fallo(nodo.f + ': el ' + ordinal(k) + ' son bytes, no «' + leer(v, st.ctx) + '»: un texto hex se convierte con bytes(…) y uno legible con utf8(…)');
+  return v.b;
+}
+
+function argTexto(nodo, k, st) {
+  const v = argumento(nodo, k, st);
+  if (typeof v !== 'string') throw fallo(nodo.f + ': el ' + ordinal(k) + ' es un texto, no «' + leer(v, st.ctx) + '»');
+  return v;
+}
+
+function argEntero(nodo, k, st) {
+  const v = argumento(nodo, k, st);
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0) throw fallo(nodo.f + ': el ' + ordinal(k) + ' es un entero ≥ 0, no «' + leer(v, st.ctx) + '»');
+  return v;
+}
+
+/**
+ * Un camino o unos pasos como secuencia de valores (los hermanos de un camino de Merkle, los pasos de OpenTimestamps):
+ * lo que viene en una lista se toma en orden; una décupla (la del dato BTML, [[lado, hermano], …], o una pura) se lee
+ * posición a posición, 0 a 9, y se aplana. Así vale tanto la forma de SIP-0.md (una décupla de pares) como una lista
+ * plana (lado, hermano, lado, hermano…), que no tiene el tope de diez de una décupla.
+ */
+function secuencia(lista, st, nivel = 0) {
+  const fuera = [];
+  for (const o of lista) {
+    paso(st);
+    const v = valorDe(o, st.ctx);
+    if (v !== undefined) {
+      fuera.push(v);
+      continue;
+    }
+    if (nivel >= 3) throw fallo('el camino está anidado más de tres niveles');
+    for (let d = 0; d <= 9; d++) fuera.push(...secuencia(bajar(o, [d], st), st, nivel + 1));
+  }
+  return fuera;
+}
+
+/** Bytes de un hermano o de un argumento de ots: bytes, o el texto hex en que viajan en los datos. */
+function bytesDeDato(v, donde, st) {
+  if (esBytes(v)) return v.b;
+  const b = typeof v === 'string' ? deHex(v) : null;
+  if (!b) throw fallo(donde + ': espera bytes o su texto hex, no «' + leer(v, st.ctx) + '»');
+  return b;
+}
+
+/**
+ * Evalúa una primitiva de verificación. Pura: solo lee sus argumentos; nunca llama al contexto más que para leerlos (los
+ * evalúa calcular, como cualquier subexpresión) y no firma. Cada una paga en el presupuesto lo que procesa ANTES de
+ * hacerlo, así que una entrada desmesurada se corta (PENDIENTE POR LÍMITE) sin llegar a procesarse.
+ */
+function verificar(nodo, st) {
+  try {
+    return calcularPrimitiva(nodo, st);
+  } catch (e) {
+    if (e instanceof Parada) throw e;
+    throw fallo(e.message);
+  }
+}
+
+function calcularPrimitiva(nodo, st) {
+  const { ctx } = st;
+  const f = nodo.f;
+  switch (f) {
+    case 'bytes': {
+      const t = argumento(nodo, 0, st);
+      if (typeof t !== 'string') throw fallo('bytes: convierte un texto hex, no «' + leer(t, ctx) + '»');
+      pagar(st, Math.ceil(t.length / 2));
+      const b = deHex(t);
+      if (!b) throw fallo('bytes: «' + (t.length > 24 ? t.slice(0, 24) + '…' : t) + '» no es hex (cifras 0-9 y a-f, en número par)');
+      return [aBytesBql(b)];
+    }
+    case 'hex': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, b.length);
+      return [aHex(b)];
+    }
+    case 'utf8': {
+      const t = argTexto(nodo, 0, st);
+      pagar(st, t.length * 3);
+      return [aBytesBql(new TextEncoder().encode(t))];
+    }
+    case 'hash': {
+      const x = argumento(nodo, 0, st);
+      let m;
+      if (esBytes(x)) m = x.b;
+      else if (typeof x === 'string' || typeof x === 'number') {
+        pagar(st, typeof x === 'string' ? x.length * 3 : 32);
+        m = new TextEncoder().encode(canonico(x));
+      } else throw fallo('hash: hashea un texto, un número o bytes (la serialización canónica BTML de un valor), no «' + leer(x, ctx) + '»' + (x === undefined ? ': una décupla no tiene valor; hashea una de sus posiciones' : ''));
+      if (nodo.args.length === 2) {
+        const etiqueta = argTexto(nodo, 1, st);
+        pagar(st, m.length + 64 + etiqueta.length * 3);
+        return [aBytesBql(hashEtiquetado(etiqueta, m))];
+      }
+      pagar(st, m.length);
+      return [aBytesBql(sha256(m))];
+    }
+    case 'sha256':
+    case 'sha256d': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, b.length + (f === 'sha256d' ? 32 : 0));
+      return [aBytesBql(f === 'sha256' ? sha256(b) : sha256d(b))];
+    }
+    case 'cat': {
+      const partes = nodo.args.map((_, k) => argBytes(nodo, k, st));
+      pagar(st, partes.reduce((n, p) => n + p.length, 0));
+      return [aBytesBql(concatenar(...partes))];
+    }
+    case 'slice': {
+      const b = argBytes(nodo, 0, st);
+      const desde = argEntero(nodo, 1, st);
+      const hasta = argEntero(nodo, 2, st);
+      if (desde > hasta || hasta > b.length) throw fallo('slice: corta de ' + desde + ' a ' + hasta + ' (fin excluido) en ' + b.length + ' bytes: ha de ser 0 ≤ desde ≤ hasta ≤ ' + b.length);
+      pagar(st, hasta - desde);
+      return [aBytesBql(b.slice(desde, hasta))];
+    }
+    case 'reverse': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, b.length);
+      return [aBytesBql(b.slice().reverse())];
+    }
+    case 'le': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, b.length);
+      return [enteroLe(b)];
+    }
+    case 'below': {
+      const a = argBytes(nodo, 0, st);
+      const b = argBytes(nodo, 1, st);
+      if (a.length !== b.length) throw fallo('below: compara bytes de la misma longitud, no ' + a.length + ' y ' + b.length);
+      pagar(st, a.length);
+      return [menor(a, b)];
+    }
+    case 'merkle': {
+      const hoja = argBytes(nodo, 0, st);
+      const esquema = argTexto(nodo, 2, st);
+      if (esquema !== 'bitcoin' && esquema !== 'sip') throw fallo('merkle: el esquema es «bitcoin» o «sip», no «' + esquema + '»');
+      const plano = secuencia(calcular(nodo.args[1], st), st);
+      if (plano.length % 2) throw fallo('merkle: el camino son pares [lado, hermano], y aquí hay ' + plano.length + ' valores');
+      const pasos = [];
+      for (let k = 0; k < plano.length; k += 2) {
+        const lado = plano[k];
+        if (lado !== 'i' && lado !== 'd') throw fallo('merkle: el lado de un paso es «i» (el hermano a la izquierda) o «d» (a la derecha), no «' + leer(lado, ctx) + '»');
+        pasos.push([lado, bytesDeDato(plano[k + 1], 'merkle: el hermano del paso ' + k / 2, st)]);
+      }
+      pagar(st, 65 + pasos.length * (esquema === 'sip' ? 65 : 96));
+      return [aBytesBql(raizMerkle(hoja, pasos, esquema))];
+    }
+    case 'ots': {
+      const inicio = argBytes(nodo, 0, st);
+      let largo = inicio.length;
+      const plano = secuencia(calcular(nodo.args[1], st), st);
+      const pasos = [];
+      for (let k = 0; k < plano.length; k++) {
+        const op = plano[k];
+        if (op === 'sha256') {
+          pagar(st, largo);
+          largo = 32;
+          pasos.push([op]);
+        } else if (op === 'prepend' || op === 'append') {
+          if (k + 1 >= plano.length) throw fallo('ots: «' + op + '» lleva sus bytes detrás');
+          const arg = bytesDeDato(plano[++k], 'ots: ' + op, st);
+          largo += arg.length;
+          pagar(st, largo);
+          pasos.push([op, arg]);
+        } else throw fallo('ots: paso desconocido «' + leer(op, ctx) + '» (prepend, append o sha256)');
+      }
+      return [aBytesBql(aplicarOts(inicio, pasos))];
+    }
+    case 'cabecera': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, 160);
+      const c = leerCabecera(b);
+      return [pura({ 1: [c.version], 2: [aBytesBql(c.anterior)], 3: [aBytesBql(c.raiz)], 4: [c.hora], 5: [c.bits], 6: [c.nonce], 7: [aBytesBql(c.hash)], 8: [aBytesBql(c.objetivo)] })];
+    }
+    case 'tx': {
+      const b = argBytes(nodo, 0, st);
+      pagar(st, 2 * b.length);
+      const t = leerTx(b);
+      paso(st, t.entradas.length + t.salidas.length);
+      return [pura({
+        1: t.entradas.map((e) => pura({ 0: [aBytesBql(e.txid)], 1: [e.vout], 2: [aBytesBql(e.script)], 3: [e.secuencia] })),
+        2: t.salidas.map((s) => pura({ 0: [s.sats], 1: [aBytesBql(s.script)] })),
+        3: t.testigos.map((pila) => pura({ 0: pila.map(aBytesBql) })),
+        4: [t.locktime],
+        5: [aBytesBql(t.txid)],
+      })];
+    }
+    case 'signed': {
+      const firma = argBytes(nodo, 0, st);
+      const mensaje = argBytes(nodo, 1, st);
+      const clave = argBytes(nodo, 2, st);
+      pagar(st, COSTE_FIRMA);
+      return [verificarBip340(firma, mensaje, clave)];
+    }
+    default:
+      throw fallo('primitiva desconocida: ' + f);
+  }
+}
+
 // ---------- mover (solo en una plantilla) ----------
 
 /** Lo que vale una expresión que puede quedar PENDIENTE (falta un valor): la lista, o [] si queda pendiente sin ser por límite. */
@@ -886,7 +1229,7 @@ function mover(nodo, st) {
     const e = calcular(nodo.exit, st);
     if (e.length) {
       const x = valorDe(uno(e, v + ' exit', ctx), ctx);
-      if (x === undefined || esSimbolo(x)) throw fallo(v + ' exit: la salida es un valor (un id, una identidad o un instante)');
+      if (x === undefined || esSimbolo(x) || esBytes(x)) throw fallo(v + ' exit: la salida es un valor (un id, una identidad o un instante)');
       m.salida = String(x);
     }
   }
@@ -900,7 +1243,10 @@ function mover(nodo, st) {
   }
   if (nodo.price) {
     const p = calcular(nodo.price, st);
-    if (p.length) m.precio = uno(p, v + ' price', ctx);
+    if (p.length) {
+      m.precio = uno(p, v + ' price', ctx);
+      if (esBytes(m.precio) || esPura(m.precio)) throw fallo(v + ' price: el precio es [[serie], [cuánto]], no bytes');
+    }
   }
   paso(st);
   st.movimientos.push(m);
@@ -1072,7 +1418,7 @@ export function evaluarEscritura(regla, contexto, opciones = {}) {
  * evaluación que mueve: la candidata la firma quien la lanza, y después la validan las reglas, que solo leen.
  */
 export function evaluarPlantilla(sentencias, contexto, opciones = {}) {
-  const presupuesto = new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes);
+  const presupuesto = new Presupuesto(opciones.limites?.ocupantes ?? LIMITES.ocupantes, opciones.limites?.bytes ?? LIMITES.bytes);
   const movimientos = [];
   for (const src of Array.isArray(sentencias) ? sentencias : [sentencias]) {
     if (typeof src !== 'string' || !src.startsWith('=') || src.startsWith('==')) return { estado: 'ERROR', movimientos: [], motivo: 'una sentencia de plantilla es una fórmula «=…»' };
