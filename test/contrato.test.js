@@ -835,13 +835,15 @@ test('verificado: además del sello, trae la altura de su bloque, la profundidad
   assert.equal(C.verificado(eje, 'no existe'), null);
   const sinSello = C.verificado(eje, compra.id);
   assert.deepEqual([sinSello.altura, sinSello.profundidad, sinSello.enFirme], [null, null, false]);
-  // Un sello sintético (la simulación aún no trae la cabecera ni la firma del observador, 8.0 y 8.2): la altura es la del sello.
+  // Un sello sin la prueba copiada (sin la décupla del SIP 0): la altura es la del sello, pero la regla «sealed» queda
+  // PENDIENTE (falta el dato), así que nunca está en firme (encargo «verificado-regla»; con la prueba: test/verificado-regla.test.js).
   const sello = (altura, h) => ({ altura, hash: h.repeat(64), instante: '2099-01-01T00:00:00.000Z', verificado: true });
   eje.marcarSello(compra.id, sello(840000, 'a'));
   assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, compra.id)[k]), [840000, 1, false]);
   const otro = eje.orden.map((id) => id).find((id) => id !== compra.id && id !== eje.genesisId);
   eje.marcarSello(otro, sello(840005, 'b'));
-  assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, compra.id)[k]), [840000, 6, true], '840005 − 840000 + 1');
+  assert.deepEqual(['altura', 'profundidad', 'enFirme', 'sello'].map((k) => C.verificado(eje, compra.id)[k]), [840000, 6, false, false], '840005 − 840000 + 1; sin la prueba, ni sellado ni en firme');
+  assert.deepEqual(C.verificado(eje, compra.id).pendiente.map((p) => p.lectura), ['sello']);
   assert.deepEqual(['altura', 'profundidad', 'enFirme'].map((k) => C.verificado(eje, otro)[k]), [840005, 1, false]);
   // leer del 5 lo trae igual.
   assert.equal(C.leer(eje, compra.id, 5).verificado.profundidad, 6);

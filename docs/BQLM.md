@@ -128,7 +128,7 @@ Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro 
 | `X.1` | de un registro de recurso: sus series de E atadas y vivas; cada una, 0 la serie, 1 lo vivo, 7 la caducidad. Lo vivo caduca con el **reloj de la caducidad**: el menor entre `ev.6.0` y el reloj de los demás (`before.6.3`); sin los demás, nada caduca (SEG-03, SEG-05, RL-4; como `src/condiciones/tope.js`) | `eje.series`, `eje.vivo`, `eje.tMaximo` |
 | `X.2.4` | los **compromisos** con el registro X (mapa §15 [D] (5): «comprometer = bloquear con salida la decisión»): lo bloqueado por cualquiera con la salida = el id de X; cada uno, 0 la serie, 1 cuánto, 3 su titular, 5 la decisión (X), 8 su peso (la lectura «weight», §5). El resto del 2 de X es su payload | `eje.bloqueosCon`; `X.4.8` es la lectura «stage» (§5), `X.6.2` y `X.6.3` las lecturas «attention price» y «attention group» (§5) |
 | `X.7.1` | las series de E vivas de **todo el subárbol** de X (X y lo que cuelga de él), con el mismo reloj; cada una como en `X.1` (B6). El resto del 7 implícito son las lecturas que la época pone ahí (`X.7.4`, `X.7.7`, `X.7.9`, §5) | `eje.series`, `eje.hilo`, `eje.vivo` |
-| `X.6.8` | **los tres relojes** de X (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de Nostr al transportarlo, 6.8.2 el bloque de Bitcoin que lo ancla; los dos últimos, vacíos hasta que exista el transporte (los pondrá él, fuera del id). Se puntúan como el vector de diferencias con signo del encaje: una diferencia negativa más allá de su margen (`epoch.7.3`) es la única incongruencia real, la cuenta rara (`X.6.9`, la lectura «clocks out of order», §5); las distancias, latencias de anclaje, serán la medida del 8 | el evento; el transporte |
+| `X.6.8` | **los tres relojes** de X (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de Nostr al transportarlo (su instante, la clave del relé y, detrás, el recibo copiado: una décupla, 0 «recibo de llegada», 1 instante, 2 relé, 3 firma, 4 id del recibo), 6.8.2 el bloque de Bitcoin que lo ancla (su instante, su altura, su hash y, detrás, **la prueba copiada**: la décupla del sello de tiempo del SIP 0, con «-» leído como nada; encargo «verificado-regla»); los dos últimos, vacíos hasta que exista el transporte (los pone él, fuera del id). En 6.8.4 y 6.8.5, las lecturas «received» y «sealed» (§5, §12). Se puntúan como el vector de diferencias con signo del encaje: una diferencia negativa más allá de su margen (`epoch.7.3`) es la única incongruencia real, la cuenta rara (`X.6.9`, la lectura «clocks out of order», §5); las distancias, latencias de anclaje, serán la medida del 8 | el evento; el transporte |
 | `S.1.0`, `S.1.1` | de una serie S (la de un movimiento, `ev.1.0`, la de una entrada de la cartera, `A.1.0`, o la que nombra una salida): lo emitido y lo consumido hasta antes de la candidata (el `S.8` del encargo 2) | `eje.serie`, `libro.sumas` |
 | `before.1` | los registros del libro, por llegada | `eje.orden` |
 | `before.2` | lo bloqueado por salida y serie, **sumado sobre todos los titulares** (B6, BL-3): un ocupante por salida y serie, que vale su salida (así `before.2.("salida")` los da); 0 la serie, 1 cuánto, 3 los titulares | `eje.identidades`, `eje.bloqueos` |
@@ -138,6 +138,7 @@ Un texto se despliega por su forma: un instante (D-FECHA), el id de un registro 
 | `before.6.0` | el mayor t del libro | `eje.tMaximo` |
 | `epoch` por su id | la raíz de la época (`EPOCA_0_BTML.id`), referenciada desde un registro (el 2 de una invitación, `{ ref }`), se alcanza como `epoch` | `cargarEpocaBtml(…, { id })` |
 | `before.9` | cómo es este libro: «demostración» si su génesis lo marca (sin clave se escribe; R9) | `eje.demostracion` |
+| `before.8` | **los servicios de fuera del eje** (encargo «verificado-regla», #67): los ajustes «exterior settings» de la cuenta RAÍZ, ya leídos (`exterior.ajustesDelEje`): 1 relay url, 2 blossom url, 3 seal url, **6 observer keys** (una clave x-only por ocupante), 7 confirmations, 8 guide url. Con ellos verifican todos los lectores | `exterior.ajustesDelEje` |
 | `before.6.3` | el **reloj de los demás** (B6): el mayor t del libro entre las identidades que no son el autor de la candidata ni emiten la E que ella acuña; nada si no hay ninguna | `eje.tMaximo(excluidos)` |
 
 **Lo que el núcleo lee en un registro va delante.** Los implícitos van primero, así que `(first X.7).d` y `(first X.6).d` son lo que el núcleo lee en el 7 y el 6 de X (sus lecturas, sus relojes), sin lo que el payload o lo anclado pongan en su 7 o su 6 (una referencia en el 7 del payload, un registro anclado en el 7.7): así lo leen las reglas de la época 12-11.
@@ -168,6 +169,8 @@ No hay tipo de identidad (VG, 10-11, B1): persona o cosa se lee del 3 de su alta
 | dated movement | `X.7.9` (futuro, cómo; Core, pendiente de revisar VG) | el primer asiento del registro que lo refiere a una fecha (`moves`): el T futuro declarado (la escala «futuro» de `epoch.1.3.1`) con su 7.1, lo bloqueado hasta una fecha (7.2), la emisión de E que caduca (7.0) o la quema de E propia. Sobre él, los **estados del futuro** de `epoch.7.4` (una fila por estado: su nombre, cuándo, con `it` = este asiento, y su fecha): previsto, bloqueado (sigue en `A.1` de quien lo bloqueó), liberado, caducado (la caducidad ya pasó `before.6.0`, o quema E propia) y caduca | `contrato.estadoDeEntrada` de antes (VG 12-11: ahora lo lee de aquí) |
 | for when | `X.7.7` (futuro, para cuándo) | la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha (`(first X.7).9`: su 7.0.0, 7.1.0 o 7.2.0) o, si no tiene 7 (la quema de E propia), su instante; nada si no tiene. La leen «by when» (el 7, por esa fecha) y el paso «cuando» de `epoch.9.8` | la fecha de `estadoDeEntrada` |
 | clocks out of order | `X.6.9` (de dónde viene, cómo; la que proponía el estudio, Core, pendiente de revisar VG) | si los tres relojes de `X.6.8` no van en orden (libro ≤ Nostr ≤ Bitcoin) más allá de sus márgenes (`epoch.7.3`): la única cuenta rara (VG 12-11, #42). Hoy, siempre falso | — |
+| sealed | `X.6.8.5` (junto al reloj que comprueba; Core 12-11) | si la prueba del sello de tiempo copiada en `X.6.8.2` cuadra y la firmó un observador declarado por la cuenta raíz (§12; VG 12-11, #64 d y #67); PENDIENTE si falta el dato | `contrato.verificado` (`sello`), que ya solo la evalúa |
+| received | `X.6.8.4` | si la firma del relé vale sobre el id del recibo copiado en `X.6.8.1`; PENDIENTE si falta el dato | `contrato.verificado` (`recibo`) |
 
 Para leerlas, el contexto da dos posiciones más: `before.1`, los registros del libro por llegada, y `X.6.4`, lo que un registro atiende (los ids de su `contexto.atiende`; «attended» ya no lo usa desde el 3b: atender es anclarse sobre la petición). Por ejemplo, los registros no presentes del libro son `before.1 where not first it.6.1`. `test/lecturas-bqlm.test.js` comprueba cada lectura contra su función JS en los registros de los ejemplos.
 
@@ -379,7 +382,7 @@ for (const r of escrituras) {
 ```
 
 ```text
-30 condiciones, 3 reglas que escriben y 14 lecturas
+30 condiciones, 3 reglas que escriben y 16 lecturas
 no pasa: E is minted by and to its issuer: huesped mints E of casa, or to someone else
 no pasa: P is repositioned one step at a time: huesped mints P that is not one step of its own P up (a tenth) or down (a tenth more), from one record to its parent, a child or one of its views, keeping its origin
 no pasa: minting E needs own R issued: huesped mints E and has never issued R of its own
@@ -575,6 +578,23 @@ Se escriben como llamadas, con su número de argumentos (`VERIFICACION`, el anal
 **Coste.** Cada primitiva da un paso y **paga en el presupuesto los bytes que procesa antes de procesarlos** (`Presupuesto.gastarBytes`): `bytes` la mitad del texto, `hash` y `sha256` lo que hashean, `cat` lo que junta, `tx` el doble de la transacción (leerla y su txid), `cabecera` 160, cada paso de Merkle 65 o 96, y `signed` `COSTE_FIRMA` (65 536: verificar una firma cuesta como hashear unos 64 KB). El tope es `LIMITES.bytes`, 2 000 000 por evaluación (`opciones.limites.bytes`), y pasarse es PENDIENTE POR LÍMITE, como los demás límites (§3). Una transacción de 100 KB cabe (200 KB); una de 1 MB se corta sin llegar a leerse; un `cat` o un `signed` dentro de un `where` largo se corta igual. Unas treinta firmas por evaluación.
 
 **El SHA-256.** Es código propio en `src/cripto.js`, no una librería: el SHA-256 de `src/vendor/noble-secp256k1.js` va dentro y no se exporta (solo `schnorr`), y Web Crypto es asíncrono. Las pruebas lo cruzan con `node:crypto` y con el hash etiquetado de noble.
+
+**«Verificado», una regla de la época** (VG 12-11, #64 d y #67; encargo «verificado-regla»). La lectura «sealed» (`X.6.8.5`) comprueba con estas primitivas la prueba que el registro trae copiada en `X.6.8.2`, la décupla del sello de tiempo del SIP 0 (1 altura, 2 hash, 3 raíz del lote, 4 camino «sip», 5 el id sellado, 8.0 cabecera, 8.1 pasos OTS, 8.2 firma del observador, 8.3 altura LE, 8.4 su clave). Con S el sello y C su cabecera (el texto completo, en `datos/epocas/reglas/sealed.json`):
+
+<!-- comprobar: fragmento -->
+```text
+S = (first ((first it.6).8.2 where "sello de tiempo" in it2.0))      el sello copiado (lo del núcleo: first it.6)
+C = (first cabecera(bytes(first S.8.0)))
+=bytes(first S.5) = bytes(first it.5)                                   la hoja es el propio registro
+ and (count S.8.1 = 0 and merkle(bytes(first it.5), S.4, "sip") = first C.3
+      or count S.8.1 > 0 and ots(merkle(bytes(first it.5), S.4, "sip"), S.8.1) = first C.3)   el lote llega a la cabecera
+ and hex(first C.7) = first S.2 and below(reverse(first C.7), first C.8)                       su hash y su prueba de trabajo
+ and le(bytes(first S.8.3)) = first S.1                                                        la altura firmada es la del sello
+ and signed(bytes(first S.8.2), hash(cat(bytes(first S.8.0), bytes(first S.8.3)), "StateArk/Observador/Cabecera/v1"), bytes(first S.8.4))
+ and first S.8.4 in before.8.6                                                                 un observador de la cuenta raíz
+```
+
+Lo que falta (sin sello, o sin cabecera, firma o clave) la deja PENDIENTE, porque `bytes` de nada es PENDIENTE (§3): nunca verdadera. Una clave fuera de `before.8.6`, una firma mala o una prueba que no cuadra la dejan falsa. La lectura «received» (`X.6.8.4`) es `signed(bytes(first R.3), bytes(first R.4), bytes(first R.2))` con R = `(first ((first it.6).8.1 where "recibo de llegada" in it2.0))`, el recibo copiado: la firma del relé sobre el id de su recibo. `contrato.verificado` las evalúa (`docs/CONTRATO.md` §4.4) y las estaciones de `epoch.4.3` leen «sealed» («sin verificar no se ejecuta», `docs/MOTOR.md` §4.1). Pruebas: `test/verificado-regla.test.js`, SEG-19 en `test/seguridad-bqlm.test.js`.
 
 **El SIP 0** (Core StateArk, `InTheState/stateark/sip/`, solo lectura) escribe sus reglas con estas formas; `test/bqlm-cripto.test.js` comprueba que `analizar` las acepta todas, y señala la única diferencia de forma de su primer borrador: `merkle(hoja, camino)` sin esquema.
 

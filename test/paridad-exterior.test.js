@@ -19,6 +19,7 @@ import { arrancar as arrancarTransporte } from '../servidor/sim/aarpia/servidor.
 import { Rele } from '../servidor/sim/aarpia/src/rele.js';
 import { crearServidor as crearServidorDeSello } from '../servidor/sim/stateark/servidor.js';
 import { Simulacion } from '../servidor/sim/stateark/index.js';
+import { observadorBip340 } from '../servidor/sim/sello-agram.js';
 import { contrato, salida, sincronia, sello, exterior } from '../src/index.js';
 import { referenciaDeArchivo } from '../src/modelos.js';
 import { Eje } from '../src/eje.js';
@@ -48,7 +49,8 @@ before(async () => {
   const ahora = () => new Date(AHORA_DEL_RELE);
   transporte = await arrancarTransporte({ puerto: 0, secreto: 'prueba', rele: new Rele({ ahora }), ahora });
   // El sello de StateArk simulado: la cadena empieza en el mismo instante en que va su reloj (el bloque 1 sale 10 minutos después).
-  stateark = await Simulacion.crear({ inicio: AHORA_DE_LA_CADENA, reloj: () => Date.parse(AHORA_DE_LA_CADENA) });
+  // El observador de cabeceras firma con BIP-340 real (lo que comprueba la regla «sealed»; encargo «verificado-regla»).
+  stateark = await Simulacion.crear({ inicio: AHORA_DE_LA_CADENA, reloj: () => Date.parse(AHORA_DE_LA_CADENA), observador: await observadorBip340() });
   const { servidor } = await crearServidorDeSello({ simulacion: stateark });
   servidorDeSello = servidor;
   await new Promise((r) => servidorDeSello.listen(0, '127.0.0.1', r));
@@ -158,7 +160,8 @@ test('la misma secuencia da los mismos registros, el mismo reloj 6.8.0 y el mism
   const sim = await secuencia({
     url: transporte.url,
     fetchDe: fetch,
-    ajustesDelExterior: { 'relay url': transporte.url, 'blossom url': transporte.url, 'seal url': urlDelSello() },
+    // La cuenta raíz declara la clave del observador de la simulación: con ella «sealed» da verdadero.
+    ajustesDelExterior: { 'relay url': transporte.url, 'blossom url': transporte.url, 'seal url': urlDelSello(), 'observer keys': stateark.sellador.claveObservador },
     minarElSello: true,
   });
 
@@ -176,7 +179,7 @@ test('la misma secuencia da los mismos registros, el mismo reloj 6.8.0 y el mism
       const m = relojes(sim[dispositivoDe], id);
       assert.deepEqual(s.libro, m.libro, '6.8.0 igual (' + dispositivoDe + ')');
       assert.deepEqual([s.nostr, s.bitcoin], [0, 0], 'Supabase: solo 6.8.0');
-      assert.deepEqual([m.nostr, m.bitcoin], [2, 3], 'simulación: 6.8.1 (instante y relé) y 6.8.2 (instante, altura, hash)');
+      assert.deepEqual([m.nostr, m.bitcoin], [3, 4], 'simulación: 6.8.1 (instante, relé y el recibo copiado) y 6.8.2 (instante, altura, hash y la prueba copiada)');
       assert.equal(supa[dispositivoDe].recibo(id), null);
       assert.equal(supa[dispositivoDe].sello(id), null);
       assert.equal(sim[dispositivoDe].recibo(id).rele, transporte.servicio.rele.publica);
@@ -188,10 +191,12 @@ test('la misma secuencia da los mismos registros, el mismo reloj 6.8.0 y el mism
 
   // 3. «Verificado» como lectura: solo en la simulación (sello verificado + recibo del relé + relojes en orden).
   for (const id of [supa.e1.id, supa.e2.id]) {
-    assert.deepEqual(contrato.verificado(supa.eje, id), { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false }, 'Supabase: sin sello no hay verificado, y sin transporte de recibos no se exige');
+    const { pendiente, ...enSupa } = contrato.verificado(supa.eje, id);
+    assert.deepEqual(enSupa, { ok: false, sello: false, recibo: null, relojes: true, altura: null, profundidad: null, enFirme: false, pendienteDeSello: false }, 'Supabase: sin sello no hay verificado (la regla «sealed» queda pendiente: falta el dato; sin «seal url», no es «pendiente de sello»), y sin transporte de recibos no se exige');
+    assert.deepEqual(pendiente.map((p) => p.lectura), ['sello']);
     // La simulación de StateArk da la altura del bloque del sello: hay profundidad (un solo bloque: 1 confirmación, aún no «en firme»).
-    assert.deepEqual(contrato.verificado(sim.eje, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false });
-    assert.deepEqual(contrato.verificado(sim.ejeB, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false });
+    assert.deepEqual(contrato.verificado(sim.eje, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
+    assert.deepEqual(contrato.verificado(sim.ejeB, id), { ok: true, sello: true, recibo: true, relojes: true, altura: 1, profundidad: 1, enFirme: false, pendiente: [], pendienteDeSello: false });
     assert.equal(contrato.leer(sim.eje, id, 5).verificado.ok, true);
     assert.equal(contrato.leer(supa.eje, id, 5).verificado.ok, false);
   }

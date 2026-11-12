@@ -18,6 +18,8 @@
 //
 // El resultado se escribe en el eje con `eje.marcarSello(id, prueba)` (src/eje.js): una vista del libro, fuera del
 // cuerpo firmado y del id (src/sincronia.js lo hace tras asentar eventos nuevos). Este módulo no toca ningún evento.
+// Con el sello va la PRUEBA COPIADA (`decuplaDeSello`, la décupla del SIP 0): la comprueba la regla «sealed» de la
+// época (X.6.8.5; encargo «verificado-regla», #67), sin salir del libro; `verificar` de aquí ya no decide nada.
 
 import { AJUSTES, exterior } from './exterior.js';
 
@@ -111,4 +113,39 @@ export function deConfiguracion(eje, yo, { fetch, sellador, ...opciones } = {}) 
   const url = destino(eje, yo, opciones);
   if (url) return selloHttp({ url, fetch });
   return sellador ? selloCon(sellador) : null;
+}
+
+/** Un texto hex en minúsculas de la longitud dada (en caracteres), o «-» (la posición vacía de BTML). */
+const hexO = (x, n) => (typeof x === 'string' && new RegExp('^[0-9a-f]{' + n + '}$').test(x) ? x : '-');
+
+/**
+ * La prueba de un sello (la de `prueba(id)`: { altura, hash, instante, lote, prueba: { camino, pasos, via, cabecera,
+ * observador: { clave, firma, altura_le } } }) como la décupla BTML del sello de tiempo del SIP 0, la que va copiada en
+ * X.6.8.2 del registro sellado y lee la regla «sealed» (docs/CONTRATO.md §4.4):
+ *   0 ["sello de tiempo", "SIP 0"], 1 altura, 2 hash (orden interno: el doble SHA-256 de la cabecera), 3 raíz del lote,
+ *   4 camino «sip» (pares [lado, hermano]), 5 el id, 6 instante, 7 vía,
+ *   8 [cabecera (80 bytes hex), pasos OTS (pares [op, hex] o [«sha256»]), firma del observador, altura en 4 bytes LE, su clave], 9 «-».
+ * Lo que falta (un camino vacío, sin pasos, un sello sin cabecera ni observador, como el de antes de H9) va como «-»: la
+ * regla dice PENDIENTE, nunca verdadero. Es la misma forma que `selloComoDecupla` de la simulación de StateArk
+ * (test/sello.test.js lo comprueba), escrita aquí porque src/ no importa ninguna simulación (TOK-74). null si la prueba
+ * no tiene altura, hash, instante y lote.
+ */
+export function decuplaDeSello(prueba, id) {
+  if (!prueba || prueba.pendiente || !Number.isSafeInteger(prueba.altura) || !/^[0-9a-f]{64}$/.test(prueba.hash ?? '') || typeof prueba.instante !== 'string' || !/^[0-9a-f]{64}$/.test(prueba.lote ?? '') || !/^[0-9a-f]{64}$/.test(id ?? '')) return null;
+  const p = prueba.prueba && typeof prueba.prueba === 'object' ? prueba.prueba : {};
+  const camino = (Array.isArray(p.camino) ? p.camino : []).filter((x) => Array.isArray(x) && (x[0] === 'i' || x[0] === 'd') && /^[0-9a-f]{64}$/.test(x[1] ?? '')).map(([l, h]) => [l, h]);
+  const pasos = (Array.isArray(p.pasos) ? p.pasos : []).filter((x) => Array.isArray(x) && x.length && typeof x[0] === 'string').map((x) => x.filter((y) => typeof y === 'string' && y !== ''));
+  const o = p.observador && typeof p.observador === 'object' ? p.observador : {};
+  return [
+    ['sello de tiempo', 'SIP 0'],
+    prueba.altura,
+    prueba.hash,
+    prueba.lote,
+    camino.length ? camino : '-',
+    id,
+    prueba.instante,
+    typeof p.via === 'string' && p.via ? p.via : '-',
+    [hexO(p.cabecera, 160), pasos.length ? pasos : '-', hexO(o.firma, 128), hexO(o.altura_le, 8), hexO(o.clave, 64)],
+    '-',
+  ];
 }

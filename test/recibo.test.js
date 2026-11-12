@@ -85,9 +85,13 @@ test('paridad: subir un evento real al transporte simulado rellena X.6.8.1 (inst
   assert.match(r.firma, /^[0-9a-f]{128}$/);
   assert.deepEqual(S.estadoDeRecibo(ev.id), r);
 
-  // 6.8.1 relleno (el instante primero, se despliega como fecha; después la clave del relé); 6.8.0 y 6.8.2 como antes.
+  // 6.8.1 relleno (el instante primero, se despliega como fecha; después la clave del relé y, para la regla «received»,
+  // la décupla del recibo con la firma del relé y el id del recibo que firma); 6.8.0 y 6.8.2 como antes.
   const c = ctxDe(eje);
-  assert.deepEqual(conSujeto('=(first it.6).8.1', c, ev.id).valor, [r.instante, r.rele]);
+  assert.deepEqual(conSujeto('=((first it.6).8.1 where count it2.0 = 0 or not ("recibo de llegada" in it2.0))', c, ev.id).valor, [r.instante, r.rele]);
+  assert.deepEqual(conSujeto('=(first ((first it.6).8.1 where "recibo de llegada" in it2.0)).4', c, ev.id).valor, [r.recibo]);
+  assert.match(r.recibo, /^[0-9a-f]{64}$/);
+  assert.deepEqual(conSujeto('=first (first it.6).8.4', c, ev.id).valor, [true], '«received» (X.6.8.4): la firma del relé vale sobre el id de su recibo');
   assert.deepEqual(conSujeto('=first (first it.6).8.1.0', c, ev.id).valor, [Date.parse(r.instante) / 1000]);
   assert.deepEqual(conSujeto('=first (first it.6).8.0.0', c, ev.id).valor, [Date.parse(ev.t) / 1000]);
   assert.deepEqual(conSujeto('=count (first it.6).8.2', c, ev.id).valor, [0], 'el sello, vacío: es otro reloj');

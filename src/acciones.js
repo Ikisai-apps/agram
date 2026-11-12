@@ -621,6 +621,8 @@ export function estacionDeAnuncio(eje, id, opciones = {}) {
  * plantilla, autoriza, anunciados, hechos, pendientes, autorizados }], cada lista con los ids de los anuncios. La
  * familia de un anuncio se lee buscando su serie por su valor en las del libro (before.4). `autorizados` (encargo
  * «datos2», issue #11) son los pendientes que la estación da por autorizados (su `autoriza`): siguen pendientes.
+ * `pendientesDeSello` (encargo «verificado-regla», #50 y #67: «sin verificar no se ejecuta») son los hechos (ya
+ * movidos) que epoch.4.3 no da por ejecutados: el eje tiene sello configurado y lo que los cumple aún no está «sealed».
  */
 export function estaciones(eje, X, opciones = {}) {
   const ev = eventoDe(eje, X);
@@ -644,6 +646,7 @@ export function estaciones(eje, X, opciones = {}) {
       ...e, anunciados, pendientes, hechos: anunciados.filter((id) => !pendientes.includes(id)),
       autorizados: pendientes.filter((id) => estacion.get(id) === 'autorizada'),
       verificados: anunciados.filter((id) => estacion.get(id) === 'verificada'),
+      pendientesDeSello: anunciados.filter((id) => !pendientes.includes(id) && estacion.get(id) !== 'ejecutada' && estacion.get(id) !== 'verificada'),
       estacionDe: Object.fromEntries(estacion),
     };
   });
@@ -667,7 +670,9 @@ export function ejecuciones(eje, X, opciones = {}) {
   const porNombre = new Map(plantillas.map((p) => [p.nombre, p]));
   const estacionDe = new Map();
   const plantillaDe = new Map();
+  const sinSello = new Set();
   for (const e of estaciones(eje, ev.id, opciones)) {
+    for (const id of e.pendientesDeSello ?? []) sinSello.add(id);
     for (const id of e.anunciados) plantillaDe.set(id, e.plantilla);
     // La estación de cada anuncio la dice la época (epoch.4.3; VG 12-11, decisión 8): el motor solo comprueba.
     for (const id of e.anunciados) estacionDe.set(id, e.estacionDe[id] ?? (e.pendientes.includes(id) ? (e.autorizados.includes(id) ? 'autorizada' : 'propuesta') : 'ejecutada'));
@@ -685,6 +690,8 @@ export function ejecuciones(eje, X, opciones = {}) {
     return {
       ocupante: { ref: h.id }, pv: accion && porNombre.has(accion) ? porNombre.get(accion).pv : null, posicion: Number.isInteger(posicion) ? posicion : null, accion, estacion: estacionDe.get(h.id) ?? null,
       oficio: celda?.oficio ?? null, ejecucion: celda?.ejecucion ?? null, por: celda?.por ?? null,
+      // «sin verificar no se ejecuta» (#50, #67): movido, pero el eje tiene sello y lo que lo cumple aún no está «sealed».
+      ...(sinSello.has(h.id) ? { pendienteDeSello: true } : {}),
     };
   })];
 }

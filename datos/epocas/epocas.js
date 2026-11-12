@@ -527,7 +527,13 @@ export const EPOCA_0_BTML_DATOS = [
       "ref": "b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45"
     },
     {
-      "ref": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"
+      "ref": "884556e8a48de90fcc087a056fdddd508490b31db6ea2e54d1579aa8a9201df7"
+    },
+    {
+      "ref": "c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1"
+    },
+    {
+      "ref": "654923fef8355a7017c7a16f28461b6eca23cec224f58a57fc55e8e165af29be"
     },
     {
       "ref": "5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"
@@ -752,7 +758,8 @@ export const EPOCA_0_BTML_DATOS = [
       [
         "stations of an announced movement",
         "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
-        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, lo que lo cumplió está anclado en un bloque de Bitcoin (X.6.8.2, vacío hasta que exista el transporte: #50, «sin verificar no se ejecuta» queda por hacer). Core, pendiente de revisar VG"
+        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, todo lo que lo cumplió (lo anclado sobre el anuncio) está «sealed» (X.6.8.5, la regla de la época que comprueba el sello de tiempo copiado en X.6.8.2). Core, pendiente de revisar VG",
+        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee"
       ],
       [
         [
@@ -772,10 +779,18 @@ export const EPOCA_0_BTML_DATOS = [
       ],
       [
         [
+          "autorizada"
+        ],
+        [
+          "=not (it in (first (first (up it)).4).8) and count before.8.3 > 0"
+        ]
+      ],
+      [
+        [
           "ejecutada"
         ],
         [
-          "=not (it in (first (first (up it)).4).8)"
+          "=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0)"
         ]
       ],
       [
@@ -783,7 +798,7 @@ export const EPOCA_0_BTML_DATOS = [
           "verificada"
         ],
         [
-          "=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.2 > 0) > 0"
+          "=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0"
         ]
       ]
     ]
@@ -4933,6 +4948,8 @@ export const EPOCA_0_BTML_DATOS = [
           "the cost of writing: lo que un registro exige en T, en segundos: un minuto del calendario por cada posición de su payload",
           "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
           "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
+          "sealed: la prueba del sello de tiempo copiada en el 6.8.2 del registro no cuadra (la hoja, el camino de Merkle, los pasos OTS, la cabecera del bloque, la prueba de trabajo, la altura, o una cabecera que no firmó un observador declarado)",
+          "received: el recibo de llegada copiado en el 6.8.1 del registro no lo firma su relé",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
           "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",
@@ -8730,6 +8747,44 @@ export const REGLAS_DE_EPOCA_DATOS = [
     ]
   },
   {
+    "archivo": "received.json",
+    "id": "c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1",
+    "registro": [
+      [
+        "received"
+      ],
+      [
+        "X.6.8.1"
+      ],
+      [
+        "=signed(bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).3), bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).4), bytes(first (first ((first it.6).8.1 where \"recibo de llegada\" in it2.0)).2))"
+      ],
+      [
+        "X.6.8.4"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (#64 d, #67; encargo «verificado-regla»): el recibo de llegada del transporte (el segundo reloj, X.6.8.1) se comprueba con una regla de la época, como el sello",
+        "X.6.8.1 trae copiado el recibo del relé de Nostr (servidor/sim/aarpia, kind 7701): su instante y la clave del relé y, detrás, la décupla del recibo (0 «recibo de llegada», 1 el instante, 2 la clave del relé, 3 su firma, 4 el id del recibo, el evento 7701). La regla comprueba que la firma BIP-340 del relé vale sobre ese id, como en servidor/sim/aarpia (src/nostr.js verificar)",
+        "Sin recibo, o sin el id del recibo, queda PENDIENTE (falta el dato). Core AGRAM 12-11: falta, y queda abierto, comprobar que el recibo es de X (el id de X va en la etiqueta «g» del 7701, dentro de la serialización de NIP-01 que la firma cubre: hace falta copiarla) y una lista de claves de relé declaradas, como las del observador; hasta entonces el recibo dice que un relé lo firmó, no cuál. Se materializa en X.6.8.4, junto al reloj que comprueba (6.8.1)"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after sealed"
+      ],
+      [
+        "received: the arrival receipt copied into 6.8.1 of the record is not signed by its relay"
+      ]
+    ]
+  },
+  {
     "archivo": "receiving-r-gives-ten-p-on-the-root-of-its-issuer.json",
     "id": "0580321edaa8c97b4b8a7e230f4753350a43a7fd673fe5b3393a1a789fb2f7ef",
     "registro": [
@@ -8773,6 +8828,49 @@ export const REGLAS_DE_EPOCA_DATOS = [
       ],
       [
         "receiving R gives ten P on the root of its issuer: who receives R from its issuer holds {first epoch.1.1.4.1} P per net unit received on the 3 of the alta of its issuer"
+      ]
+    ]
+  },
+  {
+    "archivo": "sealed.json",
+    "id": "884556e8a48de90fcc087a056fdddd508490b31db6ea2e54d1579aa8a9201df7",
+    "registro": [
+      [
+        "sealed"
+      ],
+      [
+        "X.6.8.2",
+        "before.8.6",
+        "StateArk/Observador/Cabecera/v1",
+        "sip"
+      ],
+      [
+        "=bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).5) = bytes(first it.5) and (count (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1 = 0 and merkle(bytes(first it.5), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).4, \"sip\") = first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).3 or count (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1 > 0 and ots(merkle(bytes(first it.5), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).4, \"sip\"), (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.1) = first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).3) and hex(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).7) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).2 and below(reverse(first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).7), first (first cabecera(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0))).8) and le(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.3)) = first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).1 and signed(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.2), hash(cat(bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.0), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.3)), \"StateArk/Observador/Cabecera/v1\"), bytes(first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.4)) and first (first ((first it.6).8.2 where \"sello de tiempo\" in it2.0)).8.4 in before.8.6"
+      ],
+      [
+        "X.6.8.5"
+      ],
+      [
+        "read"
+      ],
+      [
+        "*"
+      ],
+      [
+        "VG 12-11 (#64 d, #67; encargo «verificado-regla»): la estación «verificado» y la lectura «verificado» dejan de ser código y pasan a ser reglas de la época escritas en BQL con las primitivas puras de verificación (docs/BQLM.md §12); contrato.verificado es solo la fachada que las evalúa",
+        "La regla comprueba, sin salir del libro, la prueba que el registro X trae COPIADA en X.6.8.2 (la décupla del sello de tiempo del SIP 0 de Core StateArk, InTheState/stateark/sip: 1 altura, 2 hash, 3 raíz del lote, 4 camino «sip», 5 el id sellado, 8.0 la cabecera, 8.1 los pasos OTS, 8.2 la firma del observador, 8.3 la altura en 4 bytes LE, 8.4 su clave): que la hoja es el propio X (su 5); que su id con el camino «sip» da la raíz del lote y que esa raíz llega a la raíz de Merkle de la cabecera (con los pasos OTS si los hay, o igual a ella); que la cabecera da el hash del sello (su doble SHA-256, orden interno) y cumple su prueba de trabajo (below: hash < objetivo); que 8.3 es la altura del sello; que el observador firmó cabecera ‖ altura con el hash etiquetado «StateArk/Observador/Cabecera/v1» (BIP-340); y que su clave está entre las «observer keys» de la cuenta raíz del eje (before.8.6: la posición 6 del registro «exterior settings» de la identidad del génesis, src/exterior.js ajustesDelEje)",
+        "VG 12-11 (H9 del SIP 0): una regla no ve la cadena; que la cabecera es de la cadena buena lo dice el observador de cabeceras (StateArk, con su firma de servicio) dentro de la misma prueba, y su clave va en el LIBRO (los ajustes del exterior de la cuenta raíz), no en ninguna época",
+        "Lo que falta (sin sello, o un sello sin cabecera, firma o clave: el de la simulación de antes de H9) deja la lectura PENDIENTE (falta el dato), nunca verdadera; una clave fuera de la lista, una firma que no vale o una prueba que no cuadra la dejan falsa. Core AGRAM 12-11: se materializa en X.6.8.5, junto al reloj que comprueba (6.8.2), como proponía el SIP 0",
+        "Core AGRAM 12-11: la fórmula sigue la de la regla «sealed» del borrador del SIP 0 con dos cambios: la lista de claves se lee ya normalizada en before.8.6 (en «exterior settings».6 puede ir como un texto con espacios, que el BQL mínimo no parte) y se comprueba también la prueba de trabajo de la cabecera"
+      ],
+      [
+        "epoch 0"
+      ],
+      [
+        "after the cost of writing"
+      ],
+      [
+        "sealed: the timestamp proof copied into 6.8.2 of the record does not hold (leaf, Merkle path, OTS steps, block header, proof of work, height, or a header not signed by a declared observer)"
       ]
     ]
   },
@@ -9114,7 +9212,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
   },
   {
     "archivo": "what-it-is.json",
-    "id": "fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a",
+    "id": "654923fef8355a7017c7a16f28461b6eca23cec224f58a57fc55e8e165af29be",
     "registro": [
       [
         "what it is"
@@ -9144,7 +9242,7 @@ export const REGLAS_DE_EPOCA_DATOS = [
         "epoch 0"
       ],
       [
-        "after the cost of writing"
+        "after received"
       ],
       [
         "what it is: what the node is, its representations (its text or its resource)"
@@ -16934,7 +17032,7 @@ export const GUIA_DE_EPOCA_DATOS = [
 ];
 
 // el id de la raíz de la época 0 (con su 2 = las referencias a sus reglas): el hash de su cuerpo canónico; lo nombran el génesis (contexto.epoca) y el 2 de una invitación (VG, 9-11: «se referencia, no se manda»)
-export const EPOCA_0_BTML_ID = "a0fb512deacf5ad643795f4001f02ee4130494e0a7b21d409d93310366c8ae31";
+export const EPOCA_0_BTML_ID = "30a6f702081364454294461c20208d11f69796fe9054fcb9d645ad6f41c9cfd8";
 
 // correcciones/*.json: ocupantes añadidos a un registro de la época, { archivo, sobre, en, ocupante, de }
 export const CORRECCIONES_DE_EPOCA_DATOS = [];

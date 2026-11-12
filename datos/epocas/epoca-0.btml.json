@@ -153,7 +153,9 @@
     {"ref":"6ca50905d9242646b8c92ebf365d470b079504a010a36f7e17ac349425e59d75"},
     {"ref":"bfa0bd7f5cc4455648e32c3eef1993b2a4c88817a8c09d7c109145e4619cfcf8"},
     {"ref":"b40be0667c53f6d16a0e70ccefe4f9f6cd23ffa805a039e85c6a71f388bbec45"},
-    {"ref":"fff49239aabbbb65c47db861ce05a2d0d66bc3e930f3f648cce62f53ca8e1b0a"},
+    {"ref":"884556e8a48de90fcc087a056fdddd508490b31db6ea2e54d1579aa8a9201df7"},
+    {"ref":"c2929237612e7b1144e7c449d45b09bc9ece5137e7139523ecc5b60f8f10ffb1"},
+    {"ref":"654923fef8355a7017c7a16f28461b6eca23cec224f58a57fc55e8e165af29be"},
     {"ref":"5cd57c5ab221b52a55cdbf447ee1a07b4484ee3be71d7114d4b8e6c8854e8a97"},
     {"ref":"9e1ba192464c4d6e1cbec3469b428c7dd51cfe852f027f505b05e7a4b62a4de3"},
     {"ref":"f80ebc8da31aa6f366a0ceb043598b2e9885c20123aa6b81386879297893fffb"},
@@ -224,14 +226,19 @@
       [
         "stations of an announced movement",
         "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48, #50): el anuncio es un movimiento anunciado del libro (estado «anunciado»: no toca saldos) que el registro que se ancla sobre él cumple moviendo lo mismo; las estaciones por las que pasa son datos de la época y el motor solo comprueba. Una fila por estación, en su orden: [[nombre], [lo que la comprueba: una fórmula del BQL mínimo con it = el anuncio, o epoch.9.0.0, el recuento del anuncio con el criterio de su dueño (motor.recuento)]]; la estación de un anuncio es la última que se cumple (acciones.estacionDeAnuncio). Los nombres son los de la fábrica (la carta los pinta con su color)",
-        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, lo que lo cumplió está anclado en un bloque de Bitcoin (X.6.8.2, vacío hasta que exista el transporte: #50, «sin verificar no se ejecuta» queda por hacer). Core, pendiente de revisar VG"
+        "propuesta: lo anunciado; autorizada: su recuento pasa el umbral (sigue pendiente); ejecutada: ya no está en la lectura «stage» de su registro (X.4.8): un registro anclado sobre él lo movió; verificada: además, todo lo que lo cumplió (lo anclado sobre el anuncio) está «sealed» (X.6.8.5, la regla de la época que comprueba el sello de tiempo copiado en X.6.8.2). Core, pendiente de revisar VG",
+        "«Sin verificar no se ejecuta», por grados (VG 12-11, #50, #64 d y #67; encargo «verificado-regla»; sprint 1 = solo leer): ejecutada exige, además de que se movió, que todo lo que lo cumple esté «sealed» o que el eje NO tenga sello configurado (sin «seal url» en los ajustes del exterior de la cuenta raíz, before.8.3, no hay verificación posible y la estación se comporta como antes; esa condición es decisión de Core AGRAM). Con sello configurado y lo que cumple sin sellar, se cumple la segunda «autorizada» (movido y con sello configurado) y no «ejecutada»: el anuncio se queda en autorizada y la carta lo pinta con «pendiente de sello». Nada se rechaza (#62): el libro asienta lo movido igual; la estación solo lee"
       ],
       [["propuesta"], ["=count it.5 > 0"]],
       [["autorizada"], ["epoch.9.0.0"]],
-      [["ejecutada"], ["=not (it in (first (first (up it)).4).8)"]],
+      [["autorizada"], ["=not (it in (first (first (up it)).4).8) and count before.8.3 > 0"]],
+      [
+        ["ejecutada"],
+        ["=not (it in (first (first (up it)).4).8) and (count before.8.3 = 0 or count ((down it) where not first (first it2.6).8.5) = 0)"]
+      ],
       [
         ["verificada"],
-        ["=not (it in (first (first (up it)).4).8) and count ((down it) where count (first it2.6).8.2 > 0) > 0"]
+        ["=not (it in (first (first (up it)).4).8) and count (down it) > 0 and count ((down it) where not first (first it2.6).8.5) = 0"]
       ]
     ]
   ],
@@ -1823,6 +1830,8 @@
           "the cost of writing: lo que un registro exige en T, en segundos: un minuto del calendario por cada posición de su payload",
           "for when: la fecha a la que se refiere el registro, en segundos: la de su movimiento con fecha, o su propio instante si quema E propia",
           "clocks out of order: el reloj del libro, la marca de Nostr y el bloque de Bitcoin no van en orden",
+          "sealed: la prueba del sello de tiempo copiada en el 6.8.2 del registro no cuadra (la hoja, el camino de Merkle, los pasos OTS, la cabecera del bloque, la prueba de trabajo, la altura, o una cabecera que no firmó un observador declarado)",
+          "received: el recibo de llegada copiado en el 6.8.1 del registro no lo firma su relé",
           "what it is: lo que es el nodo: sus representaciones (su texto o su recurso)",
           "how much: lo que se mueve en el nodo y en lo que cuelga de él, también lo que su dueño acuña o se mueve a sí mismo",
           "on what condition: los criterios sobre el nodo, lo anclado en su 2",

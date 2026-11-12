@@ -666,7 +666,8 @@ test('el anuncio es un movimiento anunciado del libro: no toca saldos, lo lee mo
   assert.deepEqual(evaluar('(moves ' + s + ' where "anunciado" in it.2) each 4.1', ctx).valor, ['anuncio']);
   assert.deepEqual(evaluar('first ((moves ' + s + ' where "anunciado" in it.2) each 7.1)', ctx).valor, ['2026-11-20T10:00:00Z']);
   // La estación: propuesta; el camino de la huésped la paga con «pay», anclada sobre el anuncio; ejecutada.
-  assert.deepEqual(A.estacionesDelAnuncio().map((e) => e.nombre), ['propuesta', 'autorizada', 'ejecutada', 'verificada']);
+  // Encargo «verificado-regla» (#50, #67): una segunda «autorizada», lo movido con sello configurado y aún sin «sealed».
+  assert.deepEqual(A.estacionesDelAnuncio().map((e) => e.nombre), ['propuesta', 'autorizada', 'autorizada', 'ejecutada', 'verificada']);
   assert.equal(A.estacionDeAnuncio(eje, a.id), 'propuesta');
   const [paso] = (await A.camino(eje, encargo.id, 'huesped', { t: T1 })).pasos.filter((p) => p.regla === 'stage');
   assert.deepEqual([paso.hacer.plantilla, paso.anuncio], ['pay', a.id]);
