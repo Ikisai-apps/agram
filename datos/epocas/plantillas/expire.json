@@ -1,0 +1,81 @@
+[
+  ["expire"],
+  [
+    [
+      ["deadline"],
+      ["instant"],
+      ["=(first it).0 < first before.6.0.0"],
+      ["me"],
+      ["payload"],
+      ["2.1"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"],
+      ["required"],
+      [1],
+      [
+        "=first ((moves (first ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0)) where \"anunciado\" in it2.2 and count it2.7.1 > 0 and first it2.7.1.0 < first before.6.0.0) each 7.1)",
+        "the declared deadline that has passed: the date of a pending announcement of the process (its 7.1), earlier than the latest time in the ledger"
+      ]
+    ],
+    [
+      ["actions"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["4"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"],
+      ["required"],
+      [2],
+      ["expire", "the action"]
+    ],
+    [
+      ["about"],
+      ["ref"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["1"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"],
+      ["required"],
+      [3],
+      ["=first it.5", "what the record is about: X"]
+    ],
+    [
+      ["criteria"],
+      ["text"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["2.0"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"],
+      ["required"],
+      [4],
+      ["expired", "the closing template of the record"]
+    ],
+    [
+      ["who"],
+      ["identity"],
+      ["any"],
+      ["me"],
+      ["payload"],
+      ["3"],
+      ["convergencia AARPIA §2.1 (12-11, #71.2): parámetro de «expire»"],
+      ["required"],
+      [5],
+      ["=me", "who writes"]
+    ]
+  ],
+  ["=first me.6.3 = first it.3 and count ((first it.4).8 where count ((moves it2 where \"anunciado\" in it3.2) where count it3.7.1 > 0 and first it3.7.1.0 < first before.6.0.0) > 0) > 0 and count (it.4 where \"close with error\" in it2.4 or \"expire\" in it2.4) = 0"],
+  [["me"], ["agent"]],
+  ["write"],
+  ["4"],
+  [
+    "VG, tras 3b-bis (encargo 3c-2a, MUNDOS_DISEÑO §11 con la corrección de VG al 4): cada acción del aro es una plantilla de transacción de la época; la carta solo lista y lanza lo que el núcleo le da, y si una acción no debe aparecer lo dice su 2",
+    "Molde (encargo 3c-2a): 0 nombre; 1 los parámetros que pide (cada uno como una posición de una plantilla de datos: 0 etiqueta, 1 tipo, 2 validación «=…» con it = el valor, 3 quién lo da, 4 qué se hace con él, 5 dónde va en el registro que escribe, 6 de dónde viene, 7 required u optional, 8 orden, 9 los defectos y, la última hoja, la ayuda; un defecto «=…» se lee sobre it = X, me y la candidata ev); 2 cuándo se ofrece (BQL con it = X y me = quien mira); 3 quién la lanza; 4 lo que mueve (un movimiento por décupla: 0 la serie, una clave, una fórmula o sus partes [familia, emisor|escala|ámbito, denominación|origen, registro], 1 cuánto, 2 la primitiva y, si la lleva, su salida, el precio de una emisión de E o la fecha de un T informativo, 3 [[de], [a]]; lo que da cero o nada no se mueve) o «read» si solo lee, o «path» si lanza el camino; 5 el dígito (o camino) de X donde ancla, y si no es X, el registro; 6 procedencia; 7 época; 8 [punto de vista, orden]; 9 mensaje, la representación del registro que escribe",
+    "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2; CONVERGENCIA §2.1, el caducado de la FSM, que escribe el programador de AARPIA, §3): un registro anclado en el 4 del proceso cuando ha vencido un plazo que el proceso declaró (hoy, la fecha de un anuncio pendiente: su 7.1, el «when» del movimiento anunciado; el plazo del tipo de contexto entrará con el #71.3), con ese plazo como dato en su 2.1; lo escribe el dueño o una cosa suya (quien tiene al dueño como autor de su alta: first me.6.3 = first it.3), y la regla de la época «an expiry has expired» comprueba que el plazo de verdad venció con el reloj del libro (before.6.0), no con el que diga quien escribe. Es un cierre distinto de «closed with error» y de «all announced movements happened»: la plantilla de cerrado «expired» (epoch.9.0.1) lo lee y el proceso deja de pedir pasos (motor.siguiente). Modo «agente»: lo escribe el programador de AARPIA, una cosa del dueño, cuando nadie más lo va a escribir; no es una decisión nueva sino la consecuencia de un plazo que el dueño ya declaró y el libro ya vio vencido",
+    "VG 12-11 (estudio BQL-transacciones, decisiones 5 a 7; #49): su 4 es «write»: no mueve nada más que el coste de escribir, que lo cobra a toda candidata la regla de la época «the cost of writing», por posición (acciones.transaccion)"
+  ],
+  ["epoch 0"],
+  [4, 8],
+  ["expire: {me} expires {first it.0}: the deadline {first ev.2.1} has passed"]
+]

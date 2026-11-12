@@ -63,7 +63,7 @@
     ]
   ],
   ["=count (before.1 where first it2.3 = me) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["0", "=first ev.1"],
   [

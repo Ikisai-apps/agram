@@ -2,7 +2,7 @@
   ["ask for a recommendation"],
   [["none"]],
   ["=count it.5 > 0"],
-  ["me"],
+  [["me"], ["agent"]],
   ["read"],
   ["9"],
   [

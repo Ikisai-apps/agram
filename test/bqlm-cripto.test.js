@@ -295,13 +295,14 @@ test('forma: las primitivas son llamadas con su número de argumentos; no son ve
 const SIP = 'C:/Users/acer/Documents/InTheState/stateark/sip/reglas';
 
 // El SIP está vivo (Core StateArk lo reescribe con las formas de §12): la prueba lee las reglas que haya, sin fijar
-// cuántas. Todas han de analizarse; la única diferencia de forma admitida es la de su primer borrador, merkle(hoja,
-// camino) sin esquema, que AGRAM no acepta (el esquema decide la raíz) y que con el esquema se analiza. Y (encargo
-// «verificado-regla», SIP b052690, «sin tuplas», VG 13-11) desde H17-H19 (lookup, merkle con lados y hermanos, payload)
-// todas: las siete del SIP de hoy se analizan sin sustituciones.
-test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (salvo merkle sin esquema, que se señala)', { skip: !existsSync(SIP) && 'sin InTheState/stateark/sip en esta máquina' }, () => {
+// cuántas, y todas han de analizarse sin sustituciones (desde H17-H19: lookup, merkle con lados y hermanos, payload;
+// encargo «verificado-regla», SIP b052690). La única excepción admitida son las primitivas de Taproot del SIP e489708
+// (H20: tapleaf y taptweak, «fuera OpenTimestamps, entra Taproot», VG 13-11), que llegan en un encargo siguiente: una
+// regla que las usa se señala, y se comprueba que es eso lo único que le falta.
+const H20 = /no es BQL mínimo: «(tapleaf|taptweak)»/;
+test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (salvo las de Taproot, H20, que se señalan)', { skip: !existsSync(SIP) && 'sin InTheState/stateark/sip en esta máquina' }, () => {
   const reglas = readdirSync(SIP).filter((f) => f.endsWith('.json')).map((f) => ({ f, r: JSON.parse(readFileSync(SIP + '/' + f, 'utf8')) }));
-  assert.ok(reglas.length >= 6);
+  assert.ok(reglas.length >= 7);
   const resultado = {};
   for (const { f, r } of reglas) {
     const formula = r[2][r[2].length - 1];
@@ -310,18 +311,20 @@ test('SIP 0: analizar acepta las reglas con las primitivas, sin sustituciones (s
       analizar(formula, { sujeto });
       resultado[f] = 'ok';
     } catch (e) {
-      resultado[f] = e.message;
-      assert.match(e.message, /merkle\(hoja, camino, esquema\) lleva 3 argumentos, no 2/, f + ': ' + e.message);
-      const conEsquema = formula.replace(/merkle\(((?:[^()]|\((?:[^()]|\((?:[^()]|\([^()]*\))*\))*\))*)\)/g, (_, a) => 'merkle(' + a + ', "sip")');
-      assert.doesNotThrow(() => analizar(conEsquema, { sujeto }), f);
+      assert.match(e.message, H20, f + ': ' + e.message);
+      resultado[f] = 'H20';
+      // Sin las llamadas de Taproot (cambiadas por un literal), el resto se analiza.
+      let sin = formula;
+      for (let m = /tap(leaf|tweak)\(/.exec(sin); m; m = /tap(leaf|tweak)\(/.exec(sin)) {
+        let k = m.index + m[0].length;
+        for (let nivel = 1; nivel > 0 && k < sin.length; k++) nivel += sin[k] === '(' ? 1 : sin[k] === ')' ? -1 : 0;
+        sin = sin.slice(0, m.index) + 'bytes("00")' + sin.slice(k);
+      }
+      assert.doesNotThrow(() => analizar(sin, { sujeto }), f + ': solo le faltan las primitivas de Taproot');
     }
   }
-  for (const f of ['authorized-by-the-holder.json', 'in-firm.json', 'linked.json', 'the-lock-ends-before-the-e.json']) assert.equal(resultado[f], 'ok', f);
-  // SIP b052690 (sin tuplas): las siete, también «sealed» y «paid» (merkle con lados y hermanos, lookup, payload).
-  if (reglas.some(({ f }) => f === 'paid.json') && /lookup\(/.test(JSON.stringify(reglas.find(({ f }) => f === 'paid.json').r))) {
-    assert.equal(reglas.length, 7);
-    assert.deepEqual(Object.values(resultado), Array(7).fill('ok'), JSON.stringify(resultado));
-  }
+  for (const f of ['authorized-by-the-holder.json', 'in-firm.json', 'linked.json', 'paid.json', 'second-factor.json', 'the-lock-ends-before-the-e.json']) assert.equal(resultado[f], 'ok', f);
+  assert.ok(['ok', 'H20'].includes(resultado['sealed.json']), JSON.stringify(resultado));
 });
 
 // ---------- el candado §8 en Taproot (vector de rust-miniscript) ----------

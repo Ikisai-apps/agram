@@ -90,7 +90,7 @@
     ]
   ],
   ["=count (me.1 where E in it2.0.0.0 and it2.1 > 0) > 0 and first it.3 != me"],
-  ["me"],
+  [["me"], ["person"]],
   ["=transfer first memo.1.1 * first (first memo.1.2).1 before.4.(first (first memo.1.2).0) from me to first it.3"],
   ["0"],
   [

@@ -63,7 +63,7 @@
     ]
   ],
   ["=first (first it.6.5).3 = me and (count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = me and it2.3.1 = me) > 0 or count (it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) > 0)"],
-  ["me"],
+  [["me"], ["person"]],
   ["=transfer sum ((it.1 where R in it2.0.0.0 and transfer in it2.4 and it2.0.0.1 = first it.3 and it2.3.1 = me) each 1) R.(first it.3) from me to first it.3"],
   ["0"],
   [

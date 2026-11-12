@@ -136,7 +136,8 @@
     {"ref":"2631512b1472259497b72efe0ccfd6b180ae1760850a4fca1a31f02ae02dafae"},
     {"ref":"58d93d3b5ed904abf3c21bf9e53fc15c99410b7a5de545768903aeb09ed530dc"},
     {"ref":"ddea3421dba32e9ce6e3d8b8b3437cffae54f13dc82e5208d89f1832ee15cf32"},
-    {"ref":"b743676d14aed7deac1360ab834fa7104e76eecd997ba5df9e01431140914b9d"},
+    {"ref":"57eb7dddf25b2c5c342d124144e6b176fb53167ff1fbff22f7fec24eaa82ca7c"},
+    {"ref":"1f44a8054d903ae04943b6250026dcee89708a6700762c0db29393153dad4e25"},
     {"ref":"f5d4ad1bca9d4fafec9b1f7d7bad6c3bb07fb920ca04d6568f8ee6189b9694e2"},
     {"ref":"0580321edaa8c97b4b8a7e230f4753350a43a7fd673fe5b3393a1a789fb2f7ef"},
     {"ref":"eeee848fe6b68edb746db8396f793c915395f71cb9873570a16b02970ed17228"},
@@ -1092,12 +1093,21 @@
       [
         ["cerrado"],
         [
-          [["all announced movements happened"], ["=count (first it.4).8 = 0"]]
+          [["all announced movements happened"], ["=count (first it.4).8 = 0"]],
+          [
+            ["closed with error"],
+            ["=count (it.4 where \"close with error\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"]
+          ],
+          [
+            ["expired"],
+            ["=count (it.4 where \"expire\" in it2.4 and first (first it2.3).6.3 = first it.3) > 0"]
+          ]
         ],
         ["all announced movements happened"],
         [
           "el dueño de X la nombra en X.2.7; se evalúa con it = X (mapa §15 [D] N5: «cerrado» se establece por proceso)",
-          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo"
+          "VG 12-11 (decisión 8 del estudio BQL-transacciones; #48): lee la lectura «stage» (X.4.8, la primera de X.4: lo anunciado y aún no cumplido), la única fórmula de lo anunciado; un anuncio lo cumple el registro que se ancla sobre él moviendo lo mismo, así que un pago cumple uno solo",
+          "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.2): «closed with error» y «expired» son los otros dos finales de un proceso, no un criterio que el dueño elija en su X.2.7: los lee motor.cerrado siempre, antes que la plantilla del dueño, y valen solo si el registro de cierre anclado en el 4 de X (la plantilla «close with error» o «expire») lo escribe el dueño de X o una cosa suya (first (first it2.3).6.3 = first it.3). Un proceso así está cerrado pero no cumplido (cerrado.fin), no cuenta como válido y deja de pedir pasos"
         ]
       ],
       [
@@ -1122,6 +1132,24 @@
         [
           "siguiente(X, yo): lo que a X le falta de mí y lo que espera de otros (encargo 3b, paso 2)",
           "VG 12-11 (decisión 8): «what is missing» es la lectura «stage» (X.4.8)"
+        ]
+      ],
+      [
+        ["ejecución"],
+        [
+          [
+            ["reviewed to run by the system"],
+            ["=((it.9.6) where \"review execution mode\" in it2.4 and first it2.3 = first it.3) each 2"]
+          ],
+          [
+            ["declared as an agent"],
+            ["=count (((first it.6).9) where \"declare agent\" in it2.4 and first it2.3 = first (first it.6).3) > 0"]
+          ]
+        ],
+        ["reviewed to run by the system"],
+        [
+          "«reviewed to run by the system», con it = el génesis del libro: lo que el dueño de la época revisó para que lo lance el sistema solo: los ids de las plantillas de transacción (epoch.9.6) que nombra el 2 de cada registro anclado en el 9.6 del génesis, que dice «review execution mode» en su 4 y lo escribe el autor del génesis. «declared as an agent», con it = una identidad: su dueño (el autor de su alta) la declaró agente con un registro anclado en el 9 de su alta que dice «declare agent» en su 4; una identidad declarada agente no lanza las plantillas «person»",
+          "Core AGRAM 12-11 con la convergencia de AARPIA aprobada por VG (#71.1; CONVERGENCIA §2.2: «no se sube a auto sin revisión»): el modo de ejecución de una plantilla es el valor de su 3.1: person (defecto: solo una persona la lanza), agent (puede lanzarla un agente de AARPIA escribiendo como identidad: una cosa que su dueño ha declarado agente) o system (la lanza el sistema solo). Subir a system no lo hace un valor editado: exige un registro de revisión del dueño de la época sobre esa plantilla (su id), y una plantilla que declara system sin él se lee como agent (acciones.modoDeEjecucion). Como la revisión nombra el id de la plantilla, cambiar la plantilla (otro id) la anula"
         ]
       ]
     ],
@@ -1804,6 +1832,7 @@
         [
           "a declared key comes with its proof: la clave de {(ev.5 where it != first ev.5 and first it.3 != first ev.3 and count it.4 = 0) each 3} llega sin la firma de esa clave sobre el id de este alta (posesion)",
           "a key is declared at its alta: {(ev.5 where it != first ev.5 and (first it.3 in before.3 or first it.3 != first ev.3 and not first it.3 in (ev.1 each 3.1))) each 3} ya tiene cuenta, o ni escribe ni recibe nada aquí",
+          "an expiry has expired: {first ev.2.1} no es la fecha de un anuncio pendiente de {first (first ev.6).5}, o aún no ha vencido con el último tiempo del libro ({before.6.0})",
           "a person joins by an invitation: {first ev.3} no tiene alta y no acepta una invitación que lo nombre (a tiempo, con su clave)",
           "at most a year ahead: {first ev.6.0} está más de un año por delante del mayor tiempo del libro ({before.6.0})",
           "attended: el registro devuelve R a su emisor y ese emisor ancló sobre él un registro suyo con T real",
@@ -2047,6 +2076,30 @@
           "template close param who label: quién",
           "template close param who help: quién escribe",
           "template close message: close: {me} cierra {first it.0}: todo lo anunciado ha pasado",
+          "template close with error: cerrar con error",
+          "template close with error param cause label: causa",
+          "template close with error param cause help: por qué se cierra con error: texto obligatorio",
+          "template close with error param actions label: acción",
+          "template close with error param actions help: la acción",
+          "template close with error param about label: sobre",
+          "template close with error param about help: de qué trata el registro: X",
+          "template close with error param criteria label: criterio",
+          "template close with error param criteria help: la plantilla de cerrado del registro",
+          "template close with error param who label: quién",
+          "template close with error param who help: quién escribe",
+          "template close with error message: close with error: {me} cierra {first it.0} con error: {first ev.0}",
+          "template expire: caducar",
+          "template expire param deadline label: plazo",
+          "template expire param deadline help: el plazo declarado que ha vencido: la fecha de un anuncio pendiente del proceso (su 7.1), anterior al último tiempo del libro",
+          "template expire param actions label: acción",
+          "template expire param actions help: la acción",
+          "template expire param about label: sobre",
+          "template expire param about help: de qué trata el registro: X",
+          "template expire param criteria label: criterio",
+          "template expire param criteria help: la plantilla de cerrado del registro",
+          "template expire param who label: quién",
+          "template expire param who help: quién escribe",
+          "template expire message: expire: {me} caduca {first it.0}: el plazo {first ev.2.1} ha vencido",
           "template commit P: comprometer P",
           "template commit P param power label: poder",
           "template commit P param power help: la serie de P que se compromete: P mío en el dominio de X",
@@ -2298,6 +2351,11 @@
           "template write to X param actions help: la acción",
           "template write to X message: write to X: {me} escribe a {first it.3} sobre {first it.0}",
           "template all announced movements happened: todos los movimientos anunciados ocurrieron",
+          "template closed with error: cerrado con error",
+          "template expired: caducado",
+          "launch mode person: persona",
+          "launch mode agent: agente",
+          "launch mode system: sistema",
           "template purchase: compra",
           "template purchase param purchase label: compra",
           "template purchase param purchase help: lo comprado, como título o imagen",
@@ -2447,6 +2505,7 @@
           "reason unknown template: plantilla de transacción desconocida: {template}",
           "reason X not in ledger: {name}: X no es un registro del libro",
           "reason who launches: {name}: quien la lanza (yo) tiene que ser una identidad",
+          "reason only a person launches: {name}: solo una persona la lanza, y {who} es un agente (el modo de ejecución de la plantilla es «{mode}»)",
           "guide role: Eres la guía de AGRAM para quien mira la pantalla. Solo lees: nunca cambias nada y nunca dices que has hecho algo. Responde corto, en el idioma de la configuración que figura en el contexto. Explica lo que hay en pantalla, qué significa y qué viene después. Nunca inventes registros, ids, saldos, pasos ni acciones que no estén en el contexto; si el contexto no lo dice, dilo.",
           "guide summary: AGRAM es un libro compartido de eventos. Cada evento es una transición de tokens con un payload BTML encima; registrar es hacer una transacción, y nada se modifica en sitio: corregir es añadir.\nUn registro es una décupla: diez posiciones, de la 0 a la 9, cada una un punto de vista (PV) con su propio mundo. Qué significa cada dígito lo dice una regla corta de la época; la época es a su vez un registro y sus reglas son datos.\nPV0 representación (la lente): cómo se muestra el registro; puede engañar. PV1 recursos (el reino): cantidades, entradas, precios, disponibilidad. PV2 criterios (el jardín): lo que distingue cosas parecidas; votos, umbrales, preferencias. PV3 comunicación (el parque acuático): quién escribe a quién, grupos, atención.\nPV4 fábrica: preparar con recursos, criterios y mensajes, y ejecutar; aquí se hacen las cosas. PV5 estructura: el propio registro en foco, sus referencias y firmas, en el centro de la cruz. PV6 pasado (hilos): registros encadenados por referencia, procedencia. PV7 futuro (hilos): previsiones, compromisos, caducidades.\nPV8 comparabilidad (el cielo): medidas y madurez frente a registros comparables; las estrellas no son verdad. PV9 camino: los pasos desde donde estás hacia la acción; sugerir no es ejecutar.\nCuatro tokens. E, recursos: por emisor y denominación (dinero, bienes, plazas, cupos). P, poder o criterio: siempre posicionado en un registro, guarda quién lo dio y pesa solo en ese dominio. R, reputación: exige emisor y pasa de tenedor a tenedor; devolverla a su emisor es pedir atención. T, tiempo: siete escalas reales (del segundo al año); cada persona tiene su asignación diaria y escribir la gasta.\nMadurez: todo registro tiene un nivel del 1 al 10 (semilla, brote, retoño, tallo, rama, hoja, yema, flor, fruto, décupla) según cuántas posiciones tiene escritas, su profundidad y lo que mueve; más allá de diez, por órdenes de magnitud (lista, tienda, manzana, distrito, reino). El render animado enseña etapas (sello, intermedio, ilustrado).\nEl aro: alrededor de un registro, las acciones que el núcleo ofrece a quien mira, punto de vista a punto de vista; la primera de cada uno es la acción por defecto. Cada acción es una plantilla de transacción que se comprueba contra las reglas de la época antes de escribirse.\nEl camino: lo que falta y lo que espera. Un paso es mío (puedo lanzarlo) o de espera de otro; viene de un tutorial, de las reglas o de una sugerencia. Seguir el camino lanza mis pasos en orden.\nCuentas: tu cuenta es tu propio eje, cuyo primer registro es tu alta (tu identidad), con una clave generada en el dispositivo que solo sale cifrada, en la copia de seguridad. Con un servidor, un nombre de eje compartido y su clave de lectura, el eje se comparte entre dispositivos; cada dispositivo comprueba las reglas por su cuenta. Los ejemplos llevan datos inventados y no tienen cuenta.\nLos tamaños: el hueco (el más pequeño), la tarjeta, la pantalla. En el móvil los puntos de vista se apilan en franjas (Sequenced); en una pantalla ancha forman un mapa de nueve celdas (Mapped).",
           "guide rules: Texto plano, sin títulos ni tablas en markdown; párrafos cortos o hasta cinco líneas. Nombra las posiciones por número y nombre (por ejemplo PV2 criterios) y los ids por sus ocho primeros caracteres. Si te piden actuar, di que esta guía solo explica y señala el aro o el camino, donde se ofrece la acción. Si el contexto dice que se ha recortado, avisa de que puede estar incompleto. Si no lo sabes, dilo.",
@@ -2557,7 +2616,11 @@
           "reason no series: {name}: no series for a movement of {amount}",
           "reason unknown template: unknown transaction template: {template}",
           "reason X not in ledger: {name}: X is not a record of the ledger",
-          "reason who launches: {name}: who launches it (yo) is an identity"
+          "reason who launches: {name}: who launches it (yo) is an identity",
+          "reason only a person launches: {name}: only a person launches it, and {who} is an agent (the execution mode of the template is «{mode}»)",
+          "launch mode person: person",
+          "launch mode agent: agent",
+          "launch mode system: system"
         ]
       ]
     ],
@@ -2587,51 +2650,53 @@
     [
       [
         "transaction templates",
-        "the actions of the ring (encargo 3c-2a): one record per action in datos/epocas/plantillas/, with the rule mould adapted (0 name, 1 the parameters it asks for, 2 when it is offered: BQL with it = X and me = who looks, 3 who launches it, 4 what it moves or read/path, 5 where it anchors, 6 origin, 7 epoch, 8 [point of view, order], 9 message); 9.6.1 is the list of references, in the order of their 8; the first of each point of view is the default action"
+        "the actions of the ring (encargo 3c-2a): one record per action in datos/epocas/plantillas/, with the rule mould adapted (0 name, 1 the parameters it asks for, 2 when it is offered: BQL with it = X and me = who looks, 3 who launches it (3.0) and whether an agent can (3.1: person, agent or system; system needs a review, epoch.9.0.4), 4 what it moves or read/path, 5 where it anchors, 6 origin, 7 epoch, 8 [point of view, order], 9 message); 9.6.1 is the list of references, in the order of their 8; the first of each point of view is the default action"
       ],
       [
-        {"ref":"bb768564b1e470e33daa566eeac73dc9579bb589d7f397aa9e8816d9b64e9b3b"},
-        {"ref":"266504d8d6f8a4bf3af07ed8d9b93fc375421db24fca096f5b2a028620fa9a5a"},
-        {"ref":"a7045948d9ae109c13007161dd297f4aadb2bfee1d3b9fc2adda776958708377"},
-        {"ref":"21e71f7b98450c1917ed089ca464324765ceeaff4e387202df51fad2a23f4ca2"},
-        {"ref":"ab8a884d4b114130e541c5353bd2fac112585bc39d8cc76181dd780b7c1c9c63"},
-        {"ref":"c3cf4da2a904f00468ece3a9b874bf479ba260eb2f62b31b49b6d6efeb479e58"},
-        {"ref":"6a6f9e07f4326cc05d28e952d79841b2e725e65b7da3c4f1958f75efd7d79c56"},
-        {"ref":"204342efd71c6e4da9acfd54e68f2d4e37742d41502038fd58b8b3486ea7fe55"},
-        {"ref":"4053c9cf3571ff8acbe7df3cd8e06c9a9f78c88ec8da412e5201c17451ba6ed1"},
-        {"ref":"e288326da71ff7a1e0f6cedfa749079a726f061fc8d2588c903474198cedb1ba"},
-        {"ref":"054f43b35eac3a2b3961e235342b3ab8e7a93a017c75749ad28def074c2a9c39"},
-        {"ref":"bb1277074776abfdee0661a9e971f6577af46338353ddc2edcb089338c01048f"},
-        {"ref":"fcde7268faf0aea111fc7db8b010efd169b63630db60955827053557f808c152"},
-        {"ref":"d18d3fd5ca40c0a77f4e7944efbb0adea694acce66559fc6ff138812424c4c24"},
-        {"ref":"3e056b9ed1f916d61f63ef887ca5ec2420bd608cd219e6ff1ff38cf613d19ba6"},
-        {"ref":"87ecf2029ba03dd754028148765f7ad203c9eeefb8fa41a381ac3f2344374fc2"},
-        {"ref":"b85d283de300c162384f6bffac54b170345648be39f19071889ab77953adc5c2"},
-        {"ref":"2b6305d58313329bf1c0c4989867665f4b6eefba8a31549d7c6e3e2582c4d41a"},
-        {"ref":"7c453ebf5b2d5257253278b079dba1f6737c6242014998a1aeb73717808384bb"},
-        {"ref":"767fab20c4bf757de48750ee26a68579d28d72ec34361825149b02898abf2a05"},
-        {"ref":"15bf535b38c803ceefed5f37a049371ffbae60e052944f4f8c39d8cfe6a9e161"},
-        {"ref":"b38c4188a6c34a469a378edb6796a10c4ee17a10f747383ab43577497a3d60cb"},
-        {"ref":"a16936bd891d2ca6fda8f3b779f9aca876d31c746893c3da364cd22bf714432a"},
-        {"ref":"d36e97ef35f1830a2aaf09d203fc055caef1d42c5a8b02ea79c9d0e886e58cce"},
-        {"ref":"a223cf6e9c59e67cefd26164cb59a0cead52271e95d28071b9e55a453c13fa3f"},
-        {"ref":"e03f80f7c247fc4e0350e028d2c886e52217b96d59172b5a4257434f528f1d2d"},
-        {"ref":"9808b64208592f3cc8e1b3a91697353d7232e8b880b0387d0808fef04d5506e6"},
-        {"ref":"67190905e2d72019dd88fccfd87807208f436bba54a5573f09c46dabc10696f4"},
-        {"ref":"e30ab690bcd81adfcfe9ad99ea47683accf3a8c03aa206cb5b8dde795faa7b61"},
-        {"ref":"90b6c802d6af10f45fca8e4505258d282e2dd88d36bc357fcc9679f894167476"},
-        {"ref":"1453fbac45a1cdec393c21d7cc27b3fed064f2c9ca8b0338c1efae9610916a8e"},
-        {"ref":"d546b658762027b2f20e2fef81405e5ae3f05eaf4fd3d166c7d49f9677bce20b"},
-        {"ref":"27bd5e96f15c5f91184679cd55f26da0a3ffec65f80bb17a5488356ac7e1c878"},
-        {"ref":"e7e921de0693c079bdd5296bc687afcfc1316f71bb633d2de2958c96a7e431fb"},
-        {"ref":"c054ee665e44c695182f5bd38f0e636bb0fe32f446b941a952a6a7fcfd7c216a"},
-        {"ref":"7fe73fa25c3f125ccb7463772afab1a46b21304b5b41b5118f64e738c9b1331c"},
-        {"ref":"912fd4e24a15711da5aa61422f037e1c054c4a0bab5288233d822d851cce3464"},
-        {"ref":"38652d1164cea262a3802dc4aaf0313f0418226e981976f46b31c51c365a9f3c"},
-        {"ref":"600cf1d6b656a584ed9e6be01e9e0fc3bafaf6133bc28a22617c94873e02f311"},
-        {"ref":"33d96e96eebb51af9c69a37e5396525f00d8674d34961aa0b38e63186d64b7cf"},
-        {"ref":"a5982b7f9571109da47d78a9511c6ba276615a89233bf5bf09188a678190df1a"},
-        {"ref":"994d5eab9e1d5a20731abd0219ccb60a6313498276fe3b63d6feb6ebc6069e48"}
+        {"ref":"69aa56aa9ebf86e62280fc0b92704e8f9c12c2ef64a73bb2a3292cc98249db91"},
+        {"ref":"f7dd391f2f52978e438d543c7dec85a3db987b5b1b350431811a183253c4591e"},
+        {"ref":"6843e898c9c535fe1e8d2c62e4f28de4795354e71619b82a0826aeb8bdab2201"},
+        {"ref":"5accd07e3af521de388cd4d3286adfbb1d02cb11d52db687aece27b99831bb83"},
+        {"ref":"a92903a40fc951d12de89d2c9b9e06384a761ccdac1d2e7f78f9d9303a964bd1"},
+        {"ref":"4575e6919300c6bd5fab72f66e9f3f5bfcf79a1daaec8269354de82c27a879b1"},
+        {"ref":"b856a7cb22faa27b637ac0a93b3098714a1bee7aa2ca19b848188ed11b6ef8c1"},
+        {"ref":"2abccb047debea7748d647a48f6280ec2261a895b1332202c1dca82a71f69b58"},
+        {"ref":"7c4e470390c2e8d5f21ddcdbcc211002c6144c0ac6d1a3542f4c35fb82ea7bfc"},
+        {"ref":"0e30c5f3078328fe813a5cac6434a5dd5223fa096dbfe4ac9c9488c81e728d4f"},
+        {"ref":"182576d36d293f01ce9033a53be599ae3c693e21dbb28998d845d9821b26573a"},
+        {"ref":"b3d6e3aee074772d31362e170744b16ea3c3aed357b271fc1c8e3b63d2bd1f95"},
+        {"ref":"8910e5fcc97fe3b1f683a028a57531a6b01d5d3c31351fd8a6f53b7b4e15cb56"},
+        {"ref":"d1bf7a79cd98d59eaf06a74ed5c7dcd0deb1bb2e9774df49eb711c580cd717f9"},
+        {"ref":"e8d9cfd003507afc87bb9a426a269a8528cf611eda04005790f3b999f59f368c"},
+        {"ref":"d991e64f4a62c7fcc67e0a2f9807d8b0e8a060bad8d83b1b3b3bfc2aa3083d32"},
+        {"ref":"7e54bb75de1af767b54f3b8bc38e8d69614e2cd340f6fd21d644946f16149ad0"},
+        {"ref":"a187de2635fc1260f636f3c0a4991ef1487596a35898d572c928a4db1c7a9144"},
+        {"ref":"e4dd0aac695577988012e778ed4e08e46901f64d78365e45e682f577cabbbedd"},
+        {"ref":"ac2fff3f41a4855bbdacef367f2587b20fa166b6e85c7d1e09d83985a3a8026c"},
+        {"ref":"f37f5ef7d8f3a25e9039eea8d39e3004ea6cfa97f2cab37c8626a8a27ec13d51"},
+        {"ref":"1cac9a321d12a40637b12280d12c78c0955d53b90274a3901d24afeadf6630ac"},
+        {"ref":"5a87ba45e631fe6dbca139e79bd6e04e578e202dade00c8951c3766335ea51a0"},
+        {"ref":"3cf9a7ccf3d575850fd27cdef3ec668da0e632391ad6ba1b0ed5a0a156aa1d19"},
+        {"ref":"bda95c76a9868bb1c260bbada2a5c316d3ed2ab66f5c73fb0e83a8cd9b0a9dbb"},
+        {"ref":"952d44f81d09fc82ec89ffc2856b9f599de70ca42c0736db74b990e029d2d782"},
+        {"ref":"4a1c17be6169ffbba3f0dc522a0368b213bcc19c5b1cedfc8173dd04bfe7b7f1"},
+        {"ref":"e305b9c49c28299cb751dfc2405bc259ce19990cd6dd8df38ed1daeca0e53b3c"},
+        {"ref":"03e0bae7ccab78efe3492a98c46fe13c53027fb35b79ee552d62247bf80f0774"},
+        {"ref":"387d94b79cb79593d3d1b202f944ccc190018e417ce3c46f97631a8a2a41f224"},
+        {"ref":"0b2fdf6f9d48c74b12880b9cc982574ee348531bb549aa1d3dc3e0e0cefc9b73"},
+        {"ref":"a4aa180389e4bb6d934725f0ba8b3d614198a4fa906f4ed02b272a036e9740cc"},
+        {"ref":"72d421bb398e6a1fadb7a05694ef38c2627b1a9dc0a999eb057568149577da08"},
+        {"ref":"bcae420bb31fa7ed3ce0de0fb3c0014fa78515db47c8044fa2bf80a78ebee2a7"},
+        {"ref":"b2f54a87f08a5d0db0b5da9d04d4cb9a5437de18b8415d7dcccf6ad94abc5518"},
+        {"ref":"6771d9ed604bf1958d9ac0fe1f73e958be504f82e859f7b76499f9b2fba3e0ef"},
+        {"ref":"e887a1041202015515bc17c4851e79e76a8bb57115e4bbe972e0d09539242dfc"},
+        {"ref":"62b8cc2debfda202eb4e01a22a809f3bcae15326e0d45210d9cab1e9a879d6aa"},
+        {"ref":"012a31d44cf53ceaa73f392981dae56f4dd807d943d46ef27fdfc4326643405b"},
+        {"ref":"29e3ed3f8f25dc33648fe2e51c40319f3795e9fe0ea905fc82137824c5089475"},
+        {"ref":"bccd82580877c144e672039ba734397e27c4dc72b7f983f0c4076ddeef90f1d4"},
+        {"ref":"d001a953136f40157cb410cc7d131abdb0cbc956bd1f7413a01a858916e33250"},
+        {"ref":"628ccdfdf23df6b6b82e152342418ca769c45972d1fe945a7e22ebf5ca9ed7bd"},
+        {"ref":"21f483bffd44de5270b60076065aa33cd4db62a86ddecce3b31aec546cc07152"}
       ]
     ],
     [

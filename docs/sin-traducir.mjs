@@ -69,6 +69,9 @@ export function clavesPedidas(opciones = {}) {
     if (nombre) pide(K.plantilla(nombre), 'plantilla de cerrado', nombre, nombre);
   }
 
+  // Los tres modos de ejecución de una plantilla (su 3.1: person, agent, system; VG 12-11, #71.1): «launch mode <modo>».
+  for (const m of acciones.MODOS_DE_EJECUCION) pide(K.modo(m), 'modo de ejecución', 'epoch.9.6', m);
+
   for (const n of contrato.niveles({ epoca })) pide(K.nivel(n), 'nivel de madurez', 'epoch.8.4', n);
   for (const o of contrato.ordenes({ epoca })) pide(K.orden(o.nombre), 'orden', 'epoch.8.5', o.nombre);
   for (const t of contrato.tamanos({ epoca })) pide(K.tamano(t.nombre), 'tamaño', 'epoch.9.5', t.nombre);

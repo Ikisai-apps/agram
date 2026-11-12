@@ -2,7 +2,7 @@
   ["view the whole tutorial"],
   [["none"]],
   ["=count it.5 > 0"],
-  ["me"],
+  [["me"], ["agent"]],
   ["read"],
   ["9"],
   [

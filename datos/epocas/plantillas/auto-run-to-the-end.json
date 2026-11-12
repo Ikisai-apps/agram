@@ -2,7 +2,7 @@
   ["auto-run to the end"],
   [["none"]],
   ["=count it.5 > 0"],
-  ["me"],
+  [["me"], ["agent"]],
   ["path", "all"],
   ["9"],
   [

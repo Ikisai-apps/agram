@@ -75,7 +75,7 @@
     ]
   ],
   ["=count it.5 > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["=burn first memo.1.1 T.8 from me when first memo.1.0"],
   ["7"],
   [

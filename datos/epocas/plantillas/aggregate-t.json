@@ -90,7 +90,7 @@
     ]
   ],
   ["=count (down it) > 0"],
-  ["me"],
+  [["me"], ["person"]],
   ["write"],
   ["4"],
   [

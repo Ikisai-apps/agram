@@ -80,9 +80,10 @@ const CLAVE = Object.freeze({
   motivo: (que) => 'reason ' + que,
   oficio: (nombre) => 'office ' + nombre,
   ejecucion: (nombre) => 'execution ' + nombre,
+  modo: (nombre) => 'launch mode ' + nombre, // los tres modos de ejecución de una plantilla (VG 12-11, #71.1): person, agent, system
 });
 /** Los motivos con que una acción rechaza que no son de una regla de la época (src/acciones.js): su clave «reason <qué>» (epoch.9.4; el canónico, en el registro «en»; los huecos {…} los rellena `motivo`). */
-export const MOTIVOS = Object.freeze(['anchor not in ledger', 'anchor not a position', 'position without value', 'no series', 'unknown template', 'X not in ledger', 'who launches']);
+export const MOTIVOS = Object.freeze(['anchor not in ledger', 'anchor not a position', 'position without value', 'no series', 'unknown template', 'X not in ledger', 'who launches', 'only a person launches']);
 
 // ---------- la época y sus sitios ----------
 

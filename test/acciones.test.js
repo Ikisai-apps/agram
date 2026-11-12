@@ -93,7 +93,7 @@ test('acciones: lo que el aro ofrece a cada identidad en cada PV lo dicen las pl
   // Nada decidido en JS: cambiar el 2 de una plantilla en una copia de la época cambia lo que se ofrece.
   const sinAplicar = epocaCon((e, plantillas) => { plantillas.find((p) => p.registro[0][0] === 'apply a resource').registro[2] = ['=1 = 2']; });
   assert.ok(!nombres(A.acciones(eje, menu.id, 1, 'huesped', { epoca: sinAplicar })).includes('apply a resource'));
-  assert.equal(A.plantillasDeTransaccion().length, 42);
+  assert.equal(A.plantillasDeTransaccion().length, 44);
   // el 0: la configuración del sitio (encargo pv3, #37 y #38: no está en el aro; la abre el interrogante del sitio)
   assert.deepEqual([...new Set(A.plantillasDeTransaccion().map((p) => p.pv))].sort(), [0, 1, 2, 3, 4, 6, 7, 8, 9]);
   assert.deepEqual(A.plantillasDeTransaccion().filter((p) => p.pv === 0).map((p) => p.nombre), ['set a minimum', 'set a minimum rank', 'configure a place']);
@@ -684,4 +684,88 @@ test('el anuncio es un movimiento anunciado del libro: no toca saldos, lo lee mo
   });
   const r = await A.transaccion(eje, 'anchor here', { X: encargo.id, title: 'otro anuncio' }, 'cocina', { t: T1, epoca: anuncia });
   assert.deepEqual(r.evento.movimientos[1], { token: 'E', emisor: 'casa', denominacion: 'EUR', cantidad: 3, de: 'huesped', a: 'cocina', estado: 'anunciado', refiere: '2026-11-21T10:00:00Z' });
+});
+
+// ---------- el modo de ejecución (VG 12-11, #71.1; CONVERGENCIA de AARPIA §2.2) ----------
+
+test('modo de ejecución: cada plantilla lo declara en su 3.1 (person, agent o system); person es el defecto y un agente (una cosa que su dueño declaró agente) no lanza una person, sí una agent; los textos, en es y en', async () => {
+  const todas = A.plantillasDeTransaccion();
+  assert.deepEqual(A.MODOS_DE_EJECUCION, ['person', 'agent', 'system']);
+  // Las 44 lo dicen en su 3.1 (3.0 es quién la lanza: «me»); ninguna declara «system» (subir exige una revisión).
+  assert.deepEqual(todas.filter((p) => !A.MODOS_DE_EJECUCION.includes(p.plantilla[3]?.[1]?.[0]) || p.plantilla[3][0][0] !== 'me').map((p) => p.nombre), []);
+  assert.equal(todas.filter((p) => A.modoDeclarado(p.plantilla) === 'system').length, 0);
+  // Las de agente son las que no escriben nada propio o componen sin decidir (cada una, razonada en DECISIONES_2026-11-12, #71.1): las
+  // cuatro lecturas, las dos que lanzan el camino (cada paso mío pasa por su propio modo), proponer (②: el agente compone) y caducar.
+  assert.deepEqual(todas.filter((p) => A.modoDeclarado(p.plantilla) === 'agent').map((p) => p.nombre).sort(), ['ask for a recommendation', 'auto-run to the end', 'compare with another record', 'expire', 'follow the path', 'propose', 'view the whole tutorial', 'view thread']);
+  assert.equal(todas.filter((p) => A.modoDeclarado(p.plantilla) === 'person').length, 36);
+  // Una plantilla sin 3.1, o con un valor que no es uno de los tres, es person.
+  assert.equal(A.modoDeclarado([['x'], [], ['=1 = 1'], ['me']]), 'person');
+  assert.equal(A.modoDeclarado([['x'], [], ['=1 = 1'], [['me'], ['robot']]]), 'person');
+  assert.deepEqual(A.modoDeEjecucion(null, 'no such template'), null);
+
+  // La cocina es una cosa (su alta la escribió la casa); la huésped, una persona. Sin declararla agente, la cocina lanza como siempre.
+  const { eje, menu } = await ejemploCompra();
+  assert.deepEqual([eje.esPersona('cocina'), eje.esPersona('huesped')], [false, true]);
+  const ancla = (yo, idioma) => A.transaccion(eje, 'anchor here', { X: menu.id, title: 'hola' }, yo, { t: T1, idioma });
+  assert.deepEqual([A.esAgente(eje, 'cocina'), A.esAgente(eje, 'huesped'), A.esAgente(eje, 'nadie'), A.esAgente(eje, '')], [false, false, false, false]);
+  const sinDeclarar = await ancla('cocina', 'en');
+  assert.deepEqual([sinDeclarar.ok, sinDeclarar.modo], [true, 'person'], 'una cosa sin declarar agente (Core, la cocina de los ejemplos) lanza como antes');
+  // La declara agente su dueño (la casa, autora de su alta) con un registro anclado en el 9 de su alta que dice «declare agent» en su 4.
+  const alta = eje.alta('cocina').id;
+  const declara = (autor) => eje.escribir({ autor, sobre: alta, en: '9000000000', t: T1, payload: ['declaro agente a cocina', { ref: alta }, ['agent'], [autor], ['declare agent']], movimientos: [pagaElCoste(autor)] });
+  await declara('huesped');
+  assert.equal(A.esAgente(eje, 'cocina'), false, 'la declaración de quien no es su dueño no cuenta');
+  await declara('casa');
+  assert.deepEqual([A.esAgente(eje, 'cocina'), A.esAgente(eje, 'casa'), A.esAgente(eje, 'huesped')], [true, false, false], 'solo una cosa, declarada por su dueño');
+  const cosa = await ancla('cocina', 'en');
+  assert.deepEqual([cosa.ok, cosa.evento, cosa.modo], [false, null, 'person']);
+  assert.deepEqual(cosa.motivos, [{ regla: 'anchor here', mensaje: 'anchor here: only a person launches it, and cocina is an agent (the execution mode of the template is «person»)' }]);
+  assert.equal((await ancla('cocina', 'es')).motivos[0].mensaje, 'anchor here: solo una persona la lanza, y cocina es un agente (el modo de ejecución de la plantilla es «persona»)');
+  const persona = await ancla('huesped', 'en');
+  assert.deepEqual([persona.ok, persona.modo], [true, 'person']);
+  // Lo que la acción ofrece lo dice: modo y si quien mira puede lanzarla.
+  const ofrecidas = (yo) => Object.fromEntries(A.acciones(eje, menu.id, 4, yo).map((a) => [a.nombre, [a.modo, a.puedeLanzar]]));
+  assert.deepEqual(ofrecidas('cocina').propose, ['agent', true]);
+  assert.deepEqual(ofrecidas('cocina')['aggregate T'], ['person', false]);
+  assert.deepEqual(ofrecidas('huesped')['aggregate T'], ['person', true]);
+  // Una de agente la lanza el agente (y la persona), y la transacción lo expone.
+  for (const yo of ['cocina', 'huesped']) {
+    const lee = await A.transaccion(eje, 'view thread', { X: menu.id }, yo, { t: T1 });
+    assert.deepEqual([lee.ok, lee.modo], [true, 'agent'], yo);
+    const propone = await A.transaccion(eje, 'propose', { X: menu.id, title: 'una idea', content: 'un menú más' }, yo, { t: T1 });
+    assert.deepEqual([propone.ok, propone.modo], [true, 'agent'], yo + ': ' + JSON.stringify(propone.motivos));
+  }
+  // Una plantilla que no existe no tiene modo; una que lanza el camino da el modo de la que lanza, no el del paso.
+  assert.equal((await A.transaccion(eje, 'fly', { X: menu.id }, 'cocina')).modo, undefined);
+  assert.equal((await A.transaccion(eje, 'follow the path', { X: menu.id }, 'cocina', { t: T1 })).modo, 'agent');
+  // Los tres modos tienen texto en es y en en la época (docs/sin-traducir.mjs lo exige).
+  assert.deepEqual(A.MODOS_DE_EJECUCION.map((m) => [C.texto(null, C.claves.modo(m), 'en'), C.texto(null, C.claves.modo(m), 'es')]), [['person', 'persona'], ['agent', 'agente'], ['system', 'sistema']]);
+});
+
+test('modo de ejecución: «system» exige una revisión del dueño de la época; un valor editado no basta (sin revisión se lee agent), ni la de otro id ni la de quien no es el dueño', async () => {
+  const sistema = epocaCon((e, plantillas) => { plantillas.find((p) => p.registro[0][0] === 'view thread').registro[3] = [['me'], ['system']]; });
+  const { eje, menu } = await ejemploCompra();
+  const modo = () => A.modoDeEjecucion(eje, 'view thread', { epoca: sistema });
+  const { id } = modo();
+  assert.deepEqual(modo(), { declarado: 'system', modo: 'agent', revisado: false, id }, 'declararlo no basta');
+  assert.equal(A.modoDeEjecucion(eje, 'view thread').modo, 'agent', 'la época 0 la declara agent');
+  assert.deepEqual([...A.plantillasRevisadas(eje, { epoca: sistema })], []);
+  // La revisión es un registro del autor del génesis (la casa), anclado en el 9.6 del génesis, que nombra el id de la plantilla.
+  const revision = (autor, ids, accion = 'review execution mode') => eje.escribir({ autor, sobre: eje.genesisId, en: '9600000000', t: T1, payload: ['review: view thread by the system', { ref: eje.genesisId }, ids, [autor], [accion]], movimientos: [pagaElCoste(autor)] });
+  await revision('casa', ['f'.repeat(64)]);
+  assert.equal(modo().modo, 'agent', 'la revisión de otra plantilla (otro id) no es esta');
+  await revision('casa', [id], 'another action');
+  assert.equal(modo().modo, 'agent', 'lo que no dice «review execution mode» en su 4 no es una revisión');
+  // Una revisión de quien no escribió el génesis no cuenta (la huésped paga la R de la casa que tiene, el precio de escribirle).
+  await eje.escribir({ autor: 'huesped', sobre: eje.genesisId, en: '9600000000', t: T1, payload: ['review: view thread by the system', { ref: eje.genesisId }, [id], ['huesped'], ['review execution mode']], movimientos: [pagaElCoste('huesped'), R('casa', 1, 'huesped', 'casa')] });
+  assert.equal(modo().modo, 'agent', 'solo cuenta la del autor del génesis');
+  await revision('casa', [id]);
+  assert.deepEqual(modo(), { declarado: 'system', modo: 'system', revisado: true, id });
+  assert.ok(A.plantillasRevisadas(eje, { epoca: sistema }).has(id));
+  // La transacción expone el modo que rige; una cosa la lanza.
+  const r = await A.transaccion(eje, 'view thread', { X: menu.id }, 'cocina', { t: T1, epoca: sistema });
+  assert.deepEqual([r.ok, r.modo], [true, 'system']);
+  // Un libro sin revisión (otro génesis) no hereda la de este.
+  const otro = await ejemploCompra();
+  assert.equal(A.modoDeEjecucion(otro.eje, 'view thread', { epoca: sistema }).modo, 'agent');
 });
