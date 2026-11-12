@@ -28,7 +28,9 @@ test('la tabla de pasos es un dato de la época: una fila por punto de vista (4 
   assert.deepEqual(t.map((f) => [f.pv, f.nombre]), [[4, 'ciclo'], [8, 'cuota'], [7, 'escala'], [7, 'cuando'], ['*', 'madurez']]); // «cuando»: encargo «datos3»
   assert.ok(t.every((f) => f.nota), 'cada fila dice qué es');
   for (const f of t) for (const x of [f.k, f.de]) assert.ok(typeof x === 'number' || /^=/.test(x) || mecanismos().includes(x), f.nombre + ': ' + x);
-  assert.deepEqual(mecanismos(), ['maturity', 'share box', 'when scale']);
+  // «when scale» cayó a BQL (VG 12-11, estudio BQL-transacciones): el paso «cuando» es una fórmula sobre X.7.7 y before.6.0.
+  assert.deepEqual(mecanismos(), ['maturity', 'share box']);
+  assert.match(t.find((f) => f.nombre === 'cuando').k, /^=\(count \(epoch\.7\.0\.0 where /);
 });
 
 test('los cuatro pasos sobre los ejemplos: la compra, el menú, la cuenta, la reserva y la tarea', async () => {

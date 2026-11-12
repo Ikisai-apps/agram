@@ -1180,13 +1180,17 @@ function nodosDeCelda(eje, R, ocupantes, pv, digito, d, ctx, entrar, base = []) 
 /**
  * Lo derivado de una celda (contrato.hijosDe con la dirección: contrato.leerRuta), como nodos con su marca: `derivado` y
  * `por`, la cadena de lecturas que lo justifica («1 cuánto › 3 con quién»), tal cual la da el núcleo. No se entra en ellos.
+ * `relacion` (VG 12-11: el 4 distingue lo directo de lo heredado; el 6, el hilo del diario) sale del `nivel` que da el
+ * núcleo en el último paso: «arriba» (su hilo), «directo» (colgado del nodo) o «heredado» (más abajo).
  */
 function derivadosDeCelda(eje, h, ctx) {
   const sobrio = sobrioDe(ctx);
+  const relacionDe = (n) => (typeof n !== 'number' || n === 0 ? null : n < 0 ? 'arriba' : n === 1 ? 'directo' : 'heredado');
   return (h.derivados ?? []).map((x) => ({
     ...nodoOcupante(eje, x.valor, tamanoDeNivel(2, ctx.opciones), sobrio, null, { pv: h.digito, lado: GEOMETRIA[h.digito]?.lado ?? 0, posicion: h.digito, anidar: 0 }),
     derivado: true,
     por: x.por.map((p) => p.pv + ' ' + (p.nombre ?? p.regla)).join(' › '),
+    relacion: relacionDe(x.por[x.por.length - 1]?.nivel),
     entra: false,
   }));
 }
@@ -1377,6 +1381,11 @@ function itemsDeBandas(eje, R, pv, ctx) {
       const m = e.movimientos.map((a) => a.primitiva + ' ' + legibleDe(eje, a, null, ctx.opciones).texto).join(' · ');
       items.push({ id: e.id, nodo: { tipo: 'entrada', pv, texto: m || e.id.slice(0, 8), t: e.t, autor: e.autor, ref: e.id, ...(e.estado ? { estado: e.estado } : {}) } });
     }
+    // #45 (VG 12-11): el 6 lee también el hilo, de dónde cuelga R hacia arriba (lo que da contrato.leer con nivel negativo).
+    for (const x of contrato.leer(eje, R, pv, { ...ctx.opciones, yo: ctx.yo ?? undefined }).derivado) {
+      if (!(x.por[x.por.length - 1]?.nivel < 0) || !esReferencia(x.valor) || !eje.obtener(x.valor.ref)) continue;
+      items.push({ id: x.valor.ref, nodo: { ...nodoRef(x.valor), arriba: true } });
+    }
   } else if (!items.length) {
     for (const h of eje.sobre(R)) items.push({ id: h.id, nodo: conEstado(h.id, nodoRef({ ref: h.id })) });
   }
@@ -1397,8 +1406,8 @@ function recortar(caja, caben) {
  * de la época, pasos.escala) y en el hilo del PV del que cuelga bajo R (pvDondeCuelga); si no cuelga de ninguno de
  * los hilos, en el primero, marcada `hiloSupuesto`. Lo que no cabe en un cruce se cuenta en una cuenta mayor (`mas`).
  * La franja de cada cuenta es la del núcleo (contrato.franjaDeEntrada, encargo «datos3»): el primer paso de la fila que
- * da valor (el 7: la fecha a la que se refiere; si no, su escala); si no coincide con la escala que declara, la cuenta
- * lleva `incongruente` ({ declarada, franja }: los nombres de las dos), y su estado del futuro (`estado`) si lo tiene.
+ * da valor (el 7: la fecha a la que se refiere; si no, su escala), y su estado del futuro (`estado`) si lo tiene. VG 12-11
+ * (#42): la incongruencia de escala se retiró; la cuenta lleva `rara` solo si sus tres relojes van fuera de orden.
  */
 function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const hilos = (d.hilos ?? []).map((h) => ({ pv: h, etiqueta: contrato.etiqueta(eje, null, h, ctx.opciones) }));
@@ -1407,16 +1416,16 @@ function franjasDeRejilla(eje, R, pv, d, g, ctx, { hueco }) {
   const caben = Math.max(1, Math.floor(hueco.ancho / Math.max(1, g.columnas) / ctx.medidas.tarjeta)) * Math.max(1, Math.floor(altoCruce / ctx.medidas.linea) - 1);
   const bandas = d.bandas.map((b) => ({ ...b, ahora: (b.escala ?? b.indice) === cercana, items: [], mas: 0, cruces: (hilos.length ? hilos : [{ pv: null }]).map((h) => ({ hilo: h.pv, items: [], mas: 0 })) }));
   const sinBanda = [];
-  const nombreDeEscala = (k) => d.bandas.find((b) => b.escala === k)?.nombre ?? null;
   for (const it of itemsDeBandas(eje, R, pv, ctx)) {
     const f = contrato.franjaDeEntrada(eje, it.id, pv, { ...ctx.opciones, division: d });
     const banda = f && f.k !== null ? bandas.find((b) => (b.escala ?? b.indice) === f.k) ?? null : null;
     if (!banda) { sinBanda.push(it.nodo); continue; }
-    if (f.incongruente) it.nodo.incongruente = { declarada: nombreDeEscala(f.declarada), franja: banda.nombre };
+    if (f.rara) it.nodo.rara = true;
     const donde = pvDondeCuelga(eje, R, it.id);
     const cruce = banda.cruces.find((c) => c.hilo !== null && c.hilo === donde) ?? banda.cruces[0];
     it.nodo.hilo = cruce.hilo;
-    if (cruce.hilo !== donde) it.nodo.hiloSupuesto = true;
+    // Lo del hilo hacia arriba no cuelga de R: va en el primero, como cadena de origen (no es un hilo supuesto).
+    if (cruce.hilo !== donde && !it.nodo.arriba) it.nodo.hiloSupuesto = true;
     cruce.items.push(it.nodo);
   }
   for (const b of bandas) {

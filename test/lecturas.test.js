@@ -17,7 +17,14 @@ import { t as textoDe } from '../carta/textos.js';
 import { instalar } from '../carta/gestos.js';
 import * as Q from '../carta/cuentas.js';
 import * as K from '../carta/carta.js';
-import { ejemploCompra, ejemploJardinYParque } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploCompra, ejemploJardinYParque, ejemploCuenta, ejemploFabrica, ejemploFuturoYCohorte } from '../ejemplos/ikisai/compra-food.mjs';
+import { ejemploReserva } from '../ejemplos/ikisai/reserva-booking.mjs';
+import { ejemploTarea } from '../ejemplos/ikisai/tarea-tasks.mjs';
+import { ejemploComprasHermanas } from '../ejemplos/ikisai/compras-hermanas.mjs';
+import { evaluar } from '../src/bqlm.js';
+import { ContextoEje } from '../src/contexto-eje.js';
+import { pasoDe } from '../src/pasos.js';
+import * as J from './paridad-lecturas-js.mjs';
 
 const GRANDE = { ancho: 1920, alto: 1080 };
 const completa = (X, pv, extra = {}) => ({ foco: { X, pv }, ...extra });
@@ -59,7 +66,7 @@ async function conCore() {
   assert.equal(dar.ok, true, JSON.stringify(dar.motivos));
   const admitir = await K.enviar(eje, menu, 'admit someone', { whom: 'core', minutes: 5 }, yo, firmar, { t: T(m++) });
   assert.equal(admitir.ok, true, JSON.stringify(admitir.motivos));
-  return { eje, yo, firmar, cuenta, alta: cuenta.cuenta.alta, agram, menu, altaCore: alta.asentado.id, propuesta: propuesta.id, admitidoEnAgram: admitidoEnAgram.id, sugerencia: sugerencia.id, dar: dar.asentado.id, admitir: admitir.asentado.id, t: () => T(m++) };
+  return { eje, yo, firmar, cuenta, core, alta: cuenta.cuenta.alta, agram, menu, altaCore: alta.asentado.id, propuesta: propuesta.id, admitidoEnAgram: admitidoEnAgram.id, sugerencia: sugerencia.id, dar: dar.asentado.id, admitir: admitir.asentado.id, t: () => T(m++) };
 }
 
 /** Los valores de una lectura, legibles para comparar: un registro por su id, lo demás tal cual. */
@@ -72,10 +79,11 @@ test('las diez lecturas son reglas largas de epoch.2, una por PV («point of vie
   const l = C.lecturasDePv();
   assert.deepEqual(l.map((x) => x.pv), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
   assert.deepEqual(l.map((x) => x.nombre), ['what it is', 'how much', 'on what condition', 'with whom', 'what is done', 'where it fits', 'where it comes from', 'by when', 'against others', 'how']);
-  // En BQL donde el BQL mínimo alcanza; envueltas (una lectura JS nombrada) donde no.
-  assert.deepEqual(l.filter((x) => x.formulas.length && !x.js.length).map((x) => x.pv), [2, 3, 4, 5, 6]);
+  // En BQL donde el BQL mínimo alcanza; envueltas (una lectura JS nombrada) donde no. VG 12-11 (estudio BQL-transacciones):
+  // el 1 (js flujo) y el 7 (js futuro) caen a BQL con moves, under y by.
+  assert.deepEqual(l.filter((x) => x.formulas.length && !x.js.length).map((x) => x.pv), [1, 2, 3, 4, 5, 6, 7]);
   // el 8, además de sus hermanos en BQL, la cohorte que eligió el dueño, envuelta (encargo «datos3»)
-  assert.deepEqual(l.filter((x) => x.js.length).map((x) => [x.pv, x.js]), [[0, ['representaciones']], [1, ['flujo']], [7, ['futuro']], [8, ['cohorte']], [9, ['camino']]]);
+  assert.deepEqual(l.filter((x) => x.js.length).map((x) => [x.pv, x.js]), [[0, ['representaciones']], [8, ['cohorte']], [9, ['camino']]]);
   for (const x of l) {
     assert.ok(esLecturaDePv(x.regla));
     assert.ok(!EPOCA_0_BTML.condiciones.includes(x.regla) && !EPOCA_0_BTML.lecturas.includes(x.regla), x.nombre + ': ni condición ni lectura materializada');
@@ -104,8 +112,9 @@ test('las diez, una a una sobre un registro: 0 sus representaciones, 1 lo movido
   const c = await conCore();
   const der = (N, d) => valores(C.leer(c.eje, N, d).derivado);
   assert.deepEqual(der(c.alta, 0), ['Víctor']);
-  assert.deepEqual(new Set(der(c.alta, 1)), new Set([c.altaCore, c.propuesta, c.sugerencia, c.dar, c.admitir]), 'lo que VG movió con Core y lo que Core quemó en lo de VG; no lo que VG solo quema al escribir');
-  assert.deepEqual(C.leer(c.eje, c.alta, 1).derivado.find((x) => x.valor.ref === c.altaCore).por[0].movimientos, [{ serie: 'T:minuto', cantidad: 60, de: c.yo, a: 'core' }]);
+  // #44 (VG 12-11): el 1 también cuenta lo que el dueño se mueve a sí mismo (acuñar es crear); no lo que solo quema al escribir.
+  assert.deepEqual(new Set(der(c.alta, 1)), new Set([c.altaCore, c.propuesta, c.sugerencia, c.dar, c.admitir]), 'lo que VG movió con Core y lo que Core quemó en lo de VG; no el alta (solo la obtención de P) ni lo que VG solo quema al escribir');
+  assert.deepEqual(C.leer(c.eje, c.alta, 1).derivado.find((x) => x.valor.ref === c.altaCore).por[0], { pv: 1, regla: 'how much', nombre: C.leer(c.eje, c.alta, 1).derivado[0].por[0].nombre, desde: [c.alta], formula: 0, nivel: 1 });
   assert.deepEqual(der(c.agram, 2), [c.admitidoEnAgram], 'el criterio de VG en el 2.3 de AGRAM');
   assert.deepEqual(der(c.admitir, 3), ['core'], 'con quién mueve R y T al admitirlo (lo anclado en su 3 es la décupla de la plantilla)');
   assert.deepEqual(der(c.menu, 4), [c.sugerencia], 'lo que Core escribió en el menú quemando T');
@@ -121,7 +130,7 @@ test('las diez, una a una sobre un registro: 0 sus representaciones, 1 lo movido
   assert.deepEqual(C.leer(c.eje, c.agram, 7).anclado, [{ ref: ev.id }], 'en AGRAM está anclado en su 7 (lo derivado no lo repite)');
   const siete = C.leer(c.eje, c.alta, 7).derivado;
   assert.deepEqual(valores(siete), [ev.id]);
-  assert.equal(siete[0].por[0].refiere, '2026-12-01T10:00:00Z');
+  assert.equal(C.estadoDeEntrada(c.eje, ev.id).fecha, '2026-12-01T10:00:00Z', 'la fecha a la que se refiere, la de su estado del futuro');
 });
 
 // ---------- los casos de Core ----------
@@ -286,7 +295,7 @@ test('el 7 lee lo que tiene fecha por esa fecha (lo más próximo primero), no p
   const cerca = await declarar('revisar', '2026-12-01T10:00:00Z');
   const siete = C.leer(c.eje, c.alta, 7).derivado;
   assert.deepEqual(valores(siete), [cerca, lejos], 'por la fecha a la que se refiere, aunque llegó después');
-  assert.deepEqual(siete.map((x) => [x.por[0].estado, x.por[0].fecha, x.por[0].refiere]), [['previsto', '2026-12-01T10:00:00Z', '2026-12-01T10:00:00Z'], ['previsto', '2026-12-20T10:00:00Z', '2026-12-20T10:00:00Z']]);
+  assert.deepEqual(siete.map((x) => [C.estadoDeEntrada(c.eje, x.valor.ref).tipo, C.estadoDeEntrada(c.eje, x.valor.ref).fecha]), [['previsto', '2026-12-01T10:00:00Z'], ['previsto', '2026-12-20T10:00:00Z']]);
   // el 8: sin elegir, los hermanos (el BQL de la regla); VG elige compararlo con todo el libro y entra lo demás, con su caja
   assert.deepEqual(new Set(valores(C.leer(c.eje, c.agram, 8).derivado)), new Set([c.menu, c.altaCore]));
   const cambio = await acciones.transaccion(c.eje, 'change cohort', { X: c.agram, cohort: 'genesis' }, c.yo, { t: c.t(), firmar: c.firmar });
@@ -298,4 +307,128 @@ test('el 7 lee lo que tiene fecha por esa fecha (lo más próximo primero), no p
   assert.deepEqual([porCohorte.regla, porCohorte.cohorte], ['against others', 'genesis']);
   assert.ok(porCohorte.caja === null || (porCohorte.caja >= 0 && porCohorte.caja <= 9));
   assert.ok(!ocho.some((x) => x.valor.ref === c.agram), 'nunca él mismo');
+});
+
+// ---------- BQL lee transacciones (VG 12-11, estudio BQL-transacciones; encargo bql-lectura) ----------
+
+/** Los libros de los ejemplos para la red de equivalencia: la compra con todo lo suyo, la reserva, la tarea y las hermanas. */
+async function librosDeEjemplo() {
+  const c = await ejemploCompra();
+  await ejemploCuenta(c.eje, c.compra);
+  await ejemploFabrica(c.eje, c);
+  await ejemploFuturoYCohorte(c.eje, c);
+  await ejemploJardinYParque(c.eje, c);
+  return [['compra', c.eje], ['reserva', (await ejemploReserva()).eje], ['tarea', (await ejemploTarea()).eje], ['hermanas', (await ejemploComprasHermanas()).eje]];
+}
+
+/** El 1 de antes de #44 en BQL (la reescritura del estudio, §4a): con alguien que no es el dueño. */
+const UNO_DE_ANTES = '=under it where count (moves it2 where not (it3.4.1 = "asignacion" or it3.4.1 = "informativo" or it3.4.1 = "obtencion") and (not mint in it3.4 and it3.3.0 != me or not burn in it3.4 and it3.3.1 != me)) > 0';
+
+test('paridad JS ↔ BQL: el diario (por llegada, «soonest» y «latest»), estadoDeEntrada y el paso «cuando» (con tres relojes), el 7 y el 1 (el de antes y el de #44) dan lo mismo que su JavaScript de antes en cada registro de los ejemplos', async () => {
+  const ids = (l) => l.map((x) => x.valor?.ref ?? x.valor);
+  const sinEstado = ({ id, t, autor, movimientos }) => ({ id, t, autor, movimientos });
+  const resumen = (e) => e && [e.tipo, e.fecha, e.cantidad];
+  let n = 0;
+  for (const [nombre, eje] of await librosDeEjemplo()) {
+    for (const id of eje.orden) {
+      const donde = nombre + ' ' + id.slice(0, 8);
+      const me = eje.obtener(id).autor;
+      // el diario: los mismos registros, en el mismo orden, con los mismos asientos y el mismo estado
+      const dj = J.diarioJS(eje, id);
+      const db = C.diario(eje, id, 0, Infinity).entradas;
+      assert.deepEqual(db.map(sinEstado), dj.map(sinEstado), donde + ': diario');
+      assert.deepEqual(db.map((e) => resumen(e.estado)), dj.map((e) => resumen(e.estado)), donde + ': el estado de cada entrada');
+      assert.deepEqual(C.diario(eje, id, 0, Infinity, { orden: 'soonest' }).entradas.map((e) => e.id), J.diarioJS(eje, id, { instante: true }).map((e) => e.id), donde + ': por instante');
+      assert.deepEqual(C.diario(eje, id, 0, Infinity, { orden: 'latest' }).entradas.map((e) => e.id), J.diarioJS(eje, id, { instante: true }).map((e) => e.id).reverse(), donde + ': lo último primero');
+      // el estado y la escala de su fecha, con el reloj del libro y con otros tres
+      for (const t of [undefined, '2026-11-01T00:00:00Z', '2026-11-20T00:00:00Z', '2027-06-01T00:00:00Z']) {
+        assert.deepEqual(resumen(C.estadoDeEntrada(eje, id, { t })), resumen(J.estadoJS(eje, id, t)), donde + ': estado a ' + t);
+        assert.equal(pasoDe(eje, id, 'cuando', { t }).k, J.cuandoJS(eje, id, t), donde + ': cuando a ' + t);
+      }
+      // el 7 (antes «js futuro»): lo derivado, sin lo anclado en su 7
+      const siete = C.leer(eje, id, 7);
+      const anclado7 = new Set(siete.anclado.map((x) => x.ref));
+      assert.deepEqual(ids(siete.derivado), J.futuroJS(eje, id).filter((x) => !anclado7.has(x)), donde + ': el 7');
+      // el 1: la reescritura del estudio da lo que daba «js flujo»; la de #44, lo de antes más lo propio
+      const ctx = new ContextoEje(eje, { epoch: EPOCA_0_BTML, me });
+      const antes = evaluar(UNO_DE_ANTES, ctx, { sujeto: id });
+      assert.equal(antes.estado, 'RESUELTO', donde + ': ' + antes.motivo);
+      assert.deepEqual(antes.valor.map((o) => ctx.valor(o)), J.flujoJS(eje, id, me), donde + ': el 1 de antes');
+      const uno = C.leer(eje, id, 1);
+      const anclado1 = new Set(uno.anclado.map((x) => x.ref));
+      assert.deepEqual(ids(uno.derivado), J.flujoPropioJS(eje, id, me).filter((x) => !anclado1.has(x)), donde + ': el 1 con lo propio');
+      n++;
+    }
+  }
+  assert.ok(n >= 80, 'en todos los registros de los ejemplos: ' + n);
+});
+
+test('el 1 cuenta lo propio (#44): lo que el dueño acuña para sí en lo suyo cuenta; lo que solo quema al escribir, no; el JavaScript de antes no lo contaba', async () => {
+  const c = await ejemploCompra();
+  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  // una cosa de la casa (solo quema el T de escribir) y, colgados de ella, los bonos que la casa se acuña
+  const tienda = await c.eje.escribir({ autor: 'casa', sobre: c.compra.id, en: '1000000000', t: '2026-11-07T17:00:00Z', movimientos: [minuto('casa')], payload: [['La tienda de la casa']] });
+  const nota = await c.eje.escribir({ autor: 'casa', sobre: tienda.id, en: '2000000000', t: '2026-11-07T17:01:00Z', movimientos: [minuto('casa')], payload: [['Una nota de la casa']] });
+  const bonos = await c.eje.escribir({ autor: 'casa', sobre: tienda.id, en: '9000000000', t: '2026-11-07T17:02:00Z', movimientos: [minuto('casa'), { token: 'E', emisor: 'casa', denominacion: 'bono', cantidad: 3, de: null, a: 'casa' }], payload: [['Bonos de la casa']] });
+  const uno = C.leer(c.eje, tienda.id, 1).derivado;
+  assert.deepEqual(valores(uno), [bonos.id], 'acuñar es crear: los bonos que la casa se acuña; no la tienda ni la nota, que solo queman el T de escribir');
+  assert.deepEqual(J.flujoJS(c.eje, tienda.id, 'casa'), [], 'antes no se contaba');
+  assert.equal(uno[0].por[0].nivel, 1);
+  assert.ok(!valores(uno).includes(nota.id));
+});
+
+test('el 4 lee el trabajo de todo el subárbol con under (decisión 9): lo directo con nivel 1, lo heredado con nivel 2 o más; la celda lo distingue', async () => {
+  const c = await conCore();
+  const deCore = async (sobre, title) => {
+    const r = await acciones.transaccion(c.eje, 'anchor here', { X: sobre, title }, 'core', { t: c.t(), firmar: (ev) => autoridad.firmar(ev, c.core.privada) });
+    assert.equal(r.ok, true, JSON.stringify(r.motivos));
+    return (await c.eje.anadir(r.evento)).id;
+  };
+  const debajo = await deCore(c.sugerencia, 'Debajo de la sugerencia');
+  const masAbajo = await deCore(debajo, 'Todavía más abajo');
+  const cuatro = C.leer(c.eje, c.menu, 4).derivado;
+  const nivel = (id) => cuatro.find((x) => x.valor.ref === id)?.por[0].nivel;
+  assert.deepEqual([nivel(c.sugerencia), nivel(debajo), nivel(masAbajo)], [1, 2, 3], 'la sugerencia, directa; lo de debajo, heredado');
+  assert.deepEqual(new Set(cuatro.filter((x) => x.por[0].formula === 1).map((x) => x.valor.ref)), new Set([c.sugerencia, debajo, masAbajo]));
+  // en la carta, la celda 1.4 del alta de VG: lo de Core colgado de la sugerencia, con su marca (directo o heredado)
+  const a = await arbol(completa(c.alta, 1), c.eje, c.yo, GRANDE);
+  const cuatroEnUno = a.centro.rejilla.celdas.find((x) => x.pv === 4).derivados;
+  assert.equal(cuatroEnUno.find((o) => o.X === masAbajo)?.relacion, 'heredado');
+  const h = html(a);
+  assert.match(h, /class="derivado heredado"/);
+  assert.ok(h.includes(textoDe('derivadoHeredado')));
+});
+
+test('el 6 lee las dos cosas (#45): el hilo (su primera fórmula, nivel negativo) y el diario (la segunda: lo llegado sobre él y lo que cuelga, lo más reciente primero)', async () => {
+  const c = await conCore();
+  const seis = C.leer(c.eje, c.agram, 6).derivado;
+  const hilo = seis.filter((x) => x.por[0].formula === 0);
+  const diario = seis.filter((x) => x.por[0].formula === 1);
+  assert.deepEqual(valores(hilo), [c.alta], 'el hilo hacia arriba');
+  assert.ok(hilo.every((x) => x.por[0].nivel < 0));
+  assert.deepEqual(valores(diario), [c.admitidoEnAgram, c.propuesta], 'lo llegado a AGRAM, lo más reciente primero');
+  assert.ok(diario.every((x) => x.por[0].nivel > 0));
+  assert.ok(!valores(seis).includes(c.agram), 'ni él mismo');
+  // el de la propuesta: su hilo (AGRAM y el alta) y nada colgado
+  assert.deepEqual(valores(C.leer(c.eje, c.propuesta, 6).derivado), [c.agram, c.alta]);
+  // en la carta, las franjas del 6 de AGRAM: el diario y, como cadena de origen, el hilo (el alta), con su marca
+  const r6 = (await arbol(completa(c.agram, 6), c.eje, c.yo, GRANDE)).centro.rejilla;
+  const cuentas = [...r6.bandas.flatMap((b) => b.items), ...r6.sinBanda];
+  assert.ok(cuentas.some((o) => o.arriba && o.X === c.alta && !o.hiloSupuesto), 'el alta, hilo hacia arriba (sin franja: no quema T)');
+  assert.ok(cuentas.some((o) => o.tipo === 'entrada' && o.ref === c.propuesta), 'la propuesta, lo llegado');
+  assert.ok(html(await arbol(completa(c.agram, 6), c.eje, c.yo, GRANDE)).includes(textoDe('derivadoArriba')));
+});
+
+test('sin tope en el núcleo (#44): una lectura encadenada sigue todos los nodos (más de 200) y los contadores son exactos', async () => {
+  const c = await ejemploCompra();
+  const minuto = (de) => ({ token: 'T', escala: 'minuto', cantidad: 1, de, a: null });
+  const N = 205;
+  for (let k = 0; k < N; k++) {
+    await c.eje.escribir({ autor: 'casa', sobre: c.menu.id, en: '9000000000', t: '2026-11-07T17:' + String(Math.floor(k / 60)).padStart(2, '0') + ':' + String(k % 60).padStart(2, '0') + 'Z', movimientos: [minuto('casa')], payload: [['nota ' + k]] });
+  }
+  const diario = C.leer(c.eje, c.menu.id, 6).derivado.filter((x) => x.por[0].formula === 1);
+  assert.ok(diario.length > N, 'el diario del menú, entero: ' + diario.length);
+  // 6 → 0: lo que es cada uno de lo llegado; sin el tope de 200 nodos por dígito
+  const textos = C.leerRuta(c.eje, c.menu.id, [6, 0]).derivado.map((x) => x.valor).filter((v) => /^nota \d+$/.test(v));
+  assert.equal(textos.length, N);
 });

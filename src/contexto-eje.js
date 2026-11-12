@@ -5,14 +5,20 @@
 //
 //   D-META   en un evento (la candidata `ev` o un registro del eje): 3 autor y firmante, 5 id, 6.0 t,
 //            6.5 sobre y en, 1 los movimientos (colisionan con lo que el payload tenga en el 1)
-//   D-MOV    un movimiento como décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad (las que haya),
-//            3 de quién a quién (3.0 de, 3.1 a; null es «nadie»), 4 primitiva, 5 registro de la serie,
-//            7 caducidad o fecha a la que se refiere, 9 nota
+//   D-MOV    un movimiento (el declarado en el 1 de un evento) o un asiento del libro (lo que da `moves`) como
+//            décupla: 0 serie, 1 cuánto, 2 estado, salida y caducidad (las que haya), 3 de quién a quién (3.0 de,
+//            3.1 a; null es «nadie»), 4 qué se hace (vale la primitiva; 4.0 la primitiva, 4.1 la clase del asiento:
+//            emision, asignacion, obtencion, reposicion o informativo; un movimiento declarado no la tiene),
+//            5 registro de la serie, 6 cuándo y dónde (6.0 el instante: el t del registro que lo asienta; 6.5 ese
+//            registro), 7 fechas (7.0 caducidad, 7.1 la fecha a la que se refiere, 7.2 bloqueado hasta: la salida
+//            que es un instante, en lo que queda bloqueado), 9 nota (VG 12-11, decisión 3 del estudio BQL-transacciones)
 //   D-SERIE  una clave de serie como décupla: 0 familia, 1 escala de T (un dígito) o emisor (E, R) o
 //            ámbito (P), 2 denominación (E) u origen (P: quien lo obtuvo), 5 registro, 7 franja
 //   D-FECHA  un instante como décupla: k = el número de periodo de la escala k desde 1970-01-01T00:00Z
 //            (0 segundo, 1 minuto, 2 hora, 3 día civil, 4 semana, 5 ciclo de 28 días, 6 año de 364 + 1)
 //   D-VALOR  un terminal «12 EUR» o «EUR 12»: 1 cuánto, 2 unidad (solo lectura)
+//   relojes  X.6.8, los tres relojes de un registro (VG 12-11, decisión 4): 6.8.0 su t del libro, 6.8.1 la marca de
+//            Nostr al transportarlo, 6.8.2 el bloque de Bitcoin que lo ancla (vacíos hasta que exista el transporte)
 //   vistas   de una identidad A: A.1 la cartera (un ocupante por serie: 0 serie, 1 disponible,
 //            2 bloqueado, uno por salida: 0 salida, 1 cuánto), A.2.1 su P posicionado (por registro,
 //            con sus orígenes en el 6), A.2.6 el P de su origen en todas las manos (encargo 3b-bis;
@@ -59,6 +65,9 @@ const CANDIDATA = Object.freeze({ k: 'ev' });
 const EN_CURSO = Symbol('en curso');
 const EPOCA = Object.freeze({ k: 'epoch' });
 const ANTES = Object.freeze({ k: 'before' });
+
+/** La primitiva del libro (src/libro.js) como la de la capa de transacciones (los símbolos de BQLM). */
+const PRIMITIVA_DEL_LIBRO = Object.freeze({ acunar: 'mint', transferir: 'transfer', bloquear: 'lock', liberar: 'release', quemar: 'burn' });
 
 /** La primitiva de un movimiento (las cinco de la capa de transacciones). */
 export function primitivaDe(m) {
@@ -136,6 +145,8 @@ export class ContextoEje {
   #ev;
   #epoch;
   #me = null; // la identidad que mira (encargo 3c-2a: el nombre `me` de las plantillas de transacción)
+  #ahora = null; // el reloj del libro si quien lee lo fija (before.6.0; contrato.estadoDeEntrada con `t`)
+  #llegada = null; // id → índice en el eje (para dar un subárbol por llegada), con la longitud del eje al hacerlo
   #presupuesto = null; // el de la evaluación en curso (src/bqlm.js, Presupuesto)
 
   #idEpoca = null; // el id de la raíz de la época (encargo 3b): lo que referencia una invitación
@@ -143,8 +154,9 @@ export class ContextoEje {
   #lecturas = new Map(); // «X.6.1» → las lecturas de la época (B5) que se materializan ahí
   #leyendo = new Set(); // las lecturas en curso (regla y sujeto): una que vuelve sobre sí misma es PENDIENTE
 
-  constructor(eje = null, { ev, epoch, me } = {}) {
+  constructor(eje = null, { ev, epoch, me, ahora } = {}) {
     this.#eje = eje ?? null;
+    this.#ahora = esInstante(ahora) ? ahora : null;
     this.#ev = ev ?? null;
     this.#me = typeof me === 'string' && me ? me : null;
     this.#epoch = epoch ? payloadDeEpoca(epoch) : null;
@@ -287,8 +299,9 @@ export class ContextoEje {
         if (d === 2) return this.#precios(nodo);
         return d === 0 && nodo.divisible ? ['divisible'] : d === 7 && nodo.caduca ? [nodo.caduca] : [];
       case 'fechas':
-        // El 7 de un movimiento: 0 la caducidad (de una emisión de E), 1 la fecha a la que se refiere (T informativo).
-        return d === 0 && nodo.m.caduca !== undefined ? [nodo.m.caduca] : d === 1 && nodo.m.refiere !== undefined ? [nodo.m.refiere] : [];
+        // El 7 de un movimiento: 0 la caducidad (de una emisión de E), 1 la fecha a la que se refiere (T informativo), 2
+        // bloqueado hasta (la salida que es un instante en lo que queda bloqueado; VG 12-11).
+        return d === 0 && nodo.m.caduca !== undefined ? [nodo.m.caduca] : d === 1 && nodo.m.refiere !== undefined ? [nodo.m.refiere] : d === 2 && nodo.m.hasta !== undefined ? [nodo.m.hasta] : [];
       case 'ev':
         // B4: el 5 de un evento es solo suyo (su id y las claves que declara): ni el payload ni lo anclado lo ocupan.
         if (d === 5) return this.#meta(this.#ev, d);
@@ -345,6 +358,69 @@ export class ContextoEje {
     return this.#eje.sobre(e.id).map((h) => ({ k: 'reg', id: h.id }));
   }
 
+  /**
+   * `under` (VG 12-11): el registro y todo lo que cuelga de él, a cualquier profundidad, por llegada; undefined si no es
+   * un registro. Cada registro cuesta uno del presupuesto. La candidata no tiene nada colgado: ella sola.
+   */
+  subarbol(nodo, presupuesto) {
+    if (nodo?.k === 'ev') return [nodo];
+    const e = this.#evento(nodo);
+    if (!e || !this.#eje) return undefined;
+    const pres = presupuesto ?? this.#presupuesto ?? new Presupuesto();
+    const vistos = new Set([e.id]);
+    const frente = [e.id];
+    pres.gastar(1);
+    while (frente.length) {
+      for (const h of this.#eje.sobre(frente.shift())) {
+        if (vistos.has(h.id)) continue;
+        pres.gastar(1);
+        vistos.add(h.id);
+        frente.push(h.id);
+      }
+    }
+    const i = this.#indiceDeLlegada();
+    return [...vistos].sort((a, b) => (i.get(a) ?? Infinity) - (i.get(b) ?? Infinity)).map((id) => ({ k: 'reg', id }));
+  }
+
+  /** id → su índice de llegada en el eje (se rehace si el eje creció). */
+  #indiceDeLlegada() {
+    const orden = this.#eje.orden ?? [];
+    if (!this.#llegada || this.#llegada.n !== orden.length) this.#llegada = { n: orden.length, i: new Map(orden.map((id, k) => [id, k])) };
+    return this.#llegada.i;
+  }
+
+  /**
+   * `moves` (VG 12-11): los asientos del libro de un nodo, por llegada, como ocupantes con su D-MOV; undefined si no
+   * tiene libro. De un registro, lo que asentó su transacción (también lo que añade el libro: la asignación del día, el
+   * T informativo, la reposición, la obtención); de una identidad, todo donde es de o a; de una serie (la de un
+   * movimiento, una entrada de la cartera o before.4), todos sus asientos. La candidata no está asentada: da lo que
+   * declara (su 1).
+   */
+  asientos(nodo, presupuesto) {
+    const pres = presupuesto ?? this.#presupuesto ?? new Presupuesto();
+    if (nodo?.k === 'ev') return this.#ev ? this.#meta(this.#ev, 1) : undefined;
+    const libro = this.#eje?.libro;
+    if (typeof libro?.asientos !== 'function') return undefined;
+    let lista;
+    const e = this.#evento(nodo);
+    if (e) {
+      const memo = pres.memo;
+      const llave = 'moves|' + e.id;
+      if (memo.has(llave)) lista = memo.get(llave);
+      else {
+        lista = (e.sobre ? libro.asientos({ registro: e.sobre }) : libro.asientos()).filter((a) => a.tx?.id === e.id);
+        memo.set(llave, lista);
+      }
+    } else if (nodo?.k === 'serie' || nodo?.k === 'salida' || nodo?.k === 'clave') {
+      if (nodo.k === 'salida' && !this.#esSerie(nodo.clave)) return undefined;
+      lista = libro.asientos({ serie: nodo.clave });
+    } else if (typeof nodo === 'string' && this.#eje.alta(nodo)) {
+      lista = libro.asientos().filter((a) => a.de === nodo || a.a === nodo);
+    } else return undefined;
+    pres.gastar(lista.length);
+    return lista.map((a) => ({ k: 'asiento', a }));
+  }
+
   /** El valor de un nodo: el id de un registro (o de la candidata, si lo tiene); una décupla no tiene. */
   valor(nodo) {
     if (nodo?.k === 'reg' || nodo?.k === 'regla') return nodo.id;
@@ -353,6 +429,8 @@ export class ContextoEje {
     if (nodo?.k === 'bloqueados') return nodo.salida;
     if (nodo?.k === 'origenP') return nodo.origen;
     if (nodo?.k === 'ev') return this.#ev.id;
+    // El 4 de un movimiento vale su primitiva (`burn in M.4`, `M.4 != burn`).
+    if (nodo?.k === 'que') return SIMBOLOS[nodo.v.primitiva];
     return undefined;
   }
 
@@ -366,6 +444,8 @@ export class ContextoEje {
       case 'before': return 'before';
       case 'dec': return JSON.stringify(nodo.v);
       case 'mov': return primitivaDe(nodo.m) + ' ' + nodo.m.cantidad + ' ' + claveToken(nodo.m) + ' (' + (nodo.m.de ?? 'nadie') + ' → ' + (nodo.m.a ?? 'nadie') + ')';
+      case 'asiento': return PRIMITIVA_DEL_LIBRO[nodo.a.primitiva] + ' ' + nodo.a.cantidad + ' ' + nodo.a.serie + ' (' + (nodo.a.de ?? 'nadie') + ' → ' + (nodo.a.a ?? 'nadie') + ')';
+      case 'que': return nodo.v.primitiva;
       case 'serie': return nodo.clave;
       case 'clave': return nodo.clave;
       case 'salida': return String(nodo.clave);
@@ -400,7 +480,7 @@ export class ContextoEje {
 
   /** D-META: los ocupantes implícitos del dígito d de un evento. */
   #meta(e, d) {
-    if (d === 1) return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i }));
+    if (d === 1) return (Array.isArray(e.movimientos) ? e.movimientos : []).map((m, i) => ({ k: 'mov', m, i, e }));
     // B4 (VG, 10-11): el firmante es el segundo ocupante del 3, siempre: «nadie» si no va firmado (así nada del
     // payload ocupa su sitio).
     if (d === 3) return [e.autor, e.firma && e.firmante ? e.firmante : NADIE];
@@ -806,6 +886,7 @@ export class ContextoEje {
       case 'reloj': {
         // 0 el mayor t del libro; 3, «con quién»: el reloj de los demás (B6), sin el autor de la candidata ni quien
         // emite la E que acuña; nada si no hay ninguno.
+        if (d === 0 && this.#ahora) return [this.#ahora];
         const ms = d === 0 ? this.#eje.tMaximo() : d === 3 ? this.#relojDeLosDemas() : NaN;
         return Number.isFinite(ms) ? [new Date(ms).toISOString()] : [];
       }
@@ -823,6 +904,8 @@ export class ContextoEje {
         return d === 0 ? [{ k: 'serie', clave: nodo.clave }] : d === 1 ? [nodo.cantidad] : d === 3 ? nodo.titulares : [];
       case 'meta6':
         if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
+        // 6.8, los tres relojes (VG 12-11, decisión 4): el del libro y, cuando exista el transporte, Nostr y Bitcoin.
+        if (d === 8) return [{ k: 'relojes', e: nodo.e }];
         if (d === 5) return [...(nodo.e.sobre ? [nodo.e.sobre] : []), nodo.e.en ?? '0000000000'];
         // 6.4, «de dónde viene: qué se hace»: lo que el registro atiende (contexto.atiende, los ids que cita; RR-5).
         if (d === 4) {
@@ -834,7 +917,19 @@ export class ContextoEje {
       case 'lectura':
         return this.#lectura(nodo.letra, nodo.sujeto, nodo.d, d);
       case 'mov':
-        return this.#movimiento(nodo.m, d);
+        return this.#dmov(this.#vistaDeMovimiento(nodo.m, nodo.e), d);
+      case 'asiento':
+        return this.#dmov(this.#vistaDeAsiento(nodo.a), d);
+      case 'que':
+        // El 4 de un movimiento (VG 12-11): 0 la primitiva, 1 la clase del asiento (si la tiene).
+        return d === 0 ? [SIMBOLOS[nodo.v.primitiva]] : d === 1 && nodo.v.clase ? [nodo.v.clase] : [];
+      case 'mov6':
+        // El 6 de un movimiento: 0 su instante (el t del registro que lo asienta), 5 ese registro.
+        return d === 0 ? (esInstante(nodo.v.t) ? [nodo.v.t] : []) : d === 5 && nodo.v.registro ? [nodo.v.registro] : [];
+      case 'relojes':
+        // X.6.8: 0 el t del libro; 1 la marca de Nostr y 2 el bloque de Bitcoin, vacíos hasta que exista el transporte.
+        if (d === 0) return nodo.e.t === undefined ? [] : [nodo.e.t];
+        return [];
       case 'par':
         return d === 0 ? [nodo.de ?? NADIE] : d === 1 ? [nodo.a ?? NADIE] : [];
       case 'entrada':
@@ -845,7 +940,9 @@ export class ContextoEje {
       case 'bloqueo':
         return d === 0 ? [{ k: 'salida', clave: nodo.salida }] : d === 1 ? [nodo.cantidad] : [];
       case 'salida':
-        // La salida de un bloqueo vale su texto; si nombra una serie que existe, es la referencia a su registro (B3).
+        // La salida de un bloqueo vale su texto; si nombra una serie que existe, es la referencia a su registro (B3); si es
+        // un instante (bloqueado hasta), se despliega como D-FECHA (VG 12-11).
+        if (esInstante(nodo.clave)) return desplegarFecha(nodo.clave)[d] ?? [];
         return this.#esSerie(nodo.clave) ? this.#serie(nodo.clave, d) : [];
       case 'tiempo': {
         if (d >= ESCALAS_REALES.length) return [];
@@ -974,22 +1071,58 @@ export class ContextoEje {
     return medida;
   }
 
-  /** D-MOV: el dígito d de un movimiento. */
-  #movimiento(m, d) {
+  /**
+   * Lo que un movimiento declarado (el 1 de un evento `e`) dice como D-MOV: { serie, cantidad, estado, salida, caduca,
+   * refiere, de, a, primitiva, clase, token, emisor, registroE, nota, t, registro }.
+   */
+  #vistaDeMovimiento(m, e) {
+    return {
+      get serie() { return claveToken(m); }, cantidad: m.cantidad, estado: m.estado, salida: m.salida, caduca: m.caduca, refiere: m.refiere,
+      de: m.de, a: m.a, primitiva: primitivaDe(m), clase: null, token: m.token, emisor: m.emisor, registroE: m.registro, nota: m.nota,
+      t: e?.t, registro: e ? (e === this.#ev ? CANDIDATA : { k: 'reg', id: e.id }) : null,
+    };
+  }
+
+  /**
+   * Lo que un asiento del libro dice como D-MOV: lo suyo (serie, cuánto, de, a, salida, primitiva, clase) y, del
+   * movimiento declarado que lo originó (el paso del mismo índice en su evento), las fechas y la nota.
+   */
+  #vistaDeAsiento(a) {
+    const ev = a.tx?.id ? this.#eje?.obtener(a.tx.id) : null;
+    const m = Number.isInteger(a.paso) && Array.isArray(ev?.movimientos) ? ev.movimientos[a.paso] : undefined;
+    const p = partirClave(a.serie);
+    return {
+      serie: a.serie, cantidad: a.cantidad,
+      estado: a.primitiva === 'bloquear' ? 'bloqueo' : a.primitiva === 'liberar' ? 'liberacion' : undefined,
+      salida: a.salida ?? undefined, caduca: m?.caduca, refiere: m?.refiere ?? a.origen?.refiere,
+      de: a.de ?? null, a: a.a ?? null, primitiva: PRIMITIVA_DEL_LIBRO[a.primitiva], clase: a.clase ?? null,
+      token: a.serie[0], emisor: p.emisor, registroE: p.registro, nota: m?.nota ?? a.origen?.nota,
+      t: a.tx?.t, registro: a.tx?.id ? { k: 'reg', id: a.tx.id } : null,
+    };
+  }
+
+  /** D-MOV: el dígito d de un movimiento o un asiento (su vista). */
+  #dmov(v, d) {
     switch (d) {
-      case 0: return [{ k: 'serie', clave: claveToken(m) }];
-      case 1: return [m.cantidad];
-      case 2: return [m.estado, m.salida === undefined ? undefined : { k: 'salida', clave: m.salida }, m.caduca].filter((x) => x !== undefined);
-      case 3: return [{ k: 'par', de: m.de, a: m.a }];
-      case 4: return [SIMBOLOS[primitivaDe(m)]];
+      case 0: return [{ k: 'serie', clave: v.serie }];
+      case 1: return [v.cantidad];
+      case 2: return [v.estado, v.salida === undefined ? undefined : { k: 'salida', clave: v.salida }, v.caduca].filter((x) => x !== undefined);
+      case 3: return [{ k: 'par', de: v.de, a: v.a }];
+      // 4, qué se hace (VG 12-11): vale la primitiva; 4.0 la primitiva y 4.1 la clase del asiento.
+      case 4: return [{ k: 'que', v }];
       case 5: {
-        if (m.token !== 'E') return [];
-        const registro = m.registro ?? this.#eje?.registroDe(claveToken(m)) ?? this.#eje?.alta(m.emisor)?.id;
+        if (v.token !== 'E') return [];
+        const registro = v.registroE ?? this.#eje?.registroDe(v.serie) ?? this.#eje?.alta(v.emisor)?.id;
         return registro ? [registro] : [];
       }
-      // B3 (VG, 10-11): 7.0 la caducidad, 7.1 la fecha a la que se refiere; ya no comparten posición.
-      case 7: return m.caduca !== undefined || m.refiere !== undefined ? [{ k: 'fechas', m }] : [];
-      case 9: return m.nota === undefined ? [] : [m.nota];
+      // 6, cuándo y dónde (VG 12-11): 6.0 el instante, 6.5 el registro que lo asienta.
+      case 6: return [{ k: 'mov6', v }];
+      // B3 (VG, 10-11): 7.0 la caducidad, 7.1 la fecha a la que se refiere; 7.2 bloqueado hasta (VG 12-11).
+      case 7: {
+        const hasta = esInstante(v.salida) && (v.primitiva === 'lock' || v.primitiva === 'transfer') ? v.salida : undefined;
+        return v.caduca !== undefined || v.refiere !== undefined || hasta !== undefined ? [{ k: 'fechas', m: { caduca: v.caduca, refiere: v.refiere, hasta } }] : [];
+      }
+      case 9: return v.nota === undefined ? [] : [v.nota];
       default: return [];
     }
   }
