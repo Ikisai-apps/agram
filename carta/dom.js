@@ -442,9 +442,10 @@ function htmlMatriz(r) {
   const ejes = r.ejes ?? { columnas: [], filas: [] };
   const esquina = ejes.oficios ? ['matrizEsquinaOficios', 'matrizEjesTituloOficios'] : ['matrizEsquina', 'matrizEjesTitulo'];
   const cabeza = `<span class="matriz-esquina" title="${attr(t(esquina[1]))}">${escapar(t(esquina[0]))}</span>` + ejes.columnas.map((c) => `<span class="matriz-eje matriz-columna" data-color="${c.pv}" title="${attr(c.pv + ' · ' + (c.etiqueta ?? ''))}"><b>${c.pv}</b> ${escapar(c.etiqueta ?? '')}</span>`).join('');
+  // las filas en el orden de los ejes (0 … 9); las columnas de cada una, en el de los ejes (1 … 9 y el 0 al final): las celdas ya vienen en ese orden
   const filas = Array.from({ length: r.filas }, (_, i) => {
     const f = ejes.filas[i];
-    return `<span class="matriz-eje matriz-fila" title="${attr(f ? f.digito + ' · ' + (f.nombre ?? '') : '')}">${f ? `<b>${f.digito}</b> ${escapar(f.nombre ?? '')}` : ''}</span>` + r.celdas.filter((c) => c.fila === i).map(celda).join('');
+    return `<span class="matriz-eje matriz-fila" title="${attr(f ? f.digito + ' · ' + (f.nombre ?? '') : '')}">${f ? `<b>${f.digito}</b> ${escapar(f.nombre ?? '')}` : ''}</span>` + r.celdas.filter((c) => c.fila === (f ? f.digito : i)).map(celda).join('');
   }).join('');
   return `<div class="rejilla-celdas rejilla-matriz${ejes.oficios ? ' por-oficios' : ''}" style="--columnas:${r.columnas};--filas:${r.filas}">${cabeza}${filas}</div>${htmlCeldaAbierta(r.abierta)}${htmlSinPosicion(r)}`;
 }
@@ -459,8 +460,8 @@ function htmlMatrizEnColumna(r) {
   const llenas = r.celdas.filter((c) => c.ocupante);
   if (!llenas.length && !r.sinPosicion?.length) return `<div class="rejilla-celdas rejilla-matriz-columna vacia">${htmlEscribir(r.escribir, t('vacia'))}</div>`;
   const celda = (c) => {
-    const col = ejes.columnas[c.columna];
-    const fila = ejes.filas[c.fila];
+    const col = ejes.columnas.find((k) => k.pv === c.columna);
+    const fila = ejes.filas.find((k) => k.digito === c.fila);
     const nombre = [col ? `${col.pv} ${col.etiqueta ?? ''}` : '', fila ? `${fila.digito} ${fila.nombre ?? ''}` : ''].filter(Boolean).join(' · ');
     return `<div class="rejilla-celda hijo estacion${c.diagonal ? ' diagonal' : ''}" data-color="${c.pv}" data-pv="${c.pv}" data-fila="${c.fila}" data-columna="${c.columna}"${c.estado ? ` data-estado="${attr(c.estado)}"` : ''}><header class="hijo-cabeza"><span class="hijo-nombre">${escapar(nombre)}</span><span class="hijo-cifra">${escapar(cifraDeCelda(c))}</span></header><div class="hijo-cuerpo">${htmlEjecuciones(c.ocupantes ?? [c.ocupante])}${htmlDibujo(c.capa)}</div></div>`;
   };

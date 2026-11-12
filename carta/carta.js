@@ -1294,7 +1294,7 @@ const EJECUCIONES_EN_CELDA_ABIERTA = 10;
  * la época mide la ejecución («execution» en lo que mide, epoch.8.7), las filas son los oficios y las columnas la
  * ejecución, con sus nombres de la época (`d.ejes`, contrato.ejesDeLaMatriz, en el idioma), cada ejecución de la fábrica
  * de R va en la celda de su oficio y de lo que mueve (acciones.ejecuciones: `oficio`, `ejecucion`) y la diagonal son las
- * celdas de la escalera dulce (contrato.escalera: la fila k con la columna k+1), cada una con su peldaño (`escalon`). La
+ * celdas de la escalera dulce (contrato.escalera: la fila k con la columna k+1 (la 9 con la 0)), cada una con su peldaño (`escalon`). La
  * celda es su lista, cada una con su estación (propuesta, autorizada, ejecutada); pulsarla la abre (`estado.celdaMatriz`
  * de R, a pantalla completa): `abierta`, su lista hasta diez, con su estación, y cuántas más. Lo que el núcleo no sabe
  * colocar va aparte, en la fila «sin posición» (`sinPosicion`), sin inventar celda. Sin ejes pero con «pv» en lo que mide
@@ -1305,8 +1305,10 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
   const conEjes = Boolean(d.ejes?.filas?.length && d.ejes?.columnas?.length);
   const escalones = new Map((conEjes ? contrato.escalera(ctx.opciones) : []).map((p) => [p.fila + '.' + p.columna, p]));
   const celdas = [];
-  for (let fila = 0; fila < g.filas; fila++) {
-    for (let columna = 0; columna < g.columnas; columna++) {
+  // Con ejes, el orden de pintado es el de los ejes (filas 0 … 9, columnas 1 … 9 y el 0 al final: la escalera baja por la diagonal visual); sin ellos, 0 … 9.
+  const digitosDe = (eje_, n) => (conEjes ? eje_.slice(0, n).map((x) => x.indice) : Array.from({ length: n }, (_, k) => k));
+  for (const fila of digitosDe(d.ejes?.filas ?? [], g.filas)) {
+    for (const columna of digitosDe(d.ejes?.columnas ?? [], g.columnas)) {
       const p = escalones.get(fila + '.' + columna);
       celdas.push({ fila, columna, pv, ocupantes: [], ocupante: null, entra: false, diagonal: conEjes ? Boolean(p) : fila === columna, estado: null, ...(p ? { escalon: { peldano: p.indice, nivel: p.nivel, grado: p.grado, nombre: p.nombre, direccion: p.direccion } } : {}) });
     }
@@ -1344,7 +1346,7 @@ function celdasDeMatriz(eje, R, pv, d, g, ctx, { pagina, entrar }) {
     // La celda abierta (VG 12-11, #49.8): su lista de movimientos, hasta diez, cada uno con el color de su estación.
     const pedida = conEjes && entrar && ctx.estado?.celdaMatriz?.X === R ? celdas.find((c) => c.abrir && c.abrir === ctx.estado.celdaMatriz.celda) : null;
     const abierta = pedida
-      ? { fila: pedida.fila, columna: pedida.columna, oficio: ejes.filas[pedida.fila]?.nombre ?? null, ejecucion: ejes.columnas[pedida.columna]?.etiqueta ?? null, lista: pedida.ocupantes.slice(0, EJECUCIONES_EN_CELDA_ABIERTA), mas: Math.max(0, pedida.total - EJECUCIONES_EN_CELDA_ABIERTA), escalon: pedida.escalon ?? null }
+      ? { fila: pedida.fila, columna: pedida.columna, oficio: ejes.filas.find((f) => f.digito === pedida.fila)?.nombre ?? null, ejecucion: ejes.columnas.find((k) => k.pv === pedida.columna)?.etiqueta ?? null, lista: pedida.ocupantes.slice(0, EJECUCIONES_EN_CELDA_ABIERTA), mas: Math.max(0, pedida.total - EJECUCIONES_EN_CELDA_ABIERTA), escalon: pedida.escalon ?? null }
       : null;
     return { celdas, ejes, sinPosicion, pagina: { actual: 1, de: 1 }, ...(abierta ? { abierta } : {}) };
   }

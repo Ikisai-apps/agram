@@ -440,18 +440,31 @@ test('la matriz del 4 trae sus dos ejes nombrados por la época (filas: los diez
   const a = await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE);
   const r = a.centro.rejilla;
   const diez = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  // VG 12-11: las filas se pintan 0 … 9 y las columnas 1 … 9 y el 0 al final (la escalera baja por la diagonal visual); el dígito de cada una no cambia
+  const alFinal0 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0];
   assert.deepEqual(r.ejes.filas.map((f) => [f.digito, f.nombre]), diez.map((k) => [k, ['mostrar', 'gestionar', 'administrar', 'coordinar', 'hacer', 'verificar', 'registrar', 'planear', 'medir', 'guiar'][k]]));
-  assert.deepEqual(r.ejes.columnas.map((c) => [c.pv, c.etiqueta]), diez.map((k) => [k, ['contenido que se muestra', 'E', 'P', 'R', 'T', 'verificación sin token propio', 'adjudicación al pasado', 'proyección al futuro', 'crecimiento que genera rangos', 'contenido que guía'][k]]));
+  assert.deepEqual(r.ejes.columnas.map((c) => [c.pv, c.etiqueta]), alFinal0.map((k) => [k, ['contenido que se muestra', 'E', 'P', 'R', 'T', 'verificación sin token propio', 'adjudicación al pasado', 'proyección al futuro', 'crecimiento que genera rangos', 'contenido que guía'][k]]));
   // los nombres son datos de la época (el enlace de la fila del 4, epoch.8.7), en inglés canónico, con su texto en epoch.9.4
   const ejes = C.ejesDeLaMatriz();
   assert.deepEqual(ejes.filas.map((f) => f.nombre), ['show', 'manage', 'administer', 'coordinate', 'do', 'verify', 'record', 'plan', 'measure', 'guide']);
-  assert.deepEqual(ejes.columnas.map((c) => c.nombre).slice(0, 5), ['content shown', 'E', 'P', 'R', 'T']);
+  assert.deepEqual(ejes.columnas.map((c) => c.nombre).slice(0, 4), ['E', 'P', 'R', 'T']);
+  assert.equal(ejes.columnas.at(-1).nombre, 'content shown', 'el 0 al final');
+  assert.deepEqual(ejes.columnas.map((c) => c.indice), alFinal0);
+  assert.deepEqual(ejes.filas.map((f) => f.indice), diez);
   assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => [c.fila, c.columna]), diez.map((k) => [k, (k + 1) % 10]), 'la escalera: la fila k con la columna k+1; la 9 vuelve a la 0');
   assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => `${c.escalon.nivel}.${c.escalon.grado}`), HITOS.map((x) => x.nivel));
   const h = rejillaHtml(html(a));
   assert.equal((h.match(/class="matriz-eje matriz-columna"/g) ?? []).length, 10);
   assert.equal((h.match(/class="matriz-eje matriz-fila"/g) ?? []).length, 10);
   assert.equal((h.match(/class="rejilla-celda hijo[^"]* diagonal"/g) ?? []).length, 10);
+  // la diagonal visual: la celda i de la fila i es el peldaño i (mostrar · E 0.3 … hacer · verificación 3.2 … guiar · contenido 5.3)
+  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => r.celdas.indexOf(c)), diez.map((k) => k * 10 + k), 'las diez, en la diagonal visual de la rejilla pintada');
+  assert.deepEqual(r.celdas.filter((c) => c.diagonal).map((c) => c.escalon.peldano), diez);
+  assert.deepEqual([r.celdas[0].fila, r.celdas[0].columna, r.celdas.at(-1).fila, r.celdas.at(-1).columna], [0, 1, 9, 0], 'de mostrar · E a guiar · contenido');
+  assert.deepEqual([...h.matchAll(/class="matriz-eje matriz-columna" data-color="(\d)"/g)].map((m) => Number(m[1])), alFinal0, 'las columnas, 1 … 9 y el 0 al final');
+  assert.deepEqual([...h.matchAll(/class="matriz-eje matriz-fila" title="(\d) ·/g)].map((m) => Number(m[1])), diez, 'las filas, 0 … 9');
+  assert.match(h, /data-fila="0" data-columna="1"[^>]* data-peldano="0"><span class="hijo-nombre"><small class="matriz-escalon"[^>]*>0\.3<\/small>/, '0.3 en mostrar · E');
+  assert.match(h, /data-fila="9" data-columna="0"[^>]* data-peldano="9"><span class="hijo-nombre"><small class="matriz-escalon"[^>]*>5\.3<\/small>/, '5.3 en guiar · contenido');
   assert.ok(h.includes(`<span class="matriz-esquina" title="${t('matrizEjesTituloOficios')}">${t('matrizEsquinaOficios')}</span>`));
   assert.match(h, /data-fila="4" data-columna="5"[^>]* data-peldano="4"><span class="hijo-nombre"><small class="matriz-escalon"[^>]*>3\.2<\/small>/, 'el punto dulce, 3.2, en hacer · verificación');
   assert.match(h, /<span class="matriz-eje matriz-fila" title="4 · hacer"><b>4<\/b> hacer<\/span>/);
@@ -462,7 +475,7 @@ test('la matriz del 4 trae sus dos ejes nombrados por la época (filas: los diez
   // los nombres salen de la época: cambiarlos en una copia cambia los ejes
   const otra = epocaCon((e) => { filaDe(e, 4)[8][0][4] = 'build'; filaDe(e, 4)[8][1][1] = ['money', 'token E']; });
   const b = (await arbol(completa(compra.id, 4), eje, 'huesped', GRANDE, { epoca: otra })).centro.rejilla;
-  assert.deepEqual([b.ejes.filas[4].nombre, b.ejes.columnas[1].etiqueta], ['build', 'money']);
+  assert.deepEqual([b.ejes.filas[4].nombre, b.ejes.columnas.find((c) => c.pv === 1).etiqueta], ['build', 'money']);
 });
 
 test('el 9 a pantalla completa lee el rango del 8: las posiciones disponibles (del primer peldaño al suyo) encendidas, la suya marcada, las demás apagadas; sin rango declarado', async () => {

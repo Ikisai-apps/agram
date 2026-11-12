@@ -587,7 +587,8 @@ const RE_DIRECCION = /^\d{10}$/;
  * columnas, la ejecución (lo que se mueve: 0 contenido que se muestra, 1 E, 2 P, 3 R, 4 T, 5 verificación sin token
  * propio, 6 adjudicación al pasado, 7 proyección al futuro, 8 crecimiento que genera rangos, 9 contenido que guía), cada
  * una con lo que la elige (celdaDeEjecucion). Con `idioma`, el `texto` de cada nombre («office <nombre>», «execution
- * <nombre>» de epoch.9.4; si falta, el nombre).
+ * <nombre>» de epoch.9.4; si falta, el nombre). Las filas van 0 … 9 y las columnas 1 … 9 y el 0 al final (VG 12-11: así la
+ * escalera baja por la diagonal visual, de mostrar · E, 0.3, a guiar · contenido, 5.3); el `indice` de cada una es su dígito.
  */
 export function ejesDeLaMatriz({ idioma, ...opciones } = {}) {
   const raiz = raizDe(epocaDe(opciones));
@@ -595,12 +596,14 @@ export function ejesDeLaMatriz({ idioma, ...opciones } = {}) {
   const [oficios, ejecucion] = hojas(fila?.[8]).filter(Array.isArray);
   if (!oficios || !ejecucion) return null;
   const traducir = (clave, nombre) => (idioma ? { texto: texto_(null, clave, idioma, { original: nombre, ...opciones }) } : {});
+  // El orden de pintado de las columnas (VG 12-11): 1 … 9 y el 0 (contenido que se muestra) al final; el `indice` sigue siendo el dígito. Las filas, 0 … 9.
+  const al0Final = (a, b) => (a.indice === 0) - (b.indice === 0) || a.indice - b.indice;
   return {
     filas: hojas(oficios).filter((s) => typeof s === 'string').map((nombre, indice) => ({ indice, nombre, ...traducir(CLAVE.oficio(nombre), nombre) })),
     columnas: hojas(ejecucion).filter(Array.isArray).map((c, indice) => {
       const [nombre, ...criterios] = hojas(c).filter((s) => typeof s === 'string');
       return { indice, nombre, criterios, ...traducir(CLAVE.ejecucion(nombre), nombre) };
-    }),
+    }).sort(al0Final),
   };
 }
 
@@ -697,7 +700,8 @@ export function celdaDeEjecucion(eje, id, opciones = {}) {
   let ejecucion = null;
   let porEjecucion = null;
   const elegir = (cumple) => {
-    for (const c of ejes.columnas) {
+    // En cada paso gana la primera columna por su dígito (0, 1 … 9), no por el orden en que se pintan.
+    for (const c of [...ejes.columnas].sort((a, b) => a.indice - b.indice)) {
       const criterio = c.criterios.find(cumple);
       if (criterio) { ejecucion = c.indice; porEjecucion = criterio; return true; }
     }
