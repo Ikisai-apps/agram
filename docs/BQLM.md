@@ -504,7 +504,7 @@ Lo marcado [X] en las cinco familias, en la integración y en los encargos 3a y 
 
 ## 11. Mover: los verbos y el invariante del núcleo
 
-VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49, decisiones 5 a 8, y #48; ola 2 de la escritura). Lo que hasta ahora declaraban las plantillas de transacción en un segundo lenguaje (una décupla por movimiento en su 4, con el «extra» de la posición 2 y el texto `"nobody"`) se escribe en BQL. La nota `docs/notas/BQL_MUEVE.md` lista las plantillas migradas y las pendientes.
+VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49, decisiones 5 a 8, y #48; ola 2 de la escritura). Lo que hasta ahora declaraban las plantillas de transacción en un segundo lenguaje (una décupla por movimiento en su 4, con el «extra» de la posición 2 y el texto `"nobody"`) se escribe en BQL. Todas las plantillas están migradas y la lista de antes se retiró (fusión con PV3); la nota `docs/notas/BQL_MUEVE.md` dice cómo y qué queda.
 
 **Los verbos** (decisión 5). Los cinco símbolos que BQL ya tenía son verbos, con cinco palabras de enlace y la serie como posición de su familia:
 
@@ -539,5 +539,5 @@ VG, 12-11 (estudio BQL-transacciones, `docs/notas/DECISIONES_2026-11-12.md` #49,
 2. **Firma quien mueve.** La candidata que construye una plantilla es de quien la lanza (`autor`) y la firma él (`opciones.firmar`); un verbo que nombra lo ajeno se construye, pero no concede nada: lo rechaza «nobody moves tokens of others», y lo que no está en la cartera de quien lo mueve no sale (saldo insuficiente).
 3. **El libro, por su cuenta, solo acuña hasta un nivel**: las reglas que escriben se aplican sin firma, así que solo colocan (`put`) y solo en `DESTINOS_DE_PUT` (`A.2.1`, la obtención de P). Un `put` en otro destino es ERROR.
 
-Pruebas: `test/bqlm.test.js` (los verbos, la serie de su familia, el invariante, `put` y `memo`), `test/seguridad-bqlm.test.js` (SEG-14 y SEG-15: una regla con un verbo no se carga; lo que nombra lo ajeno lo rechaza la regla y lo firma quien lanza), `test/acciones.test.js` (la doble ejecución, el coste, el anuncio y #48).
+Pruebas: `test/bqlm.test.js` (los verbos, la serie de su familia, el invariante, `put` y `memo`), `test/seguridad-bqlm.test.js` (SEG-14 y SEG-15: una regla con un verbo no se carga; lo que nombra lo ajeno lo rechaza la regla y lo firma quien lanza), `test/acciones.test.js` (la doble ejecución, cerrada: las sentencias mueven lo que movía la lista, `test/doble-ejecucion-esperada.json`; el coste, el anuncio y #48).
 

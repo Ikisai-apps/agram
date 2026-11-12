@@ -77,24 +77,6 @@
   ["=first it.3 = me"],
   ["me"],
   [
-    [
-      ["R", "=me"],
-      ["=first ev.1.0 - sum ((me.1 where R in it2.0.0.0 and it2.0.0.1 = me) each 1)"],
-      ["mint"],
-      [["nobody"], ["=me"]]
-    ],
-    [
-      ["R", "=me"],
-      ["=first ev.1.0"],
-      ["transfer"],
-      [["=me"], ["=last ev.3.1"]]
-    ],
-    [
-      ["T:minuto"],
-      ["=first ev.1.1"],
-      ["transfer"],
-      [["=me"], ["=last ev.3.1"]]
-    ],
     "=put first memo.1.0 at me.1.(R.(me)).1",
     "=transfer first memo.1.0 R.(me) from me to first memo.3.1",
     "=transfer first memo.1.1 T.1 from me to first memo.3.1"

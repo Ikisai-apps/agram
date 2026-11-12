@@ -14,9 +14,8 @@
 //                              «=…» del BQL mínimo con los cinco verbos (mint transfer lock release burn), una por
 //                              ocupante, evaluadas en orden (bqlm.evaluarPlantilla); «write» si no mueve nada más que el
 //                              coste de escribir (la regla de la época «the cost of writing», que transaccion cobra a
-//                              toda candidata); «read» si solo lee; «path» si lanza el camino. Mientras dure la
-//                              migración, la lista de antes (un movimiento por décupla: 0 serie, 1 cuánto, 2 primitiva
-//                              y su salida, precio o fecha, 3 [[de], [a]]) convive con las sentencias: doble ejecución
+//                              toda candidata); «read» si solo lee; «path» si lanza el camino. La lista de antes (un
+//                              movimiento por décupla) se retiró al fundir con PV3: las dos vías daban lo mismo
 //   5 dónde ancla            el dígito (o camino, con huecos {parámetro}) de X y, si no es X, el registro
 //   6 procedencia  7 época  8 [punto de vista, orden] (la primera de cada uno es la acción por defecto)  9 mensaje
 //
@@ -34,7 +33,7 @@
 import { EPOCA_0_BTML } from './epocas.js';
 import { ContextoEje } from './contexto-eje.js';
 import { evaluar, rellenar, nombreDeRegla, evaluarPlantilla } from './bqlm.js';
-import { crearEvento, canonico } from './evento.js';
+import { crearEvento } from './evento.js';
 import { partirClave, validarMovimiento, ESCALAS_INFORMATIVAS, ANUNCIADO, esAnunciado, claveToken } from './tokens.js';
 import { exigido as exigidoDe, tDelCoste } from './escritura.js';
 import { direccion, esReferencia, esDecupla } from './btml.js';
@@ -334,36 +333,17 @@ function relojDe(eje, opciones) {
 
 // ---------- 3. construir y validar ----------
 
-/** Los campos de una serie para un movimiento, desde sus partes [familia, emisor|escala|ámbito, denominación|origen, registro] o desde su clave. */
-function serieDe(partes) {
-  if (partes.length === 1) {
-    const clave = partes[0];
-    if (typeof clave !== 'string' || !clave.includes(':')) return null;
-    const p = partirClave(clave);
-    const { token } = p;
-    if (token === 'E') return { token, emisor: p.emisor, denominacion: p.denominacion, ...(p.registro ? { registro: p.registro } : {}) };
-    if (token === 'P') return { token, ambito: p.ambito, ...(p.origen ? { origen: p.origen } : {}) };
-    if (token === 'R') return { token, emisor: p.emisor };
-    if (token === 'T') return { token, escala: p.escala };
-    return null;
-  }
-  const [familia, a, b, c] = partes;
-  if (familia === 'E') return { token: 'E', emisor: a, denominacion: b, ...(c ? { registro: c } : {}) };
-  if (familia === 'P') return { token: 'P', ambito: a, ...(b ? { origen: b } : {}) };
-  if (familia === 'R') return { token: 'R', emisor: a };
-  if (familia === 'T') return { token: 'T', escala: a };
+/** Los campos de una serie para un movimiento, desde su clave (R:ana, T:minuto, E:casa/EUR, P:<ámbito>/<origen>). */
+function serieDe(clave) {
+  if (typeof clave !== 'string' || !clave.includes(':')) return null;
+  const p = partirClave(clave);
+  const { token } = p;
+  if (token === 'E') return { token, emisor: p.emisor, denominacion: p.denominacion, ...(p.registro ? { registro: p.registro } : {}) };
+  if (token === 'P') return { token, ambito: p.ambito, ...(p.origen ? { origen: p.origen } : {}) };
+  if (token === 'R') return { token, emisor: p.emisor };
+  if (token === 'T') return { token, escala: p.escala };
   return null;
 }
-
-/**
- * El minuto copiado (VG 12-11, decisión 7): la receta «quema un minuto de T de quien escribe» que llevaban las
- * plantillas era un sucedáneo del coste de escribir; ahora lo cobra la regla de la época a toda candidata, así que una
- * lista que aún la lleve (una plantilla sin migrar) no la cuenta dos veces.
- */
-const MINUTO_COPIADO = JSON.stringify([['T:minuto'], [1], ['burn'], [['=me'], ['nobody']]]);
-
-/** La lista de antes (la de la doble ejecución): las recetas del 4, una décupla por movimiento, sin el minuto copiado. */
-export const recetasDe = (plantilla) => (Array.isArray(plantilla?.[4]) ? plantilla[4] : []).filter((r) => Array.isArray(r) && esDecupla(r) && JSON.stringify(r) !== MINUTO_COPIADO);
 
 /** Las sentencias del 4 (VG 12-11, decisiones 5 y 6): las fórmulas «=…» del BQL mínimo con los verbos, en su orden. */
 export const sentenciasDe = (plantilla) => (Array.isArray(plantilla?.[4]) ? plantilla[4] : []).filter(esFormula);
@@ -372,56 +352,13 @@ export const sentenciasDe = (plantilla) => (Array.isArray(plantilla?.[4]) ? plan
 export const migrada = (plantilla) => sentenciasDe(plantilla).length > 0 || (Array.isArray(plantilla?.[4]) && plantilla[4].includes('write'));
 
 /**
- * Los movimientos que describe la lista de antes del 4 de la plantilla (las recetas), evaluados sobre la candidata:
- * cada décupla da un movimiento (o ninguno, si su cuánto es cero o nada). Devuelve { movimientos, motivos }. Es la vía
- * vieja de la doble ejecución: se retira cuando todas las plantillas den lo mismo por las sentencias (movimientosBql).
- */
-function movimientosDe(eje, epoca, plantilla, candidata, yo, X, idioma) {
-  const nombre = nombreDeAccion(plantilla);
-  const ctx = contextoDe(eje, epoca, { ev: candidata, me: yo });
-  const vale = (h) => (esFormula(h) ? valores(h, ctx, sujetoDe(X)).valores ?? [] : h === undefined ? [] : [h]);
-  const quien = (h) => {
-    const v = vale(h)[0];
-    return v === 'nobody' || v === undefined ? null : v;
-  };
-  const movimientos = [];
-  const motivos = [];
-  for (const receta of recetasDe(plantilla)) {
-    const cuanto = vale(hoja(receta[1]))[0];
-    if (!(typeof cuanto === 'number' && cuanto > 1e-12)) continue; // lo que da cero o nada no se mueve
-    const partes = hojas(receta[0]).map((h) => vale(h)[0]);
-    const serie = partes.every((x) => x !== undefined) ? serieDe(partes) : null;
-    if (!serie) { motivos.push({ regla: nombre, mensaje: motivoDe('no series', { name: nombre, amount: cuanto }, { idioma, epoca }) }); continue; }
-    const [primitiva, extra] = hojas(receta[2]);
-    const [de, a] = hojas(receta[3]).map((x) => quien(hoja(x)));
-    const m = { ...serie, cantidad: Math.round(cuanto * 1e9) / 1e9 };
-    const extraV = extra === undefined ? undefined : vale(extra)[0];
-    if (primitiva === 'mint') {
-      Object.assign(m, { de: null, a });
-      if (serie.token === 'E' && Array.isArray(extraV) && esDecupla(extraV)) m.precio = [hoja(extraV[0]), hoja(extraV[1])];
-    } else if (primitiva === 'burn') {
-      Object.assign(m, { de, a: null });
-      if (serie.token === 'T' && ESCALAS_INFORMATIVAS.includes(serie.escala) && typeof extraV === 'string') m.refiere = extraV;
-    } else if (primitiva === 'lock' || primitiva === 'release') {
-      Object.assign(m, { de, a: de, estado: primitiva === 'lock' ? 'bloqueo' : 'liberacion', salida: extraV === undefined ? undefined : String(extraV) });
-    } else {
-      Object.assign(m, { de, a, ...(extraV === undefined ? {} : { salida: String(extraV) }) });
-    }
-    const errores = validarMovimiento(m);
-    if (errores.length) motivos.push({ regla: nombre, mensaje: nombre + ': ' + errores.join('; ') });
-    else movimientos.push(m);
-  }
-  return { movimientos, motivos };
-}
-
-/**
  * Los movimientos de las sentencias del 4 (VG 12-11, decisiones 5 y 6): bqlm.evaluarPlantilla las evalúa en orden sobre
  * la candidata (it = X, me = yo, memo = su payload) y anota lo que mueven sus verbos; aquí solo se recoge, se redondea
  * y pasa la forma (validarMovimiento, el suelo). Lo que construye una plantilla no concede nada: la candidata la firma
  * quien la lanza y la validan después las reglas, que solo leen; nombrar una serie no da nada: lo que no está en la
  * cartera de quien la mueve, el libro no lo deja salir (saldo insuficiente). `when` en lo que no es T informativo lo
  * anuncia (decisión 8).
- * Devuelve { movimientos, motivos }, como movimientosDe.
+ * Devuelve { movimientos, motivos }.
  */
 function movimientosBql(eje, epoca, plantilla, candidata, yo, X, idioma) {
   const nombre = nombreDeAccion(plantilla);
@@ -432,7 +369,7 @@ function movimientosBql(eje, epoca, plantilla, candidata, yo, X, idioma) {
   const motivos = [];
   const sinSerie = (cantidad) => motivos.push({ regla: nombre, mensaje: motivoDe('no series', { name: nombre, amount: cantidad }, { idioma, epoca }) });
   for (const v of r.movimientos) {
-    const serie = typeof v.serie === 'string' ? serieDe([v.serie]) : null;
+    const serie = serieDe(v.serie);
     if (!serie) { sinSerie(v.cantidad); continue; }
     const m = { ...serie, cantidad: Math.round(v.cantidad * 1e9) / 1e9 };
     const informativo = serie.token === 'T' && ESCALAS_INFORMATIVAS.includes(serie.escala);
@@ -455,12 +392,6 @@ function movimientosBql(eje, epoca, plantilla, candidata, yo, X, idioma) {
     else movimientos.push(m);
   }
   return { movimientos, motivos };
-}
-
-/** ¿Dan lo mismo las dos vías de la doble ejecución? Los mismos movimientos (en canónico) y, si fallan, las dos fallan. */
-function mismaEjecucion(a, b) {
-  if (a.motivos.length || b.motivos.length) return a.motivos.length > 0 && b.motivos.length > 0;
-  return canonico(a.movimientos) === canonico(b.movimientos);
 }
 
 /**
@@ -535,26 +466,11 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const prep = preparar(eje, plantilla, X, yo, dados, { t, epoca, idioma });
   if (prep.motivos.length) return { ok: false, evento: null, motivos: prep.motivos };
-  // Lo que mueve (VG 12-11, decisiones 5, 6 y 10): las sentencias del 4 en BQL, si las lleva; la lista de antes, si no
-  // (una plantilla aún sin migrar). Mientras convivan las dos (doble ejecución), se ejecutan las dos: si las dos mueven
-  // y no mueven lo mismo, la transacción no sale; si una no mueve (la lista no sabe leer el anuncio como movimiento),
-  // manda la de BQL y `doble.igual` lo dice. `opciones.via` («lista» o «bql») fuerza una sola (la prueba de igualdad).
-  const sentencias = sentenciasDe(plantilla).length > 0;
-  const lista = recetasDe(plantilla).length > 0;
-  const porBql = sentencias && opciones.via !== 'lista';
-  const hecha = porBql ? movimientosBql(eje, epoca, plantilla, prep.candidata, yo, X, idioma) : movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
-  let doble = null;
-  if (sentencias && lista && opciones.via === undefined) {
-    const vieja = movimientosDe(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
-    doble = { igual: mismaEjecucion(vieja, hecha), lista: vieja.movimientos, bql: hecha.movimientos };
-    if (!doble.igual && !vieja.motivos.length && !hecha.motivos.length) {
-      const motivo = { regla: nombre, mensaje: nombre + ': doble ejecución: la lista del 4 y sus sentencias en BQL no dan lo mismo (' + canonico(vieja.movimientos) + ' frente a ' + canonico(hecha.movimientos) + ')' };
-      return { ok: false, evento: null, motivos: [...hecha.motivos, motivo], doble };
-    }
-  }
+  // Lo que mueve (VG 12-11, decisiones 5, 6 y 10): las sentencias del 4 en BQL; «write» no mueve más que el coste.
+  const hecha = movimientosBql(eje, epoca, plantilla, prep.candidata, yo, X, idioma);
   const motivos = hecha.motivos;
   const movimientos = [...hecha.movimientos];
-  if (motivos.length) return { ok: false, evento: null, motivos, ...(doble ? { doble } : {}) };
+  if (motivos.length) return { ok: false, evento: null, motivos };
   const payload = prep.payload;
   // La representación del registro: el mensaje de la plantilla, salvo que un parámetro ocupe el 0.
   // Se rellena sobre la candidata sin movimientos: así el 1 y el 3 del payload no colisionan con D-META.
@@ -592,7 +508,7 @@ export async function transaccion(eje, cual, params = {}, yo, opciones = {}) {
   }
   const textos = await eje.validar(evento);
   const delEje = motivosDelEje(eje, textos, evento, idioma, opciones);
-  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido, ...(doble ? { doble } : {}) };
+  return { ok: delEje.length === 0, evento, motivos: delEje, exigido: coste.exigido };
 }
 
 // ---------- 3b. las opiniones como registros ----------

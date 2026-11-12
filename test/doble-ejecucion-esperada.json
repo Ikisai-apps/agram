@@ -1,0 +1,753 @@
+{
+  "plantillas": [
+    "apply a resource",
+    "issue E tied to X",
+    "lock E as a bid for a quota",
+    "consume",
+    "register a thing",
+    "commit P",
+    "reposition P toward X",
+    "write to X",
+    "give own R",
+    "return R (ask for attention)",
+    "attend",
+    "forgive",
+    "admit someone",
+    "commit time",
+    "declare future T",
+    "expire something mine"
+  ],
+  "casos": {
+    "compra · issue E tied to X · casa · 2 · {\"denomination\":\"racion\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 8,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "racion",
+        "registro": "#2",
+        "cantidad": 1,
+        "de": null,
+        "a": "casa",
+        "precio": [
+          "E",
+          1
+        ]
+      }
+    ],
+    "compra · lock E as a bid for a quota · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 1,
+        "de": "casa",
+        "a": "casa",
+        "estado": "bloqueo",
+        "salida": "#2"
+      }
+    ],
+    "compra · commit P · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#0",
+        "origen": "casa",
+        "cantidad": 10,
+        "de": "casa",
+        "a": "casa",
+        "estado": "bloqueo",
+        "salida": "#2"
+      }
+    ],
+    "compra · reposition P toward X · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#0",
+        "origen": "casa",
+        "cantidad": 10,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#2",
+        "origen": "casa",
+        "cantidad": 11,
+        "de": null,
+        "a": "casa"
+      }
+    ],
+    "compra · return R (ask for attention) · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "casa",
+        "a": "casa"
+      }
+    ],
+    "compra · forgive · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "casa",
+        "a": null
+      }
+    ],
+    "compra · admit someone · casa · 2 · {}": null,
+    "compra · commit time · casa · 2 · {\"until\":\"2026-12-01T00:00:00Z\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#0",
+        "origen": "casa",
+        "cantidad": 1,
+        "de": "casa",
+        "a": "casa",
+        "estado": "bloqueo",
+        "salida": "2026-12-01T00:00:00Z"
+      }
+    ],
+    "compra · declare future T · casa · 2 · {\"what\":\"servir\",\"when\":\"2026-12-01T00:00:00Z\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "T",
+        "escala": "futuro",
+        "cantidad": 1,
+        "de": "casa",
+        "a": null,
+        "refiere": "2026-12-01T00:00:00Z"
+      }
+    ],
+    "compra · expire something mine · casa · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 440,
+        "de": "casa",
+        "a": null
+      }
+    ],
+    "compra · apply a resource · huesped · 2 · {\"price\":[[\"E:casa/EUR\"],[2]]}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 10,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 2,
+        "de": "huesped",
+        "a": "casa"
+      }
+    ],
+    "compra · lock E as a bid for a quota · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "huesped",
+        "estado": "bloqueo",
+        "salida": "#2"
+      }
+    ],
+    "compra · commit P · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#3",
+        "origen": "huesped",
+        "cantidad": 10,
+        "de": "huesped",
+        "a": "huesped",
+        "estado": "bloqueo",
+        "salida": "#2"
+      }
+    ],
+    "compra · reposition P toward X · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#3",
+        "origen": "huesped",
+        "cantidad": 10,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#2",
+        "origen": "huesped",
+        "cantidad": 1,
+        "de": null,
+        "a": "huesped"
+      }
+    ],
+    "compra · write to X · huesped · 2 · {\"text\":\"hola\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "casa"
+      }
+    ],
+    "compra · give own R · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "huesped",
+        "cantidad": 1,
+        "de": null,
+        "a": "huesped"
+      },
+      {
+        "token": "R",
+        "emisor": "huesped",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "casa"
+      }
+    ],
+    "compra · return R (ask for attention) · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "casa"
+      }
+    ],
+    "compra · forgive · huesped · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": null
+      }
+    ],
+    "compra · commit time · huesped · 2 · {\"until\":\"2026-12-01T00:00:00Z\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "huesped",
+        "estado": "bloqueo",
+        "salida": "2026-12-01T00:00:00Z"
+      }
+    ],
+    "compra · declare future T · huesped · 2 · {\"what\":\"servir\",\"when\":\"2026-12-01T00:00:00Z\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "T",
+        "escala": "futuro",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": null,
+        "refiere": "2026-12-01T00:00:00Z"
+      }
+    ],
+    "compra · apply a resource · cocina · 2 · {\"price\":[[\"E:casa/EUR\"],[2]]}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 10,
+        "de": "cocina",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 2,
+        "de": "cocina",
+        "a": "casa"
+      }
+    ],
+    "compra · write to X · cocina · 2 · {\"text\":\"hola\"}": null,
+    "compra · give own R · cocina · 2 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "cocina",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "cocina",
+        "cantidad": 1,
+        "de": null,
+        "a": "cocina"
+      },
+      {
+        "token": "R",
+        "emisor": "cocina",
+        "cantidad": 1,
+        "de": "cocina",
+        "a": "casa"
+      }
+    ],
+    "compra · write to X · casa · 3 · {\"text\":\"hola\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "casa",
+        "cantidad": 1,
+        "de": "casa",
+        "a": "huesped"
+      }
+    ],
+    "compra · expire something mine · casa · 3 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 440,
+        "de": "casa",
+        "a": null
+      }
+    ],
+    "compra · issue E tied to X · huesped · 3 · {\"denomination\":\"racion\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 8,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "huesped",
+        "denominacion": "racion",
+        "registro": "#3",
+        "cantidad": 1,
+        "de": null,
+        "a": "huesped",
+        "precio": [
+          "E",
+          1
+        ]
+      }
+    ],
+    "compra · register a thing · huesped · 3 · {}": null,
+    "compra · admit someone · huesped · 3 · {}": null,
+    "compra · admit someone · casa · 4 · {}": null,
+    "compra · register a thing · cocina · 4 · {}": null,
+    "compra · admit someone · cocina · 5 · {}": null,
+    "compra · admit someone · huesped · 6 · {}": null,
+    "compra · admit someone · huesped · 7 · {}": null,
+    "compra · admit someone · huesped · 8 · {}": null,
+    "compra · admit someone · huesped · 9 · {}": null,
+    "compra · admit someone · huesped · 10 · {}": null,
+    "compra · admit someone · huesped · 11 · {}": null,
+    "compra · admit someone · huesped · 12 · {}": null,
+    "compra · admit someone · huesped · 13 · {}": null,
+    "reserva · consume · casa · 0 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 1,
+        "de": "casa",
+        "a": null
+      }
+    ],
+    "reserva · register a thing · casa · 0 · {}": null,
+    "reserva · admit someone · casa · 0 · {}": null,
+    "reserva · consume · recepcion · 0 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "recepcion",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "hora",
+        "cantidad": 1,
+        "de": "recepcion",
+        "a": null
+      }
+    ],
+    "reserva · admit someone · casa · 1 · {}": null,
+    "reserva · admit someone · casa · 2 · {}": null,
+    "reserva · register a thing · recepcion · 3 · {}": null,
+    "reserva · admit someone · recepcion · 3 · {}": null,
+    "reserva · admit someone · casa · 4 · {}": null,
+    "reserva · register a thing · huesped · 5 · {}": null,
+    "reserva · admit someone · huesped · 5 · {}": null,
+    "reserva · admit someone · casa · 6 · {}": null,
+    "reserva · admit someone · casa · 7 · {}": null,
+    "reserva · admit someone · recepcion · 8 · {}": null,
+    "reserva · admit someone · casa · 9 · {}": null,
+    "reserva · admit someone · casa · 10 · {}": null,
+    "reserva · admit someone · recepcion · 11 · {}": null,
+    "reserva · admit someone · casa · 12 · {}": null,
+    "reserva · admit someone · huesped · 13 · {}": null,
+    "reserva · admit someone · huesped · 14 · {}": null,
+    "reserva · admit someone · huesped · 15 · {}": null,
+    "reserva · admit someone · huesped · 16 · {}": null,
+    "reserva · admit someone · casa · 17 · {}": null,
+    "reserva · admit someone · huesped · 18 · {}": null,
+    "grupos · admit someone · g · 19 · {}": null,
+    "grupos · write to X · ana · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "ana",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "ana",
+        "a": "g"
+      }
+    ],
+    "grupos · write to X · bea · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "bea",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "bea",
+        "a": "g"
+      }
+    ],
+    "grupos · write to X · carla · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "carla",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "carla",
+        "a": "g"
+      }
+    ],
+    "grupos · write to X · dani · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "dani",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "dani",
+        "a": "g"
+      }
+    ],
+    "grupos · write to X · eli · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "eli",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "eli",
+        "a": "g"
+      }
+    ],
+    "grupos · write to X · gus · 19 · {\"text\":\"hola g\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "gus",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "gus",
+        "cantidad": 1,
+        "de": null,
+        "a": "gus"
+      },
+      {
+        "token": "R",
+        "emisor": "gus",
+        "cantidad": 1,
+        "de": "gus",
+        "a": "g"
+      }
+    ],
+    "grupos · attend · g · 22 · {}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "g",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "gus",
+        "cantidad": 1,
+        "de": "g",
+        "a": "gus"
+      }
+    ],
+    "grupos · admit someone · g · 19 · {\"whom\":\"gus\"}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "g",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 1,
+        "de": "g",
+        "a": "gus"
+      }
+    ],
+    "grupos · admit someone · g · 19 · {\"whom\":\"ana\",\"amount\":2,\"minutes\":5}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 7,
+        "de": "g",
+        "a": null
+      },
+      {
+        "token": "R",
+        "emisor": "g",
+        "cantidad": 2,
+        "de": "g",
+        "a": "ana"
+      },
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "g",
+        "a": "ana"
+      }
+    ],
+    "compra · register a thing · casa · 0 · {\"thing\":\"robot\",\"minutes\":60}": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 6,
+        "de": "casa",
+        "a": null
+      },
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 60,
+        "de": "casa",
+        "a": "robot"
+      }
+    ],
+    "anuncio · pay · huesped · 7": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "E",
+        "emisor": "casa",
+        "denominacion": "EUR",
+        "cantidad": 5,
+        "de": "huesped",
+        "a": "cocina"
+      }
+    ],
+    "anuncio · deliver · huesped · 7": [
+      {
+        "token": "T",
+        "escala": "minuto",
+        "cantidad": 5,
+        "de": "huesped",
+        "a": null
+      },
+      {
+        "token": "P",
+        "ambito": "#6",
+        "origen": "huesped",
+        "cantidad": 1,
+        "de": "huesped",
+        "a": "cocina"
+      }
+    ]
+  }
+}

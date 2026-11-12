@@ -5,6 +5,7 @@
 // token que la paga y los pasos de un proceso se tipan por token (la lectura «stage»).
 
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
 import assert from 'node:assert/strict';
 import { Eje } from '../src/eje.js';
 import { crearEvento } from '../src/evento.js';
@@ -523,61 +524,68 @@ const EXTRA = {
   'declare future T': { what: 'servir', when: '2026-12-01T00:00:00Z' },
 };
 
-/** La lista que tenían «pay» y «deliver» antes de leer el anuncio como movimiento (retirada: solo sabía el payload). */
-const LISTA_DE_PAGAR = [[['=last (first ev.1).0'], ['=last (first ev.1).1'], ['transfer'], [['=last (first ev.1).3.0'], ['=last (first ev.1).3.1']]]];
+/**
+ * La doble ejecución, cerrada (VG 12-11, decisión 10; fusión de BQL-escritura con PV3): todas las plantillas dieron el
+ * mismo evento por la lista de antes (una décupla por movimiento) y por sus sentencias en BQL, y la lista se retiró del
+ * 4 de las plantillas y de src/acciones.js. Lo que movía la lista en cada caso quedó escrito, generado con ella antes de
+ * retirarla, en test/doble-ejecucion-esperada.json: las sentencias han de seguir moviendo exactamente eso.
+ */
+const DOBLE = new URL('./doble-ejecucion-esperada.json', import.meta.url);
+/** Los ids del libro, por su lugar en el orden del eje (#n): así un caso no depende del id de la época ni del de sus registros. */
+const porOrden = (eje, x) => (x === null ? null : JSON.parse(JSON.stringify(x).replace(/[0-9a-f]{64}/g, (id) => '#' + eje.orden.indexOf(id))));
 
-test('doble ejecución: cada plantilla migrada da el mismo evento (mismos movimientos, mismo id) por su lista de antes y por sus sentencias en BQL, sobre los ejemplos', async () => {
-  const conLista = A.plantillasDeTransaccion().filter((p) => A.sentenciasDe(p.plantilla).length && A.recetasDe(p.plantilla).length);
+test('doble ejecución (cerrada): las sentencias de cada plantilla mueven lo que movía su lista de antes, sobre los ejemplos (test/doble-ejecucion-esperada.json)', async () => {
+  const esperado = JSON.parse(readFileSync(DOBLE, 'utf8'));
+  const conLista = A.plantillasDeTransaccion().filter((p) => esperado.plantillas.includes(p.nombre));
+  assert.equal(conLista.length, esperado.plantillas.length, 'cada plantilla que tenía lista sigue en la época');
   const iguales = new Map(conLista.map((p) => [p.nombre, 0]));
-  const dos = async (eje, cual, params, yo) => {
-    const lista = await A.transaccion(eje, cual, params, yo, { t: T1, via: 'lista' });
-    const bql = await A.transaccion(eje, cual, params, yo, { t: T1, via: 'bql' });
-    assert.equal(Boolean(lista.evento), Boolean(bql.evento), cual + ' (' + yo + '): ' + JSON.stringify([lista.motivos, bql.motivos]));
-    if (!lista.evento) return false;
-    assert.deepEqual(bql.evento.movimientos, lista.evento.movimientos, cual + ' (' + yo + ')');
-    assert.equal(bql.evento.id, lista.evento.id, cual + ' (' + yo + ')');
-    // Sin forzar la vía: se ejecutan las dos y lo dicen (doble.igual).
-    const ambas = await A.transaccion(eje, cual, params, yo, { t: T1 });
-    assert.deepEqual([ambas.doble?.igual, ambas.evento?.id], [true, bql.evento.id], cual);
-    return true;
+  const vistos = new Set();
+  const comparar = async (ejemplo, eje, cual, params, yo) => {
+    const { X, key, ...resto } = params; // la clave de una cosa es nueva en cada vuelta: no entra en el caso
+    const clave = [ejemplo, cual, yo, eje.orden.indexOf(X), JSON.stringify(resto)].join(' · ');
+    void key;
+    vistos.add(clave);
+    const r = await A.transaccion(eje, cual, params, yo, { t: T1 });
+    assert.deepEqual(porOrden(eje, r.evento ? r.evento.movimientos : null), esperado.casos[clave], clave + ': ' + JSON.stringify(r.motivos));
+    return Boolean(r.evento);
   };
-  const recorrer = async (eje, X) => {
+  const recorrer = async (ejemplo, eje, X) => {
     for (const yo of eje.identidades()) {
       for (const { nombre, pv } of conLista) {
         if (iguales.get(nombre) >= 2 || !A.acciones(eje, X, pv, yo).some((a) => a.nombre === nombre)) continue;
-        if (await dos(eje, nombre, { X, ...(EXTRA[nombre] ?? {}) }, yo)) iguales.set(nombre, iguales.get(nombre) + 1);
+        if (await comparar(ejemplo, eje, nombre, { X, ...(EXTRA[nombre] ?? {}) }, yo)) iguales.set(nombre, iguales.get(nombre) + 1);
       }
     }
   };
   const c = await ejemploCompra();
   await ejemploFabrica(c.eje, c);
-  for (const X of c.eje.orden.slice(-12)) await recorrer(c.eje, X);
+  for (const X of c.eje.orden.slice(-12)) await recorrer('compra', c.eje, X);
   const r = await ejemploReserva();
-  for (const X of r.eje.orden) await recorrer(r.eje, X);
+  for (const X of r.eje.orden) await recorrer('reserva', r.eje, X);
   const { eje: grupos, plaza } = await mundoDeGrupos();
-  await recorrer(grupos, plaza.id);
-  // La R de PV3 (encargo pv3) por las dos vías: los cinco remitentes que tienen R de g la devuelven y gus, un
-  // desconocido sin R de g, acuña la suya; g atiende el mensaje de gus (devuelve su R) y admite a alguien en la plaza.
+  await recorrer('grupos', grupos, plaza.id);
+  // La R de PV3 (encargo pv3): los cinco remitentes que tienen R de g la devuelven y gus, un desconocido sin R de g,
+  // acuña la suya; g atiende el mensaje de gus (devuelve su R) y admite a alguien en la plaza.
   await entrarPorInvitacion(grupos, { por: 'ana', quien: 'gus', t: T0 });
   const g = grupos.genesisId;
   for (const yo of ['ana', 'bea', 'carla', 'dani', 'eli', 'gus']) {
-    assert.ok(await dos(grupos, 'write to X', { X: plaza.id, text: 'hola g' }, yo), 'write to X (' + yo + ')');
+    assert.ok(await comparar('grupos', grupos, 'write to X', { X: plaza.id, text: 'hola g' }, yo), 'write to X (' + yo + ')');
     iguales.set('write to X', iguales.get('write to X') + 1);
   }
   const deGus = await A.transaccion(grupos, 'write to X', { X: g, text: 'hola' }, 'gus', { t: T1 });
   const msg = await grupos.anadir(deGus.evento);
-  assert.ok(await dos(grupos, 'attend', { X: msg.id }, 'g'), 'attend');
+  assert.ok(await comparar('grupos', grupos, 'attend', { X: msg.id }, 'g'), 'attend');
   iguales.set('attend', iguales.get('attend') + 1);
   for (const valores of [{ whom: 'gus' }, { whom: 'ana', amount: 2, minutes: 5 }]) {
-    assert.ok(await dos(grupos, 'admit someone', { X: plaza.id, ...valores }, 'g'), 'admit someone ' + JSON.stringify(valores));
+    assert.ok(await comparar('grupos', grupos, 'admit someone', { X: plaza.id, ...valores }, 'g'), 'admit someone ' + JSON.stringify(valores));
     iguales.set('admit someone', iguales.get('admit someone') + 1);
   }
   // Dar de alta una cosa (pide su clave y los minutos, sin defecto: #46): la casa, sobre su alta.
   const cosa = await generarClaves();
-  if (await dos(c.eje, 'register a thing', { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60, key: cosa.publica }, 'casa')) iguales.set('register a thing', iguales.get('register a thing') + 1);
-  assert.deepEqual([...iguales].filter(([, n]) => n === 0).map(([nombre]) => nombre), [], 'cada plantilla con las dos vías se comparó al menos una vez: ' + JSON.stringify(Object.fromEntries(iguales)));
-  // «pay» y «deliver» ya no llevan lista (no sabía leer el anuncio como movimiento): la que tenían da lo mismo que sus
-  // sentencias sobre los anuncios de antes (un payload que imita un movimiento).
+  if (await comparar('compra', c.eje, 'register a thing', { X: c.eje.alta('casa').id, thing: 'robot', minutes: 60, key: cosa.publica }, 'casa')) iguales.set('register a thing', iguales.get('register a thing') + 1);
+  assert.deepEqual([...iguales].filter(([, n]) => n === 0).map(([nombre]) => nombre), [], 'cada plantilla que tenía lista se comparó al menos una vez: ' + JSON.stringify(Object.fromEntries(iguales)));
+  // «pay» y «deliver» perdieron su lista antes (no sabía leer el anuncio como movimiento): lo que movía sobre los
+  // anuncios de antes (un payload que imita un movimiento) es lo que mueven sus sentencias.
   const { eje, menu, compra } = await ejemploCompra();
   const encargo = await eje.escribir({ autor: 'cocina', sobre: menu.id, t: T1, payload: ['Encargo', ['x'], ['all announced movements happened'], ['cocina', 'huesped']], movimientos: [minuto('cocina')] });
   const anuncio = (serie, cantidad, que, de, a) => eje.escribir({ autor: 'cocina', sobre: encargo.id, en: ANUNCIO, t: T1, payload: [[serie], [cantidad], [que], [[de], [a]]], movimientos: [minuto('cocina', 4)] });
@@ -585,13 +593,17 @@ test('doble ejecución: cada plantilla migrada da el mismo evento (mismos movimi
   const aP = await anuncio('P:' + compra.id + '/huesped', 1, 'decidir', 'huesped', 'cocina');
   for (const [cual, a] of [['pay', aE], ['deliver', aP]]) {
     const nueva = A.plantillaDeTransaccion(cual);
-    const vieja = nueva.map((x, i) => (i === 4 ? LISTA_DE_PAGAR : x));
     const params = { X: encargo.id, announcement: { ref: a.id } };
-    const [rv, rn] = [await A.transaccion(eje, vieja, params, 'huesped', { t: T1 }), await A.transaccion(eje, nueva, params, 'huesped', { t: T1 })];
-    assert.deepEqual([rv.ok, rn.ok, rn.evento.id], [true, true, rv.evento.id], cual);
+    const clave = ['anuncio', cual, 'huesped', eje.orden.indexOf(encargo.id)].join(' · ');
+    vistos.add(clave);
+    const hecha = await A.transaccion(eje, nueva, params, 'huesped', { t: T1 });
+    assert.equal(hecha.ok, true, cual + ': ' + JSON.stringify(hecha.motivos));
+    assert.deepEqual(porOrden(eje, hecha.evento.movimientos), esperado.casos[clave], clave);
   }
-  // Nada queda sin migrar: «admit someone» (la de PV3) se migró al fundir las dos ramas.
+  assert.deepEqual([...vistos].sort(), Object.keys(esperado.casos).sort(), 'los mismos casos que cuando se escribió');
+  // Nada queda sin migrar, y ninguna plantilla lleva ya una lista de décuplas en su 4.
   assert.deepEqual(A.plantillasDeTransaccion().filter((p) => !A.migrada(p.plantilla) && !A.esLectura(p.plantilla) && !A.esCamino(p.plantilla)).map((p) => p.nombre), []);
+  assert.deepEqual(A.plantillasDeTransaccion().filter((p) => Array.isArray(p.plantilla[4]) && p.plantilla[4].some(Array.isArray)).map((p) => p.nombre), []);
 });
 
 test('el coste de escribir: una sola regla de la época, por posición (A3); la T en la escala pedida o en la menor que lo cubre; sin el minuto copiado en las plantillas', async () => {
